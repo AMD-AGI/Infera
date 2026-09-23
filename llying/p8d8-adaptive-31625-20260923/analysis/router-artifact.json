@@ -1,0 +1,11 @@
+{
+  "binary_sha256": "3dfa3bd882d63ed0b5451d147efa2c62781fd429b222ab9bce45f90a7d9b8e95",
+  "artifact": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/artifacts/infera-router-guard",
+  "rustc": "1.98.1 (48a229cea 2026-09-01)",
+  "tests": {
+    "disagg": 8,
+    "policy": 18,
+    "failures": 0
+  },
+  "scope": "HTTP streaming P/D only; default decode timing; both arms share binary and completion observation logging"
+}

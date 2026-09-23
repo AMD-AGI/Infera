@@ -1,0 +1,56 @@
+{
+  "module_rmsnorm_quant.so": {
+    "action": "installed_missing",
+    "sha256": "589898d4397703bc398256bf409a26d0a1df7919bd2cc517e463fb51076ac79f"
+  },
+  "module_quant.so": {
+    "action": "installed_missing",
+    "sha256": "8ac7b26b2e2bce0b25318fe9b2000a498247f4c4cb390331542ed758c5703d5a"
+  },
+  "module_cache.so": {
+    "action": "installed_missing",
+    "sha256": "961986c3b46cc66cf72c3d3204730a7be0bfcdb44c9e551a926f51296f9d06d7"
+  },
+  "module_fused_qk_norm_rope_cache_quant_shuffle.so": {
+    "action": "installed_missing",
+    "sha256": "1121a2c77eb06bea981bedcd0767682740f39d71335a8aab2a2b9547176362e9"
+  },
+  "module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so": {
+    "action": "installed_missing",
+    "sha256": "971b5434f3c4a3fdd99e88a9cafed7ef3b3c1e2b829bf67123b04052383921d2"
+  },
+  "module_aiter_core.so": {
+    "action": "kept_existing_or_building"
+  },
+  "module_gemm_a16w16_asm.so": {
+    "action": "installed_missing",
+    "sha256": "be21f671effeef1b74a548ebec627d57cfb1ab1176e25fecee67d97556f5763d"
+  },
+  "module_rope_2c_cached_positions_fwd.so": {
+    "action": "installed_missing",
+    "sha256": "c491c94c0a4e8085b28c1a14f2cab920f4a0bc3fe808f3796c815797100e3c4b"
+  },
+  "module_moe_mxfp4_aux.so": {
+    "action": "installed_missing",
+    "sha256": "af85bb8dcbc8794b3ffb8eefe8284b51cbcd4ef473d8887fc5fa07768fa6e12d"
+  },
+  "module_norm.so": {
+    "action": "installed_missing",
+    "sha256": "74ffd870955e6d2af0904806c362a93f94a50a09d18278157a93c3ade503972c"
+  },
+  "module_gemm_common.so": {
+    "action": "installed_missing",
+    "sha256": "056227006e09d74a73b7552c76059cf47299909fa0583e389d0566c5fb9d5663"
+  },
+  "module_moe_asm.so": {
+    "action": "installed_missing",
+    "sha256": "6f64005ba6e01e9368e524a69092560dee6363075b46c558c6c69b224b385c4d"
+  },
+  "module_custom_all_reduce.so": {
+    "action": "kept_existing_or_building"
+  },
+  "module_custom.so": {
+    "action": "installed_missing",
+    "sha256": "701c5f84fa0304d07fd8c8e32c3f12da97d4d3858bf30fa8ee0527d3726afdbe"
+  }
+}

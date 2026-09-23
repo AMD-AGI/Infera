@@ -1,0 +1,11 @@
+test disagg::tests::a_4xx_leg_does_not_accumulate_towards_tripping ... ok
+test disagg::tests::a_leg_that_failed_is_not_scored_as_healthy ... ok
+test disagg::tests::a_successful_leg_clears_the_failure_count ... ok
+test disagg::tests::prefill_transport_failure_releases_its_entry_once ... ok
+test disagg::tests::split_guard_transfers_accounting_without_duplicate_hooks ... ok
+test disagg::tests::control_keeps_prefill_entry_until_decode_guard_is_dropped ... ok
+test disagg::tests::the_legs_are_scored_independently ... ok
+test disagg::tests::split_prefill_guard_survives_decode_drop_until_full_body_is_drained ... ok
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 249 filtered out; finished in 0.01s
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 239 filtered out; finished in 0.02s
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 257 filtered out; finished in 0.00s

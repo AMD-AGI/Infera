@@ -1,0 +1,208 @@
+--- a/rust/router/src/policy.rs
++++ b/rust/router/src/policy.rs
+@@ -99,6 +99,13 @@
+             policy.on_request_started(k, b);
+         }
+         ActiveGuard { policy, entries }
++    }
++
++    /// Transfer one existing accounting entry without starting or finishing it twice.
++    pub fn take_first(&mut self) -> Option<Self> {
++        if self.entries.is_empty() { return None; }
++        let entry = self.entries.remove(0);
++        Some(Self { policy: self.policy.clone(), entries: vec![entry] })
+     }
+ }
+ 
+--- a/rust/router/src/disagg.rs
++++ b/rust/router/src/disagg.rs
+@@ -12,7 +12,7 @@
+ //! KVPoll until a ~300s timeout. A detached `tokio::spawn` gives us exactly
+ //! that: it outlives the client connection.
+ 
+-use std::sync::Arc;
++use std::sync::{Arc, OnceLock};
+ use std::time::Duration;
+ 
+ use axum::body::{Body, Bytes};
+@@ -31,6 +31,18 @@
+ use crate::util::{json_error, truncate_chars};
+ 
+ const DECODE_OPEN_RETRIES: u32 = 3;
++
++// Experimental, default-off switch. Both trial arms use the same binary.
++fn release_prefill_at_completion() -> bool {
++    static ENABLED: OnceLock<bool> = OnceLock::new();
++    *ENABLED.get_or_init(|| {
++        let mode = std::env::var("INFERA_PD_PREFILL_GUARD_RELEASE").unwrap_or_else(|_| "decode".into());
++        let enabled = mode == "completion";
++        tracing::info!(prefill_guard_release = %mode, enabled, "P/D streaming guard experiment");
++        enabled
++    })
++}
++
+ 
+ /// Entry point. Caller guarantees the model has both prefill and decode workers.
+ pub async fn dispatch(
+@@ -150,15 +162,17 @@
+     d_url: String,
+     p_body: Map<String, Value>,
+     d_body: Map<String, Value>,
+-    guard: ActiveGuard,
++    mut guard: ActiveGuard,
+ ) -> Response {
+-    spawn_prefill_drain(
++    let prefill_guard = if release_prefill_at_completion() { guard.take_first() } else { None };
++    let _prefill_task = spawn_prefill_drain(
+         state.http.clone(),
+         state.breaker.clone(),
+         p.worker.worker_id.clone(),
+         p_url,
+         p_body,
+         p.dp_rank,
++        prefill_guard,
+     );
+ 
+     match open_decode(state, d, &d_url, &d_body).await {
+@@ -482,8 +496,12 @@
+     url: String,
+     body: Map<String, Value>,
+     dp_rank: Option<i64>,
+-) {
++    prefill_guard: Option<ActiveGuard>,
++) -> tokio::task::JoinHandle<()> {
+     tokio::spawn(async move {
++        let request_id = body.get("rid").and_then(Value::as_str).unwrap_or("-").to_string();
++        let separated = prefill_guard.is_some();
++        let started = std::time::Instant::now();
+         let mut req = http.post(&url).json(&Value::Object(body));
+         if let Some(r) = dp_rank {
+             req = req.header(dp::DP_RANK_HEADER, r.to_string());
+@@ -514,7 +532,11 @@
+                 breaker.record_failure(&worker_id);
+             }
+         }
+-    });
++        drop(prefill_guard);
++        tracing::info!(rid = %request_id, worker = %worker_id, separated,
++            elapsed_ms = started.elapsed().as_millis() as u64,
++            "prefill HTTP leg drained; guard lifecycle observed");
++    })
+ }
+ 
+ /// POST the decode leg, retrying on pre-flight transport errors (the engine
+@@ -645,4 +667,113 @@
+         assert_eq!(b.state_of("p1").as_str(), "open");
+         assert_eq!(b.state_of("d1").as_str(), "closed");
+     }
+-}
++    #[derive(Default)]
++    struct GuardCounts {
++        starts: std::sync::Mutex<Vec<String>>,
++        finishes: std::sync::Mutex<Vec<String>>,
++    }
++    impl crate::policy::Policy for GuardCounts {
++        fn pick(&self, _: &[Arc<crate::pool::Worker>], _: &Value, _: Role) -> crate::policy::Pick {
++            panic!("not used by lifecycle tests")
++        }
++        fn on_request_started(&self, key: &str, _: &[u64]) {
++            self.starts.lock().unwrap().push(key.to_string());
++        }
++        fn on_request_finished(&self, key: &str, _: &[u64]) {
++            self.finishes.lock().unwrap().push(key.to_string());
++        }
++    }
++    fn two_guards(counts: Arc<GuardCounts>) -> ActiveGuard {
++        ActiveGuard::start(counts, vec![("p".into(), vec![1]), ("d".into(), vec![2])])
++    }
++    async fn delayed_body_server(
++        status: StatusCode,
++        opened: Arc<tokio::sync::Notify>,
++        release: Arc<tokio::sync::Notify>,
++    ) -> (String, tokio::task::JoinHandle<()>) {
++        use futures::StreamExt;
++        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++        let addr = listener.local_addr().unwrap();
++        let app = axum::Router::new().route("/", axum::routing::post(move || {
++            let opened = opened.clone();
++            let release = release.clone();
++            async move {
++                let first = futures::stream::once(async move {
++                    opened.notify_one();
++                    Ok::<_, std::io::Error>(Bytes::from_static(b"first"))
++                });
++                let last = futures::stream::once(async move {
++                    release.notified().await;
++                    Ok::<_, std::io::Error>(Bytes::from_static(b"last"))
++                });
++                Response::builder().status(status).body(Body::from_stream(first.chain(last))).unwrap()
++            }
++        }));
++        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap(); });
++        (format!("http://{addr}/"), server)
++    }
++
++    #[test]
++    fn split_guard_transfers_accounting_without_duplicate_hooks() {
++        let counts = Arc::new(GuardCounts::default());
++        let mut joined = two_guards(counts.clone());
++        let prefill = joined.take_first().unwrap();
++        assert_eq!(*counts.starts.lock().unwrap(), vec!["p", "d"]);
++        assert!(counts.finishes.lock().unwrap().is_empty());
++        drop(prefill);
++        assert_eq!(*counts.finishes.lock().unwrap(), vec!["p"]);
++        drop(joined);
++        assert_eq!(*counts.finishes.lock().unwrap(), vec!["p", "d"]);
++    }
++
++    #[tokio::test]
++    async fn split_prefill_guard_survives_decode_drop_until_full_body_is_drained() {
++        for status in [StatusCode::OK, StatusCode::INTERNAL_SERVER_ERROR] {
++            let counts = Arc::new(GuardCounts::default());
++            let mut decode_guard = two_guards(counts.clone());
++            let prefill_guard = decode_guard.take_first();
++            let opened = Arc::new(tokio::sync::Notify::new());
++            let release = Arc::new(tokio::sync::Notify::new());
++            let (url, server) = delayed_body_server(status, opened.clone(), release.clone()).await;
++            let task = spawn_prefill_drain(reqwest::Client::new(), breaker(), "p".into(), url, Map::new(), None, prefill_guard);
++            tokio::time::timeout(Duration::from_secs(3), opened.notified()).await.unwrap();
++            assert!(counts.finishes.lock().unwrap().is_empty(), "response headers must not release P");
++            drop(decode_guard);
++            assert_eq!(*counts.finishes.lock().unwrap(), vec!["d"]);
++            release.notify_one();
++            tokio::time::timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
++            assert_eq!(*counts.finishes.lock().unwrap(), vec!["d", "p"]);
++            server.abort();
++        }
++    }
++
++    #[tokio::test]
++    async fn control_keeps_prefill_entry_until_decode_guard_is_dropped() {
++        let counts = Arc::new(GuardCounts::default());
++        let joint = two_guards(counts.clone());
++        let opened = Arc::new(tokio::sync::Notify::new());
++        let release = Arc::new(tokio::sync::Notify::new());
++        let (url, server) = delayed_body_server(StatusCode::OK, opened.clone(), release.clone()).await;
++        let task = spawn_prefill_drain(reqwest::Client::new(), breaker(), "p".into(), url, Map::new(), None, None);
++        tokio::time::timeout(Duration::from_secs(3), opened.notified()).await.unwrap();
++        release.notify_one();
++        tokio::time::timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
++        assert!(counts.finishes.lock().unwrap().is_empty());
++        drop(joint);
++        assert_eq!(*counts.finishes.lock().unwrap(), vec!["p", "d"]);
++        server.abort();
++    }
++
++    #[tokio::test]
++    async fn prefill_transport_failure_releases_its_entry_once() {
++        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
++        let addr = listener.local_addr().unwrap();
++        drop(listener);
++        let counts = Arc::new(GuardCounts::default());
++        let guard = ActiveGuard::start(counts.clone(), vec![("p".into(), vec![1])]);
++        let task = spawn_prefill_drain(reqwest::Client::new(), breaker(), "p".into(), format!("http://{addr}/"), Map::new(), None, Some(guard));
++        tokio::time::timeout(Duration::from_secs(3), task).await.unwrap().unwrap();
++        assert_eq!(*counts.finishes.lock().unwrap(), vec!["p"]);
++    }
++
++}
