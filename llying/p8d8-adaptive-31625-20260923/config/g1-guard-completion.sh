@@ -100,3 +100,7 @@ SERVICE_RUN_ID=a0-guard-decode
 EXPECTED_PREFILL_TOKENS=3143424
 EXPECTED_DECODE_TOKENS=3003264
 EXPECTED_HOST_TOKENS=4715200
+
+# Freeze installer inputs; inference/workload configuration remains unchanged.
+AGENTX_CLIENT_CONSTRAINTS="$TRACE_RUNTIME/config/client-constraints-a0.txt"
+AGENTX_RUNTIME_VALIDATOR="$TRACE_RUNTIME/scripts/validate_and_pin_client.py"

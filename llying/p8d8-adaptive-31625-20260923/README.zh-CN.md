@@ -57,3 +57,5 @@ python3 llying/p8d8-adaptive-31625-20260923/scripts/archive_case.py   /perf_apps
 ```
 
 归档会拒绝未完成、审计失败或INVALID的case。audit需要在P/D仍存活时验证进程身份，因此应先审计再退休服务。
+
+客户端精确版本、A1唯一绘图库差异与后续constraint安装见 [analysis/CLIENT-DEPENDENCIES.zh-CN.md](analysis/CLIENT-DEPENDENCIES.zh-CN.md)。后续新配置可沿用G1中的AGENTX_RUNTIME_VALIDATOR/AGENTX_CLIENT_CONSTRAINTS设置；不要在运行中修改venv。
