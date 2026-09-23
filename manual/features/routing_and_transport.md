@@ -97,7 +97,7 @@ When `--request-transport nats` (flag > env var > default):
 
 | Flag | Env | Default | Meaning |
 |---|---|---|---|
-| `--nats-req-idle-timeout` | `INFERA_NATS_REQ_IDLE_TIMEOUT` | `900`s | max wait for the *next* reply chunk (reset per chunk). Expiry → 504 + cancel. `0` = forever. |
+| `--nats-req-idle-timeout` | `INFERA_NATS_REQ_IDLE_TIMEOUT` | `240`s | max wait for the *next* reply chunk (reset per chunk). Expiry → 504 + cancel. `0` = forever. |
 | `--nats-req-max-duration` | `INFERA_NATS_REQ_MAX_DURATION` | `0` (off) | hard wall-clock cap on the whole request. Expiry → 504 + cancel. |
 | `--nats-req-max-pending` | `INFERA_NATS_REQ_MAX_PENDING` | `0` (off) | per-worker admission limit; backlog at the cap → **429**. |
 
@@ -197,7 +197,8 @@ worker**.
 | Env | Default | What it does |
 |---|---|---|
 | `NATS_SERVER` / `NATS_URL` | *(operator-injected)* | NATS broker address when `--request-transport nats`. |
-| `INFERA_NATS_REQ_IDLE_TIMEOUT` | `900` (s) | Max wait for the next reply chunk; expiry → 504 + cancel. |
+| `INFERA_NATS_REQ_IDLE_TIMEOUT` | `240` (s) | Max wait for the next reply chunk; expiry → 504 + cancel. |
+| `INFERA_HTTP_REQ_IDLE_TIMEOUT` | `240` (s) | Same, for `--request-transport http`; expiry fails the stream. |
 | `INFERA_NATS_REQ_MAX_DURATION` | `0` (off) | Hard wall-clock cap on a whole request. |
 | `INFERA_NATS_REQ_MAX_PENDING` | `0` (off) | Per-worker admission limit; backlog at the cap → 429. |
 | `INFERA_REQUEST_MAX_RETRIES` | `1` | Retry on an alternate worker before the first token. `0` = fail fast. |

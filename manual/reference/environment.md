@@ -59,7 +59,8 @@ checklist and the RDMA self-check.
 | Env | Default | What it does |
 |---|---|---|
 | `NATS_SERVER` / `NATS_URL` | *(injected by operator)* | NATS broker address when `--request-transport nats`. |
-| `INFERA_NATS_REQ_IDLE_TIMEOUT` | `900` (s) | Max wait for the next reply chunk; expiry → 504 + cancel. `0` = forever. |
+| `INFERA_NATS_REQ_IDLE_TIMEOUT` | `240` (s) | Max wait for the next reply chunk; expiry → 504 + cancel. `0` = forever. |
+| `INFERA_HTTP_REQ_IDLE_TIMEOUT` | `240` (s) | Same, for `--request-transport http`; expiry fails the stream. `0` = forever. |
 | `INFERA_NATS_REQ_MAX_DURATION` | `0` (off) | Hard wall-clock cap on a whole request. |
 | `INFERA_NATS_REQ_MAX_PENDING` | `0` (off) | Per-worker admission limit; backlog at the cap → 429. |
 | `INFERA_REQUEST_MAX_RETRIES` | `1` | Retry on an alternate worker before the first token (never mid-stream). `0` = fail fast. |

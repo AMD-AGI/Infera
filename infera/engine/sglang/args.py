@@ -150,7 +150,7 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         type=float,
         default=None,
         help="NATS request idle (inactivity) timeout (s) for the worker's local "
-        "read timeout. None => $INFERA_NATS_REQ_IDLE_TIMEOUT or default 900.",
+        "read timeout. None => $INFERA_NATS_REQ_IDLE_TIMEOUT or default 240.",
     )
     parser.add_argument(
         "--nats-req-max-duration",

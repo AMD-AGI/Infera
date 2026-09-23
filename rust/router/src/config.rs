@@ -84,8 +84,10 @@ pub struct Config {
 
     /// Seconds to wait for the *next* reply chunk before giving up on a
     /// request. Reset on every chunk, so a long generation that keeps producing
-    /// tokens never trips it -- only a stall does. 0 disables it.
-    #[arg(long, default_value_t = 900.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
+    /// tokens never trips it -- only a stall does. 0 disables it. Expiry is a
+    /// 504, which scores the worker. Kept equal to the HTTP half below so a
+    /// stall is bounded the same way whichever transport carried it.
+    #[arg(long, default_value_t = 240.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
     pub nats_req_idle_timeout_s: f64,
 
     /// Hard cap on a whole request's wall clock regardless of token flow, for
@@ -105,10 +107,10 @@ pub struct Config {
     /// producing tokens never trips it -- only a stall does. 0 disables it.
     ///
     /// The default sits under the 300s idle timeout the Anthropic and OpenAI
-    /// SDKs ship with, so the router is the side that names a stalled worker:
-    /// it logs the stall, scores the worker, and releases the engine slot,
-    /// instead of both ends waiting for the client to give up on a silent
-    /// stream. The 60s of margin is for the hops between the two.
+    /// SDKs ship with, so a stalled stream ends as an error the router chose
+    /// rather than a silence the client eventually gives up on -- which also
+    /// releases the engine slot instead of holding it for the client's window.
+    /// The 60s of margin is for the hops between the two.
     #[arg(long, default_value_t = 240.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
     pub http_req_idle_timeout_s: f64,
 
@@ -263,17 +265,25 @@ mod tests {
         assert_eq!(c.router_policy, "round-robin");
     }
 
-    /// The point of the HTTP idle timeout is to name the stalled worker before
-    /// the caller abandons the stream. Raising it past the SDK window gives the
-    /// stall back to the client, with nothing logged and the slot still held.
+    /// Both transports bound a stall before the caller abandons the stream.
+    /// Raising either past the SDK window hands the stall back to the client
+    /// and keeps the worker's slot for the whole of that window.
     #[test]
-    fn the_http_idle_timeout_fires_before_a_client_gives_up() {
+    fn an_idle_timeout_fires_before_a_client_gives_up() {
         const SDK_IDLE_TIMEOUT_S: f64 = 300.0;
         let c = Config::try_parse_from(["infera-router"]).unwrap();
-        assert!(
-            c.http_req_idle_timeout_s > 0.0 && c.http_req_idle_timeout_s < SDK_IDLE_TIMEOUT_S,
-            "got {}",
-            c.http_req_idle_timeout_s
+        for (transport, idle) in [
+            ("http", c.http_req_idle_timeout_s),
+            ("nats", c.nats_req_idle_timeout_s),
+        ] {
+            assert!(
+                idle > 0.0 && idle < SDK_IDLE_TIMEOUT_S,
+                "{transport} idle timeout is {idle}"
+            );
+        }
+        assert_eq!(
+            c.http_req_idle_timeout_s, c.nats_req_idle_timeout_s,
+            "a stall must be bounded the same way on either transport"
         );
     }
 
