@@ -33,7 +33,7 @@ the **same** on the server and every worker. See
 | `--request-transport` | `nats` | `nats` \| `http` |
 | `--kv-event-transport` | `nats` | `nats` \| `zmq` |
 | `--nats-server` | `$NATS_SERVER` / `nats://127.0.0.1:4222` | broker URL |
-| `--nats-req-idle-timeout` | `0` (off) | per-chunk inactivity timeout that ends the request |
+| `--nats-req-idle-timeout` | `900`s | per-chunk inactivity backstop that ends the request |
 | `--http-req-idle-timeout-s` | `0` (off) | same, for `--request-transport http` |
 | `--stream-admission-warn-s` | `240`s | log a stream still awaiting its first byte (reports only) |
 | `--stream-stall-warn-s` | `60`s | log a stream that went silent after producing bytes (reports only) |

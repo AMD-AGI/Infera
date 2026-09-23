@@ -111,16 +111,16 @@ MAX_PENDING_ENV = "INFERA_NATS_REQ_MAX_PENDING"
 # this is NOT an overall request deadline, see MAX_DURATION_ENV for that). On
 # expiry the router returns 504 and signals the worker to abort.
 #
-# Off by default: ending a silent stream is the caller's decision, and cutting
-# first would fail requests that were still going to answer -- the wait before
-# the first chunk covers admission, which a saturated decode queue has been
-# measured holding for 200s at the 99th percentile, while a caller's own timer
-# resets on their first token. A caller that does give up disconnects, which
-# already reclaims the slot. The Rust router reports such a stall instead
-# (INFERA_STREAM_ADMISSION_WARN / INFERA_STREAM_STALL_WARN). Set > 0 only where
-# a caller with no timeout of its own would otherwise wait forever.
+# A backstop rather than a policy. This transport has no connection to lose: a
+# worker that dies mid-stream simply stops publishing, and the router would
+# wait on a reply nobody will ever send, where an HTTP peer in the same state
+# resets the socket. So the default stays long -- long enough that it never
+# decides the fate of a request a caller is still waiting on, since the wait
+# before the first chunk covers admission and a caller that gives up
+# disconnects, which already reclaims the slot. Reporting a stall is the Rust
+# router's INFERA_STREAM_ADMISSION_WARN / INFERA_STREAM_STALL_WARN.
 IDLE_TIMEOUT_ENV = "INFERA_NATS_REQ_IDLE_TIMEOUT"
-DEFAULT_IDLE_TIMEOUT_S = 0
+DEFAULT_IDLE_TIMEOUT_S = 900
 
 # Subject a worker listens on for "abort this in-flight request" signals; the
 # payload is the request's reply inbox (already unique per request).

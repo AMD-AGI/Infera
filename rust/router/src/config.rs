@@ -85,10 +85,15 @@ pub struct Config {
     /// Seconds to wait for the *next* reply chunk before giving up on a
     /// request. Reset on every chunk, so a long generation that keeps producing
     /// tokens never trips it -- only a stall does. Expiry is a 504, which
-    /// scores the worker. 0 (the default) disables it, matching the HTTP half
-    /// below: a stall is reported rather than ended, since the caller owns that
-    /// decision on either transport.
-    #[arg(long, default_value_t = 0.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
+    /// scores the worker. 0 disables it.
+    ///
+    /// Kept on, unlike the HTTP half below, because this transport has no
+    /// connection to lose: a worker that dies mid-stream simply stops
+    /// publishing, and the router would wait on a reply nobody will ever send.
+    /// An HTTP peer in the same state resets the socket, which surfaces as a
+    /// read error. The default is long enough to be a backstop rather than a
+    /// policy -- reporting a stall is `--stream-stall-warn-s`'s job.
+    #[arg(long, default_value_t = 900.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
     pub nats_req_idle_timeout_s: f64,
 
     /// Hard cap on a whole request's wall clock regardless of token flow, for
@@ -317,11 +322,16 @@ mod tests {
     /// Ending a stalled stream is the caller's call: it disconnects, which
     /// already reclaims the slot. Cutting first would fail requests still
     /// waiting on admission, which outlasts a saturated decode queue.
+    ///
+    /// NATS keeps a backstop because it has no connection to lose: a worker
+    /// that dies mid-stream stops publishing and signals nothing, where an
+    /// HTTP peer resets the socket. The backstop has to stay well clear of the
+    /// windows a stall is reported on, or it becomes the policy again.
     #[test]
-    fn neither_transport_ends_a_stalled_stream_by_default() {
+    fn only_the_transport_without_a_connection_ends_a_stalled_stream() {
         let c = Config::try_parse_from(["infera-router"]).unwrap();
         assert_eq!(c.http_req_idle_timeout_s, 0.0);
-        assert_eq!(c.nats_req_idle_timeout_s, 0.0);
+        assert!(c.nats_req_idle_timeout_s > c.stream_admission_warn_s * 2.0);
     }
 
     #[test]

@@ -115,9 +115,9 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="NATS request IDLE (inactivity / stall) timeout in seconds: max wait "
         "for the NEXT reply chunk (reset per chunk; NOT an overall deadline). On "
-        "expiry the router returns 504 and aborts the worker. Built-in default 0 "
-        "(off): ending a silent stream is the caller's decision, and a caller that "
-        "gives up disconnects, which already reclaims the slot. "
+        "expiry the router returns 504 and aborts the worker. Built-in default 900: a "
+        "backstop, because this transport has no connection to lose when a worker "
+        "dies mid-stream. 0 = wait forever. "
         "Overrides $INFERA_NATS_REQ_IDLE_TIMEOUT.",
     )
     parser.add_argument(
