@@ -207,9 +207,7 @@ async fn stream_dual(
     let mut abort_unless_stream_owns_it = FireOnDrop(Some(incomplete_tx));
 
     match open_decode(state, d, &d_url, &d_body).await {
-        Ok(resp) => Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "text/event-stream")
+        Ok(resp) => crate::proxy::sse_response()
             // guard drops when the decode stream ends -> on_request_finished.
             .body(Body::from_stream(GuardedStream::new_with_incomplete_abort(
                 resp.bytes_stream(),
@@ -494,9 +492,7 @@ async fn dual_nats(
             }
         },
     );
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
+    crate::proxy::sse_response()
         .body(Body::from_stream(
             crate::proxy::guarded_with_incomplete_abort(
                 body,

@@ -299,9 +299,7 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
             }
         },
     );
-    Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
+    proxy::sse_response()
         .header(REQUEST_ID_HEADER, request_id)
         .body(Body::from_stream(translated))
         .expect("Anthropic SSE response is valid")

@@ -73,6 +73,20 @@ impl DoneMarker {
     }
 }
 
+/// Builder for an SSE response: the content type, plus the header that tells an
+/// nginx hop to stream it rather than buffer it.
+///
+/// `X-Accel-Buffering: no` is per-response and overrides a location's
+/// `proxy_buffering on`, which otherwise accumulates events and hands the
+/// client silence while the worker is streaming normally. Every SSE reply goes
+/// through here so a new endpoint cannot be added without it.
+pub(crate) fn sse_response() -> axum::http::response::Builder {
+    Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, "text/event-stream")
+        .header("x-accel-buffering", "no")
+}
+
 /// What a guarded stream is relaying. `path` picks the SSE terminator; the ids
 /// are what a mid-body failure is reported against, since that failure lands
 /// inside `poll_next` long after the call site has returned -- without them the
@@ -367,9 +381,8 @@ async fn attempt_nats(
             // Nothing to stream, but not a fault: answer with an empty body
             // rather than failing over a request the worker considers done.
             let _guard = guard;
-            return Ok(Response::builder()
+            return Ok(sse_response()
                 .status(code)
-                .header(header::CONTENT_TYPE, "text/event-stream")
                 .body(Body::empty())
                 .expect("stream response is valid"));
         }
@@ -410,9 +423,7 @@ async fn attempt_nats(
             }
         },
     );
-    Ok(Response::builder()
-        .status(StatusCode::OK)
-        .header(header::CONTENT_TYPE, "text/event-stream")
+    Ok(sse_response()
         .body(Body::from_stream(guarded(
             body,
             guard,
@@ -729,9 +740,7 @@ async fn attempt(
     }
 
     if stream {
-        Ok(Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "text/event-stream")
+        Ok(sse_response()
             .body(Body::from_stream(GuardedStream::new(
                 resp.bytes_stream(),
                 guard,

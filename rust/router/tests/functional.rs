@@ -829,6 +829,15 @@ async fn pd_streaming_relays_decode_and_fires_prefill() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 200);
+    // An nginx hop with `proxy_buffering on` would otherwise accumulate the
+    // events and hand the client silence while the worker streams normally.
+    assert_eq!(
+        resp.headers()
+            .get("x-accel-buffering")
+            .and_then(|v| v.to_str().ok()),
+        Some("no"),
+        "an SSE reply must tell a proxy not to buffer it"
+    );
     let text = resp.text().await.unwrap();
     assert!(text.contains("[DONE]"), "expected decode SSE, got {text:?}");
 
