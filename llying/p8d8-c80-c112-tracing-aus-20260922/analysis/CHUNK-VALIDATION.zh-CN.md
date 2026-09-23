@@ -1,5 +1,9 @@
 # Prefill chunk 4K/8K 验证执行记录
 
+## 最新结果：同节点 4K 基线完成
+
+2026-09-23，job 31625 上完成 4K C80，14:14:02 UTC 全部分析完成。Total tokens/s/GPU=20602.16，输出=2608.56 token/s；同节点 8K 分别低 4.47%/2.74%，TTFT p50 高 25.19%。9,782 条正式请求全配对；收尾取消 11，warmup 导出错误 4；资源抓取存在少量超时，已记录为缺失。完整可复用基线、时间线及复核见 [baseline4k-31625/final/REVIEW.zh-CN.md](baseline4k-31625/final/REVIEW.zh-CN.md)。下文 8K 状态作为历史记录保留。
+
 ## 当前执行：job 31625（2026-09-23）
 
 **已完成并复核**：11:33:20 UTC 自动分析结束。输出吞吐 -1.22%，TTFT p50 +27.39%；本次未观察到 8K 收益。22 个共同 context/miss/host 分组的统一加权 forward envelope +48.48%。两条导出错误均属于 warmup，正式阶段 9584 条记录全部 P/D 关联，收尾取消 13 条。复核报告见 `chunk8k-31625/final/REVIEW.zh-CN.md`；下面的运行中状态保留为执行历史。

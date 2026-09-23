@@ -1,5 +1,7 @@
 # 同节点 4K C80 可复用基线
 
+**已完成并复核**：9,782 条正式请求全部 P/D 配对；基线清单检查通过。Total tokens/s/GPU=20,602.16，输出吞吐=2,608.56 token/s。同节点 8K 分别低 4.47% 和 2.74%。结果、采样缺口和取消/错误说明见 [复核报告](final/REVIEW.zh-CN.md)，以下保留执行过程。
+
 用户于 2026-09-23 授权：先提交现有工作到 GitHub，再在当前两节点回测 4K C80，形成后续第 2～6 项使用的基线，同时进行其他准备。
 
 当前工作提交：`b2a0c41b` 已推送至 `origin/llying/p8d8-tracing-aus-20260922`。
@@ -13,11 +15,15 @@
 
 ## 退出与释放观测
 
+**资源门槛已于 12:34:18 UTC 通过**：16 张 GPU 均约 0.10% 显存占用，host/进程检查全部通过。距 12:04:34 停止请求共 1784 秒（29 分 44 秒）；其中资源 gate 记录窗口为 1674 秒。4K 于 12:34:20 进入 LAUNCHING。
+
 8K 完整结果和诊断已回收。12:04:34 UTC 对本实验 P/D 容器发出停止请求；D 于 12:04:48 返回，P 于 12:05:01 返回。容器退出不代表 GPU 资源已释放。随后 P 的共享内存已大幅下降，但 GPU 仍有约 60% 残余占用，ROCm 未显示活跃 KFD PID。
 
 启动 gate 每 15 秒记录前一容器退出状态、逐 GPU 显存/busy、host Shmem 和 MemAvailable。要求 8 GPU 各自显存低于 2%、busy≤5%，大块共享内存消退且 host 可用容量足够，再启动新服务。数据保存在 run 的 `snapshot/resource-release.jsonl`，通过后生成 `resource-release.passed.json`。保持原开发容器，不执行 GPU reset。
 
 ## 基线采集及完成标志
+
+12:38:41 配置验证通过，P/D chunk=4096/4096、GPU token 容量=3143424/3003264、host tokens=4715200/rank。8/8 smoke 和采样门槛通过；12:39:47 启动客户端，12:42:15 开始目标 884 请求的 warmup。
 
 1. 验证分配、资源释放、镜像和模型路径。
 2. 新服务启动后核对完整 server-info 与容器命令/环境；仅接受计划中的 P chunk 和运行标识/动态端口差异。
@@ -39,3 +45,5 @@
 已安装驱动 `/usr/src/amdgpu-6.14.14-2212064.22.04/drm_buddy.c` 的该函数遍历同阶 free list，按 block offset 顺序插入。大量块释放时反复线性遍历可能带来高开销；本次采样证明回收线程的主要 CPU 时间在该路径，但没有测量 free-list 长度，不能据此给出剩余时间或断言全部退出延迟都来自同一原因。
 
 文本证据见 release-perf-report.txt、drm-buddy-insert-source.txt、driver-release-evidence.txt；原始 perf.data 保存在 8K run 的 shutdown/release-perf.data。当前不修改驱动、不重置 GPU，继续以实际显存释放状态作为启动门槛。
+
+13:04:52 UTC warmup 完整结束，Runner completed=884/cancelled=0/errors=0，耗时 1357.27 秒；同秒进入 profiling，正式发送窗口计划至 14:04:52 UTC。导出错误归属在最终分析另行核对。

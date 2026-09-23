@@ -1,0 +1,106 @@
+{
+  "method": "Count request chunk envelopes; do not interpret them as exclusive GPU time.",
+  "note": "Requests without chunked_prefill spans are inferred single-pass; multi-chunk envelopes include inter-completion gaps. Shared batches duplicate request spans.",
+  "points": {
+    "80": {
+      "all": {
+        "requests": 9782,
+        "multi_chunk_requests": 4048,
+        "observed_chunk_spans": 15916,
+        "passes_including_single_chunk_inference": 21650,
+        "passes_per_request": {
+          "n": 9782,
+          "mean": 2.213248824371294,
+          "p50": 1.0,
+          "p90": 3.0,
+          "p99": 20.0,
+          "max": 163
+        },
+        "chunk_envelope_ms": {
+          "n": 15916,
+          "mean": 1211.619260268409,
+          "p50": 982.943872,
+          "p90": 1938.961792,
+          "p99": 3128.5789312000006,
+          "max": 11212.403712
+        },
+        "chunk_forward_mismatch_gt1ms": 0,
+        "sum_chunk_vs_forward_max_abs_ms": 0.0006678417876173626
+      },
+      "miss_ge32768": {
+        "requests": 298,
+        "multi_chunk_requests": 298,
+        "observed_chunk_spans": 5808,
+        "passes_including_single_chunk_inference": 5808,
+        "passes_per_request": {
+          "n": 298,
+          "mean": 19.48993288590604,
+          "p50": 14.0,
+          "p90": 33.30000000000001,
+          "p99": 65.20999999999981,
+          "max": 163
+        },
+        "chunk_envelope_ms": {
+          "n": 5808,
+          "mean": 1018.5032912837465,
+          "p50": 915.029248,
+          "p90": 1450.548608,
+          "p99": 2265.999482880002,
+          "max": 10386.038016
+        },
+        "chunk_forward_mismatch_gt1ms": 0,
+        "sum_chunk_vs_forward_max_abs_ms": 0.0006080298699089326
+      }
+    },
+    "112": {
+      "all": {
+        "requests": 0,
+        "multi_chunk_requests": 0,
+        "observed_chunk_spans": 0,
+        "passes_including_single_chunk_inference": 0,
+        "passes_per_request": {
+          "n": 0,
+          "mean": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "chunk_envelope_ms": {
+          "n": 0,
+          "mean": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "chunk_forward_mismatch_gt1ms": 0,
+        "sum_chunk_vs_forward_max_abs_ms": 0
+      },
+      "miss_ge32768": {
+        "requests": 0,
+        "multi_chunk_requests": 0,
+        "observed_chunk_spans": 0,
+        "passes_including_single_chunk_inference": 0,
+        "passes_per_request": {
+          "n": 0,
+          "mean": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "chunk_envelope_ms": {
+          "n": 0,
+          "mean": null,
+          "p50": null,
+          "p90": null,
+          "p99": null,
+          "max": null
+        },
+        "chunk_forward_mismatch_gt1ms": 0,
+        "sum_chunk_vs_forward_max_abs_ms": 0
+      }
+    }
+  }
+}

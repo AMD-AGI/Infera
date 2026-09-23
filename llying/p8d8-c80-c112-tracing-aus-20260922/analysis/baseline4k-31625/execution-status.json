@@ -1,10 +1,32 @@
 {
-  "observed_at_utc": "2026-09-23T12:14:45.966012+00:00",
+  "observed_at_utc": "2026-09-23T14:20:41.786877+00:00",
   "job_id": 31625,
-  "status": "WAITING_GPU_RESOURCE_RELEASE",
+  "status": "BASELINE_COMPLETED_REVIEWED",
   "run": "/perf_apps/liyingli/bench_agentx/p8d8-baseline4k-31625-20260923/runs/baseline4k-c80-31625",
   "driver_pid": 1320253,
   "analysis_pid": 1367481,
   "github_commit": "b2a0c41b",
-  "baseline_started": false
+  "baseline_started": true,
+  "resources_ready_utc": "2026-09-23T12:34:18Z",
+  "shutdown_to_resources_ready_seconds": 1784,
+  "latest_github_commit": "4f9ca786",
+  "config_passed": true,
+  "smoke_pairs": 8,
+  "sampling_passed": true,
+  "warmup_started_utc": "2026-09-23T12:42:15Z",
+  "profiling_started_utc": "2026-09-23T13:04:52Z",
+  "planned_sending_end_utc": "2026-09-23T14:04:52Z",
+  "warmup_completed_requests": 884,
+  "warmup_runner_errors": 0,
+  "warmup_runner_cancelled": 0,
+  "analysis_completed_utc": "2026-09-23T14:14:02Z",
+  "collection_complete": true,
+  "profile_completed": 9782,
+  "profile_cancelled": 11,
+  "exported_errors_by_phase": {
+    "warmup": 4
+  },
+  "total_tokens_s_gpu": 20602.15717,
+  "output_tokens_s": 2608.56466,
+  "result_report": "final/REVIEW.zh-CN.md"
 }

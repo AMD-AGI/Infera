@@ -1,0 +1,171 @@
+{
+  "utc": "2026-09-23T12:34:18.069391+00:00",
+  "elapsed_seconds": 1674,
+  "nodes": {
+    "prefill": {
+      "node": "smci355-ccs-aus-n03-33",
+      "passed": true,
+      "checks": {
+        "previous_container_exited": true,
+        "gpu_idle": true,
+        "bulk_shared_memory_released": true,
+        "host_memory_available": true
+      },
+      "observed": {
+        "mem": {
+          "MemTotal": 3246321295360,
+          "MemAvailable": 3175470718976,
+          "SwapTotal": 8589930496,
+          "SwapFree": 94208,
+          "Shmem": 4126171136
+        },
+        "gpus": [
+          {
+            "card": "card1",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card17",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card25",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card33",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card41",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card49",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card57",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card9",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          }
+        ],
+        "previous_container_state": {
+          "Status": "exited",
+          "Running": false,
+          "Paused": false,
+          "Restarting": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "Pid": 0,
+          "ExitCode": 0,
+          "Error": "",
+          "StartedAt": "2026-09-23T09:35:34.004342801Z",
+          "FinishedAt": "2026-09-23T12:05:01.567886106Z"
+        }
+      }
+    },
+    "decode": {
+      "node": "smci355-ccs-aus-n02-21",
+      "passed": true,
+      "checks": {
+        "previous_container_exited": true,
+        "gpu_idle": true,
+        "bulk_shared_memory_released": true,
+        "host_memory_available": true
+      },
+      "observed": {
+        "mem": {
+          "MemTotal": 3246321283072,
+          "MemAvailable": 2903385587712,
+          "SwapTotal": 8589930496,
+          "SwapFree": 8130973696,
+          "Shmem": 23588864
+        },
+        "gpus": [
+          {
+            "card": "card1",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card17",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card25",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card33",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card41",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card49",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card57",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card9",
+            "used_bytes": 297754624,
+            "total_bytes": 309220868096,
+            "busy_pct": 0
+          }
+        ],
+        "previous_container_state": {
+          "Status": "exited",
+          "Running": false,
+          "Paused": false,
+          "Restarting": false,
+          "OOMKilled": false,
+          "Dead": false,
+          "Pid": 0,
+          "ExitCode": 0,
+          "Error": "",
+          "StartedAt": "2026-09-23T09:35:34.502016505Z",
+          "FinishedAt": "2026-09-23T12:04:48.857490247Z"
+        }
+      }
+    }
+  },
+  "passed": true
+}

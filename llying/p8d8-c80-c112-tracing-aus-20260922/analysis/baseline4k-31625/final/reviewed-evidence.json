@@ -1,0 +1,98 @@
+{
+  "matched_prefill": {
+    "queue_ms": {
+      "bins": 22,
+      "weight": 9414,
+      "4k_ms": 4721.7471977366795,
+      "8k_ms": 4433.611969210534,
+      "8k_change_pct": -6.10230104365308
+    },
+    "forward_envelope_ms": {
+      "bins": 22,
+      "weight": 9414,
+      "4k_ms": 2958.209885144623,
+      "8k_ms": 4394.292990507599,
+      "8k_change_pct": 48.545680026783074
+    },
+    "transfer_tail_ms": {
+      "bins": 22,
+      "weight": 9414,
+      "4k_ms": 928.2646101780231,
+      "8k_ms": 1691.1342535679792,
+      "8k_change_pct": 82.18234704042553
+    }
+  },
+  "weighting": "same context/miss/host bins with >=20 requests per run; weight=min(n4k,n8k)",
+  "profiling_sampling_quality": {
+    "prefill": {
+      "samples": 1787,
+      "errors": 49,
+      "error_fraction": 0.027420257414661444
+    },
+    "decode": {
+      "samples": 1787,
+      "errors": 12,
+      "error_fraction": 0.006715165081141578
+    },
+    "router": {
+      "samples": 1787,
+      "errors": 0,
+      "error_fraction": 0.0
+    }
+  },
+  "exported_errors_by_phase": {
+    "warmup": 4
+  },
+  "engine_lifecycle": {
+    "prefill": {
+      "scheduler_pids_before": [
+        738,
+        1014,
+        1193,
+        1342,
+        1592,
+        1904,
+        2208,
+        2547
+      ],
+      "scheduler_pids_after": [
+        738,
+        1014,
+        1193,
+        1342,
+        1592,
+        1904,
+        2208,
+        2547
+      ],
+      "scheduler_pids_unchanged": true,
+      "restart_count": 0,
+      "started_at": "2026-09-23T12:34:21.585418476Z"
+    },
+    "decode": {
+      "scheduler_pids_before": [
+        736,
+        1011,
+        1184,
+        1335,
+        1581,
+        1827,
+        2136,
+        2508
+      ],
+      "scheduler_pids_after": [
+        736,
+        1011,
+        1184,
+        1335,
+        1581,
+        1827,
+        2136,
+        2508
+      ],
+      "scheduler_pids_unchanged": true,
+      "restart_count": 0,
+      "started_at": "2026-09-23T12:34:21.993962406Z"
+    }
+  }
+}

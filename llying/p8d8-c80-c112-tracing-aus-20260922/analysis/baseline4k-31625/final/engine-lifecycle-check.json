@@ -1,0 +1,52 @@
+{
+  "prefill": {
+    "scheduler_pids_before": [
+      738,
+      1014,
+      1193,
+      1342,
+      1592,
+      1904,
+      2208,
+      2547
+    ],
+    "scheduler_pids_after": [
+      738,
+      1014,
+      1193,
+      1342,
+      1592,
+      1904,
+      2208,
+      2547
+    ],
+    "scheduler_pids_unchanged": true,
+    "restart_count": 0,
+    "started_at": "2026-09-23T12:34:21.585418476Z"
+  },
+  "decode": {
+    "scheduler_pids_before": [
+      736,
+      1011,
+      1184,
+      1335,
+      1581,
+      1827,
+      2136,
+      2508
+    ],
+    "scheduler_pids_after": [
+      736,
+      1011,
+      1184,
+      1335,
+      1581,
+      1827,
+      2136,
+      2508
+    ],
+    "scheduler_pids_unchanged": true,
+    "restart_count": 0,
+    "started_at": "2026-09-23T12:34:21.993962406Z"
+  }
+}
