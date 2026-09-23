@@ -1,0 +1,60 @@
+{
+  "image_config": "blobs/sha256/4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "files": [
+    {
+      "path": "disaggregation/decode.py",
+      "layer": "blobs/sha256/ce8a8a64455a3fb70ee6ada91240c65544293b2baa9324157fc5df0d76d1e743",
+      "sha256": "95ae14803c21d2298f3ef0a0d2416c362f270c0f3a3bdbd5c153d19ba90a47f3"
+    },
+    {
+      "path": "managers/schedule_batch.py",
+      "layer": "blobs/sha256/ce8a8a64455a3fb70ee6ada91240c65544293b2baa9324157fc5df0d76d1e743",
+      "sha256": "d584ae4c829a9dedb452916f18fa2af66150eda30905aa4acfaf60864336134d"
+    },
+    {
+      "path": "observability/req_time_stats.py",
+      "layer": "blobs/sha256/ce8a8a64455a3fb70ee6ada91240c65544293b2baa9324157fc5df0d76d1e743",
+      "sha256": "f975fac05000bbe5d9116075079074355f9b3287aa00138372836c6c82580371"
+    },
+    {
+      "path": "disaggregation/prefill.py",
+      "layer": "blobs/sha256/3340c9c261caa252ee1f1138439d1841e186ca33e6b1b532c3bb4855cc279673",
+      "sha256": "4a9add8c1776215e3ef41cc9eada288833d9016363ad4cafd532cb4981bacbe7"
+    },
+    {
+      "path": "managers/schedule_policy.py",
+      "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+      "sha256": "25dbb699e989b719f0dad4ba1acbfc7d10235243b402702c94e76961b185d1bf"
+    },
+    {
+      "path": "managers/scheduler.py",
+      "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+      "sha256": "da9fa5ec049144af66ef4946138bbe75286ac87688da988222d923243f6d5608"
+    },
+    {
+      "path": "mem_cache/unified_radix_cache.py",
+      "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+      "sha256": "187ec88e11085e5b2c5d91ccc9970562432b1207ae24821cbcfec1fa5e48ebf1"
+    },
+    {
+      "path": "server_args.py",
+      "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+      "sha256": "118ebd9aa79757110c52ddd08593f05972c468f4326dc142c33e49a8b2702c65"
+    },
+    {
+      "path": "managers/scheduler_components/metrics_reporter.py",
+      "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+      "sha256": "17c040d8375a61c0dd68e757e2242fcdbc9b89fe90c659d43f4f9aa1cfa6840d"
+    },
+    {
+      "path": "mem_cache/memory_pool.py",
+      "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+      "sha256": "1f58f3b2e22cbcae47d5cd8f87322b7fb041c1d2730833b672af395e268e4650"
+    }
+  ],
+  "missing": [
+    "sgl-workspace/sglang/python/sglang/srt/managers/scheduler_components/logging.py",
+    "sgl-workspace/sglang/python/sglang/srt/managers/scheduler_components/metrics.py",
+    "sgl-workspace/sglang/python/sglang/srt/mem_cache/unified_cache_components/hicache.py"
+  ]
+}

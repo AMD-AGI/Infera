@@ -1,3 +1,24 @@
+# 2026-09-23 深度 RCA 更新
+
+已重写 RECOVERY-AND-FINDINGS.zh-CN.md（全链调度、指标边界、C80候选根因、
+C112反馈机制、参数验证和条件收益模型）。从已保存诊断镜像提取实际SGLang
+源码至 source-evidence，记录 image/layer/SHA256；生效参数见 effective-config.json。
+
+新增 analyze_root_cause.py / analyze_chunk_evidence.py 与对应 JSON：
+- P active KV均值7.44%/7.74%，resident接近100%但大量可驱逐，反对活跃硬容量耗尽。
+- C80 D直接KV阻塞38/9651，P排队去掉这些请求后仍5.569s。
+- C80 miss>=32K仅3.44%请求却占41.58% miss；实际chunk为4K/rank。
+- D等待KV输入token驻留代理3.101M→8.634M，生成代理5.405M→4.654M；
+  合计增长4.782M，与实测used增长4.837M接近，支持上游等待延长占用D KV。
+- 已观测多chunk全部与forward envelope闭合（误差<0.001ms）。
+
+验证：两档完整原始数据离线分析成功；RID/请求数和逐rank KV容量恒等式检查通过；
+source-evidence SHA256通过；原phase/accounting和runtime分析测试通过。
+尚未执行干预/device profile/Unified host插桩；4K→8K效果和根因内部成本比例
+仍需验证，报告中的收益为条件敏感性而非实测。未核实job31526实时状态。
+
+---
+
 # 实验现场
 
 2026-09-23 恢复：已读取旧会话、核对 git status/log/diff 与共享盘最终状态。
