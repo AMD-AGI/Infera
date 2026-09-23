@@ -1,0 +1,112 @@
+2026-09-23T22:06:34.503261343Z [2026-09-23 22:06:34 DP4 TP4] Tree cache initialized: source=default impl=ChunkCache hybrid_swa=False hybrid_ssm=False hicache_attached=False streaming_wrapped=False
+2026-09-23T22:06:34.516605189Z I0923 22:06:34.516482 10125 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T22:06:34.615091012Z [2026-09-23 22:06:34 DP1 TP1] Tree cache initialized: source=default impl=ChunkCache hybrid_swa=False hybrid_ssm=False hicache_attached=False streaming_wrapped=False
+2026-09-23T22:06:34.624464214Z [2026-09-23 22:06:34 DP3 TP3] Tree cache initialized: source=default impl=ChunkCache hybrid_swa=False hybrid_ssm=False hicache_attached=False streaming_wrapped=False
+2026-09-23T22:06:34.628954929Z I0923 22:06:34.628787 10297 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T22:06:34.638400090Z I0923 22:06:34.638227 10467 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T22:06:34.643086701Z [2026-09-23 22:06:34 DP2 TP2] Tree cache initialized: source=default impl=ChunkCache hybrid_swa=False hybrid_ssm=False hicache_attached=False streaming_wrapped=False
+2026-09-23T22:06:34.656682542Z I0923 22:06:34.656540 10640 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T22:06:34.673483040Z [2026-09-23 22:06:34 DP0 TP0] Capture draft extend CUDA graph end. elapsed=3.26 s, mem usage=1.67 GB, avail mem=37.05 GB.
+2026-09-23T22:06:34.674152378Z [2026-09-23 22:06:34 DP0 TP0] max_total_num_tokens=3002560, chunked_prefill_size=4096, max_prefill_tokens=16384, max_running_requests=32, context_len=1048576, available_gpu_mem=37.05 GB
+2026-09-23T22:06:34.674940235Z [2026-09-23 22:06:34 DP0 TP0] Tree cache initialized: source=default impl=ChunkCache hybrid_swa=False hybrid_ssm=False hicache_attached=False streaming_wrapped=False
+2026-09-23T22:06:34.689199285Z I0923 22:06:34.689147 10810 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T22:06:35.134537973Z Fatal Python error: Segmentation fault
+2026-09-23T22:06:35.134601602Z 
+2026-09-23T22:06:35.134607202Z Thread 0x00007f908ffff640 (most recent call first):
+2026-09-23T22:06:35.134610491Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/conn.py", line 1316 in heartbeat_checker
+2026-09-23T22:06:35.134613361Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T22:06:35.134616451Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.134618361Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.134621171Z 
+2026-09-23T22:06:35.134623401Z Thread 0x00007f90983fe640 (most recent call first):
+2026-09-23T22:06:35.134626051Z   File "/opt/venv/lib/python3.10/site-packages/zmq/sugar/socket.py", line 813 in recv_multipart
+2026-09-23T22:06:35.134628251Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 2334 in decode_thread
+2026-09-23T22:06:35.134636311Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T22:06:35.134638291Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.134640761Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.134642961Z 
+2026-09-23T22:06:35.134644961Z Thread 0x00007f90c0fff640 (most recent call first):
+2026-09-23T22:06:35.134647741Z   File "/sgl-workspace/sglang/python/sglang/srt/utils/watchdog.py", line 147 in _watchdog_once
+2026-09-23T22:06:35.134650531Z   File "/sgl-workspace/sglang/python/sglang/srt/utils/watchdog.py", line 127 in _watchdog_thread
+2026-09-23T22:06:35.134653161Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T22:06:35.134655811Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.134658721Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.134661541Z 
+2026-09-23T22:06:35.134663931Z Thread 0x00007f94a7fff640 (most recent call first):
+2026-09-23T22:06:35.134666751Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T22:06:35.134668860Z   File "/usr/lib/python3.10/threading.py", line 607 in wait
+2026-09-23T22:06:35.134671290Z   File "/opt/venv/lib/python3.10/site-packages/tqdm/_monitor.py", line 60 in run
+2026-09-23T22:06:35.134688040Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.134689820Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.134694540Z 
+2026-09-23T22:06:35.134697670Z Thread 0x00007f9300ff4640 (most recent call first):
+2026-09-23T22:06:35.134699180Z   File "/opt/venv/lib/python3.10/site-packages/torch/_inductor/compile_worker/subproc_pool.py", line 73 in _recv_msg
+2026-09-23T22:06:35.134701130Z   File "/opt/venv/lib/python3.10/site-packages/torch/_inductor/compile_worker/subproc_pool.py", line 228 in _read_thread
+2026-09-23T22:06:35.134703690Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T22:06:35.134708390Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.134710120Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.134712060Z 
+2026-09-23T22:06:35.134714130Z Thread 0x00007f9547fff640 (most recent call first):
+2026-09-23T22:06:35.134715360Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T22:06:35.134717270Z   File "/usr/lib/python3.10/threading.py", line 607 in wait
+2026-09-23T22:06:35.134719150Z   File "/opt/venv/lib/python3.10/site-packages/tqdm/_monitor.py", line 60 in run
+2026-09-23T22:06:35.134721050Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.134722970Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.134724710Z 
+2026-09-23T22:06:35.134726270Z Thread 0x00007fba4ffff640 (most recent call first):
+2026-09-23T22:06:35.134728119Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T22:06:35.134729829Z   File "/usr/lib/python3.10/threading.py", line 607 in wait
+2026-09-23T22:06:35.134731349Z   File "/opt/venv/lib/python3.10/site-packages/opentelemetry/sdk/_shared_internal/__init__.py", line 156 in worker
+2026-09-23T22:06:35.134733389Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T22:06:35.134735019Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.134736539Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.134738729Z 
+2026-09-23T22:06:35.134740129Z Current thread 0x00007ffff7c48000 (most recent call first):
+2026-09-23T22:06:35.134741649Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 1878 in run_event_loop
+2026-09-23T22:06:35.134743769Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5884 in run_scheduler_process
+2026-09-23T22:06:35.134745469Z   File "/usr/lib/python3.10/multiprocessing/process.py", line 108 in run
+2026-09-23T22:06:35.134747129Z   File "/usr/lib/python3.10/multiprocessing/process.py", line 314 in _bootstrap
+2026-09-23T22:06:35.134752169Z   File "/usr/lib/python3.10/multiprocessing/spawn.py", line 129 in _main
+2026-09-23T22:06:35.134754269Z   File "/usr/lib/python3.10/multiprocessing/spawn.py", line 116 in spawn_main
+2026-09-23T22:06:35.134756549Z   File "<string>", line 1 in <module>
+2026-09-23T22:06:35.134759529Z 
+2026-09-23T22:06:35.135303080Z Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, psutil._psutil_linux, pybase64._pybase64, charset_normalizer.md, charset_normalizer.cd, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normalizer.cd, requests.packages.chardet.cd, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, PIL._imaging, PIL._imagingft, av._core, av.logging, av.buffer, av.audio.format, av.error, av.dictionary, av.container.pyio, av.format, av.index, av.utils, av.stream, av.container.streams, av.sidedata.encparams, av.sidedata.motionvectors, av.sidedata.sidedata, av.opaque, av.packet, av.container.input, av.container.output, av.container.core, av.codec.context, av.video.format, av.video.reformatter, av.plane, av.video.plane, av.video.frame, av.video.stream, av.codec.hwaccel, av.codec.codec, av.frame, av.audio.layout, av.audio.plane, av.audio.frame, av.audio.stream, av.filter.link, av.filter.context, av.filter.graph, av.filter.filter, av.filter.loudnorm, av.audio.resampler, av.audio.codeccontext, av.audio.fifo, av.bitstream, av.device, av.video.codeccontext, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, msgspec._core, zmq.backend.cython._zmq, regex._regex, yaml._yaml, markupsafe._speedups, _cffi_backend, scipy._lib._ccallback_c, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg.cython_lapack, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._decomp_lu_cython, scipy.linalg._matfuncs_sqrtm_triu, scipy.linalg._matfuncs_expm, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg._decomp_update, scipy.sparse._sparsetools, _csparsetools, scipy.sparse._csparsetools, scipy.sparse.linalg._dsolve._superlu, scipy.sparse.linalg._eigen.arpack._arpack, scipy.sparse.linalg._propack._spropack, scipy.sparse.linalg._propack._dpropack, scipy.sparse.linalg._propack._cpropack, scipy.sparse.linalg._propack._zpropack, scipy.sparse.csgraph._tools, scipy.sparse.csgraph._shortest_path, scipy.sparse.csgraph._traversal, scipy.sparse.csgraph._min_spanning_tree, scipy.sparse.csgraph._flow, scipy.sparse.csgraph._matching, scipy.sparse.csgraph._reordering, scipy.optimize._group_columns, scipy._lib.messagestream, scipy.optimize._trlib._trlib, scipy.optimize._lbfgsb, _moduleTNC, scipy.optimize._moduleTNC, scipy.optimize._cobyla, scipy.optimize._slsqp, scipy.optimize._minpack, scipy.optimize._lsq.givens_elimination, scipy.optimize._zeros, scipy.optimize._cython_nnls, scipy._lib._uarray._uarray, scipy.special._ufuncs_cxx, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb, scipy.special._ellip_harm_2, scipy.linalg._decomp_interpolative, scipy.optimize._bglu_dense, scipy.optimize._lsap, scipy.spatial._ckdtree, scipy.spatial._qhull, scipy.spatial._voronoi, scipy.spatial._distance_wrap, scipy.spatial._hausdorff, scipy.spatial.transform._rotation, scipy.optimize._direct, multidict._multidict, yarl._quoting_c, propcache._helpers_c, aiohttp._http_writer, aiohttp._http_parser, aiohttp._websocket.mask, aiohttp._websocket.reader_c, frozenlist._frozenlist, tvm_ffi.core, lxml._elementpath, lxml.etree, setproctitle._setproctitle, Cython.Plex.Actions, Cython.Plex.Scanners, Cython.Compiler.Scanning, hip_utils, pyarrow.lib, pandas._libs.tslibs.ccalendar, pandas._libs.tslibs.np_datetime, pandas._libs.tslibs.dtypes, pandas._libs.tslibs.base, pandas._libs.tslibs.nattype, pandas._libs.tslibs.timezones, pandas._libs.tslibs.fields, pandas._libs.tslibs.timedeltas, pandas._libs.tslibs.tzconversion, pandas._libs.tslibs.timestamps, pandas._libs.properties, pandas._libs.tslibs.offsets, pandas._libs.tslibs.strptime, pandas._libs.tslibs.parsing, pandas._libs.tslibs.conversion, pandas._libs.tslibs.period, pandas._libs.tslibs.vectorized, pandas._libs.ops_dispatch, pandas._libs.missing, pandas._libs.hashtable, pandas._libs.algos, pandas._libs.interval, pandas._libs.lib, pyarrow._compute, pandas._libs.ops, pandas._libs.hashing, pandas._libs.arrays, pandas._libs.tslib, pandas._libs.sparse, pandas._libs.internals, pandas._libs.indexing, pandas._libs.index, pandas._libs.writers, pandas._libs.join, pandas._libs.window.aggregations, pandas._libs.window.indexers, pandas._libs.reshape, pandas._libs.groupby, pandas._libs.json, pandas._libs.parsers, pandas._libs.testing, grpc._cython.cygrpc, google._upb._message, tilelang_cython_wrapper (total: 200)
+2026-09-23T22:06:35.135851241Z !!!!!!! Segfault encountered !!!!!!!
+2026-09-23T22:06:35.135854321Z   File "<unknown>", line 0, in pthread_kill
+2026-09-23T22:06:35.135855931Z   File "<unknown>", line 0, in raise
+2026-09-23T22:06:35.135857391Z   File "<unknown>", line 0, in c10::hip::HIPStream::stream() const
+2026-09-23T22:06:35.135858931Z   File "<unknown>", line 0, in THCPStream_get_cuda_stream(THCPStream*, void*)
+2026-09-23T22:06:35.135860311Z   File "<unknown>", line 0, in _PyObject_GenericGetAttrWithDict
+2026-09-23T22:06:35.135861541Z   File "<unknown>", line 0, in PyObject_GetAttr
+2026-09-23T22:06:35.135862871Z   File "<unknown>", line 0, in _PyEval_EvalFrameDefault
+2026-09-23T22:06:35.135874610Z   File "<unknown>", line 0, in _PyFunction_Vectorcall
+2026-09-23T22:06:35.135876990Z   File "<unknown>", line 0, in _PyEval_EvalFrameDefault
+2026-09-23T22:06:35.135878320Z   File "<unknown>", line 0, in _PyFunction_Vectorcall
+2026-09-23T22:06:35.135879620Z   File "<unknown>", line 0, in _PyEval_EvalFrameDefault
+2026-09-23T22:06:35.135880930Z   File "<unknown>", line 0, in _PyFunction_Vectorcall
+2026-09-23T22:06:35.135882090Z   File "<unknown>", line 0, in _PyEval_EvalFrameDefault
+2026-09-23T22:06:35.135883380Z   File "<unknown>", line 0, in _PyFunction_Vectorcall
+2026-09-23T22:06:35.135884830Z   File "<unknown>", line 0, in _PyEval_EvalFrameDefault
+2026-09-23T22:06:35.135886530Z   File "<unknown>", line 0, in _PyFunction_Vectorcall
+2026-09-23T22:06:35.135887820Z   File "<unknown>", line 0, in _PyEval_EvalFrameDefault
+2026-09-23T22:06:35.135889110Z   File "<unknown>", line 0, in _PyFunction_Vectorcall
+2026-09-23T22:06:35.135890400Z   File "<unknown>", line 0, in _PyEval_EvalFrameDefault
+2026-09-23T22:06:35.135891600Z   File "<unknown>", line 0, in PyEval_EvalCode
+2026-09-23T22:06:35.135895110Z   File "<unknown>", line 0, in PyRun_StringFlags
+2026-09-23T22:06:35.135896490Z   File "<unknown>", line 0, in PyRun_SimpleStringFlags
+2026-09-23T22:06:35.135897660Z   File "<unknown>", line 0, in Py_RunMain
+2026-09-23T22:06:35.135898980Z   File "<unknown>", line 0, in Py_BytesMain
+2026-09-23T22:06:35.135900260Z   File "<unknown>", line 0, in _start
+2026-09-23T22:06:35.135901720Z   File "<unknown>", line 0, in 0xffffffffffffffff
+2026-09-23T22:06:35.135902990Z 
+2026-09-23T22:06:35.174362743Z Fatal Python error: Segmentation fault
+2026-09-23T22:06:35.174401392Z 
+2026-09-23T22:06:35.174402822Z Thread 0x00007f9077fff640 (most recent call first):
+2026-09-23T22:06:35.174404172Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/conn.py", line 1316 in heartbeat_checker
+2026-09-23T22:06:35.174405702Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T22:06:35.174406592Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T22:06:35.174407592Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T22:06:35.174408362Z 
+2026-09-23T22:06:35.174409682Z Thread 0x00007f9083fff640 (most recent call first):
+2026-09-23T22:06:35.174410422Z   File "/opt/venv/lib/python3.10/site-packages/zmq/sugar/socket.py", line 813 in recv_multipart
+2026-09-23T22:06:35.174411132Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 2334 in decode_thread

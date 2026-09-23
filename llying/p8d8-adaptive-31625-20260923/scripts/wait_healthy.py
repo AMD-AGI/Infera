@@ -39,6 +39,7 @@ def wait_one(
     last_health_error = ""
     inspect_payload = None
     inspect_timeouts = 0
+    failed_health_checks = 0
     while time.monotonic() - started < timeout:
         try:
             inspected = remote(
@@ -79,6 +80,13 @@ def wait_one(
                     "elapsed_seconds": round(time.monotonic() - started, 3),
                 }
             last_health_error = (health.stderr or health.stdout).strip()
+            failed_health_checks += 1
+            if failed_health_checks % 3 == 0:
+                startup_logs = remote(options, target, ["docker", "logs", "--tail", "1000", container], probe_timeout + 10)
+                fatal_text = startup_logs.stdout + startup_logs.stderr
+                if "Fatal Python error:" in fatal_text or "Segfault encountered" in fatal_text:
+                    reason = "fatal backend error during startup; do not wait on a live outer container"
+                    break
         except subprocess.TimeoutExpired:
             last_health_error = "health request timed out"
         time.sleep(interval)

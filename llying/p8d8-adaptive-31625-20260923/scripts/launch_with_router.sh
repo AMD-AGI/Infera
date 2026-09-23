@@ -89,7 +89,7 @@ for attempt in $(seq 1 60); do
 done
 
 wait_args=(
-    python3 "$DIR/tools/wait_healthy.py"
+    python3 "$TRACE_RUNTIME/scripts/bench-harness/tools/wait_healthy.py"
     --ssh-options "${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}"
     --timeout "${READY_TIMEOUT:-3600}" --interval "${HEALTH_INTERVAL:-10}"
     --probe-timeout "${HEALTH_PROBE_TIMEOUT:-5}"
@@ -138,7 +138,7 @@ ssh_run "$CONTROL_NODE" docker run -d --init \
     -v "$ROUTER_BINARY_OVERRIDE:/usr/local/bin/infera-router:ro" \
     -v "$MODEL:$MODEL:ro" "$IMAGE" "${router_args[@]}"
 
-python3 "$DIR/tools/wait_healthy.py" \
+python3 "$TRACE_RUNTIME/scripts/bench-harness/tools/wait_healthy.py" \
     --target router "$CONTROL_NODE" "$router_container" "$router_url/health" \
     --ssh-options "${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}" \
     --timeout "${ROUTER_READY_TIMEOUT:-300}" \

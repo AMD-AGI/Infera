@@ -1,0 +1,23 @@
+{
+  "targets": [
+    {
+      "container": "llying-adaptive-31644-decode-0",
+      "elapsed_seconds": 281.378,
+      "health_url": "http://10.235.192.57:29002/health",
+      "healthy": false,
+      "last_health_error": "curl: (22) The requested URL returned error: 503",
+      "name": "decode-0",
+      "node": "smci355-ccs-aus-n04-29",
+      "reason": "fatal backend error during startup; do not wait on a live outer container"
+    },
+    {
+      "container": "llying-adaptive-31644-prefill-0",
+      "elapsed_seconds": 372.889,
+      "health_url": "http://10.235.192.139:29001/health",
+      "healthy": true,
+      "inspect_timeouts": 0,
+      "name": "prefill-0",
+      "node": "smci355-ccs-aus-n04-33"
+    }
+  ]
+}

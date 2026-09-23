@@ -1,0 +1,19 @@
+{
+  "host": "10.235.192.139",
+  "port": 29001,
+  "version": "0.5.19.dev20260916+ge7f7447333",
+  "scheduler_pids": [
+    736,
+    1016,
+    1191,
+    1342,
+    1590,
+    1865,
+    2205,
+    2522
+  ],
+  "max_total_num_tokens": 3143424,
+  "chunked_prefill_size": 4096,
+  "mem_fraction_static": 0.85,
+  "hicache_ratio": 1.5
+}

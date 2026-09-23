@@ -1,0 +1,72 @@
+{
+  "image_id": "4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "source_cache": "/tmp/aiter-jit-100078-g4/4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "created_epoch": 1790201784.5677545,
+  "libraries": {
+    "mha_varlen_fwd_bf16_nlogits_nbias_mask_nlse_ndropout_nskip_nqscale.so": {
+      "bytes": 2658704,
+      "sha256": "c817f2312ab8d52d57e5af8669206975b7bfb49fb8f5973f8860963bd484d652"
+    },
+    "mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so": {
+      "bytes": 2610488,
+      "sha256": "1ac6f906bcaa4e90ae103c55840c94c6ce5fa8c46fc98616e89d86d4fea74c73"
+    },
+    "module_aiter_core.so": {
+      "bytes": 648856,
+      "sha256": "b2b27268892f4d92608b110bc1b2de1042f07f9c391d2838dddca19817548bf8"
+    },
+    "module_cache.so": {
+      "bytes": 2539640,
+      "sha256": "961986c3b46cc66cf72c3d3204730a7be0bfcdb44c9e551a926f51296f9d06d7"
+    },
+    "module_custom.so": {
+      "bytes": 1065088,
+      "sha256": "701c5f84fa0304d07fd8c8e32c3f12da97d4d3858bf30fa8ee0527d3726afdbe"
+    },
+    "module_custom_all_reduce.so": {
+      "bytes": 3765832,
+      "sha256": "d8957cdc6ec3617a4b8464b1910ea3dfae777e56733e0f038028d7571f721e4f"
+    },
+    "module_fused_qk_norm_rope_cache_quant_shuffle.so": {
+      "bytes": 17485736,
+      "sha256": "1121a2c77eb06bea981bedcd0767682740f39d71335a8aab2a2b9547176362e9"
+    },
+    "module_gemm_a16w16_asm.so": {
+      "bytes": 105584,
+      "sha256": "be21f671effeef1b74a548ebec627d57cfb1ab1176e25fecee67d97556f5763d"
+    },
+    "module_gemm_common.so": {
+      "bytes": 15392,
+      "sha256": "056227006e09d74a73b7552c76059cf47299909fa0583e389d0566c5fb9d5663"
+    },
+    "module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so": {
+      "bytes": 4233064,
+      "sha256": "971b5434f3c4a3fdd99e88a9cafed7ef3b3c1e2b829bf67123b04052383921d2"
+    },
+    "module_moe_mxfp4_aux.so": {
+      "bytes": 3230576,
+      "sha256": "af85bb8dcbc8794b3ffb8eefe8284b51cbcd4ef473d8887fc5fa07768fa6e12d"
+    },
+    "module_norm.so": {
+      "bytes": 48352096,
+      "sha256": "74ffd870955e6d2af0904806c362a93f94a50a09d18278157a93c3ade503972c"
+    },
+    "module_quant.so": {
+      "bytes": 3536832,
+      "sha256": "8ac7b26b2e2bce0b25318fe9b2000a498247f4c4cb390331542ed758c5703d5a"
+    },
+    "module_rmsnorm_quant.so": {
+      "bytes": 2168776,
+      "sha256": "589898d4397703bc398256bf409a26d0a1df7919bd2cc517e463fb51076ac79f"
+    },
+    "module_rope_2c_cached_positions_fwd.so": {
+      "bytes": 8525136,
+      "sha256": "c491c94c0a4e8085b28c1a14f2cab920f4a0bc3fe808f3796c815797100e3c4b"
+    },
+    "module_sample.so": {
+      "bytes": 509472,
+      "sha256": "569728c9126b2a695a475ed4375de89009795282240997b35aa8798a32541f34"
+    }
+  },
+  "skipped": []
+}

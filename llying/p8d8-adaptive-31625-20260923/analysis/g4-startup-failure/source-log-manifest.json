@@ -1,0 +1,5 @@
+{
+  "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g4-guard-completion/launch/server-logs/decode-0.log",
+  "sha256": "63b9a6a853a88e283cbf4f49bd0ddb2670557241dce9a8f35e8f84e786af3df8",
+  "first_fatal": "2026-09-23T22:06:35.134537973Z Fatal Python error: Segmentation fault"
+}

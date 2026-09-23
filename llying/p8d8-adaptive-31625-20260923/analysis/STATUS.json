@@ -1,15 +1,15 @@
 {
-  "updated_utc": "2026-09-23T21:46:52.388977+00:00",
+  "updated_utc": "2026-09-23T22:45:48.614339+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n04-29",
   "decode": "smci355-ccs-aus-n04-25",
-  "current_case": "g3-guard-completion",
-  "stage": "G3_STARTUP_SEGFAULT_AND_PREEMPTED",
+  "current_case": null,
+  "stage": "VALIDATION_BLOCKED_REPLACEMENT_CANCELLED_BY_UID0",
   "next_cases": [],
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
   "manager_pid": 3840880,
-  "next_decision": "Wait for replacement allocation; optimized configuration only, no repeated baseline.",
+  "next_decision": "Await clarification of UID0 cancellation; do not resubmit or switch account to bypass it. Continue verified memory-release cleanup.",
   "a0_result": {
     "total_tokens_s_gpu": 20166.29907,
     "completed": 9727,
@@ -33,5 +33,8 @@
   "allocation_restart": 3,
   "driver_pid": 2997978,
   "baseline_repeats_enabled": false,
-  "lease_end_utc": "2026-09-24T01:40:43Z"
+  "lease_end_utc": "2026-09-24T01:40:43Z",
+  "cleanup_job_id": 31644,
+  "replacement_job_id": 31679,
+  "replacement_state": "CANCELLED by 0"
 }

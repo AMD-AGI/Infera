@@ -60,6 +60,10 @@ for role in ('prefill', 'decode'):
     expected_capacity = int(os.environ.get(f'EXPECTED_{role.upper()}_TOKENS','0'))
     if not b or (expected_capacity and b != expected_capacity):
         errors.append(f'{role}: unexpected KV capacity {b}; expected {expected_capacity}')
+    if not expected_capacity:
+        relative_delta=(b/a-1) if a and b else None
+        report.setdefault('automatic_capacity_checks',{})[role]={'baseline':a,'actual':b,'relative_delta':relative_delta,'allowed_abs_relative_delta':0.001}
+        if relative_delta is None or abs(relative_delta)>0.001:errors.append(f'{role}: automatic capacity drift exceeds 0.1%; explicit review required')
     states=new.get('internal_states',[])
     if len(states)!=8 or any(v.get('memory_usage',{}).get('token_capacity')!=b for v in states):errors.append(f'{role}: per-rank capacities disagree')
     node = os.environ[f'{role.upper()}_NODE']

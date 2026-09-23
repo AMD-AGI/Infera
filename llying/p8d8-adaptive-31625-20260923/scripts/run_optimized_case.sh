@@ -13,6 +13,13 @@ for node in "$PREFILL_NODE" "$DECODE_NODE"; do
     done
     [[ "$ready" == 1 ]] || { echo "Image readiness failed on $node"; exit 1; }
 done
+if [[ -n "${STARTUP_PREFETCH_LOG:-}" ]]; then
+    for attempt in $(seq 1 300); do
+        [[ -f "$STARTUP_PREFETCH_LOG" ]] && [[ "$(tail -n 1 "$STARTUP_PREFETCH_LOG")" == PREFETCH_COMPLETE ]] && break
+        [[ "$attempt" != 300 ]] || { echo 'Weight prefetch did not finish'; exit 1; }
+        sleep 3
+    done
+fi
 case "${1:-fresh}" in
     fresh) bash "$ROOT/scripts/run_fresh_case.sh" ;;
     reuse) bash "$ROOT/scripts/run_reuse_case.sh" ;;

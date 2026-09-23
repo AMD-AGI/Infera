@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-09-23T20:35:36.708178+00:00",
+  "updated_utc": "2026-09-23T22:45:48.647541+00:00",
   "user_instruction": "Reuse completed baseline; do not repeat baseline tasks. Run optimization-enabled and subsequent single-variable optimization cases directly. Record cross-node uncertainty without requiring another baseline.",
   "baseline_repeats_enabled": false,
   "current_case": "g1-guard-completion",
@@ -17,5 +17,8 @@
     "Evidence-driven host path experiments",
     "P overlap weight: deferred, no 20-to-10 trial without stronger evidence"
   ],
-  "weight_trial_status": "DEFERRED: reduced cache credit can raise miss/recomputation; queue alone does not establish excessive affinity"
+  "weight_trial_status": "DEFERRED: reduced cache credit can raise miss/recomputation; queue alone does not establish excessive affinity",
+  "alternate_account_permission": "Not granted; pending user reply. No xiewen12 allocation submitted.",
+  "allocation_retry_policy": "Pause replacement submissions pending clarification of UID0 cancellation; this is not a completed validation.",
+  "excluded_incompatible_node": "smci355-ccs-aus-n04-29"
 }
