@@ -257,8 +257,8 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
     let source = body.into_data_stream();
     let translator = SseTranslator::new(model, Some(request_id));
     let translated = futures::stream::unfold(
-        (source, translator, false),
-        |(mut source, mut translator, finished)| async move {
+        (source, translator, false, request_id.to_string()),
+        |(mut source, mut translator, finished, rid)| async move {
             if finished {
                 return None;
             }
@@ -269,15 +269,23 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
                         if !output.is_empty() {
                             return Some((
                                 Ok::<Bytes, axum::Error>(Bytes::from(output)),
-                                (source, translator, false),
+                                (source, translator, false, rid),
                             ));
                         }
                     }
                     Some(Err(error)) => {
+                        // The client is mid-body, so the only place left to
+                        // report this is inside the stream -- which leaves no
+                        // trace on this side unless it is logged here.
+                        tracing::warn!(
+                            request_id = %rid,
+                            %error,
+                            "anthropic stream failed mid-body"
+                        );
                         let output = translator.error(&format!("worker stream failed: {error}"));
                         return Some((
                             Ok::<Bytes, axum::Error>(Bytes::from(output)),
-                            (source, translator, true),
+                            (source, translator, true, rid),
                         ));
                     }
                     None => {
@@ -285,7 +293,7 @@ fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str)
                         if output.is_empty() {
                             return None;
                         }
-                        return Some((Ok(Bytes::from(output)), (source, translator, true)));
+                        return Some((Ok(Bytes::from(output)), (source, translator, true, rid)));
                     }
                 }
             }

@@ -182,6 +182,7 @@ async fn stream_dual(
         .map(str::to_string)
         .unwrap_or_default();
     let n = sample_count(&p_body);
+    let rid_for_log = rid.clone();
     let (incomplete_tx, incomplete_rx) = oneshot::channel();
     let drain_handle = spawn_prefill_drain(
         state.http.clone(),
@@ -213,7 +214,11 @@ async fn stream_dual(
             .body(Body::from_stream(GuardedStream::new_with_incomplete_abort(
                 resp.bytes_stream(),
                 guard,
-                path,
+                crate::proxy::StreamSource {
+                    path: path.to_string(),
+                    worker_id: d.worker.worker_id.clone(),
+                    request_id: rid_for_log,
+                },
                 abort_unless_stream_owns_it.take(),
             )))
             .expect("stream response is valid"),
@@ -346,6 +351,7 @@ async fn dual_nats(
         .map(str::to_string)
         .unwrap_or_default();
     let n = sample_count(&p_body);
+    let rid_for_log = rid.clone();
     let p_payload = leg_payload(path, false, p.dp_rank, p_body);
     let d_payload = leg_payload(path, stream, d.dp_rank, d_body);
 
@@ -492,7 +498,16 @@ async fn dual_nats(
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
         .body(Body::from_stream(
-            crate::proxy::guarded_with_incomplete_abort(body, guard, path, Some(incomplete_tx)),
+            crate::proxy::guarded_with_incomplete_abort(
+                body,
+                guard,
+                crate::proxy::StreamSource {
+                    path: path.to_string(),
+                    worker_id: d.worker.worker_id.clone(),
+                    request_id: rid_for_log,
+                },
+                Some(incomplete_tx),
+            ),
         ))
         .expect("stream response is valid")
 }

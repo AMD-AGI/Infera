@@ -73,6 +73,30 @@ impl DoneMarker {
     }
 }
 
+/// What a guarded stream is relaying. `path` picks the SSE terminator; the ids
+/// are what a mid-body failure is reported against, since that failure lands
+/// inside `poll_next` long after the call site has returned -- without them the
+/// only trace of a stalled worker is the caller's own timeout.
+#[derive(Clone, Default)]
+pub(crate) struct StreamSource {
+    pub(crate) path: String,
+    pub(crate) worker_id: String,
+    /// Empty on the mixed paths, where no protocol forges a request id.
+    pub(crate) request_id: String,
+}
+
+impl StreamSource {
+    fn log_failure(&self, error: impl std::fmt::Display) {
+        tracing::warn!(
+            worker = %self.worker_id,
+            request_id = %self.request_id,
+            path = %self.path,
+            %error,
+            "worker stream failed mid-body"
+        );
+    }
+}
+
 /// A byte stream that owns an `ActiveGuard`: when the streamed body ends (client
 /// done, disconnect, or drop), the guard drops and fires `on_request_finished`,
 /// so a cost-aware policy's in-flight load stays balanced for streamed requests.
@@ -88,6 +112,7 @@ pub(crate) struct GuardedStream {
     failed: bool,
     // Only tracked for an `on_end` stream; `None` keeps EOF meaning completion.
     done: Option<DoneMarker>,
+    source: StreamSource,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 }
 
@@ -101,14 +126,15 @@ impl GuardedStream {
     pub(crate) fn new(
         inner: impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static,
         guard: ActiveGuard,
+        source: StreamSource,
     ) -> Self {
-        Self::new_with_incomplete_abort(inner, guard, "", None)
+        Self::new_with_incomplete_abort(inner, guard, source, None)
     }
 
     pub(crate) fn new_with_incomplete_abort(
         inner: impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static,
         guard: ActiveGuard,
-        path: &str,
+        source: StreamSource,
         on_end: Option<oneshot::Sender<StreamEnd>>,
     ) -> Self {
         GuardedStream {
@@ -116,7 +142,8 @@ impl GuardedStream {
             _guard: guard,
             completed: false,
             failed: false,
-            done: on_end.as_ref().map(|_| DoneMarker::for_path(path)),
+            done: on_end.as_ref().map(|_| DoneMarker::for_path(&source.path)),
+            source,
             on_end,
         }
     }
@@ -140,9 +167,10 @@ impl Stream for GuardedStream {
             }
             // A break after the terminator still leaves the client short of
             // the bytes it was about to read.
-            Poll::Ready(Some(Err(_))) => {
+            Poll::Ready(Some(Err(error))) => {
                 this.failed = true;
                 this.completed = false;
+                this.source.log_failure(error);
             }
             Poll::Ready(None) => {
                 let terminated = this.done.as_ref().is_none_or(|d| d.seen);
@@ -385,7 +413,15 @@ async fn attempt_nats(
     Ok(Response::builder()
         .status(StatusCode::OK)
         .header(header::CONTENT_TYPE, "text/event-stream")
-        .body(Body::from_stream(guarded(body, guard)))
+        .body(Body::from_stream(guarded(
+            body,
+            guard,
+            StreamSource {
+                path: path.to_string(),
+                worker_id: wid,
+                ..Default::default()
+            },
+        )))
         .expect("stream response is valid"))
 }
 
@@ -402,6 +438,7 @@ pub(crate) struct GuardedBody {
     // Only tracked for an `on_end` body; the frame protocol carries its own
     // terminator, so the marker only makes completion observable earlier.
     done: Option<DoneMarker>,
+    source: StreamSource,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 }
 
@@ -410,14 +447,15 @@ pub(crate) struct GuardedBody {
 pub(crate) fn guarded(
     inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
     guard: ActiveGuard,
+    source: StreamSource,
 ) -> GuardedBody {
-    guarded_with_incomplete_abort(inner, guard, "", None)
+    guarded_with_incomplete_abort(inner, guard, source, None)
 }
 
 pub(crate) fn guarded_with_incomplete_abort(
     inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
     guard: ActiveGuard,
-    path: &str,
+    source: StreamSource,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 ) -> GuardedBody {
     GuardedBody {
@@ -425,7 +463,8 @@ pub(crate) fn guarded_with_incomplete_abort(
         _guard: guard,
         completed: false,
         failed: false,
-        done: on_end.as_ref().map(|_| DoneMarker::for_path(path)),
+        done: on_end.as_ref().map(|_| DoneMarker::for_path(&source.path)),
+        source,
         on_end,
     }
 }
@@ -444,9 +483,10 @@ impl Stream for GuardedBody {
                     this.completed = done.seen;
                 }
             }
-            Poll::Ready(Some(Err(_))) => {
+            Poll::Ready(Some(Err(error))) => {
                 this.failed = true;
                 this.completed = false;
+                this.source.log_failure(error);
             }
             Poll::Ready(None) => this.completed = !this.failed,
             _ => {}
@@ -695,6 +735,11 @@ async fn attempt(
             .body(Body::from_stream(GuardedStream::new(
                 resp.bytes_stream(),
                 guard,
+                StreamSource {
+                    path: path.to_string(),
+                    worker_id: worker.worker_id.clone(),
+                    ..Default::default()
+                },
             )))
             .expect("stream response is valid"))
     } else {
@@ -729,6 +774,40 @@ mod tests {
         ActiveGuard::start(Arc::new(RoundRobin::new()), Vec::new())
     }
 
+    fn source(path: &str) -> StreamSource {
+        StreamSource {
+            path: path.to_string(),
+            worker_id: "w1".to_string(),
+            request_id: "infera-1".to_string(),
+        }
+    }
+
+    /// Collects the formatted log output of one scope.
+    #[derive(Clone, Default)]
+    struct Captured(Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Captured {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0
+                .lock()
+                .expect("the capture buffer")
+                .extend_from_slice(buf);
+            Ok(buf.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Captured {
+        type Writer = Self;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
     fn sse(chunks: &[&'static str]) -> impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static {
         let items: Vec<reqwest::Result<Bytes>> = chunks
             .iter()
@@ -743,7 +822,7 @@ mod tests {
         let mut stream = GuardedStream::new_with_incomplete_abort(
             sse(chunks),
             guard(),
-            "/v1/chat/completions",
+            source("/v1/chat/completions"),
             Some(tx),
         );
         while stream.next().await.is_some() {}
@@ -756,7 +835,7 @@ mod tests {
         let mut stream = GuardedStream::new_with_incomplete_abort(
             sse(chunks),
             guard(),
-            "/v1/responses",
+            source("/v1/responses"),
             Some(tx),
         );
         while stream.next().await.is_some() {}
@@ -832,9 +911,42 @@ mod tests {
     #[tokio::test]
     async fn a_stream_without_an_abort_watcher_completes_on_eof() {
         // Mixed (non-PD) traffic has no pair to abort, so EOF stays completion.
-        let mut stream = GuardedStream::new(sse(&["data: {\"x\":1}\n\n"]), guard());
+        let mut stream = GuardedStream::new(sse(&["data: {\"x\":1}\n\n"]), guard(), source(""));
         while stream.next().await.is_some() {}
         assert!(stream.completed);
+    }
+
+    /// A stall or reset lands mid-body, where the only thing the client gets is
+    /// an in-stream error. Without this log line the router keeps no record of
+    /// which worker went quiet on which request, which is the whole reason a
+    /// stalled stream can only be diagnosed from the caller's own timeout.
+    #[tokio::test]
+    async fn a_mid_body_failure_names_the_worker_and_the_request() {
+        let items: Vec<reqwest::Result<Bytes>> = vec![
+            Ok(Bytes::from_static(b"data: {\"x\":1}\n\n")),
+            Err(transport_error().await),
+        ];
+        let logs = Captured::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(logs.clone())
+            .with_ansi(false)
+            .finish();
+
+        tracing::subscriber::with_default(subscriber, || {
+            let mut stream = GuardedStream::new(
+                futures::stream::iter(items),
+                guard(),
+                source("/v1/messages"),
+            );
+            futures::executor::block_on(async { while stream.next().await.is_some() {} });
+        });
+
+        let out = String::from_utf8(logs.0.lock().expect("the capture buffer").clone())
+            .expect("the log is utf-8");
+        assert!(out.contains("worker stream failed mid-body"), "{out}");
+        assert!(out.contains("w1"), "{out}");
+        assert!(out.contains("infera-1"), "{out}");
+        assert!(out.contains("/v1/messages"), "{out}");
     }
 
     /// A transport error, built without opening a socket: reqwest rejects the
@@ -856,7 +968,7 @@ mod tests {
         let mut stream = GuardedStream::new_with_incomplete_abort(
             sse(&["data: {\"x\":1}\n\n", "data: [DONE]\n\n"]),
             guard(),
-            "/v1/chat/completions",
+            source("/v1/chat/completions"),
             Some(tx),
         );
         stream
@@ -888,7 +1000,7 @@ mod tests {
         let mut stream = GuardedStream::new_with_incomplete_abort(
             futures::stream::iter(items),
             guard(),
-            "/v1/chat/completions",
+            source("/v1/chat/completions"),
             Some(tx),
         );
         stream
@@ -926,7 +1038,7 @@ mod tests {
         let mut body = guarded_with_incomplete_abort(
             nats_sse(&["event: response.completed\ndata: {}\n\n"]),
             guard(),
-            "/v1/responses",
+            source("/v1/responses"),
             Some(tx),
         );
         body.next()
@@ -952,7 +1064,7 @@ mod tests {
         let mut body = guarded_with_incomplete_abort(
             futures::stream::iter(items),
             guard(),
-            "/v1/chat/completions",
+            source("/v1/chat/completions"),
             Some(tx),
         );
         body.next()
@@ -978,7 +1090,7 @@ mod tests {
         let mut body = guarded_with_incomplete_abort(
             nats_sse(&["data: {\"x\":1}\n\n"]),
             guard(),
-            "/v1/chat/completions",
+            source("/v1/chat/completions"),
             Some(tx),
         );
         while body.next().await.is_some() {}
