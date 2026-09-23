@@ -103,10 +103,13 @@ pub struct Config {
     /// Seconds to wait for the *next* body chunk from a worker over HTTP before
     /// giving up. Reset on every chunk, so a long generation that keeps
     /// producing tokens never trips it -- only a stall does. 0 disables it.
-    /// Without it an engine that goes quiet holds the client until the client's
-    /// own timeout, with nothing logged and the worker never scored. Set it
-    /// below the caller's idle timeout to be the side that reports the stall.
-    #[arg(long, default_value_t = 900.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
+    ///
+    /// The default sits under the 300s idle timeout the Anthropic and OpenAI
+    /// SDKs ship with, so the router is the side that names a stalled worker:
+    /// it logs the stall, scores the worker, and releases the engine slot,
+    /// instead of both ends waiting for the client to give up on a silent
+    /// stream. The 60s of margin is for the hops between the two.
+    #[arg(long, default_value_t = 240.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
     pub http_req_idle_timeout_s: f64,
 
     /// Seconds to wait for a detached PD prefill POST before aborting it.
@@ -258,6 +261,20 @@ mod tests {
         assert_eq!(c.kv_event_transport, "nats");
         assert_eq!(c.discovery_backend, "etcd");
         assert_eq!(c.router_policy, "round-robin");
+    }
+
+    /// The point of the HTTP idle timeout is to name the stalled worker before
+    /// the caller abandons the stream. Raising it past the SDK window gives the
+    /// stall back to the client, with nothing logged and the slot still held.
+    #[test]
+    fn the_http_idle_timeout_fires_before_a_client_gives_up() {
+        const SDK_IDLE_TIMEOUT_S: f64 = 300.0;
+        let c = Config::try_parse_from(["infera-router"]).unwrap();
+        assert!(
+            c.http_req_idle_timeout_s > 0.0 && c.http_req_idle_timeout_s < SDK_IDLE_TIMEOUT_S,
+            "got {}",
+            c.http_req_idle_timeout_s
+        );
     }
 
     #[test]
