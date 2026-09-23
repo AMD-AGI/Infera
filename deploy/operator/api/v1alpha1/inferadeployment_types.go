@@ -87,19 +87,14 @@ type ServiceSpec struct {
 	// +kubebuilder:default=1
 	// +kubebuilder:validation:Minimum=1
 	NumberOfNodes int32 `json:"numberOfNodes,omitempty"`
-	// RolloutSurge, when true, rolls a worker by starting its replacement
-	// before retiring the old pod, so the service keeps serving across an
-	// image or template change. It requires a spare GPU per rolling pod: with
-	// none free the replacement stays Pending and the rollout stalls (the old
-	// pod keeps serving, so this degrades rather than breaks). Leave it off on
-	// a GPU-saturated cluster. Ignored for the server, which always surges.
-	// +optional
-	RolloutSurge bool `json:"rolloutSurge,omitempty"`
 	// SkipReadinessProbe, when true, tells the operator NOT to inject its
-	// default /health readiness probe. Use for idle-pod / SSH-managed workers
-	// (e.g. the optimizer create-infera model) whose engine is (re)launched
-	// out-of-band after deploy: a /health probe would never pass at deploy time,
-	// leaving readyReplicas=0 and the InferaDeployment stuck in "pending". +optional
+	// readiness probe. Use for idle-pod / SSH-managed workers (e.g. the
+	// optimizer create-infera model) whose engine is (re)launched out-of-band
+	// after deploy: such a worker never registers, so it never opens its
+	// readiness port, leaving readyReplicas=0 and the InferaDeployment stuck
+	// in "pending". A worker that does serve must NOT set this — without a
+	// probe every pod counts as Ready the moment it is Running, and the
+	// surge rollout then retires the pod that is still serving. +optional
 	SkipReadinessProbe bool `json:"skipReadinessProbe,omitempty"`
 	// Image overrides spec.image for this service. +optional
 	Image string `json:"image,omitempty"`

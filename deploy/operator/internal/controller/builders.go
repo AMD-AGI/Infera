@@ -47,6 +47,15 @@ const (
 	// The worker reads this as the default for --drain-timeout, so it sets the
 	// drain just as effectively as the flag does.
 	drainTimeoutEnvVar = "INFERA_DRAIN_TIMEOUT"
+
+	// Readiness is probed on the worker's own port rather than the engine's
+	// /health. The engine answers as soon as its weights are loaded, which is
+	// before the PD barrier has moved a real KV block and before the worker
+	// has registered -- so a surge rollout keyed on /health retires the pod
+	// that is serving in favour of one the router cannot reach yet. The worker
+	// opens this port after registering and closes it when shutdown begins.
+	workerReadinessPort    int32 = 30090
+	readinessPortEnvVar          = "INFERA_READINESS_PORT"
 )
 
 // drainSeconds parses a worker --drain-timeout value. The worker takes a
@@ -373,8 +382,34 @@ var mainContainerNames = map[string]struct{}{"main": {}, "infera": {}}
 // generations, plus a /health readiness probe for single-node workers (skipped
 // for multi-node LWS groups whose follower ranks > 0 do not serve /health).
 // Existing values are preserved; the grace is only raised, never lowered.
+// hasEnv reports whether the container already declares the named variable.
+func hasEnv(c *corev1.Container, name string) bool {
+	for _, e := range c.Env {
+		if e.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+// readinessPortFor returns the port the worker will open: the container's own
+// INFERA_READINESS_PORT when it carries a usable one, else the default. Read
+// from the container rather than ServiceSpec.Env because an extraPodSpec
+// template is passed through verbatim and is the more specific source.
+func readinessPortFor(c *corev1.Container) int32 {
+	for _, e := range c.Env {
+		if e.Name != readinessPortEnvVar {
+			continue
+		}
+		if n, err := strconv.Atoi(e.Value); err == nil && n > 0 && n < 65536 {
+			return int32(n) //nolint:gosec // bounded above
+		}
+	}
+	return workerReadinessPort
+}
+
 func injectWorkerRolloutDefaults(
-	spec *corev1.PodSpec, idx int, port int32, addReadiness bool,
+	spec *corev1.PodSpec, idx int, addReadiness bool,
 	args []string, env []corev1.EnvVar,
 ) {
 	if idx < 0 || idx >= len(spec.Containers) {
@@ -392,15 +427,32 @@ func injectWorkerRolloutDefaults(
 		args: append(append([]string{}, c.Command...), c.Args...),
 		env:  c.Env,
 	}
+	// The worker resolves its readiness port from the environment, so the
+	// entrypoint -- which operators write by hand -- does not have to change.
+	// A value already on the container wins, and the probe below follows it,
+	// so the two cannot disagree.
+	readyPort := readinessPortFor(c)
+	if !hasEnv(c, readinessPortEnvVar) {
+		c.Env = append(c.Env, corev1.EnvVar{
+			Name:  readinessPortEnvVar,
+			Value: strconv.Itoa(int(readyPort)),
+		})
+	}
 	if addReadiness && c.ReadinessProbe == nil {
-		// SGLang's /health runs a tiny prefill self-check that often takes
-		// >1s, so a 1s probe timeout (the k8s default) flaps the pod between
-		// Ready/NotReady. Use a generous timeout + higher failure threshold so
-		// a healthy-but-busy engine is not marked NotReady.
+		// Probed on the readiness port, not the engine's /health: only the
+		// former means "registered, and the router can reach me". The port
+		// simply is not open before then, so the probe fails closed, which is
+		// what holds a surge rollout back until the replacement can serve.
 		c.ReadinessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt32(port)},
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: "/ready", Port: intstr.FromInt32(readyPort),
+				},
 			},
+			// Weight loading and the PD barrier both happen before the port
+			// opens, and either can take minutes, so the probe has to tolerate
+			// a long stretch of refused connections without ever being fatal.
+			// It is a readiness probe only -- nothing restarts the pod.
 			InitialDelaySeconds: 15,
 			PeriodSeconds:       15,
 			TimeoutSeconds:      10,
@@ -504,7 +556,7 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 	// Graceful rolling-upgrade defaults for worker pods rendered by an external
 	// template: inject readiness/preStop/grace the template omitted.
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		injectWorkerRolloutDefaults(&spec, idx, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
+		injectWorkerRolloutDefaults(&spec, idx, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
@@ -563,7 +615,7 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 	// readiness is skipped for multi-node LWS groups (follower ranks have no
 	// /health). The server (CPU-only) keeps the default fast shutdown.
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		injectWorkerRolloutDefaults(&podSpec, 0, port, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
+		injectWorkerRolloutDefaults(&podSpec, 0, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	tmpl := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
@@ -576,35 +628,27 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) *appsv1.Deployment {
 	reps := replicasOf(svc)
 	lbls := labelsFor(idep.Name, svcName)
-	// Worker services default to surge-free RollingUpdate (maxSurge=0,
-	// maxUnavailable=1): the default RollingUpdate brings up a surge pod first,
-	// which on a GPU-saturated cluster has no free GPU until the old pod is torn
-	// down — so an image change deadlocks (new pod Pending, old never removed).
-	// maxSurge=0 tears an old pod down first (freeing its GPU) before creating
-	// the new one, so it never deadlocks; and unlike Recreate it rolls one pod at
-	// a time, so a multi-replica worker keeps serving (reduced capacity) instead
-	// of a full outage. (A single-replica worker still has an unavoidable gap.)
+	// Worker services roll surge-first (maxSurge=1, maxUnavailable=0): the
+	// replacement is created before the old pod is retired, and the old pod
+	// goes only once the new one is Ready — which, probed on the readiness
+	// port, means it has loaded its weights, passed the PD barrier and
+	// registered. A single-replica worker therefore keeps serving across an
+	// image or template change, which surge-free rolling cannot do.
 	//
-	// RolloutSurge inverts that trade for clusters with a spare GPU:
-	// maxSurge=1/maxUnavailable=0 keeps at least one pod serving for the whole
-	// roll, because the replacement is created first and the old pod is retired
-	// only once the new one is Ready — which for a worker means it passed
-	// /health and, on a prefill, already moved a real KV block to a decode. The
-	// deadlock the default avoids becomes a stall here: with no free GPU the
-	// replacement stays Pending and the old pod keeps serving, so the rollout
-	// does not complete but the service does not drop.
+	// The cost is that a worker holds a whole GPU, so on a saturated cluster
+	// the replacement stays Pending and the rollout does not finish. That is a
+	// stall, not an outage: the old pod keeps serving throughout, and freeing
+	// a GPU lets the roll continue. Choosing a stall over a guaranteed gap is
+	// the whole point — the alternative completes, but drops every request
+	// while the replacement loads its weights.
 	//
 	// Gate on componentType==worker (not the flat Resources.GPU, which is empty
 	// when GPUs are declared inside extraPodSpec); the server (CPU-only) keeps
-	// the default RollingUpdate for zero-downtime surge.
+	// the apps/v1 default, which already surges.
 	strategy := appsv1.DeploymentStrategy{}
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		surge, unavailable := int32(0), int32(1)
-		if svc.RolloutSurge {
-			surge, unavailable = 1, 0
-		}
-		maxSurge := intstr.FromInt32(surge)
-		maxUnavailable := intstr.FromInt32(unavailable)
+		maxSurge := intstr.FromInt32(1)
+		maxUnavailable := intstr.FromInt32(0)
 		strategy = appsv1.DeploymentStrategy{
 			Type: appsv1.RollingUpdateDeploymentStrategyType,
 			RollingUpdate: &appsv1.RollingUpdateDeployment{

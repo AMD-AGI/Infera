@@ -7,6 +7,7 @@ SPDX-License-Identifier: MIT
 package controller
 
 import (
+	"strconv"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -91,7 +92,7 @@ func TestGraceReadsDrainTimeoutFromTheContainerToo(t *testing.T) {
 		Command: []string{"python3", "-m", "infera.engine.sglang"},
 		Args:    []string{"--model-path", "/m", "--drain-timeout", "240"},
 	}}}
-	injectWorkerRolloutDefaults(spec, 0, 8080, false, nil, nil)
+	injectWorkerRolloutDefaults(spec, 0, false, nil, nil)
 	if spec.TerminationGracePeriodSeconds == nil {
 		t.Fatal("grace not set")
 	}
@@ -156,7 +157,7 @@ func TestGraceReadsDrainEnvFromTheContainerToo(t *testing.T) {
 		Name: "main",
 		Env:  []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "240"}},
 	}}}
-	injectWorkerRolloutDefaults(spec, 0, 8080, false, nil, nil)
+	injectWorkerRolloutDefaults(spec, 0, false, nil, nil)
 	if spec.TerminationGracePeriodSeconds == nil {
 		t.Fatal("grace not set")
 	}
@@ -178,7 +179,7 @@ func TestAnInertServiceSpecFlagDoesNotOutrankTheContainer(t *testing.T) {
 		Name: "main",
 		Env:  []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "600"}},
 	}}}
-	injectWorkerRolloutDefaults(spec, 0, 8080, false, []string{"--drain-timeout", "30"}, nil)
+	injectWorkerRolloutDefaults(spec, 0, false, []string{"--drain-timeout", "30"}, nil)
 
 	want := int64(workerPreStopDrainSeconds + 600 + workerTeardownHeadroomSeconds)
 	if got := *spec.TerminationGracePeriodSeconds; got != want {
@@ -195,7 +196,7 @@ func TestTheContainerFlagBeatsAServiceSpecVariable(t *testing.T) {
 		Args: []string{"--drain-timeout=300"},
 	}}}
 	env := []corev1.EnvVar{{Name: drainTimeoutEnvVar, Value: "45"}}
-	injectWorkerRolloutDefaults(spec, 0, 8080, false, nil, env)
+	injectWorkerRolloutDefaults(spec, 0, false, nil, env)
 
 	want := int64(workerPreStopDrainSeconds + 300 + workerTeardownHeadroomSeconds)
 	if got := *spec.TerminationGracePeriodSeconds; got != want {
@@ -367,29 +368,14 @@ func rollingOf(t *testing.T, svc inferav1alpha1.ServiceSpec) (surge, unavailable
 	return ru.MaxSurge.IntVal, ru.MaxUnavailable.IntVal
 }
 
-// The default has to stay surge-free. A worker holds a whole GPU, so a surge
-// pod on a saturated cluster is Pending forever while the old pod is never
-// retired to free the GPU it is waiting for -- the rollout deadlocks.
-func TestWorkersDoNotSurgeByDefault(t *testing.T) {
+// A worker rolls surge-first so a single-replica prefill or decode keeps
+// serving across an upgrade. maxUnavailable must be 0, not merely maxSurge 1
+// -- with maxUnavailable=1 the controller is free to retire the only serving
+// pod before the replacement is Ready, which is the outage this exists to
+// remove.
+func TestWorkersRollSurgeFirst(t *testing.T) {
 	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
 		ComponentType: inferav1alpha1.ComponentTypeWorker,
-	})
-	if surge != 0 {
-		t.Errorf("maxSurge = %d, want 0: a surge pod has no GPU to land on", surge)
-	}
-	if unavailable != 1 {
-		t.Errorf("maxUnavailable = %d, want 1: the old pod must go first to free its GPU", unavailable)
-	}
-}
-
-// RolloutSurge exists for exactly one property: the service keeps serving.
-// maxUnavailable must be 0, not merely maxSurge 1 -- with maxUnavailable=1 the
-// controller is free to retire the only serving pod before the replacement is
-// Ready, which is the outage this setting is meant to remove.
-func TestRolloutSurgeKeepsAPodServing(t *testing.T) {
-	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
-		ComponentType: inferav1alpha1.ComponentTypeWorker,
-		RolloutSurge:  true,
 	})
 	if surge != 1 {
 		t.Errorf("maxSurge = %d, want 1: the replacement must start before the old pod goes", surge)
@@ -400,14 +386,68 @@ func TestRolloutSurgeKeepsAPodServing(t *testing.T) {
 	}
 }
 
-// The server is CPU-only, so it has no GPU to deadlock on and keeps the
-// apps/v1 default (25% surge). Forcing a strategy here would only narrow it.
+// The server is CPU-only and the apps/v1 default already surges. Forcing a
+// strategy here would only narrow it.
 func TestTheServerKeepsTheDefaultStrategy(t *testing.T) {
 	dep := buildDeployment(idepWith(1), "server", inferav1alpha1.ServiceSpec{
 		ComponentType: inferav1alpha1.ComponentTypeServer,
-		RolloutSurge:  true,
 	})
 	if dep.Spec.Strategy.Type != "" || dep.Spec.Strategy.RollingUpdate != nil {
 		t.Errorf("strategy = %+v, want the apps/v1 default", dep.Spec.Strategy)
+	}
+}
+
+// Readiness decides when the old pod may go, so it has to mean "registered",
+// not "sglang answered". The engine's /health is up well before the PD
+// barrier has moved a KV block and before the worker registers; probing it
+// would retire the serving pod in favour of one the router cannot reach.
+func TestReadinessIsProbedOnTheRegistrationPort(t *testing.T) {
+	spec := &corev1.PodSpec{Containers: []corev1.Container{{Name: "main"}}}
+	injectWorkerRolloutDefaults(spec, 0, true, nil, nil)
+
+	p := spec.Containers[0].ReadinessProbe
+	if p == nil || p.HTTPGet == nil {
+		t.Fatal("no readiness probe injected")
+	}
+	if got := p.HTTPGet.Port.IntVal; got != workerReadinessPort {
+		t.Errorf("probe port = %d, want %d (the readiness port, not the engine)",
+			got, workerReadinessPort)
+	}
+	if p.HTTPGet.Path == "/health" {
+		t.Error("probing /health defeats the point: it answers before registration")
+	}
+	// The worker reads the port from the environment, so the two must agree
+	// or the probe polls a port nothing listens on.
+	var env string
+	for _, e := range spec.Containers[0].Env {
+		if e.Name == readinessPortEnvVar {
+			env = e.Value
+		}
+	}
+	if env != strconv.Itoa(int(workerReadinessPort)) {
+		t.Errorf("%s = %q, want %d", readinessPortEnvVar, env, workerReadinessPort)
+	}
+}
+
+// An extraPodSpec template is passed through verbatim and may already pin the
+// port. The probe has to follow it, or it polls a port nothing listens on.
+func TestReadinessProbeFollowsAnOverriddenPort(t *testing.T) {
+	spec := &corev1.PodSpec{Containers: []corev1.Container{{
+		Name: "main",
+		Env:  []corev1.EnvVar{{Name: readinessPortEnvVar, Value: "31234"}},
+	}}}
+	injectWorkerRolloutDefaults(spec, 0, true, nil, nil)
+
+	if got := spec.Containers[0].ReadinessProbe.HTTPGet.Port.IntVal; got != 31234 {
+		t.Errorf("probe port = %d, want the container's own 31234", got)
+	}
+	count := 0
+	for _, e := range spec.Containers[0].Env {
+		if e.Name == readinessPortEnvVar {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("%s appears %d times, want 1", readinessPortEnvVar, count)
 	}
 }

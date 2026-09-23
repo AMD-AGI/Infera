@@ -55,6 +55,7 @@ from infera.engine.decode_barrier import (
 )
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
+from infera.engine.readiness import close_readiness, serve_readiness
 from infera.engine.sglang.args import (
     SglangWorkerArgs,
     no_clear_event_reason,
@@ -762,8 +763,17 @@ async def _run_after_start(
 
     await reg_client.register(config)
     hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
+    # Opened only now, so a rollout waiting on this pod's readiness waits for
+    # a worker the router can actually reach -- the engine's /health has been
+    # answering since before the PD barrier ran.
+    ready_server = await serve_readiness()
 
     await stop.wait()
+
+    # Closed before deregistration rather than after draining: this is the
+    # signal a surge rollout reads, and it should stop claiming readiness the
+    # moment shutdown begins, not once in-flight work has finished.
+    await close_readiness(ready_server)
 
     # Stop the heartbeat before touching the record: it re-asserts registration
     # from config, so a refresh landing after deregistration would put the

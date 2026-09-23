@@ -94,28 +94,6 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, r.refuse(ctx, idep, err)
 	}
 
-	// A surge rollout retires the old pod once the replacement reports Ready,
-	// so it is only as good as that signal. With no readiness probe a pod
-	// counts as Ready the moment it is Running -- which for a worker is long
-	// before its weights are loaded -- and the rollout would remove the pod
-	// that is still serving in favour of one that cannot. That is a worse
-	// outage than the surge-free default it replaced, and a silent one, so the
-	// combination is refused rather than rendered.
-	for _, name := range sortedKeys(idep.Spec.Services) {
-		svc := idep.Spec.Services[name]
-		if !svc.RolloutSurge || !svc.SkipReadinessProbe {
-			continue
-		}
-		err := fmt.Errorf(
-			"service %q sets both rolloutSurge and skipReadinessProbe: a surge rollout "+
-				"retires the old pod once the new one is Ready, and without a probe every "+
-				"pod is Ready while still starting. Drop skipReadinessProbe to surge, or "+
-				"drop rolloutSurge to keep the surge-free rollout",
-			name,
-		)
-		return ctrl.Result{}, r.refuse(ctx, idep, err)
-	}
-
 	// 0. Kubernetes-native discovery RBAC: a namespaced ServiceAccount + Role so
 	// workers can patch their own Pod annotation and the server can list/watch
 	// this deployment's worker Pods (no external etcd).
