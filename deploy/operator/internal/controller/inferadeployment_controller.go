@@ -91,19 +91,29 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				"deployments outside Kubernetes",
 			idep.Spec.DiscoveryBackend,
 		)
-		lg.Error(err, "refusing to reconcile")
-		idep.Status.ObservedGeneration = idep.Generation
-		idep.Status.State = inferav1alpha1.StateFailed
-		if uerr := r.Status().Update(ctx, idep); uerr != nil {
-			lg.Error(uerr, "status update failed")
+		return ctrl.Result{}, r.refuse(ctx, idep, err)
+	}
+
+	// A surge rollout retires the old pod once the replacement reports Ready,
+	// so it is only as good as that signal. With no readiness probe a pod
+	// counts as Ready the moment it is Running -- which for a worker is long
+	// before its weights are loaded -- and the rollout would remove the pod
+	// that is still serving in favour of one that cannot. That is a worse
+	// outage than the surge-free default it replaced, and a silent one, so the
+	// combination is refused rather than rendered.
+	for _, name := range sortedKeys(idep.Spec.Services) {
+		svc := idep.Spec.Services[name]
+		if !svc.RolloutSurge || !svc.SkipReadinessProbe {
+			continue
 		}
-		// Wrapped as terminal so it is recorded once and dropped. A plain error
-		// is re-queued with exponential backoff and retried forever, and no
-		// amount of retrying edits a spec field -- it would only produce two
-		// error logs and a status write per attempt, with
-		// reconcile_errors_total climbing until someone changes the CR. Editing
-		// the CR re-triggers reconciliation on its own.
-		return ctrl.Result{}, reconcile.TerminalError(err)
+		err := fmt.Errorf(
+			"service %q sets both rolloutSurge and skipReadinessProbe: a surge rollout "+
+				"retires the old pod once the new one is Ready, and without a probe every "+
+				"pod is Ready while still starting. Drop skipReadinessProbe to surge, or "+
+				"drop rolloutSurge to keep the surge-free rollout",
+			name,
+		)
+		return ctrl.Result{}, r.refuse(ctx, idep, err)
 	}
 
 	// 0. Kubernetes-native discovery RBAC: a namespaced ServiceAccount + Role so
@@ -188,6 +198,26 @@ func (r *InferaDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 	return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
+}
+
+// refuse records a spec the operator will not render and stops reconciling it.
+//
+// Wrapped as terminal so it is recorded once and dropped. A plain error is
+// re-queued with exponential backoff and retried forever, and no amount of
+// retrying edits a spec field -- it would only produce two error logs and a
+// status write per attempt, with reconcile_errors_total climbing until someone
+// changes the CR. Editing the CR re-triggers reconciliation on its own.
+func (r *InferaDeploymentReconciler) refuse(
+	ctx context.Context, idep *inferav1alpha1.InferaDeployment, err error,
+) error {
+	lg := log.FromContext(ctx)
+	lg.Error(err, "refusing to reconcile")
+	idep.Status.ObservedGeneration = idep.Generation
+	idep.Status.State = inferav1alpha1.StateFailed
+	if uerr := r.Status().Update(ctx, idep); uerr != nil {
+		lg.Error(uerr, "status update failed")
+	}
+	return reconcile.TerminalError(err)
 }
 
 // applyObject create-or-updates a typed object, setting the owner reference.
