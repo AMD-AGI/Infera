@@ -1,0 +1,18 @@
+{
+  "released_utc": "2026-09-23T22:53:16.660942+00:00",
+  "last_verified_gpu_gib": [
+    0.277,
+    0.277,
+    0.277,
+    0.277,
+    0.277,
+    0.277,
+    0.277,
+    0.277
+  ],
+  "host_memory": {
+    "MemAvailable": 3137132126208,
+    "Shmem": 31985123328
+  },
+  "raw_evidence": "events.jsonl"
+}

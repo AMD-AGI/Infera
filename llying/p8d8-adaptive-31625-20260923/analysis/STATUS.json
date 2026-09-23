@@ -1,10 +1,10 @@
 {
-  "updated_utc": "2026-09-23T22:45:48.614339+00:00",
+  "updated_utc": "2026-09-23T22:56:38.777081+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n04-29",
   "decode": "smci355-ccs-aus-n04-25",
   "current_case": null,
-  "stage": "VALIDATION_BLOCKED_REPLACEMENT_CANCELLED_BY_UID0",
+  "stage": "NO_ACTIVE_BENCHMARK_AWAITING_CANCELLATION_CLARIFICATION",
   "next_cases": [],
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
@@ -36,5 +36,8 @@
   "lease_end_utc": "2026-09-24T01:40:43Z",
   "cleanup_job_id": 31644,
   "replacement_job_id": 31679,
-  "replacement_state": "CANCELLED by 0"
+  "replacement_state": "CANCELLED by 0",
+  "cleanup_complete": true,
+  "cleanup_released_utc": "2026-09-23T22:53:16.660942+00:00",
+  "active_allocations": []
 }

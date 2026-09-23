@@ -2,14 +2,15 @@
 
 用户最新要求：**沿用已完成基线，直接运行优化配置和后续单变量优化，不再反复运行基线/回滚任务。** 仅使用管理员已分配的QOS权限。完整结果与历史决策见 [analysis/RESULTS.zh-CN.md](analysis/RESULTS.zh-CN.md)，实时摘要见 [analysis/STATUS.json](analysis/STATUS.json)。
 
-## 当前运行
+## 当前状态
 
-- job31644，restart3，QOS=batch，Compute-DCPT；21:10:43 UTC重新获得相同节点，租期到2026-09-24 01:40:43 UTC。
-- P：smci355-ccs-aus-n04-29 / 10.235.192.57；D：smci355-ccs-aus-n04-25 / 10.235.192.131。
-- G3：`runs/g3-guard-completion`，GUARD_MODE=completion，21:16:07 UTC开始加载P/D。无后续baseline任务。
-- 运行根：`/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923`。
-- 13个完成AITER库已保存共享bundle，并安装到两节点独立的本地cache。11个可核对旧hash的库均与A0 seed一致，另外2个旧记录没有hash。
-- 节点网络驱动不同：P ionic26.07.9.001、D26.03.3.001；跨节点结果须记录此限制。
+- 当前没有在运行的benchmark。后续优化验证被节点启动故障及替代作业取消阻塞。
+- job31644已在22:53:16 UTC确认n04-33内存释放门槛通过后取消归还；当前无活动benchmark或本轮活动分配。
+- 原账户emad/Compute-DCPT/batch的替代job31679于22:33:53获得n01-33/n05-21，22:36:09被UID0取消，未启动模型。取消原因未提供，等待澄清，不重复提交或切账户绕过。
+- xiewen12账户仅做过test-only资源检查，尚未得到切换额度的确认，也未实际提交该账户作业。
+- G4中n04-33上的Prefill正常就绪；n04-29换成Decode仍复现HIP stream段错误。n04-29已从替代节点请求中排除，没有修改其驱动或底层GPU执行逻辑。
+- 16个完成AITER库已保存在共享bundle，后续可恢复到全新的本地cache；镜像、模型、客户端constraint与优化配置均已保存。
+- 运行根：`/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923`。详细状态见analysis/STATUS.json与RESULTS.zh-CN.md。
 
 ## 已有结果
 
@@ -25,7 +26,7 @@ A1在profiling约3分钟时被抢占，正式段作废；其完整warmup已单�
 
 本目录是campaign覆盖层；公共helpers与bench-harness来自同仓库旧tracing目录。analysis/runtime-script-manifest.json记录运行脚本SHA256和仓库源文件；materialize_scripts.py可在空目录重建脚本，拒绝覆盖已有目录或源文件漂移。模型、固定诊断镜像、InferenceX checkout和基础配置仍是独立依赖，其路径/revision见各case验证记录。
 
-新的优化入口是scripts/run_optimized_case.sh：使用CONFIG指定配置，fresh/reuse选择相应入口，只接受completion模式；先等待固定镜像，再采集、分析、审计。通过脚本文件启动并关闭stdin，避免嵌套SSH消耗heredoc后续命令。当前G3为fresh启动。
+新的优化入口是scripts/run_optimized_case.sh：使用CONFIG指定配置，fresh/reuse选择相应入口，只接受completion模式；先等待固定镜像，再采集、分析、审计。通过脚本文件启动并关闭stdin，避免嵌套SSH消耗heredoc后续命令。G4使用fresh启动，但未进入benchmark。
 
 统一采集包括：分配与配置检查、smoke、逻辑cache reset、884条warmup、3600秒C80、独立采样、诊断关联、日志模式与进程身份审计。需要改变引擎参数时重新启动相应服务，不把模型重新加载混入正式计时。
 
