@@ -109,15 +109,18 @@ MAX_PENDING_ENV = "INFERA_NATS_REQ_MAX_PENDING"
 # for the *next* reply chunk (covers first-byte / TTFT and inter-chunk stalls;
 # reset on every chunk, so a steadily-streaming long request never trips it —
 # this is NOT an overall request deadline, see MAX_DURATION_ENV for that). On
-# expiry the router returns 504 and signals the worker to abort. The default
-# sits just under the 300s idle timeout the Anthropic and OpenAI SDKs ship with,
-# so a stall ends as a 504 the router chose rather than a silence the client
-# gives up on, and the worker's slot is reclaimed inside that window. It stays
-# close to that 300s on purpose: the wait before the first chunk covers
-# admission, and cutting earlier would fail requests that were still going to
-# answer. Set 0 to disable (wait forever).
+# expiry the router returns 504 and signals the worker to abort.
+#
+# Off by default: ending a silent stream is the caller's decision, and cutting
+# first would fail requests that were still going to answer -- the wait before
+# the first chunk covers admission, which a saturated decode queue has been
+# measured holding for 200s at the 99th percentile, while a caller's own timer
+# resets on their first token. A caller that does give up disconnects, which
+# already reclaims the slot. The Rust router reports such a stall instead
+# (INFERA_STREAM_ADMISSION_WARN / INFERA_STREAM_STALL_WARN). Set > 0 only where
+# a caller with no timeout of its own would otherwise wait forever.
 IDLE_TIMEOUT_ENV = "INFERA_NATS_REQ_IDLE_TIMEOUT"
-DEFAULT_IDLE_TIMEOUT_S = 290
+DEFAULT_IDLE_TIMEOUT_S = 0
 
 # Subject a worker listens on for "abort this in-flight request" signals; the
 # payload is the request's reply inbox (already unique per request).

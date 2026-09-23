@@ -84,10 +84,11 @@ pub struct Config {
 
     /// Seconds to wait for the *next* reply chunk before giving up on a
     /// request. Reset on every chunk, so a long generation that keeps producing
-    /// tokens never trips it -- only a stall does. 0 disables it. Expiry is a
-    /// 504, which scores the worker. Kept equal to the HTTP half below so a
-    /// stall is bounded the same way whichever transport carried it.
-    #[arg(long, default_value_t = 290.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
+    /// tokens never trips it -- only a stall does. Expiry is a 504, which
+    /// scores the worker. 0 (the default) disables it, matching the HTTP half
+    /// below: a stall is reported rather than ended, since the caller owns that
+    /// decision on either transport.
+    #[arg(long, default_value_t = 0.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
     pub nats_req_idle_timeout_s: f64,
 
     /// Hard cap on a whole request's wall clock regardless of token flow, for
@@ -102,24 +103,36 @@ pub struct Config {
     #[arg(long, default_value_t = 0, env = "INFERA_NATS_REQ_MAX_PENDING")]
     pub nats_req_max_pending: usize,
 
+    /// Seconds a stream may go without its *first* byte before the router
+    /// reports it, with the worker and request id. 0 disables the reporting.
+    ///
+    /// This window is admission -- queueing, prefill, and the KV transfer --
+    /// which a saturated decode queue has been measured holding for 200s at the
+    /// 99th percentile, so the default sits above that rather than reporting
+    /// every queued request as a fault.
+    #[arg(long, default_value_t = 240.0, env = "INFERA_STREAM_ADMISSION_WARN")]
+    pub stream_admission_warn_s: f64,
+
+    /// Seconds a stream that has already produced bytes may go silent before
+    /// the router reports it. 0 disables the reporting.
+    ///
+    /// Much shorter than the admission window above: a generation under way
+    /// emits tokens tens of milliseconds apart, so this silence is a fault
+    /// rather than a queue.
+    ///
+    /// Reporting only, on both windows: the stream keeps waiting, because
+    /// ending it early would fail requests that were still going to answer,
+    /// and a caller that does give up disconnects -- which already reclaims
+    /// the slot without the router deciding for it.
+    #[arg(long, default_value_t = 60.0, env = "INFERA_STREAM_STALL_WARN")]
+    pub stream_stall_warn_s: f64,
+
     /// Seconds to wait for the *next* body chunk from a worker over HTTP before
-    /// giving up. Reset on every chunk, so a long generation that keeps
-    /// producing tokens never trips it -- only a stall does. 0 disables it.
-    ///
-    /// The default sits just under the 300s idle timeout the Anthropic and
-    /// OpenAI SDKs ship with, so a stalled stream ends as an error the router
-    /// chose rather than a silence the client eventually gives up on -- which
-    /// also releases the engine slot instead of holding it for the client's
-    /// window.
-    ///
-    /// Deliberately close to that 300s rather than comfortably below it: the
-    /// gap before the first byte covers admission, and a decode queue under
-    /// saturation has been measured at 200s at the 99th percentile. Cutting
-    /// earlier would fail requests that were still going to answer, since the
-    /// client's own timer resets on their first token. The cost is that only
-    /// the remaining margin is left for the error to cross the hops in
-    /// between; a deployment that needs more can raise this.
-    #[arg(long, default_value_t = 290.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
+    /// failing the stream. Reset on every chunk. 0 (the default) disables it,
+    /// leaving `--stream-stall-warn-s` to report a stall without ending a
+    /// request the caller has not given up on. Set it only where a caller with
+    /// no timeout of its own would otherwise hold a stream open indefinitely.
+    #[arg(long, default_value_t = 0.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
     pub http_req_idle_timeout_s: f64,
 
     /// Seconds to wait for a detached PD prefill POST before aborting it.
@@ -273,26 +286,42 @@ mod tests {
         assert_eq!(c.router_policy, "round-robin");
     }
 
-    /// Both transports bound a stall before the caller abandons the stream.
-    /// Raising either past the SDK window hands the stall back to the client
-    /// and keeps the worker's slot for the whole of that window.
+    /// A stall has to be reported inside the window a caller waits, or the only
+    /// record of it is the caller's own timeout -- which is what made a stalled
+    /// stream diagnosable solely from the client side.
     #[test]
-    fn an_idle_timeout_fires_before_a_client_gives_up() {
+    fn a_stall_is_reported_before_a_caller_gives_up() {
         const SDK_IDLE_TIMEOUT_S: f64 = 300.0;
         let c = Config::try_parse_from(["infera-router"]).unwrap();
-        for (transport, idle) in [
-            ("http", c.http_req_idle_timeout_s),
-            ("nats", c.nats_req_idle_timeout_s),
+        for (phase, warn) in [
+            ("admission", c.stream_admission_warn_s),
+            ("mid-stream", c.stream_stall_warn_s),
         ] {
             assert!(
-                idle > 0.0 && idle < SDK_IDLE_TIMEOUT_S,
-                "{transport} idle timeout is {idle}"
+                warn > 0.0 && warn < SDK_IDLE_TIMEOUT_S,
+                "{phase} reporting is {warn}"
             );
         }
-        assert_eq!(
-            c.http_req_idle_timeout_s, c.nats_req_idle_timeout_s,
-            "a stall must be bounded the same way on either transport"
-        );
+    }
+
+    /// Admission covers a queue measured at 200s at the 99th percentile, so
+    /// reporting it on the mid-stream window would call every queued request a
+    /// fault. A generation under way emits tokens milliseconds apart.
+    #[test]
+    fn admission_is_given_a_longer_window_than_a_live_stream() {
+        let c = Config::try_parse_from(["infera-router"]).unwrap();
+        assert!(c.stream_admission_warn_s > 200.0);
+        assert!(c.stream_stall_warn_s < c.stream_admission_warn_s);
+    }
+
+    /// Ending a stalled stream is the caller's call: it disconnects, which
+    /// already reclaims the slot. Cutting first would fail requests still
+    /// waiting on admission, which outlasts a saturated decode queue.
+    #[test]
+    fn neither_transport_ends_a_stalled_stream_by_default() {
+        let c = Config::try_parse_from(["infera-router"]).unwrap();
+        assert_eq!(c.http_req_idle_timeout_s, 0.0);
+        assert_eq!(c.nats_req_idle_timeout_s, 0.0);
     }
 
     #[test]

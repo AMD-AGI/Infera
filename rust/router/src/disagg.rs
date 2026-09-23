@@ -216,6 +216,7 @@ async fn stream_dual(
                     path: path.to_string(),
                     worker_id: d.worker.worker_id.clone(),
                     request_id: rid_for_log,
+                    stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_stream_owns_it.take(),
             )))
@@ -501,6 +502,7 @@ async fn dual_nats(
                     path: path.to_string(),
                     worker_id: d.worker.worker_id.clone(),
                     request_id: rid_for_log,
+                    stall_warn: state.stream_stall_warn,
                 },
                 Some(incomplete_tx),
             ),

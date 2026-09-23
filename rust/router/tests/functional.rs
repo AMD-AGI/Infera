@@ -225,6 +225,10 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
         pd_prefill_drain_timeout: Duration::from_secs(300),
+        stream_stall_warn: infera_router::proxy::StallWarn {
+            before_first_byte: Duration::from_secs(240),
+            mid_stream: Duration::from_secs(60),
+        },
     }
 }
 
@@ -380,6 +384,10 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
         pd_prefill_drain_timeout: Duration::from_secs(300),
+        stream_stall_warn: infera_router::proxy::StallWarn {
+            before_first_byte: Duration::from_secs(240),
+            mid_stream: Duration::from_secs(60),
+        },
     }
 }
 

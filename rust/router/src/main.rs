@@ -158,6 +158,10 @@ async fn main() -> anyhow::Result<()> {
         breaker,
         nats,
         pd_prefill_drain_timeout: Duration::from_secs_f64(cfg.pd_prefill_drain_timeout_s.max(0.0)),
+        stream_stall_warn: proxy::StallWarn {
+            before_first_byte: Duration::from_secs_f64(cfg.stream_admission_warn_s.max(0.0)),
+            mid_stream: Duration::from_secs_f64(cfg.stream_stall_warn_s.max(0.0)),
+        },
     };
 
     // A worker that reached the broker registers itself as `nats`, and one that

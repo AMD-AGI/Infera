@@ -8,6 +8,7 @@
 //! `Body::from_stream`, so per-token work runs on Tokio's threads, not ours.
 
 use std::collections::HashSet;
+use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -97,6 +98,8 @@ pub(crate) struct StreamSource {
     pub(crate) worker_id: String,
     /// Empty on the mixed paths, where no protocol forges a request id.
     pub(crate) request_id: String,
+    /// Windows after which a silent stream is reported. Zero reports nothing.
+    pub(crate) stall_warn: StallWarn,
 }
 
 impl StreamSource {
@@ -108,6 +111,98 @@ impl StreamSource {
             %error,
             "worker stream failed mid-body"
         );
+    }
+
+    fn log_stall(&self, silent_for: Duration, mid_stream: bool) {
+        tracing::warn!(
+            worker = %self.worker_id,
+            request_id = %self.request_id,
+            path = %self.path,
+            silent_for_s = silent_for.as_secs(),
+            phase = if mid_stream { "mid-stream" } else { "awaiting first byte" },
+            "worker stream is silent; still waiting"
+        );
+    }
+}
+
+/// How long a stream may stay silent before the router reports it.
+///
+/// Split because the two silences differ by orders of magnitude and only one
+/// of them is a fault. The wait before the first byte is admission, which a
+/// saturated decode queue has been measured holding for 200s at the 99th
+/// percentile; a generation already under way emits tokens tens of
+/// milliseconds apart, so the same window there would report a stall long
+/// after it mattered. Either may be zero to report nothing for that phase.
+#[derive(Clone, Copy, Default)]
+pub struct StallWarn {
+    pub before_first_byte: Duration,
+    pub mid_stream: Duration,
+}
+
+/// Reports a stream that has gone quiet, without ending it.
+///
+/// Polled on the pending path, so its timer is what wakes the task when no
+/// bytes arrive -- nothing else runs during a stall, which is why a stall was
+/// previously only observable once it ended. Each elapsed period is reported
+/// and the timer re-armed, so a long one leaves a trail of its cumulative
+/// silence rather than a single line.
+struct StallWatch {
+    warn: StallWarn,
+    seen_bytes: bool,
+    timer: Pin<Box<tokio::time::Sleep>>,
+    silent_for: Duration,
+}
+
+impl StallWatch {
+    fn new(warn: StallWarn) -> Option<Self> {
+        if warn.before_first_byte.is_zero() && warn.mid_stream.is_zero() {
+            return None;
+        }
+        let mut watch = StallWatch {
+            warn,
+            seen_bytes: false,
+            timer: Box::pin(tokio::time::sleep(Duration::ZERO)),
+            silent_for: Duration::ZERO,
+        };
+        watch.rearm();
+        Some(watch)
+    }
+
+    /// The window for the phase this stream is in.
+    fn period(&self) -> Duration {
+        if self.seen_bytes {
+            self.warn.mid_stream
+        } else {
+            self.warn.before_first_byte
+        }
+    }
+
+    /// The stream is alive, and past admission: the shorter window applies now.
+    fn saw_bytes(&mut self) {
+        self.seen_bytes = true;
+        self.silent_for = Duration::ZERO;
+        self.rearm();
+    }
+
+    /// Cumulative silence and whether it is mid-stream, once another period has
+    /// passed with no bytes.
+    fn poll_stalled(&mut self, cx: &mut Context<'_>) -> Option<(Duration, bool)> {
+        let period = self.period();
+        if period.is_zero() || self.timer.as_mut().poll(cx).is_pending() {
+            return None;
+        }
+        self.silent_for += period;
+        self.rearm();
+        Some((self.silent_for, self.seen_bytes))
+    }
+
+    fn rearm(&mut self) {
+        let period = self.period();
+        if period.is_zero() {
+            return;
+        }
+        let deadline = tokio::time::Instant::now() + period;
+        self.timer.as_mut().reset(deadline);
     }
 }
 
@@ -126,6 +221,7 @@ pub(crate) struct GuardedStream {
     failed: bool,
     // Only tracked for an `on_end` stream; `None` keeps EOF meaning completion.
     done: Option<DoneMarker>,
+    stall: Option<StallWatch>,
     source: StreamSource,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 }
@@ -157,6 +253,7 @@ impl GuardedStream {
             completed: false,
             failed: false,
             done: on_end.as_ref().map(|_| DoneMarker::for_path(&source.path)),
+            stall: StallWatch::new(source.stall_warn),
             source,
             on_end,
         }
@@ -171,6 +268,9 @@ impl Stream for GuardedStream {
         let out = this.inner.as_mut().poll_next(cx);
         match &out {
             Poll::Ready(Some(Ok(chunk))) => {
+                if let Some(stall) = this.stall.as_mut() {
+                    stall.saw_bytes();
+                }
                 if let Some(done) = this.done.as_mut() {
                     done.feed(chunk);
                     // The client holds the whole answer as soon as the
@@ -190,7 +290,13 @@ impl Stream for GuardedStream {
                 let terminated = this.done.as_ref().is_none_or(|d| d.seen);
                 this.completed = !this.failed && terminated;
             }
-            _ => {}
+            Poll::Pending => {
+                if let Some((silent_for, mid)) =
+                    this.stall.as_mut().and_then(|s| s.poll_stalled(cx))
+                {
+                    this.source.log_stall(silent_for, mid);
+                }
+            }
         }
         out
     }
@@ -231,6 +337,7 @@ async fn attempt_nats(
     raw: &Bytes,
     stream: bool,
     path: &str,
+    stall_warn: StallWarn,
     guard: ActiveGuard,
 ) -> AttemptResult {
     use crate::nats_request::Frame;
@@ -430,7 +537,8 @@ async fn attempt_nats(
             StreamSource {
                 path: path.to_string(),
                 worker_id: wid,
-                ..Default::default()
+                request_id: String::new(),
+                stall_warn,
             },
         )))
         .expect("stream response is valid"))
@@ -449,6 +557,7 @@ pub(crate) struct GuardedBody {
     // Only tracked for an `on_end` body; the frame protocol carries its own
     // terminator, so the marker only makes completion observable earlier.
     done: Option<DoneMarker>,
+    stall: Option<StallWatch>,
     source: StreamSource,
     on_end: Option<oneshot::Sender<StreamEnd>>,
 }
@@ -475,6 +584,7 @@ pub(crate) fn guarded_with_incomplete_abort(
         completed: false,
         failed: false,
         done: on_end.as_ref().map(|_| DoneMarker::for_path(&source.path)),
+        stall: StallWatch::new(source.stall_warn),
         source,
         on_end,
     }
@@ -487,6 +597,9 @@ impl Stream for GuardedBody {
         let out = this.inner.as_mut().poll_next(cx);
         match &out {
             Poll::Ready(Some(Ok(chunk))) => {
+                if let Some(stall) = this.stall.as_mut() {
+                    stall.saw_bytes();
+                }
                 if let Some(done) = this.done.as_mut() {
                     done.feed(chunk);
                     // Same race as the HTTP leg: the client can drop the body
@@ -500,7 +613,13 @@ impl Stream for GuardedBody {
                 this.source.log_failure(error);
             }
             Poll::Ready(None) => this.completed = !this.failed,
-            _ => {}
+            Poll::Pending => {
+                if let Some((silent_for, mid)) =
+                    this.stall.as_mut().and_then(|s| s.poll_stalled(cx))
+                {
+                    this.source.log_stall(silent_for, mid);
+                }
+            }
         }
         out
     }
@@ -695,7 +814,16 @@ async fn attempt(
     // otherwise NATS.
     if worker.request_transport == "nats" {
         if let Some(nats) = state.nats.clone() {
-            return attempt_nats(&nats, target, raw, stream, path, guard).await;
+            return attempt_nats(
+                &nats,
+                target,
+                raw,
+                stream,
+                path,
+                state.stream_stall_warn,
+                guard,
+            )
+            .await;
         }
         return Err(Box::new(json_error(
             StatusCode::BAD_GATEWAY,
@@ -747,7 +875,8 @@ async fn attempt(
                 StreamSource {
                     path: path.to_string(),
                     worker_id: worker.worker_id.clone(),
-                    ..Default::default()
+                    request_id: String::new(),
+                    stall_warn: state.stream_stall_warn,
                 },
             )))
             .expect("stream response is valid"))
@@ -788,6 +917,7 @@ mod tests {
             path: path.to_string(),
             worker_id: "w1".to_string(),
             request_id: "infera-1".to_string(),
+            stall_warn: StallWarn::default(),
         }
     }
 
@@ -956,6 +1086,67 @@ mod tests {
         assert!(out.contains("w1"), "{out}");
         assert!(out.contains("infera-1"), "{out}");
         assert!(out.contains("/v1/messages"), "{out}");
+    }
+
+    /// A caller that has not given up is still owed its answer, so a stall is
+    /// reported and then waited out. Ending it here would fail requests that
+    /// are only slow to be admitted, and a caller that does give up
+    /// disconnects, which reclaims the slot without this deciding for it.
+    #[tokio::test(start_paused = true)]
+    async fn a_stalled_stream_is_reported_but_not_ended() {
+        let logs = Captured::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(logs.clone())
+            .with_ansi(false)
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        let mut src = source("/v1/messages");
+        src.stall_warn = StallWarn {
+            before_first_byte: Duration::from_secs(240),
+            mid_stream: Duration::from_secs(60),
+        };
+        // Never yields: the stream stays pending for as long as it is polled.
+        let inner = futures::stream::pending::<reqwest::Result<Bytes>>();
+        let mut stream = GuardedStream::new(inner, guard(), src);
+
+        // No byte has arrived, so the admission window applies: two of those,
+        // then a third poll that is still pending.
+        for _ in 0..2 {
+            assert!(
+                futures::poll!(stream.next()).is_pending(),
+                "a stall must not end the stream"
+            );
+            tokio::time::advance(Duration::from_secs(240)).await;
+        }
+        assert!(futures::poll!(stream.next()).is_pending());
+
+        let out = String::from_utf8(logs.0.lock().expect("the capture buffer").clone())
+            .expect("the log is utf-8");
+        assert!(out.contains("still waiting"), "{out}");
+        assert!(out.contains("awaiting first byte"), "{out}");
+        assert!(out.contains("silent_for_s=240"), "{out}");
+        assert!(out.contains("silent_for_s=480"), "{out}");
+        assert!(out.contains("infera-1"), "{out}");
+    }
+
+    /// Reporting is opt-in: a zero period arms no timer at all.
+    #[tokio::test(start_paused = true)]
+    async fn stall_reporting_is_off_when_the_period_is_zero() {
+        let logs = Captured::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_writer(logs.clone())
+            .with_ansi(false)
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        let inner = futures::stream::pending::<reqwest::Result<Bytes>>();
+        let mut stream = GuardedStream::new(inner, guard(), source("/v1/messages"));
+        assert!(futures::poll!(stream.next()).is_pending());
+        tokio::time::advance(Duration::from_secs(600)).await;
+        assert!(futures::poll!(stream.next()).is_pending());
+
+        assert!(logs.0.lock().expect("the capture buffer").is_empty());
     }
 
     /// A transport error, built without opening a socket: reqwest rejects the

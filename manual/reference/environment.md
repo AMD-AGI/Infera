@@ -59,8 +59,10 @@ checklist and the RDMA self-check.
 | Env | Default | What it does |
 |---|---|---|
 | `NATS_SERVER` / `NATS_URL` | *(injected by operator)* | NATS broker address when `--request-transport nats`. |
-| `INFERA_NATS_REQ_IDLE_TIMEOUT` | `290` (s) | Max wait for the next reply chunk; expiry → 504 + cancel. `0` = forever. |
-| `INFERA_HTTP_REQ_IDLE_TIMEOUT` | `290` (s) | Same, for `--request-transport http`; expiry fails the stream. `0` = forever. |
+| `INFERA_NATS_REQ_IDLE_TIMEOUT` | `0` (off) | Max wait for the next reply chunk; expiry → 504 + cancel. |
+| `INFERA_HTTP_REQ_IDLE_TIMEOUT` | `0` (off) | Same, for `--request-transport http`; expiry fails the stream. |
+| `INFERA_STREAM_ADMISSION_WARN` | `240` (s) | Log a stream still awaiting its first byte, with worker + request id. Reports only. |
+| `INFERA_STREAM_STALL_WARN` | `60` (s) | Log a stream that went silent after producing bytes. Reports only. |
 | `INFERA_NATS_REQ_MAX_DURATION` | `0` (off) | Hard wall-clock cap on a whole request. |
 | `INFERA_NATS_REQ_MAX_PENDING` | `0` (off) | Per-worker admission limit; backlog at the cap → 429. |
 | `INFERA_REQUEST_MAX_RETRIES` | `1` | Retry on an alternate worker before the first token (never mid-stream). `0` = fail fast. |

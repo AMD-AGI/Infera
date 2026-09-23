@@ -44,6 +44,9 @@ pub struct AppState {
     pub nats: Option<Arc<crate::nats_request::NatsRequestClient>>,
     /// Wall-clock cap on a detached PD prefill POST. 0 means no cap.
     pub pd_prefill_drain_timeout: Duration,
+    /// Windows after which a silent stream is reported. Observability only:
+    /// the stream keeps waiting, because ending it is the caller's decision.
+    pub stream_stall_warn: crate::proxy::StallWarn,
 }
 
 pub fn app(state: AppState) -> Router {
