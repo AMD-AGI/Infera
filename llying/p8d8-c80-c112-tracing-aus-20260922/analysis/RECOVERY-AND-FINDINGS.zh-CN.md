@@ -2,6 +2,8 @@
 
 更新：2026-09-23。本报告重写早期恢复摘要，使用本次正式实验的逐请求记录、OTLP、独立资源采样，以及从**本次诊断镜像归档中提取**的 SGLang 源码。没有为本报告重新启动服务或执行干预实验。
 
+后续专题：[Dynamo 调度与缓存调研及联合优化方案](DYNAMO-SCHEDULING-AND-CACHE-RESEARCH.zh-CN.md)。该文的本地证据审计与 debug 方案已完成，Dynamo 当前版本源码核验因网络审批服务故障尚未完成；其中同时纳入了后续 8K 实验复核，不应将本报告中的历史候选方案视为全部尚未验证。
+
 ## 1. 结论：C80 限制在哪里，哪些还不能称为根因
 
 **C80 的主要排队限制在 Prefill 的服务/调度路径，优先解释是：重尾 miss 工作在每 rank 4K chunk、未完成请求优先续跑的执行方式下，形成较长的服务占用和新请求等待。当前证据不支持把 C80 的主要瓶颈归为 Decode KV 总容量不足，也不支持 Prefill 活跃 KV 把物理池占满。**
@@ -360,8 +362,11 @@ C80/C112有10.61%/52.00%的完整scrape同时出现某rank KV≥90%、另一rank
 | 2：P缓存工作集损失导致重算 | 保持chunk/route，仅P mem_fraction_static 0.85→0.90；固定host绝对容量 | 实际P KV容量增加，匹配trace的miss减少、P服务需求/queue下降 | 容量增加但miss不变，或miss下降却吞吐无改善，说明另有主要固定成本 |
 | 3：host容量/回读是限制 | 仅host绝对容量约+33%，或在匹配负载下切换一个已支持I/O backend | eviction/miss或回读设备时间下降，与P服务改善对应 | 只有host占比改变但P服务不变；必须避免同时改host大小与backend |
 | 4：D局部KV admission是主因 | 仅D mem_fraction_static 0.85→0.90，P不变 | D allocation长尾下降；若是主因，P queue及完成率应明显改善 | allocation改善但C80 P queue/吞吐不变，支持D是次要放大器 |
-| 5：P chunk续跑造成不公平 | 在同等chunk/budget下，仅改候选顺序/给新短请求保留小份额 | 短请求queue降低、长请求尾部受控；总miss和cache hit没有明显变差 | 仅重分配延迟，吞吐无收益或长请求starvation加剧 |
-| 6：D路由估计不准 | 先shadow实际KV-aware选择，再只切D选择策略 | 可接纳的替代rank比例可量化，阻塞token-seconds降低 | 大多替代rank也不符合完整budget；“占用不均”未转化为可用容量 |
+| 5：D路由估计不准 | 先shadow实际KV-aware选择，再只切D选择策略 | 可接纳的替代rank比例可量化，阻塞token-seconds降低 | 大多替代rank也不符合完整budget；“占用不均”未转化为可用容量 |
+
+**2026-09-23 验证计划调整：移除“改变 chunk 续跑顺序／给新短请求保留份额”的单变量实验，当前不执行。** 续跑优先仍是解释新请求等待的已确认机制，但不能由此推导出改变公平性会提高系统吞吐。在同等计算预算下，给短请求让出份额可能只是在请求之间重新分配延迟，同时延长长请求在 D 已分配输入 KV 上的等待；若这些请求输入较大，其额外 token-seconds 可能加重局部 prealloc 阻塞，并反馈到 P bootstrap 和后续调度。优先验证减少实际服务成本或 miss 工作量的方案，而非仅调整服务顺序。
+
+这项取舍不是“改顺序必然变差”的实验证明：短请求的 miss 少不等于完整输入短，提前完成短请求也可能抵消部分驻留成本，净效果取决于输入长度、剩余计算、输出寿命及 rank 分布。P 完成只让 D 从等待转入生成，并不立即释放 D KV；应看请求最终完成前的总驻留。现有证据不足以支持该实验的优先级，因此从当前计划移除，不能把短请求 queue 改善单独当作系统收益。
 
 P mem_fraction上调会通过hicache_ratio自动增加host池，因此第2项必须把host绝对容量固定，或相应调整ratio；否则同时改变了两种容量。改变static fraction还改变workspace余量，必须记录实际容量和是否发生allocator/retraction异常。
 

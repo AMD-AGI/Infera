@@ -1,0 +1,258 @@
+{
+  "source": "/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/runs/main-20260922/analysis/joined-requests.jsonl",
+  "source_sha256": "9b41534fc647b17d2894d56923d665955a6e8663016e5243534d6fa8fd942ec3",
+  "method": "Valid profiling cohort; tail threshold is actual miss>=32768; duration-weighted occupancy divided by 3600s, not window-clipped; output KV and page rounding excluded.",
+  "points": {
+    "80": {
+      "all": {
+        "requests": 9651,
+        "input_tokens": 1157823951,
+        "miss_tokens": 58906191,
+        "host_tokens": 6933568,
+        "p_queue_mean_s": 5.5756991507180365,
+        "p_forward_mean_s": 3.119937967186129,
+        "d_wait_input_occupancy_proxy_tokens": 3101301.890212789,
+        "d_generation_input_occupancy_proxy_tokens": 5405084.032848848
+      },
+      "miss_ge32768": {
+        "requests": 332,
+        "input_tokens": 30304242,
+        "miss_tokens": 24491954,
+        "host_tokens": 882624,
+        "p_queue_mean_s": 6.627422136582815,
+        "p_forward_mean_s": 19.133612846327996,
+        "d_wait_input_occupancy_proxy_tokens": 303318.03437270515,
+        "d_generation_input_occupancy_proxy_tokens": 194008.42721455565
+      },
+      "tail_miss_share": 0.41577894588363384,
+      "tail_d_wait_occupancy_share": 0.09780345323037662,
+      "tail_by_p_rank": {
+        "0": {
+          "requests": 36,
+          "input_tokens": 3064792,
+          "miss_tokens": 2386648,
+          "host_tokens": 0,
+          "p_queue_mean_s": 5.3638427335342085,
+          "p_forward_mean_s": 16.608334986615876,
+          "d_wait_input_occupancy_proxy_tokens": 21237.955252842436,
+          "d_generation_input_occupancy_proxy_tokens": 13851.503027036775
+        },
+        "1": {
+          "requests": 35,
+          "input_tokens": 2674776,
+          "miss_tokens": 2474328,
+          "host_tokens": 960,
+          "p_queue_mean_s": 5.983937636011147,
+          "p_forward_mean_s": 18.76661190636057,
+          "d_wait_input_occupancy_proxy_tokens": 23669.367848696962,
+          "d_generation_input_occupancy_proxy_tokens": 14983.740846027096
+        },
+        "2": {
+          "requests": 43,
+          "input_tokens": 5208319,
+          "miss_tokens": 4097087,
+          "host_tokens": 727040,
+          "p_queue_mean_s": 3.0644951330086347,
+          "p_forward_mean_s": 24.77217892791296,
+          "d_wait_input_occupancy_proxy_tokens": 79784.87110421997,
+          "d_generation_input_occupancy_proxy_tokens": 19587.23777852707
+        },
+        "3": {
+          "requests": 44,
+          "input_tokens": 3924364,
+          "miss_tokens": 2785740,
+          "host_tokens": 0,
+          "p_queue_mean_s": 7.088343163423071,
+          "p_forward_mean_s": 16.682457175936594,
+          "d_wait_input_occupancy_proxy_tokens": 29215.78991256759,
+          "d_generation_input_occupancy_proxy_tokens": 37905.11875783837
+        },
+        "4": {
+          "requests": 48,
+          "input_tokens": 4027549,
+          "miss_tokens": 3501149,
+          "host_tokens": 0,
+          "p_queue_mean_s": 7.683646757951162,
+          "p_forward_mean_s": 18.430245771911967,
+          "d_wait_input_occupancy_proxy_tokens": 40304.550719003266,
+          "d_generation_input_occupancy_proxy_tokens": 17808.972602858
+        },
+        "5": {
+          "requests": 52,
+          "input_tokens": 4911110,
+          "miss_tokens": 3976966,
+          "host_tokens": 154624,
+          "p_queue_mean_s": 10.299223343855164,
+          "p_forward_mean_s": 19.56257713540869,
+          "d_wait_input_occupancy_proxy_tokens": 50138.65547421154,
+          "d_generation_input_occupancy_proxy_tokens": 43234.50531095055
+        },
+        "6": {
+          "requests": 49,
+          "input_tokens": 3966936,
+          "miss_tokens": 3504152,
+          "host_tokens": 0,
+          "p_queue_mean_s": 6.844243417109116,
+          "p_forward_mean_s": 18.43408969707065,
+          "d_wait_input_occupancy_proxy_tokens": 34923.52775535362,
+          "d_generation_input_occupancy_proxy_tokens": 21916.433819163747
+        },
+        "7": {
+          "requests": 25,
+          "input_tokens": 2526396,
+          "miss_tokens": 1765884,
+          "host_tokens": 0,
+          "p_queue_mean_s": 4.5746007226966325,
+          "p_forward_mean_s": 19.728799033965917,
+          "d_wait_input_occupancy_proxy_tokens": 24043.316305809618,
+          "d_generation_input_occupancy_proxy_tokens": 24720.915072153824
+        }
+      },
+      "source_positions": {
+        "distinct": 9651,
+        "duplicate_positions": 0,
+        "missing_position_requests": 0
+      }
+    },
+    "112": {
+      "all": {
+        "requests": 9321,
+        "input_tokens": 1047702056,
+        "miss_tokens": 76532520,
+        "host_tokens": 29092928,
+        "p_queue_mean_s": 22.40909851522779,
+        "p_forward_mean_s": 4.5943672735796905,
+        "d_wait_input_occupancy_proxy_tokens": 8633968.640155356,
+        "d_generation_input_occupancy_proxy_tokens": 4654491.200539746
+      },
+      "miss_ge32768": {
+        "requests": 450,
+        "input_tokens": 48608098,
+        "miss_tokens": 43648034,
+        "host_tokens": 981568,
+        "p_queue_mean_s": 24.47827161813362,
+        "p_forward_mean_s": 30.94144277102314,
+        "d_wait_input_occupancy_proxy_tokens": 1092776.4242087447,
+        "d_generation_input_occupancy_proxy_tokens": 331196.93276926124
+      },
+      "tail_miss_share": 0.5703200939940303,
+      "tail_d_wait_occupancy_share": 0.12656710601500187,
+      "tail_by_p_rank": {
+        "0": {
+          "requests": 57,
+          "input_tokens": 5730344,
+          "miss_tokens": 5196584,
+          "host_tokens": 51584,
+          "p_queue_mean_s": 25.887759679217677,
+          "p_forward_mean_s": 29.835963227287785,
+          "d_wait_input_occupancy_proxy_tokens": 111598.61644469245,
+          "d_generation_input_occupancy_proxy_tokens": 37824.94395080544
+        },
+        "1": {
+          "requests": 63,
+          "input_tokens": 6132854,
+          "miss_tokens": 5324086,
+          "host_tokens": 392896,
+          "p_queue_mean_s": 20.60200420951116,
+          "p_forward_mean_s": 26.18240868482768,
+          "d_wait_input_occupancy_proxy_tokens": 104285.32971076464,
+          "d_generation_input_occupancy_proxy_tokens": 25698.16712436423
+        },
+        "2": {
+          "requests": 54,
+          "input_tokens": 5605541,
+          "miss_tokens": 5016869,
+          "host_tokens": 32512,
+          "p_queue_mean_s": 16.55543710849317,
+          "p_forward_mean_s": 29.625254920662243,
+          "d_wait_input_occupancy_proxy_tokens": 100437.6965748453,
+          "d_generation_input_occupancy_proxy_tokens": 58342.61081603037
+        },
+        "3": {
+          "requests": 57,
+          "input_tokens": 6815208,
+          "miss_tokens": 6470440,
+          "host_tokens": 129792,
+          "p_queue_mean_s": 23.530383878011715,
+          "p_forward_mean_s": 35.32521596125719,
+          "d_wait_input_occupancy_proxy_tokens": 186751.6124485524,
+          "d_generation_input_occupancy_proxy_tokens": 34555.52663856293
+        },
+        "4": {
+          "requests": 60,
+          "input_tokens": 8250723,
+          "miss_tokens": 7352035,
+          "host_tokens": 369536,
+          "p_queue_mean_s": 26.370205031855342,
+          "p_forward_mean_s": 38.66989774909647,
+          "d_wait_input_occupancy_proxy_tokens": 282531.5522517896,
+          "d_generation_input_occupancy_proxy_tokens": 60190.21741224051
+        },
+        "5": {
+          "requests": 49,
+          "input_tokens": 4740540,
+          "miss_tokens": 4321212,
+          "host_tokens": 4480,
+          "p_queue_mean_s": 14.481192656569371,
+          "p_forward_mean_s": 29.081330998824455,
+          "d_wait_input_occupancy_proxy_tokens": 81907.00758963279,
+          "d_generation_input_occupancy_proxy_tokens": 35128.28030288224
+        },
+        "6": {
+          "requests": 49,
+          "input_tokens": 4743052,
+          "miss_tokens": 4390092,
+          "host_tokens": 768,
+          "p_queue_mean_s": 31.400780244701902,
+          "p_forward_mean_s": 28.8712766641865,
+          "d_wait_input_occupancy_proxy_tokens": 85115.5682151111,
+          "d_generation_input_occupancy_proxy_tokens": 38780.35349815628
+        },
+        "7": {
+          "requests": 61,
+          "input_tokens": 6589836,
+          "miss_tokens": 5576716,
+          "host_tokens": 0,
+          "p_queue_mean_s": 35.67277380764928,
+          "p_forward_mean_s": 29.513686556067533,
+          "d_wait_input_occupancy_proxy_tokens": 140149.0409733555,
+          "d_generation_input_occupancy_proxy_tokens": 40676.83302621896
+        }
+      },
+      "source_positions": {
+        "distinct": 9321,
+        "duplicate_positions": 0,
+        "missing_position_requests": 0
+      }
+    }
+  },
+  "cross_concurrency_source_matching": {
+    "common_source_positions": 7227,
+    "unique_pairs": 7227,
+    "same_input_length_pairs": 1905,
+    "same_input_length_rank_changed_pairs": 1742,
+    "same_length_cohorts": {
+      "80": {
+        "requests": 1905,
+        "input_tokens": 251332701,
+        "miss_tokens": 11263837,
+        "host_tokens": 1145728,
+        "p_queue_mean_s": 5.697487624033459,
+        "p_forward_mean_s": 3.0801312415013604,
+        "d_wait_input_occupancy_proxy_tokens": 639126.1308593715,
+        "d_generation_input_occupancy_proxy_tokens": 1176726.1212691108
+      },
+      "112": {
+        "requests": 1905,
+        "input_tokens": 251332701,
+        "miss_tokens": 16100381,
+        "host_tokens": 4923264,
+        "p_queue_mean_s": 19.40491299697252,
+        "p_forward_mean_s": 4.507736558661725,
+        "d_wait_input_occupancy_proxy_tokens": 2052150.7083696143,
+        "d_generation_input_occupancy_proxy_tokens": 1091089.1581896886
+      }
+    },
+    "warning": "Source position and equal input length do not prove identical token IDs, arrival order, or cache history. No causal routing attribution."
+  }
+}
