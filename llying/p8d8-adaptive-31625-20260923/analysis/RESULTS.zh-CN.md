@@ -89,3 +89,7 @@ G2在21:03:13被抢占，未开始benchmark。D watchdog在21:03:23确认停止D
 G3于21:16:07 fresh启动，使用相同13库seed安装到新的本地cache，guard=completion，无基线任务。G2启动日志显示P 3,142,720 GPU tokens/rank、host4,714,112，较历史3,143,424/4,715,200约小0.02%；D仍3,003,264。这是相同mem_fraction/ratio在节点上的自动容量标定差异，未作为容量优化修改参数；G3预检查按已观测节点容量验证，结果需保留跨节点容量/驱动限制。
 
 QOS进一步核对：normal/batch没有独立PreemptExemptTime覆盖，继承全局30分钟，两者GraceTime均5分钟；normal优先级更低、被可抢占QOS集合更广。其他分区仅作sbatch --test-only检查，Compute-Multinode返回account/partition不允许，没有实际分配或切换。继续管理员已授权的batch/Compute-DCPT。
+
+## G3启动故障纠正
+
+G3的P在21:19:23出现HIP stream原生段错误；rocminfo错误是其后的症状。重编两个无旧hash的库后，新旧hash相同，21:40:04仍重现，早于21:40:44抢占，不能仅归咎于调度。D已就绪但没有benchmark请求，G3无性能结果。详见g3-startup-failure/。G2启动日志也已复查fatal，不能将该轮所有失败仅归因于抢占。

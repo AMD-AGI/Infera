@@ -1,0 +1,30 @@
+{
+  "g2-guard-completion": {
+    "prefill-0.log": {
+      "first_fatal": "2026-09-23T21:01:52.793583424Z Fatal Python error: Segmentation fault",
+      "fatal_lines": 16,
+      "sha256": "57fc7e5c6db41751d1a38b2412d72b02ce2be5f226e92369d4cb677b597b0c49",
+      "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g2-guard-completion/launch/server-logs/prefill-0.log"
+    }
+  },
+  "g3-guard-completion": {
+    "prefill-0-recovery1.log": {
+      "first_fatal": null,
+      "fatal_lines": 0,
+      "sha256": "3c988bf0610ad628d565eece9a8ff94b2d9dd3716a4f210aca1ba7817462d784",
+      "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g3-guard-completion/launch/server-logs/prefill-0-recovery1.log"
+    },
+    "prefill-0-recovery2.log": {
+      "first_fatal": "2026-09-23T21:40:04.385285172Z Fatal Python error: Segmentation fault",
+      "fatal_lines": 16,
+      "sha256": "15e34c3c9c6db1da4541f2a874321c9cb8927b1010821a35a0ba8b4d8a3fee0d",
+      "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g3-guard-completion/launch/server-logs/prefill-0-recovery2.log"
+    },
+    "prefill-0.log": {
+      "first_fatal": "2026-09-23T21:19:23.464122799Z Fatal Python error: Segmentation fault",
+      "fatal_lines": 16,
+      "sha256": "86a1b8e986ffe787dbdcd7eacc5db85f797ee48c613156da3d5be44fe41c33aa",
+      "shared_path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g3-guard-completion/launch/server-logs/prefill-0.log"
+    }
+  }
+}

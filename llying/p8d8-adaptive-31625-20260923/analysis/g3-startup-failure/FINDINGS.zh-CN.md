@@ -1,0 +1,9 @@
+# n04-29 Prefill启动故障
+
+G3 P scheduler在21:19:23读取HIP stream handle时发生原生段错误；Python栈指向scheduler.py:1878的schedule_stream.cuda_stream/forward_stream.cuda_stream比较。rocminfo的exit8发生在其后，不能当作首个根因；单独调用rocminfo后续返回0。
+
+作为有限排查，保留11个与A0 seed hash相同的库，重编2个旧记录无hash的库。重编得到module_aiter_core和module_custom_all_reduce的SHA256均与原缓存完全相同，且21:40:04重现同一段错误。没有证据支持这两个库损坏或版本不一致。恢复过程中一次手工启动错误使用了端口base+1，已在任何benchmark之前停止并按base端口纠正；该启动日志单独保留，不计作实验数据。
+
+该段错误早于21:40:44的Slurm抢占。D端正常就绪，但没有发出benchmark流量。G3无性能结果。P的AMDGPU模块版本读到6.19.16；尚不能仅凭NIC版本确定D的AMDGPU版本。下一步应核查两个节点GPU驱动，并优先让Prefill落在与已成功实验兼容的环境；不修改GPU执行逻辑来掩盖启动错误。
+
+G2的P启动日志也重新检查，精确首个fatal时间见summary.json；不得把所有启动失败都归因于抢占。原始日志留在共享目录，摘要保留hash。

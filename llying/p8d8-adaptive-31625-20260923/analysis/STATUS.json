@@ -1,10 +1,10 @@
 {
-  "updated_utc": "2026-09-23T21:18:30.657309+00:00",
+  "updated_utc": "2026-09-23T21:46:52.388977+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n04-29",
   "decode": "smci355-ccs-aus-n04-25",
   "current_case": "g3-guard-completion",
-  "stage": "G3_LAUNCHING",
+  "stage": "G3_STARTUP_SEGFAULT_AND_PREEMPTED",
   "next_cases": [],
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",

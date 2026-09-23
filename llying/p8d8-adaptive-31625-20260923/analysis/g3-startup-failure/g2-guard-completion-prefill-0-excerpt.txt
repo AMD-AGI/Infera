@@ -1,0 +1,125 @@
+2026-09-23T21:01:52.473531792Z [2026-09-23 21:01:52 DP4 TP4] Attached hybrid pool stack to UnifiedRadixCache: pools=KV + INDEXER, transfer_layer_num=78
+2026-09-23T21:01:52.473716315Z [2026-09-23 21:01:52 DP4 TP4] Tree cache initialized: source=default impl=UnifiedRadixCache hybrid_swa=False hybrid_ssm=False hicache_attached=True streaming_wrapped=False
+2026-09-23T21:01:52.483351831Z I0923 21:01:52.483180  5152 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T21:01:52.488299314Z I0923 21:01:52.488229  5319 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T21:01:52.492610329Z [2026-09-23 21:01:52 DP7 TP7] Attached hybrid pool stack to UnifiedRadixCache: pools=KV + INDEXER, transfer_layer_num=78
+2026-09-23T21:01:52.492787363Z [2026-09-23 21:01:52 DP7 TP7] Tree cache initialized: source=default impl=UnifiedRadixCache hybrid_swa=False hybrid_ssm=False hicache_attached=True streaming_wrapped=False
+2026-09-23T21:01:52.506455642Z [2026-09-23 21:01:52 DP5 TP5] Attached hybrid pool stack to UnifiedRadixCache: pools=KV + INDEXER, transfer_layer_num=78
+2026-09-23T21:01:52.506622936Z [2026-09-23 21:01:52 DP5 TP5] Tree cache initialized: source=default impl=UnifiedRadixCache hybrid_swa=False hybrid_ssm=False hicache_attached=True streaming_wrapped=False
+2026-09-23T21:01:52.507521346Z I0923 21:01:52.507385  5487 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T21:01:52.511803602Z [2026-09-23 21:01:52 DP3 TP3] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.521395438Z I0923 21:01:52.521277  5662 rdma_context.cpp:75] HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF
+2026-09-23T21:01:52.652669844Z [2026-09-23 21:01:52 DP2 TP2] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.664270953Z [2026-09-23 21:01:52 DP0 TP0] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.704739459Z [2026-09-23 21:01:52 DP1 TP1] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.789204692Z [2026-09-23 21:01:52 DP3 TP3] Starting ZMQ publisher thread
+2026-09-23T21:01:52.793583424Z Fatal Python error: Segmentation fault
+2026-09-23T21:01:52.793606913Z 
+2026-09-23T21:01:52.793609613Z Thread 0x00007f94effff640 (most recent call first):
+2026-09-23T21:01:52.793612023Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T21:01:52.793613753Z   File "/usr/lib/python3.10/queue.py", line 180 in get
+2026-09-23T21:01:52.793615773Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/kv_events.py", line 504 in _publisher_thread
+2026-09-23T21:01:52.793617773Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793619093Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793620523Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793622383Z 
+2026-09-23T21:01:52.793623603Z Thread 0x00007f95349ff640 (most recent call first):
+2026-09-23T21:01:52.793624903Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T21:01:52.793626733Z   File "/usr/lib/python3.10/threading.py", line 607 in wait
+2026-09-23T21:01:52.793628253Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 2479 in _failed_session_probe_loop
+2026-09-23T21:01:52.793630003Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793631693Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793633252Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793634562Z 
+2026-09-23T21:01:52.793635802Z Thread 0x00007f954000e640 (most recent call first):
+2026-09-23T21:01:52.793637642Z   File "/usr/lib/python3.10/threading.py", line 320 in wait
+2026-09-23T21:01:52.793638922Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/utils.py", line 87 in get
+2026-09-23T21:01:52.793640712Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 1864 in transfer_worker
+2026-09-23T21:01:52.793642802Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793676241Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793678291Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793679761Z 
+2026-09-23T21:01:52.793680941Z Thread 0x00007f954400f640 (most recent call first):
+2026-09-23T21:01:52.793682411Z   File "/usr/lib/python3.10/threading.py", line 320 in wait
+2026-09-23T21:01:52.793684141Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/utils.py", line 87 in get
+2026-09-23T21:01:52.793685541Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 1864 in transfer_worker
+2026-09-23T21:01:52.793686981Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793688871Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793690201Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793691581Z 
+2026-09-23T21:01:52.793693970Z Thread 0x00007f95605ff640 (most recent call first):
+2026-09-23T21:01:52.793695330Z   File "/usr/lib/python3.10/threading.py", line 320 in wait
+2026-09-23T21:01:52.793696680Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/utils.py", line 87 in get
+2026-09-23T21:01:52.793698530Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 1864 in transfer_worker
+2026-09-23T21:01:52.793716650Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793718330Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793720170Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793721709Z 
+2026-09-23T21:01:52.793722919Z Thread 0x00007f9568bff640 (most recent call first):
+2026-09-23T21:01:52.793724739Z   File "/usr/lib/python3.10/threading.py", line 320 in wait
+2026-09-23T21:01:52.793726079Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/utils.py", line 87 in get
+2026-09-23T21:01:52.793727479Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 1864 in transfer_worker
+2026-09-23T21:01:52.793729349Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793730799Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793732089Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793733689Z 
+2026-09-23T21:01:52.793735269Z Thread 0x00007f95745ff640 (most recent call first):
+2026-09-23T21:01:52.793736489Z   File "/opt/venv/lib/python3.10/site-packages/zmq/sugar/socket.py", line 813 in recv_multipart
+2026-09-23T21:01:52.793737889Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 2198 in bootstrap_thread
+2026-09-23T21:01:52.793741699Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793742989Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793744809Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793746229Z 
+2026-09-23T21:01:52.793747409Z Thread 0x00007f951ca5f640 (most recent call first):
+2026-09-23T21:01:52.793748819Z   File "/sgl-workspace/sglang/python/sglang/srt/utils/watchdog.py", line 147 in _watchdog_once
+2026-09-23T21:01:52.793750669Z   File "/sgl-workspace/sglang/python/sglang/srt/utils/watchdog.py", line 127 in _watchdog_thread
+2026-09-23T21:01:52.793752028Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793753298Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793755148Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793756528Z 
+2026-09-23T21:01:52.793757688Z Thread 0x00007f9583fff640 (most recent call first):
+2026-09-23T21:01:52.793759278Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T21:01:52.793762448Z   File "/usr/lib/python3.10/threading.py", line 607 in wait
+2026-09-23T21:01:52.793763818Z   File "/opt/venv/lib/python3.10/site-packages/tqdm/_monitor.py", line 60 in run
+2026-09-23T21:01:52.793765808Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793767118Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793768418Z 
+2026-09-23T21:01:52.793769898Z Thread 0x00007fba4ffff640 (most recent call first):
+2026-09-23T21:01:52.793771418Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T21:01:52.793772758Z   File "/usr/lib/python3.10/threading.py", line 607 in wait
+2026-09-23T21:01:52.793774118Z   File "/opt/venv/lib/python3.10/site-packages/opentelemetry/sdk/_shared_internal/__init__.py", line 156 in worker
+2026-09-23T21:01:52.793776608Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.793777858Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.793779308Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.793782967Z 
+2026-09-23T21:01:52.793784217Z Current thread 0x00007ffff7c48000 (most recent call first):
+2026-09-23T21:01:52.793786207Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 1878 in run_event_loop
+2026-09-23T21:01:52.793787737Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5884 in run_scheduler_process
+2026-09-23T21:01:52.793789467Z   File "/usr/lib/python3.10/multiprocessing/process.py", line 108 in run
+2026-09-23T21:01:52.793791387Z   File "/usr/lib/python3.10/multiprocessing/process.py", line 314 in _bootstrap
+2026-09-23T21:01:52.793794997Z   File "/usr/lib/python3.10/multiprocessing/spawn.py", line 129 in _main
+2026-09-23T21:01:52.793796807Z   File "/usr/lib/python3.10/multiprocessing/spawn.py", line 116 in spawn_main
+2026-09-23T21:01:52.793798097Z   File "<string>", line 1 in <module>
+2026-09-23T21:01:52.793800037Z 
+2026-09-23T21:01:52.794555401Z Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, psutil._psutil_linux, pybase64._pybase64, charset_normalizer.md, charset_normalizer.cd, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normalizer.cd, requests.packages.chardet.cd, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, PIL._imaging, PIL._imagingft, av._core, av.logging, av.buffer, av.audio.format, av.error, av.dictionary, av.container.pyio, av.format, av.index, av.utils, av.stream, av.container.streams, av.sidedata.encparams, av.sidedata.motionvectors, av.sidedata.sidedata, av.opaque, av.packet, av.container.input, av.container.output, av.container.core, av.codec.context, av.video.format, av.video.reformatter, av.plane, av.video.plane, av.video.frame, av.video.stream, av.codec.hwaccel, av.codec.codec, av.frame, av.audio.layout, av.audio.plane, av.audio.frame, av.audio.stream, av.filter.link, av.filter.context, av.filter.graph, av.filter.filter, av.filter.loudnorm, av.audio.resampler, av.audio.codeccontext, av.audio.fifo, av.bitstream, av.device, av.video.codeccontext, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, msgspec._core, zmq.backend.cython._zmq, regex._regex, yaml._yaml, markupsafe._speedups, _cffi_backend, scipy._lib._ccallback_c, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg.cython_lapack, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._decomp_lu_cython, scipy.linalg._matfuncs_sqrtm_triu, scipy.linalg._matfuncs_expm, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg._decomp_update, scipy.sparse._sparsetools, _csparsetools, scipy.sparse._csparsetools, scipy.sparse.linalg._dsolve._superlu, scipy.sparse.linalg._eigen.arpack._arpack, scipy.sparse.linalg._propack._spropack, scipy.sparse.linalg._propack._dpropack, scipy.sparse.linalg._propack._cpropack, scipy.sparse.linalg._propack._zpropack, scipy.sparse.csgraph._tools, scipy.sparse.csgraph._shortest_path, scipy.sparse.csgraph._traversal, scipy.sparse.csgraph._min_spanning_tree, scipy.sparse.csgraph._flow, scipy.sparse.csgraph._matching, scipy.sparse.csgraph._reordering, scipy.optimize._group_columns, scipy._lib.messagestream, scipy.optimize._trlib._trlib, scipy.optimize._lbfgsb, _moduleTNC, scipy.optimize._moduleTNC, scipy.optimize._cobyla, scipy.optimize._slsqp, scipy.optimize._minpack, scipy.optimize._lsq.givens_elimination, scipy.optimize._zeros, scipy.optimize._cython_nnls, scipy._lib._uarray._uarray, scipy.special._ufuncs_cxx, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb, scipy.special._ellip_harm_2, scipy.linalg._decomp_interpolative, scipy.optimize._bglu_dense, scipy.optimize._lsap, scipy.spatial._ckdtree, scipy.spatial._qhull, scipy.spatial._voronoi, scipy.spatial._distance_wrap, scipy.spatial._hausdorff, scipy.spatial.transform._rotation, scipy.optimize._direct, multidict._multidict, yarl._quoting_c, propcache._helpers_c, aiohttp._http_writer, aiohttp._http_parser, aiohttp._websocket.mask, aiohttp._websocket.reader_c, frozenlist._frozenlist, tvm_ffi.core, lxml._elementpath, lxml.etree, setproctitle._setproctitle, Cython.Plex.Actions, Cython.Plex.Scanners, Cython.Compiler.Scanning, hip_utils, pyarrow.lib, pandas._libs.tslibs.ccalendar, pandas._libs.tslibs.np_datetime, pandas._libs.tslibs.dtypes, pandas._libs.tslibs.base, pandas._libs.tslibs.nattype, pandas._libs.tslibs.timezones, pandas._libs.tslibs.fields, pandas._libs.tslibs.timedeltas, pandas._libs.tslibs.tzconversion, pandas._libs.tslibs.timestamps, pandas._libs.properties, pandas._libs.tslibs.offsets, pandas._libs.tslibs.strptime, pandas._libs.tslibs.parsing, pandas._libs.tslibs.conversion, pandas._libs.tslibs.period, pandas._libs.tslibs.vectorized, pandas._libs.ops_dispatch, pandas._libs.missing, pandas._libs.hashtable, pandas._libs.algos, pandas._libs.interval, pandas._libs.lib, pyarrow._compute, pandas._libs.ops, pandas._libs.hashing, pandas._libs.arrays, pandas._libs.tslib, pandas._libs.sparse, pandas._libs.internals, pandas._libs.indexing, pandas._libs.index, pandas._libs.writers, pandas._libs.join, pandas._libs.window.aggregations, pandas._libs.window.indexers, pandas._libs.reshape, pandas._libs.groupby, pandas._libs.json, pandas._libs.parsers, pandas._libs.testing, grpc._cython.cygrpc, google._upb._message (total: 199)
+2026-09-23T21:01:52.817359723Z [2026-09-23 21:01:52 DP6 TP6] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.849554618Z [2026-09-23 21:01:52 DP7 TP7] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.865974484Z [2026-09-23 21:01:52 DP4 TP4] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.879029874Z [2026-09-23 21:01:52 DP5 TP5] Starting failed-session probe loop (interval=30.0s)
+2026-09-23T21:01:52.928945782Z [2026-09-23 21:01:52 DP2 TP2] Starting ZMQ publisher thread
+2026-09-23T21:01:52.933372573Z Fatal Python error: Segmentation fault
+2026-09-23T21:01:52.933388782Z 
+2026-09-23T21:01:52.933390542Z Thread 0x00007f9513fff640 (most recent call first):
+2026-09-23T21:01:52.933391952Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T21:01:52.933393382Z   File "/usr/lib/python3.10/queue.py", line 180 in get
+2026-09-23T21:01:52.933395032Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/kv_events.py", line 504 in _publisher_thread
+2026-09-23T21:01:52.933396202Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.933397332Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+2026-09-23T21:01:52.933398962Z   File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+2026-09-23T21:01:52.933400002Z 
+2026-09-23T21:01:52.933401032Z Thread 0x00007f9533ffe640 (most recent call first):
+2026-09-23T21:01:52.933402112Z   File "/usr/lib/python3.10/threading.py", line 324 in wait
+2026-09-23T21:01:52.933403442Z   File "/usr/lib/python3.10/threading.py", line 607 in wait
+2026-09-23T21:01:52.933404891Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 2479 in _failed_session_probe_loop
+2026-09-23T21:01:52.933406051Z   File "/usr/lib/python3.10/threading.py", line 953 in run
+2026-09-23T21:01:52.933406901Z   File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
