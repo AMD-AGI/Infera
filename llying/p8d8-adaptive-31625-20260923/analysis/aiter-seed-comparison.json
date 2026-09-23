@@ -2,7 +2,8 @@
   "module_aiter_core.so": {
     "current_sha256": "b2b27268892f4d92608b110bc1b2de1042f07f9c391d2838dddca19817548bf8",
     "a0_seed_sha256": null,
-    "same_as_a0_seed": false
+    "same_as_a0_seed": null,
+    "comparison_status": "Old seed log did not hash this kept-existing library; unknown, not a mismatch."
   },
   "module_cache.so": {
     "current_sha256": "961986c3b46cc66cf72c3d3204730a7be0bfcdb44c9e551a926f51296f9d06d7",
@@ -17,7 +18,8 @@
   "module_custom_all_reduce.so": {
     "current_sha256": "d8957cdc6ec3617a4b8464b1910ea3dfae777e56733e0f038028d7571f721e4f",
     "a0_seed_sha256": null,
-    "same_as_a0_seed": false
+    "same_as_a0_seed": null,
+    "comparison_status": "Old seed log did not hash this kept-existing library; unknown, not a mismatch."
   },
   "module_fused_qk_norm_rope_cache_quant_shuffle.so": {
     "current_sha256": "1121a2c77eb06bea981bedcd0767682740f39d71335a8aab2a2b9547176362e9",

@@ -1,63 +1,40 @@
-> 最新用户决定：不再重复基线或回滚任务；沿用已完成基线，直接验证路由优化及后续单变量优化。新节点差异写入分析限制，不作为重跑基线的前提。G1已在n02-29(P)/n02-33(D)启动，优化开启。历史A1已因抢占作废。
-
 # 自主性能验证工作记录
 
-用户授权在约十小时内自主选择、裁剪和增加实验，置信度优先，可在验证缓存重置后复用服务，随时保存和提交。
+用户最新要求：**沿用已完成基线，直接运行优化配置和后续单变量优化，不再反复运行基线/回滚任务。** 仅使用管理员已分配的QOS权限。完整结果与历史决策见 [analysis/RESULTS.zh-CN.md](analysis/RESULTS.zh-CN.md)，实时摘要见 [analysis/STATUS.json](analysis/STATUS.json)。
 
-最新完整结果见 [analysis/RESULTS.zh-CN.md](analysis/RESULTS.zh-CN.md)。G0已完成并通过审计：total/GPU +5.44%、output/GPU +4.36%、TTFT mean −23.13%；A1回滚进行中，尚未认定稳定收益。
+## 当前运行
 
-## 当前分配和运行
-
-- 原 job 31625 于 14:50:32 UTC 被抢占，复用尝试尚未执行。
-- 替代 job 31641 的节点有其他用户 GPU 工作，未运行负载，已释放并排除这两节点。
-- 当前 job 31644：P n10-29 / 10.235.192.140，D n02-21 / 10.235.192.128。
+- job31644，restart2，QOS=batch，Compute-DCPT；20:32:32 UTC获得节点，租期到2026-09-24 01:02:32 UTC。
+- P：smci355-ccs-aus-n04-29 / 10.235.192.57；D：smci355-ccs-aus-n04-25 / 10.235.192.131。
+- G2：`runs/g2-guard-completion`，GUARD_MODE=completion，20:52:24 UTC开始加载P/D。无后续baseline任务。
 - 运行根：`/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923`。
-- A0：`runs/a0-guard-decode`，原始 P guard 释放时机，新的共同路由二进制。
-- G0：`runs/g0-guard-completion`，P HTTP 响应体完整 drain 后释放 P guard。
-- G0 后先分析决定是否运行 A1 回退确认，或结束该方向转向其他候选。决策文件 `guard-decision.json` 由分析后填写，不自动把失败数据当收益。
+- 13个完成AITER库已保存共享bundle，并安装到两节点独立的本地cache。11个可核对旧hash的库均与A0 seed一致，另外2个旧记录没有hash。
+- 节点网络驱动不同：P ionic26.07.9.001、D26.03.3.001；跨节点结果须记录此限制。
 
-当前状态见 analysis/STATUS.json；远端实时状态见 `guard-campaign-status.json`、各 run 的 `STATUS` 和 `c80/runner.log`。
+## 已有结果
 
-## 已完成准备
+A0/G0在n10-29(P)/n02-21(D)完整完成并通过审计。G0观测到total/GPU +5.44%、output/GPU +4.36%、TTFT mean −23.13%，但不能把单次顺序差异当作完全排除热身/时序影响的收益。
 
-- 诊断镜像的 Rust 源码已从镜像 layer 提取，与仓库相关源码逐字节核对。
-- 路由候选只改变 HTTP 流式 P/D 的 guard 生命周期，默认关闭。控制和处理使用相同二进制 SHA256，均有相同的 P 完成观测日志。
-- 8 个 disagg 测试（含新生命周期/错误/取消用例）和 18 个 policy 测试通过。二进制已在原诊断镜像内执行 --help 校验。
-- 新的按 byte cursor 采集边界可隔离复用引擎的各轮日志；已验证不混入旧数据及不保留未完成尾行。
-- 缓存重置采用已核验实现的 8 rank 完成确认、GPU/队列为空、容量和进程身份不变。Host-used idle gauge 陈旧的问题单独记录，见 CACHE-RESET-VALIDATION。
-- 完整 case 审计包含配置、模型元数据、PID、日志模式、P/D 关联覆盖率、正式错误和 GPU 隔离证据。
-- 本节点 allocation watchdog 在抢占或租期结束前40分钟清理本任务自己的容器；镜像ID/名字前缀不符则拒绝处理。它不能保证被SIGKILL时仍可执行，也不能消除驱动自身的显存回收延迟。
+A1在profiling约3分钟时被抢占，正式段作废；其完整warmup已单独分析，见 [warmup-controls/REPORT.zh-CN.md](analysis/warmup-controls/REPORT.zh-CN.md)。G1在另一组节点的首次AITER编译阶段被抢占，没有warmup/profiling结果。两次中断证据分别保存在a1-interrupted/和g1-interrupted/。
 
 ## 选择与裁剪
 
-D 容量仅影响少量长尾，暂不优先；D overlap 没有可用缓存块信息，不做权重扫参；短请求份额/公平性按已有决定排除。新增 G 候选基于已确认的生命周期差异，可省去多次 P 重启。
+先完成路由优化开启的验证，再按结果和剩余窗口决定固定host容量的P KV扩容。P overlap weight 20→10的建议已暂缓：它可能增加miss/重算，目前缺少亲和过强的直接证据。D扩容、无metadata的D overlap调参和短请求配额不优先执行。P容量方案是3,400,000 GPU tokens/rank、host固定4,715,200，需要重新启动P并验证实际容量/显存余量。
 
-P 容量候选准备为 3,400,000 GPU tokens/rank，host 固定为 4,715,200 tokens/rank。max_total_tokens 是容量 cap，0.90 fraction 提供预算，ratio 用于补偿 host 容量。实际容量及其余字段必须通过检查才允许发压。该方向是否执行取决于 G 的结果和剩余时间。
+## 复用采集工具
 
-## 解释边界
+本目录是campaign覆盖层；公共helpers与bench-harness来自同仓库旧tracing目录。analysis/runtime-script-manifest.json记录运行脚本SHA256和仓库源文件；materialize_scripts.py可在空目录重建脚本，拒绝覆盖已有目录或源文件漂移。模型、固定诊断镜像、InferenceX checkout和基础配置仍是独立依赖，其路径/revision见各case验证记录。
 
-A0/G0/A1用于区分处理收益与复用/JIT/时间漂移。单次差异不提供置信区间。P HTTP 完成到客户端完成的正时间差只是过长记账的请求生命周期代理，不等于 distinct-block active load，也不能直接换成吞吐收益。
+新的优化入口是scripts/run_optimized_case.sh：使用CONFIG指定配置，fresh/reuse选择相应入口，只接受completion模式；先等待固定镜像，再采集、分析、审计。通过脚本文件启动并关闭stdin，避免嵌套SSH消耗heredoc后续命令。当前G2为fresh启动。
 
-Dynamo 已固定 commit 取得源码；研究核验见 analysis/DYNAMO-SOURCE-AUDIT.zh-CN.md，不宣称已迁移或测得 Dynamo 收益。
+统一采集包括：分配与配置检查、smoke、逻辑cache reset、884条warmup、3600秒C80、独立采样、诊断关联、日志模式与进程身份审计。需要改变引擎参数时重新启动相应服务，不把模型重新加载混入正式计时。
 
-## 可复用的基线采集流程
+archive_case.py只归档已完成且审计通过的case，较大文件保留共享路径和SHA256。audit必须在P/D仍存活时检查身份，先审计再退休。aiter_cache_bundle.py只保存无构建锁、读取稳定的完成.so，安装目标必须是新的本地cache目录，不覆盖运行中的库。
 
-这套脚本是campaign覆盖层，公共helpers和bench-harness来自同仓库旧tracing目录。`analysis/runtime-script-manifest.json`记录实际使用脚本的SHA256和仓库源文件，避免仅复制本目录而漏掉依赖。可在新的空目录重建（不会启动服务）：
+客户端版本与A1绘图库差异见 [CLIENT-DEPENDENCIES.zh-CN.md](analysis/CLIENT-DEPENDENCIES.zh-CN.md)；后续通过validate_and_pin_client.py将A0精确版本constraint写入runtime.env，约束运行前安装，不改变请求/调度。缓存重置的host gauge限制见 [CACHE-RESET-VALIDATION.zh-CN.md](analysis/CACHE-RESET-VALIDATION.zh-CN.md)。
 
-```bash
-python3 llying/p8d8-adaptive-31625-20260923/scripts/materialize_scripts.py   llying/p8d8-adaptive-31625-20260923/analysis/runtime-script-manifest.json   /tmp/new-agentx-runtime-scripts
-```
+## 代码与解释边界
 
-重建61个脚本已在/tmp验证。旧run.sh/test_analysis.py是未使用的遗留拷贝，明确排除；新的入口是run_fresh_case.sh/run_reuse_case.sh。配置还引用共享model、固定镜像、InferenceX checkout和原始base config，路径及revision/hash见各case的配置/验证/manifest；此工具只重建scripts，不声称独立打包了模型或镜像。
+路由候选patch位于patches/，默认关闭，只改变HTTP streaming guard生命周期。8个disagg测试与18个policy测试通过；镜像相关Rust源与仓库已核对。生产Rust默认行为未修改。Dynamo源码调研另存于analysis/DYNAMO-SOURCE-AUDIT.zh-CN.md，不宣称已迁移或实测其收益。
 
-现场执行顺序：分配节点与唯一case/prefix配置 → allocation/空闲验证 → fresh或reuse入口 → 统一smoke/flush/884 warmup/3600秒C80 → capture和自动分析 → analyze_guard_lifecycle.py、analyze_router_picks.py、audit_case.py → archive_case.py复制审核摘要与大型证据hash → 提交结果。新job须更新配置中的节点、IP、job ID、prefix和输出路径，不得覆盖既有run。复用要求同P/D进程、已验证的cache reset和独立capture cursors；需要改P内存参数时必须退休旧栈并等待实际资源释放。
-
-完成后的归档命令（在仓库侧运行）：
-
-```bash
-python3 llying/p8d8-adaptive-31625-20260923/scripts/archive_case.py   /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion   /tmp/g0-review-evidence
-```
-
-归档会拒绝未完成、审计失败或INVALID的case。audit需要在P/D仍存活时验证进程身份，因此应先审计再退休服务。
-
-客户端精确版本、A1唯一绘图库差异与后续constraint安装见 [analysis/CLIENT-DEPENDENCIES.zh-CN.md](analysis/CLIENT-DEPENDENCIES.zh-CN.md)。后续新配置可沿用G1中的AGENTX_RUNTIME_VALIDATOR/AGENTX_CLIENT_CONSTRAINTS设置；不要在运行中修改venv。
+A0/G0、跨节点G2和warmup辅助分析的证据等级不同。active_blocks是路由记账，不是物理KV占用；forward envelope包含调度间隔，不是独占GPU时间；warmup输出只有1 token，不能直接换算成正式长Decode的净收益。

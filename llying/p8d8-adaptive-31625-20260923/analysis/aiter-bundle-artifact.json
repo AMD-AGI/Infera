@@ -1,0 +1,9 @@
+{
+  "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/artifacts/aiter-seed-n04-29.tar",
+  "bytes": 95692800,
+  "sha256": "e7c4b88d02fdd0259a39e2680144cf9b0affc8ff5fddbd8dade44f3af4c0644a",
+  "libraries": 13,
+  "a0_prior_hash_matches": 11,
+  "a0_prior_hash_unavailable": 2,
+  "installed_cache_root": "/tmp/aiter-jit-100078-g2"
+}

@@ -1,11 +1,18 @@
 {
   "repository_root": "Infera",
-  "generated_utc": "2026-09-23T20:14:06.102983+00:00",
+  "generated_utc": "2026-09-23T20:54:13.993894+00:00",
   "runtime": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/scripts",
   "files": [
     {
+      "runtime_relative_path": "aiter_cache_bundle.py",
+      "sha256": "b1ea007f91e39ed4a525c8e95ffb1b7852b945c7ed3c0e1d8e8d944aab4de086",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/aiter_cache_bundle.py"
+      ]
+    },
+    {
       "runtime_relative_path": "allocation_watchdog.py",
-      "sha256": "814cb8e0a12f4a7eeeaa06b2179c10b32a993c62d7d8cc37ed7dba82eea7fe29",
+      "sha256": "d7b46508ce82bcda90a7fc18a0ce6a65aea546bf7f71e19b633d83c8dab80d73",
       "repository_sources": [
         "llying/p8d8-adaptive-31625-20260923/scripts/allocation_watchdog.py"
       ]
@@ -315,6 +322,13 @@
       "sha256": "d6f250b1553e06f7d0638f2dc0f361f61fc4e4d2cc55d95939fcbb245e43a357",
       "repository_sources": [
         "llying/p8d8-adaptive-31625-20260923/scripts/run_measurement.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "run_optimized_case.sh",
+      "sha256": "54714e5f81dd6234cd85998f37ed018ec1288585e764f05901eb1a04d44a774f",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/run_optimized_case.sh"
       ]
     },
     {
