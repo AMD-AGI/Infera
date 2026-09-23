@@ -1,15 +1,15 @@
 {
-  "updated_utc": "2026-09-23T20:14:06.102983+00:00",
+  "updated_utc": "2026-09-23T20:31:39.495975+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n02-29",
   "decode": "smci355-ccs-aus-n02-33",
   "current_case": "g1-guard-completion",
-  "stage": "G1_LAUNCHING",
+  "stage": "G1_INVALID_PREEMPTED_DURING_STARTUP",
   "next_cases": [],
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
   "manager_pid": 3840880,
-  "next_decision": "Analyze G1 then choose useful single-variable optimization only; no A1/A2 rollback scheduling.",
+  "next_decision": "Wait for replacement allocation; optimized configuration only, no repeated baseline.",
   "a0_result": {
     "total_tokens_s_gpu": 20166.29907,
     "completed": 9727,
@@ -30,7 +30,7 @@
   },
   "a1_warmup_started_utc": "2026-09-23T19:22:40Z",
   "a1_invalid_reason": "Slurm preemption at 19:46:58Z; extern step ended 19:47:29Z; SSH denied.",
-  "allocation_restart": 1,
+  "allocation_restart": 2,
   "driver_pid": 2180757,
   "baseline_repeats_enabled": false
 }

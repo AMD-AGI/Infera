@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-09-23T20:14:06.102983+00:00",
+  "updated_utc": "2026-09-23T20:35:36.708178+00:00",
   "user_instruction": "Reuse completed baseline; do not repeat baseline tasks. Run optimization-enabled and subsequent single-variable optimization cases directly. Record cross-node uncertainty without requiring another baseline.",
   "baseline_repeats_enabled": false,
   "current_case": "g1-guard-completion",
@@ -8,5 +8,14 @@
   "allocation_restart": 1,
   "prefill": "smci355-ccs-aus-n02-29",
   "decode": "smci355-ccs-aus-n02-33",
-  "next_case_policy": "Analyze G1 then choose useful single-variable optimization only; no A1/A2 rollback scheduling."
+  "next_case_policy": "Analyze G1 then choose useful single-variable optimization only; no A1/A2 rollback scheduling.",
+  "qos": "batch",
+  "higher_qos_available": false,
+  "priority": [
+    "Complete guard-enabled optimization validation using existing baseline",
+    "Fixed-host P KV capacity trial if time/headroom support a complete case",
+    "Evidence-driven host path experiments",
+    "P overlap weight: deferred, no 20-to-10 trial without stronger evidence"
+  ],
+  "weight_trial_status": "DEFERRED: reduced cache credit can raise miss/recomputation; queue alone does not establish excessive affinity"
 }

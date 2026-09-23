@@ -67,3 +67,7 @@ job31644重新分配开始19:54:31 UTC，QOS=batch，当前结束00:24:31 UTC。
 ## 已完成warmup辅助分析
 
 A1正式段无效，但其884条warmup完成于抢占之前，P/D关联完整。三轮共同810条（首批83、后续727）分析已保存于warmup-controls/。后727条A1的P forward仍比A0低约5.4%，显示有与开关无关的轮次差异；G0的miss/TTFT改善在A1回退后恢复到A0附近，支持路由影响缓存选择的可能性。warmup有效输出全部1 token，不代表正式长Decode驻留，不能据此算出“扣除热身后的净收益”，也不因此追加baseline。
+
+## G1启动阶段再次抢占
+
+第二次分配于20:24:43 UTC被抢占（保护期到20:24:31），extern于20:25:14结束。G1还在首次AITER算子编译，未进入warmup/profiling；INVALID已由watchdog写入共享run，不能当性能结果。P watchdog记录etcd已停止；其他停止没有完成确认，不能声称显存全部释放。job31644再次重排队。账户QOS可用batch/debug/normal/shared-low；本集群preempt/qos规则中batch优先级高于normal，切normal不提供更强保护；更高perf等不在当前账户授权列表。继续只准备优化配置，不重复基线。
