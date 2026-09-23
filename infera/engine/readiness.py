@@ -57,9 +57,13 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
     """Answer one probe. Never raises: a probe must not kill the server."""
     try:
         try:
-            async with asyncio.timeout(_READ_TIMEOUT_S):
-                await reader.read(_MAX_REQUEST_BYTES)
-        except (TimeoutError, asyncio.IncompleteReadError):
+            # wait_for, not asyncio.timeout: the latter is 3.11+ and the
+            # engine image ships 3.10, where it raises AttributeError -- which
+            # left every probe unanswered and the pod permanently NotReady.
+            # asyncio.TimeoutError for the same reason: only from 3.11 is it an
+            # alias of the builtin, and in 3.10 the builtin is an OSError.
+            await asyncio.wait_for(reader.read(_MAX_REQUEST_BYTES), _READ_TIMEOUT_S)
+        except (asyncio.TimeoutError, asyncio.IncompleteReadError):
             # Answer anyway. The probe only cares about the status line, and a
             # client that sent nothing readable still gets a truthful "ready".
             pass
