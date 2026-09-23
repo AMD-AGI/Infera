@@ -46,3 +46,11 @@
 这是一项 P KV 容量干预，配置中的 budget/cap/ratio 是共同实现及补偿手段；额外占用GPU内存会减少workspace余量，这是容量干预的成本，必须监控OOM、retraction与服务时间。不能仅凭profile预算计算就认定没有内存风险。
 
 此方案可避免一轮无HiCache标定启动，仍需重新launch P。是否执行及是否重复，取决于 G0/回退控制的收益、剩余时间和资源稳定性。
+
+## 18:04 采集与下一次重启准备
+
+G0 完成884条预热，无取消/错误，18:00:36 UTC 开始完整3600秒 profiling。旧4K/A0共同请求存在−4到+5 token的输入差，与AgentX强制benchmark-specific cache-bust前缀一致；配对容差口径已在G0结果出来前固定，见 REQUEST-MATCHING.zh-CN.md。
+
+`retire_stack.py` 仅准备容量重启：要求上一轮完成且审计通过、无INVALID、当前job和节点/用户匹配、离审阅/清理至少3小时、8 ranks运行/队列为0、没有本次benchmark客户端，且P/D/router容器ID与最终记录一致。保存具体停止计划，默认dry-run；只有显式--execute才停止并重命名本次栈，随后等待每张GPU VRAM≤2%、busy≤5%。etcd使用独立固定镜像hash。无GPU reset、无其他用户进程操作；遇到检查失败停止复核。
+
+脚本编译通过，并对正在运行的G0调用dry-run验证其在首个“case未完成”检查即拒绝，未执行任何停止。实际执行前仍须做针对最终case的dry-run并检查计划。当前G0不受该准备影响。
