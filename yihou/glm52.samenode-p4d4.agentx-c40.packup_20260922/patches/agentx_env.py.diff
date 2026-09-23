@@ -1,0 +1,15 @@
+--- /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/tools/agentx_env.py	2026-09-18 03:34:56.384186164 +0000
++++ /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-samenode-p4d4/scripts/bench-harness/tools/agentx_env.py	2026-09-22 06:52:05.779510558 +0000
+@@ -84,7 +84,11 @@
+         ip = row["data_ip"].strip()
+         rows.append({
+             "instance": instance, "role": role, "node": row["node"].strip(),
+-            "ip": ip, "url": f"http://{ip}:{bases[0] + index}",
++            # ENGINE_PORT_STRIDE must match launch.sh:rows(); it is >1 only for
++            # a same-node deployment, where SGLang's internal port block derived
++            # from --port would otherwise overlap between the two legs.
++            "ip": ip,
++            "url": f"http://{ip}:{bases[0] + index * int(env.get('ENGINE_PORT_STRIDE') or 1)}",
+             "container": f"{env['CONTAINER_PREFIX']}-{instance}",
+         })
+     return rows

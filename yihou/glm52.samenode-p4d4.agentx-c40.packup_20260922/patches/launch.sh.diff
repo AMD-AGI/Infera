@@ -1,0 +1,93 @@
+--- /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/launch.sh	2026-09-18 04:07:30.845828982 +0000
++++ /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-samenode-p4d4/scripts/bench-harness/launch.sh	2026-09-22 09:45:47.798622040 +0000
+@@ -36,9 +36,21 @@
+         else
+             gpus="$DECODE_GPU_DEVICES"
+         fi
++        # ENGINE_PORT_STRIDE: same-node only. SGLang derives an INTERNAL port
++        # block from --port (server_args.py:836,851-861): a fixed
++        # ZMQ_TCP_PORT_DELTA offset, then it reserves
++        # port_base+0..NUM_DERIVED_PORTS-1, where NUM_DERIVED_PORTS is 6, or
++        # 6+dp_size on the rust path. With two legs on ONE host and engine ports
++        # one apart (29001/29002) those blocks OVERLAP, and the second leg dies:
++        #   zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:29236')
++        #   DetokenizerManager.init_ipc_channels -> sigquit -> exited with code -9
++        # Observed first-hand, rounds/006-bringup-1. Stride the ENGINE port only
++        # (the bootstrap/kv/snapshot bases are already distinct and feed nothing
++        # derived). Defaults to 1, so every cross-node deployment is unchanged.
+         printf '%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%s\n' \
+             "$instance" "$role" "$node" "$ip" "$gpus" \
+-            "$((ENGINE_PORT_BASE + index))" "$((BOOTSTRAP_PORT_BASE + index))" \
++            "$((ENGINE_PORT_BASE + index * ${ENGINE_PORT_STRIDE:-1}))" \
++            "$((BOOTSTRAP_PORT_BASE + index))" \
+             "$((KV_EVENT_PORT_BASE + index))" "$((SNAPSHOT_PORT_BASE + index))" \
+             "$CONTAINER_PREFIX-$instance"
+     done < <(python3 "$DIR/tools/topology.py" rows "$TOPOLOGY")
+@@ -96,14 +108,66 @@
+     --failure-dir "$OUT_DIR/failures"
+     --summary "$OUT_DIR/worker-health.json"
+ )
++# Same-node start gate. On a single-host 1P1D the two legs' RCCL communicators
++# initialise concurrently and race; one dies with
++#   rccl .../p2p.cc:256 NCCL WARN hipIpcGetMemHandle failed : invalid argument
++#   NCCL error: unhandled cuda error
++# It is a RACE, not a config error: swapping the GPU sets between the legs makes
++# the FAILING leg follow start ORDER, not the GPU set or the role (rounds 7/8 vs
++# 9 vs 15 — same GPU assignment, different leg fails; see analysis note). Cross-
++# node the two inits run on different machines and cannot race. Fix: before
++# starting a row whose node ALREADY has a started leg, wait for that leg's /health
++# (reusing wait_healthy.py) — the by-hand round-16 fix, made reproducible. This
++# only fires when a node repeats in the topology, so every cross-node deployment
++# is behaviourally unchanged. Knobs: SAME_NODE_START_GATE=health|off (default
++# health); ENGINE_START_STAGGER_S (default 0) adds a fixed same-node sleep for
++# operators who prefer a delay to a health poll.
++declare -A started_on_node=()
++gate_number=0
++gate_same_node() {
++    local node="$1"
++    [[ -n "${started_on_node[$node]:-}" ]] || return 0   # no prior leg on this host
++    local stagger="${ENGINE_START_STAGGER_S:-0}"
++    if [[ "$stagger" != 0 ]]; then
++        echo "same-node stagger: sleeping ${stagger}s before the next leg on $node"
++        sleep "$stagger"
++    fi
++    [[ "${SAME_NODE_START_GATE:-health}" == health ]] || return 0
++    echo "same-node gate: waiting for the already-started leg(s) on $node to answer /health"
++    local gate_args=(
++        python3 "$DIR/tools/wait_healthy.py"
++        --ssh-options "${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}"
++        --timeout "${READY_TIMEOUT:-3600}" --interval "${HEALTH_INTERVAL:-10}"
++        --probe-timeout "${HEALTH_PROBE_TIMEOUT:-5}"
++        --failure-dir "$OUT_DIR/failures"
++        --summary "$OUT_DIR/gate-$gate_number-$node.json"
++    )
++    local record inst cont url
++    while IFS= read -r record; do
++        [[ -n "$record" ]] || continue
++        IFS=$'\t' read -r inst cont url <<< "$record"
++        gate_args+=(--target "$inst" "$node" "$cont" "$url")
++    done <<< "${started_on_node[$node]}"
++    gate_number=$((gate_number + 1))
++    "${gate_args[@]}" ||
++        { echo "same-node gate failed on $node; not starting the next leg" >&2; exit 1; }
++}
+ while IFS=$'\t' read -r instance role node ip gpus engine bootstrap kv snapshot container; do
++    gate_same_node "$node"
+     echo "starting $instance on $node"
+     ssh_run "$node" bash "$REMOTE_BENCH_DIR/engine.sh" \
+         "$role" "$instance" "$ip" "$gpus" "$engine" "$bootstrap" \
+         "$kv" "$snapshot" "$container" "$etcd_endpoint" \
+         "${overrides[@]}" "CONFIG=$CONFIG" "TOPOLOGY=$TOPOLOGY" \
+         "SERVER_LOG=$OUT_DIR/server-logs/$instance.log" </dev/null
+-    wait_args+=(--target "$instance" "$node" "$container" "http://$ip:$engine/health")
++    health_url="http://$ip:$engine/health"
++    record="${instance}"$'\t'"${container}"$'\t'"${health_url}"
++    if [[ -n "${started_on_node[$node]:-}" ]]; then
++        started_on_node[$node]+=$'\n'"$record"
++    else
++        started_on_node[$node]="$record"
++    fi
++    wait_args+=(--target "$instance" "$node" "$container" "$health_url")
+ done < <(rows)
+ "${wait_args[@]}"
+ 
