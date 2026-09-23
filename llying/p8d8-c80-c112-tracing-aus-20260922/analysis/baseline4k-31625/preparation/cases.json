@@ -1,0 +1,71 @@
+{
+  "status": "PREPARATION_ONLY_NOT_LAUNCHED",
+  "reference_run": "/perf_apps/liyingli/bench_agentx/p8d8-baseline4k-31625-20260923/runs/baseline4k-c80-31625",
+  "common": {
+    "PREFILL_CHUNK_SIZE": 32768,
+    "DECODE_CHUNK_SIZE": 32768,
+    "effective_chunks": [
+      4096,
+      4096
+    ],
+    "CONC": 80,
+    "DURATION": 3600,
+    "warmup_requests_per_lane": 10,
+    "simulate_acceptance": 3.61
+  },
+  "cases": [
+    {
+      "id": "2_prefill_capacity",
+      "override": {
+        "PREFILL_MEM_FRACTION": 0.9
+      },
+      "fixed_host_tokens_per_rank": 4715200,
+      "readiness": "Requires actual new GPU pool capacity and computed ratio preserving exact host tokens; integer --hicache-size cannot encode baseline exactly.",
+      "prediction": "miss work and P service/queue fall",
+      "rejection": "capacity increases but miss does not fall, or miss falls without service/throughput benefit"
+    },
+    {
+      "id": "3a_host_capacity",
+      "override": {
+        "PREFILL_HICACHE_RATIO": 2.0
+      },
+      "baseline_ratio": 1.5,
+      "expected_host_tokens_if_device_3143424": 6286912,
+      "readiness": "Capacity-only case; keep backend=kernel and layout=page_first. Verify live host pool and memory headroom.",
+      "prediction": "eviction/miss or restore cost falls",
+      "rejection": "host occupancy changes without P service improvement"
+    },
+    {
+      "id": "3b_host_backend",
+      "override": {
+        "PREFILL_HICACHE_IO_BACKEND": "direct"
+      },
+      "readiness": "Not ready: verify backend works with unchanged page_first layout, hardware and dtype. If layout change required, this is a combined implementation comparison and needs a separate paired baseline.",
+      "prediction": "device copy or shared wait time falls at matched workload",
+      "rejection": "no service improvement or increased errors; do not interpret D transfer wait as DMA time"
+    },
+    {
+      "id": "4_decode_capacity",
+      "override": {
+        "DECODE_MEM_FRACTION": 0.9
+      },
+      "readiness": "P configuration fixed; verify actual D capacity, graph workspace and retractions.",
+      "prediction": "D allocation tail falls; if causal bottleneck, P queue and completion rate also improve",
+      "rejection": "only allocation tail improves while C80 throughput and P queue stay unchanged"
+    },
+    {
+      "id": "5_prefill_fairness",
+      "override": null,
+      "readiness": "Requires scheduler implementation and a control with the identical instrumented build; existing baseline gives workload evidence, not a matched binary control.",
+      "prediction": "short-request queue decreases with bounded long-request tail and unchanged cache/miss cost",
+      "rejection": "latency merely shifts to long requests, starvation rises, or miss/throughput worsens"
+    },
+    {
+      "id": "6_decode_shadow",
+      "override": null,
+      "readiness": "Prepare shadow audit first. Existing allocation events may not expose both full budget conditions and all candidate rank state; do not claim alternatives feasible from free KV alone.",
+      "prediction": "same-decision-time complete budget check identifies feasible alternative ranks",
+      "rejection": "alternatives mostly fail complete budget or reservation checks"
+    }
+  ]
+}

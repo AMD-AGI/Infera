@@ -1,0 +1,18 @@
+{
+  "source_container": "llying-aus-8k-31625-prefill-0",
+  "image_id": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "files": {
+    "pool_host_base.py": {
+      "sha256": "877cae9214ec1940160da84e97aeed3eacf5d25dc7bf2dc9aa9d0d420641efad",
+      "bytes": 14591
+    },
+    "pool_host_mla.py": {
+      "sha256": "8ac8dabc11a4b753baddcd93cbbae0b5874135a9e8f22233f9c76bb6aa5add78",
+      "bytes": 50418
+    },
+    "memory_args.py": {
+      "sha256": "9759df4285e48360a2357e929c09ad36064ce1bdb519cc2e8e88822188618402",
+      "bytes": 10416
+    }
+  }
+}
