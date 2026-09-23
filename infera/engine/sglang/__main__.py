@@ -23,6 +23,8 @@ import asyncio
 import logging
 import os
 import signal
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 
 import httpx
 
@@ -41,8 +43,11 @@ from infera.engine.decode_barrier import (
     discovery_budget_seconds,
     ensure_barrier_discovery_is_reachable,
     ensure_skip_server_warmup,
+    is_compatible_prefill_worker,
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
+    prefill_bootstrap_addr,
+    should_verify_prefill,
     should_wait_for_decode,
     verify_pd_peer,
     wait_for_decode,
@@ -127,31 +132,10 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
     # budget; it still runs one immediate lookup when nothing is left.
     discovery_deadline = started + discovery_budget_seconds(timeout)
 
-    # One client for the whole wait on either backend. The k8s path also
-    # re-reads the ServiceAccount token per request so a rotation is not a 401.
-    http: httpx.AsyncClient | None = None
-    selector: str | None = None
-    try:
-        if args.discovery_backend == "kubernetes":
-            http = make_client(timeout=10.0)
-            selector = await wait_for_k8s_label_selector(
-                args.k8s_label_selector,
-                namespace=args.k8s_namespace,
-                http=http,
-                timeout=max(0.0, discovery_deadline - asyncio.get_running_loop().time()),
-            )
-        else:
-            http = httpx.AsyncClient(base_url=_normalize_endpoint(args.etcd_endpoint), timeout=10.0)
-
-        async def _list() -> list:
-            if args.discovery_backend == "kubernetes":
-                return await list_k8s_worker_payloads(
-                    namespace=args.k8s_namespace,
-                    label_selector=selector,
-                    http=http,
-                )
-            return await list_etcd_worker_payloads(args.etcd_endpoint, args.etcd_prefix, http=http)
-
+    async with _discovery_lister(
+        args,
+        selector_timeout=max(0.0, discovery_deadline - asyncio.get_running_loop().time()),
+    ) as _list:
         logger.info(
             "decode barrier: prefill waiting up to %.0fs for a registered decode worker "
             "(model=%s, discovery=%s)",
@@ -181,9 +165,126 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
             ),
             timeout=probe_timeout,
         )
+
+
+@asynccontextmanager
+async def _discovery_lister(
+    args: SglangWorkerArgs, *, selector_timeout: float
+) -> AsyncIterator[Callable[[], Awaitable[list]]]:
+    """Open one discovery client and yield a worker-listing callable.
+
+    One client for the whole caller on either backend. The k8s path also
+    re-reads the ServiceAccount token per request so a rotation is not a 401.
+    """
+    http: httpx.AsyncClient | None = None
+    try:
+        if args.discovery_backend == "kubernetes":
+            http = make_client(timeout=10.0)
+            selector = await wait_for_k8s_label_selector(
+                args.k8s_label_selector,
+                namespace=args.k8s_namespace,
+                http=http,
+                timeout=selector_timeout,
+            )
+
+            async def _list() -> list:
+                return await list_k8s_worker_payloads(
+                    namespace=args.k8s_namespace,
+                    label_selector=selector,
+                    http=http,
+                )
+
+        else:
+            http = httpx.AsyncClient(base_url=_normalize_endpoint(args.etcd_endpoint), timeout=10.0)
+
+            async def _list() -> list:
+                return await list_etcd_worker_payloads(
+                    args.etcd_endpoint, args.etcd_prefix, http=http
+                )
+
+        yield _list
     finally:
         if http is not None:
             await http.aclose()
+
+
+async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
+    """Verify the KV path to an already-registered prefill before serving.
+
+    The reverse of the prefill barrier, and the reason a rolling upgrade can
+    replace one leg at a time: the prefill barrier only runs on a starting
+    prefill, so a decode replaced on its own would otherwise join the fleet
+    with its transfer path to the surviving prefill never exercised.
+
+    Unlike the prefill barrier this never waits. A prefill registers only
+    after probing a decode, so a decode that blocked here would deadlock the
+    first deployment of a pair. Finding no prefill therefore means "nothing to
+    verify yet" and the prefill's own barrier covers the pairing instead.
+    """
+    mode = getattr(args.server_args, "disaggregation_mode", None)
+    if not should_verify_prefill(mode, args.wait_for_decode):
+        return
+    if _multinode_node_rank(args) > 0:
+        logger.info("prefill probe: skipped on multinode follower")
+        return
+    model_name = str(
+        getattr(args.server_args, "served_model_name", None)
+        or getattr(args.server_args, "model_path", None)
+        or ""
+    )
+    decode_url = f"http://{config.host}:{config.port}"
+    timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
+    deadline = asyncio.get_running_loop().time() + timeout
+
+    # Discovery failures skip the probe rather than fail the worker: decode is
+    # the leg that starts first, so making it depend on a reachable backend
+    # would turn an unrelated outage into a decode that cannot boot. A failed
+    # *probe* below is the opposite -- that is the incompatibility this exists
+    # to catch, and it must stop the worker from registering.
+    try:
+        async with _discovery_lister(
+            args, selector_timeout=discovery_budget_seconds(timeout)
+        ) as list_workers:
+            workers = await list_workers()
+    except Exception as exc:  # noqa: BLE001 - see above; never fatal for decode
+        logger.warning("prefill probe: worker lookup failed; skipping: %s", exc)
+        return
+
+    peers = [
+        payload for payload in workers if is_compatible_prefill_worker(payload, model_name=model_name)
+    ]
+    if not peers:
+        logger.info(
+            "prefill probe: no registered prefill for model %s; skipping "
+            "(the prefill barrier covers this pairing)",
+            model_name,
+        )
+        return
+    # Every registered prefill may route here, so one verified peer does not
+    # vouch for the others.
+    for peer in peers:
+        addr = prefill_bootstrap_addr(peer)
+        prefill_url = str(peer.get("url") or "").rstrip("/")
+        if addr is None or not prefill_url:
+            continue
+        host, port = addr
+        logger.info(
+            "prefill probe: verifying KV path to prefill %s (bootstrap %s:%d)",
+            peer.get("worker_id") or prefill_url,
+            host,
+            port,
+        )
+        await asyncio.wait_for(
+            verify_pd_peer(
+                prefill_url=prefill_url,
+                decode_url=decode_url,
+                bootstrap_host=host,
+                bootstrap_port=port,
+                dp_size=int(peer.get("dp_size") or 1),
+                decode_dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
+            ),
+            timeout=max(0.0, deadline - asyncio.get_running_loop().time()),
+        )
 
 
 def _supervise_engine(engine: SglangEngine) -> tuple[asyncio.Event, EngineDeath, asyncio.Task]:
@@ -197,9 +298,21 @@ def _supervise_engine(engine: SglangEngine) -> tuple[asyncio.Event, EngineDeath,
     return stop, death, death_task
 
 
-async def _wait_for_decode_until_stop(args: SglangWorkerArgs, config, stop: asyncio.Event) -> bool:
-    """Run the decode barrier unless shutdown or engine death wins the race."""
-    wait_task = asyncio.create_task(_maybe_wait_for_decode(args, config))
+async def _startup_barrier(args: SglangWorkerArgs, config) -> None:
+    """Run whichever PD barrier applies to this leg before it registers.
+
+    Both halves early-return on the wrong disaggregation mode, so a prefill
+    runs the first, a decode the second, and a mixed worker neither.
+    """
+    await _maybe_wait_for_decode(args, config)
+    await _maybe_verify_prefill_peer(args, config)
+
+
+async def _run_startup_barrier_until_stop(
+    args: SglangWorkerArgs, config, stop: asyncio.Event
+) -> bool:
+    """Run the PD barrier unless shutdown or engine death wins the race."""
+    wait_task = asyncio.create_task(_startup_barrier(args, config))
     stop_task = asyncio.create_task(stop.wait())
     try:
         await asyncio.wait({wait_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
@@ -483,7 +596,7 @@ async def _run_started_engine(args: SglangWorkerArgs, engine: SglangEngine, conf
     stop, death, death_task = _supervise_engine(engine)
     failed = False
     try:
-        if await _wait_for_decode_until_stop(args, config, stop):
+        if await _run_startup_barrier_until_stop(args, config, stop):
             await _run_after_start(args, engine, config, stop)
     except BaseException:
         failed = True

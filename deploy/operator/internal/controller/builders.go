@@ -576,21 +576,35 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) *appsv1.Deployment {
 	reps := replicasOf(svc)
 	lbls := labelsFor(idep.Name, svcName)
-	// Worker services use surge-free RollingUpdate (maxSurge=0, maxUnavailable=1):
-	// the default RollingUpdate brings up a surge pod first, which on a
-	// GPU-saturated cluster has no free GPU until the old pod is torn down — so
-	// an image change deadlocks (new pod Pending, old never removed). maxSurge=0
-	// tears an old pod down first (freeing its GPU) before creating the new one,
-	// so it never deadlocks; and unlike Recreate it rolls one pod at a time, so a
-	// multi-replica worker keeps serving (reduced capacity) instead of a full
-	// outage. (A single-replica worker still has an unavoidable gap with no spare
-	// GPU.) Gate on componentType==worker (not the flat Resources.GPU, which is
-	// empty when GPUs are declared inside extraPodSpec); the
-	// server (CPU-only) keeps the default RollingUpdate for zero-downtime surge.
+	// Worker services default to surge-free RollingUpdate (maxSurge=0,
+	// maxUnavailable=1): the default RollingUpdate brings up a surge pod first,
+	// which on a GPU-saturated cluster has no free GPU until the old pod is torn
+	// down — so an image change deadlocks (new pod Pending, old never removed).
+	// maxSurge=0 tears an old pod down first (freeing its GPU) before creating
+	// the new one, so it never deadlocks; and unlike Recreate it rolls one pod at
+	// a time, so a multi-replica worker keeps serving (reduced capacity) instead
+	// of a full outage. (A single-replica worker still has an unavoidable gap.)
+	//
+	// RolloutSurge inverts that trade for clusters with a spare GPU:
+	// maxSurge=1/maxUnavailable=0 keeps at least one pod serving for the whole
+	// roll, because the replacement is created first and the old pod is retired
+	// only once the new one is Ready — which for a worker means it passed
+	// /health and, on a prefill, already moved a real KV block to a decode. The
+	// deadlock the default avoids becomes a stall here: with no free GPU the
+	// replacement stays Pending and the old pod keeps serving, so the rollout
+	// does not complete but the service does not drop.
+	//
+	// Gate on componentType==worker (not the flat Resources.GPU, which is empty
+	// when GPUs are declared inside extraPodSpec); the server (CPU-only) keeps
+	// the default RollingUpdate for zero-downtime surge.
 	strategy := appsv1.DeploymentStrategy{}
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		maxSurge := intstr.FromInt32(0)
-		maxUnavailable := intstr.FromInt32(1)
+		surge, unavailable := int32(0), int32(1)
+		if svc.RolloutSurge {
+			surge, unavailable = 1, 0
+		}
+		maxSurge := intstr.FromInt32(surge)
+		maxUnavailable := intstr.FromInt32(unavailable)
 		strategy = appsv1.DeploymentStrategy{
 			Type: appsv1.RollingUpdateDeploymentStrategyType,
 			RollingUpdate: &appsv1.RollingUpdateDeployment{

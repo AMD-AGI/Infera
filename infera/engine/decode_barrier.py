@@ -321,12 +321,78 @@ def is_compatible_decode_worker(
     return str(meta.get("protocol") or "") == protocol
 
 
+def is_compatible_prefill_worker(
+    payload: dict[str, Any],
+    *,
+    model_name: str,
+    engine: str = EngineType.SGLANG.value,
+    protocol: str = SGLANG_BOOTSTRAP_PROTOCOL,
+) -> bool:
+    """True when a registration payload is a matching PD prefill worker.
+
+    The mirror of :func:`is_compatible_decode_worker`, and additionally
+    requires a bootstrap address: a decode verifying this peer has to dial it,
+    and a prefill that advertised none cannot be probed at all.
+    """
+    if not payload:
+        return False
+    if str(payload.get("disagg_mode") or "") != DisaggMode.PREFILL.value:
+        return False
+    if str(payload.get("model_name") or "") != model_name:
+        return False
+    if str(payload.get("engine") or EngineType.SGLANG.value) != engine:
+        return False
+    meta = payload.get("disagg_meta") or {}
+    if not isinstance(meta, dict):
+        return False
+    if str(meta.get("protocol") or "") != protocol:
+        return False
+    return prefill_bootstrap_addr(payload) is not None
+
+
+def prefill_bootstrap_addr(payload: dict[str, Any]) -> tuple[str, int] | None:
+    """Parse ``host, port`` out of a prefill registration's disagg_meta.
+
+    Split from the right so an IPv6 literal keeps its colons. Returns None for
+    anything unparseable rather than raising, so a single malformed
+    registration does not stop the caller from considering other peers.
+    """
+    meta = payload.get("disagg_meta") or {}
+    if not isinstance(meta, dict):
+        return None
+    params = meta.get("params") or {}
+    if not isinstance(params, dict):
+        return None
+    raw = str(params.get("bootstrap_addr") or "")
+    host, sep, port = raw.rpartition(":")
+    if not sep or not host:
+        return None
+    try:
+        return host, int(port)
+    except ValueError:
+        return None
+
+
 def should_wait_for_decode(
     disaggregation_mode: str | None,
     wait_for_decode: bool | None,
 ) -> bool:
     """Prefill waits by default; --no-wait-for-decode opts out."""
     if str(disaggregation_mode or "") != "prefill":
+        return False
+    return wait_for_decode is not False
+
+
+def should_verify_prefill(
+    disaggregation_mode: str | None,
+    wait_for_decode: bool | None,
+) -> bool:
+    """Decode verifies a registered prefill by default; the same flag opts out.
+
+    This is the reverse of the prefill barrier and deliberately never waits:
+    if both legs blocked on each other a fresh deployment could never start.
+    """
+    if str(disaggregation_mode or "") != DisaggMode.DECODE.value:
         return False
     return wait_for_decode is not False
 

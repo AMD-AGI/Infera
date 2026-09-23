@@ -22,10 +22,13 @@ from infera.engine.decode_barrier import (
     ensure_k8s_label_selector_source,
     ensure_skip_server_warmup,
     is_compatible_decode_worker,
+    is_compatible_prefill_worker,
     k8s_namespace,
     list_k8s_worker_payloads,
     pd_probe_reserve_seconds,
+    prefill_bootstrap_addr,
     resolve_k8s_label_selector,
+    should_verify_prefill,
     should_wait_for_decode,
     verify_pd_peer,
     wait_for_decode,
@@ -736,3 +739,94 @@ async def test_verify_pd_peer_waits_between_retries_for_rdma_recovery():
         )
 
     assert sleeps == [35.0]
+
+
+def _prefill_payload(**overrides):
+    payload = {
+        "worker_id": "10.235.192.9:30000",
+        "url": "http://10.235.192.9:30000",
+        "model_name": "glm-5-3",
+        "engine": "sglang",
+        "disagg_mode": "prefill",
+        "disagg_meta": {
+            "protocol": "sglang-bootstrap",
+            "params": {"bootstrap_addr": "10.235.192.9:8998"},
+        },
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_compatible_prefill_worker_matches_sglang_bootstrap():
+    assert is_compatible_prefill_worker(_prefill_payload(), model_name="glm-5-3")
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"disagg_mode": "decode"},
+        {"disagg_mode": "mixed"},
+        {"model_name": "other"},
+        {"engine": "vllm"},
+        {"disagg_meta": {}},
+        {"disagg_meta": {"protocol": "vllm-mooncake"}},
+    ],
+)
+def test_incompatible_prefill_worker_is_rejected(overrides):
+    assert not is_compatible_prefill_worker(_prefill_payload(**overrides), model_name="glm-5-3")
+
+
+def test_a_prefill_without_a_bootstrap_address_is_not_a_probe_target():
+    # The probe dials this address. Matching a prefill that never advertised
+    # one would fail the decode's startup over a peer it could not have
+    # verified either way.
+    no_addr = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {}},
+    )
+    assert not is_compatible_prefill_worker(no_addr, model_name="glm-5-3")
+
+
+@pytest.mark.parametrize(
+    ("addr", "want"),
+    [
+        ("10.0.0.1:8998", ("10.0.0.1", 8998)),
+        # Split from the right, or every colon in an IPv6 literal breaks it.
+        ("[fd00::1]:8998", ("[fd00::1]", 8998)),
+        ("host.ns.svc:8998", ("host.ns.svc", 8998)),
+    ],
+)
+def test_prefill_bootstrap_addr_parses(addr, want):
+    payload = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": addr}},
+    )
+    assert prefill_bootstrap_addr(payload) == want
+
+
+@pytest.mark.parametrize(
+    "addr",
+    ["", "10.0.0.1", ":8998", "10.0.0.1:", "10.0.0.1:notaport"],
+)
+def test_prefill_bootstrap_addr_rejects_garbage_without_raising(addr):
+    # One malformed registration must not stop the caller from considering
+    # the other peers.
+    payload = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": addr}},
+    )
+    assert prefill_bootstrap_addr(payload) is None
+
+
+def test_should_verify_prefill_defaults_on_for_decode_only():
+    assert should_verify_prefill("decode", None) is True
+    assert should_verify_prefill("decode", True) is True
+    assert should_verify_prefill("decode", False) is False
+    assert should_verify_prefill("prefill", None) is False
+    assert should_verify_prefill("prefill", True) is False
+    assert should_verify_prefill("mixed", None) is False
+
+
+def test_the_two_barriers_never_both_apply_to_one_worker():
+    # They run back to back in _startup_barrier, and a leg that took both
+    # would wait for a decode and then probe a prefill -- on a pair where
+    # each side does that, neither ever registers.
+    for mode in ("prefill", "decode", "mixed", None):
+        assert not (should_wait_for_decode(mode, None) and should_verify_prefill(mode, None))

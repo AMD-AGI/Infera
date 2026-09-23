@@ -9,6 +9,7 @@ package controller
 import (
 	"testing"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 
 	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
@@ -352,4 +353,61 @@ func TestWorkersLearnTheirOwnAddress(t *testing.T) {
 	}
 	tmpl := podTemplateFromExtra(idep, "worker", svc)
 	check(t, tmpl.Spec.Containers[0].Env, "extraPodSpec")
+}
+
+// rollingOf returns the Deployment's rolling parameters, failing when the
+// strategy is not RollingUpdate at all.
+func rollingOf(t *testing.T, svc inferav1alpha1.ServiceSpec) (surge, unavailable int32) {
+	t.Helper()
+	dep := buildDeployment(idepWith(1), "w", svc)
+	ru := dep.Spec.Strategy.RollingUpdate
+	if dep.Spec.Strategy.Type != appsv1.RollingUpdateDeploymentStrategyType || ru == nil {
+		t.Fatalf("strategy = %+v, want RollingUpdate with parameters", dep.Spec.Strategy)
+	}
+	return ru.MaxSurge.IntVal, ru.MaxUnavailable.IntVal
+}
+
+// The default has to stay surge-free. A worker holds a whole GPU, so a surge
+// pod on a saturated cluster is Pending forever while the old pod is never
+// retired to free the GPU it is waiting for -- the rollout deadlocks.
+func TestWorkersDoNotSurgeByDefault(t *testing.T) {
+	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeWorker,
+	})
+	if surge != 0 {
+		t.Errorf("maxSurge = %d, want 0: a surge pod has no GPU to land on", surge)
+	}
+	if unavailable != 1 {
+		t.Errorf("maxUnavailable = %d, want 1: the old pod must go first to free its GPU", unavailable)
+	}
+}
+
+// RolloutSurge exists for exactly one property: the service keeps serving.
+// maxUnavailable must be 0, not merely maxSurge 1 -- with maxUnavailable=1 the
+// controller is free to retire the only serving pod before the replacement is
+// Ready, which is the outage this setting is meant to remove.
+func TestRolloutSurgeKeepsAPodServing(t *testing.T) {
+	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeWorker,
+		RolloutSurge:  true,
+	})
+	if surge != 1 {
+		t.Errorf("maxSurge = %d, want 1: the replacement must start before the old pod goes", surge)
+	}
+	if unavailable != 0 {
+		t.Fatalf("maxUnavailable = %d, want 0: any other value permits a gap with no pod serving",
+			unavailable)
+	}
+}
+
+// The server is CPU-only, so it has no GPU to deadlock on and keeps the
+// apps/v1 default (25% surge). Forcing a strategy here would only narrow it.
+func TestTheServerKeepsTheDefaultStrategy(t *testing.T) {
+	dep := buildDeployment(idepWith(1), "server", inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeServer,
+		RolloutSurge:  true,
+	})
+	if dep.Spec.Strategy.Type != "" || dep.Spec.Strategy.RollingUpdate != nil {
+		t.Errorf("strategy = %+v, want the apps/v1 default", dep.Spec.Strategy)
+	}
 }
