@@ -20,10 +20,17 @@ worker.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
+
+#: Per-probe engine liveness check. Returning False answers 503, which marks
+#: the pod NotReady without restarting it.
+EngineCheck = Callable[[], Awaitable[bool]]
 
 #: Port the readiness endpoint listens on unless overridden. Deployments run
 #: with hostNetwork, so this shares the node's port space with the engine
@@ -36,11 +43,18 @@ DEFAULT_READINESS_PORT = 30090
 READINESS_PORT_ENV = "INFERA_READINESS_PORT"
 
 _RESPONSE = b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\nConnection: close\r\n\r\nready"
+_UNAVAILABLE = (
+    b"HTTP/1.1 503 Service Unavailable\r\nContent-Type: text/plain\r\n"
+    b"Content-Length: 6\r\nConnection: close\r\n\r\nengine"
+)
 
 # A kubelet probe sends a small request and reads the reply. Bound the read so
 # a half-open connection cannot pin the handler forever.
 _READ_TIMEOUT_S = 5.0
 _MAX_REQUEST_BYTES = 8192
+# Well inside the probe's own timeout, so a slow engine answers 503 rather
+# than letting the probe time out with no reply at all.
+_ENGINE_CHECK_TIMEOUT_S = 3.0
 
 
 def readiness_port(env: dict[str, str] | None = None) -> int:
@@ -53,7 +67,11 @@ def readiness_port(env: dict[str, str] | None = None) -> int:
     return port if 0 < port < 65536 else DEFAULT_READINESS_PORT
 
 
-async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
+async def _handle(
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+    engine_alive: EngineCheck | None,
+) -> None:
     """Answer one probe. Never raises: a probe must not kill the server."""
     try:
         try:
@@ -65,9 +83,15 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
             await asyncio.wait_for(reader.read(_MAX_REQUEST_BYTES), _READ_TIMEOUT_S)
         except (asyncio.TimeoutError, asyncio.IncompleteReadError):
             # Answer anyway. The probe only cares about the status line, and a
-            # client that sent nothing readable still gets a truthful "ready".
+            # client that sent nothing readable still gets a truthful answer.
             pass
-        writer.write(_RESPONSE)
+        ok = True
+        if engine_alive is not None:
+            try:
+                ok = await asyncio.wait_for(engine_alive(), _ENGINE_CHECK_TIMEOUT_S)
+            except Exception:  # noqa: BLE001 - an unreachable engine is not ready
+                ok = False
+        writer.write(_RESPONSE if ok else _UNAVAILABLE)
         await writer.drain()
     except (ConnectionError, OSError):
         pass
@@ -79,16 +103,69 @@ async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) ->
             pass
 
 
-async def serve_readiness(port: int | None = None) -> asyncio.AbstractServer:
+async def serve_readiness(
+    port: int | None = None, *, engine_alive: EngineCheck | None = None
+) -> asyncio.AbstractServer:
     """Start accepting readiness probes on ``port``.
 
     Binds 0.0.0.0 because the probe arrives from the kubelet on the node, not
     from inside the container.
+
+    ``engine_alive`` is consulted per probe. This server runs in the
+    supervisor's event loop, which stays responsive even if the engine wedges,
+    so without it a hung-but-running engine would keep reporting Ready and a
+    rollout could retire a healthy pod in favour of a stuck one. The engine's
+    own /health used to provide that signal implicitly.
     """
     bind_port = readiness_port() if port is None else port
-    server = await asyncio.start_server(_handle, "0.0.0.0", bind_port)
+
+    async def handler(r: asyncio.StreamReader, w: asyncio.StreamWriter) -> None:
+        await _handle(r, w, engine_alive)
+
+    server = await asyncio.start_server(handler, "0.0.0.0", bind_port)
     logger.info("readiness port open on %d (worker is a routing target)", bind_port)
     return server
+
+
+async def serve_readiness_or_deregister(
+    reg_client: Any,
+    port: int | None = None,
+    *,
+    engine_alive: EngineCheck | None = None,
+) -> asyncio.AbstractServer:
+    """Open the readiness port, clearing the registration if the bind fails.
+
+    The port is opened after the worker registers, so a bind failure -- two
+    workers sharing a host with the same port, most plainly -- would otherwise
+    kill the process with its record still published, and the router would
+    keep dispatching to a worker that no longer exists.
+    """
+    try:
+        return await serve_readiness(port, engine_alive=engine_alive)
+    except OSError:
+        logger.exception("readiness port failed to open; clearing the registration")
+        with contextlib.suppress(Exception):
+            await reg_client.deregister()
+        raise
+
+
+def engine_health_check(host: str, port: int) -> EngineCheck:
+    """Build a per-probe check that the engine itself still answers /health.
+
+    Dialled over loopback when the engine binds 0.0.0.0, matching how the
+    worker waited for the engine at startup.
+    """
+    probe_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+    url = f"http://{probe_host}:{port}/health"
+
+    async def check() -> bool:
+        import httpx
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, timeout=_ENGINE_CHECK_TIMEOUT_S)
+            return resp.status_code == 200
+
+    return check
 
 
 async def close_readiness(server: asyncio.AbstractServer | None) -> None:

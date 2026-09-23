@@ -376,12 +376,6 @@ func resourceRequirements(svc inferav1alpha1.ServiceSpec) corev1.ResourceRequire
 // for the primary infera container inside ExtraPodSpec.
 var mainContainerNames = map[string]struct{}{"main": {}, "infera": {}}
 
-// injectWorkerRolloutDefaults adds graceful rolling-upgrade knobs to a worker
-// pod that the template did not already set: a preStop drain delay on the
-// primary container and a termination grace long enough to drain in-flight
-// generations, plus a /health readiness probe for single-node workers (skipped
-// for multi-node LWS groups whose follower ranks > 0 do not serve /health).
-// Existing values are preserved; the grace is only raised, never lowered.
 // hasEnv reports whether the container already declares the named variable.
 func hasEnv(c *corev1.Container, name string) bool {
 	for _, e := range c.Env {
@@ -392,22 +386,53 @@ func hasEnv(c *corev1.Container, name string) bool {
 	return false
 }
 
-// readinessPortFor returns the port the worker will open: the container's own
-// INFERA_READINESS_PORT when it carries a usable one, else the default. Read
-// from the container rather than ServiceSpec.Env because an extraPodSpec
-// template is passed through verbatim and is the more specific source.
-func readinessPortFor(c *corev1.Container) int32 {
+// readinessPortFor returns the port the worker will open, and whether the
+// operator can know it.
+//
+// A valueFrom source is resolved by the kubelet, not here, so the value is
+// unknowable at render time. Guessing the default would pin the probe to a
+// port the worker may not bind, and with maxUnavailable=0 that is an
+// unrecoverable stall -- so the caller skips the probe instead, which falls
+// back to surge-free rolling.
+//
+// Parsed with the same strictness as the worker's int(): no surrounding
+// whitespace, no underscores. Read from the container rather than
+// ServiceSpec.Env because an extraPodSpec template is passed through verbatim
+// and is the more specific source.
+func readinessPortFrom(c *corev1.Container) (int32, bool) {
 	for _, e := range c.Env {
 		if e.Name != readinessPortEnvVar {
 			continue
 		}
-		if n, err := strconv.Atoi(e.Value); err == nil && n > 0 && n < 65536 {
-			return int32(n) //nolint:gosec // bounded above
+		if e.ValueFrom != nil {
+			return 0, false
 		}
+		if e.Value != strings.TrimSpace(e.Value) || strings.Contains(e.Value, "_") {
+			return 0, false
+		}
+		n, err := strconv.Atoi(e.Value)
+		if err != nil || n <= 0 || n >= 65536 {
+			return 0, false
+		}
+		return int32(n), true //nolint:gosec // bounded above
 	}
-	return workerReadinessPort
+	return workerReadinessPort, true
 }
 
+// readinessPortFor is readinessPortFrom's value, for callers that already know
+// the port is knowable.
+func readinessPortFor(c *corev1.Container) int32 {
+	port, _ := readinessPortFrom(c)
+	return port
+}
+
+// injectWorkerRolloutDefaults adds graceful rolling-upgrade knobs to a worker
+// pod that the template did not already set: a preStop drain delay on the
+// primary container and a termination grace long enough to drain in-flight
+// generations, plus a readiness probe on the worker's registration port for
+// single-node workers (skipped for multi-node LWS groups, whose follower ranks
+// do not serve). Existing values are preserved; the grace is only raised,
+// never lowered.
 func injectWorkerRolloutDefaults(
 	spec *corev1.PodSpec, idx int, addReadiness bool,
 	args []string, env []corev1.EnvVar,
@@ -431,14 +456,14 @@ func injectWorkerRolloutDefaults(
 	// entrypoint -- which operators write by hand -- does not have to change.
 	// A value already on the container wins, and the probe below follows it,
 	// so the two cannot disagree.
-	readyPort := readinessPortFor(c)
+	readyPort, portKnown := readinessPortFrom(c)
 	if !hasEnv(c, readinessPortEnvVar) {
 		c.Env = append(c.Env, corev1.EnvVar{
 			Name:  readinessPortEnvVar,
 			Value: strconv.Itoa(int(readyPort)),
 		})
 	}
-	if addReadiness && c.ReadinessProbe == nil {
+	if addReadiness && portKnown && c.ReadinessProbe == nil {
 		// Probed on the readiness port, not the engine's /health: only the
 		// former means "registered, and the router can reach me". The port
 		// simply is not open before then, so the probe fails closed, which is
@@ -628,27 +653,40 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) *appsv1.Deployment {
 	reps := replicasOf(svc)
 	lbls := labelsFor(idep.Name, svcName)
-	// Worker services roll surge-first (maxSurge=1, maxUnavailable=0): the
-	// replacement is created before the old pod is retired, and the old pod
-	// goes only once the new one is Ready — which, probed on the readiness
-	// port, means it has loaded its weights, passed the PD barrier and
-	// registered. A single-replica worker therefore keeps serving across an
-	// image or template change, which surge-free rolling cannot do.
+	// A worker's rolling strategy follows whether it has a readiness probe,
+	// because that is the only signal telling the rollout the replacement can
+	// serve.
 	//
-	// The cost is that a worker holds a whole GPU, so on a saturated cluster
-	// the replacement stays Pending and the rollout does not finish. That is a
-	// stall, not an outage: the old pod keeps serving throughout, and freeing
-	// a GPU lets the roll continue. Choosing a stall over a guaranteed gap is
-	// the whole point — the alternative completes, but drops every request
-	// while the replacement loads its weights.
+	// With a probe: maxSurge=1/maxUnavailable=0. The replacement is created
+	// first and the old pod is retired only once the new one is Ready — which,
+	// probed on the readiness port, means it has loaded its weights, passed
+	// the PD barrier and registered. A single-replica worker keeps serving
+	// across an image or template change, which surge-free rolling cannot do.
+	// The cost is a spare GPU per rolling pod: without one the replacement
+	// stays Pending and the roll does not finish, a stall with the old pod
+	// still serving rather than an outage.
+	//
+	// Without one (skipReadinessProbe): maxSurge=0/maxUnavailable=1, the
+	// historical behaviour. Surging here would be worse than not surging —
+	// every pod counts as Ready the moment it is Running, so the rollout would
+	// retire the pod that is still serving in favour of one still loading
+	// weights. Rolling old-pod-first has a gap, but it is bounded and the
+	// rollout always completes, which also keeps whole-node pinned workers
+	// (replicas=1, nodeSelector, all GPUs on the host) upgradeable: no surge
+	// pod could ever schedule for them.
 	//
 	// Gate on componentType==worker (not the flat Resources.GPU, which is empty
 	// when GPUs are declared inside extraPodSpec); the server (CPU-only) keeps
 	// the apps/v1 default, which already surges.
+	tmpl := podTemplate(idep, svcName, svc)
 	strategy := appsv1.DeploymentStrategy{}
 	if svc.ComponentType == inferav1alpha1.ComponentTypeWorker {
-		maxSurge := intstr.FromInt32(1)
-		maxUnavailable := intstr.FromInt32(0)
+		surge, unavailable := int32(1), int32(0)
+		if !probedOnReadinessPort(&tmpl) {
+			surge, unavailable = 0, 1
+		}
+		maxSurge := intstr.FromInt32(surge)
+		maxUnavailable := intstr.FromInt32(unavailable)
 		strategy = appsv1.DeploymentStrategy{
 			Type: appsv1.RollingUpdateDeploymentStrategyType,
 			RollingUpdate: &appsv1.RollingUpdateDeployment{
@@ -663,9 +701,33 @@ func buildDeployment(idep *inferav1alpha1.InferaDeployment, svcName string, svc 
 			Replicas: &reps,
 			Selector: &metav1.LabelSelector{MatchLabels: lbls},
 			Strategy: strategy,
-			Template: podTemplate(idep, svcName, svc),
+			Template: tmpl,
 		},
 	}
+}
+
+// probedOnReadinessPort reports whether a container is probed on the port the
+// worker opens once it has registered.
+//
+// Read off the rendered template rather than re-deriving the conditions, so
+// every reason a pod ends up without that probe lands here: skipReadinessProbe,
+// or an extraPodSpec that supplies a probe of its own. The latter is treated
+// as "no readiness signal" on purpose -- a hand-written /health probe answers
+// while the engine is still starting, which is exactly what makes surging
+// unsafe. Only the port this operator injects carries the guarantee that Ready
+// means registered.
+func probedOnReadinessPort(tmpl *corev1.PodTemplateSpec) bool {
+	for i := range tmpl.Spec.Containers {
+		c := &tmpl.Spec.Containers[i]
+		p := c.ReadinessProbe
+		if p == nil || p.HTTPGet == nil {
+			continue
+		}
+		if p.HTTPGet.Port.IntVal == readinessPortFor(c) {
+			return true
+		}
+	}
+	return false
 }
 
 // buildLeaderWorkerSet returns an unstructured LeaderWorkerSet so the operator

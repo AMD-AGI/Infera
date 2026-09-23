@@ -17,6 +17,7 @@ from infera.engine.readiness import (
     close_readiness,
     readiness_port,
     serve_readiness,
+    serve_readiness_or_deregister,
 )
 
 
@@ -114,3 +115,95 @@ def test_port_resolution_falls_back_rather_than_raising(raw, want):
 def test_the_default_port_does_not_collide_with_the_engine():
     # Deployments run with hostNetwork, so these share the node's port space.
     assert DEFAULT_READINESS_PORT not in (30000, 30001)
+
+
+class _FakeReg:
+    """Minimal registration client: records whether deregister was called."""
+
+    def __init__(self, fail: bool = False):
+        self.deregistered = False
+        self.fail = fail
+
+    async def deregister(self):
+        self.deregistered = True
+        if self.fail:
+            raise RuntimeError("deregister blew up")
+        return True
+
+
+@pytest.mark.asyncio
+async def test_a_failed_bind_clears_the_registration():
+    # The port opens after the worker registers, so dying here with the record
+    # still published leaves the router dispatching to a worker that is gone.
+    held = await serve_readiness(0)
+    port = held.sockets[0].getsockname()[1]
+    reg = _FakeReg()
+    try:
+        with pytest.raises(OSError):
+            await serve_readiness_or_deregister(reg, port)
+        assert reg.deregistered, "a stale record would keep receiving traffic"
+    finally:
+        await close_readiness(held)
+
+
+@pytest.mark.asyncio
+async def test_a_failing_deregister_still_surfaces_the_bind_error():
+    # The bind failure is the reason the worker cannot serve; a deregister that
+    # also fails must not mask it.
+    held = await serve_readiness(0)
+    port = held.sockets[0].getsockname()[1]
+    try:
+        with pytest.raises(OSError):
+            await serve_readiness_or_deregister(_FakeReg(fail=True), port)
+    finally:
+        await close_readiness(held)
+
+
+@pytest.mark.asyncio
+async def test_a_successful_bind_does_not_deregister():
+    reg = _FakeReg()
+    server = await serve_readiness_or_deregister(reg, 0)
+    try:
+        assert not reg.deregistered
+    finally:
+        await close_readiness(server)
+
+
+@pytest.mark.asyncio
+async def test_a_wedged_engine_is_reported_not_ready():
+    # This server runs in the supervisor's loop, which stays responsive even
+    # when the engine wedges. Without consulting the engine, a hung-but-running
+    # engine would keep the pod Ready and a rollout could retire a healthy pod
+    # for a stuck one.
+    async def wedged():
+        await asyncio.sleep(3600)
+
+    server = await serve_readiness(0, engine_alive=wedged)
+    try:
+        assert b"503" in await _probe(_port_of(server), timeout=10.0)
+    finally:
+        await close_readiness(server)
+
+
+@pytest.mark.asyncio
+async def test_an_unreachable_engine_is_reported_not_ready():
+    async def refused():
+        raise ConnectionRefusedError("engine gone")
+
+    server = await serve_readiness(0, engine_alive=refused)
+    try:
+        assert b"503" in await _probe(_port_of(server))
+    finally:
+        await close_readiness(server)
+
+
+@pytest.mark.asyncio
+async def test_a_healthy_engine_is_reported_ready():
+    async def ok():
+        return True
+
+    server = await serve_readiness(0, engine_alive=ok)
+    try:
+        assert b"200 OK" in await _probe(_port_of(server))
+    finally:
+        await close_readiness(server)

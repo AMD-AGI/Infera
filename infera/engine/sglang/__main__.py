@@ -55,7 +55,11 @@ from infera.engine.decode_barrier import (
 )
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
-from infera.engine.readiness import close_readiness, serve_readiness
+from infera.engine.readiness import (
+    close_readiness,
+    engine_health_check,
+    serve_readiness_or_deregister,
+)
 from infera.engine.sglang.args import (
     SglangWorkerArgs,
     no_clear_event_reason,
@@ -68,6 +72,10 @@ from infera.engine.sglang.kv_wiring import (
 )
 from infera.engine.sglang.kvd_wiring import awire_infera_kvd_backend
 from infera.engine.sglang.worker import SglangEngine
+
+#: Floor on the budget left before a peer probe is attempted. wait_for(0.0)
+#: raises immediately, which would fail the decode without naming a peer.
+_MIN_PREFILL_PROBE_SECONDS = 5.0
 
 
 def _kill_process_group_safely() -> None:
@@ -237,17 +245,29 @@ async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
     timeout = decode_ready_timeout_seconds(args.decode_ready_timeout)
     deadline = asyncio.get_running_loop().time() + timeout
 
-    # Discovery failures skip the probe rather than fail the worker: decode is
-    # the leg that starts first, so making it depend on a reachable backend
-    # would turn an unrelated outage into a decode that cannot boot. A failed
-    # *probe* below is the opposite -- that is the incompatibility this exists
-    # to catch, and it must stop the worker from registering.
+    # A misconfigured discovery backend is fatal, and checked before anything
+    # is dialled: an unresolvable label selector would otherwise make every
+    # lookup fail, and the except below would read that as "no peers yet" and
+    # skip the verification this exists for -- silently, on every decode.
+    ensure_barrier_discovery_is_reachable(
+        args.discovery_backend,
+        k8s_label_selector=args.k8s_label_selector,
+        etcd_endpoint=args.etcd_endpoint,
+    )
+
+    # A reachable-but-failing lookup skips the probe rather than failing the
+    # worker: decode is the leg that starts first, so making it depend on a
+    # healthy backend would turn an unrelated outage into a decode that cannot
+    # boot. Narrow to transport and protocol errors, so a TypeError or
+    # AttributeError in this path surfaces as the bug it is instead of hiding
+    # as a skipped probe. A failed *probe* below is the opposite -- that is the
+    # incompatibility this exists to catch, and it must stop registration.
     try:
         async with _discovery_lister(
             args, selector_timeout=discovery_budget_seconds(timeout)
         ) as list_workers:
             workers = await list_workers()
-    except Exception as exc:  # noqa: BLE001 - see above; never fatal for decode
+    except (OSError, httpx.HTTPError, asyncio.TimeoutError, ValueError, KeyError) as exc:
         logger.warning("prefill probe: worker lookup failed; skipping: %s", exc)
         return
 
@@ -263,14 +283,31 @@ async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
             model_name,
         )
         return
-    # Every registered prefill may route here, so one verified peer does not
-    # vouch for the others.
+    # One verified peer is enough. Every registered prefill may route here, so
+    # probing all of them would cover more -- but it also lets a single wedged
+    # prefill burn the whole budget and block every decode that starts after
+    # it, and the transfer path this checks (Mooncake/RDMA over the same NICs)
+    # is shared, so a second peer re-exercises the same plumbing. The prefill
+    # barrier covers the pairing from the other side as peers restart.
     for peer in peers:
         addr = prefill_bootstrap_addr(peer)
         prefill_url = str(peer.get("url") or "").rstrip("/")
         if addr is None or not prefill_url:
             continue
         host, port = addr
+        # A spent budget must not become a zero timeout: wait_for(0.0) raises
+        # immediately, which would fail the decode without naming a peer or
+        # ever reaching the engine.
+        remaining = deadline - asyncio.get_running_loop().time()
+        if remaining < _MIN_PREFILL_PROBE_SECONDS:
+            logger.warning(
+                "prefill probe: only %.1fs of the %.0fs budget left; skipping "
+                "verification against %s",
+                remaining,
+                timeout,
+                peer.get("worker_id") or prefill_url,
+            )
+            return
         logger.info(
             "prefill probe: verifying KV path to prefill %s (bootstrap %s:%d)",
             peer.get("worker_id") or prefill_url,
@@ -286,8 +323,9 @@ async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
                 dp_size=int(peer.get("dp_size") or 1),
                 decode_dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
             ),
-            timeout=max(0.0, deadline - asyncio.get_running_loop().time()),
+            timeout=remaining,
         )
+        return
 
 
 def _supervise_engine(engine: SglangEngine) -> tuple[asyncio.Event, EngineDeath, asyncio.Task]:
@@ -768,7 +806,9 @@ async def _run_after_start(
     # Opened only now, so a rollout waiting on this pod's readiness waits for
     # a worker the router can actually reach -- the engine's /health has been
     # answering since before the PD barrier ran.
-    ready_server = await serve_readiness()
+    ready_server = await serve_readiness_or_deregister(
+        reg_client, engine_alive=engine_health_check(config.host, config.port)
+    )
 
     await stop.wait()
 

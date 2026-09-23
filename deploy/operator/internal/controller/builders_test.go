@@ -12,6 +12,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	inferav1alpha1 "github.com/amd/infera/deploy/operator/api/v1alpha1"
 )
@@ -449,5 +450,81 @@ func TestReadinessProbeFollowsAnOverriddenPort(t *testing.T) {
 	}
 	if count != 1 {
 		t.Errorf("%s appears %d times, want 1", readinessPortEnvVar, count)
+	}
+}
+
+// Surging is only safe while readiness means "registered". A worker whose
+// probe was skipped reports Ready the moment it is Running, so surging would
+// retire the pod that is still serving in favour of one still loading weights
+// -- worse than the bounded gap of rolling old-pod-first. Every shipped
+// example that sets skipReadinessProbe on a serving worker depends on this.
+//
+// It also keeps whole-node pinned workers upgradeable: replicas=1 with a
+// nodeSelector and every GPU on the host leaves no room for a surge pod, so
+// maxSurge=1 would never complete.
+func TestAWorkerWithoutAProbeRollsSurgeFree(t *testing.T) {
+	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
+		ComponentType:      inferav1alpha1.ComponentTypeWorker,
+		SkipReadinessProbe: true,
+	})
+	if surge != 0 || unavailable != 1 {
+		t.Errorf("maxSurge/maxUnavailable = %d/%d, want 0/1: no probe means no safe surge",
+			surge, unavailable)
+	}
+}
+
+// A hand-written probe carries no guarantee that Ready means registered -- a
+// /health probe answers while the engine is still starting -- so it does not
+// buy the right to surge either.
+func TestAnExtraPodSpecProbeDoesNotEnableSurge(t *testing.T) {
+	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeWorker,
+		ExtraPodSpec: &corev1.PodSpec{Containers: []corev1.Container{{
+			Name:  "main",
+			Image: "x",
+			ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt32(30000)},
+			}},
+		}}},
+	})
+	if surge != 0 || unavailable != 1 {
+		t.Errorf("maxSurge/maxUnavailable = %d/%d, want 0/1 for a foreign probe",
+			surge, unavailable)
+	}
+}
+
+// A valueFrom port is resolved by the kubelet, so the operator cannot know it.
+// Injecting a probe on the default would poll a port the worker may not bind,
+// and with maxUnavailable=0 that is an unrecoverable stall -- so no probe is
+// injected, which in turn falls back to surge-free rolling.
+func TestAnUnknowableReadinessPortSkipsTheProbe(t *testing.T) {
+	spec := &corev1.PodSpec{Containers: []corev1.Container{{
+		Name: "main",
+		Env: []corev1.EnvVar{{
+			Name: readinessPortEnvVar,
+			ValueFrom: &corev1.EnvVarSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{Key: "port"},
+			},
+		}},
+	}}}
+	injectWorkerRolloutDefaults(spec, 0, true, nil, nil)
+	if p := spec.Containers[0].ReadinessProbe; p != nil {
+		t.Errorf("probe injected for an unknowable port: %+v", p.HTTPGet)
+	}
+}
+
+// Go's Atoi accepts forms Python's int() does not, and a divergence here means
+// the probe and the worker disagree on the port.
+func TestReadinessPortRejectsFormsThePythonSideWouldNotAccept(t *testing.T) {
+	for _, raw := range []string{" 30091", "30_091", "30091 ", "", "abc", "0", "70000"} {
+		c := &corev1.Container{Env: []corev1.EnvVar{{Name: readinessPortEnvVar, Value: raw}}}
+		if _, ok := readinessPortFrom(c); ok {
+			t.Errorf("%q was accepted; the worker would bind something else", raw)
+		}
+	}
+	c := &corev1.Container{Env: []corev1.EnvVar{{Name: readinessPortEnvVar, Value: "30091"}}}
+	port, ok := readinessPortFrom(c)
+	if !ok || port != 30091 {
+		t.Errorf("readinessPortFrom = %d/%v, want 30091/true", port, ok)
 	}
 }

@@ -26,6 +26,11 @@ from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
 from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.drain import drain_engine_inflight
 from infera.engine.flush import anchor_kv_chain
+from infera.engine.readiness import (
+    close_readiness,
+    engine_health_check,
+    serve_readiness_or_deregister,
+)
 from infera.engine.vllm.args import VllmWorkerArgs, parse_vllm_args
 from infera.engine.vllm.worker import VllmEngine
 
@@ -363,6 +368,11 @@ async def main() -> None:
 
     await reg_client.register(config)
     hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
+    # The operator probes readiness on this port for every worker regardless of
+    # backend, so a vLLM worker that never opened it would sit NotReady forever.
+    ready_server = await serve_readiness_or_deregister(
+        reg_client, engine_alive=engine_health_check(config.host, config.port)
+    )
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -372,6 +382,11 @@ async def main() -> None:
     death = EngineDeath()
     death_task = watch_engine_death(engine, stop, death)
     await stop.wait()
+
+    # Closed as shutdown begins, before deregistration: this is the signal a
+    # surge rollout reads, and it should stop claiming readiness now rather
+    # than once in-flight work has finished.
+    await close_readiness(ready_server)
 
     death_task.cancel()
     try:
