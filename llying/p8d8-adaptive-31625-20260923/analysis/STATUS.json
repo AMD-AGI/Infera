@@ -1,10 +1,10 @@
 {
-  "updated_utc": "2026-09-23T20:54:13.993894+00:00",
+  "updated_utc": "2026-09-23T21:18:30.657309+00:00",
   "job_id": 31644,
   "prefill": "smci355-ccs-aus-n04-29",
   "decode": "smci355-ccs-aus-n04-25",
-  "current_case": "g2-guard-completion",
-  "stage": "G2_LAUNCHING",
+  "current_case": "g3-guard-completion",
+  "stage": "G3_LAUNCHING",
   "next_cases": [],
   "decision": "Evaluate guarded P accounting lifecycle before capacity restarts; retain only useful experiments.",
   "deadline_review_approx_utc": "2026-09-24T00:43:00Z",
@@ -30,8 +30,8 @@
   },
   "a1_warmup_started_utc": "2026-09-23T19:22:40Z",
   "a1_invalid_reason": "Slurm preemption at 19:46:58Z; extern step ended 19:47:29Z; SSH denied.",
-  "allocation_restart": 2,
-  "driver_pid": 2803142,
+  "allocation_restart": 3,
+  "driver_pid": 2997978,
   "baseline_repeats_enabled": false,
-  "lease_end_utc": "2026-09-24T01:02:32Z"
+  "lease_end_utc": "2026-09-24T01:40:43Z"
 }

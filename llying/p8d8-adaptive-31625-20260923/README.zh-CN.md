@@ -4,9 +4,9 @@
 
 ## 当前运行
 
-- job31644，restart2，QOS=batch，Compute-DCPT；20:32:32 UTC获得节点，租期到2026-09-24 01:02:32 UTC。
+- job31644，restart3，QOS=batch，Compute-DCPT；21:10:43 UTC重新获得相同节点，租期到2026-09-24 01:40:43 UTC。
 - P：smci355-ccs-aus-n04-29 / 10.235.192.57；D：smci355-ccs-aus-n04-25 / 10.235.192.131。
-- G2：`runs/g2-guard-completion`，GUARD_MODE=completion，20:52:24 UTC开始加载P/D。无后续baseline任务。
+- G3：`runs/g3-guard-completion`，GUARD_MODE=completion，21:16:07 UTC开始加载P/D。无后续baseline任务。
 - 运行根：`/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923`。
 - 13个完成AITER库已保存共享bundle，并安装到两节点独立的本地cache。11个可核对旧hash的库均与A0 seed一致，另外2个旧记录没有hash。
 - 节点网络驱动不同：P ionic26.07.9.001、D26.03.3.001；跨节点结果须记录此限制。
@@ -25,7 +25,7 @@ A1在profiling约3分钟时被抢占，正式段作废；其完整warmup已单�
 
 本目录是campaign覆盖层；公共helpers与bench-harness来自同仓库旧tracing目录。analysis/runtime-script-manifest.json记录运行脚本SHA256和仓库源文件；materialize_scripts.py可在空目录重建脚本，拒绝覆盖已有目录或源文件漂移。模型、固定诊断镜像、InferenceX checkout和基础配置仍是独立依赖，其路径/revision见各case验证记录。
 
-新的优化入口是scripts/run_optimized_case.sh：使用CONFIG指定配置，fresh/reuse选择相应入口，只接受completion模式；先等待固定镜像，再采集、分析、审计。通过脚本文件启动并关闭stdin，避免嵌套SSH消耗heredoc后续命令。当前G2为fresh启动。
+新的优化入口是scripts/run_optimized_case.sh：使用CONFIG指定配置，fresh/reuse选择相应入口，只接受completion模式；先等待固定镜像，再采集、分析、审计。通过脚本文件启动并关闭stdin，避免嵌套SSH消耗heredoc后续命令。当前G3为fresh启动。
 
 统一采集包括：分配与配置检查、smoke、逻辑cache reset、884条warmup、3600秒C80、独立采样、诊断关联、日志模式与进程身份审计。需要改变引擎参数时重新启动相应服务，不把模型重新加载混入正式计时。
 

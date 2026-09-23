@@ -81,3 +81,11 @@ n04-29已有固定诊断镜像和13个完成AITER库，已保存92 MiB共享bund
 两节点GPU初查均空闲、无运行容器。网络驱动存在差异：P ionic26.07.9.001/firmware1.117.5-a-147，D ionic26.03.3.001/firmware1.117.5-a-77；旧A0/G0两端为26.03.3.001。镜像和模型相同不能消除这个跨节点网络差异，后续结果明确记录该限制，不追加baseline。
 
 D镜像仍在导入时已安排G2 driver等待固定image ID就绪后启动；PID2757312。当前状态不等于已经开始正式benchmark。
+
+## G2中断与G3同节点恢复
+
+G2在21:03:13被抢占，未开始benchmark。D watchdog在21:03:23确认停止D容器；P无watchdog完成记录。21:10:43 job31644 restart3重新取得相同n04-29/n04-25。实际检查16GPU均约0.28GiB、busy0；P外层容器仍在但GPU进程已不占显存。已按本任务前缀/镜像核对后停止并重命名残留P/collector/etcd和已退出D，不操作其他容器；记录在events/restart3/retire-g2-*.json。
+
+G3于21:16:07 fresh启动，使用相同13库seed安装到新的本地cache，guard=completion，无基线任务。G2启动日志显示P 3,142,720 GPU tokens/rank、host4,714,112，较历史3,143,424/4,715,200约小0.02%；D仍3,003,264。这是相同mem_fraction/ratio在节点上的自动容量标定差异，未作为容量优化修改参数；G3预检查按已观测节点容量验证，结果需保留跨节点容量/驱动限制。
+
+QOS进一步核对：normal/batch没有独立PreemptExemptTime覆盖，继承全局30分钟，两者GraceTime均5分钟；normal优先级更低、被可抢占QOS集合更广。其他分区仅作sbatch --test-only检查，Compute-Multinode返回account/partition不允许，没有实际分配或切换。继续管理员已授权的batch/Compute-DCPT。
