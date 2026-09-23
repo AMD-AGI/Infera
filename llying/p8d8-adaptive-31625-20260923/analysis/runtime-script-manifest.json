@@ -1,0 +1,446 @@
+{
+  "repository_root": "Infera",
+  "generated_utc": "2026-09-23T19:14:00Z",
+  "runtime": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/scripts",
+  "files": [
+    {
+      "runtime_relative_path": "allocation_watchdog.py",
+      "sha256": "56fec0595b286792cdc141e4e07d5c84cae1954ec0b34370866c871030816ba1",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/allocation_watchdog.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "analyze.py",
+      "sha256": "9ac373b6e0ad5e96614ad66033e1947e15ad81b8613478ef8a61764eeebfeede",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/analyze.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "analyze_chunk_evidence.py",
+      "sha256": "fea46110e350554f74ac6c5dd940b50a82a9659062a457899d172b62812716c1",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/analyze_chunk_evidence.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "analyze_guard_lifecycle.py",
+      "sha256": "9128c0f727d479b60947eb1d7458c944233d9567fdb202f4cde06c779e2700d9",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/analyze_guard_lifecycle.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "analyze_router_picks.py",
+      "sha256": "72d3f9a084f868d388dd36e556bc13b1c5db4789482f2ae24c65b8df21cd79e1",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/analyze_router_picks.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "analyze_runtime.py",
+      "sha256": "1b92fb57eb751ae6be52144c16c9f6828a250c834e44424d50523ed7db0d912d",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/analyze_runtime.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "analyze_spans.py",
+      "sha256": "5bea4a3b6141040307237ca8af33fbe5ae5bd816ccf8fa4c26a1222fe98a203f",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/analyze_spans.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "audit_case.py",
+      "sha256": "e6d107ba6ef5dd3842057810f43a6fa59214484f065b2a5c80699c95919accfa",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/audit_case.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/agentx_bench.sh",
+      "sha256": "90453cd8e562d61565e2dc4331356794f1ff6e6061dbdbf93f5d66faeaeebb58",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/agentx_bench.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/check_nodes.sh",
+      "sha256": "b9ffe8e97bd6d5b843d9cbc8c41b7f816f4032ebbf2cde501903fcd432a1db04",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/check_nodes.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/config.full.sh",
+      "sha256": "b03500585023ae631c4c16d805b301c7994ff695644ecfe299a75d38d6114d48",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/config.full.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/config.sh",
+      "sha256": "d65516d0884fe8627149784b841a8ad09160c350304afcdc4be2844259710712",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/config.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/engine.sh",
+      "sha256": "e7596bb3e3df93dfb25ed56bbba3f2a52945832de55521f2e2e5c14d8d671fa5",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/engine.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/launch.sh",
+      "sha256": "20874228561440e37ffb234f0abb7a48c18c3114129b2a5ec9995f106537e42d",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/launch_with_router.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/preflight.sh",
+      "sha256": "8df16e823f54853e54cb4059feef6f84a56fedf5e92f7f1abb0def18222a4ff8",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/preflight.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/stop.sh",
+      "sha256": "b4f928ecd1082c6f6808f95cd5b2032164a409586ff6f097fd6122ef0f97d435",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/stop.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/tools/agentx_env.py",
+      "sha256": "19ea817ed0707d083a2da50c319009b5f1010810c44aa326ebb08a418363f2cc",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/tools/agentx_env.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/tools/collect_agentx.py",
+      "sha256": "320344d729a27f49481ba8db9fe186992748a5350b4da33e63ca70174cc99057",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/tools/collect_agentx.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/tools/ensure_inferencex.py",
+      "sha256": "f0b77f16244d6608278509cf32beb766ca66af81406330b5907081bfa3b2e15f",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/tools/ensure_inferencex.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/tools/plot_agentx.py",
+      "sha256": "50600cab5d75a8cd0619e169370a1e9216a9c725ff3d6ac412f7ef4e39601233",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/tools/plot_agentx.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/tools/topology.py",
+      "sha256": "36dfcc3f7ffe3164983779e1b61c37ec1b9253b00e725b01b7ae7737fcec30b5",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/tools/topology.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "bench-harness/tools/wait_healthy.py",
+      "sha256": "18a63a91482190c024b073fbaf66d8076c5eacc75f221b64ebf64bcebc7d2c04",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/tools/wait_healthy.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "capture_live.sh",
+      "sha256": "2ee1dfa2708f59f25296f357ad9975c5bf024ce101132c4b9ae413dbc7184f18",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/capture_live.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "capture_model_identity.py",
+      "sha256": "69051a4ec19f20149218842fd0977082c7a567ce6753bbb942eea53b65de225c",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/capture_model_identity.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "capture_window.py",
+      "sha256": "27a1ea713a1a62b279392f2cb5b718625ecb57006fa387a1b215a7475c020cf5",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/capture_window.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "check_empty.py",
+      "sha256": "ad33de4d34f834cd1ebc636e35c648e8cf7fb23605810ce6d65f8f628d57fd2b",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/check_empty.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "collect_baseline_manifest.py",
+      "sha256": "2ea1b7813b90c3e3d5c7163830ab0cfe8b7f72cbf1858131be45504df955bb4d",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/collect_baseline_manifest.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "compare_c80_runs.py",
+      "sha256": "899df986889f97c529ef0963fdd707cdedf390c93c5c5e403a7de1e9fee2a9f2",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/compare_c80_runs.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "compare_chunk8k.py",
+      "sha256": "ea1fcce50b3397efab2a5a749d26cee2fcf2322a19743f5bc402cf7177fe499e",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/compare_chunk8k.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "compare_matched_requests.py",
+      "sha256": "409ce7b0e162c20cf606b473d2bdc0d2ea410aa70bceca9ec9ee88997e841e54",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/compare_matched_requests.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "compare_points.py",
+      "sha256": "e1c4114f31141361d8560dca403a2006f7feadf0942ebd48e9dc740380cded54",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/compare_points.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "gpu_ownership_watch.py",
+      "sha256": "63f061c0b41ca34e0a41dacb9bc54421f0dbe6626dfc3f7f01f558032ae23f0b",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/gpu_ownership_watch.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "guard_campaign.py",
+      "sha256": "79c5b6ea9dd900a4d4bbdf5bb3ab0d12195b6816df4f224a37aa90ecef05655a",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/guard_campaign.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "otlp_jsonl_collector.py",
+      "sha256": "5577c85bf16e2b85faa5a727ed17c33301438b6ee205bccf04c9095b3c655971",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/otlp_jsonl_collector.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "patch_client.py",
+      "sha256": "f4653d543c5ff6fd25d319ca230d0d6873d4bc00ac89c0c56c19d42696c05d63",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/patch_client.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "pin_chunk8k_dataset.py",
+      "sha256": "295ce15ab0cf2184e1191c3b1edaae45982ee831f12acba43af869c6d4abaf66",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/pin_chunk8k_dataset.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "recover_samplers.sh",
+      "sha256": "d597df79b7f1d71da7e54983bd8be37f9fe9270729bfc97b913e182f74993e97",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/recover_samplers.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "report_loop.sh",
+      "sha256": "cb43d3f9783689654181c214088219ed52f180158b2d0f2af54cb234c666220e",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/report_loop.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "retire_stack.py",
+      "sha256": "a926491e24ae96fb2b41e16d6d375af0d061f0303b0a4346e5776d3c30b46394",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/retire_stack.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "reuse_prepare.py",
+      "sha256": "69cd8396e41dee67e992e2eb049d6fc34d9183cdbdc637aba43abd7cecc95f75",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/reuse_prepare.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "run.sh",
+      "sha256": "130b1f58260b1547f102a264f193d5d9abf508f8795a6939c858a29643cf570c",
+      "repository_sources": [],
+      "exclude_reason": "Legacy entrypoint/test copied with base runtime, not used by adaptive campaign; do not materialize."
+    },
+    {
+      "runtime_relative_path": "run_baseline_c80.sh",
+      "sha256": "aef9c6ec9afd3b1dd3dc043fe1c648868d8238f657922e6d26e8626638532c6f",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/run_baseline_c80.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "run_chunk8k.sh",
+      "sha256": "f0fbbf0852120aa682728bb88a2ee80bce7d1b77c36aca9db77cb92361636db9",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/run_chunk8k.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "run_fresh_case.sh",
+      "sha256": "38384823ccd83791ddd413c54d061f102f878a945fc8da66acb4cd0b485ccf2f",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/run_fresh_case.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "run_measurement.sh",
+      "sha256": "d6f250b1553e06f7d0638f2dc0f361f61fc4e4d2cc55d95939fcbb245e43a357",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/run_measurement.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "run_reuse_case.sh",
+      "sha256": "1425ad7452079391a4e7fc653bb545add6db067cf6d73124aa099f298c376b09",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/run_reuse_case.sh"
+      ]
+    },
+    {
+      "runtime_relative_path": "sample_engine_metrics.py",
+      "sha256": "4bc9f67488472f0303b78be7b91c1d50ce7ee3a2b6999f7975f61155eb9c4214",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/sample_engine_metrics.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "sample_node_runtime.py",
+      "sha256": "6fedba5d9d154a96e0cdf3cfbadc16d9cbbcbf73857610bac3a6790d07a19eb0",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/sample_node_runtime.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "smoke.py",
+      "sha256": "21a2967418ebe54ac749f2b95b2fee6017b6b6054fbe94ce1f32e4799da0608a",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/smoke.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "start_router.py",
+      "sha256": "802df06f729e837df20f661dde57f4418034ff9d4c0c2a72e789a081ccb59362",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/start_router.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "stream_smoke.py",
+      "sha256": "45295b4fcfef9c2e7a457346424841a61f249e0c1c55bcf7e0140df94ed32ba2",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/stream_smoke.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "test_analysis.py",
+      "sha256": "08fb2733708fa44d0d12b85ac75ef2d0e7dd9619b421fbf36e344d19c2ffac0d",
+      "repository_sources": [],
+      "exclude_reason": "Legacy entrypoint/test copied with base runtime, not used by adaptive campaign; do not materialize."
+    },
+    {
+      "runtime_relative_path": "track_allocation.py",
+      "sha256": "fe108147a0fb3bb4e0c71cb4be9f3b97bd16ba605951f3f20db410fc6aba8c54",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/track_allocation.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_allocation.py",
+      "sha256": "55be6027c8983ee3c3b1710247c7204c726eb91154ff5f539b0feeee0d6d9d17",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/validate_allocation.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_case.py",
+      "sha256": "6a12c600a53f7f86ea84247e83dfe0dde80e4484200ffc3f42b94e2072dad03e",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/validate_case.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_chunk8k.py",
+      "sha256": "d3faaa3b1ff0be5d725c500fe498ef4b69b0ac4ea09a750088a8cf1caec43e12",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/validate_chunk8k.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_chunk8k_runtime.py",
+      "sha256": "69895ae90fdd0f63db188fba77f959296ed9c5ec622315340c2ee7c54db4244a",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/validate_chunk8k_runtime.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_chunk_config.py",
+      "sha256": "fdfafdab27b309ce46edc756b2e605ccc02e258015b730ad51d38186c2bc64ca",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/validate_chunk_config.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_live_samples.py",
+      "sha256": "979a92aacddea64ff354e7b433e72f675aa7250ebe089bd5afeb2b7dfecf0190",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/validate_live_samples.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_smoke.py",
+      "sha256": "dcc2416f9925ec0ab04e49d74451d3af12e6e3296bb2bcde3f2094971f95e570",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/validate_smoke.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "verify_guard_mode.py",
+      "sha256": "b7423087415aabcef16dd48aa8372d5a108a40a1d4d6dff5ab07eea4ca21296e",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/verify_guard_mode.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "wait_baseline_ready.py",
+      "sha256": "440eae496d7d7b6a932b0ca5860d033555e614b2bc0a1198b06250033efe4b53",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/wait_baseline_ready.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "wait_nodes_idle.py",
+      "sha256": "734b32e7c8756b94a2cbc3ccdb70d2e3238e4583cdb29a7f1c3e8e50deff1fe3",
+      "repository_sources": [
+        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/wait_nodes_idle.py"
+      ]
+    }
+  ]
+}

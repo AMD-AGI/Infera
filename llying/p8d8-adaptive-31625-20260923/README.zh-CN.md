@@ -2,6 +2,8 @@
 
 用户授权在约十小时内自主选择、裁剪和增加实验，置信度优先，可在验证缓存重置后复用服务，随时保存和提交。
 
+最新完整结果见 [analysis/RESULTS.zh-CN.md](analysis/RESULTS.zh-CN.md)。G0已完成并通过审计：total/GPU +5.44%、output/GPU +4.36%、TTFT mean −23.13%；A1回滚进行中，尚未认定稳定收益。
+
 ## 当前分配和运行
 
 - 原 job 31625 于 14:50:32 UTC 被抢占，复用尝试尚未执行。
@@ -35,3 +37,23 @@ P 容量候选准备为 3,400,000 GPU tokens/rank，host 固定为 4,715,200 tok
 A0/G0/A1用于区分处理收益与复用/JIT/时间漂移。单次差异不提供置信区间。P HTTP 完成到客户端完成的正时间差只是过长记账的请求生命周期代理，不等于 distinct-block active load，也不能直接换成吞吐收益。
 
 Dynamo 已固定 commit 取得源码；研究核验见 analysis/DYNAMO-SOURCE-AUDIT.zh-CN.md，不宣称已迁移或测得 Dynamo 收益。
+
+## 可复用的基线采集流程
+
+这套脚本是campaign覆盖层，公共helpers和bench-harness来自同仓库旧tracing目录。`analysis/runtime-script-manifest.json`记录实际使用脚本的SHA256和仓库源文件，避免仅复制本目录而漏掉依赖。可在新的空目录重建（不会启动服务）：
+
+```bash
+python3 llying/p8d8-adaptive-31625-20260923/scripts/materialize_scripts.py   llying/p8d8-adaptive-31625-20260923/analysis/runtime-script-manifest.json   /tmp/new-agentx-runtime-scripts
+```
+
+重建61个脚本已在/tmp验证。旧run.sh/test_analysis.py是未使用的遗留拷贝，明确排除；新的入口是run_fresh_case.sh/run_reuse_case.sh。配置还引用共享model、固定镜像、InferenceX checkout和原始base config，路径及revision/hash见各case的配置/验证/manifest；此工具只重建scripts，不声称独立打包了模型或镜像。
+
+现场执行顺序：分配节点与唯一case/prefix配置 → allocation/空闲验证 → fresh或reuse入口 → 统一smoke/flush/884 warmup/3600秒C80 → capture和自动分析 → analyze_guard_lifecycle.py、analyze_router_picks.py、audit_case.py → archive_case.py复制审核摘要与大型证据hash → 提交结果。新job须更新配置中的节点、IP、job ID、prefix和输出路径，不得覆盖既有run。复用要求同P/D进程、已验证的cache reset和独立capture cursors；需要改P内存参数时必须退休旧栈并等待实际资源释放。
+
+完成后的归档命令（在仓库侧运行）：
+
+```bash
+python3 llying/p8d8-adaptive-31625-20260923/scripts/archive_case.py   /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion   /tmp/g0-review-evidence
+```
+
+归档会拒绝未完成、审计失败或INVALID的case。audit需要在P/D仍存活时验证进程身份，因此应先审计再退休服务。
