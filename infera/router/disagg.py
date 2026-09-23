@@ -326,14 +326,15 @@ class DisaggRouter(BaseRouter):
         *,
         abort: bool,
     ) -> None:
-        """Run ``_finish_prefill`` without skipping ``on_request_finished``.
+        """Run ``_finish_prefill`` without letting its failure reach the caller.
 
-        ``CancelledError`` is a ``BaseException``; leaving it uncaught in
-        ``finally`` would skip inflight accounting.
+        A cancel is left to propagate: callers release their inflight
+        accounting from a ``finally`` of their own, so swallowing it here would
+        only strand the task cancelled-but-not-raising.
         """
         try:
             await self._finish_prefill(p_task, p, d, rid, n, abort=abort)
-        except (asyncio.CancelledError, Exception):
+        except Exception:
             pass
 
     async def dispatch(
@@ -1395,16 +1396,22 @@ class DisaggRouter(BaseRouter):
                 obs.mark_failed()
                 yield f"data: {err}\n\n".encode()
         finally:
-            with anyio.CancelScope(shield=True):
-                if d_resp is not None:
-                    try:
+            if d_resp is not None:
+                # Shielded so a cancel cannot leave the decode connection open
+                # and the engine generating, but bounded: a wedged socket would
+                # otherwise hold this scope forever, and everything below --
+                # the pair abort and both policy releases -- is downstream of
+                # it.
+                try:
+                    with anyio.move_on_after(self._STREAM_CLOSE_TIMEOUT_S, shield=True):
                         await d_resp.aclose()
-                    except (asyncio.CancelledError, Exception):
-                        pass
-                if not done_seen:
-                    # An unfinished stream leaves both engines holding the
-                    # request, and the cancellation that ended it would cancel
-                    # the abort too.
+                except Exception:
+                    pass
+            if not done_seen:
+                # An unfinished stream leaves both engines holding the
+                # request, and the cancellation that ended it would cancel
+                # the abort too.
+                with anyio.CancelScope(shield=True):
                     await self._release_prefill_drain(p_task, p, d, rid, n, abort=True)
             try:
                 if done_seen:

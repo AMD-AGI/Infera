@@ -198,6 +198,27 @@ def ensure_k8s_label_selector_source(explicit: str | None) -> None:
     raise RuntimeError(UNSCOPED_BARRIER_ERROR)
 
 
+def ensure_barrier_discovery_is_reachable(
+    discovery_backend: str,
+    *,
+    k8s_label_selector: str | None,
+    etcd_endpoint: str | None,
+) -> None:
+    """Refuse a barrier whose discovery cannot resolve, before the weight load.
+
+    Both backends are decided here for the same reason: the barrier itself runs
+    after ``engine.start()``, so a config it can never satisfy would otherwise
+    cost a full weight load on every restart before saying so.
+    """
+    if discovery_backend == "kubernetes":
+        ensure_k8s_label_selector_source(k8s_label_selector)
+        return
+    if not etcd_endpoint:
+        raise RuntimeError(
+            "--wait-for-decode with --discovery-backend=etcd requires --etcd-endpoint"
+        )
+
+
 async def own_pod_deployment_label(
     *,
     namespace: str | None = None,

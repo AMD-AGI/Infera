@@ -39,7 +39,7 @@ from infera.engine.decode_barrier import (
     apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
     discovery_budget_seconds,
-    ensure_k8s_label_selector_source,
+    ensure_barrier_discovery_is_reachable,
     ensure_skip_server_warmup,
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
@@ -139,10 +139,6 @@ async def _maybe_wait_for_decode(args: SglangWorkerArgs, config) -> None:
                 namespace=args.k8s_namespace,
                 http=http,
                 timeout=max(0.0, discovery_deadline - asyncio.get_running_loop().time()),
-            )
-        elif not args.etcd_endpoint:
-            raise RuntimeError(
-                "--wait-for-decode with --discovery-backend=etcd requires --etcd-endpoint"
             )
         else:
             http = httpx.AsyncClient(base_url=_normalize_endpoint(args.etcd_endpoint), timeout=10.0)
@@ -440,10 +436,14 @@ async def main() -> None:
         getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
     ):
         args.sglang_argv = ensure_skip_server_warmup(args.sglang_argv)
-        # The barrier itself runs after the weights are in, so a selector it
-        # could never resolve would cost one full load per restart.
-        if args.discovery_backend == "kubernetes" and _multinode_node_rank(args) == 0:
-            ensure_k8s_label_selector_source(args.k8s_label_selector)
+        # The barrier itself runs after the weights are in, so a discovery
+        # config it could never resolve would cost one full load per restart.
+        if _multinode_node_rank(args) == 0:
+            ensure_barrier_discovery_is_reachable(
+                args.discovery_backend,
+                k8s_label_selector=args.k8s_label_selector,
+                etcd_endpoint=args.etcd_endpoint,
+            )
 
     if args.discovery_backend == "kubernetes":
         stale_registration = K8sRegistrationClient(namespace=args.k8s_namespace)

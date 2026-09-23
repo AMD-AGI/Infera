@@ -374,12 +374,18 @@ async fn dual_nats(
         n,
     );
 
+    // Armed before the dispatch, as the HTTP leg is before `open_decode`: a
+    // client that drops during it would otherwise take a bare sender with it,
+    // leaving the watcher to cancel the prefill drain with no abort for the
+    // decode request already on the wire.
+    let mut abort_unless_decode_owns_it = FireOnDrop(Some(incomplete_tx));
+
     let wid = d.worker.worker_id.clone();
     let mut reply = match nats.dispatch(&wid, &d_payload).await {
         Ok(r) => r,
         Err(e) => {
             state.breaker.record_failure(&wid);
-            let _ = incomplete_tx.send(StreamEnd::Incomplete);
+            abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} unreachable over nats: {e}"),
@@ -388,7 +394,7 @@ async fn dual_nats(
     };
 
     if !stream {
-        let mut abort_unless_done = FireOnDrop(Some(incomplete_tx));
+        let mut abort_unless_done = FireOnDrop(abort_unless_decode_owns_it.take());
         let mut buf: Vec<u8> = Vec::new();
         let mut status = StatusCode::OK;
         let mut done_seen = false;
@@ -504,7 +510,7 @@ async fn dual_nats(
                     request_id: rid_for_log,
                     stall_warn: state.stream_stall_warn,
                 },
-                Some(incomplete_tx),
+                abort_unless_decode_owns_it.take(),
             ),
         ))
         .expect("stream response is valid")

@@ -192,6 +192,9 @@ impl StallWatch {
             return None;
         }
         self.silent_for += period;
+        // `reset` re-registers the entry and keeps its waker, so the next
+        // deadline wakes the task on its own -- the stall test drives nothing
+        // by hand and still sees the whole cumulative trail.
         self.rearm();
         Some((self.silent_for, self.seen_bytes))
     }
@@ -1092,42 +1095,58 @@ mod tests {
     /// reported and then waited out. Ending it here would fail requests that
     /// are only slow to be admitted, and a caller that does give up
     /// disconnects, which reclaims the slot without this deciding for it.
+    ///
+    /// Driven entirely by the runtime: the stream parks on `Pending` and only
+    /// the stall timer can wake it again, so a report that fails to re-register
+    /// its waker lands once and the later deadlines never arrive. Polling by
+    /// hand between clock advances would supply that wakeup and hide it.
     #[tokio::test(start_paused = true)]
-    async fn a_stalled_stream_is_reported_but_not_ended() {
+    async fn a_stalled_stream_keeps_reporting_and_never_ends() {
         let logs = Captured::default();
         let subscriber = tracing_subscriber::fmt()
             .with_writer(logs.clone())
             .with_ansi(false)
             .finish();
-        let _guard = tracing::subscriber::set_default(subscriber);
 
-        let mut src = source("/v1/messages");
-        src.stall_warn = StallWarn {
-            before_first_byte: Duration::from_secs(240),
-            mid_stream: Duration::from_secs(60),
-        };
-        // Never yields: the stream stays pending for as long as it is polled.
-        let inner = futures::stream::pending::<reqwest::Result<Bytes>>();
-        let mut stream = GuardedStream::new(inner, guard(), src);
+        let captured = logs.clone();
+        // Attached to the future rather than the thread: the awaits below have
+        // to stay on the tokio runtime, which is what drives the stall timer.
+        tracing::instrument::WithSubscriber::with_subscriber(
+            async {
+                let mut src = source("/v1/messages");
+                src.stall_warn = StallWarn {
+                    before_first_byte: Duration::from_secs(240),
+                    mid_stream: Duration::from_secs(60),
+                };
+                // Never yields, so the admission window is the only thing that
+                // can ever wake this task.
+                let inner = futures::stream::pending::<reqwest::Result<Bytes>>();
+                let mut stream = GuardedStream::new(inner, guard(), src);
 
-        // No byte has arrived, so the admission window applies: two of those,
-        // then a third poll that is still pending.
-        for _ in 0..2 {
-            assert!(
-                futures::poll!(stream.next()).is_pending(),
-                "a stall must not end the stream"
-            );
-            tokio::time::advance(Duration::from_secs(240)).await;
-        }
-        assert!(futures::poll!(stream.next()).is_pending());
+                // A paused clock auto-advances to the next timer whenever the
+                // runtime is idle, so this drains four admission windows before
+                // the outer bound fires.
+                let ended = tokio::time::timeout(Duration::from_secs(1000), async {
+                    while stream.next().await.is_some() {}
+                })
+                .await;
+                assert!(ended.is_err(), "a stall must not end the stream");
+            },
+            subscriber,
+        )
+        .await;
 
-        let out = String::from_utf8(logs.0.lock().expect("the capture buffer").clone())
+        let out = String::from_utf8(captured.0.lock().expect("the capture buffer").clone())
             .expect("the log is utf-8");
         assert!(out.contains("still waiting"), "{out}");
         assert!(out.contains("awaiting first byte"), "{out}");
-        assert!(out.contains("silent_for_s=240"), "{out}");
-        assert!(out.contains("silent_for_s=480"), "{out}");
         assert!(out.contains("infera-1"), "{out}");
+        for elapsed in [240, 480, 720, 960] {
+            assert!(
+                out.contains(&format!("silent_for_s={elapsed}")),
+                "missing the report at {elapsed}s: {out}"
+            );
+        }
     }
 
     /// Reporting is opt-in: a zero period arms no timer at all.

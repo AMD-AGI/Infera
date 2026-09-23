@@ -346,6 +346,53 @@ async def test_finish_prefill_abort_cancels_task_without_request_id():
 
 
 @pytest.mark.asyncio
+async def test_stream_dual_releases_slots_when_the_decode_close_wedges(monkeypatch):
+    """A wedged decode socket must not hold the teardown: the pair abort and
+    both policy releases are downstream of closing it, so an unbounded shield
+    there would strand the two workers' scheduling quota permanently."""
+    monkeypatch.setenv("INFERA_PD_PREFILL_DRAIN_TIMEOUT", "0")
+    aborted = []
+
+    class _WedgedClose(_ScriptedDecode):
+        async def aclose(self):
+            await asyncio.Event().wait()
+
+    r = DisaggRouter(_FakePool(), _FakePolicy())
+    r._client = httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda request: httpx.Response(200, json={}))
+    )
+    r._STREAM_CLOSE_TIMEOUT_S = 0.05
+
+    async def _open(*_a, **_k):
+        return _WedgedClose([b'data: {"x":1}\n\n'])
+
+    async def _abort_pair(*args):
+        aborted.append(args)
+
+    r._open_decode_stream = _open  # type: ignore[method-assign]
+    r._abort_pair = _abort_pair  # type: ignore[method-assign]
+
+    async def _consume():
+        async for _chunk in r._stream_dual(
+            RequestObserver("disagg"),
+            RouteTarget(_w("p1")),
+            [],
+            RouteTarget(_w("d1")),
+            [],
+            "http://p1/v1/chat/completions",
+            "http://d1/v1/chat/completions",
+            {"model": "m", "rid": "infera-30"},
+            {"model": "m", "rid": "infera-30"},
+        ):
+            pass
+
+    await asyncio.wait_for(_consume(), timeout=5)
+
+    assert r.policy.finished == 2, "the wedged close must not strand the quota"
+    assert aborted, "an unfinished stream still has to abort the pair"
+
+
+@pytest.mark.asyncio
 async def test_finish_prefill_cancel_during_drain_does_not_abort():
     """abort=False means the decode stream already finished: a cancel of the
     waiter must not POST /abort_request or cancel the shielded prefill task."""
