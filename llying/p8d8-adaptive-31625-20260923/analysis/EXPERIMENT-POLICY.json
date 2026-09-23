@@ -1,0 +1,12 @@
+{
+  "updated_utc": "2026-09-23T20:14:06.102983+00:00",
+  "user_instruction": "Reuse completed baseline; do not repeat baseline tasks. Run optimization-enabled and subsequent single-variable optimization cases directly. Record cross-node uncertainty without requiring another baseline.",
+  "baseline_repeats_enabled": false,
+  "current_case": "g1-guard-completion",
+  "current_guard_mode": "completion",
+  "allocation_job": 31644,
+  "allocation_restart": 1,
+  "prefill": "smci355-ccs-aus-n02-29",
+  "decode": "smci355-ccs-aus-n02-33",
+  "next_case_policy": "Analyze G1 then choose useful single-variable optimization only; no A1/A2 rollback scheduling."
+}

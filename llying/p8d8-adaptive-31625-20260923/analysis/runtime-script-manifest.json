@@ -1,11 +1,11 @@
 {
   "repository_root": "Infera",
-  "generated_utc": "2026-09-23T19:14:00Z",
+  "generated_utc": "2026-09-23T20:14:06.102983+00:00",
   "runtime": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/scripts",
   "files": [
     {
       "runtime_relative_path": "allocation_watchdog.py",
-      "sha256": "56fec0595b286792cdc141e4e07d5c84cae1954ec0b34370866c871030816ba1",
+      "sha256": "814cb8e0a12f4a7eeeaa06b2179c10b32a993c62d7d8cc37ed7dba82eea7fe29",
       "repository_sources": [
         "llying/p8d8-adaptive-31625-20260923/scripts/allocation_watchdog.py"
       ]
@@ -152,9 +152,9 @@
     },
     {
       "runtime_relative_path": "bench-harness/tools/wait_healthy.py",
-      "sha256": "18a63a91482190c024b073fbaf66d8076c5eacc75f221b64ebf64bcebc7d2c04",
+      "sha256": "33091edf246e93c84895ce4b7df8fed4fb72f9ac03b1916c14bffadedcc54b5a",
       "repository_sources": [
-        "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/tools/wait_healthy.py"
+        "llying/p8d8-adaptive-31625-20260923/scripts/wait_healthy.py"
       ]
     },
     {
@@ -287,7 +287,7 @@
       "runtime_relative_path": "run.sh",
       "sha256": "130b1f58260b1547f102a264f193d5d9abf508f8795a6939c858a29643cf570c",
       "repository_sources": [],
-      "exclude_reason": "Legacy entrypoint/test copied with base runtime, not used by adaptive campaign; do not materialize."
+      "exclude_reason": "Unused legacy entrypoint/test; adaptive campaign does not execute this file."
     },
     {
       "runtime_relative_path": "run_baseline_c80.sh",
@@ -363,7 +363,7 @@
       "runtime_relative_path": "test_analysis.py",
       "sha256": "08fb2733708fa44d0d12b85ac75ef2d0e7dd9619b421fbf36e344d19c2ffac0d",
       "repository_sources": [],
-      "exclude_reason": "Legacy entrypoint/test copied with base runtime, not used by adaptive campaign; do not materialize."
+      "exclude_reason": "Unused legacy entrypoint/test; adaptive campaign does not execute this file."
     },
     {
       "runtime_relative_path": "track_allocation.py",
@@ -377,6 +377,13 @@
       "sha256": "55be6027c8983ee3c3b1710247c7204c726eb91154ff5f539b0feeee0d6d9d17",
       "repository_sources": [
         "llying/p8d8-c80-c112-tracing-aus-20260922/scripts/validate_allocation.py"
+      ]
+    },
+    {
+      "runtime_relative_path": "validate_and_pin_client.py",
+      "sha256": "46e5be5721e65b341be4e32856731f5988b575023db8e2dce02bb1cc66b56b83",
+      "repository_sources": [
+        "llying/p8d8-adaptive-31625-20260923/scripts/validate_and_pin_client.py"
       ]
     },
     {

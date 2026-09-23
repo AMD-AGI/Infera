@@ -55,3 +55,11 @@ G0通过审计且收益/机制一致，因此19:09:37 UTC选择run_a1：恢复de
 ## 抢占更新
 
 job31644 PreemptTime=19:46:58 UTC，extern于19:47:29完成。A1的P/D采样停止、SSH被pam_slurm_adopt拒绝，正式窗口未完成；本地a1-interrupted/INVALID和Slurm证据已保存。远端STATUS仍停留BENCHMARK_C80，不能误当正常进行。D watchdog记录了cleanup_requested，但没有成功停止完成记录；P watchdog无事件文件，不能声称全部容器/显存已清理。此前A0/G0完成窗口与审计均早于抢占，已提交结果保留。原A1预计20:51完成的时间不再适用。
+
+## 最新执行决定：直接运行优化，不重复基线
+
+用户明确要求后续沿用已有基线，不再每次重复A任务。撤销新节点反向两轮及完整重启AB的准备安排；G1使用completion模式、4K C80，在n02-29(P)/n02-33(D)直接启动，20:12:57 UTC进入模型加载。后续仅根据结果选择有信息收益的单变量优化。跨节点比较存在硬件/时间状态差异，分析注明限制，不以此强制追加基线。
+
+job31644重新分配开始19:54:31 UTC，QOS=batch，当前结束00:24:31 UTC。延长至5小时的请求被Slurm权限拒绝，实际仍为4小时30分。新节点默认Slurm客户端指向gpuperf；使用独立client-only配置定向dccs-1334，未修改主机/etc配置，已验证能读取正确job/节点/重启次数。
+
+新节点镜像ID已核对相同；n02-33存在其他ATOM容器但GPU显存/利用率为0，未停止或修改它，运行期继续检查外部GPU使用。新watchdog绑定allocation StartTime和节点身份；抢占时并发对本实验匹配镜像的容器发送5秒stop，减少extern步骤撤销前来不及处理的风险；仍不能保证驱动立即释放显存。启动health gate遇到一次docker inspect超时会在原截止时间内重试，真正退出/OOM仍失败，不通过重启模型来处理探测超时。
