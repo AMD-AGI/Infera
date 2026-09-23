@@ -1,0 +1,247 @@
+{
+  "unique_spans": 371553,
+  "duplicates": 0,
+  "counts": {
+    "unmatched_spans": 136231,
+    "matched_spans": 235322
+  },
+  "stages_ms": {
+    "C80/warmup/prefill/tokenize": {
+      "n": 884,
+      "mean": 251.48371605429864,
+      "p50": 188.231808,
+      "p90": 537.4872832,
+      "p99": 858.58255616,
+      "max": 965.040384
+    },
+    "C80/warmup/decode/tokenize": {
+      "n": 884,
+      "mean": 246.5611476561086,
+      "p50": 180.11084799999998,
+      "p90": 541.5554816000001,
+      "p99": 849.8027212799997,
+      "max": 989.18912
+    },
+    "C80/warmup/prefill/prefill_prepare": {
+      "n": 884,
+      "mean": 0.3881130859728507,
+      "p50": 0.33664,
+      "p90": 0.5072384,
+      "p99": 2.7459711999999987,
+      "max": 3.441664
+    },
+    "C80/warmup/prefill/prefill_bootstrap": {
+      "n": 884,
+      "mean": 237.52566298642535,
+      "p50": 0.250752,
+      "p90": 1.9398912000000057,
+      "p99": 7234.671628800001,
+      "max": 25009.45792
+    },
+    "C80/warmup/prefill/prefill_waiting": {
+      "n": 884,
+      "mean": 38611.15352325792,
+      "p50": 2253.35104,
+      "p90": 138987.84768000033,
+      "p99": 409960.92857344,
+      "max": 527158.260992
+    },
+    "C80/warmup/prefill/chunked_prefill": {
+      "n": 6667,
+      "mean": 1453.5673250385482,
+      "p50": 1280.657408,
+      "p90": 1806.8479488000016,
+      "p99": 3564.8130816000016,
+      "max": 24462.825472
+    },
+    "C80/warmup/decode/decode_prepare": {
+      "n": 884,
+      "mean": 0.5051201447963801,
+      "p50": 0.219648,
+      "p90": 0.3575552,
+      "p99": 3.670379519999981,
+      "max": 56.87552
+    },
+    "C80/warmup/decode/decode_bootstrap": {
+      "n": 884,
+      "mean": 25.43756568325792,
+      "p50": 0.786304,
+      "p90": 1.1778304000000002,
+      "p99": 214.37730047999986,
+      "max": 18260.70144
+    },
+    "C80/warmup/decode/decode_transferred": {
+      "n": 884,
+      "mean": 54121.58388763801,
+      "p50": 9854.917888,
+      "p90": 164128.645376,
+      "p99": 534269.1045683196,
+      "max": 749925.256704
+    },
+    "C80/warmup/decode/decode_waiting": {
+      "n": 884,
+      "mean": 0.13413299547511312,
+      "p50": 0.118016,
+      "p90": 0.20216320000000002,
+      "p99": 0.31705855999999993,
+      "max": 1.398528
+    },
+    "C80/warmup/decode/decode_forward": {
+      "n": 884,
+      "mean": 0.6992869615384615,
+      "p50": 0.6729415000000001,
+      "p90": 0.9106957,
+      "p99": 1.1391705300000001,
+      "max": 1.491064
+    },
+    "C80/warmup/prefill/prefill_forward": {
+      "n": 884,
+      "mean": 12488.204662153847,
+      "p50": 3516.2746880000004,
+      "p90": 26624.2505472,
+      "p99": 191658.95708159896,
+      "max": 300892.34432
+    },
+    "C80/warmup/prefill/prefill_transfer_kv_cache": {
+      "n": 884,
+      "mean": 1468.6340804343893,
+      "p50": 1347.211008,
+      "p90": 1817.7800192,
+      "p99": 3658.835811839695,
+      "max": 10776.40704
+    },
+    "C80/profiling/prefill/tokenize": {
+      "n": 9727,
+      "mean": 176.52993210650766,
+      "p50": 130.24896,
+      "p90": 373.4334975999999,
+      "p99": 905.8571519999997,
+      "max": 1232.42624
+    },
+    "C80/profiling/decode/tokenize": {
+      "n": 9727,
+      "mean": 167.0752618089853,
+      "p50": 120.815872,
+      "p90": 359.43669759999995,
+      "p99": 857.2170444799999,
+      "max": 1189.598208
+    },
+    "C80/profiling/decode/decode_prepare": {
+      "n": 9727,
+      "mean": 0.26116037257119357,
+      "p50": 0.26112,
+      "p90": 0.299008,
+      "p99": 0.34783743999999994,
+      "max": 0.536064
+    },
+    "C80/profiling/decode/decode_bootstrap": {
+      "n": 9727,
+      "mean": 26.013508243857306,
+      "p50": 0.690432,
+      "p90": 0.99712,
+      "p99": 1.7147391999999984,
+      "max": 21645.141248
+    },
+    "C80/profiling/decode/decode_transferred": {
+      "n": 9727,
+      "mean": 8609.408581717693,
+      "p50": 3843.462144,
+      "p90": 21096.5014016,
+      "p99": 58251.19400959998,
+      "max": 217034.84672
+    },
+    "C80/profiling/decode/decode_waiting": {
+      "n": 9727,
+      "mean": 0.11291342284363114,
+      "p50": 0.103168,
+      "p90": 0.160256,
+      "p99": 0.27513343999999995,
+      "max": 1.146112
+    },
+    "C80/profiling/decode/decode_forward": {
+      "n": 9727,
+      "mean": 13231.395004667831,
+      "p50": 6243.180214,
+      "p90": 29164.501664999996,
+      "p99": 114241.31730771999,
+      "max": 346519.755195
+    },
+    "C80/profiling/prefill/prefill_prepare": {
+      "n": 9727,
+      "mean": 0.3829442862136322,
+      "p50": 0.35328,
+      "p90": 0.498176,
+      "p99": 0.6737254399999999,
+      "max": 101.917696
+    },
+    "C80/profiling/prefill/prefill_bootstrap": {
+      "n": 9727,
+      "mean": 58.14495488763236,
+      "p50": 0.220416,
+      "p90": 0.5841407999999998,
+      "p99": 1135.7813606399995,
+      "max": 21178.931456
+    },
+    "C80/profiling/prefill/prefill_waiting": {
+      "n": 9727,
+      "mean": 4857.124362237894,
+      "p50": 2.944512,
+      "p90": 15631.7751808,
+      "p99": 50779.78710527996,
+      "max": 201211.391744
+    },
+    "C80/profiling/prefill/prefill_forward": {
+      "n": 9727,
+      "mean": 3038.2019996200265,
+      "p50": 2153.314304,
+      "p90": 4529.9632127999985,
+      "p99": 19752.556672,
+      "max": 199006.11712
+    },
+    "C80/profiling/prefill/prefill_transfer_kv_cache": {
+      "n": 9727,
+      "mean": 904.8216185117714,
+      "p50": 862.628864,
+      "p90": 1280.2002432,
+      "p99": 1852.447011839999,
+      "max": 3096.5888
+    },
+    "C80/profiling/prefill/chunked_prefill": {
+      "n": 16435,
+      "mean": 1192.696573663523,
+      "p50": 997.135872,
+      "p90": 1925.0704384,
+      "p99": 2971.03186944,
+      "max": 6104.586496
+    }
+  },
+  "request_coverage": {
+    "C80/warmup/prefill/tokenize": 884,
+    "C80/warmup/decode/tokenize": 884,
+    "C80/warmup/prefill/prefill_prepare": 884,
+    "C80/warmup/prefill/prefill_bootstrap": 884,
+    "C80/warmup/prefill/prefill_waiting": 884,
+    "C80/warmup/prefill/chunked_prefill": 427,
+    "C80/warmup/decode/decode_prepare": 884,
+    "C80/warmup/decode/decode_bootstrap": 884,
+    "C80/warmup/decode/decode_transferred": 884,
+    "C80/warmup/decode/decode_waiting": 884,
+    "C80/warmup/decode/decode_forward": 884,
+    "C80/warmup/prefill/prefill_forward": 884,
+    "C80/warmup/prefill/prefill_transfer_kv_cache": 884,
+    "C80/profiling/prefill/tokenize": 9727,
+    "C80/profiling/decode/tokenize": 9727,
+    "C80/profiling/decode/decode_prepare": 9727,
+    "C80/profiling/decode/decode_bootstrap": 9727,
+    "C80/profiling/decode/decode_transferred": 9727,
+    "C80/profiling/decode/decode_waiting": 9727,
+    "C80/profiling/decode/decode_forward": 9727,
+    "C80/profiling/prefill/prefill_prepare": 9727,
+    "C80/profiling/prefill/prefill_bootstrap": 9727,
+    "C80/profiling/prefill/prefill_waiting": 9727,
+    "C80/profiling/prefill/prefill_forward": 9727,
+    "C80/profiling/prefill/prefill_transfer_kv_cache": 9727,
+    "C80/profiling/prefill/chunked_prefill": 4139
+  },
+  "note": "Unmatched spans include startup/smoke and incomplete roots; do not interpret all as exporter loss."
+}

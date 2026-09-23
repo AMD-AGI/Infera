@@ -1,0 +1,27 @@
+{
+  "analysis/joined-requests.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode/analysis/joined-requests.jsonl",
+    "size": 83159021,
+    "sha256": "82d2599b36164c14ecbe8115845a034595fe8a513242a460f3db12b6f8e7da1d"
+  },
+  "analysis/span-timelines.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode/analysis/span-timelines.jsonl",
+    "size": 102879768,
+    "sha256": "c861247586a259b9b3ed42297bfd7b6daceef0b48a95e7990571809fb59fd76c"
+  },
+  "analysis/runtime-summary.json": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode/analysis/runtime-summary.json",
+    "size": 4558134,
+    "sha256": "6996bff6e39651972c8200e3ac38193899068e31c4f6d1c0474f7b28f29f2e83"
+  },
+  "analysis/guard-lifecycle-joined.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode/analysis/guard-lifecycle-joined.jsonl",
+    "size": 2004647,
+    "sha256": "119f640a4792c7c37e2aa232a6d7139d18110635dc5e12e32faa74f54e26f2f3"
+  },
+  "c80/aiperf_artifacts/profile_export.jsonl": {
+    "path": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode/c80/aiperf_artifacts/profile_export.jsonl",
+    "size": 61222225,
+    "sha256": "6e923c64377b491688284df487b7cbfcb61678537a86e36f5e36a63dabf6fe34"
+  }
+}

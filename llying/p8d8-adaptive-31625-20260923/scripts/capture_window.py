@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 """Capture only this case's diagnostic suffix from reused P/D processes."""
-import base64,json,os,shlex,subprocess,tarfile,time
+import base64,fcntl,json,os,shlex,subprocess,tarfile,time
 from pathlib import Path
 r=Path(os.environ['RUN']);prefix=os.environ['CONTAINER_PREFIX'];opts=shlex.split(os.environ['SSH_OPTS'])
+lock=(r/'.capture.lock').open('a');fcntl.flock(lock,fcntl.LOCK_EX)
+def sealed():
+ p=r/'STATUS'
+ return p.exists() and 'COMPLETE_REVIEW_PENDING' in p.read_text()
+if sealed():raise SystemExit(0)
+live_path=r/'live-containers.json'
+live=json.loads(live_path.read_text()) if live_path.exists() else {}
 cursor_path=r/'snapshot/diagnostic-cursors.json'
 cursors=json.loads(cursor_path.read_text()) if cursor_path.exists() else {}
 start_path=r/'snapshot/capture-start-epoch.txt'
@@ -27,16 +34,27 @@ for role in ('prefill','decode'):
  encoded=base64.b64encode(json.dumps(cursors.get(role,{})).encode()).decode()
  cmd=['ssh',*opts,node,shlex.join(['python3','-',source,encoded])]
  dest=r/'diagnostics'/role;dest.mkdir(parents=True,exist_ok=True)
- with subprocess.Popen(cmd,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as p:
+ with subprocess.Popen(['timeout','60s',*cmd],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as p:
   p.stdin.write(PROBE.encode());p.stdin.close()
   with tarfile.open(fileobj=p.stdout,mode='r|') as archive:
    for entry in archive:
     if not entry.isfile() or Path(entry.name).name!=entry.name or not entry.name.endswith('.jsonl'):raise RuntimeError('Unsafe diagnostic member')
-    data=archive.extractfile(entry).read();tmp=dest/(entry.name+'.tmp');tmp.write_bytes(data);tmp.replace(dest/entry.name)
+    data=archive.extractfile(entry).read();tmp=dest/(entry.name+f'.{os.getpid()}.tmp');tmp.write_bytes(data)
+    if sealed():tmp.unlink()
+    else:tmp.replace(dest/entry.name)
   err=p.stderr.read().decode();code=p.wait()
   if code:raise RuntimeError(err)
- with (r/f'server-logs/{role}.log').open('w') as f:
-  subprocess.run(['ssh',*opts,node,shlex.join(['docker','logs','--timestamps','--since',since,f'{prefix}-{role}-0'])],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
-with (r/'server-logs/router.log').open('w') as f:
- subprocess.run(['docker','logs','--timestamps',f'{prefix}-router'],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
-(r/'last-capture.txt').write_text(str(time.time())+'\n')
+ tmp=r/f'server-logs/{role}.{os.getpid()}.tmp'
+ with tmp.open('w') as f:
+  subprocess.run(['ssh',*opts,node,shlex.join(['docker','logs','--timestamps','--since',since,live.get(role,{}).get('Id',f'{prefix}-{role}-0')])],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
+ if sealed():tmp.unlink()
+ else:tmp.replace(r/f'server-logs/{role}.log')
+router_info=r/'snapshot/router-mode-validation.json'
+router_id=json.loads(router_info.read_text())['container']['Id'] if router_info.exists() else prefix+'-router'
+tmp=r/f'server-logs/router.{os.getpid()}.tmp'
+with tmp.open('w') as f:
+ subprocess.run(['docker','logs','--timestamps',router_id],stdout=f,stderr=subprocess.STDOUT,check=True,timeout=60)
+if sealed():tmp.unlink()
+else:
+ tmp.replace(r/'server-logs/router.log')
+ (r/'last-capture.txt').write_text(str(time.time())+'\n')
