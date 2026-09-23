@@ -33,8 +33,8 @@ the **same** on the server and every worker. See
 | `--request-transport` | `nats` | `nats` \| `http` |
 | `--kv-event-transport` | `nats` | `nats` \| `zmq` |
 | `--nats-server` | `$NATS_SERVER` / `nats://127.0.0.1:4222` | broker URL |
-| `--nats-req-idle-timeout` | `240`s | per-chunk inactivity timeout (`0` = forever) |
-| `--http-req-idle-timeout-s` | `240`s | same, for `--request-transport http` (`0` = forever) |
+| `--nats-req-idle-timeout` | `290`s | per-chunk inactivity timeout (`0` = forever) |
+| `--http-req-idle-timeout-s` | `290`s | same, for `--request-transport http` (`0` = forever) |
 | `--nats-req-max-duration` | `0` (off) | hard wall-clock cap per request |
 | `--nats-req-max-pending` | `0` (off) | per-worker admission limit (→ 429) |
 | `--kvd-socket-path` | — | kvd UDS; enables `POST /v1/cache/prewarm` (L3 prefetch), else 503 |

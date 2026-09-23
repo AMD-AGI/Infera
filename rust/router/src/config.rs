@@ -87,7 +87,7 @@ pub struct Config {
     /// tokens never trips it -- only a stall does. 0 disables it. Expiry is a
     /// 504, which scores the worker. Kept equal to the HTTP half below so a
     /// stall is bounded the same way whichever transport carried it.
-    #[arg(long, default_value_t = 240.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
+    #[arg(long, default_value_t = 290.0, env = "INFERA_NATS_REQ_IDLE_TIMEOUT")]
     pub nats_req_idle_timeout_s: f64,
 
     /// Hard cap on a whole request's wall clock regardless of token flow, for
@@ -106,12 +106,20 @@ pub struct Config {
     /// giving up. Reset on every chunk, so a long generation that keeps
     /// producing tokens never trips it -- only a stall does. 0 disables it.
     ///
-    /// The default sits under the 300s idle timeout the Anthropic and OpenAI
-    /// SDKs ship with, so a stalled stream ends as an error the router chose
-    /// rather than a silence the client eventually gives up on -- which also
-    /// releases the engine slot instead of holding it for the client's window.
-    /// The 60s of margin is for the hops between the two.
-    #[arg(long, default_value_t = 240.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
+    /// The default sits just under the 300s idle timeout the Anthropic and
+    /// OpenAI SDKs ship with, so a stalled stream ends as an error the router
+    /// chose rather than a silence the client eventually gives up on -- which
+    /// also releases the engine slot instead of holding it for the client's
+    /// window.
+    ///
+    /// Deliberately close to that 300s rather than comfortably below it: the
+    /// gap before the first byte covers admission, and a decode queue under
+    /// saturation has been measured at 200s at the 99th percentile. Cutting
+    /// earlier would fail requests that were still going to answer, since the
+    /// client's own timer resets on their first token. The cost is that only
+    /// the remaining margin is left for the error to cross the hops in
+    /// between; a deployment that needs more can raise this.
+    #[arg(long, default_value_t = 290.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
     pub http_req_idle_timeout_s: f64,
 
     /// Seconds to wait for a detached PD prefill POST before aborting it.

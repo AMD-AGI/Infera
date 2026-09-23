@@ -110,12 +110,14 @@ MAX_PENDING_ENV = "INFERA_NATS_REQ_MAX_PENDING"
 # reset on every chunk, so a steadily-streaming long request never trips it —
 # this is NOT an overall request deadline, see MAX_DURATION_ENV for that). On
 # expiry the router returns 504 and signals the worker to abort. The default
-# sits under the 300s idle timeout the Anthropic and OpenAI SDKs ship with, so a
-# stall ends as a 504 the router chose rather than a silence the client gives up
-# on, and the worker's slot is reclaimed inside that window. Set 0 to disable
-# (wait forever).
+# sits just under the 300s idle timeout the Anthropic and OpenAI SDKs ship with,
+# so a stall ends as a 504 the router chose rather than a silence the client
+# gives up on, and the worker's slot is reclaimed inside that window. It stays
+# close to that 300s on purpose: the wait before the first chunk covers
+# admission, and cutting earlier would fail requests that were still going to
+# answer. Set 0 to disable (wait forever).
 IDLE_TIMEOUT_ENV = "INFERA_NATS_REQ_IDLE_TIMEOUT"
-DEFAULT_IDLE_TIMEOUT_S = 240
+DEFAULT_IDLE_TIMEOUT_S = 290
 
 # Subject a worker listens on for "abort this in-flight request" signals; the
 # payload is the request's reply inbox (already unique per request).
