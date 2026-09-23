@@ -468,13 +468,21 @@ impl Drop for GuardedBody {
     }
 }
 
-/// Upstream client: unbounded connection pool, no read timeout (generations run
-/// arbitrarily long), bounded connect so unreachable workers fail fast.
-pub fn build_upstream_client() -> anyhow::Result<reqwest::Client> {
-    Ok(reqwest::Client::builder()
+/// Upstream client: unbounded connection pool, bounded connect so unreachable
+/// workers fail fast, and a read timeout that only a stall can trip.
+///
+/// Deliberately not a total timeout: reqwest resets the read timeout on every
+/// chunk, so a generation that keeps producing tokens runs as long as it needs
+/// while an engine that goes quiet fails the stream instead of holding the
+/// client open. The NATS transport has always had this; this is the HTTP half.
+pub fn build_upstream_client(idle_timeout_s: f64) -> anyhow::Result<reqwest::Client> {
+    let mut builder = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(60))
-        .pool_max_idle_per_host(1024)
-        .build()?)
+        .pool_max_idle_per_host(1024);
+    if idle_timeout_s > 0.0 {
+        builder = builder.read_timeout(Duration::from_secs_f64(idle_timeout_s));
+    }
+    Ok(builder.build()?)
 }
 
 pub async fn dispatch(state: &AppState, raw: Bytes, path: &'static str) -> Response {

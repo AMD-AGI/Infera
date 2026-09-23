@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     // Built before the policy because kv-aware's self-heal needs it too: it is
     // the only client configured for talking to workers, and a second one would
     // mean a second connection pool.
-    let upstream = proxy::build_upstream_client()?;
+    let upstream = proxy::build_upstream_client(cfg.http_req_idle_timeout_s)?;
 
     // Build the routing policy from config. kv-aware owns a kv-event subscriber
     // + tokenizer; round-robin is stateless.

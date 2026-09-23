@@ -100,6 +100,15 @@ pub struct Config {
     #[arg(long, default_value_t = 0, env = "INFERA_NATS_REQ_MAX_PENDING")]
     pub nats_req_max_pending: usize,
 
+    /// Seconds to wait for the *next* body chunk from a worker over HTTP before
+    /// giving up. Reset on every chunk, so a long generation that keeps
+    /// producing tokens never trips it -- only a stall does. 0 disables it.
+    /// Without it an engine that goes quiet holds the client until the client's
+    /// own timeout, with nothing logged and the worker never scored. Set it
+    /// below the caller's idle timeout to be the side that reports the stall.
+    #[arg(long, default_value_t = 900.0, env = "INFERA_HTTP_REQ_IDLE_TIMEOUT")]
+    pub http_req_idle_timeout_s: f64,
+
     /// Seconds to wait for a detached PD prefill POST before aborting it.
     /// Matches the Mooncake KVPoll window. 0 disables the wall-clock cap;
     /// client-disconnect abort still runs.

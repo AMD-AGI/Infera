@@ -219,7 +219,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(RoundRobin::new()),
-        http: proxy::build_upstream_client().unwrap(),
+        http: proxy::build_upstream_client(0.0).unwrap(),
         started: Instant::now(),
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
@@ -374,7 +374,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
             None,
             None,
         )),
-        http: proxy::build_upstream_client().unwrap(),
+        http: proxy::build_upstream_client(0.0).unwrap(),
         started: Instant::now(),
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
@@ -1286,7 +1286,7 @@ async fn spawn_flush_mock() -> (String, Arc<Mutex<Vec<String>>>) {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_flush_request_reaches_the_worker_over_http() {
     let (url, seen) = spawn_flush_mock().await;
-    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client().unwrap());
+    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client(0.0).unwrap());
 
     let w = worker(json!({
         "worker_id": "a", "url": url, "model_name": "m", "engine": "sglang",
@@ -1316,7 +1316,7 @@ async fn a_flush_request_reaches_the_worker_over_http() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_worker_reachable_only_over_nats_is_not_flushed_over_http() {
     let (url, seen) = spawn_flush_mock().await;
-    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client().unwrap());
+    let flush = infera_router::kv_selfheal::spawn(proxy::build_upstream_client(0.0).unwrap());
 
     // Its `url` may not be routable from here at all, so an HTTP POST would
     // fail on every retry while looking like an unreachable worker.

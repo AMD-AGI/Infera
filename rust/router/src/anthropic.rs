@@ -546,6 +546,16 @@ fn map_finish_reason(reason: Option<&str>) -> Value {
 //   event: message_stop
 //   data: {"type":"message_stop"}
 
+/// What the caller should do after one translated SSE line.
+enum LineOutcome {
+    /// Read on.
+    Continue,
+    /// The stream is over; `done` is already set.
+    Stop,
+    /// The line carried a `data:` payload that is not valid JSON.
+    Unparsed,
+}
+
 /// Incremental OpenAI-SSE -> Anthropic-SSE converter.
 ///
 /// Feed engine bytes to [`SseTranslator::push`] as they arrive and forward
@@ -609,28 +619,41 @@ impl SseTranslator {
         self.buf.extend_from_slice(chunk);
         while let Some(pos) = self.buf.iter().position(|b| *b == b'\n') {
             let line: Vec<u8> = self.buf.drain(..=pos).collect();
-            let line = line.trim_ascii();
-            if line.is_empty() || line.starts_with(b":") || !line.starts_with(b"data:") {
-                continue;
-            }
-            let data = line["data:".len()..].trim_ascii();
-            if data == b"[DONE]" {
-                if self.started {
-                    self.close(&mut out);
-                }
-                self.done = true;
-                self.buf.clear();
-                return out;
-            }
-            if let Ok(obj) = serde_json::from_slice::<Value>(data) {
-                self.handle_chunk(&obj, &mut out);
-            }
-            if self.done {
+            if let LineOutcome::Stop = self.handle_line(&line, &mut out) {
                 self.buf.clear();
                 return out;
             }
         }
         out
+    }
+
+    /// Translate one SSE line. Mid-stream, an unparseable `data:` payload is
+    /// skipped rather than failed: the client already holds a 200 and part of
+    /// a body. Only [`Self::finish`] treats it as evidence of a cut stream.
+    fn handle_line(&mut self, line: &[u8], out: &mut Vec<u8>) -> LineOutcome {
+        let line = line.trim_ascii();
+        if line.is_empty() || line.starts_with(b":") || !line.starts_with(b"data:") {
+            return LineOutcome::Continue;
+        }
+        let data = line["data:".len()..].trim_ascii();
+        if data == b"[DONE]" {
+            if self.started {
+                self.close(out);
+            }
+            self.done = true;
+            return LineOutcome::Stop;
+        }
+        match serde_json::from_slice::<Value>(data) {
+            Ok(obj) => {
+                self.handle_chunk(&obj, out);
+                if self.done {
+                    LineOutcome::Stop
+                } else {
+                    LineOutcome::Continue
+                }
+            }
+            Err(_) => LineOutcome::Unparsed,
+        }
     }
 
     /// Emit the terminal events for a stream that ended without `[DONE]`.
@@ -639,10 +662,27 @@ impl SseTranslator {
         if self.done {
             return Vec::new();
         }
-        if !self.started {
-            return self.error("worker stream ended before any tokens");
-        }
         let mut out = Vec::new();
+        // The engine's last line may never have been newline-terminated.
+        // Dropping it would close the stream over content the client still
+        // needs, and a tool-call fragment lost that way arrives as a JSON
+        // parse error the client can only attribute to the model.
+        let tail = std::mem::take(&mut self.buf);
+        let outcome = self.handle_line(&tail, &mut out);
+        if let LineOutcome::Stop = outcome {
+            return out;
+        }
+        if !self.started {
+            out.append(&mut self.error("worker stream ended before any tokens"));
+            return out;
+        }
+        if let LineOutcome::Unparsed = outcome {
+            // Half a `data:` payload means bytes were lost in transit. Closing
+            // normally would hand the client a truncated answer wrapped in a
+            // clean `message_stop`, which reads as a model defect.
+            out.append(&mut self.error("worker stream ended mid-event"));
+            return out;
+        }
         self.close(&mut out);
         self.done = true;
         out
@@ -917,5 +957,57 @@ mod sse_tests {
         let out = String::from_utf8(t.finish()).unwrap();
         assert!(out.contains("event: error"));
         assert!(!out.contains("message_start"));
+    }
+
+    #[test]
+    fn a_tail_line_without_a_newline_still_reaches_the_client() {
+        // An upstream that ends its body on a line it never terminated leaves
+        // that line in the buffer. Closing the stream over it hands the client
+        // a well-formed `message_stop` above a tool input missing its last
+        // fragment, which is a parse error the client blames on the model.
+        let mut t = SseTranslator::new("m", Some("abc"));
+        let opened = String::from_utf8(t.push(
+            br#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"f","arguments":"{\"a\":1"}}]}}]}
+"#,
+        ))
+        .unwrap();
+        assert!(opened.contains("content_block_start"));
+
+        let unterminated =
+            br#"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"}"}}]}}]}"#;
+        let mid = String::from_utf8(t.push(unterminated)).unwrap();
+        let tail = String::from_utf8(t.finish()).unwrap();
+        let out = format!("{mid}{tail}");
+
+        assert!(
+            out.contains("input_json_delta"),
+            "the closing argument fragment was dropped: {out}"
+        );
+    }
+
+    #[test]
+    fn a_body_cut_mid_event_is_reported_rather_than_closed() {
+        // Half a `data:` payload is unrecoverable. Emitting `message_stop` over
+        // it presents the loss as a finished answer, so the client consumes a
+        // truncated result instead of retrying.
+        let mut t = SseTranslator::new("m", Some("abc"));
+        t.push(b"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n");
+        t.push(b"data: {\"choices\":[{\"delta\":{\"cont");
+        let out = String::from_utf8(t.finish()).unwrap();
+
+        assert!(out.contains("event: error"), "{out}");
+        assert!(!out.contains("message_stop"), "{out}");
+    }
+
+    #[test]
+    fn a_clean_body_without_done_still_closes_normally() {
+        // Ending on a terminated line leaves nothing buffered, so this keeps
+        // the existing contract: no `[DONE]` is not by itself a truncation.
+        let mut t = SseTranslator::new("m", Some("abc"));
+        t.push(b"data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n");
+        let out = String::from_utf8(t.finish()).unwrap();
+
+        assert!(out.contains("message_stop"), "{out}");
+        assert!(!out.contains("event: error"), "{out}");
     }
 }
