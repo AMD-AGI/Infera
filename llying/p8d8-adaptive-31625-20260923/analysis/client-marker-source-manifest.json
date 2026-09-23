@@ -1,0 +1,8 @@
+{
+  "source": "A0/G0 pinned client overlay, copied read-only from G0 container at warmup",
+  "files": {
+    "common/scenario/inferencex_agentx_mvp.py": "25e83793708e1989f99a8ec5e227717b51e6a2091b1163453e863a70e64d363f",
+    "timing/strategies/cache_bust.py": "0c8f559727b5d5d4fa2c217eb18c5fe1cd4547822126d4931911fa10ae9b86de",
+    "cli_runner/__init__.py": "73fab45867e938ef91c45e050cce740b0b1c2359965b8b4fd56ffcc7d7a6f00b"
+  }
+}
