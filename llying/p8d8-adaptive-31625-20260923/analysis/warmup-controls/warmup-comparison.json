@@ -1,0 +1,1349 @@
+{
+  "cases": {
+    "a0-guard-decode": {
+      "accounting": {
+        "records": 884,
+        "errors": 0,
+        "paired": 884
+      },
+      "output_lengths": {
+        "1": 884
+      },
+      "stages": {
+        "input_tokens": {
+          "n": 884,
+          "mean": 186311.5938914027,
+          "p50": 119690.5,
+          "p90": 447380.80000000005,
+          "p99": 696821.1499999999,
+          "max": 733366
+        },
+        "output_tokens": {
+          "n": 884,
+          "mean": 1.0,
+          "p50": 1.0,
+          "p90": 1.0,
+          "p99": 1.0,
+          "max": 1
+        },
+        "ttft_ms": {
+          "n": 884,
+          "mean": 58122.24492974095,
+          "p50": 12932.114343999998,
+          "p90": 166521.48234730004,
+          "p99": 551817.0254590495,
+          "max": 770466.841929
+        },
+        "latency_ms": {
+          "n": 884,
+          "mean": 58122.24492974095,
+          "p50": 12932.114343999998,
+          "p90": 166521.48234730004,
+          "p99": 551817.0254590495,
+          "max": 770466.841929
+        },
+        "miss_tokens": {
+          "n": 884,
+          "mean": 29375.847285067874,
+          "p50": 2257.5,
+          "p90": 81627.90000000026,
+          "p99": 519867.9699999991,
+          "max": 731251
+        },
+        "prefill_queue_ms": {
+          "n": 884,
+          "mean": 38611.1535242971,
+          "p50": 2253.350902989041,
+          "p90": 138987.84774300907,
+          "p99": 409960.9286696714,
+          "max": 527158.2609239849
+        },
+        "prefill_bootstrap_ms": {
+          "n": 884,
+          "mean": 237.5256575182964,
+          "p50": 0.2506864839233458,
+          "p90": 1.9400236255023686,
+          "p99": 7234.67157221341,
+          "max": 25009.4578039716
+        },
+        "prefill_forward_envelope_ms": {
+          "n": 884,
+          "mean": 12488.204663400067,
+          "p50": 3516.2748489819933,
+          "p90": 26624.250501883216,
+          "p99": 191658.95700312988,
+          "max": 300892.34419201966
+        },
+        "prefill_transfer_tail_ms": {
+          "n": 884,
+          "mean": 1468.634083159692,
+          "p50": 1347.2108879941516,
+          "p90": 1817.7799342025537,
+          "p99": 3658.8359088796865,
+          "max": 10776.407065975945
+        },
+        "decode_queue_ms": {
+          "n": 884,
+          "mean": 0.8305228189923443,
+          "p50": 0.7973581086844206,
+          "p90": 1.0824468452483416,
+          "p99": 1.3714323285967098,
+          "max": 2.1102470345795155
+        },
+        "decode_bootstrap_ms": {
+          "n": 884,
+          "mean": 0.10870898572298196,
+          "p50": 0.09781308472156525,
+          "p90": 0.12690196745097637,
+          "p99": 0.31288324855267624,
+          "max": 0.9950650855898857
+        },
+        "decode_alloc_wait_ms": {
+          "n": 884,
+          "mean": 25.328851867007824,
+          "p50": 0.6883593741804361,
+          "p90": 1.0365268215537071,
+          "p99": 214.29594855755556,
+          "max": 18260.582960676402
+        },
+        "decode_transfer_wait_ms": {
+          "n": 884,
+          "mean": 54121.583891671144,
+          "p50": 9854.91788201034,
+          "p90": 164128.64544647746,
+          "p99": 534269.1045692,
+          "max": 749925.2563919872
+        },
+        "decode_generation_ms": {
+          "n": 884,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        }
+      },
+      "primer_start_span_s": 9.946180981,
+      "next_group_start_offset_s": 779.510615805
+    },
+    "g0-guard-completion": {
+      "accounting": {
+        "records": 884,
+        "errors": 3,
+        "paired": 884
+      },
+      "output_lengths": {
+        "1": 881
+      },
+      "stages": {
+        "input_tokens": {
+          "n": 881,
+          "mean": 185610.27241770717,
+          "p50": 119374.0,
+          "p90": 446651.0,
+          "p99": 691120.0000000001,
+          "max": 731252
+        },
+        "output_tokens": {
+          "n": 881,
+          "mean": 1.0,
+          "p50": 1.0,
+          "p90": 1.0,
+          "p99": 1.0,
+          "max": 1
+        },
+        "ttft_ms": {
+          "n": 881,
+          "mean": 53750.367889804766,
+          "p50": 16308.936532,
+          "p90": 138917.741056,
+          "p99": 552023.1800838008,
+          "max": 734271.363823
+        },
+        "latency_ms": {
+          "n": 881,
+          "mean": 53750.367889804766,
+          "p50": 16308.936532,
+          "p90": 138917.741056,
+          "p99": 552023.1800838008,
+          "max": 734271.363823
+        },
+        "miss_tokens": {
+          "n": 881,
+          "mean": 28988.034052213396,
+          "p50": 2257.0,
+          "p90": 83366.0,
+          "p99": 520544.80000000104,
+          "max": 731252
+        },
+        "prefill_queue_ms": {
+          "n": 881,
+          "mean": 35855.95977979335,
+          "p50": 3887.562796997372,
+          "p90": 120191.32934004301,
+          "p99": 400218.7517629945,
+          "max": 535836.0443860292
+        },
+        "prefill_bootstrap_ms": {
+          "n": 881,
+          "mean": 927.91757581237,
+          "p50": 0.2652559778653085,
+          "p90": 1902.5576980202459,
+          "p99": 23274.433411227143,
+          "max": 40360.17038603313
+        },
+        "prefill_forward_envelope_ms": {
+          "n": 881,
+          "mean": 11713.827856250198,
+          "p50": 3356.4384400378913,
+          "p90": 24209.56573501462,
+          "p99": 176679.4449932409,
+          "max": 276439.7455260041
+        },
+        "prefill_transfer_tail_ms": {
+          "n": 881,
+          "mean": 1364.1061364567631,
+          "p50": 1420.2950819744729,
+          "p90": 1715.3067930485122,
+          "p99": 2023.7987440195866,
+          "max": 3057.653828000184
+        },
+        "decode_queue_ms": {
+          "n": 881,
+          "mean": 0.7768452038542366,
+          "p50": 0.7438277825713158,
+          "p90": 1.0307240299880505,
+          "p99": 1.1818433180451393,
+          "max": 1.7619417048990726
+        },
+        "decode_bootstrap_ms": {
+          "n": 881,
+          "mean": 0.10429950965891902,
+          "p50": 0.09517837315797806,
+          "p90": 0.12302817776799202,
+          "p99": 0.30330521985888775,
+          "max": 0.9013363160192966
+        },
+        "decode_alloc_wait_ms": {
+          "n": 881,
+          "mean": 659.2499409531636,
+          "p50": 0.7471181452274323,
+          "p90": 1.3616783544421196,
+          "p99": 23608.535770233844,
+          "max": 40259.52615682036
+        },
+        "decode_transfer_wait_ms": {
+          "n": 881,
+          "mean": 49108.88516005588,
+          "p50": 11673.246843740344,
+          "p90": 134324.1344387643,
+          "p99": 537000.346478448,
+          "max": 717213.7416037731
+        },
+        "decode_generation_ms": {
+          "n": 881,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        }
+      },
+      "primer_start_span_s": 9.946196811,
+      "next_group_start_offset_s": 743.318158816
+    },
+    "a1-guard-decode": {
+      "accounting": {
+        "records": 884,
+        "errors": 3,
+        "paired": 884
+      },
+      "output_lengths": {
+        "1": 881
+      },
+      "stages": {
+        "input_tokens": {
+          "n": 881,
+          "mean": 186319.20998864927,
+          "p50": 120069.0,
+          "p90": 447036.0,
+          "p99": 696923.0000000001,
+          "max": 733368
+        },
+        "output_tokens": {
+          "n": 881,
+          "mean": 1.0,
+          "p50": 1.0,
+          "p90": 1.0,
+          "p99": 1.0,
+          "max": 1
+        },
+        "ttft_ms": {
+          "n": 881,
+          "mean": 53425.27067310442,
+          "p50": 13875.808147,
+          "p90": 162008.95082,
+          "p99": 523495.9961828002,
+          "max": 749763.9524749999
+        },
+        "latency_ms": {
+          "n": 881,
+          "mean": 53425.27067310442,
+          "p50": 13875.808147,
+          "p90": 162008.95082,
+          "p99": 523495.9961828002,
+          "max": 749763.9524749999
+        },
+        "miss_tokens": {
+          "n": 881,
+          "mean": 28799.736662883086,
+          "p50": 2236.0,
+          "p90": 83364.0,
+          "p99": 509137.6000000004,
+          "max": 731253
+        },
+        "prefill_queue_ms": {
+          "n": 881,
+          "mean": 34985.343872299076,
+          "p50": 3218.5086730169132,
+          "p90": 124457.23720296519,
+          "p99": 333691.1384924438,
+          "max": 508763.6926319683
+        },
+        "prefill_bootstrap_ms": {
+          "n": 881,
+          "mean": 899.7762191316026,
+          "p50": 0.23691600654274225,
+          "p90": 0.7861169870011508,
+          "p99": 14007.203847589344,
+          "max": 104434.46253996808
+        },
+        "prefill_forward_envelope_ms": {
+          "n": 881,
+          "mean": 11597.934489721029,
+          "p50": 3415.906091046054,
+          "p90": 23676.798103027977,
+          "p99": 167010.43902817217,
+          "max": 276809.48974302737
+        },
+        "prefill_transfer_tail_ms": {
+          "n": 881,
+          "mean": 1383.9468643479297,
+          "p50": 1421.8366359709762,
+          "p90": 1745.9362630033866,
+          "p99": 1948.8097390043595,
+          "max": 2348.538151010871
+        },
+        "decode_queue_ms": {
+          "n": 881,
+          "mean": 0.7893847630366633,
+          "p50": 0.7558469660580158,
+          "p90": 1.0539032518863678,
+          "p99": 1.261535380035639,
+          "max": 1.4243782497942448
+        },
+        "decode_bootstrap_ms": {
+          "n": 881,
+          "mean": 0.10892387931990975,
+          "p50": 0.09872904047369957,
+          "p90": 0.12871809303760529,
+          "p99": 0.35480447113514735,
+          "max": 0.865887850522995
+        },
+        "decode_alloc_wait_ms": {
+          "n": 881,
+          "mean": 802.329133539043,
+          "p50": 0.680939294397831,
+          "p90": 1.1587012559175491,
+          "p99": 13463.52252382825,
+          "max": 103532.28659182787
+        },
+        "decode_transfer_wait_ms": {
+          "n": 881,
+          "mean": 48352.14591299043,
+          "p50": 10083.496889099479,
+          "p90": 158238.53975301608,
+          "p99": 508064.9684791457,
+          "max": 730674.7004450299
+        },
+        "decode_generation_ms": {
+          "n": 881,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "p99": 0.0,
+          "max": 0.0
+        }
+      },
+      "primer_start_span_s": 9.959871009,
+      "next_group_start_offset_s": 749.906413797
+    }
+  },
+  "comparisons": {
+    "g0-guard-completion_vs_a0-guard-decode": {
+      "common_keys": 835,
+      "exclusions": {
+        "input_mismatch": 11
+      },
+      "groups": {
+        "all": {
+          "input_tokens": {
+            "n": 824,
+            "reference_mean": 195444.09708737864,
+            "candidate_mean": 195444.0740291262,
+            "change_pct": -1.1797876109387317e-05
+          },
+          "output_tokens": {
+            "n": 824,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 824,
+            "reference_mean": 59748.42514036286,
+            "candidate_mean": 55057.00547536772,
+            "change_pct": -7.851955351080764
+          },
+          "latency_ms": {
+            "n": 824,
+            "reference_mean": 59748.42514036286,
+            "candidate_mean": 55057.00547536772,
+            "change_pct": -7.851955351080764
+          },
+          "miss_tokens": {
+            "n": 824,
+            "reference_mean": 30953.223300970873,
+            "candidate_mean": 30397.239077669903,
+            "change_pct": -1.7962078388247593
+          },
+          "prefill_queue_ms": {
+            "n": 824,
+            "reference_mean": 39462.05672535398,
+            "candidate_mean": 36495.91300370533,
+            "change_pct": -7.516444827729796
+          },
+          "prefill_bootstrap_ms": {
+            "n": 824,
+            "reference_mean": 253.6456131203116,
+            "candidate_mean": 909.8917505750771,
+            "change_pct": 258.7256011967724
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 824,
+            "reference_mean": 13051.559546096612,
+            "candidate_mean": 12173.25681533274,
+            "change_pct": -6.729484914517714
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 824,
+            "reference_mean": 1474.4468603863972,
+            "candidate_mean": 1368.99770693489,
+            "change_pct": -7.151777136537363
+          },
+          "decode_queue_ms": {
+            "n": 824,
+            "reference_mean": 0.8334347557782837,
+            "candidate_mean": 0.7791991274378904,
+            "change_pct": -6.507483394995528
+          },
+          "decode_bootstrap_ms": {
+            "n": 824,
+            "reference_mean": 0.10905612047617007,
+            "candidate_mean": 0.10468469066907046,
+            "change_pct": -4.008422258203126
+          },
+          "decode_alloc_wait_ms": {
+            "n": 824,
+            "reference_mean": 27.102561825230826,
+            "candidate_mean": 625.0040402739914,
+            "change_pct": 2206.0699734006357
+          },
+          "decode_transfer_wait_ms": {
+            "n": 824,
+            "reference_mean": 55576.791391454215,
+            "candidate_mean": 50231.19122758892,
+            "change_pct": -9.618403707788058
+          },
+          "decode_generation_ms": {
+            "n": 824,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        },
+        "remaining800": {
+          "input_tokens": {
+            "n": 740,
+            "reference_mean": 195289.96216216215,
+            "candidate_mean": 195289.9364864865,
+            "change_pct": -1.3147463084894895e-05
+          },
+          "output_tokens": {
+            "n": 740,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 740,
+            "reference_mean": 37272.93533080405,
+            "candidate_mean": 35710.00411388648,
+            "change_pct": -4.193206687496643
+          },
+          "latency_ms": {
+            "n": 740,
+            "reference_mean": 37272.93533080405,
+            "candidate_mean": 35710.00411388648,
+            "change_pct": -4.193206687496643
+          },
+          "miss_tokens": {
+            "n": 740,
+            "reference_mean": 12127.151351351351,
+            "candidate_mean": 11508.055405405405,
+            "change_pct": -5.105040153365936
+          },
+          "prefill_queue_ms": {
+            "n": 740,
+            "reference_mean": 24501.895606034905,
+            "candidate_mean": 23337.130818330144,
+            "change_pct": -4.75377418316123
+          },
+          "prefill_bootstrap_ms": {
+            "n": 740,
+            "reference_mean": 73.44730630952776,
+            "candidate_mean": 980.9008655887934,
+            "change_pct": 1235.5164605424725
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 740,
+            "reference_mean": 7034.760272525238,
+            "candidate_mean": 6348.2689690851685,
+            "change_pct": -9.758560019752426
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 740,
+            "reference_mean": 1508.0554989113857,
+            "candidate_mean": 1392.6406567719628,
+            "change_pct": -7.65322245916924
+          },
+          "decode_queue_ms": {
+            "n": 740,
+            "reference_mean": 0.8075716307487439,
+            "candidate_mean": 0.7545043110243372,
+            "change_pct": -6.571221388151671
+          },
+          "decode_bootstrap_ms": {
+            "n": 740,
+            "reference_mean": 0.10179910632605488,
+            "candidate_mean": 0.09856634093700228,
+            "change_pct": -3.1756323859055247
+          },
+          "decode_alloc_wait_ms": {
+            "n": 740,
+            "reference_mean": 30.098205969064825,
+            "candidate_mean": 695.8574663942076,
+            "change_pct": 2211.956623293147
+          },
+          "decode_transfer_wait_ms": {
+            "n": 740,
+            "reference_mean": 33679.15985383962,
+            "candidate_mean": 31285.90961752988,
+            "change_pct": -7.106027129821335
+          },
+          "decode_generation_ms": {
+            "n": 740,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        },
+        "first84_primers": {
+          "input_tokens": {
+            "n": 84,
+            "reference_mean": 196801.95238095237,
+            "candidate_mean": 196801.95238095237,
+            "change_pct": 0.0
+          },
+          "output_tokens": {
+            "n": 84,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 84,
+            "reference_mean": 257746.78774838094,
+            "candidate_mean": 225494.87461222618,
+            "change_pct": -12.513022341772084
+          },
+          "latency_ms": {
+            "n": 84,
+            "reference_mean": 257746.78774838094,
+            "candidate_mean": 225494.87461222618,
+            "change_pct": -12.513022341772084
+          },
+          "miss_tokens": {
+            "n": 84,
+            "reference_mean": 196801.95238095237,
+            "candidate_mean": 196801.95238095237,
+            "change_pct": 0.0
+          },
+          "prefill_queue_ms": {
+            "n": 84,
+            "reference_mean": 171253.9523003077,
+            "candidate_mean": 152418.51797010584,
+            "change_pct": -10.998539932773255
+          },
+          "prefill_bootstrap_ms": {
+            "n": 84,
+            "reference_mean": 1841.106887405788,
+            "candidate_mean": 284.33526116852937,
+            "change_pct": -84.55628713826758
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 84,
+            "reference_mean": 66056.6960037492,
+            "candidate_mean": 63488.625937037534,
+            "change_pct": -3.887675621205511
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 84,
+            "reference_mean": 1178.3707590948325,
+            "candidate_mean": 1160.7145774178207,
+            "change_pct": -1.4983553809986283
+          },
+          "decode_queue_ms": {
+            "n": 84,
+            "reference_mean": 1.061276571514706,
+            "candidate_mean": 0.9967487006049071,
+            "change_pct": -6.080212514038763
+          },
+          "decode_bootstrap_ms": {
+            "n": 84,
+            "reference_mean": 0.17298695941766104,
+            "candidate_mean": 0.15858443830871866,
+            "change_pct": -8.325784300404294
+          },
+          "decode_alloc_wait_ms": {
+            "n": 84,
+            "reference_mean": 0.7123634152646575,
+            "candidate_mean": 0.8190958816114635,
+            "change_pct": 14.98286746058579
+          },
+          "decode_transfer_wait_ms": {
+            "n": 84,
+            "reference_mean": 248484.4977942495,
+            "candidate_mean": 217130.1006495376,
+            "change_pct": -12.618250805599152
+          },
+          "decode_generation_ms": {
+            "n": 84,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        }
+      }
+    },
+    "a1-guard-decode_vs_a0-guard-decode": {
+      "common_keys": 852,
+      "exclusions": {
+        "input_mismatch": 10
+      },
+      "groups": {
+        "all": {
+          "input_tokens": {
+            "n": 842,
+            "reference_mean": 193310.17695961994,
+            "candidate_mean": 193310.06294536818,
+            "change_pct": -5.8979953132531904e-05
+          },
+          "output_tokens": {
+            "n": 842,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 842,
+            "reference_mean": 58802.242406489306,
+            "candidate_mean": 54452.8518534703,
+            "change_pct": -7.396640629710138
+          },
+          "latency_ms": {
+            "n": 842,
+            "reference_mean": 58802.242406489306,
+            "candidate_mean": 54452.8518534703,
+            "change_pct": -7.396640629710138
+          },
+          "miss_tokens": {
+            "n": 842,
+            "reference_mean": 29778.319477434678,
+            "candidate_mean": 29748.333729216152,
+            "change_pct": -0.10069657638420715
+          },
+          "prefill_queue_ms": {
+            "n": 842,
+            "reference_mean": 39000.17263932967,
+            "candidate_mean": 35627.17618318103,
+            "change_pct": -8.648670577286655
+          },
+          "prefill_bootstrap_ms": {
+            "n": 842,
+            "reference_mean": 249.35637339089627,
+            "candidate_mean": 828.1612289217638,
+            "change_pct": 232.11953545038165
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 842,
+            "reference_mean": 12608.97689477987,
+            "candidate_mean": 11884.793124622553,
+            "change_pct": -5.743398343898565
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 842,
+            "reference_mean": 1468.829022242697,
+            "candidate_mean": 1383.5716264619246,
+            "change_pct": -5.804446568641208
+          },
+          "decode_queue_ms": {
+            "n": 842,
+            "reference_mean": 0.8337260622115288,
+            "candidate_mean": 0.7895176711485604,
+            "change_pct": -5.302507989938798
+          },
+          "decode_bootstrap_ms": {
+            "n": 842,
+            "reference_mean": 0.10921232039529184,
+            "candidate_mean": 0.10901393430780912,
+            "change_pct": -0.18165174658378858
+          },
+          "decode_alloc_wait_ms": {
+            "n": 842,
+            "reference_mean": 26.562067465480602,
+            "candidate_mean": 729.2490262215218,
+            "change_pct": 2645.4528047157305
+          },
+          "decode_transfer_wait_ms": {
+            "n": 842,
+            "reference_mean": 54694.87093416355,
+            "candidate_mean": 49309.20641250453,
+            "change_pct": -9.846745096339504
+          },
+          "decode_generation_ms": {
+            "n": 842,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        },
+        "remaining800": {
+          "input_tokens": {
+            "n": 759,
+            "reference_mean": 193378.6324110672,
+            "candidate_mean": 193378.52832674573,
+            "change_pct": -5.382410671606053e-05
+          },
+          "output_tokens": {
+            "n": 759,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 759,
+            "reference_mean": 37586.564425565215,
+            "candidate_mean": 37239.26136161265,
+            "change_pct": -0.9240085367213879
+          },
+          "latency_ms": {
+            "n": 759,
+            "reference_mean": 37586.564425565215,
+            "candidate_mean": 37239.26136161265,
+            "change_pct": -0.9240085367213879
+          },
+          "miss_tokens": {
+            "n": 759,
+            "reference_mean": 11963.844532279314,
+            "candidate_mean": 11930.60210803689,
+            "change_pct": -0.2778573739631418
+          },
+          "prefill_queue_ms": {
+            "n": 759,
+            "reference_mean": 24852.09875035407,
+            "candidate_mean": 23956.94376147628,
+            "change_pct": -3.601929148398453
+          },
+          "prefill_bootstrap_ms": {
+            "n": 759,
+            "reference_mean": 72.8661385323418,
+            "candidate_mean": 847.8877792712816,
+            "change_pct": 1063.623867477134
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 759,
+            "reference_mean": 6964.71231995483,
+            "candidate_mean": 6597.284684929357,
+            "change_pct": -5.275560829307302
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 759,
+            "reference_mean": 1501.1573566183815,
+            "candidate_mean": 1408.8573194204305,
+            "change_pct": -6.148591737635877
+          },
+          "decode_queue_ms": {
+            "n": 759,
+            "reference_mean": 0.8088798883060614,
+            "candidate_mean": 0.7653942593031015,
+            "change_pct": -5.37603043809467
+          },
+          "decode_bootstrap_ms": {
+            "n": 759,
+            "reference_mean": 0.10218566138793043,
+            "candidate_mean": 0.10319494695079971,
+            "change_pct": 0.9876978327103103
+          },
+          "decode_alloc_wait_ms": {
+            "n": 759,
+            "reference_mean": 29.38935262481136,
+            "candidate_mean": 808.9186761047255,
+            "change_pct": 2652.420873067522
+          },
+          "decode_transfer_wait_ms": {
+            "n": 759,
+            "reference_mean": 34028.51904749782,
+            "candidate_mean": 32423.47013052585,
+            "change_pct": -4.716775698441666
+          },
+          "decode_generation_ms": {
+            "n": 759,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        },
+        "first84_primers": {
+          "input_tokens": {
+            "n": 83,
+            "reference_mean": 192684.18072289156,
+            "candidate_mean": 192683.97590361445,
+            "change_pct": -0.00010629792043248543
+          },
+          "output_tokens": {
+            "n": 83,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 83,
+            "reference_mean": 252810.67117180722,
+            "candidate_mean": 211863.8781585301,
+            "change_pct": -16.196623672364694
+          },
+          "latency_ms": {
+            "n": 83,
+            "reference_mean": 252810.67117180722,
+            "candidate_mean": 211863.8781585301,
+            "change_pct": -16.196623672364694
+          },
+          "miss_tokens": {
+            "n": 83,
+            "reference_mean": 192684.18072289156,
+            "candidate_mean": 192683.97590361445,
+            "change_pct": -0.00010629792043248543
+          },
+          "prefill_queue_ms": {
+            "n": 83,
+            "reference_mean": 168378.34229875714,
+            "candidate_mean": 142346.53049732448,
+            "change_pct": -15.460308877043005
+          },
+          "prefill_bootstrap_ms": {
+            "n": 83,
+            "reference_mean": 1863.2851475793643,
+            "candidate_mean": 647.7702444002695,
+            "change_pct": -65.23504492901677
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 83,
+            "reference_mean": 64223.39631998715,
+            "candidate_mean": 60236.82813338321,
+            "change_pct": -6.207345632643291
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 83,
+            "reference_mean": 1173.2000368072213,
+            "candidate_mean": 1152.3446269979959,
+            "change_pct": -1.7776516497546302
+          },
+          "decode_queue_ms": {
+            "n": 83,
+            "reference_mean": 1.0609338452747787,
+            "candidate_mean": 1.0101160999522152,
+            "change_pct": -4.789907075629385
+          },
+          "decode_bootstrap_ms": {
+            "n": 83,
+            "reference_mean": 0.17346815396863294,
+            "candidate_mean": 0.1622261198978108,
+            "change_pct": -6.480748087545196
+          },
+          "decode_alloc_wait_ms": {
+            "n": 83,
+            "reference_mean": 0.7077369120824768,
+            "candidate_mean": 0.7036736751177225,
+            "change_pct": -0.5741168639626926
+          },
+          "decode_transfer_wait_ms": {
+            "n": 83,
+            "reference_mean": 243679.9442110224,
+            "candidate_mean": 203722.1442199963,
+            "change_pct": -16.397656409681126
+          },
+          "decode_generation_ms": {
+            "n": 83,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        }
+      }
+    },
+    "a1-guard-decode_vs_g0-guard-completion": {
+      "common_keys": 840,
+      "exclusions": {
+        "input_mismatch": 8
+      },
+      "groups": {
+        "all": {
+          "input_tokens": {
+            "n": 832,
+            "reference_mean": 193238.2704326923,
+            "candidate_mean": 193238.17788461538,
+            "change_pct": -4.789324429266273e-05
+          },
+          "output_tokens": {
+            "n": 832,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 832,
+            "reference_mean": 53861.52474486418,
+            "candidate_mean": 54676.72858924158,
+            "change_pct": 1.51351794855219
+          },
+          "latency_ms": {
+            "n": 832,
+            "reference_mean": 53861.52474486418,
+            "candidate_mean": 54676.72858924158,
+            "change_pct": 1.51351794855219
+          },
+          "miss_tokens": {
+            "n": 832,
+            "reference_mean": 29540.501201923078,
+            "candidate_mean": 30084.10096153846,
+            "change_pct": 1.8401846194132876
+          },
+          "prefill_queue_ms": {
+            "n": 832,
+            "reference_mean": 35683.955224381025,
+            "candidate_mean": 35744.99834883472,
+            "change_pct": 0.17106602692948947
+          },
+          "prefill_bootstrap_ms": {
+            "n": 832,
+            "reference_mean": 927.4608650216928,
+            "candidate_mean": 837.5890059087396,
+            "change_pct": -9.69009717847783
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 832,
+            "reference_mean": 11841.933575950861,
+            "candidate_mean": 12005.654989901604,
+            "change_pct": 1.3825564288185266
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 832,
+            "reference_mean": 1371.125221972971,
+            "candidate_mean": 1383.5327911163124,
+            "change_pct": 0.9049187444373219
+          },
+          "decode_queue_ms": {
+            "n": 832,
+            "reference_mean": 0.7791628041349423,
+            "candidate_mean": 0.7916088188022303,
+            "change_pct": 1.59735739453144
+          },
+          "decode_bootstrap_ms": {
+            "n": 832,
+            "reference_mean": 0.10466876679297107,
+            "candidate_mean": 0.10916804100046508,
+            "change_pct": 4.2985833743444335
+          },
+          "decode_alloc_wait_ms": {
+            "n": 832,
+            "reference_mean": 642.7807540486145,
+            "candidate_mean": 738.0049076180932,
+            "change_pct": 14.81440646281027
+          },
+          "decode_transfer_wait_ms": {
+            "n": 832,
+            "reference_mean": 49081.15916652493,
+            "candidate_mean": 49553.83241920936,
+            "change_pct": 0.9630441919285637
+          },
+          "decode_generation_ms": {
+            "n": 832,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        },
+        "remaining800": {
+          "input_tokens": {
+            "n": 749,
+            "reference_mean": 193299.67556742323,
+            "candidate_mean": 193299.5914552737,
+            "change_pct": -4.351385964884713e-05
+          },
+          "output_tokens": {
+            "n": 749,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 749,
+            "reference_mean": 35325.501953331106,
+            "candidate_mean": 37258.12589998798,
+            "change_pct": 5.470903001492045
+          },
+          "latency_ms": {
+            "n": 749,
+            "reference_mean": 35325.501953331106,
+            "candidate_mean": 37258.12589998798,
+            "change_pct": 5.470903001492045
+          },
+          "miss_tokens": {
+            "n": 749,
+            "reference_mean": 11461.83311081442,
+            "candidate_mean": 12065.690253671562,
+            "change_pct": 5.268416814474408
+          },
+          "prefill_queue_ms": {
+            "n": 749,
+            "reference_mean": 23004.455971726475,
+            "candidate_mean": 23932.011475237054,
+            "change_pct": 4.032068850707082
+          },
+          "prefill_bootstrap_ms": {
+            "n": 749,
+            "reference_mean": 998.3491574858442,
+            "candidate_mean": 858.6236617234299,
+            "change_pct": -13.9956541972036
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 749,
+            "reference_mean": 6326.229231372474,
+            "candidate_mean": 6660.945549435684,
+            "change_pct": 5.290929332805638
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 749,
+            "reference_mean": 1395.156770932472,
+            "candidate_mean": 1409.1517732549241,
+            "change_pct": 1.0031132424708433
+          },
+          "decode_queue_ms": {
+            "n": 749,
+            "reference_mean": 0.7550052170690214,
+            "candidate_mean": 0.7673950613450224,
+            "change_pct": 1.6410276374114519
+          },
+          "decode_bootstrap_ms": {
+            "n": 749,
+            "reference_mean": 0.09863682150920339,
+            "candidate_mean": 0.10328844080222783,
+            "change_pct": 4.715905502480555
+          },
+          "decode_alloc_wait_ms": {
+            "n": 749,
+            "reference_mean": 713.9199221965538,
+            "candidate_mean": 819.7085156518275,
+            "change_pct": 14.817991509438277
+          },
+          "decode_transfer_wait_ms": {
+            "n": 749,
+            "reference_mean": 30928.35997886712,
+            "candidate_mean": 32469.760484008668,
+            "change_pct": 4.98377704538735
+          },
+          "decode_generation_ms": {
+            "n": 749,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        },
+        "first84_primers": {
+          "input_tokens": {
+            "n": 83,
+            "reference_mean": 192684.14457831325,
+            "candidate_mean": 192683.97590361445,
+            "change_pct": -8.753948030904013e-05
+          },
+          "output_tokens": {
+            "n": 83,
+            "reference_mean": 1,
+            "candidate_mean": 1,
+            "change_pct": 0.0
+          },
+          "ttft_ms": {
+            "n": 83,
+            "reference_mean": 221132.38102026505,
+            "candidate_mean": 211863.8781585301,
+            "change_pct": -4.191382021471335
+          },
+          "latency_ms": {
+            "n": 83,
+            "reference_mean": 221132.38102026505,
+            "candidate_mean": 211863.8781585301,
+            "change_pct": -4.191382021471335
+          },
+          "miss_tokens": {
+            "n": 83,
+            "reference_mean": 192684.14457831325,
+            "candidate_mean": 192683.97590361445,
+            "change_pct": -8.753948030904013e-05
+          },
+          "prefill_queue_ms": {
+            "n": 83,
+            "reference_mean": 150104.97860074553,
+            "candidate_mean": 142346.53049732448,
+            "change_pct": -5.168681396009678
+          },
+          "prefill_bootstrap_ms": {
+            "n": 83,
+            "reference_mean": 287.7580812186878,
+            "candidate_mean": 647.7702444002695,
+            "change_pct": 125.10931462181345
+          },
+          "prefill_forward_envelope_ms": {
+            "n": 83,
+            "reference_mean": 61616.18121557993,
+            "candidate_mean": 60236.82813338321,
+            "change_pct": -2.238621503287763
+          },
+          "prefill_transfer_tail_ms": {
+            "n": 83,
+            "reference_mean": 1154.2622078685595,
+            "candidate_mean": 1152.3446269979959,
+            "change_pct": -0.1661304387765239
+          },
+          "decode_queue_ms": {
+            "n": 83,
+            "reference_mean": 0.9971631982599396,
+            "candidate_mean": 1.0101160999522152,
+            "change_pct": 1.2989751040630493
+          },
+          "decode_bootstrap_ms": {
+            "n": 83,
+            "reference_mean": 0.15910162242600717,
+            "candidate_mean": 0.1622261198978108,
+            "change_pct": 1.9638375927038432
+          },
+          "decode_alloc_wait_ms": {
+            "n": 83,
+            "reference_mean": 0.8140438943203673,
+            "candidate_mean": 0.7036736751177225,
+            "change_pct": -13.558263869148146
+          },
+          "decode_transfer_wait_ms": {
+            "n": 83,
+            "reference_mean": 212893.76870334058,
+            "candidate_mean": 203722.1442199963,
+            "change_pct": -4.30807559056583
+          },
+          "decode_generation_ms": {
+            "n": 83,
+            "reference_mean": 0.0,
+            "candidate_mean": 0.0,
+            "change_pct": null
+          }
+        }
+      }
+    }
+  },
+  "limitations": [
+    "All valid warmup outputs have one token; they do not reproduce profiling decode residency or P guard over-hold.",
+    "Warmup timing includes cold-prefix work, startup ramp and DAG/idle dependencies; it is not profiling throughput.",
+    "Completed A1 warmup is usable as auxiliary evidence although its profiling was preempted and invalid.",
+    "Matched completed turns are a selected cohort; identical length does not guarantee identical bytes."
+  ],
+  "three_way_same_cohort": {
+    "all": {
+      "n": 810,
+      "cases": {
+        "a0-guard-decode": {
+          "input_tokens": 197489.3,
+          "output_tokens": 1,
+          "ttft_ms": 59370.35613624938,
+          "latency_ms": 59370.35613624938,
+          "miss_tokens": 30675.90740740741,
+          "prefill_queue_ms": 39194.95357336637,
+          "prefill_bootstrap_ms": 258.0251390888373,
+          "prefill_forward_envelope_ms": 12919.805860735281,
+          "prefill_transfer_tail_ms": 1464.5413835376305,
+          "decode_queue_ms": 0.8352787860519724,
+          "decode_bootstrap_ms": 0.10918770272882632,
+          "decode_alloc_wait_ms": 27.56025114579609,
+          "decode_transfer_wait_ms": 55191.712316203244,
+          "decode_generation_ms": 0.0
+        },
+        "g0-guard-completion": {
+          "input_tokens": 197489.2728395062,
+          "output_tokens": 1,
+          "ttft_ms": 54340.711751537034,
+          "latency_ms": 54340.711751537034,
+          "miss_tokens": 30117.104938271605,
+          "prefill_queue_ms": 35911.208544078036,
+          "prefill_bootstrap_ms": 925.6107853000472,
+          "prefill_forward_envelope_ms": 12012.642271569168,
+          "prefill_transfer_tail_ms": 1368.744685519113,
+          "decode_queue_ms": 0.7792025321611652,
+          "decode_bootstrap_ms": 0.10487888077342952,
+          "decode_alloc_wait_ms": 635.7954220857794,
+          "decode_transfer_wait_ms": 49483.475258661274,
+          "decode_generation_ms": 0.0
+        },
+        "a1-guard-decode": {
+          "input_tokens": 197489.1888888889,
+          "output_tokens": 1,
+          "ttft_ms": 55216.10908963704,
+          "latency_ms": 55216.10908963704,
+          "miss_tokens": 30676.033333333333,
+          "prefill_queue_ms": 36003.7030265461,
+          "prefill_bootstrap_ms": 858.3589581545604,
+          "prefill_forward_envelope_ms": 12166.999774863067,
+          "prefill_transfer_tail_ms": 1380.361003032095,
+          "decode_queue_ms": 0.7921370648905451,
+          "decode_bootstrap_ms": 0.10928588367446705,
+          "decode_alloc_wait_ms": 758.0334809424793,
+          "decode_transfer_wait_ms": 49990.36016784218,
+          "decode_generation_ms": 0.0
+        }
+      }
+    },
+    "remaining800": {
+      "n": 727,
+      "cases": {
+        "a0-guard-decode": {
+          "input_tokens": 198037.88995873454,
+          "output_tokens": 1,
+          "ttft_ms": 37285.69843617881,
+          "latency_ms": 37285.69843617881,
+          "miss_tokens": 12179.777166437414,
+          "prefill_queue_ms": 24446.368615722036,
+          "prefill_bootstrap_ms": 74.75611473572347,
+          "prefill_forward_envelope_ms": 7062.587142553843,
+          "prefill_transfer_tail_ms": 1497.803187909878,
+          "decode_queue_ms": 0.8095162414639492,
+          "decode_bootstrap_ms": 0.10184894419663382,
+          "decode_alloc_wait_ms": 30.62594396752681,
+          "decode_transfer_wait_ms": 33672.423117757586,
+          "decode_generation_ms": 0.0
+        },
+        "g0-guard-completion": {
+          "input_tokens": 198037.86382393396,
+          "output_tokens": 1,
+          "ttft_ms": 35298.4716562077,
+          "latency_ms": 35298.4716562077,
+          "miss_tokens": 11557.181568088034,
+          "prefill_queue_ms": 22873.95556649426,
+          "prefill_bootstrap_ms": 998.433033496406,
+          "prefill_forward_envelope_ms": 6349.514716750884,
+          "prefill_transfer_tail_ms": 1393.2316809042518,
+          "decode_queue_ms": 0.7543184396079351,
+          "decode_bootstrap_ms": 0.09868838894789451,
+          "decode_alloc_wait_ms": 708.2898572850793,
+          "decode_transfer_wait_ms": 30827.279445857446,
+          "decode_generation_ms": 0.0
+        },
+        "a1-guard-decode": {
+          "input_tokens": 198037.7895460798,
+          "output_tokens": 1,
+          "ttft_ms": 37331.975894701514,
+          "latency_ms": 37331.975894701514,
+          "miss_tokens": 12179.940852819807,
+          "prefill_queue_ms": 23862.7749934311,
+          "prefill_bootstrap_ms": 882.4014110315977,
+          "prefill_forward_envelope_ms": 6678.972603257604,
+          "prefill_transfer_tail_ms": 1406.3931339960982,
+          "decode_queue_ms": 0.7672508751929954,
+          "decode_bootstrap_ms": 0.10324181268885835,
+          "decode_alloc_wait_ms": 844.4961687047778,
+          "decode_transfer_wait_ms": 32439.138604803946,
+          "decode_generation_ms": 0.0
+        }
+      }
+    },
+    "first84_primers": {
+      "n": 83,
+      "cases": {
+        "a0-guard-decode": {
+          "input_tokens": 192684.18072289156,
+          "output_tokens": 1,
+          "ttft_ms": 252810.67117180722,
+          "latency_ms": 252810.67117180722,
+          "miss_tokens": 192684.18072289156,
+          "prefill_queue_ms": 168378.34229875714,
+          "prefill_bootstrap_ms": 1863.2851475793643,
+          "prefill_forward_envelope_ms": 64223.39631998715,
+          "prefill_transfer_tail_ms": 1173.2000368072213,
+          "decode_queue_ms": 1.0609338452747787,
+          "decode_bootstrap_ms": 0.17346815396863294,
+          "decode_alloc_wait_ms": 0.7077369120824768,
+          "decode_transfer_wait_ms": 243679.9442110224,
+          "decode_generation_ms": 0.0
+        },
+        "g0-guard-completion": {
+          "input_tokens": 192684.14457831325,
+          "output_tokens": 1,
+          "ttft_ms": 221132.38102026505,
+          "latency_ms": 221132.38102026505,
+          "miss_tokens": 192684.14457831325,
+          "prefill_queue_ms": 150104.97860074553,
+          "prefill_bootstrap_ms": 287.7580812186878,
+          "prefill_forward_envelope_ms": 61616.18121557993,
+          "prefill_transfer_tail_ms": 1154.2622078685595,
+          "decode_queue_ms": 0.9971631982599396,
+          "decode_bootstrap_ms": 0.15910162242600717,
+          "decode_alloc_wait_ms": 0.8140438943203673,
+          "decode_transfer_wait_ms": 212893.76870334058,
+          "decode_generation_ms": 0.0
+        },
+        "a1-guard-decode": {
+          "input_tokens": 192683.97590361445,
+          "output_tokens": 1,
+          "ttft_ms": 211863.8781585301,
+          "latency_ms": 211863.8781585301,
+          "miss_tokens": 192683.97590361445,
+          "prefill_queue_ms": 142346.53049732448,
+          "prefill_bootstrap_ms": 647.7702444002695,
+          "prefill_forward_envelope_ms": 60236.82813338321,
+          "prefill_transfer_tail_ms": 1152.3446269979959,
+          "decode_queue_ms": 1.0101160999522152,
+          "decode_bootstrap_ms": 0.1622261198978108,
+          "decode_alloc_wait_ms": 0.7036736751177225,
+          "decode_transfer_wait_ms": 203722.1442199963,
+          "decode_generation_ms": 0.0
+        }
+      }
+    }
+  }
+}

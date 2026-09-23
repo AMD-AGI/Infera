@@ -63,3 +63,7 @@ job31644 PreemptTime=19:46:58 UTC，extern于19:47:29完成。A1的P/D采样停�
 job31644重新分配开始19:54:31 UTC，QOS=batch，当前结束00:24:31 UTC。延长至5小时的请求被Slurm权限拒绝，实际仍为4小时30分。新节点默认Slurm客户端指向gpuperf；使用独立client-only配置定向dccs-1334，未修改主机/etc配置，已验证能读取正确job/节点/重启次数。
 
 新节点镜像ID已核对相同；n02-33存在其他ATOM容器但GPU显存/利用率为0，未停止或修改它，运行期继续检查外部GPU使用。新watchdog绑定allocation StartTime和节点身份；抢占时并发对本实验匹配镜像的容器发送5秒stop，减少extern步骤撤销前来不及处理的风险；仍不能保证驱动立即释放显存。启动health gate遇到一次docker inspect超时会在原截止时间内重试，真正退出/OOM仍失败，不通过重启模型来处理探测超时。
+
+## 已完成warmup辅助分析
+
+A1正式段无效，但其884条warmup完成于抢占之前，P/D关联完整。三轮共同810条（首批83、后续727）分析已保存于warmup-controls/。后727条A1的P forward仍比A0低约5.4%，显示有与开关无关的轮次差异；G0的miss/TTFT改善在A1回退后恢复到A0附近，支持路由影响缓存选择的可能性。warmup有效输出全部1 token，不代表正式长Decode驻留，不能据此算出“扣除热身后的净收益”，也不因此追加baseline。
