@@ -1,13 +1,11 @@
 # R2-on正式实验执行状态
 
-2026-09-24 12:51 UTC 已开始启动 P/D 模型服务，尚未完成性能窗口。
+2026-09-24 13:06 UTC：n01-21 的四个 K3 服务已按用户指示停止，allocation 保留。清理后8张GPU空闲、约0.28GiB/卡。
 
-用户已明确批准清理 n01-21 上的现存 K3 服务。四个已核实容器已停止，8张GPU恢复空闲、约0.28GiB/卡；清理记录见events。该节点已补齐与P相同的基线镜像。
+第一次启动的实际配置校验、8条真实P/D配对smoke、全部rank缓存reset均通过。客户端环境检查因n01-21主机rocm-smi只报告“AMD Radeon Graphics”而失败，尚未进入warmup/正式性能窗口。13:03:52首先请求停止P，13:04:35所有本轮服务停止；HiCache/VRAM释放仍需单独观察。
 
-本轮只运行R2-on/C80/P-D实际均4K，Prefill HiCache开启，R1/R3/R4关闭，逐候选日志关闭。历史完整A0作参考，不重跑基线。配置批准及release哈希已绑定。
+已修复GPU型号检测：主机工具无型号时使用同一实验镜像内rocm-smi，双节点验证结果均为MI355X；没有硬编码型号或修改实验配置。失败目录保留为runs/r2-on-4k-31705-31706-failed-hardware-preflight，容器和AITER缓存也已保留。
 
-P=n10-29/job31705，D=n01-21/job31706。两个allocation独立核验；两端无GPU设备的Docker清理监控均已验证持续心跳，避免依赖SSH子进程存活。
+13:06 UTC已重新启动驱动（P主机PID4014518），先等待旧P释放，再启动原定R2-on/C80/P-D实际4K实验。Prefill HiCache开；R1/R3/R4关；候选诊断日志关。只和历史完整A0比较，不补跑基线。
 
-发压前检查实际server info、容量、镜像、随机种子、请求/缓存reset及基础smoke。完成发压后先保存结束身份，立即停止Prefill启动HiCache释放，再做离线分析；失败路径也清理本任务容器。
-
-实时状态和日志：`/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924`。LAUNCHING不代表smoke或性能已经通过。
+P=n10-29/job31705，D=n01-21/job31706。双端allocation watchdog已重启并验证；结束或失败先停P，再离线分析。实时目录：/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924。
