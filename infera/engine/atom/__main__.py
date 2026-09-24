@@ -39,6 +39,11 @@ from infera.common.registration import RegistrationClient
 from infera.engine.atom.args import parse_atom_args
 from infera.engine.atom.worker import AtomEngine
 from infera.engine.base import EngineDeath, watch_engine_death
+from infera.engine.readiness import (
+    close_readiness,
+    engine_health_check,
+    serve_readiness_best_effort,
+)
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)  # silence etcd keepalive spam
@@ -145,19 +150,31 @@ async def main() -> None:
         config.disagg_meta,
     )
 
-    logger.info("registering with etcd: %s prefix=%s", args.etcd_endpoint, args.etcd_prefix)
-    reg_client = RegistrationClient(endpoint=args.etcd_endpoint, prefix=args.etcd_prefix)
-    await reg_client.register(config)
-    hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
-
+    # Installed before registering, so a SIGTERM from here on runs the
+    # shutdown below instead of killing the process with its record published.
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
 
+    logger.info("registering with etcd: %s prefix=%s", args.etcd_endpoint, args.etcd_prefix)
+    reg_client = RegistrationClient(endpoint=args.etcd_endpoint, prefix=args.etcd_prefix)
+    await reg_client.register(config)
+    hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
+    # The operator probes readiness on this port for every single-node worker
+    # regardless of backend, so an ATOM worker that never opened it would sit
+    # NotReady forever.
+    ready_server = await serve_readiness_best_effort(
+        engine_alive=engine_health_check(args.host, config.port)
+    )
+
     death = EngineDeath()
     death_task = watch_engine_death(engine, stop, death)
     await stop.wait()
+
+    # Closed as shutdown begins, before deregistration: a surge rollout reads
+    # this, and the pod should stop claiming readiness now.
+    await close_readiness(ready_server)
 
     death_task.cancel()
     try:
