@@ -112,6 +112,65 @@ def _capture_engine_output(path: str):
             os.close(saved[1])
 
 
+def _speculative_argv(args) -> list[str]:
+    """The flags that turn the draft head on, in each engine's spelling.
+
+    Speculation was previously the one regime axis the served harvest could not
+    reach: the flags were accepted on the command line, recorded in the
+    artifact's regime signature, and never passed to the engine. The anchor
+    therefore described a non-speculative machine while claiming to describe a
+    speculative one. Since every AgentX deployment serves with MTP, that is the
+    difference between an anchor the store accepts and one it refuses.
+
+    The spellings are not translations of each other. DeepSeek's MTP head is
+    loaded through SGLang's EAGLE path at topk 1 -- a single draft chain --
+    rather than NEXTN, whose V3/R1 loader does not accept the V4 architecture.
+    ATOM names the method directly, and vLLM takes one JSON object.
+
+    Acceptance is pinned rather than earned, for the reason given on
+    ``--speculative-acceptance-length``: these harvests run on dummy weights.
+    """
+    method = getattr(args, "speculative_method", None)
+    k = getattr(args, "speculative_num_tokens", None)
+    if not method or not k:
+        return []
+    al = getattr(args, "speculative_acceptance_length", None)
+
+    if args.serving_backend == "sglang":
+        # num-steps is the chain depth; the draft-token count includes the
+        # verified token, hence k + 1.
+        argv = [
+            "--speculative-algorithm",
+            "EAGLE",
+            "--speculative-num-steps",
+            str(k),
+            "--speculative-eagle-topk",
+            "1",
+            "--speculative-num-draft-tokens",
+            str(k + 1),
+        ]
+        # SGLang has no acceptance flag; it reads the simulation from the
+        # environment. Set here rather than asked of the caller so the anchor
+        # and the deployment agree without a second place to keep in step.
+        if al:
+            os.environ.setdefault("SGLANG_SIMULATE_ACC_LEN", str(al))
+            os.environ.setdefault("SGLANG_SIMULATE_ACC_METHOD", "match-expected")
+            os.environ.setdefault("SGLANG_SIMULATE_ACC_TOKEN_MODE", "real-draft-token")
+        return argv
+
+    if args.serving_backend == "atom":
+        argv = ["--method", "mtp", "--num-speculative-tokens", str(k)]
+        if al:
+            argv += ["--spec-decode-acceptance-length", str(al)]
+        return argv
+
+    spec: dict = {"method": "mtp", "num_speculative_tokens": int(k)}
+    if al:
+        spec["rejection_sample_method"] = "synthetic"
+        spec["synthetic_acceptance_length"] = al
+    return ["--speculative-config", json.dumps(spec)]
+
+
 def _engine_argv(args, port: int, tp: int) -> list[str]:
     """The flags one engine wants for the intent every engine shares.
 
@@ -175,6 +234,7 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
             argv += ["--enable-expert-parallel"]
         if args.enforce_eager:
             argv += ["--enforce-eager"]
+    argv += _speculative_argv(args)
     if args.quantization:
         argv += ["--quantization", args.quantization]
     if args.kv_cache_dtype:
@@ -356,7 +416,15 @@ def client_kind(args) -> str:
     """
     if shutil.which("vllm"):
         return "vllm"
-    if args.serving_backend == "sglang":
+    # ATOM is an SGLang derivative and ships the same client module, and its
+    # image carries no vLLM -- so requiring vLLM's client made every ATOM
+    # regime unmeasurable for want of a load generator rather than for want of
+    # an engine, which is the failure this docstring already argues against for
+    # SGLang. Named rather than probed: which client an engine ships is a fact
+    # about the engine, and importing to check it answers a different question
+    # -- whether the module resolves in *this* process, which for a harvest is
+    # the submitting host and not the container the server runs in.
+    if args.serving_backend in ("sglang", "atom"):
         return "sglang"
     raise RuntimeError(
         f"no load generator available: the vllm CLI is not on PATH and "
@@ -1035,6 +1103,15 @@ def run_serving_benchmark(args) -> dict:
             "kv_cache_dtype": args.kv_cache_dtype,
             "enforce_eager": args.enforce_eager,
             "use_aiter": os.environ.get("VLLM_ROCM_USE_AITER", "0") == "1",
+            # Recorded explicitly, including the "off" case. The store rebuilds
+            # each anchor's regime from this meta and discards the signature the
+            # harvest computed, so an axis that is absent here is absent from
+            # the index -- and a missing speculative key does not read as "off",
+            # it reads as "measured before this was tracked", which is refused
+            # for a speculating target rather than assumed compatible.
+            "speculative_method": getattr(args, "speculative_method", None),
+            "speculative_num_tokens": getattr(args, "speculative_num_tokens", None),
+            "speculative_acceptance_length": getattr(args, "speculative_acceptance_length", None),
             "server_args": args.server_args or None,
             # Recorded explicitly, not left to be re-derived from the flag
             # string by every reader. A prefill measured against a warm prefix

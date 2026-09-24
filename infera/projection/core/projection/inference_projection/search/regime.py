@@ -47,6 +47,16 @@ from typing import Any
 # target that speculates needs its own measurement.
 REGIME_AXES = (
     "model",
+    # The serving engine. Named as regime-defining in the split above and in
+    # the design note, but absent from this tuple until now, so vLLM, SGLang
+    # and Atom anchors for one checkpoint all hashed to one signature: the
+    # bench cache could return a vLLM measurement for an SGLang run, and
+    # ``regime_distance`` called the two a perfect match. They are not one
+    # regime. The engines differ in scheduler, paging and kernel selection --
+    # on this store the same DeepSeek-V4 recipe under `mori-sglang` and
+    # `sglang` reports KV pools 16x apart, because one shards the MLA latent
+    # across ranks and the other replicates it.
+    "engine",
     "weight_dtype",
     "kv_cache_dtype",
     "moe_expert_dtype",
@@ -55,6 +65,25 @@ REGIME_AXES = (
     "aiter",
     "aiter_ops",
     "speculative",
+    # The accelerator the anchor was measured on. Absent from this tuple until
+    # now, and absent from the anchors themselves, which is the more serious
+    # half: nothing in the store records which GPU produced a timing, so the
+    # restore cannot form the sim(target)/sim(bench) ratio that would carry
+    # the change, and does not try. A measurement is simply reused. On this
+    # store every anchor is gfx950 -- the GLM-5.2-MXFP4 Quark build only
+    # loads there -- and one target, GLM-5.2 on MI325X, is gfx942, so it was
+    # priced on kernels from a part with roughly twice the compute and a
+    # third more bandwidth. It read 4.3x the measured throughput and a
+    # twentieth of the measured TTFT, the worst curve in the matrix, while
+    # reporting itself calibrated.
+    #
+    # Regime-defining rather than transportable, which is the conservative
+    # of the two readings. Hardware is transportable in principle -- the
+    # analytical model knows both parts -- but only once the anchor says
+    # which part it ran on, and until a harvest records that, refusing is
+    # the honest answer. ``IX_RELAX_AXES`` can still relax it deliberately,
+    # which is the difference between a known approximation and a silent one.
+    "gpu_arch",
 )
 
 # Canonical value of the ``speculative`` axis when speculation is off. Distinct
@@ -93,6 +122,27 @@ TRANSPORT_AXES = (
 )
 
 
+# Engine spellings of an attention backend, folded onto the kernel family the
+# axis is actually about. AITER ships its MLA, unified-attention and
+# DeepSeek-V4 backends under separate flag values, and an engine records
+# whichever one its command line named -- so an anchor harvested with
+# ``--attention-backend dsv4`` and a target the projector describes as
+# ``aiter`` are the same kernels under two names. Compared raw, that pair is a
+# regime mismatch that no harvest can clear: the anchor is refused, the
+# projection silently falls back to analytical, and the axis rejects the very
+# measurement it asked for. The projector has always modelled these as one
+# family (ix_recipe.ATTENTION_BACKEND maps all three onto "aiter"); this is
+# where the store learns the same thing.
+_ATTENTION_FAMILY = {
+    "dsv4": "aiter",
+    "aiter": "aiter",
+    "rocm_aiter_mla": "aiter",
+    "rocm_aiter_unified_attn": "aiter",
+    "triton_attn": "triton",
+    "triton": "triton",
+}
+
+
 def _canon(v: Any) -> str:
     """Canonical, comparison-stable string for a single axis value."""
     if v is None:
@@ -107,6 +157,19 @@ def _canon(v: Any) -> str:
     if isinstance(v, (int,)):
         return str(v)
     return str(v).strip().lower()
+
+
+def _canon_axis(k: str, v: Any) -> str:
+    """Canonical value for axis ``k``, folding engine spellings onto families.
+
+    Kept separate from ``_canon`` because the folding is per-axis: only the
+    attention backend has several names for one kernel family, and applying a
+    rename table to every axis would let unrelated values collide.
+    """
+    s = _canon(v)
+    if k == "attention_backend" and s:
+        return _ATTENTION_FAMILY.get(s, s)
+    return s
 
 
 def normalise_model_id(name: Any) -> str:
@@ -144,7 +207,7 @@ def models_match(a: Any, b: Any) -> bool:
 
 
 def _sig(recipe: dict[str, Any], axes: Iterable[str]) -> str:
-    payload = {k: _canon(recipe.get(k)) for k in axes}
+    payload = {k: _canon_axis(k, recipe.get(k)) for k in axes}
     blob = json.dumps(payload, sort_keys=True)
     return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
@@ -159,7 +222,7 @@ def config_key(recipe: dict[str, Any], extra: dict[str, Any] | None = None) -> s
     """Exact-run identity: hash over regime + transport axes, plus any ``extra``
     (measurement knobs that change the number but not the regime, e.g.
     decode-steps).  Used by the benchmark result cache."""
-    payload = {k: _canon(recipe.get(k)) for k in (*REGIME_AXES, *TRANSPORT_AXES)}
+    payload = {k: _canon_axis(k, recipe.get(k)) for k in (*REGIME_AXES, *TRANSPORT_AXES)}
     if extra:
         for k, v in extra.items():
             payload[f"x_{k}"] = _canon(v)
@@ -202,7 +265,7 @@ def regime_distance(a: dict[str, Any], b: dict[str, Any], *, ignore_missing: boo
             continue
         if ignore_missing and missing:
             continue
-        if _canon(av) != _canon(bv):
+        if _canon_axis(k, av) != _canon_axis(k, bv):
             d += 1
     return d
 
@@ -258,7 +321,9 @@ def aiter_ops_axis(env: dict[str, str] | None) -> str | None:
 # --------------------------------------------------------------------------
 
 
-def recipe_from_meta(meta: dict[str, Any], *, model: str | None = None) -> dict[str, Any]:
+def recipe_from_meta(
+    meta: dict[str, Any], *, model: str | None = None, engine: str | None = None
+) -> dict[str, Any]:
     """Canonical recipe from a benchmark artifact's ``meta`` block.  The
     *benchmark* parallelism (what it actually ran at) is recorded on the
     transport axes so the anchor's coverage is described in benchmark space;
@@ -278,6 +343,10 @@ def recipe_from_meta(meta: dict[str, Any], *, model: str | None = None) -> dict[
     quant = meta.get("weight_dtype") or meta.get("quantization")
     return {
         "model": model or meta.get("model"),
+        # The engine lives on the artifact rather than in ``meta``, so the
+        # caller that opened the artifact passes it; the ``meta`` keys are read
+        # as a fallback for harnesses that record it inline.
+        "engine": engine or meta.get("engine") or meta.get("backend"),
         "weight_dtype": quant if quant else None,
         "kv_cache_dtype": meta.get("kv_cache_dtype") or "bf16",
         "moe_expert_dtype": meta.get("moe_expert_dtype"),
@@ -295,6 +364,13 @@ def recipe_from_meta(meta: dict[str, Any], *, model: str | None = None) -> dict[
             if "speculative_method" in meta
             else None
         ),
+        # Absent key => unknown (pre-tracking artifact), which
+        # ``regime_distance`` skips. That is the permissive reading and it is
+        # deliberate: the alternative refuses every anchor harvested before
+        # the axis existed. What makes it safe is that a store can be told
+        # which part it ran on after the fact -- see ``ix_anchor_store`` --
+        # so an unknown here means "nobody has said yet", not "any part".
+        "gpu_arch": (str(meta.get("gpu_arch") or meta.get("gpu") or "").lower().strip() or None),
         # transport (benchmark space)
         "tp": meta.get("benchmark_tp") or meta.get("tp"),
         "pp": meta.get("benchmark_pp") or meta.get("pp"),
@@ -322,6 +398,9 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
     ep = int(getattr(args, "tp", 1) or 1) if getattr(args, "enable_expert_parallel", False) else 1
     return {
         "model": getattr(args, "model", None),
+        # ``benchmark_serving`` names the engine it drove; the in-container
+        # vLLM harness has no such flag because it is only ever vLLM.
+        "engine": getattr(args, "serving_backend", None) or "vllm",
         "weight_dtype": getattr(args, "quantization", None) or "bf16",
         "kv_cache_dtype": getattr(args, "kv_cache_dtype", None) or "bf16",
         "moe_expert_dtype": None,
@@ -337,6 +416,7 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
             getattr(args, "speculative_method", None) or "",
             getattr(args, "speculative_num_tokens", None),
         ),
+        "gpu_arch": (str(getattr(args, "gpu_arch", "") or "").lower().strip() or None),
         "tp": getattr(args, "tp", 1),
         "pp": getattr(args, "pp", 1),
         "ep": ep,
@@ -348,7 +428,7 @@ def recipe_from_bench_args(args: Any, env: dict[str, str] | None = None) -> dict
     }
 
 
-def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
+def recipe_from_inference_config(cfg: Any, gpu_arch: Any = None) -> dict[str, Any]:
     """Canonical recipe from an ``InferenceConfig`` (the reconstruction target).
 
     Structural configs carry no HF model *name*, so ``model`` is left ``None``
@@ -366,6 +446,12 @@ def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
     ep = int(g(mp, "expert_model_parallel_size", 1) or 1)
     return {
         "model": None,
+        # Unknown unless the target says so. A projection has no engine of its
+        # own -- it is asking what some engine would do -- so the recipe has to
+        # state which one, and ``--serving-engine`` is how. Left unset the axis
+        # is skipped, which keeps every existing caller matching the anchors it
+        # matched before.
+        "engine": g(req, "serving_engine"),
         "weight_dtype": g(req, "weight_dtype", "bf16"),
         "kv_cache_dtype": g(req, "kv_cache_dtype", "bf16"),
         "moe_expert_dtype": g(req, "moe_expert_dtype"),
@@ -378,6 +464,11 @@ def recipe_from_inference_config(cfg: Any) -> dict[str, Any]:
             "spec" if g(req, "speculative_num_tokens") else "",
             g(req, "speculative_num_tokens"),
         ),
+        # The target always knows its part; the caller has to pass it,
+        # because it arrives on the command line rather than on the config.
+        # Left None the axis is skipped, which keeps a caller that does not
+        # know its hardware matching the anchors it matched before.
+        "gpu_arch": str(gpu_arch).lower().strip() if gpu_arch else None,
         "tp": tp,
         "pp": int(g(mp, "pipeline_model_parallel_size", 1) or 1),
         "ep": ep,

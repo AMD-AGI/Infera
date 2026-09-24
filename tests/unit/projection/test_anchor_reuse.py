@@ -19,8 +19,10 @@ import pytest
 
 from infera.projection.core.projection.inference_projection.search.regime import (
     aiter_ops_axis,
+    recipe_from_inference_config,
     recipe_from_meta,
     regime_distance,
+    regime_signature,
 )
 
 
@@ -111,6 +113,130 @@ def test_an_unrecorded_op_set_matches_defaults_but_not_a_swap():
     )
     assert regime_distance(old, defaults) == 0
     assert regime_distance(old, swapped) >= 1
+
+
+def test_two_engines_measuring_one_checkpoint_are_two_regimes():
+    """An SGLang anchor does not describe vLLM, and the axes have to say so.
+
+    The engine was named as regime-defining in the design split from the start
+    but was missing from ``REGIME_AXES``, so every engine's anchor for a given
+    checkpoint hashed to one signature: the bench cache would hand a vLLM
+    measurement to an SGLang run, and ``regime_distance`` called the pair a
+    perfect match.
+    """
+    vllm = recipe_from_meta({"model": "m"}, engine="vllm")
+    sglang = recipe_from_meta({"model": "m"}, engine="sglang")
+
+    assert regime_distance(vllm, sglang) >= 1
+    assert regime_signature(vllm) != regime_signature(sglang)
+
+
+def test_a_rebuilt_engine_does_not_inherit_the_engine_it_forked_from():
+    """``mori-sglang`` runs SGLang's launch script and is not SGLang.
+
+    It is the case that motivates the axis: the two share a recipe script, and
+    their reported KV pools differ 16x because one shards the MLA latent across
+    ranks where the other replicates it. Keyed on anything coarser than the
+    engine string, the fork silently inherits the parent's anchor.
+    """
+    parent = recipe_from_meta({"model": "m"}, engine="sglang")
+    fork = recipe_from_meta({"model": "m"}, engine="mori-sglang")
+
+    assert regime_distance(parent, fork) >= 1
+
+
+def test_the_engine_is_read_off_the_artifact_not_only_the_meta_block():
+    """``benchmark_serving`` records the backend beside ``meta``, not inside it.
+
+    So the store passes it explicitly. An artifact that does record it inline
+    is still honoured, which is what lets a future harness stop threading it.
+    """
+    assert recipe_from_meta({"model": "m"}, engine="atom")["engine"] == "atom"
+    assert recipe_from_meta({"model": "m", "backend": "atom"})["engine"] == "atom"
+    assert recipe_from_meta({"model": "m", "engine": "atom"})["engine"] == "atom"
+
+
+def test_an_anchor_indexed_before_the_axis_existed_still_matches():
+    """Unknown stays skippable, or adding the axis would orphan the store.
+
+    Every artifact already in the store predates the axis. Counting unknown as
+    a difference would refuse all of them at once, which is a worse failure
+    than the one being fixed -- and the engine filter in the harness's own
+    ``resolve`` is what actually gates reuse today.
+    """
+    old = recipe_from_meta({"model": "m"})
+    assert old["engine"] is None
+    assert regime_distance(old, recipe_from_meta({"model": "m"}, engine="vllm")) == 0
+
+
+def test_a_projection_names_the_engine_it_is_asking_about():
+    """The target side is unknown unless ``--serving-engine`` says otherwise.
+
+    A projection has no engine of its own, so without this the axis could never
+    bite on the path that actually consumes anchors.
+    """
+    from infera.projection.core.projection.training_config import InferenceRequestConfig
+
+    cfg = SimpleNamespace(
+        request_config=InferenceRequestConfig(serving_engine="sglang"),
+        model_config=None,
+        model_parallel_config=None,
+    )
+    assert recipe_from_inference_config(cfg)["engine"] == "sglang"
+    assert InferenceRequestConfig().serving_engine is None
+
+
+def test_naming_an_engine_does_not_change_what_simulate_projects():
+    """It is a matching key, not a cost input.
+
+    Simulate mode prices an architecture on a device analytically; if naming an
+    engine moved the number, the axis would be quietly inventing engine
+    performance it has no measurement for.
+    """
+    from infera.projection.core.projection.training_config import InferenceRequestConfig
+
+    base = InferenceRequestConfig()
+    named = InferenceRequestConfig(serving_engine="sglang")
+    assert (
+        base.resolved_attention_backend_multiplier()
+        == named.resolved_attention_backend_multiplier()
+    )
+
+
+def test_the_store_rehashes_rather_than_trusting_a_recorded_signature(tmp_path):
+    """A signature in ``meta`` was hashed over whichever axes that build had.
+
+    Preferring it pins the store to an older definition of "same regime", so
+    adding an axis cannot separate anchors that the older one merged -- which
+    is what happened to seven DeepSeek-V4-Flash anchors sharing one recorded
+    signature across SGLang and vLLM.
+    """
+    import json
+
+    from infera.projection.core.projection.inference_projection.search.anchor_store import (
+        AnchorStore,
+    )
+
+    paths = []
+    for engine in ("sglang", "vllm"):
+        p = tmp_path / f"{engine}.json"
+        p.write_text(
+            json.dumps(
+                {
+                    "backend": engine,
+                    # The same stale hash on both, as the real artifacts carry.
+                    "meta": {"model": "m", "regime_signature": "staleaaaaaaaaaaa"},
+                    "sweep": [{"batch": 1, "decode_ms": 1.0}],
+                }
+            )
+        )
+        paths.append(str(p))
+
+    store = AnchorStore(str(tmp_path / "store"))
+    sigs = [store.add_artifact(p)["regime_signature"] for p in paths]
+
+    assert "staleaaaaaaaaaaa" not in sigs, "a recorded signature is provenance, not the key"
+    assert sigs[0] != sigs[1], "two engines must not land in one regime"
 
 
 class _FakeStore:
@@ -318,3 +444,34 @@ def test_discovery_stops_before_walking_an_entire_filesystem(tmp_path):
     deep = "a/b/c/d/e"
     _artifact(tmp_path, "far.json", sub=deep)
     assert AnchorStore(str(tmp_path)).entries() == []
+
+
+def test_an_anchor_from_another_part_is_not_the_same_regime():
+    """gfx950 timings do not describe a gfx942 deployment.
+
+    Nothing in the store recorded which accelerator produced a timing, so the
+    axis could not be compared and every anchor matched every target. The one
+    place that bit in this matrix is GLM-5.2: its only anchors are the
+    MXFP4 Quark build, which loads on gfx950 alone, and they were being used
+    to price an MI325X deployment -- a part with roughly half the compute.
+    It read 4.3x the measured throughput while reporting itself calibrated.
+    """
+    anchor = recipe_from_meta(
+        {"model": "/models/GLM-5.2-MXFP4", "gpu_arch": "mi355x"}, engine="sglang"
+    )
+    assert anchor["gpu_arch"] == "mi355x"
+    assert regime_distance(anchor, dict(anchor, gpu_arch="mi325x")) == 1
+    assert regime_distance(anchor, dict(anchor, gpu_arch="mi355x")) == 0
+
+
+def test_an_anchor_that_never_recorded_its_part_is_still_usable():
+    """Adding the axis must not retire every anchor harvested before it.
+
+    An unrecorded part is unknown rather than wrong, and ``regime_distance``
+    skips an axis neither side pins. The store is what closes the gap, by
+    stamping the part at build time for the pairs whose part can be argued
+    for -- so silence here means "nobody has said yet".
+    """
+    legacy = recipe_from_meta({"model": "/models/DeepSeek-V4-Pro"}, engine="vllm")
+    assert legacy["gpu_arch"] is None
+    assert regime_distance(legacy, dict(legacy, gpu_arch="mi300x")) == 0

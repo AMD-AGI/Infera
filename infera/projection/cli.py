@@ -528,6 +528,30 @@ def _add_inference_args(parser):
         help="Host<->device bandwidth for the KV offload tier in GB/s. "
         "PCIe 5 x16 is ~64; a cache-coherent host link is ~900. Default: 64.",
     )
+    parser.add_argument(
+        "--workload-resident-tokens",
+        type=int,
+        default=None,
+        help="Mean KV tokens one request of the target workload holds while "
+        "resident, which sets how many requests the pool can admit at once and "
+        "so where TTFT stops being a service time. For a spread of lengths pass "
+        "E[L^2]/E[L], not the mean: a request holds the pool for a time "
+        "proportional to its length, so the resident set is length-biased. Do "
+        "not discount it by the prefix-cache hit rate -- a cache hit skips "
+        "prefill compute, it does not free the blocks. Default: the configured "
+        "context (input + output/2), exact for a fixed-length workpoint.",
+    )
+    parser.add_argument(
+        "--kv-pool-tokens",
+        type=int,
+        default=None,
+        help="Size of the KV pool the engine allocated, in tokens, as it "
+        'reports at startup (vLLM\'s "GPU KV cache size", SGLang\'s "KV Cache '
+        'is allocated. #tokens"). The admission bound is evaluated against '
+        "this instead of against the memory model's estimate, which is what "
+        "you want when validating against a deployment that is already "
+        "running. Default: unset, and the pool is predicted.",
+    )
     # ---- Feature B: custom collective ops ----
     coll = parser.add_argument_group("inference collectives (feature B)")
     coll.add_argument(
@@ -615,6 +639,17 @@ def _add_inference_args(parser):
         "rather than adds to. This is how MLA models are served: tensor "
         "parallelism replicates their compressed KV latent instead of sharding "
         "it, so only splitting by request shrinks the cache a rank holds.",
+    )
+    par.add_argument(
+        "--decode-context-parallel-size",
+        type=int,
+        default=None,
+        help="Split each sequence's context across this many ranks during "
+        "decode (vLLM --decode-context-parallel-size, SGLang --dcp-size). The "
+        "other way to shrink an MLA cache: a rank stores context/N of every "
+        "request rather than all of it, so the replica holds N times as many "
+        "tokens. Unlike --attention-dp-size it shrinks a single request's "
+        "footprint, so it raises the concurrency ceiling even at batch 1.",
     )
     # ---- Feature A: prefill/decode disaggregation ----
     dis = parser.add_argument_group("inference disaggregation (feature A)")
@@ -940,6 +975,65 @@ def _add_inference_args(parser):
         "carries the highest TTFT of any request in it. Default: 0.1.",
     )
     serv.add_argument(
+        "--des-client-think-ms",
+        type=float,
+        default=0.0,
+        help="DES: how long a closed-loop client waits after its last token "
+        "before issuing its next request. Zero re-issues immediately, which "
+        "is a load generator saturating the server and not what an agentic "
+        "harness does: a turn ends, the agent runs a tool, and the next turn "
+        "is sent when that returns. It is a property of the workload, like "
+        "the prompt lengths and the prefix reuse, and leaving it out does not "
+        "leave the replay neutral -- it holds every client permanently "
+        "resident. On the AgentX ladders the hardware's clients are idle for "
+        "50-74% of each turn's cycle below saturation and ~0% above it, so "
+        "omitting it overstates throughput several-fold at the low rungs and "
+        "not at all at the high ones, which bends the curve rather than "
+        "shifting it.",
+    )
+    serv.add_argument(
+        "--des-admit-backlog-only",
+        action="store_true",
+        help="DES: measure the longest-prefix admission window against the "
+        "backlog rather than the client count, so that below what the KV pool "
+        "holds -- where nothing is queued and there is no choice for a policy "
+        "to make -- admission is the order the lanes arrived in. This is the "
+        "correct account of what a scheduler can reorder, and it is the band "
+        "where measured reuse collapses (kimik3 at C=14 thrashed to 0.67 "
+        "against 0.93 modelled), but on the AgentX corpus it improves ITL "
+        "ordering by one model-engine pair and costs one on throughput, so it "
+        "is off by default.",
+    )
+    serv.add_argument(
+        "--des-warmup-requests",
+        type=int,
+        default=0,
+        help="DES: exclude this many requests, in the order the clients issued "
+        "them, from the reported latency distribution. Prefer this to "
+        "--des-warmup-frac for a closed loop: all C clients fire at once, so "
+        "the first C requests queue against each other and wait far longer "
+        "than anything after them, and dropping the earliest *completions* "
+        "keeps every one of them -- a request that waited 40s for a slot is "
+        "among the last to finish. The harness excludes the same transient by "
+        "advancing each lane AIPERF_WARMUP_REQUESTS_PER_LANE requests and "
+        "draining before it starts profiling, so the matching value is that "
+        "many per client. Default: 0 (use --des-warmup-frac).",
+    )
+    serv.add_argument(
+        "--des-duration-s",
+        type=float,
+        default=0.0,
+        help="DES: stop the run after this many seconds of simulated time and "
+        "report over whatever completed, instead of running to "
+        "--des-num-requests. This is how a fixed-concurrency harness is "
+        "actually bounded, and under a closed loop the two are not "
+        "interchangeable: a request budget divided among C lanes fixes how "
+        "far each lane walks into its conversation, and an agentic turn's "
+        "prompt grows with its position, so a budget-bounded run offers "
+        "different prompt lengths at each concurrency than the measured run "
+        "it is compared against. Default: 0 (run to the request count).",
+    )
+    serv.add_argument(
         "--des-seed",
         type=int,
         default=0,
@@ -1065,6 +1159,34 @@ def _add_inference_args(parser):
         "LRU-evicted under pressure). 0 = unbounded within the run. Default: 0.",
     )
     serv.add_argument(
+        "--des-whole-context-residency",
+        action="store_true",
+        help="DES: charge a running request the whole context it attends to, "
+        "not just the part of it that was not already cached. The discount is "
+        "an account of one physical copy, and it is only that where the "
+        "sharers are running at the same time. Under a closed loop on "
+        "conversational traffic they are not: each client has one turn in "
+        "flight, reuse is a conversation hitting its own previous turn, and "
+        "the turns running together belong to different conversations whose "
+        "histories do not overlap. Discounted anyway, a pool holding five of "
+        "these conversations reports room for hundreds, never fills, and so "
+        "never shows reuse falling away or the queue that follows it.",
+    )
+    serv.add_argument(
+        "--des-cache-shares-pool",
+        action="store_true",
+        help="DES: size the prefix cache to what the running requests leave "
+        "free, instead of to the whole pool. A request is already not charged "
+        "for the blocks it hit on, because something else is holding them; "
+        "that something is this cache, and giving it the pool as well books "
+        "the same memory twice. Where the pool is roomy the correction is "
+        "nothing, and where it is not it is the whole behaviour: a pool with "
+        "space for five of these conversations cannot also hold their history, "
+        "so reuse falls away as concurrency climbs and TTFT leaves the scale "
+        "the low rungs were on. Double-booked, the replay reports reuse near "
+        "its ceiling and a flat TTFT straight through that.",
+    )
+    serv.add_argument(
         "--des-mooncake-trace",
         type=str,
         default=None,
@@ -1085,12 +1207,35 @@ def _add_inference_args(parser):
         "vs the Triton baseline. Default: engine default (1.0).",
     )
     kern.add_argument(
+        "--serving-engine",
+        type=str,
+        default=None,
+        help="Engine this projection is about (vllm, sglang, atom, or a build "
+        "such as mori-sglang). Simulate mode is unaffected -- it is analytical "
+        "and returns the same number whichever engine is named. This is a "
+        "regime axis, so it decides which measured anchor benchmark mode may "
+        "calibrate from: an anchor harvested on another engine is refused "
+        "rather than substituted. Default: unset (matches as before).",
+    )
+    kern.add_argument(
         "--sparse-attention-topk",
         type=int,
         default=None,
         help="Native sparse attention (DeepSeek V3.2/V4 NSA) top-k KV tokens per "
         "query. Attention scales toward topk/context for long contexts. "
         "Default: 0 (dense).",
+    )
+    kern.add_argument(
+        "--sparse-indexer-cost-scale",
+        type=float,
+        default=None,
+        help="What the sparse indexer's top-k selection costs on this stack "
+        "relative to a fused kernel. The arithmetic is the model's, the kernel "
+        "is the serving stack's: the same selection runs fused through aiter "
+        "on gfx950 and unfused through Torch on gfx942. 1.0 prices the fused "
+        "path; raise it to charge a stack serving without one. Only reaches "
+        "models priced from an indexer geometry (GLM-5.2, MiniMax-M3), not "
+        "ones carrying a per-layer compression schedule. Default: 1.0.",
     )
     kern.add_argument(
         "--sliding-window",

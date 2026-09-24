@@ -47,13 +47,17 @@ _ARG_TO_FIELD = {
     "kv_block_size": "kv_block_size",
     "kv_offload_gb_per_gpu": "kv_offload_gb_per_gpu",
     "kv_offload_bw_gbps": "kv_offload_bw_gbps",
+    "workload_resident_tokens": "workload_resident_tokens",
+    "kv_pool_tokens": "kv_pool_tokens",
     "max_num_batched_tokens": "max_num_batched_tokens",
     "ep_load_balance": "ep_load_balance",
     "redundant_experts": "redundant_experts",
     "request_rate": "request_rate",
     "arrival_model": "arrival_model",
     "attention_backend": "attention_backend",
+    "serving_engine": "serving_engine",
     "sparse_attention_topk": "sparse_attention_topk",
+    "sparse_indexer_cost_scale": "sparse_indexer_cost_scale",
     "sliding_window": "sliding_window",
     "sliding_window_layer_fraction": "sliding_window_layer_fraction",
     "moe_expert_dtype": "moe_expert_dtype",
@@ -112,6 +116,10 @@ def _collect_inference_overrides(args) -> dict[str, object]:
     attn_dp = getattr(args, "attention_dp_size", None)
     if attn_dp is not None:
         overrides["attention_data_parallel_size"] = int(attn_dp)
+    # Decode context parallelism is the same kind of serving-only axis.
+    dcp = getattr(args, "decode_context_parallel_size", None)
+    if dcp is not None:
+        overrides["decode_context_parallel_size"] = int(dcp)
     # --comm-model {explicit,builtin} → collective_enabled.
     comm_model = getattr(args, "comm_model", None)
     if comm_model is not None:
@@ -195,8 +203,18 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"redundant_experts={req.redundant_experts}")
     if getattr(req, "attention_backend", None):
         feats.append(f"attn_backend={req.attention_backend}")
+    if getattr(req, "serving_engine", None):
+        feats.append(f"engine={req.serving_engine}")
     if getattr(req, "sparse_attention_topk", 0):
         feats.append(f"sparse_attn_topk={req.sparse_attention_topk}")
+        idx_heads = int(getattr(mc, "sparse_index_n_heads", 0) or 0)
+        if idx_heads:
+            cost = float(getattr(req, "sparse_indexer_cost_scale", 1.0) or 1.0)
+            feats.append(
+                f"indexer={idx_heads}x{mc.sparse_index_head_dim}"
+                f"@{mc.sparse_index_layers or mc.num_layers}L"
+                + (f"(cost={cost:g}x)" if cost != 1.0 else "")
+            )
     n_lin = mc.linear_attention_layer_count()
     if n_lin:
         feats.append(
@@ -655,7 +673,7 @@ def _anchor_from_store(args, inference_config):
         from .search.regime import recipe_from_inference_config
 
         store = AnchorStore(root)
-        recipe = recipe_from_inference_config(inference_config)
+        recipe = recipe_from_inference_config(inference_config, getattr(args, "gpu_arch", None))
         model = _anchor_model_filter(store, args)
         entry, distance = store.nearest(recipe, model=model)
     except Exception as exc:  # noqa: BLE001 - a broken store must not fail a projection
@@ -945,6 +963,8 @@ def launch_projection_from_cli(args, overrides):
                 num_requests=int(getattr(args, "des_num_requests", 400) or 400),
                 seed=int(getattr(args, "des_seed", 0) or 0),
                 warmup_frac=float(getattr(args, "des_warmup_frac", 0.1) or 0.0),
+                warmup_requests=int(getattr(args, "des_warmup_requests", 0) or 0),
+                admit_backlog_only=bool(getattr(args, "des_admit_backlog_only", False)),
                 sweep=bool(getattr(args, "des_sweep", False)),
                 burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
                 range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),
@@ -961,7 +981,11 @@ def launch_projection_from_cli(args, overrides):
                 block_size=int(getattr(args, "des_block_size", 0) or 0),
                 cache_blocks=int(getattr(args, "des_kv_blocks", 0) or 0),
                 mooncake_trace=mooncake_trace,
+                duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
                 closed_loop=closed_loop,
+                closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
+                cache_shares_pool=bool(getattr(args, "des_cache_shares_pool", False)),
+                whole_context_residency=bool(getattr(args, "des_whole_context_residency", False)),
                 prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
                 new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
             )
