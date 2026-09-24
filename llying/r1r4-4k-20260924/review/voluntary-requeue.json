@@ -1,0 +1,10 @@
+{
+  "utc": "2026-09-24T20:13:01Z",
+  "action": "voluntary requeue before model launch",
+  "job": 31719,
+  "reason": "n04-33 has no observed GPU process but 7 GPUs remain near 96% VRAM; another dcgpu-test job targets the same nodes",
+  "permanent_task_exclusion": "smci355-ccs-aus-n04-29",
+  "temporary_task_exclusion": "smci355-ccs-aus-n04-33",
+  "model_started_on_allocation": false,
+  "note": "No GPU driver reset, no other user allocation cancelled, no new performance configuration."
+}
