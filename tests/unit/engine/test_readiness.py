@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 
 import pytest
 
@@ -22,8 +23,9 @@ from infera.engine.readiness import (
 )
 
 
-def _port_of(server: asyncio.AbstractServer) -> int:
-    return server.sockets[0].getsockname()[1]
+def _port_of(server: asyncio.AbstractServer, family: int = socket.AF_INET) -> int:
+    """Port of the listener in ``family``; with port 0 each family gets its own."""
+    return next(s for s in server.sockets if s.family == family).getsockname()[1]
 
 
 async def _probe(port: int, *, timeout: float = 5.0) -> bytes:
@@ -186,3 +188,32 @@ def test_the_engine_check_fits_inside_the_probe_timeout():
     # must tolerate that, yet answer before the operator's 10s probe timeout
     # so a slow engine reads as 503 rather than as no reply.
     assert 5.0 <= readiness._ENGINE_CHECK_TIMEOUT_S < 10.0
+
+
+def _ipv6_loopback_usable() -> bool:
+    if not socket.has_ipv6:
+        return False
+    try:
+        with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as s:
+            s.bind(("::1", 0))
+        return True
+    except OSError:
+        return False
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(not _ipv6_loopback_usable(), reason="no IPv6 loopback")
+async def test_the_port_answers_over_ipv6():
+    # On an IPv6-primary cluster the kubelet probes the pod's IPv6 address.
+    server = await serve_readiness(0)
+    try:
+        port = _port_of(server, socket.AF_INET6)
+        reader, writer = await asyncio.wait_for(asyncio.open_connection("::1", port), 5.0)
+        try:
+            writer.write(b"GET /ready HTTP/1.1\r\nHost: localhost\r\n\r\n")
+            await writer.drain()
+            assert b"200 OK" in await asyncio.wait_for(reader.read(1024), 5.0)
+        finally:
+            writer.close()
+    finally:
+        await close_readiness(server)

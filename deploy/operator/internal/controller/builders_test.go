@@ -493,6 +493,24 @@ func TestAnExtraPodSpecProbeDoesNotEnableSurge(t *testing.T) {
 	}
 }
 
+// Pointing a hand-written probe at the readiness port does not make it the
+// readiness probe: only a /ready probe there means "registered".
+func TestAForeignProbeOnTheReadinessPortDoesNotEnableSurge(t *testing.T) {
+	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeWorker,
+		ExtraPodSpec: &corev1.PodSpec{Containers: []corev1.Container{{
+			Name:  "main",
+			Image: "x",
+			ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromInt32(workerReadinessPort)},
+			}},
+		}}},
+	})
+	if surge != 0 || unavailable != 1 {
+		t.Errorf("maxSurge/maxUnavailable = %d/%d, want 0/1 for a non-/ready probe", surge, unavailable)
+	}
+}
+
 // A valueFrom port is resolved by the kubelet, so the operator cannot know it.
 // Injecting a probe on the default would poll a port the worker may not bind,
 // and with maxUnavailable=0 that is an unrecoverable stall -- so no probe is

@@ -20,6 +20,7 @@ worker.
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
 import os
 from collections.abc import Awaitable, Callable
@@ -107,8 +108,10 @@ async def serve_readiness(
 ) -> asyncio.AbstractServer:
     """Start accepting readiness probes on ``port``.
 
-    Binds 0.0.0.0 because the probe arrives from the kubelet on the node, not
-    from inside the container.
+    Binds every interface, IPv4 and IPv6, because the probe arrives from the
+    kubelet on the node, not from inside the container, and on an
+    IPv6-primary cluster it targets the pod's IPv6 address. A node without
+    IPv6 falls back to IPv4 alone.
 
     ``engine_alive`` is consulted per probe. This server runs in the
     supervisor's event loop, which stays responsive even if the engine wedges,
@@ -121,7 +124,14 @@ async def serve_readiness(
     async def handler(r: asyncio.StreamReader, w: asyncio.StreamWriter) -> None:
         await _handle(r, w, engine_alive)
 
-    server = await asyncio.start_server(handler, "0.0.0.0", bind_port)
+    try:
+        server = await asyncio.start_server(handler, None, bind_port)
+    except OSError as exc:
+        # A taken port is a real bind failure; anything else is a family
+        # this node cannot bind, most plainly IPv6 disabled.
+        if exc.errno == errno.EADDRINUSE:
+            raise
+        server = await asyncio.start_server(handler, "0.0.0.0", bind_port)
     logger.info("readiness port open on %d (worker is a routing target)", bind_port)
     return server
 

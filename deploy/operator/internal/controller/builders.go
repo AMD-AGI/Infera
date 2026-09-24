@@ -56,6 +56,9 @@ const (
 	// opens this port after registering and closes it when shutdown begins.
 	workerReadinessPort int32 = 30090
 	readinessPortEnvVar       = "INFERA_READINESS_PORT"
+	// readinessProbePath is the path of the injected probe; a probe on the
+	// readiness port with any other path is not the registration signal.
+	readinessProbePath = "/ready"
 )
 
 // drainSeconds parses a worker --drain-timeout value. The worker takes a
@@ -466,7 +469,7 @@ func injectWorkerRolloutDefaults(
 		c.ReadinessProbe = &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
 				HTTPGet: &corev1.HTTPGetAction{
-					Path: "/ready", Port: intstr.FromInt32(readyPort),
+					Path: readinessProbePath, Port: intstr.FromInt32(readyPort),
 				},
 			},
 			// Weight loading and the PD barrier both happen before the port
@@ -715,7 +718,8 @@ func probedOnReadinessPort(tmpl *corev1.PodTemplateSpec) bool {
 	for i := range tmpl.Spec.Containers {
 		c := &tmpl.Spec.Containers[i]
 		p := c.ReadinessProbe
-		if p == nil || p.HTTPGet == nil || p.HTTPGet.Port.Type != intstr.Int {
+		if p == nil || p.HTTPGet == nil || p.HTTPGet.Port.Type != intstr.Int ||
+			p.HTTPGet.Path != readinessProbePath {
 			continue
 		}
 		if port, ok := readinessPortFrom(c); ok && p.HTTPGet.Port.IntVal == port {
