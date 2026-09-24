@@ -15,7 +15,7 @@ roots = {
 }
 fig, axes = plt.subplots(2, 1, figsize=(11, 6), sharex=True, sharey=True)
 with (OUT/'decode-occupancy.csv').open('w') as f:
-    writer = csv.writer(f)
+    writer = csv.writer(f, lineterminator="\n")
     writer.writerow(['run','elapsed_seconds',*[f'rank{i}' for i in range(8)]])
     for ax, (label, root) in zip(axes, roots.items()):
         start = report['runs'][label]['start_ns']
