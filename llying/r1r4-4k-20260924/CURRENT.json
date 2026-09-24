@@ -1,0 +1,21 @@
+{
+  "job": 31719,
+  "allocation_start": "2026-09-24T19:10:40Z",
+  "attempt": 2,
+  "config": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/config/performance-attempt2.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt2",
+  "prefix": "llying-r1r4-31719-performance-attempt2",
+  "prefill_node": "smci355-ccs-aus-n04-33",
+  "decode_node": "smci355-ccs-aus-n05-21",
+  "model_launch": "2026-09-24T19:19:33Z",
+  "status": "PENDING_RESOURCES",
+  "first_attempt": "preempted during warmup; no formal performance window",
+  "smoke": "passed; do not repeat full smoke",
+  "user_authorization": "autonomous batch allocation and R1+R4 C80/4K tests while user away 10h; no repeat permission needed",
+  "next_attempt": 3,
+  "allocation_restarts": 2,
+  "last_preempt_time": "2026-09-24T19:41:00Z",
+  "formal_window_started": false,
+  "next_config": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/config/performance-attempt3.sh",
+  "decision": "Before arming model launch: confirm VRAM free and inspect overlapping higher-QoS scheduling forecasts. Do not repeat full smoke."
+}

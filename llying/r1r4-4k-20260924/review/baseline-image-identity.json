@@ -1,0 +1,8 @@
+{
+  "path": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/artifacts/baseline-image.tar",
+  "bytes": 66700784128,
+  "image_id": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "tags": [
+    "infera-sglang:aus-0922-reqtrace"
+  ]
+}

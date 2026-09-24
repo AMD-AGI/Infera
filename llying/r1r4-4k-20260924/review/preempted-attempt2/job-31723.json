@@ -1,0 +1,10 @@
+{
+  "JobId": "31723",
+  "JobState": "PENDING",
+  "QOS": "dcgpu-test",
+  "StartTime": "2026-09-24T19:42:57",
+  "EndTime": "2026-09-24T23:42:57",
+  "ReqNodeList": "smci355-ccs-aus-n01-33,smci355-ccs-aus-n02-[21,25],smci355-ccs-aus-n04-33,smci355-ccs-aus-n05-[21,33],smci355-ccs-aus-n06-[25,33]",
+  "SchedNodeList": "smci355-ccs-aus-n01-33,smci355-ccs-aus-n02-[21,25],smci355-ccs-aus-n04-33,smci355-ccs-aus-n05-[21,33],smci355-ccs-aus-n06-[25,33]",
+  "PreemptTime": null
+}

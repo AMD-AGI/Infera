@@ -1,0 +1,10 @@
+{
+  "JobId": "31721",
+  "JobState": "PENDING",
+  "QOS": "normal",
+  "StartTime": "2026-09-25T00:43:00",
+  "EndTime": "2026-09-25T01:43:00",
+  "ReqNodeList": "(null)",
+  "SchedNodeList": "smci355-ccs-aus-n01-33,smci355-ccs-aus-n02-[21,25],smci355-ccs-aus-n04-33,smci355-ccs-aus-n05-[21,33],smci355-ccs-aus-n06-[25,33]",
+  "PreemptTime": null
+}
