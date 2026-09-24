@@ -1,0 +1,47 @@
+[
+  {
+    "event": "heartbeat",
+    "passed": false,
+    "errors": [
+      "prefill: allocation not usable",
+      "decode: allocation not usable"
+    ],
+    "utc": "2026-09-24T18:50:35.077752+00:00"
+  },
+  {
+    "event": "cleanup_requested",
+    "reason": "prefill: allocation not usable; decode: allocation not usable",
+    "utc": "2026-09-24T18:50:35.078468+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r1r4-31719-performance-etcd",
+    "id": "2000bddc6367c025a1d7964135c3f6fbd87c62369b6c2211363c3ebdef0570ac",
+    "utc": "2026-09-24T18:50:35.126400+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r1r4-31719-performance-collector",
+    "id": "266066784eaf66f668e08fcb900f8122c9cb1d7a68a7f8a5661891e554d8c2ca",
+    "utc": "2026-09-24T18:50:35.207161+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r1r4-31719-performance-router",
+    "id": "7e3ccd9fbe20b95775489713660d5062e1da8f530fc57784114547b24b51a978",
+    "utc": "2026-09-24T18:50:35.296670+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r1r4-31719-performance-agentx-client-20260924T184746-1591857",
+    "id": "c12bde2651c7c4afe7db2881c4315d2319da99b102bfdc10a84f972366288aae",
+    "utc": "2026-09-24T18:50:40.498096+00:00"
+  },
+  {
+    "event": "stop_error",
+    "name": "llying-r1r4-31719-performance-prefill-0",
+    "id": "ff85a1501d9aed1f2620c033dc8216a3bbd41040384e4d6fe795a7d569467501",
+    "error": "Docker POST /containers/ff85a1501d9aed1f2620c033dc8216a3bbd41040384e4d6fe795a7d569467501/stop?t=5: 500 b'{\"message\":\"cannot stop container: ff85a1501d9aed1f2620c033dc8216a3bbd41040384e4d6fe795a7d569467501: tried to kill container, but did not receive an exit event\"}\\n'",
+    "utc": "2026-09-24T18:50:54.224221+00:00"
+  }
+]

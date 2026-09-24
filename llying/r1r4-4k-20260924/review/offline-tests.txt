@@ -281,4 +281,3 @@ test util::tests::ascii_truncates_exactly_at_the_limit ... ok
 test util::tests::truncating_never_splits_a_character ... ok
 
 test result: ok. 276 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.33s
-

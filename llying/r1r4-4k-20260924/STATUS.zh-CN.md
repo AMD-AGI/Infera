@@ -9,3 +9,7 @@ R1+R4无HiCache smoke于18:26:54开始模型启动。两端初始化中。smoke�
 276项离线测试通过。已复现单独<think>在glm45 parser变为空正文/空reasoning；实际镜像parser与固定上游源码SHA256一致。仍无法追溯旧3条具体token，待smoke原始响应对照。
 
 运行目录：/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924。最新状态以该目录runs/r1r4-31719-smoke/STATUS为准。
+
+18:50:30 UTC：31719收到抢占通知，EndTime改为18:55:30。正式预热18:49:54才开始，未进入profiling。watchdog停止客户端、D和辅助服务；P停止调用返回未收到exit event错误，后续释放尚未核实。集群PreemptMode=REQUEUE，将继续监控原job自动重排，不重复申请。已通过的无HiCache smoke保留，下一次直接重启正式配置与常规连通性检查，不重跑完整smoke。
+
+18:56 UTC：Slurm已自动REQUEUE，Restarts=1，PENDING(BeginTime)。保持单一申请31719，准备performance-attempt2独立结果目录。
