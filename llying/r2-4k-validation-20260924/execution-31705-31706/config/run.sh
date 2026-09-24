@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+export R2_PREFILL_JOB_ID=31705
+export R2_DECODE_JOB_ID=31706
+export R2_RUNTIME=/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924
+export R2_RUN_TAG=r2-on-4k-31705-31706
+export R2_PREFILL_NODE=smci355-ccs-aus-n10-29
+export R2_DECODE_NODE=smci355-ccs-aus-n01-21
+export R2_PREFILL_IP=10.235.192.140
+export R2_DECODE_IP=10.235.192.130
+export R2_ROUTER_BINARY=/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/artifacts/infera-router-r2
+source /perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/config/performance.sh

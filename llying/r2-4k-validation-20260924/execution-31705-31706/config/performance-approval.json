@@ -1,0 +1,18 @@
+{
+  "user_confirmation": "那我们先做R2-on c80 chunk_size=4k的性能实验吧，不完全复现dynamo，但可以从某种程度上验证方向的正确性嘛。你开始吧",
+  "recorded_utc": "2026-09-24T11:21:13.573617+00:00",
+  "scope": "Previously reviewed R2-on C80, effective P/D 4K, Prefill HiCache enabled, historical A0 reference; no new baseline. Foreign-container cleanup still requires separate authorization.",
+  "approved_runs": {
+    "r2-on-4k-31705-31706": {
+      "config_sha256": {
+        "/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/config/run.sh": "39f3610308a541337d39912395f33c30e5e85844a3acad46680b59d752a34f03",
+        "/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/config/common.sh": "5f2b0bc0a35e07c4592eb07d5e852219848ec30f32eff925b29a51d703b3dce9",
+        "/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/config/performance.sh": "65bd15f0b5dcc826998e56a9ad5475077402f6a776d7ae1896633c3ea7ed57c6",
+        "/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/config/baseline-template.sh": "b4c88278d13fa84526db3285d00e32c8d7d0eb00ffa6db768face07ca0c631e6",
+        "/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/config/topology.tsv": "7a83b5177769941c28eccc752a298d1ec2c4d90b58c63d610ec5511d52bb705e",
+        "/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924/config/client-constraints.txt": "188fafce275906b90104cb43aefe3092ddc13d52700d958e8ccffc7bc80ed5f5"
+      },
+      "router_sha256": "0cf48cbf96df48caf8c03949fc5edce1c97d26bebb293c71d5409dbe77cafe6d"
+    }
+  }
+}
