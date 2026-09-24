@@ -1,0 +1,119 @@
+{
+  "source_url": "https://raw.githubusercontent.com/sgl-project/sglang/e7f7447333/python/sglang/srt/parser/reasoning_parser.py",
+  "source_sha256": "70205d08d5af84039c444e9dab4f98cd9783374cf18ce74917a5fbf73ead75fa",
+  "scope": "Selected unmodified detector classes from pinned upstream source; image source still needs comparison. This proves a possible mechanism, not the identities of the three old tokens.",
+  "cases": [
+    {
+      "force_reasoning": false,
+      "stream": false,
+      "input": "<think>",
+      "content": "",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": false,
+      "stream": true,
+      "input": "<think>",
+      "content": "",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": false,
+      "stream": false,
+      "input": "</think>",
+      "content": "</think>",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": false,
+      "stream": true,
+      "input": "</think>",
+      "content": "</think>",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": false,
+      "stream": false,
+      "input": "<think>Hello",
+      "content": "",
+      "reasoning": "Hello"
+    },
+    {
+      "force_reasoning": false,
+      "stream": true,
+      "input": "<think>Hello",
+      "content": "",
+      "reasoning": "Hello"
+    },
+    {
+      "force_reasoning": false,
+      "stream": false,
+      "input": "<think>Hello</think>Answer",
+      "content": "Answer",
+      "reasoning": "Hello"
+    },
+    {
+      "force_reasoning": false,
+      "stream": true,
+      "input": "<think>Hello</think>Answer",
+      "content": "Answer",
+      "reasoning": "Hello"
+    },
+    {
+      "force_reasoning": true,
+      "stream": false,
+      "input": "<think>",
+      "content": "",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": true,
+      "stream": true,
+      "input": "<think>",
+      "content": "",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": true,
+      "stream": false,
+      "input": "</think>",
+      "content": "",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": true,
+      "stream": true,
+      "input": "</think>",
+      "content": "",
+      "reasoning": ""
+    },
+    {
+      "force_reasoning": true,
+      "stream": false,
+      "input": "<think>Hello",
+      "content": "",
+      "reasoning": "Hello"
+    },
+    {
+      "force_reasoning": true,
+      "stream": true,
+      "input": "<think>Hello",
+      "content": "",
+      "reasoning": "Hello"
+    },
+    {
+      "force_reasoning": true,
+      "stream": false,
+      "input": "<think>Hello</think>Answer",
+      "content": "Answer",
+      "reasoning": "Hello"
+    },
+    {
+      "force_reasoning": true,
+      "stream": true,
+      "input": "<think>Hello</think>Answer",
+      "content": "Answer",
+      "reasoning": "Hello"
+    }
+  ]
+}

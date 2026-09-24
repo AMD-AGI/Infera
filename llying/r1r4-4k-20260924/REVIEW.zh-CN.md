@@ -9,3 +9,7 @@ R4 score=现有在途有效输入tokens + max(本次输入tokens - prefix_hit_bl
 短时smoke：关闭P/D HiCache，保持R1+R4；真实请求与stream检查、C80功能请求、24条AIPerf小请求及32条原始响应探针。smoke不是性能对照，候选诊断日志打开。先确认模型与客户端链路，再释放无HiCache服务并启动正式配置。辅助型号/内存采集失败只报告，意外脚本失败保留服务供诊断，不自动清理健康引擎；allocation确认回收/抢占时清理当前实验。
 
 3条空内容错误：原始记录均为warmup max_tokens=1。P/D room一致、输出token计数均1，D generation时间0，即使用P阶段首token完成。AIPerf的content_responses过滤data为空的回复，OpenAI chat解析器识别content/reasoning/tool_calls；usage-only或被过滤的单个特殊token会触发InvalidInferenceResultError。旧证据没有原始SSE和token ID，无法确定三条的具体token或区分过滤发生在哪一层；不把假设当结论。下一轮smoke保存stream/unary、max_tokens1/16、skip_special_tokens true/false的原始响应，正式客户端仍保留原错误统计，绝不将空内容误记为成功。
+
+离线reasoning parser受控验证：从部署版本标识e7f7447333获取上游源码，仅加载StreamingParseResult/BaseReasoningFormatDetector/Glm45Detector原样类，对单独<think>作stream与unary解析均得到空content和空reasoning。tokenizer.json中<think>=154841，special=false，说明skip_special_tokens=False不保证保留reasoning分隔符。证据在review/parser-controlled-cases.json，实际镜像源码仍需在节点到位后核对。这是已复现的可能机制，三条历史请求的输出token身份仍未知。smoke追加强制154841单token的native /generate与chat接口对照。
+
+客户端依赖准备移到模型加载前，使用独立环境和持久化Python解释器路径；正式发压阶段若该环境可用则直接复用。smoke与正式环境独立，不覆盖上一轮R2环境。硬件元信息和自动KV容量漂移记录而不按任意百分比触发退出；实际chunk、模型、策略等实验条件仍核对。

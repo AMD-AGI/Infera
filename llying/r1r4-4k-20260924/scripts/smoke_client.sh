@@ -8,7 +8,8 @@ printf 'UV_CONSTRAINT=%s\n' "$AGENTX_CLIENT_CONSTRAINTS" >> "$out/runtime.env"
 docker run --rm --name "$CONTAINER_PREFIX-agentx-client-smoke" --network host --ipc host -v /perf_apps:/perf_apps --env-file "$out/runtime.env" "$IMAGE" bash -c '
 set -euo pipefail
 source "$INFMAX_CONTAINER_WORKSPACE/benchmarks/benchmark_lib.sh"
-install_agentic_deps
+if [[ -x "$AIPERF_PYTHON" ]] && "$AIPERF_PYTHON" -c "import aiperf, datasets, huggingface_hub"; then AIPERF_DEPS_READY=1; fi
+        install_agentic_deps
 "$AIPERF_PYTHON" -m aiperf profile --model "$SERVED_MODEL_NAME" --tokenizer "$MODEL" --url "$AIPERF_SERVER_URL" --endpoint-type chat --streaming --concurrency 4 --request-count 24 --synthetic-input-tokens-mean 512 --synthetic-input-tokens-stddev 0 --output-tokens-mean 32 --output-tokens-stddev 0 --use-server-token-count --no-gpu-telemetry --output-artifact-dir "$AGENTIC_OUTPUT_DIR/aiperf_artifacts"
 chown -R "$HOST_UID:$HOST_GID" "$AGENTIC_OUTPUT_DIR"
 ' > "$out/runner.log" 2>&1
