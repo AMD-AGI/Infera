@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
@@ -16,16 +17,22 @@ from infera.common.discovery_k8s import WORKER_INFO_ANNOTATION
 from infera.engine.decode_barrier import (
     DEFAULT_DECODE_READY_TIMEOUT,
     DEFAULT_PD_PROBE_TIMEOUT,
+    DISCOVERY_LOOKUP_ERRORS,
+    K8sLabelLookupError,
     apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
     discovery_budget_seconds,
     ensure_k8s_label_selector_source,
     ensure_skip_server_warmup,
     is_compatible_decode_worker,
+    is_compatible_prefill_worker,
     k8s_namespace,
     list_k8s_worker_payloads,
     pd_probe_reserve_seconds,
+    prefill_bootstrap_addr,
+    probe_until_one_passes,
     resolve_k8s_label_selector,
+    should_verify_prefill,
     should_wait_for_decode,
     verify_pd_peer,
     wait_for_decode,
@@ -736,3 +743,225 @@ async def test_verify_pd_peer_waits_between_retries_for_rdma_recovery():
         )
 
     assert sleeps == [35.0]
+
+
+def _prefill_payload(**overrides):
+    payload = {
+        "worker_id": "10.235.192.9:30000",
+        "url": "http://10.235.192.9:30000",
+        "model_name": "glm-5-3",
+        "engine": "sglang",
+        "disagg_mode": "prefill",
+        "disagg_meta": {
+            "protocol": "sglang-bootstrap",
+            "params": {"bootstrap_addr": "10.235.192.9:8998"},
+        },
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_compatible_prefill_worker_matches_sglang_bootstrap():
+    assert is_compatible_prefill_worker(_prefill_payload(), model_name="glm-5-3")
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"disagg_mode": "decode"},
+        {"disagg_mode": "mixed"},
+        {"model_name": "other"},
+        {"engine": "vllm"},
+        {"disagg_meta": {}},
+        {"disagg_meta": {"protocol": "vllm-mooncake"}},
+    ],
+)
+def test_incompatible_prefill_worker_is_rejected(overrides):
+    assert not is_compatible_prefill_worker(_prefill_payload(**overrides), model_name="glm-5-3")
+
+
+def test_a_prefill_without_a_bootstrap_address_is_not_a_probe_target():
+    # The probe dials this address. Matching a prefill that never advertised
+    # one would fail the decode's startup over a peer it could not have
+    # verified either way.
+    no_addr = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {}},
+    )
+    assert not is_compatible_prefill_worker(no_addr, model_name="glm-5-3")
+
+
+@pytest.mark.parametrize(
+    ("addr", "want"),
+    [
+        ("10.0.0.1:8998", ("10.0.0.1", 8998)),
+        # Split from the right, or every colon in an IPv6 literal breaks it.
+        ("[fd00::1]:8998", ("[fd00::1]", 8998)),
+        ("host.ns.svc:8998", ("host.ns.svc", 8998)),
+    ],
+)
+def test_prefill_bootstrap_addr_parses(addr, want):
+    payload = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": addr}},
+    )
+    assert prefill_bootstrap_addr(payload) == want
+
+
+@pytest.mark.parametrize(
+    "addr",
+    ["", "10.0.0.1", ":8998", "10.0.0.1:", "10.0.0.1:notaport"],
+)
+def test_prefill_bootstrap_addr_rejects_garbage_without_raising(addr):
+    # One malformed registration must not stop the caller from considering
+    # the other peers.
+    payload = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": addr}},
+    )
+    assert prefill_bootstrap_addr(payload) is None
+
+
+def test_should_verify_prefill_defaults_on_for_decode_only():
+    assert should_verify_prefill("decode", None) is True
+    assert should_verify_prefill("decode", True) is True
+    assert should_verify_prefill("decode", False) is False
+    assert should_verify_prefill("prefill", None) is False
+    assert should_verify_prefill("prefill", True) is False
+    assert should_verify_prefill("mixed", None) is False
+
+
+def test_the_two_barriers_never_both_apply_to_one_worker():
+    # They run back to back in _startup_barrier, and a leg that took both
+    # would wait for a decode and then probe a prefill -- on a pair where
+    # each side does that, neither ever registers.
+    for mode in ("prefill", "decode", "mixed", None):
+        assert not (should_wait_for_decode(mode, None) and should_verify_prefill(mode, None))
+
+
+def test_a_transient_pod_label_failure_is_a_lookup_error():
+    # The apiserver being briefly unreachable must skip the prefill probe,
+    # not crash a decode that has already loaded its weights.
+    assert issubclass(K8sLabelLookupError, DISCOVERY_LOOKUP_ERRORS)
+
+
+def _clock(value: float = 0.0):
+    now = [value]
+    return now, (lambda: now[0])
+
+
+@pytest.mark.asyncio
+async def test_a_failing_peer_does_not_stop_the_next_one():
+    # A stale registration for a dead prefill must not fail every decode
+    # while a healthy prefill is also registered.
+    calls = []
+
+    async def dead(_budget):
+        calls.append("dead")
+        raise RuntimeError("PD peer verification failed")
+
+    async def healthy(_budget):
+        calls.append("healthy")
+
+    _, clock = _clock()
+    passed = await probe_until_one_passes(
+        [("dead", dead), ("healthy", healthy)], deadline=100.0, min_budget=5.0, clock=clock
+    )
+    assert passed is True
+    assert calls == ["dead", "healthy"]
+
+
+@pytest.mark.asyncio
+async def test_a_passing_peer_ends_the_search():
+    calls = []
+
+    async def ok(_budget):
+        calls.append("first")
+
+    async def unused(_budget):
+        calls.append("second")
+
+    _, clock = _clock()
+    assert await probe_until_one_passes(
+        [("a", ok), ("b", unused)], deadline=100.0, min_budget=5.0, clock=clock
+    )
+    assert calls == ["first"]
+
+
+@pytest.mark.asyncio
+async def test_every_peer_failing_raises_the_last_failure():
+    # A broken KV path is what the probe exists to catch; it must still stop
+    # registration when no peer passes.
+    async def fail_a(_budget):
+        raise RuntimeError("a")
+
+    async def fail_b(_budget):
+        raise RuntimeError("b")
+
+    _, clock = _clock()
+    with pytest.raises(RuntimeError, match="b"):
+        await probe_until_one_passes(
+            [("a", fail_a), ("b", fail_b)], deadline=100.0, min_budget=5.0, clock=clock
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_budget_spent_by_a_failure_raises_that_failure():
+    now, clock = _clock()
+
+    async def slow_fail(_budget):
+        now[0] = 99.0
+        raise RuntimeError("timed out on the first peer")
+
+    async def unused(_budget):
+        raise AssertionError("no budget was left for this peer")
+
+    with pytest.raises(RuntimeError, match="first peer"):
+        await probe_until_one_passes(
+            [("a", slow_fail), ("b", unused)], deadline=100.0, min_budget=5.0, clock=clock
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_budget_spent_before_any_probe_skips_verification():
+    async def unused(_budget):
+        raise AssertionError("no budget was left for any peer")
+
+    _, clock = _clock(98.0)
+    assert (
+        await probe_until_one_passes([("a", unused)], deadline=100.0, min_budget=5.0, clock=clock)
+        is False
+    )
+
+
+class _HangingGenerateClient:
+    """Probe client whose /generate never returns; records abort calls."""
+
+    def __init__(self):
+        self.aborted: list[str] = []
+
+    async def post(self, url, json=None, timeout=None):  # noqa: A002 - mirrors httpx
+        if url.endswith("/generate"):
+            await asyncio.Event().wait()
+        self.aborted.append(url)
+        return httpx.Response(200)
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_probe_still_aborts_its_room():
+    # The decode probes a prefill that is serving traffic. A probe cut short by
+    # its budget must release the room on both engines, or the stale Mooncake
+    # session poisons later real KV transfers.
+    client = _HangingGenerateClient()
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(
+            verify_pd_peer(
+                prefill_url="http://prefill:30000",
+                decode_url="http://decode:30000",
+                bootstrap_host="10.0.0.1",
+                bootstrap_port=8998,
+                http=client,
+            ),
+            timeout=0.1,
+        )
+    assert sorted(client.aborted) == [
+        "http://decode:30000/abort_request",
+        "http://prefill:30000/abort_request",
+    ]

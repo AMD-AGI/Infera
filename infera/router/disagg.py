@@ -208,9 +208,7 @@ class DisaggRouter(BaseRouter):
                 "body": {"rid": request_id},
             }
             try:
-                async for kind, status, data in self.nats_client.stream(
-                    worker.worker_id, payload
-                ):
+                async for kind, status, data in self.nats_client.stream(worker.worker_id, payload):
                     if kind == TYPE_ERROR:
                         logger.warning(
                             "PD abort over NATS worker=%s rid=%s failed: %s",
@@ -748,9 +746,7 @@ class DisaggRouter(BaseRouter):
                 logger.warning("prefill nats drain %s failed: %s", p.worker_id, exc)
                 self.breaker.record_failure(p.worker_id)
 
-        return self._track_prefill_task(
-            asyncio.create_task(_drain(), name="nats-prefill-drain")
-        )
+        return self._track_prefill_task(asyncio.create_task(_drain(), name="nats-prefill-drain"))
 
     async def _concurrent_nats(
         self,

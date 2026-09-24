@@ -84,6 +84,27 @@ class K8sLabelLookupError(RuntimeError):
     """A transient failure reading this Pod from the Kubernetes API."""
 
 
+#: Failures of a reachable-but-failing discovery lookup. The decode skips its
+#: prefill probe on these rather than failing a worker that has loaded weights.
+DISCOVERY_LOOKUP_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    httpx.HTTPError,
+    asyncio.TimeoutError,
+    ValueError,
+    KeyError,
+    K8sLabelLookupError,
+)
+
+#: Failures of one PD peer probe: a failed transfer, a transport error, or the
+#: probe budget running out.
+PEER_PROBE_ERRORS: tuple[type[BaseException], ...] = (
+    RuntimeError,
+    OSError,
+    httpx.HTTPError,
+    asyncio.TimeoutError,
+)
+
+
 def decode_ready_timeout_seconds(explicit: float | None) -> float:
     """Resolve the decode-wait budget: flag, then env, then the default.
 
@@ -321,12 +342,78 @@ def is_compatible_decode_worker(
     return str(meta.get("protocol") or "") == protocol
 
 
+def is_compatible_prefill_worker(
+    payload: dict[str, Any],
+    *,
+    model_name: str,
+    engine: str = EngineType.SGLANG.value,
+    protocol: str = SGLANG_BOOTSTRAP_PROTOCOL,
+) -> bool:
+    """True when a registration payload is a matching PD prefill worker.
+
+    The mirror of :func:`is_compatible_decode_worker`, and additionally
+    requires a bootstrap address: a decode verifying this peer has to dial it,
+    and a prefill that advertised none cannot be probed at all.
+    """
+    if not payload:
+        return False
+    if str(payload.get("disagg_mode") or "") != DisaggMode.PREFILL.value:
+        return False
+    if str(payload.get("model_name") or "") != model_name:
+        return False
+    if str(payload.get("engine") or EngineType.SGLANG.value) != engine:
+        return False
+    meta = payload.get("disagg_meta") or {}
+    if not isinstance(meta, dict):
+        return False
+    if str(meta.get("protocol") or "") != protocol:
+        return False
+    return prefill_bootstrap_addr(payload) is not None
+
+
+def prefill_bootstrap_addr(payload: dict[str, Any]) -> tuple[str, int] | None:
+    """Parse ``host, port`` out of a prefill registration's disagg_meta.
+
+    Split from the right so an IPv6 literal keeps its colons. Returns None for
+    anything unparseable rather than raising, so a single malformed
+    registration does not stop the caller from considering other peers.
+    """
+    meta = payload.get("disagg_meta") or {}
+    if not isinstance(meta, dict):
+        return None
+    params = meta.get("params") or {}
+    if not isinstance(params, dict):
+        return None
+    raw = str(params.get("bootstrap_addr") or "")
+    host, sep, port = raw.rpartition(":")
+    if not sep or not host:
+        return None
+    try:
+        return host, int(port)
+    except ValueError:
+        return None
+
+
 def should_wait_for_decode(
     disaggregation_mode: str | None,
     wait_for_decode: bool | None,
 ) -> bool:
     """Prefill waits by default; --no-wait-for-decode opts out."""
     if str(disaggregation_mode or "") != "prefill":
+        return False
+    return wait_for_decode is not False
+
+
+def should_verify_prefill(
+    disaggregation_mode: str | None,
+    wait_for_decode: bool | None,
+) -> bool:
+    """Decode verifies a registered prefill by default; the same flag opts out.
+
+    This is the reverse of the prefill barrier and deliberately never waits:
+    if both legs blocked on each other a fresh deployment could never start.
+    """
+    if str(disaggregation_mode or "") != DisaggMode.DECODE.value:
         return False
     return wait_for_decode is not False
 
@@ -563,6 +650,30 @@ def pd_peer_probe_payload(
     return payload
 
 
+#: Bound on releasing a probe room, so a wedged engine cannot hold up a probe
+#: that has already failed or been cancelled.
+_PROBE_ABORT_TIMEOUT_S = 10.0
+
+
+async def _abort_probe_room(client: Any, prefill_url: str, decode_url: str, rid: str) -> None:
+    """Abort a probe request on both engines, so no Mooncake session is left open.
+
+    Best effort: failures are ignored, since the probe outcome is already decided.
+    """
+    body = {"rid": rid}
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(
+                client.post(f"{prefill_url.rstrip('/')}/abort_request", json=body),
+                client.post(f"{decode_url.rstrip('/')}/abort_request", json=body),
+                return_exceptions=True,
+            ),
+            _PROBE_ABORT_TIMEOUT_S,
+        )
+    except Exception:  # noqa: BLE001 - best effort, the outcome is already decided
+        logger.warning("decode barrier: could not abort probe room %s", rid)
+
+
 def _probe_failure_details(failed: list[Any]) -> str:
     return ", ".join(
         f"{type(result).__name__}: {result}"
@@ -570,6 +681,36 @@ def _probe_failure_details(failed: list[Any]) -> str:
         else f"HTTP {result.status_code}: {result.text[:200]}"
         for result in failed
     )
+
+
+async def probe_until_one_passes(
+    probes: list[tuple[str, Callable[[float], Awaitable[None]]]],
+    *,
+    deadline: float,
+    min_budget: float,
+    clock: Callable[[], float],
+) -> bool:
+    """Run peer probes in order until one passes.
+
+    Each probe receives the budget left and is bounded by it. Returns True once
+    a probe passes, and False when the budget ran out before any probe ran.
+    When every probe that ran failed, the last failure is raised, so a broken
+    KV path still stops registration while a single dead peer does not.
+    """
+    last_exc: BaseException | None = None
+    for name, probe in probes:
+        remaining = deadline - clock()
+        if remaining < min_budget:
+            break
+        try:
+            await asyncio.wait_for(probe(remaining), timeout=remaining)
+            return True
+        except PEER_PROBE_ERRORS as exc:
+            logger.warning("prefill probe: %s failed: %s", name, exc)
+            last_exc = exc
+    if last_exc is not None:
+        raise last_exc
+    return False
 
 
 async def verify_pd_peer(
@@ -635,19 +776,25 @@ async def verify_pd_peer(
                 )
                 # An injected client carries the caller's timeout; the probe
                 # budget is passed per request so it is the one that applies.
-                results = await asyncio.gather(
-                    client.post(
-                        f"{prefill_url.rstrip('/')}/generate",
-                        json=prefill_body,
-                        timeout=timeout,
-                    ),
-                    client.post(
-                        f"{decode_url.rstrip('/')}/generate",
-                        json=decode_body,
-                        timeout=timeout,
-                    ),
-                    return_exceptions=True,
-                )
+                try:
+                    results = await asyncio.gather(
+                        client.post(
+                            f"{prefill_url.rstrip('/')}/generate",
+                            json=prefill_body,
+                            timeout=timeout,
+                        ),
+                        client.post(
+                            f"{decode_url.rstrip('/')}/generate",
+                            json=decode_body,
+                            timeout=timeout,
+                        ),
+                        return_exceptions=True,
+                    )
+                except asyncio.CancelledError:
+                    # A probe cut short by its caller's budget leaves the room
+                    # open on both engines; release it before propagating.
+                    await _abort_probe_room(client, prefill_url, decode_url, prefill_body["rid"])
+                    raise
                 failed = [
                     result
                     for result in results
@@ -656,12 +803,7 @@ async def verify_pd_peer(
                 if not failed:
                     break
 
-                abort_body = {"rid": prefill_body["rid"]}
-                await asyncio.gather(
-                    client.post(f"{prefill_url.rstrip('/')}/abort_request", json=abort_body),
-                    client.post(f"{decode_url.rstrip('/')}/abort_request", json=abort_body),
-                    return_exceptions=True,
-                )
+                await _abort_probe_room(client, prefill_url, decode_url, prefill_body["rid"])
                 last_details = _probe_failure_details(failed)
                 if attempt + 1 >= tries:
                     raise RuntimeError(

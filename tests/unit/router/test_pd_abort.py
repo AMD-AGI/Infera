@@ -291,9 +291,7 @@ async def test_finish_prefill_records_breaker_on_transport_error():
         raise httpx.ConnectError("refused")
 
     task = asyncio.create_task(_boom())
-    await r._finish_prefill(
-        task, _w("p1"), _w("d1"), "infera-1", 1, abort=False
-    )
+    await r._finish_prefill(task, _w("p1"), _w("d1"), "infera-1", 1, abort=False)
     assert r.breaker._entries["p1"].consecutive_failures == 1
     await r.aclose()
 
