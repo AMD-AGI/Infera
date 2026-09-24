@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 set -a; source "${CONFIG:?}"; set +a
+if [[ "${SMOKE_ONLY:-0}" == 0 ]]; then python3 "$TRACE_RUNTIME/scripts/require_performance_approval.py"; fi
 mkdir -p "$RUN/logs" "$RUN/snapshot"
 python3 "$TRACE_RUNTIME/scripts/validate_allocation.py"
 echo "$RUN" > "$TRACE_RUNTIME/active-run.txt"

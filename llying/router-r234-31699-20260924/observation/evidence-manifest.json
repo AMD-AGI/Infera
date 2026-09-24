@@ -1,0 +1,22 @@
+{
+  "updated_utc": "2026-09-24T09:06:23.236832+00:00",
+  "scope": "shadow observation; no performance baseline",
+  "files": {
+    "/perf_apps/liyingli/bench_agentx/router-r234-31699-20260924/observation/correctness.json": {
+      "bytes": 11205,
+      "sha256": "ae901ed9615f29217a9956abd19a1a62932e2b13763bc50276d9bde1a1823c28"
+    },
+    "/perf_apps/liyingli/bench_agentx/router-r234-31699-20260924/observation/probes.json": {
+      "bytes": 63707,
+      "sha256": "8b089cf43700ba9e8724af16193e8217ea7a5a554ba1e55b1f85ef5bb10b90c6"
+    },
+    "/perf_apps/liyingli/bench_agentx/router-r234-31699-20260924/observation/engine-identity.json": {
+      "bytes": 398,
+      "sha256": "319a051e0a77693ef6b4bba6ff4111970893563e719828704d3262eb9296fa69"
+    },
+    "/perf_apps/liyingli/bench_agentx/router-r234-31699-20260924/runs/r234-31699-control/server-logs/router.log": {
+      "bytes": 17502842,
+      "sha256": "a7b85109bf0900fa0945e878e16e4bcfbea766a3cc72bf49ddde9d8eeb0a759e"
+    }
+  }
+}

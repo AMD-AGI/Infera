@@ -150,27 +150,8 @@ python3 "$TRACE_RUNTIME/scripts/bench-harness/tools/wait_healthy.py" \
     --probe-timeout "${HEALTH_PROBE_TIMEOUT:-5}" \
     --failure-dir "$OUT_DIR/failures" --summary "$OUT_DIR/router-health.json"
 
-curl -fsS --max-time 30 "$router_url/v1/workers" |
-    python3 -m json.tool > "$OUT_DIR/workers.json"
-expected="$(( $(python3 "$DIR/tools/topology.py" count "$TOPOLOGY" prefill) + $(python3 "$DIR/tools/topology.py" count "$TOPOLOGY" decode) ))"
-python3 - "$OUT_DIR/workers.json" "$expected" <<'PY'
-import json
-import sys
+python3 "$TRACE_RUNTIME/scripts/complete_registration.py"
 
-payload = json.load(open(sys.argv[1], encoding="utf-8"))
-workers = payload
-if isinstance(payload, dict):
-    workers = payload.get("workers") or payload.get("data") or payload.get("instances") or []
-if not isinstance(workers, list) or len(workers) != int(sys.argv[2]):
-    raise SystemExit(f"router returned {len(workers) if isinstance(workers, list) else 'invalid'} workers; expected {sys.argv[2]}")
-PY
-
-while IFS=$'\t' read -r instance role node ip gpus engine rest; do
-    curl -fsS --max-time 30 "http://$ip:$engine/get_server_info" \
-        > "$OUT_DIR/server-info/$instance.json" ||
-        curl -fsS --max-time 30 "http://$ip:$engine/v1/server_info" \
-            > "$OUT_DIR/server-info/$instance.json"
-done < <(rows)
 echo "router ready: $router_url"
 echo "inspection files: $OUT_DIR"
 echo "use ./stop.sh when finished"

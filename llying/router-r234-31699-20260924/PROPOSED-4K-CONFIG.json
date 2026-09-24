@@ -1,0 +1,101 @@
+{
+  "status": "PROPOSED_NOT_APPROVED_NOT_RUNNING",
+  "reference": "/perf_apps/liyingli/bench_agentx/p8d8-baseline4k-31625-20260923/runs/baseline4k-c80-31625",
+  "image_tag": "infera-sglang:aus-0922-reqtrace",
+  "image_id": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "model": "/perf_apps/data/models/GLM-5.2-MXFP4",
+  "router_source": "7d28ebd1",
+  "router_release_sha256": "b379b751b44155983c2b32a77889f9c1beb0b210014f7bd29e198d4cd1aba4ca",
+  "nodes": {
+    "prefill": "smci355-ccs-aus-n02-29",
+    "decode": "smci355-ccs-aus-n06-25"
+  },
+  "parallelism_each_role": {
+    "gpus": 8,
+    "tp": 8,
+    "dp": 8,
+    "ep": 1
+  },
+  "chunk": {
+    "effective_prefill": 4096,
+    "effective_decode": 4096,
+    "launch_prefill": 32768,
+    "launch_decode": 32768
+  },
+  "memory": {
+    "prefill_fraction": 0.85,
+    "decode_fraction": 0.85,
+    "expected_prefill_gpu_tokens_per_rank": 3143424,
+    "expected_decode_gpu_tokens_per_rank": 3003264,
+    "prefill_host_ratio": 1.5,
+    "expected_host_tokens_per_rank": 4715200,
+    "explicit_max_total_tokens": null
+  },
+  "kv_dtype": "fp8_e4m3",
+  "hicache": {
+    "prefill": true,
+    "decode": false,
+    "write_policy": "write_through",
+    "io_backend": "kernel",
+    "layout": "page_first"
+  },
+  "dsa": {
+    "prefill": "tilelang",
+    "decode": "tilelang"
+  },
+  "random_seed": {
+    "prefill": 823508857,
+    "decode": 19197414
+  },
+  "max_running_requests_each_role": 256,
+  "mtp": {
+    "decode_algorithm": "EAGLE",
+    "steps": 5,
+    "topk": 1,
+    "draft_tokens": 6,
+    "simulate_acceptance_length": 3.61
+  },
+  "router": {
+    "policy": "kv-aware",
+    "prefill_overlap_weight": 20.0,
+    "decode_overlap_weight": 2.0,
+    "pd_rank_affinity": false,
+    "request_transport": "http",
+    "event_transport": "zmq"
+  },
+  "load": {
+    "concurrency": 80,
+    "profiling_seconds": 3600,
+    "warmup_per_lane": 10,
+    "expected_warmup_requests": 884,
+    "dataset_revision": "23f152f6f0f9399a85901b89a6458def0ef16729",
+    "inferencex_commit": "918524ff94045b3f091115f1051c22a8588edf2b"
+  },
+  "cases": [
+    {
+      "name": "control",
+      "r1": "decode",
+      "r2": "shadow",
+      "r3": "shadow",
+      "host_weight": 0.5,
+      "r4": "off"
+    },
+    {
+      "name": "r2",
+      "r1": "decode",
+      "r2": "on",
+      "r3": "shadow",
+      "host_weight": 0.5,
+      "r4": "off"
+    },
+    {
+      "name": "r3",
+      "r1": "decode",
+      "r2": "shadow",
+      "r3": "on",
+      "host_weight": 0.5,
+      "r4": "off"
+    }
+  ],
+  "execution": "Restart P/D for each formal comparison. No run until explicit user config approval. R3 scheduling priority should be reconsidered because this observation changed no P selections."
+}

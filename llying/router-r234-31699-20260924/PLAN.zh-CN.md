@@ -1,6 +1,6 @@
 # R2/R3 性能验证与 R1/R1+R4 跑通：job31699
 
-2026-09-24。已在用户指定的节点启动，当前为 control 模型启动阶段，尚无本轮性能结果。
+2026-09-24 更新：本轮已按用户要求收敛为旁路正确性观察并完成，不能作为性能对照。自动后续任务已停止；性能目标为 P/D 均 4K，必须先确认配置。结果见 [观察报告](observation/REPORT.zh-CN.md)，拟议配置见 [PROPOSED-4K-CONFIG.json](PROPOSED-4K-CONFIG.json)。以下保留最初启动计划。
 
 - 作业：31699，账户 emad，QOS batch；StartTime 2026-09-24 06:29:58 UTC，EndTime 次日同一时间。已经过抢占保护期。
 - P：smci355-ccs-aus-n02-29 / 10.235.192.61；D：smci355-ccs-aus-n06-25 / 10.235.192.59，各 8 MI355X。

@@ -13,7 +13,7 @@ expected=collections.Counter(x['response']['usage']['prompt_tokens'] for x in js
 counts={}
 for role,var in [('Decode','INFERA_R2_DECODE_DEMAND'),('Prefill','INFERA_R4_PREFILL_WORK')]:
  if os.environ[var]=='off':continue
- selected=[v for v in rows if f'role={role}' in v and 'selected=true' in v]
+ selected=[v for v in rows if f'role={role}' in v and re.search(r'(?<!\w)selected=true\b',v)]
  values=collections.Counter(int(m[1]) for v in selected if (m:=re.search(r'input_tokens=Some\((\d+)\)',v)))
  counts[role]={'selected_known_lengths':dict(values),'expected_smoke_lengths':dict(expected),'rows':len(selected)}
  if any(values[k]<n for k,n in expected.items()):errors.append(role+' Router input lengths do not cover engine smoke prompt lengths')

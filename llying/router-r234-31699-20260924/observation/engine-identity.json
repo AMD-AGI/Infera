@@ -1,0 +1,30 @@
+{
+  "prefill": {
+    "scheduler_pids": [
+      737,
+      1030,
+      1192,
+      1368,
+      1591,
+      1922,
+      2216,
+      2583
+    ],
+    "same_pids": true,
+    "same_startup_time": true
+  },
+  "decode": {
+    "scheduler_pids": [
+      736,
+      1006,
+      1186,
+      1335,
+      1585,
+      1823,
+      2162,
+      2518
+    ],
+    "same_pids": true,
+    "same_startup_time": true
+  }
+}

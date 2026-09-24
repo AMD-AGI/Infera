@@ -86,8 +86,13 @@ for role in ('prefill', 'decode'):
         errors.append(f'{role}: unexpected container command')
     env = lambda c: dict(x.split('=', 1) for x in c['Config']['Env'] if '=' in x)
     env_diff = diffs(env(previous), env(container))
-    if env_diff:
-        errors.append(f'{role}: unexpected environment {sorted(env_diff)}')
+    # Startup wait budget is outside request scheduling; keep it explicit.
+    unexpected_env = dict(env_diff)
+    timeout = unexpected_env.get('INFERA_ENGINE_READY_TIMEOUT')
+    if timeout and timeout['current'] == os.environ['READY_TIMEOUT'] and timeout['baseline'] == '3600':
+        unexpected_env.pop('INFERA_ENGINE_READY_TIMEOUT')
+    if unexpected_env:
+        errors.append(f'{role}: unexpected environment {sorted(unexpected_env)}')
     report['roles'][role] = {'server_differences': differences, 'environment_differences': env_diff,
                              'container': container}
 # Check actual per-rank host capacity; ratio alone is not enough.

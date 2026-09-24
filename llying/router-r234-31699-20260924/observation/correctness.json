@@ -1,0 +1,413 @@
+{
+  "scope": "8K shadow correctness only; not performance evidence",
+  "passed": true,
+  "checks": {
+    "Decode_shadow_and_argmin": true,
+    "Prefill_shadow_and_argmin": true,
+    "all_decode_rank_length_multiset_matches_engine": true,
+    "controlled_probe_rank_and_length": true,
+    "before_and_after_ledger_empty": true,
+    "controlled_concurrent_ledger_additive": true,
+    "controlled_gpu_cache_matches_engine": true,
+    "tier_scoring_formula": true,
+    "live_tier_events_recognized": true
+  },
+  "decisions": {
+    "Decode": {
+      "decisions": 1139,
+      "different_suggestions": 824,
+      "different_pct": 72.3441615452151,
+      "actual_vs_legacy_mismatch": 0,
+      "missing_suggestion": 0,
+      "nonminimum_suggestion": 0,
+      "bad_candidate_sets": 0,
+      "unknown_demand_decisions": 0,
+      "bad_input_work": 0
+    },
+    "Prefill": {
+      "decisions": 1139,
+      "different_suggestions": 0,
+      "different_pct": 0.0,
+      "actual_vs_legacy_mismatch": 0,
+      "missing_suggestion": 0,
+      "nonminimum_suggestion": 0,
+      "bad_candidate_sets": 0,
+      "unknown_demand_decisions": 0,
+      "bad_input_work": 0
+    },
+    "rank_length_reconciliation": {
+      "router_decisions": 1139,
+      "engine_requests": 1139,
+      "router_only": [],
+      "engine_only": [],
+      "scope": "Aggregate rank+length reconciliation; request-ID checks below use controlled probes."
+    }
+  },
+  "examples": {
+    "Decode": [
+      {
+        "decision_id": 57,
+        "old": {
+          "decision_id": 57,
+          "role": "Decode",
+          "target": "10.235.192.59:29002#dp2",
+          "selected": "true",
+          "legacy_selected": "true",
+          "demand_suggested": "false",
+          "tier_suggested": "false",
+          "demand_known": "true",
+          "input_tokens": 86815.0,
+          "work_tokens": 86815.0,
+          "demand_cost": 135907.0,
+          "legacy_cost": 0.6994825972591308,
+          "tier_cost": 0.6994825972591308,
+          "gpu_hits": 0.0,
+          "host_hits": 0.0,
+          "time_ns": 1790238155773540864,
+          "rank": 2,
+          "stats": {
+            "device_stores": 0,
+            "host_stores": 0,
+            "unknown_events": 0,
+            "rejected_stores": 0
+          }
+        },
+        "suggested": {
+          "decision_id": 57,
+          "role": "Decode",
+          "target": "10.235.192.59:29002#dp5",
+          "selected": "false",
+          "legacy_selected": "false",
+          "demand_suggested": "true",
+          "tier_suggested": "false",
+          "demand_known": "true",
+          "input_tokens": 86815.0,
+          "work_tokens": 86815.0,
+          "demand_cost": 129779.0,
+          "legacy_cost": 0.9348190520286802,
+          "tier_cost": 0.9348190520286802,
+          "gpu_hits": 0.0,
+          "host_hits": 0.0,
+          "time_ns": 1790238155773550080,
+          "rank": 5,
+          "stats": {
+            "device_stores": 0,
+            "host_stores": 0,
+            "unknown_events": 0,
+            "rejected_stores": 0
+          }
+        }
+      },
+      {
+        "decision_id": 59,
+        "old": {
+          "decision_id": 59,
+          "role": "Decode",
+          "target": "10.235.192.59:29002#dp3",
+          "selected": "true",
+          "legacy_selected": "true",
+          "demand_suggested": "false",
+          "tier_suggested": "false",
+          "demand_known": "true",
+          "input_tokens": 58279.0,
+          "work_tokens": 58279.0,
+          "demand_cost": 103866.0,
+          "legacy_cost": 0.7786781000141568,
+          "tier_cost": 0.7786781000141568,
+          "gpu_hits": 0.0,
+          "host_hits": 0.0,
+          "time_ns": 1790238155789295872,
+          "rank": 3,
+          "stats": {
+            "device_stores": 0,
+            "host_stores": 0,
+            "unknown_events": 0,
+            "rejected_stores": 0
+          }
+        },
+        "suggested": {
+          "decision_id": 59,
+          "role": "Decode",
+          "target": "10.235.192.59:29002#dp5",
+          "selected": "false",
+          "legacy_selected": "false",
+          "demand_suggested": "true",
+          "tier_suggested": "false",
+          "demand_known": "true",
+          "input_tokens": 58279.0,
+          "work_tokens": 58279.0,
+          "demand_cost": 101243.0,
+          "legacy_cost": 0.8795712460537852,
+          "tier_cost": 0.8795712460537852,
+          "gpu_hits": 0.0,
+          "host_hits": 0.0,
+          "time_ns": 1790238155789304064,
+          "rank": 5,
+          "stats": {
+            "device_stores": 0,
+            "host_stores": 0,
+            "unknown_events": 0,
+            "rejected_stores": 0
+          }
+        }
+      },
+      {
+        "decision_id": 60,
+        "old": {
+          "decision_id": 60,
+          "role": "Decode",
+          "target": "10.235.192.59:29002#dp4",
+          "selected": "true",
+          "legacy_selected": "true",
+          "demand_suggested": "false",
+          "tier_suggested": "false",
+          "demand_known": "true",
+          "input_tokens": 57689.0,
+          "work_tokens": 57689.0,
+          "demand_cost": 110190.0,
+          "legacy_cost": 0.8027609278496463,
+          "tier_cost": 0.8027609278496463,
+          "gpu_hits": 0.0,
+          "host_hits": 0.0,
+          "time_ns": 1790238155790123008,
+          "rank": 4,
+          "stats": {
+            "device_stores": 0,
+            "host_stores": 0,
+            "unknown_events": 0,
+            "rejected_stores": 0
+          }
+        },
+        "suggested": {
+          "decision_id": 60,
+          "role": "Decode",
+          "target": "10.235.192.59:29002#dp5",
+          "selected": "false",
+          "legacy_selected": "false",
+          "demand_suggested": "true",
+          "tier_suggested": "false",
+          "demand_known": "true",
+          "input_tokens": 57689.0,
+          "work_tokens": 57689.0,
+          "demand_cost": 100653.0,
+          "legacy_cost": 0.8531841086721716,
+          "tier_cost": 0.8531841086721716,
+          "gpu_hits": 0.0,
+          "host_hits": 0.0,
+          "time_ns": 1790238155790126080,
+          "rank": 5,
+          "stats": {
+            "device_stores": 0,
+            "host_stores": 0,
+            "unknown_events": 0,
+            "rejected_stores": 0
+          }
+        }
+      }
+    ],
+    "Prefill": []
+  },
+  "controlled_probes": [
+    {
+      "rid": "obs-empty-before",
+      "matched_group_count": 1,
+      "rank_and_length_match": true
+    },
+    {
+      "rid": "obs-demand-0",
+      "matched_group_count": 1,
+      "rank_and_length_match": true
+    },
+    {
+      "rid": "obs-demand-1",
+      "matched_group_count": 1,
+      "rank_and_length_match": true
+    },
+    {
+      "rid": "obs-demand-2",
+      "matched_group_count": 1,
+      "rank_and_length_match": true
+    },
+    {
+      "rid": "obs-demand-3",
+      "matched_group_count": 1,
+      "rank_and_length_match": true
+    },
+    {
+      "rid": "obs-cache-repeat",
+      "matched_group_count": 1,
+      "rank_and_length_match": true
+    },
+    {
+      "rid": "obs-empty-after",
+      "matched_group_count": 1,
+      "rank_and_length_match": true
+    }
+  ],
+  "empty_ledger_probes": {
+    "obs-empty-before": true,
+    "obs-empty-after": true
+  },
+  "concurrent_ledger": [
+    {
+      "rid": "obs-demand-0",
+      "rank": 4,
+      "input_tokens": 128.0,
+      "prior_load_by_rank": {
+        "0": 0.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 0.0,
+        "5": 0.0,
+        "6": 0.0,
+        "7": 0.0
+      },
+      "matches_sum_of_prior_bookings": true
+    },
+    {
+      "rid": "obs-demand-1",
+      "rank": 5,
+      "input_tokens": 1118.0,
+      "prior_load_by_rank": {
+        "0": 0.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 128.0,
+        "5": 0.0,
+        "6": 0.0,
+        "7": 0.0
+      },
+      "matches_sum_of_prior_bookings": true
+    },
+    {
+      "rid": "obs-demand-2",
+      "rank": 7,
+      "input_tokens": 3318.0,
+      "prior_load_by_rank": {
+        "0": 0.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 128.0,
+        "5": 1118.0,
+        "6": 0.0,
+        "7": 0.0
+      },
+      "matches_sum_of_prior_bookings": true
+    },
+    {
+      "rid": "obs-demand-3",
+      "rank": 0,
+      "input_tokens": 6618.0,
+      "prior_load_by_rank": {
+        "0": 0.0,
+        "1": 0.0,
+        "2": 0.0,
+        "3": 0.0,
+        "4": 128.0,
+        "5": 1118.0,
+        "6": 0.0,
+        "7": 3318.0
+      },
+      "matches_sum_of_prior_bookings": true
+    }
+  ],
+  "concurrent_completion_margin_ms": 1092.285986,
+  "cache_repeat": {
+    "matched_groups": 1,
+    "router_rank": 5,
+    "engine_rank": 5,
+    "router_gpu_tokens": 6592.0,
+    "router_host_tokens": 0.0,
+    "engine_cached_device": 6592,
+    "engine_cached_host": 0
+  },
+  "host_only_candidates": [
+    {
+      "decision_id": 2205,
+      "role": "Prefill",
+      "target": "10.235.192.61:29001#dp4",
+      "selected": "false",
+      "legacy_selected": "false",
+      "demand_suggested": "false",
+      "tier_suggested": "false",
+      "demand_known": "false",
+      "input_tokens": null,
+      "work_tokens": null,
+      "demand_cost": null,
+      "legacy_cost": 0.024545902333068026,
+      "tier_cost": -1969.975454097667,
+      "gpu_hits": 0.0,
+      "host_hits": 197.0,
+      "time_ns": 1790239504107769856,
+      "rank": 4,
+      "stats": {
+        "device_stores": 496,
+        "host_stores": 84,
+        "unknown_events": 0,
+        "rejected_stores": 0
+      }
+    },
+    {
+      "decision_id": 2227,
+      "role": "Prefill",
+      "target": "10.235.192.61:29001#dp4",
+      "selected": "false",
+      "legacy_selected": "false",
+      "demand_suggested": "false",
+      "tier_suggested": "false",
+      "demand_known": "false",
+      "input_tokens": null,
+      "work_tokens": null,
+      "demand_cost": null,
+      "legacy_cost": 0.012559060591457222,
+      "tier_cost": -1969.9874409394085,
+      "gpu_hits": 0.0,
+      "host_hits": 197.0,
+      "time_ns": 1790239507738470912,
+      "rank": 4,
+      "stats": {
+        "device_stores": 496,
+        "host_stores": 84,
+        "unknown_events": 0,
+        "rejected_stores": 0
+      }
+    },
+    {
+      "decision_id": 2257,
+      "role": "Prefill",
+      "target": "10.235.192.61:29001#dp4",
+      "selected": "false",
+      "legacy_selected": "false",
+      "demand_suggested": "false",
+      "tier_suggested": "false",
+      "demand_known": "false",
+      "input_tokens": null,
+      "work_tokens": null,
+      "demand_cost": null,
+      "legacy_cost": 2221.768557387,
+      "tier_cost": 251.76855738699987,
+      "gpu_hits": 0.0,
+      "host_hits": 197.0,
+      "time_ns": 1790239512400530944,
+      "rank": 4,
+      "stats": {
+        "device_stores": 496,
+        "host_stores": 84,
+        "unknown_events": 0,
+        "rejected_stores": 0
+      }
+    }
+  ],
+  "host_observations": {
+    "candidate_rows_with_host_hits": 3,
+    "max_host_hit_tokens": 12608.0,
+    "engine_requests_with_host_reuse": 0
+  },
+  "limits": [
+    "Actual routing stayed legacy; no on-mode throughput or latency benefit is inferred.",
+    "Host-only candidates were not selected; actual host-reuse execution is not established by this shadow run."
+  ]
+}

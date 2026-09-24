@@ -27,6 +27,10 @@ else
     python3 "$ROOT/scripts/check_empty.py"
 fi
 if [[ "${SMOKE_ONLY:-0}" == 1 ]]; then
+    state SMOKE_C80
+    python3 "$ROOT/scripts/smoke_c80.py"
+    bash "$ROOT/scripts/capture_live.sh"
+    python3 "$ROOT/scripts/validate_smoke_c80.py"
     state SMOKE_COMPLETE
     exit 0
 fi
@@ -44,6 +48,7 @@ kill -0 "$engine_pid" "$node_pid" "$capture_pid"
 python3 "$ROOT/scripts/validate_live_samples.py" --engine "$RUN/sampling/engine.jsonl" --nodes "$RUN/sampling/nodes.jsonl" > "$RUN/sampling/preflight.json"
 python3 "$ROOT/scripts/validate_allocation.py"
 [[ ! -e "$RUN/INVALID" ]]
+python3 "$ROOT/scripts/require_performance_approval.py"
 state BENCHMARK_C80
 date -u --iso-8601=ns > "$RUN/c80-started.txt"
 bash "$BENCH_DIR/agentx_bench.sh" "CONFIG=$CONFIG" "TOPOLOGY=$TOPOLOGY" CONC=80 DURATION=3600 "OUT_DIR=$RUN/c80" > "$RUN/logs/c80.log" 2>&1

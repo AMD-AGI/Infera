@@ -1,0 +1,24 @@
+{
+  "completed_utc": "2026-09-24T09:04:42.525162+00:00",
+  "status": "OBSERVATION_COMPLETE_AWAITING_PERFORMANCE_CONFIG_APPROVAL",
+  "performance_valid": false,
+  "previous_run_status": "2026-09-24T08:45:16+00:00 FAILED rc=143 line=49",
+  "restart_during_probes": false,
+  "services": "running but idle; no benchmark client or samplers",
+  "automatic_campaign": "stopped",
+  "future_required_chunk": {
+    "prefill": 4096,
+    "decode": 4096
+  },
+  "checks": {
+    "Decode_shadow_and_argmin": true,
+    "Prefill_shadow_and_argmin": true,
+    "all_decode_rank_length_multiset_matches_engine": true,
+    "controlled_probe_rank_and_length": true,
+    "before_and_after_ledger_empty": true,
+    "controlled_concurrent_ledger_additive": true,
+    "controlled_gpu_cache_matches_engine": true,
+    "tier_scoring_formula": true,
+    "live_tier_events_recognized": true
+  }
+}
