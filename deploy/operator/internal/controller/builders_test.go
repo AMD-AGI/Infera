@@ -513,6 +513,32 @@ func TestAnUnknowableReadinessPortSkipsTheProbe(t *testing.T) {
 	}
 }
 
+// An unknowable readiness port reads as port 0, and so does a named-port probe
+// (Port.IntVal is 0 when Port.Type is String). Neither may be mistaken for the
+// readiness probe, or a foreign probe enables surge.
+func TestANamedPortProbeWithUnknowablePortDoesNotEnableSurge(t *testing.T) {
+	surge, unavailable := rollingOf(t, inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeWorker,
+		ExtraPodSpec: &corev1.PodSpec{Containers: []corev1.Container{{
+			Name:  "main",
+			Image: "x",
+			Env: []corev1.EnvVar{{
+				Name: readinessPortEnvVar,
+				ValueFrom: &corev1.EnvVarSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{Key: "port"},
+				},
+			}},
+			ReadinessProbe: &corev1.Probe{ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{Path: "/health", Port: intstr.FromString("http")},
+			}},
+		}}},
+	})
+	if surge != 0 || unavailable != 1 {
+		t.Errorf("maxSurge/maxUnavailable = %d/%d, want 0/1 for a named-port probe",
+			surge, unavailable)
+	}
+}
+
 // Go's Atoi accepts forms Python's int() does not, and a divergence here means
 // the probe and the worker disagree on the port.
 func TestReadinessPortRejectsFormsThePythonSideWouldNotAccept(t *testing.T) {

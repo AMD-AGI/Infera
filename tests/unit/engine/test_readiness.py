@@ -17,7 +17,7 @@ from infera.engine.readiness import (
     close_readiness,
     readiness_port,
     serve_readiness,
-    serve_readiness_or_deregister,
+    serve_readiness_best_effort,
 )
 
 
@@ -117,54 +117,25 @@ def test_the_default_port_does_not_collide_with_the_engine():
     assert DEFAULT_READINESS_PORT not in (30000, 30001)
 
 
-class _FakeReg:
-    """Minimal registration client: records whether deregister was called."""
-
-    def __init__(self, fail: bool = False):
-        self.deregistered = False
-        self.fail = fail
-
-    async def deregister(self):
-        self.deregistered = True
-        if self.fail:
-            raise RuntimeError("deregister blew up")
-        return True
-
-
 @pytest.mark.asyncio
-async def test_a_failed_bind_clears_the_registration():
-    # The port opens after the worker registers, so dying here with the record
-    # still published leaves the router dispatching to a worker that is gone.
+async def test_a_failed_bind_does_not_stop_the_worker():
+    # Two hostNetwork workers on one node share the port space. The one that
+    # binds second has already registered and loaded its weights; it keeps
+    # serving rather than exiting and repeating the collision on restart.
     held = await serve_readiness(0)
-    port = held.sockets[0].getsockname()[1]
-    reg = _FakeReg()
+    port = _port_of(held)
     try:
-        with pytest.raises(OSError):
-            await serve_readiness_or_deregister(reg, port)
-        assert reg.deregistered, "a stale record would keep receiving traffic"
+        assert await serve_readiness_best_effort(port) is None
     finally:
         await close_readiness(held)
 
 
 @pytest.mark.asyncio
-async def test_a_failing_deregister_still_surfaces_the_bind_error():
-    # The bind failure is the reason the worker cannot serve; a deregister that
-    # also fails must not mask it.
-    held = await serve_readiness(0)
-    port = held.sockets[0].getsockname()[1]
+async def test_a_successful_bind_returns_the_open_server():
+    server = await serve_readiness_best_effort(0)
     try:
-        with pytest.raises(OSError):
-            await serve_readiness_or_deregister(_FakeReg(fail=True), port)
-    finally:
-        await close_readiness(held)
-
-
-@pytest.mark.asyncio
-async def test_a_successful_bind_does_not_deregister():
-    reg = _FakeReg()
-    server = await serve_readiness_or_deregister(reg, 0)
-    try:
-        assert not reg.deregistered
+        assert server is not None
+        assert b"200 OK" in await _probe(_port_of(server))
     finally:
         await close_readiness(server)
 

@@ -20,11 +20,9 @@ worker.
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
 import os
 from collections.abc import Awaitable, Callable
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -127,26 +125,21 @@ async def serve_readiness(
     return server
 
 
-async def serve_readiness_or_deregister(
-    reg_client: Any,
-    port: int | None = None,
-    *,
-    engine_alive: EngineCheck | None = None,
-) -> asyncio.AbstractServer:
-    """Open the readiness port, clearing the registration if the bind fails.
+async def serve_readiness_best_effort(
+    port: int | None = None, *, engine_alive: EngineCheck | None = None
+) -> asyncio.AbstractServer | None:
+    """Open the readiness port, or return None if it cannot be bound.
 
-    The port is opened after the worker registers, so a bind failure -- two
-    workers sharing a host with the same port, most plainly -- would otherwise
-    kill the process with its record still published, and the router would
-    keep dispatching to a worker that no longer exists.
+    Two hostNetwork workers on one node share the port space, so the second to
+    bind can find the port taken. That worker has already registered and loaded
+    its weights, and it keeps serving: exiting would only repeat the collision
+    on every restart. It simply has no readiness port of its own.
     """
     try:
         return await serve_readiness(port, engine_alive=engine_alive)
     except OSError:
-        logger.exception("readiness port failed to open; clearing the registration")
-        with contextlib.suppress(Exception):
-            await reg_client.deregister()
-        raise
+        logger.exception("readiness port failed to open; serving without one")
+        return None
 
 
 def engine_health_check(host: str, port: int) -> EngineCheck:

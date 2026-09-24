@@ -386,7 +386,7 @@ func hasEnv(c *corev1.Container, name string) bool {
 	return false
 }
 
-// readinessPortFor returns the port the worker will open, and whether the
+// readinessPortFrom returns the port the worker will open, and whether the
 // operator can know it.
 //
 // A valueFrom source is resolved by the kubelet, not here, so the value is
@@ -417,13 +417,6 @@ func readinessPortFrom(c *corev1.Container) (int32, bool) {
 		return int32(n), true //nolint:gosec // bounded above
 	}
 	return workerReadinessPort, true
-}
-
-// readinessPortFor is readinessPortFrom's value, for callers that already know
-// the port is knowable.
-func readinessPortFor(c *corev1.Container) int32 {
-	port, _ := readinessPortFrom(c)
-	return port
 }
 
 // injectWorkerRolloutDefaults adds graceful rolling-upgrade knobs to a worker
@@ -720,10 +713,10 @@ func probedOnReadinessPort(tmpl *corev1.PodTemplateSpec) bool {
 	for i := range tmpl.Spec.Containers {
 		c := &tmpl.Spec.Containers[i]
 		p := c.ReadinessProbe
-		if p == nil || p.HTTPGet == nil {
+		if p == nil || p.HTTPGet == nil || p.HTTPGet.Port.Type != intstr.Int {
 			continue
 		}
-		if p.HTTPGet.Port.IntVal == readinessPortFor(c) {
+		if port, ok := readinessPortFrom(c); ok && p.HTTPGet.Port.IntVal == port {
 			return true
 		}
 	}

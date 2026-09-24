@@ -38,6 +38,7 @@ from infera.common.registration import RegistrationClient
 from infera.common.registration_k8s import K8sRegistrationClient
 from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.decode_barrier import (
+    DISCOVERY_LOOKUP_ERRORS,
     apply_pd_probe_recovery_defaults,
     decode_ready_timeout_seconds,
     discovery_budget_seconds,
@@ -47,6 +48,7 @@ from infera.engine.decode_barrier import (
     list_etcd_worker_payloads,
     list_k8s_worker_payloads,
     prefill_bootstrap_addr,
+    probe_until_one_passes,
     should_verify_prefill,
     should_wait_for_decode,
     verify_pd_peer,
@@ -58,7 +60,7 @@ from infera.engine.flush import anchor_kv_chain
 from infera.engine.readiness import (
     close_readiness,
     engine_health_check,
-    serve_readiness_or_deregister,
+    serve_readiness_best_effort,
 )
 from infera.engine.sglang.args import (
     SglangWorkerArgs,
@@ -267,7 +269,7 @@ async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
             args, selector_timeout=discovery_budget_seconds(timeout)
         ) as list_workers:
             workers = await list_workers()
-    except (OSError, httpx.HTTPError, asyncio.TimeoutError, ValueError, KeyError) as exc:
+    except DISCOVERY_LOOKUP_ERRORS as exc:
         logger.warning("prefill probe: worker lookup failed; skipping: %s", exc)
         return
 
@@ -284,48 +286,56 @@ async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
         )
         return
     # One verified peer is enough. Every registered prefill may route here, so
-    # probing all of them would cover more -- but it also lets a single wedged
-    # prefill burn the whole budget and block every decode that starts after
-    # it, and the transfer path this checks (Mooncake/RDMA over the same NICs)
-    # is shared, so a second peer re-exercises the same plumbing. The prefill
-    # barrier covers the pairing from the other side as peers restart.
+    # probing all of them would cover more -- but the transfer path this checks
+    # (Mooncake/RDMA over the same NICs) is shared, so a second passing peer
+    # re-exercises the same plumbing. A failing peer moves on to the next one,
+    # so a stale registration for a dead prefill does not fail every decode.
+    # The prefill barrier covers the pairing from the other side as peers
+    # restart.
+    decode_dp_size = int(getattr(args.server_args, "dp_size", 1) or 1)
+
+    def _probe_for(peer: dict, prefill_url: str, host: str, port: int):
+        async def probe(_budget: float) -> None:
+            logger.info(
+                "prefill probe: verifying KV path to prefill %s (bootstrap %s:%d)",
+                peer.get("worker_id") or prefill_url,
+                host,
+                port,
+            )
+            await verify_pd_peer(
+                prefill_url=prefill_url,
+                decode_url=decode_url,
+                bootstrap_host=host,
+                bootstrap_port=port,
+                dp_size=int(peer.get("dp_size") or 1),
+                decode_dp_size=decode_dp_size,
+            )
+
+        return probe
+
+    probes = []
     for peer in peers:
         addr = prefill_bootstrap_addr(peer)
         prefill_url = str(peer.get("url") or "").rstrip("/")
         if addr is None or not prefill_url:
             continue
         host, port = addr
-        # A spent budget must not become a zero timeout: wait_for(0.0) raises
-        # immediately, which would fail the decode without naming a peer or
-        # ever reaching the engine.
-        remaining = deadline - asyncio.get_running_loop().time()
-        if remaining < _MIN_PREFILL_PROBE_SECONDS:
-            logger.warning(
-                "prefill probe: only %.1fs of the %.0fs budget left; skipping "
-                "verification against %s",
-                remaining,
-                timeout,
-                peer.get("worker_id") or prefill_url,
-            )
-            return
-        logger.info(
-            "prefill probe: verifying KV path to prefill %s (bootstrap %s:%d)",
-            peer.get("worker_id") or prefill_url,
-            host,
-            port,
+        probes.append(
+            (peer.get("worker_id") or prefill_url, _probe_for(peer, prefill_url, host, port))
         )
-        await asyncio.wait_for(
-            verify_pd_peer(
-                prefill_url=prefill_url,
-                decode_url=decode_url,
-                bootstrap_host=host,
-                bootstrap_port=port,
-                dp_size=int(peer.get("dp_size") or 1),
-                decode_dp_size=int(getattr(args.server_args, "dp_size", 1) or 1),
-            ),
-            timeout=remaining,
+
+    # A spent budget must not become a zero timeout: wait_for(0.0) raises
+    # immediately, which would fail the decode without naming a peer or ever
+    # reaching the engine.
+    loop = asyncio.get_running_loop()
+    if not await probe_until_one_passes(
+        probes, deadline=deadline, min_budget=_MIN_PREFILL_PROBE_SECONDS, clock=loop.time
+    ):
+        logger.warning(
+            "prefill probe: less than %.0fs of the %.0fs budget left; skipping verification",
+            _MIN_PREFILL_PROBE_SECONDS,
+            timeout,
         )
-        return
 
 
 def _supervise_engine(engine: SglangEngine) -> tuple[asyncio.Event, EngineDeath, asyncio.Task]:
@@ -598,6 +608,19 @@ async def main() -> None:
                 k8s_label_selector=args.k8s_label_selector,
                 etcd_endpoint=args.etcd_endpoint,
             )
+    # The decode's prefill probe also runs after the weights are in; fail an
+    # unresolvable discovery config now, as the prefill does above.
+    if (
+        should_verify_prefill(
+            getattr(args.server_args, "disaggregation_mode", None), args.wait_for_decode
+        )
+        and _multinode_node_rank(args) == 0
+    ):
+        ensure_barrier_discovery_is_reachable(
+            args.discovery_backend,
+            k8s_label_selector=args.k8s_label_selector,
+            etcd_endpoint=args.etcd_endpoint,
+        )
 
     if args.discovery_backend == "kubernetes":
         stale_registration = K8sRegistrationClient(namespace=args.k8s_namespace)
@@ -806,8 +829,8 @@ async def _run_after_start(
     # Opened only now, so a rollout waiting on this pod's readiness waits for
     # a worker the router can actually reach -- the engine's /health has been
     # answering since before the PD barrier ran.
-    ready_server = await serve_readiness_or_deregister(
-        reg_client, engine_alive=engine_health_check(config.host, config.port)
+    ready_server = await serve_readiness_best_effort(
+        engine_alive=engine_health_check(config.host, config.port)
     )
 
     await stop.wait()

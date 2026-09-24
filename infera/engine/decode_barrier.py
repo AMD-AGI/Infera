@@ -84,6 +84,27 @@ class K8sLabelLookupError(RuntimeError):
     """A transient failure reading this Pod from the Kubernetes API."""
 
 
+#: Failures of a reachable-but-failing discovery lookup. The decode skips its
+#: prefill probe on these rather than failing a worker that has loaded weights.
+DISCOVERY_LOOKUP_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    httpx.HTTPError,
+    asyncio.TimeoutError,
+    ValueError,
+    KeyError,
+    K8sLabelLookupError,
+)
+
+#: Failures of one PD peer probe: a failed transfer, a transport error, or the
+#: probe budget running out.
+PEER_PROBE_ERRORS: tuple[type[BaseException], ...] = (
+    RuntimeError,
+    OSError,
+    httpx.HTTPError,
+    asyncio.TimeoutError,
+)
+
+
 def decode_ready_timeout_seconds(explicit: float | None) -> float:
     """Resolve the decode-wait budget: flag, then env, then the default.
 
@@ -636,6 +657,36 @@ def _probe_failure_details(failed: list[Any]) -> str:
         else f"HTTP {result.status_code}: {result.text[:200]}"
         for result in failed
     )
+
+
+async def probe_until_one_passes(
+    probes: list[tuple[str, Callable[[float], Awaitable[None]]]],
+    *,
+    deadline: float,
+    min_budget: float,
+    clock: Callable[[], float],
+) -> bool:
+    """Run peer probes in order until one passes.
+
+    Each probe receives the budget left and is bounded by it. Returns True once
+    a probe passes, and False when the budget ran out before any probe ran.
+    When every probe that ran failed, the last failure is raised, so a broken
+    KV path still stops registration while a single dead peer does not.
+    """
+    last_exc: BaseException | None = None
+    for name, probe in probes:
+        remaining = deadline - clock()
+        if remaining < min_budget:
+            break
+        try:
+            await asyncio.wait_for(probe(remaining), timeout=remaining)
+            return True
+        except PEER_PROBE_ERRORS as exc:
+            logger.warning("prefill probe: %s failed: %s", name, exc)
+            last_exc = exc
+    if last_exc is not None:
+        raise last_exc
+    return False
 
 
 async def verify_pd_peer(

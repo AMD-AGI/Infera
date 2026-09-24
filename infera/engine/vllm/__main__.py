@@ -29,7 +29,7 @@ from infera.engine.flush import anchor_kv_chain
 from infera.engine.readiness import (
     close_readiness,
     engine_health_check,
-    serve_readiness_or_deregister,
+    serve_readiness_best_effort,
 )
 from infera.engine.vllm.args import VllmWorkerArgs, parse_vllm_args
 from infera.engine.vllm.worker import VllmEngine
@@ -366,18 +366,20 @@ async def main() -> None:
             observed=kv_relay.cleared_observed,
         )
 
-    await reg_client.register(config)
-    hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
-    # The operator probes readiness on this port for every worker regardless of
-    # backend, so a vLLM worker that never opened it would sit NotReady forever.
-    ready_server = await serve_readiness_or_deregister(
-        reg_client, engine_alive=engine_health_check(config.host, config.port)
-    )
-
+    # Installed before registering, so a SIGTERM from here on runs the
+    # shutdown below instead of killing the process with its record published.
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, stop.set)
+
+    await reg_client.register(config)
+    hb_task = asyncio.create_task(reg_client.heartbeat_loop(), name="worker-heartbeat")
+    # The operator probes readiness on this port for every worker regardless of
+    # backend, so a vLLM worker that never opened it would sit NotReady forever.
+    ready_server = await serve_readiness_best_effort(
+        engine_alive=engine_health_check(config.host, config.port)
+    )
 
     death = EngineDeath()
     death_task = watch_engine_death(engine, stop, death)
