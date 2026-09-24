@@ -1,0 +1,81 @@
+{
+  "historical_A0": {
+    "start_ns": 1790180770069407672,
+    "cutoff_ns": 1790183350069407672,
+    "window_seconds": 2580,
+    "completed_records": 6960,
+    "successful": 6960,
+    "errors_or_cancelled": 0,
+    "output_tokens_per_second": 2501.991085271318,
+    "output_tokens_per_second_per_gpu": 156.37444282945737,
+    "input_tokens_per_second": 305494.1476744186,
+    "metrics": {
+      "time_to_first_token": {
+        "n": 6960,
+        "mean": 9215.40534986681,
+        "p50": 5105.196890499999,
+        "p95": 30177.478179199916
+      },
+      "inter_token_latency": {
+        "n": 6960,
+        "mean": 14.034145969367481,
+        "p50": 13.650962387224432,
+        "p95": 21.54222174543823
+      },
+      "input_sequence_length": {
+        "n": 6960,
+        "mean": 113243.52025862069,
+        "p50": 71197.5,
+        "p95": 410740.7499999992
+      },
+      "output_sequence_length": {
+        "n": 6960,
+        "mean": 927.4622126436782,
+        "p50": 423.0,
+        "p95": 3434.0499999999993
+      }
+    },
+    "all_export_error_count": 0,
+    "first_export_error_end_ns": null
+  },
+  "R2_on": {
+    "start_ns": 1790258955972171662,
+    "cutoff_ns": 1790261535972171662,
+    "window_seconds": 2580,
+    "completed_records": 6987,
+    "successful": 6987,
+    "errors_or_cancelled": 0,
+    "output_tokens_per_second": 2476.7131782945735,
+    "output_tokens_per_second_per_gpu": 154.79457364341084,
+    "input_tokens_per_second": 301847.1972868217,
+    "metrics": {
+      "time_to_first_token": {
+        "n": 6987,
+        "mean": 9054.154342602118,
+        "p50": 5032.005977,
+        "p95": 31894.9155927
+      },
+      "inter_token_latency": {
+        "n": 6987,
+        "mean": 14.288137672233361,
+        "p50": 13.82393739364303,
+        "p95": 22.113939265662484
+      },
+      "input_sequence_length": {
+        "n": 6987,
+        "mean": 111459.24846142836,
+        "p50": 71769.0,
+        "p95": 401651.1
+      },
+      "output_sequence_length": {
+        "n": 6987,
+        "mean": 914.5441534277945,
+        "p50": 419.0,
+        "p95": 3387.0999999999995
+      }
+    },
+    "all_export_error_count": 172,
+    "first_export_error_end_ns": 1790261581462473768
+  },
+  "scope": "First 43 minutes from each run first profiling request; completed-within-window cohort, unfinished requests excluded. Partial exploratory comparison, not full 3600s benchmark; different nodes and closed-loop request mix."
+}

@@ -1,0 +1,24 @@
+[
+  {
+    "event": "heartbeat",
+    "passed": false,
+    "errors": [
+      "prefill: allocation not usable",
+      "prefill: allocation expires within 10 minutes",
+      "decode: allocation not usable",
+      "decode: allocation expires within 10 minutes"
+    ],
+    "utc": "2026-09-24T14:53:01.739103+00:00"
+  },
+  {
+    "event": "cleanup_requested",
+    "reason": "prefill: allocation not usable; prefill: allocation expires within 10 minutes; decode: allocation not usable; decode: allocation expires within 10 minutes",
+    "utc": "2026-09-24T14:53:01.739914+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r2-31705-31706-decode-0",
+    "id": "4c928647b45a13aa3c8702b2de58f0ec5fd985f32f2a5f99ad8e472dfe325728",
+    "utc": "2026-09-24T14:53:08.154453+00:00"
+  }
+]

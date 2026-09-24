@@ -1,0 +1,49 @@
+[
+  {
+    "event": "heartbeat",
+    "passed": false,
+    "errors": [
+      "prefill: allocation not usable",
+      "prefill: allocation expires within 10 minutes",
+      "decode: allocation not usable",
+      "decode: allocation expires within 10 minutes"
+    ],
+    "utc": "2026-09-24T14:53:01.629940+00:00"
+  },
+  {
+    "event": "cleanup_requested",
+    "reason": "prefill: allocation not usable; prefill: allocation expires within 10 minutes; decode: allocation not usable; decode: allocation expires within 10 minutes",
+    "utc": "2026-09-24T14:53:01.631126+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r2-31705-31706-etcd",
+    "id": "e7e41dad3440c70813b247a0b1acd81fb39e2be0693d126a4a3be900c7ea4704",
+    "utc": "2026-09-24T14:53:01.673360+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r2-31705-31706-collector",
+    "id": "c457aa2f38b8e2f41c10bab7bd8b5dcb08def8665aec9b56b5b1f6fa67101461",
+    "utc": "2026-09-24T14:53:01.788751+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r2-31705-31706-router",
+    "id": "acbdfb8ae46c082e607b66ac2a1c5481245a8f202eafa08686c96e0dd8c1ced7",
+    "utc": "2026-09-24T14:53:02.152610+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r2-31705-31706-agentx-client-20260924T134142-107998",
+    "id": "9428aeaf01d2e94dfbf7308fdb0d4f58ffa50f90a6b3655c14bf1b111ba0edf2",
+    "utc": "2026-09-24T14:53:07.350878+00:00"
+  },
+  {
+    "event": "stop_error",
+    "name": "llying-r2-31705-31706-prefill-0",
+    "id": "c3016f30a87d8ef9653d2395f1418597712d4cdc597feb1dd34aaa7dd3d11988",
+    "error": "Docker POST /containers/c3016f30a87d8ef9653d2395f1418597712d4cdc597feb1dd34aaa7dd3d11988/stop?t=5: 500 b'{\"message\":\"cannot stop container: c3016f30a87d8ef9653d2395f1418597712d4cdc597feb1dd34aaa7dd3d11988: tried to kill container, but did not receive an exit event\"}\\n'",
+    "utc": "2026-09-24T14:53:20.721255+00:00"
+  }
+]

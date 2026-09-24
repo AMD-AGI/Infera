@@ -1,0 +1,86 @@
+{
+  "paired_requests": 8,
+  "request_trace_ids": {
+    "aus-smoke-3": {
+      "decode": "0000000000000000017c0529722d612d",
+      "prefill": "00000000000000003cba990077ec75a6"
+    },
+    "aus-smoke-2": {
+      "decode": "000000000000000020b5db8d7e3bb89c",
+      "prefill": "00000000000000007d54119882383fc6"
+    },
+    "aus-smoke-1": {
+      "decode": "0000000000000000c0c4a75f61fd26b3",
+      "prefill": "000000000000000017cc27ad84d182c6"
+    },
+    "aus-smoke-4": {
+      "decode": "0000000000000000ca96b676373db898",
+      "prefill": "0000000000000000ce82bba1bc5ba57e"
+    },
+    "aus-smoke-6": {
+      "decode": "000000000000000015ae5694a0aaacdd",
+      "prefill": "000000000000000011286fce4f604aa2"
+    },
+    "aus-smoke-5": {
+      "decode": "0000000000000000f11f02083b7fc37a",
+      "prefill": "0000000000000000ccb474d80727070f"
+    },
+    "aus-smoke-0": {
+      "prefill": "000000000000000094f4c719339f00b3",
+      "decode": "000000000000000049000b6ca2630e74"
+    },
+    "aus-smoke-7": {
+      "decode": "0000000000000000d3a8804356d7ce84",
+      "prefill": "00000000000000009ecfd6edc20653e2"
+    }
+  },
+  "event_counts": {
+    "('prefill', 'scheduler_recv_time')": 8,
+    "('prefill', 'prefill_bootstrap_queue_entry_time')": 8,
+    "('prefill', 'cache')": 8,
+    "('prefill', 'prefill_transfer_queue_entry_time')": 8,
+    "('prefill', 'prefill_kv_transfer_finish_time')": 8,
+    "('prefill', 'request_summary')": 8,
+    "('decode', 'scheduler_recv_time')": 8,
+    "('decode', 'decode_prealloc_queue_entry_time')": 8,
+    "('decode', 'admission')": 8,
+    "('decode', 'decode_transfer_queue_entry_time')": 8,
+    "('decode', 'request_summary')": 8
+  },
+  "span_names": {
+    "Decode DP Controller(host:d38e5f95 | pid:397)": 8,
+    "tokenize": 16,
+    "Prefill DP Controller(host:d38e5f95 | pid:397)": 8,
+    "prefill_prepare": 8,
+    "prefill_bootstrap": 8,
+    "prefill_waiting": 8,
+    "decode_prepare": 8,
+    "decode_bootstrap": 8,
+    "decode_transferred": 8,
+    "decode_waiting": 8,
+    "decode_forward": 8,
+    "Decode Scheduler [TP 0]  [PP 0]  [DP 0] (host:d38e5f95 | pid:736)": 1,
+    "chunked_prefill": 25,
+    "DecodeTokenizer(host:d38e5f95 | pid:222)": 8,
+    "decode Req aus-smok": 8,
+    "prefill Req aus-smok": 8,
+    "prefill_forward": 8,
+    "prefill_transfer_kv_cache": 8,
+    "Prefill Scheduler [TP 0]  [PP 0]  [DP 0] (host:d38e5f95 | pid:736)": 1,
+    "PrefillTokenizer(host:d38e5f95 | pid:222)": 8,
+    "Decode Scheduler [TP 1]  [PP 0]  [DP 1] (host:d38e5f95 | pid:1010)": 1,
+    "Decode Scheduler [TP 2]  [PP 0]  [DP 2] (host:d38e5f95 | pid:1180)": 1,
+    "Prefill Scheduler [TP 2]  [PP 0]  [DP 2] (host:d38e5f95 | pid:1191)": 1,
+    "Prefill Scheduler [TP 1]  [PP 0]  [DP 1] (host:d38e5f95 | pid:1016)": 1,
+    "Decode Scheduler [TP 4]  [PP 0]  [DP 4] (host:d38e5f95 | pid:1550)": 1,
+    "Prefill Scheduler [TP 4]  [PP 0]  [DP 4] (host:d38e5f95 | pid:1588)": 1,
+    "Decode Scheduler [TP 5]  [PP 0]  [DP 5] (host:d38e5f95 | pid:1898)": 1,
+    "Decode Scheduler [TP 6]  [PP 0]  [DP 6] (host:d38e5f95 | pid:2207)": 1,
+    "Prefill Scheduler [TP 6]  [PP 0]  [DP 6] (host:d38e5f95 | pid:2240)": 1,
+    "Prefill Scheduler [TP 5]  [PP 0]  [DP 5] (host:d38e5f95 | pid:1906)": 1,
+    "Decode Scheduler [TP 3]  [PP 0]  [DP 3] (host:d38e5f95 | pid:1339)": 1,
+    "Prefill Scheduler [TP 3]  [PP 0]  [DP 3] (host:d38e5f95 | pid:1346)": 1,
+    "Prefill Scheduler [TP 7]  [PP 0]  [DP 7] (host:d38e5f95 | pid:2587)": 1,
+    "Decode Scheduler [TP 7]  [PP 0]  [DP 7] (host:d38e5f95 | pid:2519)": 1
+  }
+}
