@@ -1,23 +1,20 @@
-# R1+R4自主实验进度
+# R1+R4夜间工作进度
 
-2026-09-24 18:29 UTC：作业31719已于18:20:10获得n04-33(P=10.235.192.139)、n05-21(D=10.235.192.138)，qos=batch，两节点独占，4小时，排除n04-29。
+更新：2026-09-24 20:58 UTC。作业31719等待重新分配，最早21:30 UTC；qos=batch，两节点独占，继续排除HIP异常n04-29，临时排除显存未释放的n04-33。当前没有本轮模型服务运行。持续监测资源和高优先级任务。
 
-n05-21残留ATOM服务与已取消作业31718的训练容器。Slurm确认只有本用户31719仍在该节点，已按已分配节点清理授权停止5个确切容器，保留inspect与stop记录。两节点GPU空闲后继续；无GPU驱动重启。D镜像从P复制，ID与历史基线相同。
+| 工作 | 结果 |
+|---|---|
+| R1+R4离线复核 | 完成；276项默认并行测试通过，增加组合生命周期测试并隔离日志过滤单测的并发干扰；生产算法未改 |
+| 无HiCache短时smoke | 完成，约10分35秒；80/80 C80功能请求、24/24 AIPerf请求通过；146个P决策符合R4最小评分，46次与原策略不同；R1完成释放实际触发 |
+| 3条预热空内容错误排查 | 在同镜像实机复现单独<think>生成后HTTP200/usage=1但正文为空；同版本AIPerf解析为None。历史3条具体token未保存，不能逐条直接归因 |
+| 正式性能测试 | 未完成；3次尝试均在warmup期间被Slurm抢占，没有有效profiling窗口，不给出R1+R4吞吐结论 |
+| 后续 | 等待更合适的运行窗口；不重复完整smoke，不重跑A0/G0基线，只恢复同配置正式实验 |
 
-R1+R4无HiCache smoke于18:26:54开始模型启动。两端初始化中。smoke和正式AIPerf依赖环境均已提前准备完成。正式仍C80/4K、P HiCache开、R2/R3关，对比历史A0/G0，不补跑基线。
+正式配置：C80，P/D有效chunk均4K，P HiCache开，R1=completion，R4=on，R2/R3=off，884条预热、3600秒窗口；镜像与二进制沿用已验证版本。
 
-276项离线测试通过。已复现单独<think>在glm45 parser变为空正文/空reasoning；实际镜像parser与固定上游源码SHA256一致。仍无法追溯旧3条具体token，待smoke原始响应对照。
+- [离线复核与配置](REVIEW.zh-CN.md)
+- [smoke与原始响应复现](smoke-results/REPORT.zh-CN.md)
+- [执行历史与抢占记录](HISTORY.zh-CN.md)
+- [机器可读当前状态](CURRENT.json)
 
-运行目录：/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924。最新状态以该目录runs/r1r4-31719-smoke/STATUS为准。
-
-18:50:30 UTC：31719收到抢占通知，EndTime改为18:55:30。正式预热18:49:54才开始，未进入profiling。watchdog停止客户端、D和辅助服务；P停止调用返回未收到exit event错误，后续释放尚未核实。集群PreemptMode=REQUEUE，将继续监控原job自动重排，不重复申请。已通过的无HiCache smoke保留，下一次直接重启正式配置与常规连通性检查，不重跑完整smoke。
-
-18:56 UTC：Slurm已自动REQUEUE，Restarts=1，PENDING(BeginTime)。保持单一申请31719，准备performance-attempt2独立结果目录。
-
-19:10:40 UTC：31719重新分配相同两节点，Restarts=1。P上一轮容器确认18:51:04退出，但显存至19:19:31才全部释放；新尝试19:19:33开始模型启动。CONFIG=performance-attempt2.sh，独立RUN/prefix。客户端准备复用缓存，完整smoke不重跑。基线镜像已归档共享目录，身份见review/baseline-image-identity.json。
-
-19:41:00 UTC：第二次分配在30分钟保护期结束后再次被dcgpu-test训练任务抢占。仍处于首批primer预热，未进入profiling。job31723明确要求包含当前两节点的8节点集合；normal 31720/31721也排在同一8节点集合。下一次在显存空闲后再人工核对高优先级计划窗口，确认有合理完成机会才启动HiCache；不提前把自动模型启动挂在显存等待后面。保持batch和排除n04-29，不通过提高qos绕过要求。
-
-20:02:43 UTC：第三次获得相同两节点，未启动模型。P残留VRAM约96%，D空闲。20:08:45出现新的dcgpu-test作业31724，明确要求相同8节点。虽然预测StartTime显示本job四小时结束时，但前两次该预测没有反映30分钟后触发的抢占。决定不在已知高度可能短窗口内重新开启HiCache；待显存清理并观察资源竞争，必要时重排本job。第三次性能目录只有准备信息，不能记录为第三次已运行实验。
-
-20:13:01 UTC：第三次分配未启动模型。因n04-33退出后仍约96%VRAM占用，主动requeue本job并临时增加排除n04-33；原HIP节点n04-29继续排除。Restarts=3包含这次主动重排，实际正式实验启动次数仍为2，均被抢占于warmup。
+完整运行目录：`/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924`。`events/queue-monitor.jsonl`、`events/scheduling-plans.jsonl`保存周期性监测；大文件、原始日志和镜像归档留在共享目录。

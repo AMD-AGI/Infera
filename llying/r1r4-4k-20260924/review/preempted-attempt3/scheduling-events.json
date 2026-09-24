@@ -1,0 +1,46 @@
+[
+  {
+    "JobId": "31719",
+    "JobState": "RUNNING",
+    "QOS": "batch",
+    "SubmitTime": "2026-09-24T20:13:13",
+    "StartTime": "2026-09-24T20:20:57",
+    "EndTime": "2026-09-24T20:56:01",
+    "PreemptTime": "2026-09-24T20:51:01",
+    "ReqNodeList": "(null)",
+    "NodeList": "smci355-ccs-aus-n01-33,smci355-ccs-aus-n02-21"
+  },
+  {
+    "JobId": "31729",
+    "JobState": "PENDING",
+    "QOS": "batch",
+    "SubmitTime": "2026-09-24T20:40:19",
+    "StartTime": "Unknown",
+    "EndTime": "Unknown",
+    "PreemptTime": null,
+    "ReqNodeList": "(null)",
+    "NodeList": null
+  },
+  {
+    "JobId": "31730",
+    "JobState": "COMPLETED",
+    "QOS": "batch",
+    "SubmitTime": "2026-09-24T20:38:01",
+    "StartTime": "2026-09-24T20:39:05",
+    "EndTime": "2026-09-24T20:51:40",
+    "PreemptTime": "None",
+    "ReqNodeList": "(null)",
+    "NodeList": "smci355-ccs-aus-n04-33,smci355-ccs-aus-n05-21"
+  },
+  {
+    "JobId": "31733",
+    "JobState": "PENDING",
+    "QOS": "dcgpu-test",
+    "SubmitTime": "2026-09-24T20:46:35",
+    "StartTime": "2026-09-24T20:53:52",
+    "EndTime": "2026-09-25T00:53:52",
+    "PreemptTime": null,
+    "ReqNodeList": "(null)",
+    "NodeList": null
+  }
+]

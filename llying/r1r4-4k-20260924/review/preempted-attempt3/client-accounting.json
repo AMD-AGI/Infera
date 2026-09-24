@@ -1,0 +1,8 @@
+{
+  "phase": "warmup",
+  "formal_window_started": false,
+  "records": 664,
+  "successful": 74,
+  "errors": 590,
+  "first_error_utc": "2026-09-24T20:51:04.042246+00:00"
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "event": "heartbeat",
+    "passed": false,
+    "errors": [
+      "prefill: allocation not usable",
+      "decode: allocation not usable"
+    ],
+    "utc": "2026-09-24T20:51:04.541778+00:00"
+  },
+  {
+    "event": "cleanup_requested",
+    "reason": "prefill: allocation not usable; decode: allocation not usable",
+    "utc": "2026-09-24T20:51:04.542347+00:00"
+  },
+  {
+    "event": "stopped",
+    "name": "llying-r1r4-31719-performance-attempt3-decode-0",
+    "id": "cfa6ce7910d3f2f6a8e59ac701c3a1fad559da51c58f9146dad2db4386e710b0",
+    "utc": "2026-09-24T20:51:10.926065+00:00"
+  }
+]
