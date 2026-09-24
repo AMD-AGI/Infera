@@ -1,0 +1,681 @@
+{
+  "run": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/c1-fixed-host-31688",
+  "profile_window_epoch_s": [
+    1790218765.7102413,
+    1790222365.7102413
+  ],
+  "groups": {
+    "Prefill": {
+      "picks": 9796,
+      "metrics": {
+        "cache_hits": {
+          "n": 9796,
+          "mean": 1813.5612494895877,
+          "p50": 1093.0,
+          "p90": 4257.0,
+          "max": 13211.0
+        },
+        "request_blocks": {
+          "n": 9796,
+          "mean": 1906.0315434871377,
+          "p50": 1177.0,
+          "p90": 4304.0,
+          "max": 13240.0
+        },
+        "active_blocks": {
+          "n": 9796,
+          "mean": 13045.968660677827,
+          "p50": 12385.5,
+          "p90": 21574.0,
+          "max": 40792.0
+        },
+        "w_overlap": {
+          "n": 9796,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 1628,
+      "zero_block_picks": 0,
+      "sum_hits": 17765646.0,
+      "sum_request_blocks": 18671485.0
+    },
+    "Prefill/10.235.192.61:29001#dp1": {
+      "picks": 1145,
+      "metrics": {
+        "cache_hits": {
+          "n": 1145,
+          "mean": 2267.722270742358,
+          "p50": 1757.0,
+          "p90": 4334.0,
+          "max": 13211.0
+        },
+        "request_blocks": {
+          "n": 1145,
+          "mean": 2335.3449781659388,
+          "p50": 1786.0,
+          "p90": 4369.0,
+          "max": 13240.0
+        },
+        "active_blocks": {
+          "n": 1145,
+          "mean": 15162.235807860263,
+          "p50": 13652.0,
+          "p90": 28465.0,
+          "max": 37446.0
+        },
+        "w_overlap": {
+          "n": 1145,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 150,
+      "zero_block_picks": 0,
+      "sum_hits": 2596542.0,
+      "sum_request_blocks": 2673970.0
+    },
+    "Decode": {
+      "picks": 9796,
+      "metrics": {
+        "cache_hits": {
+          "n": 9796,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 9796,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 9796,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 9796,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 9796,
+      "zero_block_picks": 9796,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.133:29002#dp5": {
+      "picks": 1225,
+      "metrics": {
+        "cache_hits": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1225,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1225,
+      "zero_block_picks": 1225,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.61:29001#dp7": {
+      "picks": 1226,
+      "metrics": {
+        "cache_hits": {
+          "n": 1226,
+          "mean": 2281.2756933115825,
+          "p50": 930.0,
+          "p90": 7071.0,
+          "max": 10046.0
+        },
+        "request_blocks": {
+          "n": 1226,
+          "mean": 2376.075040783034,
+          "p50": 1041.0,
+          "p90": 7086.0,
+          "max": 10061.0
+        },
+        "active_blocks": {
+          "n": 1226,
+          "mean": 12947.591353996737,
+          "p50": 12072.5,
+          "p90": 23170.0,
+          "max": 34329.0
+        },
+        "w_overlap": {
+          "n": 1226,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 202,
+      "zero_block_picks": 0,
+      "sum_hits": 2796844.0,
+      "sum_request_blocks": 2913068.0
+    },
+    "Decode/10.235.192.133:29002#dp6": {
+      "picks": 1225,
+      "metrics": {
+        "cache_hits": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1225,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1225,
+      "zero_block_picks": 1225,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.133:29002#dp7": {
+      "picks": 1225,
+      "metrics": {
+        "cache_hits": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1225,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1225,
+      "zero_block_picks": 1225,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.61:29001#dp3": {
+      "picks": 1131,
+      "metrics": {
+        "cache_hits": {
+          "n": 1131,
+          "mean": 1781.580017683466,
+          "p50": 1253.0,
+          "p90": 3716.0,
+          "max": 9512.0
+        },
+        "request_blocks": {
+          "n": 1131,
+          "mean": 1871.5641025641025,
+          "p50": 1340.0,
+          "p90": 3834.0,
+          "max": 9554.0
+        },
+        "active_blocks": {
+          "n": 1131,
+          "mean": 12390.061892130858,
+          "p50": 11506.0,
+          "p90": 21536.0,
+          "max": 28599.0
+        },
+        "w_overlap": {
+          "n": 1131,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 144,
+      "zero_block_picks": 0,
+      "sum_hits": 2014967.0,
+      "sum_request_blocks": 2116739.0
+    },
+    "Decode/10.235.192.133:29002#dp0": {
+      "picks": 1224,
+      "metrics": {
+        "cache_hits": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1224,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1224,
+      "zero_block_picks": 1224,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.133:29002#dp1": {
+      "picks": 1224,
+      "metrics": {
+        "cache_hits": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1224,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1224,
+      "zero_block_picks": 1224,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.61:29001#dp0": {
+      "picks": 1471,
+      "metrics": {
+        "cache_hits": {
+          "n": 1471,
+          "mean": 1224.7015635622026,
+          "p50": 889.0,
+          "p90": 2854.0,
+          "max": 10422.0
+        },
+        "request_blocks": {
+          "n": 1471,
+          "mean": 1327.4908225696804,
+          "p50": 987.0,
+          "p90": 2891.0,
+          "max": 10462.0
+        },
+        "active_blocks": {
+          "n": 1471,
+          "mean": 12746.411284840246,
+          "p50": 12763.0,
+          "p90": 18416.0,
+          "max": 25562.0
+        },
+        "w_overlap": {
+          "n": 1471,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 347,
+      "zero_block_picks": 0,
+      "sum_hits": 1801536.0,
+      "sum_request_blocks": 1952739.0
+    },
+    "Decode/10.235.192.133:29002#dp2": {
+      "picks": 1224,
+      "metrics": {
+        "cache_hits": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1224,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1224,
+      "zero_block_picks": 1224,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.61:29001#dp6": {
+      "picks": 1506,
+      "metrics": {
+        "cache_hits": {
+          "n": 1506,
+          "mean": 1180.0458167330678,
+          "p50": 880.5,
+          "p90": 2960.0,
+          "max": 8780.0
+        },
+        "request_blocks": {
+          "n": 1506,
+          "mean": 1272.6706507304116,
+          "p50": 928.0,
+          "p90": 3131.0,
+          "max": 8789.0
+        },
+        "active_blocks": {
+          "n": 1506,
+          "mean": 12204.440903054448,
+          "p50": 12168.5,
+          "p90": 18578.0,
+          "max": 26601.0
+        },
+        "w_overlap": {
+          "n": 1506,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 207,
+      "zero_block_picks": 0,
+      "sum_hits": 1777149.0,
+      "sum_request_blocks": 1916642.0
+    },
+    "Decode/10.235.192.133:29002#dp3": {
+      "picks": 1224,
+      "metrics": {
+        "cache_hits": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1224,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1224,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1224,
+      "zero_block_picks": 1224,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Decode/10.235.192.133:29002#dp4": {
+      "picks": 1225,
+      "metrics": {
+        "cache_hits": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "request_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "active_blocks": {
+          "n": 1225,
+          "mean": 0.0,
+          "p50": 0.0,
+          "p90": 0.0,
+          "max": 0.0
+        },
+        "w_overlap": {
+          "n": 1225,
+          "mean": 2.0,
+          "p50": 2.0,
+          "p90": 2.0,
+          "max": 2.0
+        }
+      },
+      "zero_hit_picks": 1225,
+      "zero_block_picks": 1225,
+      "sum_hits": 0.0,
+      "sum_request_blocks": 0.0
+    },
+    "Prefill/10.235.192.61:29001#dp4": {
+      "picks": 1367,
+      "metrics": {
+        "cache_hits": {
+          "n": 1367,
+          "mean": 1318.7461594732993,
+          "p50": 810.0,
+          "p90": 2527.0,
+          "max": 11469.0
+        },
+        "request_blocks": {
+          "n": 1367,
+          "mean": 1410.1053401609363,
+          "p50": 897.0,
+          "p90": 2622.0,
+          "max": 11503.0
+        },
+        "active_blocks": {
+          "n": 1367,
+          "mean": 11768.809802487198,
+          "p50": 10799.0,
+          "p90": 18901.0,
+          "max": 29690.0
+        },
+        "w_overlap": {
+          "n": 1367,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 286,
+      "zero_block_picks": 0,
+      "sum_hits": 1802726.0,
+      "sum_request_blocks": 1927614.0
+    },
+    "Prefill/10.235.192.61:29001#dp5": {
+      "picks": 822,
+      "metrics": {
+        "cache_hits": {
+          "n": 822,
+          "mean": 3340.1715328467153,
+          "p50": 2752.0,
+          "p90": 8215.0,
+          "max": 10611.0
+        },
+        "request_blocks": {
+          "n": 822,
+          "mean": 3458.1496350364964,
+          "p50": 2848.5,
+          "p90": 8452.0,
+          "max": 10613.0
+        },
+        "active_blocks": {
+          "n": 822,
+          "mean": 14123.772506082725,
+          "p50": 14268.0,
+          "p90": 24441.0,
+          "max": 40792.0
+        },
+        "w_overlap": {
+          "n": 822,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 109,
+      "zero_block_picks": 0,
+      "sum_hits": 2745621.0,
+      "sum_request_blocks": 2842599.0
+    },
+    "Prefill/10.235.192.61:29001#dp2": {
+      "picks": 1128,
+      "metrics": {
+        "cache_hits": {
+          "n": 1128,
+          "mean": 1977.1817375886526,
+          "p50": 1234.0,
+          "p90": 3927.0,
+          "max": 12162.0
+        },
+        "request_blocks": {
+          "n": 1128,
+          "mean": 2063.93085106383,
+          "p50": 1317.0,
+          "p90": 3949.0,
+          "max": 12184.0
+        },
+        "active_blocks": {
+          "n": 1128,
+          "mean": 13938.899822695035,
+          "p50": 13367.5,
+          "p90": 24625.0,
+          "max": 34656.0
+        },
+        "w_overlap": {
+          "n": 1128,
+          "mean": 20.0,
+          "p50": 20.0,
+          "p90": 20.0,
+          "max": 20.0
+        }
+      },
+      "zero_hit_picks": 183,
+      "zero_block_picks": 0,
+      "sum_hits": 2230261.0,
+      "sum_request_blocks": 2328114.0
+    }
+  },
+  "limitations": [
+    "Pick window includes dispatched requests that may finish after the window; it is not the completed-request cohort.",
+    "Only chosen-rank active blocks are logged, before on_request_started; this is not the sum of all ranks or per-request held block-time.",
+    "Router hit estimates are not measured GPU/host cache hits.",
+    "Winner-only observations cannot reconstruct scores for alternative ranks or establish a routing counterfactual."
+  ]
+}

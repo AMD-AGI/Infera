@@ -1,0 +1,313 @@
+{
+  "commit": "ff3ac59e83c73e03b98a5d0ec192ec28847130f7",
+  "source_root": "/perf_apps/liyingli/bench_agentx/dynamo-source-ff3ac59e",
+  "scope": "Static source audit; no backend or GPU execution",
+  "sources": [
+    {
+      "id": "S01",
+      "topic": "生产默认评分",
+      "path": "lib/router-plugins/builtin/src/default/scorer.rs",
+      "line": 135,
+      "lines": 281,
+      "sha256": "a851811a35521a50ee2ef5702f637a524fdca3d77f627076206109f515b2eec3",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default/scorer.rs#L135"
+    },
+    {
+      "id": "S02",
+      "topic": "生产 picker 与策略装配",
+      "path": "lib/router-plugins/builtin/src/default/picker.rs",
+      "line": 95,
+      "lines": 163,
+      "sha256": "23c524d58eaa550497a0e8384fd2c441aef3584d8cb8f8a1e2dc37f1d7af21ab",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default/picker.rs#L95"
+    },
+    {
+      "id": "S03",
+      "topic": "配置、默认值与非共享 tracking",
+      "path": "lib/kv-router/src/scheduling/config.rs",
+      "line": 950,
+      "lines": 2639,
+      "sha256": "f068d3141266aad81746c4a7bf65af5d91b5f42768c6779ed8afa33f4c0dae0d",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/config.rs#L950"
+    },
+    {
+      "id": "S04",
+      "topic": "请求相关 block 负载投影",
+      "path": "lib/kv-router/src/sequences/prompt_registry.rs",
+      "line": 23,
+      "lines": 664,
+      "sha256": "5ebdd0955116a7b57aa7ddea185f3ee521f835cd7823e3015d9f6a8b1a2e7a7e",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/sequences/prompt_registry.rs#L23"
+    },
+    {
+      "id": "S05",
+      "topic": "Router actor 派单、booking 与回滚",
+      "path": "lib/kv-router/src/scheduling/queue.rs",
+      "line": 1606,
+      "lines": 4770,
+      "sha256": "6cfeaf8fd2fe7baaf2a5b09489a45ebc950b11b86467ae74d39d91714c8540b7",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/queue.rs#L1606"
+    },
+    {
+      "id": "S06",
+      "topic": "请求 guard 的 Prefill 完成与清理",
+      "path": "lib/llm/src/kv_router/routing_host/request_guard.rs",
+      "line": 730,
+      "lines": 1111,
+      "sha256": "e0497261d4be22f9f6bb349dbc36d158acd93173171671ca0ddc430b0c3dce18",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/routing_host/request_guard.rs#L730"
+    },
+    {
+      "id": "S07",
+      "topic": "Prefill 独立池 active tracking 配置",
+      "path": "lib/llm/src/kv_router/prefill_router/activation.rs",
+      "line": 330,
+      "lines": 1040,
+      "sha256": "246b71d08679743d6804d05dce5d05b0fbe787e6da2f160be437449ee6f4027d",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/activation.rs#L330"
+    },
+    {
+      "id": "S08",
+      "topic": "Prefill 负载随时间推进",
+      "path": "lib/kv-router/src/sequences/prefill_tracker.rs",
+      "line": 16,
+      "lines": 810,
+      "sha256": "04bcb77e555fa965b24bc51ac4c1dbc7a5a8b87ab343afbcb607059f2af543b7",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/sequences/prefill_tracker.rs#L16"
+    },
+    {
+      "id": "S09",
+      "topic": "P/D 主编排及 Decode override",
+      "path": "lib/llm/src/kv_router/prefill_router/mod.rs",
+      "line": 400,
+      "lines": 1210,
+      "sha256": "a906e95830a2ff41a0d4f0f9f376139e5d766ac85300ae9a50aad520d3e33a66",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/mod.rs#L400"
+    },
+    {
+      "id": "S10",
+      "topic": "SGLang P bootstrap 与后台消费",
+      "path": "components/src/dynamo/sglang/request_handlers/llm/prefill_handler.py",
+      "line": 130,
+      "lines": 290,
+      "sha256": "649e864f8a2f3846627c9faca9ad4087419dc6ac2a3def573df3a73a9ed0f72e",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/request_handlers/llm/prefill_handler.py#L130"
+    },
+    {
+      "id": "S11",
+      "topic": "并发 handoff、失败与终结保护",
+      "path": "lib/llm/src/kv_router/prefill_router/handoff.rs",
+      "line": 19,
+      "lines": 344,
+      "sha256": "ec20e774411cd2e5c7608a944bd0ee9d834a0fc8a8cf80c6605f6794011f6362",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/handoff.rs#L19"
+    },
+    {
+      "id": "S12",
+      "topic": "vLLM P/D handler",
+      "path": "components/src/dynamo/vllm/handlers.py",
+      "line": 3985,
+      "lines": 4623,
+      "sha256": "fb71ca1953fd139667e2e1660251f28356c81077c98b2d95495a25e945426043",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/vllm/handlers.py#L3985"
+    },
+    {
+      "id": "S13",
+      "topic": "vLLM 各 connector 协议",
+      "path": "components/src/dynamo/vllm/kv_connector_protocols.py",
+      "line": 43,
+      "lines": 288,
+      "sha256": "dc0b41be66d2ac3a926d6e34fc8e731fcb49397c2d366144267dc2c22c4e1424",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/vllm/kv_connector_protocols.py#L43"
+    },
+    {
+      "id": "S14",
+      "topic": "TRT-LLM context/generation 参数",
+      "path": "components/src/dynamo/trtllm/request_handlers/handler_base.py",
+      "line": 565,
+      "lines": 1667,
+      "sha256": "543cb036d18b8203efd3dffaf927acdf6a8591bafb58b04202d96189901c0c67",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/trtllm/request_handlers/handler_base.py#L565"
+    },
+    {
+      "id": "S15",
+      "topic": "SGLang 按 DP rank 发布 KV 事件",
+      "path": "components/src/dynamo/sglang/publisher.py",
+      "line": 354,
+      "lines": 673,
+      "sha256": "95cc96bda7d9886e5e37ff8cd0e62d7cccbcc7ef1a8c5cd618a8f883080623f5",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/publisher.py#L354"
+    },
+    {
+      "id": "S16",
+      "topic": "KV publisher 的事件与缺口",
+      "path": "lib/llm/src/kv_router/publisher/event_processor.rs",
+      "line": 48,
+      "lines": 205,
+      "sha256": "c81591d118e646fa0b8d43c358dd39f71f10ec8ebf95c34bf625b281e612fc1a",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/publisher/event_processor.rs#L48"
+    },
+    {
+      "id": "S17",
+      "topic": "Planner 模式与数据来源声明",
+      "path": "components/src/dynamo/planner/README.md",
+      "line": 20,
+      "lines": 57,
+      "sha256": "02ccae71d4e04dea522c6c949cd536428ab93a838b129919b9064909ad646009",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/planner/README.md#L20"
+    },
+    {
+      "id": "S18",
+      "topic": "分层连续前缀查询",
+      "path": "lib/kv-router/src/indexer/lower_tier_indexers.rs",
+      "line": 273,
+      "lines": 684,
+      "sha256": "2a29c24165638ee060ab3463cd2b7df6fb11c334dcdd6a7680bb053ed9f7d8cc",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/indexer/lower_tier_indexers.rs#L273"
+    },
+    {
+      "id": "S19",
+      "topic": "路由 class queue 门限",
+      "path": "lib/kv-router/src/scheduling/policy_config.rs",
+      "line": 39,
+      "lines": 1143,
+      "sha256": "9d50d91b1fb2d7b8e9ca5ce8da459d6385eea9c1433fa66bcbdd1a15426944df",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/policy_config.rs#L39"
+    },
+    {
+      "id": "S20",
+      "topic": "逐后端分层缓存支持声明",
+      "path": "docs/fern/pages/developer-guide/knowledge-base/modular-components/router/offloading-support-matrix.md",
+      "line": 8,
+      "lines": 152,
+      "sha256": "9443c39b6aa295763b187b12a918b4f5090cc8a0d3e2a1f5a88891543f332747",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/developer-guide/knowledge-base/modular-components/router/offloading-support-matrix.md#L8"
+    },
+    {
+      "id": "S21",
+      "topic": "缓存事件源与恢复状态",
+      "path": "lib/llm/src/kv_router/indexer/recovery/worker_query.rs",
+      "line": 25,
+      "lines": 3641,
+      "sha256": "91096729c839915fe006defe5c7b2e61941a9130dd923aa9e0f09b355d50a0f1",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/indexer/recovery/worker_query.rs#L25"
+    },
+    {
+      "id": "S22",
+      "topic": "近似主索引与 predict-on-route 侧索引",
+      "path": "lib/llm/src/kv_router/indexer/mod.rs",
+      "line": 85,
+      "lines": 320,
+      "sha256": "11ed914cf4f2466e75d32d0c82c3bbda7db69d9b20c01e372a1a420a5b7f10aa",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/indexer/mod.rs#L85"
+    },
+    {
+      "id": "S23",
+      "topic": "KVBM 分层与传输配置声明",
+      "path": "docs/fern/pages/reference/components/kvbm-configuration.mdx",
+      "line": 10,
+      "lines": 259,
+      "sha256": "1f4e5ee1ec54f86702df57a110e5ddbea6620db7202a2b00cef09d33d5be411a",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/reference/components/kvbm-configuration.mdx#L10"
+    },
+    {
+      "id": "S24",
+      "topic": "Planner P/D 决策与缩容检查",
+      "path": "components/src/dynamo/planner/core/load_scaling.py",
+      "line": 129,
+      "lines": 1129,
+      "sha256": "38c02dce87f04655db1549ee0674a29828ff592d5938ed1686bee495f54e65ab",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/planner/core/load_scaling.py#L129"
+    },
+    {
+      "id": "S25",
+      "topic": "标准容器 device 选项",
+      "path": "container/render.py",
+      "line": 68,
+      "lines": 384,
+      "sha256": "d64f3d26a31332bdf13bf925e83390665bd49fd2486cb298f3dbb9d38aba1b32",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/container/render.py#L68"
+    },
+    {
+      "id": "S26",
+      "topic": "SGLang D handler",
+      "path": "components/src/dynamo/sglang/request_handlers/llm/decode_handler.py",
+      "line": 683,
+      "lines": 1172,
+      "sha256": "c79f93aebda4bd5b832b97216a54a692d29b21f6f4004f57d11e8d526e865714",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/request_handlers/llm/decode_handler.py#L683"
+    },
+    {
+      "id": "S27",
+      "topic": "bootstrap/非 bootstrap 分支消费",
+      "path": "lib/llm/src/kv_router/prefill_router/admission.rs",
+      "line": 48,
+      "lines": 425,
+      "sha256": "07ba715b1655185574672a63e221762630c9b92262975f48be1e97cac8d0adcc",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/admission.rs#L48"
+    },
+    {
+      "id": "S28",
+      "topic": "KV 事件 medium/locality 过滤",
+      "path": "lib/kv-router/src/zmq_wire/mod.rs",
+      "line": 164,
+      "lines": 390,
+      "sha256": "fb3d130c3550dcbec7560ffa1c6b1ad29afe9ad7c0f3c2b36167aba6b713979e",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/zmq_wire/mod.rs#L164"
+    },
+    {
+      "id": "S29",
+      "topic": "引擎版本及硬件组合声明",
+      "path": "docs/fern/pages/reference/general/compatibility.mdx",
+      "line": 169,
+      "lines": 372,
+      "sha256": "b4357bb753d315a7464eb9d2a78ba87d454522bd43dfb9c714dab477946767c3",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/reference/general/compatibility.mdx#L169"
+    },
+    {
+      "id": "S30",
+      "topic": "KVBM vLLM connector",
+      "path": "lib/bindings/kvbm/python/kvbm/vllm_integration/connector/pd_connector.py",
+      "line": 1,
+      "lines": 203,
+      "sha256": "7625ddedaaea0923a79caca5c1930f461caee0a8f4895d0c7cedbbbcf7c4857c",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/bindings/kvbm/python/kvbm/vllm_integration/connector/pd_connector.py#L1"
+    },
+    {
+      "id": "S31",
+      "topic": "KVBM TRT-LLM connector",
+      "path": "lib/bindings/kvbm/python/kvbm/trtllm_integration/connector/kvbm_connector_leader.py",
+      "line": 1,
+      "lines": 227,
+      "sha256": "8582778908f556af0593c96baf82f0f7d0979f961215e29f2e1a063ca222931d",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/bindings/kvbm/python/kvbm/trtllm_integration/connector/kvbm_connector_leader.py#L1"
+    },
+    {
+      "id": "S32",
+      "topic": "生产默认策略角色装配",
+      "path": "lib/router-plugins/builtin/src/default.rs",
+      "line": 45,
+      "lines": 63,
+      "sha256": "9c06b04247260e51b10e3ac42da0b290f48dc3df94a3e0545c52f31fa06519e6",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default.rs#L45"
+    },
+    {
+      "id": "S33",
+      "topic": "Prefill 预测器接口",
+      "path": "lib/kv-router/src/scheduling/prefill_load.rs",
+      "line": 7,
+      "lines": 63,
+      "sha256": "cadd74424205c760498bbd2917537ef89d50952bb8d9c3909f04706eab56dc18",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/prefill_load.rs#L7"
+    },
+    {
+      "id": "S34",
+      "topic": "分 class 队列调度",
+      "path": "lib/kv-router/src/scheduling/policy_queue.rs",
+      "line": 1,
+      "lines": 2187,
+      "sha256": "ed43f8aaba1929b5e44e42318099293a93305e7eb3b3035b38ff854ff66a4e5d",
+      "url": "https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/policy_queue.rs#L1"
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "A0 vs G0": {
+    "common_consecutive_pairs": 7824,
+    "length_matched_pairs": 7116,
+    "switch_rates": {
+      "A0": 0.1427768409218662,
+      "G0": 0.10272625070264194
+    },
+    "selection": "Both endpoints match trace identity, output length, input within 8 tokens and 0.1%; completed-request intersection only."
+  },
+  "A0 vs C1": {
+    "common_consecutive_pairs": 7729,
+    "length_matched_pairs": 6850,
+    "switch_rates": {
+      "A0": 0.14014598540145987,
+      "C1": 0.1375182481751825
+    },
+    "selection": "Both endpoints match trace identity, output length, input within 8 tokens and 0.1%; completed-request intersection only."
+  },
+  "A0 vs C1G1": {
+    "common_consecutive_pairs": 7826,
+    "length_matched_pairs": 6973,
+    "switch_rates": {
+      "A0": 0.13896457765667575,
+      "C1G1": 0.098953104832927
+    },
+    "selection": "Both endpoints match trace identity, output length, input within 8 tokens and 0.1%; completed-request intersection only."
+  },
+  "G0 vs C1": {
+    "common_consecutive_pairs": 7883,
+    "length_matched_pairs": 7195,
+    "switch_rates": {
+      "G0": 0.10229325920778318,
+      "C1": 0.13648366921473246
+    },
+    "selection": "Both endpoints match trace identity, output length, input within 8 tokens and 0.1%; completed-request intersection only."
+  },
+  "G0 vs C1G1": {
+    "common_consecutive_pairs": 8115,
+    "length_matched_pairs": 7455,
+    "switch_rates": {
+      "G0": 0.10020120724346077,
+      "C1G1": 0.09926224010731052
+    },
+    "selection": "Both endpoints match trace identity, output length, input within 8 tokens and 0.1%; completed-request intersection only."
+  },
+  "C1 vs C1G1": {
+    "common_consecutive_pairs": 7888,
+    "length_matched_pairs": 7047,
+    "switch_rates": {
+      "C1": 0.13480913864055627,
+      "C1G1": 0.0986235277423017
+    },
+    "selection": "Both endpoints match trace identity, output length, input within 8 tokens and 0.1%; completed-request intersection only."
+  }
+}

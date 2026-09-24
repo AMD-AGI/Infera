@@ -2,9 +2,11 @@
 
 日期：2026-09-23。
 
-**状态：本地证据分析与 debug／验证方案已完成；Dynamo 当前版本的在线源码取证受阻，本文是待补充源码核验的调研初稿，不是已完成的 Dynamo 实现审计。**
+**状态：已完成固定 Dynamo commit 的路由、P/D 编排、缓存事件与分层索引、Planner 源码核验，并更新与当前 C80/C112 系统的对照。** 本文是源码研究与实验方案，不是 Dynamo 部署性能验收。
 
-本次访问 GitHub 时，默认沙箱报 DNS 解析失败；申请下载公开仓库的网络权限时，自动审批服务因 `codex-auto-review` 部署不存在而失败，下载未执行。没有绕过审批，也没有取得 Dynamo commit。因此下文严格区分“Dynamo 架构背景／待核实问题”“本次已验证事实”和“为当前系统提出的设计”。不编造 Dynamo 的公式、参数默认值、版本支持或性能数据。
+源码版本：`ff3ac59e83c73e03b98a5d0ec192ec28847130f7`（2026-09-23，开发分支快照），本地目录 `/perf_apps/liyingli/bench_agentx/dynamo-source-ff3ac59e`。所有 `[Sxx]` 引用指向该 commit，不能直接视为某个已发布版本的行为。源码文件 SHA256 与核验范围见 [取证清单](dynamo-source-audit-manifest.json)。旧下载问题已解除，历史见 [恢复记录](SESSION-RECOVERY-20260923.zh-CN.md)。
+
+本文区分三种证据：Dynamo 本仓库的**代码事实**、随该 commit 保存的**支持文档声明**、当前 Infera 实验的**运行证据**。后端引擎和传输库不是本次固定仓库中的完整实现；涉及它们的物理分配、kernel 和传输释放细节，不以 Python 适配层推测代替端到端验证。
 
 相关资料：
 
@@ -16,14 +18,14 @@
 ## 目录
 
 1. [核心判断与建议顺序](#conclusion)
-2. [Dynamo 应如何分层理解](#dynamo)
-3. [本次系统与 Dynamo 调研的对照](#comparison)
+2. [Dynamo 的实际调度与缓存机制](#dynamo)
+3. [当前系统对照及采用建议](#comparison)
 4. [新增实验数据审计](#data)
 5. [先把长尾 miss 分成六类](#miss)
 6. [最小 debug 数据闭环](#debug)
 7. [可实施的调度与 cache 联合方案](#solutions)
 8. [验证矩阵与收益判据](#experiments)
-9. [源码取证清单与剩余工作](#sources)
+9. [源码证据与剩余实验](#sources)
 
 <a id="conclusion"></a>
 ## 1. 核心判断与建议顺序
@@ -50,76 +52,254 @@
 本地已有 8K 实验：长 miss 组 chunk 数由 18.80 降至 10.15，但未观察到总体吞吐收益。Prefill 节点不同，不能把差异全部归因于 chunk；这至少说明“轮数减少必然提速”不成立，不应把尚未执行的 4K→8K 当作唯一首选下一步。
 
 <a id="dynamo"></a>
-## 2. Dynamo 应如何分层理解
+## 2. Dynamo 的实际调度与缓存机制
 
-### 2.1 架构背景与当前核验边界
+本节阅读入口： [P 评分](#p-score) · [P 负载生命周期](#p-lifecycle) · [Router 准入](#router-admission) · [D 评分](#d-score) · [SGLang 时序](#sglang-flow) · [其他后端](#backend-flows) · [分层缓存](#tier-cache) · [一致性与 KVBM](#cache-boundaries) · [Planner](#planner)
 
-Dynamo 的公开架构背景涉及分布式推理编排、KV-aware routing、P/D 解耦、KV 传输及资源规划。其生态还涉及 NIXL 和分层 KV 管理。这些名称可用来组织调研，但**本次未读取其当前官方文档或源码，不能据此断言每个后端、版本或部署方式都同时具备并默认开启这些能力**。
+### 2.1 先分清三个调度层
 
-Dynamo 并非一个单独决定所有 GPU batch 的调度器。调查时至少要分开以下层次：
+Dynamo 决定请求交给哪个 worker/DP rank、是否先在 Router 等待，以及怎样编排远端 Prefill；SGLang、vLLM、TensorRT-LLM 决定本地 KV 能否分配和下一轮 GPU batch。Planner 决定实例数。这三个层次的 admission 含义不同。
 
-| 层次 | 决定的问题 | 必须查证的具体内容 |
+| 层次 | 本版本实际职责 | 与当前问题的关系 |
 |---|---|---|
-| 请求路由 | 请求交给哪个 worker／rank | 候选粒度、prefix overlap、活动负载、反馈来源、实际 cost、tie-break |
-| P/D 编排 | 请求何时进入 P 或 D，谁触发远端 Prefill | P-first／D-first／其他路径、bootstrap、异步队列、取消与失败处理 |
-| 引擎 batch 调度 | 下一轮运行哪些请求、多少 token | 具体后端的 chunk、预算、抢占、decode 优先级；不能仅看 Dynamo router |
-| KV 位置与生命周期 | KV 在 GPU、host 或其他层，何时保留／回读／驱逐 | 分层索引、锁、可用性、事件、逐后端支持 |
-| KV 传输 | 如何将可用数据送到目标 | NIXL 或后端 connector 的提交、完成、同步、传输拓扑与成本 |
-| 资源规划 | 给 P、D 分配多少 worker／副本 | 扩缩容周期、服务目标、负载预测、缓存冷启动成本 |
+| Router 选目标与排队 | 根据缓存和逻辑负载选择 worker+DP rank；可配置路由等待队列；派单前登记 booking | 少派到缺缓存或积压严重的目标；可把一部分等待留在引擎之外 |
+| 后端本地 admission/batch | 适配层调用引擎；槽位、物理 KV、chunk 与 batch 由引擎控制 | Router booking 不保证 D 立刻能接收 KV，也不改变 SGLang chunk 续跑规则 |
+| Planner | 根据流量模型或 ForwardPassMetrics 调整 P/D 实例数量 | 固定 P8D8 的单次 rank 优化不能靠扩副本策略替代 |
 
-固定 P8D8 场景下，最相关的是前五层。增加实例的 Planner 策略不能直接替代单请求 miss 和 rank 调度优化。
+生产默认评分在 `lib/router-plugins/builtin/src/default/scorer.rs`，并非文件名看似对应的 `selector/reference.rs`；后者用于测试/benchmark 对照。以下公式以生产插件为准。[S01][S02][S05][S17][S32]
 
-### 2.2 Prefill 调度要问什么
+<a id="p-score"></a>
+### 2.2 P rank 怎样选：当前请求成本与已派工作一起算
 
-对 KV-aware router，不能只确认“支持 cache-aware”，需要核实：
+忽略 taint、显式 pin、会话绑定和自定义插件，默认评分可写为：
 
-1. 命中来源是真实 KV 事件、历史请求推断，还是两者结合？
-2. 匹配粒度是整 worker、DP rank，还是具体 cache partition？
-3. 只看到 GPU KV，还是也能看到 host 等慢层？不同层命中是否赋予不同成本？
-4. 已在计算但尚未就绪的前缀，会不会被当成命中？如何等待并处理生产者失败？
-5. 负载是请求数、输入 tokens、剩余 miss、运行 token 量，还是预计完成时间？
-6. P 工作完成后何时从负载中扣除，是否一直等到 D 输出结束？
-7. 选中目标后，后端 admission 失败会留队、重试还是改路由？
+```text
+b = KV block 的 token 数
+I = 当前请求完整输入 tokens
+A(r) = Router 估算的该 rank 尚未完成的有效 Prefill tokens
+G(r), H(r), K(r) = GPU、host、disk 的分层连续前缀命中 blocks
+S(r) = shared pool 中超出 GPU 前缀范围的命中 blocks
 
-这些问题直接对应当前系统已发现的风险。**本文不将 `-overlap_weight × hits + active + recent` 宣称为 Dynamo 的公式；它是当前 Infera 仓库里的公式。**
+credit(r) = c_eff(r) × G(r) + h × H(r) + k × K(r) + s × S(r)
 
-### 2.3 Decode 调度要问什么
+cost(r) = a × max((A(r) + I) / b - credit(r), 0)
+        + projected_decode_blocks(r)
+        + q × active_requests(r)
+```
 
-Decode 必须区分“路由到哪个 D”与“所选 D 当前是否能分配输入 KV”。即使 Dynamo 有更多遥测，也不能用一个路由评分替代后端实际分配检查。
+这是有负载快照、开启 Prefill tracking 的常见路径。无负载快照时 prompt 项用 `I/b`；关闭 Prefill tracking 后 raw prompt 项为零。`projected_decode_blocks` 是 active block 的请求相关投影，不是 allocator free/used gauge；Prefill 独立池关闭 active decode-block tracking，避免重复计入 D 成本。[S01][S04][S07]
 
-要查证的内容包括：
+普通默认参数为 `c=1, a=1, h=0.75, k=0.25, q=0`；shared multiplier 的 Rust 配置默认值为 **0**。共享缓存文档中示例使用 `0.5`，不能将它当作 Rust 默认开启值。GPU credit 的负载衰减默认关闭；queue threshold 默认未设置；这些能力需要分别启用。[S03]
 
-- 是否按已分配 KV、待分配输入需求、活动请求数、输出增长估计做负载判断。
-- D 不复用 prefix 时是否禁用无实际收益的 cache overlap，或自动退回其他策略。
-- 完整输入 KV 何时预分配；等待 P 的请求计入何种负载与容量指标。
-- 是否有跨 P/D 的 admission credit 或限流；适用于哪些 connector／backend。
-- 请求分配后能否安全改选 D；哪些阶段已有接收地址或进行中的写入，不能直接改目标。
+在仅 GPU 缓存、普通独立 P 池、上述默认参数下，式子近似为：
 
-**不能仅因 Dynamo 支持 disaggregation，就认定它已经解决“D 提前占满输入 KV 等 P”的问题。** 需要沿真实请求路径核查。
+```text
+cost_P(r) ≈ (该 rank 已派未完成的有效 Prefill tokens
+             + 当前请求需重新计算的 tokens) / block_size
+```
 
-### 2.4 分层 KV 管理与传输能解决什么
+因此它同时考虑“当前请求送过去要算多少”和“前面已经派了多少工作”。它不是当前 Infera 的 `-20×hits + distinct_active + recent`，也没有同义的 recent 按派单次数乘 0.97 项。
 
-分层 KV 管理的目标通常是扩大可复用工作集、管理 GPU 与较慢介质之间的数据移动；传输组件负责数据可达与搬运。它们的价值取决于重用时间、传输成本和正确性，而非层数越多越好。
+举例，block size=64，输入=64K，A rank GPU hit=48K、有效 backlog=32K，B rank GPU hit=32K、backlog=8K：
 
-需核实的边界：缓存目录知道 host 有数据，不代表 router 会把它计入命中；传输库能搬数据，不代表系统会自动从任意其他 P rank 拉取前缀；支持某种后端，不代表支持本次 attention DP=8 和 Unified Radix 的实际 layout。
+| 候选 | 新请求 miss | backlog + miss | 默认 P cost |
+|---|---:|---:|---:|
+| A | 16K | 48K | 768 |
+| B | 32K | 40K | 640 |
 
-NVIDIA 环境的结果也不能直接当成当前 AMD／ionic／Mooncake 环境的预测。可以借鉴路由、记账和协议设计；组件替换必须单独验证 accelerator、内存注册、KV layout 与后端集成。
+此时选 B，虽然它命中少。如果 A backlog 降到 8K，则 A 的 cost=384，应选 A。**命中更高仍可能输给等待成本，但等待成本目前主要用 token 负载代理，而非逐请求真实完成时间。** 不同 context、batch、DP 同步与 AMD kernel 的成本差异，仍需本地校准。
+
+当开启 `overlap_score_credit_decay=d>0` 时，GPU 加分变为：
+
+```text
+excess(r) = max(A(r) - min_eligible A, 0) / b
+c_eff(r) = c / (1 + d × excess(r) / request_blocks)
+```
+
+它降低相对积压 rank 的 GPU 缓存吸引力；host/disk/shared credit 不随这一项衰减。把 credit 调到大于 1 可以强化缓存亲和，但 prompt cost 会被截断到零；多个候选都变零时，继续增大 credit 未必还能区分它们。[S01]
+
+最终默认 temperature=0 时取最小 cost，同分随机打破；temperature>0 使用按候选成本范围归一化的 softmax 抽样。显式目标、eligibility、会话 affinity 和插件可能先改变候选集合，故不能仅凭公式重现所有 pick。[S02][S05]
+
+<a id="p-lifecycle"></a>
+### 2.3 P 的有效负载从哪里来、何时扣掉
+
+Router 选择目标后，以该目标的缓存估计计算有效 Prefill tokens，登记到本地序列账本。没有预测模型时，这笔工作主要靠生命周期结束/Prefill 完成事件扣除，并不是每执行一个 SGLang chunk 都收到实时进度。[S05][S08]
+
+默认 `router_prefill_load_model` 关闭。可选预测器接收 batch size、effective ISL、prefix，返回预计耗时；Prefill tracker 可据时间推进估计剩余量。这是模型推算，不能称为 GPU 测得的剩余算力；预测缺失时保留无模型路径。[S03][S08][S33]
+
+生命周期分两种：
+
+- 通用 request guard 看到非空输出 tokens 时可标记 Prefill 完成，继续保留请求后续生命周期；请求退出、失败或重试时释放 booking。
+- SGLang 独立 P handler 首先只返回 bootstrap、随后在后台消费引擎结果。这个空 token 的 bootstrap **不会**被 guard 当成 Prefill 完成。P 子请求流结束后清理自己的 booking，不要求一直等到完整 D 输出结束；这一时刻可能包含传输等待，而不是纯 GPU 最后一个 kernel 的结束。[S06][S09][S10][S26][S27]
+
+这对当前实现有直接借鉴价值：分开 P 工作与 D 输出的生命周期。但更细的“P compute 已完成、P transfer 仍在占资源”仍需要自己的事件，不能把 Dynamo 子请求结束等同于理想的 compute-only 负载。
+
+<a id="router-admission"></a>
+### 2.4 Router admission：可配置的排队与串行登记
+
+`SchedulerQueueActor` 在一次派单中更新负载投影、选择目标、登记 `SequenceRequest`，再把选择结果交还调用者；接收者已取消则跳过登记，响应交付失败则撤销 booking。它避免同一 actor 内一批请求都依据尚未更新的旧负载派出去。[S05]
+
+路由队列的忙碌判据可按 policy class 设置：
+
+```text
+busy = A(r) > absolute_prefill_threshold
+    或 A(r) > threshold_fraction × max_num_batched_tokens(r)
+```
+
+还有 queued requests、raw ISL tokens、cached tokens 的每 worker 队列上限。多个 class 之间用 DRR 分配机会；class 内支持 FCFS/LCFS/WSPT 等顺序以及优先级/期限处理。WSPT 是路由等待队列的策略，不是修改 SGLang 内部的 chunk 续跑额度。本文仍不安排用户已排除的公平性实验。[S05][S19][S34]
+
+有三个限制必须保留：
+
+1. 默认未配置 queue threshold，不会因为“Dynamo 有队列”就自动有有效背压。
+2. 这些 threshold 和 booking 是 **Router 的负载/容量管理**；不是本次 D allocator 两道门槛、512 增长预留和 metadata slots 的完整副本。`max_num_batched_tokens` 也不是 D 总 KV 容量。
+3. 串行 actor 管理本地登记；跨多个 Router 的同步和覆盖范围是额外条件。不能把它当作全局强一致的物理容量 credit。默认 `router_replica_sync=false`。[S03][S05]
+
+选中 worker 后发生资源错误，并没有一个对所有后端都适用的“自动重选、继续同一 KV 写入”协议。Prefill 编排会将资源耗尽/worker overloaded 等错误向上返回；若做迁移/重试，必须按 attempt 清理 booking，已经建立的传输也需要后端协议配合。[S06][S09]
+
+<a id="d-score"></a>
+### 2.5 D rank 怎样选：普通分离式路径主动采用负载评分
+
+这里有一项比初稿更明确的代码事实：普通 remote-prefill 路径转入 Decode 时，会设置：
+
+```text
+overlap_score_credit = 0
+assume_kv_reuse = false
+track_prefill_tokens = false
+```
+
+conditional disaggregation 可以保留 Decode overlap credit，但仍需区分这个可选路径；默认 conditional disaggregation 关闭。[S03][S09]
+
+`assume_kv_reuse=false` 使输入 active tracking 使用随机 block 身份，避免把不同请求的相同前缀当作共享物理 KV。默认普通 D 分离式评分因而主要是：
+
+```text
+cost_D(r) = 该 rank 已跟踪的 active blocks
+          + 当前请求新增的 active blocks
+          + q × active_requests(r)
+```
+
+默认 q=0；输出 block tracking 默认关闭，可选开启。账本记录的是已被 Router 接纳的请求，在 D 尚未开始生成、还在等待上游时也存在。相比本次 Infera D 的 hits/active/request blocks 全零、只按 recent 次数派单，Dynamo 能保留输入大小的差别。[S01][S03][S04][S05]
+
+但这仍是 **由请求推导的 active footprint**，不是引擎所有物理 KV、页尾、增长余量和在途分配的精确总和。输出增长、取消收尾、其他入口流量和多 Router 状态覆盖都可能造成偏差。它补足本次缺失的需求记账，却不能直接替代 D admission。
+
+<a id="sglang-flow"></a>
+### 2.6 SGLang：先完成路由准入，再让 P/D 并发推进
+
+本仓库的真实顺序如下。[S09][S10][S26][S27]
+
+```mermaid
+sequenceDiagram
+    participant R as Dynamo PrefillRouter
+    participant P as P handler / SGLang
+    participant D as D handler / SGLang
+    R->>R: 选择并登记 P 子请求
+    R->>P: 提交 Prefill 请求
+    Note over R,P: 可由 model card 预生成 bootstrap，或取 P 首个返回
+    P-->>R: bootstrap host/port/room（不是计算完成）
+    R->>R: 选择并登记 D 请求
+    R->>D: 完整输入 + bootstrap + D rank
+    Note over P,D: 引擎内部准入、接收空间准备与 KV 传输并发协调
+    P-->>R: P 流结束，P 子请求清理
+    D-->>R: 持续输出 tokens，最终 D 请求清理
+```
+
+若 model card 已有 bootstrap 地址，Router 可预生成 room 并在后台消费 P 流，随后推进 D；不必等 P 的第一条 bootstrap 消息。图中的 P 返回是另一条兼容路径。room 编码还会配合 DP rank/size，P/D handler 都将所选 rank 传给 `data_parallel_rank`。[S09][S10][S26][S27]
+
+P handler 把本地请求提交给 `engine.async_generate`；D handler 收到 bootstrap 后把同一个传输房间信息交给自己的引擎。**Dynamo 适配层没有把 SGLang 的本地预分配改成“P 算完才分配”。** 当前 Infera 镜像的 optimistic=0、D 提前准备输入 KV 再让 P 正常推进，仍是需要针对具体 SGLang 版本检验的底层机制。不能因这个框架更换就认定它消失了。
+
+P 后台任务在客户端断开时不会简单中止；handoff 层观察 P 错误并停止/报错到 D 响应，D 的成功终结也要等待 P 任务成功，避免先报成功再收到晚到的 P 错误。这是传输生命周期保护，不是保证永远不泄漏的实验证据。[S11]
+
+<a id="backend-flows"></a>
+### 2.7 vLLM 与 TensorRT-LLM：不能套用 SGLang 的时序
+
+| 后端/connector | 本仓库核查到的调用链 | 不能从适配层推出的结论 |
+|---|---|---|
+| vLLM + NixlConnector | P 设置 remote-decode 参数、执行一 token Prefill；返回引擎提供的 KV transfer params；Router 再交给 D；D connector 按远端信息取 KV | NIXL 源 KV 何时解锁、D 内部每一页何时分配，需要对应 vLLM/connector 源码与运行证据 |
+| vLLM + MooncakeConnector | P 提前生成 transfer_id；响应把同一 ID 和 P bootstrap 地址交给 D；适配不同于 NIXL 的协议 | 不能把此处 Mooncake protocol 等同于当前 SGLang Mooncake 的 bootstrap/prealloc 实现 |
+| vLLM + LMCacheMP | P 写共享缓存；D 按 token hash 取；交接 envelope 中 KV 参数可为空，部分 miss 可以本地重算 | 存在共享缓存接口不等于 D 100% 命中，也不等于无额外 copy |
+| TensorRT-LLM | P 使用 context_only，返回编码的 disaggregated params；D 解码后设置 generation_only；非终结请求缺少合法 ctx_request_id 会被 Router 拒绝 | KV 分配与传输完成语义在 TRT-LLM 引擎，不能拿来证明 SGLang 的 D 驻留已解决 |
+
+vLLM 普通返回结果的路径与 SGLang 早期 bootstrap 不同：Router 的非-bootstrap 分支消费 P 返回/流完成后交给 D。P 引擎响应完成和底层所有异步发送/源缓存解锁也不是一回事。[S09][S12][S13][S14]
+
+结论是：Dynamo 没有一个跨后端完全一致的 P-first/D-first 内存协议。对于当前问题，应借鉴“让请求尽量在 P Router 尚未准入时等待、明确 P/D 的资源生命周期”，不能直接移植某个后端的交接次序。
+
+<a id="tier-cache"></a>
+### 2.8 GPU/host/disk/shared：有分层索引，但需要真实事件
+
+SGLang publisher 按 worker 和 DP rank 订阅引擎 KV 事件，带 block size 转交 `KvEventPublisher`。归一化器根据 medium 和 locality 区分可接收事件；未知 medium、非本地 locality 等会按原因过滤。publisher 处理 Stored/Removed/Cleared，保留存储层信息并记录原始事件序号缺口。[S15][S16][S28]
+
+GPU 用主前缀索引；host/disk 等用 lower-tier 索引。查询按 GPU→host→disk→external 的前缀延续推进：某 rank GPU 命中 N 个 blocks 后，host 从 N 的位置继续找连续前缀，不把 GPU 与 host 中同一前缀重复计入。[S18]
+
+例：GPU 有前 10 blocks，host 有前 30 blocks，host 延续项是 20，而非再加 30。默认加分为 `10 + 0.75×20 = 25 blocks`。这是路由中的成本折扣，不意味着只回读 15 blocks，也不意味着 0.75 就是当前机器上精确的“回读/重算速度比”。
+
+固定 commit 的支持文档给出如下条件；它们是版本与集成声明，不是本次 AMD 环境的实测结果。[S20]
+
+| 路径 | 文档与适配代码给出的边界 |
+|---|---|
+| SGLang HiCache host | 文档要求 SGLang 0.5.11+ 发布 CPU_PINNED 事件；更老引擎即使能 offload，Router 也可能只看到 GPU |
+| SGLang + Mooncake shared | 文档要求 0.5.13+ 并配置 HiCache storage backend 与 Router shared-cache lookup；它是第三层共享池，不应另造一个 SGLang disk 层 |
+| vLLM native CPU offload | 文档要求 0.24.0+、OffloadingConnector、自描述 KV events，所列路径主要为 aggregated；不能直接外推所有 PD 组合 |
+| vLLM STORAGE | worker-local 映射到 Disk；REMOTE/未知 locality 不纳入该索引；文档标注尚未充分验证，salted namespace 也有限制 |
+| TRT-LLM native host | Router 看到合并的 GPU+RAM 缓存视图，无法套用独立 host 权重 |
+
+当前实验是 Unified Radix。必须验证它实际发布的 GPU/host insert、evict、load-back 事件与 DP 归属；HiCache 的支持文档不能证明 Unified Radix 已经发出相同事件。更不能把“Router 能看到 host”理解成“任意 P rank 都能直接读取另一 P 的 GPU prefix”。数据读取仍需本地引擎或共享缓存/传输集成。
+
+<a id="cache-boundaries"></a>
+### 2.9 缓存一致性、预测命中与 KVBM 的边界
+
+**事件恢复。** 本版本包含按 publisher/source 身份与 rank 管理的恢复状态机，处理 reset、失效源隔离、恢复目标和失败重试。publisher 自身也有序号缺口诊断。[S16][S21] 但 publisher 发出 Stored 只能证明它收到并发布了该事件；原始引擎到 publisher 已丢掉的历史，不能仅靠重放 publisher 缓存凭空找回。应分开记录 engine→publisher 与 publisher→router 两段的覆盖。
+
+**无事件时的近似索引。** `use_kv_events=false` 有按请求推断的 TTL/可选 LRU 路径，普通 TTL 默认 120 秒；默认仍是事件模式。另有显式 `router_predicted_ttl_secs` 创建短 TTL 的 predict-on-route side indexer，要求同时开启真实 KV events，默认不启用。[S03][S22]
+
+因此本版本**有**推测性放置提示，不能说它永远只看已完成的真实事件；但路由预测不是 producer 已完成的证明，也不是可靠的“相同前缀只算一次”屏障。当前 fan-out 若要减少重复计算，仍应记录 producer 开始/完成、超时和取消，先量化机会。
+
+**KVBM。** KVBM 管理 GPU→host→disk→object storage 的缓存资源与搬运；它和 KV Router 是不同组件。此 commit 的 Python 集成目录包括 vLLM、TRT-LLM connectors，SGLang 路径在本报告核查的是原生 HiCache。不能把 KVBM 配置参数直接用于 Unified Radix，也不能将 router 的近似 LRU 视作引擎真实 eviction policy。[S23][S30][S31]
+
+KVBM 的 offload 优先级、transfer batch/concurrency 是可借鉴的控制维度；要判断当前系统该扩 cache、保护前缀还是改善 host 回读，仍由第 5–8 节的数据归因决定。
+
+<a id="planner"></a>
+### 2.10 Planner：调副本，而非接管每个请求的 cache 决策
+
+本版本 Planner 有两条来源：[S17]
+
+- **Throughput-based**：流量预测配合引擎性能模型，求满足 TTFT/ITL 目标的副本数。
+- **Load-based**：接收 ForwardPassMetrics；SLA 模式利用在线回归，其他目标可用 queue/KV utilization 门限。
+
+代码在 disaggregated 模式分别计算 P、D 目标副本数，再应用 throughput 下限、最小实例数和预算；扩缩容进行中或观测实例数不一致时会跳过部分决策。P 的回归使用 queued prefill tokens、max batched tokens 和 hit-rate 信息估计 TTFT；D 使用 scheduled/queued decode KV 估计 ITL，并在缩容时检查合并后的 KV 能否放下。[S24]
+
+FPM 支持 per-rank 信号不代表每个 DP rank 都是可独立扩缩的实例。P8D8 当前是固定部署，尤其存在 attention-DP 协同，不能把 rank 当作独立 GPU worker 增减。对本次最有用的是借鉴 FPM 的测量和回归，而不是启动 autoscaling。平均命中率或平均 ISL 模型也不能替代对 miss≥32K 长尾的单独分析。
 
 <a id="comparison"></a>
-## 3. 本次系统与 Dynamo 调研的对照
+## 3. 与当前 Infera/SGLang/AMD 系统的对照及采用建议
 
-| 问题 | 当前实验已知事实 | 值得从 Dynamo 核查／借鉴的内容 |
-|---|---|---|
-| P 命中视图 | Router 基于 KV 事件和前缀 hash 评分，P 实际用 Unified Radix；全候选快照未保存 | 缓存目录一致性、分层位置信息、缓存事件丢失恢复 |
-| P 负载 | active 受 P/D 共用 guard 生命周期影响，recent 为派单历史 | 分角色负载生命周期、剩余计算反馈、完成时间估计 |
-| P 内部调度 | 每 rank 4K chunk，旧 chunk 先续跑 | 必须落到所用后端看 batch 逻辑，而非套用 router 文档 |
-| D 路由 | kv-aware 配置，但无 block metadata；21,151 次 D pick 的 hits/active/request blocks 全为零 | 无 cache 信息时的 fallback、KV 容量遥测和 reservation |
-| D 准入 | 本地检查池和 KV 预算，提前分配输入空间等 P | P/D 交接时序、背压、credit 是否真实实现 |
-| P cache | GPU resident 接近满，但主要可驱逐；host 也接近满 | 工作集留存、复用价值估计、慢层读取与预取 |
-| 传输 | 缓存 prefix 和新算 KV 都可能需要发给 D | 从实际传输量／时间建模，避免只按 miss 估传输 |
-| 工作负载 | AgentX 多轮、fan-out、闭环轨迹；不同 CONC 改变执行进度 | 会话局部性、多分支重复前缀与热点复制 |
+### 3.1 哪些机制值得借鉴
 
-“采用 Dynamo”与“修正当前实现”是两个不同范围的工程选项。目前没有证据要求先迁移整个推理栈；先得到可避免 miss 的账本，才能判断哪项能力值得引入。
+| 问题 | 当前实验的运行证据 | 固定版本 Dynamo 代码事实 | 建议 |
+|---|---|---|---|
+| P 缓存视图 | 有事件和 prefix hash，但无全候选快照；旧 host 插桩路径不生效 | 分 tier 索引、worker+DP 归属、事件过滤/缺口/恢复 | 优先补实际 Unified Radix 事件与候选命中审计 |
+| P 负载生命周期 | P/D 共用 guard 可让 P active 持续到 D 结束 | 独立 P 子请求 booking；有效 Prefill token tracking | 先 shadow 分离 compute、transfer、D completion 的记账 |
+| D 输入需求 | 实测 21,151 次 D pick 的 blocks/hits/active 全零 | 普通分离式 D 禁止前缀共享假设，按输入 active footprint 记账 | 优先补完整输入需求、输出增长与待分配需求 |
+| 派单并发 | 仅看旧负载可能重复使用同一容量估计 | actor 串行选择与 booking，响应失败回滚 | 可借鉴；仍要与实际 D 预算对账 |
+| D 等待 P 驻留 | 提前输入分配等待 P，C112 驻留代理扩大 | SGLang bootstrap 后 P/D 并发；没有统一延迟物理分配协议 | 不宣称迁移已解决；评估在 P Router 阶段背压是否减少 D 等待 |
+| 缓存亲和与热点 | 尚未量出全 rank 可避免 miss | 默认 backlog+新请求成本；可选 GPU credit 衰减 | 借鉴成本分解，权重用本机数据校准 |
+| Prefix 留存/回读 | GPU/host resident 接近满，不等于全部不可驱逐 | 有原生 HiCache/独立 KVBM 路径，能力逐后端不同 | 先区分驱逐损失和 host 不可兑现，再调策略 |
+| Batch/chunk | 当前每 rank 4K、已有 chunk 续跑 | Router 不接管引擎 batch | 保持既定“不做 chunk 公平性实验” |
+
+### 3.2 AMD 与当前定制镜像的兼容性结论
+
+本次固定仓库的标准容器渲染器 device choices 为 `cuda/xpu/cpu`；其文档列出的 SGLang 主线引擎 pin 为 0.5.19，容器依赖有自己的 CUDA/NIXL 组合。[S25][S29] 这不足以证明 Dynamo 在所有 AMD 环境都不可用，但**没有建立当前 AMD/ionic/Mooncake/Unified Radix 镜像可直接替换运行的证据**。
+
+要移植的首先是 CPU 侧调度与观察协议；要替换整个框架则至少涉及 model card、KV block/hash 与事件、DP rank 标识、engine API、传输内存注册、KV layout、取消及超时收尾。本次源码研究没有编译或部署这些组合，也没有测试 GPU 传输。
+
+### 3.3 当前选择：先做局部修正，保留对照部署选项
+
+当前建议是 **借鉴设计并逐项改当前系统，不先迁移整个推理栈**。实施顺序为：
+
+1. 给 Unified Radix 的真实缓存路径补证据，产出全候选缓存机会与六类 miss 的账本。
+2. 在 shadow 中比较当前评分与“P 剩余服务需求 + 新请求成本”；同时修正 D 输入需求账本和本地预算的差异。
+3. 根据证据只选择一个改动做 A/B：事件正确性、前缀放置、缓存留存、host 回读或负载生命周期。
+4. 若本地改动无法覆盖明确需要的共享缓存/恢复能力，再考虑移植特定组件或单独建 Dynamo 对照。保持实际 token replay、初始缓存、资源预算和模型一致。
+
+P Router 背压可以作为后续设计候选：让尚未取得 P 服务机会的请求暂不占 D 输入 KV。但必须同时衡量它是否减少全局 idle、是否只把等待移位，以及是否延迟 D 供给；它不是未经测试就应开启的吞吐优化。第 7.7 节的两阶段 credit 仍是我们提出的设计，**不是 Dynamo 已实现的 SGLang 物理 KV reservation 协议**。
 
 <a id="data"></a>
 ## 4. 新增实验数据审计
@@ -224,7 +404,7 @@ Oracle 1 的 GPU 命中增量可写为 `max_rank GPU_prefix_hit - chosen_GPU_pre
 1. Router 认为命中 H 个 GPU blocks，P 实际 GPU hit 是否接近 `H × block_size`？差异需排除对齐／边界处理，再查事件滞后和驱逐。
 2. Router 看不到某前缀时，其他 rank engine snapshot 是否真的也没有？快照要带事件游标，避免时间不一致。
 3. cache 已报告 load 完成后，是否兑现了预期 prefix，后续 miss 是否相应下降？有 bytes 不等于被请求实际复用。
-4. `used + evictable + free = capacity` 是否保持，锁状态能否解释在途传输和回读？
+4. 先统一 allocator/cache 指标口径：若 `used` 已包含可驱逐缓存，检查 `used + free = capacity`，再将 used 分为锁定与可驱逐部分；只有 used 专指不可驱逐占用时，才可用 `used + evictable + free = capacity`。锁状态能否解释在途传输和回读？
 
 若发现 hash／事件正确性问题，先修它，不继续用权重 sweep 掩盖错误。
 
@@ -370,35 +550,97 @@ D 容量反馈宜使用“可分配预算 + pending reservation”，而非 free
 在相同逻辑输入下，C80 miss 比例约 5.0877%，hit 提高 1 个百分点对应约 19.66% 的 miss 工作减少，这是算术敏感性而非可实现承诺。实际服务成本不与 miss 线性，不能直接换算成 24.5% 系统吞吐增长。
 
 <a id="sources"></a>
-## 9. 源码取证清单与剩余工作
+## 9. 源码证据、核验范围与剩余实验
 
-### 9.1 Dynamo 官方取证入口（本轮未成功访问）
+### 9.1 已完成的核验
 
-- 官方仓库：<https://github.com/ai-dynamo/dynamo>
-- 官方文档入口：<https://docs.nvidia.com/dynamo/latest/>
-- NIXL 仓库：<https://github.com/ai-dynamo/nixl>
+已沿生产入口核查默认评分与 picker、P/D 角色配置、请求相关 block 投影、路由排队和 booking、SGLang bootstrap 并发交接、vLLM connector 协议、TRT-LLM context/generation 参数、分层事件与索引、近似缓存路径、Planner 副本决策。文件清单、SHA256 和永久链接保存在 [dynamo-source-audit-manifest.json](dynamo-source-audit-manifest.json)。
 
-这些链接是待访问入口，不是已经阅读并支持本文具体实现断言的引文。网络恢复后，先固定 commit 或 release tag，并记录获取时间；不能以浮动 latest 说明版本行为。
+只读核对固定 checkout 的 HEAD 与干净状态；报告链接与源文件行号做本地完整性校验。没有运行 Dynamo Rust 单元测试、引擎集成测试或 GPU benchmark：本次修改为研究文档，源码结论来自实际读取，不声称通过部署验证。
 
-### 9.2 网络恢复后的逐项交付
+### 9.2 永久引用
 
-1. 找到 KV router 的实际评分、负载统计、prefix index、事件订阅、调度返回和失败路径，按 commit permalink 引用。
-2. 分别追踪相关后端的 P/D 请求入口、rank 选择、D 预分配、远端 prefill 调用、传输完成与资源释放。
-3. 验证分层 KV 管理与 router 的信息接口：GPU／host 可见性、inflight 数据是否可路由、驱逐传播和版本限制。
-4. 验证 Planner 的 P/D 资源调整与固定拓扑的适用差异。
-5. 将第 2、3 节待核实问题替换为“代码事实／不支持／版本限制”，给出与本次 SGLang/Unified Radix/AMD 环境的兼容边界。
-6. 依据验证结果判断是借鉴设计、移植单个组件还是需要另建 Dynamo 对照部署；不预设迁移一定优于局部修正。
+以下路径均属于同一固定 commit。文档引用只用于说明支持声明；实现公式优先引用生产源码。
 
-### 9.3 本轮已经完成的内容
+| 编号 | 核验主题 | 固定版本文件 |
+|---|---|---|
+| S01 | 生产默认评分 | [scorer.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default/scorer.rs#L135) |
+| S02 | 生产 picker 与策略装配 | [picker.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default/picker.rs#L95) |
+| S03 | 配置、默认值与非共享 tracking | [config.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/config.rs#L950) |
+| S04 | 请求相关 block 负载投影 | [prompt_registry.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/sequences/prompt_registry.rs#L23) |
+| S05 | Router actor 派单、booking 与回滚 | [queue.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/queue.rs#L1606) |
+| S06 | 请求 guard 的 Prefill 完成与清理 | [request_guard.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/routing_host/request_guard.rs#L730) |
+| S07 | Prefill 独立池 active tracking 配置 | [activation.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/activation.rs#L330) |
+| S08 | Prefill 负载随时间推进 | [prefill_tracker.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/sequences/prefill_tracker.rs#L16) |
+| S09 | P/D 主编排及 Decode override | [mod.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/mod.rs#L400) |
+| S10 | SGLang P bootstrap 与后台消费 | [prefill_handler.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/request_handlers/llm/prefill_handler.py#L130) |
+| S11 | 并发 handoff、失败与终结保护 | [handoff.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/handoff.rs#L19) |
+| S12 | vLLM P/D handler | [handlers.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/vllm/handlers.py#L3985) |
+| S13 | vLLM 各 connector 协议 | [kv_connector_protocols.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/vllm/kv_connector_protocols.py#L43) |
+| S14 | TRT-LLM context/generation 参数 | [handler_base.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/trtllm/request_handlers/handler_base.py#L565) |
+| S15 | SGLang 按 DP rank 发布 KV 事件 | [publisher.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/publisher.py#L354) |
+| S16 | KV publisher 的事件与缺口 | [event_processor.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/publisher/event_processor.rs#L48) |
+| S17 | Planner 模式与数据来源声明 | [README.md](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/planner/README.md#L20) |
+| S18 | 分层连续前缀查询 | [lower_tier_indexers.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/indexer/lower_tier_indexers.rs#L273) |
+| S19 | 路由 class queue 门限 | [policy_config.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/policy_config.rs#L39) |
+| S20 | 逐后端分层缓存支持声明 | [offloading-support-matrix.md](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/developer-guide/knowledge-base/modular-components/router/offloading-support-matrix.md#L8) |
+| S21 | 缓存事件源与恢复状态 | [worker_query.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/indexer/recovery/worker_query.rs#L25) |
+| S22 | 近似主索引与 predict-on-route 侧索引 | [mod.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/indexer/mod.rs#L85) |
+| S23 | KVBM 分层与传输配置声明 | [kvbm-configuration.mdx](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/reference/components/kvbm-configuration.mdx#L10) |
+| S24 | Planner P/D 决策与缩容检查 | [load_scaling.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/planner/core/load_scaling.py#L129) |
+| S25 | 标准容器 device 选项 | [render.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/container/render.py#L68) |
+| S26 | SGLang D handler | [decode_handler.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/request_handlers/llm/decode_handler.py#L683) |
+| S27 | bootstrap/非 bootstrap 分支消费 | [admission.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/admission.rs#L48) |
+| S28 | KV 事件 medium/locality 过滤 | [mod.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/zmq_wire/mod.rs#L164) |
+| S29 | 引擎版本及硬件组合声明 | [compatibility.mdx](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/reference/general/compatibility.mdx#L169) |
+| S30 | KVBM vLLM connector | [pd_connector.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/bindings/kvbm/python/kvbm/vllm_integration/connector/pd_connector.py#L1) |
+| S31 | KVBM TRT-LLM connector | [kvbm_connector_leader.py](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/bindings/kvbm/python/kvbm/trtllm_integration/connector/kvbm_connector_leader.py#L1) |
+| S32 | 生产默认策略角色装配 | [default.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default.rs#L45) |
+| S33 | Prefill 预测器接口 | [prefill_load.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/prefill_load.rs#L7) |
+| S34 | 分 class 队列调度 | [policy_queue.rs](https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/policy_queue.rs#L1) |
 
-新增 [analyze_joint_cache.py](../scripts/analyze_joint_cache.py) 仅读取原始 joined cohort，校验请求唯一性、有效请求数和非负 miss，记录输入 SHA256，输出 [joint-cache-evidence.json](joint-cache-evidence.json)。复算命令（实验目录下）：
+[S01]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default/scorer.rs#L135
+[S02]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default/picker.rs#L95
+[S03]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/config.rs#L950
+[S04]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/sequences/prompt_registry.rs#L23
+[S05]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/queue.rs#L1606
+[S06]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/routing_host/request_guard.rs#L730
+[S07]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/activation.rs#L330
+[S08]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/sequences/prefill_tracker.rs#L16
+[S09]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/mod.rs#L400
+[S10]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/request_handlers/llm/prefill_handler.py#L130
+[S11]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/handoff.rs#L19
+[S12]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/vllm/handlers.py#L3985
+[S13]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/vllm/kv_connector_protocols.py#L43
+[S14]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/trtllm/request_handlers/handler_base.py#L565
+[S15]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/publisher.py#L354
+[S16]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/publisher/event_processor.rs#L48
+[S17]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/planner/README.md#L20
+[S18]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/indexer/lower_tier_indexers.rs#L273
+[S19]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/policy_config.rs#L39
+[S20]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/developer-guide/knowledge-base/modular-components/router/offloading-support-matrix.md#L8
+[S21]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/indexer/recovery/worker_query.rs#L25
+[S22]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/indexer/mod.rs#L85
+[S23]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/reference/components/kvbm-configuration.mdx#L10
+[S24]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/planner/core/load_scaling.py#L129
+[S25]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/container/render.py#L68
+[S26]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/components/src/dynamo/sglang/request_handlers/llm/decode_handler.py#L683
+[S27]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/llm/src/kv_router/prefill_router/admission.rs#L48
+[S28]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/zmq_wire/mod.rs#L164
+[S29]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/docs/fern/pages/reference/general/compatibility.mdx#L169
+[S30]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/bindings/kvbm/python/kvbm/vllm_integration/connector/pd_connector.py#L1
+[S31]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/bindings/kvbm/python/kvbm/trtllm_integration/connector/kvbm_connector_leader.py#L1
+[S32]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/router-plugins/builtin/src/default.rs#L45
+[S33]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/prefill_load.rs#L7
+[S34]: https://github.com/ai-dynamo/dynamo/blob/ff3ac59e83c73e03b98a5d0ec192ec28847130f7/lib/kv-router/src/scheduling/policy_queue.rs#L1
 
-```bash
-python3 scripts/analyze_joint_cache.py \
-  /perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/runs/main-20260922 \
-  analysis/joint-cache-evidence.json
-```
+### 9.3 尚需实验解决的问题
 
-已完成：本地瓶颈证据审计、source position 配对检查、长 miss 与 D 驻留分组、8K 后续材料核对，以及分阶段 debug／优化方案。
+这次源码研究已完成；以下是后续优化验证，不是“网络还没恢复”留下的源码任务：
 
-未完成：Dynamo 当前实现在线源码核验、全候选缓存机会量化、token 级 replay、新增插桩与优化 A/B。当前不能给出可信的 Dynamo 迁移收益或 cache 策略吞吐百分比。
+- 当前 Unified Radix 到 Router 的 host/GPU 事件是否完整且正确。
+- 六类 miss 各占多少可避免 tokens/服务时间，其他 rank 是否当时可接纳。
+- token 级 replay、低开销插桩，以及选定策略的匹配 A/B。
+- 如决定采用 Dynamo，对当前 AMD/ionic/Mooncake/DP layout 的构建、传输和取消验收。
+
+保留原 [离线复算脚本](../scripts/analyze_joint_cache.py) 与 [joint-cache-evidence.json](joint-cache-evidence.json) 的既有结果；本次没有重跑实验或更改它们。源码机制不能提供可信的迁移收益百分比，也不能把命中率提高直接等比例换算为系统吞吐。

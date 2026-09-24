@@ -1,0 +1,46 @@
+smci355-ccs-aus-n02-29.prov.aus.ccs.cpe.ice.amd.com
+6.8.0-107-generic
+6.14.14
+driver: ionic
+version: 26.03.3.001
+firmware-version: 1.117.5-a-77
+expansion-rom-version: 
+bus-info: 0000:09:00.0
+supports-statistics: yes
+supports-test: no
+supports-eeprom-access: no
+supports-register-dump: yes
+supports-priv-flags: yes
+1ab5ac7f6dda070f9ce3e93082193d2d455f749b8454ed49cf2fe12ded959b78  /lib/x86_64-linux-gnu/libionic.so
+               total        used        free      shared  buff/cache   available
+Mem:           3.0Ti        44Gi       2.3Ti       9.0Mi       618Gi       2.9Ti
+Swap:          8.0Gi       3.0Mi       8.0Gi
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess
+LISTEN 0      64           0.0.0.0:44269      0.0.0.0:*          
+LISTEN 0      5            0.0.0.0:44321      0.0.0.0:*          
+LISTEN 0      128          0.0.0.0:44322      0.0.0.0:*          
+LISTEN 0      128          0.0.0.0:44323      0.0.0.0:*          
+LISTEN 0      4096       127.0.0.1:12342      0.0.0.0:*          
+LISTEN 0      4096   127.0.0.53%lo:53         0.0.0.0:*          
+LISTEN 0      4096         0.0.0.0:54473      0.0.0.0:*          
+LISTEN 0      4096       127.0.0.1:39843      0.0.0.0:*          
+LISTEN 0      4096         0.0.0.0:111        0.0.0.0:*          
+LISTEN 0      128          0.0.0.0:22         0.0.0.0:*          
+LISTEN 0      5            0.0.0.0:4330       0.0.0.0:*          
+LISTEN 0      4096         0.0.0.0:6818       0.0.0.0:*          
+LISTEN 0      2048         0.0.0.0:8001       0.0.0.0:*          
+LISTEN 0      5               [::]:44321         [::]:*          
+LISTEN 0      128             [::]:44322         [::]:*          
+LISTEN 0      128             [::]:44323         [::]:*          
+LISTEN 0      64              [::]:46295         [::]:*          
+LISTEN 0      4096               *:34081            *:*          
+LISTEN 0      4096            [::]:38541         [::]:*          
+LISTEN 0      4096               *:9100             *:*          
+LISTEN 0      4096               *:9080             *:*          
+LISTEN 0      4096               *:12340            *:*          
+LISTEN 0      4096               *:12345            *:*          
+LISTEN 0      4096               *:12347            *:*          
+LISTEN 0      4096            [::]:111           [::]:*          
+LISTEN 0      128             [::]:22            [::]:*          
+LISTEN 0      5               [::]:4330          [::]:*          
+xiaoming-dev tasimage/primus:pr-1048 Up 2 hours

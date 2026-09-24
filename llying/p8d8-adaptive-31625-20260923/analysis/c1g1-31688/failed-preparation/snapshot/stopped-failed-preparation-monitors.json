@@ -1,0 +1,18 @@
+[
+  {
+    "pid": 2272328,
+    "cmd": "python3 /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/scripts/sample_engine_metrics.py --endpoint prefill=http://10.235.192.61:29001/metrics --endpoint decode=http://10.235.192.133:29002/metrics --endpoint router=http://10.235.192.61:28000/metrics --output /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/c1g1-guard-completion-31688/sampling/engine.jsonl --interval 2 --duration 0 "
+  },
+  {
+    "pid": 2272329,
+    "cmd": "python3 /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/scripts/sample_node_runtime.py --node prefill=smci355-ccs-aus-n02-29 --node decode=smci355-ccs-aus-n02-33 --output /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/c1g1-guard-completion-31688/sampling/nodes.jsonl --interval 5 --duration 0 "
+  },
+  {
+    "pid": 2272330,
+    "cmd": "bash /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/scripts/run_measurement.sh "
+  },
+  {
+    "pid": 2272331,
+    "cmd": "python3 /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/scripts/gpu_ownership_watch.py "
+  }
+]
