@@ -1,0 +1,30 @@
+{
+  "utc": "2026-09-24T12:43:37.275912+00:00",
+  "authorization": "你停止n01-21上的服务吧，因为我们已经alloc这个节点了呀，别人的就清掉",
+  "containers": [
+    {
+      "name": "k3-extract",
+      "id": "d16ade3c8dcce72a881dd9aa86eb6eee1f0039b730c89aabce03163e5fc0c9c9",
+      "image": "vllm/vllm-openai-rocm:nightly-rocm100-af1c01499b289be555c475669ba50a88e96d846e",
+      "running": true
+    },
+    {
+      "name": "k3-proxy",
+      "id": "73c7d08e5e4da762b40b7e922a3a7ab084847bd137da9ea2a3ba12e0ca5f4f21",
+      "image": "vllm/vllm-openai-rocm:nightly-rocm100-af1c01499b289be555c475669ba50a88e96d846e",
+      "running": true
+    },
+    {
+      "name": "k3-mc",
+      "id": "425c2f541f574030e9e4dd8ad2b57995bdfe20a2ab44220cd8ccb63093620799",
+      "image": "vllm/vllm-openai-rocm:nightly-rocm100-af1c01499b289be555c475669ba50a88e96d846e",
+      "running": true
+    },
+    {
+      "name": "k3.play",
+      "id": "43a5e9e062ccecf2db29746764af2803ef75e18d30de430342dd02a44ac5a897",
+      "image": "lmsysorg/sglang-rocm:v0.5.18-rocm724-mi35x-20260903",
+      "running": true
+    }
+  ]
+}
