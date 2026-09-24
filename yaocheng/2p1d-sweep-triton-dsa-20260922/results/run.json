@@ -1,0 +1,29 @@
+{
+  "run_id": "2p1d-triton-dsa-20260922T124849Z",
+  "intermediate_dir": "/mnt/m2m_nobackup/xiaobche/2p1d-sweep-triton-dsa-20260922/shared-kit/.tmp/results/2p1d-triton-dsa-20260922T124849Z",
+  "topology": [
+    {
+      "role": "prefill",
+      "node": "crsuse2-m2m-137",
+      "data_ip": "10.245.153.247"
+    },
+    {
+      "role": "prefill",
+      "node": "crsuse2-m2m-138",
+      "data_ip": "10.245.157.237"
+    },
+    {
+      "role": "decode",
+      "node": "crsuse2-m2m-136",
+      "data_ip": "10.245.154.168"
+    }
+  ],
+  "updated_at": "2026-09-22T21:24:21.295085+00:00",
+  "status": "complete",
+  "simulation_accept_length": "3.61",
+  "requested_duration_s": "3600",
+  "warmup_requests_per_lane": "10",
+  "reused_preflight_run_id": "",
+  "image": "infera-sglang:v0519-yihou-0917-nextnfix-hicache",
+  "image_id": "sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35"
+}

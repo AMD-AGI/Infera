@@ -1,0 +1,33 @@
+--- /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/tools/topology.py	2026-09-18 03:34:56.403041741 +0000
++++ /home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-samenode-p4d4/scripts/bench-harness/tools/topology.py	2026-09-22 06:23:02.591224596 +0000
+@@ -26,8 +26,10 @@
+     if not source:
+         raise SystemExit(f"{path}: topology is empty")
+     rows = []
+-    nodes: set[str] = set()
+-    ips: set[str] = set()
++    # Same-node 1P1D: a prefill row and a decode row legitimately share the one
++    # physical node and its single data_ip, so node/ip are NOT unique keys. Reject
++    # only a genuinely duplicated row (same role+node+data_ip appearing twice).
++    seen_rows: set[tuple[str, str, str]] = set()
+     counts = {"prefill": 0, "decode": 0}
+     for line, row in enumerate(source, 2):
+         role = (row.get("role") or "").strip().lower()
+@@ -43,10 +45,13 @@
+             raise SystemExit(f"{path}:{line}: invalid data_ip {data_ip!r}") from None
+         if parsed.version != 4:
+             raise SystemExit(f"{path}:{line}: data_ip must be IPv4")
+-        if node in nodes or data_ip in ips:
+-            raise SystemExit(f"{path}:{line}: node and data_ip must be unique")
+-        nodes.add(node)
+-        ips.add(data_ip)
++        row_key = (role, node, data_ip)
++        if row_key in seen_rows:
++            raise SystemExit(
++                f"{path}:{line}: duplicate topology row "
++                f"role={role} node={node} data_ip={data_ip}"
++            )
++        seen_rows.add(row_key)
+         instance = f"{role}-{counts[role]}"
+         counts[role] += 1
+         rows.append(
