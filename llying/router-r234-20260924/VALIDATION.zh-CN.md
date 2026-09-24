@@ -1,5 +1,7 @@
 # 本地验证记录
 
+最新复核：见 [代码审查与修正](REVIEW.zh-CN.md)，现有常规及 NATS 检查合计 321 项通过。以下保留初版 `8cb2914e` 的 310 项记录，及当时未执行 NATS 的历史状态。
+
 2026-09-24。Rust Router 本地编译及 CPU/mock 测试完成；未启动 GPU 模型服务或性能实验。
 
 - `cargo test --manifest-path rust/Cargo.toml -p infera-router`：267 个库单元测试、25 个 HTTP 功能测试、4 个 ZMQ 集成测试、14 个模板探测测试通过，合计 **310 passed**。

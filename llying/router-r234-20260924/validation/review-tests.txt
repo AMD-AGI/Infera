@@ -1,0 +1,365 @@
+   Compiling infera-router v0.1.0 (/home/liyingli/code/bench_agentx/Infera/rust/router)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 35.09s
+     Running unittests src/lib.rs (/tmp/infera-r234-target/debug/deps/infera_router-07989c28fa65a3fb)
+
+running 274 tests
+test block_hasher::tests::kimi_k3_responses_request_hashes_identically_to_chat ... ok
+test block_hasher::tests::glm52_tool_call_render_matches_transformers ... ok
+test block_hasher::tests::kimi_chat_request_renders_and_hashes ... ok
+test block_hasher::tests::glm52_chat_request_renders_and_hashes ... ok
+test block_hasher::tests::kimi_k3_chat_request_hashes_without_a_jinja_template ... ok
+test block_hasher::tests::the_tiktoken_path_refuses_text_that_wants_special_tokens ... ok
+test block_hasher::tests::disabled_hasher_returns_empty ... ok
+test block_hasher::tests::token_id_prompt_hashes_without_a_tokenizer ... ok
+test block_hasher::tests::missing_tokenizer_path_is_graceful ... ok
+test block_hasher::tool_call_args_tests::a_null_content_tool_message_still_becomes_an_empty_string ... ok
+test anthropic::sse_tests::an_error_line_does_not_emit_later_content_from_the_same_chunk ... ok
+test block_hasher::tool_call_args_tests::handles_flattened_tool_call_shape ... ok
+test anthropic::sse_tests::finish_before_start_emits_an_error ... ok
+test block_hasher::tool_call_args_tests::leaves_untouched_when_nothing_to_do ... ok
+test block_hasher::tool_call_args_tests::parses_openai_string_arguments_into_object ... ok
+test block_hasher::tool_call_args_tests::only_tool_messages_are_flattened ... ok
+test block_hasher::tool_call_args_tests::a_list_with_a_non_text_part_is_left_alone ... ok
+test block_hasher::tests::dsv4_chat_body_renders_without_a_chat_template ... ok
+test block_hasher::tests::dsv4_skips_tool_carrying_bodies_rather_than_guess ... ok
+test breaker::tests::client_errors_are_not_worker_faults ... ok
+test breaker::tests::a_bad_client_cannot_trip_the_fleet ... ok
+test block_hasher::tool_call_args_tests::tool_content_parts_are_joined_with_one_space ... ok
+test block_hasher::tool_call_args_tests::a_bare_string_part_joins_too_and_a_missing_text_contributes_an_empty_one ... ok
+test block_hasher::tests::dsv4_is_detected_only_for_the_deepseek_v4_architecture ... ok
+test breaker::tests::filter_drops_open_workers ... ok
+test breaker::tests::failed_probe_reopens_with_doubled_cooldown ... ok
+test breaker::tests::a_neutral_outcome_frees_the_slot_without_scoring_it ... ok
+test breaker::tests::a_probe_slot_taken_but_never_dispatched_is_reclaimed ... ok
+test breaker::tests::cooldown_is_capped ... ok
+test breaker::tests::half_open_admits_exactly_one_probe ... ok
+test breaker::tests::filter_of_empty_is_empty ... ok
+test breaker::tests::filter_returns_all_when_every_worker_is_open ... ok
+test breaker::tests::failures_below_threshold_do_not_open ... ok
+test breaker::tests::success_on_unknown_worker_is_harmless ... ok
+test breaker::tests::opens_at_threshold_and_excludes ... ok
+test breaker::tests::success_resets_the_count ... ok
+test breaker::tests::successful_probe_closes ... ok
+test breaker::tests::snapshot_reports_trips ... ok
+test block_hasher::tests::startswith_and_endswith_follow_python_semantics ... ok
+test breaker::tests::a_poisoned_lock_does_not_wedge_the_router ... ok
+test breaker::tests::the_regression_this_exists_for ... ok
+test block_hasher::tests::python_str_methods_render_glm_style_template ... ok
+test block_hasher::tests::tojson_matches_transformers_json_dumps ... ok
+test block_hasher::tests::dict_views_follow_python_semantics ... ok
+test block_hasher::tests::str_methods_follow_python_semantics ... ok
+test block_hasher::tests::python_str_methods_render_qwen3_style_template ... ok
+test breaker::tests::unknown_worker_is_allowed ... ok
+test breaker::tests::threshold_zero_disables_it ... ok
+test breaker::tests::trips_count_outages_not_requests ... ok
+test breaker::tests::workers_are_independent ... ok
+test block_hasher::tests::qwen3_render_matches_transformers ... ok
+test block_hasher::tests::dsv4_output_is_tokenized_with_specials_and_templates_without ... ok
+test cache_control::tests::a_client_supplied_internal_hint_does_not_parse_as_retention ... ok
+test breaker::tests::workers_gone_from_the_fleet_are_forgotten ... ok
+test cache_control::tests::hashed_body_keeps_attached_retention_and_rereads_multimodal ... ok
+test breaker::tests::concurrent_probes_admit_only_one ... ok
+test cache_control::tests::responses_retention_is_read_from_the_raw_body ... ok
+test cache_control::tests::image_keys_text_only_empty ... ok
+test cache_control::tests::multimodal_detected ... ok
+test cache_control::tests::image_key_stable_across_surrounding_text ... ok
+test cache_control::tests::openai_retention_and_key ... ok
+test cache_control::tests::image_key_openai_anthropic_shorthand_agree ... ok
+test cache_control::tests::anthropic_max_across_blocks ... ok
+test cache_control::tests::ordering_none_short_long ... ok
+test cache_control::tests::image_key_data_uri_content_hashes ... ok
+test cache_control::tests::no_hint_is_none ... ok
+test cache_control::tests::image_keys_multiple_in_order ... ok
+test cache_tiers::tests::reused_engine_hash_invalidates_old_residency ... ok
+test cache_tiers::tests::unknown_tier_and_missing_parent_do_not_create_hits ... ok
+test disagg::tests::a_leg_that_failed_is_not_scored_as_healthy ... ok
+test disagg::tests::a_4xx_leg_does_not_accumulate_towards_tripping ... ok
+test disagg::tests::a_successful_leg_clears_the_failure_count ... ok
+test cache_tiers::tests::eviction_is_tier_local_and_overlap_is_not_double_counted ... ok
+test cache_tiers::tests::deleting_one_engine_alias_preserves_the_other ... ok
+test discovery::tests::range_end_increments_last_byte ... ok
+test discovery_k8s::tests::a_deleted_pod_is_removed ... ok
+test disagg::tests::the_legs_are_scored_independently ... ok
+test discovery_k8s::tests::a_bad_annotation_is_ignored_rather_than_dropping_the_worker ... ok
+test discovery_k8s::tests::a_changed_bootstrap_address_republishes ... ok
+test discovery::tests::apply_watch_handles_put_then_delete ... ok
+test discovery_k8s::tests::a_draining_worker_is_absent_from_the_policys_view ... ok
+test discovery_k8s::tests::a_draining_worker_is_announced_once_not_once_per_event ... ok
+test discovery::tests::parse_kv_decodes_worker_and_strips_prefix ... ok
+test config::tests::transport_defaults_match_the_python_backend ... ok
+test discovery_k8s::tests::a_pod_that_stopped_running_is_removed ... ok
+test discovery_k8s::tests::a_running_annotated_pod_registers ... ok
+test discovery_k8s::tests::an_unchanged_pod_does_not_republish ... ok
+test discovery_k8s::tests::a_terminating_pod_leaves_routing_while_still_running ... ok
+test encoding_dsv4::tests::a_tool_call_renders_as_dsml ... ok
+test config::tests::etcd_base_normalizes_forms ... ok
+test discovery_k8s::tests::a_worker_that_changed_address_republishes ... ok
+test encoding_dsv4::tests::json_uses_python_separators_and_keeps_key_order ... ok
+test discovery_k8s::tests::clearing_the_annotation_removes_the_worker ... ok
+test encoding_dsv4::tests::an_unknown_thinking_mode_is_refused ... ok
+test dp::tests::no_rank_or_zero_size_is_identity ... ok
+test dp::tests::aligns_residue_to_rank ... ok
+test encoding_dsv4::tests::chat_mode_renders_a_plain_conversation ... ok
+test encoding_dsv4::tests::thinking_mode_wraps_reasoning_and_drops_earlier_turns ... ok
+test encoding_k3::tests::a_developer_turn_becomes_a_system_turn ... ok
+test encoding_k3::tests::a_typed_image_placeholder_is_defused ... ok
+test encoding_k3::tests::no_thinking_opens_the_response_channel_instead ... ok
+test encoding_k3::tests::attribute_values_are_escaped_and_split_the_reference_way ... ok
+test encoding_k3::tests::reasoning_effort_reaches_the_thinking_effort_turn ... ok
+test config::tests::validate_rejects_unsupported_subset ... ok
+test encoding_k3::tests::plain_chat_renders_the_xtml_frame ... ok
+test encoding_k3::tests::tool_calls_render_one_argument_tag_per_key ... ok
+test encoding_k3::tests::structural_markers_are_special_and_client_text_is_not ... ok
+test encoding_k3::tests::json_helpers_match_python_separators ... ok
+test encoding_k3::tests::tool_choice_follows_tools_declared_on_a_system_message ... ok
+test hasher::tests::block_size_zero_is_empty ... ok
+test encoding_k3::tests::tool_choice_and_response_format_add_their_own_turns ... ok
+test hasher::tests::hash_chunk_matches_python_golden ... ok
+test encoding_k3::tests::tool_results_are_reordered_into_call_order ... ok
+test encoding_k3::tests::unparseable_tool_arguments_become_an_opaque_json_block ... ok
+test encoding_k3::tests::thinking_follows_the_reasoning_effort_the_client_sent ... ok
+test encoding_k3::tests::unrepresentable_requests_are_refused_rather_than_guessed ... ok
+test encoding_k3::tests::tools_are_declared_sorted_and_compact ... ok
+test hasher::tests::hash_request_chains_and_drops_partial ... ok
+test kv_event::tests::a_chain_that_never_anchored_asks_for_a_flush ... ok
+test kv_event::tests::a_batch_that_orphaned_nothing_does_not_re_arm_the_request ... ok
+test encoding_k3::tests::fields_the_request_models_do_not_declare_never_reach_the_encoder ... ok
+test kv_event::tests::a_declined_worker_is_reconsidered_after_it_leaves ... ok
+test kv_event::tests::a_clear_on_one_rank_does_not_reset_another_ranks_accounting ... ok
+test kv_event::tests::a_clear_later_in_the_same_batch_withdraws_the_request_too ... ok
+test kv_event::tests::a_dead_rank_asks_even_though_another_rank_is_healthy ... ok
+test kv_event::tests::a_killed_worker_re_registers_in_place ... ok
+test kv_event::tests::a_merely_lossy_chain_does_not_ask_for_a_flush ... ok
+test kv_event::tests::a_later_mamba_event_cannot_poison_the_attention_chain ... ok
+test kv_event::tests::a_rank_the_bucket_is_mirroring_does_not_ask_for_a_flush ... ok
+test kv_event::tests::a_returning_bucket_withdraws_the_request_the_lapse_armed ... ok
+test kv_event::tests::a_worker_that_re_registers_with_the_missing_field_is_re_decided ... ok
+test kv_event::tests::an_unchanged_worker_is_not_re_decided_on_every_snapshot ... ok
+test kv_event::tests::an_empty_bucket_write_retracts_the_view_and_still_covers_the_rank ... ok
+test kv_event::tests::an_ask_the_bucket_never_answers_is_delivered_once_the_holdoff_elapses ... ok
+test kv_event::tests::a_rank_with_no_bucket_is_repaired_on_the_first_pick ... ok
+test kv_event::tests::a_departed_nats_worker_is_forgotten ... ok
+test kv_event::tests::an_event_that_indexes_nothing_does_not_anchor_the_chain ... ok
+test kv_event::tests::malformed_medium_does_not_become_gpu_residency ... ok
+test kv_event::tests::offset_endpoint_bumps_port_per_rank ... ok
+test kv_event::tests::an_empty_snapshot_does_not_wipe_a_view_the_stream_built ... ok
+test kv_event::tests::dropping_a_rank_view_stops_holding_back_its_flush ... ok
+test kv_event::tests::a_publisher_restart_drops_the_dead_engines_blocks ... ok
+test kv_event::tests::a_clear_withdraws_a_pending_flush_request ... ok
+test kv_event::tests::an_ask_armed_by_a_lapse_is_held_until_the_relay_could_have_answered ... ok
+test kv_event::tests::non_attention_groups_are_not_indexed ... ok
+test kv_event::tests::decodes_atom_single_block_per_event ... ok
+test kv_event::tests::seq_tracker_classifies_first_batch_gaps_and_restart ... ok
+test kv_event::tests::r3_wire_medium_preserves_host_after_gpu_eviction_and_clears_on_restart ... ok
+test kv_event::tests::decodes_vllm_batch_with_medium_field ... ok
+test kv_event::tests::split_frames_reads_sglang_sequence_and_leaves_two_frame_publishers_alone ... ok
+test kv_event::tests::sparse_event_indexes_blocks_but_not_hashes ... ok
+test kv_event::tests::atom_chain_breaks_on_missing_parent ... ok
+test kv_event::tests::decodes_sglang_bigram_batch_under_mtp ... ok
+test kv_event::tests::removed_and_cleared_evict ... ok
+test kv_event::tests::per_rank_views_are_isolated ... ok
+test kv_event_nats::tests::a_bucket_value_decodes_as_the_relay_wrote_it ... ok
+test kv_event::tests::the_bucket_refreshes_a_dead_rank_and_defers_to_a_live_one ... ok
+test kv_event_nats::tests::store_failed_detects_empty_msg_block ... ok
+test kv_event::tests::decodes_vllm_map_event ... ok
+test kv_event_nats::tests::an_untracked_worker_is_not_seeded ... ok
+test kv_event_nats::tests::a_foreign_or_malformed_subject_is_ignored ... ok
+test kv_event_nats::tests::a_worker_without_a_block_size_is_not_tracked ... ok
+test kv_event_nats::tests::subjects_round_trip_the_python_encoding ... ok
+test kv_event_nats::tests::the_bucket_keeps_refreshing_a_rank_whose_chain_never_anchored ... ok
+test kv_event::tests::stored_then_prefix_hits_match_query_chain ... ok
+test kv_event_nats::tests::a_deleted_bucket_key_drops_that_rank ... ok
+test kv_event_nats::tests::bucket_keys_parse_the_same_way ... ok
+test kv_event_nats::tests::an_empty_bucket_snapshot_retracts_a_view_the_bucket_owns ... ok
+test kv_selfheal::tests::flush_path_follows_the_engine ... ok
+test kv_event::tests::decodes_sglang_dp_packed_batch ... ok
+test kv_selfheal::tests::request_never_blocks_and_survives_a_dead_actor ... ok
+test nats_request::tests::a_jetstream_ack_is_not_mistaken_for_a_worker_reply ... ok
+test kv_event_nats::tests::the_names_are_the_ones_the_python_side_publishes_to ... ok
+test kv_event::tests::attention_groups_are_indexed ... ok
+test nats_request::tests::a_token_never_contains_a_subject_separator ... ok
+test kv_selfheal::tests::a_flushable_worker_is_dispatched_then_held_in_flight ... ok
+test nats_request::tests::credentials_never_reach_the_log ... ok
+test kv_selfheal::tests::an_unflushable_worker_is_reported_once_a_period_not_once_a_request ... ok
+test nats_request::tests::subjects_match_the_python_encoding ... ok
+test nats_request::tests::tokens_match_python_for_the_awkward_worker_ids ... ok
+test policy::tests::a_healthy_chain_is_never_asked_to_flush ... ok
+test policy::tests::confirmed_render_mismatch_marks_demand_unknown ... ok
+test nats_request::tests::the_url_falls_back_the_way_python_does ... ok
+test policy::tests::kv_aware_prefers_worker_with_cached_prefix ... ok
+test policy::tests::a_pick_with_no_block_information_is_still_charged ... ok
+test policy::tests::a_fully_cached_pick_is_charged_nothing ... ok
+test policy::tests::decode_counts_input_without_kv_metadata_and_releases_abandoned_picks ... ok
+test policy::tests::a_repair_is_delivered_on_a_pick_that_wanted_no_blocks ... ok
+test policy::tests::mm_affinity_sticks_repeat_image_to_one_worker ... ok
+test policy::tests::prefill_work_can_choose_less_cache_when_backlog_is_smaller ... ok
+test policy::tests::a_worker_whose_chain_never_anchored_is_asked_to_flush ... ok
+test policy::tests::mm_affinity_lru_capped ... ok
+test policy::tests::a_repair_is_delivered_even_on_a_pick_that_found_hits ... ok
+test policy::tests::refcount_started_finished_balances ... ok
+test policy::tests::recent_load_decays_back_to_zero_when_a_worker_goes_idle ... ok
+test policy::tests::recent_dispatch_keeps_a_load_signal_between_requests ... ok
+test policy::tests::mm_affinity_new_image_balances_by_load ... ok
+test policy::tests::r1_split_releases_legacy_p_blocks_without_releasing_decode ... ok
+test policy::tests::prefill_reservation_can_end_while_decode_guard_is_still_alive ... ok
+test policy::tests::round_robin_rotates ... ok
+test policy::tests::sync_prunes_removed_worker_mm_affinity ... ok
+test policy::tests::sync_prunes_removed_worker_load ... ok
+test policy::tests::sync_prunes_removed_worker_recent_load ... ok
+test pool::tests::defaults_and_active_filter ... ok
+test pool::tests::expand_fans_out_only_rank_multiplexed_workers ... ok
+test policy::tests::shadow_demand_keeps_legacy_choices ... ok
+test pool::tests::snapshot_indexes_only_active_by_model_and_mode ... ok
+test protocol::tests::a_responses_prefill_leg_is_capped_by_the_field_that_body_defines ... ok
+test protocol::tests::annotate_injects_bootstrap_fields ... ok
+test policy::tests::multimodal_misses_do_not_trip_the_dead_feed_alarm ... ok
+test protocol::tests::annotate_rejects_bad_addr ... ok
+test protocol::tests::require_bootstrap_matches_both_legs ... ok
+test protocol::tests::resolve_protocol_dispatches_by_tag ... ok
+test protocol::tests::vllm_decode_addresses_steered_dp_rank ... ok
+test policy::tests::r3_shadow_keeps_legacy_pick_and_on_uses_host_residency ... ok
+test policy::tests::unknown_input_is_recorded_instead_of_charged_as_zero_known_work ... ok
+test protocol::tests::vllm_decode_errors_on_missing_params ... ok
+test protocol::tests::vllm_decode_leg_pulls_kv_and_decrements_tokens ... ok
+test protocol::tests::vllm_prefill_leg_is_prefill_only_and_pushes_kv ... ok
+test render_variant::registry_tests::a_departed_worker_is_forgotten ... ok
+test render_variant::registry_tests::a_workers_own_report_wins_over_the_flag ... ok
+test render_variant::tests::a_default_that_is_not_an_effort_does_not_invent_one ... ok
+test render_variant::registry_tests::an_unasked_worker_gets_the_fleet_default ... ok
+test disagg::tests::prefill_work_lives_until_http_body_finishes_not_just_headers ... ok
+test render_variant::registry_tests::the_kill_switch_pins_everything_to_the_flag ... ok
+test render_variant::tests::the_request_wins_over_the_server_default ... ok
+test responses_input::tests::a_falsy_call_id_falls_through_to_the_item_id ... ok
+test responses_input::tests::a_body_with_no_chat_tools_forces_none ... ok
+test render_variant::tests::a_missing_or_non_object_report_is_the_empty_variant ... ok
+test render_variant::tests::an_explicit_top_level_effort_is_not_overwritten ... ok
+test render_variant::tests::a_server_default_reaches_both_the_kwargs_and_the_top_level_field ... ok
+test render_variant::tests::ids_are_stable_across_key_order_and_distinct_across_values ... ok
+test render_variant::tests::the_empty_variant_is_a_no_op_and_does_not_clone ... ok
+test responses_input::tests::a_plain_body_carries_no_chat_template_kwargs_key ... ok
+test policy::tests::concurrent_decode_selection_books_before_next_pick ... ok
+test responses_input::tests::an_empty_instructions_string_contributes_no_system_block ... ok
+test responses_input::tests::a_tool_choice_the_server_cannot_force_becomes_auto ... ok
+test responses_input::tests::chat_template_kwargs_are_forwarded ... ok
+test responses_input::tests::an_explicit_kwarg_wins_over_the_thinking_toggle ... ok
+test responses_input::tests::builtin_tools_are_dropped_and_an_all_builtin_list_yields_no_tools_key ... ok
+test responses_input::tests::an_absent_tool_choice_is_the_models_default ... ok
+test responses_input::tests::normalised_hands_back_an_unreproducible_body_unchanged ... ok
+test responses_input::tests::normalised_passes_a_chat_body_straight_through ... ok
+test responses_input::tests::reasoning_effort_none_carries_the_thinking_toggle ... ok
+test responses_input::tests::instructions_and_developer_items_coalesce_into_one_system_message ... ok
+test responses_input::tests::consecutive_assistant_items_merge_into_one_turn ... ok
+test responses_input::tests::a_named_tool_choice_is_nested_the_way_chat_spells_it ... ok
+test responses_input::tests::message_items_match_the_equivalent_chat_request ... ok
+test responses_input::tests::function_call_becomes_an_assistant_tool_call ... ok
+test responses_input::tests::tool_choice_none_survives ... ok
+test responses_input::tests::plain_string_input_matches_the_equivalent_chat_request ... ok
+test responses_input::tests::reasoning_effort_is_lifted_and_the_reasoning_object_is_not_forwarded ... ok
+test responses_input::tests::the_client_kwarg_precedence_is_only_right_in_the_engines_order ... ok
+test responses_input::tests::the_variants_promoted_effort_survives_only_in_the_engines_order ... ok
+test responses_input::tests::function_call_arguments_survive_verbatim_and_degrade_to_an_empty_object ... ok
+test routing_experiments::tests::candidate_ties_use_load_then_stable_order ... ok
+test responses_input::tests::tools_carry_every_field_pydantic_marks_set ... ok
+test responses_input::tests::unreproducible_requests_are_refused_rather_than_guessed ... ok
+test routing_experiments::tests::r1_requires_kv_aware_and_shadow_keeps_control_io_order ... ok
+test tiktoken::tests::matches_python_ground_truth ... ok
+test tiktoken::tests::special_token_literal_maps_to_its_id ... ok
+test tiktoken::tests::empty_and_ascii_roundtrip_shapes ... ok
+test routing_experiments::tests::modes_reject_typographical_errors ... ok
+test util::tests::a_short_string_is_returned_whole ... ok
+test util::tests::ascii_truncates_exactly_at_the_limit ... ok
+test routing_experiments::tests::identical_requests_are_additive_and_drop_releases_exactly_once ... ok
+test responses_input::tests::reasoning_prefers_summary_and_empty_items_drop ... ok
+test util::tests::truncating_never_splits_a_character ... ok
+test util::tests::a_single_oversized_character_truncates_to_empty ... ok
+test disagg::tests::unary_shadow_holds_prefill_until_control_drain_but_on_releases_early ... ok
+test kv_selfheal::tests::a_flush_that_landed_holds_the_cooldown ... ok
+test kv_selfheal::tests::a_refused_flush_does_not_spend_the_cooldown ... ok
+test kv_selfheal::tests::an_engine_with_no_flush_endpoint_is_never_posted_to ... ok
+test kv_selfheal::tests::a_fleet_that_all_reads_unanchored_is_flushed_as_a_ramp ... ok
+
+test result: ok. 274 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running unittests src/main.rs (/tmp/infera-r234-target/debug/deps/infera_router-1656c08d1d0bebb4)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/functional.rs (/tmp/infera-r234-target/debug/deps/functional-9553c4df224c4555)
+
+running 25 tests
+test empty_fleet_reports_no_active_worker ... ok
+test half_pd_names_the_missing_pool ... ok
+test mixed_responses_forwards_verbatim ... ok
+test mixed_streaming_relays_sse ... ok
+test pd_protocol_mismatch_is_501 ... ok
+test pd_dp_multiplexed_prefill_pins_rank ... ok
+test bad_json_is_400 ... ok
+test pd_responses_injects_bootstrap_on_both_legs ... ok
+test mixed_unary_ok ... ok
+test introspection_endpoints_report_fleet ... ok
+test responses_input_tokens_unavailable_without_tokenizer ... ok
+test unknown_model_is_503 ... ok
+test responses_input_tokens_requires_input ... ok
+test responses_input_tokens_counts_pre_tokenized_ids ... ok
+test mixed_failover_to_healthy_worker ... ok
+test pd_streaming_relays_decode_and_fires_prefill ... ok
+test pd_unary_injects_matching_bootstrap_room ... ok
+test responses_input_tokens_refuses_previous_response_id ... ok
+test mixed_round_robin_spreads_load ... ok
+test breaker_ignores_client_errors ... ok
+test mm_affinity_colocates_repeat_image ... ok
+test breaker_stops_reselecting_a_dead_worker ... ok
+test a_flush_request_reaches_the_worker_over_http ... ok
+test a_worker_reachable_only_over_nats_is_not_flushed_over_http ... ok
+test mixed_forwards_body_over_axum_default_limit ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+
+     Running tests/kv_event_nats.rs (/tmp/infera-r234-target/debug/deps/kv_event_nats-aaadf0b60bdef483)
+
+running 4 tests
+test a_published_batch_reaches_the_cache_view ... ignored, needs a broker: INFERA_TEST_NATS
+test a_timed_out_request_cancels_the_worker ... ignored, needs a broker: INFERA_TEST_NATS
+test admission_admits_when_the_backlog_cannot_be_measured ... ignored, needs a broker: INFERA_TEST_NATS
+test the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view ... ignored, needs a broker: INFERA_TEST_NATS
+
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/kv_event_zmq.rs (/tmp/infera-r234-target/debug/deps/kv_event_zmq-ef638d45d4e6df5f)
+
+running 4 tests
+test subscriber_decodes_real_zmq_msgpack_into_view ... ok
+test subscriber_reads_the_sglang_sequence_frame_without_losing_the_payload ... ok
+test subscriber_decodes_bigram_tokens_under_mtp ... ok
+test an_orphaned_event_is_dropped_and_a_clear_re_anchors_the_chain ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s
+
+     Running tests/render_probe.rs (/tmp/infera-r234-target/debug/deps/render_probe-f21257c719d5581d)
+
+running 14 tests
+test a_refusing_endpoint_is_unknown ... ok
+test a_stale_probe_cannot_consume_a_replacement_probes_reservation ... ok
+test a_departed_worker_stops_being_reported ... ok
+test a_replacement_process_on_the_same_worker_id_is_re_probed ... ok
+test a_verdict_for_a_departed_worker_is_dropped ... ok
+test a_worker_is_only_probed_once ... ok
+test agreement_is_confirmed ... ok
+test an_unknown_verdict_is_retried ... ok
+test a_router_that_cannot_render_does_not_bother_the_engine ... ok
+test falls_back_to_the_unprefixed_alias ... ok
+test the_gauge_encoding_keeps_diverged_distinct_from_unchecked ... ok
+test an_abandoned_probe_gives_its_reservation_back ... ok
+test one_bad_body_among_good_ones_still_fails ... ok
+test an_unreachable_worker_is_unknown_not_diverged ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests infera_router
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

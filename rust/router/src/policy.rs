@@ -22,7 +22,7 @@ use crate::block_hasher::BlockHasher;
 use crate::cache_control::{extract_image_keys, hints_for_hashed_body, CacheHints, Retention};
 use crate::kv_event::KvEventClient;
 use crate::pool::{expand_targets, RouteTarget, Worker};
-use crate::routing_experiments::{Experiments, Ledger, Mode, Reservation};
+use crate::routing_experiments::{best_candidate, Experiments, Ledger, Mode, Reservation};
 
 /// PD role of the pool being picked from. The disagg router passes Prefill /
 /// Decode so a cost-aware policy can weight cache locality by role.
@@ -43,6 +43,9 @@ pub struct Pick {
 }
 
 pub trait Policy: Send + Sync {
+    fn drain_prefill_early(&self) -> bool {
+        false
+    }
     fn prefill_guard_at_completion(&self) -> bool {
         false
     }
@@ -131,9 +134,6 @@ impl ActiveGuard {
         self.prefill_reservation = prefill;
         self.decode_reservation = decode;
         self
-    }
-    pub fn take_prefill_reservation(&mut self) -> Option<Reservation> {
-        self.prefill_reservation.take()
     }
 
     pub fn start(policy: Arc<dyn Policy>, entries: Vec<(String, Vec<u64>)>) -> Self {
@@ -545,6 +545,9 @@ impl KvEventAwarePolicy {
 }
 
 impl Policy for KvEventAwarePolicy {
+    fn drain_prefill_early(&self) -> bool {
+        self.experiments.drain_prefill_early()
+    }
     fn prefill_guard_at_completion(&self) -> bool {
         self.experiments.prefill_guard_completion
     }
@@ -552,27 +555,7 @@ impl Policy for KvEventAwarePolicy {
         // Fan out rank-multiplexed workers so each DP rank is scored separately.
         let targets = expand_targets(candidates);
 
-        // Hash the request once per distinct (block_size, render variant).
-        //
-        // Both halves are usually 1. A model has one page size, and a fleet
-        // launched from one workload has one set of server-side template
-        // defaults -- so this is one render, as it always was. The key exists
-        // for the fleet that is NOT uniform, where a single hash cannot be
-        // right for every candidate: the worker holding
-        // `--default-chat-template-kwargs` renders a different preamble, so its
-        // blocks are different blocks, and asking its KV view about ours is
-        // asking the wrong question.
-        //
-        // Deliberately not keyed on `engine`, unlike the Python router's: there
-        // the engine selects which tokenizer loader runs, here there is one.
-        // Adding it would key a dimension this hasher does not vary on and
-        // render the same prompt twice.
-        // Normalised BEFORE the variant is applied, and once for the whole
-        // fleet: the engine turns a `/v1/responses` body into a chat body
-        // (`_make_request`) and only then merges its server-side template
-        // defaults (`_process_messages`). The other order writes
-        // `chat_template_kwargs` onto a body `to_chat_body` rebuilds from
-        // scratch, dropping the variant for `/v1/responses` alone.
+        // Normalize before applying each worker's template defaults.
         let base = crate::responses_input::normalised(request);
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
         let mode = match role {
@@ -643,185 +626,144 @@ impl Policy for KvEventAwarePolicy {
                 .and_then(|k| hashes_for.get(k))
                 .unwrap_or(&empty)
         };
-        let hits_at = |i: usize| -> usize {
-            let t = &targets[i];
-            self.kv
-                .prefix_hits(&t.worker.worker_id, t.dp_rank, blocks_at(i))
+        let keys: Vec<_> = targets.iter().map(RouteTarget::route_key).collect();
+        let loads: Vec<_> = keys.iter().map(|key| self.load_of(key)).collect();
+        let caches: Vec<_> = targets
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                self.kv
+                    .cache_snapshot(&t.worker.worker_id, t.dp_rank, blocks_at(i))
+            })
+            .collect();
+        let image_costs: Vec<_> = keys
+            .iter()
+            .map(|key| w_mm * mm_keys.len().saturating_sub(self.mm_hits(key, &mm_keys)) as f64)
+            .collect();
+        let legacy_costs: Vec<_> = caches
+            .iter()
+            .enumerate()
+            .map(|(i, cache)| -w_overlap * cache.legacy_hits as f64 + image_costs[i] + loads[i])
+            .collect();
+        let tier_costs: Vec<_> = caches
+            .iter()
+            .enumerate()
+            .map(|(i, cache)| {
+                -w_overlap
+                    * (cache.gpu_hits as f64
+                        + self.experiments.host_weight * cache.host_hits as f64)
+                    + image_costs[i]
+                    + loads[i]
+            })
+            .collect();
+        let diverged: std::collections::HashSet<_> = if mode == Mode::Off {
+            Default::default()
+        } else {
+            self.parity
+                .snapshot()
+                .into_iter()
+                .filter(|(_, _, verdict)| *verdict == 0)
+                .map(|(worker, _, _)| worker)
+                .collect()
         };
-        let legacy_cost_at = |i: usize| -> f64 {
-            let t = &targets[i];
-            let hits = hits_at(i);
-            let route_key = t.route_key();
-            // Image miss term: images this worker does NOT already hold cost w_mm
-            // each; the worker with the warm vision cache pays 0 → wins the pick.
-            let mm_miss = mm_keys
-                .len()
-                .saturating_sub(self.mm_hits(&route_key, &mm_keys));
-            // Credit hits rather than charging misses. The two are the same
-            // ranking whenever every candidate hashes to the same number of
-            // blocks -- `w_overlap * request_blocks` is then a constant added to
-            // every cost, and constants cancel in an argmin. They stop being the
-            // same once `blocks_of` can differ per target, which it does as soon
-            // as two workers render the prompt differently (a per-worker
-            // `--default-chat-template-kwargs`, say). Charging misses would then
-            // penalise the worker whose preamble is merely longer, by an amount
-            // that has nothing to do with what either one has cached.
-            -w_overlap * (hits as f64) + w_mm * (mm_miss as f64) + self.load_of(&route_key)
-        };
-
-        let tier_at = |i: usize| {
-            let t = &targets[i];
-            self.kv
-                .tier_hits(&t.worker.worker_id, t.dp_rank, blocks_at(i))
-        };
-        let tier_cost_at = |i: usize| {
-            let (gpu, host) = tier_at(i);
-            legacy_cost_at(i) + w_overlap * hits_at(i) as f64
-                - w_overlap * (gpu as f64 + self.experiments.host_weight * host as f64)
-        };
-        // Tokenization and cache queries precede the selection/booking lock.
-        let lengths: Vec<Option<usize>> = targets
+        let lengths: Vec<_> = targets
             .iter()
             .map(|t| {
-                if hints.has_multimodal_content {
+                if hints.has_multimodal_content || diverged.contains(&t.worker.worker_id) {
                     return None;
                 }
                 tokens_for
                     .get(&self.variants.for_worker(&t.worker.worker_id).id())
                     .and_then(|ids| ids.as_ref())
-                    .map(|ids| ids.len())
+                    .map(Vec::len)
             })
             .collect();
-        let inputs_known = mode != Mode::Off && lengths.iter().all(Option::is_some);
-        let work: Vec<f64> = targets
+        let work: Vec<Option<f64>> = targets
             .iter()
             .enumerate()
             .map(|(i, t)| {
-                if mode == Mode::Off {
-                    return 0.0;
+                let n = lengths[i]? as f64;
+                if role == Role::Decode {
+                    return Some(
+                        n * base.get("n").and_then(Value::as_u64).unwrap_or(1).max(1) as f64,
+                    );
                 }
-                let n = lengths[i].unwrap_or(0) as f64;
-                if role != Role::Prefill {
-                    return n * base.get("n").and_then(Value::as_u64).unwrap_or(1).max(1) as f64;
-                }
-                let bs = t.worker.kv_block_size.unwrap_or(0).max(0) as f64;
+                let cache = caches[i];
                 let credit = if self.experiments.tiers == Mode::On {
-                    let (gpu, host) = tier_at(i);
-                    gpu as f64 + self.experiments.host_weight * host as f64
+                    cache.gpu_hits as f64 + self.experiments.host_weight * cache.host_hits as f64
                 } else {
-                    hits_at(i) as f64
+                    cache.legacy_hits as f64
                 };
-                (n - credit * bs).max(0.0)
+                let block_size = t.worker.kv_block_size.unwrap_or(0).max(0) as f64;
+                Some((n - credit * block_size).max(0.0))
             })
             .collect();
-        let mut ledger = if mode != Mode::Off {
-            Some(self.demand.lock().expect("demand ledger poisoned"))
+        let tier_eligible = role == Role::Prefill && !hints.has_multimodal_content;
+        let legacy_pick = best_candidate(&legacy_costs, &loads);
+        let tier_pick = (tier_eligible && self.experiments.tiers != Mode::Off)
+            .then(|| best_candidate(&tier_costs, &loads));
+        let fallback = if self.experiments.tiers == Mode::On {
+            tier_pick.unwrap_or(legacy_pick)
         } else {
-            None
+            legacy_pick
         };
-        let known = inputs_known
-            && !targets.iter().any(|t| {
-                ledger
-                    .as_ref()
-                    .and_then(|s| s.get(&t.route_key()))
-                    .is_some_and(|d| d.unknown > 0)
+
+        // Only load snapshot, selection and booking hold this lock.
+        let (picked_i, reservation, demand_costs, demand_pick) = if mode != Mode::Off {
+            let mut ledger = self.demand.lock().expect("demand ledger poisoned");
+            let known = work.iter().all(Option::is_some)
+                && keys
+                    .iter()
+                    .all(|key| !ledger.get(key).is_some_and(|d| d.unknown > 0));
+            let costs: Vec<_> = keys
+                .iter()
+                .enumerate()
+                .map(|(i, key)| work[i].map(|w| ledger.get(key).map_or(0.0, |d| d.tokens) + w))
+                .collect();
+            let suggested = known.then(|| {
+                best_candidate(
+                    &costs.iter().map(|c| c.unwrap()).collect::<Vec<_>>(),
+                    &loads,
+                )
             });
-        let demand_cost = |i: usize| {
-            ledger
-                .as_ref()
-                .and_then(|s| s.get(&targets[i].route_key()))
-                .map(|d| d.tokens)
-                .unwrap_or(0.0)
-                + work[i]
-        };
-        let cost_at = |i: usize| {
-            if mode == Mode::On && known {
-                demand_cost(i)
-            } else if self.experiments.tiers == Mode::On
-                && role == Role::Prefill
-                && !hints.has_multimodal_content
-            {
-                tier_cost_at(i)
+            let picked = if mode == Mode::On {
+                suggested.unwrap_or(fallback)
             } else {
-                legacy_cost_at(i)
-            }
+                fallback
+            };
+            let reservation = match work[picked] {
+                Some(tokens) => {
+                    Reservation::book(&self.demand, &mut ledger, keys[picked].clone(), tokens)
+                }
+                None => Reservation::book_unknown(&self.demand, &mut ledger, keys[picked].clone()),
+            };
+            (picked, Some(reservation), costs, suggested)
+        } else {
+            (fallback, None, vec![None; targets.len()], None)
         };
-        // min by (cost, load) — tie-break to least-loaded.
-        let picked_i = (0..targets.len())
-            .min_by(|&a, &b| {
-                let (ca, cb) = (cost_at(a), cost_at(b));
-                ca.partial_cmp(&cb)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-                    .then_with(|| {
-                        self.load_of(&targets[a].route_key())
-                            .partial_cmp(&self.load_of(&targets[b].route_key()))
-                            .unwrap_or(std::cmp::Ordering::Equal)
-                    })
-            })
-            .expect("candidates non-empty");
-        let observe =
-            mode != Mode::Off || (self.experiments.tiers != Mode::Off && role == Role::Prefill);
+
+        let observe = mode != Mode::Off || tier_pick.is_some();
         let decision_id = if observe {
             self.experiment_sequence.fetch_add(1, Ordering::Relaxed) + 1
         } else {
             0
         };
-        let suggested = if mode != Mode::Off && known {
-            (0..targets.len()).min_by(|&a, &b| {
-                demand_cost(a).total_cmp(&demand_cost(b)).then_with(|| {
-                    self.load_of(&targets[a].route_key())
-                        .total_cmp(&self.load_of(&targets[b].route_key()))
-                })
-            })
-        } else if self.experiments.tiers != Mode::Off
-            && role == Role::Prefill
-            && !hints.has_multimodal_content
-        {
-            (0..targets.len()).min_by(|&a, &b| {
-                tier_cost_at(a).total_cmp(&tier_cost_at(b)).then_with(|| {
-                    self.load_of(&targets[a].route_key())
-                        .total_cmp(&self.load_of(&targets[b].route_key()))
-                })
-            })
-        } else {
-            None
-        };
         if observe {
             for i in 0..targets.len() {
-                let (gpu, host) = tier_at(i);
-                let tier_stats = self
-                    .kv
-                    .tier_stats(&targets[i].worker.worker_id, targets[i].dp_rank);
-                tracing::info!(decision_id, ?tier_stats, role=?role, demand_mode=?mode, tier_mode=?self.experiments.tiers, target=%targets[i].route_key(), input_tokens=?lengths[i],
-                    demand_known=known, work_tokens=work[i], demand_cost=demand_cost(i),
-                    legacy_cost=legacy_cost_at(i), tier_cost=tier_cost_at(i), gpu_hits=gpu, host_hits=host,
-                    selected=i==picked_i, suggested=Some(i)==suggested, "routing experiment candidate");
+                let cache = caches[i];
+                tracing::info!(decision_id, role=?role, demand_mode=?mode, tier_mode=?self.experiments.tiers,
+                    target=%keys[i], input_tokens=?lengths[i], work_tokens=?work[i], demand_cost=?demand_costs[i],
+                    demand_known=demand_pick.is_some(), legacy_cost=legacy_costs[i], tier_cost=tier_costs[i],
+                    gpu_hits=cache.gpu_hits, host_hits=cache.host_hits, tier_stats=?cache.stats,
+                    selected=i==picked_i, legacy_selected=i==legacy_pick,
+                    demand_suggested=Some(i)==demand_pick, tier_suggested=Some(i)==tier_pick,
+                    "routing experiment candidate");
             }
         }
-        let reservation = if inputs_known {
-            Some(Reservation::book(
-                &self.demand,
-                ledger.as_mut().expect("mode has ledger"),
-                targets[picked_i].route_key(),
-                work[picked_i],
-            ))
-        } else {
-            if mode != Mode::Off {
-                tracing::warn!(role=?role, "routing demand unknown; using legacy routing");
-                Some(Reservation::book_unknown(
-                    &self.demand,
-                    ledger.as_mut().expect("mode has ledger"),
-                    targets[picked_i].route_key(),
-                ))
-            } else {
-                None
-            }
-        };
-        drop(ledger);
         let picked = targets[picked_i].clone();
 
         let blocks = blocks_at(picked_i).clone();
-        let hits = hits_at(picked_i);
+        let hits = caches[picked_i].legacy_hits;
         let picked_key = picked.route_key();
         // Charge the winner for the blocks it will have to compute. Done here
         // rather than in on_request_started because the hooks run on the
@@ -847,8 +789,7 @@ impl Policy for KvEventAwarePolicy {
             "pick"
         );
         let health_hits = if self.experiments.tiers == Mode::On && role == Role::Prefill {
-            let (gpu, host) = tier_at(picked_i);
-            gpu + host
+            caches[picked_i].gpu_hits + caches[picked_i].host_hits
         } else {
             hits
         };
@@ -1455,7 +1396,7 @@ mod tests {
         );
         let mut guard = ActiveGuard::start(policy.clone(), vec![])
             .with_reservations(p.reservation, d.reservation);
-        let p_reservation = guard.take_prefill_reservation();
+        let p_reservation = guard.detach_prefill(false);
         assert_eq!(policy.demand.lock().unwrap().len(), 2);
         drop(p_reservation);
         assert!(!policy.demand.lock().unwrap().contains_key("p"));
@@ -1576,5 +1517,24 @@ mod tests {
         let active = policy(Mode::On).pick(&workers, &json!({"prompt":ids}), Role::Prefill);
         assert_eq!(shadow.target.worker.worker_id, "a");
         assert_eq!(active.target.worker.worker_id, "b");
+    }
+    #[test]
+    fn confirmed_render_mismatch_marks_demand_unknown() {
+        let policy = experiment_policy(Experiments {
+            decode: Mode::On,
+            ..Default::default()
+        });
+        let epoch = policy.parity.claim("a", "m").unwrap();
+        policy
+            .parity
+            .record("a", epoch, "m", crate::render_probe::Parity::Diverged);
+        let pick = policy.pick(
+            &[worker("a", 0, None)],
+            &json!({"prompt":[1,2,3]}),
+            Role::Decode,
+        );
+        assert_eq!(policy.demand.lock().unwrap()["a"].unknown, 1);
+        drop(pick);
+        assert!(policy.demand.lock().unwrap().is_empty());
     }
 }

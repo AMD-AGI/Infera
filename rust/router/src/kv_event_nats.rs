@@ -91,6 +91,7 @@ pub async fn run(client: Arc<KvEventClient>, url: Option<&str>) -> Result<()> {
                 backoff.as_secs()
             ),
         }
+        client.begin_tier_replay();
         // A connection that lasted is evidence the broker is healthy, so the
         // next interruption should not inherit the backoff a start-up flap
         // built up. Without this a few early retries pin it at 30s for the
@@ -220,34 +221,46 @@ async fn consume_events(
 
     // Replayed tier events replace the previous connection's view. Untiered
     // bucket snapshots cannot reconstruct this directory.
-    client.clear_tier_views();
+    client.begin_tier_replay();
     let mut last_sequence: Option<u64> = None;
     let mut messages = consumer.messages().await.context("consuming KV events")?;
     while let Some(msg) = messages.next().await {
         let msg = match msg {
             Ok(m) => m,
             Err(e) => {
+                client.begin_tier_replay();
                 tracing::warn!("kv events (nats): stream error: {e}");
                 continue;
             }
         };
+        let caught_up;
         if let Ok(info) = msg.info() {
             let sequence = info.stream_sequence;
-            if last_sequence.is_some_and(|previous| sequence != previous + 1) {
-                client.clear_tier_views();
+            if last_sequence.is_some_and(|previous| sequence != previous.wrapping_add(1)) {
+                client.begin_tier_replay();
                 tracing::warn!(sequence, "NATS KV sequence gap: cleared tier directory");
             }
             last_sequence = Some(sequence);
+            caught_up = info.pending == 0;
         } else {
-            client.clear_tier_views();
+            client.begin_tier_replay();
+            continue;
         }
         let (worker_id, rank) = match parse_kv_subject(&msg.subject) {
             Some(p) => p,
-            None => continue,
+            None => {
+                if caught_up {
+                    client.finish_tier_replay();
+                }
+                continue;
+            }
         };
         // Events for a worker the router does not track yet (or dropped) are
         // discarded; a late registration reconciles through the bucket.
         client.apply_encoded_batch(&worker_id, rank, &msg.payload);
+        if caught_up {
+            client.finish_tier_replay();
+        }
     }
     Ok(())
 }

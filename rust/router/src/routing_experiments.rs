@@ -43,6 +43,22 @@ impl Default for Experiments {
     }
 }
 impl Experiments {
+    pub fn validate_policy(&self, policy: &str) -> anyhow::Result<()> {
+        if policy != "kv-aware"
+            && (self.prefill_guard_completion
+                || self.decode != Mode::Off
+                || self.prefill != Mode::Off
+                || self.tiers != Mode::Off)
+        {
+            anyhow::bail!("R1/R2/R3/R4 require --router-policy kv-aware");
+        }
+        Ok(())
+    }
+
+    pub(crate) fn drain_prefill_early(&self) -> bool {
+        self.prefill_guard_completion || self.prefill == Mode::On
+    }
+
     pub fn from_env() -> anyhow::Result<Self> {
         let mode = |name| -> anyhow::Result<Mode> {
             Mode::parse(&std::env::var(name).unwrap_or_else(|_| "off".into()))
@@ -73,6 +89,22 @@ impl Experiments {
         Ok(result)
     }
 }
+/// Stable tie-break: legacy load, then candidate order.
+pub(crate) fn best_candidate(costs: &[f64], loads: &[f64]) -> usize {
+    (0..costs.len())
+        .min_by(|&a, &b| {
+            costs[a]
+                .partial_cmp(&costs[b])
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| {
+                    loads[a]
+                        .partial_cmp(&loads[b])
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                })
+        })
+        .expect("candidates non-empty")
+}
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Demand {
     pub tokens: f64,
@@ -152,5 +184,26 @@ mod tests {
     fn modes_reject_typographical_errors() {
         assert!(Mode::parse("enabled").is_err());
         assert_eq!(Mode::parse("shadow").unwrap(), Mode::Shadow);
+    }
+    #[test]
+    fn r1_requires_kv_aware_and_shadow_keeps_control_io_order() {
+        let mut config = Experiments {
+            prefill: Mode::Shadow,
+            ..Default::default()
+        };
+        assert!(!config.drain_prefill_early());
+        config.prefill = Mode::On;
+        assert!(config.drain_prefill_early());
+        config.prefill = Mode::Off;
+        config.prefill_guard_completion = true;
+        assert!(config.validate_policy("round-robin").is_err());
+        assert!(config.validate_policy("kv-aware").is_ok());
+        assert!(config.drain_prefill_early());
+    }
+
+    #[test]
+    fn candidate_ties_use_load_then_stable_order() {
+        assert_eq!(best_candidate(&[3.0, 3.0, 4.0], &[2.0, 1.0, 0.0]), 1);
+        assert_eq!(best_candidate(&[3.0, 3.0], &[1.0, 1.0]), 0);
     }
 }

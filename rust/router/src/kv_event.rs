@@ -172,7 +172,16 @@ enum Event {
 #[allow(clippy::type_complexity)]
 type SubThreads = HashMap<String, (Arc<AtomicBool>, Vec<JoinHandle<()>>)>;
 
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CacheSnapshot {
+    pub legacy_hits: usize,
+    pub gpu_hits: usize,
+    pub host_hits: usize,
+    pub stats: crate::cache_tiers::TierStats,
+}
+
 pub struct KvEventClient {
+    tiers_ready: AtomicBool,
     tiers_enabled: bool,
     ctx: zmq::Context,
     state: Arc<Mutex<HashMap<String, WorkerViews>>>,
@@ -288,6 +297,7 @@ impl KvEventClient {
 
     pub fn new() -> Self {
         KvEventClient {
+            tiers_ready: AtomicBool::new(true),
             tiers_enabled: false,
             ctx: zmq::Context::new(),
             state: Arc::new(Mutex::new(HashMap::new())),
@@ -406,6 +416,15 @@ impl KvEventClient {
         n
     }
 
+    pub(crate) fn begin_tier_replay(&self) {
+        self.tiers_ready.store(false, Ordering::Release);
+        self.clear_tier_views();
+    }
+
+    pub(crate) fn finish_tier_replay(&self) {
+        self.tiers_ready.store(true, Ordering::Release);
+    }
+
     pub(crate) fn clear_tier_views(&self) {
         for worker in self
             .state
@@ -417,23 +436,37 @@ impl KvEventClient {
         }
     }
 
-    pub fn tier_stats(&self, worker_id: &str, rank: Option<i64>) -> crate::cache_tiers::TierStats {
+    /// One coherent cache observation for this candidate.
+    pub fn cache_snapshot(
+        &self,
+        worker_id: &str,
+        rank: Option<i64>,
+        query: &[u64],
+    ) -> CacheSnapshot {
         let state = self.state.lock().expect("kv view mutex poisoned");
-        state
-            .get(worker_id)
-            .and_then(|w| w.tiers.get(&rank.unwrap_or(0)))
-            .map(|t| t.stats)
-            .unwrap_or_default()
+        let Some(worker) = state.get(worker_id) else {
+            return CacheSnapshot::default();
+        };
+        let rank = rank.unwrap_or(0);
+        let legacy_hits = worker.views.get(&rank).map_or(0, |view| {
+            query.iter().take_while(|h| view.contains(h)).count()
+        });
+        let mut snapshot = CacheSnapshot {
+            legacy_hits,
+            ..Default::default()
+        };
+        if let Some(index) = worker.tiers.get(&rank) {
+            if self.tiers_ready.load(Ordering::Acquire) {
+                (snapshot.gpu_hits, snapshot.host_hits) = index.hits(query);
+            }
+            snapshot.stats = index.stats;
+        }
+        snapshot
     }
 
-    /// R3 directory: snapshots without medium never seed this view.
     pub fn tier_hits(&self, worker_id: &str, rank: Option<i64>, query: &[u64]) -> (usize, usize) {
-        let state = self.state.lock().expect("kv view mutex poisoned");
-        state
-            .get(worker_id)
-            .and_then(|w| w.tiers.get(&rank.unwrap_or(0)))
-            .map(|t| t.hits(query))
-            .unwrap_or_default()
+        let snapshot = self.cache_snapshot(worker_id, rank, query);
+        (snapshot.gpu_hits, snapshot.host_hits)
     }
 
     /// Take the pending "this worker's chain needs a cache flush" request, if any.
@@ -1114,7 +1147,13 @@ fn parse_event(ev: &rmpv::Value) -> Option<Event> {
             .map(|(_, v)| v)
     };
     Some(Event::Tiered {
-        tier: crate::cache_tiers::Tier::from_medium(medium.and_then(|v| v.as_str())),
+        tier: match medium {
+            None | Some(rmpv::Value::Nil) => crate::cache_tiers::Tier::Device,
+            Some(value) => value
+                .as_str()
+                .map(|m| crate::cache_tiers::Tier::from_medium(Some(m)))
+                .unwrap_or(crate::cache_tiers::Tier::Unknown),
+        },
         event: Box::new(event),
     })
 }
@@ -2727,9 +2766,13 @@ mod tests {
             ])]),
         );
         assert_eq!(c.tier_hits("sglang", None, &q), (0, 2));
-        assert_eq!(c.tier_hits("sglang", Some(1), &q), (0, 0));
-        // Legacy semantics are deliberately unchanged for the control arm.
         assert_eq!(c.prefix_hits("sglang", None, &q), 0);
+        c.begin_tier_replay();
+        c.apply_encoded_batch("sglang", 0, &batch(vec![stored("CPU_PINNED")]));
+        assert_eq!(c.tier_hits("sglang", None, &q), (0, 0));
+        c.finish_tier_replay();
+        assert_eq!(c.tier_hits("sglang", None, &q), (0, 2));
+        assert_eq!(c.tier_hits("sglang", Some(1), &q), (0, 0));
         reset_rank(&c.state, "sglang", 0);
         assert_eq!(c.tier_hits("sglang", None, &q), (0, 0));
         c.apply_encoded_batch("sglang", 0, &batch(vec![stored("CPU_PINNED")]));
@@ -2739,5 +2782,25 @@ mod tests {
             &batch(vec![Mv::Array(vec![Mv::String("AllBlocksCleared".into())])]),
         );
         assert_eq!(c.tier_hits("sglang", None, &q), (0, 0));
+    }
+    #[test]
+    fn malformed_medium_does_not_become_gpu_residency() {
+        let event = Mv::Array(vec![
+            Mv::from("BlockStored"),
+            ints(&[11]),
+            Mv::Nil,
+            toks(&seq(1, 16)),
+            Mv::from(16),
+            Mv::Nil,
+            Mv::from(123),
+        ]);
+        let parsed = parse_event(&event).unwrap();
+        assert!(matches!(
+            parsed,
+            Event::Tiered {
+                tier: crate::cache_tiers::Tier::Unknown,
+                ..
+            }
+        ));
     }
 }

@@ -61,8 +61,7 @@ pub async fn dispatch(
     let d_pick = state.policy.pick(&d_avail, request, Role::Decode);
     let p = p_pick.target;
     let d = d_pick.target;
-    // One guard for both legs; dropped when the decode body finishes streaming
-    // (or on any early error path), balancing the in-flight load refcount.
+    // Dispatch owns both legs until the P task takes its configured share.
     let guard = ActiveGuard::start(
         state.policy.clone(),
         vec![
@@ -193,16 +192,15 @@ async fn unary_dual(
     let reservation = guard.detach_prefill(state.policy.prefill_guard_at_completion());
     let _guard = guard;
     let p_fut = async {
-        let separate = reservation.is_some();
-        let _reservation = reservation;
         let resp = post_leg(state, &p_url, p_body, p.dp_rank).await?;
         let status = resp.status();
-        if separate {
+        if state.policy.drain_prefill_early() {
             resp.bytes().await?;
-            Ok::<_, reqwest::Error>((status, None))
+            drop(reservation);
+            Ok::<_, reqwest::Error>((status, None, None))
         } else {
-            // Preserve legacy header-join/body-drain ordering in the control.
-            Ok((status, Some(resp)))
+            // Shadow keeps the control's I/O order and holds work until drain.
+            Ok((status, Some(resp), reservation))
         }
     };
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
@@ -210,10 +208,11 @@ async fn unary_dual(
 
     // Prefill: drain + log; its output is discarded (KV goes engine→engine).
     match p_res {
-        Ok((st, remaining)) => {
+        Ok((st, remaining, reservation)) => {
             if let Some(resp) = remaining {
                 let _ = resp.bytes().await;
             }
+            drop(reservation);
             if st.is_client_error() || st.is_server_error() {
                 tracing::warn!(
                     "prefill {} returned {} (decode may hang)",
@@ -735,5 +734,117 @@ mod tests {
         .await
         .unwrap();
         server.abort();
+    }
+    #[tokio::test]
+    async fn unary_shadow_holds_prefill_until_control_drain_but_on_releases_early() {
+        use crate::routing_experiments::{Experiments, Ledger, Mode, Reservation};
+        for mode in [Mode::Shadow, Mode::On] {
+            let produced = Arc::new(tokio::sync::Notify::new());
+            let release_decode = Arc::new(tokio::sync::Notify::new());
+            let p_done = produced.clone();
+            let d_ready = release_decode.clone();
+            let app = axum::Router::new()
+                .route(
+                    "/p",
+                    axum::routing::post(move || {
+                        let p_done = p_done.clone();
+                        async move {
+                            Body::from_stream(futures::stream::once(async move {
+                                p_done.notify_one();
+                                Ok::<_, std::io::Error>(Bytes::from_static(b"{}"))
+                            }))
+                        }
+                    }),
+                )
+                .route(
+                    "/d",
+                    axum::routing::post(move || {
+                        let d_ready = d_ready.clone();
+                        async move {
+                            d_ready.notified().await;
+                            "{}"
+                        }
+                    }),
+                );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let base = format!("http://{}", listener.local_addr().unwrap());
+            let server = tokio::spawn(async move {
+                axum::serve(listener, app).await.unwrap();
+            });
+            let policy = Arc::new(
+                crate::policy::KvEventAwarePolicy::new(
+                    Arc::new(crate::kv_event::KvEventClient::nats_fed()),
+                    crate::block_hasher::BlockHasher::disabled(),
+                    1.0,
+                    None,
+                    None,
+                )
+                .with_experiments(Experiments {
+                    prefill: mode,
+                    ..Default::default()
+                }),
+            );
+            let state = AppState {
+                pool: Arc::new(arc_swap::ArcSwap::from_pointee(Snapshot::build(vec![]))),
+                policy: policy.clone(),
+                http: reqwest::Client::new(),
+                started: std::time::Instant::now(),
+                retries: 0,
+                breaker: breaker(),
+                nats: None,
+            };
+            let target = |id: &str| RouteTarget {
+                worker: Arc::new(
+                    serde_json::from_value(serde_json::json!({"worker_id":id,"url":base})).unwrap(),
+                ),
+                dp_rank: None,
+            };
+            let p = target("p");
+            let d = target("d");
+            let ledger = Ledger::default();
+            let reservation =
+                Reservation::book(&ledger, &mut ledger.lock().unwrap(), "p".into(), 32.0);
+            let guard =
+                ActiveGuard::start(policy, vec![]).with_reservations(Some(reservation), None);
+            let request = tokio::spawn(async move {
+                unary_dual(
+                    &state,
+                    &p,
+                    &d,
+                    format!("{base}/p"),
+                    format!("{base}/d"),
+                    Map::new(),
+                    Map::new(),
+                    guard,
+                )
+                .await
+            });
+            tokio::time::timeout(Duration::from_secs(5), produced.notified())
+                .await
+                .unwrap();
+            if mode == Mode::On {
+                tokio::time::timeout(Duration::from_secs(5), async {
+                    while !ledger.lock().unwrap().is_empty() {
+                        tokio::time::sleep(Duration::from_millis(10)).await;
+                    }
+                })
+                .await
+                .unwrap();
+            } else {
+                tokio::time::sleep(Duration::from_millis(30)).await;
+                assert_eq!(ledger.lock().unwrap()["p"].tokens, 32.0);
+            }
+            release_decode.notify_one();
+            assert_eq!(
+                tokio::time::timeout(Duration::from_secs(5), request)
+                    .await
+                    .unwrap()
+                    .unwrap()
+                    .status(),
+                StatusCode::OK
+            );
+            assert!(ledger.lock().unwrap().is_empty());
+            server.abort();
+        }
     }
 }

@@ -28,13 +28,7 @@ use infera_router::{
 async fn main() -> anyhow::Result<()> {
     let cfg = Config::parse_and_validate()?;
     let experiments = infera_router::routing_experiments::Experiments::from_env()?;
-    if cfg.router_policy != "kv-aware"
-        && (experiments.decode != infera_router::routing_experiments::Mode::Off
-            || experiments.prefill != infera_router::routing_experiments::Mode::Off
-            || experiments.tiers != infera_router::routing_experiments::Mode::Off)
-    {
-        anyhow::bail!("R2/R3/R4 require --router-policy kv-aware");
-    }
+    experiments.validate_policy(&cfg.router_policy)?;
 
     tracing_subscriber::fmt()
         .with_env_filter(

@@ -1,0 +1,40 @@
+{
+  "reviewed_commit": "8cb2914e",
+  "checked_utc": "2026-09-24T07:47:29.618646+00:00",
+  "host": "dccs-1334-slurm",
+  "build_jobs": 4,
+  "toolchain": "rustc 1.98.1",
+  "broker": "temporary NATS 2.11.3 on 127.0.0.1:14222; stopped after tests",
+  "test_summary": [
+    "test result: ok. 274 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s",
+    "test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s",
+    "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+  ],
+  "broker_test_summary": [
+    "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.37s"
+  ],
+  "passed_total": 321,
+  "source_sha256": {
+    "rust/router/src/policy.rs": "b4c47e4854797d7cf3a229bd50a511baf3fb3d922928b28513a1de74806bb940",
+    "rust/router/src/disagg.rs": "49ec31715321fcdc6fd5799c0f6fe85ae8acf29497b0ebbc284eedf52972db2d",
+    "rust/router/src/kv_event.rs": "43d63fc17a41925909c853b8e90c9be4b8825e53015571f5ac026984ae6a0e0b",
+    "rust/router/src/kv_event_nats.rs": "446341ca539c86fa9af04bb939ae8e27e18dad83e6cca036266d0386e5254f5a",
+    "rust/router/src/cache_tiers.rs": "3ef9432ea999579374b18341edf49c8641726e1777cd94ecc281a2b1cc4bfd5a",
+    "rust/router/src/routing_experiments.rs": "c59a31cc5a2766b0af3c2729c4825c3d2e7d5ec82c8c993bab403a759ce9798f",
+    "rust/router/src/main.rs": "0e685e413c1565782d31fb9c7d091477c2e4eaca6678a2fb876d35a980937f94",
+    "rust/router/src/lib.rs": "80b8d73b29bf4d2ce2320597d389989df7e41123d3c6fb3c342d81309695747b",
+    "rust/router/tests/kv_event_nats.rs": "873e3ebfd064b71e58797a52ce330f06b32d9ec8c05f299fb2addc96e2a7802e",
+    "llying/router-r234-20260924/config/profile.sh": "0436d991c72191766e8824ebc0cfd0a262df1f7433c00192ab1aad1885366d64"
+  },
+  "debug_binary_sha256": "08876b74a6d0d2a2257133c958a947d481400aca8bde095ca9e3b7ca9ccea701",
+  "not_run": [
+    "GPU/model smoke",
+    "Unified Radix live tier-event audit",
+    "performance A/B",
+    "release-profile build"
+  ]
+}

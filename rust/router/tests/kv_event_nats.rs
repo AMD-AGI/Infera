@@ -41,6 +41,17 @@ fn broker_url() -> String {
         .expect("set INFERA_TEST_NATS to a reachable broker to run the ignored tests")
 }
 
+fn unique_worker(label: &str) -> String {
+    format!(
+        "{label}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    )
+}
+
 fn worker(id: &str, block_size: i64) -> Worker {
     serde_json::from_value(serde_json::json!({
         "worker_id": id, "url": "http://x", "kv_block_size": block_size,
@@ -92,7 +103,7 @@ fn batch(events: Vec<Mv>) -> Vec<u8> {
 #[ignore = "needs a broker: INFERA_TEST_NATS"]
 async fn a_published_batch_reaches_the_cache_view() {
     let url = broker_url();
-    let wid = format!("10.0.0.1:{}", 9000 + (std::process::id() % 500));
+    let wid = unique_worker("replay");
     let token = URL_SAFE_NO_PAD.encode(wid.as_bytes());
 
     // Published *before* the router subscribes, which is the case that decides
@@ -122,7 +133,7 @@ async fn a_published_batch_reaches_the_cache_view() {
     .await
     .expect("ack root");
     js.publish(
-        subject,
+        subject.clone(),
         batch(vec![block_stored(
             &[222],
             Some(111),
@@ -136,7 +147,7 @@ async fn a_published_batch_reaches_the_cache_view() {
     .await
     .expect("ack child");
 
-    let client = Arc::new(KvEventClient::nats_fed());
+    let client = Arc::new(KvEventClient::nats_fed().with_cache_tiers(true));
     client.on_worker_added(&worker(&wid, 16));
     let feed = client.clone();
     let feed_url = url.clone();
@@ -156,6 +167,29 @@ async fn a_published_batch_reaches_the_cache_view() {
         "both blocks of the chain must be replayed, including the one published \
          before this router existed"
     );
+    let query = infera_router::hasher::hash_request(&(0..32).collect::<Vec<_>>(), 16);
+    assert_eq!(client.tier_hits(&wid, None, &query), (2, 0));
+    let mut host = block_stored(&[111, 222], None, &(0..32).collect::<Vec<_>>(), 16);
+    if let Mv::Array(fields) = &mut host {
+        fields.push(Mv::from("CPU_PINNED"));
+    }
+    let remove = Mv::Array(vec![
+        Mv::from("BlockRemoved"),
+        Mv::Array(vec![Mv::from(111), Mv::from(222)]),
+        Mv::from("GPU"),
+    ]);
+    js.publish(subject, batch(vec![host, remove]).into())
+        .await
+        .unwrap()
+        .await
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while client.tier_hits(&wid, None, &query) != (0, 2) {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
 }
 
 /// Admission has to fail open, or a monitoring gap becomes an outage.
@@ -249,7 +283,7 @@ async fn a_timed_out_request_cancels_the_worker() {
 #[ignore = "needs a broker: INFERA_TEST_NATS"]
 async fn the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view() {
     let url = broker_url();
-    let wid = format!("10.0.1.1:{}", 9000 + (std::process::id() % 500));
+    let wid = unique_worker("bucket");
     let token = URL_SAFE_NO_PAD.encode(wid.as_bytes());
 
     let nc = async_nats::connect(&url).await.expect("connect");
@@ -302,16 +336,41 @@ async fn the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view() {
          the worker to cache something new"
     );
 
-    // A relay that desynced republishes an empty view. Applying it would wipe
-    // the view and collapse cache hits to zero.
+    // A snapshot-only view must track a later empty snapshot.
     store
         .put(format!("{token}.0"), view(vec![]).into())
         .await
-        .expect("empty");
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while client.total_blocks(&wid) != 0 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+
+    // Once rooted live events own the view, an empty bucket cannot replace it.
+    let tokens: Vec<_> = (0..32).collect();
+    js.publish(
+        format!("{KV_EVENTS_SUBJECT_PREFIX}.{token}.0"),
+        batch(vec![block_stored(&[111, 222], None, &tokens, 16)]).into(),
+    )
+    .await
+    .unwrap()
+    .await
+    .unwrap();
+    let query = infera_router::hasher::hash_request(&tokens, 16);
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while client.prefix_hits(&wid, None, &query) != 2 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    store
+        .put(format!("{token}.0"), view(vec![]).into())
+        .await
+        .unwrap();
     tokio::time::sleep(Duration::from_millis(500)).await;
-    assert_eq!(
-        client.total_blocks(&wid),
-        3,
-        "an empty snapshot must never clear a view that already has one"
-    );
+    assert_eq!(client.prefix_hits(&wid, None, &query), 2);
 }
