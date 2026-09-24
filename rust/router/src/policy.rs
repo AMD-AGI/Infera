@@ -22,6 +22,7 @@ use crate::block_hasher::BlockHasher;
 use crate::cache_control::{extract_image_keys, hints_for_hashed_body, CacheHints, Retention};
 use crate::kv_event::KvEventClient;
 use crate::pool::{expand_targets, RouteTarget, Worker};
+use crate::routing_experiments::{Experiments, Ledger, Mode, Reservation};
 
 /// PD role of the pool being picked from. The disagg router passes Prefill /
 /// Decode so a cost-aware policy can weight cache locality by role.
@@ -38,9 +39,13 @@ pub enum Role {
 pub struct Pick {
     pub target: RouteTarget,
     pub blocks: Vec<u64>,
+    pub reservation: Option<Reservation>,
 }
 
 pub trait Policy: Send + Sync {
+    fn prefill_guard_at_completion(&self) -> bool {
+        false
+    }
     /// Pick one target. Callers guarantee `candidates` is non-empty.
     fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick;
 
@@ -91,14 +96,56 @@ pub trait Policy: Send + Sync {
 pub struct ActiveGuard {
     policy: Arc<dyn Policy>,
     entries: Vec<(String, Vec<u64>)>,
+    prefill_reservation: Option<Reservation>,
+    decode_reservation: Option<Reservation>,
 }
 
 impl ActiveGuard {
+    pub(crate) fn has_legacy_entries(&self) -> bool {
+        !self.entries.is_empty()
+    }
+    /// Move P work into the P task. Legacy block accounting moves only with R1.
+    pub fn detach_prefill(&mut self, release_legacy: bool) -> Option<Self> {
+        let reservation = self.prefill_reservation.take();
+        let entries = if release_legacy && !self.entries.is_empty() {
+            vec![self.entries.remove(0)]
+        } else {
+            Vec::new()
+        };
+        if reservation.is_none() && entries.is_empty() {
+            return None;
+        }
+        Some(Self {
+            policy: self.policy.clone(),
+            entries,
+            prefill_reservation: reservation,
+            decode_reservation: None,
+        })
+    }
+
+    pub fn with_reservations(
+        mut self,
+        prefill: Option<Reservation>,
+        decode: Option<Reservation>,
+    ) -> Self {
+        self.prefill_reservation = prefill;
+        self.decode_reservation = decode;
+        self
+    }
+    pub fn take_prefill_reservation(&mut self) -> Option<Reservation> {
+        self.prefill_reservation.take()
+    }
+
     pub fn start(policy: Arc<dyn Policy>, entries: Vec<(String, Vec<u64>)>) -> Self {
         for (k, b) in &entries {
             policy.on_request_started(k, b);
         }
-        ActiveGuard { policy, entries }
+        ActiveGuard {
+            policy,
+            entries,
+            prefill_reservation: None,
+            decode_reservation: None,
+        }
     }
 }
 
@@ -145,6 +192,7 @@ impl Policy for RoundRobin {
         Pick {
             target,
             blocks: Vec::new(),
+            reservation: None,
         }
     }
 }
@@ -223,6 +271,9 @@ const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
 /// and `recent_blocks(w)` is a decayed sum of the blocks recently dispatched to
 /// it. Both halves of the load term are needed -- see [`RECENT_DECAY`].
 pub struct KvEventAwarePolicy {
+    experiments: Experiments,
+    experiment_sequence: AtomicU64,
+    demand: Ledger,
     kv: Arc<KvEventClient>,
     hasher: Arc<BlockHasher>,
     /// Per-worker verdict from the startup render-parity probe -- see
@@ -256,6 +307,11 @@ pub struct KvEventAwarePolicy {
 }
 
 impl KvEventAwarePolicy {
+    pub fn with_experiments(mut self, experiments: Experiments) -> Self {
+        self.experiments = experiments;
+        self
+    }
+
     pub fn new(
         kv: Arc<KvEventClient>,
         hasher: BlockHasher,
@@ -264,6 +320,9 @@ impl KvEventAwarePolicy {
         decode_overlap_weight: Option<f64>,
     ) -> Self {
         KvEventAwarePolicy {
+            experiments: Experiments::default(),
+            experiment_sequence: AtomicU64::new(0),
+            demand: Ledger::default(),
             kv,
             hasher: Arc::new(hasher),
             parity: Arc::new(Default::default()),
@@ -486,6 +545,9 @@ impl KvEventAwarePolicy {
 }
 
 impl Policy for KvEventAwarePolicy {
+    fn prefill_guard_at_completion(&self) -> bool {
+        self.experiments.prefill_guard_completion
+    }
     fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
         // Fan out rank-multiplexed workers so each DP rank is scored separately.
         let targets = expand_targets(candidates);
@@ -513,6 +575,21 @@ impl Policy for KvEventAwarePolicy {
         // scratch, dropping the variant for `/v1/responses` alone.
         let base = crate::responses_input::normalised(request);
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
+        let mode = match role {
+            Role::Decode => self.experiments.decode,
+            Role::Prefill => self.experiments.prefill,
+            _ => Mode::Off,
+        };
+        let mut tokens_for: HashMap<u64, Option<Vec<u32>>> = HashMap::new();
+        if mode != Mode::Off {
+            for t in &targets {
+                let variant = self.variants.for_worker(&t.worker.worker_id);
+                tokens_for.entry(variant.id()).or_insert_with(|| {
+                    let body = variant.apply(&base);
+                    self.hasher.token_ids_for(&body)
+                });
+            }
+        }
         let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
         for t in &targets {
             let key = match t.worker.kv_block_size {
@@ -520,7 +597,15 @@ impl Policy for KvEventAwarePolicy {
                     let variant = self.variants.for_worker(&t.worker.worker_id);
                     let key = (bs, variant.id());
                     hashes_for.entry(key).or_insert_with(|| {
-                        self.hasher.hash_for(&variant.apply(&base), bs as usize)
+                        if mode != Mode::Off {
+                            tokens_for
+                                .get(&variant.id())
+                                .and_then(|t| t.as_ref())
+                                .map(|ids| crate::hasher::hash_request(ids, bs as usize))
+                                .unwrap_or_default()
+                        } else {
+                            self.hasher.hash_for(&variant.apply(&base), bs as usize)
+                        }
                     });
                     Some(key)
                 }
@@ -563,7 +648,7 @@ impl Policy for KvEventAwarePolicy {
             self.kv
                 .prefix_hits(&t.worker.worker_id, t.dp_rank, blocks_at(i))
         };
-        let cost_at = |i: usize| -> f64 {
+        let legacy_cost_at = |i: usize| -> f64 {
             let t = &targets[i];
             let hits = hits_at(i);
             let route_key = t.route_key();
@@ -584,6 +669,83 @@ impl Policy for KvEventAwarePolicy {
             -w_overlap * (hits as f64) + w_mm * (mm_miss as f64) + self.load_of(&route_key)
         };
 
+        let tier_at = |i: usize| {
+            let t = &targets[i];
+            self.kv
+                .tier_hits(&t.worker.worker_id, t.dp_rank, blocks_at(i))
+        };
+        let tier_cost_at = |i: usize| {
+            let (gpu, host) = tier_at(i);
+            legacy_cost_at(i) + w_overlap * hits_at(i) as f64
+                - w_overlap * (gpu as f64 + self.experiments.host_weight * host as f64)
+        };
+        // Tokenization and cache queries precede the selection/booking lock.
+        let lengths: Vec<Option<usize>> = targets
+            .iter()
+            .map(|t| {
+                if hints.has_multimodal_content {
+                    return None;
+                }
+                tokens_for
+                    .get(&self.variants.for_worker(&t.worker.worker_id).id())
+                    .and_then(|ids| ids.as_ref())
+                    .map(|ids| ids.len())
+            })
+            .collect();
+        let inputs_known = mode != Mode::Off && lengths.iter().all(Option::is_some);
+        let work: Vec<f64> = targets
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                if mode == Mode::Off {
+                    return 0.0;
+                }
+                let n = lengths[i].unwrap_or(0) as f64;
+                if role != Role::Prefill {
+                    return n * base.get("n").and_then(Value::as_u64).unwrap_or(1).max(1) as f64;
+                }
+                let bs = t.worker.kv_block_size.unwrap_or(0).max(0) as f64;
+                let credit = if self.experiments.tiers == Mode::On {
+                    let (gpu, host) = tier_at(i);
+                    gpu as f64 + self.experiments.host_weight * host as f64
+                } else {
+                    hits_at(i) as f64
+                };
+                (n - credit * bs).max(0.0)
+            })
+            .collect();
+        let mut ledger = if mode != Mode::Off {
+            Some(self.demand.lock().expect("demand ledger poisoned"))
+        } else {
+            None
+        };
+        let known = inputs_known
+            && !targets.iter().any(|t| {
+                ledger
+                    .as_ref()
+                    .and_then(|s| s.get(&t.route_key()))
+                    .is_some_and(|d| d.unknown > 0)
+            });
+        let demand_cost = |i: usize| {
+            ledger
+                .as_ref()
+                .and_then(|s| s.get(&targets[i].route_key()))
+                .map(|d| d.tokens)
+                .unwrap_or(0.0)
+                + work[i]
+        };
+        let cost_at = |i: usize| {
+            if mode == Mode::On && known {
+                demand_cost(i)
+            } else if self.experiments.tiers == Mode::On
+                && role == Role::Prefill
+                && !hints.has_multimodal_content
+            {
+                tier_cost_at(i)
+            } else {
+                legacy_cost_at(i)
+            }
+        };
         // min by (cost, load) — tie-break to least-loaded.
         let picked_i = (0..targets.len())
             .min_by(|&a, &b| {
@@ -597,6 +759,65 @@ impl Policy for KvEventAwarePolicy {
                     })
             })
             .expect("candidates non-empty");
+        let observe =
+            mode != Mode::Off || (self.experiments.tiers != Mode::Off && role == Role::Prefill);
+        let decision_id = if observe {
+            self.experiment_sequence.fetch_add(1, Ordering::Relaxed) + 1
+        } else {
+            0
+        };
+        let suggested = if mode != Mode::Off && known {
+            (0..targets.len()).min_by(|&a, &b| {
+                demand_cost(a).total_cmp(&demand_cost(b)).then_with(|| {
+                    self.load_of(&targets[a].route_key())
+                        .total_cmp(&self.load_of(&targets[b].route_key()))
+                })
+            })
+        } else if self.experiments.tiers != Mode::Off
+            && role == Role::Prefill
+            && !hints.has_multimodal_content
+        {
+            (0..targets.len()).min_by(|&a, &b| {
+                tier_cost_at(a).total_cmp(&tier_cost_at(b)).then_with(|| {
+                    self.load_of(&targets[a].route_key())
+                        .total_cmp(&self.load_of(&targets[b].route_key()))
+                })
+            })
+        } else {
+            None
+        };
+        if observe {
+            for i in 0..targets.len() {
+                let (gpu, host) = tier_at(i);
+                let tier_stats = self
+                    .kv
+                    .tier_stats(&targets[i].worker.worker_id, targets[i].dp_rank);
+                tracing::info!(decision_id, ?tier_stats, role=?role, demand_mode=?mode, tier_mode=?self.experiments.tiers, target=%targets[i].route_key(), input_tokens=?lengths[i],
+                    demand_known=known, work_tokens=work[i], demand_cost=demand_cost(i),
+                    legacy_cost=legacy_cost_at(i), tier_cost=tier_cost_at(i), gpu_hits=gpu, host_hits=host,
+                    selected=i==picked_i, suggested=Some(i)==suggested, "routing experiment candidate");
+            }
+        }
+        let reservation = if inputs_known {
+            Some(Reservation::book(
+                &self.demand,
+                ledger.as_mut().expect("mode has ledger"),
+                targets[picked_i].route_key(),
+                work[picked_i],
+            ))
+        } else {
+            if mode != Mode::Off {
+                tracing::warn!(role=?role, "routing demand unknown; using legacy routing");
+                Some(Reservation::book_unknown(
+                    &self.demand,
+                    ledger.as_mut().expect("mode has ledger"),
+                    targets[picked_i].route_key(),
+                ))
+            } else {
+                None
+            }
+        };
+        drop(ledger);
         let picked = targets[picked_i].clone();
 
         let blocks = blocks_at(picked_i).clone();
@@ -613,6 +834,7 @@ impl Policy for KvEventAwarePolicy {
         self.record_mm(&picked_key, &mm_keys);
         tracing::info!(
             policy = "kv-aware",
+            decision_id,
             role = ?role,
             retention = hints.retention.as_str(),
             picked = %picked_key,
@@ -624,10 +846,17 @@ impl Policy for KvEventAwarePolicy {
             mm_affinity_hits = mm_matched,
             "pick"
         );
-        self.note_hit_outcome(&picked, blocks.len(), hits, w_overlap > 0.0);
+        let health_hits = if self.experiments.tiers == Mode::On && role == Role::Prefill {
+            let (gpu, host) = tier_at(picked_i);
+            gpu + host
+        } else {
+            hits
+        };
+        self.note_hit_outcome(&picked, blocks.len(), health_hits, w_overlap > 0.0);
         Pick {
             target: picked,
             blocks,
+            reservation,
         }
     }
 
@@ -1131,5 +1360,221 @@ mod tests {
         pol.sync_workers(&[worker("stay", 16, None)]);
         assert_eq!(pol.mm_hits("gone#dp0", &[1, 2]), 0);
         assert_eq!(pol.mm_hits("stay", &[3]), 1);
+    }
+    fn experiment_policy(experiments: Experiments) -> KvEventAwarePolicy {
+        KvEventAwarePolicy::new(
+            Arc::new(KvEventClient::nats_fed()),
+            BlockHasher::disabled(),
+            20.0,
+            None,
+            None,
+        )
+        .with_experiments(experiments)
+    }
+
+    #[test]
+    fn decode_counts_input_without_kv_metadata_and_releases_abandoned_picks() {
+        let policy = experiment_policy(Experiments {
+            decode: Mode::On,
+            ..Default::default()
+        });
+        let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+        let first = policy.pick(&workers, &json!({"prompt": vec![7;320]}), Role::Decode);
+        let second = policy.pick(&workers, &json!({"prompt": vec![7;32]}), Role::Decode);
+        assert_ne!(first.target.route_key(), second.target.route_key());
+        assert_eq!(
+            policy.demand.lock().unwrap()[&first.target.route_key()].tokens,
+            320.0
+        );
+        let third = policy.pick(
+            &workers,
+            &json!({"prompt": vec![7;32], "n":2}),
+            Role::Decode,
+        );
+        assert_eq!(third.target.route_key(), second.target.route_key());
+        assert_eq!(
+            policy.demand.lock().unwrap()[&second.target.route_key()].tokens,
+            96.0
+        );
+        drop((first, second, third));
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn unknown_input_is_recorded_instead_of_charged_as_zero_known_work() {
+        let policy = experiment_policy(Experiments {
+            decode: Mode::On,
+            ..Default::default()
+        });
+        let workers = vec![worker("a", 0, None)];
+        let pick = policy.pick(
+            &workers,
+            &json!({"prompt":"cannot tokenize without tokenizer"}),
+            Role::Decode,
+        );
+        assert_eq!(policy.demand.lock().unwrap()["a"].unknown, 1);
+        drop(pick);
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn shadow_demand_keeps_legacy_choices() {
+        let legacy = experiment_policy(Default::default());
+        let shadow = experiment_policy(Experiments {
+            decode: Mode::Shadow,
+            prefill: Mode::Shadow,
+            ..Default::default()
+        });
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        let mut held = Vec::new();
+        for i in 1..12 {
+            let req = json!({"prompt":vec![7; i*16]});
+            let a = legacy.pick(&workers, &req, Role::Prefill);
+            let b = shadow.pick(&workers, &req, Role::Prefill);
+            assert_eq!(a.target.route_key(), b.target.route_key());
+            held.push((a, b));
+        }
+    }
+
+    #[test]
+    fn prefill_reservation_can_end_while_decode_guard_is_still_alive() {
+        let policy = Arc::new(experiment_policy(Experiments {
+            prefill: Mode::On,
+            decode: Mode::On,
+            ..Default::default()
+        }));
+        let p = policy.pick(
+            &[worker("p", 16, None)],
+            &json!({"prompt":vec![7;32]}),
+            Role::Prefill,
+        );
+        let d = policy.pick(
+            &[worker("d", 0, None)],
+            &json!({"prompt":vec![7;32]}),
+            Role::Decode,
+        );
+        let mut guard = ActiveGuard::start(policy.clone(), vec![])
+            .with_reservations(p.reservation, d.reservation);
+        let p_reservation = guard.take_prefill_reservation();
+        assert_eq!(policy.demand.lock().unwrap().len(), 2);
+        drop(p_reservation);
+        assert!(!policy.demand.lock().unwrap().contains_key("p"));
+        assert!(policy.demand.lock().unwrap().contains_key("d"));
+        drop(guard);
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn concurrent_decode_selection_books_before_next_pick() {
+        let policy = Arc::new(experiment_policy(Experiments {
+            decode: Mode::On,
+            ..Default::default()
+        }));
+        let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+        let joins: Vec<_> = (0..16)
+            .map(|_| {
+                let policy = policy.clone();
+                let workers = workers.clone();
+                std::thread::spawn(move || {
+                    policy.pick(&workers, &json!({"prompt":vec![1;100]}), Role::Decode)
+                })
+            })
+            .collect();
+        let picks: Vec<_> = joins.into_iter().map(|j| j.join().unwrap()).collect();
+        let ledger = policy.demand.lock().unwrap();
+        assert_eq!(ledger["a"].tokens, 800.0);
+        assert_eq!(ledger["b"].tokens, 800.0);
+        drop(ledger);
+        drop(picks);
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn prefill_work_can_choose_less_cache_when_backlog_is_smaller() {
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        for w in &workers {
+            kv.on_worker_added(w);
+        }
+        let ids: Vec<u32> = (0..64).collect();
+        let hashes = crate::hasher::hash_request(&ids, 16);
+        kv.seed_rank_view("a", 0, hashes[..3].to_vec());
+        kv.seed_rank_view("b", 0, hashes[..2].to_vec());
+        let policy = KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 20.0, None, None)
+            .with_experiments(Experiments {
+                prefill: Mode::On,
+                ..Default::default()
+            });
+        let (a, b) = {
+            let mut ledger = policy.demand.lock().unwrap();
+            (
+                Reservation::book(&policy.demand, &mut ledger, "a".into(), 32.0),
+                Reservation::book(&policy.demand, &mut ledger, "b".into(), 8.0),
+            )
+        };
+        let pick = policy.pick(&workers, &json!({"prompt":ids}), Role::Prefill);
+        assert_eq!(pick.target.worker.worker_id, "b"); // 8+32 < 32+16
+        drop((pick, a, b));
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn r1_split_releases_legacy_p_blocks_without_releasing_decode() {
+        let policy = Arc::new(experiment_policy(Default::default()));
+        let mut guard = ActiveGuard::start(
+            policy.clone(),
+            vec![("p".into(), vec![1, 2]), ("d".into(), vec![3])],
+        );
+        let p = guard.detach_prefill(true);
+        assert_eq!(policy.active_len("p"), 2);
+        drop(p);
+        assert_eq!(policy.active_len("p"), 0);
+        assert_eq!(policy.active_len("d"), 1);
+        drop(guard);
+        assert_eq!(policy.active_len("d"), 0);
+    }
+    #[test]
+    fn r3_shadow_keeps_legacy_pick_and_on_uses_host_residency() {
+        use rmpv::Value as Mv;
+        let kv = Arc::new(KvEventClient::nats_fed().with_cache_tiers(true));
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        for w in &workers {
+            kv.on_worker_added(w);
+        }
+        let ids: Vec<u32> = (0..32).collect();
+        let stored = |medium: &str| {
+            Mv::Array(vec![
+                Mv::from("BlockStored"),
+                Mv::Array(vec![Mv::from(11), Mv::from(12)]),
+                Mv::Nil,
+                Mv::Array(ids.iter().copied().map(Mv::from).collect()),
+                Mv::from(16),
+                Mv::Nil,
+                Mv::from(medium),
+            ])
+        };
+        let removed = Mv::Array(vec![
+            Mv::from("BlockRemoved"),
+            Mv::Array(vec![Mv::from(11), Mv::from(12)]),
+            Mv::from("GPU"),
+        ]);
+        let batch = Mv::Array(vec![
+            Mv::from(1.0),
+            Mv::Array(vec![stored("GPU"), stored("CPU_PINNED"), removed]),
+        ]);
+        let mut wire = Vec::new();
+        rmpv::encode::write_value(&mut wire, &batch).unwrap();
+        kv.apply_encoded_batch("b", 0, &wire);
+        let policy = |mode| {
+            KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+                .with_experiments(Experiments {
+                    tiers: mode,
+                    host_weight: 0.5,
+                    ..Default::default()
+                })
+        };
+        let shadow = policy(Mode::Shadow).pick(&workers, &json!({"prompt":ids}), Role::Prefill);
+        let active = policy(Mode::On).pick(&workers, &json!({"prompt":ids}), Role::Prefill);
+        assert_eq!(shadow.target.worker.worker_id, "a");
+        assert_eq!(active.target.worker.worker_id, "b");
     }
 }

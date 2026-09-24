@@ -218,6 +218,10 @@ async fn consume_events(
         .await
         .context("creating the KV event consumer")?;
 
+    // Replayed tier events replace the previous connection's view. Untiered
+    // bucket snapshots cannot reconstruct this directory.
+    client.clear_tier_views();
+    let mut last_sequence: Option<u64> = None;
     let mut messages = consumer.messages().await.context("consuming KV events")?;
     while let Some(msg) = messages.next().await {
         let msg = match msg {
@@ -227,6 +231,16 @@ async fn consume_events(
                 continue;
             }
         };
+        if let Ok(info) = msg.info() {
+            let sequence = info.stream_sequence;
+            if last_sequence.is_some_and(|previous| sequence != previous + 1) {
+                client.clear_tier_views();
+                tracing::warn!(sequence, "NATS KV sequence gap: cleared tier directory");
+            }
+            last_sequence = Some(sequence);
+        } else {
+            client.clear_tier_views();
+        }
         let (worker_id, rank) = match parse_kv_subject(&msg.subject) {
             Some(p) => p,
             None => continue,

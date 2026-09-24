@@ -1,0 +1,2 @@
+   Compiling infera-router v0.1.0 (/home/liyingli/code/bench_agentx/Infera/rust/router)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 12.61s

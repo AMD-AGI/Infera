@@ -69,7 +69,8 @@ pub async fn dispatch(
             (p.route_key(), p_pick.blocks),
             (d.route_key(), d_pick.blocks),
         ],
-    );
+    )
+    .with_reservations(p_pick.reservation, d_pick.reservation);
 
     let proto = match protocol::resolve_pd_protocol(&p.worker, &d.worker) {
         Ok(pr) => pr,
@@ -150,7 +151,7 @@ async fn stream_dual(
     d_url: String,
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     spawn_prefill_drain(
         state.http.clone(),
@@ -159,6 +160,7 @@ async fn stream_dual(
         p_url,
         p_body,
         p.dp_rank,
+        guard.detach_prefill(state.policy.prefill_guard_at_completion()),
     );
 
     match open_decode(state, d, &d_url, &d_body).await {
@@ -185,19 +187,33 @@ async fn unary_dual(
     d_url: String,
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     // Held until both legs finish (dropped at fn end) -> on_request_finished.
+    let reservation = guard.detach_prefill(state.policy.prefill_guard_at_completion());
     let _guard = guard;
-    let p_fut = post_leg(state, &p_url, p_body, p.dp_rank);
+    let p_fut = async {
+        let separate = reservation.is_some();
+        let _reservation = reservation;
+        let resp = post_leg(state, &p_url, p_body, p.dp_rank).await?;
+        let status = resp.status();
+        if separate {
+            resp.bytes().await?;
+            Ok::<_, reqwest::Error>((status, None))
+        } else {
+            // Preserve legacy header-join/body-drain ordering in the control.
+            Ok((status, Some(resp)))
+        }
+    };
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
     let (p_res, d_res) = tokio::join!(p_fut, d_fut);
 
     // Prefill: drain + log; its output is discarded (KV goes engine→engine).
     match p_res {
-        Ok(resp) => {
-            let st = resp.status();
-            let _ = resp.bytes().await;
+        Ok((st, remaining)) => {
+            if let Some(resp) = remaining {
+                let _ = resp.bytes().await;
+            }
             if st.is_client_error() || st.is_server_error() {
                 tracing::warn!(
                     "prefill {} returned {} (decode may hang)",
@@ -264,7 +280,7 @@ async fn dual_nats(
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
     stream: bool,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     // Prefill is never streamed: its output is discarded, only its effect on
     // the KV plane matters.
@@ -276,6 +292,7 @@ async fn dual_nats(
         state.breaker.clone(),
         p.worker.worker_id.clone(),
         p_payload,
+        guard.detach_prefill(state.policy.prefill_guard_at_completion()),
     );
 
     let wid = d.worker.worker_id.clone();
@@ -414,8 +431,10 @@ fn spawn_prefill_drain_nats(
     breaker: Arc<CircuitBreaker>,
     worker_id: String,
     payload: Vec<u8>,
+    reservation: Option<ActiveGuard>,
 ) {
     tokio::spawn(async move {
+        let _reservation = reservation;
         let mut reply = match nats.dispatch(&worker_id, &payload).await {
             Ok(r) => r,
             Err(e) => {
@@ -482,8 +501,19 @@ fn spawn_prefill_drain(
     url: String,
     body: Map<String, Value>,
     dp_rank: Option<i64>,
+    reservation: Option<ActiveGuard>,
 ) {
     tokio::spawn(async move {
+        let separated = reservation
+            .as_ref()
+            .is_some_and(ActiveGuard::has_legacy_entries);
+        let request_id = body
+            .get("rid")
+            .and_then(Value::as_str)
+            .unwrap_or("-")
+            .to_owned();
+        let started = std::time::Instant::now();
+        let prefill_guard = reservation;
         let mut req = http.post(&url).json(&Value::Object(body));
         if let Some(r) = dp_rank {
             req = req.header(dp::DP_RANK_HEADER, r.to_string());
@@ -514,6 +544,10 @@ fn spawn_prefill_drain(
                 breaker.record_failure(&worker_id);
             }
         }
+        drop(prefill_guard);
+        tracing::info!(rid = %request_id, worker = %worker_id, separated,
+            elapsed_ms = started.elapsed().as_millis() as u64,
+            "prefill HTTP leg drained; guard lifecycle observed");
     });
 }
 
@@ -644,5 +678,62 @@ mod tests {
         }
         assert_eq!(b.state_of("p1").as_str(), "open");
         assert_eq!(b.state_of("d1").as_str(), "closed");
+    }
+    #[tokio::test]
+    async fn prefill_work_lives_until_http_body_finishes_not_just_headers() {
+        use crate::routing_experiments::{Ledger, Reservation};
+        let ledger = Ledger::default();
+        let reservation = {
+            let mut entries = ledger.lock().unwrap();
+            Reservation::book(&ledger, &mut entries, "p".into(), 128.0)
+        };
+        let guard = ActiveGuard::start(Arc::new(crate::policy::RoundRobin::new()), vec![])
+            .with_reservations(Some(reservation), None);
+        let finished = Arc::new(tokio::sync::Notify::new());
+        let entered = Arc::new(tokio::sync::Notify::new());
+        let finish = finished.clone();
+        let enter = entered.clone();
+        let app = axum::Router::new().route(
+            "/generate",
+            axum::routing::post(move || {
+                let finish = finish.clone();
+                let enter = enter.clone();
+                async move {
+                    enter.notify_one();
+                    let stream = futures::stream::once(async move {
+                        finish.notified().await;
+                        Ok::<_, std::io::Error>(Bytes::from_static(b"{}"))
+                    });
+                    Body::from_stream(stream)
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/generate", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        spawn_prefill_drain(
+            reqwest::Client::new(),
+            breaker(),
+            "p".into(),
+            url,
+            Map::new(),
+            None,
+            Some(guard),
+        );
+        tokio::time::timeout(Duration::from_secs(5), entered.notified())
+            .await
+            .unwrap();
+        assert_eq!(ledger.lock().unwrap()["p"].tokens, 128.0);
+        finished.notify_one();
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while !ledger.lock().unwrap().is_empty() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .unwrap();
+        server.abort();
     }
 }

@@ -1,0 +1,32 @@
+{
+  "checked_utc": "2026-09-24T06:34:40.815806+00:00",
+  "toolchain": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "profile": "debug; not a performance binary",
+  "test_summary": [
+    "test result: ok. 267 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s",
+    "test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.63s",
+    "test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+  ],
+  "source_sha256": {
+    "rust/router/src/policy.rs": "6d17dce53d1d2aa14044cee3ddac594279d11b52d11864481c62e7e4ca5b8e2e",
+    "rust/router/src/disagg.rs": "0faa543709758556e68cf9420e95d0b871d7708a09ceb0bc1f5d96d709d393ca",
+    "rust/router/src/kv_event.rs": "65ddd394db517b0032a595e92091001b08eb841233aa7a0f84346e0bf0776587",
+    "rust/router/src/kv_event_nats.rs": "95a3a6715a19a7680f5f0a7d791fb5531f976ca8daa04343a746402ff56f049d",
+    "rust/router/src/cache_tiers.rs": "8909f80a8771710edc0218e522fb4224d12227a0a900d96b9b16d6fd5000f2d6",
+    "rust/router/src/routing_experiments.rs": "1e914781d725ef9a2170aaec053cccc708f100da44c894ce92522280b3feac86",
+    "rust/router/src/main.rs": "f9cb4663d7d0ab896bd9c7f3d2e3fa9c5137127e690780714de75f75280a81a5",
+    "rust/router/src/lib.rs": "80b8d73b29bf4d2ce2320597d389989df7e41123d3c6fb3c342d81309695747b"
+  },
+  "debug_binary_sha256": "59bb42a31827cfd63b78bc49ec52b90d6f4dd7d45bc74427320b2fed6b039129",
+  "not_run": [
+    "4 ignored NATS broker integration tests",
+    "GPU/model smoke",
+    "Unified Radix live tier-event audit",
+    "performance A/B",
+    "release-profile build"
+  ]
+}

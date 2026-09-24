@@ -2,6 +2,8 @@
 
 调研日期：2026-09-24。范围：本地 Infera `c85d65d7f1e3d5b2e53012fb966ae231699e6184` 的 Rust/Python KV-aware Router、已有实验镜像源码快照，以及 Dynamo `ff3ac59e83c73e03b98a5d0ec192ec28847130f7`。本次是源码核查，未修改服务或执行性能实验；不泛指 Infera 未来或其他分支版本。
 
+> 开发更新：以下结论针对上述开发前版本。当前分支已新增默认关闭的 Rust R3 分层目录与评分，见 [开发说明](../../router-r234-20260924/README.zh-CN.md)。Python 路径未变；实际 Unified Radix 事件链路和性能仍待机器验收。
+
 ## 结论
 
 **当前 Infera 有缓存感知路由，但没有 GPU/host 分层感知路由。** 即使 SGLang 提供了带存储层的事件，当前 Router 也不能分别维护 GPU、host 命中并给它们不同的权重。这个结论已由源码确认，不再只是“待核实”。

@@ -127,6 +127,8 @@ impl ChainHealth {
 
 /// One worker's per-rank cache mirror.
 struct WorkerViews {
+    tiers_enabled: bool,
+    tiers: HashMap<i64, crate::cache_tiers::TierIndex>,
     block_size: usize,
     views: RankViews,
     maps: RankMaps,
@@ -134,8 +136,10 @@ struct WorkerViews {
 }
 
 impl WorkerViews {
-    fn new(block_size: usize) -> Self {
+    fn new(block_size: usize, tiers_enabled: bool) -> Self {
         WorkerViews {
+            tiers_enabled,
+            tiers: HashMap::new(),
             block_size: block_size.max(1),
             views: HashMap::new(),
             maps: HashMap::new(),
@@ -146,6 +150,10 @@ impl WorkerViews {
 
 /// A decoded KV cache event (only the fields we act on).
 enum Event {
+    Tiered {
+        tier: crate::cache_tiers::Tier,
+        event: Box<Event>,
+    },
     Stored {
         block_hashes: Vec<u64>,
         parent_block_hash: Option<u64>,
@@ -165,6 +173,7 @@ enum Event {
 type SubThreads = HashMap<String, (Arc<AtomicBool>, Vec<JoinHandle<()>>)>;
 
 pub struct KvEventClient {
+    tiers_enabled: bool,
     ctx: zmq::Context,
     state: Arc<Mutex<HashMap<String, WorkerViews>>>,
     threads: Mutex<SubThreads>,
@@ -272,8 +281,14 @@ fn resolve_block_size(w: &Worker, transport: &str) -> Option<usize> {
 }
 
 impl KvEventClient {
+    pub fn with_cache_tiers(mut self, enabled: bool) -> Self {
+        self.tiers_enabled = enabled;
+        self
+    }
+
     pub fn new() -> Self {
         KvEventClient {
+            tiers_enabled: false,
             ctx: zmq::Context::new(),
             state: Arc::new(Mutex::new(HashMap::new())),
             threads: Mutex::new(HashMap::new()),
@@ -295,7 +310,10 @@ impl KvEventClient {
     pub(crate) fn apply_encoded_batch(&self, worker_id: &str, rank: i64, payload: &[u8]) {
         match decode_batch(payload) {
             Ok(events) => apply_events(&self.state, worker_id, rank, &events),
-            Err(e) => tracing::warn!(worker = %worker_id, err = %e, "kv decode failed (nats)"),
+            Err(e) => {
+                clear_rank_tiers(&self.state, worker_id, rank);
+                tracing::warn!(worker = %worker_id, err = %e, "kv decode failed (nats)");
+            }
         }
     }
 
@@ -357,6 +375,7 @@ impl KvEventClient {
         let mut state = self.state.lock().expect("kv view mutex poisoned");
         if let Some(wv) = state.get_mut(worker_id) {
             wv.views.remove(&rank);
+            wv.tiers.remove(&rank);
             // The key is gone from the bucket, so the bucket is no longer
             // covering this rank and must not go on suppressing its flush.
             if let Some(h) = wv.health.get_mut(&rank) {
@@ -385,6 +404,36 @@ impl KvEventClient {
             n += 1;
         }
         n
+    }
+
+    pub(crate) fn clear_tier_views(&self) {
+        for worker in self
+            .state
+            .lock()
+            .expect("kv view mutex poisoned")
+            .values_mut()
+        {
+            worker.tiers.clear();
+        }
+    }
+
+    pub fn tier_stats(&self, worker_id: &str, rank: Option<i64>) -> crate::cache_tiers::TierStats {
+        let state = self.state.lock().expect("kv view mutex poisoned");
+        state
+            .get(worker_id)
+            .and_then(|w| w.tiers.get(&rank.unwrap_or(0)))
+            .map(|t| t.stats)
+            .unwrap_or_default()
+    }
+
+    /// R3 directory: snapshots without medium never seed this view.
+    pub fn tier_hits(&self, worker_id: &str, rank: Option<i64>, query: &[u64]) -> (usize, usize) {
+        let state = self.state.lock().expect("kv view mutex poisoned");
+        state
+            .get(worker_id)
+            .and_then(|w| w.tiers.get(&rank.unwrap_or(0)))
+            .map(|t| t.hits(query))
+            .unwrap_or_default()
     }
 
     /// Take the pending "this worker's chain needs a cache flush" request, if any.
@@ -470,7 +519,7 @@ impl KvEventClient {
             let mut state = self.state.lock().expect("kv view mutex poisoned");
             state
                 .entry(w.worker_id.clone())
-                .or_insert_with(|| WorkerViews::new(block_size));
+                .or_insert_with(|| WorkerViews::new(block_size, self.tiers_enabled));
             tracing::info!(worker = %w.worker_id, block_size, "kv events (nats): tracking");
             return;
         }
@@ -486,10 +535,10 @@ impl KvEventClient {
             let Some(block_size) = resolve_block_size(w, "zmq") else {
                 return;
             };
-            self.state
-                .lock()
-                .expect("kv view mutex poisoned")
-                .insert(w.worker_id.clone(), WorkerViews::new(block_size));
+            self.state.lock().expect("kv view mutex poisoned").insert(
+                w.worker_id.clone(),
+                WorkerViews::new(block_size, self.tiers_enabled),
+            );
 
             let multiplexed = w.dp_size.unwrap_or(1) > 1 && w.dp_rank.is_none();
             let n_ranks = if multiplexed {
@@ -717,6 +766,16 @@ enum SeqVerdict {
 /// alarm nor the self-heal ever notices. Forgetting them costs the router
 /// nothing it can trust: the new process starts with an empty cache, and its
 /// first events are rooted, so the chain re-anchors on its own.
+fn clear_rank_tiers(state: &Arc<Mutex<HashMap<String, WorkerViews>>>, worker_id: &str, rank: i64) {
+    if let Some(w) = state
+        .lock()
+        .expect("kv view mutex poisoned")
+        .get_mut(worker_id)
+    {
+        w.tiers.remove(&rank);
+    }
+}
+
 fn reset_rank(state: &Arc<Mutex<HashMap<String, WorkerViews>>>, worker_id: &str, rank: i64) {
     let mut guard = state.lock().expect("kv view mutex poisoned");
     let Some(wv) = guard.get_mut(worker_id) else {
@@ -724,6 +783,7 @@ fn reset_rank(state: &Arc<Mutex<HashMap<String, WorkerViews>>>, worker_id: &str,
     };
     wv.views.entry(rank).or_default().clear();
     wv.maps.entry(rank).or_default().clear();
+    wv.tiers.remove(&rank);
     // Counters too: they describe the old process's chain, and carrying its
     // orphan total into a rank whose view is now legitimately empty would arm a
     // flush against an engine that has nothing left to flush.
@@ -798,13 +858,25 @@ fn subscribe_once(
             Ok(frames) => {
                 if let Some((n, payload)) = split_frames(&frames) {
                     if let Some(n) = n {
+                        let previous = seq.last;
                         if seq.observe(worker_id, rank, n) == SeqVerdict::PublisherRestarted {
                             reset_rank(state, worker_id, rank);
+                        } else if previous.is_some_and(|p| n != p.wrapping_add(1)) {
+                            if let Some(w) = state
+                                .lock()
+                                .expect("kv view mutex poisoned")
+                                .get_mut(worker_id)
+                            {
+                                w.tiers.remove(&rank);
+                            }
                         }
                     }
                     match decode_batch(payload) {
                         Ok(events) => apply_events(state, worker_id, rank, &events),
-                        Err(e) => tracing::warn!(worker = %worker_id, err = %e, "kv decode failed"),
+                        Err(e) => {
+                            clear_rank_tiers(state, worker_id, rank);
+                            tracing::warn!(worker = %worker_id, err = %e, "kv decode failed");
+                        }
                     }
                 }
             }
@@ -831,8 +903,33 @@ fn apply_events(
     // Split borrow: take the map for this rank too.
     let map = wv.maps.entry(rank).or_default();
     let (mut orphaned, mut applied, mut cleared) = (0u64, 0u64, false);
-    for ev in events {
+    let mut tiers = if wv.tiers_enabled {
+        Some(wv.tiers.entry(rank).or_default())
+    } else {
+        None
+    };
+    for raw in events {
+        let (tier, ev) = match raw {
+            Event::Tiered { tier, event } => (*tier, event.as_ref()),
+            ev => (crate::cache_tiers::Tier::Device, ev),
+        };
+        if let Some(tiers) = tiers.as_mut() {
+            match ev {
+                Event::Stored {
+                    block_hashes,
+                    parent_block_hash,
+                    token_ids,
+                    spec_kind,
+                } if is_indexable_spec_kind(spec_kind.as_deref()) => {
+                    tiers.store(tier, block_hashes, *parent_block_hash, token_ids, bs);
+                }
+                Event::Removed { block_hashes } => tiers.remove(tier, block_hashes),
+                Event::Cleared => **tiers = Default::default(),
+                _ => {}
+            }
+        }
         match ev {
+            Event::Tiered { .. } => unreachable!("nested tier event"),
             Event::Stored {
                 block_hashes,
                 parent_block_hash,
@@ -1003,6 +1100,26 @@ fn decode_batch(bytes: &[u8]) -> Result<Vec<Event>, String> {
 }
 
 fn parse_event(ev: &rmpv::Value) -> Option<Event> {
+    let event = parse_event_body(ev)?;
+    let medium = if let Some(a) = ev.as_array() {
+        match a.first()?.as_str()? {
+            "BlockStored" => a.get(6),
+            "BlockRemoved" => a.get(2),
+            _ => None,
+        }
+    } else {
+        ev.as_map()?
+            .iter()
+            .find(|(k, _)| k.as_str() == Some("medium"))
+            .map(|(_, v)| v)
+    };
+    Some(Event::Tiered {
+        tier: crate::cache_tiers::Tier::from_medium(medium.and_then(|v| v.as_str())),
+        event: Box::new(event),
+    })
+}
+
+fn parse_event_body(ev: &rmpv::Value) -> Option<Event> {
     // vLLM's KVCacheEvent base is `msgspec.Struct(tag=True)` WITHOUT `array_like`,
     // so its events are tagged MAPS ({"type": tag, "block_hashes": [...], ...}),
     // whereas SGLang/atom use tagged ARRAYS ([tag, ...fields]). Handle both.
@@ -2576,5 +2693,51 @@ mod tests {
         let mut late = SeqTracker::new();
         late.observe("w", 0, 4_000);
         assert_eq!((late.last, late.lost), (Some(4_000), 0));
+    }
+    #[test]
+    fn r3_wire_medium_preserves_host_after_gpu_eviction_and_clears_on_restart() {
+        let c = KvEventClient::nats_fed().with_cache_tiers(true);
+        c.on_worker_added(&worker("sglang", Some("tcp://127.0.0.1:6002"), 16, None));
+        let stored = |medium: &str| {
+            Mv::Array(vec![
+                Mv::String("BlockStored".into()),
+                ints(&[500, 501]),
+                Mv::Nil,
+                toks(&seq(1, 32)),
+                Mv::from(16),
+                Mv::Nil,
+                Mv::String(medium.into()),
+            ])
+        };
+        let batch = |events: Vec<Mv>| enc(Mv::Array(vec![Mv::from(1.0), Mv::Array(events)]));
+        c.apply_encoded_batch(
+            "sglang",
+            0,
+            &batch(vec![stored("GPU"), stored("CPU_PINNED")]),
+        );
+        let q = crate::hasher::hash_request(&seq(1, 32), 16);
+        assert_eq!(c.tier_hits("sglang", None, &q), (2, 0));
+        c.apply_encoded_batch(
+            "sglang",
+            0,
+            &batch(vec![Mv::Array(vec![
+                Mv::String("BlockRemoved".into()),
+                ints(&[500, 501]),
+                Mv::String("GPU".into()),
+            ])]),
+        );
+        assert_eq!(c.tier_hits("sglang", None, &q), (0, 2));
+        assert_eq!(c.tier_hits("sglang", Some(1), &q), (0, 0));
+        // Legacy semantics are deliberately unchanged for the control arm.
+        assert_eq!(c.prefix_hits("sglang", None, &q), 0);
+        reset_rank(&c.state, "sglang", 0);
+        assert_eq!(c.tier_hits("sglang", None, &q), (0, 0));
+        c.apply_encoded_batch("sglang", 0, &batch(vec![stored("CPU_PINNED")]));
+        c.apply_encoded_batch(
+            "sglang",
+            0,
+            &batch(vec![Mv::Array(vec![Mv::String("AllBlocksCleared".into())])]),
+        );
+        assert_eq!(c.tier_hits("sglang", None, &q), (0, 0));
     }
 }

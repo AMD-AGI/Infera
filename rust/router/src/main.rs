@@ -27,6 +27,14 @@ use infera_router::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cfg = Config::parse_and_validate()?;
+    let experiments = infera_router::routing_experiments::Experiments::from_env()?;
+    if cfg.router_policy != "kv-aware"
+        && (experiments.decode != infera_router::routing_experiments::Mode::Off
+            || experiments.prefill != infera_router::routing_experiments::Mode::Off
+            || experiments.tiers != infera_router::routing_experiments::Mode::Off)
+    {
+        anyhow::bail!("R2/R3/R4 require --router-policy kv-aware");
+    }
 
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -35,6 +43,14 @@ async fn main() -> anyhow::Result<()> {
         .init();
 
     tracing::info!(?cfg, "starting infera-router (rust data plane)");
+    tracing::info!(?experiments, "router experiment controls");
+    let prefill_guard_release = if experiments.prefill_guard_completion {
+        "completion"
+    } else {
+        "decode"
+    };
+    tracing::info!(prefill_guard_release = %prefill_guard_release,
+        enabled = experiments.prefill_guard_completion, "P/D streaming guard experiment");
 
     // Built before the policy because kv-aware's self-heal needs it too: it is
     // the only client configured for talking to workers, and a second one would
@@ -45,11 +61,14 @@ async fn main() -> anyhow::Result<()> {
     // + tokenizer; round-robin is stateless.
     let policy: Arc<dyn Policy> = if cfg.router_policy == "kv-aware" {
         let over_nats = cfg.kv_event_transport == "nats";
-        let kv = Arc::new(if over_nats {
-            KvEventClient::nats_fed()
-        } else {
-            KvEventClient::new()
-        });
+        let kv = Arc::new(
+            (if over_nats {
+                KvEventClient::nats_fed()
+            } else {
+                KvEventClient::new()
+            })
+            .with_cache_tiers(experiments.tiers != infera_router::routing_experiments::Mode::Off),
+        );
         if over_nats {
             // One subscription for the whole fleet, rather than a socket per
             // worker. Failing to reach the broker must not take the router
@@ -86,6 +105,7 @@ async fn main() -> anyhow::Result<()> {
                 cfg.kv_prefill_overlap_weight,
                 cfg.kv_decode_overlap_weight,
             )
+            .with_experiments(experiments)
             .with_variants(VariantRegistry::new(
                 RenderVariant::from_default_chat_template_kwargs(parsed_default_ctk.as_ref()),
                 cfg.kv_per_worker_template_kwargs,
