@@ -292,17 +292,27 @@ def main() -> int:
         p = role_settings["prefill"][0]
         d = role_settings["decode"][0]
         nodes = list(dict.fromkeys(row["node"] for row in topology))
-        hardware = detect_hardware(options, nodes, env["IMAGE"])
-        dram = detect_dram(options, nodes)
+        warnings = []
+        try:
+            hardware = detect_hardware(options, nodes, env["IMAGE"])
+        except ValueError as exc:
+            hardware = "unknown"
+            warnings.append(str(exc))
+        try:
+            dram = detect_dram(options, nodes)
+        except ValueError as exc:
+            dram = 0
+            warnings.append(str(exc))
+        write_json(service / "hardware-warnings.json", warnings)
+        for warning in warnings:
+            print(f"Hardware metadata warning: {warning}", file=__import__("sys").stderr)
         write_json(service / "hardware.json", {"gpu": hardware, "cpu_dram_gb": dram})
         configured_dram = env.get("TOTAL_CPU_DRAM_GB", "")
         if configured_dram:
             if not configured_dram.isdigit() or int(configured_dram) <= 0:
                 raise ValueError("TOTAL_CPU_DRAM_GB must be a positive integer")
             if abs(int(configured_dram) - dram) > max(2, dram // 50):
-                raise ValueError(
-                    f"TOTAL_CPU_DRAM_GB={configured_dram} differs from detected {dram}"
-                )
+                print(f"Hardware metadata warning: configured DRAM {configured_dram}, detected {dram}", file=__import__("sys").stderr)
             dram = int(configured_dram)
         parsed = urlsplit(args.router_url)
         metrics = [args.router_url.rstrip("/") + "/metrics"]

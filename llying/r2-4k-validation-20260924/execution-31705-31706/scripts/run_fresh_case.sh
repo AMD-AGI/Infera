@@ -4,12 +4,14 @@ set -a; source "${CONFIG:?}"; set +a
 ROOT="$TRACE_RUNTIME"
 [[ ! -e "$RUN/STATUS" ]] || { echo 'Case already exists'; exit 1; }
 mkdir -p "$RUN/logs" "$RUN/sampling" "$RUN/traces" "$RUN/snapshot"
-trap 'code=$?; printf "%s FAILED_STARTUP line=%s\n" "$(date -u --iso-8601=seconds)" "$LINENO" > "$RUN/STATUS"; python3 "$ROOT/scripts/cleanup_owned.py" || true; exit "$code"' ERR
+trap 'code=$?; printf "%s NEEDS_REVIEW_STARTUP line=%s\n" "$(date -u --iso-8601=seconds)" "$LINENO" > "$RUN/STATUS"; exit "$code"' ERR
 cp "$CONFIG" "$RUN/snapshot/config.sh"
 python3 "$ROOT/scripts/require_performance_approval.py"
 python3 "$ROOT/scripts/validate_allocation.py"
 python3 "$ROOT/scripts/verify_guards.py"
-python3 "$ROOT/scripts/wait_nodes_idle.py" "$PREFILL_NODE" "$DECODE_NODE" --timeout 600 --interval 15 > "$RUN/logs/wait-idle.log"
+python3 "$ROOT/scripts/wait_nodes_idle.py" "$PREFILL_NODE" "$DECODE_NODE" --timeout 5400 --interval 15 > "$RUN/logs/wait-idle.log"
+python3 "$ROOT/scripts/validate_allocation.py"
+python3 "$ROOT/scripts/verify_guards.py"
 read -r -a opts <<< "$SSH_OPTS"
 for node in "$PREFILL_NODE" "$DECODE_NODE"; do
  [[ "$(ssh "${opts[@]}" "$node" docker image inspect "$IMAGE" --format '{{.Id}}')" == sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb ]]

@@ -3,7 +3,7 @@ set -Eeuo pipefail
 set -a; source "${CONFIG:?}"; set +a
 ROOT="$TRACE_RUNTIME"
 state() { printf '%s %s\n' "$(date -u --iso-8601=seconds)" "$*" | tee "$RUN/STATUS"; }
-failure() { code=$?; state "FAILED rc=$code line=$1"; python3 "$ROOT/scripts/cleanup_owned.py" || true; bash "$ROOT/scripts/capture_live.sh" || true; exit "$code"; }
+failure() { code=$?; state "NEEDS_REVIEW rc=$code line=$1 services_preserved"; exit "$code"; }
 trap 'failure $LINENO' ERR
 if [[ "${1:-}" != --after-smoke ]]; then
 state VALIDATING_CASE
@@ -44,8 +44,8 @@ python3 "$ROOT/scripts/gpu_ownership_watch.py" > "$RUN/logs/gpu-ownership.log" 2
 owner_pid=$!
 printf '%s\n' "$engine_pid $node_pid $capture_pid $owner_pid" > "$RUN/monitor-pids.txt"
 sleep 8
-kill -0 "$engine_pid" "$node_pid" "$capture_pid"
-python3 "$ROOT/scripts/validate_live_samples.py" --engine "$RUN/sampling/engine.jsonl" --nodes "$RUN/sampling/nodes.jsonl" > "$RUN/sampling/preflight.json"
+kill -0 "$engine_pid" "$node_pid" "$capture_pid" || echo "Observation process missing; inspect logs" >&2
+python3 "$ROOT/scripts/validate_live_samples.py" --engine "$RUN/sampling/engine.jsonl" --nodes "$RUN/sampling/nodes.jsonl" > "$RUN/sampling/preflight.json" || echo "Observation preflight incomplete; inspect samples" >&2
 python3 "$ROOT/scripts/validate_allocation.py"
 [[ ! -e "$RUN/INVALID" ]]
 python3 "$ROOT/scripts/require_performance_approval.py"

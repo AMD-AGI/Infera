@@ -9,3 +9,5 @@
 13:06 UTC已重新启动驱动（P主机PID4014518），先等待旧P释放，再启动原定R2-on/C80/P-D实际4K实验。Prefill HiCache开；R1/R3/R4关；候选诊断日志关。只和历史完整A0比较，不补跑基线。
 
 P=n10-29/job31705，D=n01-21/job31706。双端allocation watchdog已重启并验证；结束或失败先停P，再离线分析。实时目录：/perf_apps/liyingli/bench_agentx/r2-4k-31705-31706-20260924。
+
+13:30 UTC左右：用户指出辅助检查不应中断实验。调整脚本：硬件元信息检测失败记unknown/告警；采样preflight失败告警；ownership遥测查询失败不再终止client（实际foreign GPU占用仍保留处理）；测量脚本异常保留服务，标记NEEDS_REVIEW供人工检查。正常完成仍先停P，allocation丢失仍由独立watchdog处理。已运行的启动shell仍可能持有旧ERR trap，新启动脚本已修正；后续exec的测量脚本使用新逻辑。配置和router算法不变。语法检查通过。
