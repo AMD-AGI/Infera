@@ -1,0 +1,124 @@
+{
+  "prefill": {
+    "settings": {
+      "chunked_prefill_size": {
+        "A0": 4096,
+        "G0": 4096
+      },
+      "tp_size": {
+        "A0": 8,
+        "G0": 8
+      },
+      "dp_size": {
+        "A0": 8,
+        "G0": 8
+      },
+      "ep_size": {
+        "A0": 1,
+        "G0": 1
+      },
+      "mem_fraction_static": {
+        "A0": 0.85,
+        "G0": 0.85
+      },
+      "random_seed": {
+        "A0": 823508857,
+        "G0": 823508857
+      },
+      "enable_hierarchical_cache": {
+        "A0": true,
+        "G0": true
+      },
+      "hicache_ratio": {
+        "A0": 1.5,
+        "G0": 1.5
+      },
+      "max_running_requests": {
+        "A0": 256,
+        "G0": 256
+      },
+      "kv_cache_dtype": {
+        "A0": "fp8_e4m3",
+        "G0": "fp8_e4m3"
+      },
+      "speculative_algorithm": {
+        "A0": null,
+        "G0": null
+      },
+      "speculative_num_steps": {
+        "A0": null,
+        "G0": null
+      },
+      "speculative_eagle_topk": {
+        "A0": null,
+        "G0": null
+      },
+      "speculative_num_draft_tokens": {
+        "A0": null,
+        "G0": null
+      }
+    },
+    "differences": {}
+  },
+  "decode": {
+    "settings": {
+      "chunked_prefill_size": {
+        "A0": 4096,
+        "G0": 4096
+      },
+      "tp_size": {
+        "A0": 8,
+        "G0": 8
+      },
+      "dp_size": {
+        "A0": 8,
+        "G0": 8
+      },
+      "ep_size": {
+        "A0": 1,
+        "G0": 1
+      },
+      "mem_fraction_static": {
+        "A0": 0.85,
+        "G0": 0.85
+      },
+      "random_seed": {
+        "A0": 19197414,
+        "G0": 19197414
+      },
+      "enable_hierarchical_cache": {
+        "A0": false,
+        "G0": false
+      },
+      "hicache_ratio": {
+        "A0": null,
+        "G0": null
+      },
+      "max_running_requests": {
+        "A0": 256,
+        "G0": 256
+      },
+      "kv_cache_dtype": {
+        "A0": "fp8_e4m3",
+        "G0": "fp8_e4m3"
+      },
+      "speculative_algorithm": {
+        "A0": "EAGLE",
+        "G0": "EAGLE"
+      },
+      "speculative_num_steps": {
+        "A0": 5,
+        "G0": 5
+      },
+      "speculative_eagle_topk": {
+        "A0": 1,
+        "G0": 1
+      },
+      "speculative_num_draft_tokens": {
+        "A0": 6,
+        "G0": 6
+      }
+    },
+    "differences": {}
+  }
+}

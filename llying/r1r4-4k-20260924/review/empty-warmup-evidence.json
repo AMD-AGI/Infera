@@ -1,0 +1,438 @@
+{
+  "client": [
+    {
+      "metadata": {
+        "session_num": 526,
+        "x_request_id": "863d7028-30a9-4d1c-b6c3-61a0d41d1d25",
+        "x_correlation_id": "b1591117-e70a-461e-8758-26b2a7c5402f",
+        "conversation_id": "0d8a816e4819b765d81ff748da94d463f3b2",
+        "turn_index": 22,
+        "source_trace_id": "0d8a816e4819b765d81ff748da94d463f3b2",
+        "source_outer_idx": 22,
+        "source_kind": "weka_main",
+        "credit_issued_ns": 1790258675350631763,
+        "request_start_ns": 1790258675352212063,
+        "request_ack_ns": 1790258681406440126,
+        "request_end_ns": 1790258681406577694,
+        "worker_id": "worker_0cf67cb5",
+        "record_processor_id": "record_processor_e0c2d9e7",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 0,
+        "root_correlation_id": "b1591117-e70a-461e-8758-26b2a7c5402f"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 148568,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "session_num": 260,
+        "x_request_id": "6712800d-45d5-4061-baef-0a7bed160865",
+        "x_correlation_id": "05f15132-4a3c-4571-b9e6-8cb23ede16fc",
+        "conversation_id": "21cde366f5bd2f0ff2031b0538496c7e2a05",
+        "turn_index": 293,
+        "source_trace_id": "21cde366f5bd2f0ff2031b0538496c7e2a05",
+        "source_outer_idx": 392,
+        "source_kind": "weka_main",
+        "credit_issued_ns": 1790258516084505790,
+        "request_start_ns": 1790258516088917497,
+        "request_ack_ns": 1790258691915218137,
+        "request_end_ns": 1790258691955777789,
+        "worker_id": "worker_32e5f1b9",
+        "record_processor_id": "record_processor_d40430a5",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 0,
+        "root_correlation_id": "05f15132-4a3c-4571-b9e6-8cb23ede16fc"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 217724,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "session_num": 724,
+        "x_request_id": "cd7bc67c-2aae-4039-811b-ed9ae2d32a26",
+        "x_correlation_id": "7d64fef6-fdab-4324-b303-d8752868fdea",
+        "conversation_id": "259d1cc35e11b72660b8d6a33867cbb93759::aux:002",
+        "turn_index": 0,
+        "source_trace_id": "259d1cc35e11b72660b8d6a33867cbb93759",
+        "source_outer_idx": 23,
+        "source_kind": "weka_flat",
+        "credit_issued_ns": 1790258779229684282,
+        "request_start_ns": 1790258779230824793,
+        "request_ack_ns": 1790258783925268087,
+        "request_end_ns": 1790258783925311676,
+        "worker_id": "worker_0c93069c",
+        "record_processor_id": "record_processor_c7a9b1f2",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 1,
+        "parent_correlation_id": "0fe911ef-f51a-46fa-9566-204c555e7942",
+        "root_correlation_id": "0fe911ef-f51a-46fa-9566-204c555e7942"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 3223,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    }
+  ],
+  "joined": [
+    {
+      "concurrency": 80,
+      "phase": "warmup",
+      "rid": "863d7028-30a9-4d1c-b6c3-61a0d41d1d25",
+      "metadata": {
+        "session_num": 526,
+        "x_request_id": "863d7028-30a9-4d1c-b6c3-61a0d41d1d25",
+        "x_correlation_id": "b1591117-e70a-461e-8758-26b2a7c5402f",
+        "conversation_id": "0d8a816e4819b765d81ff748da94d463f3b2",
+        "turn_index": 22,
+        "source_trace_id": "0d8a816e4819b765d81ff748da94d463f3b2",
+        "source_outer_idx": 22,
+        "source_kind": "weka_main",
+        "credit_issued_ns": 1790258675350631763,
+        "request_start_ns": 1790258675352212063,
+        "request_ack_ns": 1790258681406440126,
+        "request_end_ns": 1790258681406577694,
+        "worker_id": "worker_0cf67cb5",
+        "record_processor_id": "record_processor_e0c2d9e7",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 0,
+        "root_correlation_id": "b1591117-e70a-461e-8758-26b2a7c5402f"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 148568,
+          "unit": "tokens"
+        }
+      },
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790258681605187399,
+        "mono_ns": 474544024605516,
+        "role": "prefill",
+        "pid": 2587,
+        "dp_rank": 7,
+        "tp_rank": 7,
+        "rid": "863d7028-30a9-4d1c-b6c3-61a0d41d1d25",
+        "room": "1682630587236029607",
+        "input_tokens": 148568,
+        "output_tokens": 1,
+        "cached_device": 147968,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 474538.95497922,
+          "wait_queue_entry_time": 474538.956203585,
+          "forward_entry_time": 474538.959385616,
+          "prefill_finished_time": 474541.934962569,
+          "completion_time": 474544.024152501,
+          "bootstrap_done_time": 474538.956189615,
+          "prefill_bootstrap_queue_entry_time": 474538.955441104,
+          "prefill_transfer_queue_entry_time": 474541.940108936,
+          "prefill_kv_transfer_finish_time": 474544.017145837,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        },
+        "durations_ms": {
+          "queue_ms": 3.1820309814065695,
+          "bootstrap_ms": 0.7624810095876455,
+          "forward_envelope_ms": 2975.576952972915,
+          "transfer_tail_ms": 2077.0369010278955
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790258679660656087,
+        "mono_ns": 1878842956014795,
+        "role": "decode",
+        "pid": 1180,
+        "dp_rank": 2,
+        "tp_rank": 2,
+        "rid": "863d7028-30a9-4d1c-b6c3-61a0d41d1d25",
+        "room": "1682630587236029607",
+        "input_tokens": 148568,
+        "output_tokens": 1,
+        "cached_device": 147968,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 7,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 1878839.154088923,
+          "wait_queue_entry_time": 1878842.954776666,
+          "forward_entry_time": 1878842.955675651,
+          "prefill_finished_time": 0.0,
+          "completion_time": 1878842.955675651,
+          "bootstrap_done_time": 1878839.154478606,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 1878839.154384047,
+          "decode_transfer_queue_entry_time": 1878839.155207213
+        },
+        "durations_ms": {
+          "queue_ms": 0.8989851921796799,
+          "bootstrap_ms": 0.09455904364585876,
+          "alloc_wait_ms": 0.7286069449037313,
+          "transfer_wait_ms": 3799.5694528799504,
+          "generation_ms": 0.0
+        }
+      }
+    },
+    {
+      "concurrency": 80,
+      "phase": "warmup",
+      "rid": "6712800d-45d5-4061-baef-0a7bed160865",
+      "metadata": {
+        "session_num": 260,
+        "x_request_id": "6712800d-45d5-4061-baef-0a7bed160865",
+        "x_correlation_id": "05f15132-4a3c-4571-b9e6-8cb23ede16fc",
+        "conversation_id": "21cde366f5bd2f0ff2031b0538496c7e2a05",
+        "turn_index": 293,
+        "source_trace_id": "21cde366f5bd2f0ff2031b0538496c7e2a05",
+        "source_outer_idx": 392,
+        "source_kind": "weka_main",
+        "credit_issued_ns": 1790258516084505790,
+        "request_start_ns": 1790258516088917497,
+        "request_ack_ns": 1790258691915218137,
+        "request_end_ns": 1790258691955777789,
+        "worker_id": "worker_32e5f1b9",
+        "record_processor_id": "record_processor_d40430a5",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 0,
+        "root_correlation_id": "05f15132-4a3c-4571-b9e6-8cb23ede16fc"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 217724,
+          "unit": "tokens"
+        }
+      },
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790258687887009261,
+        "mono_ns": 474550306427388,
+        "role": "prefill",
+        "pid": 1346,
+        "dp_rank": 3,
+        "tp_rank": 3,
+        "rid": "6712800d-45d5-4061-baef-0a7bed160865",
+        "room": "1775092891854139939",
+        "input_tokens": 217724,
+        "output_tokens": 1,
+        "cached_device": 215552,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 474384.304700234,
+          "wait_queue_entry_time": 474384.305305926,
+          "forward_entry_time": 474546.113865707,
+          "prefill_finished_time": 474548.900776104,
+          "completion_time": 474550.305953464,
+          "bootstrap_done_time": 474384.305295046,
+          "prefill_bootstrap_queue_entry_time": 474384.305115119,
+          "prefill_transfer_queue_entry_time": 474548.905748103,
+          "prefill_kv_transfer_finish_time": 474550.305786536,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        },
+        "durations_ms": {
+          "queue_ms": 161808.55978099862,
+          "bootstrap_ms": 0.1908070407807827,
+          "forward_envelope_ms": 2786.910397000611,
+          "transfer_tail_ms": 1400.038433028385
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790258686697866525,
+        "mono_ns": 1878849993225183,
+        "role": "decode",
+        "pid": 1180,
+        "dp_rank": 2,
+        "tp_rank": 2,
+        "rid": "6712800d-45d5-4061-baef-0a7bed160865",
+        "room": "1775092891854139939",
+        "input_tokens": 217724,
+        "output_tokens": 1,
+        "cached_device": 215552,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 3,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 1878685.106908155,
+          "wait_queue_entry_time": 1878849.992181962,
+          "forward_entry_time": 1878849.992941258,
+          "prefill_finished_time": 0.0,
+          "completion_time": 1878849.992941258,
+          "bootstrap_done_time": 1878685.107325088,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 1878685.1072231,
+          "decode_transfer_queue_entry_time": 1878685.108184093
+        },
+        "durations_ms": {
+          "queue_ms": 0.7592961192131042,
+          "bootstrap_ms": 0.10198797099292278,
+          "alloc_wait_ms": 0.8590049110352993,
+          "transfer_wait_ms": 164883.99786897935,
+          "generation_ms": 0.0
+        }
+      }
+    },
+    {
+      "concurrency": 80,
+      "phase": "warmup",
+      "rid": "cd7bc67c-2aae-4039-811b-ed9ae2d32a26",
+      "metadata": {
+        "session_num": 724,
+        "x_request_id": "cd7bc67c-2aae-4039-811b-ed9ae2d32a26",
+        "x_correlation_id": "7d64fef6-fdab-4324-b303-d8752868fdea",
+        "conversation_id": "259d1cc35e11b72660b8d6a33867cbb93759::aux:002",
+        "turn_index": 0,
+        "source_trace_id": "259d1cc35e11b72660b8d6a33867cbb93759",
+        "source_outer_idx": 23,
+        "source_kind": "weka_flat",
+        "credit_issued_ns": 1790258779229684282,
+        "request_start_ns": 1790258779230824793,
+        "request_ack_ns": 1790258783925268087,
+        "request_end_ns": 1790258783925311676,
+        "worker_id": "worker_0c93069c",
+        "record_processor_id": "record_processor_c7a9b1f2",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 1,
+        "parent_correlation_id": "0fe911ef-f51a-46fa-9566-204c555e7942",
+        "root_correlation_id": "0fe911ef-f51a-46fa-9566-204c555e7942"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 3223,
+          "unit": "tokens"
+        }
+      },
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790258784824853825,
+        "mono_ns": 474647244271952,
+        "role": "prefill",
+        "pid": 2240,
+        "dp_rank": 6,
+        "tp_rank": 6,
+        "rid": "cd7bc67c-2aae-4039-811b-ed9ae2d32a26",
+        "room": "6424431242882366790",
+        "input_tokens": 3223,
+        "output_tokens": 1,
+        "cached_device": 0,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 474643.186918291,
+          "wait_queue_entry_time": 474643.187888397,
+          "forward_entry_time": 474643.188368044,
+          "prefill_finished_time": 474646.085541155,
+          "completion_time": 474647.244031709,
+          "bootstrap_done_time": 474643.187873517,
+          "prefill_bootstrap_queue_entry_time": 474643.187640193,
+          "prefill_transfer_queue_entry_time": 474646.087664391,
+          "prefill_kv_transfer_finish_time": 474647.243912152,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        },
+        "durations_ms": {
+          "queue_ms": 0.4796469584107399,
+          "bootstrap_ms": 0.24820404360070825,
+          "forward_envelope_ms": 2897.173111035954,
+          "transfer_tail_ms": 1156.247761042323
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790258783685418059,
+        "mono_ns": 1878946980776677,
+        "role": "decode",
+        "pid": 1898,
+        "dp_rank": 5,
+        "tp_rank": 5,
+        "rid": "cd7bc67c-2aae-4039-811b-ed9ae2d32a26",
+        "room": "6424431242882366790",
+        "input_tokens": 3223,
+        "output_tokens": 1,
+        "cached_device": 0,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 6,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 1878943.079757032,
+          "wait_queue_entry_time": 1878946.979914953,
+          "forward_entry_time": 1878946.980563881,
+          "prefill_finished_time": 0.0,
+          "completion_time": 1878946.980563881,
+          "bootstrap_done_time": 1878943.080049976,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 1878943.079952618,
+          "decode_transfer_queue_entry_time": 1878943.080545527
+        },
+        "durations_ms": {
+          "queue_ms": 0.6489281076937914,
+          "bootstrap_ms": 0.09735790081322193,
+          "alloc_wait_ms": 0.49555092118680477,
+          "transfer_wait_ms": 3899.369426071644,
+          "generation_ms": 0.0
+        }
+      }
+    }
+  ],
+  "raw_response_available": false
+}

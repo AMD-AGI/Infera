@@ -1461,6 +1461,34 @@ mod tests {
     }
 
     #[test]
+    fn r1_r4_release_prefill_work_and_blocks_together() {
+        let policy = Arc::new(experiment_policy(Experiments {
+            prefill_guard_completion: true,
+            prefill: Mode::On,
+            ..Default::default()
+        }));
+        let pick = policy.pick(
+            &[worker("p", 16, None)],
+            &json!({"prompt": vec![7; 32]}),
+            Role::Prefill,
+        );
+        let mut guard = ActiveGuard::start(
+            policy.clone(),
+            vec![("p".into(), vec![1, 2]), ("d".into(), vec![3])],
+        )
+        .with_reservations(pick.reservation, None);
+        let prefill = guard.detach_prefill(policy.prefill_guard_at_completion());
+        assert_eq!(policy.demand.lock().unwrap()["p"].tokens, 32.0);
+        assert_eq!(policy.active_len("p"), 2);
+        drop(prefill);
+        assert!(policy.demand.lock().unwrap().is_empty());
+        assert_eq!(policy.active_len("p"), 0);
+        assert_eq!(policy.active_len("d"), 1);
+        drop(guard);
+        assert_eq!(policy.active_len("d"), 0);
+    }
+
+    #[test]
     fn r1_split_releases_legacy_p_blocks_without_releasing_decode() {
         let policy = Arc::new(experiment_policy(Default::default()));
         let mut guard = ActiveGuard::start(
