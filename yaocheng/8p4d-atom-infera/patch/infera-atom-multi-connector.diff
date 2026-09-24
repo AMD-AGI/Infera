@@ -1,0 +1,26 @@
+--- a/infera/engine/atom/args.py
++++ b/infera/engine/atom/args.py
+@@ -85,6 +85,15 @@
+     disagg_meta: dict[str, Any] = field(default_factory=dict)
+ 
+ 
++def _pd_connector_config(cfg: dict[str, Any]) -> dict[str, Any]:
++    """The PD entry of an ATOM ``multi`` connector (e.g. mooncake next to
++    lmcache_offload), else ``cfg`` itself."""
++    if cfg.get("kv_connector") != "multi":
++        return cfg
++    connectors = cfg.get("connectors", [])
++    return next((c for c in connectors if c.get("kv_role") in _KV_ROLE_TO_DISAGG), {})
++
++
+ def _disagg_mode_from_kv_transfer(cfg: dict[str, Any]) -> DisaggMode:
+     role = cfg.get("kv_role")
+     if not role:
+@@ -202,6 +211,7 @@
+     except (TypeError, ValueError):
+         logger.warning("could not parse --kv-transfer-config as JSON; treating as mixed")
+         kv_cfg = {}
++    kv_cfg = _pd_connector_config(kv_cfg)
+ 
+     advertise_host = known.advertise_host or atom_parsed.host
+     disagg_mode = _disagg_mode_from_kv_transfer(kv_cfg)

@@ -64,7 +64,75 @@
 - 现象：15:10 在 n04-29 冷启动 decode（与原节点相同的镜像和参数，`GPU_MEM_UTIL=0.85`），4 个 rank 在 `model_runner.allocate_kv_cache` 之后的 `torch.distributed.barrier()` 失败：`Failed to CUDA calloc 33554432 bytes`，`HIP failure: 'out of memory'`。同一镜像的 prefill 在 n04-25（amdgpu 6.14.14）正常就绪。
 - 数据：ATOM 显存预算与原节点一致（`total_gpu=287.98GB`，`budget=244.79GB`，`peak_torch=110.32GB`，`non_torch≈26.6GB`，KV 101.5 GB）。`.tmp/decode_probe.sh` 在 n04-29 同时启动两个只含 decode 的实例（GPU 0-3 为 `MOONCAKE_DISABLE_HIP_DMABUF=1` 的 peer-mem 注册，GPU 4-7 为 `MOONCAKE_DISABLE_HIP_DMABUF=0` 的 dma-buf 注册），`.tmp/vram_sample.sh` 每 2 s 采样：两者都在显存用量约 243 GB（总量的 84.4%）时 OOM，此时仍有约 45 GB 未使用。两台节点 BAR 可见显存均为 287 GB；ionic 驱动 n04-25 为 26.03.3，n04-29 为 26.07.9，host libionic 分别为 1.1.54 与 1.1.39。
 - 结论：与 RDMA 注册方式无关；n04-29 的驱动下可分配显存上限约为总量的 84%，低于 ATOM 0.85 预算加 RCCL 缓冲。
-- 状态：未解决（节点已被抢占）。在该驱动版本的节点上，可行的处理有两种：decode 放在旧驱动节点上；或者降低 decode 的 `GPU_MEM_UTIL`，这会减少 KV 容量。
+- 第二次诊断（2026-09-24 01:28，作业 31684，n04-29，decode 的 C80 参数，`.tmp/decode_probe.sh`）：
+  - `GPU_MEM_UTIL=0.85`，不带 kv-transfer-config（不做 RDMA 注册）：KV 分配、42 个 cudagraph 捕获完成，ATOM ready。
+  - `GPU_MEM_UTIL=0.74`，带 kv-transfer-config（每 rank KV 69.8 GB，`batch_register_memory OK`）：ATOM ready。
+  - 两个实例随后因为没有 etcd（`httpx.ConnectError`）退出，与显存无关。
+- 分析：OOM 由 RDMA 注册引起。数据符合以下模型：注册后被固定（pin）的 KV 显存在驱动的可分配额度中被重复扣除，即“已用 + 新分配 > 总量 − 已固定”时分配失败。0.85 时已用约 243 GB，上限 288 − 101.5 ≈ 186.5 GB，失败；0.74 时已用约 207 GB，上限约 218 GB，通过。按此模型，这类节点上 decode 的显存比例上限约 0.75；prefill 每个 rank 的模型与运行时占用约 108 GB，估计上限约 0.70。
+- 同期节点：n04-21 为 amdgpu 6.19.14，n04-29 为 6.19.16，ionic 驱动均为 26.07.9，host libionic 均为 1.1.39。
+- 状态：原因已定位到 RDMA 注册与驱动版本的组合，等待用户决定。可选处理为：降低新驱动节点上的显存比例（decode 约 0.74，KV 容量约减少 31%；prefill 约 0.70，显存 KV 约减少 33%）；或者等待 6.14.x 驱动的节点。
+- 用户决定（01:36）：新驱动节点只用于功能验证，正式测试等旧驱动节点。套件新增 `PREFILL_MEM_UTIL`、`DECODE_MEM_UTIL`（默认 0.85），在新驱动节点上通过命令行传入 0.70 和 0.74；n04-21（6.19.14）上 prefill 以 0.70 启动成功，没有测 0.85。
+- 负载下的 OOM（作业 31690，03:02，prefill n04-21 `PREFILL_MEM_UTIL=0.70`，C80 预热）：84 个预热请求（长上下文首次 prefill）发出后 11 分钟没有一个返回。prefill 日志中 GPU 0、1、2、3、6 的 ModelRunner 报 `torch.OutOfMemoryError: HIP out of memory. Tried to allocate 13.50 GiB`，此时 PyTorch 已分配 163-164 GiB。按上述模型，0.70 时余量约为 288 − 2×87 − 108 ≈ 6 GB，多个长上下文请求同批 prefill 的临时显存（13.5 GiB）超出余量。单请求验证（GSM8K、大海捞针、`offload_probe.sh`）不会触发这种情况。旧驱动节点 0.85 时余量约 49 GB，check1-4 没有出现这个问题。日志位于 `.tmp/runs/c80-lmcache-c80/logs/`。
+- 处理（03:04）：对调节点角色。prefill（长上下文临时显存大）放在旧驱动的 n10-29，按 0.85 运行；decode（cudagraph 内存预先分配，临时显存小）放在 n04-21，`DECODE_MEM_UTIL=0.74`，KV 约 615 万 token（每 rank 约 9.6 万 block，按 decode 日志），10.5 万 token 的请求最多同时 58 个。
+- 用户决定（02:13-02:17）：后续排除 n04-29，作业 31690 的提交命令加入 `--exclude=smci355-ccs-aus-n04-29`。套件中没有针对 n04-29 的 patch。Slurm 的节点 feature 为空，无法按驱动版本约束，只能按节点名排除；`up.sh` 启动时打印两台节点的 amdgpu 版本。n04-21 同为 6.19.x 驱动，是否一并排除由用户决定。
+
+## 11. prefill 没有 KV 卸载，与 2p1d 参考的 HiCache 不对应
+
+- 现象：prefill 每个 DP rank 的显存 KV 约 289 万 token，10.5 万 token 的会话最多容纳 27 个；C192、C256 时每个 rank 约有 24、32 个会话。2p1d 参考的 prefill 开启了 SGLang HiCache（ratio 1.5），InferenceX 单机 ATOM 配置在 TP4 档使用 LMCache 0.4.5 CPU 卸载，而本套件为 `KV_OFFLOADING=none`。
+- ATOM 的支持情况（`d9f0720e2f99`，源码位于 `.tmp/cache/ATOM`）：
+  - `kv_connector: "multi"` 可以组合多个子 connector，其中最多一个发送方。`api_server._resolve_kv_transfer_role` 的注释说明了这种用法：“multi[mooncake-producer + offload] as a prefill node”。
+  - `lmcache_offload` 的 dense 格式包含 GLM-5.2 的 DSA 索引缓存（`dense/kv_byte_codec.py`），层数计入 MTP draft 层。DPA 下每个 DP rank 使用独立的 CPU 池和命名空间 `atom-offload-dp<rank>`。
+  - `MultiConnector` 把 `record_kv_cache_ready` 转发给各个子 connector，mooncake 的 staging 仍会等待 prefill 写完 KV。
+  - 显存命中长度不为 256 token 的整数倍时，调度器只重新计算不对齐的部分，其余从 CPU 加载。
+- 障碍：Infera 的 `infera/engine/atom/args.py` 只读取 kv-transfer-config 顶层的 `kv_role`、`kv_connector`、`handshake_port`。使用 `multi` 配置时，prefill 会注册为 MIXED，路由不会把它当作 prefill。
+- 处理：
+  - `patch/infera-atom-multi-connector.diff`：增加 `_pd_connector_config`，配置为 `multi` 时改用带 `kv_producer` 或 `kv_consumer` 角色的子 connector。本地测试：`multi` 配置（子项任一次序）注册为 PREFILL，`disagg_meta` 与单个 mooncake 配置相同；只有 offload 时注册为 MIXED。生成脚本为 `.tmp/patchwork/make_infera_multi_patch.py`。
+  - `config.sh`：新增 `PREFILL_OFFLOAD_GB`，表示每个 prefill DP rank 的 CPU 缓存大小（GiB），默认 256，设为 0 时关闭。开启时 prefill 增加 `LMCACHE_LOCAL_CPU=True LMCACHE_MAX_LOCAL_CPU_SIZE=<GiB> LMCACHE_CHUNK_SIZE=256 OFFLOAD_MIN_LOAD_TOKENS=8192`，取值与 InferenceX 相同。8 个 rank 共 2 TiB，节点内存约 3 TB；每个 rank 可缓存约 565 万 token（每 token 48672 字节），是显存 KV 容量的 1.9 倍。
+  - `scripts/up.sh`：开启时 prefill 的 kv-transfer-config 为 `{"kv_connector":"multi","connectors":[<mooncake kv_producer>,{"kv_connector":"lmcache_offload","kv_role":"offload"}]}`。
+  - `scripts/agentx.sh`：开启时元数据为 `KV_OFFLOADING=dram`、`KV_OFFLOAD_BACKEND=lmcache`，关闭时为 `KV_OFFLOADING=none`。
+  - 离线检查：脚本语法；两种设置下生成的 JSON 和元数据；两个 Infera patch 与两个 ATOM patch 按 Dockerfile 的次序可以依次应用。
+- 待验证（需要节点）：
+  - LMCache 初始化与 pinned 内存分配的耗时；
+  - `.tmp/offload_probe.sh` 能否确认显存逐出后从 CPU 加载（以 `PREFILL_EXTRA_ENV=OFFLOAD_PROFILE=1` 启动服务，查看 `[OFFLOAD-LOAD-PROF]` 日志）；
+  - GSM8K 与大海捞针；
+  - AgentX 下 prefill 的命中率与 TTFT。
+  - 另外，镜像中的 LMCache 为 0.5.5rc3，InferenceX 标注的是 0.4.5。
+- 节点验证一（2026-09-24 01:37，作业 31684，prefill n04-21，`PREFILL_MEM_UTIL=0.70`，每个 rank 256 GiB）：
+  - 路由注册与配置解析正常：日志出现 `lmcache_offload: worker family=dense`，8 个 rank 的 mooncake 均为 `role=PRODUCER`。
+  - 启动失败：各 rank 于 01:44:49 完成 KV 预算后创建 LMCache 的 `LocalCPUBackend`，也就是分配 pinned 内存。前几个 rank 在 01:45:06-01:45:15 完成，其余几个直到 01:55:38-01:55:43 才完成。较早完成的 rank 在 `allocate_kv_cache` 后的 NCCL barrier 等待 rank 0 的 ncclUniqueId，600 s 后超时（`store->get('0') got error: wait timeout after 600000ms`）。
+  - 分配期间有 3 个 DP rank 的 CPU 占用 100%，RES 各 266.6 GB，主机内存已用 1988 GiB（共 3023 GiB）。
+  - 日志位于 `.tmp/runs/func-n04-c80-noal/logs/`。
+- 处理：功能验证改为每个 rank 128 GiB（共 1 TiB）。正式配置使用的大小，按各 rank 的初始化耗时确定。
+- 节点验证二（02:00，每个 rank 128 GiB，`RUN_ID=func2-n04-c80-noal`）：8 个 rank 的 CPU 后端在 13 s 内创建完成，服务约 7 分钟就绪。`smoke.sh` 通过：路由把 `multi` 配置的 prefill 识别为 PD prefill，流式 chat 返回 `kv_transfer_params`。之后作业被取消，GSM8K、大海捞针和 `offload_probe.sh` 没有执行。
+- 分析：两次启动的差别与 GPU 的 GTT 上限一致。各 GPU 的 `mem_info_gtt_total` 为 1511 GiB，即主机内存的一半。每 rank 256 GiB 时，完成较快的 5 个 rank 共 1280 GiB，其余 rank 会使总量超过上限，分配变慢；每 rank 128 GiB 时共 1024 GiB。因此 8 个 rank 的总量需要保持在 1511 GiB 以下，并留出余量。
+- 容量取舍：LMCache 采用写透方式，每次 prefill 都写入 CPU，CPU 中的内容大部分与显存重复，只有 CPU 容量明显大于显存 KV 时才有收益。每个 rank 的显存 KV 在 0.85 下为 131 GB；128 GiB（137 GB）约为其 1.05 倍，160 GiB（172 GB）约为 1.3 倍。2p1d 参考的 HiCache ratio 为 1.5。`PREFILL_OFFLOAD_GB` 默认值改为 160（共 1280 GiB，为 GTT 上限的 85%），这个值尚未在节点上验证。
+- 节点验证三（作业 31690，prefill n04-21 `PREFILL_MEM_UTIL=0.70`，decode n10-29 0.85，每 rank 160 GiB，`RUN_ID=acc-c80-lmcache`）：
+  - 8 个 rank 的 CPU 后端在 6 s 内创建完成。
+  - GSM8K 200 题 0.975 ± 0.011，大海捞针 3/3。
+  - `offload_probe.sh`：A 被挤出该 rank 的显存后，第三次请求为 `hbm=0 lmc=99840 retrieved=99840 status=ok`，4.86 GB 用 383 ms 从 CPU 加载，端到端 2.04 s（首次完整 prefill 为 7.10 s），答案正确。
+- 状态：已验证（启动、精度、CPU 加载），用于 C80 正式测试。
+
+## 12. 开启 KV 卸载后 AgentX 聚合失败
+
+- 现象：C80 测量完成（`replay_rc=0`，aiperf 产物齐全），InferenceX 的 `process_agentic_result.py` 报 `KV_OFFLOAD_BACKEND is required when KV_OFFLOADING is enabled`，没有生成 `agentx_conc80.json`，`sweep.sh` 输出 `AgentX C80 failed`。
+- 原因：`KV_OFFLOADING` 不为 `none` 时，聚合脚本还要求 `KV_OFFLOAD_BACKEND_METADATA`（JSON，`name` 与 `KV_OFFLOAD_BACKEND` 一致，`version` 可选）。`agentx.sh` 只写了 `KV_OFFLOADING=dram` 与 `KV_OFFLOAD_BACKEND=lmcache`。
+- 处理：`agentx.sh` 增加 `KV_OFFLOAD_BACKEND_METADATA={"name":"lmcache","version":"$LMCACHE_VERSION"}`（`config.sh` 中 `LMCACHE_VERSION=0.5.5rc3`，与镜像一致），8P8D 套件同样修改。对已完成的运行，在其 `runtime.env` 中增加该变量，用 `.tmp/reaggregate.sh RUN_DIR` 重新执行聚合、分布分析与错误率校验。
+- 状态：已解决，C80 结果已写入 `results/`。
+
+## 13. prefill 容器删除后显存数分钟未回收，下一次启动 KV 预算为负
+
+- 现象（作业 31690，2026-09-24 08:14-08:16，prefill n01-25）：精度验证服务删除后，`sweep.sh` 冷启动 C80，prefill 的 8 个 DP rank 中有 2 个报 `AssertionError: Not enough memory for KV cache with block size(64) ... available_for_kv=-5936.53MB (budget=244.79GB, peak_torch=89.24GB, non_torch=155.59GB, ... free=60.19GB)`，引擎退出，`up.sh` 失败。日志位于 `.tmp/runs/c80-mem095-b64-fail1-c80/logs/`。
+- 数据（`.tmp/logs/vram-n0125-095.log`，每 2 s 采样）：08:14:15 删除上一个 prefill 后，GPU 0-3、5、6 降到 20-25 GB（空闲时为 0.3 GB），GPU 4、7 保持约 160 GB，约等于该进程的 KV 池（130 GiB）加残留；第二个 prefill 于 08:16:50 删除后，8 块 GPU 各保持 152-159 GB，08:19:48 才全部降到约 1.2 GB。期间节点上没有进程持有 `/dev/kfd`，没有运行中的容器，1280 GiB 的 LMCache 锁页内存已释放。decode 所在的 n05-21 在删除后 10-20 s 内回收完毕。
+- 原因：驱动回收已退出进程的显存需要数分钟（InferenceX 的 recipe 注释中有同样的记录，其脚本在启动前等待每块 GPU 显存降到 10% 以下）。`down.sh` 删除容器后只等 15 s，n10-29 上此前的同类切换没有遇到这个问题。回收慢的具体机制（RDMA 注册的 KV 区域释放，或 KFD 延迟回收）没有查明。
+- 处理：`common.sh` 增加 `wait_vram_free`，`up.sh` 在启动引擎前等待两台节点上每块 GPU 的显存低于 4 GiB（最多 15 分钟）。
+- 状态：已解决，08:20 重新开始 C80。
+
+## 14. C144 预热停滞；作业被抢占后套件容器留在原节点
+
+- 现象（作业 31690，2026-09-24，prefill n01-25 0.85，decode n05-21 0.95，block 64，MTP K3 / 2.99）：C144 预热 14:22:02 开始，目标 1598 个请求，首批发出 158 个 trajectory credit；14:25 返回 49 个，此后到 15:00 一直是 `returned=49/1,598 | sent=158 | in_flight=109 | errors=0`。显存采样显示两台节点在此期间保持 255-278 GiB，引擎没有退出。同一配置下 C48（531 个请求，549 s）、C80（884 个，936 s）、C120（1332 个，1111 s）的预热正常完成。
+- 抢占后的状态：14:47 收到抢占信号，sweep 日志中没有 `down.sh` 的输出，容器没有删除；AgentX 容器在 15:00 仍在写 `.tmp/runs/mem095-b64-c144/agentx/benchmark.log`。n05-21 上为 `glm52-8p4d-atom-{agentx,router,decode,etcd}`（decode 占用 GPU 0-3 各约 271 GiB），该节点之后分配给作业 31694（guanchen）；n01-25 上为 `glm52-8p4d-atom-prefill`（需要 `sudo docker`，8 卡各约 270 GiB），节点空闲。本账号已无这两台节点的访问权限（`pam_slurm_adopt`）。
+- 原因：停滞原因未查明，引擎日志在上述容器中，无法读取。
+- 状态：未解决。容器需要管理员或在节点上有作业的人删除，删除前可以用 `docker logs` 保存 prefill 与 decode 的日志。重测 C144 时需要在预热阶段记录 decode 的 `requests_waiting`、`requests_parked_kv_load`、KV 占用，以及 prefill 的 KV 占用与排队数。
 
 ## 3. infera `[atom]` 依赖升级 protobuf
 

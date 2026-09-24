@@ -35,16 +35,24 @@ from matplotlib.transforms import Bbox
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 INFERENCEX_CSV = ROOT / "refs_performance/20260922/InferenceX_GLM-5.2_interactivity.csv"
+# (label, results dir, (requested duration s, simulated MTP acceptance length));
+# the condition is only used when the results dir has no run.json.
 DEFAULT_RUNS = (
-    ("MI355X SGLang 2P1D, TileLang DSA (09-21)", ROOT / "2p1d-sweep/results"),
-    ("MI355X SGLang 2P1D, Triton DSA (09-22, new)", ROOT / "2p1d-sweep-triton-dsa-20260922/results"),
+    ("MI355X SGLang 2P1D, TileLang DSA (09-21)", ROOT / "2p1d-sweep/results", None),
+    ("MI355X SGLang 2P1D, Triton DSA (09-22, new)", ROOT / "2p1d-sweep-triton-dsa-20260922/results",
+     None),
+    ("MI355X ATOM DCP 8P4D + Infera, decode mem 0.95, block 64 (09-24)",
+     ROOT / "8p4d-atom-infera/results", ("3600", "2.99")),
+    ("MI355X SGLang 1P1D baseline, TileLang DSA (09-20)",
+     ROOT.parent / "yihou/glm52.p8d8.agentx-sweep.packup_20260920/results", ("3600", "3.61")),
 )
 FRAMEWORKS = {"sglang": "SGLang", "vllm": "vLLM", "atom": "ATOM", "trt": "TRT-LLM"}
 INFERENCEX_COLORS = {"b300_sglang": "#2ca02c", "b200_sglang": "#8c564b",
                      "mi355x_atom": "#d62728", "mi355x_sglang": "#9467bd"}
 EXTRA_COLORS = ("#bcbd22", "#7f7f7f", "#e377c2", "#17becf")
-RUN_COLORS = ("#1f77b4", "#ff7f0e", "#17becf", "#e377c2", "#7f7f7f")
+RUN_COLORS = ("#1f77b4", "#ff7f0e", "#17becf", "#7f7f7f", "#e377c2")
 TP_MARKERS = {8: "o", 4: "s", 2: "^", 1: "v"}
+LOCAL_MARKERS = ("D", "P", "X", "h", "*")
 FIELDS = ("Series", "Source", "Hardware", "Framework", "Precision", "SpecDecoding", "Topology",
           "Chips", "Concurrency", "P90Interactivity", "TokenThroughputPerChip",
           "InputThroughputPerChip", "OutputThroughputPerChip", "P90ITLSeconds",
@@ -88,9 +96,9 @@ def load_inferencex(path):
     return points
 
 
-def load_run(label, directory):
-    """Return the sweep points and its (duration, simulated acceptance) from run.json."""
-    run_id, condition = directory.parent.name, None
+def load_run(label, directory, condition=None):
+    """Return the sweep points and its (duration, simulated acceptance), from run.json if present."""
+    run_id = directory.parent.name
     manifest = directory / "run.json"
     if manifest.exists():
         run = json.loads(manifest.read_text())
@@ -120,7 +128,7 @@ def load_run(label, directory):
             "InputThroughputPerChip": throughput["input"]["tokens_per_second"] / chips,
             "OutputThroughputPerChip": throughput["output"]["tokens_per_second"] / chips,
             "P90ITLSeconds": itl["p90"], "MedianInteractivity": 1 / itl["p50"],
-            "Reference": run_id, "Provenance": str(path.resolve()), "marker": "D",
+            "Reference": run_id, "Provenance": str(path.resolve()),
             "shape": f"{topology} ({chips} chips: {prefill} prefill + {decode} decode)",
         })
     if not points:
@@ -221,7 +229,27 @@ def parse_run(text):
     label, separator, directory = text.partition("=")
     if not separator:
         raise argparse.ArgumentTypeError("expected LABEL=RESULTS_DIR")
-    return label, Path(directory)
+    return label, Path(directory), None
+
+
+def conditions_note(conditions):
+    """Describe the (duration, simulated acceptance) of the local runs, given as (label, condition)."""
+    groups = {}
+    for label, condition in conditions:
+        if condition is not None:
+            groups.setdefault(condition, []).append(label)
+    if not groups:
+        return ""
+    durations = {float(duration) for duration, _ in groups}
+    shared = len(durations) == 1
+    head = f"Local sweeps: {durations.pop():,.0f} s per point" if shared else "Local sweeps"
+    if len(groups) == 1 and all(condition is not None for _, condition in conditions):
+        return f"{head}, simulated MTP acceptance length {next(iter(groups))[1]}."
+    lines = [f"{head}."] if shared else []
+    lines += [f"Simulated MTP acceptance length {accept}"
+              + ("" if shared else f" ({float(duration):,.0f} s per point)")
+              + f": {' / '.join(labels)}." for (duration, accept), labels in groups.items()]
+    return "\n".join(lines)
 
 
 def main():
@@ -232,7 +260,8 @@ def main():
     parser.add_argument("--run", dest="runs", type=parse_run, action="append",
                         metavar="LABEL=RESULTS_DIR",
                         help="local sweep to overlay, repeatable "
-                             "(default: the TileLang and Triton DSA 2P1D sweeps)")
+                             "(default: the TileLang and Triton DSA 2P1D sweeps, the ATOM DCP 8P4D "
+                             "sweep and the TileLang DSA 1P1D baseline)")
     parser.add_argument("--zoom", type=float, nargs=4, metavar=("X0", "X1", "Y0", "Y1"),
                         help="right-panel limits (default: around the local sweeps)")
     parser.add_argument("--all-points", action="store_true",
@@ -244,13 +273,15 @@ def main():
 
     points = load_inferencex(args.inferencex)
     inferencex = list(points)
-    conditions = set()
-    for index, (label, directory) in enumerate(args.runs or DEFAULT_RUNS):
-        run_points, condition = load_run(label, directory)
+    conditions, local_markers = [], {}
+    for index, (label, directory, fallback) in enumerate(args.runs or DEFAULT_RUNS):
+        run_points, condition = load_run(label, directory, fallback)
         for p in run_points:
             p["color"], p["run_index"] = RUN_COLORS[index % len(RUN_COLORS)], index
+            p["marker"] = local_markers.setdefault(
+                p["shape"], LOCAL_MARKERS[len(local_markers) % len(LOCAL_MARKERS)])
         points += run_points
-        conditions.add(condition)
+        conditions.append((label, condition))
     series = {}
     for p in points:
         series.setdefault(p["Series"], []).append(p)
@@ -315,12 +346,10 @@ def main():
          "Pareto-optimal points only: points beaten on both axes by another point of the same "
          "series are omitted") + "; labels: AgentX concurrency.",
         f"InferenceX rows: single node, {configs}, dated {dates}.",
+        conditions_note(conditions),
+        ATTRIBUTION + ".",
     ]
-    if len(conditions) == 1 and None not in conditions:
-        duration, accept = next(iter(conditions))
-        notes[-1] += (f" Local sweeps: {float(duration):,.0f} s per point, "
-                      f"simulated MTP acceptance length {accept}.")
-    notes.append(ATTRIBUTION + ".")
+    notes = [note for note in notes if note]
     fig.suptitle("GLM-5.2 AgentX (agentic coding): P90 interactivity vs token throughput per chip",
                  fontsize=16, fontweight="bold")
     fig.supxlabel("\n".join(notes), fontsize=9.5)
@@ -348,7 +377,7 @@ def main():
         writer.writerows(points)
     print(table)
     for p in filter(is_local, points):
-        print(f'{p["Series"]:46s} c{p["Concurrency"]:<4d} P90 {p["P90Interactivity"]:6.2f} tok/s/user  '
+        print(f'{p["Series"]:50s} c{p["Concurrency"]:<4d} P90 {p["P90Interactivity"]:6.2f} tok/s/user  '
               f'{p["TokenThroughputPerChip"]:9,.0f} tok/s/chip  '
               f'{"frontier" if p["OnParetoFrontier"] else "dominated"}')
 

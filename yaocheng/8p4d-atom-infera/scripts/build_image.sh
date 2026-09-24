@@ -5,7 +5,7 @@ source "$(dirname "$0")/common.sh" "$@"
 
 docker build --network host -f "$KIT_DIR/docker/Dockerfile" \
     --build-arg "ATOM_BASE_IMAGE=$IMAGE_BASE" -t "$IMAGE" "$REPO_DIR"
-docker save "$IMAGE" | ssh $SSH_OPTS "$PREFILL_NODE" docker load
+docker save "$IMAGE" | on "$PREFILL_NODE" docker load
 for node in "$CONTROL_NODE" "$PREFILL_NODE"; do
     echo "$node $(on "$node" docker image inspect -f '{{.Id}}' "$IMAGE")"
 done

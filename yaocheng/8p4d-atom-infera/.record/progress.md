@@ -72,3 +72,97 @@
 - 15:28 作业第二次被抢占（issues.md 第 9 条），两台节点无法访问，15:33 作业结束并重新排队。
 - 15:40 查询抢占来源与 QOS 配置（issues.md 第 9 条）。用户要求分配到问题节点时暂停。作业排队中，调度器计划 16:14 在 n04-[25,29] 启动。
 - 15:55 写入阶段报告 [report.md](report.md)：现状、完成的工作、解决的问题、测试结果、脚本运行方法、未完成部分与风险。
+
+## 2026-09-24
+
+- 01:05 作业 31626 已于 2026-09-23 15:52:54 取消（sacct：`CANCELLED`，排队中取消），目前没有可用节点。
+- 01:10 调查 KV 卸载（用户问题：InferenceX 页面显示 KV Offload Engine 为 LMCache 0.4.5）：
+  - 本套件两侧都没有 KV 卸载，AgentX 元数据为 `KV_OFFLOADING=none`。
+  - InferenceX `918524ff` 的 `glm5.2-fp4-mi355x-atom-agentic-mtp`（镜像 `rocm/atom-dev:ubuntu24.04_py3.12_pytorch_release_2.10.0_glm52_agentic_0813`）为单机部署：TP4、C2-C10 使用 `kv-offloading: dram`、LMCache 0.4.5；TP8、C1-C4 不卸载。脚本设置 `--kv-transfer-config '{"kv_connector":"lmcache_offload","kv_role":"offload"}'` 与 `LMCACHE_LOCAL_CPU=True`、`LMCACHE_MAX_LOCAL_CPU_SIZE=$TOTAL_CPU_DRAM_GB`、`LMCACHE_CHUNK_SIZE=256`、`OFFLOAD_MIN_LOAD_TOKENS=8192`。
+  - ATOM `d9f0720e2f99`（本套件基础镜像，源码位于 `.tmp/cache/ATOM`）：`kv_connector: "multi"` 可以组合一个发送方（mooncake 的 kv_producer）与 `lmcache_offload`；dense 卸载格式包含 GLM-5.2 的 DSA 索引缓存并计入 MTP draft 层；DPA 下每个 DP rank 使用独立的 CPU 缓存池（命名空间 `atom-offload-dp<rank>`）。镜像内 LMCache 为 0.5.5rc3。该组合在本套件中尚未测试。
+- 01:15 用户选择：在套件中加入 prefill 侧 LMCache CPU 卸载的开关并默认开启，节点可用后完成精度与命中率验证，C80-C256 使用开启后的配置。
+- 01:25 实现（issues.md 第 11 条）：
+  - Infera 的 ATOM 包装层不识别 `multi` 配置，写入 `patch/infera-atom-multi-connector.diff`。
+  - `config.sh` 新增 `PREFILL_OFFLOAD_GB=256`，`up.sh`、`agentx.sh` 相应修改。
+  - 写入验证脚本 `.tmp/offload_probe.sh`。
+  - 离线检查通过。ATOM 完整源码获取到 `.tmp/cache/ATOM`（commit `d9f0720e2f99168f6f4e5dd07d674cba5b68d610`）。
+  - 镜像需要在下次分配到节点后重新构建。
+- 01:26 用户指定新作业 31684（QOS `batch`，01:01:57 开始，01:31:57 起可被抢占）：`smci355-ccs-aus-n04-21`（fenic `10.235.192.135`，amdgpu 6.19.14）、`smci355-ccs-aus-n04-29`（`10.235.192.57`，amdgpu 6.19.16），两台 ionic 驱动均为 26.07.9，GPU 空闲，无运行中的容器。删除 n04-29 上本套件遗留的已退出容器（`dprobe-a/b`、`etcd`）。`config.sh` 改为 prefill n04-21、decode 与控制节点 n04-29。
+- 01:28 n04-29 上开始构建镜像并同步到 n04-21；同时做两组 decode 诊断（issues.md 第 10 条）：0.85 不做 RDMA 注册、0.74 做 RDMA 注册，两者都达到 ATOM ready。
+- 01:32 镜像 `sha256:b709d3d3fc3f…`（包含 `infera-atom-multi-connector.diff`）在两台节点就绪。
+- 01:35 两台节点都是新驱动，需要降低显存比例才能启动，这会影响 KV 容量。按用户此前的要求暂停，等待决定。
+- 01:36 用户决定：在 n04-21、n04-29 上以降低的显存比例只做功能验证（LMCache 卸载、精度、C80 短测），正式 C80-C256 等旧驱动节点。`config.sh` 新增 `PREFILL_MEM_UTIL`、`DECODE_MEM_UTIL`（默认取 `GPU_MEM_UTIL=0.85`），`up.sh` 按角色读取。
+- 01:37 冷启动 `up.sh CONC=80 MTP_AL= PREFILL_MEM_UTIL=0.70 DECODE_MEM_UTIL=0.74 PREFILL_EXTRA_ENV=OFFLOAD_PROFILE=1 RUN_ID=func-n04-c80-noal`（LMCache 默认开启，每个 prefill DP rank 256 GiB）。两台节点均启动显存采样（`.tmp/logs/vram-n0421.log`、`vram-n0429-b.log`）。
+- 01:39 decode（0.74）就绪。01:44:49 prefill（0.70）完成 KV 预算，每 rank KV 约 87 GB（约 12 万个 block，约 192 万 token）；LMCache dense 格式初始化，mooncake 注册为 PRODUCER。
+- 01:55 prefill 启动失败：部分 rank 创建 LMCache CPU 后端（每 rank 256 GiB pinned 内存）比其他 rank 晚 10 分钟以上，较早完成的 rank 在 NCCL barrier 等待 600 s 后超时（issues.md 第 11 条）。01:58 结束 `up.sh`，`down.sh` 保存日志到 `.tmp/runs/func-n04-c80-noal/logs/`。
+- 01:59 以每 rank 128 GiB 重新冷启动：`RUN_ID=func2-n04-c80-noal`，其余参数相同。
+- 02:07 服务就绪（约 7 分钟）：8 个 rank 的 LMCache CPU 后端在 02:03:14-02:03:27 创建完成，主机内存已用 1217 GiB。
+- 02:08 `smoke.sh` 通过：`multi` 配置的 prefill 注册为 PD prefill；流式 chat 返回 `kv_transfer_params`；prefill 8 个 rank 启用 matched rails，decode 4 个 rank 完成 Mooncake RDMA 初始化。
+- 02:13 用户取消作业 31684，并提交作业 31690（在原提交命令上增加 `--exclude=smci355-ccs-aus-n04-29`，排队中）。GSM8K、大海捞针、`offload_probe.sh` 没有执行。由于节点已无法访问，`down.sh` 没能执行，func2 的日志没有保存。本套件容器可能仍在运行：n04-21 的 prefill（持有 1 TiB pinned 主机内存），n04-29 的 decode、etcd、router。
+- 02:17 用户要求暂停测试，并准备在后续排除 n04-29。套件中没有针对 n04-29 的 patch，在这两台节点上只通过命令行传入了 `PREFILL_MEM_UTIL=0.70 DECODE_MEM_UTIL=0.74`。
+- 02:20 分析 256 GiB 启动失败的原因（issues.md 第 11 条）：GPU 的 GTT 上限（`mem_info_gtt_total`）为 1511 GiB，是主机内存的一半。8 个 rank 各 256 GiB 时，较早完成的 5 个 rank 共 1280 GiB，其余 rank 会超过上限；每 rank 128 GiB 时共 1024 GiB，全部在 13 s 内完成。`PREFILL_OFFLOAD_GB` 默认值改为 160（共 1280 GiB），`up.sh` 启动时打印两台节点的 amdgpu 版本。
+- 02:24 用户指定作业 31690（02:18:56 开始，02:48:56 起可被抢占）：`smci355-ccs-aus-n04-21`（amdgpu 6.19.14）与 `smci355-ccs-aus-n10-29`（amdgpu 6.14.14，ionic 26.03.3，libionic 1.1.54，GPU 空闲，无容器）。要求：精度验证通过后直接测 C80，开启 LMCache。
+- 02:26 n04-21 上作业 31684 遗留的 prefill 仍在运行（每卡约 190 GB 显存，主机内存 1217 GiB），保存日志到 `.tmp/runs/func2-n04-c80-noal/logs/` 后删除。节点分工：decode 与控制节点 n10-29（0.85），prefill n04-21（`PREFILL_MEM_UTIL=0.70`）。镜像 `sha256:b709d3d3fc3f…` 从 n04-21 经 `docker save | docker load` 复制到 n10-29（02:29 完成），prefill 可复用 n04-21 上该镜像的编译缓存。
+- 02:29 精度验证服务：`up.sh CONC=80 MTP_AL= PREFILL_MEM_UTIL=0.70 PREFILL_EXTRA_ENV=OFFLOAD_PROFILE=1 RUN_ID=acc-c80-lmcache`（LMCache 每 rank 160 GiB）。`.tmp/offload_probe.sh` 改为大海捞针形式，每个请求检查编号。
+- 02:31 prefill 就绪：8 个 rank 的 LMCache CPU 后端（每 rank 160 GiB）在 02:31:14-02:31:20 创建完成，主机内存已用 1474 GiB；prefill 复用编译缓存，约 1.5 分钟就绪。02:37 decode（n10-29，0.85，该镜像的编译缓存为空）与路由就绪。
+- 02:38-02:44 精度与 LMCache 验证（`.tmp/logs/acc-validate.log`）：
+  - `smoke.sh` 通过。
+  - GSM8K 5-shot 200 题：exact_match 0.975 ± 0.011（flexible 与 strict 相同）。
+  - 6 万 token 大海捞针：3/3。
+  - `offload_probe.sh FILL=24`（每条 10 万 token，同一会话，全部 27 个答案正确）：A 首次 7.10 s，显存命中 3.04 s，24 条填充请求各 7.1-9.1 s，A 被挤出显存后 2.04 s。对应的 `[OFFLOAD-LOAD-PROF]` 为 `hbm=0 lmc=99840 retrieved=99840 status=ok total_bytes=4859412480 retrieve_ms=382.69`，即 4.86 GB 从 CPU 加载，约 12.7 GB/s。
+- 02:44 C80 正式测试开始：`sweep.sh POINTS=80 SWEEP_ID=c80-lmcache PREFILL_MEM_UTIL=0.70`（3600 s，每 lane 预热 10，MTP K3、forced acceptance 2.99，LMCache 每 rank 160 GiB），日志 `.tmp/logs/sweep-c80-lmcache.log`，结果写入 `results/`。
+- 02:50 C80 服务就绪，AgentX 开始预热（目标 884 个请求）。03:01 预热 660 s 后仍为 `returned=0/884`、84 个在途。prefill（n04-21，0.70）的 5 个 rank 在长上下文批量 prefill 时报 `HIP out of memory. Tried to allocate 13.50 GiB`（issues.md 第 10 条）。03:03 结束 sweep，EXIT trap 执行 `down.sh`，日志保存在 `.tmp/runs/c80-lmcache-c80/logs/`。
+- 03:04 对调节点角色：prefill n10-29（0.85），decode 与控制节点 n04-21（`DECODE_MEM_UTIL=0.74`）。重新做精度验证：`up.sh CONC=80 MTP_AL= DECODE_MEM_UTIL=0.74 RUN_ID=acc2-c80-lmcache`，之后执行 smoke、GSM8K 200 题、大海捞针（`.tmp/logs/acc2-validate.log`）。
+- 03:07 decode（n04-21，0.74）就绪；03:11 prefill（n10-29，0.85，LMCache 每 rank 160 GiB，主机内存已用 1421 GiB）就绪。
+- 03:12-03:14 精度验证：smoke 通过；GSM8K 200 题 0.99 ± 0.007（flexible 与 strict 相同）；大海捞针 3/3。
+- 03:14 C80 正式测试开始：`sweep.sh POINTS=80 SWEEP_ID=c80-lmcache2 DECODE_MEM_UTIL=0.74`（控制节点 n04-21），日志 `.tmp/logs/sweep-c80-lmcache2.log`。
+- 03:37 预热完成（884 个请求，错误 0，用时 970 s），3600 s 测量开始。
+- 04:10 测量 33 分钟时：3899 个请求全部成功；最近窗口 TTFT p50 18.3 s（测量开始时 3.2 s），ITL p50 16 ms，ISL p90 约 24.4 万 token。decode（n04-21，0.74）运行 28-43 个请求、等待 15-25 个，KV 占用 96.7%-100%，prefix 命中率 8.5%；prefill（n10-29）负载很轻（采样 rank 3：运行 1、等待 0、KV 占用 11.6%、命中率 91.9%）。会话亲和：新会话 829，命中已有 rank 4214，按负载分配 0。瓶颈为 decode 的 KV 容量（0.74 时约 615 万 token，按 decode 日志的 block 数计算）。
+- 04:37:52 测量结束：完成 7138 个请求（错误 1），结束时在途的 79 个被取消。aiperf 等待 server metrics 到 04:48:35。
+- 04:48 用户要求：decode 改为 TP8 + DCP8 后重测，环境放在 `yaocheng/8p8d-atom-infera`；8P4D 的结果整理归档。
+- 04:56 InferenceX 聚合失败：`KV_OFFLOAD_BACKEND is required when KV_OFFLOADING is enabled`（issues.md 第 12 条）。`agentx.sh` 增加 `KV_OFFLOAD_BACKEND_METADATA`，`config.sh` 增加 `LMCACHE_VERSION=0.5.5rc3`；`.tmp/reaggregate.sh` 用已有的 aiperf 产物重新执行聚合与校验，错误率 1/7138 = 0.014%，生成 `agentx_conc80.json`。
+- 05:00 `summarize.py` 写入 `results/`：C80 total 17941.47 tok/s/GPU，output 161.25，TTFT p50 20.01 s / p90 41.23 s，ITL p50 16.19 ms，intvty p50 61.77，profiled 7137，12 卡。
+- 05:02 归档：`results/README.md`（C80 配置、结果、与 2p1d 的对比、瓶颈分析，C16 验证与精度汇总），C16 的四个聚合 JSON 复制到 `results/validation-c016/`。
+- 07:48 用户要求：在作业 31690 重新分配的节点 `smci355-ccs-aus-n01-25`、`smci355-ccs-aus-n05-21` 上检查驱动；可行时 decode 显存比例改为 0.95，并对齐 InferenceX ATOM recipe 的其他参数，重测 C80。
+- 07:50 节点检查（作业 31690 于 06:23 在这两台节点上重新运行）：
+  - 两台均为 amdgpu 6.14.14（与 n10-29 相同的旧驱动）、ionic 26.03.3.001、host libionic 1.1.54.0-187、ROCm 7.0.1、内核 6.8.0-107；每卡显存 287.98 GiB，全部 BAR 可见，已用 283 MiB；GTT 上限 1511.7 GiB；主机内存 3023 GB。
+  - n01-25：fenic `10.235.192.55`，`ionic_0-7` ACTIVE，GID 1 为 `192.168.{1..8}.66`；本账号不在该节点的 docker 组（socket 为 `root:docker 660`），有免密 sudo；他人容器 `k3-train`、`k3-cp` 已退出。
+  - n05-21：fenic `10.235.192.138`，`ionic_0-7` ACTIVE，GID 1 为 `192.168.{1..8}.6`；docker 数据目录 `/data/docker-data`；他人容器 `xiaoming-dev`、`k3-extract` 已退出。
+  - 两台的 `ionic_i` 与 rail 编号对应一致；本套件端口空闲；n05-21 可免密 SSH 到 n01-25。
+- 07:52 按上一轮分析，旧驱动下 decode 以 0.95 启动时初始化后预计剩余约 20 GiB 显存，可以测试。对齐 InferenceX `glm5.2_fp4_mi355x_atom_mtp.sh`（ATOM PR 2345）时逐项确认：
+  - 采用：decode `--gpu-memory-utilization 0.95`；两侧 `--block-size 64`（KV 传输要求两侧相同，`LMCACHE_CHUNK_SIZE=256` 为 64 的整数倍，staging 路径只要求能被 16 整除）；prefill 增加 `LMCACHE_NUMA_MODE=auto`（镜像中 LMCache 0.5.5rc3 支持 `auto`）。
+  - 不能采用：`--index_cache_dtype fp4`，ATOM `aiter_mla.py` 对所有 P/D backend 抛出 `NotImplementedError`（region map 无法描述 FP4 index 的 scale 平面）；每 rank 256 GiB 的 LMCache，8 个 DP rank 共 2048 GiB，超过 GTT 上限。
+  - 已一致：MTP K3 / 2.99（InferenceX DCP 组 C≥48）、`--max-num-seqs 2*CONC`、cudagraph 尺寸、`--max-num-batched-tokens 16384`、在线量化配置、FP8 KV；`ATOM_MLA_PAGE_SIZE`、`ATOM_USE_TRITON_MLA`、`ATOM_ONLINE_QUANT_STREAMING` 的设置与 ATOM 默认值相同。
+  - prefill 保持 0.85：prefill 的 KV 不是瓶颈（C80 中 KV 占用约 12%，命中率约 90%），长上下文批量 prefill 需要临时显存（issues.md 第 10 条中一次申请 13.5 GiB）。
+- 07:53 套件修改：`config.sh` 改为 prefill n01-25、decode 与控制节点 n05-21，新增 `SUDO_DOCKER_NODES`（默认 n01-25）与 `BLOCK_SIZE`（默认 16），LMCache 环境变量增加 `LMCACHE_NUMA_MODE=auto`；`common.sh` 的 `on()` 对 `SUDO_DOCKER_NODES` 中的节点用 `sudo docker`；`build_image.sh` 的镜像同步改用 `on`；`up.sh` 的 `--block-size` 读取 `BLOCK_SIZE`。
+- 07:53-07:58 n05-21 拉取基础镜像（65 s，repo digest 与之前相同），`build_image.sh` 构建并同步到 n01-25，两台节点的镜像均为 `sha256:aef823184e20…`（日志 `.tmp/logs/build_image10.log`）。
+- 07:58 两台节点启动显存采样（`.tmp/logs/vram-n0125-095.log`、`vram-n0521-095.log`）。冷启动精度验证服务：`up.sh CONC=80 MTP_AL= DECODE_MEM_UTIL=0.95 BLOCK_SIZE=64 RUN_ID=acc-095-b64`（日志 `.tmp/logs/up-acc095.log`）。
+- 08:01 n01-25 的 `amd-smi list` 除 8 块 GPU 外还列出 8 个没有 `mem_info_vram_used` 的 PCI 设备，`.tmp/vram_sample.sh` 读到空值后退出；脚本改为只采样有该文件的设备，重新启动。
+- 08:10 服务就绪（冷启动约 11 分钟，两台节点从 NFS 加载权重各约 6 分钟）：
+  - decode（n05-21）：`utilization=0.95, budget=273.59GB, peak_torch=110.17GB, non_torch=26.08-26.71GB, available_for_kv=130.31-130.94GB, block_bytes=3115008, num_kvcache_blocks=44919-45134`，即每 rank 约 287 万 token，DCP4 合计约 1150 万 token（0.74 时为 615 万）；42 个 cudagraph，pool 1.41 GiB。初始化后每卡显存已用约 270.4 GiB，剩余约 17.6 GiB。
+  - prefill（n01-25）：`utilization=0.85`，每个 DP rank `available_for_kv` 130.3-130.6 GiB。
+- 08:10-08:13 精度验证（`.tmp/logs/acc095-validate.log`）：smoke 通过（completions 正常，流式 chat 17×23 返回 391；prefill 8 个 rank 启用 matched rails，decode 4 个 rank 完成 Mooncake RDMA 初始化）；GSM8K 5-shot 200 题 0.975 ± 0.011（flexible 与 strict 相同）；6 万 token 大海捞针 3/3。block 64 与 decode 0.95 在 PD 下结果正确。
+- 08:14 C80 正式测试开始：`sweep.sh POINTS=80 SWEEP_ID=c80-mem095-b64 DECODE_MEM_UTIL=0.95 BLOCK_SIZE=64 RESULTS_DIR=.../results-mem095-b64`（3600 s，每 lane 预热 10，MTP K3、forced acceptance 2.99，LMCache 每 rank 160 GiB），日志 `.tmp/logs/sweep-c80-mem095-b64.log`。
+- 08:16 prefill 冷启动失败：上一个 prefill 的显存数分钟未回收，2 个 DP rank 的 KV 预算为负（issues.md 第 13 条）。失败的运行目录改名为 `.tmp/runs/c80-mem095-b64-fail1-c80`。`up.sh` 增加启动前的显存回收等待。
+- 08:20 以相同参数重新开始 C80。08:24 服务就绪（decode 每 rank 44922 个 block），08:27:14 预热开始（884 个请求），08:42:50 测量开始，09:43:38 全部请求结束（9229 条记录，错误 4 条：2 条 `ClientOSError(32, 'Broken pipe')`，2 条 `Can not write request body`），09:56:35 server metrics 收集完成，10:06 聚合 JSON 生成，错误率校验 4/9229 = 0.043%。
+- 10:07 sweep 末尾的 `down.sh` 删除 prefill 容器时报 `could not kill container: tried to kill container, but did not receive an exit event`，`set -e` 使 sweep 在 `summarize.py` 之前退出，EXIT trap 中的第二次 `down.sh` 删除了容器。10:09 手动执行 `RESULTS_DIR=results-mem095-b64 python3 scripts/summarize.py .tmp/runs/c80-mem095-b64-c80`。`down.sh` 改为删除失败时最多重试 6 次（间隔 10 s），失败时只输出提示，不中断脚本。
+- 10:09 结果（`results-mem095-b64/`，原 `results/` 未改动），与 decode 0.74 的 C80 对比：
+  - total 24223.04 tok/s/GPU（+35.0%），output 206.44（+28.0%），完成请求 9225（+29.3%），qps 2.54（+29.2%）。
+  - TTFT p50 / p90 4.65 / 9.92 s（原 20.01 / 41.23 s），均值 6.42 s（原 22.37 s）；E2E p50 14.59 s（原 31.29 s）。
+  - ITL p50 / p90 18.61 / 21.68 ms（原 16.19 / 17.51 ms），P90 interactivity 46.13（原 57.11），中位数 53.73（原 61.77）。
+  - ISL 均值 11.34 万（+4.5%），OSL 均值 975（-0.9%）。
+  - decode 侧（server metrics，含预热）：因 KV 不足排队的 `waiting` 平均 0.03、p90 0、最大 9（原 27.4、54、82）；`waiting_kv` 平均 3.8（原 5.3）；running 平均 45.2、p90 66、最大 88（原 30.7、41、58）；KV 占用平均 0.61、p50 0.66、p90 0.87（原 0.89、0.98、1.00）；前缀命中率 0.73（原 0.19）；从收到请求到首次前向平均 1.94 s、p90 3.89 s（原 16.69 s、35.42 s）；KV 传输平均 1.90 s、p90 3.86 s（原 3.50 s、7.86 s）。
+  - prefill 侧：引擎 TTFT p50 3.02 s、p90 9.70 s；各 DP rank 排队 p50 0.75-0.92 s，rank 0 的 p90 为 20 s，其余 rank 为 2.7-5.9 s。剩余的 TTFT 主要在 prefill 侧和 KV 传输。
+  - 显存峰值（测量期间）：decode 每卡最高 270.8 GiB（初始化后 270.4 GiB，余量约 17 GiB）；prefill（0.85）每卡由初始化后约 225 GiB 升到最高 271.5 GiB，运行中增加约 46 GiB，prefill 不能同样用 0.95。
+  - 与之前按 0.74 数据所做的估算相比：准入等待约为 0（估算为 0），ITL p50 18.6 ms（估算 19-21 ms），running 45（估算 43-48），吞吐（qps）+29%（估算 +17%-22%，实际 KV 传输比假设的 3.5 s 快）。
+- 10:10 `plot_result/plot_p90_interactivity.py` 加入本次结果（标签 `MI355X ATOM+Infera 8P4D, decode mem 0.95, block 64 (09-24)`，原 8P4D 系列标签改为 `decode mem 0.74`），脚注按 acceptance length 分行。在 P90 interactivity 46.1 处，本次每卡吞吐比 InferenceX MI355X ATOM 连线高 43.5%，比 MI355X SGLang 连线高 30.5%，比 B300 SGLang c24 高 31.5%，比 yihou P8D8 C80（19513，TTFT p50 5.69 s）高 24.1%。
+- 10:22 用户要求：按上一轮 C80 的配置（decode 0.95、block 64，prefill 0.85、LMCache 每 rank 160 GiB）依次测 C48、C120、C144。两台节点没有本套件容器，显存 0 GiB，镜像均为 `sha256:aef823184e20…`；启动显存采样（`.tmp/logs/vram-n0125-mem095-sweep.log`、`vram-n0521-mem095-sweep.log`）。
+- 10:28 `sweep.sh "POINTS=48 120 144" SWEEP_ID=mem095-b64 DECODE_MEM_UTIL=0.95 BLOCK_SIZE=64 RESULTS_DIR=.../results-mem095-b64`，日志 `.tmp/logs/sweep-mem095-b64.log`。第一次启动时 sweep 处在等待嵌套 ssh 的后台命令链中，没有执行；结束残留进程后，改为 `cd` 单独成句、后台只放一条带重定向的命令，重新启动。
+- C48：10:31 服务就绪，预热 531 个请求（10:35:34-10:44:42，错误 0），测量 10:44:42-11:45:22，11:59:33 生成聚合 JSON。完成 5227 个请求，错误 0；total 17528.52 tok/s/GPU，output 122.15，TTFT p50 / p90 2.24 / 4.89 s（均值 2.91 s），ITL p50 13.96 ms，有效并发 24.3（解码阶段 20.1）。后处理中 multiprocessing 清理 `/ax-tmp/pymp-*` 报 `OSError: [Errno 39] Directory not empty`，发生在结果收齐之后，不影响结果。
+- C120：预热 1332 个请求（12:19:27-12:37:58，错误 0），测量 12:37:58-13:38:38，14:02:58 生成聚合 JSON，错误率 1/8973。完成 8972 个请求；total 22026.78 tok/s/GPU，output 200.87，TTFT p50 / p90 9.73 / 44.75 s（均值 27.15 s，p95 115.5 s），ITL p50 17.77 ms。完成数与吞吐均低于 C80（9225、24223.04）。
+- 测量期间显存峰值：C48 prefill 270.5 GiB、decode 270.2 GiB；C120 prefill 271.8 GiB、decode 271.4 GiB，与 C80 相同。
+- 14:03 `sweep.sh` 只在全部档位结束后调用 `summarize.py`；手动执行 `summarize.py`，把 C80、C48、C120 写入 `results-mem095-b64/`（`c048/`、`c120/`、`summary.{md,csv}`）。
+- 14:04 C144 开始，等待 n01-25 回收显存约 3 分钟（issues.md 第 13 条）；14:22:02 预热开始，目标 1598 个请求，首批发出 158 个。14:25 返回 49 个，此后返回数不再变化（issues.md 第 14 条）。
+- 14:47 作业 31690 收到抢占信号，14:51:59 结束（sacct：`PREEMPTED`，本次运行 8:27:03）。sweep 与显存采样随作业结束，`down.sh` 没有执行，套件容器留在 n05-21 与 n01-25（issues.md 第 14 条）。C144 没有结果。
+- 14:59:04 作业重新运行，节点为 n04-21（amdgpu 6.19.14）与 n04-25（6.14.14）；两台节点的 16 张 GPU 各已被他人容器占用 272-276 GiB（n04-21：`k3-proxy`、`k3-extract`、`k3-mc`、`xiaoming-dev`；n04-25：`k3-extract`）。按此前要求，新驱动节点上没有启动服务。
+- 15:17 用户决定暂不重测 C144，执行 `scancel 31690`（sacct：`CANCELLED`）。

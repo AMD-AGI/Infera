@@ -7,6 +7,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/config.sh"
 # on NODE CMD...: run CMD on NODE; words are re-quoted so JSON survives SSH.
 on() {
     local node="$1"; shift
+    if [[ "$1" == docker && " $SUDO_DOCKER_NODES " == *" $node "* ]]; then set -- sudo "$@"; fi
     if [[ "$node" == "$(hostname -s)" ]]; then "$@"
     else ssh $SSH_OPTS "$node" "$(printf '%q ' "$@")"; fi
 }
@@ -19,6 +20,17 @@ wait_ready() {
             { echo "$2 exited on $1, see: docker logs $2" >&2; return 1; }
         (( SECONDS < deadline )) || { echo "timeout waiting for $3" >&2; return 1; }
         sleep 15
+    done
+}
+
+# wait_vram_free NODE: poll until every GPU on NODE uses less than 4 GiB of VRAM.
+# The driver can hold a removed engine's VRAM for minutes while reclaiming it.
+wait_vram_free() {
+    local deadline=$((SECONDS + 900)) max
+    while max="$(on "$1" sh -c 'cat /sys/class/drm/card*/device/mem_info_vram_used 2>/dev/null' |
+                 sort -n | tail -1)"; (( max >= 4 << 30 )); do
+        (( SECONDS < deadline )) || { echo "VRAM on $1 not released: $((max >> 30)) GiB" >&2; return 1; }
+        sleep 10
     done
 }
 

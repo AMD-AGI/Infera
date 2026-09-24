@@ -15,6 +15,11 @@ if [[ ! -d "$ix/.git" ]]; then
 fi
 
 router="http://$CONTROL_IP:$ROUTER_PORT"
+# InferenceX metadata: the prefill's LMCache CPU tier is DRAM offload.
+if (( PREFILL_OFFLOAD_GB > 0 )); then
+    offload=$'KV_OFFLOADING=dram\nKV_OFFLOAD_BACKEND=lmcache\n'
+    offload+="KV_OFFLOAD_BACKEND_METADATA={\"name\":\"lmcache\",\"version\":\"$LMCACHE_VERSION\"}"
+else offload="KV_OFFLOADING=none"; fi
 # TMPDIR stays short: AIPerf's Unix socket paths must fit in 107 bytes.
 cat > "$out/runtime.env" <<EOF
 INFMAX_CONTAINER_WORKSPACE=$ix
@@ -56,7 +61,7 @@ DECODE_DCP_SIZE=4
 DECODE_DP_ATTN=false
 SPEC_DECODING=mtp
 SIMULATE_ACC_LEN=$MTP_AL
-KV_OFFLOADING=none
+$offload
 TOTAL_CPU_DRAM_GB=$(awk '/MemTotal/ {print int($2 / 1048576)}' /proc/meminfo)
 RESULT_FILENAME=agentx_conc$CONC
 AGENTIC_OUTPUT_DIR=$out

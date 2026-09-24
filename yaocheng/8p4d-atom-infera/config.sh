@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# GLM-5.2 MXFP4 8P4D on native ATOM + Infera, Slurm job 31626.
+# GLM-5.2 MXFP4 8P4D on native ATOM + Infera, Slurm job 31690.
 # Sourced by scripts/common.sh; KEY=VALUE arguments override every default.
 KIT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$KIT_DIR/../.." && pwd)"
@@ -7,15 +7,17 @@ TMP_DIR="${TMP_DIR:-$KIT_DIR/.tmp}"
 RESULTS_DIR="${RESULTS_DIR:-$KIT_DIR/results}"
 
 # Nodes. HTTP, etcd and ZMQ use the fenic addresses; KV moves over ionic RDMA.
-PREFILL_NODE="${PREFILL_NODE:-smci355-ccs-aus-n04-25}"
-PREFILL_IP="${PREFILL_IP:-10.235.192.131}"
-DECODE_NODE="${DECODE_NODE:-smci355-ccs-aus-n04-29}"
-DECODE_IP="${DECODE_IP:-10.235.192.57}"
+PREFILL_NODE="${PREFILL_NODE:-smci355-ccs-aus-n01-25}"
+PREFILL_IP="${PREFILL_IP:-10.235.192.55}"
+DECODE_NODE="${DECODE_NODE:-smci355-ccs-aus-n05-21}"
+DECODE_IP="${DECODE_IP:-10.235.192.138}"
 # etcd, router, AgentX client and the image build run on the control node,
 # which is also where the scripts are executed.
 CONTROL_NODE="${CONTROL_NODE:-$DECODE_NODE}"
 CONTROL_IP="${CONTROL_IP:-$DECODE_IP}"
 SSH_OPTS="${SSH_OPTS:--o BatchMode=yes -o StrictHostKeyChecking=accept-new}"
+# Nodes where the user is not in the docker group; docker runs through sudo there.
+SUDO_DOCKER_NODES="${SUDO_DOCKER_NODES:-smci355-ccs-aus-n01-25}"
 
 IMAGE_BASE="${IMAGE_BASE:-rocm/atom-dev:nightly_202609221542}"
 IMAGE="${IMAGE:-infera-atom:nightly_202609221542}"
@@ -48,6 +50,13 @@ PREFILL_GRAPH_ARGS="${PREFILL_GRAPH_ARGS:---enforce-eager}"
 PREFILL_GPUS="${PREFILL_GPUS:-0,1,2,3,4,5,6,7}"
 DECODE_GPUS="${DECODE_GPUS:-0,1,2,3}"
 GPU_MEM_UTIL="${GPU_MEM_UTIL:-0.85}"
+# amdgpu 6.19.x counts the RDMA-registered KV pool twice against allocatable
+# VRAM; such nodes start only below about 0.74 (decode) and 0.70 (prefill).
+PREFILL_MEM_UTIL="${PREFILL_MEM_UTIL:-$GPU_MEM_UTIL}"
+DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-$GPU_MEM_UTIL}"
+# KV block size of both engines; the KV transfer needs the same value on each
+# side, and LMCACHE_CHUNK_SIZE (256) must be a multiple of it.
+BLOCK_SIZE="${BLOCK_SIZE:-16}"
 # Experts of layers 0-77 stay MXFP4 and the MTP layer 78 stays BF16.
 QUANT_CONFIG='{"global_quant_config":"ptpc_fp8","exclude_layer":["lm_head","model.embed_tokens","*.mlp.gate","model.layers.[0-9].mlp.*expert*","model.layers.[1-6][0-9].mlp.*expert*","model.layers.7[0-7].mlp.*expert*","model.layers.78.*"]}'
 ENGINE_ENV=(
@@ -64,6 +73,17 @@ ENGINE_ENV=(
 # session (X-Correlation-ID) on one prefill DP rank, whose prefix cache it reuses.
 PREFILL_ENV="ATOM_MOONCAKE_MATCHED_RAILS=auto ATOM_DP_SESSION_AFFINITY=1"
 DECODE_ENV=""
+# LMCache CPU tier per prefill DP rank in GiB (0 turns it off), the counterpart
+# of the 2p1d prefill HiCache: the prefill kv-transfer-config becomes a "multi"
+# connector of the Mooncake producer and lmcache_offload. The 8 ranks' pinned
+# pools must fit the GPUs' GTT pool (half of host memory, 1511 GiB): at 8 x 256
+# GiB the last ranks took >10 min to pin and the NCCL barrier timed out.
+PREFILL_OFFLOAD_GB="${PREFILL_OFFLOAD_GB:-160}"
+LMCACHE_VERSION="0.5.5rc3"  # lmcache in the base image, for the AgentX metadata
+if (( PREFILL_OFFLOAD_GB > 0 )); then
+    PREFILL_ENV+=" LMCACHE_LOCAL_CPU=True LMCACHE_MAX_LOCAL_CPU_SIZE=$PREFILL_OFFLOAD_GB"
+    PREFILL_ENV+=" LMCACHE_CHUNK_SIZE=256 OFFLOAD_MIN_LOAD_TOKENS=8192 LMCACHE_NUMA_MODE=auto"
+fi
 PREFILL_EXTRA_ENV="${PREFILL_EXTRA_ENV:-}"    # space-separated KEY=VALUE
 DECODE_EXTRA_ENV="${DECODE_EXTRA_ENV:-}"
 PREFILL_EXTRA_ARGS="${PREFILL_EXTRA_ARGS:-}"

@@ -1,20 +1,23 @@
 # GLM-5.2 8P4D（原生 ATOM + Infera）阶段报告
 
-更新时间：2026-09-23 15:55 UTC（文中时间均为 UTC）。
+更新时间：2026-09-24 05:05 UTC（文中时间均为 UTC）。
 详细时间线见 [progress.md](progress.md)，各问题的日志与分析见 [issues.md](issues.md)，计划见 [../plan/plan.md](../plan/plan.md)。
 
 ## 1. 概要
 
 - 端到端流程已在原节点（prefill n02-33，decode n10-29）上验证可用：镜像构建、8P4D 部署、经 Infera Python 路由的 PD 请求、AgentX 测试、结果汇总。精度检查通过：GSM8K 200 题 0.965-0.99，6 万 token 大海捞针 3/3。
 - 修复了 3 处代码问题（2 个 ATOM patch，1 个 Infera patch）和 4 处部署配置问题。
+- prefill 加入了 LMCache CPU 卸载，默认开启，每个 DP rank 160 GiB，对应 2p1d prefill 的 HiCache，为此增加了第 2 个 Infera patch。在 n04-21 上以 128 GiB 验证了启动和 PD 链路（smoke 通过）；精度、CPU 命中和 160 GiB 下的启动尚未验证。
+- amdgpu 6.19.x 的节点（n04-21、n04-29）上，RDMA 注册后固定的 KV 显存会被重复计入，需要降低显存比例才能启动。按用户决定，这类节点只用于功能验证，后续作业排除 n04-29。
 - C16、600 秒的 AgentX 验证中，会话亲和生效后 total 为 4889 tok/s/GPU，TTFT p50 为 1.50 s；修复前分别为 2732 tok/s/GPU 和 14.46 s。
-- 与 2p1d 参考相同档位（C80-C256）的正式测试没有结果。作业 31626 被抢占两次；新分配的 n04-29 使用较新的 amdgpu 驱动，decode 在该节点上显存不足。
+- C80 正式测试完成（作业 31690，prefill n10-29，decode n04-21，LMCache 开启）：total 17941 tok/s/GPU，output 161 tok/s/GPU，TTFT p50 20.0 s / p90 41.2 s，ITL p50 16.2 ms，12 卡。2p1d 参考（24 卡）为 14975、116、2.4 s / 6.4 s、16.0 ms。瓶颈是 decode 的 KV 容量：decode 所在的新驱动节点只能用 0.74 的显存比例，KV 已满，请求排队。详见 [../results/README.md](../results/README.md)。
+- C112-C256 没有测。decode 扩展到 TP8 + DCP8 的测试见 [`../../8p8d-atom-infera`](../../8p8d-atom-infera/README.md)。
 
 | 任务 | 状态 | 产物 |
 |---|---|---|
 | 1. 基于 ATOM nightly 构建 Infera 镜像 | 完成 | `docker/Dockerfile`、`scripts/build_image.sh`、`patch/` |
 | 2. GLM-5.2 8P4D 部署 | 完成，在原节点验证 | `config.sh`、`scripts/{common,up,down,smoke}.sh` |
-| 3. AgentX 脚本与性能测试 | 脚本完成，C16 验证完成，C80-C256 未完成 | `scripts/{agentx,sweep}.sh`、`scripts/summarize.py` |
+| 3. AgentX 脚本与性能测试 | 脚本完成，C16 验证完成，C80 完成（decode KV 容量受限），C112-C256 未测 | `scripts/{agentx,sweep}.sh`、`scripts/summarize.py`、`results/` |
 
 ## 2. 环境
 
@@ -30,7 +33,9 @@
 |---|---|---|---|
 | 09:28-14:55 | n02-33（10.235.192.133） | n10-29（10.235.192.140） | 所有验证在这两台节点完成，14:55 被抢占 |
 | 14:57-15:33 | n04-25（10.235.192.131） | n04-29（10.235.192.57） | n04-29 上 decode 显存不足，15:28 被抢占 |
-| 15:33 起 | 排队 | 排队 | 调度器计划 16:14 在 n04-[25,29] 启动 |
+| 15:33-15:52 | 排队 | 排队 | 作业 31626 在排队中被取消 |
+| 9 月 24 日 01:01-02:13 | n04-21（10.235.192.135，amdgpu 6.19.14） | n04-29（10.235.192.57，amdgpu 6.19.16） | 作业 31684，两台都是新驱动，只做功能验证；02:13 取消 |
+| 9 月 24 日 02:13 起 | 排队 | 排队 | 作业 31690，提交命令增加 `--exclude=smci355-ccs-aus-n04-29` |
 
 镜像 `infera-atom:nightly_202609221542` 的 image ID：原节点为 `sha256:b7807ac42574…`，n04 节点为 `sha256:4aa7d9b22846…`。两者的 Dockerfile 与 patch 相同，ID 不同是因为在不同节点重新构建。
 
@@ -48,7 +53,7 @@ flowchart LR
 ```
 
 - 两侧共同参数：`python3 -m infera.engine.atom`（Infera 包装 ATOM 的 `openai_server`）、`--kv_cache_dtype fp8 --block-size 16 --enable_prefix_caching`、在线 PTPC FP8 量化（层 0-77 的专家保持 MXFP4，MTP 层 78 保持 BF16）、`--method mtp`、`--max-num-batched-tokens 16384`、`--gpu-memory-utilization 0.85`。
-- Prefill：`-tp 8 --enable-dp-attention --enforce-eager --max-num-seqs 512`，kv_producer。ATOM 的 DPA 按 8 个 DP rank 运行 attention，每个 rank 有独立的 KV 池、prefix cache 和握手端口（21301-21308）。环境变量 `ATOM_MOONCAKE_MATCHED_RAILS=auto`、`ATOM_DP_SESSION_AFFINITY=1`。
+- Prefill：`-tp 8 --enable-dp-attention --enforce-eager --max-num-seqs 512`，kv_producer。ATOM 的 DPA 按 8 个 DP rank 运行 attention，每个 rank 有独立的 KV 池、prefix cache 和握手端口（21301-21308）。环境变量 `ATOM_MOONCAKE_MATCHED_RAILS=auto`、`ATOM_DP_SESSION_AFFINITY=1`。LMCache CPU 卸载开启时（默认 `PREFILL_OFFLOAD_GB=160`），kv-transfer-config 为 `multi`，包含 mooncake kv_producer 与 `lmcache_offload`，并设置 `LMCACHE_LOCAL_CPU=True LMCACHE_MAX_LOCAL_CPU_SIZE=160 LMCACHE_CHUNK_SIZE=256 OFFLOAD_MIN_LOAD_TOKENS=8192`。
 - Decode：`-tp 4 --decode-context-parallel-size 4`，EP1，DPA 关闭，kv_consumer，握手端口 21311。`--max-num-seqs` 为 `2*CONC`，cudagraph 尺寸为 `[1,2,4,8,12,...,2*CONC]`，步长 4。这两条规则与 MTP 深度一样，来自 InferenceX 的 `glm5.2_fp4_mi355x_atom_mtp.sh`。
 - MTP：CONC < 48 时 K4、forced acceptance 3.33；CONC ≥ 48 时 K3、2.99。设置 `MTP_AL=`（空值）可以关闭 forced acceptance，用于精度检查。
 - 路由：`python3 -m infera.server --router-backend python --discovery-backend etcd --request-transport http --kv-event-transport zmq --router-policy round-robin`。ATOM 的 PD 使用 `atom-mooncake` 协议，prefill 完成后由路由把 `kv_transfer_params` 发给 decode。
@@ -121,7 +126,18 @@ ATOM 的 PD 只由 Python 路由支持，所以镜像不包含 Rust 路由。`sc
   - prefill 设置 `ATOM_DP_SESSION_AFFINITY=1`。decode 只有一个 DP rank，不需要设置。
 - 效果：测试期间 prefill 的 `atom:dp_route_load_balanced_total` 为 0，全部请求按会话路由。prefill 各 rank 的命中率升到 49%-92%，decode 升到 85.0%，TTFT p50 降到 1.50 s。
 
-### 5.6 部署层面的其他问题
+### 5.6 prefill 没有 KV 卸载（issues.md 第 11 条，已实现，待验证）
+
+- 问题：prefill 每个 DP rank 的显存 KV 约 289 万 token，C192、C256 时每个 rank 的会话量超过这个容量。2p1d 参考的 prefill 开启了 HiCache，本套件没有任何 KV 卸载。
+- ATOM 的支持：`multi` connector 可以组合 mooncake producer 与 `lmcache_offload`。卸载格式包含 GLM-5.2 的 DSA 索引缓存和 MTP draft 层，DPA 下每个 DP rank 有独立的 CPU 池。
+- 障碍：Infera 的 ATOM 包装层只读取 kv-transfer-config 顶层的 `kv_role`，`multi` 配置会让 prefill 注册为 MIXED。
+- 处理：
+  - `patch/infera-atom-multi-connector.diff`：配置为 `multi` 时，改从带 PD 角色的子 connector 读取角色、协议和握手端口。
+  - `config.sh` 新增 `PREFILL_OFFLOAD_GB`（默认 160，设为 0 时关闭）。开启时 `up.sh` 生成 `multi` 配置，并设置 LMCache 环境变量；`agentx.sh` 把元数据记为 `KV_OFFLOADING=dram`、`KV_OFFLOAD_BACKEND=lmcache`。
+  - 默认每个 rank 160 GiB，可容纳约 353 万 token，约为 0.85 下显存 KV 的 1.2 倍。8 个 rank 的总量受 GPU 的 GTT 上限（1511 GiB，主机内存的一半）约束：每 rank 256 GiB 时部分 rank 的 pinned 内存分配超过 10 分钟，NCCL barrier 超时导致启动失败；每 rank 128 GiB 时 13 s 完成。
+- 状态：本地单元测试与离线检查通过。n04-21 上以每 rank 128 GiB 启动成功，smoke 通过，路由把 `multi` 配置的 prefill 识别为 PD prefill；其余验证项见 8.1。
+
+### 5.7 部署层面的其他问题
 
 | 问题 | 处理 | issues.md |
 |---|---|---|
@@ -168,7 +184,18 @@ ATOM 的 PD 只由 Python 路由支持，所以镜像不包含 Rust 路由。`sc
 - 数据集特征（check1）：ISL p50 约 10.7 万 token，理论 prefix cache 命中率 95.1%，客户端有效并发均值 6.47。
 - 汇总表位于 `.tmp/results-check{,2,3,4}/summary.md`，原始数据位于 `.tmp/runs/check*-c16/agentx/`。
 
-### 6.4 与 2p1d 参考的差异
+### 6.4 C80 正式测试
+
+作业 31690，prefill n10-29（0.85，LMCache 每 rank 160 GiB），decode n04-21（TP4 + DCP4，0.74），测量 3600 s，每 lane 预热 10，MTP K3、forced acceptance 2.99。
+
+| 部署 | GPU | total tok/s/GPU | output tok/s/GPU | TTFT p50 / p90 (s) | ITL p50 (ms) | intvty p50 | 完成请求 |
+|---|---|---|---|---|---|---|---|
+| 8P4D ATOM + Infera | 12 | 17941.47 | 161.25 | 20.01 / 41.23 | 16.19 | 61.77 | 7137 |
+| 2P1D SGLang（参考） | 24 | 14975.27 | 115.51 | 2.42 / 6.38 | 16.02 | 62.43 | 10641 |
+
+decode 的 KV 占用在测量中期达到 96.7%-100%，同时有 15-25 个请求等待，TTFT p50 从测量开始时的 3.2 s 升到 20 s；prefill 负载很轻。完整说明见 [../results/README.md](../results/README.md)。
+
+### 6.5 与 2p1d 参考的差异
 
 参考结果（`../2p1d-sweep-triton-dsa-20260922/results/sweep_results.md`）：
 
@@ -186,7 +213,7 @@ ATOM 的 PD 只由 Python 路由支持，所以镜像不包含 Rust 路由。`sc
 |---|---|---|
 | 引擎 | SGLang | 原生 ATOM + Infera |
 | GPU 数 | 24（2 个 prefill 节点加 1 个 decode 节点，均为 TP8/DP8 DPA） | 12（prefill 8 卡 TP8 DPA，decode 4 卡 TP4 DCP4） |
-| prefill 二级缓存 | HiCache（ratio 1.5） | 无 |
+| prefill 二级缓存 | HiCache（ratio 1.5） | check1-4 没有；已加入 LMCache CPU 卸载（默认每个 DP rank 160 GiB，约为显存 KV 的 1.2 倍），尚未用于 AgentX 测试 |
 | MTP | 5 步、6 个 draft token，模拟 acceptance length 3.61 | C ≥ 48 时 K3，模拟 acceptance length 2.99 |
 | 已有数据 | C80-C256，每档 3600 s，每 lane 预热 10 | 只有 C16，600 s，每 lane 预热 1 |
 | 每 GPU 并发 | 3.3-10.7 | C16 为 1.3；C80-C256 为 6.7-21.3 |
@@ -250,8 +277,10 @@ docker rm -f glm52-8p4d-atom-agentx
 | `DECODE_NODE` / `DECODE_IP` | n04-29 / 10.235.192.57 | decode 节点，同时是控制节点 |
 | `CONC` | 16 | 并发，决定 MTP 深度、decode 的 `--max-num-seqs` 与 cudagraph 尺寸 |
 | `MTP_K` / `MTP_AL` | 由 CONC 决定 | K4/3.33（CONC < 48），K3/2.99（CONC ≥ 48）；`MTP_AL=` 关闭 forced acceptance |
-| `GPU_MEM_UTIL` | 0.85 | 两个引擎共用的显存比例 |
+| `GPU_MEM_UTIL` | 0.85 | 显存比例 |
+| `PREFILL_MEM_UTIL` / `DECODE_MEM_UTIL` | 取 `GPU_MEM_UTIL` | 分角色的显存比例；amdgpu 6.19.x 节点上约 0.70 / 0.74 才能启动 |
 | `PREFILL_GRAPH_ARGS` | `--enforce-eager` | prefill 的 graph 模式参数 |
+| `PREFILL_OFFLOAD_GB` | 160 | 每个 prefill DP rank 的 LMCache CPU 缓存（GiB），0 关闭；8 个 rank 的总量需小于 GTT 上限 1511 GiB |
 | `PREFILL_EXTRA_ENV` / `DECODE_EXTRA_ENV` | 空 | 追加的环境变量，空格分隔的 `KEY=VALUE` |
 | `PREFILL_EXTRA_ARGS` / `DECODE_EXTRA_ARGS` | 空 | 追加的引擎参数 |
 | `DURATION` / `WARMUP_PER_LANE` | 3600 / 10 | AgentX 测量时长和每 lane 预热请求数 |
@@ -272,6 +301,7 @@ docker rm -f glm52-8p4d-atom-agentx
 | `bash .tmp/rdma_rate.sh [秒数]` | 各 ionic 在该时段的 RDMA 收发速率与 `req_tx_retry_excd_err` 计数 |
 | `bash .tmp/vram_sample.sh > .tmp/logs/vram.log` | 每 2 秒记录 8 张 GPU 的显存用量（MiB） |
 | `CONC=80 bash .tmp/decode_probe.sh <容器名> <GPU 列表> <HTTP 端口> <握手端口> <dist 端口> [KEY=VALUE ...]` | 只启动一个 decode 实例（参数与 `up.sh` 相同），用于启动与显存测试；两个实例并行时，端口和 dist 端口需要不同 |
+| `bash .tmp/offload_probe.sh [FILL=32] [TOKENS=100000]` | 在同一会话 ID 下依次发送：提示 A；重复的 A（显存命中）；FILL 条其他长提示（把 A 挤出该 rank 的显存）；第三次的 A。输出每个请求的耗时。第三次发送 A 的耗时与显存命中相当，说明从 CPU 加载成功。以 `PREFILL_EXTRA_ENV=OFFLOAD_PROFILE=1` 启动服务时，末尾会打印 `[OFFLOAD-LOAD-PROF]` 日志 |
 
 patch 相关的工具位于 `.tmp/patchwork/`：
 
@@ -281,6 +311,8 @@ cd .tmp/patchwork
 python3 make_staging_patch.py
 # Infera patch：参数为仓库根目录，生成 infera-a/ 与 infera-b/
 python3 make_infera_patch.py /apps/tas/yaoc/research/topic/glm-5.2-pd-opt/Infera-glm-5.2-2p1d
+# multi connector 的 Infera patch：生成 infera-multi-a/ 与 infera-multi-b/
+python3 make_infera_multi_patch.py /apps/tas/yaoc/research/topic/glm-5.2-pd-opt/Infera-glm-5.2-2p1d
 # staging 的 CPU 等价测试，在镜像内执行，期望输出 "staged gather matches token_runs on all ranks"
 docker run --rm -v "$PWD:/w" --entrypoint python3 infera-atom:nightly_202609221542 /w/test_kv_staging_mapping.py
 ```
@@ -298,33 +330,34 @@ docker run --rm -v "$PWD:/w" --entrypoint python3 infera-atom:nightly_2026092215
 | `.tmp/runs/<RUN_ID>/` | `workers.json`；`logs/` 下各容器日志与 `docker inspect`；`agentx/` 下 `runtime.env`、`runner.log`、`agentx_conc<N>.json`、aiperf 原始数据；`gsm8k/` |
 | `.tmp/results-check{,2,3,4}/` | C16 验证的汇总表 |
 | `.tmp/logs/` | 各脚本的输出日志（`sweep.log`、`up-*.log`、`build_image*.log`、`vram-*.log` 等） |
-| `.tmp/cache/` | InferenceX 仓库、aiperf venv、数据集与 HuggingFace 缓存（位于共享存储，更换节点后可继续使用） |
+| `.tmp/cache/` | InferenceX 仓库、ATOM 源码（`d9f0720e2f99`）、aiperf venv、数据集与 HuggingFace 缓存（位于共享存储，更换节点后可继续使用） |
 | `results/` | 正式测试的 `summary.md`、`summary.csv` 与 `c<NNN>/`，目前还没有内容 |
 
 ### 7.6 更换节点时的步骤
 
 作业被抢占后重新运行时，节点可能不同，需要按以下步骤重新部署：
 
-1. 在登录节点上用 `squeue -j 31626 -h -o %N` 查看节点列表。
+1. 提交作业时排除问题节点（`--exclude=smci355-ccs-aus-n04-29`），在登录节点上用 `squeue -j <作业号> -h -o %N` 查看节点列表。
 2. 在每台节点上检查：
-   - 驱动版本：`cat /sys/module/amdgpu/version`。n04-29（6.19.16）上出现过第 8.2 节所述的 OOM；按用户要求，分到这类节点时暂停。
+   - 驱动版本：`cat /sys/module/amdgpu/version`，`up.sh` 启动时也会打印。6.19.x（n04-21 为 6.19.14，n04-29 为 6.19.16）需要降低显存比例，按用户要求只做功能验证。
    - GPU 显存与他人容器：`amd-smi metric --mem-usage`、`docker ps`。
    - fenic IP：`ip -4 -o addr show fenic`。
    - ionic 网卡与 GID：`ls /sys/class/infiniband`、`cat /sys/class/infiniband/ionic_0/ports/1/gids/1`。
    - 端口占用：`ss -ltn`。
 3. 修改 `config.sh` 的 `PREFILL_NODE`、`PREFILL_IP`、`DECODE_NODE`、`DECODE_IP`。prefill 需要 8 张空闲 GPU。
 4. 在新的控制节点上执行 `docker pull rocm/atom-dev:nightly_202609221542`（约 1-2 分钟）和 `bash scripts/build_image.sh`。
-5. 以 `nohup setsid bash scripts/up.sh CONC=80 MTP_AL= RUN_ID=bringup-<节点> ...` 冷启动，然后执行 `scripts/smoke.sh`、`.tmp/gsm8k.sh`、`.tmp/needle_probe.sh`。
+5. 以 `nohup setsid bash scripts/up.sh CONC=80 MTP_AL= PREFILL_EXTRA_ENV=OFFLOAD_PROFILE=1 RUN_ID=bringup-<节点> ...` 冷启动，然后执行 `scripts/smoke.sh`、`.tmp/gsm8k.sh`、`.tmp/needle_probe.sh`、`.tmp/offload_probe.sh`。
 6. 执行 `bash scripts/down.sh`，然后启动 `scripts/sweep.sh`。
 
 ## 8. 未完成的部分与风险
 
 ### 8.1 未完成
 
-- C80-C256 的正式测试。14:44 启动的测试在 C80 预热阶段被抢占中断，`results/` 为空。完整测试约需 8 小时，单档 75-90 分钟。
-- 与 2p1d 参考的对比，依赖正式测试结果。
+- C112-C256 的正式测试。C80 已完成，但 decode 在新驱动节点上 KV 容量受限；decode 扩展到 TP8 + DCP8 的测试见 `../../8p8d-atom-infera`。单档需要 75-90 分钟。
+- decode 在旧驱动节点上（显存比例 0.85）的 C80 对照。
 - n04-29 显存不足的原因只确定到驱动层面（显存用到约 84% 时分配失败），具体机制没有查明。
 - prefill 的 cudagraph 模式没有修复（drafter 预热访存错误）。目前测量显示 graph 模式不带来收益，所以不影响当前结果。
+- LMCache CPU 卸载的节点验证。n04-21 上以 128 GiB 验证了启动和 PD 链路；尚未完成的有：GSM8K 与大海捞针，`.tmp/offload_probe.sh`（显存逐出后从 CPU 加载），160 GiB 下的启动，以及短测下的 prefill 命中率与 TTFT。镜像需要在新节点上重新构建。
 
 ### 8.2 风险
 
@@ -332,7 +365,7 @@ docker run --rm -v "$PWD:/w" --entrypoint python3 infera-atom:nightly_2026092215
 2. **新驱动节点**：n04-29（amdgpu 6.19.16，ionic 26.07.9）上 decode 在显存约 243 GB 时 OOM。peer-mem 与 dma-buf 两种注册方式结果相同。n04-25（amdgpu 6.14.14）与原节点没有这个问题。可行的处理有两种：把 decode 放在旧驱动节点上；或者降低 `GPU_MEM_UTIL`（0.80 时 KV 容量约减少 14%）。
 3. **高并发下的容量**：
    - decode 的 KV 约 880 万 token，10.5 万 token 的请求最多同时 83 个，C192-C256 预计受 decode KV 容量限制，请求在 decode 排队。排队期间 prefill 持有这些请求的 KV。按代码阅读，connector 的超时（`PREFILL_LOOKUP_TIMEOUT=60`）只针对 prefill 尚未完成的情况，Infera 路由的 HTTP 请求没有读超时，所以预计排队只增加延迟，不会导致请求失败。这一点没有在高并发下实测。
-   - prefill 没有二级缓存。每个 DP rank 的 KV 为 180751 个 block，约 289 万 token，10.5 万 token 的会话最多容纳 27 个。C192 时每个 rank 约 24 个会话，C256 时约 32 个，超过单个 rank 的容量，prefix cache 会被逐出，命中率将低于 C16 的结果。
+   - prefill 每个 DP rank 的显存 KV 为 180751 个 block，约 289 万 token，10.5 万 token 的会话最多容纳 27 个。C192 时每个 rank 约 24 个会话，C256 时约 32 个，超过显存容量。默认开启的 LMCache CPU 卸载每个 rank 160 GiB，可缓存约 353 万 token。由于写透，CPU 中的内容大部分与显存重复，有效容量约为显存的 1.2 倍；C256 时每个 rank 约 32 个会话（约 336 万 token），处于上限附近。风险包括：8 个 rank 的 pinned 内存总量受 GTT 上限（1511 GiB）约束，每 rank 256 GiB 时前 5 个 rank（共 1280 GiB）很快完成，其余 rank 使总量超过上限后分配明显变慢；按此计算，每 rank 最多约 188 GiB，还需要留出余量；CPU 加载的带宽；镜像中 LMCache 0.5.5rc3 与 InferenceX 标注的 0.4.5 版本不同。
 4. **prefill 的固定开销**：eager 模式下每请求约 220 ms，高并发时会计入 TTFT。
 5. **forced acceptance**：性能测试使用模拟的 acceptance length（K3 为 2.99，K4 为 3.33），结果只用于性能比较，不代表生成质量。实际 acceptance rate 需要以 `MTP_AL=` 单独测量。
 6. **验证条件较短**：check1-4 为 600 秒、每 lane 预热 1 个请求，正式条件为 3600 秒、每 lane 预热 10 个请求，C16 的数据只能作为初步参考。
@@ -344,10 +377,11 @@ docker run --rm -v "$PWD:/w" --entrypoint python3 infera-atom:nightly_2026092215
 这些节点目前已无法访问：
 
 - 此前按授权停止的他人容器仍处于停止状态：n10-29 的 `glm52-pd-yihou-sn-p4d4-n1029-{prefill-0,decode-0,etcd}`，n02-33 的 `sikl.jihhe` 与 `dev_primus_mxfp6_265`，n04-29 的 `sikl.jihhe`。恢复需要 `docker start <容器名>`。
-- 本套件的容器可能仍在运行：n02-33 的 `glm52-8p4d-atom-prefill`，n10-29 的 `glm52-8p4d-atom-{etcd,decode,router,agentx}`，n04-25 的 `glm52-8p4d-atom-prefill`，n04-29 的 `glm52-8p4d-atom-etcd`。n04-29 上还有已退出的 `glm52-8p4d-atom-dprobe-{a,b}`。
+- 本套件的容器可能仍在运行：n02-33 的 `glm52-8p4d-atom-prefill`，n10-29 的 `glm52-8p4d-atom-{etcd,decode,router,agentx}`，n04-25 的 `glm52-8p4d-atom-prefill`，n04-21 的 `glm52-8p4d-atom-prefill`（持有 1 TiB pinned 主机内存），n04-29 的 `glm52-8p4d-atom-{decode,etcd,router}`。后两台是作业 31684 被取消时仍在运行的服务。
 
 ### 8.4 后续的可选方案
 
 - 如果能申请到不会被 `dcgpu-test` 抢占的 QOS（`dcgpu-test`、`dcgpu-prod`、`dcgpu-fullpool`、`sponsor`），或者节点预留，可以按 7.6 的步骤部署，然后执行 `scripts/sweep.sh`。
 - 如果只能使用 `batch`，可以在每次作业启动后测试一档（`POINTS=<单个档位>`，不同档位使用不同的 `SWEEP_ID`），各档完成后用 `summarize.py` 合并多个运行目录。作业启动 30 分钟后仍有被抢占的可能。
 - 如果需要减少单档耗时，可以设置 `DURATION=1200 WARMUP_PER_LANE=1`，但测量条件与参考不同，结果与参考不可比。
+- 如果 LMCache 卸载在节点上验证失败，可以设置 `PREFILL_OFFLOAD_GB=0` 恢复为 check1-4 的配置。如果需要评估卸载的收益，可以在同一档位分别测试开启和关闭两组。
