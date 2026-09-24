@@ -1,0 +1,712 @@
+{
+  "A0": [
+    {
+      "r2_request_id": "6712800d-45d5-4061-baef-0a7bed160865",
+      "reference_request_id": "c9b22c50-f346-4066-96c3-756074bff39d",
+      "metrics": {
+        "time_to_first_token": {
+          "value": 40272.652214,
+          "unit": "ms"
+        },
+        "http_req_blocked": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "output_sequence_length": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_dns_lookup": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_duration": {
+          "value": 40272.576375,
+          "unit": "ms"
+        },
+        "request_latency": {
+          "value": 40272.652214,
+          "unit": "ms"
+        },
+        "http_req_waiting": {
+          "value": 40232.329806999995,
+          "unit": "ms"
+        },
+        "http_req_data_received": {
+          "value": 1.0537109375,
+          "unit": "KB"
+        },
+        "usage_prompt_tokens": {
+          "value": 217724,
+          "unit": "tokens"
+        },
+        "usage_completion_tokens": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_connecting": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "usage_prompt_cache_read_tokens": {
+          "value": 215552,
+          "unit": "tokens"
+        },
+        "input_sequence_length": {
+          "value": 217724,
+          "unit": "tokens"
+        },
+        "output_token_count": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_sending": {
+          "value": 0.192078,
+          "unit": "ms"
+        },
+        "http_req_receiving": {
+          "value": 40.05449,
+          "unit": "ms"
+        },
+        "full_decode_duration": {
+          "value": 0.03857,
+          "unit": "ms"
+        },
+        "http_req_data_sent": {
+          "value": 848.544921875,
+          "unit": "KB"
+        },
+        "usage_total_tokens": {
+          "value": 217725,
+          "unit": "tokens"
+        },
+        "http_req_chunks_received": {
+          "value": 2,
+          "unit": "count"
+        },
+        "http_req_chunks_sent": {
+          "value": 1,
+          "unit": "count"
+        },
+        "http_req_connection_reused": {
+          "value": 1,
+          "unit": "ratio"
+        },
+        "osl_mismatch_diff_pct": {
+          "value": 0.0,
+          "unit": "%"
+        },
+        "decode_duration": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "e2e_output_token_throughput": {
+          "value": 0.024830746052835563,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_connection_overhead": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "prefill_throughput_per_user": {
+          "value": 5406.24935360757,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_total": {
+          "value": 40272.576375,
+          "unit": "ms"
+        }
+      },
+      "error": null
+    },
+    {
+      "r2_request_id": "863d7028-30a9-4d1c-b6c3-61a0d41d1d25",
+      "reference_request_id": "5916b848-c76b-4c0c-b4a7-bc00e18ee043",
+      "metrics": {
+        "time_to_first_token": {
+          "value": 4624.702354999999,
+          "unit": "ms"
+        },
+        "http_req_blocked": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "output_sequence_length": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_dns_lookup": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_duration": {
+          "value": 4624.638655,
+          "unit": "ms"
+        },
+        "request_latency": {
+          "value": 4624.702354999999,
+          "unit": "ms"
+        },
+        "http_req_waiting": {
+          "value": 4624.4119279999995,
+          "unit": "ms"
+        },
+        "http_req_data_received": {
+          "value": 1.0537109375,
+          "unit": "KB"
+        },
+        "usage_prompt_tokens": {
+          "value": 148567,
+          "unit": "tokens"
+        },
+        "usage_completion_tokens": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_connecting": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "usage_prompt_cache_read_tokens": {
+          "value": 147968,
+          "unit": "tokens"
+        },
+        "input_sequence_length": {
+          "value": 148567,
+          "unit": "tokens"
+        },
+        "output_token_count": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_sending": {
+          "value": 0.168537,
+          "unit": "ms"
+        },
+        "http_req_receiving": {
+          "value": 0.05819,
+          "unit": "ms"
+        },
+        "full_decode_duration": {
+          "value": 0.630981,
+          "unit": "ms"
+        },
+        "http_req_data_sent": {
+          "value": 578.818359375,
+          "unit": "KB"
+        },
+        "usage_total_tokens": {
+          "value": 148568,
+          "unit": "tokens"
+        },
+        "http_req_chunks_received": {
+          "value": 2,
+          "unit": "count"
+        },
+        "http_req_chunks_sent": {
+          "value": 1,
+          "unit": "count"
+        },
+        "http_req_connection_reused": {
+          "value": 1,
+          "unit": "ratio"
+        },
+        "osl_mismatch_diff_pct": {
+          "value": 0.0,
+          "unit": "%"
+        },
+        "decode_duration": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "e2e_output_token_throughput": {
+          "value": 0.21623013185245302,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_connection_overhead": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "prefill_throughput_per_user": {
+          "value": 32124.661998923388,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_total": {
+          "value": 4624.638655,
+          "unit": "ms"
+        }
+      },
+      "error": null
+    },
+    {
+      "r2_request_id": "cd7bc67c-2aae-4039-811b-ed9ae2d32a26",
+      "reference_request_id": "5b29d914-9e33-4bc5-9c2b-c208f2812202",
+      "metrics": {
+        "time_to_first_token": {
+          "value": 48005.963866,
+          "unit": "ms"
+        },
+        "http_req_blocked": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "output_sequence_length": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_dns_lookup": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_duration": {
+          "value": 48005.994925,
+          "unit": "ms"
+        },
+        "request_latency": {
+          "value": 48005.963866,
+          "unit": "ms"
+        },
+        "http_req_waiting": {
+          "value": 48005.733777999994,
+          "unit": "ms"
+        },
+        "http_req_data_received": {
+          "value": 1.0302734375,
+          "unit": "KB"
+        },
+        "usage_prompt_tokens": {
+          "value": 3222,
+          "unit": "tokens"
+        },
+        "usage_completion_tokens": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_connecting": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "input_sequence_length": {
+          "value": 3222,
+          "unit": "tokens"
+        },
+        "output_token_count": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "http_req_sending": {
+          "value": 0.145609,
+          "unit": "ms"
+        },
+        "http_req_receiving": {
+          "value": 0.11553799999999999,
+          "unit": "ms"
+        },
+        "full_decode_duration": {
+          "value": 0.129718,
+          "unit": "ms"
+        },
+        "http_req_data_sent": {
+          "value": 12.3369140625,
+          "unit": "KB"
+        },
+        "usage_total_tokens": {
+          "value": 3223,
+          "unit": "tokens"
+        },
+        "http_req_chunks_received": {
+          "value": 2,
+          "unit": "count"
+        },
+        "http_req_chunks_sent": {
+          "value": 1,
+          "unit": "count"
+        },
+        "http_req_connection_reused": {
+          "value": 1,
+          "unit": "ratio"
+        },
+        "osl_mismatch_diff_pct": {
+          "value": 0.0,
+          "unit": "%"
+        },
+        "decode_duration": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "e2e_output_token_throughput": {
+          "value": 0.020830745171398282,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_connection_overhead": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "prefill_throughput_per_user": {
+          "value": 67.11666094224528,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_total": {
+          "value": 48005.994925,
+          "unit": "ms"
+        }
+      },
+      "error": null
+    }
+  ],
+  "G0": [
+    {
+      "r2_request_id": "6712800d-45d5-4061-baef-0a7bed160865",
+      "reference_request_id": "6b50c3b4-a8a9-42cb-8966-75d8490874a2",
+      "metrics": {
+        "http_req_chunks_sent": {
+          "value": 1,
+          "unit": "count"
+        },
+        "request_latency": {
+          "value": 5985.821895,
+          "unit": "ms"
+        },
+        "http_req_data_sent": {
+          "value": 848.544921875,
+          "unit": "KB"
+        },
+        "http_req_duration": {
+          "value": 5985.7400959999995,
+          "unit": "ms"
+        },
+        "output_token_count": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "usage_prompt_tokens": {
+          "value": 217725,
+          "unit": "tokens"
+        },
+        "http_req_chunks_received": {
+          "value": 2,
+          "unit": "count"
+        },
+        "output_sequence_length": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "full_decode_duration": {
+          "value": 0.050809,
+          "unit": "ms"
+        },
+        "http_req_blocked": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_dns_lookup": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_connecting": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_data_received": {
+          "value": 1.0537109375,
+          "unit": "KB"
+        },
+        "http_req_connection_reused": {
+          "value": 1,
+          "unit": "ratio"
+        },
+        "http_req_waiting": {
+          "value": 5945.603394,
+          "unit": "ms"
+        },
+        "usage_completion_tokens": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "time_to_first_token": {
+          "value": 5985.821895,
+          "unit": "ms"
+        },
+        "usage_total_tokens": {
+          "value": 217726,
+          "unit": "tokens"
+        },
+        "usage_prompt_cache_read_tokens": {
+          "value": 215552,
+          "unit": "tokens"
+        },
+        "input_sequence_length": {
+          "value": 217725,
+          "unit": "tokens"
+        },
+        "http_req_sending": {
+          "value": 0.19161699999999998,
+          "unit": "ms"
+        },
+        "http_req_receiving": {
+          "value": 39.945085,
+          "unit": "ms"
+        },
+        "e2e_output_token_throughput": {
+          "value": 0.16706143576294966,
+          "unit": "tokens/sec/user"
+        },
+        "osl_mismatch_diff_pct": {
+          "value": 0.0,
+          "unit": "%"
+        },
+        "http_req_connection_overhead": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "decode_duration": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "prefill_throughput_per_user": {
+          "value": 36373.45110148821,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_total": {
+          "value": 5985.7400959999995,
+          "unit": "ms"
+        }
+      },
+      "error": null
+    },
+    {
+      "r2_request_id": "863d7028-30a9-4d1c-b6c3-61a0d41d1d25",
+      "reference_request_id": "aad70990-eac8-4a4a-a79e-c710a7be9e2e",
+      "metrics": {
+        "http_req_chunks_sent": {
+          "value": 1,
+          "unit": "count"
+        },
+        "request_latency": {
+          "value": 9738.946963999999,
+          "unit": "ms"
+        },
+        "http_req_data_sent": {
+          "value": 578.818359375,
+          "unit": "KB"
+        },
+        "http_req_duration": {
+          "value": 9738.873244999999,
+          "unit": "ms"
+        },
+        "output_token_count": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "usage_prompt_tokens": {
+          "value": 148567,
+          "unit": "tokens"
+        },
+        "http_req_chunks_received": {
+          "value": 2,
+          "unit": "count"
+        },
+        "output_sequence_length": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "full_decode_duration": {
+          "value": 0.02369,
+          "unit": "ms"
+        },
+        "http_req_blocked": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_dns_lookup": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_connecting": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_data_received": {
+          "value": 1.0537109375,
+          "unit": "KB"
+        },
+        "http_req_connection_reused": {
+          "value": 1,
+          "unit": "ratio"
+        },
+        "http_req_waiting": {
+          "value": 9738.671217,
+          "unit": "ms"
+        },
+        "usage_completion_tokens": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "time_to_first_token": {
+          "value": 9738.946963999999,
+          "unit": "ms"
+        },
+        "usage_total_tokens": {
+          "value": 148568,
+          "unit": "tokens"
+        },
+        "usage_prompt_cache_read_tokens": {
+          "value": 147968,
+          "unit": "tokens"
+        },
+        "input_sequence_length": {
+          "value": 148567,
+          "unit": "tokens"
+        },
+        "http_req_sending": {
+          "value": 0.12778899999999999,
+          "unit": "ms"
+        },
+        "http_req_receiving": {
+          "value": 0.074239,
+          "unit": "ms"
+        },
+        "e2e_output_token_throughput": {
+          "value": 0.10268050577711309,
+          "unit": "tokens/sec/user"
+        },
+        "osl_mismatch_diff_pct": {
+          "value": 0.0,
+          "unit": "%"
+        },
+        "http_req_connection_overhead": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "decode_duration": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "prefill_throughput_per_user": {
+          "value": 15254.934701788361,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_total": {
+          "value": 9738.873244999999,
+          "unit": "ms"
+        }
+      },
+      "error": null
+    },
+    {
+      "r2_request_id": "cd7bc67c-2aae-4039-811b-ed9ae2d32a26",
+      "reference_request_id": "1dd2e464-ad6b-49ed-a054-ee6645323b06",
+      "metrics": {
+        "http_req_chunks_sent": {
+          "value": 1,
+          "unit": "count"
+        },
+        "request_latency": {
+          "value": 20697.074615999998,
+          "unit": "ms"
+        },
+        "http_req_data_sent": {
+          "value": 12.3369140625,
+          "unit": "KB"
+        },
+        "http_req_duration": {
+          "value": 20697.162566,
+          "unit": "ms"
+        },
+        "output_token_count": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "usage_prompt_tokens": {
+          "value": 3224,
+          "unit": "tokens"
+        },
+        "http_req_chunks_received": {
+          "value": 2,
+          "unit": "count"
+        },
+        "output_sequence_length": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "full_decode_duration": {
+          "value": 0.189668,
+          "unit": "ms"
+        },
+        "http_req_blocked": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_dns_lookup": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_connecting": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "http_req_data_received": {
+          "value": 1.029296875,
+          "unit": "KB"
+        },
+        "http_req_connection_reused": {
+          "value": 1,
+          "unit": "ratio"
+        },
+        "http_req_waiting": {
+          "value": 20696.835759999998,
+          "unit": "ms"
+        },
+        "usage_completion_tokens": {
+          "value": 1,
+          "unit": "tokens"
+        },
+        "time_to_first_token": {
+          "value": 20697.074615999998,
+          "unit": "ms"
+        },
+        "usage_total_tokens": {
+          "value": 3225,
+          "unit": "tokens"
+        },
+        "input_sequence_length": {
+          "value": 3224,
+          "unit": "tokens"
+        },
+        "http_req_sending": {
+          "value": 0.16769799999999999,
+          "unit": "ms"
+        },
+        "http_req_receiving": {
+          "value": 0.159108,
+          "unit": "ms"
+        },
+        "e2e_output_token_throughput": {
+          "value": 0.04831600690210315,
+          "unit": "tokens/sec/user"
+        },
+        "osl_mismatch_diff_pct": {
+          "value": 0.0,
+          "unit": "%"
+        },
+        "http_req_connection_overhead": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "decode_duration": {
+          "value": 0.0,
+          "unit": "ms"
+        },
+        "prefill_throughput_per_user": {
+          "value": 155.77080625238057,
+          "unit": "tokens/sec/user"
+        },
+        "http_req_total": {
+          "value": 20697.162566,
+          "unit": "ms"
+        }
+      },
+      "error": null
+    }
+  ]
+}

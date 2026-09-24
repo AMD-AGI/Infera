@@ -13,3 +13,7 @@ R4 score=现有在途有效输入tokens + max(本次输入tokens - prefix_hit_bl
 离线reasoning parser受控验证：从部署版本标识e7f7447333获取上游源码，仅加载StreamingParseResult/BaseReasoningFormatDetector/Glm45Detector原样类，对单独<think>作stream与unary解析均得到空content和空reasoning。tokenizer.json中<think>=154841，special=false，说明skip_special_tokens=False不保证保留reasoning分隔符。证据在review/parser-controlled-cases.json，实际镜像源码仍需在节点到位后核对。这是已复现的可能机制，三条历史请求的输出token身份仍未知。smoke追加强制154841单token的native /generate与chat接口对照。
 
 客户端依赖准备移到模型加载前，使用独立环境和持久化Python解释器路径；正式发压阶段若该环境可用则直接复用。smoke与正式环境独立，不覆盖上一轮R2环境。硬件元信息和自动KV容量漂移记录而不按任意百分比触发退出；实际chunk、模型、策略等实验条件仍核对。
+
+受控实机chat响应已送入同版本AIPerf ChatEndpoint.extract_chat_response_data：HTTP200/usage=1的空message返回None；填入Hello的对照返回有效data。链路复现见review/aiperf-empty-response-reproduction.json。同来源A0/G0的3条warmup均有1 token可见输出，但输入长度有0–2 token差异；这些对照不能追溯R2旧请求的具体token。
+
+日志过滤单测已隔离到子进程，避免全局tracing callsite缓存受并行单测影响；默认并行运行276项全部通过。仅测试代码修改，生产Router二进制仍为原SHA256。

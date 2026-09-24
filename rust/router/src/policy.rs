@@ -1569,6 +1569,27 @@ mod tests {
     }
     #[test]
     fn candidate_diagnostics_can_be_disabled_without_hiding_legacy_pick_logs() {
+        // tracing caches callsite interest globally; isolate this filter test
+        // from concurrent tests installing their own subscribers.
+        const ISOLATED: &str = "INFERA_TEST_ISOLATED_LOG_FILTER";
+        if std::env::var_os(ISOLATED).is_none() {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "policy::tests::candidate_diagnostics_can_be_disabled_without_hiding_legacy_pick_logs",
+                    "--test-threads=1",
+                ])
+                .env(ISOLATED, "1")
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            return;
+        }
         #[derive(Clone)]
         struct Buffer(Arc<Mutex<Vec<u8>>>);
         impl std::io::Write for Buffer {

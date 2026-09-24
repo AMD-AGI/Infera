@@ -1,0 +1,20 @@
+{
+  "actual_smoke_status": 200,
+  "actual_usage": {
+    "prompt_tokens": 15,
+    "total_tokens": 16,
+    "completion_tokens": 1,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 1
+  },
+  "actual_message": {
+    "role": "assistant",
+    "content": "",
+    "reasoning_content": null,
+    "tool_calls": null
+  },
+  "aiperf_parsed_data": "None",
+  "aiperf_parsed_data_truthy": false,
+  "positive_control_parsed_data_truthy": true,
+  "scope": "Actual captured smoke response passed through the same pinned AIPerf ChatEndpoint parser; no model services used."
+}
