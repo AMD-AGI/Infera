@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+source /perf_apps/liyingli/bench_agentx/router-r234-31699-20260924/config/common.sh
+RUN_ID=r234-31699-r1-smoke
+RUN="$TRACE_RUNTIME/runs/$RUN_ID"
+BASELINE_RUN=/perf_apps/liyingli/bench_agentx/router-r234-31699-20260924/runs/r234-31699-control
+SERVICE_RUN_ID="$RUN_ID"
+DIAG_SOURCE_PREFILL="$RUN_ID"
+DIAG_SOURCE_DECODE="$RUN_ID"
+AITER_JIT_CACHE_ROOT="/tmp/aiter-r234-31699/$RUN_ID"
+GUARD_MODE=completion
+INFERA_R2_DECODE_DEMAND=off
+INFERA_R3_CACHE_TIERS=off
+INFERA_R3_HOST_WEIGHT=0
+INFERA_R4_PREFILL_WORK=off
+SMOKE_ONLY=1
+export RUN RUN_ID BASELINE_RUN TRACE_RUNTIME CONFIG
