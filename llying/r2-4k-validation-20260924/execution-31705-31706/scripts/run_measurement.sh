@@ -3,7 +3,14 @@ set -Eeuo pipefail
 set -a; source "${CONFIG:?}"; set +a
 ROOT="$TRACE_RUNTIME"
 state() { printf '%s %s\n' "$(date -u --iso-8601=seconds)" "$*" | tee "$RUN/STATUS"; }
-failure() { code=$?; state "NEEDS_REVIEW rc=$code line=$1 services_preserved"; exit "$code"; }
+failure() {
+    code=$?
+    state "NEEDS_REVIEW rc=$code line=$1 services_preserved"
+    for pid in "${engine_pid:-}" "${node_pid:-}" "${capture_pid:-}" "${owner_pid:-}"; do
+        [[ -z "$pid" ]] || kill -TERM "$pid" 2>/dev/null || true
+    done
+    exit "$code"
+}
 trap 'failure $LINENO' ERR
 if [[ "${1:-}" != --after-smoke ]]; then
 state VALIDATING_CASE
