@@ -35,7 +35,9 @@ CASES = [
         False,
         {
             "env": {"SGLANG_USE_AITER": "1"},
-            "server_ready_timeout": 1800,
+            # Both legs load in parallel; prefill then waits for decode
+            # registration and peer verification.
+            "server_ready_timeout": 3600,
             # triton, not the default aiter backend: the CK batch_prefill instance
             # this case needs (page_size < kN0 over a >2GB KV cache, gfx950) is
             # absent from the aiter in the v0.5.17 base, so both TP ranks raise
@@ -122,7 +124,9 @@ CASES = [
                 # gives up long before two legs of this size are both up.
                 "SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT": "3600",
             },
-            "server_ready_timeout": 5400,
+            # Both legs load in parallel; prefill then waits for decode
+            # registration and peer verification.
+            "server_ready_timeout": 10800,
             "gfx950": _GFX950_UNMEASURED,
         },
     ],
@@ -188,7 +192,9 @@ CASES = [
                 "SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT": "3600",
                 "INFERA_ENGINE_READY_TIMEOUT": "3600",
             },
-            "server_ready_timeout": 3600,
+            # Both legs load in parallel; prefill then waits for decode
+            # registration and peer verification.
+            "server_ready_timeout": 7200,
             "gfx950": _GFX950_UNMEASURED,
         },
     ],

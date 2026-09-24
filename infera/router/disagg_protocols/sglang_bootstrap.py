@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Literal
 
 from infera.common.worker_pool import WorkerInfo
+from infera.router.pd_abort import rid_for_room
 
 
 class SglangBootstrapProtocol:
@@ -44,6 +45,8 @@ class SglangBootstrapProtocol:
             "bootstrap_host": host,
             "bootstrap_port": int(port_str),
             "bootstrap_room": room_id,
+            # SGLang abort_request matches this rid; both legs share it.
+            "rid": rid_for_room(room_id),
         }
 
     def annotate_decode(
@@ -63,4 +66,4 @@ class SglangBootstrapProtocol:
         return {}
 
     def request_id_for(self, p: WorkerInfo, d: WorkerInfo, room_id: int) -> str | None:
-        return None
+        return rid_for_room(room_id)

@@ -1,0 +1,967 @@
+###############################################################################
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# SPDX-License-Identifier: MIT
+###############################################################################
+"""Prefill must not start SGLang PD warmup before a decode worker registers."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+
+import httpx
+import pytest
+
+from infera.common.discovery_k8s import WORKER_INFO_ANNOTATION
+from infera.engine.decode_barrier import (
+    DEFAULT_DECODE_READY_TIMEOUT,
+    DEFAULT_PD_PROBE_TIMEOUT,
+    DISCOVERY_LOOKUP_ERRORS,
+    K8sLabelLookupError,
+    apply_pd_probe_recovery_defaults,
+    decode_ready_timeout_seconds,
+    discovery_budget_seconds,
+    ensure_k8s_label_selector_source,
+    ensure_skip_server_warmup,
+    is_compatible_decode_worker,
+    is_compatible_prefill_worker,
+    k8s_namespace,
+    list_k8s_worker_payloads,
+    pd_probe_reserve_seconds,
+    prefill_bootstrap_addr,
+    probe_until_one_passes,
+    resolve_k8s_label_selector,
+    should_verify_prefill,
+    should_wait_for_decode,
+    verify_pd_peer,
+    wait_for_decode,
+    wait_for_k8s_label_selector,
+)
+
+
+def _decode_payload(**overrides):
+    payload = {
+        "worker_id": "10.235.192.141:30000",
+        "url": "http://10.235.192.141:30000",
+        "model_name": "glm-5-3",
+        "engine": "sglang",
+        "disagg_mode": "decode",
+        "disagg_meta": {"protocol": "sglang-bootstrap", "params": {}},
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_compatible_decode_worker_matches_sglang_bootstrap():
+    assert is_compatible_decode_worker(_decode_payload(), model_name="glm-5-3")
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"disagg_mode": "prefill"},
+        {"disagg_mode": "mixed"},
+        {"model_name": "other"},
+        {"engine": "vllm"},
+        {"disagg_meta": {}},
+        {"disagg_meta": {"protocol": "vllm-mooncake"}},
+    ],
+)
+def test_incompatible_decode_worker_is_rejected(overrides):
+    assert not is_compatible_decode_worker(_decode_payload(**overrides), model_name="glm-5-3")
+
+
+def test_should_wait_for_decode_defaults_on_for_prefill_only():
+    assert should_wait_for_decode("prefill", None) is True
+    assert should_wait_for_decode("prefill", True) is True
+    assert should_wait_for_decode("prefill", False) is False
+    assert should_wait_for_decode("decode", None) is False
+    assert should_wait_for_decode("decode", True) is False
+    assert should_wait_for_decode("mixed", None) is False
+
+
+# --- scoping -----------------------------------------------------------------
+
+
+def _clear_selector_env(monkeypatch):
+    monkeypatch.delenv("INFERA_K8S_LABEL_SELECTOR", raising=False)
+    monkeypatch.delenv("WORKLOAD_ID", raising=False)
+    monkeypatch.delenv("POD_NAME", raising=False)
+
+
+@pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_prefers_explicit_then_env(monkeypatch):
+    _clear_selector_env(monkeypatch)
+    assert await resolve_k8s_label_selector("app=x") == "app=x"
+    monkeypatch.setenv("INFERA_K8S_LABEL_SELECTOR", "app=env")
+    assert await resolve_k8s_label_selector(None) == "app=env"
+
+
+@pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_reads_own_pod_label(monkeypatch):
+    _clear_selector_env(monkeypatch)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/v1/namespaces/ns0/pods/prefill-0"
+        return httpx.Response(
+            200,
+            json={"metadata": {"labels": {"infera.amd.com/deployment": "idep-a"}}},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        got = await resolve_k8s_label_selector(
+            None, namespace="ns0", pod_name="prefill-0", http=client
+        )
+    assert got == "infera.amd.com/deployment=idep-a"
+
+
+@pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_retries_own_pod_get(monkeypatch):
+    _clear_selector_env(monkeypatch)
+    monkeypatch.setenv("WORKLOAD_ID", "wrong-deployment")
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 3:
+            return httpx.Response(500, text="unavailable")
+        return httpx.Response(
+            200,
+            json={"metadata": {"labels": {"infera.amd.com/deployment": "idep-a"}}},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        got = await resolve_k8s_label_selector(
+            None,
+            namespace="ns0",
+            pod_name="prefill-0",
+            http=client,
+            retry_sleep=0.0,
+        )
+    assert got == "infera.amd.com/deployment=idep-a"
+    assert calls["n"] == 3
+
+
+@pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_does_not_use_workload_id_after_get_error(
+    monkeypatch,
+):
+    """A blip talking to the apiserver must not silently pick another deployment."""
+    _clear_selector_env(monkeypatch)
+    monkeypatch.setenv("WORKLOAD_ID", "wrong-deployment")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500, text="unavailable")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        with pytest.raises(RuntimeError, match="could not read this Pod's labels"):
+            await resolve_k8s_label_selector(
+                None,
+                namespace="ns0",
+                pod_name="prefill-0",
+                http=client,
+                retries=2,
+                retry_sleep=0.0,
+            )
+
+
+@pytest.mark.asyncio
+async def test_wait_for_k8s_label_selector_uses_barrier_budget(monkeypatch):
+    _clear_selector_env(monkeypatch)
+    calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        if calls["n"] < 5:
+            return httpx.Response(503, text="unavailable")
+        return httpx.Response(
+            200,
+            json={"metadata": {"labels": {"infera.amd.com/deployment": "idep-a"}}},
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        got = await wait_for_k8s_label_selector(
+            None,
+            namespace="ns0",
+            pod_name="prefill-0",
+            http=client,
+            timeout=1.0,
+            poll_interval=0.0,
+        )
+
+    assert got == "infera.amd.com/deployment=idep-a"
+    assert calls["n"] == 5
+
+
+@pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_falls_back_to_workload_id(monkeypatch):
+    _clear_selector_env(monkeypatch)
+    monkeypatch.setenv("WORKLOAD_ID", "infera-glm53-1p1d-fhl7t")
+    got = await resolve_k8s_label_selector(None, namespace="ns0", pod_name="")
+    assert got == "infera.amd.com/deployment=infera-glm53-1p1d-fhl7t"
+
+
+@pytest.mark.asyncio
+async def test_resolve_k8s_label_selector_refuses_to_run_unscoped(monkeypatch):
+    """An unscoped list would accept another deployment's decode worker."""
+    _clear_selector_env(monkeypatch)
+    with pytest.raises(RuntimeError, match="cannot scope the decode barrier"):
+        await resolve_k8s_label_selector(None, namespace="ns0", pod_name="")
+
+
+def test_k8s_namespace_prefers_pod_namespace(monkeypatch):
+    monkeypatch.setenv("POD_NAMESPACE", "from-env")
+    assert k8s_namespace() == "from-env"
+    assert k8s_namespace("explicit") == "explicit"
+
+
+# --- budget ------------------------------------------------------------------
+
+
+def test_decode_ready_timeout_prefers_explicit_then_own_env(monkeypatch):
+    monkeypatch.delenv("INFERA_DECODE_READY_TIMEOUT", raising=False)
+    assert decode_ready_timeout_seconds(None) == 14400.0
+    monkeypatch.setenv("INFERA_DECODE_READY_TIMEOUT", "60")
+    assert decode_ready_timeout_seconds(None) == 60.0
+    assert decode_ready_timeout_seconds(12.5) == 12.5
+
+
+def test_decode_ready_timeout_ignores_the_engine_ready_timeout(monkeypatch):
+    """That env is the engine's own /health budget; recipes retune it for slow
+    weight loads, which must not silently move this barrier."""
+    monkeypatch.delenv("INFERA_DECODE_READY_TIMEOUT", raising=False)
+    monkeypatch.setenv("INFERA_ENGINE_READY_TIMEOUT", "10800")
+    assert decode_ready_timeout_seconds(None) == 14400.0
+
+
+def test_decode_ready_timeout_survives_a_malformed_value(monkeypatch):
+    monkeypatch.setenv("INFERA_DECODE_READY_TIMEOUT", "later")
+    assert decode_ready_timeout_seconds(None) == 14400.0
+
+
+def test_probe_reserve_is_carved_out_of_the_decode_ready_budget():
+    """Discovery must leave the KV probe its own slice of the shared deadline."""
+    assert pd_probe_reserve_seconds(DEFAULT_DECODE_READY_TIMEOUT) == DEFAULT_PD_PROBE_TIMEOUT
+    assert discovery_budget_seconds(DEFAULT_DECODE_READY_TIMEOUT) == (
+        DEFAULT_DECODE_READY_TIMEOUT - DEFAULT_PD_PROBE_TIMEOUT
+    )
+
+
+def test_probe_reserve_never_exceeds_the_total_budget():
+    """A short budget goes entirely to the probe; discovery keeps its one shot."""
+    assert pd_probe_reserve_seconds(DEFAULT_PD_PROBE_TIMEOUT) == DEFAULT_PD_PROBE_TIMEOUT
+    assert discovery_budget_seconds(DEFAULT_PD_PROBE_TIMEOUT) == 0.0
+    assert pd_probe_reserve_seconds(60.0) == 60.0
+    assert discovery_budget_seconds(60.0) == 0.0
+    assert pd_probe_reserve_seconds(0.0) == 0.0
+    assert discovery_budget_seconds(-5.0) == 0.0
+
+
+def _clear_selector_sources(monkeypatch):
+    for key in ("INFERA_K8S_LABEL_SELECTOR", "POD_NAME", "WORKLOAD_ID"):
+        monkeypatch.delenv(key, raising=False)
+
+
+def test_a_barrier_with_no_selector_source_is_refused_before_the_weight_load(monkeypatch):
+    """Resolution would raise anyway, but only after a full load: a hand-written
+    Deployment that sets none of the sources would pay that load per restart."""
+    _clear_selector_sources(monkeypatch)
+    with pytest.raises(RuntimeError, match="--k8s-label-selector"):
+        ensure_k8s_label_selector_source(None)
+
+
+@pytest.mark.parametrize(
+    ("explicit", "env"),
+    [
+        ("infera.amd.com/deployment=x", None),
+        (None, ("INFERA_K8S_LABEL_SELECTOR", "infera.amd.com/deployment=x")),
+        (None, ("WORKLOAD_ID", "idep-a")),
+        # The Pod's own label is only readable from the apiserver, so a name
+        # keeps the question open rather than answering it up front.
+        (None, ("POD_NAME", "prefill-0")),
+    ],
+)
+def test_any_selector_source_leaves_the_barrier_to_resolution(monkeypatch, explicit, env):
+    _clear_selector_sources(monkeypatch)
+    if env:
+        monkeypatch.setenv(*env)
+    ensure_k8s_label_selector_source(explicit)
+
+
+# --- polling -----------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_wait_for_decode_returns_when_decode_registers():
+    calls = {"n": 0}
+
+    async def list_workers():
+        calls["n"] += 1
+        if calls["n"] < 2:
+            return [{"disagg_mode": "prefill", "model_name": "glm-5-3"}]
+        return [_decode_payload()]
+
+    found = await wait_for_decode(
+        list_workers,
+        model_name="glm-5-3",
+        timeout=2.0,
+        poll_interval=0.01,
+    )
+    assert found["worker_id"] == "10.235.192.141:30000"
+    assert calls["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_wait_for_decode_retries_a_failed_lookup():
+    """A transient apiserver/etcd error must not kill prefill before it starts."""
+    calls = {"n": 0}
+
+    async def list_workers():
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise httpx.ConnectError("apiserver unreachable")
+        return [_decode_payload()]
+
+    found = await wait_for_decode(
+        list_workers,
+        model_name="glm-5-3",
+        timeout=2.0,
+        poll_interval=0.01,
+    )
+    assert found["worker_id"] == "10.235.192.141:30000"
+    assert calls["n"] == 3
+
+
+@pytest.mark.asyncio
+async def test_wait_for_decode_looks_up_once_on_an_exhausted_budget():
+    """Selector resolution can eat the shared budget; one lookup must still run."""
+    calls = {"n": 0}
+
+    async def list_workers():
+        calls["n"] += 1
+        return [_decode_payload()]
+
+    found = await wait_for_decode(
+        list_workers,
+        model_name="glm-5-3",
+        timeout=0.0,
+        poll_interval=0.01,
+    )
+    assert calls["n"] == 1
+    assert found["worker_id"] == "10.235.192.141:30000"
+
+
+@pytest.mark.asyncio
+async def test_wait_for_decode_times_out_without_decode():
+    async def list_workers():
+        return []
+
+    with pytest.raises(TimeoutError, match="poison Mooncake"):
+        await wait_for_decode(
+            list_workers,
+            model_name="glm-5-3",
+            timeout=0.05,
+            poll_interval=0.01,
+        )
+
+
+@pytest.mark.asyncio
+async def test_wait_for_decode_times_out_when_every_lookup_fails():
+    async def list_workers():
+        raise httpx.ConnectError("apiserver unreachable")
+
+    with pytest.raises(TimeoutError):
+        await wait_for_decode(
+            list_workers,
+            model_name="glm-5-3",
+            timeout=0.05,
+            poll_interval=0.01,
+        )
+
+
+# --- Pod filtering -----------------------------------------------------------
+
+
+def _pod(name, payload=None, *, phase="Running", terminating=False, ready=True):
+    meta = {"name": name, "annotations": {}}
+    if terminating:
+        meta["deletionTimestamp"] = "2026-09-17T00:00:00Z"
+    if payload is not None:
+        meta["annotations"][WORKER_INFO_ANNOTATION] = json.dumps(payload)
+    status = {
+        "phase": phase,
+        "conditions": [{"type": "Ready", "status": "True" if ready else "False"}],
+    }
+    return {"metadata": meta, "status": status}
+
+
+@pytest.mark.asyncio
+async def test_list_k8s_worker_payloads_keeps_only_live_registered_peers():
+    items = [
+        _pod("prefill-self", _decode_payload()),
+        _pod("decode-ok", _decode_payload()),
+        _pod("decode-term", _decode_payload(), terminating=True),
+        _pod("pending", _decode_payload(), phase="Pending"),
+        # Restarted: the annotation outlives the process that wrote it, so the
+        # readiness gate is the only thing separating this from a live peer.
+        _pod("decode-restarting", _decode_payload(), ready=False),
+        _pod("no-ann"),
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["labelSelector"] == "infera.amd.com/deployment=x"
+        return httpx.Response(200, json={"items": items})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, base_url="https://k8s") as client:
+        found = await list_k8s_worker_payloads(
+            namespace="default-default",
+            label_selector="infera.amd.com/deployment=x",
+            skip_pod_name="prefill-self",
+            http=client,
+        )
+    assert [p["worker_id"] for p in found] == ["10.235.192.141:30000"]
+
+
+def test_ensure_skip_server_warmup_is_idempotent():
+    assert ensure_skip_server_warmup(["--tp-size", "8"]) == [
+        "--tp-size",
+        "8",
+        "--skip-server-warmup",
+    ]
+    already = ["--skip-server-warmup", "--tp-size", "8"]
+    assert ensure_skip_server_warmup(already) is already
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_transfers_real_kv_before_registration():
+    requests: list[tuple[str, dict]] = []
+    sleeps: list[float] = []
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((f"{request.url.host}{request.url.path}", body))
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            room_seed=100,
+            http=client,
+            sleep=fake_sleep,
+        )
+
+    assert sleeps == []
+
+    assert [path for path, _ in requests] == [
+        "prefill/generate",
+        "decode/generate",
+    ]
+    # The decode body is the prefill body plus the producing prefill rank.
+    assert requests[1][1] == {**requests[0][1], "disagg_prefill_dp_rank": 0}
+    assert requests[0][1]["bootstrap_host"] == "prefill"
+    assert requests[0][1]["bootstrap_port"] == 30001
+    assert requests[0][1]["bootstrap_room"] == 100
+    assert requests[0][1]["rid"] == "infera-probe-100"
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_maps_prefill_ranks_to_smaller_decode_dp():
+    requests: list[tuple[str, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((request.url.host, body))
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            dp_size=4,
+            decode_dp_size=1,
+            room_seed=100,
+            http=client,
+        )
+
+    prefill = [body for host, body in requests if host == "prefill"]
+    decode = [body for host, body in requests if host == "decode"]
+    assert [body["routed_dp_rank"] for body in prefill] == [0, 1, 2, 3]
+    assert [body["routed_dp_rank"] for body in decode] == [0, 0, 0, 0]
+    assert [body["bootstrap_room"] % 4 for body in prefill] == [0, 1, 2, 3]
+    # Decode is told the producing prefill rank, which is the room residue.
+    assert [body["disagg_prefill_dp_rank"] for body in decode] == [0, 1, 2, 3]
+    assert all(body["disagg_prefill_dp_rank"] == body["bootstrap_room"] % 4 for body in decode)
+    assert all("disagg_prefill_dp_rank" not in body for body in prefill)
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_covers_every_decode_dp_rank():
+    """A decode leg wider than prefill still needs every rank exercised."""
+    requests: list[tuple[str, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        requests.append((request.url.host, body))
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            dp_size=2,
+            decode_dp_size=4,
+            room_seed=100,
+            http=client,
+        )
+
+    prefill = [body for host, body in requests if host == "prefill"]
+    decode = [body for host, body in requests if host == "decode"]
+    assert [body["routed_dp_rank"] for body in prefill] == [0, 1, 0, 1]
+    assert [body["routed_dp_rank"] for body in decode] == [0, 1, 2, 3]
+    assert [body["bootstrap_room"] % 2 for body in prefill] == [0, 1, 0, 1]
+    assert len({body["bootstrap_room"] for body in prefill}) == 4
+    # The named prefill rank is the producer's, never the decode leg's own rank.
+    assert [body["disagg_prefill_dp_rank"] for body in decode] == [0, 1, 0, 1]
+    assert all(body["disagg_prefill_dp_rank"] == body["bootstrap_room"] % 2 for body in decode)
+    assert all("disagg_prefill_dp_rank" not in body for body in prefill)
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_keeps_rooms_aligned_and_unique_across_retries():
+    generate_calls = {"n": 0}
+    prefill_bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        if request.url.host == "prefill":
+            prefill_bodies.append(json.loads(request.content))
+        if generate_calls["n"] <= 2:
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            dp_size=2,
+            decode_dp_size=3,
+            room_seed=100,
+            attempts=2,
+            retry_sleep=0.0,
+            http=client,
+        )
+
+    rooms = [body["bootstrap_room"] for body in prefill_bodies]
+    assert len(rooms) == len(set(rooms)) == 4
+    for body in prefill_bodies:
+        assert body["bootstrap_room"] % 2 == body["routed_dp_rank"]
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_overrides_the_injected_client_timeout():
+    """An injected client carries its own timeout; the probe budget must win."""
+    timeouts: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/generate":
+            timeouts.append(request.extensions["timeout"])
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport, timeout=10.0) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            timeout=42.0,
+            room_seed=100,
+            http=client,
+        )
+
+    assert timeouts and all(entry["read"] == 42.0 for entry in timeouts)
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_aborts_both_legs_on_transfer_failure():
+    aborts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            aborts.append(request.url.host)
+            return httpx.Response(200)
+        if request.url.host == "decode":
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(RuntimeError, match="PD peer verification failed"):
+            await verify_pd_peer(
+                prefill_url="http://prefill:30000",
+                decode_url="http://decode:30000",
+                bootstrap_host="prefill",
+                bootstrap_port=30001,
+                room_seed=101,
+                attempts=1,
+                http=client,
+            )
+
+    assert sorted(aborts) == ["decode", "prefill"]
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_retries_after_abort_then_succeeds():
+    generate_calls = {"n": 0}
+    aborts: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            aborts.append(request.url.host)
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        if generate_calls["n"] <= 2:
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            room_seed=200,
+            attempts=3,
+            retry_sleep=0.0,
+            http=client,
+        )
+
+    assert generate_calls["n"] == 4
+    assert sorted(aborts) == ["decode", "prefill"]
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_gives_up_after_retry_budget():
+    generate_calls = {"n": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        return httpx.Response(500, text="KVTransferError")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(RuntimeError, match="after 3 attempts"):
+            await verify_pd_peer(
+                prefill_url="http://prefill:30000",
+                decode_url="http://decode:30000",
+                bootstrap_host="prefill",
+                bootstrap_port=30001,
+                room_seed=300,
+                attempts=3,
+                retry_sleep=0.0,
+                http=client,
+            )
+
+    assert generate_calls["n"] == 6
+
+
+def test_apply_pd_probe_recovery_defaults_for_mooncake_prefill(monkeypatch):
+    monkeypatch.delenv("SGLANG_ENABLE_FAILED_SESSION_PROBE", raising=False)
+    monkeypatch.delenv("SGLANG_FAILED_SESSION_PROBE_INTERVAL_S", raising=False)
+
+    applied = apply_pd_probe_recovery_defaults("prefill", "mooncake")
+
+    assert applied == {
+        "SGLANG_ENABLE_FAILED_SESSION_PROBE": "1",
+        "SGLANG_FAILED_SESSION_PROBE_INTERVAL_S": "5",
+    }
+
+
+def test_apply_pd_probe_recovery_defaults_preserves_overrides(monkeypatch):
+    monkeypatch.setenv("SGLANG_ENABLE_FAILED_SESSION_PROBE", "0")
+    monkeypatch.setenv("SGLANG_FAILED_SESSION_PROBE_INTERVAL_S", "12")
+
+    applied = apply_pd_probe_recovery_defaults("prefill", "mooncake")
+
+    assert applied == {}
+
+
+@pytest.mark.asyncio
+async def test_verify_pd_peer_waits_between_retries_for_rdma_recovery():
+    sleeps: list[float] = []
+    generate_calls = {"n": 0}
+
+    async def fake_sleep(delay: float) -> None:
+        sleeps.append(delay)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/abort_request":
+            return httpx.Response(200)
+        generate_calls["n"] += 1
+        if generate_calls["n"] <= 2:
+            return httpx.Response(500, text="KVTransferError")
+        return httpx.Response(200, json={"text": "ok"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        await verify_pd_peer(
+            prefill_url="http://prefill:30000",
+            decode_url="http://decode:30000",
+            bootstrap_host="prefill",
+            bootstrap_port=30001,
+            room_seed=400,
+            attempts=3,
+            http=client,
+            sleep=fake_sleep,
+        )
+
+    assert sleeps == [35.0]
+
+
+def _prefill_payload(**overrides):
+    payload = {
+        "worker_id": "10.235.192.9:30000",
+        "url": "http://10.235.192.9:30000",
+        "model_name": "glm-5-3",
+        "engine": "sglang",
+        "disagg_mode": "prefill",
+        "disagg_meta": {
+            "protocol": "sglang-bootstrap",
+            "params": {"bootstrap_addr": "10.235.192.9:8998"},
+        },
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_compatible_prefill_worker_matches_sglang_bootstrap():
+    assert is_compatible_prefill_worker(_prefill_payload(), model_name="glm-5-3")
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"disagg_mode": "decode"},
+        {"disagg_mode": "mixed"},
+        {"model_name": "other"},
+        {"engine": "vllm"},
+        {"disagg_meta": {}},
+        {"disagg_meta": {"protocol": "vllm-mooncake"}},
+    ],
+)
+def test_incompatible_prefill_worker_is_rejected(overrides):
+    assert not is_compatible_prefill_worker(_prefill_payload(**overrides), model_name="glm-5-3")
+
+
+def test_a_prefill_without_a_bootstrap_address_is_not_a_probe_target():
+    # The probe dials this address. Matching a prefill that never advertised
+    # one would fail the decode's startup over a peer it could not have
+    # verified either way.
+    no_addr = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {}},
+    )
+    assert not is_compatible_prefill_worker(no_addr, model_name="glm-5-3")
+
+
+@pytest.mark.parametrize(
+    ("addr", "want"),
+    [
+        ("10.0.0.1:8998", ("10.0.0.1", 8998)),
+        # Split from the right, or every colon in an IPv6 literal breaks it.
+        ("[fd00::1]:8998", ("[fd00::1]", 8998)),
+        ("host.ns.svc:8998", ("host.ns.svc", 8998)),
+    ],
+)
+def test_prefill_bootstrap_addr_parses(addr, want):
+    payload = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": addr}},
+    )
+    assert prefill_bootstrap_addr(payload) == want
+
+
+@pytest.mark.parametrize(
+    "addr",
+    ["", "10.0.0.1", ":8998", "10.0.0.1:", "10.0.0.1:notaport"],
+)
+def test_prefill_bootstrap_addr_rejects_garbage_without_raising(addr):
+    # One malformed registration must not stop the caller from considering
+    # the other peers.
+    payload = _prefill_payload(
+        disagg_meta={"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": addr}},
+    )
+    assert prefill_bootstrap_addr(payload) is None
+
+
+def test_should_verify_prefill_defaults_on_for_decode_only():
+    assert should_verify_prefill("decode", None) is True
+    assert should_verify_prefill("decode", True) is True
+    assert should_verify_prefill("decode", False) is False
+    assert should_verify_prefill("prefill", None) is False
+    assert should_verify_prefill("prefill", True) is False
+    assert should_verify_prefill("mixed", None) is False
+
+
+def test_the_two_barriers_never_both_apply_to_one_worker():
+    # They run back to back in _startup_barrier, and a leg that took both
+    # would wait for a decode and then probe a prefill -- on a pair where
+    # each side does that, neither ever registers.
+    for mode in ("prefill", "decode", "mixed", None):
+        assert not (should_wait_for_decode(mode, None) and should_verify_prefill(mode, None))
+
+
+def test_a_transient_pod_label_failure_is_a_lookup_error():
+    # The apiserver being briefly unreachable must skip the prefill probe,
+    # not crash a decode that has already loaded its weights.
+    assert issubclass(K8sLabelLookupError, DISCOVERY_LOOKUP_ERRORS)
+
+
+def _clock(value: float = 0.0):
+    now = [value]
+    return now, (lambda: now[0])
+
+
+@pytest.mark.asyncio
+async def test_a_failing_peer_does_not_stop_the_next_one():
+    # A stale registration for a dead prefill must not fail every decode
+    # while a healthy prefill is also registered.
+    calls = []
+
+    async def dead(_budget):
+        calls.append("dead")
+        raise RuntimeError("PD peer verification failed")
+
+    async def healthy(_budget):
+        calls.append("healthy")
+
+    _, clock = _clock()
+    passed = await probe_until_one_passes(
+        [("dead", dead), ("healthy", healthy)], deadline=100.0, min_budget=5.0, clock=clock
+    )
+    assert passed is True
+    assert calls == ["dead", "healthy"]
+
+
+@pytest.mark.asyncio
+async def test_a_passing_peer_ends_the_search():
+    calls = []
+
+    async def ok(_budget):
+        calls.append("first")
+
+    async def unused(_budget):
+        calls.append("second")
+
+    _, clock = _clock()
+    assert await probe_until_one_passes(
+        [("a", ok), ("b", unused)], deadline=100.0, min_budget=5.0, clock=clock
+    )
+    assert calls == ["first"]
+
+
+@pytest.mark.asyncio
+async def test_every_peer_failing_raises_the_last_failure():
+    # A broken KV path is what the probe exists to catch; it must still stop
+    # registration when no peer passes.
+    async def fail_a(_budget):
+        raise RuntimeError("a")
+
+    async def fail_b(_budget):
+        raise RuntimeError("b")
+
+    _, clock = _clock()
+    with pytest.raises(RuntimeError, match="b"):
+        await probe_until_one_passes(
+            [("a", fail_a), ("b", fail_b)], deadline=100.0, min_budget=5.0, clock=clock
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_budget_spent_by_a_failure_raises_that_failure():
+    now, clock = _clock()
+
+    async def slow_fail(_budget):
+        now[0] = 99.0
+        raise RuntimeError("timed out on the first peer")
+
+    async def unused(_budget):
+        raise AssertionError("no budget was left for this peer")
+
+    with pytest.raises(RuntimeError, match="first peer"):
+        await probe_until_one_passes(
+            [("a", slow_fail), ("b", unused)], deadline=100.0, min_budget=5.0, clock=clock
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_budget_spent_before_any_probe_skips_verification():
+    async def unused(_budget):
+        raise AssertionError("no budget was left for any peer")
+
+    _, clock = _clock(98.0)
+    assert (
+        await probe_until_one_passes([("a", unused)], deadline=100.0, min_budget=5.0, clock=clock)
+        is False
+    )
+
+
+class _HangingGenerateClient:
+    """Probe client whose /generate never returns; records abort calls."""
+
+    def __init__(self):
+        self.aborted: list[str] = []
+
+    async def post(self, url, json=None, timeout=None):  # noqa: A002 - mirrors httpx
+        if url.endswith("/generate"):
+            await asyncio.Event().wait()
+        self.aborted.append(url)
+        return httpx.Response(200)
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_probe_still_aborts_its_room():
+    # The decode probes a prefill that is serving traffic. A probe cut short by
+    # its budget must release the room on both engines, or the stale Mooncake
+    # session poisons later real KV transfers.
+    client = _HangingGenerateClient()
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(
+            verify_pd_peer(
+                prefill_url="http://prefill:30000",
+                decode_url="http://decode:30000",
+                bootstrap_host="10.0.0.1",
+                bootstrap_port=8998,
+                http=client,
+            ),
+            timeout=0.1,
+        )
+    assert sorted(client.aborted) == [
+        "http://decode:30000/abort_request",
+        "http://prefill:30000/abort_request",
+    ]

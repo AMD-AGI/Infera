@@ -1,4 +1,5 @@
-# Infera SGLang engine image for GLM-5.3-Flash (glm5_next) on gfx950 / MI355X.
+# Infera SGLang engine image for GLM-5.3-Flash (glm5_next).
+# Default GPU_PLATFORM=mi355x (gfx950). Pass mi325x for gfx942.
 #
 # WHY A SEPARATE FILE FROM Dockerfile.sglang: three things differ, and each one
 # would break the other image if folded in.
@@ -18,13 +19,21 @@
 #      copy by scripts/reanchor_sglang_disagg_glm53.sh -- the originals stay
 #      untouched so the v0.5.17 Kimi-K3 image keeps building.
 #
-# Build from the REPO ROOT:
+# Build from the REPO ROOT. Default GPU_PLATFORM is mi355x (gfx950 / mi35x base):
 #   docker build -f deploy/docker/Dockerfile.sglang.glm53 -t <registry>/infera:glm53-<date> .
 #
+# MI325X / gfx942 uses the mi30x base, Mooncake gfx942, no libionic bake, and
+# applies the disagg patches without the glm53 re-anchor helper:
+#   docker build -f deploy/docker/Dockerfile.sglang.glm53 \
+#     --build-arg GPU_PLATFORM=mi325x \
+#     -t <registry>/infera:glm53-gfx942-<date> .
+#
 # If docker.io is unreachable from the build host ("failed to fetch oauth token:
-# Post https://auth.docker.io/token: EOF"), pull the base through the cluster's
-# Harbor pull-through cache instead -- same image, no Dockerfile edit:
-#   --build-arg SGLANG_BASE_IMAGE=harbor.crusoe.primus-safe.amd.com/proxy/lmsysorg/sglang:v0.5.18-rocm720-mi35x
+# Post https://auth.docker.io/token: EOF"), retarget the matching base through
+# the cluster Harbor pull-through cache -- same image, no Dockerfile edit:
+#   --build-arg MI355X_BASE_IMAGE=harbor.example/proxy/lmsysorg/sglang:v0.5.18-rocm720-mi35x
+#   --build-arg MI325X_BASE_IMAGE=harbor.example/proxy/lmsysorg/sglang:v0.5.18-rocm720-mi30x
+# SGLANG_BASE_IMAGE remains an alias of MI355X_BASE_IMAGE for existing builds.
 #
 # ---------------------------------------------------------------------------
 # WHEN TO DELETE THIS FILE
@@ -59,8 +68,23 @@
 # re-anchoring (they may have landed upstream), and the two hicache ROCm gates
 # behind the patch_hicache_rocm_staged_write_back.py exclusion below.
 # ---------------------------------------------------------------------------
+# GPU_PLATFORM picks the base: mi355x (gfx950) or mi325x (gfx942), with the
+# arch names accepted as aliases. An unknown value fails here, as a pull of
+# that name, before any layer below runs.
+#
+# BuildKit resolves only the stage it needs. The legacy builder
+# (DOCKER_BUILDKIT=0) resolves every FROM in the file, so behind a mirror give
+# it BOTH base args -- the unselected one still has to be pullable even though
+# nothing is built from it.
+ARG GPU_PLATFORM=mi355x
 ARG SGLANG_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
-FROM ${SGLANG_BASE_IMAGE}
+ARG MI355X_BASE_IMAGE=${SGLANG_BASE_IMAGE}
+ARG MI325X_BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi30x
+FROM ${MI355X_BASE_IMAGE} AS mi355x
+FROM mi355x AS gfx950
+FROM ${MI325X_BASE_IMAGE} AS mi325x
+FROM mi325x AS gfx942
+FROM ${GPU_PLATFORM}
 
 # ---- GLM-5.3-Flash source overlay ------------------------------------------
 # The base installs sglang editable from /sgl-workspace/sglang/python, and that
@@ -124,14 +148,62 @@ RUN set -eux; \
     test -f python/sglang/srt/models/glm5_next.py; \
     python3 /usr/local/bin/verify-glm53-overlay
 
+# ---- platform knobs (mi355x default; mi325x via --build-arg GPU_PLATFORM) ---
+# Resolved once into /etc/glm53-platform.env so Mooncake / libionic / disagg
+# patch layers share one mapping without a sidecar script.
+#
+# GPU_PLATFORM is NOT validated here, deliberately: it selects the build stage
+# at the FROM above, so docker has already rejected anything that is not one of
+# those four names ("pull access denied" on the unknown value) long before this
+# layer runs. A check here would be unreachable code that reads like a guard.
+#
+# The knobs below take the platform default only when the build did not set
+# them. `unset` is a sentinel rather than an empty default because an EMPTY
+# LIBIONIC_REQUIRE_ABI is itself meaningful -- it is the documented way to skip
+# the ABI gate for an offline build (see the error text further down) -- so
+# "not given" and "given as empty" must not collapse into the same value.
+ARG GPU_PLATFORM=mi355x
+ARG MC_GPU_ARCH=
+ARG INSTALL_LIBIONIC=
+ARG LIBIONIC_REQUIRE_ABI=unset
+ARG REANCHOR_SGLANG_DISAGG=
+RUN set -eu; \
+    p="$(printf '%s' "${GPU_PLATFORM}" | tr '[:upper:]' '[:lower:]')"; \
+    mc="${MC_GPU_ARCH}"; \
+    ionic="${INSTALL_LIBIONIC}"; \
+    abi="${LIBIONIC_REQUIRE_ABI}"; \
+    reanchor="${REANCHOR_SGLANG_DISAGG}"; \
+    case "$p" in \
+        gfx942) p=mi325x ;; \
+        gfx950) p=mi355x ;; \
+    esac; \
+    if [ "$abi" = unset ]; then \
+        if [ "$p" = mi325x ]; then abi=; else abi=4; fi; \
+    fi; \
+    if [ "$p" = mi325x ]; then \
+        [ -n "$mc" ] || mc=gfx942; \
+        [ -n "$ionic" ] || ionic=0; \
+        [ -n "$reanchor" ] || reanchor=0; \
+    else \
+        [ -n "$mc" ] || mc=gfx950; \
+        [ -n "$ionic" ] || ionic=1; \
+        [ -n "$reanchor" ] || reanchor=1; \
+    fi; \
+    printf 'MC_GPU_ARCH=%s\nINSTALL_LIBIONIC=%s\nLIBIONIC_REQUIRE_ABI=%s\nREANCHOR_SGLANG_DISAGG=%s\n' \
+        "$mc" "$ionic" "$abi" "$reanchor" > /etc/glm53-platform.env; \
+    echo "[glm53-platform] GPU_PLATFORM=$p $(tr '\n' ' ' < /etc/glm53-platform.env)"
+
 # ---- Mooncake: pinned upstream, no private source patches -------------------
 # Unchanged from Dockerfile.sglang -- same script, same upstream ref. The build
 # is independent of the sglang Python tree above.
 ARG BUILD_MOONCAKE=1
 ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
 COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
-RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
-        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/build_mooncake_sglang.sh; \
+RUN set -eu; \
+    . /etc/glm53-platform.env; \
+    if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MC_GPU_ARCH="$MC_GPU_ARCH" MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+            bash /tmp/build_mooncake_sglang.sh; \
     else \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
@@ -180,7 +252,7 @@ RUN set -eu; \
 # OTHER case -- it wants abi 1, i.e. 54.0-187. Do not copy one into the other;
 # that is precisely the regression this block replaces, and it cost a full
 # benchmark run of TCP-transported KV before anyone noticed.
-ARG INSTALL_LIBIONIC=1
+# mi325x leaves INSTALL_LIBIONIC=0 (bnxt hosts; inject at runtime if needed).
 ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.1-a-63/pool/main/r/rdma-core/libionic1_54.0-149.g3304be71_amd64.deb
 # Build fails unless the provider that ends up installed declares this range.
 # Set to 1 when building for the ionic-26.03 fleet; set empty to skip the gate.
@@ -194,19 +266,19 @@ ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.1-a-
 # but it is a deliberate choice, and the way to make it is to clear
 # LIBIONIC_REQUIRE_ABI. So: the gate set means the download must succeed; the
 # gate cleared means it may fail and the build carries on.
-ARG LIBIONIC_REQUIRE_ABI=4
 COPY deploy/docker/scripts/print_ionic_abi.py /usr/local/bin/print-ionic-abi
 RUN set -eu; \
-    if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
+    . /etc/glm53-platform.env; \
+    if [ "$INSTALL_LIBIONIC" = "1" ]; then \
         if curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
           && dpkg -i --force-downgrade /tmp/libionic.deb \
           && ldconfig \
           && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
           && rm -f /tmp/libionic.deb; then \
             :; \
-        elif [ -n "${LIBIONIC_REQUIRE_ABI}" ]; then \
+        elif [ -n "$LIBIONIC_REQUIRE_ABI" ]; then \
             echo "ERROR: could not install ${LIBIONIC_DEB_URL} (offline build?)," >&2; \
-            echo "       and LIBIONIC_REQUIRE_ABI=${LIBIONIC_REQUIRE_ABI} demands that provider." >&2; \
+            echo "       and LIBIONIC_REQUIRE_ABI=$LIBIONIC_REQUIRE_ABI demands that provider." >&2; \
             echo "       To build without it and inject the .deb on the node at runtime," >&2; \
             echo "       rebuild with --build-arg LIBIONIC_REQUIRE_ABI= (empty)." >&2; \
             exit 1; \
@@ -216,15 +288,15 @@ RUN set -eu; \
     else \
         echo "INSTALL_LIBIONIC=0 — using the base image's provider as-is"; \
     fi; \
-    if [ -n "${LIBIONIC_REQUIRE_ABI}" ]; then \
+    if [ -n "$LIBIONIC_REQUIRE_ABI" ]; then \
         python3 /usr/local/bin/print-ionic-abi > /tmp/ionic-abi.txt || { \
             echo "ERROR: could not read the ionic provider's ABI range off the ELF." >&2; \
             echo "       Unverified means unshipped: this gate exists because the wrong" >&2; \
             echo "       provider fails open to TCP with nothing in any log." >&2; \
             exit 1; }; \
         cat /tmp/ionic-abi.txt; \
-        grep -q "= ${LIBIONIC_REQUIRE_ABI}\.\.${LIBIONIC_REQUIRE_ABI}\$" /tmp/ionic-abi.txt || { \
-            echo "ERROR: installed ionic provider does not declare abi ${LIBIONIC_REQUIRE_ABI}..${LIBIONIC_REQUIRE_ABI}." >&2; \
+        grep -q "= $LIBIONIC_REQUIRE_ABI\.\.$LIBIONIC_REQUIRE_ABI\$" /tmp/ionic-abi.txt || { \
+            echo "ERROR: installed ionic provider does not declare abi $LIBIONIC_REQUIRE_ABI..$LIBIONIC_REQUIRE_ABI." >&2; \
             echo "       RDMA would silently fall back to TCP on the target nodes." >&2; \
             echo "       Fix LIBIONIC_DEB_URL, or set LIBIONIC_REQUIRE_ABI to what those nodes export." >&2; \
             exit 1; }; \
@@ -251,12 +323,19 @@ RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
 # through /v1/responses so a PD pair accepts the request at all. Needed for any
 # Codex-style driver; harmless otherwise.
 #
-# Both are re-anchored first; the helper exits non-zero if an anchor is gone.
+# Both are re-anchored first on mi355x; the helper exits non-zero if an anchor
+# is gone. mi325x applies the stock scripts: the wait-event patch already
+# accepts the v0.5.18 typing-import shapes on that tree.
 COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
 COPY deploy/docker/scripts/reanchor_sglang_disagg_glm53.sh /tmp/reanchor.sh
 RUN set -eu; \
-    bash /tmp/reanchor.sh /tmp/sglang-disagg-patches /tmp/sglang-disagg-glm53; \
-    for f in /tmp/sglang-disagg-glm53/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    . /etc/glm53-platform.env; \
+    patch_dir=/tmp/sglang-disagg-patches; \
+    if [ "$REANCHOR_SGLANG_DISAGG" = "1" ]; then \
+        bash /tmp/reanchor.sh /tmp/sglang-disagg-patches /tmp/sglang-disagg-glm53; \
+        patch_dir=/tmp/sglang-disagg-glm53; \
+    fi; \
+    for f in "${patch_dir}"/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches /tmp/sglang-disagg-glm53 /tmp/reanchor.sh
 
 # ---- sglang Responses API patches (not PD-specific) -------------------------

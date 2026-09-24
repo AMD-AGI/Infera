@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     // Built before the policy because kv-aware's self-heal needs it too: it is
     // the only client configured for talking to workers, and a second one would
     // mean a second connection pool.
-    let upstream = proxy::build_upstream_client()?;
+    let upstream = proxy::build_upstream_client(cfg.http_req_idle_timeout_s)?;
 
     // Build the routing policy from config. kv-aware owns a kv-event subscriber
     // + tokenizer; round-robin is stateless.
@@ -157,6 +157,11 @@ async fn main() -> anyhow::Result<()> {
         retries: cfg.request_max_retries,
         breaker,
         nats,
+        pd_prefill_drain_timeout: Duration::from_secs_f64(cfg.pd_prefill_drain_timeout_s.max(0.0)),
+        stream_stall_warn: proxy::StallWarn {
+            before_first_byte: Duration::from_secs_f64(cfg.stream_admission_warn_s.max(0.0)),
+            mid_stream: Duration::from_secs_f64(cfg.stream_stall_warn_s.max(0.0)),
+        },
     };
 
     // A worker that reached the broker registers itself as `nats`, and one that

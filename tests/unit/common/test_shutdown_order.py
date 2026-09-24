@@ -132,3 +132,21 @@ async def test_kubernetes_reports_a_patch_that_failed():
     c._patch_annotation = _patch
 
     assert await c.deregister() is False
+
+
+@pytest.mark.asyncio
+async def test_clear_stale_registration_survives_patch_failure():
+    c = K8sRegistrationClient.__new__(K8sRegistrationClient)
+    c._pod_name = "p"
+    c._namespace = "ns"
+
+    async def _patch(*_args, **_kwargs):
+        raise RuntimeError("apiserver unreachable")
+
+    async def _aclose():
+        return None
+
+    c._patch_annotation = _patch
+    c._http = type("H", (), {"aclose": staticmethod(_aclose)})()
+
+    await c.clear_stale_registration()

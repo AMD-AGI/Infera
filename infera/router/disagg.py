@@ -10,6 +10,7 @@ import json
 import logging
 import random
 
+import anyio
 import httpx
 from fastapi import Response
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -30,6 +31,11 @@ from infera.router.dp_routing import (
     inject_disagg_prefill_dp_rank,
 )
 from infera.router.engine_priority import inject_engine_priority
+from infera.router.pd_abort import (
+    abort_engine_request,
+    abort_request_ids,
+    prefill_drain_timeout_s,
+)
 from infera.router.policy.target import RouteTarget
 from infera.server import metrics
 
@@ -54,13 +60,73 @@ def _generate_room_id() -> int:
     return random.randrange(2**63)
 
 
-def _leg_headers(forged_id: str | None, target: RouteTarget) -> dict[str, str] | None:
+def _rid_header(proto_name: str) -> str:
+    """Header the engine adopts the forged request id from.
+
+    SGLang only honours ``x-override-rid``; it ignores ``X-Request-Id``, so a
+    rid sent that way never becomes the scheduler's rid and ``/abort_request``
+    has nothing to match. vLLM and MoRIIO connectors read ``X-Request-Id``.
+    """
+    return _SGLANG_RID_HEADER if proto_name == _SGLANG_BOOTSTRAP else _REQUEST_ID_HEADER
+
+
+def _leg_headers(
+    forged_id: str | None,
+    target: RouteTarget,
+    *,
+    proto_name: str,
+) -> dict[str, str] | None:
     """Shared forged request id (if any) + this leg's DP-rank pin."""
     headers: dict[str, str] = {}
     if forged_id:
-        headers["X-Request-Id"] = forged_id
+        headers[_rid_header(proto_name)] = forged_id
     headers.update(dp_rank_header(target) or {})
     return headers or None
+
+
+def _sample_count(body: dict) -> int:
+    """Return the positive OpenAI parallel-sampling count."""
+    value = body.get("n", 1)
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else 1
+
+
+DEFAULT_PATH = "/v1/chat/completions"
+RESPONSES_PATH = "/v1/responses"
+_SGLANG_BOOTSTRAP = "sglang-bootstrap"
+# SGLang's own override header; every other protocol's engine reads the
+# generic one. Named so a rename breaks loudly instead of silently dropping
+# the forged rid.
+_SGLANG_RID_HEADER = "x-override-rid"
+_REQUEST_ID_HEADER = "X-Request-Id"
+_DONE_MARKER = b"data: [DONE]"
+_RESPONSES_COMPLETED_MARKER = b"event: response.completed"
+
+
+def _terminal_marker(path: str) -> bytes:
+    """SSE bytes that mark a successful end of stream for this endpoint.
+
+    SGLang closes an OpenAI Responses stream with the completion event and
+    never sends the chat-completions sentinel, so matching ``[DONE]`` there
+    reads a finished response as truncated.
+    """
+    return _RESPONSES_COMPLETED_MARKER if path == RESPONSES_PATH else _DONE_MARKER
+
+
+def _with_responses_request_id(
+    body: dict,
+    proto_name: str,
+    path: str,
+    forged_id: str | None,
+) -> dict:
+    """Carry the forged rid as ``request_id`` on SGLang's Responses endpoint.
+
+    ``ResponsesRequest`` has no ``rid`` field and drops it; ``request_id`` is
+    the field ``serving_responses`` hands the scheduler, so it is the id
+    ``/abort_request`` matches.
+    """
+    if not forged_id or path != RESPONSES_PATH or proto_name != _SGLANG_BOOTSTRAP:
+        return body
+    return {**body, "request_id": forged_id}
 
 
 class DisaggRouter(BaseRouter):
@@ -85,6 +151,9 @@ class DisaggRouter(BaseRouter):
     _DECODE_OPEN_MAX_RETRIES = 3
     _DECODE_OPEN_INITIAL_BACKOFF_S = 0.05
     _DECODE_OPEN_MAX_BACKOFF_S = 0.5
+    # Cap on the shielded close of a decode stream, so a socket that refuses
+    # to shut down cannot hold the request's policy slot.
+    _STREAM_CLOSE_TIMEOUT_S = 1.0
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -108,6 +177,163 @@ class DisaggRouter(BaseRouter):
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    def _track_prefill_task(self, task: asyncio.Task) -> asyncio.Task:
+        """Keep a detached prefill alive and consume an unobserved exception."""
+        self._pending_prefill_tasks.add(task)
+
+        def _done(done: asyncio.Task) -> None:
+            self._pending_prefill_tasks.discard(done)
+            if not done.cancelled():
+                done.exception()
+
+        task.add_done_callback(_done)
+        return task
+
+    async def _abort_worker_request(self, worker, rid: str | None, n: int) -> None:
+        """Abort one SGLang worker over its registered request transport."""
+        if not rid:
+            return
+        if worker.request_transport != "nats":
+            await abort_engine_request(self._client, worker.url, rid, n=n)
+            return
+        if self.nats_client is None:
+            logger.warning("cannot abort NATS worker %s without a NATS client", worker.worker_id)
+            return
+        for request_id in abort_request_ids(rid, n):
+            payload = {
+                "path": "/abort_request",
+                "stream": False,
+                "headers": None,
+                "body": {"rid": request_id},
+            }
+            try:
+                async for kind, status, data in self.nats_client.stream(worker.worker_id, payload):
+                    if kind == TYPE_ERROR:
+                        logger.warning(
+                            "PD abort over NATS worker=%s rid=%s failed: %s",
+                            worker.worker_id,
+                            request_id,
+                            data[:200],
+                        )
+                    elif kind == TYPE_DONE and status and status >= 400:
+                        logger.warning(
+                            "PD abort over NATS worker=%s rid=%s returned %d",
+                            worker.worker_id,
+                            request_id,
+                            status,
+                        )
+            except Exception as exc:
+                logger.warning(
+                    "PD abort over NATS worker=%s rid=%s failed: %s",
+                    worker.worker_id,
+                    request_id,
+                    exc,
+                )
+
+    async def _abort_pair(self, p, d, rid: str | None, n: int) -> None:
+        """Abort both SGLang legs without assuming their request transport."""
+        if not rid:
+            return
+        await asyncio.gather(
+            self._abort_worker_request(p, rid, n),
+            self._abort_worker_request(d, rid, n),
+        )
+
+    async def _finish_prefill(
+        self,
+        p_task: asyncio.Task,
+        p,
+        d,
+        rid: str | None,
+        n: int,
+        *,
+        abort: bool,
+    ) -> None:
+        """Wait for the prefill POST, or abort it on client drop / timeout."""
+        if abort:
+            # Cancelling the POST closes the prefill connection, which is the
+            # only drop signal for connectors with no remote abort endpoint
+            # (vLLM, ATOM). A forged rid additionally lets both engines drop
+            # the request by id, so it is an extra step, not a precondition.
+            p_task.cancel()
+            if rid:
+                await self._abort_pair(p, d, rid, n)
+            return
+        timeout = prefill_drain_timeout_s()
+        try:
+            if timeout > 0:
+                p_resp = await asyncio.wait_for(asyncio.shield(p_task), timeout=timeout)
+            else:
+                p_resp = await asyncio.shield(p_task)
+        except asyncio.TimeoutError:
+            # A drain that never lands is the wedged prefill this breaker
+            # exists for, whether or not the protocol gave us a rid to abort
+            # by: with no rid the request cannot even be reclaimed.
+            metrics.pd_bootstrap_failures_total.labels(reason="prefill_drain_timeout").inc()
+            self.breaker.record_failure(p.worker_id)
+            p_task.cancel()
+            if rid:
+                logger.warning(
+                    "prefill drain timed out after %.0fs; aborting rid=%s",
+                    timeout,
+                    rid,
+                )
+                await self._abort_pair(p, d, rid, n)
+            else:
+                logger.warning(
+                    "prefill drain timed out after %.0fs; protocol has no abort "
+                    "request id, closing the drain connection",
+                    timeout,
+                )
+            return
+        except asyncio.CancelledError:
+            # The waiter is cancelled, not the shielded prefill POST. abort=False
+            # means decode already finished: tearing the pair down would abort a
+            # request the client already accepted.
+            raise
+        except Exception as exc:
+            logger.warning(
+                "prefill leg %s failed: %s: %s",
+                p.url,
+                type(exc).__name__,
+                exc or "<no message>",
+            )
+            metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
+            self.breaker.record_failure(p.worker_id)
+            return
+        p_status = getattr(p_resp, "status_code", None)
+        if p_status is None:
+            return
+        if p_status >= 400:
+            logger.warning(
+                "prefill leg %s returned %d (decode will hang on KVPoll)",
+                p.url,
+                p_status,
+            )
+            metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
+        self._score_leg(p.worker_id, p_status)
+
+    async def _release_prefill_drain(
+        self,
+        p_task: asyncio.Task,
+        p,
+        d,
+        rid: str | None,
+        n: int,
+        *,
+        abort: bool,
+    ) -> None:
+        """Run ``_finish_prefill`` without letting its failure reach the caller.
+
+        A cancel is left to propagate: callers release their inflight
+        accounting from a ``finally`` of their own, so swallowing it here would
+        only strand the task cancelled-but-not-raising.
+        """
+        try:
+            await self._finish_prefill(p_task, p, d, rid, n, abort=abort)
+        except Exception:
+            pass
 
     async def dispatch(
         self,
@@ -227,6 +453,24 @@ class DisaggRouter(BaseRouter):
         to the concurrent or serial-pull dispatcher. Shared by the policy-driven
         :meth:`dispatch` and the gateway-driven :meth:`dispatch_direct`."""
         p, d = p_target.worker, d_target.worker
+        # Both legs of one request travel the same channel: the dispatchers
+        # pick HTTP or NATS for the pair, not per leg. Refuse before any
+        # accounting or dispatch rather than silently sending a NATS worker's
+        # leg over HTTP, where nothing is listening and decode waits out its
+        # KV timeout.
+        if p.request_transport != d.request_transport:
+            obs["outcome"] = "503"
+            metrics.pd_bootstrap_failures_total.labels(reason="mixed_request_transport").inc()
+            return JSONResponse(
+                content={
+                    "error": (
+                        "PD pair must share one request transport: prefill "
+                        f"{p.worker_id} is {p.request_transport!r}, decode "
+                        f"{d.worker_id} is {d.request_transport!r}"
+                    )
+                },
+                status_code=503,
+            )
         try:
             proto = resolve_protocol(p, d)
         except (ProtocolMismatch, UnknownProtocol) as exc:
@@ -281,6 +525,7 @@ class DisaggRouter(BaseRouter):
             room_id,
             stream,
             forged_id,
+            path=path,
         )
 
     async def _dispatch_concurrent(
@@ -298,10 +543,12 @@ class DisaggRouter(BaseRouter):
         room_id,
         stream,
         forged_id: str | None,
+        *,
+        path: str = DEFAULT_PATH,
     ) -> Response:
         p, d = p_target.worker, d_target.worker
-        p_headers = _leg_headers(forged_id, p_target)
-        d_headers = _leg_headers(forged_id, d_target)
+        p_headers = _leg_headers(forged_id, p_target, proto_name=proto.name)
+        d_headers = _leg_headers(forged_id, d_target, proto_name=proto.name)
         try:
             p_body = inject_engine_priority(
                 proto.annotate_prefill(base, p, d, room_id), hints, p.engine
@@ -319,6 +566,9 @@ class DisaggRouter(BaseRouter):
             obs["outcome"] = "500"
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_annotate_failed").inc()
             return _sanitized_error("protocol annotation failed", exc, status_code=500)
+
+        p_body = _with_responses_request_id(p_body, proto.name, path, forged_id)
+        d_body = _with_responses_request_id(d_body, proto.name, path, forged_id)
 
         # Deliver both legs over NATS when both workers registered for it. KV
         # transfer stays engine<->engine (bootstrap_room in the bodies), so the
@@ -346,15 +596,14 @@ class DisaggRouter(BaseRouter):
                 obs,
                 p_target,
                 p_blocks,
-                p_url,
                 d_target,
                 d_blocks,
-                d_url,
                 p_body,
                 d_body,
                 stream,
                 p_headers,
                 d_headers,
+                path=path,
             )
 
         if stream:
@@ -373,6 +622,7 @@ class DisaggRouter(BaseRouter):
                     d_body,
                     p_headers,
                     d_headers,
+                    path=path,
                 ),
                 media_type="text/event-stream",
             )
@@ -404,6 +654,17 @@ class DisaggRouter(BaseRouter):
                         failed = (leg, result)
                 else:
                     self._score_leg(worker_id, result.status_code)
+            pair_failed = failed is not None or any(
+                not isinstance(result, BaseException) and result.status_code >= 500
+                for result in (p_resp, d_resp)
+            )
+            if pair_failed:
+                await self._abort_pair(
+                    p,
+                    d,
+                    p_body.get("rid"),
+                    _sample_count(p_body),
+                )
             if failed is not None:
                 leg, exc = failed
                 if not isinstance(exc, httpx.HTTPError):
@@ -433,6 +694,14 @@ class DisaggRouter(BaseRouter):
             obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
             obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=d_resp.status_code)
+        except asyncio.CancelledError:
+            # The client dropped: cancelling the POSTs closes our sockets but
+            # tells neither engine, so both keep the request inflight (prefill
+            # until its KV transfer timeout). Abort under a shield, since the
+            # cleanup itself is an await on a cancelled path.
+            with anyio.CancelScope(shield=True):
+                await self._abort_pair(p, d, p_body.get("rid"), _sample_count(p_body))
+            raise
         finally:
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
@@ -477,45 +746,52 @@ class DisaggRouter(BaseRouter):
                 logger.warning("prefill nats drain %s failed: %s", p.worker_id, exc)
                 self.breaker.record_failure(p.worker_id)
 
-        task = asyncio.create_task(_drain(), name="nats-prefill-drain")
-        self._pending_prefill_tasks.add(task)
-        task.add_done_callback(self._pending_prefill_tasks.discard)
-        return task
+        return self._track_prefill_task(asyncio.create_task(_drain(), name="nats-prefill-drain"))
 
     async def _concurrent_nats(
         self,
         obs,
         p_target,
         p_blocks,
-        p_url,
         d_target,
         d_blocks,
-        d_url,
         p_body,
         d_body,
         stream,
         p_headers,
         d_headers,
+        *,
+        path: str = DEFAULT_PATH,
     ) -> Response:
         """Concurrent PD over NATS: publish p_body to prefill + d_body to decode
         on their per-instance subjects, stream decode back. KV transfer is
         engine<->engine (mori) via the bootstrap_room in the bodies."""
         p, d = p_target.worker, d_target.worker
-        path = p_url[len(p.url) :] or "/v1/chat/completions"
         p_payload = {"path": path, "stream": False, "headers": p_headers, "body": p_body}
         d_payload = {"path": path, "stream": stream, "headers": d_headers, "body": d_body}
         p_task = self._start_prefill_drain_nats(p, p_payload)
+        n = _sample_count(p_body)
 
         if stream:
             obs["outcome"] = "ok"
             obs.claim_stream()
             return StreamingResponse(
                 self._stream_dual_nats(
-                    obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+                    obs,
+                    p_target,
+                    p_blocks,
+                    d_target,
+                    d_blocks,
+                    d_payload,
+                    p_task,
+                    rid=p_body.get("rid"),
+                    n=n,
                 ),
                 media_type="text/event-stream",
             )
 
+        pair_failed = False
+        cancelled = False
         try:
             chunks: list[bytes] = []
             status = 200
@@ -525,6 +801,7 @@ class DisaggRouter(BaseRouter):
                 elif kind == TYPE_ERROR:
                     # st carries 504 on inactivity timeout; worker errors -> 502.
                     code = st or 502
+                    pair_failed = True
                     self._score_leg(d.worker_id, code)
                     obs["outcome"] = str(code)
                     return JSONResponse(
@@ -536,11 +813,13 @@ class DisaggRouter(BaseRouter):
                     )
                 else:  # done
                     status = st or 200
+                    pair_failed = status >= 500
                     break
             raw = b"".join(chunks)
             try:
                 payload = json.loads(raw) if raw else {}
             except ValueError:
+                pair_failed = True
                 obs["outcome"] = "502"
                 return JSONResponse(
                     content={
@@ -553,22 +832,56 @@ class DisaggRouter(BaseRouter):
             obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
             obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=status)
+        except asyncio.CancelledError:
+            # The client dropped: our awaits are cancelled, but neither engine
+            # hears about it, so both keep the request inflight. The cleanup is
+            # itself an await on a cancelled path, hence the shield.
+            cancelled = True
+            with anyio.CancelScope(shield=True):
+                await self._release_prefill_drain(
+                    p_task,
+                    p,
+                    d,
+                    p_body.get("rid"),
+                    n,
+                    abort=True,
+                )
+            raise
         finally:
-            try:
-                await asyncio.shield(p_task)
-            except (asyncio.CancelledError, Exception):
-                pass
+            if not cancelled:
+                if pair_failed:
+                    await self._abort_pair(p, d, p_body.get("rid"), n)
+                await self._release_prefill_drain(
+                    p_task,
+                    p,
+                    d,
+                    p_body.get("rid"),
+                    n,
+                    abort=False,
+                )
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
 
     async def _stream_dual_nats(
-        self, obs, p_target, p_blocks, d_target, d_blocks, d_payload, p_task
+        self,
+        obs,
+        p_target,
+        p_blocks,
+        d_target,
+        d_blocks,
+        d_payload,
+        p_task,
+        *,
+        rid=None,
+        n=1,
     ):
         """Stream decode's reply over NATS while prefill drains in background."""
         d = d_target.worker
+        p = p_target.worker
         served = False
+        completed = False
         try:
-            async for kind, _st, data in self.nats_client.stream(d.worker_id, d_payload):
+            async for kind, st, data in self.nats_client.stream(d.worker_id, d_payload):
                 if kind == TYPE_DATA:
                     if data:
                         if not served:
@@ -589,17 +902,37 @@ class DisaggRouter(BaseRouter):
                     ).encode()
                     return
                 else:  # done
+                    # `done` means the request finished, not that it
+                    # succeeded. A 5xx is the decode worker's fault and its
+                    # pair still holds engine slots, so it is not a completion:
+                    # the finally below aborts both legs. A 4xx is the
+                    # request's fault and aborts nothing, as on the unary path.
+                    status = st or 200
+                    completed = status < 500
+                    if not completed:
+                        logger.warning(
+                            "decode (nats) %s returned %d mid-stream",
+                            d.worker_id,
+                            status,
+                        )
+                        self._score_leg(d.worker_id, status)
                     return
         finally:
+            if not completed:
+                # An unfinished stream leaves both engines holding the request,
+                # and the cancellation that ended it would cancel the abort too.
+                with anyio.CancelScope(shield=True):
+                    await self._release_prefill_drain(p_task, p, d, rid, n, abort=True)
             try:
-                await asyncio.shield(p_task)
-            except asyncio.CancelledError:
-                logger.debug("prefill nats task cancelled (parent torn down)")
-            except Exception:
-                pass
-            self.policy.on_request_finished(p_target.route_key, p_blocks)
-            self.policy.on_request_finished(d_target.route_key, d_blocks)
-            obs.close()
+                if completed:
+                    # The client already has its answer; draining under a shield
+                    # would pin the policy slots for the full drain timeout on a
+                    # cancel that arrives after the stream ended.
+                    await self._release_prefill_drain(p_task, p, d, rid, n, abort=False)
+            finally:
+                self.policy.on_request_finished(p_target.route_key, p_blocks)
+                self.policy.on_request_finished(d_target.route_key, d_blocks)
+                obs.close()
 
     async def _dispatch_serial(
         self,
@@ -616,6 +949,8 @@ class DisaggRouter(BaseRouter):
         room_id,
         stream,
         forged_id: str | None,
+        *,
+        path: str = DEFAULT_PATH,
     ) -> Response:
         """Serial-pull topology: D needs handoff fields from P's response
         before its body can be assembled, so the two legs cannot be
@@ -631,8 +966,8 @@ class DisaggRouter(BaseRouter):
         each leg so timings line up with the concurrent path.
         """
         p, d = p_target.worker, d_target.worker
-        p_headers = _leg_headers(forged_id, p_target)
-        d_headers = _leg_headers(forged_id, d_target)
+        p_headers = _leg_headers(forged_id, p_target, proto_name=proto.name)
+        d_headers = _leg_headers(forged_id, d_target, proto_name=proto.name)
         # P-leg first. Any failure here finishes BOTH workers (we never
         # call D, so D's slot is freed immediately). Once P succeeds we
         # finish P right away — serial-pull means it's truly done at
@@ -659,6 +994,14 @@ class DisaggRouter(BaseRouter):
                     metrics.pd_bootstrap_failures_total.labels(reason="prefill_unreachable").inc()
                     self.breaker.record_failure(p.worker_id)
                     return _sanitized_error("prefill leg failed", exc, status_code=502)
+                except asyncio.CancelledError:
+                    # The client dropped while the prefill was still running.
+                    # Serial-pull holds both slots until the response lands, so
+                    # both are released on the way out; the cancellation closes
+                    # the prefill connection, which is how connectors with no
+                    # remote abort endpoint learn to drop the request.
+                    p_failed = True
+                    raise
 
             self._score_leg(p.worker_id, p_resp.status_code)
             if p_resp.status_code >= 400:
@@ -734,7 +1077,9 @@ class DisaggRouter(BaseRouter):
             # No prefill task to babysit (already finished); D's stream
             # is self-contained. _stream_decode_only's finally finishes D.
             return StreamingResponse(
-                self._stream_decode_only(obs, d_target, d_blocks, d_url, d_body, d_headers),
+                self._stream_decode_only(
+                    obs, d_target, d_blocks, d_url, d_body, d_headers, path=path
+                ),
                 media_type="text/event-stream",
             )
 
@@ -774,11 +1119,13 @@ class DisaggRouter(BaseRouter):
         d_url: str,
         d_body: dict,
         d_headers: dict[str, str] | None = None,
+        *,
+        path: str = DEFAULT_PATH,
     ):
         """Serial-pull streaming path — P has already finished and freed
         its scheduler slot, so all we need to do is stream D and not
         babysit a background prefill task. Reuses the same pre-flight
-        retry + post-[DONE] suppression as `_stream_dual` for parity.
+        retry + post-terminal-marker suppression as `_stream_dual` for parity.
         """
         d_resp: httpx.Response | None = None
         done_seen = False
@@ -827,8 +1174,8 @@ class DisaggRouter(BaseRouter):
                 yield f"data: {err}\n\n".encode()
                 return
 
-            _DONE_NEEDLE = b"data: [DONE]"
-            _TAIL_KEEP = len(_DONE_NEEDLE) - 1
+            needle = _terminal_marker(path)
+            tail_keep = len(needle) - 1
             tail = b""
             served = False
             try:
@@ -840,15 +1187,15 @@ class DisaggRouter(BaseRouter):
                         served = True
                     if not done_seen:
                         window = tail + chunk
-                        if _DONE_NEEDLE in window:
+                        if needle in window:
                             done_seen = True
-                        tail = window[-_TAIL_KEEP:]
+                        tail = window[-tail_keep:]
                     obs.observe_stream_chunk(chunk)
                     yield chunk
             except httpx.HTTPError as exc:
                 if done_seen:
                     logger.debug(
-                        "decode stream from %s closed after [DONE] (%s)",
+                        "decode stream from %s closed after its terminal marker (%s)",
                         d_url,
                         type(exc).__name__,
                     )
@@ -865,8 +1212,13 @@ class DisaggRouter(BaseRouter):
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:
+                # The cancellation that ended the stream would cancel this
+                # teardown too, leaving the decode connection open and the
+                # engine generating. Shield it, bounded so a wedged socket
+                # cannot pin the policy slot released below.
                 try:
-                    await d_resp.aclose()
+                    with anyio.move_on_after(self._STREAM_CLOSE_TIMEOUT_S, shield=True):
+                        await d_resp.aclose()
                 except Exception:
                     pass
             self.policy.on_request_finished(d_target.route_key, d_blocks)
@@ -878,13 +1230,11 @@ class DisaggRouter(BaseRouter):
         d_body: dict,
         headers: dict[str, str] | None = None,
     ) -> httpx.Response:
-        """POST the decode leg, retrying on pre-flight transport errors.
+        """POST the decode leg, retrying only connection-establishment errors.
 
         Returns the streaming Response; caller must aclose() it exactly
-        once. Pre-flight errors (ConnectError / ReadError on headers /
-        WriteError mid-body / RemoteProtocolError) mean the engine has
-        NOT begun processing the request, so re-sending the same body
-        with the same bootstrap_room is idempotent.
+        once. Read, write, and protocol errors are ambiguous: the engine may
+        already own the request id, so replaying would hit duplicate-id checks.
         """
         backoff = self._DECODE_OPEN_INITIAL_BACKOFF_S
         last_exc: BaseException | None = None
@@ -892,7 +1242,7 @@ class DisaggRouter(BaseRouter):
             req = self._client.build_request("POST", d_url, json=d_body, headers=headers)
             try:
                 resp = await self._client.send(req, stream=True)
-            except (httpx.TransportError, httpx.RemoteProtocolError) as exc:
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as exc:
                 last_exc = exc
                 if attempt >= self._DECODE_OPEN_MAX_RETRIES:
                     raise
@@ -926,6 +1276,8 @@ class DisaggRouter(BaseRouter):
         d_body: dict,
         p_headers: dict[str, str] | None = None,
         d_headers: dict[str, str] | None = None,
+        *,
+        path: str = DEFAULT_PATH,
     ):
         """Stream D's response while P runs concurrently in the background.
 
@@ -934,15 +1286,15 @@ class DisaggRouter(BaseRouter):
         d_body differ only in engine-specific priority injection.
         """
         p = p_target.worker
-        # Never cancel p_task: closing the body drops the bootstrap_room
-        # handoff → decode stuck on KVPoll 300s. Strong ref + shield guard
-        # against GC and parent cancellation.
-        p_task = asyncio.create_task(self._client.post(p_url, json=p_body, headers=p_headers))
-        self._pending_prefill_tasks.add(p_task)
-        p_task.add_done_callback(self._pending_prefill_tasks.discard)
-        # Once we've forwarded "data: [DONE]" downstream, any subsequent
-        # httpx.ReadError is the client closing its half of a successful
-        # response — drop silently instead of warning.
+        d = d_target.worker
+        rid = p_body.get("rid") if isinstance(p_body, dict) else None
+        p_task = self._track_prefill_task(
+            asyncio.create_task(self._client.post(p_url, json=p_body, headers=p_headers))
+        )
+        n = _sample_count(p_body)
+        # Once we've forwarded the endpoint's terminal marker downstream, any
+        # subsequent httpx.ReadError is the client closing its half of a
+        # successful response — drop silently instead of warning.
         done_seen = False
         d_resp: httpx.Response | None = None
         try:
@@ -997,10 +1349,10 @@ class DisaggRouter(BaseRouter):
                     yield f"data: {err}\n\n".encode()
                     return
 
-                # aiter_raw yields raw bytes, so "data: [DONE]" can straddle
+                # aiter_raw yields raw bytes, so the marker can straddle
                 # chunks; a tail buffer keeps the match across splits.
-                _DONE_NEEDLE = b"data: [DONE]"
-                _TAIL_KEEP = len(_DONE_NEEDLE) - 1
+                needle = _terminal_marker(path)
+                tail_keep = len(needle) - 1
                 tail = b""
                 served = False
                 async for chunk in d_resp.aiter_raw():
@@ -1011,17 +1363,17 @@ class DisaggRouter(BaseRouter):
                         served = True
                     if not done_seen:
                         window = tail + chunk
-                        if _DONE_NEEDLE in window:
+                        if needle in window:
                             done_seen = True
-                        tail = window[-_TAIL_KEEP:]
+                        tail = window[-tail_keep:]
                     obs.observe_stream_chunk(chunk)
                     yield chunk
             except httpx.HTTPError as exc:
                 if done_seen:
-                    # Engine has already sent [DONE]; this is the client
-                    # tearing down a successful response. Drop silently.
+                    # Engine has already sent its terminal marker; this is the
+                    # client tearing down a successful response. Drop silently.
                     logger.debug(
-                        "decode stream from %s closed after [DONE] (%s)",
+                        "decode stream from %s closed after its terminal marker (%s)",
                         d_url,
                         type(exc).__name__,
                     )
@@ -1041,44 +1393,29 @@ class DisaggRouter(BaseRouter):
                 yield f"data: {err}\n\n".encode()
         finally:
             if d_resp is not None:
+                # Shielded so a cancel cannot leave the decode connection open
+                # and the engine generating, but bounded: a wedged socket would
+                # otherwise hold this scope forever, and everything below --
+                # the pair abort and both policy releases -- is downstream of
+                # it.
                 try:
-                    await d_resp.aclose()
+                    with anyio.move_on_after(self._STREAM_CLOSE_TIMEOUT_S, shield=True):
+                        await d_resp.aclose()
                 except Exception:
                     pass
-            # Await p_task (never cancel; shield from parent cancel). Log
-            # outcomes since a silent prefill drop costs 300s: parent
-            # cancel→DEBUG, raise/4xx-5xx→WARN.
+            if not done_seen:
+                # An unfinished stream leaves both engines holding the
+                # request, and the cancellation that ended it would cancel
+                # the abort too.
+                with anyio.CancelScope(shield=True):
+                    await self._release_prefill_drain(p_task, p, d, rid, n, abort=True)
             try:
-                p_resp = await asyncio.shield(p_task)
-            except asyncio.CancelledError:
-                # The request was torn down from above, so the prefill worker
-                # was never given the chance to answer. That is not evidence
-                # about it either way, and scoring it would be inventing one.
-                logger.debug("prefill task cancelled (parent torn down)")
-            except Exception as exc:
-                logger.warning(
-                    "prefill leg %s for %s failed: %s: %s",
-                    p.worker_id,
-                    p_url,
-                    type(exc).__name__,
-                    exc or "<no message>",
-                )
-                metrics.pd_bootstrap_failures_total.labels(reason="prefill_exception").inc()
-                self.breaker.record_failure(p.worker_id)
-            else:
-                # The prefill leg is scored here rather than beside the decode
-                # leg above because this is where its own answer arrives: it
-                # runs concurrently, so nothing about it is known until now.
-                p_status = getattr(p_resp, "status_code", None)
-                if p_status is not None:
-                    self._score_leg(p.worker_id, p_status)
-                if p_status is not None and p_status >= 400:
-                    logger.warning(
-                        "prefill leg %s returned %d (decode will hang on KVPoll)",
-                        p.worker_id,
-                        p_resp.status_code,
-                    )
-                    metrics.pd_bootstrap_failures_total.labels(reason="prefill_5xx").inc()
-            self.policy.on_request_finished(p_target.route_key, p_blocks)
-            self.policy.on_request_finished(d_target.route_key, d_blocks)
-            obs.close()
+                if done_seen:
+                    # The client already has its answer; draining under a shield
+                    # would pin the policy slots for the full drain timeout on a
+                    # cancel that arrives after the stream ended.
+                    await self._release_prefill_drain(p_task, p, d, rid, n, abort=False)
+            finally:
+                self.policy.on_request_finished(p_target.route_key, p_blocks)
+                self.policy.on_request_finished(d_target.route_key, d_blocks)
+                obs.close()

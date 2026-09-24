@@ -8526,10 +8526,13 @@ spec:
                     skipReadinessProbe:
                       description: |-
                         SkipReadinessProbe, when true, tells the operator NOT to inject its
-                        default /health readiness probe. Use for idle-pod / SSH-managed workers
-                        (e.g. the optimizer create-infera model) whose engine is (re)launched
-                        out-of-band after deploy: a /health probe would never pass at deploy time,
-                        leaving readyReplicas=0 and the InferaDeployment stuck in "pending". +optional
+                        readiness probe. Use for idle-pod / SSH-managed workers (e.g. the
+                        optimizer create-infera model) whose engine is (re)launched out-of-band
+                        after deploy: such a worker never registers, so it never opens its
+                        readiness port, leaving readyReplicas=0 and the InferaDeployment stuck
+                        in "pending". A worker that does serve must NOT set this — without a
+                        probe every pod counts as Ready the moment it is Running, and the
+                        surge rollout then retires the pod that is still serving. +optional
                       type: boolean
                   required:
                   - componentType

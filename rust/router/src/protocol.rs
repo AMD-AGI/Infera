@@ -57,6 +57,7 @@ pub fn require_sglang_bootstrap(p: &Worker, d: &Worker) -> anyhow::Result<()> {
 pub fn annotate_sglang(
     body: &mut Map<String, Value>,
     prefill: &Worker,
+    path: &str,
     room: u64,
 ) -> anyhow::Result<()> {
     let addr = prefill
@@ -79,7 +80,18 @@ pub fn annotate_sglang(
     body.insert("bootstrap_host".into(), Value::from(host));
     body.insert("bootstrap_port".into(), Value::from(port));
     body.insert("bootstrap_room".into(), Value::from(room));
+    // SGLang /abort_request matches this rid; both legs share it.
+    let rid = sglang_rid(room);
+    body.insert("rid".into(), Value::from(rid.clone()));
+    if path == "/v1/responses" {
+        body.insert("request_id".into(), Value::from(rid));
+    }
     Ok(())
+}
+
+/// Request id posted to SGLang ``/abort_request`` for this bootstrap room.
+pub fn sglang_rid(room: u64) -> String {
+    format!("infera-{room}")
 }
 
 // --- vLLM Mooncake ---------------------------------------------------------
@@ -330,28 +342,39 @@ mod tests {
     fn annotate_injects_bootstrap_fields() {
         let p = worker(sglang());
         let mut body = Map::new();
-        annotate_sglang(&mut body, &p, 42).unwrap();
+        annotate_sglang(&mut body, &p, "/v1/chat/completions", 42).unwrap();
         assert_eq!(body["bootstrap_host"], "10.0.0.1");
         assert_eq!(body["bootstrap_port"], 9000);
         assert_eq!(body["bootstrap_room"], 42);
+        assert_eq!(body["rid"], "infera-42");
+        assert!(!body.contains_key("request_id"));
+
+        let mut responses = Map::new();
+        annotate_sglang(&mut responses, &p, "/v1/responses", 42).unwrap();
+        assert_eq!(responses["rid"], "infera-42");
+        assert_eq!(responses["request_id"], responses["rid"]);
     }
 
     #[test]
     fn annotate_rejects_bad_addr() {
         // missing addr entirely
         let mut b = Map::new();
-        assert!(
-            annotate_sglang(&mut b, &worker(json!({"protocol": "sglang-bootstrap"})), 1).is_err()
-        );
+        assert!(annotate_sglang(
+            &mut b,
+            &worker(json!({"protocol": "sglang-bootstrap"})),
+            "/v1/chat/completions",
+            1
+        )
+        .is_err());
         // no host:port separator
         let mut b = Map::new();
         let w =
             worker(json!({"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": "noport"}}));
-        assert!(annotate_sglang(&mut b, &w, 1).is_err());
+        assert!(annotate_sglang(&mut b, &w, "/v1/chat/completions", 1).is_err());
         // non-numeric port
         let mut b = Map::new();
         let w =
             worker(json!({"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": "h:abc"}}));
-        assert!(annotate_sglang(&mut b, &w, 1).is_err());
+        assert!(annotate_sglang(&mut b, &w, "/v1/chat/completions", 1).is_err());
     }
 }
