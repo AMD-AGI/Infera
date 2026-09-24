@@ -1,0 +1,99 @@
+--- a/infera/server/app.py
++++ b/infera/server/app.py
+@@ -27,6 +27,9 @@
+ logger = logging.getLogger(__name__)
+ 
+ _REQUEST_ID_HEADER = "X-Infera-Request-Id"
++# Agent-session headers (AIPerf, Dynamo) that let an engine keep one session
++# on one DP rank; the PD router forwards them to both legs.
++_SESSION_HEADERS = ("x-correlation-id", "x-dynamo-session-id", "x-dynamo-parent-session-id")
+ # GAIE header-routing hint: the EPP writes the chosen worker id here; the
+ # direct router reads it off the body annotation below. See infera/gaie.
+ _WORKER_INSTANCE_HEADER = "x-worker-instance-id"
+@@ -315,6 +318,9 @@
+     # in their structured pick logs.
+     request_id = request.headers.get(_REQUEST_ID_HEADER) or uuid.uuid4().hex
+     body["_infera_request_id"] = request_id
++    session_headers = {h: request.headers[h] for h in _SESSION_HEADERS if h in request.headers}
++    if session_headers:
++        body["_infera_session_headers"] = session_headers
+     # Parse cache_control once at the front door so the policy + engine
+     # adapters can read it without re-walking the body. Anthropic-style
+     # and OpenAI-style hints both supported (see infera/router/cache_control.py).
+--- a/infera/router/disagg.py
++++ b/infera/router/disagg.py
+@@ -54,9 +54,12 @@
+     return random.randrange(2**63)
+ 
+ 
+-def _leg_headers(forged_id: str | None, target: RouteTarget) -> dict[str, str] | None:
+-    """Shared forged request id (if any) + this leg's DP-rank pin."""
+-    headers: dict[str, str] = {}
++def _leg_headers(
++    forged_id: str | None, target: RouteTarget, session_headers: dict | None = None
++) -> dict[str, str] | None:
++    """Shared forged request id (if any), client session headers, and this
++    leg's DP-rank pin."""
++    headers: dict[str, str] = dict(session_headers or {})
+     if forged_id:
+         headers["X-Request-Id"] = forged_id
+     headers.update(dp_rank_header(target) or {})
+@@ -242,6 +245,7 @@
+         base = dict(body)
+         hints = base.pop("_infera_cache_hints", None) or parse_cache_hints(body)
+         base.pop("_infera_request_id", None)
++        session_headers = base.pop("_infera_session_headers", None)
+         base.pop("_infera_direct_worker", None)
+         base.pop("_infera_direct_prefill", None)
+ 
+@@ -281,6 +285,7 @@
+             room_id,
+             stream,
+             forged_id,
++            session_headers,
+         )
+ 
+     async def _dispatch_concurrent(
+@@ -298,10 +303,11 @@
+         room_id,
+         stream,
+         forged_id: str | None,
++        session_headers: dict | None = None,
+     ) -> Response:
+         p, d = p_target.worker, d_target.worker
+-        p_headers = _leg_headers(forged_id, p_target)
+-        d_headers = _leg_headers(forged_id, d_target)
++        p_headers = _leg_headers(forged_id, p_target, session_headers)
++        d_headers = _leg_headers(forged_id, d_target, session_headers)
+         try:
+             p_body = inject_engine_priority(
+                 proto.annotate_prefill(base, p, d, room_id), hints, p.engine
+@@ -616,6 +622,7 @@
+         room_id,
+         stream,
+         forged_id: str | None,
++        session_headers: dict | None = None,
+     ) -> Response:
+         """Serial-pull topology: D needs handoff fields from P's response
+         before its body can be assembled, so the two legs cannot be
+@@ -631,8 +638,8 @@
+         each leg so timings line up with the concurrent path.
+         """
+         p, d = p_target.worker, d_target.worker
+-        p_headers = _leg_headers(forged_id, p_target)
+-        d_headers = _leg_headers(forged_id, d_target)
++        p_headers = _leg_headers(forged_id, p_target, session_headers)
++        d_headers = _leg_headers(forged_id, d_target, session_headers)
+         # P-leg first. Any failure here finishes BOTH workers (we never
+         # call D, so D's slot is freed immediately). Once P succeeds we
+         # finish P right away — serial-pull means it's truly done at
+--- a/infera/router/mixed.py
++++ b/infera/router/mixed.py
+@@ -149,6 +149,7 @@
+         forwarded_body = inject_engine_priority(body, hints, worker.engine)
+         forwarded_body.pop("_infera_cache_hints", None)
+         forwarded_body.pop("_infera_request_id", None)
++        forwarded_body.pop("_infera_session_headers", None)
+ 
+         # Fallback ISL for the streaming path, where the reply carries no usage.
+         obs.observe_blocks(blocks, worker.kv_block_size)

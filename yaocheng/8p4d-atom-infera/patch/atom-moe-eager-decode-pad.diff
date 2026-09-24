@@ -1,0 +1,26 @@
+--- a/atom/model_ops/moe.py
++++ b/atom/model_ops/moe.py
+@@ -383,6 +383,11 @@
+     ctx = get_forward_context().context
+     running_tokens = ctx.running_tokens
+     local_tokens = ctx.scheduled_tokens if ctx.is_prefill else running_tokens
++    # An eager decode step (--enforce-eager, e.g. an MTP PD producer with DP
++    # attention) reaches here unpadded; pad it for the gather like a prefill.
++    eager_decode = not ctx.is_prefill and x.shape[0] == ctx.scheduled_tokens
++    if eager_decode:
++        local_tokens = ctx.scheduled_tokens
+     assert x.shape[0] == local_tokens, (
+         f"MoE was handed {x.shape[0]} rows on a "
+         f"{'prefill' if ctx.is_prefill else 'decode'} step expecting "
+@@ -396,7 +401,10 @@
+     padding_shape[0] = running_tokens
+     padded_x = torch.empty(padding_shape, device=x.device, dtype=x.dtype)
+     padded_x[:local_tokens, :].copy_(x)
+-    # padded_x[local_tokens:, :].zero_() # keep for debug
++    if eager_decode:
++        # The same helper pads router logits; garbage there can select experts
++        # out of range.
++        padded_x[local_tokens:, :].zero_()
+     return padded_x, local_tokens
+ 
+ 

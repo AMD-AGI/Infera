@@ -1,0 +1,216 @@
+--- a/atom/kv_transfer/disaggregation/mooncake/mooncake_connector.py
++++ b/atom/kv_transfer/disaggregation/mooncake/mooncake_connector.py
+@@ -12,6 +12,7 @@
+ 
+ import logging
+ import os
++import queue
+ import re
+ import threading
+ import time
+@@ -564,6 +565,9 @@
+     # ``__init__`` aborted before the matched-rail block; both must fall back to
+     # the single shared ``transfer_engine`` instead of raising AttributeError.
+     _rail_pool: RailEnginePool | None = None
++    # Producer staging for latent MLA pages bound for a DCP consumer; built by
++    # register_kv_caches.
++    _kv_staging: torch.Tensor | None = None
+ 
+     def __init__(self, config: Config) -> None:
+         self.tp_rank = get_tp_group().rank_in_group
+@@ -836,6 +840,14 @@
+     # -----------------------------------------------------------------
+     _MAX_RDMA_CHUNK_BYTES = 2 * 1024 * 1024 * 1024 - 64 * 1024
+     _MAX_RDMA_ENTRIES_PER_BATCH = 4096
++    # A DCP consumer rank owns every dcp_size-th token, so sending latent MLA
++    # pages directly costs one RDMA descriptor per token and layer. Producers
++    # gather each layer's share on the GPU instead, this many tokens and
++    # layers per synchronous RDMA write, and send whole destination pages.
++    _KV_STAGING_TOKENS = 8192
++    _KV_STAGING_LAYERS = 8
++    # One slot per default send worker (DEFAULT_SHARDED_STAGING_WORKERS).
++    _KV_STAGING_SLOTS = 16
+ 
+     def _rdma_chunk_sizes(self, total_bytes: int, unit_bytes: int) -> list[int]:
+         """Split a region into MR chunks, each <= _MAX_RDMA_CHUNK_BYTES and, apart
+@@ -969,6 +981,46 @@
+         else:
+             self._start_layer = 0
+ 
++        kv_regions = [
++            (i, r, v)
++            for i, (r, v) in enumerate(zip(tt.block_regions, tt.block_tensor_views))
++            if r.semantic_role == MLA_KV_ROLE
++        ]
++        kv_staging_region = None
++        if self.is_producer and kv_regions:
++            from atom.kv_transfer.disaggregation.types import KVTransferRegion
++
++            # MLA stores a token contiguously, so each region is a flat token table.
++            self._kv_token_views = {}
++            for i, r, v in kv_regions:
++                unit = r.unit_bytes // self.block_size
++                raw = v if v.dtype == torch.uint8 else v.view(torch.uint8)
++                self._kv_token_views[i] = raw.as_strided(
++                    (v.shape[0] * self.block_size, unit), (unit, 1)
++                )
++            max_unit = max(r.unit_bytes for _, r, _ in kv_regions) // self.block_size
++            self._kv_staging = torch.empty(
++                (
++                    self._KV_STAGING_SLOTS,
++                    self._KV_STAGING_LAYERS * self._KV_STAGING_TOKENS * max_unit,
++                ),
++                dtype=torch.uint8,
++                device=self._cuda_device,
++            )
++            self._kv_staging_slots = queue.SimpleQueue()
++            for slot in range(self._KV_STAGING_SLOTS):
++                self._kv_staging_slots.put(slot)
++            self._kv_staging_streams = [
++                torch.cuda.Stream(device=self._cuda_device)
++                for _ in range(self._KV_STAGING_SLOTS)
++            ]
++            kv_staging_region = KVTransferRegion(
++                base_addr=self._kv_staging.data_ptr(),
++                total_bytes=self._kv_staging.numel(),
++                unit_bytes=self._kv_staging.shape[1],
++                semantic_role="mla.kv_staging",
++            )
++
+         # Chunk all regions for RDMA memory registration
+         reg_ptrs: list[int] = []
+         reg_sizes: list[int] = []
+@@ -980,6 +1032,8 @@
+             all_regions.append(tt.staging_region)
+         if tt.index_staging_region is not None:
+             all_regions.append(tt.index_staging_region)
++        if kv_staging_region is not None:
++            all_regions.append(kv_staging_region)
+         for r in all_regions:
+             offset = 0
+             for chunk in self._rdma_chunk_sizes(r.total_bytes, r.unit_bytes):
+@@ -1811,6 +1865,7 @@
+                 )
+ 
+         staged_regions: list[tuple[int, int, int]] = []
++        kv_staged_regions: list[tuple[int, int]] = []
+         # The plan comes from this stage's region order but the bytes land at
+         # cmap[region_idx], and equal region counts do not make the two orders
+         # match. Validate both semantic role and physical width so incompatible
+@@ -1854,6 +1909,9 @@
+                         )
+                         return False
+                 continue
++            if self._kv_staging is not None and role == MLA_KV_ROLE:
++                kv_staged_regions.append((region_idx, dst_base))
++                continue
+             if role != MLA_KV_ROLE:
+                 raise RuntimeError(
+                     f"DCP token relayout refuses region {region_idx} with "
+@@ -1896,6 +1954,16 @@
+         if not flush_block_descriptors():
+             logger.error("[PRODUCER] block transfer failed for req %s", req_id)
+             return False
++        if kv_staged_regions and not self._execute_staged_kv(
++            target,
++            kv_staged_regions,
++            sharded_plan,
++            dst_block_ids,
++            req_id,
++            kv_cache_ready_event,
++            engine=engine,
++        ):
++            return False
+         if debug_block_transfer and block_descriptor_count:
+             logger.debug(
+                 "[PRODUCER] block RDMA write: req=%s, regions=%d, "
+@@ -1941,6 +2009,77 @@
+                         return False
+         return True
+ 
++    def _execute_staged_kv(
++        self,
++        target: str,
++        regions: list[tuple[int, int]],
++        plan,
++        dst_block_ids: list[int],
++        req_id: str,
++        kv_cache_ready_event: torch.cuda.Event | None,
++        *,
++        engine=None,
++    ) -> bool:
++        """GPU-gather each latent MLA layer's DCP share, then RDMA whole pages."""
++        chunk_pages = self._KV_STAGING_TOKENS // self.block_size
++        dst_ids = np.asarray(dst_block_ids, dtype=np.int64)
++        for start in range(0, len(dst_ids), chunk_pages):
++            chunk = plan.slice_pages(start, min(start + chunk_pages, len(dst_ids)))
++            keep = chunk.valid
++            src_tok = (
++                chunk.src_block_id_per_run[keep] * self.block_size + chunk.src_token[keep]
++            )
++            dst_tok = (
++                dst_ids[start + chunk.dst_page[keep]] * self.block_size
++                + chunk.dst_token[keep]
++            )
++            rows = len(src_tok)
++            if rows == 0:
++                continue
++            for first in range(0, len(regions), self._KV_STAGING_LAYERS):
++                slot = self._kv_staging_slots.get()
++                stream = self._kv_staging_streams[slot]
++                try:
++                    with torch.cuda.stream(stream):
++                        if kv_cache_ready_event is not None:
++                            stream.wait_event(kv_cache_ready_event)
++                        src_index = torch.from_numpy(src_tok).to(self._cuda_device)
++                    src_addrs: list[int] = []
++                    dst_addrs: list[int] = []
++                    sizes: list[int] = []
++                    offset = 0
++                    for region_idx, dst_base in regions[
++                        first : first + self._KV_STAGING_LAYERS
++                    ]:
++                        view = self._kv_token_views[region_idx]
++                        unit = view.shape[1]
++                        staged = self._kv_staging[
++                            slot, offset : offset + rows * unit
++                        ].view(rows, unit)
++                        with torch.cuda.stream(stream):
++                            torch.index_select(view, 0, src_index, out=staged)
++                        src, dst, length = coalesce_contiguous(
++                            staged.data_ptr() + np.arange(rows, dtype=np.int64) * unit,
++                            dst_base + dst_tok * unit,
++                            np.full(rows, unit, dtype=np.int64),
++                        )
++                        src_addrs += src.tolist()
++                        dst_addrs += dst.tolist()
++                        sizes += length.tolist()
++                        offset += rows * unit
++                    stream.synchronize()
++                    if not self._rdma_write_with_retry(
++                        target, src_addrs, dst_addrs, sizes, req_id, "staged-kv",
++                        engine=engine,
++                    ):
++                        logger.error(
++                            "[PRODUCER] staged KV transfer failed for req %s", req_id
++                        )
++                        return False
++                finally:
++                    self._kv_staging_slots.put(slot)
++        return True
++
+     def _execute_staged_index_layer_chunk(
+         self,
+         target: str,
+--- a/atom/model_ops/attentions/aiter_mla.py
++++ b/atom/model_ops/attentions/aiter_mla.py
+@@ -1530,7 +1530,8 @@
+                     f"{scheduler_block_size}"
+                 )
+             index_staging_pool_size = _index_staging_pool_size(runner.config)
+-            index_staging_chunk_pages = 256
++            # Pages per synchronous RDMA write of one index layer.
++            index_staging_chunk_pages = 2048
+             first_index_page = index_tensors[0]
+             index_head_dim = getattr(runner.config.hf_config, "index_head_dim", None)
+             page_bytes = first_index_page.stride(0) * first_index_page.element_size()

@@ -1,0 +1,74 @@
+# 实验记录
+
+时间均为 UTC。计划见 [../plan/plan.md](../plan/plan.md)。
+
+## 2026-09-23
+
+- 09:28 作业 31626 开始（Compute-DCPT，2 节点，至 2026-09-24 09:28）。Prefill 节点 `smci355-ccs-aus-n02-33`，Decode 与控制服务节点 `smci355-ccs-aus-n10-29`。登录入口 `dccs-1334-slurm.prov.aus.ccs.cpe.ice.amd.com`。
+- 09:35 节点检查：
+  - n02-33：fenic `10.235.192.133`；`ionic_0-7` ACTIVE，rail 地址 `192.168.{1..8}.16`；GPU 显存 0%；他人容器 `sikl.jihhe`（sglang）、`dev_primus_mxfp6_265`（primus），未占显存。
+  - n10-29：fenic `10.235.192.140`；`ionic_0-7` ACTIVE，rail 地址 `192.168.{1..8}.72`；yihou 的 `glm52-pd-yihou-sn-p4d4-n1029-{prefill-0,decode-0,etcd}`（08:36-08:43 启动）占满 8 张 GPU（显存 85-86%），并占用端口 22379、29001。
+  - 两节点 libionic 为 `1.1.54.0-187`，docker 29.4.0，Docker Hub、GitHub、PyPI、HuggingFace 可达。
+  - rail 测试：同 rail ping 通，跨 rail 不通；`ionic_i` 与 benic 的对应在两节点一致（`ionic_2→benic4p1`、`ionic_3→benic3p1`、`ionic_6→benic8p1`、`ionic_7→benic7p1`）。
+- 09:42 模型目录由用户指定为 `/apps/data/models/GLM-5.2-MXFP4`，实际路径 `/perf_apps/data/models/GLM-5.2-MXFP4`（282 个分片，408G，`GlmMoeDsaForCausalLM`，78 层 + 1 层 MTP，quark）。
+- 09:45 用户授权：GPU 步骤开始时 `docker stop`（不删除）两节点上的他人容器。
+- 09:50 计划确认，开始执行。基础镜像 `rocm/atom-dev:nightly_202609221542`，Docker Hub digest `sha256:8d7ebab3069a…`，与 `latest` 相同。
+- 09:54 n10-29 拉取基础镜像完成（73 秒）：image ID `sha256:a2a828c6d2905389c7c665409e048007d3df32eeecb4d76f3a019eded284246c`，repo digest `sha256:8d7ebab3069ad4186312af82b3dc7e736b7a9d411e0863f1be81794c38312e7e`，解压后 50.2 GB。
+- 09:56 写入 `docker/Dockerfile` 被拦截：会话处于 Plan 模式，只允许编辑 markdown，等待用户改为 Agent 模式。
+- 09:57 用户改为 Agent 模式。写入 `docker/Dockerfile`、`config.sh`、`scripts/{common,build_image,up,down,smoke}.sh`、`.gitignore`。
+- 09:58 第一次构建（`.[atom]`）：pip 把 protobuf 升到 7.36.2，与基础镜像的 `opentelemetry-proto`（要求 `<7`）冲突，见 issues.md 第 3 条。停止已开始的镜像同步。
+- 10:00 第二次构建（`.[atom]` + `protobuf<7`）：image ID `sha256:318752bb4cbe2c19ade55932a854fbf54e3efc56d40b48ab7b778dfed3e28163`。无 GPU 校验：
+  - `pip check` 输出与基础镜像逐行相同，没有新增冲突（基础镜像自带 lmcache 可选依赖缺失、`atom` 要求 `prometheus_client>=0.25` 而实际为 0.23.1 等条目）。
+  - `import atom, infera, mooncake.engine, lm_eval` 成功；`python -m infera.engine.atom --help` 正常；KV-event `.pth` 已安装。
+  - 版本：ATOM `d9f0720e2f99`（2026-09-22 15:02 UTC，#2356），`amd-aiter` 位于 `/app/aiter-test`，`amd_mori_nightly 1.2.4.dev20260910`，`lmcache 0.5.5rc3`，`lm_eval 0.4.13`，`transformers 5.16.1`，`torch 2.10.0+rocm7.2.4`，`atomesh 0.1.0`；容器内 libionic 为 `1.0.54.0-149`，启动时由入口脚本换成宿主的 `1.1.54.0-187`。
+- 10:00 ATOM 的 `openai_server --help` 在格式化帮助文本时抛 `TypeError: %o format`，改为读取 argparse 注册表核对参数：`up.sh` 用到的参数全部存在；`--level` 默认 3、`--cudagraph-mode` 默认 FULL，从脚本中删去。
+- 10:01 n02-33 预先拉取基础镜像（65 秒），之后执行 `scripts/build_image.sh` 同步到 n02-33。
+- 10:02 按授权 `docker stop`（未删除）他人容器：n10-29 的 `glm52-pd-yihou-sn-p4d4-n1029-{decode-0,prefill-0,etcd}`（镜像 `infera-sglang:v0519-yihou-aus-n1029-nextnfix-hicache`，已运行约 1 小时）；n02-33 的 `sikl.jihhe`（`lmsysorg/sglang-rocm:v0.5.19-rocm720-mi35x-20260916`）、`dev_primus_mxfp6_265`（`rocm/primus:v26.5`）。停止后两节点 16 张 GPU 显存均为 0%，本套件端口空闲。
+- 10:03 镜像同步完成（`build_image.sh` 用时 2 分 21 秒），两节点 `infera-atom:nightly_202609221542` 的 image ID 均为 `sha256:318752bb4cbe…`。
+- 10:05 启动部署：`scripts/up.sh CONC=16 MTP_AL=`（MTP K4，forced acceptance 关闭），运行目录 `.tmp/runs/bringup-c16-noal`。10:07 `up.sh` 随 SSH 会话退出（issues.md 第 4 条），容器继续运行。
+- 10:12 两个引擎就绪（冷启动约 8 分钟：NFS 加载权重约 6 分钟，decode 每卡加载与在线量化峰值 104.56 GB，其后 torch.compile 与 cudagraph）。decode 日志出现 `Sparse DCP persistent attention enabled`。两者注册到 etcd，prefill 注册信息为 `tp_size=8, dp_size=1`。
+- 10:14 手动执行 `up.sh` 末尾的路由启动命令；`/v1/workers` 为 1 个 prefill、1 个 decode。
+- 10:15 `scripts/smoke.sh` 通过：
+  - `/v1/completions` 返回 " Paris. It is situated on the river Seine, in the north of the country"。
+  - 流式 `/v1/chat/completions`（17 × 23）返回 "391"，最后一个 chunk 带 usage 与 `kv_transfer_params`（`dcp_size=4`，`block_size=16`）。chat 路径的 PD 经 Infera Python 路由可用。
+  - prefill 的 8 个 DP rank 各自 `Auto-selecting RDMA devices ionic_<gpu>`，`Mooncake TransferEngine initialized: ... protocol=rdma`；decode 每个 rank 注册 8 张 ionic（alternate HCA 生效），`protocol=rdma`。
+- 10:17 GSM8K 5-shot 200 题开始（`.tmp/gsm8k.sh`，`lm_eval local-chat-completions`，并发 64，经路由）。
+- 10:17:49 prefill 的 ModelRunner 退出（issues.md 第 5 条，DPA + `--enforce-eager` 的 MoE 断言）。10:23 停止 GSM8K，`down.sh` 保存日志到 `.tmp/runs/bringup-c16-noal/logs/`。
+- 10:24 prefill 改为 `--max-num-seqs 64 --cudagraph-capture-sizes "[1,2,4,8,16,32,64]"`（去掉 `--enforce-eager`），以 `nohup setsid` 重新执行 `up.sh CONC=16 MTP_AL= RUN_ID=bringup2-c16-noal`。
+- 10:25 写入 `scripts/agentx.sh`、`scripts/sweep.sh`、`scripts/summarize.py`、`README.md`；InferenceX `918524ff` 已克隆到 `.tmp/cache/InferenceX`（aiperf 子模块 `754356e9`）。
+- 10:26 第二次部署（prefill 开 cudagraph）启动失败，见 issues.md 第 5 条。10:35 与用户确认：decode 必须保留 MTP；prefill 侧用 patch 调通。
+- 11:16 写入 `patch/atom-moe-eager-decode-pad.diff`，Dockerfile 用 `git -C /app/ATOM apply` 打入；11:18 镜像 `sha256:cb8c9eee3ee2…` 同步到两节点。
+- 11:21 第三次部署 `bringup3-c16-noal`（prefill `--enforce-eager` + patch），11:30 `up.sh` 全流程完成（etcd、两引擎、路由、`/v1/workers` 两个 worker）。smoke 通过。
+- 11:31 GSM8K 5-shot 200 题：exact_match 0.98 ± 0.0099（flexible 与 strict 相同），高于 ATOM PD recipe 的 0.961，通过。200 个请求约 70 秒完成，prefill 与 decode 无报错；请求分布在 8 个 DP rank（23-28 个/rank），跨 rail 传输正常；decode 真实 MTP 接受率约 72%，平均 3.9 token/前向；decode 侧 `pd_kv_transfer_seconds` 均值 0.45 s（202 次）。
+- 11:37 prefill 每个请求有一次 decode 形态前向（各 rank `decode_batch_size_sum` 等于请求数）。探测脚本 `.tmp/eager_step_probe.sh`：同一 1500 token 提示串行 16 次，prefix cache 命中（新 token 12）时 prefill 调度到输出为 215-330 ms，未命中（1500 token）为 250-265 ms，说明每请求约 200 ms 的固定开销主要来自 eager 前向与 DP 逐层同步，与 prefill 计算量关系不大。
+- 11:42 为降低该开销，尝试 prefill `--cudagraph-mode PIECEWISE`（`PREFILL_GRAPH_ARGS` 改为可配置，默认仍为 `--enforce-eager`），失败。
+- 11:50-12:10 定位 prefill graph 模式故障，结论见 issues.md 第 5 条：故障在 drafter 合成预热；跳过预热后 graph 模式可启动，但延迟与 eager 相同。`EXTRA_ENV` 拆为 `PREFILL_EXTRA_ENV`/`DECODE_EXTRA_ENV`。
+- 12:14 默认配置定为 prefill eager + 第一个 patch，两节点镜像标签指回 `sha256:cb8c9eee3ee2…`。
+- 注：本机不带 shell_id 的等待不会阻塞，之后改为后台跟踪日志（`tail -f | grep -m1`）等待；远程 `pkill -f` 会匹配到执行它的 shell 自身，改用 `ps` 按参数精确匹配。
+- 12:15 AgentX 链路验证：`sweep.sh POINTS=16 DURATION=600 WARMUP_PER_LANE=1 SWEEP_ID=check-600s RESULTS_DIR=.tmp/results-check`。uv、Python 3.11、aiperf venv 安装到 `.tmp/cache/agentx`，数据集配置 182 s，12:19 开始预热，12:24 开始测量，12:34 结束；聚合 JSON、错误率校验（0/155）、`atom:` 指标校验、`down.sh`、`summarize.py` 全部通过。结果（alternate HCA 配置）：12 卡，total 2827.39 tok/s/GPU，output 21.77 tok/s/GPU，TTFT p50 13.09 s / p90 34.28 s，ITL p50 6.83 ms，intvty p50 146.47，profiled 155，duration 626 s；ISL p50 约 10.7 万 token，理论 prefix cache 命中 95.1%，有效并发均值 6.47。
+- 12:23 发现 KV 传输平均 36.4 s/次且 prefill 网卡有重传超限（issues.md 第 2 条），改为 prefill matched rails + decode 单网卡。
+- 12:37 以相同参数重跑验证：`SWEEP_ID=check2-matchedrails`。12:57 结果：total 2861.15 tok/s/GPU，output 21.21，TTFT p50 13.07 s / p90 34.01 s，ITL p50 6.96 ms，profiled 156，错误 0；与 alternate HCA 配置基本相同。
+- 12:59 端口冲突导致 prefill 启动失败，端口改到临时端口范围之外（issues.md 第 7 条）。
+- 13:03 KV 传输基线（空闲，10 万 token）：4.93-5.56 s。13:07 批大小试验（262144）变慢为 10.65-11.44 s。
+- 13:15-13:45 编写并验证 `patch/atom-dcp-kv-staging.diff`（issues.md 第 6 条），镜像依次为 `sha256:cbcec5745ebf…`、`sha256:60053e6be1db…`、`sha256:8b059fe92ec4…`（当前）。
+- 13:46 以最终镜像运行 AgentX 验证：`SWEEP_ID=check3-staging`（C16，600 s，每 lane 预热 1）。
+- 14:05 check3 结果：total 2732.42 tok/s/GPU，output 20.65，TTFT p50 14.46 s / p90 37.04 s，ITL p50 6.73 ms，profiled 148，错误 0；TTFT 与 check2 相近。prefill 日志显示各 DP rank 的 prefix cache 命中率为 24%-41%（issues.md 第 8 条）。
+- 14:11 写入 `patch/infera-forward-session-headers.diff`，Dockerfile 按文件名前缀分别对 `/app/ATOM` 与 `/opt/infera` 应用 patch，prefill 增加 `ATOM_DP_SESSION_AFFINITY=1`；镜像 `sha256:b7807ac42574…` 同步到两节点，镜像内 `site-packages/infera` 已包含改动。
+- 14:14 AgentX 验证 `SWEEP_ID=check4-affinity`（C16，600 s，每 lane 预热 1）。引擎约 2 分钟就绪（编译缓存命中）。
+- 14:32 check4 结果：total 4888.7 tok/s/GPU，output 31.24，TTFT p50 1.50 s / p90 9.24 s，ITL p50 8.36 ms，intvty p50 119.63，profiled 252（发送 254，结束时 2 个在途被取消），错误 0；prefill 各 DP rank 命中率 49%-92%。引擎与路由日志无 Traceback、ERROR 与 5xx。decode KV cache 占用最高 30.3%，同时运行最多 8 个请求。
+- 14:34 完整测试开始：`scripts/sweep.sh`（`POINTS="16 24 32 40 48"`，每档 3600 s，每 lane 预热 10），日志 `.tmp/logs/sweep.log`，每档冷启动，结果写入 `results/`。
+- 14:36 用户要求只测 2p1d 参考的并发档位 C80、C112、C144、C192、C256。结束 sweep 进程组（EXIT trap 执行 `down.sh`，AgentX 容器手动删除），`config.sh` 的 `POINTS` 默认值改为 `80 112 144 192 256`；各档 CONC ≥ 48，MTP 为 K3、acceptance 2.99，decode `--max-num-seqs` 与 cudagraph 尺寸仍为 `2*CONC`（C256 为 512，130 个尺寸）。
+- 14:40 单独启动 C256 服务（`RUN_ID=startup-c256`），检查 decode 的 cudagraph 捕获时间、显存与 KV 容量。14:43 就绪（约 3 分钟）：decode 130 个 cudagraph 尺寸，内存池 6.34 GB；每 rank 模型与激活峰值 112.13 GB，KV 99.72 GB，137491 个 block，DCP4 合计约 880 万 token，10.5 万 token 的请求最多同时 83 个。
+- 14:44 完整测试开始：`scripts/sweep.sh`（默认 `POINTS="80 112 144 192 256"`，每档 3600 s，每 lane 预热 10），日志 `.tmp/logs/sweep.log`。14:50 C80 开始预热（`sweep-20260923T144437Z-c80`，目标 884 个预热请求）。
+- 14:55:33 作业 31626 被抢占（sacct：`PREEMPTED`），C80 在预热阶段中断；14:57:46 作业以同一编号重新运行，节点为 `smci355-ccs-aus-n04-25`、`smci355-ccs-aus-n04-29`，时限 24 小时（至 2026-09-24 14:57:46）。15:03 发现 SSH 到 n10-29 被 pam_slurm_adopt 拒绝（issues.md 第 9 条）。
+- 15:04 新节点检查：
+  - n04-25：fenic `10.235.192.131`，`ionic_0-7`（RoCE v2，GID 1 为 `192.168.{1..8}.22`），8 张 GPU 空闲，无容器；host libionic 1.1.54。
+  - n04-29：fenic `10.235.192.57`，`ionic_0-7`（GID 1 为 `192.168.{1..8}.24`），8 张 GPU 空闲；host libionic 1.1.39；他人容器 `sikl.jihhe`（`sleep infinity`，映射 `/dev/kfd`、`/dev/dri`，未占显存）。
+  - 两节点均无 ATOM 基础镜像与本套件镜像；模型目录可访问；临时端口范围 32768-60999，本套件端口空闲。
+- 15:05 n04-29 开始拉取基础镜像。15:06 按此前对 n02-33 同一容器的授权 `docker stop`（未删除）n04-29 的 `sikl.jihhe`。`config.sh` 改为 prefill n04-25、decode 与控制节点 n04-29。
+- 15:06 基础镜像拉取完成（repo digest 与之前相同）；15:10 `build_image.sh` 完成，两节点镜像 `sha256:4aa7d9b22846…`。
+- 15:10 冷启动 `up.sh CONC=80 MTP_AL= RUN_ID=bringup-n04-c80-noal`：prefill（n04-25）15:18 就绪；decode（n04-29）在 KV 分配后 OOM 退出（issues.md 第 10 条），日志保存到 `.tmp/runs/bringup-n04-c80-noal/logs/decode-oom.log`。
+- 15:24 `.tmp/decode_probe.sh` 在 n04-29 同时启动两个 decode 实例（peer-mem 与 dma-buf 两种注册方式），均在显存约 243 GB 时 OOM。
+- 15:28 作业第二次被抢占（issues.md 第 9 条），两台节点无法访问，15:33 作业结束并重新排队。
+- 15:40 查询抢占来源与 QOS 配置（issues.md 第 9 条）。用户要求分配到问题节点时暂停。作业排队中，调度器计划 16:14 在 n04-[25,29] 启动。
+- 15:55 写入阶段报告 [report.md](report.md)：现状、完成的工作、解决的问题、测试结果、脚本运行方法、未完成部分与风险。
