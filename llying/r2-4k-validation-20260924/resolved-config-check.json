@@ -1,0 +1,35 @@
+{
+  "scope": "config sourcing only; no services started; nodes unassigned",
+  "stages": {
+    "smoke": {
+      "PREFILL_CHUNK_SIZE": "32768",
+      "DECODE_CHUNK_SIZE": "32768",
+      "PREFILL_HICACHE": "0",
+      "DECODE_HICACHE": "0",
+      "PREFILL_SEED": "823508857",
+      "DECODE_SEED": "19197414",
+      "INFERA_R2_DECODE_DEMAND": "on",
+      "INFERA_R3_CACHE_TIERS": "off",
+      "INFERA_R4_PREFILL_WORK": "off",
+      "GUARD_MODE": "decode",
+      "RUST_LOG": "info",
+      "BASELINE_RUN": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode",
+      "SMOKE_ONLY": "1"
+    },
+    "performance": {
+      "PREFILL_CHUNK_SIZE": "32768",
+      "DECODE_CHUNK_SIZE": "32768",
+      "PREFILL_HICACHE": "1",
+      "DECODE_HICACHE": "0",
+      "PREFILL_SEED": "823508857",
+      "DECODE_SEED": "19197414",
+      "INFERA_R2_DECODE_DEMAND": "on",
+      "INFERA_R3_CACHE_TIERS": "off",
+      "INFERA_R4_PREFILL_WORK": "off",
+      "GUARD_MODE": "decode",
+      "RUST_LOG": "info,infera_router::routing_experiments=warn",
+      "BASELINE_RUN": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode",
+      "SMOKE_ONLY": "0"
+    }
+  }
+}

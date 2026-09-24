@@ -1,5 +1,5 @@
 {
-  "status": "PROPOSED_NOT_APPROVED_NOT_RUNNING",
+  "status": "SUPERSEDED_DO_NOT_EXECUTE",
   "reference": "/perf_apps/liyingli/bench_agentx/p8d8-baseline4k-31625-20260923/runs/baseline4k-c80-31625",
   "image_tag": "infera-sglang:aus-0922-reqtrace",
   "image_id": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
@@ -97,5 +97,6 @@
       "r4": "off"
     }
   ],
-  "execution": "Restart P/D for each formal comparison. No run until explicit user config approval. R3 scheduling priority should be reconsidered because this observation changed no P selections."
+  "execution": "User explicitly accepts node differences and forbids repeated baselines merely due to changing nodes. Use historical full 4K A0; short no-HiCache R2-on smoke, then approved R2-on 4K performance only. This earlier three-arm proposal is superseded.",
+  "superseded_by": "../r2-4k-validation-20260924/PLAN.zh-CN.md"
 }

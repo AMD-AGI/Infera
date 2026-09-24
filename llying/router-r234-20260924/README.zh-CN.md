@@ -81,3 +81,9 @@ cargo build --manifest-path rust/Cargo.toml -p infera-router --release
 5. 正式 A/B 每轮重启 P/D，固定容量、4K chunk、C80、884 warmup 和 3600 秒窗口；遵循已有可比启动要求，不恢复旧的默认复用 P/D 方案。
 
 尚未执行 GPU 跑通或性能测试，尚无这份实现的吞吐收益结论。
+
+## 仅关闭新增逐候选诊断
+
+逐候选事件使用独立 target `infera_router::routing_experiments`。短 smoke 保持 `RUST_LOG=info`；正式 R2 测试可用 `RUST_LOG=info,infera_router::routing_experiments=warn` 关闭这些事件，保留原策略基础日志与 P 生命周期日志。该过滤不关闭 R2 输入计算或需求账本，不改变选择结果；R2 本身的计算成本仍属于被测算法。
+
+最新实验安排为 [无 HiCache 短 smoke 后直接比较历史4K](../r2-4k-validation-20260924/PLAN.zh-CN.md)，不因节点变化重跑基线。

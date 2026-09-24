@@ -748,10 +748,12 @@ impl Policy for KvEventAwarePolicy {
         } else {
             0
         };
-        if observe {
+        if observe
+            && tracing::enabled!(target: "infera_router::routing_experiments", tracing::Level::INFO)
+        {
             for i in 0..targets.len() {
                 let cache = caches[i];
-                tracing::info!(decision_id, role=?role, demand_mode=?mode, tier_mode=?self.experiments.tiers,
+                tracing::info!(target: "infera_router::routing_experiments", decision_id, role=?role, demand_mode=?mode, tier_mode=?self.experiments.tiers,
                     target=%keys[i], input_tokens=?lengths[i], work_tokens=?work[i], demand_cost=?demand_costs[i],
                     demand_known=demand_pick.is_some(), legacy_cost=legacy_costs[i], tier_cost=tier_costs[i],
                     gpu_hits=cache.gpu_hits, host_hits=cache.host_hits, tier_stats=?cache.stats,
@@ -1536,5 +1538,51 @@ mod tests {
         assert_eq!(policy.demand.lock().unwrap()["a"].unknown, 1);
         drop(pick);
         assert!(policy.demand.lock().unwrap().is_empty());
+    }
+    #[test]
+    fn candidate_diagnostics_can_be_disabled_without_hiding_legacy_pick_logs() {
+        #[derive(Clone)]
+        struct Buffer(Arc<Mutex<Vec<u8>>>);
+        impl std::io::Write for Buffer {
+            fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+                self.0.lock().unwrap().extend_from_slice(bytes);
+                Ok(bytes.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        for enabled in [true, false] {
+            let output = Arc::new(Mutex::new(Vec::new()));
+            let writer = Buffer(output.clone());
+            let filter = if enabled {
+                "info"
+            } else {
+                "info,infera_router::routing_experiments=warn"
+            };
+            let subscriber = tracing_subscriber::fmt()
+                .with_env_filter(filter)
+                .with_ansi(false)
+                .without_time()
+                .with_writer(move || writer.clone())
+                .finish();
+            tracing::subscriber::with_default(subscriber, || {
+                let policy = experiment_policy(Experiments {
+                    decode: Mode::On,
+                    ..Default::default()
+                });
+                let pick = policy.pick(
+                    &[worker("a", 0, None)],
+                    &json!({"prompt":[1,2,3]}),
+                    Role::Decode,
+                );
+                assert_eq!(policy.demand.lock().unwrap()["a"].tokens, 3.0);
+                drop(pick);
+                assert!(policy.demand.lock().unwrap().is_empty());
+            });
+            let text = String::from_utf8(output.lock().unwrap().clone()).unwrap();
+            assert!(text.contains("pick policy="));
+            assert_eq!(text.contains("routing experiment candidate"), enabled);
+        }
     }
 }

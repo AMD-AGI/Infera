@@ -1,0 +1,10 @@
+--- a/scripts/bench-harness/launch.sh
++++ b/scripts/bench-harness/launch.sh
+@@ -167,6 +167,7 @@
+     -e "INFERA_R3_CACHE_TIERS=$INFERA_R3_CACHE_TIERS" \
+     -e "INFERA_R3_HOST_WEIGHT=$INFERA_R3_HOST_WEIGHT" \
+     -e "INFERA_R4_PREFILL_WORK=$INFERA_R4_PREFILL_WORK" \
++    -e "RUST_LOG=${RUST_LOG:-info}" \
+     -v "$ROUTER_BINARY_OVERRIDE:/usr/local/bin/infera-router:ro" \
+     -v "$MODEL:$MODEL:ro" "$IMAGE" "${router_args[@]}"
+ 

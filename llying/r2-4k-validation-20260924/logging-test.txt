@@ -1,0 +1,36 @@
+   Compiling infera-router v0.1.0 (/home/liyingli/code/bench_agentx/Infera/rust/router)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 25.88s
+     Running unittests src/lib.rs (/tmp/infera-r234-target/debug/deps/infera_router-07989c28fa65a3fb)
+
+running 28 tests
+test policy::tests::a_fully_cached_pick_is_charged_nothing ... ok
+test policy::tests::a_pick_with_no_block_information_is_still_charged ... ok
+test policy::tests::a_healthy_chain_is_never_asked_to_flush ... ok
+test policy::tests::a_repair_is_delivered_even_on_a_pick_that_found_hits ... ok
+test policy::tests::a_worker_whose_chain_never_anchored_is_asked_to_flush ... ok
+test policy::tests::kv_aware_prefers_worker_with_cached_prefix ... ok
+test policy::tests::a_repair_is_delivered_on_a_pick_that_wanted_no_blocks ... ok
+test policy::tests::confirmed_render_mismatch_marks_demand_unknown ... ok
+test policy::tests::decode_counts_input_without_kv_metadata_and_releases_abandoned_picks ... ok
+test policy::tests::candidate_diagnostics_can_be_disabled_without_hiding_legacy_pick_logs ... ok
+test policy::tests::mm_affinity_new_image_balances_by_load ... ok
+test policy::tests::mm_affinity_sticks_repeat_image_to_one_worker ... ok
+test policy::tests::prefill_reservation_can_end_while_decode_guard_is_still_alive ... ok
+test policy::tests::prefill_work_can_choose_less_cache_when_backlog_is_smaller ... ok
+test policy::tests::r3_shadow_keeps_legacy_pick_and_on_uses_host_residency ... ok
+test policy::tests::mm_affinity_lru_capped ... ok
+test policy::tests::recent_load_decays_back_to_zero_when_a_worker_goes_idle ... ok
+test policy::tests::refcount_started_finished_balances ... ok
+test policy::tests::r1_split_releases_legacy_p_blocks_without_releasing_decode ... ok
+test policy::tests::round_robin_rotates ... ok
+test policy::tests::sync_prunes_removed_worker_recent_load ... ok
+test policy::tests::multimodal_misses_do_not_trip_the_dead_feed_alarm ... ok
+test policy::tests::unknown_input_is_recorded_instead_of_charged_as_zero_known_work ... ok
+test policy::tests::shadow_demand_keeps_legacy_choices ... ok
+test policy::tests::sync_prunes_removed_worker_load ... ok
+test policy::tests::sync_prunes_removed_worker_mm_affinity ... ok
+test policy::tests::recent_dispatch_keeps_a_load_signal_between_requests ... ok
+test policy::tests::concurrent_decode_selection_books_before_next_pick ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 247 filtered out; finished in 0.03s
+
