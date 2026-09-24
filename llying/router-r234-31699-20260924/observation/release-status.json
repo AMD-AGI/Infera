@@ -1,0 +1,9 @@
+{
+  "checked_utc": "2026-09-24T09:44:54.699616+00:00",
+  "stop_commands_succeeded": false,
+  "prefill": "Scheduler reports unexpected reboot at 2026-09-24T09:39:55; old process ended with reboot. Direct container/VRAM verification unavailable.",
+  "decode": "Allocated without a current job owned by this user; pam_slurm_adopt denies SSH. Residual container cleanup unknown.",
+  "job_31699": "No longer queryable; accounting storage disabled.",
+  "watchdog": "No cleanup event records available.",
+  "next_requirement": "Restored allocation/access or administrator verification of captured container IDs."
+}
