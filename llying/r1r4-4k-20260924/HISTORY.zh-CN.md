@@ -27,3 +27,9 @@ R1+R4无HiCache smoke于18:26:54开始模型启动。两端初始化中。smoke�
 20:51:01 UTC：第三次正式尝试仍被抢占于warmup，未进入profiling。此次分配20:20:57，恰在可抢占期20:50:57之后触发。启动时31725并不覆盖当前节点，但随后出现新的dcgpu-test31733，说明预测不能保证后续窗口。决定下一次不再随每个短暂分配立即加载HiCache；先等待当前密集高优先级提交阶段并继续监控。三次已启动正式尝试均未完成预热；smoke结果不重复。
 
 20:57 UTC：Slurm已自动重排，Restarts=4（3次抢占+1次主动重排）。最早分配时间后移至21:30 UTC，保留batch申请并持续观察高优先级任务。下一次实际实验使用performance-attempt4.sh；没有修改模型/负载配置，也不重复smoke。
+
+21:30:01 UTC获得n04-21/n04-25，未启动模型。读取实际QoS规则确认dcgpu-test/shared-medium可抢占batch、normal不可抢占batch；当前31738明确需要本节点集合且为dcgpu-test。21:33主动requeue未使用的分配，最早21:45继续等待，避免再次在已知短窗口加载HiCache。Restarts=5包含3次外部抢占和2次未启动模型的主动重排。QoS证据见review/qos-preemption.json。
+
+21:45:01 UTC再次分配n05-21/n05-29。Slurm只有本job在这两节点；停止两台的残留k3-extract（容器34fa17b9...和edfd7899...）后16卡均约0.096%显存。D无镜像，已从共享baseline-image.tar加载并验证。客户端准备完成。31738已FAILED，当前无新的已知可运行同类抢占任务。21:55:24第四次实际正式尝试开始模型加载，CONFIG=performance-attempt4.sh，未重做完整smoke。
+
+22:10:01 UTC：第四次实际正式尝试开始884条warmup，模型/容量/4K/R1+R4配置校验及缓存reset通过，首批请求正常完成。尚未进入profiling。

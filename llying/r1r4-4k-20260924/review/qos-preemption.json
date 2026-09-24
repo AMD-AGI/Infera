@@ -1,0 +1,172 @@
+{
+  "observed_at": "2026-09-24T21:33:11.387752+00:00",
+  "qos": [
+    {
+      "name": "normal",
+      "priority": 0,
+      "preempts": [],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "debug",
+      "priority": 50,
+      "preempts": [
+        "long-run",
+        "normal"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "batch",
+      "priority": 500,
+      "preempts": [
+        "debug",
+        "long-run",
+        "normal",
+        "shared-low"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "perf",
+      "priority": 1000,
+      "preempts": [
+        "batch",
+        "debug",
+        "long-run",
+        "normal",
+        "shared-low"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "dcgpu-prod",
+      "priority": 10000,
+      "preempts": [
+        "batch",
+        "dcgpu-test",
+        "debug",
+        "long-run",
+        "normal",
+        "perf",
+        "shared-low",
+        "shared-medium",
+        "special-group"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "dcgpu-test",
+      "priority": 5000,
+      "preempts": [
+        "batch",
+        "debug",
+        "long-run",
+        "normal",
+        "perf",
+        "shared-low",
+        "shared-medium",
+        "special-group"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "shared-low",
+      "priority": 100,
+      "preempts": [
+        "debug",
+        "long-run",
+        "normal"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "shared-medium",
+      "priority": 1000,
+      "preempts": [
+        "batch",
+        "debug",
+        "long-run",
+        "normal",
+        "shared-low"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "special-group",
+      "priority": 2000,
+      "preempts": [
+        "batch",
+        "debug",
+        "long-run",
+        "normal",
+        "perf",
+        "shared-low",
+        "shared-medium"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "dcgpu-fullpool",
+      "priority": 20000,
+      "preempts": [
+        "batch",
+        "dcgpu-prod",
+        "dcgpu-test",
+        "debug",
+        "long-run",
+        "normal",
+        "perf",
+        "shared-low",
+        "shared-medium",
+        "special-group",
+        "sponsor"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "sponsor",
+      "priority": 15000,
+      "preempts": [
+        "batch",
+        "dcgpu-prod",
+        "dcgpu-test",
+        "debug",
+        "long-run",
+        "normal",
+        "perf",
+        "shared-low",
+        "shared-medium",
+        "special-group"
+      ],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    },
+    {
+      "name": "long-run",
+      "priority": 0,
+      "preempts": [],
+      "mode": "cluster",
+      "grace": "00:05:00"
+    }
+  ],
+  "batch_preemptors": [
+    "perf",
+    "dcgpu-prod",
+    "dcgpu-test",
+    "shared-medium",
+    "special-group",
+    "dcgpu-fullpool",
+    "sponsor"
+  ]
+}

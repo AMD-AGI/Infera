@@ -1,12 +1,12 @@
 {
   "prefill": {
     "job": "31719",
-    "node": "smci355-ccs-aus-n01-33",
-    "start": "2026-09-24T20:20:57"
+    "node": "smci355-ccs-aus-n05-21",
+    "start": "2026-09-24T21:45:01"
   },
   "decode": {
     "job": "31719",
-    "node": "smci355-ccs-aus-n02-21",
-    "start": "2026-09-24T20:20:57"
+    "node": "smci355-ccs-aus-n05-29",
+    "start": "2026-09-24T21:45:01"
   }
 }

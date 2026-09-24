@@ -1,19 +1,30 @@
 {
+  "updated_at": "2026-09-24T22:11:20.866398+00:00",
   "job": 31719,
   "qos": "batch",
-  "status": "PENDING_BEGIN_TIME",
-  "earliest_allocation_start": "2026-09-24T21:30:00Z",
-  "allocation_restarts": 4,
-  "completed_formal_attempts": 0,
+  "allocation_start": "2026-09-24T21:45:01Z",
+  "allocation_restarts": 5,
+  "experimental_attempt": 4,
+  "status": "WARMUP",
+  "config": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/config/performance-attempt4.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt4",
+  "prefix": "llying-r1r4-31719-performance-attempt4",
+  "prefill": {
+    "node": "smci355-ccs-aus-n05-21",
+    "ip": "10.235.192.138"
+  },
+  "decode": {
+    "node": "smci355-ccs-aus-n05-29",
+    "ip": "10.235.192.137"
+  },
+  "model_start": "2026-09-24T21:55:24Z",
+  "profiling_started": false,
+  "smoke": "completed, not repeated",
   "preempted_warmup_attempts": 3,
-  "next_experimental_attempt": 4,
-  "next_config": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/config/performance-attempt4.sh",
-  "run_if_ready": "same C80 effective4K R1+R4, P HiCache on, R2/R3 off,884 warmup then3600s",
-  "full_smoke": "passed and will not repeat",
+  "voluntary_requeues_without_model_start": 2,
   "exclusions": [
     "smci355-ccs-aus-n04-29",
     "smci355-ccs-aus-n04-33"
   ],
-  "temporary_exclusion": "n04-33 VRAM residue; not declared a permanent hardware fault",
-  "monitoring": "periodic queue and scheduling checks; no model process currently running under this allocation"
+  "warmup_start": "2026-09-24T22:10:01Z"
 }

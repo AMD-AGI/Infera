@@ -12,13 +12,15 @@ def nodes(spec):
  return subprocess.check_output(['/opt/slurm/bin/scontrol','show','hostnames',spec],text=True,timeout=10).split()
 own=job(31719);assigned=set(nodes(own.get('NodeList') or own.get('SchedNodeList')))
 ids=subprocess.check_output(['/opt/slurm/bin/squeue','-p','Compute-DCPT','-t','PD','-h','-o','%i'],text=True,timeout=10).split()
+policy=json.loads((root/'review/qos-preemption.json').read_text()) if (root/'review/qos-preemption.json').exists() else {}
+preemptors=set(policy.get('batch_preemptors',[]))
 plans=[]
 for j in ids:
  if not j.isdigit() or j=='31719':continue
  f=job(j)
  if f.get('QOS')=='batch':continue
  scheduled=set(nodes(f.get('SchedNodeList') or f.get('ReqNodeList')))
- plans.append({'job':j,'qos':f.get('QOS'),'state':f.get('JobState'),'planned_start':f.get('StartTime'),'planned_end':f.get('EndTime'),'nodes':sorted(scheduled),'overlap_with_our_nodes':sorted(assigned&scheduled)})
-report={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'own':{k:own.get(k) for k in ['JobId','JobState','StartTime','EndTime','PreemptTime','PreemptEligibleTime','Restarts','NodeList','SchedNodeList']},'higher_qos_pending':plans,'note':'Forecasts may change; use for pre-launch planning, not as an automatic failure gate.'}
+ plans.append({'job':j,'qos':f.get('QOS'),'can_preempt_batch':f.get('QOS') in preemptors,'state':f.get('JobState'),'planned_start':f.get('StartTime'),'planned_end':f.get('EndTime'),'nodes':sorted(scheduled),'overlap_with_our_nodes':sorted(assigned&scheduled)})
+report={'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'own':{k:own.get(k) for k in ['JobId','JobState','StartTime','EndTime','PreemptTime','PreemptEligibleTime','Restarts','NodeList','SchedNodeList']},'non_batch_pending':plans,'note':'Forecasts may change; use for pre-launch planning, not as an automatic failure gate.'}
 with (root/'events/scheduling-plans.jsonl').open('a') as f:f.write(json.dumps(report)+'\n')
 print(json.dumps(report,indent=2))

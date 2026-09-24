@@ -1,0 +1,44 @@
+[
+  {
+    "attempt": 1,
+    "run": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance",
+    "first_client_request_utc": "2026-09-24T18:49:54.463463+00:00",
+    "cleanup_requested_utc": "2026-09-24T18:50:35.078468+00:00",
+    "last_client_record_utc": "2026-09-24T18:50:35.289580+00:00",
+    "first_client_error_utc": "2026-09-24T18:50:35.230748+00:00",
+    "counts": {
+      "warmup/records": 545,
+      "warmup/errors": 540,
+      "errors_before_cleanup": 0,
+      "success_before_cleanup": 5
+    }
+  },
+  {
+    "attempt": 2,
+    "run": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt2",
+    "first_client_request_utc": "2026-09-24T19:28:58.945078+00:00",
+    "cleanup_requested_utc": "2026-09-24T19:41:05.429707+00:00",
+    "last_client_record_utc": "2026-09-24T19:41:05.706552+00:00",
+    "first_client_error_utc": "2026-09-24T19:41:05.602973+00:00",
+    "counts": {
+      "warmup/records": 784,
+      "warmup/errors": 701,
+      "errors_before_cleanup": 0,
+      "success_before_cleanup": 83
+    }
+  },
+  {
+    "attempt": 3,
+    "run": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt3",
+    "first_client_request_utc": "2026-09-24T20:41:22.647177+00:00",
+    "cleanup_requested_utc": "2026-09-24T20:51:03.894063+00:00",
+    "last_client_record_utc": "2026-09-24T20:51:04.116929+00:00",
+    "first_client_error_utc": "2026-09-24T20:51:04.042246+00:00",
+    "counts": {
+      "warmup/records": 664,
+      "warmup/errors": 590,
+      "errors_before_cleanup": 0,
+      "success_before_cleanup": 74
+    }
+  }
+]
