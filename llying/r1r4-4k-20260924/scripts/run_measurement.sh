@@ -83,4 +83,5 @@ python3 "$ROOT/scripts/analyze_guard_lifecycle.py" "$RUN"
 python3 "$ROOT/scripts/analyze_router_picks.py" "$RUN"
 python3 "$ROOT/scripts/audit_case.py" "$RUN"
 python3 "$ROOT/scripts/compare_c80_runs.py" "$BASELINE_RUN" "$RUN" --reference-label historical-A0 --candidate-label R1+R4 --output-dir "$RUN/analysis/comparison"
+python3 "$ROOT/scripts/compare_c80_runs.py" /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion "$RUN" --reference-label historical-G0-R1 --candidate-label R1+R4 --output-dir "$RUN/analysis/comparison-g0"
 state COMPLETE_REVIEW_PENDING

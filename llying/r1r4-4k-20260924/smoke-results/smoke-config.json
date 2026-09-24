@@ -1,0 +1,14 @@
+{
+  "prefill": {
+    "chunk": 4096,
+    "tp": 8,
+    "dp": 8,
+    "hicache": false
+  },
+  "decode": {
+    "chunk": 4096,
+    "tp": 8,
+    "dp": 8,
+    "hicache": false
+  }
+}

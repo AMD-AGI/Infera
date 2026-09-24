@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Bind a granted allocation to this experiment; do not start services."""
-import json, os, re, shlex, subprocess
+import json, os, re, shlex, socket, subprocess
 from pathlib import Path
 root=Path('/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924')
 os.environ['SLURM_CONF']=str(root/'config/slurm-client-dccs.conf')
@@ -16,7 +16,7 @@ assigned={'job':job,'start':f['StartTime']}
 for role,node in zip(['prefill','decode'],nodes):
  row=subprocess.check_output(['/opt/slurm/bin/scontrol','show','node',node,'-o'],text=True)
  nf=dict(re.findall(r'(\w+)=([^\s]+)',row))
- assigned[role]={'node':node,'ip':nf['NodeAddr']}
+ assigned[role]={'node':node,'ip':socket.gethostbyname(nf['NodeAddr'])}
 (root/'config/assigned-nodes.json').write_text(json.dumps(assigned,indent=2)+'\n')
 (root/'config/nodes.sh').write_text('\n'.join(f'export {role.upper()}_{field}='+shlex.quote(assigned[role][key]) for role in ['prefill','decode'] for field,key in [('NODE','node'),('IP','ip')])+'\n')
 (root/'config/topology.tsv').write_text('role\tnode\tdata_ip\n'+''.join(f"{role}\t{assigned[role]['node']}\t{assigned[role]['ip']}\n" for role in ['prefill','decode']))

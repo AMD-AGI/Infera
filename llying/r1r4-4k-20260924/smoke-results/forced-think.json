@@ -1,0 +1,40 @@
+[
+  {
+    "body": {
+      "model": "glm5.2-mxfp4",
+      "rid": "r1r4-forced-think-False",
+      "stream": false,
+      "messages": [
+        {
+          "role": "user",
+          "content": "Say hello."
+        }
+      ],
+      "max_tokens": 1,
+      "temperature": 0,
+      "skip_special_tokens": false,
+      "logit_bias": {
+        "154841": 100
+      }
+    },
+    "status": 200,
+    "raw": "{\"id\":\"r1r4-forced-think-False\",\"object\":\"chat.completion\",\"created\":1790275049,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\",\"reasoning_content\":null,\"tool_calls\":null},\"logprobs\":null,\"finish_reason\":\"length\",\"matched_stop\":null}],\"usage\":{\"prompt_tokens\":15,\"total_tokens\":16,\"completion_tokens\":1,\"prompt_tokens_details\":null,\"reasoning_tokens\":1},\"metadata\":{\"weight_version\":\"default\",\"weight_versions\":[{\"version\":\"default\",\"start\":0,\"end\":1}]}}"
+  },
+  {
+    "body": {
+      "model": "glm5.2-mxfp4",
+      "rid": "r1r4-forced-think-True",
+      "stream": false,
+      "text": "Say hello.",
+      "sampling_params": {
+        "max_new_tokens": 1,
+        "temperature": 0,
+        "skip_special_tokens": false,
+        "logit_bias": {
+          "154841": 100
+        }
+      }
+    },
+    "error": "<HTTPError 404: 'Not Found'>"
+  }
+]

@@ -1,11 +1,11 @@
 # R1+R4自主实验进度
 
-用户授权：自主申请两台batch节点，排除n04-29；排查3条预热空内容错误、离线复核R1+R4；机器可用后短时无HiCache smoke，再做C80/4K正式性能实验。用户休息约10小时后review，不需重复确认已授权配置。
+2026-09-24 18:29 UTC：作业31719已于18:20:10获得n04-33(P=10.235.192.139)、n05-21(D=10.235.192.138)，qos=batch，两节点独占，4小时（允许2.5小时回填），排除n04-29。
 
-作业31719，partition=Compute-DCPT，qos=batch，2节点独占，4小时（提交后缩短，以利回填），排除smci355-ccs-aus-n04-29。目前PENDING(Resources)，排队预估开始21:40:30 UTC，仅为调度预测。持续监测，未启动模型。
+n05-21残留ATOM服务与已取消作业31718的训练容器。Slurm确认只有本用户31719仍在该节点，已按已分配节点清理授权停止5个确切容器，保留inspect与stop记录。两节点GPU空闲后继续；无GPU驱动重启。D镜像从P复制，ID与历史基线相同。
 
-离线复核276项测试串行全部通过，包含新增R1+R4同时释放P记账而保留D记账的组合测试。首次并行运行274通过、1项日志过滤测试失败（tracing subscriber/callsite并行环境）；完整串行复跑包含新增测试，276通过。没有修改生产调度算法，正式沿用已验证release二进制0cf48cbf96df48caf8c03949fc5edce1c97d26bebb293c71d5409dbe77cafe6d。
+R1+R4无HiCache smoke于18:26:54开始模型启动。两端初始化中。smoke和正式AIPerf依赖环境均已提前准备完成。正式仍C80/4K、P HiCache开、R2/R3关，对比历史A0/G0，不补跑基线。
 
-A0/G0关键引擎配置（chunk、TP/DP、种子、HiCache、mem fraction、MTP等）一致，见review/a0-g0-settings.json。正式用历史A0与G0，不补跑基线。
+276项离线测试通过。已复现单独<think>在glm45 parser变为空正文/空reasoning；实际镜像parser与固定上游源码SHA256一致。仍无法追溯旧3条具体token，待smoke原始响应对照。
 
-运行目录：/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924。
+运行目录：/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924。最新状态以该目录runs/r1r4-31719-smoke/STATUS为准。

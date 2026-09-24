@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "errors": [],
+  "environment": {
+    "INFERA_PD_PREFILL_GUARD_RELEASE": "completion",
+    "INFERA_R2_DECODE_DEMAND": "off",
+    "INFERA_R3_CACHE_TIERS": "off",
+    "INFERA_R4_PREFILL_WORK": "on",
+    "RUST_LOG": "info"
+  },
+  "validation_scope": "R1+R4 configuration, template parity, and logging settings; paired real requests checked by validate_smoke.py"
+}
