@@ -539,9 +539,10 @@ func TestANamedPortProbeWithUnknowablePortDoesNotEnableSurge(t *testing.T) {
 	}
 }
 
-// Go's Atoi accepts forms Python's int() does not, and a divergence here means
-// the probe and the worker disagree on the port.
-func TestReadinessPortRejectsFormsThePythonSideWouldNotAccept(t *testing.T) {
+// Anything but plain digits is rejected, including forms Python's int() would
+// accept (surrounding whitespace, digit underscores). Rejecting skips the
+// probe, which is the safe side of any disagreement with the worker.
+func TestReadinessPortAcceptsOnlyPlainDigits(t *testing.T) {
 	for _, raw := range []string{" 30091", "30_091", "30091 ", "", "abc", "0", "70000"} {
 		c := &corev1.Container{Env: []corev1.EnvVar{{Name: readinessPortEnvVar, Value: raw}}}
 		if _, ok := readinessPortFrom(c); ok {

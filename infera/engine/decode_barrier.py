@@ -650,6 +650,30 @@ def pd_peer_probe_payload(
     return payload
 
 
+#: Bound on releasing a probe room, so a wedged engine cannot hold up a probe
+#: that has already failed or been cancelled.
+_PROBE_ABORT_TIMEOUT_S = 10.0
+
+
+async def _abort_probe_room(client: Any, prefill_url: str, decode_url: str, rid: str) -> None:
+    """Abort a probe request on both engines, so no Mooncake session is left open.
+
+    Best effort: failures are ignored, since the probe outcome is already decided.
+    """
+    body = {"rid": rid}
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(
+                client.post(f"{prefill_url.rstrip('/')}/abort_request", json=body),
+                client.post(f"{decode_url.rstrip('/')}/abort_request", json=body),
+                return_exceptions=True,
+            ),
+            _PROBE_ABORT_TIMEOUT_S,
+        )
+    except Exception:  # noqa: BLE001 - best effort, the outcome is already decided
+        logger.warning("decode barrier: could not abort probe room %s", rid)
+
+
 def _probe_failure_details(failed: list[Any]) -> str:
     return ", ".join(
         f"{type(result).__name__}: {result}"
@@ -752,19 +776,25 @@ async def verify_pd_peer(
                 )
                 # An injected client carries the caller's timeout; the probe
                 # budget is passed per request so it is the one that applies.
-                results = await asyncio.gather(
-                    client.post(
-                        f"{prefill_url.rstrip('/')}/generate",
-                        json=prefill_body,
-                        timeout=timeout,
-                    ),
-                    client.post(
-                        f"{decode_url.rstrip('/')}/generate",
-                        json=decode_body,
-                        timeout=timeout,
-                    ),
-                    return_exceptions=True,
-                )
+                try:
+                    results = await asyncio.gather(
+                        client.post(
+                            f"{prefill_url.rstrip('/')}/generate",
+                            json=prefill_body,
+                            timeout=timeout,
+                        ),
+                        client.post(
+                            f"{decode_url.rstrip('/')}/generate",
+                            json=decode_body,
+                            timeout=timeout,
+                        ),
+                        return_exceptions=True,
+                    )
+                except asyncio.CancelledError:
+                    # A probe cut short by its caller's budget leaves the room
+                    # open on both engines; release it before propagating.
+                    await _abort_probe_room(client, prefill_url, decode_url, prefill_body["rid"])
+                    raise
                 failed = [
                     result
                     for result in results
@@ -773,12 +803,7 @@ async def verify_pd_peer(
                 if not failed:
                     break
 
-                abort_body = {"rid": prefill_body["rid"]}
-                await asyncio.gather(
-                    client.post(f"{prefill_url.rstrip('/')}/abort_request", json=abort_body),
-                    client.post(f"{decode_url.rstrip('/')}/abort_request", json=abort_body),
-                    return_exceptions=True,
-                )
+                await _abort_probe_room(client, prefill_url, decode_url, prefill_body["rid"])
                 last_details = _probe_failure_details(failed)
                 if attempt + 1 >= tries:
                     raise RuntimeError(

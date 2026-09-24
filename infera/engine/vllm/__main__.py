@@ -378,7 +378,7 @@ async def main() -> None:
     # The operator probes readiness on this port for every worker regardless of
     # backend, so a vLLM worker that never opened it would sit NotReady forever.
     ready_server = await serve_readiness_best_effort(
-        engine_alive=engine_health_check(config.host, config.port)
+        engine_alive=engine_health_check(args.host, config.port)
     )
 
     death = EngineDeath()

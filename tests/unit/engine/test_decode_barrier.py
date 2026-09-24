@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import httpx
@@ -928,3 +929,39 @@ async def test_a_budget_spent_before_any_probe_skips_verification():
         await probe_until_one_passes([("a", unused)], deadline=100.0, min_budget=5.0, clock=clock)
         is False
     )
+
+
+class _HangingGenerateClient:
+    """Probe client whose /generate never returns; records abort calls."""
+
+    def __init__(self):
+        self.aborted: list[str] = []
+
+    async def post(self, url, json=None, timeout=None):  # noqa: A002 - mirrors httpx
+        if url.endswith("/generate"):
+            await asyncio.Event().wait()
+        self.aborted.append(url)
+        return httpx.Response(200)
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_probe_still_aborts_its_room():
+    # The decode probes a prefill that is serving traffic. A probe cut short by
+    # its budget must release the room on both engines, or the stale Mooncake
+    # session poisons later real KV transfers.
+    client = _HangingGenerateClient()
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(
+            verify_pd_peer(
+                prefill_url="http://prefill:30000",
+                decode_url="http://decode:30000",
+                bootstrap_host="10.0.0.1",
+                bootstrap_port=8998,
+                http=client,
+            ),
+            timeout=0.1,
+        )
+    assert sorted(client.aborted) == [
+        "http://decode:30000/abort_request",
+        "http://prefill:30000/abort_request",
+    ]

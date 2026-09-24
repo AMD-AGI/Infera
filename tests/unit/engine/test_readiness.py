@@ -11,6 +11,7 @@ import asyncio
 
 import pytest
 
+from infera.engine import readiness
 from infera.engine.readiness import (
     DEFAULT_READINESS_PORT,
     READINESS_PORT_ENV,
@@ -178,3 +179,10 @@ async def test_a_healthy_engine_is_reported_ready():
         assert b"200 OK" in await _probe(_port_of(server))
     finally:
         await close_readiness(server)
+
+
+def test_the_engine_check_fits_inside_the_probe_timeout():
+    # sglang's /health often takes over a second on a busy engine. The check
+    # must tolerate that, yet answer before the operator's 10s probe timeout
+    # so a slow engine reads as 503 rather than as no reply.
+    assert 5.0 <= readiness._ENGINE_CHECK_TIMEOUT_S < 10.0

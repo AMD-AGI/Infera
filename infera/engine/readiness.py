@@ -50,9 +50,10 @@ _UNAVAILABLE = (
 # a half-open connection cannot pin the handler forever.
 _READ_TIMEOUT_S = 5.0
 _MAX_REQUEST_BYTES = 8192
-# Well inside the probe's own timeout, so a slow engine answers 503 rather
-# than letting the probe time out with no reply at all.
-_ENGINE_CHECK_TIMEOUT_S = 3.0
+# sglang's /health often takes over a second on a busy engine, so this is
+# generous; it stays inside the operator's 10s probe timeout so a slow engine
+# answers 503 rather than letting the probe time out with no reply at all.
+_ENGINE_CHECK_TIMEOUT_S = 8.0
 
 
 def readiness_port(env: dict[str, str] | None = None) -> int:
@@ -145,8 +146,9 @@ async def serve_readiness_best_effort(
 def engine_health_check(host: str, port: int) -> EngineCheck:
     """Build a per-probe check that the engine itself still answers /health.
 
-    Dialled over loopback when the engine binds 0.0.0.0, matching how the
-    worker waited for the engine at startup.
+    ``host`` is the engine's bind address, not the advertised one, which need
+    not be reachable from inside the pod. A 0.0.0.0 bind is dialled over
+    loopback, matching how the worker waited for the engine at startup.
     """
     probe_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
     url = f"http://{probe_host}:{port}/health"

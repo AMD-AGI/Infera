@@ -395,8 +395,10 @@ func hasEnv(c *corev1.Container, name string) bool {
 // unrecoverable stall -- so the caller skips the probe instead, which falls
 // back to surge-free rolling.
 //
-// Parsed with the same strictness as the worker's int(): no surrounding
-// whitespace, no underscores. Read from the container rather than
+// Stricter than the worker's int(), which also accepts surrounding whitespace
+// and digit underscores: such a value is treated as unknowable, so the probe
+// is skipped and the worker rolls surge-free rather than being probed on a
+// port read differently from the worker's. Read from the container rather than
 // ServiceSpec.Env because an extraPodSpec template is passed through verbatim
 // and is the more specific source.
 func readinessPortFrom(c *corev1.Container) (int32, bool) {

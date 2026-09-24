@@ -323,6 +323,14 @@ async def _maybe_verify_prefill_peer(args: SglangWorkerArgs, config) -> None:
         probes.append(
             (peer.get("worker_id") or prefill_url, _probe_for(peer, prefill_url, host, port))
         )
+    if not probes:
+        logger.warning(
+            "prefill probe: %d registered prefill(s) for model %s carry no url or "
+            "bootstrap address; skipping verification",
+            len(peers),
+            model_name,
+        )
+        return
 
     # A spent budget must not become a zero timeout: wait_for(0.0) raises
     # immediately, which would fail the decode without naming a peer or ever
@@ -830,7 +838,7 @@ async def _run_after_start(
     # a worker the router can actually reach -- the engine's /health has been
     # answering since before the PD barrier ran.
     ready_server = await serve_readiness_best_effort(
-        engine_alive=engine_health_check(config.host, config.port)
+        engine_alive=engine_health_check(args.server_args.host, config.port)
     )
 
     await stop.wait()

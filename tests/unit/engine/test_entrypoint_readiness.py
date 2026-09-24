@@ -81,3 +81,27 @@ def test_decode_checks_its_discovery_config_before_loading_weights():
     starts = _call_lines(main, "start")
     assert guards, "main() never checks the decode discovery config"
     assert starts and guards[0] < starts[0], "the decode check runs after engine.start()"
+
+
+@pytest.mark.parametrize(("entrypoint", "_signal_call"), ENTRYPOINTS)
+def test_the_engine_check_dials_the_bind_address(entrypoint, _signal_call):
+    # config.host is the advertised address, which need not be reachable from
+    # inside the pod; the engine is waited on at its bind address, and the
+    # readiness check must dial the same one.
+    tree = ast.parse((ROOT / entrypoint).read_text())
+    calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name)
+        and n.func.id == "engine_health_check"
+    ]
+    assert calls, f"{entrypoint} never builds an engine check"
+    for call in calls:
+        host = call.args[0]
+        assert not (
+            isinstance(host, ast.Attribute)
+            and host.attr == "host"
+            and isinstance(host.value, ast.Name)
+            and host.value.id == "config"
+        ), f"{entrypoint} dials the advertised host"
