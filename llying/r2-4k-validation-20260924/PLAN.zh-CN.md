@@ -1,6 +1,6 @@
 # R2：无 HiCache 短 smoke，再直接与历史 4K 对照
 
-2026-09-24，按用户最新安排准备。没有启动新 GPU 任务。作业31705目前 PENDING，节点与 release 二进制绑定尚未完成；调度预测不是实际分配。
+2026-09-24，按用户最新安排准备。没有启动新 GPU 任务。当前实际分配：P拟用作业31705的n10-29，D拟用作业31706的n01-21。两侧属于不同allocation；release二进制哈希待构建后补录。
 
 ## 两阶段配置
 
@@ -49,3 +49,6 @@ R2的输入长度计算、需求账本和选rank是新算法本身的成本，�
 已将逐候选日志归到独立 target，并验证关闭它后原基础 pick 日志仍存在、R2记账仍正常。Router policy 的28项本地测试通过。Docker启动器需要转发 `RUST_LOG`，补丁见 [router-log-env.patch](patches/router-log-env.patch)，已通过应用检查。
 
 两份配置已进行仅source的参数检查，见 [resolved-config-check.json](resolved-config-check.json)；没有启动服务。新版release二进制仍需在基线镜像内构建并记录哈希，不能用本机debug产物做性能比较。
+
+
+正式配置的完整展开值见 [PERFORMANCE-REVIEW.json](PERFORMANCE-REVIEW.json)，人工检查清单见 [PERFORMANCE-CONFIG.zh-CN.md](PERFORMANCE-CONFIG.zh-CN.md)。当前没有用户批准记录，不能启动性能发压。

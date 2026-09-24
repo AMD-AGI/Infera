@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # Bind only after the new allocation and tested release binary are known.
 source /perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/config/a0-guard-decode.sh
-ALLOCATION_JOB_ID="${R2_ALLOCATION_JOB_ID:?allocation required}"
+PREFILL_ALLOCATION_JOB_ID="${R2_PREFILL_JOB_ID:?Prefill allocation required}"
+DECODE_ALLOCATION_JOB_ID="${R2_DECODE_JOB_ID:?Decode allocation required}"
+# Compatibility label only; allocation checks must validate both role-specific jobs.
+ALLOCATION_JOB_ID="$PREFILL_ALLOCATION_JOB_ID"
 TRACE_RUNTIME="${R2_RUNTIME:?isolated runtime required}"
 RUN_ID="${R2_RUN_TAG:?unique run tag required}"
 RUN="$TRACE_RUNTIME/runs/$RUN_ID"
@@ -14,11 +17,44 @@ BUILDER_NODE="$PREFILL_NODE"
 BENCH_DIR="$TRACE_RUNTIME/scripts/bench-harness"
 REMOTE_BENCH_DIR="$BENCH_DIR"
 TOPOLOGY="$TRACE_RUNTIME/config/topology.tsv"
-CONTAINER_PREFIX="llying-r2-$ALLOCATION_JOB_ID"
+CONTAINER_PREFIX="llying-r2-$PREFILL_ALLOCATION_JOB_ID-$DECODE_ALLOCATION_JOB_ID"
 BASELINE_RUN=/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode
 ROUTER_BINARY_OVERRIDE="${R2_ROUTER_BINARY:?tested release binary required}"
 SSH_OPTS="-F /dev/null -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$TRACE_RUNTIME/config/known_hosts"
 
+# Freeze the reviewed model/scheduler settings after loading the historical template.
+IMAGE=infera-sglang:aus-0922-reqtrace
+MODEL=/perf_apps/data/models/GLM-5.2-MXFP4
+SERVED_MODEL=glm5.2-mxfp4
+PREFILL_GPU_DEVICES=0,1,2,3,4,5,6,7
+DECODE_GPU_DEVICES=0,1,2,3,4,5,6,7
+PREFILL_TP=8
+DECODE_TP=8
+PREFILL_DP=8
+DECODE_DP=8
+PREFILL_EP=1
+DECODE_EP=1
+PREFILL_DPA=1
+DECODE_DPA=1
+PREFILL_MAX_RUNNING=256
+DECODE_MAX_RUNNING=256
+PREFILL_GRAPH_MAX_BS=256
+DECODE_GRAPH_MAX_BS=256
+KV_CACHE_DTYPE=fp8_e4m3
+PREFILL_HICACHE_WRITE_POLICY=write_through
+PREFILL_HICACHE_IO_BACKEND=kernel
+PREFILL_HICACHE_MEM_LAYOUT=page_first
+DECODE_MTP=1
+DECODE_SPEC_STEPS=5
+DECODE_SPEC_TOPK=1
+DECODE_SPEC_DRAFT_TOKENS=6
+DECODE_SIMULATE_ACC_LEN=3.61
+KV_PREFILL_OVERLAP_WEIGHT=20.0
+KV_DECODE_OVERLAP_WEIGHT=2.0
+SGLANG_OPT_USE_TOPK_V2=false
+SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1
+AITER_ALLREDUCE_FUSION=1
+JSON_MODEL_OVERRIDE_ARGS='{"index_share_for_mtp_iteration":false}'
 PREFILL_CHUNK_SIZE=32768
 DECODE_CHUNK_SIZE=32768
 EXPECTED_PREFILL_CHUNK=4096
