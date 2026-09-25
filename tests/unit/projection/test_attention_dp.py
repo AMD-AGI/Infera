@@ -75,16 +75,23 @@ def test_the_capacity_is_bought_with_per_rank_batch_efficiency():
 
     A rank runs attention over 1/dp of the batch at dp times the heads. The work
     is the same but the shape is narrower, and narrow GEMMs are worse GEMMs -- so
-    the decode step gets slower even as the cache it can hold grows eightfold.
-    A projector that reported only the capacity would be recommending the axis
-    without its cost.
+    the decode step's compute gets slower even as the cache it can hold grows
+    eightfold. A projector that reported only the capacity would be recommending
+    the axis without its cost.
+
+    The whole step need not get slower: the same split shrinks the expert
+    AllToAll and the attention all-reduce to the sequences a rank owns, which can
+    outweigh it. So the cost is asserted on the step net of that communication.
     """
     tp_only = project_spec(**MLA)
     dp_attn = project_spec(**MLA, attn_dp=8)
 
-    assert dp_attn["decode_step_ms"] > tp_only["decode_step_ms"]
-    # Small next to what it buys: the step pays single-digit percent for 8x cache.
-    assert dp_attn["decode_step_ms"] < 1.3 * tp_only["decode_step_ms"]
+    def compute_ms(r):
+        return r["decode_step_ms"] - r["comm_decode_ep_a2a_ms"] - r["comm_decode_tp_allreduce_ms"]
+
+    assert compute_ms(dp_attn) > compute_ms(tp_only)
+    # Small next to what it buys: the compute pays a modest share for 8x cache.
+    assert compute_ms(dp_attn) < 1.3 * compute_ms(tp_only)
 
 
 def test_a_mixed_step_is_shared_by_the_ranks_that_prefill_in_it():
