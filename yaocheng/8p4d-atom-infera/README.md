@@ -18,8 +18,11 @@ AgentX 测试使用与 [`../2p1d-sweep-triton-dsa-20260922`](../2p1d-sweep-trito
   子 connector 读取角色、协议与握手端口，prefill 开启 LMCache 卸载后仍注册为 PD prefill，见 `.record/issues.md` 第 11 条。
   `atom-*.diff` 应用到 `/app/ATOM`，`infera-*.diff` 应用到 `/opt/infera`。
 - `config.sh`：节点、IP、镜像、模型、端口、引擎与 AgentX 参数；所有脚本支持用 `KEY=VALUE` 覆盖。
-- `scripts/`：`build_image.sh`、`up.sh`、`down.sh`、`smoke.sh`、`agentx.sh`、`sweep.sh`、`summarize.py`。
-- `results/`：通过的 AgentX 聚合 JSON 与汇总表。
+- `scripts/`：`build_image.sh`、`up.sh`、`down.sh`、`smoke.sh`、`agentx.sh`、`sweep.sh`、`summarize.py`、`plot_ttft.py`、`plot_sweep.py`、`plot_sweep_compare.py`。
+- `results/`：通过的 AgentX 聚合 JSON、汇总表；TTFT（p50、p75、p90、p95、均值）随并发变化的折线图 `ttft_vs_conc.png`；
+  六面板曲线图 `sweep.png`（总吞吐、输出吞吐、TTFT、ITL、缓存命中率、decode 运行并发）及其数值 `sweep.csv`；
+  与 InferenceX 单机 ATOM TP4 + DCP4（C16-C48，PR 3359）的对比图 `sweep_compare.png` 及其数值 `sweep_compare.csv`，
+  横轴为每 4 卡并发（8P4D 为 conc × 4 / 12，顶部副轴标出实际并发）。
 - `.tmp/`（不入库）：运行目录 `runs/<RUN_ID>/`（容器日志、`docker inspect`、AgentX 原始数据）、缓存、临时脚本。
 
 ## 默认配置
@@ -60,4 +63,11 @@ bash scripts/down.sh                         # 保存日志并删除容器
 
 # 完整测试：并发档位与 2p1d 参考相同（80 112 144 192 256），每档冷启动，结束后写 results/summary.{md,csv}
 nohup setsid bash scripts/sweep.sh > .tmp/logs/sweep.log 2>&1 < /dev/null &
+
+# 按 results/c*/agentx_conc*.json 绘制 results/ttft_vs_conc.png（需要 matplotlib）
+python3 scripts/plot_ttft.py
+# 按 results/summary.csv 中各档的运行目录 .tmp/runs/<run> 绘制 results/sweep.png，数值写入 results/sweep.csv
+python3 scripts/plot_sweep.py
+# 同样的 8P4D 数据与 ../refs_performance 中 InferenceX 单机 ATOM（TP4，C>=16）对比，写入 results/sweep_compare.{png,csv}
+python3 scripts/plot_sweep_compare.py
 ```

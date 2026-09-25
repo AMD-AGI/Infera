@@ -1,2 +1,3 @@
 # Logs, caches, raw AgentX data and scratch scripts.
 /.tmp/
+*_bak

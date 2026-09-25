@@ -1,0 +1,10 @@
+# InferenceX data: https://github.com/SemiAnalysisAI/InferenceX, Copyright 2026 SemiAnalysis LLC, Apache License 2.0; rows whose Source is an InferenceX run URL are derived from it.
+Series,Concurrency,ConcurrencyPer4GPUs,GPUs,TotalTokensPerSecondPerGPU,OutputTokensPerSecondPerGPU,TTFTp50Seconds,TTFTMeanSeconds,ITLp50Ms,ITLp90Ms,E2Ep50Seconds,E2EMeanSeconds,P90Interactivity,SimulatedAcceptance,Source
+8P4D ATOM + Infera (12 GPUs),48,16.0,12,17528.51685,122.1494,2.23862,2.90752,13.96,15.33,8.95347,16.924,65.23157,2.99,mem095-b64-c48
+8P4D ATOM + Infera (12 GPUs),80,26.66667,12,24223.03683,206.4387,4.64592,6.4179,18.61,21.68,14.58835,24.61515,46.12546,2.99,c80-mem095-b64-c80
+8P4D ATOM + Infera (12 GPUs),120,40.0,12,22026.78139,200.87337,9.73391,27.15472,17.77,21.42,21.6139,44.74224,46.68534,2.99,mem095-b64-c120
+"Single-node ATOM TP4 + DCP4 (4 GPUs, InferenceX)",16,16.0,4,16923.34043,127.02012,0.48269,1.54788,11.82,22.25,5.05656,14.70097,44.94382,3.33,https://github.com/SemiAnalysisAI/InferenceX/actions/runs/35693365964/attempts/3
+"Single-node ATOM TP4 + DCP4 (4 GPUs, InferenceX)",24,24.0,4,25736.54453,182.41792,0.686,1.34789,15.32,27.32,7.18157,18.56959,36.60322,3.33,https://github.com/SemiAnalysisAI/InferenceX/actions/runs/35693365964/attempts/3
+"Single-node ATOM TP4 + DCP4 (4 GPUs, InferenceX)",32,32.0,4,29923.60044,202.36026,0.72778,1.54881,18.01,38.56,9.35949,22.76796,25.93361,3.33,https://github.com/SemiAnalysisAI/InferenceX/actions/runs/35693365964/attempts/3
+"Single-node ATOM TP4 + DCP4 (4 GPUs, InferenceX)",40,40.0,4,32778.2858,241.56784,0.7774,1.43101,22.49,36.56,11.47524,26.03291,27.3523,3.33,https://github.com/SemiAnalysisAI/InferenceX/actions/runs/35693365964/attempts/3
+"Single-node ATOM TP4 + DCP4 (4 GPUs, InferenceX)",48,48.0,4,34194.59068,230.21061,0.81375,1.98915,28.53,51.61,13.62707,32.62667,19.37609,2.99,https://github.com/SemiAnalysisAI/InferenceX/actions/runs/35693365964/attempts/3
