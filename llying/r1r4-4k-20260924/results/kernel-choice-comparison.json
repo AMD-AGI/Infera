@@ -1,0 +1,30 @@
+{
+  "A0": {
+    "prefill": {
+      "reference_keys": 13,
+      "candidate_keys": 12,
+      "shared_keys": 11,
+      "differences": {}
+    },
+    "decode": {
+      "reference_keys": 6,
+      "candidate_keys": 6,
+      "shared_keys": 6,
+      "differences": {}
+    }
+  },
+  "G0": {
+    "prefill": {
+      "reference_keys": 0,
+      "candidate_keys": 12,
+      "shared_keys": 0,
+      "differences": {}
+    },
+    "decode": {
+      "reference_keys": 0,
+      "candidate_keys": 6,
+      "shared_keys": 0,
+      "differences": {}
+    }
+  }
+}

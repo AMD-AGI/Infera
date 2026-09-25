@@ -1,0 +1,80 @@
+{
+  "events": [
+    {
+      "utc": "2026-09-24T23:44:51.149613+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-prefill-0",
+      "id": "d6e8beea9d98e282c60d65fe006e5bbba2471d64e3a5839793784a5758903440",
+      "event": "stop_requested"
+    },
+    {
+      "utc": "2026-09-24T23:44:51.149613+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-prefill-0",
+      "id": "d6e8beea9d98e282c60d65fe006e5bbba2471d64e3a5839793784a5758903440",
+      "event": "stop_returned",
+      "returncode": 0,
+      "stdout": "d6e8beea9d98e282c60d65fe006e5bbba2471d64e3a5839793784a5758903440\n",
+      "stderr": ""
+    },
+    {
+      "utc": "2026-09-24T23:45:18.700224+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-decode-0",
+      "id": "25a1c228fe29cb604de9bce2978ae6252c21c070bf0d444941b1cdb40d71231a",
+      "event": "stop_requested"
+    },
+    {
+      "utc": "2026-09-24T23:45:18.700224+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-decode-0",
+      "id": "25a1c228fe29cb604de9bce2978ae6252c21c070bf0d444941b1cdb40d71231a",
+      "event": "stop_returned",
+      "returncode": 0,
+      "stdout": "25a1c228fe29cb604de9bce2978ae6252c21c070bf0d444941b1cdb40d71231a\n",
+      "stderr": ""
+    },
+    {
+      "utc": "2026-09-24T23:45:27.570556+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-router",
+      "id": "34fe55345c5c877ad828d676d44f78b9bc8cbccd6614a711a41988f6d378d926",
+      "event": "stop_requested"
+    },
+    {
+      "utc": "2026-09-24T23:45:27.570556+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-router",
+      "id": "34fe55345c5c877ad828d676d44f78b9bc8cbccd6614a711a41988f6d378d926",
+      "event": "stop_returned",
+      "returncode": 0,
+      "stdout": "34fe55345c5c877ad828d676d44f78b9bc8cbccd6614a711a41988f6d378d926\n",
+      "stderr": ""
+    },
+    {
+      "utc": "2026-09-24T23:45:28.596438+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-collector",
+      "id": "d6d494d2cbf9bc7e23d3f07d11cee3017cbe524e925691501b526808d22c1663",
+      "event": "stop_requested"
+    },
+    {
+      "utc": "2026-09-24T23:45:28.596438+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-collector",
+      "id": "d6d494d2cbf9bc7e23d3f07d11cee3017cbe524e925691501b526808d22c1663",
+      "event": "stop_returned",
+      "returncode": 0,
+      "stdout": "d6d494d2cbf9bc7e23d3f07d11cee3017cbe524e925691501b526808d22c1663\n",
+      "stderr": ""
+    },
+    {
+      "utc": "2026-09-24T23:45:29.158478+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-etcd",
+      "id": "3a785b4e23ec471f04f2ba17a262c2f61fca2a0b8d421411ce94e8b06c2c7de8",
+      "event": "stop_requested"
+    },
+    {
+      "utc": "2026-09-24T23:45:29.158478+00:00",
+      "name": "llying-r1r4-31719-performance-attempt4-etcd",
+      "id": "3a785b4e23ec471f04f2ba17a262c2f61fca2a0b8d421411ce94e8b06c2c7de8",
+      "event": "stop_returned",
+      "returncode": 0,
+      "stdout": "3a785b4e23ec471f04f2ba17a262c2f61fca2a0b8d421411ce94e8b06c2c7de8\n",
+      "stderr": ""
+    }
+  ],
+  "timestamp_note": "stop_returned records retain the request timestamp in the executed helper; actual container finish timestamps are in resource-release.json, and the driver entered ANALYZING at23:45:29 UTC after all calls returned."
+}

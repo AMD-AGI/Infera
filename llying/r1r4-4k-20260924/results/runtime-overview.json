@@ -1,0 +1,4568 @@
+{
+  "intervals": [
+    [
+      "C80/warmup",
+      1790287801585679306,
+      1790289499970522007
+    ],
+    [
+      "C80/profiling",
+      1790289500130950055,
+      1790293100130950055
+    ]
+  ],
+  "accounting": {
+    "C80/warmup/prefill/scrape_samples": 838,
+    "prefill/scrape_errors": 24,
+    "C80/warmup/prefill/scrape_errors": 19,
+    "C80/warmup/decode/scrape_samples": 838,
+    "decode/scrape_errors": 25,
+    "C80/warmup/decode/scrape_errors": 20,
+    "C80/warmup/router/scrape_samples": 838,
+    "C80/profiling/prefill/scrape_samples": 1795,
+    "C80/profiling/decode/scrape_samples": 1795,
+    "C80/profiling/router/scrape_samples": 1795,
+    "C80/profiling/prefill/scrape_errors": 5,
+    "C80/profiling/decode/scrape_errors": 5,
+    "C80/warmup/prefill/node_samples": 339,
+    "C80/warmup/prefill/ionic_0/rx_rdma_ucast_pkts/delta": 14527942,
+    "C80/warmup/prefill/ionic_0/tx_rdma_ucast_pkts/delta": 231493366,
+    "C80/warmup/prefill/ionic_2/rx_rdma_ucast_pkts/delta": 15560497,
+    "C80/warmup/prefill/ionic_2/tx_rdma_ucast_pkts/delta": 247839662,
+    "C80/warmup/decode/node_samples": 339,
+    "C80/warmup/decode/ionic_1/rx_rdma_ucast_pkts/delta": 269305788,
+    "C80/warmup/decode/ionic_1/tx_rdma_ucast_pkts/delta": 16991058,
+    "C80/warmup/decode/ionic_3/rx_rdma_ucast_pkts/delta": 254077364,
+    "C80/warmup/decode/ionic_3/tx_rdma_ucast_pkts/delta": 16060048,
+    "C80/warmup/prefill/ionic_1/rx_rdma_ucast_pkts/delta": 15913800,
+    "C80/warmup/prefill/ionic_1/tx_rdma_ucast_pkts/delta": 253647738,
+    "C80/warmup/prefill/ionic_3/rx_rdma_ucast_pkts/delta": 13863962,
+    "C80/warmup/prefill/ionic_3/tx_rdma_ucast_pkts/delta": 220668016,
+    "C80/warmup/prefill/ionic_4/rx_rdma_ucast_pkts/delta": 21861280,
+    "C80/warmup/prefill/ionic_4/tx_rdma_ucast_pkts/delta": 348313230,
+    "C80/warmup/prefill/ionic_5/rx_rdma_ucast_pkts/delta": 17341679,
+    "C80/warmup/prefill/ionic_5/tx_rdma_ucast_pkts/delta": 276188214,
+    "C80/warmup/prefill/ionic_6/rx_rdma_ucast_pkts/delta": 19248202,
+    "C80/warmup/prefill/ionic_6/tx_rdma_ucast_pkts/delta": 306848008,
+    "C80/warmup/prefill/ionic_7/rx_rdma_ucast_pkts/delta": 20015479,
+    "C80/warmup/prefill/ionic_7/tx_rdma_ucast_pkts/delta": 319015610,
+    "C80/warmup/decode/ionic_0/rx_rdma_ucast_pkts/delta": 277180574,
+    "C80/warmup/decode/ionic_0/tx_rdma_ucast_pkts/delta": 17526830,
+    "C80/warmup/decode/ionic_2/rx_rdma_ucast_pkts/delta": 261080282,
+    "C80/warmup/decode/ionic_2/tx_rdma_ucast_pkts/delta": 16448524,
+    "C80/warmup/decode/ionic_4/rx_rdma_ucast_pkts/delta": 272707118,
+    "C80/warmup/decode/ionic_4/tx_rdma_ucast_pkts/delta": 17386446,
+    "C80/warmup/decode/ionic_5/rx_rdma_ucast_pkts/delta": 283481180,
+    "C80/warmup/decode/ionic_5/tx_rdma_ucast_pkts/delta": 17900475,
+    "C80/warmup/decode/ionic_6/rx_rdma_ucast_pkts/delta": 284060954,
+    "C80/warmup/decode/ionic_6/tx_rdma_ucast_pkts/delta": 17950916,
+    "C80/warmup/decode/ionic_7/rx_rdma_ucast_pkts/delta": 302114444,
+    "C80/warmup/decode/ionic_7/tx_rdma_ucast_pkts/delta": 19038622,
+    "C80/warmup/prefill/ionic_0/rx_rdma_cnp_pkts/delta": 106314,
+    "C80/warmup/prefill/ionic_2/rx_rdma_cnp_pkts/delta": 147965,
+    "C80/warmup/decode/ionic_1/rx_rdma_ecn_pkts/delta": 119733,
+    "C80/warmup/decode/ionic_1/tx_rdma_cnp_pkts/delta": 107622,
+    "C80/warmup/prefill/ionic_1/rx_rdma_cnp_pkts/delta": 120659,
+    "C80/warmup/prefill/ionic_4/rx_rdma_cnp_pkts/delta": 106161,
+    "C80/warmup/prefill/ionic_6/req_rx_dup_response/delta": 97,
+    "C80/warmup/decode/ionic_2/rx_rdma_ecn_pkts/delta": 78059,
+    "C80/warmup/decode/ionic_2/tx_rdma_cnp_pkts/delta": 69296,
+    "C80/warmup/prefill/ionic_3/rx_rdma_cnp_pkts/delta": 108984,
+    "C80/warmup/prefill/ionic_7/rx_rdma_cnp_pkts/delta": 138235,
+    "C80/warmup/decode/ionic_7/rx_rdma_ecn_pkts/delta": 100400,
+    "C80/warmup/decode/ionic_7/tx_rdma_cnp_pkts/delta": 89996,
+    "C80/warmup/decode/ionic_4/rx_rdma_ecn_pkts/delta": 272189,
+    "C80/warmup/decode/ionic_4/tx_rdma_cnp_pkts/delta": 236656,
+    "C80/warmup/decode/ionic_5/rx_rdma_ecn_pkts/delta": 130894,
+    "C80/warmup/decode/ionic_5/tx_rdma_cnp_pkts/delta": 114596,
+    "C80/warmup/prefill/ionic_5/rx_rdma_cnp_pkts/delta": 131822,
+    "C80/warmup/prefill/ionic_6/rx_rdma_cnp_pkts/delta": 109938,
+    "C80/warmup/decode/ionic_6/rx_rdma_ecn_pkts/delta": 139531,
+    "C80/warmup/decode/ionic_6/tx_rdma_cnp_pkts/delta": 120424,
+    "C80/warmup/decode/ionic_0/rx_rdma_ecn_pkts/delta": 137794,
+    "C80/warmup/decode/ionic_0/tx_rdma_cnp_pkts/delta": 122838,
+    "C80/warmup/decode/ionic_3/rx_rdma_ecn_pkts/delta": 127927,
+    "C80/warmup/decode/ionic_3/tx_rdma_cnp_pkts/delta": 108650,
+    "C80/warmup/prefill/ionic_4/req_rx_dup_response/delta": 176,
+    "C80/warmup/prefill/ionic_0/req_rx_dup_response/delta": 50,
+    "C80/warmup/prefill/ionic_1/req_rx_dup_response/delta": 91,
+    "C80/warmup/prefill/ionic_7/req_rx_dup_response/delta": 53,
+    "C80/warmup/prefill/ionic_5/req_rx_dup_response/delta": 106,
+    "C80/warmup/prefill/ionic_3/req_rx_dup_response/delta": 151,
+    "C80/warmup/prefill/ionic_2/req_rx_dup_response/delta": 112,
+    "C80/warmup/prefill/ionic_4/req_rx_pkt_seq_err/delta": 5,
+    "C80/warmup/prefill/ionic_4/tx_rdma_retx_pkts/delta": 1126,
+    "C80/warmup/prefill/ionic_5/req_rx_pkt_seq_err/delta": 3,
+    "C80/warmup/prefill/ionic_5/tx_rdma_ack_timeout/delta": 1,
+    "C80/warmup/prefill/ionic_5/tx_rdma_retx_pkts/delta": 5020,
+    "C80/warmup/decode/ionic_1/resp_rx_outouf_seq/delta": 6,
+    "C80/warmup/decode/ionic_1/resp_tx_pkt_seq_err/delta": 8,
+    "C80/profiling/prefill/node_samples": 720,
+    "C80/profiling/prefill/ionic_0/rx_rdma_ucast_pkts/delta": 77859261,
+    "C80/profiling/prefill/ionic_0/tx_rdma_ucast_pkts/delta": 1195625012,
+    "C80/profiling/prefill/ionic_2/req_rx_dup_response/delta": 18120,
+    "C80/profiling/prefill/ionic_2/rx_rdma_ucast_pkts/delta": 85240606,
+    "C80/profiling/prefill/ionic_2/tx_rdma_ucast_pkts/delta": 1301717086,
+    "C80/profiling/prefill/ionic_3/rx_rdma_ucast_pkts/delta": 85102548,
+    "C80/profiling/prefill/ionic_3/tx_rdma_ucast_pkts/delta": 1299085834,
+    "C80/profiling/prefill/ionic_6/rx_rdma_ucast_pkts/delta": 94081960,
+    "C80/profiling/prefill/ionic_6/tx_rdma_ucast_pkts/delta": 1436796050,
+    "C80/profiling/prefill/ionic_7/req_rx_dup_response/delta": 6355,
+    "C80/profiling/prefill/ionic_7/rx_rdma_ucast_pkts/delta": 75721550,
+    "C80/profiling/prefill/ionic_7/tx_rdma_ucast_pkts/delta": 1158317664,
+    "C80/profiling/decode/node_samples": 720,
+    "C80/profiling/decode/ionic_0/rx_rdma_ucast_pkts/delta": 1396987906,
+    "C80/profiling/decode/ionic_0/tx_rdma_ucast_pkts/delta": 92006936,
+    "C80/profiling/decode/ionic_1/rx_rdma_ucast_pkts/delta": 1384577726,
+    "C80/profiling/decode/ionic_1/tx_rdma_ucast_pkts/delta": 90908132,
+    "C80/profiling/decode/ionic_2/rx_rdma_ucast_pkts/delta": 1432492980,
+    "C80/profiling/decode/ionic_2/tx_rdma_ucast_pkts/delta": 94268233,
+    "C80/profiling/decode/ionic_3/rx_rdma_ucast_pkts/delta": 1374614220,
+    "C80/profiling/decode/ionic_3/tx_rdma_ucast_pkts/delta": 90117551,
+    "C80/profiling/decode/ionic_4/rx_rdma_ucast_pkts/delta": 1354329482,
+    "C80/profiling/decode/ionic_4/tx_rdma_ucast_pkts/delta": 88742605,
+    "C80/profiling/decode/ionic_5/rx_rdma_ucast_pkts/delta": 1306290666,
+    "C80/profiling/decode/ionic_5/tx_rdma_ucast_pkts/delta": 86392639,
+    "C80/profiling/decode/ionic_6/rx_rdma_ucast_pkts/delta": 1259306304,
+    "C80/profiling/decode/ionic_6/tx_rdma_ucast_pkts/delta": 83204623,
+    "C80/profiling/decode/ionic_7/rx_rdma_ucast_pkts/delta": 1339756186,
+    "C80/profiling/decode/ionic_7/tx_rdma_ucast_pkts/delta": 87755458,
+    "C80/profiling/prefill/ionic_1/rx_rdma_ucast_pkts/delta": 85037402,
+    "C80/profiling/prefill/ionic_1/tx_rdma_ucast_pkts/delta": 1295834856,
+    "C80/profiling/prefill/ionic_4/rx_rdma_ucast_pkts/delta": 101151351,
+    "C80/profiling/prefill/ionic_4/tx_rdma_ucast_pkts/delta": 1550274136,
+    "C80/profiling/prefill/ionic_5/rx_rdma_ucast_pkts/delta": 105207550,
+    "C80/profiling/prefill/ionic_5/tx_rdma_ucast_pkts/delta": 1605176582,
+    "C80/profiling/prefill/ionic_0/rx_rdma_cnp_pkts/delta": 395575,
+    "C80/profiling/prefill/ionic_3/rx_rdma_cnp_pkts/delta": 414244,
+    "C80/profiling/prefill/ionic_4/rx_rdma_cnp_pkts/delta": 397893,
+    "C80/profiling/prefill/ionic_5/rx_rdma_cnp_pkts/delta": 549588,
+    "C80/profiling/prefill/ionic_6/req_rx_dup_response/delta": 19610,
+    "C80/profiling/decode/ionic_1/rx_rdma_ecn_pkts/delta": 529550,
+    "C80/profiling/decode/ionic_1/tx_rdma_cnp_pkts/delta": 475600,
+    "C80/profiling/decode/ionic_2/rx_rdma_ecn_pkts/delta": 596933,
+    "C80/profiling/decode/ionic_2/tx_rdma_cnp_pkts/delta": 534650,
+    "C80/profiling/prefill/ionic_2/rx_rdma_cnp_pkts/delta": 437257,
+    "C80/profiling/prefill/ionic_3/req_rx_dup_response/delta": 7993,
+    "C80/profiling/prefill/ionic_6/rx_rdma_cnp_pkts/delta": 499367,
+    "C80/profiling/decode/ionic_0/rx_rdma_ecn_pkts/delta": 537400,
+    "C80/profiling/decode/ionic_0/tx_rdma_cnp_pkts/delta": 479065,
+    "C80/profiling/prefill/ionic_1/rx_rdma_cnp_pkts/delta": 478605,
+    "C80/profiling/prefill/ionic_5/req_rx_dup_response/delta": 22752,
+    "C80/profiling/prefill/ionic_7/rx_rdma_cnp_pkts/delta": 467516,
+    "C80/profiling/decode/ionic_6/rx_rdma_ecn_pkts/delta": 521857,
+    "C80/profiling/decode/ionic_6/tx_rdma_cnp_pkts/delta": 456333,
+    "C80/profiling/decode/ionic_7/rx_rdma_ecn_pkts/delta": 491103,
+    "C80/profiling/decode/ionic_7/tx_rdma_cnp_pkts/delta": 441294,
+    "C80/profiling/prefill/ionic_1/req_rx_dup_response/delta": 19825,
+    "C80/profiling/prefill/ionic_4/req_rx_dup_response/delta": 9631,
+    "C80/profiling/decode/ionic_3/rx_rdma_ecn_pkts/delta": 411467,
+    "C80/profiling/decode/ionic_3/tx_rdma_cnp_pkts/delta": 369880,
+    "C80/profiling/decode/ionic_5/rx_rdma_ecn_pkts/delta": 465877,
+    "C80/profiling/decode/ionic_5/tx_rdma_cnp_pkts/delta": 408434,
+    "C80/profiling/decode/ionic_4/rx_rdma_ecn_pkts/delta": 530303,
+    "C80/profiling/decode/ionic_4/tx_rdma_cnp_pkts/delta": 475197,
+    "C80/profiling/prefill/ionic_0/req_rx_dup_response/delta": 5755,
+    "host_load/unacknowledged_submits": 0
+  },
+  "resources": {
+    "C80/warmup/router/infera_router_active_workers/sum": {
+      "n": 838,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/warmup/router/infera_router_active_workers/max_rank": {
+      "n": 838,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/warmup/router/infera_router_render_parity/sum": {
+      "n": 838,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/warmup/router/infera_router_render_parity/max_rank": {
+      "n": 838,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "C80/warmup/router/infera_router_render_variant/sum": {
+      "n": 838,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/warmup/router/infera_router_render_variant/max_rank": {
+      "n": 838,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "C80/warmup/router/infera_router_uptime_seconds/sum": {
+      "n": 838,
+      "mean": 1093.744630071599,
+      "p50": 1099.0,
+      "p90": 1769.6000000000001,
+      "p99": 1920.26,
+      "max": 1937.0
+    },
+    "C80/warmup/router/infera_router_uptime_seconds/max_rank": {
+      "n": 838,
+      "mean": 1093.744630071599,
+      "p50": 1099.0,
+      "p90": 1769.6000000000001,
+      "p99": 1920.26,
+      "max": 1937.0
+    },
+    "C80/warmup/prefill/rank0/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 5.357753357753357,
+      "p50": 4.0,
+      "p90": 14.0,
+      "p99": 20.0,
+      "max": 20.0
+    },
+    "C80/warmup/prefill/rank1/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 4.410256410256411,
+      "p50": 5.0,
+      "p90": 10.0,
+      "p99": 12.0,
+      "max": 12.0
+    },
+    "C80/warmup/prefill/rank2/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 4.0927960927960925,
+      "p50": 2.0,
+      "p90": 11.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/rank3/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 5.213675213675214,
+      "p50": 4.0,
+      "p90": 11.0,
+      "p99": 20.0,
+      "max": 20.0
+    },
+    "C80/warmup/prefill/rank4/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 6.065934065934066,
+      "p50": 6.0,
+      "p90": 12.0,
+      "p99": 13.0,
+      "max": 14.0
+    },
+    "C80/warmup/prefill/rank5/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 6.947496947496948,
+      "p50": 5.0,
+      "p90": 17.0,
+      "p99": 19.0,
+      "max": 19.0
+    },
+    "C80/warmup/prefill/rank6/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 4.157509157509158,
+      "p50": 4.0,
+      "p90": 10.0,
+      "p99": 13.819999999999936,
+      "max": 15.0
+    },
+    "C80/warmup/prefill/rank7/sglang:num_queue_reqs": {
+      "n": 819,
+      "mean": 4.488400488400488,
+      "p50": 5.0,
+      "p90": 11.0,
+      "p99": 13.0,
+      "max": 14.0
+    },
+    "C80/warmup/prefill/rank0/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.0573870573870574,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 5.0
+    },
+    "C80/warmup/prefill/rank1/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.065934065934066,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 4.0
+    },
+    "C80/warmup/prefill/rank2/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.0671550671550671,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 5.0
+    },
+    "C80/warmup/prefill/rank3/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.065934065934066,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 5.0
+    },
+    "C80/warmup/prefill/rank4/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.1025641025641026,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 5.0
+    },
+    "C80/warmup/prefill/rank5/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.0952380952380953,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 5.0
+    },
+    "C80/warmup/prefill/rank6/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.0634920634920635,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 2.8199999999999363,
+      "max": 5.0
+    },
+    "C80/warmup/prefill/rank7/sglang:num_running_reqs": {
+      "n": 819,
+      "mean": 1.0769230769230769,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 6.0
+    },
+    "C80/warmup/prefill/rank0/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.0626984126984127,
+      "p50": 0.04,
+      "p90": 0.14,
+      "p99": 0.45,
+      "max": 0.51
+    },
+    "C80/warmup/prefill/rank1/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.07553113553113552,
+      "p50": 0.04,
+      "p90": 0.21,
+      "p99": 0.3827999999999975,
+      "max": 0.5
+    },
+    "C80/warmup/prefill/rank2/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.0752991452991453,
+      "p50": 0.06,
+      "p90": 0.16,
+      "p99": 0.34,
+      "max": 0.67
+    },
+    "C80/warmup/prefill/rank3/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.06978021978021978,
+      "p50": 0.04,
+      "p90": 0.2,
+      "p99": 0.25,
+      "max": 0.47
+    },
+    "C80/warmup/prefill/rank4/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.08460317460317461,
+      "p50": 0.05,
+      "p90": 0.21,
+      "p99": 0.48819999999999936,
+      "max": 0.56
+    },
+    "C80/warmup/prefill/rank5/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.055189255189255194,
+      "p50": 0.04,
+      "p90": 0.11200000000000046,
+      "p99": 0.4109999999999968,
+      "max": 0.64
+    },
+    "C80/warmup/prefill/rank6/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.09477411477411478,
+      "p50": 0.05,
+      "p90": 0.22,
+      "p99": 0.6527999999999975,
+      "max": 0.72
+    },
+    "C80/warmup/prefill/rank7/sglang:token_usage": {
+      "n": 819,
+      "mean": 0.08166056166056165,
+      "p50": 0.06,
+      "p90": 0.16,
+      "p99": 0.46,
+      "max": 0.67
+    },
+    "C80/warmup/prefill/sglang:cache_hit_rate/sum": {
+      "n": 819,
+      "mean": 0.3925413889547799,
+      "p50": 0.0,
+      "p90": 1.841683905047195,
+      "p99": 2.9880836395013337,
+      "max": 3.9859047430973473
+    },
+    "C80/warmup/prefill/sglang:cache_hit_rate/max_rank": {
+      "n": 819,
+      "mean": 0.2473341503830299,
+      "p50": 0.0,
+      "p90": 0.9920425495431648,
+      "p99": 0.9997249077590192,
+      "max": 0.9998358002392626
+    },
+    "C80/warmup/prefill/sglang:full_token_usage/sum": {
+      "n": 819,
+      "mean": 0.599663267571892,
+      "p50": 0.5444254418112224,
+      "p90": 1.1181814480006516,
+      "p99": 1.3366161739555333,
+      "max": 1.8116092515677173
+    },
+    "C80/warmup/prefill/sglang:full_token_usage/max_rank": {
+      "n": 819,
+      "mean": 0.17967725553848202,
+      "p50": 0.14416890626272497,
+      "p90": 0.35854711295708125,
+      "p99": 0.6601885332681815,
+      "max": 0.7214349702744524
+    },
+    "C80/warmup/prefill/sglang:gen_throughput/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:gen_throughput/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:graph_memory_usage_gb/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:graph_memory_usage_gb/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:hicache_host_total_tokens/sum": {
+      "n": 819,
+      "mean": 37721600.0,
+      "p50": 37721600.0,
+      "p90": 37721600.0,
+      "p99": 37721600.0,
+      "max": 37721600.0
+    },
+    "C80/warmup/prefill/sglang:hicache_host_total_tokens/max_rank": {
+      "n": 819,
+      "mean": 4715200.0,
+      "p50": 4715200.0,
+      "p90": 4715200.0,
+      "p99": 4715200.0,
+      "max": 4715200.0
+    },
+    "C80/warmup/prefill/sglang:hicache_host_used_tokens/sum": {
+      "n": 819,
+      "mean": 19140191.57020757,
+      "p50": 18124224.0,
+      "p90": 34329664.0,
+      "p99": 37256384.0,
+      "max": 37260864.0
+    },
+    "C80/warmup/prefill/sglang:hicache_host_used_tokens/max_rank": {
+      "n": 819,
+      "mean": 2619224.380952381,
+      "p50": 2545664.0,
+      "p90": 4714112.0,
+      "p99": 4714944.0,
+      "max": 4714944.0
+    },
+    "C80/warmup/prefill/sglang:is_cuda_graph/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:is_cuda_graph/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:kv_available_tokens/sum": {
+      "n": 819,
+      "mean": 7480675.555555556,
+      "p50": 5167744.0,
+      "p90": 19902131.200000003,
+      "p99": 24496555.519999996,
+      "max": 25032704.0
+    },
+    "C80/warmup/prefill/sglang:kv_available_tokens/max_rank": {
+      "n": 819,
+      "mean": 970728.6349206349,
+      "p50": 780288.0,
+      "p90": 2489830.4000000004,
+      "p99": 3064125.4399999995,
+      "max": 3131136.0
+    },
+    "C80/warmup/prefill/sglang:kv_cache_memory_usage_gb/sum": {
+      "n": 819,
+      "mean": 1293.3908500671387,
+      "p50": 1293.3908500671387,
+      "p90": 1293.3908500671387,
+      "p99": 1293.3908500671387,
+      "max": 1293.3908500671387
+    },
+    "C80/warmup/prefill/sglang:kv_cache_memory_usage_gb/max_rank": {
+      "n": 819,
+      "mean": 161.67385625839233,
+      "p50": 161.67385625839233,
+      "p90": 161.67385625839233,
+      "p99": 161.67385625839233,
+      "max": 161.67385625839233
+    },
+    "C80/warmup/prefill/sglang:kv_evictable_tokens/sum": {
+      "n": 819,
+      "mean": 15781720.537240537,
+      "p50": 17791104.0,
+      "p90": 23887180.8,
+      "p99": 24585409.279999997,
+      "max": 25132800.0
+    },
+    "C80/warmup/prefill/sglang:kv_evictable_tokens/max_rank": {
+      "n": 819,
+      "mean": 2191945.0647130646,
+      "p50": 2469184.0,
+      "p90": 3126297.6,
+      "p99": 3139520.0,
+      "max": 3142976.0
+    },
+    "C80/warmup/prefill/sglang:kv_used_tokens/sum": {
+      "n": 819,
+      "mean": 1884995.9072039071,
+      "p50": 1711360.0,
+      "p90": 3514918.400000001,
+      "p99": 4201551.3599999985,
+      "max": 5694656.0
+    },
+    "C80/warmup/prefill/sglang:kv_used_tokens/max_rank": {
+      "n": 819,
+      "mean": 564801.7973137973,
+      "p50": 453184.0,
+      "p90": 1127065.6000000003,
+      "p99": 2075252.48,
+      "max": 2267776.0
+    },
+    "C80/warmup/prefill/sglang:mamba_available_tokens/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:mamba_available_tokens/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:mamba_evictable_tokens/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:mamba_evictable_tokens/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:mamba_usage/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:mamba_usage/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:mamba_used_tokens/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:mamba_used_tokens/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:max_total_num_tokens/sum": {
+      "n": 819,
+      "mean": 25147392.0,
+      "p50": 25147392.0,
+      "p90": 25147392.0,
+      "p99": 25147392.0,
+      "max": 25147392.0
+    },
+    "C80/warmup/prefill/sglang:max_total_num_tokens/max_rank": {
+      "n": 819,
+      "mean": 3143424.0,
+      "p50": 3143424.0,
+      "p90": 3143424.0,
+      "p99": 3143424.0,
+      "max": 3143424.0
+    },
+    "C80/warmup/prefill/sglang:num_decode_prealloc_queue_reqs/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:num_decode_prealloc_queue_reqs/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:num_decode_transfer_queue_reqs/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:num_decode_transfer_queue_reqs/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:num_prefill_bootstrap_queue_reqs/sum": {
+      "n": 819,
+      "mean": 0.32722832722832723,
+      "p50": 0.0,
+      "p90": 1.0,
+      "p99": 3.0,
+      "max": 5.0
+    },
+    "C80/warmup/prefill/sglang:num_prefill_bootstrap_queue_reqs/max_rank": {
+      "n": 819,
+      "mean": 0.23076923076923078,
+      "p50": 0.0,
+      "p90": 1.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/warmup/prefill/sglang:num_prefill_inflight_queue_reqs/sum": {
+      "n": 819,
+      "mean": 2.045177045177045,
+      "p50": 1.0,
+      "p90": 7.0,
+      "p99": 11.0,
+      "max": 14.0
+    },
+    "C80/warmup/prefill/sglang:num_prefill_inflight_queue_reqs/max_rank": {
+      "n": 819,
+      "mean": 1.065934065934066,
+      "p50": 1.0,
+      "p90": 3.0,
+      "p99": 5.0,
+      "max": 7.0
+    },
+    "C80/warmup/prefill/sglang:num_queue_reqs/sum": {
+      "n": 819,
+      "mean": 40.733821733821735,
+      "p50": 50.0,
+      "p90": 74.20000000000005,
+      "p99": 92.0,
+      "max": 92.0
+    },
+    "C80/warmup/prefill/sglang:num_queue_reqs/max_rank": {
+      "n": 819,
+      "mean": 9.346764346764347,
+      "p50": 10.0,
+      "p90": 18.0,
+      "p99": 20.0,
+      "max": 20.0
+    },
+    "C80/warmup/prefill/sglang:num_running_reqs/sum": {
+      "n": 819,
+      "mean": 8.594627594627594,
+      "p50": 8.0,
+      "p90": 10.0,
+      "p99": 14.0,
+      "max": 15.0
+    },
+    "C80/warmup/prefill/sglang:num_running_reqs/max_rank": {
+      "n": 819,
+      "mean": 1.4822954822954824,
+      "p50": 1.0,
+      "p90": 3.0,
+      "p99": 4.819999999999936,
+      "max": 6.0
+    },
+    "C80/warmup/prefill/sglang:num_used_tokens/sum": {
+      "n": 819,
+      "mean": 1884995.9072039071,
+      "p50": 1711360.0,
+      "p90": 3514918.400000001,
+      "p99": 4201551.3599999985,
+      "max": 5694656.0
+    },
+    "C80/warmup/prefill/sglang:num_used_tokens/max_rank": {
+      "n": 819,
+      "mean": 564801.7973137973,
+      "p50": 453184.0,
+      "p90": 1127065.6000000003,
+      "p99": 2075252.48,
+      "max": 2267776.0
+    },
+    "C80/warmup/prefill/sglang:pending_prealloc_token_usage/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:pending_prealloc_token_usage/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:startup_cuda_graph_time_seconds/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:startup_cuda_graph_time_seconds/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_available_tokens/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_available_tokens/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_evictable_tokens/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_evictable_tokens/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_token_usage/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_token_usage/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_used_tokens/sum": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:swa_used_tokens/max_rank": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:token_usage/sum": {
+      "n": 819,
+      "mean": 0.5995360195360195,
+      "p50": 0.54,
+      "p90": 1.12,
+      "p99": 1.3363999999999987,
+      "max": 1.81
+    },
+    "C80/warmup/prefill/sglang:token_usage/max_rank": {
+      "n": 819,
+      "mean": 0.17963369963369963,
+      "p50": 0.14,
+      "p90": 0.36,
+      "p99": 0.66,
+      "max": 0.72
+    },
+    "C80/warmup/prefill/sglang:cuda_graph_passes_total/prefill_none/per_second": {
+      "n": 819,
+      "mean": 5.470953070202148,
+      "p50": 3.9981509990963535,
+      "p90": 7.995967269090426,
+      "p99": 7.999445994871764,
+      "max": 11.993968089520164
+    },
+    "C80/warmup/prefill/sglang:generation_tokens_total/per_second": {
+      "n": 819,
+      "mean": 0.49959208107821623,
+      "p50": 0.0,
+      "p90": 1.4992589390953335,
+      "p99": 3.9298545376515,
+      "max": 6.499148143654515
+    },
+    "C80/warmup/prefill/sglang:hicache_backup_bytes_total/per_second": {
+      "n": 819,
+      "mean": 1227766920.0600367,
+      "p50": 0.0,
+      "p90": 4186022804.3076973,
+      "p99": 14284776480.443762,
+      "max": 24614778179.961563
+    },
+    "C80/warmup/prefill/sglang:hicache_backup_tokens_total/per_second": {
+      "n": 819,
+      "mean": 22232.488049761636,
+      "p50": 0.0,
+      "p90": 75800.78958981053,
+      "p99": 258669.71752215998,
+      "max": 445726.1006077351
+    },
+    "C80/warmup/prefill/sglang:hicache_dropped_tokens_total/per_second": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:prefill_effective_tokens_total/device_hit/per_second": {
+      "n": 819,
+      "mean": 73527.46496707418,
+      "p50": 0.0,
+      "p90": 275153.177717395,
+      "p99": 856876.537315048,
+      "max": 1313901.0733561076
+    },
+    "C80/warmup/prefill/sglang:prefill_effective_tokens_total/host_hit/per_second": {
+      "n": 819,
+      "mean": 401.6148210321244,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 18617.316110435993,
+      "max": 76058.00229932388
+    },
+    "C80/warmup/prefill/sglang:prefill_effective_tokens_total/input/per_second": {
+      "n": 819,
+      "mean": 22365.243529104388,
+      "p50": 16376.426492298664,
+      "p90": 32751.448413622737,
+      "p99": 32765.730794994746,
+      "max": 49127.29329467459
+    },
+    "C80/warmup/prefill/sglang:prefill_effective_tokens_total/storage_hit/per_second": {
+      "n": 819,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/sglang:prompt_tokens_total/per_second": {
+      "n": 819,
+      "mean": 97515.47681724923,
+      "p50": 0.0,
+      "p90": 351403.747841632,
+      "p99": 915169.3822372465,
+      "max": 1621955.4070608856
+    },
+    "C80/warmup/prefill/sglang:realtime_tokens_total/prefill_compute/per_second": {
+      "n": 819,
+      "mean": 22365.243529104388,
+      "p50": 16376.426492298664,
+      "p90": 32751.448413622737,
+      "p99": 32765.730794994746,
+      "max": 49127.29329467459
+    },
+    "C80/warmup/prefill/sglang:scheduler_idle_seconds_total/per_second": {
+      "n": 819,
+      "mean": 0.006813480495721687,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 3.9316073181182647
+    },
+    "C80/warmup/decode/rank0/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank1/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank2/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank3/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank4/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank5/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank6/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank7/sglang:num_queue_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank0/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank1/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank2/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank3/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank4/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank5/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank6/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank7/sglang:num_running_reqs": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank0/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank1/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank2/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank3/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank4/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank5/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank6/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/rank7/sglang:token_usage": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:cache_hit_rate/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:cache_hit_rate/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:full_token_usage/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:full_token_usage/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:gen_throughput/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:gen_throughput/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:graph_memory_usage_gb/sum": {
+      "n": 818,
+      "mean": 44.04296875,
+      "p50": 44.04296875,
+      "p90": 44.04296875,
+      "p99": 44.04296875,
+      "max": 44.04296875
+    },
+    "C80/warmup/decode/sglang:graph_memory_usage_gb/max_rank": {
+      "n": 818,
+      "mean": 3.03515625,
+      "p50": 3.03515625,
+      "p90": 3.03515625,
+      "p99": 3.03515625,
+      "max": 3.03515625
+    },
+    "C80/warmup/decode/sglang:is_cuda_graph/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:is_cuda_graph/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:kv_available_tokens/sum": {
+      "n": 818,
+      "mean": 24026112.0,
+      "p50": 24026112.0,
+      "p90": 24026112.0,
+      "p99": 24026112.0,
+      "max": 24026112.0
+    },
+    "C80/warmup/decode/sglang:kv_available_tokens/max_rank": {
+      "n": 818,
+      "mean": 3003264.0,
+      "p50": 3003264.0,
+      "p90": 3003264.0,
+      "p99": 3003264.0,
+      "max": 3003264.0
+    },
+    "C80/warmup/decode/sglang:kv_cache_memory_usage_gb/sum": {
+      "n": 818,
+      "mean": 1235.7218971252441,
+      "p50": 1235.7218971252441,
+      "p90": 1235.7218971252441,
+      "p99": 1235.7218971252441,
+      "max": 1235.7218971252441
+    },
+    "C80/warmup/decode/sglang:kv_cache_memory_usage_gb/max_rank": {
+      "n": 818,
+      "mean": 154.46523714065552,
+      "p50": 154.46523714065552,
+      "p90": 154.46523714065552,
+      "p99": 154.46523714065552,
+      "max": 154.46523714065552
+    },
+    "C80/warmup/decode/sglang:kv_evictable_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:kv_evictable_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:kv_used_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:kv_used_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_available_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_available_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_evictable_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_evictable_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_usage/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_usage/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_used_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:mamba_used_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:max_total_num_tokens/sum": {
+      "n": 818,
+      "mean": 24026112.0,
+      "p50": 24026112.0,
+      "p90": 24026112.0,
+      "p99": 24026112.0,
+      "max": 24026112.0
+    },
+    "C80/warmup/decode/sglang:max_total_num_tokens/max_rank": {
+      "n": 818,
+      "mean": 3003264.0,
+      "p50": 3003264.0,
+      "p90": 3003264.0,
+      "p99": 3003264.0,
+      "max": 3003264.0
+    },
+    "C80/warmup/decode/sglang:num_decode_prealloc_queue_reqs/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_decode_prealloc_queue_reqs/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_decode_transfer_queue_reqs/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_decode_transfer_queue_reqs/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_prefill_bootstrap_queue_reqs/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_prefill_bootstrap_queue_reqs/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_prefill_inflight_queue_reqs/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_prefill_inflight_queue_reqs/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_queue_reqs/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_queue_reqs/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_running_reqs/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_running_reqs/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_used_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:num_used_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:pending_prealloc_token_usage/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:pending_prealloc_token_usage/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:startup_cuda_graph_time_seconds/sum": {
+      "n": 818,
+      "mean": 114.04239468100423,
+      "p50": 114.04239468100423,
+      "p90": 114.04239468100423,
+      "p99": 114.04239468100423,
+      "max": 114.04239468100423
+    },
+    "C80/warmup/decode/sglang:startup_cuda_graph_time_seconds/max_rank": {
+      "n": 818,
+      "mean": 102.85216488401056,
+      "p50": 102.85216488401056,
+      "p90": 102.85216488401056,
+      "p99": 102.85216488401056,
+      "max": 102.85216488401056
+    },
+    "C80/warmup/decode/sglang:swa_available_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:swa_available_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:swa_evictable_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:swa_evictable_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:swa_token_usage/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:swa_token_usage/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:swa_used_tokens/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:swa_used_tokens/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:token_usage/sum": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:token_usage/max_rank": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:cuda_graph_passes_total/decode_cuda_graph/per_second": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:generation_tokens_total/per_second": {
+      "n": 818,
+      "mean": 0.49288314463630645,
+      "p50": 0.0,
+      "p90": 1.4990348998379335,
+      "p99": 3.9121081317830524,
+      "max": 6.990492750902159
+    },
+    "C80/warmup/decode/sglang:prefill_effective_tokens_total/device_hit/per_second": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:prefill_effective_tokens_total/host_hit/per_second": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:prefill_effective_tokens_total/input/per_second": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:prefill_effective_tokens_total/storage_hit/per_second": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:prompt_tokens_total/per_second": {
+      "n": 818,
+      "mean": 96573.37248067689,
+      "p50": 0.0,
+      "p90": 362459.9844114444,
+      "p99": 812849.8600090843,
+      "max": 1620662.3657663064
+    },
+    "C80/warmup/decode/sglang:realtime_tokens_total/decode/per_second": {
+      "n": 818,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/sglang:scheduler_idle_seconds_total/per_second": {
+      "n": 818,
+      "mean": 0.6401694061883981,
+      "p50": 0.0,
+      "p90": 1.9986419877790613,
+      "p99": 6.998225452016991,
+      "max": 8.971864039586833
+    },
+    "C80/warmup/prefill/sglang:realtime_tokens_total/prefill_cache/per_second": {
+      "n": 452,
+      "mean": 133697.9678457114,
+      "p50": 0.0,
+      "p90": 441711.96296749805,
+      "p99": 964942.5732716774,
+      "max": 1313901.0733561076
+    },
+    "C80/profiling/prefill/rank0/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 4.615083798882681,
+      "p50": 2.0,
+      "p90": 13.0,
+      "p99": 19.0,
+      "max": 21.0
+    },
+    "C80/profiling/prefill/rank1/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 4.581005586592179,
+      "p50": 4.0,
+      "p90": 11.0,
+      "p99": 23.0,
+      "max": 24.0
+    },
+    "C80/profiling/prefill/rank2/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 5.43854748603352,
+      "p50": 4.0,
+      "p90": 14.0,
+      "p99": 21.0,
+      "max": 22.0
+    },
+    "C80/profiling/prefill/rank3/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 4.446927374301676,
+      "p50": 2.0,
+      "p90": 12.0,
+      "p99": 23.0,
+      "max": 23.0
+    },
+    "C80/profiling/prefill/rank4/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 3.7592178770949722,
+      "p50": 3.0,
+      "p90": 8.0,
+      "p99": 16.0,
+      "max": 19.0
+    },
+    "C80/profiling/prefill/rank5/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 5.24804469273743,
+      "p50": 4.0,
+      "p90": 12.0,
+      "p99": 21.0,
+      "max": 24.0
+    },
+    "C80/profiling/prefill/rank6/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 5.182122905027933,
+      "p50": 4.0,
+      "p90": 13.0,
+      "p99": 17.0,
+      "max": 23.0
+    },
+    "C80/profiling/prefill/rank7/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 5.024581005586592,
+      "p50": 3.0,
+      "p90": 13.0,
+      "p99": 18.1099999999999,
+      "max": 19.0
+    },
+    "C80/profiling/prefill/rank0/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.2430167597765363,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 5.0
+    },
+    "C80/profiling/prefill/rank1/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.2681564245810055,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 6.0
+    },
+    "C80/profiling/prefill/rank2/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.2692737430167598,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 5.0
+    },
+    "C80/profiling/prefill/rank3/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.2692737430167598,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 6.0
+    },
+    "C80/profiling/prefill/rank4/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.2396648044692737,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 6.0
+    },
+    "C80/profiling/prefill/rank5/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.3011173184357543,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 5.0
+    },
+    "C80/profiling/prefill/rank6/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.2854748603351955,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 5.0
+    },
+    "C80/profiling/prefill/rank7/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 1.2675977653631285,
+      "p50": 1.0,
+      "p90": 2.0,
+      "p99": 4.0,
+      "max": 6.0
+    },
+    "C80/profiling/prefill/rank0/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.06013966480446928,
+      "p50": 0.03,
+      "p90": 0.17,
+      "p99": 0.36,
+      "max": 0.47
+    },
+    "C80/profiling/prefill/rank1/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.053173184357541904,
+      "p50": 0.03,
+      "p90": 0.12,
+      "p99": 0.37,
+      "max": 0.54
+    },
+    "C80/profiling/prefill/rank2/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.055949720670391064,
+      "p50": 0.03,
+      "p90": 0.16,
+      "p99": 0.33,
+      "max": 0.5
+    },
+    "C80/profiling/prefill/rank3/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.06779329608938547,
+      "p50": 0.03,
+      "p90": 0.18,
+      "p99": 0.371099999999999,
+      "max": 0.53
+    },
+    "C80/profiling/prefill/rank4/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.06914525139664804,
+      "p50": 0.03,
+      "p90": 0.19,
+      "p99": 0.54,
+      "max": 0.66
+    },
+    "C80/profiling/prefill/rank5/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.060268156424581006,
+      "p50": 0.03,
+      "p90": 0.19,
+      "p99": 0.401099999999999,
+      "max": 0.5
+    },
+    "C80/profiling/prefill/rank6/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.0583463687150838,
+      "p50": 0.03,
+      "p90": 0.16,
+      "p99": 0.41,
+      "max": 0.58
+    },
+    "C80/profiling/prefill/rank7/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.057083798882681565,
+      "p50": 0.03,
+      "p90": 0.15,
+      "p99": 0.34,
+      "max": 0.51
+    },
+    "C80/profiling/prefill/sglang:cache_hit_rate/sum": {
+      "n": 1790,
+      "mean": 1.6152891493193684,
+      "p50": 0.9943679315319693,
+      "p90": 3.836725542852517,
+      "p99": 5.854540272152879,
+      "max": 7.318499394852653
+    },
+    "C80/profiling/prefill/sglang:cache_hit_rate/max_rank": {
+      "n": 1790,
+      "mean": 0.7282673229770559,
+      "p50": 0.9729023847818301,
+      "p90": 0.9949283216766333,
+      "p99": 0.9988044229983669,
+      "max": 0.999828839062038
+    },
+    "C80/profiling/prefill/sglang:full_token_usage/sum": {
+      "n": 1790,
+      "mean": 0.48178572582248563,
+      "p50": 0.4464736542063686,
+      "p90": 0.8280906425604692,
+      "p99": 1.1920675543611041,
+      "max": 1.6687637429758124
+    },
+    "C80/profiling/prefill/sglang:full_token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.19495543783932326,
+      "p50": 0.1760118902190732,
+      "p90": 0.3722636208160275,
+      "p99": 0.5545186904471037,
+      "max": 0.6637551917908624
+    },
+    "C80/profiling/prefill/sglang:gen_throughput/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:gen_throughput/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:graph_memory_usage_gb/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:graph_memory_usage_gb/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:hicache_host_total_tokens/sum": {
+      "n": 1790,
+      "mean": 37721600.0,
+      "p50": 37721600.0,
+      "p90": 37721600.0,
+      "p99": 37721600.0,
+      "max": 37721600.0
+    },
+    "C80/profiling/prefill/sglang:hicache_host_total_tokens/max_rank": {
+      "n": 1790,
+      "mean": 4715200.0,
+      "p50": 4715200.0,
+      "p90": 4715200.0,
+      "p99": 4715200.0,
+      "max": 4715200.0
+    },
+    "C80/profiling/prefill/sglang:hicache_host_used_tokens/sum": {
+      "n": 1790,
+      "mean": 37704184.09832402,
+      "p50": 37706624.0,
+      "p90": 37711424.0,
+      "p99": 37714752.0,
+      "max": 37716416.0
+    },
+    "C80/profiling/prefill/sglang:hicache_host_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 4714852.111731844,
+      "p50": 4715008.0,
+      "p90": 4715200.0,
+      "p99": 4715200.0,
+      "max": 4715200.0
+    },
+    "C80/profiling/prefill/sglang:is_cuda_graph/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:is_cuda_graph/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:kv_available_tokens/sum": {
+      "n": 1790,
+      "mean": 15953.269273743017,
+      "p50": 15936.0,
+      "p90": 20358.40000000001,
+      "p99": 23943.039999999994,
+      "max": 26816.0
+    },
+    "C80/profiling/prefill/sglang:kv_available_tokens/max_rank": {
+      "n": 1790,
+      "mean": 3608.777653631285,
+      "p50": 3712.0,
+      "p90": 4096.0,
+      "p99": 4160.0,
+      "max": 5888.0
+    },
+    "C80/profiling/prefill/sglang:kv_cache_memory_usage_gb/sum": {
+      "n": 1790,
+      "mean": 1293.3908500671387,
+      "p50": 1293.3908500671387,
+      "p90": 1293.3908500671387,
+      "p99": 1293.3908500671387,
+      "max": 1293.3908500671387
+    },
+    "C80/profiling/prefill/sglang:kv_cache_memory_usage_gb/max_rank": {
+      "n": 1790,
+      "mean": 161.67385625839233,
+      "p50": 161.67385625839233,
+      "p90": 161.67385625839233,
+      "p99": 161.67385625839233,
+      "max": 161.67385625839233
+    },
+    "C80/profiling/prefill/sglang:kv_evictable_tokens/sum": {
+      "n": 1790,
+      "mean": 23616981.917318437,
+      "p50": 23728352.0,
+      "p90": 24510073.6,
+      "p99": 25050821.76,
+      "max": 25137216.0
+    },
+    "C80/profiling/prefill/sglang:kv_evictable_tokens/max_rank": {
+      "n": 1790,
+      "mean": 3115304.974301676,
+      "p50": 3119360.0,
+      "p90": 3129600.0,
+      "p99": 3142912.0,
+      "max": 3143296.0
+    },
+    "C80/profiling/prefill/sglang:kv_used_tokens/sum": {
+      "n": 1790,
+      "mean": 1514456.813407821,
+      "p50": 1403456.0,
+      "p90": 2603040.0,
+      "p99": 3747173.759999999,
+      "max": 5245632.0
+    },
+    "C80/profiling/prefill/sglang:kv_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 612827.6022346369,
+      "p50": 553280.0,
+      "p90": 1170182.4000000004,
+      "p99": 1743087.3599999966,
+      "max": 2086464.0
+    },
+    "C80/profiling/prefill/sglang:mamba_available_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:mamba_available_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:mamba_evictable_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:mamba_evictable_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:mamba_usage/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:mamba_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:mamba_used_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:mamba_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:max_total_num_tokens/sum": {
+      "n": 1790,
+      "mean": 25147392.0,
+      "p50": 25147392.0,
+      "p90": 25147392.0,
+      "p99": 25147392.0,
+      "max": 25147392.0
+    },
+    "C80/profiling/prefill/sglang:max_total_num_tokens/max_rank": {
+      "n": 1790,
+      "mean": 3143424.0,
+      "p50": 3143424.0,
+      "p90": 3143424.0,
+      "p99": 3143424.0,
+      "max": 3143424.0
+    },
+    "C80/profiling/prefill/sglang:num_decode_prealloc_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:num_decode_prealloc_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:num_decode_transfer_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:num_decode_transfer_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:num_prefill_bootstrap_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 0.2424581005586592,
+      "p50": 0.0,
+      "p90": 1.0,
+      "p99": 4.0,
+      "max": 7.0
+    },
+    "C80/profiling/prefill/sglang:num_prefill_bootstrap_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 0.13519553072625698,
+      "p50": 0.0,
+      "p90": 1.0,
+      "p99": 2.0,
+      "max": 3.0
+    },
+    "C80/profiling/prefill/sglang:num_prefill_inflight_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 5.315083798882681,
+      "p50": 5.0,
+      "p90": 11.0,
+      "p99": 16.0,
+      "max": 26.0
+    },
+    "C80/profiling/prefill/sglang:num_prefill_inflight_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 2.440782122905028,
+      "p50": 2.0,
+      "p90": 4.0,
+      "p99": 6.0,
+      "max": 8.0
+    },
+    "C80/profiling/prefill/sglang:num_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 38.295530726256985,
+      "p50": 37.0,
+      "p90": 72.0,
+      "p99": 91.1099999999999,
+      "max": 103.0
+    },
+    "C80/profiling/prefill/sglang:num_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 10.167039106145252,
+      "p50": 10.0,
+      "p90": 19.0,
+      "p99": 23.0,
+      "max": 24.0
+    },
+    "C80/profiling/prefill/sglang:num_running_reqs/sum": {
+      "n": 1790,
+      "mean": 10.143575418994413,
+      "p50": 10.0,
+      "p90": 13.0,
+      "p99": 16.0,
+      "max": 22.0
+    },
+    "C80/profiling/prefill/sglang:num_running_reqs/max_rank": {
+      "n": 1790,
+      "mean": 2.299441340782123,
+      "p50": 2.0,
+      "p90": 4.0,
+      "p99": 5.0,
+      "max": 6.0
+    },
+    "C80/profiling/prefill/sglang:num_used_tokens/sum": {
+      "n": 1790,
+      "mean": 1514456.813407821,
+      "p50": 1403456.0,
+      "p90": 2603040.0,
+      "p99": 3747173.759999999,
+      "max": 5245632.0
+    },
+    "C80/profiling/prefill/sglang:num_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 612827.6022346369,
+      "p50": 553280.0,
+      "p90": 1170182.4000000004,
+      "p99": 1743087.3599999966,
+      "max": 2086464.0
+    },
+    "C80/profiling/prefill/sglang:pending_prealloc_token_usage/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:pending_prealloc_token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:startup_cuda_graph_time_seconds/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:startup_cuda_graph_time_seconds/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_available_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_available_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_evictable_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_evictable_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_token_usage/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_used_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:swa_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:token_usage/sum": {
+      "n": 1790,
+      "mean": 0.4818994413407821,
+      "p50": 0.44000000000000006,
+      "p90": 0.8200000000000001,
+      "p99": 1.19,
+      "max": 1.6700000000000002
+    },
+    "C80/profiling/prefill/sglang:token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.1950223463687151,
+      "p50": 0.18,
+      "p90": 0.37,
+      "p99": 0.551099999999999,
+      "max": 0.66
+    },
+    "C80/profiling/prefill/sglang:cuda_graph_passes_total/prefill_none/per_second": {
+      "n": 1790,
+      "mean": 6.096936635412872,
+      "p50": 6.993578440328179,
+      "p90": 7.995985887148877,
+      "p99": 11.989845871475504,
+      "max": 11.99790065533493
+    },
+    "C80/profiling/prefill/sglang:generation_tokens_total/per_second": {
+      "n": 1790,
+      "mean": 1.9894853770637406,
+      "p50": 1.4991122377332298,
+      "p90": 4.495920725260228,
+      "p99": 7.496437690245903,
+      "max": 17.483801886968592
+    },
+    "C80/profiling/prefill/sglang:hicache_backup_bytes_total/per_second": {
+      "n": 1790,
+      "mean": 1332938384.8604558,
+      "p50": 626931706.6347787,
+      "p90": 3490018681.728085,
+      "p99": 8705019844.446636,
+      "max": 19104595341.690205
+    },
+    "C80/profiling/prefill/sglang:hicache_backup_tokens_total/per_second": {
+      "n": 1790,
+      "mean": 24136.940186521362,
+      "p50": 11352.522574148536,
+      "p90": 63197.49894480814,
+      "p99": 157631.09960246694,
+      "max": 345947.32981475815
+    },
+    "C80/profiling/prefill/sglang:hicache_dropped_tokens_total/per_second": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:prefill_effective_tokens_total/device_hit/per_second": {
+      "n": 1790,
+      "mean": 193722.35433372753,
+      "p50": 117191.09586428993,
+      "p90": 512574.3101895288,
+      "p99": 921529.3566645584,
+      "max": 1340654.258972725
+    },
+    "C80/profiling/prefill/sglang:prefill_effective_tokens_total/host_hit/per_second": {
+      "n": 1790,
+      "mean": 3790.605584805498,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 98516.18431319468,
+      "max": 238808.11540947246
+    },
+    "C80/profiling/prefill/sglang:prefill_effective_tokens_total/input/per_second": {
+      "n": 1790,
+      "mean": 24361.54094723175,
+      "p50": 26778.68086507827,
+      "p90": 32751.46182183845,
+      "p99": 49108.79168082641,
+      "max": 49137.77913361649
+    },
+    "C80/profiling/prefill/sglang:prefill_effective_tokens_total/storage_hit/per_second": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/sglang:prompt_tokens_total/per_second": {
+      "n": 1790,
+      "mean": 223154.56697276875,
+      "p50": 130991.30700007417,
+      "p90": 573031.0561043569,
+      "p99": 1067283.610028831,
+      "max": 4481985.102154318
+    },
+    "C80/profiling/prefill/sglang:realtime_tokens_total/prefill_cache/per_second": {
+      "n": 1790,
+      "mean": 197512.95991853302,
+      "p50": 122074.44686396356,
+      "p90": 516574.0634452229,
+      "p99": 952247.8477345825,
+      "max": 1340654.258972725
+    },
+    "C80/profiling/prefill/sglang:realtime_tokens_total/prefill_compute/per_second": {
+      "n": 1790,
+      "mean": 24361.54094723175,
+      "p50": 26778.68086507827,
+      "p90": 32751.46182183845,
+      "p99": 49108.79168082641,
+      "max": 49137.77913361649
+    },
+    "C80/profiling/prefill/sglang:scheduler_idle_seconds_total/per_second": {
+      "n": 1790,
+      "mean": 0.031192474405888824,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.018151470463455475,
+      "max": 7.369948573999343
+    },
+    "C80/profiling/decode/rank0/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank1/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank2/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank3/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank4/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank5/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank6/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank7/sglang:num_queue_reqs": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/rank0/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 2.923463687150838,
+      "p50": 2.0,
+      "p90": 6.0,
+      "p99": 10.0,
+      "max": 12.0
+    },
+    "C80/profiling/decode/rank1/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 3.0212290502793295,
+      "p50": 2.0,
+      "p90": 6.0,
+      "p99": 10.0,
+      "max": 14.0
+    },
+    "C80/profiling/decode/rank2/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 2.8541899441340783,
+      "p50": 2.0,
+      "p90": 6.0,
+      "p99": 9.0,
+      "max": 11.0
+    },
+    "C80/profiling/decode/rank3/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 2.8715083798882683,
+      "p50": 2.0,
+      "p90": 6.0,
+      "p99": 10.0,
+      "max": 13.0
+    },
+    "C80/profiling/decode/rank4/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 2.6,
+      "p50": 2.0,
+      "p90": 5.0,
+      "p99": 8.0,
+      "max": 11.0
+    },
+    "C80/profiling/decode/rank5/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 3.293854748603352,
+      "p50": 3.0,
+      "p90": 6.0,
+      "p99": 9.0,
+      "max": 12.0
+    },
+    "C80/profiling/decode/rank6/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 3.2106145251396647,
+      "p50": 3.0,
+      "p90": 6.0,
+      "p99": 11.0,
+      "max": 13.0
+    },
+    "C80/profiling/decode/rank7/sglang:num_running_reqs": {
+      "n": 1790,
+      "mean": 2.8312849162011173,
+      "p50": 2.0,
+      "p90": 6.0,
+      "p99": 9.0,
+      "max": 12.0
+    },
+    "C80/profiling/decode/rank0/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.462145251396648,
+      "p50": 0.44,
+      "p90": 0.79,
+      "p99": 0.97,
+      "max": 1.0
+    },
+    "C80/profiling/decode/rank1/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.44185474860335194,
+      "p50": 0.42,
+      "p90": 0.74,
+      "p99": 0.921099999999999,
+      "max": 1.0
+    },
+    "C80/profiling/decode/rank2/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.44546927374301676,
+      "p50": 0.43,
+      "p90": 0.73,
+      "p99": 0.913299999999997,
+      "max": 0.99
+    },
+    "C80/profiling/decode/rank3/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.40984916201117316,
+      "p50": 0.41,
+      "p90": 0.66,
+      "p99": 0.87,
+      "max": 0.99
+    },
+    "C80/profiling/decode/rank4/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.3952067039106145,
+      "p50": 0.37,
+      "p90": 0.7,
+      "p99": 0.92,
+      "max": 0.99
+    },
+    "C80/profiling/decode/rank5/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.40735195530726254,
+      "p50": 0.39,
+      "p90": 0.66,
+      "p99": 0.83,
+      "max": 0.97
+    },
+    "C80/profiling/decode/rank6/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.4126703910614525,
+      "p50": 0.42,
+      "p90": 0.66,
+      "p99": 0.811099999999999,
+      "max": 0.91
+    },
+    "C80/profiling/decode/rank7/sglang:token_usage": {
+      "n": 1790,
+      "mean": 0.42492178770949723,
+      "p50": 0.41,
+      "p90": 0.73,
+      "p99": 0.95,
+      "max": 1.0
+    },
+    "C80/profiling/decode/sglang:cache_hit_rate/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:cache_hit_rate/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:full_token_usage/sum": {
+      "n": 1790,
+      "mean": 3.3989814701716266,
+      "p50": 3.559519243063547,
+      "p90": 4.4182841068917025,
+      "p99": 4.79460150023441,
+      "max": 5.293142394408218
+    },
+    "C80/profiling/decode/sglang:full_token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.6973004566562306,
+      "p50": 0.7323871627669096,
+      "p90": 0.9174423560499511,
+      "p99": 0.9865720496100243,
+      "max": 0.9982951881686059
+    },
+    "C80/profiling/decode/sglang:gen_throughput/sum": {
+      "n": 1790,
+      "mean": 1990.7646917600198,
+      "p50": 1911.6625888906242,
+      "p90": 2953.8324838747208,
+      "p99": 3658.6916223205344,
+      "max": 4068.5784518836754
+    },
+    "C80/profiling/decode/sglang:gen_throughput/max_rank": {
+      "n": 1790,
+      "mean": 426.4131954751956,
+      "p50": 431.5326706628975,
+      "p90": 578.7724303493153,
+      "p99": 657.9565757495627,
+      "max": 737.7282596392994
+    },
+    "C80/profiling/decode/sglang:graph_memory_usage_gb/sum": {
+      "n": 1790,
+      "mean": 44.04296875,
+      "p50": 44.04296875,
+      "p90": 44.04296875,
+      "p99": 44.04296875,
+      "max": 44.04296875
+    },
+    "C80/profiling/decode/sglang:graph_memory_usage_gb/max_rank": {
+      "n": 1790,
+      "mean": 3.03515625,
+      "p50": 3.03515625,
+      "p90": 3.03515625,
+      "p99": 3.03515625,
+      "max": 3.03515625
+    },
+    "C80/profiling/decode/sglang:is_cuda_graph/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:is_cuda_graph/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:kv_available_tokens/sum": {
+      "n": 1790,
+      "mean": 13818073.313966481,
+      "p50": 13335936.0,
+      "p90": 16278387.200000001,
+      "p99": 23015182.079999994,
+      "max": 24026112.0
+    },
+    "C80/profiling/decode/sglang:kv_available_tokens/max_rank": {
+      "n": 1790,
+      "mean": 2331227.1731843576,
+      "p50": 2323392.0,
+      "p90": 2692608.000000001,
+      "p99": 3003264.0,
+      "max": 3003264.0
+    },
+    "C80/profiling/decode/sglang:kv_cache_memory_usage_gb/sum": {
+      "n": 1790,
+      "mean": 1235.7218971252441,
+      "p50": 1235.7218971252441,
+      "p90": 1235.7218971252441,
+      "p99": 1235.7218971252441,
+      "max": 1235.7218971252441
+    },
+    "C80/profiling/decode/sglang:kv_cache_memory_usage_gb/max_rank": {
+      "n": 1790,
+      "mean": 154.46523714065552,
+      "p50": 154.46523714065552,
+      "p90": 154.46523714065552,
+      "p99": 154.46523714065552,
+      "max": 154.46523714065552
+    },
+    "C80/profiling/decode/sglang:kv_evictable_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:kv_evictable_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:kv_used_tokens/sum": {
+      "n": 1790,
+      "mean": 10208038.686033519,
+      "p50": 10690176.0,
+      "p90": 13269273.6,
+      "p99": 14399454.079999994,
+      "max": 15896704.0
+    },
+    "C80/profiling/decode/sglang:kv_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 2094177.3586592178,
+      "p50": 2199552.0,
+      "p90": 2755321.6,
+      "p99": 2962936.32,
+      "max": 2998144.0
+    },
+    "C80/profiling/decode/sglang:mamba_available_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:mamba_available_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:mamba_evictable_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:mamba_evictable_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:mamba_usage/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:mamba_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:mamba_used_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:mamba_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:max_total_num_tokens/sum": {
+      "n": 1790,
+      "mean": 24026112.0,
+      "p50": 24026112.0,
+      "p90": 24026112.0,
+      "p99": 24026112.0,
+      "max": 24026112.0
+    },
+    "C80/profiling/decode/sglang:max_total_num_tokens/max_rank": {
+      "n": 1790,
+      "mean": 3003264.0,
+      "p50": 3003264.0,
+      "p90": 3003264.0,
+      "p99": 3003264.0,
+      "max": 3003264.0
+    },
+    "C80/profiling/decode/sglang:num_decode_prealloc_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 0.2212290502793296,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 4.0,
+      "max": 8.0
+    },
+    "C80/profiling/decode/sglang:num_decode_prealloc_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 0.2122905027932961,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 4.0,
+      "max": 8.0
+    },
+    "C80/profiling/decode/sglang:num_decode_transfer_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 50.704469273743015,
+      "p50": 52.0,
+      "p90": 80.0,
+      "p99": 97.0,
+      "max": 113.0
+    },
+    "C80/profiling/decode/sglang:num_decode_transfer_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 7.956424581005587,
+      "p50": 8.0,
+      "p90": 12.0,
+      "p99": 15.0,
+      "max": 17.0
+    },
+    "C80/profiling/decode/sglang:num_prefill_bootstrap_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:num_prefill_bootstrap_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:num_prefill_inflight_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:num_prefill_inflight_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:num_queue_reqs/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:num_queue_reqs/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:num_running_reqs/sum": {
+      "n": 1790,
+      "mean": 23.606145251396647,
+      "p50": 20.0,
+      "p90": 42.0,
+      "p99": 62.0,
+      "max": 74.0
+    },
+    "C80/profiling/decode/sglang:num_running_reqs/max_rank": {
+      "n": 1790,
+      "mean": 5.003351955307263,
+      "p50": 5.0,
+      "p90": 8.0,
+      "p99": 12.0,
+      "max": 14.0
+    },
+    "C80/profiling/decode/sglang:num_used_tokens/sum": {
+      "n": 1790,
+      "mean": 10208038.686033519,
+      "p50": 10690176.0,
+      "p90": 13269273.6,
+      "p99": 14399454.079999994,
+      "max": 15896704.0
+    },
+    "C80/profiling/decode/sglang:num_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 2094177.3586592178,
+      "p50": 2199552.0,
+      "p90": 2755321.6,
+      "p99": 2962936.32,
+      "max": 2998144.0
+    },
+    "C80/profiling/decode/sglang:pending_prealloc_token_usage/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:pending_prealloc_token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:startup_cuda_graph_time_seconds/sum": {
+      "n": 1790,
+      "mean": 114.04239468100423,
+      "p50": 114.04239468100423,
+      "p90": 114.04239468100423,
+      "p99": 114.04239468100423,
+      "max": 114.04239468100423
+    },
+    "C80/profiling/decode/sglang:startup_cuda_graph_time_seconds/max_rank": {
+      "n": 1790,
+      "mean": 102.85216488401056,
+      "p50": 102.85216488401056,
+      "p90": 102.85216488401056,
+      "p99": 102.85216488401056,
+      "max": 102.85216488401056
+    },
+    "C80/profiling/decode/sglang:swa_available_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:swa_available_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:swa_evictable_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:swa_evictable_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:swa_token_usage/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:swa_token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:swa_used_tokens/sum": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:swa_used_tokens/max_rank": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:token_usage/sum": {
+      "n": 1790,
+      "mean": 3.399469273743017,
+      "p50": 3.56,
+      "p90": 4.421000000000001,
+      "p99": 4.792199999999998,
+      "max": 5.29
+    },
+    "C80/profiling/decode/sglang:token_usage/max_rank": {
+      "n": 1790,
+      "mean": 0.6973519553072626,
+      "p50": 0.73,
+      "p90": 0.92,
+      "p99": 0.99,
+      "max": 1.0
+    },
+    "C80/profiling/decode/sglang:cuda_graph_passes_total/decode_cuda_graph/per_second": {
+      "n": 1790,
+      "mean": 173.21911208257407,
+      "p50": 175.87382138972418,
+      "p90": 238.42046630063325,
+      "p99": 309.939408642002,
+      "max": 400.11890754674494
+    },
+    "C80/profiling/decode/sglang:generation_tokens_total/per_second": {
+      "n": 1790,
+      "mean": 1844.3696603082012,
+      "p50": 1088.9975090090015,
+      "p90": 4376.070159973856,
+      "p99": 10698.570909375052,
+      "max": 33784.22751145199
+    },
+    "C80/profiling/decode/sglang:prefill_effective_tokens_total/device_hit/per_second": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:prefill_effective_tokens_total/host_hit/per_second": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:prefill_effective_tokens_total/input/per_second": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:prefill_effective_tokens_total/storage_hit/per_second": {
+      "n": 1790,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/sglang:prompt_tokens_total/per_second": {
+      "n": 1790,
+      "mean": 222331.53013185886,
+      "p50": 154349.5075706496,
+      "p90": 527424.8377668484,
+      "p99": 977913.2523158349,
+      "max": 1372687.3714113375
+    },
+    "C80/profiling/decode/sglang:realtime_tokens_total/decode/per_second": {
+      "n": 1790,
+      "mean": 1872.386244610454,
+      "p50": 1734.8804875593935,
+      "p90": 3225.532935356763,
+      "p99": 4833.344185596302,
+      "max": 5993.7776280608
+    },
+    "C80/profiling/decode/sglang:scheduler_idle_seconds_total/per_second": {
+      "n": 1790,
+      "mean": 0.005927290040812382,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 6.207356657777542
+    },
+    "C80/profiling/router/infera_router_active_workers/sum": {
+      "n": 1795,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/profiling/router/infera_router_active_workers/max_rank": {
+      "n": 1795,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/profiling/router/infera_router_render_parity/sum": {
+      "n": 1795,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/profiling/router/infera_router_render_parity/max_rank": {
+      "n": 1795,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "C80/profiling/router/infera_router_render_variant/sum": {
+      "n": 1795,
+      "mean": 2.0,
+      "p50": 2.0,
+      "p90": 2.0,
+      "p99": 2.0,
+      "max": 2.0
+    },
+    "C80/profiling/router/infera_router_render_variant/max_rank": {
+      "n": 1795,
+      "mean": 1.0,
+      "p50": 1.0,
+      "p90": 1.0,
+      "p99": 1.0,
+      "max": 1.0
+    },
+    "C80/profiling/router/infera_router_uptime_seconds/sum": {
+      "n": 1795,
+      "mean": 3739.8952646239554,
+      "p50": 3741.0,
+      "p90": 5177.8,
+      "p99": 5500.18,
+      "max": 5536.0
+    },
+    "C80/profiling/router/infera_router_uptime_seconds/max_rank": {
+      "n": 1795,
+      "mean": 3739.8952646239554,
+      "p50": 3741.0,
+      "p90": 5177.8,
+      "p99": 5500.18,
+      "max": 5536.0
+    },
+    "C80/warmup/prefill/card0/GPU use (%)": {
+      "n": 339,
+      "mean": 98.2566371681416,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card0/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 11.489675516224189,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/card1/GPU use (%)": {
+      "n": 339,
+      "mean": 98.2566371681416,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card1/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 11.044247787610619,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/card2/GPU use (%)": {
+      "n": 339,
+      "mean": 98.2566371681416,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card2/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 11.56047197640118,
+      "p50": 13.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/card3/GPU use (%)": {
+      "n": 339,
+      "mean": 98.2566371681416,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card3/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 11.820058997050147,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/card4/GPU use (%)": {
+      "n": 339,
+      "mean": 98.25368731563422,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card4/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 10.870206489675516,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/card5/GPU use (%)": {
+      "n": 339,
+      "mean": 98.25073746312684,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card5/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 11.525073746312684,
+      "p50": 13.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/card6/GPU use (%)": {
+      "n": 339,
+      "mean": 97.3716814159292,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card6/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 11.43362831858407,
+      "p50": 13.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/card7/GPU use (%)": {
+      "n": 339,
+      "mean": 98.2566371681416,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/warmup/prefill/card7/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 11.40117994100295,
+      "p50": 13.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/warmup/prefill/ionic_0/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_0/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_0/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.5589445003240914,
+      "p50": 0.147115213266745,
+      "p90": 0.40729055793201663,
+      "p99": 9.667997064358438,
+      "max": 14.334869565061668
+    },
+    "C80/warmup/prefill/ionic_1/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_1/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_1/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6123946714571611,
+      "p50": 0.1471102682372934,
+      "p90": 0.6586783752865399,
+      "p99": 8.533766194778378,
+      "max": 13.644153440177917
+    },
+    "C80/warmup/prefill/ionic_2/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_2/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_2/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.5983639864761477,
+      "p50": 0.14709621773820392,
+      "p90": 0.6321332612560134,
+      "p99": 10.496381347180309,
+      "max": 18.651531448649227
+    },
+    "C80/warmup/prefill/ionic_3/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_3/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_3/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.5327514738850827,
+      "p50": 0.1471018014930511,
+      "p90": 0.6998746436261062,
+      "p99": 8.34418549044219,
+      "max": 13.265843932549194
+    },
+    "C80/warmup/prefill/ionic_4/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_4/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 2.714160296030243e-06,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0009201003403542525
+    },
+    "C80/warmup/prefill/ionic_4/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.8409294798164522,
+      "p50": 0.14710652769766183,
+      "p90": 1.3551894268610736,
+      "p99": 12.945981008748687,
+      "max": 19.998102210610522
+    },
+    "C80/warmup/prefill/ionic_5/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_5/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 1.2120613531477212e-05,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.004108887987170775
+    },
+    "C80/warmup/prefill/ionic_5/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6667765406271068,
+      "p50": 0.14710638470293985,
+      "p90": 0.6568100944109999,
+      "p99": 11.97120152248265,
+      "max": 15.598289583573608
+    },
+    "C80/warmup/prefill/ionic_6/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_6/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_6/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.7408465010057288,
+      "p50": 0.14710638470293985,
+      "p90": 0.6464570781538809,
+      "p99": 13.479770261995261,
+      "max": 20.10785687326954
+    },
+    "C80/warmup/prefill/ionic_7/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_7/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/prefill/ionic_7/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.7702221003658258,
+      "p50": 0.14710207241377246,
+      "p90": 1.2359011022764559,
+      "p99": 10.951186751012216,
+      "max": 16.042918875247615
+    },
+    "C80/warmup/decode/card0/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card0/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card1/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card1/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0029498525073746312,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 1.0
+    },
+    "C80/warmup/decode/card2/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0029498525073746312,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 1.0
+    },
+    "C80/warmup/decode/card2/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0029498525073746312,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 1.0
+    },
+    "C80/warmup/decode/card3/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0029498525073746312,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 1.0
+    },
+    "C80/warmup/decode/card3/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card4/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0029498525073746312,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 1.0
+    },
+    "C80/warmup/decode/card4/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card5/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0058997050147492625,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 1.0
+    },
+    "C80/warmup/decode/card5/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card6/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card6/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card7/GPU use (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/card7/GPU Memory Read/Write Activity (%)": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_0/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6691719025043729,
+      "p50": 0.14719896042044736,
+      "p90": 1.9774423924634303,
+      "p99": 6.198247846332084,
+      "max": 9.594694183659703
+    },
+    "C80/warmup/decode/ionic_0/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_0/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_1/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6502107319876116,
+      "p50": 0.14714443862940668,
+      "p90": 1.6777401721289507,
+      "p99": 6.59156981821264,
+      "max": 13.625368600465922
+    },
+    "C80/warmup/decode/ionic_1/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_1/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_2/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6303394575877664,
+      "p50": 0.14711507778205676,
+      "p90": 2.174553884972912,
+      "p99": 5.749805945543391,
+      "max": 7.907788432827021
+    },
+    "C80/warmup/decode/ionic_2/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_2/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_3/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6134208486330485,
+      "p50": 0.18386652856623917,
+      "p90": 2.058645131424175,
+      "p99": 4.911505901468794,
+      "max": 10.05066175714112
+    },
+    "C80/warmup/decode/ionic_3/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_3/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_4/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6583627365681439,
+      "p50": 0.18387744000554973,
+      "p90": 1.8033952695569888,
+      "p99": 6.794258746126723,
+      "max": 12.667651963009613
+    },
+    "C80/warmup/decode/ionic_4/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_4/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_5/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6844468236670953,
+      "p50": 0.14711260146699617,
+      "p90": 2.0773064052130175,
+      "p99": 7.5237273404576355,
+      "max": 7.714345808841841
+    },
+    "C80/warmup/decode/ionic_5/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_5/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_6/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.6858106288808699,
+      "p50": 0.14716561582563473,
+      "p90": 1.7529774390145516,
+      "p99": 8.515113518147347,
+      "max": 10.19389602877706
+    },
+    "C80/warmup/decode/ionic_6/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_6/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_7/rx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.7294093127316607,
+      "p50": 0.1471182918471967,
+      "p90": 1.980830728780051,
+      "p99": 8.892204761634362,
+      "max": 15.441094904404336
+    },
+    "C80/warmup/decode/ionic_7/tx_rdma_retx_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/warmup/decode/ionic_7/tx_rdma_ucast_bytes/GBps": {
+      "n": 339,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/card0/GPU use (%)": {
+      "n": 720,
+      "mean": 99.4125,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card0/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 11.575,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/profiling/prefill/card1/GPU use (%)": {
+      "n": 720,
+      "mean": 99.55694444444444,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card1/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 12.08611111111111,
+      "p50": 13.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 17.0
+    },
+    "C80/profiling/prefill/card2/GPU use (%)": {
+      "n": 720,
+      "mean": 99.52916666666667,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card2/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 11.688888888888888,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/profiling/prefill/card3/GPU use (%)": {
+      "n": 720,
+      "mean": 99.575,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card3/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 11.820833333333333,
+      "p50": 13.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 17.0
+    },
+    "C80/profiling/prefill/card4/GPU use (%)": {
+      "n": 720,
+      "mean": 99.28472222222223,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card4/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 11.536111111111111,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/profiling/prefill/card5/GPU use (%)": {
+      "n": 720,
+      "mean": 99.58055555555555,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card5/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 11.579166666666667,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/profiling/prefill/card6/GPU use (%)": {
+      "n": 720,
+      "mean": 99.55277777777778,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card6/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 11.376388888888888,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/profiling/prefill/card7/GPU use (%)": {
+      "n": 720,
+      "mean": 99.56666666666666,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/prefill/card7/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 11.713888888888889,
+      "p50": 12.0,
+      "p90": 15.0,
+      "p99": 16.0,
+      "max": 16.0
+    },
+    "C80/profiling/prefill/ionic_0/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_0/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_0/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.3563507457814752,
+      "p50": 0.18391457682055534,
+      "p90": 4.267339754013489,
+      "p99": 10.23816224102709,
+      "max": 18.53234375080731
+    },
+    "C80/profiling/prefill/ionic_1/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_1/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_1/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.4693563404527459,
+      "p50": 0.18390391503453096,
+      "p90": 4.381147467411324,
+      "p99": 11.579899554079269,
+      "max": 16.644559283706318
+    },
+    "C80/profiling/prefill/ionic_2/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_2/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_2/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.476163217055949,
+      "p50": 0.22981895644500183,
+      "p90": 4.875817071793566,
+      "p99": 10.643114483307784,
+      "max": 17.616280496192623
+    },
+    "C80/profiling/prefill/ionic_3/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_3/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_3/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.4731917528235252,
+      "p50": 0.18392905652258468,
+      "p90": 4.319614703425803,
+      "p99": 11.31996606979546,
+      "max": 16.429967331496936
+    },
+    "C80/profiling/prefill/ionic_4/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_4/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_4/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.7583670752908682,
+      "p50": 0.1839016191018511,
+      "p90": 5.93757590286707,
+      "p99": 14.063566045436078,
+      "max": 18.46712878565346
+    },
+    "C80/profiling/prefill/ionic_5/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_5/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_5/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.8202358584511538,
+      "p50": 0.2449056545529779,
+      "p90": 6.073098519891788,
+      "p99": 12.399710805761371,
+      "max": 16.985474533170112
+    },
+    "C80/profiling/prefill/ionic_6/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_6/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_6/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.6293173984518903,
+      "p50": 0.21910400850520562,
+      "p90": 5.092196620743892,
+      "p99": 11.187727861817248,
+      "max": 18.175444254199807
+    },
+    "C80/profiling/prefill/ionic_7/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_7/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/prefill/ionic_7/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.3136940638868493,
+      "p50": 0.18399916681966122,
+      "p90": 4.0816363969939635,
+      "p99": 10.6818017042801,
+      "max": 13.871231041652479
+    },
+    "C80/profiling/decode/card0/GPU use (%)": {
+      "n": 720,
+      "mean": 99.20277777777778,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card0/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.555555555555557,
+      "p50": 26.0,
+      "p90": 29.0,
+      "p99": 30.0,
+      "max": 32.0
+    },
+    "C80/profiling/decode/card1/GPU use (%)": {
+      "n": 720,
+      "mean": 99.1986111111111,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card1/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.47222222222222,
+      "p50": 26.0,
+      "p90": 28.0,
+      "p99": 30.0,
+      "max": 31.0
+    },
+    "C80/profiling/decode/card2/GPU use (%)": {
+      "n": 720,
+      "mean": 99.20138888888889,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card2/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.538888888888888,
+      "p50": 26.0,
+      "p90": 29.0,
+      "p99": 30.0,
+      "max": 32.0
+    },
+    "C80/profiling/decode/card3/GPU use (%)": {
+      "n": 720,
+      "mean": 99.20416666666667,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card3/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.552777777777777,
+      "p50": 26.0,
+      "p90": 29.0,
+      "p99": 30.0,
+      "max": 31.0
+    },
+    "C80/profiling/decode/card4/GPU use (%)": {
+      "n": 720,
+      "mean": 99.20694444444445,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card4/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.656944444444445,
+      "p50": 26.0,
+      "p90": 29.0,
+      "p99": 30.0,
+      "max": 31.0
+    },
+    "C80/profiling/decode/card5/GPU use (%)": {
+      "n": 720,
+      "mean": 99.19583333333334,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card5/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.558333333333334,
+      "p50": 26.0,
+      "p90": 29.0,
+      "p99": 30.0,
+      "max": 31.0
+    },
+    "C80/profiling/decode/card6/GPU use (%)": {
+      "n": 720,
+      "mean": 99.20972222222223,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card6/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.545833333333334,
+      "p50": 26.0,
+      "p90": 29.0,
+      "p99": 30.0,
+      "max": 31.0
+    },
+    "C80/profiling/decode/card7/GPU use (%)": {
+      "n": 720,
+      "mean": 99.19444444444444,
+      "p50": 100.0,
+      "p90": 100.0,
+      "p99": 100.0,
+      "max": 100.0
+    },
+    "C80/profiling/decode/card7/GPU Memory Read/Write Activity (%)": {
+      "n": 720,
+      "mean": 25.45277777777778,
+      "p50": 26.0,
+      "p90": 29.0,
+      "p99": 30.0,
+      "max": 32.0
+    },
+    "C80/profiling/decode/ionic_0/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.5841940780725765,
+      "p50": 0.8805648426252546,
+      "p90": 4.172862401501267,
+      "p99": 8.546715550298881,
+      "max": 15.221824706298392
+    },
+    "C80/profiling/decode/ionic_0/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_0/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_1/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.5703853415606601,
+      "p50": 0.8446587580600798,
+      "p90": 4.177600919905299,
+      "p99": 8.142323667578829,
+      "max": 14.758908811302433
+    },
+    "C80/profiling/decode/ionic_1/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_1/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_2/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.6245367590139863,
+      "p50": 0.8267894130152268,
+      "p90": 4.503708888904298,
+      "p99": 9.267325234429522,
+      "max": 11.420958496205953
+    },
+    "C80/profiling/decode/ionic_2/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_2/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_3/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.5590972552888585,
+      "p50": 0.841729199779953,
+      "p90": 4.145059595958314,
+      "p99": 8.20820604364475,
+      "max": 11.983535298975
+    },
+    "C80/profiling/decode/ionic_3/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_3/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_4/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.5362623312502315,
+      "p50": 0.7121938881652061,
+      "p90": 4.418949963589766,
+      "p99": 8.683842900812696,
+      "max": 11.762029091880311
+    },
+    "C80/profiling/decode/ionic_4/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_4/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_5/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.4809088836305484,
+      "p50": 0.8033591603037362,
+      "p90": 3.822269122059227,
+      "p99": 9.240980227835989,
+      "max": 11.03652706507053
+    },
+    "C80/profiling/decode/ionic_5/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_5/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_6/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.42777723759831,
+      "p50": 0.792050587725081,
+      "p90": 3.848283388347267,
+      "p99": 7.702724974633467,
+      "max": 15.597814786856318
+    },
+    "C80/profiling/decode/ionic_6/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_6/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_7/rx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 1.5197311818218546,
+      "p50": 0.7512442901129488,
+      "p90": 4.05868973580833,
+      "p99": 9.06025825088962,
+      "max": 12.910073589479138
+    },
+    "C80/profiling/decode/ionic_7/tx_rdma_retx_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    },
+    "C80/profiling/decode/ionic_7/tx_rdma_ucast_bytes/GBps": {
+      "n": 720,
+      "mean": 0.0,
+      "p50": 0.0,
+      "p90": 0.0,
+      "p99": 0.0,
+      "max": 0.0
+    }
+  },
+  "limitations": [
+    "Profiling resource windows are fixed 3600-second sending windows; drain excluded.",
+    "Counter rates use sample deltas; boundary samples can straddle a phase boundary.",
+    "Host ack is a CPU completion observation, not a pure DMA measurement.",
+    "Port data counters use the InfiniBand four-byte unit; GB/s is decimal.",
+    "Ionic hardware *_bytes counters use bytes directly; standard port data counters may be absent.",
+    "Metric sums are across exported rank series; use max_rank for fractional occupancy."
+  ],
+  "full_source": {
+    "path": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt4/analysis/runtime-summary.json",
+    "bytes": 4926826,
+    "sha256": "6a526d4459af7da0c097b808bcf4b055cbad995df83658612ba5fa7a8c6973ce",
+    "omitted": "minute_resources retained in the raw run"
+  }
+}

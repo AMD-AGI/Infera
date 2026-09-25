@@ -1,30 +1,23 @@
 {
-  "updated_at": "2026-09-24T22:11:20.866398+00:00",
+  "status": "COMPLETE_READY_FOR_USER_REVIEW",
+  "experiment_completed": true,
+  "optimization_result": "R1+R4 regresses against historical A0/G0; recommend current R4 off for this case",
   "job": 31719,
-  "qos": "batch",
-  "allocation_start": "2026-09-24T21:45:01Z",
-  "allocation_restarts": 5,
-  "experimental_attempt": 4,
-  "status": "WARMUP",
-  "config": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/config/performance-attempt4.sh",
-  "run": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt4",
-  "prefix": "llying-r1r4-31719-performance-attempt4",
-  "prefill": {
-    "node": "smci355-ccs-aus-n05-21",
-    "ip": "10.235.192.138"
-  },
-  "decode": {
-    "node": "smci355-ccs-aus-n05-29",
-    "ip": "10.235.192.137"
-  },
-  "model_start": "2026-09-24T21:55:24Z",
-  "profiling_started": false,
-  "smoke": "completed, not repeated",
+  "job_released": true,
+  "final_attempt": 4,
   "preempted_warmup_attempts": 3,
   "voluntary_requeues_without_model_start": 2,
-  "exclusions": [
-    "smci355-ccs-aus-n04-29",
-    "smci355-ccs-aus-n04-33"
-  ],
-  "warmup_start": "2026-09-24T22:10:01Z"
+  "profiling_start": "2026-09-24T22:38:20.124Z",
+  "profiling_sending_end": "2026-09-24T23:38:20.124Z",
+  "profiling_successful": 7167,
+  "profiling_errors": 0,
+  "boundary_cancelled": 49,
+  "warmup_records": 884,
+  "warmup_errors": 1,
+  "output_tokens_s_gpu": 115.86966,
+  "ttft_mean_seconds": 26.93019,
+  "case_audit_passed": true,
+  "resources": "model containers exited, no KFD PIDs, all16 GPUs ~0.096% VRAM at2026-09-25T00:04:40Z; reservation released",
+  "report": "/home/liyingli/code/bench_agentx/Infera/llying/r1r4-4k-20260924/results/REPORT.zh-CN.md",
+  "raw_run": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt4"
 }

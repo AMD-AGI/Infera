@@ -1,0 +1,141 @@
+{
+  "verified_at": "2026-09-25T00:05:42.829064+00:00",
+  "status": "services_stopped_all_gpus_idle",
+  "roles": {
+    "prefill": {
+      "node": "smci355-ccs-aus-n05-21",
+      "container_state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-24T21:55:25.628955309Z",
+        "FinishedAt": "2026-09-24T23:45:18.339816293Z"
+      },
+      "meminfo": "MemTotal:       3170235608 kB\nMemAvailable:   3107441048 kB\nUnevictable:       30836 kB\nMlocked:           27728 kB\n",
+      "kfd_process_check": "\n\n============================ ROCm System Management Interface ============================\n===================================== KFD Processes ======================================\nNo KFD PIDs currently running\n==========================================================================================\n================================== End of ROCm SMI Log ===================================\n"
+    },
+    "decode": {
+      "node": "smci355-ccs-aus-n05-29",
+      "container_state": {
+        "Status": "exited",
+        "Running": false,
+        "Paused": false,
+        "Restarting": false,
+        "OOMKilled": false,
+        "Dead": false,
+        "Pid": 0,
+        "ExitCode": 0,
+        "Error": "",
+        "StartedAt": "2026-09-24T21:55:26.112660439Z",
+        "FinishedAt": "2026-09-24T23:45:27.202359025Z"
+      },
+      "meminfo": "MemTotal:       3170235632 kB\nMemAvailable:   3099210144 kB\nUnevictable:       30916 kB\nMlocked:           27844 kB\n",
+      "kfd_process_check": "\n\n============================ ROCm System Management Interface ============================\n===================================== KFD Processes ======================================\nNo KFD PIDs currently running\n==========================================================================================\n================================== End of ROCm SMI Log ===================================\n"
+    }
+  },
+  "gpu_probe": {
+    "utc": "2026-09-25T00:04:40.270700+00:00",
+    "roles": {
+      "prefill": {
+        "node": "smci355-ccs-aus-n05-21",
+        "gpus": [
+          {
+            "card": "card1",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card17",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card25",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card33",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card41",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card49",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card57",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card9",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          }
+        ]
+      },
+      "decode": {
+        "node": "smci355-ccs-aus-n05-29",
+        "gpus": [
+          {
+            "card": "card1",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card17",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card25",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card33",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card41",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card49",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card57",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          },
+          {
+            "card": "card9",
+            "vram_pct": 0.096,
+            "busy_pct": 0
+          }
+        ]
+      }
+    }
+  },
+  "allocation_release": "own job31719 intentionally cancelled after successful experiment and verified GPU release",
+  "allocation_final_state": "CANCELLED",
+  "allocation_end_time_utc": "2026-09-25T00:05:46Z",
+  "allocation_release_verified_at": "2026-09-25T00:09:48.570398+00:00"
+}

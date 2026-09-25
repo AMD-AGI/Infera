@@ -1,0 +1,75 @@
+{
+  "passed": true,
+  "router": {
+    "guard_release": "completion",
+    "r2": "off",
+    "r3": "off",
+    "r4": "on",
+    "candidate_logs": "off",
+    "binary_sha256": "0cf48cbf96df48caf8c03949fc5edce1c97d26bebb293c71d5409dbe77cafe6d"
+  },
+  "image": "infera-sglang:aus-0922-reqtrace",
+  "image_id": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "model": "/perf_apps/data/models/GLM-5.2-MXFP4",
+  "concurrency": 80,
+  "profiling_seconds": 3600,
+  "warmup_count": 884,
+  "dataset_revision": "23f152f6f0f9399a85901b89a6458def0ef16729",
+  "inferencex_revision": "918524ff94045b3f091115f1051c22a8588edf2b",
+  "nodes": {
+    "job": "31719",
+    "start": "2026-09-24T21:45:01",
+    "prefill": {
+      "node": "smci355-ccs-aus-n05-21",
+      "ip": "10.235.192.138"
+    },
+    "decode": {
+      "node": "smci355-ccs-aus-n05-29",
+      "ip": "10.235.192.137"
+    }
+  },
+  "prefill": {
+    "chunked_prefill_size": 4096,
+    "tp_size": 8,
+    "dp_size": 8,
+    "ep_size": 1,
+    "mem_fraction_static": 0.85,
+    "max_total_num_tokens": 3143424,
+    "enable_hierarchical_cache": true,
+    "hicache_ratio": 1.5,
+    "hicache_write_policy": "write_through",
+    "hicache_io_backend": "kernel",
+    "hicache_mem_layout": "page_first",
+    "kv_cache_dtype": "fp8_e4m3",
+    "max_running_requests": 256,
+    "random_seed": 823508857,
+    "reasoning_parser": "glm45",
+    "tool_call_parser": "glm47",
+    "speculative_algorithm": null,
+    "speculative_num_steps": null,
+    "speculative_eagle_topk": null,
+    "speculative_num_draft_tokens": null
+  },
+  "decode": {
+    "chunked_prefill_size": 4096,
+    "tp_size": 8,
+    "dp_size": 8,
+    "ep_size": 1,
+    "mem_fraction_static": 0.85,
+    "max_total_num_tokens": 3003264,
+    "enable_hierarchical_cache": false,
+    "hicache_ratio": null,
+    "hicache_write_policy": "write_through",
+    "hicache_io_backend": "kernel",
+    "hicache_mem_layout": "page_first",
+    "kv_cache_dtype": "fp8_e4m3",
+    "max_running_requests": 256,
+    "random_seed": 19197414,
+    "reasoning_parser": "glm45",
+    "tool_call_parser": "glm47",
+    "speculative_algorithm": "EAGLE",
+    "speculative_num_steps": 5,
+    "speculative_eagle_topk": 1,
+    "speculative_num_draft_tokens": 6
+  }
+}

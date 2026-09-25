@@ -1,0 +1,76 @@
+{
+  "matched_pairs": 6744,
+  "net_extra_miss_tokens": 44626487,
+  "gross_extra_miss_tokens": 47811828,
+  "gross_saved_miss_tokens": 3185341,
+  "median_miss_delta": 1.0,
+  "cache_loss_tails": {
+    "64": {
+      "requests": 1903,
+      "extra_tokens": 47807664,
+      "share_of_gross_extra": 0.9999129085798601
+    },
+    "4096": {
+      "requests": 1182,
+      "extra_tokens": 46471790,
+      "share_of_gross_extra": 0.9719726675164982
+    },
+    "32768": {
+      "requests": 388,
+      "extra_tokens": 37147554,
+      "share_of_gross_extra": 0.7769532258837708
+    },
+    "100000": {
+      "requests": 115,
+      "extra_tokens": 20872932,
+      "share_of_gross_extra": 0.4365641907688616
+    }
+  },
+  "same_miss_within64": {
+    "n": 4476,
+    "miss_tokens": {
+      "G0_mean": 6167.064789991064,
+      "R1R4_mean": 6167.067024128686
+    },
+    "ttft_ms": {
+      "G0_mean": 7721.285272590036,
+      "R1R4_mean": 25909.561262302053
+    },
+    "prefill_queue_ms": {
+      "G0_mean": 2786.95420035844,
+      "R1R4_mean": 19835.849185552943
+    },
+    "prefill_forward_envelope_ms": {
+      "G0_mean": 3012.380298918333,
+      "R1R4_mean": 4083.7641641238056
+    },
+    "host_tokens": {
+      "G0_mean": 610.1018766756032,
+      "R1R4_mean": 1617.4584450402144
+    }
+  },
+  "same_device_and_host_within64": {
+    "n": 4400,
+    "miss_tokens": {
+      "G0_mean": 6202.146818181818,
+      "R1R4_mean": 6202.114318181818
+    },
+    "ttft_ms": {
+      "G0_mean": 7634.52294324409,
+      "R1R4_mean": 25736.549821026816
+    },
+    "prefill_queue_ms": {
+      "G0_mean": 2725.927933885991,
+      "R1R4_mean": 19682.94707403659
+    },
+    "prefill_forward_envelope_ms": {
+      "G0_mean": 3017.1624310589555,
+      "R1R4_mean": 4085.8699730761646
+    },
+    "host_tokens": {
+      "G0_mean": 12.770909090909091,
+      "R1R4_mean": 12.756363636363636
+    }
+  },
+  "scope": "Selected intersection of completed source turns. Same lengths do not prove byte-identical prompts. Queue/forward envelopes include scheduling effects; not an isolated GPU-time comparison."
+}
