@@ -1,0 +1,62 @@
+{
+  "passed": false,
+  "observed_at_utc": "2026-09-28T13:28:26.532596+00:00",
+  "metrics": {
+    "prefill": {
+      "kv_used_tokens": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "kv_evictable_tokens": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "hicache_host_used_tokens": [
+        704.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "decode": {
+      "kv_used_tokens": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "kv_evictable_tokens": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "hicache_host_used_tokens": []
+    }
+  },
+  "note": "Read-only observation after preflight, while client reconstructs dataset. No cache flush issued during replay."
+}

@@ -1,0 +1,132 @@
+{
+  "passed": true,
+  "requests": [
+    {
+      "id": "session-review-preflight-0",
+      "object": "chat.completion",
+      "created": 1790602002,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!s 1/2 * 1/2!s 1/2!s 1/2!s 1/2!s 1/2!s 1/2!s 1/2!s 1/2!s 1/2!s 1",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 65
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    },
+    {
+      "id": "session-review-preflight-1",
+      "object": "chat.completion",
+      "created": 1790602002,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!a!measurement is a!a!a!... \nThe user is repeating the same thing over and over again. The user is asking the same repeated thing. The user is repeating the same repeated text. The repeated text is \"The temperature is 1. The temperature is 1. The temperature is",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": {
+          "cached_tokens": 704
+        },
+        "reasoning_tokens": 64
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    },
+    {
+      "id": "session-review-preflight-2",
+      "object": "chat.completion",
+      "created": 1790602003,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!s a measurement. The user repeats the same sentence 100,0 times. The user is asking for the temperature, and the measurement is 20. The user is asking for the temperature, and the measurement is 20. The user is repeating the same sentence 100,000 times. The user is",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": {
+          "cached_tokens": 704
+        },
+        "reasoning_tokens": 65
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    }
+  ],
+  "session_metrics": [
+    "infera_router_session_active{role=\"prefill\"} 0",
+    "infera_router_session_hits_total{role=\"prefill\"} 2",
+    "infera_router_session_selected_total{role=\"prefill\"} 1",
+    "infera_router_session_active{role=\"decode\"} 0",
+    "infera_router_session_hits_total{role=\"decode\"} 0",
+    "infera_router_session_selected_total{role=\"decode\"} 0",
+    "infera_router_session_active{role=\"mixed\"} 0",
+    "infera_router_session_hits_total{role=\"mixed\"} 0",
+    "infera_router_session_selected_total{role=\"mixed\"} 0"
+  ],
+  "binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f"
+}

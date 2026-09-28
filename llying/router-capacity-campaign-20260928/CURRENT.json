@@ -1,12 +1,11 @@
 {
-  "updated_utc": "2026-09-28T13:24:49.076537+00:00",
-  "stage": "B1_HICACHE_STARTING",
+  "updated_utc": "2026-09-28T13:30:23.882050+00:00",
+  "stage": "B1_WARMUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b1-dynamo-p",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b1.sh",
   "already_running": [
-    "promote-b1.sh",
-    "await-b1-performance.sh (will start C80 after preflight; do not duplicate)"
+    "await-b1-performance.sh / run-performance.sh: C80 replay and observers running; do not duplicate"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",

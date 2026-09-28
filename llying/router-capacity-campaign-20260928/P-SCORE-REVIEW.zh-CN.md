@@ -33,3 +33,7 @@ score = (在途有效P工作 + 本请求有效工作) / block_size
 测试：已有单元测试通过；新增测试覆盖GPU/host候选选择、预约先于派发、共享块释放、partial尾部、未知metadata、shadow以及配置互斥。完整离线/HTTP结果完成后追加。
 
 离线复核完成：292项单元测试通过（含16线程并发预约分布）；26项HTTP功能、4项ZMQ集成、14项render-probe通过；原有4项外部NATS服务测试保持ignored。Release构建通过。新增分层测试用固定Dynamo默认公式计算A=7、B=6.5，验证host抵扣改变选择且共享块引用正确释放；16线程未dispatch即预约测试验证4个同规格候选各分4个请求。下一步是无HiCache短时实机，验证实际引擎请求和命中事件路径。
+
+B0参考采用已完成的同节点P亲和基线：本次overlay仅增加默认关闭的decode-radix opt-in，B1中D仍关闭radix/KV events；SGLang计算/传输内核未改，P/D原参数一致。实际runtime差异校验只有IMAGE/IMAGE_IDS及输出路径。没有为同一控制路径机械重复一小时基线；单次历史对照的时间/缓存历史局限在结果中保留。
+
+B1回放前只读观察到P/D八rank的GPU used/evictable均为0；P host-used有一个704-token计数（可能是预检请求或计数更新延迟），没有把它冒充host完全清空的证明，也没有在回放期间再flush。正式缓存统计采用实际请求cohort。

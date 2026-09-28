@@ -1,5 +1,5 @@
 """Verify the reviewed configuration and a few real requests before replay."""
-import hashlib,json,os,shlex,subprocess,time,urllib.request
+import hashlib,json,os,re,shlex,subprocess,time,urllib.request
 from pathlib import Path
 root=Path(os.environ['TRACE_RUNTIME']);run=Path(os.environ['RUN']);url='http://'+os.environ['PREFILL_IP']+':28000';ssh=['ssh',*shlex.split(os.environ['SSH_OPTS'])]
 def get(u):
@@ -31,5 +31,15 @@ assert ('infera_router_session_hits_total{role="decode"} 2' if os.environ['INFER
 assert 'infera_router_session_active{role="prefill"} 0' in metrics
 for role,port in [('prefill',29001),('decode',29002)]:
  with urllib.request.urlopen(urllib.request.Request(f'http://{os.environ[role.upper()+"_IP"]}:{port}/flush_cache',data=b'',method='POST'),timeout=30) as f:(run/f'pre-benchmark-flush-{role}.txt').write_bytes(f.read())
+empty_cache={}
+for role,port in [('prefill',29001),('decode',29002)]:
+ for attempt in range(30):
+  with urllib.request.urlopen(f'http://{os.environ[role.upper()+"_IP"]}:{port}/metrics',timeout=10) as f:raw=f.read().decode()
+  values=[float(v) for v in re.findall(r'^sglang:kv_used_tokens(?:\{[^}]*\})? ([0-9.eE+-]+)$',raw,re.M)]
+  if len(values)==8 and all(v==0 for v in values):break
+  time.sleep(1)
+ else:raise RuntimeError(f'{role} cache did not reach an empty state after flush: {values}')
+ empty_cache[role]=values
+(run/'snapshot/cache-empty-before-warmup.json').write_text(json.dumps({'passed':True,'kv_used_tokens':empty_cache},indent=2)+'\n')
 (run/'preflight.json').write_text(json.dumps({'passed':True,'requests':rows,'session_metrics':[l for l in metrics.splitlines() if l.startswith('infera_router_session_')],'binary_sha256':hashlib.sha256(Path(os.environ['ROUTER_BINARY_OVERRIDE']).read_bytes()).hexdigest()},indent=2))
 print('PREFLIGHT_PASSED: 4K, HiCache1.5, three real requests, two P session hits, D unbound')
