@@ -9,6 +9,6 @@
 - 目标在可用候选中消失或登记信息改变会重选；请求失败使对应绑定失效。旧失败回调带代数检查，不能删除新绑定。不增加主动拥塞迁移，也不重放已经输出的请求。
 - `/metrics` 提供按角色的 `infera_router_session_active`、`infera_router_session_hits_total`、`infera_router_session_selected_total`，日志记录命中/新建/过期/目标失效。不会输出 session ID。
 
-离线验证已通过285项单元、26项HTTP功能、4项额外集成、14项render probe测试；4项原有外部服务测试未运行。证据见 offline-tests.log。实机smoke待完成后补充。
+离线验证已通过285项单元、26项HTTP功能、4项额外集成、14项render probe测试；4项原有外部服务测试未运行。证据见 offline-tests.txt。实机smoke待完成后补充。
 
 实机工作目录：`/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928`。节点allocation31999；P=n10-29，D=n03-33；两端HiCache关闭、有效chunk=4K；使用相同已验证引擎镜像。不会释放用户allocation。
