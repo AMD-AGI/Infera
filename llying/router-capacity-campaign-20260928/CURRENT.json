@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T19:43:32.561799+00:00",
-  "stage": "RB_PERFORMANCE_STARTUP",
+  "updated_utc": "2026-09-28T19:52:29.638605+00:00",
+  "stage": "RB_WARMUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/rb.sh",
   "already_running": [
-    "run-rb-recovery.sh: real probe passed; simulated D starting, then C80",
+    "RB C80 runner: 884-request warmup, followed by 3600-second profiling",
     "allocation watcher for 32054"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
@@ -77,5 +77,6 @@
       "real_probe_passed": true,
       "formal_started": false
     }
-  ]
+  ],
+  "warmup_start_utc": "2026-09-28T19:48:54Z"
 }
