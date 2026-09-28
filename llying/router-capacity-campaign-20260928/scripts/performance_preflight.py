@@ -31,7 +31,7 @@ def hits(text,role):
  return int(match[1]) if match else 0
 probe_session='review-preflight-'+uuid.uuid4().hex
 for i in range(3):
- body={'rid':f'session-review-preflight-{i}','model':'glm5.2-mxfp4','messages':[{'role':'user','content':('A measurement is 20 degrees. '*100)+'Give the temperature briefly.'}],'max_tokens':64,'temperature':0,'stream':False}
+ body={'rid':f'{probe_session}-{i}','model':'glm5.2-mxfp4','messages':[{'role':'user','content':('A measurement is 20 degrees. '*100)+'Give the temperature briefly.'}],'max_tokens':64,'temperature':0,'stream':False}
  req=urllib.request.Request(url+'/v1/chat/completions',json.dumps(body).encode(),{'Content-Type':'application/json','X-Dynamo-Session-ID':probe_session})
  with urllib.request.urlopen(req,timeout=180) as f:r=json.load(f)
  assert r.get('choices');rows.append(r)

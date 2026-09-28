@@ -78,7 +78,7 @@ def replace_role(role):
 if __name__=='__main__':
     if (RUN/'c80-started.txt').exists():raise SystemExit('case already started; do not overwrite')
     previous=Path(E['PREVIOUS_RUN']);status=(previous/'STATUS').read_text()
-    if not ('COMPLETE_REVIEW_PENDING' in status or 'RADIX_GATE_PASSED' in status):
+    if not ('COMPLETE_REVIEW_PENDING' in status or 'RADIX_GATE_PASSED' in status or 'PLACEMENT_GATE_PASSED' in status):
         raise RuntimeError('previous point is not complete; engine idleness alone is insufficient')
     command=json.loads((previous/'snapshot/router-launch-command.json').read_text())
     assert command[command.index('--name')+1]==E['OLD_PREFIX']+'-router'

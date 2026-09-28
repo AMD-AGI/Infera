@@ -6,7 +6,7 @@ sys.path.insert(0,str(Path(__file__).parent/'bench-harness/tools'))
 from campaign_topology import load
 
 E=os.environ;RUN=Path(E['RUN']);rows=load(E['TOPOLOGY'])
-selected=set(E.get('LAUNCH_INSTANCES',','.join(r['instance'] for r in rows)).split(','))
+selected=set(filter(None,E.get('LAUNCH_INSTANCES',','.join(r['instance'] for r in rows)).split(',')))
 assert selected<=set(r['instance'] for r in rows)
 
 

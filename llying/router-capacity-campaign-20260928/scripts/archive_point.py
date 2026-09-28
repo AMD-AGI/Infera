@@ -1,5 +1,5 @@
 """Save compact, reviewable results; bulk request/trace data remain in the shared run directory."""
-import argparse,datetime,hashlib,json,shutil,subprocess
+import argparse,datetime,json,shutil
 from pathlib import Path
 
 p=argparse.ArgumentParser();p.add_argument('run',type=Path);p.add_argument('output',type=Path);a=p.parse_args();run=a.run;out=a.output;out.mkdir(parents=True,exist_ok=True)
