@@ -30,6 +30,7 @@ const MAX_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
 #[derive(Clone)]
 pub struct AppState {
     pub pool: SharedPool,
+    pub sessions: Arc<crate::session_affinity::Sessions>,
     pub policy: Arc<dyn Policy>,
     pub http: reqwest::Client,
     pub started: Instant,
@@ -62,12 +63,12 @@ pub fn app(state: AppState) -> Router {
         .with_state(state)
 }
 
-async fn chat(State(st): State<AppState>, body: Bytes) -> Response {
-    proxy::dispatch(&st, body, "/v1/chat/completions").await
+async fn chat(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    proxy::dispatch_headers(&st, body, "/v1/chat/completions", &headers).await
 }
 
-async fn completions(State(st): State<AppState>, body: Bytes) -> Response {
-    proxy::dispatch(&st, body, "/v1/completions").await
+async fn completions(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    proxy::dispatch_headers(&st, body, "/v1/completions", &headers).await
 }
 
 /// OpenAI Responses API — the wire protocol the Codex CLI/SDK speaks by default.
@@ -82,8 +83,8 @@ async fn completions(State(st): State<AppState>, body: Bytes) -> Response {
 /// renders that, so `/v1/responses` and `/v1/chat/completions` hash identically.
 /// The exception is a `previous_response_id` whose history lives in the engine
 /// -- unreproducible by construction -- which routes on load and logs why.
-async fn responses(State(st): State<AppState>, body: Bytes) -> Response {
-    proxy::dispatch(&st, body, "/v1/responses").await
+async fn responses(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
+    proxy::dispatch_headers(&st, body, "/v1/responses", &headers).await
 }
 
 /// OpenAI Responses input-token probe (`POST /v1/responses/input_tokens`).
@@ -213,8 +214,18 @@ async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -
         .filter(|value| !value.is_empty())
         .map(str::to_string)
         .unwrap_or_else(|| format!("{:032x}", rand::random::<u128>()));
-    let upstream =
-        proxy::dispatch_routed(&st, &routing_request, worker_body, "/v1/chat/completions").await;
+    let session = match st.sessions.header(&headers) {
+        Ok(id) => id,
+        Err(error) => return anthropic_error(StatusCode::BAD_REQUEST, error),
+    };
+    let upstream = proxy::dispatch_routed_session(
+        &st,
+        &routing_request,
+        worker_body,
+        "/v1/chat/completions",
+        session,
+    )
+    .await;
     let status = upstream.status();
     if status.is_client_error() || status.is_server_error() {
         return with_request_id(upstream, &request_id);
@@ -374,6 +385,7 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
         snap.active_count(),
         st.started.elapsed().as_secs()
     );
+    out.push_str(&st.sessions.metrics());
     // Non-zero state means the router is routing around a worker that
     // discovery still reports ACTIVE — the gap this metric exists to show.
     for (worker_id, state, trips) in st.breaker.snapshot() {

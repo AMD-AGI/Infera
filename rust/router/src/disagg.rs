@@ -41,6 +41,7 @@ pub async fn dispatch(
     raw: Bytes,
     stream: bool,
     path: &str,
+    session: Option<&str>,
 ) -> Response {
     // role_hint lets a cost-aware policy weight P (cache-heavy: a hit skips a
     // whole prefill pass) differently from D (route by load).
@@ -57,8 +58,22 @@ pub async fn dispatch(
         .filter(snap.list_active(model, DisaggMode::Decode), |w| {
             w.worker_id.as_str()
         });
-    let p_pick = state.policy.pick(&p_avail, request, Role::Prefill);
-    let d_pick = state.policy.pick(&d_avail, request, Role::Decode);
+    let (p_pick, p_session) = state.sessions.pick(
+        state.policy.as_ref(),
+        &p_avail,
+        request,
+        Role::Prefill,
+        model,
+        session,
+    );
+    let (d_pick, d_session) = state.sessions.pick(
+        state.policy.as_ref(),
+        &d_avail,
+        request,
+        Role::Decode,
+        model,
+        session,
+    );
     let p = p_pick.target;
     let d = d_pick.target;
     // Dispatch owns both legs until the P task takes its configured share.
@@ -69,75 +84,87 @@ pub async fn dispatch(
             (d.route_key(), d_pick.blocks),
         ],
     )
-    .with_reservations(p_pick.reservation, d_pick.reservation);
+    .with_reservations(p_pick.reservation, d_pick.reservation)
+    .with_sessions(p_session, d_session);
 
-    let proto = match protocol::resolve_pd_protocol(&p.worker, &d.worker) {
-        Ok(pr) => pr,
-        Err(e) => return json_error(StatusCode::NOT_IMPLEMENTED, &e.to_string()),
-    };
+    let bindings = guard.session_bindings();
+    let response = async {
+        let proto = match protocol::resolve_pd_protocol(&p.worker, &d.worker) {
+            Ok(pr) => pr,
+            Err(e) => return json_error(StatusCode::NOT_IMPLEMENTED, &e.to_string()),
+        };
 
-    let base: Map<String, Value> = match serde_json::from_slice::<Value>(&raw) {
-        Ok(Value::Object(m)) => m,
-        Ok(_) => return json_error(StatusCode::BAD_REQUEST, "body must be a JSON object"),
-        Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
-    };
+        let base: Map<String, Value> = match serde_json::from_slice::<Value>(&raw) {
+            Ok(Value::Object(m)) => m,
+            Ok(_) => return json_error(StatusCode::BAD_REQUEST, "body must be a JSON object"),
+            Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
+        };
 
-    let room = dp::align_room_to_prefill_rank(rand::random::<u64>() >> 1, &p);
+        let room = dp::align_room_to_prefill_rank(rand::random::<u64>() >> 1, &p);
 
-    let mut p_body = base.clone();
-    let mut d_body = base;
-    let shaped = match proto {
-        // SGLang: both legs carry the SAME top-level bootstrap fields.
-        protocol::PdProtocol::SglangBootstrap => {
-            protocol::annotate_sglang(&mut p_body, &p.worker, room)
-                .and_then(|_| protocol::annotate_sglang(&mut d_body, &p.worker, room))
-        }
-        // vLLM Mooncake: ASYMMETRIC — prefill runs prefill+1tok & pushes KV; decode
-        // pulls it via the prefill's bootstrap and generates the rest.
-        protocol::PdProtocol::VllmMooncake => {
-            protocol::annotate_vllm_prefill(&mut p_body, path, room);
-            protocol::annotate_vllm_decode(&mut d_body, &p.worker, path, room)
-        }
-    };
-    if let Err(e) = shaped {
-        return json_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
-    }
-    // Tell the decode worker which prefill DP rank holds its KV.
-    if let Some(rank) = p.dp_rank {
-        d_body.insert("disagg_prefill_dp_rank".into(), Value::from(rank));
-    }
-
-    // Both legs over NATS only when both workers registered for it. The KV
-    // transfer is engine-to-engine either way (the bootstrap_room travels in
-    // the bodies), so the delivery channel is all that changes.
-    if let Some(nats) = state.nats.clone() {
-        if p.worker.request_transport == "nats" && d.worker.request_transport == "nats" {
-            // Either leg being at its backlog limit refuses the whole request:
-            // dispatching half a PD pair would leave the other worker holding a
-            // bootstrap_room nobody completes.
-            if !(nats.admit(&p.worker.worker_id).await && nats.admit(&d.worker.worker_id).await) {
-                drop(guard);
-                return Response::builder()
-                    .status(StatusCode::TOO_MANY_REQUESTS)
-                    .header(header::CONTENT_TYPE, "application/json")
-                    .header("Retry-After", "1")
-                    .body(Body::from(
-                        r#"{"error":"PD worker request backlog over limit"}"#,
-                    ))
-                    .expect("429 response is valid");
+        let mut p_body = base.clone();
+        let mut d_body = base;
+        let shaped = match proto {
+            // SGLang: both legs carry the SAME top-level bootstrap fields.
+            protocol::PdProtocol::SglangBootstrap => {
+                protocol::annotate_sglang(&mut p_body, &p.worker, room)
+                    .and_then(|_| protocol::annotate_sglang(&mut d_body, &p.worker, room))
             }
-            return dual_nats(state, &nats, &p, &d, path, p_body, d_body, stream, guard).await;
+            // vLLM Mooncake: ASYMMETRIC — prefill runs prefill+1tok & pushes KV; decode
+            // pulls it via the prefill's bootstrap and generates the rest.
+            protocol::PdProtocol::VllmMooncake => {
+                protocol::annotate_vllm_prefill(&mut p_body, path, room);
+                protocol::annotate_vllm_decode(&mut d_body, &p.worker, path, room)
+            }
+        };
+        if let Err(e) = shaped {
+            return json_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+        }
+        // Tell the decode worker which prefill DP rank holds its KV.
+        if let Some(rank) = p.dp_rank {
+            d_body.insert("disagg_prefill_dp_rank".into(), Value::from(rank));
+        }
+
+        // Both legs over NATS only when both workers registered for it. The KV
+        // transfer is engine-to-engine either way (the bootstrap_room travels in
+        // the bodies), so the delivery channel is all that changes.
+        if let Some(nats) = state.nats.clone() {
+            if p.worker.request_transport == "nats" && d.worker.request_transport == "nats" {
+                // Either leg being at its backlog limit refuses the whole request:
+                // dispatching half a PD pair would leave the other worker holding a
+                // bootstrap_room nobody completes.
+                if !(nats.admit(&p.worker.worker_id).await && nats.admit(&d.worker.worker_id).await)
+                {
+                    drop(guard);
+                    return Response::builder()
+                        .status(StatusCode::TOO_MANY_REQUESTS)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .header("Retry-After", "1")
+                        .body(Body::from(
+                            r#"{"error":"PD worker request backlog over limit"}"#,
+                        ))
+                        .expect("429 response is valid");
+                }
+                return dual_nats(state, &nats, &p, &d, path, p_body, d_body, stream, guard).await;
+            }
+        }
+
+        let p_url = format!("{}{}", p.worker.url, path);
+        let d_url = format!("{}{}", d.worker.url, path);
+
+        if stream {
+            stream_dual(state, &p, &d, p_url, d_url, p_body, d_body, guard).await
+        } else {
+            unary_dual(state, &p, &d, p_url, d_url, p_body, d_body, guard).await
         }
     }
-
-    let p_url = format!("{}{}", p.worker.url, path);
-    let d_url = format!("{}{}", d.worker.url, path);
-
-    if stream {
-        stream_dual(state, &p, &d, p_url, d_url, p_body, d_body, guard).await
-    } else {
-        unary_dual(state, &p, &d, p_url, d_url, p_body, d_body, guard).await
+    .await;
+    if !response.status().is_success() {
+        for binding in bindings {
+            binding.invalidate();
+        }
     }
+    response
 }
 
 /// Streaming: fire prefill in the background, stream decode back.
@@ -172,7 +199,10 @@ async fn stream_dual(
                 guard,
             )))
             .expect("stream response is valid"),
-        Err(msg) => json_error(StatusCode::BAD_GATEWAY, &msg),
+        Err(msg) => {
+            guard.invalidate_sessions();
+            json_error(StatusCode::BAD_GATEWAY, &msg)
+        }
     }
 }
 
@@ -191,6 +221,10 @@ async fn unary_dual(
     // Held until both legs finish (dropped at fn end) -> on_request_finished.
     let reservation = guard.detach_prefill(state.policy.prefill_guard_at_completion());
     let _guard = guard;
+    let p_bindings = reservation
+        .as_ref()
+        .map(ActiveGuard::session_bindings)
+        .unwrap_or_default();
     let p_fut = async {
         let resp = post_leg(state, &p_url, p_body, p.dp_rank).await?;
         let status = resp.status();
@@ -206,11 +240,23 @@ async fn unary_dual(
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
     let (p_res, d_res) = tokio::join!(p_fut, d_fut);
 
+    if !p_res
+        .as_ref()
+        .is_ok_and(|(status, _, _)| status.is_success())
+    {
+        for binding in &p_bindings {
+            binding.invalidate();
+        }
+    }
     // Prefill: drain + log; its output is discarded (KV goes engine→engine).
     match p_res {
         Ok((st, remaining, reservation)) => {
             if let Some(resp) = remaining {
-                let _ = resp.bytes().await;
+                if resp.bytes().await.is_err() {
+                    for binding in &p_bindings {
+                        binding.invalidate();
+                    }
+                }
             }
             drop(reservation);
             if st.is_client_error() || st.is_server_error() {
@@ -434,12 +480,19 @@ fn spawn_prefill_drain_nats(
 ) {
     tokio::spawn(async move {
         let _reservation = reservation;
+        let bindings = _reservation
+            .as_ref()
+            .map(ActiveGuard::session_bindings)
+            .unwrap_or_default();
         let mut reply = match nats.dispatch(&worker_id, &payload).await {
             Ok(r) => r,
             Err(e) => {
                 tracing::warn!(
                     "prefill (nats) {worker_id} failed: {e} (decode may hang on KVPoll)"
                 );
+                for binding in &bindings {
+                    binding.invalidate();
+                }
                 breaker.record_failure(&worker_id);
                 return;
             }
@@ -452,6 +505,9 @@ fn spawn_prefill_drain_nats(
                     // prefill that fails still leaves decode hanging on KVPoll,
                     // which is exactly the failure worth remembering.
                     if !StatusCode::from_u16(status).is_ok_and(|s| s.is_success()) {
+                        for binding in &bindings {
+                            binding.invalidate();
+                        }
                         tracing::warn!(
                             "prefill (nats) {worker_id} returned {status} (decode may hang on KVPoll)"
                         );
@@ -464,10 +520,18 @@ fn spawn_prefill_drain_nats(
                         "prefill (nats) {worker_id} failed: {} (decode may hang on KVPoll)",
                         truncate_chars(&message, 200)
                     );
+                    for binding in &bindings {
+                        binding.invalidate();
+                    }
                     breaker.record_failure(&worker_id);
                     return;
                 }
-                None => return,
+                None => {
+                    for binding in &bindings {
+                        binding.invalidate();
+                    }
+                    return;
+                }
             }
         }
     });
@@ -520,8 +584,15 @@ fn spawn_prefill_drain(
         match req.send().await {
             Ok(resp) => {
                 let st = resp.status();
-                let _ = resp.bytes().await; // drain to keep the connection open
+                if resp.bytes().await.is_err() {
+                    if let Some(guard) = &prefill_guard {
+                        guard.invalidate_sessions();
+                    }
+                }
                 if st.is_client_error() || st.is_server_error() {
+                    if let Some(guard) = &prefill_guard {
+                        guard.invalidate_sessions();
+                    }
                     tracing::warn!(
                         "prefill {url} returned {} (decode may hang on KVPoll)",
                         st.as_u16()
@@ -539,6 +610,9 @@ fn spawn_prefill_drain(
                 }
             }
             Err(e) => {
+                if let Some(guard) = &prefill_guard {
+                    guard.invalidate_sessions();
+                }
                 tracing::warn!("prefill {url} failed: {e} (decode may hang on KVPoll)");
                 breaker.record_failure(&worker_id);
             }
@@ -785,6 +859,7 @@ mod tests {
                 }),
             );
             let state = AppState {
+                sessions: Arc::new(crate::session_affinity::Sessions::default()),
                 pool: Arc::new(arc_swap::ArcSwap::from_pointee(Snapshot::build(vec![]))),
                 policy: policy.clone(),
                 http: reqwest::Client::new(),

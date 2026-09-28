@@ -117,6 +117,7 @@ fn worker(spec: Value) -> Arc<Worker> {
 
 fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
+        sessions: Arc::new(infera_router::session_affinity::Sessions::default()),
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(RoundRobin::new()),
         http: proxy::build_upstream_client().unwrap(),
@@ -265,6 +266,7 @@ async fn mixed_round_robin_spreads_load() {
 
 fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
+        sessions: Arc::new(infera_router::session_affinity::Sessions::default()),
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(KvEventAwarePolicy::new(
             Arc::new(KvEventClient::new()),
@@ -929,4 +931,46 @@ async fn responses_input_tokens_unavailable_without_tokenizer() {
         .await
         .unwrap();
     assert_eq!(r.status(), 503);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn session_header_pins_real_pd_dispatch_without_changing_body() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    for mode in [Mode::Prefill, Mode::Both, Mode::Off] {
+        let (p_url, p) = spawn_mock(200, false, json!({"ok":true})).await;
+        let (d_url, d) = spawn_mock(200, false, json!({"ok":true})).await;
+        let mut dw = (*decode(&d_url)).clone();
+        dw.dp_size = Some(8);
+        let mut state = make_state(vec![prefill(&p_url, Some(8)), Arc::new(dw)], 0);
+        state.sessions = Arc::new(Sessions::new(mode, Duration::from_secs(3600), 64));
+        let router = spawn_router(state).await;
+        let body =
+            json!({"model":"m","messages":[{"role":"user","content":"hello"}],"stream":false});
+        for _ in 0..3 {
+            let resp = client()
+                .post(format!("{router}/v1/chat/completions"))
+                .header("X-Dynamo-Session-ID", "stable")
+                .json(&body)
+                .send()
+                .await
+                .unwrap();
+            assert!(resp.status().is_success());
+            resp.bytes().await.unwrap();
+        }
+        let ps = p.hits.lock().unwrap();
+        let ds = d.hits.lock().unwrap();
+        assert_eq!(ps.len(), 3);
+        assert_eq!(ds.len(), 3);
+        assert_eq!(ps[0].dp_rank == ps[1].dp_rank, mode != Mode::Off);
+        assert_eq!(ds[0].dp_rank == ds[1].dp_rank, mode == Mode::Both);
+        for (p, d) in ps.iter().zip(ds.iter()) {
+            assert_eq!(p.body["messages"], body["messages"]);
+            assert!(p.body.get("session_id").is_none());
+            assert_eq!(p.body["bootstrap_room"], d.body["bootstrap_room"]);
+            assert_eq!(
+                d.body["disagg_prefill_dp_rank"].as_i64(),
+                p.dp_rank.as_ref().and_then(|s| s.parse().ok())
+            );
+        }
+    }
 }

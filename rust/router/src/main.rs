@@ -164,6 +164,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let state = AppState {
+        sessions: Arc::new(infera_router::session_affinity::Sessions::from_env()?),
         pool,
         policy,
         http: upstream,

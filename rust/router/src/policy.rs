@@ -26,7 +26,7 @@ use crate::routing_experiments::{best_candidate, Experiments, Ledger, Mode, Rese
 
 /// PD role of the pool being picked from. The disagg router passes Prefill /
 /// Decode so a cost-aware policy can weight cache locality by role.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Role {
     Prefill,
     Decode,
@@ -51,6 +51,15 @@ pub trait Policy: Send + Sync {
     }
     /// Pick one target. Callers guarantee `candidates` is non-empty.
     fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick;
+
+    /// Restrict the existing policy to one worker/rank, preserving its accounting.
+    fn pick_target(&self, target: &RouteTarget, request: &Value, role: Role) -> Pick {
+        let mut worker = (*target.worker).clone();
+        worker.dp_rank = target.dp_rank;
+        let mut pick = self.pick(&[Arc::new(worker)], request, role);
+        pick.target = target.clone();
+        pick
+    }
 
     /// Mark a request in-flight on `route_key` (increments the load term).
     fn on_request_started(&self, _route_key: &str, _blocks: &[u64]) {}
@@ -101,6 +110,8 @@ pub struct ActiveGuard {
     entries: Vec<(String, Vec<u64>)>,
     prefill_reservation: Option<Reservation>,
     decode_reservation: Option<Reservation>,
+    prefill_session: Option<crate::session_affinity::Lease>,
+    decode_session: Option<crate::session_affinity::Lease>,
 }
 
 impl ActiveGuard {
@@ -110,12 +121,13 @@ impl ActiveGuard {
     /// Move P work into the P task. Legacy block accounting moves only with R1.
     pub fn detach_prefill(&mut self, release_legacy: bool) -> Option<Self> {
         let reservation = self.prefill_reservation.take();
+        let session = self.prefill_session.take();
         let entries = if release_legacy && !self.entries.is_empty() {
             vec![self.entries.remove(0)]
         } else {
             Vec::new()
         };
-        if reservation.is_none() && entries.is_empty() {
+        if reservation.is_none() && entries.is_empty() && session.is_none() {
             return None;
         }
         Some(Self {
@@ -123,7 +135,36 @@ impl ActiveGuard {
             entries,
             prefill_reservation: reservation,
             decode_reservation: None,
+            prefill_session: session,
+            decode_session: None,
         })
+    }
+
+    pub fn with_sessions(
+        mut self,
+        prefill: Option<crate::session_affinity::Lease>,
+        decode: Option<crate::session_affinity::Lease>,
+    ) -> Self {
+        self.prefill_session = prefill;
+        self.decode_session = decode;
+        self
+    }
+
+    pub fn session_bindings(&self) -> Vec<crate::session_affinity::Binding> {
+        [&self.prefill_session, &self.decode_session]
+            .into_iter()
+            .flatten()
+            .map(|l| l.binding())
+            .collect()
+    }
+
+    pub fn invalidate_sessions(&self) {
+        for lease in [&self.prefill_session, &self.decode_session]
+            .into_iter()
+            .flatten()
+        {
+            lease.invalidate();
+        }
     }
 
     pub fn with_reservations(
@@ -145,6 +186,8 @@ impl ActiveGuard {
             entries,
             prefill_reservation: None,
             decode_reservation: None,
+            prefill_session: None,
+            decode_session: None,
         }
     }
 }
@@ -1458,6 +1501,52 @@ mod tests {
         assert_eq!(pick.target.worker.worker_id, "b"); // 8+32 < 32+16
         drop((pick, a, b));
         assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn session_pin_preserves_kv_blocks_and_demand_reservations() {
+        use crate::session_affinity::{Mode as SessionMode, Sessions};
+        let sessions = Sessions::new(SessionMode::Both, std::time::Duration::from_secs(3600), 32);
+        let policy = Arc::new(experiment_policy(Experiments {
+            prefill_guard_completion: true,
+            prefill: Mode::On,
+            decode: Mode::On,
+            ..Default::default()
+        }));
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        let req = json!({"prompt": vec![7;32]});
+        let (first, lease) = sessions.pick(
+            policy.as_ref(),
+            &workers,
+            &req,
+            Role::Prefill,
+            "m",
+            Some("s"),
+        );
+        let key = first.target.route_key();
+        let first_guard = ActiveGuard::start(policy.clone(), vec![(key.clone(), first.blocks)])
+            .with_reservations(first.reservation, None)
+            .with_sessions(lease, None);
+        let (second, lease) = sessions.pick(
+            policy.as_ref(),
+            &workers,
+            &req,
+            Role::Prefill,
+            "m",
+            Some("s"),
+        );
+        assert_eq!(second.target.route_key(), key);
+        let second_guard = ActiveGuard::start(policy.clone(), vec![(key.clone(), second.blocks)])
+            .with_reservations(second.reservation, None)
+            .with_sessions(lease, None);
+        assert_eq!(policy.demand.lock().unwrap()[&key].tokens, 64.0);
+        assert_eq!(policy.active_len(&key), 2);
+        drop(first_guard);
+        assert_eq!(policy.demand.lock().unwrap()[&key].tokens, 32.0);
+        assert_eq!(policy.active_len(&key), 2);
+        drop(second_guard);
+        assert!(policy.demand.lock().unwrap().is_empty());
+        assert_eq!(policy.active_len(&key), 0);
     }
 
     #[test]

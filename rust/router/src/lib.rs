@@ -46,3 +46,5 @@ pub mod util;
 
 pub mod routing_experiments;
 pub mod cache_tiers;
+
+pub mod session_affinity;

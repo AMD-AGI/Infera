@@ -52,7 +52,12 @@ impl Stream for GuardedStream {
     type Item = reqwest::Result<Bytes>;
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // GuardedStream is Unpin (Pin<Box<..>> + ActiveGuard are both Unpin).
-        self.get_mut().inner.as_mut().poll_next(cx)
+        let this = self.get_mut();
+        let result = this.inner.as_mut().poll_next(cx);
+        if matches!(&result, Poll::Ready(Some(Err(_)))) {
+            this._guard.invalidate_sessions();
+        }
+        result
     }
 }
 
@@ -303,7 +308,12 @@ pub(crate) fn guarded(
 impl Stream for GuardedBody {
     type Item = Result<Bytes, std::io::Error>;
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        self.get_mut().inner.as_mut().poll_next(cx)
+        let this = self.get_mut();
+        let result = this.inner.as_mut().poll_next(cx);
+        if matches!(&result, Poll::Ready(Some(Err(_)))) {
+            this._guard.invalidate_sessions();
+        }
+        result
     }
 }
 
@@ -317,6 +327,28 @@ pub fn build_upstream_client() -> anyhow::Result<reqwest::Client> {
 }
 
 pub async fn dispatch(state: &AppState, raw: Bytes, path: &'static str) -> Response {
+    dispatch_session(state, raw, path, None).await
+}
+
+pub async fn dispatch_headers(
+    state: &AppState,
+    raw: Bytes,
+    path: &'static str,
+    headers: &axum::http::HeaderMap,
+) -> Response {
+    let session = match state.sessions.header(headers) {
+        Ok(id) => id,
+        Err(error) => return json_error(StatusCode::BAD_REQUEST, error),
+    };
+    dispatch_session(state, raw, path, session).await
+}
+
+async fn dispatch_session(
+    state: &AppState,
+    raw: Bytes,
+    path: &'static str,
+    session: Option<&str>,
+) -> Response {
     let mut v: serde_json::Value = match serde_json::from_slice(&raw) {
         Ok(v) => v,
         Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
@@ -332,18 +364,19 @@ pub async fn dispatch(state: &AppState, raw: Bytes, path: &'static str) -> Respo
         Ok(bytes) => Bytes::from(bytes),
         Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
     };
-    dispatch_routed(state, &routing, raw, path).await
+    dispatch_routed_session(state, &routing, raw, path, session).await
 }
 
 /// Dispatch an encoded worker body using a separate routing representation.
 ///
 /// Protocol adapters use this to attach router-only metadata without leaking
 /// private fields to OpenAI-compatible workers.
-pub(crate) async fn dispatch_routed(
+pub(crate) async fn dispatch_routed_session(
     state: &AppState,
     routing_request: &Value,
     raw: Bytes,
     path: &'static str,
+    session: Option<&str>,
 ) -> Response {
     let model = routing_request
         .get("model")
@@ -363,8 +396,17 @@ pub(crate) async fn dispatch_routed(
     let has_p = !prefill.is_empty();
     let has_d = !decode.is_empty();
     if has_p && has_d {
-        return crate::disagg::dispatch(state, snap, model, routing_request, raw, stream, path)
-            .await;
+        return crate::disagg::dispatch(
+            state,
+            snap,
+            model,
+            routing_request,
+            raw,
+            stream,
+            path,
+            session,
+        )
+        .await;
     }
     if has_p != has_d && mixed.is_empty() {
         let (present, missing, count) = if has_p {
@@ -386,7 +428,17 @@ pub(crate) async fn dispatch_routed(
             &format!("no active worker for model={model:?}"),
         );
     }
-    mixed_dispatch(state, snap, model, routing_request, raw, stream, path).await
+    mixed_dispatch(
+        state,
+        snap,
+        model,
+        routing_request,
+        raw,
+        stream,
+        path,
+        session,
+    )
+    .await
 }
 
 async fn mixed_dispatch(
@@ -397,6 +449,7 @@ async fn mixed_dispatch(
     raw: Bytes,
     stream: bool,
     path: &str,
+    session: Option<&str>,
 ) -> Response {
     let candidates = snap.list_active(model, DisaggMode::Mixed);
     if candidates.is_empty() {
@@ -421,21 +474,34 @@ async fn mixed_dispatch(
         // when every candidate is open — a request served by a probably-bad
         // worker beats turning a partial outage into a 503.
         let avail = state.breaker.filter(&avail, |w| w.worker_id.as_str());
-        let pick = state.policy.pick(&avail, request, Role::Mixed);
+        let (pick, lease) = state.sessions.pick(
+            state.policy.as_ref(),
+            &avail,
+            request,
+            Role::Mixed,
+            model,
+            session,
+        );
         tried.insert(pick.target.worker.worker_id.clone());
         // Load guard: started here, dropped when this attempt fails (fail-over)
         // or — on success — when the response body is fully sent.
         let guard = ActiveGuard::start(
             state.policy.clone(),
             vec![(pick.target.route_key(), pick.blocks.clone())],
-        );
+        )
+        .with_sessions(None, lease)
+        .with_reservations(None, pick.reservation);
         let wid = pick.target.worker.worker_id.clone();
+        let bindings = guard.session_bindings();
         match attempt(state, &pick.target, &raw, stream, path, guard).await {
             Ok(resp) => {
                 state.breaker.record_success(&wid);
                 return resp;
             }
             Err(err_resp) => {
+                for binding in bindings {
+                    binding.invalidate();
+                }
                 // `attempt` only returns Err before any byte reached the client,
                 // so a mid-stream failure can never trip the breaker. 4xx is
                 // failed over but not held against the worker — see
