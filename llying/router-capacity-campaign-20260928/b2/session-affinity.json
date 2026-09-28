@@ -1,0 +1,32 @@
+{
+  "warmup": {
+    "requests": 884,
+    "paired": 884,
+    "cancelled": 0,
+    "missing_p": 0,
+    "missing_d": 0,
+    "room_mismatch": 0,
+    "sessions": 185,
+    "sessions_with_multiple_p_records": 123,
+    "p_single_rank_sessions": 123,
+    "p_multiple_rank_sessions": 0,
+    "p_rank_switches": 0,
+    "d_multiple_rank_sessions": 115,
+    "p_migration_examples": []
+  },
+  "profiling": {
+    "requests": 10295,
+    "paired": 10295,
+    "cancelled": 0,
+    "missing_p": 0,
+    "missing_d": 0,
+    "room_mismatch": 0,
+    "sessions": 1893,
+    "sessions_with_multiple_p_records": 493,
+    "p_single_rank_sessions": 493,
+    "p_multiple_rank_sessions": 0,
+    "p_rank_switches": 0,
+    "d_multiple_rank_sessions": 490,
+    "p_migration_examples": []
+  }
+}

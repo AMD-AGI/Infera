@@ -1,0 +1,35 @@
+{
+  "partial": false,
+  "coverage": {
+    "warmup/client_records": 884,
+    "warmup/matched": 884,
+    "profiling/client_records": 10295,
+    "profiling/matched": 10295
+  },
+  "duplicate_router_observations": 0,
+  "client_end_minus_prefill_http_end": {
+    "warmup": {
+      "n": 884,
+      "mean_ms": -2221.2313213348416,
+      "p50_ms": -1504.1376194999998,
+      "p90_ms": -532.2041147,
+      "p99_ms": 6852.749072149974,
+      "positive_fraction": 0.05995475113122172
+    },
+    "profiling": {
+      "n": 10295,
+      "mean_ms": 13417.991369301992,
+      "p50_ms": 6055.80624,
+      "p90_ms": 30221.68273240002,
+      "p99_ms": 118197.65730305942,
+      "positive_fraction": 0.9527926177756192
+    }
+  },
+  "separated_observations": 11190,
+  "total_observations": 11190,
+  "limitations": [
+    "Router log and client run on the same host, but log publication and HTTP completion add small observation delays.",
+    "Positive gap is a proxy for excess P request-lifetime accounting in control, not distinct-block load or a throughput benefit estimate.",
+    "Negative gaps may include client cancellation or P tail finishing after D; retain rather than clamp."
+  ]
+}

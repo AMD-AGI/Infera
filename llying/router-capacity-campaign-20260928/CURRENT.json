@@ -1,13 +1,12 @@
 {
-  "updated_utc": "2026-09-28T15:44:31.038573+00:00",
-  "stage": "B2_PROFILING",
+  "updated_utc": "2026-09-28T16:50:41.055983+00:00",
+  "stage": "B3_STARTING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b2.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b3.sh",
   "already_running": [
-    "B2 run-performance.sh formal C80 and observers; do not duplicate",
-    "allocation watcher active",
-    "await-b3-performance.sh is armed: requires completed B2, complete local-prefix coverage and all quality checks before starting B3; do not duplicate"
+    "B2 quality checks passed; B3 controller-only transition and C80 starting",
+    "allocation watcher active"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
@@ -23,8 +22,8 @@
     "prefill": "llying-campaign-b1-prefill-0",
     "decode": "llying-campaign-b2-decode-0",
     "etcd": "llying-campaign-b1-smoke-etcd",
-    "router": "llying-campaign-b2-router",
-    "collector": "llying-campaign-b2-collector"
+    "router": "llying-campaign-b3-router",
+    "collector": "llying-campaign-b3-collector"
   },
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
