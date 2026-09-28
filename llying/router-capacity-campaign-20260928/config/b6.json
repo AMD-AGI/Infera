@@ -1,0 +1,71 @@
+[
+  {
+    "role": "prefill",
+    "node": "smci355-ccs-aus-n04-33",
+    "data_ip": "10.235.192.139",
+    "allocation_job": 32054,
+    "gpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "tp": 8,
+    "dp": 8,
+    "engine_port": 29001,
+    "bootstrap_port": 28998,
+    "kv_port": 25557,
+    "snapshot_port": 28801,
+    "container": "llying-campaign-b4-real-prefill-0"
+  },
+  {
+    "role": "prefill",
+    "node": "smci355-ccs-aus-n05-29",
+    "data_ip": "10.235.192.137",
+    "allocation_job": 32056,
+    "gpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "tp": 8,
+    "dp": 8,
+    "engine_port": 29003,
+    "bootstrap_port": 28991,
+    "kv_port": 25541,
+    "snapshot_port": 28811,
+    "container": "llying-campaign-b6-real-prefill-1"
+  },
+  {
+    "role": "decode",
+    "node": "smci355-ccs-aus-n05-21",
+    "data_ip": "10.235.192.138",
+    "allocation_job": 32054,
+    "gpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "tp": 8,
+    "dp": 8,
+    "engine_port": 29002,
+    "bootstrap_port": 28992,
+    "kv_port": 25542,
+    "snapshot_port": 28812,
+    "container": "llying-campaign-b6-decode-0"
+  }
+]

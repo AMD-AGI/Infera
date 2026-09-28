@@ -104,10 +104,30 @@
       "itl_mean_ms": 14.85,
       "quality": "validated export",
       "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline"
+    },
+    {
+      "case": "B4",
+      "label": "Triton",
+      "layout": "1P(TP8)+1D(TP8)",
+      "gpus_used": 16,
+      "backend_p": "triton",
+      "backend_d": "triton",
+      "node_group": "smci355-ccs-aus-n04-33 / smci355-ccs-aus-n05-21",
+      "completed": 10728,
+      "cancelled": 11,
+      "errors": 0,
+      "mean_input_tokens": 122219.24618,
+      "mean_output_tokens": 930.55667,
+      "output_tps": 2751.1853,
+      "output_tps_per_gpu": 171.94908,
+      "ttft_mean_s": 4.65424,
+      "ttft_p95_s": 11.9821,
+      "itl_mean_ms": 14.74,
+      "quality": "validated export",
+      "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b4-triton"
     }
   ],
   "pending": [
-    "B4",
     "B5",
     "B6",
     "B7"
