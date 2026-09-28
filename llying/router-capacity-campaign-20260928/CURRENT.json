@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-09-28T17:21:52.602454+00:00",
+  "updated_utc": "2026-09-28T18:04:22.392813+00:00",
   "stage": "B3_PROFILING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
@@ -46,10 +46,12 @@
   ],
   "extra_node_request": {
     "job": 32046,
-    "not_before_utc": "2026-09-28T19:00:00Z",
+    "not_before_utc": null,
     "dry_run_estimate_utc": "2026-09-28T21:51:53Z",
-    "status": "queued, not allocated",
-    "reason": "Queue forecast is later than expected two-node completion; future eligibility avoids early idle allocation."
+    "status": "pending, eligible now",
+    "reason": "Actual pending job forecast after excluding n01-25, which remains IDLE+COMPLETING; forecast is not a reservation.",
+    "scheduled_start_utc": "2026-09-28T19:25:51Z",
+    "scheduled_node": "smci355-ccs-aus-n04-33"
   },
   "profile_window_utc": [
     "2026-09-28T17:15:08Z",
