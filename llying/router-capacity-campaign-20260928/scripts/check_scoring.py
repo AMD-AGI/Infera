@@ -12,6 +12,7 @@ for line in s.splitlines():
  if m and cost and 'demand_known=true' in line:
   groups[m[1]].append((float(cost[1]),bool(re.search(r'(?<!_)selected=true',line))))
 assert groups,'No known Dynamo P candidate decisions captured'
+assert any('dynamo_prefill=true' in line and re.search(r'gpu_hits=[1-9][0-9]*',line) for line in s.splitlines()),'No GPU hit in the tiered directory after repeated requests'
 for ident,rows in groups.items():
  chosen=[c for c,yes in rows if yes]
  assert len(chosen)==1 and chosen[0]<=min(c for c,_ in rows)+1e-9,(ident,rows)

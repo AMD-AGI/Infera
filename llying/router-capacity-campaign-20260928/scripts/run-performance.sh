@@ -26,4 +26,10 @@ fi
 stop_observers
 bash "$TRACE_RUNTIME/scripts/capture_live.sh"
 python3 "$TRACE_RUNTIME/scripts/capture_final.py"
-state READY_FOR_ANALYSIS
+state ANALYZING
+python3 "$TRACE_RUNTIME/scripts/analyze.py" "$RUN" > "$RUN/logs/analysis.log" 2>&1
+python3 "$TRACE_RUNTIME/scripts/analyze_sessions.py" "$RUN" >> "$RUN/logs/analysis.log" 2>&1
+python3 "$TRACE_RUNTIME/scripts/analyze_runtime.py" "$RUN" >> "$RUN/logs/analysis.log" 2>&1
+python3 "$TRACE_RUNTIME/scripts/analyze_guard_lifecycle.py" "$RUN" >> "$RUN/logs/analysis.log" 2>&1
+python3 "$TRACE_RUNTIME/scripts/compare_c80_runs.py" "$BASELINE_RUN" "$RUN" --reference-label P_session_baseline --candidate-label "$RUN_ID" --output-dir "$RUN/analysis/comparison-baseline" >> "$RUN/logs/analysis.log" 2>&1
+state COMPLETE_REVIEW_PENDING

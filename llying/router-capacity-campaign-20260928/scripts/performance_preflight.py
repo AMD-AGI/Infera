@@ -11,7 +11,7 @@ for role,port in [('prefill',29001),('decode',29002)]:
  for k,v in {'chunked_prefill_size':4096,'tp_size':8,'dp_size':8,'ep_size':1,'mem_fraction_static':0.85,'enable_hierarchical_cache':role=='prefill','random_seed':823508857 if role=='prefill' else 19197414}.items():assert d[k]==v,(role,k,d[k],v)
  if role=='prefill':
   for k,v in {'hicache_ratio':1.5,'hicache_write_policy':'write_through','hicache_io_backend':'kernel','hicache_mem_layout':'page_first'}.items():assert d[k]==v,(k,d[k])
- name=os.environ['CONTAINER_PREFIX']+'-prefill-0' if role=='prefill' else os.environ['DECODE_CONTAINER']
+ name=os.environ.get('PREFILL_CONTAINER',os.environ['CONTAINER_PREFIX']+'-prefill-0') if role=='prefill' else os.environ['DECODE_CONTAINER']
  c=json.loads(subprocess.check_output(ssh+[os.environ[role.upper()+'_NODE'],shlex.join(['docker','inspect',name])],text=True))[0]
  assert c['Config']['Image']==os.environ['IMAGE']
  live[role]={'Id':c['Id'],'name':name}
