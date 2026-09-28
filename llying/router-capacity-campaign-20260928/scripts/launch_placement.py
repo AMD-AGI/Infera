@@ -2,12 +2,18 @@
 import concurrent.futures,getpass,json,os,subprocess,sys
 from pathlib import Path
 import transition_two_node as ops
+from gpu_inventory import Inventory
 sys.path.insert(0,str(Path(__file__).parent/'bench-harness/tools'))
 from campaign_topology import load
 
 E=os.environ;RUN=Path(E['RUN']);rows=load(E['TOPOLOGY'])
 selected=set(filter(None,E.get('LAUNCH_INSTANCES',','.join(r['instance'] for r in rows)).split(',')))
 assert selected<=set(r['instance'] for r in rows)
+_inventory=Inventory()
+
+
+def gpu_memory(node,job):
+    return _inventory.memory(ops.remote,node,E['IMAGE'],job,RUN/'snapshot')
 
 
 def check_allocation(row):
@@ -22,9 +28,10 @@ def check_allocation(row):
 def launch_host(workers):
     for w in workers:
         check_allocation(w)
-        data=json.loads(ops.remote(w['node'],['rocm-smi','--showmeminfo','vram','--json']))
-        assert all(int(data[f'card{i}']['VRAM Total Used Memory (B)'])/int(data[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in w['gpu_ids']),f"{w['instance']} GPUs are occupied"
-        mapping={str(local):f'ionic_{physical}' for local,physical in enumerate(w['gpu_ids'])}
+        data=gpu_memory(w['node'],w['allocation_job'])
+        assert all(int(data[i]['VRAM Total Used Memory (B)'])/int(data[i]['VRAM Total Memory (B)'])<.02 for i in w['gpu_ids']),f"{w['instance']} GPUs are occupied"
+        configured=json.loads(E['RDMA_DEVICE'])
+        mapping={str(local):configured[str(physical)] for local,physical in enumerate(w['gpu_ids'])}
         cmd=['bash',E['BENCH_DIR']+'/engine.sh',w['role'],w['instance'],w['ip'],','.join(map(str,w['gpu_ids'])),w['engine_port'],w['bootstrap_port'],w['kv_port'],w['snapshot_port'],w['container'],E['PREFILL_IP']+':22379','CONFIG='+E['CONFIG'],'WORKER_RDMA_DEVICE='+json.dumps(mapping,separators=(',',':')),'DIAG_INSTANCE='+w['instance'],'WORKER_ALLOCATION_JOB_ID='+str(w['allocation_job']),'SERVER_LOG='+str(RUN/'launch/server-logs'/f"{w['instance']}.log")]
         print('START',w['instance'],w['node'],w['gpu_ids'],flush=True)
         ops.remote(w['node'],cmd)

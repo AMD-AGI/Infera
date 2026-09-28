@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T21:28:03.379333+00:00",
-  "stage": "B4_REAL_STARTUP",
+  "updated_utc": "2026-09-28T22:08:51.173972+00:00",
+  "stage": "B4_LOADING_REPLAY",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b4-triton-real",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b4-real.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b4-triton",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b4.sh",
   "already_running": [
-    "B4 transition: RB fully reviewed; Triton D is ready, P waits for old HiCache memory release",
+    "B4 real gate and performance preflight passed; C80 client loading replay",
     "await-b4-placement.sh continues real acceptance gate then C80",
     "allocation watcher for 32054",
     "prepare_extra_node.py --job 32056 waiting for future eligibility"
@@ -22,10 +22,10 @@
   },
   "containers": {
     "prefill": "llying-campaign-b4-real-prefill-0",
-    "decode": "llying-campaign-b4-real-decode-0",
+    "decode": "llying-campaign-b4-decode-0",
     "etcd": "llying-campaign-rb-real-etcd",
-    "router": "llying-campaign-b4-real-router",
-    "collector": "llying-campaign-b4-real-collector"
+    "router": "llying-campaign-b4-router",
+    "collector": "llying-campaign-b4-collector"
   },
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
@@ -50,10 +50,10 @@
   "extra_node_request": {
     "job": 32056,
     "state": "PENDING, no GPU allocated",
-    "not_before_utc": "2026-09-28T22:25:00Z",
+    "not_before_utc": "2026-09-28T23:00:00Z",
     "time_limit_hours": 6,
     "exclusions": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/avoid-nodes.json plus current PD nodes",
-    "reason": "RB formal end + about 75 minutes, allowing export and B4 startup before node preparation. This is eligibility, not a reservation."
+    "reason": "Delayed after measured ~35-minute P memory release, to avoid idle allocation before the B4 result."
   },
   "selected_d": "radix on + both affinity; R2 off",
   "allocation_state": "RUNNING",

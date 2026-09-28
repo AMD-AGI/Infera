@@ -57,8 +57,8 @@ def change_host(node):
     gpus=set(i for w in removed for i in w['gpu_ids'])
     deadline=time.monotonic()+2400
     while gpus and time.monotonic()<deadline:
-        data=json.loads(ops.remote(node,['rocm-smi','--showmeminfo','vram','--json']))
-        if all(int(data[f'card{i}']['VRAM Total Used Memory (B)'])/int(data[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in gpus):break
+        data=launch.gpu_memory(node,removed[0].get('allocation_job',E['ALLOCATION_JOB_ID']))
+        if all(int(data[i]['VRAM Total Used Memory (B)'])/int(data[i]['VRAM Total Memory (B)'])<.02 for i in gpus):break
         time.sleep(10)
     else:
         if gpus:raise TimeoutError(f'{node}: old VRAM not released')
