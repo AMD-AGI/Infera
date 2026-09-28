@@ -34,6 +34,7 @@ set +a
 : "${IMAGE:?set IMAGE}"
 : "${MODEL:?set MODEL}"
 : "${SERVED_MODEL:?set SERVED_MODEL}"
+RDMA_DEVICE="${WORKER_RDMA_DEVICE:-$RDMA_DEVICE}"
 : "${RDMA_DEVICE:?set RDMA_DEVICE}"
 
 case "$role" in
@@ -101,7 +102,7 @@ docker_args=(
     --ulimit memlock=-1:-1 --ulimit nofile=65536:65536
     -v "$MODEL:$MODEL:ro"
     -v "$aiter_jit_cache:/aiter-jit"
-    -v "/tmp/aus-diag-$RUN_ID/$role:/aus-diag"
+    -v "/tmp/aus-diag-$RUN_ID/${DIAG_INSTANCE:-$role}:/aus-diag"
     -v "$TRACE_RUNTIME/docker/aus_diag.py:/sgl-workspace/sglang/python/sglang/srt/observability/aus_diag.py:ro"
     -e AITER_JIT_DIR=/aiter-jit
 )
