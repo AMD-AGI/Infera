@@ -1,0 +1,102 @@
+{
+  "router": {
+    "guard_release": "completion",
+    "r2": "off",
+    "r3": "off",
+    "r4": "off",
+    "candidate_logs": "off",
+    "binary_sha256": "0cf48cbf96df48caf8c03949fc5edce1c97d26bebb293c71d5409dbe77cafe6d",
+    "prefill_overlap_weight": 40.0,
+    "decode_overlap_weight": 2.0,
+    "session_affinity": "off / not implemented",
+    "policy": "kv-aware"
+  },
+  "image": "infera-sglang:aus-0922-reqtrace",
+  "image_id": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "model": "/perf_apps/data/models/GLM-5.2-MXFP4",
+  "concurrency": 80,
+  "profiling_seconds": 3600,
+  "warmup_count": 884,
+  "dataset_revision": "23f152f6f0f9399a85901b89a6458def0ef16729",
+  "inferencex_revision": "918524ff94045b3f091115f1051c22a8588edf2b",
+  "nodes": {
+    "job": 31999,
+    "prefill": {
+      "node": "smci355-ccs-aus-n10-29"
+    },
+    "decode": {
+      "node": "smci355-ccs-aus-n03-33"
+    },
+    "placement_status": "proposed; live process/GPU readiness not checked"
+  },
+  "prefill": {
+    "chunked_prefill_size": 4096,
+    "tp_size": 8,
+    "dp_size": 8,
+    "ep_size": 1,
+    "mem_fraction_static": 0.85,
+    "max_total_num_tokens": 3143424,
+    "enable_hierarchical_cache": true,
+    "hicache_ratio": 1.5,
+    "hicache_write_policy": "write_through",
+    "hicache_io_backend": "kernel",
+    "hicache_mem_layout": "page_first",
+    "kv_cache_dtype": "fp8_e4m3",
+    "max_running_requests": 256,
+    "random_seed": 823508857,
+    "reasoning_parser": "glm45",
+    "tool_call_parser": "glm47",
+    "speculative_algorithm": null,
+    "speculative_num_steps": null,
+    "speculative_eagle_topk": null,
+    "speculative_num_draft_tokens": null
+  },
+  "decode": {
+    "chunked_prefill_size": 4096,
+    "tp_size": 8,
+    "dp_size": 8,
+    "ep_size": 1,
+    "mem_fraction_static": 0.85,
+    "max_total_num_tokens": 3003264,
+    "enable_hierarchical_cache": false,
+    "hicache_ratio": null,
+    "hicache_write_policy": "write_through",
+    "hicache_io_backend": "kernel",
+    "hicache_mem_layout": "page_first",
+    "kv_cache_dtype": "fp8_e4m3",
+    "max_running_requests": 256,
+    "random_seed": 19197414,
+    "reasoning_parser": "glm45",
+    "tool_call_parser": "glm47",
+    "speculative_algorithm": "EAGLE",
+    "speculative_num_steps": 5,
+    "speculative_eagle_topk": 1,
+    "speculative_num_draft_tokens": 6
+  },
+  "status": "PROPOSED_AWAITING_CONFIG_CONFIRMATION",
+  "experiment": "R1-only P-overlap40 C80 4K",
+  "baseline": {
+    "name": "G0 R1-only overlap20",
+    "run": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion",
+    "rerun": false
+  },
+  "engine_extras": {
+    "dp_attention": true,
+    "launcher_chunk_size_each": 32768,
+    "effective_chunk_size_each": 4096,
+    "decode_simulate_acc_len": 3.61,
+    "graph_max_bs_each": 256,
+    "pd_dp_rank_affinity": false,
+    "transfer": "mooncake",
+    "transport": "http",
+    "kv_events": "zmq"
+  },
+  "smoke": {
+    "needed": "short startup/real-request check using the already validated binary; no new strategy code in this experiment",
+    "hicache": false,
+    "separate_80_request_functional_run": false
+  },
+  "only_policy_change_vs_G0": "P overlap weight 20 -> 40; R1 kept, R2/R3/R4 off; no session pin",
+  "capacity_note": "max_total_num_tokens are historical reference values, not forced launch overrides; check actual capacity and investigate material drift",
+  "runtime_note": "No services started; no live launch script has been edited. Use an immutable reviewed config for the run."
+}
