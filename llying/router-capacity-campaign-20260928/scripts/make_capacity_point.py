@@ -51,7 +51,7 @@ for w in sim:
     if w['role']=='decode':w['container']=f'{prefix}-decode-0'
 sim_top.write_text(json.dumps(sim,indent=2)+'\n');load(sim_top)
 config=f'''#!/usr/bin/env bash
-source {ROOT}/config/recovery-base.sh
+source {ROOT}/config/recovery-32054-base.sh
 source "$TRACE_RUNTIME/config/selected-p.sh"
 source "$TRACE_RUNTIME/config/selected-d.sh"
 source "$TRACE_RUNTIME/config/selected-backend.sh"

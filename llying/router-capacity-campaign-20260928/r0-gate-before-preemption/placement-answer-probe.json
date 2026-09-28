@@ -1,0 +1,768 @@
+{
+  "passed": true,
+  "real_acceptance": true,
+  "correct_answers": 16,
+  "p_targets": [
+    [
+      "prefill-0",
+      0
+    ],
+    [
+      "prefill-0",
+      1
+    ],
+    [
+      "prefill-0",
+      2
+    ],
+    [
+      "prefill-0",
+      3
+    ],
+    [
+      "prefill-0",
+      4
+    ],
+    [
+      "prefill-0",
+      5
+    ],
+    [
+      "prefill-0",
+      6
+    ],
+    [
+      "prefill-0",
+      7
+    ]
+  ],
+  "d_targets": [
+    [
+      "decode-0",
+      0
+    ],
+    [
+      "decode-0",
+      1
+    ],
+    [
+      "decode-0",
+      2
+    ],
+    [
+      "decode-0",
+      3
+    ],
+    [
+      "decode-0",
+      4
+    ],
+    [
+      "decode-0",
+      5
+    ],
+    [
+      "decode-0",
+      6
+    ],
+    [
+      "decode-0",
+      7
+    ]
+  ],
+  "decode_prefix_events": [
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621408478815464,
+      "mono_ns": 2241571774173922,
+      "role": "decode",
+      "pid": 1006,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "radix-gate-83369943aea84a80b59af2cab3de9dad",
+      "room": "32640161298816241",
+      "input_tokens": 5795,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621446793481541,
+      "mono_ns": 2241610088840009,
+      "role": "decode",
+      "pid": 1006,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "radix-gate-e3749b69048a470bb1dd0c4ebc75f58b",
+      "room": "5811105463134986593",
+      "input_tokens": 5795,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621412362746791,
+      "mono_ns": 2241575658105259,
+      "role": "decode",
+      "pid": 1157,
+      "dp_rank": 2,
+      "tp_rank": 2,
+      "rid": "radix-gate-82d5aa2242a04b6893ddab95fcd55599",
+      "room": "261367715146003026",
+      "input_tokens": 5794,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621447985098256,
+      "mono_ns": 2241611280456684,
+      "role": "decode",
+      "pid": 1157,
+      "dp_rank": 2,
+      "tp_rank": 2,
+      "rid": "radix-gate-a737535947854bf7bab78f0a031e4e90",
+      "room": "5942797496590694978",
+      "input_tokens": 5794,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621416319371238,
+      "mono_ns": 2241579614729716,
+      "role": "decode",
+      "pid": 1309,
+      "dp_rank": 3,
+      "tp_rank": 3,
+      "rid": "radix-gate-3ba61fb93d2444b2b54083c2e9da3eb4",
+      "room": "4404395938596411363",
+      "input_tokens": 5795,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621449178493550,
+      "mono_ns": 2241612473852008,
+      "role": "decode",
+      "pid": 1309,
+      "dp_rank": 3,
+      "tp_rank": 3,
+      "rid": "radix-gate-062ccc418d234b47aa114b56884e4c9f",
+      "room": "149211203886245499",
+      "input_tokens": 5795,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621420206976920,
+      "mono_ns": 2241583502335388,
+      "role": "decode",
+      "pid": 1560,
+      "dp_rank": 4,
+      "tp_rank": 4,
+      "rid": "radix-gate-01ecbdfeaef043e5bb9c89d7acceaa6f",
+      "room": "6987647415202375284",
+      "input_tokens": 5797,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621450390320003,
+      "mono_ns": 2241613685678451,
+      "role": "decode",
+      "pid": 1560,
+      "dp_rank": 4,
+      "tp_rank": 4,
+      "rid": "radix-gate-e69c1fe526d54172b44ac4c109aef274",
+      "room": "8321309746947403380",
+      "input_tokens": 5796,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621424075319646,
+      "mono_ns": 2241587370678124,
+      "role": "decode",
+      "pid": 1835,
+      "dp_rank": 5,
+      "tp_rank": 5,
+      "rid": "radix-gate-8957d31fcae94abf9f03301e3a9fade5",
+      "room": "2703906632962390301",
+      "input_tokens": 5797,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621451541955894,
+      "mono_ns": 2241614837314352,
+      "role": "decode",
+      "pid": 1835,
+      "dp_rank": 5,
+      "tp_rank": 5,
+      "rid": "radix-gate-8711e67d9f7a47d9a1de542129f188bc",
+      "room": "6358912691536059717",
+      "input_tokens": 5796,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621428015266961,
+      "mono_ns": 2241591310625449,
+      "role": "decode",
+      "pid": 2166,
+      "dp_rank": 6,
+      "tp_rank": 6,
+      "rid": "radix-gate-46cd7e68190c4020989d7f274d4f17b3",
+      "room": "3669112176319118798",
+      "input_tokens": 5799,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621452754306548,
+      "mono_ns": 2241616049664986,
+      "role": "decode",
+      "pid": 2166,
+      "dp_rank": 6,
+      "tp_rank": 6,
+      "rid": "radix-gate-40f502d93e8446b586f2aa2b27a55184",
+      "room": "1904138577494399998",
+      "input_tokens": 5799,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621431890460045,
+      "mono_ns": 2241595185818533,
+      "role": "decode",
+      "pid": 2485,
+      "dp_rank": 7,
+      "tp_rank": 7,
+      "rid": "radix-gate-b8f9cb3e636f46c7bfbcfc6b6441612d",
+      "room": "5916037922444943111",
+      "input_tokens": 5796,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621453975296568,
+      "mono_ns": 2241617270655016,
+      "role": "decode",
+      "pid": 2485,
+      "dp_rank": 7,
+      "tp_rank": 7,
+      "rid": "radix-gate-fb86c39e661b49ab932854aef74de018",
+      "room": "956227876846743775",
+      "input_tokens": 5796,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621386778945164,
+      "mono_ns": 2241550074303642,
+      "role": "decode",
+      "pid": 718,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "radix-gate-1123bc010dba4962b8c4e8c1048c0da9",
+      "room": "7459569495828505688",
+      "input_tokens": 5797,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790621435315378442,
+      "mono_ns": 2241598610736890,
+      "role": "decode",
+      "pid": 718,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "radix-gate-d3cc54f3f0234a33a2619e10cf9250b6",
+      "room": "3787409234889393128",
+      "input_tokens": 5797,
+      "device_prefix_tokens": 5760,
+      "prefix_tokens": 5760,
+      "source_worker": "decode-0",
+      "source_node": "smci355-ccs-aus-n01-21"
+    }
+  ],
+  "requests": [
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-0",
+      "turn": 0,
+      "record": 311,
+      "expected": "Z2283",
+      "rid": "radix-gate-1123bc010dba4962b8c4e8c1048c0da9",
+      "content": "Z2283",
+      "reasoning": "The user is asking for the code in record 311. Let me look at the records provided.\n\nRecord 311: city Kyoto; code Z2283.\n\nSo the code in record 311 is Z2283.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5797,
+        "total_tokens": 5849,
+        "completion_tokens": 52,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 48
+      },
+      "elapsed_s": 21.7,
+      "p_target": [
+        "prefill-0",
+        0
+      ],
+      "d_target": [
+        "decode-0",
+        0
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-1",
+      "turn": 0,
+      "record": 328,
+      "expected": "Z6540",
+      "rid": "radix-gate-83369943aea84a80b59af2cab3de9dad",
+      "content": "Z6540",
+      "reasoning": "The user is asking for the code in record 328. Let me look at record 328.\n\nRecord 328: city Tallinn; code Z6540.\n\nThe code is Z6540.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5795,
+        "total_tokens": 5846,
+        "completion_tokens": 51,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 46
+      },
+      "elapsed_s": 3.881,
+      "p_target": [
+        "prefill-0",
+        1
+      ],
+      "d_target": [
+        "decode-0",
+        1
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-2",
+      "turn": 0,
+      "record": 345,
+      "expected": "Z0824",
+      "rid": "radix-gate-82d5aa2242a04b6893ddab95fcd55599",
+      "content": "Z0824",
+      "reasoning": "The user is asking for the code in record 345. Let me look at the registry data.\n\nRecord 345: city Cusco; code Z0824.\n\nThe user wants only the code, so I should reply with just \"Z0824\".",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5794,
+        "total_tokens": 5856,
+        "completion_tokens": 62,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 57
+      },
+      "elapsed_s": 3.945,
+      "p_target": [
+        "prefill-0",
+        2
+      ],
+      "d_target": [
+        "decode-0",
+        2
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-3",
+      "turn": 0,
+      "record": 362,
+      "expected": "Z5081",
+      "rid": "radix-gate-3ba61fb93d2444b2b54083c2e9da3eb4",
+      "content": "Z5081",
+      "reasoning": "The user wants to know the code in record 362.\nLooking at the provided data:\nRecord 362: city Ushuaia; code Z5081.\nThe code is Z5081.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5795,
+        "total_tokens": 5845,
+        "completion_tokens": 50,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 45
+      },
+      "elapsed_s": 3.893,
+      "p_target": [
+        "prefill-0",
+        3
+      ],
+      "d_target": [
+        "decode-0",
+        3
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-4",
+      "turn": 0,
+      "record": 379,
+      "expected": "Z9338",
+      "rid": "radix-gate-01ecbdfeaef043e5bb9c89d7acceaa6f",
+      "content": "Z9338",
+      "reasoning": "The user wants the code from record 379.\nI need to look up record 379 in the provided registry.\nRecord 379: city Quito; code Z9338.\nThe code is Z9338.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5797,
+        "total_tokens": 5851,
+        "completion_tokens": 54,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 49
+      },
+      "elapsed_s": 3.865,
+      "p_target": [
+        "prefill-0",
+        4
+      ],
+      "d_target": [
+        "decode-0",
+        4
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-5",
+      "turn": 0,
+      "record": 396,
+      "expected": "Z3622",
+      "rid": "radix-gate-8957d31fcae94abf9f03301e3a9fade5",
+      "content": "Z3622",
+      "reasoning": "The user is asking for the code in record 396. Let me look at the registry data.\n\nRecord 396: city Bergen; code Z3622.\n\nThe user wants only the code, so I should reply with just \"Z3622\".",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5797,
+        "total_tokens": 5857,
+        "completion_tokens": 60,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 55
+      },
+      "elapsed_s": 3.922,
+      "p_target": [
+        "prefill-0",
+        5
+      ],
+      "d_target": [
+        "decode-0",
+        5
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-6",
+      "turn": 0,
+      "record": 13,
+      "expected": "Z9140",
+      "rid": "radix-gate-46cd7e68190c4020989d7f274d4f17b3",
+      "content": "Z9140",
+      "reasoning": "The user is asking for the code in record 13. Let me look at the registry data.\n\nRecord 13: city Lisbon; code Z9140.\n\nThe code is Z9140.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5799,
+        "total_tokens": 5846,
+        "completion_tokens": 47,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 42
+      },
+      "elapsed_s": 3.877,
+      "p_target": [
+        "prefill-0",
+        6
+      ],
+      "d_target": [
+        "decode-0",
+        6
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-7",
+      "turn": 0,
+      "record": 30,
+      "expected": "Z3424",
+      "rid": "radix-gate-b8f9cb3e636f46c7bfbcfc6b6441612d",
+      "content": "Z3424",
+      "reasoning": "The user is asking for the code in record 30. Let me look at the registry to find record 30.\n\nRecord 30: city Nairobi; code Z3424.\n\nThe code in record 30 is Z3424.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5796,
+        "total_tokens": 5851,
+        "completion_tokens": 55,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 50
+      },
+      "elapsed_s": 3.908,
+      "p_target": [
+        "prefill-0",
+        7
+      ],
+      "d_target": [
+        "decode-0",
+        7
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-0",
+      "turn": 1,
+      "record": 334,
+      "expected": "Z4978",
+      "rid": "radix-gate-d3cc54f3f0234a33a2619e10cf9250b6",
+      "content": "Z4978",
+      "reasoning": "The user is asking for the code in record 334. Let me look at the registry data for record 334.\n\nRecord 334: city Windhoek; code Z4978.\n\nThe code is Z4978.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5797,
+        "total_tokens": 5853,
+        "completion_tokens": 56,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 51
+      },
+      "elapsed_s": 11.474,
+      "p_target": [
+        "prefill-0",
+        0
+      ],
+      "d_target": [
+        "decode-0",
+        0
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-1",
+      "turn": 1,
+      "record": 351,
+      "expected": "Z9235",
+      "rid": "radix-gate-e3749b69048a470bb1dd0c4ebc75f58b",
+      "content": "Z9235",
+      "reasoning": "The user wants the code from record 351.\nI need to look at the provided text for \"Record 351\".\nRecord 351: city Lisbon; code Z9235.\nThe code is Z9235.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5795,
+        "total_tokens": 5849,
+        "completion_tokens": 54,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 49
+      },
+      "elapsed_s": 1.183,
+      "p_target": [
+        "prefill-0",
+        1
+      ],
+      "d_target": [
+        "decode-0",
+        1
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-2",
+      "turn": 1,
+      "record": 368,
+      "expected": "Z3519",
+      "rid": "radix-gate-a737535947854bf7bab78f0a031e4e90",
+      "content": "Z3519",
+      "reasoning": "The user is asking for the code in record 368. Let me look at the registry.\n\nRecord 368: city Nairobi; code Z3519.\n\nThe code is Z3519.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5794,
+        "total_tokens": 5842,
+        "completion_tokens": 48,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 43
+      },
+      "elapsed_s": 1.195,
+      "p_target": [
+        "prefill-0",
+        2
+      ],
+      "d_target": [
+        "decode-0",
+        2
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-3",
+      "turn": 1,
+      "record": 385,
+      "expected": "Z7776",
+      "rid": "radix-gate-062ccc418d234b47aa114b56884e4c9f",
+      "content": "Z7776",
+      "reasoning": "The user is asking for the code in record 385. Let me look at the registry data for record 385.\n\nRecord 385: city Tbilisi; code Z7776.\n\nThe code is Z7776.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5795,
+        "total_tokens": 5851,
+        "completion_tokens": 56,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 51
+      },
+      "elapsed_s": 1.206,
+      "p_target": [
+        "prefill-0",
+        3
+      ],
+      "d_target": [
+        "decode-0",
+        3
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-4",
+      "turn": 1,
+      "record": 2,
+      "expected": "Z3321",
+      "rid": "radix-gate-e69c1fe526d54172b44ac4c109aef274",
+      "content": "Z3321",
+      "reasoning": "The user is asking for the code in record 2. Looking at the registry, record 2 is: city Quito; code Z3321.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5796,
+        "total_tokens": 5834,
+        "completion_tokens": 38,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 33
+      },
+      "elapsed_s": 1.149,
+      "p_target": [
+        "prefill-0",
+        4
+      ],
+      "d_target": [
+        "decode-0",
+        4
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-5",
+      "turn": 1,
+      "record": 19,
+      "expected": "Z7578",
+      "rid": "radix-gate-8711e67d9f7a47d9a1de542129f188bc",
+      "content": "Z7578",
+      "reasoning": "The user is asking for the code in record 19. Let me look at record 19.\n\nRecord 19: city Bergen; code Z7578.\n\nThe code is Z7578.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5796,
+        "total_tokens": 5843,
+        "completion_tokens": 47,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 42
+      },
+      "elapsed_s": 1.212,
+      "p_target": [
+        "prefill-0",
+        5
+      ],
+      "d_target": [
+        "decode-0",
+        5
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-6",
+      "turn": 1,
+      "record": 36,
+      "expected": "Z1862",
+      "rid": "radix-gate-40f502d93e8446b586f2aa2b27a55184",
+      "content": "Z1862",
+      "reasoning": "The user wants the code from record 36.\nLooking at the provided data:\nRecord 36: city Valparaiso; code Z1862.\nThe code is Z1862.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5799,
+        "total_tokens": 5842,
+        "completion_tokens": 43,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 39
+      },
+      "elapsed_s": 1.218,
+      "p_target": [
+        "prefill-0",
+        6
+      ],
+      "d_target": [
+        "decode-0",
+        6
+      ]
+    },
+    {
+      "session": "1941f86fcd6c456296f633c9b27409e9-7",
+      "turn": 1,
+      "record": 53,
+      "expected": "Z6119",
+      "rid": "radix-gate-fb86c39e661b49ab932854aef74de018",
+      "content": "Z6119",
+      "reasoning": "The user is asking for the code in record 53. Let me look at the registry.\n\nRecord 53: city Osaka; code Z6119.\n\nThe code is Z6119.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 5796,
+        "total_tokens": 5842,
+        "completion_tokens": 46,
+        "prompt_tokens_details": {
+          "cached_tokens": 5760
+        },
+        "reasoning_tokens": 41
+      },
+      "elapsed_s": 1.132,
+      "p_target": [
+        "prefill-0",
+        7
+      ],
+      "d_target": [
+        "decode-0",
+        7
+      ]
+    }
+  ],
+  "limits": [
+    "Synthetic long-prefix retrieval and routing coverage; not a comprehensive accuracy benchmark."
+  ]
+}

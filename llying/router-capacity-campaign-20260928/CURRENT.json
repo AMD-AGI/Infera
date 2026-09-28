@@ -1,30 +1,25 @@
 {
-  "updated_utc": "2026-09-28T18:42:42.070983+00:00",
-  "stage": "R0_REAL_STARTUP",
+  "updated_utc": "2026-09-28T18:58:35.723649+00:00",
+  "stage": "WAITING_FOR_32054",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-r0-rebaseline-real",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/r0-real.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline-real",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/rb-real.sh",
   "already_running": [
-    "run-r0-recovery.sh: real-acceptance engines starting, then probe and formal C80",
-    "allocation watcher"
+    "prepare_recovery.py --job 32054 waiting for allocation",
+    "run-rb-recovery.sh waiting for prepared nodes",
+    "allocation watcher, no owned active allocation currently"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
   "smoke_passed": true,
-  "allocation": 32053,
-  "allocation_end_utc": "2026-09-29T06:19:13Z",
+  "allocation": 32054,
+  "allocation_end_utc": null,
   "allocation_extension_attempt": "Slurm denied; unchanged",
   "nodes": {
-    "prefill": "smci355-ccs-aus-n10-29",
-    "decode": "smci355-ccs-aus-n01-21"
+    "prefill": "smci355-ccs-aus-n04-33",
+    "decode": "smci355-ccs-aus-n05-21"
   },
-  "containers": {
-    "prefill": "llying-campaign-r0-real-prefill-0",
-    "decode": "llying-campaign-r0-real-decode-0",
-    "etcd": "llying-campaign-r0-real-etcd",
-    "router": "llying-campaign-r0-real-router",
-    "collector": "llying-campaign-r0-real-collector"
-  },
+  "containers": {},
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
     "k3.play",
@@ -32,11 +27,11 @@
     "msa_r7_verify"
   ],
   "remaining": [
-    "R0: repeat selected D radix + both affinity stack on replacement nodes as new baseline",
-    "B4 Triton P8D8 vs R0",
-    "2P8+D8 and 4P4+D8 with third node scheduled against progress",
+    "RB selected-stack baseline on nodes outside the current named preemption pool",
+    "B4 Triton P8D8 vs RB",
+    "2P8+D8 and 4P4+D8 with a scheduled third node outside the same pool",
     "P8D4",
-    "Archive results and release added allocations"
+    "Archive results and clean up added resources"
   ],
   "selected_p": "legacy + R1 + P affinity",
   "prepared_helpers": [
@@ -54,15 +49,27 @@
     "gpu_server_started": false,
     "next": "Schedule a fresh third-node request against R0/B4 progress"
   },
-  "interruption": {
-    "job": 31999,
-    "state": "PREEMPTED",
-    "preempt_time_utc": "2026-09-28T18:13:42Z",
-    "end_utc": "2026-09-28T18:19:05Z",
-    "b3_complete": false,
-    "ssh_cleanup": "PAM denied after preemption; old P-node containers can be cleaned only after reacquisition under 32053",
-    "b3_client_sending_complete": true,
-    "b3_final_export_and_diagnostics_complete": false
-  },
-  "selected_d": "radix on + both affinity; R2 off"
+  "selected_d": "radix on + both affinity; R2 off",
+  "allocation_state": "PENDING",
+  "planned_allocation_start_utc": "2026-09-28T19:25:51Z",
+  "interruptions": [
+    {
+      "job": 31999,
+      "state": "PREEMPTED",
+      "preempt_time_utc": "2026-09-28T18:13:42Z",
+      "end_utc": "2026-09-28T18:19:05Z",
+      "b3_complete": false,
+      "ssh_cleanup": "PAM denied after preemption; old P-node containers can be cleaned only after reacquisition under 32053",
+      "b3_client_sending_complete": true,
+      "b3_final_export_and_diagnostics_complete": false
+    },
+    {
+      "job": 32053,
+      "state": "PREEMPTED",
+      "preempt_time_utc": "2026-09-28T18:51:32Z",
+      "end_utc": "2026-09-28T18:56:35Z",
+      "real_probe_passed": true,
+      "formal_started": false
+    }
+  ]
 }

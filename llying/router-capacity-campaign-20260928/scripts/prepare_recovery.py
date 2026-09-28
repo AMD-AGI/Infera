@@ -1,12 +1,19 @@
 """Prepare replacement allocations after externally preempted measurements."""
-import concurrent.futures,datetime,getpass,json,os,re,shlex,socket,subprocess,time
+import argparse,concurrent.futures,datetime,getpass,json,os,re,shlex,socket,subprocess,time
 from pathlib import Path
 
-ROOT=Path('/perf_apps/liyingli/bench_agentx/router-capacity-20260928');JOB=32053
+ROOT=Path('/perf_apps/liyingli/bench_agentx/router-capacity-20260928')
+p=argparse.ArgumentParser();p.add_argument('--job',type=int,required=True);JOB=p.parse_args().job
 SSH=['ssh','-F','/dev/null','-o','BatchMode=yes','-o','ConnectTimeout=10','-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=/tmp/bench-agentx-known-hosts']
 IMAGE='infera-sglang:aus-campaign-radix-20260928';BASE='infera-sglang:aus-0922-reqtrace'
 BASE_ID='sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb'
-raw=subprocess.check_output(['scontrol','show','job',str(JOB),'-o'],text=True)
+while True:
+    raw=subprocess.check_output(['scontrol','show','job',str(JOB),'-o'],text=True)
+    state=re.search(r'\bJobState=(\S+)',raw)[1]
+    if state=='RUNNING':break
+    assert state in ['PENDING','CONFIGURING'],state
+    pending=ROOT/f'recovery-allocation-{JOB}.json';tmp=pending.with_suffix('.tmp');tmp.write_text(json.dumps({'job':JOB,'state':'PENDING'})+'\n');tmp.replace(pending)
+    time.sleep(15)
 assert re.search(r'\bUserId=([^ (]+)',raw)[1]==getpass.getuser()
 assert 'JobState=RUNNING' in raw
 nodes=subprocess.check_output(['scontrol','show','hostnames',re.search(r'\bNodeList=(\S+)',raw)[1]],text=True).splitlines();assert len(nodes)==2
@@ -19,7 +26,7 @@ registry=ROOT/'allocation-registry.json';tmp=registry.with_suffix('.tmp');tmp.wr
 
 def save(state,**fields):
     report.update(state=state,updated_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(),**fields)
-    p=ROOT/'recovery-allocation.json';tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(report,indent=2)+'\n');tmp.replace(p)
+    p=ROOT/f'recovery-allocation-{JOB}.json';tmp=p.with_suffix('.tmp');tmp.write_text(json.dumps(report,indent=2)+'\n');tmp.replace(p)
     print(state,fields,flush=True)
 
 
@@ -39,10 +46,8 @@ def prepare(node):
         (ROOT/f'recovery-{node}-image-load.log').write_text(log)
         base=remote(node,['docker','image','inspect','--format','{{.Id}}',BASE],timeout=30).strip()
     assert base==BASE_ID,(node,base)
-    try:image_id=remote(node,['docker','image','inspect','--format','{{.Id}}',IMAGE],timeout=30).strip()
-    except subprocess.CalledProcessError:
-        log=remote(node,['docker','build','-t',IMAGE,str(ROOT/'build')]);(ROOT/f'recovery-{node}-image-build.log').write_text(log)
-        image_id=remote(node,['docker','image','inspect','--format','{{.Id}}',IMAGE],timeout=30).strip()
+    log=remote(node,['docker','build','-t',IMAGE,str(ROOT/'build')]);(ROOT/f'recovery-{JOB}-{node}-image-build.log').write_text(log)
+    image_id=remote(node,['docker','image','inspect','--format','{{.Id}}',IMAGE],timeout=30).strip()
     cache=ROOT/'artifacts/aiter-prefill-cache.tar';dest=f'/tmp/aiter-jit-{os.getuid()}/'+image_id.split(':')[-1]
     try:remote(node,['test','-e',dest],timeout=30)
     except subprocess.CalledProcessError:
@@ -52,7 +57,10 @@ def prepare(node):
         if all(int(gpu[f'card{i}']['VRAM Total Used Memory (B)'])/int(gpu[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in range(8)):break
         time.sleep(5)
     else:raise RuntimeError(f'{node}: VRAM remains occupied; foreign processes preserved')
-    return {'node':node,'image_id':image_id,'gpu_memory':gpu}
+    ready={'node':node,'image_id':image_id,'gpu_memory':gpu}
+    (ROOT/f'recovery-{JOB}-{node}-prepared.json').write_text(json.dumps(ready,indent=2)+'\n')
+    print('NODE_PREPARED',node,flush=True)
+    return ready
 
 
 save('PREPARING')

@@ -3,7 +3,7 @@
     "role": "prefill",
     "node": "smci355-ccs-aus-n04-33",
     "data_ip": "10.235.192.139",
-    "container": "llying-campaign-b4-real-prefill-0",
+    "container": "llying-campaign-rb-real-prefill-0",
     "gpu_ids": [
       0,
       1,
@@ -26,7 +26,7 @@
     "role": "decode",
     "node": "smci355-ccs-aus-n05-21",
     "data_ip": "10.235.192.138",
-    "container": "llying-campaign-b4-decode-0",
+    "container": "llying-campaign-rb-decode-0",
     "gpu_ids": [
       0,
       1,

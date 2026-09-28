@@ -2,7 +2,16 @@
 set -euo pipefail
 ROOT=/perf_apps/liyingli/bench_agentx/router-capacity-20260928
 [[ ! -e "$ROOT/extra-job-id.txt" ]] || { echo 'An extra-node request is already recorded; inspect it before another request.' >&2; exit 1; }
-EXTRA_EXCLUDE=${EXTRA_EXCLUDE:-smci355-ccs-aus-n04-29,smci355-ccs-aus-n01-25,smci355-ccs-aus-n10-29,smci355-ccs-aus-n01-21}
+if [[ -z "${EXTRA_EXCLUDE:-}" ]]; then
+    EXTRA_EXCLUDE=$(python3 - "$ROOT" <<'PY_NODES'
+import json,sys
+from pathlib import Path
+r=Path(sys.argv[1]);nodes=set(json.loads((r/'config/avoid-nodes.json').read_text()))
+for job in json.loads((r/'allocation-registry.json').read_text())['jobs']:nodes.update(job['nodes'])
+print(','.join(sorted(nodes)))
+PY_NODES
+)
+fi
 begin_args=()
 if [[ -n "${EXTRA_BEGIN:-}" ]]; then begin_args+=(--begin="$EXTRA_BEGIN"); fi
 job=$(sbatch --parsable "${begin_args[@]}" --account=emad --partition=Compute-DCPT --qos=batch --nodes=1 --ntasks-per-node=1 --exclusive --gres=gpu:mi355x:8 --mem=3000000M --time=06:00:00 --no-requeue --exclude="$EXTRA_EXCLUDE" --job-name=llying-campaign-p2 --output="$ROOT/extra-%j.slurm.log" --wrap='sleep infinity')

@@ -5,7 +5,7 @@ import transition_two_node as ops
 import launch_placement as launch
 
 E=os.environ;RUN=Path(E['RUN']);ROOT=Path(E['TRACE_RUNTIME'])
-assert json.loads((ROOT/'recovery-allocation.json').read_text())['state']=='PREPARED'
+assert json.loads(Path(E.get('RECOVERY_ALLOCATION_FILE',str(ROOT/'recovery-allocation.json'))).read_text())['state']=='PREPARED'
 assert not (RUN/'placement-resolved.json').exists()
 for w in launch.rows:launch.check_allocation(w)
 for d in ['snapshot','logs','traces','sampling','launch/server-info','launch/server-logs']:(RUN/d).mkdir(parents=True,exist_ok=True)
