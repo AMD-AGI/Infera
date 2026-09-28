@@ -6,6 +6,8 @@
   "cancelled": 9,
   "runner_errors": 0,
   "output_tokens": 10205868,
+  "mean_input_tokens": 122018.41016686069,
+  "mean_output_tokens": 990.091967403958,
   "client_elapsed_s": 3629.336208459,
   "output_tokens_per_second": 2812.0481029596776,
   "output_tokens_per_second_per_gpu": 175.75300643497985,
@@ -22,7 +24,9 @@
       "output_tokens_per_second",
       "ttft_mean_s",
       "ttft_p95_s",
-      "positive_itl_mean_s"
+      "positive_itl_mean_s",
+      "mean_input_tokens",
+      "mean_output_tokens"
     ],
     "absolute_tolerance": 5.1e-06
   }

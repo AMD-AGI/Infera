@@ -35,13 +35,13 @@ def collect(repo):
         pnum=int(env['PREFILL_NUM_WORKERS']);ptp=int(env['PREFILL_TP']);dnum=int(env['DECODE_NUM_WORKERS']);dtp=int(env['DECODE_TP']);gpus=pnum*ptp+dnum*dtp
         d=json.loads(source.read_text())
         if recovered:
-            output=d['output_tokens_per_second'];per_gpu=d['output_tokens_per_second_per_gpu'];mean=d['ttft_mean_s'];p95=d['ttft_p95_s'];itl=d['positive_itl_mean_s'];account=d
+            output=d['output_tokens_per_second'];per_gpu=d['output_tokens_per_second_per_gpu'];mean=d['ttft_mean_s'];p95=d['ttft_p95_s'];itl=d['positive_itl_mean_s'];account=d;input_mean=d['mean_input_tokens'];output_mean=d['mean_output_tokens']
         else:
             m=d['request_metrics'];output=m['throughput']['output']['tokens_per_second'];per_gpu=m['throughput']['per_gpu']['output_tput_tps'];mean=m['latency']['ttft']['mean'];p95=m['latency']['ttft']['p95'];itl=m['latency']['itl']['mean']
-            summary=json.loads((run/'analysis/summary.json').read_text());account=summary['points']['80']['runner_accounting']['profiling']
+            summary=json.loads((run/'analysis/summary.json').read_text());account=summary['points']['80']['runner_accounting']['profiling'];input_mean=m['tokens']['input']['mean'];output_mean=m['tokens']['output_actual']['mean']
             assert d['num_prefill_gpu']==pnum*ptp and d['num_decode_gpu']==dnum*dtp
         assert abs(output/gpus-per_gpu)<.00001
-        rows.append({'case':case,'label':label,'layout':f'{pnum}P(TP{ptp})+{dnum}D(TP{dtp})','gpus_used':gpus,'backend_p':env['DSA_PREFILL_BACKEND'],'backend_d':env['DSA_DECODE_BACKEND'],'node_group':node_group(run),'completed':account['completed'],'cancelled':account['cancelled'],'errors':account['runner_errors'] if recovered else account['errors'],'output_tps':output,'output_tps_per_gpu':per_gpu,'ttft_mean_s':mean,'ttft_p95_s':p95,'itl_mean_ms':itl*1000,'quality':'recovered client; incomplete tail diagnostics' if recovered else 'validated export','run':str(run)})
+        rows.append({'case':case,'label':label,'layout':f'{pnum}P(TP{ptp})+{dnum}D(TP{dtp})','gpus_used':gpus,'backend_p':env['DSA_PREFILL_BACKEND'],'backend_d':env['DSA_DECODE_BACKEND'],'node_group':node_group(run),'completed':account['completed'],'cancelled':account['cancelled'],'errors':account['runner_errors'] if recovered else account['errors'],'mean_input_tokens':input_mean,'mean_output_tokens':output_mean,'output_tps':output,'output_tps_per_gpu':per_gpu,'ttft_mean_s':mean,'ttft_p95_s':p95,'itl_mean_ms':itl*1000,'quality':'recovered client; incomplete tail diagnostics' if recovered else 'validated export','run':str(run)})
     return rows,pending
 
 
@@ -54,7 +54,7 @@ def main():
     lines=['# C80实验对照','', '固定模拟接受长度3.61。使用GPU数用于归一化，不等同于整节点租用成本；P8D4在两台独占节点上仍有4张未用于该模型的卡。不同节点组之间不能直接归因某个feature。','', '| 点 | 改动/方案 | 组合 | 后端P/D | GPU数 | 输出token/s | 输出token/s/GPU | TTFT均值(s) | TTFT p95(s) | ITL均值(ms) | 完成/取消/错误 |','|---|---|---|---|---:|---:|---:|---:|---:|---:|---|']
     for r in rows:
         lines.append(f"| {r['case']} | {r['label']} | {r['layout']} | {r['backend_p']}/{r['backend_d']} | {r['gpus_used']} | {r['output_tps']:.2f} | {r['output_tps_per_gpu']:.2f} | {r['ttft_mean_s']:.3f} | {r['ttft_p95_s']:.3f} | {r['itl_mean_ms']:.3f} | {r['completed']}/{r['cancelled']}/{r['errors']} |")
-    lines+=['','B3*为从完整客户端记录恢复的结果，最终导出和末尾诊断被抢占打断；不与完整验证的归档混淆。各点的节点、质量状态、原始路径在metrics.csv/json中。请求配对存在选择效应，单次试验差异不证明稳定收益。']
+    lines+=['','B3*为从完整客户端记录恢复的结果，最终导出和末尾诊断被抢占打断；不与完整验证的归档混淆。各点的平均输入/输出长度、节点、质量状态和原始路径在metrics.csv/json中。请求配对存在选择效应，单次试验差异不证明稳定收益。']
     if pending:lines+=['','尚未完成验证的点：'+', '.join(pending)+'。']
     (out/'COMPARISON.zh-CN.md').write_text('\n'.join(lines)+'\n')
     if a.plot:
