@@ -9,8 +9,13 @@ from pathlib import Path
 r=Path(sys.argv[1]);deadline=time.monotonic()+7200
 while time.monotonic()<deadline:
  p=r/'STATUS';native=r/'analysis/decode-local-prefix.json'
- if p.exists() and 'COMPLETE_REVIEW_PENDING' in p.read_text() and native.exists():
-  x=json.loads(native.read_text());assert x['event_coverage']==1.0,x
+ status=p.read_text() if p.exists() else ''
+ if 'NEEDS_REVIEW' in status:raise SystemExit('B2 requires review; do not advance')
+ if 'COMPLETE_REVIEW_PENDING' in status and native.exists():
+  try:x=json.loads(native.read_text())
+  except json.JSONDecodeError:
+   time.sleep(1);continue
+  assert x['event_coverage']==1.0,x
   break
  time.sleep(10)
 else:raise SystemExit('B2 not complete with full D-prefix evidence; do not start B3')
