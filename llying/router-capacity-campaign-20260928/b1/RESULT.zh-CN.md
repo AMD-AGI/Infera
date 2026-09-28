@@ -19,3 +19,11 @@
 本轮只有一次同节点历史对照，包含时间/缓存历史局限；overlay未改变P/D计算内核，新增D radix开关在本轮关闭。指标改善不能仅凭一次实验保证稳定，但本轮多个相关指标均不支持把新评分纳入下一组默认组合。
 
 数据：[完整比较](COMPARISON.zh-CN.md)、[匹配请求](MATCHED-REQUESTS.zh-CN.md)、[完整性检查](REVIEW.json)、[请求汇总](summary.json)。原始数据保存在 `/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b1-dynamo-p`。
+
+## 首次选择损失集中在哪里
+
+匹配集合进一步分组：1,548对两边均为会话首个观测请求，新增miss合计346万tokens，占全部净新增373万的约92.9%；首次请求平均miss为10,881→13,119（约+20.6%），累计排队反而仅减少115秒，平均少约74ms。7,833对后续请求的miss均值基本相近（3515→3549），但累计排队增加4091秒，平均多约522ms。
+
+只有30对请求的额外miss超过32K，贡献所有正向新增miss的71.1%。这支持“少数首次派单放弃大前缀，额外计算拖累后续队列”的解释；不是逐次派单的反事实耗时证明。首个观测请求按warmup+profiling中的x_correlation_id判断，不能冒充Router日志中的绑定原因。
+
+详见 [首次选择缓存损失](selection-cache-loss.json)。
