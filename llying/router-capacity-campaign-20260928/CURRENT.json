@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T22:08:51.173972+00:00",
-  "stage": "B4_LOADING_REPLAY",
+  "updated_utc": "2026-09-28T22:12:49.724013+00:00",
+  "stage": "B4_WARMUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b4-triton",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b4.sh",
   "already_running": [
-    "B4 real gate and performance preflight passed; C80 client loading replay",
+    "B4 C80: preflight passed, 884-request warmup",
     "await-b4-placement.sh continues real acceptance gate then C80",
     "allocation watcher for 32054",
     "prepare_extra_node.py --job 32056 waiting for future eligibility"
@@ -78,5 +78,5 @@
       "formal_started": false
     }
   ],
-  "warmup_start_utc": "2026-09-28T19:48:54Z"
+  "warmup_start_utc": "2026-09-28T22:10:20Z"
 }
