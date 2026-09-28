@@ -1,0 +1,6 @@
+{
+  "passed": true,
+  "known_decisions": 18,
+  "multi_candidate_decisions": 12,
+  "scope": "Known P scores choose minimum; D remains outside the new mode. Pinned calls may have one candidate."
+}

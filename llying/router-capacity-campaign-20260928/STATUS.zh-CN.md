@@ -2,7 +2,7 @@
 
 用户于2026-09-28授权按实验方案自主执行，并要求持续保存提交、仔细review代码（方案正确、逻辑自洽、代码正确简洁、注释简洁）。
 
-状态：P评分已实现并review，292项单元测试、26项HTTP、4项ZMQ、14项render验证通过；release已构建，P/D无HiCache smoke引擎正在启动。代码提交19a6c1d2。方案见 ../session-affinity-20260928/followup-analysis/NEXT-EXPERIMENT-PLAN.zh-CN.md。
+状态：B1无HiCache实机smoke通过：18条请求（1条主动取消），完成请求P/D配对和会话绑定通过；18个已知评分决策均选择最小分，含12个全候选选择，GPU分层命中已观测。正在保留D、重启P开启HiCache，准备正式C80。
 
 固定条件：R1、P会话亲和、fusion开启、IndexShare关闭、C80及既有数据/模拟接受率口径。按阶段验证P首次选择、D radix、D亲和、Triton，再比较P8D8、P8D4、2P8D8、4P4D8。D HiCache/R4默认关闭。
 
