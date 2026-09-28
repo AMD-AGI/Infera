@@ -8,6 +8,7 @@ IMAGE='infera-sglang:aus-campaign-radix-20260928';BASE='infera-sglang:aus-0922-r
 BASE_ID='sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb'
 p=argparse.ArgumentParser();p.add_argument('--job',type=int,required=True);p.add_argument('--isolated-smoke',action='store_true');a=p.parse_args()
 report={'job':a.job,'state':'PENDING'}
+spawned=[]
 
 
 def save(state,**fields):
@@ -73,7 +74,7 @@ try:
         window=state.get('profile_window_utc',[])
         if state.get('stage','').endswith('PROFILING') and len(window)==2:
             end=datetime.datetime.fromisoformat(window[1].replace('Z','+00:00'))
-            do_smoke=(end-datetime.datetime.now(datetime.timezone.utc)).total_seconds()>600
+            do_smoke=(end-datetime.datetime.now(datetime.timezone.utc)).total_seconds()>1200
     if do_smoke:
         prefix=f'llying-campaign-extra-{a.job}';run=ROOT/'runs'/f'extra-prep-{a.job}';run.mkdir(parents=True,exist_ok=True)
         config=ROOT/'config'/f'extra-prep-{a.job}.sh'
@@ -89,9 +90,12 @@ try:
     ''')
         etcd=prefix+'-etcd';worker=prefix+'-prefill-0'
         remote(node,['docker','run','-d','--init','--name',etcd,'--network','host','--label','infera.allocation-job='+str(a.job),'quay.io/coreos/etcd:v3.5.14','etcd','--advertise-client-urls',f'http://{ip}:23379','--listen-client-urls','http://0.0.0.0:23379','--listen-peer-urls','http://127.0.0.1:23380','--initial-advertise-peer-urls','http://127.0.0.1:23380','--initial-cluster','default=http://127.0.0.1:23380'])
+        spawned.append(etcd)
         save('ISOLATED_PREFILL_STARTING')
         remote(node,['bash',str(ROOT/'scripts/bench-harness/engine.sh'),'prefill','prefill-0',ip,'0,1,2,3,4,5,6,7',29101,29098,25657,28901,worker,f'{ip}:23379','CONFIG='+str(config),'SERVER_LOG='+str(run/'prefill.log')])
-        subprocess.run(['python3',str(ROOT/'scripts/bench-harness/tools/wait_healthy.py'),'--target','prefill',node,worker,f'http://{ip}:29101/health','--ssh-options','-F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/bench-agentx-known-hosts','--timeout','1800','--interval','10','--summary',str(run/'health.json')],check=True,timeout=1900)
+        spawned.append(worker)
+        health_budget=max(60,min(1800,int((end-datetime.datetime.now(datetime.timezone.utc)).total_seconds())-120))
+        subprocess.run(['python3',str(ROOT/'scripts/bench-harness/tools/wait_healthy.py'),'--target','prefill',node,worker,f'http://{ip}:29101/health','--ssh-options','-F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/tmp/bench-agentx-known-hosts','--timeout',str(health_budget),'--interval','10','--summary',str(run/'health.json')],check=True,timeout=health_budget+30)
         save('ISOLATED_PREFILL_PASSED')
         remote(node,['docker','stop','-t','60',worker,etcd],timeout=150)
         for _ in range(120):
@@ -101,5 +105,9 @@ try:
         else:raise RuntimeError('isolated prefill VRAM release timed out')
     save('PREPARED',gpu_memory=gpu_state(node),isolated_smoke=do_smoke)
 except BaseException as exc:
-    save('FAILED',error=str(exc))
+    cleanup=[]
+    for name in reversed(spawned):
+        try:remote(node,['docker','stop','-t','60',name],timeout=90)
+        except Exception as error:cleanup.append({'container':name,'error':str(error)})
+    save('FAILED',error=str(exc),cleanup_errors=cleanup)
     raise
