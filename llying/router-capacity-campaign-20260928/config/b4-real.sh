@@ -7,6 +7,7 @@ export RUN=$TRACE_RUNTIME/runs/$RUN_ID
 export CONTAINER_PREFIX=llying-campaign-b4-real
 export PREVIOUS_RUN=$TRACE_RUNTIME/runs/campaign-rb-rebaseline
 export BASELINE_RUN=$PREVIOUS_RUN
+export BASELINE_LABEL=RB_selected_stack
 export OLD_PREFIX=llying-campaign-rb
 export TOPOLOGY=$TRACE_RUNTIME/config/b4-real.json
 export DSA_PREFILL_BACKEND=triton DSA_DECODE_BACKEND=triton

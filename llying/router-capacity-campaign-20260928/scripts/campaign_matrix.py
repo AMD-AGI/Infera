@@ -28,6 +28,8 @@ def collect(repo):
         review=repo/archive/'REVIEW.json'
         if not source.exists() or (case!='Base' and not recovered and (not review.exists() or not json.loads(review.read_text())['checks_passed'])):
             pending.append(case);continue
+        if case in ['RB','B4','B5','B6','B7'] and not (run/'review-ready.json').exists():
+            pending.append(case);continue
         env=environment(run/'c80/runtime.env')
         assert env['CONC']=='80' and env['DURATION']=='3600' and env['SIMULATE_ACC_LEN']=='3.61'
         pnum=int(env['PREFILL_NUM_WORKERS']);ptp=int(env['PREFILL_TP']);dnum=int(env['DECODE_NUM_WORKERS']);dtp=int(env['DECODE_TP']);gpus=pnum*ptp+dnum*dtp

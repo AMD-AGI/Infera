@@ -11,6 +11,7 @@ for name in ['selected-p.sh','selected-d.sh','selected-backend.sh']:
     assert (ROOT/'config'/name).exists(),f'feature decision missing: {name}'
 previous=a.previous.resolve();assert previous.parent==ROOT/'runs'
 assert 'COMPLETE_REVIEW_PENDING' in (previous/'STATUS').read_text()
+assert json.loads((previous/'review-ready.json').read_text())['checks_passed']
 old=load(previous/'placement-resolved.json')
 command=json.loads((previous/'snapshot/router-launch-command.json').read_text())
 old_prefix=command[command.index('--name')+1].removesuffix('-router')

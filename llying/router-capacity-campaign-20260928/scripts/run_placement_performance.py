@@ -62,7 +62,7 @@ if __name__=='__main__':
         with (RUN/'logs/analysis.log').open('w') as f:
             for script in ['analyze.py','analyze_sessions.py','analyze_runtime.py','analyze_guard_lifecycle.py','analyze_decode_prefix.py','analyze_balance.py']:
                 subprocess.run([sys.executable,str(ROOT/'scripts'/script),str(RUN)],stdout=f,stderr=subprocess.STDOUT,check=True)
-            subprocess.run([sys.executable,str(ROOT/'scripts/compare_c80_runs.py'),E['BASELINE_RUN'],str(RUN),'--reference-label','P_session_baseline','--candidate-label',E['RUN_ID'],'--output-dir',str(RUN/'analysis/comparison-baseline')],stdout=f,stderr=subprocess.STDOUT,check=True)
+            subprocess.run([sys.executable,str(ROOT/'scripts/compare_c80_runs.py'),E['BASELINE_RUN'],str(RUN),'--reference-label',E.get('BASELINE_LABEL','P_session_baseline'),'--candidate-label',E['RUN_ID'],'--output-dir',str(RUN/'analysis/comparison-baseline')],stdout=f,stderr=subprocess.STDOUT,check=True)
         state('COMPLETE_REVIEW_PENDING')
     except BaseException:
         state('NEEDS_REVIEW_SERVICES_PRESERVED')

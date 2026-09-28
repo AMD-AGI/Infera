@@ -7,6 +7,8 @@ import launch_placement as launch
 E=os.environ;RUN=Path(E['RUN']);previous=Path(E['PREVIOUS_RUN']);desired=launch.rows
 status=(previous/'STATUS').read_text()
 assert any(k in status for k in ['COMPLETE_REVIEW_PENDING','RADIX_GATE_PASSED','PLACEMENT_GATE_PASSED'])
+if 'COMPLETE_REVIEW_PENDING' in status:
+    assert json.loads((previous/'review-ready.json').read_text())['checks_passed']
 command=json.loads((previous/'snapshot/router-launch-command.json').read_text())
 assert command[command.index('--name')+1]==E['OLD_PREFIX']+'-router'
 assert not (RUN/'c80-started.txt').exists()
