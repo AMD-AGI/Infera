@@ -8,8 +8,11 @@ infos={};live=json.loads((run/'live-containers.json').read_text())
 for role,port in [('prefill',29001),('decode',29002)]:
  ip=os.environ[role.upper()+'_IP'];d=get(f'http://{ip}:{port}/get_server_info');infos[role]=d
  (run/f'launch/server-info/{role}-0.json').write_text(json.dumps(d,indent=2))
- for k,v in {'chunked_prefill_size':4096,'tp_size':8,'dp_size':8,'ep_size':1,'mem_fraction_static':0.85,'enable_hierarchical_cache':role=='prefill','random_seed':823508857 if role=='prefill' else 19197414}.items():assert d[k]==v,(role,k,d[k],v)
+ for k,v in {'chunked_prefill_size':4096,'tp_size':int(os.environ[role.upper()+'_TP']),'dp_size':int(os.environ[role.upper()+'_DP']),'ep_size':1,'mem_fraction_static':0.85,'enable_hierarchical_cache':role=='prefill','random_seed':823508857 if role=='prefill' else 19197414}.items():assert d[k]==v,(role,k,d[k],v)
+ for key,value in {'kv_cache_dtype':'fp8_e4m3','enable_dp_attention':True,'dcp_size':1,'dsa_prefill_backend':os.environ['DSA_PREFILL_BACKEND'],'dsa_decode_backend':os.environ['DSA_DECODE_BACKEND']}.items():assert d[key]==value,(role,key,d[key],value)
+ assert json.loads(d['json_model_override_args'])['index_share_for_mtp_iteration'] is False
  if role=='decode':
+  for key,value in {'speculative_algorithm':'EAGLE','speculative_num_steps':5,'speculative_eagle_topk':1,'speculative_num_draft_tokens':6}.items():assert d[key]==value,(key,d[key],value)
   assert d['disaggregation_decode_enable_radix_cache']==(os.environ.get('DECODE_RADIX','0')=='1')
  if role=='prefill':
   for k,v in {'hicache_ratio':1.5,'hicache_write_policy':'write_through','hicache_io_backend':'kernel','hicache_mem_layout':'page_first'}.items():assert d[k]==v,(k,d[k])
@@ -39,7 +42,7 @@ for role,port in [('prefill',29001),('decode',29002)]:
   with urllib.request.urlopen(f'http://{os.environ[role.upper()+"_IP"]}:{port}/metrics',timeout=10) as f:raw=f.read().decode()
   values=[float(v) for v in re.findall(r'^sglang:kv_used_tokens(?:\{[^}]*\})? ([0-9.eE+-]+)$',raw,re.M)]
   evictable=[float(v) for v in re.findall(r'^sglang:kv_evictable_tokens(?:\{[^}]*\})? ([0-9.eE+-]+)$',raw,re.M)]
-  if len(values)==8 and len(evictable)==8 and all(v==0 for v in values+evictable):break
+  if len(values)==int(os.environ[role.upper()+'_DP']) and len(evictable)==int(os.environ[role.upper()+'_DP']) and all(v==0 for v in values+evictable):break
   time.sleep(1)
  else:raise RuntimeError(f'{role} cache did not reach an empty state after flush: {values}')
  empty_cache[role]={'active':values,'evictable':evictable}

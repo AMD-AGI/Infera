@@ -94,6 +94,8 @@ mkdir -p "$aiter_jit_cache"
 
 docker_args=(
     docker run -d --init --name "$container"
+    --label infera.campaign=router-capacity-20260928
+    --label "infera.allocation-job=${WORKER_ALLOCATION_JOB_ID:-$ALLOCATION_JOB_ID}"
     --network host --ipc host --shm-size "${SHM_SIZE:-32g}"
     --device /dev/kfd --device /dev/dri --device /dev/infiniband
     --group-add video --group-add render

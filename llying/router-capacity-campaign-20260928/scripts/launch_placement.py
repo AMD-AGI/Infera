@@ -25,7 +25,7 @@ def launch_host(workers):
         data=json.loads(ops.remote(w['node'],['rocm-smi','--showmeminfo','vram','--json']))
         assert all(int(data[f'card{i}']['VRAM Total Used Memory (B)'])/int(data[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in w['gpu_ids']),f"{w['instance']} GPUs are occupied"
         mapping={str(local):f'ionic_{physical}' for local,physical in enumerate(w['gpu_ids'])}
-        cmd=['bash',E['BENCH_DIR']+'/engine.sh',w['role'],w['instance'],w['ip'],','.join(map(str,w['gpu_ids'])),w['engine_port'],w['bootstrap_port'],w['kv_port'],w['snapshot_port'],w['container'],E['PREFILL_IP']+':22379','CONFIG='+E['CONFIG'],'WORKER_RDMA_DEVICE='+json.dumps(mapping,separators=(',',':')),'DIAG_INSTANCE='+w['instance'],'SERVER_LOG='+str(RUN/'launch/server-logs'/f"{w['instance']}.log")]
+        cmd=['bash',E['BENCH_DIR']+'/engine.sh',w['role'],w['instance'],w['ip'],','.join(map(str,w['gpu_ids'])),w['engine_port'],w['bootstrap_port'],w['kv_port'],w['snapshot_port'],w['container'],E['PREFILL_IP']+':22379','CONFIG='+E['CONFIG'],'WORKER_RDMA_DEVICE='+json.dumps(mapping,separators=(',',':')),'DIAG_INSTANCE='+w['instance'],'WORKER_ALLOCATION_JOB_ID='+str(w['allocation_job']),'SERVER_LOG='+str(RUN/'launch/server-logs'/f"{w['instance']}.log")]
         print('START',w['instance'],w['node'],w['gpu_ids'],flush=True)
         ops.remote(w['node'],cmd)
         ops.wait_healthy(w['node'],w['container'],w['url'])

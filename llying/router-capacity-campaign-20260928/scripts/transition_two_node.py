@@ -85,7 +85,7 @@ if __name__=='__main__':
     for suffix in ['router','collector']:stop(E['PREFILL_NODE'],old_prefix+'-'+suffix)
     save('OLD_ROUTER_AND_COLLECTOR_STOPPED')
     name=E['CONTAINER_PREFIX']+'-collector'
-    remote(E['PREFILL_NODE'],['docker','run','-d','--init','--name',name,'--network','host','-v',str(ROOT)+':'+str(ROOT),E['IMAGE'],'python3',str(ROOT/'scripts/otlp_jsonl_collector.py'),'--output',str(RUN/'traces/spans.jsonl'),'--ready-file',str(RUN/'traces/ready.json')])
+    remote(E['PREFILL_NODE'],['docker','run','-d','--init','--name',name,'--network','host','--label','infera.campaign=router-capacity-20260928','--label','infera.allocation-job='+E['ALLOCATION_JOB_ID'],'-v',str(ROOT)+':'+str(ROOT),E['IMAGE'],'python3',str(ROOT/'scripts/otlp_jsonl_collector.py'),'--output',str(RUN/'traces/spans.jsonl'),'--ready-file',str(RUN/'traces/ready.json')])
     roles=[role for role in ['prefill','decode'] if E.get('RESTART_'+role.upper(),'0')=='1']
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         futures=[pool.submit(replace_role,role) for role in roles]
