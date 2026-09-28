@@ -36,7 +36,10 @@ try:
     owner=re.search(r'\bUserId=([^ (]+)',result.stdout)[1];assert owner==getpass.getuser()
     nodelist=re.search(r'\bNodeList=(\S+)',result.stdout)[1]
     nodes=subprocess.check_output(['scontrol','show','hostnames',nodelist],text=True).splitlines();assert len(nodes)==1
-    node=nodes[0];assert node not in ['smci355-ccs-aus-n04-29','smci355-ccs-aus-n10-29','smci355-ccs-aus-n03-33']
+    node=nodes[0]
+    active=json.loads((ROOT/'allocation-registry.json').read_text())['jobs']
+    forbidden={'smci355-ccs-aus-n04-29','smci355-ccs-aus-n01-25'}|{n for j in active if int(j['id'])!=a.job for n in j['nodes']}
+    assert node not in forbidden
     ip=socket.gethostbyname(node);save('ALLOCATED',node=node,ip=ip)
     registry=ROOT/'allocation-registry.json';data=json.loads(registry.read_text())
     data['jobs']=[j for j in data['jobs'] if j['id']!=a.job]+[{'id':a.job,'nodes':[node]}]

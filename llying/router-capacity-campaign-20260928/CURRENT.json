@@ -1,13 +1,12 @@
 {
-  "updated_utc": "2026-09-28T18:28:35.781940+00:00",
-  "stage": "RECOVERY_PREPARING",
+  "updated_utc": "2026-09-28T18:42:42.070983+00:00",
+  "stage": "R0_REAL_STARTUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-r0-rebaseline-real",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/r0-real.sh",
   "already_running": [
-    "prepare_recovery.py for job 32053",
-    "allocation watcher",
-    "third-node waiter held by Slurm JobHeldUser"
+    "run-r0-recovery.sh: real-acceptance engines starting, then probe and formal C80",
+    "allocation watcher"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
@@ -19,7 +18,13 @@
     "prefill": "smci355-ccs-aus-n10-29",
     "decode": "smci355-ccs-aus-n01-21"
   },
-  "containers": {},
+  "containers": {
+    "prefill": "llying-campaign-r0-real-prefill-0",
+    "decode": "llying-campaign-r0-real-decode-0",
+    "etcd": "llying-campaign-r0-real-etcd",
+    "router": "llying-campaign-r0-real-router",
+    "collector": "llying-campaign-r0-real-collector"
+  },
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
     "k3.play",
@@ -41,13 +46,13 @@
     "third-node preparation with isolated registration"
   ],
   "extra_node_request": {
-    "job": 32046,
-    "not_before_utc": null,
-    "dry_run_estimate_utc": "2026-09-28T21:51:53Z",
-    "status": "held, no GPU allocated; reschedule after recovery baseline and B3 timing is known",
-    "reason": "Actual pending job forecast after excluding n01-25, which remains IDLE+COMPLETING; forecast is not a reservation.",
-    "scheduled_start_utc": "2026-09-28T19:25:51Z",
-    "scheduled_node": "smci355-ccs-aus-n04-33"
+    "last_job": 32046,
+    "state": "cancelled after P recovered",
+    "allocated_node": "smci355-ccs-aus-n04-21",
+    "allocated_start_utc": "2026-09-28T18:37:17Z",
+    "cancel_requested_utc": "2026-09-28T18:39:43Z",
+    "gpu_server_started": false,
+    "next": "Schedule a fresh third-node request against R0/B4 progress"
   },
   "interruption": {
     "job": 31999,
