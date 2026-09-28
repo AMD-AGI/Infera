@@ -1,5 +1,5 @@
 """Verify the reviewed configuration and a few real requests before replay."""
-import hashlib,json,os,re,shlex,subprocess,time,urllib.request
+import hashlib,json,os,re,shlex,subprocess,time,urllib.request,uuid
 from pathlib import Path
 root=Path(os.environ['TRACE_RUNTIME']);run=Path(os.environ['RUN']);url='http://'+os.environ['PREFILL_IP']+':28000';ssh=['ssh',*shlex.split(os.environ['SSH_OPTS'])]
 def get(u):
@@ -25,14 +25,19 @@ for role,port in [('prefill',29001),('decode',29002)]:
  with urllib.request.urlopen(urllib.request.Request(f'http://{os.environ[role.upper()+"_IP"]}:{port}/flush_cache',data=b'',method='POST'),timeout=30) as f:(run/f'startup-flush-{role}.txt').write_bytes(f.read())
 time.sleep(1)
 rows=[]
+with urllib.request.urlopen(url+'/metrics',timeout=10) as f:before_metrics=f.read().decode()
+def hits(text,role):
+ match=re.search(r'^infera_router_session_hits_total\{role="'+role+r'"\} (\d+)$',text,re.M)
+ return int(match[1]) if match else 0
+probe_session='review-preflight-'+uuid.uuid4().hex
 for i in range(3):
  body={'rid':f'session-review-preflight-{i}','model':'glm5.2-mxfp4','messages':[{'role':'user','content':('A measurement is 20 degrees. '*100)+'Give the temperature briefly.'}],'max_tokens':64,'temperature':0,'stream':False}
- req=urllib.request.Request(url+'/v1/chat/completions',json.dumps(body).encode(),{'Content-Type':'application/json','X-Dynamo-Session-ID':'review-preflight'})
+ req=urllib.request.Request(url+'/v1/chat/completions',json.dumps(body).encode(),{'Content-Type':'application/json','X-Dynamo-Session-ID':probe_session})
  with urllib.request.urlopen(req,timeout=180) as f:r=json.load(f)
  assert r.get('choices');rows.append(r)
 with urllib.request.urlopen(url+'/metrics',timeout=10) as f:metrics=f.read().decode()
-assert 'infera_router_session_hits_total{role="prefill"} 2' in metrics
-assert ('infera_router_session_hits_total{role="decode"} 2' if os.environ['INFERA_SESSION_AFFINITY']=='both' else 'infera_router_session_hits_total{role="decode"} 0') in metrics
+assert hits(metrics,'prefill')-hits(before_metrics,'prefill')==2
+assert hits(metrics,'decode')-hits(before_metrics,'decode')==(2 if os.environ['INFERA_SESSION_AFFINITY']=='both' else 0)
 assert 'infera_router_session_active{role="prefill"} 0' in metrics
 for role,port in [('prefill',29001),('decode',29002)]:
  with urllib.request.urlopen(urllib.request.Request(f'http://{os.environ[role.upper()+"_IP"]}:{port}/flush_cache',data=b'',method='POST'),timeout=30) as f:(run/f'pre-benchmark-flush-{role}.txt').write_bytes(f.read())

@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T15:14:37.736496+00:00",
-  "stage": "B2_RADIX_PERFORMANCE_STARTING",
+  "updated_utc": "2026-09-28T15:22:56.952185+00:00",
+  "stage": "B2_REPLAY_STARTING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b2.sh",
   "already_running": [
-    "await-b2-performance.sh: starts transition and C80 after passed known-answer/native-prefix gate"
+    "B2 preflight passed; run-performance.sh is loading the fixed dataset, then 884 warmup + 3600s profiling"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
