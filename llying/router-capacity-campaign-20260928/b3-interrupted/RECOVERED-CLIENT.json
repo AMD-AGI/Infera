@@ -1,0 +1,21 @@
+{
+  "source": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity/c80/aiperf_artifacts/profile_export.jsonl",
+  "provenance": "Recovered client metrics; final exporter and tail diagnostics interrupted by Slurm preemption",
+  "sending_window_complete": true,
+  "completed": 10308,
+  "cancelled": 9,
+  "runner_errors": 0,
+  "output_tokens": 10205868,
+  "client_elapsed_s": 3629.336208459,
+  "output_tokens_per_second": 2812.0481029596776,
+  "output_tokens_per_second_per_gpu": 175.75300643497985,
+  "ttft_mean_s": 6.245211275511544,
+  "ttft_p95_s": 17.726085605399994,
+  "positive_itl_mean_s": 0.014671475422955488,
+  "validation": "Same calculation reproduces official B2 output TPS, TTFT mean/p95 and rounded ITL mean.",
+  "limits": [
+    "No official final agentx_conc80.json or post-run engine identity snapshot.",
+    "Tail diagnostic capture and resource samples stop before the client sending window ends.",
+    "Do not mark this run COMPLETE_REVIEW_PENDING or replace the original failure status."
+  ]
+}

@@ -18,9 +18,9 @@ ptp=4 if a.case=='b7' else 8;dtp=4 if a.case=='b5' else 8
 name={'b5':'p8d4','b6':'2p8d8','b7':'4p4d8'}[a.case]
 run_id=f'campaign-{a.case}-{name}';prefix=f'llying-campaign-{a.case}'
 assert not any((ROOT/'runs'/r).exists() for r in [run_id,run_id+'-real'])
-primary=next(w for w in old if w['role']=='prefill' and w['node']=='smci355-ccs-aus-n10-29')
+primary=next(w for w in old if w['role']=='prefill')
 decode=next(w for w in old if w['role']=='decode')
-hosts=[(primary['node'],primary['ip'],31999)]
+hosts=[(primary['node'],primary['ip'],primary['allocation_job'])]
 if a.case!='b5':
     extra=json.loads((ROOT/'extra-node.json').read_text());assert extra['state']=='PREPARED',extra
     hosts.append((extra['node'],extra['ip'],extra['job']))
@@ -38,7 +38,7 @@ def row(role,node,ip,job,gpus,port):
 for host_index,(node,ip,job) in enumerate(hosts):
     for group in range(8//ptp):
         rows.append(row('prefill',node,ip,job,list(range(group*ptp,(group+1)*ptp)),29001+host_index*2+group*256))
-rows.append(row('decode',decode['node'],decode['ip'],31999,list(range(dtp)),29002))
+rows.append(row('decode',decode['node'],decode['ip'],decode['allocation_job'],list(range(dtp)),29002))
 # Preserve reused workers' public control ports as well as their engine port.
 for w in rows:
     prior=next((o for o in old if (o['node'],o['container'])==(w['node'],w['container'])),None)
@@ -51,7 +51,7 @@ for w in sim:
     if w['role']=='decode':w['container']=f'{prefix}-decode-0'
 sim_top.write_text(json.dumps(sim,indent=2)+'\n');load(sim_top)
 config=f'''#!/usr/bin/env bash
-source {ROOT}/config/b1.sh
+source {ROOT}/config/recovery-base.sh
 source "$TRACE_RUNTIME/config/selected-p.sh"
 source "$TRACE_RUNTIME/config/selected-d.sh"
 source "$TRACE_RUNTIME/config/selected-backend.sh"

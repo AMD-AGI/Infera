@@ -1,41 +1,37 @@
 {
-  "updated_utc": "2026-09-28T18:04:22.392813+00:00",
-  "stage": "B3_PROFILING",
+  "updated_utc": "2026-09-28T18:28:35.781940+00:00",
+  "stage": "RECOVERY_PREPARING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b3.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-r0-rebaseline-real",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/r0-real.sh",
   "already_running": [
-    "B3 formal C80: P/D both affinity, D radix enabled",
-    "allocation watcher active"
+    "prepare_recovery.py for job 32053",
+    "allocation watcher",
+    "third-node waiter held by Slurm JobHeldUser"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
   "smoke_passed": true,
-  "allocation": 31999,
-  "allocation_end_utc": "2026-09-29T02:52:35Z",
+  "allocation": 32053,
+  "allocation_end_utc": "2026-09-29T06:19:13Z",
   "allocation_extension_attempt": "Slurm denied; unchanged",
   "nodes": {
     "prefill": "smci355-ccs-aus-n10-29",
-    "decode": "smci355-ccs-aus-n03-33"
+    "decode": "smci355-ccs-aus-n01-21"
   },
-  "containers": {
-    "prefill": "llying-campaign-b1-prefill-0",
-    "decode": "llying-campaign-b2-decode-0",
-    "etcd": "llying-campaign-b1-smoke-etcd",
-    "router": "llying-campaign-b3-router",
-    "collector": "llying-campaign-b3-collector"
-  },
+  "containers": {},
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
-    "k3.play"
+    "k3.play",
+    "dev_primus_wenx",
+    "msa_r7_verify"
   ],
   "remaining": [
-    "B3 D affinity; investigate hotspots and conditional R2",
-    "B4 Triton P8D8 C80; request third node when prepared and 2-3h ahead",
-    "B5 P8D4 C80 (may move after third-node work)",
-    "B6 2P8+D8 C80",
-    "B7 4P4+D8 C80 on same three nodes",
-    "Commit/push results, release added node after cleanup, preserve original allocation as agreed"
+    "R0: repeat selected D radix + both affinity stack on replacement nodes as new baseline",
+    "B4 Triton P8D8 vs R0",
+    "2P8+D8 and 4P4+D8 with third node scheduled against progress",
+    "P8D4",
+    "Archive results and release added allocations"
   ],
   "selected_p": "legacy + R1 + P affinity",
   "prepared_helpers": [
@@ -48,13 +44,20 @@
     "job": 32046,
     "not_before_utc": null,
     "dry_run_estimate_utc": "2026-09-28T21:51:53Z",
-    "status": "pending, eligible now",
+    "status": "held, no GPU allocated; reschedule after recovery baseline and B3 timing is known",
     "reason": "Actual pending job forecast after excluding n01-25, which remains IDLE+COMPLETING; forecast is not a reservation.",
     "scheduled_start_utc": "2026-09-28T19:25:51Z",
     "scheduled_node": "smci355-ccs-aus-n04-33"
   },
-  "profile_window_utc": [
-    "2026-09-28T17:15:08Z",
-    "2026-09-28T18:15:08Z"
-  ]
+  "interruption": {
+    "job": 31999,
+    "state": "PREEMPTED",
+    "preempt_time_utc": "2026-09-28T18:13:42Z",
+    "end_utc": "2026-09-28T18:19:05Z",
+    "b3_complete": false,
+    "ssh_cleanup": "PAM denied after preemption; old P-node containers can be cleaned only after reacquisition under 32053",
+    "b3_client_sending_complete": true,
+    "b3_final_export_and_diagnostics_complete": false
+  },
+  "selected_d": "radix on + both affinity; R2 off"
 }

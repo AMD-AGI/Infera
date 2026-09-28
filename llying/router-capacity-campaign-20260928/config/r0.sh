@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+source /perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/r0-real.sh
+export RUN_ID=campaign-r0-rebaseline
+export RUN=$TRACE_RUNTIME/runs/$RUN_ID
+export CONTAINER_PREFIX=llying-campaign-r0
+export PREVIOUS_RUN=$TRACE_RUNTIME/runs/campaign-r0-rebaseline-real
+export OLD_PREFIX=llying-campaign-r0-real
+export TOPOLOGY=$TRACE_RUNTIME/config/r0.json
+export DECODE_SIMULATE_ACC_LEN=3.61

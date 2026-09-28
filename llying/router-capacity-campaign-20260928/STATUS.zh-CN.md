@@ -1,34 +1,29 @@
 # Campaign 当前状态
 
-更新：2026-09-28 18:04 UTC。用户已授权自主完成方案、持续保存提交，并要求逐步review方案与代码。
+更新：2026-09-28 18:30 UTC。用户已授权自主完成方案、持续保存提交，并要求复核方案与代码。
 
 ## 当前执行
 
-B3（D radix + D会话亲和）已完成固定884条预热，正式3600秒C80窗口为17:15:08–18:15:08 UTC。P/D引擎复用B2，只切换Router为both亲和。P保持旧首次评分、R1、fusion开启、IndexShare关闭、MTP模拟接受长度3.61均保持。
+原allocation 31999于18:13:42被Slurm抢占，18:19:05结束。替代allocation **32053**已于18:19:13到位：P继续使用n10-29，D改用n01-21，租期到9月29日06:19:13。正在准备镜像与正常释放旧P显存；不会重置GPU或停止无关容器。
 
-## 已完成
+恢复点R0将直接复测 **旧P首次评分＋R1＋P/D会话亲和＋D radix**，作为新节点上后续Triton/容量实验的基线。Fusion开启、IndexShare关闭、有效chunk 4096、MTP模拟3.61、P HiCache1.5、D HiCache关闭均保留。先做真实接受率下已知答案和rank覆盖检查，再测C80。
 
-- **B1 新P首次评分：不纳入后续默认组合。** 输出吞吐−2.45%、平均TTFT+9.82%、P排队+24.68%；匹配请求显示首次派单增加了大段cache miss。代码保留为默认off的实验功能。见[b1/RESULT.zh-CN.md](b1/RESULT.zh-CN.md)。
-- **B2 单独D radix：改善TTFT，尚无吞吐收益。** 输出吞吐−1.04%、平均TTFT−6.45%；D本地复用23.62%输入tokens。10,295条完成、11条边界取消、0正式请求错误；另有1条warmup无有效内容记录与取消credit收尾超时，均保留。见[b2/RESULT.zh-CN.md](b2/RESULT.zh-CN.md)。
-- **D radix真实接受率功能检查：通过已知答案和本地前缀路径检查。** 24个标准答案正确，命中prefix=10,816、仅清D后prefix=0。思考文本不逐字一致的严格检查未通过，原记录保留；不把小型探测当作完整长上下文准确率证明。见[b2-gate/RESULT.zh-CN.md](b2-gate/RESULT.zh-CN.md)。
-- 后续容量切换脚本已复核：修正探针rank覆盖假设与跨worker host-load事件关联，并新增实际GPU吞吐分母检查。见[CODE-REVIEW.zh-CN.md](CODE-REVIEW.zh-CN.md)。
-- 292项Router单元、26项HTTP、4项ZMQ、14项render验证通过；多worker placement检查与旧参考分析回归通过。
+## 已有结果
 
-## 资源
+- **B1 新P首次评分：不纳入后续默认组合。** 输出吞吐−2.45%、平均TTFT+9.82%、P排队+24.68%；见[b1/RESULT.zh-CN.md](b1/RESULT.zh-CN.md)。
+- **B2 单独D radix：改善TTFT，尚无吞吐收益。** 输出吞吐−1.04%、平均TTFT−6.45%，D本地复用23.62%输入tokens。10,295完成、11边界取消、0正式错误；另有warmup/取消credit收尾情况，见[b2/RESULT.zh-CN.md](b2/RESULT.zh-CN.md)。
+- **B3 D radix＋D亲和：客户端完成，导出/诊断被抢占打断。** 容器内客户端完成3600秒发压：10,308完成、9取消、0错误。恢复的输出TPS约2812.05，相较B2+3.06%；平均TTFT+2.47%、p95−4.52%。D原生匹配子集复用约91.8%。缺最终标准导出、末尾完整诊断和引擎身份快照，不能当作完成全部验证的标准归档。见[b3-interrupted/RESULT.zh-CN.md](b3-interrupted/RESULT.zh-CN.md)。
+- D radix真实接受率检查：24个已知答案正确、本地prefix命中/清D后未命中路径通过；思考文本逐字一致检查未通过且原记录保留。见[b2-gate/RESULT.zh-CN.md](b2-gate/RESULT.zh-CN.md)。
+- Router已完成292项单元、26项HTTP、4项ZMQ和14项render验证；多worker统计、探针覆盖、GPU吞吐分母、进程收尾均已复核。见[CODE-REVIEW.zh-CN.md](CODE-REVIEW.zh-CN.md)。
 
-- 原allocation **31999**：n10-29、n03-33，截止2026-09-29 02:52:35 UTC。申请延长至36小时被Slurm拒绝，租期未改变。
-- 第三节点 **32046**：单节点/8卡/6小时，当前Pending、不占GPU。已移除未来启动门限，并排除长期处于IDLE+COMPLETING的n01-25；实际作业预测19:25:51 UTC在n04-33启动，只是预测。HIP故障n04-29及原两台仍排除。
-- 第三台到位后先准备镜像/缓存；若当前仍有较长正式窗口，可用隔离etcd做启动检查，不接入当前Router。当前正式点完成后优先使用第三台完成三节点点，必要时把P8D4移后。
-- allocation监视仅在确认租期丢失、节点归属改变或到期前最后缓冲区处理所属job的campaign容器；查询失败不杀服务。原allocation按用户约定保留，新增节点完成后释放。
+## 资源安排
 
-## 待完成
+第三节点32046目前 **JobHeldUser、未分配GPU**，避免两台恢复期间单独空等。R0开始后根据实际进度重设进入时间；第三台到位后当前正式窗口结束再优先跑2P8+D8、4P4+D8，必要时把P8D4移后。n04-29（HIP stream问题）和n01-25（长期COMPLETING）仍排除。
 
-B3完整结果与均衡分析 → 选择D组合 → B4 Triton P8D8/C80 → P8D4/C80、2P8+D8/C80、4P4+D8/C80。后两组同三台、24卡，比较不同P并行粒度。若第三台提前到位，调整后面拓扑点的顺序避免闲置。R4、D HiCache不默认启用；R2不盲目叠加。
+原分配的清理在抢占后被PAM拒绝，未绕过访问限制。重新取得n10-29后仅清理之前明确记录的本campaign容器；无关sgl.k3、k3.play、dev_primus_wenx、msa_r7_verify不动。
 
-## 数据与恢复
+## 后续与恢复入口
 
-- 实时机器可读状态：[CURRENT.json](CURRENT.json)。
-- 运行目录：`/perf_apps/liyingli/bench_agentx/router-capacity-20260928`。
-- 原始请求、trace、采样在各`runs/campaign-*`目录；代码、配置、紧凑结果持续提交本分支。
-- B3由已启动的`await-b3-performance.sh`衔接执行，勿重复启动。allocation watcher与第三节点等待/准备进程也已运行。
-- 冻结Router binary SHA256：`71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f`。
+R0新节点基线 → B4 Triton P8D8/C80 → 2P8+D8、4P4+D8（同三台24卡）与P8D4/C80 → 汇总保存、释放新增资源。R2/R4/D HiCache不盲目加入。
+
+机器可读状态：[CURRENT.json](CURRENT.json)。运行目录：`/perf_apps/liyingli/bench_agentx/router-capacity-20260928`。原始请求/trace/采样保持在各runs目录，所有中断记录保留。新准备进程prepare_recovery.py和allocation watcher已运行，勿重复启动。
