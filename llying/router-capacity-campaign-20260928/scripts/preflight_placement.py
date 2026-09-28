@@ -11,6 +11,11 @@ expected_urls={w['url'] for w in rows}
 data=ops.get('http://'+E['PREFILL_IP']+':28000/v1/workers')
 workers=data if isinstance(data,list) else data.get('workers',data.get('data',[]))
 assert {worker_url(w) for w in workers}==expected_urls
+discovered={worker_url(w):w for w in workers}
+for w in rows:
+    description=discovered[w['url']]
+    assert description['dp_size']==w['dp'] and description['disagg_mode']==w['role']
+    if w['role']=='prefill':assert description['kv_block_size']==64
 
 
 def flush(url):
