@@ -1,30 +1,36 @@
 {
-  "updated_utc": "2026-09-28T18:58:35.723649+00:00",
-  "stage": "WAITING_FOR_32054",
+  "updated_utc": "2026-09-28T19:31:26.345696+00:00",
+  "stage": "RB_REAL_STARTUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline-real",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/rb-real.sh",
   "already_running": [
-    "prepare_recovery.py --job 32054 waiting for allocation",
-    "run-rb-recovery.sh waiting for prepared nodes",
-    "allocation watcher, no owned active allocation currently"
+    "run-rb-recovery.sh: real-acceptance engines starting, then probe and C80",
+    "allocation watcher for 32054"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
   "smoke_passed": true,
   "allocation": 32054,
-  "allocation_end_utc": null,
+  "allocation_end_utc": "2026-09-29T07:26:13Z",
   "allocation_extension_attempt": "Slurm denied; unchanged",
   "nodes": {
     "prefill": "smci355-ccs-aus-n04-33",
     "decode": "smci355-ccs-aus-n05-21"
   },
-  "containers": {},
+  "containers": {
+    "prefill": "llying-campaign-rb-real-prefill-0",
+    "decode": "llying-campaign-rb-real-decode-0",
+    "etcd": "llying-campaign-rb-real-etcd",
+    "router": "llying-campaign-rb-real-router",
+    "collector": "llying-campaign-rb-real-collector"
+  },
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
     "k3.play",
     "dev_primus_wenx",
-    "msa_r7_verify"
+    "msa_r7_verify",
+    "xiaoming-dev"
   ],
   "remaining": [
     "RB selected-stack baseline on nodes outside the current named preemption pool",
@@ -50,7 +56,7 @@
     "next": "Schedule a fresh third-node request against R0/B4 progress"
   },
   "selected_d": "radix on + both affinity; R2 off",
-  "allocation_state": "PENDING",
+  "allocation_state": "RUNNING",
   "planned_allocation_start_utc": "2026-09-28T19:25:51Z",
   "interruptions": [
     {

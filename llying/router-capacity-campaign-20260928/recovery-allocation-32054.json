@@ -1,0 +1,91 @@
+{
+  "job": 32054,
+  "state": "PREPARED",
+  "nodes": [
+    "smci355-ccs-aus-n04-33",
+    "smci355-ccs-aus-n05-21"
+  ],
+  "prefill_node": "smci355-ccs-aus-n04-33",
+  "decode_node": "smci355-ccs-aus-n05-21",
+  "prefill_ip": "10.235.192.139",
+  "decode_ip": "10.235.192.138",
+  "updated_utc": "2026-09-28T19:26:26.427002+00:00",
+  "prepared_nodes": [
+    {
+      "node": "smci355-ccs-aus-n04-33",
+      "image_id": "sha256:9ffceaa192b715c1307f00b1aad09d458417ada1d856d8ad9d883823a46fd9cd",
+      "gpu_memory": {
+        "card0": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card1": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card2": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card3": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card4": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card5": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card6": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card7": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        }
+      }
+    },
+    {
+      "node": "smci355-ccs-aus-n05-21",
+      "image_id": "sha256:f83ea7ab15449698cb89d0268e95ff6fa08f8fa28197faeb426b3b1d57813041",
+      "gpu_memory": {
+        "card0": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card1": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card2": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card3": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297754624"
+        },
+        "card4": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297766912"
+        },
+        "card5": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297766912"
+        },
+        "card6": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297766912"
+        },
+        "card7": {
+          "VRAM Total Memory (B)": "309220868096",
+          "VRAM Total Used Memory (B)": "297766912"
+        }
+      }
+    }
+  ]
+}
