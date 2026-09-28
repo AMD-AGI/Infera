@@ -1,5 +1,5 @@
 """Save compact, reviewable results; bulk request/trace data remain in the shared run directory."""
-import argparse,datetime,json,shutil
+import argparse,datetime,json,math,shutil
 from pathlib import Path
 
 p=argparse.ArgumentParser();p.add_argument('run',type=Path);p.add_argument('output',type=Path);a=p.parse_args();run=a.run;out=a.output;out.mkdir(parents=True,exist_ok=True)
@@ -15,11 +15,15 @@ for instance in instances:
     after=json.loads(final.read_text())
     identities[instance]={'pids_before':before.get('scheduler_pids'),'pids_after':after.get('scheduler_pids'),'startup_unchanged':before.get('startup_time')==after.get('startup_time'),'capacity':after.get('max_total_num_tokens'),'tp':after['tp_size'],'dp':after['dp_size']}
 checks={'client_completed':(run/'c80-completed.txt').exists(),'all_exported_profile_requests_paired':phase['coverage']['paired']==phase['coverage']['client_records'],'pair_rooms_match':phase['coverage'].get('room_mismatch',0)==0,'engines_unchanged':all(v['pids_before'] and v['pids_before']==v['pids_after'] and v['startup_unchanged'] for v in identities.values()),'no_exported_profile_errors':phase['coverage'].get('error_records',0)==0}
+gpu_counts={role:sum(v['tp'] for instance,v in identities.items() if instance.startswith(role+'-')) for role in ['prefill','decode']}
+checks['gpu_inventory_matches']=all(result['num_'+role+'_gpu']==count for role,count in gpu_counts.items())
+tput=result['request_metrics']['throughput']
+checks['output_per_gpu_denominator_matches']=math.isclose(tput['per_gpu']['output_tput_tps'],tput['output']['tokens_per_second']/sum(gpu_counts.values()),rel_tol=1e-6)
 accounting=summary['points']['80'].get('runner_accounting',{})
 if 'profiling' in accounting:checks['no_runner_profile_errors']=accounting['profiling'].get('errors')==0
 review={'run':str(run),'saved_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'checks':checks,'checks_passed':all(checks.values()),'coverage':phase['coverage'],'runner_accounting':accounting,'engine_identities':identities,'metrics':result['request_metrics'],'note':'Checks do not prove a performance benefit; boundary cancellations and selected completed cohorts remain explicit.'}
 (out/'REVIEW.json').write_text(json.dumps(review,indent=2)+'\n')
-files={'c80/agentx_conc80.json':'agentx_conc80.json','c80/runtime.env':'runtime.env','c80/baseline-validation.json':'baseline-validation.json','preflight.json':'preflight.json','analysis/session-affinity.json':'session-affinity.json','analysis/guard-lifecycle-summary.json':'guard-lifecycle-summary.json','analysis/runtime-summary.json':'runtime-summary.json','analysis/decode-local-prefix.json':'decode-local-prefix.json','analysis/comparison-baseline/comparison.json':'comparison-baseline.json','analysis/comparison-baseline/COMPARISON.zh-CN.md':'COMPARISON.zh-CN.md','analysis/matched-baseline/matched-requests.json':'matched-requests.json','analysis/matched-baseline/MATCHED-REQUESTS.zh-CN.md':'MATCHED-REQUESTS.zh-CN.md','snapshot/config.sh':'config.sh'}
+files={'placement-resolved.json':'placement-resolved.json','analysis/balance.json':'balance.json','c80/agentx_conc80.json':'agentx_conc80.json','c80/runtime.env':'runtime.env','c80/baseline-validation.json':'baseline-validation.json','preflight.json':'preflight.json','analysis/session-affinity.json':'session-affinity.json','analysis/guard-lifecycle-summary.json':'guard-lifecycle-summary.json','analysis/runtime-summary.json':'runtime-summary.json','analysis/decode-local-prefix.json':'decode-local-prefix.json','analysis/comparison-baseline/comparison.json':'comparison-baseline.json','analysis/comparison-baseline/COMPARISON.zh-CN.md':'COMPARISON.zh-CN.md','analysis/matched-baseline/matched-requests.json':'matched-requests.json','analysis/matched-baseline/MATCHED-REQUESTS.zh-CN.md':'MATCHED-REQUESTS.zh-CN.md','snapshot/config.sh':'config.sh'}
 for source,target in files.items():
     if (run/source).exists():shutil.copyfile(run/source,out/target)
 (out/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
