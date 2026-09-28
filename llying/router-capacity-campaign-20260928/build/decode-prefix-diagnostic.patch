@@ -1,0 +1,12 @@
+--- a/python/sglang/srt/disaggregation/decode.py
++++ b/python/sglang/srt/disaggregation/decode.py
+@@ -1846,6 +1846,9 @@
+         if total_prefix_len is None:
+             total_prefix_len = prefix_len
+ 
++        from sglang.srt.observability.aus_diag import emit
++        emit(req, "decode_prefix", input_tokens=len(req.origin_input_ids),
++             device_prefix_tokens=prefix_len, prefix_tokens=total_prefix_len)
+         req_pool_indices = self.req_to_token_pool.alloc([req])
+ 
+         assert req_pool_indices is not None, (

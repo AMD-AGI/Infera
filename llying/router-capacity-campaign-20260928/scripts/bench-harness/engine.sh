@@ -105,6 +105,9 @@ docker_args=(
     -v "$TRACE_RUNTIME/docker/aus_diag.py:/sgl-workspace/sglang/python/sglang/srt/observability/aus_diag.py:ro"
     -e AITER_JIT_DIR=/aiter-jit
 )
+if [[ "$role" == decode && -n "${DECODE_DIAG_SOURCE:-}" ]]; then
+    docker_args+=(-v "$DECODE_DIAG_SOURCE:/sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py:ro")
+fi
 if [[ -n "${HOST_RDMA_LIB:-}" ]]; then
     [[ -r "$HOST_RDMA_LIB" ]] ||
         { echo "RDMA provider is not readable: $HOST_RDMA_LIB" >&2; exit 1; }

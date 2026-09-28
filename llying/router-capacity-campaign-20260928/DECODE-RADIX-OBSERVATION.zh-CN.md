@@ -1,0 +1,9 @@
+# D radix 观测与正确性检查准备
+
+检查实际AUS镜像发现，decode.py完成P→D交接时，把P端metadata中的cached_tokens_device/host/storage写到D的Req。因此D请求摘要现有这些字段不能直接解释为D自身前缀命中；API cached_tokens还会合并P/D可复用前缀，不能替代本地命中观测。
+
+新增诊断在DecodePreallocQueue._pre_alloc入口记录：input_tokens、device_prefix_tokens、prefix_tokens。值是该函数已有Python整数，不读取tensor、不调用GPU同步、不改变分配或传输逻辑。通过已有aus_diag.emit写本地逐请求文件；B2及后续D进程使用只读文件覆盖，当前B1进程不变。原decode.py SHA256已与运行中的B1 D核对一致：95ae14803c21d2298f3ef0a0d2416c362f270c0f3a3bdbd5c153d19ba90a47f3。诊断文件SHA256：3c4c703368d35fed99e535023a8b2668836bfe5df0ef6d746ae2134854f08e9d。
+
+B2正式测试保留D KV事件关闭，用显式disaggregation-decode-enable-radix-cache打开引擎复用，避免同时改变D Router的缓存评分。D会话亲和仍关闭。正确性smoke会临时用both亲和和显式session header保证相邻探测命中同D；使用真实接受率，比较hit与仅清空D后的miss输出，并用新增事件确认确实发生D命中。正式测量前重启D恢复模拟接受长度3.61、恢复P-only亲和并重新预热。
+
+诊断仅提供协议已选择跳过的前缀tokens；不把它直接冒充实测RDMA bytes。发生重试/重traction时保留多次事件并单列，不能只用最终请求摘要计算所有传输量。
