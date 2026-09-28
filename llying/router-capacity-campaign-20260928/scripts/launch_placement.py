@@ -32,13 +32,7 @@ def launch_host(workers):
         print('READY',w['instance'],flush=True)
 
 
-if __name__=='__main__':
-    for d in ['launch/server-info','launch/server-logs','snapshot']:(RUN/d).mkdir(parents=True,exist_ok=True)
-    by_host={}
-    for w in rows:
-        if w['instance'] in selected:by_host.setdefault(w['node'],[]).append(w)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1,len(by_host))) as pool:
-        for f in concurrent.futures.as_completed([pool.submit(launch_host,ws) for ws in by_host.values()]):f.result()
+def record_placement():
     resolved=[]
     for w in rows:
         check_allocation(w)
@@ -51,3 +45,13 @@ if __name__=='__main__':
         diag=next(m['Source'] for m in c['Mounts'] if m['Destination']=='/aus-diag')
         resolved.append(dict(w,container_id=c['Id'],diag_dir=diag,scheduler_pids=info.get('scheduler_pids')))
     (RUN/'placement-resolved.json').write_text(json.dumps(resolved,indent=2)+'\n')
+
+
+if __name__=='__main__':
+    for d in ['launch/server-info','launch/server-logs','snapshot']:(RUN/d).mkdir(parents=True,exist_ok=True)
+    by_host={}
+    for w in rows:
+        if w['instance'] in selected:by_host.setdefault(w['node'],[]).append(w)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1,len(by_host))) as pool:
+        for f in concurrent.futures.as_completed([pool.submit(launch_host,ws) for ws in by_host.values()]):f.result()
+    record_placement()
