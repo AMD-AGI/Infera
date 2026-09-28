@@ -8,3 +8,4 @@ export DECODE_CONTAINER=llying-campaign-b2-decode-0
 export RESTART_PREFILL=0 RESTART_DECODE=0
 export INFERA_SESSION_AFFINITY=both
 export DIAG_SOURCE_DECODE=campaign-b2-radix
+export PREVIOUS_RUN=$TRACE_RUNTIME/runs/campaign-b2-radix
