@@ -357,6 +357,17 @@ RUN set -eu; \
     for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-responses-patches
 
+# ---- sglang Responses API patches (GLM only) --------------------------------
+# patch_responses_keep_interleaved_system.py coalesces only the leading run of
+# system messages on /v1/responses and keeps later ones in place. A client that
+# appends a system message per turn (Claude Code) then sends an append-only
+# prompt, so the prefix cache reuses the whole previous turn. GLM-only because
+# some chat templates reject a system message that is not first.
+COPY deploy/docker/patches/sglang_responses_glm/ /tmp/sglang-responses-glm-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-responses-glm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-responses-glm-patches
+
 # ---- sglang ROCm hicache host allocator -------------------------------------
 # Only patch_hicache_rocm_host_alloc.py runs here; its anchors are intact.
 #
