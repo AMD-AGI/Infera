@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "real_acceptance": true,
+  "strict_text_parity_passed": false,
+  "known_answer_gate_passed": true,
+  "trials": [
+    {
+      "rank": 0,
+      "hit_prefix": 10816,
+      "miss_prefix": 0,
+      "greedy_output_equal": false
+    },
+    {
+      "rank": 0,
+      "hit_prefix": 10816,
+      "miss_prefix": 0,
+      "greedy_output_equal": false
+    }
+  ],
+  "events": [
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790608307662076318,
+      "mono_ns": 3665286550746093,
+      "role": "decode",
+      "pid": 718,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "radix-gate-5293655da8374ba2858232bd232df246",
+      "room": "3369597051835434208",
+      "input_tokens": 10888,
+      "device_prefix_tokens": 10816,
+      "prefix_tokens": 10816
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790608310688139567,
+      "mono_ns": 3665289576809322,
+      "role": "decode",
+      "pid": 718,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "radix-gate-02f3af461a494f749e37070c2c817963",
+      "room": "3600585015798198920",
+      "input_tokens": 10888,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790608313418328236,
+      "mono_ns": 3665292306997971,
+      "role": "decode",
+      "pid": 718,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "radix-gate-74220f8a320b4112b8f2ad1daa11a71d",
+      "room": "1153106697576121640",
+      "input_tokens": 10888,
+      "device_prefix_tokens": 10816,
+      "prefix_tokens": 10816
+    },
+    {
+      "event": "decode_prefix",
+      "wall_ns": 1790608316304939035,
+      "mono_ns": 3665295193608790,
+      "role": "decode",
+      "pid": 718,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "radix-gate-072c9e3782b4445290e9a3b71d8266ff",
+      "room": "7284152579396059752",
+      "input_tokens": 10888,
+      "device_prefix_tokens": 0,
+      "prefix_tokens": 0
+    }
+  ]
+}

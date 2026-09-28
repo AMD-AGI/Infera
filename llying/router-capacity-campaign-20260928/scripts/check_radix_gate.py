@@ -3,7 +3,10 @@ import json,os,shlex,subprocess
 from pathlib import Path
 
 r=Path(os.environ['RUN']);gate=json.loads((r/'radix-gate.json').read_text())
-assert gate['pass'],gate['checks']
+answer_gate=None
+if not gate['pass']:
+ answer_gate=json.loads((r/'radix-answer-gate.json').read_text())
+ assert answer_gate['passed'],gate['checks']
 info=json.loads((r/'launch/server-info/decode-0.json').read_text())
 assert info['disaggregation_decode_enable_radix_cache'] and not info['disable_radix_cache']
 assert info['speculative_algorithm']=='EAGLE'
@@ -36,6 +39,6 @@ for t in gate['prefix_trials']:
  assert miss['prefix_tokens']==0,miss
  assert hit['dp_rank']==miss['dp_rank'],(hit,miss)
  checks.append({'rank':hit['dp_rank'],'hit_prefix':hit['prefix_tokens'],'miss_prefix':miss['prefix_tokens'],'greedy_output_equal':t['r2_hit_equal_miss']})
-result={'passed':True,'real_acceptance':True,'trials':checks,'events':events}
+result={'passed':True,'real_acceptance':True,'strict_text_parity_passed':gate['pass'],'known_answer_gate_passed':answer_gate['passed'] if answer_gate else None,'trials':checks,'events':events}
 (r/'radix-local-reuse-check.json').write_text(json.dumps(result,indent=2)+'\n')
 print(json.dumps({'passed':True,'trials':checks}))

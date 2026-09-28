@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T15:06:49.611483+00:00",
-  "stage": "B2_REAL_RADIX_GATE_STARTING",
+  "updated_utc": "2026-09-28T15:14:37.736496+00:00",
+  "stage": "B2_RADIX_PERFORMANCE_STARTING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix-real",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b2-real.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b2.sh",
   "already_running": [
-    "run-radix-gate.sh will transition D only; B1 full result archived"
+    "await-b2-performance.sh: starts transition and C80 after passed known-answer/native-prefix gate"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
@@ -19,10 +19,10 @@
   },
   "containers": {
     "prefill": "llying-campaign-b1-prefill-0",
-    "decode": "llying-campaign-b1-smoke-decode-0",
+    "decode": "llying-campaign-b2-decode-0",
     "etcd": "llying-campaign-b1-smoke-etcd",
-    "router": "llying-campaign-b1-router",
-    "collector": "llying-campaign-b1-collector"
+    "router": "llying-campaign-b2-router",
+    "collector": "llying-campaign-b2-collector"
   },
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
