@@ -12,3 +12,5 @@
 离线验证已通过285项单元、26项HTTP功能、4项额外集成、14项render probe测试；4项原有外部服务测试未运行。证据见 offline-tests.txt。实机smoke待完成后补充。
 
 实机工作目录：`/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928`。节点allocation31999；P=n10-29，D=n03-33；两端HiCache关闭、有效chunk=4K；使用相同已验证引擎镜像。不会释放用户allocation。
+
+实机首次检查发现：合成 worker 限定 rank 的方法使策略内部 route_key 丢失 DP 后缀，虽然最终派单 rank 正确，却影响缓存查询和需求预约。已改为让 Policy 直接接受 RouteTarget 候选，补充8-rank账本回归测试；最初两组实机数据只作派单证据，不作为修复后完整验收。修复后的结果待补充。

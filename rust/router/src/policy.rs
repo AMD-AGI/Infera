@@ -50,15 +50,15 @@ pub trait Policy: Send + Sync {
         false
     }
     /// Pick one target. Callers guarantee `candidates` is non-empty.
-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick;
+    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
+        self.pick_targets(&expand_targets(candidates), request, role)
+    }
 
-    /// Restrict the existing policy to one worker/rank, preserving its accounting.
+    fn pick_targets(&self, targets: &[RouteTarget], request: &Value, role: Role) -> Pick;
+
+    /// Constrain selection without changing worker identity or rank bookkeeping.
     fn pick_target(&self, target: &RouteTarget, request: &Value, role: Role) -> Pick {
-        let mut worker = (*target.worker).clone();
-        worker.dp_rank = target.dp_rank;
-        let mut pick = self.pick(&[Arc::new(worker)], request, role);
-        pick.target = target.clone();
-        pick
+        self.pick_targets(std::slice::from_ref(target), request, role)
     }
 
     /// Mark a request in-flight on `route_key` (increments the load term).
@@ -223,8 +223,7 @@ impl Default for RoundRobin {
 }
 
 impl Policy for RoundRobin {
-    fn pick(&self, candidates: &[Arc<Worker>], _request: &Value, role: Role) -> Pick {
-        let targets = expand_targets(candidates);
+    fn pick_targets(&self, targets: &[RouteTarget], _request: &Value, role: Role) -> Pick {
         let key: Vec<String> = targets.iter().map(|t| t.route_key()).collect();
         let mut counters = self.counters.lock().expect("policy counter mutex poisoned");
         let idx = counters.entry(key).or_insert(0);
@@ -594,10 +593,7 @@ impl Policy for KvEventAwarePolicy {
     fn prefill_guard_at_completion(&self) -> bool {
         self.experiments.prefill_guard_completion
     }
-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
-        // Fan out rank-multiplexed workers so each DP rank is scored separately.
-        let targets = expand_targets(candidates);
-
+    fn pick_targets(&self, targets: &[RouteTarget], request: &Value, role: Role) -> Pick {
         // Normalize before applying each worker's template defaults.
         let base = crate::responses_input::normalised(request);
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
@@ -608,7 +604,7 @@ impl Policy for KvEventAwarePolicy {
         };
         let mut tokens_for: HashMap<u64, Option<Vec<u32>>> = HashMap::new();
         if mode != Mode::Off {
-            for t in &targets {
+            for t in targets {
                 let variant = self.variants.for_worker(&t.worker.worker_id);
                 tokens_for.entry(variant.id()).or_insert_with(|| {
                     let body = variant.apply(&base);
@@ -617,7 +613,7 @@ impl Policy for KvEventAwarePolicy {
             }
         }
         let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
-        for t in &targets {
+        for t in targets {
             let key = match t.worker.kv_block_size {
                 Some(bs) if bs > 0 => {
                     let variant = self.variants.for_worker(&t.worker.worker_id);
@@ -1513,7 +1509,9 @@ mod tests {
             decode: Mode::On,
             ..Default::default()
         }));
-        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        let mut multiplexed = (*worker("a", 16, None)).clone();
+        multiplexed.dp_size = Some(8);
+        let workers = vec![Arc::new(multiplexed)];
         let req = json!({"prompt": vec![7;32]});
         let (first, lease) = sessions.pick(
             policy.as_ref(),
@@ -1524,6 +1522,7 @@ mod tests {
             Some("s"),
         );
         let key = first.target.route_key();
+        assert!(key.contains("#dp"));
         let first_guard = ActiveGuard::start(policy.clone(), vec![(key.clone(), first.blocks)])
             .with_reservations(first.reservation, None)
             .with_sessions(lease, None);
@@ -1539,6 +1538,7 @@ mod tests {
         let second_guard = ActiveGuard::start(policy.clone(), vec![(key.clone(), second.blocks)])
             .with_reservations(second.reservation, None)
             .with_sessions(lease, None);
+        assert_eq!(policy.demand.lock().unwrap().len(), 1);
         assert_eq!(policy.demand.lock().unwrap()[&key].tokens, 64.0);
         assert_eq!(policy.active_len(&key), 2);
         drop(first_guard);
