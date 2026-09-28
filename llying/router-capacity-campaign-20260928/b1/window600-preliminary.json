@@ -1,0 +1,21 @@
+{
+  "window_seconds": 600,
+  "preliminary": true,
+  "selection": "Requests started after phase start and completed within first 600s; excludes in-flight at boundary.",
+  "P_affinity": {
+    "requests": 1506,
+    "output_tps_gpu": 121.86177083333334,
+    "ttft_mean_ms": 5672.699471302788,
+    "mean_output_tokens": 776.8081009296149,
+    "paired_p": 1506,
+    "miss_fraction": 0.051683207309254735
+  },
+  "B1": {
+    "requests": 1471,
+    "output_tps_gpu": 117.0125,
+    "ttft_mean_ms": 6734.930812441196,
+    "mean_output_tokens": 763.6437797416723,
+    "paired_p": 1471,
+    "miss_fraction": 0.05651769204195002
+  }
+}

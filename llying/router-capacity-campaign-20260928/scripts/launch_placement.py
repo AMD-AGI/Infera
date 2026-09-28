@@ -1,5 +1,5 @@
 """Launch selected explicit workers, serially per host and concurrently across hosts."""
-import concurrent.futures,getpass,json,os,subprocess,sys,time
+import concurrent.futures,getpass,json,os,subprocess,sys
 from pathlib import Path
 import transition_two_node as ops
 sys.path.insert(0,str(Path(__file__).parent/'bench-harness/tools'))

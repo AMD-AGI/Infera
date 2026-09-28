@@ -20,7 +20,6 @@ Exit: 0 pass, 1 a check failed, 2 the deployment could not be probed.
 from __future__ import annotations
 
 import argparse
-import os
 import uuid
 from pathlib import Path
 import json
