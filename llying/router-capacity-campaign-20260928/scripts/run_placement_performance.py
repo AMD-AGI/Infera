@@ -24,7 +24,10 @@ def stop_observers():
             except ProcessLookupError:pass
     for p in observers:
         try:p.wait(timeout=10)
-        except subprocess.TimeoutExpired:os.killpg(p.pid,signal.SIGKILL);p.wait()
+        except subprocess.TimeoutExpired:
+            try:os.killpg(p.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+            p.wait()
     for stream in logs:stream.close()
     observers.clear();logs.clear()
 
