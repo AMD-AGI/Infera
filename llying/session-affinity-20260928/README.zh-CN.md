@@ -9,8 +9,8 @@
 - 目标在可用候选中消失或登记信息改变会重选；请求失败使对应绑定失效。旧失败回调带代数检查，不能删除新绑定。不增加主动拥塞迁移，也不重放已经输出的请求。
 - `/metrics` 提供按角色的 `infera_router_session_active`、`infera_router_session_hits_total`、`infera_router_session_selected_total`，日志记录命中/新建/过期/目标失效。不会输出 session ID。
 
-离线验证已通过285项单元、26项HTTP功能、4项额外集成、14项render probe测试；4项原有外部服务测试未运行。证据见 offline-tests.txt。实机smoke待完成后补充。
+离线验证已通过285项单元、26项HTTP功能、4项额外集成、14项render probe测试；4项原有外部服务测试未运行。证据见 offline-tests.txt。实机 smoke 已完成，见 [验收结果](RESULTS.zh-CN.md)。
 
 实机工作目录：`/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928`。节点allocation31999；P=n10-29，D=n03-33；两端HiCache关闭、有效chunk=4K；使用相同已验证引擎镜像。不会释放用户allocation。
 
-实机首次检查发现：合成 worker 限定 rank 的方法使策略内部 route_key 丢失 DP 后缀，虽然最终派单 rank 正确，却影响缓存查询和需求预约。已改为让 Policy 直接接受 RouteTarget 候选，补充8-rank账本回归测试；最初两组实机数据只作派单证据，不作为修复后完整验收。修复后的结果待补充。
+实机首次检查发现：合成 worker 限定 rank 的方法使策略内部 route_key 丢失 DP 后缀，虽然最终派单 rank 正确，却影响缓存查询和需求预约。已改为让 Policy 直接接受 RouteTarget 候选，补充8-rank账本回归测试；最初两组实机数据只作派单证据，不作为修复后完整验收。修复版四组实机验证已通过，见验收结果。

@@ -1,0 +1,133 @@
+{
+  "passed": true,
+  "binary_sha256": "7e221373acd5d2605fcda8d94e6bc4f69b4e774f355520a3b89035d6d8f19d6b",
+  "cache_hit_observations": 2,
+  "flush_response": "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation will not be performed.)\n",
+  "mode": "off",
+  "ttl": 3600,
+  "requests": 18,
+  "cancelled_intentionally": 1,
+  "paired_completed": 17,
+  "assignments": [
+    {
+      "rid": "affinity-off-3600-85730ada-0",
+      "session": "repeat",
+      "p": 0,
+      "d": 0
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-1",
+      "session": "repeat",
+      "p": 0,
+      "d": 1
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-2",
+      "session": "repeat",
+      "p": 0,
+      "d": 2
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-3",
+      "session": "concurrent",
+      "p": 1,
+      "d": 3
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-4",
+      "session": "concurrent",
+      "p": 3,
+      "d": 5
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-5",
+      "session": "concurrent",
+      "p": 2,
+      "d": 4
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-6",
+      "session": "concurrent",
+      "p": 4,
+      "d": 6
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-7",
+      "session": "independent-7",
+      "p": 5,
+      "d": 7
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-8",
+      "session": "independent-8",
+      "p": 0,
+      "d": 2
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-9",
+      "session": "independent-9",
+      "p": 6,
+      "d": 0
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-10",
+      "session": "independent-10",
+      "p": 7,
+      "d": 1
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-11",
+      "session": "independent-11",
+      "p": 1,
+      "d": 3
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-12",
+      "session": "independent-12",
+      "p": 2,
+      "d": 4
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-13",
+      "session": "independent-13",
+      "p": 4,
+      "d": 6
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-14",
+      "session": "independent-14",
+      "p": 3,
+      "d": 5
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-15",
+      "session": null,
+      "p": 5,
+      "d": 7
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-16",
+      "session": "cancel",
+      "p": 6,
+      "d": 0
+    },
+    {
+      "rid": "affinity-off-3600-85730ada-17",
+      "session": "cancel",
+      "p": 7,
+      "d": 1
+    }
+  ],
+  "metrics": {
+    "infera_router_session_active{role=\"prefill\"}": 0,
+    "infera_router_session_hits_total{role=\"prefill\"}": 0,
+    "infera_router_session_selected_total{role=\"prefill\"}": 0,
+    "infera_router_session_active{role=\"decode\"}": 0,
+    "infera_router_session_hits_total{role=\"decode\"}": 0,
+    "infera_router_session_selected_total{role=\"decode\"}": 0,
+    "infera_router_session_active{role=\"mixed\"}": 0,
+    "infera_router_session_hits_total{role=\"mixed\"}": 0,
+    "infera_router_session_selected_total{role=\"mixed\"}": 0
+  },
+  "raw_file": "off-3600-85730ada-raw.json"
+}

@@ -1,0 +1,105 @@
+{
+  "router": {
+    "guard_release": "completion",
+    "r2": "off",
+    "r3": "off",
+    "r4": "off",
+    "candidate_logs": "off",
+    "binary_sha256": "7e221373acd5d2605fcda8d94e6bc4f69b4e774f355520a3b89035d6d8f19d6b",
+    "prefill_overlap_weight": 20,
+    "decode_overlap_weight": 2.0,
+    "session_affinity": "prefill",
+    "policy": "kv-aware",
+    "session_idle_ttl_seconds": 3600
+  },
+  "image": "infera-sglang:aus-0922-reqtrace",
+  "image_id": "sha256:4f125ff9096f75611fa24caad4c01c3707dd0892251680a6483b99ffaa2a88bb",
+  "model": "/perf_apps/data/models/GLM-5.2-MXFP4",
+  "concurrency": 80,
+  "profiling_seconds": 3600,
+  "warmup_count": 884,
+  "dataset_revision": "23f152f6f0f9399a85901b89a6458def0ef16729",
+  "inferencex_revision": "918524ff94045b3f091115f1051c22a8588edf2b",
+  "nodes": {
+    "job": 31999,
+    "prefill": {
+      "node": "smci355-ccs-aus-n10-29"
+    },
+    "decode": {
+      "node": "smci355-ccs-aus-n03-33"
+    },
+    "placement_status": "Both nodes checked and used successfully for no-HiCache smoke"
+  },
+  "prefill": {
+    "chunked_prefill_size": 4096,
+    "tp_size": 8,
+    "dp_size": 8,
+    "ep_size": 1,
+    "mem_fraction_static": 0.85,
+    "max_total_num_tokens": 3143424,
+    "enable_hierarchical_cache": true,
+    "hicache_ratio": 1.5,
+    "hicache_write_policy": "write_through",
+    "hicache_io_backend": "kernel",
+    "hicache_mem_layout": "page_first",
+    "kv_cache_dtype": "fp8_e4m3",
+    "max_running_requests": 256,
+    "random_seed": 823508857,
+    "reasoning_parser": "glm45",
+    "tool_call_parser": "glm47",
+    "speculative_algorithm": null,
+    "speculative_num_steps": null,
+    "speculative_eagle_topk": null,
+    "speculative_num_draft_tokens": null
+  },
+  "decode": {
+    "chunked_prefill_size": 4096,
+    "tp_size": 8,
+    "dp_size": 8,
+    "ep_size": 1,
+    "mem_fraction_static": 0.85,
+    "max_total_num_tokens": 3003264,
+    "enable_hierarchical_cache": false,
+    "hicache_ratio": null,
+    "hicache_write_policy": "write_through",
+    "hicache_io_backend": "kernel",
+    "hicache_mem_layout": "page_first",
+    "kv_cache_dtype": "fp8_e4m3",
+    "max_running_requests": 256,
+    "random_seed": 19197414,
+    "reasoning_parser": "glm45",
+    "tool_call_parser": "glm47",
+    "speculative_algorithm": "EAGLE",
+    "speculative_num_steps": 5,
+    "speculative_eagle_topk": 1,
+    "speculative_num_draft_tokens": 6
+  },
+  "status": "PROPOSED_AWAITING_CONFIG_CONFIRMATION",
+  "experiment": "R1 + Prefill session affinity C80 4K",
+  "baseline": {
+    "name": "G0 R1-only overlap20",
+    "run": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion",
+    "rerun": false
+  },
+  "engine_extras": {
+    "dp_attention": true,
+    "launcher_chunk_size_each": 32768,
+    "effective_chunk_size_each": 4096,
+    "decode_simulate_acc_len": 3.61,
+    "graph_max_bs_each": 256,
+    "pd_dp_rank_affinity": false,
+    "transfer": "mooncake",
+    "transport": "http",
+    "kv_events": "zmq"
+  },
+  "smoke": {
+    "status": "all four fixed-binary cases passed",
+    "hicache": false
+  },
+  "only_policy_change_vs_G0": "Enable P session affinity, idle TTL 3600; send stable session ID header. First selection stays legacy; R1 kept, R2/R3/R4 off, weights20/2.",
+  "capacity_note": "max_total_num_tokens are historical reference values, not forced launch overrides; check actual capacity and investigate material drift",
+  "runtime_note": "Formal run not started; waits for config confirmation and completed smoke. P must restart with HiCache enabled; preserve D if healthy.",
+  "client_env": {
+    "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+  }
+}

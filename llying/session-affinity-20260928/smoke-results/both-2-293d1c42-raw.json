@@ -1,0 +1,1999 @@
+{
+  "requests": [
+    {
+      "rid": "affinity-both-2-293d1c42-0",
+      "session": "repeat",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570247093031432,
+      "end_ns": 1790570247595669614,
+      "response": {
+        "id": "affinity-both-2-293d1c42-0",
+        "object": "chat.completion",
+        "created": 1790570247,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au1.  **Analyze the Request:**\n    *   The user is repeating a very long string of the same sentence: \"The temperature is 20. 20.1.  **Analyze the Request:**\n    *   The user is repeating a very long string of the same sentence",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 302,
+          "total_tokens": 366,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 66
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-1",
+      "session": "repeat",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570247595756416,
+      "end_ns": 1790570248095834543,
+      "response": {
+        "id": "affinity-both-2-293d1c42-1",
+        "object": "chat.completion",
+        "created": 1790570248,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au!\n2.  **Understand the Goal:** The user is a prompt, and they want the assistant to reply with the same temperature, but briefly. The user's prompt is a repetition of the phrase \"The temperature is 20 degrees. The temperature is 20 degrees. The temperature is 20",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 302,
+          "total_tokens": 366,
+          "completion_tokens": 64,
+          "prompt_tokens_details": {
+            "cached_tokens": 256
+          },
+          "reasoning_tokens": 65
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-2",
+      "session": "repeat",
+      "stream": true,
+      "cancel": false,
+      "start_ns": 1790570248095861063,
+      "end_ns": 1790570248573084936,
+      "response": {
+        "sse": "data: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":null,\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"1\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"!au2\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\".  **An\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"alyze the Request:\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"**\\n    *  \"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" The user's input\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" is a repeated phrase\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\": \\\"The\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" temperature is a \"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"2.  **\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Analyze the Request\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\":**\\n        *\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"   The user's\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" input is a\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" repeated phrase: \\\"\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"The temperature is \"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"20.  **\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Analyze\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"affinity-both-2-293d1c42-2\",\"object\":\"chat.completion.chunk\",\"created\":1790570248,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":null},\"logprobs\":null,\"finish_reason\":\"length\",\"matched_stop\":null}]}\n\ndata: [DONE]\n\n"
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-3",
+      "session": "concurrent",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570248576103031,
+      "end_ns": 1790570249323451377,
+      "response": {
+        "id": "affinity-both-2-293d1c42-3",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!auRD2.  **Analyze the Request:**\n    *   **Input text:**\n    ```\n    Case 1! The temperature is 10!auRD2.  **Analyze the Request:**\n    *   **Input text:**\n    ```\n    Case 1! The temperature",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 66
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-4",
+      "session": "concurrent",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570248577073965,
+      "end_ns": 1790570249352824114,
+      "response": {
+        "id": "affinity-both-2-293d1c42-4",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au!\nThe user is an expert in a particular field, and I need to provide a comprehensive and accurate, and I need to provide a comprehensive and accurate, and I need to provide a comprehensive and accurate, and I need to provide a comprehensive and accurate, and I need to provide a comprehensive and accurate,",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 66
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-5",
+      "session": "concurrent",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570248578226836,
+      "end_ns": 1790570249352534697,
+      "response": {
+        "id": "affinity-both-2-293d1c42-5",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au!\nThe1. 1. 1\nThe1. 1. 1\nThe1. 1. 1\nThe1. 1. 1\nThe1. 1. 1\nThe1. 1. 1\nThe1. 1.",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 66
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-6",
+      "session": "concurrent",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570248579109655,
+      "end_ns": 1790570249376899761,
+      "response": {
+        "id": "affinity-both-2-293d1c42-6",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au!\n2.  **Analyze the Request:**\n    *   Input text: \"Case 1. The temperature is 20. The temperature is 20. ... (repeated many times) ... (repeated 40 times) ... (repeated 40 times) ... (repeated",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 65
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-7",
+      "session": "independent-7",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249378121680,
+      "end_ns": 1790570249918520558,
+      "response": {
+        "id": "affinity-both-2-293d1c42-7",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au1dnou1dnou1dnou1dnou1dnou1dno1s!au1s!au1s!au1s!au1s!au1s!au1s!au1s!au1s!au1s!au1s!",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 66
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-8",
+      "session": "independent-8",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249378936352,
+      "end_ns": 1790570249898114002,
+      "response": {
+        "id": "affinity-both-2-293d1c42-8",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!auRD2. 1!auRD1. 1!auRD1. 1!auRD1. 1!auRD1. 1!auRD1. 1!auRD1. 1!auRD1. 1!auRD1. 1",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 66
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-9",
+      "session": "independent-9",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249379408333,
+      "end_ns": 1790570249898762379,
+      "response": {
+        "id": "affinity-both-2-293d1c42-9",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!auRD1. 1. 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1. ... 1.",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 65
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-10",
+      "session": "independent-10",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249380780735,
+      "end_ns": 1790570249876902093,
+      "response": {
+        "id": "affinity-both-2-293d1c42-10",
+        "object": "chat.completion",
+        "created": 1790570249,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!auqitnq!an!a!s!a!uq!uqitnq!uqitnq!uqitnq!uqitnq!uqitnq!uqitnq!uqitnq!uqit",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 65
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-11",
+      "session": "independent-11",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249876980058,
+      "end_ns": 1790570250422333578,
+      "response": {
+        "id": "affinity-both-2-293d1c42-11",
+        "object": "chat.completion",
+        "created": 1790570250,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!aufr 1.  **Analyze the Request:**\n    *   **Input text:**\n        \"Case 11.  **Analyze the Request:**\n        \"Case 11. The the **Analyze the **Analyze the **Analyze the **Analyze the **Analyze",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 67
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-12",
+      "session": "independent-12",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249898217366,
+      "end_ns": 1790570250568986178,
+      "response": {
+        "id": "affinity-both-2-293d1c42-12",
+        "object": "chat.completion",
+        "created": 1790570250,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!aufrnq 1!aufrnq 1!aufrnq 1!aufrnq 1!aufrnq 1!aufrnq 1!aufrnq 1!aufrnq 1!aufrnq 1",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 64
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-13",
+      "session": "independent-13",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249898834674,
+      "end_ns": 1790570250609959766,
+      "response": {
+        "id": "affinity-both-2-293d1c42-13",
+        "object": "chat.completion",
+        "created": 1790570250,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 64
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-14",
+      "session": "independent-14",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570249918631325,
+      "end_ns": 1790570250590013512,
+      "response": {
+        "id": "affinity-both-2-293d1c42-14",
+        "object": "chat.completion",
+        "created": 1790570250,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!auqitstunohneitstunohneitstunohneitstunohneitstunohneitstunohneitstunohneitstunohneitstunohneitstunohneitstunohneitstunohne",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 65
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-15",
+      "session": null,
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570250610664922,
+      "end_ns": 1790570251097173452,
+      "response": {
+        "id": "affinity-both-2-293d1c42-15",
+        "object": "chat.completion",
+        "created": 1790570251,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!auRD\n\n2.  **Analyze the Request:**\n    *   **Input text:**\n        **Context:** The user is asking for a very brief, concise, and direct, and direct, and direct, and direct, and direct, and direct, and direct, and direct, and direct",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 66
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-16",
+      "session": "cancel",
+      "stream": true,
+      "cancel": true,
+      "start_ns": 1790570251097200415,
+      "end_ns": 1790570251227394471,
+      "response": {
+        "sse": "data: {\"id\":\"affinity-both-2-293d1c42-16\",\"object\":\"chat.completion.chunk\",\"created\":1790570251,\"model\":\"glm5.2-mxfp4\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":null,\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n"
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-17",
+      "session": "cancel",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570251227416011,
+      "end_ns": 1790570251700311672,
+      "response": {
+        "id": "affinity-both-2-293d1c42-17",
+        "object": "chat.completion",
+        "created": 1790570251,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au!\nI need to output the user!s temperature. The user is asking for the temperature. The temperature is 20. \nI need to be concise. \nI need to output \"20\" or \"20 degrees. \nI need to be concise. \nI need to be concise. \nI",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 303,
+          "total_tokens": 367,
+          "completion_tokens": 64,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 65
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    },
+    {
+      "rid": "affinity-both-2-293d1c42-18",
+      "session": "repeat",
+      "stream": false,
+      "cancel": false,
+      "start_ns": 1790570254703491585,
+      "end_ns": 1790570255280246917,
+      "response": {
+        "id": "affinity-both-2-293d1c42-18",
+        "object": "chat.completion",
+        "created": 1790570255,
+        "model": "glm5.2-mxfp4",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "",
+              "reasoning_content": "1!au!\nThe1.  **Analyze the Request:**\n    *   Input text. The user is asking to repeat a very long and repetitive string of 41 \"The temperature is 20 degrees. The temperature is 20 degrees. The temperature is 20 degrees. The temperature is 20 degrees",
+              "tool_calls": null
+            },
+            "logprobs": null,
+            "finish_reason": "length",
+            "matched_stop": null
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 302,
+          "total_tokens": 366,
+          "completion_tokens": 64,
+          "prompt_tokens_details": {
+            "cached_tokens": 256
+          },
+          "reasoning_tokens": 65
+        },
+        "metadata": {
+          "weight_version": "default",
+          "weight_versions": [
+            {
+              "version": "default",
+              "start": 0,
+              "end": 64
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "prefill": [
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249513397654,
+      "mono_ns": 786111932815821,
+      "role": "prefill",
+      "pid": 1899,
+      "dp_rank": 5,
+      "tp_rank": 5,
+      "rid": "affinity-both-2-293d1c42-7",
+      "room": "4127549446930079317",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.810702829,
+        "wait_queue_entry_time": 786111.813877906,
+        "forward_entry_time": 786111.814239938,
+        "prefill_finished_time": 786111.927535326,
+        "completion_time": 786111.932637889,
+        "bootstrap_done_time": 786111.813863387,
+        "prefill_bootstrap_queue_entry_time": 786111.811785737,
+        "prefill_transfer_queue_entry_time": 786111.928220533,
+        "prefill_kv_transfer_finish_time": 786111.932576532,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249512235400,
+      "mono_ns": 786111931653537,
+      "role": "prefill",
+      "pid": 1343,
+      "dp_rank": 3,
+      "tp_rank": 3,
+      "rid": "affinity-both-2-293d1c42-10",
+      "room": "6524651304740649891",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.807100113,
+        "wait_queue_entry_time": 786111.813827798,
+        "forward_entry_time": 786111.814129484,
+        "prefill_finished_time": 786111.927476579,
+        "completion_time": 786111.931461446,
+        "bootstrap_done_time": 786111.813815809,
+        "prefill_bootstrap_queue_entry_time": 786111.808063987,
+        "prefill_transfer_queue_entry_time": 786111.928108938,
+        "prefill_kv_transfer_finish_time": 786111.931406919,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250743872856,
+      "mono_ns": 786113163291003,
+      "role": "prefill",
+      "pid": 1343,
+      "dp_rank": 3,
+      "tp_rank": 3,
+      "rid": "affinity-both-2-293d1c42-15",
+      "room": "5401740823239587467",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786113.0368671,
+        "wait_queue_entry_time": 786113.046131983,
+        "forward_entry_time": 786113.04638915,
+        "prefill_finished_time": 786113.159374483,
+        "completion_time": 786113.163128451,
+        "bootstrap_done_time": 786113.046121543,
+        "prefill_bootstrap_queue_entry_time": 786113.037137607,
+        "prefill_transfer_queue_entry_time": 786113.159915796,
+        "prefill_kv_transfer_finish_time": 786113.163079814,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570248810928106,
+      "mono_ns": 786111230346223,
+      "role": "prefill",
+      "pid": 1039,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-3",
+      "room": "6949463177403343505",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.004274693,
+        "wait_queue_entry_time": 786111.011264806,
+        "forward_entry_time": 786111.011730473,
+        "prefill_finished_time": 786111.225055709,
+        "completion_time": 786111.230177071,
+        "bootstrap_done_time": 786111.011252776,
+        "prefill_bootstrap_queue_entry_time": 786111.00537929,
+        "prefill_transfer_queue_entry_time": 786111.225703027,
+        "prefill_kv_transfer_finish_time": 786111.230130503,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570248812211354,
+      "mono_ns": 786111231629491,
+      "role": "prefill",
+      "pid": 1039,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-4",
+      "room": "2163187727960958361",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.006846099,
+        "wait_queue_entry_time": 786111.011311003,
+        "forward_entry_time": 786111.011730473,
+        "prefill_finished_time": 786111.226050071,
+        "completion_time": 786111.231524596,
+        "bootstrap_done_time": 786111.011308224,
+        "prefill_bootstrap_queue_entry_time": 786111.006999512,
+        "prefill_transfer_queue_entry_time": 786111.226391394,
+        "prefill_kv_transfer_finish_time": 786111.231486908,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570248814848007,
+      "mono_ns": 786111234266134,
+      "role": "prefill",
+      "pid": 1039,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-5",
+      "room": "4765282500878285185",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.00888589,
+        "wait_queue_entry_time": 786111.011323393,
+        "forward_entry_time": 786111.011730473,
+        "prefill_finished_time": 786111.226411653,
+        "completion_time": 786111.234122821,
+        "bootstrap_done_time": 786111.011321773,
+        "prefill_bootstrap_queue_entry_time": 786111.009030543,
+        "prefill_transfer_queue_entry_time": 786111.226712639,
+        "prefill_kv_transfer_finish_time": 786111.234062234,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570248817201533,
+      "mono_ns": 786111236619670,
+      "role": "prefill",
+      "pid": 1039,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-6",
+      "room": "1478402208812871369",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.010335891,
+        "wait_queue_entry_time": 786111.121048933,
+        "forward_entry_time": 786111.121365947,
+        "prefill_finished_time": 786111.229056915,
+        "completion_time": 786111.236516855,
+        "bootstrap_done_time": 786111.121039873,
+        "prefill_bootstrap_queue_entry_time": 786111.010473554,
+        "prefill_transfer_queue_entry_time": 786111.229442767,
+        "prefill_kv_transfer_finish_time": 786111.236477407,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250165225828,
+      "mono_ns": 786112584643955,
+      "role": "prefill",
+      "pid": 2212,
+      "dp_rank": 6,
+      "tp_rank": 6,
+      "rid": "affinity-both-2-293d1c42-11",
+      "room": "3237313976763204662",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786112.302237096,
+        "wait_queue_entry_time": 786112.317763006,
+        "forward_entry_time": 786112.318130018,
+        "prefill_finished_time": 786112.471231353,
+        "completion_time": 786112.584424225,
+        "bootstrap_done_time": 786112.317749347,
+        "prefill_bootstrap_queue_entry_time": 786112.303288155,
+        "prefill_transfer_queue_entry_time": 786112.471940269,
+        "prefill_kv_transfer_finish_time": 786112.584349649,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249513413133,
+      "mono_ns": 786111932831280,
+      "role": "prefill",
+      "pid": 1185,
+      "dp_rank": 2,
+      "tp_rank": 2,
+      "rid": "affinity-both-2-293d1c42-8",
+      "room": "2771577536311374234",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.805213844,
+        "wait_queue_entry_time": 786111.813822848,
+        "forward_entry_time": 786111.814155072,
+        "prefill_finished_time": 786111.92745557,
+        "completion_time": 786111.932634499,
+        "bootstrap_done_time": 786111.813809479,
+        "prefill_bootstrap_queue_entry_time": 786111.806225516,
+        "prefill_transfer_queue_entry_time": 786111.928123737,
+        "prefill_kv_transfer_finish_time": 786111.932571952,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250226912958,
+      "mono_ns": 786112646331095,
+      "role": "prefill",
+      "pid": 1185,
+      "dp_rank": 2,
+      "tp_rank": 2,
+      "rid": "affinity-both-2-293d1c42-14",
+      "room": "2370307749014399922",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786112.424040702,
+        "wait_queue_entry_time": 786112.424591586,
+        "forward_entry_time": 786112.424832544,
+        "prefill_finished_time": 786112.582364145,
+        "completion_time": 786112.646168133,
+        "bootstrap_done_time": 786112.424580666,
+        "prefill_bootstrap_queue_entry_time": 786112.424456612,
+        "prefill_transfer_queue_entry_time": 786112.582900519,
+        "prefill_kv_transfer_finish_time": 786112.646112275,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250230204409,
+      "mono_ns": 786112649622546,
+      "role": "prefill",
+      "pid": 2522,
+      "dp_rank": 7,
+      "tp_rank": 7,
+      "rid": "affinity-both-2-293d1c42-13",
+      "room": "476251325974144551",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786112.366306791,
+        "wait_queue_entry_time": 786112.53670368,
+        "forward_entry_time": 786112.537066243,
+        "prefill_finished_time": 786112.64581722,
+        "completion_time": 786112.649448704,
+        "bootstrap_done_time": 786112.536692601,
+        "prefill_bootstrap_queue_entry_time": 786112.367264305,
+        "prefill_transfer_queue_entry_time": 786112.646456339,
+        "prefill_kv_transfer_finish_time": 786112.649395117,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570247217915556,
+      "mono_ns": 786109637333723,
+      "role": "prefill",
+      "pid": 736,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-0",
+      "room": "2183103214565293872",
+      "input_tokens": 302,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786109.520710406,
+        "wait_queue_entry_time": 786109.522529338,
+        "forward_entry_time": 786109.522846543,
+        "prefill_finished_time": 786109.633521927,
+        "completion_time": 786109.637120793,
+        "bootstrap_done_time": 786109.522518149,
+        "prefill_bootstrap_queue_entry_time": 786109.521676439,
+        "prefill_transfer_queue_entry_time": 786109.634222923,
+        "prefill_kv_transfer_finish_time": 786109.637058746,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570247719462769,
+      "mono_ns": 786110138880916,
+      "role": "prefill",
+      "pid": 736,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-1",
+      "room": "1474859989201891360",
+      "input_tokens": 302,
+      "output_tokens": 1,
+      "cached_device": 256,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786110.02141508,
+        "wait_queue_entry_time": 786110.031450565,
+        "forward_entry_time": 786110.031734411,
+        "prefill_finished_time": 786110.13527933,
+        "completion_time": 786110.138716214,
+        "bootstrap_done_time": 786110.031441665,
+        "prefill_bootstrap_queue_entry_time": 786110.021659588,
+        "prefill_transfer_queue_entry_time": 786110.135712539,
+        "prefill_kv_transfer_finish_time": 786110.138669316,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570248218036155,
+      "mono_ns": 786110637454282,
+      "role": "prefill",
+      "pid": 736,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-2",
+      "room": "8222057928628523120",
+      "input_tokens": 302,
+      "output_tokens": 1,
+      "cached_device": 256,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786110.521453236,
+        "wait_queue_entry_time": 786110.531210334,
+        "forward_entry_time": 786110.531481101,
+        "prefill_finished_time": 786110.633793579,
+        "completion_time": 786110.6372961,
+        "bootstrap_done_time": 786110.531201795,
+        "prefill_bootstrap_queue_entry_time": 786110.521685505,
+        "prefill_transfer_queue_entry_time": 786110.634236898,
+        "prefill_kv_transfer_finish_time": 786110.637249982,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250227200314,
+      "mono_ns": 786112646618451,
+      "role": "prefill",
+      "pid": 736,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-12",
+      "room": "4049607811229178552",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786112.366278392,
+        "wait_queue_entry_time": 786112.366843335,
+        "forward_entry_time": 786112.367173759,
+        "prefill_finished_time": 786112.583440413,
+        "completion_time": 786112.646396332,
+        "bootstrap_done_time": 786112.366831566,
+        "prefill_bootstrap_queue_entry_time": 786112.366641265,
+        "prefill_transfer_queue_entry_time": 786112.584125639,
+        "prefill_kv_transfer_finish_time": 786112.646305686,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570254903353705,
+      "mono_ns": 786117322771852,
+      "role": "prefill",
+      "pid": 736,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-18",
+      "room": "6948627180097820928",
+      "input_tokens": 302,
+      "output_tokens": 1,
+      "cached_device": 256,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786117.129939937,
+        "wait_queue_entry_time": 786117.132606998,
+        "forward_entry_time": 786117.132996749,
+        "prefill_finished_time": 786117.239532913,
+        "completion_time": 786117.322587761,
+        "bootstrap_done_time": 786117.132595098,
+        "prefill_bootstrap_queue_entry_time": 786117.13029613,
+        "prefill_transfer_queue_entry_time": 786117.240062507,
+        "prefill_kv_transfer_finish_time": 786117.322527814,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249512210051,
+      "mono_ns": 786111931628218,
+      "role": "prefill",
+      "pid": 1586,
+      "dp_rank": 4,
+      "tp_rank": 4,
+      "rid": "affinity-both-2-293d1c42-9",
+      "room": "3373667915492311308",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786111.808871588,
+        "wait_queue_entry_time": 786111.813814329,
+        "forward_entry_time": 786111.814096125,
+        "prefill_finished_time": 786111.927546775,
+        "completion_time": 786111.931456936,
+        "bootstrap_done_time": 786111.813802839,
+        "prefill_bootstrap_queue_entry_time": 786111.809792163,
+        "prefill_transfer_queue_entry_time": 786111.928160506,
+        "prefill_kv_transfer_finish_time": 786111.931400629,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570251225739020,
+      "mono_ns": 786113645157187,
+      "role": "prefill",
+      "pid": 1586,
+      "dp_rank": 4,
+      "tp_rank": 4,
+      "rid": "affinity-both-2-293d1c42-16",
+      "room": "5968750251306410340",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786113.522198906,
+        "wait_queue_entry_time": 786113.532624473,
+        "forward_entry_time": 786113.532856892,
+        "prefill_finished_time": 786113.64136909,
+        "completion_time": 786113.645011464,
+        "bootstrap_done_time": 786113.532613833,
+        "prefill_bootstrap_queue_entry_time": 786113.522463144,
+        "prefill_transfer_queue_entry_time": 786113.641900794,
+        "prefill_kv_transfer_finish_time": 786113.644958477,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570251345906046,
+      "mono_ns": 786113765324183,
+      "role": "prefill",
+      "pid": 1586,
+      "dp_rank": 4,
+      "tp_rank": 4,
+      "rid": "affinity-both-2-293d1c42-17",
+      "room": "6981453601528927708",
+      "input_tokens": 303,
+      "output_tokens": 1,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": null,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 786113.652628316,
+        "wait_queue_entry_time": 786113.652899773,
+        "forward_entry_time": 786113.653090254,
+        "prefill_finished_time": 786113.761802583,
+        "completion_time": 786113.765199359,
+        "bootstrap_done_time": 786113.652892623,
+        "prefill_bootstrap_queue_entry_time": 786113.652809887,
+        "prefill_transfer_queue_entry_time": 786113.762252241,
+        "prefill_kv_transfer_finish_time": 786113.765156091,
+        "decode_prealloc_queue_entry_time": 0.0,
+        "decode_transfer_queue_entry_time": 0.0
+      }
+    }
+  ],
+  "decode": [
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250607772307,
+      "mono_ns": 3627229496442122,
+      "role": "decode",
+      "pid": 2519,
+      "dp_rank": 7,
+      "tp_rank": 7,
+      "rid": "affinity-both-2-293d1c42-13",
+      "room": "476251325974144551",
+      "input_tokens": 303,
+      "output_tokens": 64,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 7,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.801541239,
+        "wait_queue_entry_time": 3627229.117418406,
+        "forward_entry_time": 3627229.117513315,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627229.496322154,
+        "bootstrap_done_time": 3627228.801985471,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.801833634,
+        "decode_transfer_queue_entry_time": 3627228.802490693
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249874543178,
+      "mono_ns": 3627228763212973,
+      "role": "decode",
+      "pid": 1335,
+      "dp_rank": 3,
+      "tp_rank": 3,
+      "rid": "affinity-both-2-293d1c42-10",
+      "room": "6524651304740649891",
+      "input_tokens": 303,
+      "output_tokens": 65,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 3,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.280216886,
+        "wait_queue_entry_time": 3627228.399741326,
+        "forward_entry_time": 3627228.399822335,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.763080605,
+        "bootstrap_done_time": 3627228.280712988,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.280509581,
+        "decode_transfer_queue_entry_time": 3627228.28120732
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250587421579,
+      "mono_ns": 3627229476091574,
+      "role": "decode",
+      "pid": 1335,
+      "dp_rank": 3,
+      "tp_rank": 3,
+      "rid": "affinity-both-2-293d1c42-14",
+      "room": "2370307749014399922",
+      "input_tokens": 303,
+      "output_tokens": 65,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 2,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.821962035,
+        "wait_queue_entry_time": 3627229.068298492,
+        "forward_entry_time": 3627229.06843133,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627229.475844148,
+        "bootstrap_done_time": 3627228.822231571,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.822131322,
+        "decode_transfer_queue_entry_time": 3627228.822638204
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249895454377,
+      "mono_ns": 3627228784124212,
+      "role": "decode",
+      "pid": 1180,
+      "dp_rank": 2,
+      "tp_rank": 2,
+      "rid": "affinity-both-2-293d1c42-8",
+      "room": "2771577536311374234",
+      "input_tokens": 303,
+      "output_tokens": 66,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 2,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.280248576,
+        "wait_queue_entry_time": 3627228.402780065,
+        "forward_entry_time": 3627228.402870243,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.783980654,
+        "bootstrap_done_time": 3627228.280774397,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.280553341,
+        "decode_transfer_queue_entry_time": 3627228.281307278
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250566356683,
+      "mono_ns": 3627229455026518,
+      "role": "decode",
+      "pid": 1180,
+      "dp_rank": 2,
+      "tp_rank": 2,
+      "rid": "affinity-both-2-293d1c42-12",
+      "room": "4049607811229178552",
+      "input_tokens": 303,
+      "output_tokens": 64,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 0,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.801601028,
+        "wait_queue_entry_time": 3627229.071926611,
+        "forward_entry_time": 3627229.07199635,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627229.454895501,
+        "bootstrap_done_time": 3627228.801878613,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.801780785,
+        "decode_transfer_queue_entry_time": 3627228.802308946
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249320805350,
+      "mono_ns": 3627228209475185,
+      "role": "decode",
+      "pid": 1033,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-3",
+      "room": "6949463177403343505",
+      "input_tokens": 303,
+      "output_tokens": 66,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 1,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627227.47720848,
+        "wait_queue_entry_time": 3627227.697289858,
+        "forward_entry_time": 3627227.697373717,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.209267729,
+        "bootstrap_done_time": 3627227.478049216,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627227.477498145,
+        "decode_transfer_queue_entry_time": 3627227.478539717
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249349034066,
+      "mono_ns": 3627228237703881,
+      "role": "decode",
+      "pid": 1033,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-4",
+      "room": "2163187727960958361",
+      "input_tokens": 303,
+      "output_tokens": 66,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 1,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627227.477594523,
+        "wait_queue_entry_time": 3627227.703440725,
+        "forward_entry_time": 3627227.703551023,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.237532273,
+        "bootstrap_done_time": 3627227.478050036,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627227.477687422,
+        "decode_transfer_queue_entry_time": 3627227.478905951
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249349100394,
+      "mono_ns": 3627228237770149,
+      "role": "decode",
+      "pid": 1033,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-5",
+      "room": "4765282500878285185",
+      "input_tokens": 303,
+      "output_tokens": 66,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 1,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627227.477733911,
+        "wait_queue_entry_time": 3627227.703492624,
+        "forward_entry_time": 3627227.703551023,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.237597032,
+        "bootstrap_done_time": 3627227.478050386,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627227.47780697,
+        "decode_transfer_queue_entry_time": 3627227.479226276
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249374630846,
+      "mono_ns": 3627228263300661,
+      "role": "decode",
+      "pid": 1033,
+      "dp_rank": 1,
+      "tp_rank": 1,
+      "rid": "affinity-both-2-293d1c42-6",
+      "room": "1478402208812871369",
+      "input_tokens": 303,
+      "output_tokens": 65,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 1,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627227.477847779,
+        "wait_queue_entry_time": 3627227.728016442,
+        "forward_entry_time": 3627227.728068351,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.263210592,
+        "bootstrap_done_time": 3627227.478050736,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627227.477917158,
+        "decode_transfer_queue_entry_time": 3627227.47954605
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249895495456,
+      "mono_ns": 3627228784165261,
+      "role": "decode",
+      "pid": 1588,
+      "dp_rank": 4,
+      "tp_rank": 4,
+      "rid": "affinity-both-2-293d1c42-9",
+      "room": "3373667915492311308",
+      "input_tokens": 303,
+      "output_tokens": 65,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 4,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.280193777,
+        "wait_queue_entry_time": 3627228.399718066,
+        "forward_entry_time": 3627228.399797595,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.783954804,
+        "bootstrap_done_time": 3627228.280618259,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.280462082,
+        "decode_transfer_queue_entry_time": 3627228.281126251
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570251094386813,
+      "mono_ns": 3627229983056638,
+      "role": "decode",
+      "pid": 1588,
+      "dp_rank": 4,
+      "tp_rank": 4,
+      "rid": "affinity-both-2-293d1c42-15",
+      "room": "5401740823239587467",
+      "input_tokens": 303,
+      "output_tokens": 66,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 3,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627229.513297508,
+        "wait_queue_entry_time": 3627229.630790592,
+        "forward_entry_time": 3627229.630850911,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627229.98292167,
+        "bootstrap_done_time": 3627229.513598193,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627229.513474885,
+        "decode_transfer_queue_entry_time": 3627229.514051086
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570247592268560,
+      "mono_ns": 3627226480938385,
+      "role": "decode",
+      "pid": 742,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-0",
+      "room": "2183103214565293872",
+      "input_tokens": 302,
+      "output_tokens": 66,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 0,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627225.987805949,
+        "wait_queue_entry_time": 3627226.105225724,
+        "forward_entry_time": 3627226.105307852,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627226.480763848,
+        "bootstrap_done_time": 3627225.988276091,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627225.988094944,
+        "decode_transfer_queue_entry_time": 3627225.989008598
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570248092539867,
+      "mono_ns": 3627226981209682,
+      "role": "decode",
+      "pid": 742,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-1",
+      "room": "1474859989201891360",
+      "input_tokens": 302,
+      "output_tokens": 65,
+      "cached_device": 256,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 0,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627226.498165665,
+        "wait_queue_entry_time": 3627226.606936106,
+        "forward_entry_time": 3627226.606996605,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627226.981099003,
+        "bootstrap_done_time": 3627226.498416111,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627226.498329843,
+        "decode_transfer_queue_entry_time": 3627226.498809734
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570248571072489,
+      "mono_ns": 3627227459742304,
+      "role": "decode",
+      "pid": 742,
+      "dp_rank": 0,
+      "tp_rank": 0,
+      "rid": "affinity-both-2-293d1c42-2",
+      "room": "8222057928628523120",
+      "input_tokens": 302,
+      "output_tokens": 66,
+      "cached_device": 256,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 0,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627226.998417002,
+        "wait_queue_entry_time": 3627227.105431772,
+        "forward_entry_time": 3627227.105487931,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627227.459639055,
+        "bootstrap_done_time": 3627226.998650768,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627226.99856306,
+        "decode_transfer_queue_entry_time": 3627226.999036412
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570249916304656,
+      "mono_ns": 3627228804974741,
+      "role": "decode",
+      "pid": 1899,
+      "dp_rank": 5,
+      "tp_rank": 5,
+      "rid": "affinity-both-2-293d1c42-7",
+      "room": "4127549446930079317",
+      "input_tokens": 303,
+      "output_tokens": 66,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 5,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.280217326,
+        "wait_queue_entry_time": 3627228.402965242,
+        "forward_entry_time": 3627228.4030611,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627228.804807374,
+        "bootstrap_done_time": 3627228.280739537,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.280503531,
+        "decode_transfer_queue_entry_time": 3627228.281261459
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570251270957483,
+      "mono_ns": 3627230159627358,
+      "role": "decode",
+      "pid": 1899,
+      "dp_rank": 5,
+      "tp_rank": 5,
+      "rid": "affinity-both-2-293d1c42-16",
+      "room": "5968750251306410340",
+      "input_tokens": 303,
+      "output_tokens": 8,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 4,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627229.999744457,
+        "wait_queue_entry_time": 3627230.11316722,
+        "forward_entry_time": 3627230.113234628,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627230.15950263,
+        "bootstrap_done_time": 3627230.000049082,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627229.999932314,
+        "decode_transfer_queue_entry_time": 3627230.000487445
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570251697751945,
+      "mono_ns": 3627230586421790,
+      "role": "decode",
+      "pid": 1899,
+      "dp_rank": 5,
+      "tp_rank": 5,
+      "rid": "affinity-both-2-293d1c42-17",
+      "room": "6981453601528927708",
+      "input_tokens": 303,
+      "output_tokens": 65,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 4,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627230.118759386,
+        "wait_queue_entry_time": 3627230.233336259,
+        "forward_entry_time": 3627230.233393648,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627230.586322342,
+        "bootstrap_done_time": 3627230.118980272,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627230.118891263,
+        "decode_transfer_queue_entry_time": 3627230.119376735
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570250419657481,
+      "mono_ns": 3627229308327296,
+      "role": "decode",
+      "pid": 2204,
+      "dp_rank": 6,
+      "tp_rank": 6,
+      "rid": "affinity-both-2-293d1c42-11",
+      "room": "3237313976763204662",
+      "input_tokens": 303,
+      "output_tokens": 67,
+      "cached_device": 0,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 6,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627228.784487465,
+        "wait_queue_entry_time": 3627228.943489641,
+        "forward_entry_time": 3627228.94357852,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627229.308202478,
+        "bootstrap_done_time": 3627228.784989587,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627228.784776691,
+        "decode_transfer_queue_entry_time": 3627228.785639846
+      }
+    },
+    {
+      "event": "request_summary",
+      "wall_ns": 1790570255277294465,
+      "mono_ns": 3627234165964270,
+      "role": "decode",
+      "pid": 2204,
+      "dp_rank": 6,
+      "tp_rank": 6,
+      "rid": "affinity-both-2-293d1c42-18",
+      "room": "6948627180097820928",
+      "input_tokens": 302,
+      "output_tokens": 65,
+      "cached_device": 256,
+      "cached_host": 0,
+      "cached_storage": 0,
+      "prefill_dp_rank": 0,
+      "attempts": 0,
+      "times": {
+        "scheduler_recv_time": 3627233.598290877,
+        "wait_queue_entry_time": 3627233.790452385,
+        "forward_entry_time": 3627233.790535624,
+        "prefill_finished_time": 0.0,
+        "completion_time": 3627234.165824892,
+        "bootstrap_done_time": 3627233.600168415,
+        "prefill_bootstrap_queue_entry_time": 0.0,
+        "prefill_transfer_queue_entry_time": 0.0,
+        "prefill_kv_transfer_finish_time": 0.0,
+        "decode_prealloc_queue_entry_time": 3627233.599933399,
+        "decode_transfer_queue_entry_time": 3627233.600680277
+      }
+    }
+  ],
+  "metrics_before": {
+    "infera_router_session_active{role=\"prefill\"}": 0,
+    "infera_router_session_hits_total{role=\"prefill\"}": 0,
+    "infera_router_session_selected_total{role=\"prefill\"}": 0,
+    "infera_router_session_active{role=\"decode\"}": 0,
+    "infera_router_session_hits_total{role=\"decode\"}": 0,
+    "infera_router_session_selected_total{role=\"decode\"}": 0,
+    "infera_router_session_active{role=\"mixed\"}": 0,
+    "infera_router_session_hits_total{role=\"mixed\"}": 0,
+    "infera_router_session_selected_total{role=\"mixed\"}": 0
+  },
+  "metrics_after": {
+    "infera_router_session_active{role=\"prefill\"}": 0,
+    "infera_router_session_hits_total{role=\"prefill\"}": 6,
+    "infera_router_session_selected_total{role=\"prefill\"}": 12,
+    "infera_router_session_active{role=\"decode\"}": 0,
+    "infera_router_session_hits_total{role=\"decode\"}": 6,
+    "infera_router_session_selected_total{role=\"decode\"}": 12,
+    "infera_router_session_active{role=\"mixed\"}": 0,
+    "infera_router_session_hits_total{role=\"mixed\"}": 0,
+    "infera_router_session_selected_total{role=\"mixed\"}": 0
+  }
+}

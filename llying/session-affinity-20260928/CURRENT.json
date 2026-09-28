@@ -1,0 +1,23 @@
+{
+  "status": "IMPLEMENTED_SMOKE_PASSED_AWAITING_PERFORMANCE_CONFIG_CONFIRMATION",
+  "updated_utc": "2026-09-28T04:40:55.684405+00:00",
+  "source_commit": "50e4a67c",
+  "binary_sha256": "7e221373acd5d2605fcda8d94e6bc4f69b4e774f355520a3b89035d6d8f19d6b",
+  "job": 31999,
+  "job_owner": "user",
+  "formal_performance_started": false,
+  "weight40_experiment": "cancelled per user direction",
+  "smoke_requests": 73,
+  "paired_completed": 69,
+  "intentional_disconnects": 4,
+  "services": {
+    "prefill": "running idle, HiCache off",
+    "decode": "running idle, HiCache off",
+    "router": "running, session mode off after final regression check"
+  },
+  "nodes": {
+    "prefill": "smci355-ccs-aus-n10-29",
+    "decode": "smci355-ccs-aus-n03-33"
+  },
+  "run": "/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928/runs/session-affinity-31999-smoke"
+}
