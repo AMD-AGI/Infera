@@ -1,0 +1,154 @@
+{
+  "campaign-b2-radix": {
+    "rails": 8,
+    "samples_per_rail": [
+      720
+    ],
+    "mean_receive_GBps": 15.53560818346022,
+    "per_rail": {
+      "C80/profiling/decode/ionic_0/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 1.9052086956621237,
+        "p50": 1.2749985601753275,
+        "p90": 4.502967757180976,
+        "p99": 9.11672404683128,
+        "max": 12.999497688306882
+      },
+      "C80/profiling/decode/ionic_1/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 1.9593212743686905,
+        "p50": 1.2816737344468567,
+        "p90": 4.840960738725982,
+        "p99": 9.477096731932482,
+        "max": 12.433694857710048
+      },
+      "C80/profiling/decode/ionic_2/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 2.0280669908512414,
+        "p50": 1.3905610693752908,
+        "p90": 5.095163101252103,
+        "p99": 9.152493408630495,
+        "max": 12.773433974090672
+      },
+      "C80/profiling/decode/ionic_3/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 1.9557545832915948,
+        "p50": 1.2487547515462336,
+        "p90": 4.614289029834683,
+        "p99": 9.428780358949478,
+        "max": 16.346717087510452
+      },
+      "C80/profiling/decode/ionic_4/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 1.9611152614672092,
+        "p50": 1.3116895444902568,
+        "p90": 4.800847360998135,
+        "p99": 9.091965037818774,
+        "max": 10.266349567085726
+      },
+      "C80/profiling/decode/ionic_5/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 1.8557406669033882,
+        "p50": 1.2025537369121,
+        "p90": 4.572684418028705,
+        "p99": 8.920877678789882,
+        "max": 12.931517186878816
+      },
+      "C80/profiling/decode/ionic_6/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 1.8701789459073697,
+        "p50": 1.1695826369517133,
+        "p90": 4.624971332202418,
+        "p99": 9.686228668760595,
+        "max": 11.06573053789193
+      },
+      "C80/profiling/decode/ionic_7/rx_rdma_ucast_bytes/GBps": {
+        "n": 720,
+        "mean": 2.0002217650086016,
+        "p50": 1.2757135451594388,
+        "p90": 5.3058320911973835,
+        "p99": 9.565896775235483,
+        "max": 15.041762709348408
+      }
+    }
+  },
+  "campaign-b3-decode-affinity": {
+    "rails": 8,
+    "samples_per_rail": [
+      702
+    ],
+    "mean_receive_GBps": 4.893773526348251,
+    "per_rail": {
+      "C80/profiling/decode/ionic_0/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.6481568057643203,
+        "p50": 0.42762879127273357,
+        "p90": 1.6007331551085637,
+        "p99": 2.8216384713825104,
+        "max": 3.8811337764735203
+      },
+      "C80/profiling/decode/ionic_1/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.43260094691188533,
+        "p50": 0.3398466287947082,
+        "p90": 0.9061973283187014,
+        "p99": 1.879742613196182,
+        "max": 6.264138378092773
+      },
+      "C80/profiling/decode/ionic_2/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.7773945244669873,
+        "p50": 0.3583645440232903,
+        "p90": 1.8678533576294418,
+        "p99": 6.163524179182566,
+        "max": 10.115152879521855
+      },
+      "C80/profiling/decode/ionic_3/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.7720127917347636,
+        "p50": 0.49287755812842615,
+        "p90": 1.8622177579517787,
+        "p99": 4.4335807861535415,
+        "max": 8.149354335089155
+      },
+      "C80/profiling/decode/ionic_4/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.6088311872999361,
+        "p50": 0.4048902750830429,
+        "p90": 1.381048401310169,
+        "p99": 3.129339298947729,
+        "max": 7.95603848541393
+      },
+      "C80/profiling/decode/ionic_5/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.5886911005673827,
+        "p50": 0.3931060316751487,
+        "p90": 1.3609333447971579,
+        "p99": 2.9646137712084837,
+        "max": 6.6994345866344895
+      },
+      "C80/profiling/decode/ionic_6/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.6012095875378839,
+        "p50": 0.4149368277487201,
+        "p90": 1.3205812266170667,
+        "p99": 3.1108649002796853,
+        "max": 6.49535316023161
+      },
+      "C80/profiling/decode/ionic_7/rx_rdma_ucast_bytes/GBps": {
+        "n": 702,
+        "mean": 0.46487658206509175,
+        "p50": 0.324292015114257,
+        "p90": 1.101808097950148,
+        "p99": 2.046798419955412,
+        "max": 2.9456190290532898
+      }
+    }
+  },
+  "limitations": [
+    "D node-wide hardware counters, not request-attributed wire bytes.",
+    "B2 has 720 samples per rail; B3 has 702 because capture ended on preemption.",
+    "The first rate interval can straddle the warmup/profiling boundary.",
+    "Logical main-KV delta tokens exclude separately transported state buffers."
+  ]
+}
