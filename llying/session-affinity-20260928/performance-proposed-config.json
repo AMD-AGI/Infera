@@ -5,7 +5,7 @@
     "r3": "off",
     "r4": "off",
     "candidate_logs": "off",
-    "binary_sha256": "7e221373acd5d2605fcda8d94e6bc4f69b4e774f355520a3b89035d6d8f19d6b",
+    "binary_sha256": "cd0000356c5150baac1f5551db7a485c05ab3b789df11ed14d04dad0c4129211",
     "prefill_overlap_weight": 20,
     "decode_overlap_weight": 2.0,
     "session_affinity": "prefill",
@@ -74,7 +74,7 @@
     "speculative_eagle_topk": 1,
     "speculative_num_draft_tokens": 6
   },
-  "status": "PROPOSED_AWAITING_CONFIG_CONFIRMATION",
+  "status": "AUTHORIZED_AFTER_REVIEW",
   "experiment": "R1 + Prefill session affinity C80 4K",
   "baseline": {
     "name": "G0 R1-only overlap20",
@@ -98,8 +98,9 @@
   },
   "only_policy_change_vs_G0": "Enable P session affinity, idle TTL 3600; send stable session ID header. First selection stays legacy; R1 kept, R2/R3/R4 off, weights20/2.",
   "capacity_note": "max_total_num_tokens are historical reference values, not forced launch overrides; check actual capacity and investigate material drift",
-  "runtime_note": "Formal run not started; waits for config confirmation and completed smoke. P must restart with HiCache enabled; preserve D if healthy.",
+  "runtime_note": "Review completed; P restarting with HiCache. D reused. Client environment explicitly forwards session header switch.",
   "client_env": {
     "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
-  }
+  },
+  "authorization": "User requested careful review and then execution of the performance experiment on 2026-09-28."
 }

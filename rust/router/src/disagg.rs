@@ -405,10 +405,12 @@ async fn dual_nats(
     // one that accepts and then goes quiet. It is recorded on the first byte.
     let breaker = state.breaker.clone();
     let body = futures::stream::unfold(
-        (Some(reply), breaker, wid, false),
-        |(reply, breaker, wid, served)| async move {
+        (Some(reply), breaker, wid, false, guard.session_bindings()),
+        |(reply, breaker, wid, served, bindings)| async move {
             let mut r = reply?;
-            match r.next().await {
+            let frame = r.next().await;
+            crate::session_affinity::observe_reply(frame.as_ref(), &bindings);
+            match frame {
                 Some(Frame::Data(b)) => {
                     if !served && !b.is_empty() {
                         // Bytes are flowing, so this worker is doing the work.
@@ -417,7 +419,7 @@ async fn dual_nats(
                     let served = served || !b.is_empty();
                     Some((
                         Ok::<Bytes, std::io::Error>(b),
-                        (Some(r), breaker, wid, served),
+                        (Some(r), breaker, wid, served, bindings),
                     ))
                 }
                 Some(Frame::Error { message, .. }) => {
@@ -431,7 +433,7 @@ async fn dual_nats(
                     let chunk = Bytes::from(format!(
                         "data: {{\"error\":\"decode {wid} nats stream failed\"}}\n\n"
                     ));
-                    Some((Ok(chunk), (None, breaker, wid, served)))
+                    Some((Ok(chunk), (None, breaker, wid, served, bindings)))
                 }
                 Some(Frame::Done { .. }) | None => None,
             }

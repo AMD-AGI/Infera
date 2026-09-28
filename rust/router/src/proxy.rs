@@ -154,12 +154,15 @@ async fn attempt_nats(
         }
     };
 
+    let bindings = guard.session_bindings();
     if !stream {
         let mut chunks: Vec<Bytes> = Vec::new();
         let mut status = StatusCode::OK;
         let mut done_seen = false;
         loop {
-            match reply.next().await {
+            let frame = reply.next().await;
+            crate::session_affinity::observe_reply(frame.as_ref(), &bindings);
+            match frame {
                 Some(Frame::Data(b)) => chunks.push(b),
                 Some(Frame::Done { status: s }) => {
                     status = StatusCode::from_u16(s).unwrap_or(StatusCode::OK);
@@ -213,7 +216,9 @@ async fn attempt_nats(
 
     // Peek one frame: data commits to this worker, anything else can still be
     // retried elsewhere.
-    let first = match reply.next().await {
+    let frame = reply.next().await;
+    crate::session_affinity::observe_reply(frame.as_ref(), &bindings);
+    let first = match frame {
         Some(Frame::Data(b)) => b,
         Some(Frame::Error { status: s, message }) => {
             return Err(Box::new(json_error(
@@ -252,14 +257,21 @@ async fn attempt_nats(
     // ReplyStream moves in with it, so dropping the body cancels the worker.
     // `None` for the reply state ends the stream.
     let body = futures::stream::unfold(
-        (Some(reply), Some(first), wid.clone()),
-        |(reply, pending, wid)| async move {
+        (
+            Some(reply),
+            Some(first),
+            wid.clone(),
+            guard.session_bindings(),
+        ),
+        |(reply, pending, wid, bindings)| async move {
             if let Some(b) = pending {
-                return Some((Ok::<Bytes, std::io::Error>(b), (reply, None, wid)));
+                return Some((Ok::<Bytes, std::io::Error>(b), (reply, None, wid, bindings)));
             }
             let mut r = reply?;
-            match r.next().await {
-                Some(Frame::Data(b)) => Some((Ok(b), (Some(r), None, wid))),
+            let frame = r.next().await;
+            crate::session_affinity::observe_reply(frame.as_ref(), &bindings);
+            match frame {
+                Some(Frame::Data(b)) => Some((Ok(b), (Some(r), None, wid, bindings))),
                 Some(Frame::Error { message, .. }) => {
                     tracing::warn!(
                         "stream from worker {wid} failed mid-stream: {}",
@@ -270,7 +282,7 @@ async fn attempt_nats(
                     let chunk = Bytes::from(format!(
                         "data: {{\"error\":\"worker {wid} stream failed mid-stream\"}}\n\n"
                     ));
-                    Some((Ok(chunk), (None, None, wid)))
+                    Some((Ok(chunk), (None, None, wid, bindings)))
                 }
                 Some(Frame::Done { .. }) | None => None,
             }

@@ -257,10 +257,7 @@ impl Lease {
         }
     }
     pub fn invalidate(&self) {
-        let mut e = self.entry.lock().expect("session entry poisoned");
-        if e.generation == self.generation {
-            e.target = None;
-        }
+        self.binding().invalidate();
     }
 }
 impl Drop for Lease {
@@ -271,6 +268,19 @@ impl Drop for Lease {
         if e.active == 0 {
             e.idle_since = Instant::now();
         }
+    }
+}
+
+/// NATS errors may become successful SSE writes; inspect frames before encoding.
+pub(crate) fn observe_reply(frame: Option<&crate::nats_request::Frame>, bindings: &[Binding]) {
+    use crate::nats_request::Frame;
+    if matches!(frame, Some(Frame::Data(_)))
+        || matches!(frame, Some(Frame::Done { status }) if (200..300).contains(status))
+    {
+        return;
+    }
+    for binding in bindings {
+        binding.invalidate();
     }
 }
 
@@ -459,6 +469,33 @@ mod tests {
             .unwrap()
             .idle_since = Instant::now() - Duration::from_secs(20);
         assert!(pick(&s, &p, Role::Prefill, Some("y")).1.is_some());
+    }
+
+    #[test]
+    fn nats_terminal_failures_invalidate_even_when_encoded_as_sse_data() {
+        use crate::nats_request::Frame;
+        for terminal in [
+            None,
+            Some(Frame::Done { status: 500 }),
+            Some(Frame::Error {
+                status: Some(502),
+                message: "failed".into(),
+            }),
+        ] {
+            let sessions = Sessions::new(Mode::Both, Duration::from_secs(10), 8);
+            let policy = RoundRobin::new();
+            let (_, lease) = pick(&sessions, &policy, Role::Decode, Some("s"));
+            let lease = lease.unwrap();
+            let bindings = [lease.binding()];
+            observe_reply(
+                Some(&Frame::Data(axum::body::Bytes::from_static(b"data"))),
+                &bindings,
+            );
+            observe_reply(Some(&Frame::Done { status: 200 }), &bindings);
+            assert!(lease.entry.lock().unwrap().target.is_some());
+            observe_reply(terminal.as_ref(), &bindings);
+            assert!(lease.entry.lock().unwrap().target.is_none());
+        }
     }
 
     #[test]
