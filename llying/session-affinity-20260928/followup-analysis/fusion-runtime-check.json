@@ -1,0 +1,18 @@
+{
+  "prefill": {
+    "container_id": "7abc1be066caddb6683dcac8448e89c1bfcc88a82ebed79ff93d9cb26ca4d7b9",
+    "matched_env": [
+      "SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1"
+    ],
+    "source": "/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928/runs/session-affinity-31999-performance/c80/service/prefill-0-container.json",
+    "fusion_override_present": false
+  },
+  "decode": {
+    "container_id": "14454c99b7c43be6a13ea67d2a5dafe93d2af16d0633fcb6bd7ca8a520b227b5",
+    "matched_env": [
+      "SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1"
+    ],
+    "source": "/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928/runs/session-affinity-31999-performance/c80/service/decode-0-container.json",
+    "fusion_override_present": false
+  }
+}

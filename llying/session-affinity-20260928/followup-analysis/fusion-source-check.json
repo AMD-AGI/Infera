@@ -1,0 +1,36 @@
+[
+  {
+    "path": "sgl-workspace/sglang/python/sglang/srt/environ.py",
+    "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+    "sha256": "dd5a4699a8d23fb8a4c9f43aaf1f1474a881eb59be70e99d900f1ec302f6c74b",
+    "excerpts": [
+      {
+        "line": 166,
+        "text": "    check *deprecated_name* and emit DeprecationWarning before reading it.\n\n    Usage:\n        SGLANG_DSA_FUSE_TOPK = EnvBoolWithAlias(True, deprecated_name=\"SGLANG_NSA_FUSE_TOPK\")\n    \"\"\"\n\n    def __init__(self, default: Any, deprecated_name: str, secret: bool = False):\n        super().__init__(default, secret=secret)\n        self.deprecated_name = deprecated_name\n\n    def get(self) -> Any:\n        if os.getenv(self.name) is None:\n            fallback = os.getenv(self.deprecated_name)\n            if fallback is not None:\n                warnings.warn(\n                    f\"Environment variable '{self.deprecated_name}' is deprecated; \"\n                    f\"use '{self.name}' instead. \"\n                    \"The alias will be removed in a future release.\",\n                    DeprecationWarning,\n                    stacklevel=2,\n                )\n                os.environ[self.name] = fallback\n        return super().get()"
+      },
+      {
+        "line": 1571,
+        "text": "    # ===================================================================\n    # DSA backend (GLM 5 and DeepSeek V3.2)\n    # ===================================================================\n    SGLANG_DSA_FUSE_TOPK = EnvBoolWithAlias(\n        True, deprecated_name=\"SGLANG_NSA_FUSE_TOPK\"\n    )\n    # Enabled for supported CUDA KPool geometry; set to 0 to use ordinary metadata.\n    SGLANG_EXPERIMENTAL_DSA_KPOOL_METADATA_FUSION = EnvBool(True)\n    SGLANG_DSA_TOPK_FLASHINFER_DETERMINISTIC = EnvBool(False)\n    SGLANG_DSA_TOPK_FLASHINFER_TIE_BREAK = EnvStr(None)\n    SGLANG_DSA_PREFILL_DENSE_ATTN_KV_LEN_THRESHOLD = EnvIntWithAlias(\n        2048, deprecated_name=\"SGLANG_NSA_PREFILL_DENSE_ATTN_KV_LEN_THRESHOLD\"\n    )\n    SGLANG_DSA_HIP_DISABLE_PRESHUFFLE = EnvBoolWithAlias(\n        False, deprecated_name=\"SGLANG_NSA_HIP_DISABLE_PRESHUFFLE\"\n    )\n    SGLANG_DSA_MQA_LOGITS_FREE_MEM_FRACTION = EnvFloat(0.2)\n    SGLANG_ENABLE_PCG_DSV2_DUAL_STREAM = EnvBool(False)\n    SGLANG_DSA_TOPK_BROADCAST = EnvBool(False)\n    SGLANG_DISABLE_DSA_INDEXER_FUSION = EnvBool(False)\n    # Opt-in perf path for --dsa-prefill-backend flashmla_sparse_q8: fuse the\n    # absorbed q bmm with the nope/rope concat + fp8 cast so q is written\n    # directly in fp8 (\"born fp8\") and the standalone concat-cast kernel"
+      }
+    ]
+  },
+  {
+    "path": "sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/utils.py",
+    "layer": "blobs/sha256/2235cce0b01f89b4087f4fd69f03e131008bd13e3fc9a78a72fb4a8b4bc46c10",
+    "sha256": "c29450fdef721c63e195396ddc605b394737833d77dd9fca634c027151292603",
+    "excerpts": [
+      {
+        "line": 92,
+        "text": "    \"\"\"Whether a PD seed should enter the allocator-local fused TopK domain.\"\"\"\n    return (\n        (is_cuda() or is_hip())\n        and envs.SGLANG_DSA_FUSE_TOPK.get()\n        and get_disagg().disaggregation_mode == \"decode\"\n        and not get_memory().enable_hisparse\n        and not get_parallel().dcp_enabled\n    )\n\n\ndef should_use_dsa_fused_topk(seed_dsa_topk_from_draft_extend: bool) -> bool:\n    \"\"\"Select fused TopK for PD IndexShare.\n\n    PD Prefill worker:\n    - Target prefill: fused TopK enabled.\n    - Draft extend: fused TopK disabled.\n\n    PD Decode worker:\n    - Draft decode / target verify / draft extend: fused TopK enabled.\n    \"\"\"\n    pd_index_share_seed = (\n        get_disagg().disaggregation_mode != \"null\" and seed_dsa_topk_from_draft_extend\n    )"
+      },
+      {
+        "line": 99,
+        "text": "    )\n\n\ndef should_use_dsa_fused_topk(seed_dsa_topk_from_draft_extend: bool) -> bool:\n    \"\"\"Select fused TopK for PD IndexShare.\n\n    PD Prefill worker:\n    - Target prefill: fused TopK enabled.\n    - Draft extend: fused TopK disabled.\n\n    PD Decode worker:\n    - Draft decode / target verify / draft extend: fused TopK enabled.\n    \"\"\"\n    pd_index_share_seed = (\n        get_disagg().disaggregation_mode != \"null\" and seed_dsa_topk_from_draft_extend\n    )\n    return envs.SGLANG_DSA_FUSE_TOPK.get() and (\n        not pd_index_share_seed or should_remap_pd_dsa_seed_to_local_slots()\n    )\n\n\ndef is_dsa_enable_prefill_cp():\n    if is_hip() or is_npu() or is_musa():"
+      },
+      {
+        "line": 112,
+        "text": "    pd_index_share_seed = (\n        get_disagg().disaggregation_mode != \"null\" and seed_dsa_topk_from_draft_extend\n    )\n    return envs.SGLANG_DSA_FUSE_TOPK.get() and (\n        not pd_index_share_seed or should_remap_pd_dsa_seed_to_local_slots()\n    )\n\n\ndef is_dsa_enable_prefill_cp():\n    if is_hip() or is_npu() or is_musa():\n        return False\n\n    # Generic prefill CP derives activation from the runtime topology and model\n    # architecture.\n    if get_parallel().attn_cp_size <= 1:\n        return False\n    from sglang.srt.configs.model_config import is_deepseek_dsa, is_deepseek_v4\n\n    hf_config = process_model_config().hf_config\n    return is_deepseek_dsa(hf_config) or is_deepseek_v4(hf_config)\n\n\ndef is_dsa_prefill_cp_interleave():"
+      }
+    ]
+  }
+]

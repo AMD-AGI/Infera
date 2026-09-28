@@ -1,0 +1,44 @@
+{
+  "A0": {
+    "root_sessions": 155,
+    "root_multi_rank": 100,
+    "root_multi_request": 155,
+    "mean_ranks_per_multi_root": 2.8,
+    "miss_fraction": 0.04991912212732401
+  },
+  "G0": {
+    "root_sessions": 155,
+    "root_multi_rank": 105,
+    "root_multi_request": 155,
+    "mean_ranks_per_multi_root": 2.774193548387097,
+    "miss_fraction": 0.04550860598226744
+  },
+  "C1": {
+    "root_sessions": 155,
+    "root_multi_rank": 94,
+    "root_multi_request": 155,
+    "mean_ranks_per_multi_root": 2.7548387096774194,
+    "miss_fraction": 0.046363924955597775
+  },
+  "C1G1": {
+    "root_sessions": 155,
+    "root_multi_rank": 104,
+    "root_multi_request": 155,
+    "mean_ranks_per_multi_root": 2.8774193548387097,
+    "miss_fraction": 0.04428816607737426
+  },
+  "R1_R4": {
+    "root_sessions": 141,
+    "root_multi_rank": 130,
+    "root_multi_request": 141,
+    "mean_ranks_per_multi_root": 4.290780141843972,
+    "miss_fraction": 0.10924376936801651
+  },
+  "P_affinity": {
+    "root_sessions": 155,
+    "root_multi_rank": 65,
+    "root_multi_request": 155,
+    "mean_ranks_per_multi_root": 2.3161290322580643,
+    "miss_fraction": 0.03826030122663685
+  }
+}

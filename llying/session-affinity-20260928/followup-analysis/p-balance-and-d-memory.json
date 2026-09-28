@@ -1,0 +1,156 @@
+{
+  "samples": 1782,
+  "queue_per_rank": [
+    {
+      "n": 1782,
+      "mean": 0.9882154882154882,
+      "p50": 0.0,
+      "p95": 6.0,
+      "max": 15.0
+    },
+    {
+      "n": 1782,
+      "mean": 0.3288439955106622,
+      "p50": 0.0,
+      "p95": 3.0,
+      "max": 6.0
+    },
+    {
+      "n": 1782,
+      "mean": 0.9988776655443322,
+      "p50": 0.0,
+      "p95": 6.0,
+      "max": 13.0
+    },
+    {
+      "n": 1782,
+      "mean": 0.6790123456790124,
+      "p50": 0.0,
+      "p95": 4.0,
+      "max": 9.0
+    },
+    {
+      "n": 1782,
+      "mean": 0.6818181818181818,
+      "p50": 0.0,
+      "p95": 6.0,
+      "max": 9.0
+    },
+    {
+      "n": 1782,
+      "mean": 0.7227833894500562,
+      "p50": 0.0,
+      "p95": 4.0,
+      "max": 13.0
+    },
+    {
+      "n": 1782,
+      "mean": 0.6964085297418631,
+      "p50": 0.0,
+      "p95": 5.0,
+      "max": 12.0
+    },
+    {
+      "n": 1782,
+      "mean": 0.5852974186307519,
+      "p50": 0.0,
+      "p95": 5.0,
+      "max": 11.0
+    }
+  ],
+  "queue_total": {
+    "n": 1782,
+    "mean": 5.681257014590348,
+    "p50": 3.0,
+    "p95": 21.0,
+    "max": 34.0
+  },
+  "nonzero_queue_samples": 1201,
+  "queue_cv_nonzero": {
+    "n": 1201,
+    "mean": 1.9518699145747673,
+    "p50": 1.8559214542766738,
+    "p95": 2.6457513110645907,
+    "max": 2.6457513110645907
+  },
+  "queue_nonzero_and_other_rank_zero": 1201,
+  "max_queue_ge4_other_zero": 660,
+  "max_queue_ge8_other_zero": 246,
+  "d_memory": {
+    "sglang:kv_cache_memory_usage_gb": {
+      "n": 14256,
+      "mean": 154.46523714065552,
+      "p50": 154.46523714065552,
+      "p95": 154.46523714065552,
+      "max": 154.46523714065552
+    },
+    "sglang:graph_memory_usage_gb": {
+      "n": 14256,
+      "mean": 3.03515625,
+      "p50": 3.03515625,
+      "p95": 3.03515625,
+      "max": 3.03515625
+    },
+    "sglang:max_total_num_tokens": {
+      "n": 14256,
+      "mean": 3003264.0,
+      "p50": 3003264.0,
+      "p95": 3003264.0,
+      "max": 3003264.0
+    }
+  },
+  "limitations": [
+    "Empty local queue is not proof of an idle independent GPU: DP attention ranks share TP computation.",
+    "Two-second samples do not contain decision-time complete cache state."
+  ],
+  "cumulative": {
+    "0": {
+      "requests": 1552,
+      "miss": 6402694,
+      "miss_gt128k": 3,
+      "miss_gt128k_turn0": 3
+    },
+    "1": {
+      "requests": 1089,
+      "miss": 5060459,
+      "miss_gt128k": 2,
+      "miss_gt128k_turn0": 2
+    },
+    "2": {
+      "requests": 1425,
+      "miss": 6414910,
+      "miss_gt128k": 7,
+      "miss_gt128k_turn0": 6
+    },
+    "3": {
+      "requests": 1200,
+      "miss": 6193918,
+      "miss_gt128k": 4,
+      "miss_gt128k_turn0": 4
+    },
+    "4": {
+      "requests": 1180,
+      "miss": 5573199,
+      "miss_gt128k": 3,
+      "miss_gt128k_turn0": 0
+    },
+    "5": {
+      "requests": 1255,
+      "miss": 6460693,
+      "miss_gt128k": 2,
+      "miss_gt128k_turn0": 2
+    },
+    "6": {
+      "requests": 1167,
+      "miss": 5932594,
+      "miss_gt128k": 2,
+      "miss_gt128k_turn0": 1
+    },
+    "7": {
+      "requests": 1384,
+      "miss": 5659956,
+      "miss_gt128k": 1,
+      "miss_gt128k_turn0": 0
+    }
+  }
+}
