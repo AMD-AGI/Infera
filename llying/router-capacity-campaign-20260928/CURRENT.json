@@ -1,6 +1,6 @@
 {
-  "updated_utc": "2026-09-28T16:53:48.644730+00:00",
-  "stage": "B3_REPLAY_STARTING",
+  "updated_utc": "2026-09-28T16:56:21.827981+00:00",
+  "stage": "B3_WARMUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b3.sh",
