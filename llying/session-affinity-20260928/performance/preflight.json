@@ -1,0 +1,132 @@
+{
+  "passed": true,
+  "requests": [
+    {
+      "id": "session-review-preflight-0",
+      "object": "chat.completion",
+      "created": 1790578257,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!a**Analyze the Request:**\n    *   **Analyze the Request:**\n        *   Input: A very long string of text repeating \"The measurement is 20 degrees.\" (with a few more repetitions, but a lot, a lot, a lot, a lot, a lot, a",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 65
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    },
+    {
+      "id": "session-review-preflight-1",
+      "object": "chat.completion",
+      "created": 1790578257,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!an!alyze the Input: The user is a!skay!ing for a temperature of a!skay!s of 5,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000,000",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": {
+          "cached_tokens": 704
+        },
+        "reasoning_tokens": 65
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    },
+    {
+      "id": "session-review-preflight-2",
+      "object": "chat.completion",
+      "created": 1790578258,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!a.  ** 20 1,  - 1, 1, 1,  1, 1,1,1, 1, 1,1, 1, 1,1, 1, 1,1, 1, 1, ",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": {
+          "cached_tokens": 704
+        },
+        "reasoning_tokens": 65
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    }
+  ],
+  "session_metrics": [
+    "infera_router_session_active{role=\"prefill\"} 0",
+    "infera_router_session_hits_total{role=\"prefill\"} 2",
+    "infera_router_session_selected_total{role=\"prefill\"} 1",
+    "infera_router_session_active{role=\"decode\"} 0",
+    "infera_router_session_hits_total{role=\"decode\"} 0",
+    "infera_router_session_selected_total{role=\"decode\"} 0",
+    "infera_router_session_active{role=\"mixed\"} 0",
+    "infera_router_session_hits_total{role=\"mixed\"} 0",
+    "infera_router_session_selected_total{role=\"mixed\"} 0"
+  ],
+  "binary_sha256": "cd0000356c5150baac1f5551db7a485c05ab3b789df11ed14d04dad0c4129211"
+}

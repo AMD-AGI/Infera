@@ -14,3 +14,5 @@
 实机工作目录：`/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928`。节点allocation31999；P=n10-29，D=n03-33；两端HiCache关闭、有效chunk=4K；使用相同已验证引擎镜像。不会释放用户allocation。
 
 实机首次检查发现：合成 worker 限定 rank 的方法使策略内部 route_key 丢失 DP 后缀，虽然最终派单 rank 正确，却影响缓存查询和需求预约。已改为让 Policy 直接接受 RouteTarget 候选，补充8-rank账本回归测试；最初两组实机数据只作派单证据，不作为修复后完整验收。修复版四组实机验证已通过，见验收结果。
+
+正式性能测试已完成：[完整结果](PERFORMANCE.zh-CN.md)。输出吞吐相对G0 +2.15%，平均TTFT −14.04%，平均ITL +6.68%；完整请求配对与会话绑定核查通过。

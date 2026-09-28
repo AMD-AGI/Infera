@@ -1,0 +1,510 @@
+{
+  "count": 5,
+  "errors": [
+    {
+      "metadata": {
+        "session_num": 80,
+        "x_request_id": "651323f6-e73a-4f55-b338-1b7c1c4bbd86",
+        "x_correlation_id": "193d9149-09a6-4643-a3a4-89ac1265a4d3",
+        "conversation_id": "162d6f4f741a1cf3ce98acb5e3718c3bc0c7::fa:010",
+        "turn_index": 255,
+        "source_trace_id": "162d6f4f741a1cf3ce98acb5e3718c3bc0c7",
+        "source_outer_idx": 570,
+        "source_kind": "weka_flat",
+        "credit_issued_ns": 1790578579090561990,
+        "request_start_ns": 1790578579153252616,
+        "request_ack_ns": 1790579348658112988,
+        "request_end_ns": 1790579348658281797,
+        "worker_id": "worker_943eeffe",
+        "record_processor_id": "record_processor_abdbe227",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 1,
+        "parent_correlation_id": "80c56a60-199a-4ad1-a866-b7ad7d2908ac",
+        "root_correlation_id": "80c56a60-199a-4ad1-a866-b7ad7d2908ac"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 581047,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "session_num": 381,
+        "x_request_id": "4e70a06f-ba29-41e9-9b2b-6ec904a386a9",
+        "x_correlation_id": "7dd46b95-d6c0-42e7-baf7-e6560948cdd7",
+        "conversation_id": "069d7bf5f1efb4e76e3c84510367e6af78a5",
+        "turn_index": 213,
+        "source_trace_id": "069d7bf5f1efb4e76e3c84510367e6af78a5",
+        "source_outer_idx": 221,
+        "source_kind": "weka_main",
+        "credit_issued_ns": 1790579462918566075,
+        "request_start_ns": 1790579462924628294,
+        "request_ack_ns": 1790579476766165901,
+        "request_end_ns": 1790579476766259271,
+        "worker_id": "worker_ebb1721b",
+        "record_processor_id": "record_processor_d48aa129",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 0,
+        "root_correlation_id": "7dd46b95-d6c0-42e7-baf7-e6560948cdd7"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 699701,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "session_num": 477,
+        "x_request_id": "596a6706-b564-434f-9663-fd4ac8c35635",
+        "x_correlation_id": "193d9149-09a6-4643-a3a4-89ac1265a4d3",
+        "conversation_id": "162d6f4f741a1cf3ce98acb5e3718c3bc0c7::fa:010",
+        "turn_index": 264,
+        "source_trace_id": "162d6f4f741a1cf3ce98acb5e3718c3bc0c7",
+        "source_outer_idx": 579,
+        "source_kind": "weka_flat",
+        "credit_issued_ns": 1790579543989462726,
+        "request_start_ns": 1790579543994966880,
+        "request_ack_ns": 1790579584879077272,
+        "request_end_ns": 1790579584879231450,
+        "worker_id": "worker_af286250",
+        "record_processor_id": "record_processor_a50b86a2",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 1,
+        "parent_correlation_id": "80c56a60-199a-4ad1-a866-b7ad7d2908ac",
+        "root_correlation_id": "80c56a60-199a-4ad1-a866-b7ad7d2908ac"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 598292,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "session_num": 303,
+        "x_request_id": "46e993bd-7eae-44b0-b679-9807a7242cfa",
+        "x_correlation_id": "e28bc73b-e739-4a27-86d0-13aaf9249e86",
+        "conversation_id": "05f72f78a037cfa5cd4e4541960a574701d9",
+        "turn_index": 50,
+        "source_trace_id": "05f72f78a037cfa5cd4e4541960a574701d9",
+        "source_outer_idx": 50,
+        "source_kind": "weka_main",
+        "credit_issued_ns": 1790579413744894352,
+        "request_start_ns": 1790579413746419182,
+        "request_ack_ns": 1790579624051771293,
+        "request_end_ns": 1790579624051905731,
+        "worker_id": "worker_881bffc4",
+        "record_processor_id": "record_processor_abdbe227",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 0,
+        "root_correlation_id": "e28bc73b-e739-4a27-86d0-13aaf9249e86"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 120821,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "session_num": 878,
+        "x_request_id": "d22ad258-522c-4e7d-a428-454b4d7e5664",
+        "x_correlation_id": "b6a644fc-dd0b-454f-8e3a-80b552d75c64",
+        "conversation_id": "279424d0e53192cde462be8d39c23b52b977",
+        "turn_index": 247,
+        "source_trace_id": "279424d0e53192cde462be8d39c23b52b977",
+        "source_outer_idx": 261,
+        "source_kind": "weka_main",
+        "credit_issued_ns": 1790579840160510078,
+        "request_start_ns": 1790579840165468939,
+        "request_ack_ns": 1790579843387773357,
+        "request_end_ns": 1790579843387924295,
+        "worker_id": "worker_ab46667f",
+        "record_processor_id": "record_processor_4ba925fb",
+        "benchmark_phase": "warmup",
+        "was_cancelled": false,
+        "context_overflow_skip": false,
+        "agent_depth": 0,
+        "root_correlation_id": "b6a644fc-dd0b-454f-8e3a-80b552d75c64"
+      },
+      "metrics": {
+        "error_isl": {
+          "value": 556909,
+          "unit": "tokens"
+        }
+      },
+      "error": {
+        "type": "InvalidInferenceResultError",
+        "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+        "cause_chain": [
+          "InvalidInferenceResultError"
+        ]
+      }
+    }
+  ],
+  "engine": {
+    "651323f6-e73a-4f55-b338-1b7c1c4bbd86": {
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790579348648056458,
+        "mono_ns": 795211067474585,
+        "role": "prefill",
+        "pid": 1169,
+        "dp_rank": 2,
+        "tp_rank": 2,
+        "rid": "651323f6-e73a-4f55-b338-1b7c1c4bbd86",
+        "room": "6202791812814107882",
+        "input_tokens": 581047,
+        "output_tokens": 1,
+        "cached_device": 0,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 794470.661704755,
+          "wait_queue_entry_time": 794470.662335132,
+          "forward_entry_time": 795006.370509857,
+          "prefill_finished_time": 795210.809549731,
+          "completion_time": 795211.067096628,
+          "bootstrap_done_time": 794470.662332052,
+          "prefill_bootstrap_queue_entry_time": 794470.661828432,
+          "prefill_transfer_queue_entry_time": 795210.854283766,
+          "prefill_kv_transfer_finish_time": 795211.066919329,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790579348638528315,
+        "mono_ns": 3636327527198170,
+        "role": "decode",
+        "pid": 1899,
+        "dp_rank": 5,
+        "tp_rank": 5,
+        "rid": "651323f6-e73a-4f55-b338-1b7c1c4bbd86",
+        "room": "6202791812814107882",
+        "input_tokens": 581047,
+        "output_tokens": 1,
+        "cached_device": 0,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 2,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 3635575.26028096,
+          "wait_queue_entry_time": 3636327.525782653,
+          "forward_entry_time": 3636327.526831616,
+          "prefill_finished_time": 0.0,
+          "completion_time": 3636327.526831616,
+          "bootstrap_done_time": 3635575.260709104,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 3635575.260583416,
+          "decode_transfer_queue_entry_time": 3635575.261996713
+        }
+      }
+    },
+    "596a6706-b564-434f-9663-fd4ac8c35635": {
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790579585928937744,
+        "mono_ns": 795448348355871,
+        "role": "prefill",
+        "pid": 1169,
+        "dp_rank": 2,
+        "tp_rank": 2,
+        "rid": "596a6706-b564-434f-9663-fd4ac8c35635",
+        "room": "2220648459845716210",
+        "input_tokens": 598292,
+        "output_tokens": 1,
+        "cached_device": 598080,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 795408.847393346,
+          "wait_queue_entry_time": 795442.977016034,
+          "forward_entry_time": 795442.980950349,
+          "prefill_finished_time": 795446.721722362,
+          "completion_time": 795448.347935697,
+          "bootstrap_done_time": 795442.976989594,
+          "prefill_bootstrap_queue_entry_time": 795408.847747012,
+          "prefill_transfer_queue_entry_time": 795446.746020955,
+          "prefill_kv_transfer_finish_time": 795448.347743779,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790579584599870789,
+        "mono_ns": 3636563488540844,
+        "role": "decode",
+        "pid": 2519,
+        "dp_rank": 7,
+        "tp_rank": 7,
+        "rid": "596a6706-b564-434f-9663-fd4ac8c35635",
+        "room": "2220648459845716210",
+        "input_tokens": 598292,
+        "output_tokens": 1,
+        "cached_device": 598080,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 2,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 3636524.11316431,
+          "wait_queue_entry_time": 3636563.487224865,
+          "forward_entry_time": 3636563.488197039,
+          "prefill_finished_time": 0.0,
+          "completion_time": 3636563.488197039,
+          "bootstrap_done_time": 3636524.113465165,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 3636524.113378756,
+          "decode_transfer_queue_entry_time": 3636559.115589755
+        }
+      }
+    },
+    "4e70a06f-ba29-41e9-9b2b-6ec904a386a9": {
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790579477645636118,
+        "mono_ns": 795340065054335,
+        "role": "prefill",
+        "pid": 1869,
+        "dp_rank": 5,
+        "tp_rank": 5,
+        "rid": "4e70a06f-ba29-41e9-9b2b-6ec904a386a9",
+        "room": "4714666769293344381",
+        "input_tokens": 699701,
+        "output_tokens": 1,
+        "cached_device": 696192,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 795332.317699332,
+          "wait_queue_entry_time": 795332.318041687,
+          "forward_entry_time": 795333.635994632,
+          "prefill_finished_time": 795338.538499157,
+          "completion_time": 795340.064767035,
+          "bootstrap_done_time": 795332.318039137,
+          "prefill_bootstrap_queue_entry_time": 795332.31783822,
+          "prefill_transfer_queue_entry_time": 795338.563525956,
+          "prefill_kv_transfer_finish_time": 795340.064680295,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790579476629816051,
+        "mono_ns": 3636455518485986,
+        "role": "decode",
+        "pid": 742,
+        "dp_rank": 0,
+        "tp_rank": 0,
+        "rid": "4e70a06f-ba29-41e9-9b2b-6ec904a386a9",
+        "room": "4714666769293344381",
+        "input_tokens": 699701,
+        "output_tokens": 1,
+        "cached_device": 696192,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 5,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 3636444.632738275,
+          "wait_queue_entry_time": 3636455.517457873,
+          "forward_entry_time": 3636455.51827671,
+          "prefill_finished_time": 0.0,
+          "completion_time": 3636455.51827671,
+          "bootstrap_done_time": 3636444.633117329,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 3636444.63300651,
+          "decode_transfer_queue_entry_time": 3636444.634662014
+        }
+      }
+    },
+    "46e993bd-7eae-44b0-b679-9807a7242cfa": {
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790579625899825107,
+        "mono_ns": 795488319243234,
+        "role": "prefill",
+        "pid": 719,
+        "dp_rank": 0,
+        "tp_rank": 0,
+        "rid": "46e993bd-7eae-44b0-b679-9807a7242cfa",
+        "room": "9111814921001120176",
+        "input_tokens": 120821,
+        "output_tokens": 1,
+        "cached_device": 119104,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 795277.991659835,
+          "wait_queue_entry_time": 795277.992663451,
+          "forward_entry_time": 795482.71964807,
+          "prefill_finished_time": 795486.272683688,
+          "completion_time": 795488.318844318,
+          "bootstrap_done_time": 795277.992649912,
+          "prefill_bootstrap_queue_entry_time": 795277.992083579,
+          "prefill_transfer_queue_entry_time": 795486.275595011,
+          "prefill_kv_transfer_finish_time": 795488.318768089,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790579624052568728,
+        "mono_ns": 3636602941238833,
+        "role": "decode",
+        "pid": 1180,
+        "dp_rank": 2,
+        "tp_rank": 2,
+        "rid": "46e993bd-7eae-44b0-b679-9807a7242cfa",
+        "room": "9111814921001120176",
+        "input_tokens": 120821,
+        "output_tokens": 1,
+        "cached_device": 119104,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 0,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 3636392.899347542,
+          "wait_queue_entry_time": 3636602.939718348,
+          "forward_entry_time": 3636602.94084041,
+          "prefill_finished_time": 0.0,
+          "completion_time": 3636602.94084041,
+          "bootstrap_done_time": 3636392.899730036,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 3636392.899625917,
+          "decode_transfer_queue_entry_time": 3636392.900415605
+        }
+      }
+    },
+    "d22ad258-522c-4e7d-a428-454b4d7e5664": {
+      "prefill": {
+        "event": "request_summary",
+        "wall_ns": 1790579843517874474,
+        "mono_ns": 795705937292571,
+        "role": "prefill",
+        "pid": 989,
+        "dp_rank": 1,
+        "tp_rank": 1,
+        "rid": "d22ad258-522c-4e7d-a428-454b4d7e5664",
+        "room": "7824355866301975785",
+        "input_tokens": 556909,
+        "output_tokens": 1,
+        "cached_device": 555456,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": null,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 795703.968086211,
+          "wait_queue_entry_time": 795703.968652605,
+          "forward_entry_time": 795703.971945395,
+          "prefill_finished_time": 795705.305042329,
+          "completion_time": 795705.936816586,
+          "bootstrap_done_time": 795703.968639855,
+          "prefill_bootstrap_queue_entry_time": 795703.968454647,
+          "prefill_transfer_queue_entry_time": 795705.322528781,
+          "prefill_kv_transfer_finish_time": 795705.936664688,
+          "decode_prealloc_queue_entry_time": 0.0,
+          "decode_transfer_queue_entry_time": 0.0
+        }
+      },
+      "decode": {
+        "event": "request_summary",
+        "wall_ns": 1790579843181274490,
+        "mono_ns": 3636822069944305,
+        "role": "decode",
+        "pid": 742,
+        "dp_rank": 0,
+        "tp_rank": 0,
+        "rid": "d22ad258-522c-4e7d-a428-454b4d7e5664",
+        "room": "7824355866301975785",
+        "input_tokens": 556909,
+        "output_tokens": 1,
+        "cached_device": 555456,
+        "cached_host": 0,
+        "cached_storage": 0,
+        "prefill_dp_rank": 1,
+        "attempts": 0,
+        "times": {
+          "scheduler_recv_time": 3636820.285443012,
+          "wait_queue_entry_time": 3636822.068960411,
+          "forward_entry_time": 3636822.069700059,
+          "prefill_finished_time": 0.0,
+          "completion_time": 3636822.069700059,
+          "bootstrap_done_time": 3636820.285841256,
+          "prefill_bootstrap_queue_entry_time": 0.0,
+          "prefill_transfer_queue_entry_time": 0.0,
+          "prefill_kv_transfer_finish_time": 0.0,
+          "decode_prealloc_queue_entry_time": 3636820.285704258,
+          "decode_transfer_queue_entry_time": 3636820.28682417
+        }
+      }
+    }
+  },
+  "note": "Same InvalidInferenceResultError class as prior single-token warmup errors; individual output token IDs not retained, so exact token cause is not asserted."
+}

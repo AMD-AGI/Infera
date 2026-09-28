@@ -1,0 +1,5 @@
+{
+  "path": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/config/client-constraints.txt",
+  "sha256": "188fafce275906b90104cb43aefe3092ddc13d52700d958e8ccffc7bc80ed5f5",
+  "scope": "uv dependency installation before benchmark; no request/scheduling changes"
+}

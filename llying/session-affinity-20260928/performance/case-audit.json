@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "checks": {
+    "completed_3600s": true,
+    "client_config_comparison": true,
+    "session_header_enabled": true,
+    "preflight_config_and_binding": true,
+    "all_completed_requests_paired": true,
+    "no_profile_errors": true,
+    "same_p_rank_for_repeated_sessions": true,
+    "prefill_release_separated": true,
+    "prefill_release_coverage": true,
+    "engine_identity_unchanged": true,
+    "model_metadata_matches_g0": true,
+    "formal_resource_samples": true
+  },
+  "coverage": {
+    "client_records": 10252,
+    "joined_prefill": 10252,
+    "joined_decode": 10252,
+    "paired": 10252,
+    "sent_by_runner": 10266,
+    "unexported_requests": 14,
+    "paired_fraction_of_sent": 0.9986362750827976
+  },
+  "warmup_error_records": 5,
+  "boundary_cancellations": 14,
+  "sampling_accounting": {
+    "C80/profiling/prefill/scrape_samples": 1788,
+    "C80/profiling/decode/scrape_samples": 1788,
+    "C80/profiling/router/scrape_samples": 1788,
+    "C80/profiling/prefill/scrape_errors": 6,
+    "C80/profiling/decode/scrape_errors": 6,
+    "C80/profiling/prefill/node_samples": 719,
+    "C80/profiling/decode/node_samples": 719
+  },
+  "limitations": [
+    "Historical control on a different D node; single experiment is not an independent replication.",
+    "Warmup resource coverage is partial; formal resource coverage is retained.",
+    "Metadata hash check does not hash all weight shards.",
+    "P/D waits overlap and are not additive."
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "time": "2026-09-28T08:29:16.898907+00:00",
+  "nodes": {
+    "smci355-ccs-aus-n10-29": {
+      "cards": {
+        "card0": {
+          "vram_percent": 60.00409625342493,
+          "gpu_use": "0"
+        },
+        "card1": {
+          "vram_percent": 60.15058592690304,
+          "gpu_use": "0"
+        },
+        "card2": {
+          "vram_percent": 60.14854998669022,
+          "gpu_use": "0"
+        },
+        "card3": {
+          "vram_percent": 60.142377259694946,
+          "gpu_use": "0"
+        },
+        "card4": {
+          "vram_percent": 60.060037585284306,
+          "gpu_use": "0"
+        },
+        "card5": {
+          "vram_percent": 59.969042846885,
+          "gpu_use": "0"
+        },
+        "card6": {
+          "vram_percent": 59.973791607888884,
+          "gpu_use": "0"
+        },
+        "card7": {
+          "vram_percent": 60.09972451092928,
+          "gpu_use": "0"
+        }
+      },
+      "kfd_returncode": 1,
+      "kfd_stdout": "",
+      "kfd_stderr": ""
+    },
+    "smci355-ccs-aus-n03-33": {
+      "cards": {
+        "card0": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        },
+        "card1": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        },
+        "card2": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        },
+        "card3": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        },
+        "card4": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        },
+        "card5": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        },
+        "card6": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        },
+        "card7": {
+          "vram_percent": 0.09629189188730942,
+          "gpu_use": "0"
+        }
+      },
+      "kfd_returncode": 1,
+      "kfd_stdout": "",
+      "kfd_stderr": ""
+    }
+  },
+  "all_released": false
+}

@@ -1,0 +1,60 @@
+{
+  "prefill": {
+    "unchanged": true,
+    "pids": [
+      719,
+      989,
+      1169,
+      1348,
+      1562,
+      1869,
+      2147,
+      2494
+    ],
+    "startup_time": {
+      "load_weight": 23.482030867016874,
+      "kv_cache_allocation": 1.5214108270592988,
+      "scheduler_e2e": 375.8404831610387,
+      "cuda_graph": {
+        "prefill": 0.0,
+        "decode": 0.0,
+        "target_verify": 0.0,
+        "draft_prefill": 0.0,
+        "draft_decode": 0.0,
+        "draft_extend": 0.0
+      },
+      "tokenizer_e2e": 403.24247995298356
+    },
+    "chunk": 4096,
+    "hicache": true
+  },
+  "decode": {
+    "unchanged": true,
+    "pids": [
+      742,
+      1033,
+      1180,
+      1335,
+      1588,
+      1899,
+      2204,
+      2519
+    ],
+    "startup_time": {
+      "load_weight": 408.72265917016193,
+      "kv_cache_allocation": 1.3180274730548263,
+      "scheduler_e2e": 583.6729913530871,
+      "cuda_graph": {
+        "prefill": 0.0,
+        "decode": 0.0,
+        "target_verify": 112.32967425882816,
+        "draft_prefill": 0.0,
+        "draft_decode": 9.114592040888965,
+        "draft_extend": 3.0563488476909697
+      },
+      "tokenizer_e2e": 601.115611772053
+    },
+    "chunk": 4096,
+    "hicache": false
+  }
+}

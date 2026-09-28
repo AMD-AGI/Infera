@@ -1,0 +1,37 @@
+[
+  {
+    "node": "smci355-ccs-aus-n10-29",
+    "containers": [
+      "llying-session-31999-perf-prefill-0"
+    ],
+    "requested_at": "2026-09-28T08:19:11.172384+00:00",
+    "returned_at": "2026-09-28T08:19:51.018080+00:00",
+    "returncode": 0,
+    "stdout": "llying-session-31999-perf-prefill-0\n",
+    "stderr": ""
+  },
+  {
+    "node": "smci355-ccs-aus-n03-33",
+    "containers": [
+      "llying-session-31999-decode-0"
+    ],
+    "requested_at": "2026-09-28T08:19:51.021907+00:00",
+    "returned_at": "2026-09-28T08:20:04.740247+00:00",
+    "returncode": 0,
+    "stdout": "llying-session-31999-decode-0\n",
+    "stderr": ""
+  },
+  {
+    "node": "smci355-ccs-aus-n10-29",
+    "containers": [
+      "llying-session-31999-perf-router",
+      "llying-session-31999-perf-collector",
+      "llying-session-31999-etcd"
+    ],
+    "requested_at": "2026-09-28T08:20:04.744065+00:00",
+    "returned_at": "2026-09-28T08:20:05.832644+00:00",
+    "returncode": 0,
+    "stdout": "llying-session-31999-perf-router\nllying-session-31999-perf-collector\nllying-session-31999-etcd\n",
+    "stderr": ""
+  }
+]

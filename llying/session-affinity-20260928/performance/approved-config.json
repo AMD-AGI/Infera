@@ -74,7 +74,7 @@
     "speculative_eagle_topk": 1,
     "speculative_num_draft_tokens": 6
   },
-  "status": "EXECUTED_COMPLETE",
+  "status": "AUTHORIZED_AFTER_REVIEW",
   "experiment": "R1 + Prefill session affinity C80 4K",
   "baseline": {
     "name": "G0 R1-only overlap20",
@@ -98,7 +98,7 @@
   },
   "only_policy_change_vs_G0": "Enable P session affinity, idle TTL 3600; send stable session ID header. First selection stays legacy; R1 kept, R2/R3/R4 off, weights20/2.",
   "capacity_note": "max_total_num_tokens are historical reference values, not forced launch overrides; check actual capacity and investigate material drift",
-  "runtime_note": "Full performance run completed 2026-09-28, 07:17:40.481–08:17:40.481 UTC sending window. Services stopped, user allocation retained. See PERFORMANCE.zh-CN.md and performance/CURRENT.json.",
+  "runtime_note": "Review completed; P restarting with HiCache. D reused. Client environment explicitly forwards session header switch.",
   "client_env": {
     "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
   },

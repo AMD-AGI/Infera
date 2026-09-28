@@ -1,0 +1,1 @@
+Initial attempt observers ended before workload. On client retry the output-exists check prevented new observers. Independent recovery started around 2026-09-28 07:08 UTC during warmup, before formal profiling. Warmup resource coverage is partial. Request diagnostics and client records were retained; do not fill missing samples with zero.

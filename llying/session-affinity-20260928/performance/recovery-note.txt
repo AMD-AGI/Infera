@@ -1,0 +1,1 @@
+First client startup stopped before sending workload: shared Python and constraint-file mounts were missing. Services were preserved. Mounts and persistent Python location corrected; client environment rebuilt; failed startup saved under client-startup-attempt1.
