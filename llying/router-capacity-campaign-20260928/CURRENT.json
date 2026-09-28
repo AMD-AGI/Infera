@@ -1,6 +1,6 @@
 {
-  "updated_utc": "2026-09-28T13:30:23.882050+00:00",
-  "stage": "B1_WARMUP",
+  "updated_utc": "2026-09-28T13:54:32.714860+00:00",
+  "stage": "B1_PROFILING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b1-dynamo-p",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b1.sh",
