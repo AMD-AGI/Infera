@@ -13,7 +13,7 @@
   - 约 1–1.5 ms 与 HiCache 流量无关：流量最低的时段也存在。
   - 约 0.5–1 ms 随写入、加载和淘汰量增加。
   - 写入带宽只有每卡约 110 MB/s，拷贝本身占不了多少 GPU。
-  - 两部分的具体来源尚未确认，正在用 py-spy 做定位实验（见"下一步"）。
+  - py-spy 显示 HiCache 代码只占 decode 调度线程约 0.3% 的时间，调度线程约 89% 的时间在等 GPU。所以多出的时间落在 GPU 时间线上，不是 CPU 开销。随流量增长的部分可以用拷贝 kernel 抢资源、rank 间互相等待来解释；固定部分还没有找到机制，其中可能有一部分是单次运行的波动。
 - **换写策略解决不了主要问题。** write_back 和 write_through_selective 只改变写主机的时机和写入量，影响不到与流量无关的那部分开销。write_back 还会把写入变成调度线程上的同步操作。分析见"三种写策略"一节。
 - **prefill 首次编译 tilelang kernel 造成的卡顿，对结果影响可以忽略。** 采样期间受影响的请求不到 1%，TTFT 增加 0.3%–1%。
 - **三组采样期间都没有出错。** A 组 3 个、C 组 5 个错误，都是 warmup 阶段（max_tokens=1）的 `InvalidInferenceResultError`。
@@ -130,14 +130,14 @@ C 的 AgentX 运行约 86 分钟，共写主机 2.28 TB，折合每卡约 110 MB
 - 从 Q1 到 Q4，C 的残差比 B 多涨约 1 ms：这部分随流量增长。
 - Q4 的残差均值，C 为 +15～18 ms，B 为 +11 ms，说明两组都有长卡顿，C 稍多。
 
-### 4. 可能的来源（待 py-spy 确认）
+### 4. 最初的假设：CPU 侧开销
 
 - **每轮调度的固定工作。** 开启 decode HiCache 后，调度器每一轮都会调用 `UnifiedRadixCache.check_hicache_events()`（注释："Called per scheduler step"）：先 `flush_pending_backups()`，再在 tp group（4 个 DP rank）上做一次 CPU all_reduce，汇总各 rank 已完成的写入和加载数（`_sync_hicache_ready_counts`），然后处理确认。无论有没有流量、用哪种写策略，这一步每轮都会执行。
 - **加载完成检查。** 恢复流程中，`is_load_back_event_done()` 在本地加载完成时会调用 `loading_check()`，而后者内含 all_reduce。这部分只在有请求从主机加载时才会发生。
 - **写入时调度线程上的 CPU 工作。** write_through 每次插入都要分配主机内存并发起拷贝。主机池满了以后，还要先在主机上淘汰旧节点。这些都在调度线程上执行。
 - **radix 树变大。** 只存在于主机上的节点也留在树里，所以匹配、淘汰和更新叶子状态时要遍历更多节点。
 
-### 5. py-spy 定位结果（2026-09-28）：以上三条都不是主因
+### 5. py-spy 定位结果（2026-09-28）：CPU 侧的假设都不成立
 
 实验：C-diag（配置同 C，采样 900 秒），在采样开始后第 3 分钟和第 9 分钟，对 4 个 decode 调度进程各采样 90 秒。py-spy 参数为 `--idle --nonblocking`，100 Hz，共 72k 个主线程样本。汇总见 [evidence/diag/c-diag-pyspy-summary.txt](evidence/diag/c-diag-pyspy-summary.txt)，原始数据在 `evidence/diag/c-diag-pyspy/`。
 
@@ -149,7 +149,7 @@ C 的 AgentX 运行约 86 分钟，共写主机 2.28 TB，折合每卡约 110 MB
 | 全部 HiCache 相关代码：`check_hicache_events`、`_sync_hicache_ready_counts`、`writing_check`、`loading_check`、`init_load_back`、`_process_hicache_local_restores`、`evict_host` | 0.07–0.49%，合计约 0.3% |
 
 - **调度线程约 89% 的时间在等 GPU 或集合通信。** 真正忙于 CPU 计算的时间只有约 11%。
-- **HiCache 在调度线程上的开销，按每步 45–50 ms 算，只有约 0.15 ms。** 这远小于要找的 1–1.5 ms，所以"每轮 all_reduce"和"主机淘汰占用 CPU"都不是主因。
+- **HiCache 在调度线程上的开销，按每步 45–50 ms 算，只有约 0.15 ms。** 这远小于要找的 1–1.5 ms，所以第 4 节列出的 CPU 侧来源都不是主因。
 - **因此，多出的时间落在 GPU 时间线上。** overlap 调度下，调度线程在 `resolve_seq_lens_cpu` 里等 forward stream 完成，所以单步耗时约等于 GPU 时间线的长度。这段时间包括 kernel 计算，也包括 GPU 的等待：跨 stream 的事件等待，以及 DP attention 和 MoE 中各 rank 之间的集合通信等待。**"GPU 算得变慢"只是其中一种可能**，目前的数据还分不开。
 - **有机制可以解释的部分（随流量增长）：**
   - **拷贝 kernel 与 decode kernel 抢资源。** `kernel` io 后端配 `page_first` 布局时，写主机和从主机加载都由 GPU kernel 完成（`transfer_kv_all_layer_mla_lf_pf`、`transfer_kv_per_layer_mla_pf_lf`），不走 DMA 引擎。它们跑在单独的 stream 上，与 decode 并发，会占用 CU 和 HBM 带宽。
@@ -199,7 +199,6 @@ prefill 第一次遇到某个 query token 档位时，要现场编译 tilelang �
   - 如果 C 仍然不如 B，或者只是持平：decode 只开 radix，这个排查到此结束。
   - 如果 C 明显领先：再用 torch profiler 在 GPU 层面对比 B 和 C，追查根因。
 - **upstream：** 不自行提交，持续跟踪 [#40857](https://github.com/sgl-project/sglang/pull/40857) 和 [#38292](https://github.com/sgl-project/sglang/pull/38292)。
-- 两次排队时都遇到 GPU 被占用：09-28 08:08 起 135 的 GPU 4–7 被别人的 SGLang 任务占用，09:45 起 138 的 GPU 2–3 也被占用。我们的拓扑固定为 135 和 138 的 GPU 2–5：rail 按 GPU 编号物理隔离，其他节点要么在用，要么没有 docker。
 - 如需确认 B 与 A 之间约 3% 的差距，每组再重复一次。
 
 ## 复现
@@ -215,9 +214,9 @@ python3 $S/decode_step_equal_load.py \
     19:33:25 20:34:17 $E/a-perf-launch/server-logs/decode-0.log \
     13:49:11 14:51:12 $E/b-perf-launch/server-logs/decode-0.log \
     17:55:29 18:56:11 $E/c-perf-launch/server-logs/decode-0.log
-# server_metrics_export.json 约 1.4 GB，在计算节点上解析
+# server_metrics_export.json.gz 解压后约 1.4 GB，在计算节点上解析
 for a in a b c; do python3 $S/server_metrics_extract.py \
-    $E/$a-perf-agentx-c40/aiperf_artifacts/server_metrics_export.json $a-perf $E/server-metrics-$a-perf.csv; done
+    $E/$a-perf-agentx-c40/aiperf_artifacts/server_metrics_export.json.gz $a-perf $E/server-metrics-$a-perf.csv; done
 python3 $S/hicache_step_overhead.py $E/server-metrics-b-perf.csv $E/server-metrics-c-perf.csv
 python3 $S/compile_stall_impact.py $E/<组>-perf-agentx-c40/aiperf_artifacts/profile_export.jsonl \
     $E/<组>-perf-launch/server-logs/prefill-0.log
