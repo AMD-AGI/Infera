@@ -1,0 +1,77 @@
+diff -ru a/infera/engine/sglang/args.py b/infera/engine/sglang/args.py
+--- a/infera/engine/sglang/args.py	2026-09-24 08:14:44.704631744 +0000
++++ b/infera/engine/sglang/args.py	2026-09-24 08:15:05.953473145 +0000
+@@ -19,6 +19,10 @@
+ #: publishes no ``BlockStored`` chain and no ``AllBlocksCleared``.
+ _DECODE_RADIX_CACHE_FLAG = "--disaggregation-decode-enable-radix-cache"
+ 
++#: Opt-in shared with the SGLang decode-radix-spec patch, which accepts
++#: :data:`_DECODE_RADIX_CACHE_FLAG` under EAGLE/NEXTN with topk 1 when it is "1".
++_DECODE_RADIX_SPEC_ENV = "SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC"
++
+ 
+ @dataclass(kw_only=True)
+ class SglangWorkerArgs:
+@@ -304,17 +308,24 @@
+         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
+         and _DECODE_RADIX_CACHE_FLAG not in remaining
+     ):
+-        # SGLang rejects this flag under speculative decoding, so appending it
+-        # kills an EAGLE/MTP decode leg at parse time. Skipping it costs only the
+-        # decode-side KV view; prefix-aware routing runs on the prefill one.
+-        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
++        # Stock SGLang rejects this flag under speculative decoding, so appending
++        # it kills an EAGLE/MTP decode leg at parse time. Skipping it costs only
++        # the decode-side KV view; prefix-aware routing runs on the prefill one.
++        # An SGLang carrying the decode-radix-spec patch accepts it behind
++        # _DECODE_RADIX_SPEC_ENV, and then the flag is appended as usual.
++        if (
++            getattr(sglang_parsed, "speculative_algorithm", None) is not None
++            and os.environ.get(_DECODE_RADIX_SPEC_ENV, "0") != "1"
++        ):
+             logger.info(
+                 "kv-events on, but --disaggregation-decode-enable-radix-cache is "
+                 "incompatible with --speculative-algorithm %s; not appending it. "
+                 "The decode leg will use SGLang's chunk cache and contribute "
+                 "little to the router KV view; prefix-aware routing runs on the "
+-                "prefill-side view.",
++                "prefill-side view. %s=1 opts in on an SGLang that carries the "
++                "decode-radix-spec patch.",
+                 sglang_parsed.speculative_algorithm,
++                _DECODE_RADIX_SPEC_ENV,
+             )
+         else:
+             # Same story for the rest of SGLang's rejection set, the hybrid
+diff -ru a/tests/engine/sglang/test_decode_radix_cache_guard.py b/tests/engine/sglang/test_decode_radix_cache_guard.py
+--- a/tests/engine/sglang/test_decode_radix_cache_guard.py	2026-09-24 08:15:14.030412860 +0000
++++ b/tests/engine/sglang/test_decode_radix_cache_guard.py	2026-09-24 08:15:20.782362464 +0000
+@@ -74,6 +74,29 @@
+     assert argv.count(_FLAG) == 1
+ 
+ 
++_MTP = ["--speculative-algorithm", "EAGLE", "--speculative-eagle-topk", "1"]
++
++
++def test_skips_under_speculative_decoding_by_default(monkeypatch):
++    _reason(monkeypatch, None)
++    monkeypatch.delenv(args_mod._DECODE_RADIX_SPEC_ENV, raising=False)
++    assert _FLAG not in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
++
++
++def test_appends_under_speculative_decoding_when_opted_in(monkeypatch):
++    """The opt-in is shared with the patched SGLang hook, which then accepts
++    the flag; without that patch SGLang still raises, as the default expects."""
++    _reason(monkeypatch, None)
++    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
++    assert _FLAG in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
++
++
++def test_the_opt_in_does_not_override_a_model_rejection(monkeypatch):
++    _reason(monkeypatch, "Mamba/SSM")
++    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
++    assert _FLAG not in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
++
++
+ def test_prefill_leg_is_untouched(monkeypatch):
+     _reason(monkeypatch, None)
+     prefill = [*_DECODE[:-4], "--disaggregation-mode", "prefill", *_DECODE[-2:]]

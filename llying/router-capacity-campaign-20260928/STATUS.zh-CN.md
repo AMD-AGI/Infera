@@ -2,7 +2,7 @@
 
 用户于2026-09-28授权按实验方案自主执行，并要求持续保存提交、仔细review代码（方案正确、逻辑自洽、代码正确简洁、注释简洁）。
 
-状态：开始实施P首次选择策略；现有分析已归档。方案见 ../session-affinity-20260928/followup-analysis/NEXT-EXPERIMENT-PLAN.zh-CN.md。
+状态：P评分已实现并review，292项单元测试、26项HTTP、4项ZMQ、14项render验证通过；release已构建，P/D无HiCache smoke引擎正在启动。代码提交19a6c1d2。方案见 ../session-affinity-20260928/followup-analysis/NEXT-EXPERIMENT-PLAN.zh-CN.md。
 
 固定条件：R1、P会话亲和、fusion开启、IndexShare关闭、C80及既有数据/模拟接受率口径。按阶段验证P首次选择、D radix、D亲和、Triton，再比较P8D8、P8D4、2P8D8、4P4D8。D HiCache/R4默认关闭。
 
