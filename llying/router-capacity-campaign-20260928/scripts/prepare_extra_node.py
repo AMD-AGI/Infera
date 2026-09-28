@@ -63,7 +63,15 @@ try:
         if len([k for k in gpu if k.startswith('card')])==8 and all(int(gpu[f'card{i}']['VRAM Total Used Memory (B)'])/int(gpu[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in range(8)):break
         time.sleep(5)
     else:raise RuntimeError('allocated node GPUs remain occupied; no foreign process was stopped')
-    if a.isolated_smoke:
+    do_smoke=False
+    current=Path('/home/liyingli/code/bench_agentx/Infera/llying/router-capacity-campaign-20260928/CURRENT.json')
+    if a.isolated_smoke and current.exists():
+        state=json.loads(current.read_text())
+        window=state.get('profile_window_utc',[])
+        if state.get('stage','').endswith('PROFILING') and len(window)==2:
+            end=datetime.datetime.fromisoformat(window[1].replace('Z','+00:00'))
+            do_smoke=(end-datetime.datetime.now(datetime.timezone.utc)).total_seconds()>600
+    if do_smoke:
         prefix=f'llying-campaign-extra-{a.job}';run=ROOT/'runs'/f'extra-prep-{a.job}';run.mkdir(parents=True,exist_ok=True)
         config=ROOT/'config'/f'extra-prep-{a.job}.sh'
         config.write_text(f'''source {ROOT}/config/b1-smoke.sh
@@ -88,7 +96,7 @@ try:
             if all(int(gpu[f'card{i}']['VRAM Total Used Memory (B)'])/int(gpu[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in range(8)):break
             time.sleep(5)
         else:raise RuntimeError('isolated prefill VRAM release timed out')
-    save('PREPARED',gpu_memory=gpu_state(node),isolated_smoke=a.isolated_smoke)
+    save('PREPARED',gpu_memory=gpu_state(node),isolated_smoke=do_smoke)
 except BaseException as exc:
     save('FAILED',error=str(exc))
     raise
