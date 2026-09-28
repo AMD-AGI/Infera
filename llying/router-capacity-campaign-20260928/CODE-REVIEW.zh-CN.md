@@ -8,3 +8,5 @@
 - 多 worker 捕获按独立诊断目录读取，记录 source_worker/source_node；请求分析按 worker + DP rank 分组。节点资源每台机器只采一次，GPU 利用率与吞吐分母按实际 worker 配置记录。
 
 后续每个点仍需运行时验证：配置、实际 rank/worker、真实接受率下已知答案、MTP 模拟值、有效 chunk 4096、fusion 开启、IndexShare 关闭、进程身份稳定，以及正式窗口错误和取消记录。静态复核不能替代这些检查。
+
+后续placement切换要求上一正式点存在通过检查的review-ready记录。配置生成器用缺失/失败检查记录验证拒绝，再验证12/24/24卡布局与当前32054作业号，全部通过（临时产物`/tmp/campaign-reviewed-layout-zexkcjoh`）。真实接受率gate仍可直接衔接模拟阶段，正式点则必须先完成请求、进程、GPU分母与D前缀覆盖检查。

@@ -1,12 +1,14 @@
 {
-  "updated_utc": "2026-09-28T19:52:29.638605+00:00",
-  "stage": "RB_WARMUP",
+  "updated_utc": "2026-09-28T20:15:59.485056+00:00",
+  "stage": "RB_PROFILING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/rb.sh",
   "already_running": [
-    "RB C80 runner: 884-request warmup, followed by 3600-second profiling",
-    "allocation watcher for 32054"
+    "RB formal C80, unchanged validated stack",
+    "await-b4-placement.sh: waits for full RB review, then runs B4 real gate and C80",
+    "allocation watcher for 32054",
+    "prepare_extra_node.py --job 32056 waiting for future eligibility"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
@@ -47,13 +49,12 @@
     "third-node preparation with isolated registration"
   ],
   "extra_node_request": {
-    "last_job": 32046,
-    "state": "cancelled after P recovered",
-    "allocated_node": "smci355-ccs-aus-n04-21",
-    "allocated_start_utc": "2026-09-28T18:37:17Z",
-    "cancel_requested_utc": "2026-09-28T18:39:43Z",
-    "gpu_server_started": false,
-    "next": "Schedule a fresh third-node request against R0/B4 progress"
+    "job": 32056,
+    "state": "PENDING, no GPU allocated",
+    "not_before_utc": "2026-09-28T22:25:00Z",
+    "time_limit_hours": 6,
+    "exclusions": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/avoid-nodes.json plus current PD nodes",
+    "reason": "RB formal end + about 75 minutes, allowing export and B4 startup before node preparation. This is eligibility, not a reservation."
   },
   "selected_d": "radix on + both affinity; R2 off",
   "allocation_state": "RUNNING",
@@ -78,5 +79,9 @@
       "formal_started": false
     }
   ],
-  "warmup_start_utc": "2026-09-28T19:48:54Z"
+  "warmup_start_utc": "2026-09-28T19:48:54Z",
+  "profile_window_utc": [
+    "2026-09-28T20:10:22Z",
+    "2026-09-28T21:10:22Z"
+  ]
 }

@@ -62,7 +62,7 @@ try:
         except subprocess.CalledProcessError:
             remote(node,['mkdir','-p',dest]);remote(node,['tar','--no-same-owner','-xf',str(cache),'-C',dest])
         save('COMPILED_CACHE_READY')
-    for _ in range(120):
+    for _ in range(240):
         gpu=gpu_state(node)
         if len([k for k in gpu if k.startswith('card')])==8 and all(int(gpu[f'card{i}']['VRAM Total Used Memory (B)'])/int(gpu[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in range(8)):break
         time.sleep(5)
