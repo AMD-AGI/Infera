@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T17:05:00.751467+00:00",
-  "stage": "B3_WARMUP",
+  "updated_utc": "2026-09-28T17:21:52.602454+00:00",
+  "stage": "B3_PROFILING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b3.sh",
   "already_running": [
-    "B3 run-performance.sh: P/D both affinity; replay loading then warmup/profiling",
+    "B3 formal C80: P/D both affinity, D radix enabled",
     "allocation watcher active"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
@@ -30,9 +30,6 @@
     "k3.play"
   ],
   "remaining": [
-    "Finish B1 C80 and review against same-node prior P affinity baseline",
-    "Select P scoring based on result",
-    "B2 D radix with MTP and D routing unchanged; real-acceptance smoke separately",
     "B3 D affinity; investigate hotspots and conditional R2",
     "B4 Triton P8D8 C80; request third node when prepared and 2-3h ahead",
     "B5 P8D4 C80 (may move after third-node work)",
@@ -53,5 +50,9 @@
     "dry_run_estimate_utc": "2026-09-28T21:51:53Z",
     "status": "queued, not allocated",
     "reason": "Queue forecast is later than expected two-node completion; future eligibility avoids early idle allocation."
-  }
+  },
+  "profile_window_utc": [
+    "2026-09-28T17:15:08Z",
+    "2026-09-28T18:15:08Z"
+  ]
 }
