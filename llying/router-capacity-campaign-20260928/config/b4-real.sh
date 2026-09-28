@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-source /perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b1.sh
+source /perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/recovery-base.sh
 source "$TRACE_RUNTIME/config/selected-p.sh"
 source "$TRACE_RUNTIME/config/selected-d.sh"
 export RUN_ID=campaign-b4-triton-real
 export RUN=$TRACE_RUNTIME/runs/$RUN_ID
 export CONTAINER_PREFIX=llying-campaign-b4-real
-export PREVIOUS_RUN=$TRACE_RUNTIME/runs/campaign-b3-decode-affinity
-export OLD_PREFIX=llying-campaign-b3
+export PREVIOUS_RUN=$TRACE_RUNTIME/runs/campaign-r0-rebaseline
+export BASELINE_RUN=$PREVIOUS_RUN
+export OLD_PREFIX=llying-campaign-r0
 export TOPOLOGY=$TRACE_RUNTIME/config/b4-real.json
 export DSA_PREFILL_BACKEND=triton DSA_DECODE_BACKEND=triton
 export PERSIST_JIT_CACHE=1

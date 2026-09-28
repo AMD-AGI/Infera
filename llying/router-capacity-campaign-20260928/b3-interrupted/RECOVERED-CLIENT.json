@@ -1,6 +1,6 @@
 {
-  "source": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity/c80/aiperf_artifacts/profile_export.jsonl",
-  "provenance": "Recovered client metrics; final exporter and tail diagnostics interrupted by Slurm preemption",
+  "source": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
+  "provenance": "Recovered client metrics, not a replacement official export or complete service validation",
   "sending_window_complete": true,
   "completed": 10308,
   "cancelled": 9,
@@ -12,10 +12,18 @@
   "ttft_mean_s": 6.245211275511544,
   "ttft_p95_s": 17.726085605399994,
   "positive_itl_mean_s": 0.014671475422955488,
-  "validation": "Same calculation reproduces official B2 output TPS, TTFT mean/p95 and rounded ITL mean.",
   "limits": [
-    "No official final agentx_conc80.json or post-run engine identity snapshot.",
-    "Tail diagnostic capture and resource samples stop before the client sending window ends.",
-    "Do not mark this run COMPLETE_REVIEW_PENDING or replace the original failure status."
-  ]
+    "Does not establish final service identity, diagnostic coverage or allocation stability.",
+    "Request records and the client phase-completion log are required; do not infer completion from record count alone."
+  ],
+  "reference_validation": {
+    "source": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix",
+    "matched_official_metrics": [
+      "output_tokens_per_second",
+      "ttft_mean_s",
+      "ttft_p95_s",
+      "positive_itl_mean_s"
+    ],
+    "absolute_tolerance": 5.1e-06
+  }
 }

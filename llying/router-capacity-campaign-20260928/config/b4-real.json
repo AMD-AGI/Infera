@@ -20,12 +20,12 @@
     "bootstrap_port": 28998,
     "kv_port": 25557,
     "snapshot_port": 28801,
-    "allocation_job": 31999
+    "allocation_job": 32053
   },
   {
     "role": "decode",
-    "node": "smci355-ccs-aus-n03-33",
-    "data_ip": "10.235.192.56",
+    "node": "smci355-ccs-aus-n01-21",
+    "data_ip": "10.235.192.130",
     "container": "llying-campaign-b4-real-decode-0",
     "gpu_ids": [
       0,
@@ -43,6 +43,6 @@
     "bootstrap_port": 28999,
     "kv_port": 25558,
     "snapshot_port": 28802,
-    "allocation_job": 31999
+    "allocation_job": 32053
   }
 ]

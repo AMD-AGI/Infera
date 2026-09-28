@@ -1,0 +1,5 @@
+2026-09-28 17:15:08.133 - PhaseRunner - NOTICE - Phase profiling (profiling) started | phase_index=0 | profiling_index=0 | target: 3600.0s duration
+2026-09-28 18:15:08.134 - PhaseRunner - NOTICE - Phase profiling (profiling) sending complete | sent=10,317, completed=10,262, in_flight=55 | sessions: sent=137, completed=77 | timeout_triggered=True
+2026-09-28 18:15:38.133 - PhaseRunner - WARNING - Phase profiling timed out, cancelling all credits. Stats: sent=10317, completed=10308, cancelled=0, in_flight=9
+2026-09-28 18:15:48.135 - PhaseRunner - NOTICE - Phase profiling (profiling) complete | completed=10,308, cancelled=9, errors=0 | sessions: completed=77, cancelled=0 | elapsed=3640.00s | grace_period_timeout=True
+2026-09-28 18:16:11.160 - records_manager - INFO - Profiling metric coverage passed for 'profiling': TTFT=100.0%, inter-token latency=100.0% (required=95.0%).
