@@ -1,0 +1,17 @@
+profiling-window totals: C backup 28.1M, load-back 29.6M, evicted 57.7M tokens; B evicted 62.5M tokens
+C seconds with no backup, load-back or eviction on any rank within +-2 s: 15 of 3640
+B vs its own baseline, by node evicted tokens (request churn proxy)  (n=14280)
+  Q1: traffic       0k-      0k tokens  residual median -0.50 ms  mean +11.42 ms
+  Q2: traffic       0k-      2k tokens  residual median -0.72 ms  mean +3.75 ms
+  Q3: traffic       2k-     19k tokens  residual median +0.88 ms  mean +3.17 ms
+  Q4: traffic      19k-   1591k tokens  residual median +0.47 ms  mean +11.10 ms
+C vs B baseline, by node evicted tokens  (n=14218)
+  Q1: traffic       0k-      0k tokens  residual median +1.03 ms  mean +4.63 ms
+  Q2: traffic       0k-      3k tokens  residual median +1.25 ms  mean +4.13 ms
+  Q3: traffic       3k-     21k tokens  residual median +1.84 ms  mean +4.05 ms
+  Q4: traffic      21k-   2110k tokens  residual median +2.51 ms  mean +15.21 ms
+C vs B baseline, by node backup + load-back tokens  (n=14218)
+  Q1: traffic       0k-      6k tokens  residual median +0.76 ms  mean +2.09 ms
+  Q2: traffic       6k-     12k tokens  residual median +1.65 ms  mean +3.19 ms
+  Q3: traffic      12k-     32k tokens  residual median +1.98 ms  mean +4.50 ms
+  Q4: traffic      32k-   1815k tokens  residual median +2.64 ms  mean +18.23 ms

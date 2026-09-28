@@ -1,0 +1,11 @@
+2026-09-24T13:22:49Z == b-perf launch
+2026-09-24T13:27:03Z == b-perf AgentX C40
+2026-09-24T14:53:30Z b-perf AgentX done (rc=0)
+2026-09-24T14:53:31Z stopping b-perf
+2026-09-24T14:56:33Z GPUs 2-5 released
+2026-09-24T14:56:34Z == c-perf launch
+2026-09-24T15:01:42Z == c-perf AgentX C40
+2026-09-24T15:02:04Z c-perf AgentX FAILED (rc=1); see c-perf-agentx-c40.log
+2026-09-24T15:02:04Z stopping c-perf
+2026-09-24T15:06:15Z GPUs 2-5 released
+2026-09-24T15:06:15Z all arms finished

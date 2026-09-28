@@ -1,0 +1,6 @@
+2026-09-24T19:05:38Z == a-perf launch
+2026-09-24T19:09:52Z == a-perf AgentX C40
+2026-09-24T20:38:01Z a-perf AgentX done (rc=0)
+2026-09-24T20:38:02Z stopping a-perf
+2026-09-24T20:42:05Z GPUs 2-5 released
+2026-09-24T20:42:05Z all arms finished

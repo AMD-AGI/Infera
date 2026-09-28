@@ -1,0 +1,11 @@
+[infera] --router-backend rust: exec /usr/local/bin/infera-router
+2026-09-24T15:01:41.720176Z  INFO infera_router: starting infera-router (rust data plane) cfg=Config { host: "0.0.0.0", port: 28000, etcd_endpoint: "10.245.148.209:22379", etcd_prefix: "/infera/workers/", request_max_retries: 1, breaker_failure_threshold: 3, breaker_cooldown_s: 5.0, breaker_max_cooldown_s: 60.0, router_policy: "kv-aware", pd_dp_rank_affinity: true, discovery_backend: "etcd", k8s_label_selector: None, k8s_namespace: None, request_transport: "http", nats_server: None, kv_event_transport: "zmq", nats_req_idle_timeout_s: 900.0, nats_req_max_duration_s: 0.0, nats_req_max_pending: 0, kv_tokenizer_path: Some("/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4"), kv_default_chat_template_kwargs: None, kv_per_worker_template_kwargs: true, kv_overlap_weight: 1.0, kv_prefill_overlap_weight: Some(20.0), kv_decode_overlap_weight: Some(2.0) }
+2026-09-24T15:01:42.030566Z  INFO infera_router::block_hasher: kv-aware: loaded tokenizer path=/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4/tokenizer.json
+2026-09-24T15:01:42.031852Z  INFO infera_router::block_hasher: kv-aware: loaded standalone chat_template.jinja path=/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4/chat_template.jinja
+2026-09-24T15:01:42.032689Z  INFO infera_router: discovery: etcd at http://10.245.148.209:22379
+2026-09-24T15:01:42.032749Z  INFO infera_router: infera-router listening on http://0.0.0.0:28000
+2026-09-24T15:01:42.034342Z  INFO infera_router::discovery: etcd snapshot: 2 worker(s) under /infera/workers/
+2026-09-24T15:01:42.034574Z  INFO infera_router::kv_event: kv events: subscribing worker=10.245.157.237:29002 ranks=4 endpoint=tcp://10.245.157.237:19687
+2026-09-24T15:01:42.034793Z  INFO infera_router::kv_event: kv events: subscribing worker=10.245.148.209:29001 ranks=4 endpoint=tcp://10.245.148.209:21369
+2026-09-24T15:01:42.057896Z  INFO infera_router::render_probe: kv-aware: render verified against this worker worker=10.245.157.237:29002 model=glm5.2-mxfp4 variant=default detail="matched on 5 probe bodies"
+2026-09-24T15:01:42.081471Z  INFO infera_router::render_probe: kv-aware: render verified against this worker worker=10.245.148.209:29001 model=glm5.2-mxfp4 variant=default detail="matched on 5 probe bodies"

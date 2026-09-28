@@ -1,0 +1,3 @@
+compile event 17:58:33 (profiling): 18 requests waiting, 144.0 request-seconds of TTFT
+compile event 18:09:43 (profiling): 18 requests waiting, 115.9 request-seconds of TTFT
+profiling requests: 4108; touched by a compile: 36 (0.88%); TTFT added: 259.9 s total = 0.063 s per request = 0.99% of summed TTFT (mean TTFT 6.36 s)

@@ -1,0 +1,25 @@
+per-stage request latency, mean ms
+metric                                                    a-perf        b-perf        c-perf
+decode_bootstrap                                          113.49         68.38        261.82
+decode_prepare                                              0.83          0.85          0.78
+decode_transferred                                      11180.97      10044.50       9700.03
+decode_waiting                                              0.12          0.10          0.11
+fake_output                                                36.29         36.81         38.56
+histogram means (native unit)
+metric                                                    a-perf        b-perf        c-perf
+inter_token_latency_seconds                             0.013227      0.013139      0.013896
+time_to_first_token_seconds                               11.692        10.554        10.381
+kv_transfer_alloc_ms                                      113.34         68.24        261.63
+eviction_duration_seconds                                    nan    0.00058446    0.00056534
+hicache_backup_duration_seconds                              nan           nan      0.013828
+load_back_duration_seconds                                   nan           nan       0.25368
+generation_tokens_histogram                               850.97        855.13        872.61
+prompt_tokens_histogram                               1.4842e+05    1.5076e+05    1.4715e+05
+counter deltas
+metric                                                    a-perf        b-perf        c-perf
+evicted_tokens                                                 0     7.218e+07      6.71e+07
+hicache_backup_tokens                                          0             0     4.083e+07
+load_back_tokens                                               0             0     3.506e+07
+hicache_backup_bytes                                           0             0     2.284e+12
+load_back_bytes                                                0             0     1.961e+12
+num_transfer_failed_reqs                                       0             2             0

@@ -1,0 +1,5 @@
+seed: 8/8 correct, delta={'sglang:hicache_backup_tokens_total': 162816.0, 'sglang:evicted_tokens_total': 164032.0, 'sglang:load_back_tokens_total': 0.0, 'sglang:hicache_host_used_tokens': 205632.0}
+flood: 80/80 correct, delta={'sglang:hicache_backup_tokens_total': 1628096.0, 'sglang:evicted_tokens_total': 1693120.0, 'sglang:load_back_tokens_total': 0.0, 'sglang:hicache_host_used_tokens': 1587392.0}
+reuse: 8/8 correct, delta={'sglang:hicache_backup_tokens_total': 512.0, 'sglang:evicted_tokens_total': 162752.0, 'sglang:load_back_tokens_total': 162304.0, 'sglang:hicache_host_used_tokens': 40960.0}
+{"pass": true, "all_correct": true, "no_request_errors": true, "wrote_to_host": true, "evicted_during_flood": true, "loaded_back_on_reuse": true, "reuse_prompt_tokens": 162607, "reuse_load_back_tokens": 162304.0}
+l2 exit=0

@@ -1,0 +1,16 @@
+sglang:hicache_backup_tokens_total{cache_type="UnifiedRadixCache",dp_rank="0",pool="kv",pp_rank="0",tp_rank="0"} 250240.0
+sglang:hicache_backup_tokens_total{cache_type="UnifiedRadixCache",dp_rank="1",pool="kv",pp_rank="0",tp_rank="0"} 241856.0
+sglang:hicache_backup_tokens_total{cache_type="UnifiedRadixCache",dp_rank="2",pool="kv",pp_rank="0",tp_rank="0"} 257792.0
+sglang:hicache_backup_tokens_total{cache_type="UnifiedRadixCache",dp_rank="3",pool="kv",pp_rank="0",tp_rank="0"} 248064.0
+sglang:evicted_tokens_total{cache_type="UnifiedRadixCache",dp_rank="0",pp_rank="0",tp_rank="0"} 50560.0
+sglang:evicted_tokens_total{cache_type="UnifiedRadixCache",dp_rank="1",pp_rank="0",tp_rank="0"} 42048.0
+sglang:evicted_tokens_total{cache_type="UnifiedRadixCache",dp_rank="2",pp_rank="0",tp_rank="0"} 58048.0
+sglang:evicted_tokens_total{cache_type="UnifiedRadixCache",dp_rank="3",pp_rank="0",tp_rank="0"} 48448.0
+sglang:spec_accept_length{dp_rank="2",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="2"} 5.025974025974026
+sglang:spec_accept_length{dp_rank="0",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 6.0
+sglang:spec_accept_length{dp_rank="3",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="3"} 4.025
+sglang:spec_accept_length{dp_rank="1",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="1"} 5.975
+sglang:hicache_host_used_tokens{dp_rank="2",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="2"} 245504.0
+sglang:hicache_host_used_tokens{dp_rank="0",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 237952.0
+sglang:hicache_host_used_tokens{dp_rank="3",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="3"} 241920.0
+sglang:hicache_host_used_tokens{dp_rank="1",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="1"} 229568.0

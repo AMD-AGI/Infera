@@ -1,0 +1,4 @@
+=========================== short test summary info ============================
+FAILED tests/engine/sglang/test_decode_radix_cache_guard.py::test_the_guard_still_speaks_sglangs_own_api
+FAILED tests/engine/sglang/test_decode_radix_cache_guard.py::test_a_decode_leg_is_read_off_the_argv_not_the_resolved_attribute
+2 failed, 21 passed in 3.70s

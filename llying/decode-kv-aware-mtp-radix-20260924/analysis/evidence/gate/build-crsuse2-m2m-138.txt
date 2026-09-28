@@ -1,0 +1,7 @@
+#9 exporting to image
+#9 exporting layers done
+#9 writing image sha256:3a156072ed441019a2577bc95acfab83b01c7aadacee30fc055b609c15a34415 done
+#9 naming to docker.io/library/infera-sglang:v0519-yihou-0917-nextnfix-hicache-decrad
+#9 naming to docker.io/library/infera-sglang:v0519-yihou-0917-nextnfix-hicache-decrad done
+#9 DONE 0.0s
+sha256:3a156072ed441019a2577bc95acfab83b01c7aadacee30fc055b609c15a34415 2026-09-24T08:50:50.191920016Z

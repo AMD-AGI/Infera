@@ -1,0 +1,100 @@
+stopping glm52-pd-llying-decrad-router on crsuse2-m2m-135 (timeout=300s)
+Flag --time has been deprecated, use --timeout instead
+glm52-pd-llying-decrad-router
+stopping glm52-pd-llying-decrad-prefill-0 on crsuse2-m2m-135 (timeout=300s)
+Flag --time has been deprecated, use --timeout instead
+glm52-pd-llying-decrad-prefill-0
+stopping glm52-pd-llying-decrad-decode-0 on crsuse2-m2m-138 (timeout=300s)
+Flag --time has been deprecated, use --timeout instead
+glm52-pd-llying-decrad-decode-0
+stopping glm52-pd-llying-decrad-etcd on crsuse2-m2m-135 (timeout=300s)
+Flag --time has been deprecated, use --timeout instead
+glm52-pd-llying-decrad-etcd
+residual GPU state: prefill-0 on crsuse2-m2m-135
+
+
+============================ ROCm System Management Interface ============================
+=================================== Current Memory Use ===================================
+GPU[0]		: GPU Memory Allocated (VRAM%): 0
+GPU[0]		: GPU Memory Read/Write Activity (%): 0
+GPU[0]		: Memory Activity: 11540062
+GPU[0]		: Avg. Memory Bandwidth: 0
+GPU[1]		: GPU Memory Allocated (VRAM%): 31
+GPU[1]		: GPU Memory Read/Write Activity (%): 0
+GPU[1]		: Memory Activity: 4589695
+GPU[1]		: Avg. Memory Bandwidth: 0
+GPU[2]		: GPU Memory Allocated (VRAM%): 90
+GPU[2]		: GPU Memory Read/Write Activity (%): 0
+GPU[2]		: Memory Activity: 682073024
+GPU[2]		: Avg. Memory Bandwidth: 0
+GPU[3]		: GPU Memory Allocated (VRAM%): 90
+GPU[3]		: GPU Memory Read/Write Activity (%): 0
+GPU[3]		: Memory Activity: 666208929
+GPU[3]		: Avg. Memory Bandwidth: 0
+GPU[4]		: GPU Memory Allocated (VRAM%): 90
+GPU[4]		: GPU Memory Read/Write Activity (%): 0
+GPU[4]		: Memory Activity: 1018566909
+GPU[4]		: Avg. Memory Bandwidth: 0
+GPU[5]		: GPU Memory Allocated (VRAM%): 89
+GPU[5]		: GPU Memory Read/Write Activity (%): 0
+GPU[5]		: Memory Activity: 1004416824
+GPU[5]		: Avg. Memory Bandwidth: 0
+GPU[6]		: GPU Memory Allocated (VRAM%): 0
+GPU[6]		: GPU Memory Read/Write Activity (%): 0
+GPU[6]		: Memory Activity: 367140964
+GPU[6]		: Avg. Memory Bandwidth: 0
+GPU[7]		: GPU Memory Allocated (VRAM%): 0
+GPU[7]		: GPU Memory Read/Write Activity (%): 0
+GPU[7]		: Memory Activity: 367882568
+GPU[7]		: Avg. Memory Bandwidth: 0
+==========================================================================================
+===================================== KFD Processes ======================================
+KFD process information:
+PID   	PROCESS NAME   	GPU(s)	VRAM USED  	SDMA USED    	CU OCCUPANCY	
+813732	vllm           	0     	0          	0            	UNKNOWN     	
+818623	VLLM::EngineCor	1     	96633298944	2583738262609	UNKNOWN     	
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+residual GPU state: decode-0 on crsuse2-m2m-138
+
+
+============================ ROCm System Management Interface ============================
+=================================== Current Memory Use ===================================
+GPU[0]		: GPU Memory Allocated (VRAM%): 0
+GPU[0]		: GPU Memory Read/Write Activity (%): 0
+GPU[0]		: Memory Activity: 2156492515
+GPU[0]		: Avg. Memory Bandwidth: 0
+GPU[1]		: GPU Memory Allocated (VRAM%): 0
+GPU[1]		: GPU Memory Read/Write Activity (%): 0
+GPU[1]		: Memory Activity: 2166759392
+GPU[1]		: Avg. Memory Bandwidth: 0
+GPU[2]		: GPU Memory Allocated (VRAM%): 50
+GPU[2]		: GPU Memory Read/Write Activity (%): 0
+GPU[2]		: Memory Activity: 3128616418
+GPU[2]		: Avg. Memory Bandwidth: 0
+GPU[3]		: GPU Memory Allocated (VRAM%): 49
+GPU[3]		: GPU Memory Read/Write Activity (%): 0
+GPU[3]		: Memory Activity: 3127349632
+GPU[3]		: Avg. Memory Bandwidth: 0
+GPU[4]		: GPU Memory Allocated (VRAM%): 34
+GPU[4]		: GPU Memory Read/Write Activity (%): 0
+GPU[4]		: Memory Activity: 2874363338
+GPU[4]		: Avg. Memory Bandwidth: 0
+GPU[5]		: GPU Memory Allocated (VRAM%): 49
+GPU[5]		: GPU Memory Read/Write Activity (%): 0
+GPU[5]		: Memory Activity: 2879276632
+GPU[5]		: Avg. Memory Bandwidth: 0
+GPU[6]		: GPU Memory Allocated (VRAM%): 0
+GPU[6]		: GPU Memory Read/Write Activity (%): 0
+GPU[6]		: Memory Activity: 1914087713
+GPU[6]		: Avg. Memory Bandwidth: 0
+GPU[7]		: GPU Memory Allocated (VRAM%): 0
+GPU[7]		: GPU Memory Read/Write Activity (%): 0
+GPU[7]		: Memory Activity: 1909568395
+GPU[7]		: Avg. Memory Bandwidth: 0
+==========================================================================================
+===================================== KFD Processes ======================================
+No KFD PIDs currently running
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+cleanup completed with errors

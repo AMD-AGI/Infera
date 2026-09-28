@@ -1,0 +1,54 @@
+diff -ru a/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/config.sh b/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/config.sh
+--- a/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/config.sh	2026-09-24 08:15:58.824078525 +0000
++++ b/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/config.sh	2026-09-24 08:15:58.826078510 +0000
+@@ -94,6 +94,10 @@
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK="${SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK:-0}"
+ KV_P2P_TRANSFER="${KV_P2P_TRANSFER:-mooncake}"
+ ENABLE_KV_AWARE="${ENABLE_KV_AWARE:-1}"
++# Decode-side KV events and decode radix cache. With DECODE_MTP=1 this needs an
++# SGLang image carrying the decode-radix-spec patch; stock SGLang rejects it at
++# argument resolution, before weights load.
++DECODE_KV_AWARE="${DECODE_KV_AWARE:-0}"
+ # Keep Decode on the Prefill-selected rank so same-name rail and target GPU
+ # affinity agree in symmetric DPA deployments.
+ PD_DP_RANK_AFFINITY="${PD_DP_RANK_AFFINITY:-1}"
+diff -ru a/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/engine.sh b/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/engine.sh
+--- a/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/engine.sh	2026-09-24 08:15:58.824078525 +0000
++++ b/llying/p8d8-c80-c112-tracing-aus-20260922/scripts/bench-harness/engine.sh	2026-09-24 08:15:58.826078510 +0000
+@@ -148,6 +148,9 @@
+         docker_args+=(-e "$item")
+     done
+ fi
++if [[ "$role" == decode && "${DECODE_KV_AWARE:-0}" == 1 && "$DECODE_MTP" == 1 ]]; then
++    docker_args+=(-e SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1)
++fi
+ if [[ "$role" == decode && -n "${DECODE_SIMULATE_ACC_LEN:-}" ]]; then
+     docker_args+=(
+         -e "SGLANG_SIMULATE_ACC_LEN=$DECODE_SIMULATE_ACC_LEN"
+@@ -187,15 +190,17 @@
+ [[ -n "$RDMA_DEVICE" ]] && engine_args+=(--disaggregation-ib-device "$RDMA_DEVICE")
+ if [[ "$role" == prefill ]]; then
+     engine_args+=(--disaggregation-bootstrap-port "$bootstrap_port")
+-    if [[ "$ENABLE_KV_AWARE" == 1 ]]; then
+-        engine_args+=(
+-            --enable-kv-events --kv-events on
+-            --kv-events-bind "tcp://0.0.0.0:$kv_event_port"
+-            --kv-snapshot-port "$snapshot_port"
+-        )
+-    else
+-        engine_args+=(--no-enable-kv-events --kv-events off)
+-    fi
++    kv_aware="$ENABLE_KV_AWARE"
++else
++    kv_aware="${DECODE_KV_AWARE:-0}"
++fi
++if [[ "$kv_aware" == 1 ]]; then
++    # On decode, Infera turns KV events into --disaggregation-decode-enable-radix-cache.
++    engine_args+=(
++        --enable-kv-events --kv-events on
++        --kv-events-bind "tcp://0.0.0.0:$kv_event_port"
++        --kv-snapshot-port "$snapshot_port"
++    )
+ else
+     engine_args+=(--no-enable-kv-events --kv-events off)
+ fi

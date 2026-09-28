@@ -1,0 +1,6 @@
+a-perf Prefill picks=4138 requests_with_hit=91.4% hit_blocks/request_blocks=0.947
+a-perf Decode  picks=4138 requests_with_hit=0.0% hit_blocks/request_blocks=0.000
+b-perf Prefill picks=4193 requests_with_hit=91.5% hit_blocks/request_blocks=0.945
+b-perf Decode  picks=4193 requests_with_hit=89.0% hit_blocks/request_blocks=0.864
+c-perf Prefill picks=4098 requests_with_hit=91.6% hit_blocks/request_blocks=0.945
+c-perf Decode  picks=4098 requests_with_hit=89.2% hit_blocks/request_blocks=0.880

@@ -1,0 +1,4 @@
+py-spy> Sampling process 100 times a second for 90 seconds. Press Control-C to exit.
+
+py-spy> Wrote raw flamegraph data to '/tmp/w2-scheduler_DP1_TP1.raw'. Samples: 89990 Errors: 0
+py-spy> You can use the flamegraph.pl script from https://github.com/brendangregg/flamegraph to generate a SVG

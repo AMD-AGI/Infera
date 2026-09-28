@@ -1,0 +1,2 @@
+# dump started 2026-09-24T11:16:40.989+00:00 finished 2026-09-24T11:16:41.853+00:00
+pid: 2: Syntax error: word unexpected (expecting "do")

@@ -1,0 +1,407 @@
+{
+  "args": {
+    "router": "http://10.245.148.209:28000",
+    "prefill": "http://10.245.148.209:29001",
+    "decode": "http://10.245.157.237:29002",
+    "model": "glm5.2-mxfp4",
+    "out": "/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/gate/b-gate.json",
+    "records": 400,
+    "max_tokens": 384,
+    "trials": 2
+  },
+  "checks": {
+    "coherence": true,
+    "echo_exact": true,
+    "prefix_reuse_equal": false,
+    "prefix_no_degenerate": true
+  },
+  "workers": {
+    "workers": [
+      {
+        "worker_id": "10.245.157.237:29002",
+        "url": "http://10.245.157.237:29002",
+        "model_name": "glm5.2-mxfp4",
+        "engine": "sglang",
+        "status": "active",
+        "disagg_mode": "decode",
+        "disagg_meta": {
+          "protocol": "sglang-bootstrap",
+          "params": {}
+        },
+        "kv_events_endpoint": "tcp://10.245.157.237:12808",
+        "kv_block_size": 64,
+        "dp_rank": null,
+        "dp_size": 4,
+        "request_transport": "http"
+      },
+      {
+        "worker_id": "10.245.148.209:29001",
+        "url": "http://10.245.148.209:29001",
+        "model_name": "glm5.2-mxfp4",
+        "engine": "sglang",
+        "status": "active",
+        "disagg_mode": "prefill",
+        "disagg_meta": {
+          "protocol": "sglang-bootstrap",
+          "params": {
+            "bootstrap_addr": "10.245.148.209:28998"
+          }
+        },
+        "kv_events_endpoint": "tcp://10.245.148.209:18594",
+        "kv_block_size": 64,
+        "dp_rank": null,
+        "dp_size": 4,
+        "request_transport": "http"
+      }
+    ]
+  },
+  "coherence": [
+    {
+      "content": "4",
+      "reasoning": "1.  **Analyze the Request:** The user is asking for the result of the mathematical operation 2+2. The constraint is to answer with a *single digit*.\n2.  **Perform the calculation:** 2 + 2 = 4.\n3.  **Check the constraint:** Is \"4\" a single digit? Yes.\n4.  **Format the output:** The user requested a single digit, so the output should be just \"4\" without any additional text, punctuation, or formatting.\n5.  **Final Output Generation:** 4.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 25,
+        "total_tokens": 145,
+        "completion_tokens": 120,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 118
+      },
+      "elapsed_s": 4.768,
+      "prompt": "What is 2+2? Answer with a single digit.",
+      "degenerate": false,
+      "empty": false
+    },
+    {
+      "content": "",
+      "reasoning": "1.  **Analyze the Request:**\n    *   Target: First 10 prime numbers.\n    *   Format: In order, comma separated.\n\n2.  **Identify Prime Numbers:**\n    *   Prime numbers are integers greater than 1 that have no divisors other than 1 and themselves.\n    *   1: Not prime.\n    *   2: Prime (first).\n    *   3: Prime (second).\n    *   4: Divisible by 2 (not prime).\n    *   5: Prime (third).\n    *   6: Divisible by 2, 3 (not prime).\n    *   7: Prime (fourth).\n    *   8: Divisible by 2 (not prime).\n    *   9: Divisible by 3 (not prime).\n    *   10: Divisible by 2, 5 (not prime).\n    *   11: Prime (fifth).\n    *   12: Divisible by 2, 3 (not prime).\n    *   13: Prime (sixth).\n    *   14: Divisible by 2 (not prime).\n    *   15: Divisible by 3, 5 (not prime).\n    *   16: Divisible by 2 (not prime).\n    *   17: Prime (seventh).\n    *   18: Divisible by 2, 3 (not prime).\n    *   19: Prime (eighth).\n    *   20: Divisible by 2, 5 (not prime).\n    *   21: Divisible by 3, 7 (not prime).\n    *   22: Divisible by 2, 11 (not prime).\n    *   23: Prime (ninth).\n    *   24: Divisible by 2, 3 (not prime).\n    *   25: Divisible by 5 (not prime).\n    *   26: Divisible by 2 (not prime).\n    *   27: Divisible by 3 (not prime).\n    *   28: Divisible by 2 (not prime).\n    *   29: Prime (tenth).\n\n3.  **List the first 10 primes:**\n    2, 3, 5, 7, 11, 13, 17,",
+      "finish": "length",
+      "usage": {
+        "prompt_tokens": 25,
+        "total_tokens": 537,
+        "completion_tokens": 512,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 514
+      },
+      "elapsed_s": 3.286,
+      "prompt": "List the first 10 prime numbers in order, comma separated.",
+      "degenerate": false,
+      "empty": false
+    },
+    {
+      "content": "PROBE_OK_7391",
+      "reasoning": "The user is asking me to reply with exactly \"PROBE_OK_7391\". This is a simple request where they want me to output a specific string. I'll just respond with that exact text.",
+      "finish": "stop",
+      "usage": {
+        "prompt_tokens": 23,
+        "total_tokens": 74,
+        "completion_tokens": 51,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 43
+      },
+      "elapsed_s": 1.592,
+      "prompt": "Reply with exactly: PROBE_OK_7391",
+      "degenerate": false,
+      "empty": false
+    }
+  ],
+  "prefix_trials": [
+    {
+      "flush_hit": [
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi",
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi"
+      ],
+      "r1": {
+        "content": "Nairobi",
+        "reasoning": "The user wants to know the city in record 17.\nI will look up record 17 in the provided text.\nRecord 17: the city is Nairobi, the population is 34623, and the code is Z4160.\nThe city is Nairobi.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10886,
+          "total_tokens": 10945,
+          "completion_tokens": 59,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 56
+        },
+        "elapsed_s": 97.855
+      },
+      "metrics_after_r1": {
+        "sglang:cache_hit_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:spec_accept_length{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 2.975,
+        "sglang:spec_accept_length{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_length{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 5.775,
+        "sglang:spec_accept_length{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:spec_accept_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.395,
+        "sglang:spec_accept_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.955,
+        "sglang:spec_accept_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0
+      },
+      "r2_hit": {
+        "content": "Z2186",
+        "reasoning": "The user wants to know the code for record 311.\nLooking at the provided text:\nRecord 311: the city is Kyoto, the population is 62809, and the code is Z2186.\nThe code is Z2186.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10888,
+          "total_tokens": 10945,
+          "completion_tokens": 57,
+          "prompt_tokens_details": {
+            "cached_tokens": 10816
+          },
+          "reasoning_tokens": 53
+        },
+        "elapsed_s": 12.094
+      },
+      "metrics_after_r2_hit": {
+        "sglang:cache_hit_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 64.0,
+        "sglang:spec_accept_length{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 2.975,
+        "sglang:spec_accept_length{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_length{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 5.775,
+        "sglang:spec_accept_length{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 2.625,
+        "sglang:spec_accept_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.395,
+        "sglang:spec_accept_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.955,
+        "sglang:spec_accept_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.325
+      },
+      "flush_miss": [
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi",
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi"
+      ],
+      "r1b": {
+        "content": "Nairobi",
+        "reasoning": "The user is asking for the city in record 17.\nI need to look at the provided text for Record 17.\nRecord 17: the city is Nairobi, the population is 34623, and the code is Z4160.\nThe city is Nairobi.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10886,
+          "total_tokens": 10946,
+          "completion_tokens": 60,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 57
+        },
+        "elapsed_s": 4.236
+      },
+      "flush_decode_only": "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi",
+      "metrics_after_decode_flush": {
+        "sglang:cache_hit_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 10944.0,
+        "sglang:spec_accept_length{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 2.975,
+        "sglang:spec_accept_length{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_length{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 5.775,
+        "sglang:spec_accept_length{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 2.625,
+        "sglang:spec_accept_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.395,
+        "sglang:spec_accept_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.955,
+        "sglang:spec_accept_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.325
+      },
+      "r2_miss": {
+        "content": "Z2186",
+        "reasoning": "The user is asking for the code in record 311.\nI need to find record 311 in the provided registry.\nLooking at the text:\nRecord 311: the city is Kyoto, the population is 62809, and the code is Z2186.\nThe code is Z2186.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10888,
+          "total_tokens": 10957,
+          "completion_tokens": 69,
+          "prompt_tokens_details": {
+            "cached_tokens": 10816
+          },
+          "reasoning_tokens": 65
+        },
+        "elapsed_s": 1.465
+      },
+      "r1_equal_r1b": false,
+      "r2_hit_equal_miss": false,
+      "r2_first_divergence": 9,
+      "degenerate": false
+    },
+    {
+      "flush_hit": [
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi",
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi"
+      ],
+      "r1": {
+        "content": "Nairobi",
+        "reasoning": "The user wants to know the city in record 17.\nLooking at the provided registry:\nRecord 17: the city is Nairobi, the population is 34623, and the code is Z4160.\nThe city is Nairobi.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10886,
+          "total_tokens": 10939,
+          "completion_tokens": 53,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 50
+        },
+        "elapsed_s": 4.247
+      },
+      "metrics_after_r1": {
+        "sglang:cache_hit_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 10944.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 10944.0,
+        "sglang:spec_accept_length{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 2.975,
+        "sglang:spec_accept_length{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_length{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 5.775,
+        "sglang:spec_accept_length{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 2.625,
+        "sglang:spec_accept_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.395,
+        "sglang:spec_accept_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.955,
+        "sglang:spec_accept_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.325
+      },
+      "r2_hit": {
+        "content": "Z2186",
+        "reasoning": "The user is asking for the code in record 311.\nLooking at the provided text:\nRecord 311: the city is Kyoto, the population is 62809, and the code is Z2186.\nThe code is Z2186.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10888,
+          "total_tokens": 10945,
+          "completion_tokens": 57,
+          "prompt_tokens_details": {
+            "cached_tokens": 10816
+          },
+          "reasoning_tokens": 53
+        },
+        "elapsed_s": 1.441
+      },
+      "metrics_after_r2_hit": {
+        "sglang:cache_hit_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 10944.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 64.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 10944.0,
+        "sglang:spec_accept_length{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 2.975,
+        "sglang:spec_accept_length{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_length{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 2.45,
+        "sglang:spec_accept_length{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 2.625,
+        "sglang:spec_accept_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.395,
+        "sglang:spec_accept_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.29,
+        "sglang:spec_accept_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.325
+      },
+      "flush_miss": [
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi",
+        "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi"
+      ],
+      "r1b": {
+        "content": "Nairobi",
+        "reasoning": "The user is asking for the city in record 17.\nLooking at the provided registry:\nRecord 17: the city is Nairobi, the population is 34623, and the code is Z4160.\nThe city is Nairobi.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10886,
+          "total_tokens": 10939,
+          "completion_tokens": 53,
+          "prompt_tokens_details": null,
+          "reasoning_tokens": 50
+        },
+        "elapsed_s": 4.208
+      },
+      "flush_decode_only": "Cache flushed.\nPlease check backend logs for more details. (When there are running or waiting requests, the operation wi",
+      "metrics_after_decode_flush": {
+        "sglang:cache_hit_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:cache_hit_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+        "sglang:token_usage{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 10944.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 10944.0,
+        "sglang:kv_evictable_tokens{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 10944.0,
+        "sglang:spec_accept_length{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 2.975,
+        "sglang:spec_accept_length{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_length{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 2.45,
+        "sglang:spec_accept_length{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 2.625,
+        "sglang:spec_accept_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.395,
+        "sglang:spec_accept_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+        "sglang:spec_accept_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.29,
+        "sglang:spec_accept_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.325
+      },
+      "r2_miss": {
+        "content": "Z2186",
+        "reasoning": "The user is asking for the code in record 311.\nLooking at the provided text:\nRecord 311: the city is Kyoto, the population is 62809, and the code is Z2186.\nThe code is Z2186.",
+        "finish": "stop",
+        "usage": {
+          "prompt_tokens": 10888,
+          "total_tokens": 10945,
+          "completion_tokens": 57,
+          "prompt_tokens_details": {
+            "cached_tokens": 10816
+          },
+          "reasoning_tokens": 53
+        },
+        "elapsed_s": 1.338
+      },
+      "r1_equal_r1b": false,
+      "r2_hit_equal_miss": true,
+      "r2_first_divergence": null,
+      "degenerate": false
+    }
+  ],
+  "metrics_final": {
+    "sglang:cache_hit_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+    "sglang:cache_hit_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+    "sglang:cache_hit_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+    "sglang:cache_hit_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+    "sglang:token_usage{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.0,
+    "sglang:token_usage{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+    "sglang:token_usage{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.0,
+    "sglang:token_usage{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.0,
+    "sglang:kv_evictable_tokens{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 10944.0,
+    "sglang:kv_evictable_tokens{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+    "sglang:kv_evictable_tokens{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 10944.0,
+    "sglang:kv_evictable_tokens{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 10944.0,
+    "sglang:spec_accept_length{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 2.975,
+    "sglang:spec_accept_length{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+    "sglang:spec_accept_length{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 2.45,
+    "sglang:spec_accept_length{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 2.625,
+    "sglang:spec_accept_rate{dp_rank=\"0\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"0\"}": 0.395,
+    "sglang:spec_accept_rate{dp_rank=\"2\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"2\"}": 0.0,
+    "sglang:spec_accept_rate{dp_rank=\"1\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"1\"}": 0.29,
+    "sglang:spec_accept_rate{dp_rank=\"3\",engine_type=\"decode\",model_name=\"glm5.2-mxfp4\",moe_ep_rank=\"0\",pp_rank=\"0\",tp_rank=\"3\"}": 0.325
+  },
+  "pass": false
+}

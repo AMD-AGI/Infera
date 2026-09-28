@@ -1,0 +1,9 @@
+### stock image (infera from /opt/infera, as the engine imports it)
+INFO infera.engine.sglang.args: kv-events on, but --disaggregation-decode-enable-radix-cache is incompatible with --speculative-algorithm EAGLE; not appending it. The decode leg will use SGLang's chunk cache and contribute little to the router KV view; prefix-aware routing runs on the prefill-side view.
+WARNING sglang.srt.arg_groups.pd_disaggregation_hook: KV cache is forced as chunk cache for decode server
+RESULT {"flag_forwarded_to_sglang": false, "handle_pd_disaggregation": "ok", "handle_hicache": "ok", "handle_cache_compatibility": "ValueError: The arguments enable-hierarchical-cache and disable-radix-cache are mutually exclusive and cannot be used at the same time. Please use only one of them."}
+### patched image, opt-in set
+WARNING sglang.srt.arg_groups.pd_disaggregation_hook: EXPERIMENTAL: Decode radix cache with speculative decoding (--speculative-algorithm EAGLE, topk=1) enabled by SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1.
+WARNING sglang.srt.arg_groups.pd_disaggregation_hook: EXPERIMENTAL: Decode radix cache with DP attention. Requires prefix-aware DP rank routing for optimal cache hits.
+WARNING sglang.srt.arg_groups.pd_disaggregation_hook: EXPERIMENTAL: Radix cache is enabled for decode server
+RESULT {"flag_forwarded_to_sglang": true, "handle_pd_disaggregation": "ok", "handle_hicache": "ok", "handle_cache_compatibility": "ok"}

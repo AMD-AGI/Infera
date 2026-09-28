@@ -1,0 +1,8 @@
+# Raw exports stay on the shared filesystem next to this file; see README.zh-CN.md.
+/analysis/evidence/**/aiperf_artifacts/
+/analysis/evidence/**/server-logs/
+/analysis/evidence/gate/**/samples_*.jsonl
+__pycache__/
+
+# Logs cited by the reports are evidence; the repository root ignores *.log.
+!*.log

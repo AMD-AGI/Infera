@@ -1,0 +1,8 @@
+E        +  where False = ServerArgs(model_path='Qwen/Qwen3-0.6B', tokenizer_path=None, tokenizer_mode='auto', tokenizer_backend='huggingface', ..._attn_backend='auto', otlp_service_name=None, _radix_eviction_policy_explicitly_set=False, enable_response_store=False).disable_radix_cache
+E        +    where ServerArgs(model_path='Qwen/Qwen3-0.6B', tokenizer_path=None, tokenizer_mode='auto', tokenizer_backend='huggingface', ..._attn_backend='auto', otlp_service_name=None, _radix_eviction_policy_explicitly_set=False, enable_response_store=False) = SglangWorkerArgs(server_args=ServerArgs(model_path='Qwen/Qwen3-0.6B', tokenizer_path=None, tokenizer_mode='auto', toke..., kv_snapshot_advertise=None, index_block_size=64, kv_event_transport='nats', nats_server=None, infera_kvd_socket=None).server_args
+
+tests/engine/sglang/test_decode_radix_cache_guard.py:261: AssertionError
+=========================== short test summary info ============================
+FAILED tests/engine/sglang/test_decode_radix_cache_guard.py::test_the_guard_still_speaks_sglangs_own_api
+FAILED tests/engine/sglang/test_decode_radix_cache_guard.py::test_a_decode_leg_is_read_off_the_argv_not_the_resolved_attribute
+2 failed, 18 passed in 3.68s

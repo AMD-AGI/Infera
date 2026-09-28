@@ -1,0 +1,5 @@
+HEAD is now at 918524f CollectiveX: name Slurm allocations after the GHA runner (dash correlation) (#2762)
+Synchronizing submodule url for 'utils/aiperf'
+Entering 'utils/aiperf'
+InferenceX ready: /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/.cache/InferenceX @ 918524ff94045b3f091115f1051c22a8588edf2b
+agentx_env: ERROR: decode-0: live hicache=True, config expects False

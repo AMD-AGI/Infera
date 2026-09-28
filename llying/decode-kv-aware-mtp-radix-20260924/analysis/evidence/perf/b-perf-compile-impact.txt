@@ -1,0 +1,7 @@
+compile event 13:30:35 (outside profiling): 0 requests waiting, 0.0 request-seconds of TTFT
+compile event 13:40:12 (outside profiling): 0 requests waiting, 0.0 request-seconds of TTFT
+compile event 13:41:17 (outside profiling): 0 requests waiting, 0.0 request-seconds of TTFT
+compile event 13:45:57 (outside profiling): 0 requests waiting, 0.0 request-seconds of TTFT
+compile event 13:48:14 (outside profiling): 0 requests waiting, 0.0 request-seconds of TTFT
+compile event 14:06:24 (profiling): 14 requests waiting, 72.9 request-seconds of TTFT
+profiling requests: 4197; touched by a compile: 14 (0.33%); TTFT added: 72.9 s total = 0.017 s per request = 0.27% of summed TTFT (mean TTFT 6.38 s)
