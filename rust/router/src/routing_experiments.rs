@@ -1,7 +1,7 @@
 // Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 // SPDX-License-Identifier: MIT
 
-//! Opt-in R2/R3/R4 controls and per-request demand reservations.
+//! Opt-in scoring controls and per-request demand reservations.
 //! Token demand is a router estimate, not physical allocator occupancy.
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -29,6 +29,7 @@ pub struct Experiments {
     pub decode: Mode,
     pub tiers: Mode,
     pub prefill: Mode,
+    pub dynamo_prefill: Mode,
     pub host_weight: f64,
 }
 impl Default for Experiments {
@@ -38,6 +39,7 @@ impl Default for Experiments {
             decode: Mode::Off,
             tiers: Mode::Off,
             prefill: Mode::Off,
+            dynamo_prefill: Mode::Off,
             host_weight: 0.0,
         }
     }
@@ -48,11 +50,26 @@ impl Experiments {
             && (self.prefill_guard_completion
                 || self.decode != Mode::Off
                 || self.prefill != Mode::Off
+                || self.dynamo_prefill != Mode::Off
                 || self.tiers != Mode::Off)
         {
-            anyhow::bail!("R1/R2/R3/R4 require --router-policy kv-aware");
+            anyhow::bail!("routing experiments require --router-policy kv-aware");
+        }
+        if self.dynamo_prefill != Mode::Off {
+            anyhow::ensure!(
+                self.prefill_guard_completion,
+                "Dynamo P scoring requires R1 completion release"
+            );
+            anyhow::ensure!(
+                self.prefill == Mode::Off && self.tiers == Mode::Off,
+                "Dynamo P scoring cannot be combined with R3/R4"
+            );
         }
         Ok(())
+    }
+
+    pub fn needs_cache_tiers(&self) -> bool {
+        self.tiers != Mode::Off || self.dynamo_prefill != Mode::Off
     }
 
     pub(crate) fn drain_prefill_early(&self) -> bool {
@@ -76,6 +93,7 @@ impl Experiments {
             decode: mode("INFERA_R2_DECODE_DEMAND")?,
             tiers: mode("INFERA_R3_CACHE_TIERS")?,
             prefill: mode("INFERA_R4_PREFILL_WORK")?,
+            dynamo_prefill: mode("INFERA_P_DYNAMO_SCORE")?,
             host_weight: std::env::var("INFERA_R3_HOST_WEIGHT")
                 .unwrap_or_else(|_| "0".into())
                 .parse()?,
@@ -105,11 +123,25 @@ pub(crate) fn best_candidate(costs: &[f64], loads: &[f64]) -> usize {
         .expect("candidates non-empty")
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Demand {
     pub tokens: f64,
     pub requests: usize,
     pub unknown: usize,
+    blocks: HashMap<u64, usize>,
+    partial_blocks: usize,
+}
+impl Demand {
+    pub fn projected_blocks(&self, blocks: &[u64], partial: bool) -> usize {
+        self.blocks.len()
+            + blocks
+                .iter()
+                .filter(|h| !self.blocks.contains_key(h))
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+            + self.partial_blocks
+            + usize::from(partial)
+    }
 }
 pub type Ledger = Arc<Mutex<HashMap<String, Demand>>>;
 
@@ -121,6 +153,8 @@ pub struct Reservation {
     key: String,
     tokens: f64,
     unknown: bool,
+    blocks: Vec<u64>,
+    partial: bool,
 }
 impl Reservation {
     pub fn book_unknown(ledger: &Ledger, state: &mut HashMap<String, Demand>, key: String) -> Self {
@@ -144,7 +178,29 @@ impl Reservation {
             key,
             tokens,
             unknown: false,
+            blocks: Vec::new(),
+            partial: false,
         }
+    }
+
+    /// Book projected active blocks before another pick can observe this rank.
+    pub fn book_blocks(
+        ledger: &Ledger,
+        state: &mut HashMap<String, Demand>,
+        key: String,
+        tokens: f64,
+        blocks: &[u64],
+        partial: bool,
+    ) -> Self {
+        let mut reservation = Self::book(ledger, state, key.clone(), tokens);
+        let entry = state.get_mut(&key).expect("just booked");
+        for &hash in blocks {
+            *entry.blocks.entry(hash).or_default() += 1;
+        }
+        entry.partial_blocks += usize::from(partial);
+        reservation.blocks = blocks.to_vec();
+        reservation.partial = partial;
+        reservation
     }
 }
 impl Drop for Reservation {
@@ -156,6 +212,14 @@ impl Drop for Reservation {
                 entry.unknown -= 1;
             }
             entry.tokens = (entry.tokens - self.tokens).max(0.0);
+            for hash in &self.blocks {
+                let count = entry.blocks.get_mut(hash).expect("reserved block");
+                *count -= 1;
+                if *count == 0 {
+                    entry.blocks.remove(hash);
+                }
+            }
+            entry.partial_blocks -= usize::from(self.partial);
             if entry.requests == 0 {
                 state.remove(&self.key);
             }
@@ -205,5 +269,39 @@ mod tests {
     fn candidate_ties_use_load_then_stable_order() {
         assert_eq!(best_candidate(&[3.0, 3.0, 4.0], &[2.0, 1.0, 0.0]), 1);
         assert_eq!(best_candidate(&[3.0, 3.0], &[1.0, 1.0]), 0);
+    }
+
+    #[test]
+    fn dynamo_requires_completion_release_and_excludes_other_prefill_scores() {
+        let mut config = Experiments {
+            dynamo_prefill: Mode::On,
+            ..Default::default()
+        };
+        assert!(config.validate_policy("kv-aware").is_err());
+        config.prefill_guard_completion = true;
+        assert!(config.validate_policy("kv-aware").is_ok());
+        assert!(config.needs_cache_tiers());
+        config.tiers = Mode::Shadow;
+        assert!(config.validate_policy("kv-aware").is_err());
+        config.tiers = Mode::Off;
+        config.prefill = Mode::On;
+        assert!(config.validate_policy("kv-aware").is_err());
+    }
+
+    #[test]
+    fn projected_blocks_share_full_prefixes_but_reserve_each_partial_tail() {
+        let ledger = Ledger::default();
+        let (a, b) = {
+            let mut state = ledger.lock().unwrap();
+            let a = Reservation::book_blocks(&ledger, &mut state, "p".into(), 4.0, &[1, 2], true);
+            assert_eq!(state["p"].projected_blocks(&[1, 2, 3], true), 5);
+            let b = Reservation::book_blocks(&ledger, &mut state, "p".into(), 2.0, &[1, 2], true);
+            assert_eq!(state["p"].projected_blocks(&[], false), 4);
+            (a, b)
+        };
+        drop(a);
+        assert_eq!(ledger.lock().unwrap()["p"].projected_blocks(&[], false), 3);
+        drop(b);
+        assert!(ledger.lock().unwrap().is_empty());
     }
 }

@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 KvEventClient::new()
             })
-            .with_cache_tiers(experiments.tiers != infera_router::routing_experiments::Mode::Off),
+            .with_cache_tiers(experiments.needs_cache_tiers()),
         );
         if over_nats {
             // One subscription for the whole fleet, rather than a socket per

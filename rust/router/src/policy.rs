@@ -597,8 +597,10 @@ impl Policy for KvEventAwarePolicy {
         // Normalize before applying each worker's template defaults.
         let base = crate::responses_input::normalised(request);
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
+        let dynamo_prefill = role == Role::Prefill && self.experiments.dynamo_prefill != Mode::Off;
         let mode = match role {
             Role::Decode => self.experiments.decode,
+            Role::Prefill if dynamo_prefill => self.experiments.dynamo_prefill,
             Role::Prefill => self.experiments.prefill,
             _ => Mode::Off,
         };
@@ -722,13 +724,18 @@ impl Policy for KvEventAwarePolicy {
             .enumerate()
             .map(|(i, t)| {
                 let n = lengths[i]? as f64;
+                if dynamo_prefill && t.worker.kv_block_size.unwrap_or(0) <= 0 {
+                    return None;
+                }
                 if role == Role::Decode {
                     return Some(
                         n * base.get("n").and_then(Value::as_u64).unwrap_or(1).max(1) as f64,
                     );
                 }
                 let cache = caches[i];
-                let credit = if self.experiments.tiers == Mode::On {
+                let credit = if dynamo_prefill {
+                    cache.gpu_hits as f64 + 0.75 * cache.host_hits as f64
+                } else if self.experiments.tiers == Mode::On {
                     cache.gpu_hits as f64 + self.experiments.host_weight * cache.host_hits as f64
                 } else {
                     cache.legacy_hits as f64
@@ -750,14 +757,33 @@ impl Policy for KvEventAwarePolicy {
         // Only load snapshot, selection and booking hold this lock.
         let (picked_i, reservation, demand_costs, demand_pick) = if mode != Mode::Off {
             let mut ledger = self.demand.lock().expect("demand ledger poisoned");
+            let block_size = targets[0].worker.kv_block_size.unwrap_or(0);
             let known = work.iter().all(Option::is_some)
                 && keys
                     .iter()
-                    .all(|key| !ledger.get(key).is_some_and(|d| d.unknown > 0));
+                    .all(|key| !ledger.get(key).is_some_and(|d| d.unknown > 0))
+                && (!dynamo_prefill
+                    || (block_size > 0
+                        && targets
+                            .iter()
+                            .all(|t| t.worker.kv_block_size == Some(block_size))));
             let costs: Vec<_> = keys
                 .iter()
                 .enumerate()
-                .map(|(i, key)| work[i].map(|w| ledger.get(key).map_or(0.0, |d| d.tokens) + w))
+                .map(|(i, key)| {
+                    work[i].map(|w| {
+                        let empty = Default::default();
+                        let demand = ledger.get(key).unwrap_or(&empty);
+                        let pending = demand.tokens + w;
+                        if dynamo_prefill && block_size > 0 {
+                            let partial = lengths[i].unwrap() % block_size as usize != 0;
+                            pending / block_size as f64
+                                + demand.projected_blocks(blocks_at(i), partial) as f64
+                        } else {
+                            pending
+                        }
+                    })
+                })
                 .collect();
             let suggested = known.then(|| {
                 best_candidate(
@@ -771,6 +797,19 @@ impl Policy for KvEventAwarePolicy {
                 fallback
             };
             let reservation = match work[picked] {
+                Some(tokens)
+                    if dynamo_prefill && targets[picked].worker.kv_block_size.unwrap_or(0) > 0 =>
+                {
+                    let bs = targets[picked].worker.kv_block_size.unwrap() as usize;
+                    Reservation::book_blocks(
+                        &self.demand,
+                        &mut ledger,
+                        keys[picked].clone(),
+                        tokens,
+                        blocks_at(picked),
+                        lengths[picked].unwrap() % bs != 0,
+                    )
+                }
                 Some(tokens) => {
                     Reservation::book(&self.demand, &mut ledger, keys[picked].clone(), tokens)
                 }
@@ -792,7 +831,7 @@ impl Policy for KvEventAwarePolicy {
         {
             for i in 0..targets.len() {
                 let cache = caches[i];
-                tracing::info!(target: "infera_router::routing_experiments", decision_id, role=?role, demand_mode=?mode, tier_mode=?self.experiments.tiers,
+                tracing::info!(target: "infera_router::routing_experiments", decision_id, role=?role, demand_mode=?mode, dynamo_prefill, tier_mode=?self.experiments.tiers,
                     target=%keys[i], input_tokens=?lengths[i], work_tokens=?work[i], demand_cost=?demand_costs[i],
                     demand_known=demand_pick.is_some(), legacy_cost=legacy_costs[i], tier_cost=tier_costs[i],
                     gpu_hits=cache.gpu_hits, host_hits=cache.host_hits, tier_stats=?cache.stats,
@@ -829,11 +868,12 @@ impl Policy for KvEventAwarePolicy {
             mm_affinity_hits = mm_matched,
             "pick"
         );
-        let health_hits = if self.experiments.tiers == Mode::On && role == Role::Prefill {
-            caches[picked_i].gpu_hits + caches[picked_i].host_hits
-        } else {
-            hits
-        };
+        let health_hits =
+            if dynamo_prefill || (self.experiments.tiers == Mode::On && role == Role::Prefill) {
+                caches[picked_i].gpu_hits + caches[picked_i].host_hits
+            } else {
+                hits
+            };
         self.note_hit_outcome(&picked, blocks.len(), health_hits, w_overlap > 0.0);
         Pick {
             target: picked,
@@ -1496,6 +1536,162 @@ mod tests {
         let pick = policy.pick(&workers, &json!({"prompt":ids}), Role::Prefill);
         assert_eq!(pick.target.worker.worker_id, "b"); // 8+32 < 32+16
         drop((pick, a, b));
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dynamo_prefill_books_before_dispatch_and_leaves_decode_unchanged() {
+        let policy = experiment_policy(Experiments {
+            prefill_guard_completion: true,
+            dynamo_prefill: Mode::On,
+            ..Default::default()
+        });
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        let body = json!({"prompt": (0..65).collect::<Vec<u32>>()});
+        let first = policy.pick(&workers, &body, Role::Prefill);
+        let second = policy.pick(&workers, &body, Role::Prefill);
+        assert_ne!(first.target.route_key(), second.target.route_key());
+        assert_eq!(
+            policy.demand.lock().unwrap()["a"].projected_blocks(&[], false),
+            5
+        );
+        let decode = policy.pick(&workers, &body, Role::Decode);
+        assert!(decode.reservation.is_none());
+        drop((first, second, decode));
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dynamo_prefill_uses_host_credit_and_releases_shared_active_blocks() {
+        use rmpv::Value as Mv;
+        let kv = Arc::new(KvEventClient::nats_fed().with_cache_tiers(true));
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        for worker in &workers {
+            kv.on_worker_added(worker);
+        }
+        let ids: Vec<u32> = (0..64).collect();
+        for (id, count, medium) in [("a", 1, "GPU"), ("b", 2, "CPU_PINNED")] {
+            let stored = Mv::Array(vec![
+                Mv::from("BlockStored"),
+                Mv::Array((0..count).map(|i| Mv::from(i + 10)).collect()),
+                Mv::Nil,
+                Mv::Array(
+                    ids[..count as usize * 16]
+                        .iter()
+                        .copied()
+                        .map(Mv::from)
+                        .collect(),
+                ),
+                Mv::from(16),
+                Mv::Nil,
+                Mv::from(medium),
+            ]);
+            let mut wire = Vec::new();
+            rmpv::encode::write_value(
+                &mut wire,
+                &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![stored])]),
+            )
+            .unwrap();
+            kv.apply_encoded_batch(id, 0, &wire);
+        }
+        let policy = Arc::new(
+            KvEventAwarePolicy::new(kv, BlockHasher::disabled(), 20.0, None, None)
+                .with_experiments(Experiments {
+                    prefill_guard_completion: true,
+                    dynamo_prefill: Mode::On,
+                    ..Default::default()
+                }),
+        );
+        // Fixed Dynamo defaults: A=(64-16)/16+4=7; B=(64-0.75*32)/16+4=6.5.
+        let first = policy.pick(&workers, &json!({"prompt": ids}), Role::Prefill);
+        assert_eq!(first.target.worker.worker_id, "b");
+        assert_eq!(policy.demand.lock().unwrap()["b"].tokens, 40.0);
+        let second = policy.pick_target(&first.target, &json!({"prompt": ids}), Role::Prefill);
+        assert_eq!(
+            policy.demand.lock().unwrap()["b"].projected_blocks(&[], false),
+            4
+        );
+        let guard = ActiveGuard::start(
+            policy.clone(),
+            vec![(first.target.route_key(), first.blocks)],
+        )
+        .with_reservations(first.reservation, None);
+        drop(guard);
+        assert_eq!(policy.demand.lock().unwrap()["b"].tokens, 40.0);
+        assert_eq!(
+            policy.demand.lock().unwrap()["b"].projected_blocks(&[], false),
+            4
+        );
+        drop(second);
+        assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dynamo_prefill_shadow_keeps_legacy_and_unknown_metadata_is_not_zero_load() {
+        let config = Experiments {
+            prefill_guard_completion: true,
+            dynamo_prefill: Mode::Shadow,
+            ..Default::default()
+        };
+        let shadow = experiment_policy(config);
+        let legacy = experiment_policy(Default::default());
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        for len in [17, 200, 17, 32] {
+            let body = json!({"prompt": vec![7; len]});
+            assert_eq!(
+                shadow
+                    .pick(&workers, &body, Role::Prefill)
+                    .target
+                    .route_key(),
+                legacy
+                    .pick(&workers, &body, Role::Prefill)
+                    .target
+                    .route_key()
+            );
+        }
+        let unknown = shadow.pick(
+            &[worker("u", 0, None)],
+            &json!({"prompt": [1,2,3]}),
+            Role::Prefill,
+        );
+        assert_eq!(shadow.demand.lock().unwrap()["u"].unknown, 1);
+        drop(unknown);
+        assert!(shadow.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn dynamo_prefill_concurrent_picks_see_each_others_reservations() {
+        let policy = Arc::new(experiment_policy(Experiments {
+            prefill_guard_completion: true,
+            dynamo_prefill: Mode::On,
+            ..Default::default()
+        }));
+        let workers: Vec<_> = ["a", "b", "c", "d"]
+            .into_iter()
+            .map(|id| worker(id, 16, None))
+            .collect();
+        let barrier = Arc::new(std::sync::Barrier::new(17));
+        std::thread::scope(|scope| {
+            for _ in 0..16 {
+                let (policy, workers, barrier) = (policy.clone(), &workers, barrier.clone());
+                scope.spawn(move || {
+                    let pick = policy.pick(workers, &json!({"prompt": vec![1; 64]}), Role::Prefill);
+                    barrier.wait();
+                    barrier.wait();
+                    drop(pick);
+                });
+            }
+            barrier.wait();
+            let counts: Vec<_> = policy
+                .demand
+                .lock()
+                .unwrap()
+                .values()
+                .map(|d| d.requests)
+                .collect();
+            barrier.wait();
+            assert_eq!(counts, vec![4; 4]);
+        });
         assert!(policy.demand.lock().unwrap().is_empty());
     }
 
