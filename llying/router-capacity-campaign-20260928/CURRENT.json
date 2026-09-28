@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T19:31:26.345696+00:00",
-  "stage": "RB_REAL_STARTUP",
+  "updated_utc": "2026-09-28T19:43:32.561799+00:00",
+  "stage": "RB_PERFORMANCE_STARTUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline-real",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/rb-real.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/rb.sh",
   "already_running": [
-    "run-rb-recovery.sh: real-acceptance engines starting, then probe and C80",
+    "run-rb-recovery.sh: real probe passed; simulated D starting, then C80",
     "allocation watcher for 32054"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
@@ -20,10 +20,10 @@
   },
   "containers": {
     "prefill": "llying-campaign-rb-real-prefill-0",
-    "decode": "llying-campaign-rb-real-decode-0",
+    "decode": "llying-campaign-rb-decode-0",
     "etcd": "llying-campaign-rb-real-etcd",
-    "router": "llying-campaign-rb-real-router",
-    "collector": "llying-campaign-rb-real-collector"
+    "router": "llying-campaign-rb-router",
+    "collector": "llying-campaign-rb-collector"
   },
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
