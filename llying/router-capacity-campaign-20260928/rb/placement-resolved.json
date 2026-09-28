@@ -1,0 +1,80 @@
+[
+  {
+    "role": "prefill",
+    "node": "smci355-ccs-aus-n04-33",
+    "data_ip": "10.235.192.139",
+    "container": "llying-campaign-rb-real-prefill-0",
+    "gpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "tp": 8,
+    "dp": 8,
+    "engine_port": 29001,
+    "bootstrap_port": 28998,
+    "kv_port": 25557,
+    "snapshot_port": 28801,
+    "allocation_job": 32054,
+    "index": "0",
+    "instance": "prefill-0",
+    "ip": "10.235.192.139",
+    "url": "http://10.235.192.139:29001",
+    "container_id": "2a5c70f49195c4616403ee3b6375fb5844495444c4030c694b80f4030d056f22",
+    "diag_dir": "/tmp/aus-diag-campaign-rb-rebaseline-real/prefill-0",
+    "scheduler_pids": [
+      719,
+      993,
+      1168,
+      1319,
+      1564,
+      1869,
+      2180,
+      2488
+    ]
+  },
+  {
+    "role": "decode",
+    "node": "smci355-ccs-aus-n05-21",
+    "data_ip": "10.235.192.138",
+    "container": "llying-campaign-rb-decode-0",
+    "gpu_ids": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "tp": 8,
+    "dp": 8,
+    "engine_port": 29002,
+    "bootstrap_port": 28999,
+    "kv_port": 25558,
+    "snapshot_port": 28802,
+    "allocation_job": 32054,
+    "index": "1",
+    "instance": "decode-0",
+    "ip": "10.235.192.138",
+    "url": "http://10.235.192.138:29002",
+    "container_id": "9096bed4b903ac4e6a5fe4db7817620fc702ebbf839453b93c10d0f870bfbc4e",
+    "diag_dir": "/tmp/aus-diag-campaign-rb-rebaseline/decode-0",
+    "scheduler_pids": [
+      713,
+      981,
+      1156,
+      1306,
+      1556,
+      1858,
+      2163,
+      2479
+    ]
+  }
+]

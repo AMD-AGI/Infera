@@ -83,10 +83,30 @@
       "itl_mean_ms": 14.671475422955488,
       "quality": "recovered client; incomplete tail diagnostics",
       "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity"
+    },
+    {
+      "case": "RB",
+      "label": "\u65b0\u8282\u70b9\u7ec4\u5408\u57fa\u7ebf",
+      "layout": "1P(TP8)+1D(TP8)",
+      "gpus_used": 16,
+      "backend_p": "tilelang",
+      "backend_d": "tilelang",
+      "node_group": "smci355-ccs-aus-n04-33 / smci355-ccs-aus-n05-21",
+      "completed": 10186,
+      "cancelled": 8,
+      "errors": 0,
+      "mean_input_tokens": 121494.00403,
+      "mean_output_tokens": 948.12527,
+      "output_tps": 2661.35214,
+      "output_tps_per_gpu": 166.33451,
+      "ttft_mean_s": 6.53584,
+      "ttft_p95_s": 19.10661,
+      "itl_mean_ms": 14.85,
+      "quality": "validated export",
+      "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-rb-rebaseline"
     }
   ],
   "pending": [
-    "RB",
     "B4",
     "B5",
     "B6",
