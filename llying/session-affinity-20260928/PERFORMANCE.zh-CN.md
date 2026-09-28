@@ -72,3 +72,7 @@ C80，P/D各8卡，TP8/DP8/EP1，有效chunk均为4096；P HiCache ratio1.5、wr
 P停止请求于08:19:11 UTC发出，08:19:51返回；D于08:20:04停止完成，Router/collector/etcd于08:20:05停止完成。用户allocation31999保留。GPU显存异步释放状态见最新资源记录，不能把容器停止等同于显存立即释放。
 
 运行原始目录：`/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928/runs/session-affinity-31999-performance`。精确结果、配置、审计和资源记录归档于 [performance](performance/)；大体积原始导出和采样留在运行目录。
+
+资源释放复核：2026-09-28T08:37:45.862769+00:00，两端16张GPU均约0.096%显存占用、无KFD进程，已完成释放；用户allocation31999继续保留。
+
+后续分析：[ITL增大原因、剩余瓶颈与优化建议](ITL-AND-NEXT-STEPS.zh-CN.md)。

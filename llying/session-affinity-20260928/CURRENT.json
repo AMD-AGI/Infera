@@ -1,6 +1,6 @@
 {
-  "status": "PERFORMANCE_COMPLETE_PREFILL_VRAM_RELEASING",
-  "updated_utc": "2026-09-28T08:29:57.208326+00:00",
+  "status": "COMPLETE_RESOURCES_RELEASED_ALLOCATION_RETAINED",
+  "updated_utc": "2026-09-28T08:40:07.981062+00:00",
   "code_commit": "d7c8cae3",
   "binary_sha256": "cd0000356c5150baac1f5551db7a485c05ab3b789df11ed14d04dad0c4129211",
   "job": 31999,
@@ -15,6 +15,7 @@
   "profile_errors": 0,
   "warmup_errors": 5,
   "services": "all experiment inference/router/collector/etcd containers stopped",
-  "resource_state": "D released; P about 60% VRAM, no KFD process; asynchronous release pending",
-  "run": "/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928/runs/session-affinity-31999-performance"
+  "resource_state": "All 16 GPUs about 0.096% VRAM; no KFD processes",
+  "run": "/perf_apps/liyingli/bench_agentx/session-affinity-31999-20260928/runs/session-affinity-31999-performance",
+  "resource_verified_utc": "2026-09-28T08:37:45.862769+00:00"
 }

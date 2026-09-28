@@ -1,0 +1,20 @@
+{
+  "G0": {
+    "samples": 1773,
+    "kv_usage_mean": 0.3428175675979406,
+    "kv_usage_max": 0.6022142024912128,
+    "kv_cv": 0.44535233116111933,
+    "batch_cv": 0.3703733365433927,
+    "max_kv_usage_seen": 0.9984230490559605,
+    "hot_over90_with_spare_under50_samples": 81
+  },
+  "P_session": {
+    "samples": 1782,
+    "kv_usage_mean": 0.3410903093812533,
+    "kv_usage_max": 0.598280476752255,
+    "kv_cv": 0.4487717243796739,
+    "batch_cv": 0.3475933214823717,
+    "max_kv_usage_seen": 0.9978263649149726,
+    "hot_over90_with_spare_under50_samples": 72
+  }
+}

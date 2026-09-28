@@ -1,38 +1,38 @@
 {
-  "time": "2026-09-28T08:29:16.898907+00:00",
+  "time": "2026-09-28T08:37:45.862769+00:00",
   "nodes": {
     "smci355-ccs-aus-n10-29": {
       "cards": {
         "card0": {
-          "vram_percent": 60.00409625342493,
+          "vram_percent": 0.09629586574589008,
           "gpu_use": "0"
         },
         "card1": {
-          "vram_percent": 60.15058592690304,
+          "vram_percent": 0.09629189188730942,
           "gpu_use": "0"
         },
         "card2": {
-          "vram_percent": 60.14854998669022,
+          "vram_percent": 0.09629586574589008,
           "gpu_use": "0"
         },
         "card3": {
-          "vram_percent": 60.142377259694946,
+          "vram_percent": 0.09629586574589008,
           "gpu_use": "0"
         },
         "card4": {
-          "vram_percent": 60.060037585284306,
+          "vram_percent": 0.09629586574589008,
           "gpu_use": "0"
         },
         "card5": {
-          "vram_percent": 59.969042846885,
+          "vram_percent": 0.0962945411263632,
           "gpu_use": "0"
         },
         "card6": {
-          "vram_percent": 59.973791607888884,
+          "vram_percent": 0.09629586574589008,
           "gpu_use": "0"
         },
         "card7": {
-          "vram_percent": 60.09972451092928,
+          "vram_percent": 0.09629586574589008,
           "gpu_use": "0"
         }
       },
@@ -80,5 +80,5 @@
       "kfd_stderr": ""
     }
   },
-  "all_released": false
+  "all_released": true
 }

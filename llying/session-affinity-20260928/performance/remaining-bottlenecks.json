@@ -1,0 +1,156 @@
+{
+  "G0": {
+    "p_queue_tails": {
+      "1000": {
+        "requests": 2392,
+        "fraction": 0.23841323632014352,
+        "fraction_of_queue_time": 0.9873696379553575
+      },
+      "10000": {
+        "requests": 805,
+        "fraction": 0.08023522376158676,
+        "fraction_of_queue_time": 0.7574634028152554
+      },
+      "30000": {
+        "requests": 208,
+        "fraction": 0.020731585766969002,
+        "fraction_of_queue_time": 0.3880085177183312
+      }
+    },
+    "decode_resources": {
+      "C80/profiling/decode/sglang:kv_used_tokens/sum": {
+        "n": 1773,
+        "mean": 8236573.274675691,
+        "p50": 8673984.0,
+        "p90": 10849587.2,
+        "p99": 12443292.16,
+        "max": 13211648.0
+      },
+      "C80/profiling/decode/sglang:num_decode_prealloc_queue_reqs/sum": {
+        "n": 1773,
+        "mean": 0.05865764241398759,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p99": 2.0,
+        "max": 6.0
+      },
+      "C80/profiling/decode/sglang:num_decode_transfer_queue_reqs/sum": {
+        "n": 1773,
+        "mean": 17.463056965595037,
+        "p50": 15.0,
+        "p90": 34.0,
+        "p99": 47.27999999999997,
+        "max": 56.0
+      },
+      "C80/profiling/decode/sglang:num_running_reqs/sum": {
+        "n": 1773,
+        "mean": 36.62323745064862,
+        "p50": 37.0,
+        "p90": 54.0,
+        "p99": 63.27999999999997,
+        "max": 70.0
+      }
+    },
+    "allocation_gt1s": 36,
+    "blocked": {
+      "kv_budget": 25
+    },
+    "p_miss_tokens_by_rank": {
+      "7": 7095354,
+      "1": 7036262,
+      "6": 7188528,
+      "3": 6551296,
+      "5": 7206112,
+      "2": 7152429,
+      "4": 6530792,
+      "0": 6992503
+    },
+    "p_host_tokens_by_rank": {
+      "7": 715392,
+      "1": 32192,
+      "6": 2475072,
+      "3": 24960,
+      "5": 3057664,
+      "2": 124800,
+      "4": 1199936,
+      "0": 2936896
+    }
+  },
+  "P_session": {
+    "p_queue_tails": {
+      "1000": {
+        "requests": 1924,
+        "fraction": 0.18767069840031214,
+        "fraction_of_queue_time": 0.9879262348239757
+      },
+      "10000": {
+        "requests": 546,
+        "fraction": 0.05325790089738588,
+        "fraction_of_queue_time": 0.7218799094917033
+      },
+      "30000": {
+        "requests": 120,
+        "fraction": 0.011705033164260631,
+        "fraction_of_queue_time": 0.35637423624802034
+      }
+    },
+    "decode_resources": {
+      "C80/profiling/decode/sglang:kv_used_tokens/sum": {
+        "n": 1782,
+        "mean": 8195073.975308642,
+        "p50": 8706592.0,
+        "p90": 10561267.2,
+        "p99": 12368090.880000003,
+        "max": 13384064.0
+      },
+      "C80/profiling/decode/sglang:num_decode_prealloc_queue_reqs/sum": {
+        "n": 1782,
+        "mean": 0.03479236812570146,
+        "p50": 0.0,
+        "p90": 0.0,
+        "p99": 1.1900000000000546,
+        "max": 5.0
+      },
+      "C80/profiling/decode/sglang:num_decode_transfer_queue_reqs/sum": {
+        "n": 1782,
+        "mean": 14.942760942760943,
+        "p50": 12.0,
+        "p90": 31.0,
+        "p99": 44.190000000000055,
+        "max": 50.0
+      },
+      "C80/profiling/decode/sglang:num_running_reqs/sum": {
+        "n": 1782,
+        "mean": 39.27160493827161,
+        "p50": 40.0,
+        "p90": 55.0,
+        "p99": 72.0,
+        "max": 83.0
+      }
+    },
+    "allocation_gt1s": 23,
+    "blocked": {
+      "kv_budget": 13
+    },
+    "p_miss_tokens_by_rank": {
+      "3": 6193918,
+      "4": 5573199,
+      "0": 6402694,
+      "5": 6460693,
+      "1": 5060459,
+      "6": 5932594,
+      "2": 6414910,
+      "7": 5659956
+    },
+    "p_host_tokens_by_rank": {
+      "3": 1607808,
+      "4": 10960896,
+      "0": 207488,
+      "5": 172672,
+      "1": 1518464,
+      "6": 399872,
+      "2": 2531648,
+      "7": 1980992
+    }
+  }
+}
