@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-09-28T16:56:21.827981+00:00",
+  "updated_utc": "2026-09-28T17:05:00.751467+00:00",
   "stage": "B3_WARMUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
@@ -46,5 +46,12 @@
     "explicit placement validation / launch / capture / C80 runner",
     "gold-answer physical-rank coverage probe",
     "third-node preparation with isolated registration"
-  ]
+  ],
+  "extra_node_request": {
+    "job": 32046,
+    "not_before_utc": "2026-09-28T19:00:00Z",
+    "dry_run_estimate_utc": "2026-09-28T21:51:53Z",
+    "status": "queued, not allocated",
+    "reason": "Queue forecast is later than expected two-node completion; future eligibility avoids early idle allocation."
+  }
 }
