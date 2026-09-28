@@ -1,0 +1,215 @@
+{
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b1-dynamo-p",
+  "saved_utc": "2026-09-28T15:05:07.047644+00:00",
+  "checks": {
+    "client_completed": true,
+    "all_exported_profile_requests_paired": true,
+    "pair_rooms_match": true,
+    "engines_unchanged": true,
+    "no_exported_profile_errors": true,
+    "no_runner_profile_errors": true
+  },
+  "checks_passed": true,
+  "coverage": {
+    "client_records": 10074,
+    "joined_prefill": 10074,
+    "joined_decode": 10074,
+    "paired": 10074,
+    "sent_by_runner": 10088,
+    "unexported_requests": 14,
+    "paired_fraction_of_sent": 0.9986122125297383
+  },
+  "runner_accounting": {
+    "warmup": {
+      "sent": 884,
+      "completed": 884,
+      "cancelled": 0,
+      "errors": 0
+    },
+    "profiling": {
+      "sent": 10088,
+      "completed": 10074,
+      "cancelled": 14,
+      "errors": 0
+    }
+  },
+  "engine_identities": {
+    "prefill-0": {
+      "pids_before": [
+        737,
+        1013,
+        1187,
+        1340,
+        1591,
+        1832,
+        2174,
+        2524
+      ],
+      "pids_after": [
+        737,
+        1013,
+        1187,
+        1340,
+        1591,
+        1832,
+        2174,
+        2524
+      ],
+      "startup_unchanged": true,
+      "capacity": 3143424,
+      "tp": 8,
+      "dp": 8
+    },
+    "decode-0": {
+      "pids_before": [
+        1038,
+        1325,
+        1484,
+        1635,
+        1886,
+        2184,
+        2507,
+        2820
+      ],
+      "pids_after": [
+        1038,
+        1325,
+        1484,
+        1635,
+        1886,
+        2184,
+        2507,
+        2820
+      ],
+      "startup_unchanged": true,
+      "capacity": 3003264,
+      "tp": 8,
+      "dp": 8
+    }
+  },
+  "metrics": {
+    "qps": {
+      "window_seconds": 1,
+      "samples": 3628,
+      "mean": 2.77646,
+      "p50": 2,
+      "p75": 4,
+      "p90": 7,
+      "p95": 9,
+      "std": 3.33559
+    },
+    "latency": {
+      "ttft": {
+        "mean": 7.15503,
+        "p50": 4.23729,
+        "p75": 6.54358,
+        "p90": 12.33111,
+        "p95": 21.5176,
+        "std": 12.33366
+      },
+      "e2el": {
+        "mean": 20.77139,
+        "p50": 12.58038,
+        "p75": 23.01331,
+        "p90": 42.625,
+        "p95": 63.29729,
+        "std": 29.18453
+      },
+      "itl": {
+        "mean": 0.01446,
+        "p50": 0.01397,
+        "p75": 0.01648,
+        "p90": 0.0195,
+        "p95": 0.02299,
+        "std": 0.0139
+      },
+      "tpot": {
+        "mean": 0.01446,
+        "p50": 0.01397,
+        "p75": 0.01648,
+        "p90": 0.0195,
+        "p95": 0.02299,
+        "std": 0.0139
+      },
+      "intvty": {
+        "mean": 69.16506,
+        "p50": 71.57932,
+        "p75": 60.68778,
+        "p90": 51.28639,
+        "p95": 43.5053,
+        "std": 13561.5398
+      },
+      "e2e_norm_intvty": {
+        "mean": 15.43665,
+        "p50": 40.69842,
+        "p75": 25.28427,
+        "p90": 12.98485,
+        "p95": 6.21435,
+        "std": 20.15183
+      },
+      "full_response_itl": {
+        "mean": 0.01447,
+        "p50": 0.01397,
+        "p75": 0.01648,
+        "p90": 0.01951,
+        "p95": 0.02307,
+        "std": 0.01402
+      },
+      "full_response_intvty": {
+        "mean": 69.1003,
+        "p50": 71.57469,
+        "p75": 60.67723,
+        "p90": 51.2479,
+        "p95": 43.33746,
+        "std": 12674.92443
+      }
+    },
+    "tokens": {
+      "input": {
+        "mean": 121563.01062,
+        "p50": 76235,
+        "p75": 145642.75,
+        "p90": 273746.9,
+        "p95": 444777.85,
+        "std": 140327.99279
+      },
+      "output_actual": {
+        "mean": 968.98273,
+        "p50": 447,
+        "p75": 1047,
+        "p90": 2133.5,
+        "p95": 3603,
+        "std": 1881.27364
+      },
+      "output_expected": {
+        "mean": 1230.30123,
+        "p50": 470,
+        "p75": 1266,
+        "p90": 3308.4,
+        "p95": 5212.8,
+        "std": 2217.22069
+      }
+    },
+    "throughput": {
+      "input": {
+        "tokens_per_second": 337449.08075
+      },
+      "output": {
+        "tokens_per_second": 2689.81764
+      },
+      "total": {
+        "tokens_per_second": 340138.89839
+      },
+      "duration_seconds": 3629.06832,
+      "per_gpu": {
+        "total_tput_tps": 21258.68115,
+        "output_tput_tps": 168.1136,
+        "input_tput_tps": 21090.56755
+      }
+    },
+    "cache": {
+      "theoretical_cache_hit_rate": 0.96619
+    }
+  },
+  "note": "Checks do not prove a performance benefit; boundary cancellations and selected completed cohorts remain explicit."
+}

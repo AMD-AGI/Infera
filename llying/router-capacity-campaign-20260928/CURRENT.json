@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T13:54:32.714860+00:00",
-  "stage": "B1_PROFILING",
+  "updated_utc": "2026-09-28T15:06:49.611483+00:00",
+  "stage": "B2_REAL_RADIX_GATE_STARTING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b1-dynamo-p",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b1.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix-real",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b2-real.sh",
   "already_running": [
-    "await-b1-performance.sh / run-performance.sh: C80 replay and observers running; do not duplicate"
+    "run-radix-gate.sh will transition D only; B1 full result archived"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
@@ -38,5 +38,6 @@
     "B6 2P8+D8 C80",
     "B7 4P4+D8 C80 on same three nodes",
     "Commit/push results, release added node after cleanup, preserve original allocation as agreed"
-  ]
+  ],
+  "selected_p": "legacy + R1 + P affinity"
 }
