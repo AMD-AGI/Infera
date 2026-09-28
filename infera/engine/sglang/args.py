@@ -19,6 +19,10 @@ logger = logging.getLogger(__name__)
 #: publishes no ``BlockStored`` chain and no ``AllBlocksCleared``.
 _DECODE_RADIX_CACHE_FLAG = "--disaggregation-decode-enable-radix-cache"
 
+#: Opt-in shared with the SGLang decode-radix-spec patch, which accepts
+#: :data:`_DECODE_RADIX_CACHE_FLAG` under EAGLE/NEXTN with topk 1 when it is "1".
+_DECODE_RADIX_SPEC_ENV = "SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC"
+
 
 @dataclass(kw_only=True)
 class SglangWorkerArgs:
@@ -304,17 +308,24 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
         and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
         and _DECODE_RADIX_CACHE_FLAG not in remaining
     ):
-        # SGLang rejects this flag under speculative decoding, so appending it
-        # kills an EAGLE/MTP decode leg at parse time. Skipping it costs only the
-        # decode-side KV view; prefix-aware routing runs on the prefill one.
-        if getattr(sglang_parsed, "speculative_algorithm", None) is not None:
+        # Stock SGLang rejects this flag under speculative decoding, so appending
+        # it kills an EAGLE/MTP decode leg at parse time. Skipping it costs only
+        # the decode-side KV view; prefix-aware routing runs on the prefill one.
+        # An SGLang carrying the decode-radix-spec patch accepts it behind
+        # _DECODE_RADIX_SPEC_ENV, and then the flag is appended as usual.
+        if (
+            getattr(sglang_parsed, "speculative_algorithm", None) is not None
+            and os.environ.get(_DECODE_RADIX_SPEC_ENV, "0") != "1"
+        ):
             logger.info(
                 "kv-events on, but --disaggregation-decode-enable-radix-cache is "
                 "incompatible with --speculative-algorithm %s; not appending it. "
                 "The decode leg will use SGLang's chunk cache and contribute "
                 "little to the router KV view; prefix-aware routing runs on the "
-                "prefill-side view.",
+                "prefill-side view. %s=1 opts in on an SGLang that carries the "
+                "decode-radix-spec patch.",
                 sglang_parsed.speculative_algorithm,
+                _DECODE_RADIX_SPEC_ENV,
             )
         else:
             # Same story for the rest of SGLang's rejection set, the hybrid
