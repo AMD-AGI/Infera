@@ -1,0 +1,873 @@
+[
+  {
+    "sha": "3353a10",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-1p1d-tep8-c20-b5-mtp5.yaml",
+    "dynamo": {
+      "install": true,
+      "hash": "2cbbdc863c336c2cfffa2a3668e2a6661801b259",
+      "request_plane": "tcp"
+    },
+    "frontend": {
+      "type": "dynamo",
+      "enable_multiple_frontends": false,
+      "env": {
+        "ETCD_LEASE_TTL": "120",
+        "DYN_ROUTER_QUEUE_THRESHOLD": "None",
+        "DYN_ROUTER_TEMPERATURE": "0",
+        "DYN_TOKENIZER_CACHE": "1",
+        "DYN_TOKENIZER_CACHE_BYTES": "8000000000",
+        "DYN_TOKENIZER": "fastokens",
+        "DYN_TCP_REQUEST_TIMEOUT": "30",
+        "DYN_LOG": "warn",
+        "DYN_ROUTER_SESSION_AFFINITY_TTL_SECS": "14400"
+      },
+      "args": {
+        "router-mode": "kv",
+        "no-kv-events": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      },
+      "orchestrator_placement": "head"
+    },
+    "client_env": {
+      "AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS": "14400",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/3353a10/benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-1p1d-tep8-c20-b5-mtp5.yaml",
+    "sha256": "bed3f6bd6a290a3a2b63df41b2f4fe3bed163508c1a1999523e6b5deb22e40a1"
+  },
+  {
+    "sha": "3353a10",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-1p1d-tp8-c1-b1-mtp5.yaml",
+    "dynamo": {
+      "install": true,
+      "wheel": "1.4.0.dev20260807",
+      "request_plane": "tcp"
+    },
+    "frontend": {
+      "type": "dynamo",
+      "enable_multiple_frontends": false,
+      "env": {
+        "ETCD_LEASE_TTL": "120",
+        "DYN_ROUTER_QUEUE_THRESHOLD": "None",
+        "DYN_ROUTER_TEMPERATURE": "0",
+        "DYN_TOKENIZER_CACHE": "1",
+        "DYN_TOKENIZER_CACHE_BYTES": "8000000000",
+        "DYN_TOKENIZER": "fastokens",
+        "DYN_TCP_REQUEST_TIMEOUT": "30",
+        "DYN_LOG": "warn",
+        "DYN_ROUTER_SESSION_AFFINITY_TTL_SECS": "14400"
+      },
+      "args": {
+        "router-mode": "kv",
+        "no-kv-events": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      },
+      "orchestrator_placement": "head"
+    },
+    "client_env": {
+      "AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS": "14400",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/3353a10/benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-1p1d-tp8-c1-b1-mtp5.yaml",
+    "sha256": "8442d676c6063aef0c4f63173920e9d6abe6a6f7f6bdd7eb9af158ce1e9eac9d"
+  },
+  {
+    "sha": "3353a10",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-1p4d-tep4-c30-b2-mtp5.yaml",
+    "dynamo": {
+      "install": true,
+      "hash": "2cbbdc863c336c2cfffa2a3668e2a6661801b259",
+      "request_plane": "tcp"
+    },
+    "frontend": {
+      "type": "dynamo",
+      "enable_multiple_frontends": false,
+      "env": {
+        "ETCD_LEASE_TTL": "120",
+        "DYN_ROUTER_QUEUE_THRESHOLD": "None",
+        "DYN_ROUTER_TEMPERATURE": "0",
+        "DYN_TOKENIZER_CACHE": "1",
+        "DYN_TOKENIZER_CACHE_BYTES": "8000000000",
+        "DYN_TOKENIZER": "fastokens",
+        "DYN_TCP_REQUEST_TIMEOUT": "30",
+        "DYN_LOG": "warn",
+        "DYN_ROUTER_SESSION_AFFINITY_TTL_SECS": "14400"
+      },
+      "args": {
+        "router-mode": "kv",
+        "no-kv-events": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      },
+      "orchestrator_placement": "head"
+    },
+    "client_env": {
+      "AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS": "14400",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/3353a10/benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-1p4d-tep4-c30-b2-mtp5.yaml",
+    "sha256": "2bff8dec97d9fdd0dcc12c3035db7cf6a5d8200154b8136c97d60e8fb547d3c7"
+  },
+  {
+    "sha": "3353a10",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-3p4d-tep4-c60-b5-mtp5.yaml",
+    "dynamo": {
+      "install": true,
+      "hash": "2cbbdc863c336c2cfffa2a3668e2a6661801b259",
+      "request_plane": "tcp"
+    },
+    "frontend": {
+      "type": "dynamo",
+      "enable_multiple_frontends": false,
+      "env": {
+        "ETCD_LEASE_TTL": "120",
+        "DYN_ROUTER_QUEUE_THRESHOLD": "None",
+        "DYN_ROUTER_TEMPERATURE": "0",
+        "DYN_TOKENIZER_CACHE": "1",
+        "DYN_TOKENIZER_CACHE_BYTES": "8000000000",
+        "DYN_TOKENIZER": "fastokens",
+        "DYN_TCP_REQUEST_TIMEOUT": "30",
+        "DYN_LOG": "warn",
+        "DYN_ROUTER_SESSION_AFFINITY_TTL_SECS": "14400"
+      },
+      "args": {
+        "router-mode": "kv",
+        "no-kv-events": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      },
+      "orchestrator_placement": "head"
+    },
+    "client_env": {
+      "AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS": "14400",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/3353a10/benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-3p4d-tep4-c60-b5-mtp5.yaml",
+    "sha256": "734f1bd8091a7254fa6552554cd463a9a9a562683d4c5afedfa8cad7f760b35e"
+  },
+  {
+    "sha": "3353a10",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-4p1d-dep8-c227-b16-mtp3.yaml",
+    "dynamo": {
+      "install": true,
+      "hash": "2cbbdc863c336c2cfffa2a3668e2a6661801b259",
+      "request_plane": "tcp"
+    },
+    "frontend": {
+      "type": "dynamo",
+      "enable_multiple_frontends": false,
+      "env": {
+        "ETCD_LEASE_TTL": "120",
+        "DYN_ROUTER_QUEUE_THRESHOLD": "None",
+        "DYN_ROUTER_TEMPERATURE": "0",
+        "DYN_TOKENIZER_CACHE": "1",
+        "DYN_TOKENIZER_CACHE_BYTES": "8000000000",
+        "DYN_TOKENIZER": "fastokens",
+        "DYN_TCP_REQUEST_TIMEOUT": "30",
+        "DYN_LOG": "warn",
+        "DYN_ROUTER_SESSION_AFFINITY_TTL_SECS": "14400"
+      },
+      "args": {
+        "router-mode": "kv",
+        "no-kv-events": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      },
+      "orchestrator_placement": "head"
+    },
+    "client_env": {
+      "AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS": "14400",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/3353a10/benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-4p1d-dep8-c227-b16-mtp3.yaml",
+    "sha256": "19da1c7d0c30e4ac1589d3292cdd340f63916a0d4430fc4e23994f3faea6ef60"
+  },
+  {
+    "sha": "3353a10",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-5p1d-dep16-c260-b16-mtp3.yaml",
+    "dynamo": {
+      "install": true,
+      "hash": "2cbbdc863c336c2cfffa2a3668e2a6661801b259",
+      "request_plane": "tcp"
+    },
+    "frontend": {
+      "type": "dynamo",
+      "enable_multiple_frontends": false,
+      "env": {
+        "ETCD_LEASE_TTL": "120",
+        "DYN_ROUTER_QUEUE_THRESHOLD": "None",
+        "DYN_ROUTER_TEMPERATURE": "0",
+        "DYN_TOKENIZER_CACHE": "1",
+        "DYN_TOKENIZER_CACHE_BYTES": "8000000000",
+        "DYN_TOKENIZER": "fastokens",
+        "DYN_TCP_REQUEST_TIMEOUT": "30",
+        "DYN_LOG": "warn",
+        "DYN_ROUTER_SESSION_AFFINITY_TTL_SECS": "14400"
+      },
+      "args": {
+        "router-mode": "kv",
+        "no-kv-events": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      },
+      "orchestrator_placement": "head"
+    },
+    "client_env": {
+      "AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS": "14400",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/3353a10/benchmarks/multi_node/srt-slurm-recipes/trtllm/glm5.2/gb300-fp4/agentic/dynamo-disagg-gb300-5p1d-dep16-c260-b16-mtp3.yaml",
+    "sha256": "330eef81a5b3ad982c11d50eb396722e2bee9dd9390d92264aa047c43566f277"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/agg-gb200-tp8-c2-mtp.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/agg-gb200-tp8-c2-mtp.yaml",
+    "sha256": "7812951f9c949c18e694bda89ff428f99b6d7b0314a8326cd648fb6e53aa9772"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/agg-gb200-tp8-c4-mtp.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/agg-gb200-tp8-c4-mtp.yaml",
+    "sha256": "4b62e384b36c8fb63d114a1469298b1eb1727b030942b26aed4b5dec37b60a4d"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/agg-gb200-tp8-c8-mtp.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/agg-gb200-tp8-c8-mtp.yaml",
+    "sha256": "68c20bf7a025735203cb84fe3c463667fccddc44893fc1bfaa3a7cbeab0ba399"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/disagg-gb200-1p4d-dep8-tp4-c48-mtp.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/disagg-gb200-1p4d-dep8-tp4-c48-mtp.yaml",
+    "sha256": "d03f5ad9196fb2ebdb0fcf46ca7274efb3c2fe9870e990be149e075ab46bad17"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/disagg-gb200-1p6d-dep8-tp4-c45-mtp.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/disagg-gb200-1p6d-dep8-tp4-c45-mtp.yaml",
+    "sha256": "68e67a160179f74a17caed1a8e75ebd49cae672e9917e9d8f7f5e79aad4b082e"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/disagg-gb200-2p1d-dep8-dep16-c128-mtp.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/disagg-gb200-2p1d-dep8-dep16-c128-mtp.yaml",
+    "sha256": "57c3e3195ee8ab2233c0459640ef73d0f6ccd5fe81de843016f720a86acc652e"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/glm5.2-agentx-agg.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None",
+        "router-session-affinity-ttl-secs": 3600
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/glm5.2-agentx-agg.yaml",
+    "sha256": "8795e304cfd2ecad1adce8e65912e6e5e644877bed5f7294c88c9aefbb13c5b0"
+  },
+  {
+    "sha": "6130a8b",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/glm5.2-agentx.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-kv-events": true,
+        "router-temperature": 0,
+        "kv-cache-block-size": 64,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None",
+        "router-session-affinity-ttl-secs": 3600
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/6130a8b/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb200-fp4/agentic/glm5.2-agentx.yaml",
+    "sha256": "6323dcf87974587e052da11d2e1d387883056fc17d3a3ad47cd40a478002875d"
+  },
+  {
+    "sha": "b384c40",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb300-fp4/agentic/glm5.2-agentx-agg.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None",
+        "router-session-affinity-ttl-secs": 3600
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/b384c40/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb300-fp4/agentic/glm5.2-agentx-agg.yaml",
+    "sha256": "d698d577cd61e314d0396134c9a032c7a9f8a6de0060201e04dbfdfffd2769ec"
+  },
+  {
+    "sha": "b384c40",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb300-fp4/agentic/glm5.2-agentx.yaml",
+    "dynamo": {
+      "hash": "71eb001e17fa73c742f0afe1a6ed96836cb135fd",
+      "install": true
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None",
+        "router-session-affinity-ttl-secs": 3600
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/b384c40/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/gb300-fp4/agentic/glm5.2-agentx.yaml",
+    "sha256": "89b3c7b4db8030deb7df3c4875125e2fcf2ab60a9a7735fa872d0f1204874489"
+  },
+  {
+    "sha": "e937ff6",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/agg-b200-tp8-c1-mtp.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None",
+        "router-session-affinity-ttl-secs": 3600
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/e937ff6/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/agg-b200-tp8-c1-mtp.yaml",
+    "sha256": "e6342b82f0778747aca2fd96dffcc9db6a503d458c316b2d94dd5a9514056011"
+  },
+  {
+    "sha": "e937ff6",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/agg-b200-tp8-c4-mtp.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None",
+        "router-session-affinity-ttl-secs": 3600
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/e937ff6/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/agg-b200-tp8-c4-mtp.yaml",
+    "sha256": "63546ace7885d008349239f44d4654eb30649196eb63075af5d8f35b8388b908"
+  },
+  {
+    "sha": "e937ff6",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/agg-b200-tp8-c8-mtp.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None",
+        "router-session-affinity-ttl-secs": 3600
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/e937ff6/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/agg-b200-tp8-c8-mtp.yaml",
+    "sha256": "697dac31953613dd80853ced6ddb196011466eeb3576cc275d302d7057b721da"
+  },
+  {
+    "sha": "e937ff6",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/disagg-b200-1p1d-dep8-dep8-c64-mtp.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/e937ff6/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/disagg-b200-1p1d-dep8-dep8-c64-mtp.yaml",
+    "sha256": "7a46071fcdf8c426fe1c4ce3ee3f074f4b15028a063ad81e3e8c055eab73b93d"
+  },
+  {
+    "sha": "e937ff6",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/disagg-b200-1p4d-dep8-tp4-c48-mtp.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/e937ff6/benchmarks/multi_node/srt-slurm-recipes/sglang/glm5.2/b200-fp4/agentic/disagg-b200-1p4d-dep8-tp4-c48-mtp.yaml",
+    "sha256": "eef54cf444377f50abdbe985c1a8c6a11319c922191d2606b1758c2bf858ce97"
+  },
+  {
+    "sha": "f8fbcc2",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c12.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/f8fbcc2/benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c12.yaml",
+    "sha256": "27f0ce113e2384cca8d596af7090fbf4bc229320a4ab7746c48867bf7303efc8"
+  },
+  {
+    "sha": "f8fbcc2",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c16.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/f8fbcc2/benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c16.yaml",
+    "sha256": "6ddb46cf7e981939f10c0b6cbfc27e3d927d02de60ea62cc30162a206c3c4423"
+  },
+  {
+    "sha": "f8fbcc2",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c2.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/f8fbcc2/benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c2.yaml",
+    "sha256": "040ea91c03a37120660bb5b07f949108fb339dfe8a22fd3222347f9458a84194"
+  },
+  {
+    "sha": "f8fbcc2",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c4.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/f8fbcc2/benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c4.yaml",
+    "sha256": "4dd36ea4e3c0bec028a607a9b0472600c4b53a57da1f5c92a0c3763b4a5a5128"
+  },
+  {
+    "sha": "f8fbcc2",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c8.yaml",
+    "dynamo": {
+      "install": false
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Dynamo-Session-ID",
+      "enable_multiple_frontends": true,
+      "env": {
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-session-affinity-ttl-secs": "3600",
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true",
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/f8fbcc2/benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/agg-h200-tp8-mtp-c8.yaml",
+    "sha256": "490277e97901e3a63436e1747fd235b62699ca4e91e720b37d5587955e0e0f14"
+  },
+  {
+    "sha": "f8fbcc2",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/disagg-1p1d-pcp8-tp8-dp8-mtp6-hicache.yaml",
+    "dynamo": {
+      "install": true,
+      "source": {
+        "wheel": "1.3.0.dev1"
+      }
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Correlation-ID",
+      "env": {
+        "DYN_ROUTER_TEMPERATURE": "10000000",
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-reset-states": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/f8fbcc2/benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/disagg-1p1d-pcp8-tp8-dp8-mtp6-hicache.yaml",
+    "sha256": "b4d21675432c47ec00633236bb53441e18d676a14e9cd59d703efbcb953f29e4"
+  },
+  {
+    "sha": "f8fbcc2",
+    "path": "benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/disagg-2p2d-pcp8-tp8-dp8-mtp.yaml",
+    "dynamo": {
+      "install": true,
+      "source": {
+        "wheel": "1.3.0.dev1"
+      }
+    },
+    "frontend": {
+      "type": "dynamo",
+      "nginx_session_affinity": true,
+      "nginx_session_affinity_header": "X-Correlation-ID",
+      "env": {
+        "DYN_ROUTER_TEMPERATURE": "10000000",
+        "PIP_BREAK_SYSTEM_PACKAGES": "1"
+      },
+      "args": {
+        "router-mode": "kv",
+        "router-reset-states": true,
+        "active-decode-blocks-threshold": "None",
+        "active-prefill-tokens-threshold": "None",
+        "active-prefill-tokens-threshold-frac": "None"
+      }
+    },
+    "client_env": {
+      "AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING": "0",
+      "AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID": "true"
+    },
+    "source_url": "https://github.com/SemiAnalysisAI/InferenceX/blob/f8fbcc2/benchmarks/multi_node/srt-slurm-recipes/glm5.2/sglang/h200-fp8/agentx/disagg-2p2d-pcp8-tp8-dp8-mtp.yaml",
+    "sha256": "38d03dfcb251d25f8c1298ca7875a6118e2a70663bb421ae3fb6fa9b6739726a"
+  }
+]

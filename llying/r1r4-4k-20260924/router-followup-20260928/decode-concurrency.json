@@ -1,0 +1,115 @@
+{
+  "definition": "Sample mean of sum across 8 DP ranks of sglang:num_running_reqs; excludes decode transfer/preallocation queues. Missing scrapes not zero-filled.",
+  "rows": [
+    {
+      "strategy": "A0",
+      "window_seconds": 3600,
+      "source": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/a0-guard-decode/analysis/runtime-summary.json",
+      "active_total": {
+        "n": 1777,
+        "mean": 36.31738885762521,
+        "p50": 36.0,
+        "p90": 52.0,
+        "p99": 67.0,
+        "max": 72.0
+      },
+      "active_per_rank_mean": 4.539673607203151,
+      "waiting_kv_total": {
+        "n": 1777,
+        "mean": 23.30782217220034,
+        "p50": 22.0,
+        "p90": 41.0,
+        "p99": 54.0,
+        "max": 61.0
+      }
+    },
+    {
+      "strategy": "R1",
+      "window_seconds": 3600,
+      "source": "/perf_apps/liyingli/bench_agentx/p8d8-adaptive-31625-20260923/runs/g0-guard-completion/analysis/runtime-summary.json",
+      "active_total": {
+        "n": 1773,
+        "mean": 36.62323745064862,
+        "p50": 37.0,
+        "p90": 54.0,
+        "p99": 63.27999999999997,
+        "max": 70.0
+      },
+      "active_per_rank_mean": 4.577904681331077,
+      "waiting_kv_total": {
+        "n": 1773,
+        "mean": 17.463056965595037,
+        "p50": 15.0,
+        "p90": 34.0,
+        "p99": 47.27999999999997,
+        "max": 56.0
+      }
+    },
+    {
+      "strategy": "R1+R4",
+      "window_seconds": 3600,
+      "source": "/perf_apps/liyingli/bench_agentx/r1r4-4k-20260924/runs/r1r4-31719-performance-attempt4/analysis/runtime-summary.json",
+      "active_total": {
+        "n": 1790,
+        "mean": 23.606145251396647,
+        "p50": 20.0,
+        "p90": 42.0,
+        "p99": 62.0,
+        "max": 74.0
+      },
+      "active_per_rank_mean": 2.950768156424581,
+      "waiting_kv_total": {
+        "n": 1790,
+        "mean": 50.704469273743015,
+        "p50": 52.0,
+        "p90": 80.0,
+        "p99": 97.0,
+        "max": 113.0
+      }
+    },
+    {
+      "strategy": "A0",
+      "window_seconds": 2580,
+      "source": "llying/r2-4k-validation-20260924/execution-31705-31706/bottleneck-analysis/comparison.json",
+      "active_total": {
+        "n": 1272,
+        "mean": 34.79245283018868,
+        "p50": 35.0,
+        "p95": 55.0,
+        "p99": 65.0,
+        "max": 72.0
+      },
+      "active_per_rank_mean": 4.349056603773585,
+      "waiting_kv_total": {
+        "n": 1272,
+        "mean": 22.10377358490566,
+        "p50": 21.0,
+        "p95": 43.0,
+        "p99": 51.0,
+        "max": 54.0
+      }
+    },
+    {
+      "strategy": "R2",
+      "window_seconds": 2580,
+      "source": "llying/r2-4k-validation-20260924/execution-31705-31706/bottleneck-analysis/comparison.json",
+      "active_total": {
+        "n": 1275,
+        "mean": 35.131764705882354,
+        "p50": 35.0,
+        "p95": 57.299999999999955,
+        "p99": 67.25999999999999,
+        "max": 73.0
+      },
+      "active_per_rank_mean": 4.391470588235294,
+      "waiting_kv_total": {
+        "n": 1275,
+        "mean": 21.785098039215686,
+        "p50": 22.0,
+        "p95": 41.0,
+        "p99": 47.0,
+        "max": 55.0
+      }
+    }
+  ]
+}

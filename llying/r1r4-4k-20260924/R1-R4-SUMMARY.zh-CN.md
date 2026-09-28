@@ -2,6 +2,8 @@
 
 整理日期：2026-09-28。本文总结已完成的代码验证和实验，不代表新增实验结果，也不改变策略默认开关。
 
+后续补充：[Decode 有效并发对比与 InferenceX 公开成绩对应 Router 配方核查](router-followup-20260928/REPORT.zh-CN.md)。该核查发现相关 SGLang 配方启用了会话亲和，需与通用 KV 评分公式一起考虑。
+
 **当前建议：本 case 优先保留 R1；R2 作为缓解 Decode KV 热点的可选策略；R3 尚需验证实际 host 回读收益；当前 R4 不建议启用。下一步应在保留缓存亲和性的基础上，改进 Prefill 排队和成本估计。**
 
 这里 P 指 Prefill，D 指 Decode；TTFT 是首 token 延迟，ITL 是后续 token 间隔。性能结论主要针对 GLM-5.2、P/D 各 8 卡、C80、两端有效 chunk_size=4096、P 开启 HiCache 的配置。R3 的旁路观察使用 P 8K / D 4K，不能混作该配置的性能结果。
