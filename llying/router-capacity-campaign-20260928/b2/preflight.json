@@ -1,0 +1,132 @@
+{
+  "passed": true,
+  "requests": [
+    {
+      "id": "session-review-preflight-0",
+      "object": "chat.completion",
+      "created": 1790608855,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!au is 1/2 of a degree. The user is asking a repetitive question, and they want the final answer in a specific way. 1.  **Analyze the Request:**\n    *   The user provides a repetitive string of \"I am 20 * a measurement of a 1",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": null,
+        "reasoning_tokens": 64
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    },
+    {
+      "id": "session-review-preflight-1",
+      "object": "chat.completion",
+      "created": 1790608855,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!au\n*The user is asking me to give the temperature of a measurement of 20 degress. The user has repeated the same phrase many times, but the core request is the same: \"Give the temperature of a measurement of 20 degress.\" \n\n1.  **Analyze the Request:",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": {
+          "cached_tokens": 704
+        },
+        "reasoning_tokens": 64
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    },
+    {
+      "id": "session-review-preflight-2",
+      "object": "chat.completion",
+      "created": 1790608856,
+      "model": "glm5.2-mxfp4",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "",
+            "reasoning_content": "1!macross the user's givin. 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,20,20,21,20,21,",
+            "tool_calls": null
+          },
+          "logprobs": null,
+          "finish_reason": "length",
+          "matched_stop": null
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 717,
+        "total_tokens": 781,
+        "completion_tokens": 64,
+        "prompt_tokens_details": {
+          "cached_tokens": 704
+        },
+        "reasoning_tokens": 64
+      },
+      "metadata": {
+        "weight_version": "default",
+        "weight_versions": [
+          {
+            "version": "default",
+            "start": 0,
+            "end": 64
+          }
+        ]
+      }
+    }
+  ],
+  "session_metrics": [
+    "infera_router_session_active{role=\"prefill\"} 0",
+    "infera_router_session_hits_total{role=\"prefill\"} 2",
+    "infera_router_session_selected_total{role=\"prefill\"} 1",
+    "infera_router_session_active{role=\"decode\"} 0",
+    "infera_router_session_hits_total{role=\"decode\"} 0",
+    "infera_router_session_selected_total{role=\"decode\"} 0",
+    "infera_router_session_active{role=\"mixed\"} 0",
+    "infera_router_session_hits_total{role=\"mixed\"} 0",
+    "infera_router_session_selected_total{role=\"mixed\"} 0"
+  ],
+  "binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f"
+}
