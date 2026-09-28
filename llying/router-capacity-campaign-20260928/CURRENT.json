@@ -1,5 +1,5 @@
 {
-  "updated_utc": "2026-09-28T22:30:15.310577+00:00",
+  "updated_utc": "2026-09-28T23:14:06.554114+00:00",
   "stage": "B4_PROFILING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b4-triton",
@@ -8,7 +8,7 @@
     "B4 formal C80 on P8D8, Triton P/D, fusion on",
     "await-b4-placement.sh will archive and fully review B4 after export",
     "allocation watcher for 32054",
-    "prepare_extra_node.py --job 32056 waiting for future eligibility"
+    "Third node prepared for B6/B7; no model is registered into current B4 router"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
@@ -49,11 +49,16 @@
   ],
   "extra_node_request": {
     "job": 32056,
-    "state": "PENDING, no GPU allocated",
+    "state": "PREPARED",
     "not_before_utc": "2026-09-28T23:00:00Z",
     "time_limit_hours": 6,
     "exclusions": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/avoid-nodes.json plus current PD nodes",
-    "reason": "Delayed after measured ~35-minute P memory release, to avoid idle allocation before the B4 result."
+    "reason": "Delayed after measured ~35-minute P memory release, to avoid idle allocation before the B4 result.",
+    "node": "smci355-ccs-aus-n05-29",
+    "ip": "10.235.192.137",
+    "start_utc": "2026-09-28T23:05:28Z",
+    "end_utc": "2026-09-29T05:05:28Z",
+    "isolated_smoke": false
   },
   "selected_d": "radix on + both affinity; R2 off",
   "allocation_state": "RUNNING",

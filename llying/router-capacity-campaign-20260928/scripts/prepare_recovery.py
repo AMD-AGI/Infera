@@ -1,6 +1,7 @@
 """Prepare replacement allocations after externally preempted measurements."""
 import argparse,concurrent.futures,datetime,getpass,json,os,re,shlex,socket,subprocess,time
 from pathlib import Path
+from allocation_ready import wait_for_ssh
 
 ROOT=Path('/perf_apps/liyingli/bench_agentx/router-capacity-20260928')
 p=argparse.ArgumentParser();p.add_argument('--job',type=int,required=True);JOB=p.parse_args().job
@@ -35,6 +36,7 @@ def remote(node,args,timeout=1800):
 
 
 def prepare(node):
+    wait_for_ssh(remote,node,JOB)
     # These names were recorded before the old allocation was preempted.
     old={'llying-campaign-b1-prefill-0','llying-campaign-b3-router','llying-campaign-b3-collector','llying-campaign-b1-smoke-etcd'}
     running=remote(node,['docker','ps','--format','{{.Names}}'],timeout=30).splitlines()

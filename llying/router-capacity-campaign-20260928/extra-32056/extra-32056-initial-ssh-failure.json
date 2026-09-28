@@ -1,0 +1,9 @@
+{
+  "job": 32056,
+  "state": "FAILED",
+  "updated_utc": "2026-09-28T23:05:31.581246+00:00",
+  "node": "smci355-ccs-aus-n05-29",
+  "ip": "10.235.192.137",
+  "error": "Command '['ssh', '-F', '/dev/null', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-o', 'StrictHostKeyChecking=accept-new', '-o', 'UserKnownHostsFile=/tmp/bench-agentx-known-hosts', 'smci355-ccs-aus-n05-29', 'docker load -i /perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/diagnostic-image.tar']' returned non-zero exit status 255.",
+  "cleanup_errors": []
+}

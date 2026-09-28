@@ -1,6 +1,7 @@
 """Prepare an allocated third node without registering it in the live benchmark pool."""
 import argparse,datetime,getpass,json,re,shlex,socket,subprocess,time
 from pathlib import Path
+from allocation_ready import wait_for_ssh
 
 ROOT=Path('/perf_apps/liyingli/bench_agentx/router-capacity-20260928')
 SSH=['ssh','-F','/dev/null','-o','BatchMode=yes','-o','ConnectTimeout=10','-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=/tmp/bench-agentx-known-hosts']
@@ -45,8 +46,10 @@ try:
     registry=ROOT/'allocation-registry.json';data=json.loads(registry.read_text())
     data['jobs']=[j for j in data['jobs'] if j['id']!=a.job]+[{'id':a.job,'nodes':[node]}]
     tmp=registry.with_suffix('.tmp');tmp.write_text(json.dumps(data,indent=2)+'\n');tmp.replace(registry)
+    wait_for_ssh(remote,node,a.job)
     try:base_id=remote(node,['docker','image','inspect','--format','{{.Id}}',BASE],timeout=30).strip()
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as error:
+        if error.returncode==255:raise
         save('LOADING_BASE_IMAGE')
         log=remote(node,['docker','load','-i','/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/diagnostic-image.tar'])
         (ROOT/f'extra-{a.job}-image-load.log').write_text(log)

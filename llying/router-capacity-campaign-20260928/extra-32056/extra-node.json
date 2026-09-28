@@ -1,0 +1,43 @@
+{
+  "job": 32056,
+  "state": "PREPARED",
+  "updated_utc": "2026-09-28T23:09:34.786449+00:00",
+  "node": "smci355-ccs-aus-n05-29",
+  "ip": "10.235.192.137",
+  "image_id": "sha256:e030043ac6ac6827afcfbece0c4447b6106914b2380a9b7c1359cbb71ef3d75d",
+  "gpu_memory": {
+    "card0": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297766912"
+    },
+    "card1": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297754624"
+    },
+    "card2": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297754624"
+    },
+    "card3": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297754624"
+    },
+    "card4": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297754624"
+    },
+    "card5": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297754624"
+    },
+    "card6": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297754624"
+    },
+    "card7": {
+      "VRAM Total Memory (B)": "309220868096",
+      "VRAM Total Used Memory (B)": "297754624"
+    }
+  },
+  "isolated_smoke": false
+}
