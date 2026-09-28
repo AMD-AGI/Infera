@@ -6,7 +6,8 @@
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b2.sh",
   "already_running": [
     "B2 run-performance.sh formal C80 and observers; do not duplicate",
-    "allocation watcher active"
+    "allocation watcher active",
+    "await-b3-performance.sh is armed: requires completed B2, complete local-prefix coverage and all quality checks before starting B3; do not duplicate"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
