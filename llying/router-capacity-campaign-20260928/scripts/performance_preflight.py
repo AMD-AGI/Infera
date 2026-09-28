@@ -9,6 +9,8 @@ for role,port in [('prefill',29001),('decode',29002)]:
  ip=os.environ[role.upper()+'_IP'];d=get(f'http://{ip}:{port}/get_server_info');infos[role]=d
  (run/f'launch/server-info/{role}-0.json').write_text(json.dumps(d,indent=2))
  for k,v in {'chunked_prefill_size':4096,'tp_size':8,'dp_size':8,'ep_size':1,'mem_fraction_static':0.85,'enable_hierarchical_cache':role=='prefill','random_seed':823508857 if role=='prefill' else 19197414}.items():assert d[k]==v,(role,k,d[k],v)
+ if role=='decode':
+  assert d['disaggregation_decode_enable_radix_cache']==(os.environ.get('DECODE_RADIX','0')=='1')
  if role=='prefill':
   for k,v in {'hicache_ratio':1.5,'hicache_write_policy':'write_through','hicache_io_backend':'kernel','hicache_mem_layout':'page_first'}.items():assert d[k]==v,(k,d[k])
  name=os.environ.get('PREFILL_CONTAINER',os.environ['CONTAINER_PREFIX']+'-prefill-0') if role=='prefill' else os.environ['DECODE_CONTAINER']

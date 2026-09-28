@@ -14,7 +14,7 @@ out = Path(sys.argv[1])
 base = Path(os.environ['BASELINE_RUN'])
 a, b = env(base/'c80/runtime.env'), env(out/'runtime.env')
 path_keys = {'AGENTIC_OUTPUT_DIR', 'AIPERF_RUNTIME_DIR', 'AIPERF_SERVER_METRICS_URLS',
-             'AIPERF_SERVER_URL', 'RUNNER_TYPE', 'PREFILL_HARDWARE', 'DECODE_HARDWARE', 'TOTAL_CPU_DRAM_GB', 'IMAGE', 'IMAGE_IDS', 'HOST_UID', 'HOST_GID', 'AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID'}
+             'AIPERF_SERVER_URL', 'RUNNER_TYPE', 'PREFILL_HARDWARE', 'DECODE_HARDWARE', 'TOTAL_CPU_DRAM_GB', 'IMAGE', 'IMAGE_IDS', 'DSA_PREFILL_BACKEND', 'DSA_DECODE_BACKEND', 'TP', 'PREFILL_TP', 'DECODE_TP', 'PREFILL_DP_SIZE', 'DECODE_DP_SIZE', 'PREFILL_NUM_WORKERS', 'DECODE_NUM_WORKERS', 'HOST_UID', 'HOST_GID', 'AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID'}
 differences = {k: {'baseline': a.get(k), 'current': b.get(k)}
                for k in a.keys() | b.keys() if a.get(k) != b.get(k)}
 errors = []
@@ -22,6 +22,20 @@ for k in set(differences) - path_keys:
     errors.append(f'Unexpected benchmark setting: {k}')
 expected = {'CONC': '80', 'DURATION': '3600', 'AIPERF_WARMUP_REQUESTS_PER_LANE': '10',
             'SIMULATE_ACC_LEN': '3.61', 'AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID': 'true'}
+for role in ('PREFILL','DECODE'):
+    expected[role+'_TP']=os.environ[role+'_TP']
+    expected[role+'_DP_SIZE']=os.environ[role+'_DP']
+expected['TP']=os.environ['PREFILL_TP']
+expected['DSA_PREFILL_BACKEND']=os.environ['DSA_PREFILL_BACKEND']
+expected['DSA_DECODE_BACKEND']=os.environ['DSA_DECODE_BACKEND']
+topology=Path(os.environ['TOPOLOGY'])
+if topology.suffix=='.json':
+    workers=json.loads(topology.read_text())
+else:
+    import csv
+    workers=list(csv.DictReader(topology.open(),delimiter='\t'))
+for role in ('prefill','decode'):
+    expected[role.upper()+'_NUM_WORKERS']=str(sum(w['role']==role for w in workers))
 for k, value in expected.items():
     if b.get(k) != value:
         errors.append(f'{k} != {value}')
