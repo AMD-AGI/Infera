@@ -1,11 +1,12 @@
 {
-  "updated_utc": "2026-09-28T15:22:56.952185+00:00",
-  "stage": "B2_REPLAY_STARTING",
+  "updated_utc": "2026-09-28T15:32:38.237393+00:00",
+  "stage": "B2_WARMUP",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b2.sh",
   "already_running": [
-    "B2 preflight passed; run-performance.sh is loading the fixed dataset, then 884 warmup + 3600s profiling"
+    "B2 run-performance.sh is in fixed warmup; do not duplicate",
+    "allocation watcher is running"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
@@ -39,5 +40,11 @@
     "B7 4P4+D8 C80 on same three nodes",
     "Commit/push results, release added node after cleanup, preserve original allocation as agreed"
   ],
-  "selected_p": "legacy + R1 + P affinity"
+  "selected_p": "legacy + R1 + P affinity",
+  "prepared_helpers": [
+    "B3 config and two-node transition",
+    "explicit placement validation / launch / capture / C80 runner",
+    "gold-answer physical-rank coverage probe",
+    "third-node preparation with isolated registration"
+  ]
 }
