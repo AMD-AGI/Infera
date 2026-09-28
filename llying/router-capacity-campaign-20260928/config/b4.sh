@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+source /perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b4-real.sh
+export RUN_ID=campaign-b4-triton
+export RUN=$TRACE_RUNTIME/runs/$RUN_ID
+export CONTAINER_PREFIX=llying-campaign-b4
+export PREVIOUS_RUN=$TRACE_RUNTIME/runs/campaign-b4-triton-real
+export OLD_PREFIX=llying-campaign-b4-real
+export TOPOLOGY=$TRACE_RUNTIME/config/b4.json
+export DECODE_SIMULATE_ACC_LEN=3.61

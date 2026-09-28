@@ -108,6 +108,17 @@ docker_args=(
     -v "$TRACE_RUNTIME/docker/aus_diag.py:/sgl-workspace/sglang/python/sglang/srt/observability/aus_diag.py:ro"
     -e AITER_JIT_DIR=/aiter-jit
 )
+if [[ "${PERSIST_JIT_CACHE:-0}" == 1 ]]; then
+    kernel_cache="${KERNEL_CACHE_ROOT:-/tmp/infera-kernel-cache-$(id -u)}/$image_key/$role-tp$tp"
+    mkdir -p "$kernel_cache/tilelang" "$kernel_cache/triton" "$kernel_cache/sglang"
+    docker_args+=(
+        -v "$kernel_cache/tilelang:/root/.tilelang/cache"
+        -v "$kernel_cache/triton:/root/.triton/cache"
+        -v "$kernel_cache/sglang:/root/.cache/sglang"
+        -e TILELANG_CACHE_DIR=/root/.tilelang/cache
+        -e TRITON_CACHE_DIR=/root/.triton/cache
+    )
+fi
 if [[ "$role" == decode && -n "${DECODE_DIAG_SOURCE:-}" ]]; then
     docker_args+=(-v "$DECODE_DIAG_SOURCE:/sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py:ro")
 fi
