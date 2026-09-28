@@ -106,6 +106,7 @@ if __name__=='__main__':
         upper=role.upper();name=E.get(upper+'_CONTAINER',E['CONTAINER_PREFIX']+'-'+role+'-0')
         c=json.loads(remote(E[upper+'_NODE'],['docker','inspect',name]))[0]
         live[role]={'Id':c['Id'],'name':name}
+        (RUN/f'snapshot/{role}-container.json').write_text(json.dumps(c,indent=2)+'\n')
         info=get(f"http://{E[upper+'_IP']}:{port}/get_server_info")
         (RUN/f'launch/server-info/{role}-0.json').write_text(json.dumps(info,indent=2)+'\n')
     (RUN/'live-containers.json').write_text(json.dumps(live,indent=2)+'\n')
