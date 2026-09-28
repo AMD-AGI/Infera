@@ -39,3 +39,5 @@ B0参考采用已完成的同节点P亲和基线：本次overlay仅增加默认�
 B1回放前只读观察到P/D八rank的GPU used/evictable均为0；P host-used有一个704-token计数（可能是预检请求或计数更新延迟），没有把它冒充host完全清空的证明，也没有在回放期间再flush。正式缓存统计采用实际请求cohort。
 
 观测口径复核：实际镜像`kv_used_tokens`已经是非可驱逐的活跃占用，`kv_evictable_tokens`是另一部分；不能再从used中减evictable。resident应为二者之和。D radix后仍按used衡量活跃压力，同时单列evictable/resident，避免把缓存填满解释成活跃容量不足。
+
+分析代码回归：在独立临时输出目录重新解析已完成的P8D8参考数据，coverage、P cache、阶段耗时、分层、rank totals、P/D配对均与已提交结果完全一致。新分析只扩展实际DP4和多worker身份，避免把不存在的4个D rank补零或合并不同P worker的同号rank。

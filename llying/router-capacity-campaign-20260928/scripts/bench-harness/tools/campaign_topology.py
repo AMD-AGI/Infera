@@ -39,7 +39,7 @@ def load(path):
             raise ValueError('invalid or duplicate container')
         containers.add((node,container))
         instance=f'{role}-{counts[role]}';counts[role]+=1
-        result.append(dict(row,index=str(index),instance=instance,ip=ip,url=f'http://{ip}:{engine}'))
+        result.append(dict(row,index=str(index),instance=instance,data_ip=ip,ip=ip,url=f'http://{ip}:{engine}'))
     for a in result:
         if a['engine_port']+255>65535:raise ValueError('engine port range exceeds TCP limit')
         for b in result:

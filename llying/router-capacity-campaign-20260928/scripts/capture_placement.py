@@ -29,7 +29,7 @@ if sealed():raise SystemExit(0)
 for w in rows:
     dest=RUN/'diagnostics'/w['role'];dest.mkdir(parents=True,exist_ok=True)
     cmd=SSH+[w['node'],shlex.join(['python3','-c',PROBE,w['diag_dir'],str(since)])]
-    with subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
+    with subprocess.Popen(['timeout','90s',*cmd],stdout=subprocess.PIPE,stderr=subprocess.PIPE) as child:
         with tarfile.open(fileobj=child.stdout,mode='r|') as archive:
             for entry in archive:
                 if not entry.isfile() or Path(entry.name).name!=entry.name:raise ValueError('invalid diagnostic member')
