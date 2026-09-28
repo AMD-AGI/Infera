@@ -4,12 +4,13 @@
 The export is ~1.4 GB and json.load needs several times that in RAM, so run this
 on a compute node, not the login node.
 
-Usage: server_metrics_extract.py SERVER_METRICS_EXPORT_JSON ARM OUT_CSV [DECODE_PORT]
+Usage: server_metrics_extract.py SERVER_METRICS_EXPORT_JSON[.gz] ARM OUT_CSV [DECODE_PORT]
 Artifacts: OUT_CSV with one row per (profiling second, DP rank): gauges as the
 slice average, counters as the slice increment.
 """
 import collections
 import csv
+import gzip
 import json
 import sys
 
@@ -25,7 +26,7 @@ WANT = {
 def main():
     path, arm, out = sys.argv[1:4]
     port = sys.argv[4] if len(sys.argv) > 4 else "29002"
-    d = json.load(open(path))
+    d = json.load(gzip.open(path, "rt") if path.endswith(".gz") else open(path))
     prof = d["summary"]["phase_time_ranges"]["profiling"]
     rows = collections.defaultdict(dict)
     for name, kind in WANT.items():

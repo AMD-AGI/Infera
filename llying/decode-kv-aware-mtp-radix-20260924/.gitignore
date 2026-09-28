@@ -3,6 +3,7 @@
 /analysis/evidence/**/server-logs/
 /analysis/evidence/gate/**/samples_*.jsonl
 __pycache__/
+.nfs*
 
 # Logs cited by the reports are evidence; the repository root ignores *.log.
 !*.log

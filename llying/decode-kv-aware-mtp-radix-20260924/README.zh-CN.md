@@ -56,7 +56,7 @@ decode 侧打不开 KV-aware，是因为 SGLang 在参数解析阶段禁止 `--d
 
 以下文件体积大（每次 AgentX 运行约 1.7 GB），只保留在共享文件系统上的这个目录里：`/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/`。报告中的数字可以由已提交的汇总文件和脚本复现，但重新从原始数据计算时需要这些文件。
 
-- `analysis/evidence/**/aiperf_artifacts/`：AgentX 的逐请求记录（`profile_export.jsonl`）、服务端指标时间序列（`server_metrics_export.json`，约 1.4 GB）和 timeslices。
+- `analysis/evidence/**/aiperf_artifacts/`：AgentX 的逐请求记录（`profile_export.jsonl`）、服务端指标时间序列和 timeslices。后两者因 `/home` 共享卷已满，已就地压缩为 `.gz`（`server_metrics_export.json.gz` 约 55 MB，解压后约 1.4 GB）；`scripts/server_metrics_extract.py` 可以直接读 `.gz`。
 - `analysis/evidence/**/server-logs/`：prefill 和 decode 的完整服务日志。
 - `analysis/evidence/gate/**/samples_gsm8k_*.jsonl`：GSM8K 的逐样本输出。分数在同目录的 `results_*.json` 中，已提交。
 
