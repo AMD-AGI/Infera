@@ -41,3 +41,5 @@ B1回放前只读观察到P/D八rank的GPU used/evictable均为0；P host-used�
 观测口径复核：实际镜像`kv_used_tokens`已经是非可驱逐的活跃占用，`kv_evictable_tokens`是另一部分；不能再从used中减evictable。resident应为二者之和。D radix后仍按used衡量活跃压力，同时单列evictable/resident，避免把缓存填满解释成活跃容量不足。
 
 分析代码回归：在独立临时输出目录重新解析已完成的P8D8参考数据，coverage、P cache、阶段耗时、分层、rank totals、P/D配对均与已提交结果完全一致。新分析只扩展实际DP4和多worker身份，避免把不存在的4个D rank补零或合并不同P worker的同号rank。
+
+固定上游源码进一步核对：PromptRegistry的projection将active_blocks与incoming未共享的active blocks相加；ActiveSequences即使track_prefill_tokens=true也会acquire_prompt并增加active_blocks，prefill完成只去掉token跟踪，request free再释放块。其共享块单测验证prefill状态下仍计入该块成本。当前P按R1请求结束同时释放两部分，与本实验的独立P请求生命周期一致。
