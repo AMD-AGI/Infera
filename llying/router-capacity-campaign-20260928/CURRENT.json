@@ -1,11 +1,11 @@
 {
-  "updated_utc": "2026-09-28T16:50:41.055983+00:00",
-  "stage": "B3_STARTING",
+  "updated_utc": "2026-09-28T16:53:48.644730+00:00",
+  "stage": "B3_REPLAY_STARTING",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b3-decode-affinity",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b3.sh",
   "already_running": [
-    "B2 quality checks passed; B3 controller-only transition and C80 starting",
+    "B3 run-performance.sh: P/D both affinity; replay loading then warmup/profiling",
     "allocation watcher active"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
@@ -46,9 +46,5 @@
     "explicit placement validation / launch / capture / C80 runner",
     "gold-answer physical-rank coverage probe",
     "third-node preparation with isolated registration"
-  ],
-  "profile_window_utc": [
-    "2026-09-28T15:43:23Z",
-    "2026-09-28T16:43:23Z"
   ]
 }

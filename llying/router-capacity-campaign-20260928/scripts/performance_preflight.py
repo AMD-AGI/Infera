@@ -53,4 +53,4 @@ for role,port in [('prefill',29001),('decode',29002)]:
  empty_cache[role]={'active':values,'evictable':evictable}
 (run/'snapshot/cache-empty-before-warmup.json').write_text(json.dumps({'passed':True,'kv_used_tokens':empty_cache},indent=2)+'\n')
 (run/'preflight.json').write_text(json.dumps({'passed':True,'requests':rows,'session_metrics':[l for l in metrics.splitlines() if l.startswith('infera_router_session_')],'binary_sha256':hashlib.sha256(Path(os.environ['ROUTER_BINARY_OVERRIDE']).read_bytes()).hexdigest()},indent=2))
-print('PREFLIGHT_PASSED: 4K, HiCache1.5, three real requests, two P session hits, D unbound')
+print('PREFLIGHT_PASSED: configured TP/DP/cache checked; session_affinity='+os.environ['INFERA_SESSION_AFFINITY'])
