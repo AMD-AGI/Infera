@@ -36,10 +36,11 @@ for role,port in [('prefill',29001),('decode',29002)]:
  for attempt in range(30):
   with urllib.request.urlopen(f'http://{os.environ[role.upper()+"_IP"]}:{port}/metrics',timeout=10) as f:raw=f.read().decode()
   values=[float(v) for v in re.findall(r'^sglang:kv_used_tokens(?:\{[^}]*\})? ([0-9.eE+-]+)$',raw,re.M)]
-  if len(values)==8 and all(v==0 for v in values):break
+  evictable=[float(v) for v in re.findall(r'^sglang:kv_evictable_tokens(?:\{[^}]*\})? ([0-9.eE+-]+)$',raw,re.M)]
+  if len(values)==8 and len(evictable)==8 and all(v==0 for v in values+evictable):break
   time.sleep(1)
  else:raise RuntimeError(f'{role} cache did not reach an empty state after flush: {values}')
- empty_cache[role]=values
+ empty_cache[role]={'active':values,'evictable':evictable}
 (run/'snapshot/cache-empty-before-warmup.json').write_text(json.dumps({'passed':True,'kv_used_tokens':empty_cache},indent=2)+'\n')
 (run/'preflight.json').write_text(json.dumps({'passed':True,'requests':rows,'session_metrics':[l for l in metrics.splitlines() if l.startswith('infera_router_session_')],'binary_sha256':hashlib.sha256(Path(os.environ['ROUTER_BINARY_OVERRIDE']).read_bytes()).hexdigest()},indent=2))
 print('PREFLIGHT_PASSED: 4K, HiCache1.5, three real requests, two P session hits, D unbound')

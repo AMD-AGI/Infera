@@ -1,0 +1,50 @@
+    swa_token_usage: float = 0.0
+    mamba_usage: float = 0.0
+
+    # Absolute token counts for the full-attention KV cache pool.
+    # Invariant: kv_available_tokens + kv_evictable_tokens + kv_used_tokens <= max_total_num_tokens
+    # (the gap accounts for protected/session-held tokens not exposed here).
+    # max_total_num_tokens is emitted once at startup via emit_constants.
+    #
+    # kv_available_tokens:  free (unallocated) slots in the pool.
+    # kv_evictable_tokens:  slots holding radix-cached KV data that can be evicted for new requests.
+    # kv_used_tokens:       actively used slots (locked by running requests). Equals full_num_used.
+    # num_used_tokens:      max(full_num_used, swa_num_used) for hybrid-SWA models, else full_num_used.
+    #                       Does NOT include the mamba pool.
+    num_used_tokens: int = 0
+    kv_available_tokens: int = 0
+    kv_evictable_tokens: int = 0
+    kv_used_tokens: int = 0
+
+    swa_available_tokens: int = 0
+                f"#cpu token: {self.hisparse_host_tokens}",
+                f"cpu token usage: {self.hisparse_host_token_usage:.2f}",
+            ]
+        if not parts:
+            parts.append(
+                f"#token: {self.full_num_used}, token usage: {self.full_token_usage:.2f}"
+            )
+        return parts
+
+    def update_scheduler_stats(self, stats: SchedulerStats) -> None:
+        """Update pool-related fields on SchedulerStats."""
+        num_used, _ = self.get_kv_token_stats()
+        stats.num_used_tokens = num_used
+        stats.token_usage = round(self.get_max_pool_usage(), 2)
+        stats.full_token_usage = self.full_token_usage
+        if self.is_hybrid_swa:
+            stats.swa_token_usage = self.swa_token_usage
+            stats.swa_available_tokens = self.swa_available_size
+            stats.swa_evictable_tokens = self.swa_evictable_size
+            stats.swa_used_tokens = self.swa_num_used
+        if self.is_hybrid_ssm:
+            stats.mamba_usage = self.mamba_usage
+            stats.mamba_available_tokens = self.mamba_available_size
+            stats.mamba_evictable_tokens = self.mamba_evictable_size
+            stats.mamba_used_tokens = self.mamba_num_used
+        stats.kv_available_tokens = self.full_available_size
+        stats.kv_evictable_tokens = self.full_evictable_size
+        stats.kv_used_tokens = self.full_num_used
+
+
+@dataclass(kw_only=True, slots=True, frozen=True)

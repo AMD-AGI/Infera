@@ -37,3 +37,5 @@ score = (在途有效P工作 + 本请求有效工作) / block_size
 B0参考采用已完成的同节点P亲和基线：本次overlay仅增加默认关闭的decode-radix opt-in，B1中D仍关闭radix/KV events；SGLang计算/传输内核未改，P/D原参数一致。实际runtime差异校验只有IMAGE/IMAGE_IDS及输出路径。没有为同一控制路径机械重复一小时基线；单次历史对照的时间/缓存历史局限在结果中保留。
 
 B1回放前只读观察到P/D八rank的GPU used/evictable均为0；P host-used有一个704-token计数（可能是预检请求或计数更新延迟），没有把它冒充host完全清空的证明，也没有在回放期间再flush。正式缓存统计采用实际请求cohort。
+
+观测口径复核：实际镜像`kv_used_tokens`已经是非可驱逐的活跃占用，`kv_evictable_tokens`是另一部分；不能再从used中减evictable。resident应为二者之和。D radix后仍按used衡量活跃压力，同时单列evictable/resident，避免把缓存填满解释成活跃容量不足。
