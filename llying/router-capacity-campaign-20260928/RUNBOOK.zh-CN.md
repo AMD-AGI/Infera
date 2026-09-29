@@ -1,3 +1,17 @@
+# 恢复前必读
+
+当前无运行或排队GPU作业。32076/32077已被root取消，所有等待流程和watcher已停止；runtime/STOP_AUTORUN已设置。以下入口是已准备的流程，**不能使用已取消的作业ID直接执行**。
+
+需要先取得有效分配，并更新b6-retry1-real.json/sh、b6-retry1.json/sh、准备记录及run-b6-retry1.sh中的主/额外作业ID。若沿用相同三个节点，B4可继续作为对照；改变主P/D节点则需新的比较基线。
+
+端口保护配置placement-ports.sh必须保留。固定服务端口限于25000–29999，内部自动端口分配器避让25000–32767。新worker需要完成新的etcd注册才能判定就绪，不能只依赖SGLang HTTP健康检查。
+
+B6重试复核通过后，finish-capacity-sequence.sh可衔接B7→B5；其中release_retired_allocation.py会在B5切换已确认第三台GPU清空后释放单节点job。启动前同样必须更新其中旧32077引用，并确认节点、作业所有者和剩余租期。该衔接脚本已做语法检查，但资源取消后未实机执行。
+
+完成这些核对后再移除STOP_AUTORUN、启动allocation watcher与准备/执行流程。任何失败均保留现场记录，不覆盖已有run或伪造review-ready。
+
+---
+
 # 本轮执行入口
 
 Runtime：`/perf_apps/liyingli/bench_agentx/router-capacity-20260928`。真实状态以CURRENT.json、各run的STATUS和Slurm为准，勿因当前无请求就重复启动。

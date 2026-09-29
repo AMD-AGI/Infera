@@ -1,19 +1,14 @@
 {
-  "updated_utc": "2026-09-29T00:17:11.409444+00:00",
-  "stage": "WAITING_B6_RETRY_ALLOCATION",
+  "updated_utc": "2026-09-29T00:57:41.193011+00:00",
+  "stage": "BLOCKED_RESOURCE_ADMIN_CANCEL",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
   "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b6-2p8d8-retry1-real",
   "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b6-retry1-real.sh",
-  "already_running": [
-    "prepare_recovery.py --job 32076 waiting for same main PD nodes",
-    "prepare_extra_node.py --job 32077 waiting for same extra P node",
-    "run-b6-retry1.sh waiting for both preparations",
-    "allocation watcher (currently no owned active nodes)"
-  ],
+  "already_running": [],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
   "smoke_passed": true,
-  "allocation": 32076,
+  "allocation": null,
   "allocation_end_utc": null,
   "allocation_extension_attempt": "Slurm denied; unchanged",
   "nodes": {
@@ -33,7 +28,7 @@
     "B6 2P8+D8 C80",
     "B7 4P4+D8 C80 on same three nodes",
     "B5 P8D4 C80",
-    "Archive results and release third node after its work"
+    "Final capacity comparison after these measurements"
   ],
   "selected_p": "legacy + R1 + P affinity",
   "prepared_helpers": [
@@ -44,12 +39,11 @@
   ],
   "extra_node_request": {
     "job": 32077,
-    "state": "PENDING",
-    "requested_node": "smci355-ccs-aus-n05-29",
-    "time_limit_hours": 7
+    "state": "CANCELLED by root before allocation",
+    "end_utc": "2026-09-29T00:42:28Z"
   },
   "selected_d": "radix on + both affinity; R2 off",
-  "allocation_state": "PENDING",
+  "allocation_state": "NONE",
   "planned_allocation_start_utc": "2026-09-28T19:25:51Z",
   "interruptions": [
     {
@@ -81,5 +75,42 @@
     }
   ],
   "warmup_start_utc": "2026-09-28T22:10:20Z",
-  "selected_backend": "triton"
+  "selected_backend": "triton",
+  "last_requests": [
+    32076,
+    32077
+  ],
+  "resource_block": {
+    "status": "BLOCKED_RESOURCE_ADMIN_CANCEL",
+    "observed_utc": "2026-09-29T00:57:41.193011+00:00",
+    "requests": [
+      {
+        "job": 32076,
+        "state": "CANCELLED by 0",
+        "start": null,
+        "end": "2026-09-29T00:42:28Z"
+      },
+      {
+        "job": 32077,
+        "state": "CANCELLED by 0",
+        "start": null,
+        "end": "2026-09-29T00:42:28Z"
+      }
+    ],
+    "running_or_pending_gpu_jobs": [],
+    "reason_from_scheduler": null,
+    "completed": [
+      "B1",
+      "B2",
+      "B3 client metrics recovered",
+      "RB",
+      "B4"
+    ],
+    "not_completed": [
+      "B6 2P8+D8 C80",
+      "B7 4P4+D8 C80",
+      "B5 P8D4 C80"
+    ],
+    "automation": "Waiting processes and allocation watcher stopped; no blind resubmission after root cancellation."
+  }
 }

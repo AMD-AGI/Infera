@@ -1,0 +1,33 @@
+{
+  "status": "BLOCKED_RESOURCE_ADMIN_CANCEL",
+  "observed_utc": "2026-09-29T00:57:41.193011+00:00",
+  "requests": [
+    {
+      "job": 32076,
+      "state": "CANCELLED by 0",
+      "start": null,
+      "end": "2026-09-29T00:42:28Z"
+    },
+    {
+      "job": 32077,
+      "state": "CANCELLED by 0",
+      "start": null,
+      "end": "2026-09-29T00:42:28Z"
+    }
+  ],
+  "running_or_pending_gpu_jobs": [],
+  "reason_from_scheduler": null,
+  "completed": [
+    "B1",
+    "B2",
+    "B3 client metrics recovered",
+    "RB",
+    "B4"
+  ],
+  "not_completed": [
+    "B6 2P8+D8 C80",
+    "B7 4P4+D8 C80",
+    "B5 P8D4 C80"
+  ],
+  "automation": "Waiting processes and allocation watcher stopped; no blind resubmission after root cancellation."
+}
