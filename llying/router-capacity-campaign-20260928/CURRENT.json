@@ -1,32 +1,27 @@
 {
-  "updated_utc": "2026-09-28T23:38:36.082927+00:00",
-  "stage": "B6_REAL_STARTUP",
+  "updated_utc": "2026-09-29T00:17:11.409444+00:00",
+  "stage": "WAITING_B6_RETRY_ALLOCATION",
   "runtime": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928",
-  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b6-2p8d8-real",
-  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b6-real.sh",
+  "run": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b6-2p8d8-retry1-real",
+  "config": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/b6-retry1-real.sh",
   "already_running": [
-    "run-capacity-point.sh b6: real engines starting; P0 reused, new P1 and D real acceptance",
-    "allocation watcher for 32054 and 32056"
+    "prepare_recovery.py --job 32076 waiting for same main PD nodes",
+    "prepare_extra_node.py --job 32077 waiting for same extra P node",
+    "run-b6-retry1.sh waiting for both preparations",
+    "allocation watcher (currently no owned active nodes)"
   ],
   "router_binary_sha256": "71750540cb0af0764f72631944f2cf662a9c299799d385524bb373dffb08ca4f",
   "router_code_commit": "19a6c1d2",
   "smoke_passed": true,
-  "allocation": 32054,
-  "allocation_end_utc": "2026-09-29T07:26:13Z",
+  "allocation": 32076,
+  "allocation_end_utc": null,
   "allocation_extension_attempt": "Slurm denied; unchanged",
   "nodes": {
     "prefill": "smci355-ccs-aus-n04-33",
     "decode": "smci355-ccs-aus-n05-21",
     "extra_prefill": "smci355-ccs-aus-n05-29"
   },
-  "containers": {
-    "prefill": "llying-campaign-b4-real-prefill-0",
-    "decode": "llying-campaign-b6-real-decode-0",
-    "etcd": "llying-campaign-rb-real-etcd",
-    "router": "llying-campaign-b6-real-router",
-    "collector": "llying-campaign-b6-real-collector",
-    "extra_prefill": "llying-campaign-b6-real-prefill-1"
-  },
+  "containers": {},
   "unrelated_containers_do_not_touch": [
     "sgl.k3",
     "k3.play",
@@ -48,20 +43,13 @@
     "third-node preparation with isolated registration"
   ],
   "extra_node_request": {
-    "job": 32056,
-    "state": "IN_USE_FOR_B6",
-    "not_before_utc": "2026-09-28T23:00:00Z",
-    "time_limit_hours": 6,
-    "exclusions": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/avoid-nodes.json plus current PD nodes",
-    "reason": "Delayed after measured ~35-minute P memory release, to avoid idle allocation before the B4 result.",
-    "node": "smci355-ccs-aus-n05-29",
-    "ip": "10.235.192.137",
-    "start_utc": "2026-09-28T23:05:28Z",
-    "end_utc": "2026-09-29T05:05:28Z",
-    "isolated_smoke": false
+    "job": 32077,
+    "state": "PENDING",
+    "requested_node": "smci355-ccs-aus-n05-29",
+    "time_limit_hours": 7
   },
   "selected_d": "radix on + both affinity; R2 off",
-  "allocation_state": "RUNNING",
+  "allocation_state": "PENDING",
   "planned_allocation_start_utc": "2026-09-28T19:25:51Z",
   "interruptions": [
     {
@@ -81,6 +69,15 @@
       "end_utc": "2026-09-28T18:56:35Z",
       "real_probe_passed": true,
       "formal_started": false
+    },
+    {
+      "jobs": [
+        32054,
+        32056
+      ],
+      "state": "PREEMPTED",
+      "time_utc": "2026-09-28T23:57:35Z",
+      "b6_formal_started": false
     }
   ],
   "warmup_start_utc": "2026-09-28T22:10:20Z",

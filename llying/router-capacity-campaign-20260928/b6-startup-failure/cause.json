@@ -1,0 +1,10 @@
+{
+  "formal_started": false,
+  "native_kv_event_base": 25539,
+  "native_dp_size": 8,
+  "native_port_end": 25546,
+  "public_kv_port": 25541,
+  "collision": true,
+  "fix": "Reserve 25000-32767 from internal allocation; fixed campaign listeners remain in 25000-29999",
+  "subsequent_event": "32054 and 32056 externally preempted at 2026-09-28T23:57:35Z"
+}

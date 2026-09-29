@@ -3,6 +3,7 @@ source /perf_apps/liyingli/bench_agentx/router-capacity-20260928/config/recovery
 source "$TRACE_RUNTIME/config/selected-p.sh"
 source "$TRACE_RUNTIME/config/selected-d.sh"
 source "$TRACE_RUNTIME/config/selected-backend.sh"
+source "$TRACE_RUNTIME/config/placement-ports.sh"
 export RUN_ID=campaign-b6-2p8d8-real
 export RUN=$TRACE_RUNTIME/runs/$RUN_ID
 export CONTAINER_PREFIX=llying-campaign-b6-real

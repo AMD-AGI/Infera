@@ -56,6 +56,8 @@ source {ROOT}/config/recovery-32054-base.sh
 source "$TRACE_RUNTIME/config/selected-p.sh"
 source "$TRACE_RUNTIME/config/selected-d.sh"
 source "$TRACE_RUNTIME/config/selected-backend.sh"
+source "$TRACE_RUNTIME/config/placement-ports.sh"
+export ALLOCATION_JOB_ID={primary['allocation_job']} PREFILL_ALLOCATION_JOB_ID={primary['allocation_job']} DECODE_ALLOCATION_JOB_ID={decode['allocation_job']}
 export RUN_ID={run_id}-real
 export RUN=$TRACE_RUNTIME/runs/$RUN_ID
 export CONTAINER_PREFIX={prefix}-real

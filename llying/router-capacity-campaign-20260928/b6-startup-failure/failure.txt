@@ -1,0 +1,24 @@
+ERROR:__main__:worker failed after engine start; tearing down
+2026-09-28T23:48:40.715020081Z Traceback (most recent call last):
+2026-09-28T23:48:40.715022330Z   File "/opt/infera/infera/engine/sglang/__main__.py", line 305, in main
+2026-09-28T23:48:40.715023980Z     await _run_after_start(args, engine, config)
+2026-09-28T23:48:40.715036400Z   File "/opt/infera/infera/engine/sglang/__main__.py", line 358, in _run_after_start
+2026-09-28T23:48:40.715037230Z     kv_wiring = await _maybe_start_kv_plane(args, engine, model_name=config.model_name)
+2026-09-28T23:48:40.715037900Z   File "/opt/infera/infera/engine/sglang/__main__.py", line 182, in _maybe_start_kv_plane
+2026-09-28T23:48:40.715038570Z     wiring = await build_and_start(
+2026-09-28T23:48:40.715039320Z   File "/opt/infera/infera/engine/sglang/kv_wiring.py", line 261, in build_and_start
+2026-09-28T23:48:40.715040010Z     await publisher.start()
+2026-09-28T23:48:40.715040610Z   File "/opt/infera/infera/kv/publisher.py", line 105, in start
+2026-09-28T23:48:40.715041460Z     self._socket.bind(self._bind_endpoint)
+2026-09-28T23:48:40.715042540Z   File "/opt/venv/lib/python3.10/site-packages/zmq/sugar/socket.py", line 322, in bind
+2026-09-28T23:48:40.715043660Z     super().bind(addr)
+2026-09-28T23:48:40.715044540Z   File "zmq/backend/cython/_zmq.py", line 1009, in zmq.backend.cython._zmq.Socket.bind
+2026-09-28T23:48:40.715045490Z   File "zmq/backend/cython/_zmq.py", line 190, in zmq.backend.cython._zmq._check_rc
+2026-09-28T23:48:40.715046490Z zmq.error.ZMQError: Address already in use (addr='tcp://0.0.0.0:25541')
+2026-09-28T23:48:40.715047160Z INFO:infera.engine.sglang.worker:SGLang engine stopping
+2026-09-28T23:48:40.731480168Z [2026-09-28 23:48:40] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-09-28T23:48:41.041918173Z [2026-09-28 23:48:41] Subprocess scheduler_0 (pid=379) crashed with exit code -15. Triggering SIGQUIT for cleanup...
+2026-09-28T23:48:41.042397686Z [2026-09-28 23:48:41] SIGQUIT received. signum=None, frame=None. It usually means one child failed.
+2026-09-28T23:48:41.042494114Z [2026-09-28 23:48:41] Sleeping 5 seconds before crash diagnostics to let GPU activity settle.
+2026-09-28T23:48:46.050835273Z [2026-09-28 23:48:46] No live scheduler processes found; skipping py-spy and CUDA coredump.
+2026-09-28T23:48:46.050873862Z [2026-09-28 23:48:46] kill_process_tree called: parent_pid=210, include_parent=True, pid=210

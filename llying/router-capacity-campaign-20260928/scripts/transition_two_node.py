@@ -18,6 +18,11 @@ def remote(node,args,timeout=120):
     return subprocess.check_output(SSH+[node,shlex.join([str(x) for x in args])],text=True,stderr=subprocess.STDOUT,timeout=timeout)
 
 
+def check_ports_free(node,ports):
+    code="import socket,sys\nsockets=[]\ntry:\n for port in sys.argv[1:]:\n  s=socket.socket();s.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1);s.bind(('0.0.0.0',int(port)));sockets.append(s)\nfinally:\n for s in sockets:s.close()"
+    remote(node,['python3','-c',code,*ports])
+
+
 def get(url):
     with urllib.request.urlopen(url,timeout=10) as f:return json.load(f)
 

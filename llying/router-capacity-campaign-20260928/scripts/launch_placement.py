@@ -1,5 +1,5 @@
 """Launch selected explicit workers, serially per host and concurrently across hosts."""
-import concurrent.futures,getpass,json,os,subprocess,sys
+import base64,concurrent.futures,getpass,json,os,subprocess,sys,time,urllib.request
 from pathlib import Path
 import transition_two_node as ops
 from gpu_inventory import Inventory
@@ -25,9 +25,41 @@ def check_allocation(row):
     assert row['node'] in nodes,(row['node'],nodes)
 
 
+def registration(w):
+    key=base64.b64encode(('/infera/workers/'+w['ip']+':'+str(w['engine_port'])).encode()).decode()
+    req=urllib.request.Request('http://'+E['PREFILL_IP']+':22379/v3/kv/range',data=json.dumps({'key':key}).encode(),headers={'Content-Type':'application/json'})
+    with urllib.request.urlopen(req,timeout=10) as response:result=json.load(response)
+    values=result.get('kvs',[])
+    if not values:return 0,None
+    return int(values[0]['mod_revision']),json.loads(base64.b64decode(values[0]['value']))
+
+
+def check_ports(w):
+    ports=[w[k] for k in ['engine_port','bootstrap_port','kv_port','snapshot_port']]
+    ops.check_ports_free(w['node'],ports)
+
+
+def wait_registered(w,previous_revision):
+    deadline=time.monotonic()+120
+    while time.monotonic()<deadline:
+        c=json.loads(ops.remote(w['node'],['docker','inspect',w['container']]))[0]
+        if not c['State']['Running']:raise RuntimeError(f"{w['instance']} exited before registration: {c['State']}")
+        revision,value=registration(w)
+        if revision>previous_revision and value and value.get('url')==w['url']:
+            assert value['dp_size']==w['dp'] and value['disagg_mode']==w['role']
+            if w['role']=='prefill':
+                assert value['kv']['events_endpoint'].endswith(':'+str(w['kv_port']))
+            return
+        time.sleep(1)
+    raise TimeoutError(f"{w['instance']} never completed registration")
+
+
 def launch_host(workers):
     for w in workers:
         check_allocation(w)
+        assert E['INFERA_NODEPORT_RANGE']=='25000-32767'
+        check_ports(w)
+        previous_revision,_=registration(w)
         data=gpu_memory(w['node'],w['allocation_job'])
         assert all(int(data[i]['VRAM Total Used Memory (B)'])/int(data[i]['VRAM Total Memory (B)'])<.02 for i in w['gpu_ids']),f"{w['instance']} GPUs are occupied"
         configured=json.loads(E['RDMA_DEVICE'])
@@ -36,6 +68,7 @@ def launch_host(workers):
         print('START',w['instance'],w['node'],w['gpu_ids'],flush=True)
         ops.remote(w['node'],cmd)
         ops.wait_healthy(w['node'],w['container'],w['url'])
+        wait_registered(w,previous_revision)
         print('READY',w['instance'],flush=True)
 
 

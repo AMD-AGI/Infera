@@ -1,7 +1,7 @@
 """Prepare replacement allocations after externally preempted measurements."""
 import argparse,concurrent.futures,datetime,getpass,json,os,re,shlex,socket,subprocess,time
 from pathlib import Path
-from allocation_ready import wait_for_ssh
+from allocation_ready import wait_for_ssh,retire_previous_containers,record_allocation
 
 ROOT=Path('/perf_apps/liyingli/bench_agentx/router-capacity-20260928')
 p=argparse.ArgumentParser();p.add_argument('--job',type=int,required=True);JOB=p.parse_args().job
@@ -22,7 +22,7 @@ assert not set(nodes)&{'smci355-ccs-aus-n04-29','smci355-ccs-aus-n01-25'}
 pnode='smci355-ccs-aus-n10-29' if 'smci355-ccs-aus-n10-29' in nodes else nodes[0]
 dnode=next(n for n in nodes if n!=pnode)
 report={'job':JOB,'state':'PREPARING','nodes':nodes,'prefill_node':pnode,'decode_node':dnode,'prefill_ip':socket.gethostbyname(pnode),'decode_ip':socket.gethostbyname(dnode)}
-registry=ROOT/'allocation-registry.json';tmp=registry.with_suffix('.tmp');tmp.write_text(json.dumps({'jobs':[{'id':JOB,'nodes':nodes}]})+'\n');tmp.replace(registry)
+record_allocation(ROOT/'allocation-registry.json',JOB,nodes)
 
 
 def save(state,**fields):
@@ -37,6 +37,7 @@ def remote(node,args,timeout=1800):
 
 def prepare(node):
     wait_for_ssh(remote,node,JOB)
+    retire_previous_containers(remote,node,{31999,32053,32054,32056},ROOT/f'recovery-{JOB}-{node}-retired.json')
     # These names were recorded before the old allocation was preempted.
     old={'llying-campaign-b1-prefill-0','llying-campaign-b3-router','llying-campaign-b3-collector','llying-campaign-b1-smoke-etcd'}
     running=remote(node,['docker','ps','--format','{{.Names}}'],timeout=30).splitlines()
@@ -54,7 +55,7 @@ def prepare(node):
     try:remote(node,['test','-e',dest],timeout=30)
     except subprocess.CalledProcessError:
         remote(node,['mkdir','-p',dest]);remote(node,['tar','--no-same-owner','-xf',str(cache),'-C',dest])
-    for _ in range(240):
+    for _ in range(480):
         gpu=json.loads(remote(node,['rocm-smi','--showmeminfo','vram','--json'],timeout=30))
         if all(int(gpu[f'card{i}']['VRAM Total Used Memory (B)'])/int(gpu[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in range(8)):break
         time.sleep(5)

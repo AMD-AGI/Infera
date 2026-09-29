@@ -32,6 +32,9 @@ class PlacementTest(unittest.TestCase):
     def test_control_port_cannot_land_in_another_engine_range(self):
         self.rows[1]['bootstrap_port']=29100
         with self.assertRaisesRegex(ValueError,'engine range'):self.load(self.rows)
+    def test_control_ports_stay_outside_native_allocator_space(self):
+        self.rows[0]['kv_port']=24000
+        with self.assertRaisesRegex(ValueError,'reserved'):self.load(self.rows)
     def test_control_port_collision_is_rejected(self):
         self.rows[1]['kv_port']=self.rows[0]['bootstrap_port']
         with self.assertRaisesRegex(ValueError,'ports overlap'):self.load(self.rows)

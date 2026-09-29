@@ -25,7 +25,7 @@ def load(path):
         assigned=[]
         for key in ['engine_port','bootstrap_port','kv_port','snapshot_port']:
             value=row[key]
-            if type(value)!=int or not 1024<=value<=65535:raise ValueError('invalid port')
+            if type(value)!=int or not 25000<=value<30000:raise ValueError('control ports must use the reserved 25000..29999 window')
             assigned.append(value)
         used_ports=ports.setdefault(node,set())
         if len(set(assigned))!=len(assigned) or used_ports.intersection(assigned):
@@ -41,7 +41,7 @@ def load(path):
         instance=f'{role}-{counts[role]}';counts[role]+=1
         result.append(dict(row,index=str(index),instance=instance,data_ip=ip,ip=ip,url=f'http://{ip}:{engine}'))
     for a in result:
-        if a['engine_port']+255>65535:raise ValueError('engine port range exceeds TCP limit')
+        if a['engine_port']+255>=30000:raise ValueError('engine port range overlaps NodePort space')
         for b in result:
             if a is b or a['node']!=b['node']:continue
             for key in ['engine_port','bootstrap_port','kv_port','snapshot_port']:

@@ -1,7 +1,7 @@
 """Prepare an allocated third node without registering it in the live benchmark pool."""
 import argparse,datetime,getpass,json,re,shlex,socket,subprocess,time
 from pathlib import Path
-from allocation_ready import wait_for_ssh
+from allocation_ready import wait_for_ssh,retire_previous_containers,record_allocation
 
 ROOT=Path('/perf_apps/liyingli/bench_agentx/router-capacity-20260928')
 SSH=['ssh','-F','/dev/null','-o','BatchMode=yes','-o','ConnectTimeout=10','-o','StrictHostKeyChecking=accept-new','-o','UserKnownHostsFile=/tmp/bench-agentx-known-hosts']
@@ -43,10 +43,9 @@ try:
     forbidden=set(json.loads((ROOT/'config/avoid-nodes.json').read_text()))|{n for j in active if int(j['id'])!=a.job for n in j['nodes']}
     assert node not in forbidden
     ip=socket.gethostbyname(node);save('ALLOCATED',node=node,ip=ip)
-    registry=ROOT/'allocation-registry.json';data=json.loads(registry.read_text())
-    data['jobs']=[j for j in data['jobs'] if j['id']!=a.job]+[{'id':a.job,'nodes':[node]}]
-    tmp=registry.with_suffix('.tmp');tmp.write_text(json.dumps(data,indent=2)+'\n');tmp.replace(registry)
+    record_allocation(ROOT/'allocation-registry.json',a.job,[node])
     wait_for_ssh(remote,node,a.job)
+    retire_previous_containers(remote,node,{31999,32053,32054,32056},ROOT/f'extra-{a.job}-{node}-retired.json')
     try:base_id=remote(node,['docker','image','inspect','--format','{{.Id}}',BASE],timeout=30).strip()
     except subprocess.CalledProcessError as error:
         if error.returncode==255:raise
@@ -65,7 +64,7 @@ try:
         except subprocess.CalledProcessError:
             remote(node,['mkdir','-p',dest]);remote(node,['tar','--no-same-owner','-xf',str(cache),'-C',dest])
         save('COMPILED_CACHE_READY')
-    for _ in range(240):
+    for _ in range(480):
         gpu=gpu_state(node)
         if len([k for k in gpu if k.startswith('card')])==8 and all(int(gpu[f'card{i}']['VRAM Total Used Memory (B)'])/int(gpu[f'card{i}']['VRAM Total Memory (B)'])<.02 for i in range(8)):break
         time.sleep(5)

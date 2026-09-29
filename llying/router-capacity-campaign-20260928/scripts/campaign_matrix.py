@@ -24,6 +24,8 @@ def collect(repo):
     rows=[];pending=[]
     for case,label,run,archive in CASES:
         recovered=case=='B3*'
+        archived_review=repo/archive/'REVIEW.json'
+        if archived_review.exists():run=Path(json.loads(archived_review.read_text())['run'])
         source=repo/archive/'RECOVERED-CLIENT.json' if recovered else run/'c80/agentx_conc80.json'
         review=repo/archive/'REVIEW.json'
         if not source.exists() or (case!='Base' and not recovered and (not review.exists() or not json.loads(review.read_text())['checks_passed'])):
