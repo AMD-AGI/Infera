@@ -181,7 +181,7 @@ def _ttft(input_len: int) -> float:
         attn_dp=8,
         input_len=input_len,
         output_len=900,
-        concurrency=64,
+        concurrency=1,
         weight_dtype="fp4",
         kv_cache_dtype="fp8",
         prefix_cache_hit_rate=0.0,
@@ -189,7 +189,7 @@ def _ttft(input_len: int) -> float:
 
 
 def test_prefill_grows_with_the_prompt_and_not_with_the_square_of_it():
-    """End to end, through the real yaml, at the config the fleet serves.
+    """End to end, through the real yaml, on the parallelism the fleet serves.
 
     TTFT is *supposed* to grow with the prompt -- the projections and the MLP
     are linear in tokens and dominate here -- so the thing to check is not that
@@ -197,9 +197,10 @@ def test_prefill_grows_with_the_prompt_and_not_with_the_square_of_it():
     is the only term that could, and under the schedule its pools grow 128x and
     4x slower than the prompt, so the excess over linear should be slight.
 
-    Measured over a 15.87x longer prompt: the schedule comes out 1.06x
-    superlinear, and the floor it replaces came out 10.84x (183,810 ms of TTFT
-    at 130k, against 3,471 ms here).
+    One client, so TTFT is the prefill alone. Under load it also holds the wait
+    behind other clients' prefills, and that wait grows faster than the prompt
+    for queueing reasons, not attention ones: at 64 clients it reads 1.31x
+    superlinear while the prefill underneath reads 0.92x.
     """
     length_ratio = 130_000 / 8192
     short, long = _ttft(8192), _ttft(130_000)
