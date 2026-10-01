@@ -238,6 +238,29 @@ class _CostKernel:
         # (SGLang attention-DP ranks meet at every MoE layer), so a step costs
         # what the combined batch costs.
         self._sync = max(1, int(os.getenv("INFERASIM_DES_LOCKSTEP", "1") or 1))
+        # Pipeline stages hand this many micro-batches round. Once two or more
+        # are in flight no stage waits on its neighbour, so each pays its
+        # scheduler host time (pp_host_us + pp_host_per_req_us per request) in
+        # series with its forward.
+        self._pp_n = max(1, int(os.getenv("INFERASIM_PP_INFLIGHT", "1") or 1))
+        self._pp_stages = 1
+        self._pp_host = (0.0, 0.0)
+        if self._pp_n > 1:
+            try:
+                cc = projector.cfg.collective_config
+                self._pp_stages = max(1, projector.cfg.model_parallel_config.pipeline_model_parallel_size)
+                self._pp_host = (
+                    float(getattr(cc, "pp_host_us", 0.0) or 0.0) / 1000.0,
+                    float(getattr(cc, "pp_host_per_req_us", 0.0) or 0.0) / 1000.0,
+                )
+            except Exception:
+                self._pp_stages = 1
+
+    def _pp_sync(self, v: float, batch: int) -> float:
+        if self._pp_n <= 1:
+            return v
+        h0, h1 = self._pp_host
+        return v + self._pp_stages * (h0 + h1 * max(1, batch))
 
     @staticmethod
     def _bucket(ctx: int) -> int:
@@ -251,7 +274,7 @@ class _CostKernel:
         key = (batch, self._bucket(ctx))
         v = self._decode.get(key)
         if v is None:
-            v = self._p.decode_step_latency_ms(batch * self._sync, key[1], self._q)
+            v = self._pp_sync(self._p.decode_step_latency_ms(batch * self._sync, key[1], self._q), batch)
             self._decode[key] = v
         return v
 
@@ -267,6 +290,7 @@ class _CostKernel:
             v = self._p.mixed_step_latency_ms(
                 num_decode * self._sync, key[1], key[2], key[3], self._q, **kw
             )
+            v = self._pp_sync(v, key[0] + 1)
             self._mixed[key] = v
             if os.getenv("INFERASIM_DEBUG_DES_STEPS"):
                 print(

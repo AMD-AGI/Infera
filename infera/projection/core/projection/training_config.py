@@ -1379,6 +1379,22 @@ class InferenceCollectiveConfig:
     # Whether to charge pipeline-stage P2P (send/recv) latency. Only nonzero
     # when pipeline_model_parallel_size > 1.
     include_pp_p2p: bool = True
+    # Engine time per pipeline hop per forward, beyond the transfer: the next
+    # stage's scheduling and synchronisation on the host. A PP-n forward makes
+    # n hops, the n-1 activation boundaries and the sampled tokens' return to
+    # the first stage. SGLang on MI355X at one client measured 920-1130 us per
+    # hop over PP 2/4/8 on Llama-3.1-8B, Qwen3-14B-FP8 and Qwen3.6-35B-A3B
+    # (TP1), about 55 us of it the send/recv.
+    pp_stage_overhead_us: float = 970.0
+    # Scheduler host time per iteration that a stage pays in series with its
+    # forward once the pipeline is full: with micro-batches queued upstream a
+    # stage never waits on its neighbour, so the batch preparation it hides in
+    # that wait at one client lands on every stage. SGLang forces the overlap
+    # schedule off under PP; its TP1 overlap-off minus overlap-on step on
+    # MI355X read 329 us + 6.3 us per running request, within 0.08 ms across
+    # Llama-3.1-8B, Qwen3-14B-FP8 and Qwen3.6-35B-A3B at 1-64 requests.
+    pp_host_us: float = 329.0
+    pp_host_per_req_us: float = 6.3
     # Optional hardware overrides forwarded to ``get_default_args`` (node_bw,
     # pod_bw, bw_eff, latencies, ...). ``None`` uses the model defaults.
     hardware_config: dict | None = None
