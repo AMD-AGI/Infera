@@ -24,6 +24,7 @@ stay consistent; the delta only appears when a knob is changed.
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 
@@ -298,6 +299,11 @@ class InferenceCollectiveModel:
         )
         nn = num_nodes if num_nodes else int(os.environ.get("NNODES", "1"))
         hw = dict(coll_config.hardware_config or {})
+        # A calibrated system profile (JSON object, or a path to one), e.g. the
+        # one-parameter xGMI mesh fit {"node_bw": 594.5, "node_topology": "mesh"}.
+        prof = os.environ.get("INFERASIM_COLL_HW", "").strip()
+        if prof:
+            hw.update(json.load(open(prof)) if os.path.isfile(prof) else json.loads(prof))
         for key in ("node_bw", "pod_bw"):
             if key in ic:
                 hw.setdefault(key, ic[key])
@@ -319,6 +325,15 @@ class InferenceCollectiveModel:
         # on-node dispatch at pod bandwidth. ``1`` makes the test read
         # ``ep <= node_size``, the question actually being asked; where ``ep``
         # genuinely exceeds a node, the crossing is still charged.
+        self._args_intra = get_default_args(
+            num_nodes=1,
+            gpus_per_node=gpn,
+            tp=self.tp,
+            pp=self.pp,
+            ep=self.ep,
+            cp=self.cp,
+            hardware_config=hw,
+        )
         self._a2a_args = get_default_args(
             num_nodes=nn,
             gpus_per_node=gpn,
@@ -487,12 +502,43 @@ class InferenceCollectiveModel:
     # -- Pipeline P2P ----------------------------------------------------------
 
     def pp_p2p_ms(self, batch: int, tokens: int) -> float:
-        """Activation send/recv across (pp-1) stage boundaries per forward."""
+        """Activation send/recv across (pp-1) stage boundaries per forward, and
+        the last stage's sampled tokens back to the first, which cannot
+        schedule that micro-batch again until they land."""
         if self.pp <= 1 or not self.cc.include_pp_p2p:
             return 0.0
         msg = max(1, batch * tokens * self.hidden * 2 // self.cp)
-        us = cm.sendrecv(self._args, msg)
-        return (self.pp - 1) * (us / 1000.0)
+        ov = float(getattr(self.cc, "pp_stage_overhead_us", 0.0) or 0.0)
+        tok = max(1, batch * 8)
+        nodes = self.pp_nodes()
+        if nodes <= 1:
+            fwd = (self.pp - 1) * (cm.sendrecv(self._args, msg) + ov)
+            back = cm.sendrecv(self._args, tok) + ov
+            return (fwd + back) / 1000.0
+        # Stages are placed contiguously, so a pipeline over n nodes has n-1
+        # forward boundaries on the NIC, and the token return from the last
+        # stage to the first crosses it too; the rest stay on xGMI.
+        cross = nodes - 1
+        intra = cm.sendrecv(self._args_intra, msg) + ov
+        fwd = (self.pp - 1 - cross) * intra + cross * (self._nic_sendrecv_us(msg) + ov)
+        back = self._nic_sendrecv_us(tok) + ov
+        return (fwd + back) / 1000.0
+
+    def pp_nodes(self) -> int:
+        """Nodes the pipeline spans: ``INFERASIM_PP_NODES`` when the placement
+        is given, else as many as ``tp * pp`` GPUs fill."""
+        env = os.getenv("INFERASIM_PP_NODES")
+        if env:
+            return max(1, min(self.pp, int(env)))
+        gpn = max(1, int(self._args.node_size))
+        return max(1, min(self.pp, -(-self.tp * self.pp // gpn)))
+
+    def _nic_sendrecv_us(self, msg: float) -> float:
+        """One point-to-point transfer over a single NIC (us)."""
+        a = self._args
+        raw_pod = getattr(a, "_raw_pod_bw", a.pod_bw / a.bw_eff)
+        bw = raw_pod * getattr(a, "p2p_bw_eff", 0.80)
+        return (msg / bw) * 1.0e-3 + a.pod_lat + a.kernel_launch_latency
 
     # -- KV-cache transfer (disaggregation) ------------------------------------
 
