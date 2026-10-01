@@ -36,6 +36,8 @@ _ARG_TO_FIELD = {
     "detokenize_overhead_us": "detokenize_overhead_us",
     "tokenize_overhead_us": "tokenize_overhead_us",
     "request_overhead_ms": "request_overhead_ms",
+    "uncached_prompt_latency_us": "uncached_prompt_latency_us",
+    "uncached_prompt_latency_max_tokens": "uncached_prompt_latency_max_tokens",
     "prefill_rate_us_per_token": "prefill_rate_us_per_token",
     "prefill_rate_lo_tokens": "prefill_rate_lo_tokens",
     "prefill_rate_hi_tokens": "prefill_rate_hi_tokens",
@@ -50,6 +52,7 @@ _ARG_TO_FIELD = {
     "workload_resident_tokens": "workload_resident_tokens",
     "kv_pool_tokens": "kv_pool_tokens",
     "max_num_batched_tokens": "max_num_batched_tokens",
+    "max_num_seqs": "max_num_seqs",
     "ep_load_balance": "ep_load_balance",
     "redundant_experts": "redundant_experts",
     "request_rate": "request_rate",
@@ -984,6 +987,9 @@ def launch_projection_from_cli(args, overrides):
                 duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
                 closed_loop=closed_loop,
                 closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
+                closed_loop_idle_cap_ms=float(
+                    getattr(args, "des_client_idle_cap_ms", 0.0) or 0.0
+                ),
                 cache_shares_pool=bool(getattr(args, "des_cache_shares_pool", False)),
                 whole_context_residency=bool(getattr(args, "des_whole_context_residency", False)),
                 prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
