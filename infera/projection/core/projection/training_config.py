@@ -620,6 +620,17 @@ class InferenceRequestConfig:
     # invent one. Latency-only, like the two terms above -- it is host work that
     # overlaps the GPU, so no throughput moves.
     request_overhead_ms: float = 0.0
+    # Per-token TTFT latency for the part of a prompt the prefix cache did not
+    # serve (microseconds/token). On the AgentX MI355X rows TTFT climbs
+    # ~40-130 us for every token a request has to prefill, while ITL on the
+    # same stacks at C>=4 shows the GPU is not held for anything like that
+    # long, so it is not charged as GPU time. Added to TTFT and end-to-end
+    # latency only (not throughput), like the terms above. Default 0.
+    uncached_prompt_latency_us: float = 0.0
+    # Tokens past which the term above stops growing (0 = no cap). The same rows
+    # put a ceiling on it: at C=4 a run whose trace holds several 300-460k-token
+    # cold prompts still has a TTFT spread of ~0.6 s.
+    uncached_prompt_latency_max_tokens: int = 0
     # The *other* half of that same fit: the per-token slope. Differencing TTFT
     # across two prompt lengths at concurrency 1 yields ``TTFT = C + r*L``; ``C``
     # is the constant above and ``r`` is this -- a measured prefill rate, in
@@ -684,6 +695,11 @@ class InferenceRequestConfig:
     # the number of prefill steps (and the mixed-step fraction) → higher TPOT /
     # lower throughput.  ``0`` = unlimited (legacy behaviour).
     max_num_batched_tokens: int = 0
+    # Engine cap on concurrently running sequences (vLLM ``--max-num-seqs``,
+    # SGLang ``--max-running-requests``). Clients beyond it wait in the
+    # server queue, so it bounds the decode batch and adds queue time to TTFT.
+    # ``0`` = no cap beyond the client concurrency.
+    max_num_seqs: int = 0
     # MoE expert routing imbalance.  On an EP-sharded model the MoE step time is
     # set by the BUSIEST rank, not the average: ``ep_load_balance`` is the ratio
     # of the hottest rank's token load to the average (1.0 = perfectly

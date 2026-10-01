@@ -128,9 +128,24 @@ class _Req:
     first_token_ms: float = -1.0
     finish_ms: float = -1.0
     itls: list[float] = field(default_factory=list)
+    # When the request last emitted a token; the client's inter-token gap runs
+    # from here, including steps it sat out (an exclusive prefill batch).
+    last_emit_ms: float = -1.0
     # Whether the credit below applies. It is a property of *who the sharers
     # are*, not of the engine: see ``reserved_kv``.
     shared_prefix_credit: bool = True
+    # Closed loop only: the client's idle time before issuing this request,
+    # from the trace. ``None`` falls back to the run's single think time.
+    think_ms: float | None = None
+    # Host-side TTFT latency; see ``_set_host_ms``.
+    host_ms: float = 0.0
+    # Session replay (closed loop): which client session this request belongs
+    # to, in the order a shared sampler hands sessions out, and the requests
+    # it waits on -- the previous turn of its own stream (``dep``) and any
+    # subagents it joins. ``sess < 0`` is the plain one-request-per-slot loop.
+    sess: int = -1
+    dep: int = -1
+    joins: tuple = ()
 
     @property
     def reserved_kv(self) -> int:
@@ -205,6 +220,10 @@ class DESResult:
     # optional raw per-request latency samples (only when return_samples=True);
     # used to pool distributions across instances in the multi-instance driver.
     samples: dict[str, list[float]] | None = None
+    # Prompt plus generated tokens/s over the same requests and span as
+    # system_throughput_tps -- InferenceX's total_tput_tps, which counts every
+    # prompt token, cached or not.
+    system_total_throughput_tps: float = 0.0
 
 
 class _CostKernel:
@@ -215,6 +234,10 @@ class _CostKernel:
         self._q = q_len
         self._decode: dict[tuple, float] = {}
         self._mixed: dict[tuple, float] = {}
+        # The simulated scheduler is one of this many that step in lockstep
+        # (SGLang attention-DP ranks meet at every MoE layer), so a step costs
+        # what the combined batch costs.
+        self._sync = max(1, int(os.getenv("INFERASIM_DES_LOCKSTEP", "1") or 1))
 
     @staticmethod
     def _bucket(ctx: int) -> int:
@@ -228,7 +251,7 @@ class _CostKernel:
         key = (batch, self._bucket(ctx))
         v = self._decode.get(key)
         if v is None:
-            v = self._p.decode_step_latency_ms(batch, key[1], self._q)
+            v = self._p.decode_step_latency_ms(batch * self._sync, key[1], self._q)
             self._decode[key] = v
         return v
 
@@ -238,7 +261,12 @@ class _CostKernel:
         key = (num_decode, self._tok(prefill_tokens), self._bucket(ctx), self._bucket(prefill_kv))
         v = self._mixed.get(key)
         if v is None:
-            v = self._p.mixed_step_latency_ms(num_decode, key[1], key[2], key[3], self._q)
+            # One chunk per rank: under attention-DP each rank attends over its
+            # own chunk with every head, and only the MoE sees all of them.
+            kw = {"prefill_batch": self._sync} if self._sync > 1 else {}
+            v = self._p.mixed_step_latency_ms(
+                num_decode * self._sync, key[1], key[2], key[3], self._q, **kw
+            )
             self._mixed[key] = v
             if os.getenv("INFERASIM_DEBUG_DES_STEPS"):
                 print(
@@ -246,6 +274,25 @@ class _CostKernel:
                     f"ctx={key[2]} prefill_kv={key[3]} -> {v:.2f} ms"
                 )
         return v
+
+
+def _set_host_ms(reqs: list[_Req], req_cfg) -> None:
+    """Per-request host latency: ``request_overhead_ms``, plus
+    ``tokenize_overhead_us`` per prompt token (the prompt arrives as text and is
+    tokenized server-side after the TTFT clock starts), plus
+    ``uncached_prompt_latency_us`` for each prompt token the cache did not serve,
+    up to ``uncached_prompt_latency_max_tokens`` of them.
+
+    Charged to TTFT and end-to-end latency only: the scheduler, and a closed
+    loop's issue times, are unchanged.
+    """
+    fixed = max(0.0, float(getattr(req_cfg, "request_overhead_ms", 0.0) or 0.0))
+    tok = max(0.0, float(getattr(req_cfg, "tokenize_overhead_us", 0.0) or 0.0)) / 1000.0
+    unc = max(0.0, float(getattr(req_cfg, "uncached_prompt_latency_us", 0.0) or 0.0)) / 1000.0
+    cap = int(getattr(req_cfg, "uncached_prompt_latency_max_tokens", 0) or 0)
+    for r in reqs:
+        u = max(0, r.prompt_len - r.cached_prefix)
+        r.host_ms = fixed + tok * r.prompt_len + unc * (min(u, cap) if cap > 0 else u)
 
 
 def _resident_cap(
@@ -473,6 +520,7 @@ def simulate_once(
     prefill_exclusive: bool = False,
     new_seqs_per_step: int = 0,
     duration_ms: float = 0.0,
+    closed_loop_idle_cap_ms: float = 0.0,
 ) -> DESResult:
     """Run one single-engine DES at a fixed offered load.
 
@@ -500,6 +548,13 @@ def simulate_once(
     the run it is being compared against. A clock-bounded one lets the lane
     depth fall out of how fast the engine actually is, which is the same thing
     that decided it on the hardware.
+
+    A request's own ``think_ms`` (from the trace) overrides
+    ``closed_loop_think_ms``. ``closed_loop_idle_cap_ms > 0`` bounds how long
+    the engine can sit with nothing in flight: pending client timers are pulled
+    forward so the next request lands at most that long after the engine went
+    idle. That is the replay harness's system-idle guard, and it is what makes
+    a single client's idle time much shorter than the trace's own gaps.
     """
     req = inference_config.request_config
     input_len = max(1, req.input_seq_len)
@@ -541,8 +596,9 @@ def simulate_once(
             pending = _build_workload(
                 n_total, [0.0] * n_total, input_len, output_len, range_ratio, rng
             )
+        session_mode = any(r.sess >= 0 for r in pending)
         for i, r in enumerate(pending):
-            r.arrival_ms = 0.0 if i < clients else math.inf
+            r.arrival_ms = 0.0 if (i < clients and not session_mode) else math.inf
     elif prebuilt is not None:
         # Caller supplied a fully-formed request list (multi-instance router:
         # arrivals, lengths, prefix ids + seeded ``num_computed`` for hits).
@@ -578,7 +634,21 @@ def simulate_once(
     if whole_context_residency:
         for r in pending:
             r.shared_prefix_credit = False
-    pending.sort(key=lambda r: (r.arrival_ms, r.idx))
+    _set_host_ms(pending, req)
+    session_mode = closed_loop and any(r.sess >= 0 for r in pending)
+    if session_mode:
+        pending.sort(key=lambda r: r.idx)
+        # Concurrency here counts sessions, not requests: a session's subagents
+        # run at once, so C=1 still puts several requests in flight. The server
+        # admits them up to its own sequence limit (KV admission still applies);
+        # capping the batch at C instead queued a subagent behind its sibling's
+        # whole decode, 42 s at p99 on DeepSeek-V4 at C=1.
+        max_running = max(max_running, _SERVER_MAX_RUNNING)
+    else:
+        pending.sort(key=lambda r: (r.arrival_ms, r.idx))
+    cap_seqs = int(getattr(req, "max_num_seqs", 0) or 0)
+    if cap_seqs > 0:
+        max_running = min(max_running, cap_seqs)
     n = len(pending)
 
     kernel = _CostKernel(projector, q_len)
@@ -587,6 +657,57 @@ def simulate_once(
     # index below it carries a finite arrival, which is what lets the ingest
     # pointer above stay a simple in-order scan.
     next_unissued = clients if closed_loop else n
+    # Closed loop: issued-but-not-arrived requests, keyed on arrival. Per-request
+    # think times make arrivals non-monotone in issue order, so the in-order
+    # ingest scan cannot be used for them.
+    idle_cap_ms = max(0.0, float(closed_loop_idle_cap_ms or 0.0))
+    arrivals_heap: list[tuple[float, int, _Req]] = []
+    horizon = duration_ms if duration_ms and duration_ms > 0 else math.inf
+    if session_mode:
+        # A request is released when everything it waits on has finished, plus
+        # its own recorded gap; a session starts when a client slot frees,
+        # which is when the session ``clients`` places ahead of it drains.
+        # That is the shared-sampler client the AgentX harness runs: whichever
+        # lane frees first takes the next trace, and a lane holds its slot
+        # until its whole tree -- root and every subagent -- has drained.
+        by_idx = {r.idx: r for r in pending}
+        need: dict[int, int] = {}
+        ready_at: dict[int, float] = {}
+        waiters: dict[int, list] = {}
+        sess_reqs: dict[int, list] = {}
+        for r in pending:
+            deps = [d for d in ((r.dep,) + tuple(r.joins)) if d >= 0 and d in by_idx]
+            need[r.idx] = len(deps)
+            ready_at[r.idx] = 0.0
+            for d in deps:
+                waiters.setdefault(d, []).append(r)
+            sess_reqs.setdefault(r.sess, []).append(r)
+        sess_left = {k: len(v) for k, v in sess_reqs.items()}
+        sess_order = sorted(sess_reqs)
+        next_sess = [0]
+
+        def _release(r: _Req, t: float) -> None:
+            r.arrival_ms = t + (r.think_ms or 0.0)
+            if r.arrival_ms < horizon:
+                heapq.heappush(arrivals_heap, (r.arrival_ms, r.idx, r))
+
+        def _start_session(t: float) -> None:
+            if next_sess[0] >= len(sess_order):
+                return
+            k = sess_order[next_sess[0]]
+            next_sess[0] += 1
+            for r in sess_reqs[k]:
+                if need[r.idx] == 0:
+                    _release(r, t)
+
+        for _ in range(clients):
+            _start_session(0.0)
+        next_arrival = n
+        next_unissued = n
+    elif closed_loop:
+        arrivals_heap = [(pending[i].arrival_ms, i, pending[i]) for i in range(clients)]
+        heapq.heapify(arrivals_heap)
+        next_arrival = n
     waiting: list[_Req] = []
     running: list[_Req] = []
     done: list[_Req] = []
@@ -617,16 +738,23 @@ def simulate_once(
     max_steps = total_work + n + 16
 
     steps = 0
-    horizon = duration_ms if duration_ms and duration_ms > 0 else math.inf
-    while len(done) < n and steps < max_steps and now < horizon:
+    # A session replay stops issuing at the horizon and lets what is already
+    # in flight finish, which is what the harness reports over.
+    while len(done) < n and steps < max_steps and (
+            now < horizon or (session_mode and (running or waiting))):
         steps += 1
         # 1) Ingest arrivals due by ``now`` into the FCFS waiting queue.
         while next_arrival < n and pending[next_arrival].arrival_ms <= now + 1e-9:
             waiting.append(pending[next_arrival])
             next_arrival += 1
+        while arrivals_heap and arrivals_heap[0][0] <= now + 1e-9:
+            waiting.append(heapq.heappop(arrivals_heap)[2])
 
         # 2) Nothing resident and nothing waiting → jump to the next arrival.
         if not running and not waiting:
+            if arrivals_heap:
+                now = arrivals_heap[0][0]
+                continue
             if next_arrival < n and math.isfinite(pending[next_arrival].arrival_ms):
                 now = pending[next_arrival].arrival_ms
                 continue
@@ -754,6 +882,9 @@ def simulate_once(
         if not scheduled:
             # Budget/KV starved this step with nothing runnable; advance to the
             # next arrival if possible, else we are stuck (bound will trip).
+            if arrivals_heap:
+                now = arrivals_heap[0][0]
+                continue
             if next_arrival < n:
                 now = pending[next_arrival].arrival_ms
                 continue
@@ -784,7 +915,7 @@ def simulate_once(
                     r.prefill_done = True
                     r.first_token_ms = now
                     r.generated = 1  # last prefill chunk emits token 1
-                    r.itls.append(step_dt)
+                    r.last_emit_ms = now
                     if r.generated >= r.output_len:
                         r.status = "FINISHED"
                         r.finish_ms = now
@@ -794,7 +925,9 @@ def simulate_once(
                     continue
                 acc = _sample_accepted(rng, spec_k, accept, cap)
                 r.generated += acc
-                per_tok = step_dt / acc
+                gap = (now - r.last_emit_ms) if r.last_emit_ms >= 0 else step_dt
+                r.last_emit_ms = now
+                per_tok = gap / acc
                 r.itls.extend([per_tok] * acc)
                 if r.generated >= r.output_len:
                     r.status = "FINISHED"
@@ -808,12 +941,30 @@ def simulate_once(
             if r.status == "FINISHED":
                 kv_used -= r.reserved_kv
                 done.append(r)
-                if closed_loop and next_unissued < n:
-                    pending[next_unissued].arrival_ms = now + think_ms
+                if session_mode:
+                    for w in waiters.get(r.idx, ()):
+                        need[w.idx] -= 1
+                        ready_at[w.idx] = max(ready_at[w.idx], now)
+                        if need[w.idx] == 0:
+                            _release(w, ready_at[w.idx])
+                    sess_left[r.sess] -= 1
+                    if sess_left[r.sess] == 0:
+                        _start_session(now)
+                elif closed_loop and next_unissued < n:
+                    nxt = pending[next_unissued]
+                    nxt.arrival_ms = now + (think_ms if nxt.think_ms is None else nxt.think_ms)
+                    heapq.heappush(arrivals_heap, (nxt.arrival_ms, next_unissued, nxt))
                     next_unissued += 1
             else:
                 still.append(r)
         running = still
+        if idle_cap_ms > 0 and not running and not waiting and arrivals_heap:
+            lead = arrivals_heap[0][0] - (now + idle_cap_ms)
+            if lead > 0:
+                # A uniform shift keeps the heap ordered.
+                arrivals_heap = [(a - lead, i, q) for a, i, q in arrivals_heap]
+                for _a, _i, q in arrivals_heap:
+                    q.arrival_ms -= lead
 
         # 8) Bookkeeping: waiting depth + packing stats (+ optional records).
         backlog.append((now, len(waiting)))
@@ -852,7 +1003,13 @@ def simulate_once(
 
     # ---- aggregate latency metrics (drop the opening transient) ----
     done.sort(key=lambda r: r.finish_ms)
-    sample = _scored_sample(done, warmup_frac, warmup_requests)
+    if session_mode:
+        # The session trace starts at the profiling boundary (the harness's
+        # warmup is already applied to it), so every request it completed is
+        # scored.
+        sample = [r for r in done if r.arrival_ms < horizon]
+    else:
+        sample = _scored_sample(done, warmup_frac, warmup_requests)
 
     # TTFT is measured from *admission* (server start), not arrival, so the
     # client-side wait for a concurrency slot is excluded -- matching the vLLM /
@@ -860,21 +1017,17 @@ def simulate_once(
     # request acquires its semaphore. The queue wait and the arrival-relative
     # TTFT are reported separately (queue_wait, ttft_arrival) so the deployment
     # view is not lost.
-    # Host prompt-tokenization cost (per prompt token). The prompt is sent as
-    # text and tokenized server-side after the TTFT clock starts, so it lands in
-    # TTFT. Latency-only -- the server scheduler/makespan above are unchanged.
-    tok_ms_pt = max(0.0, req.tokenize_overhead_us) / 1000.0
 
     def _admit(r):
         return r.admit_ms if r.admit_ms >= 0 else r.arrival_ms
 
     ttft = [
-        (r.first_token_ms - _admit(r)) + tok_ms_pt * r.prompt_len
+        (r.first_token_ms - _admit(r)) + r.host_ms
         for r in sample
         if r.first_token_ms >= 0
     ]
     ttft_arrival = [
-        (r.first_token_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len
+        (r.first_token_ms - r.arrival_ms) + r.host_ms
         for r in sample
         if r.first_token_ms >= 0
     ]
@@ -885,7 +1038,7 @@ def simulate_once(
     # serving harness, which measures ITL client-side.
     detok_ms = max(0.0, req.detokenize_overhead_us) / 1000.0
     e2e = [
-        (r.finish_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len + detok_ms * r.generated
+        (r.finish_ms - r.arrival_ms) + r.host_ms + detok_ms * r.generated
         for r in sample
         if r.finish_ms >= 0
     ]
@@ -900,7 +1053,17 @@ def simulate_once(
 
     makespan = max((r.finish_ms for r in done), default=0.0)
     total_out = sum(r.generated for r in done)
-    if closed_loop and len(sample) >= 2:
+    if session_mode and sample:
+        # Rated over the profiling window plus the drain, the way the harness
+        # divides by its measured duration.
+        span_ms = max(horizon if math.isfinite(horizon) else 0.0,
+                      max(r.finish_ms for r in sample))
+        out_sample = sum(r.generated for r in sample)
+        achieved_rate = (len(sample) * 1000.0 / span_ms) if span_ms > 0 else 0.0
+        sys_tps = (out_sample * 1000.0 / span_ms) if span_ms > 0 else 0.0
+        tot_tokens = out_sample + sum(r.prompt_len for r in sample)
+        tot_tps = (tot_tokens * 1000.0 / span_ms) if span_ms > 0 else 0.0
+    elif closed_loop and len(sample) >= 2:
         # The tail of a closed run drains: once the last request is issued the
         # population falls below ``clients`` and throughput with it. Rating the
         # whole run would charge that drain against the engine, so the rate is
@@ -909,9 +1072,13 @@ def simulate_once(
         out_sample = sum(r.generated for r in sample)
         achieved_rate = (len(sample) * 1000.0 / span_ms) if span_ms > 0 else 0.0
         sys_tps = (out_sample * 1000.0 / span_ms) if span_ms > 0 else 0.0
+        tot_tokens = out_sample + sum(r.prompt_len for r in sample)
+        tot_tps = (tot_tokens * 1000.0 / span_ms) if span_ms > 0 else 0.0
     else:
         achieved_rate = (len(done) * 1000.0 / makespan) if makespan > 0 else 0.0
         sys_tps = (total_out * 1000.0 / makespan) if makespan > 0 else 0.0
+        tot_tokens = total_out + sum(r.prompt_len for r in done)
+        tot_tps = (tot_tokens * 1000.0 / makespan) if makespan > 0 else 0.0
     utilization = (busy_ms / makespan) if makespan > 0 else 0.0
 
     # Saturation: the waiting queue diverges (grows ~linearly) while arrivals are
@@ -983,6 +1150,7 @@ def simulate_once(
         num_requests=len(done),
         makespan_ms=makespan,
         system_throughput_tps=sys_tps,
+        system_total_throughput_tps=tot_tps,
         saturated=saturated,
         ttft=dist(ttft),
         ttft_arrival=dist(ttft_arrival),
@@ -995,6 +1163,10 @@ def simulate_once(
         samples=samples,
     )
 
+
+# Engine-side cap on concurrently running sequences (vLLM's default
+# ``max_num_seqs``), for workloads whose client concurrency does not bound it.
+_SERVER_MAX_RUNNING = 256
 
 _ROUTING_POLICIES = ("round_robin", "random", "prefix_aware", "kv")
 
@@ -1175,14 +1347,48 @@ def _load_mooncake_trace(path: str) -> list[tuple[float, int, int, list[int]]]:
                 return low[nm]
         return default
 
-    rows: list[tuple[float, int, int, list[int]]] = []
+    rows: list[tuple] = []
     for r in records:
         ts = float(_g(r, "timestamp", "arrival", "arrival_ms", "time", default=0.0))
         isl = int(_g(r, "input_length", "isl", "input_len", "prompt_len", default=1))
         osl = int(_g(r, "output_length", "osl", "output_len", default=1))
         hids = _g(r, "hash_ids", "block_hashes", "blocks", default=[]) or []
-        rows.append((ts, max(1, isl), max(1, osl), [int(x) for x in hids]))
+        if "hp" in r:
+            # ``hp = [k, n]``: the first ``n`` blocks are those of file row ``k``.
+            k, m = r["hp"]
+            hids = list(rows[int(k)][3][: int(m)]) + [int(x) for x in hids]
+        think = _g(r, "think_ms", "delay_ms", default=None)
+        row = (
+            ts,
+            max(1, isl),
+            max(1, osl),
+            [int(x) for x in hids],
+            None if think is None else max(0.0, float(think)),
+        )
+        if "sess" in r:
+            row = row + (int(r["sess"]), int(r.get("dep", -1)),
+                         tuple(int(j) for j in (r.get("joins") or ())))
+        rows.append(row)
     return rows
+
+
+def _reqs_from_rows(rows) -> list[_Req]:
+    """``_Req`` list from Mooncake rows, in timestamp order.
+
+    Rows carry an optional fifth field, the per-request closed-loop think time.
+    """
+    out: list[_Req] = []
+    for i, row in enumerate(sorted(rows or [], key=lambda x: x[0])):
+        a, isl, osl, hids = row[:4]
+        think = row[4] if len(row) > 4 else None
+        sess, dep, joins = (row[5], row[6], row[7]) if len(row) > 7 else (-1, -1, ())
+        out.append(
+            _Req(
+                idx=i, arrival_ms=a, prompt_len=isl, output_len=osl,
+                blocks=list(hids), think_ms=think, sess=sess, dep=dep, joins=joins,
+            )
+        )
+    return out
 
 
 def _draw_prefix_ids(n: int, num_prefixes: int, zipf: float, rng: random.Random) -> list[int]:
@@ -1311,14 +1517,25 @@ def _route_and_warm(
             yield from ordered
             return
         window = list(range(min(depth, len(ordered))))
+        # A session turn's prompt extends the context of the request it waits
+        # on; resolving it first would hand that request a full hit and this one
+        # both prefills. Such a turn is not a candidate until its wait resolves.
+        known = {r.idx for r in ordered}
+        seen: set[int] = set()
+
+        def _ready(i: int) -> bool:
+            r = ordered[i]
+            return all(d in seen or d not in known for d in (r.dep, *r.joins) if d >= 0)
+
         while window:
             # Longest resident prefix anywhere in the fleet: the scheduler is
             # choosing what to run next, not where to run it, so the routing
             # decision below is still the router's to make.
             pick = max(
-                window,
+                [i for i in window if _ready(i)] or [min(window)],
                 key=lambda i: max(c.prefix_match(ordered[i].blocks or []) for c in caches),
             )
+            seen.add(ordered[pick].idx)
             window.remove(pick)
             if pick + depth < len(ordered):
                 window.append(pick + depth)
@@ -1442,6 +1659,7 @@ def _aggregate_instances(results: list[DESResult], prefix_summary: dict[str, flo
         num_requests=sum(r.num_requests for r in results),
         makespan_ms=makespan,
         system_throughput_tps=sum(r.system_throughput_tps for r in results),
+        system_total_throughput_tps=sum(r.system_total_throughput_tps for r in results),
         saturated=any(r.saturated for r in results),
         ttft=dist(_pool("ttft")),
         ttft_arrival=dist(_pool("ttft_arrival")),
@@ -1472,6 +1690,7 @@ def simulate_disaggregated(
     closed_loop_think_ms: float = 0.0,
     return_samples: bool = False,
     duration_ms: float = 0.0,
+    closed_loop_idle_cap_ms: float = 0.0,
 ) -> DESResult:
     """Run a prefill pool and a decode pool as two stations on one clock.
 
@@ -1514,6 +1733,9 @@ def simulate_disaggregated(
     input_len = max(1, req.input_seq_len)
     output_len = max(1, req.output_seq_len)
     max_running = max(1, req.resolved_max_concurrency())
+    cap_seqs = int(getattr(req, "max_num_seqs", 0) or 0)
+    if cap_seqs > 0:
+        max_running = min(max_running, cap_seqs)
     token_budget = int(req.max_num_batched_tokens or 0)  # 0 = unlimited
     long_prefill = int(req.chunked_prefill_size or 0)
     max_model_len = max(2, int(req.resolved_max_context_len()))
@@ -1569,6 +1791,8 @@ def simulate_disaggregated(
         pending.sort(key=lambda r: r.arrival_ms)
         next_unissued = n
 
+    _set_host_ms(pending, req)
+
     # The KV pool is per *pool*, not per fleet. A prefill pool holds a prompt
     # only until the handoff, while a decode replica holds the whole sequence
     # for the generation's duration, so splitting the budget evenly would
@@ -1591,6 +1815,14 @@ def simulate_disaggregated(
     done: list[_Req] = []
     handoff: dict[int, float] = {}
     next_arrival = 0
+    # Closed loop: issued requests keyed on arrival (see ``simulate_once``).
+    idle_cap_ms = max(0.0, float(closed_loop_idle_cap_ms or 0.0))
+    arrivals_heap: list[tuple[float, int, _Req]] = []
+    if closed_loop:
+        arrivals_heap = [(pending[i].arrival_ms, i, pending[i]) for i in range(clients)]
+        heapq.heapify(arrivals_heap)
+        next_arrival = n
+    last_retire_ms = 0.0
     p_steps = 0
     d_steps = 0
     pk_p_batch = 0
@@ -1616,6 +1848,9 @@ def simulate_disaggregated(
         while next_arrival < n and pending[next_arrival].arrival_ms <= t:
             p_waiting.append(pending[next_arrival])
             next_arrival += 1
+            got += 1
+        while arrivals_heap and arrivals_heap[0][0] <= t:
+            p_waiting.append(heapq.heappop(arrivals_heap)[2])
             got += 1
         return got
 
@@ -1766,9 +2001,12 @@ def simulate_disaggregated(
         would let a client hold two requests at once and report a concurrency
         the harness never ran.
         """
-        nonlocal next_unissued
+        nonlocal next_unissued, last_retire_ms
+        last_retire_ms = max(last_retire_ms, t)
         if next_unissued < n:
-            pending[next_unissued].arrival_ms = t + think_ms
+            nxt = pending[next_unissued]
+            nxt.arrival_ms = t + (think_ms if nxt.think_ms is None else nxt.think_ms)
+            heapq.heappush(arrivals_heap, (nxt.arrival_ms, next_unissued, nxt))
             next_unissued += 1
 
     # ---- event loop ----
@@ -1811,11 +2049,26 @@ def simulate_disaggregated(
             if (d_running[k] or d_waiting[k]) and not stalled_d[k]:
                 runnable.append((now_d[k], k))
         if not runnable:
+            if (
+                idle_cap_ms > 0
+                and arrivals_heap
+                and not xfer
+                and not p_running
+                and not p_waiting
+                and not any(d_running)
+                and not any(d_waiting)
+            ):
+                lead = arrivals_heap[0][0] - (last_retire_ms + idle_cap_ms)
+                if lead > 0:
+                    arrivals_heap = [(a - lead, i, q) for a, i, q in arrivals_heap]
+                    for _a, _i, q in arrivals_heap:
+                        q.arrival_ms -= lead
             # Nothing resident anywhere: jump to the next thing that can happen.
             nxt = [
                 t
                 for t in (
                     pending[next_arrival].arrival_ms if next_arrival < n else None,
+                    arrivals_heap[0][0] if arrivals_heap else None,
                     min((ts for ts, _ in xfer), default=None),
                 )
                 if t is not None and t < math.inf
@@ -1842,25 +2095,24 @@ def simulate_disaggregated(
     # ---- aggregate ----
     done.sort(key=lambda r: r.finish_ms)
     sample = _scored_sample(done, warmup_frac, warmup_requests)
-    tok_ms_pt = max(0.0, req.tokenize_overhead_us) / 1000.0
     detok_ms = max(0.0, req.detokenize_overhead_us) / 1000.0
 
     def _admit(r):
         return r.admit_ms if r.admit_ms >= 0 else r.arrival_ms
 
     ttft = [
-        (r.first_token_ms - _admit(r)) + tok_ms_pt * r.prompt_len
+        (r.first_token_ms - _admit(r)) + r.host_ms
         for r in sample
         if r.first_token_ms >= 0
     ]
     ttft_arrival = [
-        (r.first_token_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len
+        (r.first_token_ms - r.arrival_ms) + r.host_ms
         for r in sample
         if r.first_token_ms >= 0
     ]
     queue_wait = [_admit(r) - r.arrival_ms for r in sample if r.first_token_ms >= 0]
     e2e = [
-        (r.finish_ms - r.arrival_ms) + tok_ms_pt * r.prompt_len + detok_ms * r.generated
+        (r.finish_ms - r.arrival_ms) + r.host_ms + detok_ms * r.generated
         for r in sample
         if r.finish_ms >= 0
     ]
@@ -1883,9 +2135,13 @@ def simulate_disaggregated(
         out_sample = sum(r.generated for r in sample)
         achieved_rate = (len(sample) * 1000.0 / span_ms) if span_ms > 0 else 0.0
         sys_tps = (out_sample * 1000.0 / span_ms) if span_ms > 0 else 0.0
+        tot_tokens = out_sample + sum(r.prompt_len for r in sample)
+        tot_tps = (tot_tokens * 1000.0 / span_ms) if span_ms > 0 else 0.0
     else:
         achieved_rate = (len(done) * 1000.0 / makespan) if makespan > 0 else 0.0
         sys_tps = (total_out * 1000.0 / makespan) if makespan > 0 else 0.0
+        tot_tokens = total_out + sum(r.prompt_len for r in done)
+        tot_tps = (tot_tokens * 1000.0 / makespan) if makespan > 0 else 0.0
 
     # Fleet utilisation, GPU-weighted. An unweighted mean of the two stations
     # would rate a 4-GPU prefill pool and a 12-GPU decode pool as equals.
@@ -1950,6 +2206,7 @@ def simulate_disaggregated(
         num_requests=len(done),
         makespan_ms=makespan,
         system_throughput_tps=sys_tps,
+        system_total_throughput_tps=tot_tps,
         saturated=saturated,
         ttft=dist(ttft),
         ttft_arrival=dist(ttft_arrival),
@@ -1991,6 +2248,7 @@ def simulate_multi_instance(
     cache_shares_pool: bool = False,
     closed_loop_think_ms: float = 0.0,
     whole_context_residency: bool = False,
+    closed_loop_idle_cap_ms: float = 0.0,
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
@@ -2010,11 +2268,7 @@ def simulate_multi_instance(
     hasher = _BlockHasher()
 
     def _trace_requests() -> list[_Req]:
-        rows = sorted(mooncake_rows or [], key=lambda x: x[0])
-        return [
-            _Req(idx=i, arrival_ms=a, prompt_len=isl, output_len=osl, blocks=list(hids))
-            for i, (a, isl, osl, hids) in enumerate(rows)
-        ]
+        return _reqs_from_rows(mooncake_rows)
 
     if mooncake_rows is not None:
         # Trace-driven: arrivals, lengths and block hashes all come from the file.
@@ -2074,6 +2328,7 @@ def simulate_multi_instance(
                     # client count rather than a share of it.
                     closed_loop_clients=closed_loop_clients,
                     closed_loop_think_ms=closed_loop_think_ms,
+                    closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
                     whole_context_residency=whole_context_residency,
                     # Every replica stops on the same clock: the window is the
                     # harness's, so it is not divided across instances the way
@@ -2135,6 +2390,7 @@ def run_des(
     closed_loop_think_ms: float = 0.0,
     cache_shares_pool: bool = False,
     whole_context_residency: bool = False,
+    closed_loop_idle_cap_ms: float = 0.0,
 ) -> dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
 
@@ -2164,11 +2420,7 @@ def run_des(
         if mooncake_rows is not None:
             hasher = _BlockHasher()
             bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
-            rows = sorted(mooncake_rows, key=lambda x: x[0])
-            reqs = [
-                _Req(idx=i, arrival_ms=a, prompt_len=isl, output_len=osl, blocks=list(hids))
-                for i, (a, isl, osl, hids) in enumerate(rows)
-            ]
+            reqs = _reqs_from_rows(mooncake_rows)
             # The prefill pool is what owns a prefix cache here, so the hits are
             # warmed against one station rather than routed across a fleet.
             _, prefix_summary = _route_and_warm(
@@ -2215,6 +2467,7 @@ def run_des(
                 inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
             ),
             closed_loop_think_ms=closed_loop_think_ms,
+            closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
             duration_ms=duration_ms,
         )
         # The split warms a prefix cache exactly as the colocated path does,
@@ -2253,6 +2506,7 @@ def run_des(
                 mooncake_rows=mooncake_rows,
                 closed_loop_clients=clients,
                 closed_loop_think_ms=closed_loop_think_ms,
+                closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
                 duration_ms=duration_ms,
                 prefill_exclusive=prefill_exclusive,
                 cache_shares_pool=cache_shares_pool,
@@ -2273,6 +2527,7 @@ def run_des(
             record_steps=record_steps,
             closed_loop_clients=clients,
             closed_loop_think_ms=closed_loop_think_ms,
+            closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
             whole_context_residency=whole_context_residency,
             prefill_exclusive=prefill_exclusive,
             new_seqs_per_step=new_seqs_per_step,

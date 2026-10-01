@@ -826,6 +826,20 @@ def _add_inference_args(parser):
         "worth guessing. Default 0.",
     )
     serv.add_argument(
+        "--uncached-prompt-latency-us",
+        type=float,
+        default=None,
+        help="TTFT latency per prompt token the prefix cache did not serve (us/token). "
+        "Added to TTFT and end-to-end latency only (not throughput). Default 0.",
+    )
+    serv.add_argument(
+        "--uncached-prompt-latency-max-tokens",
+        type=int,
+        default=None,
+        help="Uncached tokens past which --uncached-prompt-latency-us stops growing. "
+        "Default 0 (no cap).",
+    )
+    serv.add_argument(
         "--prefill-rate-us-per-token",
         type=float,
         default=None,
@@ -887,6 +901,14 @@ def _add_inference_args(parser):
         help="Scheduler per-step token budget (vLLM --max-num-batched-tokens). Caps "
         "prefill-chunk + concurrent-decode tokens per step; oversized steps split, "
         "raising TPOT. Default: 0 (unlimited).",
+    )
+    serv.add_argument(
+        "--max-num-seqs",
+        type=int,
+        default=None,
+        help="Engine cap on running sequences (vLLM --max-num-seqs, SGLang "
+        "--max-running-requests). Clients beyond it queue at the server. "
+        "Default: 0 (bounded by client concurrency only).",
     )
     # ---- Offered load / request rate (open-loop arrivals) ----
     serv.add_argument(
@@ -989,7 +1011,17 @@ def _add_inference_args(parser):
         "50-74% of each turn's cycle below saturation and ~0% above it, so "
         "omitting it overstates throughput several-fold at the low rungs and "
         "not at all at the high ones, which bends the curve rather than "
-        "shifting it.",
+        "shifting it. A Mooncake trace's per-request ``think_ms`` overrides "
+        "it request by request.",
+    )
+    serv.add_argument(
+        "--des-client-idle-cap-ms",
+        type=float,
+        default=0.0,
+        help="DES: longest the engine may sit with no request in flight before "
+        "pending client timers are pulled forward (0 = no cap). Mirrors a "
+        "replay harness's system-idle guard (AIPerf AgentX: 10 s), which "
+        "shortens a single client's idle time far below the trace's gaps.",
     )
     serv.add_argument(
         "--des-admit-backlog-only",
