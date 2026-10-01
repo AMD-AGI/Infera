@@ -321,6 +321,31 @@ def aiter_ops_axis(env: dict[str, str] | None) -> str | None:
 # --------------------------------------------------------------------------
 
 
+#: Names a *quantizer toolchain* rather than a numeric format. Both vLLM and
+#: SGLang resolve ``quantization_config.quant_method`` to one of these and the
+#: benchmark records it verbatim, so an anchor measured on an MXFP4 checkpoint
+#: comes back labelled ``quark``. Quark emits fp8 and fp4 alike, so the label
+#: does not determine the dtype and cannot be rewritten to one here.
+_QUANTIZER_NAMES = frozenset(
+    {"quark", "compressed-tensors", "compressed_tensors", "modelopt", "torchao"}
+)
+
+
+def _weight_dtype_or_unknown(quant: Any) -> Any:
+    """Drop quantizer-toolchain names, which are not weight dtypes.
+
+    Returning None follows the policy the caller already documents: an unknown
+    axis is skipped by ``regime_distance`` while a wrong one forces a mismatch.
+    ``quark`` is a wrong one. Every GLM-5.2-MXFP4 anchor in the store was
+    measured on MI355X against the same MXFP4 checkpoint the matrix projects,
+    and all of them were being refused on ``weight_dtype('mxfp4'->'quark')`` --
+    a naming artifact, not a difference in what ran.
+    """
+    if quant is None:
+        return None
+    return None if str(quant).strip().lower() in _QUANTIZER_NAMES else quant
+
+
 def recipe_from_meta(
     meta: dict[str, Any], *, model: str | None = None, engine: str | None = None
 ) -> dict[str, Any]:
@@ -340,7 +365,9 @@ def recipe_from_meta(
     # requested quantization; otherwise leave it unknown rather than assert a
     # value, since an unknown axis is skipped by ``regime_distance`` while a
     # wrong one forces a mismatch.
-    quant = meta.get("weight_dtype") or meta.get("quantization")
+    quant = _weight_dtype_or_unknown(
+        meta.get("weight_dtype") or meta.get("quantization")
+    )
     return {
         "model": model or meta.get("model"),
         # The engine lives on the artifact rather than in ``meta``, so the
