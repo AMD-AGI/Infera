@@ -49,6 +49,7 @@ import asyncio
 import contextlib
 import json
 import os
+import random
 import re
 import shlex
 import shutil
@@ -110,6 +111,99 @@ def _capture_engine_output(path: str):
             os.dup2(saved[1], 2)
             os.close(saved[0])
             os.close(saved[1])
+
+
+def _speculative_argv(args) -> list[str]:
+    """The flags that turn the draft head on, in each engine's spelling.
+
+    Speculation was previously the one regime axis the served harvest could not
+    reach: the flags were accepted on the command line, recorded in the
+    artifact's regime signature, and never passed to the engine. The anchor
+    therefore described a non-speculative machine while claiming to describe a
+    speculative one. Since every AgentX deployment serves with MTP, that is the
+    difference between an anchor the store accepts and one it refuses.
+
+    The spellings are not translations of each other. DeepSeek's MTP head is
+    loaded through SGLang's EAGLE path at topk 1 -- a single draft chain --
+    rather than NEXTN, whose V3/R1 loader does not accept the V4 architecture.
+    ATOM names the method directly, and vLLM takes one JSON object.
+
+    Acceptance is pinned rather than earned, for the reason given on
+    ``--speculative-acceptance-length``: these harvests run on dummy weights.
+    """
+    method = getattr(args, "speculative_method", None)
+    k = getattr(args, "speculative_num_tokens", None)
+    if not method or not k:
+        return []
+    al = getattr(args, "speculative_acceptance_length", None)
+    draft = getattr(args, "speculative_draft_model", None)
+    # The method is part of the regime, not a hint. Collapsing every method to
+    # MTP made the EAGLE3 and DSpark harvests look for draft layers inside
+    # checkpoints that do not have them: MiniMax-M3-MXFP4 under vLLM failed
+    # "Failed to load MTP layer 0 weights" with the EAGLE3 draft it was handed
+    # never passed on.
+    separate_draft = str(method).lower() in ("eagle3", "eagle", "draft_model", "dflash")
+
+    if args.serving_backend == "sglang":
+        if separate_draft:
+            argv = [
+                "--speculative-algorithm",
+                "EAGLE3" if str(method).lower() == "eagle3" else "EAGLE",
+                "--speculative-num-steps",
+                str(k),
+                "--speculative-eagle-topk",
+                "1",
+                "--speculative-num-draft-tokens",
+                str(k + 1),
+            ]
+            if draft:
+                argv += ["--speculative-draft-model-path", str(draft)]
+            if al:
+                os.environ.setdefault("SGLANG_SIMULATE_ACC_LEN", str(al))
+                os.environ.setdefault("SGLANG_SIMULATE_ACC_METHOD", "match-expected")
+                os.environ.setdefault("SGLANG_SIMULATE_ACC_TOKEN_MODE", "real-draft-token")
+            return argv
+        # num-steps is the chain depth; the draft-token count includes the
+        # verified token, hence k + 1.
+        argv = [
+            "--speculative-algorithm",
+            "EAGLE",
+            "--speculative-num-steps",
+            str(k),
+            "--speculative-eagle-topk",
+            "1",
+            "--speculative-num-draft-tokens",
+            str(k + 1),
+        ]
+        # SGLang has no acceptance flag; it reads the simulation from the
+        # environment. Set here rather than asked of the caller so the anchor
+        # and the deployment agree without a second place to keep in step.
+        if al:
+            os.environ.setdefault("SGLANG_SIMULATE_ACC_LEN", str(al))
+            os.environ.setdefault("SGLANG_SIMULATE_ACC_METHOD", "match-expected")
+            os.environ.setdefault("SGLANG_SIMULATE_ACC_TOKEN_MODE", "real-draft-token")
+        return argv
+
+    if args.serving_backend == "atom":
+        # ATOM has one MTP method for every model's in-checkpoint head, and
+        # refuses a draft checkpoint with it; EAGLE3 requires one.
+        atom_method = "mtp" if str(method).lower().endswith("mtp") else str(method)
+        argv = ["--method", atom_method, "--num-speculative-tokens", str(k)]
+        if draft and atom_method != "mtp":
+            argv += ["--draft-model", str(draft)]
+        if al:
+            argv += ["--spec-decode-acceptance-length", str(al)]
+        return argv
+
+    # vLLM resolves the generic "mtp" to the model's own head, and takes every
+    # other method by name.
+    spec: dict = {"method": str(method), "num_speculative_tokens": int(k)}
+    if draft:
+        spec["model"] = str(draft)
+    if al:
+        spec["rejection_sample_method"] = "synthetic"
+        spec["synthetic_acceptance_length"] = al
+    return ["--speculative-config", json.dumps(spec)]
 
 
 def _engine_argv(args, port: int, tp: int) -> list[str]:
@@ -175,6 +269,7 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
             argv += ["--enable-expert-parallel"]
         if args.enforce_eager:
             argv += ["--enforce-eager"]
+    argv += _speculative_argv(args)
     if args.quantization:
         argv += ["--quantization", args.quantization]
     if args.kv_cache_dtype:
@@ -214,6 +309,18 @@ def _engine_argv(args, port: int, tp: int) -> list[str]:
     if getattr(args, "trust_remote_code", False):
         argv += ["--trust-remote-code"]
     return argv + shlex.split(args.server_args or "")
+
+
+def _trust_remote_code(args) -> bool:
+    """Whether the checkpoint's own code is trusted, however it was asked for.
+
+    The client loads the same tokenizer the server does, so a checkpoint that
+    needs remote code (Kimi-K3) fails in the client too when the flag reached
+    the server only through --server-args.
+    """
+    return bool(getattr(args, "trust_remote_code", False)) or (
+        "--trust-remote-code" in shlex.split(getattr(args, "server_args", None) or "")
+    )
 
 
 def _build_engine(args, argv: list[str], port: int, tp: int):
@@ -288,10 +395,59 @@ def _run_client(
             "--ignore-eos",
             "--percentile-metrics",
             "ttft,tpot,itl,e2el",
+            # Same seed-0 default as ATOM's vendored copy below, with the same
+            # consequence: repeated probes hit the prefix cache.
+            "--seed",
+            str(random.SystemRandom().randint(1, 2**31 - 1)),
             "--save-result",
             "--result-filename",
             result,
         ]
+        if _trust_remote_code(args):
+            cmd.append("--trust-remote-code")
+    elif kind == "atom":
+        # vLLM's legacy benchmark_serving.py, vendored into ATOM: same flags,
+        # same result keys. It uses relative imports, so it only runs as a
+        # module. Its random dataset draws exact lengths by default.
+        cmd = [
+            sys.executable,
+            "-m",
+            "atom.benchmarks.benchmark_serving",
+            "--backend",
+            "vllm",
+            "--model",
+            args.model,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(port),
+            "--endpoint",
+            "/v1/completions",
+            "--dataset-name",
+            "random",
+            "--random-input-len",
+            str(input_len),
+            "--random-output-len",
+            str(output_len),
+            "--num-prompts",
+            str(num_prompts),
+            "--max-concurrency",
+            str(batch),
+            "--ignore-eos",
+            "--percentile-metrics",
+            "ttft,tpot,itl,e2el",
+            # Its prompts are a pure function of the seed, which defaults to
+            # 0, so every repeat of a probe resends the same prompts and the
+            # prefix cache serves them: the prefill probe then prices a few
+            # hundred new tokens per request instead of the whole prompt.
+            "--seed",
+            str(random.SystemRandom().randint(1, 2**31 - 1)),
+            "--save-result",
+            "--result-filename",
+            result,
+        ]
+        if _trust_remote_code(args):
+            cmd.append("--trust-remote-code")
     else:
         cmd = [
             sys.executable,
@@ -325,6 +481,11 @@ def _run_client(
             str(num_prompts),
             "--max-concurrency",
             str(batch),
+            # Seeded like the other two clients (its default is 1): one seed
+            # draws the same leading ids at every prompt length, so each longer
+            # probe prompt is a cache hit on the shorter one before it.
+            "--seed",
+            str(random.SystemRandom().randint(1, 2**31 - 1)),
             "--output-file",
             result,
         ]
@@ -356,6 +517,14 @@ def client_kind(args) -> str:
     """
     if shutil.which("vllm"):
         return "vllm"
+    # The ATOM image carries neither vLLM nor SGLang; its load generator is
+    # its own vendored copy of vLLM's legacy client. Named rather than probed:
+    # which client an engine ships is a fact about the engine, and importing to
+    # check it answers a different question -- whether the module resolves in
+    # *this* process, which for a harvest is the submitting host and not the
+    # container the server runs in.
+    if args.serving_backend == "atom":
+        return "atom"
     if args.serving_backend == "sglang":
         return "sglang"
     raise RuntimeError(
@@ -368,7 +537,7 @@ def client_kind(args) -> str:
 def _client_result(path: str, kind: str) -> dict:
     """One run's metrics, however its client chose to write them down."""
     with open(path) as fh:
-        if kind == "vllm":
+        if kind in ("vllm", "atom"):
             return json.load(fh)
         # SGLang writes JSON Lines, one object per run appended to the file.
         lines = [line for line in fh.read().splitlines() if line.strip()]
@@ -438,6 +607,19 @@ def _measure_concurrency(port: int, batch: int, args, out_dir: str) -> float:
             f"models. Expect TPOT to be over-predicted at high concurrency."
         )
         return float(doc["mean_tpot_ms"])
+    # The median gap can only sit above the mean one when the stream delivers
+    # tokens in bursts: SGLang serving Llama-3.1-8B coalesces its ~4 ms steps,
+    # so half the gaps read ~0 and the rest two steps, and the median read
+    # 8.91 ms at batch 1 and 14.58 at 16 where mean TPOT read 4.45 and 7.94,
+    # matching the served engine. Mean TPOT is then the cleaner of the two.
+    tpot = doc.get("mean_tpot_ms")
+    if tpot and float(itl) > 1.2 * float(tpot):
+        print(
+            f"[inferasim:Inference:Serving] median ITL {float(itl):.2f} ms exceeds "
+            f"mean TPOT {float(tpot):.2f} ms at concurrency {batch}: the stream "
+            f"is coalescing tokens, so the decode step is read from mean TPOT."
+        )
+        return float(tpot)
     return float(itl)
 
 
@@ -1035,6 +1217,15 @@ def run_serving_benchmark(args) -> dict:
             "kv_cache_dtype": args.kv_cache_dtype,
             "enforce_eager": args.enforce_eager,
             "use_aiter": os.environ.get("VLLM_ROCM_USE_AITER", "0") == "1",
+            # Recorded explicitly, including the "off" case. The store rebuilds
+            # each anchor's regime from this meta and discards the signature the
+            # harvest computed, so an axis that is absent here is absent from
+            # the index -- and a missing speculative key does not read as "off",
+            # it reads as "measured before this was tracked", which is refused
+            # for a speculating target rather than assumed compatible.
+            "speculative_method": getattr(args, "speculative_method", None),
+            "speculative_num_tokens": getattr(args, "speculative_num_tokens", None),
+            "speculative_acceptance_length": getattr(args, "speculative_acceptance_length", None),
             "server_args": args.server_args or None,
             # Recorded explicitly, not left to be re-derived from the flag
             # string by every reader. A prefill measured against a warm prefix
