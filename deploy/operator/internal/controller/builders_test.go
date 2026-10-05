@@ -573,3 +573,21 @@ func TestReadinessPortAcceptsOnlyPlainDigits(t *testing.T) {
 		t.Errorf("readinessPortFrom = %d/%v, want 30091/true", port, ok)
 	}
 }
+
+func TestPodTemplateCarriesPodAnnotations(t *testing.T) {
+	idep := &inferav1alpha1.InferaDeployment{}
+	idep.Name = "idep"
+	svc := inferav1alpha1.ServiceSpec{
+		ComponentType: inferav1alpha1.ComponentTypeServer,
+		PodAnnotations: map[string]string{
+			"primus-safe.user.account": "leiwei12",
+		},
+		ExtraPodSpec: &corev1.PodSpec{
+			Containers: []corev1.Container{{Name: "main", Image: "x"}},
+		},
+	}
+	tmpl := podTemplate(idep, "role0", svc)
+	if tmpl.Annotations["primus-safe.user.account"] != "leiwei12" {
+		t.Fatalf("annotations=%v", tmpl.Annotations)
+	}
+}

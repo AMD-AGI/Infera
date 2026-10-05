@@ -226,6 +226,27 @@ func podLabelsFor(idepName, svcName string, svc inferav1alpha1.ServiceSpec) map[
 	return merged
 }
 
+// podAnnotationsFor copies caller-supplied ServiceSpec.PodAnnotations onto the
+// pod template (site account, resource id). Empty input yields a nil map.
+func podAnnotationsFor(svc inferav1alpha1.ServiceSpec) map[string]string {
+	if len(svc.PodAnnotations) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(svc.PodAnnotations))
+	for k, v := range svc.PodAnnotations {
+		out[k] = v
+	}
+	return out
+}
+
+// podObjectMeta is the template metadata for a rendered service pod.
+func podObjectMeta(idepName, svcName string, svc inferav1alpha1.ServiceSpec) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Labels:      podLabelsFor(idepName, svcName, svc),
+		Annotations: podAnnotationsFor(svc),
+	}
+}
+
 func natsName(idepName string) string { return idepName + "-nats" }
 
 // useK8sDiscovery reports whether the deployment uses Kubernetes-native worker
@@ -582,7 +603,7 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 		injectWorkerRolloutDefaults(&spec, idx, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	return corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
+		ObjectMeta: podObjectMeta(idep.Name, svcName, svc),
 		Spec:       spec,
 	}
 }
@@ -641,7 +662,7 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 		injectWorkerRolloutDefaults(&podSpec, 0, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	tmpl := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{Labels: podLabelsFor(idep.Name, svcName, svc)},
+		ObjectMeta: podObjectMeta(idep.Name, svcName, svc),
 		Spec:       podSpec,
 	}
 	applyGAIEFrontendSidecar(idep, svc, &tmpl)
