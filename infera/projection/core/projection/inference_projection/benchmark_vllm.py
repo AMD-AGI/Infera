@@ -214,8 +214,9 @@ def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
     an anchor for the degrees it did *not* measure, a four-GPU anchor was the
     best single choice at 6.6% -- better than the full-node eight-GPU anchor at
     7.6% -- because it interpolates in both directions where an end rung has to
-    extrapolate. It also asks for at most half a node, so a warmup does not wait
-    on a full one.
+    extrapolate. The cap is a GPU count, not a fraction of a node, because node
+    sizes differ; a small fixed allocation also keeps a warmup from waiting on a
+    large one.
     """
     tp = max(1, int(target_tp or 1))
     return min(tp, WARMUP_GPU_CAP)
