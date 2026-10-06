@@ -2808,7 +2808,40 @@ class InferencePerformanceProjector:
         dp = attention_dp_size(self.cfg)
         attn_batch = max(1, math.ceil(batch / dp)) if dp > 1 else batch
         factor = self._attn_backend_mult * sparse_scale
-        if factor != 1.0 or attn_batch != batch:
+        if phase == "decode" and os.getenv("INFERASIM_DCP_DECODE") == "1":
+            # Decode context parallelism splits each sequence's cache across
+            # the DCP ranks, so a rank's decode attention reads its slice.
+            dcp = int(getattr(self.cfg.model_parallel_config, "decode_context_parallel_size", 1) or 1)
+            if dcp > 1:
+                factor /= dcp
+        # Opt-in, for engines whose decode kernels read the compressed / top-k
+        # cache: the dense charge sets the one-sequence level, and each further
+        # resident sequence adds its pools, window and indexer pass rather than
+        # a dense read of its context. Charged dense, the step's growth with
+        # concurrency is overstated several-fold at long agentic contexts.
+        growth = None
+        if (
+            phase == "decode"
+            and dp <= 1
+            and not self._shape_decode_schedule
+            and os.getenv("INFERASIM_DECODE_SPARSE_GROWTH") == "1"
+        ):
+            from infera.projection.core.projection.training_config import (
+                hybrid_attention_scale,
+                uniform_sparse_attention_scale,
+            )
+
+            g = hybrid_attention_scale(self.cfg.model_config, kv_len)
+            if g is None:
+                g = uniform_sparse_attention_scale(
+                    self.cfg.model_config,
+                    kv_len,
+                    self.cfg.request_config.sparse_attention_topk,
+                    self.cfg.request_config.sparse_indexer_cost_scale,
+                )
+            if g is not None and g < 1.0:
+                growth = g
+        if factor != 1.0 or attn_batch != batch or growth is not None:
             for has, prof, is_moe in ((has_dense, dense_p, False), (has_moe, moe_p, True)):
                 if not has or not hasattr(prof, "get_sub_profiler"):
                     continue
@@ -2818,7 +2851,11 @@ class InferencePerformanceProjector:
                 charged = sub.measured_forward_time(batch, q_len)
                 actual = (
                     sub.measured_forward_time(attn_batch, q_len) if attn_batch != batch else charged
-                ) * factor
+                )
+                if growth is not None and attn_batch > 1:
+                    one = sub.measured_forward_time(1, q_len)
+                    actual = one + max(0.0, actual - one) * growth
+                actual *= factor
                 if is_moe:
                     moe_compute = max(0.0, moe_compute + actual - charged)
                 else:
