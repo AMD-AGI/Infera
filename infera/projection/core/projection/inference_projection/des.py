@@ -238,6 +238,14 @@ class _CostKernel:
         # (SGLang attention-DP ranks meet at every MoE layer), so a step costs
         # what the combined batch costs.
         self._sync = max(1, int(os.getenv("INFERASIM_DES_LOCKSTEP", "1") or 1))
+        # Opt-in: under attention-DP the requests one prefill step carries
+        # belong to different ranks, which attend over their own share in
+        # parallel; only the MoE sees the whole step's tokens.
+        self._dp = 1
+        if os.getenv("INFERASIM_DES_DPA_SPREAD") == "1":
+            from .kv_cache import attention_dp_size
+
+            self._dp = max(1, int(attention_dp_size(projector.cfg)))
 
     @staticmethod
     def _bucket(ctx: int) -> int:
@@ -256,16 +264,22 @@ class _CostKernel:
         return v
 
     def mixed_step_ms(
-        self, num_decode: int, prefill_tokens: int, ctx: int, prefill_kv: int
+        self, num_decode: int, prefill_tokens: int, ctx: int, prefill_kv: int,
+        prefill_reqs: int = 1,
     ) -> float:
-        key = (num_decode, self._tok(prefill_tokens), self._bucket(ctx), self._bucket(prefill_kv))
+        spread = min(self._dp, max(1, int(prefill_reqs)))
+        key = (num_decode, self._tok(prefill_tokens), self._bucket(ctx), self._bucket(prefill_kv), spread)
         v = self._mixed.get(key)
         if v is None:
             # One chunk per rank: under attention-DP each rank attends over its
             # own chunk with every head, and only the MoE sees all of them.
             kw = {"prefill_batch": self._sync} if self._sync > 1 else {}
+            tok = key[1]
+            if spread > 1:
+                kw = {"prefill_batch": spread}
+                tok = max(1, key[1] // spread)
             v = self._p.mixed_step_latency_ms(
-                num_decode * self._sync, key[1], key[2], key[3], self._q, **kw
+                num_decode * self._sync, tok, key[2], key[3], self._q, **kw
             )
             self._mixed[key] = v
             if os.getenv("INFERASIM_DEBUG_DES_STEPS"):
@@ -662,6 +676,12 @@ def simulate_once(
     # ingest scan cannot be used for them.
     idle_cap_ms = max(0.0, float(closed_loop_idle_cap_ms or 0.0))
     arrivals_heap: list[tuple[float, int, _Req]] = []
+    # Opt-in serial front end (us per prompt token): one process tokenizes
+    # every prompt in send order before the scheduler can see it. TTFT is still
+    # timed from the send, so a prompt queued behind others pays their tokenize.
+    fe_us = float(os.environ.get("INFERASIM_DES_SERIAL_FRONTEND_US", "0") or 0.0)
+    fe_heap: list[tuple[float, int, _Req]] = []
+    fe_free = 0.0
     horizon = duration_ms if duration_ms and duration_ms > 0 else math.inf
     if session_mode:
         # A request is released when everything it waits on has finished, plus
@@ -741,19 +761,26 @@ def simulate_once(
     # A session replay stops issuing at the horizon and lets what is already
     # in flight finish, which is what the harness reports over.
     while len(done) < n and steps < max_steps and (
-            now < horizon or (session_mode and (running or waiting))):
+            now < horizon or (session_mode and (running or waiting or fe_heap))):
         steps += 1
         # 1) Ingest arrivals due by ``now`` into the FCFS waiting queue.
         while next_arrival < n and pending[next_arrival].arrival_ms <= now + 1e-9:
             waiting.append(pending[next_arrival])
             next_arrival += 1
         while arrivals_heap and arrivals_heap[0][0] <= now + 1e-9:
-            waiting.append(heapq.heappop(arrivals_heap)[2])
+            q_ = heapq.heappop(arrivals_heap)[2]
+            if fe_us > 0:
+                fe_free = max(fe_free, q_.arrival_ms) + fe_us * 1e-3 * q_.prompt_len
+                heapq.heappush(fe_heap, (fe_free, q_.idx, q_))
+            else:
+                waiting.append(q_)
+        while fe_heap and fe_heap[0][0] <= now + 1e-9:
+            waiting.append(heapq.heappop(fe_heap)[2])
 
         # 2) Nothing resident and nothing waiting → jump to the next arrival.
         if not running and not waiting:
-            if arrivals_heap:
-                now = arrivals_heap[0][0]
+            if arrivals_heap or fe_heap:
+                now = min(h[0][0] for h in (arrivals_heap, fe_heap) if h)
                 continue
             if next_arrival < n and math.isfinite(pending[next_arrival].arrival_ms):
                 now = pending[next_arrival].arrival_ms
@@ -882,8 +909,8 @@ def simulate_once(
         if not scheduled:
             # Budget/KV starved this step with nothing runnable; advance to the
             # next arrival if possible, else we are stuck (bound will trip).
-            if arrivals_heap:
-                now = arrivals_heap[0][0]
+            if arrivals_heap or fe_heap:
+                now = min(h[0][0] for h in (arrivals_heap, fe_heap) if h)
                 continue
             if next_arrival < n:
                 now = pending[next_arrival].arrival_ms
@@ -898,7 +925,7 @@ def simulate_once(
         if prefill_q > 0:
             prefill_kv = int(sum(kv + q for _, q, kv in pref) / len(pref))
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
-            step_dt = kernel.mixed_step_ms(num_decode, prefill_q, decode_ctx, prefill_kv)
+            step_dt = kernel.mixed_step_ms(num_decode, prefill_q, decode_ctx, prefill_kv, len(pref))
         else:
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
             step_dt = kernel.decode_step_ms(num_decode, decode_ctx)
@@ -958,7 +985,7 @@ def simulate_once(
             else:
                 still.append(r)
         running = still
-        if idle_cap_ms > 0 and not running and not waiting and arrivals_heap:
+        if idle_cap_ms > 0 and not running and not waiting and not fe_heap and arrivals_heap:
             lead = arrivals_heap[0][0] - (now + idle_cap_ms)
             if lead > 0:
                 # A uniform shift keeps the heap ordered.
