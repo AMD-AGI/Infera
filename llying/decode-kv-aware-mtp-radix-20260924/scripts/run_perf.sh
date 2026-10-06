@@ -2,12 +2,9 @@
 # Purpose: Run performance arms one after another, unattended: check GPUs are
 #   free, launch, AgentX at CONC (full mode from the config), snapshot metrics
 #   and the router log, stop, wait for VRAM release.
-# Usage: [EVIDENCE_DIR=DIR] [AGENTX_EVIDENCE_DIR=DIR] [WAIT_FREE_TRIES=N] ./run_perf.sh ARM [ARM ...]
+# Usage: [EVIDENCE_DIR=DIR] [WAIT_FREE_TRIES=N] ./run_perf.sh ARM [ARM ...]
 #   ARM = a-perf | b-perf | c-perf | ... (results/decrad/config.decrad.ARM.sh)
 #   WAIT_FREE_TRIES: 15 s polls for free GPUs before each arm (default 40).
-#   AGENTX_EVIDENCE_DIR: where the AgentX client writes <arm>-agentx-c<CONC>/
-#     (the bulk, ~1.5 GB per arm); default EVIDENCE_DIR. It must be writable
-#     from CONTROL_NODE. When it differs, EVIDENCE_DIR gets a symlink to it.
 # Artifacts: EVIDENCE_DIR (default analysis/evidence/perf)/<arm>-launch/,
 #   <arm>-agentx-c<CONC>/, <arm>-{prefill,decode}-{before,after}.prom,
 #   <arm>-router.log, run.log
@@ -17,13 +14,12 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)"
 H="$DIR/scripts/bench-harness"
 R="$H/results/decrad"
 E="${EVIDENCE_DIR:-$DIR/analysis/evidence/perf}"
-AX="${AGENTX_EVIDENCE_DIR:-$E}"
 TOPO="$R/topology.yihou.tsv"
 CONC="${CONC:-40}"
 INFERENCEX_DIR="${INFERENCEX_DIR:-$(cd "$DIR/../../bench/glm5p2_pd/.cache/InferenceX" && pwd)}"
 AGENTX_CACHE_DIR="${AGENTX_CACHE_DIR:-$HOME/.cache/agentx-decrad}"
 NODES=(crsuse2-m2m-135 crsuse2-m2m-138)
-mkdir -p "$E" "$AX"
+mkdir -p "$E"
 
 log() { echo "$(date -u +%FT%TZ) $*" | tee -a "$E/run.log"; }
 vram() {  # GPUs 2-5 VRAM% on both nodes, space separated
@@ -74,12 +70,11 @@ for arm in "$@"; do
     fi
     snap before
     log "== $arm AgentX C$CONC"
-    out="$AX/$arm-agentx-c$CONC"
+    out="$E/$arm-agentx-c$CONC"
     timeout 9000 "$H/agentx_bench.sh" CONC="$CONC" CONFIG="$cfg" TOPOLOGY="$TOPO" \
         INFERENCEX_DIR="$INFERENCEX_DIR" AGENTX_CACHE_DIR="$AGENTX_CACHE_DIR" \
         OUT_DIR="$out" "${agentx_overrides[@]}" >"$E/$arm-agentx-c$CONC.log" 2>&1
     rc=$?
-    [[ "$AX" == "$E" ]] || ln -sfn "$out" "$E/$arm-agentx-c$CONC"
     sleep 20  # same late-result guard as yihou's sweep
     if [[ -s "$out/agentx_conc$CONC.json" ]]; then
         log "$arm AgentX done (rc=$rc)"

@@ -1,0 +1,2 @@
+c-diag Prefill picks=688 requests_with_hit=81.8% hit_blocks/request_blocks=0.826
+c-diag Decode  picks=688 requests_with_hit=67.7% hit_blocks/request_blocks=0.580

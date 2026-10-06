@@ -1,0 +1,11 @@
+2026-09-28T11:42:04Z == b-diag launch
+2026-09-28T11:46:19Z == b-diag AgentX C56
+2026-09-28T11:55:46Z b-diag AgentX FAILED (rc=125); see b-diag-agentx-c56.log
+2026-09-28T11:55:47Z stopping b-diag
+2026-09-28T11:57:52Z GPUs 2-5 released
+2026-09-28T11:57:53Z == c-diag launch
+2026-09-28T12:03:11Z == c-diag AgentX C56
+2026-09-28T12:52:59Z c-diag AgentX done (rc=0)
+2026-09-28T12:53:00Z stopping c-diag
+2026-09-28T12:56:40Z GPUs 2-5 released
+2026-09-28T12:56:40Z all arms finished

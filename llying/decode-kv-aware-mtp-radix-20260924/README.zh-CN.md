@@ -20,7 +20,8 @@ decode 侧打不开 KV-aware，是因为 SGLang 在参数解析阶段禁止 `--d
 
 - decode radix（B）比基线（A）吞吐高 3.0%。收益来自传输量减少和预分配排队变短，ITL 基本不变。
 - 再开 decode HiCache（C，write_through），吞吐比 B 低 4.5%，ITL 高 6.2%。decode 每一步多出约 1.7 ms：其中约 1–1.5 ms 与 HiCache 流量无关，约 0.5–1 ms 随写入和淘汰量增长。换写策略解决不了主要部分。
-- py-spy 定位结果（`analysis/evidence/diag/`）：HiCache 代码只占 decode 调度线程约 0.3% 的时间，调度线程约 89% 的时间在等 GPU。所以多出的时间在 GPU 执行上，下一步做 GPU 层面的 B/C 对比。
+- py-spy 定位结果（`analysis/evidence/diag/`）：HiCache 代码只占 decode 调度线程约 0.3% 的时间，调度线程约 89% 的时间在等 GPU。所以多出的时间落在 GPU 时间线上，不是 CPU 开销。
+- **结论（2026-10-06）：decode 只开 radix，不开 HiCache。** C40 下即使把开销全部消除，decode HiCache 也只能比 B 好约 1%，所以不再追根因。C56 判断实验因为 `/home` 写满和会话中断没有完成，没有作为结论依据。
 
 **P+D 都开 HiCache（C 组）也已通过正确性验证。** 参数层面只差 decode radix（已解决）和测试脚本中的一条 guard（通过 `DECODE_EXTRA_ARGS` 绕过）。
 
