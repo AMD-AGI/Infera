@@ -372,7 +372,7 @@ fn metric_family(name: &str) -> &str {
 
 fn family_allowed(families: &[&str], name: &str) -> bool {
     let base = metric_family(name);
-    families.iter().any(|f| *f == base)
+    families.contains(&base)
 }
 
 fn escape_prom_label(v: &str) -> String {

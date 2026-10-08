@@ -238,21 +238,14 @@ pub(crate) enum StreamEnd {
 }
 
 impl GuardedStream {
+    /// Test helper: production paths always pass an abort channel and/or tracker.
+    #[cfg(test)]
     pub(crate) fn new(
         inner: impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static,
         guard: ActiveGuard,
         source: StreamSource,
     ) -> Self {
         Self::new_with_incomplete_abort(inner, guard, source, None, None)
-    }
-
-    pub(crate) fn new_with_tracker(
-        inner: impl Stream<Item = reqwest::Result<Bytes>> + Send + 'static,
-        guard: ActiveGuard,
-        source: StreamSource,
-        tracker: crate::metrics::RequestTracker,
-    ) -> Self {
-        Self::new_with_incomplete_abort(inner, guard, source, None, Some(tracker))
     }
 
     pub(crate) fn new_with_incomplete_abort(
@@ -360,6 +353,7 @@ impl Drop for GuardedStream {
 // a `?` chain: neither of these is propagated with `?`, both are matched one
 // frame up.
 #[allow(clippy::result_large_err)]
+#[allow(clippy::too_many_arguments)] // tracker rides alongside the existing attempt inputs
 async fn attempt_nats(
     nats: &Arc<crate::nats_request::NatsRequestClient>,
     target: &RouteTarget,
@@ -618,14 +612,6 @@ pub(crate) struct GuardedBody {
 
 /// Tie a byte stream to an `ActiveGuard`, so the policy's in-flight count is
 /// released when the client finishes, disconnects, or drops.
-pub(crate) fn guarded(
-    inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
-    guard: ActiveGuard,
-    source: StreamSource,
-) -> GuardedBody {
-    guarded_with_incomplete_abort(inner, guard, source, None, None)
-}
-
 pub(crate) fn guarded_with_tracker(
     inner: impl Stream<Item = Result<Bytes, std::io::Error>> + Send + 'static,
     guard: ActiveGuard,
