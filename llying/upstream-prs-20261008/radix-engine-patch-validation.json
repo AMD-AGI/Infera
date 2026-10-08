@@ -1,0 +1,16 @@
+{
+  "head": "0cdd20f48be4d90921c2d11ccedd40504914ece1",
+  "cpu_checks_passed": 45,
+  "engine_test_modules_skipped": 1,
+  "image_rebuild_performed": false,
+  "gpu_validation_performed": false,
+  "stock_rejection_reproduced": [
+    "v0.5.18",
+    "v0.5.19"
+  ],
+  "fixtures_git_blobs": [
+    "ddaf80744ebad6e01e37bafac63e25ddd05d0969",
+    "7e05b9176ad2c2c4b7402313b366e8ea20f2473e"
+  ],
+  "pr_draft": true
+}
