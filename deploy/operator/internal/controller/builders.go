@@ -207,32 +207,36 @@ func lwsObject() *unstructured.Unstructured {
 	return u
 }
 
-// podLabelsFor returns the operator's selector labels merged with any
-// caller-supplied ServiceSpec.PodLabels (e.g. an external orchestrator's
-// workload-id label used by its pod syncer). Operator selector labels always
-// win on key conflict so Service selection and ownership remain intact.
-func podLabelsFor(idepName, svcName string, svc inferav1alpha1.ServiceSpec) map[string]string {
-	base := labelsFor(idepName, svcName)
-	if len(svc.PodLabels) == 0 {
-		return base
+// podLabelsFor copies the InferaDeployment's own labels, then the service's
+// PodLabels, then the operator selector labels. Every key from the first two
+// sources is kept. Operator selector labels always win on key conflict so
+// Service selection and ownership remain intact.
+func podLabelsFor(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) map[string]string {
+	base := labelsFor(idep.Name, svcName)
+	merged := make(map[string]string, len(idep.Labels)+len(svc.PodLabels)+len(base))
+	for k, v := range idep.Labels {
+		merged[k] = v
 	}
-	merged := make(map[string]string, len(base)+len(svc.PodLabels))
 	for k, v := range svc.PodLabels {
 		merged[k] = v
 	}
 	for k, v := range base {
-		merged[k] = v // operator labels take precedence
+		merged[k] = v
 	}
 	return merged
 }
 
-// podAnnotationsFor copies caller-supplied ServiceSpec.PodAnnotations onto the
-// pod template (site account, resource id). Empty input yields a nil map.
-func podAnnotationsFor(svc inferav1alpha1.ServiceSpec) map[string]string {
-	if len(svc.PodAnnotations) == 0 {
+// podAnnotationsFor copies the InferaDeployment's own annotations, then the
+// service's PodAnnotations. A service key overrides the same key from the
+// deployment. Empty input yields a nil map.
+func podAnnotationsFor(idep *inferav1alpha1.InferaDeployment, svc inferav1alpha1.ServiceSpec) map[string]string {
+	if len(idep.Annotations) == 0 && len(svc.PodAnnotations) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(svc.PodAnnotations))
+	out := make(map[string]string, len(idep.Annotations)+len(svc.PodAnnotations))
+	for k, v := range idep.Annotations {
+		out[k] = v
+	}
 	for k, v := range svc.PodAnnotations {
 		out[k] = v
 	}
@@ -240,10 +244,10 @@ func podAnnotationsFor(svc inferav1alpha1.ServiceSpec) map[string]string {
 }
 
 // podObjectMeta is the template metadata for a rendered service pod.
-func podObjectMeta(idepName, svcName string, svc inferav1alpha1.ServiceSpec) metav1.ObjectMeta {
+func podObjectMeta(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) metav1.ObjectMeta {
 	return metav1.ObjectMeta{
-		Labels:      podLabelsFor(idepName, svcName, svc),
-		Annotations: podAnnotationsFor(svc),
+		Labels:      podLabelsFor(idep, svcName, svc),
+		Annotations: podAnnotationsFor(idep, svc),
 	}
 }
 
@@ -603,7 +607,7 @@ func podTemplateFromExtra(idep *inferav1alpha1.InferaDeployment, svcName string,
 		injectWorkerRolloutDefaults(&spec, idx, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	return corev1.PodTemplateSpec{
-		ObjectMeta: podObjectMeta(idep.Name, svcName, svc),
+		ObjectMeta: podObjectMeta(idep, svcName, svc),
 		Spec:       spec,
 	}
 }
@@ -662,7 +666,7 @@ func podTemplate(idep *inferav1alpha1.InferaDeployment, svcName string, svc infe
 		injectWorkerRolloutDefaults(&podSpec, 0, svc.NumberOfNodes <= 1 && !svc.SkipReadinessProbe, svc.Args, svc.Env)
 	}
 	tmpl := corev1.PodTemplateSpec{
-		ObjectMeta: podObjectMeta(idep.Name, svcName, svc),
+		ObjectMeta: podObjectMeta(idep, svcName, svc),
 		Spec:       podSpec,
 	}
 	applyGAIEFrontendSidecar(idep, svc, &tmpl)

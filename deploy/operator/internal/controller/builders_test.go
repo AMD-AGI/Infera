@@ -577,17 +577,29 @@ func TestReadinessPortAcceptsOnlyPlainDigits(t *testing.T) {
 func TestPodTemplateCarriesPodAnnotations(t *testing.T) {
 	idep := &inferav1alpha1.InferaDeployment{}
 	idep.Name = "idep"
+	idep.Labels = map[string]string{"deploy-label": "from-idep"}
+	idep.Annotations = map[string]string{"deploy-annotation": "from-idep"}
 	svc := inferav1alpha1.ServiceSpec{
 		ComponentType: inferav1alpha1.ComponentTypeServer,
+		PodLabels:     map[string]string{"service-label": "from-service"},
 		PodAnnotations: map[string]string{
 			"primus-safe.user.account": "leiwei12",
+			"service-annotation":       "from-service",
 		},
 		ExtraPodSpec: &corev1.PodSpec{
 			Containers: []corev1.Container{{Name: "main", Image: "x"}},
 		},
 	}
 	tmpl := podTemplate(idep, "role0", svc)
-	if tmpl.Annotations["primus-safe.user.account"] != "leiwei12" {
+	if tmpl.Labels["deploy-label"] != "from-idep" || tmpl.Labels["service-label"] != "from-service" {
+		t.Fatalf("labels=%v", tmpl.Labels)
+	}
+	if tmpl.Labels["infera.amd.com/deployment"] != "idep" || tmpl.Labels["infera.amd.com/service"] != "role0" {
+		t.Fatalf("operator labels=%v", tmpl.Labels)
+	}
+	if tmpl.Annotations["deploy-annotation"] != "from-idep" ||
+		tmpl.Annotations["primus-safe.user.account"] != "leiwei12" ||
+		tmpl.Annotations["service-annotation"] != "from-service" {
 		t.Fatalf("annotations=%v", tmpl.Annotations)
 	}
 }
