@@ -10,14 +10,16 @@
 #   - large MRs are chunked and registration failures propagate (#2644/#2869);
 #   - chunked dma-buf offsets include each chunk's displacement (#3243).
 #
-# Keep no private source patches here. Build the upstream source, then verify the
-# two artifact capabilities SGLang PD needs: HIP dma-buf registration and
-# cross-host RDMA routing.
+# Keep no private source patches here; an overlay image may pass its own diffs in
+# MOONCAKE_PATCHES (space-separated paths, applied to the pinned ref). Build the
+# source, then verify the two artifact capabilities SGLang PD needs: HIP dma-buf
+# registration and cross-host RDMA routing.
 set -euo pipefail
 
 MC_ROOT="${MC_ROOT:-/tmp/mooncake-upstream}"
 MC_REPO="${MOONCAKE_REPO:-https://github.com/kvcache-ai/Mooncake.git}"
 MC_REF="${MOONCAKE_GIT_REF:-faae8dd4a6309c3ecd47e0721a83b0250d686fa2}"
+MC_PATCHES="${MOONCAKE_PATCHES:-}"
 # gfx950 = MI355X; Dockerfile.sglang.gfx942 overrides this for MI300/MI325.
 MC_GPU_ARCH="${MC_GPU_ARCH:-gfx950}"
 
@@ -28,6 +30,10 @@ git fetch --depth=1 origin "$MC_REF"
 git checkout --detach "$MC_REF"
 git submodule update --init --recursive
 echo "[mc-build] Mooncake $(git rev-parse HEAD)"
+for patch in $MC_PATCHES; do
+    git apply "$patch"
+    echo "[mc-build] applied $(basename "$patch")"
+done
 
 # Assert the pinned source has the features this image relies on. A ref bump that
 # loses or moves either implementation must fail here, before an expensive build.
@@ -95,7 +101,7 @@ printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
     { echo "[mc-build] ERROR: cross-host HIP locality routing is absent" >&2; exit 1; }
 python3 -c "from mooncake.engine import TransferEngine"
 
-echo "[mc-build] DONE: upstream Mooncake $MC_REF"
+echo "[mc-build] DONE: upstream Mooncake $MC_REF${MC_PATCHES:+ + patches}"
 echo "[mc-build] dma-buf=present cross-host-routing=present arch=$MC_GPU_ARCH"
 cd /
 rm -rf "$MC_ROOT"
