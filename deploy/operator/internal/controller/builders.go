@@ -207,15 +207,24 @@ func lwsObject() *unstructured.Unstructured {
 	return u
 }
 
-// podLabelsFor copies the InferaDeployment's own labels, then the service's
-// PodLabels, then the operator selector labels. Every key from the first two
-// sources is kept. Operator selector labels always win on key conflict so
-// Service selection and ownership remain intact.
+// inferaMetaKey reports whether a metadata key from the InferaDeployment
+// itself may be copied onto a pod. Only the infera prefix is copied, so
+// kubectl, Helm, and GitOps keys stay off the pod template.
+func inferaMetaKey(key string) bool {
+	return strings.HasPrefix(key, "infera")
+}
+
+// podLabelsFor copies infera-prefixed labels from the InferaDeployment, then
+// ServiceSpec.PodLabels, then the operator selector labels. Operator selector
+// labels always win on key conflict so Service selection and ownership remain
+// intact. Service keys are not prefix-filtered; they are an explicit input.
 func podLabelsFor(idep *inferav1alpha1.InferaDeployment, svcName string, svc inferav1alpha1.ServiceSpec) map[string]string {
 	base := labelsFor(idep.Name, svcName)
 	merged := make(map[string]string, len(idep.Labels)+len(svc.PodLabels)+len(base))
 	for k, v := range idep.Labels {
-		merged[k] = v
+		if inferaMetaKey(k) {
+			merged[k] = v
+		}
 	}
 	for k, v := range svc.PodLabels {
 		merged[k] = v
@@ -226,16 +235,25 @@ func podLabelsFor(idep *inferav1alpha1.InferaDeployment, svcName string, svc inf
 	return merged
 }
 
-// podAnnotationsFor copies the InferaDeployment's own annotations, then the
-// service's PodAnnotations. A service key overrides the same key from the
-// deployment. Empty input yields a nil map.
+// podAnnotationsFor copies infera-prefixed annotations from the InferaDeployment,
+// then ServiceSpec.PodAnnotations. A service key overrides the same key from
+// the deployment. Empty input yields a nil map. Service keys are not
+// prefix-filtered.
 func podAnnotationsFor(idep *inferav1alpha1.InferaDeployment, svc inferav1alpha1.ServiceSpec) map[string]string {
-	if len(idep.Annotations) == 0 && len(svc.PodAnnotations) == 0 {
+	n := 0
+	for k := range idep.Annotations {
+		if inferaMetaKey(k) {
+			n++
+		}
+	}
+	if n == 0 && len(svc.PodAnnotations) == 0 {
 		return nil
 	}
-	out := make(map[string]string, len(idep.Annotations)+len(svc.PodAnnotations))
+	out := make(map[string]string, n+len(svc.PodAnnotations))
 	for k, v := range idep.Annotations {
-		out[k] = v
+		if inferaMetaKey(k) {
+			out[k] = v
+		}
 	}
 	for k, v := range svc.PodAnnotations {
 		out[k] = v

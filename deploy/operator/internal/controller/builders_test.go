@@ -577,29 +577,39 @@ func TestReadinessPortAcceptsOnlyPlainDigits(t *testing.T) {
 func TestPodTemplateCarriesPodAnnotations(t *testing.T) {
 	idep := &inferav1alpha1.InferaDeployment{}
 	idep.Name = "idep"
-	idep.Labels = map[string]string{"deploy-label": "from-idep"}
-	idep.Annotations = map[string]string{"deploy-annotation": "from-idep"}
+	idep.Labels = map[string]string{
+		"deploy-label":              "from-idep",
+		"infera.amd.com/pool":       "gpu",
+		"infera.amd.com/deployment": "user",
+	}
+	idep.Annotations = map[string]string{
+		"deploy-annotation":   "from-idep",
+		"infera.amd.com/note": "keep",
+		"kubectl.kubernetes.io/last-applied-configuration": "{}",
+	}
 	svc := inferav1alpha1.ServiceSpec{
 		ComponentType: inferav1alpha1.ComponentTypeServer,
 		PodLabels:     map[string]string{"service-label": "from-service"},
 		PodAnnotations: map[string]string{
 			"primus-safe.user.account": "leiwei12",
-			"service-annotation":       "from-service",
 		},
 		ExtraPodSpec: &corev1.PodSpec{
 			Containers: []corev1.Container{{Name: "main", Image: "x"}},
 		},
 	}
 	tmpl := podTemplate(idep, "role0", svc)
-	if tmpl.Labels["deploy-label"] != "from-idep" || tmpl.Labels["service-label"] != "from-service" {
+	if _, ok := tmpl.Labels["deploy-label"]; ok ||
+		tmpl.Labels["infera.amd.com/pool"] != "gpu" ||
+		tmpl.Labels["service-label"] != "from-service" {
 		t.Fatalf("labels=%v", tmpl.Labels)
 	}
 	if tmpl.Labels["infera.amd.com/deployment"] != "idep" || tmpl.Labels["infera.amd.com/service"] != "role0" {
 		t.Fatalf("operator labels=%v", tmpl.Labels)
 	}
-	if tmpl.Annotations["deploy-annotation"] != "from-idep" ||
+	if _, ok := tmpl.Annotations["deploy-annotation"]; ok ||
+		tmpl.Annotations["infera.amd.com/note"] != "keep" ||
 		tmpl.Annotations["primus-safe.user.account"] != "leiwei12" ||
-		tmpl.Annotations["service-annotation"] != "from-service" {
+		tmpl.Annotations["kubectl.kubernetes.io/last-applied-configuration"] != "" {
 		t.Fatalf("annotations=%v", tmpl.Annotations)
 	}
 }
