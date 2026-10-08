@@ -110,6 +110,17 @@ impl ActiveGuard {
         }
         ActiveGuard { policy, entries }
     }
+
+    /// Move an existing entry without firing either accounting hook again.
+    pub(crate) fn take_first(&mut self) -> Option<Self> {
+        if self.entries.is_empty() {
+            return None;
+        }
+        Some(Self {
+            policy: self.policy.clone(),
+            entries: vec![self.entries.remove(0)],
+        })
+    }
 }
 
 impl Drop for ActiveGuard {

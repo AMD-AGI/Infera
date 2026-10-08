@@ -6,7 +6,13 @@
 //! CLI / env configuration. Flag names mirror `infera.server.args` so the
 //! Python `--router-backend rust` shim can translate 1:1.
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum PrefillGuardRelease {
+    Decode,
+    Completion,
+}
 
 #[derive(Debug, Clone, Parser)]
 #[command(name = "infera-router", about = "Infera router data plane (Rust)")]
@@ -43,6 +49,15 @@ pub struct Config {
     /// `round-robin` or `kv-aware` (DP-attention cache-locality routing).
     #[arg(long, default_value = "round-robin")]
     pub router_policy: String,
+
+    /// Release PD prefill load when its response completes, or retain it with decode.
+    #[arg(
+        long,
+        env = "INFERA_PD_PREFILL_GUARD_RELEASE",
+        value_enum,
+        default_value = "decode"
+    )]
+    pub pd_prefill_guard_release: PrefillGuardRelease,
 
     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
     /// annotation and the API server is watched).
@@ -282,6 +297,26 @@ mod tests {
     ///
     /// Values are from infera/server/args.py; changing one side means changing
     /// both.
+    #[test]
+    fn prefill_guard_release_is_explicit_and_validated() {
+        let default = Config::try_parse_from(["infera-router"]).unwrap();
+        assert_eq!(
+            default.pd_prefill_guard_release,
+            PrefillGuardRelease::Decode
+        );
+        let enabled =
+            Config::try_parse_from(["infera-router", "--pd-prefill-guard-release", "completion"])
+                .unwrap();
+        assert_eq!(
+            enabled.pd_prefill_guard_release,
+            PrefillGuardRelease::Completion
+        );
+        assert!(
+            Config::try_parse_from(["infera-router", "--pd-prefill-guard-release", "typo"])
+                .is_err()
+        );
+    }
+
     #[test]
     fn transport_defaults_match_the_python_backend() {
         let c = Config::try_parse_from(["infera-router"]).unwrap();
