@@ -67,6 +67,11 @@ kubectl get idep                 # BACKEND / STATE / AGE
 - **Gateway API (GAIE):** `spec.gaie` adds a per-worker frontend sidecar + Endpoint
   Picker + InferencePool + HTTPRoute to front the fleet with an Inference Gateway
   (the server runs in `--router-mode direct` — see [Server & router](server.md)).
+- **Pod metadata:** labels and annotations on the `InferaDeployment` are copied
+  onto each service pod when the key starts with `infera`. Each service's
+  `podLabels` and `podAnnotations` are copied as written. The operator sets
+  `infera.amd.com/deployment`, `infera.amd.com/service`, and
+  `app.kubernetes.io/managed-by`, and those win on the same key.
 
 ## Related
 
