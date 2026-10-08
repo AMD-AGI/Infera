@@ -1,0 +1,13 @@
+{
+  "existing_balance_scalar_checks": 180,
+  "codes": [
+    "B1",
+    "B2",
+    "B3*",
+    "RB",
+    "B4"
+  ],
+  "quantile_order_and_log_rank_checks": "passed for all 15 rows",
+  "B3_recovery_reference": "quantile-recovery-validation.json",
+  "limitations": "No model benchmark rerun; logs are not per-forward synchronized tensor-shape traces."
+}

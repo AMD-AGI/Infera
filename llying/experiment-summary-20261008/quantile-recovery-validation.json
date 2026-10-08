@@ -1,0 +1,18 @@
+{
+  "reference": "B2",
+  "sources": {
+    "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b2-radix/c80/aiperf_artifacts/profile_export.jsonl": "963d3e3cd5483b9d2e33beb1f4d3b8464e0573e59a993e9189364bf064ab4166"
+  },
+  "recovered": {
+    "client_count": 10295,
+    "input_tps": 344722.2233193877,
+    "total_tps_per_gpu": 21715.673892086837,
+    "ttft_p50_s": 4.1176490480000005,
+    "ttft_p90_s": 10.796345664599999,
+    "itl_p50_ms": 14.43361809788819,
+    "intvty_p50_tps": 69.28269774203822,
+    "itl_p90_ms": 19.868359003308342,
+    "intvty_p90_tps": 50.33128301303026
+  },
+  "checks": "p50/p90 TTFT, positive ITL, InferenceX intvty, input TPS and total TPS/GPU match official export"
+}

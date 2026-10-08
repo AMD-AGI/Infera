@@ -20,6 +20,12 @@
 
 ## 性能总表
 
-每格为 **实测值（相对“比较基线”的变化）**。吞吐/完成数通常越高越好，TTFT/ITL/排队越低越好；实际输出长度用于判断工作量变化，不作优劣评分。P miss 是请求级未命中 token 占输入比例；D 复用是 D 原生 allocator 观测到的前缀 token 比例，二者不是同一指标。百分比指标括号用 **pp（百分点）**，其他指标用相对百分比。
+主表按用户指定指标排列：token/s/GPU、TTFT p50/p90、ITL p50/p90、P miss、D本地复用、Interactivity p50/p90。token/s/GPU同时列出 **Total（含缓存命中的逻辑输入＋输出）** 和 **Output（仅生成输出）**，避免将逻辑输入吞吐当成GPU计算吞吐。TTFT/ITL越低越好，Interactivity越高越好。
 
-表格较宽，可打开同目录 `REPORT.html` 横向滚动或使用 `metrics.csv`。CSV 包含全部主表指标，以及 E2E、TTFT p50/p90、阶段 p50/p90/p99、输入吞吐、total tokens/s/GPU、P device/host 命中率和各项相对变化；缺失值留空，不补零。所有结果可追溯到 `data.json` 中的源文件及 SHA256。
+每格为 **实测值（相对“比较基线”的变化）**。P miss为请求级未命中token占输入比例，D本地复用为D allocator观测前缀token占输入比例；这些比例的变化用pp（百分点），其他指标用相对百分比。
+
+**Interactivity沿用InferenceX原定义：`intvty_p50 = 1 / ITL_p50(s)`，`intvty_p90 = 1 / ITL_p90(s)`，单位token/s/user。** 它不是对逐请求token/s取同名分位数；因此p90可以小于p50。正式结果使用源文件保存的未提前舍入数值，不能从表中舍入后的ITL精确反推。它只反映生成阶段，不含TTFT；E2E-normalized Interactivity另外保留在CSV。
+
+表格较宽，可打开同目录 `REPORT.html` 横向滚动或使用 `metrics.csv`。随后按 **有效P/D batch → D KV占用 → 排队/重算与完成工作量** 展开对比，每张表使用相同实验名称。batch和KV统计另存 `dimensions.csv` 与 `dimensions.json`，后者附原始日志/采样哈希、窗口、样本数、缺失和rank覆盖。
+
+以下三类统计不可互换：主表是客户端完成请求统计；资源表是固定3600秒发送窗口内约2秒间隔的采样统计；batch日志是实际执行时的本地batch统计，排除了无batch的空闲时间。B3的客户端分位数从完整原始请求恢复，并用B2官方导出校验算法；B3资源与日志仍缺少末尾，不能补零。
