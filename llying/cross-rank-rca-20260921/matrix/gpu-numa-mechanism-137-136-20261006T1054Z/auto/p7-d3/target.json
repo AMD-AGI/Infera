@@ -1,0 +1,1 @@
+{"ok": true, "host": "crsuse2-m2m-136", "loc": "gpu", "gpu": 0, "pattern_id": 59, "hostname": "10.245.154.168:16840", "addr": 123746876653568, "source_gpu": 7, "destination_gpu": 3, "rail_policy": "auto", "profile": "soak", "source_node": "crsuse2-m2m-137", "destination_node": "crsuse2-m2m-136", "dest_device_affinity": true}

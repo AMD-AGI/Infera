@@ -1,0 +1,49 @@
+rail_policy,wave_offset,source_gpu,destination_gpu,numa_class,device_filter,passed,verified,gb_s,gib,cqe_error_12,retry_exhausted,wave_req_tx_retry_excd_err,wave_tx_rdma_ack_timeout,wave_counter_snapshot_complete,reason
+auto,0,0,0,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,32.39,1810.0,0,0,0,0,True,
+auto,0,1,1,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,35.48,1983.0,0,0,0,0,True,
+auto,0,2,2,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,31.64,1769.0,0,0,0,0,True,
+auto,0,3,3,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,38.32,2142.0,0,0,0,0,True,
+auto,0,4,4,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,35.88,2005.0,0,0,0,0,True,
+auto,0,5,5,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,31.71,1773.0,0,0,0,0,True,
+auto,0,6,6,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,35.46,1982.0,0,0,0,0,True,
+auto,0,7,7,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,31.72,1773.0,0,0,0,0,True,
+auto,4,0,4,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.7,989.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+auto,4,1,5,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.46,1032.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+auto,4,2,6,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,20.07,1122.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+auto,4,3,7,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.75,992.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+auto,4,4,0,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.12,1013.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+auto,4,5,1,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,20.77,1161.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+auto,4,6,2,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.23,1019.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+auto,4,7,3,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,19.29,1078.0,0,0,0,22813,True,wave HCA hard-counter gate failed
+destination-local,0,0,0,same-numa,ionic_0,True,True,38.49,2151.0,0,0,0,0,True,
+destination-local,0,1,1,same-numa,ionic_1,True,True,38.21,2136.0,0,0,0,0,True,
+destination-local,0,2,2,same-numa,ionic_2,True,True,40.93,2288.0,0,0,0,0,True,
+destination-local,0,3,3,same-numa,ionic_3,True,True,38.89,2173.0,0,0,0,0,True,
+destination-local,0,4,4,same-numa,ionic_4,True,True,38.48,2151.0,0,0,0,0,True,
+destination-local,0,5,5,same-numa,ionic_5,True,True,38.71,2164.0,0,0,0,0,True,
+destination-local,0,6,6,same-numa,ionic_6,True,True,38.47,2150.0,0,0,0,0,True,
+destination-local,0,7,7,same-numa,ionic_7,True,True,38.84,2171.0,0,0,0,0,True,
+destination-local,4,0,4,cross-numa,ionic_4,True,True,20.09,1123.0,0,0,0,0,True,
+destination-local,4,1,5,cross-numa,ionic_5,True,True,20.12,1125.0,0,0,0,0,True,
+destination-local,4,2,6,cross-numa,ionic_6,True,True,16.94,947.0,0,0,0,0,True,
+destination-local,4,3,7,cross-numa,ionic_7,True,True,14.45,808.0,0,0,0,0,True,
+destination-local,4,4,0,cross-numa,ionic_0,True,True,6.78,379.0,0,0,0,0,True,
+destination-local,4,5,1,cross-numa,ionic_1,True,True,12.09,676.0,0,0,0,0,True,
+destination-local,4,6,2,cross-numa,ionic_2,True,True,17.32,968.0,0,0,0,0,True,
+destination-local,4,7,3,cross-numa,ionic_3,True,True,17.12,957.0,0,0,0,0,True,
+source-local,0,0,0,same-numa,ionic_0,True,True,38.29,2140.0,0,0,0,0,True,
+source-local,0,1,1,same-numa,ionic_1,True,True,40.75,2278.0,0,0,0,0,True,
+source-local,0,2,2,same-numa,ionic_2,True,True,38.1,2129.0,0,0,0,0,True,
+source-local,0,3,3,same-numa,ionic_3,True,True,38.4,2146.0,0,0,0,0,True,
+source-local,0,4,4,same-numa,ionic_4,True,True,38.39,2146.0,0,0,0,0,True,
+source-local,0,5,5,same-numa,ionic_5,True,True,40.66,2273.0,0,0,0,0,True,
+source-local,0,6,6,same-numa,ionic_6,True,True,40.76,2278.0,0,0,0,0,True,
+source-local,0,7,7,same-numa,ionic_7,True,True,38.37,2145.0,0,0,0,0,True,
+source-local,4,0,4,cross-numa,ionic_0,True,True,21.34,1193.0,0,0,0,0,True,
+source-local,4,1,5,cross-numa,ionic_1,True,True,22.78,1273.0,0,0,0,0,True,
+source-local,4,2,6,cross-numa,ionic_2,True,True,25.95,1450.0,0,0,0,0,True,
+source-local,4,3,7,cross-numa,ionic_3,True,True,25.91,1448.0,0,0,0,0,True,
+source-local,4,4,0,cross-numa,ionic_4,True,True,20.83,1164.0,0,0,0,0,True,
+source-local,4,5,1,cross-numa,ionic_5,True,True,20.86,1166.0,0,0,0,0,True,
+source-local,4,6,2,cross-numa,ionic_6,True,True,25.81,1443.0,0,0,0,0,True,
+source-local,4,7,3,cross-numa,ionic_7,True,True,25.47,1424.0,0,0,0,0,True,

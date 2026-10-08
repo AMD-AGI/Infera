@@ -1,0 +1,33 @@
+rail_policy,wave_offset,source_gpu,destination_gpu,numa_class,device_filter,passed,verified,gb_s,gib,cqe_error_12,retry_exhausted,wave_req_tx_retry_excd_err,wave_tx_rdma_ack_timeout,wave_counter_snapshot_complete,reason
+auto,0,0,0,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,12.33,689.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,0,1,0,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,12.9,721.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,0,2,0,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,12.56,702.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,0,3,0,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.49,755.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,0,4,4,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,12.31,688.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,0,5,4,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.16,736.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,0,6,4,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,12.96,725.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,0,7,4,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,12.67,708.0,0,0,0,34509,True,wave HCA hard-counter gate failed
+auto,4,0,4,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.4,749.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+auto,4,1,4,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.31,744.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+auto,4,2,4,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,14.0,783.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+auto,4,3,4,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,14.04,785.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+auto,4,4,0,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.35,746.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+auto,4,5,0,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.52,756.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+auto,4,6,0,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.63,762.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+auto,4,7,0,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,13.82,772.0,0,0,0,16774,True,wave HCA hard-counter gate failed
+destination-local,0,0,0,same-numa,ionic_0,True,True,10.38,581.0,0,0,0,0,True,
+destination-local,0,1,0,same-numa,ionic_0,True,True,11.15,624.0,0,0,0,0,True,
+destination-local,0,2,0,same-numa,ionic_0,True,True,10.53,589.0,0,0,0,0,True,
+destination-local,0,3,0,same-numa,ionic_0,True,True,9.27,518.0,0,0,0,0,True,
+destination-local,0,4,4,same-numa,ionic_4,True,True,10.01,560.0,0,0,0,0,True,
+destination-local,0,5,4,same-numa,ionic_4,True,True,10.23,572.0,0,0,0,0,True,
+destination-local,0,6,4,same-numa,ionic_4,True,True,10.23,572.0,0,0,0,0,True,
+destination-local,0,7,4,same-numa,ionic_4,True,True,10.48,586.0,0,0,0,0,True,
+destination-local,4,0,4,cross-numa,ionic_4,True,True,8.43,471.0,0,0,0,0,True,
+destination-local,4,1,4,cross-numa,ionic_4,True,True,8.19,458.0,0,0,0,0,True,
+destination-local,4,2,4,cross-numa,ionic_4,True,True,8.35,467.0,0,0,0,0,True,
+destination-local,4,3,4,cross-numa,ionic_4,True,True,8.07,451.0,0,0,0,0,True,
+destination-local,4,4,0,cross-numa,ionic_0,True,True,8.41,470.0,0,0,0,0,True,
+destination-local,4,5,0,cross-numa,ionic_0,True,True,8.46,473.0,0,0,0,0,True,
+destination-local,4,6,0,cross-numa,ionic_0,True,True,8.01,448.0,0,0,0,0,True,
+destination-local,4,7,0,cross-numa,ionic_0,True,True,8.37,468.0,0,0,0,0,True,

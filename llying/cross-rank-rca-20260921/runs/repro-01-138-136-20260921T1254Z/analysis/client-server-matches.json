@@ -1,0 +1,450 @@
+[
+  {
+    "bootstrap_room": "1681748235906866545",
+    "client_error_index": 0,
+    "client_request_id": "07cd5362-7af6-4870-9a81-c7a42a6d489b",
+    "decode_rank": 6,
+    "delta_ms": 0.587,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "3851989772107274801",
+    "client_error_index": 1,
+    "client_request_id": "8e2e2fe4-e036-40a7-88ca-22d39db1368b",
+    "decode_rank": 6,
+    "delta_ms": 1.081,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "1300804444321446777",
+    "client_error_index": 2,
+    "client_request_id": "dc8c8fcd-9a48-4fd7-9a79-6498b8c8e1ff",
+    "decode_rank": 6,
+    "delta_ms": 1.123,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "5630797278368552913",
+    "client_error_index": 3,
+    "client_request_id": "01d5685e-59f1-45b3-b804-ffa42fa3cfa1",
+    "decode_rank": 6,
+    "delta_ms": 0.311,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "2849042943855421761",
+    "client_error_index": 4,
+    "client_request_id": "60099a5b-90cd-49ea-969c-7206649fc12f",
+    "decode_rank": 6,
+    "delta_ms": -129.998,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "5114380526604413377",
+    "client_error_index": 5,
+    "client_request_id": "67cc5ae9-6b2c-451e-8aa1-9f2c84ee8526",
+    "decode_rank": 6,
+    "delta_ms": -5.994,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "8154289701310709169",
+    "client_error_index": 6,
+    "client_request_id": "157f5581-88b4-41ac-82eb-473a887ddcc5",
+    "decode_rank": 6,
+    "delta_ms": -439.182,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "7099945555531958009",
+    "client_error_index": 7,
+    "client_request_id": "24a3374e-a0e4-4747-ab47-eef270fcaf5a",
+    "decode_rank": 4,
+    "delta_ms": 0.773,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "2915930900226209201",
+    "client_error_index": 8,
+    "client_request_id": "66fe8add-b25e-472c-9429-fcc96f950ca4",
+    "decode_rank": 4,
+    "delta_ms": -38.788,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "6278883150013694874",
+    "client_error_index": 9,
+    "client_request_id": "45c726ba-ea17-4435-9766-f5e1bb4f2dbe",
+    "decode_rank": 6,
+    "delta_ms": -1.321,
+    "prefill_rank": 2
+  },
+  {
+    "bootstrap_room": "1314794511652632018",
+    "client_error_index": 10,
+    "client_request_id": "14e2ae34-292d-4d84-9db7-d269e3fc0c9c",
+    "decode_rank": 6,
+    "delta_ms": -0.796,
+    "prefill_rank": 2
+  },
+  {
+    "bootstrap_room": "3773857807055425643",
+    "client_error_index": 11,
+    "client_request_id": "6bcd91b3-b45f-458f-a934-44c71caab675",
+    "decode_rank": 6,
+    "delta_ms": 0.274,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "7616391092386424147",
+    "client_error_index": 13,
+    "client_request_id": "c16efddc-89f1-4949-969b-998710c6084d",
+    "decode_rank": 6,
+    "delta_ms": -80.226,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "6855529041797663755",
+    "client_error_index": 12,
+    "client_request_id": "4b39c473-f64f-48ce-b160-8c06a947cdc2",
+    "decode_rank": 6,
+    "delta_ms": -80.7,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "5670939523034625929",
+    "client_error_index": 14,
+    "client_request_id": "679aff9b-049c-45a5-9b09-736b5c47a549",
+    "decode_rank": 4,
+    "delta_ms": 0.704,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "5985055785738791001",
+    "client_error_index": 15,
+    "client_request_id": "ffb6dd81-ddb8-4f51-8564-7ce7b1182034",
+    "decode_rank": 7,
+    "delta_ms": 1.037,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "1871103239693661025",
+    "client_error_index": 16,
+    "client_request_id": "b25de19a-d503-4b44-8937-8d22e11ff5b8",
+    "decode_rank": 7,
+    "delta_ms": -93.66,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "8214407110469219585",
+    "client_error_index": 17,
+    "client_request_id": "2fa88823-2016-4b11-acb1-277c2d7757f4",
+    "decode_rank": 7,
+    "delta_ms": -5.095,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "2463109287572834320",
+    "client_error_index": 18,
+    "client_request_id": "5cd2acff-1f59-42a8-9f58-e4f17290af34",
+    "decode_rank": 7,
+    "delta_ms": -4.699,
+    "prefill_rank": 0
+  },
+  {
+    "bootstrap_room": "6323677468647989072",
+    "client_error_index": 19,
+    "client_request_id": "d0998819-90d9-4ea3-9e8e-91d6a52d6ee5",
+    "decode_rank": 7,
+    "delta_ms": -21.42,
+    "prefill_rank": 0
+  },
+  {
+    "bootstrap_room": "9056742036512218654",
+    "client_error_index": 20,
+    "client_request_id": "154dcf72-4da3-4a02-a27a-91efe9bcb700",
+    "decode_rank": 2,
+    "delta_ms": -402.596,
+    "prefill_rank": 6
+  },
+  {
+    "bootstrap_room": "3514585932762676294",
+    "client_error_index": 21,
+    "client_request_id": "62f4378f-03d6-44e7-b360-493e71bfb321",
+    "decode_rank": 2,
+    "delta_ms": -403.419,
+    "prefill_rank": 6
+  },
+  {
+    "bootstrap_room": "1817035509852364615",
+    "client_error_index": 22,
+    "client_request_id": "6a9560c9-3295-4100-9dc7-276f03637282",
+    "decode_rank": 1,
+    "delta_ms": 0.734,
+    "prefill_rank": 7
+  },
+  {
+    "bootstrap_room": "3711132713656018119",
+    "client_error_index": 24,
+    "client_request_id": "9f1e9ca8-4ae1-4a23-9a78-e779359f5888",
+    "decode_rank": 1,
+    "delta_ms": 0.425,
+    "prefill_rank": 7
+  },
+  {
+    "bootstrap_room": "4498751603735691519",
+    "client_error_index": 23,
+    "client_request_id": "67b3d464-9e4f-4c01-9e1c-1381c8afe5e0",
+    "decode_rank": 1,
+    "delta_ms": 0.464,
+    "prefill_rank": 7
+  },
+  {
+    "bootstrap_room": "6855630236365744918",
+    "client_error_index": 25,
+    "client_request_id": "9703e4bf-4c6a-4c3a-acd2-62deef13911f",
+    "decode_rank": 1,
+    "delta_ms": -2264.385,
+    "prefill_rank": 6
+  },
+  {
+    "bootstrap_room": "3612464811747478246",
+    "client_error_index": 26,
+    "client_request_id": "82eafa5b-487c-4bbb-bf5e-47297a5f2f3e",
+    "decode_rank": 1,
+    "delta_ms": 1.298,
+    "prefill_rank": 6
+  },
+  {
+    "bootstrap_room": "1362520264496848011",
+    "client_error_index": 27,
+    "client_request_id": "dcdc13cb-79c5-4773-b024-855fd72fecab",
+    "decode_rank": 4,
+    "delta_ms": 0.367,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "2753014050094541621",
+    "client_error_index": 28,
+    "client_request_id": "e6cd6a02-c721-4ba1-b502-f83c8cf3a1c7",
+    "decode_rank": 2,
+    "delta_ms": 86.407,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "2318054485628106197",
+    "client_error_index": 29,
+    "client_request_id": "5d30f118-8d3c-4e15-b2ec-381049d0f0d1",
+    "decode_rank": 2,
+    "delta_ms": -152.512,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "3643149739257167981",
+    "client_error_index": 30,
+    "client_request_id": "9f044be7-a884-4f74-9276-0e8d5762048e",
+    "decode_rank": 2,
+    "delta_ms": -152.987,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "1225831869449554645",
+    "client_error_index": 31,
+    "client_request_id": "84b77ef0-97ff-47c2-b565-d47a70b0f58d",
+    "decode_rank": 2,
+    "delta_ms": -239.172,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "3571845343437159957",
+    "client_error_index": 32,
+    "client_request_id": "87aa331d-239f-4b59-ac76-be45731e5efe",
+    "decode_rank": 2,
+    "delta_ms": -1241.907,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "2528638068237469757",
+    "client_error_index": 33,
+    "client_request_id": "3192b3b4-44f1-4d5b-b2d6-4d7a6057750a",
+    "decode_rank": 2,
+    "delta_ms": -178.611,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "5013952744978517103",
+    "client_error_index": 34,
+    "client_request_id": "cfaa24a4-4f74-410e-b85f-c1f086007694",
+    "decode_rank": 3,
+    "delta_ms": 0.123,
+    "prefill_rank": 7
+  },
+  {
+    "bootstrap_room": "4609663112536023527",
+    "client_error_index": 35,
+    "client_request_id": "d49a98a6-8501-4033-abdd-8aa7d87eb7b2",
+    "decode_rank": 3,
+    "delta_ms": 1.114,
+    "prefill_rank": 7
+  },
+  {
+    "bootstrap_room": "8931833172010327775",
+    "client_error_index": 36,
+    "client_request_id": "cf5af56a-4698-4e17-add9-8c162b836bc0",
+    "decode_rank": 3,
+    "delta_ms": -201.568,
+    "prefill_rank": 7
+  },
+  {
+    "bootstrap_room": "4413273421560703525",
+    "client_error_index": 37,
+    "client_request_id": "281985b1-def2-4aa2-8748-3c5f853784ee",
+    "decode_rank": 2,
+    "delta_ms": -445.982,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "9125222845686462733",
+    "client_error_index": 38,
+    "client_request_id": "368e18b4-40fa-4adc-8e79-4b8dd914ae87",
+    "decode_rank": 2,
+    "delta_ms": -446.96,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "2920786526612014021",
+    "client_error_index": 39,
+    "client_request_id": "dec90382-5199-435e-b4d2-a07c1b8fd9cf",
+    "decode_rank": 2,
+    "delta_ms": -1123.476,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "1983439673382892499",
+    "client_error_index": 41,
+    "client_request_id": "ee150eb7-a628-4f27-830b-3b57c1d61adf",
+    "decode_rank": 5,
+    "delta_ms": -919.878,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "912178325580062955",
+    "client_error_index": 40,
+    "client_request_id": "0fdbf499-4b77-4f1f-9229-81be45c12ce1",
+    "decode_rank": 5,
+    "delta_ms": -972.964,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "9063550545971141139",
+    "client_error_index": 42,
+    "client_request_id": "bf837d8e-819e-4588-ae16-2feadc41a034",
+    "decode_rank": 5,
+    "delta_ms": -1179.141,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "5483071258676998595",
+    "client_error_index": 43,
+    "client_request_id": "f3deba9e-f63b-448b-9163-8d745ac80fa8",
+    "decode_rank": 5,
+    "delta_ms": -1181.638,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "4448606108907845435",
+    "client_error_index": 44,
+    "client_request_id": "e58702dd-360e-48f1-b396-a2222366b1f9",
+    "decode_rank": 5,
+    "delta_ms": -43.714,
+    "prefill_rank": 3
+  },
+  {
+    "bootstrap_room": "3855643997859396081",
+    "client_error_index": 45,
+    "client_request_id": "ea93fa5f-d72e-4173-9702-cb3aac70f7e0",
+    "decode_rank": 7,
+    "delta_ms": -96.743,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "1280984793534676265",
+    "client_error_index": 46,
+    "client_request_id": "c4a3a4de-8107-4bb4-8f58-754947417ff6",
+    "decode_rank": 7,
+    "delta_ms": 1.282,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "9048792511735529709",
+    "client_error_index": 47,
+    "client_request_id": "ab1fb046-577c-4501-ae23-e303b7318c21",
+    "decode_rank": 3,
+    "delta_ms": -1205.766,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "4117809879431424581",
+    "client_error_index": 48,
+    "client_request_id": "db0dd13a-5056-49cf-9653-36c8c7c68fae",
+    "decode_rank": 3,
+    "delta_ms": -1376.099,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "1793408508185226297",
+    "client_error_index": 49,
+    "client_request_id": "ba8ba54a-378b-4a56-adb7-c8ac5a3ea4a5",
+    "decode_rank": 7,
+    "delta_ms": -75.981,
+    "prefill_rank": 1
+  },
+  {
+    "bootstrap_room": "6709354696960769829",
+    "client_error_index": 50,
+    "client_request_id": "b98bac8f-c5a3-45e8-88cb-92661050532d",
+    "decode_rank": 3,
+    "delta_ms": -298.609,
+    "prefill_rank": 5
+  },
+  {
+    "bootstrap_room": "8925942880532910652",
+    "client_error_index": 51,
+    "client_request_id": "6a7a1403-e415-4168-b443-b622b1f93293",
+    "decode_rank": 1,
+    "delta_ms": -2119.693,
+    "prefill_rank": 4
+  },
+  {
+    "bootstrap_room": "1379068397871681708",
+    "client_error_index": 52,
+    "client_request_id": "1137b741-1949-4f8a-82a1-2cda16519f5c",
+    "decode_rank": 1,
+    "delta_ms": -2184.157,
+    "prefill_rank": 4
+  },
+  {
+    "bootstrap_room": "1075655374399644324",
+    "client_error_index": 53,
+    "client_request_id": "7b5d39c2-9f90-44bb-843d-8b93adef0720",
+    "decode_rank": 1,
+    "delta_ms": -2351.393,
+    "prefill_rank": 4
+  },
+  {
+    "bootstrap_room": "8146318401633952798",
+    "client_error_index": 54,
+    "client_request_id": "c61633c5-f64a-4abd-8eca-103fc83a492d",
+    "decode_rank": 1,
+    "delta_ms": -76.987,
+    "prefill_rank": 6
+  },
+  {
+    "bootstrap_room": "8332523848497382366",
+    "client_error_index": 55,
+    "client_request_id": "4cf37e5e-cfb4-4c75-bedd-020131238564",
+    "decode_rank": 1,
+    "delta_ms": -77.374,
+    "prefill_rank": 6
+  }
+]

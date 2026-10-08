@@ -1,0 +1,103 @@
+=== versions
+sglang 0.5.19.dev20260917+ga9fb1c3238
+torch 2.9.1+rocm7.2.0.git7e1940d4 hip 7.2.26015-fc0010cf6a
+aiter /sgl-workspace/aiter/aiter/__init__.py
+aiter-dist amd-aiter 0.1.21.dev48+g4ad998328.d20260917
+=== mooncake-package
+package /opt/venv/lib/python3.10/site-packages/mooncake
+engine /opt/venv/lib/python3.10/site-packages/mooncake/engine.cpython-310-x86_64-linux-gnu.so
+sha256 f22b1364501c748d8a6946f0bf3731057d585229fc20efdcad453205747cd56d
+=== engine-build-id
+
+Displaying notes found in: .note.gnu.property
+  Owner                Data size 	Description
+  GNU                  0x00000010	NT_GNU_PROPERTY_TYPE_0
+      Properties: x86 feature: IBT, SHSTK
+
+Displaying notes found in: .note.gnu.build-id
+  Owner                Data size 	Description
+  GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+    Build ID: a15395b0cb3f1a1ada26f5fb397280e2264ff6ec
+=== engine-ldd
+	linux-vdso.so.1 (0x00007ffc86de0000)
+	libcurl.so.4 => /lib/x86_64-linux-gnu/libcurl.so.4 (0x00007620d7914000)
+	libglog.so.0 => /lib/x86_64-linux-gnu/libglog.so.0 (0x00007620d78df000)
+	libunwind.so.8 => /lib/x86_64-linux-gnu/libunwind.so.8 (0x00007620d78c4000)
+	libjsoncpp.so.25 => /lib/x86_64-linux-gnu/libjsoncpp.so.25 (0x00007620d788f000)
+	libibverbs.so.1 => /lib/x86_64-linux-gnu/libibverbs.so.1 (0x00007620d786c000)
+	libnuma.so.1 => /lib/x86_64-linux-gnu/libnuma.so.1 (0x00007620d785d000)
+	libasio.so => /opt/venv/lib/python3.10/site-packages/mooncake/libasio.so (0x00007620d7815000)
+	libamdhip64.so.7 => /opt/rocm/lib/libamdhip64.so.7 (0x00007620d5e6f000)
+	libhsa-runtime64.so.1 => /opt/rocm/lib/libhsa-runtime64.so.1 (0x00007620d5a6b000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007620d583f000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007620d5758000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007620d5736000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007620d550d000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007620d7ce9000)
+	libnghttp2.so.14 => /lib/x86_64-linux-gnu/libnghttp2.so.14 (0x00007620d54e3000)
+	libidn2.so.0 => /lib/x86_64-linux-gnu/libidn2.so.0 (0x00007620d54c2000)
+	librtmp.so.1 => /lib/x86_64-linux-gnu/librtmp.so.1 (0x00007620d54a3000)
+	libssh.so.4 => /lib/x86_64-linux-gnu/libssh.so.4 (0x00007620d5435000)
+	libpsl.so.5 => /lib/x86_64-linux-gnu/libpsl.so.5 (0x00007620d541f000)
+	libssl.so.3 => /lib/x86_64-linux-gnu/libssl.so.3 (0x00007620d537b000)
+	libcrypto.so.3 => /lib/x86_64-linux-gnu/libcrypto.so.3 (0x00007620d4f37000)
+	libgssapi_krb5.so.2 => /lib/x86_64-linux-gnu/libgssapi_krb5.so.2 (0x00007620d4ee3000)
+	libldap-2.5.so.0 => /lib/x86_64-linux-gnu/libldap-2.5.so.0 (0x00007620d4e83000)
+	liblber-2.5.so.0 => /lib/x86_64-linux-gnu/liblber-2.5.so.0 (0x00007620d4e72000)
+	libzstd.so.1 => /lib/x86_64-linux-gnu/libzstd.so.1 (0x00007620d4da1000)
+	libbrotlidec.so.1 => /lib/x86_64-linux-gnu/libbrotlidec.so.1 (0x00007620d4d93000)
+	libz.so.1 => /lib/x86_64-linux-gnu/libz.so.1 (0x00007620d4d77000)
+	libgflags.so.2.2 => /lib/x86_64-linux-gnu/libgflags.so.2.2 (0x00007620d4d4e000)
+	liblzma.so.5 => /lib/x86_64-linux-gnu/liblzma.so.5 (0x00007620d4d23000)
+	libnl-route-3.so.200 => /lib/x86_64-linux-gnu/libnl-route-3.so.200 (0x00007620d4c9e000)
+	libnl-3.so.200 => /lib/x86_64-linux-gnu/libnl-3.so.200 (0x00007620d4c7b000)
+	librocprofiler-register.so.0 => /opt/rocm/lib/librocprofiler-register.so.0 (0x00007620d4bec000)
+	libelf.so.1 => /lib/x86_64-linux-gnu/libelf.so.1 (0x00007620d4bce000)
+	libdrm.so.2 => /opt/amdgpu/lib/x86_64-linux-gnu/libdrm.so.2 (0x00007620d4bb4000)
+	libdrm_amdgpu.so.1 => /opt/amdgpu/lib/x86_64-linux-gnu/libdrm_amdgpu.so.1 (0x00007620d4ba2000)
+	libunistring.so.2 => /lib/x86_64-linux-gnu/libunistring.so.2 (0x00007620d49f8000)
+	libgnutls.so.30 => /lib/x86_64-linux-gnu/libgnutls.so.30 (0x00007620d480d000)
+	libhogweed.so.6 => /lib/x86_64-linux-gnu/libhogweed.so.6 (0x00007620d47c5000)
+	libnettle.so.8 => /lib/x86_64-linux-gnu/libnettle.so.8 (0x00007620d477f000)
+	libgmp.so.10 => /lib/x86_64-linux-gnu/libgmp.so.10 (0x00007620d46fb000)
+	libkrb5.so.3 => /lib/x86_64-linux-gnu/libkrb5.so.3 (0x00007620d4630000)
+	libk5crypto.so.3 => /lib/x86_64-linux-gnu/libk5crypto.so.3 (0x00007620d4601000)
+	libcom_err.so.2 => /lib/x86_64-linux-gnu/libcom_err.so.2 (0x00007620d45fb000)
+	libkrb5support.so.0 => /lib/x86_64-linux-gnu/libkrb5support.so.0 (0x00007620d45ed000)
+	libsasl2.so.2 => /lib/x86_64-linux-gnu/libsasl2.so.2 (0x00007620d45d0000)
+	libbrotlicommon.so.1 => /lib/x86_64-linux-gnu/libbrotlicommon.so.1 (0x00007620d45ad000)
+	libpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x00007620d45a8000)
+	libp11-kit.so.0 => /lib/x86_64-linux-gnu/libp11-kit.so.0 (0x00007620d446d000)
+	libtasn1.so.6 => /lib/x86_64-linux-gnu/libtasn1.so.6 (0x00007620d4455000)
+	libkeyutils.so.1 => /lib/x86_64-linux-gnu/libkeyutils.so.1 (0x00007620d444c000)
+	libresolv.so.2 => /lib/x86_64-linux-gnu/libresolv.so.2 (0x00007620d4439000)
+	libffi.so.8 => /lib/x86_64-linux-gnu/libffi.so.8 (0x00007620d442c000)
+=== engine-capabilities
+                 U hsa_amd_portable_export_dmabuf@ROCR_1
+                 U ibv_reg_dmabuf_mr@IBVERBS_1.12
+GID is NULL, please check your GID index by specifying MC_GID_INDEX
+Ignore value from environment variable MC_ENABLE_PARALLEL_REG_MR
+Ignore value from environment variable MC_GID_INDEX
+Invalid MC_NIC_PEER_AFFINITY rule '
+MC_CUSTOM_TOPO_JSON
+MC_DISABLE_HIP
+MC_DISABLE_MACA
+MC_DISABLE_METACACHE
+MC_ENABLE_DEST_DEVICE_AFFINITY
+MC_ENABLE_HCA_PEER_AFFINITY
+MC_ENABLE_HCA_PEER_AFFINITY and MC_ENABLE_DEST_DEVICE_AFFINITY cannot be enabled at the same time; falling back to default peer device selection.
+MC_ENABLE_HCA_PEER_AFFINITY is set, but MC_NIC_PEER_AFFINITY has no valid mappings.
+MC_ENABLE_PARALLEL_REG_MR
+MC_GID_INDEX
+MC_NIC_PEER_AFFINITY
+=== ionic-packages
+libionic-dev:amd64	54.0-149.g3304be71
+libionic1:amd64	54.0-187-1
+=== build-env
+AITER_COMMIT=4ad99832823dde2315b361cbd3b54b1c5c12acd5
+AITER_COMMIT_DEFAULT=4ad99832823dde2315b361cbd3b54b1c5c12acd5
+AITER_USE_SYSTEM_TRITON=1
+BUILD_MOONCAKE=1
+ROCM_QUICK_REDUCE_QUANTIZATION=INT8
+TRITON_COMMIT=42270451990532c67e69d753fbd026f28fcc4840
+TRITON_COMMIT_DEFAULT=42270451990532c67e69d753fbd026f28fcc4840

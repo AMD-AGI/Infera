@@ -1,0 +1,258 @@
+[
+  {
+    "after": 330,
+    "before": 330,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_0",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 26084,
+    "before": 26084,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_0",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 386,
+    "before": 386,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_1",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 33816,
+    "before": 33816,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_1",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 501,
+    "before": 501,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_2",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 50280,
+    "before": 50280,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_2",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 633,
+    "before": 633,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_3",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 62831,
+    "before": 62831,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_3",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 320,
+    "before": 320,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_4",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 46733,
+    "before": 46733,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_4",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 429,
+    "before": 429,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_5",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 24903,
+    "before": 24903,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_5",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 648,
+    "before": 648,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_6",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 50474,
+    "before": 50474,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_6",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 802,
+    "before": 802,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_7",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 54793,
+    "before": 54793,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_7",
+    "node": "crsuse2-m2m-137"
+  },
+  {
+    "after": 107,
+    "before": 107,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_0",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 1388,
+    "before": 1388,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_0",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 107,
+    "before": 107,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_1",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 1111,
+    "before": 1111,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_1",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 107,
+    "before": 107,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_2",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 1088,
+    "before": 1088,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_2",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 105,
+    "before": 105,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_3",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 1069,
+    "before": 1069,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_3",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 105,
+    "before": 105,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_4",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 842,
+    "before": 842,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_4",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 105,
+    "before": 105,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_5",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 845,
+    "before": 845,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_5",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 105,
+    "before": 105,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_6",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 848,
+    "before": 848,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_6",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 264,
+    "before": 264,
+    "counter": "req_tx_retry_excd_err",
+    "delta": 0,
+    "hca": "ionic_7",
+    "node": "crsuse2-m2m-136"
+  },
+  {
+    "after": 2155,
+    "before": 2155,
+    "counter": "tx_rdma_ack_timeout",
+    "delta": 0,
+    "hca": "ionic_7",
+    "node": "crsuse2-m2m-136"
+  }
+]

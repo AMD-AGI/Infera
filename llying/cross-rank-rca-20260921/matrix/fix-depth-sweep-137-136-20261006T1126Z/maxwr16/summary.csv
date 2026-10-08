@@ -1,0 +1,9 @@
+rail_policy,wave_offset,source_gpu,destination_gpu,numa_class,device_filter,passed,verified,gb_s,gib,cqe_error_12,retry_exhausted,wave_req_tx_retry_excd_err,wave_tx_rdma_ack_timeout,wave_counter_snapshot_complete,reason
+auto,2,0,2,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.68,988.0,0,0,0,3714,True,wave HCA hard-counter gate failed
+auto,2,1,3,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.35,1026.0,0,0,0,3714,True,wave HCA hard-counter gate failed
+auto,2,2,4,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.54,980.0,0,0,0,3714,True,wave HCA hard-counter gate failed
+auto,2,3,5,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.47,1032.0,0,0,0,3714,True,wave HCA hard-counter gate failed
+auto,2,4,6,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.8,1051.0,0,0,0,3714,True,wave HCA hard-counter gate failed
+auto,2,5,7,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.53,980.0,0,0,0,3714,True,wave HCA hard-counter gate failed
+auto,2,6,0,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,16.48,921.0,0,0,0,3714,True,wave HCA hard-counter gate failed
+auto,2,7,1,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.0,951.0,0,0,0,3714,True,wave HCA hard-counter gate failed

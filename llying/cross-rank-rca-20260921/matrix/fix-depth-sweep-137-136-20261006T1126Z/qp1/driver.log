@@ -1,0 +1,2 @@
+auto offset=2 FAIL pairs=8 gb_s=[10.02, 10.04, 22.43, 22.41, 22.43, 22.46, 8.81, 8.86] rx_loss=2 oos=0 pause_tx=6748 retx=483986 ack_timeout=2741 retry_excd=0
+completed=8 failed_waves=1 failed_pairs=8

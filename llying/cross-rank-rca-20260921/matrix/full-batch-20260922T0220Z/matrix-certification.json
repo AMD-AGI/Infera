@@ -1,0 +1,168 @@
+{
+  "auto": {
+    "failed_gates": [],
+    "gates": [
+      {
+        "detail": "auto",
+        "name": "matrix-contract-policy",
+        "passed": true
+      },
+      {
+        "detail": {
+          "missing": [],
+          "records": 64,
+          "unique_pairs": 64
+        },
+        "name": "matrix-64-unique-pairs",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-byte-verify",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-process-success",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-counter-snapshots-complete",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-cqe_error_12",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-retry_exhausted",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-req_tx_retry_excd_err",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-tx_rdma_ack_timeout",
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "destination-local": {
+    "failed_gates": [],
+    "gates": [
+      {
+        "detail": "destination-local",
+        "name": "matrix-contract-policy",
+        "passed": true
+      },
+      {
+        "detail": {
+          "missing": [],
+          "records": 64,
+          "unique_pairs": 64
+        },
+        "name": "matrix-64-unique-pairs",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-byte-verify",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-process-success",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-counter-snapshots-complete",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-cqe_error_12",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-retry_exhausted",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-req_tx_retry_excd_err",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-tx_rdma_ack_timeout",
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "passed": true,
+  "source-local": {
+    "failed_gates": [],
+    "gates": [
+      {
+        "detail": "source-local",
+        "name": "matrix-contract-policy",
+        "passed": true
+      },
+      {
+        "detail": {
+          "missing": [],
+          "records": 64,
+          "unique_pairs": 64
+        },
+        "name": "matrix-64-unique-pairs",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-byte-verify",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-process-success",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-counter-snapshots-complete",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-cqe_error_12",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-retry_exhausted",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-req_tx_retry_excd_err",
+        "passed": true
+      },
+      {
+        "detail": 0,
+        "name": "matrix-zero-tx_rdma_ack_timeout",
+        "passed": true
+      }
+    ],
+    "passed": true
+  }
+}

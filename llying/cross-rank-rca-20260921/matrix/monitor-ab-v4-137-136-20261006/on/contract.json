@@ -1,0 +1,61 @@
+{
+  "counter_scope": "wave",
+  "dest_device_affinity": true,
+  "destination_node": "crsuse2-m2m-136",
+  "fan_in": 1,
+  "geometry": {
+    "chunk": 33554432,
+    "nchunk": 32,
+    "seconds": 300.0,
+    "size": 1073741824
+  },
+  "image": "infera-sglang:v0519-yihou-0917-nextnfix-hicache-mcdestpin-ibto20",
+  "image_id": "sha256:6c87a4f8cef17f2886c71803ba063f6835f49dfd17fd0d28d28f02564eaa9d4e",
+  "pair_concurrency": 8,
+  "pair_worker_schema_version": 3,
+  "pairs": {
+    "4": [
+      [
+        0,
+        4
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        5,
+        1
+      ],
+      [
+        6,
+        2
+      ],
+      [
+        7,
+        3
+      ]
+    ]
+  },
+  "pairs_per_wave": 8,
+  "policies": [
+    "auto"
+  ],
+  "profile": "soak",
+  "schema_version": 2,
+  "source_node": "crsuse2-m2m-137",
+  "waves_per_policy": 1,
+  "worker_env": []
+}

@@ -1,0 +1,17 @@
+infera-inject-host-ionic: replaced /usr/lib/x86_64-linux-gnu/libionic.so.1.1.54.0-187 with host build
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W0922 06:12:48.799876     1 transfer_engine_py.cpp:100] Using default malloc/free for protocol: rdma
+I0922 06:12:48.799916     1 transfer_engine_impl.cpp:987] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I0922 06:12:48.799921     1 transfer_engine_impl.cpp:116] Transfer Engine parseHostNameWithPort. server_name: 10.245.154.168 port: 0
+I0922 06:12:48.799968     1 transfer_engine_impl.cpp:183] Transfer Engine RPC using P2P handshake, listening on 10.245.154.168:15910
+I0922 06:12:48.800037     1 transfer_engine_impl.cpp:259] Auto-discovering topology...
+I0922 06:12:48.801281     1 topology.cpp:127] Device ionic_5 port 1 is available
+I0922 06:12:49.226799     1 transfer_engine_impl.cpp:274] Topology discovery complete. Found 1 HCAs.
+I0922 06:12:49.226819     1 rdma_transport.cpp:159] [RDMA] Relaxed ordering is supported on this host; IBV_ACCESS_RELAXED_ORDERING will be requested for registered memory regions.
+I0922 06:12:49.226828     1 rdma_context.cpp:207] Using SIEVE endpoint store
+I0922 06:12:49.227068     1 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_5/ (with network device)
+I0922 06:12:49.281394     1 rdma_context.cpp:290] RDMA device: ionic_5, LID: 0, GID: (GID_Index 1) fc:01:03:00:9b:0d:2d:6f:06:90:81:ff:fe:39:5b:39
+I0922 06:12:49.281423     1 transfer_engine_impl.cpp:389] installTransport, type=rdma
+I0922 06:12:49.281455     1 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+E0922 06:13:11.158042     1 hip_transport.cpp:70] HipTransport: hipIpcGetMemHandle failed (Error code: 1 - invalid argument)
+I0922 06:13:19.180066     1 transfer_metadata.cpp:580] removeSegmentDesc 10.245.154.168:15910 finish

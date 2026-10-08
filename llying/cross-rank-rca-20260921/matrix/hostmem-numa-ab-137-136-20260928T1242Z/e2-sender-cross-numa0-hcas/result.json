@@ -1,0 +1,92 @@
+{
+  "bw_gbps": {
+    "ionic_0": 253.91,
+    "ionic_1": 245.19,
+    "ionic_2": 377.28,
+    "ionic_3": 254.58
+  },
+  "bw_total_gbps": 1130.96,
+  "client_cqe_errors": {
+    "ionic_0": 0,
+    "ionic_1": 0,
+    "ionic_2": 0,
+    "ionic_3": 0
+  },
+  "clients": [
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 10.245.154.168 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-0-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_1 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18701 10.245.154.168 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-1-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_2 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18702 10.245.154.168 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-2-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_3 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18703 10.245.154.168 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-3-client.log 2>&1 &"
+  ],
+  "completed_at": "2026-09-28T12:47:49.168444+00:00",
+  "destination_node": "crsuse2-m2m-136",
+  "hcas": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "mechanism_totals": {
+    "crsuse2-m2m-136": {
+      "ack_timeout": 0,
+      "cnp_rx": 0,
+      "cnp_tx": 0,
+      "dup_request": 0,
+      "ecn_rx": 0,
+      "hw_rx_dropped": 0,
+      "mac_rx_dropped": 0,
+      "mac_rx_uc": 688750091,
+      "mac_tx_uc": 2690429,
+      "nic_rx_loss": 0,
+      "oos": 0,
+      "pause_rx": 0,
+      "pause_tx": 0,
+      "pause_tx_us": 0,
+      "rdma_rx": 688750091,
+      "rdma_rx_bytes": 2821120372736,
+      "rdma_tx": 2690429,
+      "req_cqe_err": 0,
+      "retry_excd": 0,
+      "retx_pkts": 0,
+      "seq_nak_rx": 0,
+      "seq_nak_tx": 0
+    },
+    "crsuse2-m2m-137": {
+      "ack_timeout": 0,
+      "cnp_rx": 0,
+      "cnp_tx": 0,
+      "dup_request": 0,
+      "ecn_rx": 0,
+      "hw_rx_dropped": 0,
+      "mac_rx_dropped": 0,
+      "mac_rx_uc": 2690429,
+      "mac_tx_uc": 688750091,
+      "nic_rx_loss": 10,
+      "oos": 0,
+      "pause_rx": 0,
+      "pause_tx": 0,
+      "pause_tx_us": 0,
+      "rdma_rx": 2690419,
+      "rdma_rx_bytes": 0,
+      "rdma_tx": 688750091,
+      "req_cqe_err": 0,
+      "retry_excd": 0,
+      "retx_pkts": 0,
+      "seq_nak_rx": 0,
+      "seq_nak_tx": 0
+    }
+  },
+  "message_bytes": 1048576,
+  "qps_per_hca": 8,
+  "receiver_numa": "local",
+  "seconds": 20,
+  "sender_numa": "cross",
+  "servers": [
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-0-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_1 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18701 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-1-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_2 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18702 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-2-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_3 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18703 > /tmp/mc-rca-hostmem-e2-sender-cross-numa0-hcas-3-server.log 2>&1 &"
+  ],
+  "source_node": "crsuse2-m2m-137",
+  "started_at": "2026-09-28T12:47:17.594661+00:00"
+}

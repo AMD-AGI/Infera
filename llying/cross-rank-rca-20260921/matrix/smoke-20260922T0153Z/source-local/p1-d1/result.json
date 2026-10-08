@@ -1,0 +1,26 @@
+{
+  "completed_at": "2026-09-22T01:54:15.541518+00:00",
+  "counter_error": null,
+  "counter_snapshot_complete": false,
+  "destination_gpu": 1,
+  "destination_node": "crsuse2-m2m-136",
+  "device_filter": "ionic_1",
+  "geometry": {
+    "chunk": 65536,
+    "nchunk": 1,
+    "seconds": 0,
+    "size": 65536
+  },
+  "orchestrator_complete": true,
+  "passed": false,
+  "pattern_id": 9,
+  "profile": "single",
+  "rail_policy": "source-local",
+  "reason": "RuntimeError: target did not publish its registered segment",
+  "req_tx_retry_excd_err": 0,
+  "schema_version": 2,
+  "source_gpu": 1,
+  "source_node": "crsuse2-m2m-138",
+  "started_at": "2026-09-22T01:53:49.636242+00:00",
+  "tx_rdma_ack_timeout": 0
+}

@@ -1,0 +1,17 @@
+{
+  "source_node": "crsuse2-m2m-137",
+  "destination_node": "crsuse2-m2m-136",
+  "receiver_numa": "cross",
+  "seconds": 20,
+  "qps_per_hca": 8,
+  "message_bytes": 1048576,
+  "hcas": [
+    0
+  ],
+  "servers": [
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 > /tmp/mc-rca-hostmem-c1-cross-hca0-only-0-server.log 2>&1 &"
+  ],
+  "clients": [
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 10.245.154.168 > /tmp/mc-rca-hostmem-c1-cross-hca0-only-0-client.log 2>&1 &"
+  ]
+}

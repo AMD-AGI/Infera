@@ -1,0 +1,176 @@
+{
+  "benchmark": {
+    "duration_seconds": 1229.9466,
+    "error_categories": {
+      "InvalidInferenceResultError": 56
+    },
+    "input_tokens_per_second": 256707.14207,
+    "output_tokens_per_second": 2000.1161,
+    "records_error_dropped": 56,
+    "records_profiled": 2552,
+    "records_total": 2772
+  },
+  "client_server_correlation": {
+    "matched_within_5s": 56,
+    "max_abs_delta_ms": 2351.393,
+    "unmatched_client_errors": 0,
+    "unmatched_decode_failures": 4
+  },
+  "cqe_destination_ranks": {
+    "0": 3,
+    "1": 7,
+    "2": 5,
+    "3": 3,
+    "4": 3,
+    "5": 2,
+    "6": 5,
+    "7": 8
+  },
+  "cqe_hcas": {
+    "ionic_0": 2,
+    "ionic_1": 6,
+    "ionic_2": 5,
+    "ionic_3": 6,
+    "ionic_4": 3,
+    "ionic_5": 4,
+    "ionic_6": 5,
+    "ionic_7": 5
+  },
+  "cqe_same_named_hca": 36,
+  "cross_numa_failure_rate": {
+    "failed": 56,
+    "paired_same_numa_failures": 0,
+    "percent": 4.148,
+    "routed": 1350
+  },
+  "decode_port_rank_evidence": {
+    "15366": {
+      "method": "session-cascade",
+      "rank": 5,
+      "samples": 4
+    },
+    "15574": {
+      "method": "session-cascade",
+      "rank": 3,
+      "samples": 4
+    },
+    "15617": {
+      "method": "session-cascade",
+      "rank": 4,
+      "samples": 2
+    },
+    "15749": {
+      "method": "elimination",
+      "rank": 0,
+      "samples": 0
+    },
+    "16074": {
+      "method": "session-cascade",
+      "rank": 1,
+      "samples": 6
+    },
+    "16586": {
+      "method": "session-cascade",
+      "rank": 7,
+      "samples": 5
+    },
+    "16721": {
+      "method": "session-cascade",
+      "rank": 6,
+      "samples": 9
+    },
+    "16859": {
+      "method": "session-cascade",
+      "rank": 2,
+      "samples": 8
+    }
+  },
+  "failure_rank_pairs": {
+    "P0->D7": 2,
+    "P1->D4": 3,
+    "P1->D6": 7,
+    "P1->D7": 6,
+    "P2->D6": 2,
+    "P3->D4": 1,
+    "P3->D5": 5,
+    "P3->D6": 3,
+    "P4->D1": 3,
+    "P5->D2": 9,
+    "P5->D3": 3,
+    "P6->D1": 4,
+    "P6->D2": 2,
+    "P7->D1": 3,
+    "P7->D3": 3
+  },
+  "hca_fault_delta_rows": 32,
+  "hca_hard_counter_by_hca": {
+    "req_tx_retry_excd_err": {
+      "ionic_0": 6,
+      "ionic_1": 22,
+      "ionic_2": 25,
+      "ionic_3": 42,
+      "ionic_4": 22,
+      "ionic_5": 10,
+      "ionic_6": 28,
+      "ionic_7": 17
+    },
+    "tx_rdma_ack_timeout": {
+      "ionic_0": 203,
+      "ionic_1": 183,
+      "ionic_2": 219,
+      "ionic_3": 149,
+      "ionic_4": 200,
+      "ionic_5": 139,
+      "ionic_6": 231,
+      "ionic_7": 223
+    }
+  },
+  "hca_hard_counter_by_node": {
+    "req_tx_retry_excd_err": {
+      "crsuse2-m2m-138": 172
+    },
+    "tx_rdma_ack_timeout": {
+      "crsuse2-m2m-138": 1547
+    }
+  },
+  "hca_hard_counter_totals": {
+    "req_tx_retry_excd_err": 172,
+    "tx_rdma_ack_timeout": 1547
+  },
+  "hca_timeseries_fault_events": 280,
+  "hca_timeseries_fault_events_by_counter": {
+    "req_tx_retry_excd_err": 37,
+    "tx_rdma_ack_timeout": 243
+  },
+  "paired_failure_causes": {
+    "decode-only": 4,
+    "primary-send": 18,
+    "session-cascade": 38
+  },
+  "paired_failure_numa_classes": {
+    "cross-numa": 56
+  },
+  "paired_failure_rank_classes": {
+    "cross-rank": 56
+  },
+  "paired_transfer_failures": 56,
+  "reproduced": true,
+  "root_cause_status": "not-closed; single-variable pair matrix pending",
+  "router_pair_classes": {
+    "cross-rank/cross-numa": 1350,
+    "cross-rank/same-numa": 1080,
+    "same-rank/same-numa": 358
+  },
+  "router_pair_count": 2788,
+  "run": "/home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/runs/repro-01-138-136-20260921T1254Z",
+  "signatures": {
+    "client_errors": 56,
+    "cqe_error_12": 36,
+    "decode_transfer_failed": 60,
+    "prefill_transfer_failed": 56,
+    "retry_exhausted": 36,
+    "session_failed": 13,
+    "session_not_alive": 38
+  },
+  "transfer_failure_records": 60
+}

@@ -1,0 +1,73 @@
+{
+  "captured_at": "2026-10-06T11:31:42.030250+00:00",
+  "nodes": {
+    "crsuse2-m2m-136": {
+      "ionic_0": {
+        "req_tx_retry_excd_err": 107,
+        "tx_rdma_ack_timeout": 1388
+      },
+      "ionic_1": {
+        "req_tx_retry_excd_err": 107,
+        "tx_rdma_ack_timeout": 1111
+      },
+      "ionic_2": {
+        "req_tx_retry_excd_err": 107,
+        "tx_rdma_ack_timeout": 1088
+      },
+      "ionic_3": {
+        "req_tx_retry_excd_err": 105,
+        "tx_rdma_ack_timeout": 1069
+      },
+      "ionic_4": {
+        "req_tx_retry_excd_err": 105,
+        "tx_rdma_ack_timeout": 842
+      },
+      "ionic_5": {
+        "req_tx_retry_excd_err": 105,
+        "tx_rdma_ack_timeout": 845
+      },
+      "ionic_6": {
+        "req_tx_retry_excd_err": 105,
+        "tx_rdma_ack_timeout": 848
+      },
+      "ionic_7": {
+        "req_tx_retry_excd_err": 264,
+        "tx_rdma_ack_timeout": 2155
+      }
+    },
+    "crsuse2-m2m-137": {
+      "ionic_0": {
+        "req_tx_retry_excd_err": 308,
+        "tx_rdma_ack_timeout": 23316
+      },
+      "ionic_1": {
+        "req_tx_retry_excd_err": 368,
+        "tx_rdma_ack_timeout": 31292
+      },
+      "ionic_2": {
+        "req_tx_retry_excd_err": 480,
+        "tx_rdma_ack_timeout": 37200
+      },
+      "ionic_3": {
+        "req_tx_retry_excd_err": 601,
+        "tx_rdma_ack_timeout": 43629
+      },
+      "ionic_4": {
+        "req_tx_retry_excd_err": 304,
+        "tx_rdma_ack_timeout": 43087
+      },
+      "ionic_5": {
+        "req_tx_retry_excd_err": 410,
+        "tx_rdma_ack_timeout": 23215
+      },
+      "ionic_6": {
+        "req_tx_retry_excd_err": 608,
+        "tx_rdma_ack_timeout": 33568
+      },
+      "ionic_7": {
+        "req_tx_retry_excd_err": 757,
+        "tx_rdma_ack_timeout": 38775
+      }
+    }
+  }
+}

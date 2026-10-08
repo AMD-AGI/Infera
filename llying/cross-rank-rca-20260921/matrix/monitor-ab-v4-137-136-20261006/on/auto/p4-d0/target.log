@@ -1,0 +1,45 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W1006 16:02:12.708634    19 transfer_engine_py.cpp:100] Using default malloc/free for protocol: rdma
+I1006 16:02:12.708676    19 transfer_engine_impl.cpp:987] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I1006 16:02:12.708684    19 transfer_engine_impl.cpp:116] Transfer Engine parseHostNameWithPort. server_name: 10.245.154.168 port: 0
+I1006 16:02:12.708706    19 transfer_engine_impl.cpp:183] Transfer Engine RPC using P2P handshake, listening on 10.245.154.168:15985
+I1006 16:02:12.708766    19 transfer_engine_impl.cpp:259] Auto-discovering topology...
+I1006 16:02:12.708770    19 topology.cpp:168] IB device whitelist: ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
+I1006 16:02:12.710330    19 topology.cpp:127] Device ionic_0 port 1 is available
+I1006 16:02:12.710475    19 topology.cpp:127] Device ionic_1 port 1 is available
+I1006 16:02:12.710558    19 topology.cpp:127] Device ionic_2 port 1 is available
+I1006 16:02:12.710628    19 topology.cpp:127] Device ionic_3 port 1 is available
+I1006 16:02:12.710784    19 topology.cpp:127] Device ionic_4 port 1 is available
+I1006 16:02:12.710870    19 topology.cpp:127] Device ionic_5 port 1 is available
+I1006 16:02:12.710988    19 topology.cpp:127] Device ionic_6 port 1 is available
+I1006 16:02:12.711127    19 topology.cpp:127] Device ionic_7 port 1 is available
+I1006 16:02:13.145787    19 transfer_engine_impl.cpp:274] Topology discovery complete. Found 8 HCAs.
+I1006 16:02:13.145815    19 rdma_transport.cpp:182] [RDMA] Relaxed ordering is supported on this host; IBV_ACCESS_RELAXED_ORDERING will be requested for registered memory regions.
+I1006 16:02:13.145825    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.146099    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_4/ (with network device)
+I1006 16:02:13.150836    19 rdma_context.cpp:290] RDMA device: ionic_4, LID: 0, GID: (GID_Index 1) fc:01:04:00:9c:0d:2d:6f:06:90:81:ff:fe:39:47:11
+I1006 16:02:13.150848    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.151046    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_5/ (with network device)
+I1006 16:02:13.158205    19 rdma_context.cpp:290] RDMA device: ionic_5, LID: 0, GID: (GID_Index 1) fc:01:03:00:9b:0d:2d:6f:06:90:81:ff:fe:39:5b:39
+I1006 16:02:13.158211    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.158375    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_6/ (with network device)
+I1006 16:02:13.164423    19 rdma_context.cpp:290] RDMA device: ionic_6, LID: 0, GID: (GID_Index 1) fc:01:01:00:99:0d:2d:6f:06:90:81:ff:fe:39:33:c1
+I1006 16:02:13.164429    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.164599    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_7/ (with network device)
+I1006 16:02:13.168838    19 rdma_context.cpp:290] RDMA device: ionic_7, LID: 0, GID: (GID_Index 1) fc:01:02:00:9a:0d:2d:6f:06:90:81:ff:fe:39:3a:b1
+I1006 16:02:13.168845    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.168983    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_0/ (with network device)
+I1006 16:02:13.173168    19 rdma_context.cpp:290] RDMA device: ionic_0, LID: 0, GID: (GID_Index 1) fc:01:08:00:a0:0d:2d:6f:06:90:81:ff:fe:36:74:41
+I1006 16:02:13.173178    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.173346    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_1/ (with network device)
+I1006 16:02:13.177382    19 rdma_context.cpp:290] RDMA device: ionic_1, LID: 0, GID: (GID_Index 1) fc:01:07:00:9f:0d:2d:6f:06:90:81:ff:fe:37:34:89
+I1006 16:02:13.177387    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.177533    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_2/ (with network device)
+I1006 16:02:13.181686    19 rdma_context.cpp:290] RDMA device: ionic_2, LID: 0, GID: (GID_Index 1) fc:01:05:00:9d:0d:2d:6f:06:90:81:ff:fe:37:3c:81
+I1006 16:02:13.181699    19 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 16:02:13.181866    19 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_3/ (with network device)
+I1006 16:02:13.186630    19 rdma_context.cpp:290] RDMA device: ionic_3, LID: 0, GID: (GID_Index 1) fc:01:06:00:9e:0d:2d:6f:06:90:81:ff:fe:37:41:91
+I1006 16:02:13.186681    19 transfer_engine_impl.cpp:389] installTransport, type=rdma
+I1006 16:02:13.186748    19 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+I1006 16:03:06.935990    28 rdma_endpoint.cpp:670] Received RDMA ready ACK.
+I1006 16:08:08.199528    19 transfer_metadata.cpp:580] removeSegmentDesc 10.245.154.168:15985 finish

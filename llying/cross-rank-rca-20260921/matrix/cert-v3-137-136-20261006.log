@@ -1,0 +1,9 @@
+auto offset=0 PASS pairs=8 gb_s=[38.35, 38.28, 38.11, 41.08, 41.18, 38.23, 38.25, 38.98] rx_loss=2 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+auto offset=1 PASS pairs=8 gb_s=[38.19, 29.16, 38.25, 27.71, 38.23, 29.29, 38.21, 29.81] rx_loss=2 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+auto offset=2 PASS pairs=8 gb_s=[11.79, 6.82, 23.06, 22.31, 6.64, 6.42, 22.41, 23.35] rx_loss=0 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+auto offset=3 PASS pairs=8 gb_s=[19.21, 25.49, 24.07, 11.91, 16.12, 28.76, 23.51, 15.13] rx_loss=2 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+auto offset=4 PASS pairs=8 gb_s=[20.58, 20.52, 12.7, 12.35, 8.48, 11.29, 18.66, 18.49] rx_loss=0 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+auto offset=5 PASS pairs=8 gb_s=[5.58, 18.37, 17.79, 25.58, 20.74, 22.17, 29.01, 6.64] rx_loss=0 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+auto offset=6 PASS pairs=8 gb_s=[22.98, 24.07, 7.64, 16.73, 22.56, 22.56, 7.16, 7.23] rx_loss=0 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+auto offset=7 PASS pairs=8 gb_s=[28.96, 38.36, 30.65, 38.38, 29.83, 40.81, 30.77, 38.29] rx_loss=0 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+completed=64 failed_waves=0 failed_pairs=0

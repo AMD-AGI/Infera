@@ -1,0 +1,2193 @@
+[
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "warmup",
+      "context_overflow_skip": false,
+      "conversation_id": "24f457bf9e42d6ffb1cc4bbd279c650bb8b6",
+      "credit_issued_ns": 1791290278851938932,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791290369743129346,
+      "request_end_ns": 1791290369743254354,
+      "request_start_ns": 1791290278863898556,
+      "root_correlation_id": "c81137e8-9f34-4523-aad2-5de2e33dd5c9",
+      "session_num": 58,
+      "source_kind": "weka_main",
+      "source_outer_idx": 27,
+      "source_trace_id": "24f457bf9e42d6ffb1cc4bbd279c650bb8b6",
+      "turn_index": 27,
+      "was_cancelled": false,
+      "worker_id": "worker_d64171de",
+      "x_correlation_id": "c81137e8-9f34-4523-aad2-5de2e33dd5c9",
+      "x_request_id": "ae48dd1c-130e-472d-812a-79a3641bd640"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 91076
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "warmup",
+      "context_overflow_skip": false,
+      "conversation_id": "0d8a816e4819b765d81ff748da94d463f3b2",
+      "credit_issued_ns": 1791290278851297139,
+      "record_processor_id": "record_processor_5eeeb7ae",
+      "request_ack_ns": 1791290374429841729,
+      "request_end_ns": 1791290374430471452,
+      "request_start_ns": 1791290278873235867,
+      "root_correlation_id": "cfb925e1-0e10-40a3-9bb6-0e25b2719e7e",
+      "session_num": 22,
+      "source_kind": "weka_main",
+      "source_outer_idx": 15,
+      "source_trace_id": "0d8a816e4819b765d81ff748da94d463f3b2",
+      "turn_index": 15,
+      "was_cancelled": false,
+      "worker_id": "worker_73da631f",
+      "x_correlation_id": "cfb925e1-0e10-40a3-9bb6-0e25b2719e7e",
+      "x_request_id": "f3e4bd0b-d792-4788-ad7d-ef5160294968"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 118164
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "warmup",
+      "context_overflow_skip": false,
+      "conversation_id": "1f5f21559e4b79c6d2480796c7218206047f",
+      "credit_issued_ns": 1791290278851782944,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791290665602158827,
+      "request_end_ns": 1791290665602702882,
+      "request_start_ns": 1791290278937067771,
+      "root_correlation_id": "855dfd28-ea31-4588-9af5-28ae6e6fec2d",
+      "session_num": 50,
+      "source_kind": "weka_main",
+      "source_outer_idx": 100,
+      "source_trace_id": "1f5f21559e4b79c6d2480796c7218206047f",
+      "turn_index": 98,
+      "was_cancelled": false,
+      "worker_id": "worker_11be271b",
+      "x_correlation_id": "855dfd28-ea31-4588-9af5-28ae6e6fec2d",
+      "x_request_id": "0e765550-8ac4-43f6-9d53-ae40bf094fc1"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 329310
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "085aacf44ac5428ad3c6b4f6cd431e083832::fa:005",
+      "credit_issued_ns": 1791291522357468352,
+      "parent_correlation_id": "a042dc64-6c09-485d-9119-bd95e2cb4e77",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_5eeeb7ae",
+      "request_ack_ns": 1791291574693106945,
+      "request_end_ns": 1791291574693201294,
+      "request_start_ns": 1791291522381496377,
+      "root_correlation_id": "a042dc64-6c09-485d-9119-bd95e2cb4e77",
+      "session_num": 492,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 377,
+      "source_trace_id": "085aacf44ac5428ad3c6b4f6cd431e083832",
+      "turn_index": 0,
+      "was_cancelled": false,
+      "worker_id": "worker_11be271b",
+      "x_correlation_id": "dc830ef8-49de-4c24-9714-fde09c5050d2",
+      "x_request_id": "d7fc5ea5-29e6-4f1f-8356-061b593a8c8d"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 645327
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3107040f1d498b9c8b61bd74f2da2a514e37",
+      "credit_issued_ns": 1791291590404290835,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_bb507f71",
+      "request_ack_ns": 1791291631469457952,
+      "request_end_ns": 1791291631509907682,
+      "request_start_ns": 1791291590405327634,
+      "root_correlation_id": "2c955340-be12-43da-9a49-824a89b275ef",
+      "session_num": 616,
+      "source_kind": "weka_main",
+      "source_outer_idx": 42,
+      "source_trace_id": "3107040f1d498b9c8b61bd74f2da2a514e37",
+      "turn_index": 39,
+      "was_cancelled": false,
+      "worker_id": "worker_519c5a2d",
+      "x_correlation_id": "2c955340-be12-43da-9a49-824a89b275ef",
+      "x_request_id": "7c750ee7-10a5-468b-988a-200e04cbbd7d"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 189595
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "1499c406c828e8fe6b6af697e7799c6a715b::fa:002",
+      "credit_issued_ns": 1791291754164387490,
+      "parent_correlation_id": "34fa5c18-51fc-4e73-999d-29234ec427cf",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_bb507f71",
+      "request_ack_ns": 1791291800902788804,
+      "request_end_ns": 1791291800902886343,
+      "request_start_ns": 1791291754167178811,
+      "root_correlation_id": "34fa5c18-51fc-4e73-999d-29234ec427cf",
+      "session_num": 851,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 23,
+      "source_trace_id": "1499c406c828e8fe6b6af697e7799c6a715b",
+      "turn_index": 6,
+      "was_cancelled": false,
+      "worker_id": "worker_cf2b23ac",
+      "x_correlation_id": "19778e7b-ca60-407f-af74-9aa47cd3f831",
+      "x_request_id": "e49f928b-cc46-47f5-9907-67f036d32787"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 103160
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "33c12a75f9b49c1983a8d4d1dacb21ff90fe::aux:010",
+      "credit_issued_ns": 1791291698407979028,
+      "parent_correlation_id": "27e5e3d2-b7a4-49ce-be48-45b39e2280a5",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791291800902439277,
+      "request_end_ns": 1791291800902487407,
+      "request_start_ns": 1791291698409723330,
+      "root_correlation_id": "27e5e3d2-b7a4-49ce-be48-45b39e2280a5",
+      "session_num": 770,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 28,
+      "source_trace_id": "33c12a75f9b49c1983a8d4d1dacb21ff90fe",
+      "turn_index": 0,
+      "was_cancelled": false,
+      "worker_id": "worker_25f39d36",
+      "x_correlation_id": "bc9cda6c-faf1-41a0-91a8-85e6683a5ad2",
+      "x_request_id": "2b9986eb-309e-4783-a9dc-1e340c6952f7"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 101806
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "2af7f718cc9974b522a7e4864aac085e5288",
+      "credit_issued_ns": 1791291781989446305,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_5eeeb7ae",
+      "request_ack_ns": 1791291820880170485,
+      "request_end_ns": 1791291820880256734,
+      "request_start_ns": 1791291781990445675,
+      "root_correlation_id": "8c62f13c-1233-498f-9871-538143667d16",
+      "session_num": 917,
+      "source_kind": "weka_main",
+      "source_outer_idx": 34,
+      "source_trace_id": "2af7f718cc9974b522a7e4864aac085e5288",
+      "turn_index": 34,
+      "was_cancelled": false,
+      "worker_id": "worker_8ded194d",
+      "x_correlation_id": "8c62f13c-1233-498f-9871-538143667d16",
+      "x_request_id": "2b2787b9-0e0c-4f38-af57-d8943bc48f0d"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 146944
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "27de9ca964aa7905c2f5438db8bdd72d8b02",
+      "credit_issued_ns": 1791291792135971992,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_cfdacfaa",
+      "request_ack_ns": 1791291820889442637,
+      "request_end_ns": 1791291820889877952,
+      "request_start_ns": 1791291792137508616,
+      "root_correlation_id": "97ca0cb8-9488-42cc-bd7f-e289641cf43b",
+      "session_num": 949,
+      "source_kind": "weka_main",
+      "source_outer_idx": 355,
+      "source_trace_id": "27de9ca964aa7905c2f5438db8bdd72d8b02",
+      "turn_index": 333,
+      "was_cancelled": false,
+      "worker_id": "worker_cf2b23ac",
+      "x_correlation_id": "97ca0cb8-9488-42cc-bd7f-e289641cf43b",
+      "x_request_id": "c119d4df-e32f-470c-95b3-142fc98c9dc9"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 167947
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0a688303b1ae62a97607af8021f2130c2caf",
+      "credit_issued_ns": 1791291809376192920,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791291822275013413,
+      "request_end_ns": 1791291822275044283,
+      "request_start_ns": 1791291809377152040,
+      "root_correlation_id": "adc0b095-9d44-4f31-8c30-3ed5049f91d2",
+      "session_num": 998,
+      "source_kind": "weka_main",
+      "source_outer_idx": 29,
+      "source_trace_id": "0a688303b1ae62a97607af8021f2130c2caf",
+      "turn_index": 29,
+      "was_cancelled": false,
+      "worker_id": "worker_1fd528ff",
+      "x_correlation_id": "adc0b095-9d44-4f31-8c30-3ed5049f91d2",
+      "x_request_id": "ea10720b-1737-44ea-a33e-4d85f500fe20"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 119374
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3317a925c2a7f40e9eafe5f5532793a23c67",
+      "credit_issued_ns": 1791291820358574805,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_5eeeb7ae",
+      "request_ack_ns": 1791291825333797322,
+      "request_end_ns": 1791291825333878921,
+      "request_start_ns": 1791291820359397476,
+      "root_correlation_id": "d76e691f-de21-495d-a805-838eef51a528",
+      "session_num": 1020,
+      "source_kind": "weka_main",
+      "source_outer_idx": 10,
+      "source_trace_id": "3317a925c2a7f40e9eafe5f5532793a23c67",
+      "turn_index": 10,
+      "was_cancelled": false,
+      "worker_id": "worker_d64171de",
+      "x_correlation_id": "d76e691f-de21-495d-a805-838eef51a528",
+      "x_request_id": "b8c1ef8c-739d-44c0-ac88-2269896f2360"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 47134
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "04dba6fe621301a1d01fd63b8d02c9645c48",
+      "credit_issued_ns": 1791291787497246182,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_cfdacfaa",
+      "request_ack_ns": 1791291838186160287,
+      "request_end_ns": 1791291838186225966,
+      "request_start_ns": 1791291787497983854,
+      "root_correlation_id": "39360d66-c905-4e90-838a-6fc2e424727f",
+      "session_num": 932,
+      "source_kind": "weka_main",
+      "source_outer_idx": 7,
+      "source_trace_id": "04dba6fe621301a1d01fd63b8d02c9645c48",
+      "turn_index": 6,
+      "was_cancelled": false,
+      "worker_id": "worker_7ddbd643",
+      "x_correlation_id": "39360d66-c905-4e90-838a-6fc2e424727f",
+      "x_request_id": "caed5605-452d-45ec-970a-fee527f6aa34"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 77575
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3107040f1d498b9c8b61bd74f2da2a514e37",
+      "credit_issued_ns": 1791291792033532866,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791291838186648692,
+      "request_end_ns": 1791291838186715551,
+      "request_start_ns": 1791291792034527816,
+      "root_correlation_id": "2c955340-be12-43da-9a49-824a89b275ef",
+      "session_num": 948,
+      "source_kind": "weka_main",
+      "source_outer_idx": 47,
+      "source_trace_id": "3107040f1d498b9c8b61bd74f2da2a514e37",
+      "turn_index": 43,
+      "was_cancelled": false,
+      "worker_id": "worker_519c5a2d",
+      "x_correlation_id": "2c955340-be12-43da-9a49-824a89b275ef",
+      "x_request_id": "463c05f5-37f3-49ca-ad77-97e96182f46a"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 203113
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "22a380be2e4f6293f24e32fd637ccc876d73",
+      "credit_issued_ns": 1791291796946373194,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_01fe731e",
+      "request_ack_ns": 1791291838191495580,
+      "request_end_ns": 1791291838191552870,
+      "request_start_ns": 1791291796947792699,
+      "root_correlation_id": "9b14f5e6-b422-4ecc-8815-8562df0ff90b",
+      "session_num": 964,
+      "source_kind": "weka_main",
+      "source_outer_idx": 64,
+      "source_trace_id": "22a380be2e4f6293f24e32fd637ccc876d73",
+      "turn_index": 64,
+      "was_cancelled": false,
+      "worker_id": "worker_ea332c4b",
+      "x_correlation_id": "9b14f5e6-b422-4ecc-8815-8562df0ff90b",
+      "x_request_id": "ca4ffa5b-c3d8-4722-b6cf-4454f5e88d11"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 233403
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "33c12a75f9b49c1983a8d4d1dacb21ff90fe",
+      "credit_issued_ns": 1791291835637277531,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791291838217941380,
+      "request_end_ns": 1791291838218003480,
+      "request_start_ns": 1791291835638283761,
+      "root_correlation_id": "27e5e3d2-b7a4-49ce-be48-45b39e2280a5",
+      "session_num": 1053,
+      "source_kind": "weka_main",
+      "source_outer_idx": 31,
+      "source_trace_id": "33c12a75f9b49c1983a8d4d1dacb21ff90fe",
+      "turn_index": 20,
+      "was_cancelled": false,
+      "worker_id": "worker_25f39d36",
+      "x_correlation_id": "27e5e3d2-b7a4-49ce-be48-45b39e2280a5",
+      "x_request_id": "4fbf5e41-8f6f-4be9-aefe-7d98a5383b34"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 97631
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "1499c406c828e8fe6b6af697e7799c6a715b::fa:002",
+      "credit_issued_ns": 1791291802313376186,
+      "parent_correlation_id": "34fa5c18-51fc-4e73-999d-29234ec427cf",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791291838263125202,
+      "request_end_ns": 1791291838263164612,
+      "request_start_ns": 1791291802315408084,
+      "root_correlation_id": "34fa5c18-51fc-4e73-999d-29234ec427cf",
+      "session_num": 975,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 24,
+      "source_trace_id": "1499c406c828e8fe6b6af697e7799c6a715b",
+      "turn_index": 7,
+      "was_cancelled": false,
+      "worker_id": "worker_1fd528ff",
+      "x_correlation_id": "19778e7b-ca60-407f-af74-9aa47cd3f831",
+      "x_request_id": "6ae75da9-6ba3-4030-9ead-9599446219b4"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 107002
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "13e0b7038bafff59abfdc31aad12dbcd4a2f::sa:subagent_002_105a16f4",
+      "credit_issued_ns": 1791291813833678667,
+      "parent_correlation_id": "6370c983-cd32-44a2-b6a8-ce646374817e",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_4598441e",
+      "request_ack_ns": 1791291838263345800,
+      "request_end_ns": 1791291838263592627,
+      "request_start_ns": 1791291813834460989,
+      "root_correlation_id": "6370c983-cd32-44a2-b6a8-ce646374817e",
+      "session_num": 1008,
+      "source_inner_idx": 4,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 41,
+      "source_trace_id": "13e0b7038bafff59abfdc31aad12dbcd4a2f",
+      "turn_index": 4,
+      "was_cancelled": false,
+      "worker_id": "worker_8ded194d",
+      "x_correlation_id": "cc01d60a-6c4d-4ec2-a3a0-c74d8cf49664",
+      "x_request_id": "3ddc0365-798a-4b6a-8e96-adbc419a77a4"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 47062
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "13e0b7038bafff59abfdc31aad12dbcd4a2f::sa:subagent_001_126ed9e9",
+      "credit_issued_ns": 1791291912399150137,
+      "parent_correlation_id": "6370c983-cd32-44a2-b6a8-ce646374817e",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_cfdacfaa",
+      "request_ack_ns": 1791291947684677143,
+      "request_end_ns": 1791291947684721953,
+      "request_start_ns": 1791291912399968888,
+      "root_correlation_id": "6370c983-cd32-44a2-b6a8-ce646374817e",
+      "session_num": 1235,
+      "source_inner_idx": 22,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 40,
+      "source_trace_id": "13e0b7038bafff59abfdc31aad12dbcd4a2f",
+      "turn_index": 22,
+      "was_cancelled": false,
+      "worker_id": "worker_8ded194d",
+      "x_correlation_id": "f6eb9d2e-d562-4f94-921c-6135a22e6427",
+      "x_request_id": "8ade83a7-993f-4906-b062-80bb1cc9caa2"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 91823
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "1c4f3018d336b1bf78434d328001bc7bbe49::aux:001",
+      "credit_issued_ns": 1791291934449554879,
+      "parent_correlation_id": "c01ac8e9-a28c-43ed-b8b9-973952b8717b",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292005192038407,
+      "request_end_ns": 1791292005192140176,
+      "request_start_ns": 1791291934452242821,
+      "root_correlation_id": "c01ac8e9-a28c-43ed-b8b9-973952b8717b",
+      "session_num": 1303,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 58,
+      "source_trace_id": "1c4f3018d336b1bf78434d328001bc7bbe49",
+      "turn_index": 0,
+      "was_cancelled": false,
+      "worker_id": "worker_11be271b",
+      "x_correlation_id": "70d015b7-5a56-4b8e-b9d8-46c870f586c8",
+      "x_request_id": "f0596e76-100f-46e8-bf9a-5327b15c1756"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 211773
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "13e0b7038bafff59abfdc31aad12dbcd4a2f::sa:subagent_001_126ed9e9",
+      "credit_issued_ns": 1791291976195648064,
+      "parent_correlation_id": "6370c983-cd32-44a2-b6a8-ce646374817e",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791292005194181504,
+      "request_end_ns": 1791292005194239014,
+      "request_start_ns": 1791291976196850521,
+      "root_correlation_id": "6370c983-cd32-44a2-b6a8-ce646374817e",
+      "session_num": 1415,
+      "source_inner_idx": 24,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 40,
+      "source_trace_id": "13e0b7038bafff59abfdc31aad12dbcd4a2f",
+      "turn_index": 24,
+      "was_cancelled": false,
+      "worker_id": "worker_8ded194d",
+      "x_correlation_id": "f6eb9d2e-d562-4f94-921c-6135a22e6427",
+      "x_request_id": "c2993d04-93ad-4269-a4c9-fba2dc2629dd"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 100852
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3e573575f7a9f0d647460e769c0a64e71d59::sa:subagent_003_e785d2f4",
+      "credit_issued_ns": 1791291979459465703,
+      "parent_correlation_id": "fa618984-bd66-4163-823c-9362c0161e8e",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292013244138502,
+      "request_end_ns": 1791292013244304321,
+      "request_start_ns": 1791291979460244545,
+      "root_correlation_id": "fa618984-bd66-4163-823c-9362c0161e8e",
+      "session_num": 1423,
+      "source_inner_idx": 9,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 4,
+      "source_trace_id": "3e573575f7a9f0d647460e769c0a64e71d59",
+      "turn_index": 9,
+      "was_cancelled": false,
+      "worker_id": "worker_5c3ecdff",
+      "x_correlation_id": "a673c21d-b894-4505-9425-09cd8a03474b",
+      "x_request_id": "99939eb7-8b05-40aa-bc07-6a6933350db2"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 59986
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "16e46bc4d9e121ffbd67ada51cb3f965342f::fa:001",
+      "credit_issued_ns": 1791291980639306287,
+      "parent_correlation_id": "e43052db-01b5-42e3-9839-cba93ef96fba",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_bb507f71",
+      "request_ack_ns": 1791292042519986138,
+      "request_end_ns": 1791292042520068008,
+      "request_start_ns": 1791291980709361905,
+      "root_correlation_id": "e43052db-01b5-42e3-9839-cba93ef96fba",
+      "session_num": 1427,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 222,
+      "source_trace_id": "16e46bc4d9e121ffbd67ada51cb3f965342f",
+      "turn_index": 124,
+      "was_cancelled": false,
+      "worker_id": "worker_19de3ce6",
+      "x_correlation_id": "b8bfde81-ec63-4eb1-baf7-aa3e1cfaf5ee",
+      "x_request_id": "b731d9a3-bc66-4425-85bd-07c21656066f"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 540824
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0d41be2aa98333f3662682210647e5971c7b",
+      "credit_issued_ns": 1791291994761741080,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_cfdacfaa",
+      "request_ack_ns": 1791292042530090081,
+      "request_end_ns": 1791292042530142041,
+      "request_start_ns": 1791291994762657351,
+      "root_correlation_id": "61f44da9-ed22-4834-88f5-8cb12b70b380",
+      "session_num": 1467,
+      "source_kind": "weka_main",
+      "source_outer_idx": 15,
+      "source_trace_id": "0d41be2aa98333f3662682210647e5971c7b",
+      "turn_index": 15,
+      "was_cancelled": false,
+      "worker_id": "worker_011de85c",
+      "x_correlation_id": "61f44da9-ed22-4834-88f5-8cb12b70b380",
+      "x_request_id": "a89c313b-1f8b-4011-b077-dd3a172392ef"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 100517
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3a67ec0b534b4e3e386c7e018b4b99ef06c2",
+      "credit_issued_ns": 1791292029759300574,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791292042538576052,
+      "request_end_ns": 1791292042538909788,
+      "request_start_ns": 1791292029760206704,
+      "root_correlation_id": "fbb67190-223c-463f-8400-f23d3289216f",
+      "session_num": 1531,
+      "source_kind": "weka_main",
+      "source_outer_idx": 19,
+      "source_trace_id": "3a67ec0b534b4e3e386c7e018b4b99ef06c2",
+      "turn_index": 18,
+      "was_cancelled": false,
+      "worker_id": "worker_25f39d36",
+      "x_correlation_id": "fbb67190-223c-463f-8400-f23d3289216f",
+      "x_request_id": "09fb2508-cc94-4982-a1c4-5e9e7ec0949c"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 136327
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0db32e2f852a2ea24ed616b31975a84da5e4",
+      "credit_issued_ns": 1791292055402159917,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_4598441e",
+      "request_ack_ns": 1791292058725183670,
+      "request_end_ns": 1791292058725224210,
+      "request_start_ns": 1791292055403225736,
+      "root_correlation_id": "ee49f1e5-8c84-4c6e-9229-7113d058df99",
+      "session_num": 1587,
+      "source_kind": "weka_main",
+      "source_outer_idx": 25,
+      "source_trace_id": "0db32e2f852a2ea24ed616b31975a84da5e4",
+      "turn_index": 18,
+      "was_cancelled": false,
+      "worker_id": "worker_d64171de",
+      "x_correlation_id": "ee49f1e5-8c84-4c6e-9229-7113d058df99",
+      "x_request_id": "2c7eaf49-f246-4b91-a50d-150bf25c671f"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 181558
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "43eb23b676fb4a9f9bccbc568dbca0d6b352",
+      "credit_issued_ns": 1791292009680525896,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292060818239719,
+      "request_end_ns": 1791292060818308919,
+      "request_start_ns": 1791292009681246428,
+      "root_correlation_id": "f80113ca-43e7-40de-98da-938e0f581d6b",
+      "session_num": 1499,
+      "source_kind": "weka_main",
+      "source_outer_idx": 5,
+      "source_trace_id": "43eb23b676fb4a9f9bccbc568dbca0d6b352",
+      "turn_index": 5,
+      "was_cancelled": false,
+      "worker_id": "worker_6f848ecf",
+      "x_correlation_id": "f80113ca-43e7-40de-98da-938e0f581d6b",
+      "x_request_id": "e2a596a3-84c6-4464-8e94-1a38126ef89f"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 82300
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3e119fc3136975fe98cfc7fa73500d6574a0",
+      "credit_issued_ns": 1791292043482723770,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_4598441e",
+      "request_ack_ns": 1791292094344329915,
+      "request_end_ns": 1791292094344666462,
+      "request_start_ns": 1791292043483561091,
+      "root_correlation_id": "3546f209-2751-406f-83e5-23b93d9dbd77",
+      "session_num": 1563,
+      "source_kind": "weka_main",
+      "source_outer_idx": 11,
+      "source_trace_id": "3e119fc3136975fe98cfc7fa73500d6574a0",
+      "turn_index": 11,
+      "was_cancelled": false,
+      "worker_id": "worker_73da631f",
+      "x_correlation_id": "3546f209-2751-406f-83e5-23b93d9dbd77",
+      "x_request_id": "03109adc-b279-4c0e-ae3f-12aa8e9141bc"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 88354
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "1d8a2c1d4dc1f585337036c6ad60e1ce5eb3",
+      "credit_issued_ns": 1791292090098711416,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292129646387106,
+      "request_end_ns": 1791292129646457906,
+      "request_start_ns": 1791292090099997633,
+      "root_correlation_id": "28d8a865-a982-42df-a691-6aecaace5b73",
+      "session_num": 1655,
+      "source_kind": "weka_main",
+      "source_outer_idx": 102,
+      "source_trace_id": "1d8a2c1d4dc1f585337036c6ad60e1ce5eb3",
+      "turn_index": 100,
+      "was_cancelled": false,
+      "worker_id": "worker_e1e4a7e6",
+      "x_correlation_id": "28d8a865-a982-42df-a691-6aecaace5b73",
+      "x_request_id": "a2ada851-b37f-4618-966d-158d4f514b4d"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 361893
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3c1fbf5cf98484c7f9ef07f2d4b00e65d829",
+      "credit_issued_ns": 1791292103944722755,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791292129646690143,
+      "request_end_ns": 1791292129646744773,
+      "request_start_ns": 1791292103945395218,
+      "root_correlation_id": "d51dd7fe-a5fd-4532-a5e8-830f10ec006d",
+      "session_num": 1688,
+      "source_kind": "weka_main",
+      "source_outer_idx": 23,
+      "source_trace_id": "3c1fbf5cf98484c7f9ef07f2d4b00e65d829",
+      "turn_index": 19,
+      "was_cancelled": false,
+      "worker_id": "worker_1dae14c7",
+      "x_correlation_id": "d51dd7fe-a5fd-4532-a5e8-830f10ec006d",
+      "x_request_id": "4dbffc25-13b0-4620-8cee-cd8b003f171d"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 93555
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "2af7f718cc9974b522a7e4864aac085e5288",
+      "credit_issued_ns": 1791292108654527281,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_bb507f71",
+      "request_ack_ns": 1791292129647336606,
+      "request_end_ns": 1791292129647382626,
+      "request_start_ns": 1791292108655617190,
+      "root_correlation_id": "8c62f13c-1233-498f-9871-538143667d16",
+      "session_num": 1704,
+      "source_kind": "weka_main",
+      "source_outer_idx": 42,
+      "source_trace_id": "2af7f718cc9974b522a7e4864aac085e5288",
+      "turn_index": 42,
+      "was_cancelled": false,
+      "worker_id": "worker_8ded194d",
+      "x_correlation_id": "8c62f13c-1233-498f-9871-538143667d16",
+      "x_request_id": "29fcfe36-f143-4b85-ac21-303aa9a9307f"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 162775
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3e38b72653e23622c6b15d8ca43aeb167917",
+      "credit_issued_ns": 1791292129686483252,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292133146276537,
+      "request_end_ns": 1791292133146366816,
+      "request_start_ns": 1791292129687188605,
+      "root_correlation_id": "08d5e39b-ab7f-46b9-9fe8-bbad25c04ec6",
+      "session_num": 1753,
+      "source_kind": "weka_main",
+      "source_outer_idx": 3,
+      "source_trace_id": "3e38b72653e23622c6b15d8ca43aeb167917",
+      "turn_index": 3,
+      "was_cancelled": false,
+      "worker_id": "worker_61675a33",
+      "x_correlation_id": "08d5e39b-ab7f-46b9-9fe8-bbad25c04ec6",
+      "x_request_id": "fba105be-8cbb-4b44-a92c-63400d4a24ab"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 53125
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "162d6f4f741a1cf3ce98acb5e3718c3bc0c7::fa:010",
+      "credit_issued_ns": 1791292130746589833,
+      "parent_correlation_id": "7ac51f37-76c6-4789-862a-69269d303f91",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791292172501663442,
+      "request_end_ns": 1791292172501721071,
+      "request_start_ns": 1791292130805951995,
+      "root_correlation_id": "7ac51f37-76c6-4789-862a-69269d303f91",
+      "session_num": 1759,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 582,
+      "source_trace_id": "162d6f4f741a1cf3ce98acb5e3718c3bc0c7",
+      "turn_index": 267,
+      "was_cancelled": false,
+      "worker_id": "worker_1dae14c7",
+      "x_correlation_id": "e5867e99-5b68-4cf8-b0bb-f0a397809903",
+      "x_request_id": "11d5a9c6-e511-4d69-97f6-1ac85b3ff479"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 604761
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "2a4f3506ac5efa421d361390686f34c038e7",
+      "credit_issued_ns": 1791292132592502128,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_5eeeb7ae",
+      "request_ack_ns": 1791292181757061273,
+      "request_end_ns": 1791292181757137722,
+      "request_start_ns": 1791292132593628326,
+      "root_correlation_id": "94b8fa93-e299-4861-9a87-36a7dd3561a4",
+      "session_num": 1763,
+      "source_kind": "weka_main",
+      "source_outer_idx": 36,
+      "source_trace_id": "2a4f3506ac5efa421d361390686f34c038e7",
+      "turn_index": 36,
+      "was_cancelled": false,
+      "worker_id": "worker_5c3ecdff",
+      "x_correlation_id": "94b8fa93-e299-4861-9a87-36a7dd3561a4",
+      "x_request_id": "d520cd1d-0d8a-4495-80d4-0732833fef61"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 137370
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3e119fc3136975fe98cfc7fa73500d6574a0",
+      "credit_issued_ns": 1791292145897747929,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791292182864728021,
+      "request_end_ns": 1791292182865174336,
+      "request_start_ns": 1791292145898548151,
+      "root_correlation_id": "3546f209-2751-406f-83e5-23b93d9dbd77",
+      "session_num": 1795,
+      "source_kind": "weka_main",
+      "source_outer_idx": 15,
+      "source_trace_id": "3e119fc3136975fe98cfc7fa73500d6574a0",
+      "turn_index": 15,
+      "was_cancelled": false,
+      "worker_id": "worker_73da631f",
+      "x_correlation_id": "3546f209-2751-406f-83e5-23b93d9dbd77",
+      "x_request_id": "bb70b79d-a908-4d04-856b-17cf64070061"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 98348
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0ede42538334da8586bc60008762abfc0ab7::sa:subagent_005_cfe2b529",
+      "credit_issued_ns": 1791292151016916434,
+      "parent_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_4598441e",
+      "request_ack_ns": 1791292182876358988,
+      "request_end_ns": 1791292182876609545,
+      "request_start_ns": 1791292151017707075,
+      "root_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "session_num": 1812,
+      "source_inner_idx": 7,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 21,
+      "source_trace_id": "0ede42538334da8586bc60008762abfc0ab7",
+      "turn_index": 7,
+      "was_cancelled": false,
+      "worker_id": "worker_8ad0ad7b",
+      "x_correlation_id": "e1aa386f-2441-41fe-80a5-a78bb58e130d",
+      "x_request_id": "715a4489-6084-40fc-a2a1-eeb8d6cc5b4d"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 53717
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "47a89e30bcdf1bc8002a026ad7ebfc914766",
+      "credit_issued_ns": 1791292156306512204,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_01fe731e",
+      "request_ack_ns": 1791292183163802816,
+      "request_end_ns": 1791292183163916824,
+      "request_start_ns": 1791292156307307096,
+      "root_correlation_id": "b57233c4-a526-4233-9c8e-02e9df8c2b9b",
+      "session_num": 1827,
+      "source_kind": "weka_main",
+      "source_outer_idx": 6,
+      "source_trace_id": "47a89e30bcdf1bc8002a026ad7ebfc914766",
+      "turn_index": 6,
+      "was_cancelled": false,
+      "worker_id": "worker_3ef072f2",
+      "x_correlation_id": "b57233c4-a526-4233-9c8e-02e9df8c2b9b",
+      "x_request_id": "c2532691-d25b-4f8e-acd6-5e64d49d2149"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 63686
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "38f9148d19708a1c29ed7c8505f1b82083aa::sa:subagent_002_e142b077",
+      "credit_issued_ns": 1791292191610194358,
+      "parent_correlation_id": "e9787ba9-1b63-4908-9362-a779d9dc0ea0",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_01fe731e",
+      "request_ack_ns": 1791292193773941539,
+      "request_end_ns": 1791292193773983819,
+      "request_start_ns": 1791292191611061469,
+      "root_correlation_id": "e9787ba9-1b63-4908-9362-a779d9dc0ea0",
+      "session_num": 1907,
+      "source_inner_idx": 7,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 9,
+      "source_trace_id": "38f9148d19708a1c29ed7c8505f1b82083aa",
+      "turn_index": 7,
+      "was_cancelled": false,
+      "worker_id": "worker_519c5a2d",
+      "x_correlation_id": "f4410923-3309-4fde-8837-1e12d9966f3d",
+      "x_request_id": "eca06866-5200-4075-bb7b-3fa1d8a1334e"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 79515
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "38f9148d19708a1c29ed7c8505f1b82083aa::sa:subagent_002_e142b077",
+      "credit_issued_ns": 1791292195185278793,
+      "parent_correlation_id": "e9787ba9-1b63-4908-9362-a779d9dc0ea0",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791292195988403414,
+      "request_end_ns": 1791292195988442053,
+      "request_start_ns": 1791292195186065405,
+      "root_correlation_id": "e9787ba9-1b63-4908-9362-a779d9dc0ea0",
+      "session_num": 1915,
+      "source_inner_idx": 8,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 9,
+      "source_trace_id": "38f9148d19708a1c29ed7c8505f1b82083aa",
+      "turn_index": 8,
+      "was_cancelled": false,
+      "worker_id": "worker_519c5a2d",
+      "x_correlation_id": "f4410923-3309-4fde-8837-1e12d9966f3d",
+      "x_request_id": "e55dbee2-5f58-4474-a3af-24ebaa27f009"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 88408
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0ede42538334da8586bc60008762abfc0ab7::sa:subagent_005_cfe2b529",
+      "credit_issued_ns": 1791292201187251255,
+      "parent_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_bb507f71",
+      "request_ack_ns": 1791292203950075466,
+      "request_end_ns": 1791292203950185385,
+      "request_start_ns": 1791292201188304024,
+      "root_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "session_num": 1931,
+      "source_inner_idx": 11,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 21,
+      "source_trace_id": "0ede42538334da8586bc60008762abfc0ab7",
+      "turn_index": 11,
+      "was_cancelled": false,
+      "worker_id": "worker_8ad0ad7b",
+      "x_correlation_id": "e1aa386f-2441-41fe-80a5-a78bb58e130d",
+      "x_request_id": "6e407d16-34eb-4e20-9633-33f6247a103c"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 54627
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "4b433e21f63822412e0f27d5473da9ea1322",
+      "credit_issued_ns": 1791292204873704231,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_bb507f71",
+      "request_ack_ns": 1791292206776873580,
+      "request_end_ns": 1791292206777074338,
+      "request_start_ns": 1791292204874674691,
+      "root_correlation_id": "e2aec77e-718e-4f2a-9f2b-4f326e2e7779",
+      "session_num": 1939,
+      "source_kind": "weka_main",
+      "source_outer_idx": 6,
+      "source_trace_id": "4b433e21f63822412e0f27d5473da9ea1322",
+      "turn_index": 6,
+      "was_cancelled": false,
+      "worker_id": "worker_787ed45d",
+      "x_correlation_id": "e2aec77e-718e-4f2a-9f2b-4f326e2e7779",
+      "x_request_id": "83461790-54ae-48af-aa81-a0474c01a9a1"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 59524
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0ede42538334da8586bc60008762abfc0ab7::sa:subagent_004_98336eba",
+      "credit_issued_ns": 1791292259987082901,
+      "parent_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292301946835009,
+      "request_end_ns": 1791292301946899698,
+      "request_start_ns": 1791292259987835303,
+      "root_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "session_num": 2093,
+      "source_inner_idx": 15,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 20,
+      "source_trace_id": "0ede42538334da8586bc60008762abfc0ab7",
+      "turn_index": 15,
+      "was_cancelled": false,
+      "worker_id": "worker_8ad0ad7b",
+      "x_correlation_id": "412236cb-b582-4ca9-baae-849b14571ccd",
+      "x_request_id": "12aba8f4-04e6-4ac9-bd0f-40c7784c5eba"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 54902
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3b1ee678c29a1a23e4a74d67354731cc27f3::sa:subagent_001_9a71a441",
+      "credit_issued_ns": 1791292278028435480,
+      "parent_correlation_id": "f00e6226-e123-4a4e-8a1f-038c1836a2d3",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_01fe731e",
+      "request_ack_ns": 1791292311938117734,
+      "request_end_ns": 1791292311938156724,
+      "request_start_ns": 1791292278029109343,
+      "root_correlation_id": "f00e6226-e123-4a4e-8a1f-038c1836a2d3",
+      "session_num": 2143,
+      "source_inner_idx": 15,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 7,
+      "source_trace_id": "3b1ee678c29a1a23e4a74d67354731cc27f3",
+      "turn_index": 15,
+      "was_cancelled": false,
+      "worker_id": "worker_011de85c",
+      "x_correlation_id": "1955d668-fa02-418f-a62c-18e979871eec",
+      "x_request_id": "92cd20e3-42e8-4925-a399-fbc1e5debf8d"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 80627
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0ede42538334da8586bc60008762abfc0ab7::sa:subagent_006_227ebcb4",
+      "credit_issued_ns": 1791292303654545443,
+      "parent_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292311938586260,
+      "request_end_ns": 1791292311938659079,
+      "request_start_ns": 1791292303655661402,
+      "root_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "session_num": 2214,
+      "source_inner_idx": 21,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 22,
+      "source_trace_id": "0ede42538334da8586bc60008762abfc0ab7",
+      "turn_index": 21,
+      "was_cancelled": false,
+      "worker_id": "worker_8ad0ad7b",
+      "x_correlation_id": "934986f5-8dc5-40ef-8e2b-dae7aac6819c",
+      "x_request_id": "11274cdf-15b6-4950-bae4-49c86741656c"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 63887
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0ede42538334da8586bc60008762abfc0ab7::sa:subagent_006_227ebcb4",
+      "credit_issued_ns": 1791292312914007488,
+      "parent_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791292350830846637,
+      "request_end_ns": 1791292350830951986,
+      "request_start_ns": 1791292312915015388,
+      "root_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "session_num": 2239,
+      "source_inner_idx": 22,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 22,
+      "source_trace_id": "0ede42538334da8586bc60008762abfc0ab7",
+      "turn_index": 22,
+      "was_cancelled": false,
+      "worker_id": "worker_8ad0ad7b",
+      "x_correlation_id": "934986f5-8dc5-40ef-8e2b-dae7aac6819c",
+      "x_request_id": "d127714d-98c5-46b8-9924-72b3bd191519"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 64657
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "3b1ee678c29a1a23e4a74d67354731cc27f3::sa:subagent_001_9a71a441",
+      "credit_issued_ns": 1791292321881953254,
+      "parent_correlation_id": "f00e6226-e123-4a4e-8a1f-038c1836a2d3",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_bb507f71",
+      "request_ack_ns": 1791292350832120254,
+      "request_end_ns": 1791292350832194904,
+      "request_start_ns": 1791292321882794345,
+      "root_correlation_id": "f00e6226-e123-4a4e-8a1f-038c1836a2d3",
+      "session_num": 2263,
+      "source_inner_idx": 16,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 7,
+      "source_trace_id": "3b1ee678c29a1a23e4a74d67354731cc27f3",
+      "turn_index": 16,
+      "was_cancelled": false,
+      "worker_id": "worker_011de85c",
+      "x_correlation_id": "1955d668-fa02-418f-a62c-18e979871eec",
+      "x_request_id": "2433f527-6a62-4905-9daf-6c0aed651aa1"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 95851
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "1a271af3dedd40be2efd413ef35fe7f0f53b::fa:001",
+      "credit_issued_ns": 1791292338039450361,
+      "parent_correlation_id": "77314b85-bf9d-4f0f-9f2a-b6dc2d88a473",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_b4f21439",
+      "request_ack_ns": 1791292351151964334,
+      "request_end_ns": 1791292351152013484,
+      "request_start_ns": 1791292338040644229,
+      "root_correlation_id": "77314b85-bf9d-4f0f-9f2a-b6dc2d88a473",
+      "session_num": 2319,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 107,
+      "source_trace_id": "1a271af3dedd40be2efd413ef35fe7f0f53b",
+      "turn_index": 31,
+      "was_cancelled": false,
+      "worker_id": "worker_11be271b",
+      "x_correlation_id": "6cd37674-a64e-4720-aaca-4e7be7a9fb01",
+      "x_request_id": "0b667140-d198-4116-aa41-3db83616b8a2"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 254796
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "11310dce936f02050cadaeae295bcdd1ce7f",
+      "credit_issued_ns": 1791292285749894504,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_4598441e",
+      "request_ack_ns": 1791292351771946005,
+      "request_end_ns": 1791292351772041704,
+      "request_start_ns": 1791292285752327819,
+      "root_correlation_id": "279f38aa-67b2-414d-847e-a1a42badcb5e",
+      "session_num": 2164,
+      "source_kind": "weka_main",
+      "source_outer_idx": 272,
+      "source_trace_id": "11310dce936f02050cadaeae295bcdd1ce7f",
+      "turn_index": 268,
+      "was_cancelled": false,
+      "worker_id": "worker_d9eb836a",
+      "x_correlation_id": "279f38aa-67b2-414d-847e-a1a42badcb5e",
+      "x_request_id": "6b747222-63e9-431c-ad28-9c5a0913b5ed"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 688139
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "0ede42538334da8586bc60008762abfc0ab7::sa:subagent_006_227ebcb4",
+      "credit_issued_ns": 1791292351809882569,
+      "parent_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_d8e6c188",
+      "request_ack_ns": 1791292354005796407,
+      "request_end_ns": 1791292354005898536,
+      "request_start_ns": 1791292351810654541,
+      "root_correlation_id": "70ba3204-8f69-4237-9439-baf2c8c3d89a",
+      "session_num": 2344,
+      "source_inner_idx": 23,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 22,
+      "source_trace_id": "0ede42538334da8586bc60008762abfc0ab7",
+      "turn_index": 23,
+      "was_cancelled": false,
+      "worker_id": "worker_8ad0ad7b",
+      "x_correlation_id": "934986f5-8dc5-40ef-8e2b-dae7aac6819c",
+      "x_request_id": "9a54b8a0-7419-4872-b474-d635e07f0c45"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 64789
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "48f9644a9b17cade09142b3d8f964bea35be::sa:subagent_005_5cd6582c",
+      "credit_issued_ns": 1791292321345092525,
+      "parent_correlation_id": "cc9a16b1-9821-4f81-ae0c-91785c039fe6",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_01fe731e",
+      "request_ack_ns": 1791292358290842323,
+      "request_end_ns": 1791292358290989131,
+      "request_start_ns": 1791292321345615050,
+      "root_correlation_id": "cc9a16b1-9821-4f81-ae0c-91785c039fe6",
+      "session_num": 2261,
+      "source_inner_idx": 2,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 12,
+      "source_trace_id": "48f9644a9b17cade09142b3d8f964bea35be",
+      "turn_index": 2,
+      "was_cancelled": false,
+      "worker_id": "worker_61675a33",
+      "x_correlation_id": "453bdb25-8ae0-4d76-a982-5cd1e4f4cdc7",
+      "x_request_id": "6ea0ceba-da17-459a-955a-f796276a69de"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 51261
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "48f9644a9b17cade09142b3d8f964bea35be::sa:subagent_005_5cd6582c",
+      "credit_issued_ns": 1791292359002317591,
+      "parent_correlation_id": "cc9a16b1-9821-4f81-ae0c-91785c039fe6",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791292362720460564,
+      "request_end_ns": 1791292362720502804,
+      "request_start_ns": 1791292359003111443,
+      "root_correlation_id": "cc9a16b1-9821-4f81-ae0c-91785c039fe6",
+      "session_num": 2357,
+      "source_inner_idx": 3,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 12,
+      "source_trace_id": "48f9644a9b17cade09142b3d8f964bea35be",
+      "turn_index": 3,
+      "was_cancelled": false,
+      "worker_id": "worker_61675a33",
+      "x_correlation_id": "453bdb25-8ae0-4d76-a982-5cd1e4f4cdc7",
+      "x_request_id": "0846229e-dec0-4546-a9ce-d859f245c797"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 52799
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "48f9644a9b17cade09142b3d8f964bea35be::sa:subagent_002_9af4bd2e",
+      "credit_issued_ns": 1791292369994446066,
+      "parent_correlation_id": "cc9a16b1-9821-4f81-ae0c-91785c039fe6",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_01fe731e",
+      "request_ack_ns": 1791292371477130654,
+      "request_end_ns": 1791292371477298612,
+      "request_start_ns": 1791292369995087369,
+      "root_correlation_id": "cc9a16b1-9821-4f81-ae0c-91785c039fe6",
+      "session_num": 2389,
+      "source_inner_idx": 5,
+      "source_kind": "weka_subagent",
+      "source_outer_idx": 9,
+      "source_trace_id": "48f9644a9b17cade09142b3d8f964bea35be",
+      "turn_index": 5,
+      "was_cancelled": false,
+      "worker_id": "worker_61675a33",
+      "x_correlation_id": "172ce8d5-6452-4fb0-9005-2aa6fa093381",
+      "x_request_id": "7ee0cf02-7923-44d8-8f02-261f09480602"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 56076
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "2a4f3506ac5efa421d361390686f34c038e7",
+      "credit_issued_ns": 1791292365914303822,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791292422874479635,
+      "request_end_ns": 1791292422874553875,
+      "request_start_ns": 1791292365915408680,
+      "root_correlation_id": "94b8fa93-e299-4861-9a87-36a7dd3561a4",
+      "session_num": 2378,
+      "source_kind": "weka_main",
+      "source_outer_idx": 43,
+      "source_trace_id": "2a4f3506ac5efa421d361390686f34c038e7",
+      "turn_index": 43,
+      "was_cancelled": false,
+      "worker_id": "worker_5c3ecdff",
+      "x_correlation_id": "94b8fa93-e299-4861-9a87-36a7dd3561a4",
+      "x_request_id": "ebe85925-56bb-4d9f-b95b-600fbb839221"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 158634
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 1,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "13b532ee3aaa0a52b05c3bcc472355ab62b4::fa:000",
+      "credit_issued_ns": 1791292378871718676,
+      "parent_correlation_id": "ab91c6ab-921d-4dc8-8afe-9d7d765620eb",
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_a0bda963",
+      "request_ack_ns": 1791292426517062089,
+      "request_end_ns": 1791292426517113169,
+      "request_start_ns": 1791292378886541464,
+      "root_correlation_id": "ab91c6ab-921d-4dc8-8afe-9d7d765620eb",
+      "session_num": 2415,
+      "source_kind": "weka_flat",
+      "source_outer_idx": 124,
+      "source_trace_id": "13b532ee3aaa0a52b05c3bcc472355ab62b4",
+      "turn_index": 43,
+      "was_cancelled": false,
+      "worker_id": "worker_d9eb836a",
+      "x_correlation_id": "63278fa9-d713-4df6-8550-95775b1b3c1f",
+      "x_request_id": "38abdf1d-a893-46c0-83a5-b6ed8c47ed98"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 341111
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "profiling",
+      "context_overflow_skip": false,
+      "conversation_id": "476c26ca73449a2c6bf284d0082765620665",
+      "credit_issued_ns": 1791292406056839756,
+      "phase_index": 0,
+      "phase_kind": "profiling",
+      "phase_name": "profiling",
+      "profiling_index": 0,
+      "record_processor_id": "record_processor_cfdacfaa",
+      "request_ack_ns": 1791292440955960343,
+      "request_end_ns": 1791292440956329469,
+      "request_start_ns": 1791292406057761417,
+      "root_correlation_id": "3dfeca13-1967-4d31-a050-76d66f41abcd",
+      "session_num": 2490,
+      "source_kind": "weka_main",
+      "source_outer_idx": 21,
+      "source_trace_id": "476c26ca73449a2c6bf284d0082765620665",
+      "turn_index": 21,
+      "was_cancelled": false,
+      "worker_id": "worker_37c74e87",
+      "x_correlation_id": "3dfeca13-1967-4d31-a050-76d66f41abcd",
+      "x_request_id": "3f0b4f6d-63ca-443d-b298-79d0af824025"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 118118
+      }
+    }
+  }
+]

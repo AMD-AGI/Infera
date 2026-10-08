@@ -1,0 +1,17 @@
+rail_policy,wave_offset,source_gpu,destination_gpu,numa_class,device_filter,passed,verified,gb_s,gib,cqe_error_12,retry_exhausted,wave_req_tx_retry_excd_err,wave_tx_rdma_ack_timeout,wave_counter_snapshot_complete,reason
+auto,0,0,0,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,34.2,1911.0,0,0,0,0,True,
+auto,0,1,1,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,34.2,1911.0,0,0,0,0,True,
+auto,0,2,2,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,34.32,1918.0,0,0,0,0,True,
+auto,0,3,3,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,34.19,1911.0,0,0,0,0,True,
+auto,0,4,4,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,35.37,1977.0,0,0,0,0,True,
+auto,0,5,5,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,31.9,1783.0,0,0,0,0,True,
+auto,0,6,6,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,35.37,1977.0,0,0,0,0,True,
+auto,0,7,7,same-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",True,True,37.19,2079.0,0,0,0,0,True,
+auto,4,0,4,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,19.38,1083.0,0,0,0,22578,True,wave HCA hard-counter gate failed
+auto,4,1,5,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.89,1000.0,0,0,0,22578,True,wave HCA hard-counter gate failed
+auto,4,2,6,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.3,1023.0,0,0,0,22578,True,wave HCA hard-counter gate failed
+auto,4,3,7,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,18.51,1035.0,0,0,0,22578,True,wave HCA hard-counter gate failed
+auto,4,4,0,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.74,992.0,0,0,0,22578,True,wave HCA hard-counter gate failed
+auto,4,5,1,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,17.62,985.0,0,0,0,22578,True,wave HCA hard-counter gate failed
+auto,4,6,2,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,19.89,1112.0,0,0,0,22578,True,wave HCA hard-counter gate failed
+auto,4,7,3,cross-numa,"ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",False,True,20.82,1164.0,0,0,0,22578,True,wave HCA hard-counter gate failed
