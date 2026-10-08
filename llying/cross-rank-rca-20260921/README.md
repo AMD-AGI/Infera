@@ -24,9 +24,9 @@ Router rank affinity、应用层重试、CPU/GPU staging 均不作为修复。
 
 `config/config.rca.p8d8.sh` 在加载 packup P8D8 配置前固定所有差异，并在加载后
 检查有效值；`config/config.rca-fix.p8d8.sh` 只把镜像换成修复镜像。
-节点对由 `RCA_PREFILL_NODE` 选择：默认 `crsuse2-m2m-137`（topology
-`config/topology.rca.tsv`），`crsuse2-m2m-138` 对应 09-21 的节点对（topology
-`config/topology.rca-138-136.tsv`）；配置会导出所选的 `RCA_TOPOLOGY`。Python 工具通过
+节点对由 `RCA_PREFILL_NODE` / `RCA_DECODE_NODE` 选择，默认 137→136（topology
+`config/topology.rca.tsv`），其它节点对用 `config/topology.rca-<P>-<D>.tsv`
+（已有 138→136、136→138）；配置会导出所选的 `RCA_TOPOLOGY`。Python 工具通过
 `scripts/rca_nodes.py` 读取同一节点对和镜像（`RCA_PREFILL_NODE`、
 `RCA_DECODE_NODE`、`RCA_IMAGE`、`RCA_IMAGE_ID`，配置文件会导出它们）。
 `run_reproduction.sh` 的 HCA 计数器采样间隔由 `RCA_COUNTER_INTERVAL` 设定，默认 10 秒。
@@ -51,7 +51,7 @@ Router rank affinity、应用层重试、CPU/GPU staging 均不作为修复。
 
 ## 运行顺序
 
-长任务都在 137 上用 `setsid nohup` 运行，日志写在本目录。节点上可能有其它
+长任务都在 Prefill 节点上用 `setsid nohup` 运行，日志写在本目录。节点上可能有其它
 用户的容器：`scripts/clear_nodes.sh` 会停止所有占用 GPU 的容器，未经明确授权
 不得运行；开跑前只用 `docker ps` 和 `rocm-smi` 确认节点空闲。
 
@@ -67,12 +67,18 @@ CONFIG="$ROOT/config/config.rca-fix.p8d8.sh" bash "$ROOT/scripts/run_reproductio
 
 # 结束后只删除本实验容器
 source "$ROOT/config/config.rca.p8d8.sh"
-bash "$BENCH_DIR/stop.sh" "RCA_PREFILL_NODE=$PREFILL_NODE" \
+bash "$BENCH_DIR/stop.sh" "RCA_PREFILL_NODE=$PREFILL_NODE" "RCA_DECODE_NODE=$DECODE_NODE" \
   "CONFIG=$ROOT/config/config.rca.p8d8.sh" "TOPOLOGY=$RCA_TOPOLOGY"
+
+# 无人值守连续运行（在 Prefill 节点上），每轮前检查空闲与镜像、跑完 stop 并等显存释放
+RCA_PREFILL_NODE=crsuse2-m2m-136 RCA_DECODE_NODE=crsuse2-m2m-138 RCA_COUNTER_INTERVAL=1 \
+  setsid nohup bash "$ROOT/scripts/run_fix_chain.sh" config.rca-fix.p8d8.sh:fix-06 \
+  > "$ROOT/operations/<name>-chain.log" 2>&1 < /dev/null &
 ```
 
 新镜像第一次启动前，把两节点的 `/tmp/aiter-jit-$(id -u)/<基底 image ID>`
-复制到 `<新 image ID>` 目录，否则 AITER JIT 冷编译会拖长启动。
+复制到 `<新 image ID>` 目录，否则 AITER JIT 冷编译会拖长启动（`run_fix_chain.sh`
+会自动做）。stop.sh 在 136 上返回 1 是平台 `gpuagent` 持有 KFD 上下文（0 显存），无害。
 
 必须先检查 `live-config.json`。任何 run 出现 CQE12、retry exhausted、ACK timeout、
 byte mismatch 或 worker fatal error，都先保存现场，不得直接重跑覆盖。

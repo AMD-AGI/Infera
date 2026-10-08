@@ -36,7 +36,7 @@ python3 "$ROOT/scripts/capture_hca_counters.py" "$COUNTERS/before.json" \
 
 echo "launching RCA service: $RUN_ID"
 ssh -o BatchMode=yes "$PREFILL_NODE" \
-    bash "$BENCH_DIR/launch.sh" "RCA_PREFILL_NODE=$PREFILL_NODE" \
+    bash "$BENCH_DIR/launch.sh" "RCA_PREFILL_NODE=$PREFILL_NODE" "RCA_DECODE_NODE=$DECODE_NODE" \
     "CONFIG=$CONFIG" "TOPOLOGY=$TOPOLOGY" "OUT_DIR=$LAUNCH" \
     2>&1 | tee "$LOGS/launch-console.log"
 launch_rc=${PIPESTATUS[0]}
