@@ -1,0 +1,2 @@
+    Checking infera-router v0.1.0 (/home/liyingli/code/bench_agentx/pr-session-affinity/rust/router)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.26s

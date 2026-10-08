@@ -1,0 +1,480 @@
+{
+  "saved_utc": "2026-10-08T09:38:56.416905+00:00",
+  "base_sha": "ff75ec65aea83dc79498f1825f6e84f0d9c4c9ce",
+  "prs": [
+    {
+      "baseRefName": "main",
+      "headRefName": "feat/pd-prefill-completion-release",
+      "headRefOid": "8655e23693c48552c04725f6a92b65f1290251dc",
+      "number": 185,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:31:44Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113244451428",
+          "name": "changes",
+          "startedAt": "2026-10-08T09:31:32Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:31:46Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167589/job/113244450975",
+          "name": "dco",
+          "startedAt": "2026-10-08T09:31:30Z",
+          "status": "COMPLETED",
+          "workflowName": "DCO"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:31:33Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113244450991",
+          "name": "e2e_gate",
+          "startedAt": "2026-10-08T09:31:30Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:32:45Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113244800594",
+          "name": "lint",
+          "startedAt": "2026-10-08T09:32:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:35:52Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203172",
+          "name": "unit",
+          "startedAt": "2026-10-08T09:33:27Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:36:28Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203134",
+          "name": "rust",
+          "startedAt": "2026-10-08T09:33:27Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203133",
+          "name": "engine",
+          "startedAt": "2026-10-08T09:32:46Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203177",
+          "name": "e2e-mixed (vllm)",
+          "startedAt": "2026-10-08T09:32:46Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203247",
+          "name": "e2e-mixed (sglang)",
+          "startedAt": "2026-10-08T09:32:46Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203180",
+          "name": "e2e-mixed (atom)",
+          "startedAt": "2026-10-08T09:32:46Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203383",
+          "name": "e2e-disag (vllm)",
+          "startedAt": "2026-10-08T09:32:46Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203241",
+          "name": "e2e-disag (sglang)",
+          "startedAt": "2026-10-08T09:32:46Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203165",
+          "name": "e2e-disag (atom)",
+          "startedAt": "2026-10-08T09:32:46Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:34:11Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757167547/job/113245203122",
+          "name": "unit-torch-cpu",
+          "startedAt": "2026-10-08T09:33:27Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "StatusContext",
+          "context": "docs/readthedocs.com:advanced-micro-devices-infera",
+          "startedAt": "2026-10-08T09:32:22Z",
+          "state": "SUCCESS",
+          "targetUrl": "https://advanced-micro-devices-demo--185.com.readthedocs.build/projects/infera/en/185/"
+        }
+      ],
+      "title": "feat(router): release prefill load independently on completion",
+      "url": "https://github.com/AMD-AGI/Infera/pull/185"
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "feat/router-session-affinity",
+      "headRefOid": "5577d83e656667e126feed166e669a678c471586",
+      "number": 186,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:37:47Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113246869641",
+          "name": "changes",
+          "startedAt": "2026-10-08T09:37:35Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:37:46Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896153/job/113246870991",
+          "name": "dco",
+          "startedAt": "2026-10-08T09:37:35Z",
+          "status": "COMPLETED",
+          "workflowName": "DCO"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:37:37Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113246870066",
+          "name": "e2e_gate",
+          "startedAt": "2026-10-08T09:37:35Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:38:42Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247133403",
+          "name": "lint",
+          "startedAt": "2026-10-08T09:38:18Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499562",
+          "name": "unit",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499606",
+          "name": "rust",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499647",
+          "name": "engine",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499662",
+          "name": "e2e-mixed (vllm)",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499871",
+          "name": "e2e-mixed (sglang)",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499664",
+          "name": "e2e-mixed (atom)",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499631",
+          "name": "e2e-disag (vllm)",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499604",
+          "name": "e2e-disag (sglang)",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499624",
+          "name": "e2e-disag (atom)",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37757896075/job/113247499638",
+          "name": "unit-torch-cpu",
+          "startedAt": "2026-10-08T09:38:43Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "StatusContext",
+          "context": "docs/readthedocs.com:advanced-micro-devices-infera",
+          "startedAt": "2026-10-08T09:38:44Z",
+          "state": "SUCCESS",
+          "targetUrl": "https://advanced-micro-devices-demo--186.com.readthedocs.build/projects/infera/en/186/"
+        }
+      ],
+      "title": "feat(router): add opt-in session affinity with independent PD bindings",
+      "url": "https://github.com/AMD-AGI/Infera/pull/186"
+    },
+    {
+      "baseRefName": "main",
+      "headRefName": "feat/sglang-decode-radix-mtp",
+      "headRefOid": "7a1909a9ef030be4107a0cacc50b65c193db0f75",
+      "number": 184,
+      "state": "OPEN",
+      "statusCheckRollup": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:28:35Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243256809",
+          "name": "changes",
+          "startedAt": "2026-10-08T09:28:24Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:28:40Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806209/job/113243255333",
+          "name": "dco",
+          "startedAt": "2026-10-08T09:28:25Z",
+          "status": "COMPLETED",
+          "workflowName": "DCO"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:28:27Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243257064",
+          "name": "e2e_gate",
+          "startedAt": "2026-10-08T09:28:24Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:29:38Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243580241",
+          "name": "lint",
+          "startedAt": "2026-10-08T09:29:12Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:32:56Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975278",
+          "name": "unit",
+          "startedAt": "2026-10-08T09:30:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:33:26Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975208",
+          "name": "rust",
+          "startedAt": "2026-10-08T09:30:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975251",
+          "name": "engine",
+          "startedAt": "2026-10-08T09:29:38Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975414",
+          "name": "e2e-mixed (vllm)",
+          "startedAt": "2026-10-08T09:29:38Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975366",
+          "name": "e2e-mixed (sglang)",
+          "startedAt": "2026-10-08T09:29:38Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975286",
+          "name": "e2e-mixed (atom)",
+          "startedAt": "2026-10-08T09:29:38Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975248",
+          "name": "e2e-disag (vllm)",
+          "startedAt": "2026-10-08T09:29:38Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975288",
+          "name": "e2e-disag (sglang)",
+          "startedAt": "2026-10-08T09:29:38Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975318",
+          "name": "e2e-disag (atom)",
+          "startedAt": "2026-10-08T09:29:38Z",
+          "status": "QUEUED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "2026-10-08T09:31:03Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/AMD-AGI/Infera/actions/runs/37756806336/job/113243975358",
+          "name": "unit-torch-cpu",
+          "startedAt": "2026-10-08T09:30:21Z",
+          "status": "COMPLETED",
+          "workflowName": "CI"
+        },
+        {
+          "__typename": "StatusContext",
+          "context": "docs/readthedocs.com:advanced-micro-devices-infera",
+          "startedAt": "2026-10-08T09:28:40Z",
+          "state": "SUCCESS",
+          "targetUrl": "https://advanced-micro-devices-demo--184.com.readthedocs.build/projects/infera/en/184/"
+        }
+      ],
+      "title": "feat(sglang): opt in to decode radix cache under speculative decoding",
+      "url": "https://github.com/AMD-AGI/Infera/pull/184"
+    }
+  ]
+}

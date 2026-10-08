@@ -2,6 +2,8 @@
 
 核对日期：2026-10-08。本文独立保存本轮实验后的功能提取建议，并结合最新 main 和 open PR 更新实施范围。它是提取/评审计划，不表示这些候选已经通过主分支验收，也没有据此创建PR。
 
+后续执行更新：用户已关闭#161；本轮独立创建R1 #185、会话亲和 #186、D radix＋MTP #184。原审计表保留当时状态，实际提交和验证见 [PR工作记录](../upstream-prs-20261008/README.zh-CN.md)。
+
 主分支快照：[`ff75ec65aea83dc79498f1825f6e84f0d9c4c9ce`](https://github.com/AMD-AGI/Infera/commit/ff75ec65aea83dc79498f1825f6e84f0d9c4c9ce)。GitHub REST核对到17个open PR，已分页读取全部变更文件清单，检查相关PR描述和核心代码diff；详细PR编号、head SHA与核对时间见 [upstream-audit.json](upstream-audit.json)。结论是这个快照下的状态，未覆盖未公开分支、私下设计或未来提交；“未发现”不等于项目从未讨论过。
 
 ## 一、建议提取哪些功能

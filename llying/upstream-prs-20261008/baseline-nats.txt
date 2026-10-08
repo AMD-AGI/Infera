@@ -1,0 +1,29 @@
+   Compiling infera-router v0.1.0 (/home/liyingli/code/bench_agentx/pr-main-baseline/rust/router)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.00s
+     Running tests/kv_event_nats.rs (/tmp/infera-r234-target/debug/deps/kv_event_nats-aaadf0b60bdef483)
+
+running 4 tests
+test a_published_batch_reaches_the_cache_view ... ok
+test a_timed_out_request_cancels_the_worker ... ok
+test admission_admits_when_the_backlog_cannot_be_measured ... ok
+test the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view ... 2026-10-08T09:29:42.818310Z  INFO infera_router::kv_event: kv events (nats): tracking worker=10.0.1.1:9150 block_size=16
+2026-10-08T09:29:42.822664Z  INFO infera_router::kv_event_nats: kv events (nats): subscribed infera.kv.events.> at nats://127.0.0.1:40815
+FAILED
+
+failures:
+
+---- the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view stdout ----
+
+thread 'the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view' (654) panicked at router/tests/kv_event_nats.rs:312:5:
+assertion `left == right` failed: an empty snapshot must never clear a view that already has one
+  left: 0
+ right: 3
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    the_bucket_bootstraps_a_cold_start_without_clobbering_a_live_view
+
+test result: FAILED. 3 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s
+
+error: test failed, to rerun pass `--test kv_event_nats`
