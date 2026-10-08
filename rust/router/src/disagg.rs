@@ -206,6 +206,7 @@ async fn stream_dual(
     );
     let mut abort_unless_stream_owns_it = FireOnDrop(Some(incomplete_tx));
 
+    let tracker = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
     match open_decode(state, d, &d_url, &d_body).await {
         Ok(resp) => crate::proxy::sse_response()
             // guard drops when the decode stream ends -> on_request_finished.
@@ -219,9 +220,15 @@ async fn stream_dual(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_stream_owns_it.take(),
+                Some(tracker),
             )))
             .expect("stream response is valid"),
-        Err(msg) => json_error(StatusCode::BAD_GATEWAY, &msg),
+        Err(msg) => {
+            let mut t = tracker;
+            t.set_outcome("error");
+            t.finish();
+            json_error(StatusCode::BAD_GATEWAY, &msg)
+        }
     }
 }
 
@@ -511,6 +518,10 @@ async fn dual_nats(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_decode_owns_it.take(),
+                Some(crate::metrics::RequestTracker::start(
+                    "disagg",
+                    &d.worker.model_name,
+                )),
             ),
         ))
         .expect("stream response is valid")

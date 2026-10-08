@@ -60,6 +60,20 @@ _NAMES: dict[str, dict[EngineType, str]] = {
         EngineType.VLLM: "vllm:kv_cache_usage_perc",
         EngineType.SGLANG: "sglang:token_usage",
     },
+    "prefix_cache_hit_rate": {
+        EngineType.SGLANG: "sglang:cache_hit_rate",
+        # vLLM exposes hits/queries counters; callers derive the ratio in PromQL.
+    },
+}
+
+#: PD handoff / KV-transfer queue gauges re-exported on the frontend /metrics.
+_TRANSFER_QUEUES: dict[EngineType, tuple[tuple[str, str], ...]] = {
+    EngineType.SGLANG: (
+        ("prefill_bootstrap", "sglang:num_prefill_bootstrap_queue_reqs"),
+        ("prefill_inflight", "sglang:num_prefill_inflight_queue_reqs"),
+        ("decode_prealloc", "sglang:num_decode_prealloc_queue_reqs"),
+        ("decode_transfer", "sglang:num_decode_transfer_queue_reqs"),
+    ),
 }
 
 #: Extra per-engine gauges that also represent unfinished work, counted only
@@ -115,6 +129,177 @@ def parse_metric(text: str, name: str) -> float | None:
             continue
         found = True
     return total if found else None
+
+
+def transfer_queue_names(engine: EngineType) -> tuple[tuple[str, str], ...]:
+    """``(queue_label, exposition_name)`` pairs for PD KV-transfer queues."""
+    return _TRANSFER_QUEUES.get(engine, ())
+
+
+def mean_metric(text: str, name: str) -> float | None:
+    """Average label sets of a gauge (for per-rank fractions like cache hit rate)."""
+    total = 0.0
+    n = 0
+    for m in re.finditer(
+        rf"^{re.escape(name)}(?:\{{[^}}]*\}})?\s+([0-9.eE+-]+)\s*$", text, re.MULTILINE
+    ):
+        try:
+            total += float(m.group(1))
+        except ValueError:
+            continue
+        n += 1
+    return (total / n) if n else None
+
+
+# ----------------------------------------------------------------------
+# Frontend federation (plan A): re-export selected engine series on /metrics
+# ----------------------------------------------------------------------
+# Covers the stock "Monitoring vLLM Inference Server" panels. Histograms keep
+# their buckets so PromQL quantiles stay valid. Both old and new vLLM spellings
+# are listed because the gauge/histogram renames landed mid-flight.
+
+_HISTOGRAM_SUFFIXES = ("_bucket", "_sum", "_count", "_created")
+
+_FEDERATE_FAMILIES: dict[EngineType, frozenset[str]] = {
+    EngineType.VLLM: frozenset(
+        {
+            # E2E / TTFT / TPOT
+            "vllm:e2e_request_latency_seconds",
+            "vllm:time_to_first_token_seconds",
+            "vllm:time_per_output_token_seconds",
+            "vllm:inter_token_latency_seconds",
+            # Throughput
+            "vllm:prompt_tokens_total",
+            "vllm:prompt_tokens",
+            "vllm:generation_tokens_total",
+            "vllm:generation_tokens",
+            # Scheduler
+            "vllm:num_requests_running",
+            "vllm:num_requests_waiting",
+            "vllm:num_requests_swapped",
+            # Cache util (gpu_cache renamed to kv_cache)
+            "vllm:gpu_cache_usage_perc",
+            "vllm:kv_cache_usage_perc",
+            "vllm:cpu_cache_usage_perc",
+            # Length heatmaps
+            "vllm:request_prompt_tokens",
+            "vllm:request_generation_tokens",
+            # Finish reason
+            "vllm:request_success_total",
+            "vllm:request_success",
+            # Queue / prefill / decode / max gen
+            "vllm:request_queue_time_seconds",
+            "vllm:request_prefill_time_seconds",
+            "vllm:request_decode_time_seconds",
+            "vllm:request_max_num_generation_tokens",
+        }
+    ),
+    EngineType.SGLANG: frozenset(
+        {
+            "sglang:num_running_reqs",
+            "sglang:num_queue_reqs",
+            "sglang:token_usage",
+            "sglang:cache_hit_rate",
+            "sglang:num_prefill_bootstrap_queue_reqs",
+            "sglang:num_prefill_inflight_queue_reqs",
+            "sglang:num_decode_prealloc_queue_reqs",
+            "sglang:num_decode_transfer_queue_reqs",
+            # Present on recent SGLang builds with --enable-metrics.
+            "sglang:time_to_first_token_seconds",
+            "sglang:e2e_request_latency_seconds",
+            "sglang:inter_token_latency_seconds",
+            "sglang:prompt_tokens_total",
+            "sglang:generation_tokens_total",
+            "sglang:num_used_tokens",
+        }
+    ),
+}
+
+_SAMPLE_LINE = re.compile(r"^([a-zA-Z_:][a-zA-Z0-9_:]*)(\{[^}]*\})?\s+(.+)$")
+
+
+def _metric_family(name: str) -> str:
+    """Strip Prometheus histogram/summary suffixes to the family base name."""
+    for suffix in _HISTOGRAM_SUFFIXES:
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+
+def _escape_label_value(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("\n", "\\n").replace('"', '\\"')
+
+
+def _inject_labels(sample_line: str, extra: dict[str, str]) -> str:
+    """Add labels to one Prometheus sample line; existing keys are left alone."""
+    m = _SAMPLE_LINE.match(sample_line)
+    if not m:
+        return sample_line
+    name, label_block, rest = m.group(1), m.group(2), m.group(3)
+    existing: set[str] = set()
+    if label_block:
+        for key in re.findall(r'([a-zA-Z_][a-zA-Z0-9_]*)="', label_block):
+            existing.add(key)
+    additions = [f'{k}="{_escape_label_value(v)}"' for k, v in extra.items() if k not in existing]
+    if not additions:
+        return sample_line
+    if label_block:
+        inner = label_block[1:-1]
+        new_block = "{" + (inner + "," if inner else "") + ",".join(additions) + "}"
+    else:
+        new_block = "{" + ",".join(additions) + "}"
+    return f"{name}{new_block} {rest}"
+
+
+def federate_engine_metrics(
+    text: str,
+    *,
+    worker_id: str,
+    engine: str | EngineType,
+) -> str:
+    """Filter allowlisted engine series and stamp ``worker_id`` / ``engine``.
+
+    Used by the frontend ``/metrics`` handler so a single Prometheus scrape of
+    the router sees the engine panels (scheduler, KV cache, queue/prefill
+    times, finish reason, …) without scraping every worker.
+    """
+    if isinstance(engine, EngineType):
+        eng = engine
+        eng_label = engine.value
+    else:
+        try:
+            eng = EngineType(engine)
+        except ValueError:
+            return ""
+        eng_label = eng.value
+    families = _FEDERATE_FAMILIES.get(eng)
+    if not families or not text:
+        return ""
+
+    extra = {"worker_id": worker_id, "engine": eng_label}
+    out: list[str] = []
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        if not line:
+            continue
+        if line.startswith("#"):
+            # `# HELP name ...` / `# TYPE name ...`
+            parts = line.split(None, 3)
+            if len(parts) < 3:
+                continue
+            name = parts[2]
+            if _metric_family(name) in families:
+                out.append(line)
+            continue
+        m = _SAMPLE_LINE.match(line)
+        if not m:
+            continue
+        if _metric_family(m.group(1)) not in families:
+            continue
+        out.append(_inject_labels(line, extra))
+    if not out:
+        return ""
+    return "\n".join(out) + "\n"
 
 
 def inflight_from_metrics(text: str, engine: EngineType) -> float | None:

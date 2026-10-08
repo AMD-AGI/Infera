@@ -327,8 +327,6 @@ if __name__ == "__main__":
     _args = parse_server_args()
     # `--router-backend rust` replaces this process with the Rust router binary.
     if _args.router_backend == "rust":
-        if _args.enable_sla_metrics:
-            raise SystemExit("--enable-sla-metrics currently requires --router-backend=python")
         from infera.server.launch_rust import exec_rust
 
         exec_rust(_args)  # never returns

@@ -378,13 +378,15 @@ async fn models(State(st): State<AppState>) -> impl IntoResponse {
 
 async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
     let snap = st.pool.load();
-    let mut out = format!(
-        "# infera-router (rust)\n\
-         infera_router_active_workers {}\n\
-         infera_router_uptime_seconds {}\n",
-        snap.active_count(),
-        st.started.elapsed().as_secs()
-    );
+    crate::metrics::set_active_workers(snap.active_count() as f64);
+    let federated = scrape_engine_metrics(&st, &snap).await;
+    let (prom_body, content_type) = crate::metrics::render();
+    let mut out = String::from_utf8_lossy(&prom_body).into_owned();
+    if !federated.is_empty() {
+        out.push('\n');
+        out.push_str(&federated);
+    }
+    out.push_str("\n# HELP infera_router_breaker_and_parity router-local gauges\n");
     // Non-zero state means the router is routing around a worker that
     // discovery still reports ACTIVE — the gap this metric exists to show.
     for (worker_id, state, trips) in st.breaker.snapshot() {
@@ -458,7 +460,49 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
             ));
         }
     }
-    out
+    ([(header::CONTENT_TYPE, content_type)], out)
+}
+
+/// Scrape workers: update infera_engine_* gauges and federate allowlisted series.
+async fn scrape_engine_metrics(st: &AppState, snap: &crate::pool::Snapshot) -> String {
+    crate::metrics::clear_engine_gauges();
+    let workers: Vec<_> = snap
+        .all
+        .iter()
+        .filter(|w| w.is_active() && w.request_transport == "http")
+        .cloned()
+        .collect();
+    if workers.is_empty() {
+        return String::new();
+    }
+    let futs = workers.into_iter().map(|w| {
+        let http = st.http.clone();
+        async move {
+            let url = format!("{}/metrics", w.url.trim_end_matches('/'));
+            let Ok(resp) = http.get(&url).send().await else {
+                return String::new();
+            };
+            if !resp.status().is_success() {
+                return String::new();
+            }
+            let Ok(text) = resp.text().await else {
+                return String::new();
+            };
+            let mode = match w.disagg_mode {
+                crate::pool::DisaggMode::Mixed => "mixed",
+                crate::pool::DisaggMode::Prefill => "prefill",
+                crate::pool::DisaggMode::Decode => "decode",
+            };
+            let engine = if w.engine.is_empty() {
+                "unknown"
+            } else {
+                w.engine.as_str()
+            };
+            crate::metrics::apply_engine_scrape(&w.worker_id, engine, mode, &text);
+            crate::metrics::federate_engine_metrics(&text, &w.worker_id, engine)
+        }
+    });
+    futures::future::join_all(futs).await.into_iter().collect()
 }
 
 /// Escape a Prometheus label value: backslash, double quote and newline, per

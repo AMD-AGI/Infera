@@ -5,6 +5,7 @@
 ###############################################################################
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -15,7 +16,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 
 from infera.common.discovery import Registry
 from infera.common.logsafe import scrub
-from infera.common.worker_pool import DisaggMode, WorkerStatus
+from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo, WorkerStatus
 from infera.kvd.client import KvdClient, KvdConnectionError
 from infera.router.base import BaseRouter
 from infera.router.kv_event.client import KvEventClient
@@ -65,8 +66,9 @@ _kvd_socket_path: str | None = None
 # fan profile control out to worker engine endpoints is created lazily on first
 # use and kept separate from the router's client.
 _enable_profiling: bool = False
-_enable_sla_metrics: bool = False
+_enable_sla_metrics: bool = True
 _profile_client: httpx.AsyncClient | None = None
+_metrics_client: httpx.AsyncClient | None = None
 
 # Pool resizing. Off by default: it writes to the cluster, and /v1/admin carries
 # no authentication of its own, so it is opt-in the way profiling is.
@@ -79,7 +81,7 @@ def init_app(
     kv: KvEventClient | None = None,
     kvd_socket_path: str | None = None,
     enable_profiling: bool = False,
-    enable_sla_metrics: bool = False,
+    enable_sla_metrics: bool = True,
     scaler: DeploymentScaler | None = None,
 ) -> FastAPI:
     global registry, router, kv_client, _kvd_socket_path
@@ -636,10 +638,65 @@ async def health() -> dict:
     return {"status": "ok", "active_workers": len(workers)}
 
 
+def _get_metrics_client() -> httpx.AsyncClient:
+    """Shared client for scraping worker /metrics into the frontend exposition."""
+    global _metrics_client
+    if _metrics_client is None:
+        _metrics_client = httpx.AsyncClient(timeout=1.0)
+    return _metrics_client
+
+
+async def _scrape_engine_metrics() -> bytes:
+    """Scrape each active HTTP worker: update infera_engine_* gauges and
+    return federated vllm:/sglang: text for the stock Grafana panels.
+    """
+    from infera.common.engine_metrics import federate_engine_metrics
+
+    if registry is None:
+        return b""
+    workers = [
+        w
+        for w in registry.list_all()
+        if w.status == WorkerStatus.ACTIVE and (w.request_transport or "http") == "http"
+    ]
+    metrics.engine_kv_cache_usage.clear()
+    metrics.engine_prefix_cache_hit_rate.clear()
+    metrics.engine_kv_transfer_queue_reqs.clear()
+    if not workers:
+        return b""
+    client = _get_metrics_client()
+
+    async def _one(w: WorkerInfo) -> str:
+        url = w.url.rstrip("/") + "/metrics"
+        try:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                return ""
+            mode = (
+                w.disagg_mode.value if isinstance(w.disagg_mode, DisaggMode) else str(w.disagg_mode)
+            )
+            eng = w.engine.value if isinstance(w.engine, EngineType) else str(w.engine)
+            metrics.apply_engine_scrape(
+                worker_id=w.worker_id,
+                engine=eng,
+                disagg_mode=mode,
+                text=resp.text,
+            )
+            return federate_engine_metrics(resp.text, worker_id=w.worker_id, engine=eng)
+        except Exception:
+            # A scrape miss leaves that worker's series absent for this round.
+            return ""
+
+    parts = await asyncio.gather(*(_one(w) for w in workers))
+    return "".join(p for p in parts if p).encode()
+
+
 @app.get("/metrics")
 async def prometheus_metrics() -> Response:
     """Prometheus text-exposition endpoint. Snapshot the worker-pool
     gauges on every scrape so they stay live without per-event updates.
+    Also federates allowlisted engine series so one scrape of the frontend
+    covers the vLLM Grafana panels (scheduler, KV cache, queue/prefill, …).
     """
     if registry is not None:
         # Reset gauges then re-populate to handle workers leaving the fleet.
@@ -663,5 +720,8 @@ async def prometheus_metrics() -> Response:
             view = kv_client.cache_view(t.worker.worker_id, t.dp_rank)
             metrics.policy_cache_view_size.labels(worker_id=t.route_key).set(len(view))
 
+    federated = await _scrape_engine_metrics()
     body, content_type = metrics.render_metrics()
+    if federated:
+        body = body + b"\n" + federated
     return Response(content=body, media_type=content_type)

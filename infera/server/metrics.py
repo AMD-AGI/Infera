@@ -33,11 +33,14 @@ from prometheus_client import (
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 REGISTRY = CollectorRegistry()
-_sla_metrics_enabled = False
+# Serving metrics (TTFT/ITL/ISL/OSL/tokens) are on by default so Prometheus
+# scrapes are useful without an extra flag. The SLA planner consumes the same
+# histograms; ``--no-enable-sla-metrics`` turns the per-token path off.
+_sla_metrics_enabled = True
 
 
 def set_sla_metrics_enabled(enabled: bool) -> None:
-    """Enable the per-token observations consumed by the optional SLA planner."""
+    """Enable or disable per-token serving observations (TTFT/ITL/ISL/OSL)."""
     global _sla_metrics_enabled
     _sla_metrics_enabled = bool(enabled)
 
@@ -104,12 +107,77 @@ request_inflight = Gauge(
     registry=REGISTRY,
 )
 
+requests_total = Counter(
+    "infera_requests_total",
+    "Completed requests by router and outcome. QPS = rate(infera_requests_total[1m]).",
+    labelnames=("router", "outcome"),
+    registry=REGISTRY,
+)
+
+prompt_tokens_total = Counter(
+    "infera_prompt_tokens_total",
+    "Prompt tokens observed on successful requests. "
+    "Prompt throughput (tok/s) = rate(infera_prompt_tokens_total[1m]).",
+    labelnames=("router", "model"),
+    registry=REGISTRY,
+)
+
+generation_tokens_total = Counter(
+    "infera_generation_tokens_total",
+    "Generated tokens observed on successful requests. "
+    "Decode throughput (tok/s) = rate(infera_generation_tokens_total[1m]).",
+    labelnames=("router", "model"),
+    registry=REGISTRY,
+)
+
+prefix_cache_blocks_hit_total = Counter(
+    "infera_prefix_cache_blocks_hit_total",
+    "Cached KV blocks the router credited to the picked worker at pick time.",
+    labelnames=("role",),
+    registry=REGISTRY,
+)
+
+prefix_cache_blocks_total = Counter(
+    "infera_prefix_cache_blocks_total",
+    "Request KV blocks seen at pick time. Hit rate = rate(hit_total) / rate(blocks_total).",
+    labelnames=("role",),
+    registry=REGISTRY,
+)
 
 # ----------------------------------------------------------------------
-# SLA signals (consumed by infera.planner)
+# Engine gauges (scraped from worker /metrics into the frontend exposition)
+# ----------------------------------------------------------------------
+
+engine_kv_cache_usage = Gauge(
+    "infera_engine_kv_cache_usage",
+    "Engine-reported KV-cache pool occupancy fraction (0-1). "
+    "SGLang: sglang:token_usage; vLLM: vllm:kv_cache_usage_perc.",
+    labelnames=("worker_id", "engine", "disagg_mode"),
+    registry=REGISTRY,
+)
+
+engine_prefix_cache_hit_rate = Gauge(
+    "infera_engine_prefix_cache_hit_rate",
+    "Engine-reported prefix cache hit rate when published (e.g. sglang:cache_hit_rate).",
+    labelnames=("worker_id", "engine", "disagg_mode"),
+    registry=REGISTRY,
+)
+
+engine_kv_transfer_queue_reqs = Gauge(
+    "infera_engine_kv_transfer_queue_reqs",
+    "Engine PD KV transfer / bootstrap queue depth from worker /metrics.",
+    labelnames=("worker_id", "queue"),
+    registry=REGISTRY,
+)
+
+
+# ----------------------------------------------------------------------
+# Serving / SLA signals (consumed by Prometheus and infera.planner)
 # ----------------------------------------------------------------------
 # The SLA planner reads only the _sum / _count of these four histograms and
 # window-differences them, so the bucket layout is for humans/dashboards.
+# Percentiles (p50/p90/p99) are computed in Prometheus/Grafana via
+# histogram_quantile — they are not exported as separate gauges.
 
 time_to_first_token_seconds = Histogram(
     "infera_time_to_first_token_seconds",
@@ -308,6 +376,9 @@ def record_pick(*, role: str, worker_id: str, cache_hits: int, request_blocks: i
     router_picks_total.labels(role=role, worker_id=worker_id).inc()
     router_pick_cache_hits.labels(role=role).observe(cache_hits)
     router_pick_request_blocks.labels(role=role).observe(request_blocks)
+    if request_blocks > 0:
+        prefix_cache_blocks_hit_total.labels(role=role).inc(cache_hits)
+        prefix_cache_blocks_total.labels(role=role).inc(request_blocks)
 
 
 _SSE_DATA = b"data:"
@@ -489,8 +560,10 @@ class RequestObserver(dict):
         osl = self._osl if self._osl is not None else self._frames
         if self._isl is not None:
             input_sequence_tokens.labels(router=router, model=model).observe(self._isl)
+            prompt_tokens_total.labels(router=router, model=model).inc(self._isl)
         if osl > 0:
             output_sequence_tokens.labels(router=router, model=model).observe(osl)
+            generation_tokens_total.labels(router=router, model=model).inc(osl)
 
         if self._ttft is None:
             # Non-streaming reply: the whole response landed at once, so there
@@ -525,9 +598,11 @@ def track_request(router: str, model: str = ""):
         yield obs
     finally:
         request_inflight.labels(router=router).dec()
-        request_duration_seconds.labels(router=router, outcome=obs["outcome"]).observe(
+        outcome = obs["outcome"]
+        request_duration_seconds.labels(router=router, outcome=outcome).observe(
             time.perf_counter() - start
         )
+        requests_total.labels(router=router, outcome=outcome).inc()
         if not obs.deferred:
             obs.close()
 
@@ -547,6 +622,54 @@ def track_pd_leg(*, leg: str, worker_id: str):
         pd_dispatch_duration_seconds.labels(leg=leg, worker_id=worker_id).observe(
             time.perf_counter() - start
         )
+
+
+def apply_engine_scrape(
+    *,
+    worker_id: str,
+    engine: str,
+    disagg_mode: str,
+    text: str,
+) -> None:
+    """Update engine gauges from one worker's Prometheus text exposition."""
+    from infera.common.engine_metrics import (
+        mean_metric,
+        metric_names,
+        parse_metric,
+        transfer_queue_names,
+    )
+    from infera.common.worker_pool import EngineType
+
+    try:
+        eng = EngineType(engine)
+    except ValueError:
+        return
+
+    mode = disagg_mode or "mixed"
+    kv_val = None
+    for name in metric_names("kv_cache_usage", eng):
+        kv_val = mean_metric(text, name)
+        if kv_val is None:
+            kv_val = parse_metric(text, name)
+        if kv_val is not None:
+            break
+    if kv_val is not None:
+        engine_kv_cache_usage.labels(worker_id=worker_id, engine=engine, disagg_mode=mode).set(
+            kv_val
+        )
+
+    for name in metric_names("prefix_cache_hit_rate", eng):
+        hit = mean_metric(text, name)
+        if hit is not None:
+            engine_prefix_cache_hit_rate.labels(
+                worker_id=worker_id, engine=engine, disagg_mode=mode
+            ).set(hit)
+            break
+
+    for queue, name in transfer_queue_names(eng):
+        depth = parse_metric(text, name)
+        if depth is not None:
+            engine_kv_transfer_queue_reqs.labels(worker_id=worker_id, queue=queue).set(depth)
 
 
 def render_metrics() -> tuple[bytes, str]:
