@@ -225,6 +225,7 @@ fn worker(spec: Value) -> Arc<Worker> {
 
 fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
+        sessions: Arc::new(infera_router::session_affinity::Sessions::default()),
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(RoundRobin::new()),
         http: proxy::build_upstream_client(0.0).unwrap(),
@@ -378,6 +379,7 @@ async fn mixed_round_robin_spreads_load() {
 
 fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
+        sessions: Arc::new(infera_router::session_affinity::Sessions::default()),
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(KvEventAwarePolicy::new(
             Arc::new(KvEventClient::new()),
@@ -1476,4 +1478,179 @@ async fn responses_input_tokens_unavailable_without_tokenizer() {
         .await
         .unwrap();
     assert_eq!(r.status(), 503);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_header_pins_each_pd_role_without_aligning_their_ranks() {
+    use infera_router::policy::Role;
+    use infera_router::session_affinity::{Mode, Sessions};
+    for mode in [Mode::Off, Mode::Prefill, Mode::Both] {
+        let (p_url, p) = spawn_mock(200, false, json!({})).await;
+        let (d_url, d) = spawn_mock(200, false, json!({})).await;
+        let mut dw = (*decode(&d_url)).clone();
+        dw.dp_size = Some(8);
+        let dw = Arc::new(dw);
+        let mut state = make_state(vec![prefill(&p_url, Some(8)), dw.clone()], 0);
+        state.sessions = Arc::new(Sessions::new(mode, Duration::from_secs(3600), 64));
+        state.policy.pick(&[dw], &json!({}), Role::Decode);
+        let router = spawn_router(state).await;
+        for session in ["s1", "s2", "s1"] {
+            let response = client()
+                .post(format!("{router}/v1/chat/completions"))
+                .header("X-Dynamo-Session-ID", session)
+                .json(&json!({"model":"m", "messages":[{"role":"user","content":"unchanged"}]}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), 200);
+            response.bytes().await.unwrap();
+        }
+        let ph = p.hits.lock().unwrap();
+        let dh = d.hits.lock().unwrap();
+        let pr: Vec<_> = ph.iter().map(|x| x.dp_rank.as_deref().unwrap()).collect();
+        let dr: Vec<_> = dh.iter().map(|x| x.dp_rank.as_deref().unwrap()).collect();
+        assert_eq!(
+            pr,
+            if mode == Mode::Off {
+                vec!["0", "1", "2"]
+            } else {
+                vec!["0", "1", "0"]
+            }
+        );
+        assert_eq!(
+            dr,
+            if mode == Mode::Both {
+                vec!["1", "2", "1"]
+            } else {
+                vec!["1", "2", "3"]
+            }
+        );
+        for (p, d) in ph.iter().zip(dh.iter()) {
+            assert_eq!(p.body["bootstrap_room"], d.body["bootstrap_room"]);
+            assert_eq!(
+                p.body["messages"],
+                json!([{"role":"user","content":"unchanged"}])
+            );
+            assert!(p.body.get("session_id").is_none());
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_binding_is_invalidated_on_decode_eof_without_done() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (p_url, _) = spawn_mock(200, false, json!({})).await;
+    let (d_url, d) = spawn_mock_truncated_sse().await;
+    let mut dw = (*decode(&d_url)).clone();
+    dw.dp_size = Some(8);
+    let mut state = make_state(vec![prefill(&p_url, Some(8)), Arc::new(dw)], 0);
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for _ in 0..2 {
+        client()
+            .post(format!("{router}/v1/chat/completions"))
+            .header("X-Dynamo-Session-ID", "same-session")
+            .json(&json!({"model":"m","stream":true}))
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+    }
+    let hits = d.hits.lock().unwrap();
+    assert_eq!(hits[0].dp_rank.as_deref(), Some("0"));
+    assert_eq!(hits[1].dp_rank.as_deref(), Some("1"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_both_also_pins_aggregated_requests() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (url, mock) = spawn_mock(200, false, json!({})).await;
+    let w = worker(json!({"worker_id":"w","url":url,"model_name":"m","dp_size":8}));
+    let mut state = make_state(vec![w], 0);
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for session in ["s1", "s2", "s1"] {
+        client()
+            .post(format!("{router}/v1/completions"))
+            .header("X-Dynamo-Session-ID", session)
+            .json(&json!({"model":"m","prompt":"unchanged"}))
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+    }
+    let hits = mock.hits.lock().unwrap();
+    assert_eq!(
+        hits.iter()
+            .map(|h| h.dp_rank.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["0", "1", "0"]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "needs a broker: INFERA_TEST_NATS"]
+async fn session_binding_is_reselected_after_nats_4xx() {
+    use infera_router::nats_request::{
+        request_subject, NatsRequestClient, HDR_STATUS, HDR_TYPE, TYPE_DONE,
+    };
+    use infera_router::session_affinity::{Mode, Sessions};
+    let url = std::env::var("INFERA_TEST_NATS").expect("set INFERA_TEST_NATS");
+    for stream in [false, true] {
+        let wid = format!("session-nats-{}-{stream}", std::process::id());
+        let nc = async_nats::connect(&url).await.unwrap();
+        let mut requests = nc.subscribe(request_subject(&wid)).await.unwrap();
+        nc.flush().await.unwrap();
+        let worker_task = tokio::spawn(async move {
+            let mut ranks = Vec::new();
+            for _ in 0..2 {
+                let message = tokio::time::timeout(Duration::from_secs(5), requests.next())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let payload: Value = serde_json::from_slice(&message.payload).unwrap();
+                ranks.push(
+                    payload["headers"][infera_router::dp::DP_RANK_HEADER]
+                        .as_str()
+                        .unwrap()
+                        .to_owned(),
+                );
+                let mut headers = async_nats::HeaderMap::new();
+                headers.insert(HDR_TYPE, TYPE_DONE);
+                headers.insert(HDR_STATUS, "400");
+                nc.publish_with_headers(message.reply.unwrap(), headers, Bytes::new())
+                    .await
+                    .unwrap();
+                nc.flush().await.unwrap();
+            }
+            ranks
+        });
+        let w = worker(
+            json!({"worker_id":wid,"url":"http://unused","model_name":"m","dp_size":8,"request_transport":"nats"}),
+        );
+        let mut state = make_state(vec![w], 0);
+        state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+        state.nats = Some(Arc::new(
+            NatsRequestClient::connect(Some(&url), 3.0, 0.0, 0)
+                .await
+                .unwrap(),
+        ));
+        let router = spawn_router(state).await;
+        for _ in 0..2 {
+            let response = client()
+                .post(format!("{router}/v1/chat/completions"))
+                .header("X-Dynamo-Session-ID", "same-session")
+                .json(&json!({"model":"m","stream":stream}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), 400);
+            response.bytes().await.unwrap();
+        }
+        assert_eq!(worker_task.await.unwrap(), vec!["0", "1"]);
+    }
 }
