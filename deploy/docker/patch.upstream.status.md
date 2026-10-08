@@ -312,3 +312,13 @@ check the defect in the new base's source before dropping anything.
 When adding a patch, add its row here in the same commit, and put the full
 argument — evidence, alternatives, how it differs from our own upstream PR — in
 the patch's own header. This table is the index, not the record.
+
+## Experimental Decode radix/speculation — `patches/sglang_decode_radix_spec/`
+
+Checked 2026-10-08. `patch_decode_radix_spec.py` adds the runtime-gated
+EAGLE/NEXTN top-k-1 admission exception to the mi35x image; it is not a KV
+ownership fix. Stock v0.5.18 and v0.5.19 still reject this combination in their
+PD argument hook. SGLang [#40857](https://github.com/sgl-project/sglang/pull/40857)
+is open and addresses hybrid-SWA ownership before allowing EAGLE/EAGLE3; this
+patch does not backport it or claim support for those models. See the patch
+README for scope, source-shape checks and the build opt-out.

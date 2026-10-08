@@ -86,23 +86,31 @@ CPU bounce (still works, just slower).
 
 ### Decode radix cache with speculative decoding
 
-Infera normally skips automatically enabling SGLang's Decode radix cache when
-speculative decoding is active, because stock SGLang versions reject this
-combination. On a SGLang build that explicitly supports Decode radix with
-speculation, set `SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` in the worker's
-inherited environment to opt in. The experimental SGLang patch used for validation reads the same variable.
-Infera does not patch the engine or detect support automatically.
+This experimental option requires both Infera's flag forwarding and a supporting
+SGLang engine. Stock v0.5.18 rejects the combination even if the environment
+variable is set; upgrading only the Infera Python package is not sufficient.
 
-The opt-in only changes automatic forwarding of
-`--disaggregation-decode-enable-radix-cache`. KV events must be enabled, the
-worker must be a Decode leg using Mooncake, and existing model/topology rejection
-checks still apply. An explicit user-provided flag is left to SGLang to validate.
-Without the opt-in, speculative Decode keeps its previous behavior;
-non-speculative Decode is unchanged.
+1. Rebuild the mi35x image with `deploy/docker/Dockerfile.sglang`. It now includes
+   the narrow SGLang admission patch by default
+   (`APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=1`). Existing images are not updated.
+2. Set `SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` in the Decode worker/container's
+   environment, inherited by the SGLang subprocess.
+3. Use EAGLE/NEXTN with `--speculative-eagle-topk 1`. KV events must be enabled,
+   the worker must be a Decode leg using Mooncake, and existing model/topology
+   checks must accept the model. Infera then forwards
+   `--disaggregation-decode-enable-radix-cache` and the patched engine allows it.
 
-The experimentally validated combination is GLM-5.2 with EAGLE/NEXTN, top-k 1,
-on the patched SGLang build. This is not a claim of support for other speculative
-algorithms, top-k settings, hybrid SWA or Mamba/SSM models. A stock build can still
-reject the forwarded flag at launch. This option does not enable Decode HiCache
-or session affinity, and performance measurements using simulated acceptance
-length do not replace accuracy validation with real speculative acceptance.
+Without the runtime opt-in, speculative Decode keeps its old behavior.
+Non-speculative Decode is unchanged. The engine patch does not remove HiSparse,
+DCP or cache-builder restrictions; Infera still preserves its model checks.
+Explicit user-provided flags remain subject to engine validation.
+
+For an already-compatible custom base, the build patch can be disabled with
+`--build-arg APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=0`. Unknown source layouts fail
+patching rather than silently building an unsupported engine. The gfx942 image
+is not patched by this change and needs independent compatible engine support.
+
+This does not enable Decode HiCache or session affinity. Historical runtime
+validation covers GLM-5.2 on the patched v0.5.19 build; the v0.5.18 image still
+needs GPU KV-reuse and real-acceptance accuracy validation. Hybrid SWA/SSM,
+EAGLE3 and other speculative algorithms are outside the supported scope.

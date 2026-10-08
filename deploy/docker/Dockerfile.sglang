@@ -109,6 +109,15 @@ RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
     fi \
     && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
 
+# Engine half of the runtime opt-in; the feature remains off unless the worker
+# sets SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1. Unsupported source shapes fail.
+ARG APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=1
+COPY deploy/docker/patches/sglang_decode_radix_spec/patch_decode_radix_spec.py /tmp/patch_decode_radix_spec.py
+RUN if [ "${APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH}" = "1" ]; then \
+        python /tmp/patch_decode_radix_spec.py; \
+    fi \
+    && rm -f /tmp/patch_decode_radix_spec.py
+
 # ---- sglang PD patches (mooncake early-send KV wait event) ----
 # REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over mooncake:
 # without it every chunk but the last is RDMA-read while the forward is still writing
