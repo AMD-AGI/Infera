@@ -9,7 +9,9 @@ not bypass that engine validation.
 `SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` is set in the worker environment. Only
 EAGLE/NEXTN with top-k 1 bypass this one speculative-decoding rejection. Existing
 HiSparse, DCP, backend and cache-builder checks are unchanged. Infera's model
-compatibility checks still run before automatic flag forwarding.
+compatibility checks still run before startup. An explicit Decode HiCache
+request receives its required radix flag before ServerArgs construction;
+otherwise SGLang rejects HiCache while still configured for ChunkCache.
 
 The script recognizes the v0.5.18 mutable-args and v0.5.19 resolved-view hook
 layouts, fails on unknown/partially patched guards, and is idempotent. It removes

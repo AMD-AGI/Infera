@@ -295,3 +295,27 @@ def test_a_prefill_leg_is_flushed_as_before(monkeypatch):
     _reason(monkeypatch, None)
     prefill = [*_DECODE[:-4], "--disaggregation-mode", "prefill", *_DECODE[-2:]]
     assert no_clear_event_reason(parse_sglang_args(prefill)) is None
+
+
+def test_decode_hicache_gets_radix_before_server_args_validation(monkeypatch):
+    _reason(monkeypatch, None)
+    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
+    parsed = parse_sglang_args(
+        [
+            *_DECODE,
+            *_MTP,
+            "--enable-hierarchical-cache",
+            "--hicache-ratio",
+            "1.5",
+            "--hicache-write-policy",
+            "write_through",
+            "--hicache-io-backend",
+            "kernel",
+            "--hicache-mem-layout",
+            "page_first",
+        ]
+    )
+    assert parsed.sglang_argv.count(_FLAG) == 1
+    assert parsed.server_args.disaggregation_decode_enable_radix_cache
+    assert parsed.server_args.enable_hierarchical_cache
+    assert not parsed.server_args.disable_radix_cache

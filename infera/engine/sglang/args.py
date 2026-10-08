@@ -316,38 +316,41 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
             "(override with --kv-cache-dtype or INFERA_DEFAULT_KV_FP8=0)"
         )
 
+    # Explicit HiCache needs radix even when KV-event publication is disabled.
+    auto_decode_radix = (
+        (known.enable_kv_events or getattr(sglang_parsed, "enable_hierarchical_cache", False))
+        and sglang_parsed.disaggregation_mode == "decode"
+        and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
+        and _DECODE_RADIX_CACHE_FLAG not in remaining
+    )
+    spec_opted_in = (
+        getattr(sglang_parsed, "speculative_algorithm", None) is None
+        or os.environ.get(_DECODE_RADIX_SPEC_ENV, "0") == "1"
+    )
+    radix_for_hicache = (
+        auto_decode_radix
+        and spec_opted_in
+        and getattr(sglang_parsed, "enable_hierarchical_cache", False)
+    )
+    if radix_for_hicache:
+        if getattr(sglang_parsed, "disable_radix_cache", False):
+            raise ValueError("Decode HiCache is incompatible with --disable-radix-cache")
+        # HiCache compatibility is checked inside ServerArgs construction.
+        sglang_parsed.disaggregation_decode_enable_radix_cache = True
+        remaining.append(_DECODE_RADIX_CACHE_FLAG)
+
     server_args = ServerArgs.from_cli_args(sglang_parsed)
 
     from infera.engine.sglang.hicache_validate import warn_if_hicache_prefetch_disabled
 
     warn_if_hicache_prefetch_disabled(server_args)
 
-    # When KV events are on, enable the decode-side prefix radix cache so the
-    # router can steer repeats to the rank holding the prefix and prefill only
-    # transfers the delta. SGLang's flag defaults off; append it to the forwarded
-    # argv so the launch_server subprocess (which is what re-parses these) gets it.
-    # SGLang only accepts this flag with the mooncake transfer backend; with mori
-    # (or nixl in our stack) it aborts, so gate the append on the backend.
-    #
-    # Placed after ServerArgs.from_cli_args because the hybrid check below needs a
-    # resolved ModelConfig, and `server_args.get_model_config()` memoises the one
-    # __post_init__ already built -- reaching for it here costs nothing, whereas
-    # constructing a second ModelConfig from the raw namespace would be both
-    # wasteful and subtly different. Appending to `remaining` this late is still
-    # correct: `sglang_parsed` was parsed from it back at the top, so the append
-    # has only ever affected the forwarded argv, never our own server_args.
-    if (
-        known.enable_kv_events
-        and sglang_parsed.disaggregation_mode == "decode"
-        and getattr(sglang_parsed, "disaggregation_transfer_backend", None) == "mooncake"
-        and _DECODE_RADIX_CACHE_FLAG not in remaining
-    ):
+    # Model checks need the resolved config. Ordinary Decode can still append
+    # the flag here; HiCache must have received it before resolution above.
+    if auto_decode_radix:
         # Keep stock behavior unless the worker uses a SGLang build with the
         # matching decode-radix/speculation opt-in.
-        if (
-            getattr(sglang_parsed, "speculative_algorithm", None) is not None
-            and os.environ.get(_DECODE_RADIX_SPEC_ENV, "0") != "1"
-        ):
+        if not spec_opted_in:
             logger.info(
                 "kv-events on, but --disaggregation-decode-enable-radix-cache is "
                 "incompatible with --speculative-algorithm %s; not appending it. "
@@ -365,6 +368,8 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
             # See _decode_radix_cache_unsupported_reason.
             reason = _decode_radix_cache_unsupported_reason(server_args)
             if reason is not None:
+                if radix_for_hicache:
+                    raise ValueError(f"Decode HiCache requires a supported radix cache: {reason}")
                 logger.info(
                     "kv-events on, but --disaggregation-decode-enable-radix-cache "
                     "is incompatible with %s; not appending it. The decode leg "
@@ -373,7 +378,7 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
                     "prefill-side view.",
                     reason,
                 )
-            else:
+            elif not radix_for_hicache:
                 remaining.append(_DECODE_RADIX_CACHE_FLAG)
 
     return SglangWorkerArgs(
@@ -563,20 +568,15 @@ def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
         ):
             return "Mamba/SSM models"
     except Exception:  # noqa: BLE001 - see the docstring's last paragraph
-        # The lever named here is deliberately not the radix-cache flag itself.
-        # Passing that explicitly is a force-*on*: the append is gated on it
-        # being absent from the forwarded argv, so an operator who passes it
-        # sends it straight to SGLang and gets the exact ValueError this warning
-        # is about. --no-enable-kv-events is the one switch that suppresses the
-        # append, at the cost of the decode-side KV view -- which is what the
-        # guard would have given up anyway had it been able to read the config.
+        # An explicit radix flag is force-on, not an escape from incompatibility.
+        # Opt out of KV events and HiCache to suppress automatic radix.
         logger.warning(
             "could not determine whether this model supports "
             "--disaggregation-decode-enable-radix-cache; appending it as before. "
             "If the decode leg dies in build_kv_cache with an 'incompatible "
             "with Mamba/SSM models' or 'with sliding window attention (SWA) "
             "models' ValueError, this model is one of those: relaunch the decode "
-            "leg with --no-enable-kv-events. Passing "
+            "leg with --no-enable-kv-events and disable HiCache if it was requested. Passing "
             "--disaggregation-decode-enable-radix-cache explicitly will not help "
             "-- infera reads it as a request to force the flag on, and forwards "
             "it.",

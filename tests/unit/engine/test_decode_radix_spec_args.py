@@ -24,9 +24,21 @@ def args_module(monkeypatch):
             parser.add_argument(FLAG, action="store_true")
             parser.add_argument("--enable-hierarchical-cache", action="store_true")
             parser.add_argument("--kv-cache-dtype", default="auto")
+            parser.add_argument("--disable-radix-cache", action="store_true")
+            parser.add_argument("--hicache-ratio", type=float, default=1.5)
+            parser.add_argument("--hicache-write-policy", default="write_through")
+            parser.add_argument("--hicache-io-backend", default="kernel")
+            parser.add_argument("--hicache-mem-layout", default="page_first")
 
         @staticmethod
         def from_cli_args(parsed):
+            # Model SGLang's constructor boundary, before Infera can return argv.
+            if (
+                parsed.disaggregation_mode == "decode"
+                and parsed.enable_hierarchical_cache
+                and not parsed.disaggregation_decode_enable_radix_cache
+            ):
+                raise ValueError("HiCache and ChunkCache are mutually exclusive")
             return parsed
 
     for name in ("sglang", "sglang.srt", "sglang.srt.server_args"):
@@ -98,4 +110,74 @@ def test_opt_in_does_not_enable_unrelated_paths(args_module, monkeypatch, extra)
 def test_explicit_flag_is_not_duplicated(args_module, monkeypatch):
     monkeypatch.setenv(OPT_IN, "1")
     parsed = args_module.parse_sglang_args(argv("--speculative-algorithm", "EAGLE", FLAG))
+    assert parsed.sglang_argv.count(FLAG) == 1
+
+
+@pytest.mark.parametrize("algorithm", [None, "EAGLE", "NEXTN"])
+def test_hicache_receives_radix_before_server_args_resolution(args_module, monkeypatch, algorithm):
+    monkeypatch.setenv(OPT_IN, "1")
+    spec_args = [] if algorithm is None else ["--speculative-algorithm", algorithm]
+    hicache_args = [
+        "--enable-hierarchical-cache",
+        "--hicache-ratio",
+        "1.5",
+        "--hicache-write-policy",
+        "write_through",
+        "--hicache-io-backend",
+        "kernel",
+        "--hicache-mem-layout",
+        "page_first",
+    ]
+    parsed = args_module.parse_sglang_args(argv(*spec_args, *hicache_args))
+    assert parsed.server_args.disaggregation_decode_enable_radix_cache is True
+    assert parsed.server_args.enable_hierarchical_cache is True
+    assert parsed.sglang_argv.count(FLAG) == 1
+    for flag in hicache_args:
+        assert flag in parsed.sglang_argv
+
+
+@pytest.mark.parametrize("reason", ["Mamba/SSM", "hybrid SWA", "--enable-hisparse", "DCP"])
+def test_hicache_auto_radix_rejects_unsupported_models(args_module, monkeypatch, reason):
+    monkeypatch.setenv(OPT_IN, "1")
+    monkeypatch.setattr(args_module, "_decode_radix_cache_unsupported_reason", lambda _: reason)
+    with pytest.raises(ValueError, match="Decode HiCache requires a supported radix cache"):
+        args_module.parse_sglang_args(
+            argv("--speculative-algorithm", "EAGLE", "--enable-hierarchical-cache")
+        )
+
+
+def test_hicache_does_not_override_explicit_disable(args_module, monkeypatch):
+    monkeypatch.setenv(OPT_IN, "1")
+    with pytest.raises(ValueError, match="--disable-radix-cache"):
+        args_module.parse_sglang_args(argv("--enable-hierarchical-cache", "--disable-radix-cache"))
+
+
+def test_hicache_under_mtp_still_requires_opt_in(args_module):
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        args_module.parse_sglang_args(
+            argv("--speculative-algorithm", "EAGLE", "--enable-hierarchical-cache")
+        )
+
+
+def test_hicache_explicit_radix_flag_remains_supported(args_module, monkeypatch):
+    monkeypatch.setenv(OPT_IN, "1")
+    parsed = args_module.parse_sglang_args(
+        argv("--speculative-algorithm", "EAGLE", "--enable-hierarchical-cache", FLAG)
+    )
+    assert parsed.sglang_argv.count(FLAG) == 1
+    assert parsed.server_args.enable_hierarchical_cache is True
+
+
+def test_hicache_does_not_require_kv_event_publication(args_module, monkeypatch):
+    monkeypatch.setenv(OPT_IN, "1")
+    parsed = args_module.parse_sglang_args(
+        argv(
+            "--speculative-algorithm",
+            "EAGLE",
+            "--enable-hierarchical-cache",
+            "--no-enable-kv-events",
+        )
+    )
+    assert parsed.enable_kv_events is False
+    assert parsed.server_args.disaggregation_decode_enable_radix_cache is True
     assert parsed.sglang_argv.count(FLAG) == 1

@@ -84,33 +84,115 @@ host to confirm the kernel exposes P2PDMA — otherwise hipFile falls back to a
 CPU bounce (still works, just slower).
 ```
 
-### Decode radix cache with speculative decoding
+### Decode radix cache and HiCache with speculative decoding
 
-This experimental option requires both Infera's flag forwarding and a supporting
-SGLang engine. Stock v0.5.18 rejects the combination even if the environment
-variable is set; upgrading only the Infera Python package is not sufficient.
+This experimental option requires both Infera's forwarding changes and the
+SGLang engine patch. Stock v0.5.18 rejects the MTP/radix combination even if the
+environment variable is set; updating only the Infera package is insufficient.
+Rebuild `deploy/docker/Dockerfile.sglang`, then set
+`SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` in the Decode worker environment.
 
-1. Rebuild the mi35x image with `deploy/docker/Dockerfile.sglang`. It now includes
-   the narrow SGLang admission patch by default
-   (`APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=1`). Existing images are not updated.
-2. Set `SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` in the Decode worker/container's
-   environment, inherited by the SGLang subprocess.
-3. Use EAGLE/NEXTN with `--speculative-eagle-topk 1`. KV events must be enabled,
-   the worker must be a Decode leg using Mooncake, and existing model/topology
-   checks must accept the model. Infera then forwards
-   `--disaggregation-decode-enable-radix-cache` and the patched engine allows it.
+With EAGLE/NEXTN top-k 1 on a supported Mooncake Decode leg:
 
-Without the runtime opt-in, speculative Decode keeps its old behavior.
-Non-speculative Decode is unchanged. The engine patch does not remove HiSparse,
-DCP or cache-builder restrictions; Infera still preserves its model checks.
-Explicit user-provided flags remain subject to engine validation.
+- KV events enable automatic Decode radix flag forwarding.
+- Adding `--enable-hierarchical-cache` and the desired HiCache options enables
+  the radix prerequisite before SGLang's first argument validation, so an extra
+  explicit radix flag is unnecessary. This also works with KV events disabled.
+- Unsupported models still fail the radix compatibility check; an explicit
+  `--disable-radix-cache` is incompatible with an automatic HiCache request.
 
-For an already-compatible custom base, the build patch can be disabled with
-`--build-arg APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=0`. Unknown source layouts fail
-patching rather than silently building an unsupported engine. The gfx942 image
-is not patched by this change and needs independent compatible engine support.
+Without the runtime opt-in, speculative Decode keeps its old behavior. Neither
+HiCache nor session affinity is enabled by default. HiSparse, DCP, backend and
+cache-builder restrictions remain. Hybrid SWA/SSM and EAGLE3 are outside scope.
+The gfx942 image is not patched by this change. Custom compatible bases can use
+`APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=0` to skip the build patch.
 
-This does not enable Decode HiCache or session affinity. Historical runtime
-validation covers GLM-5.2 on the patched v0.5.19 build; the v0.5.18 image still
-needs GPU KV-reuse and real-acceptance accuracy validation. Hybrid SWA/SSM,
-EAGLE3 and other speculative algorithms are outside the supported scope.
+#### Launch examples
+
+Build from this PR's checkout:
+
+```bash
+docker build -f deploy/docker/Dockerfile.sglang \
+  --build-arg APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=1 \
+  -t infera-sglang:mtp-decode-cache .
+```
+
+Run the following **inside that rebuilt mi35x container**, with model files and
+ROCm/RDMA devices available. These are Decode launch commands; a matching
+Prefill worker, etcd and a Router using HTTP requests/ZMQ KV events must already
+be running. Replace the example model path and addresses with your deployment's
+values. The Prefill worker must advertise the same served model name.
+
+Common Decode arguments (Bash):
+
+```bash
+MODEL_PATH=/models/GLM-5.2-MXFP4
+DECODE_IP=10.0.0.12
+ETCD_ENDPOINT=10.0.0.10:2379
+
+export SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1
+
+DECODE_ARGS=(
+  --model-path "$MODEL_PATH"
+  --served-model-name glm5.2-mxfp4
+  --trust-remote-code
+  --host 0.0.0.0 --port 30000
+  --advertise-host "$DECODE_IP"
+  --discovery-backend etcd --etcd-endpoint "$ETCD_ENDPOINT"
+  --request-transport http
+  --enable-kv-events --kv-events on --kv-event-transport zmq
+  --disaggregation-mode decode
+  --disaggregation-transfer-backend mooncake
+  --tp-size 8 --dp-size 8 --enable-dp-attention
+  --speculative-algorithm EAGLE
+  --speculative-eagle-topk 1
+  --speculative-num-steps 5 --speculative-num-draft-tokens 6
+  --mem-fraction-static 0.85
+  --enable-metrics
+  --json-model-override-args '{"index_share_for_mtp_iteration":false}'
+)
+```
+
+Choose one of the two modes below.
+
+**Decode radix + MTP, without HiCache:**
+
+```bash
+python -m infera.engine.sglang "${DECODE_ARGS[@]}"
+```
+
+KV events cause Infera to append the Decode radix flag. The patched SGLang hook
+accepts the explicit MTP opt-in for EAGLE/NEXTN top-k 1.
+
+**Decode radix + HiCache + MTP:**
+
+```bash
+python -m infera.engine.sglang "${DECODE_ARGS[@]}" \
+  --enable-hierarchical-cache \
+  --hicache-ratio 1.5 \
+  --hicache-write-policy write_through \
+  --hicache-io-backend kernel \
+  --hicache-mem-layout page_first
+```
+
+HiCache's required radix flag is set **before** `ServerArgs.from_cli_args`
+performs cache compatibility checks, and is also forwarded to the engine.
+Users do not need to add `--disaggregation-decode-enable-radix-cache` manually.
+An explicit HiCache request implies this prerequisite even with KV events off;
+this does not turn KV-event publication back on. Explicit radix flags remain
+supported and are not duplicated.
+
+The HiCache settings above reproduce the earlier configuration; size the host
+pool for the node's memory. They are not a performance recommendation: the
+historical C40 `write_through` test reduced total-token throughput by about 4.5%
+and increased mean ITL by about 6.2% compared with Decode radix alone.
+
+An old benchmark harness may still reject `DECODE_MTP=1` plus `DECODE_HICACHE=1`
+before invoking Infera. These direct engine commands do not pass through that
+harness guard; updating such scripts is separate from engine support.
+
+
+The commands above document the intended launch configuration; they have not
+been GPU-validated against the rebuilt default v0.5.18 image. Historical runtime
+validation used the patched v0.5.19 build. Argument/patch tests do not replace
+GPU prefix-reuse and real-acceptance accuracy checks.
