@@ -6,7 +6,7 @@
 |---|---|---|---|
 | R1：P完成独立释放 | [#185](https://github.com/AMD-AGI/Infera/pull/185) | `feat/pd-prefill-completion-release` / `8655e236` | 默认decode不变，显式completion模式；HTTP流式/非流式、NATS；保留main中断/abort逻辑 |
 | 会话亲和 | [#186](https://github.com/AMD-AGI/Infera/pull/186) | `feat/router-session-affinity` / `5577d83e` | 默认off；模型/角色隔离、P/D独立绑定、aggregated支持、TTL/租约、失效与有界容量 |
-| D radix＋MTP opt-in | [#184](https://github.com/AMD-AGI/Infera/pull/184) | `feat/sglang-decode-radix-mtp` / `0cdd20f4` | 已补SGLang受限放行补丁与mi35x构建接入；默认运行仍off；Draft等待镜像/GPU验证 |
+| D radix＋MTP opt-in | [#184](https://github.com/AMD-AGI/Infera/pull/184) | `feat/sglang-decode-radix-mtp` / `98f6b4e5` | 引擎补丁＋HiCache首次参数校验前准备radix；默认off；Draft等待镜像/GPU验证 |
 
 三个PR均直接以main为base。R1与会话亲和在guard/响应处理位置有交集，一个合入后另一个需要按两种生命周期进行rebase；不能只按文本选择一边。诊断数据、基准测试原始产物和R2/R3/R4等评分实验未混入这三个PR。
 
@@ -14,7 +14,7 @@
 
 - R1：289 unit、36 HTTP functional、4 ZMQ、14 render检查通过；新增NATS真实broker测试通过，确认data帧不释放P、Done/Error终止帧后释放。严格clippy、format/diff检查通过。
 - 会话亲和：294 unit、39 HTTP functional、4 ZMQ、14 render检查通过；新增真实NATS 4xx测试覆盖unary/streaming，验证后续相同session重新选点。严格clippy、format/diff检查通过。
-- D radix＋MTP：修订后45个CPU检查通过（14个Infera argv-forwarding＋31个真实上游hook源码/补丁/构建接入检查），ruff format/check通过。真实SGLang guard测试模块因本机没有安装SGLang而跳过；没有将参数分支检查冒充GPU cache或精度验证。
+- D radix＋MTP：修订后56个CPU检查通过（25个Infera参数转发/HiCache构造顺序＋31个真实上游hook源码/补丁/构建接入检查），ruff format/check通过。真实SGLang guard测试模块因本机没有安装SGLang而跳过；没有将参数分支检查冒充GPU cache或精度验证。
 - 普通cargo test明确忽略需broker的测试；随后另外启动临时本地NATS，运行上述新测试和既有broker回归。临时broker已在finally中停止。
 
 ## 已知限制与失败记录
@@ -48,3 +48,16 @@ EAGLE/NEXTN、top-k=1才放行；默认运行、DCP/HiSparse/backend/cache-build
 验证补丁后radix enable、其他拒绝、源码漂移失败、幂等及pyc重新编译。45项通过、1个真实engine
 测试模块跳过。没有完整重建默认镜像或重新进行GPU复用/accuracy测试，因此#184改为Draft。
 SGLang #40857的hybrid-SWA ownership修复未合入、也未被此次回移；不能扩展为对这些模型的支持声明。
+
+## #184：直接通过Decode命令行启用HiCache
+
+按用户要求，提交`98f6b4e5`进一步支持直接增加HiCache选项。此前Infera在
+`ServerArgs.from_cli_args`之后才追加radix flag，HiCache会在第一次构造期间被ChunkCache
+互斥检查拦住。现在显式请求D HiCache时，会先在可变的parsed namespace和转发argv中准备radix，
+再进行SGLang构造与已解析ModelConfig的兼容性检查；不重复构造模型配置、不修改冻结参数。
+
+显式HiCache请求不依赖KV事件发布；普通radix-only自动启用仍沿用KV-events触发条件。
+显式disable-radix冲突和不支持模型会拒绝，显式radix flag也不会重复追加。
+PR description已包含构建步骤、共同Decode参数、radix-only和radix＋HiCache两种启动命令，
+另存 [使用示例](decode-cache-usage.md)。本次56项检查通过，真实SGLang模块仍跳过，4个Bash块
+语法检查通过；没有启动引擎或宣称完成GPU验证。PR保持Draft。

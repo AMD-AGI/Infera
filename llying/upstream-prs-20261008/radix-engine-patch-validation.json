@@ -1,6 +1,6 @@
 {
-  "head": "0cdd20f48be4d90921c2d11ccedd40504914ece1",
-  "cpu_checks_passed": 45,
+  "head": "98f6b4e5f82080311a099ea9731d9a0a39c3f672",
+  "cpu_checks_passed": 56,
   "engine_test_modules_skipped": 1,
   "image_rebuild_performed": false,
   "gpu_validation_performed": false,
@@ -12,5 +12,9 @@
     "ddaf80744ebad6e01e37bafac63e25ddd05d0969",
     "7e05b9176ad2c2c4b7402313b366e8ea20f2473e"
   ],
-  "pr_draft": true
+  "pr_draft": true,
+  "hicache_constructor_order_checked": true,
+  "hicache_requires_explicit_radix_flag": false,
+  "hicache_requires_kv_event_publication": false,
+  "documented_bash_blocks_syntax_checked": 4
 }
