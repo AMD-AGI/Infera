@@ -34,3 +34,5 @@ python3 llying/experiment-summary-20261008/build_report.py
 ```
 
 正文在 `INTRO.zh-CN.md`、`DIMENSION-ANALYSIS.zh-CN.md`；各实验详细配对分析保留在 `ANALYSIS.zh-CN.md`，报告引用其补充证据与未完成项。C1G1旧临时汇总必要字段已归档为 `c1g1-source-extract.json`，原哈希见 `extraction-provenance.json`；本次运行维度使用共享盘完整成功运行 `c1g1r-guard-completion-31688`，不使用其失败准备轮。
+
+主分支提取计划与现有设计核对：[UPSTREAM-FEATURE-PLAN.zh-CN.md](UPSTREAM-FEATURE-PLAN.zh-CN.md)，附最新main快照和17个open PR的范围核对。

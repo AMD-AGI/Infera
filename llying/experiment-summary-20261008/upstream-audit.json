@@ -1,0 +1,218 @@
+{
+  "checked_at_utc": "2026-10-08T08:56:53.068797+00:00",
+  "repository": "AMD-AGI/Infera",
+  "main_sha": "ff75ec65aea83dc79498f1825f6e84f0d9c4c9ce",
+  "method": "GitHub REST open pulls, fully paginated changed-file lists; latest main fetched with git. Relevant code diffs inspected. No review comments posted.",
+  "open_pr_count": 17,
+  "prs": [
+    {
+      "number": 183,
+      "title": "Expose serving metrics on /metrics with engine federation.",
+      "url": "https://github.com/AMD-AGI/Infera/pull/183",
+      "draft": false,
+      "base": "main",
+      "head_sha": "81730d5a8751a50eae9eefbb196afd606706fbb6",
+      "updated_at": "2026-10-08T08:53:09Z",
+      "changed_files_count": 17,
+      "core_relevant_files": [
+        "infera/common/engine_metrics.py",
+        "rust/router/Cargo.toml",
+        "rust/router/src/disagg.rs",
+        "rust/router/src/handlers.rs",
+        "rust/router/src/lib.rs",
+        "rust/router/src/metrics.rs",
+        "rust/router/src/policy.rs",
+        "rust/router/src/proxy.rs"
+      ]
+    },
+    {
+      "number": 182,
+      "title": "feat: add opt-out usage reporting for Python serving",
+      "url": "https://github.com/AMD-AGI/Infera/pull/182",
+      "draft": true,
+      "base": "main",
+      "head_sha": "b83e046206d1abfa56e63ee7decd248e577f4649",
+      "updated_at": "2026-10-08T06:53:52Z",
+      "changed_files_count": 9,
+      "core_relevant_files": [
+        "infera/engine/sglang/__main__.py"
+      ]
+    },
+    {
+      "number": 181,
+      "title": "Fix the GPU CI tiers and split run_tests.sh into tests/lib",
+      "url": "https://github.com/AMD-AGI/Infera/pull/181",
+      "draft": false,
+      "base": "main",
+      "head_sha": "67937f02eef017e1fe8157645c042ffb80fafc65",
+      "updated_at": "2026-10-08T08:34:36Z",
+      "changed_files_count": 12,
+      "core_relevant_files": []
+    },
+    {
+      "number": 179,
+      "title": "Price pipeline-parallel hops, the token return, and cross-node stage boundaries",
+      "url": "https://github.com/AMD-AGI/Infera/pull/179",
+      "draft": false,
+      "base": "main",
+      "head_sha": "b32f9b3a8ff99fa791de0b041c104c1d67d530cf",
+      "updated_at": "2026-10-01T22:16:23Z",
+      "changed_files_count": 35,
+      "core_relevant_files": []
+    },
+    {
+      "number": 177,
+      "title": "Attention-DP: apply the request split once in the profiler",
+      "url": "https://github.com/AMD-AGI/Infera/pull/177",
+      "draft": false,
+      "base": "main",
+      "head_sha": "52e6e1d3672117b69b0be85d9d220a4efde760d0",
+      "updated_at": "2026-09-24T22:27:33Z",
+      "changed_files_count": 2,
+      "core_relevant_files": []
+    },
+    {
+      "number": 175,
+      "title": "EP AllToAll: size dispatch on the sequences a rank owns under attention-DP",
+      "url": "https://github.com/AMD-AGI/Infera/pull/175",
+      "draft": false,
+      "base": "main",
+      "head_sha": "324761490f1f3036b599a6833125a427526fabfe",
+      "updated_at": "2026-09-24T22:27:21Z",
+      "changed_files_count": 2,
+      "core_relevant_files": []
+    },
+    {
+      "number": 174,
+      "title": "Refuse an out-of-regime anchor, and price sparse attention as selection plus indexing",
+      "url": "https://github.com/AMD-AGI/Infera/pull/174",
+      "draft": false,
+      "base": "main",
+      "head_sha": "58da1d7231f215b069fe0db05e720134eacc3924",
+      "updated_at": "2026-10-08T02:02:07Z",
+      "changed_files_count": 34,
+      "core_relevant_files": []
+    },
+    {
+      "number": 172,
+      "title": "[DO NOT MERGE] ci: restore main validation and retry full nodes",
+      "url": "https://github.com/AMD-AGI/Infera/pull/172",
+      "draft": false,
+      "base": "main",
+      "head_sha": "c65ae4db7aba49961dadd6492b2c04de7c4b41bc",
+      "updated_at": "2026-09-16T10:02:16Z",
+      "changed_files_count": 6,
+      "core_relevant_files": []
+    },
+    {
+      "number": 167,
+      "title": "feat(agent_sys): an agent work system, and the five-stage LLM e2e optimisation flow",
+      "url": "https://github.com/AMD-AGI/Infera/pull/167",
+      "draft": false,
+      "base": "main",
+      "head_sha": "fb80caa4d2357a5c5935fe8ed940754ed3936c13",
+      "updated_at": "2026-09-16T08:30:10Z",
+      "changed_files_count": 839,
+      "core_relevant_files": []
+    },
+    {
+      "number": 164,
+      "title": "[Compare only][Draft]fast bench script",
+      "url": "https://github.com/AMD-AGI/Infera/pull/164",
+      "draft": true,
+      "base": "main",
+      "head_sha": "4676ec9087bcbca766b0e84d0b70ea3e7c81641e",
+      "updated_at": "2026-09-16T04:01:29Z",
+      "changed_files_count": 1501,
+      "core_relevant_files": []
+    },
+    {
+      "number": 161,
+      "title": "[WIP] bench: add GLM-5.2 PD AgentX workflow",
+      "url": "https://github.com/AMD-AGI/Infera/pull/161",
+      "draft": true,
+      "base": "main",
+      "head_sha": "23f4dfac679d31ed99046d2cf80abb13e05c9fbe",
+      "updated_at": "2026-09-17T02:10:15Z",
+      "changed_files_count": 264,
+      "core_relevant_files": [
+        "infera/engine/sglang/worker.py",
+        "rust/router/src/config.rs",
+        "rust/router/src/disagg.rs",
+        "rust/router/src/handlers.rs",
+        "rust/router/src/main.rs",
+        "rust/router/src/policy.rs",
+        "rust/router/src/pool.rs",
+        "rust/router/tests/functional.rs"
+      ]
+    },
+    {
+      "number": 140,
+      "title": "examples(glm5.2 1P1D): accuracy evaluation, Mooncake trace replay, per-role torch profiling",
+      "url": "https://github.com/AMD-AGI/Infera/pull/140",
+      "draft": false,
+      "base": "main",
+      "head_sha": "a7728e3f77b19bfb7aa5c5f2250972ae121648d9",
+      "updated_at": "2026-08-28T07:55:56Z",
+      "changed_files_count": 18,
+      "core_relevant_files": []
+    },
+    {
+      "number": 132,
+      "title": "feat(agent_sys): the agent work system — specs, designs, and a running implementation",
+      "url": "https://github.com/AMD-AGI/Infera/pull/132",
+      "draft": false,
+      "base": "main",
+      "head_sha": "c3f1cc6feeee2f604a27193ed88c3c0dc511f8e3",
+      "updated_at": "2026-09-02T06:40:08Z",
+      "changed_files_count": 428,
+      "core_relevant_files": []
+    },
+    {
+      "number": 121,
+      "title": "fix(atom): relay KV events from data-parallel ranks",
+      "url": "https://github.com/AMD-AGI/Infera/pull/121",
+      "draft": true,
+      "base": "main",
+      "head_sha": "503dcbd1b60229a5a508fd3da45994c56a2b40ec",
+      "updated_at": "2026-08-27T15:49:41Z",
+      "changed_files_count": 5,
+      "core_relevant_files": []
+    },
+    {
+      "number": 111,
+      "title": "test(bench): replay the Mooncake FAST'25 trace the reporter pointed at",
+      "url": "https://github.com/AMD-AGI/Infera/pull/111",
+      "draft": false,
+      "base": "main",
+      "head_sha": "2666692c39a2fcfa1e34b0ffb0402155fdf8c36d",
+      "updated_at": "2026-08-09T06:06:40Z",
+      "changed_files_count": 1,
+      "core_relevant_files": []
+    },
+    {
+      "number": 110,
+      "title": "docs(bench): how to verify the short-prompt routing fix on a k8s fleet",
+      "url": "https://github.com/AMD-AGI/Infera/pull/110",
+      "draft": false,
+      "base": "main",
+      "head_sha": "2a70300a7138f0708197faee877c3efdeeee46f4",
+      "updated_at": "2026-08-09T03:38:36Z",
+      "changed_files_count": 1,
+      "core_relevant_files": []
+    },
+    {
+      "number": 108,
+      "title": "fix(router): say so when a missing tokenizer disables cache-aware routing",
+      "url": "https://github.com/AMD-AGI/Infera/pull/108",
+      "draft": false,
+      "base": "main",
+      "head_sha": "e5bd49b156485ec7251feab019feeff41bd4102d",
+      "updated_at": "2026-08-08T23:43:12Z",
+      "changed_files_count": 20,
+      "core_relevant_files": [
+        "infera/router/kv_event/block_hasher.py"
+      ]
+    }
+  ]
+}
