@@ -1,0 +1,81 @@
++ python3 run_hostmem_numa_ab.py --output /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/matrix/hostmem-pcie-ro-ab-137-136-20261006T1051Z/rx-cross-ro-off --receiver-numa cross --perftest-args=--disable_pcie_relaxed
+{
+ "receiver_numa": "cross",
+ "bw_gbps": {
+  "ionic_0": 201.0,
+  "ionic_1": 219.45,
+  "ionic_2": 226.57,
+  "ionic_3": 197.29,
+  "ionic_4": 199.68,
+  "ionic_5": 207.51,
+  "ionic_6": 209.39,
+  "ionic_7": 201.49
+ },
+ "bw_total_gbps": 1662.38,
+ "client_cqe_errors": {
+  "ionic_0": 0,
+  "ionic_1": 0,
+  "ionic_2": 0,
+  "ionic_3": 0,
+  "ionic_4": 0,
+  "ionic_5": 0,
+  "ionic_6": 0,
+  "ionic_7": 0
+ }
+}
+crsuse2-m2m-137 {'pause_tx': 0, 'pause_rx': 90474, 'nic_rx_loss': 36240, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 814903805, 'ack_timeout': 20007, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
+crsuse2-m2m-136 {'pause_tx': 7715600, 'pause_rx': 0, 'nic_rx_loss': 160935435, 'oos': 9705903, 'seq_nak_tx': 9714444, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
++ python3 run_hostmem_numa_ab.py --output /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/matrix/hostmem-pcie-ro-ab-137-136-20261006T1051Z/rx-local-ro-off --receiver-numa local --perftest-args=--disable_pcie_relaxed
+{
+ "receiver_numa": "local",
+ "bw_gbps": {
+  "ionic_0": 389.7,
+  "ionic_1": 292.57,
+  "ionic_2": 386.16,
+  "ionic_3": 389.71,
+  "ionic_4": 389.7,
+  "ionic_5": 377.78,
+  "ionic_6": 376.59,
+  "ionic_7": 389.69
+ },
+ "bw_total_gbps": 2991.9,
+ "client_cqe_errors": {
+  "ionic_0": 0,
+  "ionic_1": 0,
+  "ionic_2": 0,
+  "ionic_3": 0,
+  "ionic_4": 0,
+  "ionic_5": 0,
+  "ionic_6": 0,
+  "ionic_7": 0
+ }
+}
+crsuse2-m2m-137 {'pause_tx': 0, 'pause_rx': 0, 'nic_rx_loss': 2, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 5120, 'ack_timeout': 4, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
+crsuse2-m2m-136 {'pause_tx': 0, 'pause_rx': 0, 'nic_rx_loss': 10602, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
++ python3 run_hostmem_numa_ab.py --output /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/matrix/hostmem-pcie-ro-ab-137-136-20261006T1051Z/tx-cross-ro-off --receiver-numa local --sender-numa cross --perftest-args=--disable_pcie_relaxed
+{
+ "receiver_numa": "local",
+ "bw_gbps": {
+  "ionic_0": 204.61,
+  "ionic_1": 220.82,
+  "ionic_2": 198.2,
+  "ionic_3": 205.4,
+  "ionic_4": 143.64,
+  "ionic_5": 292.83,
+  "ionic_6": 174.3,
+  "ionic_7": 154.15
+ },
+ "bw_total_gbps": 1593.95,
+ "client_cqe_errors": {
+  "ionic_0": 0,
+  "ionic_1": 0,
+  "ionic_2": 0,
+  "ionic_3": 0,
+  "ionic_4": 0,
+  "ionic_5": 0,
+  "ionic_6": 0,
+  "ionic_7": 0
+ }
+}
+crsuse2-m2m-137 {'pause_tx': 0, 'pause_rx': 0, 'nic_rx_loss': 9, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
+crsuse2-m2m-136 {'pause_tx': 0, 'pause_rx': 0, 'nic_rx_loss': 0, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}

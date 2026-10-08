@@ -1,0 +1,91 @@
+diff --git a/mooncake-transfer-engine/include/topology.h b/mooncake-transfer-engine/include/topology.h
+index 2efbe0f4..8b9de634 100644
+--- a/mooncake-transfer-engine/include/topology.h
++++ b/mooncake-transfer-engine/include/topology.h
+@@ -95,6 +95,12 @@ class Topology {
+     int selectDeviceByLocalHca(const std::string storage_type,
+                                std::string_view local_hca, int retry_count = 0);
+ 
++    // The one preferred HCA a GPU location is pinned to, or -1.
++    int pinnedDevice(const std::string &storage_type) const {
++        auto it = pinned_hca_.find(storage_type);
++        return it == pinned_hca_.end() ? -1 : it->second;
++    }
++
+     TopologyMatrix getMatrix() const { return matrix_; }
+ 
+     const std::vector<std::string> &getHcaList() const { return hca_list_; }
+@@ -129,6 +135,7 @@ class Topology {
+     };
+     std::unordered_map<std::string /* storage type */, ResolvedTopologyEntry>
+         resolved_matrix_;
++    std::unordered_map<std::string /* GPU location */, int> pinned_hca_;
+     std::unordered_map<std::string /* local HCA */,
+                        std::unordered_map<std::string /* storage type */,
+                                           std::vector<int> /* peer HCA ids */>>
+diff --git a/mooncake-transfer-engine/src/topology.cpp b/mooncake-transfer-engine/src/topology.cpp
+index 5383f1e3..607257c2 100644
+--- a/mooncake-transfer-engine/src/topology.cpp
++++ b/mooncake-transfer-engine/src/topology.cpp
+@@ -620,6 +620,7 @@ void Topology::clear() {
+     hca_list_.clear();
+     resolved_matrix_.clear();
+     resolved_hca_peer_affinity_by_local_.clear();
++    pinned_hca_.clear();
+ }
+ 
+ int Topology::discover(const std::vector<std::string> &filter) {
+@@ -830,6 +831,23 @@ int Topology::resolve() {
+     }
+     precomputeResolvedHcaPeerAffinity(matrix_, hca_id_map,
+                                       resolved_hca_peer_affinity_by_local_);
++
++    // GPUs that tie on the same preferred HCAs (all NUMA-local HCAs when the
++    // PCIe switches are hidden, e.g. in a VM) are spread across them one HCA
++    // each, in GPU order; with PCIe-switch locality each GPU keeps its own.
++    pinned_hca_.clear();
++    std::map<std::vector<std::string>, std::map<int, std::string>> ties;
++    for (auto &entry : matrix_) {
++        if (entry.first.rfind(GPU_PREFIX, 0) == 0 &&
++            !entry.second.preferred_hca.empty())
++            ties[entry.second.preferred_hca]
++                [atoi(entry.first.c_str() + GPU_PREFIX.size())] = entry.first;
++    }
++    for (auto &[hcas, gpus] : ties) {
++        size_t rank = 0;
++        for (auto &gpu : gpus)
++            pinned_hca_[gpu.second] = hca_id_map[hcas[rank++ % hcas.size()]];
++    }
+     return 0;
+ }
+ 
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+index f0f9e814..ee0adf8e 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+@@ -57,7 +57,9 @@ static std::string resolveBufferLocation(
+ // MC_ENABLE_DEST_LOCAL_RAIL: post a WRITE on the HCA the peer prefers for the
+ // destination buffer; dest device affinity keeps the peer on that same rail.
+ // A cross-NUMA transfer then crosses the socket on the sender's DMA reads, not
+-// on the receiver's DMA writes, which a receiving NIC drops under load.
++// on the receiver's DMA writes, which a receiving NIC drops under load. A GPU
++// destination always uses its one pinned HCA, so several senders writing to
++// the same GPU cannot push more than one NIC's rate into its PCIe link.
+ static std::string destinationLocalHca(
+     TransferMetadata::SegmentDesc *peer_desc,
+     const Transport::TransferRequest &request) {
+@@ -66,9 +68,12 @@ static std::string destinationLocalHca(
+         return {};
+     int buffer_id = -1, device_id = -1;
+     if (RdmaTransport::selectDevice(peer_desc, request.target_offset,
+-                                    request.length, buffer_id, device_id) ||
+-        static_cast<size_t>(device_id) >= peer_desc->devices.size())
++                                    request.length, buffer_id, device_id))
+         return {};
++    int pinned =
++        peer_desc->topology.pinnedDevice(peer_desc->buffers[buffer_id].name);
++    if (pinned >= 0) device_id = pinned;
++    if (static_cast<size_t>(device_id) >= peer_desc->devices.size()) return {};
+     return peer_desc->devices[device_id].name;
+ }
+ 

@@ -1,0 +1,74 @@
+[
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "warmup",
+      "context_overflow_skip": false,
+      "conversation_id": "0196085d85d2075a50b74cd8795ffbdcea9a",
+      "credit_issued_ns": 1791288199960594041,
+      "record_processor_id": "record_processor_88e03c58",
+      "request_ack_ns": 1791288228617780916,
+      "request_end_ns": 1791288228617911105,
+      "request_start_ns": 1791288199962231133,
+      "root_correlation_id": "0ba269d6-7354-45c8-9bf3-57361b87801e",
+      "session_num": 87,
+      "source_kind": "weka_main",
+      "source_outer_idx": 88,
+      "source_trace_id": "0196085d85d2075a50b74cd8795ffbdcea9a",
+      "turn_index": 82,
+      "was_cancelled": false,
+      "worker_id": "worker_0d31a4c2",
+      "x_correlation_id": "0ba269d6-7354-45c8-9bf3-57361b87801e",
+      "x_request_id": "abdddeb1-ada9-4eb6-8355-b0f836cd1118"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 435986
+      }
+    }
+  },
+  {
+    "error": {
+      "cause_chain": [
+        "InvalidInferenceResultError"
+      ],
+      "message": "InvalidInferenceResultError('Invalid inference result: No responses with actual content were received from the server (only usage/metadata, null/empty data, or [DONE] markers)')",
+      "type": "InvalidInferenceResultError"
+    },
+    "metadata": {
+      "agent_depth": 0,
+      "benchmark_phase": "warmup",
+      "context_overflow_skip": false,
+      "conversation_id": "085aacf44ac5428ad3c6b4f6cd431e083832",
+      "credit_issued_ns": 1791288199961778238,
+      "record_processor_id": "record_processor_446ed55b",
+      "request_ack_ns": 1791288232661708407,
+      "request_end_ns": 1791288232661805776,
+      "request_start_ns": 1791288199964127431,
+      "root_correlation_id": "772a73e8-6555-4fc1-9a6d-bea5d9c7047e",
+      "session_num": 99,
+      "source_kind": "weka_main",
+      "source_outer_idx": 376,
+      "source_trace_id": "085aacf44ac5428ad3c6b4f6cd431e083832",
+      "turn_index": 349,
+      "was_cancelled": false,
+      "worker_id": "worker_f26279b2",
+      "x_correlation_id": "772a73e8-6555-4fc1-9a6d-bea5d9c7047e",
+      "x_request_id": "465d211e-f8e7-4bff-af2a-9f11ad7b181a"
+    },
+    "metrics": {
+      "error_isl": {
+        "unit": "tokens",
+        "value": 645955
+      }
+    }
+  }
+]

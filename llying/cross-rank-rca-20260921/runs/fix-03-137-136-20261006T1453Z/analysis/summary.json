@@ -1,0 +1,74 @@
+{
+  "benchmark": {
+    "cancelled_requests": 9,
+    "duration_seconds": 1229.77552,
+    "error_categories": {},
+    "input_tokens_per_second": 262545.47997,
+    "output_tokens_per_second": 2009.5944,
+    "records_error_dropped": 0,
+    "records_profiled": 2556,
+    "records_total": 2720
+  },
+  "client_server_correlation": {
+    "matched_within_5s": 0,
+    "max_abs_delta_ms": null,
+    "unmatched_client_errors": 0,
+    "unmatched_decode_failures": 0
+  },
+  "cqe_destination_ranks": {},
+  "cqe_hcas": {},
+  "cqe_same_named_hca": 0,
+  "cross_numa_failure_rate": {
+    "failed": 0,
+    "paired_same_numa_failures": 0,
+    "percent": 0.0,
+    "routed": 1377
+  },
+  "decode_port_rank_evidence": {},
+  "failure_rank_pairs": {},
+  "hca_fault_delta_rows": 12,
+  "hca_hard_counter_by_hca": {
+    "tx_rdma_ack_timeout": {
+      "ionic_0": 4,
+      "ionic_1": 2,
+      "ionic_3": 2,
+      "ionic_5": 10
+    }
+  },
+  "hca_hard_counter_by_node": {
+    "tx_rdma_ack_timeout": {
+      "crsuse2-m2m-137": 18
+    }
+  },
+  "hca_hard_counter_totals": {
+    "tx_rdma_ack_timeout": 18
+  },
+  "hca_timeseries_fault_events": 4,
+  "hca_timeseries_fault_events_by_counter": {
+    "tx_rdma_ack_timeout": 4
+  },
+  "paired_failure_causes": {},
+  "paired_failure_numa_classes": {},
+  "paired_failure_rank_classes": {},
+  "paired_transfer_failures": 0,
+  "reproduced": false,
+  "root_cause_status": "not-closed; single-variable pair matrix pending",
+  "router_pair_classes": {
+    "cross-rank/cross-numa": 1377,
+    "cross-rank/same-numa": 1011,
+    "same-rank/same-numa": 341
+  },
+  "router_pair_count": 2729,
+  "run": "/home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/runs/fix-03-137-136-20261006T1453Z",
+  "signatures": {
+    "client_errors": 0,
+    "cqe_error_12": 0,
+    "decode_transfer_failed": 0,
+    "prefill_transfer_failed": 0,
+    "retry_exhausted": 0,
+    "session_failed": 0,
+    "session_not_alive": 0,
+    "transfer_client_aborted": 0
+  },
+  "transfer_failure_records": 0
+}

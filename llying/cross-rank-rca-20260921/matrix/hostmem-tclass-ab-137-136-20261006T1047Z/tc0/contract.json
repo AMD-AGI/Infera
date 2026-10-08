@@ -1,0 +1,40 @@
+{
+  "source_node": "crsuse2-m2m-137",
+  "destination_node": "crsuse2-m2m-136",
+  "receiver_numa": "cross",
+  "sender_numa": "local",
+  "seconds": 20,
+  "qps_per_hca": 8,
+  "message_bytes": 1048576,
+  "tclass": 0,
+  "hcas": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "servers": [
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 --tclass=0 > /tmp/mc-rca-hostmem-tc0-0-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_1 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18701 --tclass=0 > /tmp/mc-rca-hostmem-tc0-1-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_2 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18702 --tclass=0 > /tmp/mc-rca-hostmem-tc0-2-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_3 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18703 --tclass=0 > /tmp/mc-rca-hostmem-tc0-3-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=0 ib_write_bw -d ionic_4 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18704 --tclass=0 > /tmp/mc-rca-hostmem-tc0-4-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=0 ib_write_bw -d ionic_5 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18705 --tclass=0 > /tmp/mc-rca-hostmem-tc0-5-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=0 ib_write_bw -d ionic_6 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18706 --tclass=0 > /tmp/mc-rca-hostmem-tc0-6-server.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=0 ib_write_bw -d ionic_7 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18707 --tclass=0 > /tmp/mc-rca-hostmem-tc0-7-server.log 2>&1 &"
+  ],
+  "clients": [
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-0-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_1 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18701 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-1-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_2 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18702 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-2-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_3 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18703 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-3-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=1 ib_write_bw -d ionic_4 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18704 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-4-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=1 ib_write_bw -d ionic_5 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18705 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-5-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=1 ib_write_bw -d ionic_6 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18706 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-6-client.log 2>&1 &",
+    "timeout 80 numactl --cpunodebind=1 --membind=1 ib_write_bw -d ionic_7 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18707 --tclass=0 10.245.154.168 > /tmp/mc-rca-hostmem-tc0-7-client.log 2>&1 &"
+  ]
+}

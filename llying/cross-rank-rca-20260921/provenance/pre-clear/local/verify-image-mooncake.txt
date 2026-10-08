@@ -1,0 +1,4 @@
+=== infera-sglang:v0519-yihou-0917-nextnfix-hicache
+  ERROR: could not run infera-sglang:v0519-yihou-0917-nextnfix-hicache
+
+verify_image_mooncake: FAILED

@@ -1,0 +1,21 @@
+crsuse2-m2m-138 -> crsuse2-m2m-136, 2266 samples
+time     hca      ackto    retx     dup       gap  class
+04:38:25 ionic_3      2     778     778         0  dup-only
+04:38:31 ionic_3      2    1567    1567    -44928  dup-only
+04:38:34 ionic_3      2     776     776         0  dup-only
+04:38:46 ionic_4      2     858     858         0  dup-only
+04:38:57 ionic_4      1     403     403     53789  dup-only
+04:39:04 ionic_4      2    1634    1634     36067  dup-only
+04:39:05 ionic_4      2    1634    1634         0  dup-only
+04:45:24 ionic_2      4     737     737         0  dup-only
+04:55:11 ionic_0      2       0       0   -122460  no-retx
+04:55:16 ionic_7      2       0       0   1485980  no-retx
+04:55:28 ionic_7      2       0       0         0  no-retx
+05:00:25 ionic_0      2       0       0         0  no-retx
+05:01:02 ionic_4      7    3112    1512      1598  loss
+05:01:05 ionic_6      6   32768       0   1042015  loss
+05:01:07 ionic_6      2   32768       0     40960  loss
+05:02:15 ionic_6      2    8192       0      8192  loss
+05:04:29 ionic_6      2    8192       0      8192  loss
+05:08:57 ionic_6      2    8192       0      8192  loss
+ACK timeouts by class: {'no-retx': 8, 'dup-only': 17, 'loss': 21}

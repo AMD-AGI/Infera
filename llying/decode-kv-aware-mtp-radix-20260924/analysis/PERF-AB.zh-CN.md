@@ -191,15 +191,19 @@ prefill 第一次遇到某个 query token 档位时，要现场编译 tilelang �
 
 编译事件对三组的影响都在 1% 以内，不改变上面的结论。输出文件为 `evidence/perf/<组>-perf-compile-impact.txt`。
 
-## 下一步
+## 收尾决定（2026-10-06）
 
-- **py-spy 定位实验已完成**（09-28 08:44–09:33），结果见"C 组为什么慢"第 5 节：开销不在调度线程上。
-- **是否值得追根因（09-28 决定）：** 先不追。C40 下即使开销全部消除，C 也只比 B 快约 0.5–1%，因为 TTFT 侧的净收益只有约 150 ms/请求，而 decode 端的块复用率只从 86.4% 提高到 88.0%。decode HiCache 只有在 decode 显存成为瓶颈时才可能有明显收益。
-- **判断实验（进行中）：** 在 C56 下，B 和 C 各跑一次，采样 900 秒（`config.decrad.{b,c}-diag.sh`，`CONC=56`，输出在 `evidence/c56/`）。yihou 的扫描里，基础镜像在 C56 时已经越过拐点：吞吐 117k tok/s，TTFT 均值 38.7 s（C40 时分别是 158k 和 7.4 s）。
-  - 如果 C 仍然不如 B，或者只是持平：decode 只开 radix，这个排查到此结束。
-  - 如果 C 明显领先：再用 torch profiler 在 GPU 层面对比 B 和 C，追查根因。
+**decode 只开 radix，不开 HiCache。这条排查到此结束。**
+
+- **不追根因的理由：** C40 下即使开销全部消除，C 也只比 B 快约 0.5–1%。TTFT 侧的净收益只有约 150 ms/请求，decode 端的块复用率只从 86.4% 提高到 88.0%。decode HiCache 只有在 decode 显存成为瓶颈时才可能有明显收益。
+- **C56 判断实验没有完成，不作为结论依据。** 原计划在 C56 下用 900 秒采样对比 B 和 C（`config.decrad.{b,c}-diag.sh`，`CONC=56`，输出在 `evidence/c56/`），以检验高并发下 decode HiCache 是否有收益。
+  - **B 组两次都没跑成：** 第一次在 warmup 中因 `/home` 共享卷写满（`Disk quota exceeded`）中断，产物在 `evidence/c56/b-diag-attempt1-quota-failed/`；重跑排在登录节点的 tmux 里，随会话终止而丢失。
+  - **只有 C 组的数据**（[evidence/c56/summary.csv](evidence/c56/summary.csv)、[evidence/c56/router-hits.txt](evidence/c56/router-hits.txt)）：采样期完成 666 个请求，吞吐 85,356 tok/s，TTFT 均值 50.7 s，ITL 14.05 ms，decode 端按块复用 58.0%（C40 时为 88.0%）。没有同条件下的 B 组，这组数字不能说明 HiCache 的好坏。
+  - **10-06 用户决定不再补跑。**
 - **upstream：** 不自行提交，持续跟踪 [#40857](https://github.com/sgl-project/sglang/pull/40857) 和 [#38292](https://github.com/sgl-project/sglang/pull/38292)。
-- 如需确认 B 与 A 之间约 3% 的差距，每组再重复一次。
+- **如果以后要再评估：**
+  - B 与 A 之间约 3% 的差距，需要每组再重复一次确认。
+  - decode HiCache 的固定开销，需要在 GPU 层面（torch profiler）对比 B 和 C 才能定位。
 
 ## 复现
 

@@ -1,0 +1,2 @@
+auto offset=4 PASS pairs=8 gb_s=[20.15, 20.32, 11.81, 11.54, 8.38, 11.32, 19.43, 19.24] rx_loss=0 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+completed=8 failed_waves=0 failed_pairs=0

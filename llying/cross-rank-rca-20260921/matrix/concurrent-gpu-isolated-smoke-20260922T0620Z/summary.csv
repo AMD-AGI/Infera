@@ -1,0 +1,9 @@
+rail_policy,wave_offset,source_gpu,destination_gpu,numa_class,device_filter,passed,verified,gb_s,gib,cqe_error_12,retry_exhausted,wave_req_tx_retry_excd_err,wave_tx_rdma_ack_timeout,wave_counter_snapshot_complete,reason
+source-local,0,0,0,same-numa,ionic_0,False,,,0.0,0,0,0,0,True,register_failed
+source-local,0,1,1,same-numa,ionic_1,False,,,0.0,0,0,0,0,True,register_failed
+source-local,0,2,2,same-numa,ionic_2,False,,,0.0,0,0,0,0,True,register_failed
+source-local,0,3,3,same-numa,ionic_3,True,True,38.45,1075.0,0,0,0,0,True,
+source-local,0,4,4,same-numa,ionic_4,False,,,0.0,0,0,0,0,True,register_failed
+source-local,0,5,5,same-numa,ionic_5,False,,,0.0,0,0,0,0,True,register_failed
+source-local,0,6,6,same-numa,ionic_6,False,,,0.0,0,0,0,0,True,register_failed
+source-local,0,7,7,same-numa,ionic_7,False,,,0.0,0,0,0,0,True,register_failed

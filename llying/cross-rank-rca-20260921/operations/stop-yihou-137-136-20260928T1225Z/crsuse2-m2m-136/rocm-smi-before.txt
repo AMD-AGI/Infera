@@ -1,0 +1,95 @@
+
+
+============================ ROCm System Management Interface ============================
+=================================== % time GPU is busy ===================================
+GPU[0]		: GPU use (%): 0
+GPU[0]		: GFX Activity: 4157953017
+GPU[1]		: GPU use (%): 0
+GPU[1]		: GFX Activity: 4080675169
+GPU[2]		: GPU use (%): 0
+GPU[2]		: GFX Activity: 4131686995
+GPU[3]		: GPU use (%): 0
+GPU[3]		: GFX Activity: 109962841
+GPU[4]		: GPU use (%): 0
+GPU[4]		: GFX Activity: 2709005714
+GPU[5]		: GPU use (%): 0
+GPU[5]		: GFX Activity: 2757425480
+GPU[6]		: GPU use (%): 0
+GPU[6]		: GFX Activity: 2781872204
+GPU[7]		: GPU use (%): 0
+GPU[7]		: GFX Activity: 2764387275
+==========================================================================================
+=================================== Current Memory Use ===================================
+GPU[0]		: GPU Memory Allocated (VRAM%): 0
+GPU[0]		: GPU Memory Read/Write Activity (%): 0
+GPU[0]		: Memory Activity: 2969681576
+GPU[0]		: Avg. Memory Bandwidth: 0
+GPU[1]		: GPU Memory Allocated (VRAM%): 0
+GPU[1]		: GPU Memory Read/Write Activity (%): 0
+GPU[1]		: Memory Activity: 2968222935
+GPU[1]		: Avg. Memory Bandwidth: 0
+GPU[2]		: GPU Memory Allocated (VRAM%): 0
+GPU[2]		: GPU Memory Read/Write Activity (%): 0
+GPU[2]		: Memory Activity: 2968344350
+GPU[2]		: Avg. Memory Bandwidth: 0
+GPU[3]		: GPU Memory Allocated (VRAM%): 0
+GPU[3]		: GPU Memory Read/Write Activity (%): 0
+GPU[3]		: Memory Activity: 2970997454
+GPU[3]		: Avg. Memory Bandwidth: 0
+GPU[4]		: GPU Memory Allocated (VRAM%): 80
+GPU[4]		: GPU Memory Read/Write Activity (%): 0
+GPU[4]		: Memory Activity: 2031431003
+GPU[4]		: Avg. Memory Bandwidth: 0
+GPU[5]		: GPU Memory Allocated (VRAM%): 80
+GPU[5]		: GPU Memory Read/Write Activity (%): 0
+GPU[5]		: Memory Activity: 2023572274
+GPU[5]		: Avg. Memory Bandwidth: 0
+GPU[6]		: GPU Memory Allocated (VRAM%): 80
+GPU[6]		: GPU Memory Read/Write Activity (%): 0
+GPU[6]		: Memory Activity: 2025813294
+GPU[6]		: Avg. Memory Bandwidth: 0
+GPU[7]		: GPU Memory Allocated (VRAM%): 80
+GPU[7]		: GPU Memory Read/Write Activity (%): 0
+GPU[7]		: Memory Activity: 2025836358
+GPU[7]		: Avg. Memory Bandwidth: 0
+==========================================================================================
+===================================== KFD Processes ======================================
+KFD process information:
+PID    	PROCESS NAME   	GPU(s)	VRAM USED   	SDMA USED    	CU OCCUPANCY	
+1757581	python3        	0     	0           	0            	0           	
+1754654	sglang::schedul	1     	248926638080	2781770265477	0           	
+1754022	sglang::detoken	0     	0           	0            	0           	
+1757578	python3        	0     	0           	0            	0           	
+1754262	sglang::schedul	1     	248878374912	2708411921203	0           	
+1753815	sglang::data_pa	0     	0           	0            	0           	
+17976  	gpuagent       	0     	0           	0            	0           	
+1753359	python3        	0     	0           	0            	0           	
+1754804	sglang::schedul	1     	248878448640	2626590721024	0           	
+1757575	python3        	0     	0           	0            	0           	
+1752296	python3        	0     	0           	0            	0           	
+1754961	sglang::schedul	1     	248771420160	2649080222679	0           	
+1757583	python3        	0     	0           	0            	0           	
+==========================================================================================
+================================== End of ROCm SMI Log ===================================
+
+
+============================ ROCm System Management Interface ============================
+================================== Memory Usage (Bytes) ==================================
+GPU[0]		: VRAM Total Memory (B): 309220868096
+GPU[0]		: VRAM Total Used Memory (B): 307417088
+GPU[1]		: VRAM Total Memory (B): 309220868096
+GPU[1]		: VRAM Total Used Memory (B): 307417088
+GPU[2]		: VRAM Total Memory (B): 309220868096
+GPU[2]		: VRAM Total Used Memory (B): 307417088
+GPU[3]		: VRAM Total Memory (B): 309220868096
+GPU[3]		: VRAM Total Used Memory (B): 307417088
+GPU[4]		: VRAM Total Memory (B): 309220868096
+GPU[4]		: VRAM Total Used Memory (B): 249194713088
+GPU[5]		: VRAM Total Memory (B): 309220868096
+GPU[5]		: VRAM Total Used Memory (B): 249242984448
+GPU[6]		: VRAM Total Memory (B): 309220868096
+GPU[6]		: VRAM Total Used Memory (B): 249194782720
+GPU[7]		: VRAM Total Memory (B): 309220868096
+GPU[7]		: VRAM Total Used Memory (B): 249087766528
+==========================================================================================
+================================== End of ROCm SMI Log ===================================

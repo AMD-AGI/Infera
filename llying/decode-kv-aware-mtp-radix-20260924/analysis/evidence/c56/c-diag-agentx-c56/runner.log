@@ -1,0 +1,1245 @@
+Downloading cpython-3.11.16-linux-x86_64-gnu (download) (29.4MiB)
+ Downloaded cpython-3.11.16-linux-x86_64-gnu (download)
+Using CPython 3.11.16
+Creating virtual environment at: /home/liyingli/.cache/agentx-decrad/aiperf/venv
+Activate with: source /home/liyingli/.cache/agentx-decrad/aiperf/venv/bin/activate
+Using Python 3.11.16 environment at: /home/liyingli/.cache/agentx-decrad/aiperf/venv
+Resolved 130 packages in 1.28s
+   Building aiperf @ file:///home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/.cache/InferenceX/utils/aiperf
+      Built aiperf @ file:///home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/.cache/InferenceX/utils/aiperf
+Prepared 1 package in 1.08s
+Installed 130 packages in 8.52s
+ + aiofiles==24.1.0
+ + aiohappyeyeballs==2.7.1
+ + aiohttp==3.13.5
+ + aiosignal==1.4.0
+ + aiperf==0.12.0 (from file:///home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/.cache/InferenceX/utils/aiperf)
+ + alembic==1.20.0
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + anyio==4.15.1
+ + attrs==26.1.0
+ + blinker==1.9.0
+ + brotli==1.2.0
+ + certifi==2026.7.22
+ + cffi==2.1.1
+ + charset-normalizer==3.5.1
+ + choreographer==1.4.0
+ + click==8.5.0
+ + colorlog==6.12.0
+ + contourpy==1.3.3
+ + crick==0.0.8
+ + cycler==0.12.1
+ + cyclopts==4.25.3
+ + dash==3.1.1
+ + dash-bootstrap-components==2.0.4
+ + datasets==5.0.1
+ + dill==0.4.1
+ + docstring-parser==0.18.0
+ + fastapi==0.141.1
+ + ffmpeg-python==0.2.0
+ + filelock==4.0.5
+ + flask==3.1.3
+ + fonttools==4.66.0
+ + frozenlist==1.8.0
+ + fsspec==2026.6.0
+ + future==1.0.0
+ + h11==0.16.0
+ + hf-xet==1.6.0
+ + httpcore==1.0.9
+ + httptools==0.8.0
+ + httpx==0.28.1
+ + huggingface-hub==1.33.0
+ + idna==3.20
+ + importlib-metadata==9.0.1
+ + iniconfig==2.3.0
+ + itsdangerous==2.2.0
+ + jinja2==3.1.6
+ + jmespath==1.0.1
+ + kaleido==1.2.0
+ + kiwisolver==1.5.1
+ + linkify-it-py==2.2.0
+ + logistro==2.0.1
+ + mako==1.4.3
+ + markdown-it-py==4.2.0
+ + markupsafe==3.0.3
+ + matplotlib==3.11.2
+ + mdit-py-plugins==0.6.1
+ + mdurl==0.1.2
+ + msgspec==0.21.1
+ + multidict==6.9.1
+ + multiprocess==0.70.19
+ + narwhals==2.26.0
+ + nest-asyncio==1.6.0
+ + numpy==2.4.6
+ + nvidia-ml-py==13.615.71
+ + optuna==5.0.0
+ + orjson==3.11.9
+ + packaging==26.3
+ + pandas==2.3.3
+ + pillow==12.2.0
+ + platformdirs==4.12.1
+ + plotly==6.4.0
+ + pluggy==1.6.0
+ + prometheus-client==0.23.1
+ + propcache==0.5.4
+ + protobuf==7.36.2
+ + psutil==7.0.0
+ + pyarrow==25.0.1
+ + pycparser==3.0
+ + pydantic==2.13.5
+ + pydantic-core==2.46.5
+ + pydantic-settings==2.15.0
+ + pygments==2.21.0
+ + pyparsing==3.3.3
+ + pytest==9.1.1
+ + pytest-timeout==2.4.0
+ + python-dateutil==2.9.0.post0
+ + python-dotenv==1.2.3
+ + pytz==2026.4
+ + pyyaml==6.0.3
+ + pyzmq==26.4.0
+ + regex==2026.9.10
+ + requests==2.34.2
+ + retrying==1.4.2
+ + rich==14.1.0
+ + rich-rst==2.2.0
+ + ruamel-yaml==0.18.17
+ + ruamel-yaml-clib==0.2.15
+ + safetensors==0.8.0
+ + scipy==1.17.1
+ + seaborn==0.13.2
+ + sentencepiece==0.2.2
+ + setproctitle==1.3.7
+ + setuptools==84.0.0
+ + shellingham==1.5.4
+ + simplejson==4.1.2
+ + six==1.17.0
+ + soundfile==0.13.1
+ + sqlalchemy==2.1.1
+ + starlette==1.7.0
+ + starlette-compress==1.8.0
+ + textual==5.3.0
+ + tiktoken==0.14.0
+ + tokenizers==0.23.2
+ + tqdm==4.70.1
+ + transformers==5.17.0
+ + typer==0.27.2
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + tzdata==2026.4
+ + urllib3==2.8.0
+ + uvicorn==0.54.0
+ + uvloop==0.22.1
+ + watchfiles==1.3.0
+ + websockets==17.1
+ + werkzeug==3.1.9
+ + xlsxwriter==3.2.9
+ + xxhash==4.0.1
+ + yarl==1.25.1
+ + zipp==4.1.0
+ + zstandard==0.25.0
+warning: The package `huggingface-hub==1.33.0` does not have an extra named `cli`
+Loading traces via aiperf public-dataset: semianalysis_cc_traces_weka_062126 (semianalysisai/cc-traces-weka-062126) [MODEL_PREFIX=glm5.2]
+[32m✓ Downloaded[0m
+  path: /home/liyingli/.cache/agentx-decrad/hf/hub/datasets--semianalysisai--cc-traces-weka-062126/snapshots/23f152f6f0f9399a85901b89a6458def0ef16729
++ /home/liyingli/.cache/agentx-decrad/aiperf/venv/bin/aiperf profile --scenario inferencex-agentx-mvp --url http://10.245.148.209:28000 --endpoint /v1/chat/completions --endpoint-type chat --streaming --model glm5.2-mxfp4 --tokenizer /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --concurrency 56 --benchmark-duration 900 --stats-interval 30 --random-seed 42 --failed-request-threshold 0.10 --trajectory-start-min-ratio 0.25 --trajectory-start-max-ratio 0.75 --warmup-requests-per-lane 10 --trace-idle-gap-cap-seconds 300 --warmup-grace-period 1800 --use-server-token-count --no-gpu-telemetry --tokenizer-trust-remote-code --num-dataset-entries 393 --slice-duration 1.0 --server-metrics http://10.245.148.209:28000/metrics http://10.245.148.209:29001/metrics http://10.245.157.237:29002/metrics --output-artifact-dir /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/c-diag-agentx-c56/aiperf_artifacts --public-dataset semianalysis_cc_traces_weka_062126
++ tee /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/c-diag-agentx-c56/benchmark.log
+12:04:11.480 INFO     Starting AIPerf System (_single_run.py:64)
+12:04:11.492 INFO     Scenario 'inferencex-agentx-mvp': setting profiling-phase timing_mode=agentic_replay. (validator.py:226)
+12:04:11.492 INFO     Scenario 'inferencex-agentx-mvp': injecting extra_inputs.ignore_eos=true (was absent). (validator.py:285)
+12:04:11.492 INFO     Scenario 'inferencex-agentx-mvp': auto-set --cache-bust=first_turn_prefix (was at default none). (validator.py:538)
+12:04:11.492 INFO     Scenario 'inferencex-agentx-mvp': auto-set --system-idle-gap-cap-seconds=10.0 (was unset). (validator.py:779)
+12:04:12.240 INFO     GPU telemetry disabled via --no-gpu-telemetry (system_controller.py:269)
+12:04:12.252 INFO     Registered Worker Manager (id: 'worker_manager') (system_controller.py:413)
+12:04:12.322 INFO     Server Metrics: Discovered 1 endpoints: ['http://10.245.148.209:28000/metrics'] (manager.py:97)
+12:04:12.358 INFO     Registered Record Processor (id: 'record_processor_feb6ed9a') (system_controller.py:413)
+12:04:12.372 INFO     Registered Record Processor (id: 'record_processor_13ad7227') (system_controller.py:413)
+12:04:12.372 INFO     Registered Record Processor (id: 'record_processor_adeeb2df') (system_controller.py:413)
+12:04:12.381 INFO     Registered Record Processor (id: 'record_processor_7a8837a2') (system_controller.py:413)
+12:04:12.419 INFO     Registered Worker (id: 'worker_647eafe6') (system_controller.py:413)
+12:04:12.428 INFO     Registered Server Metrics Manager (id: 'server_metrics_manager') (system_controller.py:413)
+12:04:12.434 INFO     Registered Worker (id: 'worker_ac7db5e9') (system_controller.py:413)
+12:04:12.438 INFO     Registered Worker (id: 'worker_9855b640') (system_controller.py:413)
+12:04:12.444 INFO     Registered Worker (id: 'worker_b909da4a') (system_controller.py:413)
+12:04:12.455 INFO     Registered Record Processor (id: 'record_processor_2bc591d0') (system_controller.py:413)
+12:04:12.455 INFO     Registered Record Processor (id: 'record_processor_7772f6b0') (system_controller.py:413)
+12:04:12.455 INFO     Registered Record Processor (id: 'record_processor_bc48364a') (system_controller.py:413)
+12:04:12.469 INFO     Registered Worker (id: 'worker_5ce512d4') (system_controller.py:413)
+12:04:12.472 INFO     Registered Record Processor (id: 'record_processor_2ef7b66b') (system_controller.py:413)
+12:04:12.503 INFO     Registered Worker (id: 'worker_0d241846') (system_controller.py:413)
+12:04:12.559 INFO     Registered Worker (id: 'worker_10761dd1') (system_controller.py:413)
+12:04:12.560 INFO     Registered Worker (id: 'worker_2082060f') (system_controller.py:413)
+12:04:12.560 INFO     Registered Worker (id: 'worker_931adc8b') (system_controller.py:413)
+12:04:12.560 INFO     Registered Timing Manager (id: 'timing_manager') (system_controller.py:413)
+12:04:12.584 INFO     Registered Dataset Manager (id: 'dataset_manager') (system_controller.py:413)
+12:04:12.597 INFO     Registered Worker (id: 'worker_ca88a5b9') (system_controller.py:413)
+12:04:12.598 INFO     Registered Worker (id: 'worker_ed2d8d1c') (system_controller.py:413)
+12:04:12.598 INFO     Registered Worker (id: 'worker_8f4fd833') (system_controller.py:413)
+12:04:12.602 INFO     Registered Worker (id: 'worker_278654e3') (system_controller.py:413)
+12:04:12.621 INFO     Registered Worker (id: 'worker_e57da8f8') (system_controller.py:413)
+12:04:12.622 INFO     Registered Worker (id: 'worker_adb1cfdd') (system_controller.py:413)
+12:04:12.627 INFO     Registered Worker (id: 'worker_52624402') (system_controller.py:413)
+12:04:12.627 INFO     Registered Worker (id: 'worker_82502a80') (system_controller.py:413)
+12:04:12.631 INFO     Registered Worker (id: 'worker_289c9796') (system_controller.py:413)
+12:04:12.632 INFO     Registered Worker (id: 'worker_97afefd1') (system_controller.py:413)
+12:04:12.632 INFO     Registered Worker (id: 'worker_b3b024d8') (system_controller.py:413)
+12:04:12.633 INFO     Registered Worker (id: 'worker_2c9f1c18') (system_controller.py:413)
+12:04:12.640 INFO     Registered Worker (id: 'worker_4ee84870') (system_controller.py:413)
+12:04:12.641 INFO     Registered Worker (id: 'worker_0ed0670b') (system_controller.py:413)
+12:04:12.643 INFO     Registered Worker (id: 'worker_83401dce') (system_controller.py:413)
+12:04:12.645 INFO     Registered Worker (id: 'worker_f39edeeb') (system_controller.py:413)
+12:04:12.645 INFO     Registered Worker (id: 'worker_642d6b5f') (system_controller.py:413)
+12:04:12.653 INFO     Registered Worker (id: 'worker_98986d39') (system_controller.py:413)
+12:04:12.658 INFO     Registered Worker (id: 'worker_7b29d298') (system_controller.py:413)
+12:04:12.660 INFO     Registered Worker (id: 'worker_b5e39606') (system_controller.py:413)
+12:04:12.682 INFO     Registered Worker (id: 'worker_91d66f09') (system_controller.py:413)
+12:04:12.690 INFO     Registered Worker (id: 'worker_1c3e8044') (system_controller.py:413)
+12:04:12.701 INFO     Registered Worker (id: 'worker_51c4be0f') (system_controller.py:413)
+12:04:12.865 INFO     Telemetry streaming is disabled (set --otel-url and/or --mlflow-tracking-uri to enable) (otel_metrics_results_processor.py:127)
+12:04:12.867 INFO     Record metrics export enabled: /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/c-diag-agentx-c56/aiperf_artifacts/profile_export.jsonl (record_export_jsonl_writer.py:62)
+12:04:12.976 INFO     Registered Records Manager (id: 'records_manager') (system_controller.py:413)
+12:04:13.243 INFO     AIPerf System is CONFIGURING (system_controller.py:294)
+12:04:13.243 INFO     Configuring all services to start profiling (system_controller.py:307)
+12:04:13.243 INFO     Waiting for dataset to be configured before configuring timing (manager.py:124)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.243 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+12:04:13.246 INFO     Configuring tokenizer(s) for dataset manager (dataset_manager.py:240)
+12:04:13.312 INFO     Server Metrics: Capturing baseline metrics... (manager.py:191)
+12:04:13.347 WARNING  Dropping non-finite (NaN/Inf) sample(s) from metric 'sglang:fwd_occupancy': 4 in this scrape; affected data will be missing from server_metrics_export. Further occurrences for this metric name will not be logged. (data_collector.py:374)
+12:04:13.466 WARNING  Dropping non-finite (NaN/Inf) sample(s) from metric 'sglang:fwd_occupancy': 4 in this scrape; affected data will be missing from server_metrics_export. Further occurrences for this metric name will not be logged. (data_collector.py:374)
+12:04:13.469 INFO     Server metrics enabled - 3/3 endpoint(s) reachable. (system_controller.py:592)
+12:04:13.469 INFO     Waiting for result domains: profile, server_metrics (system_controller.py:869)
+12:04:19.390 INFO     Tokenizer(s) configured in 6.14 seconds (dataset_manager.py:244)
+12:04:19.391 INFO     Configuring dataset for dataset_manager (dataset_manager.py:250)
+12:04:20.157 INFO     Loading HuggingFace dataset 'semianalysisai/cc-traces-weka-062126' (split=train) (base_hf_dataset.py:48)
+12:04:22.732 INFO     HTTP Request: HEAD https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect" (_client.py:1025)
+12:04:22.759 INFO     HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/semianalysisai/cc-traces-weka-062126/23f152f6f0f9399a85901b89a6458def0ef16729/README.md?%2Fdatasets%2Fsemianalysisai%2Fcc-traces-weka-062126%2Fresolve%2Fmain%2FREADME.md=&etag=%2243f4a625a90e113d079dacb5f8235a4c7d9f6979%22 "HTTP/1.1 200 OK" (_client.py:1025)
+12:04:22.811 INFO     HTTP Request: HEAD https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126/resolve/23f152f6f0f9399a85901b89a6458def0ef16729/cc-traces-weka-062126.py "HTTP/1.1 404 Not Found" (_client.py:1025)
+12:04:22.811 WARNING  Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. (_http.py:993)
+12:04:22.933 INFO     HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/semianalysisai/cc-traces-weka-062126/semianalysisai/cc-traces-weka-062126.py "HTTP/1.1 404 Not Found" (_client.py:1025)
+12:04:22.988 INFO     HTTP Request: GET https://huggingface.co/api/datasets/semianalysisai/cc-traces-weka-062126/revision/23f152f6f0f9399a85901b89a6458def0ef16729 "HTTP/1.1 429 Too Many Requests" (_client.py:1025)
+Using the latest cached version of the dataset since semianalysisai/cc-traces-weka-062126 couldn't be found on the Hugging Face Hub
+12:04:22.993 WARNING  Using the latest cached version of the dataset since semianalysisai/cc-traces-weka-062126 couldn't be found on the Hugging Face Hub (load.py:835)
+Found the latest cached dataset configuration 'default' at /home/liyingli/.cache/agentx-decrad/hf/datasets/semianalysisai___cc-traces-weka-062126/default/0.0.0/23f152f6f0f9399a85901b89a6458def0ef16729 (last modified on Thu Sep 24 13:28:22 2026).
+12:04:22.995 WARNING  Found the latest cached dataset configuration 'default' at /home/liyingli/.cache/agentx-decrad/hf/datasets/semianalysisai___cc-traces-weka-062126/default/0.0.0/23f152f6f0f9399a85901b89a6458def0ef16729 (last modified on Thu Sep 24 13:28:22 2026). (cache.py:95)
+12:04:41.899 INFO     weka trace selection [semianalysisai/cc-traces-weka-062126]: scanned 393, rejected_by_maxctx 0 (--max-context-length=None), eligible 393, loaded 393 (--num-dataset-entries=393), largest_observed_peak_context 996,579 (selection.py:73)
+12:04:41.901 INFO     Loaded 393/393 eligible traces (filter-then-cap; --num-dataset-entries=393, --max-context-length=None) (semianalysis_cc_traces_weka.py:207)
+12:05:08.353 INFO     WekaTraceLoader: spawning 16 worker process(es) for parallel reconstruction of 393 trace(s) (weka_trace.py:2433)
+12:05:19.492 INFO     WekaTraceLoader: reconstructed 39/393 (10%) in 6.8s (5.7 traces/s) (weka_parallel_convert.py:751)
+12:05:19.492 INFO     WekaTraceLoader: reconstructed 78/393 (20%) in 6.8s (11.4 traces/s) (weka_parallel_convert.py:751)
+12:05:19.492 INFO     WekaTraceLoader: reconstructed 117/393 (30%) in 6.8s (17.2 traces/s) (weka_parallel_convert.py:751)
+12:05:37.026 INFO     WekaTraceLoader: reconstructed 156/393 (40%) in 24.3s (6.4 traces/s) (weka_parallel_convert.py:751)
+12:05:37.027 INFO     WekaTraceLoader: reconstructed 195/393 (50%) in 24.3s (8.0 traces/s) (weka_parallel_convert.py:751)
+12:05:37.027 INFO     WekaTraceLoader: reconstructed 234/393 (60%) in 24.3s (9.6 traces/s) (weka_parallel_convert.py:751)
+12:05:37.027 INFO     WekaTraceLoader: reconstructed 273/393 (69%) in 24.3s (11.2 traces/s) (weka_parallel_convert.py:751)
+12:05:37.028 INFO     WekaTraceLoader: reconstructed 312/393 (79%) in 24.3s (12.8 traces/s) (weka_parallel_convert.py:751)
+12:05:37.028 INFO     WekaTraceLoader: reconstructed 351/393 (89%) in 24.3s (14.4 traces/s) (weka_parallel_convert.py:751)
+12:05:37.028 INFO     WekaTraceLoader: reconstructed 390/393 (99%) in 24.3s (16.0 traces/s) (weka_parallel_convert.py:751)
+12:05:37.028 INFO     WekaTraceLoader: reconstructed 393/393 (100%) in 24.3s (16.1 traces/s) (weka_parallel_convert.py:751)
+12:05:37.129 INFO     WekaTraceLoader: workers finished in 35.0s; assembling Conversation objects (weka_trace.py:2448)
+12:05:55.993 INFO     WekaTraceLoader: flattened-agent detection split 289 trace(s) into 1422 extra agent chain(s) (819 aux sidecars [114 reductions], 3 worker-group members, 2977 seams merged, 0 empty-hash requests kept on main) (weka_trace.py:1522)
+12:05:55.993 INFO     WekaTraceLoader: reconstructed 9843 conversation(s) in 53.8s (total load+synth+reconstruct: 53.8s) (weka_trace.py:1533)
+12:05:57.465 INFO     Memory-mapped backing store initialized (streaming to /tmp/aiperf_mmap_deef53c27a1b/dataset.dat) (memory_map_utils.py:160)
+12:06:10.924 INFO     Data file finalized: 9843 conversations, 6,367.52 MB (memory_map_utils.py:288)
+12:06:10.925 INFO     Index file created: /tmp/aiperf_mmap_deef53c27a1b/index.dat (memory_map_utils.py:295)
+12:06:10.925 INFO     Backing store finalized: client_type=DatasetClientStoreType.MEMORY_MAP format=MemoryMapFormat.CONVERSATION data_file_path=PosixPath('/tmp/aiperf_mmap_deef53c27a1b/dataset.dat') index_file_path=PosixPath('/tmp/aiperf_mmap_deef53c27a1b/index.dat') conversation_count=9843 total_size_bytes=6676825364 compressed=False compressed_data_file_path=None compressed_index_file_path=None compressed_size_bytes=0 (dataset_manager.py:969)
+12:06:11.924 INFO     sampling strategy: sequential, unique conversations: 9843, unique turn count: 98827 (dataset_manager.py:987)
+12:06:12.814 INFO     Skipping inputs.json generation (dataset_manager.py:254)
+12:06:13.869 INFO     TrajectorySource: built 56 trajectories from 393 traces (trajectory_source.py:413)
+12:06:13.869 INFO       range cfg=[0.25, 0.75]  observed sample pct: min= 27% median= 56% max= 75% (trajectory_source.py:418)
+12:06:13.869 INFO         lane=00  sample_time= 53%  root_next= 84/130 ( 65% turns)  live=1 ready=1  trace_id=002001296e8a8c38ad9d7cc436d691afc602 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=01  sample_time= 49%  root_next=  5/33  ( 15% turns)  live=1 ready=1  trace_id=006c98de37d819e95b0840e25426bb7ca99d (trajectory_source.py:420)
+12:06:13.869 INFO         lane=02  sample_time= 67%  root_next= 24/29  ( 83% turns)  live=1 ready=1  trace_id=00ca01c4aaeccee751ae6285beb54dea262f (trajectory_source.py:420)
+12:06:13.869 INFO         lane=03  sample_time= 56%  root_next= 82/191 ( 43% turns)  live=1 ready=1  trace_id=0196085d85d2075a50b74cd8795ffbdcea9a (trajectory_source.py:420)
+12:06:13.869 INFO         lane=04  sample_time= 47%  root_next=  0/13  (  0% turns)  live=1 ready=1  trace_id=02bc0afb13f7a2d9efa86c28511261d85c0e (trajectory_source.py:420)
+12:06:13.869 INFO         lane=05  sample_time= 47%  root_next= 19/40  ( 48% turns)  live=1 ready=1  trace_id=03e110ac6921c2fe9ac7772a9654314a2beb (trajectory_source.py:420)
+12:06:13.869 INFO         lane=06  sample_time= 74%  root_next=  0/54  (  0% turns)  live=13 ready=13  trace_id=0470d446a4514dfe0c6ad0be92853bd13287 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=07  sample_time= 35%  root_next=  3/7   ( 43% turns)  live=1 ready=1  trace_id=04dba6fe621301a1d01fd63b8d02c9645c48 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=08  sample_time= 75%  root_next= 32/34  ( 94% turns)  live=1 ready=1  trace_id=05c249572509162371b7b82339674db64b5d (trajectory_source.py:420)
+12:06:13.869 INFO         lane=09  sample_time= 42%  root_next= 49/52  ( 94% turns)  live=1 ready=1  trace_id=05f72f78a037cfa5cd4e4541960a574701d9 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=10  sample_time= 66%  root_next=  0/1   (  0% turns)  live=1 ready=1  trace_id=063179eb93f4337a662e859c5a2c5638e03f (trajectory_source.py:420)
+12:06:13.869 INFO         lane=11  sample_time= 49%  root_next=210/219 ( 96% turns)  live=1 ready=1  trace_id=069d7bf5f1efb4e76e3c84510367e6af78a5 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=12  sample_time= 43%  root_next= 25/34  ( 74% turns)  live=1 ready=1  trace_id=077ea9e6554f45bbad9c24a8462bae9a8512 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=13  sample_time= 68%  root_next=  8/9   ( 89% turns)  live=3 ready=2  trace_id=07dd40536557a1d6440a923557c3129dc929 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=14  sample_time= 62%  root_next=  6/19  ( 32% turns)  live=2 ready=2  trace_id=085411a4cc4b15108dd9b50007261a2efb65 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=15  sample_time= 59%  root_next=349/352 ( 99% turns)  live=1 ready=1  trace_id=085aacf44ac5428ad3c6b4f6cd431e083832 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=16  sample_time= 34%  root_next= 20/33  ( 61% turns)  live=1 ready=1  trace_id=0a279af1bec84c6ab033bb03f5d8bfd6b08d (trajectory_source.py:420)
+12:06:13.869 INFO         lane=17  sample_time= 68%  root_next= 21/31  ( 68% turns)  live=1 ready=1  trace_id=0a688303b1ae62a97607af8021f2130c2caf (trajectory_source.py:420)
+12:06:13.869 INFO         lane=18  sample_time= 69%  root_next=  0/138 (  0% turns)  live=1 ready=1  trace_id=0b7f3ca692f15ae2651a310d9411d70794aa (trajectory_source.py:420)
+12:06:13.869 INFO         lane=19  sample_time= 42%  root_next=  7/16  ( 44% turns)  live=1 ready=1  trace_id=0bc9c4f798d321286bf39f2543c0c4e4c059 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=20  sample_time= 50%  root_next= 19/24  ( 79% turns)  live=1 ready=1  trace_id=0bcd99353218b9a386b1c4aec13d77abecdb (trajectory_source.py:420)
+12:06:13.869 INFO         lane=21  sample_time= 67%  root_next= 25/46  ( 54% turns)  live=1 ready=1  trace_id=0bed163ac9566086e14ffd85c7481096d49d (trajectory_source.py:420)
+12:06:13.869 INFO         lane=22  sample_time= 70%  root_next=  6/32  ( 19% turns)  live=1 ready=1  trace_id=0d41be2aa98333f3662682210647e5971c7b (trajectory_source.py:420)
+12:06:13.869 INFO         lane=23  sample_time= 48%  root_next= 16/28  ( 57% turns)  live=1 ready=1  trace_id=0d8a816e4819b765d81ff748da94d463f3b2 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=24  sample_time= 67%  root_next=  4/53  (  8% turns)  live=1 ready=1  trace_id=0db32e2f852a2ea24ed616b31975a84da5e4 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=25  sample_time= 72%  root_next= 42/43  ( 98% turns)  live=1 ready=1  trace_id=0dedb07b5e4362b028db9d8ab90fff7fd4ad (trajectory_source.py:420)
+12:06:13.869 INFO         lane=26  sample_time= 34%  root_next=  9/26  ( 35% turns)  live=1 ready=1  trace_id=0e4206535a79f980e2b1091181202ea987fe (trajectory_source.py:420)
+12:06:13.869 INFO         lane=27  sample_time= 56%  root_next=  4/19  ( 21% turns)  live=1 ready=1  trace_id=0ede42538334da8586bc60008762abfc0ab7 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=28  sample_time= 62%  root_next=  0/2   (  0% turns)  live=1 ready=1  trace_id=0f909e7d63c0d5e1f060d727ada25d910d89 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=29  sample_time= 37%  root_next= 66/84  ( 79% turns)  live=1 ready=1  trace_id=1007f04d2c64580308858bb42f292992929d (trajectory_source.py:420)
+12:06:13.869 INFO         lane=30  sample_time= 35%  root_next=261/765 ( 34% turns)  live=1 ready=1  trace_id=11310dce936f02050cadaeae295bcdd1ce7f (trajectory_source.py:420)
+12:06:13.869 INFO         lane=31  sample_time= 31%  root_next= 23/51  ( 45% turns)  live=7 ready=6  trace_id=117ebe75819d050f308a0a81647893abd02d (trajectory_source.py:420)
+12:06:13.869 INFO         lane=32  sample_time= 64%  root_next=  3/5   ( 60% turns)  live=4 ready=3  trace_id=12bd4c7c82ae413b035253cb800fc5312111 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=33  sample_time= 74%  root_next= 19/20  ( 95% turns)  live=1 ready=1  trace_id=12cfecf98c158ab54fb65980602421f00d69 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=34  sample_time= 68%  root_next= 54/93  ( 58% turns)  live=1 ready=1  trace_id=12e6fd87f4d3d1f93f96bd7bb6a520043805 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=35  sample_time= 60%  root_next=  0/80  (  0% turns)  live=2 ready=2  trace_id=13b532ee3aaa0a52b05c3bcc472355ab62b4 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=36  sample_time= 27%  root_next= 36/172 ( 21% turns)  live=1 ready=1  trace_id=13e0b7038bafff59abfdc31aad12dbcd4a2f (trajectory_source.py:420)
+12:06:13.869 INFO         lane=37  sample_time= 51%  root_next= 14/27  ( 52% turns)  live=1 ready=1  trace_id=14129d470e508b236be22188aa78548ef805 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=38  sample_time= 75%  root_next= 69/76  ( 91% turns)  live=1 ready=1  trace_id=1493faffdc8942e99daa22277f44871a40b8 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=39  sample_time= 53%  root_next=  0/11  (  0% turns)  live=1 ready=1  trace_id=1499c406c828e8fe6b6af697e7799c6a715b (trajectory_source.py:420)
+12:06:13.869 INFO         lane=40  sample_time= 33%  root_next=  0/87  (  0% turns)  live=1 ready=1  trace_id=15ab8fdb8831965bb01e45ac51829cb4e3e3 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=41  sample_time= 71%  root_next=  0/132 (  0% turns)  live=1 ready=1  trace_id=162d6f4f741a1cf3ce98acb5e3718c3bc0c7 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=42  sample_time= 55%  root_next=167/179 ( 93% turns)  live=1 ready=1  trace_id=16b968359e79eda8a61415fa7ad536f6cda5 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=43  sample_time= 43%  root_next= 72/80  ( 90% turns)  live=1 ready=1  trace_id=16c18d979235980e8021cfb0a0b3b386305a (trajectory_source.py:420)
+12:06:13.869 INFO         lane=44  sample_time= 40%  root_next=  0/96  (  0% turns)  live=2 ready=2  trace_id=16e46bc4d9e121ffbd67ada51cb3f965342f (trajectory_source.py:420)
+12:06:13.869 INFO         lane=45  sample_time= 38%  root_next=  9/27  ( 33% turns)  live=1 ready=1  trace_id=17808bf55e26681520f3f11f47b5e1260108 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=46  sample_time= 70%  root_next=  0/2   (  0% turns)  live=3 ready=3  trace_id=18bf3ef42c109a28326d8384f1bcc8dfae37 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=47  sample_time= 33%  root_next=  0/74  (  0% turns)  live=3 ready=3  trace_id=1a271af3dedd40be2efd413ef35fe7f0f53b (trajectory_source.py:420)
+12:06:13.869 INFO         lane=48  sample_time= 73%  root_next= 25/27  ( 93% turns)  live=1 ready=1  trace_id=1b5229e3aa8893ca2f4d07d248f9cd9752fb (trajectory_source.py:420)
+12:06:13.869 INFO         lane=49  sample_time= 59%  root_next=  0/46  (  0% turns)  live=3 ready=3  trace_id=1b577bfa02cd2c421c0b59c5cac702b3c287 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=50  sample_time= 34%  root_next= 11/21  ( 52% turns)  live=1 ready=1  trace_id=1b57efe98ed202c35114d97e01ec25e8420b (trajectory_source.py:420)
+12:06:13.869 INFO         lane=51  sample_time= 47%  root_next=  0/31  (  0% turns)  live=2 ready=2  trace_id=1c4f3018d336b1bf78434d328001bc7bbe49 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=52  sample_time= 71%  root_next= 22/29  ( 76% turns)  live=1 ready=1  trace_id=1cdb6c60ce49f7b74ab6cf59051bab7591e6 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=53  sample_time= 66%  root_next= 82/256 ( 32% turns)  live=1 ready=1  trace_id=1d8a2c1d4dc1f585337036c6ad60e1ce5eb3 (trajectory_source.py:420)
+12:06:13.869 INFO         lane=54  sample_time= 70%  root_next= 99/117 ( 85% turns)  live=1 ready=1  trace_id=1f5f21559e4b79c6d2480796c7218206047f (trajectory_source.py:420)
+12:06:13.870 INFO         lane=55  sample_time= 64%  root_next=  0/239 (  0% turns)  live=5 ready=5  trace_id=1fc68c514c7fb89dbc498ae9da77d5476cec (trajectory_source.py:420)
+12:06:13.870 INFO     Initialized 2 phase(s): ['Warmup', 'Profiling'] (phase_orchestrator.py:228)
+12:06:13.956 INFO     Dataset client initialized and freed 9843 conversations from memory (dataset_manager.py:327)
+12:06:15.181 INFO     Populated mmap cache entry /root/.cache/aiperf/dataset_mmap/78a713114c7321bc51de8c0f81dcc3fb (mmap_cache.py:640)
+12:06:15.182 INFO     Dataset configured in 115.79 seconds (dataset_manager.py:263)
+12:06:15.184 INFO     All services configured in 121.94 seconds (system_controller.py:318)
+12:06:15.184 INFO     AIPerf System is CONFIGURED (system_controller.py:296)
+12:06:15.185 INFO     Server Metrics: Started 3 collector(s) successfully (manager.py:281)
+12:06:15.320 NOTICE   Phase warmup (warmup) started | target: 619 requests (runner.py:593)
+12:06:15.321 INFO     WARMUP execute: dispatching 59 trajectory credits (agentic_replay.py:654)
+12:06:15.322 INFO     WARMUP count budget: 10 additional requests per lane after 59 mandatory snapshot primers (agentic_replay.py:713)
+12:06:15.322 INFO     WARMUP spread: 9.0s ramp aligning 59 request(s) on t* (earliest fires at 0, last at 9.0s) (agentic_replay.py:752)
+12:06:15.418 WARNING  Event loop for worker_5ce512d4 is taking too long to run. Overhead: 37.12ms (event_loop_monitor.py:89)
+12:06:15.439 WARNING  Event loop for worker_adb1cfdd is taking too long to run. Overhead: 45.71ms (event_loop_monitor.py:89)
+12:06:15.527 INFO     Credit phase start: warmup (records_manager.py:998)
+12:06:16.558 INFO     All services started profiling successfully (system_controller.py:340)
+12:06:16.558 INFO     AIPerf System is PROFILING (system_controller.py:298)
+12:06:44.204 WARNING  Token usage is reported but no prompt-cache read tokens were seen (usage.prompt_tokens_details.cached_tokens absent). If your server uses prefix/KV caching, enable cache reporting so AIPerf can populate the prompt-cache metrics: vLLM --enable-prompt-tokens-details, SGLang --enable-cache-report (TRT-LLM reports it by default). (records_manager.py:768)
+12:06:44.204 WARNING  Token usage is reported but no prompt-cache read tokens were seen (usage.prompt_tokens_details.cached_tokens absent). If your server uses prefix/KV caching, enable cache reporting so AIPerf can populate the prompt-cache metrics: vLLM --enable-prompt-tokens-details, SGLang --enable-cache-report (TRT-LLM reports it by default). (accumulator.py:251)
+12:06:45.324 INFO     Phase warmup progress | returned=1/619 | sent=59 | in_flight=58 | errors=0 | elapsed=30.0s (runner.py:1254)
+12:07:15.327 INFO     Phase warmup progress | returned=10/619 | sent=59 | in_flight=49 | errors=0 | elapsed=60.0s (runner.py:1254)
+12:07:45.330 INFO     Phase warmup progress | returned=17/619 | sent=59 | in_flight=42 | errors=0 | elapsed=90.0s (runner.py:1254)
+12:08:15.333 INFO     Phase warmup progress | returned=21/619 | sent=59 | in_flight=38 | errors=0 | elapsed=120.0s (runner.py:1254)
+12:08:45.336 INFO     Phase warmup progress | returned=25/619 | sent=59 | in_flight=34 | errors=0 | elapsed=150.0s (runner.py:1254)
+12:09:15.343 INFO     Phase warmup progress | returned=29/619 | sent=59 | in_flight=30 | errors=0 | elapsed=180.0s (runner.py:1254)
+12:09:45.349 INFO     Phase warmup progress | returned=31/619 | sent=59 | in_flight=28 | errors=0 | elapsed=210.0s (runner.py:1254)
+12:10:15.354 INFO     Phase warmup progress | returned=34/619 | sent=59 | in_flight=25 | errors=0 | elapsed=240.0s (runner.py:1254)
+12:10:45.360 INFO     Phase warmup progress | returned=37/619 | sent=59 | in_flight=22 | errors=0 | elapsed=270.0s (runner.py:1254)
+12:11:15.366 INFO     Phase warmup progress | returned=38/619 | sent=59 | in_flight=21 | errors=0 | elapsed=300.0s (runner.py:1254)
+12:11:45.370 INFO     Phase warmup progress | returned=40/619 | sent=59 | in_flight=19 | errors=0 | elapsed=330.0s (runner.py:1254)
+12:12:15.373 INFO     Phase warmup progress | returned=40/619 | sent=59 | in_flight=19 | errors=0 | elapsed=360.1s (runner.py:1254)
+12:12:45.378 INFO     Phase warmup progress | returned=42/619 | sent=59 | in_flight=17 | errors=0 | elapsed=390.1s (runner.py:1254)
+12:13:15.378 INFO     Phase warmup progress | returned=44/619 | sent=59 | in_flight=15 | errors=0 | elapsed=420.1s (runner.py:1254)
+12:13:45.382 INFO     Phase warmup progress | returned=44/619 | sent=59 | in_flight=15 | errors=0 | elapsed=450.1s (runner.py:1254)
+12:14:15.387 INFO     Phase warmup progress | returned=45/619 | sent=59 | in_flight=14 | errors=0 | elapsed=480.1s (runner.py:1254)
+12:14:45.393 INFO     Phase warmup progress | returned=46/619 | sent=59 | in_flight=13 | errors=0 | elapsed=510.1s (runner.py:1254)
+12:15:15.399 INFO     Phase warmup progress | returned=47/619 | sent=59 | in_flight=12 | errors=0 | elapsed=540.1s (runner.py:1254)
+12:15:45.405 INFO     Phase warmup progress | returned=47/619 | sent=59 | in_flight=12 | errors=0 | elapsed=570.1s (runner.py:1254)
+12:16:15.409 INFO     Phase warmup progress | returned=49/619 | sent=59 | in_flight=10 | errors=0 | elapsed=600.1s (runner.py:1254)
+12:16:45.414 INFO     Phase warmup progress | returned=50/619 | sent=59 | in_flight=9 | errors=0 | elapsed=630.1s (runner.py:1254)
+12:17:15.417 INFO     Phase warmup progress | returned=52/619 | sent=59 | in_flight=7 | errors=0 | elapsed=660.1s (runner.py:1254)
+12:17:45.420 INFO     Phase warmup progress | returned=53/619 | sent=59 | in_flight=6 | errors=0 | elapsed=690.1s (runner.py:1254)
+12:18:15.423 INFO     Phase warmup progress | returned=54/619 | sent=59 | in_flight=5 | errors=0 | elapsed=720.1s (runner.py:1254)
+12:18:45.427 INFO     Phase warmup progress | returned=56/619 | sent=59 | in_flight=3 | errors=0 | elapsed=750.1s (runner.py:1254)
+12:19:15.430 INFO     Phase warmup progress | returned=57/619 | sent=59 | in_flight=2 | errors=0 | elapsed=780.1s (runner.py:1254)
+12:19:45.436 INFO     Phase warmup progress | returned=57/619 | sent=59 | in_flight=2 | errors=0 | elapsed=810.1s (runner.py:1254)
+12:20:15.439 INFO     Phase warmup progress | returned=58/619 | sent=59 | in_flight=1 | errors=0 | elapsed=840.1s (runner.py:1254)
+12:20:45.443 INFO     Phase warmup progress | returned=58/619 | sent=59 | in_flight=1 | errors=0 | elapsed=870.1s (runner.py:1254)
+12:21:11.115 INFO     Replay interval barriers active: 98827 requests, 61136 gated turns, join-widths={1: 51527, 2: 6771, 3: 1804, 4: 492, 5: 149, 6: 80, 7: 62, 8: 89, 9: 74, 10: 52, 11: 21, 12: 11, 13: 2, 14: 2} (replay_dependencies.py:231)
+12:21:11.115 INFO     WARMUP cache pressure: replaying live trajectories until each lane reaches 10 additional requests with zero idle delay and max_tokens=1 (agentic_replay.py:803)
+12:21:11.181 WARNING  Event loop for worker_2082060f is taking too long to run. Overhead: 49.41ms (event_loop_monitor.py:89)
+12:21:15.449 INFO     Phase warmup progress | returned=60/619 | sent=140 | in_flight=80 | errors=0 | elapsed=900.1s (runner.py:1254)
+12:21:45.453 INFO     Phase warmup progress | returned=84/619 | sent=156 | in_flight=72 | errors=0 | elapsed=930.1s (runner.py:1254)
+12:22:15.456 INFO     Phase warmup progress | returned=90/619 | sent=162 | in_flight=72 | errors=0 | elapsed=960.1s (runner.py:1254)
+12:22:45.461 INFO     Phase warmup progress | returned=101/619 | sent=172 | in_flight=71 | errors=0 | elapsed=990.1s (runner.py:1254)
+12:23:15.461 INFO     Phase warmup progress | returned=119/619 | sent=186 | in_flight=67 | errors=0 | elapsed=1020.1s (runner.py:1254)
+12:23:45.463 INFO     Phase warmup progress | returned=130/619 | sent=193 | in_flight=63 | errors=0 | elapsed=1050.1s (runner.py:1254)
+12:24:15.468 INFO     Phase warmup progress | returned=136/619 | sent=199 | in_flight=63 | errors=0 | elapsed=1080.1s (runner.py:1254)
+12:24:45.473 INFO     Phase warmup progress | returned=137/619 | sent=200 | in_flight=63 | errors=0 | elapsed=1110.2s (runner.py:1254)
+12:25:15.478 INFO     Phase warmup progress | returned=166/619 | sent=224 | in_flight=58 | errors=0 | elapsed=1140.2s (runner.py:1254)
+12:25:45.488 INFO     Phase warmup progress | returned=191/619 | sent=248 | in_flight=57 | errors=0 | elapsed=1170.2s (runner.py:1254)
+12:26:07.994 WARNING  Event loop for worker_b5e39606 is taking too long to run. Overhead: 30.20ms (event_loop_monitor.py:89)
+12:26:15.493 INFO     Phase warmup progress | returned=214/619 | sent=273 | in_flight=59 | errors=0 | elapsed=1200.2s (runner.py:1254)
+12:26:45.499 INFO     Phase warmup progress | returned=242/619 | sent=299 | in_flight=57 | errors=0 | elapsed=1230.2s (runner.py:1254)
+12:27:15.504 INFO     Phase warmup progress | returned=265/619 | sent=321 | in_flight=56 | errors=0 | elapsed=1260.2s (runner.py:1254)
+12:27:45.511 INFO     Phase warmup progress | returned=277/619 | sent=333 | in_flight=56 | errors=0 | elapsed=1290.2s (runner.py:1254)
+12:28:15.514 INFO     Phase warmup progress | returned=309/619 | sent=365 | in_flight=56 | errors=0 | elapsed=1320.2s (runner.py:1254)
+12:28:45.519 INFO     Phase warmup progress | returned=361/619 | sent=413 | in_flight=52 | errors=0 | elapsed=1350.2s (runner.py:1254)
+12:29:15.525 INFO     Phase warmup progress | returned=400/619 | sent=449 | in_flight=49 | errors=0 | elapsed=1380.2s (runner.py:1254)
+12:29:45.532 INFO     Phase warmup progress | returned=431/619 | sent=473 | in_flight=42 | errors=0 | elapsed=1410.2s (runner.py:1254)
+12:30:15.537 INFO     Phase warmup progress | returned=436/619 | sent=480 | in_flight=44 | errors=0 | elapsed=1440.2s (runner.py:1254)
+12:30:45.543 INFO     Phase warmup progress | returned=454/619 | sent=496 | in_flight=42 | errors=0 | elapsed=1470.2s (runner.py:1254)
+12:31:15.546 INFO     Phase warmup progress | returned=465/619 | sent=507 | in_flight=42 | errors=0 | elapsed=1500.2s (runner.py:1254)
+12:31:45.551 INFO     Phase warmup progress | returned=491/619 | sent=530 | in_flight=39 | errors=0 | elapsed=1530.2s (runner.py:1254)
+12:32:15.557 INFO     Phase warmup progress | returned=515/619 | sent=544 | in_flight=29 | errors=0 | elapsed=1560.2s (runner.py:1254)
+12:32:45.561 INFO     Phase warmup progress | returned=545/619 | sent=563 | in_flight=18 | errors=0 | elapsed=1590.2s (runner.py:1254)
+12:33:15.566 INFO     Phase warmup progress | returned=561/619 | sent=578 | in_flight=17 | errors=0 | elapsed=1620.2s (runner.py:1254)
+12:33:45.571 INFO     Phase warmup progress | returned=594/619 | sent=603 | in_flight=9 | errors=0 | elapsed=1650.3s (runner.py:1254)
+12:34:15.578 INFO     Phase warmup progress | returned=611/619 | sent=618 | in_flight=7 | errors=0 | elapsed=1680.3s (runner.py:1254)
+12:34:18.543 INFO     WARMUP cache pressure request budget reached: 10 additional requests on each of 56 lanes; draining requests (agentic_replay.py:494)
+12:34:18.543 NOTICE   Phase warmup (warmup) sending complete | sent=619, completed=612, in_flight=7 | sessions: sent=54, completed=17 (runner.py:1039)
+12:34:28.553 INFO     All accelerated-warmup wire requests returned; preserving paused DAG work for profiling handoff. (runner.py:989)
+12:34:28.554 NOTICE   Phase warmup (warmup) complete | completed=619, cancelled=0, errors=0 | sessions: completed=17, cancelled=0 | elapsed=1693.23s (runner.py:1162)
+12:34:28.554 INFO     Global system-idle cap summary: limit=10s, jumps=0, skipped=0.000s (agentic_replay.py:956)
+12:34:28.557 INFO     WARMUP cache pressure handoff: persisted 105 live streams (agentic_replay.py:972)
+12:34:28.558 INFO     BranchOrchestrator stats: spawned=80 completed=17 errored=0 suspended=12 resumed=4 parents_failed_due_to_child_error=0 joins_suppressed=0 delayed=0 (branch_orchestrator.py:1782)
+12:34:28.558 INFO     Session-tree slots for phase warmup: peak_open=56 (target concurrency 56); released 51 still-open at teardown; late_events=0 (runner.py:551)
+12:34:28.628 INFO     Server Metrics: Warmup complete, capturing final warmup metrics... (manager.py:304)
+12:34:28.695 INFO     Replay interval barriers active: 98827 requests, 61136 gated turns, join-widths={1: 51527, 2: 6771, 3: 1804, 4: 492, 5: 149, 6: 80, 7: 62, 8: 89, 9: 74, 10: 52, 11: 21, 12: 11, 13: 2, 14: 2} (replay_dependencies.py:231)
+12:34:28.695 INFO     PROFILING setup: 56 trajectory lanes; recycle draws roots from the dataset sampler (agentic_replay.py:429)
+12:34:28.695 INFO     PROFILING: 14 rootless + 8 gated-parent lanes of 56 dispatch no root credit at start and hold a lane credit instead (so they still count toward concurrency); rootless lanes recycle into a fresh root once their background subagents drain (agentic_replay.py:435)
+12:34:28.695 NOTICE   Phase profiling (profiling) started | phase_index=0 | profiling_index=0 | target: 900.0s duration (runner.py:593)
+12:34:28.696 INFO     Credit phase start: profiling (records_manager.py:998)
+12:34:28.700 INFO     Waiting for event 'profiling phase sending' with timeout of 899.995511205s (runner.py:1220)
+12:34:28.700 INFO     PROFILING execute: resuming 56 trajectory sessions (spread; first-request spread 69244.3s) (agentic_replay.py:1328)
+12:34:28.700 WARNING  Event loop for timing_manager is taking too long to run. Overhead: 82.14ms (event_loop_monitor.py:89)
+12:34:43.023 INFO     [realtime 00:14 profiling] (records_manager.py:1345)
+12:34:43.023 INFO       rps=4.0 (avg 4.0)  tput_in=1,645/s  tput_out=91/s  done=4 ok=4 err=0 (records_manager.py:1345)
+12:34:43.023 INFO       ttft    p50=488ms  p75=545ms  p95=545ms  p99=545ms (records_manager.py:1345)
+12:34:43.023 INFO       itl     p50= 22ms  p75= 25ms  p95= 26ms  p99= 26ms (records_manager.py:1345)
+12:34:43.023 INFO       e2e     p50=959ms  p75=983ms  p95=984ms  p99=984ms (records_manager.py:1345)
+12:34:43.023 INFO       intvty  p50=   45  p75=   52  p95=   58  p99=   59  (1/tpot tok/s) (records_manager.py:1345)
+12:34:43.023 INFO       isl     p50=  438  p75=  470  p90=  472  p99=  474  (tokens) (records_manager.py:1345)
+12:34:43.023 INFO       osl     p50=   22  p75=   24  p90=   26  p99=   27  (tokens) (records_manager.py:1345)
+12:34:43.023 INFO       tot     in=1,628  out=90 (records_manager.py:1345)
+12:34:43.023 INFO       trace  theoretical_prefix_cache_hit=97.2% (records_manager.py:1345)
+12:34:43.023 INFO       srv    prefix_cache_hit=0.0% unique_in_srv=73,127 kv_usage=1.0% cpu_kv_usage=99.8% queue=1r/1w tput_in_srv=231/s tput_out_srv=7/s (records_manager.py:1345)
+12:35:13.029 INFO     [realtime 00:44 profiling] (records_manager.py:1345)
+12:35:13.029 INFO       rps=0.0 (avg 4.0)  tput_in=1,645/s  tput_out=91/s  done=4 ok=4 err=0 (records_manager.py:1345)
+12:35:13.029 INFO       ttft    p50=488ms  p75=545ms  p95=545ms  p99=545ms (records_manager.py:1345)
+12:35:13.029 INFO       itl     p50= 22ms  p75= 25ms  p95= 26ms  p99= 26ms (records_manager.py:1345)
+12:35:13.029 INFO       e2e     p50=959ms  p75=983ms  p95=984ms  p99=984ms (records_manager.py:1345)
+12:35:13.029 INFO       intvty  p50=   45  p75=   52  p95=   58  p99=   59  (1/tpot tok/s) (records_manager.py:1345)
+12:35:13.029 INFO       isl     p50=  438  p75=  470  p90=  472  p99=  474  (tokens) (records_manager.py:1345)
+12:35:13.029 INFO       osl     p50=   22  p75=   24  p90=   26  p99=   27  (tokens) (records_manager.py:1345)
+12:35:13.029 INFO       tot     in=1,628  out=90 (records_manager.py:1345)
+12:35:13.029 INFO       trace  theoretical_prefix_cache_hit=97.2% (records_manager.py:1345)
+12:35:13.029 INFO       srv    prefix_cache_hit=0.0% unique_in_srv=73,127 kv_usage=1.0% cpu_kv_usage=99.8% queue=1r/1w tput_in_srv=74/s tput_out_srv=2/s (records_manager.py:1345)
+12:35:43.035 INFO     [realtime 01:14 profiling] (records_manager.py:1345)
+12:35:43.035 INFO       rps=0.1 (avg 0.1)  tput_in=1,883/s  tput_out=44/s  done=7 ok=7 err=0 (records_manager.py:1345)
+12:35:43.035 INFO       ttft    p50=545ms  p75=63,426ms  p95=64,843ms  p99=65,161ms (records_manager.py:1345)
+12:35:43.035 INFO       itl     p50= 17ms  p75=    22ms  p95=    26ms  p99=    26ms (records_manager.py:1345)
+12:35:43.035 INFO       e2e     p50=984ms  p75=71,201ms  p95=73,105ms  p99=73,614ms (records_manager.py:1345)
+12:35:43.035 INFO       intvty  p50=   59  p75=     128  p95=     133  p99=     134  (1/tpot tok/s) (records_manager.py:1345)
+12:35:43.035 INFO       isl     p50=  474  p75=  40,582  p90=  50,523  p99=  55,571  (tokens) (records_manager.py:1345)
+12:35:43.035 INFO       osl     p50=   27  p75=     916  p90=   1,139  p99=   1,301  (tokens) (records_manager.py:1345)
+12:35:43.035 INFO       tot     in=138,923  out=3,241 (records_manager.py:1345)
+12:35:43.035 INFO       trace  theoretical_prefix_cache_hit=97.1% (records_manager.py:1345)
+12:35:43.035 INFO       srv    prefix_cache_hit=0.0% unique_in_srv=300,934 kv_usage=15.0% cpu_kv_usage=99.8% queue=2r/3w tput_in_srv=3,118/s tput_out_srv=44/s (records_manager.py:1345)
+12:36:13.043 INFO     [realtime 01:44 profiling] (records_manager.py:1345)
+12:36:13.043 INFO       rps=0.0 (avg 0.1)  tput_in=1,911/s  tput_out=38/s  done=8 ok=8 err=0 (records_manager.py:1345)
+12:36:13.043 INFO       ttft    p50=31,740ms  p75=64,248ms  p95=86,098ms  p99= 95,083ms (records_manager.py:1345)
+12:36:13.043 INFO       itl     p50=    12ms  p75=    21ms  p95=    26ms  p99=     26ms (records_manager.py:1345)
+12:36:13.043 INFO       e2e     p50=35,884ms  p75=72,150ms  p95=92,202ms  p99=100,155ms (records_manager.py:1345)
+12:36:13.043 INFO       intvty  p50=      93  p75=     131  p95=     134  p99=      134  (1/tpot tok/s) (records_manager.py:1345)
+12:36:13.043 INFO       isl     p50=  17,427  p75=  49,120  p90=  56,188  p99=   56,304  (tokens) (records_manager.py:1345)
+12:36:13.043 INFO       osl     p50=     334  p75=     864  p90=   1,109  p99=    1,298  (tokens) (records_manager.py:1345)
+12:36:13.043 INFO       tot     in=195,240  out=3,882 (records_manager.py:1345)
+12:36:13.043 INFO       trace  theoretical_prefix_cache_hit=97.1% (records_manager.py:1345)
+12:36:13.043 INFO       srv    prefix_cache_hit=0.0% unique_in_srv=463,319 kv_usage=15.0% cpu_kv_usage=99.8% queue=2r/4w tput_in_srv=3,778/s tput_out_srv=37/s (records_manager.py:1345)
+12:36:43.052 INFO     [realtime 02:14 profiling] (records_manager.py:1345)
+12:36:43.052 INFO       rps=0.1 (avg 0.1)  tput_in=2,102/s  tput_out=46/s  done=11 ok=11 err=0 (records_manager.py:1345)
+12:36:43.053 INFO       ttft    p50=63,917ms  p75=93,235ms  p95=113,080ms  p99=125,680ms (records_manager.py:1345)
+12:36:43.053 INFO       itl     p50=     8ms  p75=    18ms  p95=     26ms  p99=     26ms (records_manager.py:1345)
+12:36:43.053 INFO       e2e     p50=71,619ms  p75=99,718ms  p95=117,580ms  p99=129,930ms (records_manager.py:1345)
+12:36:43.053 INFO       intvty  p50=     127  p75=     132  p95=      134  p99=      134  (1/tpot tok/s) (records_manager.py:1345)
+12:36:43.053 INFO       isl     p50=  11,861  p75=  51,458  p90=   56,317  p99=   69,904  (tokens) (records_manager.py:1345)
+12:36:43.053 INFO       osl     p50=     641  p75=     900  p90=    1,019  p99=    1,289  (tokens) (records_manager.py:1345)
+12:36:43.053 INFO       tot     in=281,483  out=6,121 (records_manager.py:1345)
+12:36:43.053 INFO       trace  theoretical_prefix_cache_hit=97.0% (records_manager.py:1345)
+12:36:43.053 INFO       srv    prefix_cache_hit=8.4% unique_in_srv=697,671 kv_usage=18.0% cpu_kv_usage=99.8% queue=2r/4w tput_in_srv=5,161/s tput_out_srv=46/s (records_manager.py:1345)
+12:37:13.081 INFO     [realtime 02:44 profiling] (records_manager.py:1345)
+12:37:13.081 INFO       rps=0.5 (avg 0.2)  tput_in=6,908/s  tput_out=77/s  done=26 ok=26 err=0 (records_manager.py:1345)
+12:37:13.081 INFO       ttft    p50= 95,605ms  p75=126,643ms  p95=132,904ms  p99=144,294ms (records_manager.py:1345)
+12:37:13.081 INFO       itl     p50=      8ms  p75=      9ms  p95=     24ms  p99=     26ms (records_manager.py:1345)
+12:37:13.081 INFO       e2e     p50=101,729ms  p75=129,111ms  p95=134,471ms  p99=149,048ms (records_manager.py:1345)
+12:37:13.081 INFO       intvty  p50=      129  p75=      135  p95=      145  p99=      147  (1/tpot tok/s) (records_manager.py:1345)
+12:37:13.081 INFO       isl     p50=   51,066  p75=   63,363  p90=   69,826  p99=   93,844  (tokens) (records_manager.py:1345)
+12:37:13.081 INFO       osl     p50=      306  p75=      718  p90=    1,002  p99=    1,530  (tokens) (records_manager.py:1345)
+12:37:13.081 INFO       tot     in=1,132,018  out=12,685 (records_manager.py:1345)
+12:37:13.081 INFO       trace  theoretical_prefix_cache_hit=96.9% (records_manager.py:1345)
+12:37:13.081 INFO       srv    prefix_cache_hit=31.9% unique_in_srv=1,589,459 kv_usage=20.0% cpu_kv_usage=99.9% queue=4r/4w tput_in_srv=13,797/s tput_out_srv=77/s (records_manager.py:1345)
+12:37:43.214 INFO     [realtime 03:14 profiling] (records_manager.py:1345)
+12:37:43.214 INFO       rps=1.3 (avg 0.3)  tput_in=21,131/s  tput_out=137/s  done=64 ok=64 err=0 (records_manager.py:1345)
+12:37:43.214 INFO       ttft    p50=33,685ms  p75=93,886ms  p95=131,945ms  p99=142,330ms (records_manager.py:1345)
+12:37:43.214 INFO       itl     p50=     9ms  p75=    11ms  p95=     16ms  p99=     26ms (records_manager.py:1345)
+12:37:43.214 INFO       e2e     p50=36,004ms  p75=97,471ms  p95=133,992ms  p99=146,246ms (records_manager.py:1345)
+12:37:43.214 INFO       intvty  p50=     113  p75=     127  p95=      142  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:37:43.214 INFO       isl     p50=  63,146  p75=  72,448  p90=  102,061  p99=  176,023  (tokens) (records_manager.py:1345)
+12:37:43.214 INFO       osl     p50=     286  p75=     645  p90=      801  p99=    1,423  (tokens) (records_manager.py:1345)
+12:37:43.214 INFO       tot     in=4,084,603  out=26,448 (records_manager.py:1345)
+12:37:43.214 INFO       trace  theoretical_prefix_cache_hit=96.8% (records_manager.py:1345)
+12:37:43.214 INFO       srv    prefix_cache_hit=72.9% unique_in_srv=2,348,610 kv_usage=20.0% cpu_kv_usage=99.8% queue=3r/1w tput_in_srv=44,203/s tput_out_srv=137/s (records_manager.py:1345)
+12:38:13.311 INFO     [realtime 03:44 profiling] (records_manager.py:1345)
+12:38:13.311 INFO       rps=1.1 (avg 0.4)  tput_in=29,953/s  tput_out=180/s  done=97 ok=97 err=0 (records_manager.py:1345)
+12:38:13.311 INFO       ttft    p50=16,507ms  p75=60,774ms  p95=128,788ms  p99=139,336ms (records_manager.py:1345)
+12:38:13.311 INFO       itl     p50=    10ms  p75=    11ms  p95=     13ms  p99=     25ms (records_manager.py:1345)
+12:38:13.311 INFO       e2e     p50=19,948ms  p75=64,799ms  p95=133,095ms  p99=142,255ms (records_manager.py:1345)
+12:38:13.311 INFO       intvty  p50=     102  p75=     117  p95=      140  p99=      148  (1/tpot tok/s) (records_manager.py:1345)
+12:38:13.311 INFO       isl     p50=  64,646  p75=  83,268  p90=  106,886  p99=  176,445  (tokens) (records_manager.py:1345)
+12:38:13.311 INFO       osl     p50=     275  p75=     641  p90=      890  p99=    1,617  (tokens) (records_manager.py:1345)
+12:38:13.311 INFO       tot     in=6,710,092  out=40,391 (records_manager.py:1345)
+12:38:13.311 INFO       trace  theoretical_prefix_cache_hit=96.8% (records_manager.py:1345)
+12:38:13.311 INFO       srv    prefix_cache_hit=81.6% unique_in_srv=2,614,321 kv_usage=17.0% cpu_kv_usage=99.9% queue=4r/2w tput_in_srv=63,044/s tput_out_srv=181/s (records_manager.py:1345)
+12:38:43.421 INFO     [realtime 04:14 profiling] (records_manager.py:1345)
+12:38:43.421 INFO       rps=0.6 (avg 0.5)  tput_in=31,734/s  tput_out=212/s  done=115 ok=115 err=0 (records_manager.py:1345)
+12:38:43.421 INFO       ttft    p50=12,736ms  p75=38,266ms  p95=128,564ms  p99=138,143ms (records_manager.py:1345)
+12:38:43.421 INFO       itl     p50=    10ms  p75=    11ms  p95=     13ms  p99=     24ms (records_manager.py:1345)
+12:38:43.421 INFO       e2e     p50=17,723ms  p75=48,968ms  p95=131,730ms  p99=140,767ms (records_manager.py:1345)
+12:38:43.421 INFO       intvty  p50=     102  p75=     116  p95=      139  p99=      147  (1/tpot tok/s) (records_manager.py:1345)
+12:38:43.421 INFO       isl     p50=  65,486  p75=  85,366  p90=  107,236  p99=  176,422  (tokens) (records_manager.py:1345)
+12:38:43.421 INFO       osl     p50=     280  p75=     650  p90=    1,023  p99=    2,017  (tokens) (records_manager.py:1345)
+12:38:43.421 INFO       tot     in=8,077,598  out=54,077 (records_manager.py:1345)
+12:38:43.421 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:38:43.421 INFO       srv    prefix_cache_hit=82.7% unique_in_srv=2,815,936 kv_usage=26.0% cpu_kv_usage=99.9% queue=3r/0w tput_in_srv=63,821/s tput_out_srv=212/s (records_manager.py:1345)
+12:39:13.577 INFO     [realtime 04:44 profiling] (records_manager.py:1345)
+12:39:13.577 INFO       rps=1.6 (avg 0.6)  tput_in=42,285/s  tput_out=278/s  done=162 ok=162 err=0 (records_manager.py:1345)
+12:39:13.577 INFO       ttft    p50=13,756ms  p75=25,097ms  p95=126,128ms  p99=135,354ms (records_manager.py:1345)
+12:39:13.577 INFO       itl     p50=    10ms  p75=    11ms  p95=     13ms  p99=     22ms (records_manager.py:1345)
+12:39:13.577 INFO       e2e     p50=17,455ms  p75=30,375ms  p95=128,536ms  p99=137,395ms (records_manager.py:1345)
+12:39:13.577 INFO       intvty  p50=      98  p75=     112  p95=      136  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:39:13.577 INFO       isl     p50=  69,027  p75=  90,039  p90=  109,028  p99=  179,601  (tokens) (records_manager.py:1345)
+12:39:13.577 INFO       osl     p50=     284  p75=     642  p90=    1,133  p99=    2,556  (tokens) (records_manager.py:1345)
+12:39:13.577 INFO       tot     in=12,003,770  out=78,880 (records_manager.py:1345)
+12:39:13.577 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:39:13.577 INFO       srv    prefix_cache_hit=87.8% unique_in_srv=2,987,311 kv_usage=19.0% cpu_kv_usage=99.8% queue=4r/1w tput_in_srv=85,699/s tput_out_srv=278/s (records_manager.py:1345)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 415ba0bf-918d-472d-a889-1442dd15ae8b by 68944.258s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root aa4cd9e3-27c7-4f6b-a32f-5568859156dc by 1366.816s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 8c12e0ab-2664-4aad-8949-2664c8fc6748 by 365.074s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 0079273b-8c0e-423c-b561-d3e35d19b5e6 by 480.912s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 549f8505-bc69-4c34-b983-4965cdcbd3e6 by 4828.101s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 9cb18976-dd8b-4d0f-b57a-3adcd04520b4 by 105.290s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root cb1f2e56-0df4-42a9-9aa9-cfe1496f3953 by 904.387s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 49334faf-28f2-4ec4-a0fa-8c9f3b70be70 by 1483.533s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 031309dc-b72b-484b-9091-fd0e68b45c58 by 2232.917s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root c410547d-c33e-47a1-8b9c-4402b69669b6 by 1432.586s (replay_dependencies.py:324)
+12:39:28.701 INFO     Per-trace idle cap advanced replay root 66eaaf15-dcea-42f8-a767-e26a5eb9a7ae by 319.630s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root b4ad85fa-4bcb-480c-9838-efd54f384d6b by 260.857s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root f6abaa73-b4fb-4a23-bcd9-816d82b0e546 by 22615.905s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 754c1361-39ec-475f-9b19-806fd82659c2 by 3993.794s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root c778f3b3-8703-47c6-9649-75cfa88f982f by 660.793s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 72f7cdfd-da1b-4ed7-b7f0-e9e9a033095a by 2706.995s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root c8e4c6b4-18a5-407a-bcd0-f3f3d89d4cad by 230.650s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root c02a1446-ff96-4c5d-9d31-352d1ce87f64 by 1563.827s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 19bd3acc-ba8d-437a-87c1-daec9686378f by 1364.598s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root f569ad7d-0d03-46ea-9a7b-c3a2c1d053a6 by 22934.592s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root ba1ef4ab-060d-4d48-a5e6-3b2279a721a2 by 230.460s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 8763893d-6b04-48ee-b611-322f0aca4b50 by 726.504s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root b9c26114-2c9a-40b1-ae5d-e1d690705b83 by 315.775s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 940f4b59-84c6-4308-885e-7db2eea6a709 by 32894.323s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 8de19ecc-2df6-452b-93be-9efb8a3a6204 by 31708.629s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 77e19e51-6662-4fc1-91bd-e60c333e07e6 by 50642.713s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root cbc7dba0-3de4-4f77-bcb4-db4e2763e1b3 by 29793.438s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root d970d6b8-747a-47cc-8d7c-3cab602be16f by 5657.984s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root b58e4e6b-8b2c-484e-b6c0-dd246bc56f7d by 35223.791s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 78aaf2ab-c235-4123-bda0-3154eb479f51 by 23.409s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 78cfee96-c2b9-4cc2-9714-458bdb1818ed by 22615.459s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 05b5fd93-3cdc-4701-b57f-7e1808156daf by 732.357s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root fd033f5a-d83c-45c5-b157-c444c533053d by 7959.899s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root 8dbe3edf-24be-4820-b055-89a6fea99527 by 2025.822s (replay_dependencies.py:324)
+12:39:28.702 INFO     Per-trace idle cap advanced replay root a6908dc7-9ac0-4560-9e69-7a43af759654 by 87.849s (replay_dependencies.py:324)
+12:39:43.762 INFO     [realtime 05:15 profiling] (records_manager.py:1345)
+12:39:43.762 INFO       rps=0.8 (avg 0.6)  tput_in=43,134/s  tput_out=312/s  done=187 ok=187 err=0 (records_manager.py:1345)
+12:39:43.762 INFO       ttft    p50= 9,963ms  p75=24,174ms  p95=120,789ms  p99=133,871ms (records_manager.py:1345)
+12:39:43.762 INFO       itl     p50=    10ms  p75=    11ms  p95=     13ms  p99=     21ms (records_manager.py:1345)
+12:39:43.762 INFO       e2e     p50=16,731ms  p75=28,465ms  p95=124,973ms  p99=135,601ms (records_manager.py:1345)
+12:39:43.762 INFO       intvty  p50=      98  p75=     109  p95=      135  p99=      152  (1/tpot tok/s) (records_manager.py:1345)
+12:39:43.762 INFO       isl     p50=  69,508  p75=  89,776  p90=  108,898  p99=  179,344  (tokens) (records_manager.py:1345)
+12:39:43.762 INFO       osl     p50=     296  p75=     650  p90=    1,293  p99=    3,400  (tokens) (records_manager.py:1345)
+12:39:43.762 INFO       tot     in=13,548,224  out=97,969 (records_manager.py:1345)
+12:39:43.762 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:39:43.762 INFO       srv    prefix_cache_hit=87.7% unique_in_srv=3,355,883 kv_usage=84.0% cpu_kv_usage=99.8% queue=5r/14w tput_in_srv=86,771/s tput_out_srv=312/s (records_manager.py:1345)
+12:40:13.945 INFO     [realtime 05:45 profiling] (records_manager.py:1345)
+12:40:13.945 INFO       rps=0.8 (avg 0.6)  tput_in=45,366/s  tput_out=323/s  done=211 ok=211 err=0 (records_manager.py:1345)
+12:40:13.945 INFO       ttft    p50=13,956ms  p75=26,968ms  p95=114,195ms  p99=132,985ms (records_manager.py:1345)
+12:40:13.945 INFO       itl     p50=    10ms  p75=    11ms  p95=     13ms  p99=     20ms (records_manager.py:1345)
+12:40:13.945 INFO       e2e     p50=18,400ms  p75=32,144ms  p95=120,831ms  p99=134,546ms (records_manager.py:1345)
+12:40:13.945 INFO       intvty  p50=      97  p75=     107  p95=      135  p99=      147  (1/tpot tok/s) (records_manager.py:1345)
+12:40:13.945 INFO       isl     p50=  69,508  p75=  92,476  p90=  109,890  p99=  180,126  (tokens) (records_manager.py:1345)
+12:40:13.945 INFO       osl     p50=     309  p75=     650  p90=    1,291  p99=    3,309  (tokens) (records_manager.py:1345)
+12:40:13.945 INFO       tot     in=15,632,709  out=111,211 (records_manager.py:1345)
+12:40:13.945 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:40:13.945 INFO       srv    prefix_cache_hit=87.0% unique_in_srv=4,154,649 kv_usage=98.0% cpu_kv_usage=99.8% queue=4r/16w tput_in_srv=92,459/s tput_out_srv=323/s (records_manager.py:1345)
+12:40:40.600 INFO     Per-trace idle cap advanced replay root 28014ba8-4368-416f-b9bc-d3a91695da65 by 58.489s (replay_dependencies.py:324)
+12:40:44.146 INFO     [realtime 06:15 profiling] (records_manager.py:1345)
+12:40:44.146 INFO       rps=0.2 (avg 0.6)  tput_in=43,934/s  tput_out=334/s  done=216 ok=216 err=0 (records_manager.py:1345)
+12:40:44.146 INFO       ttft    p50=14,167ms  p75=27,154ms  p95=113,830ms  p99=132,958ms (records_manager.py:1345)
+12:40:44.146 INFO       itl     p50=    10ms  p75=    11ms  p95=     13ms  p99=     19ms (records_manager.py:1345)
+12:40:44.146 INFO       e2e     p50=19,343ms  p75=33,648ms  p95=118,819ms  p99=134,521ms (records_manager.py:1345)
+12:40:44.146 INFO       intvty  p50=      97  p75=     108  p95=      135  p99=      147  (1/tpot tok/s) (records_manager.py:1345)
+12:40:44.146 INFO       isl     p50=  70,660  p75=  93,397  p90=  111,018  p99=  236,742  (tokens) (records_manager.py:1345)
+12:40:44.146 INFO       osl     p50=     310  p75=     668  p90=    1,336  p99=    3,693  (tokens) (records_manager.py:1345)
+12:40:44.146 INFO       tot     in=16,323,028  out=124,053 (records_manager.py:1345)
+12:40:44.146 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:40:44.146 INFO       srv    prefix_cache_hit=86.4% unique_in_srv=4,445,603 kv_usage=98.0% cpu_kv_usage=99.8% queue=1r/17w tput_in_srv=87,257/s tput_out_srv=331/s (records_manager.py:1345)
+12:40:47.653 WARNING  OSL mismatch: got 49 tokens (requested 825, diff -94.1%) (osl_mismatch_metrics.py:193)
+12:41:00.724 WARNING  OSL mismatch: got 509 tokens (requested 1116, diff -54.4%) (osl_mismatch_metrics.py:193)
+12:41:05.103 WARNING  OSL mismatch: got 44 tokens (requested 600, diff -92.7%) (osl_mismatch_metrics.py:193)
+12:41:06.865 WARNING  OSL mismatch: got 128 tokens (requested 279, diff -54.1%) (osl_mismatch_metrics.py:193)
+12:41:14.434 INFO     [realtime 06:45 profiling] (records_manager.py:1345)
+12:41:14.434 INFO       rps=0.5 (avg 0.6)  tput_in=44,502/s  tput_out=335/s  done=230 ok=230 err=0 (records_manager.py:1345)
+12:41:14.434 INFO       ttft    p50=15,502ms  p75=27,605ms  p95=108,496ms  p99=132,882ms (records_manager.py:1345)
+12:41:14.434 INFO       itl     p50=    10ms  p75=    11ms  p95=     15ms  p99=     23ms (records_manager.py:1345)
+12:41:14.434 INFO       e2e     p50=21,965ms  p75=40,445ms  p95=111,328ms  p99=134,451ms (records_manager.py:1345)
+12:41:14.434 INFO       intvty  p50=      96  p75=     107  p95=      134  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:41:14.434 INFO       isl     p50=  71,454  p75=  94,120  p90=  114,778  p99=  273,791  (tokens) (records_manager.py:1345)
+12:41:14.434 INFO       osl     p50=     312  p75=     666  p90=    1,322  p99=    3,931  (tokens) (records_manager.py:1345)
+12:41:14.434 INFO       tot     in=18,002,178  out=135,427 (records_manager.py:1345)
+12:41:14.434 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:41:14.434 INFO       srv    prefix_cache_hit=85.4% unique_in_srv=5,605,379 kv_usage=98.0% cpu_kv_usage=99.8% queue=5r/15w tput_in_srv=94,646/s tput_out_srv=335/s (records_manager.py:1345)
+12:41:21.176 WARNING  OSL mismatch: got 360 tokens (requested 1508, diff -76.1%) (osl_mismatch_metrics.py:193)
+12:41:44.656 INFO     [realtime 07:15 profiling] (records_manager.py:1345)
+12:41:44.657 INFO       rps=0.6 (avg 0.6)  tput_in=48,690/s  tput_out=348/s  done=247 ok=247 err=0 (records_manager.py:1345)
+12:41:44.657 INFO       ttft    p50=15,769ms  p75=32,103ms  p95=106,157ms  p99=132,789ms (records_manager.py:1345)
+12:41:44.657 INFO       itl     p50=    10ms  p75=    11ms  p95=     15ms  p99=     23ms (records_manager.py:1345)
+12:41:44.657 INFO       e2e     p50=22,237ms  p75=43,519ms  p95=117,218ms  p99=134,366ms (records_manager.py:1345)
+12:41:44.657 INFO       intvty  p50=      96  p75=     105  p95=      133  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:41:44.657 INFO       isl     p50=  71,810  p75=  95,568  p90=  120,868  p99=  351,151  (tokens) (records_manager.py:1345)
+12:41:44.657 INFO       osl     p50=     318  p75=     680  p90=    1,358  p99=    3,878  (tokens) (records_manager.py:1345)
+12:41:44.657 INFO       tot     in=20,770,172  out=148,485 (records_manager.py:1345)
+12:41:44.657 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:41:44.657 INFO       srv    prefix_cache_hit=86.2% unique_in_srv=5,837,825 kv_usage=98.0% cpu_kv_usage=99.9% queue=1r/12w tput_in_srv=97,273/s tput_out_srv=342/s (records_manager.py:1345)
+12:42:14.885 INFO     [realtime 07:46 profiling] (records_manager.py:1345)
+12:42:14.885 INFO       rps=0.3 (avg 0.6)  tput_in=48,439/s  tput_out=365/s  done=256 ok=256 err=0 (records_manager.py:1345)
+12:42:14.885 INFO       ttft    p50=16,069ms  p75=38,081ms  p95=123,857ms  p99=143,056ms (records_manager.py:1345)
+12:42:14.885 INFO       itl     p50=    10ms  p75=    11ms  p95=     15ms  p99=     24ms (records_manager.py:1345)
+12:42:14.885 INFO       e2e     p50=23,975ms  p75=55,840ms  p95=128,851ms  p99=152,695ms (records_manager.py:1345)
+12:42:14.885 INFO       intvty  p50=      96  p75=     107  p95=      133  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:42:14.885 INFO       isl     p50=  72,862  p75=  97,360  p90=  129,821  p99=  402,758  (tokens) (records_manager.py:1345)
+12:42:14.885 INFO       osl     p50=     316  p75=     692  p90=    1,440  p99=    5,187  (tokens) (records_manager.py:1345)
+12:42:14.885 INFO       tot     in=22,129,240  out=166,815 (records_manager.py:1345)
+12:42:14.885 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:42:14.885 INFO       srv    prefix_cache_hit=85.8% unique_in_srv=6,266,588 kv_usage=98.0% cpu_kv_usage=99.8% queue=3r/16w tput_in_srv=94,378/s tput_out_srv=359/s (records_manager.py:1345)
+12:42:23.602 WARNING  OSL mismatch: got 11 tokens (requested 408, diff -97.3%) (osl_mismatch_metrics.py:193)
+12:42:30.326 WARNING  OSL mismatch: got 19 tokens (requested 174, diff -89.1%) (osl_mismatch_metrics.py:193)
+12:42:32.868 WARNING  OSL mismatch: got 235 tokens (requested 3550, diff -93.4%) (osl_mismatch_metrics.py:193)
+12:42:45.127 INFO     [realtime 08:16 profiling] (records_manager.py:1345)
+12:42:45.127 INFO       rps=0.5 (avg 0.5)  tput_in=50,632/s  tput_out=345/s  done=270 ok=270 err=0 (records_manager.py:1345)
+12:42:45.127 INFO       ttft    p50=18,223ms  p75=60,303ms  p95=132,795ms  p99=161,005ms (records_manager.py:1345)
+12:42:45.127 INFO       itl     p50=    10ms  p75=    12ms  p95=     15ms  p99=     24ms (records_manager.py:1345)
+12:42:45.127 INFO       e2e     p50=25,478ms  p75=69,150ms  p95=140,415ms  p99=162,525ms (records_manager.py:1345)
+12:42:45.127 INFO       intvty  p50=      96  p75=     107  p95=      133  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:42:45.127 INFO       isl     p50=  73,284  p75= 102,203  p90=  175,680  p99=  491,868  (tokens) (records_manager.py:1345)
+12:42:45.127 INFO       osl     p50=     310  p75=     672  p90=    1,366  p99=    5,065  (tokens) (records_manager.py:1345)
+12:42:45.127 INFO       tot     in=25,103,227  out=171,273 (records_manager.py:1345)
+12:42:45.127 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:42:45.127 INFO       srv    prefix_cache_hit=85.0% unique_in_srv=7,532,460 kv_usage=98.0% cpu_kv_usage=99.8% queue=4r/17w tput_in_srv=101,194/s tput_out_srv=346/s (records_manager.py:1345)
+12:43:09.489 WARNING  OSL mismatch: got 36 tokens (requested 13727, diff -99.7%) (osl_mismatch_metrics.py:193)
+12:43:15.488 INFO     [realtime 08:46 profiling] (records_manager.py:1345)
+12:43:15.488 INFO       rps=0.2 (avg 0.5)  tput_in=48,862/s  tput_out=344/s  done=275 ok=275 err=0 (records_manager.py:1345)
+12:43:15.488 INFO       ttft    p50=19,427ms  p75=61,140ms  p95=138,901ms  p99=160,010ms (records_manager.py:1345)
+12:43:15.488 INFO       itl     p50=    10ms  p75=    12ms  p95=     15ms  p99=     24ms (records_manager.py:1345)
+12:43:15.488 INFO       e2e     p50=25,909ms  p75=71,577ms  p95=143,839ms  p99=164,966ms (records_manager.py:1345)
+12:43:15.488 INFO       intvty  p50=      96  p75=     107  p95=      133  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:43:15.488 INFO       isl     p50=  73,560  p75= 101,620  p90=  174,384  p99=  488,190  (tokens) (records_manager.py:1345)
+12:43:15.488 INFO       osl     p50=     313  p75=     712  p90=    1,454  p99=    5,021  (tokens) (records_manager.py:1345)
+12:43:15.488 INFO       tot     in=25,446,625  out=179,311 (records_manager.py:1345)
+12:43:15.488 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:43:15.488 INFO       srv    prefix_cache_hit=85.0% unique_in_srv=7,650,284 kv_usage=98.0% cpu_kv_usage=99.8% queue=3r/17w tput_in_srv=96,538/s tput_out_srv=341/s (records_manager.py:1345)
+12:43:30.503 WARNING  OSL mismatch: got 61 tokens (requested 147, diff -58.5%) (osl_mismatch_metrics.py:193)
+12:43:33.457 WARNING  OSL mismatch: got 456 tokens (requested 6507, diff -93.0%) (osl_mismatch_metrics.py:193)
+12:43:39.704 WARNING  OSL mismatch: got 196 tokens (requested 1020, diff -80.8%) (osl_mismatch_metrics.py:193)
+12:43:45.875 INFO     [realtime 09:17 profiling] (records_manager.py:1345)
+12:43:45.875 INFO       rps=0.9 (avg 0.5)  tput_in=52,091/s  tput_out=337/s  done=301 ok=301 err=0 (records_manager.py:1345)
+12:43:45.875 INFO       ttft    p50=21,787ms  p75=69,118ms  p95=148,411ms  p99=181,103ms (records_manager.py:1345)
+12:43:45.875 INFO       itl     p50=    11ms  p75=    12ms  p95=     16ms  p99=     25ms (records_manager.py:1345)
+12:43:45.875 INFO       e2e     p50=27,046ms  p75=78,946ms  p95=151,529ms  p99=184,157ms (records_manager.py:1345)
+12:43:45.875 INFO       intvty  p50=      95  p75=     105  p95=      132  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:43:45.875 INFO       isl     p50=  73,942  p75= 106,687  p90=  176,308  p99=  542,616  (tokens) (records_manager.py:1345)
+12:43:45.875 INFO       osl     p50=     309  p75=     671  p90=    1,353  p99=    4,793  (tokens) (records_manager.py:1345)
+12:43:45.875 INFO       tot     in=28,991,193  out=187,447 (records_manager.py:1345)
+12:43:45.875 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:43:45.875 INFO       srv    prefix_cache_hit=86.0% unique_in_srv=8,121,687 kv_usage=98.0% cpu_kv_usage=99.9% queue=6r/14w tput_in_srv=103,941/s tput_out_srv=337/s (records_manager.py:1345)
+12:43:55.988 WARNING  OSL mismatch: got 60 tokens (requested 3509, diff -98.3%) (osl_mismatch_metrics.py:193)
+12:44:16.282 INFO     [realtime 09:47 profiling] (records_manager.py:1345)
+12:44:16.282 INFO       rps=0.7 (avg 0.6)  tput_in=56,056/s  tput_out=344/s  done=323 ok=323 err=0 (records_manager.py:1345)
+12:44:16.282 INFO       ttft    p50=23,032ms  p75=71,118ms  p95=148,374ms  p99=180,465ms (records_manager.py:1345)
+12:44:16.282 INFO       itl     p50=    11ms  p75=    12ms  p95=     16ms  p99=     25ms (records_manager.py:1345)
+12:44:16.282 INFO       e2e     p50=28,157ms  p75=79,183ms  p95=151,466ms  p99=184,005ms (records_manager.py:1345)
+12:44:16.282 INFO       intvty  p50=      94  p75=     103  p95=      132  p99=      146  (1/tpot tok/s) (records_manager.py:1345)
+12:44:16.282 INFO       isl     p50=  75,162  p75= 108,069  p90=  187,550  p99=  543,716  (tokens) (records_manager.py:1345)
+12:44:16.282 INFO       osl     p50=     309  p75=     676  p90=    1,370  p99=    4,719  (tokens) (records_manager.py:1345)
+12:44:16.282 INFO       tot     in=32,878,330  out=201,907 (records_manager.py:1345)
+12:44:16.282 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:44:16.282 INFO       srv    prefix_cache_hit=87.4% unique_in_srv=8,463,531 kv_usage=98.0% cpu_kv_usage=99.9% queue=8r/19w tput_in_srv=114,069/s tput_out_srv=345/s (records_manager.py:1345)
+12:44:21.482 INFO     Per-trace idle cap advanced replay root 8adeb5b7-d2d0-42f8-8f4e-d67497f06777 by 303.305s (replay_dependencies.py:324)
+12:44:32.758 WARNING  OSL mismatch: got 1594 tokens (requested 5626, diff -71.7%) (osl_mismatch_metrics.py:193)
+12:44:46.726 INFO     [realtime 10:18 profiling] (records_manager.py:1345)
+12:44:46.726 INFO       rps=1.0 (avg 0.6)  tput_in=59,669/s  tput_out=356/s  done=352 ok=352 err=0 (records_manager.py:1345)
+12:44:46.726 INFO       ttft    p50=22,390ms  p75=70,158ms  p95=153,034ms  p99=186,869ms (records_manager.py:1345)
+12:44:46.726 INFO       itl     p50=    11ms  p75=    13ms  p95=     18ms  p99=     24ms (records_manager.py:1345)
+12:44:46.726 INFO       e2e     p50=28,319ms  p75=79,064ms  p95=156,262ms  p99=188,725ms (records_manager.py:1345)
+12:44:46.726 INFO       intvty  p50=      92  p75=     102  p95=      131  p99=      145  (1/tpot tok/s) (records_manager.py:1345)
+12:44:46.726 INFO       isl     p50=  75,780  p75= 108,859  p90=  191,819  p99=  544,968  (tokens) (records_manager.py:1345)
+12:44:46.726 INFO       osl     p50=     312  p75=     700  p90=    1,406  p99=    4,621  (tokens) (records_manager.py:1345)
+12:44:46.726 INFO       tot     in=36,776,380  out=219,652 (records_manager.py:1345)
+12:44:46.726 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:44:46.726 INFO       srv    prefix_cache_hit=88.1% unique_in_srv=8,925,260 kv_usage=98.0% cpu_kv_usage=99.9% queue=5r/11w tput_in_srv=121,722/s tput_out_srv=356/s (records_manager.py:1345)
+12:44:57.640 WARNING  OSL mismatch: got 3614 tokens (requested 3671, diff -1.6%) (osl_mismatch_metrics.py:193)
+12:44:59.910 WARNING  OSL mismatch: got 11 tokens (requested 571, diff -98.1%) (osl_mismatch_metrics.py:193)
+12:45:17.196 INFO     [realtime 10:48 profiling] (records_manager.py:1345)
+12:45:17.196 INFO       rps=0.8 (avg 0.6)  tput_in=61,249/s  tput_out=382/s  done=375 ok=375 err=0 (records_manager.py:1345)
+12:45:17.196 INFO       ttft    p50=21,797ms  p75=73,346ms  p95=156,376ms  p99=190,610ms (records_manager.py:1345)
+12:45:17.196 INFO       itl     p50=    11ms  p75=    13ms  p95=     18ms  p99=     24ms (records_manager.py:1345)
+12:45:17.196 INFO       e2e     p50=28,570ms  p75=80,153ms  p95=161,901ms  p99=199,192ms (records_manager.py:1345)
+12:45:17.196 INFO       intvty  p50=      91  p75=     101  p95=      131  p99=      145  (1/tpot tok/s) (records_manager.py:1345)
+12:45:17.196 INFO       isl     p50=  76,170  p75= 109,732  p90=  216,639  p99=  546,432  (tokens) (records_manager.py:1345)
+12:45:17.196 INFO       osl     p50=     317  p75=     743  p90=    1,512  p99=    4,875  (tokens) (records_manager.py:1345)
+12:45:17.196 INFO       tot     in=39,654,150  out=247,621 (records_manager.py:1345)
+12:45:17.196 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:45:17.197 INFO       srv    prefix_cache_hit=88.3% unique_in_srv=9,363,875 kv_usage=99.0% cpu_kv_usage=99.9% queue=3r/18w tput_in_srv=123,835/s tput_out_srv=383/s (records_manager.py:1345)
+12:45:24.211 WARNING  OSL mismatch: got 22 tokens (requested 771, diff -97.1%) (osl_mismatch_metrics.py:193)
+12:45:35.902 WARNING  OSL mismatch: got 128 tokens (requested 291, diff -56.0%) (osl_mismatch_metrics.py:193)
+12:45:47.728 INFO     [realtime 11:19 profiling] (records_manager.py:1345)
+12:45:47.728 INFO       rps=0.9 (avg 0.6)  tput_in=63,310/s  tput_out=383/s  done=402 ok=402 err=0 (records_manager.py:1345)
+12:45:47.728 INFO       ttft    p50=24,385ms  p75=76,132ms  p95=155,763ms  p99=187,655ms (records_manager.py:1345)
+12:45:47.728 INFO       itl     p50=    11ms  p75=    14ms  p95=     19ms  p99=     25ms (records_manager.py:1345)
+12:45:47.728 INFO       e2e     p50=29,972ms  p75=80,903ms  p95=161,238ms  p99=210,074ms (records_manager.py:1345)
+12:45:47.728 INFO       intvty  p50=      90  p75=     100  p95=      130  p99=      145  (1/tpot tok/s) (records_manager.py:1345)
+12:45:47.728 INFO       isl     p50=  76,331  p75= 110,563  p90=  226,880  p99=  547,787  (tokens) (records_manager.py:1345)
+12:45:47.728 INFO       osl     p50=     310  p75=     719  p90=    1,490  p99=    4,790  (tokens) (records_manager.py:1345)
+12:45:47.728 INFO       tot     in=42,899,557  out=259,623 (records_manager.py:1345)
+12:45:47.728 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:45:47.728 INFO       srv    prefix_cache_hit=88.3% unique_in_srv=10,363,387 kv_usage=98.0% cpu_kv_usage=99.8% queue=10r/9w tput_in_srv=130,375/s tput_out_srv=383/s (records_manager.py:1345)
+12:45:52.375 WARNING  OSL mismatch: got 518 tokens (requested 3076, diff -83.2%) (osl_mismatch_metrics.py:193)
+12:46:02.602 WARNING  OSL mismatch: got 17 tokens (requested 6310, diff -99.7%) (osl_mismatch_metrics.py:193)
+12:46:09.129 WARNING  OSL mismatch: got 375 tokens (requested 2372, diff -84.2%) (osl_mismatch_metrics.py:193)
+12:46:18.316 INFO     [realtime 11:49 profiling] (records_manager.py:1345)
+12:46:18.317 INFO       rps=1.4 (avg 0.6)  tput_in=67,858/s  tput_out=403/s  done=445 ok=445 err=0 (records_manager.py:1345)
+12:46:18.317 INFO       ttft    p50=24,456ms  p75=70,778ms  p95=153,961ms  p99=187,363ms (records_manager.py:1345)
+12:46:18.317 INFO       itl     p50=    12ms  p75=    15ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:46:18.317 INFO       e2e     p50=30,379ms  p75=80,243ms  p95=156,348ms  p99=203,664ms (records_manager.py:1345)
+12:46:18.317 INFO       intvty  p50=      86  p75=      99  p95=      128  p99=      144  (1/tpot tok/s) (records_manager.py:1345)
+12:46:18.317 INFO       isl     p50=  75,650  p75= 111,115  p90=  234,749  p99=  548,567  (tokens) (records_manager.py:1345)
+12:46:18.317 INFO       osl     p50=     313  p75=     736  p90=    1,486  p99=    4,645  (tokens) (records_manager.py:1345)
+12:46:18.317 INFO       tot     in=47,989,965  out=284,748 (records_manager.py:1345)
+12:46:18.317 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:46:18.317 INFO       srv    prefix_cache_hit=89.1% unique_in_srv=10,706,415 kv_usage=98.0% cpu_kv_usage=99.9% queue=10r/13w tput_in_srv=138,707/s tput_out_srv=403/s (records_manager.py:1345)
+12:46:48.919 INFO     [realtime 12:20 profiling] (records_manager.py:1345)
+12:46:48.919 INFO       rps=1.1 (avg 0.6)  tput_in=69,794/s  tput_out=438/s  done=479 ok=479 err=0 (records_manager.py:1345)
+12:46:48.919 INFO       ttft    p50=24,219ms  p75=68,281ms  p95=154,525ms  p99=200,863ms (records_manager.py:1345)
+12:46:48.919 INFO       itl     p50=    12ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:46:48.919 INFO       e2e     p50=30,379ms  p75=79,741ms  p95=161,054ms  p99=212,054ms (records_manager.py:1345)
+12:46:48.919 INFO       intvty  p50=      85  p75=      98  p95=      127  p99=      144  (1/tpot tok/s) (records_manager.py:1345)
+12:46:48.919 INFO       isl     p50=  75,288  p75= 110,732  p90=  231,613  p99=  551,382  (tokens) (records_manager.py:1345)
+12:46:48.919 INFO       osl     p50=     316  p75=     781  p90=    1,518  p99=    4,863  (tokens) (records_manager.py:1345)
+12:46:48.919 INFO       tot     in=51,499,413  out=323,010 (records_manager.py:1345)
+12:46:48.919 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:46:48.919 INFO       srv    prefix_cache_hit=88.2% unique_in_srv=12,424,935 kv_usage=96.0% cpu_kv_usage=100.0% queue=8r/17w tput_in_srv=142,845/s tput_out_srv=437/s (records_manager.py:1345)
+12:46:49.382 WARNING  OSL mismatch: got 282 tokens (requested 1743, diff -83.8%) (osl_mismatch_metrics.py:193)
+12:47:07.372 WARNING  OSL mismatch: got 518 tokens (requested 1048, diff -50.6%) (osl_mismatch_metrics.py:193)
+12:47:08.321 WARNING  OSL mismatch: got 1012 tokens (requested 4426, diff -77.1%) (osl_mismatch_metrics.py:193)
+12:47:08.478 WARNING  OSL mismatch: got 1495 tokens (requested 1653, diff -9.6%) (osl_mismatch_metrics.py:193)
+12:47:19.558 INFO     [realtime 12:50 profiling] (records_manager.py:1345)
+12:47:19.558 INFO       rps=1.3 (avg 0.7)  tput_in=73,625/s  tput_out=464/s  done=519 ok=519 err=0 (records_manager.py:1345)
+12:47:19.558 INFO       ttft    p50=25,375ms  p75=69,502ms  p95=170,652ms  p99=394,500ms (records_manager.py:1345)
+12:47:19.558 INFO       itl     p50=    12ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:47:19.558 INFO       e2e     p50=32,174ms  p75=81,761ms  p95=182,754ms  p99=402,562ms (records_manager.py:1345)
+12:47:19.558 INFO       intvty  p50=      82  p75=      97  p95=      124  p99=      144  (1/tpot tok/s) (records_manager.py:1345)
+12:47:19.558 INFO       isl     p50=  75,910  p75= 111,276  p90=  239,901  p99=  552,383  (tokens) (records_manager.py:1345)
+12:47:19.558 INFO       osl     p50=     319  p75=     775  p90=    1,518  p99=    5,055  (tokens) (records_manager.py:1345)
+12:47:19.558 INFO       tot     in=56,654,980  out=357,270 (records_manager.py:1345)
+12:47:19.558 INFO       trace  theoretical_prefix_cache_hit=96.6% (records_manager.py:1345)
+12:47:19.558 INFO       srv    prefix_cache_hit=88.7% unique_in_srv=12,915,988 kv_usage=97.0% cpu_kv_usage=99.8% queue=3r/17w tput_in_srv=148,597/s tput_out_srv=465/s (records_manager.py:1345)
+12:47:20.260 WARNING  OSL mismatch: got 1144 tokens (requested 8792, diff -87.0%) (osl_mismatch_metrics.py:193)
+12:47:35.941 WARNING  OSL mismatch: got 104 tokens (requested 142, diff -26.8%) (osl_mismatch_metrics.py:193)
+12:47:50.233 INFO     [realtime 13:21 profiling] (records_manager.py:1345)
+12:47:50.233 INFO       rps=1.0 (avg 0.7)  tput_in=77,097/s  tput_out=480/s  done=550 ok=550 err=0 (records_manager.py:1345)
+12:47:50.233 INFO       ttft    p50=25,848ms  p75=69,341ms  p95=165,652ms  p99=392,826ms (records_manager.py:1345)
+12:47:50.233 INFO       itl     p50=    13ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:47:50.233 INFO       e2e     p50=33,163ms  p75=80,609ms  p95=181,265ms  p99=400,270ms (records_manager.py:1345)
+12:47:50.233 INFO       intvty  p50=      80  p75=      97  p95=      123  p99=      143  (1/tpot tok/s) (records_manager.py:1345)
+12:47:50.233 INFO       isl     p50=  77,285  p75= 113,132  p90=  240,914  p99=  603,851  (tokens) (records_manager.py:1345)
+12:47:50.233 INFO       osl     p50=     317  p75=     774  p90=    1,514  p99=    5,092  (tokens) (records_manager.py:1345)
+12:47:50.233 INFO       tot     in=61,689,513  out=384,126 (records_manager.py:1345)
+12:47:50.233 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:47:50.233 INFO       srv    prefix_cache_hit=89.1% unique_in_srv=13,936,852 kv_usage=94.0% cpu_kv_usage=100.0% queue=7r/18w tput_in_srv=160,025/s tput_out_srv=480/s (records_manager.py:1345)
+12:47:54.587 WARNING  OSL mismatch: got 249 tokens (requested 867, diff -71.3%) (osl_mismatch_metrics.py:193)
+12:47:57.055 WARNING  OSL mismatch: got 13 tokens (requested 23, diff -43.5%) (osl_mismatch_metrics.py:193)
+12:47:58.320 WARNING  OSL mismatch: got 1334 tokens (requested 2274, diff -41.3%) (osl_mismatch_metrics.py:193)
+12:48:20.940 INFO     [realtime 13:52 profiling] (records_manager.py:1345)
+12:48:20.940 INFO       rps=1.2 (avg 0.7)  tput_in=80,213/s  tput_out=491/s  done=587 ok=587 err=0 (records_manager.py:1345)
+12:48:20.940 INFO       ttft    p50=25,639ms  p75=68,433ms  p95=162,628ms  p99=390,828ms (records_manager.py:1345)
+12:48:20.940 INFO       itl     p50=    13ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:48:20.940 INFO       e2e     p50=33,531ms  p75=78,935ms  p95=175,859ms  p99=397,534ms (records_manager.py:1345)
+12:48:20.940 INFO       intvty  p50=      78  p75=      96  p95=      123  p99=      143  (1/tpot tok/s) (records_manager.py:1345)
+12:48:20.940 INFO       isl     p50=  77,776  p75= 114,632  p90=  241,384  p99=  613,480  (tokens) (records_manager.py:1345)
+12:48:20.940 INFO       osl     p50=     317  p75=     775  p90=    1,512  p99=    5,078  (tokens) (records_manager.py:1345)
+12:48:20.940 INFO       tot     in=66,641,728  out=407,935 (records_manager.py:1345)
+12:48:20.940 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:48:20.940 INFO       srv    prefix_cache_hit=89.4% unique_in_srv=14,465,863 kv_usage=99.0% cpu_kv_usage=100.0% queue=9r/24w tput_in_srv=164,172/s tput_out_srv=491/s (records_manager.py:1345)
+12:48:51.692 INFO     [realtime 14:22 profiling] (records_manager.py:1345)
+12:48:51.693 INFO       rps=0.9 (avg 0.7)  tput_in=82,331/s  tput_out=513/s  done=614 ok=614 err=0 (records_manager.py:1345)
+12:48:51.693 INFO       ttft    p50=25,425ms  p75=67,958ms  p95=160,539ms  p99=389,568ms (records_manager.py:1345)
+12:48:51.693 INFO       itl     p50=    13ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:48:51.693 INFO       e2e     p50=33,582ms  p75=79,301ms  p95=171,562ms  p99=396,398ms (records_manager.py:1345)
+12:48:51.693 INFO       intvty  p50=      77  p75=      95  p95=      122  p99=      143  (1/tpot tok/s) (records_manager.py:1345)
+12:48:51.693 INFO       isl     p50=  78,525  p75= 115,924  p90=  245,976  p99=  605,100  (tokens) (records_manager.py:1345)
+12:48:51.693 INFO       osl     p50=     323  p75=     806  p90=    1,612  p99=    5,060  (tokens) (records_manager.py:1345)
+12:48:51.693 INFO       tot     in=70,983,866  out=442,455 (records_manager.py:1345)
+12:48:51.693 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:48:51.693 INFO       srv    prefix_cache_hit=89.7% unique_in_srv=14,948,778 kv_usage=99.0% cpu_kv_usage=99.8% queue=7r/20w tput_in_srv=167,570/s tput_out_srv=514/s (records_manager.py:1345)
+12:48:54.658 WARNING  OSL mismatch: got 237 tokens (requested 1535, diff -84.6%) (osl_mismatch_metrics.py:193)
+12:49:22.366 INFO     Per-trace idle cap advanced replay root 415ba0bf-918d-472d-a889-1442dd15ae8b by 4.302s (replay_dependencies.py:324)
+12:49:22.461 INFO     [realtime 14:53 profiling] (records_manager.py:1345)
+12:49:22.461 INFO       rps=0.6 (avg 0.7)  tput_in=82,487/s  tput_out=513/s  done=631 ok=631 err=0 (records_manager.py:1345)
+12:49:22.461 INFO       ttft    p50=25,456ms  p75=68,433ms  p95=158,915ms  p99=388,911ms (records_manager.py:1345)
+12:49:22.461 INFO       itl     p50=    13ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:49:22.461 INFO       e2e     p50=34,001ms  p75=80,126ms  p95=169,543ms  p99=396,267ms (records_manager.py:1345)
+12:49:22.461 INFO       intvty  p50=      76  p75=      95  p95=      122  p99=      143  (1/tpot tok/s) (records_manager.py:1345)
+12:49:22.461 INFO       isl     p50=  78,865  p75= 116,152  p90=  251,194  p99=  648,835  (tokens) (records_manager.py:1345)
+12:49:22.461 INFO       osl     p50=     326  p75=     834  p90=    1,616  p99=    5,044  (tokens) (records_manager.py:1345)
+12:49:22.461 INFO       tot     in=73,540,450  out=457,037 (records_manager.py:1345)
+12:49:22.461 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:49:22.461 INFO       srv    prefix_cache_hit=89.8% unique_in_srv=15,231,826 kv_usage=99.0% cpu_kv_usage=99.8% queue=5r/15w tput_in_srv=167,013/s tput_out_srv=513/s (records_manager.py:1345)
+12:49:28.696 INFO     Timeout of 899.995511205s elapsed for event 'profiling phase sending' (runner.py:1208)
+12:49:28.696 NOTICE   Phase profiling (profiling) sending complete | sent=701, completed=636, in_flight=65 | sessions: sent=50, completed=9 | timeout_triggered=True (runner.py:1039)
+12:49:28.696 INFO     Waiting for event 'profiling phase credits returned' with timeout of 29.998515062000024s (runner.py:1220)
+12:49:28.697 INFO     Sent 701 requests. Waiting for all to complete... (records_manager.py:1014)
+12:49:30.628 WARNING  OSL mismatch: got 5166 tokens (requested 59725, diff -91.4%) (osl_mismatch_metrics.py:193)
+12:49:34.525 WARNING  OSL mismatch: got 7488 tokens (requested 11097, diff -32.5%) (osl_mismatch_metrics.py:193)
+12:49:38.833 WARNING  OSL mismatch: got 4727 tokens (requested 7829, diff -39.6%) (osl_mismatch_metrics.py:193)
+12:49:43.248 WARNING  OSL mismatch: got 770 tokens (requested 3167, diff -75.7%) (osl_mismatch_metrics.py:193)
+12:49:45.184 WARNING  OSL mismatch: got 5335 tokens (requested 7948, diff -32.9%) (osl_mismatch_metrics.py:193)
+12:49:53.279 INFO     [realtime 15:24 profiling] (records_manager.py:1345)
+12:49:53.279 INFO       rps=1.1 (avg 0.7)  tput_in=84,980/s  tput_out=552/s  done=664 ok=664 err=0 (records_manager.py:1345)
+12:49:53.279 INFO       ttft    p50=26,361ms  p75=69,208ms  p95=157,411ms  p99=387,634ms (records_manager.py:1345)
+12:49:53.279 INFO       itl     p50=    13ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:49:53.279 INFO       e2e     p50=36,741ms  p75=82,558ms  p95=165,883ms  p99=396,013ms (records_manager.py:1345)
+12:49:53.279 INFO       intvty  p50=      74  p75=      94  p95=      118  p99=      143  (1/tpot tok/s) (records_manager.py:1345)
+12:49:53.279 INFO       isl     p50=  79,104  p75= 116,510  p90=  252,639  p99=  667,983  (tokens) (records_manager.py:1345)
+12:49:53.279 INFO       osl     p50=     332  p75=     842  p90=    1,736  p99=    5,459  (tokens) (records_manager.py:1345)
+12:49:53.279 INFO       tot     in=78,247,831  out=508,282 (records_manager.py:1345)
+12:49:53.279 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:49:53.279 INFO       srv    prefix_cache_hit=89.8% unique_in_srv=15,962,748 kv_usage=90.0% cpu_kv_usage=100.0% queue=1r/18w tput_in_srv=169,831/s tput_out_srv=551/s (records_manager.py:1345)
+12:49:58.696 INFO     Timeout of 29.998515062000024s elapsed for event 'profiling phase credits returned' (runner.py:1208)
+12:49:58.696 WARNING  Phase profiling timed out, cancelling all credits. Stats: sent=701, completed=666, cancelled=0, in_flight=35 (runner.py:1103)
+12:49:58.696 INFO     Sent cancellation requests for 35 in-flight credits across 22 workers (sticky_router.py:489)
+12:49:58.696 INFO     Waiting for all cancelled credits to be returned for phase profiling. Need 35 more credits. (runner.py:1117)
+12:50:08.697 ERROR    Timeout waiting 10.0s for cancelled credits to return. Some credits may be stuck. Forcing phase completion. (runner.py:1140)
+12:50:08.697 WARNING  Released stuck slots for phase profiling: session=49, prefill=0 (runner.py:1174)
+12:50:08.697 NOTICE   Phase profiling (profiling) complete | completed=666, cancelled=35, errors=0 | sessions: completed=9, cancelled=0 | elapsed=940.00s | grace_period_timeout=True (runner.py:1162)
+12:50:08.697 INFO     Global system-idle cap summary: limit=10s, jumps=0, skipped=0.000s (agentic_replay.py:956)
+12:50:08.697 INFO     BranchOrchestrator stats: spawned=137 completed=56 errored=0 suspended=21 resumed=14 parents_failed_due_to_child_error=0 joins_suppressed=6 delayed=67 (branch_orchestrator.py:1782)
+12:50:08.697 WARNING  BranchOrchestrator leaked state at cleanup: 1 active_joins, 0 future_joins, 41 tracked children, 11 parents with descendants (branch_orchestrator.py:1799)
+12:50:08.697 WARNING  Abandoned pending join for parent 35fd3c4a-5c70-4f0d-8cfe-93ce6d1c1fba (outstanding=7, gated_turn_index=14, age_ms=334240) (branch_orchestrator.py:1811)
+12:50:08.698 INFO     Session-tree slots for phase profiling: peak_open=56 (target concurrency 56); released 49 still-open at teardown; late_events=0 (runner.py:551)
+12:50:08.698 NOTICE   All credits completed (phase_orchestrator.py:245)
+12:50:08.698 INFO     Received CREDIT_PHASE_COMPLETE message, Phase complete: PhaseRecordsStats(phase=CreditPhase.PROFILING, phase_index=0, profiling_index=0, phase_name='profiling', phase_kind='profiling', start_ns=1790598868695478670, sent_end_ns=1790599768696513377, requests_end_ns=1790599808697587257, baseline_start_ns=1790598868695446981, baseline_end_ns=1790599808697600586, total_expected_requests=None, expected_duration_sec=None, expected_num_sessions=None, expected_grace_period_sec=None, final_requests_sent=None, final_requests_completed=666, final_requests_cancelled=35, final_request_errors=0, final_sent_sessions=None, final_completed_sessions=None, final_cancelled_sessions=None, timeout_triggered=True, grace_period_timeout_triggered=True, was_cancelled=False, records_end_ns=None, success_records=666, error_records=0) (records_manager.py:1040)
+12:50:08.698 NOTICE   All requests have completed, please wait for the results to be processed (currently 666 of 666 records processed)... (records_manager.py:1051)
+12:50:08.698 INFO     Processed 666 valid requests and 0 errors (666 total). (records_manager.py:913)
+12:50:08.698 INFO     Received all records, processing now... (records_manager.py:919)
+12:50:08.698 INFO     Received credits complete from 'timing_manager' (system_controller.py:448)
+12:50:08.698 INFO     All credits complete, please wait for the results to be processed... (records_manager.py:1077)
+12:50:08.698 INFO     Server Metrics: Profiling complete, capturing final metrics... (manager.py:355)
+12:50:08.699 INFO     Waiting 2.0s for server metrics flush period... (records_manager.py:973)
+12:50:10.698 INFO     Processing records results... (records_manager.py:2083)
+12:50:12.088 INFO     Profiling metric coverage passed for 'profiling': TTFT=100.0%, inter-token latency=100.0% (required=95.0%). (records_manager.py:1814)
+12:50:12.289 WARNING  Detected 1 counter reset(s) in counter metric with labels {'component': 'data_parallel_controller'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2638.40 (export_stats.py:348)
+12:50:12.395 INFO     Waiting for result domains: server_metrics (system_controller.py:869)
+12:50:12.507 WARNING  Detected 25 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7881.00 (export_stats.py:348)
+12:50:12.582 WARNING  Detected 25 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET', 'status_code': '200'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7881.00 (export_stats.py:348)
+12:50:12.817 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'mode': 'input', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7276684.00 (export_stats.py:348)
+12:50:12.850 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'mode': 'input', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7178622.00 (export_stats.py:348)
+12:50:13.116 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'input', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7240242.00 (export_stats.py:348)
+12:50:13.124 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'device_hit', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 21745920.00 (export_stats.py:348)
+12:50:13.133 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'host_hit', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 32639616.00 (export_stats.py:348)
+12:50:13.182 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7585.26 (export_stats.py:348)
+12:50:13.190 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7611.76 (export_stats.py:348)
+12:50:13.199 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7744.46 (export_stats.py:348)
+12:50:13.207 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7567.06 (export_stats.py:348)
+12:50:13.215 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3.37 (export_stats.py:348)
+12:50:13.224 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 59.02 (export_stats.py:348)
+12:50:13.232 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.15 (export_stats.py:348)
+12:50:13.240 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 59.19 (export_stats.py:348)
+12:50:13.248 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3.09 (export_stats.py:348)
+12:50:13.257 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 174.50 (export_stats.py:348)
+12:50:13.265 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2332.07 (export_stats.py:348)
+12:50:13.522 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.12 (export_stats.py:348)
+12:50:13.531 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 54.59 (export_stats.py:348)
+12:50:13.556 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1.30 (export_stats.py:348)
+12:50:13.564 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 187.83 (export_stats.py:348)
+12:50:13.572 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2331.88 (export_stats.py:348)
+12:50:13.597 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.10 (export_stats.py:348)
+12:50:13.605 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 30.11 (export_stats.py:348)
+12:50:13.614 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.12 (export_stats.py:348)
+12:50:13.622 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 93.40 (export_stats.py:348)
+12:50:13.630 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1.33 (export_stats.py:348)
+12:50:13.638 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 167.05 (export_stats.py:348)
+12:50:13.646 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2335.38 (export_stats.py:348)
+12:50:13.671 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.15 (export_stats.py:348)
+12:50:13.679 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 65.74 (export_stats.py:348)
+12:50:13.687 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.15 (export_stats.py:348)
+12:50:13.696 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 49.89 (export_stats.py:348)
+12:50:13.704 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5.71 (export_stats.py:348)
+12:50:13.985 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 166.02 (export_stats.py:348)
+12:50:13.993 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2340.49 (export_stats.py:348)
+12:50:14.084 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'mode': 'prefill_none', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 933.00 (export_stats.py:348)
+12:50:14.093 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'mode': 'prefill_none', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 917.00 (export_stats.py:348)
+12:50:14.109 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'prefill_none', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 935.00 (export_stats.py:348)
+12:50:14.118 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'mode': 'prefill_compute', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7276684.00 (export_stats.py:348)
+12:50:14.126 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'mode': 'prefill_compute', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7178622.00 (export_stats.py:348)
+12:50:14.143 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'prefill_compute', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7240242.00 (export_stats.py:348)
+12:50:19.493 WARNING  Detected 8 counter reset(s) in counter metric with labels {'endpoint': '/v1/chat/completions', 'method': 'POST'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 701.00 (export_stats.py:348)
+12:50:19.849 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1886784.00 (export_stats.py:348)
+12:50:19.867 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 104195759616.00 (export_stats.py:348)
+12:50:20.777 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 8708736.00 (export_stats.py:348)
+12:50:20.809 WARNING  Detected 2 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '1', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3717120.00 (export_stats.py:348)
+12:50:20.822 WARNING  Detected 2 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7476480.00 (export_stats.py:348)
+12:50:20.918 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5447872.00 (export_stats.py:348)
+12:50:20.924 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 300853283328.00 (export_stats.py:348)
+12:50:20.962 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'prefill_cache', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 24856384.00 (export_stats.py:348)
+12:50:21.090 WARNING  Detected histogram counter reset in histogram metric with labels {'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4'}. This typically indicates that server is behind a load balancer. Sum delta: 0.00, Count delta: -24. Statistics may be inaccurate. (export_stats.py:745)
+12:50:21.104 WARNING  Detected 1 counter reset(s) in counter metric with labels {'component': 'detokenizer'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 10.69 (export_stats.py:348)
+12:50:21.170 WARNING  Detected 28 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7881.00 (export_stats.py:348)
+12:50:21.245 WARNING  Detected 28 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET', 'status_code': '200'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 7881.00 (export_stats.py:348)
+12:50:21.459 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3209.15 (export_stats.py:348)
+12:50:21.468 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3151.40 (export_stats.py:348)
+12:50:21.476 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2990.83 (export_stats.py:348)
+12:50:21.485 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3169.03 (export_stats.py:348)
+12:50:21.493 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 25.41 (export_stats.py:348)
+12:50:21.501 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 288.12 (export_stats.py:348)
+12:50:21.510 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5.32 (export_stats.py:348)
+12:50:21.518 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1185.21 (export_stats.py:348)
+12:50:21.526 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 437.34 (export_stats.py:348)
+12:50:21.534 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 509.33 (export_stats.py:348)
+12:50:21.543 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 155.89 (export_stats.py:348)
+12:50:21.567 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 23.00 (export_stats.py:348)
+12:50:21.576 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 346.93 (export_stats.py:348)
+12:50:21.584 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5.00 (export_stats.py:348)
+12:50:21.593 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1135.03 (export_stats.py:348)
+12:50:21.601 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 424.17 (export_stats.py:348)
+12:50:22.243 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 527.82 (export_stats.py:348)
+12:50:22.251 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 139.90 (export_stats.py:348)
+12:50:22.276 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 22.76 (export_stats.py:348)
+12:50:22.284 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 375.72 (export_stats.py:348)
+12:50:22.293 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.91 (export_stats.py:348)
+12:50:22.301 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1178.36 (export_stats.py:348)
+12:50:22.309 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 393.12 (export_stats.py:348)
+12:50:22.318 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 368.38 (export_stats.py:348)
+12:50:22.326 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 270.89 (export_stats.py:348)
+12:50:22.350 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 24.13 (export_stats.py:348)
+12:50:22.359 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 363.32 (export_stats.py:348)
+12:50:22.367 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.90 (export_stats.py:348)
+12:50:22.375 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1066.68 (export_stats.py:348)
+12:50:22.383 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 472.22 (export_stats.py:348)
+12:50:22.391 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 561.25 (export_stats.py:348)
+12:50:22.400 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 113.84 (export_stats.py:348)
+12:50:22.498 WARNING  Detected 12 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'decode', 'mode': 'decode_cuda_graph', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 13156.00 (export_stats.py:348)
+12:50:22.506 WARNING  Detected 13 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'decode', 'mode': 'decode_cuda_graph', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 13900.00 (export_stats.py:348)
+12:50:22.514 WARNING  Detected 11 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'decode', 'mode': 'decode_cuda_graph', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 9862.00 (export_stats.py:348)
+12:50:22.523 WARNING  Detected 18 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'decode', 'mode': 'decode_cuda_graph', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 14699.00 (export_stats.py:348)
+12:50:22.531 WARNING  Detected 12 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'decode', 'mode': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 125153.00 (export_stats.py:348)
+12:50:22.539 WARNING  Detected 13 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'decode', 'mode': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 120654.00 (export_stats.py:348)
+12:50:22.547 WARNING  Detected 11 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'decode', 'mode': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 111871.00 (export_stats.py:348)
+12:50:22.556 WARNING  Detected 18 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'decode', 'mode': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 169227.00 (export_stats.py:348)
+12:50:28.188 WARNING  Detected 6 counter reset(s) in counter metric with labels {'endpoint': '/v1/chat/completions', 'method': 'POST'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 701.00 (export_stats.py:348)
+12:50:28.308 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2205824.00 (export_stats.py:348)
+12:50:28.314 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 123376147968.00 (export_stats.py:348)
+12:50:28.333 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1998080.00 (export_stats.py:348)
+12:50:28.339 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2201984.00 (export_stats.py:348)
+12:50:28.351 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 111756610560.00 (export_stats.py:348)
+12:50:28.357 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 123161369088.00 (export_stats.py:348)
+12:50:28.432 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 11761984.00 (export_stats.py:348)
+12:50:29.379 WARNING  Detected 3 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 14903488.00 (export_stats.py:348)
+12:50:29.750 WARNING  Detected 2 counter reset(s) in counter metric with labels {'component': 'tokenizer'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 353.28 (export_stats.py:348)
+12:50:29.772 WARNING  Detected 1 counter reset(s) in counter metric with labels {'component': 'data_parallel_controller'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1697.19 (export_stats.py:348)
+12:50:29.847 WARNING  Detected 80 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5064.00 (export_stats.py:348)
+12:50:29.945 WARNING  Detected 80 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET', 'status_code': '200'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5064.00 (export_stats.py:348)
+12:50:30.009 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'mode': 'input', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5131314.00 (export_stats.py:348)
+12:50:30.052 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'mode': 'input', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4841069.00 (export_stats.py:348)
+12:50:30.096 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'prefill', 'mode': 'input', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5500773.00 (export_stats.py:348)
+12:50:30.139 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'input', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5189076.00 (export_stats.py:348)
+12:50:30.226 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4928.01 (export_stats.py:348)
+12:50:30.236 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4860.87 (export_stats.py:348)
+12:50:30.247 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5085.87 (export_stats.py:348)
+12:50:30.258 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4863.20 (export_stats.py:348)
+12:50:30.269 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2.55 (export_stats.py:348)
+12:50:30.280 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 38.69 (export_stats.py:348)
+12:50:30.291 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.08 (export_stats.py:348)
+12:50:30.301 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 48.79 (export_stats.py:348)
+12:50:30.312 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2.50 (export_stats.py:348)
+12:50:30.323 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 125.47 (export_stats.py:348)
+12:50:30.334 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '0', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1474.12 (export_stats.py:348)
+12:50:30.366 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3.47 (export_stats.py:348)
+12:50:30.377 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 48.63 (export_stats.py:348)
+12:50:30.388 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.08 (export_stats.py:348)
+12:50:30.399 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 39.48 (export_stats.py:348)
+12:50:30.410 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.86 (export_stats.py:348)
+12:50:30.420 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 130.21 (export_stats.py:348)
+12:50:30.431 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '1', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1469.48 (export_stats.py:348)
+12:50:30.464 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 2.82 (export_stats.py:348)
+12:50:30.474 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 26.69 (export_stats.py:348)
+12:50:30.485 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.08 (export_stats.py:348)
+12:50:30.496 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 69.07 (export_stats.py:348)
+12:50:30.507 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.84 (export_stats.py:348)
+12:50:30.518 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 123.25 (export_stats.py:348)
+12:50:30.528 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '2', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1469.55 (export_stats.py:348)
+12:50:30.561 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 3.56 (export_stats.py:348)
+12:50:30.572 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 47.93 (export_stats.py:348)
+12:50:30.583 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 0.08 (export_stats.py:348)
+12:50:30.594 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 38.52 (export_stats.py:348)
+12:50:30.604 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.55 (export_stats.py:348)
+12:50:30.615 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'run_batch', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 119.66 (export_stats.py:348)
+12:50:30.626 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_batch_result', 'dp_rank': '3', 'engine_type': 'prefill', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1478.68 (export_stats.py:348)
+12:50:30.744 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'mode': 'prefill_none', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 643.00 (export_stats.py:348)
+12:50:30.755 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'mode': 'prefill_none', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 615.00 (export_stats.py:348)
+12:50:30.766 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'prefill', 'mode': 'prefill_none', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 689.00 (export_stats.py:348)
+12:50:30.777 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'prefill_none', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 657.00 (export_stats.py:348)
+12:50:30.788 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'prefill', 'mode': 'prefill_compute', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5131314.00 (export_stats.py:348)
+12:50:30.798 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'prefill', 'mode': 'prefill_compute', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4841069.00 (export_stats.py:348)
+12:50:30.809 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'prefill', 'mode': 'prefill_compute', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5500773.00 (export_stats.py:348)
+12:50:30.820 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'prefill', 'mode': 'prefill_compute', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5189076.00 (export_stats.py:348)
+12:50:38.852 WARNING  Detected 15 counter reset(s) in counter metric with labels {'endpoint': '/v1/chat/completions', 'method': 'POST'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 617.00 (export_stats.py:348)
+12:50:39.158 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5100672.00 (export_stats.py:348)
+12:50:39.169 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 281679510528.00 (export_stats.py:348)
+12:50:39.466 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '1', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4778816.00 (export_stats.py:348)
+12:50:39.498 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '1', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 263905334784.00 (export_stats.py:348)
+12:50:41.504 WARNING  Detected 2 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 17364224.00 (export_stats.py:348)
+12:50:41.543 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '1', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 22103488.00 (export_stats.py:348)
+12:50:41.550 WARNING  Detected 2 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 23887552.00 (export_stats.py:348)
+12:50:41.557 WARNING  Detected 2 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 30092224.00 (export_stats.py:348)
+12:50:41.831 WARNING  Detected 1 counter reset(s) in counter metric with labels {'component': 'data_parallel_controller'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1697.13 (export_stats.py:348)
+12:50:41.907 WARNING  Detected 91 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5064.00 (export_stats.py:348)
+12:50:42.005 WARNING  Detected 91 counter reset(s) in counter metric with labels {'endpoint': '/metrics', 'method': 'GET', 'status_code': '200'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5064.00 (export_stats.py:348)
+12:50:42.285 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1555.79 (export_stats.py:348)
+12:50:42.296 WARNING  Detected 3 counter reset(s) in counter metric with labels {'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1522.93 (export_stats.py:348)
+12:50:42.307 WARNING  Detected 1 counter reset(s) in counter metric with labels {'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1387.02 (export_stats.py:348)
+12:50:42.318 WARNING  Detected 2 counter reset(s) in counter metric with labels {'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1531.28 (export_stats.py:348)
+12:50:42.329 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 21.05 (export_stats.py:348)
+12:50:42.340 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 223.43 (export_stats.py:348)
+12:50:42.350 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.60 (export_stats.py:348)
+12:50:42.361 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1025.62 (export_stats.py:348)
+12:50:42.372 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 393.16 (export_stats.py:348)
+12:50:42.415 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'idle', 'dp_rank': '0', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 22.24 (export_stats.py:348)
+12:50:42.426 WARNING  Detected 3 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 19.23 (export_stats.py:348)
+12:50:42.437 WARNING  Detected 3 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 274.06 (export_stats.py:348)
+12:50:42.448 WARNING  Detected 3 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.32 (export_stats.py:348)
+12:50:42.459 WARNING  Detected 3 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 967.36 (export_stats.py:348)
+12:50:42.470 WARNING  Detected 3 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 398.07 (export_stats.py:348)
+12:50:42.513 WARNING  Detected 3 counter reset(s) in counter metric with labels {'category': 'idle', 'dp_rank': '1', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '1'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 25.61 (export_stats.py:348)
+12:50:42.524 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 18.91 (export_stats.py:348)
+12:50:42.535 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 282.66 (export_stats.py:348)
+12:50:42.546 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.27 (export_stats.py:348)
+12:50:42.556 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1016.45 (export_stats.py:348)
+12:50:42.567 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 354.00 (export_stats.py:348)
+12:50:42.611 WARNING  Detected 1 counter reset(s) in counter metric with labels {'category': 'idle', 'dp_rank': '2', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '2'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 16.21 (export_stats.py:348)
+12:50:42.622 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'other', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 19.44 (export_stats.py:348)
+12:50:42.633 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'recv_requests', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 295.37 (export_stats.py:348)
+12:50:42.643 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_input_requests', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4.23 (export_stats.py:348)
+12:50:42.654 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'get_next_batch_to_run', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 908.36 (export_stats.py:348)
+12:50:42.665 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'process_queue', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 441.20 (export_stats.py:348)
+12:50:42.709 WARNING  Detected 2 counter reset(s) in counter metric with labels {'category': 'idle', 'dp_rank': '3', 'engine_type': 'decode', 'model_name': 'glm5.2-mxfp4', 'moe_ep_rank': '0', 'pp_rank': '0', 'tp_rank': '3'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 21.98 (export_stats.py:348)
+12:50:52.351 WARNING  Detected 12 counter reset(s) in counter metric with labels {'endpoint': '/v1/chat/completions', 'method': 'POST'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 621.00 (export_stats.py:348)
+12:50:52.559 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5726080.00 (export_stats.py:348)
+12:50:52.570 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 320271106560.00 (export_stats.py:348)
+12:50:52.591 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '1', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 4778880.00 (export_stats.py:348)
+12:50:52.601 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 5441728.00 (export_stats.py:348)
+12:50:52.612 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 6287488.00 (export_stats.py:348)
+12:50:52.623 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '1', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 267292316160.00 (export_stats.py:348)
+12:50:52.634 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 304366730496.00 (export_stats.py:348)
+12:50:52.644 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 351671778816.00 (export_stats.py:348)
+12:50:52.773 WARNING  Detected 3 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '2', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 25099456.00 (export_stats.py:348)
+12:50:52.883 WARNING  Detected 4 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '3', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 31233856.00 (export_stats.py:348)
+12:50:52.938 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '1', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 23432704.00 (export_stats.py:348)
+12:50:53.056 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pool': 'kv', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 19584768.00 (export_stats.py:348)
+12:50:53.061 WARNING  Detected 1 counter reset(s) in counter metric with labels {'cache_type': 'UnifiedRadixCache', 'dp_rank': '0', 'pp_rank': '0', 'tp_rank': '0'}. This typically indicates server restart(s) during profiling. Statistics may be inaccurate. Raw delta: 1095415243776.00 (export_stats.py:348)
+12:50:56.591 INFO     _finalize_and_process_results completed (records_manager.py:980)
+12:50:57.265 INFO     [realtime 15:40 profiling] (records_manager.py:1345)
+12:50:57.265 INFO       rps=0.1 (avg 0.7)  tput_in=84,806/s  tput_out=550/s  done=666 ok=666 err=0 (records_manager.py:1345)
+12:50:57.265 INFO       ttft    p50=26,361ms  p75=69,228ms  p95=157,223ms  p99=387,556ms (records_manager.py:1345)
+12:50:57.265 INFO       itl     p50=    13ms  p75=    16ms  p95=     21ms  p99=     27ms (records_manager.py:1345)
+12:50:57.265 INFO       e2e     p50=36,816ms  p75=82,896ms  p95=165,609ms  p99=395,997ms (records_manager.py:1345)
+12:50:57.265 INFO       intvty  p50=      75  p75=      94  p95=      118  p99=      143  (1/tpot tok/s) (records_manager.py:1345)
+12:50:57.265 INFO       isl     p50=  79,298  p75= 116,818  p90=  253,218  p99=  667,931  (tokens) (records_manager.py:1345)
+12:50:57.265 INFO       osl     p50=     332  p75=     852  p90=    1,742  p99=    5,452  (tokens) (records_manager.py:1345)
+12:50:57.265 INFO       tot     in=78,724,496  out=510,523 (records_manager.py:1345)
+12:50:57.265 INFO       trace  theoretical_prefix_cache_hit=96.7% (records_manager.py:1345)
+12:50:57.265 INFO       srv    prefix_cache_hit=85.9% unique_in_srv=23,423,754 kv_usage=7.0% cpu_kv_usage=100.0% queue=1r/0w tput_in_srv=176,091/s tput_out_srv=558/s (records_manager.py:1345)
+12:51:15.810 INFO     All results received, initiating shutdown (system_controller.py:864)
+12:51:16.312 WARNING  Service dataset_manager process (pid: 403) still alive after bus shutdown grace; killing (SIGKILL / TerminateProcess — children ignore SIGTERM) (multiprocess_service_manager.py:277)
+12:51:16.455 INFO     Exporting all records (exporter_manager.py:69)
+12:51:27.521 INFO     Exporting console data (exporter_manager.py:326)
+
+
+                                                   NVIDIA AIPerf | LLM Metrics: Effective                                                   
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃                             Metric ┃          avg ┃    min ┃           max ┃           p99 ┃           p90 ┃          p50 ┃          std ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│   Effective Concurrency (requests) │        43.16 │   0.00 │         69.00 │         68.00 │         65.00 │        55.00 │        20.87 │
+│        Effective Decode Throughput │       542.39 │   0.00 │  1,494,908.80 │      1,645.66 │      1,068.45 │       358.33 │     2,540.91 │
+│                       (tokens/sec) │              │        │               │               │               │              │              │
+│       Effective Prefill Throughput │    83,749.28 │   0.00 │    416,306.00 │    230,622.07 │    160,316.60 │    76,500.26 │    57,375.54 │
+│                       (tokens/sec) │              │        │               │               │               │              │              │
+│       Effective Decode Concurrency │         7.23 │   0.00 │         29.00 │         25.00 │         17.00 │         6.00 │         6.66 │
+│                         (requests) │              │        │               │               │               │              │              │
+│      Effective Prefill Concurrency │        35.93 │   0.00 │         65.00 │         63.00 │         58.00 │        43.00 │        19.04 │
+│                         (requests) │              │        │               │               │               │              │              │
+│         Effective Total Throughput │    84,291.66 │   0.00 │    417,262.18 │    231,370.28 │    160,597.13 │    76,960.33 │    57,577.75 │
+│                       (tokens/sec) │              │        │               │               │               │              │              │
+│    Effective Decode Throughput Per │        75.24 │   0.00 │    336,732.40 │        188.64 │        139.03 │        71.18 │       356.64 │
+│                               User │              │        │               │               │               │              │              │
+│                  (tokens/sec/user) │              │        │               │               │               │              │              │
+│   Effective Prefill Throughput Per │     3,225.28 │   0.00 │    167,642.27 │     22,757.12 │      4,736.28 │     2,076.83 │     7,823.56 │
+│                               User │              │        │               │               │               │              │              │
+│                  (tokens/sec/user) │              │        │               │               │               │              │              │
+│          Tokens In Flight (tokens) │ 6,223,195.35 │   0.00 │ 10,949,515.06 │ 10,552,919.77 │ 10,080,521.29 │ 8,440,436.71 │ 3,929,819.58 │
+│  Effective Latency (CO-aware) (ms) │    60,915.78 │ 908.34 │    440,673.22 │    395,998.28 │    130,774.70 │    36,819.13 │    66,359.57 │
+└────────────────────────────────────┴──────────────┴────────┴───────────────┴───────────────┴───────────────┴──────────────┴──────────────┘
+                                              NVIDIA AIPerf | LLM Metrics: Active                                               
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃                                 Metric ┃       avg ┃    min ┃          max ┃        p99 ┃        p90 ┃       p50 ┃       std ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━┩
+│  Active Decode Throughput (tokens/sec) │    666.50 │   0.00 │ 1,494,908.80 │   1,727.70 │   1,118.04 │    474.56 │  2,801.94 │
+│ Active Prefill Throughput (tokens/sec) │ 85,170.54 │ 940.60 │   416,306.00 │ 230,622.07 │ 160,382.27 │ 77,523.33 │ 56,804.66 │
+│      Active Decode Throughput Per User │     92.45 │   0.00 │   336,732.40 │     208.72 │     141.42 │     81.21 │    393.32 │
+│                      (tokens/sec/user) │           │        │              │            │            │           │           │
+│     Active Prefill Throughput Per User │  3,280.02 │ 449.86 │   167,642.27 │  22,994.42 │   4,759.22 │  2,113.71 │  7,878.28 │
+│                      (tokens/sec/user) │           │        │              │            │            │           │           │
+│   Active Total Throughput (tokens/sec) │ 85,355.68 │  89.74 │   417,262.18 │ 231,370.28 │ 160,755.59 │ 77,830.93 │ 57,150.90 │
+└────────────────────────────────────────┴───────────┴────────┴──────────────┴────────────┴────────────┴───────────┴───────────┘
+                                                 NVIDIA AIPerf | LLM Metrics: Usage                                                 
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃                                  Metric ┃           avg ┃    min ┃        max ┃        p99 ┃        p90 ┃       p50 ┃        std ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│            Usage Prompt Tokens (tokens) │    118,204.95 │ 279.00 │ 703,136.00 │ 667,931.40 │ 253,218.50 │ 79,297.50 │ 128,259.02 │
+│ Usage Prompt Cache Read Tokens (tokens) │    127,322.36 │  64.00 │ 699,648.00 │ 668,160.00 │ 297,024.00 │ 83,072.00 │ 131,809.65 │
+│        Usage Completion Tokens (tokens) │        766.55 │   2.00 │  12,950.00 │   5,451.90 │   1,742.00 │    332.00 │   1,219.28 │
+│             Usage Total Tokens (tokens) │    118,971.50 │ 298.00 │ 704,978.00 │ 668,608.05 │ 254,092.50 │ 80,128.00 │ 128,466.89 │
+│      Total Usage Prompt Tokens (tokens) │ 78,724,496.00 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│    Total Usage Prompt Cache Read Tokens │ 70,791,232.00 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│                                (tokens) │               │        │            │            │            │           │            │
+│       Overall Usage Prompt Cache Read % │         89.92 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│                                     (%) │               │        │            │            │            │           │            │
+│  Total Usage Completion Tokens (tokens) │    510,523.00 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│       Total Usage Total Tokens (tokens) │ 79,235,019.00 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+└─────────────────────────────────────────┴───────────────┴────────┴────────────┴────────────┴────────────┴───────────┴────────────┘
+                                                      NVIDIA AIPerf | LLM Metrics                                                       
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃                                         Metric ┃        avg ┃    min ┃        max ┃        p99 ┃        p90 ┃       p50 ┃        std ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│                       Time to First Token (ms) │  50,708.83 │ 431.51 │ 435,671.94 │ 387,556.39 │ 115,005.77 │ 26,361.21 │  64,786.41 │
+│                      Time to Second Token (ms) │      78.22 │   0.00 │   2,135.26 │     607.28 │     117.77 │     53.03 │     143.49 │
+│                Time to First Output Token (ms) │  69,312.93 │ 870.90 │ 440,126.10 │ 395,050.17 │ 139,047.42 │ 41,933.59 │  84,727.74 │
+│                           Request Latency (ms) │  60,912.35 │ 906.25 │ 440,508.45 │ 395,997.31 │ 130,773.22 │ 36,815.89 │  66,358.15 │
+│                           Decode Duration (ms) │  10,203.52 │   0.00 │ 172,400.41 │  70,830.13 │  24,451.53 │  4,438.47 │  16,347.05 │
+│                      Full Decode Duration (ms) │  10,205.55 │   0.05 │ 172,401.09 │  70,832.46 │  24,451.94 │  4,440.47 │  16,346.92 │
+│                       Inter Token Latency (ms) │      14.03 │   0.00 │      85.95 │      26.58 │      19.03 │     13.36 │       5.36 │
+│              Full-Response Inter Token Latency │      14.05 │   0.00 │      86.15 │      26.59 │      19.10 │     13.37 │       5.39 │
+│                                           (ms) │            │        │            │            │            │           │            │
+│               Output Token Throughput Per User │      78.29 │  11.64 │     225.08 │     142.50 │     108.62 │     74.81 │      23.70 │
+│                              (tokens/sec/user) │            │        │            │            │            │           │            │
+│  E2E Output Token Throughput (tokens/sec/user) │      19.69 │   0.04 │      96.27 │      82.95 │      50.64 │     11.65 │      20.67 │
+│ Full-Response Output Token Throughput Per User │     475.49 │  11.61 │ 264,672.80 │     143.35 │     108.84 │     74.81 │  10,245.16 │
+│                              (tokens/sec/user) │            │        │            │            │            │           │            │
+│                Output Sequence Length (tokens) │     766.55 │   2.00 │  12,950.00 │   5,451.90 │   1,742.00 │    332.00 │   1,219.28 │
+│                 Input Sequence Length (tokens) │ 118,204.95 │ 279.00 │ 703,136.00 │ 667,931.40 │ 253,218.50 │ 79,297.50 │ 128,259.02 │
+│           Output Token Throughput (tokens/sec) │     543.11 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│            Input Token Throughput (tokens/sec) │  83,749.28 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│              Request Throughput (requests/sec) │       0.71 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│                       Request Count (requests) │     666.00 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+│               Theoretical Prefix Cache Hit (%) │      95.87 │    N/A │        N/A │        N/A │        N/A │       N/A │        N/A │
+└────────────────────────────────────────────────┴────────────┴────────┴────────────┴────────────┴────────────┴───────────┴────────────┘
+
+                           NVIDIA AIPerf | Server Metrics: Speculative Decoding                            
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━┳━━━━━━┳━━━━━━┳━━━━━━┓
+┃ Metric                                                               ┃ mean ┃  min ┃  max ┃  p50 ┃  p90 ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━╇━━━━━━╇━━━━━━╇━━━━━━┩
+│ Accept Rate (%) (endpoint=10.245.148.209:29001, engine_type=prefill) │  0.0 │  0.0 │  0.0 │  0.0 │  0.0 │
+│ Accept Rate (%) (endpoint=10.245.157.237:29002, engine_type=decode)  │ 46.4 │  0.0 │ 56.0 │ 51.5 │ 54.0 │
+│ Accept Length (endpoint=10.245.148.209:29001, engine_type=prefill)   │ 0.00 │ 0.00 │ 0.00 │ 0.00 │ 0.00 │
+│ Accept Length (endpoint=10.245.157.237:29002, engine_type=decode)    │ 3.22 │ 0.00 │ 3.80 │ 3.58 │ 3.70 │
+└──────────────────────────────────────────────────────────────────────┴──────┴──────┴──────┴──────┴──────┘
+
+╭────────────────────────────── Output Sequence Length Mismatch Warning ──────────────────────────────╮
+│  36 of 666 requests (5.4%) have output length differing from requested by more than the threshold.  │
+│  Threshold (tokens): min(requested x 5%, 50)                                                        │
+│  Average mismatch: -3.8%                                                                            │
+│                                                                                                     │
+│  Why: Server hit EOS token before reaching requested output length.                                 │
+│                                                                                                     │
+│  Fix Options:                                                                                       │
+│    - --extra-inputs ignore_eos:true - Generate until max_tokens (vLLM, TensorRT-LLM)                │
+│    - --extra-inputs min_tokens:<N> - Set minimum output length (vLLM, TensorRT-LLM, SGLang)         │
+│    - --use-server-token-count - Use server-reported token counts if tokenizer mismatch suspected    │
+│                                                                                                     │
+│  Diagnostics:                                                                                       │
+│    - Review profile_export.jsonl -> osl_mismatch_diff_pct for per-request values                    │
+│    - Adjust: AIPERF_METRICS_OSL_MISMATCH_PCT_THRESHOLD=5                                            │
+│    - Adjust: AIPERF_METRICS_OSL_MISMATCH_MAX_TOKEN_THRESHOLD=50                                     │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────╯
+
+CLI Command: aiperf profile --scenario 'inferencex-agentx-mvp' --url 'http://10.245.148.209:28000' 
+--endpoint '/v1/chat/completions' --endpoint-type 'chat' --streaming --model 'glm5.2-mxfp4' 
+--tokenizer '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4' --concurrency 56 --benchmark-duration
+900 --stats-interval 30 --random-seed 42 --failed-request-threshold 0.1 --trajectory-start-min-ratio
+0.25 --trajectory-start-max-ratio 0.75 --warmup-requests-per-lane 10 --trace-idle-gap-cap-seconds 
+300 --warmup-grace-period 1800 --use-server-token-count --no-gpu-telemetry 
+--tokenizer-trust-remote-code --num-dataset-entries 393 --slice-duration 1.0 --server-metrics 
+'http://10.245.148.209:28000/metrics' 'http://10.245.148.209:29001/metrics' 
+'http://10.245.157.237:29002/metrics' --output-artifact-dir 
+'/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evid
+ence/c56/c-diag-agentx-c56/aiperf_artifacts' --public-dataset 'semianalysis_cc_traces_weka_062126'
+Benchmark Duration: 928.28 sec
+CSV Export: 
+/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evide
+nce/c56/c-diag-agentx-c56/aiperf_artifacts/profile_export_aiperf.csv
+JSON Export: 
+/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evide
+nce/c56/c-diag-agentx-c56/aiperf_artifacts/profile_export_aiperf.json
+Server Metrics CSV Export: 
+/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evide
+nce/c56/c-diag-agentx-c56/aiperf_artifacts/server_metrics_export.csv
+Server Metrics JSON Export: 
+/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evide
+nce/c56/c-diag-agentx-c56/aiperf_artifacts/server_metrics_export.json
+Timeslice CSV Export: 
+/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evide
+nce/c56/c-diag-agentx-c56/aiperf_artifacts/profile_export_aiperf_timeslices.csv
+Timeslice JSON Export: 
+/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evide
+nce/c56/c-diag-agentx-c56/aiperf_artifacts/profile_export_aiperf_timeslices.json
+Log File: 
+/home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evide
+nce/c56/c-diag-agentx-c56/aiperf_artifacts/logs/aiperf.log
+
++ replay_rc=0
++ set +x
+Saved aggregated agentic result to /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/c-diag-agentx-c56/agentx_conc56.json
+  Requests: 666 successful / 1285 total (619 warmup, 3 error dropped)
+  QPS: mean=0.72 p75=1.00 p95=3.00
+  GPU cache hit rate: 62.1%
+  CPU/offload cache hit rate: 23.7%
+  External cache hit rate: 23.7%
+  GPU KV cache usage:  100.0%
+  GPU KV cache capacity: 18034688 tokens
+  Theoretical cache hit rate: 95.9%
+  Throughput per GPU: 10670 tok/s
+Saved /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/c-diag-agentx-c56/metrics_plots.png
+  Records: 1282 | TTFT median 31755ms | E2E median 36984ms
+Loaded 1,285 records from /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/c-diag-agentx-c56/aiperf_artifacts
+======================================================================
+BENCHMARK WORKLOAD DISTRIBUTION ANALYSIS
+======================================================================
+Total requests: 1,285
+
+ALL REQUESTS ISL:
+  n=1,282  mean=160,620  median=102,738  p75=203,644  p90=435,763  p95=544,026
+ALL REQUESTS OSL:
+  n=1,282  mean=399  median=23  p75=349  p90=1,119  p95=1,814
+======================================================================
+Saved plots to /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/c-diag-agentx-c56/workload_distribution_plots.png
+Validated aiperf request error rate: 0/666 = 0.000% <= 10.000%
+Validated required AIPerf server metrics prefix 'sglang:'

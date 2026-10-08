@@ -1,0 +1,48 @@
+620ddb08b9e6 glm52-0930-rocm720-tp4ep4-c10-300s lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260930 Exited (1) 5 days ago
+456defedcbe0 glm52-0930-rocm720-tp4ep4-c8-300s lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260930 Exited (1) 5 days ago
+4a9c60546fba glm52-0930-rocm720-tp4ep4-c4-300s lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260930 Exited (1) 5 days ago
+7c74f38cf218 glm52-0930-rocm720-tp8ep1-c2-300s lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260930 Exited (1) 5 days ago
+2140eb6e5a7e glm52-0930-rocm720-tp8ep1-c1-300s lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260930 Exited (1) 5 days ago
+4fb018c52847 glm52-0930-tp8ep1-c1-300s lmsysorg/sglang-rocm:v0.5.20-rocm10-mi35x-20260930 Exited (1) 5 days ago
+09a793ef5448 ab_aiter lmsysorg/sglang:v0.5.19-rocm724-mi35x Up 7 days
+84030fd14776 ab_sikl lmsysorg/sglang:v0.5.19-rocm724-mi35x Up 7 days
+b63eae0f5d3b dev_xb lmsysorg/sglang:v0.5.20-rocm724-mi35x Up 7 days
+dac5bf19c49e glm52-hc-yihou-137-r003-c64-prefill-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 7 days ago
+d3331db117e5 glm52-hc-yihou-137-r003-c64-etcd quay.io/coreos/etcd:v3.5.14 Exited (143) 7 days ago
+f549c3306171 glm52-hc-yihou-137-r001-hc450chunk512-agentx-client-20260924T134646-4023266 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 11 days ago
+e7e7471e1741 yihou-expert8-c56-smoke-137-20260924T134136 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 11 days ago
+a1bb3c94e251 glm52-hc-yihou-137-r001-hc450chunk512-router infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 11 days ago
+123d98a8548e glm52-hc-yihou-137-r001-hc450chunk512-decode-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 11 days ago
+96e76ce0eb0c glm52-hc-yihou-137-r001-hc450chunk512-prefill-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 11 days ago
+02daba18fd44 glm52-hc-yihou-137-r001-hc450chunk512-etcd quay.io/coreos/etcd:v3.5.14 Exited (143) 11 days ago
+5720e697c864 glm52-pd-yihou-expert8-c56-137b-agentx-client-20260924T112140-3210837 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (1) 11 days ago
+308a25e8b1ca yihou-expert8-c56-smoke-137-20260924T111859 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 11 days ago
+f015c538d21c glm52-pd-yihou-expert8-c56-137b-router infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 11 days ago
+16e324cba2b5 glm52-pd-yihou-expert8-c56-137b-decode-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 11 days ago
+193b19439862 glm52-pd-yihou-expert8-c56-137b-prefill-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (137) 11 days ago
+1a4960a42596 glm52-pd-yihou-expert8-c56-137b-etcd quay.io/coreos/etcd:v3.5.14 Exited (143) 11 days ago
+df03e3b48051 glm52-pd-yihou-expert8-c56-137b-prefill-regfail-r1 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 12 days ago
+9673d6fd0c0a glm52-pd-yihou-expert8-c56-137b-etcd-r1 quay.io/coreos/etcd:v3.5.14 Exited (143) 12 days ago
+541cf960b4fe glm52-pd-yihou-expert8-c56-137-decode-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 12 days ago
+c1504a0118b7 yihou-expert8-c56-smoke-137-20260924T082112 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (1) 12 days ago
+765972007abb glm52-pd-yihou-expert8-c56-137-router infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 12 days ago
+9508aa87407f glm52-pd-yihou-expert8-c56-137-decode-failed-r2 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 12 days ago
+4cba36d83f0c glm52-pd-yihou-expert8-c56-137-decode-failed-r1 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 12 days ago
+85e81c20fbd5 glm52-pd-yihou-expert8-c56-137-prefill-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 12 days ago
+0754d1263b41 glm52-pd-yihou-expert8-c56-137-etcd quay.io/coreos/etcd:v3.5.14 Exited (143) 12 days ago
+8eef9e20b056 yihou-expert8-c56-transport-137 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (137) 12 days ago
+4e7e53da1244 glm52-pd-yihou-sn-p4d4-router infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 12 days ago
+790bc876e393 glm52-pd-yihou-sn-p4d4-decode-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 12 days ago
+96f782e413c4 glm52-pd-yihou-sn-p4d4-prefill-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 12 days ago
+8c8d81db8cb5 glm52-pd-yihou-sn-p4d4-etcd quay.io/coreos/etcd:v3.5.14 Exited (143) 12 days ago
+792881d1d3d4 glm52-quick-prefill-cache-validation infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 2 weeks ago
+4820e7cc732c glm52-pd-yihou-p8d8-router infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (143) 2 weeks ago
+d895d580cefe glm52-pd-yihou-p8d8-prefill-0 infera-sglang:v0519-yihou-0917-nextnfix-hicache Exited (0) 2 weeks ago
+8a657034400f glm52-pd-yihou-p8d8-etcd quay.io/coreos/etcd:v3.5.14 Exited (143) 2 weeks ago
+1b922cb9eb45 glm52-main-prstack-c14 rocm-llm-bench:sgl-main-dcebe8c-pr35233-pr37152-pr38318 Exited (1) 4 weeks ago
+4d61b60196f3 glm52-server rocm-llm-bench:sgl-main-dcebe8c-pr35233-pr37152-pr38318 Exited (1) 4 weeks ago
+f67ba86430f5 glm52-pd-prefill 869fbd13075d Exited (1) 4 weeks ago
+60577565c319 glm52-pd-etcd quay.io/coreos/etcd:v3.5.14 Exited (0) 3 weeks ago
+19a55ed3e9aa glm52-up-main-a8edafff-c14 rocm-llm-bench:up-main-a8edafff-aiter-topk-v3 Exited (0) 4 weeks ago
+420a8a521a69 agitated_chandrasekhar 6784ce24185c Created
+6e962644e008 crusoe-vector ghcr.io/vectordotdev/vector:0.55.0-debian Up 5 weeks

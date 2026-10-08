@@ -1,0 +1,253 @@
+[
+    {
+        "Id": "223c7f0b3c319cefa20d4723ddf6c70cf04a8cd97ee8cf80794e9719e08d69c6",
+        "Created": "2026-09-29T04:50:04.609158819Z",
+        "Path": "sleep",
+        "Args": [
+            "infinity"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 2304936,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-09-29T04:50:07.023180329Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:559fb441c9eb54cc77932bee7da8bbbf481b39c62c9a7d089741cf02c1234a47",
+        "ResolvConfPath": "/mnt/m2m_nobackup/docker/containers/223c7f0b3c319cefa20d4723ddf6c70cf04a8cd97ee8cf80794e9719e08d69c6/resolv.conf",
+        "HostnamePath": "/mnt/m2m_nobackup/docker/containers/223c7f0b3c319cefa20d4723ddf6c70cf04a8cd97ee8cf80794e9719e08d69c6/hostname",
+        "HostsPath": "/mnt/m2m_nobackup/docker/containers/223c7f0b3c319cefa20d4723ddf6c70cf04a8cd97ee8cf80794e9719e08d69c6/hosts",
+        "LogPath": "/mnt/m2m_nobackup/docker/containers/223c7f0b3c319cefa20d4723ddf6c70cf04a8cd97ee8cf80794e9719e08d69c6/223c7f0b3c319cefa20d4723ddf6c70cf04a8cd97ee8cf80794e9719e08d69c6-json.log",
+        "Name": "/dev_xb",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/shared_nfs:/shared_nfs"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "host",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": [
+                "CAP_SYS_PTRACE"
+            ],
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": [
+                "video"
+            ],
+            "IpcMode": "host",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": [
+                "seccomp=unconfined",
+                "label=disable"
+            ],
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 34359738368,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [
+                {
+                    "PathOnHost": "/dev/kfd",
+                    "PathInContainer": "/dev/kfd",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/dri",
+                    "PathInContainer": "/dev/dri",
+                    "CgroupPermissions": "rwm"
+                }
+            ],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": [],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "223c7f0b3c319cefa20d4723ddf6c70cf04a8cd97ee8cf80794e9719e08d69c6",
+                "LowerDir": "/mnt/m2m_nobackup/docker/overlay2/ca59b96c2604aeae71491573291c819ec7f83e8924dfb7bca5632b73b7d1cb91-init/diff:/mnt/m2m_nobackup/docker/overlay2/78daaf7f6aa3c1f87e6f855edc48b4865c389af792cb0f76daa3a5218518e600/diff:/mnt/m2m_nobackup/docker/overlay2/d5d70dea55d7cba92ddbfb51fb61eed801889d1d6d24c26856b925d5b372100b/diff:/mnt/m2m_nobackup/docker/overlay2/9746a9dbd9df22e20a8ddc058548272bb29e72d97dd27fa2d8b56e9978c063f2/diff:/mnt/m2m_nobackup/docker/overlay2/25ec2920e927cf3041b6da3c2298d73d557ad1828468340bfa434be31e9b7d20/diff:/mnt/m2m_nobackup/docker/overlay2/5de5aab2d753794d9ce5fb34c44469e5e3320ac4da3f3d6788af64ca1f03e3e1/diff:/mnt/m2m_nobackup/docker/overlay2/e8729390b0aa865fd74349fc1465f9a65b9b4e943e4237c68cd0bc0ce5423ae4/diff:/mnt/m2m_nobackup/docker/overlay2/e167818d1ff4e736d0b03e18b5af69868d821d07c2884deda81062f3f72d0367/diff:/mnt/m2m_nobackup/docker/overlay2/9d1e5cb09089050151969f74dfbea0e6a7b4355972495204e5dafef0467a6cb5/diff:/mnt/m2m_nobackup/docker/overlay2/5a9c97f85f6a74b66d3ee53fe63ab3c58d6b43cd345053ae8cc1b700c6d91f66/diff:/mnt/m2m_nobackup/docker/overlay2/019e139f80d93e119cf77c6c91e52dd6ba2bb493049ac72f02352abee8d38b2b/diff:/mnt/m2m_nobackup/docker/overlay2/99f57c532bcb85fcf0b29de75a0b2fb17311fe8b20d95949f2a324a0ef7e76dd/diff:/mnt/m2m_nobackup/docker/overlay2/50bf8eb77f97c7f5bb623b61cf3dcd1b56d7b7a657a3d77b76d28ba4974f8bbe/diff:/mnt/m2m_nobackup/docker/overlay2/33025d268587154db349f06480d95dfb31e7241f215f6194c828331fb8bb8ce0/diff:/mnt/m2m_nobackup/docker/overlay2/311294f09f05de205e24e7c431b0a71b951223843b85925391a3b41c9f882c3b/diff:/mnt/m2m_nobackup/docker/overlay2/8da0242f1f1661977b004fc0856c6a6de96e3d4e95bd450badee158f7e1654b3/diff:/mnt/m2m_nobackup/docker/overlay2/30477c6b8cbd0c5b5130a36cc0964289825722088234220d072e7969459627c8/diff:/mnt/m2m_nobackup/docker/overlay2/0a872799eb6b880a2a912512ca4e914e970bfe72ad03a0732ee8f9a8e414e361/diff:/mnt/m2m_nobackup/docker/overlay2/b6de47a0b2426a58f766cb69be8a13c7d04db9393697368ad35f72edb806ff6b/diff:/mnt/m2m_nobackup/docker/overlay2/6892bf7db7bf5780e6c45f26e8ce1289a10de7055dcee45aa8c51c42b175e127/diff:/mnt/m2m_nobackup/docker/overlay2/7fe5015e36e5750f28752b375559773821a11ad9196deff2b873adf1c8bf486a/diff:/mnt/m2m_nobackup/docker/overlay2/de27001ffb4f57066cf65bab211aeb72135276b90ea637539ae95bb4b10073dc/diff:/mnt/m2m_nobackup/docker/overlay2/0c76d1b1e5c59fc18a0658b24c5cebd2efa2e5ec7f5506955663b84f5faf6b68/diff:/mnt/m2m_nobackup/docker/overlay2/6ca0a25e30c7a14c2834dd18b752a1dc697e2cd1697d4e39352551ce24d998a3/diff:/mnt/m2m_nobackup/docker/overlay2/b8987649dd3a3311b2b5350b3a60f24b54ffd90b529f23475265c3d7e5b3be16/diff:/mnt/m2m_nobackup/docker/overlay2/8a976d073237801a46e63c86cf82e405d33a5c30ccaa121f6d105df4757ef8e8/diff:/mnt/m2m_nobackup/docker/overlay2/f31ced997e53edda02c6999051789b2aac7f74a2ad15bc4d8ff2ddfc7188fb56/diff:/mnt/m2m_nobackup/docker/overlay2/4abc7bffeae0d31088650de43d0a269d156f8c0779b05369cc1b75ed6d50d947/diff:/mnt/m2m_nobackup/docker/overlay2/82b1935a3255777649672c59efe412b90c2252baddf8c9ef36f3ad8aa25de15a/diff:/mnt/m2m_nobackup/docker/overlay2/c8d1d80026794a1ec54c33bdc395b84e3a196178a0078b57e4462c8d09466ef6/diff:/mnt/m2m_nobackup/docker/overlay2/7467c3980e16461fbf989542cf387b630a1d69013c0e203a2ac60e108cc474c9/diff:/mnt/m2m_nobackup/docker/overlay2/83bbccb9cf50beb6fa9ebc61c9339ff0a00e82ac0f0afe1d305929c2d7d8fe0b/diff:/mnt/m2m_nobackup/docker/overlay2/3686124f407e69d338678ce937231318ef9396f60ba2dc81f56281acc08da494/diff:/mnt/m2m_nobackup/docker/overlay2/1ff6a8d7e1b6d2a9df23bd0cedaeb294b69dde6822bd7795d8eeaf20458286cb/diff:/mnt/m2m_nobackup/docker/overlay2/34e8e211a76c67d90d56f2dfc53b579f15ffdb1fe9757c80a266f57ad711e320/diff:/mnt/m2m_nobackup/docker/overlay2/be3942ae3033f55d754edf7d140de660daa2184dca4e15faa43b45a0997fbad8/diff:/mnt/m2m_nobackup/docker/overlay2/cecd9529e307b19ada166521a5230c8f861b8a7a4dbdf1cee66f0fdb69d0da3e/diff:/mnt/m2m_nobackup/docker/overlay2/70b32ac0678f6150fe4b45c9935fbd924a1480401eb76e6d418d152a56dc5e84/diff:/mnt/m2m_nobackup/docker/overlay2/48bb4073cf83145ef69b0de088c52a823e21bb62196c14e71ca6ede5a20034aa/diff:/mnt/m2m_nobackup/docker/overlay2/a45ab986759e98d70f6bda7b0ccbba06203caf02593a479a8c961cf1bc30e5f7/diff:/mnt/m2m_nobackup/docker/overlay2/0c5a89e46b1832b40a86bd81441a0d32594e13451186dd00682fae47e4fdb437/diff:/mnt/m2m_nobackup/docker/overlay2/644e668527bf8e4b5be41886e5245544d075aca48474783f52514ac973a2e4a1/diff:/mnt/m2m_nobackup/docker/overlay2/33b71484ffbc635925382a2e772c0292fb698ff8e51bb8eb5500e4c9d4648d7e/diff:/mnt/m2m_nobackup/docker/overlay2/2277a89ae521b05f2ac40e67f7558deaf63aab4c073338e23ac2feb58bd86efe/diff:/mnt/m2m_nobackup/docker/overlay2/16c82514ca7212786f21c6b86bb1607fc63786916d144e8974eb11926bf816cd/diff:/mnt/m2m_nobackup/docker/overlay2/66885770ac5a3c67dd6cc0d1ba05c634a824b09dd32bf51b48f871ec12554bdb/diff:/mnt/m2m_nobackup/docker/overlay2/42c1f5feba72ec5a64c37c56217774a29f4a1e5030ea3fb705b4735210383acb/diff:/mnt/m2m_nobackup/docker/overlay2/4ca160890468176b50af6dd96e7d92b2f180fb856efaf40f5fd94841aa201df5/diff",
+                "MergedDir": "/mnt/m2m_nobackup/docker/overlay2/ca59b96c2604aeae71491573291c819ec7f83e8924dfb7bca5632b73b7d1cb91/merged",
+                "UpperDir": "/mnt/m2m_nobackup/docker/overlay2/ca59b96c2604aeae71491573291c819ec7f83e8924dfb7bca5632b73b7d1cb91/diff",
+                "WorkDir": "/mnt/m2m_nobackup/docker/overlay2/ca59b96c2604aeae71491573291c819ec7f83e8924dfb7bca5632b73b7d1cb91/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/shared_nfs",
+                "Destination": "/shared_nfs",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "crsuse2-m2m-136",
+            "Domainname": "",
+            "User": "root",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "PATH=/root/.cargo/bin:/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin",
+                "DEBIAN_FRONTEND=noninteractive",
+                "LD_LIBRARY_PATH=/opt/rocm/lib",
+                "BUILD_VLLM=0",
+                "BUILD_TRITON=1",
+                "BUILD_LLVM=0",
+                "BUILD_AITER_ALL=1",
+                "BUILD_MOONCAKE=1",
+                "AITER_COMMIT_DEFAULT=4ad99832823dde2315b361cbd3b54b1c5c12acd5",
+                "PIP_CONSTRAINT=/etc/sglang/constraints/torch-rocm.txt",
+                "HSA_ENABLE_IPC_MODE_LEGACY=1",
+                "GPU_ARCH=gfx950-rocm724",
+                "GPU_ARCH_LIST=gfx950",
+                "PYTORCH_ROCM_ARCH=gfx942;gfx950;gfx1250",
+                "TRITON_COMMIT=",
+                "AITER_COMMIT=4ad99832823dde2315b361cbd3b54b1c5c12acd5",
+                "SETUPTOOLS_SCM_PRETEND_VERSION=",
+                "AITER_USE_SYSTEM_TRITON=1",
+                "CARGO_BUILD_JOBS=4",
+                "LIBGL_ALWAYS_INDIRECT=1",
+                "SGLANG_DISABLE_CUDNN_CHECK=1",
+                "HIP_FORCE_DEV_KERNARG=1",
+                "HSA_NO_SCRATCH_RECLAIM=1",
+                "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1",
+                "SGLANG_INT4_WEIGHT=0",
+                "SGLANG_MOE_PADDING=1",
+                "SGLANG_ROCM_DISABLE_LINEARQUANT=0",
+                "SGLANG_ROCM_FUSED_DECODE_MLA=1",
+                "SGLANG_SET_CPU_AFFINITY=1",
+                "SGLANG_USE_AITER=1",
+                "SGLANG_USE_ROCM700A=1",
+                "NCCL_MIN_NCHANNELS=112",
+                "ROCM_QUICK_REDUCE_QUANTIZATION=INT8",
+                "TORCHINDUCTOR_MAX_AUTOTUNE=1",
+                "TORCHINDUCTOR_MAX_AUTOTUNE_POINTWISE=1"
+            ],
+            "Cmd": [
+                "sleep",
+                "infinity"
+            ],
+            "Image": "lmsysorg/sglang:v0.5.20-rocm724-mi35x",
+            "Volumes": null,
+            "WorkingDir": "/sgl-workspace",
+            "Entrypoint": null,
+            "Labels": {
+                "org.opencontainers.image.ref.name": "rocm/pytorch:rocm7.2.4_ubuntu24.04_py3.12_pytorch_release_2.10.0+rocm7.2.4.lw.git3d3aa833",
+                "org.opencontainers.image.version": "24.04"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "d35a1bccdc2afd8854c0fd2674463df3a696cd33af67e72e9549b211ff537b42",
+            "SandboxKey": "/var/run/docker/netns/default",
+            "Ports": {},
+            "Networks": {
+                "host": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "680034a3229991b192dac03e81eb81c2b9290224fac6fcaa4ded4f1f9152f554",
+                    "EndpointID": "3440474b2c6b7b98ce9a696ae483b2b64df69a568123e923e14c4571b4179c98",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "MacAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        }
+    }
+]

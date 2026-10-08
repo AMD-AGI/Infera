@@ -1,0 +1,3 @@
+auto offset=4 FAIL pairs=8 gb_s=[19.38, 17.89, 18.3, 18.51, 17.74, 17.62, 19.89, 20.82] rx_loss=287269617 oos=26677352 pause_tx=104646606 retx=1123716526 ack_timeout=22578 retry_excd=0
+auto offset=0 PASS pairs=8 gb_s=[34.2, 34.2, 34.32, 34.19, 35.37, 31.9, 35.37, 37.19] rx_loss=0 oos=0 pause_tx=0 retx=0 ack_timeout=0 retry_excd=0
+completed=16 failed_waves=1 failed_pairs=8

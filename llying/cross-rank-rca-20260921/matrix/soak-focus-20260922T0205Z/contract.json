@@ -1,0 +1,35 @@
+{
+  "destination_node": "crsuse2-m2m-136",
+  "geometry": {
+    "chunk": 33554432,
+    "nchunk": 32,
+    "seconds": 90.0,
+    "size": 1073741824
+  },
+  "image": "infera-sglang:v0519-yihou-0917-nextnfix-hicache",
+  "image_id": "sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35",
+  "jobs": 1,
+  "pairs": [
+    [
+      1,
+      1
+    ],
+    [
+      1,
+      6
+    ]
+  ],
+  "per_pair_fault_counters": [
+    "req_tx_retry_excd_err",
+    "tx_rdma_ack_timeout"
+  ],
+  "policies": [
+    "source-local",
+    "destination-local",
+    "auto"
+  ],
+  "profile": "soak",
+  "schema_version": 2,
+  "source_node": "crsuse2-m2m-138",
+  "work_items": 6
+}

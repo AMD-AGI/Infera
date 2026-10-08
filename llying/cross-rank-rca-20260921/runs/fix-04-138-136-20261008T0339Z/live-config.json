@@ -1,0 +1,23 @@
+{
+  "router_affinity": false,
+  "workers": {
+    "glm52-pd-crossrank-rca-decode-0": {
+      "dest_local_rail": "1",
+      "hcas": "ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",
+      "hicache": false,
+      "ib_timeout": "18",
+      "image": "sha256:88286215b79d43306dce88dcdf299a13d939c6b708691dc192ca7c7c33c518a5",
+      "node": "crsuse2-m2m-136",
+      "role": "decode"
+    },
+    "glm52-pd-crossrank-rca-prefill-0": {
+      "dest_local_rail": "1",
+      "hcas": "ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",
+      "hicache": false,
+      "ib_timeout": "18",
+      "image": "sha256:88286215b79d43306dce88dcdf299a13d939c6b708691dc192ca7c7c33c518a5",
+      "node": "crsuse2-m2m-138",
+      "role": "prefill"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "counter_scope": "wave",
+  "dest_device_affinity": true,
+  "destination_node": "crsuse2-m2m-136",
+  "geometry": {
+    "chunk": 33554432,
+    "nchunk": 32,
+    "seconds": 60.0,
+    "size": 1073741824
+  },
+  "image": "infera-sglang:v0519-yihou-0917-nextnfix-hicache-mcdestrail",
+  "image_id": "sha256:7448464559fb3aff66f76b094b66879883d022491385db4e942af3886a587880",
+  "pair_concurrency": 8,
+  "pair_worker_schema_version": 2,
+  "pairs": {
+    "2": [
+      [
+        0,
+        2
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        3,
+        5
+      ],
+      [
+        4,
+        6
+      ],
+      [
+        5,
+        7
+      ],
+      [
+        6,
+        0
+      ],
+      [
+        7,
+        1
+      ]
+    ]
+  },
+  "pairs_per_wave": 8,
+  "policies": [
+    "auto"
+  ],
+  "profile": "soak",
+  "schema_version": 1,
+  "source_node": "crsuse2-m2m-137",
+  "waves_per_policy": 1,
+  "worker_env": [
+    "MC_ENABLE_DEST_LOCAL_RAIL=1",
+    "MC_NUM_QP_PER_EP=1"
+  ]
+}

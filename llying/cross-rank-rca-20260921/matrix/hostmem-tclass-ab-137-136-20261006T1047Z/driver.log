@@ -1,0 +1,108 @@
++ python3 run_hostmem_numa_ab.py --output /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/matrix/hostmem-tclass-ab-137-136-20261006T1047Z/tc-default --receiver-numa cross
+{
+ "receiver_numa": "cross",
+ "bw_gbps": {
+  "ionic_0": 217.75,
+  "ionic_1": 220.79,
+  "ionic_2": 201.01,
+  "ionic_3": 204.49,
+  "ionic_4": 200.17,
+  "ionic_5": 202.84,
+  "ionic_6": 213.68,
+  "ionic_7": 199.48
+ },
+ "bw_total_gbps": 1660.21,
+ "client_cqe_errors": {
+  "ionic_0": 0,
+  "ionic_1": 0,
+  "ionic_2": 0,
+  "ionic_3": 0,
+  "ionic_4": 0,
+  "ionic_5": 0,
+  "ionic_6": 0,
+  "ionic_7": 0
+ }
+}
+crsuse2-m2m-137 {'pause_tx': 0, 'pause_rx': 87856, 'nic_rx_loss': 64062, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 807339763, 'ack_timeout': 20299, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
+crsuse2-m2m-136 {'pause_tx': 8101768, 'pause_rx': 0, 'nic_rx_loss': 157462565, 'oos': 9632275, 'seq_nak_tx': 9642408, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
++ python3 run_hostmem_numa_ab.py --output /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/matrix/hostmem-tclass-ab-137-136-20261006T1047Z/tc104 --receiver-numa cross --tclass 104
+{
+ "receiver_numa": "cross",
+ "bw_gbps": {
+  "ionic_0": 206.07,
+  "ionic_1": 199.25,
+  "ionic_2": 209.72,
+  "ionic_3": 209.67,
+  "ionic_4": 206.63,
+  "ionic_5": 206.63,
+  "ionic_6": 213.69,
+  "ionic_7": 224.79
+ },
+ "bw_total_gbps": 1676.45,
+ "client_cqe_errors": {
+  "ionic_0": 0,
+  "ionic_1": 0,
+  "ionic_2": 0,
+  "ionic_3": 0,
+  "ionic_4": 0,
+  "ionic_5": 0,
+  "ionic_6": 0,
+  "ionic_7": 0
+ }
+}
+crsuse2-m2m-137 {'pause_tx': 0, 'pause_rx': 87833, 'nic_rx_loss': 72566, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 788496918, 'ack_timeout': 19906, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
+crsuse2-m2m-136 {'pause_tx': 8969350, 'pause_rx': 0, 'nic_rx_loss': 155132918, 'oos': 9130426, 'seq_nak_tx': 9139951, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
++ python3 run_hostmem_numa_ab.py --output /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/matrix/hostmem-tclass-ab-137-136-20261006T1047Z/tc106 --receiver-numa cross --tclass 106
+{
+ "receiver_numa": "cross",
+ "bw_gbps": {
+  "ionic_0": 206.51,
+  "ionic_1": 197.55,
+  "ionic_2": 212.27,
+  "ionic_3": 205.63,
+  "ionic_4": 198.62,
+  "ionic_5": 211.0,
+  "ionic_6": 213.53,
+  "ionic_7": 196.34
+ },
+ "bw_total_gbps": 1641.45,
+ "client_cqe_errors": {
+  "ionic_0": 0,
+  "ionic_1": 0,
+  "ionic_2": 0,
+  "ionic_3": 0,
+  "ionic_4": 0,
+  "ionic_5": 0,
+  "ionic_6": 0,
+  "ionic_7": 0
+ }
+}
+crsuse2-m2m-137 {'pause_tx': 0, 'pause_rx': 90173, 'nic_rx_loss': 161531, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 845816070, 'ack_timeout': 21051, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
+crsuse2-m2m-136 {'pause_tx': 5905500, 'pause_rx': 0, 'nic_rx_loss': 167011968, 'oos': 9853701, 'seq_nak_tx': 9867312, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
++ python3 run_hostmem_numa_ab.py --output /home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/matrix/hostmem-tclass-ab-137-136-20261006T1047Z/tc0 --receiver-numa cross --tclass 0
+{
+ "receiver_numa": "cross",
+ "bw_gbps": {
+  "ionic_0": 182.63,
+  "ionic_1": 264.89,
+  "ionic_2": 184.13,
+  "ionic_3": 248.29,
+  "ionic_4": 202.18,
+  "ionic_5": 205.86,
+  "ionic_6": 211.23,
+  "ionic_7": 198.52
+ },
+ "bw_total_gbps": 1697.73,
+ "client_cqe_errors": {
+  "ionic_0": 0,
+  "ionic_1": 0,
+  "ionic_2": 0,
+  "ionic_3": 0,
+  "ionic_4": 0,
+  "ionic_5": 0,
+  "ionic_6": 0,
+  "ionic_7": 0
+ }
+}
+crsuse2-m2m-137 {'pause_tx': 0, 'pause_rx': 85481, 'nic_rx_loss': 648, 'oos': 0, 'seq_nak_tx': 0, 'retx_pkts': 761310265, 'ack_timeout': 18608, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}
+crsuse2-m2m-136 {'pause_tx': 10793532, 'pause_rx': 0, 'nic_rx_loss': 148863319, 'oos': 9177048, 'seq_nak_tx': 9187119, 'retx_pkts': 0, 'ack_timeout': 0, 'retry_excd': 0, 'ecn_rx': 0, 'cnp_tx': 0}

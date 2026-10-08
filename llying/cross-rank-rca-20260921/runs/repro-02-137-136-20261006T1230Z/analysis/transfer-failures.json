@@ -1,0 +1,1124 @@
+[
+  {
+    "bootstrap_room": "17397400012019540",
+    "decode_rank": 1,
+    "decode_request_id": "b94c710a4b6f49c5bf76365437cf217e",
+    "decode_timestamp": "2026-10-06T13:12:40.580765054+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:41.408525906Z [2026-10-06 13:12:41 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='682d474e7d2f4b50b90916da480d246d' req.bootstrap_room=17397400012019540 with exception KVTransferError(bootstrap_room=17397400012019540): Decode instance could be dead, remote mooncake session 10.245.154.168:16460 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:40.580765054Z [2026-10-06 13:12:40 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='b94c710a4b6f49c5bf76365437cf217e' decode_req.req.bootstrap_room=17397400012019540 with exception KVTransferError(bootstrap_room=17397400012019540): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "682d474e7d2f4b50b90916da480d246d",
+    "prefill_timestamp": "2026-10-06T13:12:41.408525906+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "799573182617823111",
+    "decode_rank": 2,
+    "decode_request_id": "342851cf8fb747128e904b5128a165da",
+    "decode_timestamp": "2026-10-06T13:12:30.439979441+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:30.918220527Z [2026-10-06 13:12:30 DP7 TP7] Prefill transfer failed for request rank=7 req.rid='409b98cc50784b9c885c6f5dbe4f7eca' req.bootstrap_room=799573182617823111 with exception KVTransferError(bootstrap_room=799573182617823111): Failed to send state components of 799573182617823111 to 10.245.154.168:36993",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:30.439979441Z [2026-10-06 13:12:30 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='342851cf8fb747128e904b5128a165da' decode_req.req.bootstrap_room=799573182617823111 with exception KVTransferError(bootstrap_room=799573182617823111): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 7,
+    "prefill_request_id": "409b98cc50784b9c885c6f5dbe4f7eca",
+    "prefill_timestamp": "2026-10-06T13:12:30.918220527+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "924371690453858033",
+    "decode_rank": 7,
+    "decode_request_id": "c8dd64a0dfe644b2a4418d98e874fd79",
+    "decode_timestamp": "2026-10-06T13:07:22.241350788+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:07:22.868559779Z [2026-10-06 13:07:22 DP1 TP1] Prefill transfer failed for request rank=1 req.rid='2c960cada183492f8e3035d3a82e69a8' req.bootstrap_room=924371690453858033 with exception KVTransferError(bootstrap_room=924371690453858033): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:07:22.241350788Z [2026-10-06 13:07:22 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='c8dd64a0dfe644b2a4418d98e874fd79' decode_req.req.bootstrap_room=924371690453858033 with exception KVTransferError(bootstrap_room=924371690453858033): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 1,
+    "prefill_request_id": "2c960cada183492f8e3035d3a82e69a8",
+    "prefill_timestamp": "2026-10-06T13:07:22.868559779+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1047704051106418298",
+    "decode_rank": 7,
+    "decode_request_id": "92ca34fdb51c48dbb603db8017c8ff95",
+    "decode_timestamp": "2026-10-06T13:07:40.816696968+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:07:42.165281654Z [2026-10-06 13:07:42 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='9a9ec8393efc44b6ab2b0fd8dfa2968c' req.bootstrap_room=1047704051106418298 with exception KVTransferError(bootstrap_room=1047704051106418298): Failed to send state components of 1047704051106418298 to 10.245.154.168:42437",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:07:40.816696968Z [2026-10-06 13:07:40 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='92ca34fdb51c48dbb603db8017c8ff95' decode_req.req.bootstrap_room=1047704051106418298 with exception KVTransferError(bootstrap_room=1047704051106418298): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 2,
+    "prefill_request_id": "9a9ec8393efc44b6ab2b0fd8dfa2968c",
+    "prefill_timestamp": "2026-10-06T13:07:42.165281654+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1150445834335415490",
+    "decode_rank": 4,
+    "decode_request_id": "479285ace4f649538531870b6620be2b",
+    "decode_timestamp": "2026-10-06T13:06:45.190375324+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:06:46.016703880Z [2026-10-06 13:06:46 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='ac411fea8111477e8d8a99e9eb3a4a49' req.bootstrap_room=1150445834335415490 with exception KVTransferError(bootstrap_room=1150445834335415490): Failed to send kv chunk of 1150445834335415490 to 10.245.154.168:42861",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:06:45.190375324Z [2026-10-06 13:06:45 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='479285ace4f649538531870b6620be2b' decode_req.req.bootstrap_room=1150445834335415490 with exception KVTransferError(bootstrap_room=1150445834335415490): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 2,
+    "prefill_request_id": "ac411fea8111477e8d8a99e9eb3a4a49",
+    "prefill_timestamp": "2026-10-06T13:06:46.016703880+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1154154268862483934",
+    "decode_rank": 3,
+    "decode_request_id": "9a8528e6c0654634a5f257de1fc2ec6b",
+    "decode_timestamp": "2026-10-06T13:12:31.769374896+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:31.890017572Z [2026-10-06 13:12:31 DP6 TP6] Prefill transfer failed for request rank=6 req.rid='de9166614bd54c808456347f21d1507f' req.bootstrap_room=1154154268862483934 with exception KVTransferError(bootstrap_room=1154154268862483934): Failed to send kv chunk of 1154154268862483934 to 10.245.154.168:39485",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:31.769374896Z [2026-10-06 13:12:31 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='9a8528e6c0654634a5f257de1fc2ec6b' decode_req.req.bootstrap_room=1154154268862483934 with exception KVTransferError(bootstrap_room=1154154268862483934): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 6,
+    "prefill_request_id": "de9166614bd54c808456347f21d1507f",
+    "prefill_timestamp": "2026-10-06T13:12:31.890017572+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1165988160951333796",
+    "decode_rank": 3,
+    "decode_request_id": "df4a1c6211dd47898f4592b806c102ea",
+    "decode_timestamp": "2026-10-06T13:08:48.278667653+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:08:48.335533189Z [2026-10-06 13:08:48 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='40a15dbed5834f11b89dcf8ac087569c' req.bootstrap_room=1165988160951333796 with exception KVTransferError(bootstrap_room=1165988160951333796): Decode instance could be dead, remote mooncake session 10.245.154.168:16949 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:08:48.278667653Z [2026-10-06 13:08:48 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='df4a1c6211dd47898f4592b806c102ea' decode_req.req.bootstrap_room=1165988160951333796 with exception KVTransferError(bootstrap_room=1165988160951333796): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "40a15dbed5834f11b89dcf8ac087569c",
+    "prefill_timestamp": "2026-10-06T13:08:48.335533189+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1191230460291297224",
+    "decode_rank": 3,
+    "decode_request_id": "8023f5fa37f14802a3b2835c66b2c21a",
+    "decode_timestamp": "2026-10-06T13:03:58.197929616+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:58.223935517Z [2026-10-06 13:03:58 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='7172f57283274c62b3eb67b1d3645f09' req.bootstrap_room=1191230460291297224 with exception KVTransferError(bootstrap_room=1191230460291297224): Decode instance could be dead, remote mooncake session 10.245.154.168:16949 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:58.197929616Z [2026-10-06 13:03:58 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='8023f5fa37f14802a3b2835c66b2c21a' decode_req.req.bootstrap_room=1191230460291297224 with exception KVTransferError(bootstrap_room=1191230460291297224): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "same-numa",
+    "prefill_rank": 0,
+    "prefill_request_id": "7172f57283274c62b3eb67b1d3645f09",
+    "prefill_timestamp": "2026-10-06T13:03:58.223935517+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1269159486725851747",
+    "decode_rank": 7,
+    "decode_request_id": "2c533705b8bc4445bd0f79e72652487e",
+    "decode_timestamp": "2026-10-06T13:09:42.874804771+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:43.176355723Z [2026-10-06 13:09:43 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='a3d2e6cb3c39435297abe294ca6b0b71' req.bootstrap_room=1269159486725851747 with exception KVTransferError(bootstrap_room=1269159486725851747): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:09:42.874804771Z [2026-10-06 13:09:42 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='2c533705b8bc4445bd0f79e72652487e' decode_req.req.bootstrap_room=1269159486725851747 with exception KVTransferError(bootstrap_room=1269159486725851747): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "a3d2e6cb3c39435297abe294ca6b0b71",
+    "prefill_timestamp": "2026-10-06T13:09:43.176355723+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1354236773433531420",
+    "decode_rank": 1,
+    "decode_request_id": "17a842daa4c3480199faa4ecb9109970",
+    "decode_timestamp": "2026-10-06T13:03:43.289733149+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:44.205080968Z [2026-10-06 13:03:44 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='df48d6a14bfd48e28fecbbf3cc3f0181' req.bootstrap_room=1354236773433531420 with exception KVTransferError(bootstrap_room=1354236773433531420): Decode instance could be dead, remote mooncake session 10.245.154.168:16460 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:43.289733149Z [2026-10-06 13:03:43 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='17a842daa4c3480199faa4ecb9109970' decode_req.req.bootstrap_room=1354236773433531420 with exception KVTransferError(bootstrap_room=1354236773433531420): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "df48d6a14bfd48e28fecbbf3cc3f0181",
+    "prefill_timestamp": "2026-10-06T13:03:44.205080968+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1561956923405582413",
+    "decode_rank": 2,
+    "decode_request_id": "655025cfa20c4d558d7f1616c1f7362b",
+    "decode_timestamp": "2026-10-06T13:13:46.481453279+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:13:46.468274296Z [2026-10-06 13:13:46 DP5 TP5] Prefill transfer failed for request rank=5 req.rid='4001537e1ab9462582167da47a08a469' req.bootstrap_room=1561956923405582413 with exception KVTransferError(bootstrap_room=1561956923405582413): Failed to send kv chunk of 1561956923405582413 to 10.245.154.168:36993",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:13:46.481453279Z [2026-10-06 13:13:46 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='655025cfa20c4d558d7f1616c1f7362b' decode_req.req.bootstrap_room=1561956923405582413 with exception KVTransferError(bootstrap_room=1561956923405582413): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 5,
+    "prefill_request_id": "4001537e1ab9462582167da47a08a469",
+    "prefill_timestamp": "2026-10-06T13:13:46.468274296+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "1678303267993884230",
+    "decode_rank": 0,
+    "decode_request_id": "856907ece8074b34b38591c48f0a5fc7",
+    "decode_timestamp": "2026-10-06T13:03:56.254544449+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:56.404539142Z [2026-10-06 13:03:56 DP6 TP6] Prefill transfer failed for request rank=6 req.rid='2d7a5784cae14ceb863ccaf531b8ac45' req.bootstrap_room=1678303267993884230 with exception KVTransferError(bootstrap_room=1678303267993884230): Failed to send kv chunk of 1678303267993884230 to 10.245.154.168:33511",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:56.254544449Z [2026-10-06 13:03:56 DP0 TP0] Decode transfer failed for request rank=0 decode_req.req.rid='856907ece8074b34b38591c48f0a5fc7' decode_req.req.bootstrap_room=1678303267993884230 with exception KVTransferError(bootstrap_room=1678303267993884230): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 6,
+    "prefill_request_id": "2d7a5784cae14ceb863ccaf531b8ac45",
+    "prefill_timestamp": "2026-10-06T13:03:56.404539142+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "2306032276437832918",
+    "decode_rank": 0,
+    "decode_request_id": "9fc6a35848ee4fa1a7352dbd2037858f",
+    "decode_timestamp": "2026-10-06T13:03:56.254786505+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:56.405661370Z [2026-10-06 13:03:56 DP6 TP6] Prefill transfer failed for request rank=6 req.rid='3d6df4970f12492fb401fb54b8729146' req.bootstrap_room=2306032276437832918 with exception KVTransferError(bootstrap_room=2306032276437832918): Decode instance could be dead, remote mooncake session 10.245.154.168:15122 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:56.254786505Z [2026-10-06 13:03:56 DP0 TP0] Decode transfer failed for request rank=0 decode_req.req.rid='9fc6a35848ee4fa1a7352dbd2037858f' decode_req.req.bootstrap_room=2306032276437832918 with exception KVTransferError(bootstrap_room=2306032276437832918): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 6,
+    "prefill_request_id": "3d6df4970f12492fb401fb54b8729146",
+    "prefill_timestamp": "2026-10-06T13:03:56.405661370+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "2331537753179140558",
+    "decode_rank": 0,
+    "decode_request_id": "b4269f88b4b54ce483a47e29c7c512eb",
+    "decode_timestamp": "2026-10-06T13:03:56.987038865+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:57.678837546Z [2026-10-06 13:03:57 DP6 TP6] Prefill transfer failed for request rank=6 req.rid='3e5cd032323c487b95f3c141c7428278' req.bootstrap_room=2331537753179140558 with exception KVTransferError(bootstrap_room=2331537753179140558): Decode instance could be dead, remote mooncake session 10.245.154.168:15122 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:56.987038865Z [2026-10-06 13:03:56 DP0 TP0] Decode transfer failed for request rank=0 decode_req.req.rid='b4269f88b4b54ce483a47e29c7c512eb' decode_req.req.bootstrap_room=2331537753179140558 with exception KVTransferError(bootstrap_room=2331537753179140558): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 6,
+    "prefill_request_id": "3e5cd032323c487b95f3c141c7428278",
+    "prefill_timestamp": "2026-10-06T13:03:57.678837546+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "2913427303330239870",
+    "decode_rank": 0,
+    "decode_request_id": "16c66d877b604afa96dcd19e374a1a7e",
+    "decode_timestamp": "2026-10-06T13:03:56.337793422+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:56.409627558Z [2026-10-06 13:03:56 DP6 TP6] Prefill transfer failed for request rank=6 req.rid='0b6c58a755b747b8824ff6c9cc2a5c0b' req.bootstrap_room=2913427303330239870 with exception KVTransferError(bootstrap_room=2913427303330239870): Decode instance could be dead, remote mooncake session 10.245.154.168:15122 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:56.337793422Z [2026-10-06 13:03:56 DP0 TP0] Decode transfer failed for request rank=0 decode_req.req.rid='16c66d877b604afa96dcd19e374a1a7e' decode_req.req.bootstrap_room=2913427303330239870 with exception KVTransferError(bootstrap_room=2913427303330239870): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 6,
+    "prefill_request_id": "0b6c58a755b747b8824ff6c9cc2a5c0b",
+    "prefill_timestamp": "2026-10-06T13:03:56.409627558+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "3319245253902440611",
+    "decode_rank": 7,
+    "decode_request_id": "af1c2e9c5a0d496891175c9f43db7585",
+    "decode_timestamp": "2026-10-06T13:09:55.986945454+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:57.616165577Z [2026-10-06 13:09:57 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='e924e7e5301a4e4bb2aa3827cd7a8783' req.bootstrap_room=3319245253902440611 with exception KVTransferError(bootstrap_room=3319245253902440611): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:09:55.986945454Z [2026-10-06 13:09:55 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='af1c2e9c5a0d496891175c9f43db7585' decode_req.req.bootstrap_room=3319245253902440611 with exception KVTransferError(bootstrap_room=3319245253902440611): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "e924e7e5301a4e4bb2aa3827cd7a8783",
+    "prefill_timestamp": "2026-10-06T13:09:57.616165577+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "3507481498292088867",
+    "decode_rank": 7,
+    "decode_request_id": "73ce281ca27d4932a2a2690b4f2d3bbb",
+    "decode_timestamp": "2026-10-06T13:10:06.655104345+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:10:08.250416456Z [2026-10-06 13:10:08 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='57589d75ce9f43dfa720acda5009abca' req.bootstrap_room=3507481498292088867 with exception KVTransferError(bootstrap_room=3507481498292088867): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:10:06.655104345Z [2026-10-06 13:10:06 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='73ce281ca27d4932a2a2690b4f2d3bbb' decode_req.req.bootstrap_room=3507481498292088867 with exception KVTransferError(bootstrap_room=3507481498292088867): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "57589d75ce9f43dfa720acda5009abca",
+    "prefill_timestamp": "2026-10-06T13:10:08.250416456+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "3974911641693960111",
+    "decode_rank": 2,
+    "decode_request_id": "2da243fddd5f48ab90e6480760b77eec",
+    "decode_timestamp": "2026-10-06T13:12:30.472300473+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:30.920747981Z [2026-10-06 13:12:30 DP7 TP7] Prefill transfer failed for request rank=7 req.rid='f56319167d1549b3b9637a14349fbd14' req.bootstrap_room=3974911641693960111 with exception KVTransferError(bootstrap_room=3974911641693960111): Decode instance could be dead, remote mooncake session 10.245.154.168:16328 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:30.472300473Z [2026-10-06 13:12:30 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='2da243fddd5f48ab90e6480760b77eec' decode_req.req.bootstrap_room=3974911641693960111 with exception KVTransferError(bootstrap_room=3974911641693960111): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 7,
+    "prefill_request_id": "f56319167d1549b3b9637a14349fbd14",
+    "prefill_timestamp": "2026-10-06T13:12:30.920747981+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "4646912299663376514",
+    "decode_rank": 6,
+    "decode_request_id": "ace03260c8e94b13a0392be4dbf9a893",
+    "decode_timestamp": "2026-10-06T12:59:34.427107733+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:02:07.475212597Z [2026-10-06 13:02:07 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='b536bb31a8364f5b893ab1b4dc1a00f6' req.bootstrap_room=4646912299663376514 with exception KVTransferError(bootstrap_room=4646912299663376514): Failed to send kv chunk of 4646912299663376514 to 10.245.154.168:35017",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T12:59:34.427107733Z [2026-10-06 12:59:34 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='ace03260c8e94b13a0392be4dbf9a893' decode_req.req.bootstrap_room=4646912299663376514 with exception KVTransferError(bootstrap_room=4646912299663376514): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 2,
+    "prefill_request_id": "b536bb31a8364f5b893ab1b4dc1a00f6",
+    "prefill_timestamp": "2026-10-06T13:02:07.475212597+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "4715164938072133808",
+    "decode_rank": 3,
+    "decode_request_id": "643a49fbd66a4f98bd9726f11a06b3df",
+    "decode_timestamp": "2026-10-06T13:03:58.197744019+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:58.222567202Z [2026-10-06 13:03:58 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='326b2a1519df4ecb99106f2945f07611' req.bootstrap_room=4715164938072133808 with exception KVTransferError(bootstrap_room=4715164938072133808): Failed to send kv chunk of 4715164938072133808 to 10.245.154.168:39485",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:58.197744019Z [2026-10-06 13:03:58 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='643a49fbd66a4f98bd9726f11a06b3df' decode_req.req.bootstrap_room=4715164938072133808 with exception KVTransferError(bootstrap_room=4715164938072133808): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "same-numa",
+    "prefill_rank": 0,
+    "prefill_request_id": "326b2a1519df4ecb99106f2945f07611",
+    "prefill_timestamp": "2026-10-06T13:03:58.222567202+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "4757694829839048403",
+    "decode_rank": 7,
+    "decode_request_id": "2f557360547f41038781c430e32b5389",
+    "decode_timestamp": "2026-10-06T13:09:41.755145547+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:42.385955267Z [2026-10-06 13:09:42 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='70f297a7e29443a4a1f18edd2a5f3723' req.bootstrap_room=4757694829839048403 with exception KVTransferError(bootstrap_room=4757694829839048403): Failed to send kv chunk of 4757694829839048403 to 10.245.154.168:42437",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:09:41.755145547Z [2026-10-06 13:09:41 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='2f557360547f41038781c430e32b5389' decode_req.req.bootstrap_room=4757694829839048403 with exception KVTransferError(bootstrap_room=4757694829839048403): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "70f297a7e29443a4a1f18edd2a5f3723",
+    "prefill_timestamp": "2026-10-06T13:09:42.385955267+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "4823247196889177810",
+    "decode_rank": 4,
+    "decode_request_id": "2089bb87cbba46838f7a233e21002f05",
+    "decode_timestamp": "2026-10-06T13:06:45.190617750+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:06:46.020164463Z [2026-10-06 13:06:46 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='0da960c780e24d3884f128a315fd53f9' req.bootstrap_room=4823247196889177810 with exception KVTransferError(bootstrap_room=4823247196889177810): Decode instance could be dead, remote mooncake session 10.245.154.168:16483 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:06:45.190617750Z [2026-10-06 13:06:45 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='2089bb87cbba46838f7a233e21002f05' decode_req.req.bootstrap_room=4823247196889177810 with exception KVTransferError(bootstrap_room=4823247196889177810): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 2,
+    "prefill_request_id": "0da960c780e24d3884f128a315fd53f9",
+    "prefill_timestamp": "2026-10-06T13:06:46.020164463+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "4878625242860492707",
+    "decode_rank": 5,
+    "decode_request_id": "70ed64c2799c42ada4186d1bd760079d",
+    "decode_timestamp": "2026-10-06T13:13:37.340664537+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:13:37.555597907Z [2026-10-06 13:13:37 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='3bd06f9ec6164aa5a89e1a5a7005879b' req.bootstrap_room=4878625242860492707 with exception KVTransferError(bootstrap_room=4878625242860492707): Failed to send kv chunk of 4878625242860492707 to 10.245.154.168:41365",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:13:37.340664537Z [2026-10-06 13:13:37 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='70ed64c2799c42ada4186d1bd760079d' decode_req.req.bootstrap_room=4878625242860492707 with exception KVTransferError(bootstrap_room=4878625242860492707): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "3bd06f9ec6164aa5a89e1a5a7005879b",
+    "prefill_timestamp": "2026-10-06T13:13:37.555597907+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "5052696137743381467",
+    "decode_rank": 7,
+    "decode_request_id": "43f0326730364971814f3782d1403f87",
+    "decode_timestamp": "2026-10-06T13:09:53.308704352+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:54.522135131Z [2026-10-06 13:09:54 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='6a672b8dfb1a4012b4becc68808dae3e' req.bootstrap_room=5052696137743381467 with exception KVTransferError(bootstrap_room=5052696137743381467): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:09:53.308704352Z [2026-10-06 13:09:53 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='43f0326730364971814f3782d1403f87' decode_req.req.bootstrap_room=5052696137743381467 with exception KVTransferError(bootstrap_room=5052696137743381467): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "6a672b8dfb1a4012b4becc68808dae3e",
+    "prefill_timestamp": "2026-10-06T13:09:54.522135131+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "5440835910146991244",
+    "decode_rank": 3,
+    "decode_request_id": "f13c37ddab304d8593e33032a52e2cd4",
+    "decode_timestamp": "2026-10-06T13:08:52.201299110+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:02.542341439Z [2026-10-06 13:09:02 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='3e07a3b22ce347238187c83ddea7d06a' req.bootstrap_room=5440835910146991244 with exception KVTransferError(bootstrap_room=5440835910146991244): Decode instance could be dead, remote mooncake session 10.245.154.168:16949 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:08:52.201299110Z [2026-10-06 13:08:52 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='f13c37ddab304d8593e33032a52e2cd4' decode_req.req.bootstrap_room=5440835910146991244 with exception KVTransferError(bootstrap_room=5440835910146991244): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "3e07a3b22ce347238187c83ddea7d06a",
+    "prefill_timestamp": "2026-10-06T13:09:02.542341439+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "5570642067983322926",
+    "decode_rank": 3,
+    "decode_request_id": "c968ef4911064c84a371790fed26781d",
+    "decode_timestamp": "2026-10-06T13:00:31.466888618+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:00:32.239573420Z [2026-10-06 13:00:32 DP6 TP6] Prefill transfer failed for request rank=6 req.rid='f149eed41fea453abad062e91af5a26e' req.bootstrap_room=5570642067983322926 with exception KVTransferError(bootstrap_room=5570642067983322926): Failed to send kv chunk of 5570642067983322926 to 10.245.154.168:39485",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:00:31.466888618Z [2026-10-06 13:00:31 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='c968ef4911064c84a371790fed26781d' decode_req.req.bootstrap_room=5570642067983322926 with exception KVTransferError(bootstrap_room=5570642067983322926): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 6,
+    "prefill_request_id": "f149eed41fea453abad062e91af5a26e",
+    "prefill_timestamp": "2026-10-06T13:00:32.239573420+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "5614414639472696636",
+    "decode_rank": 1,
+    "decode_request_id": "a60d6c9f45b542219d6994774fffb203",
+    "decode_timestamp": "2026-10-06T13:03:40.873920037+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:43.307748954Z [2026-10-06 13:03:43 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='d3c72337c1174aea96aad9cae7a723e6' req.bootstrap_room=5614414639472696636 with exception KVTransferError(bootstrap_room=5614414639472696636): Decode instance could be dead, remote mooncake session 10.245.154.168:16460 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:40.873920037Z [2026-10-06 13:03:40 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='a60d6c9f45b542219d6994774fffb203' decode_req.req.bootstrap_room=5614414639472696636 with exception KVTransferError(bootstrap_room=5614414639472696636): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "d3c72337c1174aea96aad9cae7a723e6",
+    "prefill_timestamp": "2026-10-06T13:03:43.307748954+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "5707617475042469747",
+    "decode_rank": 7,
+    "decode_request_id": "df4d86418850433f87eb3a1208bfcce1",
+    "decode_timestamp": "2026-10-06T13:08:14.342104720+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:08:14.519910577Z [2026-10-06 13:08:14 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='adfe8d019afb431a83ce0e3ec32590a8' req.bootstrap_room=5707617475042469747 with exception KVTransferError(bootstrap_room=5707617475042469747): Failed to send kv chunk of 5707617475042469747 to 10.245.154.168:42437",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:08:14.342104720Z [2026-10-06 13:08:14 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='df4d86418850433f87eb3a1208bfcce1' decode_req.req.bootstrap_room=5707617475042469747 with exception KVTransferError(bootstrap_room=5707617475042469747): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "adfe8d019afb431a83ce0e3ec32590a8",
+    "prefill_timestamp": "2026-10-06T13:08:14.519910577+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "5817904101784500460",
+    "decode_rank": 1,
+    "decode_request_id": "baec5237aae94cdbb83cf8f6138ef6e9",
+    "decode_timestamp": "2026-10-06T13:12:51.475426582+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:52.335454275Z [2026-10-06 13:12:52 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='4858780d67ea40fdb46b70d6c805f8ca' req.bootstrap_room=5817904101784500460 with exception KVTransferError(bootstrap_room=5817904101784500460): Decode instance could be dead, remote mooncake session 10.245.154.168:16460 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:51.475426582Z [2026-10-06 13:12:51 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='baec5237aae94cdbb83cf8f6138ef6e9' decode_req.req.bootstrap_room=5817904101784500460 with exception KVTransferError(bootstrap_room=5817904101784500460): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "4858780d67ea40fdb46b70d6c805f8ca",
+    "prefill_timestamp": "2026-10-06T13:12:52.335454275+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "5856482208513309266",
+    "decode_rank": 7,
+    "decode_request_id": "f05f0b408d48475bb48187b426d977c0",
+    "decode_timestamp": "2026-10-06T13:05:47.681126490+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:05:48.614264405Z [2026-10-06 13:05:48 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='bfe565a74aef4a2a8d22872ce84e1b04' req.bootstrap_room=5856482208513309266 with exception KVTransferError(bootstrap_room=5856482208513309266): Failed to send kv chunk of 5856482208513309266 to 10.245.154.168:42437",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:05:47.681126490Z [2026-10-06 13:05:47 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='f05f0b408d48475bb48187b426d977c0' decode_req.req.bootstrap_room=5856482208513309266 with exception KVTransferError(bootstrap_room=5856482208513309266): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 2,
+    "prefill_request_id": "bfe565a74aef4a2a8d22872ce84e1b04",
+    "prefill_timestamp": "2026-10-06T13:05:48.614264405+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6014052040187971239",
+    "decode_rank": 2,
+    "decode_request_id": "9976a942666749e8b7e21fec779a5644",
+    "decode_timestamp": "2026-10-06T13:12:31.150369417+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:31.892084581Z [2026-10-06 13:12:31 DP7 TP7] Prefill transfer failed for request rank=7 req.rid='4a2d9204e8914d74bd3f0a492b154660' req.bootstrap_room=6014052040187971239 with exception KVTransferError(bootstrap_room=6014052040187971239): Decode instance could be dead, remote mooncake session 10.245.154.168:16328 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:31.150369417Z [2026-10-06 13:12:31 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='9976a942666749e8b7e21fec779a5644' decode_req.req.bootstrap_room=6014052040187971239 with exception KVTransferError(bootstrap_room=6014052040187971239): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 7,
+    "prefill_request_id": "4a2d9204e8914d74bd3f0a492b154660",
+    "prefill_timestamp": "2026-10-06T13:12:31.892084581+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6299235689527776235",
+    "decode_rank": 7,
+    "decode_request_id": "25b5754753564842a2d95ba186b3c54b",
+    "decode_timestamp": "2026-10-06T13:09:42.819916579+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:43.175137276Z [2026-10-06 13:09:43 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='65ba1f262b194bd1aec959e094cf4160' req.bootstrap_room=6299235689527776235 with exception KVTransferError(bootstrap_room=6299235689527776235): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:09:42.819916579Z [2026-10-06 13:09:42 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='25b5754753564842a2d95ba186b3c54b' decode_req.req.bootstrap_room=6299235689527776235 with exception KVTransferError(bootstrap_room=6299235689527776235): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "65ba1f262b194bd1aec959e094cf4160",
+    "prefill_timestamp": "2026-10-06T13:09:43.175137276+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6395974609314669711",
+    "decode_rank": 3,
+    "decode_request_id": "9fbc3f7dc3aa41779f60df7a30a5b16d",
+    "decode_timestamp": "2026-10-06T13:11:51.935364493+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:11:52.401785659Z [2026-10-06 13:11:52 DP7 TP7] Prefill transfer failed for request rank=7 req.rid='1d692ba51d1943349882115a50f77c3f' req.bootstrap_room=6395974609314669711 with exception KVTransferError(bootstrap_room=6395974609314669711): Failed to send state components of 6395974609314669711 to 10.245.154.168:39485",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:11:51.935364493Z [2026-10-06 13:11:51 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='9fbc3f7dc3aa41779f60df7a30a5b16d' decode_req.req.bootstrap_room=6395974609314669711 with exception KVTransferError(bootstrap_room=6395974609314669711): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 7,
+    "prefill_request_id": "1d692ba51d1943349882115a50f77c3f",
+    "prefill_timestamp": "2026-10-06T13:11:52.401785659+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6509484690356730418",
+    "decode_rank": 5,
+    "decode_request_id": "ecbe10569ea04bfe9c651d9bddb3954e",
+    "decode_timestamp": "2026-10-06T13:14:00.954490311+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:14:00.929203786Z [2026-10-06 13:14:00 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='81163467a3e646c8b7261a84857847ad' req.bootstrap_room=6509484690356730418 with exception KVTransferError(bootstrap_room=6509484690356730418): Failed to send state components of 6509484690356730418 to 10.245.154.168:41365",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:14:00.954490311Z [2026-10-06 13:14:00 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='ecbe10569ea04bfe9c651d9bddb3954e' decode_req.req.bootstrap_room=6509484690356730418 with exception KVTransferError(bootstrap_room=6509484690356730418): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 2,
+    "prefill_request_id": "81163467a3e646c8b7261a84857847ad",
+    "prefill_timestamp": "2026-10-06T13:14:00.929203786+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6551116179094945656",
+    "decode_rank": 5,
+    "decode_request_id": "79f58d272d3343f2947b633119c068ad",
+    "decode_timestamp": "2026-10-06T13:03:20.900099590+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:21.075658054Z [2026-10-06 13:03:21 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='8f3aa733243e4310813d9d99ed738f92' req.bootstrap_room=6551116179094945656 with exception KVTransferError(bootstrap_room=6551116179094945656): Failed to send kv chunk of 6551116179094945656 to 10.245.154.168:41365",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:20.900099590Z [2026-10-06 13:03:20 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='79f58d272d3343f2947b633119c068ad' decode_req.req.bootstrap_room=6551116179094945656 with exception KVTransferError(bootstrap_room=6551116179094945656): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 0,
+    "prefill_request_id": "8f3aa733243e4310813d9d99ed738f92",
+    "prefill_timestamp": "2026-10-06T13:03:21.075658054+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6565126977479459867",
+    "decode_rank": 7,
+    "decode_request_id": "546ee064037f4eb383ca677da4b42352",
+    "decode_timestamp": "2026-10-06T13:10:02.480730674+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:10:03.098779045Z [2026-10-06 13:10:03 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='f90b926f60eb47de974ae0ae886359f6' req.bootstrap_room=6565126977479459867 with exception KVTransferError(bootstrap_room=6565126977479459867): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:10:02.480730674Z [2026-10-06 13:10:02 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='546ee064037f4eb383ca677da4b42352' decode_req.req.bootstrap_room=6565126977479459867 with exception KVTransferError(bootstrap_room=6565126977479459867): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "f90b926f60eb47de974ae0ae886359f6",
+    "prefill_timestamp": "2026-10-06T13:10:03.098779045+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6696559927194614628",
+    "decode_rank": 3,
+    "decode_request_id": "0be1e4ca8abd4af585f0afeea0092a38",
+    "decode_timestamp": "2026-10-06T13:08:48.278600704+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:08:48.334372371Z [2026-10-06 13:08:48 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='55a5ec7464d0460b8a34892a5042efd1' req.bootstrap_room=6696559927194614628 with exception KVTransferError(bootstrap_room=6696559927194614628): Decode instance could be dead, remote mooncake session 10.245.154.168:16949 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:08:48.278600704Z [2026-10-06 13:08:48 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='0be1e4ca8abd4af585f0afeea0092a38' decode_req.req.bootstrap_room=6696559927194614628 with exception KVTransferError(bootstrap_room=6696559927194614628): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "55a5ec7464d0460b8a34892a5042efd1",
+    "prefill_timestamp": "2026-10-06T13:08:48.334372371+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6769624320117650783",
+    "decode_rank": 2,
+    "decode_request_id": "06dacd0cccab44418e8b64de41ca1dd0",
+    "decode_timestamp": "2026-10-06T13:12:34.004196628+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:35.029552463Z [2026-10-06 13:12:35 DP7 TP7] Prefill transfer failed for request rank=7 req.rid='8e15ead5e11a4834879e40236ac9d607' req.bootstrap_room=6769624320117650783 with exception KVTransferError(bootstrap_room=6769624320117650783): Decode instance could be dead, remote mooncake session 10.245.154.168:16328 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:34.004196628Z [2026-10-06 13:12:34 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='06dacd0cccab44418e8b64de41ca1dd0' decode_req.req.bootstrap_room=6769624320117650783 with exception KVTransferError(bootstrap_room=6769624320117650783): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 7,
+    "prefill_request_id": "8e15ead5e11a4834879e40236ac9d607",
+    "prefill_timestamp": "2026-10-06T13:12:35.029552463+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6880609568460759116",
+    "decode_rank": 1,
+    "decode_request_id": "299fba92532e43e892b16f5f5dd2b0ff",
+    "decode_timestamp": "2026-10-06T13:12:38.289618533+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:12:38.484051073Z [2026-10-06 13:12:38 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='defbbe51cb12432bae315eacbfd4067f' req.bootstrap_room=6880609568460759116 with exception KVTransferError(bootstrap_room=6880609568460759116): Failed to send kv chunk of 6880609568460759116 to 10.245.154.168:34713",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:12:38.289618533Z [2026-10-06 13:12:38 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='299fba92532e43e892b16f5f5dd2b0ff' decode_req.req.bootstrap_room=6880609568460759116 with exception KVTransferError(bootstrap_room=6880609568460759116): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "defbbe51cb12432bae315eacbfd4067f",
+    "prefill_timestamp": "2026-10-06T13:12:38.484051073+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "6924139594552341377",
+    "decode_rank": 7,
+    "decode_request_id": "f4b8fe8a225d44e18a91932be3fd3a20",
+    "decode_timestamp": "2026-10-06T13:07:21.925572468+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:07:22.864866279Z [2026-10-06 13:07:22 DP1 TP1] Prefill transfer failed for request rank=1 req.rid='7c254ca4e9674bfba855d639291a22f9' req.bootstrap_room=6924139594552341377 with exception KVTransferError(bootstrap_room=6924139594552341377): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:07:21.925572468Z [2026-10-06 13:07:21 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='f4b8fe8a225d44e18a91932be3fd3a20' decode_req.req.bootstrap_room=6924139594552341377 with exception KVTransferError(bootstrap_room=6924139594552341377): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 1,
+    "prefill_request_id": "7c254ca4e9674bfba855d639291a22f9",
+    "prefill_timestamp": "2026-10-06T13:07:22.864866279+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "7272625483328682388",
+    "decode_rank": 1,
+    "decode_request_id": "a9ef4e89698849ceb3b9d887a8074114",
+    "decode_timestamp": "2026-10-06T13:03:42.227631291+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:43.309761833Z [2026-10-06 13:03:43 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='3220ac9a3378430c8dba191b76729bf1' req.bootstrap_room=7272625483328682388 with exception KVTransferError(bootstrap_room=7272625483328682388): Decode instance could be dead, remote mooncake session 10.245.154.168:16460 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:42.227631291Z [2026-10-06 13:03:42 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='a9ef4e89698849ceb3b9d887a8074114' decode_req.req.bootstrap_room=7272625483328682388 with exception KVTransferError(bootstrap_room=7272625483328682388): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "3220ac9a3378430c8dba191b76729bf1",
+    "prefill_timestamp": "2026-10-06T13:03:43.309761833+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "7379946945583768960",
+    "decode_rank": 4,
+    "decode_request_id": "f03afa046c524b0c8dba487c60538819",
+    "decode_timestamp": "2026-10-06T13:06:52.790084798+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:06:53.049759959Z [2026-10-06 13:06:53 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='1349a7cd947949f0825c327eb9179843' req.bootstrap_room=7379946945583768960 with exception KVTransferError(bootstrap_room=7379946945583768960): Failed to send state components of 7379946945583768960 to 10.245.154.168:42861",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:06:52.790084798Z [2026-10-06 13:06:52 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='f03afa046c524b0c8dba487c60538819' decode_req.req.bootstrap_room=7379946945583768960 with exception KVTransferError(bootstrap_room=7379946945583768960): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 0,
+    "prefill_request_id": "1349a7cd947949f0825c327eb9179843",
+    "prefill_timestamp": "2026-10-06T13:06:53.049759959+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "7653406880683681239",
+    "decode_rank": 3,
+    "decode_request_id": "715e89423e8e4a6dafc9ac80752af948",
+    "decode_timestamp": "2026-10-06T13:11:51.935556650+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:11:52.403265983Z [2026-10-06 13:11:52 DP7 TP7] Prefill transfer failed for request rank=7 req.rid='7ec021f65a4043f58b84208a026a8e3d' req.bootstrap_room=7653406880683681239 with exception KVTransferError(bootstrap_room=7653406880683681239): Decode instance could be dead, remote mooncake session 10.245.154.168:16949 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:11:51.935556650Z [2026-10-06 13:11:51 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='715e89423e8e4a6dafc9ac80752af948' decode_req.req.bootstrap_room=7653406880683681239 with exception KVTransferError(bootstrap_room=7653406880683681239): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 7,
+    "prefill_request_id": "7ec021f65a4043f58b84208a026a8e3d",
+    "prefill_timestamp": "2026-10-06T13:11:52.403265983+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "7707308813196500321",
+    "decode_rank": 7,
+    "decode_request_id": "66ffe1be34a64f188f015755fe83b39f",
+    "decode_timestamp": "2026-10-06T13:07:38.723574842+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:07:40.431937278Z [2026-10-06 13:07:40 DP1 TP1] Prefill transfer failed for request rank=1 req.rid='eebcaa3ba17a41318da41618143c74e4' req.bootstrap_room=7707308813196500321 with exception KVTransferError(bootstrap_room=7707308813196500321): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:07:38.723574842Z [2026-10-06 13:07:38 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='66ffe1be34a64f188f015755fe83b39f' decode_req.req.bootstrap_room=7707308813196500321 with exception KVTransferError(bootstrap_room=7707308813196500321): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 1,
+    "prefill_request_id": "eebcaa3ba17a41318da41618143c74e4",
+    "prefill_timestamp": "2026-10-06T13:07:40.431937278+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "7848433651279161340",
+    "decode_rank": 1,
+    "decode_request_id": "4d1cde96c55c49f4bd2ba7a71594a723",
+    "decode_timestamp": "2026-10-06T13:03:40.534613042+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:41.284421047Z [2026-10-06 13:03:41 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='cce13ea1b43f46fc89729f8c3febd1f8' req.bootstrap_room=7848433651279161340 with exception KVTransferError(bootstrap_room=7848433651279161340): Failed to send kv chunk of 7848433651279161340 to 10.245.154.168:34713",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:40.534613042Z [2026-10-06 13:03:40 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='4d1cde96c55c49f4bd2ba7a71594a723' decode_req.req.bootstrap_room=7848433651279161340 with exception KVTransferError(bootstrap_room=7848433651279161340): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "cce13ea1b43f46fc89729f8c3febd1f8",
+    "prefill_timestamp": "2026-10-06T13:03:41.284421047+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "7889151037289714916",
+    "decode_rank": 3,
+    "decode_request_id": "cde1df55b1914434bfbe44352774b615",
+    "decode_timestamp": "2026-10-06T13:08:48.278356398+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:08:48.326892380Z [2026-10-06 13:08:48 DP4 TP4] Prefill transfer failed for request rank=4 req.rid='c2044fdcf03e4429a268b5a98b2875ab' req.bootstrap_room=7889151037289714916 with exception KVTransferError(bootstrap_room=7889151037289714916): Failed to send state components of 7889151037289714916 to 10.245.154.168:39485",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:08:48.278356398Z [2026-10-06 13:08:48 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='cde1df55b1914434bfbe44352774b615' decode_req.req.bootstrap_room=7889151037289714916 with exception KVTransferError(bootstrap_room=7889151037289714916): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 4,
+    "prefill_request_id": "c2044fdcf03e4429a268b5a98b2875ab",
+    "prefill_timestamp": "2026-10-06T13:08:48.326892380+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "7918754758325604184",
+    "decode_rank": 5,
+    "decode_request_id": "e5fd7582ca3a435597e346ee4d94e532",
+    "decode_timestamp": "2026-10-06T13:03:20.899859304+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:03:21.073965102Z [2026-10-06 13:03:21 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='c54494ee4e80456781cc4bb035542d99' req.bootstrap_room=7918754758325604184 with exception KVTransferError(bootstrap_room=7918754758325604184): Decode instance could be dead, remote mooncake session 10.245.154.168:16442 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:03:20.899859304Z [2026-10-06 13:03:20 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='e5fd7582ca3a435597e346ee4d94e532' decode_req.req.bootstrap_room=7918754758325604184 with exception KVTransferError(bootstrap_room=7918754758325604184): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 0,
+    "prefill_request_id": "c54494ee4e80456781cc4bb035542d99",
+    "prefill_timestamp": "2026-10-06T13:03:21.073965102+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "8466711862332720390",
+    "decode_rank": 1,
+    "decode_request_id": "65df9713d8bd4c53863c15cc12bcb2c5",
+    "decode_timestamp": "2026-10-06T13:11:41.520102227+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:11:42.012683948Z [2026-10-06 13:11:42 DP6 TP6] Prefill transfer failed for request rank=6 req.rid='f141a90fbfec42a3b756169a5328a255' req.bootstrap_room=8466711862332720390 with exception KVTransferError(bootstrap_room=8466711862332720390): Failed to send kv chunk of 8466711862332720390 to 10.245.154.168:34713",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:11:41.520102227Z [2026-10-06 13:11:41 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='65df9713d8bd4c53863c15cc12bcb2c5' decode_req.req.bootstrap_room=8466711862332720390 with exception KVTransferError(bootstrap_room=8466711862332720390): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 6,
+    "prefill_request_id": "f141a90fbfec42a3b756169a5328a255",
+    "prefill_timestamp": "2026-10-06T13:11:42.012683948+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "8562541091288489355",
+    "decode_rank": 7,
+    "decode_request_id": "ca758992b44d4238a73b7d54f4b8a9f7",
+    "decode_timestamp": "2026-10-06T13:09:43.161902637+00:00",
+    "failure_class": "session-cascade",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:43.178193433Z [2026-10-06 13:09:43 DP3 TP3] Prefill transfer failed for request rank=3 req.rid='0bfb69625e0349d38d2b2031adbada08' req.bootstrap_room=8562541091288489355 with exception KVTransferError(bootstrap_room=8562541091288489355): Decode instance could be dead, remote mooncake session 10.245.154.168:16372 is not alive",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:09:43.161902637Z [2026-10-06 13:09:43 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='ca758992b44d4238a73b7d54f4b8a9f7' decode_req.req.bootstrap_room=8562541091288489355 with exception KVTransferError(bootstrap_room=8562541091288489355): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 3,
+    "prefill_request_id": "0bfb69625e0349d38d2b2031adbada08",
+    "prefill_timestamp": "2026-10-06T13:09:43.178193433+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "9027387142443200593",
+    "decode_rank": 7,
+    "decode_request_id": "799ac00653bd4021a0911c3a30859411",
+    "decode_timestamp": "2026-10-06T13:07:21.537398121+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:07:22.844182557Z [2026-10-06 13:07:22 DP1 TP1] Prefill transfer failed for request rank=1 req.rid='5b2407690097438f9daba8538b13b82e' req.bootstrap_room=9027387142443200593 with exception KVTransferError(bootstrap_room=9027387142443200593): Failed to send kv chunk of 9027387142443200593 to 10.245.154.168:42437",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:07:21.537398121Z [2026-10-06 13:07:21 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='799ac00653bd4021a0911c3a30859411' decode_req.req.bootstrap_room=9027387142443200593 with exception KVTransferError(bootstrap_room=9027387142443200593): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 1,
+    "prefill_request_id": "5b2407690097438f9daba8538b13b82e",
+    "prefill_timestamp": "2026-10-06T13:07:22.844182557+00:00",
+    "rank_class": "cross-rank"
+  },
+  {
+    "bootstrap_room": "9208166604817192133",
+    "decode_rank": 3,
+    "decode_request_id": "3fbd6f7c473f48d8a801b48852679076",
+    "decode_timestamp": "2026-10-06T13:09:31.955731043+00:00",
+    "failure_class": "primary-send",
+    "lines": [
+      {
+        "line": "2026-10-06T13:09:32.036135679Z [2026-10-06 13:09:32 DP5 TP5] Prefill transfer failed for request rank=5 req.rid='669c7f2c4a3e4c8292415fa2cfc463a6' req.bootstrap_room=9208166604817192133 with exception KVTransferError(bootstrap_room=9208166604817192133): Failed to send state components of 9208166604817192133 to 10.245.154.168:39485",
+        "role": "prefill"
+      },
+      {
+        "line": "2026-10-06T13:09:31.955731043Z [2026-10-06 13:09:31 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='3fbd6f7c473f48d8a801b48852679076' decode_req.req.bootstrap_room=9208166604817192133 with exception KVTransferError(bootstrap_room=9208166604817192133): Failed to get kvcache from prefill instance, it might be dead",
+        "role": "decode"
+      }
+    ],
+    "numa_class": "cross-numa",
+    "prefill_rank": 5,
+    "prefill_request_id": "669c7f2c4a3e4c8292415fa2cfc463a6",
+    "prefill_timestamp": "2026-10-06T13:09:32.036135679+00:00",
+    "rank_class": "cross-rank"
+  }
+]

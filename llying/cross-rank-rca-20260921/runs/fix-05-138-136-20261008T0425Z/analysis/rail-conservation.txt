@@ -1,0 +1,11 @@
+crsuse2-m2m-138 -> crsuse2-m2m-136
+hca              mac        data      inside         ack       ackto        retx         nak         dup       pause
+ionic_0          802           0         715           0           4           0           0           0           0
+ionic_1          806           0         714           0           0           0           0           0           0
+ionic_2          802           0         713           0           4         737           0         737           0
+ionic_3          805           0         713           0           6        2345           0        2345           0
+ionic_4          799        1598        2278           0          14        6007           2        4407           0
+ionic_5          797           0         716           0           0           0           0           0           0
+ionic_6          795       65536       66250           0          14       57344           0           0           0
+ionic_7          813           0         711           0           4           0           0           0           0
+total           6419       67134       72810           0          46       66433           2        7489           0

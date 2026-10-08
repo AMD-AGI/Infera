@@ -1,0 +1,10 @@
+# Raw run data stays on the shared filesystem; the reports cite runs/*/analysis/.
+/runs/*/bench/aiperf_artifacts/
+/runs/*/launch/server-logs/
+/runs/*/logs/
+/runs/*/counters/timeseries.jsonl
+/cache/
+__pycache__/
+
+# Logs cited by the reports are evidence; the repository root ignores *.log.
+!*.log

@@ -7,10 +7,7 @@ from pathlib import Path
 
 
 REPO = Path(__file__).resolve().parents[3]
-SCRIPTS = (
-    REPO
-    / "bench/glm5p2_pd/results/cross-rank-rca-20260921/scripts"
-)
+SCRIPTS = REPO / "llying/cross-rank-rca-20260921/scripts"
 sys.path.insert(0, str(SCRIPTS))
 
 
@@ -24,6 +21,7 @@ def load_script(name: str):
 
 analyze = load_script("analyze_reproduction")
 matrix = load_script("run_pair_matrix")
+concurrent = load_script("run_concurrent_matrix")
 certify = load_script("certify_results")
 
 
@@ -59,8 +57,12 @@ def test_transfer_pair_and_client_error_correlation():
         "2026-09-21T13:30:53.700000000Z [DP6 TP6] Decode transfer failed "
         "for request rank=6 decode_req.req.rid='d' "
         "decode_req.req.bootstrap_room=123 with exception: Failed to get kvcache\n"
+        "2026-09-21T13:31:00.000000000Z [DP4 TP4] Decode transfer failed "
+        "for request rank=4 decode_req.req.rid='c' decode_req.req.bootstrap_room=456 "
+        "with exception KVTransferError(bootstrap_room=456): Aborted by AbortReq.\n"
     )
     transfers = analyze.parse_transfer_lines(prefill, decode)
+    assert [record["bootstrap_room"] for record in transfers] == ["123"]
     assert transfers[0]["rank_class"] == "cross-rank"
     assert transfers[0]["numa_class"] == "cross-numa"
     ended = int(
@@ -113,8 +115,11 @@ def test_pair_matrix_contract_helpers():
     assert "MC_ENABLE_DEST_DEVICE_AFFINITY=1" not in matrix.docker_command(
         "off", {"dest_affinity": False, "physical_gpu": 2}
     )
-    assert "HIP_VISIBLE_DEVICES=2" in matrix.docker_command(
-        "gpu", {"dest_affinity": True, "physical_gpu": 2}
+    assert not any(
+        item.startswith("HIP_VISIBLE_DEVICES=")
+        for item in matrix.docker_command(
+            "gpu", {"dest_affinity": True, "physical_gpu": 2}
+        )
     )
     assert matrix.geometry("batch", 3) == {
         "size": 1 << 30,
@@ -146,10 +151,17 @@ def test_pair_matrix_contract_helpers():
     assert totals == {"req_tx_retry_excd_err": 3, "tx_rdma_ack_timeout": 5}
 
 
+def test_concurrent_wave_pairs():
+    assert concurrent.wave_pairs(3) == [(s, (s + 3) % 8) for s in range(8)]
+    assert concurrent.wave_pairs(4, fan_in=4) == [
+        (0, 4), (1, 4), (2, 4), (3, 4), (4, 0), (5, 0), (6, 0), (7, 0)
+    ]
+
+
 def test_certification_happy_path(tmp_path: Path):
     matrix_dir = tmp_path / "matrix"
     run = tmp_path / "run"
-    dump(matrix_dir / "contract.json", {"policies": ["auto"]})
+    dump(matrix_dir / "contract.json", {"policies": ["auto"], "image_id": "fix"})
     dump(
         matrix_dir / "summary.json",
         [
@@ -174,7 +186,7 @@ def test_certification_happy_path(tmp_path: Path):
         {
             "router_affinity": False,
             "workers": {
-                role: {"hcas": certify.SHARED_HCAS, "hicache": False}
+                role: {"hcas": certify.SHARED_HCAS, "hicache": False, "image": "fix"}
                 for role in ("prefill", "decode")
             },
         },
@@ -199,4 +211,25 @@ def test_certification_happy_path(tmp_path: Path):
         [{"decode_rank": rank} for rank in range(8)],
     )
     gates = certify.matrix_gates(matrix_dir, "auto") + certify.agentx_gates(run)
+    gates.append(certify.same_image_gate(matrix_dir, run))
     assert all(gate["passed"] for gate in gates)
+
+    summary = json.loads((run / "analysis/summary.json").read_text())
+    summary["signatures"]["transfer_client_aborted"] = 1
+    dump(run / "analysis/summary.json", summary)
+    failed = [gate["name"] for gate in certify.agentx_gates(run) if not gate["passed"]]
+    assert failed == ["agentx-transfer-aborts-client-cancelled"]
+
+
+def test_certification_uses_wave_scoped_counters():
+    record = {
+        "counter_scope": "wave",
+        "counter_snapshot_complete": None,
+        "tx_rdma_ack_timeout": None,
+        "wave_counter_snapshot_complete": True,
+        "wave_tx_rdma_ack_timeout": 3,
+        "cqe_error_12": 0,
+    }
+    assert certify.scoped(record, "counter_snapshot_complete") is True
+    assert certify.scoped(record, "tx_rdma_ack_timeout") == 3
+    assert certify.scoped(record, "cqe_error_12") == 0

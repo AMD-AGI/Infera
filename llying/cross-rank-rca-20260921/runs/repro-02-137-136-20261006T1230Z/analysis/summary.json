@@ -1,0 +1,182 @@
+{
+  "benchmark": {
+    "cancelled_requests": 8,
+    "duration_seconds": 1225.5245,
+    "error_categories": {
+      "InvalidInferenceResultError": 54
+    },
+    "input_tokens_per_second": 254519.91129,
+    "output_tokens_per_second": 1932.16048,
+    "records_error_dropped": 54,
+    "records_profiled": 2478,
+    "records_total": 2693
+  },
+  "client_server_correlation": {
+    "matched_within_5s": 50,
+    "max_abs_delta_ms": 3606.899,
+    "unmatched_client_errors": 4,
+    "unmatched_decode_failures": 1
+  },
+  "cqe_destination_ranks": {
+    "0": 5,
+    "1": 4,
+    "2": 5,
+    "3": 13,
+    "4": 6,
+    "5": 6,
+    "6": 1,
+    "7": 13
+  },
+  "cqe_hcas": {
+    "ionic_0": 5,
+    "ionic_1": 5,
+    "ionic_2": 8,
+    "ionic_3": 9,
+    "ionic_4": 3,
+    "ionic_5": 3,
+    "ionic_6": 10,
+    "ionic_7": 10
+  },
+  "cqe_same_named_hca": 53,
+  "cross_numa_failure_rate": {
+    "failed": 49,
+    "paired_same_numa_failures": 2,
+    "percent": 3.606,
+    "routed": 1359
+  },
+  "decode_port_rank_evidence": {
+    "15122": {
+      "method": "session-cascade",
+      "rank": 0,
+      "samples": 3
+    },
+    "16328": {
+      "method": "session-cascade",
+      "rank": 2,
+      "samples": 3
+    },
+    "16372": {
+      "method": "session-cascade",
+      "rank": 7,
+      "samples": 10
+    },
+    "16442": {
+      "method": "session-cascade",
+      "rank": 5,
+      "samples": 1
+    },
+    "16460": {
+      "method": "session-cascade",
+      "rank": 1,
+      "samples": 5
+    },
+    "16483": {
+      "method": "session-cascade",
+      "rank": 4,
+      "samples": 1
+    },
+    "16796": {
+      "method": "elimination",
+      "rank": 6,
+      "samples": 0
+    },
+    "16949": {
+      "method": "session-cascade",
+      "rank": 3,
+      "samples": 5
+    }
+  },
+  "failure_rank_pairs": {
+    "P0->D3": 2,
+    "P0->D4": 1,
+    "P0->D5": 2,
+    "P1->D7": 4,
+    "P2->D4": 2,
+    "P2->D5": 1,
+    "P2->D6": 1,
+    "P2->D7": 2,
+    "P3->D5": 1,
+    "P3->D7": 9,
+    "P4->D1": 7,
+    "P4->D3": 4,
+    "P5->D2": 1,
+    "P5->D3": 1,
+    "P6->D0": 4,
+    "P6->D1": 1,
+    "P6->D3": 2,
+    "P7->D2": 4,
+    "P7->D3": 2
+  },
+  "hca_fault_delta_rows": 32,
+  "hca_hard_counter_by_hca": {
+    "req_tx_retry_excd_err": {
+      "ionic_0": 22,
+      "ionic_1": 18,
+      "ionic_2": 21,
+      "ionic_3": 32,
+      "ionic_4": 16,
+      "ionic_5": 19,
+      "ionic_6": 40,
+      "ionic_7": 45
+    },
+    "tx_rdma_ack_timeout": {
+      "ionic_0": 141,
+      "ionic_1": 114,
+      "ionic_2": 196,
+      "ionic_3": 208,
+      "ionic_4": 121,
+      "ionic_5": 131,
+      "ionic_6": 158,
+      "ionic_7": 180
+    }
+  },
+  "hca_hard_counter_by_node": {
+    "req_tx_retry_excd_err": {
+      "crsuse2-m2m-137": 213
+    },
+    "tx_rdma_ack_timeout": {
+      "crsuse2-m2m-137": 1249
+    }
+  },
+  "hca_hard_counter_totals": {
+    "req_tx_retry_excd_err": 213,
+    "tx_rdma_ack_timeout": 1249
+  },
+  "hca_timeseries_fault_events": 336,
+  "hca_timeseries_fault_events_by_counter": {
+    "req_tx_retry_excd_err": 52,
+    "tx_rdma_ack_timeout": 284
+  },
+  "paired_failure_causes": {
+    "primary-send": 23,
+    "session-cascade": 28
+  },
+  "paired_failure_numa_classes": {
+    "cross-numa": 49,
+    "same-numa": 2
+  },
+  "paired_failure_rank_classes": {
+    "cross-rank": 51
+  },
+  "paired_transfer_failures": 51,
+  "reproduced": true,
+  "root_cause_status": "not-closed; single-variable pair matrix pending",
+  "router_pair_classes": {
+    "cross-rank/cross-numa": 1359,
+    "cross-rank/same-numa": 985,
+    "same-rank/same-numa": 357
+  },
+  "router_pair_count": 2701,
+  "run": "/home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/results/cross-rank-rca-20260921/runs/repro-02-137-136-20261006T1230Z",
+  "signatures": {
+    "client_errors": 54,
+    "cqe_error_12": 53,
+    "decode_transfer_failed": 51,
+    "prefill_transfer_failed": 51,
+    "retry_exhausted": 53,
+    "session_failed": 16,
+    "session_not_alive": 28,
+    "transfer_client_aborted": 0
+  },
+  "transfer_failure_records": 51
+}

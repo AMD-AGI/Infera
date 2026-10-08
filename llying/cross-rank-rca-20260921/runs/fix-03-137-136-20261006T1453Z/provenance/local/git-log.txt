@@ -1,0 +1,9 @@
+commit bc89b9e71d362bdab9d74503402424a1561c667c
+Author:     liyingli <liyingli@amd.com>
+AuthorDate: Tue Oct 6 10:43:33 2026 +0000
+Commit:     liyingli <liyingli@amd.com>
+CommitDate: Tue Oct 6 10:43:33 2026 +0000
+
+    Close the decode HiCache investigation on the C40 verdict and archive the incomplete C56 pass
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>

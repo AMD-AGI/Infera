@@ -1,0 +1,17 @@
+WARNING: Logging before InitGoogleLogging() is written to STDERR
+W1006 13:23:59.058116    16 transfer_engine_py.cpp:100] Using default malloc/free for protocol: rdma
+I1006 13:23:59.058161    16 transfer_engine_impl.cpp:987] Metrics reporting is disabled (set MC_TE_METRIC=1 to enable)
+I1006 13:23:59.058166    16 transfer_engine_impl.cpp:116] Transfer Engine parseHostNameWithPort. server_name: 10.245.154.168 port: 0
+I1006 13:23:59.058187    16 transfer_engine_impl.cpp:183] Transfer Engine RPC using P2P handshake, listening on 10.245.154.168:15158
+I1006 13:23:59.058257    16 transfer_engine_impl.cpp:259] Auto-discovering topology...
+I1006 13:23:59.058260    16 topology.cpp:168] IB device whitelist: ionic_4
+I1006 13:23:59.060072    16 topology.cpp:127] Device ionic_4 port 1 is available
+I1006 13:23:59.521140    16 transfer_engine_impl.cpp:274] Topology discovery complete. Found 1 HCAs.
+I1006 13:23:59.521165    16 rdma_transport.cpp:177] [RDMA] Relaxed ordering is supported on this host; IBV_ACCESS_RELAXED_ORDERING will be requested for registered memory regions.
+I1006 13:23:59.521175    16 rdma_context.cpp:207] Using SIEVE endpoint store
+I1006 13:23:59.521449    16 rdma_context.cpp:1381] Using user-specified GID index: 1 on ionic_4/ (with network device)
+I1006 13:23:59.526156    16 rdma_context.cpp:290] RDMA device: ionic_4, LID: 0, GID: (GID_Index 1) fc:01:04:00:9c:0d:2d:6f:06:90:81:ff:fe:39:47:11
+I1006 13:23:59.526222    16 transfer_engine_impl.cpp:389] installTransport, type=rdma
+I1006 13:23:59.526295    16 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+I1006 13:24:53.141582    27 rdma_endpoint.cpp:670] Received RDMA ready ACK.
+I1006 13:25:54.544097    16 transfer_metadata.cpp:580] removeSegmentDesc 10.245.154.168:15158 finish

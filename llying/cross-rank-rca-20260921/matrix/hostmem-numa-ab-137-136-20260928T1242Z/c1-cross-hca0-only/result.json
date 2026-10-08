@@ -1,0 +1,76 @@
+{
+  "bw_gbps": {
+    "ionic_0": 389.69
+  },
+  "bw_total_gbps": 389.69,
+  "client_cqe_errors": {
+    "ionic_0": 0
+  },
+  "clients": [
+    "timeout 80 numactl --cpunodebind=0 --membind=0 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 10.245.154.168 > /tmp/mc-rca-hostmem-c1-cross-hca0-only-0-client.log 2>&1 &"
+  ],
+  "completed_at": "2026-09-28T12:45:28.101354+00:00",
+  "destination_node": "crsuse2-m2m-136",
+  "hcas": [
+    0
+  ],
+  "mechanism_totals": {
+    "crsuse2-m2m-136": {
+      "ack_timeout": 0,
+      "cnp_rx": 0,
+      "cnp_tx": 0,
+      "dup_request": 0,
+      "ecn_rx": 0,
+      "hw_rx_dropped": 0,
+      "mac_rx_dropped": 0,
+      "mac_rx_uc": 238078993,
+      "mac_tx_uc": 929995,
+      "nic_rx_loss": 192,
+      "oos": 0,
+      "pause_rx": 0,
+      "pause_tx": 0,
+      "pause_tx_us": 0,
+      "rdma_rx": 238078801,
+      "rdma_rx_bytes": 975170768896,
+      "rdma_tx": 929995,
+      "req_cqe_err": 0,
+      "retry_excd": 0,
+      "retx_pkts": 0,
+      "seq_nak_rx": 0,
+      "seq_nak_tx": 0
+    },
+    "crsuse2-m2m-137": {
+      "ack_timeout": 0,
+      "cnp_rx": 0,
+      "cnp_tx": 0,
+      "dup_request": 0,
+      "ecn_rx": 0,
+      "hw_rx_dropped": 0,
+      "mac_rx_dropped": 0,
+      "mac_rx_uc": 929995,
+      "mac_tx_uc": 238078993,
+      "nic_rx_loss": 1,
+      "oos": 0,
+      "pause_rx": 0,
+      "pause_tx": 0,
+      "pause_tx_us": 0,
+      "rdma_rx": 929994,
+      "rdma_rx_bytes": 0,
+      "rdma_tx": 238078993,
+      "req_cqe_err": 0,
+      "retry_excd": 0,
+      "retx_pkts": 0,
+      "seq_nak_rx": 0,
+      "seq_nak_tx": 0
+    }
+  },
+  "message_bytes": 1048576,
+  "qps_per_hca": 8,
+  "receiver_numa": "cross",
+  "seconds": 20,
+  "servers": [
+    "timeout 80 numactl --cpunodebind=0 --membind=1 ib_write_bw -d ionic_0 -x 1 -F --report_gbits -D 20 -q 8 -s 1048576 -p 18700 > /tmp/mc-rca-hostmem-c1-cross-hca0-only-0-server.log 2>&1 &"
+  ],
+  "source_node": "crsuse2-m2m-137",
+  "started_at": "2026-09-28T12:44:56.679428+00:00"
+}

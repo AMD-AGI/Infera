@@ -1,0 +1,343 @@
+Downloading cpython-3.11.16-linux-x86_64-gnu (download) (29.4MiB)
+ Downloaded cpython-3.11.16-linux-x86_64-gnu (download)
+Using CPython 3.11.16
+Creating virtual environment at: /home/liyingli/.cache/agentx-decrad/aiperf/venv
+Activate with: source /home/liyingli/.cache/agentx-decrad/aiperf/venv/bin/activate
+Using Python 3.11.16 environment at: /home/liyingli/.cache/agentx-decrad/aiperf/venv
+Resolved 130 packages in 1.18s
+   Building aiperf @ file:///home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/.cache/InferenceX/utils/aiperf
+      Built aiperf @ file:///home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/.cache/InferenceX/utils/aiperf
+Prepared 1 package in 1.21s
+Installed 130 packages in 7.62s
+ + aiofiles==24.1.0
+ + aiohappyeyeballs==2.7.1
+ + aiohttp==3.13.5
+ + aiosignal==1.4.0
+ + aiperf==0.12.0 (from file:///home/liyingli/bench_agentx/baseline/Infera/bench/glm5p2_pd/.cache/InferenceX/utils/aiperf)
+ + alembic==1.20.0
+ + annotated-doc==0.0.5
+ + annotated-types==0.8.0
+ + anyio==4.15.1
+ + attrs==26.1.0
+ + blinker==1.9.0
+ + brotli==1.2.0
+ + certifi==2026.7.22
+ + cffi==2.1.1
+ + charset-normalizer==3.5.1
+ + choreographer==1.4.0
+ + click==8.5.0
+ + colorlog==6.12.0
+ + contourpy==1.3.3
+ + crick==0.0.8
+ + cycler==0.12.1
+ + cyclopts==4.25.3
+ + dash==3.1.1
+ + dash-bootstrap-components==2.0.4
+ + datasets==5.0.1
+ + dill==0.4.1
+ + docstring-parser==0.18.0
+ + fastapi==0.141.1
+ + ffmpeg-python==0.2.0
+ + filelock==4.0.5
+ + flask==3.1.3
+ + fonttools==4.66.0
+ + frozenlist==1.8.0
+ + fsspec==2026.6.0
+ + future==1.0.0
+ + h11==0.16.0
+ + hf-xet==1.6.0
+ + httpcore==1.0.9
+ + httptools==0.8.0
+ + httpx==0.28.1
+ + huggingface-hub==1.33.0
+ + idna==3.20
+ + importlib-metadata==9.0.1
+ + iniconfig==2.3.0
+ + itsdangerous==2.2.0
+ + jinja2==3.1.6
+ + jmespath==1.0.1
+ + kaleido==1.2.0
+ + kiwisolver==1.5.1
+ + linkify-it-py==2.2.0
+ + logistro==2.0.1
+ + mako==1.4.3
+ + markdown-it-py==4.2.0
+ + markupsafe==3.0.3
+ + matplotlib==3.11.2
+ + mdit-py-plugins==0.6.1
+ + mdurl==0.1.2
+ + msgspec==0.21.1
+ + multidict==6.9.1
+ + multiprocess==0.70.19
+ + narwhals==2.26.0
+ + nest-asyncio==1.6.0
+ + numpy==2.4.6
+ + nvidia-ml-py==13.615.71
+ + optuna==5.0.0
+ + orjson==3.11.9
+ + packaging==26.3
+ + pandas==2.3.3
+ + pillow==12.2.0
+ + platformdirs==4.12.1
+ + plotly==6.4.0
+ + pluggy==1.6.0
+ + prometheus-client==0.23.1
+ + propcache==0.5.4
+ + protobuf==7.36.2
+ + psutil==7.0.0
+ + pyarrow==25.0.1
+ + pycparser==3.0
+ + pydantic==2.13.5
+ + pydantic-core==2.46.5
+ + pydantic-settings==2.15.0
+ + pygments==2.21.0
+ + pyparsing==3.3.3
+ + pytest==9.1.1
+ + pytest-timeout==2.4.0
+ + python-dateutil==2.9.0.post0
+ + python-dotenv==1.2.3
+ + pytz==2026.4
+ + pyyaml==6.0.3
+ + pyzmq==26.4.0
+ + regex==2026.9.10
+ + requests==2.34.2
+ + retrying==1.4.2
+ + rich==14.1.0
+ + rich-rst==2.2.0
+ + ruamel-yaml==0.18.17
+ + ruamel-yaml-clib==0.2.15
+ + safetensors==0.8.0
+ + scipy==1.17.1
+ + seaborn==0.13.2
+ + sentencepiece==0.2.2
+ + setproctitle==1.3.7
+ + setuptools==84.0.0
+ + shellingham==1.5.4
+ + simplejson==4.1.2
+ + six==1.17.0
+ + soundfile==0.13.1
+ + sqlalchemy==2.1.1
+ + starlette==1.7.0
+ + starlette-compress==1.8.0
+ + textual==5.3.0
+ + tiktoken==0.14.0
+ + tokenizers==0.23.2
+ + tqdm==4.70.1
+ + transformers==5.17.0
+ + typer==0.27.2
+ + typing-extensions==4.16.0
+ + typing-inspection==0.4.4
+ + tzdata==2026.4
+ + urllib3==2.8.0
+ + uvicorn==0.54.0
+ + uvloop==0.22.1
+ + watchfiles==1.3.0
+ + websockets==17.1
+ + werkzeug==3.1.9
+ + xlsxwriter==3.2.9
+ + xxhash==4.0.1
+ + yarl==1.25.1
+ + zipp==4.1.0
+ + zstandard==0.25.0
+warning: The package `huggingface-hub==1.33.0` does not have an extra named `cli`
+Loading traces via aiperf public-dataset: semianalysis_cc_traces_weka_062126 (semianalysisai/cc-traces-weka-062126) [MODEL_PREFIX=glm5.2]
+Fetching 8 files:   0%|          | 0/8 [00:00<?, ?it/s][32m✓ Downloaded[0m
+  path: /home/liyingli/.cache/agentx-decrad/hf/hub/datasets--semianalysisai--cc-traces-weka-062126/snapshots/23f152f6f0f9399a85901b89a6458def0ef16729
+Fetching 8 files: 100%|██████████| 8/8 [00:00<00:00, 1059.27it/s]
++ /home/liyingli/.cache/agentx-decrad/aiperf/venv/bin/aiperf profile --scenario inferencex-agentx-mvp --url http://10.245.148.209:28000 --endpoint /v1/chat/completions --endpoint-type chat --streaming --model glm5.2-mxfp4 --tokenizer /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --concurrency 56 --benchmark-duration 900 --stats-interval 30 --random-seed 42 --failed-request-threshold 0.10 --trajectory-start-min-ratio 0.25 --trajectory-start-max-ratio 0.75 --warmup-requests-per-lane 10 --trace-idle-gap-cap-seconds 300 --warmup-grace-period 1800 --use-server-token-count --no-gpu-telemetry --tokenizer-trust-remote-code --num-dataset-entries 393 --slice-duration 1.0 --server-metrics http://10.245.148.209:28000/metrics http://10.245.148.209:29001/metrics http://10.245.157.237:29002/metrics --output-artifact-dir /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/b-diag-agentx-c56/aiperf_artifacts --public-dataset semianalysis_cc_traces_weka_062126
++ tee /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/b-diag-agentx-c56/benchmark.log
+11:47:22.412 INFO     Starting AIPerf System (_single_run.py:64)
+11:47:22.426 INFO     Scenario 'inferencex-agentx-mvp': setting profiling-phase timing_mode=agentic_replay. (validator.py:226)
+11:47:22.426 INFO     Scenario 'inferencex-agentx-mvp': injecting extra_inputs.ignore_eos=true (was absent). (validator.py:285)
+11:47:22.426 INFO     Scenario 'inferencex-agentx-mvp': auto-set --cache-bust=first_turn_prefix (was at default none). (validator.py:538)
+11:47:22.426 INFO     Scenario 'inferencex-agentx-mvp': auto-set --system-idle-gap-cap-seconds=10.0 (was unset). (validator.py:779)
+11:47:23.120 INFO     GPU telemetry disabled via --no-gpu-telemetry (system_controller.py:269)
+11:47:23.132 INFO     Registered Worker Manager (id: 'worker_manager') (system_controller.py:413)
+11:47:23.204 INFO     Server Metrics: Discovered 1 endpoints: ['http://10.245.148.209:28000/metrics'] (manager.py:97)
+11:47:23.230 INFO     Registered Record Processor (id: 'record_processor_037aa66c') (system_controller.py:413)
+11:47:23.231 INFO     Registered Record Processor (id: 'record_processor_d1f6d3f5') (system_controller.py:413)
+11:47:23.241 INFO     Registered Record Processor (id: 'record_processor_1c7ae11a') (system_controller.py:413)
+11:47:23.242 INFO     Registered Record Processor (id: 'record_processor_f41c9615') (system_controller.py:413)
+11:47:23.250 INFO     Registered Record Processor (id: 'record_processor_ee236fce') (system_controller.py:413)
+11:47:23.250 INFO     Registered Record Processor (id: 'record_processor_47b436a6') (system_controller.py:413)
+11:47:23.284 INFO     Registered Dataset Manager (id: 'dataset_manager') (system_controller.py:413)
+11:47:23.310 INFO     Registered Server Metrics Manager (id: 'server_metrics_manager') (system_controller.py:413)
+11:47:23.329 INFO     Registered Record Processor (id: 'record_processor_71dda426') (system_controller.py:413)
+11:47:23.344 INFO     Registered Worker (id: 'worker_ebd00f9c') (system_controller.py:413)
+11:47:23.351 INFO     Registered Worker (id: 'worker_156a8cb1') (system_controller.py:413)
+11:47:23.355 INFO     Registered Record Processor (id: 'record_processor_0033aeb0') (system_controller.py:413)
+11:47:23.388 INFO     Registered Worker (id: 'worker_5b701c12') (system_controller.py:413)
+11:47:23.406 INFO     Registered Worker (id: 'worker_8ff9a08a') (system_controller.py:413)
+11:47:23.433 INFO     Registered Worker (id: 'worker_74a865ba') (system_controller.py:413)
+11:47:23.439 INFO     Registered Worker (id: 'worker_9c83fb41') (system_controller.py:413)
+11:47:23.459 INFO     Registered Worker (id: 'worker_27c5ef6b') (system_controller.py:413)
+11:47:23.460 INFO     Registered Worker (id: 'worker_2adcd4a2') (system_controller.py:413)
+11:47:23.468 INFO     Registered Worker (id: 'worker_962b3a36') (system_controller.py:413)
+11:47:23.486 INFO     Registered Worker (id: 'worker_73990b26') (system_controller.py:413)
+11:47:23.486 INFO     Registered Worker (id: 'worker_24cd1726') (system_controller.py:413)
+11:47:23.486 INFO     Registered Worker (id: 'worker_278a9083') (system_controller.py:413)
+11:47:23.486 INFO     Registered Worker (id: 'worker_a3b14e8c') (system_controller.py:413)
+11:47:23.486 INFO     Registered Worker (id: 'worker_7739794f') (system_controller.py:413)
+11:47:23.486 INFO     Registered Worker (id: 'worker_198919c7') (system_controller.py:413)
+11:47:23.486 INFO     Registered Worker (id: 'worker_9a76dc89') (system_controller.py:413)
+11:47:23.491 INFO     Registered Worker (id: 'worker_20feb9c9') (system_controller.py:413)
+11:47:23.506 INFO     Registered Worker (id: 'worker_4374001b') (system_controller.py:413)
+11:47:23.507 INFO     Registered Worker (id: 'worker_4cee4b7b') (system_controller.py:413)
+11:47:23.523 INFO     Registered Worker (id: 'worker_8286d9d7') (system_controller.py:413)
+11:47:23.524 INFO     Registered Worker (id: 'worker_37ebedd3') (system_controller.py:413)
+11:47:23.539 INFO     Registered Worker (id: 'worker_6357c708') (system_controller.py:413)
+11:47:23.549 INFO     Registered Worker (id: 'worker_38c00e9d') (system_controller.py:413)
+11:47:23.549 INFO     Registered Worker (id: 'worker_848bdf2d') (system_controller.py:413)
+11:47:23.572 INFO     Registered Timing Manager (id: 'timing_manager') (system_controller.py:413)
+11:47:23.573 INFO     Registered Worker (id: 'worker_14cbf788') (system_controller.py:413)
+11:47:23.582 INFO     Registered Worker (id: 'worker_3984b1cc') (system_controller.py:413)
+11:47:23.583 INFO     Registered Worker (id: 'worker_e28fb5ff') (system_controller.py:413)
+11:47:23.595 INFO     Registered Worker (id: 'worker_2bca0df7') (system_controller.py:413)
+11:47:23.595 INFO     Registered Worker (id: 'worker_556d0e88') (system_controller.py:413)
+11:47:23.597 INFO     Registered Worker (id: 'worker_ff754ff2') (system_controller.py:413)
+11:47:23.628 INFO     Registered Worker (id: 'worker_6e0bd9d6') (system_controller.py:413)
+11:47:23.636 INFO     Registered Worker (id: 'worker_ee60b1b0') (system_controller.py:413)
+11:47:23.719 INFO     Telemetry streaming is disabled (set --otel-url and/or --mlflow-tracking-uri to enable) (otel_metrics_results_processor.py:127)
+11:47:23.723 INFO     Record metrics export enabled: /home/liyingli/bench_agentx/baseline/Infera/llying/decode-kv-aware-mtp-radix-20260924/analysis/evidence/c56/b-diag-agentx-c56/aiperf_artifacts/profile_export.jsonl (record_export_jsonl_writer.py:62)
+11:47:23.834 INFO     Registered Records Manager (id: 'records_manager') (system_controller.py:413)
+11:47:24.121 INFO     AIPerf System is CONFIGURING (system_controller.py:294)
+11:47:24.121 INFO     Configuring all services to start profiling (system_controller.py:307)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.122 INFO     Waiting for dataset to be configured before configuring timing (manager.py:124)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.122 INFO     Tokenization is disabled for this endpoint, skipping tokenizer configuration (inference_result_parser.py:80)
+11:47:24.131 INFO     Configuring tokenizer(s) for dataset manager (dataset_manager.py:240)
+11:47:24.180 INFO     Server Metrics: Capturing baseline metrics... (manager.py:191)
+11:47:24.214 WARNING  Dropping non-finite (NaN/Inf) sample(s) from metric 'sglang:fwd_occupancy': 4 in this scrape; affected data will be missing from server_metrics_export. Further occurrences for this metric name will not be logged. (data_collector.py:374)
+11:47:24.351 WARNING  Dropping non-finite (NaN/Inf) sample(s) from metric 'sglang:fwd_occupancy': 4 in this scrape; affected data will be missing from server_metrics_export. Further occurrences for this metric name will not be logged. (data_collector.py:374)
+11:47:24.354 INFO     Server metrics enabled - 3/3 endpoint(s) reachable. (system_controller.py:592)
+11:47:24.354 INFO     Waiting for result domains: profile, server_metrics (system_controller.py:869)
+11:47:29.643 INFO     Tokenizer(s) configured in 5.51 seconds (dataset_manager.py:244)
+11:47:29.643 INFO     Configuring dataset for dataset_manager (dataset_manager.py:250)
+11:47:30.353 INFO     Loading HuggingFace dataset 'semianalysisai/cc-traces-weka-062126' (split=train) (base_hf_dataset.py:48)
+11:47:32.816 INFO     HTTP Request: HEAD https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126/resolve/main/README.md "HTTP/1.1 307 Temporary Redirect" (_client.py:1025)
+11:47:32.817 WARNING  Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads. (_http.py:993)
+11:47:32.846 INFO     HTTP Request: HEAD https://huggingface.co/api/resolve-cache/datasets/semianalysisai/cc-traces-weka-062126/23f152f6f0f9399a85901b89a6458def0ef16729/README.md?%2Fdatasets%2Fsemianalysisai%2Fcc-traces-weka-062126%2Fresolve%2Fmain%2FREADME.md=&etag=%2243f4a625a90e113d079dacb5f8235a4c7d9f6979%22 "HTTP/1.1 200 OK" (_client.py:1025)
+11:47:32.898 INFO     HTTP Request: HEAD https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126/resolve/23f152f6f0f9399a85901b89a6458def0ef16729/cc-traces-weka-062126.py "HTTP/1.1 404 Not Found" (_client.py:1025)
+11:47:33.143 INFO     HTTP Request: HEAD https://s3.amazonaws.com/datasets.huggingface.co/datasets/datasets/semianalysisai/cc-traces-weka-062126/semianalysisai/cc-traces-weka-062126.py "HTTP/1.1 404 Not Found" (_client.py:1025)
+11:47:33.201 INFO     HTTP Request: GET https://huggingface.co/api/datasets/semianalysisai/cc-traces-weka-062126/revision/23f152f6f0f9399a85901b89a6458def0ef16729 "HTTP/1.1 200 OK" (_client.py:1025)
+11:47:33.250 INFO     HTTP Request: HEAD https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126/resolve/23f152f6f0f9399a85901b89a6458def0ef16729/.huggingface.yaml "HTTP/1.1 404 Not Found" (_client.py:1025)
+11:47:33.423 INFO     HTTP Request: GET https://datasets-server.huggingface.co/info?dataset=semianalysisai/cc-traces-weka-062126 "HTTP/1.1 200 OK" (_client.py:1025)
+11:47:33.480 INFO     HTTP Request: GET https://huggingface.co/api/datasets/semianalysisai/cc-traces-weka-062126/tree/23f152f6f0f9399a85901b89a6458def0ef16729?recursive=false&expand=false "HTTP/1.1 200 OK" (_client.py:1025)
+11:47:33.548 INFO     HTTP Request: HEAD https://huggingface.co/datasets/semianalysisai/cc-traces-weka-062126/resolve/23f152f6f0f9399a85901b89a6458def0ef16729/dataset_infos.json "HTTP/1.1 404 Not Found" (_client.py:1025)
+11:47:54.065 INFO     weka trace selection [semianalysisai/cc-traces-weka-062126]: scanned 393, rejected_by_maxctx 0 (--max-context-length=None), eligible 393, loaded 393 (--num-dataset-entries=393), largest_observed_peak_context 996,579 (selection.py:73)
+11:47:55.509 INFO     Loaded 393/393 eligible traces (filter-then-cap; --num-dataset-entries=393, --max-context-length=None) (semianalysis_cc_traces_weka.py:207)
+11:48:19.189 INFO     WekaTraceLoader: spawning 16 worker process(es) for parallel reconstruction of 393 trace(s) (weka_trace.py:2433)
+11:48:32.578 INFO     WekaTraceLoader: reconstructed 39/393 (10%) in 9.4s (4.2 traces/s) (weka_parallel_convert.py:751)
+11:48:32.578 INFO     WekaTraceLoader: reconstructed 78/393 (20%) in 9.4s (8.3 traces/s) (weka_parallel_convert.py:751)
+11:48:32.579 INFO     WekaTraceLoader: reconstructed 117/393 (30%) in 9.4s (12.5 traces/s) (weka_parallel_convert.py:751)
+11:48:50.207 INFO     WekaTraceLoader: reconstructed 156/393 (40%) in 27.0s (5.8 traces/s) (weka_parallel_convert.py:751)
+11:48:50.207 INFO     WekaTraceLoader: reconstructed 195/393 (50%) in 27.0s (7.2 traces/s) (weka_parallel_convert.py:751)
+11:48:50.207 INFO     WekaTraceLoader: reconstructed 234/393 (60%) in 27.0s (8.7 traces/s) (weka_parallel_convert.py:751)
+11:48:50.208 INFO     WekaTraceLoader: reconstructed 273/393 (69%) in 27.0s (10.1 traces/s) (weka_parallel_convert.py:751)
+11:48:50.208 INFO     WekaTraceLoader: reconstructed 312/393 (79%) in 27.0s (11.6 traces/s) (weka_parallel_convert.py:751)
+11:48:50.208 INFO     WekaTraceLoader: reconstructed 351/393 (89%) in 27.0s (13.0 traces/s) (weka_parallel_convert.py:751)
+11:48:50.208 INFO     WekaTraceLoader: reconstructed 390/393 (99%) in 27.0s (14.5 traces/s) (weka_parallel_convert.py:751)
+11:48:50.208 INFO     WekaTraceLoader: reconstructed 393/393 (100%) in 27.0s (14.6 traces/s) (weka_parallel_convert.py:751)
+11:48:50.309 INFO     WekaTraceLoader: workers finished in 36.2s; assembling Conversation objects (weka_trace.py:2448)
+11:49:05.833 INFO     WekaTraceLoader: flattened-agent detection split 289 trace(s) into 1422 extra agent chain(s) (819 aux sidecars [114 reductions], 3 worker-group members, 2977 seams merged, 0 empty-hash requests kept on main) (weka_trace.py:1522)
+11:49:05.833 INFO     WekaTraceLoader: reconstructed 9843 conversation(s) in 51.8s (total load+synth+reconstruct: 51.8s) (weka_trace.py:1533)
+11:49:07.282 INFO     Memory-mapped backing store initialized (streaming to /tmp/aiperf_mmap_500cd3436f91/dataset.dat) (memory_map_utils.py:160)
+11:49:19.914 INFO     Data file finalized: 9843 conversations, 6,367.52 MB (memory_map_utils.py:288)
+11:49:19.914 INFO     Index file created: /tmp/aiperf_mmap_500cd3436f91/index.dat (memory_map_utils.py:295)
+11:49:19.915 INFO     Backing store finalized: client_type=DatasetClientStoreType.MEMORY_MAP format=MemoryMapFormat.CONVERSATION data_file_path=PosixPath('/tmp/aiperf_mmap_500cd3436f91/dataset.dat') index_file_path=PosixPath('/tmp/aiperf_mmap_500cd3436f91/index.dat') conversation_count=9843 total_size_bytes=6676825364 compressed=False compressed_data_file_path=None compressed_index_file_path=None compressed_size_bytes=0 (dataset_manager.py:969)
+11:49:20.375 INFO     sampling strategy: sequential, unique conversations: 9843, unique turn count: 98827 (dataset_manager.py:987)
+11:49:21.169 INFO     Skipping inputs.json generation (dataset_manager.py:254)
+11:49:22.062 INFO     TrajectorySource: built 56 trajectories from 393 traces (trajectory_source.py:413)
+11:49:22.062 INFO       range cfg=[0.25, 0.75]  observed sample pct: min= 27% median= 56% max= 75% (trajectory_source.py:418)
+11:49:22.062 INFO         lane=00  sample_time= 53%  root_next= 84/130 ( 65% turns)  live=1 ready=1  trace_id=002001296e8a8c38ad9d7cc436d691afc602 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=01  sample_time= 49%  root_next=  5/33  ( 15% turns)  live=1 ready=1  trace_id=006c98de37d819e95b0840e25426bb7ca99d (trajectory_source.py:420)
+11:49:22.062 INFO         lane=02  sample_time= 67%  root_next= 24/29  ( 83% turns)  live=1 ready=1  trace_id=00ca01c4aaeccee751ae6285beb54dea262f (trajectory_source.py:420)
+11:49:22.062 INFO         lane=03  sample_time= 56%  root_next= 82/191 ( 43% turns)  live=1 ready=1  trace_id=0196085d85d2075a50b74cd8795ffbdcea9a (trajectory_source.py:420)
+11:49:22.062 INFO         lane=04  sample_time= 47%  root_next=  0/13  (  0% turns)  live=1 ready=1  trace_id=02bc0afb13f7a2d9efa86c28511261d85c0e (trajectory_source.py:420)
+11:49:22.062 INFO         lane=05  sample_time= 47%  root_next= 19/40  ( 48% turns)  live=1 ready=1  trace_id=03e110ac6921c2fe9ac7772a9654314a2beb (trajectory_source.py:420)
+11:49:22.062 INFO         lane=06  sample_time= 74%  root_next=  0/54  (  0% turns)  live=13 ready=13  trace_id=0470d446a4514dfe0c6ad0be92853bd13287 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=07  sample_time= 35%  root_next=  3/7   ( 43% turns)  live=1 ready=1  trace_id=04dba6fe621301a1d01fd63b8d02c9645c48 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=08  sample_time= 75%  root_next= 32/34  ( 94% turns)  live=1 ready=1  trace_id=05c249572509162371b7b82339674db64b5d (trajectory_source.py:420)
+11:49:22.062 INFO         lane=09  sample_time= 42%  root_next= 49/52  ( 94% turns)  live=1 ready=1  trace_id=05f72f78a037cfa5cd4e4541960a574701d9 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=10  sample_time= 66%  root_next=  0/1   (  0% turns)  live=1 ready=1  trace_id=063179eb93f4337a662e859c5a2c5638e03f (trajectory_source.py:420)
+11:49:22.062 INFO         lane=11  sample_time= 49%  root_next=210/219 ( 96% turns)  live=1 ready=1  trace_id=069d7bf5f1efb4e76e3c84510367e6af78a5 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=12  sample_time= 43%  root_next= 25/34  ( 74% turns)  live=1 ready=1  trace_id=077ea9e6554f45bbad9c24a8462bae9a8512 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=13  sample_time= 68%  root_next=  8/9   ( 89% turns)  live=3 ready=2  trace_id=07dd40536557a1d6440a923557c3129dc929 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=14  sample_time= 62%  root_next=  6/19  ( 32% turns)  live=2 ready=2  trace_id=085411a4cc4b15108dd9b50007261a2efb65 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=15  sample_time= 59%  root_next=349/352 ( 99% turns)  live=1 ready=1  trace_id=085aacf44ac5428ad3c6b4f6cd431e083832 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=16  sample_time= 34%  root_next= 20/33  ( 61% turns)  live=1 ready=1  trace_id=0a279af1bec84c6ab033bb03f5d8bfd6b08d (trajectory_source.py:420)
+11:49:22.062 INFO         lane=17  sample_time= 68%  root_next= 21/31  ( 68% turns)  live=1 ready=1  trace_id=0a688303b1ae62a97607af8021f2130c2caf (trajectory_source.py:420)
+11:49:22.062 INFO         lane=18  sample_time= 69%  root_next=  0/138 (  0% turns)  live=1 ready=1  trace_id=0b7f3ca692f15ae2651a310d9411d70794aa (trajectory_source.py:420)
+11:49:22.062 INFO         lane=19  sample_time= 42%  root_next=  7/16  ( 44% turns)  live=1 ready=1  trace_id=0bc9c4f798d321286bf39f2543c0c4e4c059 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=20  sample_time= 50%  root_next= 19/24  ( 79% turns)  live=1 ready=1  trace_id=0bcd99353218b9a386b1c4aec13d77abecdb (trajectory_source.py:420)
+11:49:22.062 INFO         lane=21  sample_time= 67%  root_next= 25/46  ( 54% turns)  live=1 ready=1  trace_id=0bed163ac9566086e14ffd85c7481096d49d (trajectory_source.py:420)
+11:49:22.062 INFO         lane=22  sample_time= 70%  root_next=  6/32  ( 19% turns)  live=1 ready=1  trace_id=0d41be2aa98333f3662682210647e5971c7b (trajectory_source.py:420)
+11:49:22.062 INFO         lane=23  sample_time= 48%  root_next= 16/28  ( 57% turns)  live=1 ready=1  trace_id=0d8a816e4819b765d81ff748da94d463f3b2 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=24  sample_time= 67%  root_next=  4/53  (  8% turns)  live=1 ready=1  trace_id=0db32e2f852a2ea24ed616b31975a84da5e4 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=25  sample_time= 72%  root_next= 42/43  ( 98% turns)  live=1 ready=1  trace_id=0dedb07b5e4362b028db9d8ab90fff7fd4ad (trajectory_source.py:420)
+11:49:22.062 INFO         lane=26  sample_time= 34%  root_next=  9/26  ( 35% turns)  live=1 ready=1  trace_id=0e4206535a79f980e2b1091181202ea987fe (trajectory_source.py:420)
+11:49:22.062 INFO         lane=27  sample_time= 56%  root_next=  4/19  ( 21% turns)  live=1 ready=1  trace_id=0ede42538334da8586bc60008762abfc0ab7 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=28  sample_time= 62%  root_next=  0/2   (  0% turns)  live=1 ready=1  trace_id=0f909e7d63c0d5e1f060d727ada25d910d89 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=29  sample_time= 37%  root_next= 66/84  ( 79% turns)  live=1 ready=1  trace_id=1007f04d2c64580308858bb42f292992929d (trajectory_source.py:420)
+11:49:22.062 INFO         lane=30  sample_time= 35%  root_next=261/765 ( 34% turns)  live=1 ready=1  trace_id=11310dce936f02050cadaeae295bcdd1ce7f (trajectory_source.py:420)
+11:49:22.062 INFO         lane=31  sample_time= 31%  root_next= 23/51  ( 45% turns)  live=7 ready=6  trace_id=117ebe75819d050f308a0a81647893abd02d (trajectory_source.py:420)
+11:49:22.062 INFO         lane=32  sample_time= 64%  root_next=  3/5   ( 60% turns)  live=4 ready=3  trace_id=12bd4c7c82ae413b035253cb800fc5312111 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=33  sample_time= 74%  root_next= 19/20  ( 95% turns)  live=1 ready=1  trace_id=12cfecf98c158ab54fb65980602421f00d69 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=34  sample_time= 68%  root_next= 54/93  ( 58% turns)  live=1 ready=1  trace_id=12e6fd87f4d3d1f93f96bd7bb6a520043805 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=35  sample_time= 60%  root_next=  0/80  (  0% turns)  live=2 ready=2  trace_id=13b532ee3aaa0a52b05c3bcc472355ab62b4 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=36  sample_time= 27%  root_next= 36/172 ( 21% turns)  live=1 ready=1  trace_id=13e0b7038bafff59abfdc31aad12dbcd4a2f (trajectory_source.py:420)
+11:49:22.062 INFO         lane=37  sample_time= 51%  root_next= 14/27  ( 52% turns)  live=1 ready=1  trace_id=14129d470e508b236be22188aa78548ef805 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=38  sample_time= 75%  root_next= 69/76  ( 91% turns)  live=1 ready=1  trace_id=1493faffdc8942e99daa22277f44871a40b8 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=39  sample_time= 53%  root_next=  0/11  (  0% turns)  live=1 ready=1  trace_id=1499c406c828e8fe6b6af697e7799c6a715b (trajectory_source.py:420)
+11:49:22.062 INFO         lane=40  sample_time= 33%  root_next=  0/87  (  0% turns)  live=1 ready=1  trace_id=15ab8fdb8831965bb01e45ac51829cb4e3e3 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=41  sample_time= 71%  root_next=  0/132 (  0% turns)  live=1 ready=1  trace_id=162d6f4f741a1cf3ce98acb5e3718c3bc0c7 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=42  sample_time= 55%  root_next=167/179 ( 93% turns)  live=1 ready=1  trace_id=16b968359e79eda8a61415fa7ad536f6cda5 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=43  sample_time= 43%  root_next= 72/80  ( 90% turns)  live=1 ready=1  trace_id=16c18d979235980e8021cfb0a0b3b386305a (trajectory_source.py:420)
+11:49:22.062 INFO         lane=44  sample_time= 40%  root_next=  0/96  (  0% turns)  live=2 ready=2  trace_id=16e46bc4d9e121ffbd67ada51cb3f965342f (trajectory_source.py:420)
+11:49:22.062 INFO         lane=45  sample_time= 38%  root_next=  9/27  ( 33% turns)  live=1 ready=1  trace_id=17808bf55e26681520f3f11f47b5e1260108 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=46  sample_time= 70%  root_next=  0/2   (  0% turns)  live=3 ready=3  trace_id=18bf3ef42c109a28326d8384f1bcc8dfae37 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=47  sample_time= 33%  root_next=  0/74  (  0% turns)  live=3 ready=3  trace_id=1a271af3dedd40be2efd413ef35fe7f0f53b (trajectory_source.py:420)
+11:49:22.062 INFO         lane=48  sample_time= 73%  root_next= 25/27  ( 93% turns)  live=1 ready=1  trace_id=1b5229e3aa8893ca2f4d07d248f9cd9752fb (trajectory_source.py:420)
+11:49:22.062 INFO         lane=49  sample_time= 59%  root_next=  0/46  (  0% turns)  live=3 ready=3  trace_id=1b577bfa02cd2c421c0b59c5cac702b3c287 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=50  sample_time= 34%  root_next= 11/21  ( 52% turns)  live=1 ready=1  trace_id=1b57efe98ed202c35114d97e01ec25e8420b (trajectory_source.py:420)
+11:49:22.062 INFO         lane=51  sample_time= 47%  root_next=  0/31  (  0% turns)  live=2 ready=2  trace_id=1c4f3018d336b1bf78434d328001bc7bbe49 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=52  sample_time= 71%  root_next= 22/29  ( 76% turns)  live=1 ready=1  trace_id=1cdb6c60ce49f7b74ab6cf59051bab7591e6 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=53  sample_time= 66%  root_next= 82/256 ( 32% turns)  live=1 ready=1  trace_id=1d8a2c1d4dc1f585337036c6ad60e1ce5eb3 (trajectory_source.py:420)
+11:49:22.062 INFO         lane=54  sample_time= 70%  root_next= 99/117 ( 85% turns)  live=1 ready=1  trace_id=1f5f21559e4b79c6d2480796c7218206047f (trajectory_source.py:420)
+11:49:22.062 INFO         lane=55  sample_time= 64%  root_next=  0/239 (  0% turns)  live=5 ready=5  trace_id=1fc68c514c7fb89dbc498ae9da77d5476cec (trajectory_source.py:420)
+11:49:22.063 INFO     Initialized 2 phase(s): ['Warmup', 'Profiling'] (phase_orchestrator.py:228)
+11:49:22.314 INFO     Dataset client initialized and freed 9843 conversations from memory (dataset_manager.py:327)
+11:49:23.229 INFO     Populated mmap cache entry /root/.cache/aiperf/dataset_mmap/78a713114c7321bc51de8c0f81dcc3fb (mmap_cache.py:640)
+11:49:23.231 INFO     Dataset configured in 113.59 seconds (dataset_manager.py:263)
+11:49:23.231 INFO     All services configured in 119.11 seconds (system_controller.py:318)
+11:49:23.232 INFO     AIPerf System is CONFIGURED (system_controller.py:296)
+11:49:23.233 INFO     Server Metrics: Started 3 collector(s) successfully (manager.py:281)
+11:49:23.344 NOTICE   Phase warmup (warmup) started | target: 619 requests (runner.py:593)
+11:49:23.345 INFO     WARMUP execute: dispatching 59 trajectory credits (agentic_replay.py:654)
+11:49:23.347 INFO     WARMUP count budget: 10 additional requests per lane after 59 mandatory snapshot primers (agentic_replay.py:713)
+11:49:23.347 INFO     WARMUP spread: 9.0s ramp aligning 59 request(s) on t* (earliest fires at 0, last at 9.0s) (agentic_replay.py:752)
+11:49:23.393 WARNING  Event loop for worker_9a76dc89 is taking too long to run. Overhead: 31.72ms (event_loop_monitor.py:89)
+11:49:23.421 WARNING  Event loop for worker_6357c708 is taking too long to run. Overhead: 28.18ms (event_loop_monitor.py:89)
+11:49:23.427 WARNING  Event loop for worker_156a8cb1 is taking too long to run. Overhead: 55.24ms (event_loop_monitor.py:89)
+11:49:23.435 WARNING  Event loop for worker_7739794f is taking too long to run. Overhead: 34.06ms (event_loop_monitor.py:89)
+11:49:23.456 WARNING  Event loop for worker_4374001b is taking too long to run. Overhead: 57.11ms (event_loop_monitor.py:89)
+11:49:23.739 INFO     Credit phase start: warmup (records_manager.py:998)
+11:49:24.976 INFO     All services started profiling successfully (system_controller.py:340)
+11:49:24.976 INFO     AIPerf System is PROFILING (system_controller.py:298)
+11:49:52.197 WARNING  Token usage is reported but no prompt-cache read tokens were seen (usage.prompt_tokens_details.cached_tokens absent). If your server uses prefix/KV caching, enable cache reporting so AIPerf can populate the prompt-cache metrics: vLLM --enable-prompt-tokens-details, SGLang --enable-cache-report (TRT-LLM reports it by default). (records_manager.py:768)
+11:49:52.197 WARNING  Token usage is reported but no prompt-cache read tokens were seen (usage.prompt_tokens_details.cached_tokens absent). If your server uses prefix/KV caching, enable cache reporting so AIPerf can populate the prompt-cache metrics: vLLM --enable-prompt-tokens-details, SGLang --enable-cache-report (TRT-LLM reports it by default). (accumulator.py:251)
+11:49:53.347 INFO     Phase warmup progress | returned=1/619 | sent=59 | in_flight=58 | errors=0 | elapsed=30.0s (runner.py:1254)
+11:50:25.347 INFO     Phase warmup progress | returned=11/619 | sent=59 | in_flight=48 | errors=0 | elapsed=62.0s (runner.py:1254)
+11:50:55.350 INFO     Phase warmup progress | returned=17/619 | sent=59 | in_flight=42 | errors=0 | elapsed=92.0s (runner.py:1254)
+11:51:25.356 INFO     Phase warmup progress | returned=21/619 | sent=59 | in_flight=38 | errors=0 | elapsed=122.0s (runner.py:1254)
+11:51:55.364 INFO     Phase warmup progress | returned=25/619 | sent=59 | in_flight=34 | errors=0 | elapsed=152.0s (runner.py:1254)
+11:52:25.367 INFO     Phase warmup progress | returned=29/619 | sent=59 | in_flight=30 | errors=0 | elapsed=182.0s (runner.py:1254)
+11:52:55.373 INFO     Phase warmup progress | returned=31/619 | sent=59 | in_flight=28 | errors=0 | elapsed=212.0s (runner.py:1254)
+11:53:25.376 INFO     Phase warmup progress | returned=34/619 | sent=59 | in_flight=25 | errors=0 | elapsed=242.0s (runner.py:1254)
+11:53:55.379 INFO     Phase warmup progress | returned=37/619 | sent=59 | in_flight=22 | errors=0 | elapsed=272.0s (runner.py:1254)
