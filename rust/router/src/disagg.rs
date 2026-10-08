@@ -246,6 +246,7 @@ async fn unary_dual(
 ) -> Response {
     // Held until both legs finish (dropped at fn end) -> on_request_finished.
     let _guard = guard;
+    let mut tracker = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
     let rid = p_body
         .get("rid")
         .and_then(|v| v.as_str())
@@ -307,20 +308,46 @@ async fn unary_dual(
             }
             let ct = content_type(&resp);
             match resp.bytes().await {
-                Ok(bytes) => Response::builder()
-                    .status(st)
-                    .header(header::CONTENT_TYPE, ct)
-                    .body(Body::from(bytes))
-                    .expect("unary response is valid"),
-                Err(e) => json_error(
-                    StatusCode::BAD_GATEWAY,
-                    &format!("decode {} read failed: {e}", d.worker.worker_id),
-                ),
+                Ok(bytes) => {
+                    if st.is_success() {
+                        if let Ok(v) = serde_json::from_slice::<Value>(&bytes) {
+                            if let Some(usage) = v.get("usage") {
+                                if let Some(p) = usage.get("prompt_tokens").and_then(|x| x.as_u64())
+                                {
+                                    tracker.set_input_tokens(p);
+                                }
+                                if let Some(c) =
+                                    usage.get("completion_tokens").and_then(|x| x.as_u64())
+                                {
+                                    tracker.set_output_tokens(c);
+                                }
+                            }
+                        }
+                        tracker.set_outcome("ok");
+                    } else if st.is_client_error() {
+                        tracker.set_outcome("4xx");
+                    } else {
+                        tracker.set_outcome("error");
+                    }
+                    Response::builder()
+                        .status(st)
+                        .header(header::CONTENT_TYPE, ct)
+                        .body(Body::from(bytes))
+                        .expect("unary response is valid")
+                }
+                Err(e) => {
+                    tracker.set_outcome("error");
+                    json_error(
+                        StatusCode::BAD_GATEWAY,
+                        &format!("decode {} read failed: {e}", d.worker.worker_id),
+                    )
+                }
             }
         }
         Err(e) => {
             pair_failed = true;
             state.breaker.record_failure(&d.worker.worker_id);
+            tracker.set_outcome("error");
             json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {} unreachable: {e}", d.worker.worker_id),
@@ -333,7 +360,12 @@ async fn unary_dual(
     if pair_failed {
         tracing::warn!("PD unary pair failed; aborting rid={rid}");
         abort_sglang_pair(transport, &rid, n);
+        if response.status().is_success() {
+            // Prefill failed while decode returned 200; still count as error.
+            tracker.set_outcome("error");
+        }
     }
+    tracker.finish();
     response
 }
 
@@ -393,6 +425,9 @@ async fn dual_nats(
         Err(e) => {
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
+            let mut t = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
+            t.set_outcome("error");
+            t.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} unreachable over nats: {e}"),
@@ -401,6 +436,7 @@ async fn dual_nats(
     };
 
     if !stream {
+        let mut tracker = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
         let mut abort_unless_done = FireOnDrop(abort_unless_decode_owns_it.take());
         let mut buf: Vec<u8> = Vec::new();
         let mut status = StatusCode::OK;
@@ -423,6 +459,8 @@ async fn dual_nats(
                         "decode (nats) {wid} failed: {}",
                         truncate_chars(&message, 200)
                     );
+                    tracker.set_outcome("error");
+                    tracker.finish();
                     return json_error(code, &format!("decode {wid} nats failed"));
                 }
                 None => break,
@@ -434,6 +472,8 @@ async fn dual_nats(
             // a worker that accepts work and then goes quiet -- as health.
             state.breaker.record_failure(&wid);
             drop(guard);
+            tracker.set_outcome("error");
+            tracker.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} closed the nats reply without finishing"),
@@ -442,6 +482,24 @@ async fn dual_nats(
         score_leg(&state.breaker, &wid, status.as_u16());
         drop(guard);
         abort_unless_done.settle(unary_nats_end(status.as_u16()));
+        if status.is_success() {
+            if let Ok(v) = serde_json::from_slice::<Value>(&buf) {
+                if let Some(usage) = v.get("usage") {
+                    if let Some(p) = usage.get("prompt_tokens").and_then(|x| x.as_u64()) {
+                        tracker.set_input_tokens(p);
+                    }
+                    if let Some(c) = usage.get("completion_tokens").and_then(|x| x.as_u64()) {
+                        tracker.set_output_tokens(c);
+                    }
+                }
+            }
+            tracker.set_outcome("ok");
+        } else if status.is_client_error() {
+            tracker.set_outcome("4xx");
+        } else {
+            tracker.set_outcome("error");
+        }
+        tracker.finish();
         return Response::builder()
             .status(status)
             .header(header::CONTENT_TYPE, "application/json")

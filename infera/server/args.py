@@ -226,9 +226,9 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         not in ("0", "false", "no"),
         help="Enable TTFT/ITL/ISL/OSL and token counters on /metrics (default: "
         "on). Disable with --no-enable-sla-metrics or "
-        "INFERA_ENABLE_SLA_METRICS=0. Required for useful Prometheus latency "
-        "and throughput scrapes; the optional SLA planner reads the same "
-        "histograms.",
+        "INFERA_ENABLE_SLA_METRICS=0 (python backend only; rust rejects the "
+        "off switch). Required for useful Prometheus latency and throughput "
+        "scrapes; the optional SLA planner reads the same histograms.",
     )
     parser.add_argument(
         "--enable-scaling-api",

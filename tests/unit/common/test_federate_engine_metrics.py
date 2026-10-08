@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from infera.common.engine_metrics import federate_engine_metrics
+from infera.common.engine_metrics import federate_engine_metrics, merge_federated_exposition
 from infera.common.worker_pool import EngineType
 
 
@@ -67,3 +67,18 @@ def test_federate_unknown_engine_is_empty():
     assert (
         federate_engine_metrics("vllm:num_requests_running 1\n", worker_id="w", engine="atom") == ""
     )
+
+
+def test_merge_federated_dedupes_help_and_type():
+    text = (
+        "# HELP vllm:num_requests_running Running requests\n"
+        "# TYPE vllm:num_requests_running gauge\n"
+        'vllm:num_requests_running{model_name="m"} 1\n'
+    )
+    a = federate_engine_metrics(text, worker_id="w1", engine="vllm")
+    b = federate_engine_metrics(text, worker_id="w2", engine="vllm")
+    out = merge_federated_exposition([a, b])
+    assert out.count("# HELP vllm:num_requests_running") == 1
+    assert out.count("# TYPE vllm:num_requests_running") == 1
+    assert 'worker_id="w1"' in out
+    assert 'worker_id="w2"' in out

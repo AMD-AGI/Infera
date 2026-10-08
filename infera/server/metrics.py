@@ -543,19 +543,28 @@ class RequestObserver(dict):
             self._frames += token_frames
 
     def close(self) -> None:
-        """Emit the SLA histograms. Idempotent.
+        """Emit lifecycle + SLA metrics. Idempotent.
 
-        Only successful requests are observed: a 5xx contributes no meaningful
-        latency and would drag the planner's window averages toward zero.
+        For deferred (streaming) observers this is the only place
+        ``requests_total`` / duration / inflight are updated, so mid-stream
+        ``mark_failed()`` still wins. SLA histograms still only observe
+        successful requests.
         """
         if self._closed:
             return
         self._closed = True
+        router, model = self._router, self._model
+        outcome = self["outcome"]
+        if self._deferred:
+            request_inflight.labels(router=router).dec()
+            request_duration_seconds.labels(router=router, outcome=outcome).observe(
+                time.perf_counter() - self._start
+            )
+            requests_total.labels(router=router, outcome=outcome).inc()
         if not _sla_metrics_enabled:
             return
-        if self["outcome"] != "ok":
+        if outcome != "ok":
             return
-        router, model = self._router, self._model
 
         osl = self._osl if self._osl is not None else self._frames
         if self._isl is not None:
@@ -593,17 +602,19 @@ def track_request(router: str, model: str = ""):
     """
     obs = RequestObserver(router, model)
     request_inflight.labels(router=router).inc()
-    start = time.perf_counter()
     try:
         yield obs
     finally:
-        request_inflight.labels(router=router).dec()
-        outcome = obs["outcome"]
-        request_duration_seconds.labels(router=router, outcome=outcome).observe(
-            time.perf_counter() - start
-        )
-        requests_total.labels(router=router, outcome=outcome).inc()
+        # Streaming generators claim the observer and call close() after the
+        # last token. Recording requests_total here would lock in "ok" before
+        # mark_failed() can run on a mid-stream error.
         if not obs.deferred:
+            request_inflight.labels(router=router).dec()
+            outcome = obs["outcome"]
+            request_duration_seconds.labels(router=router, outcome=outcome).observe(
+                time.perf_counter() - obs._start
+            )
+            requests_total.labels(router=router, outcome=outcome).inc()
             obs.close()
 
 

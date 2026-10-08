@@ -262,6 +262,10 @@ def federate_engine_metrics(
     Used by the frontend ``/metrics`` handler so a single Prometheus scrape of
     the router sees the engine panels (scheduler, KV cache, queue/prefill
     times, finish reason, …) without scraping every worker.
+
+    Callers that scrape multiple workers must pass the results through
+    :func:`merge_federated_exposition` so ``# HELP`` / ``# TYPE`` appear once
+    per family (Prometheus rejects duplicate metadata directives).
     """
     if isinstance(engine, EngineType):
         eng = engine
@@ -300,6 +304,34 @@ def federate_engine_metrics(
     if not out:
         return ""
     return "\n".join(out) + "\n"
+
+
+def merge_federated_exposition(parts: list[str]) -> str:
+    """Join per-worker federated text, keeping one HELP/TYPE per family."""
+    seen_meta: set[tuple[str, str]] = set()
+    out: list[str] = []
+    for part in parts:
+        if not part:
+            continue
+        for raw in part.splitlines():
+            line = raw.rstrip()
+            if not line:
+                continue
+            if line.startswith("#"):
+                pieces = line.split(None, 3)
+                if len(pieces) < 3:
+                    continue
+                kind = pieces[1].upper()
+                if kind not in ("HELP", "TYPE"):
+                    continue
+                key = (kind, _metric_family(pieces[2]))
+                if key in seen_meta:
+                    continue
+                seen_meta.add(key)
+                out.append(line)
+                continue
+            out.append(line)
+    return ("\n".join(out) + "\n") if out else ""
 
 
 def inflight_from_metrics(text: str, engine: EngineType) -> float | None:

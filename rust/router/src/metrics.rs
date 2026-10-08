@@ -458,6 +458,55 @@ pub fn federate_engine_metrics(text: &str, worker_id: &str, engine: &str) -> Str
     out
 }
 
+/// Join per-worker federated text, keeping one HELP/TYPE per family.
+pub fn merge_federated_exposition(parts: &[String]) -> String {
+    let mut seen_meta: std::collections::HashSet<(String, String)> =
+        std::collections::HashSet::new();
+    let mut out = String::new();
+    for part in parts {
+        if part.is_empty() {
+            continue;
+        }
+        for raw in part.lines() {
+            let line = raw.trim_end();
+            if line.is_empty() {
+                continue;
+            }
+            if let Some(rest) = line.strip_prefix('#') {
+                let mut parts = rest.split_whitespace();
+                let kind = parts.next().unwrap_or("").to_ascii_uppercase();
+                let name = parts.next().unwrap_or("");
+                if kind != "HELP" && kind != "TYPE" {
+                    continue;
+                }
+                let family = metric_family_name(name);
+                let key = (kind, family.to_string());
+                if !seen_meta.insert(key) {
+                    continue;
+                }
+                out.push_str(line);
+                out.push('\n');
+                continue;
+            }
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    out
+}
+
+/// Strip Prometheus suffix so HELP/TYPE keys match sample families.
+fn metric_family_name(name: &str) -> &str {
+    for suffix in ["_bucket", "_sum", "_count", "_created"] {
+        if let Some(base) = name.strip_suffix(suffix) {
+            return base;
+        }
+    }
+    name
+}
+
+const MAX_PARTIAL_FRAME: usize = 1 << 16;
+
 /// Per-request lifetime tracker (mirrors Python ``track_request`` + observer).
 pub struct RequestTracker {
     router: &'static str,
@@ -469,6 +518,8 @@ pub struct RequestTracker {
     osl: Option<u64>,
     outcome: String,
     closed: bool,
+    /// Trailing SSE bytes that did not end on a newline in the last chunk.
+    partial: Vec<u8>,
 }
 
 impl RequestTracker {
@@ -484,6 +535,7 @@ impl RequestTracker {
             osl: None,
             outcome: "error".into(),
             closed: false,
+            partial: Vec::new(),
         }
     }
 
@@ -517,9 +569,19 @@ impl RequestTracker {
     }
 
     pub fn observe_stream_chunk(&mut self, chunk: &[u8]) {
-        // Count complete `data:` lines that are not `[DONE]` as token frames.
-        for line in chunk.split(|&b| b == b'\n') {
-            let line = trim_ascii(line);
+        // Carry a trailing partial line across HTTP chunk boundaries so a split
+        // usage frame is not counted as a token and is parsed when complete.
+        self.partial.extend_from_slice(chunk);
+        let buf = std::mem::take(&mut self.partial);
+        let mut frames: Vec<&[u8]> = buf.split(|&b| b == b'\n').collect();
+        let tail = frames.pop().unwrap_or_default();
+        self.partial = if tail.len() <= MAX_PARTIAL_FRAME {
+            tail.to_vec()
+        } else {
+            Vec::new()
+        };
+        for frame in frames {
+            let line = trim_ascii(frame);
             if !line.starts_with(b"data:") || line.starts_with(b"data: [DONE]") {
                 continue;
             }
@@ -537,18 +599,25 @@ impl RequestTracker {
     }
 
     pub fn finish(mut self) {
-        self.close();
+        self.close(/* emit */ true);
+    }
+
+    /// Drop in-flight accounting without emitting request/duration counters.
+    /// Used when a worker attempt fails before commit and the caller will retry.
+    pub fn discard(mut self) {
+        self.close(/* emit */ false);
     }
 }
 
 impl Drop for RequestTracker {
     fn drop(&mut self) {
-        self.close();
+        // Failed failover attempts must not emit; success paths call finish().
+        self.close(/* emit */ false);
     }
 }
 
 impl RequestTracker {
-    fn close(&mut self) {
+    fn close(&mut self, emit: bool) {
         if self.closed {
             return;
         }
@@ -558,6 +627,9 @@ impl RequestTracker {
         let model = self.model.as_str();
         let outcome = self.outcome.as_str();
         metrics.request_inflight.with_label_values(&[router]).dec();
+        if !emit {
+            return;
+        }
         metrics
             .request_duration
             .with_label_values(&[router, outcome])
@@ -649,5 +721,43 @@ mod tests {
         assert!(out.contains(r#"worker_id="w1""#));
         assert!(out.contains(r#"engine="vllm""#));
         assert!(!out.contains("process_cpu_seconds_total"));
+    }
+
+    #[test]
+    fn merge_federated_dedupes_help_and_type() {
+        let a = federate_engine_metrics(
+            concat!(
+                "# HELP vllm:num_requests_running Running\n",
+                "# TYPE vllm:num_requests_running gauge\n",
+                "vllm:num_requests_running{model_name=\"m\"} 1\n",
+            ),
+            "w1",
+            "vllm",
+        );
+        let b = federate_engine_metrics(
+            concat!(
+                "# HELP vllm:num_requests_running Running\n",
+                "# TYPE vllm:num_requests_running gauge\n",
+                "vllm:num_requests_running{model_name=\"m\"} 2\n",
+            ),
+            "w2",
+            "vllm",
+        );
+        let out = merge_federated_exposition(&[a, b]);
+        assert_eq!(out.matches("# HELP vllm:num_requests_running").count(), 1);
+        assert_eq!(out.matches("# TYPE vllm:num_requests_running").count(), 1);
+        assert!(out.contains(r#"worker_id="w1""#));
+        assert!(out.contains(r#"worker_id="w2""#));
+    }
+
+    #[test]
+    fn stream_chunk_carries_partial_usage_frame() {
+        let mut t = RequestTracker::start("mixed", "m");
+        t.observe_stream_chunk(b"data: {\"usage\":{\"prompt_tokens\":3,\"completion_tok");
+        t.observe_stream_chunk(b"ens\":7}}\n");
+        assert_eq!(t.isl, Some(3));
+        assert_eq!(t.osl, Some(7));
+        assert_eq!(t.frames, 0);
+        t.discard();
     }
 }

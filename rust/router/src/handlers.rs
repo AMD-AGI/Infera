@@ -463,6 +463,9 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
     ([(header::CONTENT_TYPE, content_type)], out)
 }
 
+/// Bound worker /metrics scrapes so one unreachable peer cannot stall Prometheus.
+const ENGINE_METRICS_SCRAPE_TIMEOUT: Duration = Duration::from_secs(1);
+
 /// Scrape workers: update infera_engine_* gauges and federate allowlisted series.
 async fn scrape_engine_metrics(st: &AppState, snap: &crate::pool::Snapshot) -> String {
     crate::metrics::clear_engine_gauges();
@@ -479,7 +482,14 @@ async fn scrape_engine_metrics(st: &AppState, snap: &crate::pool::Snapshot) -> S
         let http = st.http.clone();
         async move {
             let url = format!("{}/metrics", w.url.trim_end_matches('/'));
-            let Ok(resp) = http.get(&url).send().await else {
+            // Per-request timeout: connect + headers + body, so a wedged worker
+            // cannot hold the frontend scrape past a typical Prometheus interval.
+            let Ok(resp) = http
+                .get(&url)
+                .timeout(ENGINE_METRICS_SCRAPE_TIMEOUT)
+                .send()
+                .await
+            else {
                 return String::new();
             };
             if !resp.status().is_success() {
@@ -502,7 +512,8 @@ async fn scrape_engine_metrics(st: &AppState, snap: &crate::pool::Snapshot) -> S
             crate::metrics::federate_engine_metrics(&text, &w.worker_id, engine)
         }
     });
-    futures::future::join_all(futs).await.into_iter().collect()
+    let parts: Vec<String> = futures::future::join_all(futs).await;
+    crate::metrics::merge_federated_exposition(&parts)
 }
 
 /// Escape a Prometheus label value: backslash, double quote and newline, per

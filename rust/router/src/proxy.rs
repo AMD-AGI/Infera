@@ -380,9 +380,8 @@ async fn attempt_nats(
         let body =
             serde_json::json!({ "error": format!("worker {wid} request backlog over limit") })
                 .to_string();
-        if let Some(mut t) = tracker.take() {
-            t.set_outcome("4xx");
-            t.finish();
+        if let Some(t) = tracker.take() {
+            t.discard();
         }
         return Err(Box::new(
             Response::builder()
@@ -826,6 +825,9 @@ async fn mixed_dispatch(
 ) -> Response {
     let candidates = snap.list_active(model, DisaggMode::Mixed);
     if candidates.is_empty() {
+        let mut t = crate::metrics::RequestTracker::start("mixed", model);
+        t.set_outcome("error");
+        t.finish();
         return json_error(
             StatusCode::SERVICE_UNAVAILABLE,
             &format!("no active mixed worker for model={model:?}"),
@@ -889,6 +891,10 @@ async fn mixed_dispatch(
             }
         }
     }
+    // Failed attempts discard their trackers; emit one series for the request.
+    let mut t = crate::metrics::RequestTracker::start("mixed", model);
+    t.set_outcome("error");
+    t.finish();
     last_err.unwrap_or_else(|| json_error(StatusCode::SERVICE_UNAVAILABLE, "all workers failed"))
 }
 
@@ -925,9 +931,8 @@ async fn attempt(
             )
             .await;
         }
-        if let Some(mut t) = tracker.take() {
-            t.set_outcome("error");
-            t.finish();
+        if let Some(t) = tracker.take() {
+            t.discard();
         }
         return Err(Box::new(json_error(
             StatusCode::BAD_GATEWAY,
@@ -950,9 +955,8 @@ async fn attempt(
     let resp = match req.send().await {
         Ok(r) => r,
         Err(e) => {
-            if let Some(mut t) = tracker.take() {
-                t.set_outcome("error");
-                t.finish();
+            if let Some(t) = tracker.take() {
+                t.discard();
             }
             return Err(Box::new(json_error(
                 StatusCode::BAD_GATEWAY,
@@ -964,13 +968,8 @@ async fn attempt(
     let status = resp.status();
     if status.is_client_error() || status.is_server_error() {
         let body = resp.text().await.unwrap_or_default();
-        if let Some(mut t) = tracker.take() {
-            t.set_outcome(if status.is_client_error() {
-                "4xx"
-            } else {
-                "5xx"
-            });
-            t.finish();
+        if let Some(t) = tracker.take() {
+            t.discard();
         }
         return Err(Box::new(json_error(
             status,
@@ -1030,9 +1029,8 @@ async fn attempt(
                     .expect("unary response is valid"))
             }
             Err(e) => {
-                if let Some(mut t) = tracker.take() {
-                    t.set_outcome("error");
-                    t.finish();
+                if let Some(t) = tracker.take() {
+                    t.discard();
                 }
                 Err(Box::new(json_error(
                     StatusCode::BAD_GATEWAY,

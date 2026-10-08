@@ -650,7 +650,10 @@ async def _scrape_engine_metrics() -> bytes:
     """Scrape each active HTTP worker: update infera_engine_* gauges and
     return federated vllm:/sglang: text for the stock Grafana panels.
     """
-    from infera.common.engine_metrics import federate_engine_metrics
+    from infera.common.engine_metrics import (
+        federate_engine_metrics,
+        merge_federated_exposition,
+    )
 
     if registry is None:
         return b""
@@ -688,7 +691,7 @@ async def _scrape_engine_metrics() -> bytes:
             return ""
 
     parts = await asyncio.gather(*(_one(w) for w in workers))
-    return "".join(p for p in parts if p).encode()
+    return merge_federated_exposition(list(parts)).encode()
 
 
 @app.get("/metrics")
