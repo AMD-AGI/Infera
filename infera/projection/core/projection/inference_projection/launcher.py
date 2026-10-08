@@ -987,9 +987,7 @@ def launch_projection_from_cli(args, overrides):
                 duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
                 closed_loop=closed_loop,
                 closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
-                closed_loop_idle_cap_ms=float(
-                    getattr(args, "des_client_idle_cap_ms", 0.0) or 0.0
-                ),
+                closed_loop_idle_cap_ms=float(getattr(args, "des_client_idle_cap_ms", 0.0) or 0.0),
                 cache_shares_pool=bool(getattr(args, "des_cache_shares_pool", False)),
                 whole_context_residency=bool(getattr(args, "des_whole_context_residency", False)),
                 prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),

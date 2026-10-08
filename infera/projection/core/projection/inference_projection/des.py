@@ -264,11 +264,21 @@ class _CostKernel:
         return v
 
     def mixed_step_ms(
-        self, num_decode: int, prefill_tokens: int, ctx: int, prefill_kv: int,
+        self,
+        num_decode: int,
+        prefill_tokens: int,
+        ctx: int,
+        prefill_kv: int,
         prefill_reqs: int = 1,
     ) -> float:
         spread = min(self._dp, max(1, int(prefill_reqs)))
-        key = (num_decode, self._tok(prefill_tokens), self._bucket(ctx), self._bucket(prefill_kv), spread)
+        key = (
+            num_decode,
+            self._tok(prefill_tokens),
+            self._bucket(ctx),
+            self._bucket(prefill_kv),
+            spread,
+        )
         v = self._mixed.get(key)
         if v is None:
             # One chunk per rank: under attention-DP each rank attends over its
@@ -760,8 +770,11 @@ def simulate_once(
     steps = 0
     # A session replay stops issuing at the horizon and lets what is already
     # in flight finish, which is what the harness reports over.
-    while len(done) < n and steps < max_steps and (
-            now < horizon or (session_mode and (running or waiting or fe_heap))):
+    while (
+        len(done) < n
+        and steps < max_steps
+        and (now < horizon or (session_mode and (running or waiting or fe_heap)))
+    ):
         steps += 1
         # 1) Ingest arrivals due by ``now`` into the FCFS waiting queue.
         while next_arrival < n and pending[next_arrival].arrival_ms <= now + 1e-9:
@@ -1048,15 +1061,9 @@ def simulate_once(
     def _admit(r):
         return r.admit_ms if r.admit_ms >= 0 else r.arrival_ms
 
-    ttft = [
-        (r.first_token_ms - _admit(r)) + r.host_ms
-        for r in sample
-        if r.first_token_ms >= 0
-    ]
+    ttft = [(r.first_token_ms - _admit(r)) + r.host_ms for r in sample if r.first_token_ms >= 0]
     ttft_arrival = [
-        (r.first_token_ms - r.arrival_ms) + r.host_ms
-        for r in sample
-        if r.first_token_ms >= 0
+        (r.first_token_ms - r.arrival_ms) + r.host_ms for r in sample if r.first_token_ms >= 0
     ]
     queue_wait = [_admit(r) - r.arrival_ms for r in sample if r.first_token_ms >= 0]
     # Per-output-token detokenization + streaming (client-side host cost).
@@ -1083,8 +1090,7 @@ def simulate_once(
     if session_mode and sample:
         # Rated over the profiling window plus the drain, the way the harness
         # divides by its measured duration.
-        span_ms = max(horizon if math.isfinite(horizon) else 0.0,
-                      max(r.finish_ms for r in sample))
+        span_ms = max(horizon if math.isfinite(horizon) else 0.0, max(r.finish_ms for r in sample))
         out_sample = sum(r.generated for r in sample)
         achieved_rate = (len(sample) * 1000.0 / span_ms) if span_ms > 0 else 0.0
         sys_tps = (out_sample * 1000.0 / span_ms) if span_ms > 0 else 0.0
@@ -1393,8 +1399,11 @@ def _load_mooncake_trace(path: str) -> list[tuple[float, int, int, list[int]]]:
             None if think is None else max(0.0, float(think)),
         )
         if "sess" in r:
-            row = row + (int(r["sess"]), int(r.get("dep", -1)),
-                         tuple(int(j) for j in (r.get("joins") or ())))
+            row = row + (
+                int(r["sess"]),
+                int(r.get("dep", -1)),
+                tuple(int(j) for j in (r.get("joins") or ())),
+            )
         rows.append(row)
     return rows
 
@@ -1411,8 +1420,15 @@ def _reqs_from_rows(rows) -> list[_Req]:
         sess, dep, joins = (row[5], row[6], row[7]) if len(row) > 7 else (-1, -1, ())
         out.append(
             _Req(
-                idx=i, arrival_ms=a, prompt_len=isl, output_len=osl,
-                blocks=list(hids), think_ms=think, sess=sess, dep=dep, joins=joins,
+                idx=i,
+                arrival_ms=a,
+                prompt_len=isl,
+                output_len=osl,
+                blocks=list(hids),
+                think_ms=think,
+                sess=sess,
+                dep=dep,
+                joins=joins,
             )
         )
     return out
@@ -2127,15 +2143,9 @@ def simulate_disaggregated(
     def _admit(r):
         return r.admit_ms if r.admit_ms >= 0 else r.arrival_ms
 
-    ttft = [
-        (r.first_token_ms - _admit(r)) + r.host_ms
-        for r in sample
-        if r.first_token_ms >= 0
-    ]
+    ttft = [(r.first_token_ms - _admit(r)) + r.host_ms for r in sample if r.first_token_ms >= 0]
     ttft_arrival = [
-        (r.first_token_ms - r.arrival_ms) + r.host_ms
-        for r in sample
-        if r.first_token_ms >= 0
+        (r.first_token_ms - r.arrival_ms) + r.host_ms for r in sample if r.first_token_ms >= 0
     ]
     queue_wait = [_admit(r) - r.arrival_ms for r in sample if r.first_token_ms >= 0]
     e2e = [

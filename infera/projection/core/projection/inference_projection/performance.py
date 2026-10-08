@@ -994,8 +994,10 @@ class InferencePerformanceProjector:
                     and abs(float(context) - self._decode_ctx_mid) > 0.1 * self._decode_ctx_mid
                 )
             ):
-                base = max(base + self._kv_dtype_delta_ms(batch, float(context)),
-                           self._decode_floor_ms(batch))
+                base = max(
+                    base + self._kv_dtype_delta_ms(batch, float(context)),
+                    self._decode_floor_ms(batch),
+                )
             return base
         # Per-layer schema: restore each layer to the target TP/EP, then sum by
         # layer count. Decode processes 1 token/step.
@@ -2454,7 +2456,10 @@ class InferencePerformanceProjector:
         try:
             s_tgt = _step(self._lm_ratio_tgt, comm_tgt, self._view_tgt, self._imb_tgt, batch)
             s_bench = _step(
-                self._lm_ratio_bench, comm_bench, self._view_bench, self._imb_bench,
+                self._lm_ratio_bench,
+                comm_bench,
+                self._view_bench,
+                self._imb_bench,
                 batch if bench_batch is None else bench_batch,
             )
         except Exception:
@@ -2811,7 +2816,9 @@ class InferencePerformanceProjector:
         if phase == "decode" and os.getenv("INFERASIM_DCP_DECODE") == "1":
             # Decode context parallelism splits each sequence's cache across
             # the DCP ranks, so a rank's decode attention reads its slice.
-            dcp = int(getattr(self.cfg.model_parallel_config, "decode_context_parallel_size", 1) or 1)
+            dcp = int(
+                getattr(self.cfg.model_parallel_config, "decode_context_parallel_size", 1) or 1
+            )
             if dcp > 1:
                 factor /= dcp
         # Opt-in, for engines whose decode kernels read the compressed / top-k
@@ -3363,10 +3370,7 @@ class InferencePerformanceProjector:
             # work each rank repeats per token it holds, and the DP4 step over
             # four ranks' chunks measures 1.07x the TP4 step over one. Not when
             # TP moved as well: the rate already carries that part of it.
-            if (
-                getattr(self, "_restore_layout_moved", False)
-                and self._tgt_tp == self._bench_tp
-            ):
+            if getattr(self, "_restore_layout_moved", False) and self._tgt_tp == self._bench_tp:
                 steps = self._origami_steps(pb, chunk_tokens, "prefill", bench_batch=1)
                 if steps is not None:
                     own = self._measured_prefill_tokens_ms(chunk_tokens, prefill_kv_len)
