@@ -36,6 +36,7 @@ from infera.common.discovery import _normalize_endpoint
 from infera.common.k8s_client import make_client
 from infera.common.registration import RegistrationClient
 from infera.common.registration_k8s import K8sRegistrationClient
+from infera.common.usage import usage_session
 from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.decode_barrier import (
     DISCOVERY_LOOKUP_ERRORS,
@@ -841,7 +842,13 @@ async def _run_after_start(
         engine_alive=engine_health_check(args.server_args.host, config.port)
     )
 
-    await stop.wait()
+    async with usage_session(
+        "worker",
+        engine=config.engine,
+        mode=config.disagg_mode,
+        transport=config.request_transport,
+    ):
+        await stop.wait()
 
     # Closed before deregistration rather than after draining: this is the
     # signal a surge rollout reads, and it should stop claiming readiness the
