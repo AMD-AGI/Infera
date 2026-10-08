@@ -1,0 +1,29 @@
+commit 7e13937f91ccd2d6a1b8496813d0a50114beb912
+Author:     liyingli <liyingli@amd.com>
+AuthorDate: Thu Oct 8 03:17:59 2026 +0000
+Commit:     liyingli <liyingli@amd.com>
+CommitDate: Thu Oct 8 03:17:59 2026 +0000
+
+    Archive the cross-rank Mooncake RCA with its destination-pinned rail fix
+    
+    Root cause: a Decode ionic NIC drops frames internally when its PCIe DMA
+    writes are back-pressured, and PFC does not stop it. Mooncake's HCA choice
+    creates that back-pressure on cross-rank transfers in two ways: the
+    receiving NIC writes GPU memory across the socket, and several NICs write
+    into one GPU beyond its PCIe link. Retries then run out (CQE12) and SGLang
+    blacklists the session.
+    
+    Fix (fix/, three Mooncake patches, no root): writes to Decode GPU j use
+    ionic_j on both ends, and the RC ACK timeout becomes MC_IB_TIMEOUT=18
+    (1.07 s). On 137->136, C80/1200 s with PD_DP_RANK_AFFINITY=0: 51 transfer
+    failures on the base image, 0 with the fix, throughput +5.6%; 21 of 22
+    hard gates pass. The open one: ~20 ACK timeouts per run that lose no
+    packet and do not follow the timeout length (4.3 s gave 18).
+    
+    The directory moves from the ignored bench/glm5p2_pd/results/ (left as a
+    symlink) so the scripts tests/unit/tools/test_cross_rank_rca.py loads are
+    tracked; raw run data stays out via its .gitignore. analyze_reproduction
+    now parses docker RFC3339Nano timestamps on Python 3.10 (7/7 tests pass
+    in the image).
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>

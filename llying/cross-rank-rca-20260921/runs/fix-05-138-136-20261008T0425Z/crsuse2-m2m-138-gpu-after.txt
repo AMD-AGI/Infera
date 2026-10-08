@@ -1,0 +1,62 @@
+
+
+============================ ROCm System Management Interface ============================
+=================================== Current Memory Use ===================================
+GPU[0]		: GPU Memory Allocated (VRAM%): 89
+GPU[0]		: GPU Memory Read/Write Activity (%): 0
+GPU[0]		: Memory Activity: 2341778379
+GPU[0]		: Avg. Memory Bandwidth: 0
+GPU[1]		: GPU Memory Allocated (VRAM%): 89
+GPU[1]		: GPU Memory Read/Write Activity (%): 0
+GPU[1]		: Memory Activity: 2351740931
+GPU[1]		: Avg. Memory Bandwidth: 0
+GPU[2]		: GPU Memory Allocated (VRAM%): 89
+GPU[2]		: GPU Memory Read/Write Activity (%): 0
+GPU[2]		: Memory Activity: 3687047889
+GPU[2]		: Avg. Memory Bandwidth: 0
+GPU[3]		: GPU Memory Allocated (VRAM%): 89
+GPU[3]		: GPU Memory Read/Write Activity (%): 0
+GPU[3]		: Memory Activity: 3684457324
+GPU[3]		: Avg. Memory Bandwidth: 0
+GPU[4]		: GPU Memory Allocated (VRAM%): 89
+GPU[4]		: GPU Memory Read/Write Activity (%): 0
+GPU[4]		: Memory Activity: 3380064186
+GPU[4]		: Avg. Memory Bandwidth: 0
+GPU[5]		: GPU Memory Allocated (VRAM%): 89
+GPU[5]		: GPU Memory Read/Write Activity (%): 0
+GPU[5]		: Memory Activity: 3382162563
+GPU[5]		: Avg. Memory Bandwidth: 0
+GPU[6]		: GPU Memory Allocated (VRAM%): 89
+GPU[6]		: GPU Memory Read/Write Activity (%): 0
+GPU[6]		: Memory Activity: 2044542595
+GPU[6]		: Avg. Memory Bandwidth: 0
+GPU[7]		: GPU Memory Allocated (VRAM%): 89
+GPU[7]		: GPU Memory Read/Write Activity (%): 0
+GPU[7]		: Memory Activity: 2037468876
+GPU[7]		: Avg. Memory Bandwidth: 0
+==========================================================================================
+===================================== KFD Processes ======================================
+KFD process information:
+PID    	PROCESS NAME   	GPU(s)	VRAM USED   	SDMA USED    	CU OCCUPANCY	
+2130159	python3        	0     	0           	0            	0           	
+2105667	sglang::detoken	0     	0           	0            	0           	
+2106338	sglang::schedul	1     	275853103104	2802798687354	0           	
+2130163	python3        	0     	0           	0            	0           	
+2104952	python3        	0     	0           	0            	0           	
+2103883	python3        	0     	0           	0            	0           	
+2106505	sglang::schedul	1     	275876106240	2805704165294	0           	
+2128719	python3        	0     	0           	0            	0           	
+2106863	sglang::schedul	1     	275790213120	2587941951242	0           	
+2130161	python3        	0     	0           	0            	0           	
+2107902	sglang::schedul	1     	275280687104	2559698709790	0           	
+2106690	sglang::schedul	1     	275841462272	2495816402288	0           	
+2130166	python3        	0     	0           	0            	0           	
+2107416	sglang::schedul	1     	275700310016	2655525857034	0           	
+2131157	python3        	0     	0           	0            	0           	
+2130152	python3        	0     	0           	0            	0           	
+2105906	sglang::schedul	1     	276106903552	2665737600040	0           	
+2107676	sglang::schedul	1     	275995844608	2610729022996	0           	
+2130150	python3        	0     	0           	0            	0           	
+2105528	sglang::data_pa	0     	0           	0            	0           	
+==========================================================================================
+================================== End of ROCm SMI Log ===================================

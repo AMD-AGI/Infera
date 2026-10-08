@@ -1,0 +1,6 @@
+=== infera-sglang:v0519-yihou-0917-nextnfix-hicache-mcdestpin-ibto18
+  engine.so                 : /opt/venv/lib/python3.10/site-packages/mooncake/engine.cpython-310-x86_64-linux-gnu.so
+  MC_ENABLE_HIP_TRANSPORT   : 0
+  MC_DISABLE_HIP_TRANSPORT  : 0
+  upstream locality routing : 1
+  OK: upstream locality routing present (cross-node PD will use RDMA)

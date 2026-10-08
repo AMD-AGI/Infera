@@ -6,7 +6,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${CONFIG:-$ROOT/config/config.rca.p8d8.sh}"
 source "$CONFIG" || exit 1
 export CONFIG
-TOPOLOGY="$ROOT/config/topology.rca.tsv"
+TOPOLOGY="$RCA_TOPOLOGY"
 RUN_ID="${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-${EXPECTED_IMAGE_ID:7:8}-c080}"
 RUN="$ROOT/runs/$RUN_ID"
 LAUNCH="$RUN/launch"
@@ -36,7 +36,7 @@ python3 "$ROOT/scripts/capture_hca_counters.py" "$COUNTERS/before.json" \
 
 echo "launching RCA service: $RUN_ID"
 ssh -o BatchMode=yes "$PREFILL_NODE" \
-    bash "$BENCH_DIR/launch.sh" \
+    bash "$BENCH_DIR/launch.sh" "RCA_PREFILL_NODE=$PREFILL_NODE" \
     "CONFIG=$CONFIG" "TOPOLOGY=$TOPOLOGY" "OUT_DIR=$LAUNCH" \
     2>&1 | tee "$LOGS/launch-console.log"
 launch_rc=${PIPESTATUS[0]}
@@ -62,7 +62,7 @@ for target in \
 done
 
 python3 "$ROOT/scripts/monitor_hca_counters.py" \
-    "$COUNTERS/timeseries.jsonl" --interval 10 --duration 7200 \
+    "$COUNTERS/timeseries.jsonl" --interval "${RCA_COUNTER_INTERVAL:-10}" --duration 7200 \
     >"$LOGS/counter-monitor.log" 2>&1 &
 counter_pid=$!
 

@@ -24,9 +24,13 @@ Router rank affinity、应用层重试、CPU/GPU staging 均不作为修复。
 
 `config/config.rca.p8d8.sh` 在加载 packup P8D8 配置前固定所有差异，并在加载后
 检查有效值；`config/config.rca-fix.p8d8.sh` 只把镜像换成修复镜像。
-`config/topology.rca.tsv` 是本实验唯一 topology。Python 工具通过
+节点对由 `RCA_PREFILL_NODE` 选择：默认 `crsuse2-m2m-137`（topology
+`config/topology.rca.tsv`），`crsuse2-m2m-138` 对应 09-21 的节点对（topology
+`config/topology.rca-138-136.tsv`）；配置会导出所选的 `RCA_TOPOLOGY`。Python 工具通过
 `scripts/rca_nodes.py` 读取同一节点对和镜像（`RCA_PREFILL_NODE`、
 `RCA_DECODE_NODE`、`RCA_IMAGE`、`RCA_IMAGE_ID`，配置文件会导出它们）。
+`run_reproduction.sh` 的 HCA 计数器采样间隔由 `RCA_COUNTER_INTERVAL` 设定，默认 10 秒。
+`config/config.rca-fix-ibto24.p8d8.sh` 是诊断用配置（两端 `MC_IB_TIMEOUT=24`），不是修复。
 
 ## 目录
 
@@ -63,8 +67,8 @@ CONFIG="$ROOT/config/config.rca-fix.p8d8.sh" bash "$ROOT/scripts/run_reproductio
 
 # 结束后只删除本实验容器
 source "$ROOT/config/config.rca.p8d8.sh"
-bash "$BENCH_DIR/stop.sh" "CONFIG=$ROOT/config/config.rca.p8d8.sh" \
-  "TOPOLOGY=$ROOT/config/topology.rca.tsv"
+bash "$BENCH_DIR/stop.sh" "RCA_PREFILL_NODE=$PREFILL_NODE" \
+  "CONFIG=$ROOT/config/config.rca.p8d8.sh" "TOPOLOGY=$RCA_TOPOLOGY"
 ```
 
 新镜像第一次启动前，把两节点的 `/tmp/aiter-jit-$(id -u)/<基底 image ID>`

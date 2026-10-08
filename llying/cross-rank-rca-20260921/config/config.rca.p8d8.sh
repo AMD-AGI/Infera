@@ -14,8 +14,17 @@ REMOTE_BENCH_DIR="$BENCH_DIR"
 IMAGE="${RCA_IMAGE:-infera-sglang:v0519-yihou-0917-nextnfix-hicache}"
 EXPECTED_IMAGE_ID="${RCA_IMAGE_ID:-sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35}"
 _rca_image="$IMAGE"
-PREFILL_NODE="crsuse2-m2m-137"
-PREFILL_IP="10.245.153.247"
+# RCA_PREFILL_NODE=crsuse2-m2m-138 selects the 2026-09-21 pair.
+PREFILL_NODE="${RCA_PREFILL_NODE:-crsuse2-m2m-137}"
+case "$PREFILL_NODE" in
+    crsuse2-m2m-137) PREFILL_IP="10.245.153.247"
+        RCA_TOPOLOGY="$RCA_ROOT/config/topology.rca.tsv" ;;
+    crsuse2-m2m-138) PREFILL_IP="10.245.157.237"
+        RCA_TOPOLOGY="$RCA_ROOT/config/topology.rca-138-136.tsv" ;;
+    *) echo "RCA config: no topology for $PREFILL_NODE" >&2
+        return 1 2>/dev/null || exit 1 ;;
+esac
+_rca_prefill="$PREFILL_NODE"
 DECODE_NODE="crsuse2-m2m-136"
 DECODE_IP="10.245.154.168"
 CONTROL_NODE="$PREFILL_NODE"
@@ -63,9 +72,9 @@ _rca_require_eq() {
 }
 
 _rca_require_eq IMAGE "$_rca_image"
-_rca_require_eq PREFILL_NODE "crsuse2-m2m-137"
+_rca_require_eq PREFILL_NODE "$_rca_prefill"
 _rca_require_eq DECODE_NODE "crsuse2-m2m-136"
-_rca_require_eq CONTROL_NODE "crsuse2-m2m-137"
+_rca_require_eq CONTROL_NODE "$_rca_prefill"
 _rca_require_eq CONTAINER_PREFIX "glm52-pd-crossrank-rca"
 _rca_require_eq PREFILL_HICACHE "0"
 _rca_require_eq DECODE_HICACHE "0"
@@ -82,7 +91,7 @@ if [[ "$RDMA_DEVICE" == *"{"* ]]; then
     return 1 2>/dev/null || exit 1
 fi
 
-export RCA_ROOT PACKUP_ROOT BENCH_DIR REMOTE_BENCH_DIR EXPECTED_IMAGE_ID
+export RCA_ROOT RCA_TOPOLOGY PACKUP_ROOT BENCH_DIR REMOTE_BENCH_DIR EXPECTED_IMAGE_ID
 export PREFILL_NODE PREFILL_IP DECODE_NODE DECODE_IP
 # Python helpers (scripts/rca_nodes.py) follow the same pair and image.
 export RCA_PREFILL_NODE="$PREFILL_NODE" RCA_DECODE_NODE="$DECODE_NODE"

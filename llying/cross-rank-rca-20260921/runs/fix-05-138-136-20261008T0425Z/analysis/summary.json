@@ -1,0 +1,81 @@
+{
+  "benchmark": {
+    "cancelled_requests": 102,
+    "duration_seconds": 766.44483,
+    "error_categories": {
+      "InvalidInferenceResultError": 2
+    },
+    "input_tokens_per_second": 221390.49796,
+    "output_tokens_per_second": 1569.49587,
+    "records_error_dropped": 2,
+    "records_profiled": 1387,
+    "records_total": 1551
+  },
+  "client_server_correlation": {
+    "matched_within_5s": 0,
+    "max_abs_delta_ms": null,
+    "unmatched_client_errors": 2,
+    "unmatched_decode_failures": 3
+  },
+  "cqe_destination_ranks": {},
+  "cqe_hcas": {},
+  "cqe_same_named_hca": 0,
+  "cross_numa_failure_rate": {
+    "failed": 0,
+    "paired_same_numa_failures": 0,
+    "percent": 0.0,
+    "routed": 841
+  },
+  "decode_port_rank_evidence": {},
+  "failure_rank_pairs": {},
+  "hca_fault_delta_rows": 14,
+  "hca_hard_counter_by_hca": {
+    "tx_rdma_ack_timeout": {
+      "ionic_0": 4,
+      "ionic_2": 4,
+      "ionic_3": 6,
+      "ionic_4": 14,
+      "ionic_6": 14,
+      "ionic_7": 4
+    }
+  },
+  "hca_hard_counter_by_node": {
+    "tx_rdma_ack_timeout": {
+      "crsuse2-m2m-138": 46
+    }
+  },
+  "hca_hard_counter_totals": {
+    "tx_rdma_ack_timeout": 46
+  },
+  "hca_timeseries_fault_events": 18,
+  "hca_timeseries_fault_events_by_counter": {
+    "tx_rdma_ack_timeout": 18
+  },
+  "paired_failure_causes": {
+    "primary-send": 1,
+    "session-cascade": 2
+  },
+  "paired_failure_numa_classes": {},
+  "paired_failure_rank_classes": {},
+  "paired_transfer_failures": 0,
+  "reproduced": false,
+  "root_cause_status": "not-closed; single-variable pair matrix pending",
+  "router_pair_classes": {
+    "cross-rank/cross-numa": 841,
+    "cross-rank/same-numa": 588,
+    "same-rank/same-numa": 224
+  },
+  "router_pair_count": 1653,
+  "run": "/home/liyingli/bench_agentx/baseline/Infera/llying/cross-rank-rca-20260921/runs/fix-05-138-136-20261008T0425Z",
+  "signatures": {
+    "client_errors": 2,
+    "cqe_error_12": 0,
+    "decode_transfer_failed": 0,
+    "prefill_transfer_failed": 3,
+    "retry_exhausted": 0,
+    "session_failed": 1,
+    "session_not_alive": 2,
+    "transfer_client_aborted": 0
+  },
+  "transfer_failure_records": 3
+}
