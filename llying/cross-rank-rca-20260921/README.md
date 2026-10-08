@@ -88,9 +88,11 @@ byte mismatch 或 worker fatal error，都先保存现场，不得直接重跑�
 ```bash
 RUN="$ROOT/runs/<RUN_ID>"
 python3 "$ROOT/scripts/analyze_reproduction.py" "$RUN"
+python3 "$ROOT/scripts/rail_conservation.py" "$RUN"   # 逐 rail 包数对账
+python3 "$ROOT/scripts/ack_timeout_events.py" "$RUN"  # 每次 ACK timeout 分类（需时间序列）
 ```
 
-分析产物写入 `$RUN/analysis/`。
+分析产物写入 `$RUN/analysis/`。`analyze_reproduction.py` 返回 1 表示没有复现故障。
 
 ## Pair matrix
 

@@ -1,0 +1,161 @@
+{
+  "agentx_run": "/home/liyingli/bench_agentx/baseline/Infera/llying/cross-rank-rca-20260921/runs/fix-06-136-138-20261008T0608Z",
+  "failed_gates": [
+    "agentx-hca-hard-counters-zero"
+  ],
+  "gates": [
+    {
+      "detail": "auto",
+      "name": "matrix-contract-policy",
+      "passed": true
+    },
+    {
+      "detail": {
+        "missing": [],
+        "records": 64,
+        "unique_pairs": 64
+      },
+      "name": "matrix-64-unique-pairs",
+      "passed": true
+    },
+    {
+      "detail": 0,
+      "name": "matrix-byte-verify",
+      "passed": true
+    },
+    {
+      "detail": 0,
+      "name": "matrix-process-success",
+      "passed": true
+    },
+    {
+      "detail": 0,
+      "name": "matrix-counter-snapshots-complete",
+      "passed": true
+    },
+    {
+      "detail": {
+        "nonzero_records": 0
+      },
+      "name": "matrix-zero-cqe_error_12",
+      "passed": true
+    },
+    {
+      "detail": {
+        "nonzero_records": 0
+      },
+      "name": "matrix-zero-retry_exhausted",
+      "passed": true
+    },
+    {
+      "detail": {
+        "nonzero_records": 0
+      },
+      "name": "matrix-zero-req_tx_retry_excd_err",
+      "passed": true
+    },
+    {
+      "detail": {
+        "nonzero_records": 0
+      },
+      "name": "matrix-zero-tx_rdma_ack_timeout",
+      "passed": true
+    },
+    {
+      "detail": false,
+      "name": "agentx-router-affinity-off",
+      "passed": true
+    },
+    {
+      "detail": [
+        "ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7",
+        "ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7"
+      ],
+      "name": "agentx-shared-8-hca",
+      "passed": true
+    },
+    {
+      "detail": [
+        false,
+        false
+      ],
+      "name": "agentx-hicache-off",
+      "passed": true
+    },
+    {
+      "detail": 1228.02777,
+      "name": "agentx-duration-1200s",
+      "passed": true
+    },
+    {
+      "detail": 0,
+      "name": "agentx-client-errors-zero",
+      "passed": true
+    },
+    {
+      "detail": {
+        "decode": 0,
+        "prefill": 0
+      },
+      "name": "agentx-transfer-failures-zero",
+      "passed": true
+    },
+    {
+      "detail": {
+        "client_cancelled": 24,
+        "transfer_client_aborted": 12
+      },
+      "name": "agentx-transfer-aborts-client-cancelled",
+      "passed": true
+    },
+    {
+      "detail": 0,
+      "name": "agentx-cqe12-zero",
+      "passed": true
+    },
+    {
+      "detail": 0,
+      "name": "agentx-retry-exhausted-zero",
+      "passed": true
+    },
+    {
+      "detail": 0,
+      "name": "agentx-session-failed-zero",
+      "passed": true
+    },
+    {
+      "detail": {
+        "tx_rdma_ack_timeout": 18
+      },
+      "name": "agentx-hca-hard-counters-zero",
+      "passed": false
+    },
+    {
+      "detail": {
+        "0": 346,
+        "1": 346,
+        "2": 346,
+        "3": 346,
+        "4": 346,
+        "5": 346,
+        "6": 346,
+        "7": 345
+      },
+      "name": "agentx-decode-ranks-global",
+      "passed": true
+    },
+    {
+      "detail": {
+        "agentx": [
+          "sha256:88286215b79d43306dce88dcdf299a13d939c6b708691dc192ca7c7c33c518a5"
+        ],
+        "matrix": "sha256:88286215b79d43306dce88dcdf299a13d939c6b708691dc192ca7c7c33c518a5"
+      },
+      "name": "matrix-agentx-same-image",
+      "passed": true
+    }
+  ],
+  "matrix": "/home/liyingli/bench_agentx/baseline/Infera/llying/cross-rank-rca-20260921/matrix/cert-v3-137-136-20261006",
+  "passed": false,
+  "required_policy": "auto"
+}

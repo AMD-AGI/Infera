@@ -1,0 +1,12 @@
+{
+  "targets": [
+    {
+      "container": "glm52-pd-crossrank-rca-router",
+      "elapsed_seconds": 6.037,
+      "health_url": "http://10.245.154.168:28000/health",
+      "healthy": true,
+      "name": "router",
+      "node": "crsuse2-m2m-136"
+    }
+  ]
+}

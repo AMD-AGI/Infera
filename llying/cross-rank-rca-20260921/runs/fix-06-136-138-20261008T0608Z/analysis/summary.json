@@ -1,0 +1,73 @@
+{
+  "benchmark": {
+    "cancelled_requests": 24,
+    "duration_seconds": 1228.02777,
+    "error_categories": {},
+    "input_tokens_per_second": 264412.68323,
+    "output_tokens_per_second": 2064.66748,
+    "records_error_dropped": 0,
+    "records_profiled": 2579,
+    "records_total": 2743
+  },
+  "client_server_correlation": {
+    "matched_within_5s": 0,
+    "max_abs_delta_ms": null,
+    "unmatched_client_errors": 0,
+    "unmatched_decode_failures": 0
+  },
+  "cqe_destination_ranks": {},
+  "cqe_hcas": {},
+  "cqe_same_named_hca": 0,
+  "cross_numa_failure_rate": {
+    "failed": 0,
+    "paired_same_numa_failures": 0,
+    "percent": 0.0,
+    "routed": 1392
+  },
+  "decode_port_rank_evidence": {},
+  "failure_rank_pairs": {},
+  "hca_fault_delta_rows": 9,
+  "hca_hard_counter_by_hca": {
+    "tx_rdma_ack_timeout": {
+      "ionic_0": 8,
+      "ionic_4": 8,
+      "ionic_6": 2
+    }
+  },
+  "hca_hard_counter_by_node": {
+    "tx_rdma_ack_timeout": {
+      "crsuse2-m2m-136": 18
+    }
+  },
+  "hca_hard_counter_totals": {
+    "tx_rdma_ack_timeout": 18
+  },
+  "hca_timeseries_fault_events": 5,
+  "hca_timeseries_fault_events_by_counter": {
+    "tx_rdma_ack_timeout": 5
+  },
+  "paired_failure_causes": {},
+  "paired_failure_numa_classes": {},
+  "paired_failure_rank_classes": {},
+  "paired_transfer_failures": 0,
+  "reproduced": false,
+  "root_cause_status": "not-closed; single-variable pair matrix pending",
+  "router_pair_classes": {
+    "cross-rank/cross-numa": 1392,
+    "cross-rank/same-numa": 1026,
+    "same-rank/same-numa": 349
+  },
+  "router_pair_count": 2767,
+  "run": "/home/liyingli/bench_agentx/baseline/Infera/llying/cross-rank-rca-20260921/runs/fix-06-136-138-20261008T0608Z",
+  "signatures": {
+    "client_errors": 0,
+    "cqe_error_12": 0,
+    "decode_transfer_failed": 0,
+    "prefill_transfer_failed": 0,
+    "retry_exhausted": 0,
+    "session_failed": 0,
+    "session_not_alive": 0,
+    "transfer_client_aborted": 12
+  },
+  "transfer_failure_records": 0
+}

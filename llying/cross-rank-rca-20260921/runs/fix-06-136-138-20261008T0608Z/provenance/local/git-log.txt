@@ -1,0 +1,26 @@
+commit a627d0212dc85f2abf776b7c1edcf5f3839cc52f
+Author:     liyingli <liyingli@amd.com>
+AuthorDate: Thu Oct 8 05:45:44 2026 +0000
+Commit:     liyingli <liyingli@amd.com>
+CommitDate: Thu Oct 8 05:45:44 2026 +0000
+
+    Show the residual ACK timeouts are real QP stalls on 138->136
+    
+    Re-ran the C80 contract on the 2026-09-21 pair with 1 s HCA counters.
+    v3 holds there too (0 failures in 2608 requests), recovering from a
+    one-off 120k-frame network loss at the first burst. The same run with
+    MC_IB_TIMEOUT=24 (69 s) instead completes 1387 requests with 3 transfer
+    failures: one stall outlives Mooncake's 30 s sync transfer timeout. So
+    each residual timeout is a QP that only resumes on retransmission, and
+    the 1.07 s default stays.
+    
+    The stalls sit in the receiving NIC (136): duplicate-only events had
+    every original delivered with no ACK returned, and ~1.5k-packet events
+    reached its MAC but not its RDMA engine, with no error counter.
+    
+    config.rca.p8d8.sh now picks the pair and topology from RCA_PREFILL_NODE
+    (default 137) and run_reproduction.sh forwards it to the remote launch
+    and takes RCA_COUNTER_INTERVAL; ack_timeout_events.py classifies each
+    timeout by what its retransmits found.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
