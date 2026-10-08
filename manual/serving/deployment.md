@@ -83,3 +83,26 @@ something to patch. Run `ais-check` inside the container on an MI355X
 host to confirm the kernel exposes P2PDMA — otherwise hipFile falls back to a
 CPU bounce (still works, just slower).
 ```
+
+### Decode radix cache with speculative decoding
+
+Infera normally skips automatically enabling SGLang's Decode radix cache when
+speculative decoding is active, because stock SGLang versions reject this
+combination. On a SGLang build that explicitly supports Decode radix with
+speculation, set `SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` in the worker's
+inherited environment to opt in. The experimental SGLang patch used for validation reads the same variable.
+Infera does not patch the engine or detect support automatically.
+
+The opt-in only changes automatic forwarding of
+`--disaggregation-decode-enable-radix-cache`. KV events must be enabled, the
+worker must be a Decode leg using Mooncake, and existing model/topology rejection
+checks still apply. An explicit user-provided flag is left to SGLang to validate.
+Without the opt-in, speculative Decode keeps its previous behavior;
+non-speculative Decode is unchanged.
+
+The experimentally validated combination is GLM-5.2 with EAGLE/NEXTN, top-k 1,
+on the patched SGLang build. This is not a claim of support for other speculative
+algorithms, top-k settings, hybrid SWA or Mamba/SSM models. A stock build can still
+reject the forwarded flag at launch. This option does not enable Decode HiCache
+or session affinity, and performance measurements using simulated acceptance
+length do not replace accuracy validation with real speculative acceptance.

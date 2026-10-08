@@ -74,6 +74,29 @@ def test_an_explicit_flag_is_left_alone(monkeypatch):
     assert argv.count(_FLAG) == 1
 
 
+_MTP = ["--speculative-algorithm", "EAGLE", "--speculative-eagle-topk", "1"]
+
+
+def test_skips_under_speculative_decoding_by_default(monkeypatch):
+    _reason(monkeypatch, None)
+    monkeypatch.delenv(args_mod._DECODE_RADIX_SPEC_ENV, raising=False)
+    assert _FLAG not in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
+
+
+def test_appends_under_speculative_decoding_when_opted_in(monkeypatch):
+    """The opt-in is shared with the patched SGLang hook, which then accepts
+    the flag; without that patch SGLang still raises, as the default expects."""
+    _reason(monkeypatch, None)
+    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
+    assert _FLAG in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
+
+
+def test_the_opt_in_does_not_override_a_model_rejection(monkeypatch):
+    _reason(monkeypatch, "Mamba/SSM")
+    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
+    assert _FLAG not in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
+
+
 def test_prefill_leg_is_untouched(monkeypatch):
     _reason(monkeypatch, None)
     prefill = [*_DECODE[:-4], "--disaggregation-mode", "prefill", *_DECODE[-2:]]
