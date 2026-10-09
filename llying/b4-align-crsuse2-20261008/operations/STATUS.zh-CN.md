@@ -47,6 +47,9 @@
 | 05:02 | 136/138 | `MEASUREMENT_COMPLETE` | `stop_after.sh` 05:03 删除本实验容器 |
 | 05:05 | 登录节点 | `analyze.py`、`analyze_decode_prefix.py`、`scripts/compare_b4.py` | 结果见 `../RESULT.zh-CN.md`：吞吐对齐在 1% 以内，TTFT/ITL p90 高 6–8%；数据复制到 `results/b4-crsuse2-136-138-20261009T0317Z/` |
 
+| 06:30 | — | 用户要求：1P(TP8)+1D(TP4) C80，其余与对齐配置一致 | 按 aus 的 B5 设计（`make_capacity_point.py b5`）：D TP4/DP4、GPU 0–3、chunk 16384（每 rank 4096）、max-running 256、graph bs 256；`B4_DECODE_TP=4` 开关，D 容量无 B4 参考只记录；空闲检查只看用到的 GPU |
+| 06:32 | 136 | `B4_DECODE_TP=4 B4_GATE_SOFT=1 B4_ANSWER_CHECK=1 setsid scripts/run_unattended.sh` | `runs/b4-crsuse2-136-138-d4-20261009T0632Z/`，日志 `run4-p8d4-136-138.log` |
+
 ### 第三轮答案检查的结论
 
 - 跨 rank 传输在共享 8 网卡下正常（128/128 无错误）。

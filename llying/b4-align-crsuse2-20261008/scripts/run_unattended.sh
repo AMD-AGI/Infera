@@ -1,17 +1,21 @@
 #!/usr/bin/env bash
 # Unattended B4 run, then stop_after.sh on it. Run under setsid on the Prefill
 # node; extra B4_* variables pass through.
-#   No STAGE: wait (up to WAIT_MIN minutes, default 120) until every GPU on both
-#     nodes holds < 2% VRAM, then run_b4.sh all under a new B4_RUN_ID.
+#   No STAGE: wait (up to WAIT_MIN minutes, default 120) until every GPU the run
+#     uses (P: 0-7, D: 0..B4_DECODE_TP-1) holds < 2% VRAM, then run_b4.sh all
+#     under a new B4_RUN_ID.
 #   STAGE...: run those stages in order on the existing run B4_RUN_ID.
 # Usage: B4_PREFILL_NODE=<p> B4_DECODE_NODE=<d> [B4_RUN_ID=<id>] run_unattended.sh [STAGE...]
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 nodes=("${B4_PREFILL_NODE:-crsuse2-m2m-136}" "${B4_DECODE_NODE:-crsuse2-m2m-138}")
+gpus=(8 "${B4_DECODE_TP:-8}")  # GPUs used per node, counted from card0
 busy() {
-    for node in "${nodes[@]}"; do
-        ssh -o BatchMode=yes "$node" rocm-smi --showmeminfo vram --csv
-    done | awk -F, '/^card/ && $3 >= 0.02 * $2 {n++} END {print n + 0}'
+    for i in 0 1; do
+        ssh -o BatchMode=yes "${nodes[i]}" rocm-smi --showmeminfo vram --csv |
+            awk -F, -v n="${gpus[i]}" '/^card/ { sub("card", "", $1); if ($1 < n && $3 >= 0.02 * $2) busy++ }
+                END { print busy + 0 }'
+    done | awk '{ total += $1 } END { print total + 0 }'
 }
 if (( $# == 0 )); then
     set -- all
@@ -20,7 +24,8 @@ if (( $# == 0 )); then
         sleep 60
     done
     [[ "$(busy)" == 0 ]] || { echo "$(date -u +%FT%TZ) GPUs still hold VRAM; not starting"; exit 1; }
-    export B4_RUN_ID="b4-crsuse2-${nodes[0]##*-}-${nodes[1]##*-}-$(date -u +%Y%m%dT%H%MZ)"
+    shape=$([[ "${B4_DECODE_TP:-8}" == 8 ]] || echo "-d${B4_DECODE_TP}")
+    export B4_RUN_ID="b4-crsuse2-${nodes[0]##*-}-${nodes[1]##*-}${shape}-$(date -u +%Y%m%dT%H%MZ)"
 fi
 : "${B4_RUN_ID:?set B4_RUN_ID to resume an existing run}"
 echo "$(date -u +%FT%TZ) $B4_RUN_ID: stages $*"

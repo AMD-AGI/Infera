@@ -23,7 +23,8 @@ TRACE_RUNTIME="$B4_ROOT/runtime"
 BENCH_DIR="$TRACE_RUNTIME/scripts/bench-harness"
 REMOTE_BENCH_DIR="$BENCH_DIR"
 # run_b4.sh exports B4_RUN_ID so every process that sources this file agrees.
-RUN_ID="${B4_RUN_ID:-b4-crsuse2-${PREFILL_NODE##*-}-${DECODE_NODE##*-}-$(date -u +%Y%m%dT%H%MZ)}"
+_b4_shape=$([[ "${B4_DECODE_TP:-8}" == 8 ]] || echo "-d${B4_DECODE_TP}")
+RUN_ID="${B4_RUN_ID:-b4-crsuse2-${PREFILL_NODE##*-}-${DECODE_NODE##*-}${_b4_shape}-$(date -u +%Y%m%dT%H%MZ)}"
 RUN="$TRACE_RUNTIME/runs/$RUN_ID"
 TOPOLOGY="$RUN/topology.json"
 # transition_two_node.stop() only stops containers under llying-campaign-.
@@ -92,9 +93,12 @@ PREFILL_HICACHE_IO_BACKEND=kernel PREFILL_HICACHE_MEM_LAYOUT=page_first
 PREFILL_HSA_NO_SCRATCH_RECLAIM=0
 PREFILL_SEED=823508857
 
-DECODE_TP=8 DECODE_DP=8 DECODE_DPA=1 DECODE_EP=1
-DECODE_GPU_DEVICES=0,1,2,3,4,5,6,7
-DECODE_CHUNK_SIZE=32768 DECODE_MAX_RUNNING=256 DECODE_GRAPH_MAX_BS=256
+# B4_DECODE_TP=4 gives aus's planned P8D4 point (make_capacity_point.py b5):
+# D on GPUs 0..TP-1, TP=DP, per-rank chunk 4096, total max-running still 256.
+DECODE_TP="${B4_DECODE_TP:-8}" DECODE_DPA=1 DECODE_EP=1
+DECODE_DP=$DECODE_TP
+DECODE_GPU_DEVICES="$(seq -s, 0 $((DECODE_TP - 1)))"
+DECODE_CHUNK_SIZE=$((DECODE_TP * 4096)) DECODE_MAX_RUNNING=256 DECODE_GRAPH_MAX_BS=256
 DECODE_MEM_FRACTION=0.85
 DECODE_HICACHE=0 DECODE_HICACHE_RATIO=1.5 DECODE_HICACHE_WRITE_POLICY=write_through
 DECODE_HICACHE_IO_BACKEND=kernel DECODE_HICACHE_MEM_LAYOUT=page_first
@@ -113,9 +117,11 @@ INFERA_SESSION_AFFINITY=both INFERA_SESSION_AFFINITY_TTL_SECS=3600
 KV_PREFILL_OVERLAP_WEIGHT=20 KV_DECODE_OVERLAP_WEIGHT=2
 RUST_LOG=info,infera_router::routing_experiments=warn
 
-# Capacity reference (tokens per rank) for the post-launch check.
+# Capacity reference (tokens per rank) for the post-launch check; B4 has no
+# decode reference at another TP, so 0 records the value without comparing.
 EXPECTED_PREFILL_CHUNK=4096
-REFERENCE_PREFILL_TOKENS=3143424 REFERENCE_HOST_TOKENS=4715200 REFERENCE_DECODE_TOKENS=3003264
+REFERENCE_PREFILL_TOKENS=3143424 REFERENCE_HOST_TOKENS=4715200
+REFERENCE_DECODE_TOKENS=$([[ "$DECODE_TP" == 8 ]] && echo 3003264 || echo 0)
 MAX_AUTOMATIC_CAPACITY_RELATIVE_DRIFT=0.001
 
 # Tracing and diagnostics, as in B4.

@@ -27,7 +27,7 @@ import transition_two_node as ops  # noqa: E402
 
 PREFIX = E["CONTAINER_PREFIX"]
 # Forwarded to engine.sh, which sources the config on the worker node.
-PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID")
+PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID", "B4_DECODE_TP")
 B4_CAPACITY = {"prefill": int(E["REFERENCE_PREFILL_TOKENS"]), "decode": int(E["REFERENCE_DECODE_TOKENS"])}
 
 
@@ -49,7 +49,8 @@ def workers():
              bootstrap_port=28999, kv_port=25558, snapshot_port=28802),
     ]
     for row in rows:
-        row.update(container=f"{PREFIX}-{row['role']}-0", gpu_ids=list(range(8)), tp=8, dp=8,
+        tp = int(E[row["role"].upper() + "_TP"])
+        row.update(container=f"{PREFIX}-{row['role']}-0", gpu_ids=list(range(tp)), tp=tp, dp=tp,
                    allocation_job=E["ALLOCATION_JOB_ID"])
     return rows
 
@@ -60,10 +61,10 @@ def resolved():
     return load(RUN / "topology.json")
 
 
-def vram_fractions(node):
+def vram_fractions(node, gpus):
     data = json.loads(ops.remote(node, ["rocm-smi", "--showmeminfo", "vram", "--json"]))
-    return [int(v["VRAM Total Used Memory (B)"]) / int(v["VRAM Total Memory (B)"])
-            for k, v in sorted(data.items()) if k.startswith("card")]
+    return [int(data[f"card{g}"]["VRAM Total Used Memory (B)"]) / int(data[f"card{g}"]["VRAM Total Memory (B)"])
+            for g in gpus]
 
 
 def prepare():
@@ -83,7 +84,8 @@ def prepare():
     for node in {w["node"] for w in rows}:
         image = ops.remote(node, ["docker", "image", "inspect", "--format", "{{.Id}}", E["IMAGE"]]).strip()
         assert image == E["EXPECTED_IMAGE_ID"], (node, image)
-        busy = [f for f in vram_fractions(node) if f >= 0.02]
+        gpus = sorted({g for w in rows if w["node"] == node for g in w["gpu_ids"]})
+        busy = [f for f in vram_fractions(node, gpus) if f >= 0.02]
         assert not busy, f"{node}: GPUs hold VRAM {busy}"
         others = ops.remote(node, ["docker", "ps", "--format", "{{.Names}}"]).split()
         assert not [n for n in others if n.startswith(PREFIX)], f"{node}: {PREFIX} containers exist"
@@ -205,7 +207,7 @@ def switch():
         ops.remote(node, ["docker", "stop", "-t", "60", name])
         ops.remote(node, ["docker", "rm", name])
     for _ in range(240):
-        if all(f < 0.02 for f in vram_fractions(decode["node"])):
+        if all(f < 0.02 for f in vram_fractions(decode["node"], decode["gpu_ids"])):
             break
         time.sleep(10)
     else:
@@ -224,10 +226,11 @@ def preflight():
             raw = f.read().decode()
         values = [float(v) for v in re.findall(r"^sglang:max_total_num_tokens\{[^}]*\} ([0-9.eE+-]+)$", raw, re.M)]
         assert len(values) == w["dp"], (w["instance"], values)
-        drift = max(abs(v - B4_CAPACITY[w["role"]]) / B4_CAPACITY[w["role"]] for v in values)
-        capacity[w["instance"]] = {"tokens_per_rank": values, "b4": B4_CAPACITY[w["role"]], "max_relative_drift": drift}
+        ref = B4_CAPACITY[w["role"]]  # 0: no B4 reference for this shape, record only
+        drift = max(abs(v - ref) / ref for v in values) if ref else None
+        capacity[w["instance"]] = {"tokens_per_rank": values, "b4": ref or None, "max_relative_drift": drift}
     (RUN / "capacity-check.json").write_text(json.dumps(capacity, indent=2) + "\n")
-    worst = max(c["max_relative_drift"] for c in capacity.values())
+    worst = max(c["max_relative_drift"] or 0 for c in capacity.values())
     limit = float(E["MAX_AUTOMATIC_CAPACITY_RELATIVE_DRIFT"])
     if worst > limit and E.get("B4_ALLOW_CAPACITY_DRIFT") != "1":
         raise SystemExit(f"KV capacity drifts {worst:.4%} from B4 (limit {limit:.2%}); see capacity-check.json")
