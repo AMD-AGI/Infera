@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "task.schema.json",
+  "title": "Task",
+  "description": "One workflow step. Keys are `closure` spec §2.5's. **Not independently loadable**: a task spec is declared inside its closure as the `task` key (closure spec §2), so no package ships one of these alone and `closure.schema.json` `$ref`s it. `docs/design.md` §2.3 states the same thing from the package side.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["goal", "body", "version", "inputs", "outputs"],
+  "properties": {
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "ONE SENTENCE, at most 100 characters: what this task is for, for a human deciding whether they want it. `closure` spec §2.5 calls the limit a global configuration value rather than a per-package one — this schema is that global value, since it is the one artefact every package is checked against."
+    },
+    "body": {
+      "$ref": "_common.schema.json#/$defs/body",
+      "description": "What this task actually IS (closure spec §2.6). `goal` and `body` are not two names for one thing: a hundred characters of prose cannot tell a system what to run or how, and a shell script cannot tell a reviewer why the step exists. `entry.sh` and a subgraph are mutually exclusive — a named load-time check, since `readme.md` is required either way and the exclusion is between `entry` and `subgraph`, not between `body` and `subgraph`."
+    },
+    "version": { "$ref": "_common.schema.json#/$defs/version" },
+    "materials": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "Things this task may need for itself; the author is free about what goes in. The system is meant to wrap them into a handoff and **nothing does yet** — which kind, which checks, which scope, and who mints it are all open (docs/interfaces.md §5.1b). Resolve them through the task spec and treat the wrapping as one call behind a name."
+    },
+    "repos": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "description": "The dependency repositories this task's work needs — `sglang`, `mooncake`, `aiter`. **Per task**, unlike the main repository, which is one per run (`env_mgr` spec §6.1)."
+    },
+    "monitor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Which monitor loop watches this task, by name. Absent takes the global default. Resolved from the component registry as `monitor:<name>`, and a name that will not resolve is not merely an unwatched task — it is a task that never advances a phase (`monitor` spec §5.3)."
+    },
+    "inputs": {
+      "$ref": "_common.schema.json#/$defs/handoff_kind_names",
+      "description": "Handoff KIND names this task consumes. Every one must resolve and must appear in its closure's declared `handoffs` (closure spec §4 check 2)."
+    },
+    "outputs": {
+      "$ref": "_common.schema.json#/$defs/handoff_kind_names",
+      "description": "Handoff KIND names this task produces."
+    },
+    "resources": {
+      "type": "object",
+      "additionalProperties": { "type": "number", "minimum": 0 },
+      "description": "Pool name to amount. `task_graph` keys these by pool NAME and the scheduler never learns what a GPU is. **Only a leaf acquires**: a non-leaf declaring `resources` is rejected at load, naming the task (`task_graph` criterion 53) — a parent holding a lease while its subgraph ran would be hold-and-wait."
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "What this task's executor may reach. Versioned with the task, never carried on the agent (`task_graph` spec §3.2.2): the same agent spec running two different tasks should reach two different sets of files.",
+      "properties": {
+        "grants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path"],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Opaque to `task_graph` and to this schema; `env_mgr` resolves it. `task_graph` never resolves a path, compares a prefix, or decides containment. **No wildcard syntax is admitted**, because the covering relation is exact string equality and admitting a syntax this repository has no single definition of is what kubernetes#122154 cost."
+              },
+              "access": {
+                "enum": ["read", "write"],
+                "default": "read",
+                "description": "What an author DECLARED. `env_mgr.Mode` is what the kernel gets, and it is a different type on purpose — `READ_EXEC` has no declaration-side meaning. **This schema states the vocabulary and not the covering relation**: whether one value implies the other is the covering function's to define, and a description asserting an implication the checker does not perform would tell an author a grant covers something load will reject. Two implementations of that relation currently disagree — `task_graph.Permissions.covers` and `closure.check.covers` — and it is reported rather than settled here."
+              },
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "description": "A handoff KIND NAME, never an id. A grant is written at declaration time, where no instance exists. Every surveyed permission model has this shape: Kubernetes RBAC references no UID anywhere."
+              }
+            }
+          }
+        }
+      }
+    },
+    "subgraph": {
+      "type": "array",
+      "description": "The declared expansion. A task contains a task graph, or nothing — in which case it is a leaf that does the work itself (closure spec §2.1) — and it is **declared, never generated** (`task_graph` spec §3.2.2). The entry shape is `task_graph`'s, supplied by the module whose `models.subgraph_of` reads it and whose `Task.unfold` instantiates it; it was left as `{\"type\": \"object\"}` until `unfold` existed. An entry naming a closure that is not in the catalogue cannot be caught here — that is a cross-registry question, and `unfold` raises naming the candidates, as `replace_with` does for criterion 51.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["closure", "froms"],
+        "properties": {
+          "closure": {
+            "type": "string",
+            "description": "The closure this subtask instantiates. Required."
+          },
+          "froms": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 },
+            "description": "The entries this one depends on, by their `closure` name, and **required even when empty** — `[]` is how an entry says it has no predecessor, and omitting the key is how an author forgets to think about it. The edge is DERIVED today and not declared: `task_graph/models.py:560-569` walks each entry's input kinds and takes the producer recorded in `available[kind]`, so the graph is a consequence of handoff wiring plus list order. That derivation is kept and `froms` is CHECKED AGAINST it — the same trade `handoffs` makes against the task's `inputs`/`outputs` (closure spec §2.3), and for the same reason: the redundant field catches the mistake that actually happens, which here is wiring a handoff and not noticing an edge appeared. A mismatch names both sides.\n\nIt buys one thing derivation cannot express: **a dependency that shares no handoff.** `task_graph/scheduler.py:639`'s `_warn_depends_on` warns rather than rejects precisely so that `depends_on` can hold an edge no input accounts for; with `froms` declared, that edge has somewhere to be written down.\n\nNames refer to entries in THIS subgraph, and the referent must appear EARLIER in the list — `task_graph` requires the listing order to be a valid topological order, which is this repository's constraint and not an adopted one (Argo resolves `dependencies` by name and imposes no order; Tekton derives from data flow and keeps `runAfter` for the rest). A backward reference is rejected at load naming the entry and the edge. `uniqueItems` because a repeated predecessor is a typo with no supported reading — unlike `handoff_kind_names`, which declines `uniqueItems` because `handoff` criterion 11 makes a repeated kind meaningful."
+          },
+          "is_start": {
+            "type": "boolean",
+            "description": "The subgraph's entry point; dispatching it means the subgraph has begun. Optional — absent, the **first** entry is the start, which is the only reading that makes a one-entry subgraph well formed and lets the common case (a chain) carry no marks at all."
+          },
+          "is_end": {
+            "type": "boolean",
+            "description": "The subgraph's exit point; its completion means the subgraph has finished, and its outputs are the only way a handoff produced inside leaves (`task_graph` criterion 50). Optional — absent, the **last** entry is the end. Structure only: the scheduler never sees it."
+          }
+        }
+      }
+    }
+  }
+}

@@ -12,7 +12,7 @@ from task_graph.models import HandoffStatus, Task, TaskStatus
 from task_graph.registry import Registry
 from task_graph.resource import GpuMgr
 
-from .conftest import make_task, new_handoffs
+from .conftest import DISPATCHED, make_task, new_handoffs
 
 
 def test_a_task_with_no_inputs_is_immediately_eligible(scheduler, task_mgr):
@@ -28,7 +28,7 @@ def test_a_task_with_no_inputs_is_immediately_eligible(scheduler, task_mgr):
 def test_an_eligible_task_with_nothing_blocking_runs_at_once(scheduler, task_mgr):
     task = make_task()
     scheduler.submit(task)
-    assert task_mgr.get(task.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(task.id).status is DISPATCHED
 
 
 def test_a_task_with_an_unmet_input_waits_for_handoffs(scheduler, task_mgr):
@@ -48,7 +48,7 @@ def test_a_task_whose_inputs_are_already_valid_is_eligible(
 
     consumer = make_task(inputs=producer.outputs)
     scheduler.submit(consumer)
-    assert task_mgr.get(consumer.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(consumer.id).status is DISPATCHED
 
 
 def test_all_inputs_must_be_valid_not_just_one(scheduler, task_mgr, runner, registry):
@@ -133,7 +133,7 @@ def test_a_malformed_resource_amount_is_rejected(scheduler, task_mgr, registry, 
 def test_zero_is_a_legitimate_amount(scheduler, task_mgr):
     task = make_task(resources={"gpu": 0})
     scheduler.submit(task)
-    assert task_mgr.get(task.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(task.id).status is DISPATCHED
 
 
 def test_a_registered_resource_is_accepted(scheduler, task_mgr):
@@ -179,7 +179,7 @@ def test_a_missing_depends_on_edge_warns_and_does_not_reject(
 
     assert str(producer.id) in caplog.text
     assert "depends_on" in caplog.text
-    assert task_mgr.get(consumer.id).status is TaskStatus.RUNNING  # accepted
+    assert task_mgr.get(consumer.id).status is DISPATCHED  # accepted
 
 
 def test_a_correct_depends_on_edge_is_silent(scheduler, runner, registry, caplog):
@@ -189,6 +189,11 @@ def test_a_correct_depends_on_edge_is_silent(scheduler, runner, registry, caplog
     runner.finish(producer.id)
 
     consumer = make_task(inputs=producer.outputs, depends_on=[producer.id])
+    # The producer's own submit warns that nothing was pinned for its outputs —
+    # `tests/task_graph` runs storeless by design. That is setup noise here, not
+    # the thing under test, so it is cleared rather than tolerated by loosening
+    # the assertion below: "this submit is silent" stays exact.
+    caplog.clear()
     with caplog.at_level(logging.WARNING):
         scheduler.submit(consumer)
 
@@ -214,7 +219,7 @@ def test_the_pool_index_agrees_with_the_stored_status(scheduler, task_mgr):
     for task in (hog, eligible, waiting):
         scheduler.submit(task)
 
-    assert scheduler.pools[TaskStatus.RUNNING] == {hog.id}
+    assert scheduler.pools[DISPATCHED] == {hog.id}
     assert scheduler.pools[TaskStatus.WAITING_RESOURCE] == {eligible.id}
     assert scheduler.pools[TaskStatus.WAITING_HANDOFF] == {waiting.id}
     for task in (hog, eligible, waiting):
@@ -237,7 +242,7 @@ def test_a_pool_with_no_registered_resources_still_works(store):
 
     task = make_task()
     scheduler.submit(task)
-    assert registry.get("task_mgr").get(task.id).status is TaskStatus.RUNNING
+    assert registry.get("task_mgr").get(task.id).status is DISPATCHED
 
 
 def test_resource_names_come_from_the_registry_not_a_fixed_list(store):
@@ -250,4 +255,41 @@ def test_resource_names_come_from_the_registry_not_a_fixed_list(store):
 
     task = make_task(resources={"mi300": 2})
     registry.get("scheduler").submit(task)
-    assert registry.get("task_mgr").get(task.id).status is TaskStatus.RUNNING
+    assert registry.get("task_mgr").get(task.id).status is DISPATCHED
+
+
+def test_a_storeless_dispatch_of_a_task_with_outputs_says_so(scheduler, registry, caplog):
+    """`bootstrap.py:216` deliberately leaves `handoff_store` unregistered when
+    no root was supplied, so the first resolution is a loud `KeyError` rather
+    than a store rooted at a default nobody chose.
+
+    **Two tolerant readers turned that loudness back into nothing**: this early
+    return, and `agent._seal_outputs` skipping an output with no pinned version.
+    Between them a task that declares outputs produces none and says why
+    nowhere. It cannot raise — the storeless mode is real and this suite runs
+    entirely in it — so it says so instead.
+    """
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="task_graph.scheduler"):
+        scheduler.submit(make_task(outputs=new_handoffs(2)))
+
+    assert "no handoff_store is registered" in caplog.text
+    assert "declares 2 output(s)" in caplog.text
+    # The consequence, stated correctly. The first version of this message said
+    # the gate would report `OUTPUT_ABSENT` naming the wrong cause. `monitor`
+    # measured the real methods: `_gate` returns `[]` for want of the same
+    # store, so there are no failures and `_main` reports the task planned.
+    # **It succeeds, having published nothing it declared** — worse than a
+    # misattributed absence, and asserted here so the message cannot drift back.
+    assert "will nevertheless succeed" in caplog.text
+
+
+def test_a_storeless_dispatch_of_a_task_with_no_outputs_is_silent(scheduler, caplog):
+    """Nothing to pin and nothing lost, so there is nothing to say. A warning
+    that fires for a whole class is one a reader learns to discount — `agent`'s
+    gate made that argument about `SELF_CHECK_UNSET` and it applies here."""
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger="task_graph.scheduler"):
+        scheduler.submit(make_task())
+
+    assert caplog.text == ""

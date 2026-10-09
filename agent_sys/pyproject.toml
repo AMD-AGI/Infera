@@ -7,13 +7,43 @@ authors = [
     { name = "yihou", email = "yihou@amd.com" }
 ]
 requires-python = ">=3.10"
+# Nine packages were installed on the development machine and declared nowhere,
+# so the suite was green by accident — `docs/interfaces.md` §7 measured it.
+# `python-jsonpath` was the one that was NOT installed, and it is the library
+# `handoff` design §8.4 chose after measuring six; both libraries it *rejected*
+# were present, so a Pointer test written before this block landed would have
+# passed here using a rejected library and failed on a clean install.
 dependencies = [
     "pyyaml>=6",
     "packaging>=23",
     "pydantic>=2",  # task_graph only; the repository already installs it via fastapi
+    # main spec §7 rev. 10 — the front end's parser. Round-trip mode is the only
+    # one that keeps `lc.line` / `lc.key` / `lc.value` / `lc.item` on the parsed
+    # node, and a diagnostic that cannot name a line sends an author to grep a
+    # package. Measured here rather than taken from the row: it is also YAML 1.2,
+    # so `NO`, `yes` and `12:30` are the strings they look like, and it rejects a
+    # duplicate key with a position — the two traps that went live when jsonnet's
+    # static rejection was deleted. `scratch/ui-yaml-2026-08/w3/`.
+    #
+    # **`jsonnet` and `rjsonnet` are gone** (main spec criterion 17). They were
+    # a compiled extension plus a fallback binding, carried for a computation
+    # surface measured to be constants, string concatenation and
+    # default-if-absent.
+    #
+    # The floor is the series measured (0.18.16). Not a lower one: the four `lc`
+    # accessors have been there far longer, but "far longer" is a recollection
+    # and the bound would be asserting a version nothing here ran.
+    "ruamel.yaml>=0.18",
+    "jsonschema>=4.18",      # main design §8 — the only enforcement point
+    "python-jsonpath>=1.1",  # handoff §8.4 — Pointer, three-way failure
+    "markdown-it-py>=3",     # handoff §9.2 — CommonMark, not a regex
+    "rfc8785>=0.1",          # handoff §4.6 — JCS that raises instead of rounding
 ]
 
 [project.optional-dependencies]
+claude = [
+    "claude-agent-sdk>=0.2.144",  # agent §8.1 — 376 MB, ~1.3 s to import
+]
 dev = [
     "pytest>=8",
 ]
@@ -21,6 +51,11 @@ dev = [
 [project.scripts]
 agent-sys-helper = "agent_sys_helper:main"
 env-mgr = "env_mgr.cli:main"
+# A console script pointing into an unpackaged directory is NOT an
+# install-time error: pip writes it, the install reports success, and the
+# failure arrives when a reviewer runs it. So the script points at the
+# installed runner and the runner finds the task package by path.
+agent-sys = "cli.main:main"
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
@@ -28,10 +63,37 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = [".", "src"]
-include = ["env_mgr*", "task_graph*", "agent_sys_helper*"]
+include = [
+    "env_mgr*", "task_graph*", "agent_sys_helper*",
+    # Stage three: the interface contract, importable and type-checkable.
+    # These packages currently hold `protocols.py` and nothing else — see
+    # `docs/interfaces.md` §8.
+    "spec_loader*", "handoff*", "validator*", "agent*", "closure*", "monitor*",
+    # The program's CLI — the single entry point. `examples*` is deliberately
+    # absent and must stay absent: `demo` spec §1.1 says the demo may use
+    # nothing an out-of-repository task package could not use, and the moment
+    # `examples/demo/` is an installed Python package it stops looking like
+    # one. `tests/cli/test_package_loads.py::test_examples_has_no_init` is
+    # the enforcement. Measured (`demo` design §12, M13): setuptools ships
+    # `.py` only, so from a wheel a task package's `.jsonnet` is simply not
+    # there — `cli/package.py` refuses and names why.
+    "cli*",
+]
+
+# The five JSON Schemas ship inside `spec_loader`, which `docs/design.md` D1
+# says is forced: a bare `agent_sys/schemas/` is not a package, so
+# `find_packages` cannot see it and setuptools will not install it. Reading it by
+# relative path works from a git checkout and dies from a wheel. `package-data`
+# is the other half — `packages.find` seeing the package does not ship the
+# `.json` files inside it.
+[tool.setuptools.package-data]
+spec_loader = ["schemas/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# `scratch/` is gitignored working space and may hold cloned third-party trees
+# whose own test files pytest would otherwise try to collect.
+norecursedirs = ["scratch"]
 
 # Inherits the repository's ruff settings; adds only what is local to agent_sys.
 [tool.ruff]
@@ -40,4 +102,7 @@ extend = "../pyproject.toml"
 [tool.ruff.lint.isort]
 # Neither package is in the repository's `packages.find include = ["infera*"]`,
 # so ruff cannot infer that they are first-party.
-known-first-party = ["env_mgr", "task_graph"]
+known-first-party = [
+    "env_mgr", "task_graph",
+    "spec_loader", "handoff", "validator", "agent", "closure", "monitor", "cli",
+]

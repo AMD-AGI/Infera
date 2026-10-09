@@ -1,0 +1,25 @@
+# A general spec: workflow-independent, shipped by this repository.
+#
+# Its jsonnet opened with *"A general spec is a template whose `config` is
+# empty"*. That sentence went with the template layer — main spec §4.5 rev. 10
+# now says a general spec is *"simply a document this repository ships"*, and
+# *"being uninteresting is the point"*. The uniformity is what matters and is
+# unchanged: the main repository does not get a private path for its own specs.
+#
+# See `../downstream_loads/downstream_loads.yaml` for why `inputs` is a literal.
+module: validator
+name: schema_conformance
+version: "1"
+brief: >-
+  checks that a handoff validates against the JSON Schema its kind declares —
+  completeness dimension
+inputs: [any]
+dimension: completeness
+strength: strong
+body:
+  readme: general_specs/schema_conformance/readme.md
+  entry: general_specs/schema_conformance/entry.sh
+tags:
+  logic_source: external_static
+  cost: seconds
+  domain: [schema]

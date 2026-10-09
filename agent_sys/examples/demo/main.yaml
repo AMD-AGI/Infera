@@ -1,0 +1,64 @@
+# The outermost graph. Its name is fixed and its presence is what makes this
+# directory a task package (main spec §4.3).
+#
+# `main` is a **non-leaf**: it carries a readme and no `entry.sh`, because its
+# work *is* its subgraph and the two are mutually exclusive (`closure` spec
+# §2.6). That is this package's evidence that the rule is
+# `entry.sh`-versus-subgraph rather than body-versus-subgraph — a non-leaf still
+# has to say what it is for.
+#
+# **It declares no `agent`, and that is the whole of the change.** It used to
+# name one called `compose`, whose entire description was *"a non-leaf; its work
+# is its subgraph, so it executes nothing itself"* — an agent spec written by
+# hand to satisfy a required field that nothing read. `closure.schema.json` now
+# requires `agent` of a leaf and of nothing else, and `task_graph` supplies a
+# built-in spec for a non-leaf, so the file is gone rather than moved.
+#
+# It declares no `resources` either: only a leaf may acquire, and a parent
+# holding a lease while its subtasks queue for the same pool is the deadlock
+# `task_graph` criterion 53 forbids.
+#
+# There is **no `body:` key** here, or anywhere else in this package. The readme
+# is found by filename convention: `assets/main.task/readme.md` matches an object
+# named `main` of type `task`. Binding it by hand would be legal and would warn.
+module: task
+name: main
+description: Collect a file manifest, summarise it, and render a report.
+
+# A closure may declare a kind its subgraph uses internally, and both of these
+# are exactly that: neither crosses `main`'s own boundary.
+handoffs: [facts, summary]
+validators: []
+
+task:
+  goal: Demonstrate a task graph with a subgraph, end to end.
+  version: '1'
+  inputs: []
+  outputs: []
+
+  # Inherited by every subtask: `Task._instantiate` passes the parent's
+  # permissions down, so the root's set has to cover the whole subgraph. WRITE
+  # covers a READ requirement, so two grants cover four needs.
+  permissions:
+    grants:
+      - {path: handoffs/facts, access: write, kind: facts}
+      - {path: handoffs/summary, access: write, kind: summary}
+
+  # **`froms` is mandatory on every entry, and `[]` is an answer.** The edge is
+  # still derived from the handoff wiring; what is written here is checked
+  # against that derivation and a mismatch names both sides. `produce` consumes
+  # nothing, so its `froms` is empty — which is a different statement from
+  # leaving the key out, and the schema separates the two.
+  #
+  # **No `is_start`.** Index 0 is always a root of the derived graph — the
+  # listing order has to be a valid topological order — so the mark could never
+  # carry information here, and the demo does not write marks that say nothing.
+  #
+  # **`is_end` stays.** Its default is *positional*: absent, the last entry is
+  # the end. So appending a fourth entry would silently move it, and
+  # `monitor/base.py:663` is where that lands. The mark is what stops an append
+  # from being a semantic change nobody wrote.
+  subgraph:
+    - {closure: produce, froms: []}
+    - {closure: describe, froms: [produce]}
+    - {closure: consume, froms: [describe], is_end: true}

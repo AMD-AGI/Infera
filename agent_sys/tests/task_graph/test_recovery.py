@@ -12,7 +12,7 @@ from task_graph.models import HandoffStateError, HandoffStatus, TaskStatus
 from task_graph.registry import RESUME_ORDER, Registry, resume_all
 from task_graph.store import JsonFileStoreMgr
 
-from .conftest import make_task, new_handoffs, rebuild
+from .conftest import DISPATCHED, make_task, new_handoffs, rebuild
 
 # ------------------------------------------------------------- resume_all
 
@@ -69,7 +69,7 @@ def test_a_running_task_whose_inputs_went_stale_lands_back_in_waiting(
 
     consumer = make_task(inputs=producer.outputs, resources={"gpu": 3})
     scheduler.submit(consumer)
-    assert registry.get("task_mgr").get(consumer.id).status is TaskStatus.RUNNING
+    assert registry.get("task_mgr").get(consumer.id).status is DISPATCHED
 
     # a second producer reopens the slot and never seals it
     refresher = make_task(outputs=producer.outputs)
@@ -96,7 +96,7 @@ def test_a_demoted_task_that_is_ready_is_dispatched_again(scheduler, store):
     fresh = rebuild(store)
     resume_all(fresh)
 
-    assert fresh.get("task_mgr").get(task.id).status is TaskStatus.RUNNING
+    assert fresh.get("task_mgr").get(task.id).status is DISPATCHED
     assert [e.attempt for e in fresh.get("task_mgr").get(task.id).history] == [0, 1]
     assert fresh.get("runner").started == [task.id]
 
@@ -180,7 +180,7 @@ def test_a_consumer_of_a_valid_handoff_runs_after_a_restart(scheduler, runner, s
 
     fresh = rebuild(store)
     resume_all(fresh)
-    assert fresh.get("task_mgr").get(consumer.id).status is TaskStatus.RUNNING
+    assert fresh.get("task_mgr").get(consumer.id).status is DISPATCHED
 
 
 def test_a_consumer_of_an_invalid_handoff_still_waits_after_a_restart(
@@ -225,7 +225,7 @@ def test_resuming_the_scheduler_first_leaves_every_task_blocked(scheduler, runne
     # In the right order it works.
     right = rebuild(store)
     resume_all(right)
-    assert right.get("task_mgr").get(consumer.id).status is TaskStatus.RUNNING
+    assert right.get("task_mgr").get(consumer.id).status is DISPATCHED
 
 
 def test_resume_order_puts_the_scheduler_last():
@@ -300,7 +300,7 @@ def test_a_full_cycle_survives_a_restart_through_the_json_store(tmp_path):
     runner.finish(producer.id, usage={"token": 150})
 
     # consumer is now running; the process dies here
-    assert registry.get("task_mgr").get(consumer.id).status is TaskStatus.RUNNING
+    assert registry.get("task_mgr").get(consumer.id).status is DISPATCHED
 
     fresh = rebuild(JsonFileStoreMgr(tmp_path / "state"))
     resume_all(fresh)
@@ -310,7 +310,7 @@ def test_a_full_cycle_survives_a_restart_through_the_json_store(tmp_path):
     assert fresh.get("resource:token").available == 1_000_000 - 150
 
     restored_consumer = fresh.get("task_mgr").get(consumer.id)
-    assert restored_consumer.status is TaskStatus.RUNNING  # demoted, then redispatched
+    assert restored_consumer.status is DISPATCHED  # demoted, then redispatched
     assert [e.outcome for e in restored_consumer.history] == [TaskStatus.SUSPENDED, None]
     assert restored_consumer.depends_on == [producer.id]
 
@@ -382,7 +382,7 @@ def test_a_spec_removed_before_a_restart_does_not_take_recovery_down_with_it(sch
 
     statuses = [t.status for t in fresh.get("task_mgr").all()]
     assert statuses.count(TaskStatus.FAILED) == 2
-    assert statuses.count(TaskStatus.RUNNING) == 1
+    assert statuses.count(DISPATCHED) == 1
     assert len(fresh.get("runner").started) == 1  # the healthy one still ran
     assert fresh.get("resource:gpu").available == 7  # only its lease is held
 
@@ -411,7 +411,7 @@ def test_a_version_left_generating_by_a_crash_deadlocks_its_own_retry(
     resume_all(fresh)
 
     assert fresh.get("handoff_mgr").get(task.outputs[0]).latest.status is (HandoffStatus.GENERATING)
-    assert fresh.get("task_mgr").get(task.id).status is TaskStatus.RUNNING
+    assert fresh.get("task_mgr").get(task.id).status is DISPATCHED
 
     with pytest.raises(HandoffStateError):
         fresh.get("runner").produce(fresh, task.id)
@@ -437,7 +437,7 @@ def test_a_pool_removed_before_a_restart_does_not_take_recovery_down_with_it(sto
 
     task_mgr = fresh.get("task_mgr")
     assert [task_mgr.get(t.id).status for t in hungry] == [TaskStatus.FAILED] * 2
-    assert task_mgr.get(healthy.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(healthy.id).status is DISPATCHED
     assert fresh.get("runner").started == [healthy.id]
 
 

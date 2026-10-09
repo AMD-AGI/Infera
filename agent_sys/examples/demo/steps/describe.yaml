@@ -1,0 +1,187 @@
+# The AI node, and the only task with **both** validation phases populated.
+#
+# It consumes `facts`, so its input phase runs `check_facts` — *the same
+# validator* `produce`'s output phase ran, in the other position. That is the
+# cheapest possible demonstration that a phase is a position and not a kind of
+# validator, and it is criterion 3's second half.
+#
+# It is dispatched **once** for all three phases, and no validator appears in
+# any scheduler pool: criterion 4.
+#
+# The agent and the task share the name `describe`, in one file. They are
+# different kinds, they land in different registries, and the reference from the
+# task resolves because the agent is defined above it.
+
+# --------------------------------------------------------------------------- #
+
+# The AI half. One node, one real backend, no fake.
+#
+# `backend_entry` is the dotted form rather than an entry-point name, because a
+# task package outside this repository cannot register an entry point in the
+# `agent_sys.backends` group without being installed — and this package is data.
+# Both forms are admitted (`agent` design §6.3) and the dotted one is the one an
+# uninstalled package can write.
+#
+# The module is imported inside the constructor, never at module scope: the SDK
+# is a 376 MB extra, so a missing one is a `BackendUnsupported` naming it and not
+# an `ImportError` at start-up.
+- module: agent
+  name: describe
+  kind: ai
+  version: '1'
+  description: Reads a facts manifest and writes a short grounded summary.
+
+  # **Criterion 8's leak target, and the only route it has into a body.**
+  #
+  # `assets/describe.task/readme.md` has asked the agent to write to
+  # `$AGENT_SYS_DEMO_OUTSIDE` for as long as criterion 8 has existed and
+  # **nothing exported it**, so the command ran as `echo leaked > "/leak.txt"`
+  # and got `Permission denied` from a root-owned `/` — a convincing refusal that
+  # never goes near a zone boundary, on any machine, with the sandbox switched
+  # off entirely. `demo-2` measured it; the guarding test asserted only that the
+  # string appears in the readme, which is why it survived.
+  #
+  # Two routes were checked and closed before this one. `task.goal` is capped at
+  # 100 characters by `task.schema.json` and is a human label, not an instruction
+  # channel (`closure` spec §2.6). A path relative to the zone would be a static
+  # string, but it encodes `env_mgr`'s zone depth as a literal and fails as an
+  # ordinary wrong path — the exact ambiguity the read-execute grant exists to
+  # remove.
+  #
+  # **`${outside}` is a package variable**, supplied by whoever loads the
+  # package. It is per-run and absolute: `Layout.outside` is `<run root>/outside`
+  # and a run root is a fresh directory, so no static string could name it. The
+  # default is *visibly* unfilled rather than empty, because `show` and
+  # `--dry-run` supply nothing and `'' + "/leak.txt"` is `/leak.txt` — the exact
+  # false demonstration this replaces.
+  #
+  # `env_mgr.material.deploy` merges this block last, over its own three keys and
+  # the harness block, and its docstring calls a declared `env` *"what the
+  # shipped recipe machinery already resolves"*. `agent.schema.json` leaves the
+  # object unconstrained because a second schema would be a second declaration of
+  # `env_mgr`'s vocabulary — not because a package may not name a variable.
+  env:
+    AGENT_SYS_DEMO_OUTSIDE: '${outside:-<outside: not filled>}'
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+# --------------------------------------------------------------------------- #
+
+# Trustworthiness: every number in the summary appears in the facts.
+#
+# **This is the validator the demo expects to fail**, and the failure is
+# structural rather than arranged (`demo` design §4.3): the `summary` kind's
+# contract is that its numbers are grounded, `describe`'s goal asks for the
+# wall-clock time the collection took, and `facts` does not carry a duration. The
+# agent is asked in good faith for a figure its input cannot ground.
+#
+# The numeral extraction is deliberately crude — digits, not a parser. A crude
+# check that is honestly described is a `strong` validator; a sophisticated one
+# that is silently approximate is not.
+- module: validator
+  name: check_grounded
+  version: '1'
+  brief: Every numeral in the summary also appears in the facts it summarises
+  dimension: trustworthiness
+  strength: strong
+  inputs: [summary]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [demo]
+
+# --------------------------------------------------------------------------- #
+
+# What `describe` writes: a short prose summary of a `facts` manifest.
+#
+# The kind's contract is the one sentence in `readme_sections` below, and it is
+# what makes `check_grounded` honestly `strong` rather than a rubric: every
+# number in the summary must also appear in the facts it summarises. That is
+# checkable by extracting numerals from both and testing set inclusion.
+- module: handoff
+  name: summary
+  version: '1'
+  description: A short prose summary of a facts manifest, grounded in it.
+  content_type: text
+  scope: fixed.required
+  readme_sections: [Grounding]
+
+  # **`grounding` is the task declaration passing its own input through to its
+  # own output**, and it is here because of a user ruling: *"this is a
+  # task-declaration problem, the system does not handle it — if it is needed,
+  # the task author passes their own input through to their own output when they
+  # define the task."*
+  #
+  # `check_grounded` judges a `summary`, and *grounded in its input* compares two
+  # handoffs. An output phase stages only what it validates, and the other one is
+  # the **producing task's input**. Two doors were tried and both are shut: a
+  # body has no route to the store (`env_mgr` measured `EACCES` on the store root
+  # from a confined body, so today's route works only while the permissions
+  # switch is off), and adding `facts` to the validator's own inputs was
+  # overtaken by the ruling — it is not the system's job.
+  #
+  # So the artefact carries what judging it requires. A verbatim copy, made by
+  # one `cp -r`, rather than *"the numerals you used"*: a list the producer
+  # curates is the producer deciding what it will be judged against, and this is
+  # a validator whose whole subject is whether the producer invented a number.
+  # Copying is mechanical; selecting is a judgement.
+  #
+  # **The cost, stated rather than hidden.** The grounding set now reaches the
+  # validator *through the producer*, so `check_grounded` is exact about the
+  # summary's internal consistency and inherits the producer's honesty about the
+  # copy. `validator` spec §8 is a table of *"the producer cannot"* and this is in
+  # its territory. It is not rigging — a producer that fabricates a number must
+  # now also plant it in the copied facts, which is a different act from
+  # summarising, and the measured behaviour is a model that states the gap rather
+  # than papering over it. But the check is no longer independent of the party it
+  # judges, and `assets/check_grounded.validator/readme.md` says so in its own
+  # words.
+  #
+  # The `text` content type defines only `content` and no optional items; a key
+  # the type never defined is admitted by the **kind's** `items_schema`
+  # (`handoff/content.py:check_items` — `declared` is unioned into `known`), which
+  # is the split that makes this expressible with no second mechanism.
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: [content, grounding]
+    properties:
+      content: {type: string}
+      # A directory: `Content.load` types a directory under `items/` as a `tree`
+      # and the instance value is its name, so the schema types its presence.
+      # What is *in* it is `check_grounded`'s job.
+      grounding: {type: string}
+  validators: [check_grounded]
+
+# --------------------------------------------------------------------------- #
+
+# The step.
+- module: task
+  name: describe
+  description: Read the facts manifest and write a short grounded summary.
+  agent: describe
+  handoffs: [facts, summary]
+  validators: [check_facts, check_grounded]
+  task:
+    # The gap is here, in one clause, and it is deliberate: `facts` carries no
+    # duration, so the figure this asks for cannot be grounded in the input. The
+    # agent answers in good faith and `check_grounded` records False — `demo`
+    # design §4.3. The failure is a property of the specification, not of the
+    # model or of the validator.
+    #
+    # **The goal cannot carry criterion 8's leak command**, and that was worth
+    # measuring rather than assuming: `task.schema.json` caps it at 100
+    # characters — *"ONE SENTENCE … what this task is for, for a human deciding
+    # whether they want it"* — and `closure` spec §2.6 is explicit that goal and
+    # body are not two names for one thing. A step belongs in the body. The path
+    # reaches the body through the `describe` agent's `env`, above.
+    goal: Summarise the manifest, including how long the collection took.
+    version: '1'
+    inputs: [facts]
+    outputs: [summary]
+    permissions:
+      grants:
+        - {path: handoffs/facts, access: read, kind: facts}
+        - {path: handoffs/summary, access: write, kind: summary}
