@@ -1,0 +1,6 @@
+QUEUES=1 CAPTURE=0 rep=1 entries=7 gemm_count=20 total_us=1284.66
+QUEUES=1 CAPTURE=0 rep=2 entries=7 gemm_count=20 total_us=1586.86
+QUEUES=1 CAPTURE=0 rep=3 entries=7 gemm_count=20 total_us=1286.9
+QUEUES=1 CAPTURE=1 rep=1 PARSE_FAIL
+QUEUES=1 CAPTURE=1 rep=2 entries=7 gemm_count=16 total_us=1012.89
+QUEUES=1 CAPTURE=1 rep=3 PARSE_FAIL

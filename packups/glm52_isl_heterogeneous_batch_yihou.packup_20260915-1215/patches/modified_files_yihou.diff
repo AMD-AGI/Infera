@@ -1,0 +1,661 @@
+diff --git a/sglang_decode_internal_bench_and_profiling/README.md b/sglang_decode_internal_bench_and_profiling/README.md
+index ff1ee059..23da9256 100644
+--- a/sglang_decode_internal_bench_and_profiling/README.md
++++ b/sglang_decode_internal_bench_and_profiling/README.md
+@@ -102,6 +102,54 @@ All runners accept `--dry-run` as the first argument — **use it before spendin
+ 
+ ---
+ 
++## Heterogeneous input lengths
++
++`--input-len N` gives every request the same prefix. `--input-len-spec` gives them different ones.
++The two are mutually exclusive; passing both is an error.
++
++| spec | meaning |
++|---|---|
++| `70000` or `uniform:70000` | every request 70000 — identical to `--input-len 70000` |
++| `bimodal:8192,70000,0.1` | 10 % of requests at 8192, the rest at 70000 |
++| `normal:40000,8000[,lo,hi]` | draws from `N(40000, 8000²)`, rounded, clamped to `[lo, hi]` |
++| `list:4096,4096,70000,...` | verbatim; `list:@path` reads one integer per line |
++
++```bash
++bash scripts/run_decode.sh mixed_yihou \
++    --tp-size 8 --ep-size 1 --enable-dp-attention \
++    --batch-size 256 --max-running-requests 256 \
++    --input-len-spec bimodal:8192,70000,0.25 \
++    --output-len 10000 --accept-length 3.61
++```
++
++**The spec describes one attention-DP rank, not the global batch.** The count it must fill is
++`local_batch_size = batch_size // dp_size` — 32 for `--batch-size 256` at dp=8. Every rank then
++receives that same multiset **in the same order**, resolved once in the parent process and shipped
++to the ranks, so all eight stay in lockstep and the cross-rank progress check still proves it. A
++`list:` whose length is the global batch will be rejected, with the arithmetic in the message.
++
++Four things worth knowing before you use this:
++
++- **A mixed batch costs the same KV as an all-longest batch.** Allocation is uniform-max: rows are
++  sized for `max(ISL)` before the per-request prefix is truncated, so short requests over-reserve.
++  Heterogeneity buys you no capacity headroom — if the all-70000 batch does not fit, neither does
++  `{8k, 70k}`.
++- **`realized_accept_length` and `verify_iterations` are unchanged by ISL**, so the usual acceptance
++  gate still applies to a mixed run. Acceptance is simulated as one scalar per iteration broadcast
++  across the batch, and every request shares `output_len`, so they all finish on the same iteration.
++- **`input_len` in the result JSON is `null` for a mixed run**, deliberately — no single number is
++  "the" ISL. Read `input_lens` (per request, global length), `input_len_uniform`, or the
++  `context_min` / `context_max` pair in the progress log. `verify_point.py --expect-heterogeneous`
++  checks the ragged case instead of pinning one length.
++- **Whether a mixed run's TPOT is interpretable is an open question.** DSA is sparse with
++  `index_topk = 2048`; how per-step cost varies with sequence length here has not been measured.
++  The harness will give you the number. It will not tell you what it means.
++
++`compare_server.py` does not support this and rejects `--input-len-spec` explicitly rather than
++silently measuring a uniform batch.
++
++---
++
+ ## Profiling
+ 
+ `--profile` is **opt-in and off by default**; with it absent the harness is byte-compatible with the
+diff --git a/sglang_decode_internal_bench_and_profiling/bench/batch_state.py b/sglang_decode_internal_bench_and_profiling/bench/batch_state.py
+index b7aa76cc..c2365b39 100644
+--- a/sglang_decode_internal_bench_and_profiling/bench/batch_state.py
++++ b/sglang_decode_internal_bench_and_profiling/bench/batch_state.py
+@@ -55,7 +55,7 @@ def required_token_capacity(batch_size, input_len, output_len, page_size, reserv
+ @dataclass
+ class DecodeAccounting:
+     batch_size: int
+-    input_len: int
++    input_lens: list  # one entry per request; a bare int is broadcast (uniform-ISL callers)
+     output_len: int
+     max_accept_len: int = 6
+     emitted: list = field(init=False)
+@@ -66,13 +66,24 @@ class DecodeAccounting:
+     iteration_seconds: list = field(default_factory=list)
+ 
+     def __post_init__(self):
+-        if min(self.batch_size, self.input_len, self.output_len, self.max_accept_len) <= 0:
++        if isinstance(self.input_lens, int):
++            self.input_lens = [self.input_lens] * self.batch_size
++        self.input_lens = list(self.input_lens)
++        if min(self.batch_size, self.output_len, self.max_accept_len) <= 0:
+             raise ValueError("batch and lengths must be positive")
++        if len(self.input_lens) != self.batch_size:
++            raise ValueError(f"input_lens has {len(self.input_lens)} entries for batch_size {self.batch_size}")
++        if any(not isinstance(length, int) or length <= 0 for length in self.input_lens):
++            raise ValueError(f"every input length must be a positive int: {self.input_lens}")
+         self.emitted = [0] * self.batch_size
+ 
++    @property
++    def input_len_uniform(self):
++        return len(set(self.input_lens)) == 1
++
+     @property
+     def seq_lens(self):
+-        return [self.input_len + count for count in self.emitted]
++        return [base + count for base, count in zip(self.input_lens, self.emitted)]
+ 
+     @property
+     def complete(self):
+@@ -104,7 +115,10 @@ class DecodeAccounting:
+         return {
+             "complete": self.complete,
+             "batch_size": self.batch_size,
+-            "input_len": self.input_len,
++            # None, never a mean or a max: downstream reads this field as "the ISL of the run".
++            "input_len": self.input_lens[0] if self.input_len_uniform else None,
++            "input_lens": list(self.input_lens),
++            "input_len_uniform": self.input_len_uniform,
+             "output_len": self.output_len,
+             "emitted_per_request": self.emitted[:],
+             "final_seq_lens": self.seq_lens,
+diff --git a/sglang_decode_internal_bench_and_profiling/bench/compare_server.py b/sglang_decode_internal_bench_and_profiling/bench/compare_server.py
+index 49b4c60c..112eb2e3 100644
+--- a/sglang_decode_internal_bench_and_profiling/bench/compare_server.py
++++ b/sglang_decode_internal_bench_and_profiling/bench/compare_server.py
+@@ -184,6 +184,12 @@ def main():
+     parser.add_argument('--warmup-requests',type=int,default=16)
+     parser.add_argument('--initial-state',choices=['sikl','fake-server'],default='fake-server')
+     args, extra = parser.parse_known_args()
++    # This tool inherits profile_decode's parser, so --input-len-spec is accepted by the parser
++    # but nothing here honours it: initialize_state() builds seq_lens from the scalar args.input_len
++    # and check_rank_progress() is called with a scalar final length. Rejecting it explicitly beats
++    # silently measuring a uniform batch while the operator believes it is ragged.
++    if getattr(args, 'input_len_spec', None) is not None:
++        raise ValueError('Server reference comparison supports only a uniform --input-len; use profile_decode.py for --input-len-spec')
+     base.validate_args(args)
+     wave_sizes(args.num_requests,args.batch_size)
+     if args.warmup_requests:wave_sizes(args.warmup_requests,args.batch_size)
+diff --git a/sglang_decode_internal_bench_and_profiling/bench/profile_decode.py b/sglang_decode_internal_bench_and_profiling/bench/profile_decode.py
+index 42bd7119..32867ec0 100644
+--- a/sglang_decode_internal_bench_and_profiling/bench/profile_decode.py
++++ b/sglang_decode_internal_bench_and_profiling/bench/profile_decode.py
+@@ -28,6 +28,9 @@ from topology import (
+     validate_rank_progress,
+ )
+ 
++# Stdlib-only, like the two modules above: this is imported in the parent before mp.spawn.
++from isl_spec import parse_isl_spec
++
+ # Opt-in profiling. This module is stdlib-only at import time (torch and SGLang are
+ # imported lazily inside it) and nothing it owns is constructed unless --profile.
+ from profiling_yihou import (
+@@ -38,13 +41,19 @@ from profiling_yihou import (
+ )
+ 
+ PINNED_SGLANG = "402df1e1e453e1e85ec0f5ac4052d36598cc691a"
++DEFAULT_INPUT_LEN = 70000
+ 
+ 
+ def make_parser():
+     parser = argparse.ArgumentParser(description=__doc__)
+     parser.add_argument("--model-path", required=True)
+     parser.add_argument("--batch-size", type=int, default=16)
+-    parser.add_argument("--input-len", type=int, default=70000, help="decimal tokens per request")
++    # Default stays None so that passing both this and --input-len-spec is detectable; an
++    # unspecified run still resolves to DEFAULT_INPUT_LEN.
++    parser.add_argument("--input-len", type=int, default=None, help="decimal tokens per request, uniform across the batch")
++    parser.add_argument("--input-len-spec", default=None,
++                        help="heterogeneous ISL, per attention-DP rank: uniform:N | bimodal:A,B,ratio "
++                             "| normal:mean,std[,lo,hi] | list:a,b,... | list:@file")
+     parser.add_argument("--output-len", type=int, default=10000, help="useful emitted tokens per request")
+     parser.add_argument("--accept-length", type=float, default=3.61, help="expected bonus-inclusive length, not probability")
+     parser.add_argument("--accept-method", choices=("match-expected", "multinomial"), default="match-expected")
+@@ -64,17 +73,37 @@ def make_parser():
+ 
+ def validate_args(args):
+     DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+-    if min(args.batch_size, args.input_len, args.output_len, args.tp_size) <= 0:
+-        raise ValueError("batch size, lengths and TP size must be positive")
++    if min(args.batch_size, args.output_len, args.tp_size) <= 0:
++        raise ValueError("batch size, output length and TP size must be positive")
+     if args.max_steps < 0 or args.warmup_steps < 0:
+         raise ValueError("max-steps and warmup-steps must be nonnegative")
+     if not 1 <= args.accept_length <= 6:
+         raise ValueError("accept-length must be in [1, 6] for steps=5/draft=6")
+-    if args.input_len < 2:
+-        raise ValueError("input-len must be at least 2 for a populated-prefix bootstrap")
++    if args.input_len is not None and args.input_len <= 0:
++        raise ValueError("input-len must be positive")
++    if args.input_len is not None and args.input_len_spec is not None:
++        raise ValueError("Pass either --input-len or --input-len-spec, not both")
+     validate_profile_args(args)
+ 
+ 
++def resolve_input_lens(args):
++    """Resolve the ISL spec ONCE in the parent, then ship the vector to every rank.
++
++    Plan 1 requires all attention-DP ranks to hold the same ISL multiset in the same order.
++    Resolving here and letting mp.spawn pickle the result makes that true by construction,
++    rather than by having eight processes redraw and trusting them to agree.
++    """
++    topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
++    text = args.input_len_spec if args.input_len_spec is not None else str(
++        DEFAULT_INPUT_LEN if args.input_len is None else args.input_len)
++    spec = parse_isl_spec(text)
++    lens = spec.generate(topology.local_batch_size, args.seed)
++    if min(lens) < 2:
++        raise ValueError("every input length must be at least 2 for a populated-prefix bootstrap")
++    args.input_lens = lens
++    return spec
++
++
+ def server_cli(args, extra):
+     topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+     flags = {item.split("=", 1)[0] for item in extra if item.startswith("--")}
+@@ -205,7 +234,12 @@ def allocate_batch(target, args, topology, rank):
+     page_size = runner.token_to_kv_pool_allocator.page_size
+     reserve = get_alloc_reserve_per_decode()
+     local_batch_size = topology.local_batch_size
+-    num_tokens = required_token_capacity(local_batch_size, args.input_len, args.output_len, page_size, reserve)
++    # Allocation is uniform-max on purpose. prepare_for_extend() below runs before the
++    # per-request truncation, so every row is sized for the longest request and shorter ones
++    # simply over-reserve. Consequence worth knowing: a mixed batch costs the same KV as an
++    # all-max batch, so heterogeneity buys capacity headroom nowhere.
++    max_input_len = max(args.input_lens)
++    num_tokens = required_token_capacity(local_batch_size, max_input_len, args.output_len, page_size, reserve)
+     reserved_len = num_tokens // local_batch_size
+     pool = runner.req_to_token_pool
+     allocator = runner.token_to_kv_pool_allocator
+@@ -213,7 +247,7 @@ def allocate_batch(target, args, topology, rank):
+         raise RuntimeError(f"KV capacity insufficient: need {num_tokens} tokens, available {allocator.available_size()}")
+     if pool.req_to_token.shape[1] < reserved_len:
+         raise RuntimeError(f"Request row too short: need {reserved_len}, have {pool.req_to_token.shape[1]}")
+-    if runner.model_config.context_len < args.input_len + args.output_len + reserve:
++    if runner.model_config.context_len < max_input_len + args.output_len + reserve:
+         raise RuntimeError("Model context length does not cover requested progression plus speculative reserve")
+     reqs = prepare_synthetic_inputs_for_latency_test(local_batch_size, reserved_len)
+     for index, req in enumerate(reqs):
+@@ -228,35 +262,41 @@ def allocate_batch(target, args, topology, rank):
+     batch.prepare_for_extend()  # allocation and page mappings only; no model prefill
+     # Prefix contents remain synthetic. All mapped future pages are reserved once,
+     # so speculative prepare_for_decode cannot allocate or recycle a live page.
+-    for req in reqs:
+-        req.origin_input_ids = req.origin_input_ids[:args.input_len]
++    for req, length in zip(reqs, args.input_lens):
++        req.origin_input_ids = req.origin_input_ids[:length]
+         req.full_untruncated_fill_ids = req.origin_input_ids
+-        req.set_extend_range(args.input_len - 1, args.input_len)
+-        req.kv_committed_len = args.input_len
++        req.set_extend_range(length - 1, length)
++        req.kv_committed_len = length
+     prompt_tokens = torch.tensor([req.origin_input_ids[-1] for req in reqs], dtype=torch.int64, device=runner.device)
+-    return batch, prompt_tokens, {"reserved_tokens": num_tokens, "reserved_tokens_per_request": reserved_len, "page_size": page_size, "speculative_reserve": reserve}
++    return batch, prompt_tokens, {"reserved_tokens": num_tokens, "reserved_tokens_per_request": reserved_len,
++                                  "page_size": page_size, "speculative_reserve": reserve,
++                                  "max_input_len": max_input_len, "min_input_len": min(args.input_lens)}
+ 
+ 
+ def bootstrap(batch, prompt_tokens, worker, args, topology):
+     """One real last-prompt-token target+draft forward over the synthetic prefix."""
+     import torch
+     from sglang.srt.model_executor.forward_batch_info import ForwardMode
+-    size, length = topology.local_batch_size, args.input_len
++    size, lengths = topology.local_batch_size, args.input_lens
+     batch.forward_mode = ForwardMode.EXTEND
+     prepare_dp_metadata(batch, topology, is_extend=True, disable_cuda_graph=args.disable_cuda_graph)
+     batch.spec_info = None
+     batch.input_ids = prompt_tokens.clone()
+     batch.prefill_input_ids_cpu = None
+-    batch.seq_lens_cpu = torch.full((size,), length, dtype=torch.int64)
++    batch.seq_lens_cpu = torch.tensor(lengths, dtype=torch.int64)
+     batch.seq_lens = batch.seq_lens_cpu.to(prompt_tokens.device)
+     batch.orig_seq_lens = batch.seq_lens.to(torch.int32)
+-    batch.seq_lens_sum = size * length
+-    batch.prefix_lens = [length - 1] * size
++    batch.seq_lens_sum = sum(lengths)
++    batch.prefix_lens = [length - 1 for length in lengths]
+     batch.extend_lens = [1] * size
+     batch.extend_num_tokens = size
+     batch.extend_logprob_start_lens = [1] * size
+-    batch.out_cache_loc = batch.req_to_token_pool.req_to_token[batch.req_pool_indices.long(), length - 1].to(torch.int64)
+-    for req in batch.reqs:
++    # Each request's last prompt token sits in its own column, so this is a per-row gather
++    # rather than one shared column index. Both index tensors must live where req_to_token does.
++    req_to_token = batch.req_to_token_pool.req_to_token
++    columns = torch.tensor([length - 1 for length in lengths], dtype=torch.int64, device=req_to_token.device)
++    batch.out_cache_loc = req_to_token[batch.req_pool_indices.long(), columns].to(torch.int64)
++    for req, length in zip(batch.reqs, lengths):
+         req.kv_committed_len = length
+     result = worker.forward_batch_generation(batch)
+     torch.cuda.synchronize()
+@@ -319,6 +359,8 @@ def run_rank(rank, server_args, port_args, args):
+     log(rank, f"topology={topology.parallel_state_kwargs(rank)} local_batch={topology.local_batch_size} global_batch={args.batch_size} moe_a2a={server_args.moe_a2a_backend} moe_runner={server_args.moe_runner_backend}")
+     progress_buffers = (torch.empty(7, dtype=torch.int64, device="cuda"),
+                         [torch.empty(7, dtype=torch.int64, device="cuda") for _ in range(args.tp_size)])
++    # Each request finishes at its own ISL + OSL, so completion is elementwise, not a scalar bound.
++    final_lens = [length + args.output_len for length in args.input_lens]
+     import sglang.srt.server_args as server_args_module
+     import sglang.srt.speculative.eagle_worker_v2 as eagle_worker_module
+     source_paths = module_source_paths([server_args_module, eagle_worker_module])
+@@ -348,7 +390,7 @@ def run_rank(rank, server_args, port_args, args):
+             torch.cuda.synchronize()
+             new_lens = result.new_seq_lens.cpu().tolist()
+             check_rank_progress(iteration, previous_lens, result.accept_lens.cpu().tolist(), new_lens,
+-                                args.input_len + args.output_len, progress_buffers)
++                                final_lens, progress_buffers)
+             commit_result(batch, result, new_lens)
+         if args.warmup_steps:
+             bootstrap(batch, prompt_tokens, worker, args, topology)
+@@ -358,7 +400,7 @@ def run_rank(rank, server_args, port_args, args):
+         torch.manual_seed(args.seed)
+         torch.cuda.synchronize()
+         dist.barrier()
+-        accounting = DecodeAccounting(topology.local_batch_size, args.input_len, args.output_len)
++        accounting = DecodeAccounting(topology.local_batch_size, args.input_lens, args.output_len)
+         steps = []
+         graph_steps = 0
+         graph_execution_counts = count_graph_executions({
+@@ -387,7 +429,7 @@ def run_rank(rank, server_args, port_args, args):
+             torch.cuda.synchronize()  # result tensors and cross-stream keep-alives stay live through here
+             accept_lens = result.accept_lens.cpu().tolist()
+             check_rank_progress(accounting.verify_ct, accounting.seq_lens, accept_lens,
+-                                result.new_seq_lens.cpu().tolist(), args.input_len + args.output_len,
++                                result.new_seq_lens.cpu().tolist(), final_lens,
+                                 progress_buffers)
+             validate_worker_progress(
+                 accounting.seq_lens, accept_lens, result.new_seq_lens.cpu().tolist()
+@@ -402,7 +444,11 @@ def run_rank(rank, server_args, port_args, args):
+             graph_steps += int(step["target_graph"])
+             steps.append(step)
+             if rank == 0 and (accounting.verify_ct <= 3 or accounting.verify_ct % max(1, args.log_interval) == 0):
+-                log(rank, f"iteration={accounting.verify_ct} context={accounting.seq_lens[0]} useful={sum(accounting.emitted)} target_graph={step['target_graph']}")
++                # Report the span, not seq_lens[0]: with a ragged batch a single element is not
++                # "the" context and reading it as one is how a mixed run gets misfiled as uniform.
++                contexts = accounting.seq_lens
++                log(rank, f"iteration={accounting.verify_ct} context_min={min(contexts)} context_max={max(contexts)} "
++                          f"useful={sum(accounting.emitted)} target_graph={step['target_graph']}")
+         torch.cuda.synchronize()
+         elapsed = time.perf_counter() - start
+         phase_seconds["decode"] = elapsed
+@@ -460,6 +506,7 @@ def run_rank(rank, server_args, port_args, args):
+ def main():
+     args, extra = make_parser().parse_known_args()
+     validate_args(args)
++    isl_spec = resolve_input_lens(args)
+     if int(os.environ.get("WORLD_SIZE", "1")) != 1:
+         raise RuntimeError("Run with plain python, not torchrun; this driver spawns TP ranks")
+     configure_acceptance(args)
+@@ -491,11 +538,19 @@ def main():
+         # environment before CUDA-graph capture, which runs inside each spawned rank.
+         profile_env = configure_profile_env(args)
+         print(f"[INTERNAL-DECODE] profiling enabled; env={profile_env}", flush=True)
+-    # Keep config_yihou.json byte-compatible with the published packup when profiling
+-    # is off: the new --profile* defaults are recorded only on a profiled run.
++    # Keep config_yihou.json byte-compatible with the published packup when the new features are
++    # off: the --profile* defaults are recorded only on a profiled run, and the heterogeneous-ISL
++    # keys only when a spec was actually given. A uniform run must still diff clean against the
++    # packup, otherwise the regression reference stops being usable as one.
++    heterogeneous = args.input_len_spec is not None
+     recorded = {key: value for key, value in vars(args).items()
+-                if args.profile or not (key == "profile" or key.startswith("profile_") or key == "device_timer")}
+-    (result_dir / "config_yihou.json").write_text(json.dumps({"benchmark": recorded, "server_cli": cli, "expected_sglang_commit": PINNED_SGLANG}, indent=2, sort_keys=True) + "\n")
++                if (args.profile or not (key == "profile" or key.startswith("profile_") or key == "device_timer"))
++                and (heterogeneous or key not in ("input_len_spec", "input_lens"))}
++    payload = {"benchmark": recorded, "server_cli": cli, "expected_sglang_commit": PINNED_SGLANG}
++    if heterogeneous:
++        payload["input_len_spec_resolved"] = isl_spec.describe()
++        payload["input_lens_realized"] = list(args.input_lens)
++    (result_dir / "config_yihou.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+     _set_envs_and_config(server_args)
+     port_args = PortArgs.init_new(server_args)
+     if args.tp_size == 1:
+diff --git a/sglang_decode_internal_bench_and_profiling/bench/topology.py b/sglang_decode_internal_bench_and_profiling/bench/topology.py
+index 790efdb9..664f2d3e 100644
+--- a/sglang_decode_internal_bench_and_profiling/bench/topology.py
++++ b/sglang_decode_internal_bench_and_profiling/bench/topology.py
+@@ -63,15 +63,33 @@ def prepare_dp_metadata(batch, topology, *, is_extend, disable_cuda_graph):
+     batch.can_run_dp_breakable_cuda_graph = False
+ 
+ 
+-def rank_progress_signature(iteration, previous_lens, accept_lens, new_lens, final_len):
++_DIGEST_MOD = (1 << 61) - 1
++
++
++def lens_digest(values):
++    """Order-sensitive rolling hash; fits int64. Divergence in ANY position or in
++    ordering changes the digest, which element-0 comparison could not detect."""
++    digest = 0
++    for value in values:
++        digest = (digest * 1000003 + int(value) + 1) % _DIGEST_MOD
++    return digest
++
++
++def rank_progress_signature(iteration, previous_lens, accept_lens, new_lens, final_lens):
+     """Never raise locally before the collective: encode invalid state instead."""
+-    valid = bool(previous_lens) and len(previous_lens) == len(accept_lens) == len(new_lens)
+-    valid = valid and len(set(accept_lens)) == 1 and len(set(previous_lens)) == 1
++    if isinstance(final_lens, int):
++        final_lens = [final_lens] * len(new_lens)  # uniform-ISL callers (compare_server.py)
++    sized = len(final_lens) == len(new_lens)
++    valid = bool(previous_lens) and len(previous_lens) == len(accept_lens) == len(new_lens) and sized
++    # Acceptance stays uniform by upstream construction (one scalar drawn per iteration and
++    # broadcast); sequence lengths do not, so they are covered by a digest instead.
++    valid = valid and len(set(accept_lens)) == 1
+     valid = valid and all(1 <= count <= 6 for count in accept_lens)
+     valid = valid and all(new == old + count for old, count, new in zip(previous_lens, accept_lens, new_lens))
+-    return [int(valid), iteration, len(previous_lens), previous_lens[0] if previous_lens else -1,
+-            accept_lens[0] if accept_lens else -1, new_lens[0] if new_lens else -1,
+-            int(bool(new_lens) and all(length >= final_len for length in new_lens))]
++    # Each request finishes at its own isl_i + output_len, so completion is elementwise.
++    complete = sized and bool(new_lens) and all(new >= final for new, final in zip(new_lens, final_lens))
++    return [int(valid), iteration, len(previous_lens), lens_digest(previous_lens),
++            accept_lens[0] if accept_lens else -1, lens_digest(new_lens), int(complete)]
+ 
+ 
+ def validate_rank_progress(signatures):
+@@ -85,8 +103,9 @@ def aggregate_rank_summaries(reports, topology):
+     reports = sorted(reports, key=lambda report: report["rank"])
+     first = reports[0]
+     # Uniform shared coins keep every process in the same collective sequence.
+-    fields = ("complete", "verify_iterations", "batch_size", "input_len", "output_len",
+-              "emitted_per_request", "final_seq_lens", "raw_accept_tokens", "accept_histogram")
++    fields = ("complete", "verify_iterations", "batch_size", "input_lens", "input_len_uniform",
++              "output_len", "emitted_per_request", "final_seq_lens", "raw_accept_tokens",
++              "accept_histogram")
+     for report in reports:
+         if report["batch_size"] != topology.local_batch_size or any(report[key] != first[key] for key in fields):
+             raise ValueError("Rank reports disagree on completion or acceptance exposure")
+@@ -100,6 +119,9 @@ def aggregate_rank_summaries(reports, topology):
+         result[key] = sum(report[key] for report in replicas)
+     for key in ("emitted_per_request", "final_seq_lens"):
+         result[key] = [value for report in replicas for value in report[key]]
++    # Every replica holds the same vector (asserted above), so repeating it aligns elementwise
++    # with the concatenations and keeps len(input_lens) == len(final_seq_lens) == batch_size.
++    result["input_lens"] = list(first["input_lens"]) * len(replicas)
+     histogram = Counter()
+     for report in replicas:
+         histogram.update({int(key): value for key, value in report["accept_histogram"].items()})
+diff --git a/sglang_decode_internal_bench_and_profiling/scripts/verify_point.py b/sglang_decode_internal_bench_and_profiling/scripts/verify_point.py
+index 54afbdff..174f7597 100644
+--- a/sglang_decode_internal_bench_and_profiling/scripts/verify_point.py
++++ b/sglang_decode_internal_bench_and_profiling/scripts/verify_point.py
+@@ -13,7 +13,9 @@ import sys
+ EXPECTED_ACCEPT = 3.6134393063583814
+ 
+ 
+-def check(point: pathlib.Path, expect_ep: int = 8) -> tuple[str, dict]:
++def check(point: pathlib.Path, expect_ep: int = 8, expect_input_len: int = 70000,
++          expect_output_len: int = 10000, expect_heterogeneous: bool = False,
++          expect_accept: float = EXPECTED_ACCEPT) -> tuple[str, dict]:
+     problems = []
+     result_path = point / "result_yihou.json"
+     status_path = point / "launch_status.json"
+@@ -29,8 +31,21 @@ def check(point: pathlib.Path, expect_ep: int = 8) -> tuple[str, dict]:
+         problems.append(
+             f"useful_output_tokens {result.get('useful_output_tokens')} != C*OSL {expected_tokens}"
+         )
+-    if (result.get("input_len"), result.get("output_len")) != (70000, 10000):
+-        problems.append("input_len/output_len are not 70000/10000")
++    if result.get("output_len") != expect_output_len:
++        problems.append(f"output_len {result.get('output_len')} != {expect_output_len}")
++    # A ragged run reports input_len as None on purpose (no single number is "the" ISL), so the
++    # uniform gate below would fail it with a message about 70000 that explains nothing. Branch
++    # explicitly and say which mode was expected.
++    uniform = result.get("input_len_uniform")  # absent in results predating heterogeneous ISL
++    input_lens = result.get("input_lens")
++    if expect_heterogeneous:
++        if uniform is not False:
++            problems.append(f"expected a heterogeneous batch but input_len_uniform is {uniform}")
++        if input_lens is not None and concurrency and len(input_lens) != concurrency:
++            problems.append(f"input_lens has {len(input_lens)} entries, expected {concurrency} (global batch)")
++    elif result.get("input_len") != expect_input_len:
++        hint = " (this run is heterogeneous; pass --expect-heterogeneous)" if uniform is False else ""
++        problems.append(f"input_len {result.get('input_len')} != {expect_input_len}{hint}")
+     topology = (
+         result.get("ep_size"),
+         result.get("tp_size"),
+@@ -43,9 +58,13 @@ def check(point: pathlib.Path, expect_ep: int = 8) -> tuple[str, dict]:
+         problems.append(f"moe_a2a_backend {result.get('moe_a2a_backend')} != none")
+     if result.get("local_batch_size") != (concurrency or 0) // 8:
+         problems.append("local_batch_size is not C/8")
+-    if abs(result.get("realized_accept_length", 0) - EXPECTED_ACCEPT) > 1e-9:
++    # The default is the published 70000/10000 point. It is deterministic given the parameters but
++    # NOT given only --accept-length: it also depends on how many iterations the run takes, so any
++    # other OSL has its own value. Parameterised rather than hardcoded so the gate is usable at a
++    # configuration other than the one it was born for.
++    if abs(result.get("realized_accept_length", 0) - expect_accept) > 1e-9:
+         problems.append(
+-            f"realized_accept_length {result.get('realized_accept_length')} != {EXPECTED_ACCEPT}"
++            f"realized_accept_length {result.get('realized_accept_length')} != {expect_accept}"
+         )
+ 
+     if not status_path.is_file():
+@@ -57,6 +76,11 @@ def check(point: pathlib.Path, expect_ep: int = 8) -> tuple[str, dict]:
+ 
+     summary = {
+         "concurrency": concurrency,
++        "input_len": result.get("input_len"),
++        "input_len_uniform": uniform,
++        "input_len_min": min(input_lens) if input_lens else None,
++        "input_len_max": max(input_lens) if input_lens else None,
++        "input_len_distinct": len(set(input_lens)) if input_lens else None,
+         "ep_size": result.get("ep_size"),
+         "local_batch_size": result.get("local_batch_size"),
+         "tpot_ms": result.get("effective_token_latency_ms_per_user"),
+@@ -80,11 +104,24 @@ def main() -> int:
+     parser.add_argument("points", nargs="+", type=pathlib.Path)
+     parser.add_argument("--output", type=pathlib.Path)
+     parser.add_argument("--expect-ep", type=int, default=8, help="expected ep_size (8 or 1)")
++    parser.add_argument("--expect-input-len", type=int, default=70000,
++                        help="expected uniform ISL; ignored under --expect-heterogeneous")
++    parser.add_argument("--expect-output-len", type=int, default=10000)
++    parser.add_argument("--expect-accept", type=float, default=EXPECTED_ACCEPT,
++                        help="expected realized_accept_length; the default is the published "
++                             "70000/10000 point and does not transfer to another output length")
++    parser.add_argument("--expect-heterogeneous", action="store_true",
++                        help="expect a ragged batch: assert input_len_uniform is False and that "
++                             "input_lens covers the global batch, instead of pinning one ISL")
+     args = parser.parse_args()
+ 
+     rows, failed = [], False
+     for point in args.points:
+-        verdict, summary = check(point, expect_ep=args.expect_ep)
++        verdict, summary = check(point, expect_ep=args.expect_ep,
++                                 expect_input_len=args.expect_input_len,
++                                 expect_output_len=args.expect_output_len,
++                                 expect_heterogeneous=args.expect_heterogeneous,
++                                 expect_accept=args.expect_accept)
+         failed |= verdict != "pass"
+         rows.append({"point": str(point), "verdict": verdict, **summary})
+ 
+diff --git a/sglang_decode_internal_bench_and_profiling/tests/test_batch_state_yihou.py b/sglang_decode_internal_bench_and_profiling/tests/test_batch_state_yihou.py
+index 2d6c53be..524e122a 100644
+--- a/sglang_decode_internal_bench_and_profiling/tests/test_batch_state_yihou.py
++++ b/sglang_decode_internal_bench_and_profiling/tests/test_batch_state_yihou.py
+@@ -76,6 +76,38 @@ class AccountingTests(unittest.TestCase):
+         state.record([4] * 16, 0.1)
+         self.assertFalse(state.summary(0.1)["complete"])
+ 
++    def test_uniform_scalar_and_vector_are_interchangeable(self):
++        scalar, vector = self.Accounting(3, 70000, 10), self.Accounting(3, [70000] * 3, 10)
++        self.assertEqual(scalar.input_lens, vector.input_lens)
++        for state in (scalar, vector):
++            state.record([3, 3, 3], 0.02)
++        report = scalar.summary(0.02)
++        self.assertEqual(report, vector.summary(0.02))
++        self.assertEqual(report["input_len"], 70000)
++        self.assertTrue(report["input_len_uniform"])
++        self.assertEqual(report["input_lens"], [70000] * 3)
++
++    def test_mixed_lengths_track_per_request_and_suppress_the_scalar(self):
++        state = self.Accounting(3, [8000, 70000, 12], 10)
++        self.assertEqual(state.seq_lens, [8000, 70000, 12])
++        step = state.record([3, 3, 3], 0.02)
++        self.assertEqual(step["seq_lens"], [8003, 70003, 15])
++        state.record([4, 4, 4], 0.02)
++        report = state.summary(0.04)
++        self.assertEqual(report["final_seq_lens"], [8007, 70007, 19])
++        self.assertEqual(report["input_lens"], [8000, 70000, 12])
++        self.assertIsNone(report["input_len"], "a mixed batch has no single ISL to report")
++        self.assertFalse(report["input_len_uniform"])
++        # ISL does not enter acceptance accounting at all.
++        self.assertEqual(report["raw_accept_tokens"], 21)
++        self.assertEqual(report["realized_accept_length"], 3.5)
++
++    def test_rejects_length_mismatch_and_nonpositive_entries(self):
++        for lengths in ([70000, 70000], [70000] * 4, [70000, 0, 70000], [70000, -1, 70000],
++                        [70000, 70000.0, 70000]):
++            with self.assertRaises(ValueError):
++                self.Accounting(3, lengths, 10)
++
+ 
+ class StateContractTests(unittest.TestCase):
+     def helper(self, name):
+diff --git a/sglang_decode_internal_bench_and_profiling/tests/test_topology_yihou.py b/sglang_decode_internal_bench_and_profiling/tests/test_topology_yihou.py
+index 0f01d1cc..51fabf80 100644
+--- a/sglang_decode_internal_bench_and_profiling/tests/test_topology_yihou.py
++++ b/sglang_decode_internal_bench_and_profiling/tests/test_topology_yihou.py
+@@ -90,6 +90,83 @@ class TopologyTests(unittest.TestCase):
+             with self.assertRaises(ValueError):
+                 validate([good, good, changed, good])
+ 
++    def test_rank_guard_covers_every_position_of_a_heterogeneous_batch(self):
++        signature = self.helper("rank_progress_signature")
++        validate = self.helper("validate_rank_progress")
++        mixed = signature(1, [70, 800, 90], [4, 4, 4], [74, 804, 94], [75, 805, 95])
++        validate([mixed] * 4)  # identical vectors across ranks: Plan 1's normal case
++        # profile_decode.py preallocates torch.empty(7) all-gather buffers.
++        self.assertEqual(len(mixed), 7)
++        self.assertTrue(all(isinstance(value, int) and abs(value) < 2 ** 63 for value in mixed))
++        for changed in (
++            # Divergence outside element 0 — invisible to the old previous_lens[0] comparison.
++            signature(1, [70, 801, 90], [4, 4, 4], [74, 805, 94], 75),
++            signature(1, [70, 800, 91], [4, 4, 4], [74, 804, 95], 75),
++            # Same multiset, different order: Plan 1 guarantees order, so this is a real bug.
++            signature(1, [90, 800, 70], [4, 4, 4], [94, 804, 74], 75),
++        ):
++            with self.assertRaises(ValueError):
++                validate([mixed, mixed, changed, mixed])
++
++    def test_completion_is_elementwise_against_each_request_own_final(self):
++        signature = self.helper("rank_progress_signature")
++        # ISL [70, 800] with output_len 5: request 0 finishes at 75, request 1 at 805.
++        finals = [75, 805]
++        done = signature(9, [71, 801], [4, 4], [75, 805], finals)
++        self.assertEqual(done[6], 1, "every request at its own final is complete")
++        partial = signature(9, [71, 96], [4, 4], [75, 100], finals)
++        self.assertEqual(partial[6], 0, "request 1 is far from 805, so the batch is not complete")
++        self.assertTrue(partial[0], "an incomplete batch is still a valid one")
++        # A single scalar cannot express this: min(finals) would call `partial` complete and
++        # max(finals) would call `done` incomplete. Both are wrong for a ragged batch.
++        self.assertTrue(all(length >= min(finals) for length in [75, 100]))
++        self.assertFalse(all(length >= max(finals) for length in [75, 805]))
++
++    def test_final_lens_length_mismatch_is_encoded_not_raised(self):
++        signature = self.helper("rank_progress_signature")
++        validate = self.helper("validate_rank_progress")
++        bad = signature(9, [71, 801], [4, 4], [75, 805], [75])
++        self.assertEqual((bad[0], bad[6]), (0, 0), "a mismatch must travel as invalidity, not a hang")
++        with self.assertRaises(ValueError):
++            validate([bad] * 4)
++
++    def test_scalar_final_len_still_broadcasts_for_uniform_callers(self):
++        signature = self.helper("rank_progress_signature")
++        self.assertEqual(signature(1, [70, 70], [4, 4], [74, 74], 75),
++                         signature(1, [70, 70], [4, 4], [74, 74], [75, 75]))
++
++    def test_rank_guard_still_rejects_non_uniform_acceptance_when_lengths_differ(self):
++        signature = self.helper("rank_progress_signature")
++        validate = self.helper("validate_rank_progress")
++        bad = signature(1, [70, 800], [4, 3], [74, 803], 75)
++        self.assertFalse(bad[0], "non-uniform accept_lens must be encoded as invalid, not raised")
++        with self.assertRaises(ValueError):
++            validate([bad] * 4)
++
++    def test_aggregate_rejects_divergent_isl_vectors(self):
++        from batch_state import DecodeAccounting
++        aggregate = self.helper("aggregate_rank_summaries")
++        topology = self.topology(concurrency=8, enabled=True)
++        lengths = [70, 800]
++        reports = []
++        for rank in range(4):
++            state = DecodeAccounting(topology.local_batch_size, lengths, 5)
++            state.record([3] * topology.local_batch_size, 0.1)
++            report = state.summary(1.0)
++            report.update(rank=rank, graph_execution_counts={})
++            reports.append(report)
++        merged = aggregate(reports, topology)
++        self.assertIsNone(merged["input_len"])
++        self.assertFalse(merged["input_len_uniform"])
++        self.assertEqual(merged["final_seq_lens"], [73, 803] * 4)
++        # Global view: zipping these two must not silently truncate.
++        self.assertEqual(merged["input_lens"], lengths * 4)
++        self.assertEqual(len(merged["input_lens"]), len(merged["final_seq_lens"]))
++        self.assertEqual(len(merged["input_lens"]), merged["batch_size"])
++        reports[2]["input_lens"] = [800, 70]
++        with self.assertRaises(ValueError):
++            aggregate(reports, topology)
++
+     def test_aggregate_counts_each_dp_shard_once_and_uses_max_elapsed(self):
+         from batch_state import DecodeAccounting
+         aggregate = self.helper("aggregate_rank_summaries")
+@@ -114,6 +191,8 @@ class TopologyTests(unittest.TestCase):
+             self.assertEqual(report["output_tokens_per_second_per_gpu"], 6.25)
+             self.assertEqual(report["effective_token_latency_ms_per_user"], 800.0)
+             self.assertEqual(report["final_seq_lens"], [75] * 20)
++            self.assertEqual((report["input_len"], report["input_len_uniform"]), (70, True))
++            self.assertEqual(report["input_lens"], [70] * 20)  # global in both DPA and non-DPA
+             self.assertEqual(report["graph_execution_counts_scope"], "rank_0")
+             reports[-1]["verify_iterations"] += 1
+             with self.assertRaises(ValueError):

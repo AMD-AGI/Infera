@@ -1,0 +1,68 @@
+# Container probe: yihou-glm52-tp8ep8-0914
+captured: 2026-09-15T02:23:19Z
+
+## image digest
+sha256:b5aa5bd3d828285bff8dd01bb92e6106f569f5b1eab5de24558790b1b10a5dc0
+
+## sglang / aiter commits
+402df1e1e453e1e85ec0f5ac4052d36598cc691a
+2c71811b32c8ce2e1266aedaec199df7d90f597d
+
+## pip (key)
+flydsl                                   0.3.2
+sglang                                   0.0.0.dev16896+g402df1e1e.d20260908 /sglang/python
+tilelang                                 0.1.7.post3+cuda.gita55a8230        /opt/tilelang
+torch                                    2.9.1+rocm7.2.0.lw.git7e1940d4
+transformers                             5.12.1
+triton                                   3.7.0+amd.rocm7.2.0.git89002410
+
+## env
+HOME=/tmp/yihou-home
+LOGNAME=yihou
+PATH=/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin
+PYTHONUNBUFFERED=1
+HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+HF_HOME=/tmp/yihou-hf-cache
+SGLANG_TIMEOUT_KEEP_ALIVE=900
+SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1
+USER=yihou
+PYTHONNOUSERSITE=1
+AITER_JIT_DIR=/tmp/yihou-aiter-b5aa5bd3d828
+HF_HUB_OFFLINE=1
+SGLANG_OPT_USE_TOPK_V2=false
+AITER_USE_FLYDSL_MOE_SORTING=1
+DEBIAN_FRONTEND=noninteractive
+LD_LIBRARY_PATH=/opt/rocm/lib
+BUILD_VLLM=0
+BUILD_TRITON=1
+BUILD_LLVM=0
+BUILD_AITER_ALL=1
+BUILD_MOONCAKE=1
+AITER_COMMIT_DEFAULT=d9e5ef7ce08ee7045d583aed768cff41aa9210fe
+GPU_ARCH_LIST=gfx950
+PYTORCH_ROCM_ARCH=gfx942;gfx950
+AITER_COMMIT=d9e5ef7ce08ee7045d583aed768cff41aa9210fe
+SETUPTOOLS_SCM_PRETEND_VERSION=
+AITER_USE_SYSTEM_TRITON=1
+CARGO_BUILD_JOBS=4
+LIBGL_ALWAYS_INDIRECT=1
+SGLANG_DISABLE_CUDNN_CHECK=1
+HIP_FORCE_DEV_KERNARG=1
+HSA_NO_SCRATCH_RECLAIM=1
+SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1
+SGLANG_INT4_WEIGHT=0
+SGLANG_MOE_PADDING=1
+SGLANG_ROCM_DISABLE_LINEARQUANT=0
+SGLANG_ROCM_FUSED_DECODE_MLA=1
+SGLANG_SET_CPU_AFFINITY=1
+SGLANG_USE_AITER=1
+SGLANG_USE_ROCM700A=1
+NCCL_MIN_NCHANNELS=112
+ROCM_QUICK_REDUCE_QUANTIZATION=INT8
+TORCHINDUCTOR_MAX_AUTOTUNE=1
+TORCHINDUCTOR_MAX_AUTOTUNE_POINTWISE=1
+
+
+## rocpd / roctx importability (PYTHONPATH only)
+/opt/rocm/lib/python3.10/site-packages/rocpd/__init__.py
+/opt/rocm/lib/python3.10/site-packages/roctx/__init__.py

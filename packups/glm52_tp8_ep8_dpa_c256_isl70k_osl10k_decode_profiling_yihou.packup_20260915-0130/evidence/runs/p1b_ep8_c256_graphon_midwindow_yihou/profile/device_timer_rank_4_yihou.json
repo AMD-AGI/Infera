@@ -1,0 +1,69 @@
+{
+  "by_category": {
+    "eagle_draft": {
+      "count": 2768,
+      "max_seconds": 0.06260863494873047,
+      "min_seconds": 0.005347551822662354,
+      "seconds": 15.288140135288241,
+      "share": 0.0594863333698777
+    },
+    "eagle_draft_extend": {
+      "count": 2768,
+      "max_seconds": 0.0037646639347076417,
+      "min_seconds": 0.003634821891784668,
+      "seconds": 10.17414610576629,
+      "share": 0.03958772235508722
+    },
+    "target_verify": {
+      "count": 2768,
+      "max_seconds": 0.08414070129394531,
+      "min_seconds": 0.08314846038818359,
+      "seconds": 231.54027668762228,
+      "share": 0.9009259442750351
+    }
+  },
+  "by_runner": {
+    "draft": {
+      "eagle_draft": {
+        "count": 2768,
+        "max_seconds": 0.06260863494873047,
+        "min_seconds": 0.005347551822662354,
+        "seconds": 15.288140135288241
+      },
+      "eagle_draft_extend": {
+        "count": 2768,
+        "max_seconds": 0.0037646639347076417,
+        "min_seconds": 0.003634821891784668,
+        "seconds": 10.17414610576629
+      }
+    },
+    "target": {
+      "target_verify": {
+        "count": 2768,
+        "max_seconds": 0.08414070129394531,
+        "min_seconds": 0.08314846038818359,
+        "seconds": 231.54027668762228
+      }
+    }
+  },
+  "categories_known_to_pinned_sglang": [
+    "decode",
+    "extend",
+    "idle",
+    "target_verify",
+    "split_prefill",
+    "eagle_draft",
+    "eagle_draft_extend",
+    "frozen_kv_draft"
+  ],
+  "categories_observed": [
+    "eagle_draft",
+    "eagle_draft_extend",
+    "target_verify"
+  ],
+  "mechanism": "sglang.srt.utils.device_timer.DeviceTimer attached by the bench",
+  "note": "CUDA events bracket the graph replay from outside, so these totals are valid with CUDA graphs both enabled and disabled.",
+  "scope": "whole measured decode loop",
+  "torch_profiler_window_delta": null,
+  "total_seconds": 257.0025629286768
+}

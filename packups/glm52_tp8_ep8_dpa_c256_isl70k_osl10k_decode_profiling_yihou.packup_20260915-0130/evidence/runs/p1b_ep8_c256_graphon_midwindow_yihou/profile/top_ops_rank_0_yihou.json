@@ -1,0 +1,351 @@
+{
+  "rank": 0,
+  "profile_window": {
+    "start_step": 1384,
+    "stop_step": 1394
+  },
+  "num_distinct_ops": 172,
+  "num_distinct_device_kernels": 86,
+  "self_device_time_us_total": 1772954.6150000026,
+  "self_device_time_us_total_device_kernels_only": 887789.3030000024,
+  "self_cpu_time_us_total": 952437.0540000006,
+  "top_by_self_device_time_device_kernels_only": [
+    {
+      "key": "main_kernel",
+      "count": 1580,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 216956.50500000015,
+      "device_time_us": 216956.50500000015,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)",
+      "count": 791,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 113743.37400000208,
+      "device_time_us": 113743.37400000208,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "mfma_moe1_silu_mul_afp4_wfp4_bf16_t64x128x256_pm1_async_v33",
+      "count": 750,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 75579.01200000038,
+      "device_time_us": 75579.01200000038,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "_ZN5aiter26cross_device_reduce_2stageIDF16bLi8ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6SignalEPT_ii",
+      "count": 810,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 75452.14799999869,
+      "device_time_us": 75452.14799999869,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle",
+      "count": 220,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 58749.59699999995,
+      "device_time_us": 58749.59699999995,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "hgemm_bf16_128x192x64x3_SPK4_W2x4x1_BLDS1_TN_AS1_CP1_0",
+      "count": 790,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 52240.13399999996,
+      "device_time_us": 52240.13399999996,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "mfma_moe2_afp4_wfp4_bf16_cshuffle_t64x128x256_vscale_fix3_fp4opt_v1_persist_cu256",
+      "count": 750,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 50323.8970000028,
+      "device_time_us": 50323.8970000028,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "_fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_64_BLOCK_SIZE_N_256_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_64_REUSE_FREQS_FRONT_PART_1_IS_NEOX_0_BLOCK_D_nope_512_BLOCK_DK_nope_512_BLOCK_D_pe_64_BLOCK_D_HALF_pe_32_TRANSPOSE_BM_NONE_OUTPUT_Q_NOPE_ZEROS_1_HAVE_K_SCALE_1_EVEN_K_0",
+      "count": 780,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 35207.920999998976,
+      "device_time_us": 35207.920999998976,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "_ZN5aiter13allgather_vecIDF16bLi8EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii",
+      "count": 20,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 20558.944999999832,
+      "device_time_us": 20558.944999999832,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "hgemm_bf16_128x128x64x5_SPK1_W2x4x1_BLDS1_TN_AS1_0",
+      "count": 790,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 18923.82500000053,
+      "device_time_us": 18923.82500000053,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    }
+  ],
+  "top_by_self_device_time": [
+    {
+      "key": "step[TARGET_VERIFY bs=32]",
+      "count": 10,
+      "row_kind": "user_annotation",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 838933.4420000002,
+      "device_time_us": 838933.4420000002,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "main_kernel",
+      "count": 1580,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 216956.50500000015,
+      "device_time_us": 216956.50500000015,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)",
+      "count": 791,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 113743.37400000208,
+      "device_time_us": 113743.37400000208,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "mfma_moe1_silu_mul_afp4_wfp4_bf16_t64x128x256_pm1_async_v33",
+      "count": 750,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 75579.01200000038,
+      "device_time_us": 75579.01200000038,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "_ZN5aiter26cross_device_reduce_2stageIDF16bLi8ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6SignalEPT_ii",
+      "count": 810,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 75452.14799999869,
+      "device_time_us": 75452.14799999869,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle",
+      "count": 220,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 58749.59699999995,
+      "device_time_us": 58749.59699999995,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "hgemm_bf16_128x192x64x3_SPK4_W2x4x1_BLDS1_TN_AS1_CP1_0",
+      "count": 790,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 52240.13399999996,
+      "device_time_us": 52240.13399999996,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "mfma_moe2_afp4_wfp4_bf16_cshuffle_t64x128x256_vscale_fix3_fp4opt_v1_persist_cu256",
+      "count": 750,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 50323.8970000028,
+      "device_time_us": 50323.8970000028,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "draft_extend",
+      "count": 10,
+      "row_kind": "user_annotation",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 40543.639000000054,
+      "device_time_us": 40543.639000000054,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    },
+    {
+      "key": "_fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_64_BLOCK_SIZE_N_256_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_64_REUSE_FREQS_FRONT_PART_1_IS_NEOX_0_BLOCK_D_nope_512_BLOCK_DK_nope_512_BLOCK_D_pe_64_BLOCK_D_HALF_pe_32_TRANSPOSE_BM_NONE_OUTPUT_Q_NOPE_ZEROS_1_HAVE_K_SCALE_1_EVEN_K_0",
+      "count": 780,
+      "row_kind": "device_kernel",
+      "device_type": "DeviceType.CUDA",
+      "self_device_time_us": 35207.920999998976,
+      "device_time_us": 35207.920999998976,
+      "self_cpu_time_us": 0.0,
+      "cpu_time_us": 0.0,
+      "input_shapes": null
+    }
+  ],
+  "top_by_cpu_time_total": [
+    {
+      "key": "hipDeviceSynchronize",
+      "count": 11,
+      "row_kind": "cpu_side",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 0.0,
+      "device_time_us": 4.879000000015367,
+      "self_cpu_time_us": 929172.804,
+      "cpu_time_us": 929197.8640000001,
+      "input_shapes": null
+    },
+    {
+      "key": "draft",
+      "count": 10,
+      "row_kind": "user_annotation",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 0.0,
+      "device_time_us": 593.0169999997079,
+      "self_cpu_time_us": 3183.6779999993423,
+      "cpu_time_us": 6052.194999999969,
+      "input_shapes": null
+    },
+    {
+      "key": "draft_extend",
+      "count": 10,
+      "row_kind": "user_annotation",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 0.0,
+      "device_time_us": 2455.0000000003356,
+      "self_cpu_time_us": 2884.17200000031,
+      "cpu_time_us": 5650.449999999905,
+      "input_shapes": null
+    },
+    {
+      "key": "aten::copy_",
+      "count": 650,
+      "row_kind": "cpu_side",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 957.7780000002476,
+      "device_time_us": 957.7780000002476,
+      "self_cpu_time_us": 737.1420000001024,
+      "cpu_time_us": 4897.651000000743,
+      "input_shapes": null
+    },
+    {
+      "key": "aten::to",
+      "count": 530,
+      "row_kind": "cpu_side",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 0.0,
+      "device_time_us": 668.3259999998336,
+      "self_cpu_time_us": 262.6279999987222,
+      "cpu_time_us": 4707.46199999939,
+      "input_shapes": null
+    },
+    {
+      "key": "aten::_to_copy",
+      "count": 360,
+      "row_kind": "cpu_side",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 0.0,
+      "device_time_us": 668.3259999998336,
+      "self_cpu_time_us": 400.2220000005139,
+      "cpu_time_us": 4444.834000000668,
+      "input_shapes": null
+    },
+    {
+      "key": "step[TARGET_VERIFY bs=32]",
+      "count": 10,
+      "row_kind": "user_annotation",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 0.0,
+      "device_time_us": 83.05900000026486,
+      "self_cpu_time_us": 921.9480000002416,
+      "cpu_time_us": 3293.261000000205,
+      "input_shapes": null
+    },
+    {
+      "key": "hipGraphLaunch",
+      "count": 30,
+      "row_kind": "cpu_side",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 11.51799999998184,
+      "device_time_us": 11.51799999998184,
+      "self_cpu_time_us": 3042.5040000002177,
+      "cpu_time_us": 3042.5040000002177,
+      "input_shapes": null
+    },
+    {
+      "key": "hipMemcpyWithStream",
+      "count": 130,
+      "row_kind": "cpu_side",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 0.0,
+      "device_time_us": 0.0,
+      "self_cpu_time_us": 2429.576000000641,
+      "cpu_time_us": 2429.576000000641,
+      "input_shapes": null
+    },
+    {
+      "key": "hipLaunchKernel",
+      "count": 580,
+      "row_kind": "cpu_side",
+      "device_type": "DeviceType.CPU",
+      "self_device_time_us": 3.6790000000037253,
+      "device_time_us": 3.6790000000037253,
+      "self_cpu_time_us": 1923.284000000528,
+      "cpu_time_us": 1923.284000000528,
+      "input_shapes": null
+    }
+  ],
+  "how_to_read": "rank GPU cost with top_by_self_device_time_device_kernels_only; top_by_self_device_time also contains record_function spans whose device time overlaps the kernels beneath them.",
+  "time_basis": "microseconds, summed over the whole profile window (all iterations in it)",
+  "caveat": "under CUDA-graph replay a whole graph can appear as one launch entry; compare against the --disable-cuda-graph run before reading per-kernel shares."
+}

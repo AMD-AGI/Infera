@@ -1,0 +1,121 @@
+
+===== HOST / TIME =====
+hostname : crsuse2-m2m-217
+date     : 2026-09-11 11:26:31 +0000
+uptime   :  11:26:31 up 61 days, 21:17,  0 user,  load average: 0.57, 0.38, 0.88
+kernel   : Linux crsuse2-m2m-217 6.8.0-107-generic #107-Ubuntu SMP PREEMPT_DYNAMIC Fri Mar 13 19:51:50 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
+os       : Ubuntu 24.04.4 LTS
+
+===== CPU / MEM =====
+CPU(s):                                  236
+Model name:                              AMD EPYC 9575F 64-Core Processor
+Thread(s) per core:                      2
+Core(s) per socket:                      59
+Socket(s):                               2
+               total        used        free      shared  buff/cache   available
+Mem:           2.7Ti        40Gi       1.5Ti       483Mi       1.2Ti       2.6Ti
+Swap:             0B          0B          0B
+
+===== GPU =====
+-- rocm-smi --
+Driver version: 6.14.14
+-- count --
+0
+?
+-- mem/util snapshot --
+
+===== RDMA / FABRIC =====
+-- ibv_devices --
+libibverbs: Warning: couldn't load driver 'libvmw_pvrdma-rdmav34.so': libvmw_pvrdma-rdmav34.so: cannot open shared object file: No such file or directory
+    device          	   node GUID
+    ------          	----------------
+    ionic_0         	069081fffe43c891
+    mlx5_0          	1e1651fffe622462
+    ionic_1         	069081fffe435f91
+    ionic_2         	069081fffe43dc59
+    ionic_3         	069081fffe429d21
+    ionic_4         	069081fffe4421e9
+    ionic_5         	069081fffe43d941
+    ionic_6         	069081fffe442549
+    ionic_7         	069081fffe43d809
+-- rail link state (ibstat / ibv_devinfo) --
+CA 'ionic_0'
+	CA type: crsuse2-m2m-217 ionic_0
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_1'
+	CA type: crsuse2-m2m-217 ionic_1
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_2'
+	CA type: crsuse2-m2m-217 ionic_2
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_3'
+	CA type: crsuse2-m2m-217 ionic_3
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_4'
+	CA type: crsuse2-m2m-217 ionic_4
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_5'
+	CA type: crsuse2-m2m-217 ionic_5
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_6'
+	CA type: crsuse2-m2m-217 ionic_6
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'ionic_7'
+	CA type: crsuse2-m2m-217 ionic_7
+		State: Active
+		Physical state: LinkUp
+		Rate: 400
+		Link layer: Ethernet
+CA 'mlx5_0'
+	CA type: MT4126
+		State: Active
+		Physical state: LinkUp
+		Rate: 200
+		Link layer: Ethernet
+-- rdma link --
+link ionic_0/1 state ACTIVE physical_state LINK_UP netdev enP2p0s9 
+link mlx5_0/1 state ACTIVE physical_state LINK_UP netdev ens3 
+link ionic_1/1 state ACTIVE physical_state LINK_UP netdev enP2p0s10 
+link ionic_2/1 state ACTIVE physical_state LINK_UP netdev enP2p0s11 
+link ionic_3/1 state ACTIVE physical_state LINK_UP netdev enP2p0s12 
+link ionic_4/1 state ACTIVE physical_state LINK_UP netdev enP3p0s9 
+link ionic_5/1 state ACTIVE physical_state LINK_UP netdev enP3p0s10 
+link ionic_6/1 state ACTIVE physical_state LINK_UP netdev enP3p0s11 
+link ionic_7/1 state ACTIVE physical_state LINK_UP netdev enP3p0s12 
+
+===== DOCKER =====
+-- version --
+
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+-- running containers --
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+-- image digest for rocm-llm-bench:latest --
+
+Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+
+===== GIT (run from inside the repo the experiment used) =====
+(not inside a git work tree — cd into the repo and re-run, or record branch+SHA by hand)
+
+===== DONE =====
+Paste this block into environment.md under a heading for host crsuse2-m2m-217.

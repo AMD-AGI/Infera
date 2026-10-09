@@ -1,0 +1,20 @@
+# Task: fake PD decode TP4/EP4, ISL10000 / OSL500, concurrency16 and32
+
+## Scope
+User asks two reruns at shorter fixed lengths and TP4EP4. Preserve previous fake-D simulation semantics: EAGLE5steps/6draft/topk1, simulatedaccept3.61 match-expected real-draft-token.16warmups+128measuredrequests perpoint. Verifyactualtokenlengths,successfulrequests,batchoccupancy,acceptlength,graph/backenddispatch. These are syntheticKVresults,notsemanticproductionperformance.
+
+## Background
+Known-good previousexperiment /shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016.3fake-onlypatches copiedintosource/. Immutableimageb9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d, SGLang402df1e1e453e1e85ec0f5ac4052d36598cc691a,AITER2c71811b32c8ce2e1266aedaec199df7d90f597d. Model/shared_nfs/models/GLM-5.2-MXFP4.
+
+## Resource boundary
+ONLY node249/job130740 authorized; expires2026-09-10T11:52:45Z. Userexplicitlyauthorizesstop/killGPUheavynon-ours/non-system/non-collectorworkloadson249. Mapownersbeforestop;preservemonitors,idleshells,ourprocesses. Noimage/containerdeletionorhostconfigchanges. Node056/job130737belongspeerinternal-forwardbenchmark,NEVERtouch. Coordinatewithpeeruds:/run/user/50112975/cc-socks/4163650.sockbeforemachinereassignment. Userprovidedholdsremainallocatedafterourcontainersstopunlessuserinstructsotherwise.
+
+## Plan
+1. Map249GPUusers,gracefullystoponlyauthorizedheavyworkloads,verifyidle;loadexactarchivedimageifabsent.
+2. Run4GPUs0-3 TP4EP4DP1,HiCacheoff,fakebackend,initialmem0.85(shortcontextno0.96capacityneed).Sameoptimizationflagsand3patches. C16andC32eachownserver/maxrunning/graphmax;nootherconfigurationdifferencesbetweenpoints.
+3. Allow~30minJIT/graph,cacheexactimage-compatibleproductsinsideworkspace,don'tpollwithblockingsleeps. Source/diffknown-goodreferenceandtargetedfixesifneeded.
+4. Capturemetrics/logs/JSON;output-onlythroughputperinstanceandperGPU,countfullclientoutputs,compare16vs32notclaimcausalagainstoldlongworkload. C32verify192rowsmayexceedFlyDSL96rowgate;reportfallbackhonestly,don'tdisableMTPorlowerbatchsilently.
+5. Saveexactcommands/patches/results,stopowncontainergracefully,verifyGPUrelease,stopreporttimers. Nocommit/pushrequested.
+
+## Working rules
+AllnewfilesinsideTHISworkspace;oldexperiment/packageunchanged. Englishfiles,Chineseuserreports. RealUTCtimestamps. Agentteam:leaderexecutes,scribeappendcheckpoint30min,leaderpoll10min;firstnon-safetyissueonlyrecord,nextpollifpersistentintervene. Noown-workverificationagents. Eachroundseparatefolder,working_process.mdindex. Do nottreatcontainerPID1aliveasworkerhealthy;readearliesterror. Preservefailedlogsandstoppedcontainersratherthanrm. JITcacheversionkeyed.

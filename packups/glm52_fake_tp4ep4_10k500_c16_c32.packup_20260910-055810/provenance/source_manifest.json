@@ -1,0 +1,625 @@
+{
+  "created_at": "2026-09-10T05:58:10.396935+00:00",
+  "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452",
+  "baseline": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016",
+  "records": [
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/CLAUDE.md",
+      "destination": "CLAUDE.fake-tp4ep4-short.20260910-0558.md.bak",
+      "source_bytes": 2680,
+      "source_sha256": "5ee6c9238506cea7afe34f6bddc86dc6c6efb690fc58370c8ed844ccededcb6c",
+      "source_mtime_ns": 1789016003695292343,
+      "compression": null,
+      "destination_sha256": "5ee6c9238506cea7afe34f6bddc86dc6c6efb690fc58370c8ed844ccededcb6c"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/CLAUDE.fake-decode.20260910-0452.md.bak",
+      "destination": "history/CLAUDE.fake-decode.20260910-0452.md.bak",
+      "source_bytes": 5537,
+      "source_sha256": "3255687fcf9658b7601cce5df6a959dda9e6f8368b0c425dd8597a14b372090c",
+      "source_mtime_ns": 1788949082609432839,
+      "compression": null,
+      "destination_sha256": "3255687fcf9658b7601cce5df6a959dda9e6f8368b0c425dd8597a14b372090c"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/CLAUDE.md",
+      "destination": "history/CLAUDE.md",
+      "source_bytes": 2680,
+      "source_sha256": "5ee6c9238506cea7afe34f6bddc86dc6c6efb690fc58370c8ed844ccededcb6c",
+      "source_mtime_ns": 1789016003695292343,
+      "compression": null,
+      "destination_sha256": "5ee6c9238506cea7afe34f6bddc86dc6c6efb690fc58370c8ed844ccededcb6c"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/container-commands-before.txt",
+      "destination": "logs/container-commands-before.txt.gz",
+      "source_bytes": 5958,
+      "source_sha256": "d63f09047b76cce44ab6c83e5b51f59aa4461aab773d2ae1874e6f509d936f7f",
+      "source_mtime_ns": 1789016054660764008,
+      "compression": "gzip",
+      "destination_sha256": "06c8a895e95b14e324bad268cc23e7cbdb9da030e56e21300be8aeee3b457343"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/final-cleanup.txt",
+      "destination": "logs/final-cleanup.txt.gz",
+      "source_bytes": 2485,
+      "source_sha256": "f1327afabf557e4b5669438d71cde4b843cd016c5b2a8f174a7ffe018f954286",
+      "source_mtime_ns": 1789018259844892087,
+      "compression": "gzip",
+      "destination_sha256": "2d806174cecd981f80d56f697bd8ab193036c093bd950e36ede11fc5d60afbae"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/final-environment.txt",
+      "destination": "logs/final-environment.txt.gz",
+      "source_bytes": 2642,
+      "source_sha256": "f3b1881319b6e74cac2c095e4972f141dc3b0e71d149802bcd6000ba9c6be7ec",
+      "source_mtime_ns": 1789018141811031791,
+      "compression": "gzip",
+      "destination_sha256": "aef98837bdecfee7057f64b70d98d5b41613db6fb48d27eaf63c4b85ea6e0386"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/gpu-owners-before.txt",
+      "destination": "logs/gpu-owners-before.txt.gz",
+      "source_bytes": 3278,
+      "source_sha256": "867d8a16ff4f4e16549d6b51c892ff9bb7f5937840968289195e507dfb20bb40",
+      "source_mtime_ns": 1789016029549434874,
+      "compression": "gzip",
+      "destination_sha256": "9ffc7a78f283006aeda3ec26c9121dc80e85a55087c14f25500f59e225aa620b"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/image-load.log",
+      "destination": "logs/image-load.log.gz",
+      "source_bytes": 36,
+      "source_sha256": "855aa2084679a26d6a3737e91112d14da2a5a00f70130a246f95e20636be2a10",
+      "source_mtime_ns": 1789016350452957447,
+      "compression": "gzip",
+      "destination_sha256": "a63465ea6162e6fe9a4ab08a2f7304047ef7bb62bca0cd86f6c6c9ccb2f46cad"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/replacement036-probe.txt",
+      "destination": "logs/replacement036-probe.txt.gz",
+      "source_bytes": 3264,
+      "source_sha256": "4859a50ee78badeda45e4d8d24d8cc7e3277c910ab4957a045afdcf6464aef4b",
+      "source_mtime_ns": 1789016548677797030,
+      "compression": "gzip",
+      "destination_sha256": "2b681312a668874df6a524a3d7eb33f5a1ff85c6dd9428e17237927d1e49a845"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/stop-authorized-workloads.log",
+      "destination": "logs/stop-authorized-workloads.log.gz",
+      "source_bytes": 1293,
+      "source_sha256": "fde4e8e943b30f102b5d27fb08b02d021dac02dccc595af77452226f5d4d8adf",
+      "source_mtime_ns": 1789016399743697828,
+      "compression": "gzip",
+      "destination_sha256": "3d987a916fc6bafcb5fd2803a4058ceeac12e1d2c9688610d034ef9e5e5c062c"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/stop-c16.log",
+      "destination": "logs/stop-c16.log.gz",
+      "source_bytes": 22,
+      "source_sha256": "de063c3e2a432059542884971d6db8a98533dffa6cf4e823f3398c554a145a7a",
+      "source_mtime_ns": 1789017696109810252,
+      "compression": "gzip",
+      "destination_sha256": "ad3e75cc0d5ce217bb04a65e74ddb03483c3756a4c17d083ae2ddeb28ef685bd"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/stop-c32.log",
+      "destination": "logs/stop-c32.log.gz",
+      "source_bytes": 22,
+      "source_sha256": "de063c3e2a432059542884971d6db8a98533dffa6cf4e823f3398c554a145a7a",
+      "source_mtime_ns": 1789018159193728781,
+      "compression": "gzip",
+      "destination_sha256": "ad3e75cc0d5ce217bb04a65e74ddb03483c3756a4c17d083ae2ddeb28ef685bd"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/logs/stop-replacement036-workload.log",
+      "destination": "logs/stop-replacement036-workload.log.gz",
+      "source_bytes": 33,
+      "source_sha256": "eff74b3f359c20741e25c7271f68d31870bf425cf4700b94852fb2544da29f6c",
+      "source_mtime_ns": 1789016878059144856,
+      "compression": "gzip",
+      "destination_sha256": "4ae7beb7659e4b9f526f9a2d3cc95a2fe7405068467fd37c8e444233413b21b3"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/reference/bench_sourcepath.sh",
+      "destination": "reference/bench_sourcepath.sh",
+      "source_bytes": 809,
+      "source_sha256": "1a83da3e95a8c80641deb909584fbe9e8e7f859c877554f4adeccd7d33502472",
+      "source_mtime_ns": 1788958398125235474,
+      "compression": null,
+      "destination_sha256": "1a83da3e95a8c80641deb909584fbe9e8e7f859c877554f4adeccd7d33502472"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/reference/launch_fake_measure.sh",
+      "destination": "reference/launch_fake_measure.sh",
+      "source_bytes": 3832,
+      "source_sha256": "2f321df6a1ee299ed28bbe714192ccac82ab1e7e50d61cf150f1da5ecf75dffd",
+      "source_mtime_ns": 1788957826692519152,
+      "compression": null,
+      "destination_sha256": "2f321df6a1ee299ed28bbe714192ccac82ab1e7e50d61cf150f1da5ecf75dffd"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/reference/launcher-adaptation.diff",
+      "destination": "reference/launcher-adaptation.diff",
+      "source_bytes": 1865,
+      "source_sha256": "742a8749fb8d0034f12e33f631abecab3892b0bbea7f8b802bebc90fd4ba7fd0",
+      "source_mtime_ns": 1789016789374853900,
+      "compression": null,
+      "destination_sha256": "742a8749fb8d0034f12e33f631abecab3892b0bbea7f8b802bebc90fd4ba7fd0"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/reference/synthetic_prompts.json",
+      "destination": "reference/synthetic_prompts.json",
+      "source_bytes": 28531,
+      "source_sha256": "6a0b6a37b4e42e17348bdb3d29b493c1bed012f2bfd61dd0a0213647d2cef116",
+      "source_mtime_ns": 1788950655775748454,
+      "compression": null,
+      "destination_sha256": "6a0b6a37b4e42e17348bdb3d29b493c1bed012f2bfd61dd0a0213647d2cef116"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/reference/wait_ready.py",
+      "destination": "reference/wait_ready.py",
+      "source_bytes": 2206,
+      "source_sha256": "3ba32995faf279b1fd12f2deb923a2374b69e6e75c48082d74345dcd0670c1b9",
+      "source_mtime_ns": 1788950797599864701,
+      "compression": null,
+      "destination_sha256": "3ba32995faf279b1fd12f2deb923a2374b69e6e75c48082d74345dcd0670c1b9"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/results/REPORT.md",
+      "destination": "results/REPORT.md",
+      "source_bytes": 4185,
+      "source_sha256": "3b0aed7582401d18f4681be6578a042c5193da009d3a0f78ea8a81b858ac41b0",
+      "source_mtime_ns": 1789018231284218487,
+      "compression": null,
+      "destination_sha256": "3b0aed7582401d18f4681be6578a042c5193da009d3a0f78ea8a81b858ac41b0"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/results/summary.json",
+      "destination": "results/summary.json",
+      "source_bytes": 976,
+      "source_sha256": "8927ed3c93ec72b68da3ec20c67b41f335f254478c4c05d22ee83a553b1f78aa",
+      "source_mtime_ns": 1789018099118239593,
+      "compression": null,
+      "destination_sha256": "8927ed3c93ec72b68da3ec20c67b41f335f254478c4c05d22ee83a553b1f78aa"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/benchmark-command.txt",
+      "destination": "rounds/c16/benchmark-command.txt",
+      "source_bytes": 554,
+      "source_sha256": "13ceecfaba9a2693711d4b20ae08db627065c550056f63f32478f4592ff8e16d",
+      "source_mtime_ns": 1789017566932739784,
+      "compression": null,
+      "destination_sha256": "13ceecfaba9a2693711d4b20ae08db627065c550056f63f32478f4592ff8e16d"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/benchmark-console.log",
+      "destination": "rounds/c16/benchmark-console.log.gz",
+      "source_bytes": 8524,
+      "source_sha256": "f733e5a09f37666ce46b4cb8d7da3dcd9e4a62a2dc4366a2f540a395801be343",
+      "source_mtime_ns": 1789017618327714699,
+      "compression": "gzip",
+      "destination_sha256": "63dab357f7c7b6a241d2a7e8730d024b3b530bd352ca7f46e6421b4e2b048db1"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/benchmark.jsonl",
+      "destination": "rounds/c16/benchmark.jsonl",
+      "source_bytes": 1627732,
+      "source_sha256": "68d9e74dcef173118e506d3db8c8077e17d41715fcc45b0ee7ae3f2ecd03597b",
+      "source_mtime_ns": 1789017616011031785,
+      "compression": null,
+      "destination_sha256": "68d9e74dcef173118e506d3db8c8077e17d41715fcc45b0ee7ae3f2ecd03597b"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/container-id.txt",
+      "destination": "rounds/c16/container-id.txt",
+      "source_bytes": 65,
+      "source_sha256": "7239b281a1da351965210a8dbc154f02e81618650f3205694af65ba8a2bb4a5f",
+      "source_mtime_ns": 1789016913028498217,
+      "compression": null,
+      "destination_sha256": "7239b281a1da351965210a8dbc154f02e81618650f3205694af65ba8a2bb4a5f"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/container-inspect.json",
+      "destination": "rounds/c16/container-inspect.json",
+      "source_bytes": 17542,
+      "source_sha256": "54bf75b3c635af855513c42689b40f0045928080ecb8ccd45c856967b49f7dc6",
+      "source_mtime_ns": 1789016913047009993,
+      "compression": null,
+      "destination_sha256": "54bf75b3c635af855513c42689b40f0045928080ecb8ccd45c856967b49f7dc6"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/gpu-before.txt",
+      "destination": "rounds/c16/gpu-before.txt",
+      "source_bytes": 1762,
+      "source_sha256": "1c40c39125aac7ad72ff37c281c0b2acc5a61dc24df50cc8cbe839d57ddfcac4",
+      "source_mtime_ns": 1789016912733833352,
+      "compression": null,
+      "destination_sha256": "1c40c39125aac7ad72ff37c281c0b2acc5a61dc24df50cc8cbe839d57ddfcac4"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/readiness-monitor.log",
+      "destination": "rounds/c16/readiness-monitor.log.gz",
+      "source_bytes": 4161,
+      "source_sha256": "74755fcf6cbcf5fbfd7619ef937986fba2a8b63a656f5948120f277e108962be",
+      "source_mtime_ns": 1789017523181467664,
+      "compression": "gzip",
+      "destination_sha256": "9c4a8ea53e74cc5b62cd969deff58dffe8ebc31863ae7c9d226d3bc48dcb99f9"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/readiness.json",
+      "destination": "rounds/c16/readiness.json",
+      "source_bytes": 150,
+      "source_sha256": "63fa3e290a3b81d20b7028dfc3349b7db6a08f95e5c7b315fbf9fe5de3ebce6b",
+      "source_mtime_ns": 1789017523168856654,
+      "compression": null,
+      "destination_sha256": "63fa3e290a3b81d20b7028dfc3349b7db6a08f95e5c7b315fbf9fe5de3ebce6b"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/server-command.txt",
+      "destination": "rounds/c16/server-command.txt",
+      "source_bytes": 745,
+      "source_sha256": "46aeec9fb5903137fea3b9b8191cd0fd50f3edfd3cc1d8f9e3768813aecee2ca",
+      "source_mtime_ns": 1789016912840953487,
+      "compression": null,
+      "destination_sha256": "46aeec9fb5903137fea3b9b8191cd0fd50f3edfd3cc1d8f9e3768813aecee2ca"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/server-full.log",
+      "destination": "rounds/c16/server-full.log.gz",
+      "source_bytes": 158593,
+      "source_sha256": "5e52002de6fc6729d037575251c76410a8ffe225a4ba12bd2b0615738181873e",
+      "source_mtime_ns": 1789017655132602254,
+      "compression": "gzip",
+      "destination_sha256": "963a404f25afa9630364e405fa3551793f92006ce6329cf3a69700d18660b0d6"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/server-info.json",
+      "destination": "rounds/c16/server-info.json",
+      "source_bytes": 40078,
+      "source_sha256": "6e8a238873622387f61d5bc8c15486c5690e95f428ac73172a064b06a2e057ca",
+      "source_mtime_ns": 1789017523166100639,
+      "compression": null,
+      "destination_sha256": "6e8a238873622387f61d5bc8c15486c5690e95f428ac73172a064b06a2e057ca"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/server-snapshot.log",
+      "destination": "rounds/c16/server-snapshot.log.gz",
+      "source_bytes": 17585,
+      "source_sha256": "125b8725e67146e73a28d0f76693ce6c6ae558f6df6f8e9467ba3b4d113ecb57",
+      "source_mtime_ns": 1789017486399567057,
+      "compression": "gzip",
+      "destination_sha256": "df3ac39acb92842c68dd84be70caece6b758b78cbc4564aec7d4444678791542"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c16/start-time.txt",
+      "destination": "rounds/c16/start-time.txt",
+      "source_bytes": 21,
+      "source_sha256": "5df91433d0b48d5269eb557c78a6f6adae891118f62637886635e11b0fce094d",
+      "source_mtime_ns": 1789016912845361493,
+      "compression": null,
+      "destination_sha256": "5df91433d0b48d5269eb557c78a6f6adae891118f62637886635e11b0fce094d"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/benchmark-command.txt",
+      "destination": "rounds/c32/benchmark-command.txt",
+      "source_bytes": 554,
+      "source_sha256": "c784753af917079930e3b03e80ce8b06e4df207a1088f0572360e34b009e7a71",
+      "source_mtime_ns": 1789018007237796230,
+      "compression": null,
+      "destination_sha256": "c784753af917079930e3b03e80ce8b06e4df207a1088f0572360e34b009e7a71"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/benchmark-console.log",
+      "destination": "rounds/c32/benchmark-console.log.gz",
+      "source_bytes": 8333,
+      "source_sha256": "17296baf6c9d954d1172ca136f5b9b49cef2cea90787a7e8acd06e0d30b4c189",
+      "source_mtime_ns": 1789018047392359183,
+      "compression": "gzip",
+      "destination_sha256": "c01b25c3cbd1383cec4edea68feb576aca92543f8062fd1e19edae204e421428"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/benchmark.jsonl",
+      "destination": "rounds/c32/benchmark.jsonl",
+      "source_bytes": 1618914,
+      "source_sha256": "0fdaee75f7bf8a0926670b619249ed098a7b7db56401f326daac203837355528",
+      "source_mtime_ns": 1789018045298705941,
+      "compression": null,
+      "destination_sha256": "0fdaee75f7bf8a0926670b619249ed098a7b7db56401f326daac203837355528"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/container-id.txt",
+      "destination": "rounds/c32/container-id.txt",
+      "source_bytes": 65,
+      "source_sha256": "ea5d7f136d088eb54a9fa2e7fd62fcf422f9d725477d6177adc5c9c54cb2cb0e",
+      "source_mtime_ns": 1789017735078638252,
+      "compression": null,
+      "destination_sha256": "ea5d7f136d088eb54a9fa2e7fd62fcf422f9d725477d6177adc5c9c54cb2cb0e"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/container-inspect.json",
+      "destination": "rounds/c32/container-inspect.json",
+      "source_bytes": 17542,
+      "source_sha256": "3b12fdbd1b1adecc9ad4164e6d6fe8ce8154ad80a9e9a6e551cf1fb63161b578",
+      "source_mtime_ns": 1789017735103552001,
+      "compression": null,
+      "destination_sha256": "3b12fdbd1b1adecc9ad4164e6d6fe8ce8154ad80a9e9a6e551cf1fb63161b578"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/gpu-before.txt",
+      "destination": "rounds/c32/gpu-before.txt",
+      "source_bytes": 1762,
+      "source_sha256": "0790490f7967623120db1e9f900535dc624ea228b30cc2837398be19495cc6d5",
+      "source_mtime_ns": 1789017734767205920,
+      "compression": null,
+      "destination_sha256": "0790490f7967623120db1e9f900535dc624ea228b30cc2837398be19495cc6d5"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/readiness-monitor.log",
+      "destination": "rounds/c32/readiness-monitor.log.gz",
+      "source_bytes": 1659,
+      "source_sha256": "dc00bcf2c02dff88cbcbfbe9fad01810d30bd6693eb66c706fb23f97f88f4299",
+      "source_mtime_ns": 1789017984066400638,
+      "compression": "gzip",
+      "destination_sha256": "5261285a37c6b916253b7a51ed2071253147e6c500567ed391423a9e556b679e"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/readiness.json",
+      "destination": "rounds/c32/readiness.json",
+      "source_bytes": 150,
+      "source_sha256": "86aa4a21fbf9f73121d7804b034216a085f986db095d9ca0138ecf8db9f77479",
+      "source_mtime_ns": 1789017984052544710,
+      "compression": null,
+      "destination_sha256": "86aa4a21fbf9f73121d7804b034216a085f986db095d9ca0138ecf8db9f77479"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/server-command.txt",
+      "destination": "rounds/c32/server-command.txt",
+      "source_bytes": 745,
+      "source_sha256": "4cd5b6ca05f076c760f5ed5a8b2a74557d27f764af49faf127221c9cfd56ba55",
+      "source_mtime_ns": 1789017734874099673,
+      "compression": null,
+      "destination_sha256": "4cd5b6ca05f076c760f5ed5a8b2a74557d27f764af49faf127221c9cfd56ba55"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/server-full.log",
+      "destination": "rounds/c32/server-full.log.gz",
+      "source_bytes": 167315,
+      "source_sha256": "05dd75191a737bbb5eb78dea15579ecc68263dfe579f46821e8b80c2afd819e0",
+      "source_mtime_ns": 1789018099016604592,
+      "compression": "gzip",
+      "destination_sha256": "a2e6362383565782a55aa068bb89f3b8ec11fbf81bd3a67206d4e0b9cca423df"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/server-info.json",
+      "destination": "rounds/c32/server-info.json",
+      "source_bytes": 40311,
+      "source_sha256": "4ce77240269e9ec4f60c9f300655e0e39187186a7c9ecdfebc5d482a0a7d8d3f",
+      "source_mtime_ns": 1789017984049850704,
+      "compression": null,
+      "destination_sha256": "4ce77240269e9ec4f60c9f300655e0e39187186a7c9ecdfebc5d482a0a7d8d3f"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/rounds/c32/start-time.txt",
+      "destination": "rounds/c32/start-time.txt",
+      "source_bytes": 21,
+      "source_sha256": "5dc0e66f793a5598b09864507876aa9e26416f1a1dbedc875ed9115567a0d1a1",
+      "source_mtime_ns": 1789017734878786013,
+      "compression": null,
+      "destination_sha256": "5dc0e66f793a5598b09864507876aa9e26416f1a1dbedc875ed9115567a0d1a1"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/scripts/bench.sh",
+      "destination": "scripts/original/bench.sh",
+      "source_bytes": 841,
+      "source_sha256": "027e68c9873c46f243b393742c23f4e16a85da02361d38e27bb3c51ee72b6816",
+      "source_mtime_ns": 1789016250914021192,
+      "compression": null,
+      "destination_sha256": "027e68c9873c46f243b393742c23f4e16a85da02361d38e27bb3c51ee72b6816"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/scripts/launch.sh",
+      "destination": "scripts/original/launch.sh",
+      "source_bytes": 3901,
+      "source_sha256": "9d5de7baf8300356cedb89773fa2f36e5d7ea5c9782c354ed27f5c91f347f800",
+      "source_mtime_ns": 1789016250910063206,
+      "compression": null,
+      "destination_sha256": "9d5de7baf8300356cedb89773fa2f36e5d7ea5c9782c354ed27f5c91f347f800"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/scripts/wait_ready.py",
+      "destination": "scripts/original/wait_ready.py",
+      "source_bytes": 2220,
+      "source_sha256": "2fa0f4fdaa9faff883a2739800514f00272fe4349bd6f1db22855853a7ad32e1",
+      "source_mtime_ns": 1789016250917261988,
+      "compression": null,
+      "destination_sha256": "2fa0f4fdaa9faff883a2739800514f00272fe4349bd6f1db22855853a7ad32e1"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/source/dsa_utils_fake_fix.py",
+      "destination": "source/dsa_utils_fake_fix.py",
+      "source_bytes": 19996,
+      "source_sha256": "885a16f3bedc1c08febae90b901cc657e78b2f20cf1356e0baa81950ad33fcf0",
+      "source_mtime_ns": 1788956739480021944,
+      "compression": null,
+      "destination_sha256": "885a16f3bedc1c08febae90b901cc657e78b2f20cf1356e0baa81950ad33fcf0"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/source/eagle_disaggregation_fake_fix.py",
+      "destination": "source/eagle_disaggregation_fake_fix.py",
+      "source_bytes": 4714,
+      "source_sha256": "b00651242c050d63f4233abf06c26ed23f48f13707231b96e76c77de73c14752",
+      "source_mtime_ns": 1788953385850696636,
+      "compression": null,
+      "destination_sha256": "b00651242c050d63f4233abf06c26ed23f48f13707231b96e76c77de73c14752"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/source/fake_index_elision.patch",
+      "destination": "patches/fake_index_elision.patch",
+      "source_bytes": 745,
+      "source_sha256": "22542b5c5b04033c609a8c728f05086dab9b363f0c590bd1713e154dc176da4c",
+      "source_mtime_ns": 1788953939134593506,
+      "compression": null,
+      "destination_sha256": "22542b5c5b04033c609a8c728f05086dab9b363f0c590bd1713e154dc176da4c"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/source/fake_proposal.patch",
+      "destination": "patches/fake_proposal.patch",
+      "source_bytes": 1353,
+      "source_sha256": "5330cbaf7cc981a59a070ec51d995e26870bf41ceb481b6cde189a890f4b9790",
+      "source_mtime_ns": 1788953385865249677,
+      "compression": null,
+      "destination_sha256": "5330cbaf7cc981a59a070ec51d995e26870bf41ceb481b6cde189a890f4b9790"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/source/fake_topk_domain.patch",
+      "destination": "patches/fake_topk_domain.patch",
+      "source_bytes": 760,
+      "source_sha256": "18c1822aea433c85492b8f7aad0310d60a0de5e77dbb5422ff129cf26416a283",
+      "source_mtime_ns": 1788956739484048034,
+      "compression": null,
+      "destination_sha256": "18c1822aea433c85492b8f7aad0310d60a0de5e77dbb5422ff129cf26416a283"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/source/kv_cache_configurator_fake_fix.py",
+      "destination": "source/kv_cache_configurator_fake_fix.py",
+      "source_bytes": 99220,
+      "source_sha256": "c92a954f31b985c267cb33062bcc86788f05c739409613ebd4c42eca5d99cbce",
+      "source_mtime_ns": 1788953939126081782,
+      "compression": null,
+      "destination_sha256": "c92a954f31b985c267cb33062bcc86788f05c739409613ebd4c42eca5d99cbce"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/spur-130891.out",
+      "destination": "history/spur-130891.out.gz",
+      "source_bytes": 11,
+      "source_sha256": "b4a6c06672677cf0e25ec72bec83beae33305cee4b8087f168962014373b02bb",
+      "source_mtime_ns": 1789018292537845419,
+      "compression": "gzip",
+      "destination_sha256": "0c276f80c13df80ca03bdda5043a1f95fb894908d67e9957b72dbfeed433a8f7"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/state/START_TS",
+      "destination": "history/state/START_TS",
+      "source_bytes": 33,
+      "source_sha256": "e4d9439d7a07d02e705282687fc4f93fcda6a791ee4f9fc445b0d9a8f4b43f1e",
+      "source_mtime_ns": 1789015930707930728,
+      "compression": null,
+      "destination_sha256": "e4d9439d7a07d02e705282687fc4f93fcda6a791ee4f9fc445b0d9a8f4b43f1e"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/state/leader.md",
+      "destination": "history/state/leader.md",
+      "source_bytes": 3256,
+      "source_sha256": "69255d3246d3e7e9f8cc075f6d072317f4b12d8fcb281a2c620b14162f9b9f2a",
+      "source_mtime_ns": 1789018292583478620,
+      "compression": null,
+      "destination_sha256": "69255d3246d3e7e9f8cc075f6d072317f4b12d8fcb281a2c620b14162f9b9f2a"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/state/readiness.json",
+      "destination": "history/state/readiness.json",
+      "source_bytes": 150,
+      "source_sha256": "86aa4a21fbf9f73121d7804b034216a085f986db095d9ca0138ecf8db9f77479",
+      "source_mtime_ns": 1789017984057618449,
+      "compression": null,
+      "destination_sha256": "86aa4a21fbf9f73121d7804b034216a085f986db095d9ca0138ecf8db9f77479"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/work.checkpoint.summary.md",
+      "destination": "history/work.checkpoint.summary.md",
+      "source_bytes": 9951,
+      "source_sha256": "8f4c97987c878e4e73214732a63ff27447f4d1d925234240514b19ac3e232c89",
+      "source_mtime_ns": 1789018612485935982,
+      "compression": null,
+      "destination_sha256": "8f4c97987c878e4e73214732a63ff27447f4d1d925234240514b19ac3e232c89"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452/working_process.md",
+      "destination": "history/working_process.md",
+      "source_bytes": 2800,
+      "source_sha256": "c38437bfbc8cd4803a28e94970daedfc3494463cd3e699947d93fe4f8c6574ca",
+      "source_mtime_ns": 1789018292585951024,
+      "compression": null,
+      "destination_sha256": "c38437bfbc8cd4803a28e94970daedfc3494463cd3e699947d93fe4f8c6574ca"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/source/eagle_disaggregation.py",
+      "destination": "source/baseline/eagle_disaggregation.py",
+      "source_bytes": 4036,
+      "source_sha256": "0854c16b82f3abb8ba72ae9410747c2268bce596ff084abe1f81fcc99de4c1f5",
+      "source_mtime_ns": 1788953206538664081,
+      "compression": null,
+      "destination_sha256": "0854c16b82f3abb8ba72ae9410747c2268bce596ff084abe1f81fcc99de4c1f5"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/source/kv_cache_configurator_original.py",
+      "destination": "source/baseline/kv_cache_configurator_original.py",
+      "source_bytes": 98876,
+      "source_sha256": "264621a7c8eafcb88699ac1d6f88b21467276b55566db99eee90afcf62d996c7",
+      "source_mtime_ns": 1788953844558407676,
+      "compression": null,
+      "destination_sha256": "264621a7c8eafcb88699ac1d6f88b21467276b55566db99eee90afcf62d996c7"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/source/dsa_utils.py",
+      "destination": "source/baseline/dsa_utils.py",
+      "source_bytes": 19684,
+      "source_sha256": "095effb0696107224000bd518fea6d0120c8d14673bccd75801fec1fbd0dd5c8",
+      "source_mtime_ns": 1788955978682597464,
+      "compression": null,
+      "destination_sha256": "095effb0696107224000bd518fea6d0120c8d14673bccd75801fec1fbd0dd5c8"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/source/serving.py",
+      "destination": "source/baseline/serving.py",
+      "source_bytes": 105453,
+      "source_sha256": "0d65ec5e4490eaf5bc999cd11f045688b05ff6a040b6fabc4e5e60faf134e574",
+      "source_mtime_ns": 1788950570564423398,
+      "compression": null,
+      "destination_sha256": "0d65ec5e4490eaf5bc999cd11f045688b05ff6a040b6fabc4e5e60faf134e574"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/scripts/test_fake_proposal.py",
+      "destination": "scripts/tests/test_fake_proposal.py",
+      "source_bytes": 3122,
+      "source_sha256": "91ec668532766204b9520b538016714c1061ace13f626206b648fc6519e0127f",
+      "source_mtime_ns": 1788953318251850878,
+      "compression": null,
+      "destination_sha256": "91ec668532766204b9520b538016714c1061ace13f626206b648fc6519e0127f"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/scripts/test_index_elision.py",
+      "destination": "scripts/tests/test_index_elision.py",
+      "source_bytes": 1331,
+      "source_sha256": "4c8983c0bff7f12d75f0374d813564fa41f0013fdb88d03919d2b23ef8ecfe7e",
+      "source_mtime_ns": 1788953875073073206,
+      "compression": null,
+      "destination_sha256": "4c8983c0bff7f12d75f0374d813564fa41f0013fdb88d03919d2b23ef8ecfe7e"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/scripts/test_fake_topk_domain.py",
+      "destination": "scripts/tests/test_fake_topk_domain.py",
+      "source_bytes": 1320,
+      "source_sha256": "c8c350289382ca492cecd2d7bc4fed82399335e0c633eed3957366b5a0a328b1",
+      "source_mtime_ns": 1788956668509074668,
+      "compression": null,
+      "destination_sha256": "c8c350289382ca492cecd2d7bc4fed82399335e0c633eed3957366b5a0a328b1"
+    },
+    {
+      "source": "/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016/reference/Dockerfile",
+      "destination": "reference/Dockerfile",
+      "source_bytes": 1440,
+      "source_sha256": "0754d740caa95230993720133815ef4eef44fcb852e2913b80a71052221a06fe",
+      "source_mtime_ns": 1788851672326033287,
+      "compression": null,
+      "destination_sha256": "0754d740caa95230993720133815ef4eef44fcb852e2913b80a71052221a06fe"
+    }
+  ],
+  "excluded": [
+    "source cache/ (all JIT/Triton/Torch/HF caches)",
+    "external model weights",
+    "external container image archive/layers"
+  ],
+  "policy": "All source non-cache files preserved; .log/.out and operations logs losslessly gzipped; original scripts unchanged."
+}

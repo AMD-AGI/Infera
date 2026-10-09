@@ -1,0 +1,43 @@
+module>
+    main()
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 433, in main
+    from sglang.srt.entrypoints.engine import _set_envs_and_config
+  File "/sglang/python/sglang/srt/entrypoints/engine.py", line 53, in <module>
+    from sglang.srt.elastic_ep.expert_backup_manager import run_expert_backup_manager
+  File "/sglang/python/sglang/srt/elastic_ep/expert_backup_manager.py", line 10, in <module>
+    from sglang.srt.configs.model_config import ModelConfig
+  File "/sglang/python/sglang/srt/configs/model_config.py", line 31, in <module>
+    from sglang.srt.layers.quantization import QUANTIZATION_METHODS
+  File "/sglang/python/sglang/srt/layers/quantization/__init__.py", line 22, in <module>
+    from sglang.srt.layers.quantization.awq import AWQConfig, AWQCPUConfig, AWQMarlinConfig
+  File "/sglang/python/sglang/srt/layers/quantization/awq/__init__.py", line 8, in <module>
+    from .awq import (
+  File "/sglang/python/sglang/srt/layers/quantization/awq/awq.py", line 10, in <module>
+    from sglang.srt.layers.linear import LinearBase
+  File "/sglang/python/sglang/srt/layers/linear.py", line 31, in <module>
+    from sglang.srt.layers.moe.utils import should_skip_mlp_all_reduce
+  File "/sglang/python/sglang/srt/layers/moe/__init__.py", line 1, in <module>
+    from sglang.srt.layers.moe.moe_runner import MoeRunner, MoeRunnerConfig
+  File "/sglang/python/sglang/srt/layers/moe/moe_runner/__init__.py", line 2, in <module>
+    from sglang.srt.layers.moe.moe_runner.runner import MoeRunner
+  File "/sglang/python/sglang/srt/layers/moe/moe_runner/runner.py", line 12, in <module>
+    from sglang.srt.layers.moe.moe_runner.deep_gemm import DeepGemmRunnerCore
+  File "/sglang/python/sglang/srt/layers/moe/moe_runner/deep_gemm.py", line 11, in <module>
+    from sglang.kernels.ops.attention.dsv4 import silu_and_mul_masked_post_quant
+  File "/sglang/python/sglang/kernels/ops/attention/dsv4/__init__.py", line 26, in <module>
+    from .gemm import linear_bf16_fp32
+  File "/sglang/python/sglang/kernels/ops/attention/dsv4/gemm.py", line 14, in <module>
+    from aiter.tuned_gemm import tgemm
+  File "/aiter/aiter/tuned_gemm.py", line 67, in <module>
+    tune_path = AITER_CONFIGS.AITER_CONFIG_GEMM_BF16_FILE
+  File "/aiter/aiter/jit/core.py", line 259, in AITER_CONFIG_GEMM_BF16_FILE
+    return self.get_config_file(
+  File "/aiter/aiter/jit/core.py", line 440, in get_config_file
+    config_file = self.update_config_files(tuned_files, tuned_file_name)
+  File "/aiter/aiter/jit/core.py", line 413, in update_config_files
+    mp_lock(lock_path, write_config)
+  File "/aiter/aiter/jit/core.py", line 62, in mp_lock
+    if baton.try_acquire():
+  File "/aiter/aiter/jit/utils/file_baton.py", line 51, in try_acquire
+    self.fd = os.open(self.lock_file_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+PermissionError: [Errno 13] Permission denied: '/tmp/aiter_configs/bf16_tuned_gemm.csv.lock'

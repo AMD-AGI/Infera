@@ -1,0 +1,110 @@
+{
+  "001_ep4_off_smoke_yihou": {
+    "first_log_timestamp": "2026-09-10 05:25:14",
+    "last_log_timestamp": "2026-09-10 05:38:35",
+    "result_mtime_utc": "2026-09-10T05:39:17.547363+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 891
+    }
+  },
+  "002_ep4_on_smoke_yihou": {
+    "first_log_timestamp": "2026-09-10 05:40:50",
+    "last_log_timestamp": "2026-09-10 05:41:53",
+    "result_mtime_utc": "2026-09-10T05:42:05.898576+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 102
+    }
+  },
+  "full_dpa_off_c16_yihou": {
+    "first_log_timestamp": "2026-09-10 05:48:58",
+    "last_log_timestamp": "2026-09-10 05:49:46",
+    "result_mtime_utc": "2026-09-10T05:51:35.798654+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 185
+    }
+  },
+  "full_dpa_off_c20_yihou": {
+    "first_log_timestamp": "2026-09-10 05:52:02",
+    "last_log_timestamp": "2026-09-10 05:53:01",
+    "result_mtime_utc": "2026-09-10T05:55:03.864300+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 208
+    }
+  },
+  "full_dpa_off_c24_yihou": {
+    "first_log_timestamp": "2026-09-10 05:55:31",
+    "last_log_timestamp": "2026-09-10 05:56:29",
+    "result_mtime_utc": "2026-09-10T05:58:41.434282+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 217
+    }
+  },
+  "full_dpa_off_c4_yihou": {
+    "first_log_timestamp": "2026-09-10 05:43:40",
+    "last_log_timestamp": "2026-09-10 05:44:29",
+    "result_mtime_utc": "2026-09-10T05:45:46.303406+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 153
+    }
+  },
+  "full_dpa_off_c8_yihou": {
+    "first_log_timestamp": "2026-09-10 05:46:14",
+    "last_log_timestamp": "2026-09-10 05:47:05",
+    "result_mtime_utc": "2026-09-10T05:48:31.302102+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 163
+    }
+  },
+  "full_dpa_on_c16_yihou": {
+    "first_log_timestamp": "2026-09-10 06:04:30",
+    "last_log_timestamp": "2026-09-10 06:05:22",
+    "result_mtime_utc": "2026-09-10T06:07:15.750874+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 191
+    }
+  },
+  "full_dpa_on_c20_yihou": {
+    "first_log_timestamp": "2026-09-10 06:07:42",
+    "last_log_timestamp": "2026-09-10 06:08:32",
+    "result_mtime_utc": "2026-09-10T06:10:33.716839+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 198
+    }
+  },
+  "full_dpa_on_c24_yihou": {
+    "first_log_timestamp": "2026-09-10 06:10:59",
+    "last_log_timestamp": "2026-09-10 06:12:01",
+    "result_mtime_utc": "2026-09-10T06:14:07.374716+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 214
+    }
+  },
+  "full_dpa_on_c4_yihou": {
+    "first_log_timestamp": "2026-09-10 05:59:08",
+    "last_log_timestamp": "2026-09-10 05:59:59",
+    "result_mtime_utc": "2026-09-10T06:01:14.973041+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 153
+    }
+  },
+  "full_dpa_on_c8_yihou": {
+    "first_log_timestamp": "2026-09-10 06:01:41",
+    "last_log_timestamp": "2026-09-10 06:02:32",
+    "result_mtime_utc": "2026-09-10T06:04:04.672840+00:00",
+    "launch_status": {
+      "exit_code": 0,
+      "launch_wall_seconds": 168
+    }
+  }
+}

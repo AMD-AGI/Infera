@@ -1,0 +1,23 @@
+CONTAINER-SIDE ENVIRONMENT PROBE — NOT CAPTURED (gap, recorded honestly)
+
+Attempted: 2026-09-11T11:26Z, command
+  spur exec 133750 bash -lc 'docker exec yihou-noep-dpa-0911 bash /shared_nfs/yihou/collect_env_yihou.sh'
+
+Verbatim result:
+  Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?
+  (systemctl is-active docker -> failed)
+
+Cause: the Docker daemon on crsuse2-m2m-217 entered `failed` state some time between 10:41Z (last
+successful `docker ps`) and 11:26Z, taking the container `yihou-noep-dpa-0911` with it. The Slurm
+allocation 133750 itself was still RUNNING at that point.
+
+Impact on the data: NONE. The last measurement (EP4 control, C=48) completed at 10:56Z and every
+result/launch artifact was already written and collected.
+
+Impact on this packup: per-GPU VRAM/utilisation and the container's pip inventory could not be
+re-probed. The software stack is still pinned and knowable because the image is pinned BY DIGEST
+(sha256:b9a83742f631...) and `run_decode.sh` re-asserts that digest before every point. See
+environment.md, section "Carried over from the identical-image packup", for the package versions
+verified against the same digest on 2026-09-10 — labelled there as second-hand for this sweep.
+
+Host-side environment WAS captured successfully: see host_crsuse2-m2m-217.txt.

@@ -1,0 +1,15 @@
+setting=unset rep=1 entries=7 gemm_count=19 reduce_count=19
+setting=    0 rep=1 entries=7 gemm_count=19 reduce_count=19
+setting=    1 rep=1 entries=7 gemm_count=19 reduce_count=19
+setting=unset rep=2 entries=7 gemm_count=19 reduce_count=19
+setting=    0 rep=2 entries=7 gemm_count=19 reduce_count=19
+setting=    1 rep=2 entries=7 gemm_count=19 reduce_count=19
+setting=unset rep=3 entries=7 gemm_count=19 reduce_count=19
+setting=    0 rep=3 entries=7 gemm_count=19 reduce_count=19
+setting=    1 rep=3 entries=7 gemm_count=19 reduce_count=19
+setting=unset rep=4 entries=7 gemm_count=19 reduce_count=19
+setting=    0 rep=4 entries=7 gemm_count=19 reduce_count=19
+setting=    1 rep=4 entries=7 gemm_count=19 reduce_count=19
+setting=unset rep=5 entries=7 gemm_count=19 reduce_count=19
+setting=    0 rep=5 entries=7 gemm_count=19 reduce_count=19
+setting=    1 rep=5 entries=7 gemm_count=19 reduce_count=19
