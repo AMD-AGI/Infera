@@ -1,0 +1,9 @@
+torch 2.9.1+rocm7.2.0.lw.git7e1940d4
+sglang 0.5.19.dev20260917+ga9fb1c3238
+aiter distribution metadata unavailable
+infera distribution metadata unavailable
+transformers 5.12.1
+triton 3.7.0+amd.rocm7.2.0.git89002410
+mooncake-transfer-engine distribution metadata unavailable
+/sgl-workspace/sglang 7ccbf5fd04f7ee23095fc38e49e749d58dc18282
+/sgl-workspace/aiter 4ad99832823dde2315b361cbd3b54b1c5c12acd5

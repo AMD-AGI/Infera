@@ -1,0 +1,12 @@
+{
+  "url": "http://10.245.157.237:28000",
+  "model": "glm5.2-synthetic-expert8-yihou",
+  "input_len": 4096,
+  "output_len": 1024,
+  "concurrency": 32,
+  "warmup": 32,
+  "requests": 256,
+  "seed": 42,
+  "timeout": 1800,
+  "out": "/home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-expert8-pd/rounds/003-fixed-c32/benchmark"
+}

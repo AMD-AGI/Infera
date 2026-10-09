@@ -1,0 +1,22 @@
+{
+  "checkpoint_filter_before_get_tensor": true,
+  "gate_slices_match": true,
+  "retained_tensor_count": 5,
+  "gpu_eager_sizes": [
+    0,
+    1,
+    32,
+    128
+  ],
+  "cuda_graph_replay": true,
+  "routed_ids": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ]
+}

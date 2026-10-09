@@ -1,0 +1,296 @@
+diff --git a/python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh b/python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh
+index 3a9a5afa5e4e..0a7af334ff68 100644
+--- a/python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh
++++ b/python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh
+@@ -17,6 +17,20 @@ namespace sglang {
+ 
+ namespace device {
+ 
++// Logical threads collaborating on one copied element. This is not the
++// hardware warp/wavefront size: on CDNA wave64, one wavefront contains two
++// logically independent 32-thread copy groups. The transfer kernels use no shuffle,
++// ballot, barrier, shared memory, or other cross-lane communication.
++inline constexpr uint32_t kCopyGroupThreads = 32;
++
++template <uint32_t kUnroll>
++inline constexpr uint32_t copy_lanes_per_worker() {
++  static_assert(kUnroll > 0, "unroll must be positive");
++  static_assert(kUnroll <= kCopyGroupThreads, "unroll cannot exceed the logical copy-group width");
++  static_assert(kCopyGroupThreads % kUnroll == 0, "unroll must divide the logical copy-group width");
++  return kCopyGroupThreads / kUnroll;
++}
++
+ namespace details {
+ 
+ template <typename T, uint32_t N>
+@@ -40,6 +54,31 @@ inline constexpr auto get_mem_package() {
+ template <int kUnit>
+ using PackageType = decltype(get_mem_package<kUnit>());
+ 
++// A worker copies one element in rounds of `group` bytes, each lane moving
++// group / lanes_per_worker bytes as one vector package. That quotient has to
++// be a package size the hardware supports.
++inline constexpr bool group_fits(int64_t bytes, uint32_t lanes_per_worker, uint32_t group) {
++  if (group % lanes_per_worker != 0 || bytes % static_cast<int64_t>(group) != 0) {
++    return false;
++  }
++  const uint32_t package = group / lanes_per_worker;
++  return package == 4 || package == 8 || package == 16;
++}
++
++inline constexpr uint32_t pick_group_bytes(int64_t bytes, uint32_t lanes_per_worker) {
++  // The narrow rounds only pay off against the raised ROCm block quota, so CUDA
++  // keeps the original 128 B requirement and generates the same code as before.
++#ifdef USE_ROCM
++  return group_fits(bytes, lanes_per_worker, 128)  ? 128u
++         : group_fits(bytes, lanes_per_worker, 64) ? 64u
++         : group_fits(bytes, lanes_per_worker, 32) ? 32u
++         : group_fits(bytes, lanes_per_worker, 16) ? 16u
++                                                   : 0u;
++#else
++  return group_fits(bytes, lanes_per_worker, 128) ? 128u : 0u;
++#endif
++}
++
+ // NVIDIA exposes an explicit "do not allocate in L1" cache hint via PTX. ROCm
+ // has no equivalent PTX, but non-temporal (streaming) loads/stores express the
+ // same intent for one-shot HiCache write-back traffic that should not pollute
+@@ -124,40 +163,40 @@ SGL_DEVICE void store_nc(uint4* __restrict__ dst, const uint4& value) {
+ 
+ }  // namespace details
+ 
+-template <int64_t kBytes, uint32_t kNumThreads>
++template <int64_t kBytes, uint32_t kLanesPerWorker>
+ SGL_DEVICE auto load_vec(const void* __restrict__ src) {
+-  static_assert(kBytes % 128 == 0, "kBytes must be multiple of 128 bytes");
+-  static_assert(128 % kNumThreads == 0, "kNumThreads must divide 128 bytes");
+-  constexpr uint32_t kLoopCount = kBytes / 128;
+-  using Package = details::PackageType<128 / kNumThreads>;
++  constexpr uint32_t kGroupBytes = details::pick_group_bytes(kBytes, kLanesPerWorker);
++  static_assert(kGroupBytes != 0, "no 4/8/16 B package tiles kBytes across the worker lanes");
++  constexpr uint32_t kLoopCount = kBytes / kGroupBytes;
++  using Package = details::PackageType<kGroupBytes / kLanesPerWorker>;
+   using Storage = details::LocalStorage<Package, kLoopCount>;
+ 
+   const auto src_packed = static_cast<const Package*>(src);
+-  const auto lane_id = threadIdx.x % kNumThreads;
++  const auto lane_id = threadIdx.x % kLanesPerWorker;
+   Storage vec;
+ 
+ #pragma unroll kLoopCount
+   for (uint32_t i = 0; i < kLoopCount; ++i) {
+-    const auto j = i * kNumThreads + lane_id;
++    const auto j = i * kLanesPerWorker + lane_id;
+     vec.data[i] = details::load_nc(&src_packed[j]);
+   }
+ 
+   return vec;
+ }
+ 
+-template <int64_t kBytes, uint32_t kNumThreads, typename Storage>
++template <int64_t kBytes, uint32_t kLanesPerWorker, typename Storage>
+ SGL_DEVICE void store_vec(void* __restrict__ dst, const Storage& vec) {
+   using Package = std::decay_t<decltype(vec.data[0])>;
+-  constexpr uint32_t kBytesPerLoop = sizeof(Package) * kNumThreads;
++  constexpr uint32_t kBytesPerLoop = sizeof(Package) * kLanesPerWorker;
+   constexpr uint32_t kLoopCount = kBytes / kBytesPerLoop;
+   static_assert(kBytes % kBytesPerLoop == 0, "Invalid Storage configuration");
+ 
+   const auto dst_packed = static_cast<Package*>(dst);
+-  const auto lane_id = threadIdx.x % kNumThreads;
++  const auto lane_id = threadIdx.x % kLanesPerWorker;
+ 
+ #pragma unroll kLoopCount
+   for (uint32_t i = 0; i < kLoopCount; ++i) {
+-    const auto j = i * kNumThreads + lane_id;
++    const auto j = i * kLanesPerWorker + lane_id;
+     details::store_nc(&dst_packed[j], vec.data[i]);
+   }
+ }
+@@ -188,11 +227,10 @@ template <
+     bool kIsMLA = false>
+ SGL_HICACHE_KERNEL void hicache_transfer_per_layer(const __grid_constant__ HicacheKernelParams params) {
+   using namespace device;
+-  static_assert(kBlockSize % kWarpThreads == 0);
+-  static_assert(kWarpThreads % kUnroll == 0);
++  static_assert(kBlockSize % kCopyGroupThreads == 0);
+ 
+-  constexpr uint32_t kNumThreads = kWarpThreads / kUnroll;
+-  constexpr uint32_t kWorkersPerBlock = kBlockSize / kNumThreads;
++  constexpr uint32_t kLanesPerWorker = copy_lanes_per_worker<kUnroll>();
++  constexpr uint32_t kWorkersPerBlock = kBlockSize / kLanesPerWorker;
+   constexpr uint32_t kNumWorkers = kWorkersPerBlock * kBlockQuota;
+ 
+   const auto& [
+@@ -201,19 +239,19 @@ SGL_HICACHE_KERNEL void hicache_transfer_per_layer(const __grid_constant__ Hicac
+     kv_cache_src_stride, kv_cache_dst_stride, length, _ // metadata
+   ] = params;
+ 
+-  const uint32_t work_id = blockIdx.x * kWorkersPerBlock + threadIdx.x / kNumThreads;
++  const uint32_t work_id = blockIdx.x * kWorkersPerBlock + threadIdx.x / kLanesPerWorker;
+   for (uint32_t i = work_id; i < length; i += kNumWorkers) {
+     const auto pos_src = static_cast<const T*>(indices_src)[i];
+     const auto pos_dst = static_cast<const T*>(indices_dst)[i];
+     const auto src_k = pointer::offset(k_cache_src, pos_src * kv_cache_src_stride);
+     const auto dst_k = pointer::offset(k_cache_dst, pos_dst * kv_cache_dst_stride);
+-    const auto vec_k = load_vec<kElementSize, kNumThreads>(src_k);
+-    store_vec<kElementSize, kNumThreads>(dst_k, vec_k);
++    const auto vec_k = load_vec<kElementSize, kLanesPerWorker>(src_k);
++    store_vec<kElementSize, kLanesPerWorker>(dst_k, vec_k);
+     if constexpr (!kIsMLA) {
+       const auto src_v = pointer::offset(v_cache_src, pos_src * kv_cache_src_stride);
+       const auto dst_v = pointer::offset(v_cache_dst, pos_dst * kv_cache_dst_stride);
+-      const auto vec_v = load_vec<kElementSize, kNumThreads>(src_v);
+-      store_vec<kElementSize, kNumThreads>(dst_v, vec_v);
++      const auto vec_v = load_vec<kElementSize, kLanesPerWorker>(src_v);
++      store_vec<kElementSize, kLanesPerWorker>(dst_v, vec_v);
+     }
+   }
+ }
+@@ -230,11 +268,10 @@ SGL_HICACHE_KERNEL void hicache_transfer_all_layer(const __grid_constant__ Hicac
+   using src_ptr_t = const void*;
+   using dst_ptr_t = void*;
+ 
+-  static_assert(kBlockSize % kWarpThreads == 0);
+-  static_assert(kWarpThreads % kUnroll == 0);
++  static_assert(kBlockSize % kCopyGroupThreads == 0);
+ 
+-  constexpr uint32_t kNumThreads = kWarpThreads / kUnroll;
+-  constexpr uint32_t kWorkersPerBlock = kBlockSize / kNumThreads;
++  constexpr uint32_t kLanesPerWorker = copy_lanes_per_worker<kUnroll>();
++  constexpr uint32_t kWorkersPerBlock = kBlockSize / kLanesPerWorker;
+   constexpr uint32_t kNumWorkers = kWorkersPerBlock * kBlockQuota;
+ 
+   const auto& [
+@@ -243,7 +280,7 @@ SGL_HICACHE_KERNEL void hicache_transfer_all_layer(const __grid_constant__ Hicac
+     kv_cache_src_stride, kv_cache_dst_stride, length, num_layers // metadata
+   ] = params;
+ 
+-  const uint32_t work_id = blockIdx.x * kWorkersPerBlock + threadIdx.x / kNumThreads;
++  const uint32_t work_id = blockIdx.x * kWorkersPerBlock + threadIdx.x / kLanesPerWorker;
+   for (uint32_t i = work_id; i < length; i += kNumWorkers) {
+     const auto pos_src = static_cast<const T*>(indices_src)[i];
+     const auto pos_dst = static_cast<const T*>(indices_dst)[i];
+@@ -252,15 +289,15 @@ SGL_HICACHE_KERNEL void hicache_transfer_all_layer(const __grid_constant__ Hicac
+       const auto k_cache_dst = static_cast<const dst_ptr_t*>(k_ptr_dst)[layer];
+       const auto src_k = pointer::offset(k_cache_src, pos_src * kv_cache_src_stride);
+       const auto dst_k = pointer::offset(k_cache_dst, pos_dst * kv_cache_dst_stride);
+-      const auto vec_k = load_vec<kElementSize, kNumThreads>(src_k);
+-      store_vec<kElementSize, kNumThreads>(dst_k, vec_k);
++      const auto vec_k = load_vec<kElementSize, kLanesPerWorker>(src_k);
++      store_vec<kElementSize, kLanesPerWorker>(dst_k, vec_k);
+       if constexpr (!kIsMLA) {
+         const auto v_cache_src = static_cast<const src_ptr_t*>(v_ptr_src)[layer];
+         const auto v_cache_dst = static_cast<const dst_ptr_t*>(v_ptr_dst)[layer];
+         const auto src_v = pointer::offset(v_cache_src, pos_src * kv_cache_src_stride);
+         const auto dst_v = pointer::offset(v_cache_dst, pos_dst * kv_cache_dst_stride);
+-        const auto vec_v = load_vec<kElementSize, kNumThreads>(src_v);
+-        store_vec<kElementSize, kNumThreads>(dst_v, vec_v);
++        const auto vec_v = load_vec<kElementSize, kLanesPerWorker>(src_v);
++        store_vec<kElementSize, kLanesPerWorker>(dst_v, vec_v);
+       }
+     }
+   }
+@@ -331,7 +368,7 @@ struct HiCacheKernel {
+     const auto kv_cache_dst_stride = static_cast<int64_t>(M.unwrap() * dtype_size);
+     const auto use_int32 = indices_dtype.unwrap().bits == 32;
+ 
+-    constexpr auto kWorkersPerBlock = kBlockSize / (device::kWarpThreads / kUnroll);
++    constexpr auto kWorkersPerBlock = kBlockSize / device::copy_lanes_per_worker<kUnroll>();
+     const auto num_blocks = std::min(div_ceil(length, kWorkersPerBlock), kBlockQuota);
+     const auto params = HicacheKernelParams{
+         .k_cache_dst = k_cache_dst_ptr,
+@@ -388,7 +425,7 @@ struct HiCacheKernel {
+     const auto use_int32 = dtype_.unwrap().bits == 32;
+     const auto device = device_.unwrap();
+ 
+-    constexpr auto kWorkersPerBlock = kBlockSize / (device::kWarpThreads / kUnroll);
++    constexpr auto kWorkersPerBlock = kBlockSize / device::copy_lanes_per_worker<kUnroll>();
+     const auto num_blocks = std::min(div_ceil(length, kWorkersPerBlock), kBlockQuota);
+     const auto params = HicacheKernelParams{
+         .k_cache_dst = k_cache_dst_ptr,
+@@ -451,7 +488,7 @@ struct HiCacheKernel {
+     const auto cache_dst_stride = static_cast<int64_t>(M.unwrap() * dtype_size);
+     const auto use_int32 = indices_dtype.unwrap().bits == 32;
+ 
+-    constexpr auto kWorkersPerBlock = kBlockSize / (device::kWarpThreads / kUnroll);
++    constexpr auto kWorkersPerBlock = kBlockSize / device::copy_lanes_per_worker<kUnroll>();
+     const auto num_blocks = std::min(div_ceil(length, kWorkersPerBlock), kBlockQuota);
+     const auto params = HicacheKernelParams{
+         .k_cache_dst = cache_dst_ptr,
+@@ -501,7 +538,7 @@ struct HiCacheKernel {
+     const auto use_int32 = dtype_.unwrap().bits == 32;
+     const auto device = device_.unwrap();
+ 
+-    constexpr auto kWorkersPerBlock = kBlockSize / (device::kWarpThreads / kUnroll);
++    constexpr auto kWorkersPerBlock = kBlockSize / device::copy_lanes_per_worker<kUnroll>();
+     const auto num_blocks = std::min(div_ceil(length, kWorkersPerBlock), kBlockQuota);
+     const auto params = HicacheKernelParams{
+         .k_cache_dst = cache_dst_ptr,
+diff --git a/python/sglang/kernels/ops/kvcache/hicache.py b/python/sglang/kernels/ops/kvcache/hicache.py
+index 6844b34e04a4..8e454390a274 100644
+--- a/python/sglang/kernels/ops/kvcache/hicache.py
++++ b/python/sglang/kernels/ops/kvcache/hicache.py
+@@ -20,6 +20,14 @@
+ # ROCm needs a wider grid to saturate mapped-host transfers; CUDA keeps the legacy quota.
+ DEFAULT_BLOCK_QUOTA = 32 if _is_hip else 2
+ 
++# Logical copy-group width; this is not the hardware warp/wavefront size.
++COPY_GROUP_THREADS = 32
++
++# Copy-round widths, widest first. The narrow rounds admit element sizes 128
++# does not divide, such as MLA's 576 B fp8 row, but only pay off against the
++# ROCm quota above, so CUDA keeps the original 128 B requirement.
++GROUP_BYTES = (128, 64, 32, 16) if _is_hip else (128,)
++
+ 
+ @cache_once
+ def _jit_hicache_module(*, element_size: int, unroll: int, block_quota: int) -> Module:
+@@ -80,11 +88,11 @@ def can_use_hicache_jit_kernel(
+     block_quota: int | None = None,  # can be tuned for less interference
+ ) -> bool:
+     logger = logging.getLogger(__name__)
+-    if element_size % 128 != 0:
++    unroll = unroll or _default_unroll(element_size)
++    if not _tiles_across_lanes(element_size, unroll):
+         logger.warning(f"Unsupported {element_size = } for JIT HiCache kernel")
+         return False
+     try:
+-        unroll = unroll or _default_unroll(element_size)
+         block_quota = block_quota or DEFAULT_BLOCK_QUOTA
+         _jit_hicache_module(
+             element_size=element_size,
+@@ -121,6 +129,20 @@ def can_use_write_back_jit_kernel(
+         return False
+ 
+ 
++def _tiles_across_lanes(element_size: int, unroll: int) -> bool:
++    """Mirror of pick_group_bytes() in kvcacheio/hicache.cuh."""
++    if unroll <= 0 or unroll > COPY_GROUP_THREADS or COPY_GROUP_THREADS % unroll != 0:
++        return False
++
++    lanes_per_worker = COPY_GROUP_THREADS // unroll
++    return any(
++        group % lanes_per_worker == 0
++        and element_size % group == 0
++        and group // lanes_per_worker in (4, 8, 16)
++        for group in GROUP_BYTES
++    )
++
++
+ def _default_unroll(element_size: int) -> int:
+     if element_size <= 512:
+         return 4
+diff --git a/python/sglang/srt/mem_cache/pool_host/mha.py b/python/sglang/srt/mem_cache/pool_host/mha.py
+index fdac9d20735e..f4047ce8678b 100644
+--- a/python/sglang/srt/mem_cache/pool_host/mha.py
++++ b/python/sglang/srt/mem_cache/pool_host/mha.py
+@@ -777,7 +777,7 @@ def __init__(
+         self.lock = threading.RLock()
+         self.clear()
+ 
+-        self.can_use_jit = _is_cuda and can_use_hicache_jit_kernel(
++        self.can_use_jit = (_is_cuda or _is_hip) and can_use_hicache_jit_kernel(
+             element_size=self.token_stride_size
+         )
+         self.k_device_ptrs = torch.tensor(

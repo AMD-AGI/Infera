@@ -1,0 +1,32 @@
+# Task: synthetic eight-expert GLM-5.2 PD
+
+Finish operational smoke and one 4096-input/1024-output CONC32 benchmark on 138(prefill)+136(decode), four GPUs per leg, TP4/DP4/DPA on/EP4. Physically keep only eight routed experts per layer, always select all eight. Preserve the shared expert and attention/KV geometry. Mission authority: spec/mission.md.
+
+## Background
+The goal is to free actual weight VRAM for KV cache, not preserve model quality. MTP and HiCache OFF were explicitly selected by the user for this round. No simulated acceptance. Results are synthetic, never original GLM-5.2 performance.
+
+## Context
+Use only this workspace. The parent worktree has other sessions' changes; do not modify parent instructions or tracked harness/router. Original checkpoint is read-only. Do not touch node137. Node135 is fallback only, avoiding its existing workload.
+
+## Key references
+- spec/plan.md: approved implementation plan.
+- /home/yihou/dev/git/infera.glm52.pd/yihou/glm52-agentx-t2sweep-simacc.packup_20260920/: primary deployment reference.
+- Vendored scripts/bench-harness/: previously working launcher; adapt only here.
+- Image infera-sglang:v0519-yihou-0917-nextnfix-hicache, sha256:fd7220a57b7d3b58efd875c41f7a9ef46b93469581102d96cbeb6f5451e91d35.
+
+## Core principles
+- Research -> analysis -> approved plan -> isolated workspace -> instructions -> implementation.
+- English work, Chinese user reports. No deletion of any path lacking yihou. No unrequested commits.
+- Docker for experiments. Keep authored files, logs, downloaded artifacts, tmp and caches in this workspace.
+- Use iterative-debug-loop: numbered rounds with hypothesis, commands, evidence, outcomes, minimal next change. Differential comparison against reference mandatory; use three evidence sources for serious diagnoses.
+- Leader owns deployment/benchmarks; expert8-research owns independent SGLang patch/tests. Do not delegate verification of leader work.
+- Re-read mission every10min and at phase boundaries. Leader checks teammates every20min: first issue record only; intervene next check if unresolved.
+- LSP and Serena for source navigation. Report unavailable capabilities honestly.
+
+## Notable details
+- CUDA graph compilation may take30min. Inspect live container logs/cache progress before declaring a hang.
+- Pin corresponding RDMA rails per GPU, preserve PD rank affinity, verify GPU transfer bytes before bring-up.
+- Reset only task-owned resources between retries; verify GPU memory returned to idle before relaunch.
+- Never change MC_DISABLE_HIP_TRANSPORT into another spelling; never set MC_DISABLE_HIP=1 or MC_USE_HIP_IPC=0.
+- Existing semantic smoke asserts Jupiter/tool correctness: do not use those assertions for synthetic model.
+- Auto-sized KV allocation hides weight savings in total rocm-smi VRAM; measure weight/KV split and token capacity.

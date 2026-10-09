@@ -1,0 +1,38 @@
+{
+  "synthetic": true,
+  "requests": 16,
+  "completed": 16,
+  "failures": 0,
+  "peak_client_inflight": 8,
+  "duration_s": 6.307707717176527,
+  "input_len": 256,
+  "output_len": 32,
+  "output_tokens_per_s": 81.17053341038174,
+  "total_tokens_per_s": 730.5348006934356,
+  "latency_s": {
+    "mean": 3.144706902705366,
+    "p50": 4.670218294952065,
+    "p90": 4.869162469170988,
+    "p99": 4.87050382560119
+  },
+  "ttft_s": {
+    "mean": 2.5757021971803624,
+    "p50": 3.9517034189775586,
+    "p90": 4.319000037852675,
+    "p99": 4.319211454130709
+  },
+  "tpot_s": {
+    "mean": 0.018334202497499064,
+    "p50": 0.01773888661315845,
+    "p90": 0.023096958671005502,
+    "p99": 0.02317421573905214
+  },
+  "chunk_intervals_s": {
+    "mean": 0.018334202497499064,
+    "p50": 0.017216620966792107,
+    "p90": 0.01796840876340866,
+    "p99": 0.04005856765434146
+  },
+  "note": "TTFT is first non-empty text chunk; chunk intervals are not guaranteed per-token ITL.",
+  "pass": true
+}

@@ -1,0 +1,11 @@
+version:        6.14.14
+srcversion:     047F2F79624666B60E990D6
+version:        25.08.4.004
+srcversion:     B97F885335A96EA23365917
+version:        25.08.4.004
+srcversion:     8B9375C836F790A71B9B27A
+f67c9b4897d5f17e857701ad9c1990765cbe44d67830a47afd44224572072cc3  /lib/x86_64-linux-gnu/libionic.so
+ionic_0 fc01:0800:900d:2d4e:0690:81ff:fe40:06b1
+ionic_1 fc01:0700:8f0d:2d4e:0690:81ff:fe3f:8e99
+ionic_2 fc01:0500:8d0d:2d4e:0690:81ff:fe3f:b2e1
+ionic_3 fc01:0600:8e0d:2d4e:0690:81ff:fe3f:a0f9

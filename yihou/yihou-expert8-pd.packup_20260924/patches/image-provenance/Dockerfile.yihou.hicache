@@ -1,0 +1,49 @@
+# Thin layer: upstream sglang PR #37152 on top of the nextnfix image.
+#
+# WHY A THIN LAYER IS SOUND HERE. All three hunks of the PR touch plain source
+# files under python/sglang/ in the installed tree:
+#   kernels/jit/csrc/kvcacheio/hicache.cuh  -- JIT source, compiled at RUNTIME
+#   kernels/ops/kvcache/hicache.py          -- pure python
+#   srt/mem_cache/pool_host/mha.py          -- pure python
+# Nothing is compiled into a wheel at build time, and the kvcacheio JIT cache key
+# is content-addressed over the source bytes, so editing the .cuh in place is
+# enough to make the next run rebuild the kernel. A full image rebuild (40-60
+# min) would change nothing else and would risk drifting the 7 DSA patches the
+# base carries.
+#
+# WHY THE VERIFICATION IS MARKER-GREP AND NOT AN IMPORT. The companion nextnfix
+# layer verified itself by importing the patched class, which is the right check
+# for a python class attribute. It cannot be used here: importing anything under
+# sglang.srt pulls fp8_kernel.py:50 -> is_gfx1250_supported() ->
+# torch.cuda.get_device_properties(0), and `docker build` has no GPU -- that is
+# what made the first nextnfix build fail with "No HIP GPUs are available".
+# The .cuh has no import path at all. So the build asserts the three markers
+# textually and drops __pycache__; the *runtime* import check is done afterwards
+# with `docker run --device /dev/kfd --device /dev/dri`, outside this file.
+ARG BASE=infera-sglang:v0519-yihou-0917-nextnfix
+FROM ${BASE}
+
+COPY pr37152.sources.yihou.diff /tmp/yihou_pr37152.diff
+
+RUN set -eu; \
+    cd /sgl-workspace/sglang; \
+    cuh=python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh; \
+    pyf=python/sglang/kernels/ops/kvcache/hicache.py; \
+    mha=python/sglang/srt/mem_cache/pool_host/mha.py; \
+    for f in "$cuh" "$pyf" "$mha"; do \
+        [ -f "$f" ] || { echo "pr37152: missing target $f" >&2; exit 1; }; \
+    done; \
+    if grep -q kCopyGroupThreads "$cuh"; then \
+        echo "[pr37152] already present -- skipping"; \
+    elif patch -p1 --fuzz=0 --batch --forward --dry-run < /tmp/yihou_pr37152.diff >/dev/null 2>&1; then \
+        patch -p1 --fuzz=0 --batch --forward < /tmp/yihou_pr37152.diff; \
+        grep -q kCopyGroupThreads "$cuh" || { echo "pr37152: cuh marker missing" >&2; exit 1; }; \
+        grep -q _tiles_across_lanes "$pyf" || { echo "pr37152: hicache.py marker missing" >&2; exit 1; }; \
+        ! grep -q "_is_cuda and can_use_hicache_jit_kernel" "$mha" || \
+            { echo "pr37152: mha.py gate not widened" >&2; exit 1; }; \
+        find /sgl-workspace/sglang/python -name __pycache__ -type d -prune -exec rm -rf {} +; \
+        echo "[pr37152] applied and bytecode caches dropped"; \
+    else \
+        echo "pr37152: does not apply at --fuzz=0 against this base" >&2; exit 1; \
+    fi; \
+    rm -f /tmp/yihou_pr37152.diff

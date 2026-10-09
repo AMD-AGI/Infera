@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# Purpose: transparent `ssh` shim that routes commands for the spur compute node
+#   crsuse2-m2m-276 through `spur exec <JOB> ...`, because spur nodes refuse ssh
+#   (sshd AllowUsers ubuntu root; we run as yihou). Every OTHER host falls through
+#   to the real ssh unchanged, so the same harness still drives 137/138/etc.
+# Usage: prepend this directory to PATH; the bench scripts call `ssh` as usual.
+#   Override the routed node / job with SPUR_SHIM_NODE / SPUR_SHIM_JOB.
+# Contract it must honour (see analysis/harness_samenode.yihou.md):
+#   * ssh joins the post-host argv with single spaces and runs it via the remote
+#     login shell (one level of shell parsing). We reproduce that with
+#     `spur exec JOB bash -c "<joined>"` — spur preserves argv boundaries
+#     (verified), so bash -c receives the command as a single argument and parses
+#     it exactly once, matching real ssh.
+#   * `-n` (stdin from /dev/null) is honoured. spur exec cannot forward stdin, so
+#     any caller that pipes a script to `bash -s` over this shim will NOT work
+#     (only check_nodes.sh does that; it is not on the launch path).
+#   * exit status and stderr propagate from the remote command unchanged.
+set -uo pipefail
+
+SPUR_JOB="${SPUR_SHIM_JOB:-165913}"
+TARGET_NODE="${SPUR_SHIM_NODE:-crsuse2-m2m-276}"
+
+orig_args=("$@")
+self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Locate the real ssh: first executable named ssh on PATH that is not this shim.
+real_ssh=""
+IFS=':' read -r -a _path_parts <<< "$PATH"
+for _d in "${_path_parts[@]}"; do
+    [[ -z "$_d" ]] && _d=.
+    _resolved="$(cd "$_d" 2>/dev/null && pwd)" || continue
+    [[ "$_resolved" == "$self_dir" ]] && continue
+    if [[ -x "$_resolved/ssh" ]]; then real_ssh="$_resolved/ssh"; break; fi
+done
+[[ -n "$real_ssh" ]] || { for _c in /usr/bin/ssh /bin/ssh; do
+    [[ -x "$_c" ]] && { real_ssh="$_c"; break; }; done; }
+
+# Parse the ssh argv: skip option flags, capture the host, collect the command.
+# ssh option letters that consume a following argument (superset of what the
+# harness uses, which is only -o); everything else beginning with - is a bare
+# flag. -n is a bare flag we additionally remember.
+takes_arg="BbcDEeFIiJLlmOoPpQRSWw"
+host=""
+no_stdin=0
+cmd_parts=()
+seen_ddash=0
+i=0
+n=${#orig_args[@]}
+while (( i < n )); do
+    a="${orig_args[i]}"
+    if [[ -z "$host" && $seen_ddash -eq 0 && "$a" == -?* ]]; then
+        if [[ "$a" == "--" ]]; then seen_ddash=1; ((i++)); continue; fi
+        [[ "$a" == "-n" ]] && no_stdin=1
+        opt="${a:1:1}"
+        if [[ "$takes_arg" == *"$opt"* ]]; then
+            if (( ${#a} > 2 )); then ((i++)); else ((i+=2)); fi
+            continue
+        fi
+        ((i++)); continue
+    fi
+    if [[ -z "$host" ]]; then host="$a"; ((i++)); continue; fi
+    cmd_parts+=("$a"); ((i++))
+done
+
+if [[ -z "$host" ]]; then
+    echo "ssh-shim: no host in argv" >&2
+    exit 2
+fi
+
+# Any host other than the spur node: behave as plain ssh.
+if [[ "$host" != "$TARGET_NODE" ]]; then
+    [[ -n "$real_ssh" ]] || { echo "ssh-shim: cannot find real ssh" >&2; exit 127; }
+    exec "$real_ssh" "${orig_args[@]}"
+fi
+
+if (( ${#cmd_parts[@]} == 0 )); then
+    echo "ssh-shim: interactive/no-command session to $TARGET_NODE unsupported" >&2
+    exit 1
+fi
+# Join exactly as ssh does: single ASCII space between argv items.
+IFS=' '
+cmd="${cmd_parts[*]}"
+unset IFS
+
+if (( no_stdin )); then
+    exec spur exec "$SPUR_JOB" bash -c "$cmd" </dev/null
+fi
+exec spur exec "$SPUR_JOB" bash -c "$cmd"

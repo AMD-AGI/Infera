@@ -1,0 +1,67 @@
+{
+  "method": "Safetensors header data_offsets and shapes only; no tensor materialization",
+  "checkpoint": "/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4",
+  "shards": 282,
+  "categories": {
+    "target_embedding_norm_head_other": {
+      "original_bytes": 3808260096,
+      "retained_bytes": 3808260096,
+      "discarded_bytes": 0,
+      "tensors": 159,
+      "retained_tensors": 159
+    },
+    "target_dense_mlp": {
+      "original_bytes": 1358954496,
+      "retained_bytes": 1358954496,
+      "discarded_bytes": 0,
+      "tensors": 9,
+      "retained_tensors": 9
+    },
+    "target_attention": {
+      "original_bytes": 26137084416,
+      "retained_bytes": 26137084416,
+      "discarded_bytes": 0,
+      "tensors": 651,
+      "retained_tensors": 651
+    },
+    "target_routed_moe": {
+      "original_bytes": 385037107200,
+      "retained_bytes": 12032409600,
+      "discarded_bytes": 373004697600,
+      "tensors": 115200,
+      "retained_tensors": 3600
+    },
+    "target_router_gate": {
+      "original_bytes": 236006400,
+      "retained_bytes": 7375200,
+      "discarded_bytes": 228631200,
+      "tensors": 150,
+      "retained_tensors": 150
+    },
+    "target_shared_moe": {
+      "original_bytes": 1504051200,
+      "retained_bytes": 1504051200,
+      "discarded_bytes": 0,
+      "tensors": 450,
+      "retained_tensors": 450
+    },
+    "excluded_draft": {
+      "original_bytes": 19905841664,
+      "retained_bytes": 0,
+      "discarded_bytes": 19905841664,
+      "tensors": 791,
+      "retained_tensors": 0
+    }
+  },
+  "total_original_bytes_including_draft": 437987305472,
+  "total_retained_target_checkpoint_bytes": 44848135008,
+  "total_discarded_bytes_including_draft": 393139170464,
+  "theoretical_ep4_comparison": {
+    "routed_original_per_rank_bytes": 96259276800.0,
+    "routed_retained_per_rank_bytes": 3008102400.0,
+    "routed_saved_per_rank_bytes": 93251174400.0,
+    "router_gate_saved_per_rank_bytes_replicated": 228631200,
+    "routed_plus_gate_saved_per_rank_bytes": 93479805600.0,
+    "note": "Original256EP4 vs synthetic8EP4 target only; routed experts evenly partitioned, router gate replicated. Excludes runtime padding, repacking, dtype conversions, temporary buffers and graph overhead. Shared/dense/attention remain unchanged."
+  }
+}

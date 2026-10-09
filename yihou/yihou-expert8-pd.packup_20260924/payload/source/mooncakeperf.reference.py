@@ -1,0 +1,810 @@
+###############################################################################
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# SPDX-License-Identifier: MIT
+###############################################################################
+"""Mooncake KV-transfer check: real cross-node buffer transfer over Mooncake's
+TransferEngine, measuring what PD would actually get.
+
+Mirrors how sglang actually launches mooncake, cross-checked against the OFFICIAL
+Mooncake API (not just one launch script): initialize() takes
+    initialize(local_hostname, metadata_server, protocol, device_name)
+where device_name is "a comma-separated list of device names to FILTER, or EMPTY
+STRING FOR ALL DEVICES" (kvcache-ai Mooncake python-api docs). The engine then
+"discovers the topology between CPU/CUDA and RDMA devices automatically and
+installs Transport based on the topology" (C++ API docs) -- routing each buffer
+to its affine NIC. The working sglang scripts pass no --disaggregation-ib-device,
+so its MooncakeTransferEngine calls initialize(host, "P2PHANDSHAKE", "rdma", "")
+-- empty = all devices, auto-discovery. We do the same here.
+
+NOTE: passing a device name is NOT an error -- it is the officially supported
+device FILTER (equivalently MC_TE_FILTERS / RDMA_DEVICE_NAME), and Infera's PD doc
+even recommends matching rails cross-node. So this test deliberately does not
+flag a configured ib_device; it just reproduces the default (auto-discovery).
+
+Production env knobs we replicate (Infera rocm_rdma_env defaults / PD doc):
+  - MC_GID_INDEX: pin the routable RoCE v2 GID (index 0 is link-local, times out
+    cross-node). Mooncake's own default is ~max index and can be wrong.
+  - MC_DISABLE_HIP_TRANSPORT=1: force RDMA over the intra-node HIP/XGMI shortcut
+    (which advertises an empty segment the peer rejects cross-node).
+  - MC_ENABLE_DEST_DEVICE_AFFINITY=1: take the same-named peer HCA, else Mooncake
+    can hand a VRAM transfer a peer rail the local one cannot reach.
+
+It catches the silent misconfigurations that make cross-node KV slow or broken:
+  - TCP fallback: with RDMA HCAs present Mooncake force-installs RDMA and ignores
+    the protocol arg, so exercising TCP needs MC_FORCE_TCP=1.
+  - RDMA GID: Mooncake's auto-selection picks a link-local GID that can't route
+    cross-node; MC_GID_INDEX must pin the routable RoCE v2 GID.
+  - GPU registration + NIC affinity: sglang registers KV in device VRAM
+    (batch_register on a cuda pointer). On AMD ionic that bare-VRAM registration
+    is the path that can fail, so per-GPU `rdma-gpu{g}` variants register real
+    VRAM on GPU g and let Mooncake's auto-discovery route it to that GPU's affine
+    NIC -- exactly as production does.
+
+Each measurement reports the env it needed. RDMA is run with the GID pinned as a
+correct deployment would (`rdma`, DRAM baseline, and one `rdma-gpu{g}` per GPU,
+VRAM), plus `rdma-default` (nothing set, what an operator who forgets the knob
+gets) and `tcp`. Because Mooncake caches its global config once per process
+(std::call_once for MC_GID_INDEX), each variant runs in its own subprocess with a
+clean environment.
+
+INFERA_PREFLIGHT_KV_GPUS caps the per-GPU sweep. Unset (the default) sweeps ALL
+local GPUs -- the most production-faithful coverage, but also the slowest: the
+node-pair grid is multiplied by (3 + n_gpus) variants, and each mooncake variant
+is a fresh subprocess that re-imports and re-initializes the engine. Set it to
+e.g. 2 for a fast smoke test -- the ionic bare-VRAM failure is a driver/stack-wide
+property that is identical across GPUs, so 1-2 GPUs already reproduce it; reserve
+the full sweep for when you need to confirm every GPU's affinity path individually.
+
+Coordination reuses netperf's shared-dir rendezvous: each ordered node pair is
+tested both directions. INFERA_PREFLIGHT_MOONCAKE_OPCODE selects ``read`` (the
+default) or ``write``. For a read, the target stamps the pattern and the
+initiator verifies its local buffer. For a write, the initiator stamps the
+pattern and the target verifies its buffer before publishing the result. Both
+paths use batches of outstanding requests, report average bandwidth, and
+byte-check every segment so an offset/mis-routed-NIC bug cannot be reported
+green. ``INFERA_PREFLIGHT_RUN_ID`` (or a SLURM job ID) isolates rendezvous files
+from earlier runs; callers without one must use a fresh dump path. Runs in-container
+where Mooncake + the injected host libionic live.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+
+from infera.engine.rocm_rdma_env import MC_DEST_AFFINITY, MC_HCA_PEER_AFFINITY
+
+from ..finding import Finding
+from .netperf import (
+    _agree_min,
+    _barrier,
+    _exit_reason,
+    _gid_index,
+    _gid_override,
+    _mgmt_ip,
+    _nics,
+    _parse_rdma_errno,
+    _touch,
+    _wait_count,
+    _wait_file,
+)
+
+_RDMA_DEVICE = "ionic_0"  # only used as a fallback for reading the GID index
+# GPU (VRAM) geometry mirrors the KV cache: sglang batch_registers device VRAM
+# and moves it in ~32 MiB requests, so a 1 GiB region in 32 requests is the real
+# per-transfer size the KV path drives.
+_GPU_CHUNK = 32 << 20  # 32 MiB per request
+_GPU_NCHUNK = 32  # outstanding requests per batch (queue depth); >32 overruns the QP
+_GPU_SIZE = _GPU_CHUNK * _GPU_NCHUNK  # 1 GiB VRAM region
+# CPU (host DRAM) geometry mirrors PRODUCTION, not a synthetic 1 GiB. The only
+# host-DRAM memory sglang registers + RDMAs is the aux/metadata buffers
+# (MetadataBuffers, device="cpu"); mooncake send_aux transfers them over RDMA by
+# default. Those are a `max_running_requests*2` x per-item region -- each item is
+# 64 B..512 B, or up to ~16 KiB (EAGLE hidden_states) -- so the whole region is
+# tens of MiB at most and each transfer is <=16 KiB. Registering a 1 GiB host MR
+# instead exceeds ulimit -l, so ibv_reg_mr silently ENOMEMs and the tail never
+# lands -- a synthetic "data mismatch" production never hits. So we register a
+# 64 MiB region (the worst-case aux footprint, still under a normal memlock
+# limit) and move it in 16 KiB requests (the largest real aux item).
+_CPU_CHUNK = 16 << 10  # 16 KiB per request (largest production aux item)
+_CPU_NCHUNK = 32  # outstanding requests per batch
+_CPU_SIZE = 64 << 20  # 64 MiB registered host-DRAM region (max aux footprint)
+_MIN_SECONDS = 3.0  # keep transferring for at least this long
+_PORT_BASE = 17000
+_TARGET_TIMEOUT = 120.0  # initiator waits for the target buffer to be published
+_DONE_TIMEOUT = 180.0  # target waits for the initiator to finish
+_STEP_TIMEOUT = 240.0  # hard cap on one endpoint subprocess
+
+
+_GID_CACHE: int | None = None
+
+
+def _run_root(dump_path: str) -> str | None:
+    """Shared directory for this invocation, isolated when a run ID is available."""
+    run_id = (
+        os.environ.get("INFERA_PREFLIGHT_RUN_ID")
+        or os.environ.get("SLURM_JOB_ID")
+        or ""
+    ).strip()
+    base = os.path.join(dump_path, "mooncakeperf")
+    if not run_id:
+        return base
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", run_id):
+        return None
+    return os.path.join(base, run_id)
+
+
+def _agree_operation(
+    exchange_dir: str, rank: int, world: int, operation: str
+) -> tuple[str | None, list[str]]:
+    """Exchange the requested opcode so every rank takes the same protocol path."""
+    os.makedirs(exchange_dir, exist_ok=True)
+    dst = os.path.join(exchange_dir, str(rank))
+    with open(dst + ".tmp", "w", encoding="utf-8") as stream:
+        stream.write(operation)
+    os.replace(dst + ".tmp", dst)
+    if not _wait_count(exchange_dir, world, _TARGET_TIMEOUT):
+        return None, []
+
+    values = []
+    for peer in range(world):
+        try:
+            with open(os.path.join(exchange_dir, str(peer)), encoding="utf-8") as stream:
+                values.append(stream.read().strip().lower())
+        except OSError:
+            return None, []
+    unique = sorted(set(values))
+    if len(unique) != 1 or unique[0] not in {"read", "write"}:
+        return None, unique
+    return unique[0], unique
+
+
+def _ref_gid() -> int:
+    """The routable RoCE v2 GID index to pin via MC_GID_INDEX.
+
+    An explicit preflight selection wins; otherwise read the first NIC. Cached
+    because it is consulted once per spawn and once per finding.
+    """
+    global _GID_CACHE
+    if _GID_CACHE is None:
+        selected = _gid_override()
+        if selected is not None:
+            _GID_CACHE = selected
+        else:
+            nics = _nics()
+            _GID_CACHE = _gid_index(nics[0] if nics else _RDMA_DEVICE)
+    return _GID_CACHE
+
+
+def _kv_gpus() -> int:
+    """Number of local GPUs to sweep (one VRAM buffer per GPU; Mooncake's
+    auto-discovery routes each to its affine NIC). Capped by INFERA_PREFLIGHT_KV_GPUS."""
+    try:
+        import torch
+    except ImportError:
+        return 0
+    try:
+        if not torch.cuda.is_available():
+            return 0
+        n = torch.cuda.device_count()
+    except Exception:
+        return 0
+    cap = os.environ.get("INFERA_PREFLIGHT_KV_GPUS")
+    if cap:
+        try:
+            n = min(n, int(cap))
+        except ValueError:
+            pass
+    return n
+
+
+def _variants(ngpu: int) -> list[tuple]:
+    """(label, protocol, env_kind, loc, gpu_id, dev). rdma-default deliberately sets
+    no GID; rdma-gpu{g} registers VRAM on GPU g (Mooncake auto-routes to its NIC).
+    `dev` pins the NIC whitelist. GPU variants use auto-routing unless the caller
+    explicitly selected a preflight device. ngpu is the cross-rank-agreed GPU
+    count (see run) so every rank matches."""
+    nics = _nics()
+    selected = os.environ.get("INFERA_PREFLIGHT_RDMA_DEVICE", "").strip()
+    # Pin the CPU rdma baseline to one fixed NIC (same index on both ends -> same
+    # rail). GPU variants normally auto-route to each GPU's affine NIC, but a
+    # selected production device list must be preserved in full so Mooncake can
+    # still choose the affine rail within that whitelist.
+    cpu_dev = selected.split(",", 1)[0] if selected else (nics[0] if nics else "")
+    gpu_dev = selected
+    variants: list[tuple] = [
+        ("rdma", "rdma", "gid", "cpu", -1, cpu_dev),
+        ("rdma-default", "rdma", "none", "cpu", -1, ""),
+        ("tcp", "tcp", "tcp", "cpu", -1, ""),
+    ]
+    for g in range(ngpu):
+        variants.append((f"rdma-gpu{g}", "rdma", "gid", "gpu", g, gpu_dev))
+    return variants
+
+
+def _geom(loc: str) -> tuple[int, int, int]:
+    """(registered size, per-request chunk, requests per batch) for this buffer
+    class: GPU mirrors the KV cache (1 GiB VRAM in 32 MiB requests), CPU mirrors
+    the aux/metadata buffers (64 MiB host DRAM in 16 KiB requests)."""
+    if loc == "gpu":
+        return _GPU_SIZE, _GPU_CHUNK, _GPU_NCHUNK
+    return _CPU_SIZE, _CPU_CHUNK, _CPU_NCHUNK
+
+
+def _chunk_byte(gpu_id: int, i: int) -> int:
+    """Distinct byte per (gpu, segment): encodes the GPU tag so a buffer read via
+    the wrong NIC, or a segment at the wrong offset, shows up as a mismatch."""
+    return ((gpu_id & 0xFF) * 131 + i * 7 + 1) & 0xFF
+
+
+def _verify(host_arr, gpu_id: int, chunk: int, nchunk: int) -> bool:
+    import numpy as np
+
+    for i in range(nchunk):
+        seg = host_arr[i * chunk : (i + 1) * chunk]
+        if not bool(np.all(seg == _chunk_byte(gpu_id, i))):
+            return False
+    return True
+
+
+class _Buf:
+    """A registered buffer on host DRAM (loc='cpu', 64 MiB) or a specific GPU's
+    VRAM (loc='gpu', 1 GiB, device cuda:gpu_id). `size`/`chunk`/`nchunk` come from
+    _geom(loc). Exposes the raw pointer for register_memory plus pattern stamp /
+    readback."""
+
+    def __init__(self, loc: str, gpu_id: int) -> None:
+        self.loc = loc
+        self.gpu_id = gpu_id if loc == "gpu" else -1
+        self.size, self.chunk, self.nchunk = _geom(loc)
+        if loc == "gpu":
+            import torch
+
+            self._torch = torch
+            self._t = torch.empty(self.size, dtype=torch.uint8, device=f"cuda:{gpu_id}")
+            self.ptr = self._t.data_ptr()
+        else:
+            import numpy as np
+
+            self._a = np.empty(self.size, dtype=np.uint8)
+            self.ptr = self._a.ctypes.data
+
+    def fill(self, value: int) -> None:
+        if self.loc == "gpu":
+            self._t.fill_(int(value))
+            self._torch.cuda.synchronize(self.gpu_id)
+        else:
+            self._a[:] = value
+
+    def fill_pattern(self) -> None:
+        for i in range(self.nchunk):
+            v = _chunk_byte(self.gpu_id, i)
+            if self.loc == "gpu":
+                self._t[i * self.chunk : (i + 1) * self.chunk].fill_(v)
+            else:
+                self._a[i * self.chunk : (i + 1) * self.chunk] = v
+        if self.loc == "gpu":
+            self._torch.cuda.synchronize(self.gpu_id)
+
+    def host_bytes(self):
+        if self.loc == "gpu":
+            return self._t.cpu().numpy()
+        return self._a
+
+
+def _make_buffer(loc: str, gpu_id: int):
+    try:
+        return _Buf(loc, gpu_id)
+    except Exception:
+        return None
+
+
+def _engine(hostname: str, protocol: str, device: str = ""):
+    """A Mooncake TransferEngine bound to hostname, or None if unavailable.
+
+    `device` is the 4th initialize() arg (the NIC whitelist). Empty = auto-discover
+    and topology-route each buffer to its affine NIC -- exactly like sglang when
+    --disaggregation-ib-device is unset, and what the GPU variants use so a per-GPU
+    VRAM buffer lands on its index-affine ionic. The CPU baseline instead pins a
+    fixed device on BOTH ends: this is a rail-optimized fabric (ionic_i only routes
+    to the peer's ionic_i), and a CPU buffer has no GPU affinity, so auto-discovery
+    would let the two ends pick different rails and fail. Env (MC_GID_INDEX /
+    MC_FORCE_TCP) is set by the parent before this subprocess starts, so it is read
+    cleanly at import/initialize here."""
+    try:
+        from mooncake.engine import TransferEngine
+    except ImportError:
+        return None
+    eng = TransferEngine()
+    if eng.initialize(hostname, "P2PHANDSHAKE", protocol, device) != 0:
+        return None
+    return eng
+
+
+def _register(eng, ptr: int, size: int) -> bool:
+    """register_memory the buffer; auto-detects DRAM vs VRAM from the pointer.
+    Returns False when the driver rejects it (the ionic bare-VRAM failure).
+
+    Mooncake's register_memory returns int 0 on success and non-zero on failure
+    (confirmed on-cluster: the VRAM path returns non-zero, surfaced as
+    register_failed). Some bindings return None on success and raise on error, so
+    a non-int (None) is treated as success -- failures still come through as a
+    raised exception (caught) or a non-zero int."""
+    try:
+        ret = eng.register_memory(ptr, size)
+    except Exception:
+        return False
+    return not (isinstance(ret, int) and ret != 0)
+
+
+def _batch_transfer(
+    eng,
+    operation: str,
+    target_hostname: str,
+    local: int,
+    peer: int,
+    chunk: int,
+    nchunk: int,
+) -> bool:
+    # One batch of `nchunk` outstanding transfers; success is >=0 (matching sglang).
+    srcs = [local + i * chunk for i in range(nchunk)]
+    dsts = [peer + i * chunk for i in range(nchunk)]
+    lens = [chunk] * nchunk
+    try:
+        method = (
+            eng.batch_transfer_sync_write
+            if operation == "write"
+            else eng.batch_transfer_sync_read
+        )
+        return method(target_hostname, srcs, dsts, lens) >= 0
+    except Exception:
+        return False
+
+
+def _target(
+    sig: str,
+    hostname: str,
+    host: str,
+    protocol: str,
+    operation: str,
+    loc: str,
+    gpu_id: int,
+    device: str = "",
+) -> None:
+    eng = _engine(hostname, protocol, device)
+    info = {"ok": False, "host": host, "loc": loc, "gpu": gpu_id}
+    buf = None
+    if eng is not None:
+        buf = _make_buffer(loc, gpu_id)
+        if buf is None:
+            info["reason"] = "no_gpu"
+        else:
+            if operation == "read":
+                buf.fill_pattern()
+            else:
+                buf.fill(0)
+            if not _register(eng, buf.ptr, buf.size):
+                info["reason"] = "register_failed"
+            else:
+                # P2PHANDSHAKE ignores the port we pass and binds its own; publish
+                # the real one (get_rpc_port) so the initiator connects correctly.
+                mgmt = hostname.rsplit(":", 1)[0]
+                info = {
+                    "ok": True,
+                    "host": host,
+                    "loc": loc,
+                    "gpu": gpu_id,
+                    "hostname": f"{mgmt}:{eng.get_rpc_port()}",
+                    "addr": buf.ptr,
+                }
+    tmp = os.path.join(sig, "target.json.tmp")
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(info, fh)
+    os.replace(tmp, os.path.join(sig, "target.json"))
+    finished = _wait_file(os.path.join(sig, "done"), _DONE_TIMEOUT)
+    if operation == "write" and finished and buf is not None and info.get("ok"):
+        verify_tmp = os.path.join(sig, "verify.json.tmp")
+        with open(verify_tmp, "w", encoding="utf-8") as fh:
+            json.dump(
+                {"verified": _verify(buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk)},
+                fh,
+            )
+        os.replace(verify_tmp, os.path.join(sig, "verify.json"))
+    del buf  # keep the buffer registered until the initiator is done
+
+
+def _initiator(
+    sig: str,
+    protocol: str,
+    operation: str,
+    loc: str,
+    gpu_id: int,
+    device: str = "",
+) -> dict:
+    rec: dict = {
+        "gb_s": None,
+        "gib": 0.0,
+        "target": None,
+        "loc": loc,
+        "gpu": gpu_id,
+        "verified": None,
+        "reason": None,
+        "dev": device,
+        "operation": operation,
+    }
+    if _wait_file(os.path.join(sig, "target.json"), _TARGET_TIMEOUT):
+        with open(os.path.join(sig, "target.json"), encoding="utf-8") as fh:
+            tgt = json.load(fh)
+        rec["target"] = tgt.get("host")
+        eng = _engine(f"{_mgmt_ip()}:0", protocol, device)
+        if eng is None:
+            rec["reason"] = "engine_unavailable"
+        elif not tgt.get("ok"):
+            rec["reason"] = tgt.get("reason") or "target_unavailable"
+        else:
+            buf = _make_buffer(loc, gpu_id)
+            if buf is None:
+                rec["reason"] = "no_gpu"
+            elif not _register(eng, buf.ptr, buf.size):
+                rec["reason"] = "register_failed"
+            else:
+                batch = buf.chunk * buf.nchunk
+                if operation == "write":
+                    buf.fill_pattern()
+                else:
+                    buf.fill(0)
+                if _batch_transfer(
+                    eng,
+                    operation,
+                    tgt["hostname"],
+                    buf.ptr,
+                    tgt["addr"],
+                    buf.chunk,
+                    buf.nchunk,
+                ):  # warm up
+                    moved, t0 = 0, time.monotonic()
+                    while time.monotonic() - t0 < _MIN_SECONDS:
+                        if not _batch_transfer(
+                            eng,
+                            operation,
+                            tgt["hostname"],
+                            buf.ptr,
+                            tgt["addr"],
+                            buf.chunk,
+                            buf.nchunk,
+                        ):
+                            moved = 0
+                            break
+                        moved += batch
+                    dt = time.monotonic() - t0
+                    if moved > 0 and dt > 0:
+                        rec["gb_s"] = round(moved / dt / 1e9, 2)
+                        rec["gib"] = round(moved / (1 << 30), 1)
+                        if operation == "read":
+                            rec["verified"] = _verify(
+                                buf.host_bytes(), gpu_id, buf.chunk, buf.nchunk
+                            )
+                    else:
+                        rec["reason"] = "transfer_failed"
+                else:
+                    rec["reason"] = "transfer_failed"
+    _touch(os.path.join(sig, "done"))
+    if operation == "write" and rec["gb_s"] is not None:
+        verify_path = os.path.join(sig, "verify.json")
+        if _wait_file(verify_path, _TARGET_TIMEOUT):
+            try:
+                with open(verify_path, encoding="utf-8") as fh:
+                    rec["verified"] = json.load(fh).get("verified")
+            except (OSError, ValueError):
+                rec["reason"] = "target_verification_invalid"
+        else:
+            rec["reason"] = "target_verification_timeout"
+    return rec
+
+
+def _spawn(
+    role: str,
+    sig: str,
+    hostname: str,
+    host: str,
+    protocol: str,
+    env_kind: str,
+    operation: str,
+    loc: str,
+    gpu_id: int,
+    dev: str = "",
+) -> tuple[int | None, str]:
+    """Run one endpoint (target/initiator) in a clean subprocess so Mooncake's
+    once-cached global config sees the right env for this variant. Returns
+    (exit code, captured output); rc is None on timeout.
+
+    We capture (but don't print) the child's output so we can scrape the
+    libibverbs register errno (e.g. EFAULT) out of a VRAM register failure and
+    fold it into the finding reason."""
+    env = dict(os.environ)
+    env.pop("MC_GID_INDEX", None)
+    env.pop("MC_FORCE_TCP", None)
+    env.pop("MC_DISABLE_HIP_TRANSPORT", None)
+    # An inherited MC_ENABLE_HIP_TRANSPORT would re-install the hipIpc transport
+    # and skew every variant, so clear it too rather than letting the caller's
+    # shell leak into the measurement.
+    env.pop("MC_ENABLE_HIP_TRANSPORT", None)
+    # Both peer-HCA policies too: Mooncake only tests PRESENCE, and setting both
+    # disables both, so an inherited value cannot be left to fight the one below.
+    env.pop(MC_DEST_AFFINITY, None)
+    env.pop(MC_HCA_PEER_AFFINITY, None)
+    if protocol == "rdma":
+        # Documented cross-node requirement (Infera rocm_rdma_env default): force
+        # RDMA, not the intra-node HIP (hipIpc) transport, whose handles are
+        # host-local and so cannot be opened by a peer node. Set on all rdma
+        # variants so rdma-default varies ONLY in the missing MC_GID_INDEX it is
+        # meant to demonstrate.
+        env["MC_DISABLE_HIP_TRANSPORT"] = "1"
+        # Same-name peer HCA, the other rocm_rdma_env default. Without it the VRAM
+        # variants can be handed an unreachable peer rail and fail in one direction
+        # only, while ib_write_bw and Mori report the fabric healthy.
+        env[MC_DEST_AFFINITY] = "1"
+    if env_kind == "gid":
+        env["MC_GID_INDEX"] = str(_ref_gid())
+    elif env_kind == "tcp":
+        env["MC_FORCE_TCP"] = "1"
+    spec = {
+        "role": role,
+        "sig": sig,
+        "hostname": hostname,
+        "host": host,
+        "protocol": protocol,
+        "operation": operation,
+        "loc": loc,
+        "gpu": gpu_id,
+        "dev": dev,
+    }
+    cmd = [sys.executable, "-m", "infera.tools.preflight.network.mooncakeperf", json.dumps(spec)]
+    try:
+        # Capture (rather than DEVNULL) Mooncake's verbose GID-probe logging: it is
+        # not shown, but lets us scrape a register errno on failure. The result
+        # itself still travels via result.json.
+        cp = subprocess.run(
+            cmd,
+            env=env,
+            timeout=_STEP_TIMEOUT,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            errors="replace",
+        )
+        return cp.returncode, (cp.stdout or "")[-65536:]
+    except subprocess.TimeoutExpired as exc:
+        out = exc.stdout or ""
+        if isinstance(out, bytes):
+            out = out.decode("utf-8", "replace")
+        return None, out[-65536:]
+
+
+def run(dump_path: str, rank: int, world: int, host: str) -> list[Finding]:
+    if world < 2:
+        return [Finding("info", "mooncake skipped (single node)", {})]
+    try:
+        import mooncake.engine  # noqa: F401
+    except ImportError:
+        return [Finding("warn", "mooncake skipped (python bindings not importable)", {})]
+
+    root = _run_root(dump_path)
+    if root is None:
+        return [
+            Finding(
+                "fail",
+                "mooncake preflight run ID is invalid",
+                {"env": "INFERA_PREFLIGHT_RUN_ID (or SLURM_JOB_ID)"},
+            )
+        ]
+    requested_operation = os.environ.get(
+        "INFERA_PREFLIGHT_MOONCAKE_OPCODE", "read"
+    ).strip().lower()
+    operation, operations = _agree_operation(
+        os.path.join(root, "operation"), rank, world, requested_operation
+    )
+    if operation is None:
+        return [
+            Finding(
+                "fail",
+                "mooncake ranks did not agree on one valid operation",
+                {"operations": operations},
+            )
+        ]
+    mgmt = _mgmt_ip()
+    # Agree the per-GPU sweep count across ranks (min) so every rank iterates the
+    # SAME variant set -- otherwise the per-pair barriers desync and hang.
+    ngpu = _agree_min(os.path.join(root, "kvgpus"), rank, world, _kv_gpus(), _TARGET_TIMEOUT)
+    variants = _variants(ngpu)
+    recs: list[dict] = []
+    idx = 0
+    for s in range(world):
+        for c in range(world):
+            if s == c:
+                continue
+            for label, protocol, env_kind, loc, gpu_id, dev in variants:
+                sig = os.path.join(root, f"{s}_{c}_{label}")
+                os.makedirs(sig, exist_ok=True)
+                hostname = f"{mgmt}:{_PORT_BASE + idx}"
+                if rank == s:
+                    _spawn(
+                        "target",
+                        sig,
+                        hostname,
+                        host,
+                        protocol,
+                        env_kind,
+                        operation,
+                        loc,
+                        gpu_id,
+                        dev,
+                    )
+                elif rank == c:
+                    rc, out = _spawn(
+                        "initiator",
+                        sig,
+                        hostname,
+                        host,
+                        protocol,
+                        env_kind,
+                        operation,
+                        loc,
+                        gpu_id,
+                        dev,
+                    )
+                    recs.append(
+                        _load_result(sig, label, operation, loc, gpu_id, s, rc, out, dev)
+                    )
+                _barrier(os.path.join(root, "bar", f"{s}_{c}_{label}"), rank, world)
+                idx += 1
+
+    if not recs:
+        return [Finding("info", "mooncake: no initiator role for this node", {})]
+    return [_finding(r, host) for r in recs]
+
+
+def _load_result(
+    sig: str,
+    label: str,
+    operation: str,
+    loc: str,
+    gpu_id: int,
+    target_rank: int,
+    rc: int | None = 0,
+    out: str = "",
+    dev: str = "",
+) -> dict:
+    try:
+        with open(os.path.join(sig, "result.json"), encoding="utf-8") as fh:
+            rec = json.load(fh)
+    except (OSError, ValueError):
+        rec = {
+            "gb_s": None,
+            "gib": 0.0,
+            "target": None,
+            "loc": loc,
+            "gpu": gpu_id,
+            "verified": None,
+            "reason": _exit_reason(rc, out),
+            "dev": dev,
+            "operation": operation,
+        }
+    # Enrich a register/transfer failure reason with any errno scraped from the
+    # child's output (EFAULT vs ENOMEM etc.), same as the mori path.
+    if rec.get("gb_s") is None and rec.get("reason"):
+        detail = _parse_rdma_errno(out)
+        if detail and detail not in rec["reason"]:
+            rec["reason"] = f"{rec['reason']}: {detail}"
+    # A transfer that "succeeds" (gb_s set) but fails verification is usually a
+    # SILENT registration failure: mooncake's register_memory returns 0 even when
+    # libibverbs could not pin the buffer (host-DRAM MR -> ENOMEM [12]), so the
+    # buffer's tail never lands and the readback mismatches. Scrape the errno so
+    # the finding names the real cause instead of a bare "data mismatch".
+    if rec.get("gb_s") is not None and rec.get("verified") is False:
+        rec["reg_error"] = _parse_rdma_errno(out)
+    rec["label"] = label
+    rec["operation"] = rec.get("operation") or operation
+    rec["loc"] = rec.get("loc") or loc
+    rec["dev"] = rec.get("dev") or dev
+    rec["target"] = rec.get("target") or f"rank{target_rank}"
+    return rec
+
+
+def _is_pinned_rdma(label: str) -> bool:
+    return label == "rdma" or label.startswith("rdma-gpu")
+
+
+def _finding(r: dict, host: str) -> Finding:
+    label = r["label"]
+    operation = r.get("operation") or "read"
+    if operation == "write":
+        msg = f"{host} -> {r['target']} {label}"
+    else:
+        msg = f"{r['target']} -> {host} {label}"
+    if r["gb_s"] is not None:
+        if _is_pinned_rdma(label):
+            env = f"MC_GID_INDEX={_ref_gid()}"
+        else:
+            env = "MC_FORCE_TCP=1" if label == "tcp" else "none"
+        verified = r.get("verified")
+        detail = {
+            "GB/s": r["gb_s"],
+            "moved_GiB": r["gib"],
+            "loc": r.get("loc"),
+            "gpu": r.get("gpu"),
+            "env": env,
+            "verified": verified,
+            "operation": operation,
+        }
+        if r.get("dev"):
+            detail["dev"] = r["dev"]
+        if verified is not True:
+            reason = (
+                "data mismatch after transfer"
+                if verified is False
+                else r.get("reason") or "byte verification unavailable"
+            )
+            if r.get("reg_error"):
+                reason += (
+                    f"; likely cause: {r['reg_error']} -- register_memory reported "
+                    "success but libibverbs could not pin the buffer, so its tail "
+                    "never transferred"
+                )
+            detail["reason"] = reason
+            return Finding("fail", msg, detail)
+        return Finding("info", msg, detail)
+    # rdma-default failing is the expected demonstration (warn, not fail): it shows
+    # the operator must set MC_GID_INDEX; the pinned rdma / rdma-gpu{g} / tcp failing is real.
+    if label == "rdma-default":
+        # No MC_GID_INDEX set (the "forgot the knob" case); Mooncake auto-picks a
+        # link-local GID that can't route cross-node. The fix is shown by the
+        # `rdma` row above (env=MC_GID_INDEX=...), so just state the cause here.
+        return Finding("warn", msg, {"reason": "auto-selected GID is link-local, not routable"})
+    fail_detail = {
+        "loc": r.get("loc"),
+        "gpu": r.get("gpu"),
+        "operation": operation,
+        "reason": r.get("reason") or "unreachable",
+    }
+    if r.get("dev"):
+        fail_detail["dev"] = r["dev"]
+    return Finding("fail", msg, fail_detail)
+
+
+def _worker() -> None:
+    spec = json.loads(sys.argv[1])
+    if spec["role"] == "target":
+        _target(
+            spec["sig"],
+            spec["hostname"],
+            spec["host"],
+            spec["protocol"],
+            spec.get("operation", "read"),
+            spec["loc"],
+            spec["gpu"],
+            spec.get("dev", ""),
+        )
+    else:
+        rec = _initiator(
+            spec["sig"],
+            spec["protocol"],
+            spec.get("operation", "read"),
+            spec["loc"],
+            spec["gpu"],
+            spec.get("dev", ""),
+        )
+        tmp = os.path.join(spec["sig"], "result.json.tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(rec, fh)
+        os.replace(tmp, os.path.join(spec["sig"], "result.json"))
+
+
+if __name__ == "__main__":
+    _worker()

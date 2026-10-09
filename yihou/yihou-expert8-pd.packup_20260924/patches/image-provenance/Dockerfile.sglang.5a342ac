@@ -1,0 +1,242 @@
+# Infera SGLang engine image: layers the infera source onto the ROCm SGLang
+# base and sets an entrypoint that injects the host's libionic before exec'ing
+# the command.
+#
+# ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
+# the end of this file are context diffs applied at --fuzz=0 against this exact
+# sglang release. Bumping the base fails the build there rather than silently
+# mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
+#
+# ⚠️ The pin is a DATED NIGHTLY, not the v0.5.19 release: it reports
+# 0.5.19.dev20260916+ge7f7447333, which is main well past the release branch
+# point. Several anchors below match the v0.5.19 tag but not this image, and
+# vice versa, so "verified on v0.5.19" is not a statement about this base.
+# Patch verdicts in patch.upstream.status.md are recorded against this digest.
+#
+# ⚠️ The patch directories below are consumed by EXPLICIT file lists, not by a
+# whole-directory glob, because this base and the other two SGLang recipes no
+# longer need the same set. Two patches here would still APPLY cleanly to this
+# base while fixing nothing -- see the Responses and ROCm blocks for which, and
+# what upstream replaced them with. A glob would re-apply them silently.
+#
+# GLM-5.3 and GLM-5.3-MXFP4 need NO new model source here: they are model_type
+# `glm_moe_dsa` / GlmMoeDsaForCausalLM, and their config.json is field-for-field
+# identical to GLM-5.2's except `transformers_version`, so the released engine
+# already serves them through glm4_moe.py.
+ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.19-rocm720-mi35x-20260916
+FROM ${SGLANG_BASE_IMAGE}
+
+WORKDIR /opt/infera
+
+# ---- Mooncake: pinned upstream, no private source patches -------------------
+# The base bundles an older Mooncake. Rebuild its source checkout at the same
+# upstream revision used by the vLLM image. That revision already includes HIP
+# dma-buf build wiring, automatic cross-host RDMA routing, large-MR chunking,
+# chunk-offset correctness, and registration-error propagation. The build script
+# verifies those capabilities in the installed engine.so.
+ARG BUILD_MOONCAKE=1
+ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/build_mooncake_sglang.sh; \
+    else \
+        echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
+    fi \
+    && rm -f /tmp/build_mooncake_sglang.sh
+
+# ---- assert cross-host routing in the .so this image will LOAD --------------
+# This separate artifact check also covers BUILD_MOONCAKE=0.
+ARG REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1
+RUN set -eu; \
+    if [ "${REQUIRE_MOONCAKE_CROSS_HOST_ROUTING}" != "1" ]; then \
+        echo "skipping Mooncake cross-host routing assertion"; \
+    else \
+        so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
+        so="$(ls "$so_dir"/engine*.so | head -1)"; \
+        syms="$(strings "$so")"; \
+        printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || { \
+            echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2; \
+            exit 1; }; \
+        echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)"; \
+    fi
+
+# ---- libionic (host ionic ABI match) -----------------------------------------
+# WHY: the sglang base ships libionic with an old kernel ABI (e.g. 54.0-149 = ABI
+# 1); MI355X ionic kernel 26.03 needs ABI 4 (54.0-187) or ibv_get_device_list
+# returns 0 HCAs -> RDMA silently degrades to TCP and cross-node PD KV transfer
+# fails ("remote mooncake session not alive"). HOW: bake the ABI-4 deb so RDMA
+# works even without the runtime host-libionic injection (which the entrypoint
+# still does as a belt-and-braces match when /host-libionic is mounted).
+ARG INSTALL_LIBIONIC=1
+ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb
+RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
+        (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
+          && dpkg -i --force-downgrade /tmp/libionic.deb \
+          && ldconfig \
+          && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
+          && rm -f /tmp/libionic.deb) \
+        || echo "[libionic] install failed (offline build?) — inject at runtime instead"; \
+    else \
+        echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
+    fi
+
+# Install infera + its declared deps from pyproject (single source of truth).
+# The base already ships torch/sglang and most of infera's runtime stack; pip
+# leaves those satisfied versions untouched and only pulls what's missing (e.g.
+# nats-py). `.[sglang]` = infera core + the EPP (gaie) deps so this image can
+# also run `python -m infera.gaie`.
+COPY pyproject.toml README.md ./
+COPY infera ./infera
+# setuptools is bumped in the same RUN. The bases ship 79.0.1, whose bundled
+# _vendor/ tree carries an old jaraco.context and wheel; those three are the
+# only reported issues here that a version bump can reach, since every other
+# Python finding sits on a package the base pins for its own runtime (pillow,
+# aiohttp, cryptography, h2, torch) and is the vendor's to move.
+#
+# Safe to move because setuptools is build tooling, not a runtime dependency:
+# nothing here imports it to serve a request. Verified against the published
+# image -- vllm and infera both still import, and the count drops 22 -> 19.
+RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
+
+# ---- GLM-5.2 DSA patch set (PD + DP-attention on gfx950) --------------------
+# WHAT: four patches that together make PD + DP-attention work for GLM-5.2, with
+# EAGLE MTP on top; without them it crashes on the first batch or deadlocks the DP
+# group. patches/sglang_dsa/README.md carries the per-patch rationale.
+#
+# Three of the four are context diffs at --fuzz=0 against the pinned base, so a
+# base bump FAILS here instead of mis-applying. The fourth is an anchor script
+# instead: Dockerfile.sglang.gfx942 needs the same fix on a v0.5.16 base where
+# those diffs cannot apply, and one source of truth beats two.
+#
+# The script also verifies each patch reached the BYTECODE, not just the source:
+# a stale __pycache__ silently reverts a patch and has voided an experiment here.
+# APPLY_SGLANG_DSA_PATCHES=0 builds a stock engine to A/B against.
+ARG APPLY_SGLANG_DSA_PATCHES=1
+COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
+COPY deploy/docker/scripts/apply_sglang_dsa_patches.sh /tmp/apply_sglang_dsa_patches.sh
+RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
+        PATCH_DIR=/tmp/sglang_dsa bash /tmp/apply_sglang_dsa_patches.sh; \
+    else \
+        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work"; \
+    fi \
+    && rm -rf /tmp/apply_sglang_dsa_patches.sh /tmp/sglang_dsa
+
+# ---- sglang PD patches (mooncake early-send KV wait event) ----
+# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over mooncake:
+# without it every chunk but the last is RDMA-read while the forward is still writing
+# those pages, so prompts longer than one chunk come back partially wrong with nothing in
+# any log. Self-locating and idempotent, and reports "already present" once the base
+# sglang carries the fix. Order-independent w.r.t. the DSA set above: it touches
+# prefill.py / mooncake/conn.py, which no DSA diff does. A script here exits non-zero
+# when its anchors drifted, i.e. when the fix did not go in — an engine image that
+# silently corrupts long prompts is worse than a failed build.
+#
+# The v0519/ subdirectory holds patches only this base needs. Today that is the
+# PD rejection-sampling guard: v0.5.19 started auto-enabling EAGLE rejection
+# sampling on HIP without excluding PD decode, which cannot supply draft_probs,
+# so the decode worker dies at startup warmup. Older bases never auto-enable it
+# and must not receive the patch, which is why it is not in the glob above.
+COPY deploy/docker/patches/sglang_disagg/ /tmp/sglang-disagg-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-disagg-patches/*.py /tmp/sglang-disagg-patches/v0519/*.py; do \
+        echo "[sglang-patch] $f"; python "$f"; \
+    done; \
+    rm -rf /tmp/sglang-disagg-patches
+
+# ---- sglang Responses API patches (not PD-specific) ------------------------
+# REQUIRED FOR ANY Codex-driven workload against a model with a custom chat
+# encoder (kimi_k3, inkling): OpenAIServingResponses reuses OpenAIServingChat's
+# _process_messages but not its prompt-selection ladder, so it feeds
+# GenerateReqInput the empty `prompt` string those encoders deliberately leave
+# unset instead of the pre-rendered prompt_ids they actually produced. Every
+# POST /v1/responses then 400s with "texts cannot be empty and tokenizer must be
+# initialized" -- in ~5 ms, with no traceback, because create_responses swallows
+# the ValueError. Chat on the same model is unaffected, which is what makes it
+# hard to spot.
+#
+# Distinct from sglang_disagg/patch_responses_pd_bootstrap.py above: that one
+# plumbs the bootstrap trio so a PD pair accepts the request at all, this one
+# fixes the prompt the request carries. A Kimi-K3 PD deployment needs both, and
+# the order does not matter -- disjoint anchors, different functions. Applies on
+# aggregated servers too.
+#
+# NOT tolerant: self-locating, idempotent, and it exits non-zero when its anchor
+# drifted. An image whose Responses endpoint 400s on every request should not
+# ship quietly. Reports "already present" once base sglang routes both paths
+# through one helper.
+#
+# Only the v0519/ set is copied here. The sibling
+# patch_responses_custom_encoder_prompt.py is NOT applied to this base and is
+# not a regression: v0.5.19 added OpenAIServingChat._engine_prompt and routes
+# both Chat and Responses through it, which is the shared prompt-selection
+# helper that patch named as its own exit criterion. It is still applied by the
+# two recipes on older bases, which is why the file stays where it is.
+COPY deploy/docker/patches/sglang_responses/v0519/ /tmp/sglang-responses-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-responses-patches
+
+# ---- sglang ROCm patch (staged write-back gate) -----------------------------
+# Resyncs two gates that disagree about the staged write-back JIT on ROCm: MLA
+# enables it on HIP while DSAIndexerPoolHost still gates it on _is_cuda, which
+# poisons the pool group's capability AND. The patch gates MLA back down to the
+# safe non-JIT path until the full ROCm parity repair lands upstream. It checks
+# that precondition rather than its own anchor, so it refuses and tells the
+# operator to drop it once the group stops reading False -- anchor drift alone
+# would leave it silently forfeiting a kernel upstream had just enabled.
+#
+# ONLY this file is copied. The sibling patch_hicache_rocm_host_alloc.py is
+# deliberately NOT applied to this base, and it is the reason this block uses a
+# file list instead of a glob: it still applies cleanly here, so a glob would
+# keep it with no complaint, but its defect is fixed. It rerouted hicache host
+# pools to hipHostMalloc because registered host pages carry a device address
+# that differs from the host VA on gfx950, and the pointer tables handed raw
+# host data_ptr()s to GPU kernels. sglang#35233 (merged 2026-09-14, in this
+# base) instead translates every such table through hipHostGetDevicePointer,
+# which is the more thorough shape our own PR conceded to. Keeping our version
+# on top would cost the storage-backend allocators on ROCm -- alloc_with_pin_
+# memory ignores the allocator argument -- and warn on every buffer at teardown.
+# Older bases lack #35233 and still apply it; that is why the file stays put.
+COPY deploy/docker/patches/sglang_rocm/patch_hicache_rocm_staged_write_back.py /tmp/sglang-rocm-patches/
+RUN set -eu; \
+    for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
+    rm -rf /tmp/sglang-rocm-patches
+
+# ---- Rust router (multi-core data plane; --router-backend rust) ----
+# The ROCm base often ships cargo; use it, and install a minimal toolchain only
+# if absent. Needs cc for linking and libclang (onig_sys/bindgen).
+#
+# Build and remove in the SAME RUN. This is about what a scanner finds in the
+# final image, not about size: image scanning reads the flattened filesystem, so
+# a toolchain deleted in a later step is still reported, while one deleted here
+# is gone. A serving image has no business shipping a compiler toolchain.
+#
+# Removed unconditionally, including when the base supplied it. Who installed it
+# does not change whether it is present in the image being scanned, and nothing
+# at runtime needs cargo: the engines are Python, and the built infera-router
+# links only against base system libs (libc/libstdc++/libgcc/libm), none of
+# which the toolchain provides.
+#
+# The rc files go with it: rustup appends an unguarded `. "$HOME/.cargo/env"`,
+# which then errors on every login shell the image runs.
+COPY rust ./rust
+RUN set -eu; \
+    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
+    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
+    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
+    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
+    export PATH="$HOME/.cargo/bin:$PATH"; \
+    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
+    ( cd rust && cargo build --release --bin infera-router ); \
+    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
+    rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
+    rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
+    sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
+    ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
+    ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; }; \
+    /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
+
+COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
+
+ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
+CMD ["/bin/bash"]

@@ -1,0 +1,37 @@
+# Thin layer over the task's engine image, adding ONLY the GLM-5.2 NextN
+# shared-experts-fusion fix (fork commit 4350d37c5b).
+#
+# WHY A LAYER AND NOT A REBUILD. The base already carries the 7 DSA patches
+# (provable by the *.orig backups it leaves behind). Rebuilding from the sglang
+# nightly would take 40-60 min and reopen every one of them as a variable; this
+# layer takes seconds and changes exactly one class attribute, so R03 differs
+# from the measured C32 run by that attribute alone.
+#
+# WHY BUILT LOCALLY ON EACH NODE. The base image is already present on both
+# crsuse2-m2m-135 and -138. `docker save`-ing it to ship a one-line change would
+# move tens of GB. Both nodes build from this same Dockerfile and the same
+# applier, then each is verified independently by importing the class.
+ARG BASE=infera-sglang:v0519-yihou-0917
+FROM ${BASE}
+
+COPY apply_nextn_fusion_fix.sh /tmp/yihou_apply_nextn_fusion_fix.sh
+
+# The applier is idempotent and exits non-zero if the marker is absent after
+# applying, so a silent miss fails the build rather than the experiment.
+RUN bash /tmp/yihou_apply_nextn_fusion_fix.sh /sgl-workspace/sglang/python/sglang
+
+# DELIBERATELY NOT VERIFIED HERE. The authoritative check is to import the class
+# and read the attribute off it -- that compiles the module, so a stale
+# __pycache__ entry cannot hide a source-only edit. But importing
+# sglang.srt.models.glm4_moe pulls in sglang.kernels...fp8_kernel, which at
+# MODULE IMPORT time calls torch.cuda.get_device_properties(0)
+# (srt/utils/common.py:1082, is_gfx1250_supported). `docker build` has no GPU,
+# so the import dies with "RuntimeError: No HIP GPUs are available" -- the build
+# failure this file was first written with. Run the check after the build, in a
+# GPU-enabled container, which also tests the image the way it will actually run:
+#
+#   docker run --rm --device /dev/kfd --device /dev/dri --group-add video \
+#       --group-add render --entrypoint python3 \
+#       infera-sglang:v0519-yihou-0917-nextnfix \
+#       -c "from sglang.srt.models.glm4_moe import GlmMoeDsaForCausalLMNextN as C; \
+#           print(C.fused_shared_experts_architecture)"

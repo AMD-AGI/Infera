@@ -1,0 +1,39 @@
+
+
+============================ ROCm System Management Interface ============================
+===================================== KFD Processes ======================================
+KFD process information:
+PID   	PROCESS NAME   	GPU(s)	VRAM USED   	SDMA USED    	CU OCCUPANCY	
+369538	sglang::data_pa	0     	0           	0            	0           	
+398002	python3        	0     	0           	0            	0           	
+398009	python3        	0     	0           	0            	0           	
+398005	python3        	0     	0           	0            	0           	
+370433	sglang::schedul	1     	265133457408	2573851348541	0           	
+397982	python3        	0     	0           	0            	0           	
+370582	sglang::schedul	1     	265032794112	2482496927580	0           	
+369887	sglang::schedul	1     	265133457408	2720322543165	0           	
+368053	python3        	0     	0           	0            	0           	
+17976 	gpuagent       	0     	0           	0            	0           	
+369702	sglang::detoken	0     	0           	0            	0           	
+370281	sglang::schedul	1     	265166999552	2594566023577	0           	
+368885	python3        	0     	0           	0            	0           	
+==========================================================================================
+================================== Memory Usage (Bytes) ==================================
+GPU[0]		: VRAM Total Memory (B): 309220868096
+GPU[0]		: VRAM Total Used Memory (B): 265448685568
+GPU[1]		: VRAM Total Memory (B): 309220868096
+GPU[1]		: VRAM Total Used Memory (B): 265482244096
+GPU[2]		: VRAM Total Memory (B): 309220868096
+GPU[2]		: VRAM Total Used Memory (B): 265448701952
+GPU[3]		: VRAM Total Memory (B): 309220868096
+GPU[3]		: VRAM Total Used Memory (B): 265348055040
+GPU[4]		: VRAM Total Memory (B): 309220868096
+GPU[4]		: VRAM Total Used Memory (B): 307892224
+GPU[5]		: VRAM Total Memory (B): 309220868096
+GPU[5]		: VRAM Total Used Memory (B): 307892224
+GPU[6]		: VRAM Total Memory (B): 309220868096
+GPU[6]		: VRAM Total Used Memory (B): 307892224
+GPU[7]		: VRAM Total Memory (B): 309220868096
+GPU[7]		: VRAM Total Used Memory (B): 307892224
+==========================================================================================
+================================== End of ROCm SMI Log ===================================

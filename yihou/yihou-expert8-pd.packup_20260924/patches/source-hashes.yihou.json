@@ -1,0 +1,18 @@
+{
+  "srt/models/yihou_expert8.py": {
+    "patched": "65e79be5b9139b4a90b0ef9a5486f13f8722b84db015bb6f9aea6824d429ad6e",
+    "original": null
+  },
+  "srt/models/deepseek_v2.py": {
+    "patched": "354d8ccc0cc246d5c504398da340dd0fd2a1c2be5ce07e34a6daef19c7374c53",
+    "original": "42f56661004423bc031d1c47ae950a92c40de3382dab878d5915b4769138a336"
+  },
+  "srt/model_loader/loader.py": {
+    "patched": "1222c94d1a9257ac65437ae021d73c49d3be6836804cd90e9a50f7aebde12039",
+    "original": "69043753c6158f200c17ffda174282cef62430320d3d7caab361c39426a1902e"
+  },
+  "srt/layers/moe/topk.py": {
+    "patched": "ccb5f0af7bda720038498adc5b31f6c6f35cfcda71850f88ffba34ff219d4bdd",
+    "original": "e03fb1c4738a084567e774cac838d5fb75b3e0ab50cfd6d34e591e35eeaed3fb"
+  }
+}
