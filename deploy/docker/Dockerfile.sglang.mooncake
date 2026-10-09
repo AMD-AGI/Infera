@@ -1,0 +1,15 @@
+# Rebuild only Mooncake on a compatible ROCm SGLang/Infera image.
+# docker build -f deploy/docker/Dockerfile.sglang.mooncake \
+#   --build-arg BASE_IMAGE=<your-sglang-image> -t infera-sglang:mooncake-rdma .
+ARG BASE_IMAGE=lmsysorg/sglang:v0.5.18-rocm720-mi35x
+FROM ${BASE_IMAGE}
+ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
+ARG MC_GPU_ARCH=gfx950
+ARG APPLY_MOONCAKE_RDMA_PATCHES=1
+COPY deploy/docker/scripts/build_mooncake_sglang.sh deploy/docker/scripts/apply_mooncake_overlays.sh /tmp/mooncake-build/scripts/
+COPY deploy/docker/patches/mooncake_rdma /tmp/mooncake-build/patches/mooncake_rdma
+RUN MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" MC_GPU_ARCH="${MC_GPU_ARCH}" \
+    APPLY_MOONCAKE_RDMA_PATCHES="${APPLY_MOONCAKE_RDMA_PATCHES}" \
+    bash /tmp/mooncake-build/scripts/build_mooncake_sglang.sh \
+    && rm -rf /tmp/mooncake-build
+# Enable the routing policy explicitly at launch; the image does not force it.

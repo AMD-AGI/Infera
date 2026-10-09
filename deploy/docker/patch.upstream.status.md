@@ -208,6 +208,25 @@ is a hardware run plus a measurement of the thing it claims to change.
 > present" and no-ops. If only #37133's narrower form lands, keep this — its gate
 > stays a superset.
 
+## Optional Mooncake RDMA overlays — `patches/mooncake_rdma/`
+
+Added and checked 2026-10-09 against the Infera-pinned Mooncake `faae8dd4`.
+These source backports are bundled locally, independent of upstream merge timing.
+Enable with `APPLY_MOONCAKE_RDMA_PATCHES=1` in the three SGLang engine Dockerfiles,
+or use `Dockerfile.sglang.mooncake` on a compatible existing image. Runtime routing
+remains opt-in; see [build/launch instructions](patches/mooncake_rdma/README.md).
+
+| patch | capability | upstream PR | ours? | PR state |
+|---|---|---|---|---|
+| `mooncake_rdma/destination-local-rail.patch` | destination-local GPU WRITE hints and deterministic preferred HCA pinning | [Mooncake#4540](https://github.com/kvcache-ai/Mooncake/pull/4540) | yes (`llying-001`) | DRAFT |
+| `mooncake_rdma/ack-timeout.patch` | finite RC ACK timeout configuration; default remains exponent 14 | [Mooncake#4541](https://github.com/kvcache-ai/Mooncake/pull/4541) | yes (`llying-001`) | DRAFT |
+
+The source bundle applied cleanly and passed 7 native selection and 3 ACK-parser
+regressions. Full ROCm image/GPU validation of this extraction is still pending;
+historical MI355X/ionic results are not represented as fresh validation. When a
+pinned revision includes an upstream implementation, remove its corresponding
+backport explicitly rather than ignoring patch failures.
+
 ## Mooncake C++ — `patches/mooncake_cpp/`
 
 SGLang now builds Mooncake `faae8dd4` directly and carries no private Mooncake

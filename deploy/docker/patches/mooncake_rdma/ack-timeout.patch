@@ -1,0 +1,79 @@
+diff --git a/mooncake-transfer-engine/include/config.h b/mooncake-transfer-engine/include/config.h
+index 08c9647..a8b3e7c 100644
+--- a/mooncake-transfer-engine/include/config.h
++++ b/mooncake-transfer-engine/include/config.h
+@@ -112,6 +112,8 @@ struct GlobalConfig {
+     // Maps to a Virtual Lane on the switch for QoS isolation, e.g. to
+     // steer KV-cache traffic into a different VL than EP all-to-all.
+     int ib_service_level = -1;
++    // RC ACK timeout: 4.096 us * 2^n; 14 preserves the 67 ms default.
++    int ib_timeout = 14;
+     // mlx5 QP UDP source ports for ECMP path diversification.
+     // Empty = no modification. QP at index i uses
+     // mlx5_qp_udp_sports[i % size]. Requires mlx5 device + RoCEv2,
+diff --git a/mooncake-transfer-engine/src/config.cpp b/mooncake-transfer-engine/src/config.cpp
+index a6f4108..99f1f73 100644
+--- a/mooncake-transfer-engine/src/config.cpp
++++ b/mooncake-transfer-engine/src/config.cpp
+@@ -14,6 +14,8 @@
+
+ #include "config.h"
+
++#include <charconv>
++
+ #include <charconv>
+ #include <cstring>
+ #include <cstdio>
+@@ -618,6 +620,23 @@ void loadGlobalConfig(GlobalConfig& config) {
+         }
+     }
+
++    if (const char* value = std::getenv("MC_IB_TIMEOUT")) {
++        auto text = trimConfigToken(value);
++        if (!text.empty() && text.front() == '+') text.erase(0, 1);
++        unsigned parsed = 0;
++        const auto result =
++            std::from_chars(text.data(), text.data() + text.size(), parsed);
++        if (result.ec == std::errc{} &&
++            result.ptr == text.data() + text.size() && parsed >= 1 &&
++            parsed <= 31) {
++            config.ib_timeout = static_cast<int>(parsed);
++        } else {
++            LOG(WARNING) << "Invalid MC_IB_TIMEOUT: " << value
++                         << "; expected an integer in [1, 31], keeping "
++                         << config.ib_timeout;
++        }
++    }
++
+     const char* ib_relaxed_ordering_env =
+         std::getenv("MC_IB_PCI_RELAXED_ORDERING");
+     if (ib_relaxed_ordering_env) {
+@@ -739,6 +758,7 @@ void dumpGlobalConfig() {
+                                                                      : "all");
+     LOG(INFO) << "ib_traffic_class = " << config.ib_traffic_class;
+     LOG(INFO) << "ib_service_level = " << config.ib_service_level;
++    LOG(INFO) << "ib_timeout = " << config.ib_timeout;
+     LOG(INFO) << "te_metadata_refresh_interval_seconds = "
+               << config.te_metadata_refresh_interval_seconds;
+     LOG(INFO) << "rdma_rail_pause_seconds = " << config.rdma_rail_pause_seconds;
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp
+index 04baa0b..01c729e 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp
+@@ -33,7 +33,6 @@
+
+ namespace mooncake {
+ constexpr uint8_t kMaxHopLimit = 16;
+-constexpr uint8_t kTimeout = 14;
+ constexpr uint8_t kRetryCount = 7;
+
+ static GidSelectionSnapshot fillLocalHandshakeDesc(
+@@ -1214,7 +1213,7 @@ int RdmaEndPoint::doSetupConnection(int qp_index, const ibv_gid &peer_gid,
+     // RTR -> RTS
+     memset(&attr, 0, sizeof(attr));
+     attr.qp_state = IBV_QPS_RTS;
+-    attr.timeout = kTimeout;
++    attr.timeout = static_cast<uint8_t>(globalConfig().ib_timeout);
+     attr.retry_cnt = kRetryCount;
+     attr.rnr_retry = 7;  // or 7,RNR error
+     attr.sq_psn = 0;
