@@ -63,6 +63,7 @@ attention_output_gate: true          # attn_output_gate
 # Hybrid attention: full attention every 4th layer (15 of 60), the rest are
 # gated-delta linear layers keeping a 128 x 128 state per head.
 experimental_attention_variant: gated_delta_net
+linear_attention_kind: gdn
 linear_attention_freq: 4
 linear_attention_head_dim: 128       # linear_key_head_dim
 linear_attention_conv_kernel: 4      # linear_conv_kernel_dim
