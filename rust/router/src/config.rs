@@ -44,6 +44,15 @@ pub struct Config {
     #[arg(long, default_value = "round-robin")]
     pub router_policy: String,
 
+    /// Decode input-token demand routing (kv-aware only); off, shadow or on.
+    #[arg(
+        long,
+        value_enum,
+        default_value = "off",
+        env = "INFERA_DECODE_INPUT_DEMAND"
+    )]
+    pub decode_input_demand: crate::decode_demand::Mode,
+
     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
     /// annotation and the API server is watched).
     #[arg(long, default_value = "etcd")]
@@ -217,6 +226,11 @@ impl Config {
                 ),
                 Err(e) => anyhow::bail!("--kv-default-chat-template-kwargs is not JSON: {e}"),
             }
+        }
+        if self.decode_input_demand != crate::decode_demand::Mode::Off
+            && self.router_policy != "kv-aware"
+        {
+            anyhow::bail!("--decode-input-demand requires --router-policy kv-aware");
         }
         if self.router_policy == "kv-aware" && self.kv_tokenizer_path.is_none() {
             tracing::warn!(
@@ -397,5 +411,25 @@ mod tests {
         let bad_disc =
             Config::try_parse_from(["infera-router", "--discovery-backend", "k8s"]).unwrap();
         assert!(bad_disc.validate().is_err());
+    }
+    #[test]
+    fn decode_demand_is_opt_in_and_requires_kv_aware() {
+        let off = Config::try_parse_from(["router", "--decode-input-demand", "off"]).unwrap();
+        assert!(off.validate().is_ok());
+        for mode in ["shadow", "on"] {
+            let invalid =
+                Config::try_parse_from(["router", "--decode-input-demand", mode]).unwrap();
+            assert!(invalid.validate().is_err());
+            let valid = Config::try_parse_from([
+                "router",
+                "--router-policy",
+                "kv-aware",
+                "--decode-input-demand",
+                mode,
+            ])
+            .unwrap();
+            assert!(valid.validate().is_ok());
+        }
+        assert!(Config::try_parse_from(["router", "--decode-input-demand", "enabled"]).is_err());
     }
 }

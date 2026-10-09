@@ -20,6 +20,7 @@ use serde_json::Value;
 
 use crate::block_hasher::BlockHasher;
 use crate::cache_control::{extract_image_keys, hints_for_hashed_body, CacheHints, Retention};
+use crate::decode_demand::{Ledger, Mode as DecodeDemandMode, Reservation};
 use crate::kv_event::KvEventClient;
 use crate::pool::{expand_targets, RouteTarget, Worker};
 
@@ -38,6 +39,7 @@ pub enum Role {
 pub struct Pick {
     pub target: RouteTarget,
     pub blocks: Vec<u64>,
+    pub decode_demand: Option<Reservation>,
 }
 
 pub trait Policy: Send + Sync {
@@ -91,14 +93,24 @@ pub trait Policy: Send + Sync {
 pub struct ActiveGuard {
     policy: Arc<dyn Policy>,
     entries: Vec<(String, Vec<u64>)>,
+    _decode_demand: Option<Reservation>,
 }
 
 impl ActiveGuard {
+    pub fn with_decode_demand(mut self, reservation: Option<Reservation>) -> Self {
+        self._decode_demand = reservation;
+        self
+    }
+
     pub fn start(policy: Arc<dyn Policy>, entries: Vec<(String, Vec<u64>)>) -> Self {
         for (k, b) in &entries {
             policy.on_request_started(k, b);
         }
-        ActiveGuard { policy, entries }
+        ActiveGuard {
+            policy,
+            entries,
+            _decode_demand: None,
+        }
     }
 }
 
@@ -145,6 +157,7 @@ impl Policy for RoundRobin {
         Pick {
             target,
             blocks: Vec::new(),
+            decode_demand: None,
         }
     }
 }
@@ -223,11 +236,12 @@ const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
 /// and `recent_blocks(w)` is a decayed sum of the blocks recently dispatched to
 /// it. Both halves of the load term are needed -- see [`RECENT_DECAY`].
 pub struct KvEventAwarePolicy {
+    decode_input_demand: DecodeDemandMode,
+    demand: Ledger,
     kv: Arc<KvEventClient>,
     hasher: Arc<BlockHasher>,
-    /// Per-worker verdict from the startup render-parity probe -- see
-    /// `crate::render_probe`. Exported on /metrics; the router never routes on
-    /// it, because a worker whose render we cannot match is still a worker.
+    /// Render-parity verdicts, also exported on /metrics. Legacy routing does
+    /// not exclude mismatched workers; demand routing treats their input as unknown.
     parity: Arc<crate::render_probe::ParityRegistry>,
     /// Which server-side template defaults each worker renders with. Requests
     /// are hashed once per *variant*, not once per worker: a fleet launched
@@ -264,6 +278,8 @@ impl KvEventAwarePolicy {
         decode_overlap_weight: Option<f64>,
     ) -> Self {
         KvEventAwarePolicy {
+            decode_input_demand: DecodeDemandMode::Off,
+            demand: Ledger::default(),
             kv,
             hasher: Arc::new(hasher),
             parity: Arc::new(Default::default()),
@@ -277,6 +293,16 @@ impl KvEventAwarePolicy {
             zero_hit_streak: AtomicU64::new(0),
             flush_tx: None,
         }
+    }
+
+    pub fn with_decode_input_demand(mut self, mode: DecodeDemandMode) -> Self {
+        self.decode_input_demand = mode;
+        self
+    }
+
+    #[cfg(test)]
+    pub(crate) fn demand_snapshot(&self) -> HashMap<String, crate::decode_demand::Demand> {
+        self.demand.lock().unwrap().clone()
     }
 
     /// Let the policy repair a worker whose kv-event chain never anchored, by
@@ -512,6 +538,17 @@ impl Policy for KvEventAwarePolicy {
         // `chat_template_kwargs` onto a body `to_chat_body` rebuilds from
         // scratch, dropping the variant for `/v1/responses` alone.
         let base = crate::responses_input::normalised(request);
+        let demand_enabled =
+            role == Role::Decode && self.decode_input_demand != DecodeDemandMode::Off;
+        let mut tokens_for: HashMap<u64, Option<Vec<u32>>> = HashMap::new();
+        if demand_enabled {
+            for target in &targets {
+                let variant = self.variants.for_worker(&target.worker.worker_id);
+                tokens_for
+                    .entry(variant.id())
+                    .or_insert_with(|| self.hasher.token_ids_for(&variant.apply(&base)));
+            }
+        }
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
         let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
         for t in &targets {
@@ -520,7 +557,15 @@ impl Policy for KvEventAwarePolicy {
                     let variant = self.variants.for_worker(&t.worker.worker_id);
                     let key = (bs, variant.id());
                     hashes_for.entry(key).or_insert_with(|| {
-                        self.hasher.hash_for(&variant.apply(&base), bs as usize)
+                        if demand_enabled {
+                            tokens_for
+                                .get(&variant.id())
+                                .and_then(|ids| ids.as_ref())
+                                .map(|ids| crate::hasher::hash_request(ids, bs as usize))
+                                .unwrap_or_default()
+                        } else {
+                            self.hasher.hash_for(&variant.apply(&base), bs as usize)
+                        }
                     });
                     Some(key)
                 }
@@ -585,7 +630,7 @@ impl Policy for KvEventAwarePolicy {
         };
 
         // min by (cost, load) — tie-break to least-loaded.
-        let picked_i = (0..targets.len())
+        let legacy_pick = (0..targets.len())
             .min_by(|&a, &b| {
                 let (ca, cb) = (cost_at(a), cost_at(b));
                 ca.partial_cmp(&cb)
@@ -597,6 +642,81 @@ impl Policy for KvEventAwarePolicy {
                     })
             })
             .expect("candidates non-empty");
+        let (picked_i, decode_demand, demand_steered) = if demand_enabled {
+            let diverged: std::collections::HashSet<_> = self
+                .parity
+                .snapshot()
+                .into_iter()
+                .filter(|(_, _, verdict)| *verdict == 0)
+                .map(|(worker, _, _)| worker)
+                .collect();
+            let copies = match base.get("n") {
+                None => Some(1),
+                Some(n) => n.as_u64().filter(|n| *n > 0),
+            };
+            let work: Vec<Option<u64>> = targets
+                .iter()
+                .map(|target| {
+                    if hints.has_multimodal_content || diverged.contains(&target.worker.worker_id) {
+                        return None;
+                    }
+                    let variant = self.variants.for_worker(&target.worker.worker_id);
+                    let ids = tokens_for.get(&variant.id())?.as_ref()?;
+                    u64::try_from(ids.len()).ok()?.checked_mul(copies?)
+                })
+                .collect();
+            let keys: Vec<_> = targets.iter().map(RouteTarget::route_key).collect();
+            let loads: Vec<_> = keys.iter().map(|key| self.load_of(key)).collect();
+            let (picked, reservation, costs, suggested) = {
+                // Only snapshot, selection and reservation hold the ledger lock.
+                let mut ledger = self.demand.lock().expect("decode demand ledger poisoned");
+                let known = work.iter().all(Option::is_some)
+                    && keys
+                        .iter()
+                        .all(|key| !ledger.get(key).is_some_and(|d| d.unknown > 0));
+                let costs: Vec<_> = keys
+                    .iter()
+                    .enumerate()
+                    .map(|(i, key)| {
+                        work[i].map(|w| ledger.get(key).map_or(0, |d| d.tokens) + u128::from(w))
+                    })
+                    .collect();
+                let suggested = known.then(|| {
+                    (0..targets.len())
+                        .min_by(|&a, &b| {
+                            costs[a].cmp(&costs[b]).then_with(|| {
+                                loads[a]
+                                    .partial_cmp(&loads[b])
+                                    .unwrap_or(std::cmp::Ordering::Equal)
+                            })
+                        })
+                        .expect("candidates non-empty")
+                });
+                let picked = if self.decode_input_demand == DecodeDemandMode::On {
+                    suggested.unwrap_or(legacy_pick)
+                } else {
+                    legacy_pick
+                };
+                let reservation = Reservation::book(
+                    &self.demand,
+                    &mut ledger,
+                    keys[picked].clone(),
+                    work[picked],
+                );
+                (picked, reservation, costs, suggested)
+            };
+            tracing::debug!(target: "infera_router::decode_demand",
+                mode=?self.decode_input_demand, known=suggested.is_some(), candidates=?keys, projected_tokens=?costs,
+                legacy_selected=%keys[legacy_pick], selected=%keys[picked], suggested=?suggested.map(|i| &keys[i]),
+                "decode input demand");
+            (
+                picked,
+                Some(reservation),
+                self.decode_input_demand == DecodeDemandMode::On && suggested.is_some(),
+            )
+        } else {
+            (legacy_pick, None, false)
+        };
         let picked = targets[picked_i].clone();
 
         let blocks = blocks_at(picked_i).clone();
@@ -624,10 +744,16 @@ impl Policy for KvEventAwarePolicy {
             mm_affinity_hits = mm_matched,
             "pick"
         );
-        self.note_hit_outcome(&picked, blocks.len(), hits, w_overlap > 0.0);
+        self.note_hit_outcome(
+            &picked,
+            blocks.len(),
+            hits,
+            w_overlap > 0.0 && !demand_steered,
+        );
         Pick {
             target: picked,
             blocks,
+            decode_demand,
         }
     }
 
@@ -1131,5 +1257,198 @@ mod tests {
         pol.sync_workers(&[worker("stay", 16, None)]);
         assert_eq!(pol.mm_hits("gone#dp0", &[1, 2]), 0);
         assert_eq!(pol.mm_hits("stay", &[3]), 1);
+    }
+    fn demand_policy(mode: DecodeDemandMode) -> KvEventAwarePolicy {
+        KvEventAwarePolicy::new(
+            Arc::new(KvEventClient::nats_fed()),
+            BlockHasher::disabled(),
+            20.0,
+            None,
+            None,
+        )
+        .with_decode_input_demand(mode)
+    }
+
+    #[test]
+    fn decode_demand_counts_inputs_without_kv_metadata_and_multiplies_n() {
+        let policy = demand_policy(DecodeDemandMode::On);
+        let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+        let a = policy.pick(&workers, &json!({"prompt": vec![7;320]}), Role::Decode);
+        let b = policy.pick(&workers, &json!({"prompt": vec![7;32]}), Role::Decode);
+        let c = policy.pick(
+            &workers,
+            &json!({"prompt": vec![7;32], "n":2}),
+            Role::Decode,
+        );
+        assert_eq!(a.target.route_key(), "a");
+        assert_eq!(b.target.route_key(), "b");
+        assert_eq!(c.target.route_key(), "b");
+        assert_eq!(policy.demand_snapshot()["a"].tokens, 320);
+        assert_eq!(policy.demand_snapshot()["b"].tokens, 96);
+        drop((a, b, c));
+        assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn decode_demand_unknown_inflight_forces_legacy_until_released() {
+        let policy = demand_policy(DecodeDemandMode::On);
+        let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+        let (large, unknown) = {
+            let mut ledger = policy.demand.lock().unwrap();
+            (
+                Reservation::book(&policy.demand, &mut ledger, "a".into(), Some(10000)),
+                Reservation::book(&policy.demand, &mut ledger, "b".into(), None),
+            )
+        };
+        policy.record_dispatch("b", 100, 100);
+        let fallback = policy.pick(&workers, &json!({"prompt":[1,2]}), Role::Decode);
+        assert_eq!(fallback.target.route_key(), "a");
+        drop(unknown);
+        let active = policy.pick(&workers, &json!({"prompt":[1,2]}), Role::Decode);
+        assert_eq!(active.target.route_key(), "b");
+        drop((large, fallback, active));
+        assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn decode_demand_unknown_inputs_are_not_zero_cost() {
+        for request in [
+            json!({"prompt":"no tokenizer"}),
+            json!({"prompt":[1,2], "n":u64::MAX}),
+            json!({"prompt":[1,2], "n":0}),
+            json!({"prompt":[1,2], "messages":[{"role":"user", "content":[{"type":"image_url", "image_url":{"url":"data:image/png;base64,AA"}}]}]}),
+        ] {
+            let policy = demand_policy(DecodeDemandMode::On);
+            let pick = policy.pick(&[worker("a", 0, None)], &request, Role::Decode);
+            assert_eq!(policy.demand_snapshot()["a"].unknown, 1);
+            drop(pick);
+            assert!(policy.demand_snapshot().is_empty());
+        }
+        let policy = demand_policy(DecodeDemandMode::On);
+        let epoch = policy.parity.claim("a", "m").unwrap();
+        policy
+            .parity
+            .record("a", epoch, "m", crate::render_probe::Parity::Diverged);
+        let pick = policy.pick(
+            &[worker("a", 0, None)],
+            &json!({"prompt":[1,2]}),
+            Role::Decode,
+        );
+        assert_eq!(policy.demand_snapshot()["a"].unknown, 1);
+        drop(pick);
+        assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn decode_demand_shadow_preserves_legacy_and_other_roles_do_not_book() {
+        let off = demand_policy(DecodeDemandMode::Off);
+        let shadow = demand_policy(DecodeDemandMode::Shadow);
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        let mut picks = Vec::new();
+        for role in [Role::Decode, Role::Prefill, Role::Mixed] {
+            for n in 1..12 {
+                let request = json!({"prompt":vec![7;n*16]});
+                let a = off.pick(&workers, &request, role);
+                let b = shadow.pick(&workers, &request, role);
+                assert_eq!(a.target.route_key(), b.target.route_key());
+                assert!(a.decode_demand.is_none());
+                assert_eq!(b.decode_demand.is_some(), role == Role::Decode);
+                picks.push((a, b));
+            }
+        }
+        assert!(off.demand_snapshot().is_empty());
+        drop(picks);
+        assert!(shadow.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn decode_demand_concurrent_picks_book_before_the_next_selection() {
+        let policy = Arc::new(demand_policy(DecodeDemandMode::On));
+        let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+        let joins: Vec<_> = (0..16)
+            .map(|_| {
+                let (policy, workers) = (policy.clone(), workers.clone());
+                std::thread::spawn(move || {
+                    policy.pick(&workers, &json!({"prompt":vec![1;100]}), Role::Decode)
+                })
+            })
+            .collect();
+        let picks: Vec<_> = joins.into_iter().map(|j| j.join().unwrap()).collect();
+        assert_eq!(policy.demand_snapshot()["a"].tokens, 800);
+        assert_eq!(policy.demand_snapshot()["b"].tokens, 800);
+        drop(picks);
+        assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn decode_demand_rank_isolation_and_departed_workers_keep_live_reservations() {
+        let policy = demand_policy(DecodeDemandMode::On);
+        let mut multiplexed = (*worker("a", 0, None)).clone();
+        multiplexed.dp_size = Some(2);
+        let workers = vec![Arc::new(multiplexed)];
+        let a = policy.pick(&workers, &json!({"prompt":vec![1;64]}), Role::Decode);
+        let b = policy.pick(&workers, &json!({"prompt":vec![1;64]}), Role::Decode);
+        assert_ne!(a.target.route_key(), b.target.route_key());
+        assert_eq!(policy.demand_snapshot().len(), 2);
+        policy.sync_workers(&[]);
+        assert_eq!(policy.demand_snapshot().len(), 2);
+        drop((a, b));
+        assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn decode_demand_uses_real_tokenization_and_worker_template_defaults() {
+        use crate::render_variant::{RenderVariant, VariantRegistry};
+        let dir = std::env::temp_dir().join(format!("infera-r2-tokenizer-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let vocab = [
+            ("[UNK]".to_owned(), 0),
+            ("hello".to_owned(), 1),
+            ("pad".to_owned(), 2),
+        ]
+        .into_iter()
+        .collect();
+        let model = tokenizers::models::wordlevel::WordLevel::builder()
+            .vocab(vocab)
+            .unk_token("[UNK]".into())
+            .build()
+            .unwrap();
+        let mut tokenizer = tokenizers::Tokenizer::new(model);
+        tokenizer.with_pre_tokenizer(Some(tokenizers::pre_tokenizers::whitespace::Whitespace {}));
+        tokenizer.save(dir.join("tokenizer.json"), false).unwrap();
+        std::fs::write(
+            dir.join("tokenizer_config.json"),
+            json!({
+                "chat_template":"{{ messages[0]['content'] }}{% if pad %} pad pad{% endif %}"
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let hasher = BlockHasher::load(dir.to_str().unwrap());
+        assert!(hasher.is_enabled());
+        std::fs::remove_dir_all(dir).unwrap();
+        let variants = VariantRegistry::new(RenderVariant::default(), true);
+        variants.record(
+            "a",
+            RenderVariant::from_default_chat_template_kwargs(Some(&json!({"pad":true}))),
+        );
+        let policy = KvEventAwarePolicy::new(
+            Arc::new(KvEventClient::nats_fed()),
+            hasher,
+            20.0,
+            None,
+            None,
+        )
+        .with_variants(variants)
+        .with_decode_input_demand(DecodeDemandMode::On);
+        let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+        let request = json!({"messages":[{"role":"user","content":"hello"}], "n":2});
+        let b = policy.pick(&workers, &request, Role::Decode);
+        let a = policy.pick(&workers[..1], &request, Role::Decode);
+        assert_eq!(b.target.route_key(), "b");
+        assert_eq!(policy.demand_snapshot()["a"].tokens, 6);
+        assert_eq!(policy.demand_snapshot()["b"].tokens, 2);
+        drop((a, b));
+        assert!(policy.demand_snapshot().is_empty());
     }
 }
