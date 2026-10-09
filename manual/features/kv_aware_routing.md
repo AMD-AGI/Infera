@@ -201,3 +201,76 @@ Full list on the [environment variables](../reference/environment.md) page.
   transport.
 - [KV-Cache Offload](kv_cache_offload.md) — keep prefixes warm even *below* the
   worker's GPU cache.
+
+## Optional Decode input-demand routing (Rust)
+
+The Rust router can select Decode workers/ranks by the input-token demand of
+in-flight requests. This is the experimental R2 strategy, extracted independently
+of Prefill scoring, cache tiers and session affinity. It defaults to `off` and
+requires `--router-policy kv-aware`.
+
+```bash
+# Add to the existing Python entrypoint configuration; exec inherits the env.
+INFERA_DECODE_INPUT_DEMAND=shadow \
+RUST_LOG=info,infera_router::decode_demand=debug \
+python -m infera.server --router-backend rust --router-policy kv-aware \
+  --kv-tokenizer-path /path/to/model
+```
+
+Keep the deployment's discovery, transport and tokenizer/template options.
+The native binary also accepts `--decode-input-demand off|shadow|on`; the Python
+entrypoint uses the environment variable above. The old experiment variable
+`INFERA_R2_DECODE_DEMAND` is not the interface for this extraction.
+
+| Mode | Selection and overhead |
+|---|---|
+| `off` | Original routing; no additional input-token calculation or reservations |
+| `shadow` | Original selection plus demand bookkeeping and a suggested target |
+| `on` | Select the lowest projected input demand when all candidates are known; otherwise use original selection |
+
+For a candidate target, the projected demand is its in-flight input tokens plus
+this request's rendered input-token count times `n` (default 1). Equal costs use
+original load as the tie-break, then candidate order. The chosen target retains
+normal block/cache bookkeeping. Prefill and aggregated/Mixed selection are
+unchanged. Decode input length does not require KV block metadata or Decode radix.
+
+Tokenization is shared per worker template variant and reused for block hashing.
+Missing tokenization, multimodal inputs, confirmed render mismatches, invalid `n`
+or a token-count multiplication overflow are unknown, not zero demand. If any
+candidate's current input or existing in-flight demand is unknown, the decision
+falls back to the original policy. Debug events expose `known`, candidate projected
+tokens, the original choice, the suggestion and the actual choice; they contain
+no prompt or session text. With `known=false`, partial token totals are not complete
+load estimates. Shadow adds CPU/accounting work and observes the trajectory chosen
+by the original policy; it is not a full counterfactual performance run.
+
+Selection and reservation use one short mutex critical section; tokenization and
+logging are outside it. The reservation moves from the pick into the PD response
+guard. Abandoned picks, pre-dispatch errors, HTTP/NATS failures, response EOF and
+cancellation release it exactly once. Decode remains charged while waiting for
+Prefill. Non-streaming PD retains the existing order that waits for both legs;
+this feature does not change Prefill's load-release policy. Live reservations are
+not deleted when a worker leaves discovery, so late completions cannot subtract
+from a newly recreated ledger entry. State is local to one router process.
+
+This is an input-demand estimate, not physical KV allocation or remaining decode
+compute. Shared prefixes count once per request, generated-token growth and
+backend cancellation/reclamation lag are not modeled, and there is no capacity
+normalization or hard admission limit. Start with homogeneous Decode targets.
+Radix/HiCache reuse can make this estimate conservative. It neither enables an
+engine cache nor breaks an existing session binding to escape congestion.
+
+Historical C80/4K observations showed lower instantaneous per-rank KV skew
+(CV 0.444 to 0.184) and fewer allocation waits over one second (21 to 0), but output
+tokens/s/GPU changed from 156.37 to 154.79. The run was preempted, the comparison
+used a different Decode node, and three warmup empty-content errors remained
+unexplained. This supports further evaluation, not a throughput improvement claim.
+For a new A/B, hold Prefill policy, cache settings, affinity, nodes, capacity and
+workload fixed; compare allocation tails, per-rank demand/KV, output throughput,
+TTFT/ITL and router CPU cost. No fresh GPU performance result is claimed here.
+
+The extraction is independently based on main. When integrating Prefill-completion
+release (#185) or session affinity (#186), keep the Decode reservation on the
+Decode guard, including pinned picks. Affinity should control existing bindings;
+input demand may choose the first target or a replacement. These combined PR
+configurations need their own integration validation after rebasing.
