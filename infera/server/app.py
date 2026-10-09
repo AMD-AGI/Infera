@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import uuid
+import weakref
 from typing import Any
 
 import httpx
@@ -69,6 +70,11 @@ _enable_profiling: bool = False
 _enable_sla_metrics: bool = True
 _profile_client: httpx.AsyncClient | None = None
 _metrics_client: httpx.AsyncClient | None = None
+# One lock per running loop. A module-level Lock stays bound to the loop that
+# first acquired it, and TestClient builds a fresh loop per request.
+_metrics_scrape_locks: weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Lock] = (
+    weakref.WeakKeyDictionary()
+)
 
 # Pool resizing. Off by default: it writes to the cluster, and /v1/admin carries
 # no authentication of its own, so it is opt-in the way profiling is.
@@ -638,6 +644,16 @@ async def health() -> dict:
     return {"status": "ok", "active_workers": len(workers)}
 
 
+def _metrics_scrape_lock() -> asyncio.Lock:
+    """Lock that serializes one process-local /metrics scrape on this loop."""
+    loop = asyncio.get_running_loop()
+    lock = _metrics_scrape_locks.get(loop)
+    if lock is None:
+        lock = asyncio.Lock()
+        _metrics_scrape_locks[loop] = lock
+    return lock
+
+
 def _get_metrics_client() -> httpx.AsyncClient:
     """Shared client for scraping worker /metrics into the frontend exposition."""
     global _metrics_client
@@ -700,8 +716,19 @@ async def prometheus_metrics() -> Response:
     gauges on every scrape so they stay live without per-event updates.
     Also federates allowlisted engine series so one scrape of the frontend
     covers the vLLM Grafana panels (scheduler, KV cache, queue/prefill, …).
+
+    The worker fetch sits between gauge reset and exposition. Scrapes take
+    the lock so one request cannot clear gauges another request already filled.
     """
+    async with _metrics_scrape_lock():
+        return await _prometheus_metrics_locked()
+
+
+async def _prometheus_metrics_locked() -> Response:
+    """Build one /metrics body. Caller holds the scrape lock."""
     if registry is not None:
+        active_ids = {w.worker_id for w in registry.list_all() if w.status == WorkerStatus.ACTIVE}
+        metrics.prune_departed_workers(active_ids)
         # Reset gauges then re-populate to handle workers leaving the fleet.
         metrics.active_workers.clear()
         by_mode: dict[tuple[str, str], int] = {}

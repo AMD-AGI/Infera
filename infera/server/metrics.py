@@ -183,9 +183,9 @@ time_to_first_token_seconds = Histogram(
     "infera_time_to_first_token_seconds",
     "Server-observed time from dispatch to the first token of the reply. "
     "For PD-disaggregated requests this spans prefill + KV transfer + the "
-    "decode engine's first forward pass. Labeled by the picked prefill and "
-    "decode workers (same worker_id on both for mixed).",
-    labelnames=("router", "model", "prefill_worker", "decode_worker"),
+    "decode engine's first forward pass. Labeled by the prefill worker; "
+    "decode time is on infera_inter_token_latency_seconds.",
+    labelnames=("router", "model", "prefill_worker"),
     buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, float("inf")),
     registry=REGISTRY,
 )
@@ -598,7 +598,6 @@ class RequestObserver(dict):
             router=router,
             model=model,
             prefill_worker=prefill_worker,
-            decode_worker=decode_worker,
         ).observe(self._ttft)
         if osl > 1:
             decode_time = max(0.0, time.perf_counter() - self._start - self._ttft)
@@ -702,6 +701,29 @@ def apply_engine_scrape(
         depth = parse_metric(text, name)
         if depth is not None:
             engine_kv_transfer_queue_reqs.labels(worker_id=worker_id, queue=queue).set(depth)
+
+
+def prune_departed_workers(active_worker_ids: set[str]) -> None:
+    """Drop SLA series whose worker id is no longer active.
+
+    Child series stay registered until removed, and a replaced pod gets a new
+    worker id. An empty worker label is the series used before a worker is
+    known and is left in place.
+    """
+    _drop_worker_series(time_to_first_token_seconds, "prefill_worker", active_worker_ids)
+    _drop_worker_series(inter_token_latency_seconds, "decode_worker", active_worker_ids)
+    _drop_worker_series(prompt_tokens_total, "prefill_worker", active_worker_ids)
+    _drop_worker_series(generation_tokens_total, "decode_worker", active_worker_ids)
+
+
+def _drop_worker_series(metric, label: str, active: set[str]) -> None:
+    """Remove children of ``metric`` whose ``label`` is outside ``active``."""
+    index = metric._labelnames.index(label)
+    stale = [
+        labels for labels in list(metric._metrics) if labels[index] and labels[index] not in active
+    ]
+    for labels in stale:
+        metric.remove(*labels)
 
 
 def render_metrics() -> tuple[bytes, str]:

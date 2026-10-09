@@ -9,8 +9,11 @@
 //! so a single Grafana dashboard scrapes either backend. Percentiles
 //! (p50/p90/p99) are derived in Prometheus via `histogram_quantile`.
 
+use std::collections::HashSet;
 use std::sync::OnceLock;
 use std::time::Instant;
+
+use prometheus::core::Collector;
 
 use prometheus::{
     register_counter_vec, register_gauge, register_gauge_vec, register_histogram_vec,
@@ -65,8 +68,8 @@ fn m() -> &'static Metrics {
         .expect("register requests_total"),
         ttft: register_histogram_vec!(
             "infera_time_to_first_token_seconds",
-            "Server-observed time from dispatch to the first reply byte",
-            &["router", "model", "prefill_worker", "decode_worker"],
+            "Server-observed time from dispatch to the first reply byte. Labeled by the prefill worker; decode time is infera_inter_token_latency_seconds.",
+            &["router", "model", "prefill_worker"],
             vec![0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0]
         )
         .expect("register ttft"),
@@ -208,6 +211,101 @@ pub fn record_pick(role: &str, worker_id: &str, cache_hits: usize, request_block
             .with_label_values(&[role])
             .inc_by(request_blocks as f64);
     }
+}
+
+static SCRAPE_LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
+
+/// Serialize one /metrics scrape. Engine gauges are cleared, workers are
+/// fetched, then the registry is rendered; a second scrape must not clear
+/// gauges the first one has already filled.
+pub async fn scrape_lock() -> tokio::sync::MutexGuard<'static, ()> {
+    SCRAPE_LOCK
+        .get_or_init(|| tokio::sync::Mutex::new(()))
+        .lock()
+        .await
+}
+
+/// Drop SLA series whose worker id is no longer in `active`.
+///
+/// Histogram and counter children stay registered until removed, and a
+/// replaced pod receives a new worker id. An empty worker label is kept.
+pub fn prune_departed_workers(active: &HashSet<String>) {
+    let metrics = m();
+    for values in stale_label_values(
+        &metrics.ttft,
+        &["router", "model", "prefill_worker"],
+        &["prefill_worker"],
+        active,
+    ) {
+        let refs: Vec<&str> = values.iter().map(String::as_str).collect();
+        let _ = metrics.ttft.remove_label_values(&refs);
+    }
+    for values in stale_label_values(
+        &metrics.itl,
+        &["router", "model", "decode_worker"],
+        &["decode_worker"],
+        active,
+    ) {
+        let refs: Vec<&str> = values.iter().map(String::as_str).collect();
+        let _ = metrics.itl.remove_label_values(&refs);
+    }
+    for values in stale_label_values(
+        &metrics.prompt_tokens,
+        &["router", "model", "prefill_worker"],
+        &["prefill_worker"],
+        active,
+    ) {
+        let refs: Vec<&str> = values.iter().map(String::as_str).collect();
+        let _ = metrics.prompt_tokens.remove_label_values(&refs);
+    }
+    for values in stale_label_values(
+        &metrics.generation_tokens,
+        &["router", "model", "decode_worker"],
+        &["decode_worker"],
+        active,
+    ) {
+        let refs: Vec<&str> = values.iter().map(String::as_str).collect();
+        let _ = metrics.generation_tokens.remove_label_values(&refs);
+    }
+}
+
+fn stale_label_values(
+    metric: &impl Collector,
+    label_names: &[&str],
+    worker_labels: &[&str],
+    active: &HashSet<String>,
+) -> Vec<Vec<String>> {
+    let mut stale = Vec::new();
+    for family in metric.collect() {
+        for sample in family.get_metric() {
+            let pairs: Vec<(String, String)> = sample
+                .get_label()
+                .iter()
+                .map(|label| (label.get_name().to_string(), label.get_value().to_string()))
+                .collect();
+            let departed = pairs.iter().any(|(name, value)| {
+                worker_labels.iter().any(|want| name == want)
+                    && !value.is_empty()
+                    && !active.contains(value)
+            });
+            if !departed {
+                continue;
+            }
+            stale.push(
+                label_names
+                    .iter()
+                    .map(|name| {
+                        pairs
+                            .iter()
+                            .find(|(n, _)| n == name)
+                            .map(|(_, value)| value.clone())
+                            .unwrap_or_default()
+                    })
+                    .collect(),
+            );
+        }
+    }
+    stale
 }
 
 /// Drop engine gauges before a scrape round so departed workers leave the exposition.
@@ -695,7 +793,7 @@ impl RequestTracker {
         if let Some(ttft) = self.ttft {
             metrics
                 .ttft
-                .with_label_values(&[router, model, prefill, decode])
+                .with_label_values(&[router, model, prefill])
                 .observe(ttft);
             if osl > 1 {
                 let decode_time = (self.start.elapsed().as_secs_f64() - ttft).max(0.0);
@@ -736,6 +834,10 @@ fn parse_usage_tokens(line: &[u8]) -> Option<(Option<u64>, Option<u64>)> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
     use super::*;
 
     #[test]
@@ -789,5 +891,96 @@ mod tests {
         assert_eq!(t.osl, Some(7));
         assert_eq!(t.frames, 0);
         t.discard();
+    }
+
+    #[test]
+    fn ttft_series_follow_the_prefill_worker() {
+        for (prefill, decode) in [
+            ("p-card-1", "d-card-1"),
+            ("p-card-1", "d-card-2"),
+            ("p-card-2", "d-card-1"),
+            ("p-card-2", "d-card-2"),
+        ] {
+            let mut tracker = RequestTracker::start("mixed", "card-model");
+            tracker.set_workers(prefill, decode);
+            tracker.first_byte();
+            tracker.set_outcome("ok");
+            tracker.finish();
+        }
+        let (buf, _) = render();
+        let text = String::from_utf8(buf).unwrap();
+        let lines: Vec<_> = text
+            .lines()
+            .filter(|line| {
+                line.starts_with("infera_time_to_first_token_seconds_count")
+                    && line.contains("card-model")
+            })
+            .collect();
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert!(lines.iter().all(|line| !line.contains("decode_worker")));
+    }
+
+    #[test]
+    fn departed_worker_sla_series_are_dropped() {
+        let mut gone = RequestTracker::start("mixed", "prune-model");
+        gone.set_workers("p-gone", "d-keep");
+        gone.first_byte();
+        gone.set_input_tokens(4);
+        gone.set_output_tokens(2);
+        gone.set_outcome("ok");
+        gone.finish();
+        let mut stay = RequestTracker::start("mixed", "prune-model");
+        stay.set_workers("p-keep", "d-keep");
+        stay.first_byte();
+        stay.set_outcome("ok");
+        stay.finish();
+
+        let (buf, _) = render();
+        let text = String::from_utf8(buf).unwrap();
+        let mut active = worker_ids_in(&text);
+        active.remove("p-gone");
+        active.insert("p-keep".to_string());
+        active.insert("d-keep".to_string());
+        prune_departed_workers(&active);
+
+        let (buf, _) = render();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(!text.contains("p-gone"));
+        assert!(text.contains("p-keep"));
+    }
+
+    fn worker_ids_in(text: &str) -> HashSet<String> {
+        let mut ids = HashSet::new();
+        for key in ["prefill_worker=\"", "decode_worker=\""] {
+            for line in text.lines() {
+                let Some(start) = line.find(key) else {
+                    continue;
+                };
+                let rest = &line[start + key.len()..];
+                let Some(end) = rest.find('"') else {
+                    continue;
+                };
+                if !rest[..end].is_empty() {
+                    ids.insert(rest[..end].to_string());
+                }
+            }
+        }
+        ids
+    }
+
+    #[tokio::test]
+    async fn scrapes_do_not_overlap() {
+        let _guard = scrape_lock().await;
+        let entered = Arc::new(AtomicBool::new(false));
+        let flag = entered.clone();
+        let handle = tokio::spawn(async move {
+            let _guard = scrape_lock().await;
+            flag.store(true, Ordering::SeqCst);
+        });
+        tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+        assert!(!entered.load(Ordering::SeqCst));
+        drop(_guard);
+        handle.await.unwrap();
+        assert!(entered.load(Ordering::SeqCst));
     }
 }

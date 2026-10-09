@@ -5,6 +5,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 //! axum HTTP surface + shared app state.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -377,7 +378,15 @@ async fn models(State(st): State<AppState>) -> impl IntoResponse {
 }
 
 async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
+    let _scrape = crate::metrics::scrape_lock().await;
     let snap = st.pool.load();
+    let active: HashSet<String> = snap
+        .all
+        .iter()
+        .filter(|w| w.is_active())
+        .map(|w| w.worker_id.clone())
+        .collect();
+    crate::metrics::prune_departed_workers(&active);
     crate::metrics::set_active_workers(snap.active_count() as f64);
     let federated = scrape_engine_metrics(&st, &snap).await;
     let (prom_body, content_type) = crate::metrics::render();

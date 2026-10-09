@@ -7,6 +7,10 @@
 
 from __future__ import annotations
 
+import asyncio
+
+from infera.common.worker_pool import WorkerInfo
+from infera.server import app as server_app
 from infera.server import metrics
 
 
@@ -45,6 +49,51 @@ def test_record_pick_updates_prefix_cache_counters():
     assert "infera_prefix_cache_blocks_total" in body
 
 
+def _observe_pair(prefill: str, decode: str) -> None:
+    with metrics.track_request(router="mixed", model="card-model") as obs:
+        obs.claim_stream()
+        obs.set_workers(prefill_worker=prefill, decode_worker=decode)
+        obs.set_input_tokens(8)
+        obs.observe_stream_chunk(b'data: {"choices":[{"delta":{"content":"a"}}]}\n')
+        obs.observe_stream_chunk(b'data: {"choices":[{"delta":{"content":"b"}}]}\n')
+        obs["outcome"] = "ok"
+        obs.close()
+
+
+def test_ttft_series_follow_the_prefill_worker_not_the_pair():
+    for prefill in ("p-card-1", "p-card-2"):
+        for decode in ("d-card-1", "d-card-2"):
+            _observe_pair(prefill, decode)
+    body = metrics.render_metrics()[0].decode()
+    lines = [
+        line
+        for line in body.splitlines()
+        if line.startswith("infera_time_to_first_token_seconds_count{") and "card-model" in line
+    ]
+    assert len(lines) == 2
+    assert all("decode_worker" not in line for line in lines)
+    assert any('prefill_worker="p-card-1"' in line for line in lines)
+    assert any('prefill_worker="p-card-2"' in line for line in lines)
+
+
+def test_departed_worker_sla_series_are_dropped():
+    _observe_pair("p-gone", "d-keep")
+    _observe_pair("p-keep", "d-keep")
+    body = metrics.render_metrics()[0].decode()
+    active = {"p-keep", "d-keep"}
+    for line in body.splitlines():
+        for key in ('prefill_worker="', 'decode_worker="'):
+            if key in line:
+                value = line.split(key, 1)[1].split('"', 1)[0]
+                if value:
+                    active.add(value)
+    active.discard("p-gone")
+    metrics.prune_departed_workers(active)
+    body = metrics.render_metrics()[0].decode()
+    assert 'prefill_worker="p-gone"' not in body
+    assert 'prefill_worker="p-keep"' in body
+
+
 def test_apply_engine_scrape_sets_kv_usage_gauge():
     text = (
         "# HELP sglang:token_usage The token usage\n"
@@ -63,3 +112,44 @@ def test_apply_engine_scrape_sets_kv_usage_gauge():
     assert "infera_engine_kv_cache_usage" in body
     assert "infera_engine_prefix_cache_hit_rate" in body
     assert "infera_engine_kv_transfer_queue_reqs" in body
+
+
+def test_overlapping_metrics_scrapes_do_not_interleave(monkeypatch):
+    """Gauge reset and the worker fetch share one lock, so two scrapes cannot nest."""
+
+    class _Pool:
+        def list_all(self):
+            return [
+                WorkerInfo(
+                    worker_id="w-lock",
+                    url="http://127.0.0.1:9",
+                    model_name="m",
+                )
+            ]
+
+    saved_registry = server_app.registry
+    saved_kv = server_app.kv_client
+    server_app.registry = _Pool()
+    server_app.kv_client = None
+    order: list[str] = []
+
+    async def _scrape():
+        order.append("enter")
+        await asyncio.sleep(0.02)
+        order.append("leave")
+        return b""
+
+    async def _run():
+        monkeypatch.setattr(server_app, "_scrape_engine_metrics", _scrape)
+        await asyncio.gather(
+            server_app.prometheus_metrics(),
+            server_app.prometheus_metrics(),
+        )
+
+    try:
+        asyncio.run(_run())
+    finally:
+        server_app.registry = saved_registry
+        server_app.kv_client = saved_kv
+
+    assert order == ["enter", "leave", "enter", "leave"]

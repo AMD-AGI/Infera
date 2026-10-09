@@ -29,7 +29,18 @@ use crate::policy::{ActiveGuard, Role};
 use crate::pool::{DisaggMode, RouteTarget, Snapshot};
 use crate::util::{json_error, truncate_chars};
 
-type AttemptResult = Result<Response, Box<Response>>;
+/// Pre-first-byte failure. The tracker is handed back so the caller can record
+/// the whole request, including retries, instead of starting a new one.
+struct AttemptFail {
+    response: Response,
+    tracker: Option<crate::metrics::RequestTracker>,
+}
+
+type AttemptResult = Result<Response, Box<AttemptFail>>;
+
+fn fail(tracker: Option<crate::metrics::RequestTracker>, response: Response) -> AttemptResult {
+    Err(Box::new(AttemptFail { response, tracker }))
+}
 
 const SSE_DONE_MARKER: &[u8] = b"data: [DONE]";
 const RESPONSES_DONE_MARKER: &[u8] = b"event: response.completed";
@@ -380,26 +391,27 @@ async fn attempt_nats(
         let body =
             serde_json::json!({ "error": format!("worker {wid} request backlog over limit") })
                 .to_string();
-        if let Some(t) = tracker.take() {
-            t.discard();
-        }
-        return Err(Box::new(
+        return fail(
+            tracker,
             Response::builder()
                 .status(StatusCode::TOO_MANY_REQUESTS)
                 .header(header::CONTENT_TYPE, "application/json")
                 .header("Retry-After", "1")
                 .body(Body::from(body))
                 .expect("429 response is valid"),
-        ));
+        );
     }
 
     let body: serde_json::Value = match serde_json::from_slice(raw) {
         Ok(v) => v,
         Err(e) => {
-            return Err(Box::new(json_error(
-                StatusCode::BAD_REQUEST,
-                &format!("request body is not JSON: {e}"),
-            )))
+            return fail(
+                tracker,
+                json_error(
+                    StatusCode::BAD_REQUEST,
+                    &format!("request body is not JSON: {e}"),
+                ),
+            )
         }
     };
     // Same envelope the Python router publishes; the worker side is shared.
@@ -419,20 +431,26 @@ async fn attempt_nats(
     let encoded = match serde_json::to_vec(&payload) {
         Ok(v) => v,
         Err(e) => {
-            return Err(Box::new(json_error(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                &format!("encoding the nats request: {e}"),
-            )))
+            return fail(
+                tracker,
+                json_error(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    &format!("encoding the nats request: {e}"),
+                ),
+            )
         }
     };
 
     let mut reply = match nats.dispatch(&wid, &encoded).await {
         Ok(r) => r,
         Err(e) => {
-            return Err(Box::new(json_error(
-                StatusCode::BAD_GATEWAY,
-                &format!("worker {wid} unreachable over nats: {e}"),
-            )))
+            return fail(
+                tracker,
+                json_error(
+                    StatusCode::BAD_GATEWAY,
+                    &format!("worker {wid} unreachable over nats: {e}"),
+                ),
+            )
         }
     };
 
@@ -449,11 +467,14 @@ async fn attempt_nats(
                     break;
                 }
                 Some(Frame::Error { status: s, message }) => {
-                    return Err(Box::new(json_error(
-                        s.and_then(|c| StatusCode::from_u16(c).ok())
-                            .unwrap_or(StatusCode::BAD_GATEWAY),
-                        &format!("worker {wid} nats failed: {}", trim(&message)),
-                    )))
+                    return fail(
+                        tracker,
+                        json_error(
+                            s.and_then(|c| StatusCode::from_u16(c).ok())
+                                .unwrap_or(StatusCode::BAD_GATEWAY),
+                            &format!("worker {wid} nats failed: {}", trim(&message)),
+                        ),
+                    )
                 }
                 None => break,
             }
@@ -463,10 +484,13 @@ async fn attempt_nats(
         // mid-request, and reporting it as success would also record it as
         // healthy against the breaker.
         if !done_seen {
-            return Err(Box::new(json_error(
-                StatusCode::BAD_GATEWAY,
-                &format!("worker {wid} closed the nats reply without finishing"),
-            )));
+            return fail(
+                tracker,
+                json_error(
+                    StatusCode::BAD_GATEWAY,
+                    &format!("worker {wid} closed the nats reply without finishing"),
+                ),
+            );
         }
         let total: usize = chunks.iter().map(|c| c.len()).sum();
         let mut buf = Vec::with_capacity(total);
@@ -477,13 +501,14 @@ async fn attempt_nats(
         // to the request and every worker would answer the same, so it is
         // returned rather than retried. Same rule as the HTTP path.
         if is_worker_fault(status.as_u16()) {
-            return Err(Box::new(
+            return fail(
+                tracker,
                 Response::builder()
                     .status(status)
                     .header(header::CONTENT_TYPE, "application/json")
                     .body(Body::from(buf))
                     .expect("unary response is valid"),
-            ));
+            );
         }
         let _guard = guard;
         if let Some(mut t) = tracker.take() {
@@ -512,19 +537,22 @@ async fn attempt_nats(
     let first = match reply.next().await {
         Some(Frame::Data(b)) => b,
         Some(Frame::Error { status: s, message }) => {
-            return Err(Box::new(json_error(
-                s.and_then(|c| StatusCode::from_u16(c).ok())
-                    .unwrap_or(StatusCode::BAD_GATEWAY),
-                &format!("worker {wid} nats stream failed: {}", trim(&message)),
-            )))
+            return fail(
+                tracker,
+                json_error(
+                    s.and_then(|c| StatusCode::from_u16(c).ok())
+                        .unwrap_or(StatusCode::BAD_GATEWAY),
+                    &format!("worker {wid} nats stream failed: {}", trim(&message)),
+                ),
+            )
         }
         Some(Frame::Done { status }) => {
             let code = StatusCode::from_u16(status).unwrap_or(StatusCode::OK);
             if is_worker_fault(code.as_u16()) {
-                return Err(Box::new(json_error(
-                    code,
-                    &format!("worker {wid} ended the stream with {code}"),
-                )));
+                return fail(
+                    tracker,
+                    json_error(code, &format!("worker {wid} ended the stream with {code}")),
+                );
             }
             // Nothing to stream, but not a fault: answer with an empty body
             // rather than failing over a request the worker considers done.
@@ -539,10 +567,13 @@ async fn attempt_nats(
                 .expect("stream response is valid"));
         }
         None => {
-            return Err(Box::new(json_error(
-                StatusCode::BAD_GATEWAY,
-                &format!("worker {wid} closed the nats reply with no frames"),
-            )))
+            return fail(
+                tracker,
+                json_error(
+                    StatusCode::BAD_GATEWAY,
+                    &format!("worker {wid} closed the nats reply with no frames"),
+                ),
+            )
         }
     };
 
@@ -834,6 +865,9 @@ async fn mixed_dispatch(
         );
     }
 
+    // One tracker for the request. Failed attempts return it so the recorded
+    // duration includes every try, and the final outcome matches the last status.
+    let mut tracker = Some(crate::metrics::RequestTracker::start("mixed", model));
     let mut tried: HashSet<String> = HashSet::new();
     let mut last_err: Option<Response> = None;
     for _ in 0..(1 + state.retries) {
@@ -858,7 +892,9 @@ async fn mixed_dispatch(
             vec![(pick.target.route_key(), pick.blocks.clone())],
         );
         let wid = pick.target.worker.worker_id.clone();
-        let tracker = crate::metrics::RequestTracker::start_mixed(model, &wid);
+        if let Some(t) = tracker.as_mut() {
+            t.set_workers(&wid, &wid);
+        }
         match attempt(
             state,
             &pick.target,
@@ -866,7 +902,7 @@ async fn mixed_dispatch(
             stream,
             path,
             guard,
-            Some(tracker),
+            tracker.take(),
         )
         .await
         {
@@ -874,12 +910,13 @@ async fn mixed_dispatch(
                 state.breaker.record_success(&wid);
                 return resp;
             }
-            Err(err_resp) => {
+            Err(failed) => {
                 // `attempt` only returns Err before any byte reached the client,
                 // so a mid-stream failure can never trip the breaker. 4xx is
                 // failed over but not held against the worker — see
                 // is_worker_fault().
-                if is_worker_fault(err_resp.status().as_u16()) {
+                tracker = failed.tracker;
+                if is_worker_fault(failed.response.status().as_u16()) {
                     state.breaker.record_failure(&wid);
                 } else {
                     // A 4xx is not held against the worker, but the probe slot
@@ -887,14 +924,18 @@ async fn mixed_dispatch(
                     // recovering worker out of rotation.
                     state.breaker.record_neutral(&wid);
                 }
-                last_err = Some(*err_resp);
+                last_err = Some(failed.response);
             }
         }
     }
-    // Failed attempts discard their trackers; emit one series for the request.
-    let mut t = crate::metrics::RequestTracker::start("mixed", model);
-    t.set_outcome("error");
-    t.finish();
+    if let Some(mut t) = tracker {
+        let outcome = match last_err.as_ref().map(|resp| resp.status()) {
+            Some(status) if status.is_client_error() => "4xx",
+            _ => "error",
+        };
+        t.set_outcome(outcome);
+        t.finish();
+    }
     last_err.unwrap_or_else(|| json_error(StatusCode::SERVICE_UNAVAILABLE, "all workers failed"))
 }
 
@@ -931,16 +972,16 @@ async fn attempt(
             )
             .await;
         }
-        if let Some(t) = tracker.take() {
-            t.discard();
-        }
-        return Err(Box::new(json_error(
-            StatusCode::BAD_GATEWAY,
-            &format!(
-                "worker {} registered the nats transport but this router has none",
-                worker.worker_id
+        return fail(
+            tracker,
+            json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!(
+                    "worker {} registered the nats transport but this router has none",
+                    worker.worker_id
+                ),
             ),
-        )));
+        );
     }
     let url = format!("{}{}", worker.url, path);
     let mut req = state
@@ -955,31 +996,31 @@ async fn attempt(
     let resp = match req.send().await {
         Ok(r) => r,
         Err(e) => {
-            if let Some(t) = tracker.take() {
-                t.discard();
-            }
-            return Err(Box::new(json_error(
-                StatusCode::BAD_GATEWAY,
-                &format!("worker {} unreachable: {e}", worker.worker_id),
-            )));
+            return fail(
+                tracker,
+                json_error(
+                    StatusCode::BAD_GATEWAY,
+                    &format!("worker {} unreachable: {e}", worker.worker_id),
+                ),
+            );
         }
     };
 
     let status = resp.status();
     if status.is_client_error() || status.is_server_error() {
         let body = resp.text().await.unwrap_or_default();
-        if let Some(t) = tracker.take() {
-            t.discard();
-        }
-        return Err(Box::new(json_error(
-            status,
-            &format!(
-                "worker {} error {}: {}",
-                worker.worker_id,
-                status.as_u16(),
-                truncate_chars(&body, 500)
+        return fail(
+            tracker,
+            json_error(
+                status,
+                &format!(
+                    "worker {} error {}: {}",
+                    worker.worker_id,
+                    status.as_u16(),
+                    truncate_chars(&body, 500)
+                ),
             ),
-        )));
+        );
     }
 
     if stream {
@@ -1028,15 +1069,13 @@ async fn attempt(
                     .body(Body::from(bytes))
                     .expect("unary response is valid"))
             }
-            Err(e) => {
-                if let Some(t) = tracker.take() {
-                    t.discard();
-                }
-                Err(Box::new(json_error(
+            Err(e) => fail(
+                tracker,
+                json_error(
                     StatusCode::BAD_GATEWAY,
                     &format!("worker {} read failed: {e}", worker.worker_id),
-                )))
-            }
+                ),
+            ),
         }
     }
 }
