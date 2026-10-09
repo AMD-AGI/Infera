@@ -1654,3 +1654,235 @@ async fn session_binding_is_reselected_after_nats_4xx() {
         assert_eq!(worker_task.await.unwrap(), vec!["0", "1"]);
     }
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_transport_mismatch_reselects_both_roles() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (p_url, p) = spawn_mock(200, false, json!({})).await;
+    let (d_url, d) = spawn_mock(200, false, json!({})).await;
+    let mut nats_d = (*decode(&d_url)).clone();
+    nats_d.worker_id = "d-nats".into();
+    nats_d.request_transport = "nats".into();
+    let mut state = make_state(
+        vec![prefill(&p_url, Some(8)), Arc::new(nats_d), decode(&d_url)],
+        0,
+    );
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for expected in [503, 200] {
+        let response = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .header("X-Dynamo-Session-ID", "same-session")
+            .json(&json!({"model":"m", "stream":false}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected);
+        response.bytes().await.unwrap();
+    }
+    assert_eq!(p.hit_count(), 1);
+    assert_eq!(d.hit_count(), 1);
+    assert_eq!(p.hits.lock().unwrap()[0].dp_rank.as_deref(), Some("1"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_http_failure_only_reselects_failed_role() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    // The streaming decode error occurs before the downstream SSE response opens.
+    for (p_status, d_status, stream) in [(500, 200, false), (200, 500, false), (200, 500, true)] {
+        let (p_url, p) = spawn_mock(p_status, false, json!({})).await;
+        let (d_url, d) = spawn_mock(d_status, false, json!({})).await;
+        let mut dw = (*decode(&d_url)).clone();
+        dw.dp_size = Some(8);
+        let mut state = make_state(vec![prefill(&p_url, Some(8)), Arc::new(dw)], 0);
+        state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+        let sessions = state.sessions.clone();
+        let router = spawn_router(state).await;
+        for _ in 0..2 {
+            let response = client()
+                .post(format!("{router}/v1/chat/completions"))
+                .header("X-Dynamo-Session-ID", "same-session")
+                .json(&json!({"model":"m", "stream":stream}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), if stream { 502 } else { d_status });
+            response.bytes().await.unwrap();
+            // The streaming prefill drain completes independently of decode.
+            tokio::time::timeout(Duration::from_secs(3), async {
+                while !sessions
+                    .metrics()
+                    .contains("infera_router_session_active{role=\"prefill\"} 0")
+                {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+        }
+        let ph = p.hits.lock().unwrap();
+        let dh = d.hits.lock().unwrap();
+        assert_eq!(ph.len(), 2);
+        assert_eq!(dh.len(), 2);
+        assert_eq!(ph[0].dp_rank.as_deref(), Some("0"));
+        assert_eq!(dh[0].dp_rank.as_deref(), Some("0"));
+        assert_eq!(
+            ph[1].dp_rank.as_deref(),
+            Some(if p_status == 200 { "0" } else { "1" })
+        );
+        assert_eq!(
+            dh[1].dp_rank.as_deref(),
+            Some(if d_status == 200 { "0" } else { "1" })
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires INFERA_TEST_NATS with JetStream; run serially"]
+async fn session_nats_pd_failure_only_reselects_failed_role() {
+    use infera_router::nats_request::{
+        request_subject, NatsRequestClient, HDR_INBOX, HDR_STATUS, HDR_TYPE, REQUEST_STREAM,
+        TYPE_DONE,
+    };
+    use infera_router::session_affinity::{Mode, Sessions};
+    let url = std::env::var("INFERA_TEST_NATS").expect("set INFERA_TEST_NATS");
+    let nc = async_nats::connect(&url).await.unwrap();
+    let js = async_nats::jetstream::new(nc.clone());
+    for stream in [false, true] {
+        for (p_status, d_status, fail_dispatch) in
+            [(500, 200, false), (200, 500, false), (200, 200, true)]
+        {
+            let prefix = format!(
+                "session-pd-{}-{stream}-{p_status}-{d_status}-{fail_dispatch}",
+                std::process::id()
+            );
+            let mut pw = (*prefill("http://unused", Some(8))).clone();
+            pw.worker_id = format!("{prefix}-p");
+            pw.request_transport = "nats".into();
+            let mut dw = (*decode("http://unused")).clone();
+            dw.worker_id = format!("{prefix}-d");
+            dw.request_transport = "nats".into();
+            dw.dp_size = Some(8);
+            let nats = NatsRequestClient::connect(Some(&url), 3.0, 0.0, 100)
+                .await
+                .unwrap();
+            let original = js
+                .get_stream(REQUEST_STREAM)
+                .await
+                .unwrap()
+                .cached_info()
+                .config
+                .clone();
+            if fail_dispatch {
+                // P publishes successfully; D fails before it can return a reply stream.
+                let mut config = original.clone();
+                config.subjects = vec![request_subject(&pw.worker_id)];
+                js.update_stream(config).await.unwrap();
+            }
+            let mut tasks = Vec::new();
+            for (w, status) in [(&pw, p_status), (&dw, d_status)] {
+                if fail_dispatch && w.worker_id == dw.worker_id {
+                    continue;
+                }
+                let mut requests = nc.subscribe(request_subject(&w.worker_id)).await.unwrap();
+                let nc = nc.clone();
+                tasks.push(tokio::spawn(async move {
+                    let mut ranks = Vec::new();
+                    while ranks.len() < 2 {
+                        let message =
+                            tokio::time::timeout(Duration::from_secs(10), requests.next())
+                                .await
+                                .unwrap()
+                                .unwrap();
+                        let payload: Value = serde_json::from_slice(&message.payload).unwrap();
+                        let inbox = message
+                            .headers
+                            .as_ref()
+                            .unwrap()
+                            .get(HDR_INBOX)
+                            .unwrap()
+                            .as_str()
+                            .to_owned();
+                        let abort = payload["path"] == "/abort_request";
+                        if !abort {
+                            ranks.push(
+                                payload["headers"][infera_router::dp::DP_RANK_HEADER]
+                                    .as_str()
+                                    .unwrap()
+                                    .to_owned(),
+                            );
+                        }
+                        let mut headers = async_nats::HeaderMap::new();
+                        headers.insert(HDR_TYPE, TYPE_DONE);
+                        headers.insert(HDR_STATUS, if abort { 200 } else { status }.to_string());
+                        nc.publish_with_headers(inbox, headers, Bytes::new())
+                            .await
+                            .unwrap();
+                        nc.flush().await.unwrap();
+                    }
+                    ranks
+                }));
+            }
+            nc.flush().await.unwrap();
+            let mut state = make_state(vec![Arc::new(pw), Arc::new(dw)], 0);
+            state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+            let sessions = state.sessions.clone();
+            state.nats = Some(Arc::new(nats));
+            let router = spawn_router(state).await;
+            for _ in 0..2 {
+                let response = client()
+                    .post(format!("{router}/v1/chat/completions"))
+                    .header("X-Dynamo-Session-ID", "same-session")
+                    .json(&json!({"model":"m", "stream":stream}))
+                    .send()
+                    .await;
+                if stream && d_status != 200 {
+                    // An immediate failed terminal frame may close HTTP before headers flush.
+                    if let Ok(response) = response {
+                        assert_eq!(response.status(), 200);
+                        assert!(response.bytes().await.is_err());
+                    }
+                } else {
+                    let response = response.unwrap();
+                    assert_eq!(
+                        response.status(),
+                        if fail_dispatch {
+                            502
+                        } else if stream {
+                            200
+                        } else {
+                            d_status
+                        }
+                    );
+                    response.bytes().await.unwrap();
+                }
+                tokio::time::timeout(Duration::from_secs(3), async {
+                    loop {
+                        let metrics = sessions.metrics();
+                        if ["prefill", "decode"].iter().all(|role| {
+                            metrics.contains(&format!(
+                                "infera_router_session_active{{role=\"{role}\"}} 0"
+                            ))
+                        }) {
+                            break;
+                        }
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await
+                .unwrap();
+            }
+            let p_ranks = tasks.remove(0).await.unwrap();
+            assert_eq!(p_ranks, vec!["0", if p_status == 200 { "0" } else { "1" }]);
+            if fail_dispatch {
+                assert!(sessions
+                    .metrics()
+                    .contains("infera_router_session_selected_total{role=\"decode\"} 2"));
+                js.update_stream(original).await.unwrap();
+            } else {
+                let d_ranks = tasks.remove(0).await.unwrap();
+                assert_eq!(d_ranks, vec!["0", if d_status == 200 { "0" } else { "1" }]);
+            }
+        }
+    }
+}

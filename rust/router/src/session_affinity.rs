@@ -156,13 +156,13 @@ impl Sessions {
         let now = Instant::now();
         let entry = {
             let mut entries = self.entries.lock().expect("session map poisoned");
-            if now.duration_since(entries.swept) >= Duration::from_secs(30)
+            if now.saturating_duration_since(entries.swept) >= Duration::from_secs(30)
                 || entries.values.len() >= self.capacity
             {
                 entries.values.retain(|_, entry| {
                     Arc::strong_count(entry) > 1
                         || entry.try_lock().map_or(true, |e| {
-                            e.active > 0 || now.duration_since(e.idle_since) < self.ttl
+                            e.active > 0 || now.saturating_duration_since(e.idle_since) < self.ttl
                         })
                 });
                 entries.swept = now;
@@ -192,7 +192,8 @@ impl Sessions {
         };
         // Only initialization holds this per-session lock while choosing. Other sessions proceed.
         let mut e = entry.lock().expect("session entry poisoned");
-        let expired = e.active == 0 && now.duration_since(e.idle_since) >= self.ttl;
+        let now = Instant::now();
+        let expired = e.active == 0 && now.saturating_duration_since(e.idle_since) >= self.ttl;
         let target = e.target.as_ref().filter(|_| !expired).and_then(|old| {
             expand_targets(candidates)
                 .into_iter()
@@ -352,6 +353,50 @@ mod tests {
         entry.lock().unwrap().idle_since = Instant::now() - Duration::from_secs(20);
         let (c, _) = pick(&s, &p, Role::Prefill, Some("x"));
         assert_ne!(a.target.dp_rank, c.target.dp_rank);
+    }
+
+    #[test]
+    fn future_idle_and_sweep_times_do_not_expire_binding() {
+        let s = Sessions::new(Mode::Both, Duration::from_secs(10), 1);
+        let p = RoundRobin::new();
+        let (first, lease) = pick(&s, &p, Role::Prefill, Some("x"));
+        drop(lease);
+        {
+            let mut entries = s.entries.lock().unwrap();
+            let future = Instant::now() + Duration::from_secs(60);
+            entries.swept = future;
+            entries
+                .values
+                .values()
+                .next()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .idle_since = future;
+        }
+        // Capacity forces the sweep to inspect the idle entry as well.
+        let (next, _) = pick(&s, &p, Role::Prefill, Some("x"));
+        assert_eq!(first.target.dp_rank, next.target.dp_rank);
+    }
+
+    #[test]
+    fn ttl_is_checked_after_waiting_for_session_lock() {
+        let s = Sessions::new(Mode::Both, Duration::from_millis(40), 10);
+        let p = RoundRobin::new();
+        let (first, lease) = pick(&s, &p, Role::Prefill, Some("x"));
+        let entry = lease.as_ref().unwrap().entry.clone();
+        drop(lease);
+        let (locked_tx, locked_rx) = std::sync::mpsc::channel();
+        let holder = std::thread::spawn(move || {
+            let mut e = entry.lock().unwrap();
+            e.idle_since = Instant::now();
+            locked_tx.send(()).unwrap();
+            std::thread::sleep(Duration::from_millis(120));
+        });
+        locked_rx.recv().unwrap();
+        let (next, _) = pick(&s, &p, Role::Prefill, Some("x"));
+        holder.join().unwrap();
+        assert_ne!(first.target.dp_rank, next.target.dp_rank);
     }
 
     #[test]

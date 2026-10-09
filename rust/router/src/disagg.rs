@@ -95,6 +95,9 @@ pub async fn dispatch(
     let p = p_pick.target;
     let d = d_pick.target;
     if p.worker.request_transport != d.worker.request_transport {
+        for lease in [&p_session, &d_session].into_iter().flatten() {
+            lease.invalidate();
+        }
         return json_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "prefill and decode workers use different request transports",
@@ -111,17 +114,25 @@ pub async fn dispatch(
     )
     .with_sessions(p_session, d_session);
 
-    let bindings = guard.session_bindings();
-    let response = async {
+    async {
         let proto = match protocol::resolve_pd_protocol(&p.worker, &d.worker) {
             Ok(pr) => pr,
-            Err(e) => return json_error(StatusCode::NOT_IMPLEMENTED, &e.to_string()),
+            Err(e) => {
+                guard.invalidate_sessions();
+                return json_error(StatusCode::NOT_IMPLEMENTED, &e.to_string());
+            }
         };
 
         let base: Map<String, Value> = match serde_json::from_slice::<Value>(&raw) {
             Ok(Value::Object(m)) => m,
-            Ok(_) => return json_error(StatusCode::BAD_REQUEST, "body must be a JSON object"),
-            Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
+            Ok(_) => {
+                guard.invalidate_sessions();
+                return json_error(StatusCode::BAD_REQUEST, "body must be a JSON object");
+            }
+            Err(e) => {
+                guard.invalidate_sessions();
+                return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}"));
+            }
         };
 
         let room = dp::align_room_to_prefill_rank(rand::random::<u64>() >> 1, &p);
@@ -142,6 +153,7 @@ pub async fn dispatch(
             }
         };
         if let Err(e) = shaped {
+            guard.invalidate_sessions();
             return json_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
         }
         // Tell the decode worker which prefill DP rank holds its KV.
@@ -159,6 +171,7 @@ pub async fn dispatch(
                 // bootstrap_room nobody completes.
                 if !(nats.admit(&p.worker.worker_id).await && nats.admit(&d.worker.worker_id).await)
                 {
+                    guard.invalidate_sessions();
                     drop(guard);
                     return Response::builder()
                         .status(StatusCode::TOO_MANY_REQUESTS)
@@ -182,13 +195,7 @@ pub async fn dispatch(
             unary_dual(state, &p, &d, p_url, d_url, p_body, d_body, guard).await
         }
     }
-    .await;
-    if !response.status().is_success() {
-        for binding in bindings {
-            binding.invalidate();
-        }
-    }
-    response
+    .await
 }
 
 /// Streaming: fire prefill in the background, stream decode back.
@@ -260,6 +267,7 @@ async fn stream_dual(
             let mut t = tracker;
             t.set_outcome("error");
             t.finish();
+            guard.invalidate_sessions();
             json_error(StatusCode::BAD_GATEWAY, &msg)
         }
     }
@@ -304,15 +312,18 @@ async fn unary_dual(
     let (p_res, d_res) = tokio::join!(p_fut, d_fut);
     let mut pair_failed = false;
 
+    let prefill_session = _guard.take_prefill_session();
     // Prefill: drain + log; its output is discarded (KV goes engine→engine).
     match p_res {
         Ok(resp) => {
             let st = resp.status();
-            if resp.bytes().await.is_err() {
-                _guard.invalidate_sessions();
+            let failed = resp.bytes().await.is_err() || !st.is_success();
+            if failed {
+                if let Some(lease) = &prefill_session {
+                    lease.invalidate();
+                }
             }
             if st.is_client_error() || st.is_server_error() {
-                _guard.invalidate_sessions();
                 tracing::warn!(
                     "prefill {} returned {} (decode may hang)",
                     p_url,
@@ -329,17 +340,22 @@ async fn unary_dual(
             }
         }
         Err(e) => {
-            _guard.invalidate_sessions();
+            if let Some(lease) = &prefill_session {
+                lease.invalidate();
+            }
             tracing::warn!("prefill {} failed: {e}", p_url);
             pair_failed = true;
             state.breaker.record_failure(&p.worker.worker_id);
         }
     }
 
-    drop(_guard.take_prefill_session());
+    drop(prefill_session);
     let response = match d_res {
         Ok(resp) => {
             let st = resp.status();
+            if !st.is_success() {
+                _guard.invalidate_sessions();
+            }
             if is_worker_fault(st.as_u16()) {
                 pair_failed = true;
                 state.breaker.record_failure(&d.worker.worker_id);
@@ -381,6 +397,7 @@ async fn unary_dual(
                 }
                 Err(e) => {
                     tracker.set_outcome("error");
+                    _guard.invalidate_sessions();
                     json_error(
                         StatusCode::BAD_GATEWAY,
                         &format!("decode {} read failed: {e}", d.worker.worker_id),
@@ -389,6 +406,7 @@ async fn unary_dual(
             }
         }
         Err(e) => {
+            _guard.invalidate_sessions();
             pair_failed = true;
             state.breaker.record_failure(&d.worker.worker_id);
             tracker.set_outcome("error");
@@ -477,6 +495,7 @@ async fn dual_nats(
     let mut reply = match nats.dispatch(&wid, &d_payload).await {
         Ok(r) => r,
         Err(e) => {
+            guard.invalidate_sessions();
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
             // Same 502 as the Python path; keep outcome labels aligned.
