@@ -1,0 +1,38 @@
+{
+  "passed": true,
+  "workers": [
+    {
+      "instance": "prefill-0",
+      "role": "prefill",
+      "node": "crsuse2-m2m-136",
+      "gpu_ids": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "tp": 8,
+      "dp": 8
+    },
+    {
+      "instance": "decode-0",
+      "role": "decode",
+      "node": "crsuse2-m2m-138",
+      "gpu_ids": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "tp": 4,
+      "dp": 4
+    }
+  ],
+  "fusion": "on",
+  "index_share": false,
+  "concurrency": 80
+}

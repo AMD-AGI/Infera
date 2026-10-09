@@ -5,6 +5,8 @@ Triton"），看性能能否对齐。B4 的配置与结果见
 `../router-capacity-campaign-20260928/b4/`，汇总指标见 `../experiment-summary-20261008/`。
 
 结果见 [RESULT.zh-CN.md](RESULT.zh-CN.md)：吞吐对齐在 1% 以内，TTFT/ITL p90 高 6–8%。
+同配置的 1P(TP8)+1D(TP4)（`B4_DECODE_TP=4`）见 [RESULT-P8D4.zh-CN.md](RESULT-P8D4.zh-CN.md)：
+D 的 KV 容量不足，完成请求 −31.5%，每 GPU 吞吐 −9%~−15%，TTFT p90 57 s。
 
 ## 与 B4 的关系
 

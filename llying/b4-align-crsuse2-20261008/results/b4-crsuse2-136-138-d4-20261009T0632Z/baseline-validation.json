@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "errors": [],
+  "runtime_differences": {
+    "AGENTIC_OUTPUT_DIR": {
+      "baseline": "/perf_apps/liyingli/bench_agentx/router-capacity-20260928/runs/campaign-b4-triton/c80",
+      "current": "/home/liyingli/bench_agentx/baseline/Infera/llying/b4-align-crsuse2-20261008/runtime/runs/b4-crsuse2-136-138-d4-20261009T0632Z/c80"
+    },
+    "AIPERF_RUNTIME_DIR": {
+      "baseline": "/perf_apps/liyingli/bench_agentx/p8d8-tracing-aus-20260922/cache/agentx/aiperf-campaign-b4-triton-c80",
+      "current": "/home/liyingli/bench_agentx/baseline/Infera/llying/b4-align-crsuse2-20261008/runtime/cache/agentx/aiperf-b4-crsuse2-136-138-d4-20261009T0632Z-c80"
+    },
+    "DECODE_TP": {
+      "baseline": "8",
+      "current": "4"
+    },
+    "IMAGE": {
+      "baseline": "infera-sglang:aus-campaign-radix-20260928",
+      "current": "infera-sglang:aus-campaign-radix-20260928-mcdestpin-ibto18"
+    },
+    "AIPERF_SERVER_METRICS_URLS": {
+      "baseline": "http://10.235.192.139:28000/metrics,http://10.235.192.139:29001/metrics,http://10.235.192.138:29002/metrics",
+      "current": "http://10.245.154.168:28000/metrics,http://10.245.154.168:29001/metrics,http://10.245.157.237:29002/metrics"
+    },
+    "DECODE_DP_SIZE": {
+      "baseline": "8",
+      "current": "4"
+    },
+    "HOST_UID": {
+      "baseline": "100078",
+      "current": "50094239"
+    },
+    "TOTAL_CPU_DRAM_GB": {
+      "baseline": "3023",
+      "current": "2752"
+    },
+    "AIPERF_SERVER_URL": {
+      "baseline": "http://10.235.192.139:28000",
+      "current": "http://10.245.154.168:28000"
+    },
+    "HOST_GID": {
+      "baseline": "100078",
+      "current": "1000"
+    },
+    "IMAGE_IDS": {
+      "baseline": "{\"decode-0\":\"sha256:f83ea7ab15449698cb89d0268e95ff6fa08f8fa28197faeb426b3b1d57813041\",\"prefill-0\":\"sha256:9ffceaa192b715c1307f00b1aad09d458417ada1d856d8ad9d883823a46fd9cd\"}",
+      "current": "{\"decode-0\":\"sha256:e13b584341d6fa0a2c3cae2f1894f8f9f805d50e920506e5d44133b42ad34d0a\",\"prefill-0\":\"sha256:e13b584341d6fa0a2c3cae2f1894f8f9f805d50e920506e5d44133b42ad34d0a\"}"
+    }
+  },
+  "dataset_revision": "23f152f6f0f9399a85901b89a6458def0ef16729",
+  "workload_manifest": {
+    ".gitattributes": {
+      "sha256": "f20332442d15fbca766cca2802388ee04a91dfe1f2b428b23c68872c84673934",
+      "bytes": 2553
+    },
+    "README.md": {
+      "sha256": "c5358865e47321e50b89e7c04168cb3e7601307c48541149462bc217853e9fcf",
+      "bytes": 3577
+    },
+    "plots/distributions_linear.png": {
+      "sha256": "8d7e5a8ab9a6022354e507b7c3a73020cac815c46b8cc8b92487d086f357b213",
+      "bytes": 212749
+    },
+    "plots/distributions_log.png": {
+      "sha256": "725fe3e4df8f40dd7ade07a9e40fdf3c8d218c09bfe50c8cf4eb3c5fa2c6572d",
+      "bytes": 211604
+    },
+    "plots/subagent_distributions_linear.png": {
+      "sha256": "fa2184b0806d96e4fa2afa537492030827a10f314499607e76b1ce1092f1f11c",
+      "bytes": 199155
+    },
+    "plots/subagent_distributions_log.png": {
+      "sha256": "5b3ba49085e6fb465131c09168dcf96541db294a38f3ca97ed1eb9381ee60e0a",
+      "bytes": 200595
+    },
+    "stats.txt": {
+      "sha256": "c939ba2930d56525331b331cf9419e0ccd4ced9481d3856ef191e92a1b8945a9",
+      "bytes": 237
+    },
+    "traces.jsonl": {
+      "sha256": "29b6a19e751ff5230771519aab755f80a0f43a4ba9cf96b72d3a6a437ec99276",
+      "bytes": 1847151435
+    }
+  },
+  "dataset_download_offline": "1",
+  "dataset_pinner": "/home/liyingli/bench_agentx/baseline/Infera/llying/b4-align-crsuse2-20261008/runtime/scripts/pin_chunk8k_dataset.py"
+}

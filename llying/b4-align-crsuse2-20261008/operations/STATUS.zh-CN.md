@@ -49,6 +49,10 @@
 
 | 06:30 | — | 用户要求：1P(TP8)+1D(TP4) C80，其余与对齐配置一致 | 按 aus 的 B5 设计（`make_capacity_point.py b5`）：D TP4/DP4、GPU 0–3、chunk 16384（每 rank 4096）、max-running 256、graph bs 256；`B4_DECODE_TP=4` 开关，D 容量无 B4 参考只记录；空闲检查只看用到的 GPU |
 | 06:32 | 136 | `B4_DECODE_TP=4 B4_GATE_SOFT=1 B4_ANSWER_CHECK=1 setsid scripts/run_unattended.sh` | `runs/b4-crsuse2-136-138-d4-20261009T0632Z/`，日志 `run4-p8d4-136-138.log` |
+| 06:39–06:46 | 136/138 | 启动、gate、答案检查、switch、preflight | D TP4/DP4、GPU 0–3、共享 8 网卡；gate 16/16；答案检查 0 传输错误、错 3（同类长文档读错）；D 每 rank KV 2,111,808 |
+| 06:46–08:12 | 136/138 | C80 | warmup 18 分钟后正式窗口 3600 秒：完成 7,287、取消 31、错误 0；无传输失败。`MEASUREMENT_COMPLETE` |
+| 08:12 | 136 | 收尾失败 | `run_unattended.sh: error reading input file: Stale file handle`：06:33 提交后的 `git rebase` 替换了正在执行的脚本，`stop_after.sh` 未运行；08:15 手动 `run_b4.sh stop`。脚本已改为复制到 `/tmp` 后执行 |
+| 08:20 | 登录节点 | 分析 | 见 `../RESULT-P8D4.zh-CN.md`：D KV 容量不足（1,597 个请求等分配，D 复用 89%→35%），完成 −31.5%，每 GPU Output −8.8%、Total −14.5% |
 
 ### 第三轮答案检查的结论
 

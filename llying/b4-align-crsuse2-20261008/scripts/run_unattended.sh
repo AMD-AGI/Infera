@@ -7,7 +7,14 @@
 #   STAGE...: run those stages in order on the existing run B4_RUN_ID.
 # Usage: B4_PREFILL_NODE=<p> B4_DECODE_NODE=<d> [B4_RUN_ID=<id>] run_unattended.sh [STAGE...]
 set -uo pipefail
-HERE="$(cd "$(dirname "$0")" && pwd)"
+HERE="${B4_SCRIPTS:-$(cd "$(dirname "$0")" && pwd)}"
+# bash reads a script as it runs; a git checkout replacing this file on NFS
+# mid-run ("Stale file handle") would kill the cleanup step, so run a copy.
+if [[ -z "${B4_SCRIPTS:-}" ]]; then
+    copy="$(mktemp /tmp/run_unattended.XXXXXX.sh)"
+    cp "$0" "$copy"
+    B4_SCRIPTS="$HERE" exec bash "$copy" "$@"
+fi
 nodes=("${B4_PREFILL_NODE:-crsuse2-m2m-136}" "${B4_DECODE_NODE:-crsuse2-m2m-138}")
 gpus=(8 "${B4_DECODE_TP:-8}")  # GPUs used per node, counted from card0
 busy() {
