@@ -251,9 +251,18 @@ def measure():
     node += ["--output", str(RUN / "sampling/nodes.jsonl"), "--interval", "5", "--duration", "0"]
     capture = [sys.executable, "-c", "import subprocess,time,sys\nwhile True:\n subprocess.run([sys.executable,sys.argv[1]])\n time.sleep(60)",
                str(ROOT / "scripts/capture_placement.py")]
+    # The samplers refuse an existing output; keep an earlier attempt's files aside.
+    for name in ["engine.jsonl", "nodes.jsonl"]:
+        path = RUN / "sampling" / name
+        if path.exists():
+            path.rename(path.with_name(f"{path.stem}.before-{int(time.time())}.jsonl"))
     observers = [subprocess.Popen(cmd, stdout=(RUN / "logs" / name).open("w"), stderr=subprocess.STDOUT, start_new_session=True)
                  for cmd, name in [(engine, "engine-sampler.log"), (node, "node-sampler.log"), (capture, "capture.log")]]
     try:
+        time.sleep(10)
+        dead = [name for p, name in zip(observers, ["engine sampler", "node sampler", "capture"]) if p.poll() is not None]
+        if dead:
+            raise RuntimeError(f"{', '.join(dead)} exited at start; see RUN/logs")
         (RUN / "c80-started.txt").write_text(datetime.datetime.now(datetime.timezone.utc).isoformat() + "\n")
         status("BENCHMARK_C80")
         cmd = ["bash", f"{E['BENCH_DIR']}/agentx_bench.sh", f"CONFIG={E['CONFIG']}", f"TOPOLOGY={RUN / 'topology.json'}",

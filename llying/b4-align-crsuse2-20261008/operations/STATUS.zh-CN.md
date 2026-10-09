@@ -52,6 +52,7 @@
 | 06:39–06:46 | 136/138 | 启动、gate、答案检查、switch、preflight | D TP4/DP4、GPU 0–3、共享 8 网卡；gate 16/16；答案检查 0 传输错误、错 3（同类长文档读错）；D 每 rank KV 2,111,808 |
 | 06:46–08:12 | 136/138 | C80 | warmup 18 分钟后正式窗口 3600 秒：完成 7,287、取消 31、错误 0；无传输失败。`MEASUREMENT_COMPLETE` |
 | 08:12 | 136 | 收尾失败 | `run_unattended.sh: error reading input file: Stale file handle`：06:33 提交后的 `git rebase` 替换了正在执行的脚本，`stop_after.sh` 未运行；08:15 手动 `run_b4.sh stop`。脚本已改为复制到 `/tmp` 后执行 |
+| 08:45 | 登录节点 | 发现：第三轮（P8D8）重跑 measure 时 `sample_engine_metrics.py` / `sample_node_runtime.py` 因输出已存在而退出，`sampling/` 只有 03:33 首次尝试的 3 个样本 | 客户端与诊断日志的分析不受影响；P8D8 缺 D KV 占用的时间序列。`run_b4.py measure` 已改为先把旧采样文件改名、采样器 10 秒内退出即报错 |
 | 08:20 | 登录节点 | 分析 | 见 `../RESULT-P8D4.zh-CN.md`：D KV 容量不足（1,597 个请求等分配，D 复用 89%→35%），完成 −31.5%，每 GPU Output −8.8%、Total −14.5% |
 
 ### 第三轮答案检查的结论
