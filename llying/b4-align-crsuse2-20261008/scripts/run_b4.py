@@ -27,7 +27,8 @@ import transition_two_node as ops  # noqa: E402
 
 PREFIX = E["CONTAINER_PREFIX"]
 # Forwarded to engine.sh, which sources the config on the worker node.
-PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID", "B4_DECODE_TP")
+PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID", "B4_TAG", "B4_DECODE_TP",
+               "B4_DECODE_GRAPH_MAX_BS", "B4_DECODE_MEM_FRACTION")
 B4_CAPACITY = {"prefill": int(E["REFERENCE_PREFILL_TOKENS"]), "decode": int(E["REFERENCE_DECODE_TOKENS"])}
 
 
@@ -219,7 +220,16 @@ def switch():
 
 
 def preflight():
-    subprocess.run([sys.executable, str(ROOT / "scripts/preflight_placement.py")], check=True)
+    script = ROOT / "scripts/preflight_placement.py"
+    if {E["PREFILL_MEM_FRACTION"], E["DECODE_MEM_FRACTION"]} != {"0.85"}:
+        # B4's check pins mem_fraction_static to .85; a tuning run expects its own value.
+        text = script.read_text()
+        old = "'mem_fraction_static':.85"
+        assert text.count(old) == 1
+        script = RUN / "snapshot/preflight_placement.mem-fraction-from-config.py"
+        script.write_text(text.replace(old, "'mem_fraction_static':float(E[upper+'_MEM_FRACTION'])"))
+    env = dict(E, PYTHONPATH=f"{ROOT / 'scripts'}:{ROOT / 'scripts/bench-harness/tools'}")
+    subprocess.run([sys.executable, str(script)], check=True, env=env)
     capacity = {}
     for w in resolved():
         with urllib.request.urlopen(w["url"] + "/metrics", timeout=10) as f:

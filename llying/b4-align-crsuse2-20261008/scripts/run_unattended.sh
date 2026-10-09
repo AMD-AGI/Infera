@@ -31,7 +31,7 @@ if (( $# == 0 )); then
         sleep 60
     done
     [[ "$(busy)" == 0 ]] || { echo "$(date -u +%FT%TZ) GPUs still hold VRAM; not starting"; exit 1; }
-    shape=$([[ "${B4_DECODE_TP:-8}" == 8 ]] || echo "-d${B4_DECODE_TP}")
+    shape=$([[ "${B4_DECODE_TP:-8}" == 8 ]] || echo "-d${B4_DECODE_TP}")${B4_TAG:+-$B4_TAG}
     export B4_RUN_ID="b4-crsuse2-${nodes[0]##*-}-${nodes[1]##*-}${shape}-$(date -u +%Y%m%dT%H%MZ)"
 fi
 : "${B4_RUN_ID:?set B4_RUN_ID to resume an existing run}"
