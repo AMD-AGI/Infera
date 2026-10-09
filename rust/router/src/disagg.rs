@@ -92,7 +92,8 @@ pub async fn dispatch(
             (p.route_key(), p_pick.blocks),
             (d.route_key(), d_pick.blocks),
         ],
-    );
+    )
+    .with_decode_demand(d_pick.decode_demand);
 
     let proto = match protocol::resolve_pd_protocol(&p.worker, &d.worker) {
         Ok(pr) => pr,
@@ -962,6 +963,7 @@ fn content_type(resp: &reqwest::Response) -> String {
 mod tests {
     use super::*;
     use crate::breaker::CircuitBreaker;
+    use futures::StreamExt;
 
     fn breaker() -> Arc<CircuitBreaker> {
         Arc::new(CircuitBreaker::default())
@@ -1206,5 +1208,306 @@ mod tests {
             !completed.load(Ordering::SeqCst),
             "a closed decode signal must cancel the prefill HTTP drain"
         );
+    }
+    fn demand_state(
+        workers: Vec<Arc<crate::pool::Worker>>,
+    ) -> (AppState, Arc<crate::policy::KvEventAwarePolicy>) {
+        use crate::{
+            block_hasher::BlockHasher, decode_demand::Mode, kv_event::KvEventClient,
+            policy::KvEventAwarePolicy,
+        };
+        let policy = Arc::new(
+            KvEventAwarePolicy::new(
+                Arc::new(KvEventClient::nats_fed()),
+                BlockHasher::disabled(),
+                20.0,
+                None,
+                None,
+            )
+            .with_decode_input_demand(Mode::On),
+        );
+        let state = AppState {
+            pool: Arc::new(arc_swap::ArcSwap::from_pointee(Snapshot::build(workers))),
+            policy: policy.clone(),
+            http: crate::proxy::build_upstream_client(0.0).unwrap(),
+            started: std::time::Instant::now(),
+            retries: 0,
+            breaker: breaker(),
+            nats: None,
+            pd_prefill_drain_timeout: Duration::from_secs(1),
+            stream_stall_warn: crate::proxy::StallWarn {
+                before_first_byte: Duration::from_secs(10),
+                mid_stream: Duration::from_secs(10),
+            },
+        };
+        (state, policy)
+    }
+
+    fn demand_worker(id: &str, url: &str, role: &str, transport: &str) -> Arc<crate::pool::Worker> {
+        Arc::new(serde_json::from_value(serde_json::json!({
+            "worker_id":id, "url":url, "model_name":"m", "disagg_mode":role,
+            "request_transport":transport,
+            "disagg_meta":{"protocol":"sglang-bootstrap", "params":{"bootstrap_addr":"127.0.0.1:9000"}}
+        })).unwrap())
+    }
+
+    async fn demand_dispatch(state: &AppState, stream: bool) -> Response {
+        let request = serde_json::json!({"model":"m", "prompt":vec![7;128], "stream":stream});
+        dispatch(
+            state,
+            &state.pool.load(),
+            "m",
+            &request,
+            Bytes::from(serde_json::to_vec(&request).unwrap()),
+            stream,
+            "/v1/completions",
+        )
+        .await
+    }
+
+    async fn demand_mock(
+        status: StatusCode,
+        hold_headers: bool,
+        stream: bool,
+        fail_body: bool,
+    ) -> (
+        String,
+        Arc<tokio::sync::Notify>,
+        Arc<tokio::sync::Notify>,
+        tokio::task::JoinHandle<()>,
+    ) {
+        use axum::{routing::post, Router};
+        let arrived = Arc::new(tokio::sync::Notify::new());
+        let release = Arc::new(tokio::sync::Notify::new());
+        let (a, r) = (arrived.clone(), release.clone());
+        let router = Router::new()
+            .route(
+                "/v1/completions",
+                post(move || {
+                    let (arrived, release) = (a.clone(), r.clone());
+                    async move {
+                        arrived.notify_one();
+                        if hold_headers {
+                            release.notified().await;
+                        }
+                        let body = if stream {
+                            let first = futures::stream::once(async {
+                                Ok::<_, std::io::Error>(Bytes::from_static(
+                                    b"data: {\"choices\":[]}\n\n",
+                                ))
+                            });
+                            let tail = futures::stream::once(async move {
+                                release.notified().await;
+                                if fail_body {
+                                    Err(std::io::Error::other("upstream body failed"))
+                                } else {
+                                    Ok(Bytes::from_static(b"data: [DONE]\n\n"))
+                                }
+                            });
+                            Body::from_stream(first.chain(tail))
+                        } else {
+                            Body::from("{}")
+                        };
+                        Response::builder().status(status).body(body).unwrap()
+                    }
+                }),
+            )
+            .route("/abort_request", post(|| async { StatusCode::OK }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        let server = tokio::spawn(async move {
+            axum::serve(listener, router).await.unwrap();
+        });
+        (url, arrived, release, server)
+    }
+
+    #[tokio::test]
+    async fn decode_demand_http_unary_waits_for_prefill_and_releases_on_completion() {
+        let (p_url, p_arrived, p_release, ps) =
+            demand_mock(StatusCode::OK, true, false, false).await;
+        let (d_url, d_arrived, d_release, ds) =
+            demand_mock(StatusCode::OK, true, false, false).await;
+        let (state, policy) = demand_state(vec![
+            demand_worker("p", &p_url, "prefill", "http"),
+            demand_worker("d", &d_url, "decode", "http"),
+        ]);
+        let task = tokio::spawn(async move { demand_dispatch(&state, false).await });
+        tokio::time::timeout(Duration::from_secs(3), async {
+            p_arrived.notified().await;
+            d_arrived.notified().await;
+        })
+        .await
+        .unwrap();
+        assert_eq!(policy.demand_snapshot()["d"].tokens, 128);
+        d_release.notify_one();
+        assert!(!task.is_finished());
+        assert_eq!(policy.demand_snapshot()["d"].tokens, 128);
+        p_release.notify_one();
+        assert_eq!(task.await.unwrap().status(), StatusCode::OK);
+        assert!(policy.demand_snapshot().is_empty());
+        ps.abort();
+        ds.abort();
+    }
+
+    #[tokio::test]
+    async fn decode_demand_http_stream_owns_charge_until_eof_error_or_drop() {
+        for end in ["done", "error", "cancel"] {
+            let (p_url, _, _, ps) = demand_mock(StatusCode::OK, false, false, false).await;
+            let (d_url, _, release, ds) =
+                demand_mock(StatusCode::OK, false, true, end == "error").await;
+            let (state, policy) = demand_state(vec![
+                demand_worker("p", &p_url, "prefill", "http"),
+                demand_worker("d", &d_url, "decode", "http"),
+            ]);
+            let response = demand_dispatch(&state, true).await;
+            assert_eq!(response.status(), StatusCode::OK);
+            let mut body = response.into_body().into_data_stream();
+            body.next().await.unwrap().unwrap();
+            assert_eq!(policy.demand_snapshot()["d"].tokens, 128);
+            if end == "cancel" {
+                drop(body);
+            } else {
+                release.notify_one();
+                let mut failed = false;
+                while let Some(chunk) = body.next().await {
+                    failed |= chunk.is_err();
+                }
+                assert_eq!(failed, end == "error");
+                drop(body);
+            }
+            assert!(policy.demand_snapshot().is_empty(), "{end}");
+            ps.abort();
+            ds.abort();
+        }
+    }
+
+    #[tokio::test]
+    async fn decode_demand_http_early_errors_and_unary_cancel_release_charge() {
+        let (p_url, _, _, ps) = demand_mock(StatusCode::OK, false, false, false).await;
+        let (d_url, _, _, ds) =
+            demand_mock(StatusCode::INTERNAL_SERVER_ERROR, false, false, false).await;
+        for stream in [false, true] {
+            let (state, policy) = demand_state(vec![
+                demand_worker("p", &p_url, "prefill", "http"),
+                demand_worker("d", &d_url, "decode", "http"),
+            ]);
+            let response = demand_dispatch(&state, stream).await;
+            assert!(!response.status().is_success());
+            assert!(policy.demand_snapshot().is_empty());
+        }
+        let (state, policy) = demand_state(vec![
+            demand_worker("p", &p_url, "prefill", "http"),
+            demand_worker("d", &d_url, "decode", "nats"),
+        ]);
+        assert_eq!(
+            demand_dispatch(&state, false).await.status(),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+        assert!(policy.demand_snapshot().is_empty());
+        ds.abort();
+        let (d_url, arrived, _, ds) = demand_mock(StatusCode::OK, true, false, false).await;
+        let (state, policy) = demand_state(vec![
+            demand_worker("p", &p_url, "prefill", "http"),
+            demand_worker("d", &d_url, "decode", "http"),
+        ]);
+        let task = tokio::spawn(async move { demand_dispatch(&state, false).await });
+        tokio::time::timeout(Duration::from_secs(3), arrived.notified())
+            .await
+            .unwrap();
+        assert_eq!(policy.demand_snapshot()["d"].tokens, 128);
+        task.abort();
+        let _ = task.await;
+        assert!(policy.demand_snapshot().is_empty());
+        ps.abort();
+        ds.abort();
+    }
+
+    #[tokio::test]
+    #[ignore = "requires INFERA_TEST_NATS"]
+    async fn decode_demand_nats_releases_on_terminal_error_and_cancellation() {
+        use crate::nats_request::{
+            request_subject, NatsRequestClient, HDR_STATUS, HDR_TYPE, TYPE_DONE,
+        };
+        let url = std::env::var("INFERA_TEST_NATS").expect("set INFERA_TEST_NATS");
+        let nc = async_nats::connect(&url).await.unwrap();
+        for stream in [false, true] {
+            for end in ["done", "error", "cancel"] {
+                let p_id = format!("r2-p-{}-{stream}-{end}", std::process::id());
+                let d_id = format!("r2-d-{}-{stream}-{end}", std::process::id());
+                let mut p_sub = nc.subscribe(request_subject(&p_id)).await.unwrap();
+                let mut d_sub = nc.subscribe(request_subject(&d_id)).await.unwrap();
+                nc.flush().await.unwrap();
+                let p_nc = nc.clone();
+                let p_task = tokio::spawn(async move {
+                    let msg = p_sub.next().await.unwrap();
+                    let mut headers = async_nats::HeaderMap::new();
+                    headers.insert(HDR_TYPE, TYPE_DONE);
+                    headers.insert(HDR_STATUS, "200");
+                    p_nc.publish_with_headers(msg.reply.unwrap(), headers, Bytes::new())
+                        .await
+                        .unwrap();
+                    p_nc.flush().await.unwrap();
+                });
+                let (ready_tx, ready_rx) = oneshot::channel();
+                let (release_tx, release_rx) = oneshot::channel();
+                let d_nc = nc.clone();
+                let d_task = tokio::spawn(async move {
+                    let msg = d_sub.next().await.unwrap();
+                    ready_tx.send(()).unwrap();
+                    if release_rx.await.is_err() {
+                        return;
+                    }
+                    let mut headers = async_nats::HeaderMap::new();
+                    headers.insert(HDR_TYPE, TYPE_DONE);
+                    headers.insert(HDR_STATUS, if end == "error" { "500" } else { "200" });
+                    d_nc.publish_with_headers(msg.reply.unwrap(), headers, Bytes::new())
+                        .await
+                        .unwrap();
+                    d_nc.flush().await.unwrap();
+                });
+                let (mut state, policy) = demand_state(vec![
+                    demand_worker(&p_id, "http://unused", "prefill", "nats"),
+                    demand_worker(&d_id, "http://unused", "decode", "nats"),
+                ]);
+                state.nats = Some(Arc::new(
+                    NatsRequestClient::connect(Some(&url), 10.0, 0.0, 0)
+                        .await
+                        .unwrap(),
+                ));
+                let task = tokio::spawn(async move { demand_dispatch(&state, stream).await });
+                tokio::time::timeout(Duration::from_secs(3), ready_rx)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(policy.demand_snapshot()[&d_id].tokens, 128);
+                if end == "cancel" {
+                    if stream {
+                        drop(task.await.unwrap());
+                    } else {
+                        task.abort();
+                        let _ = task.await;
+                    }
+                    drop(release_tx);
+                } else {
+                    release_tx.send(()).unwrap();
+                    let response = task.await.unwrap();
+                    assert_eq!(
+                        response.status().as_u16(),
+                        if !stream && end == "error" { 500 } else { 200 }
+                    );
+                    let body = axum::body::to_bytes(response.into_body(), usize::MAX).await;
+                    assert_eq!(body.is_err(), stream && end == "error");
+                }
+                assert!(policy.demand_snapshot().is_empty(), "{stream} {end}");
+                tokio::time::timeout(Duration::from_secs(3), p_task)
+                    .await
+                    .unwrap()
+                    .unwrap();
+                tokio::time::timeout(Duration::from_secs(3), d_task)
+                    .await
+                    .unwrap()
+                    .unwrap();
+            }
+        }
     }
 }

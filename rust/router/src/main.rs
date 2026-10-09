@@ -94,6 +94,7 @@ async fn main() -> anyhow::Result<()> {
             // its one rooted event to nobody, and no later event can rebuild
             // the chain. Asking it to flush is the only repair, so the router
             // does it itself rather than waiting for someone to read a warning.
+            .with_decode_input_demand(cfg.decode_input_demand)
             .with_self_heal(kv_selfheal::spawn(upstream.clone())),
         )
     } else {
