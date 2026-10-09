@@ -131,11 +131,15 @@ async def _longctx_probe(server_url: str, model: str) -> _Probe:
     return _Probe("long-context", correctness.is_longctx_correct(content), _short(content))
 
 
-async def assert_correctness(server_url: str, model: str) -> None:
+async def assert_correctness(server_url: str, model: str, *, longctx: bool = True) -> None:
     """Two gates over three probes: at least one liveness probe must pass, and the
-    long-context depth probe must pass when the deployment can run it."""
+    long-context depth probe must pass when the deployment can run it.
+
+    ``longctx=False`` drops the depth probe, leaving only the liveness gate."""
     liveness = [await _counting_probe(server_url, model), await _capital_probe(server_url, model)]
-    depth = [await _longctx_probe(server_url, model)]
+    depth = [await _longctx_probe(server_url, model)] if longctx else []
+    if not longctx:
+        emit_reporter_line("[e2e correctness] long-context skipped for this engine")
 
     # Every verdict and the model's actual reply, live in the run output
     # (capture-suspended), so a pass or a fail explains itself without a rerun.
@@ -158,7 +162,7 @@ async def assert_correctness(server_url: str, model: str) -> None:
 # ----------------------------------------------------------------------
 
 
-async def run_mixed(server: dict, spawn, params: EngineParams) -> list:
+async def run_mixed(server: dict, spawn, params: EngineParams, *, longctx: bool = True) -> list:
     """Full mixed-worker (prefill-decode-mix, no PD) scenario: spawn one worker and
     verify chat liveness + streaming + the three correctness probes.
 
@@ -167,7 +171,7 @@ async def run_mixed(server: dict, spawn, params: EngineParams) -> list:
 
     await assert_chat_ok(server["url"], params.model)
     await assert_chat_streaming_ok(server["url"], params.model)
-    await assert_correctness(server["url"], params.model)
+    await assert_correctness(server["url"], params.model, longctx=longctx)
     await speculation.report_speculation(workers[0].port, params, engine=workers[0].engine)
 
     return workers
