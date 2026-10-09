@@ -4,6 +4,8 @@
 Triton"），看性能能否对齐。B4 的配置与结果见
 `../router-capacity-campaign-20260928/b4/`，汇总指标见 `../experiment-summary-20261008/`。
 
+结果见 [RESULT.zh-CN.md](RESULT.zh-CN.md)：吞吐对齐在 1% 以内，TTFT/ITL p90 高 6–8%。
+
 ## 与 B4 的关系
 
 软件按 B4 的固定输入重建，配方参数逐项与 B4 展开后的环境一致；与 B4 不同的只有：
@@ -45,7 +47,10 @@ HiCache），所以按 aus 配方重建而不复用它。
 - `runtime/`：B4 的 `TRACE_RUNTIME` 布局；脚本是 aus 套件的原样副本，来源与 SHA256 见
   `runtime/MANIFEST.tsv`；`cache/`、`runs/` 不进 git
 - `config/b4.crsuse2.sh`：B4 展开后的环境，本集群绑定项集中在文件开头
-- `scripts/run_b4.sh`：按 B4 的流程运行；只替换了 aus 依赖 Slurm 的启动脚本
+- `scripts/run_b4.sh`：按 B4 的流程运行；只替换了 aus 依赖 Slurm 的启动脚本。
+  `run_unattended.sh` 等 GPU 空闲后运行并在结束时收尾，`answer_check.py` 统计已知答案错误率，
+  `compare_b4.py` 按汇总报告口径与 B4 对比
+- `results/<run>/`：结果与分析的摘要副本（原始运行目录在 `runtime/runs/`，不进 git）
 - `artifacts/`：router 二进制（不进 git）
 - `operations/STATUS.zh-CN.md`：工作状态
 
@@ -58,10 +63,13 @@ HiCache），所以按 aus 配方重建而不复用它。
 
 ```bash
 B4=/home/liyingli/bench_agentx/baseline/Infera/llying/b4-align-crsuse2-20261008
-B4_PREFILL_NODE=crsuse2-m2m-136 B4_DECODE_NODE=crsuse2-m2m-138 \
-  setsid nohup bash "$B4/scripts/run_b4.sh" all > "$B4/operations/<name>.log" 2>&1 < /dev/null &
-# 结束或失败后（日志第一行给出 B4_RUN_ID）只删除本实验容器：
+B4_PREFILL_NODE=crsuse2-m2m-136 B4_DECODE_NODE=crsuse2-m2m-138 B4_GATE_SOFT=1 B4_ANSWER_CHECK=1 \
+  setsid nohup bash "$B4/scripts/run_unattended.sh" > "$B4/operations/<name>.log" 2>&1 < /dev/null &
+# 手动只删除本实验容器（日志给出 B4_RUN_ID）：
 B4_RUN_ID=<id> B4_PREFILL_NODE=... B4_DECODE_NODE=... bash "$B4/scripts/run_b4.sh" stop
+# 结果对比：
+python3 "$B4/runtime/scripts/analyze.py" "$RUN" && python3 "$B4/runtime/scripts/analyze_decode_prefix.py" "$RUN"
+python3 "$B4/scripts/compare_b4.py" "$RUN"
 ```
 
 `all` 依次为：prepare（空闲、镜像、端口检查）→ launch（etcd、collector、P、真实接受率的

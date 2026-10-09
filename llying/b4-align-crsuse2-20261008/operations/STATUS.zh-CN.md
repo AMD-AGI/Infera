@@ -43,6 +43,10 @@
 | 03:34 | 136 | 修正 | 停掉两个处于宽限期的 `stop_after.sh`（第二轮那个按前缀删容器，约 03:51 会删掉第三轮服务）；补上该脚本（`MANIFEST.tsv` 29 个文件）；用上次的 `runtime.env` 预演校验：通过，与 B4 只差允许的路径/主机键（另：主机内存 2752 GB，aus 3023 GB） |
 | 03:34 | 136 | `B4_RUN_ID=…0317Z setsid scripts/run_unattended.sh preflight measure` | preflight 再次通过（重新清空缓存），03:34:54 开始 C80；日志 `run3-measure-136-138.log` |
 
+| 03:36–04:56 | 136/138 | C80 | warmup 884 个请求后正式窗口 3640 秒：完成 10,644、取消 11、错误 0；两端无传输失败 |
+| 05:02 | 136/138 | `MEASUREMENT_COMPLETE` | `stop_after.sh` 05:03 删除本实验容器 |
+| 05:05 | 登录节点 | `analyze.py`、`analyze_decode_prefix.py`、`scripts/compare_b4.py` | 结果见 `../RESULT.zh-CN.md`：吞吐对齐在 1% 以内，TTFT/ITL p90 高 6–8%；数据复制到 `results/b4-crsuse2-136-138-20261009T0317Z/` |
+
 ### 第三轮答案检查的结论
 
 - 跨 rank 传输在共享 8 网卡下正常（128/128 无错误）。
