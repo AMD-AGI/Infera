@@ -858,7 +858,7 @@ async fn mixed_dispatch(
             vec![(pick.target.route_key(), pick.blocks.clone())],
         );
         let wid = pick.target.worker.worker_id.clone();
-        let tracker = crate::metrics::RequestTracker::start("mixed", model);
+        let tracker = crate::metrics::RequestTracker::start_mixed(model, &wid);
         match attempt(
             state,
             &pick.target,

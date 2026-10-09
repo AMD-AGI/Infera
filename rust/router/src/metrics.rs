@@ -66,14 +66,14 @@ fn m() -> &'static Metrics {
         ttft: register_histogram_vec!(
             "infera_time_to_first_token_seconds",
             "Server-observed time from dispatch to the first reply byte",
-            &["router", "model"],
+            &["router", "model", "prefill_worker", "decode_worker"],
             vec![0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0]
         )
         .expect("register ttft"),
         itl: register_histogram_vec!(
             "infera_inter_token_latency_seconds",
             "Mean per-request inter-token latency after TTFT",
-            &["router", "model"],
+            &["router", "model", "decode_worker"],
             vec![0.001, 0.0025, 0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 1.0]
         )
         .expect("register itl"),
@@ -94,13 +94,13 @@ fn m() -> &'static Metrics {
         prompt_tokens: register_counter_vec!(
             "infera_prompt_tokens_total",
             "Prompt tokens observed on successful requests",
-            &["router", "model"]
+            &["router", "model", "prefill_worker"]
         )
         .expect("register prompt_tokens"),
         generation_tokens: register_counter_vec!(
             "infera_generation_tokens_total",
             "Generated tokens observed on successful requests",
-            &["router", "model"]
+            &["router", "model", "decode_worker"]
         )
         .expect("register generation_tokens"),
         router_picks: register_counter_vec!(
@@ -520,6 +520,8 @@ pub struct RequestTracker {
     closed: bool,
     /// Trailing SSE bytes that did not end on a newline in the last chunk.
     partial: Vec<u8>,
+    prefill_worker: String,
+    decode_worker: String,
 }
 
 impl RequestTracker {
@@ -536,7 +538,33 @@ impl RequestTracker {
             outcome: "error".into(),
             closed: false,
             partial: Vec::new(),
+            prefill_worker: String::new(),
+            decode_worker: String::new(),
         }
+    }
+
+    /// Record the workers chosen for this request (per-worker SLA labels).
+    pub fn set_workers(&mut self, prefill_worker: &str, decode_worker: &str) {
+        if !prefill_worker.is_empty() {
+            self.prefill_worker = prefill_worker.to_string();
+        }
+        if !decode_worker.is_empty() {
+            self.decode_worker = decode_worker.to_string();
+        }
+    }
+
+    /// Mixed (colocated) request: both labels point at the same worker.
+    pub fn start_mixed(model: &str, worker_id: &str) -> Self {
+        let mut t = Self::start("mixed", model);
+        t.set_workers(worker_id, worker_id);
+        t
+    }
+
+    /// PD-disaggregated request: label by the picked prefill and decode workers.
+    pub fn start_disagg(model: &str, prefill_worker: &str, decode_worker: &str) -> Self {
+        let mut t = Self::start("disagg", model);
+        t.set_workers(prefill_worker, decode_worker);
+        t
     }
 
     pub fn set_outcome(&mut self, outcome: &str) {
@@ -642,6 +670,8 @@ impl RequestTracker {
             return;
         }
         let osl = self.osl.unwrap_or(self.frames);
+        let prefill = self.prefill_worker.as_str();
+        let decode = self.decode_worker.as_str();
         if let Some(isl) = self.isl {
             metrics
                 .isl
@@ -649,7 +679,7 @@ impl RequestTracker {
                 .observe(isl as f64);
             metrics
                 .prompt_tokens
-                .with_label_values(&[router, model])
+                .with_label_values(&[router, model, prefill])
                 .inc_by(isl as f64);
         }
         if osl > 0 {
@@ -659,20 +689,20 @@ impl RequestTracker {
                 .observe(osl as f64);
             metrics
                 .generation_tokens
-                .with_label_values(&[router, model])
+                .with_label_values(&[router, model, decode])
                 .inc_by(osl as f64);
         }
         if let Some(ttft) = self.ttft {
             metrics
                 .ttft
-                .with_label_values(&[router, model])
+                .with_label_values(&[router, model, prefill, decode])
                 .observe(ttft);
             if osl > 1 {
-                let decode = (self.start.elapsed().as_secs_f64() - ttft).max(0.0);
+                let decode_time = (self.start.elapsed().as_secs_f64() - ttft).max(0.0);
                 metrics
                     .itl
-                    .with_label_values(&[router, model])
-                    .observe(decode / (osl as f64 - 1.0));
+                    .with_label_values(&[router, model, decode])
+                    .observe(decode_time / (osl as f64 - 1.0));
             }
         }
     }

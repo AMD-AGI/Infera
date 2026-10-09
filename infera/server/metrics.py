@@ -118,7 +118,7 @@ prompt_tokens_total = Counter(
     "infera_prompt_tokens_total",
     "Prompt tokens observed on successful requests. "
     "Prompt throughput (tok/s) = rate(infera_prompt_tokens_total[1m]).",
-    labelnames=("router", "model"),
+    labelnames=("router", "model", "prefill_worker"),
     registry=REGISTRY,
 )
 
@@ -126,7 +126,7 @@ generation_tokens_total = Counter(
     "infera_generation_tokens_total",
     "Generated tokens observed on successful requests. "
     "Decode throughput (tok/s) = rate(infera_generation_tokens_total[1m]).",
-    labelnames=("router", "model"),
+    labelnames=("router", "model", "decode_worker"),
     registry=REGISTRY,
 )
 
@@ -183,8 +183,9 @@ time_to_first_token_seconds = Histogram(
     "infera_time_to_first_token_seconds",
     "Server-observed time from dispatch to the first token of the reply. "
     "For PD-disaggregated requests this spans prefill + KV transfer + the "
-    "decode engine's first forward pass.",
-    labelnames=("router", "model"),
+    "decode engine's first forward pass. Labeled by the picked prefill and "
+    "decode workers (same worker_id on both for mixed).",
+    labelnames=("router", "model", "prefill_worker", "decode_worker"),
     buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, float("inf")),
     registry=REGISTRY,
 )
@@ -193,8 +194,8 @@ inter_token_latency_seconds = Histogram(
     "infera_inter_token_latency_seconds",
     "Mean per-request inter-token latency: (total stream time - TTFT) spread "
     "over the generated tokens. Only observed for requests that produced at "
-    "least two output tokens.",
-    labelnames=("router", "model"),
+    "least two output tokens. Labeled by the decode worker.",
+    labelnames=("router", "model", "decode_worker"),
     buckets=(0.001, 0.0025, 0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 1.0, float("inf")),
     registry=REGISTRY,
 )
@@ -413,6 +414,8 @@ class RequestObserver(dict):
         self._partial = b""
         self._deferred = False
         self._closed = False
+        self._prefill_worker = ""
+        self._decode_worker = ""
 
     @property
     def deferred(self) -> bool:
@@ -421,6 +424,13 @@ class RequestObserver(dict):
 
     def claim_stream(self) -> None:
         self._deferred = True
+
+    def set_workers(self, *, prefill_worker: str = "", decode_worker: str = "") -> None:
+        """Record the workers chosen for this request (for per-worker SLA labels)."""
+        if prefill_worker:
+            self._prefill_worker = prefill_worker
+        if decode_worker:
+            self._decode_worker = decode_worker
 
     def mark_failed(self, outcome: str = "stream_failed") -> None:
         """Disown a request that failed after its outcome was committed.
@@ -567,23 +577,34 @@ class RequestObserver(dict):
             return
 
         osl = self._osl if self._osl is not None else self._frames
+        prefill_worker = self._prefill_worker
+        decode_worker = self._decode_worker
         if self._isl is not None:
             input_sequence_tokens.labels(router=router, model=model).observe(self._isl)
-            prompt_tokens_total.labels(router=router, model=model).inc(self._isl)
+            prompt_tokens_total.labels(
+                router=router, model=model, prefill_worker=prefill_worker
+            ).inc(self._isl)
         if osl > 0:
             output_sequence_tokens.labels(router=router, model=model).observe(osl)
-            generation_tokens_total.labels(router=router, model=model).inc(osl)
+            generation_tokens_total.labels(
+                router=router, model=model, decode_worker=decode_worker
+            ).inc(osl)
 
         if self._ttft is None:
             # Non-streaming reply: the whole response landed at once, so there
             # is no observable first-token boundary to report.
             return
-        time_to_first_token_seconds.labels(router=router, model=model).observe(self._ttft)
+        time_to_first_token_seconds.labels(
+            router=router,
+            model=model,
+            prefill_worker=prefill_worker,
+            decode_worker=decode_worker,
+        ).observe(self._ttft)
         if osl > 1:
             decode_time = max(0.0, time.perf_counter() - self._start - self._ttft)
-            inter_token_latency_seconds.labels(router=router, model=model).observe(
-                decode_time / (osl - 1)
-            )
+            inter_token_latency_seconds.labels(
+                router=router, model=model, decode_worker=decode_worker
+            ).observe(decode_time / (osl - 1))
 
 
 @contextmanager

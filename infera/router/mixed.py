@@ -144,6 +144,7 @@ class MixedRouter(BaseRouter):
         worker = target.worker
         url = f"{worker.url}{path}"
         dp_headers = dp_rank_header(target)
+        obs.set_workers(prefill_worker=worker.worker_id, decode_worker=worker.worker_id)
 
         # Engine-specific priority injection depends on the chosen worker.
         forwarded_body = inject_engine_priority(body, hints, worker.engine)

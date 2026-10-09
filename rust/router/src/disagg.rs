@@ -206,7 +206,7 @@ async fn stream_dual(
     );
     let mut abort_unless_stream_owns_it = FireOnDrop(Some(incomplete_tx));
 
-    let tracker = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
+    let tracker = crate::metrics::RequestTracker::start_disagg(&d.worker.model_name, &p.worker.worker_id, &d.worker.worker_id);
     match open_decode(state, d, &d_url, &d_body).await {
         Ok(resp) => crate::proxy::sse_response()
             // guard drops when the decode stream ends -> on_request_finished.
@@ -246,7 +246,7 @@ async fn unary_dual(
 ) -> Response {
     // Held until both legs finish (dropped at fn end) -> on_request_finished.
     let _guard = guard;
-    let mut tracker = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(&d.worker.model_name, &p.worker.worker_id, &d.worker.worker_id);
     let rid = p_body
         .get("rid")
         .and_then(|v| v.as_str())
@@ -425,7 +425,7 @@ async fn dual_nats(
         Err(e) => {
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
-            let mut t = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
+            let mut t = crate::metrics::RequestTracker::start_disagg(&d.worker.model_name, &p.worker.worker_id, &d.worker.worker_id);
             t.set_outcome("error");
             t.finish();
             return json_error(
@@ -436,7 +436,7 @@ async fn dual_nats(
     };
 
     if !stream {
-        let mut tracker = crate::metrics::RequestTracker::start("disagg", &d.worker.model_name);
+        let mut tracker = crate::metrics::RequestTracker::start_disagg(&d.worker.model_name, &p.worker.worker_id, &d.worker.worker_id);
         let mut abort_unless_done = FireOnDrop(abort_unless_decode_owns_it.take());
         let mut buf: Vec<u8> = Vec::new();
         let mut status = StatusCode::OK;
@@ -576,9 +576,10 @@ async fn dual_nats(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_decode_owns_it.take(),
-                Some(crate::metrics::RequestTracker::start(
-                    "disagg",
+                Some(crate::metrics::RequestTracker::start_disagg(
                     &d.worker.model_name,
+                    &p.worker.worker_id,
+                    &d.worker.worker_id,
                 )),
             ),
         ))

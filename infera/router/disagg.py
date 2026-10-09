@@ -494,6 +494,7 @@ class DisaggRouter(BaseRouter):
 
         # Fallback ISL for the streaming path, where the reply carries no usage.
         obs.observe_blocks(p_blocks, p.kv_block_size)
+        obs.set_workers(prefill_worker=p.worker_id, decode_worker=d.worker_id)
 
         # request_id_for may raise (e.g. malformed disagg_meta); compute before
         # on_request_started so no started/finished bookkeeping is needed on

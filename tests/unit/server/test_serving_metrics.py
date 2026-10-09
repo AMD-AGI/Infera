@@ -16,6 +16,7 @@ def test_request_tracker_records_ttft_itl_and_token_counters():
 
     with metrics.track_request(router="mixed", model="m") as obs:
         obs.claim_stream()
+        obs.set_workers(prefill_worker="w-p", decode_worker="w-d")
         obs.set_input_tokens(128)
         obs.observe_stream_chunk(b'data: {"choices":[{"delta":{"content":"a"}}]}\n')
         obs.observe_stream_chunk(b'data: {"choices":[{"delta":{"content":"b"}}]}\n')
@@ -31,6 +32,8 @@ def test_request_tracker_records_ttft_itl_and_token_counters():
     assert "infera_prompt_tokens_total" in body
     assert "infera_generation_tokens_total" in body
     assert "infera_requests_total" in body
+    assert 'prefill_worker="w-p"' in body
+    assert 'decode_worker="w-d"' in body
     assert body != before
 
 
