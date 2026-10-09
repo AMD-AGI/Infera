@@ -36,6 +36,20 @@
 | 02:50 | 136/138 | `answer_check.py` 第一个请求 | HTTP 500：P DP3→D DP4 跨 rank 传输 `cqe with error 12`，两端 `KVTransferError`。`FAILED_ANSWERS_SERVICES_PRESERVED` |
 | 03:09 | 136/138 | `run_b4.sh stop` | 已删除本实验容器（`stop_after.sh` 约 03:51 醒来时为空操作） |
 
+| 03:17 | 136 | 第三轮：`B4_GATE_SOFT=1 B4_ANSWER_CHECK=1 setsid scripts/run_unattended.sh`（共享 8 网卡；等显存释放后启动，结束后自动 `stop_after.sh`） | `runs/b4-crsuse2-136-138-20261009T0317Z/`，日志 `run3-136-138.log`；编排 PID 481341 |
+| 03:25–03:28 | 136/138 | 第三轮 gate + `answer_check.py` | 两端 `disaggregation_ib_device` 均为共享 8 网卡。gate 16/16（覆盖 P/D 各 8 rank）。答案检查 136 个请求 0 个传输错误；128 个样本全是跨 rank（8 组 P/D 组合），错 1；第二轮 64/64 对且全部命中 D 前缀。两个答错都是同一道题（种子 6 文档、记录 396 → 答成 397 的 `Z5040`）：原题冷重放 4 次错 1（P0→D0），热重放 4/4 对，新文档中同内容的第 5 份第一轮错（P1→D5）。其余 127 个问题全对 |
+
+| 03:33 | 136/138 | 第三轮 switch + preflight + C80 首次尝试 | D 切到 3.61、router 重启；preflight 通过，KV 容量与 B4 偏差 P 0.0081%、D 0.0085%。C80 6 秒后失败：`runtime/` 漏复制了 `validate_chunk8k_runtime.py`（`validate_and_pin_client.py` 调用它），客户端未发出请求；半截产物改名 `c80-attempt1-missing-validator/` |
+| 03:34 | 136 | 修正 | 停掉两个处于宽限期的 `stop_after.sh`（第二轮那个按前缀删容器，约 03:51 会删掉第三轮服务）；补上该脚本（`MANIFEST.tsv` 29 个文件）；用上次的 `runtime.env` 预演校验：通过，与 B4 只差允许的路径/主机键（另：主机内存 2752 GB，aus 3023 GB） |
+| 03:34 | 136 | `B4_RUN_ID=…0317Z setsid scripts/run_unattended.sh preflight measure` | preflight 再次通过（重新清空缓存），03:34:54 开始 C80；日志 `run3-measure-136-138.log` |
+
+### 第三轮答案检查的结论
+
+- 跨 rank 传输在共享 8 网卡下正常（128/128 无错误）。
+- 唯一出错的是同一道题，在临界点上非确定地读错相邻行；同 rank、跨 rank 都出现，与传输和
+  D radix 无关。第一轮 gate 的第 6 题就是这道题（gate 的 index 5 turn 0）。三轮合计这道题
+  11 次中错 3 次；aus 的 B4/RB gate 各问过一次，都答对，样本太少，不能据此判断两集群有差异。
+
 ### 第二轮的根因：B4 的每 rank 单网卡配置在 crsuse2 上跨 rank 不可达
 
 - B4（aus）给每个 DP rank 只配一张网卡：`--disaggregation-ib-device {"0":"ionic_0",…}`，两端
