@@ -74,7 +74,10 @@ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1 SGLANG_OPT_USE_TOPK_V2=false
 SGLANG_TIMEOUT_KEEP_ALIVE=900
 MC_GID_INDEX=1 MC_DISABLE_HIP_TRANSPORT=1 MC_ENABLE_DEST_DEVICE_AFFINITY=1
 MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
-RDMA_DEVICE='{"0":"ionic_0","1":"ionic_1","2":"ionic_2","3":"ionic_3","4":"ionic_4","5":"ionic_5","6":"ionic_6","7":"ionic_7"}'
+# crsuse2: every rank shares all 8 HCAs. B4 gave rank k only ionic_k, but here
+# rails are isolated (ionic_k reaches only ionic_k), so P_i -> D_j (i != j) has no
+# path; with the shared list Mooncake v3 sends both ends over ionic_j.
+RDMA_DEVICE=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
 RDMAV_FORK_SAFE=1 NCCL_IB_DISABLE=1
 HOST_RDMA_LIB=/lib/x86_64-linux-gnu/libionic.so HOST_RDMA_MOUNT=/host-libionic/libionic.so
 PERSIST_JIT_CACHE=1

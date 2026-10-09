@@ -12,6 +12,7 @@ Triton"），看性能能否对齐。B4 的配置与结果见
 |---|---|---|---|
 | Mooncake | `faae8dd4` | `faae8dd4` + v3 修复（目的端固定 rail、固定 HCA、ACK 超时 1.07 s） | B4 关闭 DP rank 亲和，有跨 rank 传输；本集群原版 Mooncake 会 transfer failure（`../cross-rank-rca-20260921/`） |
 | `MOONCAKE_DISABLE_HIP_DMABUF` | 1 | 0 | 两个集群网卡驱动不同 |
+| `--disaggregation-ib-device` | 每 rank 一张：`{"k":"ionic_k"}` | 每 rank 共享 `ionic_0,…,ionic_7` | crsuse2 rail 隔离（`ionic_k` 只通 `ionic_k`），单网卡下 i≠j 不可达（第二轮实测 CQE12） |
 | 节点 | 物理机 n04-33 / n05-21 | 虚拟机 crsuse2（默认 P 136、D 138） | |
 | router 二进制 | `19a6c1d2`，sha256 `71750540…` | 同一 commit 重新编译，`4077025d…` | 编译环境不同 |
 | SSH 选项 | — | 加 `LogLevel=ERROR` | 首次连接的主机密钥提示会混进解析的输出 |

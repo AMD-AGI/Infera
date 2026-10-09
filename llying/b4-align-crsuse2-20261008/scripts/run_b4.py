@@ -4,7 +4,9 @@
 Stages, in order (``all`` runs them unattended):
   prepare   run directory, topology, idle-node / image / port checks, AITER cache
   launch    etcd, OTLP collector, P and D (real acceptance), router
-  gate      placement_answer_probe.py: known answers over every P/D rank
+  gate      placement_answer_probe.py: known answers over every P/D rank; aborts
+            the run on a wrong answer, as in B4, unless B4_GATE_SOFT=1
+  answers   with B4_ANSWER_CHECK=1, answer_check.py: known-answer error rate
   switch    relaunch D with simulated acceptance 3.61, restart the router
   preflight preflight_placement.py, capacity check against B4
   measure   samplers + AgentX C80 for 3600 s, then capture logs/diagnostics
@@ -106,13 +108,15 @@ def registration(w):
 
 def launch_worker(w, simulate):
     before, _ = registration(w)
-    configured = json.loads(E["RDMA_DEVICE"])
-    mapping = {str(i): configured[str(g)] for i, g in enumerate(w["gpu_ids"])}
+    devices = E["RDMA_DEVICE"]
+    if devices.startswith("{"):  # per-GPU map, re-keyed by local index as launch_placement.py does
+        configured = json.loads(devices)
+        devices = json.dumps({str(i): configured[str(g)] for i, g in enumerate(w["gpu_ids"])}, separators=(",", ":"))
     extra = [f"{k}={E[k]}" for k in PASSTHROUGH if k in E] + [f"B4_DECODE_SIMULATE_ACC_LEN={simulate}"]
     cmd = ["bash", f"{E['BENCH_DIR']}/engine.sh", w["role"], w["instance"], w["ip"], ",".join(map(str, w["gpu_ids"])),
            w["engine_port"], w["bootstrap_port"], w["kv_port"], w["snapshot_port"], w["container"],
            f"{E['PREFILL_IP']}:22379", f"CONFIG={E['CONFIG']}",
-           "WORKER_RDMA_DEVICE=" + json.dumps(mapping, separators=(",", ":")), f"DIAG_INSTANCE={w['instance']}",
+           f"WORKER_RDMA_DEVICE={devices}", f"DIAG_INSTANCE={w['instance']}",
            f"WORKER_ALLOCATION_JOB_ID={w['allocation_job']}",
            f"SERVER_LOG={RUN}/launch/server-logs/{w['instance']}.log", *extra]
     log(f"START {w['instance']} on {w['node']} simulate_acc_len={simulate or 'real'}")
@@ -179,8 +183,19 @@ def launch():
 
 
 def gate():
-    subprocess.run([sys.executable, str(ROOT / "scripts/placement_answer_probe.py")], check=True)
-    status("PLACEMENT_GATE_PASSED")
+    probe = subprocess.run([sys.executable, str(ROOT / "scripts/placement_answer_probe.py")])
+    if probe.returncode == 0:
+        status("PLACEMENT_GATE_PASSED")
+    elif E.get("B4_GATE_SOFT") == "1":
+        status("PLACEMENT_GATE_WRONG_ANSWER_CONTINUING")
+    else:
+        raise RuntimeError("placement_answer_probe.py failed")
+
+
+def answers():
+    if E.get("B4_ANSWER_CHECK") == "1":
+        subprocess.run([sys.executable, str(Path(__file__).parent / "answer_check.py")], check=True)
+        status("ANSWER_CHECK_DONE")
 
 
 def switch():
@@ -270,7 +285,8 @@ def stop():
         log(f"{node}: stopped {names}")
 
 
-STAGES = {"prepare": prepare, "launch": launch, "gate": gate, "switch": switch, "preflight": preflight, "measure": measure}
+STAGES = {"prepare": prepare, "launch": launch, "gate": gate, "answers": answers, "switch": switch,
+          "preflight": preflight, "measure": measure}
 
 if __name__ == "__main__":
     stage = sys.argv[1]
