@@ -1,0 +1,230 @@
+diff --git a/mooncake-transfer-engine/include/config.h b/mooncake-transfer-engine/include/config.h
+index 08c9647..0028147 100644
+--- a/mooncake-transfer-engine/include/config.h
++++ b/mooncake-transfer-engine/include/config.h
+@@ -90,6 +90,7 @@ struct GlobalConfig {
+     bool use_ipv6 = false;
+     size_t fragment_limit = 16384;
+     bool enable_dest_device_affinity = false;
++    bool enable_dest_local_rail = false;
+     bool enable_hca_peer_affinity = false;
+     std::unordered_map<std::string, std::vector<std::string>> nic_peer_affinity;
+     bool log_rdma_slice_affinity = false;
+diff --git a/mooncake-transfer-engine/include/topology.h b/mooncake-transfer-engine/include/topology.h
+index 2efbe0f..56e6a98 100644
+--- a/mooncake-transfer-engine/include/topology.h
++++ b/mooncake-transfer-engine/include/topology.h
+@@ -95,15 +95,23 @@ class Topology {
+     int selectDeviceByLocalHca(const std::string storage_type,
+                                std::string_view local_hca, int retry_count = 0);
+
++    // One deterministic preferred HCA per GPU; absent locations return -1.
++    int pinnedDevice(const std::string &storage_type) const {
++        auto it = pinned_hca_.find(storage_type);
++        return it == pinned_hca_.end() ? -1 : it->second;
++    }
++
+     TopologyMatrix getMatrix() const { return matrix_; }
+
+     const std::vector<std::string> &getHcaList() const { return hca_list_; }
+
+    private:
+     int resolve();
++    void resolvePinnedDevices();
+
+    private:
+     TopologyMatrix matrix_;
++    std::unordered_map<std::string, int> pinned_hca_;
+     std::vector<std::string> hca_list_;
+     bool use_round_robin_;
+
+diff --git a/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h b/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h
+index d5d8b3b..265049d 100644
+--- a/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h
++++ b/mooncake-transfer-engine/include/transport/rdma_transport/rdma_transport.h
+@@ -125,6 +125,11 @@ class RdmaTransport : public Transport {
+     int startHandshakeDaemon(std::string &local_server_name);
+
+    public:
++    // Initial WRITE hint; READ, host buffers and missing topology keep normal
++    // selection.
++    static std::string destinationLocalHca(SegmentDesc *peer,
++                                           TransferRequest::OpCode opcode,
++                                           uint64_t offset, size_t length);
+     static int selectDevice(SegmentDesc *desc, uint64_t offset, size_t length,
+                             int &buffer_id, int &device_id, int retry_cnt = 0);
+     static int selectDevice(SegmentDesc *desc, uint64_t offset, size_t length,
+diff --git a/mooncake-transfer-engine/src/config.cpp b/mooncake-transfer-engine/src/config.cpp
+index a6f4108..5e7a603 100644
+--- a/mooncake-transfer-engine/src/config.cpp
++++ b/mooncake-transfer-engine/src/config.cpp
+@@ -510,6 +510,16 @@ void loadGlobalConfig(GlobalConfig& config) {
+         config.enable_dest_device_affinity = false;
+     }
+
++    if (const char* value = std::getenv("MC_ENABLE_DEST_LOCAL_RAIL")) {
++        parseBoolConfigEnv(value, "MC_ENABLE_DEST_LOCAL_RAIL",
++                           config.enable_dest_local_rail);
++    }
++    if (config.enable_dest_local_rail && !config.enable_dest_device_affinity) {
++        LOG(WARNING) << "MC_ENABLE_DEST_LOCAL_RAIL requires "
++                        "MC_ENABLE_DEST_DEVICE_AFFINITY; ignoring it";
++        config.enable_dest_local_rail = false;
++    }
++
+     const char* log_rdma_slice_affinity_env =
+         std::getenv("MC_LOG_RDMA_SLICE_AFFINITY");
+     if (log_rdma_slice_affinity_env) {
+@@ -754,6 +764,7 @@ void dumpGlobalConfig() {
+     }
+     LOG(INFO) << "mlx5_qp_lag_port_balance = "
+               << (config.mlx5_qp_lag_port_balance ? "true" : "false");
++    LOG(INFO) << "enable_dest_local_rail = " << config.enable_dest_local_rail;
+     LOG(INFO) << "log_rdma_slice_affinity = "
+               << (config.log_rdma_slice_affinity ? "true" : "false");
+     LOG(INFO) << "track_rdma_posted_slices = "
+diff --git a/mooncake-transfer-engine/src/topology.cpp b/mooncake-transfer-engine/src/topology.cpp
+index 5383f1e..67e5535 100644
+--- a/mooncake-transfer-engine/src/topology.cpp
++++ b/mooncake-transfer-engine/src/topology.cpp
+@@ -15,6 +15,7 @@
+ #include <glog/logging.h>
+
+ #include <algorithm>
++#include <charconv>
+ #include <fstream>
+ #include <iostream>
+ #include <map>
+@@ -616,6 +617,7 @@ bool Topology::empty() const {
+ }
+
+ void Topology::clear() {
++    pinned_hca_.clear();
+     matrix_.clear();
+     hca_list_.clear();
+     resolved_matrix_.clear();
+@@ -791,6 +793,45 @@ int Topology::selectDevice(const std::string storage_type, int retry_count) {
+     return ERR_DEVICE_NOT_FOUND;
+ }
+
++void Topology::resolvePinnedDevices() {
++    pinned_hca_.clear();
++    std::map<std::vector<std::string>, std::map<unsigned, std::string>> groups;
++    for (const auto &[location, entry] : matrix_) {
++        if (location.rfind(GPU_PREFIX, 0) != 0 || entry.preferred_hca.empty())
++            continue;
++        unsigned gpu;
++        const char *first = location.data() + GPU_PREFIX.size();
++        const char *last = location.data() + location.size();
++        const auto result = std::from_chars(first, last, gpu);
++        if (result.ec != std::errc{} || result.ptr != last) continue;
++        auto hcas = entry.preferred_hca;
++        const auto resolved = resolved_matrix_.find(location);
++        if (resolved == resolved_matrix_.end()) continue;
++        hcas.erase(std::remove_if(hcas.begin(), hcas.end(),
++                                  [&](const auto &hca) {
++                                      return resolved->second.getHcaIndex(hca) <
++                                             0;
++                                  }),
++                   hcas.end());
++        if (hcas.empty()) continue;
++        std::sort(hcas.begin(), hcas.end());
++        hcas.erase(std::unique(hcas.begin(), hcas.end()), hcas.end());
++        groups[hcas][gpu] = location;
++    }
++    // When PCIe locality is hidden, spread GPUs with the same preferred set.
++    // Preserve each GPU's existing single-HCA preference when it is available.
++    for (const auto &[hcas, gpus] : groups) {
++        size_t next = 0;
++        for (const auto &[gpu, location] : gpus) {
++            const auto &hca = hcas[next++ % hcas.size()];
++            const auto it = std::find(hca_list_.begin(), hca_list_.end(), hca);
++            if (it != hca_list_.end())
++                pinned_hca_[location] =
++                    static_cast<int>(it - hca_list_.begin());
++        }
++    }
++}
++
+ int Topology::resolve() {
+     resolved_matrix_.clear();
+     resolved_hca_peer_affinity_by_local_.clear();
+@@ -830,6 +871,7 @@ int Topology::resolve() {
+     }
+     precomputeResolvedHcaPeerAffinity(matrix_, hca_id_map,
+                                       resolved_hca_peer_affinity_by_local_);
++    resolvePinnedDevices();
+     return 0;
+ }
+
+@@ -881,6 +923,7 @@ int Topology::disableDevice(const std::string &device_name) {
+                              candidates.end());
+         }
+     }
++    resolvePinnedDevices();
+     return 0;
+ }
+ }  // namespace mooncake
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+index e444b38..f00cc29 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+@@ -54,6 +54,26 @@ static std::string resolveBufferLocation(
+     return location;
+ }
+
++std::string RdmaTransport::destinationLocalHca(SegmentDesc *peer,
++                                               TransferRequest::OpCode opcode,
++                                               uint64_t offset, size_t length) {
++    if (!globalConfig().enable_dest_local_rail ||
++        !globalConfig().enable_dest_device_affinity ||
++        opcode != TransferRequest::WRITE || !peer || length == 0)
++        return {};
++    int buffer_id = -1, device_id = -1;
++    if (selectDevice(peer, offset, length, buffer_id, device_id)) return {};
++    const auto &buffer = peer->buffers[buffer_id];
++    const auto location = resolveBufferLocation(buffer, offset);
++    // Ambiguous multi-GPU spans keep ordinary selection.
++    if (location != resolveBufferLocation(buffer, offset + length - 1))
++        return {};
++    const int pinned = peer->topology.pinnedDevice(location);
++    const auto &hcas = peer->topology.getHcaList();
++    if (pinned < 0 || static_cast<size_t>(pinned) >= hcas.size()) return {};
++    return hcas[pinned];
++}
++
+ // Calculate remaining bytes in buffer for 'address'.
+ // Caches 'last_buffer_idx' across sequential slices to avoid rescanning
+ // buffers.
+@@ -882,8 +902,13 @@ Status RdmaTransport::submitTransferTask(
+         const auto &target_segment_desc = target_desc_it->second;
+
+         auto request_buffer_id = -1, request_device_id = -1;
++        const auto destination_hint =
++            request.advise_retry_cnt == 0
++                ? destinationLocalHca(target_segment_desc.get(), request.opcode,
++                                      request.target_offset, request.length)
++                : std::string{};
+         if (selectDevice(local_segment_desc.get(), (uint64_t)request.source,
+-                         request.length, request_buffer_id,
++                         request.length, destination_hint, request_buffer_id,
+                          request_device_id)) {
+             request_buffer_id = -1;
+             request_device_id = -1;
+@@ -926,9 +951,15 @@ Status RdmaTransport::submitTransferTask(
+                 }
+             }
+             while (retry_cnt < kMaxRetryCount && !found_device) {
++                const auto slice_hint =
++                    retry_cnt == 0
++                        ? destinationLocalHca(
++                              target_segment_desc.get(), request.opcode,
++                              slice->rdma.dest_addr, slice->length)
++                        : std::string{};
+                 if (selectDevice(local_segment_desc.get(),
+                                  (uint64_t)slice->source_addr, slice->length,
+-                                 buffer_id, device_id, retry_cnt++))
++                                 slice_hint, buffer_id, device_id, retry_cnt++))
+                     continue;
+                 assert(device_id >= 0 &&
+                        static_cast<size_t>(device_id) < context_list_.size());

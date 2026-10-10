@@ -75,14 +75,20 @@ RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
 # installed engine.so.
 ARG BUILD_MOONCAKE=1
 ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
-COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
-RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+ARG APPLY_MOONCAKE_RDMA_PATCHES=0
+COPY deploy/docker/scripts/build_mooncake_sglang.sh deploy/docker/scripts/apply_mooncake_overlays.sh /tmp/mooncake-build/scripts/
+COPY deploy/docker/patches/mooncake_rdma /tmp/mooncake-build/patches/mooncake_rdma
+RUN if [ "${BUILD_MOONCAKE}" != "1" ] && [ "${APPLY_MOONCAKE_RDMA_PATCHES}" != "0" ]; then \
+        echo "RDMA patches require BUILD_MOONCAKE=1" >&2; exit 1; \
+    fi; \
+    if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        export APPLY_MOONCAKE_RDMA_PATCHES; \
         MC_GPU_ARCH=gfx942 MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
-            bash /tmp/build_mooncake_sglang.sh; \
+            bash /tmp/mooncake-build/scripts/build_mooncake_sglang.sh; \
     else \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
-    && rm -f /tmp/build_mooncake_sglang.sh
+    && rm -rf /tmp/mooncake-build
 
 # Install infera + its declared deps from pyproject (single source of truth).
 # The base already ships torch/sglang and most of infera's runtime stack; pip

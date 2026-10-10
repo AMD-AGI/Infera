@@ -10,10 +10,11 @@
 #   - large MRs are chunked and registration failures propagate (#2644/#2869);
 #   - chunked dma-buf offsets include each chunk's displacement (#3243).
 #
-# Keep no private source patches here. Build the upstream source, then verify the
-# two artifact capabilities SGLang PD needs: HIP dma-buf registration and
-# cross-host RDMA routing.
+# Optional bundled RDMA patches and caller overlays are applied before capability
+# checks. Runtime selection remains opt-in; see patches/mooncake_rdma/README.md.
 set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MC_ROOT="${MC_ROOT:-/tmp/mooncake-upstream}"
 MC_REPO="${MOONCAKE_REPO:-https://github.com/kvcache-ai/Mooncake.git}"
@@ -28,6 +29,7 @@ git fetch --depth=1 origin "$MC_REF"
 git checkout --detach "$MC_REF"
 git submodule update --init --recursive
 echo "[mc-build] Mooncake $(git rev-parse HEAD)"
+bash "$HERE/apply_mooncake_overlays.sh" "$MC_ROOT"
 
 # Assert the pinned source has the features this image relies on. A ref bump that
 # loses or moves either implementation must fail here, before an expensive build.
@@ -76,6 +78,7 @@ tail -10 /tmp/mooncake-ninja.log
 SO="$MC_ROOT/build/mooncake-integration/$target"
 DEST="$(python3 -c 'import mooncake.engine as e; print(e.__file__)')"
 cp "$SO" "$DEST"
+cp "$MC_ROOT/infera-build.txt" "$(dirname "$DEST")/infera-build.txt"
 
 ASIO="$MC_ROOT/build/mooncake-common/libasio.so"
 if [ -f "$ASIO" ]; then
@@ -93,6 +96,14 @@ ldd "$DEST" | grep -qi hsa-runtime64 ||
 binary_strings="$(strings "$DEST")"
 printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
     { echo "[mc-build] ERROR: cross-host HIP locality routing is absent" >&2; exit 1; }
+if [[ "${APPLY_MOONCAKE_RDMA_PATCHES:-0}" == 1 ]]; then
+    for feature in MC_ENABLE_DEST_LOCAL_RAIL MC_IB_TIMEOUT; do
+        if [[ "$binary_strings" != *"$feature"* ]]; then
+            echo "[mc-build] ERROR: $DEST lacks $feature" >&2
+            exit 1
+        fi
+    done
+fi
 python3 -c "from mooncake.engine import TransferEngine"
 
 echo "[mc-build] DONE: upstream Mooncake $MC_REF"

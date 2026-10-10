@@ -16,7 +16,7 @@ FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
 
-# ---- Mooncake: pinned upstream, no private source patches -------------------
+# ---- Mooncake: pinned upstream with optional RDMA patches -------------------
 # The base bundles an older Mooncake. Rebuild its source checkout at the same
 # upstream revision used by the vLLM image. That revision already includes HIP
 # dma-buf build wiring, automatic cross-host RDMA routing, large-MR chunking,
@@ -24,13 +24,19 @@ WORKDIR /opt/infera
 # verifies those capabilities in the installed engine.so.
 ARG BUILD_MOONCAKE=1
 ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
-COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
-RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
-        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/build_mooncake_sglang.sh; \
+ARG APPLY_MOONCAKE_RDMA_PATCHES=0
+COPY deploy/docker/scripts/build_mooncake_sglang.sh deploy/docker/scripts/apply_mooncake_overlays.sh /tmp/mooncake-build/scripts/
+COPY deploy/docker/patches/mooncake_rdma /tmp/mooncake-build/patches/mooncake_rdma
+RUN if [ "${BUILD_MOONCAKE}" != "1" ] && [ "${APPLY_MOONCAKE_RDMA_PATCHES}" != "0" ]; then \
+        echo "RDMA patches require BUILD_MOONCAKE=1" >&2; exit 1; \
+    fi; \
+    if [ "${BUILD_MOONCAKE}" = "1" ]; then \
+        export APPLY_MOONCAKE_RDMA_PATCHES; \
+        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/mooncake-build/scripts/build_mooncake_sglang.sh; \
     else \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
-    && rm -f /tmp/build_mooncake_sglang.sh
+    && rm -rf /tmp/mooncake-build
 
 # ---- assert cross-host routing in the .so this image will LOAD --------------
 # This separate artifact check also covers BUILD_MOONCAKE=0.
