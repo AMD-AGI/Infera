@@ -74,6 +74,38 @@ def test_an_explicit_flag_is_left_alone(monkeypatch):
     assert argv.count(_FLAG) == 1
 
 
+_MTP = [
+    "--speculative-algorithm",
+    "EAGLE",
+    "--speculative-num-steps",
+    "5",
+    "--speculative-eagle-topk",
+    "1",
+    "--speculative-num-draft-tokens",
+    "6",
+]
+
+
+def test_skips_under_speculative_decoding_by_default(monkeypatch):
+    _reason(monkeypatch, None)
+    monkeypatch.delenv(args_mod._DECODE_RADIX_SPEC_ENV, raising=False)
+    assert _FLAG not in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
+
+
+def test_appends_under_speculative_decoding_when_opted_in(monkeypatch):
+    """The opt-in is shared with the patched SGLang hook, which then accepts
+    the flag; without that patch SGLang still raises, as the default expects."""
+    _reason(monkeypatch, None)
+    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
+    assert _FLAG in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
+
+
+def test_the_opt_in_does_not_override_a_model_rejection(monkeypatch):
+    _reason(monkeypatch, "Mamba/SSM")
+    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
+    assert _FLAG not in parse_sglang_args([*_DECODE, *_MTP]).sglang_argv
+
+
 def test_prefill_leg_is_untouched(monkeypatch):
     _reason(monkeypatch, None)
     prefill = [*_DECODE[:-4], "--disaggregation-mode", "prefill", *_DECODE[-2:]]
@@ -272,3 +304,27 @@ def test_a_prefill_leg_is_flushed_as_before(monkeypatch):
     _reason(monkeypatch, None)
     prefill = [*_DECODE[:-4], "--disaggregation-mode", "prefill", *_DECODE[-2:]]
     assert no_clear_event_reason(parse_sglang_args(prefill)) is None
+
+
+def test_decode_hicache_gets_radix_before_server_args_validation(monkeypatch):
+    _reason(monkeypatch, None)
+    monkeypatch.setenv(args_mod._DECODE_RADIX_SPEC_ENV, "1")
+    parsed = parse_sglang_args(
+        [
+            *_DECODE,
+            *_MTP,
+            "--enable-hierarchical-cache",
+            "--hicache-ratio",
+            "1.5",
+            "--hicache-write-policy",
+            "write_through",
+            "--hicache-io-backend",
+            "kernel",
+            "--hicache-mem-layout",
+            "page_first",
+        ]
+    )
+    assert parsed.sglang_argv.count(_FLAG) == 1
+    assert parsed.server_args.disaggregation_decode_enable_radix_cache
+    assert parsed.server_args.enable_hierarchical_cache
+    assert not parsed.server_args.disable_radix_cache
