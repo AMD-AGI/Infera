@@ -1074,6 +1074,19 @@ def _add_inference_args(parser):
         "--request-rate; combine with --des-instances/--des-routing to study a "
         "fleet.",
     )
+    serv.add_argument(
+        "--des-gemm-shapes",
+        type=str,
+        default=None,
+        metavar="PATH",
+        help="DES: write every linear-layer GEMM shape the replay runs, with how "
+        "many times it runs, to PATH (.csv, or .json for a per-weight summary of "
+        "the M distribution as well). M is each executed step's token count, so "
+        "this is the shape mix a trace actually produces under continuous "
+        "batching. Shapes follow the engine's weight sharding and fusion on one "
+        "TP rank; a per-shape time estimate is included when the Origami GEMM "
+        "simulator is installed.",
+    )
     # ---- Kernel backend + fused ops + sparse attention + expert precision ----
     kern = parser.add_argument_group("inference kernel backend & ops")
     kern.add_argument(
