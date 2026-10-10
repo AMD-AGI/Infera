@@ -50,6 +50,7 @@ enum AbortTransport {
 }
 
 /// Entry point. Caller guarantees the model has both prefill and decode workers.
+#[allow(clippy::too_many_arguments)]
 pub async fn dispatch(
     state: &AppState,
     snap: &Snapshot,
@@ -58,6 +59,7 @@ pub async fn dispatch(
     raw: Bytes,
     stream: bool,
     path: &str,
+    session: Option<&str>,
 ) -> Response {
     // role_hint lets a cost-aware policy weight P (cache-heavy: a hit skips a
     // whole prefill pass) differently from D (route by load).
@@ -74,11 +76,28 @@ pub async fn dispatch(
         .filter(snap.list_active(model, DisaggMode::Decode), |w| {
             w.worker_id.as_str()
         });
-    let p_pick = state.policy.pick(&p_avail, request, Role::Prefill);
-    let d_pick = state.policy.pick(&d_avail, request, Role::Decode);
+    let (p_pick, p_session) = state.sessions.pick(
+        state.policy.as_ref(),
+        &p_avail,
+        request,
+        Role::Prefill,
+        model,
+        session,
+    );
+    let (d_pick, d_session) = state.sessions.pick(
+        state.policy.as_ref(),
+        &d_avail,
+        request,
+        Role::Decode,
+        model,
+        session,
+    );
     let p = p_pick.target;
     let d = d_pick.target;
     if p.worker.request_transport != d.worker.request_transport {
+        for lease in [&p_session, &d_session].into_iter().flatten() {
+            lease.invalidate();
+        }
         return json_error(
             StatusCode::SERVICE_UNAVAILABLE,
             "prefill and decode workers use different request transports",
@@ -92,75 +111,91 @@ pub async fn dispatch(
             (p.route_key(), p_pick.blocks),
             (d.route_key(), d_pick.blocks),
         ],
-    );
+    )
+    .with_sessions(p_session, d_session);
 
-    let proto = match protocol::resolve_pd_protocol(&p.worker, &d.worker) {
-        Ok(pr) => pr,
-        Err(e) => return json_error(StatusCode::NOT_IMPLEMENTED, &e.to_string()),
-    };
-
-    let base: Map<String, Value> = match serde_json::from_slice::<Value>(&raw) {
-        Ok(Value::Object(m)) => m,
-        Ok(_) => return json_error(StatusCode::BAD_REQUEST, "body must be a JSON object"),
-        Err(e) => return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}")),
-    };
-
-    let room = dp::align_room_to_prefill_rank(rand::random::<u64>() >> 1, &p);
-
-    let mut p_body = base.clone();
-    let mut d_body = base;
-    let shaped = match proto {
-        // SGLang: both legs carry the SAME top-level bootstrap fields.
-        protocol::PdProtocol::SglangBootstrap => {
-            protocol::annotate_sglang(&mut p_body, &p.worker, path, room)
-                .and_then(|_| protocol::annotate_sglang(&mut d_body, &p.worker, path, room))
-        }
-        // vLLM Mooncake: ASYMMETRIC — prefill runs prefill+1tok & pushes KV; decode
-        // pulls it via the prefill's bootstrap and generates the rest.
-        protocol::PdProtocol::VllmMooncake => {
-            protocol::annotate_vllm_prefill(&mut p_body, path, room);
-            protocol::annotate_vllm_decode(&mut d_body, &p.worker, path, room)
-        }
-    };
-    if let Err(e) = shaped {
-        return json_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
-    }
-    // Tell the decode worker which prefill DP rank holds its KV.
-    if let Some(rank) = p.dp_rank {
-        d_body.insert("disagg_prefill_dp_rank".into(), Value::from(rank));
-    }
-
-    // Both legs over NATS only when both workers registered for it. The KV
-    // transfer is engine-to-engine either way (the bootstrap_room travels in
-    // the bodies), so the delivery channel is all that changes.
-    if let Some(nats) = state.nats.clone() {
-        if p.worker.request_transport == "nats" && d.worker.request_transport == "nats" {
-            // Either leg being at its backlog limit refuses the whole request:
-            // dispatching half a PD pair would leave the other worker holding a
-            // bootstrap_room nobody completes.
-            if !(nats.admit(&p.worker.worker_id).await && nats.admit(&d.worker.worker_id).await) {
-                drop(guard);
-                return Response::builder()
-                    .status(StatusCode::TOO_MANY_REQUESTS)
-                    .header(header::CONTENT_TYPE, "application/json")
-                    .header("Retry-After", "1")
-                    .body(Body::from(
-                        r#"{"error":"PD worker request backlog over limit"}"#,
-                    ))
-                    .expect("429 response is valid");
+    async {
+        let proto = match protocol::resolve_pd_protocol(&p.worker, &d.worker) {
+            Ok(pr) => pr,
+            Err(e) => {
+                guard.invalidate_sessions();
+                return json_error(StatusCode::NOT_IMPLEMENTED, &e.to_string());
             }
-            return dual_nats(state, &nats, &p, &d, path, p_body, d_body, stream, guard).await;
+        };
+
+        let base: Map<String, Value> = match serde_json::from_slice::<Value>(&raw) {
+            Ok(Value::Object(m)) => m,
+            Ok(_) => {
+                guard.invalidate_sessions();
+                return json_error(StatusCode::BAD_REQUEST, "body must be a JSON object");
+            }
+            Err(e) => {
+                guard.invalidate_sessions();
+                return json_error(StatusCode::BAD_REQUEST, &format!("bad json: {e}"));
+            }
+        };
+
+        let room = dp::align_room_to_prefill_rank(rand::random::<u64>() >> 1, &p);
+
+        let mut p_body = base.clone();
+        let mut d_body = base;
+        let shaped = match proto {
+            // SGLang: both legs carry the SAME top-level bootstrap fields.
+            protocol::PdProtocol::SglangBootstrap => {
+                protocol::annotate_sglang(&mut p_body, &p.worker, path, room)
+                    .and_then(|_| protocol::annotate_sglang(&mut d_body, &p.worker, path, room))
+            }
+            // vLLM Mooncake: ASYMMETRIC — prefill runs prefill+1tok & pushes KV; decode
+            // pulls it via the prefill's bootstrap and generates the rest.
+            protocol::PdProtocol::VllmMooncake => {
+                protocol::annotate_vllm_prefill(&mut p_body, path, room);
+                protocol::annotate_vllm_decode(&mut d_body, &p.worker, path, room)
+            }
+        };
+        if let Err(e) = shaped {
+            guard.invalidate_sessions();
+            return json_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+        }
+        // Tell the decode worker which prefill DP rank holds its KV.
+        if let Some(rank) = p.dp_rank {
+            d_body.insert("disagg_prefill_dp_rank".into(), Value::from(rank));
+        }
+
+        // Both legs over NATS only when both workers registered for it. The KV
+        // transfer is engine-to-engine either way (the bootstrap_room travels in
+        // the bodies), so the delivery channel is all that changes.
+        if let Some(nats) = state.nats.clone() {
+            if p.worker.request_transport == "nats" && d.worker.request_transport == "nats" {
+                // Either leg being at its backlog limit refuses the whole request:
+                // dispatching half a PD pair would leave the other worker holding a
+                // bootstrap_room nobody completes.
+                if !(nats.admit(&p.worker.worker_id).await && nats.admit(&d.worker.worker_id).await)
+                {
+                    guard.invalidate_sessions();
+                    drop(guard);
+                    return Response::builder()
+                        .status(StatusCode::TOO_MANY_REQUESTS)
+                        .header(header::CONTENT_TYPE, "application/json")
+                        .header("Retry-After", "1")
+                        .body(Body::from(
+                            r#"{"error":"PD worker request backlog over limit"}"#,
+                        ))
+                        .expect("429 response is valid");
+                }
+                return dual_nats(state, &nats, &p, &d, path, p_body, d_body, stream, guard).await;
+            }
+        }
+
+        let p_url = format!("{}{}", p.worker.url, path);
+        let d_url = format!("{}{}", d.worker.url, path);
+
+        if stream {
+            stream_dual(state, &p, &d, path, p_url, d_url, p_body, d_body, guard).await
+        } else {
+            unary_dual(state, &p, &d, p_url, d_url, p_body, d_body, guard).await
         }
     }
-
-    let p_url = format!("{}{}", p.worker.url, path);
-    let d_url = format!("{}{}", d.worker.url, path);
-
-    if stream {
-        stream_dual(state, &p, &d, path, p_url, d_url, p_body, d_body, guard).await
-    } else {
-        unary_dual(state, &p, &d, p_url, d_url, p_body, d_body, guard).await
-    }
+    .await
 }
 
 /// Streaming: fire prefill in the background, stream decode back.
@@ -174,7 +209,7 @@ async fn stream_dual(
     d_url: String,
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     let rid = p_body
         .get("rid")
@@ -191,6 +226,7 @@ async fn stream_dual(
         p_url,
         p_body,
         p.dp_rank,
+        guard.take_prefill_session(),
     );
     watch_prefill_after_decode(
         incomplete_rx,
@@ -231,6 +267,7 @@ async fn stream_dual(
             let mut t = tracker;
             t.set_outcome("error");
             t.finish();
+            guard.invalidate_sessions();
             json_error(StatusCode::BAD_GATEWAY, &msg)
         }
     }
@@ -249,7 +286,7 @@ async fn unary_dual(
     guard: ActiveGuard,
 ) -> Response {
     // Held until both legs finish (dropped at fn end) -> on_request_finished.
-    let _guard = guard;
+    let mut _guard = guard;
     let mut tracker = crate::metrics::RequestTracker::start_disagg(
         &d.worker.model_name,
         &p.worker.worker_id,
@@ -275,11 +312,17 @@ async fn unary_dual(
     let (p_res, d_res) = tokio::join!(p_fut, d_fut);
     let mut pair_failed = false;
 
+    let prefill_session = _guard.take_prefill_session();
     // Prefill: drain + log; its output is discarded (KV goes engine→engine).
     match p_res {
         Ok(resp) => {
             let st = resp.status();
-            let _ = resp.bytes().await;
+            let failed = resp.bytes().await.is_err() || !st.is_success();
+            if failed {
+                if let Some(lease) = &prefill_session {
+                    lease.invalidate();
+                }
+            }
             if st.is_client_error() || st.is_server_error() {
                 tracing::warn!(
                     "prefill {} returned {} (decode may hang)",
@@ -297,15 +340,22 @@ async fn unary_dual(
             }
         }
         Err(e) => {
+            if let Some(lease) = &prefill_session {
+                lease.invalidate();
+            }
             tracing::warn!("prefill {} failed: {e}", p_url);
             pair_failed = true;
             state.breaker.record_failure(&p.worker.worker_id);
         }
     }
 
+    drop(prefill_session);
     let response = match d_res {
         Ok(resp) => {
             let st = resp.status();
+            if !st.is_success() {
+                _guard.invalidate_sessions();
+            }
             if is_worker_fault(st.as_u16()) {
                 pair_failed = true;
                 state.breaker.record_failure(&d.worker.worker_id);
@@ -347,6 +397,7 @@ async fn unary_dual(
                 }
                 Err(e) => {
                     tracker.set_outcome("error");
+                    _guard.invalidate_sessions();
                     json_error(
                         StatusCode::BAD_GATEWAY,
                         &format!("decode {} read failed: {e}", d.worker.worker_id),
@@ -355,6 +406,7 @@ async fn unary_dual(
             }
         }
         Err(e) => {
+            _guard.invalidate_sessions();
             pair_failed = true;
             state.breaker.record_failure(&d.worker.worker_id);
             tracker.set_outcome("error");
@@ -391,7 +443,7 @@ async fn dual_nats(
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
     stream: bool,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     let rid = p_body
         .get("rid")
@@ -409,6 +461,7 @@ async fn dual_nats(
         state.breaker.clone(),
         p.worker.worker_id.clone(),
         p_payload,
+        guard.take_prefill_session(),
     );
     watch_prefill_after_decode(
         incomplete_rx,
@@ -437,10 +490,12 @@ async fn dual_nats(
         &d.worker.worker_id,
     );
 
+    let bindings = guard.session_bindings();
     let wid = d.worker.worker_id.clone();
     let mut reply = match nats.dispatch(&wid, &d_payload).await {
         Ok(r) => r,
         Err(e) => {
+            guard.invalidate_sessions();
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
             // Same 502 as the Python path; keep outcome labels aligned.
@@ -459,7 +514,9 @@ async fn dual_nats(
         let mut status = StatusCode::OK;
         let mut done_seen = false;
         loop {
-            match reply.next().await {
+            let frame = reply.next().await;
+            crate::session_affinity::observe_reply(frame.as_ref(), &bindings);
+            match frame {
                 Some(Frame::Data(b)) => buf.extend_from_slice(&b),
                 Some(Frame::Done { status: s }) => {
                     status = StatusCode::from_u16(s).unwrap_or(StatusCode::OK);
@@ -534,16 +591,18 @@ async fn dual_nats(
     // included in the request duration.
     let breaker = state.breaker.clone();
     let body = futures::stream::unfold(
-        (Some(reply), breaker, wid, false, false),
-        |(reply, breaker, wid, served, fail_after_chunk)| async move {
+        (Some(reply), breaker, wid, false, false, bindings),
+        |(reply, breaker, wid, served, fail_after_chunk, bindings)| async move {
             if fail_after_chunk {
                 return Some((
                     Err(std::io::Error::other("decode NATS stream failed")),
-                    (None, breaker, wid, served, false),
+                    (None, breaker, wid, served, false, bindings),
                 ));
             }
             let mut r = reply?;
-            match r.next().await {
+            let frame = r.next().await;
+            crate::session_affinity::observe_reply(frame.as_ref(), &bindings);
+            match frame {
                 Some(Frame::Data(b)) => {
                     if !served && !b.is_empty() {
                         // Bytes are flowing, so this worker is doing the work.
@@ -552,7 +611,7 @@ async fn dual_nats(
                     let served = served || !b.is_empty();
                     Some((
                         Ok::<Bytes, std::io::Error>(b),
-                        (Some(r), breaker, wid, served, false),
+                        (Some(r), breaker, wid, served, false, bindings),
                     ))
                 }
                 Some(Frame::Error { message, .. }) => {
@@ -566,20 +625,22 @@ async fn dual_nats(
                     let chunk = Bytes::from(format!(
                         "data: {{\"error\":\"decode {wid} nats stream failed\"}}\n\n"
                     ));
-                    Some((Ok(chunk), (None, breaker, wid, served, true)))
+                    Some((Ok(chunk), (None, breaker, wid, served, true, bindings)))
                 }
                 Some(Frame::Done { status }) => {
                     score_leg(&breaker, &wid, status);
                     match nats_stream_end(Some(status)) {
                         Ok(()) => None,
-                        Err(error) => Some((Err(error), (None, breaker, wid, served, false))),
+                        Err(error) => {
+                            Some((Err(error), (None, breaker, wid, served, false, bindings)))
+                        }
                     }
                 }
                 None => {
                     breaker.record_failure(&wid);
                     Some((
                         Err(nats_stream_end(None).expect_err("missing done must fail")),
-                        (None, breaker, wid, served, false),
+                        (None, breaker, wid, served, false, bindings),
                     ))
                 }
             }
@@ -633,8 +694,11 @@ fn spawn_prefill_drain_nats(
     breaker: Arc<CircuitBreaker>,
     worker_id: String,
     payload: Vec<u8>,
+    session: Option<crate::session_affinity::Lease>,
 ) -> JoinHandle<()> {
-    tokio::spawn(drain_prefill_nats(nats, breaker, worker_id, payload))
+    tokio::spawn(drain_prefill_nats(
+        nats, breaker, worker_id, payload, session,
+    ))
 }
 
 async fn drain_prefill_nats(
@@ -642,17 +706,24 @@ async fn drain_prefill_nats(
     breaker: Arc<CircuitBreaker>,
     worker_id: String,
     payload: Vec<u8>,
+    session: Option<crate::session_affinity::Lease>,
 ) {
+    let bindings: Vec<_> = session.iter().map(|s| s.binding()).collect();
     let mut reply = match nats.dispatch(&worker_id, &payload).await {
         Ok(r) => r,
         Err(e) => {
+            if let Some(s) = &session {
+                s.invalidate();
+            }
             tracing::warn!("prefill (nats) {worker_id} failed: {e} (decode may hang on KVPoll)");
             breaker.record_failure(&worker_id);
             return;
         }
     };
     loop {
-        match reply.next().await {
+        let frame = reply.next().await;
+        crate::session_affinity::observe_reply(frame.as_ref(), &bindings);
+        match frame {
             Some(Frame::Data(_)) => {}
             Some(Frame::Done { status }) => {
                 if !StatusCode::from_u16(status).is_ok_and(|s| s.is_success()) {
@@ -702,9 +773,10 @@ fn spawn_prefill_drain(
     url: String,
     body: Map<String, Value>,
     dp_rank: Option<i64>,
+    session: Option<crate::session_affinity::Lease>,
 ) -> JoinHandle<()> {
     tokio::spawn(drain_prefill_http(
-        http, breaker, worker_id, url, body, dp_rank,
+        http, breaker, worker_id, url, body, dp_rank, session,
     ))
 }
 
@@ -715,6 +787,7 @@ async fn drain_prefill_http(
     url: String,
     body: Map<String, Value>,
     dp_rank: Option<i64>,
+    session: Option<crate::session_affinity::Lease>,
 ) {
     let mut req = http.post(&url).json(&Value::Object(body));
     if let Some(r) = dp_rank {
@@ -723,7 +796,12 @@ async fn drain_prefill_http(
     match req.send().await {
         Ok(resp) => {
             let st = resp.status();
-            let _ = resp.bytes().await;
+            let failed = resp.bytes().await.is_err() || !st.is_success();
+            if failed {
+                if let Some(s) = &session {
+                    s.invalidate();
+                }
+            }
             if st.is_client_error() || st.is_server_error() {
                 tracing::warn!(
                     "prefill {url} returned {} (decode may hang on KVPoll)",
@@ -739,6 +817,9 @@ async fn drain_prefill_http(
             }
         }
         Err(e) => {
+            if let Some(s) = &session {
+                s.invalidate();
+            }
             tracing::warn!("prefill {url} failed: {e} (decode may hang on KVPoll)");
             breaker.record_failure(&worker_id);
         }

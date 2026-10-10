@@ -25,7 +25,7 @@ use crate::pool::{expand_targets, RouteTarget, Worker};
 
 /// PD role of the pool being picked from. The disagg router passes Prefill /
 /// Decode so a cost-aware policy can weight cache locality by role.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
 pub enum Role {
     Prefill,
     Decode,
@@ -52,7 +52,16 @@ pub struct Pick {
 
 pub trait Policy: Send + Sync {
     /// Pick one target. Callers guarantee `candidates` is non-empty.
-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick;
+    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
+        self.pick_targets(&expand_targets(candidates), request, role)
+    }
+
+    fn pick_targets(&self, targets: &[RouteTarget], request: &Value, role: Role) -> Pick;
+
+    /// Constrain selection without rewriting worker identity or rank bookkeeping.
+    fn pick_target(&self, target: &RouteTarget, request: &Value, role: Role) -> Pick {
+        self.pick_targets(std::slice::from_ref(target), request, role)
+    }
 
     /// Mark a request in-flight on `route_key` (increments the load term).
     fn on_request_started(&self, _route_key: &str, _blocks: &[u64]) {}
@@ -101,14 +110,52 @@ pub trait Policy: Send + Sync {
 pub struct ActiveGuard {
     policy: Arc<dyn Policy>,
     entries: Vec<(String, Vec<u64>)>,
+    prefill_session: Option<crate::session_affinity::Lease>,
+    decode_session: Option<crate::session_affinity::Lease>,
 }
 
 impl ActiveGuard {
+    pub fn with_sessions(
+        mut self,
+        prefill: Option<crate::session_affinity::Lease>,
+        decode: Option<crate::session_affinity::Lease>,
+    ) -> Self {
+        self.prefill_session = prefill;
+        self.decode_session = decode;
+        self
+    }
+
+    pub fn session_bindings(&self) -> Vec<crate::session_affinity::Binding> {
+        [&self.prefill_session, &self.decode_session]
+            .into_iter()
+            .flatten()
+            .map(|l| l.binding())
+            .collect()
+    }
+
+    pub fn invalidate_sessions(&self) {
+        for lease in [&self.prefill_session, &self.decode_session]
+            .into_iter()
+            .flatten()
+        {
+            lease.invalidate();
+        }
+    }
+
+    pub(crate) fn take_prefill_session(&mut self) -> Option<crate::session_affinity::Lease> {
+        self.prefill_session.take()
+    }
+
     pub fn start(policy: Arc<dyn Policy>, entries: Vec<(String, Vec<u64>)>) -> Self {
         for (k, b) in &entries {
             policy.on_request_started(k, b);
         }
-        ActiveGuard { policy, entries }
+        ActiveGuard {
+            policy,
+            entries,
+            prefill_session: None,
+            decode_session: None,
+        }
     }
 }
 
@@ -143,8 +190,7 @@ impl Default for RoundRobin {
 }
 
 impl Policy for RoundRobin {
-    fn pick(&self, candidates: &[Arc<Worker>], _request: &Value, role: Role) -> Pick {
-        let targets = expand_targets(candidates);
+    fn pick_targets(&self, targets: &[RouteTarget], _request: &Value, role: Role) -> Pick {
         let key: Vec<String> = targets.iter().map(|t| t.route_key()).collect();
         let mut counters = self.counters.lock().expect("policy counter mutex poisoned");
         let idx = counters.entry(key).or_insert(0);
@@ -497,10 +543,7 @@ impl KvEventAwarePolicy {
 }
 
 impl Policy for KvEventAwarePolicy {
-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
-        // Fan out rank-multiplexed workers so each DP rank is scored separately.
-        let targets = expand_targets(candidates);
-
+    fn pick_targets(&self, targets: &[RouteTarget], request: &Value, role: Role) -> Pick {
         // Hash the request once per distinct (block_size, render variant).
         //
         // Both halves are usually 1. A model has one page size, and a fleet
@@ -525,7 +568,7 @@ impl Policy for KvEventAwarePolicy {
         let base = crate::responses_input::normalised(request);
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
         let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
-        for t in &targets {
+        for t in targets {
             let key = match t.worker.kv_block_size {
                 Some(bs) if bs > 0 => {
                     let variant = self.variants.for_worker(&t.worker.worker_id);
@@ -746,6 +789,53 @@ mod tests {
             }))
             .unwrap(),
         )
+    }
+
+    #[test]
+    fn session_pins_keep_the_original_rank_cache_and_load_keys() {
+        use crate::session_affinity::{Mode, Sessions};
+        let sessions = Sessions::new(Mode::Prefill, std::time::Duration::from_secs(60), 16);
+        let kv = Arc::new(KvEventClient::new());
+        let policy = Arc::new(KvEventAwarePolicy::new(
+            kv,
+            BlockHasher::disabled(),
+            20.0,
+            None,
+            None,
+        ));
+        let workers = vec![worker("w", 16, Some(8))];
+        let (first, lease) = sessions.pick(
+            policy.as_ref(),
+            &workers,
+            &json!({}),
+            Role::Prefill,
+            "m",
+            Some("session"),
+        );
+        let key = first.target.route_key();
+        assert!(key.contains("#dp"));
+        let guard = ActiveGuard::start(policy.clone(), vec![(key.clone(), vec![1, 2])])
+            .with_sessions(lease, None);
+        let (second, lease) = sessions.pick(
+            policy.as_ref(),
+            &workers,
+            &json!({}),
+            Role::Prefill,
+            "m",
+            Some("session"),
+        );
+        assert_eq!(second.target.route_key(), key);
+        let second_guard = ActiveGuard::start(
+            policy.clone(),
+            vec![(second.target.route_key(), vec![2, 3])],
+        )
+        .with_sessions(lease, None);
+        assert_eq!(policy.active_len(&key), 3);
+        assert_eq!(policy.active_len("w"), 0);
+        drop(guard);
+        assert_eq!(policy.active_len(&key), 2);
+        drop(second_guard);
+        assert_eq!(policy.active_len(&key), 0);
     }
 
     /// The router asks the worker to repair itself, rather than only logging.

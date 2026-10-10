@@ -83,3 +83,35 @@ something to patch. Run `ais-check` inside the container on an MI355X
 host to confirm the kernel exposes P2PDMA — otherwise hipFile falls back to a
 CPU bounce (still works, just slower).
 ```
+
+### Optional session affinity in the Rust router
+
+Set `INFERA_SESSION_AFFINITY` on the Rust router:
+
+| Value | Behavior |
+|---|---|
+| `off` (default) | Ignore session affinity and use the configured routing policy. |
+| `prefill` | Keep each session on its selected Prefill worker/rank; choose Decode normally. |
+| `both` | Keep independent Prefill and Decode targets; also pin aggregated workers. |
+
+Clients opt in per request with `X-Dynamo-Session-ID`. The ID is scoped by model
+and role; it is not added to model input. Requests without the header keep
+normal routing. Enabled modes reject duplicate, empty or over-1024-byte IDs.
+Prefill and Decode rank numbers need not match.
+
+`INFERA_SESSION_AFFINITY_TTL_SECS` is the idle lifetime (default 3600, allowed
+1–86400 seconds). Active request leases prevent idle expiry. A changed or
+unavailable target is reselected; failed requests and failed upstream streams
+invalidate the affected binding. An old failure callback cannot delete a newer
+binding. Bound requests still perform cache lookup and normal load accounting.
+
+Bindings live in one Router process, with a limit of 65,536 model/session/role
+entries. At capacity, new entries fall back to normal routing; active bindings
+are not evicted. Restarting the router loses bindings. Multiple router replicas
+need their own ingress affinity if cross-request consistency is required.
+
+This option changes placement, not cache allocation. Decode affinity is most
+useful when the engine can retain and reuse Decode prefixes, but does not itself
+enable radix cache or guarantee better throughput. The Python router is
+unchanged. Session active-lease, hit and selection counters are exposed through
+`infera_router_session_*` metrics, with role labels and no session-ID labels.
