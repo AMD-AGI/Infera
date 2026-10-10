@@ -1,0 +1,23 @@
+{
+  "completed_requests": 8881,
+  "requests_with_local_prefix_event": 8881,
+  "event_coverage": 1.0,
+  "requests_with_reuse": 1981,
+  "requests_with_multiple_allocations": 1,
+  "input_tokens_last_allocation": 995664752,
+  "prefix_tokens_last_allocation": 91062016,
+  "logical_transfer_tokens_all_allocations": 904723895,
+  "prefix_tokens_distribution": {
+    "n": 8881,
+    "mean": 10253.57684945389,
+    "p50": 0.0,
+    "p90": 29504.0,
+    "p99": 127808.00000000023,
+    "max": 675904
+  },
+  "limits": [
+    "Prefix tokens are selected by the D allocator and carried in the PD protocol; not measured RDMA bytes.",
+    "Only completed profiling requests are included. Retried allocations are counted separately.",
+    "D request-summary cached_device/host fields include forwarded P statistics and are not used here."
+  ]
+}

@@ -60,6 +60,8 @@
 | 04:40 | 135/138 | 准备 | 新增 `B4_DECODE_GPUS`（D 用 135 GPU 4–7，NUMA 1；Mooncake 按物理 NUMA 给 GPU 固定本地网卡，GPU 4–7→ionic_4–7）、`B4_R2`、135 的 IP；镜像 138→135（`e13b5843…`，`image-transfer-138-to-135.log`）；kernel/AITER 缓存 136→138（P TP8）、138→135（D TP4） |
 | 04:42–04:52 | 138/135 | P8D4 + R2（P 138、D 135 GPU 4–7）`run6-p8d4-r2-138-135.log` | 配置生效（D TP4、HIP 4–7、R2 on、亲和 prefill）。gate 首个请求 HTTP 500：135 的 ionic_7 没有网卡接口、GID index 1 全 0（`Failed to modify QP to RTR … No such device`），D rank 3（GPU 7 固定 ionic_7）不可达。平台问题，需报 IT。已停止编排进程并删除容器，此轮作废 |
 | 06:31 | — | 用户与 limou 协商后决定用 137（P）+ 135（D） | 137 limou 容器已停、8 卡空闲、8 张网卡正常；镜像 135→137（`image-transfer-135-to-137.log`，`e13b5843…`）；P TP8 kernel/AITER 缓存 138→137 |
+| 06:36–08:21 | 137/135 | P8D4 + R2（`run7-p8d4-r2-137-135.log`） | D 网卡白名单 `ionic_0…6`、HIP 0,4,5,6、R2 on、亲和 prefill；0 传输错误；答案检查 128/128 对（难题重放 4/8 错）；正式窗口 07:14:13–08:14:42：完成 8,881、取消 37、错误 0；08:21 自动收尾 |
+| 08:30 | 登录节点 | 分析 | Total token/s/GPU 23,051（P8D8 22,521，+2.4%），Output 191.3；D rank 占用 83.5–84.0%，一热一冷 0.2%；瓶颈转为总容量。见 `../P8D4-OPTIMIZATION.zh-CN.md` 第 7 节 |
 | 08:20 | 登录节点 | 分析 | 见 `../RESULT-P8D4.zh-CN.md`：D KV 容量不足（1,597 个请求等分配，D 复用 89%→35%），完成 −31.5%，每 GPU Output −8.8%、Total −14.5% |
 
 ### 第三轮答案检查的结论
