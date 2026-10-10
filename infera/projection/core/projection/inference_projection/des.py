@@ -443,18 +443,27 @@ def _generate_arrivals(
     return out
 
 
-def _sample_accepted(rng: random.Random, k: int, accept: float, cap: int) -> int:
+def _sample_accepted(
+    rng: random.Random, k: int, accept: float, cap: int, rates: list[float] | None = None
+) -> int:
     """Tokens committed in one verify step under speculative decoding.
 
     Bonus token (always) + a run of accepted drafts until the first rejection
     (each accepted independently w.p. ``accept``), capped at ``k+1`` and at the
     remaining ``cap`` tokens. Reproduces the per-step *variable-commit* variance
-    that the analytical scalar-expectation model averages away.
+    that the analytical scalar-expectation model averages away. ``rates``, from
+    the analytical drafter, gives each draft position its own conditional rate.
     """
     if k <= 0:
         return min(1, cap) if cap > 0 else 1
     accepted = 1
-    if accept >= 1.0:
+    if rates is not None:
+        for r in rates[:k]:
+            if rng.random() < r:
+                accepted += 1
+            else:
+                break
+    elif accept >= 1.0:
         accepted = k + 1
     else:
         for _ in range(k):
@@ -589,6 +598,12 @@ def simulate_once(
     max_model_len = max(2, int(req.resolved_max_context_len()))
     spec_k = int(req.speculative_num_tokens or 0)
     accept = float(req.speculative_acceptance_rate or 0.0)
+    spec_rates = None
+    schedule = (
+        projector.speculative_schedule() if hasattr(projector, "speculative_schedule") else None
+    )
+    if schedule is not None:
+        spec_k, spec_rates = schedule
     q_len = (spec_k + 1) if spec_k > 0 else 1
     kv_pool = int(kv_cache_tokens or 0)  # 0 = unlimited
 
@@ -963,7 +978,7 @@ def simulate_once(
                 cap = r.output_len - r.generated
                 if cap <= 0:
                     continue
-                acc = _sample_accepted(rng, spec_k, accept, cap)
+                acc = _sample_accepted(rng, spec_k, accept, cap, spec_rates)
                 r.generated += acc
                 gap = (now - r.last_emit_ms) if r.last_emit_ms >= 0 else step_dt
                 r.last_emit_ms = now
@@ -1784,6 +1799,12 @@ def simulate_disaggregated(
     max_model_len = max(2, int(req.resolved_max_context_len()))
     spec_k = int(req.speculative_num_tokens or 0)
     accept = float(req.speculative_acceptance_rate or 0.0)
+    spec_rates = None
+    schedule = (
+        projector.speculative_schedule() if hasattr(projector, "speculative_schedule") else None
+    )
+    if schedule is not None:
+        spec_k, spec_rates = schedule
     q_len = (spec_k + 1) if spec_k > 0 else 1
 
     disagg = inference_config.disaggregation_config
@@ -2022,7 +2043,7 @@ def simulate_disaggregated(
         for r in d_running[k]:
             cap = r.output_len - r.generated
             if cap > 0:
-                acc = _sample_accepted(rng, spec_k, accept, cap)
+                acc = _sample_accepted(rng, spec_k, accept, cap, spec_rates)
                 r.generated += acc
                 r.itls.extend([dt / acc] * acc)
             if r.generated >= r.output_len:

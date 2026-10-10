@@ -3194,20 +3194,224 @@ class InferencePerformanceProjector:
         w = (batch - lo) / (hi - lo)
         return floor[lo] * (1.0 - w) + floor[hi] * w
 
-    def _draft_overhead_ms(self, per_token_step_ms: float) -> float:
+    def _draft_overhead_ms(
+        self,
+        per_token_step_ms: float,
+        *,
+        batch: int | None = None,
+        kv_len: int | None = None,
+        spec_k: int | None = None,
+    ) -> float:
         """Speculative draft-model forward cost added to a verify step.
 
         The draft runs ``speculative_num_tokens`` times per verify step; each
         draft pass costs ``speculative_draft_cost_factor`` of one target decode
         token.  ``0`` for either knob is a no-op (legacy behaviour that only
         credited the accepted-token speedup).
+
+        With an analytical drafter (``_drafter``) and the step's shape given,
+        the draft is its own forward instead -- ``_drafter_ms``.
         """
+        if batch is not None and self._drafter() is not None:
+            k = self._spec_k() if spec_k is None else int(spec_k)
+            return self._drafter_ms(batch, kv_len or 1, k)
         req = self.cfg.request_config
         spec_k = int(req.speculative_num_tokens or 0)
         dcf = float(req.speculative_draft_cost_factor or 0.0)
         if spec_k > 0 and dcf > 0.0:
             return dcf * spec_k * max(0.0, per_token_step_ms)
         return 0.0
+
+    def _drafter(self):
+        """The analytical drafter, or ``None`` where speculation is priced as before.
+
+        Simulate mode only. A measured anchor already ran the draft it was
+        served with, and both its cost and its acceptance are in the number.
+        """
+        req = self.cfg.request_config
+        method = getattr(req, "speculative_method", None)
+        if not method or int(req.speculative_num_tokens or 0) <= 0 or self._measured_mode:
+            return None
+        cached = self.__dict__.get("_drafter_shape")
+        if cached is not None:
+            return cached[0]
+        from .speculative import canonical_method, drafter_for
+
+        d = None
+        if canonical_method(method) is None:
+            print(
+                f"[inferasim:Inference] WARNING: speculative method {method!r} is not "
+                f"one the drafter model knows; pricing speculation the legacy way."
+            )
+        else:
+            mc = self.cfg.model_config
+            d = drafter_for(
+                method,
+                target_vocab=int(getattr(mc, "padded_vocab_size", 0) or 0),
+                mtp_layers=int(getattr(mc, "mtp_num_layers", 0) or 0),
+                mtp_window=self._mtp_window(),
+                layers=int(getattr(req, "speculative_draft_layers", 0) or 0) or None,
+                vocab=int(getattr(req, "speculative_draft_vocab", 0) or 0) or None,
+                window=getattr(req, "speculative_draft_window", None),
+            )
+        self._drafter_shape = (d,)
+        return d
+
+    def _mtp_window(self) -> int:
+        """Attention window of the checkpoint's own MTP head (0 = full context).
+
+        A compression schedule that runs past the stack names the MTP head's
+        layer too, and on DeepSeek-V4 that entry is 0: a sliding-window layer
+        over the model's window, not a read of the whole context.
+        """
+        from infera.projection.core.projection.training_config import parse_compress_ratios
+
+        mc = self.cfg.model_config
+        sched = parse_compress_ratios(mc) or []
+        n = int(getattr(mc, "num_layers", 0) or 0)
+        mtp = int(getattr(mc, "mtp_num_layers", 0) or 0)
+        tail = sched[n : n + mtp]
+        if mtp and len(tail) == mtp and all(int(x) == 0 for x in tail):
+            return int(
+                getattr(mc, "attn_sliding_window", 0) or getattr(mc, "sink_sliding_window", 0) or 0
+            )
+        return 0
+
+    def _drafter_ms(self, batch: int, kv_len: int, spec_k: int) -> float:
+        """One verify step's draft, priced as the drafter's own forward.
+
+        A draft layer is a layer of the target's shape, so it is priced from
+        the target's own per-layer time at the draft's query width and
+        context, with its share of the activation casts and kernel occupancy.
+        An autoregressive drafter first extends over the tokens the last
+        verify committed, then runs one single-token pass per further draft,
+        each with its own LM head and sample. A parallel (block) drafter runs
+        its backbone once over the block and its serial head once per
+        position: a ``rank x vocab`` projection and a sample.
+        """
+        d = self._drafter()
+        k = int(spec_k)
+        if d is None or k <= 0 or d.layers <= 0:
+            return 0.0
+        b = max(1, int(batch))
+        kv = max(1, int(kv_len))
+        if d.window > 0:
+            kv = min(kv, d.window)
+        cache = self.__dict__.setdefault("_drafter_ms_cache", {})
+        key = (b, kv, k)
+        if key in cache:
+            return cache[key]
+
+        mc = self.cfg.model_config
+        n_layers = max(1, int(mc.num_layers))
+        occ_layer = self._decode_occupancy_ms() / n_layers
+
+        def body(ft) -> float:
+            dense, moe = ft.dense_layer_ms, ft.moe_layer_ms
+            if d.moe:
+                layer = moe if moe > 0.0 else dense
+            else:
+                layer = dense if dense > 0.0 else moe
+            return d.layers * (layer + ft.quant_ms / n_layers + occ_layer) + ft.embedding_ms
+
+        one = self._forward_times(b, 1, "decode", kv)
+        if d.parallel:
+            q = k + 1
+            blk = self._forward_times(b, q, "decode", kv)
+            total = body(blk) + blk.output_ms * d.vocab_fraction * k / q
+            if d.serial_head_rank > 0:
+                hidden = max(1, int(getattr(mc, "hidden_size", 0) or 1))
+                rank = min(1.0, d.serial_head_rank / hidden)
+                total += k * (one.output_ms * rank + one.sampling_ms)
+            else:
+                total += blk.sampling_ms * k / q
+        else:
+            from .speculative import acceptance_length
+
+            first_q = max(1, int(round(acceptance_length(self._spec_rates(k) or []))))
+            ext = self._forward_times(b, first_q, "decode", kv) if first_q > 1 else one
+            head = (one.output_ms + one.sampling_ms) * d.vocab_fraction
+            total = body(ext) + (k - 1) * body(one) + k * head
+        cache[key] = total
+        return total
+
+    def _spec_k(self) -> int:
+        """Draft depth the projection runs at.
+
+        ``speculative_num_tokens`` unless ``speculative_max_num_tokens`` asks
+        the analytical drafter to choose, in which case the choice is made
+        once, at the projected concurrency (``_best_spec_k``).
+        """
+        req = self.cfg.request_config
+        k = int(req.speculative_num_tokens or 0)
+        kmax = int(getattr(req, "speculative_max_num_tokens", 0) or 0)
+        if k <= 0 or kmax <= 0 or self._drafter() is None:
+            return k
+        auto = self.__dict__.get("_auto_spec_k")
+        if auto is None:
+            self._auto_spec_k = k
+            auto = self._best_spec_k(kmax)
+            self._auto_spec_k = auto
+        return auto
+
+    def _spec_rates(self, spec_k: int | None = None) -> list[float] | None:
+        """Conditional acceptance per draft position, or ``None`` without a drafter.
+
+        The configured ``speculative_acceptance_rate`` at
+        ``speculative_num_tokens`` is the drafter's measured level, and is
+        reproduced exactly there; ``speculative.acceptance_profile`` carries it
+        to other depths and entropy classes.
+        """
+        if self._drafter() is None:
+            return None
+        from .speculative import acceptance_profile, reference_from_rate
+
+        req = self.cfg.request_config
+        k = self._spec_k() if spec_k is None else int(spec_k)
+        ref = reference_from_rate(
+            int(req.speculative_num_tokens or 0), float(req.speculative_acceptance_rate or 0.0)
+        )
+        return acceptance_profile(
+            req.speculative_method,
+            k,
+            entropy=getattr(req, "speculative_entropy", None),
+            reference=ref,
+        )
+
+    def speculative_schedule(self) -> tuple[int, list[float]] | None:
+        """``(depth, per-position acceptance)`` under the analytical drafter."""
+        rates = self._spec_rates()
+        if rates is None:
+            return None
+        return self._spec_k(), rates
+
+    def _best_spec_k(self, kmax: int) -> int:
+        """The depth in ``0..kmax`` that emits the most tokens per step time.
+
+        Priced on the pure decode step at the projected concurrency and the
+        middle of the generation. Deeper drafts commit more tokens a step but
+        widen the verify and lengthen the draft, and which wins moves with the
+        batch: SPEED-Bench finds the best depth falls as a batch turns the
+        step compute-bound. Zero -- not speculating -- is a candidate.
+        """
+        from .speculative import acceptance_length
+
+        req = self.cfg.request_config
+        try:
+            conc = int(self._effective_concurrency()["concurrency"])
+        except Exception:  # noqa: BLE001 - the memory model needs a capacity
+            conc = int(req.resolved_max_concurrency())
+        b = max(1, conc)
+        ctx = max(1, int(req.input_seq_len or 1) + int(req.output_seq_len or 0) // 2)
+        best_k, best = 0, -1.0
+        for k in range(0, max(0, int(kmax)) + 1):
+            step = self._analytic_decode_step_ms(b, ctx, k + 1)
+            if step <= 0.0:
+                continue
+            rate = acceptance_length(self._spec_rates(k) or []) / step
+            if rate > best * (1.0 + 1e-9):
+                best_k, best = k, rate
+        return best_k
 
     def _measured_verify_step_scale(
         self, batch: int | None = None, context: float | None = None
@@ -3315,7 +3519,10 @@ class InferencePerformanceProjector:
         """The pure-simulate decode step, whatever mode the projector is in."""
         ft = self._forward_times(batch, q_len, "decode", kv_len)
         per_token = ft.total_ms / max(1, q_len)
-        step = ft.total_ms + self._draft_overhead_ms(per_token) + self._decode_step_overhead_ms()
+        draft = self._draft_overhead_ms(
+            per_token, batch=batch, kv_len=kv_len, spec_k=max(0, int(q_len) - 1)
+        )
+        step = ft.total_ms + draft + self._decode_step_overhead_ms()
         # Per-kernel GPU occupancy adds to the data-movement time rather than
         # capping it: the small latency-bound kernels of a decode layer run
         # alongside the large data-bound expert GEMMs, so both costs are paid.
@@ -3392,6 +3599,7 @@ class InferencePerformanceProjector:
         )
         dec_piece = (
             self._forward_times(num_decode, q_len, "decode", max(1, decode_ctx)).total_ms
+            + self._drafter_ms(num_decode, max(1, decode_ctx), max(0, int(q_len) - 1))
             if num_decode > 0
             else 0.0
         )
@@ -3408,11 +3616,13 @@ class InferencePerformanceProjector:
         if output_len <= 0:
             return 0.0
 
-        spec_k = int(self.cfg.request_config.speculative_num_tokens or 0)
+        spec_k = self._spec_k()
         accept = float(self.cfg.request_config.speculative_acceptance_rate or 0.0)
         q_len = (spec_k + 1) if spec_k > 0 else 1
         # Expected accepted tokens per verify step (geometric series).
-        if spec_k > 0 and 0.0 < accept < 1.0:
+        if self._drafter() is not None:
+            tokens_per_step = self._spec_tokens_per_step()
+        elif spec_k > 0 and 0.0 < accept < 1.0:
             tokens_per_step = (1.0 - accept ** (spec_k + 1)) / (1.0 - accept)
         elif spec_k > 0 and accept >= 1.0:
             tokens_per_step = spec_k + 1
@@ -3458,7 +3668,7 @@ class InferencePerformanceProjector:
         OSL = max(1, output_len)
         C = max(1, int(concurrency))
 
-        spec_k = int(req.speculative_num_tokens or 0)
+        spec_k = self._spec_k()
         q_len = (spec_k + 1) if spec_k > 0 else 1
         tok_per_step = max(1e-6, self._spec_tokens_per_step())
 
@@ -3556,11 +3766,20 @@ class InferencePerformanceProjector:
                 frac = i / (n_samples - 1) if n_samples > 1 else 0.0
                 ctx = int(ctx_lo + frac * (ctx_hi - ctx_lo))
                 pure_fwd = self._forward_times(C, q_len, "decode", ctx).total_ms
-                t_pure = pure_fwd + self._draft_overhead_ms(pure_fwd / max(1, q_len)) + ov + occ
+                t_pure = (
+                    pure_fwd
+                    + self._draft_overhead_ms(
+                        pure_fwd / max(1, q_len), batch=C, kv_len=ctx, spec_k=spec_k
+                    )
+                    + ov
+                    + occ
+                )
                 prefill_piece = self._forward_times(
                     1, chunk_tokens, "prefill", min(ctx, ISL)
                 ).total_ms
                 dec_piece = self._forward_times(max(1, C - 1), q_len, "decode", ctx).total_ms
+                # The running sequences draft on a mixed step too.
+                dec_piece += self._drafter_ms(max(1, C - 1), ctx, spec_k)
                 t_mixed = (prefill_piece + dec_piece) * (1.0 + penalty) + ov + occ
                 pure.append(t_pure)
                 mixed.append(t_mixed)
@@ -3767,6 +3986,12 @@ class InferencePerformanceProjector:
 
     def _spec_tokens_per_step(self) -> float:
         req = self.cfg.request_config
+        if getattr(req, "speculative_method", None):
+            rates = self._spec_rates()
+            if rates is not None:
+                from .speculative import acceptance_length
+
+                return acceptance_length(rates)
         spec_k = int(req.speculative_num_tokens or 0)
         accept = float(req.speculative_acceptance_rate or 0.0)
         if spec_k > 0 and 0.0 < accept < 1.0:
@@ -3837,7 +4062,7 @@ class InferencePerformanceProjector:
         if self._comm is None:
             return {}
         pb = prefill_batch if prefill_batch else batch
-        spec_k = int(self.cfg.request_config.speculative_num_tokens or 0)
+        spec_k = self._spec_k()
         q_len = (spec_k + 1) if spec_k > 0 else 1
         if self._measured_mode:
             # Measured layer times already contain their own overlap, so the
@@ -4041,7 +4266,7 @@ class InferencePerformanceProjector:
 
         conc = self._effective_concurrency()
         concurrency = conc["concurrency"]
-        spec_k = int(req.speculative_num_tokens or 0)
+        spec_k = self._spec_k()
         q_len = (spec_k + 1) if spec_k > 0 else 1
         replica_gpus = _replica_gpus(self.cfg)
 
@@ -4087,6 +4312,11 @@ class InferencePerformanceProjector:
         ttft += max(0.0, self.cfg.request_config.request_overhead_ms)
         extras = {"speculative_tokens_per_step": self._spec_tokens_per_step()}
         extras.update(conc["extras"])
+        if self._drafter() is not None:
+            extras["speculative_num_tokens_used"] = float(spec_k)
+            extras["speculative_draft_ms"] = self._drafter_ms(
+                concurrency, input_len + output_len // 2, spec_k
+            )
 
         if continuous:
             # Continuous batching: TPOT is the blended pure/mixed steady state.
@@ -4323,7 +4553,7 @@ class InferencePerformanceProjector:
         decode_batch = max(decode_loads)
         decode_total = decode_proj.decode_total_ms(decode_batch, input_len, output_len)
         mid_ctx = input_len + output_len // 2
-        spec_k = int(req.speculative_num_tokens or 0)
+        spec_k = decode_proj._spec_k()
         q_len = (spec_k + 1) if spec_k > 0 else 1
         step_latency = decode_proj._decode_step_latency_ms(decode_batch, mid_ctx, q_len=q_len)
 
@@ -4404,7 +4634,7 @@ class InferencePerformanceProjector:
         # extra tokens, and reported speculation as a throughput *loss* even as
         # per-request TPOT improved. The co-located path gets this from the
         # continuous-batching model's ``system_tps``.
-        spec_tokens = self._spec_tokens_per_step()
+        spec_tokens = decode_proj._spec_tokens_per_step()
         decode_tps = 0.0
         for load in decode_loads:
             latency = decode_proj._decode_step_latency_ms(load, mid_ctx, q_len=q_len)
@@ -4436,8 +4666,11 @@ class InferencePerformanceProjector:
         total_decode_gpus = decode_replica_gpus * max(1, disagg.decode_replicas)
         decode_tps_per_gpu = decode_tps / total_decode_gpus if total_decode_gpus else 0.0
 
-        extras = {"speculative_tokens_per_step": self._spec_tokens_per_step()}
+        extras = {"speculative_tokens_per_step": decode_proj._spec_tokens_per_step()}
         extras.update(conc["extras"])
+        if decode_proj._drafter() is not None:
+            extras["speculative_num_tokens_used"] = float(spec_k)
+            extras["speculative_draft_ms"] = decode_proj._drafter_ms(decode_batch, mid_ctx, spec_k)
         extras.update(
             decode_proj._comm_extras(decode_batch, input_len, output_len, prefill_batch=1)
         )

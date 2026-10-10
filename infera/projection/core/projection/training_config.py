@@ -505,6 +505,23 @@ class InferenceRequestConfig:
     # (0 disables) and the expected acceptance rate in [0, 1].
     speculative_num_tokens: int = 0
     speculative_acceptance_rate: float = 0.0
+    # The drafter, for a projection with no measurement of it (simulate mode).
+    # ``speculative_method`` (mtp / eagle3 / dspark / ngram / draft_model)
+    # turns on the analytical drafter in ``speculative.py``: the draft is
+    # priced from its own layers instead of ``speculative_draft_cost_factor``,
+    # and acceptance follows a per-position chain whose level is
+    # ``speculative_acceptance_rate`` at ``speculative_num_tokens`` when given.
+    # ``speculative_entropy`` moves that chain by the domain's entropy class
+    # (low / mixed / high, or a number on -1..1); unset is the mixed class.
+    # ``speculative_max_num_tokens`` > 0 lets the projector pick the draft
+    # depth up to that bound which emits the most tokens per unit of step time.
+    # The draft_* fields override the method's published drafter shape.
+    speculative_method: str | None = None
+    speculative_entropy: str | None = None
+    speculative_max_num_tokens: int = 0
+    speculative_draft_layers: int = 0
+    speculative_draft_vocab: int = 0
+    speculative_draft_window: int | None = None
 
     # ---- Serving / continuous-batching dynamics ----
     # How decode latency is modelled:
