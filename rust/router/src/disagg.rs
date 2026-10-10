@@ -174,7 +174,7 @@ async fn stream_dual(
     d_url: String,
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     let rid = p_body
         .get("rid")
@@ -184,6 +184,7 @@ async fn stream_dual(
     let n = sample_count(&p_body);
     let rid_for_log = rid.clone();
     let (incomplete_tx, incomplete_rx) = oneshot::channel();
+    let prefill_guard = take_prefill_guard(state, &mut guard);
     let drain_handle = spawn_prefill_drain(
         state.http.clone(),
         state.breaker.clone(),
@@ -191,6 +192,7 @@ async fn stream_dual(
         p_url,
         p_body,
         p.dp_rank,
+        prefill_guard,
     );
     watch_prefill_after_decode(
         incomplete_rx,
@@ -246,9 +248,9 @@ async fn unary_dual(
     d_url: String,
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
-    // Held until both legs finish (dropped at fn end) -> on_request_finished.
+    let prefill_guard = take_prefill_guard(state, &mut guard);
     let _guard = guard;
     let mut tracker = crate::metrics::RequestTracker::start_disagg(
         &d.worker.model_name,
@@ -270,37 +272,20 @@ async fn unary_dual(
     // engines hearing about it: they keep generating and hold their inflight
     // slots. The guard turns that drop into the abort the legs never got.
     let mut abort_on_disconnect = AbortPairOnDrop::arm(transport.clone(), rid.clone(), n);
-    let p_fut = post_leg(state, &p_url, p_body, p.dp_rank);
+    let p_fut = async {
+        let response = post_leg(state, &p_url, p_body, p.dp_rank).await;
+        if prefill_guard.is_some() {
+            let failed = finish_unary_prefill(state, p, &p_url, response).await;
+            drop(prefill_guard);
+            (None, failed)
+        } else {
+            (Some(response), false)
+        }
+    };
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
-    let (p_res, d_res) = tokio::join!(p_fut, d_fut);
-    let mut pair_failed = false;
-
-    // Prefill: drain + log; its output is discarded (KV goes engine→engine).
-    match p_res {
-        Ok(resp) => {
-            let st = resp.status();
-            let _ = resp.bytes().await;
-            if st.is_client_error() || st.is_server_error() {
-                tracing::warn!(
-                    "prefill {} returned {} (decode may hang)",
-                    p_url,
-                    st.as_u16()
-                );
-            }
-            if is_worker_fault(st.as_u16()) {
-                pair_failed = true;
-                state.breaker.record_failure(&p.worker.worker_id);
-            } else if st.is_success() {
-                state.breaker.record_success(&p.worker.worker_id);
-            } else {
-                state.breaker.record_neutral(&p.worker.worker_id);
-            }
-        }
-        Err(e) => {
-            tracing::warn!("prefill {} failed: {e}", p_url);
-            pair_failed = true;
-            state.breaker.record_failure(&p.worker.worker_id);
-        }
+    let ((p_res, mut pair_failed), d_res) = tokio::join!(p_fut, d_fut);
+    if let Some(response) = p_res {
+        pair_failed = finish_unary_prefill(state, p, &p_url, response).await;
     }
 
     let response = match d_res {
@@ -379,6 +364,49 @@ async fn unary_dual(
     response
 }
 
+async fn finish_unary_prefill(
+    state: &AppState,
+    p: &RouteTarget,
+    p_url: &str,
+    p_res: reqwest::Result<reqwest::Response>,
+) -> bool {
+    let mut pair_failed = false;
+    match p_res {
+        Ok(resp) => {
+            let st = resp.status();
+            let _ = resp.bytes().await;
+            if st.is_client_error() || st.is_server_error() {
+                tracing::warn!(
+                    "prefill {} returned {} (decode may hang)",
+                    p_url,
+                    st.as_u16()
+                );
+            }
+            if is_worker_fault(st.as_u16()) {
+                pair_failed = true;
+                state.breaker.record_failure(&p.worker.worker_id);
+            } else if st.is_success() {
+                state.breaker.record_success(&p.worker.worker_id);
+            } else {
+                state.breaker.record_neutral(&p.worker.worker_id);
+            }
+        }
+        Err(e) => {
+            tracing::warn!("prefill {} failed: {e}", p_url);
+            pair_failed = true;
+            state.breaker.record_failure(&p.worker.worker_id);
+        }
+    }
+
+    pair_failed
+}
+
+fn take_prefill_guard(state: &AppState, guard: &mut ActiveGuard) -> Option<ActiveGuard> {
+    (state.pd_prefill_guard_release == crate::config::PrefillGuardRelease::Completion)
+        .then(|| guard.take_first())
+        .flatten()
+}
+
 /// Both legs over NATS. Prefill is published and drained detached; decode's
 /// reply is what reaches the client.
 #[allow(clippy::too_many_arguments)]
@@ -391,7 +419,7 @@ async fn dual_nats(
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
     stream: bool,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     let rid = p_body
         .get("rid")
@@ -404,11 +432,13 @@ async fn dual_nats(
     let d_payload = leg_payload(path, stream, d.dp_rank, d_body);
 
     let (incomplete_tx, incomplete_rx) = oneshot::channel();
+    let prefill_guard = take_prefill_guard(state, &mut guard);
     let drain_handle = spawn_prefill_drain_nats(
         nats.clone(),
         state.breaker.clone(),
         p.worker.worker_id.clone(),
         p_payload,
+        prefill_guard,
     );
     watch_prefill_after_decode(
         incomplete_rx,
@@ -633,8 +663,12 @@ fn spawn_prefill_drain_nats(
     breaker: Arc<CircuitBreaker>,
     worker_id: String,
     payload: Vec<u8>,
+    guard: Option<ActiveGuard>,
 ) -> JoinHandle<()> {
-    tokio::spawn(drain_prefill_nats(nats, breaker, worker_id, payload))
+    tokio::spawn(async move {
+        let _guard = guard;
+        drain_prefill_nats(nats, breaker, worker_id, payload).await;
+    })
 }
 
 async fn drain_prefill_nats(
@@ -702,10 +736,12 @@ fn spawn_prefill_drain(
     url: String,
     body: Map<String, Value>,
     dp_rank: Option<i64>,
+    guard: Option<ActiveGuard>,
 ) -> JoinHandle<()> {
-    tokio::spawn(drain_prefill_http(
-        http, breaker, worker_id, url, body, dp_rank,
-    ))
+    tokio::spawn(async move {
+        let _guard = guard;
+        drain_prefill_http(http, breaker, worker_id, url, body, dp_rank).await;
+    })
 }
 
 async fn drain_prefill_http(
@@ -1295,3 +1331,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "prefill_guard_tests.rs"]
+mod guard_tests;
