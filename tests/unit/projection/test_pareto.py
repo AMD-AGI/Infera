@@ -172,6 +172,12 @@ def test_pick_anchor_rules():
     assert P.pick_anchor([bf], **kw, precision="fp8") is None
     assert P.pick_anchor([bf], **kw, precision="bf16") is bf
     assert P.pick_anchor([bf, unknown], **kw, precision="fp8") is unknown
+    # ... unless the caller says what the checkpoint is.
+    assert P.pick_anchor([unknown], **kw, precision="fp8", native="bf16") is None
+    assert P.pick_anchor([unknown], **kw, precision="bf16", native="bf16") is unknown
+    assert P.ModelSpec.parse("qwen3_8B@Qwen3-8B=bf16").precision == "bf16"
+    with pytest.raises(ValueError):
+        P.ModelSpec.parse("qwen3_8B@Qwen3-8B=int3")
 
 
 def test_pareto_front_and_series_grouping():
@@ -313,7 +319,7 @@ def test_spec_config():
         "--speculative-num-tokens 2 --speculative-acceptance-rate 0.8 "
         "--speculative-draft-cost-factor 0.1"
     )
-    assert P.SpecConfig.parse("EAGLE3:4").label == "EAGLE34"
+    assert P.SpecConfig.parse("EAGLE3:4").label == "EAGLE3-4"
     for bad in ("medusa", "mtp:0", "mtp:3:1.5", "mtp:3:0.7:-1"):
         with pytest.raises(ValueError):
             P.SpecConfig.parse(bad)

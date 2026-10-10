@@ -119,16 +119,24 @@ class ModelSpec:
 
     ``glm5@GLM-5.2-MXFP4`` projects the ``glm5`` preset and matches anchors
     harvested from a checkpoint named ``GLM-5.2-MXFP4``. Without ``@`` the
-    preset name is both.
+    preset name is both. A trailing ``=PRECISION`` states the checkpoint's
+    format when neither its name nor its anchors record one
+    (``deepseek_v4_pro@DeepSeek-V4-Pro=fp8``), so benchmark mode does not
+    calibrate another precision from it.
     """
 
     preset: str
     checkpoint: str
+    precision: str | None = None
 
     @classmethod
     def parse(cls, spec: str) -> ModelSpec:
+        spec, _, prec = spec.partition("=")
         preset, _, ckpt = spec.partition("@")
-        return cls(preset=preset.strip(), checkpoint=(ckpt or preset).strip())
+        prec = prec.strip().lower() or None
+        if prec and prec not in PRECISIONS:
+            raise ValueError(f"unknown precision {prec!r} in {spec!r}")
+        return cls(preset=preset.strip(), checkpoint=(ckpt or preset).strip(), precision=prec)
 
 
 @dataclass(frozen=True)
@@ -293,7 +301,8 @@ class SpecConfig:
         if self.method == "none":
             return "none"
         _, acc, dc = SPEC_DEFAULTS[self.method]
-        s = f"{self.method.upper()}{self.k}"
+        m = self.method.upper()
+        s = f"{m}{'-' if m[-1].isdigit() else ''}{self.k}"
         if abs(self.accept - acc) > 1e-9:
             s += f"@{self.accept:g}"
         if abs(self.draft_cost - dc) > 1e-9:
@@ -532,8 +541,12 @@ def pick_anchor(
     isl: int,
     max_anchor_tp: int = 4,
     precision: str | None = None,
+    native: str | None = None,
 ) -> dict[str, Any] | None:
     """The anchor a benchmark-mode point is calibrated from, or None.
+
+    ``native`` is the checkpoint's precision when the caller knows it and the
+    name does not say.
 
     Same checkpoint and same engine are requirements: no transport converts one
     engine's kernels into another's. Among those, width follows the benchmark
@@ -547,6 +560,8 @@ def pick_anchor(
     # Otherwise the anchor's recorded weight dtype decides; one that recorded
     # none (or only "quark") is taken at the checkpoint's word.
     named = _named_precision(checkpoint)
+    if native and not named:
+        named = PRECISIONS[native].get("match") or PRECISIONS[native]["weight"]
     want = None
     if precision:
         want = PRECISIONS[precision].get("match") or PRECISIONS[precision]["weight"]
@@ -920,6 +935,7 @@ def build_tasks(
                 isl=sc.isl,
                 max_anchor_tp=max_anchor_tp,
                 precision=prec,
+                native=m.precision,
             )
             if a is None:
                 uncovered.append(
