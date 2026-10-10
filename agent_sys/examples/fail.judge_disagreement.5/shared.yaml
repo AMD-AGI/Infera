@@ -1,0 +1,5 @@
+module: agent
+name: runner
+kind: program
+version: '1'
+description: Runs a task's entry.sh. No model call.

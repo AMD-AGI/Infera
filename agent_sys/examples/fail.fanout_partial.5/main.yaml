@@ -1,0 +1,23 @@
+# Fan-out with partial failure: one of three producers fails validation.
+# emit_b writes output missing a required field, check_thing rejects it,
+# and merge (needing all three) stays in WAITING_HANDOFF.
+module: task
+name: main
+description: Three producers fan out, one fails validation, the consumer starves.
+handoffs: [thing_a, thing_b, thing_c]
+validators: []
+task:
+  goal: Demonstrate fan-out partial failure blocking a fan-in consumer.
+  version: '1'
+  inputs: []
+  outputs: []
+  permissions:
+    grants:
+      - {path: handoffs/thing_a, access: write, kind: thing_a}
+      - {path: handoffs/thing_b, access: write, kind: thing_b}
+      - {path: handoffs/thing_c, access: write, kind: thing_c}
+  subgraph:
+    - {closure: emit_a, froms: []}
+    - {closure: emit_b, froms: []}
+    - {closure: emit_c, froms: []}
+    - {closure: merge, froms: [emit_a, emit_b, emit_c], is_end: true}
