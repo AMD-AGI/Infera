@@ -15,17 +15,19 @@ otherwise SGLang rejects HiCache while still configured for ChunkCache.
 
 The script recognizes the v0.5.18 mutable-args and v0.5.19 resolved-view hook
 layouts, fails on unknown/partially patched guards, and is idempotent. It removes
-old module bytecode and recompiles with checked source hashes. The source tests
-execute the releases' actual admission branches; they do not instantiate a GPU
-KV cache or validate inference accuracy.
+old module bytecode and recompiles with checked source hashes.
 
 Use `--build-arg APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=0` for a custom compatible
 base where this patch is inappropriate. `Dockerfile.sglang.gfx942` does not apply
 this patch. Drop/rework the patch when the pinned base natively supports the
 required combination.
 
-The experimental runtime evidence is GLM-5.2 on the previously patched v0.5.19
-build, not a fresh GPU validation of the v0.5.18 default image. Hybrid SWA/SSM and
+Radix + MTP was GPU-validated with GLM-5.2 on the default v0.5.18 image. Decode
+HiCache additionally needs SGLang
+[#35081](https://github.com/sgl-project/sglang/pull/35081) (v0.5.19 or newer).
+On v0.5.18 the first Decode HiCache request fails with `AttributeError:
+'UnifiedRadixCache' object has no attribute 'query_storage_hit_length'`; see
+`manual/serving/deployment.md`. Hybrid SWA/SSM and
 EAGLE3 are outside this feature's supported scope. In particular this does not
 backport [SGLang #40857](https://github.com/sgl-project/sglang/pull/40857), whose
 ownership fix addresses hybrid-SWA multi-turn corruption. That PR was still

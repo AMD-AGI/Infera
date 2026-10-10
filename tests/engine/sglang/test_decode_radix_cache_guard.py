@@ -74,7 +74,16 @@ def test_an_explicit_flag_is_left_alone(monkeypatch):
     assert argv.count(_FLAG) == 1
 
 
-_MTP = ["--speculative-algorithm", "EAGLE", "--speculative-eagle-topk", "1"]
+_MTP = [
+    "--speculative-algorithm",
+    "EAGLE",
+    "--speculative-num-steps",
+    "5",
+    "--speculative-eagle-topk",
+    "1",
+    "--speculative-num-draft-tokens",
+    "6",
+]
 
 
 def test_skips_under_speculative_decoding_by_default(monkeypatch):
