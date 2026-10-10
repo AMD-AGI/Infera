@@ -70,6 +70,7 @@
 | 09:50 | 登录节点 | 发现：根目录 `.gitignore` 忽略 `build/`，套件的 `build/` 脚本从未提交 | 在套件 `.gitignore` 加 `!/build/` 补交（`96a7c26d`）；`build_router.sh` 改为可指定提交、`TEST_FILTER` 跑单测、遵从 `TMPDIR` |
 | 09:53 | 135 | 方案 2 router（`c8b0069f`，`INFERA_R2_DECODE_HIT_CREDIT`）编译 | 135 根分区已 100% 满（非本实验所致，docker 数据目录在 `/mnt/m2m_nobackup`，不影响容器），首次编译空间不足失败；改用 `TMPDIR=/mnt/m2m_nobackup/liyingli-tmp`。`infera-router` 全部 293 个单测通过（含新增测试），两次编译 sha256 相同：`artifacts/infera-router-c8b0069f` = `cda01cb8…` |
 | 10:00 | 137/135 | 冒烟改为直接跑方案 2 全程（`run9-p8d4-r2-hc050-137-135.log`）：与 R2 那轮（mem 0.90）相同，另加 `B4_DECODE_KV_EVENTS=1`、`B4_ROUTER_BINARY=…/infera-router-c8b0069f`、`INFERA_R2_DECODE_HIT_CREDIT=0.5`、`B4_RUST_LOG=info`，`B4_TAG=ponly-g64-m090-r2-hc050` | 停掉冒烟的等待循环（未启动任何服务）。`run_unattended.sh` 自带等显存（最长 120 分钟）；在 gate/答案检查阶段核对 router 是否跟踪 D 的 KV 事件（订阅、`kv_block_size`、决策日志的 D 命中、无反复 flush），不正常即停。系数 0.5：命中折扣约为半个上下文，小于单个请求的记账量，D 各 rank 仍以待处理 token 为主 |
+| 10:12–10:14 | 137/135 | 显存 10:0x 释放完，10:12 服务就绪；gate 1 题答错（记录 328 读成别的记录，同前几轮的长文档读错），soft 继续 | 冒烟核对通过：router 读到 `decode_hit_credit: 0.5`；订阅 D（`10.245.148.209:29002`，4 rank），D `request_blocks` 有值（块大小 64）；P/D 12 个 rank 均为中途订阅（router 启动晚于 worker 的预热），新内容从根开始仍可跟踪，自愈未触发 flush；答案检查中 D 选择 43 次、13 次有命中（命中块 1,170/3,870）；42 号决策 dp0 命中 90 块，`demand_cost` 5,794−0.5×90×64=2,914，其余 rank 5,794，选中 dp0 |
 
 ### 第三轮答案检查的结论
 
