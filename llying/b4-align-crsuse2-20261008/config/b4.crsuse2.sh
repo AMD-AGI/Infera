@@ -80,6 +80,9 @@ MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
 # rails are isolated (ionic_k reaches only ionic_k), so P_i -> D_j (i != j) has no
 # path; with the shared list Mooncake v3 sends both ends over ionic_j.
 RDMA_DEVICE=ionic_0,ionic_1,ionic_2,ionic_3,ionic_4,ionic_5,ionic_6,ionic_7
+# B4_DECODE_IB_DEVICES drops HCAs that are broken on the decode node (135's
+# ionic_7 has no netdev and an empty GID); it also overrides MC_TE_FILTERS there.
+DECODE_IB_DEVICES="${B4_DECODE_IB_DEVICES:-$RDMA_DEVICE}"
 RDMAV_FORK_SAFE=1 NCCL_IB_DISABLE=1
 HOST_RDMA_LIB=/lib/x86_64-linux-gnu/libionic.so HOST_RDMA_MOUNT=/host-libionic/libionic.so
 PERSIST_JIT_CACHE=1
@@ -134,6 +137,7 @@ TRACE_ENDPOINT="$PREFILL_IP:4317"
 TRACE_ENV='SGLANG_TRACE_LEVEL=1 SGLANG_TRACE_ASYNC=1 SGLANG_TRACE_ASYNC_FLUSH_THRESHOLD=64 SGLANG_OTLP_EXPORTER_SCHEDULE_DELAY_MILLIS=500 SGLANG_OTLP_EXPORTER_MAX_EXPORT_BATCH_SIZE=512 AUS_DIAG_DIR=/aus-diag'
 PREFILL_EXTRA_ENV="$TRACE_ENV AUS_DIAG_ROLE=prefill"
 DECODE_EXTRA_ENV="$TRACE_ENV AUS_DIAG_ROLE=decode SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1"
+[[ "$DECODE_IB_DEVICES" == "$RDMA_DEVICE" ]] || DECODE_EXTRA_ENV+=" MC_TE_FILTERS=$DECODE_IB_DEVICES"
 _b4_trace="--enable-trace --trace-modules request,mooncake --otlp-traces-endpoint $TRACE_ENDPOINT --enable-request-time-stats-logging"
 PREFILL_EXTRA_ARGS="$_b4_trace --random-seed $PREFILL_SEED"
 DECODE_EXTRA_ARGS="$_b4_trace --random-seed $DECODE_SEED --disaggregation-decode-enable-radix-cache"

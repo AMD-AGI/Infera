@@ -28,7 +28,7 @@ import transition_two_node as ops  # noqa: E402
 PREFIX = E["CONTAINER_PREFIX"]
 # Forwarded to engine.sh, which sources the config on the worker node.
 PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID", "B4_TAG", "B4_DECODE_TP", "B4_DECODE_GPUS",
-               "B4_DECODE_GRAPH_MAX_BS", "B4_DECODE_MEM_FRACTION")
+               "B4_DECODE_IB_DEVICES", "B4_DECODE_GRAPH_MAX_BS", "B4_DECODE_MEM_FRACTION")
 B4_CAPACITY = {"prefill": int(E["REFERENCE_PREFILL_TOKENS"]), "decode": int(E["REFERENCE_DECODE_TOKENS"])}
 
 
@@ -114,7 +114,7 @@ def registration(w):
 
 def launch_worker(w, simulate):
     before, _ = registration(w)
-    devices = E["RDMA_DEVICE"]
+    devices = E.get(f"{w['role'].upper()}_IB_DEVICES", E["RDMA_DEVICE"])
     if devices.startswith("{"):  # per-GPU map, re-keyed by local index as launch_placement.py does
         configured = json.loads(devices)
         devices = json.dumps({str(i): configured[str(g)] for i, g in enumerate(w["gpu_ids"])}, separators=(",", ":"))
