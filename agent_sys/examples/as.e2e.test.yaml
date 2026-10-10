@@ -1,0 +1,87 @@
+# Which example packages count as an end-to-end test of `agent_sys`.
+#
+# An entry here is a claim that **running this package exercises the system end
+# to end and the outcome is checkable without a human reading prose.** That is
+# narrower than "it runs": a package belongs here only when its expected result
+# is a specific exit code, and — where the exit code alone would be ambiguous —
+# a specific string the run must emit.
+#
+# `run_simple_e2e_test.sh` is the runner. It reads this file and nothing else,
+# so adding a case here is the whole of adding a test.
+#
+# Two rules for anyone adding an entry:
+#
+#   1. **Record a measured expectation, not an intended one.** Run the command
+#      first, then write down what it did. Every `expect` block below was taken
+#      from an actual run.
+#   2. **Say what the case proves, in one sentence, in `proves`.** A case whose
+#      `proves` is "it works" is not a test, because nothing can contradict it.
+
+version: 1
+
+defaults:
+  #: Every case runs under its own directory beneath this root, so two cases —
+  #: and two concurrent invocations of the runner — cannot collide on a run id.
+  #: Overridable with `--run-root`; `$USER` keeps it unique on a shared box.
+  run_root: /tmp/${USER}/as_e2e
+
+cases:
+  # ---------------------------------------------------------------------------
+  - name: agent_capabilities
+    package: ok.agent_capabilities.2
+    proves: >
+      That the environment an agent is promised actually arrives: six Claude Code
+      capabilities are installed per-agent by the two install routes, and the
+      agent proves each one by returning a token it could not compute without
+      having used that capability.
+    command: run
+    args: []
+    vars:
+      #: A constant nonce would put every later run's answers in the first
+      #: published handoff, so it is generated per run.
+      nonce: {generate: hex16}
+      #: serena installs with `uv tool install`, whose default writes
+      #: `~/.local/share/uv` — host state outside any zone. Pinned into scratch.
+      uv_root: {from_env: E2E_UV_ROOT, default: "/tmp/${USER}/agentsys_uv"}
+    expect:
+      exit_code: 0
+    #: Needs a working `claude` CLI and its credentials. Without them the runner
+    #: SKIPS this case and says so — it does not pass it.
+    requires: [claude]
+    #: A green here is *not* an acceptance. `ACCEPTANCE.md` in that package is
+    #: the criteria, and it says to open the handoff rather than read the code.
+    #:
+    #: **What a red here usually means.** Exit 5 with
+    #: `check_capabilities_genuine: FAIL` is this package doing its job: the
+    #: agent exercised each capability and one of them did not produce its
+    #: token. Measured once already — five of six capabilities returned a token
+    #: and serena did not, so the handoff reported `unavailable` rather than
+    #: papering over it. Read the `env_report` handoff's `## Limits` section
+    #: before concluding anything about the runner or this file. The expected
+    #: exit code stays 0: recording the failing code here would enshrine one
+    #: host's missing tool as the contract.
+    accept_by: ok.agent_capabilities.2/ACCEPTANCE.md
+
+  # ---------------------------------------------------------------------------
+  - name: dangling_handoff_kind
+    #: `--package` names the *working* package; `--with-broken` additionally
+    #: loads its deliberately broken sibling, `fail.dangling_handoff_kind.1`.
+    #: That sibling is a separate package precisely because the YAML front end
+    #: scans every `*.yaml` under a package root, so a broken document inside
+    #: the working package would break every ordinary run.
+    package: ok.filetree_grounded_report.4
+    proves: >
+      That a cross-registry fault is caught at load time and the message names
+      the file that caused it. No schema can catch this one: `nonexistent` is a
+      well-formed handoff kind name that no loaded package declares, so only the
+      closure check across registries can see it.
+    command: run
+    args: [--dry-run, --with-broken]
+    vars: {}
+    expect:
+      #: `LOAD_ERROR`, `cli/main.py`. Measured, not assumed.
+      exit_code: 1
+      #: The exit code alone would not distinguish "refused the broken package"
+      #: from "refused something else", so the file name is part of the claim.
+      stdout_contains: "fail.dangling_handoff_kind.1/main.yaml"
+    requires: []

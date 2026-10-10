@@ -1,0 +1,21 @@
+# Pure-program version of demo's check_grounded failure path.
+# produce writes a manifest, transform summarises it with an ungrounded number,
+# check_grounded detects the violation, and consume never starts.
+module: task
+name: main
+description: Produce a manifest, summarise it with an ungrounded claim, and fail grounding.
+handoffs: [facts, summary]
+validators: []
+task:
+  goal: Demonstrate a grounding violation detected by a validator.
+  version: '1'
+  inputs: []
+  outputs: []
+  permissions:
+    grants:
+      - {path: handoffs/facts, access: write, kind: facts}
+      - {path: handoffs/summary, access: write, kind: summary}
+  subgraph:
+    - {closure: produce, froms: []}
+    - {closure: transform, froms: [produce]}
+    - {closure: consume, froms: [transform], is_end: true}

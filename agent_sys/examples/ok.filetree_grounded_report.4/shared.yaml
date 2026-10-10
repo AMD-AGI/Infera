@@ -1,0 +1,28 @@
+# What more than one step uses. Everything else lives in the step that
+# introduces it — see `steps/`.
+#
+# One object today, and the rule is worth more than the file is: a step file
+# holds what only that step uses, and the moment a second step needs it, it
+# moves up here. Without that rule, "which of the two files owns it" is a
+# question with no answer, and the object ends up duplicated or arbitrarily
+# placed.
+
+# An agent, and not an AI.
+#
+# `kind: program` is not a degenerate case and not a workaround for the absence
+# of an agent — main spec §4.8 settles that a *leaf* has an agent and that
+# `kind` is what varies. Nothing synthesises this document: `closure.agent_of()`
+# returns `collect` because a package author wrote it (`closure` D1).
+#
+# No `backends`. `agent.select_backend` dispatches on `kind` one line before it
+# reads the list, and a `kind: program` spec selects `ProgramExecutor`, which
+# takes its command from the task body's `entry.sh`.
+#
+# **Used by two leaves**, `produce` and `consume`, which is why it is here and
+# not in either of their files. A program agent carries no command of its own —
+# the command is the task's `entry.sh` — so one spec serves every program leaf.
+module: agent
+name: collect
+kind: program
+version: '1'
+description: Runs a task's entry.sh. No model call.
