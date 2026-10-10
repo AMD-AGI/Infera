@@ -452,6 +452,47 @@ def _add_inference_args(parser):
         default=None,
         help="Expected per-token acceptance rate for speculative decoding [0,1].",
     )
+    parser.add_argument(
+        "--speculative-method",
+        default=None,
+        help="Drafter family (mtp, eagle3, dspark, ngram, draft_model). In simulate "
+        "mode it prices the draft from the drafter's own layers and spends "
+        "acceptance down a per-position chain; --speculative-acceptance-rate, "
+        "if given, sets that chain's level at --speculative-num-tokens.",
+    )
+    parser.add_argument(
+        "--speculative-entropy",
+        default=None,
+        help="Entropy class of the generated text for the drafter's acceptance: "
+        "low (code, sorting), mixed (STEM, QA), high (creative writing, "
+        "roleplay), or a number on -1..1 between them. Default: mixed.",
+    )
+    parser.add_argument(
+        "--speculative-max-num-tokens",
+        type=int,
+        default=None,
+        help="Simulate mode: choose the draft depth in 1..N that emits the most "
+        "tokens per unit of step time at the projected batch, instead of "
+        "--speculative-num-tokens.",
+    )
+    parser.add_argument(
+        "--speculative-draft-layers",
+        type=int,
+        default=None,
+        help="Draft layers per pass, overriding the method's published drafter.",
+    )
+    parser.add_argument(
+        "--speculative-draft-vocab",
+        type=int,
+        default=None,
+        help="Draft LM-head vocabulary (EAGLE3 defaults to a pruned 32000).",
+    )
+    parser.add_argument(
+        "--speculative-draft-window",
+        type=int,
+        default=None,
+        help="Attention window of the draft layers (0 = full context).",
+    )
     # ---- Token sampling / logits post-processing ----
     parser.add_argument(
         "--no-sampling",
