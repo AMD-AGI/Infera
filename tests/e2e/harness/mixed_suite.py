@@ -19,13 +19,15 @@ from .params import EngineParams
 __all__ = ["run_mixed_case"]
 
 
-async def run_mixed_case(params: EngineParams, infera_server, worker) -> None:
+async def run_mixed_case(
+    params: EngineParams, infera_server, worker, *, longctx: bool = True
+) -> None:
     """Shared body: skip unsupported combos, start the server, run the mixed
-    scenario (chat + streaming + the three correctness probes)."""
+    scenario (chat + streaming + the correctness probes)."""
     resources.require_arch()
     resources.require_supported(params)
     resources.require_gpus(params)
     resources.require_model_staged(params)
 
     server = await infera_server()
-    await scenarios.run_mixed(server, worker, params)
+    await scenarios.run_mixed(server, worker, params, longctx=longctx)

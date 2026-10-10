@@ -291,7 +291,9 @@ def test_run_tests_sh_names_the_same_images_the_harness_launches():
     container, so it cannot import one that needs httpx and pytest. Two copies drift into
     `docker build A` followed by `docker run B`, which reports as a missing image rather
     than as a disagreement, so pin them here instead."""
-    script = (Path(__file__).resolve().parents[3] / "tests" / "run_tests.sh").read_text()
+    tests_dir = Path(__file__).resolve().parents[3] / "tests"
+    sources = [tests_dir / "run_tests.sh", *sorted((tests_dir / "lib").glob("*.sh"))]
+    script = "\n".join(p.read_text() for p in sources)
     for engine in ("sglang", "vllm", "atom"):
         for gfx in arch.SUPPORTED_ARCHS:
             for value in images.engine_image(engine, gfx):

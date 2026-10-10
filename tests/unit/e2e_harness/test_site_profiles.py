@@ -28,7 +28,8 @@ REPO = Path(__file__).resolve().parents[3]
 SITES = REPO / "tests" / "sites"
 
 # Where a variable becomes real: the launcher, and the harness the launcher runs.
-READERS = [REPO / "tests" / "run_tests.sh", REPO / "tests" / "e2e"]
+READERS = [REPO / "tests" / "run_tests.sh", REPO / "tests" / "lib", REPO / "tests" / "e2e"]
+_READER_SUFFIXES = (".py", ".sh")
 
 _VAR_RE = re.compile(r"INFERA_E2E_[A-Z0-9_]+")
 # `site_default VAR value...`, the only statement a profile is allowed to make.
@@ -40,7 +41,10 @@ def _known_vars() -> frozenset[str]:
     """Every INFERA_E2E_* name mentioned by code that reads them."""
     names: set[str] = set()
     for root in READERS:
-        files = [root] if root.is_file() else sorted(root.rglob("*.py"))
+        if root.is_file():
+            files = [root]
+        else:
+            files = sorted(p for p in root.rglob("*") if p.suffix in _READER_SUFFIXES)
         for f in files:
             names |= set(_VAR_RE.findall(f.read_text(encoding="utf-8", errors="ignore")))
     return frozenset(names)
@@ -97,7 +101,7 @@ def test_profile_sets_only_variables_something_reads(path):
     known = _known_vars()
     for var, _ in _settings(path):
         assert var in known, (
-            f"{path.name} sets {var}, which nothing in tests/run_tests.sh or "
+            f"{path.name} sets {var}, which nothing in tests/run_tests.sh, tests/lib or "
             f"tests/e2e reads — a typo here is silent at runtime"
         )
 

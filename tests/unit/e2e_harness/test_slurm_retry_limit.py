@@ -340,6 +340,8 @@ def _pending_hold_env(tmp_path, mock_bin, count_file) -> dict[str, str]:
         {
             "INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS": "acct-a:qos-a,acct-b:qos-b,acct-a:qos-burst",
             "INFERA_E2E_HOLD_WAIT": "5",
+            # Once both pairs are excluded, stop instead of polling for a third.
+            "INFERA_E2E_WAIT_NODES_TIMEOUT": "0",
         }
     )
     return env
