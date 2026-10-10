@@ -85,6 +85,15 @@ INFERA_PREFLIGHT_RUN_ID=write-check-001 \
   python -m infera.tools.preflight --mooncake --dump-path /shared/preflight/write-check-001
 ```
 
+`run_preflight_slurm.sh` forwards `INFERA_PREFLIGHT_MOONCAKE_OPCODE`,
+`INFERA_PREFLIGHT_RUN_ID` and `INFERA_PREFLIGHT_RDMA_DEVICE` from the shell that
+invokes it into every container, so set them on its command line instead:
+
+```bash
+INFERA_PREFLIGHT_MOONCAKE_OPCODE=write NODES=node1,node2 PARTITION=<partition> \
+  IMAGE=<image> infera/tools/preflight/run_preflight_slurm.sh
+```
+
 For READ, the initiator verifies the bytes it receives. For WRITE, the target
 verifies its buffer after the initiator finishes. Both check every segment;
 missing, malformed or negative verification results fail the probe even if it
