@@ -137,6 +137,7 @@ def project_spec(**overrides):
         ("--attention-dp-size", "attn_dp"),
         ("--sparse-attention-topk", "sparse_attention_topk"),
         ("--prefix-cache-hit-rate", "prefix_cache_hit_rate"),
+        ("--kv-pool-tokens", "kv_pool_tokens"),
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
@@ -214,4 +215,7 @@ def project_spec(**overrides):
         # What the run printed, for the parts of the report that are computed
         # nowhere else.
         "report": report.getvalue(),
+        # The whole extras bag, for the projected quantities that are reported
+        # through it and not through the printed report -- admission being one.
+        "extras": extras,
     }
