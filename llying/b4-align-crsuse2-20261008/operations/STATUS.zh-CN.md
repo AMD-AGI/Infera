@@ -59,6 +59,7 @@
 | 10-10 04:33 | 全部 | 节点检查 | 135：GPU 1 被他人 vLLM 进程占 90 GB，其余空闲；136：yihou sanity 占 GPU 0–3；137：limou 的 vLLM TP8 刚启动；138：空闲。用户决定 P 用 138 的 8 卡、D 用 135 的 4 卡 |
 | 04:40 | 135/138 | 准备 | 新增 `B4_DECODE_GPUS`（D 用 135 GPU 4–7，NUMA 1；Mooncake 按物理 NUMA 给 GPU 固定本地网卡，GPU 4–7→ionic_4–7）、`B4_R2`、135 的 IP；镜像 138→135（`e13b5843…`，`image-transfer-138-to-135.log`）；kernel/AITER 缓存 136→138（P TP8）、138→135（D TP4） |
 | 04:42–04:52 | 138/135 | P8D4 + R2（P 138、D 135 GPU 4–7）`run6-p8d4-r2-138-135.log` | 配置生效（D TP4、HIP 4–7、R2 on、亲和 prefill）。gate 首个请求 HTTP 500：135 的 ionic_7 没有网卡接口、GID index 1 全 0（`Failed to modify QP to RTR … No such device`），D rank 3（GPU 7 固定 ionic_7）不可达。平台问题，需报 IT。已停止编排进程并删除容器，此轮作废 |
+| 06:31 | — | 用户与 limou 协商后决定用 137（P）+ 135（D） | 137 limou 容器已停、8 卡空闲、8 张网卡正常；镜像 135→137（`image-transfer-135-to-137.log`，`e13b5843…`）；P TP8 kernel/AITER 缓存 138→137 |
 | 08:20 | 登录节点 | 分析 | 见 `../RESULT-P8D4.zh-CN.md`：D KV 容量不足（1,597 个请求等分配，D 复用 89%→35%），完成 −31.5%，每 GPU Output −8.8%、Total −14.5% |
 
 ### 第三轮答案检查的结论
