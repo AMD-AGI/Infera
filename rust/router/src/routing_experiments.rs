@@ -31,6 +31,9 @@ pub struct Experiments {
     pub prefill: Mode,
     pub dynamo_prefill: Mode,
     pub host_weight: f64,
+    /// R2: fraction of a decode target's cached prefix tokens subtracted from
+    /// its demand cost when choosing (bookings stay the full request length).
+    pub decode_hit_credit: f64,
 }
 impl Default for Experiments {
     fn default() -> Self {
@@ -41,6 +44,7 @@ impl Default for Experiments {
             prefill: Mode::Off,
             dynamo_prefill: Mode::Off,
             host_weight: 0.0,
+            decode_hit_credit: 0.0,
         }
     }
 }
@@ -97,9 +101,20 @@ impl Experiments {
             host_weight: std::env::var("INFERA_R3_HOST_WEIGHT")
                 .unwrap_or_else(|_| "0".into())
                 .parse()?,
+            decode_hit_credit: std::env::var("INFERA_R2_DECODE_HIT_CREDIT")
+                .unwrap_or_else(|_| "0".into())
+                .parse()?,
         };
         if !result.host_weight.is_finite() || !(0.0..=1.0).contains(&result.host_weight) {
             anyhow::bail!("INFERA_R3_HOST_WEIGHT must be finite and in [0,1]");
+        }
+        if !result.decode_hit_credit.is_finite()
+            || !(0.0..=1.0).contains(&result.decode_hit_credit)
+        {
+            anyhow::bail!("INFERA_R2_DECODE_HIT_CREDIT must be finite and in [0,1]");
+        }
+        if result.decode_hit_credit != 0.0 && result.decode == Mode::Off {
+            anyhow::bail!("decode hit credit requires INFERA_R2_DECODE_DEMAND=shadow|on");
         }
         if result.host_weight != 0.0 && result.tiers == Mode::Off {
             anyhow::bail!("host weight requires INFERA_R3_CACHE_TIERS=shadow|on");

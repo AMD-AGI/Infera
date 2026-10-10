@@ -779,6 +779,15 @@ impl Policy for KvEventAwarePolicy {
                             let partial = lengths[i].unwrap() % block_size as usize != 0;
                             pending / block_size as f64
                                 + demand.projected_blocks(blocks_at(i), partial) as f64
+                        } else if role == Role::Decode {
+                            // A decode hit saves the transfer, not the KV the request
+                            // holds there, so the booking stays the full length and the
+                            // hit only discounts the choice.
+                            let bs = targets[i].worker.kv_block_size.unwrap_or(0).max(0) as f64;
+                            pending
+                                - self.experiments.decode_hit_credit
+                                    * caches[i].legacy_hits as f64
+                                    * bs
                         } else {
                             pending
                         }
@@ -1624,6 +1633,61 @@ mod tests {
         );
         drop(second);
         assert!(policy.demand.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn decode_hit_credit_prefers_cached_rank_only_when_demand_is_close() {
+        use rmpv::Value as Mv;
+        let kv = Arc::new(KvEventClient::nats_fed());
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        for worker in &workers {
+            kv.on_worker_added(worker);
+        }
+        let ids: Vec<u32> = (0..64).collect();
+        let stored = Mv::Array(vec![
+            Mv::from("BlockStored"),
+            Mv::Array(vec![Mv::from(10), Mv::from(11)]),
+            Mv::Nil,
+            Mv::Array(ids[..32].iter().copied().map(Mv::from).collect()),
+            Mv::from(16),
+            Mv::Nil,
+        ]);
+        let mut wire = Vec::new();
+        rmpv::encode::write_value(
+            &mut wire,
+            &Mv::Array(vec![Mv::from(1.0), Mv::Array(vec![stored])]),
+        )
+        .unwrap();
+        kv.apply_encoded_batch("b", 0, &wire);
+        let policy = |credit| {
+            KvEventAwarePolicy::new(kv.clone(), BlockHasher::disabled(), 20.0, None, None)
+                .with_experiments(Experiments {
+                    decode: Mode::On,
+                    decode_hit_credit: credit,
+                    ..Default::default()
+                })
+        };
+        let req = json!({"prompt": ids});
+
+        // Equal demand, no credit: the tie goes to candidate order.
+        let plain = policy(0.0);
+        assert_eq!(plain.pick(&workers, &req, Role::Decode).target.worker.worker_id, "a");
+
+        // Credit 0.5: b costs 64 - 0.5*32 = 48 and wins, but books the full 64.
+        let credited = policy(0.5);
+        let pick = credited.pick(&workers, &req, Role::Decode);
+        assert_eq!(pick.target.worker.worker_id, "b");
+        assert_eq!(credited.demand.lock().unwrap()["b"].tokens, 64.0);
+        drop(pick);
+
+        // Demand already on b outweighs its hit: 160 + 64 - 16 > 64.
+        let loaded = policy(0.5);
+        let b = expand_targets(&workers)
+            .into_iter()
+            .find(|t| t.worker.worker_id == "b")
+            .unwrap();
+        let _held = loaded.pick_target(&b, &json!({"prompt": vec![9u32; 160]}), Role::Decode);
+        assert_eq!(loaded.pick(&workers, &req, Role::Decode).target.worker.worker_id, "a");
     }
 
     #[test]
