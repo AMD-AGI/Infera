@@ -229,7 +229,7 @@ def test_push_execution_numbers_attempts_from_zero():
     assert task.is_running
     assert first.input_versions == {hid: 0}
 
-    task.close_execution({}, TaskStatus.FAILED)
+    task.close_execution(TaskStatus.FAILED)
     second = task.push_execution(agent_id=AgentId.new(), input_versions={hid: 1})
     assert second.attempt == 1
     assert task.current is second
@@ -246,9 +246,9 @@ def test_push_execution_refuses_to_stack_on_an_open_attempt():
 def test_close_execution_seals_the_stack_top():
     task = Task(agent_spec="profiler")
     hid = HandoffId.new()
-    task.push_execution(agent_id=AgentId.new(), input_versions={})
+    task.push_execution(agent_id=AgentId.new(), input_versions={}, output_versions={hid: 2})
 
-    task.close_execution({hid: 2}, TaskStatus.SUCCEEDED, detail="done")
+    task.close_execution(TaskStatus.SUCCEEDED, detail="done")
 
     top = task.history[-1]
     assert not top.is_open
@@ -263,12 +263,12 @@ def test_close_execution_seals_the_stack_top():
 def test_close_execution_requires_an_open_attempt():
     task = Task(agent_spec="profiler")
     with pytest.raises(TaskStateError):
-        task.close_execution({}, TaskStatus.SUCCEEDED)
+        task.close_execution(TaskStatus.SUCCEEDED)
 
     task.push_execution(agent_id=AgentId.new(), input_versions={})
-    task.close_execution({}, TaskStatus.SUCCEEDED)
+    task.close_execution(TaskStatus.SUCCEEDED)
     with pytest.raises(TaskStateError):
-        task.close_execution({}, TaskStatus.SUCCEEDED)
+        task.close_execution(TaskStatus.SUCCEEDED)
 
 
 def test_history_is_a_stack_and_earlier_attempts_survive():
@@ -276,7 +276,7 @@ def test_history_is_a_stack_and_earlier_attempts_survive():
     first_agent, second_agent = AgentId.new(), AgentId.new()
 
     task.push_execution(agent_id=first_agent, input_versions={})
-    task.close_execution({}, TaskStatus.FAILED)
+    task.close_execution(TaskStatus.FAILED)
     task.push_execution(agent_id=second_agent, input_versions={})
 
     assert [e.agent_id for e in task.history] == [first_agent, second_agent]
@@ -317,8 +317,10 @@ def test_task_round_trip_including_handoff_id_dict_keys():
         resources={"gpu": 2.0},
         expedited=True,
     )
-    task.push_execution(agent_id=AgentId.new(), input_versions={hid_in: 0})
-    task.close_execution({hid_out: 3}, TaskStatus.SUCCEEDED, detail="ok")
+    task.push_execution(
+        agent_id=AgentId.new(), input_versions={hid_in: 0}, output_versions={hid_out: 3}
+    )
+    task.close_execution(TaskStatus.SUCCEEDED, detail="ok")
 
     back = round_trip(task)
     assert back == task

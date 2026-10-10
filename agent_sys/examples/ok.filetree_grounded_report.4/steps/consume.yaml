@@ -1,0 +1,29 @@
+# The subgraph's end entry, and the task that never runs.
+#
+# Its input is `summary`, whose latest version is sealed INVALID by
+# `check_grounded`. So it stays in `WAITING_HANDOFF` for the whole run and the
+# run ends quiescent with it still there — which is the correct outcome and the
+# one the demo reports as expected (criterion 5).
+#
+# Its readme still says what it would have done. A step nobody can read is a step
+# nobody can review, and that holds for one that did not happen.
+#
+# **One object, so the file is one mapping and not a list.** Both shapes are
+# legal; the mapping is what a single-object file reads as, and it is also what
+# keeps the origin in a diagnostic free of a `#/0` nobody needs. This step
+# introduces nothing of its own — no handoff, no validator, no agent — so there
+# is nothing else here.
+module: task
+name: consume
+description: Render the summary into a report a person reads.
+agent: collect
+handoffs: [summary]
+validators: [check_grounded]
+task:
+  goal: Render the summary into a report.
+  version: '1'
+  inputs: [summary]
+  outputs: []
+  permissions:
+    grants:
+      - {path: handoffs/summary, access: read, kind: summary}

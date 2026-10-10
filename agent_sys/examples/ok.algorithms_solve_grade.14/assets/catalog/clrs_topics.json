@@ -1,0 +1,95 @@
+{
+  "_note": "The closed list `check_directions` matches against. Each row is one classic CLRS area that also exists as a LeetCode tag, so a direction can be stated in textbook terms and still be checked against a problem catalogue. `clrs_chapter` refers to CLRS 3rd edition. Four rows -- backtracking, two_pointers, sliding_window, bit_manipulation -- have no dedicated CLRS chapter; they are mapped to the nearest place the technique is actually developed, and the chapter string says which. `leetcode_tag` is the real tag slug used by leetcode.com, so it can be compared to `assets/catalog/leetcode_index.json` without a translation table.",
+  "topics": [
+    {
+      "id": "divide_and_conquer",
+      "clrs_chapter": "Ch. 4 -- Divide-and-Conquer",
+      "leetcode_tag": "divide-and-conquer"
+    },
+    {
+      "id": "sorting",
+      "clrs_chapter": "Ch. 2, 6-8 -- Sorting and Order Statistics",
+      "leetcode_tag": "sorting"
+    },
+    {
+      "id": "greedy",
+      "clrs_chapter": "Ch. 16 -- Greedy Algorithms",
+      "leetcode_tag": "greedy"
+    },
+    {
+      "id": "dynamic_programming",
+      "clrs_chapter": "Ch. 15 -- Dynamic Programming",
+      "leetcode_tag": "dynamic-programming"
+    },
+    {
+      "id": "graph_traversal",
+      "clrs_chapter": "Ch. 22 -- Elementary Graph Algorithms (BFS, DFS)",
+      "leetcode_tag": "graph"
+    },
+    {
+      "id": "shortest_paths",
+      "clrs_chapter": "Ch. 24-25 -- Single-Source and All-Pairs Shortest Paths",
+      "leetcode_tag": "shortest-path"
+    },
+    {
+      "id": "minimum_spanning_tree",
+      "clrs_chapter": "Ch. 23 -- Minimum Spanning Trees",
+      "leetcode_tag": "minimum-spanning-tree"
+    },
+    {
+      "id": "string_matching",
+      "clrs_chapter": "Ch. 32 -- String Matching",
+      "leetcode_tag": "string-matching"
+    },
+    {
+      "id": "hashing",
+      "clrs_chapter": "Ch. 11 -- Hash Tables",
+      "leetcode_tag": "hash-table"
+    },
+    {
+      "id": "heaps",
+      "clrs_chapter": "Ch. 6 -- Heapsort and Priority Queues",
+      "leetcode_tag": "heap-priority-queue"
+    },
+    {
+      "id": "binary_search",
+      "clrs_chapter": "Ch. 2, ex. 2.3-5 -- Binary Search",
+      "leetcode_tag": "binary-search"
+    },
+    {
+      "id": "union_find",
+      "clrs_chapter": "Ch. 21 -- Data Structures for Disjoint Sets",
+      "leetcode_tag": "union-find"
+    },
+    {
+      "id": "backtracking",
+      "clrs_chapter": "no dedicated chapter; nearest is Ch. 34-35 -- exhaustive search",
+      "leetcode_tag": "backtracking"
+    },
+    {
+      "id": "two_pointers",
+      "clrs_chapter": "no dedicated chapter; nearest is Ch. 7 -- Hoare partition",
+      "leetcode_tag": "two-pointers"
+    },
+    {
+      "id": "sliding_window",
+      "clrs_chapter": "no dedicated chapter; nearest is Ch. 4, ex. 4.1-5 -- linear maximum subarray",
+      "leetcode_tag": "sliding-window"
+    },
+    {
+      "id": "bit_manipulation",
+      "clrs_chapter": "no dedicated chapter; nearest is Ch. 31 -- Number-Theoretic Algorithms",
+      "leetcode_tag": "bit-manipulation"
+    },
+    {
+      "id": "trees_bst",
+      "clrs_chapter": "Ch. 12-13 -- Binary Search Trees, Red-Black Trees",
+      "leetcode_tag": "binary-search-tree"
+    },
+    {
+      "id": "topological_sort",
+      "clrs_chapter": "Ch. 22.4 -- Topological Sort",
+      "leetcode_tag": "topological-sort"
+    }
+  ]
+}

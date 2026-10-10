@@ -8,7 +8,7 @@ import pytest
 
 from task_graph.models import TaskStatus
 
-from .conftest import gpu, make_task, new_handoffs, token
+from .conftest import DISPATCHED, gpu, make_task, new_handoffs, token
 
 # --------------------------------------------------------------- remove_queued
 
@@ -37,9 +37,9 @@ def test_removing_a_running_task_is_rejected(scheduler, task_mgr):
     """Criterion 11: stop it instead."""
     task = make_task()
     scheduler.submit(task)
-    with pytest.raises(ValueError, match="running"):
+    with pytest.raises(ValueError, match="input_validating"):
         scheduler.remove_queued(task.id)
-    assert task_mgr.get(task.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(task.id).status is DISPATCHED
 
 
 def test_a_cancelled_task_is_not_dispatched_when_room_appears(scheduler, runner):
@@ -125,7 +125,7 @@ def test_a_stop_frees_room_for_a_queued_task(scheduler, task_mgr, runner):
 
     scheduler.stop(hog.id)
     runner.ack_stop(hog.id)
-    assert task_mgr.get(queued.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(queued.id).status is DISPATCHED
 
 
 # ----------------------------------------------------------------- resume
@@ -141,7 +141,7 @@ def test_a_suspended_task_resumes_with_a_new_attempt(scheduler, task_mgr, agent_
     scheduler.resume_task(task.id)
 
     restored = task_mgr.get(task.id)
-    assert restored.status is TaskStatus.RUNNING
+    assert restored.status is DISPATCHED
     assert [e.attempt for e in restored.history] == [0, 1]
     assert restored.current.agent_id != first_agent
     assert agent_mgr.get(restored.current.agent_id).task_id == task.id
@@ -153,7 +153,7 @@ def test_a_failed_task_resumes(scheduler, task_mgr, runner):
     runner.finish(task.id, TaskStatus.FAILED)
 
     scheduler.resume_task(task.id)
-    assert task_mgr.get(task.id).status is TaskStatus.RUNNING
+    assert task_mgr.get(task.id).status is DISPATCHED
 
 
 def test_a_resumed_task_whose_inputs_went_stale_waits_again(scheduler, task_mgr, runner, registry):
@@ -178,7 +178,9 @@ def test_a_resumed_task_whose_inputs_went_stale_waits_again(scheduler, task_mgr,
     assert task_mgr.get(consumer.id).status is TaskStatus.WAITING_HANDOFF
 
 
-@pytest.mark.parametrize("status", ["waiting_handoff", "running", "succeeded", "cancelled"])
+@pytest.mark.parametrize(
+    "status", ["waiting_handoff", "input_validating", "succeeded", "cancelled"]
+)
 def test_resuming_a_task_that_is_not_stopped_or_failed_is_rejected(scheduler, runner, status):
     queued = status in ("waiting_handoff", "cancelled")
     task = make_task(inputs=new_handoffs(1) if queued else [])
@@ -346,7 +348,7 @@ def test_update_behaves_exactly_like_a_resubmission(scheduler, task_mgr, registr
 def test_update_of_a_running_task_is_rejected(scheduler, task_mgr):
     task = make_task()
     scheduler.submit(task)
-    with pytest.raises(ValueError, match="running"):
+    with pytest.raises(ValueError, match="input_validating"):
         scheduler.update_task(task.id, agent_spec="tuner")
     assert task_mgr.get(task.id).agent_spec == "profiler"
 

@@ -1,0 +1,13 @@
+#!/bin/sh
+# The body of `check_faster`. Run by `validator.ScriptBodyRunner` as
+# `/bin/sh <package_root>/assets/check_faster.validator/entry.sh` with `cwd` set
+# to a freshly allocated validation zone holding `args.json`, `inputs.json` and
+# `materials.json`.
+#
+# `AGENT_SYS_TASK_PACKAGE` is the package root. The `AGENT_SYS_DEMO_PACKAGE`
+# fallback is demo-1's older name for the same thing and is kept because the two
+# packages share `assets/lib/store.py` verbatim, so they must agree on how a
+# body finds itself.
+set -eu
+exec "${AGENT_SYS_DEMO_PYTHON:-python3}" \
+  "${AGENT_SYS_TASK_PACKAGE:-${AGENT_SYS_DEMO_PACKAGE:?the runner exports one of these}}/assets/check_faster.validator/check.py"
