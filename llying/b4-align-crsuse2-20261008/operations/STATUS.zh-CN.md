@@ -52,6 +52,7 @@
 | 06:39–06:46 | 136/138 | 启动、gate、答案检查、switch、preflight | D TP4/DP4、GPU 0–3、共享 8 网卡；gate 16/16；答案检查 0 传输错误、错 3（同类长文档读错）；D 每 rank KV 2,111,808 |
 | 06:46–08:12 | 136/138 | C80 | warmup 18 分钟后正式窗口 3600 秒：完成 7,287、取消 31、错误 0；无传输失败。`MEASUREMENT_COMPLETE` |
 | 08:12 | 136 | 收尾失败 | `run_unattended.sh: error reading input file: Stale file handle`：06:33 提交后的 `git rebase` 替换了正在执行的脚本，`stop_after.sh` 未运行；08:15 手动 `run_b4.sh stop`。脚本已改为复制到 `/tmp` 后执行 |
+| 08:20 | 登录节点 | 分析 | 见 `../RESULT-P8D4.zh-CN.md`：D KV 容量不足（1,597 个请求等分配，D 复用 89%→35%），完成 −31.5%，每 GPU Output −8.8%、Total −14.5% |
 | 08:45 | 登录节点 | 发现：第三轮（P8D8）重跑 measure 时 `sample_engine_metrics.py` / `sample_node_runtime.py` 因输出已存在而退出，`sampling/` 只有 03:33 首次尝试的 3 个样本 | 客户端与诊断日志的分析不受影响；P8D8 缺 D KV 占用的时间序列。`run_b4.py measure` 已改为先把旧采样文件改名、采样器 10 秒内退出即报错 |
 | 08:48 | 136 | P8D4 调优：`B4_DECODE_TP=4 B4_SESSION_AFFINITY=prefill B4_DECODE_GRAPH_MAX_BS=64 B4_DECODE_MEM_FRACTION=0.90 B4_TAG=ponly-g64-m090 … run_unattended.sh` | 依据：P8D4 中 D 各 rank KV 占用均值 68/50/83/85%，52% 的样本一热（>90%）一冷（<50%），排队集中在 rank 3；`runs/b4-crsuse2-136-138-d4-ponly-g64-m090-20261009T0848Z/`，日志 `run5-p8d4-tuned-136-138.log` |
 | 08:56–11:01 | 136/138 | P8D4 调优运行 | D 每 rank KV 2,378,624（+12.6%）、graph bs 64、mem 0.90、亲和 `prefill`、D radix 开；答案检查 136/136 对；warmup 09:07–09:53（较长），正式窗口 09:53:29–10:53:58：完成 7,990、取消 30、错误 0；`stop_after.sh`（`/tmp` 副本）11:01 正常删除容器 |
@@ -63,7 +64,11 @@
 | 06:36–08:21 | 137/135 | P8D4 + R2（`run7-p8d4-r2-137-135.log`） | D 网卡白名单 `ionic_0…6`、HIP 0,4,5,6、R2 on、亲和 prefill；0 传输错误；答案检查 128/128 对（难题重放 4/8 错）；正式窗口 07:14:13–08:14:42：完成 8,881、取消 37、错误 0；08:21 自动收尾 |
 | 08:30 | 登录节点 | 分析 | Total token/s/GPU 23,051（P8D8 22,521，+2.4%），Output 191.3；D rank 占用 83.5–84.0%，一热一冷 0.2%；瓶颈转为总容量。见 `../P8D4-OPTIMIZATION.zh-CN.md` 第 7 节 |
 | 08:56 | — | 用户选择容量方向：D mem 0.92 + 预留 2048 | 查证后只做 mem 0.92：客户端 `max_tokens` 取自 trace 的输出长度（`weka_trace.py` `Turn.max_tokens`），D 预留 `min(max_tokens, 4096)` 本就约等于真实输出；输出 >2048 的约 10%（p90 1,991），平均每请求只少预留约 100 token（<0.1% 容量），且长输出可能触发 retract |
-| 08:20 | 登录节点 | 分析 | 见 `../RESULT-P8D4.zh-CN.md`：D KV 容量不足（1,597 个请求等分配，D 复用 89%→35%），完成 −31.5%，每 GPU Output −8.8%、Total −14.5% |
+| 08:56–09:39 | 137/135 | P8D4 + R2 + D mem 0.92（`run8-p8d4-r2-m092-137-135.log`） | preflight 通过，09:11 开始 C80；09:39 按用户要求停止并删除容器（用户：优先验证 D 侧 router 策略，加显存的优先级低），结果作废 |
+| 09:40 | — | 用户选择：先冒烟验证 D 上报 KV 事件，再实现并跑方案 2（R2 + D 前缀命中加分，记账仍按完整长度） | 依据见 `../P8D4-OPTIMIZATION.zh-CN.md` 第 7 节；套件新增 `B4_DECODE_KV_EVENTS`、`B4_ROUTER_BINARY`、`B4_ROUTER_EXTRA_ENV`、`B4_RUST_LOG`（提交 `c2fa4440`） |
+| 09:49 | 137/135 | 冒烟验证（只跑 prepare/launch/gate，router 仍为 `19a6c1d2`，R2 on、D KV 事件 on、决策日志 info），日志 `smoke-kvevents-137-135.log` | 137 停机后显存释放慢（无 KFD 进程，停后 16 分钟仍占约 260 GB/卡），用等待循环（最长 30 分钟）等释放后启动 |
+| 09:50 | 登录节点 | 发现：根目录 `.gitignore` 忽略 `build/`，套件的 `build/` 脚本从未提交 | 在套件 `.gitignore` 加 `!/build/` 补交（`96a7c26d`）；`build_router.sh` 改为可指定提交、`TEST_FILTER` 跑单测、遵从 `TMPDIR` |
+| 09:53 | 135 | 方案 2 router（`c8b0069f`，`INFERA_R2_DECODE_HIT_CREDIT`）编译 | 135 根分区已 100% 满（非本实验所致，docker 数据目录在 `/mnt/m2m_nobackup`，不影响容器），首次编译空间不足失败；改用 `TMPDIR=/mnt/m2m_nobackup/liyingli-tmp`。`infera-router` 全部 293 个单测通过（含新增测试），两次编译 sha256 相同：`artifacts/infera-router-c8b0069f` = `cda01cb8…` |
 
 ### 第三轮答案检查的结论
 

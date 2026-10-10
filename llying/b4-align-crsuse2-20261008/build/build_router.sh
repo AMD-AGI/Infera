@@ -11,7 +11,7 @@ IMAGE="$1"
 REV="$(git -C "$REPO" rev-parse "${2:-19a6c1d250521e1f698e5cafad83cd014dbcbfd9}")"
 OUT="$HERE/../artifacts/infera-router-${REV:0:8}"
 
-src="$(mktemp -d /tmp/b4-router.XXXXXX)"
+src="$(mktemp -d "${TMPDIR:-/tmp}/b4-router.XXXXXX")"
 trap 'docker run --rm -v "$src:/src" --entrypoint rm "$IMAGE" -rf /src/rust; rm -rf "$src"' EXIT
 git -C "$REPO" archive "$REV" rust | tar -xf - -C "$src"
 docker run --rm --network host -v "$src:/src" -e "TEST_FILTER=${TEST_FILTER:-}" --entrypoint bash "$IMAGE" -c '
