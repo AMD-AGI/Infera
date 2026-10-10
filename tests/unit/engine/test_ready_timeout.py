@@ -63,6 +63,7 @@ def test_ready_timeout_accepts_override(monkeypatch, reader):
 
 
 @pytest.mark.parametrize("reader", [sglang_ready_timeout, vllm_ready_timeout])
-def test_ready_timeout_invalid_value_falls_back(monkeypatch, reader):
-    monkeypatch.setenv("INFERA_ENGINE_READY_TIMEOUT", "not-a-number")
+@pytest.mark.parametrize("value", ["not-a-number", "nan", "inf", "-inf", "1e400", "0", "-5"])
+def test_ready_timeout_invalid_value_falls_back(monkeypatch, reader, value):
+    monkeypatch.setenv("INFERA_ENGINE_READY_TIMEOUT", value)
     assert reader() == 1800.0

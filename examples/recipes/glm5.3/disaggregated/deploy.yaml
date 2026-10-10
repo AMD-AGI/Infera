@@ -202,7 +202,7 @@ spec:
               - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
               - {name: SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT, value: "1800"}
               - {name: SGLANG_DISAGGREGATION_WAITING_TIMEOUT, value: "1800"}
-              - {name: INFERA_SGLANG_READY_TIMEOUT, value: "3600"}
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "3600"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 15
@@ -321,7 +321,7 @@ spec:
               - {name: INFERA_REQUIRE_NATIVE, value: "mooncake"}
               - {name: SGLANG_DISAGGREGATION_BOOTSTRAP_TIMEOUT, value: "1800"}
               - {name: SGLANG_DISAGGREGATION_WAITING_TIMEOUT, value: "1800"}
-              - {name: INFERA_SGLANG_READY_TIMEOUT, value: "3600"}
+              - {name: INFERA_ENGINE_READY_TIMEOUT, value: "3600"}
             startupProbe:
               httpGet: {path: /health, port: 30000}
               periodSeconds: 15

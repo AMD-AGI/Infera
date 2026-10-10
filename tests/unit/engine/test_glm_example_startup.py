@@ -72,6 +72,50 @@ def test_up_forwards_startup_settings_to_both_hosts(launch_env):
         assert "READY_TIMEOUT=5400" in legs[0]
 
 
+def never_healthy(env, tmp_path):
+    # /health never answers, and `sleep` returns at once, so the poll loop runs instantly.
+    ssh = tmp_path / "ssh-unready"
+    ssh.write_text(
+        '#!/bin/bash\ncase "$2" in *"/health"*) echo "$1" >> "$HEALTH_POLLS"; exit 1;; esac\n'
+    )
+    ssh.chmod(0o755)
+    (tmp_path / "sleep").symlink_to("/bin/true")
+    env.update(SSH_CMD=str(ssh), HEALTH_POLLS=str(tmp_path / "polls"))
+    return tmp_path / "polls"
+
+
+@pytest.mark.parametrize(
+    "settings, polls",
+    [
+        ({}, 240),
+        ({"READY_TIMEOUT": "5400"}, 360),
+        ({"READY_TIMEOUT": "61"}, 5),
+        ({"READY_TIMEOUT": "5400", "LEG_TRIES": "2"}, 2),
+    ],
+)
+def test_up_waits_at_least_the_engine_ready_timeout(launch_env, tmp_path, settings, polls):
+    log = never_healthy(launch_env, tmp_path)
+    launch_env.update(settings)
+    result = subprocess.run(
+        ["bash", str(_KIT / "engine/up.sh")], env=launch_env, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert "prefill leg never became ready" in result.stderr
+    assert log.read_text().split() == ["node-a"] * polls
+
+
+@pytest.mark.parametrize("timeout", ["5400.5", "0", "1h"])
+def test_up_rejects_unusable_ready_timeout_before_launching(launch_env, tmp_path, timeout):
+    log = never_healthy(launch_env, tmp_path)
+    launch_env["READY_TIMEOUT"] = timeout
+    result = subprocess.run(
+        ["bash", str(_KIT / "engine/up.sh")], env=launch_env, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert "READY_TIMEOUT must be a positive whole number of seconds" in result.stderr
+    assert not log.exists()
+
+
 @pytest.mark.parametrize("timeout, expected", [(None, "3600"), ("5400", "5400")])
 def test_leg_passes_ready_timeout_to_container(launch_env, timeout, expected):
     if timeout is not None:

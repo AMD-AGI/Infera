@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import math
 import os
 import re
 import signal
@@ -27,9 +28,11 @@ logger = logging.getLogger(__name__)
 def _ready_timeout() -> float:
     """Seconds to wait for the engine's /health, from INFERA_ENGINE_READY_TIMEOUT."""
     try:
-        return float(os.environ.get("INFERA_ENGINE_READY_TIMEOUT", "1800"))
+        timeout = float(os.environ.get("INFERA_ENGINE_READY_TIMEOUT", "1800"))
     except ValueError:
         return 1800.0
+    # nan/0/negative would fail startup at once, and inf would never time out.
+    return timeout if math.isfinite(timeout) and timeout > 0 else 1800.0
 
 
 class VllmEngine(BaseEngine):
