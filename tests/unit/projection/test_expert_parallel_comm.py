@@ -56,6 +56,43 @@ def _a2a_ms(tp, ep, tokens=TOKENS):
     return model.ep_a2a_ms(1, tokens)
 
 
+def test_attention_dp_sizes_dispatch_to_tokens_on_rank():
+    """A rank under DP attention only all-to-alls its own sequences.
+
+    Replica batch 512 with DP=8 is the same payload as batch 64 with DP=1, not
+    an 8x larger collective on every rank.
+    """
+    from infera.projection.core.projection.inference_projection.collectives import (
+        InferenceCollectiveModel,
+    )
+    from infera.projection.core.projection.training_config import (
+        InferenceCollectiveConfig,
+    )
+
+    class _Model:
+        hidden_size = 7168
+        moe_router_topk = 8
+
+    def _ms(dp: int, batch: int) -> float:
+        class _Parallel:
+            tensor_model_parallel_size = 8
+            pipeline_model_parallel_size = 1
+            expert_model_parallel_size = 8
+            context_model_parallel_size = 1
+            attention_data_parallel_size = dp
+
+        model = InferenceCollectiveModel(
+            _Model(), _Parallel(), InferenceCollectiveConfig(enabled=True)
+        )
+        return model.ep_a2a_ms(batch, 1)
+
+    replica = _ms(8, 512)
+    per_rank = _ms(1, 64)
+    unsplit = _ms(1, 512)
+    assert replica == pytest.approx(per_rank, rel=0.05)
+    assert replica < 0.5 * unsplit
+
+
 @pytest.mark.parametrize("tp", [8, 16, 32])
 def test_tensor_width_does_not_change_an_on_node_expert_dispatch(tp):
     """An EP8 group is eight GPUs of one node whatever TP is wrapped around it."""
