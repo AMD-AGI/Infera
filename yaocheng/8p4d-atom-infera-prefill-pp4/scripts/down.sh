@@ -11,6 +11,8 @@ for target in "${targets[@]}" "$CONTROL_NODE:etcd"; do
     node="${target%%:*}" role="${target#*:}"
     inspect="$(on "$node" docker inspect "$PREFIX-$role" 2>/dev/null)" || continue
     echo "$inspect" >"$out/$role.inspect.json"
+    on "$node" docker stop --time 60 "$PREFIX-$role" >/dev/null ||
+        echo "graceful stop failed for $PREFIX-$role; trying removal" >&2
     on "$node" docker logs --timestamps "$PREFIX-$role" >"$out/$role.log" 2>&1
     # Killing an engine that holds pinned LMCache memory can outlast one attempt.
     for attempt in 1 2 3 4 5 6; do

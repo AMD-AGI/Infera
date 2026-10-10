@@ -1,0 +1,192 @@
+{
+  "recorded_at_utc": "2026-10-09T07:13:33.671601+00:00",
+  "image": "infera-atom:pp4-baseline-202609221542-20261009",
+  "base": "rocm/atom-dev:nightly_202609221542",
+  "base_digest": "sha256:8d7ebab3069ad4186312af82b3dc7e736b7a9d411e0863f1be81794c38312e7e",
+  "image_ids": {
+    "crsuse2-m2m-136": "sha256:325da87950c11af2f47b4642febb47742075aca78b0d574d04018178c67ffee0",
+    "crsuse2-m2m-138": "sha256:67ca24113016293930fa94760ecdcc3696a99e3dfe59539ac15a3757b01c8e45"
+  },
+  "atom_commit": "d9f0720e2f99168f6f4e5dd07d674cba5b68d610",
+  "infera_source_commit": "38b49eec",
+  "inferencex_commit": "918524ff94045b3f091115f1051c22a8588edf2b",
+  "aiperf_commit": "754356e9a39acc6cc6afb242d123bb57c3fb6f75",
+  "agentx_dataset": "semianalysisai/cc-traces-weka-062126",
+  "agentx_dataset_snapshot": "23f152f6f0f9399a85901b89a6458def0ef16729",
+  "packages_equal": true,
+  "package_list_sha256": "6c1f8ab27a71d6968202891857a5c16629f99de1cf7ba66462faa18eaf4b62ac",
+  "key_packages": {
+    "amd-infera": "0.0.0",
+    "atom": "0.1.7.dev8+gd9f0720e2",
+    "torch": "2.10.0+rocm7.2.4.lw.git3d3aa833",
+    "triton": "3.7.0+amd.rocm7.2.0.git89002410",
+    "transformers": "5.16.1",
+    "lmcache": "0.5.5rc3+rocm7.2.4.torch2.10.git3d3aa833.cxx11abi1",
+    "numpy": "2.4.6",
+    "protobuf": "6.33.6",
+    "grpcio-health-checking": "1.81.1",
+    "prometheus_client": "0.23.1",
+    "lm_eval": "0.4.13"
+  },
+  "build_input_sha256": {
+    "yaocheng/8p4d-atom-infera/patch/atom-dcp-kv-staging.diff": "06bcd8f8a0828b5ee747f5e18eaaa2f3aae68edf2f0b8c32a8d1a6904479823f",
+    "yaocheng/8p4d-atom-infera/patch/atom-moe-eager-decode-pad.diff": "bc3b485384a6fe684711b473c6255fa15efe6c3eccc315262f83ecce0bd0e7f3",
+    "yaocheng/8p4d-atom-infera/patch/infera-atom-multi-connector.diff": "57f91b2a06f60d1a2e7860de3ead66f2aaa1d082f0419d9d48d7356d54a637cc",
+    "yaocheng/8p4d-atom-infera/patch/infera-forward-session-headers.diff": "37749eaac1a8514892c4c236782534a0bf3e7058d6f2e9055ad05a753545cbea",
+    "yaocheng/8p4d-atom-infera/docker/Dockerfile": "054a9cdf626d47343f45bd6444196d96c895fdce9069033ed236f3991924e794"
+  },
+  "cpu_checks": {
+    "imports": "passed on both nodes",
+    "pip_check": "10 findings, all also present in base image",
+    "agentx_prepare_only": [
+      48,
+      80,
+      120
+    ],
+    "gsm8k_data": "7473 train / 1319 test; tokenizer loaded"
+  },
+  "gpu_checks": {
+    "correctness": {
+      "run": "crs-pp4-validate-c80-20261009",
+      "gsm8k_5shot_200": 0.975,
+      "forced_acceptance": false,
+      "completion_chat_streaming": "passed",
+      "needle_60000_tokens": "passed"
+    },
+    "full_sweep": {
+      "c48": {
+        "run_id": "crs-pp4-full-20261009-c48",
+        "aiperf_submission_valid": true,
+        "profiled_requests": 5406,
+        "request_errors": 0,
+        "cancelled_credits": 2,
+        "requested_measurement_seconds": 3600,
+        "exported_duration_seconds": 3628.64479,
+        "status": "complete"
+      },
+      "c80": {
+        "run_id": "crs-pp4-full-20261009-c80",
+        "aiperf_submission_valid": true,
+        "profiled_requests": 8374,
+        "request_errors": 3,
+        "cancelled_credits": 47,
+        "requested_measurement_seconds": 3600,
+        "exported_duration_seconds": 3629.60501,
+        "status": "complete"
+      },
+      "c120": {
+        "run_id": "crs-pp4-full-20261009-c120",
+        "aiperf_submission_valid": true,
+        "profiled_requests": 3929,
+        "request_errors": 0,
+        "cancelled_credits": 167,
+        "requested_measurement_seconds": 3600,
+        "exported_duration_seconds": 3621.82325,
+        "status": "complete"
+      }
+    },
+    "campaign_exit_code": 0,
+    "archives": "all three raw archives verified by tar/gzip contents and SHA256",
+    "cleanup": {
+      "campaign_exit_code": 0,
+      "nodes": [
+        {
+          "time": "2026-10-09T18:42:53.723075+00:00",
+          "host": "crsuse2-m2m-136",
+          "test_containers": [],
+          "gpus": [
+            {
+              "card": "card0",
+              "vram_gib": 0.533,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card16",
+              "vram_gib": 227.657,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card24",
+              "vram_gib": 237.018,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card32",
+              "vram_gib": 252.3,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card40",
+              "vram_gib": 263.386,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card48",
+              "vram_gib": 263.345,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card56",
+              "vram_gib": 262.566,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card8",
+              "vram_gib": 226.138,
+              "gpu_busy_percent": 0
+            }
+          ]
+        },
+        {
+          "time": "2026-10-09T18:42:53.863150+00:00",
+          "host": "crsuse2-m2m-138",
+          "test_containers": [],
+          "gpus": [
+            {
+              "card": "card0",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card16",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card24",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card32",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card40",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card48",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card56",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            },
+            {
+              "card": "card8",
+              "vram_gib": 0.277,
+              "gpu_busy_percent": 0
+            }
+          ]
+        }
+      ],
+      "note": "All test containers removed. Node 136 VRAM is still being reclaimed by the driver at the recorded timestamp; node 138 is idle."
+    }
+  },
+  "gpu_validation_updated_at_utc": "2026-10-09T18:43:15.236890+00:00"
+}

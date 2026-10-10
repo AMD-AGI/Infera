@@ -8,10 +8,15 @@ RUN_DIR="$TMP_DIR/runs/${RUN_ID:-$(date -u +%Y%m%dT%H%M%SZ)-c$CONC}"
 mkdir -p "$RUN_DIR/logs"
 echo "$RUN_DIR" > "$TMP_DIR/current_run"
 
-# follow NODE NAME: stream the container log into the run directory, so it
-# survives a preemption that ends the job before down.sh saves it.
+# Store live logs on the control node, including when shared NFS is read-only.
 follow() {
-    on "$1" sh -c "nohup docker logs -f --timestamps $PREFIX-$2 > $RUN_DIR/logs/$2.live.log 2>&1 < /dev/null &"
+    nohup bash -c '
+        common="$1" node="$2" name="$3"
+        set --
+        source "$common"
+        on "$node" docker logs -f --timestamps "$name"
+    ' _ "$KIT_DIR/scripts/common.sh" "$1" "$PREFIX-$2" \
+        > "$RUN_DIR/logs/$2.live.log" 2>&1 < /dev/null &
 }
 for node in "$PREFILL_NODE" "$DECODE_NODE"; do
     echo "$node amdgpu $(on "$node" cat /sys/module/amdgpu/version)"

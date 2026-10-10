@@ -1,0 +1,30 @@
+{
+  "run_id": "crs-pp4-full-20261009-c120",
+  "concurrency": 120,
+  "requested_measurement_seconds": 3600,
+  "exported_duration_seconds": 3621.82325,
+  "profiled_requests": 3929,
+  "request_errors": 0,
+  "error_categories": {},
+  "cancelled_credits": 167,
+  "grace_period_timeout": true,
+  "warmup_requests": 1332,
+  "warmup_per_lane": 10,
+  "mtp_k": 3,
+  "forced_acceptance": 2.99,
+  "num_prefill_gpu": 8,
+  "num_decode_gpu": 4,
+  "parameter_checks": "passed",
+  "duration_threshold_3528s": "passed",
+  "request_error_rate_threshold_10pct": "passed",
+  "aiperf_submission_valid": true,
+  "timing_coverage_ttft": 1.0,
+  "timing_coverage_itl": 1.0,
+  "notes": [
+    "167 cancelled credits are separate from request_errors; their unfinished latency is not represented in completed-request percentiles.",
+    "Warmup completed 1332 requests with no errors in 2450.51 seconds.",
+    "Parameters verified against live docker inspect on both nodes."
+  ],
+  "archive": ".tmp/archives/crs-pp4-c120-20261009.tar.gz",
+  "archive_sha256": "5d902db64c2dde549fc7a82d3c152e186628a4243bec0879cb8a0ac6c6f6a4fe"
+}

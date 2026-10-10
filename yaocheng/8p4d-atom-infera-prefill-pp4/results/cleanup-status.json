@@ -1,0 +1,100 @@
+{
+  "campaign_exit_code": 0,
+  "nodes": [
+    {
+      "time": "2026-10-09T18:42:53.723075+00:00",
+      "host": "crsuse2-m2m-136",
+      "test_containers": [],
+      "gpus": [
+        {
+          "card": "card0",
+          "vram_gib": 0.533,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card16",
+          "vram_gib": 227.657,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card24",
+          "vram_gib": 237.018,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card32",
+          "vram_gib": 252.3,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card40",
+          "vram_gib": 263.386,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card48",
+          "vram_gib": 263.345,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card56",
+          "vram_gib": 262.566,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card8",
+          "vram_gib": 226.138,
+          "gpu_busy_percent": 0
+        }
+      ]
+    },
+    {
+      "time": "2026-10-09T18:42:53.863150+00:00",
+      "host": "crsuse2-m2m-138",
+      "test_containers": [],
+      "gpus": [
+        {
+          "card": "card0",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card16",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card24",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card32",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card40",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card48",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card56",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        },
+        {
+          "card": "card8",
+          "vram_gib": 0.277,
+          "gpu_busy_percent": 0
+        }
+      ]
+    }
+  ],
+  "note": "All test containers removed. Node 136 VRAM is still being reclaimed by the driver at the recorded timestamp; node 138 is idle."
+}

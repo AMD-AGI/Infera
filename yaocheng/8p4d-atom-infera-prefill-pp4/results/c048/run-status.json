@@ -1,0 +1,29 @@
+{
+  "run_id": "crs-pp4-full-20261009-c48",
+  "concurrency": 48,
+  "requested_measurement_seconds": 3600,
+  "exported_duration_seconds": 3628.64479,
+  "profiled_requests": 5406,
+  "request_errors": 0,
+  "cancelled_credits": 2,
+  "grace_period_timeout": true,
+  "warmup_requests": 531,
+  "warmup_per_lane": 10,
+  "mtp_k": 3,
+  "forced_acceptance": 2.99,
+  "num_prefill_gpu": 8,
+  "num_decode_gpu": 4,
+  "parameter_checks": "passed",
+  "duration_threshold_3528s": "passed",
+  "request_error_rate_threshold_10pct": "passed",
+  "notes": [
+    "Cancellation counts come from phase logs and are not included in records_error_dropped.",
+    "Shared-memory TypeError appeared during service shutdown after the completed measurement."
+  ],
+  "aiperf_submission_valid": true,
+  "archive": ".tmp/archives/crs-pp4-c48-and-validation-20261009.tar.gz",
+  "archive_sha256": "296dbedd2874e15769be6f501e67463dc2dd5a7dab0f3314e51e7cef89c2f95c",
+  "error_categories": {},
+  "timing_coverage_ttft": 1.0,
+  "timing_coverage_itl": 1.0
+}

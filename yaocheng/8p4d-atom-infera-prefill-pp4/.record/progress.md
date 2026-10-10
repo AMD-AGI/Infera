@@ -68,3 +68,62 @@
 - 约 06:11:37 作业 32947 第三次收到抢占信号：`runner.log` 最后一行为 06:11:52（`done=1,650, err=0`），实时日志与显存采样在 06:11:30-06:12:01 停止。06:16:37 作业结束（sacct：`PREEMPTED`，本次运行 05:24:20-06:16:37），抢占方为 xiaoqunw 的作业 32965（QOS `dcgpu-prod`，4 节点 n01-[21,29]、n02-[25,29]，时限 16 小时，06:16:46 启动）。两台节点不能 SSH，套件容器留在节点上（issues.md 第 6 条）。
 - 被抢占前的实时统计（测量开始后 16:47，非最终聚合结果）：rps 均值 1.6，输入 198,551 tok/s，输出 1,362 tok/s，TTFT p50 / p95 1.009 / 3.750 s，ITL p50 14 ms，ISL p50 88,194。上一组 DPA8 C48 在 16:33 时为：rps 均值 1.6，输入 191,830 tok/s，输出 1,313 tok/s，TTFT p50 / p95 2.437 / 6.597 s，ITL p50 14 ms，ISL p50 86,415。
 - 06:17:55 AgentX 客户端容器（不在作业的 cgroup 内）仍在运行，`benchmark.log` 为 `done=2,130, err=0`，即遗留的引擎仍在服务。作业 32947 再次排队（`Restarts=3`）。
+
+### CRS 本地 Docker 基线复测（2026-10-09）
+
+- 07:07:43 用户要求按 `plan/task.md` 在 `crsuse2-m2m-136/138` 重建镜像并测 C48/C80/C120。当前源码 `38b49eec`，保留用户对两个 task.md 的修改。
+- 两节点 SSH `xiaobche` 可用，各 8 张 MI355X（288 GiB/卡）；amdgpu 6.14.14，ionic/ionic_rdma 25.08.4.004，GTT 上限 1375.9 GiB。模型 `/shared_nfs/models/GLM-5.2-MXFP4` 可读；ionic_0-7 ACTIVE，GID 1 为 IPv6，同编号设备对应同 rail。
+- 资源检查：136 的 8 卡由 `llying-campaign-b4crs-prefill-0` 占用（约 261–263 GiB/卡，GPU 利用率 100%）；138 的 GPU0–3 由 `llying-campaign-b4crs-decode-0` 占用（约 256 GiB/卡），GPU4–7 空闲。该组 AgentX 客户端仍在运行。已向用户询问资源交接方式，未停止任何已有容器。
+- 先按 PP4 README 的固定版本 `rocm/atom-dev:nightly_202609221542` 准备镜像；上级早期任务中的 latest 与本次基线的选择已询问用户。新标签 `infera-atom:pp4-baseline-202609221542-20261009`。
+- 两节点 NFS 均为只读挂载，登录节点的同一路径可写。初次将 build 日志写入 NFS 失败，未开始 pull/build。现将远端运行目录设为 `/mnt/m2m_nobackup/xiaobche/yaoc-pp4-baseline-20261009`，缓存及结果均在该目录；结束后从登录节点同步回本套件。覆盖参数存于 `.tmp/crs.env`。
+- `build_image.sh` 改为仅打包 Dockerfile 所需输入，并显式检查两节点构建的退出码；`up.sh` 将所有实时日志收集到控制节点，支持只读 NFS；`agentx.sh` 显式挂载可位于套件外部的 TMP_DIR。
+- 已从 138 发起两节点并行构建；日志在上述远端目录的 `logs/build-crs.log`。本次只启动镜像构建，没有启动 GPU 引擎。
+
+- 07:14:31 用户确认：沿用 `202609221542` 固定镜像；“先不要用 GPU，完成剩余工作，可以用 GPU 的时候再通知”。本次不启动 GPU 服务、不干预已有实验、不设置自动抢占资源的后台任务。
+- 两节点构建完成：136 `sha256:325da87950c1…`，138 `sha256:67ca24113016…`。base digest `sha256:8d7ebab3069ad4186312af82b3dc7e736b7a9d411e0863f1be81794c38312e7e`；ATOM `d9f0720e2f99168f6f4e5dd07d674cba5b68d610`。完整记录见 `crs-image-manifest.json`。
+- 两节点 `import atom, infera, mooncake.engine` 成功；包清单完全相同，SHA256 `6c1f8ab27a71d6968202891857a5c16629f99de1cf7ba66462faa18eaf4b62ac`。`pip check` 10 个问题与原始基础镜像完全相同，没有新增问题，未修改基线依赖。
+- `agentx.sh` 增加 `PREPARE_ONLY=1`：无须 current_run，只安装独立客户端依赖、缓存数据、生成参数与 replay 命令，不调用推理服务。C48/C80/C120 三档均执行成功；核对 3600 s、预热 10、8P+4D、AL 2.99、DRAM offload 与 4 个指标端点。
+- 客户端初次安装 uv 时试图写入无权限的 shell 配置目录而退出。改为 `UV_NO_MODIFY_PATH=1` 后准备通过，无须重设 HOME。
+- AgentX 数据集 `semianalysisai/cc-traces-weka-062126` 已缓存（约 1.8 GiB），snapshot `23f152f6f0f9399a85901b89a6458def0ef16729`。
+- `.tmp/gsm8k.sh` 按镜像内 recipe 准备 5-shot / 200 题 / 并发 64 / max_gen_toks 16384 的验证命令。仅运行 `PREPARE_ONLY=1`，GSM8K 的 7473 条训练与 1319 条测试数据、tokenizer/chat template 加载通过；没有发出推理请求。
+- 构建及准备日志已取回 `.tmp/logs/`，三档配置/命令在 `.tmp/prepared/c{48,80,120}/agentx/`。所有 shell 脚本语法、Python 汇总脚本语法与 `git diff --check` 通过。操作步骤与尚待 GPU 完成的验收项见 `../plan/crs-baseline.md`。
+
+### CRS PP4 全量复测开始（2026-10-09 12:58 UTC）
+
+- 用户要求运行本套件，并确认按原计划测试 C48/C80/C120，各 3600 s、每 lane 预热 10、各档冷启动。
+- 136/138 全部 GPU 空闲（约 0.28 GiB/卡），端口空闲；DCP prefill 套件继续保持暂停。
+- 沿用已准备的 pp4-baseline-202609221542-20261009 镜像，image ID 与 crs-image-manifest.json 一致。
+  引擎参数不变；客户端增加可写的 AIPerf mmap、matplotlib 缓存目录，并检查 InferenceX commit。
+- 正确性运行 crs-pp4-validate-c80-20261009：K3，MTP_AL 为空，两 TP1×PP4 prefill、TP4+DCP4 decode。
+  基础请求、流式以及 6 万 token needle 已通过，GSM8K 5-shot 200 题进行中。
+- 正确性门槛沿用 plan/crs-baseline.md（>=0.931）。通过后控制脚本 .tmp/run_pp4_campaign.sh 自动开始三档正式测试，
+  明确设置 K3 / forced acceptance 2.99、3600 s、预热 10。全程保存实时日志和各档原始数据。
+- 停止容器时先尝试正常退出；本轮给驱动显存回收最多 1800 s，避免上一轮观察到的约 15 分钟回收触发误启动。
+  这些是控制和记录调整，没有改变 PP4 引擎参数。
+
+- 13:06 UTC：正确性验证完成，GSM8K strict/flexible 均为 0.975（195/200）。控制脚本通过门槛，已停止验证服务并进入 C48 冷启动流程；等待显存回收。
+
+- C48：13:22:12.957–14:22:12.958 UTC 完成 3600 s 发送窗口；随后 30 s 宽限与 10 s 取消回收。阶段完成 5406 请求、0 错误、2 cancelled credits，grace_period_timeout=True。TTFT/ITL 计时指标覆盖率均为 100%，待聚合 JSON 完成。
+
+- C48 聚合完成：exported duration 3628.645 s（含请求收尾跨度），5406 个计时记录、0 错误；输出 1524.082 token/s、总吞吐 218576.430 token/s，TTFT p50/P95 1.2905/3.71008 s、ITL p50 13.89 ms。并行配置及 8P+4D GPU 元数据核对通过，结果已取回 results/c048。14:34 左右清理服务，C80 等待显存回收后启动。
+
+- C48 的 AIPerf 原始导出 metadata.submission_valid=True；2 个收尾取消另外保留，不混入 request_errors。C48 与本次正确性原始数据已压缩归档（253865970 字节，72 项）并通过内容和 SHA256 校验。
+
+- C80：14:47:32 UTC 预热开始（884 个请求），15:06:43 UTC 进入 3600 s 计时阶段；预热约 1151 s，期间请求持续完成、未观察到挂起。
+
+- C80：15:06:43.226–16:06:43.227 UTC 完成 3600 s 发送窗口，16:07:23 阶段结束。共处理 8377 条（8374 成功、3 错误），另取消 47 credits，grace_period_timeout=True。TTFT/ITL 指标覆盖率均为 100%；等待聚合文件。
+
+- C80 聚合完成：8374 成功、3 ClientOSError；exported duration 3629.605 s，submission_valid=True。总吞吐 262358.308 token/s、输出 2258.167 token/s，TTFT p50/P95 6.13912/44.17425 s，ITL p50 17.47 ms。相对原 results/c080，总/输出吞吐分别 -9.742%/-8.844%；属于整套 recipe 对比。结果已保存 results/c080，接着按计划准备 C120。
+
+- C80 原始数据已归档并通过 gzip/tar 内容与 SHA256 校验：`.tmp/archives/crs-pp4-c80-20261009.tar.gz`，460597970 字节、38 项，SHA256 `76a4390ad42f78ab7fda1bb888bee0942ea9410570588db5092b761b2257fd4f`。归档包含请求记录、AIPerf 导出、运行参数及完整引擎日志，排除可重建的 AgentX tmp 缓存。
+- 16:37 UTC：C120 已等到上一档显存回收，开始冷启动；参数保持原计划，未重复启动 campaign。
+- C120：16:39:39.808 UTC 开始预热（1332 个请求）。17:05 UTC 观察到两个 prefill 实例负载不均衡：prefill0 Running/Waiting=0/0、最近 prompt throughput 334 tok/s、prefix hit 35.6%；prefill1 Running/Waiting=1/101、prompt throughput 44817 tok/s、prefix hit 2.3%。此时累计返回约 958/1332，错误为 0，仍在持续推进。只记录预热现象，没有改变路由或参数；具体原因尚未定位。
+
+- C120：预热 1332/1332 全部完成，0 错误、0 取消，用时 2450.51 s；17:20:30.472 UTC 开始 3600 s 正式计时。
+- C120 计时约 7–8 分钟：请求返回降至最近 30 秒 0.3 req/s，累计 973、0 错误。17:28:11 UTC 两个 prefill 各有 70/71 个等待请求、各 1 个运行请求，prompt throughput 27760/29642 tok/s；decode 6 个运行、2 个等待，generation throughput 689 tok/s。未见新引擎异常。属于计时过程中的排队观察，完整性能以最终聚合为准。
+- C120：17:20:30.472–18:20:30.474 UTC 完成 3600 s 发送窗口。18:21:10 收尾结束，成功 3929、请求错误 0，另有 167 个 credits 取消，grace_period_timeout=True；18:21:24 TTFT/ITL 指标覆盖率均通过 100% 校验。等待服务端指标聚合与正式 JSON 导出。
+- C120 正式导出：总吞吐 107828.917 token/s、输出 1095.142 token/s，TTFT p50/p95 11.75604/478.11473 s，完整响应 ITL p50 11.73 ms。导出跨度 3621.82325 s，submission_valid=True。相对原 results/c120，总/输出吞吐分别 −59.205%/−54.567%。结果已取回 results/c120；三档的元数据、时长、错误率、预热与 forced acceptance 核验全部通过，C120 另用两节点实际 docker inspect 核验 K3、并行、block、预算、显存比例与镜像 ID。
+- 整组测试退出码 0，136/138 的本次测试容器全部移除。18:39 UTC 检查：138 所有卡显存约 0.277 GiB、GPU 利用率 0；136 所有卡 GPU 利用率 0，部分显存尚在驱动回收中，详见 results/cleanup-status.json。
+- C120 完整归档已取回并校验：`.tmp/archives/crs-pp4-c120-20261009.tar.gz`，385007846 字节、40 项，SHA256 `5d902db64c2dde549fc7a82d3c152e186628a4243bec0879cb8a0ac6c6f6a4fe`。含完整请求数据、7.82 GB 原始服务端指标、引擎日志与 inspect、整组测试日志和 exit 0 记录；排除可重建的 agentx/tmp。三档汇总、原环境对比和完整报告均已保存 results/。
+
+- 18:42:53 UTC 最终清理检查：两节点均无本次测试容器，所有 GPU 利用率为 0；138 全部显存约 0.277 GiB，136 显存仍缓慢回收（部分卡约 226–263 GiB），没有进行 GPU reset。最新逐卡快照已保存 results/cleanup-status.json。

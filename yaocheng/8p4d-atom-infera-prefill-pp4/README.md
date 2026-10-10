@@ -6,13 +6,21 @@
 （TP4 + DCP4，4 卡），共 12 卡。引擎参数按 ATOM `recipes/Agentic-GLM-5.2.md` 的 1P1D 配置（upstream `c3a88b5c`），
 镜像、patch、AgentX 方法与上一组相同。过程与问题见 `.record/`。
 
+2026-10-09 CRS 复测见 [`plan/crs-baseline.md`](plan/crs-baseline.md)。136/138 的镜像、AgentX 三档配置及数据集、
+GSM8K 数据已准备完成。用户已于本日授权 GPU 测试，并确认 C48/C80/C120 各 3600 s；
+正确性验证已通过（GSM8K 97.5%）；C48/C80/C120 均完成一小时测量，三档数据有效性检查通过。
+原始数据已归档并校验，测试容器已清理。
+已完成结果及与原环境的比较见 [`results/crs-20261009-report.md`](results/crs-20261009-report.md)。
+镜像与依赖清单见 [`.record/crs-image-manifest.json`](.record/crs-image-manifest.json)。
+
 ## 目录
 
 - `config.sh`：节点、IP、镜像、模型、端口、引擎与 AgentX 参数；所有脚本支持用 `KEY=VALUE` 覆盖。
 - `scripts/`：`build_image.sh`、`up.sh`、`down.sh`、`smoke.sh`、`agentx.sh`、`sweep.sh`、`summarize.py`。
+  `agentx.sh PREPARE_ONLY=1 CONC=48` 只准备依赖、数据和 replay 命令，不需要运行中的服务，也不发送推理请求。
   `common.sh`、`sweep.sh`、`summarize.py` 由上一组复制；`up.sh`、`down.sh`、`smoke.sh`、`agentx.sh` 改为多个 prefill 实例。
 - `.tmp/`（不入库）：`gsm8k.sh`、`needle_probe.sh`、`vram_sample.sh`，运行目录 `runs/<RUN_ID>/`、日志 `logs/`。
-  `up.sh` 启动每个容器后在其节点上运行 `docker logs -f`，写入 `runs/<RUN_ID>/logs/<name>.live.log`，
+  `up.sh` 启动每个容器后由控制节点收集 `docker logs -f`，写入 `runs/<RUN_ID>/logs/<name>.live.log`，
   作业被抢占、来不及执行 `down.sh` 时日志仍保留到抢占时刻；`down.sh` 另存完整的 `<name>.log`。
 - `results/`：通过的 AgentX 聚合 JSON 与汇总表。
 
@@ -48,7 +56,7 @@ AgentX venv 与数据集缓存使用 `../8p4d-atom-infera/.tmp/cache`（`CACHE_D
 | block size | 64 | 16 |
 | HTTP keep-alive | 5 s（默认） | 900 s |
 | forced acceptance | 只在 decode | prefill 与 decode |
-| 驱动 | amdgpu 6.14.14 | amdgpu 6.16.13 |
+| 驱动 | amdgpu 6.14.14 | 早期 Slurm 尝试为 6.16.13；本次 CRS 正式复测为 6.14.14 |
 
 ## 运行
 

@@ -26,7 +26,7 @@ wait_ready() {
 # wait_vram_free NODE: poll until every GPU on NODE uses less than 4 GiB of VRAM.
 # The driver can hold a removed engine's VRAM for minutes while reclaiming it.
 wait_vram_free() {
-    local deadline=$((SECONDS + 900)) max
+    local deadline=$((SECONDS + ${VRAM_RELEASE_TIMEOUT:-900})) max
     while max="$(on "$1" sh -c 'cat /sys/class/drm/card*/device/mem_info_vram_used 2>/dev/null' |
                  sort -n | tail -1)"; (( max >= 4 << 30 )); do
         (( SECONDS < deadline )) || { echo "VRAM on $1 not released: $((max >> 30)) GiB" >&2; return 1; }

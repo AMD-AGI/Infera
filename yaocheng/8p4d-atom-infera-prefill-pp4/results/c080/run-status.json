@@ -1,0 +1,30 @@
+{
+  "run_id": "crs-pp4-full-20261009-c80",
+  "concurrency": 80,
+  "requested_measurement_seconds": 3600,
+  "exported_duration_seconds": 3629.60501,
+  "profiled_requests": 8374,
+  "request_errors": 3,
+  "error_categories": {
+    "ClientOSError": 3
+  },
+  "cancelled_credits": 47,
+  "grace_period_timeout": true,
+  "warmup_requests": 884,
+  "warmup_per_lane": 10,
+  "mtp_k": 3,
+  "forced_acceptance": 2.99,
+  "num_prefill_gpu": 8,
+  "num_decode_gpu": 4,
+  "parameter_checks": "passed",
+  "duration_threshold_3528s": "passed",
+  "request_error_rate_threshold_10pct": "passed",
+  "aiperf_submission_valid": true,
+  "notes": [
+    "Cancellation counts come from phase logs and are not included in records_error_dropped."
+  ],
+  "archive": ".tmp/archives/crs-pp4-c80-20261009.tar.gz",
+  "archive_sha256": "76a4390ad42f78ab7fda1bb888bee0942ea9410570588db5092b761b2257fd4f",
+  "timing_coverage_ttft": 1.0,
+  "timing_coverage_itl": 1.0
+}

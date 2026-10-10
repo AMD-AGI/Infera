@@ -52,3 +52,58 @@
 - 留在节点上的容器：n02-25 的 `glm52-8p4d-pp4-{agentx,router,decode,etcd}`（decode 占用 GPU 0-3，每卡约 273.7 GB）；n02-29 的 `glm52-8p4d-pp4-prefill0`、`glm52-8p4d-pp4-prefill1`（8 张 GPU 每卡 254-266 GB，LMCache 锁页内存 1280 GiB）。这两台节点自 06:16:46 起属于作业 32965（xiaoqunw，16 小时）。
 - 说明：AgentX 客户端容器带 `--rm`，按 3600 s 的测量时长约 06:55 停止发送，聚合完成后会把 `agentx_conc48.json` 写入 `.tmp/runs/pp4-n02-c48/agentx/` 并自动删除；引擎、路由与 etcd 容器会一直运行。06:16:46 之后的测量与作业 32965 共用节点，数据有效性需要另行判断。
 - 状态：未解决。需要作业 32965 的用户或管理员用 `docker logs --timestamps <容器名>` 保存日志后，用 `docker rm -f` 删除上述容器。
+
+## 7. CRS 复测资源被正在运行的实验占用
+
+- 2026-10-09 约 07:00 UTC：136 GPU0–7 与 138 GPU0–3 被 `llying-campaign-b4crs` 实验占用，AgentX 客户端仍在运行。当前仅余 138 的 4 卡空闲，不满足 8P4D 的 12 卡要求。
+- 处理：等待用户确认现有实验结束后的资源交接、授权停止具体实验容器，或提供另外两台机器；未干预已有容器。镜像及无 GPU 准备继续。
+- 状态：等待资源安排，C48/C80/C120 尚未启动。
+
+## 8. CRS 两节点的 /shared_nfs 为只读挂载
+
+- 初次构建的日志重定向返回 `Read-only file system`，构建命令未执行。两节点 `findmnt` 确认 NFS 为 `ro`，并非普通目录权限问题。
+- 处理：远端 `.tmp`、缓存与结果放到控制节点 NVMe 目录；源码和模型仍从 NFS 读取。实时日志从控制节点经 SSH 收集，AgentX 挂载独立 TMP_DIR。登录节点有 NFS 写权限，负责取回实验产物。
+- 状态：目录已建立，重新发起构建。
+
+- 第 7 条更新：用户明确要求等待 GPU 可用通知，已完成 CPU 侧准备；没有启动引擎或自动等待后抢占资源的任务。
+- 第 8 条更新：NVMe 输出目录、控制节点日志收集与登录节点归档已验证，AgentX 三档准备和 GSM8K 数据加载均成功。
+
+## 9. 固定基础镜像自带 pip check 问题
+
+- 两台新镜像均有 10 个 `pip check` 问题。与原始 `rocm/atom-dev:nightly_202609221542` 的逐行比较完全相同，本次构建没有引入新问题。
+- LMCache 缺少 6 个声明依赖：awscrt、cufile-python、google-api-core、google-cloud-bigtable、nvtx、setuptools-scm；NumPy 2.4.6 超过其声明上限 2.2.6，setuptools 82.0.1 超过其上限 81。
+- ATOM 声明 prometheus_client >=0.25,<0.26，基础镜像为 0.23.1；Torch 声明 Triton 3.6 ROCm 构建，基础镜像为 Triton 3.7 AMD 构建。
+- `atom`、`infera`、`mooncake.engine` 导入成功；GSM8K task 与模型 tokenizer 加载成功。用户要求保持固定基线，因此保留依赖现状，是否影响 GPU 引擎/LMCache 留待实测。
+- 证据：`.tmp/logs/base-pip-check-136.txt`、`image-check-{136,138}.log`、`pip-freeze-{136,138}.txt`。
+- 状态：已记录来源；不将 `pip check` 标记为通过。
+
+## 10. 本次 CRS 客户端配置与指标提示
+
+- 在 PP4 首轮实际运行前，agentx.sh 已加入 AIPERF_DATASET_MMAP_CACHE_DIR 与 MPLCONFIGDIR，
+  指向已挂载的可写缓存，避免此前 DCP 测试复现的非 root 默认缓存目录权限问题。
+- C48 的 AIPerf 服务端直方图采集出现 bucket schema mismatch，额外桶被忽略。
+  这是 Prometheus 直方图采集提示；本次主要吞吐、TTFT、ITL 从请求记录统计，计时阶段 TTFT/ITL 覆盖率均通过 100% 校验。
+  服务端直方图结果应结合原始导出审阅。
+- C48 整个 3600 s 发送窗口完成；收尾 2 个 credits 在宽限期后取消，并触发取消回收超时。
+  原聚合器不把这些取消项计入 records_error_dropped，最终报告另列阶段取消数，避免仅凭错误率 0 忽略收尾情况。
+
+- C48 退出阶段（14:34:42，计时已于 14:22:12 结束）出现 aiter/dist/shm_broadcast.py 访问已释放 shared_memory.buf 的 TypeError，随后 All EngineCores shut down / Application shutdown complete。异常发生于正常停止阶段，单独记录，不计为计时中的推理异常。
+
+## 11. C80 计时阶段三次客户端请求体写入失败
+
+- 15:43:40 UTC，AIPerf 报 ClientOSError(None, 'Can not write request body for http://10.245.157.237:18000/v1/chat/completions')。
+- 下一次统计为 5295 条、5294 成功、1 错误。检查近期 router、decode、两个 prefill 日志尾部，未见对应 Traceback、RuntimeError、OOM 或 HTTP 500。
+- 服务仍持续返回；未确认该错误的具体原因，不将其归因于 GPU 或 KV 传输。保留错误计数，按原参数继续完成一小时测试。
+
+- C80 完整计时结束后共 3 个同类 ClientOSError（15:43:40、15:47:49、15:50:14），成功 8374、错误 3；47 个收尾取消另外记录。没有中途调整参数或重跑以消除错误计数。
+
+## 12. C120 的 prefill 排队、吞吐下降与较多收尾取消
+
+- 预热 1332 个请求用时 2450.51 s，0 错误。17:05 UTC prefill0 无排队，而 prefill1 等待约 101 个请求，仍在计算。
+- 正式计时期间出现两个 prefill 同时排队的情况：17:28:11 UTC 各等待 70/71 个请求，decode 6 个运行、2 个等待；未发现对应引擎异常。
+- 3600 s 发送窗口完整结束。3929 个成功请求、0 个请求错误；18:21:00 宽限期结束时仍有 167 个在途 credits，取消后又等待 10 s，随后强制结束阶段。
+- AIPerf 报告 `grace_period_timeout=True`，以及清理时仍有 6 active joins、3 future joins、216 tracked children 和 23 parents with descendants。
+  这些是客户端收尾状态，不等于 167 个 HTTP 错误。取消项不进入聚合器的 `records_error_dropped`，报告单独保留其数量。
+- 当前参数未中途调整；最终性能以正式聚合 JSON 为准。排队是已观察到的现象，根因尚未定位。
+
+- C120 退出阶段更新：18:37:41–18:37:44 UTC，prefill1 的 aiter/dist/shm_broadcast.py 再次访问已释放的 shared_memory.buf 并抛出 TypeError，随后 Application shutdown complete。发生于测量与聚合之后，容器已移除，单独记录为退出问题。
