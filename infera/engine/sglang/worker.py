@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import math
 import os
 import signal
 import subprocess
@@ -17,7 +18,7 @@ from typing import Any
 import httpx
 from sglang.srt.server_args import ServerArgs
 
-from infera.common.net import free_tcp_port, free_tcp_port_block
+from infera.common.net import free_tcp_port_block
 from infera.common.worker_pool import DisaggMode, EngineType
 from infera.engine.base import BaseEngine, EngineConfig
 
@@ -36,9 +37,11 @@ _SGLANG_TO_DISAGG_MODE = {
 def _ready_timeout() -> float:
     """Seconds to wait for the engine's /health, from INFERA_ENGINE_READY_TIMEOUT."""
     try:
-        return float(os.environ.get("INFERA_ENGINE_READY_TIMEOUT", "1800"))
+        timeout = float(os.environ.get("INFERA_ENGINE_READY_TIMEOUT", "1800"))
     except ValueError:
         return 1800.0
+    # nan/0/negative would fail startup at once, and inf would never time out.
+    return timeout if math.isfinite(timeout) and timeout > 0 else 1800.0
 
 
 # The resolved page size is read once per process and nothing re-resolves it,
@@ -101,7 +104,10 @@ class SglangEngine(BaseEngine):
 
         if self.enable_kv_events:
             dp_size = int(getattr(self.server_args, "dp_size", 1) or 1)
-            self._kv_events_port = free_tcp_port_block(dp_size) if dp_size > 1 else free_tcp_port()
+            # The scheduler creates its publisher only after model loading. Use
+            # the non-ephemeral block allocator even for DP=1 so the released
+            # probe port is not recycled during that potentially long window.
+            self._kv_events_port = free_tcp_port_block(dp_size)
             kv_cfg = json.dumps(
                 {
                     "publisher": "zmq",

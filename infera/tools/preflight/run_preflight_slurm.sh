@@ -85,6 +85,7 @@ exec docker run --rm --privileged --ipc host --network host \\
   -v "$LIBIONIC:/host-libionic/libionic.so" \\
   "\${storage[@]}" \\
   -e SLURM_PROCID -e SLURM_NNODES -e SLURMD_NODENAME \\
+  -e INFERA_PREFLIGHT_MOONCAKE_OPCODE -e INFERA_PREFLIGHT_RUN_ID -e INFERA_PREFLIGHT_RDMA_DEVICE \\
   -e "PREFLIGHT_IMAGE=$IMAGE" \\
   "$IMAGE" bash -lc "python3 -m infera.tools.preflight --dump-path $DUMP_PATH"
 EOF

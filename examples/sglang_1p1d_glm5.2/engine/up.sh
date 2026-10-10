@@ -14,6 +14,10 @@ require_env PREFILL_IP;   require_env DECODE_IP
 require_env KIT_DIR "path to this kit, identical on both nodes"
 require_env INFERA_IMAGE; require_env MODEL; require_env MODEL_MOUNT
 require_env RDMA_IB_DEVICES; require_env MC_GID_INDEX
+# leg.sh hands the engine READY_TIMEOUT (default 3600 s); the leg wait below must outlast it.
+ENGINE_READY_TIMEOUT="${READY_TIMEOUT:-3600}"
+[[ "$ENGINE_READY_TIMEOUT" =~ ^[1-9][0-9]*$ ]] ||
+  die "READY_TIMEOUT must be a positive whole number of seconds, got '$ENGINE_READY_TIMEOUT'"
 
 # On a scheduler that blocks ssh to compute nodes, set SSH_CMD to whatever runs a command on
 # a node. Invoked as: $SSH_CMD <node> <command>.
@@ -33,6 +37,8 @@ MOONCAKE_DISABLE_HIP_DMABUF=${MOONCAKE_DISABLE_HIP_DMABUF:-1} \
 ${MC_TE_FILTERS:+MC_TE_FILTERS=$MC_TE_FILTERS} \
 ${RDMAV_FORK_SAFE:+RDMAV_FORK_SAFE=$RDMAV_FORK_SAFE} \
 ${HOST_RDMA_LIB:+HOST_RDMA_LIB=$HOST_RDMA_LIB} \
+${HOST_RDMA_MOUNT:+HOST_RDMA_MOUNT=$HOST_RDMA_MOUNT} \
+${READY_TIMEOUT:+READY_TIMEOUT=$READY_TIMEOUT} \
 ${ENTRYPOINT_KEEP:+ENTRYPOINT_KEEP=$ENTRYPOINT_KEEP} \
 ${GMU_PREFILL:+GMU_PREFILL=$GMU_PREFILL} ${GMU_DECODE:+GMU_DECODE=$GMU_DECODE} \
 ${EXTRA_ENGINE_ARGS:+EXTRA_ENGINE_ARGS=\"$EXTRA_ENGINE_ARGS\"} \
@@ -92,7 +98,7 @@ on "$DECODE_NODE" "$COMMON_ENV ROLE=decode MY_IP=$DECODE_IP PORT=$DECODE_PORT \
 # restarts and a grep matches the PREVIOUS run's line within seconds.
 log "waiting for both legs (cold start is minutes — silence is not a hang)"
 wait_leg(){
-  local h="$1" ip="$2" port="$3" tries="${LEG_TRIES:-120}"
+  local h="$1" ip="$2" port="$3" tries="${LEG_TRIES:-$(( (ENGINE_READY_TIMEOUT + 14) / 15 ))}"
   for i in $(seq 1 "$tries"); do
     if on "$h" "docker exec $CTR curl -sf -m5 http://$ip:$port/health >/dev/null 2>&1"; then
       log "  $h ($ip:$port) serving after $((i * 15))s"; return 0
