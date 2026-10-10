@@ -7,6 +7,7 @@
 B4_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 _b4_ip() {
     case "$1" in
+        crsuse2-m2m-135) echo 10.245.148.209 ;;
         crsuse2-m2m-136) echo 10.245.154.168 ;;
         crsuse2-m2m-137) echo 10.245.153.247 ;;
         crsuse2-m2m-138) echo 10.245.157.237 ;;
@@ -97,7 +98,9 @@ PREFILL_SEED=823508857
 # D on GPUs 0..TP-1, TP=DP, per-rank chunk 4096, total max-running still 256.
 DECODE_TP="${B4_DECODE_TP:-8}" DECODE_DPA=1 DECODE_EP=1
 DECODE_DP=$DECODE_TP
-DECODE_GPU_DEVICES="$(seq -s, 0 $((DECODE_TP - 1)))"
+# B4_DECODE_GPUS picks other GPUs (e.g. 4,5,6,7 when 0-3 are taken); Mooncake
+# pins each GPU to an HCA on its own NUMA node, so any one-socket set works.
+DECODE_GPU_DEVICES="${B4_DECODE_GPUS:-$(seq -s, 0 $((DECODE_TP - 1)))}"
 DECODE_CHUNK_SIZE=$((DECODE_TP * 4096)) DECODE_MAX_RUNNING=256
 # Tuning experiments only; the defaults are B4's.
 DECODE_GRAPH_MAX_BS="${B4_DECODE_GRAPH_MAX_BS:-256}"
@@ -113,7 +116,7 @@ DECODE_SIMULATE_ACC_LEN="${B4_DECODE_SIMULATE_ACC_LEN-3.61}"
 
 # Router (start_performance_router.py reads these; GUARD_MODE is its record).
 GUARD_MODE=completion INFERA_PD_PREFILL_GUARD_RELEASE=completion
-INFERA_P_DYNAMO_SCORE=off INFERA_R2_DECODE_DEMAND=off INFERA_R3_CACHE_TIERS=off
+INFERA_P_DYNAMO_SCORE=off INFERA_R2_DECODE_DEMAND="${B4_R2:-off}" INFERA_R3_CACHE_TIERS=off
 INFERA_R3_HOST_WEIGHT=0 INFERA_R4_PREFILL_WORK=off
 INFERA_SESSION_AFFINITY="${B4_SESSION_AFFINITY:-both}" INFERA_SESSION_AFFINITY_TTL_SECS=3600
 KV_PREFILL_OVERLAP_WEIGHT=20 KV_DECODE_OVERLAP_WEIGHT=2

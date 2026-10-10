@@ -56,6 +56,8 @@
 | 08:48 | 136 | P8D4 调优：`B4_DECODE_TP=4 B4_SESSION_AFFINITY=prefill B4_DECODE_GRAPH_MAX_BS=64 B4_DECODE_MEM_FRACTION=0.90 B4_TAG=ponly-g64-m090 … run_unattended.sh` | 依据：P8D4 中 D 各 rank KV 占用均值 68/50/83/85%，52% 的样本一热（>90%）一冷（<50%），排队集中在 rank 3；`runs/b4-crsuse2-136-138-d4-ponly-g64-m090-20261009T0848Z/`，日志 `run5-p8d4-tuned-136-138.log` |
 | 08:56–11:01 | 136/138 | P8D4 调优运行 | D 每 rank KV 2,378,624（+12.6%）、graph bs 64、mem 0.90、亲和 `prefill`、D radix 开；答案检查 136/136 对；warmup 09:07–09:53（较长），正式窗口 09:53:29–10:53:58：完成 7,990、取消 30、错误 0；`stop_after.sh`（`/tmp` 副本）11:01 正常删除容器 |
 | 10-10 04:25 | 登录节点 | 分析 | Total token/s/GPU 21,081（调优前 19,259，P8D8 22,521），Output 172.4（略高于 P8D8）；阻塞 1,597→1,427；D 各 rank 占用 80/73/66/66%。根因：router 对 D 无 token 负载信号（D 无 `kv_block_size`，负载只计派发次数），请求数均匀而 KV 不均。见 `../P8D4-OPTIMIZATION.zh-CN.md` 第 6 节；下一步打开 R2 |
+| 10-10 04:33 | 全部 | 节点检查 | 135：GPU 1 被他人 vLLM 进程占 90 GB，其余空闲；136：yihou sanity 占 GPU 0–3；137：limou 的 vLLM TP8 刚启动；138：空闲。用户决定 P 用 138 的 8 卡、D 用 135 的 4 卡 |
+| 04:40 | 135/138 | 准备 | 新增 `B4_DECODE_GPUS`（D 用 135 GPU 4–7，NUMA 1；Mooncake 按物理 NUMA 给 GPU 固定本地网卡，GPU 4–7→ionic_4–7）、`B4_R2`、135 的 IP；镜像 138→135（`e13b5843…`，`image-transfer-138-to-135.log`）；kernel/AITER 缓存 136→138（P TP8）、138→135（D TP4） |
 | 08:20 | 登录节点 | 分析 | 见 `../RESULT-P8D4.zh-CN.md`：D KV 容量不足（1,597 个请求等分配，D 复用 89%→35%），完成 −31.5%，每 GPU Output −8.8%、Total −14.5% |
 
 ### 第三轮答案检查的结论

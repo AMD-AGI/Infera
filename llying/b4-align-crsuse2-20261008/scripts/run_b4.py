@@ -27,7 +27,7 @@ import transition_two_node as ops  # noqa: E402
 
 PREFIX = E["CONTAINER_PREFIX"]
 # Forwarded to engine.sh, which sources the config on the worker node.
-PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID", "B4_TAG", "B4_DECODE_TP",
+PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID", "B4_TAG", "B4_DECODE_TP", "B4_DECODE_GPUS",
                "B4_DECODE_GRAPH_MAX_BS", "B4_DECODE_MEM_FRACTION")
 B4_CAPACITY = {"prefill": int(E["REFERENCE_PREFILL_TOKENS"]), "decode": int(E["REFERENCE_DECODE_TOKENS"])}
 
@@ -50,8 +50,11 @@ def workers():
              bootstrap_port=28999, kv_port=25558, snapshot_port=28802),
     ]
     for row in rows:
-        tp = int(E[row["role"].upper() + "_TP"])
-        row.update(container=f"{PREFIX}-{row['role']}-0", gpu_ids=list(range(tp)), tp=tp, dp=tp,
+        role = row["role"].upper()
+        gpus = [int(g) for g in E[f"{role}_GPU_DEVICES"].split(",")]
+        tp = int(E[f"{role}_TP"])
+        assert len(gpus) == tp, (role, gpus, tp)
+        row.update(container=f"{PREFIX}-{row['role']}-0", gpu_ids=gpus, tp=tp, dp=tp,
                    allocation_job=E["ALLOCATION_JOB_ID"])
     return rows
 
