@@ -23,11 +23,11 @@ engine ``block_hashes`` only as opaque translation keys, so no router-side
 change is needed — ATOM workers light up KV-aware routing exactly like
 vLLM/SGLang ones.
 
-The hooks are installed inside the ATOM ``EngineCore`` subprocess (which is
-where ``BlockManager`` actually lives) via
-:mod:`infera.engine.atom.hooks.kv_event_bootstrap`. The PUB socket binds
-lazily on the first ``BlockManager`` instantiation, so only the process that
-owns the block manager binds the port.
+The hooks are installed inside every ATOM ``EngineCore`` subprocess (where
+each data-parallel rank owns a ``BlockManager``) via
+:mod:`infera.engine.atom.hooks.kv_event_bootstrap`. Each PUB socket connects
+to the worker-local relay, which multiplexes all ranks onto the single endpoint
+advertised for the logical ATOM worker.
 """
 
 from __future__ import annotations
@@ -101,15 +101,16 @@ def _check_block_manager_compat(BlockManager) -> str | None:
 
 class _Publisher:
     """Thin ZMQ PUB wrapper that encodes batches with the router's msgspec
-    structs (guaranteeing byte-for-byte wire compatibility) and binds lazily.
+    structs (guaranteeing byte-for-byte wire compatibility) and opens lazily.
 
     All publishing happens from the single EngineCore scheduler thread that
     drives ``BlockManager``, so a plain (non-async, non-thread-safe) PUB
     socket is safe.
     """
 
-    def __init__(self, bind_endpoint: str) -> None:
-        self._bind_endpoint = bind_endpoint
+    def __init__(self, endpoint: str, *, connect: bool = False) -> None:
+        self._endpoint = endpoint
+        self._connect = connect
         self._sock = None
         self._encoder = None
         self._events_mod = None
@@ -130,9 +131,16 @@ class _Publisher:
         # the router rebuilds its view from a fresh subscription if it ever
         # falls behind; we never want a slow subscriber to block the engine.
         sock.setsockopt(zmq.SNDHWM, 100_000)
-        sock.bind(self._bind_endpoint)
+        if self._connect:
+            sock.connect(self._endpoint)
+        else:
+            sock.bind(self._endpoint)
         self._sock = sock
-        logger.info("ATOM kv-events: PUB bound at %s", self._bind_endpoint)
+        logger.info(
+            "ATOM kv-events: PUB %s %s",
+            "connected to" if self._connect else "bound at",
+            self._endpoint,
+        )
 
     def _send_batch(self, events: list) -> None:
         if self._sock is None or not events:
@@ -174,9 +182,9 @@ class _Publisher:
 def _patch_block_manager(BlockManager, publisher: _Publisher) -> None:
     """Wrap ``BlockManager`` methods to publish KV cache events.
 
-    Idempotent. The PUB socket only binds when a ``BlockManager`` is actually
-    instantiated (i.e. inside the EngineCore subprocess), so this is safe to
-    apply in any process that imports the class.
+    Idempotent. The PUB socket is only opened when a ``BlockManager`` is
+    actually instantiated (i.e. inside an EngineCore subprocess), so this is
+    safe to apply in any process that imports the class.
     """
     if getattr(BlockManager, "_infera_kv_patched", False):
         return
@@ -285,7 +293,7 @@ def _patch_block_manager(BlockManager, publisher: _Publisher) -> None:
     BlockManager.hash_blocks = patched_hash_blocks
     BlockManager._allocate_block = patched_allocate_block
     BlockManager._infera_kv_patched = True
-    logger.info("ATOM kv-events: BlockManager hooks installed (bind=%s)", publisher._bind_endpoint)
+    logger.info("ATOM kv-events: BlockManager hooks installed (endpoint=%s)", publisher._endpoint)
 
 
 class _DeferredPatchFinder:
@@ -300,8 +308,9 @@ class _DeferredPatchFinder:
     point ``site`` init is long done.
     """
 
-    def __init__(self, endpoint: str) -> None:
+    def __init__(self, endpoint: str, *, connect: bool = False) -> None:
         self._endpoint = endpoint
+        self._connect = connect
         self._done = False
 
     def find_spec(self, fullname, path, target=None):
@@ -314,13 +323,14 @@ class _DeferredPatchFinder:
             return None
         self._done = True
         endpoint = self._endpoint
+        connect = self._connect
         loader = spec.loader
         orig_exec = loader.exec_module
 
-        def exec_module(module, _orig=orig_exec, _ep=endpoint):
+        def exec_module(module, _orig=orig_exec, _ep=endpoint, _connect=connect):
             _orig(module)
             try:
-                _patch_block_manager(module.BlockManager, _Publisher(_ep))
+                _patch_block_manager(module.BlockManager, _Publisher(_ep, connect=_connect))
             except Exception:
                 traceback.print_exc()
 
@@ -328,7 +338,7 @@ class _DeferredPatchFinder:
         return spec
 
 
-def arm_kv_event_hooks(bind_endpoint: str) -> None:
+def arm_kv_event_hooks(endpoint: str, *, connect: bool = False) -> None:
     """Arrange for ATOM's ``BlockManager`` to publish KV cache events.
 
     If the block-manager module is already imported, patch immediately;
@@ -338,9 +348,13 @@ def arm_kv_event_hooks(bind_endpoint: str) -> None:
     """
     mod = sys.modules.get(_BLOCK_MANAGER_MODULE)
     if mod is not None:
-        _patch_block_manager(mod.BlockManager, _Publisher(bind_endpoint))
+        _patch_block_manager(mod.BlockManager, _Publisher(endpoint, connect=connect))
         return
     if any(isinstance(f, _DeferredPatchFinder) for f in sys.meta_path):
         return
-    sys.meta_path.insert(0, _DeferredPatchFinder(bind_endpoint))
-    logger.info("ATOM kv-events: armed deferred BlockManager patch (bind=%s)", bind_endpoint)
+    sys.meta_path.insert(0, _DeferredPatchFinder(endpoint, connect=connect))
+    logger.info(
+        "ATOM kv-events: armed deferred BlockManager patch (endpoint=%s connect=%s)",
+        endpoint,
+        connect,
+    )

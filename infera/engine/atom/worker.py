@@ -11,14 +11,13 @@ its own process group, poll ``/health`` until ready, and report an
 :class:`EngineConfig` back to the launcher for etcd registration.
 
 KV-aware routing is **off by default**. ATOM has no native KV-event stream,
-so when the operator opts in with ``--enable-kv-events`` infera installs a
+so when the operator opts in with ``--enable-kv-events`` Infera installs a
 BlockManager hook (see :mod:`infera.engine.atom.hooks.kv_events`) inside the
-ATOM subprocess that republishes ATOM's prefix-cache index on a ZMQ PUB
-socket in the router's wire format: the launcher passes the bind endpoint to
-the subprocess via ``INFERA_ATOM_KV_EVENTS_ENDPOINT`` and advertises the
-reachable endpoint + block size in :class:`EngineConfig`. When not enabled
-(the default) the config carries no ``kv_events_endpoint`` and the router
-routes the worker round-robin.
+ATOM subprocess that republishes ATOM's prefix-cache index on ZMQ PUB sockets
+in the router's wire format. A worker-local proxy combines every data-parallel
+rank into the one reachable endpoint advertised in :class:`EngineConfig`.
+When not enabled (the default), the config carries no ``kv_events_endpoint``
+and the router routes the worker round-robin.
 """
 
 from __future__ import annotations
@@ -34,6 +33,7 @@ from typing import Any
 import httpx
 
 from infera.common.worker_pool import DisaggMode, EngineType
+from infera.engine.atom.kv_event_proxy import AtomKvEventProxy
 from infera.engine.base import BaseEngine, EngineConfig
 
 logger = logging.getLogger(__name__)
@@ -60,13 +60,15 @@ class AtomEngine(BaseEngine):
         self.port = port
         self.advertise_host = advertise_host or host
         # ``kv_events_endpoint`` is what the router connects to (advertised);
-        # ``kv_events_bind`` is what the ATOM subprocess binds (``tcp://*:port``).
+        # ``kv_events_bind`` is bound by a local relay. Every data-parallel
+        # EngineCore connects its own publisher to the relay ingress.
         self.kv_events_endpoint = kv_events_endpoint
         self.kv_events_bind = kv_events_bind
         self.kv_block_size = kv_block_size
         self.disagg_mode = disagg_mode
         self.disagg_meta: dict[str, Any] = dict(disagg_meta or {})
         self._proc: subprocess.Popen | None = None
+        self._kv_event_proxy: AtomKvEventProxy | None = None
 
     async def start(self) -> EngineConfig:
         cmd = [
@@ -77,15 +79,19 @@ class AtomEngine(BaseEngine):
         ]
         logger.info("spawning atom subprocess: %s", " ".join(cmd))
         env = os.environ.copy()
-        # Hand the ZMQ bind endpoint to the ATOM subprocess. The site-startup
-        # hook (infera.engine.atom.hooks.kv_event_bootstrap, run via a .pth in
-        # every interpreter — including ATOM's spawned EngineCore) reads this
-        # and installs the BlockManager KV-event publisher.
+        # A TP+DP ATOM worker owns one BlockManager per EngineCore process.
+        # Relay all of their PUB streams through the one endpoint advertised
+        # for this logical worker; otherwise every DP rank races to bind the
+        # same TCP port and all but one EngineCore fail during startup.
         if self.kv_events_bind:
-            env["INFERA_ATOM_KV_EVENTS_ENDPOINT"] = self.kv_events_bind
+            self._kv_event_proxy = AtomKvEventProxy(self.kv_events_bind)
+            self._kv_event_proxy.start()
+            env["INFERA_ATOM_KV_EVENTS_ENDPOINT"] = self._kv_event_proxy.ingress_endpoint
+            env["INFERA_ATOM_KV_EVENTS_CONNECT"] = "1"
             logger.info(
-                "ATOM kv-events enabled: bind=%s advertise=%s block_size=%s",
+                "ATOM kv-events enabled: relay=%s ingress=%s advertise=%s block_size=%s",
                 self.kv_events_bind,
+                self._kv_event_proxy.ingress_endpoint,
                 self.kv_events_endpoint,
                 self.kv_block_size,
             )
@@ -114,36 +120,41 @@ class AtomEngine(BaseEngine):
 
     async def stop(self) -> None:
         logger.info("ATOM engine stopping")
-        if self._proc is None:
-            return
-        # The subprocess is a session leader (start_new_session=True), so its
-        # pid doubles as the process-group id for the whole ATOM tree.
-        pgid = self._proc.pid
-        if self._proc.poll() is None:
-            try:
-                os.killpg(pgid, signal.SIGTERM)
-            except ProcessLookupError:
+        try:
+            if self._proc is None:
                 return
-            # Graceful window kept short so we always reach the SIGKILL sweep
-            # within the launcher's own teardown budget (the parent harness
-            # SIGKILLs this process group ~25s after SIGTERM).
-            for _ in range(15):
-                if self._proc.poll() is not None:
-                    break
-                await asyncio.sleep(1)
-        # The leader (ATOM's openai_server) exiting does NOT mean the whole
-        # group is gone: ATOM/AITER helpers — e.g. the shared-memory broadcast
-        # worker — can hang and ignore SIGTERM, holding GPU VRAM until the
-        # container dies and starving the next worker (HIP-OOM). Always sweep
-        # the group with SIGKILL so VRAM is released on teardown.
-        try:
-            os.killpg(pgid, signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        try:
-            self._proc.wait(timeout=10)
-        except Exception:
-            pass
+            # The subprocess is a session leader (start_new_session=True), so
+            # its pid doubles as the process-group id for the whole ATOM tree.
+            pgid = self._proc.pid
+            if self._proc.poll() is None:
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except ProcessLookupError:
+                    return
+                # Graceful window kept short so we always reach the SIGKILL
+                # sweep within the launcher's own teardown budget (the parent
+                # harness SIGKILLs this process group ~25s after SIGTERM).
+                for _ in range(15):
+                    if self._proc.poll() is not None:
+                        break
+                    await asyncio.sleep(1)
+            # The leader (ATOM's openai_server) exiting does NOT mean the whole
+            # group is gone: ATOM/AITER helpers — e.g. the shared-memory
+            # broadcast worker — can hang and ignore SIGTERM, holding GPU VRAM
+            # until the container dies and starving the next worker (HIP-OOM).
+            # Always sweep the group with SIGKILL so VRAM is released.
+            try:
+                os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                self._proc.wait(timeout=10)
+            except Exception:
+                pass
+        finally:
+            if self._kv_event_proxy is not None:
+                self._kv_event_proxy.stop()
+                self._kv_event_proxy = None
 
     async def _wait_ready(self, timeout: float | None = None) -> None:
         if timeout is None:
