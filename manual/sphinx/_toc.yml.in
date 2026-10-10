@@ -124,6 +124,8 @@ subtrees:
         title: CLI reference
       - file: reference/environment.md
         title: Environment variables
+      - file: reference/usage-stats.md
+        title: Usage statistics
       - file: reference/benchmarking.md
         title: Benchmarking
       - file: reference/preflight.md

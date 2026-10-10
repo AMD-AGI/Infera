@@ -14,6 +14,7 @@ import uvicorn
 from infera.common.discovery import Registry
 from infera.common.discovery_k8s import KubernetesRegistry
 from infera.common.tokenizer import resolve_tokenizer_path
+from infera.common.usage import usage_session
 from infera.common.worker_pool import WorkerInfo
 from infera.kv.api import make_http_snapshot_puller, make_stats_router
 from infera.kv.index import KVIndex
@@ -308,7 +309,8 @@ async def main(args) -> None:
 
     logger.info("starting Infera on %s:%d", args.host, args.port)
     try:
-        await server.serve()
+        async with usage_session("server", transport=args.request_transport):
+            await server.serve()
     finally:
         await registry.stop()
         if reconciler is not None:

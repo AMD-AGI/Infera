@@ -36,6 +36,7 @@ import signal
 
 from infera.common.net import free_tcp_port
 from infera.common.registration import RegistrationClient
+from infera.common.usage import usage_session
 from infera.engine.atom.args import parse_atom_args
 from infera.engine.atom.worker import AtomEngine
 from infera.engine.base import EngineDeath, watch_engine_death
@@ -170,7 +171,13 @@ async def main() -> None:
 
     death = EngineDeath()
     death_task = watch_engine_death(engine, stop, death)
-    await stop.wait()
+    async with usage_session(
+        "worker",
+        engine=config.engine,
+        mode=config.disagg_mode,
+        transport=config.request_transport,
+    ):
+        await stop.wait()
 
     # Closed as shutdown begins, before deregistration: a surge rollout reads
     # this, and the pod should stop claiming readiness now.

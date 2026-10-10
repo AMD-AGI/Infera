@@ -22,6 +22,7 @@ from infera.common.disagg_preflight import (
 )
 from infera.common.net import free_tcp_port
 from infera.common.registration import RegistrationClient
+from infera.common.usage import usage_session
 from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
 from infera.engine.base import EngineDeath, watch_engine_death
 from infera.engine.drain import drain_engine_inflight
@@ -383,7 +384,13 @@ async def main() -> None:
 
     death = EngineDeath()
     death_task = watch_engine_death(engine, stop, death)
-    await stop.wait()
+    async with usage_session(
+        "worker",
+        engine=config.engine,
+        mode=config.disagg_mode,
+        transport=config.request_transport,
+    ):
+        await stop.wait()
 
     # Closed as shutdown begins, before deregistration: this is the signal a
     # surge rollout reads, and it should stop claiming readiness now rather
