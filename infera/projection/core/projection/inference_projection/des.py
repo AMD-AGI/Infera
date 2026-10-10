@@ -70,6 +70,7 @@ from dataclasses import dataclass, field
 
 from infera.projection.core.projection.training_config import InferenceConfig
 
+from . import gemm_shapes
 from .performance import InferencePerformanceProjector
 
 # Context-length bucket (tokens) for memoising step-cost kernel calls. Decode
@@ -235,10 +236,15 @@ class _CostKernel:
     """Memoised view over the projector's step-cost methods."""
 
     def __init__(
-        self, projector: InferencePerformanceProjector, q_len: int, dpa_spread: bool = False
+        self,
+        projector: InferencePerformanceProjector,
+        q_len: int,
+        dpa_spread: bool = False,
+        pool: str = "engine",
     ):
         self._p = projector
         self._q = q_len
+        self._pool = pool
         self._decode: dict[tuple, float] = {}
         self._mixed: dict[tuple, float] = {}
         # The simulated scheduler is one of this many that step in lockstep
@@ -287,7 +293,13 @@ class _CostKernel:
     def _tok(n: int) -> int:
         return max(_TOK_BUCKET, int(round(n / _TOK_BUCKET)) * _TOK_BUCKET)
 
+    def _record(self, tokens: int, sampled_rows: int) -> None:
+        trace = gemm_shapes.active()
+        if trace is not None:
+            trace.record(self._p, self._pool, tokens, sampled_rows)
+
     def decode_step_ms(self, batch: int, ctx: int) -> float:
+        self._record(batch * self._q, batch * self._q)
         key = (batch, self._bucket(ctx))
         v = self._decode.get(key)
         if v is None:
@@ -305,6 +317,9 @@ class _CostKernel:
         prefill_kv: int,
         prefill_reqs: int = 1,
     ) -> float:
+        self._record(
+            num_decode * self._q + prefill_tokens, num_decode * self._q + max(1, prefill_reqs)
+        )
         spread = min(self._dp, max(1, int(prefill_reqs)))
         key = (
             num_decode,
@@ -2136,8 +2151,8 @@ def simulate_disaggregated(
     # A pool is simulated whole, not as one lockstep rank, so a prefill step
     # under attention-DP spreads its requests over the ranks rather than having
     # one rank attend over every prompt token in the step.
-    p_kernel = _CostKernel(prefill_proj, q_len, dpa_spread=True)
-    d_kernel = _CostKernel(decode_proj, q_len)
+    p_kernel = _CostKernel(prefill_proj, q_len, dpa_spread=True, pool="prefill")
+    d_kernel = _CostKernel(decode_proj, q_len, pool="decode")
     # Each attention-DP rank schedules prefill against its own token budget, so
     # the replica's step holds that many budgets' worth of prompt tokens.
     if token_budget > 0:
@@ -3027,21 +3042,23 @@ def run_des(
             for lam in rates:
                 if lam <= 0:
                     continue
-                curve.append(
-                    simulate_once(
-                        inference_config,
-                        projector,
-                        rate_per_s=lam,
-                        arrival_model=arrival_model,
-                        num_requests=sweep_n,
-                        seed=seed,
-                        warmup_frac=warmup_frac,
-                        warmup_requests=warmup_requests,
-                        burstiness=burstiness,
-                        range_ratio=range_ratio,
-                        kv_cache_tokens=kv_cache_tokens,
+                # The sweep replays other loads; the GEMM trace is of this one.
+                with gemm_shapes.paused():
+                    curve.append(
+                        simulate_once(
+                            inference_config,
+                            projector,
+                            rate_per_s=lam,
+                            arrival_model=arrival_model,
+                            num_requests=sweep_n,
+                            seed=seed,
+                            warmup_frac=warmup_frac,
+                            warmup_requests=warmup_requests,
+                            burstiness=burstiness,
+                            range_ratio=range_ratio,
+                            kv_cache_tokens=kv_cache_tokens,
+                        )
                     )
-                )
         out["curve"] = curve
         out["max_sustainable_rate"] = mu
     return out

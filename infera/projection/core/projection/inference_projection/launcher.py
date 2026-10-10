@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
@@ -1014,7 +1015,13 @@ def launch_projection_from_cli(args, overrides):
             or bool(mooncake_trace)
             or closed_loop
         )
+        if getattr(args, "des_gemm_shapes", None) and not run_des_enabled:
+            print(
+                "[inferasim:Inference] --des-gemm-shapes needs a DES replay "
+                "(--des-mooncake-trace, --des-closed-loop or a request rate); nothing written."
+            )
         if run_des_enabled:
+            from . import gemm_shapes
             from .des import _DEFAULT_BLOCK_SIZE, run_des
             from .kv_tiers import describe, hbm_kv_pool_tokens, kv_bytes_per_token, resolve_tiers
 
@@ -1091,48 +1098,69 @@ def launch_projection_from_cli(args, overrides):
                 for line in describe(kv_tiers, bpt, des_bs, seq):
                     print(f"[inferasim:Inference] KV tier {line}")
 
-            des = run_des(
-                inference_config,
-                projector,
-                arrival_model=arrival_model
-                if arrival_model in ("poisson", "deterministic")
-                else "poisson",
-                rate_per_s=float(req.request_rate or 0.0),
-                num_requests=int(getattr(args, "des_num_requests", 400) or 400),
-                seed=int(getattr(args, "des_seed", 0) or 0),
-                warmup_frac=float(getattr(args, "des_warmup_frac", 0.1) or 0.0),
-                warmup_requests=int(getattr(args, "des_warmup_requests", 0) or 0),
-                admit_backlog_only=bool(getattr(args, "des_admit_backlog_only", False)),
-                sweep=bool(getattr(args, "des_sweep", False)),
-                burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
-                range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),
-                kv_cache_tokens=des_kv_tokens,
-                workload_file=workload_file,
-                record_steps=bool(dump_steps),
-                num_instances=int(getattr(args, "des_instances", 1) or 1),
-                routing=(getattr(args, "des_routing", "round_robin") or "round_robin"),
-                overlap_weight=float(getattr(args, "des_overlap_weight", None) or 1.0),
-                num_prefixes=int(getattr(args, "des_num_prefixes", 0) or 0),
-                prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
-                prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
-                cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
-                block_size=des_bs,
-                cache_blocks=des_kv_blocks,
-                mooncake_trace=mooncake_trace,
-                duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
-                closed_loop=closed_loop,
-                closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
-                closed_loop_idle_cap_ms=float(getattr(args, "des_client_idle_cap_ms", 0.0) or 0.0),
-                cache_shares_pool=des_shares_pool,
-                whole_context_residency=bool(getattr(args, "des_whole_context_residency", False)),
-                prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
-                new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
-                kv_tiers=kv_tiers,
-                kv_bytes_per_token=bpt,
-                pool_kv_tokens=pool_kv,
-            )
+            gemm_path = getattr(args, "des_gemm_shapes", None)
+            gemm_trace = gemm_shapes.GemmTrace()
+            with gemm_shapes.recording(gemm_trace) if gemm_path else contextlib.nullcontext():
+                des = run_des(
+                    inference_config,
+                    projector,
+                    arrival_model=arrival_model
+                    if arrival_model in ("poisson", "deterministic")
+                    else "poisson",
+                    rate_per_s=float(req.request_rate or 0.0),
+                    num_requests=int(getattr(args, "des_num_requests", 400) or 400),
+                    seed=int(getattr(args, "des_seed", 0) or 0),
+                    warmup_frac=float(getattr(args, "des_warmup_frac", 0.1) or 0.0),
+                    warmup_requests=int(getattr(args, "des_warmup_requests", 0) or 0),
+                    admit_backlog_only=bool(getattr(args, "des_admit_backlog_only", False)),
+                    sweep=bool(getattr(args, "des_sweep", False)),
+                    burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
+                    range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),
+                    kv_cache_tokens=des_kv_tokens,
+                    workload_file=workload_file,
+                    record_steps=bool(dump_steps),
+                    num_instances=int(getattr(args, "des_instances", 1) or 1),
+                    routing=(getattr(args, "des_routing", "round_robin") or "round_robin"),
+                    overlap_weight=float(getattr(args, "des_overlap_weight", None) or 1.0),
+                    num_prefixes=int(getattr(args, "des_num_prefixes", 0) or 0),
+                    prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
+                    prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
+                    cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
+                    block_size=des_bs,
+                    cache_blocks=des_kv_blocks,
+                    mooncake_trace=mooncake_trace,
+                    duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
+                    closed_loop=closed_loop,
+                    closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
+                    closed_loop_idle_cap_ms=float(
+                        getattr(args, "des_client_idle_cap_ms", 0.0) or 0.0
+                    ),
+                    cache_shares_pool=des_shares_pool,
+                    whole_context_residency=bool(
+                        getattr(args, "des_whole_context_residency", False)
+                    ),
+                    prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
+                    new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
+                    kv_tiers=kv_tiers,
+                    kv_bytes_per_token=bpt,
+                    pool_kv_tokens=pool_kv,
+                )
             _print_des(des)
             results["des"] = des
+            if gemm_path:
+                rows = gemm_trace.write(gemm_path)
+                results["gemm_shapes"] = rows
+                print(
+                    f"[inferasim:Inference] wrote {len(rows)} GEMM shapes from "
+                    f"{gemm_trace.num_steps} DES steps to {gemm_path}"
+                )
+                for r in rows[:10]:
+                    est = "" if r["est_total_ms"] is None else f"  ~{r['est_total_ms']:.1f} ms"
+                    print(
+                        f"[inferasim:Inference]   {r['pool']:<7} {r['op']:<14} "
+                        f"M={r['m']:<6} N={r['n']:<6} K={r['k']:<6} {r['dtype']:<6} "
+                        f"x{r['groups']:<4} calls={r['calls']}{est}"
+                    )
 
             if dump_steps and des["point"].steps is not None:
                 import json as _json
