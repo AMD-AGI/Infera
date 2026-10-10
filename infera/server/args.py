@@ -221,12 +221,14 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--enable-sla-metrics",
-        action="store_true",
-        default=os.environ.get("INFERA_ENABLE_SLA_METRICS", "").lower() in ("1", "true", "yes"),
-        help="Enable TTFT/ITL/ISL/OSL instrumentation for the optional SLA "
-        "planner. Default OFF so ordinary inference requests are not modified "
-        "or parsed by planner-specific code. Also enabled via "
-        "$INFERA_ENABLE_SLA_METRICS=1.",
+        action=argparse.BooleanOptionalAction,
+        default=os.environ.get("INFERA_ENABLE_SLA_METRICS", "1").lower()
+        not in ("0", "false", "no"),
+        help="Enable TTFT/ITL/ISL/OSL and token counters on /metrics (default: "
+        "on). Disable with --no-enable-sla-metrics or "
+        "INFERA_ENABLE_SLA_METRICS=0 (python backend only; rust rejects the "
+        "off switch). Required for useful Prometheus latency and throughput "
+        "scrapes; the optional SLA planner reads the same histograms.",
     )
     parser.add_argument(
         "--enable-scaling-api",

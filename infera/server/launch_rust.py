@@ -58,6 +58,11 @@ def exec_rust(args: argparse.Namespace) -> None:
     unsupported = [hint for attr, want, hint in _REQUIRED if getattr(args, attr, None) != want]
     if args.enable_profiling:
         unsupported.append("the profiling control plane")
+    # Rust always records serving metrics today; refusing the off switch makes
+    # that explicit instead of silently ignoring --no-enable-sla-metrics.
+    # Missing attribute means the caller did not opt out (the flag defaults on).
+    if not getattr(args, "enable_sla_metrics", True):
+        unsupported.append("--no-enable-sla-metrics")
     if args.router_policy not in _SUPPORTED_POLICIES:
         unsupported.append(f"--router-policy {args.router_policy}")
     if args.discovery_backend not in _SUPPORTED_DISCOVERY:

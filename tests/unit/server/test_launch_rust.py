@@ -128,6 +128,7 @@ def test_nats_tuning_is_omitted_when_unset(monkeypatch):
         ({"request_transport": "grpc"}, "--request-transport grpc"),
         ({"kv_event_transport": "kafka"}, "--kv-event-transport kafka"),
         ({"router_policy": "least-loaded"}, "--router-policy least-loaded"),
+        ({"enable_sla_metrics": False}, "--no-enable-sla-metrics"),
     ],
 )
 def test_unsupported_configurations_are_refused_by_name(monkeypatch, overrides, expected):

@@ -144,17 +144,20 @@ def parse_metrics_text(
             snapshot.totals[metric] = (total[0], total[1])
 
 
-def _window_delta(current: Snapshot, previous: Snapshot, metric: str) -> tuple[float, float] | None:
-    """``(sum, count)`` accrued over the window, or None if it is unusable.
+def _window_delta(current: Snapshot, previous: Snapshot, metric: str) -> tuple[float, float]:
+    """``(sum, count)`` accrued over the window.
 
-    None means the counters went backwards, i.e. a server restarted, which is a
-    reason to leave the deployment alone rather than guess.
+    A negative delta means counters were reset (process restart) or a departed
+    worker's series was pruned from the exposition. The caller has already
+    advanced the baseline to ``current``, so this window contributes zero.
+    For TTFT/ITL that makes ``LoadMetrics.has_latency`` false and ``plan()``
+    skips the round instead of sizing the fleet from a fabricated 0 ms latency.
     """
     cur_sum, cur_count = current.totals_for(metric)
     prev_sum, prev_count = previous.totals_for(metric)
     d_sum, d_count = cur_sum - prev_sum, cur_count - prev_count
     if d_sum < 0 or d_count < 0:
-        return None
+        return 0.0, 0.0
     return d_sum, d_count
 
 
@@ -214,7 +217,7 @@ class MetricsSource:
         """Scrape and difference against the previous round.
 
         Returns None on the first call (no window yet), when every replica was
-        unreachable, or when the counters went backwards.
+        unreachable, or when the set of scraped endpoints changed.
         """
         current = await self.scrape()
         if not current:
@@ -238,15 +241,7 @@ class MetricsSource:
             d_sum = 0.0
             d_count = 0.0
             for url, snapshot in current.items():
-                delta = _window_delta(snapshot, previous[url], metric)
-                if delta is None:
-                    logger.warning(
-                        "%s went backwards at %s (server restart?); skipping this interval",
-                        metric,
-                        url,
-                    )
-                    return None
-                endpoint_sum, endpoint_count = delta
+                endpoint_sum, endpoint_count = _window_delta(snapshot, previous[url], metric)
                 d_sum += endpoint_sum
                 d_count += endpoint_count
             counts[metric] = d_count

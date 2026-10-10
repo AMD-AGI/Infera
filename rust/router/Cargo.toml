@@ -49,3 +49,4 @@ minijinja = { version = "2", features = [
     "loop_controls",
     "preserve_order",
 ] }
+prometheus = "0.13"
