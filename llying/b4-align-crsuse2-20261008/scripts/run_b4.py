@@ -28,7 +28,7 @@ import transition_two_node as ops  # noqa: E402
 PREFIX = E["CONTAINER_PREFIX"]
 # Forwarded to engine.sh, which sources the config on the worker node.
 PASSTHROUGH = ("B4_PREFILL_NODE", "B4_DECODE_NODE", "B4_RUN_ID", "B4_TAG", "B4_DECODE_TP", "B4_DECODE_GPUS",
-               "B4_DECODE_IB_DEVICES", "B4_DECODE_GRAPH_MAX_BS", "B4_DECODE_MEM_FRACTION")
+               "B4_DECODE_IB_DEVICES", "B4_DECODE_GRAPH_MAX_BS", "B4_DECODE_MEM_FRACTION", "B4_DECODE_KV_EVENTS")
 B4_CAPACITY = {"prefill": int(E["REFERENCE_PREFILL_TOKENS"]), "decode": int(E["REFERENCE_DECODE_TOKENS"])}
 
 
@@ -156,7 +156,18 @@ def record_placement():
 
 
 def start_router():
-    subprocess.run([sys.executable, str(ROOT / "scripts/start_performance_router.py")], check=True)
+    script = ROOT / "scripts/start_performance_router.py"
+    extra = E.get("ROUTER_EXTRA_ENV", "").split()
+    if extra:
+        # B4's script fixes the router env; a routing experiment adds to a copy.
+        text = script.read_text()
+        anchor = "'RUST_LOG':os.environ.get('RUST_LOG','info')}"
+        assert text.count(anchor) == 1
+        items = "".join(f",{k!r}:{v!r}" for k, v in (item.split("=", 1) for item in extra))
+        script = RUN / "snapshot/start_performance_router.extra-env.py"
+        script.write_text(text.replace(anchor, anchor[:-1] + items + "}"))
+    subprocess.run([sys.executable, str(script)], check=True,
+                   env=dict(E, PYTHONPATH=f"{ROOT / 'scripts'}"))
     ops.wait_healthy(E["PREFILL_NODE"], f"{PREFIX}-router", f"http://{E['PREFILL_IP']}:28000")
 
 

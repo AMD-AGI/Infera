@@ -34,7 +34,7 @@ ALLOCATION_JOB_ID=none PREFILL_ALLOCATION_JOB_ID=none DECODE_ALLOCATION_JOB_ID=n
 MODEL=/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4
 IMAGE=infera-sglang:aus-campaign-radix-20260928-mcdestpin-ibto18
 EXPECTED_IMAGE_ID=sha256:e13b584341d6fa0a2c3cae2f1894f8f9f805d50e920506e5d44133b42ad34d0a
-ROUTER_BINARY_OVERRIDE="$B4_ROOT/artifacts/infera-router-19a6c1d2"
+ROUTER_BINARY_OVERRIDE="${B4_ROUTER_BINARY:-$B4_ROOT/artifacts/infera-router-19a6c1d2}"
 # Two clusters' NIC drivers differ; crsuse2 runs with HIP DMABUF on.
 MOONCAKE_DISABLE_HIP_DMABUF=0
 AGENTX_CACHE_DIR="$TRACE_RUNTIME/cache/agentx"
@@ -123,7 +123,9 @@ INFERA_P_DYNAMO_SCORE=off INFERA_R2_DECODE_DEMAND="${B4_R2:-off}" INFERA_R3_CACH
 INFERA_R3_HOST_WEIGHT=0 INFERA_R4_PREFILL_WORK=off
 INFERA_SESSION_AFFINITY="${B4_SESSION_AFFINITY:-both}" INFERA_SESSION_AFFINITY_TTL_SECS=3600
 KV_PREFILL_OVERLAP_WEIGHT=20 KV_DECODE_OVERLAP_WEIGHT=2
-RUST_LOG=info,infera_router::routing_experiments=warn
+RUST_LOG="${B4_RUST_LOG:-info,infera_router::routing_experiments=warn}"
+# Extra router env for routing experiments (space-separated KEY=VALUE).
+ROUTER_EXTRA_ENV="${B4_ROUTER_EXTRA_ENV:-}"
 
 # Capacity reference (tokens per rank) for the post-launch check; B4 has no
 # decode reference at another TP, so 0 records the value without comparing.
@@ -141,6 +143,12 @@ DECODE_EXTRA_ENV="$TRACE_ENV AUS_DIAG_ROLE=decode SGLANG_EXPERIMENTAL_DECODE_RAD
 _b4_trace="--enable-trace --trace-modules request,mooncake --otlp-traces-endpoint $TRACE_ENDPOINT --enable-request-time-stats-logging"
 PREFILL_EXTRA_ARGS="$_b4_trace --random-seed $PREFILL_SEED"
 DECODE_EXTRA_ARGS="$_b4_trace --random-seed $DECODE_SEED --disaggregation-decode-enable-radix-cache"
+# B4_DECODE_KV_EVENTS=1 publishes decode KV events so the router sees decode
+# prefixes and counts decode load in blocks. engine.sh hardcodes them off for
+# decode; these later flags win (argparse keeps the last value). Ports are the
+# decode row's kv_port / snapshot_port in run_b4.py.
+[[ "${B4_DECODE_KV_EVENTS:-0}" == 1 ]] &&
+    DECODE_EXTRA_ARGS+=" --enable-kv-events --kv-events on --kv-events-bind tcp://0.0.0.0:25558 --kv-snapshot-port 28802"
 
 if [[ -z "$PREFILL_IP" || -z "$DECODE_IP" || "$PREFILL_NODE" == "$DECODE_NODE" ]]; then
     echo "b4 config: invalid node pair $PREFILL_NODE -> $DECODE_NODE" >&2
