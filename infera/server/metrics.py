@@ -725,7 +725,9 @@ def prune_departed_workers(active_worker_ids: set[str]) -> None:
 
     Child series stay registered until removed, and a replaced pod gets a new
     worker id. An empty worker label is the series used before a worker is
-    known and is left in place.
+    known and is left in place. Labels may be a bare ``worker_id`` or a DP
+    ``route_key`` (``worker_id#dpN``); the ``#dpN`` suffix is ignored when
+    matching against the active set.
     """
     _drop_worker_series(time_to_first_token_seconds, "prefill_worker", active_worker_ids)
     _drop_worker_series(inter_token_latency_seconds, "decode_worker", active_worker_ids)
@@ -734,11 +736,19 @@ def prune_departed_workers(active_worker_ids: set[str]) -> None:
     _drop_worker_series(router_picks_total, "worker_id", active_worker_ids)
 
 
+def _worker_id_base(label: str) -> str:
+    """Strip a ``#dpN`` route_key suffix so DP ranks map to their worker."""
+    head, sep, _ = label.partition("#dp")
+    return head if sep else label
+
+
 def _drop_worker_series(metric, label: str, active: set[str]) -> None:
     """Remove children of ``metric`` whose ``label`` is outside ``active``."""
     index = metric._labelnames.index(label)
     stale = [
-        labels for labels in list(metric._metrics) if labels[index] and labels[index] not in active
+        labels
+        for labels in list(metric._metrics)
+        if labels[index] and _worker_id_base(labels[index]) not in active
     ]
     for labels in stale:
         metric.remove(*labels)

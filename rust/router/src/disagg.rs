@@ -443,7 +443,8 @@ async fn dual_nats(
         Err(e) => {
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
-            tracker.set_outcome("error");
+            // Same 502 as the Python path; keep outcome labels aligned.
+            tracker.set_outcome("5xx");
             tracker.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,

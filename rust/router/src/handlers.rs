@@ -387,7 +387,7 @@ async fn metrics(State(st): State<AppState>) -> impl IntoResponse {
         .map(|w| w.worker_id.clone())
         .collect();
     crate::metrics::prune_departed_workers(&active);
-    crate::metrics::set_active_workers(snap.active_count() as f64);
+    crate::metrics::set_active_workers_from_snapshot(&snap);
     let federated = scrape_engine_metrics(&st, &snap).await;
     let (prom_body, content_type) = crate::metrics::render();
     let mut out = String::from_utf8_lossy(&prom_body).into_owned();

@@ -9,7 +9,7 @@
 //! so a single Grafana dashboard scrapes either backend. Percentiles
 //! (p50/p90/p99) are derived in Prometheus via `histogram_quantile`.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::OnceLock;
 use std::time::Instant;
 
@@ -39,6 +39,8 @@ struct Metrics {
     engine_prefix_cache_hit_rate: GaugeVec,
     engine_kv_transfer_queue_reqs: GaugeVec,
     active_workers: Gauge,
+    /// Planner-facing gauge; matches Python ``infera_active_workers``.
+    active_workers_by_mode: GaugeVec,
     uptime_seconds: IntGauge,
     started: Instant,
 }
@@ -161,6 +163,12 @@ fn m() -> &'static Metrics {
             "Number of ACTIVE workers known to this router"
         )
         .expect("register active_workers"),
+        active_workers_by_mode: register_gauge_vec!(
+            "infera_active_workers",
+            "Number of workers in ACTIVE status, by disagg_mode.",
+            &["disagg_mode", "model"]
+        )
+        .expect("register active_workers_by_mode"),
         uptime_seconds: register_int_gauge!(
             "infera_router_uptime_seconds",
             "Seconds since this router process started"
@@ -185,6 +193,30 @@ pub fn render() -> (Vec<u8>, &'static str) {
 
 pub fn set_active_workers(n: f64) {
     m().active_workers.set(n);
+}
+
+/// Refresh both the flat router gauge and the planner-facing by-mode gauge.
+pub fn set_active_workers_from_snapshot(snap: &crate::pool::Snapshot) {
+    let metrics = m();
+    metrics.active_workers.set(snap.active_count() as f64);
+    metrics.active_workers_by_mode.reset();
+    let mut by_mode: HashMap<(String, String), f64> = HashMap::new();
+    for w in snap.all.iter().filter(|w| w.is_active()) {
+        let mode = match w.disagg_mode {
+            crate::pool::DisaggMode::Mixed => "mixed",
+            crate::pool::DisaggMode::Prefill => "prefill",
+            crate::pool::DisaggMode::Decode => "decode",
+        };
+        *by_mode
+            .entry((mode.to_string(), w.model_name.clone()))
+            .or_default() += 1.0;
+    }
+    for ((mode, model), n) in by_mode {
+        metrics
+            .active_workers_by_mode
+            .with_label_values(&[&mode, &model])
+            .set(n);
+    }
 }
 
 pub fn record_pick(role: &str, worker_id: &str, cache_hits: usize, request_blocks: usize) {
@@ -295,7 +327,7 @@ fn stale_label_values(
             let departed = pairs.iter().any(|(name, value)| {
                 worker_labels.iter().any(|want| name == want)
                     && !value.is_empty()
-                    && !active.contains(value)
+                    && !active.contains(worker_id_base(value))
             });
             if !departed {
                 continue;
@@ -315,6 +347,14 @@ fn stale_label_values(
         }
     }
     stale
+}
+
+/// Strip a `#dpN` route_key suffix so DP ranks map to their worker id.
+fn worker_id_base(label: &str) -> &str {
+    label
+        .split_once("#dp")
+        .map(|(head, _)| head)
+        .unwrap_or(label)
 }
 
 /// Drop engine gauges before a scrape round so departed workers leave the exposition.
@@ -945,6 +985,8 @@ mod tests {
         stay.finish();
         record_pick("prefill", "p-gone", 1, 2);
         record_pick("prefill", "p-keep", 1, 2);
+        record_pick("prefill", "p-keep#dp0", 1, 2);
+        record_pick("prefill", "p-gone#dp0", 1, 2);
 
         let (buf, _) = render();
         let text = String::from_utf8(buf).unwrap();
@@ -960,6 +1002,42 @@ mod tests {
         assert!(text.contains("p-keep"));
         assert!(!text.contains("worker_id=\"p-gone\""));
         assert!(text.contains("worker_id=\"p-keep\""));
+        assert!(text.contains("worker_id=\"p-keep#dp0\""));
+        assert!(!text.contains("worker_id=\"p-gone#dp0\""));
+    }
+
+    #[test]
+    fn active_workers_by_mode_matches_planner_name() {
+        use std::sync::Arc;
+
+        use crate::pool::{DisaggMode, Snapshot, Worker};
+
+        let mk = |id: &str, mode: DisaggMode| {
+            Arc::new(Worker {
+                worker_id: id.into(),
+                url: format!("http://{id}"),
+                model_name: "m".into(),
+                engine: "sglang".into(),
+                status: "active".into(),
+                disagg_mode: mode,
+                disagg_meta: serde_json::Value::Null,
+                kv_events_endpoint: None,
+                kv_block_size: None,
+                dp_rank: None,
+                dp_size: None,
+                request_transport: "http".into(),
+            })
+        };
+        let snap = Snapshot::build(vec![
+            mk("p1", DisaggMode::Prefill),
+            mk("d1", DisaggMode::Decode),
+        ]);
+        set_active_workers_from_snapshot(&snap);
+        let (buf, _) = render();
+        let text = String::from_utf8(buf).unwrap();
+        assert!(text.contains("infera_router_active_workers 2"));
+        assert!(text.contains("infera_active_workers{disagg_mode=\"prefill\",model=\"m\"} 1"));
+        assert!(text.contains("infera_active_workers{disagg_mode=\"decode\",model=\"m\"} 1"));
     }
 
     fn worker_ids_in(text: &str) -> HashSet<String> {

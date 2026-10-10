@@ -149,8 +149,9 @@ def _window_delta(current: Snapshot, previous: Snapshot, metric: str) -> tuple[f
 
     A negative delta means counters were reset (process restart) or a departed
     worker's series was pruned from the exposition. The caller has already
-    advanced the baseline to ``current``, so this window contributes zero
-    rather than skipping the whole planning interval.
+    advanced the baseline to ``current``, so this window contributes zero.
+    For TTFT/ITL that makes ``LoadMetrics.has_latency`` false and ``plan()``
+    skips the round instead of sizing the fleet from a fabricated 0 ms latency.
     """
     cur_sum, cur_count = current.totals_for(metric)
     prev_sum, prev_count = previous.totals_for(metric)

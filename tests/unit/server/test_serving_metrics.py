@@ -105,6 +105,17 @@ def test_outcome_label_buckets_http_status():
     assert metrics.outcome_label(None) == "error"
 
 
+def test_prune_keeps_dp_route_key_picks_for_active_workers():
+    metrics.record_pick(role="prefill", worker_id="w-live#dp0", cache_hits=1, request_blocks=2)
+    metrics.record_pick(role="prefill", worker_id="w-live#dp1", cache_hits=1, request_blocks=2)
+    metrics.record_pick(role="prefill", worker_id="w-gone#dp0", cache_hits=1, request_blocks=2)
+    metrics.prune_departed_workers({"w-live"})
+    body = metrics.render_metrics()[0].decode()
+    assert 'worker_id="w-live#dp0"' in body
+    assert 'worker_id="w-live#dp1"' in body
+    assert 'worker_id="w-gone#dp0"' not in body
+
+
 def test_apply_engine_scrape_sets_kv_usage_gauge():
     text = (
         "# HELP sglang:token_usage The token usage\n"
