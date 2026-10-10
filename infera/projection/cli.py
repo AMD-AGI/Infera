@@ -529,6 +529,30 @@ def _add_inference_args(parser):
         "PCIe 5 x16 is ~64; a cache-coherent host link is ~900. Default: 64.",
     )
     parser.add_argument(
+        "--kv-tier",
+        action="append",
+        default=None,
+        metavar="NAME:GB[:GBPS[:LAT_US]]",
+        help="A KV storage tier below HBM, per GPU, fastest first; repeat for "
+        "a hierarchy (e.g. --kv-tier dram:512 --kv-tier ssd:4000). HBM's "
+        "evicted prefix blocks spill one tier down instead of being dropped, "
+        "and a later hit on them waits for its blocks to load over that "
+        "tier's link before it can prefill. Bandwidth and per-block latency "
+        "default by name: dram/host 64 GB/s 2 us, cxl 48 GB/s 4 us, ssd/nvme "
+        "12 GB/s 80 us, remote 25 GB/s 20 us. Applies to the DES's block "
+        "cache (traces, shared-prefix pools, fleets). Without it, "
+        "--kv-offload-gb-per-gpu is used as a single dram tier.",
+    )
+    parser.add_argument(
+        "--des-kv-pool-from-memory",
+        action="store_true",
+        default=False,
+        help="DES: size the KV pool (admission) and the HBM block tier from "
+        "the memory projection -- HBM left after weights and activations -- "
+        "when --des-kv-cache-tokens / --des-kv-blocks are not given. Implied "
+        "by --kv-tier, since a tier below HBM only matters once HBM can fill.",
+    )
+    parser.add_argument(
         "--workload-resident-tokens",
         type=int,
         default=None,
@@ -1366,6 +1390,13 @@ def build_parser() -> argparse.ArgumentParser:
         "(`inferasim anchor --help` lists its flags).",
         add_help=False,
     )
+    sub.add_parser(
+        "pareto",
+        help="Throughput-vs-interactivity Pareto frontier for one workload across "
+        "models, engines, precisions, parallelism and concurrency "
+        "(`inferasim pareto --help` lists its flags).",
+        add_help=False,
+    )
     return parser
 
 
@@ -1382,6 +1413,10 @@ def main(argv=None):
         )
 
         return benchmark_vllm.main(argv[1:])
+    if argv and argv[0] == "pareto":
+        from infera.projection.core.projection.inference_projection import pareto
+
+        return pareto.main(argv[1:])
 
     parser = build_parser()
     args, overrides = parser.parse_known_args(argv)

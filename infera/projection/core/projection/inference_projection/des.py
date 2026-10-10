@@ -65,6 +65,7 @@ import json
 import math
 import os
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from infera.projection.core.projection.training_config import InferenceConfig
@@ -139,6 +140,10 @@ class _Req:
     think_ms: float | None = None
     # Host-side TTFT latency; see ``_set_host_ms``.
     host_ms: float = 0.0
+    # Cache-hit blocks held below HBM, per lower tier, and how long loading
+    # them back delayed this request's admission.
+    load_blocks: tuple = ()
+    kv_load_ms: float = 0.0
     # Session replay (closed loop): which client session this request belongs
     # to, in the order a shared sampler hands sessions out, and the requests
     # it waits on -- the previous turn of its own stream (``dep``) and any
@@ -545,8 +550,18 @@ def simulate_once(
     new_seqs_per_step: int = 0,
     duration_ms: float = 0.0,
     closed_loop_idle_cap_ms: float = 0.0,
+    tier_block_ms: Sequence[float] = (),
 ) -> DESResult:
     """Run one single-engine DES at a fixed offered load.
+
+    ``tier_block_ms`` is, per storage tier below HBM, how long one block takes
+    to load into HBM. A request whose cache hit includes blocks held there
+    (``_Req.load_blocks``) is not schedulable until they have arrived, and each
+    tier's link moves one request's blocks at a time, so loads queue behind
+    each other when the link is the bottleneck. The GPU keeps stepping while
+    they load -- engines stage tier hits asynchronously -- so the cost lands on
+    that request's TTFT and on how soon its client can issue again, not on
+    everyone's step time.
 
     vLLM-V1 unified-batch scheduler: each forward pass advances running requests
     (Phase 1) then admits waiting ones under the resident-sequence cap + full-ISL
@@ -692,7 +707,30 @@ def simulate_once(
     fe_us = float(os.environ.get("INFERASIM_DES_SERIAL_FRONTEND_US", "0") or 0.0)
     fe_heap: list[tuple[float, int, _Req]] = []
     fe_free = 0.0
+    # Requests waiting on blocks from a lower tier, keyed on when they land.
+    load_heap: list[tuple[float, int, _Req]] = []
+    link_free = [0.0] * len(tier_block_ms)
+    load_ms_total = 0.0
+    load_reqs = 0
     horizon = duration_ms if duration_ms and duration_ms > 0 else math.inf
+
+    def _enqueue(r: _Req, t0: float) -> None:
+        nonlocal load_ms_total, load_reqs
+        if not tier_block_ms or not r.load_blocks or not any(r.load_blocks):
+            waiting.append(r)
+            return
+        ready = t0
+        for i, nb in enumerate(r.load_blocks[: len(tier_block_ms)]):
+            if nb <= 0:
+                continue
+            start = max(t0, link_free[i])
+            link_free[i] = start + nb * tier_block_ms[i]
+            ready = max(ready, link_free[i])
+        r.kv_load_ms = ready - t0
+        load_ms_total += r.kv_load_ms
+        load_reqs += 1
+        heapq.heappush(load_heap, (ready, r.idx, r))
+
     if session_mode:
         # A request is released when everything it waits on has finished, plus
         # its own recorded gap; a session starts when a client slot frees,
@@ -768,17 +806,18 @@ def simulate_once(
     max_steps = total_work + n + 16
 
     steps = 0
+    stalled = 0
     # A session replay stops issuing at the horizon and lets what is already
     # in flight finish, which is what the harness reports over.
     while (
         len(done) < n
         and steps < max_steps
-        and (now < horizon or (session_mode and (running or waiting or fe_heap)))
+        and (now < horizon or (session_mode and (running or waiting or fe_heap or load_heap)))
     ):
         steps += 1
         # 1) Ingest arrivals due by ``now`` into the FCFS waiting queue.
         while next_arrival < n and pending[next_arrival].arrival_ms <= now + 1e-9:
-            waiting.append(pending[next_arrival])
+            _enqueue(pending[next_arrival], pending[next_arrival].arrival_ms)
             next_arrival += 1
         while arrivals_heap and arrivals_heap[0][0] <= now + 1e-9:
             q_ = heapq.heappop(arrivals_heap)[2]
@@ -786,17 +825,20 @@ def simulate_once(
                 fe_free = max(fe_free, q_.arrival_ms) + fe_us * 1e-3 * q_.prompt_len
                 heapq.heappush(fe_heap, (fe_free, q_.idx, q_))
             else:
-                waiting.append(q_)
+                _enqueue(q_, q_.arrival_ms)
         while fe_heap and fe_heap[0][0] <= now + 1e-9:
-            waiting.append(heapq.heappop(fe_heap)[2])
+            t_fe, _i, q_ = heapq.heappop(fe_heap)
+            _enqueue(q_, t_fe)
+        while load_heap and load_heap[0][0] <= now + 1e-9:
+            waiting.append(heapq.heappop(load_heap)[2])
 
         # 2) Nothing resident and nothing waiting → jump to the next arrival.
         if not running and not waiting:
-            if arrivals_heap or fe_heap:
-                now = min(h[0][0] for h in (arrivals_heap, fe_heap) if h)
-                continue
+            nxt = [h[0][0] for h in (arrivals_heap, fe_heap, load_heap) if h]
             if next_arrival < n and math.isfinite(pending[next_arrival].arrival_ms):
-                now = pending[next_arrival].arrival_ms
+                nxt.append(pending[next_arrival].arrival_ms)
+            if nxt:
+                now = max(now, min(nxt))
                 continue
             break
 
@@ -922,12 +964,13 @@ def simulate_once(
         if not scheduled:
             # Budget/KV starved this step with nothing runnable; advance to the
             # next arrival if possible, else we are stuck (bound will trip).
-            if arrivals_heap or fe_heap:
-                now = min(h[0][0] for h in (arrivals_heap, fe_heap) if h)
+            if arrivals_heap or fe_heap or load_heap:
+                now = min(h[0][0] for h in (arrivals_heap, fe_heap, load_heap) if h)
                 continue
             if next_arrival < n:
                 now = pending[next_arrival].arrival_ms
                 continue
+            stalled = len(running) + len(waiting)
             break
 
         # 4) Step duration from the cost kernel (composition → time).
@@ -998,7 +1041,14 @@ def simulate_once(
             else:
                 still.append(r)
         running = still
-        if idle_cap_ms > 0 and not running and not waiting and not fe_heap and arrivals_heap:
+        if (
+            idle_cap_ms > 0
+            and not running
+            and not waiting
+            and not fe_heap
+            and not load_heap
+            and arrivals_heap
+        ):
             lead = arrivals_heap[0][0] - (now + idle_cap_ms)
             if lead > 0:
                 # A uniform shift keeps the heap ordered.
@@ -1163,6 +1213,14 @@ def simulate_once(
         "kv_mean_tokens": (pk_kv_sum / pk_steps) if pk_steps else 0.0,
         "closed_loop_clients": float(clients),
     }
+    if tier_block_ms:
+        packing["tier_load_reqs"] = float(load_reqs)
+        packing["tier_load_ms_mean"] = (load_ms_total / load_reqs) if load_reqs else 0.0
+    if stalled:
+        # Requests that could never be scheduled -- a prompt past the context
+        # limit, or a reservation past the pool -- end the run early, so the
+        # result covers fewer requests than were given.
+        packing["stalled_reqs"] = float(stalled)
 
     samples = None
     if return_samples:
@@ -1310,8 +1368,162 @@ class _BlockCache:
                 if self._children[p] == 0:
                     heapq.heappush(self._leaves, (self._access[p], p))
 
+    def prefix_match_tiers(self, blocks: list[int]) -> list[int]:
+        return [self.prefix_match(blocks)]
+
     def __len__(self) -> int:  # pragma: no cover - trivial
         return len(self._children)
+
+
+class _TieredBlockCache:
+    """A :class:`_BlockCache` with storage tiers below HBM.
+
+    ``lower_tiers`` adds storage below HBM (host DRAM, SSD, remote), given as
+    block capacities in order. HBM's victim then moves one tier down instead
+    of being dropped, and each tier reclaims by the same leaf-first rule over
+    its own blocks; only the last tier drops. A block is placed in HBM
+    whenever it is touched -- computed, or loaded back on a hit -- and with it
+    every block before it, so a block's parent always sits in the same tier or
+    a faster one and a tier's leaf is simply a block with no child in that
+    tier. Hits are reported per tier so the caller can charge the loads.
+
+    Kept apart from the single-tier cache because it is about twice as slow per
+    block, and the single-tier path is what every replay without tiers runs.
+    """
+
+    def __init__(self, capacity_blocks: int = 0, lower_tiers: Sequence[int] = ()) -> None:
+        self.capacities = [int(capacity_blocks or 0)] + [max(1, int(c)) for c in lower_tiers]
+        self.capacity = self.capacities[0]  # 0 = unbounded
+        n = len(self.capacities)
+        self._parent: dict[int, int | None] = {}
+        self._tier: dict[int, int] = {}
+        # Resident children of each block, counted per tier; a block is a leaf
+        # of its tier when it has none there.
+        self._kids: dict[int, list[int]] = {}
+        self._access: dict[int, int] = {}
+        # Candidate leaves of each tier by access time. Entries go stale when a
+        # block is touched again, changes tier or stops being a leaf, so they
+        # are filtered on pop rather than removed in place.
+        self._leaves: list[list[tuple[int, int]]] = [[] for _ in range(n)]
+        self._count = [0] * n
+        self._tick = 0
+        self.evictions = 0  # blocks dropped from the last tier
+        self.demotions = [0] * n  # blocks moved out of tier i into tier i+1
+        self.promotions = [0] * n  # blocks loaded back from tier i into HBM
+
+    def prefix_match(self, blocks: list[int]) -> int:
+        """Number of leading blocks already resident (contiguous from the head)."""
+        m = 0
+        for b in blocks:
+            if b in self._tier:
+                m += 1
+            else:
+                break
+        return m
+
+    def prefix_match_tiers(self, blocks: list[int]) -> list[int]:
+        """The leading resident run, counted by the tier each block sits in."""
+        out = [0] * len(self.capacities)
+        for b in blocks:
+            t = self._tier.get(b)
+            if t is None:
+                break
+            out[t] += 1
+        return out
+
+    def _file_leaf(self, b: int) -> None:
+        t = self._tier[b]
+        if self._kids[b][t] == 0:
+            heapq.heappush(self._leaves[t], (self._access[b], b))
+
+    def _move(self, b: int, src: int, dst: int) -> None:
+        self._count[src] -= 1
+        self._count[dst] += 1
+        self._tier[b] = dst
+        p = self._parent.get(b)
+        if p is not None and p in self._tier:
+            k = self._kids[p]
+            k[src] -= 1
+            k[dst] += 1
+            if k[src] == 0 and self._tier[p] == src:
+                heapq.heappush(self._leaves[src], (self._access[p], p))
+        self._file_leaf(b)
+
+    def insert(self, blocks: list[int]) -> None:
+        """Warm a request's blocks into HBM, then reclaim beyond capacity."""
+        n = len(self.capacities)
+        tier, kids, access = self._tier, self._kids, self._access
+        hbm_leaves = self._leaves[0]
+        push = heapq.heappush
+        tick = self._tick
+        prev: int | None = None
+        for b in blocks:
+            tick += 1
+            t = tier.get(b)
+            if t is None:
+                self._parent[b] = prev
+                tier[b] = 0
+                kids[b] = [0] * n
+                access[b] = tick
+                self._count[0] += 1
+                if prev is not None:
+                    kids[prev][0] += 1
+                push(hbm_leaves, (tick, b))
+            else:
+                access[b] = tick
+                if t:
+                    self.promotions[t] += 1
+                    self._move(b, t, 0)
+                elif kids[b][0] == 0:
+                    # Only leaves are eviction candidates, so only a leaf's touch
+                    # needs re-filing; an interior block is not reclaimable anyway.
+                    push(hbm_leaves, (tick, b))
+            prev = b
+        self._tick = tick
+        self._evict()
+
+    def _pop_leaf(self, t: int) -> int | None:
+        heap = self._leaves[t]
+        tier, kids, access = self._tier, self._kids, self._access
+        pop = heapq.heappop
+        while heap:
+            a, b = pop(heap)
+            # Stale unless the block is still in this tier, untouched since the
+            # entry was filed, and still a leaf here.
+            if tier.get(b) == t and access[b] == a and not kids[b][t]:
+                return b
+        return None
+
+    def _evict(self) -> None:
+        last = len(self.capacities) - 1
+        for t, cap in enumerate(self.capacities):
+            if cap <= 0 or self._count[t] <= cap:
+                continue
+            while self._count[t] > cap:
+                victim = self._pop_leaf(t)
+                if victim is None:
+                    # Every block in this tier is interior. Nothing is
+                    # reclaimable without orphaning a continuation, which is the
+                    # one thing a radix cache will not do.
+                    break
+                if t < last:
+                    self.demotions[t] += 1
+                    self._move(victim, t, t + 1)
+                    continue
+                p = self._parent.pop(victim)
+                del self._tier[victim]
+                del self._kids[victim]
+                del self._access[victim]
+                self._count[t] -= 1
+                self.evictions += 1
+                if p is not None and p in self._tier:
+                    k = self._kids[p]
+                    k[t] -= 1
+                    if k[t] == 0 and self._tier[p] == t:
+                        heapq.heappush(self._leaves[t], (self._access[p], p))
+
+    def __len__(self) -> int:  # pragma: no cover - trivial
+        return len(self._tier)
 
 
 class _BlockHasher:
@@ -1482,9 +1694,16 @@ def _route_and_warm(
     overlap_weight: float = 1.0,
     waiting_depth: int = 0,
     resident_cap: int = 0,
+    lower_tiers: Sequence[int] = (),
+    tier_names: Sequence[str] = (),
 ) -> tuple[list[list[_Req]], dict[str, float]]:
     """Route requests across instances and derive per-request prefix-cache hits
     from a content-addressed block cache (as real serving engines do).
+
+    ``lower_tiers`` are block capacities of storage below HBM, per instance
+    (see :class:`_BlockCache`). A hit counts whichever tier holds it, and the
+    blocks it found below HBM are recorded on the request so the scheduler can
+    make it wait for them to load.
 
     Each instance owns a :class:`_BlockCache`. For each request the router picks
     a target, the number of resident leading blocks (longest contiguous prefix
@@ -1526,7 +1745,11 @@ def _route_and_warm(
     replay only gets right if the window grows with the queue and not with C.
     """
     per_inst: list[list[_Req]] = [[] for _ in range(num_instances)]
-    caches = [_BlockCache(cache_blocks) for _ in range(num_instances)]
+    caches = [
+        _TieredBlockCache(cache_blocks, lower_tiers) if lower_tiers else _BlockCache(cache_blocks)
+        for _ in range(num_instances)
+    ]
+    tier_hits = [0] * (1 + len(lower_tiers))
     # Decayed history of blocks each instance had to compute. The router's load
     # term also counts in-flight blocks, which are unknowable here (routing is
     # decided before the simulation runs) and are 0 for everyone anyway whenever
@@ -1608,7 +1831,8 @@ def _route_and_warm(
             inst = r.idx % num_instances
 
         inst_reqs[inst] += 1
-        matched = caches[inst].prefix_match(blocks)
+        by_tier = caches[inst].prefix_match_tiers(blocks)
+        matched = sum(by_tier)
         if policy == "kv":
             # Charging misses rather than whole requests is what lets load
             # coexist with affinity: an instance serving a fully-cached prompt
@@ -1624,6 +1848,10 @@ def _route_and_warm(
             hits += 1
             inst_hits[inst] += 1
             cached_total += cached
+            if lower_tiers:
+                r.load_blocks = tuple(by_tier[1:])
+        for i, k in enumerate(by_tier):
+            tier_hits[i] += k
         blocks_total += len(blocks)
         blocks_hit += matched
         caches[inst].insert(blocks)
@@ -1657,6 +1885,20 @@ def _route_and_warm(
         if any(inst_reqs)
         else 0.0,
     }
+    if lower_tiers:
+        names = ["hbm"] + [
+            (tier_names[i] if i < len(tier_names) else f"tier{i + 1}")
+            for i in range(len(lower_tiers))
+        ]
+        summary["tiers"] = {
+            nm: {
+                "capacity_blocks": float(caches[0].capacities[i]),
+                "hit_blocks_frac": (tier_hits[i] / blocks_total) if blocks_total else 0.0,
+                "demotions": float(sum(c.demotions[i] for c in caches)),
+                "resident_blocks": float(sum(c._count[i] for c in caches)),
+            }
+            for i, nm in enumerate(names)
+        }
     return per_inst, summary
 
 
@@ -2286,6 +2528,9 @@ def simulate_multi_instance(
     closed_loop_think_ms: float = 0.0,
     whole_context_residency: bool = False,
     closed_loop_idle_cap_ms: float = 0.0,
+    lower_tier_blocks: Sequence[int] = (),
+    tier_names: Sequence[str] = (),
+    tier_block_ms: Sequence[float] = (),
 ) -> DESResult:
     """Route one arrival stream across ``num_instances`` replicas and pool.
 
@@ -2337,6 +2582,8 @@ def simulate_multi_instance(
                 inference_config.request_config.resolved_max_concurrency(),
                 admit_backlog_only,
             ),
+            lower_tiers=lower_tier_blocks,
+            tier_names=tier_names,
         )
         prefix_summary["routing"] = (
             float(_ROUTING_POLICIES.index(routing)) if routing in _ROUTING_POLICIES else -1.0
@@ -2374,6 +2621,7 @@ def simulate_multi_instance(
                     # Whether prefill excludes decode is a property of the engine,
                     # so every replica schedules the same way.
                     prefill_exclusive=prefill_exclusive,
+                    tier_block_ms=tier_block_ms,
                 )
             )
         return _aggregate_instances(results, prefix_summary)
@@ -2428,8 +2676,17 @@ def run_des(
     cache_shares_pool: bool = False,
     whole_context_residency: bool = False,
     closed_loop_idle_cap_ms: float = 0.0,
+    kv_tiers: Sequence = (),
+    kv_bytes_per_token: float = 0.0,
 ) -> dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
+
+    ``kv_tiers`` (:class:`~.kv_tiers.KvTier`, fastest first) add storage
+    below HBM to every instance's block cache, sized and priced from
+    ``kv_bytes_per_token``, the per-GPU KV footprint of one token. They change
+    anything only where there is a block cache to spill from -- a trace, a
+    shared-prefix pool or a fleet -- and are not applied to a disaggregated
+    split, whose prefill pool is warmed without a scheduler to charge loads to.
 
     Returns ``{"point": DESResult, "curve": [DESResult, ...],
     "max_sustainable_rate": mu}``. The sweep derives the engine's max-sustainable
@@ -2445,6 +2702,14 @@ def run_des(
     # ``cache_slots`` flag when the new one is unset.
     eff_cache_blocks = max(0, cache_blocks or cache_slots or 0)
     mooncake_rows = _load_mooncake_trace(mooncake_trace) if mooncake_trace else None
+    tier_kw: dict[str, object] = {}
+    if kv_tiers and kv_bytes_per_token > 0:
+        _bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
+        tier_kw = dict(
+            lower_tier_blocks=[t.capacity_blocks(kv_bytes_per_token, _bs) for t in kv_tiers],
+            tier_names=[t.name for t in kv_tiers],
+            tier_block_ms=[t.block_load_ms(kv_bytes_per_token, _bs) for t in kv_tiers],
+        )
 
     # A split is a different topology, not a different setting, so it gets the
     # two-station loop rather than the unified-batch one. Routed before every
@@ -2548,6 +2813,7 @@ def run_des(
                 prefill_exclusive=prefill_exclusive,
                 cache_shares_pool=cache_shares_pool,
                 whole_context_residency=whole_context_residency,
+                **tier_kw,
             )
             return out
         out["point"] = simulate_once(
@@ -2607,6 +2873,7 @@ def run_des(
             prefill_exclusive=prefill_exclusive,
             cache_shares_pool=cache_shares_pool,
             whole_context_residency=whole_context_residency,
+            **tier_kw,
         )
         return out
     out["point"] = simulate_once(
