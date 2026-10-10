@@ -164,7 +164,8 @@ python -m infera.engine.sglang "${DECODE_ARGS[@]}"
 KV events cause Infera to append the Decode radix flag. The patched SGLang hook
 accepts the explicit MTP opt-in for EAGLE/NEXTN top-k 1.
 
-**Decode radix + HiCache + MTP:**
+**Decode radix + HiCache + MTP** (requires SGLang v0.5.19 or newer; see
+[SGLang version for Decode HiCache](#sglang-version-for-decode-hicache)):
 
 ```bash
 python -m infera.engine.sglang "${DECODE_ARGS[@]}" \
@@ -191,8 +192,39 @@ An old benchmark harness may still reject `DECODE_MTP=1` plus `DECODE_HICACHE=1`
 before invoking Infera. These direct engine commands do not pass through that
 harness guard; updating such scripts is separate from engine support.
 
+#### SGLang version for Decode HiCache
 
-The commands above document the intended launch configuration; they have not
-been GPU-validated against the rebuilt default v0.5.18 image. Historical runtime
-validation used the patched v0.5.19 build. Argument/patch tests do not replace
-GPU prefix-reuse and real-acceptance accuracy checks.
+Decode HiCache needs an SGLang build that includes
+[sgl-project/sglang#35081](https://github.com/sgl-project/sglang/pull/35081):
+v0.5.19 or newer. The default `Dockerfile.sglang` base, v0.5.18, does not
+include it, so the HiCache mode above fails on the default image. Decode radix +
+MTP without HiCache works on v0.5.18, and Prefill HiCache is not affected.
+
+On v0.5.18 the Decode worker initializes normally (every rank logs
+`impl=UnifiedRadixCache ... hicache_attached=True`), then the scheduler crashes
+on the first request:
+
+```text
+AttributeError: 'UnifiedRadixCache' object has no attribute 'query_storage_hit_length'
+```
+
+The cause:
+
+- For DSA models such as GLM-5.x, SGLang builds HiCache on `UnifiedRadixCache`
+  ([#30468](https://github.com/sgl-project/sglang/pull/30468), in v0.5.18).
+- Decode-side HiCache ([#26227](https://github.com/sgl-project/sglang/pull/26227))
+  calls `tree_cache.query_storage_hit_length()` while preallocating each request,
+  and `tree_cache.is_load_back_event_done()` when loading KV back from host
+  memory.
+- v0.5.18's `UnifiedRadixCache` implements neither method. #35081 added both
+  three days after the v0.5.18 branch point and was not backported; v0.5.19 is
+  the first release with it.
+
+To use Decode HiCache, build on a base that includes #35081, for example with
+`--build-arg SGLANG_BASE_IMAGE=<v0.5.19 or newer mi35x image>`. The full
+`Dockerfile.sglang` build on a newer base has not been validated here.
+
+Radix + MTP was GPU-validated with GLM-5.2 on the rebuilt default v0.5.18 image:
+Decode reused a shared prefix and real MTP acceptance was observed. That run
+did not include an accuracy benchmark. Earlier Decode HiCache runs used a patched
+SGLang build newer than v0.5.19.

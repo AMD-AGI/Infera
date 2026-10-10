@@ -320,5 +320,7 @@ EAGLE/NEXTN top-k-1 admission exception to the mi35x image; it is not a KV
 ownership fix. Stock v0.5.18 and v0.5.19 still reject this combination in their
 PD argument hook. SGLang [#40857](https://github.com/sgl-project/sglang/pull/40857)
 is open and addresses hybrid-SWA ownership before allowing EAGLE/EAGLE3; this
-patch does not backport it or claim support for those models. See the patch
-README for scope, source-shape checks and the build opt-out.
+patch does not backport it or claim support for those models. Decode HiCache
+also needs SGLang [#35081](https://github.com/sgl-project/sglang/pull/35081)
+(in v0.5.19, not v0.5.18). See the patch README for scope, source-shape checks
+and the build opt-out.
