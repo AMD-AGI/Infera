@@ -53,6 +53,9 @@ PRECISIONS: dict[str, dict[str, str]] = {
     "fp8": dict(weight="fp8", kv="fp8", moe="fp8", linear="fp8"),
     "mxfp4": dict(weight="mxfp4", kv="fp8", moe="mxfp4", linear="mxfp4"),
     "fp4": dict(weight="mxfp4", kv="fp8", moe="mxfp4", linear="mxfp4"),
+    # MXFP4 experts behind bf16 attention and dense layers, as gpt-oss ships;
+    # its anchors record the checkpoint's format, mxfp4.
+    "mxfp4moe": dict(weight="bf16", kv="bf16", moe="mxfp4", linear="bf16", match="mxfp4"),
 }
 
 # Per-step token budget each engine runs with when the recipe sets none
@@ -504,6 +507,7 @@ def _anchor_meta(path: str) -> dict[str, Any] | None:
         isl=int(m.get("input_len") or 0),
         gpus=int(m.get("benchmark_gpus") or 0),
         mtime=os.path.getmtime(path),
+        precision=_named_precision(str(m.get("weight_dtype") or "").replace("bfloat16", "bf16")),
     )
 
 
@@ -540,13 +544,19 @@ def pick_anchor(
     want_tp = par.tp if par.tp <= 2 else min(4, max_anchor_tp)
     # An anchor measures one checkpoint's kernels, and a checkpoint is one
     # precision. When its name says which, a point at another is not covered.
+    # Otherwise the anchor's recorded weight dtype decides; one that recorded
+    # none (or only "quark") is taken at the checkpoint's word.
     named = _named_precision(checkpoint)
-    if precision and named and PRECISIONS[precision]["weight"] != named:
+    want = None
+    if precision:
+        want = PRECISIONS[precision].get("match") or PRECISIONS[precision]["weight"]
+    if want and named and want != named:
         return None
     cands = [
         a
         for a in anchors
         if a["checkpoint"].lower() == checkpoint.lower()
+        and not (want and a.get("precision") and a["precision"] != want)
         and a["backend"] == engine.lower()
         and a["tp"] <= max(max_anchor_tp, 1)
         and a["tp"] <= par.tp
@@ -1361,12 +1371,20 @@ refreshDeps(); draw();
 """
 
 
+_HTML_INFEASIBLE = ("model", "scenario", "precision", "mode", "spec", "feasible", "reason")
+
+
 def write_html(result: ParetoResult, path: str) -> None:
     data = dict(
         x=result.x,
         y=result.y,
         metrics={k: dict(label=v[0], higher_is_better=v[1]) for k, v in METRICS.items()},
-        points=[asdict(p) for p in result.points],
+        # The page only counts the points it cannot plot, so those carry just
+        # the fields its filters read; the CSV and JSON keep every column.
+        points=[
+            asdict(p) if p.feasible else {k: getattr(p, k) for k in _HTML_INFEASIBLE}
+            for p in result.points
+        ],
     )
     blob = json.dumps(data).replace("</", "<\\/")
     with open(path, "w") as f:

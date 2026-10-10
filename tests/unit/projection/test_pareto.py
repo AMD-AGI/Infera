@@ -165,6 +165,13 @@ def test_pick_anchor_rules():
     # A checkpoint that names its precision does not cover another one.
     assert pick(par=P.Parallelism(4), precision="fp8") is None
     assert pick(par=P.Parallelism(4), precision="fp4")["tp"] == 4
+    # A name that says nothing defers to the dtype the anchor recorded.
+    bf = dict(_anchor(2, ckpt="Qwen3-8B"), precision="bf16")
+    unknown = dict(_anchor(2, ckpt="Qwen3-8B", name="u"), precision=None)
+    kw = dict(checkpoint="Qwen3-8B", engine="sglang", par=P.Parallelism(2), isl=8192)
+    assert P.pick_anchor([bf], **kw, precision="fp8") is None
+    assert P.pick_anchor([bf], **kw, precision="bf16") is bf
+    assert P.pick_anchor([bf, unknown], **kw, precision="fp8") is unknown
 
 
 def test_pareto_front_and_series_grouping():
