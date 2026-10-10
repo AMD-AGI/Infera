@@ -56,6 +56,28 @@ def attention_dp_size(inference_config: InferenceConfig) -> int:
     return max(1, int(getattr(mp, "attention_data_parallel_size", 1) or 1))
 
 
+def decode_context_parallel_size(inference_config: InferenceConfig) -> int:
+    """Ranks a single sequence's context is split across during decode.
+
+    Decode context parallelism (vLLM ``--decode-context-parallel-size``, SGLang
+    ``--dcp-size``) is the one axis that shrinks an MLA cache. Tensor
+    parallelism cannot: the latent is shared across heads, so every rank keeps
+    a whole copy. DCP instead gives each rank a slice of the *tokens*, so a
+    rank stores ``context / dcp`` per sequence and the replica holds ``dcp``
+    times as many tokens.
+
+    This is not a small effect on the models that use it. The published Kimi-K3
+    rows move from a 2.9M-token pool at ``dcp_size: 1`` to 30.3M at
+    ``dcp_size: 8`` on the same eight GPUs.
+    """
+    mp = inference_config.model_parallel_config
+    for name in ("decode_context_parallel_size", "context_parallel_size"):
+        v = getattr(mp, name, None)
+        if v:
+            return max(1, int(v))
+    return 1
+
+
 def kv_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
     """Bytes of KV cache stored per token, per transformer layer, *per rank*."""
     mc = inference_config.model_config
@@ -92,6 +114,26 @@ def kv_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
     return 2.0 * kv_heads_per_rank * head_dim * kv_bytes
 
 
+def index_bytes_per_token_per_layer(inference_config: InferenceConfig) -> float:
+    """Bytes the sparse-attention indexer stores per token, per indexed layer, per rank.
+
+    Native sparse attention has to decide what to attend to before it can
+    attend, and it decides by scoring the query against one small index key per
+    past token. Those keys are a per-token cache in their own right, sitting
+    beside the KV cache.
+
+    One key per token per indexed layer, not one per head: the key is
+    head-shared the way an MLA latent is, and for the same reason it is not
+    divided by tensor parallelism either -- every rank scoring its own query
+    heads needs the whole key. The dtype is the stack's, not
+    ``kv_cache_dtype``, which is what makes the term separable in a memory log.
+    """
+    mc = inference_config.model_config
+    if not mc.sparse_index_layer_count():
+        return 0.0
+    return int(mc.sparse_index_head_dim) * dtype_num_bytes(mc.sparse_index_dtype or "bf16")
+
+
 def linear_state_bytes_per_layer(inference_config: InferenceConfig) -> float:
     """Bytes of recurrent state one linear-attention layer stores, per rank, per sequence.
 
@@ -102,18 +144,19 @@ def linear_state_bytes_per_layer(inference_config: InferenceConfig) -> float:
     token and is not a stored key.
     """
     mc = inference_config.model_config
-    d = mc.linear_attention_state_len() if mc.linear_attention_layer_count() else 0
-    heads = int(mc.num_attention_heads or 0)
-    if heads <= 0 or d <= 0:
+    if not mc.linear_attention_layer_count() or int(mc.num_attention_heads or 0) <= 0:
         return 0.0
+    # One dk×dv state per value head; the short convolution keeps a window of
+    # ``kernel - 1`` rows over the q, k and v channels.
+    hk, hv, dk, dv = mc.linear_attention_geometry()
     mp = inference_config.model_parallel_config
-    tp = max(1, mp.tensor_model_parallel_size)
-    heads_on_rank = heads if attention_dp_size(inference_config) > 1 else max(1, heads // tp)
+    tp = 1 if attention_dp_size(inference_config) > 1 else max(1, mp.tensor_model_parallel_size)
+    hk, hv = max(1, hk // tp), max(1, hv // tp)
     elem = dtype_num_bytes("bf16")
-    state = heads_on_rank * d * d * elem
+    state = hv * dk * dv * elem
     kernel = int(getattr(mc, "linear_attention_conv_kernel", 0) or 0)
     if kernel > 1:
-        state += heads_on_rank * d * (kernel - 1) * elem
+        state += (2 * hk * dk + hv * dv) * (kernel - 1) * elem
     return state
 
 
@@ -177,7 +220,19 @@ def estimate_kv_cache(
     # adding that state would let search fit batches the HBM cannot hold.
     full_frac = mc.full_attention_layer_fraction()
     per_token = per_token_per_layer * max(1, layers_on_rank) * full_frac
-    per_sequence = per_token * effective_context
+    # Native sparse attention's index keys are a second per-token cache, on
+    # however many layers carry an indexer. They are not scaled by
+    # ``full_frac``: a model is either hybrid-linear or sparse, and where a
+    # layer has an indexer it also has the KV cache the indexer selects from.
+    n_index = mc.sparse_index_layer_count()
+    if n_index:
+        index_frac = n_index / max(1, int(mc.num_layers or 0) or n_index)
+        per_token += (
+            index_bytes_per_token_per_layer(inference_config) * max(1, layers_on_rank) * index_frac
+        )
+    # Decode context parallelism splits the tokens of one sequence across
+    # ranks, so a rank holds its slice of the context rather than all of it.
+    per_sequence = per_token * effective_context / decode_context_parallel_size(inference_config)
     lin_frac = 1.0 - full_frac
     if lin_frac > 0.0:
         per_sequence += (

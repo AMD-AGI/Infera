@@ -7,6 +7,8 @@
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
 
+from .moe_mlp import _ACTIVATION_BW_FRACTION, _FALLBACK_HBM_BW_GBPS
+
 # Bytes per element the KV cache is stored at. The cache dtype is set
 # independently of the compute dtype (fp8 KV with bf16 activations is common),
 # and at decode the cache read is the dominant attention cost.
@@ -240,7 +242,17 @@ class AttentionProfiler(BaseModuleProfiler):
         r = backend.simulate_gemm(T, hidden, o_in, dtype)
         fwd_time += r.forward_time_ms
 
+        fwd_time += self._output_gate_ms(T, o_in, dtype)
         return fwd_time
+
+    def _output_gate_ms(self, tokens: int, width: int, dtype: str) -> float:
+        """``o * sigmoid(x @ W_g)``: a hidden x ``width`` projection and the multiply."""
+        if not getattr(self.config.model_config, "attention_output_gate", False):
+            return 0.0
+        backend = self._gemm_backend
+        ms = backend.simulate_gemm(tokens, width, self.config.model_config.hidden_size, dtype)
+        bw = getattr(backend, "hbm_bandwidth_gbps", None) or _FALLBACK_HBM_BW_GBPS
+        return ms.forward_time_ms + 3 * tokens * width * 2 / (bw * _ACTIVATION_BW_FRACTION * 1e6)
 
     def _get_simulated_results(self, batch_size: int, seq_len: int) -> tuple[float, int]:
         """Get simulated results from GEMM + SDPA simulation backends."""
@@ -310,6 +322,11 @@ class AttentionProfiler(BaseModuleProfiler):
                     dtype=gemm_dtype,
                 )
                 fwd_time += gemm_result.forward_time_ms
+                fwd_time += self._output_gate_ms(
+                    batch_tokens,
+                    max(1, args.num_attention_heads // tp_size) * args.kv_channels,
+                    gemm_dtype,
+                )
 
         # 2. Simulate SDPA core computation using SDPA backend
         if self._sdpa_backend is not None:

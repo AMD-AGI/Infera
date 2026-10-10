@@ -133,3 +133,55 @@ def test_a_colocated_run_still_reports_its_own_replica_gpus():
     """The regression guard: the split's line must not displace this one."""
     m = parse_inference_metrics(_colocated(tp=8)["report"])
     assert m.get("replica_gpus") == 8
+
+
+def test_a_split_prices_admission_against_its_decode_pool():
+    """A split could over-subscribe KV and reported no admission wait at all.
+
+    The pool binds on the decode side, so the split is as capable of
+    over-subscribing it as a colocated engine. The term was only ever applied
+    on the colocated path, which left a split's TTFT as pure service time --
+    and silently, because an absent extra reads the same as a zero one.
+    """
+    e = _split(kv_pool_tokens=4 * 2048, input_len=2048, concurrency=32)["extras"]
+    assert e.get("admission_ceiling") == pytest.approx(4, abs=1), (
+        f"a pool holding four 2048-token residents admits 4; got {e.get('admission_ceiling')!r}"
+    )
+    assert (e.get("admission_wait_ms") or 0.0) > 0.0, (
+        "32 clients against a pool that admits 4 must wait to be admitted"
+    )
+
+
+def test_a_roomy_decode_pool_leaves_a_split_with_no_admission_wait():
+    """Zero is the answer for the published splits, not a missing term.
+
+    Moving prefill off the decode GPUs is what buys the room: the measured
+    DeepSeek splits have a decode pool admitting ~770 sequences against the
+    256 ever offered, so they never reach a knee. Their TTFT still grows 9x
+    across that range, which is the prefill pool's queue and not this term.
+    """
+    e = _split(kv_pool_tokens=4096 * 2048, input_len=2048, concurrency=32)["extras"]
+    assert e.get("admission_ceiling", 0) > 32
+    assert (e.get("admission_wait_ms") or 0.0) == pytest.approx(0.0)
+
+
+def test_admission_is_charged_per_decode_replica():
+    """Clients spread over the pool, so one replica faces its share of them."""
+    pool = 8 * 2048  # admits seven of these residents: prompt plus generation
+    one = _split(kv_pool_tokens=pool, decode_replicas=1, concurrency=32)["extras"]
+    four = _split(kv_pool_tokens=pool, decode_replicas=4, concurrency=32)["extras"]
+    eight = _split(kv_pool_tokens=pool, decode_replicas=8, concurrency=32)["extras"]
+    assert (one.get("admission_wait_ms") or 0.0) > 0.0
+    assert four["admission_wait_ms"] < one["admission_wait_ms"] / 3, (
+        "32 clients over four replicas is 8 each and not 32, so one replica's "
+        "over-subscription falls roughly four-fold"
+    )
+    assert (eight.get("admission_wait_ms") or 0.0) == pytest.approx(0.0), (
+        "four clients each is inside a pool that admits seven"
+    )
+
+
+def test_a_colocated_run_still_prices_its_own_admission():
+    """The regression guard: the new per-pool argument defaults to one pool."""
+    e = _colocated(kv_pool_tokens=4 * 2048, input_len=2048, concurrency=32)["extras"]
+    assert (e.get("admission_wait_ms") or 0.0) > 0.0
