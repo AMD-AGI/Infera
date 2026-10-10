@@ -673,11 +673,9 @@ async def _scrape_engine_metrics() -> bytes:
 
     if registry is None:
         return b""
-    workers = [
-        w
-        for w in registry.list_all()
-        if w.status == WorkerStatus.ACTIVE and (w.request_transport or "http") == "http"
-    ]
+    # Scrape every active worker over its HTTP /metrics URL. NATS is only the
+    # request path; the engine still exposes Prometheus on w.url.
+    workers = [w for w in registry.list_all() if w.status == WorkerStatus.ACTIVE]
     metrics.engine_kv_cache_usage.clear()
     metrics.engine_prefix_cache_hit_rate.clear()
     metrics.engine_kv_transfer_queue_reqs.clear()

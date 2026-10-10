@@ -478,12 +478,9 @@ const ENGINE_METRICS_SCRAPE_TIMEOUT: Duration = Duration::from_secs(1);
 /// Scrape workers: update infera_engine_* gauges and federate allowlisted series.
 async fn scrape_engine_metrics(st: &AppState, snap: &crate::pool::Snapshot) -> String {
     crate::metrics::clear_engine_gauges();
-    let workers: Vec<_> = snap
-        .all
-        .iter()
-        .filter(|w| w.is_active() && w.request_transport == "http")
-        .cloned()
-        .collect();
+    // Scrape every active worker over its HTTP /metrics URL. NATS is only the
+    // request path; the engine still exposes Prometheus on w.url.
+    let workers: Vec<_> = snap.all.iter().filter(|w| w.is_active()).cloned().collect();
     if workers.is_empty() {
         return String::new();
     }

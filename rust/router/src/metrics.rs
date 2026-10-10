@@ -267,6 +267,15 @@ pub fn prune_departed_workers(active: &HashSet<String>) {
         let refs: Vec<&str> = values.iter().map(String::as_str).collect();
         let _ = metrics.generation_tokens.remove_label_values(&refs);
     }
+    for values in stale_label_values(
+        &metrics.router_picks,
+        &["role", "worker_id"],
+        &["worker_id"],
+        active,
+    ) {
+        let refs: Vec<&str> = values.iter().map(String::as_str).collect();
+        let _ = metrics.router_picks.remove_label_values(&refs);
+    }
 }
 
 fn stale_label_values(
@@ -934,6 +943,8 @@ mod tests {
         stay.first_byte();
         stay.set_outcome("ok");
         stay.finish();
+        record_pick("prefill", "p-gone", 1, 2);
+        record_pick("prefill", "p-keep", 1, 2);
 
         let (buf, _) = render();
         let text = String::from_utf8(buf).unwrap();
@@ -947,6 +958,8 @@ mod tests {
         let text = String::from_utf8(buf).unwrap();
         assert!(!text.contains("p-gone"));
         assert!(text.contains("p-keep"));
+        assert!(!text.contains("worker_id=\"p-gone\""));
+        assert!(text.contains("worker_id=\"p-keep\""));
     }
 
     fn worker_ids_in(text: &str) -> HashSet<String> {

@@ -79,10 +79,12 @@ def test_ttft_series_follow_the_prefill_worker_not_the_pair():
 def test_departed_worker_sla_series_are_dropped():
     _observe_pair("p-gone", "d-keep")
     _observe_pair("p-keep", "d-keep")
+    metrics.record_pick(role="prefill", worker_id="p-gone", cache_hits=1, request_blocks=2)
+    metrics.record_pick(role="prefill", worker_id="p-keep", cache_hits=1, request_blocks=2)
     body = metrics.render_metrics()[0].decode()
     active = {"p-keep", "d-keep"}
     for line in body.splitlines():
-        for key in ('prefill_worker="', 'decode_worker="'):
+        for key in ('prefill_worker="', 'decode_worker="', 'worker_id="'):
             if key in line:
                 value = line.split(key, 1)[1].split('"', 1)[0]
                 if value:
@@ -92,6 +94,15 @@ def test_departed_worker_sla_series_are_dropped():
     body = metrics.render_metrics()[0].decode()
     assert 'prefill_worker="p-gone"' not in body
     assert 'prefill_worker="p-keep"' in body
+    assert 'worker_id="p-gone"' not in body
+    assert 'worker_id="p-keep"' in body
+
+
+def test_outcome_label_buckets_http_status():
+    assert metrics.outcome_label(200) == "ok"
+    assert metrics.outcome_label(429) == "4xx"
+    assert metrics.outcome_label(502) == "5xx"
+    assert metrics.outcome_label(None) == "error"
 
 
 def test_apply_engine_scrape_sets_kv_usage_gauge():

@@ -931,6 +931,7 @@ async fn mixed_dispatch(
     if let Some(mut t) = tracker {
         let outcome = match last_err.as_ref().map(|resp| resp.status()) {
             Some(status) if status.is_client_error() => "4xx",
+            Some(status) if status.is_server_error() => "5xx",
             _ => "error",
         };
         t.set_outcome(outcome);

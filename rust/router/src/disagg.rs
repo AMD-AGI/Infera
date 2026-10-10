@@ -334,6 +334,8 @@ async fn unary_dual(
                         tracker.set_outcome("ok");
                     } else if st.is_client_error() {
                         tracker.set_outcome("4xx");
+                    } else if st.is_server_error() {
+                        tracker.set_outcome("5xx");
                     } else {
                         tracker.set_outcome("error");
                     }
@@ -427,19 +429,22 @@ async fn dual_nats(
     // decode request already on the wire.
     let mut abort_unless_decode_owns_it = FireOnDrop(Some(incomplete_tx));
 
+    // Start before JetStream publish/ack so a dispatch failure still records
+    // the time spent waiting on NATS (same pattern as the mixed path).
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
+
     let wid = d.worker.worker_id.clone();
     let mut reply = match nats.dispatch(&wid, &d_payload).await {
         Ok(r) => r,
         Err(e) => {
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
-            let mut t = crate::metrics::RequestTracker::start_disagg(
-                &d.worker.model_name,
-                &p.worker.worker_id,
-                &d.worker.worker_id,
-            );
-            t.set_outcome("error");
-            t.finish();
+            tracker.set_outcome("error");
+            tracker.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} unreachable over nats: {e}"),
@@ -448,11 +453,6 @@ async fn dual_nats(
     };
 
     if !stream {
-        let mut tracker = crate::metrics::RequestTracker::start_disagg(
-            &d.worker.model_name,
-            &p.worker.worker_id,
-            &d.worker.worker_id,
-        );
         let mut abort_unless_done = FireOnDrop(abort_unless_decode_owns_it.take());
         let mut buf: Vec<u8> = Vec::new();
         let mut status = StatusCode::OK;
@@ -512,6 +512,8 @@ async fn dual_nats(
             tracker.set_outcome("ok");
         } else if status.is_client_error() {
             tracker.set_outcome("4xx");
+        } else if status.is_server_error() {
+            tracker.set_outcome("5xx");
         } else {
             tracker.set_outcome("error");
         }
@@ -527,6 +529,8 @@ async fn dual_nats(
     // recorded yet: an accepted request says nothing about whether this worker
     // produces anything, and the failure profile worth catching is exactly the
     // one that accepts and then goes quiet. It is recorded on the first byte.
+    // Reuse the tracker started before dispatch so NATS publish/ack time is
+    // included in the request duration.
     let breaker = state.breaker.clone();
     let body = futures::stream::unfold(
         (Some(reply), breaker, wid, false, false),
@@ -592,11 +596,7 @@ async fn dual_nats(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_decode_owns_it.take(),
-                Some(crate::metrics::RequestTracker::start_disagg(
-                    &d.worker.model_name,
-                    &p.worker.worker_id,
-                    &d.worker.worker_id,
-                )),
+                Some(tracker),
             ),
         ))
         .expect("stream response is valid")

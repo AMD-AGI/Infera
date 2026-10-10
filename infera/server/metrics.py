@@ -382,6 +382,23 @@ def record_pick(*, role: str, worker_id: str, cache_hits: int, request_blocks: i
         prefix_cache_blocks_total.labels(role=role).inc(request_blocks)
 
 
+def outcome_label(status: int | None = None) -> str:
+    """Map an HTTP status (or absence of one) onto the shared outcome label set.
+
+    Labels are ``ok`` / ``4xx`` / ``5xx`` / ``error`` so Python and Rust
+    frontends stay interchangeable in Grafana error-rate panels.
+    """
+    if status is None:
+        return "error"
+    if status < 400:
+        return "ok"
+    if status < 500:
+        return "4xx"
+    if status < 600:
+        return "5xx"
+    return "error"
+
+
 _SSE_DATA = b"data:"
 _SSE_DONE = b"data: [DONE]"
 # An SSE frame that grows past this without a newline is not a token frame
@@ -614,7 +631,7 @@ def track_request(router: str, model: str = ""):
 
         with track_request(router="mixed") as obs:
             resp = await dispatch(...)
-            obs["outcome"] = "ok" if resp.status_code < 400 else f"{resp.status_code // 100}xx"
+            obs["outcome"] = outcome_label(resp.status_code)
 
     Yields a :class:`RequestObserver`, whose extra methods feed the SLA
     histograms. For a streaming reply the observer is handed to the stream
@@ -714,6 +731,7 @@ def prune_departed_workers(active_worker_ids: set[str]) -> None:
     _drop_worker_series(inter_token_latency_seconds, "decode_worker", active_worker_ids)
     _drop_worker_series(prompt_tokens_total, "prefill_worker", active_worker_ids)
     _drop_worker_series(generation_tokens_total, "decode_worker", active_worker_ids)
+    _drop_worker_series(router_picks_total, "worker_id", active_worker_ids)
 
 
 def _drop_worker_series(metric, label: str, active: set[str]) -> None:
