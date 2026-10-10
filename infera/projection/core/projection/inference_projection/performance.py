@@ -3221,7 +3221,10 @@ class InferencePerformanceProjector:
         return 0.0
 
     def _measured_verify_step_scale(
-        self, batch: int | None = None, context: float | None = None
+        self,
+        batch: int | None = None,
+        context: float | None = None,
+        measured_ms: float | None = None,
     ) -> float:
         """Factor turning one measured decode number into one verify-step time.
 
@@ -3246,6 +3249,16 @@ class InferencePerformanceProjector:
         the level to the anchor. The blind width remains the fallback for hosts
         where that ratio cannot be evaluated.
 
+        Given the measured step it scales, the widening is charged as the
+        smaller of that ratio and the modelled step's absolute increment. A
+        measured step is mostly launches, syncs and kernels the analytical
+        forward does not contain, and none of it repeats per query position:
+        GLM-5.2-MXFP4 on SGLang at TP4, four clients, measures 11.6 ms where
+        the model's forward is 2.9 ms and its 4-wide verify 8.0 ms. The ratio
+        (2.7x) charged MTP3 31 ms a step -- slower than not speculating --
+        where InferenceX measures GLM-5 MTP at 1.8x the interactivity there;
+        the increment (+5.1 ms) gives 1.7x.
+
         Speculation stays regime-defining and the anchor store still refuses
         the pairing; this is what ``--load-benchmark`` and a relaxed axis get
         instead of a factor that scales with the draft depth.
@@ -3256,7 +3269,24 @@ class InferencePerformanceProjector:
         if self._bench_spec_k > 0:
             return max(1e-6, self._spec_tokens_per_step())
         ratio = self._verify_width_ratio(spec_k + 1, batch, context)
-        return float(spec_k + 1) if ratio is None else ratio
+        if ratio is None:
+            return float(spec_k + 1)
+        if measured_ms and measured_ms > 0.0:
+            cost = self._verify_ratio_cache.get(
+                ("ms",) + self._verify_key(spec_k + 1, batch, context)
+            )
+            if cost is not None:
+                one, wide = cost
+                return min(ratio, 1.0 + max(0.0, wide - one) / measured_ms)
+        return ratio
+
+    def _verify_key(self, width: int, batch: int | None, context: float | None) -> tuple:
+        b = max(1, int(batch or 1))
+        kv = max(
+            1,
+            int(context or self._meas_ref_input or self.cfg.request_config.input_seq_len or 1024),
+        )
+        return (b, kv, int(width))
 
     def _verify_width_ratio(
         self, width: int, batch: int | None, context: float | None
@@ -3280,12 +3310,8 @@ class InferencePerformanceProjector:
         """
         if width <= 1:
             return 1.0
-        b = max(1, int(batch or 1))
-        kv = max(
-            1,
-            int(context or self._meas_ref_input or self.cfg.request_config.input_seq_len or 1024),
-        )
-        key = (b, kv, int(width))
+        key = self._verify_key(width, batch, context)
+        b, kv = key[0], key[1]
         if key in self._verify_ratio_cache:
             return self._verify_ratio_cache[key]
         try:
@@ -3302,6 +3328,7 @@ class InferencePerformanceProjector:
         # more than running that step once per position.
         ratio = min(float(width), max(1.0, wide / one))
         self._verify_ratio_cache[key] = ratio
+        self._verify_ratio_cache[("ms",) + key] = (one, wide)
         return ratio
 
     def _decode_step_latency_ms(self, batch: int, kv_len: int, q_len: int = 1) -> float:
@@ -3309,7 +3336,7 @@ class InferencePerformanceProjector:
         # ~flat in context over a generation, so no simulator context-scaling).
         if self._measured_mode:
             per_token = self._measured_decode_step_ms(batch, kv_len)
-            step = per_token * self._measured_verify_step_scale(batch, kv_len)
+            step = per_token * self._measured_verify_step_scale(batch, kv_len, per_token)
             # A speculation-harvested anchor already paid for the draft pass, so
             # adding the modelled overhead would bill it a second time.
             if self._bench_spec_k <= 0:
@@ -3369,7 +3396,8 @@ class InferencePerformanceProjector:
             # See ``_measured_verify_step_scale``: a speculation-harvested decode
             # number is per output token, so the step scales by the tokens it
             # emits rather than by the verify width ``q_len``.
-            spec = self._measured_verify_step_scale(max(1, num_decode), decode_ctx)
+            d_ms = self._measured_decode_step_ms(num_decode, decode_ctx) if num_decode > 0 else 0.0
+            spec = self._measured_verify_step_scale(max(1, num_decode), decode_ctx, d_ms)
             prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens * pb, prefill_kv_len)
             # The prefill rate is sharded by TP width alone, so an attention
             # layout change is moved by the simulator's difference: the anchor's
@@ -3386,11 +3414,7 @@ class InferencePerformanceProjector:
                 if steps is not None:
                     own = self._measured_prefill_tokens_ms(chunk_tokens, prefill_kv_len)
                     prefill_piece = max(own, own + steps[0] - steps[1])
-            dec_piece = (
-                self._measured_decode_step_ms(num_decode, decode_ctx) * spec
-                if num_decode > 0
-                else 0.0
-            )
+            dec_piece = d_ms * spec
             pp = (
                 self._restore_pp_ms(max(1, num_decode), chunk_tokens)
                 if self._meas_whole.get("decode") or self._meas_whole.get("prefill")
@@ -3533,11 +3557,10 @@ class InferencePerformanceProjector:
                 ctx = int(ISL + frac * OSL)
                 d_pure = self._measured_decode_step_ms(C, ctx)
                 draft = 0.0 if draft_billed_by_anchor else self._draft_overhead_ms(d_pure)
-                pure.append(d_pure * self._measured_verify_step_scale(C, ctx) + draft + ov)
+                pure.append(d_pure * self._measured_verify_step_scale(C, ctx, d_pure) + draft + ov)
                 prefill_piece = self._measured_prefill_tokens_ms(chunk_tokens)
-                dec_piece = self._measured_decode_step_ms(
-                    max(1, C - 1), ctx
-                ) * self._measured_verify_step_scale(max(1, C - 1), ctx)
+                d_mixed = self._measured_decode_step_ms(max(1, C - 1), ctx)
+                dec_piece = d_mixed * self._measured_verify_step_scale(max(1, C - 1), ctx, d_mixed)
                 mixed.append((prefill_piece + dec_piece) * (1.0 + penalty) + ov)
                 pf_only.append(prefill_piece * (1.0 + penalty))
             t_pure = sum(pure) / len(pure)

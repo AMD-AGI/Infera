@@ -294,6 +294,122 @@ def test_point_argv_attention_dp_and_tiers():
     assert "--load-benchmark a.json --bench-model GLM" in s and "--kv-tier" not in s
 
 
+def test_spec_config():
+    assert P.SpecConfig.parse("none") == P.SpecConfig()
+    assert P.SpecConfig.parse("none").argv() == []
+    mtp = P.SpecConfig.parse("mtp")
+    assert (mtp.k, mtp.accept, mtp.draft_cost, mtp.label) == (3, 0.75, 0.05, "MTP3")
+    s = P.SpecConfig.parse("mtp:2:0.8:0.1")
+    assert s.label == "MTP2@0.8/d0.1"
+    assert s.tokens_per_step == pytest.approx(1 + 0.8 + 0.64)
+    assert " ".join(s.argv()) == (
+        "--speculative-num-tokens 2 --speculative-acceptance-rate 0.8 "
+        "--speculative-draft-cost-factor 0.1"
+    )
+    assert P.SpecConfig.parse("EAGLE3:4").label == "EAGLE34"
+    for bad in ("medusa", "mtp:0", "mtp:3:1.5", "mtp:3:0.7:-1"):
+        with pytest.raises(ValueError):
+            P.SpecConfig.parse(bad)
+
+
+def test_knob_axes():
+    ax = P.KnobAxis.parse("sched=unified,exclusive:4")
+    assert ax.argv("unified") == []
+    assert ax.argv("exclusive:4") == ["--des-exclusive-prefill", "--des-max-prefill-seqs", "4"]
+    raw = P.KnobAxis.parse("--prefix-cache-hit-rate=0,0.5")
+    assert raw.argv("0.5") == ["--prefix-cache-hit-rate", "0.5"]
+    assert P.KnobAxis("--enable-x", ("on", "off")).argv("on") == ["--enable-x"]
+    assert P.KnobAxis("--enable-x", ("on", "off")).argv("off") == []
+    for bad in ("sched", "nope=1", "sched=fifo", "chunk=big"):
+        with pytest.raises(ValueError):
+            P.KnobAxis.parse(bad)
+    combos = P.knob_combos([ax, P.KnobAxis("budget", ("8192", "16384"))])
+    assert len(combos) == 4 and combos[0] == (("sched", "unified"), ("budget", "8192"))
+    assert P.knob_combos([]) == [()]
+    a = P.build_parser().parse_args(
+        [
+            "--model",
+            "m",
+            "--sched",
+            "unified",
+            "--step-budget",
+            "4096",
+            "--hbm-capacity-gb",
+            "192",
+            "288",
+            "--knob",
+            "think=0,500",
+        ]
+    )
+    axes, hbm = P.knob_axes_from_args(a)
+    assert [x.name for x in axes] == ["sched", "budget", "hbm", "think"] and hbm == 288.0
+    a = P.build_parser().parse_args(["--model", "m", "--hbm-capacity-gb", "192"])
+    assert P.knob_axes_from_args(a) == ([], 192.0)
+    a = P.build_parser().parse_args(
+        ["--model", "m", "--sched", "unified", "--knob", "sched=exclusive"]
+    )
+    with pytest.raises(SystemExit):
+        P.knob_axes_from_args(a)
+
+
+def test_point_argv_spec_and_knobs():
+    kw = dict(
+        scenario=P.Scenario("8k/1k", 8192, 1024),
+        trace_path=None,
+        precision="fp8",
+        engine="sglang",
+        par=P.Parallelism(8, 8, 4),
+        concurrency=16,
+        gpu_arch="mi355x",
+        hbm_gb=288.0,
+        num_requests=64,
+        anchor=None,
+        checkpoint="GLM",
+    )
+    argv = P.point_argv(
+        **kw,
+        spec=P.SpecConfig.parse("mtp"),
+        knobs=(("budget", "8192"), ("hbm", "192"), ("kvdtype", "bf16"), ("sched", "exclusive")),
+    )
+    s = " ".join(argv)
+    assert "--max-num-batched-tokens 2048 " in s  # the swept budget, split over 4 ranks
+    assert "--hbm-capacity-gb 192.0" in s and "--speculative-num-tokens 3" in s
+    assert "--des-exclusive-prefill" in s
+    # The swept KV dtype comes after the precision's, so argparse keeps it.
+    assert argv[len(argv) - 1 - argv[::-1].index("--kv-cache-dtype") + 1] == "bf16"
+
+
+def test_build_tasks_spec_and_knob_series(tmp_path):
+    kw = dict(
+        models=[P.ModelSpec("glm5", "GLM")],
+        engines=["sglang"],
+        precisions=["fp8"],
+        parallelisms=[P.Parallelism(8)],
+        concurrencies=[4],
+        scenarios=[P.Scenario("8k/1k", 8192, 1024)],
+        modes=["simulate"],
+        anchors=[],
+        workdir=str(tmp_path),
+        specs=[P.SpecConfig(), P.SpecConfig.parse("mtp")],
+        knob_axes=[P.KnobAxis("sched", ("unified", "exclusive"))],
+    )
+    tasks, _ = P.build_tasks(**kw)
+    pts = [P.ParetoPoint(**t["point"]) for t in tasks]
+    assert len(pts) == 4 and len({P._key(p) for p in pts}) == 4
+    assert {p.series() for p in pts} == {
+        "MI355X sglang (simulate)",
+        "MI355X sglang MTP3 (simulate)",
+    }
+    assert {p.knobs for p in pts} == {"sched=unified", "sched=exclusive"}
+    tasks, _ = P.build_tasks(**kw, series_by=["sched"])
+    assert {P.ParetoPoint(**t["point"]).series() for t in tasks} == {
+        "MI355X sglang sched=unified (simulate)",
+        "MI355X sglang sched=exclusive (simulate)",
+    }
+    # Rows written before the axes existed still load, as the no-MTP default.
+    assert _pt(1, 1).spec == "none" and _pt(1, 1, spec="MTP3").series().endswith("MTP3 (simulate)")
+
+
 def test_writers_round_trip(tmp_path):
     pts = [
         _pt(10, 100),

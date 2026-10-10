@@ -6,8 +6,10 @@
 """Throughput-vs-interactivity Pareto frontiers, InferenceX-style.
 
 For one workload -- a fixed ISL/OSL scenario or a recorded agentic trace --
-this projects every combination of model, engine, precision, parallelism and
-concurrency the caller lists, through the same closed-loop DES the corpus is
+this projects every combination of model, engine, precision, parallelism,
+concurrency, speculative decoding (MTP / EAGLE / draft model) and deployment
+knobs (scheduler policy, step budget, chunked prefill, KV dtype, memory
+fraction, HBM size, ... or any projection flag) the caller lists, through the same closed-loop DES the corpus is
 scored with, and keeps the configurations no other configuration beats on both
 axes. The default axes are InferenceX's: interactivity (tokens/s each user
 sees, ``1000 / TPOT``) against total token throughput per GPU.
@@ -242,6 +244,169 @@ class KvConfig:
         return cls(label=label or "+".join(t.split(":")[0] for t in tiers), tiers=tiers)
 
 
+# method -> (draft depth, per-draft-token acceptance, draft cost per proposed
+# token as a fraction of one target decode step). The depth is InferenceX's
+# recipes' (``speculative-num-steps 3``); an MTP head is one extra layer plus
+# the LM head, so its draft costs a few percent of a 60-90 layer target.
+SPEC_DEFAULTS: dict[str, tuple[int, float, float]] = {
+    "mtp": (3, 0.75, 0.05),
+    "nextn": (3, 0.75, 0.05),
+    "eagle": (3, 0.70, 0.08),
+    "eagle3": (3, 0.75, 0.08),
+    "draft": (4, 0.65, 0.15),
+    "ngram": (4, 0.40, 0.0),
+}
+
+
+@dataclass(frozen=True)
+class SpecConfig:
+    """One speculative-decoding setting: ``none`` or ``METHOD[:K[:ACCEPT[:DRAFT_COST]]]``."""
+
+    method: str = "none"
+    k: int = 0
+    accept: float = 0.0
+    draft_cost: float = 0.0
+
+    @classmethod
+    def parse(cls, spec: str) -> SpecConfig:
+        parts = [p.strip() for p in spec.strip().lower().split(":")]
+        if parts[0] in ("", "none", "off", "0"):
+            return cls()
+        if parts[0] not in SPEC_DEFAULTS:
+            raise ValueError(f"unknown speculative method {parts[0]!r} in {spec!r}")
+        k, acc, dc = SPEC_DEFAULTS[parts[0]]
+        if len(parts) > 1 and parts[1]:
+            k = int(parts[1])
+        if len(parts) > 2 and parts[2]:
+            acc = float(parts[2])
+        if len(parts) > 3 and parts[3]:
+            dc = float(parts[3])
+        if k < 1 or not 0.0 <= acc <= 1.0 or dc < 0.0:
+            raise ValueError(f"bad speculative setting {spec!r}")
+        return cls(method=parts[0], k=k, accept=acc, draft_cost=dc)
+
+    @property
+    def label(self) -> str:
+        if self.method == "none":
+            return "none"
+        _, acc, dc = SPEC_DEFAULTS[self.method]
+        s = f"{self.method.upper()}{self.k}"
+        if abs(self.accept - acc) > 1e-9:
+            s += f"@{self.accept:g}"
+        if abs(self.draft_cost - dc) > 1e-9:
+            s += f"/d{self.draft_cost:g}"
+        return s
+
+    @property
+    def tokens_per_step(self) -> float:
+        """Expected tokens a verify step keeps: the bonus token plus the accepted run."""
+        return sum(self.accept**i for i in range(self.k + 1)) if self.k else 1.0
+
+    def argv(self) -> list[str]:
+        if self.method == "none":
+            return []
+        return [
+            "--speculative-num-tokens",
+            str(self.k),
+            "--speculative-acceptance-rate",
+            str(self.accept),
+            "--speculative-draft-cost-factor",
+            str(self.draft_cost),
+        ]
+
+
+def _sched_argv(v: str) -> list[str]:
+    policy, _, cap = v.partition(":")
+    if policy not in ("unified", "exclusive"):
+        raise ValueError(f"scheduler policy must be unified[:N] or exclusive[:N], got {v!r}")
+    out = ["--des-exclusive-prefill"] if policy == "exclusive" else []
+    return out + (["--des-max-prefill-seqs", str(int(cap))] if cap else [])
+
+
+# Named deployment knobs -> the projection flags one value turns into. ``budget``
+# and ``hbm`` are applied by :func:`point_argv` itself: the step budget is split
+# across attention-DP ranks and the HBM size feeds the memory model.
+KNOBS: dict[str, tuple[str, Any]] = {
+    "sched": (
+        "scheduler: unified | exclusive (prefill-only steps), ':N' caps new seqs/step",
+        _sched_argv,
+    ),
+    "budget": ("step token budget (max-num-batched-tokens), 0 = engine default", None),
+    "hbm": ("HBM capacity per GPU in GB", None),
+    "chunk": (
+        "chunked-prefill chunk size in tokens (0 disables)",
+        lambda v: ["--chunked-prefill-size", str(int(v))],
+    ),
+    "kvdtype": ("KV-cache dtype, overriding the precision's", lambda v: ["--kv-cache-dtype", v]),
+    "memfrac": (
+        "fraction of HBM the engine may use (mem_fraction_static)",
+        lambda v: ["--kv-cache-memory-fraction", str(float(v))],
+    ),
+    "maxseqs": ("max running sequences per instance", lambda v: ["--max-num-seqs", str(int(v))]),
+    "think": (
+        "client think time between turns, ms",
+        lambda v: ["--des-client-think-ms", str(float(v))],
+    ),
+    "block": ("KV block size in tokens", lambda v: ["--kv-block-size", str(int(v))]),
+}
+
+
+@dataclass(frozen=True)
+class KnobAxis:
+    """One swept knob: a :data:`KNOBS` name or any projection ``--flag``.
+
+    A raw flag takes ``on`` / ``off`` for a switch and anything else as its
+    value, so a knob the sweep has no name for is still one ``--knob`` away.
+    """
+
+    name: str
+    values: tuple[str, ...]
+
+    @classmethod
+    def parse(cls, spec: str) -> KnobAxis:
+        name, sep, body = spec.partition("=")
+        name = name.strip()
+        vals = tuple(v.strip() for v in body.split(",") if v.strip())
+        if not sep or not name or not vals:
+            raise ValueError(f"knob must be NAME=V1[,V2...], got {spec!r}")
+        if name not in KNOBS and not name.startswith("--"):
+            raise ValueError(f"unknown knob {name!r}: one of {sorted(KNOBS)} or a --flag")
+        ax = cls(name, vals)
+        for v in vals:
+            ax.argv(v)
+        return ax
+
+    def argv(self, value: str) -> list[str]:
+        if self.name in ("budget", "hbm"):
+            float(value)
+            return []
+        if self.name in KNOBS:
+            return KNOBS[self.name][1](value)
+        if value.lower() in ("on", "true"):
+            return [self.name]
+        if value.lower() in ("off", "false"):
+            return []
+        return [self.name, value]
+
+    @property
+    def short(self) -> str:
+        return self.name.lstrip("-")
+
+
+def knob_combos(axes: Sequence[KnobAxis]) -> list[tuple[tuple[str, str], ...]]:
+    """Every combination of the swept knob values, as ``((name, value), ...)``."""
+    if not axes:
+        return [()]
+    return [
+        tuple(zip((a.name for a in axes), vals, strict=True))
+        for vals in itertools.product(*(a.values for a in axes))
+    ]
+
+
+def _knob_label(combo: Sequence[tuple[str, str]]) -> str:
+    return " ".join(f"{n.lstrip('-')}={v}" for n, v in combo)
+
+
 @dataclass
 class ParetoPoint:
     model: str
@@ -262,6 +427,11 @@ class ParetoPoint:
     gpus: int
     concurrency: int
     anchor: str = ""
+    spec: str = "none"
+    spec_k: int = 0
+    spec_accept: float = 0.0
+    knobs: str = ""
+    series_label: str = ""
 
     feasible: bool = True
     reason: str = ""
@@ -278,11 +448,15 @@ class ParetoPoint:
     prefix_hit_rate: float = 0.0
     memory_per_gpu_gb: float = 0.0
     kv_tiers: str = ""
+    spec_tokens_per_step: float = 1.0
     on_frontier: bool = False
 
     def series(self) -> str:
+        if self.series_label:
+            return self.series_label
         kv = "" if self.kv_config == "hbm" else f" KV:{self.kv_config}"
-        return f"{self.gpu_arch.upper()} {self.engine}{kv} ({self.mode})"
+        sp = "" if self.spec == "none" else f" {self.spec}"
+        return f"{self.gpu_arch.upper()} {self.engine}{sp}{kv} ({self.mode})"
 
     def chart(self) -> tuple[str, str, str]:
         return (self.model, self.scenario, self.precision)
@@ -416,8 +590,12 @@ def point_argv(
     checkpoint: str,
     kv: KvConfig | None = None,
     pool_from_memory: bool = False,
+    spec: SpecConfig | None = None,
+    knobs: Sequence[tuple[str, str]] = (),
     extra: Sequence[str] = (),
 ) -> list[str]:
+    knob = dict(knobs)
+    hbm_gb = float(knob.get("hbm") or hbm_gb)
     dt = PRECISIONS[precision]
     # Attention DP runs one scheduler per rank over its share of the clients,
     # and the ranks meet at every MoE layer. The DES simulates one of them with
@@ -466,7 +644,7 @@ def point_argv(
         "--des-warmup-frac",
         "0",
     ]
-    budget = ENGINE_STEP_BUDGET.get(engine.lower(), 8192)
+    budget = int(float(knob.get("budget") or 0)) or ENGINE_STEP_BUDGET.get(engine.lower(), 8192)
     if par.dp_attn > 1:
         argv += ["--attention-dp-size", str(par.dp_attn)]
         # Each attention-DP rank schedules its own share of the step budget.
@@ -488,6 +666,11 @@ def point_argv(
         argv += ["--kv-tier", t]
     if pool_from_memory:
         argv += ["--des-kv-pool-from-memory"]
+    if spec is not None:
+        argv += spec.argv()
+    # After the defaults above: argparse keeps the last value of a repeated flag.
+    for name, value in knobs:
+        argv += KnobAxis(name, (value,)).argv(value)
     argv += list(extra)
     argv += [
         f"tensor_model_parallel_size={par.tp}",
@@ -503,6 +686,8 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
     des = (res.get("des") or {}).get("point")
     gpus = int(getattr(perf, "replica_gpus", 0) or 0) or pt.gpus
     pt.gpus = gpus
+    extras = getattr(perf, "extras", None) or {}
+    pt.spec_tokens_per_step = float(extras.get("speculative_tokens_per_step") or 1.0)
     if mem is not None:
         pt.memory_per_gpu_gb = float(getattr(mem, "total_bytes", 0) or 0) / (1024.0**3)
         # Unrunnable only when weights and the step's activations leave no HBM
@@ -638,13 +823,32 @@ def build_tasks(
     trace_max_requests: int = 0,
     workdir: str = "pareto_out/traces",
     gpu_cost_per_hour: float = 0.0,
+    specs: Sequence[SpecConfig] = (SpecConfig(),),
+    knob_axes: Sequence[KnobAxis] = (),
+    series_by: Sequence[str] = ("spec", "kv"),
     extra: Sequence[str] = (),
 ) -> tuple[list[dict[str, Any]], list[ParetoPoint]]:
-    """Every point to project, plus the benchmark points no anchor covers."""
+    """Every point to project, plus the benchmark points no anchor covers.
+
+    Speculation and the KV hierarchy split series by default, as InferenceX
+    draws MTP as its own line; every other knob is a deployment choice the
+    frontier picks among, the way it picks a parallelism. ``series_by`` names
+    the axes -- ``spec``, ``kv`` or a knob -- that get their own line instead.
+    """
     tasks: list[dict[str, Any]] = []
     uncovered: list[ParetoPoint] = []
-    for m, eng, prec, par, conc, sc, mode, kv in itertools.product(
-        models, engines, precisions, parallelisms, concurrencies, scenarios, modes, kv_configs
+    by = set(series_by)
+    for m, eng, prec, par, conc, sc, mode, kv, spec, combo in itertools.product(
+        models,
+        engines,
+        precisions,
+        parallelisms,
+        concurrencies,
+        scenarios,
+        modes,
+        kv_configs,
+        specs,
+        knob_combos(knob_axes),
     ):
         if par.gpus > max_gpus:
             continue
@@ -675,7 +879,20 @@ def build_tasks(
             pp=par.pp,
             gpus=par.gpus,
             concurrency=conc,
+            spec=spec.label,
+            spec_k=spec.k,
+            spec_accept=spec.accept,
+            knobs=_knob_label(combo),
         )
+        tag = ""
+        if "spec" in by and spec.method != "none":
+            tag += f" {spec.label}"
+        if "kv" in by and kv.label != "hbm":
+            tag += f" KV:{kv.label}"
+        split = [(n, v) for n, v in combo if n in by or n.lstrip("-") in by]
+        if split:
+            tag += f" {_knob_label(split)}"
+        base["series_label"] = f"{gpu_arch.upper()} {eng}{tag} ({mode})"
         if trace and not os.path.exists(trace):
             uncovered.append(ParetoPoint(**base, feasible=False, reason=f"no trace {trace}"))
             continue
@@ -723,6 +940,8 @@ def build_tasks(
             # concurrency past it queues instead of being priced as resident,
             # and a tier below HBM has something to catch.
             pool_from_memory=True,
+            spec=spec,
+            knobs=combo,
             extra=extra,
         )
         tasks.append(
@@ -752,7 +971,8 @@ def run(
         tag = "ok" if p.feasible else "X "
         print(
             f"  [{i:>4}/{len(tasks)}] {tag} {p.model:<14} {p.engine:<7} {p.precision:<6} "
-            f"{p.mode:<9} {p.kv_config:<10} {p.parallelism:<16} c{p.concurrency:<4} "
+            f"{p.mode:<9} {p.kv_config:<10} {p.spec:<6} {p.parallelism:<16} c{p.concurrency:<4} "
+            f"{p.knobs + ' ' if p.knobs else ''}"
             f"intvty={p.interactivity:7.1f} tput/gpu={p.total_tput_per_gpu:8.1f}"
             f"{'  ' + p.reason if p.reason else ''}",
             flush=True,
@@ -811,6 +1031,8 @@ _IDENTITY = (
     "scenario",
     "mode",
     "kv_config",
+    "spec",
+    "knobs",
     "tp",
     "ep",
     "dp_attn",
@@ -1047,6 +1269,7 @@ th{background:#f4f4f4} td:first-child,th:first-child{text-align:left}
 <label>Precision<select id="precision"></select></label>
 <label>Mode<select id="mode"><option value="all">benchmark + simulate</option>
 <option value="benchmark">benchmark</option><option value="simulate">simulate</option></select></label>
+<label>Speculative<select id="spec"></select></label>
 <label>X axis<select id="x"></select></label>
 <label>Y axis<select id="y"></select></label>
 <label>Points<select id="show"><option value="all">all</option><option value="front">frontier only</option></select></label>
@@ -1055,8 +1278,9 @@ th{background:#f4f4f4} td:first-child,th:first-child{text-align:left}
 <div id="tip"></div>
 <p class="note">Solid lines are benchmark mode (calibrated from a measured anchor of the same
 model and engine); dashed lines are simulate mode (analytical, no GPU, ranking-quality).
-Each line is the Pareto frontier of one GPU / engine / mode across every parallelism and
-concurrency swept; faint dots are dominated configurations. Hover a point for its config.</p>
+Each line is the Pareto frontier of one GPU / engine / speculative setting / KV hierarchy / mode
+across every parallelism, concurrency and deployment knob swept; faint dots are dominated
+configurations. Hover a point for its config.</p>
 <div id="uncov" class="note"></div>
 <table id="tbl"></table>
 <script>
@@ -1073,10 +1297,12 @@ function refreshDeps(){
   opts($('scenario'), sc, sc.includes(cur)?cur:sc[0]);
   const pr=uniq(P.filter(p=>p.model===m && p.scenario===$('scenario').value).map(p=>p.precision));
   const cp=$('precision').value; opts($('precision'), pr, pr.includes(cp)?cp:pr[0]);
+  const sp=uniq(P.filter(p=>p.model===m && p.scenario===$('scenario').value).map(p=>p.spec||'none'));
+  const cs=$('spec').value; opts($('spec'), ['all',...sp], ['all',...sp].includes(cs)?cs:'all');
 }
 $('x').innerHTML = Object.keys(M).map(k=>`<option value="${k}" ${k===DATA.x?'selected':''}>${M[k].label}</option>`).join('');
 $('y').innerHTML = Object.keys(M).map(k=>`<option value="${k}" ${k===DATA.y?'selected':''}>${M[k].label}</option>`).join('');
-const series = p => `${p.gpu_arch.toUpperCase()} ${p.engine}${p.kv_config==='hbm'?'':' KV:'+p.kv_config} (${p.mode})`;
+const series = p => p.series_label || `${p.gpu_arch.toUpperCase()} ${p.engine}${(p.spec||'none')==='none'?'':' '+p.spec}${p.kv_config==='hbm'?'':' KV:'+p.kv_config} (${p.mode})`;
 function front(pts,x,y){
   const sx=M[x].higher_is_better?1:-1, sy=M[y].higher_is_better?1:-1;
   const s=[...pts].sort((a,b)=>(sx*b[x]-sx*a[x])||(sy*b[y]-sy*a[y]));
@@ -1085,9 +1311,9 @@ function front(pts,x,y){
   return f.sort((a,b)=>a[x]-b[x]);
 }
 function draw(){
-  const m=$('model').value, sc=$('scenario').value, pr=$('precision').value, md=$('mode').value;
+  const m=$('model').value, sc=$('scenario').value, pr=$('precision').value, md=$('mode').value, sp=$('spec').value;
   const x=$('x').value, y=$('y').value, onlyF=$('show').value==='front';
-  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md));
+  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp));
   const pts=sel.filter(p=>p.feasible);
   const svg=$('chart'); const W=1000,H=600,L=80,R=250,T=30,B=60;
   let o=[];
@@ -1113,7 +1339,7 @@ function draw(){
   svg.innerHTML=o.join('');
   const un=sel.filter(p=>!p.feasible);
   $('uncov').textContent = un.length ? `${un.length} configuration(s) not plotted (did not fit, or no anchor covered them in benchmark mode).` : '';
-  const cols=['parallelism','concurrency','gpus','mode','kv_config','interactivity','total_tput_per_gpu','output_tput_per_gpu','ttft_ms','tpot_ms','prefix_hit_rate'];
+  const cols=['parallelism','concurrency','gpus','mode','kv_config','spec','spec_tokens_per_step','knobs','interactivity','total_tput_per_gpu','output_tput_per_gpu','ttft_ms','tpot_ms','prefix_hit_rate'];
   $('tbl').innerHTML='<tr><th>series</th>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>'+
     rows.map(([s,p])=>'<tr><td>'+s+'</td>'+cols.map(c=>`<td>${typeof p[c]==='number'&&!Number.isInteger(p[c])?p[c].toFixed(2):p[c]}</td>`).join('')+'</tr>').join('');
 }
@@ -1123,11 +1349,13 @@ $('chart').addEventListener('mousemove',e=>{
   const p=P[+i];
   t.textContent=`${p.model} ${p.engine} ${p.precision} (${p.mode})\\n${p.parallelism}  conc ${p.concurrency}  ${p.gpus} GPU\\n`+
    `interactivity ${p.interactivity.toFixed(1)} tok/s/user\\ntput/gpu ${p.total_tput_per_gpu.toFixed(1)} (out ${p.output_tput_per_gpu.toFixed(1)})\\n`+
-   `TTFT ${p.ttft_ms.toFixed(0)} ms  TPOT ${p.tpot_ms.toFixed(2)} ms`+(p.anchor?`\\nanchor ${p.anchor.split('/').pop()}`:'')+(p.kv_tiers?`\\nKV tiers ${p.kv_tiers}`:'');
+   `TTFT ${p.ttft_ms.toFixed(0)} ms  TPOT ${p.tpot_ms.toFixed(2)} ms`+(p.anchor?`\\nanchor ${p.anchor.split('/').pop()}`:'')+(p.kv_tiers?`\\nKV tiers ${p.kv_tiers}`:'')+
+   ((p.spec||'none')!=='none'?`\\nspeculative ${p.spec} (k=${p.spec_k}, accept ${p.spec_accept}, ${(p.spec_tokens_per_step||1).toFixed(2)} tok/step)`:'')+
+   (p.knobs?`\\n${p.knobs}`:'');
   t.style.display='block'; t.style.left=(e.clientX+14)+'px'; t.style.top=(e.clientY+10)+'px';
 });
 ['model','scenario','precision'].forEach(id=>$(id).addEventListener('change',()=>{refreshDeps();draw();}));
-['mode','x','y','show'].forEach(id=>$(id).addEventListener('change',draw));
+['mode','spec','x','y','show'].forEach(id=>$(id).addEventListener('change',draw));
 refreshDeps(); draw();
 </script></body></html>
 """
@@ -1228,9 +1456,57 @@ def build_parser() -> argparse.ArgumentParser:
         "LABEL=TIER[,TIER...] in --kv-tier syntax, fastest first "
         "(e.g. dram=dram:512 dram+ssd=dram:512,ssd:4000).",
     )
+    ap.add_argument(
+        "--spec",
+        nargs="+",
+        default=["none"],
+        help="Speculative decoding settings, each its own series: 'none' or "
+        "METHOD[:K[:ACCEPT[:DRAFT_COST]]] with METHOD in "
+        f"{'/'.join(SPEC_DEFAULTS)} (e.g. none mtp mtp:3:0.8 eagle3:4). K is the "
+        "draft depth, ACCEPT the per-draft-token acceptance, DRAFT_COST one draft "
+        "pass as a fraction of a target decode step; omitted parts take "
+        "the method's defaults "
+        + ", ".join(f"{m}={k}:{a:g}:{d:g}" for m, (k, a, d) in SPEC_DEFAULTS.items())
+        + ".",
+    )
+    knobs = ap.add_argument_group(
+        "deployment knobs",
+        "Each takes a list of values; the sweep crosses them with everything else "
+        "and, unless --series-by names it, the frontier picks the best value the "
+        "way it picks a parallelism.",
+    )
+    knobs.add_argument("--sched", nargs="+", default=None, help=KNOBS["sched"][0] + ".")
+    knobs.add_argument("--step-budget", nargs="+", default=None, help=KNOBS["budget"][0] + ".")
+    knobs.add_argument("--chunked-prefill", nargs="+", default=None, help=KNOBS["chunk"][0] + ".")
+    knobs.add_argument("--kv-dtype", nargs="+", default=None, help=KNOBS["kvdtype"][0] + ".")
+    knobs.add_argument("--mem-fraction", nargs="+", default=None, help=KNOBS["memfrac"][0] + ".")
+    knobs.add_argument("--max-num-seqs", nargs="+", default=None, help=KNOBS["maxseqs"][0] + ".")
+    knobs.add_argument("--think-ms", nargs="+", default=None, help=KNOBS["think"][0] + ".")
+    knobs.add_argument("--kv-block-size", nargs="+", default=None, help=KNOBS["block"][0] + ".")
+    knobs.add_argument(
+        "--hbm-capacity-gb",
+        nargs="+",
+        default=None,
+        help="HBM capacity per GPU in GB (default 288); several values sweep it.",
+    )
+    knobs.add_argument(
+        "--knob",
+        action="append",
+        default=[],
+        metavar="NAME=V1[,V2...]",
+        help="Any other knob: a name above (" + ", ".join(KNOBS) + ") or a raw "
+        "projection --flag (on/off for a switch), e.g. "
+        "--knob=--prefix-cache-hit-rate=0,0.5. Repeatable.",
+    )
+    knobs.add_argument(
+        "--series-by",
+        nargs="+",
+        default=["spec", "kv"],
+        help="Axes that get their own line instead of being pooled into one "
+        "frontier: spec, kv, or a knob name (e.g. sched budget).",
+    )
     ap.add_argument("--max-anchor-tp", type=int, default=4)
     ap.add_argument("--gpu-arch", default="mi355x")
-    ap.add_argument("--hbm-capacity-gb", type=float, default=288.0)
     ap.add_argument("--max-gpus", type=int, default=8, help="Skip configs wider than this.")
     ap.add_argument("--x", default="interactivity", choices=sorted(METRICS))
     ap.add_argument("--y", default="total_tput_per_gpu", choices=sorted(METRICS))
@@ -1271,12 +1547,44 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
+_KNOB_OPTIONS = (
+    ("sched", "sched"),
+    ("step_budget", "budget"),
+    ("chunked_prefill", "chunk"),
+    ("kv_dtype", "kvdtype"),
+    ("mem_fraction", "memfrac"),
+    ("max_num_seqs", "maxseqs"),
+    ("think_ms", "think"),
+    ("kv_block_size", "block"),
+)
+
+
+def knob_axes_from_args(a: argparse.Namespace) -> tuple[list[KnobAxis], float]:
+    """The swept knobs, and the single HBM size when it is not one of them."""
+    axes = [
+        KnobAxis.parse(f"{name}={','.join(getattr(a, attr))}")
+        for attr, name in _KNOB_OPTIONS
+        if getattr(a, attr)
+    ]
+    hbm = [str(float(v)) for v in (a.hbm_capacity_gb or [])]
+    if len(hbm) > 1:
+        axes.append(KnobAxis("hbm", tuple(hbm)))
+    axes += [KnobAxis.parse(k) for k in a.knob]
+    names = [x.name for x in axes]
+    dup = {n for n in names if names.count(n) > 1}
+    if dup:
+        raise SystemExit(f"[inferasim:pareto] knob(s) given twice: {sorted(dup)}")
+    return axes, float(hbm[0]) if len(hbm) == 1 else 288.0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     a = build_parser().parse_args(argv)
     extra = [t for t in (a.extra or []) if t != "--"]
     models = [ModelSpec.parse(m) for m in a.model]
     pars = [Parallelism.parse(p) for p in a.parallelism]
     scen = [Scenario.parse(s, a.trace_max_requests) for s in a.scenario]
+    specs = list(dict.fromkeys(SpecConfig.parse(s) for s in a.spec))
+    axes, hbm_gb = knob_axes_from_args(a)
     anchors = [m for m in (_anchor_meta(p) for p in _anchor_files(a.anchors)) if m]
     if "benchmark" in a.mode and not anchors:
         print(
@@ -1294,7 +1602,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         anchors=anchors,
         kv_configs=[KvConfig.parse(k) for k in a.kv_config],
         gpu_arch=a.gpu_arch,
-        hbm_gb=a.hbm_capacity_gb,
+        hbm_gb=hbm_gb,
         max_gpus=a.max_gpus,
         max_anchor_tp=a.max_anchor_tp,
         requests_per_client=a.requests_per_client,
@@ -1302,6 +1610,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         trace_max_requests=a.trace_max_requests,
         workdir=os.path.join(a.out_dir, "traces"),
         gpu_cost_per_hour=a.gpu_cost_per_hour,
+        specs=specs,
+        knob_axes=axes,
+        series_by=a.series_by,
         extra=extra,
     )
     print(
@@ -1313,8 +1624,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             b = t["point"]
             print(
                 f"  {b['model']} {b['engine']} {b['precision']} {b['mode']} "
-                f"{b['parallelism']} c{b['concurrency']} {b['scenario']} "
-                f"{os.path.basename(b.get('anchor', '') or '')}"
+                f"{b['parallelism']} c{b['concurrency']} {b['scenario']} {b['spec']} "
+                f"{b['knobs']} {os.path.basename(b.get('anchor', '') or '')}"
             )
         return 0
     os.makedirs(a.out_dir, exist_ok=True)
