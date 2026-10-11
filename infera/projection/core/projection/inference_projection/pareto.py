@@ -507,7 +507,13 @@ def _anchor_meta(path: str) -> dict[str, Any] | None:
     if not any(isinstance(e, dict) and e.get("decode_ms") for e in sweep):
         return None
     m = art["meta"]
+    model = (art.get("measured") or {}).get("model") or {}
     return dict(
+        prefill=m.get("prefill_anchor") or {},
+        has_prefill=model.get("prefill_ms") is not None,
+        # The unblocked step rather than mean TPOT, which already carries the
+        # prefill stalls the scheduler models.
+        decode_ok=str(m.get("decode_observable") or "").startswith("median_itl"),
         path=path,
         backend=str(art.get("backend") or "").lower(),
         checkpoint=os.path.basename(str(m.get("model") or "").rstrip("/")),
@@ -518,6 +524,111 @@ def _anchor_meta(path: str) -> dict[str, Any] | None:
         mtime=os.path.getmtime(path),
         precision=_named_precision(str(m.get("weight_dtype") or "").replace("bfloat16", "bf16")),
     )
+
+
+def with_decode_context(
+    anchor: dict[str, Any], anchors: Sequence[dict[str, Any]], out_dir: str
+) -> str:
+    """The anchor's path, or a derived copy carrying a decode-vs-context grid.
+
+    An anchor's batch sweep reads exactly its own prompt length of KV, and the
+    projector bills decode flat in context unless the artifact holds a
+    ``decode_ctx`` grid, which the serving harness never writes. Anchors are
+    harvested long and read short, so the error is one-sided: TPOT at ISL 1024
+    off an ISL 8192 anchor reads high. The grid is drawn from siblings of the
+    same checkpoint, engine and width harvested at other lengths, as the
+    corpus scorer does, so a sweep point and the config it reproduces agree.
+    """
+    grid, donors = [], []
+    for o in anchors:
+        if (
+            o["path"] == anchor["path"]
+            or not o["isl"]
+            or o["isl"] == anchor["isl"]
+            or o["checkpoint"].lower() != anchor["checkpoint"].lower()
+            or o["backend"] != anchor["backend"]
+            or o["tp"] != anchor["tp"]
+        ):
+            continue
+        try:
+            with open(o["path"]) as f:
+                sweep = json.load(f).get("sweep") or []
+        except (OSError, ValueError):
+            continue
+        pts = [e for e in sweep if isinstance(e, dict) and e.get("batch") and float(e.get("decode_ms") or 0) > 0]
+        donors += [o["path"]] if pts else []
+        grid += [
+            dict(batch=int(e["batch"]), context=float(o["isl"]), decode_ms=float(e["decode_ms"]))
+            for e in pts
+        ]
+    if not grid or not anchor["isl"]:
+        return anchor["path"]
+    name = os.path.splitext(os.path.basename(anchor["path"]))[0]
+    dest = os.path.join(out_dir, f"{name}_ctx.json")
+    if not os.path.exists(dest):
+        with open(anchor["path"]) as f:
+            doc = json.load(f)
+        doc["decode_ctx"] = grid
+        doc.setdefault("meta", {})["decode_ctx_donors"] = [os.path.basename(p) for p in donors]
+        os.makedirs(out_dir, exist_ok=True)
+        tmp = f"{dest}.{os.getpid()}.tmp"
+        with open(tmp, "w") as f:
+            json.dump(doc, f)
+        os.replace(tmp, dest)
+    return dest
+
+
+def _prefill_points(pa: dict[str, Any]) -> list[tuple[float, float]]:
+    return sorted(
+        (float(p.get("input_len") or 0.0), float(p.get("mean_ttft_ms") or 0.0))
+        for p in (pa.get("points") or [])
+    )
+
+
+def _prefill_covers(pa: dict[str, Any], isl: int) -> bool:
+    """Whether the prefill probe came within reach of ``isl`` (or recorded no lengths)."""
+    lengths = [n for n, _ in _prefill_points(pa) if n > 0]
+    return not lengths or isl >= 0.9 * min(lengths)
+
+
+def _curve_is_physical(pa: dict[str, Any], isl: int) -> bool:
+    """Whether the prefill length fit describes prefill at ``isl``.
+
+    Refused when its intercept or linear rate is negative, its rate at ``isl``
+    is not positive, ``isl`` lies below the probed range, or the measured
+    points fall by more than 5% of their span between neighbours.
+    """
+    cf = pa.get("curve_fit") or {}
+    if not cf:
+        return False
+    a = float(cf.get("ms_per_token") or 0.0)
+    b = float(cf.get("ms_per_token_sq") or 0.0)
+    if a <= 0.0 or float(cf.get("fixed_ms") or 0.0) < 0.0 or a + b * isl <= 0.0:
+        return False
+    if not _prefill_covers(pa, isl):
+        return False
+    ys = [y for _, y in _prefill_points(pa)]
+    span = max(ys, default=0.0) - min(ys, default=0.0)
+    return not (len(ys) >= 3 and span > 0 and min(q - p for p, q in zip(ys, ys[1:])) < -0.05 * span)
+
+
+def _packed_is_usable(pa: dict[str, Any]) -> bool:
+    """Whether a packed-prefill probe agrees with the single-sequence curve it rides on."""
+    cf = pa.get("curve_fit") or {}
+    pk = pa.get("packed") or {}
+    pts = pk.get("points") or []
+    if not (cf and pk.get("ms_per_token") and len(pts) >= 2):
+        return False
+    a = float(cf.get("ms_per_token") or 0.0)
+    b = float(cf.get("ms_per_token_sq") or 0.0)
+    fx = float(cf.get("fixed_ms") or 0.0)
+    n, t = max(
+        (int(p.get("step_tokens") or 0), float(p.get("last_ttft_ms") or 0.0)) for p in pts
+    )
+    single = fx + a * n + b * n * n
+    if n <= 0 or t <= 0 or single <= 0 or not 0.5 <= t / single <= 1.5:
+        return False
+    return 0.6 <= (fx + float(pk["ms_per_token"]) * n) / t <= 1.4
 
 
 def _named_precision(name: str) -> str | None:
@@ -549,10 +660,15 @@ def pick_anchor(
     name does not say.
 
     Same checkpoint and same engine are requirements: no transport converts one
-    engine's kernels into another's. Among those, width follows the benchmark
-    policy -- a target at TP1/TP2 uses an anchor at its own width, anything
-    wider restores from TP4 -- then agreement on whether experts are sharded,
-    then prompt length, then the most recent harvest.
+    engine's kernels into another's. Among those, the ranking is the corpus
+    scorer's, so a sweep point and the scored config it reproduces share an
+    anchor: a prefill curve that is physical at this prompt length, then a
+    recorded prefill that reaches it, then the unblocked decode observable,
+    then width -- a target at TP1/TP2 uses an anchor at its own width,
+    anything wider restores from TP4 -- then a usable packed-prefill probe,
+    which is what prices a step holding several prompts. After those come
+    agreement on whether experts are sharded, prompt length, and the most
+    recent harvest.
     """
     want_tp = par.tp if par.tp <= 2 else min(4, max_anchor_tp)
     # An anchor measures one checkpoint's kernels, and a checkpoint is one
@@ -580,8 +696,13 @@ def pick_anchor(
         return None
 
     def rank(a):
+        pa = a.get("prefill") or {}
         return (
+            -int(_curve_is_physical(pa, isl)),
+            -int(bool(a.get("has_prefill")) and _prefill_covers(pa, isl)),
+            -int(bool(a.get("decode_ok"))),
             abs(a["tp"] - want_tp),
+            -int(_packed_is_usable(pa)),
             int((a["ep"] > 1) != (par.ep > 1)),
             abs(a["isl"] - isl) / max(1, isl),
             -a["mtime"],
@@ -618,6 +739,7 @@ def point_argv(
     spec: SpecConfig | None = None,
     knobs: Sequence[tuple[str, str]] = (),
     extra: Sequence[str] = (),
+    warmup_requests: int = 0,
 ) -> list[str]:
     knob = dict(knobs)
     hbm_gb = float(knob.get("hbm") or hbm_gb)
@@ -665,7 +787,7 @@ def point_argv(
         "--des-num-requests",
         str(num_requests),
         "--des-warmup-requests",
-        str(concurrency),
+        str(min(int(warmup_requests), num_requests - 1)),
         "--des-warmup-frac",
         "0",
     ]
@@ -843,8 +965,9 @@ def build_tasks(
     hbm_gb: float = 288.0,
     max_gpus: int = 8,
     max_anchor_tp: int = 4,
-    requests_per_client: int = 4,
+    requests_per_client: int = 10,
     min_requests: int = 64,
+    warmup_requests: int = 0,
     trace_max_requests: int = 0,
     workdir: str = "pareto_out/traces",
     gpu_cost_per_hour: float = 0.0,
@@ -946,8 +1069,8 @@ def build_tasks(
                     )
                 )
                 continue
-            anchor = a["path"]
-            base["anchor"] = anchor
+            base["anchor"] = a["path"]
+            anchor = with_decode_context(a, anchors, os.path.join(os.path.dirname(workdir), "anchors"))
         nreq = max(min_requests, requests_per_client * conc)
         argv = point_argv(
             scenario=sc,
@@ -969,6 +1092,7 @@ def build_tasks(
             spec=spec,
             knobs=combo,
             extra=extra,
+            warmup_requests=warmup_requests,
         )
         tasks.append(
             dict(point=base, preset=m.preset, argv=argv, gpu_cost_per_hour=gpu_cost_per_hour)
@@ -1544,8 +1668,22 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--max-gpus", type=int, default=8, help="Skip configs wider than this.")
     ap.add_argument("--x", default="interactivity", choices=sorted(METRICS))
     ap.add_argument("--y", default="total_tput_per_gpu", choices=sorted(METRICS))
-    ap.add_argument("--requests-per-client", type=int, default=4)
+    ap.add_argument(
+        "--requests-per-client",
+        type=int,
+        default=10,
+        help="requests per client; InferenceX's harness sends 10 x concurrency",
+    )
     ap.add_argument("--min-requests", type=int, default=64)
+    ap.add_argument(
+        "--warmup-requests",
+        type=int,
+        default=0,
+        help="leading completions left out of the metrics. 0 is the benchmark "
+        "harness's convention, which averages over every request including the "
+        "opening burst where all clients prefill at once; pass the concurrency "
+        "for steady-state TTFT",
+    )
     ap.add_argument(
         "--trace-max-requests",
         type=int,
@@ -1641,6 +1779,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_anchor_tp=a.max_anchor_tp,
         requests_per_client=a.requests_per_client,
         min_requests=a.min_requests,
+        warmup_requests=a.warmup_requests,
         trace_max_requests=a.trace_max_requests,
         workdir=os.path.join(a.out_dir, "traces"),
         gpu_cost_per_hour=a.gpu_cost_per_hour,

@@ -120,6 +120,102 @@ def _anchor(tp, ep=1, isl=8192, ckpt="GLM-5.2-MXFP4", backend="sglang", mtime=0.
     )
 
 
+def _prefill(lengths_ms, fixed, a, b=0.0, packed=None):
+    pa = dict(
+        points=[dict(input_len=n, mean_ttft_ms=t) for n, t in lengths_ms],
+        curve_fit=dict(fixed_ms=fixed, ms_per_token=a, ms_per_token_sq=b),
+    )
+    if packed:
+        pa["packed"] = packed
+    return pa
+
+
+def test_pick_anchor_prefers_the_richer_prefill_probe():
+    # A short ladder whose fit has a negative rate against a long ladder with a
+    # packed probe: the second prices a step of several prompts, so it wins
+    # even though the first was harvested later.
+    short = dict(
+        _anchor(4, isl=1024, mtime=9.0, ckpt="R1", name="plain"),
+        prefill=_prefill([(128, 68.6), (427, 67.1), (725, 70.5), (1024, 72.1)], 68.8, -0.005, 8.7e-6),
+        has_prefill=True,
+        decode_ok=True,
+    )
+    packed = dict(
+        method="p99",
+        ms_per_token=0.041,
+        points=[dict(step_tokens=1024, last_ttft_ms=79.9), dict(step_tokens=8192, last_ttft_ms=367.0)],
+    )
+    long = dict(
+        _anchor(4, isl=1024, mtime=1.0, ckpt="R1", name="pk"),
+        prefill=_prefill(
+            [(256, 66.4), (2240, 104.3), (4224, 185.2), (6208, 264.3), (8192, 401.1)],
+            63.2,
+            0.0117,
+            3.56e-6,
+            packed,
+        ),
+        has_prefill=True,
+        decode_ok=True,
+    )
+    assert P._curve_is_physical(long["prefill"], 1024)
+    assert not P._curve_is_physical(short["prefill"], 1024)
+    assert P._packed_is_usable(long["prefill"])
+    a = P.pick_anchor(
+        [short, long], checkpoint="R1", engine="sglang", par=P.Parallelism(8), isl=1024
+    )
+    assert a["path"] == "pk"
+
+
+def test_decode_context_grid_from_sibling_anchors(tmp_path):
+    def art(name, isl, tp=4, backend="sglang", ckpt="M"):
+        p = tmp_path / name
+        p.write_text(
+            json.dumps(
+                dict(
+                    backend=backend,
+                    meta=dict(model=f"/models/{ckpt}", tp=tp, input_len=isl),
+                    sweep=[dict(batch=1, decode_ms=10.0 + isl / 1024), dict(batch=8, decode_ms=12.0 + isl / 1024)],
+                )
+            )
+        )
+        return P._anchor_meta(str(p))
+
+    long, short = art("a8k.json", 8192), art("a1k.json", 1024)
+    others = [art("tp2.json", 1024, tp=2), art("vllm.json", 1024, backend="vllm"), art("other.json", 1024, ckpt="N")]
+    out = tmp_path / "derived"
+    dest = P.with_decode_context(long, [long, short, *others], str(out))
+    doc = json.loads(open(dest).read())
+    assert dest.startswith(str(out))
+    assert doc["decode_ctx"] == [
+        dict(batch=1, context=1024.0, decode_ms=11.0),
+        dict(batch=8, context=1024.0, decode_ms=13.0),
+    ]
+    assert doc["meta"]["decode_ctx_donors"] == ["a1k.json"]
+    # No sibling at another length: the anchor is used as harvested.
+    assert P.with_decode_context(long, [long, *others], str(out)) == long["path"]
+
+
+def test_harness_warmup_convention():
+    sc = P.Scenario("1k1k", 1024, 1024)
+    kw = dict(
+        scenario=sc,
+        trace_path=None,
+        precision="fp8",
+        engine="sglang",
+        par=P.Parallelism(8),
+        concurrency=16,
+        gpu_arch="mi355x",
+        hbm_gb=288.0,
+        num_requests=160,
+        anchor=None,
+        checkpoint="X",
+    )
+    argv = P.point_argv(**kw)
+    assert argv[argv.index("--des-warmup-requests") + 1] == "0"
+    argv = P.point_argv(**kw, warmup_requests=16)
+    assert argv[argv.index("--des-warmup-requests") + 1] == "16"
+
+
 def test_pick_anchor_rules():
     pool = [
         _anchor(2),
