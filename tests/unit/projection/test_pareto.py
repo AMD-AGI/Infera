@@ -136,14 +136,19 @@ def test_pick_anchor_prefers_the_richer_prefill_probe():
     # even though the first was harvested later.
     short = dict(
         _anchor(4, isl=1024, mtime=9.0, ckpt="R1", name="plain"),
-        prefill=_prefill([(128, 68.6), (427, 67.1), (725, 70.5), (1024, 72.1)], 68.8, -0.005, 8.7e-6),
+        prefill=_prefill(
+            [(128, 68.6), (427, 67.1), (725, 70.5), (1024, 72.1)], 68.8, -0.005, 8.7e-6
+        ),
         has_prefill=True,
         decode_ok=True,
     )
     packed = dict(
         method="p99",
         ms_per_token=0.041,
-        points=[dict(step_tokens=1024, last_ttft_ms=79.9), dict(step_tokens=8192, last_ttft_ms=367.0)],
+        points=[
+            dict(step_tokens=1024, last_ttft_ms=79.9),
+            dict(step_tokens=8192, last_ttft_ms=367.0),
+        ],
     )
     long = dict(
         _anchor(4, isl=1024, mtime=1.0, ckpt="R1", name="pk"),
@@ -174,14 +179,21 @@ def test_decode_context_grid_from_sibling_anchors(tmp_path):
                 dict(
                     backend=backend,
                     meta=dict(model=f"/models/{ckpt}", tp=tp, input_len=isl),
-                    sweep=[dict(batch=1, decode_ms=10.0 + isl / 1024), dict(batch=8, decode_ms=12.0 + isl / 1024)],
+                    sweep=[
+                        dict(batch=1, decode_ms=10.0 + isl / 1024),
+                        dict(batch=8, decode_ms=12.0 + isl / 1024),
+                    ],
                 )
             )
         )
         return P._anchor_meta(str(p))
 
     long, short = art("a8k.json", 8192), art("a1k.json", 1024)
-    others = [art("tp2.json", 1024, tp=2), art("vllm.json", 1024, backend="vllm"), art("other.json", 1024, ckpt="N")]
+    others = [
+        art("tp2.json", 1024, tp=2),
+        art("vllm.json", 1024, backend="vllm"),
+        art("other.json", 1024, ckpt="N"),
+    ]
     out = tmp_path / "derived"
     dest = P.with_decode_context(long, [long, short, *others], str(out))
     doc = json.loads(open(dest).read())
@@ -535,3 +547,73 @@ def test_writers_round_trip(tmp_path):
     assert "<script" in html and '"8k/1k"' in html
     assert len(out["svg"]) == 1 and open(out["svg"][0]).read().startswith("<svg")
     assert all(os.path.exists(p) for p in out["png"])
+
+
+def test_chart_helpers():
+    assert P._split_series("MI355X sglang MTP3 (simulate)") == ("MI355X sglang MTP3", "simulate")
+    assert P._split_series("custom") == ("custom", "")
+    assert P._nice_ticks(13400) == [0, 2500, 5000, 7500, 10000, 12500]
+    assert P._nice_ticks(0) == [0.0, 1.0]
+    assert [P._fmt_tick(v) for v in (0, 2.5, 250, 2500, 12000)] == [
+        "0",
+        "2.5",
+        "250",
+        "2.5k",
+        "12k",
+    ]
+    assert P._compact(1.23456789) == 1.2346 and P._compact(7) == 7
+
+
+def test_html_controls_and_measured_overlay(tmp_path):
+    pts = [_pt(10, 100), _pt(20, 90, mode="benchmark", anchor="a.json"), _pt(30, 50)]
+    P.mark_frontiers(pts, "interactivity", "total_tput_per_gpu")
+    q = pts[0]
+    meas = {
+        "measured": [
+            dict(
+                model=q.model,
+                scenario=q.scenario,
+                precision=q.precision,
+                engine=q.engine,
+                spec="none",
+                parallelism=q.parallelism,
+                concurrency=q.concurrency,
+                runs=2,
+                interactivity=11.0,
+                total_tput_per_gpu=95.0,
+                output_tput_per_gpu=47.5,
+                ttft_ms=50.0,
+                tpot_ms=90.9,
+                proj={"simulate": {"interactivity": 10.0, "tput_per_gpu": 100.0, "ttft_ms": 40.0}},
+            )
+        ],
+        "accuracy": [
+            dict(
+                scope="all",
+                mode="simulate",
+                metric="tput_per_gpu",
+                n=1,
+                r_log=1.0,
+                rho=1.0,
+                mape=5.0,
+                w15=100.0,
+                w25=100.0,
+                bias=1.05,
+            )
+        ],
+    }
+    path = tmp_path / "m.json"
+    path.write_text(json.dumps(meas))
+    out = P.write_outputs(
+        P.ParetoResult(points=pts),
+        str(tmp_path / "o"),
+        meta={},
+        measured=P.load_measured(str(path)),
+    )
+    html = open(out["html"][0]).read()
+    # Every control is a button group: no native <select> popups to fail in an embedded preview.
+    assert "<select" not in html and 'class="chips" id="model"' in html
+    assert '"measured": [{' in html and '"accuracy": [{' in html
+    assert P.load_measured(None) == {}
+    blank = P.write_outputs(P.ParetoResult(points=pts), str(tmp_path / "b"), meta={})
+    assert '"measured": []' in open(blank["html"][0]).read()
