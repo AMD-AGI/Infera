@@ -1,0 +1,67 @@
+### evidence captured 2026-09-15T11:32:10Z
+### slurm claim at time of action
+     JOBID         USER                   NAME  NODES    TIME_LEFT NODELIST
+     30723        yihou             yihou-hold      1      9:36:34 smci355-ccs-aus-n10-29
+
+=================== mxfp4-pr505-zerobf16-e2e-3 ===================
+Image=zirui3/primus-v26.3-flux:pr505-mxfp4  Created=2026-09-15T11:11:22.055483913Z  Labels=map[com.amd.primus-turbo.mixed-quant-revision:a580a325bad9223e417b42d34da99017321ec01b com.amd.primus-turbo.revision:84e0457157bd077561cb34e3cb526aeaa28635f2 com.amd.primus.mxfp4-scale-policy:mode-2-uos-7p25 org.opencontainers.image.version:24.04]
+--- processes ---
+PID                 USER                ELAPSED             COMMAND
+3722637             root                20:49               /sbin/docker-init -- bash -lc set -euo pipefail mkdir -p "$OUTPUT_DIR" if [[ -n "${TORCHINDUCTOR_CACHE_SEED:-}" ]]; then export TO
+3722651             root                20:48               bash -lc set -euo pipefail mkdir -p "$OUTPUT_DIR" if [[ -n "${TORCHINDUCTOR_CACHE_SEED:-}" ]]; then export TORCHINDUCTOR_CACHE_DIR
+3722713             root                20:40               /opt/venv/bin/python /opt/venv/bin/torchrun --nnodes=4 --node_rank=3 --nproc_per_node=8 --master_addr=10.235.192.137 --master_port
+3722780             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3722781             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3722782             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3722783             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3722784             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3722785             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3722786             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3722787             root                20:39               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723846             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723847             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723848             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723849             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723876             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723879             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723883             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723884             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723890             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+3723899             root                20:23               /opt/venv/bin/python -u train.py --config examples/mlperf/flux1/flux.1_schnell_t2i-native.yaml
+
+=================== practical_meninsky ===================
+Image=rocm-llm-bench:latest  Created=2026-09-15T11:24:16.042751834Z  Labels=map[org.opencontainers.image.ref.name:ubuntu org.opencontainers.image.version:22.04]
+--- processes ---
+PID                 USER                ELAPSED             COMMAND
+3817520             root                07:55               python3 profile_decode.py --model /perf_apps/xiaobo/models/GLM-5.2-MXFP4 --tp-size 8 --ISL 8192 --CONC 1 --reps 5 --load-format du
+3892943             root                00:22               /opt/venv/bin/python3 -c from multiprocessing.resource_tracker import main;main(6)
+3892944             root                00:22               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=17) --multiprocessing
+3893992             root                00:22               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=19) --multiprocessing
+3894952             root                00:21               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=21) --multiprocessing
+3895019             root                00:20               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=23) --multiprocessing
+3895228             root                00:19               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=25) --multiprocessing
+3895295             root                00:19               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=27) --multiprocessing
+3895505             root                00:18               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=29) --multiprocessing
+3895656             root                00:17               /opt/venv/bin/python3 -c from multiprocessing.spawn import spawn_main; spawn_main(tracker_fd=15, pipe_handle=31) --multiprocessing
+### slurm claim immediately before action
+     JOBID         USER                   NAME  NODES    TIME_LEFT NODELIST
+     30723        yihou             yihou-hold      1      9:36:17 smci355-ccs-aus-n10-29
+
+### docker stop (SIGTERM, 30s grace) — named targets only, no rm
+mxfp4-pr505-zerobf16-e2e-3
+practical_meninsky
+
+### post-state
+yihou-glm52-tp8ep1-round2-ptpc1	Up 3 hours
+yihou-glm52-tp8ep1-pr50-51-ptpc1	Up 5 hours
+yihou-glm52-tp8ep1-pr50-51	Up 5 hours
+yihou-glm52-tp8ep1-oldpin	Up 6 hours
+xiaoming-dev	Up 34 hours
+--- kfd ---
+
+
+============================ ROCm System Management Interface ============================
+===================================== KFD Processes ======================================
+No KFD PIDs currently running
+==========================================================================================
+================================== End of ROCm SMI Log ===================================

@@ -1,0 +1,39 @@
+--- known-good-tp8
++++ tp4ep4-short
+@@ -1,10 +1,11 @@
+ #!/bin/bash
+ set -euo pipefail
+-W=/shared_nfs/yihou/playground/glm52_decode_fake_20260909_1016
++W=/shared_nfs/yihou/playground/glm52_fake_tp4ep4_10k500_20260910-0452
+ MODE=${1:?mix, decode, or sim}
+ ROUND=${2:?round name}
+ MEM=${3:-0.85}
+-NAME=g52-faked-1016
++CONC=${4:-16}
++NAME=g52-fake-short-tp4ep4
+ IMAGE=sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d
+ MODEL=/shared_nfs/models/GLM-5.2-MXFP4
+ PORT=31816
+@@ -42,11 +43,11 @@
+ fi
+ CMD=(python3 -m sglang.launch_server
+     --model-path "$MODEL" --served-model-name glm52 --trust-remote-code
+-    --host 0.0.0.0 --port "$PORT" --tp 8 --ep-size 1
++    --host 0.0.0.0 --port "$PORT" --tp 4 --ep-size 4
+     --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend flydsl --dsa-decode-backend flydsl
+     --tool-call-parser glm47 --reasoning-parser glm45
+     --chunked-prefill-size 32768 --mem-fraction-static "$MEM"
+-    --max-running-requests 16 --cuda-graph-max-bs 16
++    --max-running-requests "$CONC" --cuda-graph-max-bs "$CONC"
+     --speculative-algorithm EAGLE --speculative-num-steps 5
+     --speculative-eagle-topk 1 --speculative-num-draft-tokens 6
+     --dsa-topk-backend aiter --enable-aiter-allreduce-fusion --enable-fused-qk-norm-rope
+@@ -63,7 +64,7 @@
+     -v "$W/cache/torch:/torch-cache" -e TORCHINDUCTOR_CACHE_DIR=/torch-cache \
+     -v "$W/cache/hf:/hf_cache" -e HF_HOME=/hf_cache \
+     -e SGLANG_OPT_USE_TOPK_V2=false -e SGLANG_TIMEOUT_KEEP_ALIVE=900 \
+-    -e PYTHONNOUSERSITE=1 -e PYTHONDONTWRITEBYTECODE=1 \
++    -e HIP_VISIBLE_DEVICES=0,1,2,3 -e PYTHONNOUSERSITE=1 -e PYTHONDONTWRITEBYTECODE=1 \
+     -e AITER_USE_FLYDSL_MOE_SORTING=1 -e SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1 \
+     "${ENV[@]}" "${PATCH_MOUNTS[@]}" "$IMAGE" "${CMD[@]}" > "$R/container-id.txt"
+ docker inspect "$NAME" > "$R/container-inspect.json"

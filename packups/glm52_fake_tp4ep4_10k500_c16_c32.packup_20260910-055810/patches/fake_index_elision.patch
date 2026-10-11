@@ -1,0 +1,19 @@
+--- a/python/sglang/srt/mem_cache/kv_cache_configurator.py
++++ b/python/sglang/srt/mem_cache/kv_cache_configurator.py
+@@ -97,7 +97,15 @@
+         not memory_config.enable_hisparse
+         and not is_draft_worker
+         and not memory_config.enable_hierarchical_cache
+-        and get_disagg().disaggregation_mode == "null"
++        and (
++            get_disagg().disaggregation_mode == "null"
++            # Fake decode transfers no KV buffers, so it can use the same
++            # shared-topk index elision as mix. Real PD keeps its wire layout.
++            or (
++                get_disagg().disaggregation_mode == "decode"
++                and get_disagg().disaggregation_transfer_backend == "fake"
++            )
++        )
+     )
+ 
+ 

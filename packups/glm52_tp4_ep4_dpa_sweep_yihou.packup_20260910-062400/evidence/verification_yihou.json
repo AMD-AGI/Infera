@@ -1,0 +1,147 @@
+[
+  {
+    "mode": "off",
+    "concurrency": 4,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [],
+    "decode_engagement_markers": 4,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "off",
+    "concurrency": 8,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [],
+    "decode_engagement_markers": 4,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "off",
+    "concurrency": 16,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [],
+    "decode_engagement_markers": 4,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "off",
+    "concurrency": 20,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [
+      "[2026-09-10 05:52:44 TP2] FlyDSL sparse MLA decode declined: seq 120, need 1..96",
+      "[2026-09-10 05:52:44 TP1] FlyDSL sparse MLA decode declined: seq 120, need 1..96",
+      "[2026-09-10 05:52:45 TP3] FlyDSL sparse MLA decode declined: seq 120, need 1..96",
+      "[2026-09-10 05:52:45 TP0] FlyDSL sparse MLA decode declined: seq 120, need 1..96"
+    ],
+    "decode_engagement_markers": 4,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "off",
+    "concurrency": 24,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [
+      "[2026-09-10 05:56:11 TP0] FlyDSL sparse MLA decode declined: seq 144, need 1..96",
+      "[2026-09-10 05:56:11 TP2] FlyDSL sparse MLA decode declined: seq 144, need 1..96",
+      "[2026-09-10 05:56:11 TP3] FlyDSL sparse MLA decode declined: seq 144, need 1..96",
+      "[2026-09-10 05:56:12 TP1] FlyDSL sparse MLA decode declined: seq 144, need 1..96"
+    ],
+    "decode_engagement_markers": 4,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "on",
+    "concurrency": 4,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [
+      "[2026-09-10 05:59:47 TP1] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 05:59:47 TP2] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 05:59:47 TP3] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 05:59:47 TP0] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)",
+      "Capturing batches (bs=1 avail_mem=42.34 GB):   0%|          | 0/1 [00:00<?, ?it/s][2026-09-10 05:59:55 TP1] FlyDSL sparse MLA decode declined: q shape (1, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 05:59:55 TP3] FlyDSL sparse MLA decode declined: q shape (1, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 05:59:55 TP0] FlyDSL sparse MLA decode declined: q shape (1, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 05:59:55 TP2] FlyDSL sparse MLA decode declined: q shape (1, 64, 576), need (seq, 8 or 16, 576)"
+    ],
+    "decode_engagement_markers": 0,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "on",
+    "concurrency": 8,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [
+      "[2026-09-10 06:02:20 TP1] FlyDSL sparse MLA decode declined: q shape (12, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:02:20 TP2] FlyDSL sparse MLA decode declined: q shape (12, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:02:20 TP3] FlyDSL sparse MLA decode declined: q shape (12, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:02:20 TP0] FlyDSL sparse MLA decode declined: q shape (12, 64, 576), need (seq, 8 or 16, 576)",
+      "Capturing batches (bs=2 avail_mem=42.27 GB):   0%|          | 0/1 [00:00<?, ?it/s][2026-09-10 06:02:28 TP2] FlyDSL sparse MLA decode declined: q shape (2, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:02:28 TP3] FlyDSL sparse MLA decode declined: q shape (2, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:02:28 TP1] FlyDSL sparse MLA decode declined: q shape (2, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:02:28 TP0] FlyDSL sparse MLA decode declined: q shape (2, 64, 576), need (seq, 8 or 16, 576)"
+    ],
+    "decode_engagement_markers": 0,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "on",
+    "concurrency": 16,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [
+      "[2026-09-10 06:05:10 TP2] FlyDSL sparse MLA decode declined: q shape (24, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:05:10 TP0] FlyDSL sparse MLA decode declined: q shape (24, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:05:10 TP1] FlyDSL sparse MLA decode declined: q shape (24, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:05:10 TP3] FlyDSL sparse MLA decode declined: q shape (24, 64, 576), need (seq, 8 or 16, 576)",
+      "Capturing batches (bs=4 avail_mem=42.12 GB):   0%|          | 0/1 [00:00<?, ?it/s][2026-09-10 06:05:18 TP3] FlyDSL sparse MLA decode declined: q shape (4, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:05:18 TP1] FlyDSL sparse MLA decode declined: q shape (4, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:05:18 TP0] FlyDSL sparse MLA decode declined: q shape (4, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:05:18 TP2] FlyDSL sparse MLA decode declined: q shape (4, 64, 576), need (seq, 8 or 16, 576)"
+    ],
+    "decode_engagement_markers": 0,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "on",
+    "concurrency": 20,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [
+      "[2026-09-10 06:08:19 TP0] FlyDSL sparse MLA decode declined: q shape (30, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:08:19 TP3] FlyDSL sparse MLA decode declined: q shape (30, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:08:20 TP2] FlyDSL sparse MLA decode declined: q shape (30, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:08:20 TP1] FlyDSL sparse MLA decode declined: q shape (30, 64, 576), need (seq, 8 or 16, 576)",
+      "Capturing batches (bs=5 avail_mem=42.07 GB):   0%|          | 0/1 [00:00<?, ?it/s][2026-09-10 06:08:28 TP1] FlyDSL sparse MLA decode declined: q shape (5, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:08:28 TP3] FlyDSL sparse MLA decode declined: q shape (5, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:08:28 TP2] FlyDSL sparse MLA decode declined: q shape (5, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:08:28 TP0] FlyDSL sparse MLA decode declined: q shape (5, 64, 576), need (seq, 8 or 16, 576)"
+    ],
+    "decode_engagement_markers": 0,
+    "indexer_markers": 4
+  },
+  {
+    "mode": "on",
+    "concurrency": 24,
+    "all_graph_counts_verified": true,
+    "source_snapshot_matches": true,
+    "declines": [
+      "[2026-09-10 06:11:38 TP0] FlyDSL sparse MLA decode declined: q shape (36, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:11:38 TP3] FlyDSL sparse MLA decode declined: q shape (36, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:11:38 TP1] FlyDSL sparse MLA decode declined: q shape (36, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:11:38 TP2] FlyDSL sparse MLA decode declined: q shape (36, 64, 576), need (seq, 8 or 16, 576)",
+      "Capturing batches (bs=6 avail_mem=42.00 GB):   0%|          | 0/1 [00:00<?, ?it/s][2026-09-10 06:11:56 TP0] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:11:56 TP1] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:11:56 TP3] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)",
+      "[2026-09-10 06:11:56 TP2] FlyDSL sparse MLA decode declined: q shape (6, 64, 576), need (seq, 8 or 16, 576)"
+    ],
+    "decode_engagement_markers": 0,
+    "indexer_markers": 4
+  }
+]

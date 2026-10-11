@@ -1,0 +1,20 @@
+[
+  {
+    "point": "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_tp8ep8_dpa_c128_yihou_20260914-0423/iterations/tp8_ep8_dpa_on_c128_yihou",
+    "verdict": "pass",
+    "concurrency": 128,
+    "local_batch_size": 16,
+    "tpot_ms": 17.847756853699686,
+    "output_tokens_per_second": 7171.769598231988,
+    "output_tokens_per_second_per_gpu": 896.4711997789985,
+    "verify_iterations": 2768,
+    "realized_accept_length": 3.6134393063583814,
+    "decode_seconds": 178.47753150801873,
+    "load_pool_capture_seconds": 65.30290102696745,
+    "reserved_tokens": 1281024,
+    "max_memory_allocated_bytes": 253638683648,
+    "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+    "model_path": "/perf_apps/data/models/GLM-5.2-MXFP4",
+    "problems": []
+  }
+]

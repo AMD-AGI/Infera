@@ -1,0 +1,291 @@
+{
+  "activities": [
+    "CPU",
+    "GPU"
+  ],
+  "cuda_graph_capture_profile_caveat": "--enable-profile-cuda-graph and SGLANG_ENABLE_CUDA_GRAPH_CAPTURE_TRACE profile the graph CAPTURE pass. Kernels are recorded there, not executed: treat that output as a kernel identity/shape inventory, never as timing.",
+  "cuda_graph_enabled": false,
+  "device_timer": {
+    "by_category": {
+      "decode": {
+        "count": 160,
+        "max_seconds": 0.0039456961154937745,
+        "min_seconds": 0.002046288013458252,
+        "seconds": 0.3725235426425936,
+        "share": 0.06924094266726637
+      },
+      "extend": {
+        "count": 40,
+        "max_seconds": 0.005546502113342285,
+        "min_seconds": 0.0035930140018463133,
+        "seconds": 0.1674372656345367,
+        "share": 0.031121560876188302
+      },
+      "target_verify": {
+        "count": 40,
+        "max_seconds": 0.132702392578125,
+        "min_seconds": 0.11745054626464843,
+        "seconds": 4.840144203186036,
+        "share": 0.8996374964565453
+      }
+    },
+    "by_runner": {
+      "draft": {
+        "decode": {
+          "count": 160,
+          "max_seconds": 0.0039456961154937745,
+          "min_seconds": 0.002046288013458252,
+          "seconds": 0.3725235426425936
+        },
+        "extend": {
+          "count": 40,
+          "max_seconds": 0.005546502113342285,
+          "min_seconds": 0.0035930140018463133,
+          "seconds": 0.1674372656345367
+        }
+      },
+      "target": {
+        "target_verify": {
+          "count": 40,
+          "max_seconds": 0.132702392578125,
+          "min_seconds": 0.11745054626464843,
+          "seconds": 4.840144203186036
+        }
+      }
+    },
+    "categories_known_to_pinned_sglang": [
+      "decode",
+      "extend",
+      "idle",
+      "target_verify",
+      "split_prefill",
+      "eagle_draft",
+      "eagle_draft_extend",
+      "frozen_kv_draft"
+    ],
+    "categories_observed": [
+      "decode",
+      "extend",
+      "target_verify"
+    ],
+    "mechanism": "sglang.srt.utils.device_timer.DeviceTimer attached by the bench",
+    "note": "CUDA events bracket the graph replay from outside, so these totals are valid with CUDA graphs both enabled and disabled.",
+    "scope": "whole measured decode loop",
+    "torch_profiler_window_delta": {
+      "decode": {
+        "count": 20,
+        "seconds": 0.0470437860488892
+      },
+      "extend": {
+        "count": 5,
+        "seconds": 0.022268129825592037
+      },
+      "target_verify": {
+        "count": 5,
+        "seconds": 0.6462970199584959
+      }
+    },
+    "total_seconds": 5.380105011463167
+  },
+  "emitting_rank": true,
+  "env": {
+    "AITER_ASM_DIR": "/aiter/hsa/",
+    "AITER_COMMIT": "d9e5ef7ce08ee7045d583aed768cff41aa9210fe",
+    "AITER_COMMIT_DEFAULT": "d9e5ef7ce08ee7045d583aed768cff41aa9210fe",
+    "AITER_GPU_ARCHS": "gfx950",
+    "AITER_JIT_DIR": "/tmp/yihou-aiter-b5aa5bd3d828",
+    "AITER_USE_FLYDSL_MOE_SORTING": "1",
+    "AITER_USE_SYSTEM_TRITON": "1",
+    "HIP_FORCE_DEV_KERNARG": "1",
+    "HIP_VISIBLE_DEVICES": "0,1,2,3,4,5,6,7",
+    "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN": "1",
+    "SGLANG_DISABLE_CUDNN_CHECK": "1",
+    "SGLANG_DISABLE_OUTLINES_DISK_CACHE": "0",
+    "SGLANG_DSA_PREFILL_DENSE_ATTN_KV_LEN_THRESHOLD": "2048",
+    "SGLANG_ENABLE_DETERMINISTIC_INFERENCE": "0",
+    "SGLANG_ENABLE_TORCH_COMPILE": "0",
+    "SGLANG_INT4_WEIGHT": "0",
+    "SGLANG_MOE_PADDING": "1",
+    "SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK": "1",
+    "SGLANG_OPT_USE_TOPK_V2": "False",
+    "SGLANG_ROCM_DISABLE_LINEARQUANT": "0",
+    "SGLANG_ROCM_FUSED_DECODE_MLA": "1",
+    "SGLANG_RUN_ID": "sglang-run-1789380065.59583-4661696",
+    "SGLANG_SET_CPU_AFFINITY": "1",
+    "SGLANG_SIMULATE_ACC_LEN": "3.61",
+    "SGLANG_SIMULATE_ACC_METHOD": "match-expected",
+    "SGLANG_SIMULATE_ACC_TOKEN_MODE": "real-draft-token",
+    "SGLANG_TIMEOUT_KEEP_ALIVE": "900",
+    "SGLANG_TORCH_PROFILER_DIR": "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p0_ep8_c256_graphoff_yihou/profile",
+    "SGLANG_USE_AITER": "1",
+    "SGLANG_USE_CUDA_IPC_TRANSPORT": "0",
+    "SGLANG_USE_ROCM700A": "1"
+  },
+  "files": [
+    "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p0_ep8_c256_graphoff_yihou/profile/decode-1789380074.225391-TP-0-DP-0-EP-0.trace.json.gz",
+    "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p0_ep8_c256_graphoff_yihou/profile/top_ops_rank_0_yihou.json",
+    "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p0_ep8_c256_graphoff_yihou/profile/top_ops_rank_0_yihou.txt",
+    "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p0_ep8_c256_graphoff_yihou/profile/device_timer_rank_0_yihou.json"
+  ],
+  "is_performance_measurement": false,
+  "measured_elapsed_seconds": 6.025541664974298,
+  "measured_iterations": 40,
+  "module_source_paths": {
+    "sglang.srt.server_args": "/sglang/python/sglang/srt/server_args.py",
+    "sglang.srt.speculative.eagle_worker_v2": "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py"
+  },
+  "notes": [
+    "user_annotation keys seen: ['## Call CompiledFxGraph fin6edob2x2skknkxcorght67jppp7drqdry4c4k2wikwflwsc56 ##', '## Call CompiledFxGraph fta54chpn3chuxypl74pis76judyppreidwf5jkgk25466g2mzj3 ##', 'draft', 'draft_extend', 'nccl:all_gather', 'step[DECODE bs=32]', 'step[DRAFT_EXTEND_V2 bs=32]', 'step[TARGET_VERIFY bs=32]']"
+  ],
+  "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+  "profile_args": {
+    "device_timer": true,
+    "profile": true,
+    "profile_activities": "CPU,GPU",
+    "profile_dir": null,
+    "profile_graph_capture_trace": false,
+    "profile_num_steps": 5,
+    "profile_ranks": "0",
+    "profile_record_shapes": true,
+    "profile_start_step": 20,
+    "profile_top_n": 10,
+    "profile_with_stack": false
+  },
+  "profile_id": "1789380074.225391",
+  "profile_window_actual": {
+    "start_step": 20,
+    "stop_step": 25
+  },
+  "profile_window_requested": {
+    "num_steps": 5,
+    "start_step": 20
+  },
+  "rank": 0,
+  "result_dir": "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_profiling_yihou_20260914-0851/iterations/p0_ep8_c256_graphoff_yihou",
+  "table_sort_key_used": "cpu_time_total",
+  "top_ops_summary": {
+    "self_device_time_us_total": 1522210.0899999994,
+    "self_device_time_us_total_device_kernels_only": 432234.2569999988,
+    "top_by_self_device_time_device_kernels_only": [
+      {
+        "count": 830,
+        "cpu_time_us": 0.0,
+        "device_time_us": 108877.0830000011,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "main_kernel",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 108877.0830000011
+      },
+      {
+        "count": 420,
+        "cpu_time_us": 0.0,
+        "device_time_us": 46620.84199999989,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 46620.84199999989
+      },
+      {
+        "count": 375,
+        "cpu_time_us": 0.0,
+        "device_time_us": 38257.495000000476,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "mfma_moe1_silu_mul_afp4_wfp4_bf16_t64x128x256_pm1_async_v33",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 38257.495000000476
+      },
+      {
+        "count": 445,
+        "cpu_time_us": 0.0,
+        "device_time_us": 33241.73199999923,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "_ZN5aiter13allgather_vecIDF16bLi8EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 33241.73199999923
+      },
+      {
+        "count": 110,
+        "cpu_time_us": 0.0,
+        "device_time_us": 27574.3200000001,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 27574.3200000001
+      },
+      {
+        "count": 395,
+        "cpu_time_us": 0.0,
+        "device_time_us": 25993.027000000406,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "hgemm_bf16_128x192x64x3_SPK4_W2x4x1_BLDS1_TN_AS1_CP1_0",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 25993.027000000406
+      },
+      {
+        "count": 375,
+        "cpu_time_us": 0.0,
+        "device_time_us": 24708.28299999971,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "mfma_moe2_afp4_wfp4_bf16_cshuffle_t64x128x256_vscale_fix3_fp4opt_v1_persist_cu256",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 24708.28299999971
+      },
+      {
+        "count": 390,
+        "cpu_time_us": 0.0,
+        "device_time_us": 17654.352999999326,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "_fused_fp8_bmm_rope_cat_and_cache_mla_kernel_BLOCK_SIZE_M_64_BLOCK_SIZE_N_256_BLOCK_SIZE_K_128_GROUP_SIZE_M_1_QH_PER_KH_64_REUSE_FREQS_FRONT_PART_1_IS_NEOX_0_BLOCK_D_nope_512_BLOCK_DK_nope_512_BLOCK_D_pe_64_BLOCK_D_HALF_pe_32_TRANSPOSE_BM_NONE_OUTPUT_Q_NOPE_ZEROS_1_HAVE_K_SCALE_1_EVEN_K_0",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 17654.352999999326
+      },
+      {
+        "count": 395,
+        "cpu_time_us": 0.0,
+        "device_time_us": 9703.51699999968,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "hgemm_bf16_128x128x64x5_SPK1_W2x4x1_BLDS1_TN_AS1_0",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 9703.51699999968
+      },
+      {
+        "count": 395,
+        "cpu_time_us": 0.0,
+        "device_time_us": 7221.318000000583,
+        "device_type": "DeviceType.CUDA",
+        "input_shapes": null,
+        "key": "hgemm_bf16_128x64x64x4_SPK3_W2x4x1_BLDS1_TN_AS1_0",
+        "row_kind": "device_kernel",
+        "self_cpu_time_us": 0.0,
+        "self_device_time_us": 7221.318000000583
+      }
+    ]
+  },
+  "topology": {
+    "dp_size": 8,
+    "enable_dp_attention": true,
+    "ep_size": 8,
+    "global_batch_size": 256,
+    "local_batch_size": 32,
+    "tp_size": 8
+  },
+  "why": "profiling perturbs the decode loop; TPOT from a profiled run is not a performance number. Use the non-profiled packup runs for performance."
+}

@@ -1,0 +1,384 @@
+d_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w2_scale: Optional[torch.Tensor] = None, a2_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[2026-09-14 09:06:37 TP1] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:06:37 TP0] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[aiter] import [module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2] under /tmp/yihou-aiter-b5aa5bd3d828/module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so
+[aiter] type hints mismatch, override to --> ck_moe_stage1(hidden_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w1_scale: Optional[torch.Tensor] = None, a1_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] import [module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2] under /tmp/yihou-aiter-b5aa5bd3d828/module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so
+[aiter] type hints mismatch, override to --> ck_moe_stage1(hidden_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w1_scale: Optional[torch.Tensor] = None, a1_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] type hints mismatch, override to --> ck_moe_stage2(inter_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w2_scale: Optional[torch.Tensor] = None, a2_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] import [module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2] under /tmp/yihou-aiter-b5aa5bd3d828/module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so
+[aiter] type hints mismatch, override to --> ck_moe_stage2(inter_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w2_scale: Optional[torch.Tensor] = None, a2_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] type hints mismatch, override to --> ck_moe_stage1(hidden_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w1_scale: Optional[torch.Tensor] = None, a1_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] import [module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2] under /tmp/yihou-aiter-b5aa5bd3d828/module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so
+[2026-09-14 09:06:37 TP2] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[aiter] type hints mismatch, override to --> ck_moe_stage1(hidden_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w1_scale: Optional[torch.Tensor] = None, a1_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] type hints mismatch, override to --> ck_moe_stage2(inter_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w2_scale: Optional[torch.Tensor] = None, a2_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[2026-09-14 09:06:37 TP6] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[aiter] import [module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2] under /tmp/yihou-aiter-b5aa5bd3d828/module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so
+[aiter] type hints mismatch, override to --> ck_moe_stage2(inter_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w2_scale: Optional[torch.Tensor] = None, a2_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] import [module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2] under /tmp/yihou-aiter-b5aa5bd3d828/module_moe_ck2stages_b16_b16_preshuffle_off_b16_silu_no_mulWeightStage2.so
+[aiter] type hints mismatch, override to --> ck_moe_stage1(hidden_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w1_scale: Optional[torch.Tensor] = None, a1_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] type hints mismatch, override to --> ck_moe_stage1(hidden_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w1_scale: Optional[torch.Tensor] = None, a1_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[2026-09-14 09:06:37 TP3] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[aiter] type hints mismatch, override to --> ck_moe_stage2(inter_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w2_scale: Optional[torch.Tensor] = None, a2_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[aiter] type hints mismatch, override to --> ck_moe_stage2(inter_states: torch.Tensor, w1: torch.Tensor, w2: torch.Tensor, sorted_token_ids: torch.Tensor, sorted_expert_ids: torch.Tensor, num_valid_ids: torch.Tensor, out: torch.Tensor, topk: int, kernelName: str = None, w2_scale: Optional[torch.Tensor] = None, a2_scale: Optional[torch.Tensor] = None, block_m: Optional[int] = 32, sorted_weights: Optional[torch.Tensor] = None, quant_type: int = 0, activation: int = 0, splitk: Optional[int] = 1, non_temporal_load: bool = False, dst_type: Optional[str] = None, is_shuffled: bool = True) -> None
+[2026-09-14 09:06:37 TP5] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:06:37 TP7] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+[2026-09-14 09:06:37 TP4] multimem all-gather disabled (module 'torch.distributed._symmetric_memory' has no attribute 'set_signal_pad_size')
+Capturing batches (bs=1 avail_mem=41.71 GB): 100%|██████████| 1/1 [00:02<00:00,  2.67s/it]Capturing batches (bs=1 avail_mem=41.71 GB): 100%|██████████| 1/1 [00:02<00:00,  2.67s/it]
+[aiter] Registering 4 cuda graph addresses
+[aiter] Registering 4 cuda graph addresses
+[aiter] Registering 4 cuda graph addresses
+[aiter] Registering 4 cuda graph addresses
+[aiter] Registering 4 cuda graph addresses
+[aiter] Registering 4 cuda graph addresses
+[aiter] Registering 4 cuda graph addresses
+[aiter] Registering 4 cuda graph addresses
+[2026-09-14 09:06:38 TP0] Capture draft decode CUDA graph end. elapsed=3.92 s, mem usage=0.53 GB, avail mem=41.20 GB.
+[2026-09-14 09:06:39 TP0] Capture draft extend CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1], avail mem=41.20 GB
+  0%|          | 0/1 [00:00<?, ?it/s]Capturing batches (bs=1 avail_mem=41.17 GB):   0%|          | 0/1 [00:00<?, ?it/s][aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_norm] under /tmp/yihou-aiter-b5aa5bd3d828/module_norm.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_rope_2c_cached_positions_fwd] under /tmp/yihou-aiter-b5aa5bd3d828/module_rope_2c_cached_positions_fwd.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_cache] under /tmp/yihou-aiter-b5aa5bd3d828/module_cache.so
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] import [module_top_k_per_row] under /tmp/yihou-aiter-b5aa5bd3d828/module_top_k_per_row.so
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.No block_m = 64 use_nt = True, estimated_m_per_expert = 15
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 64, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.bfloat16', 'torch.bfloat16', 'QuantType.No', True, False) 
+Capturing batches (bs=1 avail_mem=41.17 GB): 100%|██████████| 1/1 [00:01<00:00,  1.27s/it]Capturing batches (bs=1 avail_mem=41.17 GB): 100%|██████████| 1/1 [00:01<00:00,  1.27s/it]
+[aiter] Registering 1 cuda graph addresses
+[aiter] Registering 1 cuda graph addresses
+[aiter] Registering 1 cuda graph addresses
+[aiter] Registering 1 cuda graph addresses
+[aiter] Registering 1 cuda graph addresses
+[aiter] Registering 1 cuda graph addresses
+[aiter] Registering 1 cuda graph addresses
+[aiter] Registering 1 cuda graph addresses
+[INTERNAL-DECODE TP7] topology={'tp_rank': 7, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 7, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 7, 'attn_dp_size': 8, 'moe_ep_rank': 7, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 7} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP7] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[INTERNAL-DECODE TP6] topology={'tp_rank': 6, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 6, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 6, 'attn_dp_size': 8, 'moe_ep_rank': 6, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 6} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP6] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[INTERNAL-DECODE TP3] topology={'tp_rank': 3, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 3, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 3, 'attn_dp_size': 8, 'moe_ep_rank': 3, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 3} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP4] topology={'tp_rank': 4, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 4, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 4, 'attn_dp_size': 8, 'moe_ep_rank': 4, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 4} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP3] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[INTERNAL-DECODE TP4] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[INTERNAL-DECODE TP2] topology={'tp_rank': 2, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 2, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 2, 'attn_dp_size': 8, 'moe_ep_rank': 2, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 2} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP2] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[2026-09-14 09:06:41 TP0] Capture draft extend CUDA graph end. elapsed=2.53 s, mem usage=0.18 GB, avail mem=41.02 GB.
+[INTERNAL-DECODE TP0] topology={'tp_rank': 0, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 0, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 0, 'attn_dp_size': 8, 'moe_ep_rank': 0, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 0} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP0] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[INTERNAL-DECODE TP5] topology={'tp_rank': 5, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 5, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 5, 'attn_dp_size': 8, 'moe_ep_rank': 5, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 5} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP5] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[INTERNAL-DECODE TP7] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP6] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP0] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP5] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP1] topology={'tp_rank': 1, 'tp_size': 8, 'pp_rank': 0, 'pp_size': 1, 'dp_rank': 1, 'dp_size': 8, 'attn_tp_rank': 0, 'attn_tp_size': 1, 'attn_cp_rank': 0, 'attn_cp_size': 1, 'attn_dcp_rank': 0, 'attn_dcp_size': 1, 'attn_dp_rank': 1, 'attn_dp_size': 8, 'moe_ep_rank': 1, 'moe_ep_size': 8, 'moe_dp_rank': 0, 'moe_dp_size': 1, 'gpu_id': 1} local_batch=1 global_batch=8 moe_a2a=none moe_runner=auto
+[INTERNAL-DECODE TP4] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP1] runtime source paths={'sglang.srt.server_args': '/sglang/python/sglang/srt/server_args.py', 'sglang.srt.speculative.eagle_worker_v2': '/sglang/python/sglang/srt/speculative/eagle_worker_v2.py'}
+[INTERNAL-DECODE TP3] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP2] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP1] physically initializing pools; mapping={'reserved_tokens': 2240, 'reserved_tokens_per_request': 2240, 'page_size': 64, 'speculative_reserve': 12}
+[INTERNAL-DECODE TP7] running one-token untimed target+draft bootstrap
+[INTERNAL-DECODE TP6] running one-token untimed target+draft bootstrap
+[INTERNAL-DECODE TP0] running one-token untimed target+draft bootstrap
+[aiter] [pid=109070 pname=SpawnProcess-8] start build [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/build/module_custom
+[aiter] [pid=109069 pname=SpawnProcess-7] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_module_custom
+[INTERNAL-DECODE TP5] running one-token untimed target+draft bootstrap
+[INTERNAL-DECODE TP4] running one-token untimed target+draft bootstrap
+[INTERNAL-DECODE TP3] running one-token untimed target+draft bootstrap
+[INTERNAL-DECODE TP2] running one-token untimed target+draft bootstrap
+[aiter] [pid=109063 pname=SpawnProcess-1] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_module_custom
+[aiter] [pid=109068 pname=SpawnProcess-6] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_module_custom
+[aiter] [pid=109067 pname=SpawnProcess-5] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_module_custom
+[aiter] [pid=109066 pname=SpawnProcess-4] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_module_custom
+[aiter] [pid=109065 pname=SpawnProcess-3] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_module_custom
+[INTERNAL-DECODE TP1] running one-token untimed target+draft bootstrap
+[aiter] [pid=109064 pname=SpawnProcess-2] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_module_custom
+[aiter] Current hipcc not support: -mllvm -amdgpu-coerce-illegal-types=1, skip it.
+[aiter] [pid=109070 pname=SpawnProcess-8] [32mfinish build [module_custom], cost 9.7s [0m
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] [pid=109070 pname=SpawnProcess-8] start build [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/build/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] [pid=109069 pname=SpawnProcess-7] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] [pid=109063 pname=SpawnProcess-1] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] [pid=109068 pname=SpawnProcess-6] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] [pid=109067 pname=SpawnProcess-5] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] [pid=109066 pname=SpawnProcess-4] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] [pid=109065 pname=SpawnProcess-3] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] import [module_custom] under /tmp/yihou-aiter-b5aa5bd3d828/module_custom.so
+[aiter] shape is M:2048, N:28672, K:512 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+[aiter] [pid=109064 pname=SpawnProcess-2] waiting for baton release at /tmp/yihou-aiter-b5aa5bd3d828/build/lock_mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale
+[aiter] [pid=109070 pname=SpawnProcess-8] [32mfinish build [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale], cost 23.4s [0m
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] import [mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale] under /tmp/yihou-aiter-b5aa5bd3d828/mha_varlen_fwd_bf16_nlogits_nbias_nmask_nlse_ndropout_nskip_nqscale.so
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] run_1stage = False, xbf16 = False, ksplit = 0 q_type = QuantType.per_1x32 block_m = 32 use_nt = True, estimated_m_per_expert = 1
+[aiter] [fused_moe] using 2stage default for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False) 
+[aiter] [fused_moe] no tuned FlyDSL config for ('gfx950', 256, 8, 6144, 2048, 33, 8, <ActivationType.Silu: 0>, 'torch.bfloat16', 'torch.float4_e2m1fn_x2', 'torch.float4_e2m1fn_x2', 'QuantType.per_1x32', True, False), using heuristic FlyDSL fallback (kn1='flydsl_moe1_afp4_wfp4_bf16_t32x128x256_w2', kn2='flydsl_moe2_afp4_wfp4_bf16_t32x128x256_atomic_bnt2')
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[aiter] import [module_sample] under /tmp/yihou-aiter-b5aa5bd3d828/module_sample.so
+[INTERNAL-DECODE TP5] warming up 2 complete speculative iterations
+[INTERNAL-DECODE TP7] warming up 2 complete speculative iterations
+[INTERNAL-DECODE TP6] warming up 2 complete speculative iterations
+[INTERNAL-DECODE TP2] warming up 2 complete speculative iterations
+[INTERNAL-DECODE TP1] warming up 2 complete speculative iterations
+[INTERNAL-DECODE TP4] warming up 2 complete speculative iterations
+[INTERNAL-DECODE TP3] warming up 2 complete speculative iterations
+[INTERNAL-DECODE TP0] warming up 2 complete speculative iterations
+/opt/venv/lib/python3.10/site-packages/torch/distributed/distributed_c10d.py:4876: UserWarning: barrier(): using the device under current context. You can specify `device_id` in `init_process_group` to mute this warning.
+  warnings.warn(  # warn only once
+[INTERNAL-DECODE TP6] profile: DeviceTimer attached to ['draft', 'target'][INTERNAL-DECODE TP3] profile: DeviceTimer attached to ['draft', 'target'][INTERNAL-DECODE TP5] profile: DeviceTimer attached to ['draft', 'target'][INTERNAL-DECODE TP1] profile: DeviceTimer attached to ['draft', 'target']
+[INTERNAL-DECODE TP0] profile: DeviceTimer attached to ['draft', 'target'][INTERNAL-DECODE TP2] profile: DeviceTimer attached to ['draft', 'target'][INTERNAL-DECODE TP4] profile: DeviceTimer attached to ['draft', 'target'][INTERNAL-DECODE TP7] profile: DeviceTimer attached to ['draft', 'target']
+
+
+[INTERNAL-DECODE TP3] measured decode loop begins at exact requested ISL
+[INTERNAL-DECODE TP6] measured decode loop begins at exact requested ISL
+
+[INTERNAL-DECODE TP0] measured decode loop begins at exact requested ISL
+
+[INTERNAL-DECODE TP5] measured decode loop begins at exact requested ISL
+[INTERNAL-DECODE TP1] measured decode loop begins at exact requested ISL
+[INTERNAL-DECODE TP4] measured decode loop begins at exact requested ISL[INTERNAL-DECODE TP2] measured decode loop begins at exact requested ISL[INTERNAL-DECODE TP7] measured decode loop begins at exact requested ISL
+
+
+
+
+[INTERNAL-DECODE TP0] iteration=1 context=2052 useful=4 target_graph=True
+[INTERNAL-DECODE TP0] iteration=2 context=2056 useful=8 target_graph=True
+[INTERNAL-DECODE TP0] iteration=3 context=2060 useful=12 target_graph=True
+[INTERNAL-DECODE TP0] profile: window opened at measured iteration 10 (activities=['CPU', 'GPU'])
+[rank0]:[W914 09:07:24.597107721 collection.cpp:1133] Warning: ROCTracer produced duplicate flow start: 1 (function operator())
+[INTERNAL-DECODE TP0] profile: window closed at measured iteration 15
+[rank0]:[W914 09:07:26.942455473 ProcessGroupNCCL.cpp:1524] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank5]:[W914 09:07:30.429032290 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=17, addr=[localhost]:49814, remote=[localhost]:38407): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank5]:[W914 09:07:30.432344600 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 5] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank4]:[W914 09:07:30.706194029 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=17, addr=[localhost]:49758, remote=[localhost]:38407): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank4]:[W914 09:07:30.709809826 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 4] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank7]:[W914 09:07:30.764544326 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=17, addr=[localhost]:49764, remote=[localhost]:38407): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank7]:[W914 09:07:30.767986895 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 7] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank2]:[W914 09:07:30.853811420 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=17, addr=[localhost]:49768, remote=[localhost]:38407): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank2]:[W914 09:07:30.857256429 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 2] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank1]:[W914 09:07:30.870940264 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=18, addr=[localhost]:49782, remote=[localhost]:38407): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank1]:[W914 09:07:30.873794529 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 1] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank3]:[W914 09:07:30.978369339 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=17, addr=[localhost]:49796, remote=[localhost]:38407): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank3]:[W914 09:07:30.981343583 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 3] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank6]:[W914 09:07:30.012335419 TCPStore.cpp:125] [c10d] recvValue failed on SocketImpl(fd=17, addr=[localhost]:49804, remote=[localhost]:38407): Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+Exception raised from recvBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:682 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55b00 (0x7fffe7f7bb00 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5657a (0x7fffe7f7c57a in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x2a9 (0x7fffe7f778c9 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank6]:[W914 09:07:30.015495421 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 6] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Failed to recv, got 0 bytes. Connection was likely closed. Did the remote server shutdown or crash?
+[rank5]:[W914 09:07:31.432458956 TCPStore.cpp:106] [c10d] sendBytes failed on SocketImpl(fd=17, addr=[localhost]:49814, remote=[localhost]:38407): Broken pipe
+Exception raised from sendBytes at /pytorch/torch/csrc/distributed/c10d/Utils.hpp:653 (most recent call first):
+frame #0: c10::Error::Error(c10::SourceLocation, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >) + 0x88 (0x7fff557dc978 in /opt/venv/lib/python3.10/site-packages/torch/lib/libc10.so)
+frame #1: <unknown function> + 0x5f54d5e (0x7fffe7f7ad5e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #2: <unknown function> + 0x5f55128 (0x7fffe7f7b128 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #3: <unknown function> + 0x5f5696e (0x7fffe7f7c96e in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #4: c10d::TCPStore::check(std::vector<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >, std::allocator<std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > > > const&) + 0x298 (0x7fffe7f778b8 in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_cpu.so)
+frame #5: c10d::ProcessGroupNCCL::HeartbeatMonitor::runLoop() + 0x38b (0x7fffcf268feb in /opt/venv/lib/python3.10/site-packages/torch/lib/libtorch_hip.so)
+frame #6: <unknown function> + 0xdc253 (0x7fff53c33253 in /lib/x86_64-linux-gnu/libstdc++.so.6)
+frame #7: <unknown function> + 0x94a83 (0x7ffff7cdda83 in /lib/x86_64-linux-gnu/libc.so.6)
+frame #8: <unknown function> + 0x126890 (0x7ffff7d6f890 in /lib/x86_64-linux-gnu/libc.so.6)
+
+[rank5]:[W914 09:07:31.435108094 ProcessGroupNCCL.cpp:1771] [PG ID 0 PG GUID 0(default_pg) Rank 5] Failed to check the "should dump" flag on TCPStore, (maybe TCPStore server has shut down too early), with error: Broken pipe
+W0914 09:07:31.079000 108899 torch/multiprocessing/spawn.py:174] Terminating process 109064 via signal SIGTERM
+W0914 09:07:31.080000 108899 torch/multiprocessing/spawn.py:174] Terminating process 109065 via signal SIGTERM
+W0914 09:07:31.081000 108899 torch/multiprocessing/spawn.py:174] Terminating process 109066 via signal SIGTERM
+W0914 09:07:31.081000 108899 torch/multiprocessing/spawn.py:174] Terminating process 109067 via signal SIGTERM
+W0914 09:07:31.081000 108899 torch/multiprocessing/spawn.py:174] Terminating process 109068 via signal SIGTERM
+W0914 09:07:31.081000 108899 torch/multiprocessing/spawn.py:174] Terminating process 109069 via signal SIGTERM
+W0914 09:07:31.081000 108899 torch/multiprocessing/spawn.py:174] Terminating process 109070 via signal SIGTERM
+Traceback (most recent call last):
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 508, in <module>
+    main()
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 504, in main
+    mp.spawn(run_rank, args=(server_args, port_args, args), nprocs=args.tp_size, join=True)
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 364, in spawn
+    return start_processes(fn, args, nprocs, join, daemon, start_method="spawn")
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 320, in start_processes
+    while not context.join():
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 220, in join
+    raise ProcessRaisedException(msg, error_index, failed_process.pid)
+torch.multiprocessing.spawn.ProcessRaisedException: 
+
+-- Process 0 terminated with the following error:
+Traceback (most recent call last):
+  File "/opt/venv/lib/python3.10/site-packages/torch/multiprocessing/spawn.py", line 95, in _wrap
+    fn(i, *args)
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py", line 382, in run_rank
+    session.step_boundary(accounting.verify_ct)  # outside the per-step tick
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profiling_yihou.py", line 242, in step_boundary
+    self._stop(completed_steps)
+  File "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script/glm52_decode_internal_yihou_20260909_1057/bench/profiling_yihou.py", line 274, in _stop
+    self.torch_profiler.stop()
+  File "/opt/venv/lib/python3.10/site-packages/torch/profiler/profiler.py", line 826, in stop
+    self._transit_action(self.current_action, None)
+  File "/opt/venv/lib/python3.10/site-packages/torch/profiler/profiler.py", line 872, in _transit_action
+    action()
+  File "/opt/venv/lib/python3.10/site-packages/torch/profiler/profiler.py", line 255, in stop_trace
+    self.profiler.__exit__(None, None, None)
+  File "/opt/venv/lib/python3.10/site-packages/torch/autograd/profiler.py", line 394, in __exit__
+    self.kineto_results = _disable_profiler()
+RuntimeError: Can't disable Kineto profiler when it's not running
+
+/usr/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 7 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
+/usr/lib/python3.10/multiprocessing/resource_tracker.py:224: UserWarning: resource_tracker: There appear to be 1 leaked shared_memory objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '
