@@ -1,0 +1,26 @@
+--- /tmp/yihou_orig_v0521/speculative_eagle_utils.py	2026-10-12 04:45:20.100949951 +0000
++++ /shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/eagle_utils.yihou-hostvariant.py	2026-10-11 07:50:18.755956089 +0000
+@@ -50,6 +50,7 @@
+ _is_cpu = is_cpu()
+ 
+ logger = logging.getLogger(__name__)
++_YIHOU_DSA_HOST_VARIANT = __import__("os").environ.get("YIHOU_DSA_HOST_VARIANT", "0") == "1"
+ 
+ if _is_cuda or _is_hip:
+     from sglang.kernels.ops.speculative.tree import (
+@@ -610,6 +611,15 @@
+         kv_loc_plan=verify_input.kv_loc_plan,
+     )
+ 
++    # yihou R050: host-side LOWER bound of max(seq_lens) for the DSA dense/sparse
++    # graph-variant choice (graph_variants.DsaGraphVariants.select). kv_committed_len
++    # only advances when a verify result is processed, so it lags (never leads)
++    # device seq_lens under overlap (schedule_batch.py mamba_lazy_spec_in_window).
++    if _YIHOU_DSA_HOST_VARIANT and batch.reqs:
++        verify_forward_batch._yihou_kv_len_lower = max(
++            r.kv.kv_committed_len for r in batch.reqs
++        )
++
+     # Run attention backend plan and cuda graph preparation
+     can_run_cuda_graph = bool(
+         target_worker.model_runner.decode_cuda_graph_runner

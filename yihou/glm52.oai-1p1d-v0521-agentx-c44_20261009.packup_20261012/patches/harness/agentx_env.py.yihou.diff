@@ -1,0 +1,35 @@
+--- agentx_env.orig.yihou.py	2026-10-09 07:43:16.311153836 +0000
++++ bench-harness/tools/agentx_env.py	2026-10-10 04:47:50.240573110 +0000
+@@ -141,6 +141,16 @@
+         "dpa": bool_value(env[f"{prefix}_DPA"]),
+         "hicache": bool_value(env[f"{prefix}_HICACHE"]),
+         "hicache_size": int(env.get(f"{prefix}_HICACHE_SIZE", "0")),
++        # engine.sh emits --hicache-ratio only with HiCache on; a size > 0 overrides it.
++        "hicache_ratio": float(env[f"{prefix}_HICACHE_RATIO"])
++        if bool_value(env[f"{prefix}_HICACHE"]) else None,
++        # yihou v0521dbg: --no-enable-dsa-fused-indexer and the writer env, both legs.
++        "dsa_fused_indexer_off": env.get("DSA_FUSED_INDEXER", "default") == "off",
++        "aiter_fused_fp8_writer_off": env.get("AITER_FUSED_FP8_INDEXER_WRITER", "default") == "off",
++        "host_register_chunk_gb": (env.get("HICACHE_HOST_REGISTER_CHUNK_GB", "") or None)
++        if role == "prefill" else None,
++        "pid_host": env.get("ENGINE_PID_HOST", "0") == "1",
++        "ipc_legacy": env.get("IPC_MODE_LEGACY", "0") == "1",
+         "mtp": role == "decode" and bool_value(env["DECODE_MTP"]),
+         "max_running": int(env[f"{prefix}_MAX_RUNNING"]),
+         "graph_max_bs": int(env[f"{prefix}_GRAPH_MAX_BS"]),
+@@ -173,6 +183,15 @@
+         "dpa": "--enable-dp-attention" in command,
+         "hicache": "--enable-hierarchical-cache" in command,
+         "hicache_size": int(command_value(command, "--hicache-size", "0")),
++        "hicache_ratio": float(command_value(command, "--hicache-ratio"))
++        if "--hicache-ratio" in command else None,
++        "dsa_fused_indexer_off": "--no-enable-dsa-fused-indexer" in command,
++        "aiter_fused_fp8_writer_off": bool_value(
++            container_env.get("SGLANG_DISABLE_AITER_FUSED_FP8_DSA_INDEXER", "0")
++        ),
++        "host_register_chunk_gb": container_env.get("SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB"),
++        "pid_host": ((container.get("HostConfig") or {}).get("PidMode") or "") == "host",
++        "ipc_legacy": container_env.get("HSA_ENABLE_IPC_MODE_LEGACY") == "1",
+         "mtp": "--speculative-algorithm" in command,
+         "max_running": int(command_value(command, "--max-running-requests")),
+         "graph_max_bs": int(command_value(command, graph_option)),

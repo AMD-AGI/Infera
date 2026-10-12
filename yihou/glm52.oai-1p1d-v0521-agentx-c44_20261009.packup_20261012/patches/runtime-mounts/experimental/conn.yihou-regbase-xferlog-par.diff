@@ -1,0 +1,292 @@
+--- /tmp/yihou_orig_v0521/disaggregation_mooncake_conn.py	2026-10-12 04:45:19.475956870 +0000
++++ /shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/conn.yihou-regbase-xferlog-par.py	2026-10-10 19:34:05.010419139 +0000
+@@ -80,6 +80,153 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++
++# [yihou] YIHOU-REGBASE diagnostic (mount patch, not upstream). Mooncake's HIP IPC
++# path registers desc.addr = ptr and relocates writes as dst - ptr + opened_base,
++# but hipIpcOpenMemHandle maps the ALLOCATION BASE. So any registered ptr that is
++# not its allocation's base would get every write shifted by (ptr - base). Log, per
++# registered region, hipMemGetAddressRange(ptr) and whether base == ptr.
++# [yihou] YIHOU_XFER_LOG -- log-only KV-transfer instrumentation (mount patch, R032).
++# 0 (default): no behaviour change. 1: per-shard per-minute aggregates of the prefill
++# sender: chunks enqueued/dequeued, queue wait (enqueue -> worker dequeue), mooncake
++# batch_transfer_sync calls with blocks / bytes / wall time, and the slowest call.
++_YIHOU_XFER_LOG = os.environ.get("YIHOU_XFER_LOG", "0").strip() == "1"
++
++
++class _YihouXferStats:
++    def __init__(self):
++        self.lock = threading.Lock()
++        self.tls = threading.local()
++        self.last = time.monotonic()
++        self.reset()
++
++    def reset(self):
++        self.d = {}  # shard -> dict of counters
++
++    def _s(self, shard):
++        return self.d.setdefault(
++            shard,
++            dict(enq=0, deq=0, wait_s=0.0, wait_max=0.0, calls=0, blocks=0,
++                 blocks_max=0, bytes=0, wall_s=0.0, wall_max=0.0, slow=None,
++                 par_k=0, par_reqs=0, par_wall_s=0.0, par_group_wall_s=0.0,
++                 par_group_wall_max=0.0),
++        )
++
++    def enq(self, shard):
++        with self.lock:
++            self._s(shard)["enq"] += 1
++
++    def deq(self, shard, wait_s):
++        self.tls.shard = shard
++        with self.lock:
++            s = self._s(shard)
++            s["deq"] += 1
++            s["wait_s"] += wait_s
++            s["wait_max"] = max(s["wait_max"], wait_s)
++
++    def par(self, shard, k, wall_s, group_walls):
++        with self.lock:
++            s = self._s(shard)
++            s["par_k"] = k
++            s["par_reqs"] += 1
++            s["par_wall_s"] += wall_s
++            s["par_group_wall_s"] += sum(group_walls)
++            s["par_group_wall_max"] = max([s["par_group_wall_max"], *group_walls])
++
++    def call(self, nblocks, nbytes, wall_s, session):
++        shard = getattr(self.tls, "shard", -1)
++        with self.lock:
++            s = self._s(shard)
++            s["calls"] += 1
++            s["blocks"] += nblocks
++            s["blocks_max"] = max(s["blocks_max"], nblocks)
++            s["bytes"] += nbytes
++            s["wall_s"] += wall_s
++            if wall_s > s["wall_max"]:
++                s["wall_max"] = wall_s
++                s["slow"] = (nblocks, nbytes, wall_s, session)
++            now = time.monotonic()
++            if now - self.last < 60.0:
++                return
++            span = now - self.last
++            self.last = now
++            for sh, v in sorted(self.d.items()):
++                gb = v["bytes"] / 2**30
++                slow = v["slow"]
++                logger.info(
++                    "YIHOU-XFER shard=%s span=%.0fs enq=%d deq=%d wait_mean=%.3fs wait_max=%.3fs "
++                    "calls=%d blocks=%d blocks/call=%.0f blocks_max=%d GiB=%.2f wall=%.2fs "
++                    "GiB/s=%.2f avg_block_KiB=%.1f wall_max=%.3fs slowest=%s "
++                    "par_k=%d par_reqs=%d par_wall_mean=%.3fs par_group_wall_mean=%.3fs "
++                    "par_group_wall_max=%.3fs",
++                    sh, span, v["enq"], v["deq"],
++                    v["wait_s"] / max(v["deq"], 1), v["wait_max"],
++                    v["calls"], v["blocks"], v["blocks"] / max(v["calls"], 1), v["blocks_max"],
++                    gb, v["wall_s"], gb / v["wall_s"] if v["wall_s"] > 0 else 0.0,
++                    (v["bytes"] / 1024) / max(v["blocks"], 1), v["wall_max"],
++                    None if slow is None else
++                    f"(blocks={slow[0]},MiB={slow[1] / 2**20:.0f},s={slow[2]:.3f},{slow[3]})",
++                    v["par_k"], v["par_reqs"], v["par_wall_s"] / max(v["par_reqs"], 1),
++                    v["par_group_wall_s"] / max(v["par_reqs"] * max(v["par_k"], 1), 1),
++                    v["par_group_wall_max"],
++                )
++            self.reset()
++
++
++_yihou_xfer = _YihouXferStats() if _YIHOU_XFER_LOG else None
++
++# [yihou] YIHOU_XFER_PAR=k -- split one request's per-layer transfer into k contiguous
++# layer groups submitted concurrently on the request's executor (default 1 = original
++# single batch_transfer_sync). All futures are drained before returning (no write may
++# outlive the call); the chunk fails if any group fails.
++_YIHOU_XFER_PAR = max(1, int(os.environ.get("YIHOU_XFER_PAR", "1").strip() or "1"))
++
++
++def _yihou_log_regbase(ptrs, lens, what):
++    try:
++        import ctypes
++
++        import torch
++
++        if not torch.version.hip:
++            return
++        from sglang.srt.distributed.device_communicators.cuda_wrapper import (
++            find_loaded_library,
++        )
++
++        lib = ctypes.CDLL(find_loaded_library("libamdhip64") or "libamdhip64.so")
++        lib.hipMemGetAddressRange.restype = ctypes.c_int
++        lib.hipMemGetAddressRange.argtypes = [
++            ctypes.POINTER(ctypes.c_void_p),
++            ctypes.POINTER(ctypes.c_size_t),
++            ctypes.c_void_p,
++        ]
++        n_interior = 0
++        for i, (ptr, length) in enumerate(zip(ptrs, lens)):
++            base, size = ctypes.c_void_p(), ctypes.c_size_t()
++            rc = (
++                lib.hipMemGetAddressRange(ctypes.byref(base), ctypes.byref(size), ptr)
++                if ptr
++                else -1
++            )
++            b = base.value or 0
++            is_base = rc == 0 and b == ptr
++            if rc == 0 and not is_base:
++                n_interior += 1
++            logger.info(
++                "YIHOU-REGBASE %s i=%d ptr=%#x len=%d rc=%d base=%#x size=%d "
++                "off=%d is_base=%s",
++                what, i, ptr, length, rc, b, size.value, (ptr - b) if rc == 0 else -1,
++                is_base,
++            )
++            if rc != 0:
++                lib.hipGetLastError()  # clear sticky error from host/null ptrs
++        logger.info(
++            "YIHOU-REGBASE %s summary n=%d interior=%d", what, len(ptrs), n_interior
++        )
++    except Exception as e:  # diagnostics must never break registration
++        logger.warning("YIHOU-REGBASE failed: %r", e)
++
+ FAILED_SESSION_RECOVERIES = Counter(
+     "sglang:failed_session_recoveries_total",
+     "Number of mooncake_session_ids un-blacklisted via probe.",
+@@ -380,6 +527,7 @@
+         regions = self._registerable_regions()
+         if regions:
+             ptrs, lens = zip(*regions)
++            _yihou_log_regbase(list(ptrs), list(lens), "kv/aux/state")
+             self.engine.batch_register(list(ptrs), list(lens))
+ 
+     def deregister_buffer_to_engine(self):
+@@ -505,6 +653,7 @@
+         }
+ 
+     def _register_staging_memory(self, ptr: int, size: int) -> None:
++        _yihou_log_regbase([ptr], [size], "staging")
+         self.engine.batch_register([ptr], [size])
+ 
+     def _init_staging_buffers(self, count: int):
+@@ -785,9 +934,18 @@
+             return 0
+ 
+         src_addrs, dst_addrs, lengths = zip(*transfer_blocks)
+-        return self.engine.batch_transfer_sync(
++        if _yihou_xfer is None:
++            return self.engine.batch_transfer_sync(
++                mooncake_session_id, list(src_addrs), list(dst_addrs), list(lengths)
++            )
++        _t0 = time.perf_counter()
++        ret = self.engine.batch_transfer_sync(
+             mooncake_session_id, list(src_addrs), list(dst_addrs), list(lengths)
+         )
++        _yihou_xfer.call(
++            len(lengths), int(sum(lengths)), time.perf_counter() - _t0, mooncake_session_id
++        )
++        return ret
+ 
+     def _state_stride_mismatch(
+         self,
+@@ -1137,6 +1295,10 @@
+             # users explicitly opt in to bounded index batches.
+             max_batch_indices = self.max_transfer_batch_indices
+             if max_batch_indices <= 0 or prefill_data_indices.size <= max_batch_indices:
++                if _YIHOU_XFER_PAR > 1 and len(layers_params) > 1:
++                    return self._yihou_par_process_layers(
++                        process_layers, layers_params, executor
++                    )
+                 return process_layers(layers_params)
+ 
+             def process_index_batch(
+@@ -1238,6 +1400,41 @@
+                 "must enable it and use the same page size and model spec."
+             )
+ 
++    def _yihou_par_process_layers(self, process_layers, layers_params, executor) -> int:
++        """[yihou] YIHOU_XFER_PAR: run k contiguous layer groups concurrently on the
++        request's executor; drain ALL futures (no early return), first non-zero wins."""
++        k = min(_YIHOU_XFER_PAR, len(layers_params))
++        n = len(layers_params)
++        bounds = [(i * n) // k for i in range(k + 1)]
++        groups = [layers_params[bounds[i] : bounds[i + 1]] for i in range(k)]
++        shard = getattr(_yihou_xfer.tls, "shard", -1) if _yihou_xfer is not None else -1
++        walls = [0.0] * k
++
++        def run(i, group):
++            if _yihou_xfer is not None:
++                _yihou_xfer.tls.shard = shard
++            t0 = time.perf_counter()
++            try:
++                return process_layers(group)
++            finally:
++                walls[i] = time.perf_counter() - t0
++
++        t0 = time.perf_counter()
++        futures = [executor.submit(run, i, g) for i, g in enumerate(groups)]
++        concurrent.futures.wait(futures)
++        ret = 0
++        for f in futures:
++            try:
++                status = f.result()
++            except Exception as e:  # a raised group fails the chunk, like rc != 0
++                logger.error("YIHOU-XFER-PAR group raised: %r", e)
++                status = -1
++            if status != 0 and ret == 0:
++                ret = status
++        if _yihou_xfer is not None:
++            _yihou_xfer.par(shard, k, time.perf_counter() - t0, walls)
++        return ret
++
+     def _await_transfer_futures(self, futures) -> int:
+         """Await a chunk's per-layer RDMA writes; return the first non-zero status.
+         cancel() is a no-op for a running future, so with deferred release on we
+@@ -2311,6 +2508,12 @@
+             kv_chunk: Optional[TransferKVChunk] = None
+             try:
+                 kv_chunk = queue.get()
++                if _yihou_xfer is not None and kv_chunk is not None:
++                    _enq_t = getattr(kv_chunk, "_yihou_enq_t", None)
++                    _yihou_xfer.deq(
++                        worker_index,
++                        0.0 if _enq_t is None else time.monotonic() - _enq_t,
++                    )
+                 # teardown() pushes a None sentinel to unblock get() and stop
+                 # the worker: FastQueue.get() blocks indefinitely, so checking
+                 # _stopped alone can never wake a parked worker during a role switch.
+@@ -2925,19 +3128,21 @@
+         if trace_ctx is None:
+             trace_ctx = TraceNullContext()
+ 
+-        self.transfer_queues[shard_idx].put(
+-            TransferKVChunk(
+-                room=bootstrap_room,
+-                prefill_kv_indices=kv_indices,
+-                index_slice=index_slice,
+-                is_last_chunk=is_last_chunk,
+-                prefill_aux_index=aux_index,
+-                state_indices=state_indices,
+-                num_kv_tokens=num_kv_tokens,
+-                trace_ctx=trace_ctx,
+-                wait_event=wait_event,
+-            )
++        _chunk = TransferKVChunk(
++            room=bootstrap_room,
++            prefill_kv_indices=kv_indices,
++            index_slice=index_slice,
++            is_last_chunk=is_last_chunk,
++            prefill_aux_index=aux_index,
++            state_indices=state_indices,
++            num_kv_tokens=num_kv_tokens,
++            trace_ctx=trace_ctx,
++            wait_event=wait_event,
+         )
++        if _yihou_xfer is not None:
++            _chunk._yihou_enq_t = time.monotonic()  # plain dataclass: attribute is fine
++            _yihou_xfer.enq(shard_idx)
++        self.transfer_queues[shard_idx].put(_chunk)
+ 
+     def get_session_id(self):
+         return self.engine.get_session_id()

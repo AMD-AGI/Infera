@@ -1,0 +1,299 @@
+diff --git a/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h
+index 60ec85ce..cae8fd68 100644
+--- a/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h
++++ b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h
+@@ -84,6 +84,15 @@ class HipTransport : public Transport {
+     Status startAsyncTransfer(const TransferRequest& request,
+                               TransferTask& task, PendingTransfer& pending);
+ 
++    // [MC_HIP_BATCH_KERNEL] Copy a whole batch of WRITE requests with ONE
++    // device kernel instead of one hipMemcpyAsync per request. Returns false
++    // (nothing done, no slices created) when the batch is not eligible, so the
++    // caller falls back to the per-request path.
++    bool tryBatchKernelCopy(
++        const std::vector<std::pair<const TransferRequest*, TransferTask*>>&
++            items,
++        Status& status);
++
+     // Synchronize pending transfers
+     void synchronizePendingTransfers(
+         std::vector<PendingTransfer>& pending_transfers);
+diff --git a/mooncake-transfer-engine/src/transport/hip_transport/CMakeLists.txt b/mooncake-transfer-engine/src/transport/hip_transport/CMakeLists.txt
+index 1213ba2d..2add1e6c 100644
+--- a/mooncake-transfer-engine/src/transport/hip_transport/CMakeLists.txt
++++ b/mooncake-transfer-engine/src/transport/hip_transport/CMakeLists.txt
+@@ -1,6 +1,11 @@
+ file(GLOB HIP_TRANSPORT_SOURCES "*.cpp")
+ 
+-add_library(hip_transport OBJECT ${HIP_TRANSPORT_SOURCES})
++# [MC_HIP_BATCH_KERNEL] device code for the batched peer-copy kernel.
++enable_language(HIP)
++set(HIP_TRANSPORT_KERNEL_SOURCES hip_batch_copy.hip)
++set_source_files_properties(${HIP_TRANSPORT_KERNEL_SOURCES} PROPERTIES LANGUAGE HIP)
++
++add_library(hip_transport OBJECT ${HIP_TRANSPORT_SOURCES} ${HIP_TRANSPORT_KERNEL_SOURCES})
+ 
+ target_include_directories(hip_transport PUBLIC ${HIP_INCLUDE_DIRS})
+ 
+diff --git a/mooncake-transfer-engine/src/transport/hip_transport/hip_batch_copy.hip b/mooncake-transfer-engine/src/transport/hip_transport/hip_batch_copy.hip
+new file mode 100644
+index 00000000..6e1a77cc
+--- /dev/null
++++ b/mooncake-transfer-engine/src/transport/hip_transport/hip_batch_copy.hip
+@@ -0,0 +1,45 @@
++// [MC_HIP_BATCH_KERNEL] One kernel copies a batch of (src, dst, len) entries.
++// Used by HipTransport::tryBatchKernelCopy instead of one hipMemcpyAsync per
++// entry: per-op launch/enqueue cost dominates for page-sized KV blocks.
++#include <hip/hip_runtime.h>
++
++#include <cstddef>
++#include <cstdint>
++
++namespace {
++constexpr int kThreads = 256;
++
++__global__ void __launch_bounds__(kThreads)
++    batch_copy_kernel(const uint64_t* __restrict__ src,
++                      const uint64_t* __restrict__ dst,
++                      const uint64_t* __restrict__ len, size_t n) {
++    for (size_t i = blockIdx.x; i < n; i += gridDim.x) {
++        const char* s = reinterpret_cast<const char*>(src[i]);
++        char* d = reinterpret_cast<char*>(dst[i]);
++        const uint64_t bytes = len[i];
++        if (((reinterpret_cast<uintptr_t>(s) | reinterpret_cast<uintptr_t>(d) |
++              bytes) & 15) == 0) {
++            const uint4* s4 = reinterpret_cast<const uint4*>(s);
++            uint4* d4 = reinterpret_cast<uint4*>(d);
++            for (uint64_t j = threadIdx.x; j < bytes / 16; j += kThreads)
++                d4[j] = s4[j];
++        } else {
++            for (uint64_t j = threadIdx.x; j < bytes; j += kThreads) d[j] = s[j];
++        }
++    }
++    // Peer stores must be visible system-wide before the completion event.
++    __threadfence_system();
++}
++}  // namespace
++
++extern "C" hipError_t mooncake_hip_batch_copy(const uint64_t* d_src,
++                                              const uint64_t* d_dst,
++                                              const uint64_t* d_len, size_t n,
++                                              int grid, hipStream_t stream) {
++    if (n == 0) return hipSuccess;
++    if (grid <= 0) grid = 256;
++    if ((size_t)grid > n) grid = (int)n;
++    hipLaunchKernelGGL(batch_copy_kernel, dim3(grid), dim3(kThreads), 0, stream,
++                       d_src, d_dst, d_len, n);
++    return hipGetLastError();
++}
+diff --git a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
+index 7eef5d88..a0ca9e27 100644
+--- a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
+@@ -20,7 +20,10 @@
+ #include <cstddef>
+ #include <cstdint>
+ #include <cerrno>
++#include <cstdlib>
+ #include <cstring>
++#include <utility>
++#include <vector>
+ #include <unistd.h>
+ #include <sys/syscall.h>
+ 
+@@ -31,6 +34,52 @@
+ #include "transfer_metadata.h"
+ #include "transport/transport.h"
+ 
++// [MC_HIP_BATCH_KERNEL] implemented in hip_batch_copy.hip
++extern "C" hipError_t mooncake_hip_batch_copy(const uint64_t* d_src,
++                                              const uint64_t* d_dst,
++                                              const uint64_t* d_len, size_t n,
++                                              int grid, hipStream_t stream);
++
++namespace {
++struct BatchKernelConfig {
++    bool enabled = false;
++    size_t min_entries = 64;
++    int grid = 256;
++};
++const BatchKernelConfig& batchKernelConfig() {
++    static const BatchKernelConfig cfg = [] {
++        BatchKernelConfig c;
++        const char* e = getenv("MC_HIP_BATCH_KERNEL");
++        c.enabled = e && strcmp(e, "1") == 0;
++        if (const char* m = getenv("MC_HIP_BATCH_KERNEL_MIN")) {
++            long v = strtol(m, nullptr, 10);
++            if (v > 0) c.min_entries = (size_t)v;
++        }
++        if (const char* g = getenv("MC_HIP_BATCH_KERNEL_GRID")) {
++            long v = strtol(g, nullptr, 10);
++            if (v > 0 && v <= 65535) c.grid = (int)v;
++        }
++        if (c.enabled)
++            LOG(INFO) << "HipTransport: MC_HIP_BATCH_KERNEL on (min_entries="
++                      << c.min_entries << ", grid=" << c.grid << ")";
++        return c;
++    }();
++    return cfg;
++}
++
++// Per-thread device scratch for the (src, dst, len) arrays, grown on demand.
++struct BatchScratch {
++    int device = -1;
++    uint64_t* d_buf = nullptr;
++    size_t capacity = 0;  // entries
++    ~BatchScratch() {
++        if (d_buf) (void)hipFree(d_buf);
++    }
++};
++thread_local BatchScratch tls_batch_scratch;
++thread_local std::vector<uint64_t> tls_batch_host;
++}  // namespace
++
+ namespace mooncake {
+ 
+ // Pool configuration constants
+@@ -611,6 +660,111 @@ void HipTransport::synchronizePendingTransfers(
+     }
+ }
+ 
++bool HipTransport::tryBatchKernelCopy(
++    const std::vector<std::pair<const TransferRequest*, TransferTask*>>& items,
++    Status& status) {
++    const auto& cfg = batchKernelConfig();
++    if (!cfg.enabled || items.size() < cfg.min_entries || use_fabric_mem_)
++        return false;
++    for (const auto& it : items) {
++        // WRITE to a peer segment only; reads / local copies keep the
++        // per-request path.
++        if (it.first->opcode != TransferRequest::WRITE ||
++            it.first->target_id == LOCAL_SEGMENT_ID || it.first->length == 0)
++            return false;
++    }
++
++    HipDeviceGuard device_guard;
++    int device_id = -1;
++    // One device context for the whole batch: the first and last sources must
++    // agree (sglang batches come from one KV pool on one device).
++    if (setDeviceContext(items.front().first->source, device_id) != 0)
++        return false;
++    int last_device = -1;
++    if (items.size() > 1) {
++        HipDeviceGuard probe_guard;
++        if (setDeviceContext(items.back().first->source, last_device) != 0 ||
++            last_device != device_id)
++            return false;
++    }
++
++    const size_t n = items.size();
++    auto& host = tls_batch_host;
++    host.resize(3 * n);
++    for (size_t i = 0; i < n; ++i) {
++        const auto& req = *items[i].first;
++        uint64_t dest_addr = req.target_offset;
++        if (relocateSharedMemoryAddress(dest_addr, req.length, req.target_id)) {
++            status = Status::Memory("device memory not registered");
++            return true;  // handled (failed); caller must not retry
++        }
++        host[i] = (uint64_t)req.source;
++        host[n + i] = dest_addr;
++        host[2 * n + i] = req.length;
++    }
++
++    auto& scratch = tls_batch_scratch;
++    if (scratch.device != device_id || scratch.capacity < n) {
++        if (scratch.d_buf) (void)hipFree(scratch.d_buf);
++        scratch.d_buf = nullptr;
++        scratch.capacity = 0;
++        size_t cap = n < 4096 ? 4096 : n;
++        if (!checkHip(hipMalloc((void**)&scratch.d_buf, 3 * cap * sizeof(uint64_t)),
++                      "HipTransport: batch scratch hipMalloc failed")) {
++            return false;  // fall back to the per-request path
++        }
++        scratch.device = device_id;
++        scratch.capacity = cap;
++    }
++
++    // Slices: same bookkeeping as startAsyncTransfer, one per request.
++    std::vector<Slice*> slices;
++    slices.reserve(n);
++    for (size_t i = 0; i < n; ++i) {
++        const auto& req = *items[i].first;
++        auto& task = *items[i].second;
++        task.total_bytes = req.length;
++        Slice* slice = getSliceCache().allocate();
++        slice->source_addr = (char*)req.source;
++        slice->local.dest_addr = (char*)host[n + i];  // relocated, as in startAsyncTransfer
++        slice->length = req.length;
++        slice->opcode = req.opcode;
++        slice->task = &task;
++        slice->target_id = req.target_id;
++        slice->status = Slice::PENDING;
++        task.slice_list.push_back(slice);
++        __sync_fetch_and_add(&task.slice_count, 1);
++        slices.push_back(slice);
++    }
++    auto fail_all = [&](const char* what) {
++        for (auto* sl : slices) sl->markFailed();
++        status = Status::Memory(what);
++        return true;
++    };
++
++    hipStream_t stream = stream_pool_.getNextStream(device_id);
++    hipEvent_t event = event_pool_.getEvent(device_id);
++    if (stream == nullptr || event == nullptr) {
++        if (event) event_pool_.putEvent(event, device_id);
++        return fail_all("HipTransport: no stream/event for batch kernel");
++    }
++    hipError_t err =
++        hipMemcpyAsync(scratch.d_buf, host.data(), 3 * n * sizeof(uint64_t),
++                       hipMemcpyHostToDevice, stream);
++    if (checkHip(err, "HipTransport: batch descriptor upload failed")) {
++        err = mooncake_hip_batch_copy(scratch.d_buf, scratch.d_buf + n,
++                                      scratch.d_buf + 2 * n, n, cfg.grid, stream);
++        checkHip(err, "HipTransport: batch copy kernel launch failed");
++    }
++    if (err == hipSuccess) err = hipEventRecord(event, stream);
++    if (err == hipSuccess) err = hipEventSynchronize(event);
++    event_pool_.putEvent(event, device_id);
++    if (err != hipSuccess) return fail_all("HipTransport: batch copy failed");
++    for (auto* sl : slices) sl->markSuccess();
++    status = Status::OK();
++    return true;
++}
++
+ Status HipTransport::submitTransfer(
+     BatchID batch_id, const std::vector<TransferRequest>& entries) {
+     auto& batch_desc = *((BatchDesc*)(batch_id));
+@@ -625,6 +779,15 @@ Status HipTransport::submitTransfer(
+     size_t task_id = batch_desc.task_list.size();
+     batch_desc.task_list.resize(task_id + entries.size());
+ 
++    if (batchKernelConfig().enabled) {
++        std::vector<std::pair<const TransferRequest*, TransferTask*>> items;
++        items.reserve(entries.size());
++        for (size_t i = 0; i < entries.size(); ++i)
++            items.emplace_back(&entries[i], &batch_desc.task_list[task_id + i]);
++        Status st = Status::OK();
++        if (tryBatchKernelCopy(items, st)) return st;
++    }
++
+     // Submit async transfers and collect pending transfer info
+     std::vector<PendingTransfer> pending_transfers;
+     pending_transfers.reserve(entries.size());
+@@ -685,6 +848,14 @@ Status HipTransport::getTransferStatus(BatchID batch_id, size_t task_id,
+ 
+ Status HipTransport::submitTransferTask(
+     const std::vector<TransferTask*>& task_list) {
++    if (batchKernelConfig().enabled) {
++        std::vector<std::pair<const TransferRequest*, TransferTask*>> items;
++        items.reserve(task_list.size());
++        for (auto* t : task_list) items.emplace_back(t->request, t);
++        Status st = Status::OK();
++        if (tryBatchKernelCopy(items, st)) return st;
++    }
++
+     // Submit async transfers and collect pending transfer info
+     std::vector<PendingTransfer> pending_transfers;
+     pending_transfers.reserve(task_list.size());

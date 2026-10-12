@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# Drop-in `ssh` replacement that reaches amd-spur compute nodes through
+# `spur exec <jobid>`, because sshd on those nodes rejects normal users
+# (AllowUsers ubuntu root).
+#
+# Put this directory FIRST on PATH and the glm5p2_pd bench scripts keep working
+# unmodified: they all shell out to `ssh <opts> <node> <command...>`.
+#
+# Contract differences that are handled here:
+#   * spur exec does not forward stdin  -> stdin is slurped and replayed into
+#     the remote bash via a base64 here-string.
+#   * spur exec mangles BINARY stdout   -> callers must not stream binaries
+#     (docker save | docker load). Use the shared filesystem instead.
+#   * ssh options are accepted and ignored.
+#
+# Node -> job id map comes from SPUR_SSH_JOBS="node:jobid,node:jobid".
+set -uo pipefail
+
+: "${SPUR_SSH_JOBS:?SPUR_SSH_JOBS must be set, e.g. node-a:12345,node-b:12346}"
+
+want_stdin=1
+node=""
+declare -a cmd=()
+
+while (($#)); do
+    # Everything after the destination host belongs to the REMOTE command and
+    # must pass through verbatim -- including things that look like ssh flags
+    # (`ssh node bash -s -- 42`). Only parse options before the host.
+    if [[ -n "$node" ]]; then
+        cmd+=("$1"); shift; continue
+    fi
+    case "$1" in
+        -n) want_stdin=0; shift ;;
+        -o|-i|-l|-p|-F|-E|-b|-c|-D|-e|-I|-J|-L|-m|-O|-Q|-R|-S|-W|-w)
+            shift 2 ;;                       # option that takes a value
+        -*) shift ;;                         # valueless flag: -q, -T, -A, ...
+        *)  node="$1"; shift ;;
+    esac
+done
+
+[[ -n "$node" ]] || { echo "spur-ssh: no destination host" >&2; exit 255; }
+node="${node#*@}"
+
+job=""
+IFS=',' read -r -a _pairs <<< "$SPUR_SSH_JOBS"
+for _p in "${_pairs[@]}"; do
+    [[ "${_p%%:*}" == "$node" ]] && job="${_p##*:}"
+done
+[[ -n "$job" ]] || { echo "spur-ssh: no spur job mapped for node '$node'" >&2; exit 255; }
+
+# Two calling conventions exist in this bench and they need opposite treatment:
+#   * ssh_run() pre-quotes the whole command into ONE string -> pass it through
+#     verbatim, re-quoting would escape the quoting it already did;
+#   * check_nodes.sh passes real argv (`bash -s -- "$a" "$b"`) -> quote each
+#     element so an argument containing spaces survives the shell on the far end.
+if ((${#cmd[@]} == 1)); then
+    remote="${cmd[0]}"
+else
+    remote=""
+    for _a in "${cmd[@]}"; do printf -v _q '%q' "$_a"; remote+="${remote:+ }$_q"; done
+fi
+[[ -n "$remote" ]] || { echo "spur-ssh: interactive shell is not supported" >&2; exit 255; }
+
+# --------------------------------------------------------------- rocm-smi bypass
+# On a node where our spur job holds NO GPU allocation, the job's cgroup hides the
+# GPUs: a plain `rocm-smi` prints "No AMD GPUs specified" even though all 8
+# MI355X are present and idle. dockerd runs outside our cgroup, so a container
+# with /dev/kfd + /dev/dri sees the real hardware -- the same sanctioned bypass
+# this whole run uses to place the workload.
+#
+# The bench's `agentx_env.py:detect_hardware` shells out to `rocm-smi
+# --showproductname` per topology node and aborts unless the output matches
+# MI[0-9]{3}. Without this wrap it aborts on the GPU-less node.
+#
+# This reports the hardware that is ACTUALLY there (verified first-hand:
+# 8x AMD Instinct MI355X, gfx950, identical on both nodes). It does not fabricate
+# a capability -- it undoes a cgroup blind spot.
+#
+# Deliberately narrow: only for nodes named in SPUR_SSH_ROCM_BYPASS_NODES, and
+# only when the remote command STARTS WITH rocm-smi (so `docker exec ... rocm-smi`
+# is untouched).
+if [[ -n "${SPUR_SSH_ROCM_BYPASS_NODES:-}" && "$remote" == rocm-smi* ]]; then
+    for _n in ${SPUR_SSH_ROCM_BYPASS_NODES//,/ }; do
+        if [[ "$_n" == "$node" ]]; then
+            _img="${SPUR_SSH_ROCM_IMAGE:-infera-sglang:v0519-yihou-c72-0918}"
+            remote="docker run --rm --device /dev/dri --device /dev/kfd --group-add video --entrypoint bash $_img -c $(printf '%q' "$remote")"
+            break
+        fi
+    done
+fi
+
+# Replay stdin for the `ssh node bash -s -- a b <<EOF` pattern.
+#
+# The shell decides what a here-document IS, and the two shells in play disagree:
+# zsh materialises it as a REGULAR FILE, bash 5.2 as a PIPE. An earlier version
+# of this guard tested only `-f /dev/stdin`; it passed when driven from zsh and
+# then silently delivered NOTHING to the remote `bash -s` under bash -- which
+# exits 0 on empty input, so check_nodes.sh reported a FALSE PASS. Accept both.
+#
+# A terminal and /dev/null are still excluded (neither is -f nor -p), so an
+# inherited tty cannot hang the slurp waiting for an EOF that never comes.
+#
+# The read is CAPPED. A here-doc script is a few KB; the only large stdin in this
+# bench is `docker save | ssh docker load`, and spur exec corrupts binary stdout
+# anyway (measured). Fail loudly rather than truncate silently or buffer 90 GB.
+if ((want_stdin)) && [[ ! -t 0 ]] && { [[ -f /dev/stdin ]] || [[ -p /dev/stdin ]]; }; then
+    max="${SPUR_SSH_STDIN_MAX:-1048576}"
+    payload="$(head -c "$((max + 1))" | base64 -w0)"
+    if ((${#payload} > (max * 4 + 2) / 3)); then
+        echo "spur-ssh: stdin exceeds ${max} bytes. spur exec cannot carry a binary" \
+             "stream (it corrupts stdout); use the shared filesystem instead." >&2
+        exit 255
+    fi
+    if [[ -n "$payload" ]]; then
+        remote="printf %s $(printf '%q' "$payload") | base64 -d | { $remote ; }"
+    fi
+fi
+
+exec spur exec "$job" bash -c "$remote"

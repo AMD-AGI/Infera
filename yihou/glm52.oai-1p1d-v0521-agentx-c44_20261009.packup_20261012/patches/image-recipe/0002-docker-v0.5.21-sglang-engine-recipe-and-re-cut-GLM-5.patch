@@ -1,0 +1,661 @@
+From fb8ae9c93dfec45cb552a5baf4db5c506b9e038b Mon Sep 17 00:00:00 2001
+From: yihou <>
+Date: Fri, 9 Oct 2026 06:39:20 +0000
+Subject: [PATCH 2/5] docker: v0.5.21 sglang engine recipe and re-cut GLM-5.2
+ patches
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/Dockerfile.sglang.v0521.yihou   | 271 ++++++++++++++++++
+ ...patch_prefill_nonfinal_chunk_wait_event.py |  94 ++++++
+ .../v0521/apply_sglang_dsa_patches_v0521.sh   | 104 +++++++
+ .../sglang_dsa/v0521/dsa_page_table_rows.diff |  77 +++++
+ ...tch_glm_nextn_fused_shared_experts_arch.py |  62 ++++
+ 5 files changed, 608 insertions(+)
+ create mode 100644 deploy/docker/Dockerfile.sglang.v0521.yihou
+ create mode 100644 deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py
+ create mode 100644 deploy/docker/patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh
+ create mode 100644 deploy/docker/patches/sglang_dsa/v0521/dsa_page_table_rows.diff
+ create mode 100644 deploy/docker/patches/sglang_dsa/v0521/patch_glm_nextn_fused_shared_experts_arch.py
+
+diff --git a/deploy/docker/Dockerfile.sglang.v0521.yihou b/deploy/docker/Dockerfile.sglang.v0521.yihou
+new file mode 100644
+index 00000000..ae124896
+--- /dev/null
++++ b/deploy/docker/Dockerfile.sglang.v0521.yihou
+@@ -0,0 +1,271 @@
++# Infera SGLang engine image: layers the infera source onto the ROCm SGLang
++# base and sets an entrypoint that injects the host's libionic before exec'ing
++# the command.
++#
++# ==== v0521.yihou variant (2026-10-09) =======================================
++# Copy of Dockerfile.sglang re-pinned to the v0.5.21 nightly
++# (0.5.21.dev20261008+g11b1fb21de, git 9f5d8712). The notes below that name
++# v0.5.19 describe the parent recipe; this file differs only in:
++#   * base ARG default;
++#   * DSA block: patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh
++#     (01 + dp_sync + RE-CUT page_table_rows + GLM NextN fusion-arch fix;
++#     draft_cuda_graph_dp_vote DROPPED -- upstream #32196 -- and asserted present);
++#   * disagg block: explicit list. patch_mooncake_early_send_wait_event.py is
++#     replaced by v0521/patch_prefill_nonfinal_chunk_wait_event.py (the
++#     mooncake/conn.py half is upstream #41395); patch_responses_pd_bootstrap.py
++#     is dropped (upstream #41756, PDRoutingFields);
++#   * hicache #37152 is upstream (993d1fcc) and needs nothing here.
++# Mooncake: keep the defaults (BUILD_MOONCAKE=1, MOONCAKE_GIT_REF=faae8dd4,
++# REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1). The proven v0519 image LOADS a
++# faae8dd4 rebuild (isHipReachableTarget / MC_DISABLE_HIP present); the v0.5.21
++# base's own 01d1eb2a engine.so lacks both, so it is not the proven transport.
++# ============================================================================
++#
++# ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
++# the end of this file are context diffs applied at --fuzz=0 against this exact
++# sglang release. Bumping the base fails the build there rather than silently
++# mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
++#
++# ⚠️ The pin is a DATED NIGHTLY, not the v0.5.19 release: it reports
++# 0.5.19.dev20260916+ge7f7447333, which is main well past the release branch
++# point. Several anchors below match the v0.5.19 tag but not this image, and
++# vice versa, so "verified on v0.5.19" is not a statement about this base.
++# Patch verdicts in patch.upstream.status.md are recorded against this digest.
++#
++# ⚠️ The patch directories below are consumed by EXPLICIT file lists, not by a
++# whole-directory glob, because this base and the other two SGLang recipes no
++# longer need the same set. Two patches here would still APPLY cleanly to this
++# base while fixing nothing -- see the Responses and ROCm blocks for which, and
++# what upstream replaced them with. A glob would re-apply them silently.
++#
++# GLM-5.3 and GLM-5.3-MXFP4 need NO new model source here: they are model_type
++# `glm_moe_dsa` / GlmMoeDsaForCausalLM, and their config.json is field-for-field
++# identical to GLM-5.2's except `transformers_version`, so the released engine
++# already serves them through glm4_moe.py.
++ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.21-rocm720-mi35x-20261008
++FROM ${SGLANG_BASE_IMAGE}
++
++WORKDIR /opt/infera
++
++# ---- Mooncake: pinned upstream, no private source patches -------------------
++# The base bundles an older Mooncake. Rebuild its source checkout at the same
++# upstream revision used by the vLLM image. That revision already includes HIP
++# dma-buf build wiring, automatic cross-host RDMA routing, large-MR chunking,
++# chunk-offset correctness, and registration-error propagation. The build script
++# verifies those capabilities in the installed engine.so.
++ARG BUILD_MOONCAKE=1
++ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
++COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
++RUN if [ "${BUILD_MOONCAKE}" = "1" ]; then \
++        MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" bash /tmp/build_mooncake_sglang.sh; \
++    else \
++        echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
++    fi \
++    && rm -f /tmp/build_mooncake_sglang.sh
++
++# ---- assert cross-host routing in the .so this image will LOAD --------------
++# This separate artifact check also covers BUILD_MOONCAKE=0.
++ARG REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1
++RUN set -eu; \
++    if [ "${REQUIRE_MOONCAKE_CROSS_HOST_ROUTING}" != "1" ]; then \
++        echo "skipping Mooncake cross-host routing assertion"; \
++    else \
++        so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
++        so="$(ls "$so_dir"/engine*.so | head -1)"; \
++        syms="$(strings "$so")"; \
++        printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || { \
++            echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2; \
++            exit 1; }; \
++        echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)"; \
++    fi
++
++# ---- libionic (host ionic ABI match) -----------------------------------------
++# WHY: the sglang base ships libionic with an old kernel ABI (e.g. 54.0-149 = ABI
++# 1); MI355X ionic kernel 26.03 needs ABI 4 (54.0-187) or ibv_get_device_list
++# returns 0 HCAs -> RDMA silently degrades to TCP and cross-node PD KV transfer
++# fails ("remote mooncake session not alive"). HOW: bake the ABI-4 deb so RDMA
++# works even without the runtime host-libionic injection (which the entrypoint
++# still does as a belt-and-braces match when /host-libionic is mounted).
++ARG INSTALL_LIBIONIC=1
++ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb
++RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
++        (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
++          && dpkg -i --force-downgrade /tmp/libionic.deb \
++          && ldconfig \
++          && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
++          && rm -f /tmp/libionic.deb) \
++        || echo "[libionic] install failed (offline build?) — inject at runtime instead"; \
++    else \
++        echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
++    fi
++
++# Install infera + its declared deps from pyproject (single source of truth).
++# The base already ships torch/sglang and most of infera's runtime stack; pip
++# leaves those satisfied versions untouched and only pulls what's missing (e.g.
++# nats-py). `.[sglang]` = infera core + the EPP (gaie) deps so this image can
++# also run `python -m infera.gaie`.
++COPY pyproject.toml README.md ./
++COPY infera ./infera
++# setuptools is bumped in the same RUN. The bases ship 79.0.1, whose bundled
++# _vendor/ tree carries an old jaraco.context and wheel; those three are the
++# only reported issues here that a version bump can reach, since every other
++# Python finding sits on a package the base pins for its own runtime (pillow,
++# aiohttp, cryptography, h2, torch) and is the vendor's to move.
++#
++# Safe to move because setuptools is build tooling, not a runtime dependency:
++# nothing here imports it to serve a request. Verified against the published
++# image -- vllm and infera both still import, and the count drops 22 -> 19.
++RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
++
++# ---- GLM-5.2 DSA patch set (PD + DP-attention on gfx950) --------------------
++# WHAT: four patches that together make PD + DP-attention work for GLM-5.2, with
++# EAGLE MTP on top; without them it crashes on the first batch or deadlocks the DP
++# group. patches/sglang_dsa/README.md carries the per-patch rationale.
++#
++# Three of the four are context diffs at --fuzz=0 against the pinned base, so a
++# base bump FAILS here instead of mis-applying. The fourth is an anchor script
++# instead: Dockerfile.sglang.gfx942 needs the same fix on a v0.5.16 base where
++# those diffs cannot apply, and one source of truth beats two.
++#
++# The script also verifies each patch reached the BYTECODE, not just the source:
++# a stale __pycache__ silently reverts a patch and has voided an experiment here.
++# APPLY_SGLANG_DSA_PATCHES=0 builds a stock engine to A/B against.
++ARG APPLY_SGLANG_DSA_PATCHES=1
++#
++# v0521: driven by sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh, which
++# reads 01 and dsa_dp_sync.diff from the parent directory and the re-cut
++# page_table_rows diff + NextN fix from v0521/. See that script's header.
++ARG APPLY_SGLANG_DSA_PATCHES=1
++COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
++RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
++        PATCH_DIR=/tmp/sglang_dsa bash /tmp/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh; \
++    else \
++        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work"; \
++    fi \
++    && rm -rf /tmp/sglang_dsa
++
++# ---- sglang PD patches (mooncake early-send KV wait event) ----
++# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over mooncake:
++# without it every chunk but the last is RDMA-read while the forward is still writing
++# those pages, so prompts longer than one chunk come back partially wrong with nothing in
++# any log. Self-locating and idempotent, and reports "already present" once the base
++# sglang carries the fix. Order-independent w.r.t. the DSA set above: it touches
++# prefill.py / mooncake/conn.py, which no DSA diff does. A script here exits non-zero
++# when its anchors drifted, i.e. when the fix did not go in — an engine image that
++# silently corrupts long prompts is worse than a failed build.
++#
++# The v0519/ subdirectory holds patches only this base needs. Today that is the
++# PD rejection-sampling guard: v0.5.19 started auto-enabling EAGLE rejection
++# sampling on HIP without excluding PD decode, which cannot supply draft_probs,
++# so the decode worker dies at startup warmup. Older bases never auto-enable it
++# and must not receive the patch, which is why it is not in the glob above.
++#
++# v0521: explicit list. The mooncake/conn.py half of the wait-event fix and the
++# Responses bootstrap trio are upstream in this base (#41395, #41756); only the
++# prefill.py non-final-chunk event and the PD rejection-sampling guard remain.
++COPY deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py \
++     deploy/docker/patches/sglang_disagg/v0519/patch_pd_disable_implicit_rocm_rejection_sampling.py \
++     /tmp/sglang-disagg-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-disagg-patches/*.py; do \
++        echo "[sglang-patch] $f"; python "$f"; \
++    done; \
++    rm -rf /tmp/sglang-disagg-patches
++
++# ---- sglang Responses API patches (not PD-specific) ------------------------
++# REQUIRED FOR ANY Codex-driven workload against a model with a custom chat
++# encoder (kimi_k3, inkling): OpenAIServingResponses reuses OpenAIServingChat's
++# _process_messages but not its prompt-selection ladder, so it feeds
++# GenerateReqInput the empty `prompt` string those encoders deliberately leave
++# unset instead of the pre-rendered prompt_ids they actually produced. Every
++# POST /v1/responses then 400s with "texts cannot be empty and tokenizer must be
++# initialized" -- in ~5 ms, with no traceback, because create_responses swallows
++# the ValueError. Chat on the same model is unaffected, which is what makes it
++# hard to spot.
++#
++# Distinct from sglang_disagg/patch_responses_pd_bootstrap.py above: that one
++# plumbs the bootstrap trio so a PD pair accepts the request at all, this one
++# fixes the prompt the request carries. A Kimi-K3 PD deployment needs both, and
++# the order does not matter -- disjoint anchors, different functions. Applies on
++# aggregated servers too.
++#
++# NOT tolerant: self-locating, idempotent, and it exits non-zero when its anchor
++# drifted. An image whose Responses endpoint 400s on every request should not
++# ship quietly. Reports "already present" once base sglang routes both paths
++# through one helper.
++#
++# Only the v0519/ set is copied here. The sibling
++# patch_responses_custom_encoder_prompt.py is NOT applied to this base and is
++# not a regression: v0.5.19 added OpenAIServingChat._engine_prompt and routes
++# both Chat and Responses through it, which is the shared prompt-selection
++# helper that patch named as its own exit criterion. It is still applied by the
++# two recipes on older bases, which is why the file stays where it is.
++COPY deploy/docker/patches/sglang_responses/v0519/ /tmp/sglang-responses-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
++    rm -rf /tmp/sglang-responses-patches
++
++# ---- sglang ROCm patch (staged write-back gate) -----------------------------
++# Resyncs two gates that disagree about the staged write-back JIT on ROCm: MLA
++# enables it on HIP while DSAIndexerPoolHost still gates it on _is_cuda, which
++# poisons the pool group's capability AND. The patch gates MLA back down to the
++# safe non-JIT path until the full ROCm parity repair lands upstream. It checks
++# that precondition rather than its own anchor, so it refuses and tells the
++# operator to drop it once the group stops reading False -- anchor drift alone
++# would leave it silently forfeiting a kernel upstream had just enabled.
++#
++# ONLY this file is copied. The sibling patch_hicache_rocm_host_alloc.py is
++# deliberately NOT applied to this base, and it is the reason this block uses a
++# file list instead of a glob: it still applies cleanly here, so a glob would
++# keep it with no complaint, but its defect is fixed. It rerouted hicache host
++# pools to hipHostMalloc because registered host pages carry a device address
++# that differs from the host VA on gfx950, and the pointer tables handed raw
++# host data_ptr()s to GPU kernels. sglang#35233 (merged 2026-09-14, in this
++# base) instead translates every such table through hipHostGetDevicePointer,
++# which is the more thorough shape our own PR conceded to. Keeping our version
++# on top would cost the storage-backend allocators on ROCm -- alloc_with_pin_
++# memory ignores the allocator argument -- and warn on every buffer at teardown.
++# Older bases lack #35233 and still apply it; that is why the file stays put.
++COPY deploy/docker/patches/sglang_rocm/patch_hicache_rocm_staged_write_back.py /tmp/sglang-rocm-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
++    rm -rf /tmp/sglang-rocm-patches
++
++# ---- Rust router (multi-core data plane; --router-backend rust) ----
++# The ROCm base often ships cargo; use it, and install a minimal toolchain only
++# if absent. Needs cc for linking and libclang (onig_sys/bindgen).
++#
++# Build and remove in the SAME RUN. This is about what a scanner finds in the
++# final image, not about size: image scanning reads the flattened filesystem, so
++# a toolchain deleted in a later step is still reported, while one deleted here
++# is gone. A serving image has no business shipping a compiler toolchain.
++#
++# Removed unconditionally, including when the base supplied it. Who installed it
++# does not change whether it is present in the image being scanned, and nothing
++# at runtime needs cargo: the engines are Python, and the built infera-router
++# links only against base system libs (libc/libstdc++/libgcc/libm), none of
++# which the toolchain provides.
++#
++# The rc files go with it: rustup appends an unguarded `. "$HOME/.cargo/env"`,
++# which then errors on every login shell the image runs.
++COPY rust ./rust
++RUN set -eu; \
++    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
++    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
++    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
++    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
++    export PATH="$HOME/.cargo/bin:$PATH"; \
++    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
++    ( cd rust && cargo build --release --bin infera-router ); \
++    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
++    rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
++    rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
++    sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
++    ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
++    ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; }; \
++    /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
++
++COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
++
++ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
++CMD ["/bin/bash"]
+diff --git a/deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py b/deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py
+new file mode 100644
+index 00000000..6b7934ee
+--- /dev/null
++++ b/deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py
+@@ -0,0 +1,94 @@
++#!/usr/bin/env python3
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++# SPDX-License-Identifier: MIT
++"""The prefill.py half of ../patch_mooncake_early_send_wait_event.py, for v0.5.21.
++
++That script's header is the record for the defect (chunked prefill over mooncake
++hands non-final chunks to the RDMA reader while the forward may still be writing
++them; prompts longer than one chunk come back partially wrong, silently).
++
++WHAT UPSTREAM NOW CARRIES. sglang#41395 (c683190b, in the v0.5.21 base) landed
++the mooncake consumer: `transfer_worker` synchronizes `kv_chunk.wait_event`, and
++`MooncakeKVSender.send()` / `add_transfer_request()` carry
++`_early_send_wait_event` through. It records an event only on the CACHED-PREFIX
++early-send path, and only under overlap. The overlap send of a NON-FINAL chunk in
++`process_batch_result_disagg_prefill` still records none. The parent script can no
++longer run here -- its mooncake/conn.py anchors are gone because they are upstream
++-- so this script carries just the remaining edit.
++
++OPEN, not established: whether this edit is still load-bearing on v0.5.21/HIP.
++`process_batch_result_disagg_prefill` already does `copy_done.synchronize()`
++before the send, and on HIP `copy_to_cpu` runs on forward_stream, which may
++already order the chunk's KV writes before the read. The proven v0519 image had
++that sync too and carried the edit anyway. Kept because it is cheap (an event on
++an already-finished forward) and removing it was never measured.
++
++PRECONDITION, checked: the upstream consumer must be present, otherwise the event
++recorded here would be dropped on the floor and the image would look fixed while
++it is not. Exits non-zero if it is missing or if the anchor drifted.
++
++Self-locating and idempotent. Marker: `_infera_nonfinal_chunk_wait_event`.
++"""
++
++import importlib.util
++import py_compile
++import sys
++from pathlib import Path
++
++_TAG = "[mc-nonfinal-wait-event]"
++_MARKER = "_infera_nonfinal_chunk_wait_event"
++
++_CONSUMER = {
++    "disaggregation/mooncake/conn.py": (
++        "kv_chunk.wait_event.synchronize()",
++        'getattr(self, "_early_send_wait_event", None)',
++    ),
++}
++
++_OLD = """                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
++"""
++_NEW = f"""                    # Non-final chunks are handed over while later chunks are
++                    # already running on forward_stream, and the transfer worker
++                    # reads device memory outside the CUDA stream. Gate the read
++                    # on this chunk's writes completing.
++                    {_MARKER} = torch.cuda.Event()
++                    {_MARKER}.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = {_MARKER}
++                    self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
++"""
++
++
++def main() -> int:
++    spec = importlib.util.find_spec("sglang")
++    if not spec or not spec.origin:
++        print(f"{_TAG} cannot locate sglang")
++        return 1
++    srt = Path(spec.origin).parent / "srt"
++
++    for rel, needles in _CONSUMER.items():
++        text = (srt / rel).read_text()
++        missing = [n for n in needles if n not in text]
++        if missing:
++            print(f"{_TAG} upstream mooncake wait_event consumer missing in {rel}: {missing}")
++            print(f"{_TAG} this base needs the full ../patch_mooncake_early_send_wait_event.py")
++            return 1
++
++    path = srt / "disaggregation" / "prefill.py"
++    src = path.read_text()
++    if _MARKER in src:
++        print(f"{_TAG} already present — skipping")
++        return 0
++    if src.count(_OLD) != 1:
++        print(f"{_TAG} anchor found {src.count(_OLD)}x, want 1x in {path} — nothing written")
++        return 1
++    if "\nimport torch\n" not in src:
++        print(f"{_TAG} prefill.py no longer imports torch at module level — nothing written")
++        return 1
++    path.write_text(src.replace(_OLD, _NEW, 1))
++    py_compile.compile(str(path), doraise=True)
++    print(f"{_TAG} non-final chunk send now records a forward_stream completion event")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/deploy/docker/patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh b/deploy/docker/patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh
+new file mode 100644
+index 00000000..2078ce6a
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh
+@@ -0,0 +1,104 @@
++#!/usr/bin/env bash
++# Apply the GLM-5.2 DSA patch set to the v0.5.21 base (Dockerfile.sglang.v0521.yihou)
++# and prove every patch reached the BYTECODE.
++#
++# The v0519 driver (deploy/docker/scripts/apply_sglang_dsa_patches.sh) is left
++# untouched for the recipes that use it. On this base the set is:
++#
++#   01   ../patch_dsa_indexer_hip_dp_padded_rows.py   unchanged, self-locating
++#   02a  ../dsa_dp_sync.diff                          unchanged, applies at an
++#                                                     OFFSET (not fuzz) here
++#   02b  ./dsa_page_table_rows.diff                   RE-CUT for v0.5.21 anchors
++#   04   draft_cuda_graph_dp_vote                     DROPPED: upstream #32196
++#        (7889fbab) carries the same group vote -- dp_attn.py
++#        _spec_input_cuda_graph_compatible feeding can_run_dp_draft_cuda_graph.
++#        Its presence is ASSERTED below, so a base that loses it fails here
++#        instead of deadlocking the decode DP group at load.
++#
++# Same rules as the v0519 driver: --fuzz=0, probe both directions before
++# mutating, drop __pycache__, verify identifiers (never comments) in fresh .pyc.
++set -euo pipefail
++
++SGLANG_DIR="${SGLANG_DIR:-/sgl-workspace/sglang}"
++PATCH_DIR="${PATCH_DIR:-/tmp/sglang_dsa}"
++SRT="$SGLANG_DIR/python/sglang/srt"
++
++PATCH01="$PATCH_DIR/patch_dsa_indexer_hip_dp_padded_rows.py"
++DIFFS=("$PATCH_DIR/dsa_dp_sync.diff" "$PATCH_DIR/v0521/dsa_page_table_rows.diff")
++
++# module basename : identifier that must be in the compiled bytecode
++MARKERS=(
++  "dsa_indexer.py:_p1v2_trim"
++  "dsa_indexer.py:_p1v2_rows"
++  "dsa_backend.py:must not be None for DRAFT_EXTEND_V2"
++  "dsa_backend.py:_glm52_match_page_table_rows"
++  # upstream replacement for 04 -- required, not applied
++  "dp_attn.py:_spec_input_cuda_graph_compatible"
++  "eagle_draft_cuda_graph_runner.py:can_run_dp_draft_cuda_graph"
++)
++
++echo "=== sglang DSA patches (v0521): applying to $SGLANG_DIR ==="
++cd "$SGLANG_DIR"
++echo "  --- $(basename "$PATCH01")"
++python3 "$PATCH01"
++for p in "${DIFFS[@]}"; do
++  echo "  --- ${p#"$PATCH_DIR"/}"
++  if patch -p1 --fuzz=0 --batch --forward --dry-run < "$p" >/dev/null 2>&1; then
++    patch -p1 --fuzz=0 --batch --forward --no-backup-if-mismatch < "$p" | sed 's/^/      /'
++  elif patch -p1 -R --fuzz=0 --batch --dry-run < "$p" >/dev/null 2>&1; then
++    echo "      already applied — skipping"
++  else
++    patch -p1 --fuzz=0 --batch --forward --dry-run < "$p" | sed 's/^/      /' || true
++    echo "  ${p#"$PATCH_DIR"/}: does not apply at --fuzz=0 to this base" >&2
++    exit 1
++  fi
++done
++find "$SGLANG_DIR/python" \( -name '*.rej' -o -name '*.orig' \) -delete
++
++# Not a DSA patch, but the same GLM-5.2 + MTP set: the NextN draft's shared-expert
++# fusion name (carried by the proven v0519 image as the "nextnfix").
++NEXTN="$PATCH_DIR/v0521/patch_glm_nextn_fused_shared_experts_arch.py"
++echo "  --- v0521/$(basename "$NEXTN")"
++python3 "$NEXTN"
++
++echo "=== dropping __pycache__ so verification cannot read a stale .pyc ==="
++find "$SRT" -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
++
++echo "=== verifying bytecode ==="
++fail=0
++for spec in "${MARKERS[@]}"; do
++  f="${spec%%:*}"; m="${spec#*:}"
++  p=$(find "$SRT" -name "$f" | head -1)
++  if [ -z "$p" ]; then echo "  MISSING MODULE $f"; fail=1; continue; fi
++  d=$(dirname "$p"); b=$(basename "$p" .py)
++  rm -f "$d/__pycache__/$b."*.pyc
++  python3 -c "import py_compile; py_compile.compile('$p', doraise=True)"
++  pyc=$(ls "$d/__pycache__/$b."*.pyc 2>/dev/null | head -1)
++  n=$(strings "$pyc" | grep -c "$m" || true)
++  printf "  %-58s -> pyc=%s (want >0)\n" "$f :: $m" "$n"
++  [ "$n" -gt 0 ] || fail=1
++done
++# The NextN edit adds no new identifier (the class name and the attribute name
++# both pre-exist in the module), so check the class BODY's code object instead.
++# marshal reads only the .pyc compiled one line earlier from our own source.
++glm="$SRT/models/glm4_moe.py"
++rm -f "$(dirname "$glm")/__pycache__/glm4_moe."*.pyc
++python3 - "$glm" <<'EOF' || fail=1
++import marshal, py_compile, sys, types
++pyc = py_compile.compile(sys.argv[1], doraise=True)
++code = marshal.loads(open(pyc, "rb").read()[16:])
++body = next(
++    c for c in code.co_consts
++    if isinstance(c, types.CodeType) and c.co_name == "GlmMoeDsaForCausalLMNextN"
++)
++ok = ("fused_shared_experts_architecture" in body.co_names
++      and "GlmMoeDsaForCausalLMNextN" in body.co_consts)
++print(f"  {'glm4_moe.py :: NextN class body sets fused_shared_experts_architecture':58s} -> {ok}")
++sys.exit(0 if ok else 1)
++EOF
++
++if [ "$fail" -ne 0 ]; then
++  echo "SGLANG DSA PATCH VERIFICATION FAILED" >&2
++  exit 1
++fi
++echo "=== all v0521 sglang DSA patches verified in bytecode ==="
+diff --git a/deploy/docker/patches/sglang_dsa/v0521/dsa_page_table_rows.diff b/deploy/docker/patches/sglang_dsa/v0521/dsa_page_table_rows.diff
+new file mode 100644
+index 00000000..3d7080f9
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/v0521/dsa_page_table_rows.diff
+@@ -0,0 +1,77 @@
++dsa_page_table_rows (v0521 re-cut) -- decode page-table rows under MTP
++--------------------------------------------------------------------------------
++SAME FIX as ../dsa_page_table_rows.diff, whose header is the record (WHAT / WHY /
++UPSTREAM / the #32209 negative result / the IndexShare substitution).  Only the
++anchors moved; the three edits are byte-identical.
++
++WHY A RE-CUT.  Against lmsysorg/sglang-rocm:v0.5.21-rocm720-mi35x-20261008
++(sglang 9f5d8712) the v0519 diff rejects 2 of 3 hunks at --fuzz=0:
++  hunk 1  upstream inserted _trim_trtllm_decode_dp_padding /
++          _restore_trtllm_decode_dp_padding between _to_2d_context_lens and
++          DSAFlashMLAMetadata, so the helper now goes before the former.
++  hunk 3  _forward_trtllm now trims q/top-k to the metadata rows before the
++          transform.  That site is the trtllm-gen path (SM100 / explicit
++          --dsa-*-backend trtllm) and is unreachable on gfx950; it is wrapped
++          anyway for parity, and the helper is a no-op when row counts match.
++hunk 2 (forward_decode -- the path tilelang/triton decode takes) is unchanged.
++
++STILL NEEDED ON v0.5.21: transform_index_page_table_decode_fast still asserts
++`page_table.shape[0] == topk_indices.shape[0]`
++(kernels/ops/attention/dsa/transform_index.py:241), and forward_decode still
++passes the per-request metadata.page_table_1 next to the per-token, padded
++topk_indices (layers/attention/dsa_backend.py:2453-2470).
++--------------------------------------------------------------------------------
++--- a/python/sglang/srt/layers/attention/dsa_backend.py
+++++ b/python/sglang/srt/layers/attention/dsa_backend.py
++@@ -174,6 +174,29 @@
++     return seqlens_32.contiguous().view(-1, 1)
++ 
++ 
+++def _glm52_match_page_table_rows(page_table, topk_indices):
+++    """GLM52_BUG2B: give page_table one row per TOKEN, matching topk_indices.
+++
+++    page_table_1 is per-REQUEST, topk_indices per-TOKEN -- equal for plain decode,
+++    not under MTP, where decode then trips `assert page_table.shape[0] ==
+++    topk_indices.shape[0]`. Padded rows are masked, so only the COUNT matters.
+++    """
+++    if topk_indices is None or page_table is None:
+++        return page_table
+++    n_topk = topk_indices.shape[0]
+++    n_rows = page_table.shape[0]
+++    if n_rows == n_topk:
+++        return page_table
+++    if n_rows > 0 and n_topk % n_rows == 0:
+++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
+++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
+++    # only through padded (-1) topk entries is masked, so its content is moot.
+++    if n_rows > n_topk:
+++        return page_table[:n_topk]
+++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
+++    return torch.cat([page_table, pad], dim=0)
+++
+++
++ def _trim_trtllm_decode_dp_padding(
++     q_all: torch.Tensor,
++     topk_indices: Optional[torch.Tensor],
++@@ -2464,7 +2487,9 @@
++             page_table_1 = self._get_fused_topk_page_table(topk_indices)
++         else:
++             page_table_1 = transform_index_page_table_decode(
++-                page_table=metadata.page_table_1,
+++                page_table=_glm52_match_page_table_rows(
+++                    metadata.page_table_1, topk_indices
+++                ),
++                 topk_indices=topk_indices,
++                 page_size=1,
++             )
++@@ -3677,7 +3702,9 @@
++             )
++         else:
++             page_table_1 = transform_index_page_table_decode(
++-                page_table=metadata.page_table_1,
+++                page_table=_glm52_match_page_table_rows(
+++                    metadata.page_table_1, topk_indices
+++                ),
++                 topk_indices=topk_indices,
++                 page_size=1,
++             )
+diff --git a/deploy/docker/patches/sglang_dsa/v0521/patch_glm_nextn_fused_shared_experts_arch.py b/deploy/docker/patches/sglang_dsa/v0521/patch_glm_nextn_fused_shared_experts_arch.py
+new file mode 100644
+index 00000000..378de1ff
+--- /dev/null
++++ b/deploy/docker/patches/sglang_dsa/v0521/patch_glm_nextn_fused_shared_experts_arch.py
+@@ -0,0 +1,62 @@
++#!/usr/bin/env python3
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++# SPDX-License-Identifier: MIT
++"""Give GlmMoeDsaForCausalLMNextN its own fused_shared_experts_architecture.
++
++THE DEFECT. configs/model_config.py rewrites a GLM DSA draft's architecture to
++"GlmMoeDsaForCausalLMNextN". The shared-experts fusion gate
++(models/deepseek_v2.py, shared_experts_fusion_disable_reason) compares
++`hf_config.architectures[0] != cls.fused_shared_experts_architecture`, and the
++NextN class inherits DeepseekV3ForCausalLMNextN's value, so the compare never
++matches and the draft silently runs unfused while the target is fused. Every
++sibling NextN (deepseek_nextn.py, glm4_moe_lite_nextn.py) and the GLM DSA target
++(glm4_moe.py GlmMoeDsaForCausalLM) define it; only this class was missed.
++
++NOT a correctness cure: measured not to fix the AgentX empty-response failure.
++Record: glm52.mtp.nextn.fusion.fix.packup_20260918/ (README, EVIDENCE).
++It was carried by the proven infera-sglang:v0519-yihou-0917-nextnfix-hicache
++image; still absent upstream at v0.5.21 (9f5d8712, glm4_moe.py:1279).
++
++Signal that it took effect: the engine log prints the fusion-enabled line twice
++(target + draft) instead of once.
++
++Self-locating and idempotent; exits non-zero on anchor drift.
++"""
++
++import importlib.util
++import py_compile
++import sys
++from pathlib import Path
++
++_TAG = "[glm-nextn-fusion-arch]"
++_VALUE = 'fused_shared_experts_architecture = "GlmMoeDsaForCausalLMNextN"'
++_OLD = "class GlmMoeDsaForCausalLMNextN(DeepseekV3ForCausalLMNextN):\n"
++_NEW = (
++    _OLD
++    + "    # The loader rewrites the draft arch to this name, so the inherited\n"
++    + "    # DeepseekV3 value would never match and silently disable fusion.\n"
++    + f"    {_VALUE}\n"
++)
++
++
++def main() -> int:
++    spec = importlib.util.find_spec("sglang")
++    if not spec or not spec.origin:
++        print(f"{_TAG} cannot locate sglang")
++        return 1
++    path = Path(spec.origin).parent / "srt" / "models" / "glm4_moe.py"
++    src = path.read_text()
++    if _VALUE in src:
++        print(f"{_TAG} already present — skipping")
++        return 0
++    if src.count(_OLD) != 1:
++        print(f"{_TAG} anchor found {src.count(_OLD)}x, want 1x in {path} — nothing written")
++        return 1
++    path.write_text(src.replace(_OLD, _NEW, 1))
++    py_compile.compile(str(path), doraise=True)
++    print(f"{_TAG} GlmMoeDsaForCausalLMNextN now matches its own architecture name")
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+-- 
+2.43.0
+

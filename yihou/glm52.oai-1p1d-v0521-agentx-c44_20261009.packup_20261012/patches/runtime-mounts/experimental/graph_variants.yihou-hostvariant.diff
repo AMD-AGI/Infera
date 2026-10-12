@@ -1,0 +1,16 @@
+--- /tmp/yihou_orig_v0521/layers_attention_graph_variants.py	2026-10-12 04:45:19.787953416 +0000
++++ /shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/graph_variants.yihou-hostvariant.py	2026-10-11 07:50:18.751602930 +0000
+@@ -30,6 +30,13 @@
+     capture_labels: ClassVar[tuple[str, ...]] = (DSA_DENSE, DSA_SPARSE)
+ 
+     def select(self, forward_batch: ForwardBatch) -> str:
++        # yihou R050: skip the per-verify seq_lens.max().item() D2H sync when a
++        # host-side LOWER bound of max(seq_lens) already exceeds index_topk: the
++        # original rule would pick sparse too (exactly equivalent). Otherwise fall
++        # through. Hint set by eagle_prepare_for_verify (YIHOU_DSA_HOST_VARIANT=1).
++        lo = getattr(forward_batch, "_yihou_kv_len_lower", None)
++        if lo is not None and lo > self.index_topk:
++            return DSA_SPARSE
+         seq_lens_cpu = forward_batch.seq_lens_cpu
+         if seq_lens_cpu is not None and seq_lens_cpu.numel() > 0:
+             # Plain decode maintains this host mirror without a D2H sync.

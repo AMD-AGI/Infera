@@ -1,0 +1,14 @@
+run,config,stack_state,conc,ok,err_dropped,total_tok_s,tok_s_per_chip,in_tok_s,out_tok_s,ttft_mean_s,ttft_p50_s,ttft_p95_s,tpot_mean_ms,tpot_p95_ms,e2el_mean_s,json
+e1c,relaxed,fresh,40,4174,2,168389,21049,167176,1213.4,5.14,2.85,17.62,13.3,18.3,18.8,runs/e1c/agentx-c40-r2/agentx_conc40.json
+e2b4,target-fusedidx-off C44,fresh,44,4138,1,162774,20347,161604,1169.7,9.01,5.41,30.49,14.2,19.7,23.1,runs/e2b4/agentx-c44/agentx_conc44.json
+e2c-C44,target C44,fresh,44,4179,2,164194,20524,163011,1182.5,8.03,4.63,28.65,15.1,21.6,22.8,runs/e2c/agentx-c44/agentx_conc44.json
+e2c-C40,target C40,warm(2nd decode run on stack),40,4237,3,173570,21696,172319,1251.5,5.61,3.3,20.05,12.2,18.1,18.1,runs/e2c/agentx-c40-e2cstack-flushed/agentx_conc40.json
+e2d,index_share TRUE+seedguard+dbgagent,fresh,40,4198,3,171065,21383,169842,1223.4,6.04,3.53,21.96,12.4,18.4,18.6,runs/e2d/agentx-c40/agentx_conc40.json
+e2e,chunk65536+xferlog,fresh,40,3979,3,156520,19565,155373,1146.3,6.94,3.27,25.14,14.7,20.8,21.1,runs/e2e/agentx-c40/agentx_conc40.json
+e2f,xferfix+nonfinal-launch,fresh,40,4014,2,158913,19864,157751,1161.9,5.57,2.97,19.27,15.3,21.9,21.0,runs/e2f/agentx-c40/agentx_conc40.json
+e2g-A1,target C40 (control),fresh,40,3993,4,157121,19640,155974,1146.3,7.61,3.94,28.7,14.3,21.1,21.7,runs/e2g/agentx-c40/agentx_conc40.json
+e2g-A2,target C40 (control),warm,40,4286,1,176909,22114,175652,1256.6,5.3,3.33,19.21,12.1,17.9,17.6,runs/e2g/agentx-c40-A2/agentx_conc40.json
+e2i-R1,target+decode dbgagent,fresh,40,4075,2,162970,20371,161794,1176.0,6.37,3.02,21.74,14.1,21.0,20.6,runs/e2i/agentx-c40/agentx_conc40.json
+e2i-R2,target+decode dbgagent,warm,40,4258,1,175366,21921,174122,1243.8,5.83,3.5,19.37,12.3,17.9,18.2,runs/e2i/agentx-c40-R2/agentx_conc40.json
+e2j-R1,target+hostvariant+graph bs1-16,fresh,40,3938,2,154680,19335,153543,1136.8,7.2,3.26,27.95,14.7,21.0,21.8,runs/e2j/agentx-c40/agentx_conc40.json
+e2j-R2,target+hostvariant+graph bs1-16,warm,40,4242,1,173451,21681,172199,1252.1,5.21,3.21,16.57,12.4,19.0,18.0,runs/e2j/agentx-c40-R2/agentx_conc40.json

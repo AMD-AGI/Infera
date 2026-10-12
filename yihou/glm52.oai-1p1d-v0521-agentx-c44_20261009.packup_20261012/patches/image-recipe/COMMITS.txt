@@ -1,0 +1,5 @@
+702af10f880aa895a3fc6bfa583eb1432e2fc387 docker(mc4340prio): opt-in high-priority Mooncake HIP copy streams (MC_HIP_STREAM_PRIORITY)
+68f06e29b8bd8267330d042268201b4ab349a4e5 docker(mc4340): avoid pipefail SIGPIPE false failure in the #4340 artifact check
+cdba2446aaa72077d79a8898aac05e38aa7da3ef docker: v0521 + Mooncake #4340 (HIP IPC sub-allocation relocation) image recipe
+fb8ae9c93dfec45cb552a5baf4db5c506b9e038b docker: v0.5.21 sglang engine recipe and re-cut GLM-5.2 patches
+e3e46f328a8d66d2a38451186c10ae089451b31a router: resolve stash conflicts for PD DP-rank affinity on the pick_targets/sessions API
