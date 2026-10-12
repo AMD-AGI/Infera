@@ -1,0 +1,6 @@
+window 10:39:41 11:40:10 samples 1805
+dp0: req  2038 input  238.5M blocked  496 alloc wait   3.5/ 12.5s gen  20.2s active  83.4% >90%  54.1% queue  1.98
+dp1: req  2124 input  237.8M blocked  491 alloc wait   4.0/ 13.7s gen  19.6s active  83.0% >90%  54.8% queue  2.38
+dp2: req  2177 input  246.1M blocked  498 alloc wait   3.1/ 11.7s gen  19.4s active  83.3% >90%  58.6% queue  1.94
+dp3: req  2478 input  267.4M blocked  575 alloc wait   3.1/ 10.6s gen  19.8s active  83.6% >90%  56.2% queue  2.17
+mean active 83.3 % | hot>90&cold<50 0.7 % | all>85% 37.2 % | spread 14.2 pp

@@ -1,0 +1,38 @@
+[
+  {
+    "session": "21e717f2605c48cfb2faaff1d1613aa8-0",
+    "turn": 0,
+    "record": 311,
+    "expected": "Z2283",
+    "rid": "radix-gate-0f66db39f7884557a22db505d242f848",
+    "content": "Z2283",
+    "reasoning": "The user is asking for the code in record 311. Let me look at record 311.\n\nRecord 311: city Kyoto; code Z2283.\n\nThe code is Z2283.",
+    "finish": "stop",
+    "usage": {
+      "prompt_tokens": 5793,
+      "total_tokens": 5840,
+      "completion_tokens": 47,
+      "prompt_tokens_details": null,
+      "reasoning_tokens": 43
+    },
+    "elapsed_s": 11.217
+  },
+  {
+    "session": "21e717f2605c48cfb2faaff1d1613aa8-1",
+    "turn": 0,
+    "record": 328,
+    "expected": "Z6540",
+    "rid": "radix-gate-6ede8b940f804841b5faefd5b7611ced",
+    "content": "Z7958",
+    "reasoning": "The user is asking for the code in record 328. Let me look at the registry data provided.\n\nRecord 328: city Nairobi; code Z7958.\n\nThe code is Z7958.",
+    "finish": "stop",
+    "usage": {
+      "prompt_tokens": 5791,
+      "total_tokens": 5841,
+      "completion_tokens": 50,
+      "prompt_tokens_details": null,
+      "reasoning_tokens": 45
+    },
+    "elapsed_s": 5.221
+  }
+]

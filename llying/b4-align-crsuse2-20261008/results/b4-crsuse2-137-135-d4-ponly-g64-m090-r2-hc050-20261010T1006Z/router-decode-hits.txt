@@ -1,0 +1,5 @@
+window 10:39:41-11:40:10: D decisions 8841
+  router: picked rank had cached blocks 2750 (31.1%), cached / request blocks 18.8%; hit fraction among those mean 81.6%
+  credit could have decided at most 656 picks (7.4% of decisions): another rank was cheaper before the picked rank's credit
+  D reused: 2157 / 8817 requests (24.5%), prefix tokens 11.5% of input
+  D cache headroom: capacity 9.51M tokens, active 83.3%, evictable mean 1.18M p50 0.52M p10 0.10M
