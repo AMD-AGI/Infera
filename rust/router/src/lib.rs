@@ -42,5 +42,6 @@ pub mod proxy;
 pub mod render_probe;
 pub mod render_variant;
 pub mod responses_input;
+pub mod session_affinity;
 pub mod tiktoken;
 pub mod util;

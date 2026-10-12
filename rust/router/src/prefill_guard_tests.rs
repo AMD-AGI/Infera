@@ -1,7 +1,7 @@
 use super::*;
 use crate::config::PrefillGuardRelease;
 use crate::policy::{Pick, Policy, RoundRobin};
-use crate::pool::{Snapshot, Worker};
+use crate::pool::Snapshot;
 use futures::StreamExt;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -14,7 +14,7 @@ struct Counts {
     changed: Notify,
 }
 impl Policy for Counts {
-    fn pick(&self, _: &[Arc<Worker>], _: &Value, _: Role) -> Pick {
+    fn pick_targets(&self, _: &[RouteTarget], _: &Value, _: Role) -> Pick {
         unreachable!()
     }
     fn on_request_started(&self, key: &str, _: &[u64]) {
@@ -71,6 +71,7 @@ fn state(mode: PrefillGuardRelease) -> AppState {
         nats: None,
         pd_prefill_drain_timeout: Duration::from_secs(1),
         pd_prefill_guard_release: mode,
+        sessions: Arc::new(crate::session_affinity::Sessions::default()),
         stream_stall_warn: Default::default(),
     }
 }
@@ -126,6 +127,7 @@ async fn detached_prefill_holds_load_until_body_eof_on_success_and_error() {
             Map::new(),
             None,
             p,
+            None,
         );
         tokio::time::timeout(Duration::from_secs(3), opened.notified())
             .await
@@ -156,6 +158,7 @@ async fn aborting_a_stalled_prefill_drain_releases_its_guard() {
         Map::new(),
         None,
         p,
+        None,
     );
     task.abort();
     let _ = task.await;
@@ -255,6 +258,7 @@ async fn nats_prefill_holds_load_until_a_terminal_frame() {
             wid,
             b"{}".to_vec(),
             d.take_first(),
+            None,
         );
         let request = tokio::time::timeout(Duration::from_secs(3), requests.next())
             .await
