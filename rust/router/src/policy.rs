@@ -32,6 +32,16 @@ pub enum Role {
     Mixed,
 }
 
+impl Role {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Role::Prefill => "prefill",
+            Role::Decode => "decode",
+            Role::Mixed => "mixed",
+        }
+    }
+}
+
 /// A pick plus the request's block hashes on the chosen target (empty for
 /// policies that don't track load). The router echoes `blocks` back through the
 /// lifecycle hooks keyed by `target.route_key()`.
@@ -142,6 +152,7 @@ impl Policy for RoundRobin {
         *idx = idx.wrapping_add(1);
         let target = targets[i].clone();
         tracing::info!(policy = "round-robin", role = ?role, picked = %target.route_key(), "pick");
+        crate::metrics::record_pick(role.as_str(), &target.worker.worker_id, 0, 0);
         Pick {
             target,
             blocks: Vec::new(),
@@ -625,6 +636,7 @@ impl Policy for KvEventAwarePolicy {
             "pick"
         );
         self.note_hit_outcome(&picked, blocks.len(), hits, w_overlap > 0.0);
+        crate::metrics::record_pick(role.as_str(), &picked.worker.worker_id, hits, blocks.len());
         Pick {
             target: picked,
             blocks,

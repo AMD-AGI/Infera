@@ -206,6 +206,11 @@ async fn stream_dual(
     );
     let mut abort_unless_stream_owns_it = FireOnDrop(Some(incomplete_tx));
 
+    let tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
     match open_decode(state, d, &d_url, &d_body).await {
         Ok(resp) => crate::proxy::sse_response()
             // guard drops when the decode stream ends -> on_request_finished.
@@ -219,9 +224,15 @@ async fn stream_dual(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_stream_owns_it.take(),
+                Some(tracker),
             )))
             .expect("stream response is valid"),
-        Err(msg) => json_error(StatusCode::BAD_GATEWAY, &msg),
+        Err(msg) => {
+            let mut t = tracker;
+            t.set_outcome("error");
+            t.finish();
+            json_error(StatusCode::BAD_GATEWAY, &msg)
+        }
     }
 }
 
@@ -239,6 +250,11 @@ async fn unary_dual(
 ) -> Response {
     // Held until both legs finish (dropped at fn end) -> on_request_finished.
     let _guard = guard;
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
     let rid = p_body
         .get("rid")
         .and_then(|v| v.as_str())
@@ -300,20 +316,48 @@ async fn unary_dual(
             }
             let ct = content_type(&resp);
             match resp.bytes().await {
-                Ok(bytes) => Response::builder()
-                    .status(st)
-                    .header(header::CONTENT_TYPE, ct)
-                    .body(Body::from(bytes))
-                    .expect("unary response is valid"),
-                Err(e) => json_error(
-                    StatusCode::BAD_GATEWAY,
-                    &format!("decode {} read failed: {e}", d.worker.worker_id),
-                ),
+                Ok(bytes) => {
+                    if st.is_success() {
+                        if let Ok(v) = serde_json::from_slice::<Value>(&bytes) {
+                            if let Some(usage) = v.get("usage") {
+                                if let Some(p) = usage.get("prompt_tokens").and_then(|x| x.as_u64())
+                                {
+                                    tracker.set_input_tokens(p);
+                                }
+                                if let Some(c) =
+                                    usage.get("completion_tokens").and_then(|x| x.as_u64())
+                                {
+                                    tracker.set_output_tokens(c);
+                                }
+                            }
+                        }
+                        tracker.set_outcome("ok");
+                    } else if st.is_client_error() {
+                        tracker.set_outcome("4xx");
+                    } else if st.is_server_error() {
+                        tracker.set_outcome("5xx");
+                    } else {
+                        tracker.set_outcome("error");
+                    }
+                    Response::builder()
+                        .status(st)
+                        .header(header::CONTENT_TYPE, ct)
+                        .body(Body::from(bytes))
+                        .expect("unary response is valid")
+                }
+                Err(e) => {
+                    tracker.set_outcome("error");
+                    json_error(
+                        StatusCode::BAD_GATEWAY,
+                        &format!("decode {} read failed: {e}", d.worker.worker_id),
+                    )
+                }
             }
         }
         Err(e) => {
             pair_failed = true;
             state.breaker.record_failure(&d.worker.worker_id);
+            tracker.set_outcome("error");
             json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {} unreachable: {e}", d.worker.worker_id),
@@ -326,7 +370,12 @@ async fn unary_dual(
     if pair_failed {
         tracing::warn!("PD unary pair failed; aborting rid={rid}");
         abort_sglang_pair(transport, &rid, n);
+        if response.status().is_success() {
+            // Prefill failed while decode returned 200; still count as error.
+            tracker.set_outcome("error");
+        }
     }
+    tracker.finish();
     response
 }
 
@@ -380,12 +429,23 @@ async fn dual_nats(
     // decode request already on the wire.
     let mut abort_unless_decode_owns_it = FireOnDrop(Some(incomplete_tx));
 
+    // Start before JetStream publish/ack so a dispatch failure still records
+    // the time spent waiting on NATS (same pattern as the mixed path).
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
+
     let wid = d.worker.worker_id.clone();
     let mut reply = match nats.dispatch(&wid, &d_payload).await {
         Ok(r) => r,
         Err(e) => {
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
+            // Same 502 as the Python path; keep outcome labels aligned.
+            tracker.set_outcome("5xx");
+            tracker.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} unreachable over nats: {e}"),
@@ -416,6 +476,8 @@ async fn dual_nats(
                         "decode (nats) {wid} failed: {}",
                         truncate_chars(&message, 200)
                     );
+                    tracker.set_outcome("error");
+                    tracker.finish();
                     return json_error(code, &format!("decode {wid} nats failed"));
                 }
                 None => break,
@@ -427,6 +489,8 @@ async fn dual_nats(
             // a worker that accepts work and then goes quiet -- as health.
             state.breaker.record_failure(&wid);
             drop(guard);
+            tracker.set_outcome("error");
+            tracker.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} closed the nats reply without finishing"),
@@ -435,6 +499,26 @@ async fn dual_nats(
         score_leg(&state.breaker, &wid, status.as_u16());
         drop(guard);
         abort_unless_done.settle(unary_nats_end(status.as_u16()));
+        if status.is_success() {
+            if let Ok(v) = serde_json::from_slice::<Value>(&buf) {
+                if let Some(usage) = v.get("usage") {
+                    if let Some(p) = usage.get("prompt_tokens").and_then(|x| x.as_u64()) {
+                        tracker.set_input_tokens(p);
+                    }
+                    if let Some(c) = usage.get("completion_tokens").and_then(|x| x.as_u64()) {
+                        tracker.set_output_tokens(c);
+                    }
+                }
+            }
+            tracker.set_outcome("ok");
+        } else if status.is_client_error() {
+            tracker.set_outcome("4xx");
+        } else if status.is_server_error() {
+            tracker.set_outcome("5xx");
+        } else {
+            tracker.set_outcome("error");
+        }
+        tracker.finish();
         return Response::builder()
             .status(status)
             .header(header::CONTENT_TYPE, "application/json")
@@ -446,6 +530,8 @@ async fn dual_nats(
     // recorded yet: an accepted request says nothing about whether this worker
     // produces anything, and the failure profile worth catching is exactly the
     // one that accepts and then goes quiet. It is recorded on the first byte.
+    // Reuse the tracker started before dispatch so NATS publish/ack time is
+    // included in the request duration.
     let breaker = state.breaker.clone();
     let body = futures::stream::unfold(
         (Some(reply), breaker, wid, false, false),
@@ -511,6 +597,7 @@ async fn dual_nats(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_decode_owns_it.take(),
+                Some(tracker),
             ),
         ))
         .expect("stream response is valid")

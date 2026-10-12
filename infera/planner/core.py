@@ -56,8 +56,11 @@ class SlaPlanner:
             logger.warning("generation traffic exists but no decode replica is observable")
             return None
         if not metrics.has_latency:
+            # Typical after a worker-series prune or counter reset: ISL/OSL still
+            # move, but the TTFT/ITL window is zero. Skip rather than scale on 0.
             logger.warning(
-                "window has traffic but lacks streaming latency samples (ttft=%.1fms, itl=%.1fms)",
+                "window has traffic but lacks streaming latency samples "
+                "(ttft=%.1fms, itl=%.1fms); skipping this round",
                 metrics.ttft * 1000.0,
                 metrics.itl * 1000.0,
             )

@@ -83,7 +83,7 @@ class DirectRouter(MixedRouter):
         with metrics.track_request(router="direct") as obs:
             worker = self.pool.get(worker_id)
             if worker is None:
-                obs["outcome"] = "503"
+                obs["outcome"] = metrics.outcome_label(503)
                 logger.warning("direct: worker %s from header not in pool", scrub(worker_id))
                 return JSONResponse(
                     content={"error": f"worker {worker_id!r} not found (stale gateway routing?)"},
