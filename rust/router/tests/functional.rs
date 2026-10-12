@@ -49,6 +49,8 @@ struct MockState {
     hang_stream: bool,
     /// End the SSE body after one event, with no `data: [DONE]`.
     truncated_sse: bool,
+    /// Pause after accepting the request, before the status is returned.
+    delay: Duration,
 }
 
 impl MockState {
@@ -87,6 +89,9 @@ async fn mock_handle(
 
     if s.hang {
         std::future::pending::<()>().await;
+    }
+    if !s.delay.is_zero() {
+        tokio::time::sleep(s.delay).await;
     }
 
     if s.status != 200 {
@@ -137,6 +142,7 @@ async fn spawn_mock(status: u16, sse: bool, reply: Value) -> (String, Arc<MockSt
         hang: false,
         hang_stream: false,
         truncated_sse: false,
+        delay: Duration::ZERO,
     });
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
@@ -171,6 +177,7 @@ async fn spawn_mock_cfg(
         hang,
         hang_stream,
         truncated_sse: false,
+        delay: Duration::ZERO,
     });
     serve_mock(state).await
 }
@@ -187,6 +194,7 @@ async fn spawn_mock_truncated_sse() -> (String, Arc<MockState>) {
         hang: false,
         hang_stream: false,
         truncated_sse: true,
+        delay: Duration::ZERO,
     });
     serve_mock(state).await
 }
@@ -224,6 +232,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
+        pd_prefill_guard_release: infera_router::config::PrefillGuardRelease::Decode,
         pd_prefill_drain_timeout: Duration::from_secs(300),
         stream_stall_warn: infera_router::proxy::StallWarn {
             before_first_byte: Duration::from_secs(240),
@@ -383,6 +392,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
+        pd_prefill_guard_release: infera_router::config::PrefillGuardRelease::Decode,
         pd_prefill_drain_timeout: Duration::from_secs(300),
         stream_stall_warn: infera_router::proxy::StallWarn {
             before_first_byte: Duration::from_secs(240),
@@ -571,6 +581,69 @@ async fn breaker_stops_reselecting_a_dead_worker() {
         "dead worker must stop being re-picked after the threshold (was 5 before the fix)"
     );
     assert_eq!(ok.hit_count(), 10, "healthy worker still serves everything");
+}
+
+fn duration_sum(body: &str, outcome: &str) -> f64 {
+    body.lines()
+        .find(|line| {
+            line.starts_with("infera_request_duration_seconds_sum")
+                && line.contains("router=\"mixed\"")
+                && line.contains(&format!("outcome=\"{outcome}\""))
+        })
+        .and_then(|line| line.rsplit_once(' '))
+        .and_then(|(_, value)| value.parse().ok())
+        .unwrap_or(0.0)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mixed_client_error_records_attempt_duration() {
+    let state = Arc::new(MockState {
+        status: 400,
+        sse: false,
+        reply: json!(null),
+        hits: Mutex::new(Vec::new()),
+        abort_rids: Mutex::new(Vec::new()),
+        hang: false,
+        hang_stream: false,
+        truncated_sse: false,
+        delay: Duration::from_millis(200),
+    });
+    let (url, _) = serve_mock(state).await;
+    let app_state = make_state(
+        vec![worker(
+            json!({"worker_id": "w-slow-4xx", "url": url, "model_name": "m", "disagg_mode": "mixed"}),
+        )],
+        0,
+    );
+    let router = spawn_router(app_state).await;
+    let before = client()
+        .get(format!("{router}/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+    let after = client()
+        .get(format!("{router}/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let delta = duration_sum(&after, "4xx") - duration_sum(&before, "4xx");
+    assert!(
+        delta >= 0.15,
+        "4xx duration {delta} should cover the worker attempt"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

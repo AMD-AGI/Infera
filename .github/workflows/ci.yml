@@ -240,6 +240,10 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      # The runner's own env predates any scheduler change since it started; every
+      # later step (tests and reclaim) must talk to the controller the host uses now.
+      - name: refresh scheduler env
+        run: .github/scripts/refresh_spur_env.sh
       # exec, so run_tests.sh IS the step's entry process: on cancel the runner
       # signals only that one pid, and a wrapping bash would not forward it, so
       # the script's INT/TERM trap (scancel of the dispatched job) never ran.
@@ -284,6 +288,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      - name: refresh scheduler env
+        run: .github/scripts/refresh_spur_env.sh
       # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable.
       - name: e2e ${{ matrix.engine }} mixed
         run: exec bash tests/run_tests.sh e2e ${{ matrix.engine }} mixed
@@ -341,6 +347,8 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
+      - name: refresh scheduler env
+        run: .github/scripts/refresh_spur_env.sh
       # exec: see the engine job — keeps run_tests.sh's INT/TERM trap reachable,
       # which is what releases the held node pair on cancel.
       - name: e2e ${{ matrix.engine }} disag

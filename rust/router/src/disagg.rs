@@ -174,7 +174,7 @@ async fn stream_dual(
     d_url: String,
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     let rid = p_body
         .get("rid")
@@ -184,6 +184,7 @@ async fn stream_dual(
     let n = sample_count(&p_body);
     let rid_for_log = rid.clone();
     let (incomplete_tx, incomplete_rx) = oneshot::channel();
+    let prefill_guard = take_prefill_guard(state, &mut guard);
     let drain_handle = spawn_prefill_drain(
         state.http.clone(),
         state.breaker.clone(),
@@ -191,6 +192,7 @@ async fn stream_dual(
         p_url,
         p_body,
         p.dp_rank,
+        prefill_guard,
     );
     watch_prefill_after_decode(
         incomplete_rx,
@@ -206,6 +208,11 @@ async fn stream_dual(
     );
     let mut abort_unless_stream_owns_it = FireOnDrop(Some(incomplete_tx));
 
+    let tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
     match open_decode(state, d, &d_url, &d_body).await {
         Ok(resp) => crate::proxy::sse_response()
             // guard drops when the decode stream ends -> on_request_finished.
@@ -219,9 +226,15 @@ async fn stream_dual(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_stream_owns_it.take(),
+                Some(tracker),
             )))
             .expect("stream response is valid"),
-        Err(msg) => json_error(StatusCode::BAD_GATEWAY, &msg),
+        Err(msg) => {
+            let mut t = tracker;
+            t.set_outcome("error");
+            t.finish();
+            json_error(StatusCode::BAD_GATEWAY, &msg)
+        }
     }
 }
 
@@ -235,10 +248,15 @@ async fn unary_dual(
     d_url: String,
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
-    // Held until both legs finish (dropped at fn end) -> on_request_finished.
+    let prefill_guard = take_prefill_guard(state, &mut guard);
     let _guard = guard;
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
     let rid = p_body
         .get("rid")
         .and_then(|v| v.as_str())
@@ -254,12 +272,105 @@ async fn unary_dual(
     // engines hearing about it: they keep generating and hold their inflight
     // slots. The guard turns that drop into the abort the legs never got.
     let mut abort_on_disconnect = AbortPairOnDrop::arm(transport.clone(), rid.clone(), n);
-    let p_fut = post_leg(state, &p_url, p_body, p.dp_rank);
+    let p_fut = async {
+        let response = post_leg(state, &p_url, p_body, p.dp_rank).await;
+        if prefill_guard.is_some() {
+            let failed = finish_unary_prefill(state, p, &p_url, response).await;
+            drop(prefill_guard);
+            (None, failed)
+        } else {
+            (Some(response), false)
+        }
+    };
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
-    let (p_res, d_res) = tokio::join!(p_fut, d_fut);
-    let mut pair_failed = false;
+    let ((p_res, mut pair_failed), d_res) = tokio::join!(p_fut, d_fut);
+    if let Some(response) = p_res {
+        pair_failed = finish_unary_prefill(state, p, &p_url, response).await;
+    }
 
-    // Prefill: drain + log; its output is discarded (KV goes engine→engine).
+    let response = match d_res {
+        Ok(resp) => {
+            let st = resp.status();
+            if is_worker_fault(st.as_u16()) {
+                pair_failed = true;
+                state.breaker.record_failure(&d.worker.worker_id);
+            } else if st.is_success() {
+                state.breaker.record_success(&d.worker.worker_id);
+            } else {
+                state.breaker.record_neutral(&d.worker.worker_id);
+            }
+            let ct = content_type(&resp);
+            match resp.bytes().await {
+                Ok(bytes) => {
+                    if st.is_success() {
+                        if let Ok(v) = serde_json::from_slice::<Value>(&bytes) {
+                            if let Some(usage) = v.get("usage") {
+                                if let Some(p) = usage.get("prompt_tokens").and_then(|x| x.as_u64())
+                                {
+                                    tracker.set_input_tokens(p);
+                                }
+                                if let Some(c) =
+                                    usage.get("completion_tokens").and_then(|x| x.as_u64())
+                                {
+                                    tracker.set_output_tokens(c);
+                                }
+                            }
+                        }
+                        tracker.set_outcome("ok");
+                    } else if st.is_client_error() {
+                        tracker.set_outcome("4xx");
+                    } else if st.is_server_error() {
+                        tracker.set_outcome("5xx");
+                    } else {
+                        tracker.set_outcome("error");
+                    }
+                    Response::builder()
+                        .status(st)
+                        .header(header::CONTENT_TYPE, ct)
+                        .body(Body::from(bytes))
+                        .expect("unary response is valid")
+                }
+                Err(e) => {
+                    tracker.set_outcome("error");
+                    json_error(
+                        StatusCode::BAD_GATEWAY,
+                        &format!("decode {} read failed: {e}", d.worker.worker_id),
+                    )
+                }
+            }
+        }
+        Err(e) => {
+            pair_failed = true;
+            state.breaker.record_failure(&d.worker.worker_id);
+            tracker.set_outcome("error");
+            json_error(
+                StatusCode::BAD_GATEWAY,
+                &format!("decode {} unreachable: {e}", d.worker.worker_id),
+            )
+        }
+    };
+    // Both legs answered, so nothing is left running that this guard has to
+    // clean up; a failed pair is aborted below with its own reason logged.
+    abort_on_disconnect.disarm();
+    if pair_failed {
+        tracing::warn!("PD unary pair failed; aborting rid={rid}");
+        abort_sglang_pair(transport, &rid, n);
+        if response.status().is_success() {
+            // Prefill failed while decode returned 200; still count as error.
+            tracker.set_outcome("error");
+        }
+    }
+    tracker.finish();
+    response
+}
+
+async fn finish_unary_prefill(
+    state: &AppState,
+    p: &RouteTarget,
+    p_url: &str,
+    p_res: reqwest::Result<reqwest::Response>,
+) -> bool {
+    let mut pair_failed = false;
     match p_res {
         Ok(resp) => {
             let st = resp.status();
@@ -287,47 +398,13 @@ async fn unary_dual(
         }
     }
 
-    let response = match d_res {
-        Ok(resp) => {
-            let st = resp.status();
-            if is_worker_fault(st.as_u16()) {
-                pair_failed = true;
-                state.breaker.record_failure(&d.worker.worker_id);
-            } else if st.is_success() {
-                state.breaker.record_success(&d.worker.worker_id);
-            } else {
-                state.breaker.record_neutral(&d.worker.worker_id);
-            }
-            let ct = content_type(&resp);
-            match resp.bytes().await {
-                Ok(bytes) => Response::builder()
-                    .status(st)
-                    .header(header::CONTENT_TYPE, ct)
-                    .body(Body::from(bytes))
-                    .expect("unary response is valid"),
-                Err(e) => json_error(
-                    StatusCode::BAD_GATEWAY,
-                    &format!("decode {} read failed: {e}", d.worker.worker_id),
-                ),
-            }
-        }
-        Err(e) => {
-            pair_failed = true;
-            state.breaker.record_failure(&d.worker.worker_id);
-            json_error(
-                StatusCode::BAD_GATEWAY,
-                &format!("decode {} unreachable: {e}", d.worker.worker_id),
-            )
-        }
-    };
-    // Both legs answered, so nothing is left running that this guard has to
-    // clean up; a failed pair is aborted below with its own reason logged.
-    abort_on_disconnect.disarm();
-    if pair_failed {
-        tracing::warn!("PD unary pair failed; aborting rid={rid}");
-        abort_sglang_pair(transport, &rid, n);
-    }
-    response
+    pair_failed
+}
+
+fn take_prefill_guard(state: &AppState, guard: &mut ActiveGuard) -> Option<ActiveGuard> {
+    (state.pd_prefill_guard_release == crate::config::PrefillGuardRelease::Completion)
+        .then(|| guard.take_first())
+        .flatten()
 }
 
 /// Both legs over NATS. Prefill is published and drained detached; decode's
@@ -342,7 +419,7 @@ async fn dual_nats(
     p_body: Map<String, Value>,
     d_body: Map<String, Value>,
     stream: bool,
-    guard: ActiveGuard,
+    mut guard: ActiveGuard,
 ) -> Response {
     let rid = p_body
         .get("rid")
@@ -355,11 +432,13 @@ async fn dual_nats(
     let d_payload = leg_payload(path, stream, d.dp_rank, d_body);
 
     let (incomplete_tx, incomplete_rx) = oneshot::channel();
+    let prefill_guard = take_prefill_guard(state, &mut guard);
     let drain_handle = spawn_prefill_drain_nats(
         nats.clone(),
         state.breaker.clone(),
         p.worker.worker_id.clone(),
         p_payload,
+        prefill_guard,
     );
     watch_prefill_after_decode(
         incomplete_rx,
@@ -380,12 +459,23 @@ async fn dual_nats(
     // decode request already on the wire.
     let mut abort_unless_decode_owns_it = FireOnDrop(Some(incomplete_tx));
 
+    // Start before JetStream publish/ack so a dispatch failure still records
+    // the time spent waiting on NATS (same pattern as the mixed path).
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
+
     let wid = d.worker.worker_id.clone();
     let mut reply = match nats.dispatch(&wid, &d_payload).await {
         Ok(r) => r,
         Err(e) => {
             state.breaker.record_failure(&wid);
             abort_unless_decode_owns_it.settle(StreamEnd::Incomplete);
+            // Same 502 as the Python path; keep outcome labels aligned.
+            tracker.set_outcome("5xx");
+            tracker.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} unreachable over nats: {e}"),
@@ -416,6 +506,8 @@ async fn dual_nats(
                         "decode (nats) {wid} failed: {}",
                         truncate_chars(&message, 200)
                     );
+                    tracker.set_outcome("error");
+                    tracker.finish();
                     return json_error(code, &format!("decode {wid} nats failed"));
                 }
                 None => break,
@@ -427,6 +519,8 @@ async fn dual_nats(
             // a worker that accepts work and then goes quiet -- as health.
             state.breaker.record_failure(&wid);
             drop(guard);
+            tracker.set_outcome("error");
+            tracker.finish();
             return json_error(
                 StatusCode::BAD_GATEWAY,
                 &format!("decode {wid} closed the nats reply without finishing"),
@@ -435,6 +529,26 @@ async fn dual_nats(
         score_leg(&state.breaker, &wid, status.as_u16());
         drop(guard);
         abort_unless_done.settle(unary_nats_end(status.as_u16()));
+        if status.is_success() {
+            if let Ok(v) = serde_json::from_slice::<Value>(&buf) {
+                if let Some(usage) = v.get("usage") {
+                    if let Some(p) = usage.get("prompt_tokens").and_then(|x| x.as_u64()) {
+                        tracker.set_input_tokens(p);
+                    }
+                    if let Some(c) = usage.get("completion_tokens").and_then(|x| x.as_u64()) {
+                        tracker.set_output_tokens(c);
+                    }
+                }
+            }
+            tracker.set_outcome("ok");
+        } else if status.is_client_error() {
+            tracker.set_outcome("4xx");
+        } else if status.is_server_error() {
+            tracker.set_outcome("5xx");
+        } else {
+            tracker.set_outcome("error");
+        }
+        tracker.finish();
         return Response::builder()
             .status(status)
             .header(header::CONTENT_TYPE, "application/json")
@@ -446,6 +560,8 @@ async fn dual_nats(
     // recorded yet: an accepted request says nothing about whether this worker
     // produces anything, and the failure profile worth catching is exactly the
     // one that accepts and then goes quiet. It is recorded on the first byte.
+    // Reuse the tracker started before dispatch so NATS publish/ack time is
+    // included in the request duration.
     let breaker = state.breaker.clone();
     let body = futures::stream::unfold(
         (Some(reply), breaker, wid, false, false),
@@ -511,6 +627,7 @@ async fn dual_nats(
                     stall_warn: state.stream_stall_warn,
                 },
                 abort_unless_decode_owns_it.take(),
+                Some(tracker),
             ),
         ))
         .expect("stream response is valid")
@@ -546,8 +663,12 @@ fn spawn_prefill_drain_nats(
     breaker: Arc<CircuitBreaker>,
     worker_id: String,
     payload: Vec<u8>,
+    guard: Option<ActiveGuard>,
 ) -> JoinHandle<()> {
-    tokio::spawn(drain_prefill_nats(nats, breaker, worker_id, payload))
+    tokio::spawn(async move {
+        let _guard = guard;
+        drain_prefill_nats(nats, breaker, worker_id, payload).await;
+    })
 }
 
 async fn drain_prefill_nats(
@@ -615,10 +736,12 @@ fn spawn_prefill_drain(
     url: String,
     body: Map<String, Value>,
     dp_rank: Option<i64>,
+    guard: Option<ActiveGuard>,
 ) -> JoinHandle<()> {
-    tokio::spawn(drain_prefill_http(
-        http, breaker, worker_id, url, body, dp_rank,
-    ))
+    tokio::spawn(async move {
+        let _guard = guard;
+        drain_prefill_http(http, breaker, worker_id, url, body, dp_rank).await;
+    })
 }
 
 async fn drain_prefill_http(
@@ -1208,3 +1331,7 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+#[path = "prefill_guard_tests.rs"]
+mod guard_tests;

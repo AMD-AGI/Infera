@@ -33,11 +33,14 @@ from prometheus_client import (
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 REGISTRY = CollectorRegistry()
-_sla_metrics_enabled = False
+# Serving metrics (TTFT/ITL/ISL/OSL/tokens) are on by default so Prometheus
+# scrapes are useful without an extra flag. The SLA planner consumes the same
+# histograms; ``--no-enable-sla-metrics`` turns the per-token path off.
+_sla_metrics_enabled = True
 
 
 def set_sla_metrics_enabled(enabled: bool) -> None:
-    """Enable the per-token observations consumed by the optional SLA planner."""
+    """Enable or disable per-token serving observations (TTFT/ITL/ISL/OSL)."""
     global _sla_metrics_enabled
     _sla_metrics_enabled = bool(enabled)
 
@@ -104,19 +107,85 @@ request_inflight = Gauge(
     registry=REGISTRY,
 )
 
+requests_total = Counter(
+    "infera_requests_total",
+    "Completed requests by router and outcome. QPS = rate(infera_requests_total[1m]).",
+    labelnames=("router", "outcome"),
+    registry=REGISTRY,
+)
+
+prompt_tokens_total = Counter(
+    "infera_prompt_tokens_total",
+    "Prompt tokens observed on successful requests. "
+    "Prompt throughput (tok/s) = rate(infera_prompt_tokens_total[1m]).",
+    labelnames=("router", "model", "prefill_worker"),
+    registry=REGISTRY,
+)
+
+generation_tokens_total = Counter(
+    "infera_generation_tokens_total",
+    "Generated tokens observed on successful requests. "
+    "Decode throughput (tok/s) = rate(infera_generation_tokens_total[1m]).",
+    labelnames=("router", "model", "decode_worker"),
+    registry=REGISTRY,
+)
+
+prefix_cache_blocks_hit_total = Counter(
+    "infera_prefix_cache_blocks_hit_total",
+    "Cached KV blocks the router credited to the picked worker at pick time.",
+    labelnames=("role",),
+    registry=REGISTRY,
+)
+
+prefix_cache_blocks_total = Counter(
+    "infera_prefix_cache_blocks_total",
+    "Request KV blocks seen at pick time. Hit rate = rate(hit_total) / rate(blocks_total).",
+    labelnames=("role",),
+    registry=REGISTRY,
+)
 
 # ----------------------------------------------------------------------
-# SLA signals (consumed by infera.planner)
+# Engine gauges (scraped from worker /metrics into the frontend exposition)
+# ----------------------------------------------------------------------
+
+engine_kv_cache_usage = Gauge(
+    "infera_engine_kv_cache_usage",
+    "Engine-reported KV-cache pool occupancy fraction (0-1). "
+    "SGLang: sglang:token_usage; vLLM: vllm:kv_cache_usage_perc.",
+    labelnames=("worker_id", "engine", "disagg_mode"),
+    registry=REGISTRY,
+)
+
+engine_prefix_cache_hit_rate = Gauge(
+    "infera_engine_prefix_cache_hit_rate",
+    "Engine-reported prefix cache hit rate when published (e.g. sglang:cache_hit_rate).",
+    labelnames=("worker_id", "engine", "disagg_mode"),
+    registry=REGISTRY,
+)
+
+engine_kv_transfer_queue_reqs = Gauge(
+    "infera_engine_kv_transfer_queue_reqs",
+    "Engine PD KV transfer / bootstrap queue depth from worker /metrics.",
+    labelnames=("worker_id", "queue"),
+    registry=REGISTRY,
+)
+
+
+# ----------------------------------------------------------------------
+# Serving / SLA signals (consumed by Prometheus and infera.planner)
 # ----------------------------------------------------------------------
 # The SLA planner reads only the _sum / _count of these four histograms and
 # window-differences them, so the bucket layout is for humans/dashboards.
+# Percentiles (p50/p90/p99) are computed in Prometheus/Grafana via
+# histogram_quantile — they are not exported as separate gauges.
 
 time_to_first_token_seconds = Histogram(
     "infera_time_to_first_token_seconds",
     "Server-observed time from dispatch to the first token of the reply. "
     "For PD-disaggregated requests this spans prefill + KV transfer + the "
-    "decode engine's first forward pass.",
-    labelnames=("router", "model"),
+    "decode engine's first forward pass. Labeled by the prefill worker; "
+    "decode time is on infera_inter_token_latency_seconds.",
+    labelnames=("router", "model", "prefill_worker"),
     buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, float("inf")),
     registry=REGISTRY,
 )
@@ -125,8 +194,8 @@ inter_token_latency_seconds = Histogram(
     "infera_inter_token_latency_seconds",
     "Mean per-request inter-token latency: (total stream time - TTFT) spread "
     "over the generated tokens. Only observed for requests that produced at "
-    "least two output tokens.",
-    labelnames=("router", "model"),
+    "least two output tokens. Labeled by the decode worker.",
+    labelnames=("router", "model", "decode_worker"),
     buckets=(0.001, 0.0025, 0.005, 0.01, 0.02, 0.04, 0.08, 0.16, 0.32, 1.0, float("inf")),
     registry=REGISTRY,
 )
@@ -308,6 +377,26 @@ def record_pick(*, role: str, worker_id: str, cache_hits: int, request_blocks: i
     router_picks_total.labels(role=role, worker_id=worker_id).inc()
     router_pick_cache_hits.labels(role=role).observe(cache_hits)
     router_pick_request_blocks.labels(role=role).observe(request_blocks)
+    if request_blocks > 0:
+        prefix_cache_blocks_hit_total.labels(role=role).inc(cache_hits)
+        prefix_cache_blocks_total.labels(role=role).inc(request_blocks)
+
+
+def outcome_label(status: int | None = None) -> str:
+    """Map an HTTP status (or absence of one) onto the shared outcome label set.
+
+    Labels are ``ok`` / ``4xx`` / ``5xx`` / ``error`` so Python and Rust
+    frontends stay interchangeable in Grafana error-rate panels.
+    """
+    if status is None:
+        return "error"
+    if status < 400:
+        return "ok"
+    if status < 500:
+        return "4xx"
+    if status < 600:
+        return "5xx"
+    return "error"
 
 
 _SSE_DATA = b"data:"
@@ -342,6 +431,8 @@ class RequestObserver(dict):
         self._partial = b""
         self._deferred = False
         self._closed = False
+        self._prefill_worker = ""
+        self._decode_worker = ""
 
     @property
     def deferred(self) -> bool:
@@ -350,6 +441,13 @@ class RequestObserver(dict):
 
     def claim_stream(self) -> None:
         self._deferred = True
+
+    def set_workers(self, *, prefill_worker: str = "", decode_worker: str = "") -> None:
+        """Record the workers chosen for this request (for per-worker SLA labels)."""
+        if prefill_worker:
+            self._prefill_worker = prefill_worker
+        if decode_worker:
+            self._decode_worker = decode_worker
 
     def mark_failed(self, outcome: str = "stream_failed") -> None:
         """Disown a request that failed after its outcome was committed.
@@ -472,36 +570,57 @@ class RequestObserver(dict):
             self._frames += token_frames
 
     def close(self) -> None:
-        """Emit the SLA histograms. Idempotent.
+        """Emit lifecycle + SLA metrics. Idempotent.
 
-        Only successful requests are observed: a 5xx contributes no meaningful
-        latency and would drag the planner's window averages toward zero.
+        For deferred (streaming) observers this is the only place
+        ``requests_total`` / duration / inflight are updated, so mid-stream
+        ``mark_failed()`` still wins. SLA histograms still only observe
+        successful requests.
         """
         if self._closed:
             return
         self._closed = True
+        router, model = self._router, self._model
+        outcome = self["outcome"]
+        if self._deferred:
+            request_inflight.labels(router=router).dec()
+            request_duration_seconds.labels(router=router, outcome=outcome).observe(
+                time.perf_counter() - self._start
+            )
+            requests_total.labels(router=router, outcome=outcome).inc()
         if not _sla_metrics_enabled:
             return
-        if self["outcome"] != "ok":
+        if outcome != "ok":
             return
-        router, model = self._router, self._model
 
         osl = self._osl if self._osl is not None else self._frames
+        prefill_worker = self._prefill_worker
+        decode_worker = self._decode_worker
         if self._isl is not None:
             input_sequence_tokens.labels(router=router, model=model).observe(self._isl)
+            prompt_tokens_total.labels(
+                router=router, model=model, prefill_worker=prefill_worker
+            ).inc(self._isl)
         if osl > 0:
             output_sequence_tokens.labels(router=router, model=model).observe(osl)
+            generation_tokens_total.labels(
+                router=router, model=model, decode_worker=decode_worker
+            ).inc(osl)
 
         if self._ttft is None:
             # Non-streaming reply: the whole response landed at once, so there
             # is no observable first-token boundary to report.
             return
-        time_to_first_token_seconds.labels(router=router, model=model).observe(self._ttft)
+        time_to_first_token_seconds.labels(
+            router=router,
+            model=model,
+            prefill_worker=prefill_worker,
+        ).observe(self._ttft)
         if osl > 1:
             decode_time = max(0.0, time.perf_counter() - self._start - self._ttft)
-            inter_token_latency_seconds.labels(router=router, model=model).observe(
-                decode_time / (osl - 1)
-            )
+            inter_token_latency_seconds.labels(
+                router=router, model=model, decode_worker=decode_worker
+            ).observe(decode_time / (osl - 1))
 
 
 @contextmanager
@@ -512,7 +631,7 @@ def track_request(router: str, model: str = ""):
 
         with track_request(router="mixed") as obs:
             resp = await dispatch(...)
-            obs["outcome"] = "ok" if resp.status_code < 400 else f"{resp.status_code // 100}xx"
+            obs["outcome"] = outcome_label(resp.status_code)
 
     Yields a :class:`RequestObserver`, whose extra methods feed the SLA
     histograms. For a streaming reply the observer is handed to the stream
@@ -520,15 +639,19 @@ def track_request(router: str, model: str = ""):
     """
     obs = RequestObserver(router, model)
     request_inflight.labels(router=router).inc()
-    start = time.perf_counter()
     try:
         yield obs
     finally:
-        request_inflight.labels(router=router).dec()
-        request_duration_seconds.labels(router=router, outcome=obs["outcome"]).observe(
-            time.perf_counter() - start
-        )
+        # Streaming generators claim the observer and call close() after the
+        # last token. Recording requests_total here would lock in "ok" before
+        # mark_failed() can run on a mid-stream error.
         if not obs.deferred:
+            request_inflight.labels(router=router).dec()
+            outcome = obs["outcome"]
+            request_duration_seconds.labels(router=router, outcome=outcome).observe(
+                time.perf_counter() - obs._start
+            )
+            requests_total.labels(router=router, outcome=outcome).inc()
             obs.close()
 
 
@@ -547,6 +670,88 @@ def track_pd_leg(*, leg: str, worker_id: str):
         pd_dispatch_duration_seconds.labels(leg=leg, worker_id=worker_id).observe(
             time.perf_counter() - start
         )
+
+
+def apply_engine_scrape(
+    *,
+    worker_id: str,
+    engine: str,
+    disagg_mode: str,
+    text: str,
+) -> None:
+    """Update engine gauges from one worker's Prometheus text exposition."""
+    from infera.common.engine_metrics import (
+        mean_metric,
+        metric_names,
+        parse_metric,
+        transfer_queue_names,
+    )
+    from infera.common.worker_pool import EngineType
+
+    try:
+        eng = EngineType(engine)
+    except ValueError:
+        return
+
+    mode = disagg_mode or "mixed"
+    kv_val = None
+    for name in metric_names("kv_cache_usage", eng):
+        kv_val = mean_metric(text, name)
+        if kv_val is None:
+            kv_val = parse_metric(text, name)
+        if kv_val is not None:
+            break
+    if kv_val is not None:
+        engine_kv_cache_usage.labels(worker_id=worker_id, engine=engine, disagg_mode=mode).set(
+            kv_val
+        )
+
+    for name in metric_names("prefix_cache_hit_rate", eng):
+        hit = mean_metric(text, name)
+        if hit is not None:
+            engine_prefix_cache_hit_rate.labels(
+                worker_id=worker_id, engine=engine, disagg_mode=mode
+            ).set(hit)
+            break
+
+    for queue, name in transfer_queue_names(eng):
+        depth = parse_metric(text, name)
+        if depth is not None:
+            engine_kv_transfer_queue_reqs.labels(worker_id=worker_id, queue=queue).set(depth)
+
+
+def prune_departed_workers(active_worker_ids: set[str]) -> None:
+    """Drop SLA series whose worker id is no longer active.
+
+    Child series stay registered until removed, and a replaced pod gets a new
+    worker id. An empty worker label is the series used before a worker is
+    known and is left in place. Labels may be a bare ``worker_id`` or a DP
+    ``route_key`` (``worker_id#dpN``); the ``#dpN`` suffix is ignored when
+    matching against the active set.
+    """
+    _drop_worker_series(time_to_first_token_seconds, "prefill_worker", active_worker_ids)
+    _drop_worker_series(inter_token_latency_seconds, "decode_worker", active_worker_ids)
+    _drop_worker_series(prompt_tokens_total, "prefill_worker", active_worker_ids)
+    _drop_worker_series(generation_tokens_total, "decode_worker", active_worker_ids)
+    _drop_worker_series(router_picks_total, "worker_id", active_worker_ids)
+
+
+def _worker_id_base(label: str) -> str:
+    """Strip a ``#dpN`` route_key suffix so DP ranks map to their worker."""
+    head, sep, _ = label.partition("#dp")
+    return head if sep else label
+
+
+def _drop_worker_series(metric, label: str, active: set[str]) -> None:
+    """Remove children of ``metric`` whose ``label`` is outside ``active``."""
+    index = metric._labelnames.index(label)
+    stale = [
+        labels
+        for labels in list(metric._metrics)
+        if labels[index] and _worker_id_base(labels[index]) not in active
+    ]
+    for labels in stale:
+        metric.remove(*labels)
 
 
 def render_metrics() -> tuple[bytes, str]:

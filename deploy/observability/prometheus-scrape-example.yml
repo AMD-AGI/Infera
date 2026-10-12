@@ -1,0 +1,39 @@
+# Example Prometheus scrape for Infera serving metrics (plan A).
+# One target is enough: the frontend / Rust router federates allowlisted
+# engine series (vllm:* / sglang:*) onto GET /metrics with worker_id labels.
+#
+# Import deploy/observability/grafana-vllm-parity.json for the stock
+# "vLLM (Monitoring vLLM Inference Server)" panels (filter by model_name).
+#
+# Percentiles use histogram_quantile on histogram buckets — not separate gauges.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: infera-frontend
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          - infera-frontend:8000
+
+# Gateway-side PromQL (infera_*):
+#
+#   sum(rate(infera_requests_total[1m]))
+#   histogram_quantile(0.99, sum by (le) (rate(infera_request_duration_seconds_bucket[5m])))
+#   histogram_quantile(0.99, sum by (le) (rate(infera_time_to_first_token_seconds_bucket[5m])))
+#   histogram_quantile(0.99, sum by (le) (rate(infera_inter_token_latency_seconds_bucket[5m])))
+#   sum(rate(infera_prompt_tokens_total[1m]))
+#   sum(rate(infera_generation_tokens_total[1m]))
+#
+# Federated engine panels (same scrape; use model_name="$model_name"):
+#
+#   vllm:num_requests_running / _waiting / _swapped
+#   vllm:kv_cache_usage_perc or vllm:gpu_cache_usage_perc
+#   vllm:cpu_cache_usage_perc
+#   rate(vllm:request_queue_time_seconds_sum[5m])
+#   rate(vllm:request_prefill_time_seconds_sum[5m])
+#   rate(vllm:request_decode_time_seconds_sum[5m])
+#   sum by (finished_reason) (increase(vllm:request_success_total[5m]))
+#   infera_engine_kv_cache_usage   # convenience gauge from the same scrape
