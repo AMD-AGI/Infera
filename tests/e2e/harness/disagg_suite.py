@@ -59,7 +59,7 @@ def assert_rdma_kv_transport(server: dict) -> None:
         )
 
 
-async def run_disagg_case(params: EngineParams, disagg_stack) -> None:
+async def run_disagg_case(params: EngineParams, disagg_stack, *, longctx: bool = True) -> None:
     """Shared body: skip unsupported combos / environments, bring up the whole
     containerized stack (etcd + router + prefill on node 0, decode on node 1),
     then verify chat liveness + semantic correctness end-to-end (the request is
@@ -78,7 +78,7 @@ async def run_disagg_case(params: EngineParams, disagg_stack) -> None:
     # Correctness only (no standalone chat liveness). Its chat-based probes self-report
     # as not-run on completions-only PD engines (e.g. ATOM), leaving counting and the
     # long-context retrieval — the latter being what makes the P->D hop move real KV.
-    await scenarios.assert_correctness(server["url"], params.model)
+    await scenarios.assert_correctness(server["url"], params.model, longctx=longctx)
 
     # …and that it got there over RDMA, which correctness alone cannot show.
     assert_rdma_kv_transport(server)
