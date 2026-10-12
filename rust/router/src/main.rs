@@ -157,6 +157,7 @@ async fn main() -> anyhow::Result<()> {
         retries: cfg.request_max_retries,
         breaker,
         nats,
+        pd_prefill_guard_release: cfg.pd_prefill_guard_release,
         pd_prefill_drain_timeout: Duration::from_secs_f64(cfg.pd_prefill_drain_timeout_s.max(0.0)),
         stream_stall_warn: proxy::StallWarn {
             before_first_byte: Duration::from_secs_f64(cfg.stream_admission_warn_s.max(0.0)),

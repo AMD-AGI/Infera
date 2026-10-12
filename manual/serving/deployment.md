@@ -228,3 +228,23 @@ Radix + MTP was GPU-validated with GLM-5.2 on the rebuilt default v0.5.18 image:
 Decode reused a shared prefix and real MTP acceptance was observed. That run
 did not include an accuracy benchmark. Earlier Decode HiCache runs used a patched
 SGLang build newer than v0.5.19.
+
+### Prefill load accounting in the Rust router
+
+By default a disaggregated request holds both Prefill and Decode routing load
+until Decode finishes. Set `INFERA_PD_PREFILL_GUARD_RELEASE=completion` on the
+Rust router to release Prefill's load after its complete response has been
+consumed. The native Rust CLI equivalent is
+`--pd-prefill-guard-release completion`; `decode` retains the default behavior.
+
+This changes router load accounting, not engine KV-cache ownership or eviction.
+It applies to HTTP streaming/unary and NATS delivery. Response headers alone do
+not release Prefill. Decode retains its own load guard, and the existing
+client-disconnect, failed-stream and Prefill-drain timeout handling still aborts
+unfinished engine work. A failed or cancelled Prefill drain also releases its
+accounting entry.
+
+The option is most useful for KV-aware routing when long Decode requests would
+otherwise keep completed Prefill work in the load estimate. It does not change
+the scoring formula or enable session affinity. It is a Rust-backend option;
+the Python router is unchanged.
