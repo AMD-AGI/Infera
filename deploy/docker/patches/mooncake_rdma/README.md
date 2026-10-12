@@ -24,21 +24,6 @@ The same argument is supported by `Dockerfile.sglang.gfx942` and
 `Dockerfile.sglang.glm53`. These normal images default to no RDMA overlays.
 `BUILD_MOONCAKE=0` cannot be combined with enabling the patches.
 
-To rebuild only Mooncake on an existing compatible ROCm SGLang/Infera image:
-
-```bash
-docker build -f deploy/docker/Dockerfile.sglang.mooncake \
-  --build-arg BASE_IMAGE=infera-sglang:your-existing-tag \
-  --build-arg MC_GPU_ARCH=gfx950 \
-  -t infera-sglang:mooncake-rdma .
-```
-
-This dedicated overlay enables the **build-time** patch bundle by default. Use
-`gfx942` for MI300/MI325. The base must contain the ROCm compiler/development
-libraries and Python 3.10 Mooncake layout used by `build_mooncake_sglang.sh`.
-It preserves the base image's other engine code, entrypoint, and command.
-It does not install Infera into a stock SGLang base or patch vLLM/ATOM images.
-
 At engine launch, pass these environment variables to both P and D containers:
 
 ```bash

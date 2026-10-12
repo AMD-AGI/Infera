@@ -212,9 +212,8 @@ is a hardware run plus a measurement of the thing it claims to change.
 
 Added and checked 2026-10-09 against the Infera-pinned Mooncake `faae8dd4`.
 These source backports are bundled locally, independent of upstream merge timing.
-Enable with `APPLY_MOONCAKE_RDMA_PATCHES=1` in the three SGLang engine Dockerfiles,
-or use `Dockerfile.sglang.mooncake` on a compatible existing image. Runtime routing
-remains opt-in; see [build/launch instructions](patches/mooncake_rdma/README.md).
+Enable with `APPLY_MOONCAKE_RDMA_PATCHES=1` in the three SGLang engine Dockerfiles.
+Runtime routing remains opt-in; see [build/launch instructions](patches/mooncake_rdma/README.md).
 
 | patch | capability | upstream PR | ours? | PR state |
 |---|---|---|---|---|
