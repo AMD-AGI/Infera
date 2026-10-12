@@ -1,0 +1,387 @@
+From e3e46f328a8d66d2a38451186c10ae089451b31a Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Fri, 9 Oct 2026 06:21:45 +0000
+Subject: [PATCH 1/5] router: resolve stash conflicts for PD DP-rank affinity
+ on the pick_targets/sessions API
+
+pick_at_rank becomes a default Policy method over pick_targets; decode skips
+session binding when affinity pins its rank. cargo test: all green.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ bench/glm5p2_pd/config.full.sh  |  3 +++
+ bench/glm5p2_pd/config.sh       |  3 +++
+ bench/glm5p2_pd/engine.sh       | 32 +++++++++++++++++++++++-
+ bench/glm5p2_pd/launch.sh       |  8 ++++++
+ rust/router/src/config.rs       | 11 +++++++++
+ rust/router/src/disagg.rs       | 40 ++++++++++++++++++++++++------
+ rust/router/src/handlers.rs     |  3 +++
+ rust/router/src/main.rs         |  1 +
+ rust/router/src/policy.rs       | 19 +++++++++++++++
+ rust/router/src/pool.rs         |  9 +++++++
+ rust/router/tests/functional.rs | 43 ++++++++++++++++++++++++++++++++-
+ 11 files changed, 162 insertions(+), 10 deletions(-)
+
+diff --git a/bench/glm5p2_pd/config.full.sh b/bench/glm5p2_pd/config.full.sh
+index aeaa5f85..984468a7 100644
+--- a/bench/glm5p2_pd/config.full.sh
++++ b/bench/glm5p2_pd/config.full.sh
+@@ -102,6 +102,9 @@ SGLANG_OPT_USE_TOPK_V2="${SGLANG_OPT_USE_TOPK_V2:-false}"
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK="${SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK:-1}"
+ KV_P2P_TRANSFER="${KV_P2P_TRANSFER:-mooncake}"
+ ENABLE_KV_AWARE="${ENABLE_KV_AWARE:-1}"
++# Keep Decode on the Prefill-selected rank so same-name rail and target GPU
++# affinity agree in symmetric DPA deployments.
++PD_DP_RANK_AFFINITY="${PD_DP_RANK_AFFINITY:-1}"
+ KV_PREFILL_OVERLAP_WEIGHT="${KV_PREFILL_OVERLAP_WEIGHT:-20.0}"
+ KV_DECODE_OVERLAP_WEIGHT="${KV_DECODE_OVERLAP_WEIGHT:-2.0}"
+ SGLANG_ENABLE_FAILED_SESSION_PROBE="${SGLANG_ENABLE_FAILED_SESSION_PROBE:-1}"
+diff --git a/bench/glm5p2_pd/config.sh b/bench/glm5p2_pd/config.sh
+index b555dd06..9eef00f2 100644
+--- a/bench/glm5p2_pd/config.sh
++++ b/bench/glm5p2_pd/config.sh
+@@ -94,6 +94,9 @@ SGLANG_OPT_USE_TOPK_V2="${SGLANG_OPT_USE_TOPK_V2:-false}"
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK="${SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK:-0}"
+ KV_P2P_TRANSFER="${KV_P2P_TRANSFER:-mooncake}"
+ ENABLE_KV_AWARE="${ENABLE_KV_AWARE:-1}"
++# Keep Decode on the Prefill-selected rank so same-name rail and target GPU
++# affinity agree in symmetric DPA deployments.
++PD_DP_RANK_AFFINITY="${PD_DP_RANK_AFFINITY:-1}"
+ KV_PREFILL_OVERLAP_WEIGHT="${KV_PREFILL_OVERLAP_WEIGHT:-20.0}"
+ KV_DECODE_OVERLAP_WEIGHT="${KV_DECODE_OVERLAP_WEIGHT:-2.0}"
+ SGLANG_ENABLE_FAILED_SESSION_PROBE="${SGLANG_ENABLE_FAILED_SESSION_PROBE:-1}"
+diff --git a/bench/glm5p2_pd/engine.sh b/bench/glm5p2_pd/engine.sh
+index 7cbefaf7..1e225c20 100755
+--- a/bench/glm5p2_pd/engine.sh
++++ b/bench/glm5p2_pd/engine.sh
+@@ -47,6 +47,8 @@ case "$role" in
+         hicache_backend="$PREFILL_HICACHE_IO_BACKEND"
+         hicache_layout="$PREFILL_HICACHE_MEM_LAYOUT"
+         scratch_reclaim="$PREFILL_HSA_NO_SCRATCH_RECLAIM"
++        extra_args="${PREFILL_EXTRA_ARGS:-}"
++        extra_env="${PREFILL_EXTRA_ENV:-}"
+         ;;
+     decode)
+         tp="$DECODE_TP"; ep="$DECODE_EP"; dp="$DECODE_DP"; dpa="$DECODE_DPA"
+@@ -58,6 +60,8 @@ case "$role" in
+         hicache_backend="$DECODE_HICACHE_IO_BACKEND"
+         hicache_layout="$DECODE_HICACHE_MEM_LAYOUT"
+         scratch_reclaim="$DECODE_HSA_NO_SCRATCH_RECLAIM"
++        extra_args="${DECODE_EXTRA_ARGS:-}"
++        extra_env="${DECODE_EXTRA_ENV:-}"
+         ;;
+ esac
+ for integer in tp ep dp chunk max_running graph_bs; do
+@@ -130,6 +134,18 @@ docker_args+=(
+     -e "SGLANG_ENABLE_FAILED_SESSION_PROBE=$SGLANG_ENABLE_FAILED_SESSION_PROBE"
+     -e "SGLANG_FAILED_SESSION_PROBE_INTERVAL_S=$SGLANG_FAILED_SESSION_PROBE_INTERVAL_S"
+ )
++# Role-scoped escape hatch for one-off container env during bring-up and
++# debugging, so a config that differs from the default recipe does not need this
++# script edited. Space-separated KEY=VALUE items; empty by default, so unused it
++# is a no-op.
++if [[ -n "${extra_env:-}" ]]; then
++    read -r -a extra_env_items <<< "$extra_env"
++    for item in "${extra_env_items[@]}"; do
++        [[ "$item" =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]] ||
++            { echo "invalid EXTRA_ENV item: $item" >&2; exit 2; }
++        docker_args+=(-e "$item")
++    done
++fi
+ if [[ "$role" == decode && -n "${DECODE_SIMULATE_ACC_LEN:-}" ]]; then
+     docker_args+=(
+         -e "SGLANG_SIMULATE_ACC_LEN=$DECODE_SIMULATE_ACC_LEN"
+@@ -155,7 +171,7 @@ engine_args=(
+     --watchdog-timeout "${WATCHDOG_TIMEOUT:-3600}"
+     --reasoning-parser "${REASONING_PARSER:-glm45}"
+     --tool-call-parser "${TOOL_CALL_PARSER:-glm47}"
+-    --enable-aiter-allreduce-fusion --enable-fused-qk-norm-rope
++    --enable-fused-qk-norm-rope
+     --enable-cache-report --enable-metrics
+     --disaggregation-mode "$role"
+     --disaggregation-transfer-backend "$KV_P2P_TRANSFER"
+@@ -197,7 +213,21 @@ if [[ "$hicache" == 1 ]]; then
+         --hicache-mem-layout "$hicache_layout"
+     )
+ fi
++# AITER all-reduce fusion. Emitted by default, so this is a no-op unless a config
++# sets AITER_ALLREDUCE_FUSION=0. Made conditional because sglang's CLI exposes
++# only the positive `--enable-aiter-allreduce-fusion` (store_true, no `--no-`
++# form), so there is otherwise no way to A/B it; the only code path that turns it
++# off is --enable-deterministic-inference, which changes much more besides.
++[[ "${AITER_ALLREDUCE_FUSION:-1}" == 1 ]] &&
++    engine_args+=(--enable-aiter-allreduce-fusion)
+ [[ -n "${CONTEXT_LENGTH:-}" ]] && engine_args+=(--context-length "$CONTEXT_LENGTH")
++# Role-scoped escape hatch for one-off engine flags during bring-up and
++# debugging, so an experiment does not have to edit this script. Word-split on
++# whitespace; quote nothing fancier than that. Empty by default.
++if [[ -n "${extra_args:-}" ]]; then
++    read -r -a extra_arg_items <<< "$extra_args"
++    engine_args+=("${extra_arg_items[@]}")
++fi
+ 
+ echo "$instance role=$role ip=$node_ip port=$engine_port GPUs=$gpus TP=$tp EP=$ep DP=$dp DPA=$dpa HiCache=$hicache"
+ echo "AITER JIT cache: $aiter_jit_cache"
+diff --git a/bench/glm5p2_pd/launch.sh b/bench/glm5p2_pd/launch.sh
+index e95e05a8..660a7597 100755
+--- a/bench/glm5p2_pd/launch.sh
++++ b/bench/glm5p2_pd/launch.sh
+@@ -123,9 +123,17 @@ if [[ "$ENABLE_KV_AWARE" == 1 ]]; then
+ else
+     router_args+=(--router-policy round-robin)
+ fi
++# The router's clap uses ArgAction::Set: INFERA_PD_DP_RANK_AFFINITY accepts only
++# true/false, never 1/0, so translate the numeric knob here.
++if [[ "$PD_DP_RANK_AFFINITY" == 1 ]]; then
++    pd_dp_rank_affinity=true
++else
++    pd_dp_rank_affinity=false
++fi
+ echo "starting router on $CONTROL_NODE"
+ ssh_run "$CONTROL_NODE" docker run -d --init \
+     --name "$router_container" --network host \
++    -e "INFERA_PD_DP_RANK_AFFINITY=$pd_dp_rank_affinity" \
+     -v "$MODEL:$MODEL:ro" "$IMAGE" "${router_args[@]}"
+ 
+ python3 "$DIR/tools/wait_healthy.py" \
+diff --git a/rust/router/src/config.rs b/rust/router/src/config.rs
+index c6a1f01a..c4cf0193 100644
+--- a/rust/router/src/config.rs
++++ b/rust/router/src/config.rs
+@@ -44,6 +44,17 @@ pub struct Config {
+     #[arg(long, default_value = "round-robin")]
+     pub router_policy: String,
+ 
++    /// PD only: constrain Decode to the same effective DP rank selected for
++    /// Prefill. This preserves Prefill cache-aware selection while keeping
++    /// multi-rail Mooncake transfers on the target GPU's local rail.
++    #[arg(
++        long,
++        env = "INFERA_PD_DP_RANK_AFFINITY",
++        default_value_t = false,
++        action = clap::ArgAction::Set
++    )]
++    pub pd_dp_rank_affinity: bool,
++
+     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
+     /// annotation and the API server is watched).
+     #[arg(long, default_value = "etcd")]
+diff --git a/rust/router/src/disagg.rs b/rust/router/src/disagg.rs
+index bd4ff126..855e7352 100644
+--- a/rust/router/src/disagg.rs
++++ b/rust/router/src/disagg.rs
+@@ -66,14 +66,37 @@ pub async fn dispatch(
+         model,
+         session,
+     );
+-    let (d_pick, d_session) = state.sessions.pick(
+-        state.policy.as_ref(),
+-        &d_avail,
+-        request,
+-        Role::Decode,
+-        model,
+-        session,
+-    );
++    // Rank affinity overrides decode session stickiness: the decode rank is
++    // dictated by the prefill pick, so a decode session binding has nothing
++    // left to choose.
++    let (d_pick, d_session) = if state.pd_dp_rank_affinity {
++        let Some(rank) = p_pick.target.effective_dp_rank() else {
++            return json_error(
++                StatusCode::SERVICE_UNAVAILABLE,
++                "PD DP-rank affinity requires a ranked Prefill target",
++            );
++        };
++        let Some(pick) =
++            state
++                .policy
++                .pick_at_rank(&d_avail, request, Role::Decode, Some(rank))
++        else {
++            return json_error(
++                StatusCode::SERVICE_UNAVAILABLE,
++                &format!("PD DP-rank affinity found no Decode target for rank {rank}"),
++            );
++        };
++        (pick, None)
++    } else {
++        state.sessions.pick(
++            state.policy.as_ref(),
++            &d_avail,
++            request,
++            Role::Decode,
++            model,
++            session,
++        )
++    };
+     let p = p_pick.target;
+     let d = d_pick.target;
+     // Dispatch owns both legs until the P task takes its configured share.
+@@ -867,6 +890,7 @@ mod tests {
+                 http: reqwest::Client::new(),
+                 started: std::time::Instant::now(),
+                 retries: 0,
++                pd_dp_rank_affinity: false,
+                 breaker: breaker(),
+                 nats: None,
+             };
+diff --git a/rust/router/src/handlers.rs b/rust/router/src/handlers.rs
+index 45a7eaad..e848eb40 100644
+--- a/rust/router/src/handlers.rs
++++ b/rust/router/src/handlers.rs
+@@ -35,6 +35,9 @@ pub struct AppState {
+     pub http: reqwest::Client,
+     pub started: Instant,
+     pub retries: usize,
++    /// When set, PD dispatch preserves the Prefill policy choice and restricts
++    /// Decode to the same effective DP rank.
++    pub pd_dp_rank_affinity: bool,
+     /// Per-worker failure memory. Shared across threads and across requests —
+     /// that persistence across requests is the whole point (see breaker.rs).
+     pub breaker: Arc<CircuitBreaker>,
+diff --git a/rust/router/src/main.rs b/rust/router/src/main.rs
+index 2e0293a1..f80d66ea 100644
+--- a/rust/router/src/main.rs
++++ b/rust/router/src/main.rs
+@@ -170,6 +170,7 @@ async fn main() -> anyhow::Result<()> {
+         http: upstream,
+         started: Instant::now(),
+         retries: cfg.request_max_retries,
++        pd_dp_rank_affinity: cfg.pd_dp_rank_affinity,
+         breaker,
+         nats,
+     };
+diff --git a/rust/router/src/policy.rs b/rust/router/src/policy.rs
+index 0df98c02..3877d22b 100644
+--- a/rust/router/src/policy.rs
++++ b/rust/router/src/policy.rs
+@@ -61,6 +61,25 @@ pub trait Policy: Send + Sync {
+         self.pick_targets(std::slice::from_ref(target), request, role)
+     }
+ 
++    /// Pick one target, optionally constrained to an effective DP rank.
++    ///
++    /// `None` is the normal unconstrained policy path. `Some(rank)` is used by
++    /// PD rank affinity after Prefill has been selected. It returns `None`
++    /// rather than silently crossing ranks when the pool cannot serve that rank.
++    fn pick_at_rank(
++        &self,
++        candidates: &[Arc<Worker>],
++        request: &Value,
++        role: Role,
++        required_dp_rank: Option<i64>,
++    ) -> Option<Pick> {
++        let mut targets = expand_targets(candidates);
++        if let Some(rank) = required_dp_rank {
++            targets.retain(|target| target.effective_dp_rank() == Some(rank));
++        }
++        (!targets.is_empty()).then(|| self.pick_targets(&targets, request, role))
++    }
++
+     /// Mark a request in-flight on `route_key` (increments the load term).
+     fn on_request_started(&self, _route_key: &str, _blocks: &[u64]) {}
+     /// Mark a request done on `route_key` (decrements the load term).
+diff --git a/rust/router/src/pool.rs b/rust/router/src/pool.rs
+index 5c9ea9ad..0412df38 100644
+--- a/rust/router/src/pool.rs
++++ b/rust/router/src/pool.rs
+@@ -132,6 +132,15 @@ impl RouteTarget {
+             Some(r) => format!("{}#dp{r}", self.worker.worker_id),
+         }
+     }
++
++    /// Rank used for affinity decisions. A rank-multiplexed worker stores it
++    /// on the target, a dedicated DP worker stores it on the worker, and a
++    /// single-rank worker is effectively rank zero.
++    pub fn effective_dp_rank(&self) -> Option<i64> {
++        self.dp_rank.or(self.worker.dp_rank).or_else(|| {
++            (self.worker.dp_size.unwrap_or(1) == 1).then_some(0)
++        })
++    }
+ }
+ 
+ fn is_rank_multiplexed(w: &Worker) -> bool {
+diff --git a/rust/router/tests/functional.rs b/rust/router/tests/functional.rs
+index 267e8049..d30fd8ae 100644
+--- a/rust/router/tests/functional.rs
++++ b/rust/router/tests/functional.rs
+@@ -24,7 +24,7 @@ use infera_router::block_hasher::BlockHasher;
+ use infera_router::breaker::CircuitBreaker;
+ use infera_router::handlers::{app, AppState};
+ use infera_router::kv_event::KvEventClient;
+-use infera_router::policy::{KvEventAwarePolicy, RoundRobin};
++use infera_router::policy::{KvEventAwarePolicy, Role, RoundRobin};
+ use infera_router::pool::{Snapshot, Worker};
+ use infera_router::proxy;
+ 
+@@ -123,6 +123,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
+         http: proxy::build_upstream_client().unwrap(),
+         started: Instant::now(),
+         retries,
++        pd_dp_rank_affinity: false,
+         breaker: Arc::new(CircuitBreaker::default()),
+         nats: None,
+     }
+@@ -278,6 +279,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
+         http: proxy::build_upstream_client().unwrap(),
+         started: Instant::now(),
+         retries,
++        pd_dp_rank_affinity: false,
+         breaker: Arc::new(CircuitBreaker::default()),
+         nats: None,
+     }
+@@ -584,6 +586,14 @@ fn decode(url: &str) -> Arc<Worker> {
+     }))
+ }
+ 
++fn decode_dp(url: &str, dp_size: i64) -> Arc<Worker> {
++    worker(json!({
++        "worker_id": "d", "url": url, "model_name": "m", "disagg_mode": "decode",
++        "dp_size": dp_size,
++        "disagg_meta": {"protocol": "sglang-bootstrap"}
++    }))
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn pd_unary_injects_matching_bootstrap_room() {
+     let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
+@@ -672,6 +682,37 @@ async fn pd_dp_multiplexed_prefill_pins_rank() {
+     assert_eq!(d_hits[0].body["disagg_prefill_dp_rank"], 0);
+ }
+ 
++#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++async fn pd_dp_rank_affinity_constrains_decode_to_prefill_rank() {
++    let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
++    let (d_url, d) = spawn_mock(200, false, json!({"who": "decode"})).await;
++    let p_worker = prefill(&p_url, Some(2));
++    let d_worker = decode_dp(&d_url, 2);
++    let mut state = make_state(vec![p_worker.clone(), d_worker], 0);
++
++    // Advance only Prefill's independent RR counter. Without the rank
++    // constraint, the routed request would therefore pick P1 and D0.
++    let _ = state
++        .policy
++        .pick(&[p_worker], &json!({}), Role::Prefill);
++    state.pd_dp_rank_affinity = true;
++    let router = spawn_router(state).await;
++
++    let resp = client()
++        .post(format!("{router}/v1/chat/completions"))
++        .json(&json!({"model": "m", "stream": false}))
++        .send()
++        .await
++        .unwrap();
++    assert_eq!(resp.status(), 200);
++
++    let p_hits = p.hits.lock().unwrap();
++    let d_hits = d.hits.lock().unwrap();
++    assert_eq!(p_hits[0].dp_rank.as_deref(), Some("1"));
++    assert_eq!(d_hits[0].dp_rank.as_deref(), Some("1"));
++    assert_eq!(d_hits[0].body["disagg_prefill_dp_rank"], 1);
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn pd_streaming_relays_decode_and_fires_prefill() {
+     let (p_url, p) = spawn_mock(200, false, json!(null)).await;
+-- 
+2.43.0
+

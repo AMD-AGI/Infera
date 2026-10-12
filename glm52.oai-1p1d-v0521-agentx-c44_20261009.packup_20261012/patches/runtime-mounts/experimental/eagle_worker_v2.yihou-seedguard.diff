@@ -1,0 +1,62 @@
+--- /tmp/yihou_orig_v0521/speculative_eagle_worker_v2.py	2026-10-12 04:45:20.698943331 +0000
++++ /shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/eagle_worker_v2.yihou-seedguard.py	2026-10-10 16:11:08.726145745 +0000
+@@ -143,6 +143,18 @@
+ logger = logging.getLogger(__name__)
+ 
+ 
++# [yihou] read once; "off" keeps every guard hook below a single string compare.
++_YIHOU_SG_MODE = __import__("os").environ.get("YIHOU_DSA_SEED_GUARD", "off").strip().lower()
++
++
++def _yihou_seedguard():
++    # [yihou] lazy import: the guard helpers live in the (also mounted)
++    # eagle_disaggregation module; import cost is paid once.
++    from sglang.srt.speculative import eagle_disaggregation
++
++    return eagle_disaggregation
++
++
+ def _qsa_index_share_requested(hf_config) -> bool:
+     """--json-model-override-args writes top-level hf_config attributes, while
+     checkpoint configs carry the flag on the nested text_config; read both."""
+@@ -625,6 +637,14 @@
+             and draft_input.dsa_topk_indices is None
+         ):
+             can_run_decode_cuda_graph = False
++        if _YIHOU_SG_MODE != "off" and not forward_batch.forward_mode.is_idle():
++            # [yihou] seed guard: per-rank draft graph-fallback counters.
++            _sg = _yihou_seedguard()
++            _sg.yihou_count("draft_iters")
++            if not draft_input.cuda_graph_compatible:
++                _sg.yihou_count("draft_local_graph_incompatible")
++            if not can_run_decode_cuda_graph:
++                _sg.yihou_count("draft_eager")
+ 
+         n_inner = self.speculative_num_steps - 1
+         canary_outside_ctx = (
+@@ -1043,6 +1063,10 @@
+                 device=self.device,
+             )
+             self.dsa_extend_topk_buf = buf
++        elif _YIHOU_SG_MODE == "mask":
++            # [yihou] seed guard: never let a stale row from an earlier iteration
++            # survive into this one's select_index gather.
++            buf[:num_tokens].fill_(-1)
+         return buf[:num_tokens]
+ 
+     def _draft_extend_for_decode(
+@@ -1169,6 +1193,14 @@
+                 dsa_extend_topk_capture = forward_batch.spec_info.dsa_seed_topk_capture
+             # Fancy indexing returns a fresh tensor (detached from the buffer).
+             dsa_seed_topk_indices = dsa_extend_topk_capture[select_index]
++            if _YIHOU_SG_MODE != "off":
++                dsa_seed_topk_indices = _yihou_seedguard().yihou_guard_dsa_seed(
++                    dsa_seed_topk_indices,
++                    _yihou_seedguard().yihou_kv_slot_bound(
++                        self.token_to_kv_pool_allocator
++                    ),
++                    "extend_seed",
++                )
+ 
+         # Reorganize the spec info for the next batch
+         if not can_run_decode_cuda_graph:

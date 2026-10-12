@@ -1,0 +1,18 @@
+== base image
+sha256:6c2c0b0e2afed9924d6f3bd621c554e83e6ffd37a1bf559f900cfbda7eb763ef ["lmsysorg/sglang-rocm@sha256:6c2c0b0e2afed9924d6f3bd621c554e83e6ffd37a1bf559f900cfbda7eb763ef"] 2026-10-08T14:41:32.948044269Z
+== image
+sha256:9d755dd6a7bf2f3705a45dcc7877b9ec3625efb8370ab3b144751799e31300d2 2026-10-10T06:36:03.9111804Z
+1009: sha256:3f917e9bd052717538aafab7959bc1c7d109edc7867c2adb35e90fe552aaf503 2026-10-09T06:36:10.929399248Z
+== in-container
+7.2.0
+sglang 9f5d8712514c2d9dd29c76c6080774db3fd50aa2 Thu Oct 8 21:44:49 2026 +0800
+sglang 0.5.21.dev20261008+g11b1fb21de
+torch 2.9.1+rocm7.2.0.git7e1940d4 7.2.26015-fc0010cf6a
+triton 3.7.0
+Version: 0.1.23.dev183+ge7d2453f2.d20261008
+Name: sglang-kernel
+Version: 0.4.9
+3c96489a0ca4c8662a5f6512c1d9d44653835afc3d7cfaa9082b70f575bb289a  /opt/venv/lib/python3.10/site-packages/mooncake/engine.cpython-310-x86_64-linux-gnu.so
+/opt/venv/lib/python3.10/site-packages/mooncake
+mooncake-src 01d1eb2a7ec37fd5e20a88573e9b4956e7846e9a
+AITER_COMMIT=e7d2453f25e5aaeea72a3a40b284ba453e026624

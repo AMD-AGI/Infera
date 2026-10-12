@@ -1,0 +1,660 @@
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/agentx_bench.sh /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/agentx_bench.sh
+--- /tmp/yihou_base28121/bench/glm5p2_pd/agentx_bench.sh	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/agentx_bench.sh	2026-10-10 03:53:06.172754188 +0000
+@@ -71,36 +71,83 @@
+ [[ "$orphans" == 0 ]] ||
+     { echo "$orphans orphaned aiperf processes found on $CONTROL_NODE" >&2; exit 1; }
+ 
+-mounts=(-v "$REPO:$REPO")
++# yihou v0521dbg: NODE_RW_ROOT set = the node mounts /shared_nfs read-only. The client then
++# writes its output, aiperf runtime and HF cache under NODE_RW_ROOT (runtime.node.env points
++# there) and the output is copied back to OUT_DIR afterwards. $REPO stays the read side.
++node_rw="${NODE_RW_ROOT:-}"
++client_rw="${node_rw:-$WS}"
++client_out="$OUT_DIR"
++env_file="$OUT_DIR/runtime.env"
++if [[ -n "$node_rw" ]]; then
++    client_out="$node_rw/runs/${YIHOU_ROUND:?}/$(basename "$OUT_DIR")"
++    node_cache="$node_rw/cache/${YIHOU_NODE##*-}/agentx"
++    sed -e "s#^AGENTIC_OUTPUT_DIR=.*#AGENTIC_OUTPUT_DIR=$client_out#" \
++        -e "s#^AIPERF_RUNTIME_DIR=.*#AIPERF_RUNTIME_DIR=$node_cache/aiperf#" \
++        -e "s#^HF_HOME=.*#HF_HOME=$node_cache/hf#" \
++        "$OUT_DIR/runtime.env" > "$OUT_DIR/runtime.node.env"
++    env_file="$OUT_DIR/runtime.node.env"
++    ssh_run "$CONTROL_NODE" mkdir -p "$client_out" "$node_cache/aiperf" "$node_cache/hf"
++fi
++mounts=(-v "$REPO:$REPO${node_rw:+:ro}")
++[[ -z "$node_rw" ]] || mounts+=(-v "$node_rw:$node_rw")
+ [[ "$INFERENCEX_DIR" == "$REPO"/* ]] ||
+     mounts+=(-v "$INFERENCEX_DIR:$INFERENCEX_DIR:ro")
+ [[ "$runtime_model" == "$REPO"/* ]] ||
+     mounts+=(-v "$runtime_model:$runtime_model:ro")
+ [[ "$OUT_DIR" == "$REPO"/* ]] || mounts+=(-v "$OUT_DIR:$OUT_DIR")
+-[[ "$cache" == "$REPO"/* ]] || mounts+=(-v "$cache:$cache")
++# SOURCE_MODEL only matters when MODEL is a symlink overlay onto it.
++[[ "$SOURCE_MODEL" == "$runtime_model" || "$SOURCE_MODEL" == "$REPO"/* ]] ||
++    mounts+=(-v "$SOURCE_MODEL:$SOURCE_MODEL:ro")
++[[ -n "$node_rw" || "$cache" == "$REPO"/* ]] || mounts+=(-v "$cache:$cache")
+ 
+ name="$CONTAINER_PREFIX-agentx-client-$(date -u +%Y%m%dT%H%M%S)-$$"
+-cleanup() {
+-    ssh_run "$CONTROL_NODE" docker rm -f "$name" >/dev/null 2>&1 || true
++printf '%s\n' "$name" > "$OUT_DIR/client.container"
++copied_back=0
++copy_back() {
++    # NODE_RW_ROOT: copy the node-local client output back (base64: the spur shim mangles
++    # binary stdout). Runs on success and, via record_exit, on failure too.
++    [[ -n "$node_rw" && "$copied_back" == 0 ]] || return 0
++    copied_back=1
++    ssh_run "$CONTROL_NODE" bash -c "tar -C $(printf '%q' "$client_out") -cf - . | base64 -w0" |
++        base64 -d | tar -C "$OUT_DIR" -xf - ||
++        echo "copy-back of $client_out from $CONTROL_NODE failed" >&2
+ }
+-trap cleanup EXIT
++record_exit() {
++    local rc=$?
++    copy_back || true
++    printf '%s\n' "$rc" > "$OUT_DIR/client.shell-exit-code"
++    ssh_run "$CONTROL_NODE" docker inspect --format '{{.State.ExitCode}}' "$name" \
++        > "$OUT_DIR/client.container-exit-code" 2>/dev/null || true
++}
++trap record_exit EXIT
+ trap 'exit 130' INT
+ trap 'exit 143' TERM
+ echo "running AgentX C$CONC for ${DURATION}s via $router_url"
+-ssh_run "$CONTROL_NODE" docker run --rm --name "$name" \
++ssh_run "$CONTROL_NODE" docker run --name "$name" \
+     --network host --ipc host --shm-size "${CLIENT_SHM_SIZE:-32g}" \
+-    "${mounts[@]}" --env-file "$OUT_DIR/runtime.env" \
++    "${mounts[@]}" \
++    --tmpfs "$client_rw/tmp/${YIHOU_NODE##*-}/client:rw,exec,size=16g" \
++    -e "TMPDIR=$client_rw/tmp/${YIHOU_NODE##*-}/client" \
++    -e "HOME=$client_rw/cache/${YIHOU_NODE##*-}/client-home" \
++    -e "XDG_CACHE_HOME=$client_rw/cache/${YIHOU_NODE##*-}/client-xdg" \
++    -e "PYTHONPYCACHEPREFIX=$client_rw/cache/${YIHOU_NODE##*-}/client-pycache" \
++    -e "UV_PYTHON_INSTALL_DIR=$client_rw/cache/${YIHOU_NODE##*-}/uv-python" \
++    --env-file "$env_file" \
+     "$IMAGE" bash -c '
+         set -euo pipefail
+         out="$1"
++        # Unix socket addresses must fit sockaddr_un; the alias resolves to workspace tmpfs.
++        ln -s "$TMPDIR" /yihou-client-tmp
++        export TMPDIR=/yihou-client-tmp
+         trap "chown -R $HOST_UID:$HOST_GID \"$out\" \"$AIPERF_RUNTIME_DIR\" \"$HF_HOME\"" EXIT
+         source "$INFMAX_CONTAINER_WORKSPACE/benchmarks/benchmark_lib.sh"
+         install_agentic_deps
+         resolve_trace_source
+         build_replay_cmd "$out"
+         run_agentic_replay_and_write_outputs "$out"
+-    ' _ "$OUT_DIR" 2>&1 | tee "$OUT_DIR/runner.log"
+-trap - EXIT INT TERM
++    ' _ "$client_out" 2>&1 | tee "$OUT_DIR/runner.log"
++trap - INT TERM
++copy_back
+ result="$OUT_DIR/agentx_conc$CONC.json"
+ [[ -s "$result" ]] || { echo "AgentX result is missing: $result" >&2; exit 1; }
+ echo "AgentX passed: $result"
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/config.full.sh /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/config.full.sh
+--- /tmp/yihou_base28121/bench/glm5p2_pd/config.full.sh	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/config.full.sh	2026-09-23 10:06:48.856035053 +0000
+@@ -102,6 +102,9 @@
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK="${SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK:-1}"
+ KV_P2P_TRANSFER="${KV_P2P_TRANSFER:-mooncake}"
+ ENABLE_KV_AWARE="${ENABLE_KV_AWARE:-1}"
++# Keep Decode on the Prefill-selected rank so same-name rail and target GPU
++# affinity agree in symmetric DPA deployments.
++PD_DP_RANK_AFFINITY="${PD_DP_RANK_AFFINITY:-1}"
+ KV_PREFILL_OVERLAP_WEIGHT="${KV_PREFILL_OVERLAP_WEIGHT:-20.0}"
+ KV_DECODE_OVERLAP_WEIGHT="${KV_DECODE_OVERLAP_WEIGHT:-2.0}"
+ SGLANG_ENABLE_FAILED_SESSION_PROBE="${SGLANG_ENABLE_FAILED_SESSION_PROBE:-1}"
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/config.sh /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/config.sh
+--- /tmp/yihou_base28121/bench/glm5p2_pd/config.sh	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/config.sh	2026-09-23 10:06:48.866476812 +0000
+@@ -94,6 +94,9 @@
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK="${SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK:-0}"
+ KV_P2P_TRANSFER="${KV_P2P_TRANSFER:-mooncake}"
+ ENABLE_KV_AWARE="${ENABLE_KV_AWARE:-1}"
++# Keep Decode on the Prefill-selected rank so same-name rail and target GPU
++# affinity agree in symmetric DPA deployments.
++PD_DP_RANK_AFFINITY="${PD_DP_RANK_AFFINITY:-1}"
+ KV_PREFILL_OVERLAP_WEIGHT="${KV_PREFILL_OVERLAP_WEIGHT:-20.0}"
+ KV_DECODE_OVERLAP_WEIGHT="${KV_DECODE_OVERLAP_WEIGHT:-2.0}"
+ SGLANG_ENABLE_FAILED_SESSION_PROBE="${SGLANG_ENABLE_FAILED_SESSION_PROBE:-1}"
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/engine.sh /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/engine.sh
+--- /tmp/yihou_base28121/bench/glm5p2_pd/engine.sh	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/engine.sh	2026-10-11 08:08:15.470720340 +0000
+@@ -47,6 +47,8 @@
+         hicache_backend="$PREFILL_HICACHE_IO_BACKEND"
+         hicache_layout="$PREFILL_HICACHE_MEM_LAYOUT"
+         scratch_reclaim="$PREFILL_HSA_NO_SCRATCH_RECLAIM"
++        extra_args="${PREFILL_EXTRA_ARGS:-}"
++        extra_env="${PREFILL_EXTRA_ENV:-}"
+         ;;
+     decode)
+         tp="$DECODE_TP"; ep="$DECODE_EP"; dp="$DECODE_DP"; dpa="$DECODE_DPA"
+@@ -58,6 +60,8 @@
+         hicache_backend="$DECODE_HICACHE_IO_BACKEND"
+         hicache_layout="$DECODE_HICACHE_MEM_LAYOUT"
+         scratch_reclaim="$DECODE_HSA_NO_SCRATCH_RECLAIM"
++        extra_args="${DECODE_EXTRA_ARGS:-}"
++        extra_env="${DECODE_EXTRA_ENV:-}"
+         ;;
+ esac
+ for integer in tp ep dp chunk max_running graph_bs; do
+@@ -80,13 +84,32 @@
+ fi
+ [[ -n "$nic" ]] || { echo "cannot resolve NIC for $node_ip" >&2; exit 1; }
+ 
+-image_id="$(docker image inspect --format '{{.Id}}' "$IMAGE")"
++# Node-scoped caches keep parallel same-node deployments from sharing JIT state.
++node_key="${YIHOU_NODE##*-}"
++[[ -n "$node_key" ]] || { echo "set YIHOU_NODE" >&2; exit 2; }
++# DRY_RUN=1 renders the docker + engine command lines and exits before starting
++# anything. It tolerates a not-yet-present image and an unfilled EXPECTED_IMAGE_ID
++# (warns instead of failing) so the command can be reviewed before the build lands.
++if ! image_id="$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null)"; then
++    [[ "${DRY_RUN:-0}" == 1 ]] || { echo "image not present: $IMAGE" >&2; exit 1; }
++    echo "DRY_RUN: image $IMAGE not present on $(hostname); using a placeholder ID" >&2
++    image_id="sha256:$(printf '0%.0s' {1..64})"
++fi
++if [[ "$image_id" != "$EXPECTED_IMAGE_ID" ]]; then
++    [[ "${DRY_RUN:-0}" == 1 ]] || { echo "unexpected image: $image_id" >&2; exit 1; }
++    echo "DRY_RUN: image ID $image_id != EXPECTED_IMAGE_ID '${EXPECTED_IMAGE_ID:-}'" >&2
++fi
+ image_key="${image_id#sha256:}"
+ [[ "$image_key" =~ ^[0-9a-f]{64}$ ]] ||
+     { echo "cannot derive image ID for AITER cache: $image_id" >&2; exit 1; }
+ aiter_jit_cache="${AITER_JIT_CACHE_ROOT:-/tmp/aiter-jit-$(id -u)}/$image_key"
+-mkdir -p "$aiter_jit_cache"
++[[ "${DRY_RUN:-0}" == 1 ]] || mkdir -p "$aiter_jit_cache"
+ 
++# yihou v0521dbg: NODE_RW_ROOT = node-local writable root for everything the node writes
++# (tmp, triton/hf/xdg caches; AITER and SERVER_LOG via the config/driver). Needed where
++# /shared_nfs is mounted read-only (136/138). Empty = the old $WS behaviour.
++rw="${NODE_RW_ROOT:-$WS}"
++[[ "$rw" == /* ]] || { echo "NODE_RW_ROOT must be absolute" >&2; exit 2; }
+ docker_args=(
+     docker run -d --init --name "$container"
+     --network host --ipc host --shm-size "${SHM_SIZE:-32g}"
+@@ -95,10 +118,73 @@
+     --cap-add SYS_PTRACE --cap-add IPC_LOCK
+     --security-opt seccomp=unconfined
+     --ulimit memlock=-1:-1 --ulimit nofile=65536:65536
++    -v "$WS:$WS${NODE_RW_ROOT:+:ro}"   # yihou: read side only when NODE_RW_ROOT is set
+     -v "$MODEL:$MODEL:ro"
+     -v "$aiter_jit_cache:/aiter-jit"
+     -e AITER_JIT_DIR=/aiter-jit
++    --tmpfs "$rw/tmp/$node_key/$role:rw,exec,size=8g"
++    -e "TMPDIR=$rw/tmp/$node_key/$role"
++    -e "TRITON_CACHE_DIR=$rw/cache/$node_key/triton/$role"
++    -e "HF_HOME=$rw/cache/$node_key/hf/$role"
++    -e "XDG_CACHE_HOME=$rw/cache/$node_key/xdg/$role"
++    -e PYTHONDONTWRITEBYTECODE=1
+ )
++# yihou v0521dbg: same-node IPC. ROCr's default IPC binds the abstract socket "\0hsa<pid>"
++# (namespace pid) in the shared host netns; two private PID namespaces collide -> the
++# "RCCL race" (hipIpcGetMemHandle invalid argument). --pid host makes the pids unique.
++# Both knobs come from the shared config, so both legs always get the same value.
++[[ "${ENGINE_PID_HOST:-0}" == 1 && -n "${YIHOU_JOB:-}" ]] &&
++    { echo "ENGINE_PID_HOST=1 refused on spur node (spur-authz denies --pid=host)" >&2; exit 2; }
++[[ "${ENGINE_PID_HOST:-0}" == 1 ]] && docker_args+=(--pid host)
++[[ "${IPC_MODE_LEGACY:-0}" == 1 ]] && docker_args+=(-e HSA_ENABLE_IPC_MODE_LEGACY=1)
++# yihou v0521dbg (R045): per-leg NUMA placement. {PREFILL,DECODE}_CPUSET_{CPUS,MEMS} -> docker
++# --cpuset-cpus/--cpuset-mems; ENGINE_SET_CPU_AFFINITY -> SGLANG_SET_CPU_AFFINITY on both legs
++# (image default 1 pins scheduler ranks by local gpu_id). All empty by default = no flag/env.
++if [[ "$role" == prefill ]]; then
++    cpuset_cpus="${PREFILL_CPUSET_CPUS:-}"; cpuset_mems="${PREFILL_CPUSET_MEMS:-}"
++else
++    cpuset_cpus="${DECODE_CPUSET_CPUS:-}"; cpuset_mems="${DECODE_CPUSET_MEMS:-}"
++fi
++for v in cpuset_cpus cpuset_mems; do
++    [[ -z "${!v}" || "${!v}" =~ ^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$ ]] ||
++        { echo "invalid $role $v: ${!v}" >&2; exit 2; }
++done
++[[ -n "$cpuset_cpus" ]] && docker_args+=(--cpuset-cpus "$cpuset_cpus")
++[[ -n "$cpuset_mems" ]] && docker_args+=(--cpuset-mems "$cpuset_mems")
++if [[ -n "${ENGINE_SET_CPU_AFFINITY:-}" ]]; then
++    [[ "$ENGINE_SET_CPU_AFFINITY" == 0 || "$ENGINE_SET_CPU_AFFINITY" == 1 ]] ||
++        { echo "ENGINE_SET_CPU_AFFINITY must be 0 or 1" >&2; exit 2; }
++    docker_args+=(-e "SGLANG_SET_CPU_AFFINITY=$ENGINE_SET_CPU_AFFINITY")
++fi
++if [[ -n "${NODE_RW_ROOT:-}" ]]; then
++    [[ "${DRY_RUN:-0}" == 1 ]] || mkdir -p "$NODE_RW_ROOT"
++    docker_args+=(-v "$NODE_RW_ROOT:$NODE_RW_ROOT")
++fi
++# SOURCE_MODEL is only needed when MODEL is a symlink overlay onto it; docker
++# rejects a duplicate mount point when the two are the same path.
++[[ "$SOURCE_MODEL" == "$MODEL" ]] || docker_args+=(-v "$SOURCE_MODEL:$SOURCE_MODEL:ro")
++while IFS=$'\t' read -r source destination; do
++    [[ -n "$source" && -r "$source" ]] || { echo "invalid source mount: $source" >&2; exit 1; }
++    docker_args+=(-v "$source:$destination:ro")
++done < "${YIHOU_MOUNTS:-$WS/patches/mounts.yihou.tsv}"
++# yihou v0521dbg (R050): role-only extra mount rows (same TSV format), e.g. decode-only patches.
++# {PREFILL,DECODE}_MOUNTS_ADD = TSV path; empty (default) = none.
++if [[ "$role" == prefill ]]; then mounts_add="${PREFILL_MOUNTS_ADD:-}"; else mounts_add="${DECODE_MOUNTS_ADD:-}"; fi
++if [[ -n "$mounts_add" ]]; then
++    [[ -r "$mounts_add" ]] || { echo "invalid $role MOUNTS_ADD: $mounts_add" >&2; exit 1; }
++    while IFS=$'\t' read -r source destination; do
++        [[ -z "$source" ]] && continue
++        [[ -r "$source" ]] || { echo "invalid source mount: $source" >&2; exit 1; }
++        docker_args+=(-v "$source:$destination:ro")
++    done < "$mounts_add"
++fi
++if [[ "$role" == prefill && -n "${YIHOU_ASM_TRACE_DIR:-}" ]]; then
++    [[ "$YIHOU_ASM_TRACE_DIR" == "$WS"/* ]] || exit 2
++    docker_args+=(
++        -v "$WS/source/aiter-diagnostic/patched/tuned_gemm.py:/sgl-workspace/aiter/aiter/tuned_gemm.py:ro"
++        -e "YIHOU_ASM_TRACE_DIR=$YIHOU_ASM_TRACE_DIR"
++    )
++fi
+ if [[ -n "${HOST_RDMA_LIB:-}" ]]; then
+     [[ -r "$HOST_RDMA_LIB" ]] ||
+         { echo "RDMA provider is not readable: $HOST_RDMA_LIB" >&2; exit 1; }
+@@ -108,6 +194,7 @@
+     -e "HIP_VISIBLE_DEVICES=$gpus"
+     -e "SGLANG_HOST_IP=$node_ip" -e "HOST_IP=$node_ip"
+     -e "SGLANG_LOCAL_IP_NIC=$nic" -e "GLOO_SOCKET_IFNAME=$nic"
++    -e "NCCL_SOCKET_IFNAME=$nic"
+     -e "MC_GID_INDEX=$MC_GID_INDEX" -e "MC_TE_FILTERS=$MC_TE_FILTERS"
+     -e "MC_DISABLE_HIP_TRANSPORT=$MC_DISABLE_HIP_TRANSPORT"
+     -e "MC_ENABLE_DEST_DEVICE_AFFINITY=$MC_ENABLE_DEST_DEVICE_AFFINITY"
+@@ -130,6 +217,29 @@
+     -e "SGLANG_ENABLE_FAILED_SESSION_PROBE=$SGLANG_ENABLE_FAILED_SESSION_PROBE"
+     -e "SGLANG_FAILED_SESSION_PROBE_INTERVAL_S=$SGLANG_FAILED_SESSION_PROBE_INTERVAL_S"
+ )
++# Role-scoped escape hatch for one-off container env during bring-up and
++# debugging, so a config that differs from the default recipe does not need this
++# script edited. Space-separated KEY=VALUE items; empty by default, so unused it
++# is a no-op.
++if [[ -n "${extra_env:-}" ]]; then
++    read -r -a extra_env_items <<< "$extra_env"
++    for item in "${extra_env_items[@]}"; do
++        [[ "$item" =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]] ||
++            { echo "invalid EXTRA_ENV item: $item" >&2; exit 2; }
++        docker_args+=(-e "$item")
++    done
++fi
++# yihou v0521dbg: ROCm debug agent, lean mode (names the faulting kernel, also under
++# CUDA-graph replay; ~1.00x measured). No --output: the report goes to stderr, i.e. into
++# the server log next to "Memory access fault", with docker timestamps. Dedicated -e
++# (not EXTRA_ENV) so a future multi-word option value survives.
++if [[ "${DEBUG_AGENT:-0}" == 1 ]]; then
++    docker_args+=(
++        -e "HSA_TOOLS_LIB=${DEBUG_AGENT_LIB:-/opt/rocm/lib/librocm-debug-agent.so.2}"
++        -e HSA_ENABLE_DEBUG=1
++        -e "ROCM_DEBUG_AGENT_OPTIONS=${DEBUG_AGENT_OPTIONS:---disable-linux-signals}"
++    )
++fi
+ if [[ "$role" == decode && -n "${DECODE_SIMULATE_ACC_LEN:-}" ]]; then
+     docker_args+=(
+         -e "SGLANG_SIMULATE_ACC_LEN=$DECODE_SIMULATE_ACC_LEN"
+@@ -155,7 +265,7 @@
+     --watchdog-timeout "${WATCHDOG_TIMEOUT:-3600}"
+     --reasoning-parser "${REASONING_PARSER:-glm45}"
+     --tool-call-parser "${TOOL_CALL_PARSER:-glm47}"
+-    --enable-aiter-allreduce-fusion --enable-fused-qk-norm-rope
++    --enable-fused-qk-norm-rope
+     --enable-cache-report --enable-metrics
+     --disaggregation-mode "$role"
+     --disaggregation-transfer-backend "$KV_P2P_TRANSFER"
+@@ -197,12 +307,36 @@
+         --hicache-mem-layout "$hicache_layout"
+     )
+ fi
++# AITER all-reduce fusion. Emitted by default, so this is a no-op unless a config
++# sets AITER_ALLREDUCE_FUSION=0. Made conditional because sglang's CLI exposes
++# only the positive `--enable-aiter-allreduce-fusion` (store_true, no `--no-`
++# form), so there is otherwise no way to A/B it; the only code path that turns it
++# off is --enable-deterministic-inference, which changes much more besides.
++[[ "${AITER_ALLREDUCE_FUSION:-1}" == 1 ]] &&
++    engine_args+=(--enable-aiter-allreduce-fusion)
+ [[ -n "${CONTEXT_LENGTH:-}" ]] && engine_args+=(--context-length "$CONTEXT_LENGTH")
++# Role-scoped escape hatch for one-off engine flags during bring-up and
++# debugging, so an experiment does not have to edit this script. Word-split on
++# whitespace; quote nothing fancier than that. Empty by default.
++if [[ -n "${extra_args:-}" ]]; then
++    read -r -a extra_arg_items <<< "$extra_args"
++    engine_args+=("${extra_arg_items[@]}")
++fi
+ 
++# yihou v0521dbg (R022): DECODE_PID_OFFSET=K>0 burns K pids inside the decode container before
++# exec'ing the engine, so decode ranks get pids >= K. The CLR hipIpcOpenMemHandle guard returns
++# 201 when exporter pid == importer pid across private PID namespaces (e1a: DP0 973 == 973),
++# and --pid host is denied by spur-authz on spur nodes. The image ENTRYPOINT
++# (infera-inject-host-ionic) ends in `exec "$@"`, so the wrapper runs under it and under --init.
++if [[ "$role" == decode && "${DECODE_PID_OFFSET:-0}" != 0 ]]; then
++    [[ "$DECODE_PID_OFFSET" =~ ^[1-9][0-9]*$ ]] || { echo "DECODE_PID_OFFSET must be a positive integer" >&2; exit 2; }
++    engine_args=(bash -c 'i=0; while [ $i -lt '"$DECODE_PID_OFFSET"' ]; do ( : ); i=$((i+1)); done; exec "$@"' _ "${engine_args[@]}")
++fi
+ echo "$instance role=$role ip=$node_ip port=$engine_port GPUs=$gpus TP=$tp EP=$ep DP=$dp DPA=$dpa HiCache=$hicache"
+ echo "AITER JIT cache: $aiter_jit_cache"
+ printf ' + %q' "${docker_args[@]}" "$IMAGE" "${engine_args[@]}"
+ echo
++[[ "${DRY_RUN:-0}" == 1 ]] && { echo "DRY_RUN: not starting $container"; exit 0; }
+ "${docker_args[@]}" "$IMAGE" "${engine_args[@]}"
+ if [[ -n "${SERVER_LOG:-}" ]]; then
+     mkdir -p "$(dirname "$SERVER_LOG")"
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/launch.sh /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/launch.sh
+--- /tmp/yihou_base28121/bench/glm5p2_pd/launch.sh	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/launch.sh	2026-10-09 06:23:15.403608070 +0000
+@@ -36,9 +36,21 @@
+         else
+             gpus="$DECODE_GPU_DEVICES"
+         fi
++        # ENGINE_PORT_STRIDE: same-node only. SGLang derives an INTERNAL port
++        # block from --port (server_args.py:836,851-861): a fixed
++        # ZMQ_TCP_PORT_DELTA offset, then it reserves
++        # port_base+0..NUM_DERIVED_PORTS-1, where NUM_DERIVED_PORTS is 6, or
++        # 6+dp_size on the rust path. With two legs on ONE host and engine ports
++        # one apart (29001/29002) those blocks OVERLAP, and the second leg dies:
++        #   zmq.error.ZMQError: Address already in use (addr='tcp://127.0.0.1:29236')
++        #   DetokenizerManager.init_ipc_channels -> sigquit -> exited with code -9
++        # Observed first-hand, rounds/006-bringup-1. Stride the ENGINE port only
++        # (the bootstrap/kv/snapshot bases are already distinct and feed nothing
++        # derived). Defaults to 1, so every cross-node deployment is unchanged.
+         printf '%s\t%s\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%s\n' \
+             "$instance" "$role" "$node" "$ip" "$gpus" \
+-            "$((ENGINE_PORT_BASE + index))" "$((BOOTSTRAP_PORT_BASE + index))" \
++            "$((ENGINE_PORT_BASE + index * ${ENGINE_PORT_STRIDE:-1}))" \
++            "$((BOOTSTRAP_PORT_BASE + index))" \
+             "$((KV_EVENT_PORT_BASE + index))" "$((SNAPSHOT_PORT_BASE + index))" \
+             "$CONTAINER_PREFIX-$instance"
+     done < <(python3 "$DIR/tools/topology.py" rows "$TOPOLOGY")
+@@ -96,14 +108,87 @@
+     --failure-dir "$OUT_DIR/failures"
+     --summary "$OUT_DIR/worker-health.json"
+ )
++# Same-node start gate. On a single-host 1P1D the two legs' RCCL communicators
++# initialise concurrently and race; one dies with
++#   rccl .../p2p.cc:256 NCCL WARN hipIpcGetMemHandle failed : invalid argument
++#   NCCL error: unhandled cuda error
++# It is a RACE, not a config error: swapping the GPU sets between the legs makes
++# the FAILING leg follow start ORDER, not the GPU set or the role (rounds 7/8 vs
++# 9 vs 15 — same GPU assignment, different leg fails; see analysis note). Cross-
++# node the two inits run on different machines and cannot race. Fix: before
++# starting a row whose node ALREADY has a started leg, wait for that leg's /health
++# (reusing wait_healthy.py) — the by-hand round-16 fix, made reproducible. This
++# only fires when a node repeats in the topology, so every cross-node deployment
++# is behaviourally unchanged. Knobs: SAME_NODE_START_GATE=health|off (default
++# health); ENGINE_START_STAGGER_S (default 0) adds a fixed same-node sleep for
++# operators who prefer a delay to a health poll.
++declare -A started_on_node=()
++gate_number=0
++gate_same_node() {
++    local node="$1"
++    [[ -n "${started_on_node[$node]:-}" ]] || return 0   # no prior leg on this host
++    local stagger="${ENGINE_START_STAGGER_S:-0}"
++    if [[ "$stagger" != 0 ]]; then
++        echo "same-node stagger: sleeping ${stagger}s before the next leg on $node"
++        sleep "$stagger"
++    fi
++    [[ "${SAME_NODE_START_GATE:-health}" == health ]] || return 0
++    echo "same-node gate: waiting for the already-started leg(s) on $node to answer /health"
++    local gate_args=(
++        python3 "$DIR/tools/wait_healthy.py"
++        --ssh-options "${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=10}"
++        --timeout "${READY_TIMEOUT:-3600}" --interval "${HEALTH_INTERVAL:-10}"
++        --probe-timeout "${HEALTH_PROBE_TIMEOUT:-5}"
++        --failure-dir "$OUT_DIR/failures"
++        --summary "$OUT_DIR/gate-$gate_number-$node.json"
++    )
++    local record inst cont url
++    while IFS= read -r record; do
++        [[ -n "$record" ]] || continue
++        IFS=$'\t' read -r inst cont url <<< "$record"
++        gate_args+=(--target "$inst" "$node" "$cont" "$url")
++    done <<< "${started_on_node[$node]}"
++    gate_number=$((gate_number + 1))
++    "${gate_args[@]}" || {
++        echo "same-node gate failed on $node; not starting the next leg" >&2
++        # Tear down the legs we already started on this node. Without this the
++        # abandoned engine keeps its GPUs and its ~2 TiB host pool: when the gate
++        # falsely failed on r003-c64 the prefill leg it gave up on went on serving
++        # normally and leaked for four days, blocking the node for everyone.
++        #
++        # Same safety predicate as stop.sh: the name must contain "yihou" AND start
++        # with this run's own prefix, so a mis-set variable can never reach another
++        # tenant's container. Containers are STOPPED, never removed, so the logs that
++        # explain the failure survive.
++        local rec i c u
++        while IFS= read -r rec; do
++            [[ -n "$rec" ]] || continue
++            IFS=$'\t' read -r i c u <<< "$rec"
++            [[ "$c" == *yihou* && "$c" == "$CONTAINER_PREFIX"-* ]] || {
++                echo "  refusing to stop '$c': not ours" >&2; continue; }
++            echo "  stopping abandoned leg $c on $node" >&2
++            ssh_run "$node" docker stop --time "${CONTAINER_STOP_TIMEOUT:-120}" "$c" \
++                >/dev/null 2>&1 || echo "  (stop of $c failed; check it by hand)" >&2
++        done <<< "${started_on_node[$node]}"
++        exit 1
++    }
++}
+ while IFS=$'\t' read -r instance role node ip gpus engine bootstrap kv snapshot container; do
++    gate_same_node "$node"
+     echo "starting $instance on $node"
+     ssh_run "$node" bash "$REMOTE_BENCH_DIR/engine.sh" \
+         "$role" "$instance" "$ip" "$gpus" "$engine" "$bootstrap" \
+         "$kv" "$snapshot" "$container" "$etcd_endpoint" \
+         "${overrides[@]}" "CONFIG=$CONFIG" "TOPOLOGY=$TOPOLOGY" \
+         "SERVER_LOG=$OUT_DIR/server-logs/$instance.log" </dev/null
+-    wait_args+=(--target "$instance" "$node" "$container" "http://$ip:$engine/health")
++    health_url="http://$ip:$engine/health"
++    record="${instance}"$'\t'"${container}"$'\t'"${health_url}"
++    if [[ -n "${started_on_node[$node]:-}" ]]; then
++        started_on_node[$node]+=$'\n'"$record"
++    else
++        started_on_node[$node]="$record"
++    fi
++    wait_args+=(--target "$instance" "$node" "$container" "$health_url")
+ done < <(rows)
+ "${wait_args[@]}"
+ 
+@@ -123,10 +208,23 @@
+ else
+     router_args+=(--router-policy round-robin)
+ fi
++# The router's clap uses ArgAction::Set: INFERA_PD_DP_RANK_AFFINITY accepts only
++# true/false, never 1/0, so translate the numeric knob here.
++if [[ "$PD_DP_RANK_AFFINITY" == 1 ]]; then
++    pd_dp_rank_affinity=true
++else
++    pd_dp_rank_affinity=false
++fi
+ echo "starting router on $CONTROL_NODE"
+ ssh_run "$CONTROL_NODE" docker run -d --init \
+     --name "$router_container" --network host \
+-    -v "$MODEL:$MODEL:ro" "$IMAGE" "${router_args[@]}"
++    -e "INFERA_PD_DP_RANK_AFFINITY=$pd_dp_rank_affinity" \
++    -v "$WS:$WS" -v "$MODEL:$MODEL:ro" \
++    --tmpfs "$WS/tmp/${YIHOU_NODE##*-}/router:rw,exec,size=2g" \
++    -e "TMPDIR=$WS/tmp/${YIHOU_NODE##*-}/router" \
++    -e "HF_HOME=$WS/cache/${YIHOU_NODE##*-}/router" \
++    -e "XDG_CACHE_HOME=$WS/cache/${YIHOU_NODE##*-}/router" -e PYTHONDONTWRITEBYTECODE=1 \
++    "$IMAGE" "${router_args[@]}"
+ 
+ python3 "$DIR/tools/wait_healthy.py" \
+     --target router "$CONTROL_NODE" "$router_container" "$router_url/health" \
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/stop.sh /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/stop.sh
+--- /tmp/yihou_base28121/bench/glm5p2_pd/stop.sh	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/stop.sh	2026-09-24 03:41:49.106982396 +0000
+@@ -39,6 +39,7 @@
+ 
+ stop_one() {
+     local node="$1" container="$2" state
++    [[ "$container" == *yihou* && "$container" == "$CONTAINER_PREFIX"-* ]] || return 2
+     state="$(ssh_run "$node" docker inspect --format '{{.State.Status}}' "$container" 2>&1)" || {
+         [[ "${state,,}" == *"no such"* ]] && { echo "$container absent on $node"; return; }
+         echo "cannot inspect $container on $node: $state" >&2
+@@ -48,12 +49,12 @@
+         echo "stopping $container on $node (timeout=${CONTAINER_STOP_TIMEOUT:-300}s)"
+         if ! ssh_run "$node" docker stop --time "${CONTAINER_STOP_TIMEOUT:-300}" "$container"; then
+             echo "graceful stop timed out; forcing $container on $node" >&2
+-            ssh_run "$node" docker rm -f "$container"
++            ssh_run "$node" docker kill "$container"
+             return
+         fi
+     fi
+-    ssh_run "$node" docker rm "$container" >/dev/null 2>&1 ||
+-        ssh_run "$node" docker rm -f "$container" >/dev/null
++    # Keep stopped containers and their logs; use a fresh run prefix on retries.
++    return 0
+ }
+ 
+ stop_prefix() {
+@@ -73,7 +74,6 @@
+ stop_prefix "$CONTROL_NODE" "$CONTAINER_PREFIX-gsm8k-client-" || status=1
+ stop_one "$CONTROL_NODE" "$CONTAINER_PREFIX-router" || status=1
+ while IFS=$'\t' read -r index instance role node ip; do
+-    stop_prefix "$node" "infera-preflight-" || status=1
+     stop_one "$node" "$CONTAINER_PREFIX-$instance" || status=1
+ done <<<"$topology_rows"
+ stop_one "$CONTROL_NODE" "$CONTAINER_PREFIX-etcd" || status=1
+Only in /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools: __pycache__
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/tools/agentx_env.py /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/agentx_env.py
+--- /tmp/yihou_base28121/bench/glm5p2_pd/tools/agentx_env.py	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/agentx_env.py	2026-10-10 04:47:50.240573110 +0000
+@@ -84,7 +84,11 @@
+         ip = row["data_ip"].strip()
+         rows.append({
+             "instance": instance, "role": role, "node": row["node"].strip(),
+-            "ip": ip, "url": f"http://{ip}:{bases[0] + index}",
++            # ENGINE_PORT_STRIDE must match launch.sh:rows(); it is >1 only for
++            # a same-node deployment, where SGLang's internal port block derived
++            # from --port would otherwise overlap between the two legs.
++            "ip": ip,
++            "url": f"http://{ip}:{bases[0] + index * int(env.get('ENGINE_PORT_STRIDE') or 1)}",
+             "container": f"{env['CONTAINER_PREFIX']}-{instance}",
+         })
+     return rows
+@@ -136,6 +140,17 @@
+         "dp": int(env[f"{prefix}_DP"]),
+         "dpa": bool_value(env[f"{prefix}_DPA"]),
+         "hicache": bool_value(env[f"{prefix}_HICACHE"]),
++        "hicache_size": int(env.get(f"{prefix}_HICACHE_SIZE", "0")),
++        # engine.sh emits --hicache-ratio only with HiCache on; a size > 0 overrides it.
++        "hicache_ratio": float(env[f"{prefix}_HICACHE_RATIO"])
++        if bool_value(env[f"{prefix}_HICACHE"]) else None,
++        # yihou v0521dbg: --no-enable-dsa-fused-indexer and the writer env, both legs.
++        "dsa_fused_indexer_off": env.get("DSA_FUSED_INDEXER", "default") == "off",
++        "aiter_fused_fp8_writer_off": env.get("AITER_FUSED_FP8_INDEXER_WRITER", "default") == "off",
++        "host_register_chunk_gb": (env.get("HICACHE_HOST_REGISTER_CHUNK_GB", "") or None)
++        if role == "prefill" else None,
++        "pid_host": env.get("ENGINE_PID_HOST", "0") == "1",
++        "ipc_legacy": env.get("IPC_MODE_LEGACY", "0") == "1",
+         "mtp": role == "decode" and bool_value(env["DECODE_MTP"]),
+         "max_running": int(env[f"{prefix}_MAX_RUNNING"]),
+         "graph_max_bs": int(env[f"{prefix}_GRAPH_MAX_BS"]),
+@@ -167,6 +182,16 @@
+         "dp": int(command_value(command, "--dp-size", "1")),
+         "dpa": "--enable-dp-attention" in command,
+         "hicache": "--enable-hierarchical-cache" in command,
++        "hicache_size": int(command_value(command, "--hicache-size", "0")),
++        "hicache_ratio": float(command_value(command, "--hicache-ratio"))
++        if "--hicache-ratio" in command else None,
++        "dsa_fused_indexer_off": "--no-enable-dsa-fused-indexer" in command,
++        "aiter_fused_fp8_writer_off": bool_value(
++            container_env.get("SGLANG_DISABLE_AITER_FUSED_FP8_DSA_INDEXER", "0")
++        ),
++        "host_register_chunk_gb": container_env.get("SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB"),
++        "pid_host": ((container.get("HostConfig") or {}).get("PidMode") or "") == "host",
++        "ipc_legacy": container_env.get("HSA_ENABLE_IPC_MODE_LEGACY") == "1",
+         "mtp": "--speculative-algorithm" in command,
+         "max_running": int(command_value(command, "--max-running-requests")),
+         "graph_max_bs": int(command_value(command, graph_option)),
+@@ -193,8 +218,15 @@
+     wanted_simulation = env.get("DECODE_SIMULATE_ACC_LEN", "") if row["role"] == "decode" else ""
+     if value["simulate_acc_len"] != wanted_simulation:
+         raise ValueError(f"{row['instance']}: simulated acceptance differs from config")
++    if int(info.get("hicache_size") or 0) != value["hicache_size"]:
++        raise ValueError(f"{row['instance']}: server_info hicache_size differs")
+     for key in ("tp", "ep", "dp"):
+-        reported = int(info.get(f"{key}_size") or 1)
++        field = f"{key}_size"
++        # sglang >= 0.5.21 resolves `--dp-size N --enable-dp-attention` into
++        # attn_dp_size=N, dp_size=1 (server_args.py:404-411); compare that field.
++        if key == "dp" and value["dpa"] and "attn_dp_size" in info:
++            field = "attn_dp_size"
++        reported = int(info.get(field) or 1)
+         if reported != value[key]:
+             raise ValueError(f"{row['instance']}: server_info {key}={reported}, command={value[key]}")
+     return value
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/tools/topology.py /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/topology.py
+--- /tmp/yihou_base28121/bench/glm5p2_pd/tools/topology.py	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/topology.py	2026-09-23 10:06:48.828224613 +0000
+@@ -26,8 +26,10 @@
+     if not source:
+         raise SystemExit(f"{path}: topology is empty")
+     rows = []
+-    nodes: set[str] = set()
+-    ips: set[str] = set()
++    # Same-node 1P1D: a prefill row and a decode row legitimately share the one
++    # physical node and its single data_ip, so node/ip are NOT unique keys. Reject
++    # only a genuinely duplicated row (same role+node+data_ip appearing twice).
++    seen_rows: set[tuple[str, str, str]] = set()
+     counts = {"prefill": 0, "decode": 0}
+     for line, row in enumerate(source, 2):
+         role = (row.get("role") or "").strip().lower()
+@@ -43,10 +45,13 @@
+             raise SystemExit(f"{path}:{line}: invalid data_ip {data_ip!r}") from None
+         if parsed.version != 4:
+             raise SystemExit(f"{path}:{line}: data_ip must be IPv4")
+-        if node in nodes or data_ip in ips:
+-            raise SystemExit(f"{path}:{line}: node and data_ip must be unique")
+-        nodes.add(node)
+-        ips.add(data_ip)
++        row_key = (role, node, data_ip)
++        if row_key in seen_rows:
++            raise SystemExit(
++                f"{path}:{line}: duplicate topology row "
++                f"role={role} node={node} data_ip={data_ip}"
++            )
++        seen_rows.add(row_key)
+         instance = f"{role}-{counts[role]}"
+         counts[role] += 1
+         rows.append(
+diff -ru /tmp/yihou_base28121/bench/glm5p2_pd/tools/wait_healthy.py /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/wait_healthy.py
+--- /tmp/yihou_base28121/bench/glm5p2_pd/tools/wait_healthy.py	2026-10-09 05:50:06.000000000 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/wait_healthy.py	2026-10-08 03:44:18.388405454 +0000
+@@ -38,14 +38,32 @@
+     reason = ""
+     last_health_error = ""
+     inspect_payload = None
++    inspect_timeouts = 0
+     while time.monotonic() - started < timeout:
+         try:
+             inspected = remote(
+                 options, target, ["docker", "inspect", container], probe_timeout + 10
+             )
+         except subprocess.TimeoutExpired:
+-            reason = "docker inspect timed out"
+-            break
++            # TRANSIENT, not fatal. The docker daemon is heavily loaded during a
++            # bring-up -- four ranks each mmap and load ~31 GiB of weights -- and a
++            # single `docker inspect` can exceed its budget while the container is
++            # perfectly healthy. Treating that as fatal killed round r003-c64 at
++            # 31.8 s into a gate with minutes of budget left, and the container it
++            # abandoned went on to serve normally.
++            #
++            # The health probe below has always treated its own timeout as transient
++            # (see `last_health_error`); this path was simply inconsistent with it.
++            # A container that is genuinely gone is caught by the `returncode` branch
++            # ("No such object") or by the not-Running branch, both of which are still
++            # fatal. If the condition persists, the enclosing `while` runs out and we
++            # report a health timeout, which is the honest description.
++            inspect_timeouts += 1
++            last_health_error = (
++                f"docker inspect timed out {inspect_timeouts}x (transient; retrying)"
++            )
++            time.sleep(interval)
++            continue
+         if inspected.returncode:
+             reason = (inspected.stderr or inspected.stdout).strip()
+             break
+@@ -87,6 +105,7 @@
+         "name": name, "node": node, "container": container, "health_url": url,
+         "healthy": False, "reason": reason,
+         "last_health_error": last_health_error,
++        "inspect_timeouts": inspect_timeouts,
+         "elapsed_seconds": round(time.monotonic() - started, 3),
+     }
+     (output / "summary.json").write_text(

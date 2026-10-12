@@ -1,0 +1,227 @@
+# Poll ledger (leader, every 20 min)
+
+Format: time UTC · teammate · observation · status (RECORDED / RESOLVED / INTERVENED)
+
+- 06:3x · leader · P0 done: router conflicts resolved in clone `e3e46f32`; cargo test 337 pass / 0 fail. builder + harness spawned.
+- 06:4x · builder · patch table delivered (12 rows; drop #1 #3 #5 #12 as upstream; re-cut #9, prefill-only #4, new #11 NextN). Leader spot-checked #3, #11: agree. Minor: vote-site citation imprecise → asked to fix. RECORDED.
+- 06:29 · poll · builder: first build (started 06:28, BUILD_MOONCAKE=0, pre-correction) at router compile, all sglang patches applied+bytecode-verified; correction to BUILD_MOONCAKE=1@faae8dd4 sent, rebuild pending. harness: done, idle, census extended. Node 102: 0 containers, 8×283 MiB. Jobs: 200276 4:48 left, 202546 PENDING. No problems. (Leader's earlier "06:5x" timestamps in PLAN/packup erratum were estimates; actual ~06:2x.)
+- 06:3x · builder · image 256e5d78 built+verified (fail=0) but with BUILD_MOONCAKE=0 (correction arrived after). Asked for rebuild with BUILD_MOONCAKE=1@faae8dd4; old tag kept as -basemc. RECORDED.
+- 06:4x · builder · image 3f917e9b (BUILD_MOONCAKE=1@faae8dd4) verified; leader confirmed loaded engine.so sha256 identical to proven (f22b1364…cd56d). v0521 build files committed fb8ae9c9 on clone branch. builder standing by. Round c44a bring-up started 06:37 (driver run.c44.yihou.sh up); watchdog spawned (10-min checks).
+- 06:49 · poll · prefill cold start 12 min in, AITER JIT compiling (baton waits normal), census so far clean (HIP ×4, 0 HCAs ×4). watchdog reporting on schedule (06:38, 06:47). builder/harness idle-standby. Job 200276 4:28 left; 202546 PENDING. Host pools 4×(450+103.13) GB = identical to r013. No problems.
+- 06:57 · FIRST SIGHTING (record only) · (1) decode a1 died 06:52 in known RCCL race (p2p.cc:256 hipIpcGetMemHandle) → driver retrying, a2 up. (2) prefill /health 200 once at 06:49:24 then detokenizer-heartbeat 503s ("no response from detokenizer for 20 s", last_heartbeat 06:49:23); prefill schedulers alive (24-48 % CPU), GPUs 0-3 0 % use, prefill caches unchanged since 06:49; no MAF/TB/OOM. Matches Stage-1 N5 (r012: 503 during decode start, self-recovered). Hypothesis (unverified): health-generate waits for a decode peer. Re-check after decode is up / next poll.
+- 07:15 · INTERVENED (2nd observation unresolved) · prefill wedge root-caused, see working_process.md R001. c44a stopped; c44b launched with one mount (non-blocking kv_events_publisher). RCCL race (decode a1) = known, retried OK.
+- 07:10 · FIRST SIGHTING (record only) · c44b gated on VRAM: after c44a graceful stop (exit 143, no KFD PIDs), GPUs 0-3 still 128-251 GiB used, GPUs 4-7 4.1 GiB (idle baseline 283 MiB). = Stage-1 N3 slow release. Gate waits (<400 MiB). Job 200276 4:06 left; 202546 PENDING. builder/harness standby; watchdog switched to c44b. (Note: leader's "~07:15" in R001/report was an estimate; actual c44b start 07:10:17.)
+- 07:23 · c44b VRAM gate: torch mem_get_info agrees with rocm-smi (real, not a reporting lag); draining — GPUs 4-7 back to 284 MiB, GPU1 255→8 GB, GPU0/2/3 125/221/221 GiB. Progressing; keep waiting.
+- 07:29 · poll · c44b gate passed 07:24:31 (VRAM drain 14 min); prefill starting (4.5 min in, loading). Prior VRAM-gate sighting RESOLVED. watchdog on c44b. Job 200276 3:48 left (ends 11:17). No new problems.
+- 07:47 · c44b UP 07:42 (census/smoke clean); R002 validator dp fix; AgentX full C44 running (r2). watchdog tracking bench by mtime.
+- 07:51 · poll · bench warmup first 150 s: 48 in flight, 0 returned; prefill DP1 1 running/11 queued, GPUs 0-3 100 %. Evidence: py-spy shows DP0 compiling triton (make_amdgcn), DP3 in _send_kv_chunk; triton cache newest file seconds old; then returned 14 → 21/488, errors 0, all 4 prefill ranks running. = cold triton JIT for real-prompt shapes on the new image, absorbed by warmup. RESOLVED (not a hang). Job 200276 3:26 left. builder/harness standby.
+- 07:55 · watchdog observation (decode 1 gen token/request, 0 Decode batch lines) → checked: warmup "snapshot primer" records have output_sequence_length=1 with osl_mismatch_diff_pct=0.0, i.e. 1 token requested by design. Not a fault. Watch Profiling phase for real decode output.
+- 08:05 · warmup 293/488, errors 0. Confirmed first-hand: aiperf agentic_replay.py:86 `_WARMUP_MAX_TOKENS = 1` applied to every warmup request → decode idle in warmup is by design. Prefill /health curl timeout while batches advance (~1M pending tokens, 0 health-failed lines) = saturation. RECORDED, not a fault.
+- 08:38 · R003 repro blocked: KFD teardown of c44b in progress (rocminfo hangs, VRAM frozen since 08:22). Hypothesis "hand config" weakened (crash batch M=2174 → config None = v0519 call). Waiting on driver. Job 200276 2:39 left; 202546 PENDING.
+- 08:42 · R003 root cause reproduced (hand absorb-bmm config @M=256 → same LLVM assertion); fix mounted; c44c launched. watchdog switched.
+- 08:49 · poll · c44c prefill healthy 08:46:17 (6 min, warm caches); decode a1 loading; 0 abort/TB both legs. Job 200276 2:28 left. builder/harness standby; watchdog on c44c. No problems.
+- 08:58 · c44c UP 08:56 (decode a3 after 2 RCCL races; census clean; smoke ok; fixes verified live in containers). AgentX full C44 started.
+- 09:09 · poll · c44c warmup 68/488, sent 129 (cache-pressure phase started), errors 0; prefill batches current (09:09:13); 0 abort/MAF both legs. Projection: warmup end ~09:32, profiling end ~10:32, report ~10:40; job 200276 ends 11:17 (margin ~35 min). No problems.
+- 09:17 · warmup COMPLETE 09:15:34 (488/488, errors 0); PROFILING 3600 s started 09:15:34 → ETA 10:15:35. Decode live: gen tput 201-324/rank, spec_accept 3.51-3.66 (all 4 ranks), prefix hit 85.2 %. 0 MAF/abort.
+- 09:31 · R004: c44c decode MAF (DP3/GPU7) 09:21 in MTP draft-extend DSA path; c44c stopped; c44d (index_share=false only) launched. Job 200276 extended → 14:17:38.
+- 09:31 · poll · c44d gated on VRAM drain (started 09:31:04; GPUs still 146-270 GiB, no containers). Job 200276 4:46 left (ends 14:17); 202546 PENDING behind it. builder/harness standby; watchdog on c44d. No new problems.
+- 09:49 · poll · c44d prefill healthy 09:47:25; decode settling/starting; 0 abort/MAF. Job 200276 4:28 left. builder/harness standby; watchdog on c44d. No problems.
+- 09:55 · c44d UP 09:53 (decode a1 first try; census clean; smoke ok; live index_share=false). AgentX full C44 started.
+- 10:09 · poll · c44d warmup 304/488, errors 0 (past c44b's 293 stall point); 0 abort/MAF both legs. Job 200276 4:08 left. builder/harness standby; watchdog on c44d. No problems.
+- 10:14 · c44d warmup COMPLETE 10:13:09 (488/488, 0 errors); PROFILING started 10:13:09 → ETA 11:13. Decode accept 3.60-3.63. 0 MAF.
+- 10:32 · R005: c44d prefill MAF (DP1/GPU1) 10:25, 12 min into profiling; run dead; stopped. Cause OPEN (see R005). Escalating options to user.
+- 2026-10-10 02:3x · RESUME after admin kill: c44e ended at job end 11:17:38 (hold sleep 86400 expired; TimeLimit raise ineffective — leader error). 0 MAF in c44e. 102 now held by another job; 202546 PENDING, est. start 10-10 12:13 UTC.
+- 02:49 · poll · no teammates (lost with session), no service. 202546 PENDING (Resources), est. start 12:13 UTC; 102 alloc by another job. Waiting on user decisions (node + MAF direction).
+- 03:09 · poll · no teammates yet (research workflow running). 136/138 idle, v0521 image built on both (mooncake .so f22b1364 = proven). 202546 PENDING (102).
+- 03:10 · FIRST SIGHTING · 136+138 taken ~02:58 by user yaoc (yaoc-glm52-8p4d-prefill-dcp-*: prefill x2 on 136 all 8 GPUs; decode on 138 GPUs 0-3 + router/etcd/agentx client). 137 = limou vLLM. No 8-GPU node free among 136-138. Not touching others' runs. Asking user.
+- 03:35 · phase 2 started: research done (H1 code-confirmed), PLAN v2, sub-workspace, CLAUDE.md rewritten. Team: harness-v2, repro (prep only). Waiting oai node (205476 QOSGrpNodeLimit; 202546 est 12:13).
+- 03:33 · poll · 138 free again (yaoc gone; 8×284 MiB), 136 draining (no containers, ~221 GiB/GPU), 137 limou. Target E1 → 138, E2 → 136 when idle. Teammates redirected (plain ssh). harness-v2/repro: no output yet (started ~03:30) — normal. oai 205476/202546 still PENDING (kept as fallback).
+- 03:46 · user: 2 burst nodes + v0519 sanity first. Spawned alloc-watch, sanity. harness-v2 DONE (E1/E2 configs+driver+dryruns; finding: engine.sh emits ratio AND size; size wins). repro running E0 on 138 GPU7.
+- 03:50 · alloc-watch: burst jobs 205500(238)/205501(213) RUNNING but cpu=1, 0 GPUs (ROCR=-1; nodes' GPUs used by others). Approved resubmission with --gres=gpu:8 -c 160 (the form that got 8 GPUs for job 200276), excluding 238/213; cancel A/B. harness-v2 staging there cancelled. E1 on 138 held (sanity-first rule).
+- 03:52 · repro E0: H1 MECHANISM CONFIRMED (see R008). Next: 420 GiB single-registration test. Note /shared_nfs RO on 138.
+- 03:56 · repro E-dbg: debug agent present, names kernels (eager+graph), lean overhead ~1.00x → added to E1/E2 configs (harness-v2). repro next: 420 GiB single-registration test.
+- 03:48 · harness-v2 staged+verified v0521 on 238 (32a71e3b) / 213 (a8c5538e) before cancel arrived (harmless; won't run there: 0 GPUs held, foreign VRAM). alloc-watch has not yet resubmitted (probably mid-sleep) — FIRST SIGHTING, recheck next poll.
+- 03:49 · poll · alloc-watch: replacement burst jobs (--gres=gpu:8) still not submitted 8 min after instruction; A/B (0 GPU) still RUNNING — still FIRST SIGHTING window (watch loop sleep ≤10 min); intervene at next poll if unchanged. repro: 420 GiB test not yet started (no new out dir). harness-v2/sanity standing by.
+- 03:51 · alloc-watch submitted 205515 (burst, gres gpu:mi355x:8) PENDING Priority; had not seen my 03:44 instruction → re-sent: cancel A/B, submit 2nd 8-GPU job, stay on burst QOS. RESOLVED-in-progress.
+- 03:53 · harness-v2: agent→stderr, NODE_RW_ROOT done (136/138 have RO /shared_nfs; sanity's v0519 harness would fail there, spur nodes are rw). Burst: 205515 PENDING Priority.
+- 03:59 · repro: H1 at production size confirmed + CHUNK_GB=512 fix validated (R010). Long overhead bench skipped.
+- 04:02 · sanity v0519 acceptance run GO on 136 (RO-NFS variant; argv identical to r013; image DiffIDs 72/72). alloc-watch watches it every 10 min. Burst 205515 still PENDING.
+- 04:11 · INTERVENED (alloc-watch msgs not taking effect): A/B were already cancelled; submitted 2nd 8-GPU burst 205548 myself. Both 205515/205548 PENDING Resources. Sanity 136: prefill healthy 04:09:04 (pools match 102), decode starting.
+- 04:10 · poll · sanity 136: prefill healthy, decode starting; burst 205515/205548 PENDING Priority; harness-v2/repro standby; alloc-watch watching. No new problems.
+- 04:17 · sanity 136: decode RCCL hipIpcGetMemHandle invalid argument 3/3 (prefill idle → not a race). Ordered T1-T3 RCCL probe incl. HSA_ENABLE_IPC_MODE_LEGACY=1 (R011).
+- 04:29 · poll · sanity 136 a4 (default-env control retry) in progress; burst 205515/205548 PENDING Resources; harness-v2/repro standby; alloc-watch watching. No new problems beyond R011 (being worked).
+- 04:36 · sanity 136: a4 default FAIL (4/4); a5 +HSA_ENABLE_IPC_MODE_LEGACY=1 got past RCCL init, loading → waiting for health.
+- 04:45 · sanity a5: decode up but KV transfer fails (legacy only on decode → prefill can't open handles). GO full rerun with legacy IPC on both legs. repro: research default-IPC failure on 136.
+- 04:55 · R012: repro root-caused N1 'RCCL race' = ROCr abstract-socket \0hsa<pid> collision across containers (host netns, private pid ns). sanity tests predictions (solo, --pid host). harness-v2 adds ENGINE_PID_HOST / IPC_MODE_LEGACY knobs.
+- 05:00 · harness-v2: ENGINE_PID_HOST=1 (default) / IPC_MODE_LEGACY knobs + ipc_guard + pidcensus + audit ready; dryruns regenerated. Open: --pid host untested live (watch kill_process_tree at shutdown) — first exercised by sanity's pidhost round on 136.
+- 04:51 · poll · sanity: decode-solo not started yet; 136 GPUs 0-3 still 138-263 GiB (prefill teardown/VRAM drain in progress?), 4-7 ~3.7 GiB. Burst 205515/205548 PENDING Priority. Note: 136 has old yihou containers 'hc154chunk64'/'hc274' (2026-09-24 HiCache-ceiling sweep) — prior work touched host-register chunking; check for H1 write-up.
+- 05:09 · poll · sanity legacy-both-legs round on 136: prefill healthy 05:08:41, decode starting; then pidhost arm. Burst 205515/205548 PENDING (amd-spur contention; idle nodes are partition amd-aifw-sglang). harness-v2/repro standby.
+- 05:26 · BURST UP: 205515→crsuse2-m2m-227 (10.245.151.183), 205548→crsuse2-m2m-067 (10.245.157.102), 8 idle GPUs each (alloc-watch verified). Staging: sanity v0519 load, harness-v2 v0521 build, in parallel. sanity 136 legacy round: decode a1 healthy first try 05:15:27 (prefill up); e2e/census running.
+- 05:30 · harness-v2: v0521 staged+verified on 227 (256a5daa…) / 067 (6a73feca…), mooncake f22b1364, verify fail=0; dryruns e1a-227 / e2a-067 rc=0 with --pid host + debug agent. Waiting for v0519 sanity on both before E1/E2.
+- 05:35 · R013: 136 v0519 sanity PASS with legacy IPC both legs. E1/E2 default → legacy IPC, pid host off. Burst sanity (227/067) next with legacy.
+- 05:40 · oai jobs started: 202546 → 102 (kept: warm v0521 caches, Stage-1-proven → arm E2b = E2 minus fused indexer, no re-sanity), 205476 → 115 (cancelled, surplus). Arms: E1@227, E2@067 (after v0519 sanity), E2b@102 (now).
+- 05:29 (actual; earlier 05:3x/05:40 stamps were estimates) · poll · 3 jobs RUNNING (102/227/067). sanity: burst ws not yet created (136 teardown/v0519 staging in progress); harness-v2: preparing E2b on 102; alloc-watch watching. No problems yet.
+- 05:34 · E2b STARTED on 102 (up 05:30:59; prefill weights loaded 05:32; warm caches copied). Port overrides due to stale c44e router/etcd (ours) → told to stop them (no rm). GO E2b straight to bench after census/audit/smoke.
+- 05:40 · R014: ipc socket-squat test confirms mechanism (0/1/0 as predicted). Burst preflight PASS on 227/067; v0519 loading.
+- 05:45 · R015: E2b decode port 39595 taken by prefill's ephemeral socket (ip_local_port_range 32768-60999). Fix: fixed ports < 30000; E2b decode-only override in progress (harness-v2).
+- 05:48 · burst 205515/205548 PREEMPTED 05:43 (v0519 staged there; no engine launched). Not resubmitting (preemptible). E1 → 136 (passed v0519 sanity w/ legacy fix; plain ssh + NODE_RW_ROOT; sub-30000 ports). E2b continues on 102 (decode-only port fix). pidhost arm dropped for now.
+- 05:49 · poll · E2b: a1-a3 FAIL (port 39595, R015) → harness-v2 running a4 with decode-only port override. 136: sanity's pidhost prefill already up (started before my change) — stop requested; then E1. alloc-watch rescoped (102+136). FIRST SIGHTING: none new.
+- 05:58 · R016: E2b smoke FAIL hipIpcOpenMemHandle 201 with legacy both legs + debug agent. Parallel tests: e2b2 (agent off) on 102, IPC matrix (repro) on 136, then E1 on 136 (agent off).
+- 06:00 · harness-v2: c44e router/etcd stopped; ports→sub-30000 + port_preflight (33 ports); E1@136 pipeline queued (was agent ON) → changed: DEBUG_AGENT=0 + wait for yihou-ipc* gone + GO file. e2b2 GO on 102 (agent off). sanity pidhost round running on 136 (evidence). repro IPC matrix may run alongside on 136.
+- 06:03 · repro IPC matrix 16/16 PASS (agent/image not culprits in simple case). Extended test (sub-alloc + multi-GPU thread) ordered. GO file for E1 created (waits for sanity pidhost round to end).
+- 06:10 · repro ext. test: no 201 repro; FOUND latent mooncake relocation hazard (interior ptr opens at base). Next: multi-open same allocation + registration-layout diff v0519→v0521.
+- 06:03 · FIRST SIGHTING: e2b2 pipeline halted 05:58 'STOP at pre-stop' (benign stop.sh error treated fatal) → nudged harness-v2 to fix+relaunch. E1@136 pipeline waiting for sanity pidhost containers (by design).
+- 06:09 · poll · e2b2@102 in VRAM-drain gate (OK). FIRST SIGHTING: E1@136 pipeline crashed (bash syntax error line 32) after wait → told harness-v2 to fix+relaunch. repro: mooncake TE pair test + REGBASE mount in progress. sanity: pidhost round on 136 ended (verdict pending).
+- 06:14 · R017: pidhost arm PASS on 136. E1 → default IPC + --pid host + agent off. e2b2 unchanged (legacy, agent off). repro TE pair test running on 136.
+- 06:22 · harness-v2: e2b2@102 in VRAM gate (3 GPUs ~255 GB, no KFD PIDs; gate gives up 06:44). E1 waiter relaunched 06:10 still with legacy → re-sent: kill & relaunch with --pid host + default IPC + agent off. Pipeline fixes: pre-stop judged by running containers; editing a running bash script crashed the first waiter.
+- 06:25 · 102: cards1-3 flat ~253 GB since 06:08 after clean e2b stop (no KFD procs) — FIRST SIGHTING; precedent 17-min freeze then release; decision: keep waiting, re-run up once after 06:44 gate expiry, escalate ~07:25.
+- 06:30 · R018: mooncake interior-registration misplacement confirmed end-to-end (silent). 201 not reproduced by real TE (agent off). repro: write-up + upstream check.
+- 06:33 · E1 STARTED on 136 at 06:20 (legacy=1, private PID, agent off — waiter fired before the pid-host instruction; kept: it tests 'agent caused 201'). e2b2 (102, still gated) switched to --pid host + default IPC + agent off → both IPC fixes covered on v0521 in one wave.
+- 06:40 · R019: Mooncake PR #4340 fixes the interior-IPC misplacement (trigger described = SGLang PD on MI355X, DSA index-K overwriting MoE weights). builder: build v0521+mc4340 image on 102/136.
+- 06:42 · builder unreachable (lost in restart) → repro builds v0521+mc4340. harness-v2: E1 started 06:20:22 on 136, COLD caches (~45 min to prefill health). e2b2 still gated on 102 (cards1-3 ~253 GB).
+- 06:29 · poll · e2b2@102 still gated (253.6 GB) — 2nd observation of the 102 VRAM freeze; plan: let gate expire 06:44 then re-run up once (already instructed). E1@136 cold prefill loading (started 06:20). repro: mc4340 build starting. alloc-watch: service watch on 102+136.
+- 06:40 · 102 VRAM freed 06:33 (~29 min after stop: slow, not stuck — RESOLVED). e2b2 launched as legacy/private-PID/agent-off/no-REGBASE (switch arrived late) → kept: cleanest 'agent caused 201' test (=E2b minus agent). E1@136 prefill ok 06:31:41 (cold ~11 min; host pool 153.81 GB ×4, DSA idx 35.25 GB/rank).
+- 06:48 · repro: mc4340 image built+verified on 102/136 (engine.so 3c96489a…). GPU validation held until an E-run ends; overlay for next wave being prepared.
+- 06:45 · INTERVENED: alloc-watch never processed 3 rescope messages (queue-only ticks; long sleep loops block its mailbox) → stopped; spawned watchdog2 (short Bash calls; service/bench watch on 102 e2b2 + 136 e1a every 10 min).
+- 06:49 · poll · see pipeline tails; watchdog2 active (tick1 OK). 102 prefill 503 after ok — FIRST SIGHTING (N5-like); watchdog will flag if persistent.
+- 06:51Z poll: e2b2@102 + e1a@136 smoke FAIL hipIpcOpenMemHandle 201 (agent OFF) → R020; supersedes '102 prefill 503' line. Decision: next wave pid-host+default IPC — e2b3@102 (plain v0521, E2b), e1b@136 (mc4340+REGBASE, E1, gated on repro te_pair GO). Stacks being stopped; ~20-30 min drain.
+- 06:53Z R020 mechanism = CLR same-PID guard (verified src + e1a pid 973==973). pid-host wave confirmed correct.
+- 06:54Z launched: e2b3@102 (E2b, 1009 img, pid-host+default IPC; diff vs e2b2 verified = legacy→--pid host) in VRAM drain gate; e1b@136 (E1, mc4340+REGBASE, pid-host) waiting GO.e1b (repro te_pair).
+- 07:02Z R020 closed (pidguard matrix). te_pair PASS → GO.e1b; 136 VRAM 0% now. e2b3 still draining.
+- 07:10Z POLL. job 202546 RUNNING on 102 (1:43 elapsed, 24 h). 102: e2b3 in VRAM drain gate since 06:53 (GPUs 1-3 ~255 GB, 4-7 idle; no containers) — expected (last drain took ~29 min).
+  136: FIRST SIGHTING — e1b gate stuck at max 103.5 GB: NOT our drain. Another user's container
+  (docker 223c7f0b…, dev_xb) started `torchrun --nproc_per_node=8 -m tools.long_ctx_bench --model GLM-5.3`
+  at ~07:06, 8 python ranks × ~109 GB on all 8 GPUs. Do not disturb. e1b waits harmlessly in gate.
+  Correction: leader's 07:02 "136 VRAM 0%" used `--showmemuse` (activity %), not VRAM; wrong metric.
+  Teammates: harness-v2 OK (both pipelines in gates), watchdog2 OK, repro idle (PR #42553 work by leader),
+  builder obsolete. Side task: PR #42553 assessment R021; patched common.py mount built, unit test needs a GPU at import.
+- 07:14Z INTERVENED (other-user collision, not wait-and-see): 136 foreign GLM-5.3 long_ctx_bench loops with short gaps; e1b gpuidle hit a gap (07:10:32) and launched on top of it. Leader killed e1b pipeline + run.v2 stop (07:13). 136 off-limits. 102's pending arm switched E2b→E1 (e1c-102: mc4340+REGBASE+pid-host) since nothing launched yet; gpuidle gate to require 2 consecutive idle checks.
+- 07:21Z FIRST SIGHTING (watchdog2): 102 GPUs 1-3 hold ~266 GB (rocm-smi vram), no KFD PIDs, no D-state procs, no containers, 28 min after e2b2 exit. Same pattern as 06:04→06:33 (29 min, then dropped at once). Record only; recheck 07:35. e1b Exited(143) at 07:12 = leader's manual stop.
+- 07:24Z 102 drained 07:23:31 (~30 min, as precedent). e2b3 up FAILED: spur-authz denies --pid=host (R022). Decision: DECODE_PID_OFFSET=30000 (no namespace change); repro validates on 102 GPU0/4 → GO.e1c; harness-v2 implements knob + e1c-102 (E1, mc4340, default IPC).
+- 07:26Z e1c LAUNCHED on 102 07:26:14 (E1 relaxed, mc4340+REGBASE, default IPC, private PID, DECODE_PID_OFFSET=30000; dryrun diff vs prior = --pid host removed + decode wrapper only). Census hard-stops on rank-PID overlap. ETA up ~08:10 (cold-ish), then smoke → bench 3600 s.
+- 07:29Z POLL. job 202546 RUNNING (2:03). e1c: gpuidle 2-check ok 07:27:15, etcd ok, prefill-0 Up 2 min loading (GPUs 0-3 ~138 GB), decode not yet (starts after prefill). No issues. Teammates: harness-v2 on path; repro idle; watchdog2 on e1c; builder obsolete. 136 off-limits (foreign GLM-5.3 loop).
+- 07:50Z POLL. job 202546 RUNNING (2:23). e1c: prefill ok 07:36:42; decode Up 10 min loading (no init error); rank PIDs disjoint (prefill 968-1413, decode 30968-31407: offset works). No issues. Teammates on path; repro idle; builder obsolete.
+- 07:5xZ e1c smoke OK (first v0521 KV transfer post-R020), audit PASS; bench FAIL rc=1 in 55 s: dangling InferenceX symlink in client container (R023). harness-v2 told to fix + rerun bench on running stack.
+- 08:08Z e1c bench r2 RUNNING (start 08:01:38, CONC=40/3600 s/warmup 10; fix: INFERENCEX_DIR=readlink -f, own :ro mount). Warmup 6/444 at 180 s, errors 0; 44 in-flight lanes at CONC 40 matches phase-1 C40 runs (0/444, 44) — harness lane convention, not a config drift. ETA end ~09:25.
+- 08:10Z POLL. job 202546 RUNNING (2:43). e1c bench r2 warmup 31/444 @330 s, errors 0 — 'sent=44' plateau is AgentX's first-wave barrier (same shape in a reference C40 log: 31/444 @390 s, then sends resume). Server logs: MAF 0, 201 0, transfer fails 0 both legs. Teammates on path.
+- 08:20Z e1c r2 profiling STARTED 08:19:31 (3600 s → ends ~09:19:31). Early srv: prefix_cache_hit 80.9%, cpu_kv_usage 96.7% (154 GB/rank host pool near full), queue 4r/0w.
+- 08:30Z POLL. job 202546 RUNNING (3:03). e1c r2 profiling ~9 min: done=729 ok=729 err=0, tput_in 140k/s, out 963/s. Server logs MAF/201/xfail/Traceback all 0 both legs. Teammates on path; repro idle.
+- 08:50Z POLL. job 202546 RUNNING (3:23). e1c r2 profiling ~29 min: done=2149 ok=2149 err=0, in 155k/s out 1160/s; MAF/201/xfail/Traceback 0 both legs. FIRST SIGHTING: harness-v2 has not yet produced env/dryrun for e2b4 (asked 08:40) — record only. repro idle, watchdog2 OK.
+- 09:10Z POLL. job 202546 RUNNING (3:43). e1c r2 ~49 min: done=3534 ok=3534 err=0; MAF/xfail/Traceback 0. INTERVENED (2nd poll unresolved): harness-v2 never produced e2b4 prep → leader wrote env.e2b4-102 + dryrun (rc=0; tokdiff vs e1c = prefill +CHUNK_GB=512 +--hicache-size 450, decode mem 0.85→0.95; resolved CONC=44 fused off img mc4340). repro tasked: diff vs proven v0519 r013 params (R024).
+- 09:25Z e1c PASS (R025): 4174 ok / 2 err, 168,389 tok/s. Next: launch e2b4 (E2b on mc4340 chain) with PRE_STOP e1c.
+- 09:26Z e2b4 LAUNCHED 09:25:58 (harness-v2 re-verified tokdiff); e1c artifacts preserved, e1c stopped; in VRAM drain gate. harness-v2: missed messages due to long blocking loops, now waits ≤5 min.
+- 09:30Z POLL. job 202546 RUNNING (4:03). e2b4: VRAM already drained (283 MiB, confirming 2nd check) — fast this time (~3 min after stop, vs ~30 min after crash teardowns). No containers yet. Teammates on path.
+- 09:42Z e2b4 up: prefill ok 09:33:56, decode a1 first try 09:39:17, smoke ok, AUDIT PASS, bench C44 start 09:39:28 (warmup). Census: PIDs disjoint (673-1118 / 30673-31112), host pool 4×450 GB + indexer 4×103 GB, CHUNK_GB=512 in env, decode 2,773,376 tok/rank at 0.95 (avail 10.83 GB), REGBASE interior 0. Profiling ~10:00 → end ~11:00.
+- 09:50Z POLL. job 202546 RUNNING (4:23). e2b4 warmup 33/488 @480 s, errors 0; MAF/xfail/Traceback/OOM 0 both legs. Teammates on path.
+- 09:56Z FIRST SIGHTING (harness-v2): e2b4 warmup slow — first wave (48) done at ~900 s vs ~540-600 s in phase-1 c44c/c44d (same C44, same hicache 450 on v0521, errors 0). e2b4 vs c44d prefill-side deltas: fused DSA indexer OFF (c44c/d ON), mc4340 image, REGBASE mount, PID offset (decode). Hypothesis (unverified): fused-indexer OFF slows long-context prefill (H3 toggle has a perf cost). Record only; check profiling throughput vs e1c/c44 at next poll.
+- 10:06Z e2b4 profiling STARTED 10:04:41 (end ~11:05). Warmup caught up (327/488 @1200 s); slowness transient. cpu_kv_usage 38.5% @10:05; H1 boundary = ~61% (6.12M/10.02M slots/rank) — watchdog2 tracking crossing.
+- 10:10Z POLL. job 202546 RUNNING (4:43). e2b4 profiling ~4 min: done=273 ok=273 err=0, tput_in 87k/s (e1c at ~9 min: 140k/s — note, early), cpu_kv_usage 41.5% (H1 boundary ~61% not yet reached), GPU kv 16%. MAF/xfail/Traceback/OOM 0 both legs. Warmup-slowness item resolved (caught up). Teammates on path.
+- 10:20Z e2b4 cpu_kv_usage 65.9% > H1 boundary 61%, prefill MAF 0, 1256 ok/0 err — H1 fix holding.
+- 10:30Z POLL. job 202546 RUNNING (5:03). e2b4 profiling ~25 min: done=1708 ok=1708 err=0, tput_in 141k/s, cpu_kv_usage 76.9% (past H1 boundary), MAF/xfail/Traceback/OOM 0. FIRST SIGHTING: unexpected yihou jobs not from this team's artifacts — 206181 yihou-burst-hold RUNNING 192 (burst, 10:21), 206183 yihou-burst-hold PENDING (burst, 10:22), 206237 yihou-oai-probe RUNNING 010 (oai, 30 min, 10:28). Possibly the user or another session; not touched. Ask user.
+- 10:50Z POLL. job 202546 RUNNING (5:23). e2b4 profiling ~45 min: done=3066 ok=3066 err=0; cpu_kv_usage 99.9% = 450 GB host pool FULL (all slots incl. past 6.12M touched) with prefill MAF 0 → H1 fix holds over the whole pool. Unexpected jobs (2nd sighting, unresolved): 206181 gone; 206183 burst PENDING; 206237 oai-probe RUNNING on 010 (21 min of 30). Awaiting user answer; not touching. E2 env/dryrun prepared (env.e2c-102).
+- 11:10Z e2b4 PASS (R026). GO e2c (E2 target, fused ON).
+- 11:12Z POLL. job 202546 RUNNING (5:46). e2c pipeline launched; PRE_STOP stopping e2b4 (prefill stop in progress). 206237 oai-probe gone; 206183 burst still PENDING (2nd+ sighting, awaiting user). Teammates on path.
+- 11:23Z e2c waiting on slow VRAM drain (≈274→272 GB in 11 min, no containers). Known pattern: slow after 450 GB-pool runs (e2b2 ~30 min), fast after e1c (154 GB pool, <5 min). Hypothesis (unverified): KFD teardown cost scales with USERPTR-registered host memory (PR #42553 GTT smoke freed 150 GB in 0.5 s). Record only; expect ~11:45.
+- 11:30Z POLL. job 202546 RUNNING (6:03). e2c still in drain gate (max 270.5 GB, 17 min after stop) — within known ~30 min envelope. 206183 burst PENDING (awaiting user). Teammates on path.
+- 11:50Z POLL. job 202546 RUNNING (6:23). e2c: gpuidle 11:36:54 (~25 min drain), decode a1 ok + bothlegs ok 11:49:11, router next; MAF/Traceback 0. 206183 burst PENDING (awaiting user). Teammates on path.
+- 11:52Z e2c up: prefill 11:43:20, decode a1 first try 11:49:11, smoke ok, AUDIT PASS, bench C44 start 11:49:24. fused idx ON=4 both legs (H3 under test; decode 4 'declined' rows outside [1,48] informational as c44e). PIDs disjoint; host 4×450 GB + CHUNK512; decode 2,762,176 tok/rank (−11,200 vs e2b4, fused workspace).
+- 12:06Z e2c warmup 151/488 @~1000 s, errors 0, MAF 0. Warmup-shape: first wave of 48 cold first turns gates cache hits (e2c first hit ~10 min) → supports reading (a), workload wave. Remaining unexplained: first-wave duration e2b4 ~900 s vs e2c ~600 s / c44c,d ~540-600 s; only config delta e2b4→e2c is fused indexer OFF→ON (open, one sample each).
+- 12:10Z POLL. job 202546 RUNNING (6:43). e2c warmup 334/488 @1020 s, errors 0; MAF/xfail/Traceback/OOM 0 both legs. 206183 burst PENDING (awaiting user). Teammates on path.
+- 12:15Z e2c profiling STARTED 12:12:35 (end ~13:13). Warmup ~23 min, errors 0. 12:14: prefix hit 89.6%, cpu_kv 41.8%, tput_in 180k/s; MAF 0.
+- 12:30Z POLL. job 202546 RUNNING (7:03). e2c profiling ~17 min: done=1243 ok=1243 err=0, tput_in 138k/s, cpu_kv 66.4% (past H1 boundary again, MAF 0), fused indexer ON with decode MAF 0 so far. 206183 burst PENDING (awaiting user). Teammates on path.
+- 12:50Z POLL. job 202546 RUNNING (7:23). e2c profiling ~37 min: done=2515 ok=2515 err=0; MAF/xfail/Traceback/OOM 0 both legs (fused indexer ON). 206183 burst PENDING (awaiting user). Teammates on path.
+- 13:18Z e2c TARGET PASS (R027): 4179 ok / 2 err, 164,194 tok/s, MAF 0 both legs. Mission goal reached. Stack left UP pending user decision.
+- 13:18Z POLL. job 202546 RUNNING (7:52). e2c stack idle UP, P/D/R /health 200. Mission target reached; awaiting user decision. 206183 burst PENDING (awaiting user). Teammates idle/standby.
+- 13:19Z harness-v2 first-wave analysis (logs/firstwave.yihou.txt): same 48 conversations; aggregate first-wave prefill e2b4 10.5k tok/s vs e2c 14.0k, c44d 15.4k, e1c 15.4k (e1c fused OFF too → weakens fused-OFF hypothesis). e2b4 prefill idle 350-450 s/840 s per rank with empty bootstrap/inflight = starved, not slow. Source OPEN (router dispatch / client pacing / decode-side admission). Leader hypothesis to check: decode pre-alloc admission (48 × ~182k ISL ≈ 8.7M tok vs decode KV ~11M tok total) gating dispatch.
+- 13:20Z router/decode check (logs/router-firstwave.yihou.txt): all 48 first-wave requests dispatched in first 60 s in e2b4/e2c/c44d with similar DP split (max per-DP 2.60/2.71/2.63 Mtok) → dispatch not the difference. Decode prealloc state unlogged during warmup (max_tokens=1, no Decode batch lines); per-DP first-wave load ≈ decode capacity 2.76-2.77M in all three → admission hypothesis undecidable from logs. OPEN; capture /metrics prealloc/queue gauges in a future run. Low priority (does not affect pass).
+- 13:30Z POLL. job 202546 RUNNING (8:03). e2c idle stack: 4 containers, P/D/R /health 200, error counts 0. Awaiting user decision (next step + job 206183). Team on standby.
+- 13:55Z PACKUP written: ~/dev/git/infera.glm52.pd/yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010 (4.8 MB, not committed).
+- 13:55Z POLL. job 202546 RUNNING; e2c idle stack up; packup done. Awaiting user decision. Team standby.
+- 14:09Z POLL. job 202546 RUNNING; e2c idle stack healthy. Awaiting user decision. Team standby.
+- 14:09Z note: job 206183 yihou-burst-hold now RUNNING on crsuse2-m2m-182 (6 min) — origin unknown (not this team), untouched, awaiting user.
+- 14:29Z POLL. job 202546 RUNNING; e2c idle healthy. Awaiting user. Team standby.
+- 14:49Z POLL. job 202546 RUNNING; e2c idle healthy. Awaiting user. Team standby.
+- 15:09Z POLL. job 202546 RUNNING; e2c idle healthy. Awaiting user. Team standby.
+- 15:29Z POLL. job 202546 RUNNING; e2c idle healthy. Awaiting user. Team standby.
+- 15:49Z POLL. job 202546 RUNNING; e2c idle healthy. Awaiting user. Team standby.
+- 16:04Z PERF phase: C40 bench on flushed e2c stack started 16:01:37; repro researching index_share MAF fix.
+- 16:10Z POLL. job 202546 RUNNING (10:43). C40-on-e2c warmup 41/444 @360 s errors 0; MAF/TB 0. repro writing seed-guard patch C. Teammates on path.
+- 16:16Z e2d QUEUED (harness-v2 waiter wait_then_e2d.yihou.sh: launches after C40 bench result, PRE_STOP e2c; gives up 20:00). harness-v2 re-verified tokdiff.
+- 16:30Z POLL. job 202546 RUNNING (11:03). C40 profiling ~13 min: done=1090 ok=1090 err=0, tput_in 154k/s; MAF/TB 0. e2d waiter alive (pid 1275725). Teammates on path.
+- 16:49Z POLL. job 202546 RUNNING. C40 profiling ~33 min clean; e2d waiter armed. Teammates on path.
+- 17:09Z POLL. job 202546 RUNNING. C40 profiling ~53 min clean; e2d waiter armed.
+- 17:23Z C40-on-e2c PASS: 21,696/chip (+3.2% vs v0519 21,032). e2d launched 17:22 (in drain gate).
+- 17:29Z POLL. job 202546 RUNNING. e2d in VRAM drain gate (expected ~25 min). Teammates on path.
+- 17:49Z POLL. job 202546 RUNNING. e2d gpuidle 17:43:10, bring-up in progress.
+- 18:03Z e2d up: prefill 17:53:32, decode a1 first try 17:59:38, smoke ok; audit false-FAIL (decode-only agent env unknown to audit) fixed by harness-v2 → AUDIT PASS; bench C40 started by hand 18:01:34 (runs/e2d/agentx-c40). index_share TRUE both legs, guard=count decode. No SEEDGUARD line yet (rate-limited, needs decode traffic).
+- 18:09Z POLL. job 202546 RUNNING. e2d warmup in progress, MAF 0, seedguard bad_entries 0.
+- 18:21Z e2d profiling STARTED 18:16:58 (end ~19:17). 18:21: MAF 0, kce 0, seedguard bad_entries 0; one rank draft_eager 248 / 5863 iters (4.2%), pd_seedless 209.
+- 18:29Z POLL. e2d profiling ~12 min clean (MAF 0, bad_entries 0).
+- 18:49Z POLL. e2d profiling ~32 min clean (MAF 0, bad_entries 0, draft_eager ~4.6%).
+- 19:09Z POLL. e2d profiling ~52 min clean.
+- 19:24Z e2d PASS 21,383/chip (index_share TRUE, no gain vs 21,696). MAF 0 full run. Next: TTFT decomposition (prefill/transfer) to find levers.
+- 19:29Z POLL. job 202546 RUNNING; e2d stack idle healthy; repro on transfer instrumentation + lever facts.
+- 19:36Z e2e prepared (xferpar overlay; tokdiff vs e2c = conn mount swap + 3 prefill env). harness-v2 arming pipeline gated on GO.e2e.yihou (after repro te_conc byte-exact).
+- 19:49Z POLL. job 202546 RUNNING. 102 draining after e2d; e2e armed on GO.e2e; repro te_conc waiting for drain.
+- 20:09Z POLL. job 202546 RUNNING (14:43). 102 drained (all cards ~0.3 GB, no containers). Waiting for repro te_conc on GPU0/4 (no output dir yet).
+- 20:16Z te_conc byte-exact PASS; PAR useless (global per-block serialization). e2e re-armed: PAR=1 + chunk 65536 + xferlog; GO created.
+- 20:29Z POLL. job 202546 RUNNING. e2e prefill ok 20:24:40 (chunk 65536, no OOM yet); decode loading.
+- 20:39Z R035: XFER blocks ~9 MiB (contiguous), wall 2-6 s/0.69 GiB (0.1-0.4 GiB/s) → per-op model wrong; B' moot; new H-X1 stream serialization with prefill compute.
+- 20:40Z FIRST SIGHTING (watchdog2): e2e prefill VRAM 281-283 GB of ~288 (earlier rounds 257-274) — likely chunked-prefill 65536 activations (not xferpar). OOM risk under longer contexts; record only. Warmup 106/444 @450 s, errors 0 (faster than e2c-C40 at same point).
+- 20:58Z R036: queue wait cause = our nonfinal wait_event patch waits for N+1 forward under overlap. Next e2f: event at launch + room sharding + sync log (+ checksum validation).
+- 21:02Z NOTE: /home (shared 10T NFS) at 100% (25G avail); one append to poll.md failed with 'Disk quota exceeded' at ~21:00, retry OK. Keep writes small; report to user. R036 mounts ready (repro): prefill nonfinal-event, conn xferfix (room shard + sync log).
+- 21:09Z POLL. e2e profiling ~20 min, errors 0, tput_in ~140k (below C40-e2c ~155k at same point; chunk 65536?).
+- 21:29Z POLL. e2e profiling ~40 min clean; tput ~8% below C40-e2c pace.
+- 21:57Z e2e PASS 19,565/chip (chunk 65536 hurts −9.8%; reject). Stack stopped; drain; microbench window next; e2f armed on GO.e2f.
+- 21:57Z POLL. job 202546 RUNNING. 102 draining after e2e; microbench next; e2f armed.
+- 22:09Z POLL. job 202546 RUNNING. 102 still draining (~13 min after e2e stop); e2f waiting on GO.
+- 22:28Z R038 microbench: peer copy starves behind long src kernels (SDMA default too); checksum 2-5 ms idle, JIT 13 s. GO.e2f created 22:27:35 → e2f starting.
+- 22:29Z POLL. job 202546 RUNNING. e2f bring-up after GO 22:27:35.
+- 22:39Z e2f: prefill /health 503 at 22:36:53 ('no response from detokenizer for 20 s'; not seen in e2b4/e2c) — transient: Prefill batch at 22:37:20, /health 200 at 22:41; decode loading. Record only (watch for R001-like wedge).
+- 22:42Z e2f up: decode first try 22:42:00, smoke ok, AUDIT PASS (new mount + extra-env checks), bench C40 start 22:42:11. YIHOU-NONFINAL mode=launch, XFER-SHARD room queues=4 (thread_pool default 12 = expected).
+- 22:49Z POLL. e2f warmup; errors 0.
+- 04:43Z RESUME after admin kill (~22:50). e2f PASS 19,864/chip (R040, R037 chunk attribution withdrawn). e2f stack stopped 04:42 (job 202546 ends 05:25:53, sleep 86400 hold); follow-on hold 207495 (sleep infinity, afterany:202546, -w 102) PENDING Dependency. Respawning teammates + crons.
+- 04:46Z Respawned watchdog2 (handover + health ticks), harness-v2 (e2g = exact control replicate of 21,696 + decode_stats tool; not armed), repro (mc4340prio build + lever microbench a-i in drain window → GO.e2g). Crons: mission 10 min, poll 20 min. Workflow wf_bebda8fc-5e7 (C40 ceiling: decode-bound? e2e/e2f drop cause) running.
+- 04:50Z POLL. 202546 RUNNING (ends 05:25:53), 207495 PENDING Dependency; 102 no containers, VRAM draining (145/271/271/273/150x4 GB). e2g waiter armed. repro waiting 207495; workflow wf_bebda8fc-5e7 running.
+- 04:52Z USER directive: floor = exceed triton packup '22k' (packup is 21,032/chip first-hand); triton backend confirmed; fallback 137 (busy: yaoc) then exact packup repro. repro task-3 interim: at matched max-DP load e2e/e2f decode steps ~10 % slower (per-step slowdown, not load).
+- 05:10Z POLL. 202546 RUNNING (ends 05:25:53), 207495 PENDING Dependency. 102: e2f containers Exited, VRAM still 145/268-270/146-150 GB 28 min after stop — FIRST SIGHTING slow drain (normal 10-40 min); recheck next poll. Workflow R042 done; harness-v2 e2g armed (A1+A2, full-hour telemetry); repro waiting.
+- 05:27Z HANDOVER: 202546 ended; 207495 RUNNING on 102 since 05:26:36; all 8 GPUs 283 MiB right at the job boundary (stuck VRAM released by job-end cleanup — slow-drain first sighting resolved). e2g pipeline saw RUNNING; repro build + microbench next → GO.e2g.
+- 05:30Z POLL. 207495 RUNNING 4 min; GPUs 8x283 MiB; no yihou containers yet, no mc4340prio image, no GO.e2g — repro not started yet (first sighting, 4 min after handover). e2g waiter waiting on GO.
+- 05:50Z POLL. 207495 RUNNING; e2g A1 bring-up (prefill ok 05:46:08); MAF/TB 0.
+- 06:06Z e2g warmup returned at 660 s: 126/444 (e2c40-flushed 395, e2f 247, e2d 171, e1c 180, e2e 145); warmup total e2c40 790 s vs fresh stacks 855-1034 s. Warmup speed does not track score (e2d slow warmup, 21,383). Note only.
+- 06:10Z POLL. 207495 RUNNING 44 min. e2g A1 warmup 416/444 at 960 s, errors 0, MAF/TB 0; profiling starts within minutes → chain starts hostsample e2gA1.
+- 06:26Z e2g A1 at ~14 min profiling: tput_in 131k, done 1,057 (control e2c40 153k/1,246; e2f 140k/1,168 at the same point); TTFT p95 30.6 s. Early read: A1 tracking BELOW the control → 21,696 not reproduced so far on a fresh stack (wait for full hour + repro matched-load/telemetry).
+- 06:30Z POLL. 207495 RUNNING 1h04. e2g A1 profiling ~19 min: tput_in 133.6k, done 1,408, err 0, MAF/TB 0. repro 06:21 early read not received yet (first sighting).
+- 06:50Z POLL. e2g A1 33+ min: tput_in 141k, err 0, MAF 0. repro early read still missing at second poll → pinged repro.
+- 07:10Z POLL. 207495 RUNNING. e2g A1 ~59 min profiling, err 0, MAF/TB 0; e2h prepared (not launched); repro cpuplace analysis due 07:13.
+- 07:16Z e2g A1 PASS 19,640/chip (R048). A2 auto-starting.
+- 07:30Z POLL. 207495 RUNNING. e2g A2 warmup (faster than A1), err 0, MAF/TB 0. Teammates on plan.
+- 07:46Z e2g A2 at 15 min profiling: tput_in 159.9k, done 1,330, TTFT p95 15.3 s — FASTER than the 21,696 control at the same point (153k/1,246) and far above A1 (131k/1,057), at 07:46 UTC (a 'slow' window) → second run on the same stack is fast; time-of-day (R047) weakened, stack history/warm state strengthened. Await full hour + matched-load table.
+- 07:50Z e2i prepared (harness-v2): e2g + decode debug-agent env (3 vars) only; chain R1 fresh → flush → R2, gated on GO.e2i + A2 DONE; PRE_STOP e2g. GO withheld until A2 trend at ~45 min (keep option of A3 on the warm stack if A2 ≥ 22k borderline).
+- 07:50Z POLL. 207495 RUNNING. A2 ~19 min profiling, err 0, MAF/TB 0.
+- 08:06Z A2 at 34 min tput_in 163.5k (≈control pace; ~21.7k projected, not 22k) → GO.e2i touched (no A3). Plan: e2i (debug-agent test, R1 fresh/R2 warm) → e2j levers stacked (hostvariant + cuda-graph bs 1-16; R1 warm-up, R2 scored) → best config score attempt (warm protocol) incl. 16-19 UTC window.
+- 08:10Z POLL. 207495 RUNNING. A2 ~40 min, err 0, MAF/TB 0; e2i chain waiting A2 DONE; e2j prepared.
+- 08:30Z POLL. A2 at ~59.5 min: tput_in 176.6k (> control final 172.3k), done 4,238, err 0. e2i chain waits A2 DONE.
+- 08:37Z A2 PASS 22,114/chip (R051) — exceeds 22k and the 21,032 packup floor. e2g stopped; e2i bring-up.
+- 08:48Z e2i gated: VRAM stuck after e2g stop (08:36): GPU0 146k, GPU1-3 270-275k (slowly falling), GPU4-7 149,767 MiB flat; no KFD PIDs, host memory already freed (MemFree 2.38 TB). Same pattern as after e2f (04:42 → only cleared at job boundary 05:26). FIRST SIGHTING; if still stuck at next poll (~09:10): plan = queue follow-on hold (afterany:207495, -w 102) then scancel 207495 to trigger the job-end GPU cleanup (needs care: node handover).
+- 08:50Z POLL. 207495 RUNNING 3h24. VRAM still 146/270/272/273/150x4 GB (14 min after stop; GPU4-7 flat). Still within first-sighting window; decide at 09:10.
+- 09:12Z VRAM still stuck 31 min after e2g stop. USER decision: wait another 30 min (no job handover now); re-evaluate ~09:40.
+- 09:12Z POLL. VRAM drained by itself (~32 min after stop); e2i gpuidle ok, etcd ok 09:09:37, prefill loading. Handover not needed.
+- 09:30Z POLL. e2i R1 warmup, err 0, MAF/TB 0.
+- 09:50Z POLL. e2i R1 ~13 min profiling, err 0, MAF/TB 0. Awaiting repro matched-load read.
+- 10:10Z POLL. e2i R1 ~33 min, err 0, MAF/TB 0; e2j chain armed.
+- 10:26Z e2i R1 ~49 min: TTFT p99 cumulative jumped 37→82 s around 10:21 (burst of ~30 req with ~80 s TTFT); cpu_kv_usage 88.6→94.4 % (host HiCache near full), queue ≤10r; no WARN/ERROR/MAF/TB; health OK. FIRST SIGHTING — record only; check whether A1/A2 show similar bursts when cpu_kv > 90 % (HiCache host eviction?).
+- 10:30Z POLL. e2i R1 ~53 min: tput_in 157.2k, done 3,643, err 0; TTFT p95 18.1 s (A1 final 28.7, A2 19.2), p99 68 s (burst from 10:21 diluting) — not a recurring problem; keep watching.
+- 10:50Z POLL. e2i R2 warmup (slower than A2 at same point; note only), err 0.
+- 11:10Z POLL. e2i R2 ~14 min on A2 pace, err 0, MAF/TB 0.
+- 11:31Z POLL. e2i R2 ~34 min, tput_in ~158.5k (~3 % below A2 pace), err 0, MAF/TB 0.
+- 11:50Z POLL. e2i R2 ending (~171.9k at 53 min, err 0).
+- 12:01Z e2i R2 PASS 21,921/chip (R053). Warm runs 22,114/21,921/21,696. e2j next.
+- 12:10Z POLL. 207495 RUNNING 6h44. e2i stopped 12:01; e2j pipeline waiting GPU idle (max 273.6 GB, ~9 min after stop; drain took ~32 min last time).
+- 12:30Z POLL. e2j bring-up (gpuidle 12:29, prefill loading).
+- 12:50Z POLL. e2j R1 warmup, err 0, MAF/TB 0; capture bs 1..16 confirmed.
+- 13:10Z e2j R1 at 7.5 min: tput_in 87.8k, done 422, TTFT p95 44.1 s — worse than e2i R1/A1 early (131k/121k at ~10 min). Decode KV capacity same as e2g (max_total_num_tokens 2,762,176); no retract/prealloc. FIRST SIGHTING — record; ask repro for matched-load residual at ~13:20.
+- 13:10Z POLL. e2j R1 ~8.5 min: tput_in 96.3k, done 515, TTFT p95 46 s, err 0; kineto (min 12) not yet. Watching (first sighting window).
+- 03:54Z RESUME on slog-006 (005 unreachable). e2j R1 19,335; e2j R2 never started (chain died 14:31). Stack e2j still UP. 207495 extended to 2 days (ends 2026-10-13 05:26). Respawning teammates + crons; e2j R2 next.
+- 03:57Z e2j R2 started 03:56:11 (warm stack, health/AUDIT/census OK, both flushes 200); driver harness/r2_e2j.yihou.sh via setsid nohup on 006; client container node-side → login-host loss no longer kills the run.
+- 05:19Z e2j R2 PASS 21,681 (R057): levers neutral in warm state. Packup in progress.
