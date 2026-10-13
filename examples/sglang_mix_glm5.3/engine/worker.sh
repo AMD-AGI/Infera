@@ -48,7 +48,7 @@ export NCCL_IGNORE_CPU_AFFINITY=1
 # Stable block hashes -> stable kv-aware keys across restarts.
 export PYTHONHASHSEED=0
 export SGLANG_HOST_IP="$MY_IP" HOST_IP="$MY_IP"
-export INFERA_SGLANG_READY_TIMEOUT="${READY_TIMEOUT:-3600}"
+export INFERA_ENGINE_READY_TIMEOUT="${READY_TIMEOUT:-3600}"
 NIC=$(ip -o -4 addr show | awk -v ip="$MY_IP" '$4 ~ ("^" ip "/") {print $2; exit}')
 [ -n "$NIC" ] && export SGLANG_LOCAL_IP_NIC="$NIC" GLOO_SOCKET_IFNAME="$NIC"
 
