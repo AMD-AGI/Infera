@@ -2,6 +2,7 @@ use super::*;
 use crate::config::PrefillGuardRelease;
 use crate::policy::{Pick, Policy, RoundRobin};
 use crate::pool::Snapshot;
+use crate::session_affinity::{Mode, Sessions};
 use futures::StreamExt;
 use std::sync::Mutex;
 use std::time::Instant;
@@ -27,6 +28,12 @@ impl Policy for Counts {
 }
 fn guard(counts: Arc<Counts>) -> ActiveGuard {
     ActiveGuard::start(counts, vec![("p".into(), vec![1]), ("d".into(), vec![2])])
+}
+fn active(sessions: &Sessions, role: &str) -> String {
+    let prefix = format!("infera_router_session_active{{role=\"{role}\"}} ");
+    let metrics = sessions.metrics();
+    let line = metrics.lines().find(|l| l.starts_with(&prefix)).unwrap();
+    line[prefix.len()..].to_owned()
 }
 async fn finished(counts: &Counts, key: &str) {
     tokio::time::timeout(Duration::from_secs(3), async {
@@ -199,7 +206,21 @@ async fn unary_completion_mode_releases_p_while_decode_headers_are_pending() {
         ))
         .await;
         let counts = Arc::new(Counts::default());
-        let g = guard(counts.clone());
+        let sessions = Sessions::new(Mode::Both, Duration::from_secs(60), 16);
+        let workers = [target("http://worker".into()).worker];
+        let lease = |role| {
+            let request = serde_json::json!({});
+            let picked = sessions.pick(
+                &RoundRobin::new(),
+                &workers,
+                &request,
+                role,
+                "model",
+                Some("s"),
+            );
+            picked.1
+        };
+        let g = guard(counts.clone()).with_sessions(lease(Role::Prefill), lease(Role::Decode));
         let run = tokio::spawn(async move {
             unary_dual(
                 &state(mode),
@@ -222,12 +243,18 @@ async fn unary_completion_mode_releases_p_while_decode_headers_are_pending() {
         if mode == PrefillGuardRelease::Completion {
             finished(&counts, "p").await;
             assert_eq!(*counts.finished.lock().unwrap(), ["p"]);
+            // The Prefill lease ends with the Prefill load, not with Decode.
+            assert_eq!(active(&sessions, "prefill"), "0");
         } else {
             assert!(counts.finished.lock().unwrap().is_empty());
+            assert_eq!(active(&sessions, "prefill"), "1");
         }
+        assert_eq!(active(&sessions, "decode"), "1");
         d_release.notify_one();
         assert_eq!(run.await.unwrap().status(), StatusCode::OK);
         assert_eq!(*counts.finished.lock().unwrap(), ["p", "d"]);
+        assert_eq!(active(&sessions, "prefill"), "0");
+        assert_eq!(active(&sessions, "decode"), "0");
         p_server.abort();
         d_server.abort();
     }

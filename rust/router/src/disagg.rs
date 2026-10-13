@@ -317,13 +317,14 @@ async fn unary_dual(
             let failed =
                 finish_unary_prefill(state, p, &p_url, response, prefill_session.as_ref()).await;
             drop(prefill_guard);
-            (None, failed)
+            drop(prefill_session);
+            (None, failed, None)
         } else {
-            (Some(response), false)
+            (Some(response), false, prefill_session)
         }
     };
     let d_fut = post_leg(state, &d_url, d_body, d.dp_rank);
-    let ((p_res, mut pair_failed), d_res) = tokio::join!(p_fut, d_fut);
+    let ((p_res, mut pair_failed, prefill_session), d_res) = tokio::join!(p_fut, d_fut);
     if let Some(response) = p_res {
         pair_failed =
             finish_unary_prefill(state, p, &p_url, response, prefill_session.as_ref()).await;
