@@ -24,7 +24,7 @@ COPY deploy/docker/patches/atom/ /tmp/atom-patches/
 RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
     && rm -rf /tmp/atom-patches
 
-# GLM-5.2 DCP PD fixes, opt-in: written against ATOM d9f0720
+# GLM-5.2 DCP PD fixes, opt-in: written against ATOM d9f0720 and its LMCache
 # (rocm/atom-dev:nightly_202609221542). Unlike the loop above they are strict: a
 # drifted anchor fails the build. Verified to compose with that loop on d9f0720.
 # Overview: deploy/docker/patches/atom_glm5_dcp/README.md.

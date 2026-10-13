@@ -6,31 +6,39 @@
 """Strict anchor-edit helper shared by the patch_*.py scripts in this directory.
 
 A patch is ``{rel_path: (marker, [(old, new), ...])}``, paths relative to one
-``atom`` package root (the importable one, else /app/ATOM/atom). A file whose
-source already holds its marker counts as applied and is left alone. Otherwise
-every ``old`` must occur exactly once (checked in order, each edit seeing the
-previous ones) or the patch fails; ``(old, old)`` thus only requires ``old``.
-Every file is checked before any is written, so a failure leaves ATOM untouched.
+package root: the importable ``package`` (default ``atom``), else its fallback
+(/app/ATOM/atom for ATOM). A file whose source already holds its marker counts
+as applied and is left alone. Otherwise every ``old`` must occur exactly once
+(checked in order, each edit seeing the previous ones) or the patch fails;
+``(old, old)`` thus only requires ``old``. Every file is checked before any is
+written, so a failure leaves the package untouched.
 """
 
 import importlib.util
 import os
 
-FALLBACK_ROOT = "/app/ATOM/atom"
+FALLBACK_ROOTS = {"atom": "/app/ATOM/atom"}
 
 
-def _atom_root() -> str:
-    """One root for every file, so a patch never spans two ATOM copies."""
-    spec = importlib.util.find_spec("atom")
+def _package_root(package: str) -> str | None:
+    """One root for every file, so a patch never spans two package copies."""
+    spec = importlib.util.find_spec(package)
     locations = list(spec.submodule_search_locations or []) if spec else []
-    return locations[0] if locations else FALLBACK_ROOT
+    return locations[0] if locations else FALLBACK_ROOTS.get(package)
 
 
-def apply(tag: str, patch: dict[str, tuple[str, list[tuple[str, str]]]]) -> int:
+def apply(
+    tag: str,
+    patch: dict[str, tuple[str, list[tuple[str, str]]]],
+    package: str = "atom",
+) -> int:
     """Apply ``patch``; print one log line and return the process exit code."""
     pending: dict[str, str] = {}
     applied: list[str] = []
-    root = _atom_root()
+    root = _package_root(package)
+    if root is None:
+        print(f"[{tag}] FAILED: package {package!r} not found")
+        return 1
     for rel, (marker, edits) in patch.items():
         path = os.path.join(root, rel)
         if not os.path.isfile(path):
