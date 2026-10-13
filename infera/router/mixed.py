@@ -150,6 +150,7 @@ class MixedRouter(BaseRouter):
         forwarded_body = inject_engine_priority(body, hints, worker.engine)
         forwarded_body.pop("_infera_cache_hints", None)
         forwarded_body.pop("_infera_request_id", None)
+        forwarded_body.pop("_infera_session_headers", None)
 
         # Fallback ISL for the streaming path, where the reply carries no usage.
         obs.observe_blocks(blocks, worker.kv_block_size)

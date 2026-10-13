@@ -11,7 +11,10 @@ use serde_json::Value;
 use crate::policy::{Pick, Policy, Role};
 use crate::pool::{expand_targets, RouteTarget, Worker};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Bindings per router process; at capacity new sessions route normally.
+pub const MAX_SESSIONS: usize = 65536;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Mode {
     Off,
     Prefill,
@@ -54,7 +57,7 @@ pub struct Sessions {
 
 impl Default for Sessions {
     fn default() -> Self {
-        Self::new(Mode::Off, Duration::from_secs(3600), 65536)
+        Self::new(Mode::Off, Duration::from_secs(3600), MAX_SESSIONS)
     }
 }
 
@@ -70,27 +73,6 @@ impl Sessions {
                 swept: Instant::now(),
             }),
         }
-    }
-
-    pub fn from_env() -> anyhow::Result<Self> {
-        let mode = match std::env::var("INFERA_SESSION_AFFINITY")
-            .as_deref()
-            .unwrap_or("off")
-        {
-            "off" => Mode::Off,
-            "prefill" => Mode::Prefill,
-            "both" => Mode::Both,
-            other => anyhow::bail!("invalid INFERA_SESSION_AFFINITY: {other}"),
-        };
-        let ttl: u64 = std::env::var("INFERA_SESSION_AFFINITY_TTL_SECS")
-            .unwrap_or_else(|_| "3600".into())
-            .parse()?;
-        anyhow::ensure!(
-            (1..=86400).contains(&ttl),
-            "session TTL must be 1..86400 seconds"
-        );
-        tracing::info!(?mode, ttl, "session affinity configuration");
-        Ok(Self::new(mode, Duration::from_secs(ttl), 65536))
     }
 
     pub fn metrics(&self) -> String {

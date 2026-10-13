@@ -20,6 +20,7 @@ from infera.router.kv_event.render_variant import RenderVariant, VariantRegistry
 from infera.router.policy.base import Policy
 from infera.router.policy.kv_event_aware import KvEventAwarePolicy
 from infera.router.policy.round_robin import RoundRobinPolicy
+from infera.router.policy.session_affinity import SessionAffinityPolicy
 
 
 def _build_round_robin(**_: Any) -> Policy:
@@ -92,7 +93,18 @@ _BUILDERS: dict[str, Callable[..., Policy]] = {
 POLICY_NAMES = sorted(_BUILDERS.keys())
 
 
-def build_policy(name: str, **kwargs: Any) -> Policy:
+def build_policy(
+    name: str,
+    *,
+    session_affinity: str = "off",
+    session_affinity_ttl_seconds: int = 3600,
+    **kwargs: Any,
+) -> Policy:
     if name not in _BUILDERS:
         raise ValueError(f"unknown router policy {name!r}; available: {POLICY_NAMES}")
-    return _BUILDERS[name](**kwargs)
+    policy = _BUILDERS[name](**kwargs)
+    if session_affinity == "off":
+        return policy
+    return SessionAffinityPolicy(
+        policy, mode=session_affinity, ttl_seconds=session_affinity_ttl_seconds
+    )

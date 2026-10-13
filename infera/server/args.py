@@ -9,6 +9,7 @@ import argparse
 import os
 
 from infera.router.policy.factory import POLICY_NAMES
+from infera.router.policy.session_affinity import SESSION_AFFINITY_MODES
 
 
 def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -69,9 +70,9 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Router data-plane implementation. 'python' (default) runs the "
         "in-process asyncio router. 'rust' execs the infera-router binary "
         "(multi-core data plane) for the hot path; it covers every choice of "
-        "--router-policy, --discovery-backend, --request-transport and "
-        "--kv-event-transport, but not --router-mode direct or "
-        "--enable-profiling. Overrides $INFERA_ROUTER_BACKEND.",
+        "--discovery-backend, --request-transport and --kv-event-transport, but "
+        "not --router-mode direct or --enable-profiling. Overrides "
+        "$INFERA_ROUTER_BACKEND.",
     )
     parser.add_argument(
         "--router-mode",
@@ -92,6 +93,20 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         "(default) subscribes to worker kv events and routes by prefix-cache "
         "locality (workers must publish kv events). 'round-robin' for a stateless "
         "spread.",
+    )
+    parser.add_argument(
+        "--session-affinity",
+        choices=SESSION_AFFINITY_MODES,
+        default="off",
+        help="On top of --router-policy, keep each session (x-dynamo-session-id "
+        "header) on the target it used last. 'prefill' pins prefill picks only; "
+        "'both' also pins decode and mixed picks. Both router backends.",
+    )
+    parser.add_argument(
+        "--session-affinity-ttl-seconds",
+        type=int,
+        default=3600,
+        help="Idle seconds before a session binding is dropped (1-86400, default 3600).",
     )
     parser.add_argument(
         "--kv-event-transport",

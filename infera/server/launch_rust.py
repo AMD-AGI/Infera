@@ -161,5 +161,13 @@ def exec_rust(args: argparse.Namespace) -> None:
         # failing to start is the right answer.
         if not args.kv_per_worker_template_kwargs:
             argv += ["--kv-per-worker-template-kwargs", "false"]
+    # Only when on, so the default argv still starts an older binary.
+    if args.session_affinity != "off":
+        argv += [
+            "--session-affinity",
+            args.session_affinity,
+            "--session-affinity-ttl-seconds",
+            str(args.session_affinity_ttl_seconds),
+        ]
     print(f"[infera] --router-backend rust: exec {binary}", flush=True)
     os.execvp(binary, argv)

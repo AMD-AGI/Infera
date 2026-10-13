@@ -21,7 +21,7 @@ from infera.router.kv_event.client import KvEventClient, decision_key
 from infera.router.kv_event.render_probe import ProbeResult, spawn_probe
 from infera.router.kv_event.render_variant import VariantRegistry
 from infera.router.policy.base import Policy
-from infera.router.policy.target import RouteTarget, expand_targets
+from infera.router.policy.target import RouteTarget
 from infera.server import metrics
 
 logger = logging.getLogger(__name__)
@@ -238,17 +238,13 @@ class KvEventAwarePolicy(Policy):
             has_multimodal_content=parsed.has_multimodal_content,
         )
 
-    def pick(
+    def pick_targets(
         self,
-        candidates: list[WorkerInfo],
+        targets: list[RouteTarget],
         request: dict,
         *,
         role_hint: str | None = None,
     ) -> tuple[RouteTarget, list[int]]:
-        # Rank-multiplexed workers (SGLang --dp-size) fan out to one target
-        # per DP rank so we can score and steer each rank's cache separately.
-        targets = expand_targets(candidates)
-
         # Hash once per distinct (engine, block_size, variant): each of the
         # three changes the ids the engine will report in its kv-events, so a
         # query hashed under the wrong one matches nothing.

@@ -75,9 +75,11 @@ def _leg_headers(
     target: RouteTarget,
     *,
     proto_name: str,
+    session_headers: dict[str, str] | None = None,
 ) -> dict[str, str] | None:
-    """Shared forged request id (if any) + this leg's DP-rank pin."""
-    headers: dict[str, str] = {}
+    """Client session headers (if any) + shared forged request id (if any) +
+    this leg's DP-rank pin."""
+    headers: dict[str, str] = dict(session_headers or {})
     if forged_id:
         headers[_rid_header(proto_name)] = forged_id
     headers.update(dp_rank_header(target) or {})
@@ -486,6 +488,7 @@ class DisaggRouter(BaseRouter):
         base = dict(body)
         hints = base.pop("_infera_cache_hints", None) or parse_cache_hints(body)
         base.pop("_infera_request_id", None)
+        session_headers = base.pop("_infera_session_headers", None)
         base.pop("_infera_direct_worker", None)
         base.pop("_infera_direct_prefill", None)
 
@@ -527,6 +530,7 @@ class DisaggRouter(BaseRouter):
             stream,
             forged_id,
             path=path,
+            session_headers=session_headers,
         )
 
     async def _dispatch_concurrent(
@@ -546,10 +550,15 @@ class DisaggRouter(BaseRouter):
         forged_id: str | None,
         *,
         path: str = DEFAULT_PATH,
+        session_headers: dict[str, str] | None = None,
     ) -> Response:
         p, d = p_target.worker, d_target.worker
-        p_headers = _leg_headers(forged_id, p_target, proto_name=proto.name)
-        d_headers = _leg_headers(forged_id, d_target, proto_name=proto.name)
+        p_headers = _leg_headers(
+            forged_id, p_target, proto_name=proto.name, session_headers=session_headers
+        )
+        d_headers = _leg_headers(
+            forged_id, d_target, proto_name=proto.name, session_headers=session_headers
+        )
         try:
             p_body = inject_engine_priority(
                 proto.annotate_prefill(base, p, d, room_id), hints, p.engine
@@ -952,6 +961,7 @@ class DisaggRouter(BaseRouter):
         forged_id: str | None,
         *,
         path: str = DEFAULT_PATH,
+        session_headers: dict[str, str] | None = None,
     ) -> Response:
         """Serial-pull topology: D needs handoff fields from P's response
         before its body can be assembled, so the two legs cannot be
@@ -967,8 +977,12 @@ class DisaggRouter(BaseRouter):
         each leg so timings line up with the concurrent path.
         """
         p, d = p_target.worker, d_target.worker
-        p_headers = _leg_headers(forged_id, p_target, proto_name=proto.name)
-        d_headers = _leg_headers(forged_id, d_target, proto_name=proto.name)
+        p_headers = _leg_headers(
+            forged_id, p_target, proto_name=proto.name, session_headers=session_headers
+        )
+        d_headers = _leg_headers(
+            forged_id, d_target, proto_name=proto.name, session_headers=session_headers
+        )
         # P-leg first. Any failure here finishes BOTH workers (we never
         # call D, so D's slot is freed immediately). Once P succeeds we
         # finish P right away — serial-pull means it's truly done at

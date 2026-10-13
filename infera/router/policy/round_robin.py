@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import logging
 
-from infera.common.worker_pool import WorkerInfo
 from infera.router.policy.base import Policy
-from infera.router.policy.target import RouteTarget, expand_targets
+from infera.router.policy.target import RouteTarget
 
 logger = logging.getLogger(__name__)
 
@@ -35,16 +34,15 @@ class RoundRobinPolicy(Policy):
     def __init__(self) -> None:
         self._counters: dict[tuple[str, ...], int] = {}
 
-    def pick(
+    def pick_targets(
         self,
-        candidates: list[WorkerInfo],
+        targets: list[RouteTarget],
         request: dict,
         *,
         role_hint: str | None = None,
     ) -> tuple[RouteTarget, list[int]]:
         # role_hint doesn't change round-robin's choice; it's logged so a PD run
         # can bucket picks by pool the same way the cost-aware policy is read.
-        targets = expand_targets(candidates)
         key = tuple(t.route_key for t in targets)
         idx = self._counters.get(key, 0)
         self._counters[key] = idx + 1

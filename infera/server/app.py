@@ -33,6 +33,18 @@ _REQUEST_ID_HEADER = "X-Infera-Request-Id"
 # direct router reads it off the body annotation below. See infera/gaie.
 _WORKER_INSTANCE_HEADER = "x-worker-instance-id"
 _PREFILL_INSTANCE_HEADER = "x-prefill-instance-id"
+# Agent-session headers (AIPerf, Dynamo). The PD router forwards them to both
+# legs so an engine can keep a session on one DP rank, and --session-affinity
+# keys placement on x-dynamo-session-id.
+_SESSION_HEADERS = ("x-correlation-id", "x-dynamo-session-id", "x-dynamo-parent-session-id")
+
+
+def _stash_session_headers(body: dict, request: Request) -> None:
+    """Copy the client's session headers (lower-cased names) onto the body;
+    routers strip the annotation before forwarding the body."""
+    found = {h: request.headers[h] for h in _SESSION_HEADERS if h in request.headers}
+    if found:
+        body["_infera_session_headers"] = found
 
 
 def _stash_direct_worker(body: dict, request: Request) -> None:
@@ -323,6 +335,7 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
     # in their structured pick logs.
     request_id = request.headers.get(_REQUEST_ID_HEADER) or uuid.uuid4().hex
     body["_infera_request_id"] = request_id
+    _stash_session_headers(body, request)
     # Parse cache_control once at the front door so the policy + engine
     # adapters can read it without re-walking the body. Anthropic-style
     # and OpenAI-style hints both supported (see infera/router/cache_control.py).
@@ -577,6 +590,7 @@ async def anthropic_messages(request: Request) -> Any:
     # correlation) keeps working without special-casing.
     openai_body["_infera_request_id"] = request_id
     openai_body["_infera_cache_hints"] = cache_hints
+    _stash_session_headers(openai_body, request)
     _stash_direct_worker(openai_body, request)
     stream = bool(anthropic_body.get("stream", False))
 
