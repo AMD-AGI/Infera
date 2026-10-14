@@ -214,8 +214,9 @@ def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
     an anchor for the degrees it did *not* measure, a four-GPU anchor was the
     best single choice at 6.6% -- better than the full-node eight-GPU anchor at
     7.6% -- because it interpolates in both directions where an end rung has to
-    extrapolate. It also asks for at most half a node, so a warmup does not wait
-    on a full one.
+    extrapolate. The cap is a GPU count, not a fraction of a node, because node
+    sizes differ; a small fixed allocation also keeps a warmup from waiting on a
+    large one.
     """
     tp = max(1, int(target_tp or 1))
     return min(tp, WARMUP_GPU_CAP)
@@ -1370,6 +1371,19 @@ def main(argv=None):
         default=None,
         help="draft model path for methods that need a separate "
         "checkpoint (unused for 'deepseek_mtp')",
+    )
+    ap.add_argument(
+        "--speculative-acceptance-length",
+        type=float,
+        default=None,
+        help="pin the mean accepted length per step instead of letting the "
+        "draft head earn it. An anchor is harvested under --load-format "
+        "dummy, and acceptance is a property of the weights: random ones "
+        "accept at chance, so an unpinned speculative harvest measures a "
+        "draft head that never hits and reports the non-speculative decode "
+        "rate under a speculative label. The deployments pin the same "
+        "committed golden acceptance for their throughput runs, so passing "
+        "it here measures the regime they serve in",
     )
     ap.add_argument(
         "--no-aiter",
