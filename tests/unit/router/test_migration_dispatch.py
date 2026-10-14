@@ -61,6 +61,9 @@ class _Policy:
     def on_request_finished(self, route_key, blocks):
         pass
 
+    def on_request_failed(self, route_key, request, role_hint=None):
+        pass
+
 
 def chunk(text: str) -> bytes:
     return f"data: {json.dumps({'choices': [{'delta': {'content': text}}]})}\n\n".encode()

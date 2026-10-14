@@ -12,10 +12,14 @@ role. The wrapped policy picks the target for a new session, and still picks
 a pinned one (over just that target), so block hashing and load accounting
 are unchanged.
 
+A failed request drops the bindings that still point at the targets it used
+(the router reports it through ``on_request_failed``), so the session's next
+request is picked afresh.
+
 Unlike Rust, a binding is matched by route key only (a worker that re-registers
-under the same id keeps its sessions), a failed request does not invalidate
-it, and idle time counts from the last routed request rather than the last
-finished one.
+under the same id keeps its sessions), a failed PD request drops both roles'
+bindings rather than only the failed leg's, and idle time counts from the last
+routed request rather than the last finished one.
 """
 
 from __future__ import annotations
@@ -75,14 +79,12 @@ class SessionAffinityPolicy(Policy):
         *,
         role_hint: str | None = None,
     ) -> tuple[RouteTarget, list[int]]:
-        role = role_hint or "mixed"
-        session = (request.get("_infera_session_headers") or {}).get("x-dynamo-session-id")
-        if not session or role not in self._roles:
+        key = self._key(request, role_hint)
+        if key is None:
             return self.inner.pick_targets(targets, request, role_hint=role_hint)
 
         now = self._clock()
         self._expire(now)
-        key = (str(request.get("model") or ""), session, role)
         bound = self._bindings.get(key)
         pinned = [t for t in targets if bound and t.route_key == bound[0]]
         if pinned:
@@ -98,9 +100,26 @@ class SessionAffinityPolicy(Policy):
             self._bindings[key] = (target.route_key, now)
             self._bindings.move_to_end(key)
         logger.info(
-            "session affinity pick role=%s reason=%s picked=%s", role, reason, target.route_key
+            "session affinity pick role=%s reason=%s picked=%s", key[2], reason, target.route_key
         )
         return target, blocks
+
+    def on_request_failed(
+        self, route_key: str, request: dict, *, role_hint: str | None = None
+    ) -> None:
+        # Only if still bound there: a later request may already have moved it.
+        key = self._key(request, role_hint)
+        if key is not None and self._bindings.get(key, ("",))[0] == route_key:
+            del self._bindings[key]
+            logger.info("session affinity drop role=%s target=%s", key[2], route_key)
+
+    def _key(self, request: dict, role_hint: str | None) -> tuple[str, str, str] | None:
+        """The binding key, or None when this request is not pinned."""
+        role = role_hint or "mixed"
+        session = (request.get("_infera_session_headers") or {}).get("x-dynamo-session-id")
+        if not session or role not in self._roles:
+            return None
+        return str(request.get("model") or ""), session, role
 
     def _expire(self, now: float) -> None:
         while self._bindings:

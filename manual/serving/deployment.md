@@ -283,8 +283,8 @@ enable radix cache or guarantee better throughput. Session active-lease, hit and
 selection counters are exposed through `infera_router_session_*` metrics, with
 role labels and no session-ID labels.
 
-The Python router keeps the same modes, scoping, TTL and capacity, with less
-bookkeeping: idle time counts from a session's last routed request, a binding
-is re-picked only when its target leaves the candidate set (removed or
-breaker-filtered), malformed IDs are not rejected, and there are no session
+The Python router keeps the same modes, scoping, TTL, capacity and ID checks,
+and a failed request also drops its bindings, with less bookkeeping: idle time
+counts from a session's last routed request, a failed PD request drops both
+roles' bindings rather than only the failed leg's, and there are no session
 metrics.

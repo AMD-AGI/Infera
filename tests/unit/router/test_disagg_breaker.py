@@ -37,6 +37,9 @@ class _FakePolicy:
     def on_request_finished(self, route_key, blocks):
         pass
 
+    def on_request_failed(self, route_key, request, role_hint=None):
+        pass
+
 
 class _FakePool:
     def __init__(self, workers):

@@ -21,6 +21,7 @@ from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo, Worker
 from infera.kvd.client import KvdClient, KvdConnectionError
 from infera.router.base import BaseRouter
 from infera.router.kv_event.client import KvEventClient
+from infera.router.policy.session_affinity import SessionAffinityPolicy
 from infera.router.policy.target import expand_targets
 from infera.server import metrics
 from infera.server.profiling import fan_out_profile, select_targets
@@ -53,6 +54,23 @@ def _stash_session_headers(body: dict, request: Request) -> None:
     }
     if found:
         body["_infera_session_headers"] = found
+
+
+def _session_id_error(request: Request) -> str | None:
+    """Why x-dynamo-session-id cannot key session affinity, else None.
+
+    Only checked with --session-affinity on, by the Rust router's rules; the
+    length cap also bounds what the binding table holds per session."""
+    if not isinstance(getattr(router, "policy", None), SessionAffinityPolicy):
+        return None
+    values = request.headers.getlist("x-dynamo-session-id")
+    if len(values) > 1:
+        return "duplicate X-Dynamo-Session-ID"
+    if values and not (values[0].isascii() and values[0].isprintable()):
+        return "invalid X-Dynamo-Session-ID"
+    if values and not 1 <= len(values[0]) <= 1024:
+        return "X-Dynamo-Session-ID must be 1..1024 bytes"
+    return None
 
 
 def _stash_direct_worker(body: dict, request: Request) -> None:
@@ -343,6 +361,8 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
     # in their structured pick logs.
     request_id = request.headers.get(_REQUEST_ID_HEADER) or uuid.uuid4().hex
     body["_infera_request_id"] = request_id
+    if error := _session_id_error(request):
+        raise HTTPException(status_code=400, detail=error)
     _stash_session_headers(body, request)
     # Parse cache_control once at the front door so the policy + engine
     # adapters can read it without re-walking the body. Anthropic-style
@@ -598,6 +618,11 @@ async def anthropic_messages(request: Request) -> Any:
     # correlation) keeps working without special-casing.
     openai_body["_infera_request_id"] = request_id
     openai_body["_infera_cache_hints"] = cache_hints
+    if error := _session_id_error(request):
+        return JSONResponse(
+            status_code=400,
+            content={"type": "error", "error": {"type": "invalid_request_error", "message": error}},
+        )
     _stash_session_headers(openai_body, request)
     _stash_direct_worker(openai_body, request)
     stream = bool(anthropic_body.get("stream", False))

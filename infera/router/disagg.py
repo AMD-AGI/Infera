@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import random
+from functools import partial
 
 import anyio
 import httpx
@@ -365,6 +366,10 @@ class DisaggRouter(BaseRouter):
             # skips prefill) vs D (load-heavy) differently.
             p_target, p_blocks = self.policy.pick(prefills, body, role_hint="prefill")
             d_target, d_blocks = self.policy.pick(decodes, body, role_hint="decode")
+            for target, role in ((p_target, "prefill"), (d_target, "decode")):
+                obs.on_failure(
+                    partial(self.policy.on_request_failed, target.route_key, body, role_hint=role)
+                )
             return await self._dispatch_pd(
                 obs, p_target, d_target, p_blocks, d_blocks, body, stream, path
             )

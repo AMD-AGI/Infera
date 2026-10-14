@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import AsyncIterator
+from functools import partial
 
 import httpx
 from fastapi import Response
@@ -100,6 +101,7 @@ class MixedRouter(BaseRouter):
                 if not candidates:
                     break
                 target, blocks = self.policy.pick(candidates, body)
+                obs.on_failure(partial(self.policy.on_request_failed, target.route_key, body))
                 tried.add(target.worker.worker_id)
                 try:
                     resp = await self._attempt(target, blocks, body, hints, path, stream, obs)
@@ -377,9 +379,9 @@ class MixedRouter(BaseRouter):
 
         # Pick with the session headers so session affinity rebinds to the new
         # worker; the continuation body sent to it stays without them.
-        target, blocks = self.policy.pick(
-            candidates, {**body, "_infera_session_headers": session_headers}
-        )
+        pick_request = {**body, "_infera_session_headers": session_headers}
+        target, blocks = self.policy.pick(candidates, pick_request)
+        obs.on_failure(partial(self.policy.on_request_failed, target.route_key, pick_request))
         worker = target.worker
         if worker.request_transport != "nats" or self.nats_client is None:
             # The accumulated state is only resumable over NATS.

@@ -70,6 +70,12 @@ class Policy(ABC):
     ) -> None:
         pass
 
+    def on_request_failed(  # noqa: B027
+        self, route_key: str, request: dict, *, role_hint: str | None = None
+    ) -> None:
+        """The request picked onto ``route_key`` (with ``role_hint``) failed."""
+        pass
+
     async def aclose(self) -> None:  # noqa: B027
         pass
 

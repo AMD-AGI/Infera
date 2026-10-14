@@ -22,6 +22,8 @@ from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
 from infera.router.base import BaseRouter
 from infera.router.disagg import DisaggRouter
 from infera.router.mixed import MixedRouter
+from infera.router.policy.round_robin import RoundRobinPolicy
+from infera.router.policy.session_affinity import SessionAffinityPolicy
 from infera.router.policy.target import RouteTarget
 from infera.server import app as app_module
 from infera.server.app import init_app
@@ -71,6 +73,9 @@ class _FirstPolicy:
     def on_request_finished(self, route_key, blocks):
         pass
 
+    def on_request_failed(self, route_key, request, role_hint=None):
+        pass
+
 
 def _capture(router, reply=None):
     """Record each worker request as captured[host] = (headers, body)."""
@@ -118,6 +123,27 @@ async def test_pd_forwards_session_headers_to_both_legs(pair, reply):
     for headers, leg_body in captured.values():
         assert {k: headers[k] for k in SESSION} == SESSION
         assert "_infera_session_headers" not in leg_body
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("decode_status", [200, 500])
+async def test_pd_failure_drops_the_session_bindings(decode_status):
+    policy = SessionAffinityPolicy(RoundRobinPolicy(), mode="both")
+    r = DisaggRouter(_Pool(_sglang_pair()), policy)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        status = decode_status if request.url.host == "d1" else 200
+        return httpx.Response(status, json={"id": request.url.host})
+
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    body = {"model": "m", "prompt": "hi", "_infera_session_headers": dict(SESSION)}
+
+    resp = await r.dispatch(body, stream=False, path="/v1/completions")
+
+    assert resp.status_code == decode_status
+    roles = {key[2] for key in policy._bindings}
+    assert roles == (set() if decode_status >= 400 else {"prefill", "decode"})
     await r.aclose()
 
 
@@ -237,6 +263,34 @@ def test_server_omits_stash_without_session_headers(client_and_router):
     client.post("/v1/completions", json={"model": "m", "prompt": "hi"})
 
     assert "_infera_session_headers" not in router.body
+
+
+@pytest.mark.parametrize(
+    ("path", "payload"),
+    [
+        ("/v1/completions", {"model": "m", "prompt": "hi"}),
+        (
+            "/v1/messages",
+            {"model": "m", "max_tokens": 4, "messages": [{"role": "user", "content": "hi"}]},
+        ),
+    ],
+)
+def test_server_rejects_bad_session_ids_only_with_affinity_on(client_and_router, path, payload):
+    client, router = client_and_router
+    sid = "X-Dynamo-Session-ID"
+    bad = [
+        [(sid, "a"), (sid, "b")],
+        [(sid, "")],
+        [(sid, "x" * 1025)],
+        [(sid, "caf\xe9".encode("latin-1"))],
+    ]
+    for headers in bad:
+        assert client.post(path, json=payload, headers=headers).status_code == 200
+
+    router.policy = SessionAffinityPolicy(RoundRobinPolicy(), mode="prefill")
+    for headers in bad:
+        assert client.post(path, json=payload, headers=headers).status_code == 400
+    assert client.post(path, json=payload, headers={sid: "x" * 1024}).status_code == 200
 
 
 def test_server_drops_client_stash_and_unsendable_values(client_and_router):

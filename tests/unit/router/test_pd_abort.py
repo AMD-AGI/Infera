@@ -96,6 +96,9 @@ class _FakePolicy:
     def on_request_finished(self, route_key, blocks):
         self.finished += 1
 
+    def on_request_failed(self, route_key, request, role_hint=None):
+        pass
+
     def pick(self, workers, body, role_hint=None):
         return RouteTarget(workers[0]), []
 

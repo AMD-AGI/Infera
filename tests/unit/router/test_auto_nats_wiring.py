@@ -25,6 +25,9 @@ class _FakePolicy:
     def on_request_finished(self, *a):
         pass
 
+    def on_request_failed(self, route_key, request, role_hint=None):
+        pass
+
 
 class _SentinelNats:
     async def admit(self, worker_id):

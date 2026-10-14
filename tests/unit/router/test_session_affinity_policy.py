@@ -7,13 +7,18 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
-from infera.common.worker_pool import DisaggMode, WorkerInfo
+from infera.common.nats_request import TYPE_DATA, TYPE_DONE, TYPE_ERROR
+from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo
+from infera.router.mixed import MixedRouter
 from infera.router.policy import session_affinity
 from infera.router.policy.factory import build_policy
 from infera.router.policy.round_robin import RoundRobinPolicy
 from infera.router.policy.session_affinity import SessionAffinityPolicy
+from infera.server import metrics
 from infera.server.args import parse_server_args
 
 
@@ -161,3 +166,74 @@ def test_at_capacity_new_sessions_are_not_bound(monkeypatch):
     _pick(policy, W, _req("b"))
     assert [key[1] for key in policy._bindings] == ["a"]
     assert _pick(policy, W, _req("a")) == first
+
+
+def test_failure_drops_the_binding_only_while_it_points_there():
+    policy = SessionAffinityPolicy(RoundRobinPolicy(), mode="prefill")
+    first = _pick(policy, W, _req("a"))
+    other = "w1" if first == "w0" else "w0"
+    policy.on_request_failed(other, _req("a"), role_hint="prefill")  # stale: kept
+    policy.on_request_failed(first, _req("a"), role_hint="decode")  # other role: kept
+    assert _pick(policy, W, _req("a")) == first
+    policy.on_request_failed(first, _req("a"), role_hint="prefill")
+    assert not policy._bindings
+
+
+class _Pool:
+    def __init__(self, workers):
+        self._workers = workers
+
+    def list_active(self, model=None, mode=None):
+        return list(self._workers)
+
+
+class _Nats:
+    def __init__(self, scripts):
+        self.scripts = scripts
+
+    async def admit(self, worker_id):
+        return True
+
+    async def stream(self, worker_id, payload):
+        for event in self.scripts[worker_id]:
+            yield event
+
+
+def _nats_worker(wid: str) -> WorkerInfo:
+    return WorkerInfo(
+        worker_id=wid,
+        url=f"http://{wid}",
+        model_name="m",
+        engine=EngineType.SGLANG,
+        request_transport="nats",
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("broken", [False, True])
+async def test_router_drops_the_binding_of_a_failed_request(broken):
+    ok = [(TYPE_DATA, None, b"data: x\n\n"), (TYPE_DONE, 200, b"")]
+    failed = [(TYPE_DATA, None, b"data: x\n\n"), (TYPE_ERROR, None, b"crash")]
+    policy = SessionAffinityPolicy(RoundRobinPolicy(), mode="both")
+    nats = _Nats({"w0": failed if broken else ok, "w1": ok})
+    router = MixedRouter(_Pool([_nats_worker("w0"), _nats_worker("w1")]), policy, nats_client=nats)
+
+    resp = await router.dispatch(_req("a"), stream=True)
+    async for _ in resp.body_iterator:
+        pass
+
+    assert bool(policy._bindings) is not broken
+    await router.aclose()
+
+
+def test_a_cancelled_request_is_not_a_failure():
+    calls = []
+    with pytest.raises(asyncio.CancelledError), metrics.track_request(router="mixed") as obs:
+        obs.on_failure(lambda: calls.append("cancelled"))
+        raise asyncio.CancelledError
+    with metrics.track_request(router="mixed") as obs:
+        obs.on_failure(lambda: calls.append("failed"))  # outcome never set to "ok"
+    with metrics.track_request(router="mixed") as obs:
+        obs.on_failure(lambda: calls.append("ok"))
+        obs["outcome"] = "ok"
+    assert calls == ["failed"]
