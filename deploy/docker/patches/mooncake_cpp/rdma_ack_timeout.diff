@@ -12,19 +12,10 @@ index 08c9647..a8b3e7c 100644
      // Empty = no modification. QP at index i uses
      // mlx5_qp_udp_sports[i % size]. Requires mlx5 device + RoCEv2,
 diff --git a/mooncake-transfer-engine/src/config.cpp b/mooncake-transfer-engine/src/config.cpp
-index a6f4108..99f1f73 100644
+index a6f4108..ce32685 100644
 --- a/mooncake-transfer-engine/src/config.cpp
 +++ b/mooncake-transfer-engine/src/config.cpp
-@@ -14,6 +14,8 @@
-
- #include "config.h"
-
-+#include <charconv>
-+
- #include <charconv>
- #include <cstring>
- #include <cstdio>
-@@ -618,6 +620,23 @@ void loadGlobalConfig(GlobalConfig& config) {
+@@ -618,6 +618,23 @@ void loadGlobalConfig(GlobalConfig& config) {
          }
      }
 
@@ -48,7 +39,7 @@ index a6f4108..99f1f73 100644
      const char* ib_relaxed_ordering_env =
          std::getenv("MC_IB_PCI_RELAXED_ORDERING");
      if (ib_relaxed_ordering_env) {
-@@ -739,6 +758,7 @@ void dumpGlobalConfig() {
+@@ -739,6 +756,7 @@ void dumpGlobalConfig() {
                                                                       : "all");
      LOG(INFO) << "ib_traffic_class = " << config.ib_traffic_class;
      LOG(INFO) << "ib_service_level = " << config.ib_service_level;
