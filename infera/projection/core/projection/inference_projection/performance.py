@@ -609,6 +609,7 @@ class InferencePerformanceProjector:
         # size — so decode latency is a staircase and we look it up by bucket
         # rather than interpolating. Set from meta in set_benchmark_calibration.
         self._decode_pad_to_capture: bool = False
+        self._decode_capture_max: int = 0
         # Attention KV term for the FULL decode step: the step grows with context
         # by an ~batch-independent additive per-token amount (measured: the rise
         # over context is nearly the same at low and high batch, so it is NOT
@@ -834,7 +835,12 @@ class InferencePerformanceProjector:
         reproduces the flat-in-context behaviour."""
         if self._meas_whole.get("decode"):
             pts = self._meas_whole["decode"]
-            if self._decode_pad_to_capture:
+            # Padding only happens up to the largest captured graph; above it
+            # the engine runs eagerly at the real batch. The top measured rung
+            # bounds it too: clamping to it would bill a larger batch as that
+            # rung's step.
+            top = min(self._decode_capture_max or math.inf, max(b for b, _ in pts))
+            if self._decode_pad_to_capture and batch <= top:
                 base = self._bucket_up(batch, pts)
             else:
                 base = self._transport_batch(batch, pts)
@@ -953,7 +959,12 @@ class InferencePerformanceProjector:
         _attn_dp = meta.get("attention_data_parallel_size")
         self._bench_attn_dp = int(_attn_dp) if _attn_dp else None
         self._bench_spec_k = int(meta.get("speculative_num_tokens") or 0)
-        self._decode_pad_to_capture = bool(meta.get("decode_pad_to_capture"))
+        # An eager anchor pads nothing, whatever batches it was swept at.
+        self._decode_pad_to_capture = bool(meta.get("decode_pad_to_capture")) and not bool(
+            meta.get("enforce_eager")
+        )
+        _caps = [int(c) for c in (meta.get("capture_sizes") or []) if c]
+        self._decode_capture_max = max(_caps) if _caps else 0
 
         self._meas_ref_input = ref_input
 
