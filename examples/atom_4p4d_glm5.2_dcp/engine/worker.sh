@@ -79,6 +79,9 @@ mounts=(-v "$MODEL:$MODEL:ro")
 # JIT caches persist per role and image in a named volume.
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
 mounts+=(-v "$CTR-cache-$role-${image_id:7:12}:/root/.cache")
+# AITER builds its native modules inside its package, not under /root/.cache.
+# A new named volume starts as a copy of the image's directory.
+mounts+=(-v "$CTR-aiter-jit-$role-${image_id:7:12}:/app/aiter-test/aiter/jit")
 
 docker run -d --name "$CTR-$role" --network host --ipc host --shm-size 32g \
     --device /dev/kfd --device /dev/dri --device /dev/infiniband \

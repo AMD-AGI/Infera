@@ -18,7 +18,7 @@ by one opt-in build argument of `Dockerfile.atom`. From the repo root:
 docker build -f deploy/docker/Dockerfile.atom \
   --build-arg ATOM_BASE_IMAGE=rocm/atom-dev:nightly_202609221542 \
   --build-arg BUILD_MOONCAKE=0 \
-  --build-arg ATOM_GLM5_DCP_PATCHES=1 \
+  --build-arg ATOM_DCP_PATCHES=1 \
   -t <infera-atom-image> .
 ```
 

@@ -1,16 +1,16 @@
-# `patches/atom_glm5_dcp/`: GLM-5.2 DCP PD fixes for ATOM
+# `patches/atom_dcp/`: DCP PD fixes for ATOM
 
-Opt-in source patches for GLM-5.2 PD serving with DCP, MTP and LMCache CPU
+Opt-in source patches for PD serving with DCP, MTP and LMCache CPU
 offload, written against ATOM `d9f0720e2f99168f6f4e5dd07d674cba5b68d610` and
 its LMCache 0.5.5rc3 (`rocm/atom-dev:nightly_202609221542`). `Dockerfile.atom` runs them only with
-`ATOM_GLM5_DCP_PATCHES=1`, which also pins `protobuf<7` for that base. The
+`ATOM_DCP_PATCHES=1`, which also pins `protobuf<7` for that base. The
 release build for this stack is:
 
 ```bash
 docker build -f deploy/docker/Dockerfile.atom \
   --build-arg ATOM_BASE_IMAGE=rocm/atom-dev:nightly_202609221542 \
   --build-arg BUILD_MOONCAKE=0 \
-  --build-arg ATOM_GLM5_DCP_PATCHES=1 \
+  --build-arg ATOM_DCP_PATCHES=1 \
   -t <tag> .
 ```
 
@@ -31,6 +31,18 @@ experiment diffs. The LMCache script is new (the experiment image did not have
 it): a backport of the `cache_engine.py` hunk of LMCache#5098. The experiment image did not run that loop, so the release image also
 carries its `mooncake_consumer_slot` fix and hunk A of `minimax_m2_qknorm_rope`
 (hunk B does not apply on `d9f0720`); both compose with these patches.
+
+## AITER kernel prebuild
+
+`prebuild_aiter_mha_varlen.py` is not a source patch and runs after them. The
+base prebuilds five AITER `mha_varlen_fwd` variants but not
+`..._bf16_nlogits_nbias_mask_lse_ndropout_nskip_nqscale`, which ATOM's chunked-MLA
+prefill calls once a prompt extends a cached prefix. Its first call JIT-compiled
+it for ~30 s, and in a 4P4D AgentX run that compile stalled the prefill inside
+the measured window. The script builds it into AITER's JIT directory for
+`PYTORCH_ROCM_ARCH` (gfx942 and gfx950, like the other prebuilt variants); it
+needs no GPU and adds about a minute to the build. Drop it once the base
+prebuilds that variant itself.
 
 ## Contract
 

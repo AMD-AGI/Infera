@@ -24,7 +24,7 @@ done
     die "PREFILL_GPUS and DECODE_GPUS must together cover GPUs 0-7 once each"
 resolve_model
 for c in "${CONTAINERS[@]}"; do
-    if docker inspect "$c" >/dev/null 2>&1; then die "$c already exists: bash engine/down.sh first"; fi
+    if docker inspect --type container "$c" >/dev/null 2>&1; then die "$c already exists: bash engine/down.sh first"; fi
 done
 
 echo "===== 1. wait for free VRAM ====="

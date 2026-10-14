@@ -54,7 +54,7 @@ wait_health() {
     shift
     until curl -sf -m 5 -o /dev/null "$url"; do
         for c in "$@"; do
-            [[ "$(docker inspect -f '{{.State.Running}}' "$c" 2>/dev/null)" == true ]] ||
+            [[ "$(docker inspect --type container -f '{{.State.Running}}' "$c" 2>/dev/null)" == true ]] ||
                 die "$c stopped while waiting for $url; see: docker logs $c"
         done
         ((SECONDS < deadline)) || die "timeout after ${READY_TIMEOUT}s waiting for $url"

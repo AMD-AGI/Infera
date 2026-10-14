@@ -107,6 +107,7 @@ MPLCONFIGDIR=$cache/matplotlib
 HF_HOME=$cache/hf
 UV_PYTHON_INSTALL_DIR=$cache/python
 XDG_CACHE_HOME=$cache/xdg
+XDG_CONFIG_HOME=$cache/xdg-config
 UV_NO_MODIFY_PATH=1
 TMPDIR=/ax-tmp
 PYTHONNOUSERSITE=1

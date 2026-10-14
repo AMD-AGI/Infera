@@ -273,7 +273,7 @@ ATOM is an internal engine; there is no public upstream to file against.
 | `atom/patch_minimax_m2_qknorm_rope.py` | stock `minimax_m2.py` fails to load: `get_rope()` rejects `dtype=`, and the TP fused QK-norm kernel needs a batch guard | n/a | n/a | — | — |
 | `atom/patch_mooncake_consumer_slot.py` | `UnboundLocalError: consumer_staging_pool_idx` crashes the decode worker on the first PD request for models with slot state but no `slot_regions` | n/a | n/a | — | — |
 
-## ATOM GLM-5.2 DCP — `patches/atom_glm5_dcp/` (baked by `Dockerfile.atom`, `ATOM_GLM5_DCP_PATCHES=1`)
+## ATOM DCP — `patches/atom_dcp/` (baked by `Dockerfile.atom`, `ATOM_DCP_PATCHES=1`)
 
 These are strict anchor scripts against ATOM `d9f0720` and its LMCache 0.5.5rc3
 (`rocm/atom-dev:nightly_202609221542`): drift fails the build. Rationale and
@@ -283,10 +283,11 @@ checked on 2026-10-13.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
-| `atom_glm5_dcp/patch_dcp_kv_staging.py` | the Mooncake producer sends latent MLA KV to a DCP consumer as one RDMA descriptor per token and layer (~7.9M at 100k tokens); stage on the GPU and send whole pages | not searched | not searched; fix absent from `main` source | — | — |
-| `atom_glm5_dcp/patch_dcp_prefill_mtp_metadata.py` | a DCP prefill running MTP crashes in `dcp_ops.py` on a `None` `dcp_token_block_tables` at the first draft step | not searched | not searched; `main` source already publishes the table unconditionally (`_publish_dcp_token_block_tables`), so drop this patch once the base includes that change | — | — |
-| `atom_glm5_dcp/patch_moe_eager_decode_pad.py` | DP attention + eager decode hands MoE unpadded rows → `MoE was handed N rows ... expecting M` | not searched | not searched; fix absent from `main` source | — | — |
-| `atom_glm5_dcp/patch_lmcache_lookup_pin.py` | LMCache `retrieve()` unpins CPU chunks that the request's `lookup(pin=True)` pinned, and `lookup_unpin()` unpins them again: negative pin counts, and a prefix shared by two requests becomes evictable before the second loads it | none found | [LMCache#5098](https://github.com/LMCache/LMCache/pull/5098) (`bdb66b8`, backported here) | no | merged 2026-09-29 |
+| `atom_dcp/patch_dcp_kv_staging.py` | the Mooncake producer sends latent MLA KV to a DCP consumer as one RDMA descriptor per token and layer (~7.9M at 100k tokens); stage on the GPU and send whole pages | not searched | not searched; fix absent from `main` source | — | — |
+| `atom_dcp/patch_dcp_prefill_mtp_metadata.py` | a DCP prefill running MTP crashes in `dcp_ops.py` on a `None` `dcp_token_block_tables` at the first draft step | not searched | not searched; `main` source already publishes the table unconditionally (`_publish_dcp_token_block_tables`), so drop this patch once the base includes that change | — | — |
+| `atom_dcp/patch_moe_eager_decode_pad.py` | DP attention + eager decode hands MoE unpadded rows → `MoE was handed N rows ... expecting M` | not searched | not searched; fix absent from `main` source | — | — |
+| `atom_dcp/patch_lmcache_lookup_pin.py` | LMCache `retrieve()` unpins CPU chunks that the request's `lookup(pin=True)` pinned, and `lookup_unpin()` unpins them again: negative pin counts, and a prefix shared by two requests becomes evictable before the second loads it | none found | [LMCache#5098](https://github.com/LMCache/LMCache/pull/5098) (`bdb66b8`, backported here) | no | merged 2026-09-29 |
+| `atom_dcp/prebuild_aiter_mha_varlen.py` (a build step, not a source patch) | the base's AITER prebuilds five `mha_varlen_fwd` variants but not `..._mask_lse_ndropout_nskip_nqscale`, which chunked-MLA prefill calls once a prompt extends a cached prefix; its first call JIT-compiles it for ~30 s and stalls the prefill; built into the image instead | not searched | not filed (add it to AITER `setup.py`'s prebuild list) | — | — |
 
 ## hipFile — `patches/hipfile_async/` (baked by `Dockerfile.vllm`)
 
@@ -299,8 +300,8 @@ checked on 2026-10-13.
 Every file under `patches/` is covered above except these, which carry no fix of
 their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh`,
 `sglang_dsa/README.md`, `sglang_disagg/README.md`,
-`vllm-dsv4/legacy/README.md`, `atom_glm5_dcp/README.md` and
-`atom_glm5_dcp/anchor_patch.py` (the scripts' shared helper).
+`vllm-dsv4/legacy/README.md`, `atom_dcp/README.md` and
+`atom_dcp/anchor_patch.py` (the scripts' shared helper).
 
 ## Retired
 

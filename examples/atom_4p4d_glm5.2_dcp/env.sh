@@ -23,7 +23,7 @@ export NODE_IP="${NODE_IP:-<this-node-ip>}"
 # served model name.
 export MODEL="${MODEL:-<weights-dir>}"
 
-# Infera ATOM image built with the GLM-5.2 DCP patches; see README "Image".
+# Infera ATOM image built with the ATOM DCP patches (ATOM_DCP_PATCHES=1); see README "Image".
 export IMAGE="${IMAGE:-<infera-atom-image>}"
 
 # Host scratch directory: per-run logs and results (runs/), the InferenceX

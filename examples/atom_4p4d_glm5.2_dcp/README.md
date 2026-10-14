@@ -25,16 +25,17 @@ Build the image from the repo root:
 docker build -f deploy/docker/Dockerfile.atom \
   --build-arg ATOM_BASE_IMAGE=rocm/atom-dev:nightly_202609221542 \
   --build-arg BUILD_MOONCAKE=0 \
-  --build-arg ATOM_GLM5_DCP_PATCHES=1 \
+  --build-arg ATOM_DCP_PATCHES=1 \
   -t <infera-atom-image> .
 ```
 
-- `ATOM_GLM5_DCP_PATCHES=1` applies the patches in
-  [`deploy/docker/patches/atom_glm5_dcp/`](../../deploy/docker/patches/atom_glm5_dcp/):
+- `ATOM_DCP_PATCHES=1` applies the patches in
+  [`deploy/docker/patches/atom_dcp/`](../../deploy/docker/patches/atom_dcp/):
   batched DCP KV staging for the Mooncake transfer, the DCP block table for the
   first MTP draft after prefill (without it the first request crashes), and MoE
   decode padding under eager mode. A drifted anchor fails the build. It also pins
-  `protobuf<7`, which the nightly's OpenTelemetry needs.
+  `protobuf<7`, which the nightly's OpenTelemetry needs, and prebuilds the AITER
+  kernel of gotcha 12.
 - `BUILD_MOONCAKE=0` keeps the base's Mooncake v0.3.14-rc1. That build routes
   same-host targets by upstream `MC_DISABLE_HIP`, which this kit sets (gotcha 1).
 - The default `Dockerfile.atom` build (ATOM 0.1.4 base) is not validated with this
@@ -82,9 +83,9 @@ patches and Infera changes, on one 8×MI355X node, amdgpu 6.14.14, 2.7 TiB DRAM,
 | item | status |
 |---|---|
 | correctness (the five `smoke.py` content checks) | **passed** on the reference; 66k-token needle 8.8 s cold, 0.7 s repeated; a ~200k-token prompt also passed |
-| GSM8K | **0.98** (196/200) on the sibling 8P4D DCP experiment with the same image; not yet run with 4P4D |
+| GSM8K | **0.99** (198/200) with this kit and the image from `Dockerfile.atom` |
 | AgentX C24-C80 | **passed**, AIPerf `submission_valid=true` at every point (table below) |
-| this kit's scripts and the image from `Dockerfile.atom` | **not yet run on hardware**; the scripts are a cleaned port of the reference scripts |
+| this kit's scripts and the image from `Dockerfile.atom` | smoke **passed**. AgentX C48 3600 s: 23992.63 total / 165.54 output tok/s/GPU, TTFT p99 105 s, from prefill stalls on a JIT compile during the run. With that kernel compiled before the run (and diagnostic timing hooks): 25904.67 / 180.26, TTFT p50 / p90 / p99 1.953 / 8.992 / 28.981 s (gotcha 12) |
 
 ## Reference numbers
 
@@ -170,8 +171,16 @@ decode rank it serves. DCP size must also match on both legs in this ATOM.
 
 **11. Cold start takes about 10 minutes**, mostly weights, AITER/FlyDSL JIT and
 graph capture. JIT caches persist in per-role, per-image Docker volumes
-`<CTR>-cache-<role>-<image-id>`; remove them with `docker volume rm` when done
-with an image.
+`<CTR>-cache-<role>-<image-id>` and `<CTR>-aiter-jit-<role>-<image-id>`; remove
+them with `docker volume rm` when done with an image.
+
+**12. A JIT compile on live traffic stalls the prefill.** The base does not
+prebuild the AITER varlen attention that chunked-MLA prefill calls once a prompt
+extends a cached prefix; its first call compiled it for ~30 s, which fixed
+AgentX warm-up requests need not reach. The image now prebuilds it (see
+`ATOM_DCP_PATCHES`). AITER keeps such modules in `/app/aiter-test/aiter/jit`,
+not `/root/.cache`, so `worker.sh` persists that directory too, for any other
+kernel compiled at run time.
 
 ## What this kit exposes on the network
 

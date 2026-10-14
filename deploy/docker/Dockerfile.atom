@@ -24,18 +24,21 @@ COPY deploy/docker/patches/atom/ /tmp/atom-patches/
 RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
     && rm -rf /tmp/atom-patches
 
-# GLM-5.2 DCP PD fixes, opt-in: written against ATOM d9f0720 and its LMCache
+# ATOM DCP PD fixes, opt-in: written against ATOM d9f0720 and its LMCache
 # (rocm/atom-dev:nightly_202609221542). Unlike the loop above they are strict: a
 # drifted anchor fails the build. Verified to compose with that loop on d9f0720.
-# Overview: deploy/docker/patches/atom_glm5_dcp/README.md.
-ARG ATOM_GLM5_DCP_PATCHES=0
-COPY deploy/docker/patches/atom_glm5_dcp/ /tmp/atom-glm5-dcp/
-RUN case "${ATOM_GLM5_DCP_PATCHES}" in \
-        1) for f in /tmp/atom-glm5-dcp/patch_*.py; do python3 "$f" || exit 1; done ;; \
-        0) echo "ATOM_GLM5_DCP_PATCHES=0 — skipping GLM-5.2 DCP ATOM patches" ;; \
-        *) echo "ATOM_GLM5_DCP_PATCHES must be 0 or 1, got '${ATOM_GLM5_DCP_PATCHES}'" >&2; exit 1 ;; \
+# The same switch prebuilds the AITER kernel that chunked-MLA prefill would
+# otherwise JIT-compile on live traffic, for the base's own GPU archs.
+# Overview: deploy/docker/patches/atom_dcp/README.md.
+ARG ATOM_DCP_PATCHES=0
+COPY deploy/docker/patches/atom_dcp/ /tmp/atom-dcp/
+RUN case "${ATOM_DCP_PATCHES}" in \
+        1) for f in /tmp/atom-dcp/patch_*.py; do python3 "$f" || exit 1; done \
+            && GPU_ARCHS="${PYTORCH_ROCM_ARCH}" python3 /tmp/atom-dcp/prebuild_aiter_mha_varlen.py ;; \
+        0) echo "ATOM_DCP_PATCHES=0 — skipping ATOM DCP patches" ;; \
+        *) echo "ATOM_DCP_PATCHES must be 0 or 1, got '${ATOM_DCP_PATCHES}'" >&2; exit 1 ;; \
     esac \
-    && rm -rf /tmp/atom-glm5-dcp
+    && rm -rf /tmp/atom-dcp
 
 # ---- Mooncake (pinned upstream + the B.2 hip-transport gate) ---------------
 # WHY: the default base ships a single-protocol Mooncake without B.2, so a
@@ -85,10 +88,10 @@ COPY infera ./infera
 # protobuf<7 is a need of the nightly base, not of the patches: its
 # opentelemetry-proto 1.40 needs protobuf<7, while grpcio-health-checking>=1.82
 # needs >=7, so unpinned pip upgrades protobuf and breaks the base's OTel. The
-# pin keeps health-checking at 1.81.x. It rides on ATOM_GLM5_DCP_PATCHES=1 so
+# pin keeps health-checking at 1.81.x. It rides on ATOM_DCP_PATCHES=1 so
 # the default base (not verified with it) is unchanged; a nightly build with
 # the patches off loses the pin and must add it itself.
-RUN if [ "${ATOM_GLM5_DCP_PATCHES}" = "1" ]; then \
+RUN if [ "${ATOM_DCP_PATCHES}" = "1" ]; then \
         pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0" "protobuf<7"; \
     else \
         pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0"; \
