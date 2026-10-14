@@ -20,6 +20,7 @@ use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
 use infera_router::render_variant::{RenderVariant, VariantRegistry};
+use infera_router::session_affinity;
 use infera_router::{
     discovery, discovery_k8s, k8s, kv_event_nats, kv_selfheal, nats_request, proxy,
 };
@@ -149,7 +150,9 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
+    let sessions = Arc::new(session_affinity::Sessions::from_env()?);
     let state = AppState {
+        sessions,
         pool,
         policy,
         http: upstream,
