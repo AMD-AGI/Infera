@@ -1,4 +1,4 @@
-bases:
+extends:
   - language_model.yaml
 
 # MiniMax-M3 (GQA + sparse attention + MoE)
@@ -15,6 +15,25 @@ bases:
 # it is a serving-time property rather than a weight, so it is declared here
 # as a serving default rather than as an architectural dimension.
 sparse_attention_topk: 2048
+
+# Choosing those 16 blocks has a memory cost, and on this model it is a third
+# of the footprint. The indexer stores a 128-wide key per token
+# (``sparse_index_dim: 128``) on each of the 57 layers where
+# ``sparse_attention_freq`` is set -- the first three are dense and have no
+# indexer -- and keeps them in bf16, so unlike the KV cache they do not shrink
+# when it is quantized. Against vLLM at TP8 this predicts 29,952 bytes per
+# token with an fp8 cache where the engine allocates 30,023, and 45,312 with a
+# bf16 cache where it allocates 45,398.
+sparse_index_head_dim: 128
+sparse_index_layers: 57
+sparse_index_dtype: bf16
+
+# The indexer's query heads (HF ``sparse_num_index_heads: 4``). Eight times
+# narrower than GLM-5.2's 32 against attention layers that are themselves
+# four times cheaper -- GQA over 64 heads of 128 rather than absorbed MLA --
+# so M3's indexer lands at a comparable fraction of its own attention from
+# very different parts. Both are invisible without this field.
+sparse_index_n_heads: 4
 
 tokenizer_type: HuggingFaceTokenizer
 tokenizer_model: MiniMaxAI/MiniMax-M3
