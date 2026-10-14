@@ -5,12 +5,17 @@
 ###############################################################################
 """Session affinity layered on top of any routing policy.
 
-Same semantics as the Rust router's ``--session-affinity``: a request
-with an ``x-dynamo-session-id`` header (stashed on the body by the server as
+Mostly the Rust router's ``--session-affinity``: a request with an
+``x-dynamo-session-id`` header (stashed on the body by the server as
 ``_infera_session_headers``) goes to the target its session used last, per
 role. The wrapped policy picks the target for a new session, and still picks
 a pinned one (over just that target), so block hashing and load accounting
 are unchanged.
+
+Unlike Rust, a binding is matched by route key only (a worker that re-registers
+under the same id keeps its sessions), a failed request does not invalidate
+it, and idle time counts from the last routed request rather than the last
+finished one.
 """
 
 from __future__ import annotations

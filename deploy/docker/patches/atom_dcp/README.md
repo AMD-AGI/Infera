@@ -20,14 +20,16 @@ Each script's docstring has the full rationale.
 
 | script | files | fixes | needed for 4P4D DCP |
 |---|---|---|---|
-| `patch_dcp_kv_staging.py` | `atom/kv_transfer/disaggregation/mooncake/mooncake_connector.py`, `atom/model_ops/attentions/aiter_mla.py` | per-token RDMA descriptors for DCP latent MLA KV; stage on GPU, send whole pages | yes (performance) |
 | `patch_dcp_prefill_mtp_metadata.py` | `atom/spec_decode/eagle_proposer.py` | MTP draft after a DCP prefill crashes on `None` `dcp_token_block_tables` | yes (crash) |
 | `patch_moe_eager_decode_pad.py` | `atom/model_ops/moe.py` | DP attention + eager decode hands MoE unpadded rows | no; carried to match the experiment image |
 | `patch_lmcache_lookup_pin.py` | `lmcache/v1/cache_engine.py` | `retrieve()` and `lookup_unpin()` both release a CPU lookup pin, so a prefix shared by two requests becomes evictable early | yes, with LMCache CPU offload (correctness of the CPU tier) |
 
-On `d9f0720`, the existing `patches/atom/` loop followed by the three ATOM
-scripts gives a tree byte-identical to that loop followed by `git apply` of the
-experiment diffs. The LMCache script is new (the experiment image did not have
+On `d9f0720`, the existing `patches/atom/` loop followed by the two ATOM
+scripts gives the same tree as that loop followed by `git apply` of the
+experiment diffs, minus the experiment's latent-MLA KV staging in the Mooncake
+connector. That staging only runs when a DCP1 producer feeds a DCP>1 consumer;
+with DCP on both legs ATOM sends whole blocks, so it only cost producer memory.
+The LMCache script is new (the experiment image did not have
 it): a backport of the `cache_engine.py` hunk of LMCache#5098. The experiment image did not run that loop, so the release image also
 carries its `mooncake_consumer_slot` fix and hunk A of `minimax_m2_qknorm_rope`
 (hunk B does not apply on `d9f0720`); both compose with these patches.
@@ -59,7 +61,7 @@ which swallows failures, a base that drifted from `d9f0720` fails the build.
 Re-check each patch whenever `ATOM_BASE_IMAGE` moves. As of 2026-10-13,
 ROCm/ATOM `main` publishes the DCP token table unconditionally
 (`_publish_dcp_token_block_tables`), so the MTP script fails there by design:
-drop it. `main` still has the per-token connector path and the unpadded eager
-MoE path; read the new source before dropping either of the other two. Drop
+drop it. `main` still has the unpadded eager MoE path; read the new source
+before dropping the MoE script. Drop
 the LMCache script once the base's LMCache contains LMCache#5098 (`bdb66b8`);
 its marker comment then matches and the script reports it as applied.

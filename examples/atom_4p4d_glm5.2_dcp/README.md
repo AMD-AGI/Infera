@@ -17,8 +17,8 @@ bash engine/down.sh          # save logs, remove containers, wait for VRAM to dr
 
 ## Image
 
-The engines need ATOM `d9f0720` (`rocm/atom-dev:nightly_202609221542`) plus three
-strict ATOM patches, and the router needs Infera's `--session-affinity`.
+The engines need ATOM `d9f0720` (`rocm/atom-dev:nightly_202609221542`) plus strict
+ATOM and LMCache patches, and the router needs Infera's `--session-affinity`.
 Build the image from the repo root:
 
 ```bash
@@ -31,9 +31,9 @@ docker build -f deploy/docker/Dockerfile.atom \
 
 - `ATOM_DCP_PATCHES=1` applies the patches in
   [`deploy/docker/patches/atom_dcp/`](../../deploy/docker/patches/atom_dcp/):
-  batched DCP KV staging for the Mooncake transfer, the DCP block table for the
-  first MTP draft after prefill (without it the first request crashes), and MoE
-  decode padding under eager mode. A drifted anchor fails the build. It also pins
+  the DCP block table for the first MTP draft after prefill (without it the
+  first request crashes), MoE decode padding under eager mode, and the
+  LMCache#5098 lookup-pin fix. A drifted anchor fails the build. It also pins
   `protobuf<7`, which the nightly's OpenTelemetry needs, and prebuilds the AITER
   kernel of gotcha 12.
 - `BUILD_MOONCAKE=0` keeps the base's Mooncake v0.3.14-rc1. That build routes

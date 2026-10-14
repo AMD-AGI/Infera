@@ -237,3 +237,17 @@ def test_server_omits_stash_without_session_headers(client_and_router):
     client.post("/v1/completions", json={"model": "m", "prompt": "hi"})
 
     assert "_infera_session_headers" not in router.body
+
+
+def test_server_drops_client_stash_and_unsendable_values(client_and_router):
+    """A client cannot inject leg headers through the body, and a value httpx
+    cannot encode never reaches the PD legs."""
+    client, router = client_and_router
+    payload = {"model": "m", "prompt": "hi", "_infera_session_headers": {"x-evil": "1"}}
+
+    client.post("/v1/completions", json=payload)
+    assert "_infera_session_headers" not in router.body
+
+    headers = {"X-Dynamo-Session-ID": "caf\xe9".encode("latin-1"), "X-Correlation-ID": "corr-1"}
+    client.post("/v1/completions", json=payload, headers=headers)
+    assert router.body["_infera_session_headers"] == {"x-correlation-id": "corr-1"}

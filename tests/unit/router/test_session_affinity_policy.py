@@ -79,6 +79,12 @@ def test_cli_wraps_the_router_policy():
     assert isinstance(policy.inner, RoundRobinPolicy)
 
 
+@pytest.mark.parametrize("ttl", ["0", "86401", "abc"])
+def test_cli_rejects_bad_ttl(ttl):
+    with pytest.raises(SystemExit):
+        parse_server_args(["--router-tokenizer-path", "t", "--session-affinity-ttl-seconds", ttl])
+
+
 @pytest.mark.parametrize("kwargs", [{"mode": "off"}, {"mode": "Both"}, {"ttl_seconds": 0}])
 def test_rejects_bad_config(kwargs):
     with pytest.raises(ValueError):

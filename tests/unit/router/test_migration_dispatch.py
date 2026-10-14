@@ -47,10 +47,12 @@ class _Policy:
 
     def __init__(self):
         self.picks: list[str] = []
+        self.bodies: list[dict] = []
 
     def pick(self, candidates, body, role_hint=None):
         target = RouteTarget(candidates[0])
         self.picks.append(target.worker.worker_id)
+        self.bodies.append(body)
         return target, []
 
     def on_request_started(self, route_key, blocks):
@@ -123,6 +125,29 @@ async def test_a_broken_stream_continues_on_another_worker():
     assert b"error" not in body, "the client must not see the failure"
     # Nothing is repeated: the second worker continued rather than restarted.
     assert body.count(b"Hello") == 1
+    await r.aclose()
+
+
+@pytest.mark.asyncio
+async def test_the_migration_pick_keeps_the_session_headers():
+    """Session affinity rebinds to the new worker; the worker body stays clean."""
+    nats = _ScriptedNats(
+        {
+            "w1": [(TYPE_DATA, None, chunk("Hello")), (TYPE_ERROR, None, b"gone")],
+            "w2": [(TYPE_DATA, None, chunk(" world")), (TYPE_DONE, 200, b"")],
+        }
+    )
+    r = _router(nats, [_w("w1"), _w("w2")], limit=1)
+    session = {"x-dynamo-session-id": "s"}
+    resp = await r.dispatch(
+        {"model": "m", "prompt": "hi", "max_tokens": 10, "_infera_session_headers": session},
+        stream=True,
+    )
+    await _collect(resp)
+
+    assert r.policy.picks == ["w1", "w2"]
+    assert [b["_infera_session_headers"] for b in r.policy.bodies] == [session, session]
+    assert all("_infera_session_headers" not in b for b in nats.bodies.values())
     await r.aclose()
 
 

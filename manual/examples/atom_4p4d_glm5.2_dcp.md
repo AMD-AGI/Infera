@@ -11,7 +11,7 @@ For the concepts, read [PD disaggregation](../features/pd_disaggregation.md) fir
 
 ## 1. Build the image
 
-The kit needs the ATOM nightly `d9f0720` base plus three ATOM patches, enabled
+The kit needs the ATOM nightly `d9f0720` base plus ATOM and LMCache patches, enabled
 by one opt-in build argument of `Dockerfile.atom`. From the repo root:
 
 ```bash

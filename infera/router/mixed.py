@@ -150,7 +150,7 @@ class MixedRouter(BaseRouter):
         forwarded_body = inject_engine_priority(body, hints, worker.engine)
         forwarded_body.pop("_infera_cache_hints", None)
         forwarded_body.pop("_infera_request_id", None)
-        forwarded_body.pop("_infera_session_headers", None)
+        session_headers = forwarded_body.pop("_infera_session_headers", None)
 
         # Fallback ISL for the streaming path, where the reply carries no usage.
         obs.observe_blocks(blocks, worker.kv_block_size)
@@ -184,7 +184,16 @@ class MixedRouter(BaseRouter):
 
         if stream:
             return await self._attempt_stream(
-                target, blocks, worker, url, forwarded_body, dp_headers, path, use_nats, obs
+                target,
+                blocks,
+                worker,
+                url,
+                forwarded_body,
+                dp_headers,
+                path,
+                use_nats,
+                obs,
+                session_headers=session_headers,
             )
         try:
             return await self._attempt_unary(
@@ -194,7 +203,18 @@ class MixedRouter(BaseRouter):
             self.policy.on_request_finished(target.route_key, blocks)
 
     async def _attempt_stream(
-        self, target, blocks, worker, url, forwarded_body, dp_headers, path, use_nats, obs
+        self,
+        target,
+        blocks,
+        worker,
+        url,
+        forwarded_body,
+        dp_headers,
+        path,
+        use_nats,
+        obs,
+        *,
+        session_headers=None,
     ) -> Response:
         """Peek the first reply event: if it's data, commit and stream it +
         the rest; if it's an error/empty before any data, raise _Retry."""
@@ -265,7 +285,12 @@ class MixedRouter(BaseRouter):
                         resumed = None
                         if state is not None and state.can_migrate():
                             resumed = await self._resume_elsewhere(
-                                state, cur_target, path, obs, reason
+                                state,
+                                cur_target,
+                                path,
+                                obs,
+                                reason,
+                                session_headers=session_headers,
                             )
                         elif state is not None:
                             # Migration was possible for this request and is not
@@ -321,7 +346,9 @@ class MixedRouter(BaseRouter):
             return None
         return MigrationState(forwarded_body, limit=self._migration_limit, path=path)
 
-    async def _resume_elsewhere(self, state, failed_target, path, obs, reason):
+    async def _resume_elsewhere(
+        self, state, failed_target, path, obs, reason, *, session_headers=None
+    ):
         """Continue this generation on a different worker.
 
         Returns the new event stream and its target, or None when nobody else
@@ -348,7 +375,11 @@ class MixedRouter(BaseRouter):
             metrics.migrations_failed_total.labels(reason="no_candidate").inc()
             return None
 
-        target, blocks = self.policy.pick(candidates, body)
+        # Pick with the session headers so session affinity rebinds to the new
+        # worker; the continuation body sent to it stays without them.
+        target, blocks = self.policy.pick(
+            candidates, {**body, "_infera_session_headers": session_headers}
+        )
         worker = target.worker
         if worker.request_transport != "nats" or self.nats_client is None:
             # The accumulated state is only resumable over NATS.

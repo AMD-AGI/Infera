@@ -41,8 +41,16 @@ _SESSION_HEADERS = ("x-correlation-id", "x-dynamo-session-id", "x-dynamo-parent-
 
 def _stash_session_headers(body: dict, request: Request) -> None:
     """Copy the client's session headers (lower-cased names) onto the body;
-    routers strip the annotation before forwarding the body."""
-    found = {h: request.headers[h] for h in _SESSION_HEADERS if h in request.headers}
+    routers strip the annotation before forwarding the body.
+
+    A client-sent ``_infera_session_headers`` is dropped. Values that are not
+    printable ASCII are too: httpx cannot re-send them on the PD legs."""
+    body.pop("_infera_session_headers", None)
+    found = {
+        h: v
+        for h in _SESSION_HEADERS
+        if (v := request.headers.get(h)) and v.isascii() and v.isprintable()
+    }
     if found:
         body["_infera_session_headers"] = found
 

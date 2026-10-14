@@ -283,7 +283,6 @@ checked on 2026-10-13.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
-| `atom_dcp/patch_dcp_kv_staging.py` | the Mooncake producer sends latent MLA KV to a DCP consumer as one RDMA descriptor per token and layer (~7.9M at 100k tokens); stage on the GPU and send whole pages | not searched | not searched; fix absent from `main` source | — | — |
 | `atom_dcp/patch_dcp_prefill_mtp_metadata.py` | a DCP prefill running MTP crashes in `dcp_ops.py` on a `None` `dcp_token_block_tables` at the first draft step | not searched | not searched; `main` source already publishes the table unconditionally (`_publish_dcp_token_block_tables`), so drop this patch once the base includes that change | — | — |
 | `atom_dcp/patch_moe_eager_decode_pad.py` | DP attention + eager decode hands MoE unpadded rows → `MoE was handed N rows ... expecting M` | not searched | not searched; fix absent from `main` source | — | — |
 | `atom_dcp/patch_lmcache_lookup_pin.py` | LMCache `retrieve()` unpins CPU chunks that the request's `lookup(pin=True)` pinned, and `lookup_unpin()` unpins them again: negative pin counts, and a prefix shared by two requests becomes evictable before the second loads it | none found | [LMCache#5098](https://github.com/LMCache/LMCache/pull/5098) (`bdb66b8`, backported here) | no | merged 2026-09-29 |

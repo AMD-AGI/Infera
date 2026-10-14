@@ -12,6 +12,13 @@ from infera.router.policy.factory import POLICY_NAMES
 from infera.router.policy.session_affinity import SESSION_AFFINITY_MODES
 
 
+def _session_ttl(raw: str) -> int:
+    ttl = int(raw)
+    if not 1 <= ttl <= 86400:
+        raise argparse.ArgumentTypeError(f"must be 1..86400 seconds, got {ttl}")
+    return ttl
+
+
 def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Infera server")
     parser.add_argument("--host", default="0.0.0.0")
@@ -70,9 +77,9 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Router data-plane implementation. 'python' (default) runs the "
         "in-process asyncio router. 'rust' execs the infera-router binary "
         "(multi-core data plane) for the hot path; it covers every choice of "
-        "--discovery-backend, --request-transport and --kv-event-transport, but "
-        "not --router-mode direct or --enable-profiling. Overrides "
-        "$INFERA_ROUTER_BACKEND.",
+        "--router-policy, --discovery-backend, --request-transport and "
+        "--kv-event-transport, but not --router-mode direct or "
+        "--enable-profiling. Overrides $INFERA_ROUTER_BACKEND.",
     )
     parser.add_argument(
         "--router-mode",
@@ -104,7 +111,7 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--session-affinity-ttl-seconds",
-        type=int,
+        type=_session_ttl,
         default=3600,
         help="Idle seconds before a session binding is dropped (1-86400, default 3600).",
     )
