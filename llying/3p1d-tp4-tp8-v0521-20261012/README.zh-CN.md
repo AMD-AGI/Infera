@@ -1,5 +1,7 @@
 # GLM-5.2-MXFP4 3P(TP4)1D(TP8)，sglang v0.5.21 + Mooncake 跨 rank 修复，AgentX 吞吐
 
+> 结果与结论：`RESULT.zh-CN.md`；从零复现最优配置：`REPRODUCE.zh-CN.md`（`scripts/reproduce_best.sh`、`config/best.sh`）。
+
 目标：在升级后的镜像（sglang v0.5.21）上测 3P(TP4)1D(TP8) 的 AgentX 吞吐，找出吞吐最高的并发点。
 配置沿用 yaocheng 的 2P1D（`../../yaocheng/2p1d-sweep-triton-dsa-20260922/config.sh`），只改这个形态和镜像必需的部分；
 router 与 yaocheng 一致（kv-aware，overlap 权重 20/2），唯一差别是关闭 PD DP-rank 亲和，靠移植的 Mooncake 补丁支持跨 rank 传输。

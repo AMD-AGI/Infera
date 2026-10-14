@@ -3,6 +3,8 @@
 STALL_SECONDS (default 180). Uses the live engine gauges and the server logs.
 
 Usage: hang_check.py [ROUND] [STALL_SECONDS]   -> prints one line per prefill; exit 1 if any is hung.
+The stall clock starts no earlier than the current round's bench start (runtime/runs/<ROUND>/tune/
+<round>/bench.start), so a round that has just started is not flagged on the previous round's last batch.
 """
 
 import re
@@ -34,6 +36,8 @@ def last_batch(log: Path) -> str:
 
 def main() -> int:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    starts = sorted((KIT / "runtime" / "runs" / ROUND / "tune").glob("*/bench.start"), key=lambda p: p.stat().st_mtime)
+    round_start = datetime.fromisoformat(starts[-1].read_text().strip()) if starts else None
     hung = False
     for inst, url in URLS.items():
         try:
@@ -44,6 +48,8 @@ def main() -> int:
         pending = sum(float(m.group(2)) for m in map(GAUGE.match, text.splitlines()) if m)
         ts = last_batch(LOGS / f"{inst}.log")
         age = (now - datetime.fromisoformat(ts)).total_seconds() if ts else float("inf")
+        if round_start is not None:
+            age = min(age, (now - round_start).total_seconds())
         bad = pending > 0 and age > STALL
         hung |= bad
         print(f"{inst}: pending {pending:.0f}, last batch {age:.0f} s ago{'  <-- HUNG' if bad else ''}")
