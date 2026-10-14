@@ -1,0 +1,13 @@
+prefill-0 DP0  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-0 DP1  first batch 2026-10-14T03:21:10  new=8192  cached=0
+prefill-0 DP2  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-0 DP3  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-1 DP0  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-1 DP1  first batch 2026-10-14T03:21:10  new=8192  cached=0
+prefill-1 DP2  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-1 DP3  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-2 DP0  first batch 2026-10-14T03:21:10  new=8192  cached=0
+prefill-2 DP1  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-2 DP2  first batch 2026-10-14T03:21:12  new=8192  cached=0
+prefill-2 DP3  first batch 2026-10-14T03:21:12  new=8192  cached=0
+ranks seen 12/12, non-empty first batches 0

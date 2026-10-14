@@ -1,0 +1,40 @@
+# Tuning queue read by scripts/tune_queue.sh (append-only; see that script for the line forms).
+# Stage 1 @C144 on the warm r2 stack (router-only changes; prefills flushed before every round).
+round t1-base 144
+round t1-r1 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion
+round t1-r1aff 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600
+# Stage 1b @C144 (09:13): t1-r1aff accepted (+12.1% vs t1-r1); add R2 (decode by token demand) on top.
+round t1b-r2 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# Concurrency push (10:38): t1b-r2 accepted (+3.2% total, +3.3% completed, same input mix). Best = R1 + P affinity + R2.
+round t1c-best 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# Peak bracket (12:05): best config C160 = 21,161 < C144 22,340 -> measure C128 (plan: only if higher concurrency is lower).
+round t1c-best 128 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# Stage 2a (queued 12:15, runs after C128): prefill-only restart, mem 0.88 + HiCache 135=400 / 137=200 GB/rank.
+run restart_prefills.sh ROUND=r2 OVERLAY=config/stage2a.sh TAG=2a
+# Stage 2a rounds (best router config) on the restarted prefills: C144 (vs t1b-r2 22,340), then C160 (vs 21,161).
+round t2a-best 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t2a-best 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 2026-10-14 01:45 (user: C176 then 2P1D): plateau right edge under 2a.
+round t2a-best 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 2026-10-14 03:14 (user): decode-only restart with --tokenizer-worker-num 4, 30-min warm-up, then C144/C160/C176.
+run restart_decode.sh ROUND=r2 SIM=3.61 LAUNCH_DIR=/home/liyingli/bench_agentx/baseline/Infera/llying/3p1d-tp4-tp8-v0521-20261012/runtime/runs/r2/launch TAG=tok4
+run warmup_round.sh VARIANT=warm-tok4 CONC=144 MINUTES=30
+round t4-tok4 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4-tok4 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4-tok4 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 04:12 t4-tok4 invalid: after the 03:16 decode restart, decode DP4 could not receive KV (595 "Decode transfer failed",
+# R2 then steered more requests to the emptied rank; 37.5% empty responses). Restarted decode again (tok4b, same
+# --tokenizer-worker-num 4): transfer smoke 96/96, 0 failures. Old steps 14-15 skipped (queue.done set past them).
+run warmup_round.sh VARIANT=warm-tok4b CONC=144 MINUTES=30
+round t4b-tok4 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4b-tok4 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4b-tok4 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 05:16 prefills restarted (tok4q, fresh transfer state both sides; decode tok4b warm from ~20 min of load);
+# smoke 192/192, 0 transfer failures, all 8 decode ranks used. Steps warm-tok4b / t4b-* skipped.
+round t4c-tok4 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4c-tok4 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4c-tok4 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 06:14 prefill-2 hung at 05:30 (GPU-side; t4c C144 aborted); restarted prefill-2 only (hang1b). Smoke 192/192, 0 failures.
+round t4d-tok4 144 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4d-tok4 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t4d-tok4 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on

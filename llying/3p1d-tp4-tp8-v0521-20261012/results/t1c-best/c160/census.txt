@@ -1,0 +1,8 @@
+== decode-0.after-realacc.log lines=41513 ready=0 hcas=[]
+   FATAL       1 [2026-10-13 11:57:40 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='95151f96945540fd98bec946fe472857' decode_req.req.bootstrap_room=146408752204771693 with exception KVTransferError(bootstrap_room=146408752204771693)
+   FATAL       1 [2026-10-13 11:57:39 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='a2c56b27a1f044e0a97546a898770c27' decode_req.req.bootstrap_room=3627543368189813 with exception KVTransferError(bootstrap_room=3627543368189813): Ab
+== decode-0.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=39277 ready=0 hcas=[]
+   FATAL       1 E1013 11:25:44.287269 31124 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x7cf4d8745000, length: 65536, dest_addr: 0x7c341f583000, local_nic: ionic_0, peer_nic: 10.245.157.237:16373@ionic_0, dest_rkey: 3126
+== prefill-1.log lines=36816 ready=0 hcas=[]
+== prefill-2.log lines=40445 ready=0 hcas=[]

@@ -1,0 +1,18 @@
+== decode-0.after-realacc.log lines=1 ready=0 hcas=[]
+== decode-0.after-tok4.log lines=0 ready=0 hcas=[]
+== decode-0.after-tok4b.log lines=43456 ready=0 hcas=[]
+== decode-0.log lines=0 ready=0 hcas=[]
+== prefill-0.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-0.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-0.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=45075 ready=0 hcas=[]
+   FATAL       1 E1014 08:22:17.181957 31083 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x77f73b966000, length: 65536, dest_addr: 0x779f0f64c000, local_nic: ionic_1, peer_nic: 10.245.157.237:16827@ionic_1, dest_rkey: 7623
+   FATAL       1 E1014 07:49:25.785105 31083 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x77e0bb601100, length: 65536, dest_addr: 0x77831ee0b800, local_nic: ionic_1, peer_nic: 10.245.157.237:16827@ionic_1, dest_rkey: 4231
+== prefill-1.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-1.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-1.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-1.log lines=44446 ready=0 hcas=[]
+== prefill-2.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-2.before-hang1.log lines=0 ready=0 hcas=[]
+== prefill-2.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-2.log lines=45024 ready=0 hcas=[]

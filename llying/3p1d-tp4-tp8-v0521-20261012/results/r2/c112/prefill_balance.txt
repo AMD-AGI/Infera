@@ -1,0 +1,6 @@
+window 2026-10-13T01:43:07 .. 2026-10-13T02:43:07
+instance   batches  new_tok(M)  cached_tok(M)  cache%  queue  bootstrap  new_tok/s
+prefill-0     5802        33.0          424.8   92.8%   1.49       0.15       9159
+prefill-1     6142        32.6          479.7   93.6%   1.29       0.20       9067
+prefill-2     5560        30.3          477.9   94.0%   1.34       0.15       8404
+all                       95.9         1382.4   93.5%                        26630

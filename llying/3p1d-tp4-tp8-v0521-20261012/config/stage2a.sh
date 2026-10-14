@@ -1,0 +1,15 @@
+# Stage 2a overlay (PLAN-TUNING.zh-CN.md): prefill prefix-cache capacity on the live stack.
+# restart_prefills.sh installs it as config/round.<ROUND>.sh right before restarting the three
+# prefills, so every later script (rounds, agentx_env.py validation) sees what is running.
+# GPU KV: mem 0.85 -> 0.88 is +7% tokens/rank. 0.90 (+12%) would leave only ~3 GiB on the tightest
+# rank: the 137 prefill high-water reached 17.0 GiB free at C160 (0.88 leaves ~8.6 GiB).
+# Host: the DSA indexer region adds ~23% on top of the KV pool size given here.
+#   135 (one instance, 4 ranks): 400 GB/rank -> ~492 GB/rank, ~1.97 TB of 2.75 TB.
+#   137 (two instances, 8 ranks): 200 GB/rank -> ~246 GB/rank, ~1.97 TB of 2.75 TB.
+# 400 GB = 372.5 GiB exceeds the default 256 GiB register chunk (two hipHostRegister calls,
+# MAF past the first; H1), hence chunk 512 on prefill-0.
+PREFILL_MEM_FRACTION=0.88
+HICACHE_SIZE_prefill_0=400
+HICACHE_SIZE_prefill_1=200
+HICACHE_SIZE_prefill_2=200
+HICACHE_HOST_REGISTER_CHUNK_GB_prefill_0=512
