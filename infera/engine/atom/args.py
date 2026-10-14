@@ -24,7 +24,8 @@ PD disaggregation is driven by ATOM's ``--kv-transfer-config`` JSON. The
 ``kv_role`` field selects prefill (``kv_producer``) / decode
 (``kv_consumer``) / mixed (absent or ``kv_both``); infera resolves the
 pair through the ``atom-mooncake`` DisaggProtocol, which replays the body
-shaping ATOM's reference proxy does.
+shaping ATOM's reference proxy does. A ``multi`` connector (e.g. a mooncake
+producer next to ``lmcache_offload``) is resolved to its PD entry first.
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ _KV_ROLE_TO_DISAGG: dict[str, DisaggMode] = {
     "kv_consumer": DisaggMode.DECODE,
     "kv_both": DisaggMode.MIXED,
 }
+_PD_ROLES = frozenset({"kv_producer", "kv_consumer"})
 
 # ATOM kv_connector → infera DisaggProtocol identity. Only the mooncake
 # connector is wired through infera's DisaggRouter (it's ATOM's
@@ -83,6 +85,24 @@ class AtomWorkerArgs:
     # ``{"protocol": "atom-mooncake", "params": {...}}`` for PD workers,
     # ``{}`` for mixed. Consumed by the DisaggProtocol on the router side.
     disagg_meta: dict[str, Any] = field(default_factory=dict)
+
+
+def _pd_connector_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Return the PD sub-connector of an ATOM ``multi`` config, else ``cfg``.
+
+    Picks the first ``multi`` entry with a PD role (``kv_producer`` /
+    ``kv_consumer``); local connectors such as ``lmcache_offload`` and
+    ``kv_both`` entries are skipped. Without one, ``{}`` (mixed) is returned.
+    """
+    if cfg.get("kv_connector") != "multi":
+        return cfg
+    connectors = cfg.get("connectors")
+    if not isinstance(connectors, list):
+        return {}
+    return next(
+        (c for c in connectors if isinstance(c, dict) and c.get("kv_role") in _PD_ROLES),
+        {},
+    )
 
 
 def _disagg_mode_from_kv_transfer(cfg: dict[str, Any]) -> DisaggMode:
@@ -202,6 +222,7 @@ def parse_atom_args(argv: list[str] | None = None) -> AtomWorkerArgs:
     except (TypeError, ValueError):
         logger.warning("could not parse --kv-transfer-config as JSON; treating as mixed")
         kv_cfg = {}
+    kv_cfg = _pd_connector_config(kv_cfg)
 
     advertise_host = known.advertise_host or atom_parsed.host
     disagg_mode = _disagg_mode_from_kv_transfer(kv_cfg)

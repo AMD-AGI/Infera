@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
 from infera.common.worker_pool import WorkerInfo
-from infera.router.policy.target import RouteTarget
+from infera.router.policy.target import RouteTarget, expand_targets
 
 if TYPE_CHECKING:
     from infera.router.kv_event.client import KvEventClient
@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 class Policy(ABC):
     """Picks a routing target for a request; lifecycle hooks default to no-op."""
 
-    @abstractmethod
     def pick(
         self,
         candidates: list[WorkerInfo],
@@ -39,6 +38,18 @@ class Policy(ABC):
         (e.g. weight cache locality higher for prefill, load balance higher
         for decode). Mixed routers leave it ``None``.
         """
+        return self.pick_targets(expand_targets(candidates), request, role_hint=role_hint)
+
+    @abstractmethod
+    def pick_targets(
+        self,
+        targets: list[RouteTarget],
+        request: dict,
+        *,
+        role_hint: str | None = None,
+    ) -> tuple[RouteTarget, list[int]]:
+        """``pick`` over already-expanded targets. Session affinity passes just
+        the pinned target, so the pick is still hashed and load-accounted."""
 
     # Registry fires these on PUT / DELETE events from etcd.
     def on_worker_added(self, worker: WorkerInfo) -> None:  # noqa: B027
@@ -57,6 +68,12 @@ class Policy(ABC):
     def on_request_finished(  # noqa: B027
         self, route_key: str, blocks: list[int] | None = None
     ) -> None:
+        pass
+
+    def on_request_failed(  # noqa: B027
+        self, route_key: str, request: dict, *, role_hint: str | None = None
+    ) -> None:
+        """The request picked onto ``route_key`` (with ``role_hint``) failed."""
         pass
 
     async def aclose(self) -> None:  # noqa: B027

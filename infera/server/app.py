@@ -21,6 +21,7 @@ from infera.common.worker_pool import DisaggMode, EngineType, WorkerInfo, Worker
 from infera.kvd.client import KvdClient, KvdConnectionError
 from infera.router.base import BaseRouter
 from infera.router.kv_event.client import KvEventClient
+from infera.router.policy.session_affinity import SessionAffinityPolicy
 from infera.router.policy.target import expand_targets
 from infera.server import metrics
 from infera.server.profiling import fan_out_profile, select_targets
@@ -33,6 +34,43 @@ _REQUEST_ID_HEADER = "X-Infera-Request-Id"
 # direct router reads it off the body annotation below. See infera/gaie.
 _WORKER_INSTANCE_HEADER = "x-worker-instance-id"
 _PREFILL_INSTANCE_HEADER = "x-prefill-instance-id"
+# Agent-session headers (AIPerf, Dynamo). The PD router forwards them to both
+# legs so an engine can keep a session on one DP rank, and --session-affinity
+# keys placement on x-dynamo-session-id.
+_SESSION_HEADERS = ("x-correlation-id", "x-dynamo-session-id", "x-dynamo-parent-session-id")
+
+
+def _stash_session_headers(body: dict, request: Request) -> None:
+    """Copy the client's session headers (lower-cased names) onto the body;
+    routers strip the annotation before forwarding the body.
+
+    A client-sent ``_infera_session_headers`` is dropped. Values that are not
+    printable ASCII are too: httpx cannot re-send them on the PD legs."""
+    body.pop("_infera_session_headers", None)
+    found = {
+        h: v
+        for h in _SESSION_HEADERS
+        if (v := request.headers.get(h)) and v.isascii() and v.isprintable()
+    }
+    if found:
+        body["_infera_session_headers"] = found
+
+
+def _session_id_error(request: Request) -> str | None:
+    """Why x-dynamo-session-id cannot key session affinity, else None.
+
+    Only checked with --session-affinity on, by the Rust router's rules; the
+    length cap also bounds what the binding table holds per session."""
+    if not isinstance(getattr(router, "policy", None), SessionAffinityPolicy):
+        return None
+    values = request.headers.getlist("x-dynamo-session-id")
+    if len(values) > 1:
+        return "duplicate X-Dynamo-Session-ID"
+    if values and not (values[0].isascii() and values[0].isprintable()):
+        return "invalid X-Dynamo-Session-ID"
+    if values and not 1 <= len(values[0]) <= 1024:
+        return "X-Dynamo-Session-ID must be 1..1024 bytes"
+    return None
 
 
 def _stash_direct_worker(body: dict, request: Request) -> None:
@@ -323,6 +361,9 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
     # in their structured pick logs.
     request_id = request.headers.get(_REQUEST_ID_HEADER) or uuid.uuid4().hex
     body["_infera_request_id"] = request_id
+    if error := _session_id_error(request):
+        raise HTTPException(status_code=400, detail=error)
+    _stash_session_headers(body, request)
     # Parse cache_control once at the front door so the policy + engine
     # adapters can read it without re-walking the body. Anthropic-style
     # and OpenAI-style hints both supported (see infera/router/cache_control.py).
@@ -577,6 +618,12 @@ async def anthropic_messages(request: Request) -> Any:
     # correlation) keeps working without special-casing.
     openai_body["_infera_request_id"] = request_id
     openai_body["_infera_cache_hints"] = cache_hints
+    if error := _session_id_error(request):
+        return JSONResponse(
+            status_code=400,
+            content={"type": "error", "error": {"type": "invalid_request_error", "message": error}},
+        )
+    _stash_session_headers(openai_body, request)
     _stash_direct_worker(openai_body, request)
     stream = bool(anthropic_body.get("stream", False))
 

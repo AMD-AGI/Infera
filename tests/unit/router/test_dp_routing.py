@@ -146,6 +146,9 @@ class _PDPolicy:
     def on_request_finished(self, route_key, blocks):
         self.finished.append(route_key)
 
+    def on_request_failed(self, route_key, request, role_hint=None):
+        pass
+
 
 def _capture_router(p_target, d_target):
     """DisaggRouter whose HTTP client records each leg's request and replies

@@ -50,6 +50,8 @@ def _args(**overrides) -> argparse.Namespace:
         kv_decode_overlap_weight=None,
         kv_default_chat_template_kwargs=None,
         kv_per_worker_template_kwargs=True,
+        session_affinity="off",
+        session_affinity_ttl_seconds=3600,
     )
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -186,6 +188,14 @@ def test_fleet_template_kwargs_are_forwarded_verbatim(monkeypatch):
     blob = '{"reasoning_effort": "high"}'
     argv = _argv(monkeypatch, router_policy="kv-aware", kv_default_chat_template_kwargs=blob)
     assert _value_of(argv, "--kv-default-chat-template-kwargs") == blob
+
+
+def test_session_affinity_is_forwarded_only_when_on(monkeypatch):
+    """Off is the binary's default too; leaving it out keeps older binaries starting."""
+    assert "--session-affinity" not in _argv(monkeypatch)
+    argv = _argv(monkeypatch, session_affinity="both", session_affinity_ttl_seconds=60)
+    assert _value_of(argv, "--session-affinity") == "both"
+    assert _value_of(argv, "--session-affinity-ttl-seconds") == "60"
 
 
 def test_the_new_kv_flags_stay_inside_the_kv_aware_gate(monkeypatch):

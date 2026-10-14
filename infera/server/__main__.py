@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 async def main(args) -> None:
     tokenizer_path = resolve_tokenizer_path(args.router_tokenizer_path)
 
-    # --- Policy (kv-aware or round-robin) ---
+    # --- Policy (kv-aware or round-robin, optionally under session affinity) ---
     policy = build_policy(
         args.router_policy,
         overlap_weight=args.kv_overlap_weight,
@@ -50,6 +50,8 @@ async def main(args) -> None:
         nats_server=args.nats_server,
         default_chat_template_kwargs=args.kv_default_chat_template_kwargs,
         per_worker_template_kwargs=args.kv_per_worker_template_kwargs,
+        session_affinity=args.session_affinity,
+        session_affinity_ttl_seconds=args.session_affinity_ttl_seconds,
     )
     if args.router_policy == "kv-aware":
         logger.info(

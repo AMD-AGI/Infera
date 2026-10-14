@@ -249,9 +249,11 @@ otherwise keep completed Prefill work in the load estimate. It does not change
 the scoring formula or enable session affinity. It is a Rust-backend option;
 the Python router is unchanged.
 
-### Optional session affinity in the Rust router
+### Optional session affinity
 
-Set `INFERA_SESSION_AFFINITY` on the Rust router:
+Pass `--session-affinity` to `infera.server`; with `--router-backend rust` the
+launcher forwards it to `infera-router`, which takes the same flag. It sits on
+top of `--router-policy`, which still picks a new session's target:
 
 | Value | Behavior |
 |---|---|
@@ -264,7 +266,7 @@ and role; it is not added to model input. Requests without the header keep
 normal routing. Enabled modes reject duplicate, empty or over-1024-byte IDs.
 Prefill and Decode rank numbers need not match.
 
-`INFERA_SESSION_AFFINITY_TTL_SECS` is the idle lifetime (default 3600, allowed
+`--session-affinity-ttl-seconds` is the idle lifetime (default 3600, allowed
 1–86400 seconds). Active request leases prevent idle expiry. A changed or
 unavailable target is reselected; failed requests and failed upstream streams
 invalidate the affected binding. An old failure callback cannot delete a newer
@@ -277,6 +279,12 @@ need their own ingress affinity if cross-request consistency is required.
 
 This option changes placement, not cache allocation. Decode affinity is most
 useful when the engine can retain and reuse Decode prefixes, but does not itself
-enable radix cache or guarantee better throughput. The Python router is
-unchanged. Session active-lease, hit and selection counters are exposed through
-`infera_router_session_*` metrics, with role labels and no session-ID labels.
+enable radix cache or guarantee better throughput. Session active-lease, hit and
+selection counters are exposed through `infera_router_session_*` metrics, with
+role labels and no session-ID labels.
+
+The Python router keeps the same modes, scoping, TTL, capacity and ID checks,
+and a failed request also drops its bindings, with less bookkeeping: idle time
+counts from a session's last routed request, a failed PD request drops both
+roles' bindings rather than only the failed leg's, and there are no session
+metrics.

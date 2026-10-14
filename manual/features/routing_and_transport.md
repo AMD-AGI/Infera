@@ -40,6 +40,7 @@ digraph routing_transport {
 | KV-event transport | `--kv-event-transport` | `nats` \| `zmq` | `nats` |
 | Router mode (server) | `--router-mode` | `auto` \| `direct` | `auto` |
 | Router policy (server) | `--router-policy` | `kv-aware` \| `round-robin` | `kv-aware` |
+| Session affinity (server) | `--session-affinity` | `off` \| `prefill` \| `both` | `off` |
 
 ```{important}
 The defaults (**NATS + Kubernetes**) assume a reachable NATS broker and a k8s API
@@ -68,6 +69,19 @@ The defaults (**NATS + Kubernetes**) assume a reachable NATS broker and a k8s AP
 - **`kv-aware`** — route to the worker that already caches the prompt's prefix.
   See [KV-aware routing](kv_aware_routing.md) for the cost function and the
   `--kv-overlap-weight` dial.
+
+**Session affinity (`--session-affinity`)** sits on top of either policy, on
+both router backends. A request with an `X-Dynamo-Session-ID` header goes to
+the target its session used last; the policy picks the first one and still
+scores the pinned one. `prefill` pins prefill picks only, `both` also pins
+decode and mixed picks, each role independently. Bindings are per model and
+per router process, dropped after `--session-affinity-ttl-seconds` idle
+(default `3600`), and re-picked when the target leaves the fleet. See
+[Deployment → session affinity](../serving/deployment.md#optional-session-affinity).
+
+The `X-Correlation-ID`, `X-Dynamo-Session-ID` and `X-Dynamo-Parent-Session-ID`
+headers are also forwarded to both PD legs (Python router backend), so an engine
+can keep a session on one DP rank (e.g. ATOM's `ATOM_DP_SESSION_AFFINITY`).
 
 **3. Topology** — mixed vs disaggregated is **automatic**: when PD workers exist,
 the `AutoRouter` prefers a prefill+decode pair and the `DisaggRouter` shapes the

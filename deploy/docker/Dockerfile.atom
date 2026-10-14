@@ -24,9 +24,29 @@ COPY deploy/docker/patches/atom/ /tmp/atom-patches/
 RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
     && rm -rf /tmp/atom-patches
 
+# ATOM DCP PD fixes, opt-in: written against ATOM d9f0720 and its LMCache
+# (rocm/atom-dev:nightly_202609221542). Unlike the loop above they are strict: a
+# drifted anchor fails the build. Verified to compose with that loop on d9f0720.
+# The same switch prebuilds the AITER kernel that chunked-MLA prefill would
+# otherwise JIT-compile on live traffic, for the base's own GPU archs.
+# Overview: deploy/docker/patches/atom_dcp/README.md.
+ARG ATOM_DCP_PATCHES=0
+COPY deploy/docker/patches/atom_dcp/ /tmp/atom-dcp/
+RUN case "${ATOM_DCP_PATCHES}" in \
+        1) for f in /tmp/atom-dcp/patch_*.py; do python3 "$f" || exit 1; done \
+            && GPU_ARCHS="${PYTORCH_ROCM_ARCH}" python3 /tmp/atom-dcp/prebuild_aiter_mha_varlen.py ;; \
+        0) echo "ATOM_DCP_PATCHES=0 — skipping ATOM DCP patches" ;; \
+        *) echo "ATOM_DCP_PATCHES must be 0 or 1, got '${ATOM_DCP_PATCHES}'" >&2; exit 1 ;; \
+    esac \
+    && rm -rf /tmp/atom-dcp
+
 # ---- Mooncake (pinned upstream + the B.2 hip-transport gate) ---------------
-# WHY: the base ships a single-protocol Mooncake without B.2, so a cross-node PD
-# target is handed to HIP IPC and KV transfer dies on hipIpcOpenMemHandle 201.
+# WHY: the default base ships a single-protocol Mooncake without B.2, so a
+# cross-node PD target is handed to HIP IPC and KV transfer dies on
+# hipIpcOpenMemHandle 201. ATOM nightlies such as nightly_202609221542 instead
+# ship a multi-protocol Mooncake v0.3.14-rc1 that sends cross-host targets over
+# RDMA; builds on them may keep it with BUILD_MOONCAKE=0. Its HIP opt-out is
+# upstream MC_DISABLE_HIP, not B.2's MC_DISABLE_HIP_TRANSPORT.
 # Same ref and args as Dockerfile.vllm, which documents what MOONCAKE_HIP_DMABUF
 # selects; it must not also gate the rebuild, or the default image carries the
 # base's Mooncake and cannot do cross-node PD at all.
@@ -64,7 +84,18 @@ COPY infera ./infera
 # Safe to move because setuptools is build tooling, not a runtime dependency:
 # nothing here imports it to serve a request. Verified against the published
 # image -- vllm and infera both still import, and the count drops 22 -> 19.
-RUN pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0"
+#
+# protobuf<7 is a need of the nightly base, not of the patches: its
+# opentelemetry-proto 1.40 needs protobuf<7, while grpcio-health-checking>=1.82
+# needs >=7, so unpinned pip upgrades protobuf and breaks the base's OTel. The
+# pin keeps health-checking at 1.81.x. It rides on ATOM_DCP_PATCHES=1 so
+# the default base (not verified with it) is unchanged; a nightly build with
+# the patches off loses the pin and must add it itself.
+RUN if [ "${ATOM_DCP_PATCHES}" = "1" ]; then \
+        pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0" "protobuf<7"; \
+    else \
+        pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0"; \
+    fi
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base often ships cargo; use it, and install a minimal toolchain only

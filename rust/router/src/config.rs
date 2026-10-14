@@ -8,6 +8,8 @@
 
 use clap::{Parser, ValueEnum};
 
+use crate::session_affinity::Mode as SessionAffinityMode;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum PrefillGuardRelease {
     Decode,
@@ -58,6 +60,15 @@ pub struct Config {
         default_value = "decode"
     )]
     pub pd_prefill_guard_release: PrefillGuardRelease,
+
+    /// Keep each `X-Dynamo-Session-ID` session on its last target: `prefill`
+    /// pins prefill picks only, `both` also decode and aggregated picks.
+    #[arg(long, value_enum, default_value = "off")]
+    pub session_affinity: SessionAffinityMode,
+
+    /// Idle seconds before a session binding is dropped.
+    #[arg(long, default_value_t = 3600, value_parser = clap::value_parser!(u64).range(1..=86400))]
+    pub session_affinity_ttl_seconds: u64,
 
     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
     /// annotation and the API server is watched).
@@ -315,6 +326,30 @@ mod tests {
             Config::try_parse_from(["infera-router", "--pd-prefill-guard-release", "typo"])
                 .is_err()
         );
+    }
+
+    #[test]
+    fn session_affinity_flags_are_validated() {
+        let default = Config::try_parse_from(["infera-router"]).unwrap();
+        assert_eq!(default.session_affinity, SessionAffinityMode::Off);
+        assert_eq!(default.session_affinity_ttl_seconds, 3600);
+        let both = Config::try_parse_from([
+            "infera-router",
+            "--session-affinity",
+            "both",
+            "--session-affinity-ttl-seconds",
+            "60",
+        ])
+        .unwrap();
+        assert_eq!(both.session_affinity, SessionAffinityMode::Both);
+        assert_eq!(both.session_affinity_ttl_seconds, 60);
+        for bad in [
+            ["--session-affinity", "Both"],
+            ["--session-affinity-ttl-seconds", "0"],
+            ["--session-affinity-ttl-seconds", "86401"],
+        ] {
+            assert!(Config::try_parse_from(["infera-router", bad[0], bad[1]]).is_err());
+        }
     }
 
     #[test]

@@ -150,7 +150,11 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
-    let sessions = Arc::new(session_affinity::Sessions::from_env()?);
+    let sessions = Arc::new(session_affinity::Sessions::new(
+        cfg.session_affinity,
+        Duration::from_secs(cfg.session_affinity_ttl_seconds),
+        session_affinity::MAX_SESSIONS,
+    ));
     let state = AppState {
         sessions,
         pool,

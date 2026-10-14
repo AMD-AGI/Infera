@@ -19,8 +19,10 @@ by the deployment; free-form fields such as request_id are NOT label values.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
+from collections.abc import Callable
 from contextlib import contextmanager
 
 from prometheus_client import (
@@ -433,6 +435,13 @@ class RequestObserver(dict):
         self._closed = False
         self._prefill_worker = ""
         self._decode_worker = ""
+        self._on_failure: list[Callable[[], None]] = []
+        self.cancelled = False
+
+    def on_failure(self, callback: Callable[[], None]) -> None:
+        """Run ``callback`` at :meth:`close` if the request did not end "ok".
+        A client that went away (``cancelled``) is not a failure."""
+        self._on_failure.append(callback)
 
     @property
     def deferred(self) -> bool:
@@ -582,6 +591,9 @@ class RequestObserver(dict):
         self._closed = True
         router, model = self._router, self._model
         outcome = self["outcome"]
+        if outcome != "ok" and not self.cancelled:
+            for callback in self._on_failure:
+                callback()
         if self._deferred:
             request_inflight.labels(router=router).dec()
             request_duration_seconds.labels(router=router, outcome=outcome).observe(
@@ -641,6 +653,9 @@ def track_request(router: str, model: str = ""):
     request_inflight.labels(router=router).inc()
     try:
         yield obs
+    except asyncio.CancelledError:
+        obs.cancelled = True
+        raise
     finally:
         # Streaming generators claim the observer and call close() after the
         # last token. Recording requests_total here would lock in "ok" before
