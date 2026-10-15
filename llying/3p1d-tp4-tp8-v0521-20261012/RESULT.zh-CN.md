@@ -26,7 +26,11 @@ interactivity 口径：aiperf Full-Response ITL（每请求平均 token 间隔�
 C160 的 P50 为 49.4（略低于 50）；作对照，P8D4 最优（23,051）的 P50 为 47.4。
 
 可靠性问题（详见 `operations/STATUS.zh-CN.md`）：只重启 decode 后部分 prefill→decode 传输通道失效（需同时重启 prefill）；
-prefill-2 一次 GPU 侧挂起（根因未明，已加 `scripts/hang_check.py`）；共享 `/home` 写满导致编排中断；Mooncake 偶发分片传输失败。
+prefill-2 三次 GPU 侧挂起（对调 GPU 后仍挂在 prefill-2，跟着实例走，根因未明，§4.12）；共享 `/home` 写满导致编排中断；Mooncake 偶发分片传输失败。
+
+讨论中形成的专题分析（指标口径、tokenizer 瓶颈原理、decode 容量模型更正、prefill 时延分解、write_back 理论分析等）见 §4。
+与 InferenceX 官方 AgentX 的一致性检查见 §5：客户端与官方等价，tokenizer 提升在同类部署架构下可以带到提交里；但官方要求每个并发点重新部署，
+我们的数字是在复用的栈上测的，提交前需要按官方协议复测。
 
 ## 1. 基线扫描（r2：yaocheng 2P1D 配置 + v0.5.21 必需项 + Mooncake 跨 rank 修复，grouped topk 关闭）
 
@@ -234,8 +238,218 @@ ITL 变低（interactivity 变高），但吞吐和 TTFT 都变差。各 rank �
   亲和后，在跑 6.82–7.21 个，KV>90% 时间 3.5%–8.8%，KV 使用率 0.46–0.53。
   decode 的不均衡主要来自"等传输的预分配请求"在个别 rank 上堆积；传输等待变少后，即使 router 仍按请求个数选 decode rank，各 rank 也趋于均衡。
 
-### 3.4 进行中与下一步
+### 3.4 进行中与下一步（10-15 更新）
 
-阶段 1b 完成，最优配置 = R1 + P 会话亲和 + R2（C144 22,340 tok/s/GPU）。2a 后平台为 C144–C160（约 22.3k）。decode tokenizer worker ×4 后 C144 25,269、C160 28,479、C176 30,562（仍在上升）。下一步候选：在 ITL 约束下找最高点（C128 附近）、2P1D 减卡、`index_share_for_mtp_iteration=true` 抬高 decode 每 rank 上限。
-C160 的数据（GPU 命中下降、host 读回增加、TTFT 翻倍）支持做 2a（prefill mem 0.88 + HiCache：135 为 400 GB/rank、137 为 200 GB/rank；mem 由 0.90 下调为 0.88，因为 137 上 prefill 卡在 C160 时显存高水位只剩 17.0 GiB 空闲，0.90 余量仅约 3 GiB）
-和 2b（prefill_complete）。见 `PLAN-TUNING.zh-CN.md` 末节。
+最优配置 = R1 + P 会话亲和 + R2 + 2a + decode tokenizer worker ×4，C176 30,562 tok/s/GPU。之后的尝试：3P1D C192 因 prefill-2 挂起无有效结果
+（部分数据未超过 C176，§4.11）；2P(TP4)1D C176 28,900（−5.4%）；3P1D + decode mem 0.92 的预热轮因 prefill-2 第三次挂起作废。
+栈状态和下一步见 `HANDOFF.zh-CN.md`；提交 InferenceX 前还需要按官方协议复测（§5.3）。
+
+## 4. 专题分析（讨论中形成的结论，10-13 ~ 10-15）
+
+数据来源：sampler（`runtime/runs/r2/tune/samples.jsonl`，`scripts/sample_window.py` 按测量窗口取差分）、`results/<round>/c*/decode_balance.txt`、
+`engine_pace.txt`、客户端 `agentx_conc*.json`。
+
+### 4.1 指标口径
+
+- **ITL / interactivity**：aiperf 的 Full-Response ITL，每个请求 =（最后一个 chunk − 第一个有内容的 chunk）÷（输出 token − 1），是请求级平均，
+  和 TPOT 同类。MTP 一次多个 token 会被平均掉；输出链路上的延迟（例如 tokenizer 进程排队）也算在里面。P50 / P90 interactivity = 1 / 所有请求
+  ITL 的 P50 / P90。表里的"服务端 ITL"是 sglang decode 的直方图，口径不同，只作参考。
+- **TTFT**：只有 decode 服务记录 `time_to_first_token`（decode 收到请求 → 发出首 token）。router 同时把请求发给 prefill 和 decode，所以它约等于
+  客户端 TTFT 减去 router 和网络开销。prefill 不流式输出，没有 TTFT，只记录到达 → 完成（e2e）及其中的排队、bootstrap、传输。
+- **decode 在跑 vs 有效并发**：在跑（`#running-req`）是 decode GPU batch 里的请求数；有效并发是 aiperf 从客户端看的"已出首 token、未完成"的请求数，
+  按 Little 定律（在途 = 速率 × 停留时间）计算，包含输出链路上的排队。有效并发高可能是 decode 慢、请求停留久，要结合速度看。
+- **与 P8D4 对照**：P8D4 最优 23,051（C80）ITL p50 21.1 ms、P50 interactivity 47.4，每 decode rank 约 11.9 个；3P1D tok4 C144 为 25,269、
+  21.1 ms、47.4，每 rank 约 10.8 个。两者都说明每个 decode rank 在 ITL ≈ 20 ms 时承载约 10–11 个请求。P8D4 满足 P50 ≥ 50 的是 21,081（50.3）。
+
+### 4.2 decode tokenizer 瓶颈：原理与适用范围
+
+- sglang 每个服务有一个 HTTP + TokenizerManager 进程（asyncio 单线程，受 GIL 限制，最多用一个核），每个 DP rank 一个 scheduler，一个 detokenizer。
+  入口：解析请求 JSON、套聊天模板、分词（decode 也要对完整 prompt 做一遍）。出口：从 detokenizer 收每一步的增量，组装 SSE chunk、JSON 序列化、写回连接。
+- decode 承担全部流式输出：60–90 个流，每 40–70 ms 一步，`stream_interval=1` 时每个在跑请求每步一个输出事件，每秒上千个；同时每秒接入 4–5 个长 prompt。
+  单线程打满（实测 101%）后事件在 asyncio / ZMQ 里排队，首 token 和后续 token 都被推迟。AgentX 每条 lane 拿到响应才发下一轮，系统于是停在平台上，
+  而 prefill 和 decode 的 GPU 都不忙。prefill 不流式输出、请求又分到 3 个实例，主进程只用 30–48%。
+- `--tokenizer-worker-num 4` 启动 4 个独立进程分摊连接。C144 / C160 / C176 合计 106% / 117% / 125%，最忙一个 29% / 35% / 36%，余量充足。
+- 适用范围：只有那个单进程接近饱和时才有收益（负载 ∝ 请求速率 × 同时在流的请求数），没有副作用；对 prefill 瓶颈本身没有作用。阶段 1 里的
+  "decode 饱和"实际主要是这个进程饱和；同条件下的组间比较仍有效，但 R1 等项在 tok4 下的表现可能不同。是否依赖 AgentX 的闭环模式见 §5.2。
+
+### 4.3 prefill HiCache 扩容（2a）为什么 C144 没有吞吐收益
+
+| | C144 2a 前 | C144 2a 后 | C160 2a 前 | C160 2a 后 |
+|---|---|---|---|---|
+| 客户端 GPU 命中 | 81.6% | 84.8% | 74.1% | 77.7% |
+| 总命中（理论上限约 96.5%） | 93.3% | 95.0% | 91.7% | 93.9% |
+| prefill 新算 tok/s | 23.6k | 18.5k（−22%） | 28.5k | 19.0k（−33%） |
+| tok/s/GPU | 22,340 | 22,238 | 21,161 | 22,279（+5.3%） |
+
+命中率提高了，但 C144 的约束在 decode 一侧（当时以为是 GPU 每步耗时，后来证实是 decode tokenizer），省下的 prefill 算力换不成吞吐。C160 的约束正好在
+prefill GPU KV，所以有 +5.3%。另外可提升的空间本身就小：对话里每轮新增的内容必须新算，理论上限约 96.5%，亲和后已到 93.3%。
+
+### 4.4 上限的算法
+
+- **decode**：日志每 rank 每 40 步一行，相邻两行时间差 ÷ 40 = 每步耗时。DP 同步执行时每步由最忙 rank 决定，所以按"同一 3 s 内最忙 rank 的在跑数"分组
+  取中位数（表 E）。每 rank 每秒产出 ≈ 在跑数 × 3.61 ÷ 每步耗时：在跑 8–14 个时都在 650–720 tok/s，基本走平（长上下文下每步耗时与 batch 内上下文
+  总量近似成正比）。局限：这是最忙 rank 的产出，平均只有它的约 75%；接受长度是固定模拟值；"走平"不等于总吞吐完全不能涨（C160 靠各 rank 更满，输出 +7%）。
+- **prefill 计算**：粗算一个满 chunk（8192 token）约 1.1 s → 每 rank 约 7.4k tok/s，12 个 rank 约 89k，C144 用了约 23%（偏乐观，没算小 batch 开销和长前缀
+  chunk 更慢）。按日志中 batch 执行时间占比：C144 约 35–36%、C160 约 40–41%（各 rank 32–49%）。余量约 2–2.5 倍。
+- **prefill 显存**（mem 0.88）：权重 119.8 GiB + KV 池 125.1 GiB（2.43M token/rank），预留 33.4 GiB；满载高水位下每卡最少还空 8.7–11 GiB，
+  不够再提到 0.90。
+
+### 4.5 decode 容量模型更正：理论约 150，实测约 90
+
+| | 当初估算（`REVIEW.zh-CN.md` §6） | C176 实测 |
+|---|---|---|
+| 每个在跑请求占的 KV | 约 12.5 万 token（平均输入 + 生成预留） | 20.7 万 token |
+| 已占 KV 但没开始生成的请求 | 没算 | 等 KV 传输每 rank 2.2 个，占 KV 11.9% |
+| 能同时在跑的请求 | 约 190（考虑不均衡约 150） | 约 88（每 rank 11 个） |
+
+- **20.7 万的算法**：测量窗口内 decode 日志所有行的 `#token` 之和 ÷ `#running-req` 之和。这是**按请求在 decode 里停留的步数加权**（停得越久，在采样里出现越多），
+  不是完成请求的平均输入。验证：C144 / C160 / C176 的平均输入 125k / 130k / 134k，按输出长度加权 156k / 166k / 172k，实测 178k / 195k / 207k。
+  长输入的请求输出也更长、在 decode 里停得更久，解释了大部分差距；剩下的（172k → 207k）可能来自已生成的 token 和分配预留，没有单独核实。
+- **等预分配（`#prealloc-req`）不占 KV**：它是还没分到 KV、在排队的请求，是 KV 不够的症状。占着 KV 却没开始生成的是**等 KV 传输**（`#transfer-req`；early
+  策略下请求一到 decode 就分配 KV，一直占到 prefill 算完并传完）：
+
+| | 等 KV 传输 / rank | 其占 KV 比例 | 等预分配 / rank | 在跑请求占 KV |
+|---|---|---|---|---|
+| C144 | 1.33 | 7.1% | 0.00 | 62% |
+| C160 | 1.79 | 9.4% | 0.04 | 68% |
+| C176 | 2.20 | 11.9% | 0.52 | 76% |
+
+- 等传输的数量 ≈ 每 rank 到达率 × prefill 侧（排队 + 计算 + 传输）时间，所以和 prefill 时延直接相关；它只在 decode 显存紧张时（C176）才真正挤占在跑请求。
+- 重算：每 rank 2.99M ×（可用约 90% − 12%）÷ 20.7 万 ≈ 11 个，8 个 rank 约 90 个，与实测一致。ITL 约束（每 rank 10–11 个时 ITL ≈ 20 ms）也在同一处，
+  两个约束在 C176 同时触顶。
+
+### 4.6 C144 → C176，prefill 到达 → 完成从 3.1 s 涨到 5.6 s
+
+| 平均每请求（s） | C144 | C160 | C176 | C144 → C176 |
+|---|---|---|---|---|
+| 排队 | 0.58 | 0.83 | 1.23 | +0.65 |
+| bootstrap（等 decode 分配 KV） | 0.04 | 0.11 | 0.97 | **+0.93** |
+| KV 传输 | 0.58 | 0.72 | 0.80 | +0.22 |
+| 计算及其他（差值） | 1.91 | 2.37 | 2.60 | +0.69 |
+| **到达 → 完成** | 3.11 | 4.03 | 5.60 | +2.49 |
+| 参照：decode 分配 KV 等待 | 0.01 | 0.08 | 0.97 | |
+
+- 最大一项是 bootstrap：C176 时 decode KV>90% 的时间占 38%，decode 分配 KV 平均要等 0.97 s，prefill 侧 bootstrap 等待同步涨到 0.97 s，
+  也就是 **decode 显存不足反压到了 prefill**。
+- 排队 +0.65 s：平均忙碌只有 35–45%，但服务时间长尾很重（有 30 万 token 级的请求），会话亲和又把请求固定在 rank 上，单 rank 的排队随负载非线性增长。
+- 计算 +0.69 s：GPU 命中 86.5% → 75.7%，host 读回和新算增多（新算 20.6k → 25.6k tok/s），单请求计算更久。
+- 传输 +0.22 s：每请求 KV 6.36 → 6.84 GB（输入更长），同时在传的也更多。
+- 所以"prefill 计算只忙 35–45%"和"prefill 时延变长"不矛盾：增长里约 37% 来自 decode 反压，其余来自排队长尾和命中下降，不是算力打满。
+
+### 4.7 HiCache write_through → write_back 与 prefill_complete（理论分析，未实测）
+
+- **为什么绑定**：v0.5.21 的 `_validate_prefill_complete`（`srt/arg_groups/pd_disaggregation_hook.py`）对 prefill 的要求是 HiCache 只能是不带 storage
+  backend 的 L2 write_back，同时也不支持 decode radix / decode HiCache 等；报错原文是 "does not yet support"，属于实现尚未覆盖，不是原理冲突。
+  prefill_complete 走 optimistic prefill 路径：不等 decode 分配就开算，算完 `mark_prefill_complete()`，再等 decode 分到 KV 后发送；代码里对 write_through
+  还有一段额外的 SWA 分支保护判断。推测是 write_through 的异步回写和"算完后在 prefill GPU 上保留 KV 等 decode"这段流程还没适配（推断，未核实）。
+- **两种策略的差别**：
+
+| | write_through（现用） | write_back |
+|---|---|---|
+| 何时写 host | 新算的 KV 插入 radix 后立即异步 D2H | 只在 GPU 淘汰时 D2H |
+| GPU 淘汰 | host 已有副本，直接释放 | 先回写再释放，可能落在新请求分配显存的关键路径上 |
+| 有效缓存容量 | ≈ host（GPU 上的内容在 host 都有副本） | ≈ GPU + host |
+| 持续 D2H 流量 | 与新算量成正比 | 与淘汰量成正比，通常更少 |
+
+- **对链路各环节的影响**：
+  1. router / 到达：无影响。
+  2. prefill 排队与计算：省掉持续 D2H；但 GPU 池满时淘汰要先回写，可能拖慢新请求开算。host 命中后的 H2D 回读不变。
+  3. prefill → decode 传输：机制不变，PCIe 上少了持续 D2H，竞争略降。
+  4. 缓存容量：每 token KV 约 53 KB（每请求传输 6.4–6.8 GB ÷ 12–13 万 token）。每 rank GPU 2.43M token，host 200 GB ≈ 3.8M、400 GB ≈ 7.5M，
+     write_back 让总容量 137 约 +65%、135 约 +30%。但总命中已是 94–95%（理论 96.6–96.8%），最多再补 1.5–2.5 个百分点。
+  5. decode（来自 prefill_complete，不是 write_back 本身）：decode 只在 prefill 完成后才分配 KV，占 KV 的时间从"prefill 排队 + 计算 + 传输"（3–5.6 s）缩到
+     传输本身（0.6–0.8 s），等传输占的 KV 从 7–12% 降到约 2%。代价是 prefill 要把算完的 KV 留在 GPU 上，直到 decode 分到显存；decode 紧张时会挤占
+     prefill 的缓存。
+- **适合开启的场景**：decode KV 是约束，且有相当比例被等传输的请求占着（prefill 时延相对 decode 停留时间长）；prefill GPU 有余量保留算完的 KV；
+  缓存容量（而不是 GPU 命中）在限制命中率。
+- **本形态的预期**：C144–C160 decode KV 不紧，预期约 0。C176 / C192 等传输占 12%，释放后相当于再多约 10% decode KV，作用和 decode mem 0.85 → 0.92
+  （+12.4%）同类；但每 rank 产出已在 650–720 tok/s 走平、ITL 已在 20 ms，收益上限受 decode 计算限制。因此先用 mem 0.92 检验"多给 decode KV 能不能涨吞吐"：
+  没有收益就不必做 prefill_complete，有收益再叠加。
+
+### 4.8 decode mem 与 cuda graph 的取舍
+
+- mem 0.85 → 0.92：每 rank KV 2.99M → 3.36M（+12.4%），每卡多约 19 GiB。所有 cuda graph 合计约 6.4 GiB/卡（主模型 4.8 + MTP 1.6）。
+- graph 每 rank 最大 batch 32 → 16 只省约 3 GiB（约 +2% KV），而 C176 时有 11.9% 的时间某 rank batch 超过 16，要退回非 graph；32 → 24 省约 1.5 GiB，
+  超出的时间 0.3%。省出的显存比 mem 提升小一个数量级，为了归因清楚这次只改 mem。
+- 没直接上 0.95：KV 池以外满载实际用量约 12.6 GiB/卡，0.92 余量约 9 GiB、0.94 约 4 GiB、0.95 约 1 GiB，容易在测量中途 OOM（一次作废约 1.5 小时）。
+  计划先在 0.92 下测满载高水位，再决定是否到 0.94（届时顺带把 graph 降到 24）。
+
+### 4.9 重启后首轮偏慢；C160 的 interactivity 为什么比 C144 高
+
+- 按"最忙 rank 在跑 6 / 8 / 10 / 12 个"对齐 decode 每步耗时：t4d C144（重启后第一轮正式测量）38.5 / 41.5 / 55.4 / 67.5 ms，t4d C160 35.8 / 38.6 / 53.0 / 66.0，
+  预热参照 t2a C144 35.5 / 39.7 / 53.1 / 63.7。首轮慢 3–8%；r2 C144 首轮慢 13–17%（`REVIEW.zh-CN.md` §8）。yihou 在 v0.5.21 也记录过"新栈第一次跑 decode
+  每步慢 7–12%，flush 不能消除，跑过一轮后消失"。
+- 所以 tok4 C144 的 25,269 / P50 47.4 偏保守，C160 的 P50 49.4 更高并不是"并发越高越快"；两轮的 decode 负载、rank 均衡、输出长度几乎一样，
+  多出的 16 个并发变成了首 token 前在途（13 → 18）、等传输（1.33 → 1.79）和 KV 占用（0.62 → 0.68）。
+- 这一点和 InferenceX "每个并发点重新部署"的规则直接相关，见 §5.3。
+
+### 4.10 Mooncake "Process failed for slice"
+
+`Process failed for slice (opcode: 1, length: 65536, …): transport retry counter exceeded`：Mooncake 把 KV 切成 64 KB 分片，用 RDMA WRITE 写到 decode 显存。
+这条报错是网卡在 RC 层重传次数用完（`MC_IB_TIMEOUT=18`，约 1 s 乘以重试次数内收不到确认），该分片作废，Mooncake 会重新提交（`max_retry_cnt 9`）。
+C160 期间 2 条分片失败，请求级传输失败为 0，说明重试成功。属于 RoCE 链路偶发拥塞 / 丢包，过去两天零星出现，以 135 的 prefill-0 → decode 居多，作为巡检观察项。
+C176 的 09:32–09:33 出现过一次成串（约 10 条请求级失败），对结果影响小。这和"只重启 decode 后传输通道持续失效"不是同一个问题。
+
+### 4.11 3P1D C192 与 16 卡形态
+
+- **C192**：11:31 prefill-2 第二次挂起，中止，无 AgentX 结果。挂起前 26 分钟的服务端数据与 C176 同期对比：请求速率 5.03 vs 5.19 req/s，输出约 4,690 vs 4,840 tok/s
+  （−3%），decode TTFT 10.2 vs 5.0 s。仅作参考：3P1D 当前配置大概在 C176 到顶，限制是 decode KV 与计算。
+- **2P(TP4)1D C176**：28,900 tok/s/GPU（−5.4%）。瓶颈转到 prefill（GPU 命中 50.3%、prefill 排队 10.2 s），两个实例还因 bootstrap 积压加会话亲和而失衡。
+- **1P(TP8)1D**（未测）：TP8 权重减半，每 rank GPU KV 约 3.1M（prefill 总 GPU KV 比 2P(TP4) 多约 29%），一个实例内没有实例间失衡，部署是 137 整机 + 138；
+  TP8 通信更多，但 prefill 不是计算瓶颈。只能放在 137 上。
+
+### 4.12 prefill-2 挂起
+
+- 三次：10-14 05:30、11:31（137 card4–7），10-15 约 02:29（与 prefill-1 对调到 card0–3 后）。签名相同：4 个 scheduler 主线程都卡在
+  `process_batch_result_disagg_prefill` → `stream.synchronize()`，GPU 100%，日志没有错误；第三次 1 小时后看门狗超时退出（exit 137）。prefill-0、prefill-1 从未挂起。
+- 对调 GPU 后仍挂在 prefill-2：**跟着实例走，不是 card4–7 的硬件问题**。prefill-2 与 prefill-1 的差别：同节点第二个实例、`PID_OFFSET` 60000（prefill-1 为 30000）、
+  端口、启动顺序。排查计划见 `HANDOFF.zh-CN.md`。
+
+## 5. 与 InferenceX 官方 AgentX 的一致性检查（2026-10-15）
+
+问题：AgentX 每条 lane 拿到响应才发下一轮，tokenizer worker 的提升是否依赖这种压测模式？我们的压测和 InferenceX 是否一致，提交时能否拿到同样的提升？
+
+核对对象：我们用的 InferenceX `918524ff`（2026-08-27，aiperf 子模块 `754356e`，2026-08-12）与 InferenceX main `3babaeed`（2026-10-15）。main 已重组为
+`inferencex-e2e/`，AgentX 客户端改为 PyPI 包 `agentx-harness==1.0.9`（内含 aiperf，默认 `agentx` 场景）。
+
+### 5.1 客户端：等价
+
+| 项 | 我们（`results/t4d-tok4/c176/benchmark_command.txt`） | 官方 `agentx` preset |
+|---|---|---|
+| 场景约束 | `inferencex-agentx-mvp` | `agentx` 是 mvp 的复制加 CLI 默认值，约束逐行相同（强制流式、ignore_eos、首轮前缀 cache bust、全系统闲置上限 10 s、最短 900 s） |
+| 发压模型 | `--concurrency 176`，176 条闭环 lane，保留 trace 中轮次间隔（单轨迹闲置上限 300 s） | 相同 |
+| 数据集 | `semianalysis_cc_traces_weka_062126`，393 条 | 相同（GLM-5.2 用不截断语料） |
+| 时长 / 预热 | 3600 s；每 lane 预热 10 个；轨迹起点 25–75%；grace 1800 s | 相同 |
+| 其他参数 | streaming、chat、seed 42、失败阈值 0.10、server token count、slice 1.0、TCP_USER_TIMEOUT 900000 | 相同 |
+| 会话 header | `AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID=true` | 官方文档列为 DP attention 场景的可选项，大量官方 recipe 在用 |
+| 吞吐口径 | （输入 + 输出 token）÷ 窗口时长 ÷（prefill + decode GPU 数） | 相同 |
+| MTP 接受长度 | 模拟 3.61 | 官方 golden AL：GLM-5.2 MTP 5 = 3.61，PR 检查单要求用该值 |
+
+两版 aiperf 只有 15 个文件不同。与发压有关的是 `agentic_replay.py` / `branch_orchestrator.py` / `request_rate.py`：基准时长到点停止发送时，
+正在延迟等待的子 agent 轮次会被正确取消，让会话树收尾（之前要等到 grace 超时）。另有实时统计少算 sweep 曲线的性能改动。两者都不改变测量窗口内的发压节奏。
+
+### 5.2 tokenizer 提升不是闭环压测的产物，但依赖部署架构
+
+- 闭环下服务端时延的任何下降都会直接变成吞吐；开环（固定到达率）下，同样的单进程饱和会表现为队列无限增长，能维持的最大到达率被它卡住。tokenizer worker
+  提高的是服务端的真实容量，闭环只是把它直接体现为吞吐。官方 AgentX 是同样的闭环 lane 模型，所以只要部署架构相同，提升就能带到提交里。
+- 它依赖的是**谁在做流式输出**：
+  - **sglang 自己的 HTTP 服务对外流式输出**：我们（infera router → decode HTTP），以及官方 AMD MI355X 用 sglang-router 的 recipe（例如 DSv4
+    `multi_node/srt-slurm-recipes/dsv4/sglang/mi355x-fp4/agentx/disagg-umbp-dspark.yaml`）。decode 的 TokenizerManager 在流式路径上，瓶颈存在。
+    这个官方 recipe 本身就给两个角色都设了 `tokenizer-worker-num: 8` 和 `stream-interval: 20`。
+  - **Dynamo 前端**：官方 NVIDIA 的 GLM-5.2 sglang AgentX 多机 recipe 都是这样（例如 GB300 `disagg-2p1d-p-dep8-d-dep16-c192-mtp.yaml`）。decode 设
+    `skip-tokenizer-init: true` 和 `stream-interval: 30`，分词、反分词、SSE 由 Rust 前端（可多实例）完成，sglang 的 TokenizerManager 不在流式路径上，
+    这个瓶颈不存在，`--tokenizer-worker-num` 也不起作用。
+- 提交时需要：前端用同类架构，并在 recipe 中显式写上 decode 的 `--tokenizer-worker-num 4`（或更多）。
+
+### 5.3 可能导致提交结果与我们不同的差异
+
+1. **测试协议（影响最大）**：官方要求每个并发点重新部署服务，不 flush、不复用在线服务（`agentx-standalone.md` 明确写出，`infx/bench/agentic/run.py`
+   拒绝一个部署测多个 CONC）。我们调优时在同一个栈上连续测多轮，每轮重启 router 并 flush。按 §4.9，重启后首轮 decode 每步慢 3–17%，而 30,562 是 tok4 重启后的
+   第三轮。按官方协议测，C176 可能偏低，需要实测：整栈重启 → 直接测 C176，预热只用 AgentX 自带的每 lane 10 个。
+2. **前端 / router**：R1、P 会话亲和、R2 来自 infera rust router（相对各自基线 +12%、+3%）。官方 AMD recipe 用 sglang-router（consistent_hashing + dp-aware，
+   decode round_robin），NVIDIA 用 Dynamo + nginx 按 `X-Dynamo-Session-ID` 亲和。提交时能否使用 infera router、镜像里的 Mooncake 补丁能否接受，需要按
+   InferenceX 规则确认（main 已要求 recipe 依赖的上游 PR 先合入，#2210）。
+3. **`stream-interval`**：官方 recipe 用 20–30，我们是 1。v0.5.21 在 `stream_interval > 1` 时按 `len(output_ids) % k == 1` 发送，首 token 立即发出，TTFT 不受影响；
+   ITL 是请求级平均，也不受影响。每秒输出事件数会降到约 1/k 以下（MTP 一步多个 token，实际更少），decode tokenizer、router、客户端的 CPU 都会下降。
+   这是官方在用的参数，值得测。
+4. **harness 版本**：用 `agentx-harness==1.0.9` 复跑可以消除版本差，预期影响很小。

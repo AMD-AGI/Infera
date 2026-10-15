@@ -301,3 +301,8 @@
   基本排除 GPU 硬件，指向该实例特有的东西**（与 prefill-1 同配置，差别：同节点第二个实例、PID_OFFSET 60000 vs 30000、端口、启动顺序）。
   另：NFS 上 server 日志从 14 日 21:59 起停止写入（docker logs follower 退出，原因未查），hang_check / 巡检基于日志的部分自那时起失效。
   03:40 中止 warm-mem092（abort），队列停止。栈状态：decode（mem 0.92，tok4）、prefill-0、prefill-1（card4–7）在运行，prefill-2 已退出。
+- 03:55–04:40 核对与 InferenceX 官方 AgentX 的一致性（InferenceX main `3babaeed` / `agentx-harness 1.0.9` vs 我们的 `918524ff` / aiperf `754356e`）：
+  客户端场景约束、参数、数据集、吞吐口径、golden AL 都一致；aiperf 差异只影响截止后子 agent 轮次的收尾。tokenizer 提升依赖"sglang HTTP 服务自己流式输出"的
+  架构（官方 AMD sglang-router recipe 同样设了 `tokenizer-worker-num 8` + `stream-interval 20`；NVIDIA 用 Dynamo 前端 + `skip-tokenizer-init`，无此瓶颈）。
+  主要差异是官方要求每个并发点重新部署，而我们在复用的栈上测。详见 `RESULT.zh-CN.md` §5。同时把讨论中的专题分析整理进 `RESULT.zh-CN.md` §4，
+  `REVIEW.zh-CN.md` §6 加容量模型更正。

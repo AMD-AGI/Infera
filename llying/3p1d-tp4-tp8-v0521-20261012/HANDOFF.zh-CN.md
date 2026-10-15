@@ -21,8 +21,12 @@
    建议：对调 PID_OFFSET / 换端口做对照；挂起时抓 RCCL 调试日志或 ROCm debug agent。
 2. decode mem 0.92 的 3P1D C176 / C192（`config/stage-mem092.sh` 已就位，需先拉起 prefill-2：`restart_prefills.sh INSTANCES=prefill-2`，
    但它可能再挂）→ 看 decode KV 扩大后峰值能否超过 30,562。
-3. prefill_complete（需 prefill HiCache 改 write_back；可释放 decode 中"等 KV 传输"请求占的 7–12% KV）；`index_share_for_mtp_iteration=true`
-   （抬 decode 每 rank 上限，需真实接受率门禁验证正确性）；1P(TP8)1D（每 rank GPU KV 约 +29%，但需 137 整机）。
+3. prefill_complete（需 prefill HiCache 改 write_back；可释放 decode 中"等 KV 传输"请求占的 7–12% KV；先看 mem 0.92 有没有收益再决定，
+   理论分析见 `RESULT.zh-CN.md` §4.7）；`index_share_for_mtp_iteration=true`（抬 decode 每 rank 上限，需真实接受率门禁验证正确性）；
+   1P(TP8)1D（每 rank GPU KV 约 +29%，但需 137 整机）。
+4. **按 InferenceX 官方协议复测最优配置**（`RESULT.zh-CN.md` §5）：官方要求每个并发点重新部署、不 flush、不复用在线服务；我们的 30,562 是在复用的栈上、
+   tok4 重启后第三轮测得的，而重启后首轮 decode 每步慢 3–17%。做法：整栈重启 → 直接测 C176（只用 AgentX 自带预热），客户端最好换成官方的
+   `agentx-harness==1.0.9`。另外，官方 recipe 的 decode 用 `stream-interval` 20–30（我们是 1），值得作为单独一轮测试。
 
 ## 关键数据口径（易错）
 - interactivity = 1 / aiperf Full-Response ITL（每请求平均 token 间隔）的 P50/P90。
