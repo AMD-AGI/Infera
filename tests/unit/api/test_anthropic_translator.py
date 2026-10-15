@@ -1408,13 +1408,16 @@ def test_thinking_enabled_sets_chat_template_kwargs():
             "thinking": {"type": "enabled"},
         }
     )
-    assert out["chat_template_kwargs"] == {"enable_thinking": True}
+    assert out["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "thinking": True,
+    }
     assert "custom_logit_processor" not in out
     assert "custom_params" not in out
 
 
 def test_thinking_budget_tokens_maps_to_sglang_hard_cap():
-    from infera.engine.sglang.thinking_budget import (
+    from infera.engine.sglang.thinking_budget_const import (
         GLM53_THINKING_BUDGET_PROCESSOR_STR,
     )
 
@@ -1426,21 +1429,37 @@ def test_thinking_budget_tokens_maps_to_sglang_hard_cap():
             "thinking": {"type": "enabled", "budget_tokens": 1024},
         }
     )
-    assert out["chat_template_kwargs"] == {"enable_thinking": True}
+    assert out["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "thinking": True,
+    }
     assert out["custom_logit_processor"] == GLM53_THINKING_BUDGET_PROCESSOR_STR
     assert out["custom_params"] == {"thinking_budget": 1024}
 
 
-def test_thinking_budget_tokens_requires_larger_max_tokens():
-    with pytest.raises(AnthropicRequestRejected, match="max_tokens must be greater"):
-        anthropic_to_openai_request(
-            {
-                "model": "glm-5-3",
-                "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 1024,
-                "thinking": {"type": "enabled", "budget_tokens": 1024},
-            }
-        )
+def test_thinking_budget_ignored_for_non_glm53():
+    out = anthropic_to_openai_request(
+        {
+            "model": "qwen3-32b",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        }
+    )
+    assert "custom_logit_processor" not in out
+    assert "custom_params" not in out
+
+
+def test_thinking_budget_tokens_clamped_to_max_tokens_minus_one():
+    out = anthropic_to_openai_request(
+        {
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 8192,
+            "thinking": {"type": "enabled", "budget_tokens": 10000},
+        }
+    )
+    assert out["custom_params"] == {"thinking_budget": 8191}
 
 
 def test_thinking_budget_tokens_rejects_non_positive():
@@ -1455,6 +1474,18 @@ def test_thinking_budget_tokens_rejects_non_positive():
         )
 
 
+def test_thinking_budget_tokens_requires_max_tokens_at_least_two():
+    with pytest.raises(AnthropicRequestRejected, match="max_tokens must be >= 2"):
+        anthropic_to_openai_request(
+            {
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 1,
+                "thinking": {"type": "enabled", "budget_tokens": 1024},
+            }
+        )
+
+
 def test_thinking_disabled_sets_chat_template_kwargs_false():
     out = anthropic_to_openai_request(
         {
@@ -1464,7 +1495,10 @@ def test_thinking_disabled_sets_chat_template_kwargs_false():
             "thinking": {"type": "disabled"},
         }
     )
-    assert out["chat_template_kwargs"] == {"enable_thinking": False}
+    assert out["chat_template_kwargs"] == {
+        "enable_thinking": False,
+        "thinking": False,
+    }
 
 
 def test_assistant_thinking_block_becomes_reasoning_content():
@@ -1509,7 +1543,11 @@ def test_response_reasoning_content_becomes_thinking_block():
         model="m",
     )
     assert out["content"] == [
-        {"type": "thinking", "thinking": "chain of thought"},
+        {
+            "type": "thinking",
+            "thinking": "chain of thought",
+            "signature": "",
+        },
         {"type": "text", "text": "answer"},
     ]
 
@@ -1532,7 +1570,7 @@ def test_response_reasoning_only_no_empty_text_placeholder():
         },
         model="m",
     )
-    assert out["content"] == [{"type": "thinking", "thinking": "only thinking"}]
+    assert out["content"] == [{"type": "thinking", "thinking": "only thinking", "signature": ""}]
 
 
 def _make_reasoning_chunk(reasoning: str) -> bytes:
@@ -1559,8 +1597,10 @@ def test_sse_reasoning_content_emits_thinking_block():
     assert "more" in text
     assert '"type": "text_delta"' in text
     assert "answer" in text
-    # Thinking opens before text.
-    assert text.index('"content_block": {"type": "thinking"') < text.index(
-        '"content_block": {"type": "text"'
-    )
+    # Thinking opens before text, and closes before text starts.
+    thinking_start = text.index('"content_block": {"type": "thinking"')
+    text_start = text.index('"content_block": {"type": "text"')
+    assert thinking_start < text_start
+    thinking_stop = text.index("event: content_block_stop", thinking_start)
+    assert thinking_stop < text_start
     assert text.count("event: content_block_stop") == 2

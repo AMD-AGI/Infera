@@ -346,6 +346,12 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
     Both endpoints want the same request-id correlation + cache-hint
     parsing; they differ only in the path forwarded to the worker."""
     body = await request.json()
+    # Clients must not supply SGLang custom logit processors: dill.loads of
+    # attacker-controlled payloads would run on the worker. Anthropic
+    # Messages injects a trusted processor only after translation.
+    if isinstance(body, dict):
+        body.pop("custom_logit_processor", None)
+        body.pop("custom_params", None)
     stream = bool(body.get("stream"))
     if stream and _enable_sla_metrics:
         # The SLA planner needs exact ISL/OSL even with round-robin routing,

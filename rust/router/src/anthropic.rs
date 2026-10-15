@@ -15,9 +15,10 @@
 //!   `max_tokens`, `stop_sequences`, `temperature`, `top_p`, `top_k`,
 //!   `stream`, `metadata.user_id` -> `user`, tool definitions, `tool_choice`,
 //!   assistant `tool_use` and user `tool_result`. Top-level `thinking`
-//!   maps to `chat_template_kwargs.enable_thinking`; optional
-//!   `thinking.budget_tokens` maps to SGLang `custom_logit_processor` +
-//!   `custom_params.thinking_budget` (GLM-5.3 hard cap); assistant
+//!   maps to `chat_template_kwargs.enable_thinking` and `thinking`;
+//!   optional `thinking.budget_tokens` maps to SGLang
+//!   `custom_logit_processor` + `custom_params.thinking_budget` only for
+//!   GLM-5.3 model ids (budgets >= `max_tokens` are clamped); assistant
 //!   `thinking` content blocks map to OpenAI `reasoning_content`.
 //! - Response (unary): OpenAI completion JSON -> Anthropic Messages JSON,
 //!   with `tool_calls` becoming `tool_use` blocks and `reasoning_content`
@@ -142,21 +143,26 @@ pub fn translate_request(body: &Value) -> Result<Value, String> {
     }
 
     // Extended thinking: Anthropic `thinking:{type}` -> engine
-    // `chat_template_kwargs.enable_thinking`. Optional `budget_tokens`
-    // -> SGLang thinking-budget logit processor (GLM-5.3).
+    // `chat_template_kwargs` (`enable_thinking` + `thinking`). Optional
+    // `budget_tokens` -> SGLang hard cap for GLM-5.3 model ids only.
     if let Some(thinking) = obj.get("thinking").and_then(Value::as_object) {
         match thinking.get("type").and_then(Value::as_str) {
             Some("enabled") => {
                 out.insert(
                     "chat_template_kwargs".to_string(),
-                    json!({"enable_thinking": true}),
+                    json!({"enable_thinking": true, "thinking": true}),
                 );
-                apply_thinking_budget(&mut out, thinking, obj.get("max_tokens"))?;
+                apply_thinking_budget(
+                    &mut out,
+                    thinking,
+                    obj.get("max_tokens"),
+                    obj.get("model").and_then(Value::as_str),
+                )?;
             }
             Some("disabled") => {
                 out.insert(
                     "chat_template_kwargs".to_string(),
-                    json!({"enable_thinking": false}),
+                    json!({"enable_thinking": false, "thinking": false}),
                 );
             }
             _ => {}
@@ -166,13 +172,25 @@ pub fn translate_request(body: &Value) -> Result<Value, String> {
     Ok(Value::Object(out))
 }
 
+fn is_glm53_model(model: Option<&str>) -> bool {
+    let Some(model) = model else {
+        return false;
+    };
+    let m = model.to_ascii_lowercase().replace('_', "-");
+    m.contains("glm-5-3") || m.contains("glm-5.3") || m.contains("glm53")
+}
+
 /// Map Anthropic `thinking.budget_tokens` onto SGLang hard-cap fields.
 fn apply_thinking_budget(
     out: &mut Map<String, Value>,
     thinking: &Map<String, Value>,
     max_tokens: Option<&Value>,
+    model: Option<&str>,
 ) -> Result<(), String> {
     if !thinking.contains_key("budget_tokens") {
+        return Ok(());
+    }
+    if !is_glm53_model(model) {
         return Ok(());
     }
     let budget = match thinking.get("budget_tokens").and_then(Value::as_u64) {
@@ -182,14 +200,14 @@ fn apply_thinking_budget(
         }
     };
     let max_tokens = match max_tokens.and_then(Value::as_u64) {
-        Some(n) => n,
-        None => {
-            return Err("max_tokens is required when thinking.budget_tokens is set".to_string());
+        Some(n) if n >= 2 => n,
+        _ => {
+            return Err("max_tokens must be >= 2 when thinking.budget_tokens is set".to_string());
         }
     };
-    if max_tokens <= budget {
-        return Err("max_tokens must be greater than thinking.budget_tokens".to_string());
-    }
+    // Interleaved-thinking clients may send budget > max_tokens; leave one
+    // token for the final answer.
+    let budget = budget.min(max_tokens - 1).max(1);
     out.insert(
         "custom_logit_processor".to_string(),
         json!(GLM53_THINKING_BUDGET_PROCESSOR_STR),
@@ -497,7 +515,11 @@ pub fn translate_response(
         .and_then(Value::as_str)
     {
         if !reasoning.is_empty() {
-            content.push(json!({"type": "thinking", "thinking": reasoning}));
+            content.push(json!({
+                "type": "thinking",
+                "thinking": reasoning,
+                "signature": "",
+            }));
         }
     }
     if let Some(text) = message
@@ -885,7 +907,11 @@ impl SseTranslator {
                             "content_block_start",
                             json!({
                                 "index": i,
-                                "content_block": {"type": "thinking", "thinking": ""},
+                                "content_block": {
+                                    "type": "thinking",
+                                    "thinking": "",
+                                    "signature": "",
+                                },
                             }),
                         );
                         i
@@ -904,6 +930,7 @@ impl SseTranslator {
 
         if let Some(text) = delta.get("content").and_then(Value::as_str) {
             if !text.is_empty() {
+                self.close_thinking_if_open(out);
                 let index = match self.text_index {
                     Some(i) => i,
                     None => {
@@ -944,6 +971,7 @@ impl SseTranslator {
                 {
                     Some(bi) => bi,
                     None => {
+                        self.close_thinking_if_open(out);
                         let bi = self.next_block_index;
                         self.next_block_index += 1;
                         self.tool_indices.push((openai_index, bi));
@@ -996,10 +1024,17 @@ impl SseTranslator {
         }
     }
 
+    /// Close an open thinking block before text/tool content starts.
+    fn close_thinking_if_open(&mut self, out: &mut Vec<u8>) {
+        if let Some(index) = self.thinking_index.take() {
+            push_event(out, "content_block_stop", json!({ "index": index }));
+        }
+    }
+
     /// Emit `content_block_stop` for every open block, then `message_delta`
     /// and `message_stop`.
     fn close(&self, out: &mut Vec<u8>) {
-        // Deterministic order: thinking, text, then tool blocks by index.
+        // Deterministic order: thinking (if still open), text, then tools.
         // Only the stop-per-open-block invariant matters for protocol
         // correctness; order matches Anthropic's usual content shape.
         let mut indices: Vec<u64> = Vec::new();
@@ -1164,6 +1199,11 @@ mod sse_tests {
         let thinking_pos = out.find("\"type\":\"thinking\"").unwrap();
         let text_pos = out.find("\"type\":\"text\"").unwrap();
         assert!(thinking_pos < text_pos, "{out}");
+        let thinking_stop = out[thinking_pos..]
+            .find("event: content_block_stop")
+            .map(|i| thinking_pos + i)
+            .unwrap();
+        assert!(thinking_stop < text_pos, "{out}");
     }
 
     #[test]
@@ -1181,7 +1221,10 @@ mod sse_tests {
         });
         let out = translate_response(&openai, Some("m"), Some("req1"));
         let content = out.get("content").and_then(Value::as_array).unwrap();
-        assert_eq!(content[0], json!({"type": "thinking", "thinking": "chain"}));
+        assert_eq!(
+            content[0],
+            json!({"type": "thinking", "thinking": "chain", "signature": ""})
+        );
         assert_eq!(content[1], json!({"type": "text", "text": "answer"}));
     }
 
@@ -1196,7 +1239,7 @@ mod sse_tests {
         let out = translate_request(&body).unwrap();
         assert_eq!(
             out.get("chat_template_kwargs"),
-            Some(&json!({"enable_thinking": true}))
+            Some(&json!({"enable_thinking": true, "thinking": true}))
         );
         assert!(out.get("custom_logit_processor").is_none());
         assert!(out.get("custom_params").is_none());
@@ -1213,7 +1256,7 @@ mod sse_tests {
         let out = translate_request(&body).unwrap();
         assert_eq!(
             out.get("chat_template_kwargs"),
-            Some(&json!({"enable_thinking": true}))
+            Some(&json!({"enable_thinking": true, "thinking": true}))
         );
         assert_eq!(
             out.get("custom_logit_processor"),
@@ -1226,15 +1269,31 @@ mod sse_tests {
     }
 
     #[test]
-    fn request_thinking_budget_tokens_requires_larger_max_tokens() {
+    fn request_thinking_budget_ignored_for_non_glm53() {
+        let body = json!({
+            "model": "qwen3-32b",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        });
+        let out = translate_request(&body).unwrap();
+        assert!(out.get("custom_logit_processor").is_none());
+        assert!(out.get("custom_params").is_none());
+    }
+
+    #[test]
+    fn request_thinking_budget_tokens_clamped_to_max_tokens_minus_one() {
         let body = json!({
             "model": "glm-5-3",
             "messages": [{"role": "user", "content": "hi"}],
-            "max_tokens": 1024,
-            "thinking": {"type": "enabled", "budget_tokens": 1024},
+            "max_tokens": 8192,
+            "thinking": {"type": "enabled", "budget_tokens": 10000},
         });
-        let err = translate_request(&body).unwrap_err();
-        assert!(err.contains("max_tokens must be greater"), "{err}");
+        let out = translate_request(&body).unwrap();
+        assert_eq!(
+            out.get("custom_params"),
+            Some(&json!({"thinking_budget": 8191}))
+        );
     }
 
     #[test]

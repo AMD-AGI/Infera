@@ -18,14 +18,15 @@ In scope:
   `messages` (text content), `system` (string or block array),
   `max_tokens`, `stop_sequences`, `temperature`, `top_p`,
   `metadata.user_id` → `user`, **tool definitions, tool_use,
-  tool_result, and tool_choice**.   Top-level ``thinking``
+  tool_result, and tool_choice**. Top-level ``thinking``
   (``enabled`` / ``disabled``) maps to
-  ``chat_template_kwargs.enable_thinking``. Optional
-  ``thinking.budget_tokens`` maps to SGLang
+  ``chat_template_kwargs.enable_thinking`` and ``thinking``.
+  Optional ``thinking.budget_tokens`` maps to SGLang
   ``custom_logit_processor`` + ``custom_params.thinking_budget``
-  (GLM-5.3 hard cap; requires ``--enable-custom-logit-processor``).
-  Assistant history ``thinking`` blocks map to OpenAI
-  ``reasoning_content``.
+  only for GLM-5.3 model ids (requires worker
+  ``--enable-custom-logit-processor``). Budgets at or above
+  ``max_tokens`` are clamped to ``max_tokens - 1``. Assistant
+  history ``thinking`` blocks map to OpenAI ``reasoning_content``.
 - **Response translation (streaming)**: OpenAI SSE chunks
   (`data: {choices:[{delta:{...}}]}`) → Anthropic events
   (`event: message_start | content_block_start |
@@ -52,8 +53,9 @@ Out of scope (v1):
   — explicit 400, including when nested inside `tool_result.content`.
   Follow-up.
 - **Thinking signatures / redacted_thinking**: engines do not emit
-  Anthropic ``signature`` values; ``redacted_thinking`` history is
-  ignored on the request path.
+  Anthropic ``signature`` values, so responses use an empty
+  ``signature`` string; ``redacted_thinking`` history is ignored
+  on the request path.
 
 ## Why a shim instead of a proxy
 
@@ -222,38 +224,52 @@ def anthropic_to_openai_request(body: dict[str, Any]) -> dict[str, Any]:
         out["user"] = md["user_id"]
 
     # Extended thinking: Anthropic ``thinking:{type}`` → engine
-    # ``chat_template_kwargs.enable_thinking``. Optional
-    # ``budget_tokens`` → SGLang thinking-budget logit processor.
+    # ``chat_template_kwargs`` (both ``enable_thinking`` and ``thinking``
+    # for templates that read either name). Optional ``budget_tokens``
+    # → SGLang hard cap, GLM-5.3 only.
     thinking = body.get("thinking")
     if isinstance(thinking, dict):
         ttype = thinking.get("type")
         if ttype == "enabled":
-            out["chat_template_kwargs"] = {"enable_thinking": True}
-            _apply_thinking_budget(out, thinking, body.get("max_tokens"))
+            out["chat_template_kwargs"] = {
+                "enable_thinking": True,
+                "thinking": True,
+            }
+            _apply_thinking_budget(out, thinking, body.get("max_tokens"), body.get("model"))
         elif ttype == "disabled":
-            out["chat_template_kwargs"] = {"enable_thinking": False}
+            out["chat_template_kwargs"] = {
+                "enable_thinking": False,
+                "thinking": False,
+            }
 
     return out
 
 
-def _apply_thinking_budget(out: dict[str, Any], thinking: dict[str, Any], max_tokens: Any) -> None:
-    """Map Anthropic ``thinking.budget_tokens`` onto SGLang hard cap fields.
+def _apply_thinking_budget(
+    out: dict[str, Any], thinking: dict[str, Any], max_tokens: Any, model: Any
+) -> None:
+    """Map Anthropic ``thinking.budget_tokens`` onto SGLang hard-cap fields.
 
-    Anthropic requires ``max_tokens > budget_tokens``. Omitted budget leaves
-    thinking uncapped (engine default).
+    Injects only for GLM-5.3 model ids. Budgets at or above ``max_tokens``
+    are clamped to ``max_tokens - 1`` (interleaved-thinking clients may
+    send budget > max_tokens). Omitted budget leaves thinking uncapped.
     """
     if "budget_tokens" not in thinking:
+        return
+    from infera.engine.sglang.thinking_budget_const import (
+        apply_glm53_thinking_budget,
+        is_glm53_model,
+        resolve_thinking_budget,
+    )
+
+    if not is_glm53_model(model):
         return
     budget = thinking.get("budget_tokens")
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
         raise AnthropicRequestRejected("thinking.budget_tokens must be a positive integer")
-    if not isinstance(max_tokens, int) or isinstance(max_tokens, bool):
-        raise AnthropicRequestRejected("max_tokens is required when thinking.budget_tokens is set")
-    if max_tokens <= budget:
-        raise AnthropicRequestRejected("max_tokens must be greater than thinking.budget_tokens")
-    from infera.engine.sglang.thinking_budget import apply_glm53_thinking_budget
-
-    apply_glm53_thinking_budget(out, budget)
+    if not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or max_tokens < 2:
+        raise AnthropicRequestRejected("max_tokens must be >= 2 when thinking.budget_tokens is set")
+    apply_glm53_thinking_budget(out, resolve_thinking_budget(budget, max_tokens))
 
 
 def _flatten_system(system: Any) -> str:
@@ -566,7 +582,7 @@ def openai_to_anthropic_response(
     anthropic_content: list[dict[str, Any]] = []
     reasoning = msg.get("reasoning_content")
     if isinstance(reasoning, str) and reasoning:
-        anthropic_content.append({"type": "thinking", "thinking": reasoning})
+        anthropic_content.append({"type": "thinking", "thinking": reasoning, "signature": ""})
     if content_text:
         anthropic_content.append({"type": "text", "text": content_text})
     for tc in msg.get("tool_calls") or []:
@@ -744,7 +760,7 @@ async def openai_to_anthropic_sse(
         else f"msg_{uuid.uuid4().hex[:24]}"
     )
     started = False
-    thinking_index: int | None = None  # Anthropic block index for thinking, if any
+    thinking_index: int | None = None  # Currently open thinking block, if any
     text_index: int | None = None  # Anthropic block index for the text block, if any
     # Map OpenAI delta.tool_calls[].index → Anthropic content block index.
     tool_index_map: dict[int, int] = {}
@@ -756,11 +772,16 @@ async def openai_to_anthropic_sse(
         body = json.dumps({"type": event_type, **payload})
         return f"event: {event_type}\ndata: {body}\n\n".encode()
 
+    async def _close_thinking_if_open() -> AsyncIterator[bytes]:
+        """Close an open thinking block before text/tool content starts."""
+        nonlocal thinking_index
+        if thinking_index is not None:
+            yield await _yield_event("content_block_stop", {"index": thinking_index})
+            thinking_index = None
+
     async def _close_all_blocks() -> AsyncIterator[bytes]:
-        """Emit content_block_stop for every block we opened."""
-        # Stable order: thinking, then text, then tool blocks by index.
-        # Protocol only requires every opened block to stop; order is
-        # deterministic for tests and matches Anthropic's usual shape.
+        """Emit content_block_stop for every block still open."""
+        # Stable order: thinking (if still open), then text, then tools.
         indices: list[int] = []
         if thinking_index is not None:
             indices.append(thinking_index)
@@ -859,7 +880,11 @@ async def openai_to_anthropic_sse(
                         "content_block_start",
                         {
                             "index": thinking_index,
-                            "content_block": {"type": "thinking", "thinking": ""},
+                            "content_block": {
+                                "type": "thinking",
+                                "thinking": "",
+                                "signature": "",
+                            },
                         },
                     )
                 yield await _yield_event(
@@ -876,6 +901,8 @@ async def openai_to_anthropic_sse(
             # --- Text delta path ---
             text_delta = delta.get("content")
             if isinstance(text_delta, str) and text_delta:
+                async for ev in _close_thinking_if_open():
+                    yield ev
                 if text_index is None:
                     text_index = next_anthropic_block_index
                     next_anthropic_block_index += 1
@@ -904,6 +931,8 @@ async def openai_to_anthropic_sse(
                     fn = tc.get("function") or {}
                     # First chunk for this tool call carries id + name.
                     if openai_idx not in tool_index_map:
+                        async for ev in _close_thinking_if_open():
+                            yield ev
                         anthro_idx = next_anthropic_block_index
                         next_anthropic_block_index += 1
                         tool_index_map[openai_idx] = anthro_idx

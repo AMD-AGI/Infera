@@ -787,6 +787,7 @@ async fn dispatch_session(
     // Python `app.py` covering every OpenAI-shaped entry, including
     // `/v1/responses` whose converted chat body has no `prompt_cache_*`.
     crate::cache_control::strip_internal_hints(&mut v);
+    crate::cache_control::strip_client_custom_logit(&mut v);
     let hints = crate::cache_control::parse_cache_hints(&v);
     let mut routing = v.clone();
     crate::cache_control::attach_cache_hints(&mut routing, &hints);

@@ -102,6 +102,19 @@ pub fn strip_internal_hints(body: &mut Value) {
     }
 }
 
+/// Drop client-supplied SGLang custom logit fields from OpenAI-shaped bodies.
+///
+/// `--enable-custom-logit-processor` deserializes these with dill on the
+/// worker; untrusted clients must not be able to inject callables. Trusted
+/// Anthropic translation injects its own processor after this strip runs on
+/// the OpenAI entry path only.
+pub fn strip_client_custom_logit(body: &mut Value) {
+    if let Some(obj) = body.as_object_mut() {
+        obj.remove("custom_logit_processor");
+        obj.remove("custom_params");
+    }
+}
+
 pub fn parse_cache_hints(body: &Value) -> CacheHints {
     let obj = match body.as_object() {
         Some(o) => o,
@@ -598,5 +611,19 @@ mod tests {
         let d3 = openai_img("data:image/png;base64,ZZZ");
         assert_eq!(extract_image_keys(&d1), extract_image_keys(&d2));
         assert_ne!(extract_image_keys(&d1), extract_image_keys(&d3));
+    }
+
+    #[test]
+    fn strip_client_custom_logit_removes_processor_fields() {
+        let mut body = json!({
+            "model": "m",
+            "custom_logit_processor": "evil",
+            "custom_params": {"thinking_budget": 1},
+            "messages": [],
+        });
+        strip_client_custom_logit(&mut body);
+        assert!(body.get("custom_logit_processor").is_none());
+        assert!(body.get("custom_params").is_none());
+        assert_eq!(body.get("model"), Some(&json!("m")));
     }
 }
