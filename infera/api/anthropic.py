@@ -23,7 +23,8 @@ In scope:
   ``chat_template_kwargs.enable_thinking`` and ``thinking``.
   Optional ``thinking.budget_tokens`` maps to SGLang
   ``custom_logit_processor`` + ``custom_params.thinking_budget``
-  only for GLM-5.3 model ids (requires worker
+  only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
+  id is GLM-5.3 (workers also need
   ``--enable-custom-logit-processor``). Budgets at or above
   ``max_tokens`` are clamped to ``max_tokens - 1``. Assistant
   history ``thinking`` blocks map to OpenAI ``reasoning_content``.
@@ -250,9 +251,11 @@ def _apply_thinking_budget(
 ) -> None:
     """Map Anthropic ``thinking.budget_tokens`` onto SGLang hard-cap fields.
 
-    Injects only for GLM-5.3 model ids. Budgets at or above ``max_tokens``
-    are clamped to ``max_tokens - 1`` (interleaved-thinking clients may
-    send budget > max_tokens). Omitted budget leaves thinking uncapped.
+    Injects only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
+    id is GLM-5.3. Budgets at or above ``max_tokens`` are clamped to
+    ``max_tokens - 1`` (interleaved-thinking clients may send budget >
+    max_tokens). Omitted budget, disabled opt-in, or a non-GLM-5.3 model
+    leaves thinking uncapped (``chat_template_kwargs`` still apply).
     """
     if "budget_tokens" not in thinking:
         return
@@ -260,9 +263,10 @@ def _apply_thinking_budget(
         apply_glm53_thinking_budget,
         is_glm53_model,
         resolve_thinking_budget,
+        thinking_budget_injection_enabled,
     )
 
-    if not is_glm53_model(model):
+    if not is_glm53_model(model) or not thinking_budget_injection_enabled():
         return
     budget = thinking.get("budget_tokens")
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
@@ -779,6 +783,13 @@ async def openai_to_anthropic_sse(
             yield await _yield_event("content_block_stop", {"index": thinking_index})
             thinking_index = None
 
+    async def _close_text_if_open() -> AsyncIterator[bytes]:
+        """Close an open text block before a later thinking block starts."""
+        nonlocal text_index
+        if text_index is not None:
+            yield await _yield_event("content_block_stop", {"index": text_index})
+            text_index = None
+
     async def _close_all_blocks() -> AsyncIterator[bytes]:
         """Emit content_block_stop for every block still open."""
         # Stable order: thinking (if still open), then text, then tools.
@@ -873,6 +884,8 @@ async def openai_to_anthropic_sse(
             # --- Thinking / reasoning_content delta path ---
             reasoning_delta = delta.get("reasoning_content")
             if isinstance(reasoning_delta, str) and reasoning_delta:
+                async for ev in _close_text_if_open():
+                    yield ev
                 if thinking_index is None:
                     thinking_index = next_anthropic_block_index
                     next_anthropic_block_index += 1

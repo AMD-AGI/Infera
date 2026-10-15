@@ -17,9 +17,10 @@
 //!   assistant `tool_use` and user `tool_result`. Top-level `thinking`
 //!   maps to `chat_template_kwargs.enable_thinking` and `thinking`;
 //!   optional `thinking.budget_tokens` maps to SGLang
-//!   `custom_logit_processor` + `custom_params.thinking_budget` only for
-//!   GLM-5.3 model ids (budgets >= `max_tokens` are clamped); assistant
-//!   `thinking` content blocks map to OpenAI `reasoning_content`.
+//!   `custom_logit_processor` + `custom_params.thinking_budget` only when
+//!   `INFERA_ENABLE_THINKING_BUDGET` is set and the model id is GLM-5.3
+//!   (budgets >= `max_tokens` are clamped); assistant `thinking` content
+//!   blocks map to OpenAI `reasoning_content`.
 //! - Response (unary): OpenAI completion JSON -> Anthropic Messages JSON,
 //!   with `tool_calls` becoming `tool_use` blocks and `reasoning_content`
 //!   becoming a leading `thinking` content block.
@@ -180,6 +181,16 @@ fn is_glm53_model(model: Option<&str>) -> bool {
     m.contains("glm-5-3") || m.contains("glm-5.3") || m.contains("glm53")
 }
 
+fn thinking_budget_injection_enabled() -> bool {
+    match std::env::var("INFERA_ENABLE_THINKING_BUDGET") {
+        Ok(v) => {
+            let v = v.trim().to_ascii_lowercase();
+            matches!(v.as_str(), "1" | "true" | "yes" | "on")
+        }
+        Err(_) => false,
+    }
+}
+
 /// Map Anthropic `thinking.budget_tokens` onto SGLang hard-cap fields.
 fn apply_thinking_budget(
     out: &mut Map<String, Value>,
@@ -190,7 +201,7 @@ fn apply_thinking_budget(
     if !thinking.contains_key("budget_tokens") {
         return Ok(());
     }
-    if !is_glm53_model(model) {
+    if !is_glm53_model(model) || !thinking_budget_injection_enabled() {
         return Ok(());
     }
     let budget = match thinking.get("budget_tokens").and_then(Value::as_u64) {
@@ -896,6 +907,7 @@ impl SseTranslator {
 
         if let Some(reasoning) = delta.get("reasoning_content").and_then(Value::as_str) {
             if !reasoning.is_empty() {
+                self.close_text_if_open(out);
                 let index = match self.thinking_index {
                     Some(i) => i,
                     None => {
@@ -1031,6 +1043,13 @@ impl SseTranslator {
         }
     }
 
+    /// Close an open text block before a later thinking block starts.
+    fn close_text_if_open(&mut self, out: &mut Vec<u8>) {
+        if let Some(index) = self.text_index.take() {
+            push_event(out, "content_block_stop", json!({ "index": index }));
+        }
+    }
+
     /// Emit `content_block_stop` for every open block, then `message_delta`
     /// and `message_stop`.
     fn close(&self, out: &mut Vec<u8>) {
@@ -1106,6 +1125,22 @@ fn random_hex(len: usize) -> String {
 #[cfg(test)]
 mod sse_tests {
     use super::*;
+    use std::sync::Mutex;
+
+    // Env-gated budget tests must not race under cargo's parallel runner.
+    static THINKING_BUDGET_ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn with_thinking_budget_env<T>(enabled: bool, f: impl FnOnce() -> T) -> T {
+        let _guard = THINKING_BUDGET_ENV_LOCK.lock().unwrap();
+        if enabled {
+            std::env::set_var("INFERA_ENABLE_THINKING_BUDGET", "1");
+        } else {
+            std::env::remove_var("INFERA_ENABLE_THINKING_BUDGET");
+        }
+        let out = f();
+        std::env::remove_var("INFERA_ENABLE_THINKING_BUDGET");
+        out
+    }
 
     #[test]
     fn an_error_line_does_not_emit_later_content_from_the_same_chunk() {
@@ -1247,53 +1282,74 @@ mod sse_tests {
 
     #[test]
     fn request_thinking_budget_tokens_maps_to_sglang_hard_cap() {
-        let body = json!({
-            "model": "glm-5-3",
-            "messages": [{"role": "user", "content": "hi"}],
-            "max_tokens": 4096,
-            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        with_thinking_budget_env(true, || {
+            let body = json!({
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 4096,
+                "thinking": {"type": "enabled", "budget_tokens": 1024},
+            });
+            let out = translate_request(&body).unwrap();
+            assert_eq!(
+                out.get("chat_template_kwargs"),
+                Some(&json!({"enable_thinking": true, "thinking": true}))
+            );
+            assert_eq!(
+                out.get("custom_logit_processor"),
+                Some(&json!(GLM53_THINKING_BUDGET_PROCESSOR_STR))
+            );
+            assert_eq!(
+                out.get("custom_params"),
+                Some(&json!({"thinking_budget": 1024}))
+            );
         });
-        let out = translate_request(&body).unwrap();
-        assert_eq!(
-            out.get("chat_template_kwargs"),
-            Some(&json!({"enable_thinking": true, "thinking": true}))
-        );
-        assert_eq!(
-            out.get("custom_logit_processor"),
-            Some(&json!(GLM53_THINKING_BUDGET_PROCESSOR_STR))
-        );
-        assert_eq!(
-            out.get("custom_params"),
-            Some(&json!({"thinking_budget": 1024}))
-        );
+    }
+
+    #[test]
+    fn request_thinking_budget_ignored_when_opt_in_disabled() {
+        with_thinking_budget_env(false, || {
+            let body = json!({
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 4096,
+                "thinking": {"type": "enabled", "budget_tokens": 1024},
+            });
+            let out = translate_request(&body).unwrap();
+            assert!(out.get("custom_logit_processor").is_none());
+            assert!(out.get("custom_params").is_none());
+        });
     }
 
     #[test]
     fn request_thinking_budget_ignored_for_non_glm53() {
-        let body = json!({
-            "model": "qwen3-32b",
-            "messages": [{"role": "user", "content": "hi"}],
-            "max_tokens": 4096,
-            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        with_thinking_budget_env(true, || {
+            let body = json!({
+                "model": "qwen3-32b",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 4096,
+                "thinking": {"type": "enabled", "budget_tokens": 1024},
+            });
+            let out = translate_request(&body).unwrap();
+            assert!(out.get("custom_logit_processor").is_none());
+            assert!(out.get("custom_params").is_none());
         });
-        let out = translate_request(&body).unwrap();
-        assert!(out.get("custom_logit_processor").is_none());
-        assert!(out.get("custom_params").is_none());
     }
 
     #[test]
     fn request_thinking_budget_tokens_clamped_to_max_tokens_minus_one() {
-        let body = json!({
-            "model": "glm-5-3",
-            "messages": [{"role": "user", "content": "hi"}],
-            "max_tokens": 8192,
-            "thinking": {"type": "enabled", "budget_tokens": 10000},
+        with_thinking_budget_env(true, || {
+            let body = json!({
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 8192,
+                "thinking": {"type": "enabled", "budget_tokens": 10000},
+            });
+            let out = translate_request(&body).unwrap();
+            assert_eq!(
+                out.get("custom_params"),
+                Some(&json!({"thinking_budget": 8191}))
+            );
         });
-        let out = translate_request(&body).unwrap();
-        assert_eq!(
-            out.get("custom_params"),
-            Some(&json!({"thinking_budget": 8191}))
-        );
     }
 
     #[test]

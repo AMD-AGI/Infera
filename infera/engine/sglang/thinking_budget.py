@@ -15,6 +15,8 @@ Request-path helpers live in ``thinking_budget_const`` (no SGLang import).
 
 from __future__ import annotations
 
+from typing import Any
+
 from sglang.srt.sampling.custom_logit_processor import ThinkingBudgetLogitProcessor
 
 from infera.engine.sglang.thinking_budget_const import (
@@ -25,6 +27,7 @@ from infera.engine.sglang.thinking_budget_const import (
     apply_glm53_thinking_budget,
     is_glm53_model,
     resolve_thinking_budget,
+    resolve_thinking_budget_action,
 )
 
 __all__ = [
@@ -40,8 +43,47 @@ __all__ = [
 
 
 class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
-    """Hard-cap thinking tokens for GLM-5.3."""
+    """Hard-cap thinking tokens for GLM-5.3.
+
+    Overrides the upstream ``ThinkingBudgetLogitProcessor`` so multi-turn
+    history with closed ``</think>`` blocks does not disable the budget, and
+    prompt-side ``<think>`` literals do not count toward the budget.
+    """
 
     THINKING_START_TOKEN_ID = GLM53_THINKING_START_TOKEN_ID
     THINKING_END_TOKEN_ID = GLM53_THINKING_END_TOKEN_ID
     NEW_LINE_TOKEN_ID = GLM53_NEW_LINE_TOKEN_ID
+
+    def __call__(self, logits: Any, custom_param_list: list[dict[str, Any]] | None = None) -> Any:
+        if custom_param_list is None or not custom_param_list:
+            return logits
+        for i, param_dict in enumerate(custom_param_list):
+            if param_dict is None:
+                continue
+            thinking_budget = param_dict.get("thinking_budget")
+            if (
+                thinking_budget is None
+                or not isinstance(thinking_budget, int)
+                or isinstance(thinking_budget, bool)
+                or thinking_budget < 0
+            ):
+                continue
+            req = param_dict.get("__req__")
+            if req is None:
+                continue
+            origin = list(getattr(req, "origin_input_ids", None) or [])
+            output = list(getattr(req, "output_ids", None) or [])
+            action = resolve_thinking_budget_action(
+                origin_input_ids=origin,
+                output_ids=output,
+                thinking_budget=thinking_budget,
+                start_id=self.THINKING_START_TOKEN_ID,
+                end_id=self.THINKING_END_TOKEN_ID,
+                newline_id=self.NEW_LINE_TOKEN_ID,
+            )
+            if action is None:
+                continue
+            token_id = self.NEW_LINE_TOKEN_ID if action == "newline" else self.THINKING_END_TOKEN_ID
+            logits[i, :] = -float("inf")
+            logits[i, token_id] = 0.0
+        return logits

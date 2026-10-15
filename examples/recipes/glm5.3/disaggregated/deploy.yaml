@@ -82,6 +82,9 @@ spec:
               - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
               - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
               - {name: POD_IP, valueFrom: {fieldRef: {fieldPath: status.podIP}}}
+              # Opt-in Anthropic thinking.budget_tokens hard cap (GLM-5.3 only).
+              # Workers must also pass --enable-custom-logit-processor.
+              - {name: INFERA_ENABLE_THINKING_BUDGET, value: "1"}
             # The operator injects a readiness probe for WORKERS only, so without
             # this the Service takes traffic before uvicorn has bound the port.
             readinessProbe:
@@ -153,6 +156,9 @@ spec:
                       "--cuda-graph-max-bs","128","--max-running-requests","2048",
                       "--watchdog-timeout","3600",
                       "--reasoning-parser","glm45",
+                      # Required for Anthropic thinking.budget_tokens hard caps.
+                      # Pair with INFERA_ENABLE_THINKING_BUDGET=1 on the server.
+                      "--enable-custom-logit-processor",
                       # Insurance, not a fix — this checkpoint's shared experts are
                       # themselves MXFP4, and upstream #25261 shows the mismatch
                       # failing SILENTLY with wrong output when shapes line up.
@@ -281,6 +287,9 @@ spec:
                       "--cuda-graph-max-bs","128","--max-running-requests","2048",
                       "--watchdog-timeout","3600",
                       "--reasoning-parser","glm45",
+                      # Required for Anthropic thinking.budget_tokens hard caps.
+                      # Pair with INFERA_ENABLE_THINKING_BUDGET=1 on the server.
+                      "--enable-custom-logit-processor",
                       "--disable-shared-experts-fusion",
                       # Required WITH EAGLE, and kept independent of it: the aiter
                       # custom all-reduce kernel deadlocks on gfx950 during
@@ -291,6 +300,8 @@ spec:
                       # because the draft is the target's own MTP layer. Validated
                       # on this manifest: 6/6 correct, 0/32 degenerate, acceptance
                       # median 2.85. If missing: one token per decode step.
+                      # Speculative verify may skip custom logit processors; treat
+                      # thinking-budget hard caps as best-effort under EAGLE.
                       "--speculative-algorithm","EAGLE",
                       "--speculative-num-steps","3",
                       "--speculative-eagle-topk","1",

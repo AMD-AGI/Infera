@@ -349,9 +349,15 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
     # Clients must not supply SGLang custom logit processors: dill.loads of
     # attacker-controlled payloads would run on the worker. Anthropic
     # Messages injects a trusted processor only after translation.
-    if isinstance(body, dict):
-        body.pop("custom_logit_processor", None)
-        body.pop("custom_params", None)
+    if isinstance(body, dict) and ("custom_logit_processor" in body or "custom_params" in body):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "custom_logit_processor and custom_params are not allowed on "
+                "OpenAI endpoints; use Anthropic /v1/messages with "
+                "INFERA_ENABLE_THINKING_BUDGET for GLM-5.3 thinking budgets"
+            ),
+        )
     stream = bool(body.get("stream"))
     if stream and _enable_sla_metrics:
         # The SLA planner needs exact ISL/OSL even with round-robin routing,
