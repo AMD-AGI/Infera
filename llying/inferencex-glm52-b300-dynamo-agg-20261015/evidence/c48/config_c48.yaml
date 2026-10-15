@@ -1,0 +1,172 @@
+schema: 2
+model:
+  path: glm-5.2-fp4
+  container: dynamo-sglang
+  precision: fp4
+identity:
+  model:
+    repo: nvidia/GLM-5.2-NVFP4
+  container:
+      # amd64 manifest sha256:605112675a761001da6fceb21bd811c8bfee02c56993f91ad26d29f86476839d
+    image: lmsysorg/sglang:nightly-dev-cu13-20260901-07c8f729
+  frameworks:
+    dynamo: 1.5.0.dev20260903
+resources:
+  gpu_type: b300
+  gpus_per_node: 8
+slurm:
+  time_limit: '4:00:00'
+dynamo:
+  install: true
+  source:
+    wheel: 1.5.0.dev20260903
+frontend:
+  type: dynamo
+  env:
+    PIP_BREAK_SYSTEM_PACKAGES: '1'
+  args:
+    router-mode: kv
+    active-decode-blocks-threshold: None
+    active-prefill-tokens-threshold: None
+    active-prefill-tokens-threshold-frac: None
+    router-session-affinity-ttl-secs: 3600
+  # Tuned without the Tachometer exporters; keep them off so the GPUs serve alone.
+observability:
+  enabled: false
+  tachometer:
+    enabled: false
+engine: sglang
+roles:
+  agg:
+    nodes: 1
+    workers: 1
+    gpus: 4
+    env:
+      TORCH_DISTRIBUTED_DEFAULT_TIMEOUT: '1800'
+      PYTHONUNBUFFERED: '1'
+      PYTHONNOUSERSITE: '1'
+      PIP_BREAK_SYSTEM_PACKAGES: '1'
+      DYN_SKIP_SGLANG_LOG_FORMATTING: '1'
+      TORCH_CUDA_ARCH_LIST: '10.0'
+        # Outlast AIPerf's pooled connections past Uvicorn's keep-alive.
+      SGLANG_TIMEOUT_KEEP_ALIVE: '900'
+      SGLANG_NVFP4_CKPT_FP8_NEXTN_MOE: '0'
+      SGLANG_SIMULATE_ACC_LEN: '3.61'
+      SGLANG_SIMULATE_ACC_METHOD: match-expected
+      SGLANG_SIMULATE_ACC_TOKEN_MODE: real-draft-token
+    args:
+      served-model-name: nvidia/GLM-5.2-NVFP4
+      trust-remote-code: true
+      quantization: modelopt_fp4
+      kv-cache-dtype: fp8_e4m3
+      tensor-parallel-size: 4
+      expert-parallel-size: 1
+      bf16-gemm-backend: cutedsl
+        # GLM-5.2 emits the GLM-4.7 tool-call format.
+      tool-call-parser: glm47
+      reasoning-parser: glm45
+      chunked-prefill-size: 32768
+      max-prefill-tokens: 8192
+      mem-fraction-static: 0.85
+      speculative-algorithm: EAGLE
+      speculative-num-steps: 5
+      speculative-eagle-topk: 1
+      speculative-num-draft-tokens: 6
+      weight-loader-prefetch-checkpoints: true
+      model-loader-extra-config: '{"enable_multithread_load":true}'
+        # MLA-family: every TP rank holds complete per-token KV, so the host
+        # pool is an absolute size per rank (4 ranks on the node); the DSA
+        # indexer pool rides on top.
+      enable-hierarchical-cache: true
+      hicache-size: 270
+      hicache-write-policy: write_back
+      hicache-io-backend: direct
+      hicache-mem-layout: page_first_direct
+      watchdog-timeout: 1800
+      enable-metrics: true
+      data-parallel-size: 4
+      enable-dp-attention: true
+      enable-dp-lm-head: true
+      enable-prefill-delayer: true
+      prefill-delayer-max-delay-passes: 60
+      max-running-requests: 128
+      cuda-graph-max-bs: 64
+health_check:
+  max_attempts: 1440
+  interval_seconds: 10
+benchmark:
+  type: custom
+  command: bash /infmax-workspace/benchmarks/srt_agentic.sh
+  env:
+    INFMAX_CONTAINER_WORKSPACE: /infmax-workspace
+    RESULT_DIR: /logs/agentic
+    PORT: '8000'
+    IS_MULTINODE: 'true'
+      # This multi-node lane has no AgentX power window.
+    ENABLE_AGENTX_POWER: '0'
+    AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID: 'true'
+    AIPERF_REQUIRED_SERVER_METRIC_PREFIX: 'sglang:'
+      # Warmup can leave bytes unacknowledged past AIPerf's 30 s default.
+    AIPERF_HTTP_TCP_USER_TIMEOUT: '900000'
+    AIPERF_DATASET_MMAP_CACHE_DIR: /aiperf_mmap_cache
+    HF_HUB_CACHE: /hf_hub_cache
+    AGENTIC_WARMUP_GRACE_PERIOD: '1800'
+  stream_output: true
+  concurrencies:
+    - 48
+services:
+  - name: etcd
+    type: etcd
+    placement:
+      node: infra
+    readiness:
+      port: 2379
+      timeout_seconds: 900
+  - name: nats
+    type: nats
+    placement:
+      node: infra
+    options:
+      max_payload_mb: 64
+    readiness:
+      port: 4222
+      timeout_seconds: 900
+sbatch_directives:
+  mem: '0'
+srun_options:
+  mem: '0'
+
+# Plain TP4 arm: admission and graph batch at 8 for the low-latency end.
+  container-workdir: /infmax-workspace
+post_eval:
+  command:
+    - env
+    - HF_HUB_OFFLINE=0
+    - HF_DATASETS_OFFLINE=0
+    - TRANSFORMERS_OFFLINE=0
+    - MODEL_PATH=/model
+    - bash
+    - '{infmax_workspace}/benchmarks/multi_node/srt_eval.sh'
+    - '{endpoint}'
+    - '{infmax_workspace}'
+  passthrough_env:
+    - AIPERF_DYNAMO_SESSION_TIMEOUT_SECONDS
+    - AIPERF_EXPERIMENTAL_FAST
+    - AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID
+    - AIPERF_USE_DYNAMO_CONV_AWARE_ROUTING
+    - CONC
+    - ENABLE_AGENTX_POWER
+    - EVAL_CONC
+    - EVAL_ENDPOINT_READY_TIMEOUT_SECONDS
+    - EVAL_FRAMEWORK
+    - EVAL_MODEL_STABILIZATION_SECONDS
+    - EVAL_ONLY
+    - IS_AGENTIC
+    - OPENAI_API_KEY
+    - PREFILL_DWDP_SIZE
+    - REQUIRE_POWER
+    - SCENARIO_TYPE
+    - SGLANG_TORCH_PROFILER_DIR
+    - VLLM_ENGINE_READY_TIMEOUT_S
+    - VLLM_TORCH_PROFILER_DIR
+name: glm52-b300-agg-tp4-dp4attn-c48-mtp

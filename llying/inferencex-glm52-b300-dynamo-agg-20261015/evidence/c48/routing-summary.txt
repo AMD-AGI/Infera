@@ -1,0 +1,42 @@
+# Routing summary, conc 48 (artifact multinode_server_logs id 11798041008)
+
+## Worker: KV-event publishing
+2026-10-13T06:42:19.133449Z  INFO args.parse_args: Derived use_kv_events=False from kv_events_config=None
+
+## Frontend: router setup
+2026-10-13T06:41:54.087087Z  INFO router_args.log_rejection_thresholds: busy-worker rejection disabled: no rejection threshold is configured
+2026-10-13T06:53:19.595998Z  INFO dynamo_kv_router::scheduling::queue: Router policy class configured policy_class="default" queue_policy=fcfs quantum=1 prefill_busy_threshold=None prefill_busy_threshold_frac=None
+2026-10-13T06:53:19.596028Z  INFO dynamo_kv_router::scheduling::queue: Router queue overlap-score refresh enabled after 10.0s wait
+2026-10-13T06:53:19.596466Z  WARN dynamo_kv_router::sequences::multi_worker: Adding worker WorkerWithDpRank { worker_id: 7587898191866297355, dp_rank: 1 }
+2026-10-13T06:53:19.596479Z  WARN dynamo_kv_router::sequences::multi_worker: Adding worker WorkerWithDpRank { worker_id: 7587898191866297355, dp_rank: 3 }
+2026-10-13T06:53:19.596481Z  WARN dynamo_kv_router::sequences::multi_worker: Adding worker WorkerWithDpRank { worker_id: 7587898191866297355, dp_rank: 2 }
+2026-10-13T06:53:19.596484Z  WARN dynamo_kv_router::sequences::multi_worker: Adding worker WorkerWithDpRank { worker_id: 7587898191866297355, dp_rank: 0 }
+2026-10-13T06:53:19.596872Z  WARN dynamo_llm::kv_router::indexer::recovery::source_health: KV-event publishing is disabled for a role that requires KV events diagnostic_code="kv_event_publisher_disabled" model="nvidia/GLM-5.2-NVFP4" worker_role="aggregated" requirement="cache_aware_routing" worker_id=7587898191866297355 serving_endpoint=dynamo/backend/generate kv_event_publishing_enabled=false waited_ms=0 rank_count=4 dp_ranks=0,1,2,3 suggested_action="Enable backend KV-event publishing, or select a routing mode that does not require KV events"
+2026-10-13T06:53:19.597014Z  INFO dynamo_llm::kv_router: KV Routing initialized
+2026-10-13T06:53:19.597095Z  INFO dynamo_llm::session_affinity::coordinator: session affinity enabled ttl_secs=3600 max_entries=65536
+
+## Counts
+route request lines (completed|cancelled): 4888
+lines with overlap_blocks=0 among them: 4888
+lines with overlap_blocks>0 among them: 0
+'Selected worker' (selector ran): 531
+
+## Split at the AIPerf profiling start (2026-10-13T07:11:10, profile_export_aiperf.json start_time)
+'Selected worker': warm-up 97, measured 434
+route request lines: warm-up 529, measured 4359
+
+## Requests per dp_rank (route request lines)
+   1160 dp_rank=0
+   1178 dp_rank=1
+    926 dp_rank=2
+   1624 dp_rank=3
+
+## 'Selected worker' per dp_rank
+    137 dp_rank=0
+    110 dp_rank=1
+     84 dp_rank=2
+    200 dp_rank=3
+
+## Example lines
+2026-10-13T06:57:57.137492Z  INFO dynamo_kv_router::scheduling::selector: Selected worker router_mode="kv" request_id="56bea192-a753-4d84-bb1d-9cc56a3883e6" worker_id=7587898191866297355 worker_type=decode dp_rank=3 logit=650.25 host_pinned_blocks=0 disk_blocks=0
+2026-10-13T06:58:04.079646Z  INFO http-request:kv_router.route_request: request_span: route request completed request.outcome="success" method=POST uri=/v1/chat/completions version=HTTP/1.1 x_request_id="924cb77c-e63f-4af2-9f53-82639ed220c8" request_id=56bea192-a753-4d84-bb1d-9cc56a3883e6 model="nvidia/GLM-5.2-NVFP4" otel.kind="client" request_id=56bea192-a753-4d84-bb1d-9cc56a3883e6 dp_rank=3 overlap_blocks=0 phase=Aggregated worker_id=7587898191866297355 request.attempt=0 migration.is_retry=false migration.tokens_completed=0 request.outcome="success"
