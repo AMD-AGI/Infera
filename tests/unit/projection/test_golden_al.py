@@ -167,6 +167,97 @@ def test_an_explicit_file_not_found_is_an_error(monkeypatch):
         ga.resolve("mtp", curve="glm5.2_mtp.yaml")
 
 
+class _Response:
+    def __init__(self, body: bytes):
+        self.body = body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self.body
+
+
+@pytest.fixture
+def github(tmp_path, monkeypatch):
+    """A fake GitHub: ``files`` maps a file name to its text; ``None`` is offline."""
+    import urllib.error
+
+    state = {"files": {}, "calls": 0}
+
+    def urlopen(url, timeout=None):
+        state["calls"] += 1
+        if state["files"] is None:
+            raise urllib.error.URLError("offline")
+        name = url.rsplit("/", 1)[-1]
+        if url.startswith(ga.GOLDEN_URLS[0]) and name in state["files"]:
+            return _Response(state["files"][name].encode())
+        raise urllib.error.HTTPError(url, 404, "Not Found", None, None)
+
+    monkeypatch.setattr(ga.urllib.request, "urlopen", urlopen)
+    monkeypatch.setenv("INFERASIM_GOLDEN_AL_FETCH", "1")
+    monkeypatch.setenv("INFERASIM_GOLDEN_AL_CACHE", str(tmp_path / "cache"))
+    monkeypatch.delenv("INFERASIM_GOLDEN_AL_DIR", raising=False)
+    ga.fetch_golden.cache_clear()
+    yield state
+    ga.fetch_golden.cache_clear()
+
+
+_REMOTE = yaml.safe_dump({"remote": {"thinking_on": {1: 1.7, 2: 2.2, 3: 2.6}}})
+
+
+def test_a_model_file_is_fetched_from_inferencex_and_cached(github, tmp_path):
+    github["files"]["remote_mtp.yaml"] = _REMOTE
+    model = _model(mtp={"acceptance": "remote_mtp.yaml"})
+    acc = ga.resolve("mtp", model_config=model)
+    assert acc.source == "model:remote_mtp.yaml[thinking_on]" and acc.at(3) == 2.6
+    assert (tmp_path / "cache" / "remote_mtp.yaml").is_file()
+    # A later process reads the cached copy without asking GitHub again.
+    ga.fetch_golden.cache_clear()
+    calls = github["calls"]
+    assert ga.resolve("mtp", model_config=model).at(3) == 2.6
+    assert github["calls"] == calls
+
+
+def test_a_file_inferencex_does_not_have_reads_the_default(github, tmp_path):
+    acc = ga.resolve("mtp", model_config=_model(mtp={"acceptance": "gone_mtp.yaml"}))
+    assert acc.source == "default:mtp.yaml[thinking_on] (gone_mtp.yaml not found)"
+    assert (tmp_path / "cache" / "gone_mtp.yaml.missing").is_file()
+    ga.fetch_golden.cache_clear()
+    calls = github["calls"]
+    ga.resolve("mtp", model_config=_model(mtp={"acceptance": "gone_mtp.yaml"}))
+    assert github["calls"] == calls
+
+
+def test_offline_keeps_a_stale_copy_and_otherwise_reads_the_default(github, tmp_path):
+    github["files"]["remote_mtp.yaml"] = _REMOTE
+    assert ga.fetch_golden("remote_mtp.yaml") is not None
+    cached = tmp_path / "cache" / "remote_mtp.yaml"
+    old = cached.stat().st_mtime - 2 * 24 * 3600
+    os.utime(cached, (old, old))
+    github["files"] = None
+    ga.fetch_golden.cache_clear()
+    assert ga.fetch_golden("remote_mtp.yaml") == cached
+    acc = ga.resolve("mtp", model_config=_model(mtp={"acceptance": "other_mtp.yaml"}))
+    assert acc.source.startswith("default:mtp.yaml")
+    assert not (tmp_path / "cache" / "other_mtp.yaml.missing").exists()
+
+
+def test_a_malformed_download_is_not_cached(github, tmp_path):
+    github["files"]["bad_mtp.yaml"] = "<html>rate limited</html>"
+    assert ga.fetch_golden("bad_mtp.yaml") is None
+    assert not (tmp_path / "cache" / "bad_mtp.yaml").exists()
+
+
+def test_a_local_directory_wins_over_inferencex(github, curves):
+    github["files"]["toy_mtp.yaml"] = _REMOTE
+    acc = ga.resolve("mtp", model_config=_model(mtp={"acceptance": "toy_mtp.yaml"}))
+    assert acc.at(3) == 3.0 and github["calls"] == 0
+
+
 def test_shipped_presets_name_files_that_exist(golden, monkeypatch):
     from infera.projection.core.config.yaml_loader import parse_yaml
 
