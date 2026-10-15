@@ -1,0 +1,166 @@
+=== pid 60697 sglang::schedul
+Process 60697: sglang::scheduler_DP0_TP0
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 60697 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+    dispatch_event_loop (scheduler.py:5804)
+    run_event_loop (scheduler.py:1887)
+    run_scheduler_process (scheduler.py:5956)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:129)
+    spawn_main (multiprocessing/spawn.py:116)
+    <module> (<string>:1)
+Thread 62046 (idle): "Thread-2"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:60)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62306 (idle): "Thread-3 (_watchdog_thread)"
+    _watchdog_once (utils/watchdog.py:147)
+    _watchdog_thread (utils/watchdog.py:127)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62475 (idle): "Thread-4 (bootstrap_thread)"
+    recv_multipart (zmq/sugar/socket.py:813)
+    bootstrap_thread (mooncake/conn.py:2755)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62476 (idle): "Thread-5 (transfer_worker)"
+    wait (threading.py:320)
+=== pid 60847 sglang::schedul
+Process 60847: sglang::scheduler_DP1_TP1
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 60847 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+    dispatch_event_loop (scheduler.py:5804)
+    run_event_loop (scheduler.py:1887)
+    run_scheduler_process (scheduler.py:5956)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:129)
+    spawn_main (multiprocessing/spawn.py:116)
+    <module> (<string>:1)
+Thread 62073 (idle): "Thread-2"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:60)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62924 (idle): "Thread-3 (_watchdog_thread)"
+    _watchdog_once (utils/watchdog.py:147)
+    _watchdog_thread (utils/watchdog.py:127)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 63093 (idle): "Thread-4 (bootstrap_thread)"
+    recv_multipart (zmq/sugar/socket.py:813)
+    bootstrap_thread (mooncake/conn.py:2755)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 63094 (idle): "Thread-5 (transfer_worker)"
+    wait (threading.py:320)
+=== pid 60993 sglang::schedul
+Process 60993: sglang::scheduler_DP2_TP2
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 60993 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+    dispatch_event_loop (scheduler.py:5804)
+    run_event_loop (scheduler.py:1887)
+    run_scheduler_process (scheduler.py:5956)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:129)
+    spawn_main (multiprocessing/spawn.py:116)
+    <module> (<string>:1)
+Thread 62122 (idle): "Thread-2"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:60)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62544 (idle): "Thread-3 (_watchdog_thread)"
+    _watchdog_once (utils/watchdog.py:147)
+    _watchdog_thread (utils/watchdog.py:127)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62713 (idle): "Thread-4 (bootstrap_thread)"
+    recv_multipart (zmq/sugar/socket.py:813)
+    bootstrap_thread (mooncake/conn.py:2755)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62714 (active): "Thread-5 (transfer_worker)"
+    synchronize (torch/cuda/streams.py:231)
+=== pid 61166 sglang::schedul
+Process 61166: sglang::scheduler_DP3_TP3
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 61166 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+    dispatch_event_loop (scheduler.py:5804)
+    run_event_loop (scheduler.py:1887)
+    run_scheduler_process (scheduler.py:5956)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:129)
+    spawn_main (multiprocessing/spawn.py:116)
+    <module> (<string>:1)
+Thread 62152 (idle): "Thread-2"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:60)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62740 (idle): "Thread-3 (_watchdog_thread)"
+    _watchdog_once (utils/watchdog.py:147)
+    _watchdog_thread (utils/watchdog.py:127)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62909 (idle): "Thread-4 (bootstrap_thread)"
+    recv_multipart (zmq/sugar/socket.py:813)
+    bootstrap_thread (mooncake/conn.py:2755)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 62910 (idle): "Thread-5 (transfer_worker)"
+    wait (threading.py:320)
+=== pid 64237 bash
+Error: Failed to find python version from target process

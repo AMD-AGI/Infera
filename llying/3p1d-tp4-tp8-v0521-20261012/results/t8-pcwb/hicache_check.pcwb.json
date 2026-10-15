@@ -1,0 +1,100 @@
+{
+  "verdict": "fail",
+  "errors": [],
+  "mismatches": [
+    {
+      "probe": 4,
+      "fresh": "winter",
+      "reloaded": "signal"
+    },
+    {
+      "probe": 6,
+      "fresh": "river",
+      "reloaded": "vel"
+    },
+    {
+      "probe": 7,
+      "fresh": "signal",
+      "reloaded": "window"
+    },
+    {
+      "probe": 12,
+      "fresh": "needle",
+      "reloaded": "wal"
+    },
+    {
+      "probe": 13,
+      "fresh": "c",
+      "reloaded": "button"
+    }
+  ],
+  "max_logprob_delta": 3.2786,
+  "logprobs_returned": true,
+  "phase_a": {
+    "evicted_tokens_total": 0.0,
+    "hicache_backup_tokens_total": 0.0,
+    "load_back_tokens_total": 0.0,
+    "cached_tokens_total": 0.0,
+    "prompt_tokens_total": 556808.0
+  },
+  "phase_b": {
+    "evicted_tokens_total": 1868992.0,
+    "hicache_backup_tokens_total": 1868992.0,
+    "load_back_tokens_total": 0.0,
+    "cached_tokens_total": 0.0,
+    "prompt_tokens_total": 25046269.0
+  },
+  "phase_c": {
+    "evicted_tokens_total": 0.0,
+    "hicache_backup_tokens_total": 0.0,
+    "load_back_tokens_total": 0.0,
+    "cached_tokens_total": 556032.0,
+    "prompt_tokens_total": 556808.0
+  },
+  "probe_tokens": 640000,
+  "probe_seconds": {
+    "fresh": [
+      7.02,
+      7.03,
+      7.05,
+      7.67,
+      7.76,
+      7.83,
+      8.08,
+      8.09,
+      8.1,
+      8.11,
+      8.19,
+      8.2,
+      8.7,
+      8.71,
+      9.98,
+      10.0
+    ],
+    "reloaded": [
+      0.91,
+      0.99,
+      0.99,
+      1.02,
+      1.06,
+      1.06,
+      1.08,
+      1.08,
+      1.09,
+      1.09,
+      1.1,
+      1.16,
+      1.17,
+      1.17,
+      1.18,
+      1.18
+    ]
+  },
+  "params": {
+    "probes": 16,
+    "probe_tokens": 40000,
+    "fillers": 240,
+    "filler_tokens": 120000,
+    "concurrency": 48
+  }
+}

@@ -1,0 +1,58 @@
+card4,100,3187367098
+card5,100,3476947198
+card6,100,3278612331
+card7,100,3934677185
+=== pid 60703
+Process 60703: sglang::scheduler_DP0_TP0
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 60703 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+=== pid 60847
+Process 60847: sglang::scheduler_DP1_TP1
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 60847 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+=== pid 60993
+Process 60993: sglang::scheduler_DP2_TP2
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 60993 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+=== pid 61171
+Process 61171: sglang::scheduler_DP3_TP3
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 61171 (active): "MainThread"
+    synchronize (torch/cuda/streams.py:231)
+    process_batch_result_disagg_prefill (prefill.py:910)
+    process_batch_result (scheduler.py:4794)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    event_loop_overlap_disagg_prefill (prefill.py:844)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:5826)
+=== pid 64159
+Error: Failed to find python version from target process
