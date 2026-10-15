@@ -69,6 +69,7 @@ from dataclasses import dataclass, field
 
 from infera.projection.core.projection.training_config import InferenceConfig
 
+from . import gemm_shapes
 from .performance import InferencePerformanceProjector
 
 # Context-length bucket (tokens) for memoising step-cost kernel calls. Decode
@@ -176,9 +177,10 @@ class DESResult:
 class _CostKernel:
     """Memoised view over the projector's step-cost methods."""
 
-    def __init__(self, projector: InferencePerformanceProjector, q_len: int):
+    def __init__(self, projector: InferencePerformanceProjector, q_len: int, pool: str = "engine"):
         self._p = projector
         self._q = q_len
+        self._pool = pool
         self._decode: dict[tuple, float] = {}
         self._mixed: dict[tuple, float] = {}
 
@@ -190,7 +192,13 @@ class _CostKernel:
     def _tok(n: int) -> int:
         return max(_TOK_BUCKET, int(round(n / _TOK_BUCKET)) * _TOK_BUCKET)
 
+    def _record(self, tokens: int, sampled_rows: int) -> None:
+        trace = gemm_shapes.active()
+        if trace is not None:
+            trace.record(self._p, self._pool, tokens, sampled_rows)
+
     def decode_step_ms(self, batch: int, ctx: int) -> float:
+        self._record(batch * self._q, batch * self._q)
         key = (batch, self._bucket(ctx))
         v = self._decode.get(key)
         if v is None:
@@ -199,8 +207,16 @@ class _CostKernel:
         return v
 
     def mixed_step_ms(
-        self, num_decode: int, prefill_tokens: int, ctx: int, prefill_kv: int
+        self,
+        num_decode: int,
+        prefill_tokens: int,
+        ctx: int,
+        prefill_kv: int,
+        sampled_prefills: int = 1,
     ) -> float:
+        self._record(
+            num_decode * self._q + prefill_tokens, num_decode * self._q + max(1, sampled_prefills)
+        )
         key = (num_decode, self._tok(prefill_tokens), self._bucket(ctx), self._bucket(prefill_kv))
         v = self._mixed.get(key)
         if v is None:
@@ -612,7 +628,9 @@ def simulate_once(
         if prefill_q > 0:
             prefill_kv = int(sum(kv + q for _, q, kv in pref) / len(pref))
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
-            step_dt = kernel.mixed_step_ms(num_decode, prefill_q, decode_ctx, prefill_kv)
+            step_dt = kernel.mixed_step_ms(
+                num_decode, prefill_q, decode_ctx, prefill_kv, sampled_prefills=len(pref)
+            )
         else:
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
             step_dt = kernel.decode_step_ms(num_decode, decode_ctx)
@@ -1228,8 +1246,8 @@ def simulate_disaggregated(
     replicas = max(1, int(getattr(disagg, "decode_replicas", 1) or 1))
     p_replicas = max(1, int(getattr(disagg, "prefill_replicas", 1) or 1))
     prefill_proj, decode_proj = projector.pool_projectors()
-    p_kernel = _CostKernel(prefill_proj, q_len)
-    d_kernel = _CostKernel(decode_proj, q_len)
+    p_kernel = _CostKernel(prefill_proj, q_len, pool="prefill")
+    d_kernel = _CostKernel(decode_proj, q_len, pool="decode")
     p_gpus = _replica_gpus(prefill_proj.cfg) * p_replicas
     d_gpus = _replica_gpus(decode_proj.cfg) * replicas
 
@@ -1369,7 +1387,9 @@ def simulate_disaggregated(
         prefill_q = sum(q for _, q, _ in scheduled)
         avg_kv = int(sum(kv + q for _, q, kv in scheduled) / len(scheduled))
         # num_decode=0: this station never co-schedules a decode, by construction.
-        dt = p_kernel.mixed_step_ms(0, prefill_q, input_len, avg_kv)
+        dt = p_kernel.mixed_step_ms(
+            0, prefill_q, input_len, avg_kv, sampled_prefills=len(scheduled)
+        )
         now_p += dt
         p_busy += dt
         p_steps += 1
@@ -1936,20 +1956,22 @@ def run_des(
             for lam in rates:
                 if lam <= 0:
                     continue
-                curve.append(
-                    simulate_once(
-                        inference_config,
-                        projector,
-                        rate_per_s=lam,
-                        arrival_model=arrival_model,
-                        num_requests=sweep_n,
-                        seed=seed,
-                        warmup_frac=warmup_frac,
-                        burstiness=burstiness,
-                        range_ratio=range_ratio,
-                        kv_cache_tokens=kv_cache_tokens,
+                # The sweep replays other loads; the GEMM trace is of this one.
+                with gemm_shapes.paused():
+                    curve.append(
+                        simulate_once(
+                            inference_config,
+                            projector,
+                            rate_per_s=lam,
+                            arrival_model=arrival_model,
+                            num_requests=sweep_n,
+                            seed=seed,
+                            warmup_frac=warmup_frac,
+                            burstiness=burstiness,
+                            range_ratio=range_ratio,
+                            kv_cache_tokens=kv_cache_tokens,
+                        )
                     )
-                )
         out["curve"] = curve
         out["max_sustainable_rate"] = mu
     return out

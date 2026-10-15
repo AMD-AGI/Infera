@@ -327,3 +327,35 @@ def test_the_loop_stops_instead_of_spinning_when_nothing_can_progress():
     )
     assert res.num_requests == 0
     assert res.makespan_ms == 0.0
+
+
+def test_a_split_reports_each_pools_gemm_shapes_on_its_own_layout():
+    """The pools run different layouts, so their GEMMs are reported apart."""
+    from infera.projection.core.projection.inference_projection import gemm_shapes as gs
+    from infera.projection.core.projection.training_config import ModelConfig
+
+    mc = ModelConfig(
+        num_layers=2,
+        hidden_size=1024,
+        padded_vocab_size=32000,
+        ffn_hidden_size=4096,
+        num_attention_heads=16,
+        kv_channels=64,
+        swiglu=True,
+    )
+    prefill, decode = _Pool(tp=2), _Pool(tp=8)
+    for pool in (prefill, decode):
+        pool.cfg.model_config = mc
+    trace = gs.GemmTrace()
+    with gs.recording(trace):
+        _run(8, projector=_Projector(prefill, decode))
+    rows = trace.shapes()
+    qkv = {r["pool"]: r for r in rows if r["op"] == "attn_qkv"}
+    assert qkv["prefill"]["n"] == 3 * 1024 // 2
+    assert qkv["decode"]["n"] == 3 * 1024 // 8
+    # A pure decode step samples every sequence it carries.
+    for r in rows:
+        if r["pool"] == "decode" and r["op"] == "lm_head":
+            assert any(
+                q["m"] == r["m"] for q in rows if q["pool"] == "decode" and q["op"] == "attn_qkv"
+            )
