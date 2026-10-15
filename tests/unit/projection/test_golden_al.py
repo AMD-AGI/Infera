@@ -6,12 +6,16 @@
 """Speculative acceptance read from measured acceptance-length files.
 
 Every acceptance the projector uses comes from a file: a model's own golden
-curve, its sibling method's, or the method's default curve, which is itself
-derived from the golden files and must regenerate from them unchanged.
+curve, its sibling method's, or the method's default curve. The golden curves
+live outside the repo (InferenceX's golden_al_distribution, found through
+INFERASIM_GOLDEN_AL_DIR); the tests that read them skip without it. The
+defaults are checked in and must regenerate from the golden files unchanged.
 """
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -20,8 +24,32 @@ import yaml
 from infera.projection.core.projection.inference_projection import golden_al as ga
 
 
-def test_every_golden_file_parses_with_a_known_method():
-    curves = ga.golden_curves(ga.GOLDEN_DIR)
+@pytest.fixture
+def golden():
+    env = os.environ.get("INFERASIM_GOLDEN_AL_DIR")
+    if not env or not Path(env).is_dir():
+        pytest.skip("INFERASIM_GOLDEN_AL_DIR is not set to InferenceX's golden_al_distribution")
+    return Path(env)
+
+
+@pytest.fixture
+def curves(tmp_path, monkeypatch):
+    """A golden directory of toy curves, standing in for InferenceX's."""
+
+    def write(name, **modes):
+        body = {f"thinking_{m}": sweep for m, sweep in modes.items()}
+        (tmp_path / name).write_text(yaml.safe_dump({Path(name).stem: body}))
+
+    write("toy_mtp.yaml", on={1: 1.8, 2: 2.5, 3: 3.0}, off={1: 1.9, 2: 2.6, 3: 3.1})
+    write("other_mtp.yaml", on={1: 1.9, 2: 2.7, 3: 3.4})
+    write("toy_dspark.yaml", on={1: 1.7, 2: 2.3, 3: 2.8, 7: 3.84})
+    write("toy_dspark_atom.yaml", on={1: 1.7, 2: 2.3, 3: 2.8, 7: 3.78})
+    monkeypatch.setenv("INFERASIM_GOLDEN_AL_DIR", str(tmp_path))
+    return tmp_path
+
+
+def test_every_golden_file_parses_with_a_known_method(golden):
+    curves = ga.golden_curves(golden)
     assert len(curves) >= 11
     for c in curves:
         assert c.method in ("mtp", "eagle3", "dspark"), c.name
@@ -29,16 +57,22 @@ def test_every_golden_file_parses_with_a_known_method():
         assert all(1.0 < al <= k + 1 for k, al in pts.items()), c.name
 
 
-def test_default_files_regenerate_from_the_golden_files():
-    derived = ga.derive_defaults(ga.GOLDEN_DIR)
+def test_default_files_regenerate_from_the_golden_files(golden):
+    derived = ga.derive_defaults(golden)
     assert set(derived) == {"mtp", "eagle3", "dspark", "draft_model", "ngram"}
     for method, entry in derived.items():
         on_disk = (ga.DEFAULTS_DIR / f"{method}.yaml").read_text()
         assert on_disk == ga.render_default(method, entry), (
             f"defaults/{method}.yaml is stale; regenerate with "
             f"python -m infera.projection.core.projection.inference_projection.golden_al "
-            f"--write-defaults"
+            f"--write-defaults --golden-dir {golden}"
         )
+
+
+def test_deriving_defaults_needs_the_golden_files(monkeypatch):
+    monkeypatch.delenv("INFERASIM_GOLDEN_AL_DIR", raising=False)
+    with pytest.raises(FileNotFoundError, match="INFERASIM_GOLDEN_AL_DIR"):
+        ga.derive_defaults()
 
 
 @pytest.mark.parametrize("method", ["mtp", "eagle3", "dspark", "draft_model", "ngram"])
@@ -53,9 +87,12 @@ def test_default_curves_are_non_decreasing_over_the_sweep(method):
         assert all(1.0 < v <= k + 1 for k, v in zip(ga.DEFAULT_DEPTHS, vals))
 
 
-def test_default_mtp_curve_sits_inside_the_models_it_summarises():
+def test_default_mtp_curve_sits_inside_the_models_it_summarises(golden):
     on = ga.default_curve("mtp").points("on")[0]
-    at3 = [ga.load_curve(n).points("on")[0][3] for n in ("glm5.2_mtp", "dsv4_mtp", "qwen3.5_mtp")]
+    at3 = [
+        ga.load_curve(golden / f"{n}.yaml").points("on")[0][3]
+        for n in ("glm5.2_mtp", "dsv4_mtp", "qwen3.5_mtp")
+    ]
     assert min(at3) <= on[3] <= max(at3)
 
 
@@ -67,10 +104,10 @@ def test_depths_interpolate_and_extrapolate_from_measurement():
     beyond = [ga.al_at(pts, k) for k in (4, 5, 6, 10)]
     assert beyond == sorted(beyond)
     assert beyond[0] == 3.2 and beyond[-1] <= 11.0
-    # A short sweep is carried past its last depth by the fitted chain, not
-    # held flat and not run away.
-    flash = ga.load_curve("dsv41flash_dspark.yaml").points("on")[0]
-    assert max(flash) == 5
+    # A short sweep (InferenceX's dsv41flash_dspark.yaml, thinking_on) is
+    # carried past its last depth by the fitted chain, not held flat and not
+    # run away.
+    flash = {1: 1.81, 2: 2.43, 3: 2.90, 4: 3.26, 5: 3.51}
     assert flash[5] < ga.al_at(flash, 7) < flash[5] + 0.6
 
 
@@ -78,60 +115,62 @@ def _model(**spec):
     return SimpleNamespace(mtp_num_layers=1, speculative=spec or None)
 
 
-def test_resolution_order():
-    glm = _model(mtp={"acceptance": "glm5.2_mtp.yaml"})
-    acc = ga.resolve("mtp", model_config=glm)
-    assert acc.source == "model:glm5.2_mtp.yaml[thinking_on]"
-    assert acc.at(3) == 2.99
+def test_resolution_order(curves):
+    toy = _model(mtp={"acceptance": "toy_mtp.yaml"})
+    acc = ga.resolve("mtp", model_config=toy)
+    assert acc.source == "model:toy_mtp.yaml[thinking_on]"
+    assert acc.at(3) == 3.0
     # EAGLE3 stands in for MTP, and the other way round.
-    e3 = ga.resolve("eagle3", model_config=glm)
-    assert e3.source.startswith("model mtp as eagle3:glm5.2_mtp.yaml")
-    assert e3.at(3) == 2.99
+    e3 = ga.resolve("eagle3", model_config=toy)
+    assert e3.source.startswith("model mtp as eagle3:toy_mtp.yaml")
+    assert e3.at(3) == 3.0
     # No curve of its own or its sibling's: the method's default.
-    ds = ga.resolve("dspark", model_config=glm)
+    ds = ga.resolve("dspark", model_config=toy)
     assert ds.source.startswith("default:dspark.yaml")
-    # An explicit file wins over the model's.
-    f = ga.resolve("mtp", model_config=glm, curve="qwen3.5_mtp")
-    assert f.source.startswith("file:qwen3.5_mtp.yaml") and f.at(3) == 3.39
+    # An explicit file wins over the model's, by name or by path.
+    f = ga.resolve("mtp", model_config=toy, curve="other_mtp")
+    assert f.source.startswith("file:other_mtp.yaml") and f.at(3) == 3.4
+    p = ga.resolve("mtp", model_config=toy, curve=str(curves / "other_mtp.yaml"))
+    assert p.at(3) == 3.4
 
 
-def test_engine_variants_and_thinking_modes():
-    kimi = SimpleNamespace(
+def test_engine_variants_and_thinking_modes(curves):
+    toy = SimpleNamespace(
         speculative=SimpleNamespace(
             default="dspark",
             dspark=SimpleNamespace(
-                acceptance=SimpleNamespace(
-                    default="kimik3_dspark_probabilistic_sample_method_block_rejection_sample_method.yaml",
-                    atom="kimik3_dspark.yaml",
-                )
+                acceptance=SimpleNamespace(default="toy_dspark.yaml", atom="toy_dspark_atom.yaml")
             ),
         )
     )
-    assert ga.default_method(kimi) == "dspark"
-    assert ga.resolve("dspark", model_config=kimi, engine="vllm").at(7) == 3.84
-    assert ga.resolve("dspark", model_config=kimi, engine="atom").at(7) == 3.78
-    dsv4 = _model(mtp={"acceptance": "dsv4_mtp.yaml"})
-    assert ga.resolve("mtp", model_config=dsv4, thinking="off").at(3) == 2.97
-    assert ga.resolve("mtp", model_config=dsv4, thinking=False).at(3) == 2.97
+    assert ga.default_method(toy) == "dspark"
+    assert ga.resolve("dspark", model_config=toy, engine="vllm").at(7) == 3.84
+    assert ga.resolve("dspark", model_config=toy, engine="atom").at(7) == 3.78
+    mtp = _model(mtp={"acceptance": "toy_mtp.yaml"})
+    assert ga.resolve("mtp", model_config=mtp, thinking="off").at(3) == 3.1
+    assert ga.resolve("mtp", model_config=mtp, thinking=False).at(3) == 3.1
     # A curve measured in one mode only is read in that mode, and says so.
-    k3 = ga.resolve("dspark", model_config=kimi, thinking="off")
-    assert k3.source.endswith("[thinking_on]")
+    one = ga.resolve("dspark", model_config=toy, thinking="off")
+    assert one.source.endswith("[thinking_on]")
 
 
-def test_override_directory(tmp_path, monkeypatch):
-    (tmp_path / "toy_mtp.yaml").write_text(
-        yaml.safe_dump({"toy": {"thinking_on": {1: 1.5, 2: 1.9, 3: 2.1}}})
-    )
-    monkeypatch.setenv("INFERASIM_GOLDEN_AL_DIR", str(tmp_path))
-    acc = ga.resolve("mtp", model_config=_model(mtp={"acceptance": "toy_mtp.yaml"}))
-    assert acc.at(3) == 2.1
+def test_a_model_file_not_found_reads_the_default(monkeypatch):
+    monkeypatch.delenv("INFERASIM_GOLDEN_AL_DIR", raising=False)
+    acc = ga.resolve("mtp", model_config=_model(mtp={"acceptance": "glm5.2_mtp.yaml"}))
+    assert acc.source == "default:mtp.yaml[thinking_on] (glm5.2_mtp.yaml not found)"
+    assert acc.points == ga.default_curve("mtp").points("on")[0]
 
 
-def test_shipped_presets_name_files_that_exist():
-    from pathlib import Path
+def test_an_explicit_file_not_found_is_an_error(monkeypatch):
+    monkeypatch.delenv("INFERASIM_GOLDEN_AL_DIR", raising=False)
+    with pytest.raises(FileNotFoundError, match="INFERASIM_GOLDEN_AL_DIR is unset"):
+        ga.resolve("mtp", curve="glm5.2_mtp.yaml")
 
+
+def test_shipped_presets_name_files_that_exist(golden, monkeypatch):
     from infera.projection.core.config.yaml_loader import parse_yaml
 
+    monkeypatch.setenv("INFERASIM_GOLDEN_AL_DIR", str(golden))
     models = Path(ga.__file__).resolve().parents[3] / "configs" / "models" / "megatron"
     seen = 0
     for path in sorted(models.glob("*.yaml")):

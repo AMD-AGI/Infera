@@ -7,19 +7,21 @@
 
 How many drafts a target keeps is never made up here: it comes from a file of
 measured acceptance lengths (AL, tokens committed per verify step including
-the bonus token) keyed by draft depth. Two sets of files exist.
+the bonus token) keyed by draft depth.
 
-``configs/speculative/golden_al`` holds InferenceX's golden curves
-(``golden_al_distribution``), copied verbatim. Each was measured with vLLM's
-own acceptance counters on SPEED-Bench's Qualitative coding category at
-temperature 1.0 and 4096 output tokens, per thinking mode, and is the value
-InferenceX pins its throughput runs to. ``INFERASIM_GOLDEN_AL_DIR`` points the
-loader at a live checkout instead.
+``configs/speculative/defaults`` holds one curve per method, and is the only
+set checked in. The MTP, EAGLE3 and DSpark defaults are derived from
+InferenceX's golden curves (``golden_al_distribution`` in the InferenceX
+repo, measured with vLLM's own acceptance counters on SPEED-Bench's
+Qualitative coding category at temperature 1.0 and 4096 output tokens, per
+thinking mode) by ``derive_defaults``; ``python -m <this module>
+--write-defaults --golden-dir <InferenceX>/golden_al_distribution``
+regenerates them.
 
-``configs/speculative/defaults`` holds one curve per method, derived from the
-golden files by ``derive_defaults`` (``python -m <this module>
---write-defaults`` regenerates them). They stand in for a model nobody has
-measured.
+A measured curve is supplied from outside the repo: an explicit file path
+(``speculative_acceptance_curve``), or a local directory of golden files in
+``INFERASIM_GOLDEN_AL_DIR`` that the file names in the model YAMLs are
+looked up in. A model whose named file is not found reads the default.
 
 A model names its own curves in its model YAML, under ``speculative``::
 
@@ -54,7 +56,6 @@ import yaml
 from .speculative import AR_MAX, acceptance_length, canonical_method, chain_rates
 
 _CONFIG_DIR = Path(__file__).resolve().parents[3] / "configs" / "speculative"
-GOLDEN_DIR = _CONFIG_DIR / "golden_al"
 DEFAULTS_DIR = _CONFIG_DIR / "defaults"
 SPEED_BENCH_FILE = _CONFIG_DIR / "speed_bench_table1.yaml"
 
@@ -69,9 +70,9 @@ _SIBLING = {"mtp": "eagle3", "eagle3": "mtp"}
 _GOLDEN_METHODS = ("mtp", "eagle3", "dspark")
 
 
-def golden_dir() -> Path:
+def golden_dir() -> Path | None:
     env = os.environ.get("INFERASIM_GOLDEN_AL_DIR")
-    return Path(env) if env else GOLDEN_DIR
+    return Path(env).expanduser() if env else None
 
 
 @dataclass(frozen=True)
@@ -137,17 +138,20 @@ def _load(path: str) -> Curve:
 
 
 def find_file(ref: str) -> Path:
-    """A curve file by path, or by name in the golden or the defaults directory."""
+    """A curve file by path, or by name in ``INFERASIM_GOLDEN_AL_DIR`` or the defaults."""
     p = Path(str(ref)).expanduser()
     if p.is_file():
         return p
     name = p.name if p.suffix in (".yaml", ".yml") else f"{p.name}.yaml"
-    for base in (golden_dir(), GOLDEN_DIR, DEFAULTS_DIR):
+    bases = [b for b in (golden_dir(), DEFAULTS_DIR) if b is not None]
+    for base in bases:
         cand = base / name
         if cand.is_file():
             return cand
     raise FileNotFoundError(
-        f"no acceptance-length file {ref!r} in {golden_dir()} or {DEFAULTS_DIR}"
+        f"no acceptance-length file {ref!r}: not a path, and not in "
+        + " or ".join(str(b) for b in bases)
+        + ("" if golden_dir() else " (INFERASIM_GOLDEN_AL_DIR is unset)")
     )
 
 
@@ -156,7 +160,12 @@ def load_curve(ref: str) -> Curve:
 
 
 def golden_curves(directory: str | Path | None = None) -> list[Curve]:
-    base = Path(directory) if directory else golden_dir()
+    base = Path(directory).expanduser() if directory else golden_dir()
+    if base is None or not base.is_dir():
+        raise FileNotFoundError(
+            "golden acceptance files are not in the repo: pass a directory or set "
+            "INFERASIM_GOLDEN_AL_DIR to InferenceX's golden_al_distribution"
+        )
     return [_load(str(p.resolve())) for p in sorted(base.glob("*.yaml"))]
 
 
@@ -356,10 +365,12 @@ def resolve(
 ) -> Acceptance:
     """The acceptance curve for ``method`` on this model, engine and thinking mode."""
     m = canonical_method(method) or "mtp"
+    if curve:
+        c = load_curve(curve)
+        pts, mode = c.points(thinking)
+        return Acceptance(pts, f"file:{c.name}[thinking_{mode}]")
     spec = model_speculative(model_config) if model_config is not None else {}
     candidates = []
-    if curve:
-        candidates.append(("file", curve))
     own = _model_file(spec, m, engine)
     if own:
         candidates.append(("model", own))
@@ -368,13 +379,19 @@ def resolve(
         sib_file = _model_file(spec, sib, engine)
         if sib_file:
             candidates.append((f"model {sib} as {m}", sib_file))
+    missing = []
     for kind, ref in candidates:
-        c = load_curve(ref)
+        try:
+            c = load_curve(ref)
+        except FileNotFoundError:
+            missing.append(Path(str(ref)).name)
+            continue
         pts, mode = c.points(thinking)
         return Acceptance(pts, f"{kind}:{c.name}[thinking_{mode}]")
     c = default_curve(m)
     pts, mode = c.points(thinking)
-    return Acceptance(pts, f"default:{c.name}[thinking_{mode}]")
+    note = f" ({', '.join(missing)} not found)" if missing else ""
+    return Acceptance(pts, f"default:{c.name}[thinking_{mode}]{note}")
 
 
 # ---- the default curves ------------------------------------------------------
@@ -464,12 +481,13 @@ def render_default(method: str, entry: dict) -> str:
         f"# Default acceptance length for {method}, for a model with no measured curve.",
         "# Generated by golden_al.derive_defaults; regenerate with",
         "#   python -m infera.projection.core.projection.inference_projection.golden_al"
-        " --write-defaults",
+        " --write-defaults \\",
+        "#     --golden-dir <InferenceX>/golden_al_distribution",
     ]
     if "models" in entry:
         lines.append(
-            "# Median across models of the InferenceX golden curves (SPEED-Bench coding,"
-            " temperature 1.0),"
+            "# Median across models of the InferenceX golden curves (golden_al_distribution;"
+            " SPEED-Bench coding, temperature 1.0),"
         )
         lines.append("# each carried to depths 1-8, a model's own files averaged first.")
         for mode, models in entry["models"].items():
@@ -509,7 +527,11 @@ if __name__ == "__main__":
 
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--write-defaults", action="store_true", help="regenerate the default curves")
-    ap.add_argument("--golden-dir", default=None, help="golden files to derive from")
+    ap.add_argument(
+        "--golden-dir",
+        default=None,
+        help="InferenceX golden_al_distribution to derive from (default: INFERASIM_GOLDEN_AL_DIR)",
+    )
     ns = ap.parse_args()
     if ns.write_defaults:
         for p in write_defaults(ns.golden_dir):
