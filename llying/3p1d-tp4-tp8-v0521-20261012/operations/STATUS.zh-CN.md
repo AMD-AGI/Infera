@@ -350,3 +350,20 @@
 - 09:55 `/home` 回到 76 GB 空闲，手工补救 C192：从 137 本地拷回客户端摘要，按 `tune_post.sh` 的步骤重建 census、flush check、prefill / decode 均衡、
   每步节奏，抓 router 指标（router 未重启），写 `results/t6-mem092/c192/RESCUED.txt`；`queue.done` 设为 36，队列里 t7 五行注释为 `#DEFERRED`。
   待做：编排脚本对 EDQUOT 的加固（写失败不退出、拷回失败等待重试、重启前检查 `/home` 余量），重启 sampler 和 hang 监视器。
+- 10:02–10:50 讨论（用户）：(1) 先把 decode TP8 的 batch 推到最大（它也决定后面计算优化的 batch 区间），prefill_complete 是扩 decode 在跑容量最有效的手段
+  （C192 时在跑请求占 KV 77%、每个 22.0 万 token，等传输占约 19%）；(2) 3P1D 扩容不再增长后再减 prefill 卡，减卡后按各形态自己的瓶颈选手段，不照搬
+  prefill_complete。执行顺序写入 PLAN-TUNING 末节"10:50 执行顺序"。
+- 10:56–11:01 防 `/home` 写满加固：`scripts/wait_home_space.sh`（队列每步开始前、轮次开始与收尾前等 /home ≥ 20 / 5 GB）；`tune_round.sh` 经
+  `tee --output-error=warn` 写 agentx.log（agentx_bench 在 set -e 下写满即退出的根因）；`agentx_bench.sh` 的 runner.log 同样处理并显式取客户端退出码，
+  结果拷回失败每 60 s 重试、最多 2 小时；`tune_queue.sh` 进度文件写失败重试；`hang_watch.py` 写失败改写节点本地 `NODE_RW_ROOT/hang_watch.fallback.log`；
+  `sampler.py` 写失败把样本留在内存下轮补写；新增 `scripts/start_sampler.sh`（幂等，自身 stderr 写节点本地）。新增 `scripts/gate_throughput.sh`
+  （结果低于阈值即让队列停下）。11:00 sampler、hang 监视器重启。
+- 11:01 队列启动 t8（第 37–42 步）：`restart_all_engines.sh OVERLAY=config/stage-pcwb.sh TAG=pcwb`（3P1D + prefill_complete + prefill write_back，
+  decode 也设 prefill_complete）→ hicache_check → warm-pcwb（C192，60 分钟）→ t8-pcwb C192 → 门禁（≥ 31,192）→ t8-pcwb C208。
+- 11:02 第 37 步失败：新 decode 启动时报 `prefill_complete does not yet support attention tensor parallelism greater than one`。原因是 v0.5.21 的
+  `_validate_prefill_complete` 用 `dp_size` 算 attention DP 宽度，而 v0.5.21 自己把 `--dp-size 8 --enable-dp-attention` 解析为 `dp_size=1`、
+  `attn_dp_size=8`（server_info 可证），于是把完整 DP attention 误判为"attention TP > 1"；该校验的本意（`tp_size == attn_dp_size`）恰恰支持完整 DP attention。
+  修法：运行时补丁 `patches/runtime-mounts/pd_disaggregation_hook.llying-attndp.py`（优先用 `attn_dp_size`），经 `config/mounts.pcwb.tsv` 只在
+  t8 overlay 里挂到 prefill 和 decode（`PREFILL_MOUNTS_ADD` / `DECODE_MOUNTS_ADD`）。栈此时：decode 已退出、router 已退役、三个 prefill 仍是旧配置。
+- 11:07 重跑（TAG=pcwb2，旧 TAG 的容器名已被占用）又因 `restart_all_engines.sh` 要向已退役的 router 查在线 prefill 数而退出（JSON 解析空串）；
+  改为查不到 router 时用拓扑里的 prefill 数。11:09 第三次启动，decode 通过校验（启动参数 `prefill_complete`，补丁已挂入），继续重启 prefill。

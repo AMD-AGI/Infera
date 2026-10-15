@@ -16,4 +16,9 @@ EXTRA_ENV_prefill_2="HSA_NO_SCRATCH_RECLAIM=1"
 PREFILL_HICACHE_WRITE_POLICY=write_back
 PREFILL_EXTRA_ARGS="--disaggregation-decode-allocation-policy prefill_complete"
 EXTRA_ARGS_decode_0="--tokenizer-worker-num 4 --disaggregation-decode-allocation-policy prefill_complete"
-DECODE_LOG=decode-0.after-pcwb.log
+DECODE_LOG=decode-0.after-pcwb2.log
+# v0.5.21 _validate_prefill_complete computes the attention DP width from dp_size, which v0.5.21 itself resolves
+# to 1 under DP attention (attn_dp_size=8), and rejects full DP attention as "attention TP > 1" (11:02 decode start).
+# Patched copy compares against attn_dp_size; mounted on both roles.
+PREFILL_MOUNTS_ADD="$R/config/mounts.pcwb.tsv"
+DECODE_MOUNTS_ADD="$R/config/mounts.pcwb.tsv"

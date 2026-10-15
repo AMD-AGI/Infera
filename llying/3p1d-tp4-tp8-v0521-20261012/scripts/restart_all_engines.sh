@@ -22,7 +22,10 @@ cp "$OVERLAY" "$round_file"
 say "installed $(basename "$OVERLAY") as $(basename "$round_file")"
 set -a; source "$R/config/config.3p1d.sh"; set +a
 live_prefills="$(curl -fsS --max-time 10 "http://$(python3 "$BENCH_DIR/tools/topology.py" node-ip "$TOPOLOGY" "$CONTROL_NODE"):$ROUTER_PORT/v1/workers" |
-    python3 -c 'import json,sys; p=json.load(sys.stdin); w=p if isinstance(p,list) else (p.get("workers") or p.get("data") or []); print(sum(1 for x in w if x.get("disagg_mode")=="prefill"))')"
+    python3 -c 'import json,sys; p=json.load(sys.stdin); w=p if isinstance(p,list) else (p.get("workers") or p.get("data") or []); print(sum(1 for x in w if x.get("disagg_mode")=="prefill"))' 2>/dev/null)" || true
+# No router (a previous attempt retired it before failing): count the prefills of the topology instead.
+[[ "$live_prefills" =~ ^[0-9]+$ ]] ||
+    live_prefills="$(python3 "$BENCH_DIR/tools/topology.py" rows "$TOPOLOGY" | awk -F'\t' '$3 == "prefill"' | wc -l)"
 EXPECT_WORKERS=$(( live_prefills + 1 )) bash "$HERE/restart_decode.sh" "ROUND=$ROUND" SIM=3.61 "LAUNCH_DIR=$RUNS/launch" "TAG=$TAG"
 say "decode restarted"
 bash "$HERE/restart_prefills.sh" "ROUND=$ROUND" "OVERLAY=$OVERLAY" "TAG=${TAG}p"

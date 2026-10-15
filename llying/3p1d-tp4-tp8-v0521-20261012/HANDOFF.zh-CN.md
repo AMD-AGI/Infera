@@ -11,7 +11,9 @@
 ## 栈当前状态（10-15 05:21，ROUND=r2，容器前缀 glm52-llying-3p1d-r2-）
 - decode-0（138，mem **0.92**，tok4，日志名 `decode-0.after-mem092.log`）、prefill-0（135，400 GB HiCache）、prefill-1（137 **card4–7**）、
   prefill-2（137 card0–3，05:14 重启，**`HSA_NO_SCRATCH_RECLAIM=1`**）在运行；router 在 137。`config/round.r2.sh` = `config/stage-mem092-nsr.sh`。
-- **10-15 09:55 状态**：第 34–36 步（warm-mem092b、t6-mem092 C176 = 30,291、C192 = **31,829，目前最高**）已完成；07:57 共享 `/home` 写满，
+- **10-15 11:01 状态**：队列在跑 t8（3P1D + prefill_complete + write_back，`config/stage-pcwb.sh`；第 37–42 步，见 PLAN-TUNING 末节"10:50 执行顺序"）；
+  sampler、hang 监视器已按加固后的版本重启；编排脚本已做防 `/home` 写满加固（STATUS 11:00 条）。
+- 10-15 09:55 状态（已过时）：第 34–36 步（warm-mem092b、t6-mem092 C176 = 30,291、C192 = **31,829，目前最高**）已完成；07:57 共享 `/home` 写满，
   队列驱动、轮次脚本、hang 监视器全部退出（sampler 自 14 日 22:00 起就已退出），**现在没有任何编排进程在跑**；C192 已手工补救（`results/t6-mem092/c192/RESCUED.txt`），
   `queue.done` = 36。重启编排前先做 EDQUOT 加固（见 STATUS 末条）。
 - 挂起监视器 `scripts/hang_watch.py`（`scripts/start_hang_watch.sh` 幂等启动，日志 `runtime/runs/r2/tune/hang_watch.log`）：

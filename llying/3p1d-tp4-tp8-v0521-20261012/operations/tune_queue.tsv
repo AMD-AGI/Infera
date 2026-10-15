@@ -77,7 +77,8 @@ round t6-mem092 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AF
 # was rescued by hand after the queue driver died at 07:57 (/home full); queue.done set to 36.
 # 10-15 11:00 t8 = phase A (PLAN-TUNING 10-15 10:50): 3P1D + prefill_complete + write_back (config/stage-pcwb.sh). Full restart, gate
 # (transfer smoke + hicache_check), 60-min warm-up at C192, scored C192; go upward only if C192 >= 31,192 (98% of t6-mem092 C192 = 31,829).
-run restart_all_engines.sh ROUND=r2 OVERLAY=config/stage-pcwb.sh TAG=pcwb
+# 11:02 first attempt (TAG=pcwb) failed: decode rejected prefill_complete (validator bug, see config/stage-pcwb.sh); rerun as pcwb2.
+run restart_all_engines.sh ROUND=r2 OVERLAY=config/stage-pcwb.sh TAG=pcwb2
 run hicache_check.sh ROUND=r2 TAG=pcwb
 run warmup_round.sh VARIANT=warm-pcwb CONC=192 MINUTES=60
 round t8-pcwb 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
