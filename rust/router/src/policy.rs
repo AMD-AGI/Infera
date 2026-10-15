@@ -806,6 +806,11 @@ impl Policy for KvEventAwarePolicy {
                 mode=?self.decode_input_demand, exact=work[picked].1, candidates=?keys, projected_tokens=?costs,
                 legacy_selected=%keys[legacy_pick], selected=%keys[picked], suggested=%keys[suggested],
                 "decode input demand");
+            crate::metrics::record_decode_demand_decision(
+                if on { "on" } else { "shadow" },
+                work[picked].1,
+                suggested == legacy_pick,
+            );
             (picked, Some(reservation), on)
         } else {
             (legacy_pick, None, false)

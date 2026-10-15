@@ -58,6 +58,7 @@ impl Reservation {
         let entry = state.entry(key.clone()).or_default();
         entry.tokens += u128::from(tokens);
         entry.requests += 1;
+        crate::metrics::set_decode_demand_tokens(&key, Some(entry.tokens));
         Self {
             ledger: ledger.clone(),
             key,
@@ -78,6 +79,9 @@ impl Drop for Reservation {
         entry.requests = entry.requests.saturating_sub(1);
         if entry.requests == 0 {
             state.remove(&self.key);
+            crate::metrics::set_decode_demand_tokens(&self.key, None);
+        } else {
+            crate::metrics::set_decode_demand_tokens(&self.key, Some(entry.tokens));
         }
     }
 }
@@ -153,6 +157,24 @@ mod tests {
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
             .is_empty());
+    }
+
+    #[test]
+    fn booked_tokens_are_exported_until_released() {
+        let series = "infera_router_decode_demand_tokens{target=\"metrics-test#dp1\"}";
+        let exported = || {
+            let text = String::from_utf8(crate::metrics::render().0).unwrap();
+            text.lines()
+                .find_map(|line| line.strip_prefix(series).map(str::trim).map(str::to_owned))
+        };
+        let ledger = Ledger::default();
+        let reservation = {
+            let mut state = ledger.lock().unwrap();
+            Reservation::book(&ledger, &mut state, "metrics-test#dp1".into(), 5)
+        };
+        assert_eq!(exported().as_deref(), Some("5"));
+        drop(reservation);
+        assert_eq!(exported(), None);
     }
 
     #[test]
