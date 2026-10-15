@@ -71,7 +71,7 @@ def command_value(command: list[str], option: str, default: str = "") -> str:
 def load_topology(path: Path, env) -> list[dict]:
     with path.open(encoding="utf-8", newline="") as stream:
         source = list(csv.DictReader(stream, delimiter="\t"))
-    counts = {"prefill": 0, "decode": 0}
+    counts = {"prefill": 0, "decode": 0, "mixed": 0}
     bases = [
         int(env["ENGINE_PORT_BASE"]), int(env["BOOTSTRAP_PORT_BASE"]),
         int(env["KV_EVENT_PORT_BASE"]), int(env["SNAPSHOT_PORT_BASE"]),
@@ -115,7 +115,7 @@ def worker_url(worker: dict) -> str:
 
 def worker_role(worker: dict) -> str:
     role = str(worker.get("disagg_mode") or worker.get("role") or worker.get("mode") or "").lower()
-    if role not in {"prefill", "decode"}:
+    if role not in {"prefill", "decode", "mixed"}:
         raise ValueError(f"worker has invalid role: {worker!r}")
     return role
 
@@ -153,10 +153,10 @@ def expected(env, role: str, instance: str = "") -> dict:
         # yihou v0521dbg: --no-enable-dsa-fused-indexer and the writer env, both legs.
         "dsa_fused_indexer_off": env.get("DSA_FUSED_INDEXER", "default") == "off",
         "aiter_fused_fp8_writer_off": env.get("AITER_FUSED_FP8_INDEXER_WRITER", "default") == "off",
-        "host_register_chunk_gb": (chunk_gb or None) if role == "prefill" else None,
+        "host_register_chunk_gb": (chunk_gb or None) if role in ("prefill", "mixed") else None,
         "pid_host": env.get("ENGINE_PID_HOST", "0") == "1",
         "ipc_legacy": env.get("IPC_MODE_LEGACY", "0") == "1",
-        "mtp": role == "decode" and bool_value(env["DECODE_MTP"]),
+        "mtp": role in ("decode", "mixed") and bool_value(env[f"{prefix}_MTP"]),
         "max_running": int(env[f"{prefix}_MAX_RUNNING"]),
         "graph_max_bs": int(env[f"{prefix}_GRAPH_MAX_BS"]),
         "dsa_prefill_backend": env.get("DSA_PREFILL_BACKEND", "tilelang"),
@@ -171,6 +171,7 @@ def expected(env, role: str, instance: str = "") -> dict:
 
 def actual(row: dict, info: dict, container: dict, env) -> dict:
     command = [str(item) for item in (container.get("Config") or {}).get("Cmd", [])]
+    # An aggregated (mixed) worker captures decode graphs only.
     graph_option = (
         "--cuda-graph-max-bs-prefill"
         if row["role"] == "prefill"
@@ -216,11 +217,13 @@ def actual(row: dict, info: dict, container: dict, env) -> dict:
             raise ValueError(
                 f"{row['instance']}: live {key}={value[key]!r}, config expects {wanted!r}"
             )
-    if value["kv_transfer"] != env["KV_P2P_TRANSFER"]:
+    if row["role"] != "mixed" and value["kv_transfer"] != env["KV_P2P_TRANSFER"]:
         raise ValueError(f"{row['instance']}: KV transfer differs from config")
     if value["model_path"] != env["MODEL"]:
         raise ValueError(f"{row['instance']}: model path differs from config")
-    wanted_simulation = env.get("DECODE_SIMULATE_ACC_LEN", "") if row["role"] == "decode" else ""
+    wanted_simulation = (
+        env.get(f"{row['role'].upper()}_SIMULATE_ACC_LEN", "") if row["role"] in ("decode", "mixed") else ""
+    )
     if value["simulate_acc_len"] != wanted_simulation:
         raise ValueError(f"{row['instance']}: simulated acceptance differs from config")
     if int(info.get("hicache_size") or 0) != value["hicache_size"]:
@@ -298,7 +301,7 @@ def main() -> int:
             raise ValueError(
                 f"router workers differ: expected={sorted(expected_urls)}, actual={sorted(discovered)}"
             )
-        role_settings = {"prefill": [], "decode": []}
+        role_settings = {"prefill": [], "decode": [], "mixed": []}
         image_ids = {}
         served_models = set()
         for row in topology:
@@ -320,11 +323,16 @@ def main() -> int:
         # each one was already checked against its own expectation in actual().
         per_instance = {"hicache_size", "host_register_chunk_gb"}
         for role, settings in role_settings.items():
+            if not settings:
+                continue
             shared = [{k: v for k, v in item.items() if k not in per_instance} for item in settings]
             if len({json.dumps(item, sort_keys=True) for item in shared}) != 1:
                 raise ValueError(f"{role} workers have different settings")
-        p = role_settings["prefill"][0]
-        d = role_settings["decode"][0]
+        mixed = bool(role_settings["mixed"])
+        if mixed and (role_settings["prefill"] or role_settings["decode"]):
+            raise ValueError("a topology mixes aggregated and PD workers")
+        p = role_settings["mixed"][0] if mixed else role_settings["prefill"][0]
+        d = role_settings["mixed"][0] if mixed else role_settings["decode"][0]
         nodes = list(dict.fromkeys(row["node"] for row in topology))
         hardware = detect_hardware(options, nodes)
         dram = detect_dram(options, nodes)
@@ -363,7 +371,8 @@ def main() -> int:
             "AIPERF_HTTP_TCP_USER_TIMEOUT": "900000",
             "CONC": str(args.concurrency), "DURATION": str(args.duration),
             "IS_AGENTIC": "1", "SCENARIO_TYPE": "agentic-coding",
-            "IS_MULTINODE": "true", "DISAGG": "true",
+            # An aggregated topology is scored like InferenceX single-node runs: GPUs = TP x PP x PCP.
+            "IS_MULTINODE": str(not mixed).lower(), "DISAGG": str(not mixed).lower(),
             "TP": str(p["tp"]), "EP_SIZE": str(p["ep"]),
             "DP_ATTENTION": str(p["dpa"] or d["dpa"]).lower(),
             "PREFILL_NUM_WORKERS": str(len(role_settings["prefill"])),
@@ -387,6 +396,10 @@ def main() -> int:
             "HF_HOME": str(args.hf_home.resolve()),
             "HOST_UID": str(os.getuid()), "HOST_GID": str(os.getgid()),
         }
+        if mixed:
+            for key in [k for k in values if k.startswith(("PREFILL_", "DECODE_")) and not k.endswith("_HARDWARE")]:
+                del values[key]
+            values["KV_P2P_TRANSFER"] = "none"
         # The infera router reads X-Dynamo-Session-ID only when INFERA_SESSION_AFFINITY
         # is on, so sending it in every tuning round keeps the client identical.
         session_header = env.get("AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID", "")

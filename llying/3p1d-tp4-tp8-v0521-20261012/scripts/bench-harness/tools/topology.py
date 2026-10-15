@@ -30,13 +30,15 @@ def load(path: str) -> list[dict[str, str]]:
     # Several instances may share one node and its data_ip, including two of the
     # same role (two TP4 prefills on one 8-GPU node). Rows are told apart by their
     # instance name; launch.sh rejects overlapping GPU sets on one node.
-    counts = {"prefill": 0, "decode": 0}
+    # "mixed" rows are aggregated workers (no PD disaggregation); a topology is either all
+    # mixed or has at least one prefill and one decode.
+    counts = {"prefill": 0, "decode": 0, "mixed": 0}
     for line, row in enumerate(source, 2):
         role = (row.get("role") or "").strip().lower()
         node = (row.get("node") or "").strip()
         data_ip = (row.get("data_ip") or "").strip()
         if role not in counts:
-            raise SystemExit(f"{path}:{line}: role must be prefill or decode")
+            raise SystemExit(f"{path}:{line}: role must be prefill, decode or mixed")
         if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.@-]*", node):
             raise SystemExit(f"{path}:{line}: unsafe node name {node!r}")
         try:
@@ -56,8 +58,11 @@ def load(path: str) -> list[dict[str, str]]:
                 "data_ip": data_ip,
             }
         )
-    if not all(counts.values()):
-        raise SystemExit(f"{path}: at least one prefill and one decode are required")
+    def complete(roles: set[str]) -> bool:
+        return roles == {"mixed"} or ("mixed" not in roles and {"prefill", "decode"} <= roles)
+
+    if not complete({role for role, count in counts.items() if count}):
+        raise SystemExit(f"{path}: need only mixed workers, or at least one prefill and one decode")
     # EXCLUDE_INSTANCES (e.g. "prefill-0") drops instances that are deliberately down on a
     # live stack (2P1D out of a 3P1D topology); the others keep their index, name and ports.
     excluded = set(os.environ.get("EXCLUDE_INSTANCES", "").replace(",", " ").split())
@@ -65,8 +70,8 @@ def load(path: str) -> list[dict[str, str]]:
     if unknown:
         raise SystemExit(f"{path}: EXCLUDE_INSTANCES names unknown instances {sorted(unknown)}")
     rows = [row for row in rows if row["instance"] not in excluded]
-    if not {"prefill", "decode"} <= {row["role"] for row in rows}:
-        raise SystemExit(f"{path}: EXCLUDE_INSTANCES leaves no prefill or no decode")
+    if not complete({row["role"] for row in rows}):
+        raise SystemExit(f"{path}: EXCLUDE_INSTANCES leaves an incomplete topology")
     return rows
 
 
