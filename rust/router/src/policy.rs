@@ -14,7 +14,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 
 use serde_json::Value;
 
@@ -52,6 +52,25 @@ pub struct Pick {
     pub decode_demand: Option<Reservation>,
 }
 
+/// One request's token ids per render variant, shared by all of its picks so
+/// the Prefill and Decode picks tokenize the prompt once.
+#[derive(Default)]
+pub struct RequestTokens(Mutex<HashMap<u64, Option<Arc<[u32]>>>>);
+
+impl RequestTokens {
+    fn get_or_tokenize(
+        &self,
+        variant: u64,
+        tokenize: impl FnOnce() -> Option<Vec<u32>>,
+    ) -> Option<Arc<[u32]>> {
+        let mut cached = self.0.lock().unwrap_or_else(PoisonError::into_inner);
+        cached
+            .entry(variant)
+            .or_insert_with(|| tokenize().map(Arc::from))
+            .clone()
+    }
+}
+
 pub trait Policy: Send + Sync {
     /// Pick one target. Callers guarantee `candidates` is non-empty.
     fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
@@ -59,6 +78,17 @@ pub trait Policy: Send + Sync {
     }
 
     fn pick_targets(&self, targets: &[RouteTarget], request: &Value, role: Role) -> Pick;
+
+    /// `pick_targets` for a request that is picked more than once.
+    fn pick_targets_with(
+        &self,
+        targets: &[RouteTarget],
+        request: &Value,
+        role: Role,
+        _tokens: &RequestTokens,
+    ) -> Pick {
+        self.pick_targets(targets, request, role)
+    }
 
     /// Constrain selection without rewriting worker identity or rank bookkeeping.
     fn pick_target(&self, target: &RouteTarget, request: &Value, role: Role) -> Pick {
@@ -581,6 +611,16 @@ impl KvEventAwarePolicy {
 
 impl Policy for KvEventAwarePolicy {
     fn pick_targets(&self, targets: &[RouteTarget], request: &Value, role: Role) -> Pick {
+        self.pick_targets_with(targets, request, role, &RequestTokens::default())
+    }
+
+    fn pick_targets_with(
+        &self,
+        targets: &[RouteTarget],
+        request: &Value,
+        role: Role,
+        tokens: &RequestTokens,
+    ) -> Pick {
         // Hash the request once per distinct (block_size, render variant).
         //
         // Both halves are usually 1. A model has one page size, and a fleet
@@ -603,34 +643,22 @@ impl Policy for KvEventAwarePolicy {
         // `chat_template_kwargs` onto a body `to_chat_body` rebuilds from
         // scratch, dropping the variant for `/v1/responses` alone.
         let base = crate::responses_input::normalised(request);
-        let demand_enabled =
-            role == Role::Decode && self.decode_input_demand != DecodeDemandMode::Off;
-        let mut tokens_for: HashMap<u64, Option<Vec<u32>>> = HashMap::new();
-        if demand_enabled {
-            for target in targets {
-                let variant = self.variants.for_worker(&target.worker.worker_id);
-                tokens_for
-                    .entry(variant.id())
-                    .or_insert_with(|| self.hasher.token_ids_for(&variant.apply(&base)));
-            }
-        }
+        let ids_for = |target: &RouteTarget| {
+            let variant = self.variants.for_worker(&target.worker.worker_id);
+            tokens.get_or_tokenize(variant.id(), || {
+                self.hasher.token_ids_for(&variant.apply(&base))
+            })
+        };
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
         let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
         for t in targets {
             let key = match t.worker.kv_block_size {
                 Some(bs) if bs > 0 => {
-                    let variant = self.variants.for_worker(&t.worker.worker_id);
-                    let key = (bs, variant.id());
+                    let key = (bs, self.variants.for_worker(&t.worker.worker_id).id());
                     hashes_for.entry(key).or_insert_with(|| {
-                        if demand_enabled {
-                            tokens_for
-                                .get(&variant.id())
-                                .and_then(|ids| ids.as_ref())
-                                .map(|ids| crate::hasher::hash_request(ids, bs as usize))
-                                .unwrap_or_default()
-                        } else {
-                            self.hasher.hash_for(&variant.apply(&base), bs as usize)
-                        }
+                        ids_for(t)
+                            .map(|ids| crate::hasher::hash_request(&ids, bs as usize))
+                            .unwrap_or_default()
                     });
                     Some(key)
                 }
@@ -707,6 +735,8 @@ impl Policy for KvEventAwarePolicy {
                     })
             })
             .expect("candidates non-empty");
+        let demand_enabled =
+            role == Role::Decode && self.decode_input_demand != DecodeDemandMode::Off;
         let (picked_i, decode_demand, demand_steered) = if demand_enabled {
             let diverged: std::collections::HashSet<_> = self
                 .parity
@@ -725,8 +755,7 @@ impl Policy for KvEventAwarePolicy {
                     if hints.has_multimodal_content || diverged.contains(&target.worker.worker_id) {
                         return None;
                     }
-                    let variant = self.variants.for_worker(&target.worker.worker_id);
-                    let ids = tokens_for.get(&variant.id())?.as_ref()?;
+                    let ids = ids_for(target)?;
                     u64::try_from(ids.len()).ok()?.checked_mul(copies?)
                 })
                 .collect();
@@ -945,6 +974,7 @@ mod tests {
             policy.as_ref(),
             &workers,
             &json!({}),
+            &RequestTokens::default(),
             Role::Prefill,
             "m",
             Some("session"),
@@ -957,6 +987,7 @@ mod tests {
             policy.as_ref(),
             &workers,
             &json!({}),
+            &RequestTokens::default(),
             Role::Prefill,
             "m",
             Some("session"),
@@ -1507,6 +1538,34 @@ mod tests {
         assert_eq!(policy.demand_snapshot().len(), 2);
         drop((a, b));
         assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn prefill_and_decode_picks_share_one_tokenization() {
+        let policy = demand_policy(DecodeDemandMode::On);
+        let (p_workers, d_workers) = ([worker("p", 16, None)], [worker("d", 0, None)]);
+        let request = json!({"prompt": vec![7; 64]});
+        let tokens = RequestTokens::default();
+        let p = policy.pick_targets_with(
+            &expand_targets(&p_workers),
+            &request,
+            Role::Prefill,
+            &tokens,
+        );
+        let d = policy.pick_targets_with(
+            &expand_targets(&d_workers),
+            &request,
+            Role::Decode,
+            &tokens,
+        );
+        assert_eq!(p.blocks.len(), 4);
+        assert_eq!(policy.demand_snapshot()["d"].tokens, 64);
+        // Both picks used one cached tokenization, which is never redone.
+        assert_eq!(tokens.0.lock().unwrap().len(), 1);
+        let variant = policy.variants.for_worker("d").id();
+        let cached = tokens.get_or_tokenize(variant, || unreachable!());
+        assert_eq!(cached.map(|ids| ids.len()), Some(64));
+        drop((p, d));
     }
 
     #[test]

@@ -27,7 +27,7 @@ use crate::breaker::{is_worker_fault, CircuitBreaker};
 use crate::dp;
 use crate::handlers::AppState;
 use crate::nats_request::{Frame, NatsRequestClient};
-use crate::policy::{ActiveGuard, Role};
+use crate::policy::{ActiveGuard, RequestTokens, Role};
 use crate::pool::{DisaggMode, RouteTarget, Snapshot};
 use crate::protocol;
 use crate::proxy::{GuardedStream, StreamEnd};
@@ -76,10 +76,12 @@ pub async fn dispatch(
         .filter(snap.list_active(model, DisaggMode::Decode), |w| {
             w.worker_id.as_str()
         });
+    let tokens = RequestTokens::default();
     let (p_pick, p_session) = state.sessions.pick(
         state.policy.as_ref(),
         &p_avail,
         request,
+        &tokens,
         Role::Prefill,
         model,
         session,
@@ -88,6 +90,7 @@ pub async fn dispatch(
         state.policy.as_ref(),
         &d_avail,
         request,
+        &tokens,
         Role::Decode,
         model,
         session,

@@ -25,7 +25,7 @@ use serde_json::{json, Value};
 use crate::breaker::is_worker_fault;
 use crate::dp;
 use crate::handlers::AppState;
-use crate::policy::{ActiveGuard, Role};
+use crate::policy::{ActiveGuard, RequestTokens, Role};
 use crate::pool::{DisaggMode, RouteTarget, Snapshot};
 use crate::util::{json_error, truncate_chars};
 
@@ -921,6 +921,7 @@ async fn mixed_dispatch(
     let mut tracker = Some(crate::metrics::RequestTracker::start("mixed", model));
     let mut tried: HashSet<String> = HashSet::new();
     let mut last_err: Option<Response> = None;
+    let tokens = RequestTokens::default();
     for _ in 0..(1 + state.retries) {
         let avail: Vec<_> = candidates
             .iter()
@@ -938,6 +939,7 @@ async fn mixed_dispatch(
             state.policy.as_ref(),
             &avail,
             request,
+            &tokens,
             Role::Mixed,
             model,
             session,

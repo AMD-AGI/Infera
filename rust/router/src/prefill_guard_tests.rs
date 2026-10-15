@@ -214,6 +214,7 @@ async fn unary_completion_mode_releases_p_while_decode_headers_are_pending() {
                 &RoundRobin::new(),
                 &workers,
                 &request,
+                &crate::policy::RequestTokens::default(),
                 role,
                 "model",
                 Some("s"),

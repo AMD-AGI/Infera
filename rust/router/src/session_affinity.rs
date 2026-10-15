@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use axum::http::HeaderMap;
 use serde_json::Value;
 
-use crate::policy::{Pick, Policy, Role};
+use crate::policy::{Pick, Policy, RequestTokens, Role};
 use crate::pool::{expand_targets, RouteTarget, Worker};
 
 /// Bindings per router process; at capacity new sessions route normally.
@@ -121,19 +121,23 @@ impl Sessions {
         Ok(Some(id))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn pick(
         &self,
         policy: &dyn Policy,
         candidates: &[Arc<Worker>],
         request: &Value,
+        tokens: &RequestTokens,
         role: Role,
         model: &str,
         session: Option<&str>,
     ) -> (Pick, Option<Lease>) {
+        let choose =
+            |targets: &[RouteTarget]| policy.pick_targets_with(targets, request, role, tokens);
         let enabled =
             self.mode == Mode::Both || (self.mode == Mode::Prefill && role == Role::Prefill);
         let Some(session) = session.filter(|_| enabled) else {
-            return (policy.pick(candidates, request, role), None);
+            return (choose(&expand_targets(candidates)), None);
         };
         let now = Instant::now();
         let (entry, swept) = {
@@ -177,7 +181,7 @@ impl Sessions {
                     "session affinity capacity reached; using normal selection"
                 );
             }
-            return (policy.pick(candidates, request, role), None);
+            return (choose(&expand_targets(candidates)), None);
         };
         // Only initialization holds this per-session lock while choosing. Other sessions proceed.
         let mut e = entry.lock().expect("session entry poisoned");
@@ -194,7 +198,7 @@ impl Sessions {
             drop(e);
             self.counters.hits[role_index(role)].fetch_add(1, Ordering::Relaxed);
             let lease = self.lease(entry, generation, role);
-            let pick = policy.pick_target(&target, request, role);
+            let pick = choose(std::slice::from_ref(&target));
             tracing::info!(?role, target=%pick.target.route_key(), reason="hit", "session affinity pick");
             return (pick, Some(lease));
         } else {
@@ -205,7 +209,7 @@ impl Sessions {
             } else {
                 "new"
             };
-            (policy.pick(candidates, request, role), reason)
+            (choose(&expand_targets(candidates)), reason)
         };
         e.target = Some(pick.target.clone());
         e.generation = e.generation.wrapping_add(1);
@@ -289,7 +293,7 @@ mod tests {
         )]
     }
     fn pick(s: &Sessions, p: &dyn Policy, role: Role, id: Option<&str>) -> (Pick, Option<Lease>) {
-        s.pick(p, &workers(), &json!({}), role, "m", id)
+        s.pick(p, &workers(), &json!({}), &RequestTokens::default(), role, "m", id)
     }
 
     #[test]
@@ -304,6 +308,7 @@ mod tests {
             &p,
             &workers(),
             &json!({}),
+            &RequestTokens::default(),
             Role::Prefill,
             "other-model",
             Some("x"),
@@ -419,6 +424,7 @@ mod tests {
             &p,
             &[Arc::new(replacement)],
             &json!({}),
+            &RequestTokens::default(),
             Role::Decode,
             "m",
             Some("x"),
