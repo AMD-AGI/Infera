@@ -186,3 +186,14 @@ C192 = 31,829（RESULT §3.1 第 10 条）后，decode KV 在 C192 又接近用�
   公平性用同等负载下的 decode 每步耗时检验：与今天 C192 差 2% 以内即视为预热到位，否则结果打折扣、必要时补测。
 - 前提已核对：传输后端 Mooncake；prefill / decode 的 TP 都等于 attention DP；decode 未开 radix / HiCache；`SGLANG_DISAGG_STAGING_BUFFER`、
   `SGLANG_RUST_SERVER` 未设。decode mem 能加到多少，配置定下来之后再单独试。
+
+### 10-15 10:40 补充（用户）
+
+- **decode TP8 的 batch 要推到最大**：不只看吞吐，它决定后面 decode 计算优化要覆盖的工作区间（每 rank 在跑请求数、每请求上下文长度、
+  对应的每步耗时与 ITL）。阶段 A 每个点记录 decode 每步耗时随"最忙 rank 在跑数"和"batch 内上下文总量"的变化（`engine_pace.txt` 扩展），
+  推到 KV 上限后，在代表性的 batch（如每 rank 8 / 12 / 16 个）各抓一次短时 kernel 级 profile，作为计算优化的依据。
+  当前已知：每 rank 8–14 个在跑时输出平在约 630–800 tok/s，每步耗时大致随 batch 内上下文总量增长，即 attention / DSA indexer 这类随上下文线性增长的部分占主导。
+- **减卡后不照搬 3P1D 的 decode 扩容策略**：2P1D 在 C176 的瓶颈在 prefill（GPU 命中 50%、排队 10 s、实例失衡），prefill_complete 会让 prefill 把算好的 KV
+  留到 decode 分配后才释放，加重 prefill 显存压力、挤掉前缀缓存。阶段 B 按各形态自己的瓶颈选手段：先用对 prefill 有利、对 decode 无代价的设置
+  （write_back 扩缓存、137 少一个实例后主机缓存加到 400 GB/rank、router 实例均衡；decode 保留 mem 0.92 与 4 个 tokenizer worker 这类不增加 prefill 负担的项），
+  prefill_complete 单独做开 / 关对照；并发也按该形态重新扫，不沿用 3P1D 的峰值并发。
