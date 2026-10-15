@@ -5,6 +5,8 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use serde_json::Value;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
 pub enum Mode {
     #[default]
@@ -17,16 +19,33 @@ pub enum Mode {
 pub(crate) struct Demand {
     pub tokens: u128,
     pub requests: usize,
-    pub unknown: usize,
 }
 pub(crate) type Ledger = Arc<Mutex<HashMap<String, Demand>>>;
+
+/// Text bytes per token assumed when a request's tokens are unavailable.
+const ESTIMATED_BYTES_PER_TOKEN: usize = 4;
+
+/// Input tokens estimated from a body's string bytes. Inline `data:` payloads
+/// (base64 images) are skipped: their size says nothing about their tokens.
+pub(crate) fn estimate_tokens(body: &Value) -> u64 {
+    fn text_bytes(value: &Value) -> usize {
+        match value {
+            Value::String(s) if s.starts_with("data:") => 0,
+            Value::String(s) => s.len(),
+            Value::Array(items) => items.iter().map(text_bytes).sum(),
+            Value::Object(fields) => fields.values().map(text_bytes).sum(),
+            _ => 0,
+        }
+    }
+    text_bytes(body).div_ceil(ESTIMATED_BYTES_PER_TOKEN) as u64
+}
 
 /// Booked atomically with selection and released even if the pick is abandoned.
 #[derive(Debug)]
 pub struct Reservation {
     ledger: Ledger,
     key: String,
-    tokens: Option<u64>,
+    tokens: u64,
 }
 
 impl Reservation {
@@ -34,12 +53,11 @@ impl Reservation {
         ledger: &Ledger,
         state: &mut HashMap<String, Demand>,
         key: String,
-        tokens: Option<u64>,
+        tokens: u64,
     ) -> Self {
         let entry = state.entry(key.clone()).or_default();
-        entry.tokens += u128::from(tokens.unwrap_or(0));
+        entry.tokens += u128::from(tokens);
         entry.requests += 1;
-        entry.unknown += usize::from(tokens.is_none());
         Self {
             ledger: ledger.clone(),
             key,
@@ -52,9 +70,8 @@ impl Drop for Reservation {
     fn drop(&mut self) {
         let mut state = self.ledger.lock().expect("decode demand ledger poisoned");
         let entry = state.get_mut(&self.key).expect("reserved decode target");
-        entry.tokens -= u128::from(self.tokens.unwrap_or(0));
+        entry.tokens -= u128::from(self.tokens);
         entry.requests -= 1;
-        entry.unknown -= usize::from(self.tokens.is_none());
         if entry.requests == 0 {
             state.remove(&self.key);
         }
@@ -66,27 +83,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn identical_inputs_add_and_unknown_leases_release_independently() {
+    fn identical_inputs_add_and_release_independently() {
         let ledger = Ledger::default();
-        let (a, b, unknown) = {
+        let (a, b) = {
             let mut state = ledger.lock().unwrap();
-            let a = Reservation::book(&ledger, &mut state, "d#dp0".into(), Some(32000));
-            let b = Reservation::book(&ledger, &mut state, "d#dp0".into(), Some(32000));
-            let unknown = Reservation::book(&ledger, &mut state, "d#dp0".into(), None);
+            let a = Reservation::book(&ledger, &mut state, "d#dp0".into(), 32000);
+            let b = Reservation::book(&ledger, &mut state, "d#dp0".into(), 32000);
             assert_eq!(
                 state["d#dp0"],
                 Demand {
                     tokens: 64000,
-                    requests: 3,
-                    unknown: 1
+                    requests: 2,
                 }
             );
-            (a, b, unknown)
+            (a, b)
         };
         drop(a);
         assert_eq!(ledger.lock().unwrap()["d#dp0"].tokens, 32000);
-        drop(unknown);
-        assert_eq!(ledger.lock().unwrap()["d#dp0"].unknown, 0);
         drop(b);
         assert!(ledger.lock().unwrap().is_empty());
     }
@@ -97,9 +110,9 @@ mod tests {
         let (a, b, small) = {
             let mut state = ledger.lock().unwrap();
             (
-                Reservation::book(&ledger, &mut state, "d".into(), Some(u64::MAX)),
-                Reservation::book(&ledger, &mut state, "d".into(), Some(u64::MAX)),
-                Reservation::book(&ledger, &mut state, "d".into(), Some(1)),
+                Reservation::book(&ledger, &mut state, "d".into(), u64::MAX),
+                Reservation::book(&ledger, &mut state, "d".into(), u64::MAX),
+                Reservation::book(&ledger, &mut state, "d".into(), 1),
             )
         };
         assert_eq!(
@@ -110,5 +123,18 @@ mod tests {
         assert_eq!(ledger.lock().unwrap()["d"].tokens, 1);
         drop(small);
         assert!(ledger.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn estimates_count_text_bytes_and_skip_inline_data() {
+        let body = serde_json::json!({"messages":[
+            {"role":"user","content":[
+                {"type":"text","text":"12345678"},
+                {"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}},
+            ]},
+        ]});
+        // "user" + "text" + "12345678" + "image_url" = 25 bytes -> 7 tokens.
+        assert_eq!(estimate_tokens(&body), 7);
+        assert_eq!(estimate_tokens(&serde_json::json!({})), 0);
     }
 }

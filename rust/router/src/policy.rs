@@ -338,8 +338,9 @@ pub struct KvEventAwarePolicy {
     demand: Ledger,
     kv: Arc<KvEventClient>,
     hasher: Arc<BlockHasher>,
-    /// Render-parity verdicts, also exported on /metrics. Legacy routing does
-    /// not exclude mismatched workers; demand routing treats their input as unknown.
+    /// Per-worker verdict from the startup render-parity probe -- see
+    /// `crate::render_probe`. Exported on /metrics; the router never routes on
+    /// it, because a worker whose render we cannot match is still a worker.
     parity: Arc<crate::render_probe::ParityRegistry>,
     /// Which server-side template defaults each worker renders with. Requests
     /// are hashed once per *variant*, not once per worker: a fleet launched
@@ -745,69 +746,67 @@ impl Policy for KvEventAwarePolicy {
                 .filter(|(_, _, verdict)| *verdict == 0)
                 .map(|(worker, _, _)| worker)
                 .collect();
-            let copies = match base.get("n") {
-                None => Some(1),
-                Some(n) => n.as_u64().filter(|n| *n > 0),
-            };
-            let work: Vec<Option<u64>> = targets
+            let copies = base
+                .get("n")
+                .and_then(Value::as_u64)
+                .filter(|n| *n > 0)
+                .unwrap_or(1);
+            let estimate = std::cell::OnceCell::new();
+            // (input tokens, exact). The router's count is exact only for a
+            // text prompt on a worker whose render matches ours.
+            let work: Vec<(u64, bool)> = targets
                 .iter()
                 .map(|target| {
-                    if hints.has_multimodal_content || diverged.contains(&target.worker.worker_id) {
-                        return None;
-                    }
-                    let ids = ids_for(target)?;
-                    u64::try_from(ids.len()).ok()?.checked_mul(copies?)
+                    let (tokens, exact) = match ids_for(target) {
+                        Some(ids) => (
+                            ids.len() as u64,
+                            !hints.has_multimodal_content
+                                && !diverged.contains(&target.worker.worker_id),
+                        ),
+                        None => (
+                            *estimate.get_or_init(|| crate::decode_demand::estimate_tokens(&base)),
+                            false,
+                        ),
+                    };
+                    (tokens.saturating_mul(copies), exact)
                 })
                 .collect();
             let keys: Vec<_> = targets.iter().map(RouteTarget::route_key).collect();
             let loads: Vec<_> = keys.iter().map(|key| self.load_of(key)).collect();
-            let (picked, reservation, costs, suggested) = {
+            let on = self.decode_input_demand == DecodeDemandMode::On;
+            let (picked, suggested, reservation, costs) = {
                 // Only snapshot, selection and reservation hold the ledger lock.
                 let mut ledger = self.demand.lock().expect("decode demand ledger poisoned");
-                let known = work.iter().all(Option::is_some)
-                    && keys
-                        .iter()
-                        .all(|key| !ledger.get(key).is_some_and(|d| d.unknown > 0));
-                let costs: Vec<_> = keys
+                let costs: Vec<u128> = keys
                     .iter()
-                    .enumerate()
-                    .map(|(i, key)| {
-                        work[i].map(|w| ledger.get(key).map_or(0, |d| d.tokens) + u128::from(w))
+                    .zip(&work)
+                    .map(|(key, (tokens, _))| {
+                        ledger.get(key).map_or(0, |d| d.tokens) + u128::from(*tokens)
                     })
                     .collect();
-                let suggested = known.then(|| {
-                    (0..targets.len())
-                        .min_by(|&a, &b| {
-                            costs[a].cmp(&costs[b]).then_with(|| {
-                                loads[a]
-                                    .partial_cmp(&loads[b])
-                                    .unwrap_or(std::cmp::Ordering::Equal)
-                            })
+                let suggested = (0..targets.len())
+                    .min_by(|&a, &b| {
+                        costs[a].cmp(&costs[b]).then_with(|| {
+                            loads[a]
+                                .partial_cmp(&loads[b])
+                                .unwrap_or(std::cmp::Ordering::Equal)
                         })
-                        .expect("candidates non-empty")
-                });
-                let picked = if self.decode_input_demand == DecodeDemandMode::On {
-                    suggested.unwrap_or(legacy_pick)
-                } else {
-                    legacy_pick
-                };
+                    })
+                    .expect("candidates non-empty");
+                let picked = if on { suggested } else { legacy_pick };
                 let reservation = Reservation::book(
                     &self.demand,
                     &mut ledger,
                     keys[picked].clone(),
-                    work[picked],
+                    work[picked].0,
                 );
-                (picked, reservation, costs, suggested)
+                (picked, suggested, reservation, costs)
             };
             tracing::debug!(target: "infera_router::decode_demand",
-                mode=?self.decode_input_demand, known=suggested.is_some(), candidates=?keys, projected_tokens=?costs,
-                legacy_selected=%keys[legacy_pick], selected=%keys[picked], suggested=?suggested.map(|i| &keys[i]),
+                mode=?self.decode_input_demand, exact=work[picked].1, candidates=?keys, projected_tokens=?costs,
+                legacy_selected=%keys[legacy_pick], selected=%keys[picked], suggested=%keys[suggested],
                 "decode input demand");
-            (
-                picked,
-                Some(reservation),
-                self.decode_input_demand == DecodeDemandMode::On && suggested.is_some(),
-            )
+            (picked, Some(reservation), on)
         } else {
             (legacy_pick, None, false)
         };
@@ -1434,40 +1433,40 @@ mod tests {
     }
 
     #[test]
-    fn decode_demand_unknown_inflight_forces_legacy_until_released() {
+    fn decode_demand_estimated_inputs_still_steer() {
         let policy = demand_policy(DecodeDemandMode::On);
         let workers = vec![worker("a", 0, None), worker("b", 0, None)];
-        let (large, unknown) = {
+        let large = {
             let mut ledger = policy.demand.lock().unwrap();
-            (
-                Reservation::book(&policy.demand, &mut ledger, "a".into(), Some(10000)),
-                Reservation::book(&policy.demand, &mut ledger, "b".into(), None),
-            )
+            Reservation::book(&policy.demand, &mut ledger, "a".into(), 10000)
         };
         policy.record_dispatch("b", 100, 100);
-        let fallback = policy.pick(&workers, &json!({"prompt":[1,2]}), Role::Decode);
-        assert_eq!(fallback.target.route_key(), "a");
-        drop(unknown);
-        let active = policy.pick(&workers, &json!({"prompt":[1,2]}), Role::Decode);
-        assert_eq!(active.target.route_key(), "b");
-        drop((large, fallback, active));
+        // No tokenizer: "no tokenizer" is estimated at 3 tokens, and the
+        // lighter demand wins over the lighter legacy load.
+        let pick = policy.pick(&workers, &json!({"prompt":"no tokenizer"}), Role::Decode);
+        assert_eq!(pick.target.route_key(), "b");
+        assert_eq!(policy.demand_snapshot()["b"].tokens, 3);
+        drop((large, pick));
         assert!(policy.demand_snapshot().is_empty());
     }
 
     #[test]
-    fn decode_demand_unknown_inputs_are_not_zero_cost() {
-        for request in [
-            json!({"prompt":"no tokenizer"}),
-            json!({"prompt":[1,2], "n":u64::MAX}),
-            json!({"prompt":[1,2], "n":0}),
-            json!({"prompt":[1,2], "messages":[{"role":"user", "content":[{"type":"image_url", "image_url":{"url":"data:image/png;base64,AA"}}]}]}),
+    fn decode_demand_books_every_input_it_cannot_count_exactly() {
+        let image = json!([{"role":"user", "content":[{"type":"image_url",
+            "image_url":{"url":"data:image/png;base64,AA"}}]}]);
+        for (request, tokens) in [
+            (json!({"prompt":"no tokenizer"}), 3),
+            (json!({"prompt":[1,2], "n":u64::MAX}), u128::from(u64::MAX)),
+            (json!({"prompt":[1,2], "n":0}), 2),
+            (json!({"prompt":[1,2], "messages":image}), 2),
         ] {
             let policy = demand_policy(DecodeDemandMode::On);
             let pick = policy.pick(&[worker("a", 0, None)], &request, Role::Decode);
-            assert_eq!(policy.demand_snapshot()["a"].unknown, 1);
+            assert_eq!(policy.demand_snapshot()["a"].tokens, tokens, "{request}");
             drop(pick);
             assert!(policy.demand_snapshot().is_empty());
         }
+        // A worker that renders differently is still charged the router's count.
         let policy = demand_policy(DecodeDemandMode::On);
         let epoch = policy.parity.claim("a", "m").unwrap();
         policy
@@ -1478,7 +1477,7 @@ mod tests {
             &json!({"prompt":[1,2]}),
             Role::Decode,
         );
-        assert_eq!(policy.demand_snapshot()["a"].unknown, 1);
+        assert_eq!(policy.demand_snapshot()["a"].tokens, 2);
         drop(pick);
         assert!(policy.demand_snapshot().is_empty());
     }
