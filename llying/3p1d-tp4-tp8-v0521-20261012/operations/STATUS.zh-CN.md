@@ -380,3 +380,7 @@
   decode（138）仍在运行、空闲。`hicache_check.py` 重做：探针改为长文开头给出唯一口令、结尾提问（答案确定，top-1 翻转才说明 KV 不同），只比较 top-1 的 logprob
   （top-5 的最大差另报）；填充量按各 prefill 的 `sglang:max_total_num_tokens` 之和 × 1.6 自动计算（3P1D 约 4,600 万 token）。机器恢复后的顺序：
   先在旧配置（write_through + early，即 t6-mem092）上跑一次检查作对照，再在 stage-pcwb 上跑，新配置不比旧配置差才继续预热与 C192。
+- 16:15 xiaobo 在 137 的 `dev_xb` 容器里跑 GLM-5.3 长上下文测试（8 卡）；135、136、139、141、142 均 ping 不通、ssh 超时，140 被 cyao 占用。
+  原始运行数据备份：137 本地盘 `/mnt/m2m_nobackup/liyingli_3p1d/runs/r2/`（29 个目录、80 GB，每轮客户端完整输出，含 `/home` 上未拷回的 3.5 GB 服务端指标导出，
+  以及 C192 的全部原始输出）用 rsync 复制到（16:24 完成，369 个文件、85.6 GB，与源端一致） `/shared_nfs/liyingli/bench_agentx/3p1d-tp4-tp8-v0521-20261012/node137-runs-r2/`（/shared_nfs 420 TB、空闲 13 TB；
+  登录节点读写挂载、137 只读挂载，所以从登录节点拉取）；日志同目录 `rsync-node137.log`。

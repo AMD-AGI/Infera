@@ -20,6 +20,9 @@
   任一 prefill 有请求但 10 分钟无进展即自动 `scripts/hang_capture.sh`，结果在 `runtime/runs/r2/tune/hang-<实例>-<MMDD-HHMM>/`。
 - 日志 follower 05:00 已用 `scripts/log_follow.sh ROUND=r2` 恢复（之前 21:59 起全部退出）。
 
+- 原始运行数据：服务端日志等在 `runtime/`（gitignore）；各轮客户端完整输出（含服务端指标导出）在
+  `/shared_nfs/liyingli/bench_agentx/3p1d-tp4-tp8-v0521-20261012/node137-runs-r2/`（10-15 16:15 从 137 本地盘复制）。
+
 ## 未完成 / 下一步（按优先级）
 1. **prefill-2 挂起**：排查结论和 A/B 方案见 `RESULT.zh-CN.md` §4.12。主要假设是 prefill 的 `HSA_NO_SCRATCH_RECLAIM=0` 在显存紧张时让 ROCr scratch
    分配进入 retry 等待，与集合通信互锁；IPC socket 撞名已排除。现在只有 prefill-2 改成 1，prefill-0/1 作对照。
