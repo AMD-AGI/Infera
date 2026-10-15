@@ -170,3 +170,19 @@ HiCache 200–270 GB/rank；`--enable-prefill-delayer`、`--enable-dp-lm-head`�
 （kernel）、布局（page_first）、主机缓存大小不变；decode 现为 mem 0.92（t5b 为 0.85，C176 已证明 decode KV 不是约束，影响小，结果里注明）。
 ROCm 上 write_back 走非 JIT 路径：`kernel` + `page_first` 下回写用 `transfer_kv_all_layer_mla_lf_pf`，与 write_through 备份同一个 kernel，
 区别只在回写时机（淘汰时 vs 插入时），淘汰时先回写可能落在 prefill 的关键路径上，需要看排队与 TTFT。
+
+### 10-15 09:40 修订：先在 3P1D 的 C192 上测 prefill_complete + write_back
+
+C192 = 31,829（RESULT §3.1 第 10 条）后，decode KV 在 C192 又接近用满（KV>90% 45.9%、等预分配 0.47、等 KV 传输 3.38/rank）。讨论结论：
+- **在 3P1D 上测，不在 2P1D 上测**。prefill_complete 释放的是 decode 上"等传输"请求白占的 KV（C192 时约 19%），针对的是 3P1D 在 C192 的约束；
+  2P1D 的约束在 prefill 缓存（GPU 命中 50%、排队 10 s），释放 decode KV 解决不了，而且 prefill_complete 要让 prefill 把算好的 KV 留在自己 GPU 上
+  等 decode 分配，会加重 2P1D 的 prefill 缓存压力。2P1D 该测的是单独的 write_back（t7），推后。
+- **为什么 decode 受计算限制还要测它**：C176（mem 0.92）KV 不是约束、确实受计算限制；但 C192 比预热好的 C176 还高约 4%，说明加并发仍能多出几个百分点
+  （各 rank 更满、DP 同步空等更少），再往上被 KV 卡住。prefill_complete 让这部分收益继续兑现，不是突破计算上限，预期 +2%–5%。
+- **不会让 prefill 更空闲**：prefill 要算的 token 总量不变；变化是 prefill 不再先等 decode 分配（C176 时 bootstrap 等待 0.97 s）就开算，单请求时延变短，
+  但 prefill 显存占用上升（要盯 prefill 命中率与排队）。prefill 只忙 35%–45% 的问题靠配比解决。
+- **流程**：全栈重启（prefill_complete 要在 prefill 和 decode 两边都设）→ 传输冒烟 + `hicache_check.sh` → **在 C192 上预热 60 分钟 → 正式测 C192**
+  （约 2.5 小时）。不照搬"预热 → C176 → C192"（4 小时）：C176 上 KV 不是约束，这两项在 C176 测不出效果，只起预热作用，不划算。
+  公平性用同等负载下的 decode 每步耗时检验：与今天 C192 差 2% 以内即视为预热到位，否则结果打折扣、必要时补测。
+- 前提已核对：传输后端 Mooncake；prefill / decode 的 TP 都等于 attention DP；decode 未开 radix / HiCache；`SGLANG_DISAGG_STAGING_BUFFER`、
+  `SGLANG_RUST_SERVER` 未设。decode mem 能加到多少，配置定下来之后再单独试。

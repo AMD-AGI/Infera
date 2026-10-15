@@ -340,3 +340,13 @@
   用 `transfer_kv_all_layer_mla_lf_pf`（与 write_through 同一 kernel，只是回写时机不同）。新增 `config/stage-2p1d-wb.sh`、`scripts/hicache_check.py` /
   `hicache_check.sh`（16 个约 4 万 token 的探针 → 约 2900 万 token 填充把探针挤到主机 → 重发探针，首 token 必须一致，且主机回读量 ≥ 探针 token 的一半）。
   队列追加第 37–41 步：drop prefill-1 → restart prefill-0/2（write_back）→ hicache_check → warm-2p1d-wb → t7-2p1d-wb C176。
+- **07:57 共享 `/home` 写满（EDQUOT），编排进程全部退出**：队列驱动 `tune_queue.sh`、轮次脚本（`tune_round.sh` / `agentx_bench.sh` / `tune_post.sh`）写日志或状态失败后退出，
+  `hang_watch.py` 在 07:56:45 后退出（Python 写失败抛异常）；sampler 早在 14 日 22:00 那次就退出了，一直没被发现。引擎和 AgentX 客户端写节点本地盘，不受影响：
+  C192 客户端 09:07 正常跑完（exit 0）。日志 follower 按设计在 08:52 自动续上。09:15 用户问 C192 时才发现。
+- 09:15 C192（t6-mem092）= **31,829 tok/s/GPU**（目前最高），P50 / P90 交互 47.2 / 43.3；decode KV>90% 45.9%、等预分配 0.47、等传输 3.38/rank。
+  我此前判断"C192 不会提吞吐"是错的（见 RESULT §3.1 第 10 条的解读：比预热好的 C176 +4.1%，比今天 C176 +5.1% 里混有预热因素；未做重复测量）。
+- 09:26–09:50 讨论（用户）：下一步改为 3P1D + prefill_complete + write_back，在 C192 上预热 60 分钟后测 C192（PLAN-TUNING 末节"09:40 修订"）；
+  t7（2P1D + write_back）推后；decode mem 加到多少放在配置定下来之后。
+- 09:55 `/home` 回到 76 GB 空闲，手工补救 C192：从 137 本地拷回客户端摘要，按 `tune_post.sh` 的步骤重建 census、flush check、prefill / decode 均衡、
+  每步节奏，抓 router 指标（router 未重启），写 `results/t6-mem092/c192/RESCUED.txt`；`queue.done` 设为 36，队列里 t7 五行注释为 `#DEFERRED`。
+  待做：编排脚本对 EDQUOT 的加固（写失败不退出、拷回失败等待重试、重启前检查 `/home` 余量），重启 sampler 和 hang 监视器。

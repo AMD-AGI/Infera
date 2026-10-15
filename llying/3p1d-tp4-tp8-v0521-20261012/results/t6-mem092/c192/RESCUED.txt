@@ -1,0 +1,3 @@
+Rescued 2026-10-15 09:55 by hand: the round script died at 07:57 when the shared /home filled (EDQUOT); the client finished
+normally at 09:07 on node-local disk. Window analyses rebuilt from the server logs (window 07:59:25..08:59:25);
+router metrics scraped at 09:55 (router not restarted since the round started); no end-of-round memory snapshot.

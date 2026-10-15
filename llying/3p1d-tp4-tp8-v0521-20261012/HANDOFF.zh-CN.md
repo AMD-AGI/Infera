@@ -11,8 +11,10 @@
 ## 栈当前状态（10-15 05:21，ROUND=r2，容器前缀 glm52-llying-3p1d-r2-）
 - decode-0（138，mem **0.92**，tok4，日志名 `decode-0.after-mem092.log`）、prefill-0（135，400 GB HiCache）、prefill-1（137 **card4–7**）、
   prefill-2（137 card0–3，05:14 重启，**`HSA_NO_SCRATCH_RECLAIM=1`**）在运行；router 在 137。`config/round.r2.sh` = `config/stage-mem092-nsr.sh`。
-- 队列 05:21 起在跑：warm-mem092b → t6-mem092 C176 → C192（`operations/tune_queue.tsv` 第 34–36 步）。sampler 在 137 后台运行。
-- **挂起监视器** `scripts/hang_watch.py` 在 137 后台运行（日志 `runtime/runs/r2/tune/hang_watch.log`；`scripts/start_hang_watch.sh` 幂等启动），
+- **10-15 09:55 状态**：第 34–36 步（warm-mem092b、t6-mem092 C176 = 30,291、C192 = **31,829，目前最高**）已完成；07:57 共享 `/home` 写满，
+  队列驱动、轮次脚本、hang 监视器全部退出（sampler 自 14 日 22:00 起就已退出），**现在没有任何编排进程在跑**；C192 已手工补救（`results/t6-mem092/c192/RESCUED.txt`），
+  `queue.done` = 36。重启编排前先做 EDQUOT 加固（见 STATUS 末条）。
+- 挂起监视器 `scripts/hang_watch.py`（`scripts/start_hang_watch.sh` 幂等启动，日志 `runtime/runs/r2/tune/hang_watch.log`）：
   任一 prefill 有请求但 10 分钟无进展即自动 `scripts/hang_capture.sh`，结果在 `runtime/runs/r2/tune/hang-<实例>-<MMDD-HHMM>/`。
 - 日志 follower 05:00 已用 `scripts/log_follow.sh ROUND=r2` 恢复（之前 21:59 起全部退出）。
 

@@ -1,0 +1,35 @@
+== decode-0.after-mem092.log lines=30506 ready=0 hcas=[]
+   FATAL       1 [2026-10-15 08:59:58 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='bfa45bef22954d728ed9a121acff550a' decode_req.req.bootstrap_room=926035917936600554 with exception KVTransferError(bootstrap_room=926035917936600554)
+   FATAL       1 [2026-10-15 08:59:58 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='88dc30992fa744e8b4bdba3d61e4cd19' decode_req.req.bootstrap_room=2994534637759265814 with exception KVTransferError(bootstrap_room=299453463775926581
+   FATAL       1 [2026-10-15 08:59:58 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='56f3092e4b4a4233ac0c733526902590' decode_req.req.bootstrap_room=3253901749008601998 with exception KVTransferError(bootstrap_room=325390174900860199
+   FATAL       1 [2026-10-15 08:59:58 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='4c0b2d7a1db143e49d95757f2b7ca82b' decode_req.req.bootstrap_room=5741292249385242658 with exception KVTransferError(bootstrap_room=574129224938524265
+   FATAL       1 [2026-10-15 08:59:58 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='03f6001de7a2418a87c6089f3b024e00' decode_req.req.bootstrap_room=7340679355047361402 with exception KVTransferError(bootstrap_room=734067935504736140
+   FATAL       1 [2026-10-15 08:59:58 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='ccf0cf53ddc942089133251c33126136' decode_req.req.bootstrap_room=2112695868184715622 with exception KVTransferError(bootstrap_room=211269586818471562
+   FATAL       1 [2026-10-15 08:59:58 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='e04595c69aa941ef94dc7bda5b741fca' decode_req.req.bootstrap_room=1238621206059820422 with exception KVTransferError(bootstrap_room=123862120605982042
+   FATAL       1 [2026-10-15 08:59:58 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='c7fcd7eba22b493bba530fcca364ca63' decode_req.req.bootstrap_room=2932847479073998646 with exception KVTransferError(bootstrap_room=293284747907399864
+   FATAL       1 [2026-10-15 08:59:57 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='a4d62668d5fd400b9a4904e134e71f3f' decode_req.req.bootstrap_room=6196838868316978629 with exception KVTransferError(bootstrap_room=619683886831697862
+   FATAL       1 [2026-10-15 08:59:57 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='a39fd946f78b4647808e38c9d15f75eb' decode_req.req.bootstrap_room=7267761850720061789 with exception KVTransferError(bootstrap_room=726776185072006178
+   FATAL       1 [2026-10-15 08:59:57 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='53ea0272e8174bb485370a7406066066' decode_req.req.bootstrap_room=6996451913728394505 with exception KVTransferError(bootstrap_room=699645191372839450
+   FATAL       1 [2026-10-15 08:59:57 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='3ff99d23977146699feb73ff8db206cc' decode_req.req.bootstrap_room=4409961223988846810 with exception KVTransferError(bootstrap_room=440996122398884681
+== decode-0.after-realacc.log lines=1 ready=0 hcas=[]
+== decode-0.after-tok4.log lines=0 ready=0 hcas=[]
+== decode-0.after-tok4b.log lines=0 ready=0 hcas=[]
+== decode-0.log lines=0 ready=0 hcas=[]
+== prefill-0.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-0.before-mem092p.log lines=0 ready=0 hcas=[]
+== prefill-0.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-0.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=34954 ready=0 hcas=[]
+   FATAL       1 E1015 08:57:11.705003 31157 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x79dc45bbc000, length: 65536, dest_addr: 0x744c5a936000, local_nic: ionic_1, peer_nic: 10.245.157.237:16082@ionic_1, dest_rkey: 2677
+== prefill-1.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-1.before-mem092p.log lines=0 ready=0 hcas=[]
+== prefill-1.before-mem092q.log lines=0 ready=0 hcas=[]
+== prefill-1.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-1.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-1.log lines=30441 ready=0 hcas=[]
+== prefill-2.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-2.before-2p1d.log lines=0 ready=0 hcas=[]
+== prefill-2.before-hang1.log lines=0 ready=0 hcas=[]
+== prefill-2.before-nsr.log lines=1 ready=0 hcas=[]
+== prefill-2.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-2.log lines=30140 ready=0 hcas=[]

@@ -68,8 +68,10 @@ round t6-mem092 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AF
 # 10-15 09:00 t7: 2P1D + prefill HiCache write_back (PLAN-TUNING 10-15 08:40; user: PD ratio / router / cache before step compute).
 # prefill-1 dropped (EXCLUDE), prefill-0 / prefill-2 restarted with write_back (config/stage-2p1d-wb.sh). Gate: transfer smoke +
 # hicache_check (prefix evicted to host and reloaded must give the same first token, host path must be exercised); then warm-up, C176.
-run drop_prefill.sh ROUND=r2 INSTANCE=prefill-1 TAG=2p1dwb
-run restart_prefills.sh ROUND=r2 OVERLAY=config/stage-2p1d-wb.sh TAG=wb
-run hicache_check.sh ROUND=r2 TAG=wb
-run warmup_round.sh VARIANT=warm-2p1d-wb CONC=144 MINUTES=30
-round t7-2p1d-wb 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+#DEFERRED run drop_prefill.sh ROUND=r2 INSTANCE=prefill-1 TAG=2p1dwb
+#DEFERRED run restart_prefills.sh ROUND=r2 OVERLAY=config/stage-2p1d-wb.sh TAG=wb
+#DEFERRED run hicache_check.sh ROUND=r2 TAG=wb
+#DEFERRED run warmup_round.sh VARIANT=warm-2p1d-wb CONC=144 MINUTES=30
+#DEFERRED round t7-2p1d-wb 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 10-15 09:55: t7 deferred (user: prefill_complete + write_back on 3P1D at C192 first; 2P1D write_back later). C192 (step 36)
+# was rescued by hand after the queue driver died at 07:57 (/home full); queue.done set to 36.
