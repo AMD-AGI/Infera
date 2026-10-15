@@ -135,3 +135,38 @@ P 会话亲和后 prefill 缓存份额 94.0%（理论 96.3%）、新算量 −42
 HiCache 200–270 GB/rank；`--enable-prefill-delayer`、`--enable-dp-lm-head`；max-running 128、cuda graph bs 64；tokenizer worker 2–4），
 经 router（`INFERA_SESSION_AFFINITY=both`）测 C24 / C32 / C40 / C48，与 3P1D 的每卡吞吐和交互速度对比。单实例达到约 3 万且交互速度可接受，
 再扩到 4–5 个实例（16–20 卡）。风险：ROCm 上 DP attention + MTP + HiCache 在 aggregated 下的稳定性；prefill chunk 插进 decode 步对 ITL 的影响。
+
+## 10-15 08:40 方向：先 PD 配比 / router / cache，再单步计算
+
+用户提议先做配比、router、cache 方面的实验，计算和 kernel（单步加速）放后面。评估：合理，但要明确——3P1D 在 C176 的约束是 decode 每步计算
+（mem 0.92 没有收益，RESULT §3.1 第 9 条），只在 3P1D 内调 router / cache 不会提吞吐；这个方向的收益主要来自 **PD 配比**，router / cache 优化的作用是
+让更省卡的配比成立。3P1D 在 C176 时 prefill 12 卡只忙 35%–45%、decode 8 卡已到顶，卡分配不平衡。
+- 减 prefill 卡：2P1D（16 卡）总吞吐只要达到 3P1D 的 80%，每卡就超过 30,562。上次 2P1D（t5b）只到 75.6%，失败点正好是 cache 与 router：
+  GPU 命中掉到 50%（主机 40%，合计约 90%，理论 96.6%，重算量约为理论的 3 倍）、prefill 排队 10 s、两个实例因 bootstrap 积压加会话亲和失衡（排队 2.7 / 8.1）。
+- 把 prefill 卡挪给 decode：例如 2P(TP4) + 1D(TP8) + 135 上再起一个 TP4 decode，总共还是 20 卡，decode 容量 +50%。
+
+| 顺序 | 实验 | 针对的问题 | 判定 |
+|---|---|---|---|
+| 1 | 2P1D + prefill HiCache `write_back` | GPU 命中 50% 导致重算和排队；write_back 下缓存容量为 GPU + 主机（137 上约 +65%） | C176 总吞吐 ≥ 3P1D 的 80%（每卡 > 30.5k） |
+| 2 | 2P1D 的 router 均衡 | 会话亲和下实例失衡、bootstrap 积压 | 两实例排队接近 |
+| 3 | 1P(TP8)1D（16 卡） | 每 rank GPU KV 比 TP4 多约 29%，无实例间失衡 | 同 1 |
+| 4 | 2P(TP4) + 2D（TP8 + 135 上 TP4），20 卡 | 卡从 prefill 挪到 decode | 每卡 > 30.5k |
+| 5 | decode radix + decode 侧会话亲和（移植 PR #184） | 每轮重传整段 KV | 传输量与 TTFT 下降、吞吐不降 |
+| 之后 | 单步计算：`index_share_for_mtp_iteration`、两个 decode 开关、kernel | decode 每步计算 | — |
+
+### write_back 先在 2P(TP4)1D 上做，还是 1P(TP8)1D 上做
+
+| | 2P(TP4)1D | 1P(TP8)1D |
+|---|---|---|
+| 现有基线 | 有（t5b C176 = 28,900，write_through），只改一个变量 | 没有，需先补一轮 write_through 才能归因 |
+| GPU 缓存 | 8 rank × 2.43M ≈ 19.4M token | TP8 每卡权重减半，8 rank × 约 3.1M ≈ 24.9M（+28%） |
+| 主机缓存 | 跨 135、137 两台，137 少一个实例后可到 400 GB/rank，合计约 3.2 TB | 只有 137 一台，扣其他占用约 2 TB |
+| 实例间失衡 | 有（上次排队 2.7 / 8.1）；两实例本身不对称（135：400 GB、7 网卡；137：200 GB、8 网卡） | 无 |
+| prefill 计算 | 每实例 4 卡，通信少 | MoE 跨 8 卡 TP，每层通信更多（prefill 缺的主要是缓存，不是算力） |
+| 资源与挂起验证 | 135 + 137 半台；prefill-2（带修复）+ prefill-0（对照）可继续 A/B | 占满 137，135 的 4 卡闲置；只有一个 prefill，挂起修复无对照 |
+
+结论：**先在 2P1D 上做**（单变量、有基线、主机缓存更多），write_back 有效后再用 write_back 跑 1P(TP8)1D，与 2P1D + write_back 同并发对比，选出 16 卡形态。
+做法：2P1D 用 prefill-0（135，400 GB/rank）+ prefill-2（137 card0–3，200 GB/rank，与 t5b 的 prefill-1 同一组卡、同样大小）；只改写策略，IO 后端
+（kernel）、布局（page_first）、主机缓存大小不变；decode 现为 mem 0.92（t5b 为 0.85，C176 已证明 decode KV 不是约束，影响小，结果里注明）。
+ROCm 上 write_back 走非 JIT 路径：`kernel` + `page_first` 下回写用 `transfer_kv_all_layer_mla_lf_pf`，与 write_through 备份同一个 kernel，
+区别只在回写时机（淘汰时 vs 插入时），淘汰时先回写可能落在 prefill 的关键路径上，需要看排队与 TTFT。

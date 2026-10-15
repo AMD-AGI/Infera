@@ -65,3 +65,11 @@ run restart_all_engines.sh ROUND=r2 OVERLAY=config/stage-mem092.sh TAG=mem092
 run warmup_round.sh VARIANT=warm-mem092b CONC=144 MINUTES=30
 round t6-mem092 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
 round t6-mem092 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 10-15 09:00 t7: 2P1D + prefill HiCache write_back (PLAN-TUNING 10-15 08:40; user: PD ratio / router / cache before step compute).
+# prefill-1 dropped (EXCLUDE), prefill-0 / prefill-2 restarted with write_back (config/stage-2p1d-wb.sh). Gate: transfer smoke +
+# hicache_check (prefix evicted to host and reloaded must give the same first token, host path must be exercised); then warm-up, C176.
+run drop_prefill.sh ROUND=r2 INSTANCE=prefill-1 TAG=2p1dwb
+run restart_prefills.sh ROUND=r2 OVERLAY=config/stage-2p1d-wb.sh TAG=wb
+run hicache_check.sh ROUND=r2 TAG=wb
+run warmup_round.sh VARIANT=warm-2p1d-wb CONC=144 MINUTES=30
+round t7-2p1d-wb 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on

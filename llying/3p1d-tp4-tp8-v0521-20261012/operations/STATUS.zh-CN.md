@@ -334,3 +334,9 @@
   （bash 增量读脚本，不能原地改运行中的脚本）；② `hang_capture.sh` 先写节点本地 `NODE_RW_ROOT/hang-captures/`，再带重试拷回 `/home`；
   ③ `hang_watch.py` 每 10 分钟调用一次 `log_follow.sh`，补起丢失的 follower；06:40 重启监视器。待做：`agentx_bench.sh` 的结果拷回加重试
   （此刻 C176 正在执行该脚本，等队列空闲再改）。
+- 07:35 t6-mem092 C176 = 30,291（30,562 的 −0.9%，无收益；KV>90% 37.7% → 15.3%，每 rank 在跑 +4.6%，输出持平）：C176 的约束是 decode 每步计算。
+  07:37 C192 由队列自动开始（07:59 进入测量）；它是按"KV 受限"旧假设预先排的，C176 出结果后没有及时复核（用户指出），用户决定跑完。
+- 08:40 用户：先 PD 配比 / router / cache，单步计算放后面；write_back 先在 2P1D 上做（PLAN-TUNING 末节）。ROCm 上 write_back 在 kernel + page_first 下
+  用 `transfer_kv_all_layer_mla_lf_pf`（与 write_through 同一 kernel，只是回写时机不同）。新增 `config/stage-2p1d-wb.sh`、`scripts/hicache_check.py` /
+  `hicache_check.sh`（16 个约 4 万 token 的探针 → 约 2900 万 token 填充把探针挤到主机 → 重发探针，首 token 必须一致，且主机回读量 ≥ 探针 token 的一半）。
+  队列追加第 37–41 步：drop prefill-1 → restart prefill-0/2（write_back）→ hicache_check → warm-2p1d-wb → t7-2p1d-wb C176。

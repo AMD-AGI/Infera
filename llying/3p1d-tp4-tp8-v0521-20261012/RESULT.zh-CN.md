@@ -255,6 +255,9 @@ ITL 变低（interactivity 变高），但吞吐和 TTFT 都变差。各 rank �
 最优配置 = R1 + P 会话亲和 + R2 + 2a + decode tokenizer worker ×4，C176 30,562 tok/s/GPU。之后的尝试：3P1D C192 因 prefill-2 挂起无有效结果
 （部分数据未超过 C176，§4.11）；2P(TP4)1D C176 28,900（−5.4%）；3P1D + decode mem 0.92 的预热轮因 prefill-2 第三次挂起作废。
 栈状态和下一步见 `HANDOFF.zh-CN.md`；提交 InferenceX 前还需要按官方协议复测（§5.3）。
+10-15：decode mem 0.92 在 C176 没有收益（§3.1 第 9 条），C176 的约束是 decode 每步计算。按用户决定，先做 PD 配比 / router / cache，单步计算放后面；
+顺序与"write_back 先在 2P1D 上做"的依据见 `PLAN-TUNING.zh-CN.md` 末节。第一项 t7 = 2P1D + prefill HiCache write_back（`config/stage-2p1d-wb.sh`），
+开测前用 `scripts/hicache_check.sh` 做功能门禁。
 
 ## 4. 专题分析（讨论中形成的结论，10-13 ~ 10-15）
 
