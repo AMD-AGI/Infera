@@ -37,6 +37,9 @@ _ARG_TO_FIELD = {
     "speculative_draft_layers": "speculative_draft_layers",
     "speculative_draft_vocab": "speculative_draft_vocab",
     "speculative_draft_window": "speculative_draft_window",
+    "speculative_acceptance_length": "speculative_acceptance_length",
+    "speculative_acceptance_curve": "speculative_acceptance_curve",
+    "speculative_thinking": "speculative_thinking",
     "serving_model": "serving_model",
     "decode_step_overhead_us": "decode_step_overhead_us",
     "detokenize_overhead_us": "detokenize_overhead_us",
@@ -72,6 +75,7 @@ _ARG_TO_FIELD = {
     "moe_expert_dtype": "moe_expert_dtype",
     "linear_weight_dtype": "linear_weight_dtype",
     "speculative_draft_cost_factor": "speculative_draft_cost_factor",
+    "speculative_draft_cost_model": "speculative_draft_cost_model",
     "sampling_top_k": "sampling_top_k",
     "sampling_top_p": "sampling_top_p",
     "sampling_temperature": "sampling_temperature",
@@ -166,7 +170,8 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"prefix_cache_hit={req.resolved_prefix_cache_hit_rate():.2f}")
     if req.speculative_num_tokens:
         feats.append(
-            f"speculative(k={req.speculative_num_tokens}, accept={req.speculative_acceptance_rate})"
+            f"speculative(k={req.speculative_num_tokens}, "
+            f"method={req.speculative_method or 'model default'})"
         )
     if req.kv_cache_dtype != "bf16":
         feats.append(f"kv_dtype={req.kv_cache_dtype}")
@@ -343,7 +348,17 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     if perf.extras.get("speculative_tokens_per_step", 1.0) > 1.0:
         print(
             f"  Speculative tokens / step:       {perf.extras['speculative_tokens_per_step']:.2f}"
+            f" ({perf.extras.get('speculative_method', '?')}, "
+            f"depth {int(perf.extras.get('speculative_num_tokens_used', 0))})"
         )
+        if perf.extras.get("speculative_acceptance_source"):
+            print(
+                f"    acceptance from:               {perf.extras['speculative_acceptance_source']}"
+            )
+        if perf.extras.get("speculative_draft_cost"):
+            draft_ms = perf.extras.get("speculative_draft_ms")
+            ms = f", {draft_ms:.2f} ms/step" if draft_ms is not None else ""
+            print(f"    draft cost:                    {perf.extras['speculative_draft_cost']}{ms}")
     # Throughput priced in the unit a serving budget is quoted in. Prefill and
     # decode share the GPUs under continuous batching, so a token's cost is the
     # whole replica's cost divided by what the replica emits -- which is why a

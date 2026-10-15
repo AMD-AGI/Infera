@@ -75,6 +75,12 @@ linear_num_value_heads: 64
 # One next-token-prediction head ships with the checkpoint.
 mtp_num_layers: 1
 
+# Speculative decoding: the MTP head drafts; acceptance is InferenceX's golden
+# curve (configs/speculative/golden_al).
+speculative:
+  mtp:
+    acceptance: qwen3.5_mtp.yaml
+
 # partial rotary embedding (partial_rotary_factor 0.25) on the full layers
 rotary_base: 10000000
 rotary_percent: 0.25
