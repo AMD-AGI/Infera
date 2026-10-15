@@ -42,7 +42,7 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 |---|---|---|
 | a1 | HiCache write_back 270 GB | 参数校验通过后停掉（按要求先不开 HiCache 调通流程） |
 | a2 | 不开 HiCache，调通流程（预热每 lane 2 个请求） | 完成：C16 / 600 s 全流程通过（不计分） |
-| a3 | HiCache write_through 270 GB / rank | 启动中 |
+| a3 | HiCache write_through 270 GB / rank | 启动约 7.5 分钟；HiCache 功能检查通过；C48 进行中 |
 
 ### a2 调通结果（不计分）
 
@@ -54,6 +54,15 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 都是约 40 s 发一个请求（3P1D C192：16,953 个 / 3600 s / 192 lane；这里 240 / 600 s / 16），差别只在单个请求
 本身（这里约 6 s，3P1D 约 28 s）。所以服务端跟得上时吞吐 ≈ 并发 × 每 lane 速率（这里约 790 tok/s/GPU/lane），
 C48 约 38k；上限来自 KV（GPU + 主机）容量和单步算力，要靠加并发找。
+
+### a3 HiCache 功能检查（write_through）
+
+`results/a3-wt/hicache_check.json`（`scripts/hicache_check_agg.sh`，即 3P1D 的 `hicache_check.py`）：**pass**。
+16 个检索探针（各约 40k token）先新算，再用 110 个填充请求（约 1150 万 token，1.4 倍 GPU 池）把它们挤出 GPU，
+再问一次：首 token 16/16 一致，top-1 logprob 最大差 0.0013；第二次从主机载回 557,056 token（探针的 87%），
+主机路径确实走到了。主机池每 rank 5,933,568 token（270 GB）+ DSA indexer 61.9 GB，MTP draft 层打包在同一个池里；
+开 HiCache 后 GPU 池每 rank 降到约 206 万 token（不开时 238 万）。`/flush_cache` 也清空主机池
+（`hicache_host_used_tokens` 在空闲时不刷新，第一次调度后从约 300 万掉到 1.6 万）。
 
 ## 计划
 
