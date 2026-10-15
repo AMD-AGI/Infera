@@ -93,7 +93,9 @@ class Parallelism:
         """``tp8``, ``tp4ep4``, ``tp8ep8dp8`` (attention DP), ``tp4dcp4`` (decode context parallel), ``tp4pp2``."""
         m = _PAR_RE.match(spec.strip().lower())
         if not m:
-            raise ValueError(f"bad parallelism '{spec}' (expected e.g. tp8, tp8ep8, tp8ep8dp8, tp4dcp4)")
+            raise ValueError(
+                f"bad parallelism '{spec}' (expected e.g. tp8, tp8ep8, tp8ep8dp8, tp4dcp4)"
+            )
         tp, ep, dp, dcp, pp = (int(g) if g else 1 for g in m.groups())
         if dp > tp:
             raise ValueError(f"'{spec}': attention DP cannot exceed TP")

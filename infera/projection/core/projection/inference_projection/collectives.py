@@ -397,9 +397,9 @@ class InferenceCollectiveModel:
             getattr(self.mc, "kv_channels", 0) or self.hidden // max(1, heads)
         )
         msg = max(1, batch * tokens * heads * width * 2)
-        raw = _min_over_protocols(cm.run_allgather, self._args, msg, self.dcp, ["tp"]) + _min_over_protocols(
-            cm.run_reduce_scatter, self._args, msg, self.dcp, ["tp"]
-        )
+        raw = _min_over_protocols(
+            cm.run_allgather, self._args, msg, self.dcp, ["tp"]
+        ) + _min_over_protocols(cm.run_reduce_scatter, self._args, msg, self.dcp, ["tp"])
         us = raw + 2 * _allreduce_overhead_us(self._args, msg, self.dcp)
         us = self._floor_small_msg_overhead(us, msg, self.dcp, is_a2a=False)
         return us / 1000.0
