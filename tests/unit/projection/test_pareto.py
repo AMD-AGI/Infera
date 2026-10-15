@@ -89,6 +89,9 @@ def test_trace_per_concurrency(tmp_path):
         "lanes_c8.jsonl",
     ]
     assert len(uncovered) == 1 and "no trace" in uncovered[0].reason
+    # Turns keep their recorded think time, under the AgentX idle cap.
+    argv = tasks[0]["argv"]
+    assert argv[argv.index("--des-client-idle-cap-ms") + 1] == "10000.0"
     # An attention-DP rank replays its own share of the lanes.
     tasks, _ = P.build_tasks(
         models=[P.ModelSpec("glm5", "GLM")],
@@ -531,6 +534,64 @@ def test_build_tasks_spec_and_knob_series(tmp_path):
     assert _pt(1, 1).spec == "none" and _pt(1, 1, spec="MTP3").series().endswith("MTP3 (simulate)")
 
 
+def test_golden_acceptance_curves():
+    from infera.projection.core.projection.inference_projection import golden_al as G
+
+    assert G.golden_al("glm5", "mtp", 3) == (2.99, "glm5.2_mtp")
+    assert G.golden_al("deepseek_v4_pro", "mtp", 3, "off") == (2.97, "dsv4_mtp")
+    # GLM-5.2 has no thinking-off curve; it falls back to thinking on.
+    assert G.golden_al("glm5", "mtp", 3, "off") == (2.99, "glm5.2_mtp")
+    # SGLang's EAGLE serves the checkpoint's MTP head.
+    assert G.golden_al("qwen3_5_397B_A17B", "eagle", 1) == (1.93, "qwen3.5_mtp")
+    al, src = G.golden_al("deepseek_v4_flash", "mtp", 3)
+    assert src == "mtp mean" and al == pytest.approx((2.99 + 2.49 + 3.39) / 3)
+    # A model's own curve only counts for the method it was measured with.
+    assert G.golden_al("minimax_m3", "mtp", 3)[1] == "mtp mean"
+    assert G.golden_al("minimax_m3", "eagle3", 3) == (2.83, "minimaxm3_eagle3")
+    assert G.golden_al("glm5", "ngram", 3) is None and G.golden_al("glm5", "mtp", 9) is None
+    for al, k in ((2.99, 3), (1.5, 1), (4.06, 8)):
+        a = G.rate_for_al(al, k)
+        assert sum(a**i for i in range(k + 1)) == pytest.approx(al)
+    assert G.rate_for_al(1.0, 3) == 0.0 and G.rate_for_al(9.0, 3) == 1.0
+
+
+def test_golden_spec_sweeps_depth_as_one_line(tmp_path):
+    specs = P.SpecConfig.parse_many("mtp:golden")
+    assert [s.k for s in specs] == list(range(1, 9)) and {s.label for s in specs} == {"MTP"}
+    assert [s.k for s in P.SpecConfig.parse_many("eagle3:2-4:golden")] == [2, 3, 4]
+    assert [s.k for s in P.SpecConfig.parse_many("mtp:3:golden")] == [3]
+    assert P.SpecConfig.parse_many("mtp:3") == [P.SpecConfig.parse("mtp:3")]
+    with pytest.raises(ValueError):
+        P.SpecConfig.parse("mtp:golden")
+    with pytest.raises(ValueError):
+        P.SpecConfig.parse_many("ngram:golden")
+    tasks, _ = P.build_tasks(
+        models=[P.ModelSpec("glm5", "GLM"), P.ModelSpec("deepseek_v4_flash", "V4F")],
+        engines=["sglang"],
+        precisions=["fp8"],
+        parallelisms=[P.Parallelism(8)],
+        concurrencies=[4],
+        scenarios=[P.Scenario("1k/1k", 1024, 1024)],
+        modes=["simulate"],
+        anchors=[],
+        workdir=str(tmp_path),
+        specs=[P.SpecConfig(), *P.SpecConfig.parse_many("mtp:1-3:golden")],
+    )
+    pts = [P.ParetoPoint(**t["point"]) for t in tasks]
+    assert len(pts) == 8 and len({P._key(p) for p in pts}) == 8
+    glm3 = next(p for p in pts if p.model == "glm5" and p.spec_k == 3)
+    assert glm3.spec == "MTP" and glm3.spec_al_source == "glm5.2_mtp"
+    assert glm3.series() == "MI355X sglang MTP (simulate)" and glm3.short() == "TP8 c4 k3"
+    assert sum(glm3.spec_accept**i for i in range(4)) == pytest.approx(2.99)
+    argv = next(
+        t["argv"] for t in tasks if t["point"]["model"] == "glm5" and t["point"]["spec_k"] == 3
+    )
+    assert argv[argv.index("--speculative-acceptance-rate") + 1] == str(glm3.spec_accept)
+    assert {p.spec_al_source for p in pts if p.model == "deepseek_v4_flash" and p.spec_k} == {
+        "mtp mean"
+    }
+
+
 def test_writers_round_trip(tmp_path):
     pts = [
         _pt(10, 100),
@@ -587,20 +648,6 @@ def test_html_controls_and_measured_overlay(tmp_path):
                 proj={"simulate": {"interactivity": 10.0, "tput_per_gpu": 100.0, "ttft_ms": 40.0}},
             )
         ],
-        "accuracy": [
-            dict(
-                scope="all",
-                mode="simulate",
-                metric="tput_per_gpu",
-                n=1,
-                r_log=1.0,
-                rho=1.0,
-                mape=5.0,
-                w15=100.0,
-                w25=100.0,
-                bias=1.05,
-            )
-        ],
     }
     path = tmp_path / "m.json"
     path.write_text(json.dumps(meas))
@@ -613,7 +660,7 @@ def test_html_controls_and_measured_overlay(tmp_path):
     html = open(out["html"][0]).read()
     # Every control is a button group: no native <select> popups to fail in an embedded preview.
     assert "<select" not in html and 'class="chips" id="model"' in html
-    assert '"measured": [{' in html and '"accuracy": [{' in html
+    assert '"measured": [{' in html and "accuracy" not in html
     assert P.load_measured(None) == {}
     blank = P.write_outputs(P.ParetoResult(points=pts), str(tmp_path / "b"), meta={})
     assert '"measured": []' in open(blank["html"][0]).read()
