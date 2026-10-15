@@ -3,6 +3,8 @@
 # docker logs -f exits when a write fails -- the shared /home volume returns "disk quota
 # exceeded" whenever it is momentarily full (2026-10-14 21:59, 10-15 05:03) -- so after it exits
 # this waits and resumes from just after the last timestamp already in FILE: no gap, no duplicates.
+# The per-second "GET /metrics" access lines (sampler, AgentX scrapes) are about half of all lines
+# and nothing reads them, so they are not copied.
 # Usage (on the container's node, detached): follow_log.sh FILE CONTAINER
 set -uo pipefail
 file="$1"
@@ -18,7 +20,9 @@ import sys
 base, frac = sys.argv[1].rstrip("Z").split(".")
 print("%s.%09dZ" % (base, int(frac.ljust(9, "0")[:9]) + 1))' "$last")"
     fi
-    # docker logs replays the container's stderr (the scheduler logs) on its own stderr.
-    docker logs --timestamps -f ${since:+--since "$since"} "$container" >> "$file" 2>&1
+    # docker logs replays the container's stderr (the scheduler logs) on its own stderr. A failed
+    # write ends grep, and docker logs then dies of SIGPIPE.
+    docker logs --timestamps -f ${since:+--since "$since"} "$container" 2>&1 |
+        grep -a --line-buffered -v '"GET /metrics HTTP' >> "$file"
     sleep 30
 done

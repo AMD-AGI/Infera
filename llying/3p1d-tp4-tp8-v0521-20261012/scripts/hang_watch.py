@@ -6,6 +6,8 @@ counters (sglang:realtime_tokens_total + sglang:kv_transfer_latency_ms_count) ha
 for STALL seconds. Both come from the engine's own /metrics (served by the HTTP process, which
 stays up during a scheduler hang), so a dead server-log follower cannot raise a false alarm the
 way a log-based check would. Each instance is captured at most once per watcher run.
+Every FOLLOW_CHECK seconds it also runs log_follow.sh, which restarts any server-log follower that
+is gone (and leaves live ones alone).
 
 Usage: hang_watch.py [ROUND=r2] [STALL_SECONDS=600] [INTERVAL_SECONDS=30]
 Needs the config environment (BENCH_DIR, TOPOLOGY, ENGINE_PORT_BASE, ENGINE_PORT_STRIDE);
@@ -26,6 +28,7 @@ HERE = Path(__file__).resolve().parent
 ROUND = sys.argv[1] if len(sys.argv) > 1 else "r2"
 STALL = int(sys.argv[2]) if len(sys.argv) > 2 else 600
 INTERVAL = int(sys.argv[3]) if len(sys.argv) > 3 else 30
+FOLLOW_CHECK = 600
 SAMPLE = re.compile(r"^(sglang:[a-z_]+)\{[^}]*\} ([0-9.eE+-]+)$")
 PROGRESS = {"sglang:realtime_tokens_total", "sglang:kv_transfer_latency_ms_count"}
 PENDING = {"sglang:num_queue_reqs", "sglang:num_running_reqs", "sglang:num_prefill_inflight_queue_reqs",
@@ -64,8 +67,18 @@ def main() -> int:
     urls = prefills()
     last: dict[str, tuple[float, float]] = {}  # instance -> (progress value, time it last changed)
     captured: set[str] = set()
+    follow_checked = 0.0
     while True:
         now = time.time()
+        if now - follow_checked >= FOLLOW_CHECK:
+            follow_checked = now
+            result = subprocess.run(["bash", str(HERE / "log_follow.sh"), f"ROUND={ROUND}"],
+                                    capture_output=True, text=True)
+            restarted = [line for line in result.stdout.splitlines() if "restarted" in line]
+            if restarted or result.returncode:
+                stamp = datetime.now(timezone.utc).strftime("%FT%TZ")
+                print(f"{stamp} log_follow rc={result.returncode}: {'; '.join(restarted)} {result.stderr.strip()[-300:]}",
+                      flush=True)
         parts = []
         for inst, url in urls.items():
             try:

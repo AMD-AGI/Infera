@@ -7,7 +7,9 @@
 # rocgdb attach stops the process for seconds to minutes: run this only on an instance that
 # is already stalled (scripts/hang_watch.py does).
 # Usage: hang_capture.sh INSTANCE=<prefill-N|decode-0> [ROUND=r2]
-# Output: runtime/runs/<ROUND>/tune/hang-<INSTANCE>-<MMDD-HHMM>/
+# Output: runtime/runs/<ROUND>/tune/hang-<INSTANCE>-<MMDD-HHMM>/. Written first under
+# NODE_RW_ROOT/hang-captures/ on the machine running this (node-local NVMe, when present) and then
+# copied, with retries, to the shared /home, which refuses writes while it is momentarily full.
 set -euo pipefail
 for a in "$@"; do
     [[ "$a" =~ ^[A-Za-z_][A-Za-z0-9_]*=.*$ ]] || { echo "expected KEY=VALUE, got '$a'" >&2; exit 2; }
@@ -21,7 +23,12 @@ set -a; source "$R/config/config.3p1d.sh"; set +a
 node="$(python3 "$BENCH_DIR/tools/topology.py" rows "$TOPOLOGY" | awk -v i="$INSTANCE" '$2 == i {print $4}')"
 [[ -n "$node" ]] || { echo "unknown instance: $INSTANCE" >&2; exit 2; }
 container="$CONTAINER_PREFIX-$INSTANCE"
-out="$RUNS/tune/hang-$INSTANCE-$(date -u +%m%d-%H%M)"
+name="hang-$INSTANCE-$(date -u +%m%d-%H%M)"
+final="$RUNS/tune/$name"
+out="$final"
+if [[ -n "${NODE_RW_ROOT:-}" ]] && mkdir -p "$NODE_RW_ROOT/hang-captures/$name" 2>/dev/null; then
+    out="$NODE_RW_ROOT/hang-captures/$name"
+fi
 mkdir -p "$out"
 on() { ssh -o BatchMode=yes -o ConnectTimeout=10 -n "$node" "$@"; }
 
@@ -42,4 +49,10 @@ for p in $pids; do
     on "docker exec $container timeout -s KILL 900 $gdb -p $p -ex 'info threads' -ex 'thread apply all bt 20' -ex detach" \
         > "$out/rocgdb-threads-$p.txt" 2>&1 || true
 done
+if [[ "$out" != "$final" ]]; then
+    for i in $(seq 1 20); do
+        mkdir -p "$final" 2>/dev/null && cp -p "$out"/* "$final"/ 2>/dev/null && { out="$final"; break; }
+        sleep 60
+    done
+fi
 echo "$out"

@@ -329,3 +329,8 @@
   访问行（prefill-0/1、decode 从 22:00 补写的那段也一样）。改为 `2>&1`，停掉 follower，把文件截回新 follower 开始写之前的位置
   （prefill-0/1、decode 截到 05:03 的大小，prefill-2 截到 05:30:46.435916178 那一行之后），重启 follower 从截断点补写；05:52 四个日志都已追到当前，
   batch 行齐全。warm-mem092b 已平稳度过冷启动段（05:36 进入 30 分钟测量），hang 监视器无停滞。
+- 06:11 t6-mem092 C176 开始（06:29 进入 60 分钟测量）。
+- 06:39 加固（用户同意）：① `follow_log.sh` 不再抄 `"GET /metrics` 访问行（约占一半行数，没有脚本读它），先停 follower 再换文件再重启
+  （bash 增量读脚本，不能原地改运行中的脚本）；② `hang_capture.sh` 先写节点本地 `NODE_RW_ROOT/hang-captures/`，再带重试拷回 `/home`；
+  ③ `hang_watch.py` 每 10 分钟调用一次 `log_follow.sh`，补起丢失的 follower；06:40 重启监视器。待做：`agentx_bench.sh` 的结果拷回加重试
+  （此刻 C176 正在执行该脚本，等队列空闲再改）。
