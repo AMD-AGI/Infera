@@ -1573,6 +1573,48 @@ mod tests {
     }
 
     #[test]
+    fn take_first_leaves_the_decode_reservation_on_the_decode_guard() {
+        let policy = Arc::new(demand_policy(DecodeDemandMode::On));
+        let d = policy.pick(&[worker("d", 0, None)], &json!({"prompt":[1,2,3]}), Role::Decode);
+        let mut guard = ActiveGuard::start(
+            policy.clone(),
+            vec![("p".into(), Vec::new()), (d.target.route_key(), Vec::new())],
+        )
+        .with_decode_demand(d.decode_demand);
+        drop(guard.take_first());
+        assert_eq!(policy.demand_snapshot()["d"].tokens, 3);
+        drop(guard);
+        assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn a_pinned_decode_pick_still_books_its_demand() {
+        use crate::session_affinity::{Mode, Sessions};
+        let sessions = Sessions::new(Mode::Both, std::time::Duration::from_secs(60), 16);
+        let policy = demand_policy(DecodeDemandMode::On);
+        let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+        let request = json!({"prompt": vec![1; 10]});
+        let pick = || {
+            sessions.pick(
+                &policy,
+                &workers,
+                &request,
+                &RequestTokens::default(),
+                Role::Decode,
+                "m",
+                Some("s"),
+            )
+        };
+        let (first, first_lease) = pick();
+        let (second, second_lease) = pick();
+        let key = first.target.route_key();
+        assert_eq!(second.target.route_key(), key);
+        assert_eq!(policy.demand_snapshot()[&key].tokens, 20);
+        drop((first, first_lease, second, second_lease));
+        assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
     fn decode_demand_uses_real_tokenization_and_worker_template_defaults() {
         use crate::render_variant::{RenderVariant, VariantRegistry};
         let dir = std::env::temp_dir().join(format!("infera-r2-tokenizer-{}", std::process::id()));
