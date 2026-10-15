@@ -26,7 +26,7 @@ Each script's docstring has the full rationale.
 | script | files | does |
 |---|---|---|
 | `patch_lmcache_rocm_pinned_alloc.py` | `lmcache/v1/memory_management.py` | on ROCm with `HSA_USERPTR_FOR_PAGED_MEM=0`, backs LMCache's NUMA CPU pool with exact-size `hipHostMalloc` (GTT) instead of `hipHostRegister` (KFD USERPTR) |
-| `patch_atom_dcp_sparse_pad_rows.py` | `atom/model_ops/attention_mla.py` | gives padded rows (q_len 0) an empty KV range before the sparse DCP persistent MLA plan is built; their stale offsets made the decode kernel read garbage slot ids (prefill `Memory access fault`) |
+| `patch_atom_dcp_sparse_pad_rows.py` | `atom/model_ops/attention_mla.py` | in sparse DCP decode, gives the rows an eager step padded past the scheduled ones an empty KV range; their stale offsets made the decode kernel read garbage slot ids (prefill `Memory access fault`) |
 | `prebuild_aiter_mha_varlen.py` | AITER JIT dir | builds an AITER kernel into the image (a build step, not a source patch) |
 
 ### LMCache CPU pool on ROCm
@@ -67,7 +67,7 @@ Re-check each script whenever `ATOM_BASE_IMAGE` moves.
   server's L1 pool).
 - `patch_atom_dcp_sparse_pad_rows.py`: drop once ATOM's fused DCP candidate
   exchange writes (or clamps) `dcp_sparse_kv_indptr_buffer` for the padded
-  rows itself, or `_rebuild_sparse_dcp_persistent_metadata` clamps them. Not in
-  `661ef766`; not filed upstream yet.
+  rows itself, or `_forward_decode` clamps them. Not in `661ef766`; not filed
+  upstream yet.
 - `prebuild_aiter_mha_varlen.py`: drop once the base prebuilds that variant
   itself, or once ATOM no longer loads it.

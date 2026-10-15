@@ -51,6 +51,17 @@ if [[ "$role" == prefill ]]; then
         ATOM_MOONCAKE_MATCHED_RAILS=auto)
     kv="$(kv_mooncake kv_producer "$PREFILL_HANDSHAKE_PORT" "$PREFILL_PORT")"
     if ((PREFILL_OFFLOAD_GB > 0)); then
+        # The four pools are GTT, whose cap is machine-wide (gotcha 4): check it
+        # now, not minutes into the cold start. Every card reports the cap as
+        # its total; 64 GiB covers the engine's other pinned buffers (~42 GiB).
+        # shellcheck disable=SC2016  # expanded on the docker host
+        gtt_free="$(on_docker_host 'cd /sys/class/drm && used=0 &&
+            for f in card*/device/mem_info_gtt_used; do used=$((used + $(cat "$f"))); done &&
+            total=$(cat card*/device/mem_info_gtt_total | sort -n | tail -1) &&
+            echo $(((total - used) >> 30))')" || die "cannot read the GTT use on the docker host"
+        gtt_need=$((4 * PREFILL_OFFLOAD_GB + 64))
+        ((gtt_need <= gtt_free)) ||
+            die "PREFILL_OFFLOAD_GB=$PREFILL_OFFLOAD_GB needs $gtt_need GiB of GTT, $gtt_free GiB free: lower it (README gotcha 4)"
         # Mooncake producer plus LMCache CPU tier. Infera registers a "multi"
         # connector that contains a kv_producer as the PD prefill.
         kv="{\"kv_connector\":\"multi\",\"connectors\":[$kv,{\"kv_connector\":\"lmcache_offload\",\"kv_role\":\"offload\"}]}"

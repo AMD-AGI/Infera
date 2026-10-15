@@ -29,9 +29,15 @@ RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
 # loads the ASM fmha_v3 kernel instead), and pins protobuf<7 (see the pip step).
 # Overview: deploy/docker/patches/atom_nightly/README.md.
 ARG ATOM_NIGHTLY=0
+# ATOM_NIGHTLY's old name fails the build: docker only warns about an unused
+# build arg, and the image would silently lack the nightly steps.
+ARG ATOM_DCP_PATCHES=
 COPY deploy/docker/patches/atom/ /tmp/atom-patches/
 COPY deploy/docker/patches/atom_nightly/ /tmp/atom-nightly/
-RUN case "${ATOM_NIGHTLY}" in \
+RUN if [ -n "${ATOM_DCP_PATCHES}" ]; then \
+        echo "ATOM_DCP_PATCHES was renamed to ATOM_NIGHTLY (1 = ATOM nightly base)" >&2; exit 1; \
+    fi \
+    && case "${ATOM_NIGHTLY}" in \
         0) for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done ;; \
         1) for f in /tmp/atom-nightly/patch_*.py; do python3 "$f" || exit 1; done \
             && GPU_ARCHS="${PYTORCH_ROCM_ARCH}" python3 /tmp/atom-nightly/prebuild_aiter_mha_varlen.py ;; \

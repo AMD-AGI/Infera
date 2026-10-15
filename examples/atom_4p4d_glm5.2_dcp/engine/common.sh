@@ -19,16 +19,19 @@ ROUTER_URL="http://$NODE_IP:$ROUTER_PORT"
 
 # Multi-node hooks, set by atom_8p4d_glm5.2_dcp; the defaults are this kit's
 # one-node layout. ETCD_IP: where etcd runs. KIT_GPUS: the GPUs the kit owns on
-# the docker host. REMOTE_PREFILLS: a script that starts (up) or removes (down)
-# prefills on other nodes. PREFILL_NUM_WORKERS: prefills the router must list.
+# the docker host. KIT_ROLES: the roles of its containers there.
+# REMOTE_PREFILLS: a script that starts (up) or removes (down) prefills on
+# other nodes. PREFILL_NUM_WORKERS: prefills the router must list.
 ETCD_IP="${ETCD_IP:-$NODE_IP}"
 KIT_GPUS="${KIT_GPUS:-$PREFILL_GPUS,$DECODE_GPUS}"
+KIT_ROLES="${KIT_ROLES:-agentx eval router decode prefill etcd}"
 REMOTE_PREFILLS="${REMOTE_PREFILLS:-}"
 PREFILL_NUM_WORKERS="${PREFILL_NUM_WORKERS:-1}"
 
 # Every container this kit may own, named explicitly. Never a pattern: on a
 # shared node a pattern removes somebody else's containers.
-CONTAINERS=("$CTR-agentx" "$CTR-eval" "$CTR-router" "$CTR-decode" "$CTR-prefill" "$CTR-etcd")
+CONTAINERS=()
+for kit_role in $KIT_ROLES; do CONTAINERS+=("$CTR-$kit_role"); done
 
 # Settings up.sh records per run, so later scripts report what actually runs.
 RUN_VARS=(CONC MTP_K MTP_AL PREFILL_GPUS DECODE_GPUS PREFILL_NUM_WORKERS PREFILL_MEM_UTIL DECODE_MEM_UTIL
@@ -81,19 +84,31 @@ on_docker_host() {
 }
 
 # wait_vram_free: wait until each of KIT_GPUS holds < 4 GiB of VRAM on the
-# docker host; `docker rm` returns before the driver reclaims.
+# docker host; `docker rm` returns before the driver reclaims. A failed read
+# (an ssh hiccup) counts as not yet free.
 wait_vram_free() {
-    local deadline=$((SECONDS + VRAM_RELEASE_TIMEOUT)) used gpu vram
+    local deadline=$((SECONDS + VRAM_RELEASE_TIMEOUT)) used gpu vram out state
+    # VRAM use per GPU in HIP device order: ROCr numbers the GPU nodes of the
+    # KFD topology in node order (CPU nodes have render minor 0).
+    # shellcheck disable=SC2016  # expanded on the docker host
+    local read_vram='for node in $(ls -v /sys/class/kfd/kfd/topology/nodes); do
+        minor=$(sed -n "s/^drm_render_minor //p" /sys/class/kfd/kfd/topology/nodes/$node/properties)
+        if [ "${minor:-0}" -gt 0 ]; then cat /sys/class/drm/renderD$minor/device/mem_info_vram_used; fi
+    done'
     while :; do
-        # Card numbers sort in HIP device order.
-        mapfile -t vram < <(on_docker_host 'cat $(ls -v /sys/class/drm/card*/device/mem_info_vram_used)')
-        used=0
-        for gpu in ${KIT_GPUS//,/ }; do
-            [[ -n "${vram[gpu]:-}" ]] || die "cannot read the VRAM use of GPU $gpu"
-            ((vram[gpu] <= used)) || used="${vram[gpu]}"
-        done
-        ((used >= 4 << 30)) || return 0
-        ((SECONDS < deadline)) || die "VRAM not released after ${VRAM_RELEASE_TIMEOUT}s: $((used >> 30)) GiB in use"
+        if out="$(on_docker_host "$read_vram")"; then
+            mapfile -t vram <<<"$out"
+            used=0
+            for gpu in ${KIT_GPUS//,/ }; do
+                [[ -n "${vram[gpu]:-}" ]] || die "no GPU $gpu on the docker host"
+                ((vram[gpu] <= used)) || used="${vram[gpu]}"
+            done
+            ((used >= 4 << 30)) || return 0
+            state="$((used >> 30)) GiB in use"
+        else
+            state="cannot read the VRAM use"
+        fi
+        ((SECONDS < deadline)) || die "VRAM not released after ${VRAM_RELEASE_TIMEOUT}s: $state"
         sleep 10
     done
 }

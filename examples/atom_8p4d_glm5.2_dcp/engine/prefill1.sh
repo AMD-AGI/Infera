@@ -16,9 +16,11 @@ for var in PREFILL1_HOST PREFILL1_IP; do
 done
 
 # Same recipe as prefill0; only the node, its GPUs and the container names
-# differ. etcd stays on the head node.
+# differ. etcd stays on the head node, and the prefill is the only container
+# here.
 export DOCKER_HOST="ssh://$PREFILL1_HOST" ETCD_IP="$NODE_IP" NODE_IP="$PREFILL1_IP" \
-    PREFILL_GPUS="$PREFILL1_GPUS" KIT_GPUS="$PREFILL1_GPUS" CTR="$CTR-p1" REMOTE_PREFILLS=
+    PREFILL_GPUS="$PREFILL1_GPUS" KIT_GPUS="$PREFILL1_GPUS" KIT_ROLES=prefill CTR="$CTR-p1" \
+    REMOTE_PREFILLS=
 
 case "${1:-}" in
     check)

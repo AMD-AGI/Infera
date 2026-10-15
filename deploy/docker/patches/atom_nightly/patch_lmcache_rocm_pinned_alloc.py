@@ -14,7 +14,8 @@ KFD revalidates the range: multi-second stalls per event on a 256 GiB pool.
 
 Same approach as sgl-project/sglang#42553 for HiCache: when the engine runs
 with ``HSA_USERPTR_FOR_PAGED_MEM=0`` (set before HIP initializes, i.e. in the
-process environment), use LMCache's own ``alloc_pinned_ptr`` /
+process environment; read once at import, so a pool is freed the way it was
+allocated), use LMCache's own ``alloc_pinned_ptr`` /
 ``free_pinned_ptr`` pair instead: hipHostMalloc(size, 0) / hipHostFree, exact
 size, which with =0 is driver-owned GTT that cannot migrate. Hugepage pools are
 left unchanged. Without =0 the pool keeps the upstream path and a warning says
@@ -31,19 +32,18 @@ import sys
 from anchor_patch import apply
 
 HELPERS = '''\
-def _rocm_gtt_pool() -> bool:
-    """ROCm with HSA_USERPTR_FOR_PAGED_MEM=0: hipHostMalloc returns GTT memory."""
-    return (
-        torch.version.hip is not None
-        and os.environ.get("HSA_USERPTR_FOR_PAGED_MEM") == "0"
-    )
+# ROCm with HSA_USERPTR_FOR_PAGED_MEM=0: hipHostMalloc returns GTT memory. Read
+# once: _free_cpu_memory resolves the free function again and must match.
+_ROCM_GTT_POOL = (
+    torch.version.hip is not None and os.environ.get("HSA_USERPTR_FOR_PAGED_MEM") == "0"
+)
 
 
 def _log_rocm_numa_pool(use_hugepages: bool) -> None:
     """Say which memory backs a NUMA CPU pool on ROCm (alloc path only)."""
     if torch.version.hip is None or use_hugepages:
         return
-    if _rocm_gtt_pool():
+    if _ROCM_GTT_POOL:
         logger.info(
             "ROCm: LMCache CPU pool uses hipHostMalloc (GTT, not migratable); it lands "
             "on the NUMA node of the first GPU the process can open, not numa_id."
@@ -60,7 +60,7 @@ def _log_rocm_numa_pool(use_hugepages: bool) -> None:
 
 PATCH = {
     "v1/memory_management.py": (
-        "def _rocm_gtt_pool() -> bool:",
+        "_ROCM_GTT_POOL = (",
         [
             # The helpers use these module-level names; require them.
             ("\nimport os\n", "\nimport os\n"),
@@ -69,7 +69,7 @@ PATCH = {
             ("def _resolve_pinned_alloc_free(\n", HELPERS + "def _resolve_pinned_alloc_free(\n"),
             (
                 "    elif numa_mapping:\n",
-                "    elif numa_mapping and not use_hugepages and _rocm_gtt_pool():\n"
+                "    elif numa_mapping and not use_hugepages and _ROCM_GTT_POOL:\n"
                 "        # Exact-size hipHostMalloc, freed by hipHostFree (sglang#42553).\n"
                 "        return PinnedAllocFree(\n"
                 "            alloc_fn=device_ops.alloc_pinned_ptr,\n"

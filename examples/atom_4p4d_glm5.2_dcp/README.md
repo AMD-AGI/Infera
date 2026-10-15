@@ -160,7 +160,8 @@ allocates the pool with `hipHostMalloc` (GTT): the kernel can no longer migrate
 its pages, and each migration used to stall all GPU queues of the prefill for
 seconds. GTT has a machine-wide cap (`mem_info_gtt_total`, about 1376 GiB on the
 reference nodes) and lands on the NUMA node of the first GPU, so a node fits at
-most one 4 × 256 GiB prefill. The prefill logs `LMCache CPU pool uses
+most one 4 × 256 GiB prefill; `worker.sh` refuses to start a prefill whose
+pools do not fit in the free GTT. The prefill logs `LMCache CPU pool uses
 hipHostMalloc (GTT` when the fix is active.
 
 **5. Two workers on one host network need two readiness ports.** Infera's

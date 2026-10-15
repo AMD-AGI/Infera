@@ -58,8 +58,10 @@ if [[ "$PREPARE_ONLY" == 1 ]]; then
     metrics="$ROUTER_URL/metrics,http://$NODE_IP:$PREFILL_PORT/metrics,http://$NODE_IP:$DECODE_PORT/metrics"
 else
     workers="$(curl -sf -m 10 "$ROUTER_URL/v1/workers")" || die "cannot list workers: $ROUTER_URL/v1/workers"
+    urls="$(python3 -c 'import json, sys; print(*(w["url"] for w in json.load(sys.stdin)["workers"]))' <<<"$workers")" ||
+        die "cannot parse the worker list: $workers"
     metrics="$ROUTER_URL/metrics"
-    for url in $(grep -o '"url": *"[^"]*"' <<<"$workers" | cut -d'"' -f4); do metrics+=",$url/metrics"; done
+    for url in $urls; do metrics+=",$url/metrics"; done
 fi
 
 # TMPDIR stays short: AIPerf's Unix socket paths must fit in 107 bytes.
