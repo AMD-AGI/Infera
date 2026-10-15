@@ -343,6 +343,8 @@ def test_the_client_is_not_a_second_reason_a_model_cannot_be_measured(monkeypatc
 
     monkeypatch.setattr(benchmark_serving.shutil, "which", lambda _: None)
     assert benchmark_serving.client_kind(spec(serving_backend="sglang")) == "sglang"
+    # The ATOM image has no SGLang either; it vendors vLLM's legacy client.
+    assert benchmark_serving.client_kind(spec(serving_backend="atom")) == "atom"
     # An engine with no client of its own says so, rather than failing later
     # inside a subprocess that was never going to exist.
     with pytest.raises(RuntimeError, match="no load generator"):
