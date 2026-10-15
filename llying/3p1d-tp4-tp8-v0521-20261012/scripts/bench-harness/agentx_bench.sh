@@ -101,7 +101,7 @@ mounts=(-v "$REPO:$REPO${node_rw:+:ro}")
 [[ -n "$node_rw" || "$cache" == "$REPO"/* ]] || mounts+=(-v "$cache:$cache")
 
 name="$CONTAINER_PREFIX-agentx-client-$(date -u +%Y%m%dT%H%M%S)-$$"
-printf '%s\n' "$name" > "$OUT_DIR/client.container"
+printf '%s\n' "$name" > "$OUT_DIR/client.container" || true
 copied_back=0
 copy_back() {
     # NODE_RW_ROOT: copy the node-local client output back (base64: the spur shim mangles
@@ -110,9 +110,15 @@ copy_back() {
     copied_back=1
     # server_metrics_export.json (~3.5 GB per hour-long run) stays on the node: the shared
     # /home volume filled up on 2026-10-13, and agentx_conc*.json already carries its summary.
-    ssh_run "$CONTROL_NODE" bash -c "tar -C $(printf '%q' "$client_out") --exclude=./aiperf_artifacts/server_metrics_export.json -cf - . | base64 -w0" |
-        base64 -d | tar -C "$OUT_DIR" -xf - ||
-        echo "copy-back of $client_out from $CONTROL_NODE failed" >&2
+    # The volume refuses writes while it is momentarily full, so retry for up to two hours.
+    local attempt
+    for attempt in $(seq 1 120); do
+        ssh_run "$CONTROL_NODE" bash -c "tar -C $(printf '%q' "$client_out") --exclude=./aiperf_artifacts/server_metrics_export.json -cf - . | base64 -w0" |
+            base64 -d | tar -C "$OUT_DIR" -xf - && return 0
+        echo "copy-back of $client_out from $CONTROL_NODE failed (attempt $attempt), retrying in 60 s" >&2
+        sleep 60
+    done
+    echo "copy-back of $client_out from $CONTROL_NODE failed; the output stays on the node" >&2
 }
 record_exit() {
     local rc=$?
@@ -125,6 +131,7 @@ trap record_exit EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 echo "running AgentX C$CONC for ${DURATION}s via $router_url"
+set +e
 ssh_run "$CONTROL_NODE" docker run --name "$name" \
     --network host --ipc host --shm-size "${CLIENT_SHM_SIZE:-32g}" \
     "${mounts[@]}" \
@@ -147,7 +154,11 @@ ssh_run "$CONTROL_NODE" docker run --name "$name" \
         resolve_trace_source
         build_replay_cmd "$out"
         run_agentic_replay_and_write_outputs "$out"
-    ' _ "$client_out" 2>&1 | tee "$OUT_DIR/runner.log"
+    ' _ "$client_out" 2>&1 | tee --output-error=warn "$OUT_DIR/runner.log"
+client_rc=${PIPESTATUS[0]}
+set -e
+# A failed write to runner.log (full /home) must not end the run: only the client's status counts.
+(( client_rc == 0 )) || exit "$client_rc"
 trap - INT TERM
 copy_back
 result="$OUT_DIR/agentx_conc$CONC.json"

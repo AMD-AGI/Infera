@@ -28,6 +28,8 @@ on() { local n="$1"; shift; ssh "${ssh_args[@]}" "$n" "$(q "$@")" </dev/null; }
 status() { printf '%s\t%s\t%s\t%s\n' "$(date -u +%FT%TZ)" "$name" "$1" "${2:-}" | tee -a "$RUNS/tune/status.tsv"; }
 die() { status "$1" "FAIL ${2:-}"; exit 1; }
 noansi() { sed -E 's/\x1b\[[0-9;]*m//g'; }
+# Publishing writes to the shared /home; wait out a momentarily full volume instead of failing midway.
+bash "$HERE/wait_home_space.sh" 5 7200 || true
 control_ip="$(python3 "$BENCH_DIR/tools/topology.py" node-ip "$TOPOLOGY" "$CONTROL_NODE")"
 router_url="http://$control_ip:$ROUTER_PORT"
 router="$CONTAINER_PREFIX-router"

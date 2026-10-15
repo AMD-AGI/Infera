@@ -29,10 +29,23 @@ ROUND = sys.argv[1] if len(sys.argv) > 1 else "r2"
 STALL = int(sys.argv[2]) if len(sys.argv) > 2 else 600
 INTERVAL = int(sys.argv[3]) if len(sys.argv) > 3 else 30
 FOLLOW_CHECK = 600
+FALLBACK = Path(os.environ.get("NODE_RW_ROOT") or "/tmp") / "hang_watch.fallback.log"
 SAMPLE = re.compile(r"^(sglang:[a-z_]+)\{[^}]*\} ([0-9.eE+-]+)$")
 PROGRESS = {"sglang:realtime_tokens_total", "sglang:kv_transfer_latency_ms_count"}
 PENDING = {"sglang:num_queue_reqs", "sglang:num_running_reqs", "sglang:num_prefill_inflight_queue_reqs",
            "sglang:num_prefill_prealloc_queue_reqs", "sglang:num_bootstrap_queue_reqs"}
+
+
+def say(line: str) -> None:
+    """Print to the log on /home; while that volume is full (EDQUOT) keep the line on local disk."""
+    try:
+        print(line, flush=True)
+    except OSError:
+        try:
+            with open(FALLBACK, "a") as stream:
+                stream.write(line + "\n")
+        except OSError:
+            pass
 
 
 def prefills() -> dict[str, str]:
@@ -77,8 +90,7 @@ def main() -> int:
             restarted = [line for line in result.stdout.splitlines() if "restarted" in line]
             if restarted or result.returncode:
                 stamp = datetime.now(timezone.utc).strftime("%FT%TZ")
-                print(f"{stamp} log_follow rc={result.returncode}: {'; '.join(restarted)} {result.stderr.strip()[-300:]}",
-                      flush=True)
+                say(f"{stamp} log_follow rc={result.returncode}: {'; '.join(restarted)} {result.stderr.strip()[-300:]}")
         parts = []
         for inst, url in urls.items():
             try:
@@ -94,12 +106,11 @@ def main() -> int:
             if pending > 0 and stalled >= STALL and inst not in captured:
                 captured.add(inst)
                 stamp = datetime.now(timezone.utc).strftime("%FT%TZ")
-                print(f"{stamp} {inst} STALLED {stalled:.0f}s with {pending:.0f} pending: capturing", flush=True)
+                say(f"{stamp} {inst} STALLED {stalled:.0f}s with {pending:.0f} pending: capturing")
                 result = subprocess.run(["bash", str(HERE / "hang_capture.sh"), f"INSTANCE={inst}", f"ROUND={ROUND}"],
                                         capture_output=True, text=True)
-                print(f"{stamp} {inst} capture rc={result.returncode} {result.stdout.strip()} {result.stderr.strip()[-300:]}",
-                      flush=True)
-        print(datetime.now(timezone.utc).strftime("%FT%TZ ") + "; ".join(parts), flush=True)
+                say(f"{stamp} {inst} capture rc={result.returncode} {result.stdout.strip()} {result.stderr.strip()[-300:]}")
+        say(datetime.now(timezone.utc).strftime("%FT%TZ ") + "; ".join(parts))
         time.sleep(INTERVAL)
 
 

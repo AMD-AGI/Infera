@@ -27,6 +27,8 @@ while true; do
         continue
     fi
     read -r -a f <<< "${steps[$n]}"
+    # Steps write to the shared /home (logs, results, restart state); never start one while it is full.
+    bash "$HERE/wait_home_space.sh" 20 10800 || { log "/home has no room; stopping before step $((n + 1))"; exit 1; }
     log "step $((n + 1)): ${steps[$n]}"
     case "${f[0]}" in
         round)
@@ -36,10 +38,10 @@ while true; do
             bash "$HERE/${f[1]}" "${f[@]:2}" ||
                 { log "step $((n + 1)) failed rc=$?; stopping"; exit 1; } ;;
         stop)
-            log "stop"; echo $((n + 1)) > "$done_file"; exit 0 ;;
+            log "stop"; until echo $((n + 1)) > "$done_file"; do sleep 60; done; exit 0 ;;
         *)
             log "unknown step '${f[0]}'; stopping"; exit 1 ;;
     esac
     n=$((n + 1))
-    echo "$n" > "$done_file"
+    until echo "$n" > "$done_file"; do sleep 60; done
 done

@@ -38,6 +38,7 @@ router="$CONTAINER_PREFIX-router"
 
 mkdir -p "$RUNS/tune"
 [[ ! -e "$OUT" && ! -e "$RES" ]] || { echo "$OUT or $RES already exists" >&2; exit 2; }
+bash "$HERE/wait_home_space.sh" 20 10800 || die pre "/home has no room"
 mkdir -p "$OUT"
 printf 'VARIANT=%s\nCONC=%s\nROUND=%s\nROUTER_ENV=%s\nDECODE_LOG=%s\n' \
     "$VARIANT" "$CONC" "$ROUND" "$ROUTER_ENV" "$DECODE_LOG" > "$OUT/round.env"
@@ -114,8 +115,11 @@ start="$(date -u +%Y-%m-%dT%H:%M:%S)"
 echo "$start" > "$OUT/bench.start"
 ( sleep 300; python3 "$HERE/flush_check.py" "$LOGS" "$flushed_at" > "$OUT/flush_check.early.txt" 2>&1 ) &
 status bench "start C$CONC"
+# Through a pipe: agentx_bench.sh runs under set -e, and a failed write to a full /home on its own
+# stdout would kill it mid-run; tee only warns and keeps draining.
 bash "$BENCH_DIR/agentx_bench.sh" "CONFIG=$R/config/config.3p1d.sh" "ROUND=$ROUND" "CONC=$CONC" \
-    "OUT_DIR=$OUT/agentx-$name" AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID=true \
-    > "$OUT/agentx.log" 2>&1
-rc=$?
+    "OUT_DIR=$OUT/agentx-$name" AIPERF_HTTP_X_DYNAMO_SESSION_ID_FROM_CORRELATION_ID=true 2>&1 |
+    tee --output-error=warn "$OUT/agentx.log" > /dev/null
+rc=${PIPESTATUS[0]}
+bash "$HERE/wait_home_space.sh" 5 7200 || true
 exec bash "$HERE/tune_post.sh" "VARIANT=$VARIANT" "CONC=$CONC" "ROUND=$ROUND" "AGENTX_RC=$rc"

@@ -197,3 +197,35 @@ C192 = 31,829（RESULT §3.1 第 10 条）后，decode KV 在 C192 又接近用�
   留到 decode 分配后才释放，加重 prefill 显存压力、挤掉前缀缓存。阶段 B 按各形态自己的瓶颈选手段：先用对 prefill 有利、对 decode 无代价的设置
   （write_back 扩缓存、137 少一个实例后主机缓存加到 400 GB/rank、router 实例均衡；decode 保留 mem 0.92 与 4 个 tokenizer worker 这类不增加 prefill 负担的项），
   prefill_complete 单独做开 / 关对照；并发也按该形态重新扫，不沿用 3P1D 的峰值并发。
+
+### 10-15 10:50 执行顺序（用户确认）
+
+"找最高 tok/s/GPU"和"把 decode batch 推到最大"在同一次并发上扫中完成：并发往上加，吞吐先到峰值；再往上，吞吐走平或下降、每 rank 在跑数仍在涨，
+直到 KV 用满（等预分配增多、在跑数不再增加），即 batch 上限。
+
+**阶段 A（3P1D + prefill_complete + write_back）**
+
+| 步骤 | 内容 | 用时 |
+|---|---|---|
+| 0 | 编排脚本防 `/home` 写满加固；重启 sampler 与 hang 监视器 | 约 40 分钟 |
+| 1 | 全栈重启（`config/stage-pcwb.sh`），传输冒烟 + `hicache_check.sh` | 约 50 分钟 |
+| 2 | C192 上预热 60 分钟 | 1 小时 |
+| 3 | **C192 正式测**，与 t6-mem092 C192 = 31,829 对比，并用同等负载下的 decode 每步耗时检验预热 | 1.5 小时 |
+| 4 | **C208 → C224 → C240 …** 逐点上推（不重启） | 每点 1.5 小时 |
+| 5 | decode mem 0.94（重启），在最高的 1–2 个点复测 | 3–4 小时 |
+
+- 吞吐峰值：连续两个点相差都在 ±2% 内或开始下降即为过峰；batch 上限：每 rank 在跑数不再随并发增加、等预分配明显增多。
+- 过峰之后的点只用于测 batch 范围，不参与吞吐比较，测量窗口缩为 30 分钟。
+- 每个点记录 decode 每步耗时与在跑数、batch 内上下文总量的关系；在每 rank 约 8 / 12 / 16 个的点用 sglang profile 接口抓几十秒的 kernel 级 profile。
+- 若第 3 步低于 31,829 的 2% 以上（prefill_complete 在 3P1D 不成立），不再上推，改为用不开 prefill_complete 的配置做 mem 0.94 或进入阶段 B。
+
+**阶段 B（减 prefill 卡，按各形态自己的瓶颈选手段）**
+
+| 步骤 | 内容 |
+|---|---|
+| 6 | 2P1D：write_back、137 主机缓存 400 GB/rank、router 实例均衡，不开 prefill_complete；并发重扫（约 C144–C176） |
+| 7 | 2P1D 上 prefill_complete 开 / 关对照 |
+| 8 | 1P(TP8)1D，同样方法 |
+| 9 | 选出 16 卡里每卡吞吐最高的形态，与 3P1D 峰值比较 |
+
+阶段 A 约 9–11 小时（取决于峰值与 batch 上限在哪个并发），阶段 B 每种形态 4–6 小时。

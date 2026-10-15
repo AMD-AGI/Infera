@@ -79,6 +79,7 @@ def cpu(node, containers):
 def main():
     out_path = sys.argv[1]
     interval = int(sys.argv[2]) if len(sys.argv) > 2 else 60
+    pending = []
     while True:
         t0 = time.time()
         rows = topology()
@@ -90,8 +91,15 @@ def main():
             by_node.setdefault(r["node"], []).append(r["container"])
         for node, containers in by_node.items():
             rec["cpu"].update(cpu(node, containers))
-        with open(out_path, "a") as stream:
-            stream.write(json.dumps(rec, separators=(",", ":")) + "\n")
+        # The shared /home refuses writes while momentarily full (EDQUOT); keep the samples and retry
+        # on the next round instead of dying (the sampler died that way on 2026-10-14 22:00).
+        pending.append(json.dumps(rec, separators=(",", ":")) + "\n")
+        try:
+            with open(out_path, "a") as stream:
+                stream.write("".join(pending))
+            pending.clear()
+        except OSError:
+            del pending[:-1000]
         time.sleep(max(1, interval - (time.time() - t0)))
 
 
