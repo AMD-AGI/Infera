@@ -480,3 +480,59 @@ ROCr 内部线程看不到。
    或 60（H200）。我们是 1。v0.5.21 在 `stream_interval > 1` 时按 `len(output_ids) % k == 1` 发送，首 token 立即发出，TTFT 不受影响；ITL 是请求级平均，
    也不受影响。每秒输出事件数会降到约 1/k 以下（MTP 一步多个 token，实际更少），decode tokenizer、router、客户端的 CPU 都会下降。值得测。
 4. **harness 版本**：用 `agentx-harness==1.0.9` 复跑可以消除版本差，预期影响很小。
+
+## 6. PD 分离与 mixed（aggregated）在 AgentX 下的取舍（10-15）
+
+背景：InferenceX 上 B300 的 GLM-5.2 用 4 卡 aggregated 实例（TP4 + DP4 attention）在 C48 跑到 42,047 tok/s/GPU
+（`../inferencex-glm52-b300-dynamo-agg-20261015/README.zh-CN.md`）；同为 MI355X 的 ATOM 4 卡 TP4 aggregated 在 C32 / C48 为
+29,924 / 34,195（P50 交互 55.5 / 35.1），与我们 20 卡 3P1D 的 C176 = 30,562（48.9）同一量级。用户决定先把 PD 做到极致，mixed 之后再做。
+
+### 6.1 PD 分离最初的动机
+
+DistServe、Splitwise、Mooncake 等工作的出发点：
+1. **两个阶段的特性相反**：prefill 一次处理成千上万个 token，受计算限制；decode 每步每个请求只出一两个 token，受显存带宽和 KV 容量限制。
+   合在同一批 GPU 上，两边都难以跑在最优点。
+2. **互相干扰**：mixed 下一个长 prefill 块插进来，同批所有 decode 请求这一步都要等它，ITL 出现尖峰；decode 批也会拖慢 prefill，抬高 TTFT。
+   分离后 decode 步速稳定，TTFT 与 ITL 可以分别保证，按"同时满足两项 SLO 的吞吐"计更划算。
+3. **两边可独立配置与扩缩**：并行方式（我们 prefill TP4、decode TP8）、batch、CUDA graph、显存分配、chunk 都分开调；P:D 配比按负载调整，
+   也可以用不同硬件。
+
+### 6.2 AgentX 下 PD 的代价被放大
+
+AgentX 是"很多长会话、每轮只追加少量内容"：缓存命中约 95%，平均输入 12–13 万 token，输出约 1000 token，吞吐把命中缓存的输入也计入（输入占 99% 以上）。
+- **prefill 真正要算的很少**：每轮新增约 5%，为 prefill 单独留的算力用不满（3P1D 的 prefill 只忙 35%–45%，§4.4）。
+- **同一会话的 KV 存两份、每轮重传**：prefill 缓存着前缀；每轮还要把整段上下文 KV（6.4–6.8 GB）传给 decode，decode 再存一份完整副本
+  （每个在跑请求约 20.7 万 token，§4.5），且轮与轮之间不复用。mixed 下会话 KV 只有一份，在跑请求的 KV 就是下一轮要命中的前缀。
+- **干扰变轻**：每轮新算 token 少，prefill 块短，插进 decode 步的代价不大。
+
+### 6.3 PD 在我们这里仍有的优势
+
+- **交互速度更稳**：decode 步不被 prefill 打断。同为 MI355X，ATOM aggregated 在 C48 的 P50 交互只有 35.1；3P1D 在 C176 为 48.9。
+  若坚持 P50 ≥ 50 的约束，高负载区间 PD 更容易满足。
+- **冷启动和超长请求被隔离**：预热阶段动辄几十万 token 的冷请求在 PD 里只占 prefill；aggregated + DP attention 下各 rank 每步同步，
+  一个 rank 算长 prefill，同实例所有 rank 的 decode 都要等。
+- **配比与配置可单独调**：decode 加显存、prefill 加 HiCache 互不影响。
+
+### 6.4 在 PD 内部借用 mixed 的长处
+
+PD 在 AgentX 下最大的损失是"每轮重传整段 KV、decode 不跨轮复用"，可以在 PD 框架内部分补回：
+- **decode radix cache + decode 侧会话亲和**（PR #184 移植到 v0.5.21）：同一会话后续轮次落到同一 decode rank，prefill 只传新增部分，
+  decode 里的 KV 跨轮复用。历史数据：P4D4 C40 +3.0%，P8D8 +0.2% / +0.6%（当时 decode 不是瓶颈，且 decode 显存紧时复用率低）。
+  代价是缓存的前缀与在跑请求争用 decode GPU KV，需要配合扩容（§6.5）或较低的缓存占比。
+- **prefill_complete**：decode 只在 prefill 完成后分配 KV，释放"等 KV 传输"请求白占的 7%–12% decode KV（§4.7）。
+
+### 6.5 decode 侧能否用 HiCache（write_back）扩容
+
+**不能增加同时在跑的请求数**：decode 每一步都要读每个在跑请求的完整上下文，这部分 KV 必须在 HBM 里（单个请求约 20.7 万 token、约 11 GB，
+经 PCIe 从主机内存读回比 HBM 慢一到两个数量级）。主机内存只能存"暂时不参与 decode 的 KV"：
+1. **跨轮复用的会话前缀**：配合 decode radix cache 和 decode 侧会话亲和（§6.4），已结束轮次的 KV 先留在 GPU 的 radix 树，满了用
+   `write_back` 淘汰到主机，下一轮落到同一 rank 时从本机主机内存读回（PCIe），代替从 prefill 经 RDMA 重传整段。这能减少传输量、
+   让 decode 的 GPU KV 主要留给在跑请求，但不增加在跑容量。历史上单开 decode HiCache 曾使每步多 1.7 ms、吞吐 −4.5%（REVIEW §7），需在新条件下复测。
+2. **等待 KV 传输的请求**：v0.5.21 有 `--disaggregation-decode-host-receive-threshold`（GPU KV 紧张时把传入的 KV 先收进主机内存），
+   正对应 C176 时这 7%–12% 的占用；但参数说明写明"需要 dense MHA，且传输后端支持主机目标，目前没有内置后端支持"，GLM-5.2（MLA/DSA）
+   + Mooncake 用不了。这一块目前只能靠 prefill_complete。
+3. **被抢占（retract）的请求**：`--disaggregation-decode-retraction-backup host_pool` 可把被抢占请求的 KV 备份到主机，避免重算；
+   C176 时 retract 为 0，暂无价值。
+
+扩大 decode 在跑容量的可用手段仍是：decode mem fraction（0.92 进行中）、prefill_complete、降低 cuda graph 占用、更紧凑的 KV 格式
+（ATOM 在 MI355X 上用 fp4 的 indexer cache，sglang 里对应选项 `enable_deepseek_v4_fp4_indexer` 看名字只针对 DSv4，GLM-5.2 是否可用待查）。
