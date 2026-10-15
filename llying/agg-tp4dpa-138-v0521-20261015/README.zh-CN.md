@@ -42,7 +42,7 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 |---|---|---|
 | a1 | HiCache write_back 270 GB | 参数校验通过后停掉（按要求先不开 HiCache 调通流程） |
 | a2 | 不开 HiCache，调通流程（预热每 lane 2 个请求） | 完成：C16 / 600 s 全流程通过（不计分） |
-| a3 | HiCache write_through 270 GB / rank | 启动约 7.5 分钟；HiCache 功能检查通过；C48 进行中 |
+| a3 | HiCache write_through 270 GB / rank | HiCache 功能检查通过；C48 = 31,605；C64 进行中 |
 
 ### a2 调通结果（不计分）
 
@@ -75,6 +75,33 @@ C48 时主机命中占到 42.5%，说明那里 GPU 池已经装不下活跃会�
 主机路径确实走到了。主机池每 rank 5,933,568 token（270 GB）+ DSA indexer 61.9 GB，MTP draft 层打包在同一个池里；
 开 HiCache 后 GPU 池每 rank 降到约 206 万 token（不开时 238 万）。`/flush_cache` 也清空主机池
 （`hicache_host_used_tokens` 在空闲时不刷新，第一次调度后从约 300 万掉到 1.6 万）。
+
+### a3 C48（write_through，3600 s）：31,605 tok/s/GPU，B300 的 75%
+
+`results/a3-wt/c48/summary.txt`
+
+| | a3 C48（MI355X） | B300 C48 |
+|---|---|---|
+| tok/s/GPU | 31,605 | 42,047 |
+| 完成请求 / 每 lane 周期 | 3,436 / 50.3 s | 4,349 / 39.7 s |
+| ITL p50 / p90 | 24.8 / 48.1 ms | 15.5 ms / — |
+| TTFT p50 / p90 | 4.8 / 14.5 s | 3.6 s / — |
+| 引擎侧前缀命中 | 96.2%（理论 97.1%） | — |
+
+- 差距主要在 decode：每请求约 1,000 输出 token × 24.8 ms ≈ 25 s，占 50 s 周期的一半（B300 约 15 s）。
+  新算 prefill 约 4.7k tok/s（4 rank 合计），占去约 20–25% 的 GPU 时间；EAGLE + DP attention 下任一 rank 在
+  prefill 时所有 rank 都不能 decode（`scheduler.py`："prefill and decode batches will not be mixed"）。
+- TTFT 主要来自 prefill delayer：每 rank 3600 s 内约 470 次推迟、累计约 2,250 s（平均 4.8 s/次）；执行的
+  prefill 中约 219 次等齐、约 250 次等满 60 步超时放行。delayer 把各 rank 的 prefill 对齐到同一步，换来
+  decode 少被打断，代价是 TTFT。
+- 缓存不是瓶颈：命中贴近理论值；GPU KV 均值 0.59–0.69、峰值 0.99，每 rank 约 1 个请求排队等 KV；主机池
+  89–98% 满；无 retract。在跑请求每 rank 5.9–8.6，不均衡（每步等最忙的 rank）。
+- 开跑后前约 17 分钟（预热段）每 rank 积压约 200 万 token 新算 prefill，decode 完全停住，积压消化后才进入
+  稳态；计分窗口在预热之后。
+
+可调的杠杆（按预期收益）：GPU KV（mem-fraction 0.85 → 0.92，或 TP8/DP8 用满 8 卡、每卡权重 121 → 约 61 GB）；
+write_back（主机不再重复存 GPU 上的页，有效缓存约 590 万 → 800 万 token/rank，并发更高时才有意义）；
+`--prefill-delayer-max-delay-passes`（60 → 30，TTFT 与 decode 打断次数的权衡）；`--prefill-decode-interval`。
 
 ## 计划
 
