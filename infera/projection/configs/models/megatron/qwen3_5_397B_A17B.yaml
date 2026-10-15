@@ -76,7 +76,7 @@ linear_num_value_heads: 64
 mtp_num_layers: 1
 
 # Speculative decoding: the MTP head drafts; acceptance is InferenceX's golden
-# curve, looked up in INFERASIM_GOLDEN_AL_DIR.
+# curve (see golden_al for where it is read from).
 speculative:
   mtp:
     acceptance: qwen3.5_mtp.yaml

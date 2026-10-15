@@ -48,6 +48,17 @@ modules:
 _workload_path = None
 
 
+@pytest.fixture(autouse=True)
+def _no_golden_al_fetch(monkeypatch):
+    """Keep acceptance lookups off the network: tests read local files only."""
+    from infera.projection.core.projection.inference_projection import golden_al
+
+    monkeypatch.setenv("INFERASIM_GOLDEN_AL_FETCH", "0")
+    golden_al.fetch_golden.cache_clear()
+    yield
+    golden_al.fetch_golden.cache_clear()
+
+
 def _workload_file():
     global _workload_path
     if _workload_path is None:

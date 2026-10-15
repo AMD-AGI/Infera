@@ -18,10 +18,12 @@ thinking mode) by ``derive_defaults``; ``python -m <this module>
 --write-defaults --golden-dir <InferenceX>/golden_al_distribution``
 regenerates them.
 
-A measured curve is supplied from outside the repo: an explicit file path
-(``speculative_acceptance_curve``), or a local directory of golden files in
-``INFERASIM_GOLDEN_AL_DIR`` that the file names in the model YAMLs are
-looked up in. A model whose named file is not found reads the default.
+A measured curve is supplied from outside the repo. A file name in a model
+YAML is looked up in a local directory of golden files
+(``INFERASIM_GOLDEN_AL_DIR``), else fetched from InferenceX's main branch on
+GitHub and cached for a day (``fetch_golden``; ``INFERASIM_GOLDEN_AL_FETCH=0``
+turns this off). An explicit file path (``speculative_acceptance_curve``)
+overrides both. A model whose named file is found nowhere reads the default.
 
 A model names its own curves in its model YAML, under ``speculative``::
 
@@ -47,6 +49,9 @@ from __future__ import annotations
 import math
 import os
 import statistics
+import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
@@ -118,18 +123,24 @@ def method_of_file(name: str) -> str | None:
 
 
 def _parse(path: Path) -> Curve:
-    data = yaml.safe_load(path.read_text())
+    return _parse_text(path.read_text(), path.name)
+
+
+def _parse_text(text: str, name: str) -> Curve:
+    data = yaml.safe_load(text)
     if not isinstance(data, dict) or len(data) != 1:
-        raise ValueError(f"{path}: expected one top-level model key")
+        raise ValueError(f"{name}: expected one top-level model key")
     ((model, body),) = data.items()
+    if not isinstance(body, dict):
+        raise ValueError(f"{name}: expected thinking_on / thinking_off under {model!r}")
     modes = {}
     for mode in THINKING_MODES:
-        sweep = (body or {}).get(f"thinking_{mode}")
+        sweep = body.get(f"thinking_{mode}")
         if sweep:
             modes[mode] = {int(k): float(v) for k, v in sweep.items()}
     if not modes:
-        raise ValueError(f"{path}: no thinking_on / thinking_off sweep")
-    return Curve(path.name, str(model), method_of_file(path.name), modes)
+        raise ValueError(f"{name}: no thinking_on / thinking_off sweep")
+    return Curve(name, str(model), method_of_file(name), modes)
 
 
 @cache
@@ -138,7 +149,8 @@ def _load(path: str) -> Curve:
 
 
 def find_file(ref: str) -> Path:
-    """A curve file by path, or by name in ``INFERASIM_GOLDEN_AL_DIR`` or the defaults."""
+    """A curve file by path; or by name in ``INFERASIM_GOLDEN_AL_DIR``, the
+    defaults, or InferenceX on GitHub (``fetch_golden``)."""
     p = Path(str(ref)).expanduser()
     if p.is_file():
         return p
@@ -148,11 +160,84 @@ def find_file(ref: str) -> Path:
         cand = base / name
         if cand.is_file():
             return cand
+    fetched = fetch_golden(name)
+    if fetched is not None:
+        return fetched
     raise FileNotFoundError(
-        f"no acceptance-length file {ref!r}: not a path, and not in "
+        f"no acceptance-length file {ref!r}: not a path, not in "
         + " or ".join(str(b) for b in bases)
+        + ", and not fetched from InferenceX"
         + ("" if golden_dir() else " (INFERASIM_GOLDEN_AL_DIR is unset)")
     )
+
+
+# InferenceX's golden files on its main branch, newest layout first.
+GOLDEN_URLS = (
+    "https://raw.githubusercontent.com/SemiAnalysisAI/InferenceX/main/"
+    "inferencex-e2e/infx/golden_al_distribution",
+    "https://raw.githubusercontent.com/SemiAnalysisAI/InferenceX/main/golden_al_distribution",
+)
+_FETCH_TTL_S = 24 * 3600
+_FETCH_TIMEOUT_S = 5.0
+
+
+def _fetch_cache_dir() -> Path:
+    env = os.environ.get("INFERASIM_GOLDEN_AL_CACHE")
+    if env:
+        return Path(env).expanduser()
+    xdg = os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache")
+    return Path(xdg) / "inferasim" / "golden_al"
+
+
+def _fresh(path: Path) -> bool:
+    return path.is_file() and time.time() - path.stat().st_mtime < _FETCH_TTL_S
+
+
+@cache
+def fetch_golden(name: str) -> Path | None:
+    """InferenceX's golden file ``name`` from GitHub main, through a local cache.
+
+    A copy younger than a day is reused; an older one is refetched and kept if
+    GitHub cannot be reached. A file GitHub does not have is remembered as
+    missing for a day, so a sweep does not ask again per point.
+    """
+    if os.environ.get("INFERASIM_GOLDEN_AL_FETCH", "1").strip().lower() in ("0", "false", "no"):
+        return None
+    cache_dir = _fetch_cache_dir()
+    dest, missing = cache_dir / name, cache_dir / f"{name}.missing"
+    if _fresh(dest):
+        return dest
+    if _fresh(missing):
+        return None
+    reached = False
+    for base in GOLDEN_URLS:
+        try:
+            with urllib.request.urlopen(f"{base}/{name}", timeout=_FETCH_TIMEOUT_S) as r:
+                body = r.read()
+        except urllib.error.HTTPError as e:
+            reached = reached or e.code == 404
+            continue
+        except (urllib.error.URLError, OSError):
+            continue
+        try:
+            _parse_text(body.decode(), name)
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            tmp = cache_dir / f".{name}.{os.getpid()}"
+            tmp.write_bytes(body)
+            os.replace(tmp, dest)
+            missing.unlink(missing_ok=True)
+        except (ValueError, TypeError, AttributeError, OSError, yaml.YAMLError):
+            continue
+        return dest
+    if dest.is_file():
+        return dest
+    if reached:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            missing.touch()
+        except OSError:
+            pass
+    return None
 
 
 def load_curve(ref: str) -> Curve:

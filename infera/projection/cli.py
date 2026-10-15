@@ -466,8 +466,8 @@ def _add_inference_args(parser):
         "--speculative-acceptance-curve",
         default=None,
         help="Acceptance-length file to read instead of the model's own: a path, "
-        "or a name in INFERASIM_GOLDEN_AL_DIR or configs/speculative/defaults "
-        "(e.g. /path/to/glm5.2_mtp.yaml, mtp).",
+        "or a name in INFERASIM_GOLDEN_AL_DIR, configs/speculative/defaults or "
+        "InferenceX's golden_al_distribution on GitHub (e.g. glm5.2_mtp.yaml, mtp).",
     )
     parser.add_argument(
         "--speculative-thinking",

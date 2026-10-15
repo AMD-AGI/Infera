@@ -59,7 +59,7 @@ mtp_num_layers: 1
 mtp_loss_scaling_factor: 0.1
 
 # Speculative decoding: the MTP head above drafts, and what it keeps per draft
-# depth is InferenceX's golden curve, looked up in INFERASIM_GOLDEN_AL_DIR.
+# depth is InferenceX's golden curve (see golden_al for where it is read from).
 speculative:
   mtp:
     acceptance: glm5.2_mtp.yaml
