@@ -664,8 +664,9 @@ def test_html_controls_and_measured_overlay(tmp_path):
         measured=P.load_measured(str(path)),
     )
     html = open(out["html"][0]).read()
-    # Every control is a button group: no native <select> popups to fail in an embedded preview.
-    assert "<select" not in html and 'class="chips" id="model"' in html
+    # Every control is a dropdown drawn by the page: no native <select> popups
+    # to fail in an embedded preview.
+    assert "<select" not in html and 'class="dd" id="model"' in html and "closeMenus" in html
     assert '"measured": [{' in html and "accuracy" not in html
     assert P.load_measured(None) == {}
     blank = P.write_outputs(P.ParetoResult(points=pts), str(tmp_path / "b"), meta={})

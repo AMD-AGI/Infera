@@ -1700,15 +1700,24 @@ header p{margin:0;color:var(--mute);font-size:13px}
 main{padding:12px 32px 40px;max-width:1500px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;
 box-shadow:0 1px 2px rgba(16,24,40,.04);margin-bottom:16px}
-.ctl{display:flex;flex-wrap:wrap;gap:14px 26px;align-items:flex-start}
-.grp{display:flex;flex-direction:column;gap:6px}
-.grp.wide{flex-basis:100%}
+.ctl{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;position:relative;z-index:5}
+.grp{display:flex;flex-direction:column;gap:5px}
 .grp>span{font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
-.chips{display:flex;flex-wrap:wrap;gap:5px}
-.chip{font:inherit;font-size:12.5px;color:var(--ink);background:#fff;border:1px solid #d1d5db;border-radius:999px;
-padding:4px 11px;cursor:pointer;line-height:1.3}
-.chip:hover{border-color:var(--acc);background:#f3f7fc}
-.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.dd{position:relative}
+.ddb{font:inherit;font-size:13px;color:var(--ink);min-width:140px;max-width:320px;display:flex;justify-content:space-between;
+align-items:center;gap:12px;background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:6px 10px;cursor:pointer;
+line-height:1.3;text-align:left}
+.ddb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ddb:hover,.dd.open .ddb{border-color:var(--acc)}
+.ddb::after{content:"";flex:none;border:4.5px solid transparent;border-top-color:#6b7280;margin-top:4px}
+.dd.open .ddb::after{border-top-color:transparent;border-bottom-color:var(--acc);margin:-4px 0 0}
+.ddm{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:100%;max-height:340px;overflow:auto;background:#fff;
+border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(16,24,40,.14);padding:4px;z-index:20}
+.dd.open .ddm{display:block}
+.ddo{display:block;width:100%;text-align:left;font:inherit;font-size:13px;color:var(--ink);background:none;border:0;
+border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.ddo:hover{background:#f3f7fc}
+.ddo.on{color:var(--acc);font-weight:600;background:#eef4fb}
 .plot{display:flex;gap:18px;align-items:flex-start}
 #chart{flex:1;min-width:0;width:100%;height:auto;display:block}
 #legend{width:290px;flex:none;font-size:12.5px}
@@ -1739,15 +1748,15 @@ circle.pt:hover{r:7}
 <p>Throughput versus interactivity across every parallelism, concurrency and deployment knob swept.</p></header>
 <main>
 <div class="card ctl">
-<div class="grp wide"><span>Model</span><div class="chips" id="model"></div></div>
-<div class="grp"><span>Scenario</span><div class="chips" id="scenario"></div></div>
-<div class="grp"><span>Precision</span><div class="chips" id="precision"></div></div>
-<div class="grp"><span>Mode</span><div class="chips" id="mode"></div></div>
-<div class="grp"><span>Speculative</span><div class="chips" id="spec"></div></div>
-<div class="grp"><span>Points</span><div class="chips" id="show"></div></div>
-<div class="grp" id="measgrp" style="display:none"><span>Measured runs</span><div class="chips" id="meas"></div></div>
-<div class="grp wide"><span>X axis</span><div class="chips" id="x"></div></div>
-<div class="grp wide"><span>Y axis</span><div class="chips" id="y"></div></div>
+<div class="grp"><span>Model</span><div class="dd" id="model"></div></div>
+<div class="grp"><span>Scenario</span><div class="dd" id="scenario"></div></div>
+<div class="grp"><span>Precision</span><div class="dd" id="precision"></div></div>
+<div class="grp"><span>Mode</span><div class="dd" id="mode"></div></div>
+<div class="grp"><span>Speculative</span><div class="dd" id="spec"></div></div>
+<div class="grp"><span>Points</span><div class="dd" id="show"></div></div>
+<div class="grp" id="measgrp" style="display:none"><span>Measured runs</span><div class="dd" id="meas"></div></div>
+<div class="grp"><span>X axis</span><div class="dd" id="x"></div></div>
+<div class="grp"><span>Y axis</span><div class="dd" id="y"></div></div>
 </div>
 <div class="card">
 <div class="plot"><svg id="chart" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMin meet"></svg><div id="legend"></div></div>
@@ -1779,17 +1788,23 @@ const $ = id => document.getElementById(id);
 const hidden = new Set();
 const V={};
 const uniq = a => [...new Set(a)].sort();
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function chips(id, vals, sel, lab){
   if(!vals.includes(sel)) sel=vals[0]; V[id]=sel;
-  $(id).innerHTML=vals.map(v=>`<button class="chip ${v===sel?'on':''}" data-v="${v}">${lab?lab(v):v}</button>`).join('');
+  const L=v=>esc(lab?lab(v):v);
+  $(id).innerHTML=`<button class="ddb" type="button"><span>${L(sel)}</span></button><div class="ddm">`+
+    vals.map(v=>`<button class="ddo ${v===sel?'on':''}" type="button" data-v="${esc(v)}">${L(v)}</button>`).join('')+'</div>';
 }
+const closeMenus = () => document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open'));
+document.addEventListener('click',e=>{ if(!e.target.closest('.dd')) closeMenus(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMenus(); });
 const short = k => M[k].label.replace(/\\s*\\(.*\\)$/,'');
 function refreshDeps(){
   const m=V.model;
   chips('scenario', uniq(P.filter(p=>p.model===m).map(p=>p.scenario)), V.scenario);
   chips('precision', uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario).map(p=>p.precision)), V.precision);
   const sp=uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision).map(p=>p.spec||'none'));
-  chips('spec', ['all',...sp], V.spec||'all');
+  chips('spec', ['all',...sp], V.spec||'all', v=>v==='all'?'all settings':v);
 }
 chips('model', uniq(P.map(p=>p.model)), null);
 chips('mode', ['all','benchmark','simulate'], 'all', v=>v==='all'?'benchmark + simulate':v);
@@ -1889,8 +1904,11 @@ $('chart').addEventListener('mousemove',e=>{
 });
 $('chart').addEventListener('mouseleave',()=>$('tip').style.display='none');
 ['model','scenario','precision','mode','spec','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
-  const b=e.target.closest('.chip'); if(!b) return;
-  V[id]=b.dataset.v; $(id).querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===b));
+  if(e.target.closest('.ddb')){ const open=$(id).classList.contains('open'); closeMenus(); if(!open) $(id).classList.add('open'); return; }
+  const b=e.target.closest('.ddo'); if(!b) return;
+  closeMenus();
+  V[id]=b.dataset.v; $(id).querySelector('.ddb span').textContent=b.textContent;
+  $(id).querySelectorAll('.ddo').forEach(c=>c.classList.toggle('on',c===b));
   if(['model','scenario','precision'].includes(id)){ if(id==='model') hidden.clear(); refreshDeps(); }
   draw();
 }));
