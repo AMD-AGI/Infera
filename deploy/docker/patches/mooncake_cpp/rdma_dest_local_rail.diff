@@ -55,7 +55,7 @@ index d5d8b3b..265049d 100644
                              int &buffer_id, int &device_id, int retry_cnt = 0);
      static int selectDevice(SegmentDesc *desc, uint64_t offset, size_t length,
 diff --git a/mooncake-transfer-engine/src/config.cpp b/mooncake-transfer-engine/src/config.cpp
-index a6f4108..5e7a603 100644
+index a6f4108..b73c41c 100644
 --- a/mooncake-transfer-engine/src/config.cpp
 +++ b/mooncake-transfer-engine/src/config.cpp
 @@ -510,6 +510,16 @@ void loadGlobalConfig(GlobalConfig& config) {
@@ -75,11 +75,12 @@ index a6f4108..5e7a603 100644
      const char* log_rdma_slice_affinity_env =
          std::getenv("MC_LOG_RDMA_SLICE_AFFINITY");
      if (log_rdma_slice_affinity_env) {
-@@ -754,6 +764,7 @@ void dumpGlobalConfig() {
+@@ -754,6 +764,8 @@ void dumpGlobalConfig() {
      }
      LOG(INFO) << "mlx5_qp_lag_port_balance = "
                << (config.mlx5_qp_lag_port_balance ? "true" : "false");
-+    LOG(INFO) << "enable_dest_local_rail = " << config.enable_dest_local_rail;
++    LOG(INFO) << "enable_dest_local_rail = "
++              << (config.enable_dest_local_rail ? "true" : "false");
      LOG(INFO) << "log_rdma_slice_affinity = "
                << (config.log_rdma_slice_affinity ? "true" : "false");
      LOG(INFO) << "track_rdma_posted_slices = "
