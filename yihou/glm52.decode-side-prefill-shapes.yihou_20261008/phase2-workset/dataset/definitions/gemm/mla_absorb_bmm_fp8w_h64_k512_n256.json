@@ -1,0 +1,74 @@
+{
+  "name": "mla_absorb_bmm_fp8w_h64_k512_n256",
+  "op_type": "gemm",
+  "description": "GLM-5.2 MLA weight-absorption batched GEMM per rank (W_UV: latent 512 -> v_head 256); fp8 per-tensor-scaled weights, bf16 activations, 64 heads. Called twice per layer (W_UK and W_UV).",
+  "tags": [
+    "stage:decode",
+    "quantization:float8_e4m3fn",
+    "model:glm-5.2-mxfp4",
+    "tp:4",
+    "dp_attention:4",
+    "ep:1",
+    "gpu:mi355x",
+    "framework:sglang-0.5.19.dev20260917+ga9fb1c3238",
+    "status:draft"
+  ],
+  "axes": {
+    "num_tokens": {
+      "type": "var",
+      "description": "Tokens."
+    },
+    "num_heads": {
+      "type": "const",
+      "value": 64,
+      "description": "Heads per rank."
+    },
+    "K": {
+      "type": "const",
+      "value": 512,
+      "description": "Reduction dim."
+    },
+    "N": {
+      "type": "const",
+      "value": 256,
+      "description": "Output dim."
+    }
+  },
+  "inputs": {
+    "A": {
+      "shape": [
+        "num_tokens",
+        "num_heads",
+        "K"
+      ],
+      "dtype": "bfloat16",
+      "description": "Activations (strided view in production)."
+    },
+    "B": {
+      "shape": [
+        "num_heads",
+        "K",
+        "N"
+      ],
+      "dtype": "float8_e4m3fn",
+      "description": "Per-head weight."
+    },
+    "B_scale": {
+      "shape": null,
+      "dtype": "float32",
+      "description": "Per-tensor weight scale."
+    }
+  },
+  "outputs": {
+    "C": {
+      "shape": [
+        "num_tokens",
+        "num_heads",
+        "N"
+      ],
+      "dtype": "bfloat16",
+      "description": "Per-head product."
+    }
+  },
+  "reference": "import torch\n\n\n@torch.no_grad()\ndef run(A, B, B_scale):\n    \"\"\"Per-head GEMM out[t, h] = A[t, h] @ (B[h] * B_scale). Production kernel quantizes A to fp8\n    per token group on the fly (_batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant).\"\"\"\n    return torch.einsum(\"thk,hkn->thn\", A.float(), B.float() * B_scale).to(torch.bfloat16)\n"
+}

@@ -1,0 +1,8 @@
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "5973f90e-b00c-5ba4-99e3-f003cff367cb", "axes": {"M": 48}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "af1f7985-2340-5bcd-a638-3271651fe065", "axes": {"M": 8}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "7cfd7832-96fa-5da3-8d62-b6f6985e3ab5", "axes": {"M": 60}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "66c8f23b-a53d-5d06-935c-3a2664932e85", "axes": {"M": 10}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "a9e82751-3bab-55ee-a6a1-26939a5569e1", "axes": {"M": 72}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "bc32c306-94c9-542b-949a-5d34e8b18481", "axes": {"M": 12}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "235a8698-6eda-5bac-99c1-d9bbf898dd45", "axes": {"M": 84}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n16384_k2048", "workload": {"uuid": "eafbaba5-e263-53b4-bc59-5eb230973633", "axes": {"M": 14}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}

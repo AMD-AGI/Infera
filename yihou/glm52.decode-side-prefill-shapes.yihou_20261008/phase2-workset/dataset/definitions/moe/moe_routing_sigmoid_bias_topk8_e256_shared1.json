@@ -1,0 +1,69 @@
+{
+  "name": "moe_routing_sigmoid_bias_topk8_e256_shared1",
+  "op_type": "moe",
+  "description": "GLM-5.2 MoE routing on the decode leg: biased sigmoid top-8 over 256 routed experts (scoring_func sigmoid, noaux_tc, renormalize) + fused shared-expert append. Two small kernels in production; candidate for fusion with the router GEMM.",
+  "tags": [
+    "stage:decode",
+    "phase:target_verify",
+    "fused",
+    "model:glm-5.2-mxfp4",
+    "tp:4",
+    "dp_attention:4",
+    "ep:1",
+    "gpu:mi355x",
+    "framework:sglang-0.5.19.dev20260917+ga9fb1c3238",
+    "status:draft"
+  ],
+  "axes": {
+    "seq_len": {
+      "type": "var",
+      "description": "Gathered tokens on this rank."
+    },
+    "num_routed": {
+      "type": "const",
+      "value": 256,
+      "description": "Routed experts."
+    },
+    "top_k_out": {
+      "type": "const",
+      "value": 9,
+      "description": "8 routed + 1 shared."
+    }
+  },
+  "inputs": {
+    "router_logits": {
+      "shape": [
+        "seq_len",
+        "num_routed"
+      ],
+      "dtype": "bfloat16",
+      "description": "Router GEMM output."
+    },
+    "correction_bias": {
+      "shape": [
+        "num_routed"
+      ],
+      "dtype": "bfloat16",
+      "description": "e_score_correction_bias."
+    }
+  },
+  "outputs": {
+    "topk_ids": {
+      "shape": [
+        "seq_len",
+        "top_k_out"
+      ],
+      "dtype": "int32",
+      "description": "Expert ids."
+    },
+    "topk_weights": {
+      "shape": [
+        "seq_len",
+        "top_k_out"
+      ],
+      "dtype": "float32",
+      "description": "Combine weights."
+    }
+  },
+  "reference": "import torch\n\n\n@torch.no_grad()\ndef run(router_logits, correction_bias):\n    \"\"\"noaux_tc routing (n_group = topk_group = 1): select top-8 by sigmoid(logit) + bias,\n    weight = sigmoid(logit) renormalized over the 8; append fused shared expert 256 with weight 1.0.\n    Production: aiter biased_grouped_topk + triton _fused_append_shared_experts_kernel.\"\"\"\n    s = torch.sigmoid(router_logits.float())\n    _, ids = torch.topk(s + correction_bias.float(), 8, dim=-1)\n    w = torch.gather(s, 1, ids)\n    w = w / w.sum(dim=-1, keepdim=True)\n    M = router_logits.shape[0]\n    shared_id = torch.full((M, 1), 256, dtype=torch.int64, device=ids.device)\n    shared_w = torch.ones((M, 1), dtype=torch.float32, device=ids.device)\n    return torch.cat([ids, shared_id], 1).to(torch.int32), torch.cat([w, shared_w], 1)\n"
+}

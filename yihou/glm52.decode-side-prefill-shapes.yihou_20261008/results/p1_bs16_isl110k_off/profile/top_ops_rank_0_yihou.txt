@@ -1,0 +1,97 @@
+==== top 40 by self CUDA (device) time (sort_by='self_device_time_total') ====
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                      step[VERIFY bs=4]         0.00%       0.000us         0.00%       0.000us       0.000us     259.756ms       197.15%     259.756ms     129.878ms             2  
+                                                  draft         0.00%       0.000us         0.00%       0.000us       0.000us      35.090ms        26.63%      35.090ms      17.545ms             2  
+                                       step[DRAFT bs=4]         0.00%       0.000us         0.00%       0.000us       0.000us      34.112ms        25.89%      34.112ms       3.411ms            10  
+                                      aiter::fused_moe_         7.50%      23.144ms        10.79%      33.321ms     208.257us      29.853ms        22.66%      34.828ms     217.677us           160  
+                                     record_param_comms         3.46%      10.683ms         4.33%      13.373ms      37.354us      21.885ms        16.61%      22.478ms      62.788us           358  
+ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<409...         0.00%       0.000us         0.00%       0.000us       0.000us      21.885ms        16.61%      21.885ms      61.130us           358  
+           gemm1_a4w4_port_h6144_i512_ne257_bm16_iq_sep         0.00%       0.000us         0.00%       0.000us       0.000us      18.069ms        13.71%      18.069ms     120.463us           150  
+                                 hipPointerGetAttribute         0.53%       1.627ms         0.53%       1.628ms       0.249us      14.274ms        10.83%      14.274ms       2.187us          6526  
+                                               aten::mm         2.62%       8.097ms         3.39%      10.468ms      47.153us      13.782ms        10.46%      13.986ms      63.001us           222  
+                                           draft_extend         0.00%       0.000us         0.00%       0.000us       0.000us      11.724ms         8.90%      11.724ms       5.862ms             2  
+gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt...         0.00%       0.000us         0.00%       0.000us       0.000us      11.635ms         8.83%      11.635ms      77.564us           150  
+                                  nccl:_all_gather_base         0.00%       0.000us         0.00%       0.000us       0.000us      11.340ms         8.61%      11.340ms      63.706us           178  
+Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x3...         0.00%       0.000us         0.00%       0.000us       0.000us       9.867ms         7.49%       9.867ms      62.452us           158  
+                              nccl:_reduce_scatter_base         0.00%       0.000us         0.00%       0.000us       0.000us       9.438ms         7.16%       9.438ms      56.855us           166  
+                             _sparse_mla_split_k_kernel         0.00%       0.000us         0.00%       0.000us       0.000us       9.221ms         7.00%       9.221ms      58.358us           158  
+                                     aiter::gemm_a16w16         6.42%      19.828ms        15.43%      47.631ms      58.659us       6.675ms         5.07%      22.171ms      27.305us           812  
+_batched_gemm_a8w8_a_per_token_group_prequant_w_per_...         0.00%       0.000us         0.00%       0.000us       0.000us       5.535ms         4.20%       5.535ms      35.478us           156  
+                                     aiter::add_rmsnorm         1.95%       6.033ms         2.51%       7.739ms      23.311us       3.871ms         2.94%       3.886ms      11.703us           332  
+_ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256E...         0.00%       0.000us         0.00%       0.000us       0.000us       3.871ms         2.94%       3.871ms      11.660us           332  
+                  sgl_kernel::fast_topk_transform_fused         0.09%     277.808us         0.41%       1.270ms      28.853us       3.754ms         2.85%       3.754ms      85.316us            44  
+      hgemm_bf16_32x64x128x4_SPK4_W1x4x1_BLDS1_TN_AS1_0         0.00%       0.000us         0.00%       0.000us       0.000us       3.028ms         2.30%       3.028ms      19.163us           158  
+                                    aiter::gemm_a16w16_         3.72%      11.472ms         4.40%      13.589ms      81.862us       3.016ms         2.29%       3.022ms      18.206us           166  
+_gemm_a16_w16_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_32...         0.00%       0.000us         0.00%       0.000us       0.000us       2.756ms         2.09%       2.756ms      17.441us           158  
+        _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle         0.00%       0.000us         0.00%       0.000us       0.000us       2.674ms         2.03%       2.674ms      60.781us            44  
+                                            aten::copy_         0.14%     439.843us         1.25%       3.866ms      19.526us       2.603ms         1.98%       2.603ms      13.149us           198  
+                                              aten::cat         0.16%     499.322us         0.49%       1.511ms      11.620us       2.460ms         1.87%       2.460ms      18.925us           130  
+                                   aiter::ck_moe_stage1         0.07%     214.285us         0.11%     354.783us      35.478us       2.383ms         1.81%       2.383ms     238.257us            10  
+_ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13te...         0.00%       0.000us         0.00%       0.000us       0.000us       2.383ms         1.81%       2.383ms     238.257us            10  
+                     hipThreadExchangeStreamCaptureMode         0.02%      70.550us         0.02%      70.550us       0.101us       2.127ms         1.61%       2.127ms       3.048us           698  
+                                  hipModuleLaunchKernel         3.26%      10.062ms         3.26%      10.065ms       4.934us       2.060ms         1.56%       2.063ms       1.011us          2040  
+## Call CompiledFxGraph fv2lciwmhdvbm6t5usmx4gif64ti...         0.00%       0.000us         0.00%       0.000us       0.000us       1.989ms         1.51%       1.989ms      45.215us            44  
+_batched_gemm_a8w8_a_per_token_group_prequant_w_per_...         0.00%       0.000us         0.00%       0.000us       0.000us       1.814ms         1.38%       1.814ms      11.627us           156  
+                        aiter::_fused_qk_rmsnorm_kernel         1.02%       3.153ms         1.30%       4.013ms      24.175us       1.707ms         1.30%       1.720ms      10.362us           166  
+_ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb...         0.00%       0.000us         0.00%       0.000us       0.000us       1.707ms         1.30%       1.707ms      10.285us           166  
+void sgl::dsa_topk::coop_mb_scatter<2048u, 12u, 4096...         0.00%       0.000us         0.00%       0.000us       0.000us       1.638ms         1.24%       1.638ms      37.231us            44  
+Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x1...         0.00%       0.000us         0.00%       0.000us       0.000us       1.569ms         1.19%       1.569ms      98.072us            16  
+                                            aten::fill_         0.11%     335.113us         0.26%     801.712us       3.579us       1.503ms         1.14%       1.503ms       6.708us           224  
+                                   aiter::ck_moe_stage2         0.03%     103.678us         0.06%     181.326us      18.133us       1.414ms         1.07%       1.414ms     141.376us            10  
+_ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13te...         0.00%       0.000us         0.00%       0.000us       0.000us       1.414ms         1.07%       1.414ms     141.376us            10  
+                         aiter::biased_grouped_topk_hip         0.88%       2.703ms         1.13%       3.484ms      21.773us       1.401ms         1.06%       1.401ms       8.756us           160  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 308.692ms
+Self CUDA time total: 131.757ms
+
+
+==== top 40 by total CPU time (sort_by='cpu_time_total') ====
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                      step[VERIFY bs=4]        34.96%     107.914ms        84.61%     261.179ms     130.589ms       0.000us         0.00%     100.634ms      50.317ms             2  
+                                     aiter::gemm_a16w16         6.42%      19.828ms        15.43%      47.631ms      58.659us       6.675ms         5.07%      22.171ms      27.305us           812  
+                                                  draft         0.71%       2.183ms        10.85%      33.504ms      16.752ms       0.000us         0.00%      19.814ms       9.907ms             2  
+                                      aiter::fused_moe_         7.50%      23.144ms        10.79%      33.321ms     208.257us      29.853ms        22.66%      34.828ms     217.677us           160  
+                                       step[DRAFT bs=4]         4.34%      13.387ms        10.75%      33.174ms       3.317ms       0.000us         0.00%      18.612ms       1.861ms            10  
+                                    aiter::gemm_a16w16_         3.72%      11.472ms         4.40%      13.589ms      81.862us       3.016ms         2.29%       3.022ms      18.206us           166  
+                                     record_param_comms         3.46%      10.683ms         4.33%      13.373ms      37.354us      21.885ms        16.61%      22.478ms      62.788us           358  
+                 aiter::fused_qk_rope_cat_and_cache_mla         3.48%      10.751ms         4.15%      12.797ms      77.093us     775.482us         0.59%       1.080ms       6.505us           166  
+                     sglang::reg_all_gather_into_tensor         0.99%       3.059ms         3.80%      11.733ms      65.914us       0.000us         0.00%      11.769ms      66.117us           178  
+                                           aten::linear         0.11%     330.316us         3.58%      11.059ms      52.660us       0.000us         0.00%      12.463ms      59.346us           210  
+                                           aten::matmul         0.10%     299.582us         3.49%      10.768ms      48.502us       0.000us         0.00%      13.986ms      63.001us           222  
+                                               aten::mm         2.62%       8.097ms         3.39%      10.468ms      47.153us      13.782ms        10.46%      13.986ms      63.001us           222  
+                                  hipModuleLaunchKernel         3.26%      10.062ms         3.26%      10.065ms       4.934us       2.060ms         1.56%       2.063ms       1.011us          2040  
+                                        hipLaunchKernel         3.19%       9.849ms         3.19%       9.850ms       5.223us     551.956us         0.42%     626.794us       0.332us          1886  
+                                           draft_extend         0.34%       1.059ms         3.13%       9.649ms       4.824ms       0.000us         0.00%       6.607ms       3.303ms             2  
+                          aiter::rmsnorm2d_fwd_with_add         0.52%       1.601ms         3.03%       9.340ms      28.132us       0.000us         0.00%       3.886ms      11.703us           332  
+                      sglang::reg_reduce_scatter_tensor         0.74%       2.300ms         2.95%       9.093ms      54.780us       0.000us         0.00%       9.569ms      57.645us           166  
+                                 c10d::_allgather_base_         0.50%       1.530ms         2.81%       8.673ms      48.724us       0.000us         0.00%      11.769ms      66.117us           178  
+                                     aiter::add_rmsnorm         1.95%       6.033ms         2.51%       7.739ms      23.311us       3.871ms         2.94%       3.886ms      11.703us           332  
+                                            aten::empty         2.49%       7.679ms         2.49%       7.681ms       1.254us       0.000us         0.00%      57.877us       0.009us          6124  
+                             Torch-Compiled Region: 0/0         0.40%       1.228ms         2.44%       7.534ms     171.221us       0.000us         0.00%     635.274us      14.438us            44  
+                            c10d::_reduce_scatter_base_         0.40%       1.238ms         2.20%       6.794ms      40.925us       0.000us         0.00%       9.569ms      57.645us           166  
+## Call CompiledFxGraph fv2lciwmhdvbm6t5usmx4gif64ti...         0.75%       2.308ms         1.88%       5.789ms     131.562us       0.000us         0.00%     635.274us      14.438us            44  
+                                  aiter::mxfp4_moe_sort         1.49%       4.602ms         1.77%       5.450ms      36.331us     741.174us         0.56%     812.373us       5.416us           150  
+                                  nccl:_all_gather_base         0.00%       0.000us             0       5.441ms      30.567us       0.000us         0.00%       0.000us       0.000us           178  
+                              nccl:_reduce_scatter_base         0.00%       0.000us             0       4.443ms      26.767us       0.000us         0.00%       0.000us       0.000us           166  
+                        aiter::_fused_qk_rmsnorm_kernel         1.02%       3.153ms         1.30%       4.013ms      24.175us       1.707ms         1.30%       1.720ms      10.362us           166  
+                                               aten::to         0.09%     283.166us         1.29%       3.970ms       4.925us       0.000us         0.00%       1.462ms       1.814us           806  
+                                            aten::copy_         0.14%     439.843us         1.25%       3.866ms      19.526us       2.603ms         1.98%       2.603ms      13.149us           198  
+                                         aten::_to_copy         0.09%     277.634us         1.19%       3.687ms      36.867us       0.000us         0.00%       1.462ms      14.619us           100  
+                         aiter::biased_grouped_topk_hip         0.88%       2.703ms         1.13%       3.484ms      21.773us       1.401ms         1.06%       1.401ms       8.756us           160  
+                                       aten::empty_like         0.49%       1.501ms         1.08%       3.321ms       2.656us       0.000us         0.00%      54.520us       0.044us          1250  
+                                    hipMemcpyWithStream         0.82%       2.538ms         0.82%       2.538ms     126.902us       0.000us         0.00%       0.000us       0.000us            20  
+                                       aten::as_strided         0.79%       2.441ms         0.79%       2.441ms       0.567us       0.000us         0.00%      54.719us       0.013us          4308  
+                                             aten::view         0.79%       2.439ms         0.79%       2.439ms       0.741us       0.000us         0.00%      71.799us       0.022us          3294  
+                                     hipExtLaunchKernel         0.72%       2.223ms         0.72%       2.223ms       6.209us       0.000us         0.00%       0.000us       0.000us           358  
+                               hipExtModuleLaunchKernel         0.70%       2.174ms         0.70%       2.176ms       5.333us       0.000us         0.00%     190.838us       0.468us           408  
+                                            aten::slice         0.46%       1.415ms         0.70%       2.165ms       1.886us       0.000us         0.00%      54.719us       0.048us          1148  
+                                   hipDeviceSynchronize         0.69%       2.145ms         0.69%       2.145ms     714.988us       0.000us         0.00%       0.000us       0.000us             3  
+                                    aten::empty_strided         0.63%       1.951ms         0.63%       1.951ms       1.467us       0.000us         0.00%       0.000us       0.000us          1330  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 308.692ms
+Self CUDA time total: 131.757ms
+

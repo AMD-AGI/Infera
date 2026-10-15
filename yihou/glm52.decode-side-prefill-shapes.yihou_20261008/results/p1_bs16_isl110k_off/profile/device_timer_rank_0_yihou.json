@@ -1,0 +1,82 @@
+{
+  "by_category": {
+    "decode": {
+      "count": 80,
+      "max_seconds": 0.004772120952606201,
+      "min_seconds": 0.0018552559614181518,
+      "seconds": 0.18920903134346012,
+      "share": 0.07230647000121028
+    },
+    "extend": {
+      "count": 20,
+      "max_seconds": 0.00484144115447998,
+      "min_seconds": 0.0032849071025848387,
+      "seconds": 0.0751584722995758,
+      "share": 0.02872190499617982
+    },
+    "target_verify": {
+      "count": 20,
+      "max_seconds": 0.14518949890136718,
+      "min_seconds": 0.11247294616699219,
+      "seconds": 2.35239737701416,
+      "share": 0.89897162500261
+    }
+  },
+  "by_runner": {
+    "draft": {
+      "decode": {
+        "count": 80,
+        "max_seconds": 0.004772120952606201,
+        "min_seconds": 0.0018552559614181518,
+        "seconds": 0.18920903134346012
+      },
+      "extend": {
+        "count": 20,
+        "max_seconds": 0.00484144115447998,
+        "min_seconds": 0.0032849071025848387,
+        "seconds": 0.0751584722995758
+      }
+    },
+    "target": {
+      "target_verify": {
+        "count": 20,
+        "max_seconds": 0.14518949890136718,
+        "min_seconds": 0.11247294616699219,
+        "seconds": 2.35239737701416
+      }
+    }
+  },
+  "categories_known_to_pinned_sglang": [
+    "decode",
+    "extend",
+    "idle",
+    "target_verify",
+    "split_prefill",
+    "eagle_draft",
+    "eagle_draft_extend",
+    "frozen_kv_draft"
+  ],
+  "categories_observed": [
+    "decode",
+    "extend",
+    "target_verify"
+  ],
+  "mechanism": "sglang.srt.utils.device_timer.DeviceTimer attached by the bench",
+  "note": "CUDA events bracket the graph replay from outside, so these totals are valid with CUDA graphs both enabled and disabled.",
+  "scope": "whole measured decode loop",
+  "torch_profiler_window_delta": {
+    "decode": {
+      "count": 8,
+      "seconds": 0.02216414666175842
+    },
+    "extend": {
+      "count": 2,
+      "seconds": 0.007390661239624022
+    },
+    "target_verify": {
+      "count": 2,
+      "seconds": 0.24844833374023434
+    }
+  },
+  "total_seconds": 2.616764880657196
+}

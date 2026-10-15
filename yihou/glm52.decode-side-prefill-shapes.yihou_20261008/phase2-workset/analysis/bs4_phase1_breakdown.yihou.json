@@ -1,0 +1,72 @@
+{
+ "run": "fake-run",
+ "local_bs": 4,
+ "isl": 110000,
+ "iteration_ms_median_clean": 40.0,
+ "clean_iterations": 23,
+ "device_timer_median_ms": {
+  "eagle_draft": 3.562875986099243,
+  "eagle_draft_extend": 1.2080930471420288,
+  "target_verify": 31.822208404541016
+ },
+ "per_phase_def_us": {
+  "draft_glue": {
+   "glue: elementwise/cat/copy/argmax/sampling (not exported)": 36.6272
+  },
+  "other": {
+   "glue: elementwise/cat/copy/argmax/sampling (not exported)": 226.86540000000002,
+   "communication (RCCL, not exported)": 2.3918
+  },
+  "target_verify": {
+   "moe_mxfp4_routed_topk9_e257_h6144_i512": 10542.205600000008,
+   "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64": 4642.489600000003,
+   "communication (RCCL, not exported)": 4435.5179999999955,
+   "gemm_bf16_n6144_k16384 (o_proj)": 3293.5862000000025,
+   "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64": 1864.6582000000003,
+   "gemm_bf16_n16384_k2048 (q_b_proj)": 1358.1120000000024,
+   "mla_absorb_bmm_fp8w_h64 (W_UK + W_UV)": 1070.9201999999973,
+   "glue: elementwise/cat/copy/argmax/sampling (not exported)": 971.2913999999989,
+   "gemm_bf16_n2624_k6144 (qkv_a)": 821.2239999999989,
+   "fused_add_rmsnorm_h6144": 757.8201999999966,
+   "rope/qk-norm/kv-write (not exported)": 711.1475999999997,
+   "moe_routing_sigmoid_bias_topk8_e256_shared1": 697.5361999999996,
+   "indexer prologue (q/k quant, hadamard, k_norm, rope; not exported)": 674.8494,
+   "indexer projections (wq_b/wk/weights gemm; not exported)": 510.7260000000002,
+   "gemm_bf16_n256_k6144 (router)": 502.3300000000002,
+   "dense MLP layers 0-2 (not exported)": 134.79559999999998,
+   "gemm_bf16_n38720_k6144 (draft lm_head)": 90.408
+  },
+  "draft_extend": {
+   "moe_bf16_routed_topk9_e257_h6144_i512": 573.2497999999999,
+   "glue: elementwise/cat/copy/argmax/sampling (not exported)": 448.45359999999994,
+   "communication (RCCL, not exported)": 133.19779999999997,
+   "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64": 88.9796,
+   "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64": 59.894400000000005,
+   "gemm_bf16_n6144_k16384 (o_proj)": 44.198600000000006,
+   "draft eh_proj gemm (not exported)": 34.623400000000004,
+   "indexer prologue (q/k quant, hadamard, k_norm, rope; not exported)": 32.5704,
+   "indexer projections (wq_b/wk/weights gemm; not exported)": 24.732999999999997,
+   "rope/qk-norm/kv-write (not exported)": 22.163199999999996,
+   "gemm_bf16_n16384_k2048 (q_b_proj)": 17.711000000000002,
+   "gemm_bf16_n2624_k6144 (qkv_a)": 11.8152,
+   "fused_add_rmsnorm_h6144": 10.221999999999998,
+   "moe_routing_sigmoid_bias_topk8_e256_shared1": 8.9262,
+   "gemm_bf16_n256_k6144 (router)": 7.007
+  },
+  "draft_decode": {
+   "glue: elementwise/cat/copy/argmax/sampling (not exported)": 980.870960735429,
+   "communication (RCCL, not exported)": 706.7812373748541,
+   "moe_bf16_routed_topk9_e257_h6144_i512": 701.5003314077483,
+   "gemm_bf16_n38720_k6144 (draft lm_head)": 256.5578893088988,
+   "gemm_bf16_n6144_k16384 (o_proj)": 177.85910753419338,
+   "rope/qk-norm/kv-write (not exported)": 166.79306257601587,
+   "draft eh_proj gemm (not exported)": 121.84023713001301,
+   "fused_add_rmsnorm_h6144": 106.32095053920783,
+   "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64": 96.77843728055147,
+   "gemm_bf16_n2624_k6144 (qkv_a)": 69.43043716283948,
+   "moe_routing_sigmoid_bias_topk8_e256_shared1": 68.80936651234907,
+   "gemm_bf16_n16384_k2048 (q_b_proj)": 67.0163087207339,
+   "gemm_bf16_n256_k6144 (router)": 42.31765981640959
+  }
+ }
+}

@@ -1,0 +1,142 @@
+{
+  "name": "moe_mxfp4_routed_topk9_e257_h6144_i512",
+  "op_type": "moe",
+  "description": "GLM-5.2-MXFP4 decode-leg routed MoE per rank (TP4, EP1): MXFP4 (E2M1 + UE8M0, group 32) weights and dynamically MXFP4-quantized activations (a4w4), SwiGLU, 257 experts = 256 routed + 1 fused shared (id 256, weight 1.0), top-9 per token. Production kernel: aiter fused_moe_ -> gemm1_a4w4 / gemm2_a4w4 (+ mxfp4_moe_sort). Input rows = all 4 attention-DP ranks' tokens after the DP all-gather (seq_len = 4 x 6 x bs_graph for target verify). Weights here are in logical layout; aiter consumes a pre-shuffled layout (weight preparation is offline).",
+  "tags": [
+    "stage:decode",
+    "phase:target_verify",
+    "quantization:float4_e2m1fn_mxfp4",
+    "fused",
+    "model:glm-5.2-mxfp4",
+    "tp:4",
+    "dp_attention:4",
+    "ep:1",
+    "gpu:mi355x",
+    "framework:sglang-0.5.19.dev20260917+ga9fb1c3238",
+    "status:draft"
+  ],
+  "axes": {
+    "seq_len": {
+      "type": "var",
+      "description": "Tokens entering the MoE on this rank (gathered over attention-DP)."
+    },
+    "num_experts": {
+      "type": "const",
+      "value": 257,
+      "description": "256 routed + 1 fused shared expert."
+    },
+    "top_k": {
+      "type": "const",
+      "value": 9,
+      "description": "8 routed + 1 shared."
+    },
+    "hidden_size": {
+      "type": "const",
+      "value": 6144,
+      "description": "Model hidden size."
+    },
+    "hidden_size_packed": {
+      "type": "const",
+      "value": 3072,
+      "description": "hidden_size / 2 (two E2M1 per byte)."
+    },
+    "hidden_size_scales": {
+      "type": "const",
+      "value": 192,
+      "description": "hidden_size / 32 (one UE8M0 per 32)."
+    },
+    "gemm1_out_size": {
+      "type": "const",
+      "value": 1024,
+      "description": "2 x intermediate (gate + up)."
+    },
+    "intermediate_size": {
+      "type": "const",
+      "value": 512,
+      "description": "moe_intermediate_size 2048 / TP4."
+    },
+    "intermediate_size_packed": {
+      "type": "const",
+      "value": 256,
+      "description": "intermediate / 2."
+    },
+    "intermediate_size_scales": {
+      "type": "const",
+      "value": 16,
+      "description": "intermediate / 32."
+    }
+  },
+  "inputs": {
+    "hidden_states": {
+      "shape": [
+        "seq_len",
+        "hidden_size"
+      ],
+      "dtype": "bfloat16",
+      "description": "Gathered MoE input."
+    },
+    "topk_ids": {
+      "shape": [
+        "seq_len",
+        "top_k"
+      ],
+      "dtype": "int32",
+      "description": "Expert ids; column 8 is always 256 (shared)."
+    },
+    "topk_weights": {
+      "shape": [
+        "seq_len",
+        "top_k"
+      ],
+      "dtype": "float32",
+      "description": "Combine weights; column 8 is 1.0."
+    },
+    "w13": {
+      "shape": [
+        "num_experts",
+        "gemm1_out_size",
+        "hidden_size_packed"
+      ],
+      "dtype": "int8",
+      "description": "Packed E2M1 pairs (read as uint8)."
+    },
+    "w13_scale": {
+      "shape": [
+        "num_experts",
+        "gemm1_out_size",
+        "hidden_size_scales"
+      ],
+      "dtype": "int8",
+      "description": "UE8M0 exponents (read as uint8)."
+    },
+    "w2": {
+      "shape": [
+        "num_experts",
+        "hidden_size",
+        "intermediate_size_packed"
+      ],
+      "dtype": "int8",
+      "description": "Packed E2M1 pairs (read as uint8)."
+    },
+    "w2_scale": {
+      "shape": [
+        "num_experts",
+        "hidden_size",
+        "intermediate_size_scales"
+      ],
+      "dtype": "int8",
+      "description": "UE8M0 exponents (read as uint8)."
+    }
+  },
+  "outputs": {
+    "output": {
+      "shape": [
+        "seq_len",
+        "hidden_size"
+      ],
+      "dtype": "bfloat16",
+      "description": "sum_k w_k * expert_k(x)."
+    }
+  },
+  "reference": "import torch\n\nFP4_GRID = [0.0, 0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0]\n\n\ndef _fp4_lut(device):\n    pos = torch.tensor(FP4_GRID, dtype=torch.float32, device=device)\n    return torch.cat([pos, -pos])  # nibble 0..7 positive, 8..15 negative (sign bit 3)\n\n\ndef dequant_mxfp4(packed, scales):\n    \"\"\"packed: int8 [..., K/2] (two E2M1 nibbles per byte, low nibble = even element);\n    scales: int8 [..., K/32] holding UE8M0 exponents (value = 2 ** (byte - 127)).\"\"\"\n    b = packed.view(torch.uint8).to(torch.int64)\n    lut = _fp4_lut(packed.device)\n    vals = torch.stack([lut[b & 0xF], lut[b >> 4]], dim=-1).flatten(-2)\n    s = torch.pow(2.0, scales.view(torch.uint8).to(torch.float32) - 127.0)\n    return vals * s.repeat_interleave(32, dim=-1)\n\n\ndef quant_dequant_mxfp4(x):\n    \"\"\"Dynamic per-32 MXFP4 activation quantization (round to nearest E2M1, UE8M0 scale).\"\"\"\n    shape = x.shape\n    g = x.float().reshape(-1, 32)\n    amax = g.abs().amax(dim=-1, keepdim=True).clamp_min(2.0 ** -126)\n    scale = torch.pow(2.0, torch.floor(torch.log2(amax)) - 2.0)\n    grid = torch.tensor(FP4_GRID, dtype=torch.float32, device=x.device)\n    q = (g / scale).clamp(-6.0, 6.0)\n    idx = (q.abs().unsqueeze(-1) - grid).abs().argmin(dim=-1)\n    return (grid[idx] * q.sign() * scale).reshape(shape)\n\n\n@torch.no_grad()\ndef run(hidden_states, topk_ids, topk_weights, w13, w13_scale, w2, w2_scale):\n    \"\"\"Routed MoE, precomputed routing (aiter fused_moe interface). 9 = 8 routed + 1 fused\n    shared expert (id 256). Activations are MXFP4-quantized before each GEMM (a4w4).\n    w13 rows [0, I) = gate, [I, 2I) = up; out = sum_k w_k * W2_e(silu(gate) * up).\n    routed_scaling_factor (2.5) is NOT applied here (sglang applies it outside the kernel).\"\"\"\n    E, I, H = 257, 512, 6144\n    M, K = topk_ids.shape\n    x = quant_dequant_mxfp4(hidden_states)\n    out = torch.zeros(M, H, dtype=torch.float32, device=hidden_states.device)\n    ids = topk_ids.to(torch.int64)\n    for e in torch.unique(ids).tolist():\n        rows, slots = torch.nonzero(ids == e, as_tuple=True)\n        W13 = dequant_mxfp4(w13[e], w13_scale[e])  # [2I, H]\n        W2 = dequant_mxfp4(w2[e], w2_scale[e])     # [H, I]\n        g1 = x[rows] @ W13.t()\n        act = torch.nn.functional.silu(g1[:, :I]) * g1[:, I:]\n        o = quant_dequant_mxfp4(act) @ W2.t()\n        out.index_add_(0, rows, o * topk_weights[rows, slots].unsqueeze(1))\n    return out.to(torch.bfloat16)\n"
+}

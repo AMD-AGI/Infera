@@ -1,0 +1,97 @@
+==== top 40 by self CUDA (device) time (sort_by='self_device_time_total') ====
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                      step[VERIFY bs=4]         0.00%       0.000us         0.00%       0.000us       0.000us     165.473ms        94.79%     165.473ms      33.095ms             5  
+           gemm1_a4w4_port_h6144_i512_ne257_bm16_iq_sep         0.00%       0.000us         0.00%       0.000us       0.000us      34.094ms        19.53%      34.094ms      90.917us           375  
+ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<409...         0.00%       0.000us         0.00%       0.000us       0.000us      22.856ms        13.09%      22.856ms      28.182us           811  
+                             _sparse_mla_split_k_kernel         0.00%       0.000us         0.00%       0.000us       0.000us      20.710ms        11.86%      20.710ms      52.431us           395  
+gemm2_a4w4_port_hmax8192_imax512_bm16_bn128_bk256_nt...         0.00%       0.000us         0.00%       0.000us       0.000us      16.600ms         9.51%      16.600ms      44.266us           375  
+Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x3...         0.00%       0.000us         0.00%       0.000us       0.000us      14.081ms         8.07%      14.081ms      35.648us           395  
+                                           draft_extend         0.00%       0.000us         0.00%       0.000us       0.000us       7.927ms         4.54%       7.927ms       1.585ms             5  
+_gemm_a16_w16_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_32...         0.00%       0.000us         0.00%       0.000us       0.000us       6.879ms         3.94%       6.879ms      17.415us           395  
+        _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle         0.00%       0.000us         0.00%       0.000us       0.000us       5.646ms         3.23%       5.646ms      51.331us           110  
+      hgemm_bf16_32x64x128x4_SPK4_W1x4x1_BLDS1_TN_AS1_0         0.00%       0.000us         0.00%       0.000us       0.000us       4.165ms         2.39%       4.165ms      10.545us           395  
+_ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256E...         0.00%       0.000us         0.00%       0.000us       0.000us       3.840ms         2.20%       3.840ms       4.861us           790  
+_batched_gemm_a8w8_a_per_token_group_prequant_w_per_...         0.00%       0.000us         0.00%       0.000us       0.000us       2.871ms         1.64%       2.871ms       7.361us           390  
+                              _sparse_mla_reduce_kernel         0.00%       0.000us         0.00%       0.000us       0.000us       2.802ms         1.61%       2.802ms       7.093us           395  
+          Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU16_VW4         0.00%       0.000us         0.00%       0.000us       0.000us       2.608ms         1.49%       2.608ms       6.603us           395  
+      hgemm_bf16_16x64x128x5_SPK8_W1x2x1_BLDS1_TN_AS1_0         0.00%       0.000us         0.00%       0.000us       0.000us       2.547ms         1.46%       2.547ms       6.702us           380  
+_batched_gemm_a8w8_a_per_token_group_prequant_w_per_...         0.00%       0.000us         0.00%       0.000us       0.000us       2.484ms         1.42%       2.484ms       6.369us           390  
+void aiter::mxfp4_moe::moe_sort_quant::sort_quant_ke...         0.00%       0.000us         0.00%       0.000us       0.000us       2.017ms         1.16%       2.017ms       5.380us           375  
+_ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13te...         0.00%       0.000us         0.00%       0.000us       0.000us       1.904ms         1.09%       1.904ms     380.715us             5  
+                                   memcpy_triton_kernel         0.00%       0.000us         0.00%       0.000us       0.000us       1.854ms         1.06%       1.854ms       4.578us           405  
+void aiter::grouped_topk_kernel<hip_bfloat16, float ...         0.00%       0.000us         0.00%       0.000us       0.000us       1.840ms         1.05%       1.840ms       4.843us           380  
+                _fused_qk_rope_cat_and_cache_mla_kernel         0.00%       0.000us         0.00%       0.000us       0.000us       1.823ms         1.04%       1.823ms       4.615us           395  
+void at::native::vectorized_elementwise_kernel<8, at...         0.00%       0.000us         0.00%       0.000us       0.000us       1.801ms         1.03%       1.801ms       4.448us           405  
+_ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb...         0.00%       0.000us         0.00%       0.000us       0.000us       1.757ms         1.01%       1.757ms       4.449us           395  
+                    _fused_append_shared_experts_kernel         0.00%       0.000us         0.00%       0.000us       0.000us       1.692ms         0.97%       1.692ms       4.452us           380  
+void sgl::dsa_topk::coop_mb_scatter<2048u, 12u, 4096...         0.00%       0.000us         0.00%       0.000us       0.000us       1.456ms         0.83%       1.456ms      13.234us           110  
+void sgl::dsa_topk::coop_mb_refine<2048u, 12u, 4096u...         0.00%       0.000us         0.00%       0.000us       0.000us       1.371ms         0.79%       1.371ms      12.467us           110  
+Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT16x16...         0.00%       0.000us         0.00%       0.000us       0.000us       1.225ms         0.70%       1.225ms      11.133us           110  
+void aiter::kn_entry_2c_sbhd_cached_indirect_inplace...         0.00%       0.000us         0.00%       0.000us       0.000us       1.014ms         0.58%       1.014ms       9.220us           110  
+void fast_hadamard_transform_kernel<fast_hadamard_tr...         0.00%       0.000us         0.00%       0.000us       0.000us     941.676us         0.54%     941.676us       4.280us           220  
+_ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13te...         0.00%       0.000us         0.00%       0.000us       0.000us     918.285us         0.53%     918.285us     183.657us             5  
+      hgemm_bf16_16x64x128x4_SPK2_W1x2x1_BLDS1_TN_AS1_0         0.00%       0.000us         0.00%       0.000us       0.000us     829.453us         0.48%     829.453us       7.540us           110  
+                                           aten::argmax         0.05%      97.250us         0.08%     150.640us       7.532us     695.832us         0.40%     695.832us      34.792us            20  
+void at::native::reduce_kernel<512, 1, at::native::R...         0.00%       0.000us         0.00%       0.000us       0.000us     695.832us         0.40%     695.832us      46.389us            15  
+void sgl::dsa_topk::coop_mb_hist0<2048u, 12u, 4096u,...         0.00%       0.000us         0.00%       0.000us       0.000us     675.054us         0.39%     675.054us       6.137us           110  
+     hgemm_bf16_16x64x128x4_SPK12_W1x2x1_BLDS1_TN_AS1_0         0.00%       0.000us         0.00%       0.000us       0.000us     623.257us         0.36%     623.257us       5.666us           110  
+void sgl::dsa_topk::coop_mb_hist1<2048u, 12u, 4096u,...         0.00%       0.000us         0.00%       0.000us       0.000us     619.659us         0.35%     619.659us       5.633us           110  
+                               act_quant_kernel__kernel         0.00%       0.000us         0.00%       0.000us       0.000us     566.655us         0.32%     566.655us       5.151us           110  
+_ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8...         0.00%       0.000us         0.00%       0.000us       0.000us     515.256us         0.30%     515.256us       4.684us           110  
+_ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Laye...         0.00%       0.000us         0.00%       0.000us       0.000us     499.294us         0.29%     499.294us       4.539us           110  
+                       triton_poi_fused_mul_unsqueeze_0         0.00%       0.000us         0.00%       0.000us       0.000us     489.977us         0.28%     489.977us       4.454us           110  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 196.869ms
+Self CUDA time total: 174.560ms
+
+
+==== top 40 by total CPU time (sort_by='cpu_time_total') ====
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                                   Name    Self CPU %      Self CPU   CPU total %     CPU total  CPU time avg     Self CUDA   Self CUDA %    CUDA total  CUDA time avg    # of Calls  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+                                   hipDeviceSynchronize        91.27%     179.676ms        91.27%     179.682ms      29.947ms       8.399us         0.00%       8.399us       1.400us             6  
+                                                  draft         1.31%       2.582ms         2.58%       5.081ms       1.016ms       0.000us         0.00%     234.166us      46.833us             5  
+                                         hipGraphLaunch         2.40%       4.718ms         2.40%       4.718ms     314.546us       9.199us         0.01%       9.199us       0.613us            15  
+                                      step[VERIFY bs=4]         0.31%     609.729us         2.29%       4.505ms     901.044us       0.000us         0.00%      43.069us       8.614us             5  
+                                           draft_extend         0.97%       1.911ms         1.86%       3.664ms     732.861us       0.000us         0.00%       1.381ms     276.114us             5  
+                                            aten::copy_         0.20%     390.054us         0.99%       1.950ms       7.091us     398.900us         0.23%     398.900us       1.451us           275  
+                                               aten::to         0.07%     142.618us         0.98%       1.929ms       9.185us       0.000us         0.00%     257.733us       1.227us           210  
+                                         aten::_to_copy         0.13%     265.555us         0.91%       1.786ms      12.318us       0.000us         0.00%     257.733us       1.777us           145  
+                                        hipLaunchKernel         0.60%       1.178ms         0.60%       1.178ms       4.062us       0.000us         0.00%       0.000us       0.000us           290  
+                                         hipMemcpyAsync         0.37%     725.198us         0.37%     725.198us       4.532us       0.000us         0.00%       0.000us       0.000us           160  
+                                       c10d::allgather_         0.06%     110.580us         0.35%     683.171us     136.634us       0.000us         0.00%      19.155us       3.831us             5  
+                                    hipMemcpyWithStream         0.35%     682.948us         0.35%     682.948us      15.177us       0.000us         0.00%       0.000us       0.000us            45  
+                                            aten::slice         0.23%     445.214us         0.29%     580.552us       1.759us       0.000us         0.00%       0.000us       0.000us           330  
+                                     record_param_comms         0.19%     369.295us         0.29%     572.591us     114.518us      11.959us         0.01%      19.155us       3.831us             5  
+                                        nccl:all_gather         0.00%       0.000us             0     473.302us      94.660us       0.000us         0.00%       0.000us       0.000us             5  
+                                            aten::fill_         0.08%     154.199us         0.21%     422.517us       3.841us     282.786us         0.16%     282.786us       2.571us           110  
+                                      aten::multinomial         0.05%      90.048us         0.21%     419.535us      83.907us       0.000us         0.00%       0.000us       0.000us             5  
+                                            aten::empty         0.14%     282.917us         0.14%     282.917us       1.380us       0.000us         0.00%       0.000us       0.000us           205  
+                                    aten::empty_strided         0.12%     239.179us         0.12%     239.179us       1.407us       0.000us         0.00%       0.000us       0.000us           170  
+                                             aten::full         0.02%      35.910us         0.11%     218.959us       8.758us       0.000us         0.00%     157.416us       6.297us            25  
+                                   aten::_foreach_copy_         0.04%      78.420us         0.11%     209.267us       8.371us      62.905us         0.04%      62.905us       2.516us            25  
+                                       aten::as_strided         0.10%     199.705us         0.10%     199.705us       0.439us       0.000us         0.00%       0.000us       0.000us           455  
+                                            aten::index         0.04%      82.939us         0.10%     192.927us      19.293us      43.630us         0.02%      64.346us       6.435us            10  
+                                           aten::arange         0.03%      49.609us         0.09%     183.346us       9.167us      40.670us         0.02%      81.340us       4.067us            20  
+                                              aten::add         0.05%      95.379us         0.09%     180.476us       6.016us     113.577us         0.07%     113.577us       3.786us            30  
+                                  hipModuleLaunchKernel         0.09%     178.046us         0.09%     178.046us       5.087us       3.519us         0.00%       3.519us       0.101us            35  
+                                              aten::cat         0.04%      87.920us         0.09%     173.849us      34.770us      43.470us         0.02%      43.470us       8.694us             5  
+                                            aten::clone         0.02%      40.070us         0.09%     171.709us      11.447us       0.000us         0.00%      47.551us       3.170us            15  
+                                aten::repeat_interleave         0.02%      33.489us         0.08%     153.318us      30.664us       0.000us         0.00%       0.000us       0.000us             5  
+                                           aten::argmax         0.05%      97.250us         0.08%     150.640us       7.532us     695.832us         0.40%     695.832us      34.792us            20  
+                                       aten::index_put_         0.01%      12.430us         0.06%     118.899us      11.890us       0.000us         0.00%      41.310us       4.131us            10  
+                                              aten::div         0.03%      58.300us         0.05%     106.700us       7.113us      48.390us         0.03%      48.390us       3.226us            15  
+                                 aten::_index_put_impl_         0.03%      55.679us         0.05%     106.469us      10.647us      41.310us         0.02%      41.310us       4.131us            10  
+                                              aten::sum         0.04%      85.800us         0.05%     100.909us       6.727us       0.000us         0.00%       0.000us       0.000us            15  
+                                           aten::gather         0.03%      52.608us         0.05%      94.188us       9.419us      38.791us         0.02%      38.791us       3.879us            10  
+                                           aten::select         0.03%      62.529us         0.04%      83.437us       1.669us       0.000us         0.00%       0.000us       0.000us            50  
+                                              aten::sub         0.02%      37.239us         0.04%      74.509us       7.451us      39.790us         0.02%      39.790us       3.979us            10  
+                                               aten::ge         0.02%      40.810us         0.04%      73.630us      14.726us       0.000us         0.00%       0.000us       0.000us             5  
+                                     aten::exponential_         0.02%      47.829us         0.04%      73.129us       7.313us      40.715us         0.02%      40.715us       4.071us            10  
+                                            aten::zeros         0.01%      15.340us         0.04%      69.019us      13.804us       0.000us         0.00%      20.115us       4.023us             5  
+-------------------------------------------------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  ------------  
+Self CPU time total: 196.869ms
+Self CUDA time total: 174.560ms
+

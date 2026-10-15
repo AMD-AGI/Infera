@@ -1,0 +1,63 @@
+{
+  "name": "fused_add_rmsnorm_h6144",
+  "op_type": "rmsnorm",
+  "description": "Fused add + RMSNorm, hidden 6144, eps 1e-5 (GLM-5.2). Production aiter add_rmsnorm; sglang also writes the updated residual (x) back in place.",
+  "tags": [
+    "stage:decode",
+    "fused",
+    "model:glm-5.2-mxfp4",
+    "tp:4",
+    "dp_attention:4",
+    "ep:1",
+    "gpu:mi355x",
+    "framework:sglang-0.5.19.dev20260917+ga9fb1c3238",
+    "status:draft"
+  ],
+  "axes": {
+    "batch_size": {
+      "type": "var",
+      "description": "Tokens."
+    },
+    "hidden_size": {
+      "type": "const",
+      "value": 6144,
+      "description": "Hidden size."
+    }
+  },
+  "inputs": {
+    "hidden_states": {
+      "shape": [
+        "batch_size",
+        "hidden_size"
+      ],
+      "dtype": "bfloat16",
+      "description": "Input."
+    },
+    "residual": {
+      "shape": [
+        "batch_size",
+        "hidden_size"
+      ],
+      "dtype": "bfloat16",
+      "description": "Residual."
+    },
+    "weight": {
+      "shape": [
+        "hidden_size"
+      ],
+      "dtype": "bfloat16",
+      "description": "Gamma."
+    }
+  },
+  "outputs": {
+    "output": {
+      "shape": [
+        "batch_size",
+        "hidden_size"
+      ],
+      "dtype": "bfloat16",
+      "description": "Normalized output."
+    }
+  },
+  "reference": "import torch\n\n\n@torch.no_grad()\ndef run(hidden_states, residual, weight):\n    x = hidden_states.float() + residual.float()\n    y = x * torch.rsqrt(x.pow(2).mean(-1, keepdim=True) + 1e-5) * weight.float()\n    return y.to(hidden_states.dtype)\n"
+}

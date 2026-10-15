@@ -1,0 +1,116 @@
+{
+  "name": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+  "op_type": "dsa_paged",
+  "description": "GLM-5.2 DSA sparse MLA attention per rank (64 heads, attn_tp 1) as run on the decode leg for TARGET_VERIFY and DRAFT_EXTEND_V2 (speculative_attention_mode=prefill -> dsa_prefill_backend=triton: _sparse_mla_split_k_kernel + _sparse_mla_reduce_kernel, KV_SPLITS 2, fp8 dot). q is fp8 (written by fused_qk_rope_cat_and_cache_mla). sm_scale = (192 + 64) ** -0.5; the kernel folds log2(e) in (qk_scale 0.0902). num_tokens = 6 x bs_graph.",
+  "tags": [
+    "stage:decode",
+    "phase:target_verify",
+    "phase:draft_extend",
+    "sparse:topk",
+    "quantization:float8_e4m3fn",
+    "model:glm-5.2-mxfp4",
+    "tp:4",
+    "dp_attention:4",
+    "ep:1",
+    "gpu:mi355x",
+    "framework:sglang-0.5.19.dev20260917+ga9fb1c3238",
+    "status:draft"
+  ],
+  "axes": {
+    "num_tokens": {
+      "type": "var",
+      "description": "Query tokens on this rank (6 per request)."
+    },
+    "num_qo_heads": {
+      "type": "const",
+      "value": 64,
+      "description": "Heads per rank."
+    },
+    "head_dim_ckv": {
+      "type": "const",
+      "value": 512,
+      "description": "Latent (V) dim."
+    },
+    "head_dim_kpe": {
+      "type": "const",
+      "value": 64,
+      "description": "Rope dim."
+    },
+    "head_dim_kv": {
+      "type": "const",
+      "value": 576,
+      "description": "Stored KV row (ckv + kpe)."
+    },
+    "page_size": {
+      "type": "const",
+      "value": 64,
+      "description": "Tokens per page."
+    },
+    "topk": {
+      "type": "const",
+      "value": 2048,
+      "description": "Selected KV tokens per query."
+    },
+    "num_pages": {
+      "type": "var",
+      "description": "Pages in the per-rank KV pool."
+    }
+  },
+  "inputs": {
+    "q_nope": {
+      "shape": [
+        "num_tokens",
+        "num_qo_heads",
+        "head_dim_ckv"
+      ],
+      "dtype": "float8_e4m3fn",
+      "description": "Absorbed q (latent)."
+    },
+    "q_rope": {
+      "shape": [
+        "num_tokens",
+        "num_qo_heads",
+        "head_dim_kpe"
+      ],
+      "dtype": "float8_e4m3fn",
+      "description": "Rope part of q."
+    },
+    "kv_cache": {
+      "shape": [
+        "num_pages",
+        "page_size",
+        "head_dim_kv"
+      ],
+      "dtype": "float8_e4m3fn",
+      "description": "Latent KV cache."
+    },
+    "sparse_indices": {
+      "shape": [
+        "num_tokens",
+        "topk"
+      ],
+      "dtype": "int32",
+      "description": "Global token slots from the indexer."
+    },
+    "sm_scale": {
+      "shape": null,
+      "dtype": "float32",
+      "description": "Softmax scale 0.0625."
+    }
+  },
+  "outputs": {
+    "output": {
+      "shape": [
+        "num_tokens",
+        "num_qo_heads",
+        "head_dim_ckv"
+      ],
+      "dtype": "bfloat16",
+      "description": "Latent output (before W_UV)."
+    }
+  },
+  "constraints": [
+    "sparse_indices.shape[-1] == topk"
+  ],
+  "reference": "import torch\n\n\n@torch.no_grad()\ndef run(q_nope, q_rope, kv_cache, sparse_indices, sm_scale):\n    \"\"\"Sparse MLA over an fp8 latent KV cache (k_scale = v_scale = 1.0 in the deployment).\n    kv_cache[p, o, :512] = latent ckv (also V), [512:576] = rope key. sparse_indices are global\n    token slots (page * 64 + offset), -1 = padding.\"\"\"\n    T, H, D = q_nope.shape\n    kv = kv_cache.reshape(-1, kv_cache.shape[-1]).float()\n    invalid = sparse_indices < 0\n    idx = sparse_indices.clamp_min(0).long()\n    K = kv[idx]                                   # [T, topk, 576]\n    q = torch.cat([q_nope.float(), q_rope.float()], dim=-1)   # [T, H, 576]\n    logits = torch.einsum(\"thd,tkd->thk\", q, K) * sm_scale\n    logits = logits.masked_fill(invalid.unsqueeze(1), float(\"-inf\"))\n    p = torch.softmax(logits, dim=-1)\n    out = torch.einsum(\"thk,tkd->thd\", p, K[..., :512])\n    return out.to(torch.bfloat16)\n"
+}

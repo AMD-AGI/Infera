@@ -1,0 +1,13 @@
+--- /tmp/topology.orig.yihou.py	2026-10-08 12:51:48.120995903 +0000
++++ topology.py	2026-10-08 12:51:48.293013956 +0000
+@@ -61,6 +61,10 @@
+     batch.is_extend_in_batch = is_extend
+     batch.can_run_dp_cuda_graph = not is_extend and not disable_cuda_graph
+     batch.can_run_dp_breakable_cuda_graph = False
++    # sglang a9fb1c3238 renamed the replay gate to can_run_decode_cuda_graph
++    # (dp_attn.py:_update_gather_batch); without it every graph silently falls back to eager.
++    batch.can_run_decode_cuda_graph = batch.can_run_dp_cuda_graph
++    batch.can_run_dp_prefill_cuda_graph = False
+ 
+ 
+ _DIGEST_MOD = (1 << 61) - 1

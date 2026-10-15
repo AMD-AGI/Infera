@@ -1,0 +1,4 @@
+{"definition": "gemm_bf16_n256_k6144", "workload": {"uuid": "e3729d41-675f-5651-a24e-9f88843386cc", "axes": {"M": 192}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n256_k6144", "workload": {"uuid": "25159ccd-99e3-544d-9b1e-3732ca8835e9", "axes": {"M": 240}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n256_k6144", "workload": {"uuid": "0f9f8d9c-04bc-5af9-b72a-5c9a7dfed531", "axes": {"M": 288}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}
+{"definition": "gemm_bf16_n256_k6144", "workload": {"uuid": "33326290-cfe5-5827-acf3-a0740a7bd81f", "axes": {"M": 336}, "inputs": {"A": {"type": "random"}, "B": {"type": "random"}}}, "solution": null, "evaluation": null}

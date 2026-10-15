@@ -1,0 +1,174 @@
+{
+  "complete": false,
+  "batch_size": 16,
+  "input_len": 110000,
+  "input_lens": [
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000
+  ],
+  "input_len_uniform": true,
+  "output_len": 1000,
+  "emitted_per_request": [
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16,
+    16
+  ],
+  "final_seq_lens": [
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016,
+    110016
+  ],
+  "verify_iterations": 4,
+  "useful_output_tokens": 256,
+  "raw_accept_tokens": 256,
+  "num_correct_drafts": 192,
+  "terminal_extra_tokens": 0,
+  "realized_accept_length": 4.0,
+  "accept_histogram": {
+    "4": 64
+  },
+  "elapsed_seconds": 2.0563760129734874,
+  "output_tokens_per_second": 124.49085108215594,
+  "effective_token_latency_ms_per_user": 128.52350081084296,
+  "tp_size": 4,
+  "ep_size": 1,
+  "dp_size": 4,
+  "enable_dp_attention": true,
+  "global_batch_size": 16,
+  "local_batch_size": 4,
+  "expected_accept_length": 3.61,
+  "accept_method": "match-expected",
+  "accept_token_mode": "real-draft-token",
+  "output_tokens_per_second_per_gpu": 31.122712770538985,
+  "target_graph_iterations": 0,
+  "warmup_steps_excluded": 1,
+  "graph_execution_counts": {
+    "target": 0,
+    "draft": 0,
+    "draft_extend": 0
+  },
+  "bootstrap_tokens_excluded": 16,
+  "report_scope": "global",
+  "graph_execution_counts_scope": "rank_0",
+  "phase_seconds": {
+    "load_pool_capture": 881.709764001891,
+    "physical_initialization": 1.9777984339743853,
+    "bootstrap": 302.76378799043596,
+    "warmup_and_reset": 5.388475042767823,
+    "decode": 2.056343854404986,
+    "rank_total_to_result": 1193.8986723534763
+  },
+  "moe_a2a_backend": "none",
+  "moe_runner_backend": "auto",
+  "cross_rank_progress_check": "every warmup and measured iteration; included in timing",
+  "synthetic_prefix": true,
+  "simulated_acceptance": true,
+  "real_model_weights": true,
+  "real_moe_routing": true,
+  "scheduler_used": false,
+  "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+  "module_source_paths": {
+    "sglang.srt.server_args": "/sgl-workspace/sglang/python/sglang/srt/server_args.py",
+    "sglang.srt.speculative.eagle_worker_v2": "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py"
+  },
+  "timing_boundary": "complete internal speculative loop + synchronization + bookkeeping; excludes bootstrap/warmup/load/capture",
+  "terminal_policy": "count only remaining useful tokens; pay full terminal computation; no subsequent forward",
+  "memory": {
+    "reserved_tokens": 444160,
+    "reserved_tokens_per_request": 111040,
+    "page_size": 64,
+    "speculative_reserve": 12,
+    "max_input_len": 110000,
+    "min_input_len": 110000,
+    "target_initialized_bytes": 110886854400,
+    "draft_initialized_bytes": 1645867776
+  },
+  "max_memory_allocated_bytes": 247545946624,
+  "model_path": "/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4",
+  "target_backend": "DeepseekSparseAttnBackend",
+  "draft_backend": "DeepseekSparseAttnBackend",
+  "draft_graph_available": false,
+  "draft_extend_graph_available": false,
+  "representative_ranks": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "graph_execution_counts_by_rank": {
+    "0": {
+      "target": 0,
+      "draft": 0,
+      "draft_extend": 0
+    },
+    "1": {
+      "target": 0,
+      "draft": 0,
+      "draft_extend": 0
+    },
+    "2": {
+      "target": 0,
+      "draft": 0,
+      "draft_extend": 0
+    },
+    "3": {
+      "target": 0,
+      "draft": 0,
+      "draft_extend": 0
+    }
+  },
+  "per_dp_useful_output_tokens": [
+    64,
+    64,
+    64,
+    64
+  ],
+  "phase_seconds_max_rank": {
+    "load_pool_capture": 882.6462359158322,
+    "physical_initialization": 1.9777984339743853,
+    "bootstrap": 303.0043614981696,
+    "warmup_and_reset": 5.419696100056171,
+    "decode": 2.0563760129734874,
+    "rank_total_to_result": 1193.9477250101045
+  }
+}

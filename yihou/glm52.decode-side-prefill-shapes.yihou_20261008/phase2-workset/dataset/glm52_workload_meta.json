@@ -1,0 +1,1806 @@
+{
+ "batch_model": {
+  "per_rank_running_requests": "round(Normal(9.0, 1.6667)) clamped to [4, 14]",
+  "dp_ranks": 4,
+  "bs_graph": "snap_up(max over ranks), captured list [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20]",
+  "per_rank_B_probability": {
+   "4": 0.0035675,
+   "5": 0.01448625,
+   "6": 0.04902625,
+   "7": 0.11700125,
+   "8": 0.19721125,
+   "9": 0.23567375,
+   "10": 0.19887375,
+   "11": 0.11759625,
+   "12": 0.04875625,
+   "13": 0.014235,
+   "14": 0.0035725
+  },
+  "bs_graph_probability": {
+   "6": 1e-05,
+   "7": 0.001175,
+   "8": 0.019885,
+   "10": 0.422905,
+   "12": 0.486725,
+   "14": 0.0693
+  },
+  "exported_bs_graph": [
+   8,
+   10,
+   12,
+   14
+  ],
+  "seed": 20261015
+ },
+ "context_model": {
+  "lognormal_median": 236928,
+  "lognormal_sigma": 0.6643097454472126,
+  "per_rank_total_cap": 2169216,
+  "clamp": [
+   4096,
+   1000000
+  ]
+ },
+ "workloads": {
+  "59729a89-6494-5d20-9917-93dc3035cd94": {
+   "definition": "moe_mxfp4_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 192
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "e99499f5-ce5b-5c3b-a611-f35af09685ae": {
+   "definition": "moe_routing_sigmoid_bias_topk8_e256_shared1",
+   "axes": {
+    "seq_len": 192
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "e3729d41-675f-5651-a24e-9f88843386cc": {
+   "definition": "gemm_bf16_n256_k6144",
+   "axes": {
+    "M": 192
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "2818a1ae-5cd4-5f5f-b07f-e09fdca10c6c": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "711e1806-8ddd-5a08-a444-7fe1111c6ff5": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 8
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "5973f90e-b00c-5ba4-99e3-f003cff367cb": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "af1f7985-2340-5bcd-a638-3271651fe065": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 8
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "731e105b-1681-59ce-816b-c21d23cae9d8": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "43ec2184-5734-5e65-9b2b-39f932967682": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 8
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "ebc7ea08-bfb0-520f-9050-c6f0c3dc30a5": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k192_n512",
+   "axes": {
+    "num_tokens": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "6033a790-4887-5c65-a156-b6a5134131f1": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k512_n256",
+   "axes": {
+    "num_tokens": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "c1185e8a-d992-54e2-a240-09b3f0386cbe": {
+   "definition": "fused_add_rmsnorm_h6144",
+   "axes": {
+    "batch_size": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 156
+    }
+   ]
+  },
+  "b83611db-ae22-580a-9adb-232081bf17bf": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 192
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "ab502760-4622-5bf5-b984-a9799637e2d2": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 32
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "d8d3c7e0-b513-5980-97bf-33df14c9a5ea": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 192
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "f6416148-fc2c-5c43-90f5-ed2a3af1a576": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 32
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "be999314-3834-5661-9739-643ba0fce0e3": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 48,
+    "max_num_pages": 7218,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      169581,
+      451846,
+      167214,
+      461936,
+      376546,
+      96455,
+      256025,
+      189611
+     ]
+    },
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      169581,
+      451846,
+      167214,
+      461936,
+      376546,
+      96455,
+      256025,
+      189611
+     ]
+    }
+   ]
+  },
+  "2fecf27b-a016-56f3-8f4d-577ca0bd86d3": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 48,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      169581,
+      451846,
+      167214,
+      461936,
+      376546,
+      96455,
+      256025,
+      189611
+     ]
+    },
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      169581,
+      451846,
+      167214,
+      461936,
+      376546,
+      96455,
+      256025,
+      189611
+     ]
+    }
+   ]
+  },
+  "ca00a924-9b75-5048-a497-46e594a0ce7c": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 48,
+    "max_num_pages": 8415,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      151780,
+      84180,
+      396110,
+      203253,
+      538494,
+      105264,
+      351370,
+      144690
+     ]
+    },
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      151780,
+      84180,
+      396110,
+      203253,
+      538494,
+      105264,
+      351370,
+      144690
+     ]
+    }
+   ]
+  },
+  "6942b076-5df8-56fa-aabf-91d00243a041": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 48,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      151780,
+      84180,
+      396110,
+      203253,
+      538494,
+      105264,
+      351370,
+      144690
+     ]
+    },
+    {
+     "bs_graph": 8,
+     "probability": 0.019885,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      151780,
+      84180,
+      396110,
+      203253,
+      538494,
+      105264,
+      351370,
+      144690
+     ]
+    }
+   ]
+  },
+  "aab1459b-e2ff-544a-913c-3f5bd09afc42": {
+   "definition": "moe_mxfp4_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 240
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "0dee069d-e916-5f96-aa1a-3e6f4aa1c13d": {
+   "definition": "moe_routing_sigmoid_bias_topk8_e256_shared1",
+   "axes": {
+    "seq_len": 240
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "25159ccd-99e3-544d-9b1e-3732ca8835e9": {
+   "definition": "gemm_bf16_n256_k6144",
+   "axes": {
+    "M": 240
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "6d0d1d13-a4d0-5aab-bc2b-091db4286209": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 60
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "efc6ca41-8525-5961-bc69-4f81db1edf57": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 10
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "7cfd7832-96fa-5da3-8d62-b6f6985e3ab5": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 60
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "66c8f23b-a53d-5d06-935c-3a2664932e85": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 10
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "180c1c89-704c-5035-ae51-120c0190807a": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 60
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "4d4c8d35-066f-5885-a8db-811c16a0eb05": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 10
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "996fe5b5-638c-5208-8088-c666e5eaf54a": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k192_n512",
+   "axes": {
+    "num_tokens": 60
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "0e2600ba-689e-5411-bb7c-18852e69bbec": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k512_n256",
+   "axes": {
+    "num_tokens": 60
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "79048575-20fb-54b8-86a1-e778d2b11c64": {
+   "definition": "fused_add_rmsnorm_h6144",
+   "axes": {
+    "batch_size": 60
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 156
+    }
+   ]
+  },
+  "6b912f56-7a73-56fd-994f-7986c7797107": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 240
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "7ebe066b-9281-5111-a6cc-d02be0dfcf0f": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 40
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "3cc0688e-8c32-5992-b9cb-6055a6f72a8e": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 240
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "93fcc6e7-1e63-5f73-a5e7-cf3770027dfe": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 40
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "333a7e3d-539a-59fc-a0ab-b1b79f18bf20": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 60,
+    "max_num_pages": 6015,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      57723,
+      384900,
+      337090,
+      308126,
+      209234,
+      229328,
+      50097,
+      137910,
+      179735,
+      275069
+     ]
+    },
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      57723,
+      384900,
+      337090,
+      308126,
+      209234,
+      229328,
+      50097,
+      137910,
+      179735,
+      275069
+     ]
+    }
+   ]
+  },
+  "331d7e57-7c15-5483-9e6d-2f87f0a3ad1d": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 60,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      57723,
+      384900,
+      337090,
+      308126,
+      209234,
+      229328,
+      50097,
+      137910,
+      179735,
+      275069
+     ]
+    },
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      57723,
+      384900,
+      337090,
+      308126,
+      209234,
+      229328,
+      50097,
+      137910,
+      179735,
+      275069
+     ]
+    }
+   ]
+  },
+  "d03b2d0e-5462-51b5-b043-82daca4ef296": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 60,
+    "max_num_pages": 10303,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      140175,
+      168866,
+      261279,
+      659347,
+      233878,
+      224653,
+      175616,
+      48004,
+      146420,
+      110971
+     ]
+    },
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      140175,
+      168866,
+      261279,
+      659347,
+      233878,
+      224653,
+      175616,
+      48004,
+      146420,
+      110971
+     ]
+    }
+   ]
+  },
+  "4d6e3f63-f3cd-532e-925b-68fe5210145f": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 60,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      140175,
+      168866,
+      261279,
+      659347,
+      233878,
+      224653,
+      175616,
+      48004,
+      146420,
+      110971
+     ]
+    },
+    {
+     "bs_graph": 10,
+     "probability": 0.422905,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      140175,
+      168866,
+      261279,
+      659347,
+      233878,
+      224653,
+      175616,
+      48004,
+      146420,
+      110971
+     ]
+    }
+   ]
+  },
+  "21f5aa72-0124-5d45-88e9-d058b11fc526": {
+   "definition": "moe_mxfp4_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 288
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "e4c2efb2-a28c-56a9-a073-67284739489b": {
+   "definition": "moe_routing_sigmoid_bias_topk8_e256_shared1",
+   "axes": {
+    "seq_len": 288
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "0f9f8d9c-04bc-5af9-b72a-5c9a7dfed531": {
+   "definition": "gemm_bf16_n256_k6144",
+   "axes": {
+    "M": 288
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "fe5a352a-f3e0-5b9b-8d0b-9641e44d659e": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 72
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "7fddfd77-dbdc-50a0-8093-a511314f1853": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 12
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "a9e82751-3bab-55ee-a6a1-26939a5569e1": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 72
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "bc32c306-94c9-542b-949a-5d34e8b18481": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 12
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "5f16b573-a513-5cf7-bb99-b8d0c8b9c48d": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 72
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "cddfb322-f007-59d6-a508-26b54ed93acc": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 12
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "b4d60f57-0d15-5911-8a9b-9f04bd4595f3": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k192_n512",
+   "axes": {
+    "num_tokens": 72
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "08e7603e-8a95-5658-a4da-fe649c5916c9": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k512_n256",
+   "axes": {
+    "num_tokens": 72
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "c240d648-69ec-540b-b18a-d747831ab7f9": {
+   "definition": "fused_add_rmsnorm_h6144",
+   "axes": {
+    "batch_size": 72
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 156
+    }
+   ]
+  },
+  "81dd9288-1b50-5095-ade0-eec1853edcf0": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 288
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "529facb5-0fe4-5a02-b48b-4abb73100061": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "235ccd22-a5ad-5c6a-9b94-7c53429588f8": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 288
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "26453fd9-9a07-50ea-a551-fdf0bbee63ce": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 48
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "4cfc6643-46bd-5955-b6f0-3f51380aa5f8": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 72,
+    "max_num_pages": 6764,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      81219,
+      432846,
+      209425,
+      108764,
+      126649,
+      27555,
+      422042,
+      249784,
+      58091,
+      250567,
+      50733,
+      151537
+     ]
+    },
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      81219,
+      432846,
+      209425,
+      108764,
+      126649,
+      27555,
+      422042,
+      249784,
+      58091,
+      250567,
+      50733,
+      151537
+     ]
+    }
+   ]
+  },
+  "a1af3122-caf5-5c01-8fce-f52b79cbc688": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 72,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      81219,
+      432846,
+      209425,
+      108764,
+      126649,
+      27555,
+      422042,
+      249784,
+      58091,
+      250567,
+      50733,
+      151537
+     ]
+    },
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      81219,
+      432846,
+      209425,
+      108764,
+      126649,
+      27555,
+      422042,
+      249784,
+      58091,
+      250567,
+      50733,
+      151537
+     ]
+    }
+   ]
+  },
+  "a0598c50-4905-551c-b436-47d4e1a0fae3": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 72,
+    "max_num_pages": 6916,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      342766,
+      129670,
+      108371,
+      289136,
+      190289,
+      442599,
+      65569,
+      105012,
+      57835,
+      195280,
+      90200,
+      152485
+     ]
+    },
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      342766,
+      129670,
+      108371,
+      289136,
+      190289,
+      442599,
+      65569,
+      105012,
+      57835,
+      195280,
+      90200,
+      152485
+     ]
+    }
+   ]
+  },
+  "4ee22d42-e407-5a3d-aeb5-350d57a2d2b4": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 72,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      342766,
+      129670,
+      108371,
+      289136,
+      190289,
+      442599,
+      65569,
+      105012,
+      57835,
+      195280,
+      90200,
+      152485
+     ]
+    },
+    {
+     "bs_graph": 12,
+     "probability": 0.486725,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      342766,
+      129670,
+      108371,
+      289136,
+      190289,
+      442599,
+      65569,
+      105012,
+      57835,
+      195280,
+      90200,
+      152485
+     ]
+    }
+   ]
+  },
+  "eba84aa0-61cc-56f8-9d06-cbe27ed5e716": {
+   "definition": "moe_mxfp4_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 336
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "59ca43dc-e364-5c23-b6d1-7150d275d2f9": {
+   "definition": "moe_routing_sigmoid_bias_topk8_e256_shared1",
+   "axes": {
+    "seq_len": 336
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "33326290-cfe5-5827-acf3-a0740a7bd81f": {
+   "definition": "gemm_bf16_n256_k6144",
+   "axes": {
+    "M": 336
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 75
+    }
+   ]
+  },
+  "77c0a036-7b92-528d-8e70-af398276dbad": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 84
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "f58d0060-d76e-5e7f-88dd-52cd12975417": {
+   "definition": "gemm_bf16_n6144_k16384",
+   "axes": {
+    "M": 14
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "235a8698-6eda-5bac-99c1-d9bbf898dd45": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 84
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "eafbaba5-e263-53b4-bc59-5eb230973633": {
+   "definition": "gemm_bf16_n16384_k2048",
+   "axes": {
+    "M": 14
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "f75b1b5f-560b-5830-bb88-9066ee5e2485": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 84
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    },
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "24ac2bc5-ce48-5900-8680-bc4abfe0cd8c": {
+   "definition": "gemm_bf16_n2624_k6144",
+   "axes": {
+    "M": 14
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "cc50901d-5169-5d4d-8146-a4784b8cbc66": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k192_n512",
+   "axes": {
+    "num_tokens": 84
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "a3146cae-1c80-5739-b445-778b474b54e6": {
+   "definition": "mla_absorb_bmm_fp8w_h64_k512_n256",
+   "axes": {
+    "num_tokens": 84
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 78
+    }
+   ]
+  },
+  "7899358a-3130-590e-ae2a-21132463ec68": {
+   "definition": "fused_add_rmsnorm_h6144",
+   "axes": {
+    "batch_size": 84
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 156
+    }
+   ]
+  },
+  "9b6828d2-121d-5b3c-bd97-e900cb928437": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 336
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "3716c6c9-1592-5937-9bff-3d027751604f": {
+   "definition": "moe_bf16_routed_topk9_e257_h6144_i512",
+   "axes": {
+    "seq_len": 56
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "b2364174-2a14-51e9-9bae-1ba7674575c4": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 336
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1
+    }
+   ]
+  },
+  "fe6bf488-08e4-5b74-9778-2ff4161b0491": {
+   "definition": "gemm_bf16_n38720_k6144",
+   "axes": {
+    "M": 56
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_decode",
+     "calls_per_iteration": 4
+    }
+   ]
+  },
+  "c7c845ee-b66f-5a58-bdd8-f6d113fc88b0": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 84,
+    "max_num_pages": 6709,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      329843,
+      43168,
+      90592,
+      429363,
+      47014,
+      87294,
+      123637,
+      56711,
+      292674,
+      136479,
+      74187,
+      59135,
+      73174,
+      325937
+     ]
+    },
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      329843,
+      43168,
+      90592,
+      429363,
+      47014,
+      87294,
+      123637,
+      56711,
+      292674,
+      136479,
+      74187,
+      59135,
+      73174,
+      325937
+     ]
+    }
+   ]
+  },
+  "678620de-7bbd-5eca-8bbf-44468a109620": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 84,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      329843,
+      43168,
+      90592,
+      429363,
+      47014,
+      87294,
+      123637,
+      56711,
+      292674,
+      136479,
+      74187,
+      59135,
+      73174,
+      325937
+     ]
+    },
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      329843,
+      43168,
+      90592,
+      429363,
+      47014,
+      87294,
+      123637,
+      56711,
+      292674,
+      136479,
+      74187,
+      59135,
+      73174,
+      325937
+     ]
+    }
+   ]
+  },
+  "90858a15-7aed-500f-83b8-3dec8871adaa": {
+   "definition": "dsa_topk_indexer_fp8_h32_d128_topk2048_ps64",
+   "axes": {
+    "batch_size": 84,
+    "max_num_pages": 3675,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 21,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      131045,
+      79046,
+      121698,
+      192544,
+      148447,
+      151099,
+      93343,
+      80865,
+      210382,
+      235165,
+      100297,
+      177273,
+      216184,
+      231821
+     ]
+    },
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      131045,
+      79046,
+      121698,
+      192544,
+      148447,
+      151099,
+      93343,
+      80865,
+      210382,
+      235165,
+      100297,
+      177273,
+      216184,
+      231821
+     ]
+    }
+   ]
+  },
+  "8e2f4258-6c04-5623-81a6-2f3f503fdc35": {
+   "definition": "dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64",
+   "axes": {
+    "num_tokens": 84,
+    "num_pages": 34787
+   },
+   "uses": [
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "target_verify",
+     "calls_per_iteration": 78,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      131045,
+      79046,
+      121698,
+      192544,
+      148447,
+      151099,
+      93343,
+      80865,
+      210382,
+      235165,
+      100297,
+      177273,
+      216184,
+      231821
+     ]
+    },
+    {
+     "bs_graph": 14,
+     "probability": 0.0693,
+     "phase": "draft_extend",
+     "calls_per_iteration": 1,
+     "probability_within_bs": 0.5,
+     "context_per_request": [
+      131045,
+      79046,
+      121698,
+      192544,
+      148447,
+      151099,
+      93343,
+      80865,
+      210382,
+      235165,
+      100297,
+      177273,
+      216184,
+      231821
+     ]
+    }
+   ]
+  }
+ }
+}

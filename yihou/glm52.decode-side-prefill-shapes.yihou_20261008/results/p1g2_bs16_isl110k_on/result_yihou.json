@@ -1,0 +1,177 @@
+{
+  "complete": false,
+  "batch_size": 16,
+  "input_len": 110000,
+  "input_lens": [
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000,
+    110000
+  ],
+  "input_len_uniform": true,
+  "output_len": 1000,
+  "emitted_per_request": [
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115,
+    115
+  ],
+  "final_seq_lens": [
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115,
+    110115
+  ],
+  "verify_iterations": 30,
+  "useful_output_tokens": 1840,
+  "raw_accept_tokens": 1840,
+  "num_correct_drafts": 1360,
+  "terminal_extra_tokens": 0,
+  "realized_accept_length": 3.8333333333333335,
+  "accept_histogram": {
+    "3": 80,
+    "4": 400
+  },
+  "elapsed_seconds": 2.3675060849636793,
+  "output_tokens_per_second": 777.1891323473528,
+  "effective_token_latency_ms_per_user": 20.587009434466776,
+  "tp_size": 4,
+  "ep_size": 1,
+  "dp_size": 4,
+  "enable_dp_attention": true,
+  "global_batch_size": 16,
+  "local_batch_size": 4,
+  "expected_accept_length": 3.61,
+  "accept_method": "match-expected",
+  "accept_token_mode": "real-draft-token",
+  "output_tokens_per_second_per_gpu": 194.2972830868382,
+  "target_graph_iterations": 30,
+  "warmup_steps_excluded": 5,
+  "graph_execution_counts": {
+    "target": 30,
+    "draft": 30,
+    "draft_extend": 30
+  },
+  "bootstrap_tokens_excluded": 16,
+  "report_scope": "global",
+  "graph_execution_counts_scope": "rank_0",
+  "phase_seconds": {
+    "load_pool_capture": 615.8667528051883,
+    "physical_initialization": 1.5734398597851396,
+    "bootstrap": 5.279526705853641,
+    "warmup_and_reset": 12.359743982553482,
+    "decode": 2.3675060849636793,
+    "rank_total_to_result": 637.4497114568949
+  },
+  "moe_a2a_backend": "none",
+  "moe_runner_backend": "auto",
+  "cross_rank_progress_check": "every warmup and measured iteration; included in timing",
+  "synthetic_prefix": true,
+  "simulated_acceptance": true,
+  "real_model_weights": true,
+  "real_moe_routing": true,
+  "scheduler_used": false,
+  "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+  "module_source_paths": {
+    "sglang.srt.server_args": "/sgl-workspace/sglang/python/sglang/srt/server_args.py",
+    "sglang.srt.speculative.eagle_worker_v2": "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py"
+  },
+  "timing_boundary": "complete internal speculative loop + synchronization + bookkeeping; excludes bootstrap/warmup/load/capture",
+  "terminal_policy": "count only remaining useful tokens; pay full terminal computation; no subsequent forward",
+  "memory": {
+    "reserved_tokens": 444160,
+    "reserved_tokens_per_request": 111040,
+    "page_size": 64,
+    "speculative_reserve": 12,
+    "max_input_len": 110000,
+    "min_input_len": 110000,
+    "target_initialized_bytes": 123415545600,
+    "draft_initialized_bytes": 1831828224
+  },
+  "max_memory_allocated_bytes": 260328569344,
+  "model_path": "/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4",
+  "target_backend": "DeepseekSparseAttnBackend",
+  "draft_backend": "DeepseekSparseAttnBackend",
+  "draft_graph_available": true,
+  "draft_extend_graph_available": true,
+  "profiled": true,
+  "is_performance_measurement": false,
+  "representative_ranks": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "graph_execution_counts_by_rank": {
+    "0": {
+      "target": 30,
+      "draft": 30,
+      "draft_extend": 30
+    },
+    "1": {
+      "target": 30,
+      "draft": 30,
+      "draft_extend": 30
+    },
+    "2": {
+      "target": 30,
+      "draft": 30,
+      "draft_extend": 30
+    },
+    "3": {
+      "target": 30,
+      "draft": 30,
+      "draft_extend": 30
+    }
+  },
+  "per_dp_useful_output_tokens": [
+    460,
+    460,
+    460,
+    460
+  ],
+  "phase_seconds_max_rank": {
+    "load_pool_capture": 616.0026710899547,
+    "physical_initialization": 1.5734398597851396,
+    "bootstrap": 6.0669178096577525,
+    "warmup_and_reset": 12.359864201396704,
+    "decode": 2.3675060849636793,
+    "rank_total_to_result": 637.4497114568949
+  }
+}

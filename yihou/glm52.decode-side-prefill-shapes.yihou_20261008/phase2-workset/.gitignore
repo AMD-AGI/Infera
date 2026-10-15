@@ -1,0 +1,4 @@
+# 76 MB, regenerated deterministically by scripts/gen_workset.yihou.py (md5 3619ef0f928df3d5a8ca72bd2f470b29)
+dataset/blob/workloads/moe/moe_mxfp4_routed_topk9_e257_h6144_i512/*_weight_scales.safetensors
+# raw transcript (8 MB); session/session.yihou.md is the readable export
+session/*.jsonl

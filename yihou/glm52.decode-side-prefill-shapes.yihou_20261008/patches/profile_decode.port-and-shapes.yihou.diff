@@ -1,0 +1,82 @@
+--- /tmp/profile_decode.orig.yihou.py	2026-10-08 11:38:42.927658502 +0000
++++ bench/profile_decode.py	2026-10-08 11:38:43.137962017 +0000
+@@ -39,6 +39,7 @@
+     configure_profile_env,
+     validate_profile_args,
+ )
++from shape_capture_yihou import ShapeCapture, add_shape_cli_args
+ 
+ PINNED_SGLANG = "402df1e1e453e1e85ec0f5ac4052d36598cc691a"
+ DEFAULT_INPUT_LEN = 70000
+@@ -68,6 +69,7 @@
+     parser.add_argument("--seed", type=int, default=1234)
+     parser.add_argument("--log-interval", type=int, default=100)
+     add_profile_cli_args(parser)
++    add_shape_cli_args(parser)
+     return parser
+ 
+ 
+@@ -161,15 +163,17 @@
+ 
+     torch.cuda.set_device(rank)
+     set_global_server_args_for_scheduler(server_args)
+-    initialize_moe_config(server_args)
+-    initialize_fp8_gemm_config(server_args)
+-    initialize_fp4_gemm_config(server_args)
++    initialize_moe_config()
++    initialize_fp8_gemm_config()
++    initialize_fp4_gemm_config()
+     configure_logger(server_args, prefix=f" TP{rank}")
+     topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+     ps = ParallelState(**topology.parallel_state_kwargs(rank))
+     log(rank, "loading target weights")
++    from sglang.srt.runtime_context import get_model
++    overlap = get_model().is_startup_weight_load_overlap
+     target = TpModelWorker(server_args, rank, ps, port_args.nccl_port)
+-    if server_args.is_startup_weight_load_overlap:
++    if overlap:
+         target.start_startup_weight_load()
+     log(rank, "loading draft weights")
+     worker = EAGLEWorkerV2(server_args, rank, ps, port_args.nccl_port, target)
+@@ -185,7 +189,7 @@
+     log(rank, "capturing target and required draft graphs (startup may take minutes)")
+     target.init_cuda_graphs()
+     worker.init_cuda_graphs()
+-    if server_args.is_startup_weight_load_overlap:
++    if overlap:
+         target.finalize_startup_weight_load()
+     return target, worker
+ 
+@@ -349,6 +353,7 @@
+     topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+     phase_seconds = {}
+     session = ProfileSession.create(args, rank, log)  # None unless --profile
++    shapes = ShapeCapture(args, rank, log)
+     configure_acceptance(args)
+     random.seed(args.seed)
+     np.random.seed(args.seed)
+@@ -422,6 +427,11 @@
+         while not accounting.complete and (not args.max_steps or accounting.verify_ct < args.max_steps):
+             if session is not None:
+                 session.step_boundary(accounting.verify_ct)  # outside the per-step tick
++            if shapes.enabled and accounting.verify_ct == args.shape_capture_step:
++                shape_runners = {"target": target.model_runner, "draft": worker.draft_worker.draft_runner}
++                for index, extra_runner in enumerate(getattr(worker.draft_worker, "draft_runner_list", []) or []):
++                    shape_runners[f"draft_layer_{index}"] = extra_runner
++                shapes.arm(shape_runners)
+             tick = time.perf_counter()
+             batch.prepare_for_decode()
+             prepare_dp_metadata(batch, topology, is_extend=False, disable_cuda_graph=args.disable_cuda_graph)
+@@ -438,6 +448,12 @@
+             # Only the terminal iteration may clip useful emissions. Its full
+             # draft/verify/extension compute is paid; beyond-cap tokens are not
+             # counted. No next forward consumes the clipped recurrent state.
++            if shapes.handles:
++                shapes.disarm_and_write({"verify_iteration": accounting.verify_ct - 1,
++                                         "seq_lens_before": batch.seq_lens_cpu.tolist(),
++                                         "accept_lens": accept_lens, "rank": rank,
++                                         "local_batch_size": topology.local_batch_size,
++                                         "graph_disabled": bool(args.disable_cuda_graph)})
+             commit_result(batch, result, accounting.seq_lens)
+             step["seconds"] = time.perf_counter() - tick
+             step["target_graph"] = bool(result.can_run_cuda_graph)

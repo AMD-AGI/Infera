@@ -1,0 +1,60 @@
+{
+  "name": "gemm_bf16_n2624_k6144",
+  "op_type": "gemm",
+  "description": "bf16 GEMM C = A @ B.T, GLM-5.2 decode leg per rank: fused_qkv_a_proj_with_mqa (6144 -> q_lora 2048 + kv_lora 512 + rope 64).",
+  "tags": [
+    "stage:decode",
+    "model:glm-5.2-mxfp4",
+    "tp:4",
+    "dp_attention:4",
+    "ep:1",
+    "gpu:mi355x",
+    "framework:sglang-0.5.19.dev20260917+ga9fb1c3238",
+    "status:draft"
+  ],
+  "axes": {
+    "M": {
+      "type": "var",
+      "description": "Rows (tokens)."
+    },
+    "N": {
+      "type": "const",
+      "value": 2624,
+      "description": "Output features."
+    },
+    "K": {
+      "type": "const",
+      "value": 6144,
+      "description": "Input features."
+    }
+  },
+  "inputs": {
+    "A": {
+      "shape": [
+        "M",
+        "K"
+      ],
+      "dtype": "bfloat16",
+      "description": "Activations."
+    },
+    "B": {
+      "shape": [
+        "N",
+        "K"
+      ],
+      "dtype": "bfloat16",
+      "description": "Weight."
+    }
+  },
+  "outputs": {
+    "C": {
+      "shape": [
+        "M",
+        "N"
+      ],
+      "dtype": "bfloat16",
+      "description": "A @ B.T."
+    }
+  },
+  "reference": "import torch\n\n\ndef run(A, B):\n    return torch.matmul(A.float(), B.float().T).to(torch.bfloat16)\n"
+}
