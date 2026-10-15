@@ -2,21 +2,27 @@
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# WHAT: apply the Mooncake C++ patch this tree still needs, before the
-#   cmake/ninja build. Only one is left; the others landed upstream.
+# WHAT: apply Mooncake C++ patches before the cmake/ninja build. With no
+#   arguments, apply B.2 below (vLLM and ATOM builds); the SGLang build passes
+#   the two rdma_*.diff files instead.
 #   B.2 transfer_engine_impl: do NOT installTransport("hip") on ROCm by default
 #       (else GPU bufs become intra-node hip IPC segments a cross-node peer can't
 #       open — an IPC handle is host-local, so hipIpcOpenMemHandle on a peer NODE
 #       fails with "invalid device context"/201). MC_ENABLE_HIP_TRANSPORT=1 opts
 #       back in for single-node-only P2P; MC_DISABLE_HIP_TRANSPORT=1 vetoes even
 #       that, so infera's rocm_rdma_env.py default is honoured rather than a no-op.
+#   rdma_dest_local_rail: MC_ENABLE_DEST_LOCAL_RAIL=1 (with the upstream
+#       MC_ENABLE_DEST_DEVICE_AFFINITY) makes a WRITE to a peer GPU use the HCA
+#       pinned for that GPU on both hosts. Off by default. Mooncake#4540.
+#   rdma_ack_timeout: MC_IB_TIMEOUT sets the RC ACK timeout exponent
+#       (4.096 us * 2^n); unset keeps the hardcoded 14, about 67 ms. Mooncake#4541.
 #   (Gone, all upstream at the pinned ref: B.1 propagated USE_HIP_DMABUF to
 #   rdma_transport, now done by src/CMakeLists.txt; B.3 auto-chunked MRs larger
 #   than max_mr_size, now Mooncake#2644 along with the batch-registration error
 #   propagation that used to swallow a failed KV registration.)
 # VERSION: pinned to Mooncake main @ faae8dd4 (kvcache-ai/Mooncake). Plain
 #   `git apply` fails loudly on ref drift rather than silently mis-patching.
-# USAGE: MC_ROOT=/opt/mooncake/Mooncake bash apply_mooncake_cpp_patches.sh
+# USAGE: MC_ROOT=/opt/mooncake/Mooncake bash apply_mooncake_cpp_patches.sh [DIFF...]
 set -euo pipefail
 
 MC_ROOT="${MC_ROOT:-/opt/mooncake/Mooncake}"
@@ -39,6 +45,9 @@ apply_one() {
     fi
 }
 
-apply_one transfer_engine_impl.diff
+[ "$#" -gt 0 ] || set -- transfer_engine_impl.diff
+for diff in "$@"; do
+    apply_one "$diff"
+done
 
 echo "MC_CPP_PATCHES_DONE"

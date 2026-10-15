@@ -10,9 +10,11 @@
 #   - large MRs are chunked and registration failures propagate (#2644/#2869);
 #   - chunked dma-buf offsets include each chunk's displacement (#3243).
 #
-# Keep no private source patches here. Build the upstream source, then verify the
-# two artifact capabilities SGLang PD needs: HIP dma-buf registration and
-# cross-host RDMA routing.
+# The only private source patches are the two RDMA diffs in patches/mooncake_cpp:
+# destination-local rail selection and a configurable RC ACK timeout. Both keep
+# upstream behavior unless MC_ENABLE_DEST_LOCAL_RAIL / MC_IB_TIMEOUT are set.
+# Build, then verify the artifact capabilities SGLang PD needs: HIP dma-buf
+# registration, cross-host RDMA routing and both patch switches.
 set -euo pipefail
 
 MC_ROOT="${MC_ROOT:-/tmp/mooncake-upstream}"
@@ -20,6 +22,7 @@ MC_REPO="${MOONCAKE_REPO:-https://github.com/kvcache-ai/Mooncake.git}"
 MC_REF="${MOONCAKE_GIT_REF:-faae8dd4a6309c3ecd47e0721a83b0250d686fa2}"
 # gfx950 = MI355X; Dockerfile.sglang.gfx942 overrides this for MI300/MI325.
 MC_GPU_ARCH="${MC_GPU_ARCH:-gfx950}"
+MC_CPP_PATCH_DIR="${MC_CPP_PATCH_DIR:-$(cd "$(dirname "$0")/../patches/mooncake_cpp" && pwd)}"
 
 rm -rf "$MC_ROOT"
 git clone --filter=blob:none --no-checkout "$MC_REPO" "$MC_ROOT"
@@ -28,6 +31,8 @@ git fetch --depth=1 origin "$MC_REF"
 git checkout --detach "$MC_REF"
 git submodule update --init --recursive
 echo "[mc-build] Mooncake $(git rev-parse HEAD)"
+MC_ROOT="$MC_ROOT" bash "$MC_CPP_PATCH_DIR/apply_mooncake_cpp_patches.sh" \
+    rdma_dest_local_rail.diff rdma_ack_timeout.diff
 
 # Assert the pinned source has the features this image relies on. A ref bump that
 # loses or moves either implementation must fail here, before an expensive build.
@@ -93,9 +98,13 @@ ldd "$DEST" | grep -qi hsa-runtime64 ||
 binary_strings="$(strings "$DEST")"
 printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
     { echo "[mc-build] ERROR: cross-host HIP locality routing is absent" >&2; exit 1; }
+for feature in MC_ENABLE_DEST_LOCAL_RAIL MC_IB_TIMEOUT; do
+    [[ "$binary_strings" == *"$feature"* ]] ||
+        { echo "[mc-build] ERROR: $DEST lacks $feature" >&2; exit 1; }
+done
 python3 -c "from mooncake.engine import TransferEngine"
 
-echo "[mc-build] DONE: upstream Mooncake $MC_REF"
+echo "[mc-build] DONE: Mooncake $MC_REF + RDMA patches"
 echo "[mc-build] dma-buf=present cross-host-routing=present arch=$MC_GPU_ARCH"
 cd /
 rm -rf "$MC_ROOT"

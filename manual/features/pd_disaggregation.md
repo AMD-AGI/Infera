@@ -263,6 +263,8 @@ flags like `--advertise-host` / `--kv-transfer-config` cover the rest.
 | `MC_GID_INDEX` | `1` | Mooncake RoCEv2 GID index — index 0 is link-local and times out cross-node. |
 | `NCCL_IB_GID_INDEX` | `1` | RoCEv2 GID index for the collectives (RCCL) path. |
 | `MC_DISABLE_HIP_TRANSPORT` | `1` | Force RDMA, not the HIP (hipIpc) transport. Already the image default; set explicitly as belt-and-braces. |
+| `MC_ENABLE_DEST_LOCAL_RAIL` | `1` *(opt-in)* | SGLang images: a WRITE to a Decode GPU uses that GPU's pinned HCA on both hosts, so each receiving NIC writes only its own GPU on its own socket. Needs `MC_ENABLE_DEST_DEVICE_AFFINITY` (Infera's default) and same-named NICs that are compatible rails. Off when unset. |
+| `MC_IB_TIMEOUT` | `18` *(opt-in)* | SGLang images: RC ACK timeout exponent, 4.096 µs × 2^n (18 ≈ 1.07 s). Unset keeps Mooncake's 14 (≈ 67 ms); larger values delay loss recovery. |
 | `MORI_IB_GID_INDEX` | `1` | RoCEv2 GID index for the MoRIIO transport. |
 | `VLLM_MORIIO_CONNECTOR_READ_MODE` | `1` | MoRIIO read/pull mode (decode reads KV from prefill). Set on both legs. |
 | `VLLM_HOST_IP` | *(routable IP)* | Address a vLLM worker advertises for KV transfer; pair with `--advertise-host`. |
