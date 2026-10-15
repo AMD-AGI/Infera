@@ -1,0 +1,8 @@
+a2-debug2 c16: 12,580 tok/s/GPU (output 86.4), 239 requests, mean input 126.3k, ITL p50/p90 11.1/16.0 ms, TTFT p50/p90 2.9/6.3 s, cache hit GPU/host 96.1%/— (theoretical 96.0%), effective conc 5.0 (before first token 1.3)
+  engine, mean over 10 min: prompt 47,405 tok/s, of which cached 45,652; generated 354 tok/s
+  rank     running       queue      KV use   gen tok/s    hit rate  accept len        util        idle
+     0        1.37        0.08        0.16      154.68        0.97        3.59        0.00        0.08
+     1        0.83        0.00        0.11       75.95        0.74        3.14        0.00        0.08
+     2        1.97        0.47        0.12      194.31        0.80        3.61        0.00        0.08
+     3        1.07        0.02        0.10      115.60        0.86        3.60        0.00        0.08
+  num_retracted_reqs: 0=0, 1=0, 2=0, 3=0

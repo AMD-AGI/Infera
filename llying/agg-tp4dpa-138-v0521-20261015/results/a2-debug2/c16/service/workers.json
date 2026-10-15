@@ -1,0 +1,18 @@
+{
+  "workers": [
+    {
+      "disagg_meta": {},
+      "disagg_mode": "mixed",
+      "dp_rank": null,
+      "dp_size": 4,
+      "engine": "sglang",
+      "kv_block_size": 64,
+      "kv_events_endpoint": "tcp://10.245.157.237:27315",
+      "model_name": "glm5.2-mxfp4",
+      "request_transport": "http",
+      "status": "active",
+      "url": "http://10.245.157.237:27101",
+      "worker_id": "10.245.157.237:27101"
+    }
+  ]
+}

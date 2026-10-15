@@ -41,7 +41,19 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 | ROUND | 内容 | 状态 |
 |---|---|---|
 | a1 | HiCache write_back 270 GB | 参数校验通过后停掉（按要求先不开 HiCache 调通流程） |
-| a2 | 不开 HiCache，调通流程（预热每 lane 2 个请求） | 进行中 |
+| a2 | 不开 HiCache，调通流程（预热每 lane 2 个请求） | 完成：C16 / 600 s 全流程通过（不计分） |
+| a3 | HiCache write_through 270 GB / rank | 启动中 |
+
+### a2 调通结果（不计分）
+
+`results/a2-debug2/c16/summary.txt`：12,580 tok/s/GPU，ITL p50 11.1 ms，TTFT p50 2.9 s，GPU 前缀命中
+96.1%（理论 96.0%），无 retract，接受长度 ≈ 3.6。启动（无 HiCache）约 7 分钟；KV 池每 rank 2,377,856 token
+（105.6 GB，fp8 MLA ≈ 44 KB/token），4 rank 共约 950 万 token。
+
+有效并发只有 5.0（C16 的 31%；3P1D C192 为 70%）：AgentX 每条 lane 两轮之间按 trace 的间隔等待，两边每 lane
+都是约 40 s 发一个请求（3P1D C192：16,953 个 / 3600 s / 192 lane；这里 240 / 600 s / 16），差别只在单个请求
+本身（这里约 6 s，3P1D 约 28 s）。所以服务端跟得上时吞吐 ≈ 并发 × 每 lane 速率（这里约 790 tok/s/GPU/lane），
+C48 约 38k；上限来自 KV（GPU + 主机）容量和单步算力，要靠加并发找。
 
 ## 计划
 
