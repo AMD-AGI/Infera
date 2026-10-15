@@ -141,7 +141,7 @@ async def test_the_migration_pick_keeps_the_session_headers():
         }
     )
     r = _router(nats, [_w("w1"), _w("w2")], limit=1)
-    session = {"x-dynamo-session-id": "s"}
+    session = {"x-session-id": "s"}
     resp = await r.dispatch(
         {"model": "m", "prompt": "hi", "max_tokens": 10, "_infera_session_headers": session},
         stream=True,

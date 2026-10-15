@@ -61,7 +61,7 @@ pub struct Config {
     )]
     pub pd_prefill_guard_release: PrefillGuardRelease,
 
-    /// Keep each `X-Dynamo-Session-ID` session on its last target: `prefill`
+    /// Keep each `X-Session-ID` session on its last target: `prefill`
     /// pins prefill picks only, `both` also decode and aggregated picks.
     #[arg(long, value_enum, default_value = "off")]
     pub session_affinity: SessionAffinityMode,

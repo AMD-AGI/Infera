@@ -6,7 +6,7 @@
 """Session affinity layered on top of any routing policy.
 
 Mostly the Rust router's ``--session-affinity``: a request with an
-``x-dynamo-session-id`` header (stashed on the body by the server as
+``x-session-id`` header (stashed on the body by the server as
 ``_infera_session_headers``) goes to the target its session used last, per
 role. The wrapped policy picks the target for a new session, and still picks
 a pinned one (over just that target), so block hashing and load accounting
@@ -116,7 +116,7 @@ class SessionAffinityPolicy(Policy):
     def _key(self, request: dict, role_hint: str | None) -> tuple[str, str, str] | None:
         """The binding key, or None when this request is not pinned."""
         role = role_hint or "mixed"
-        session = (request.get("_infera_session_headers") or {}).get("x-dynamo-session-id")
+        session = (request.get("_infera_session_headers") or {}).get("x-session-id")
         if not session or role not in self._roles:
             return None
         return str(request.get("model") or ""), session, role

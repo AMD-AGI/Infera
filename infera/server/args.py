@@ -105,7 +105,7 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--session-affinity",
         choices=SESSION_AFFINITY_MODES,
         default="off",
-        help="On top of --router-policy, keep each session (x-dynamo-session-id "
+        help="On top of --router-policy, keep each session (x-session-id "
         "header) on the target it used last. 'prefill' pins prefill picks only; "
         "'both' also pins decode and mixed picks. Both router backends.",
     )

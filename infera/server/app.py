@@ -34,10 +34,10 @@ _REQUEST_ID_HEADER = "X-Infera-Request-Id"
 # direct router reads it off the body annotation below. See infera/gaie.
 _WORKER_INSTANCE_HEADER = "x-worker-instance-id"
 _PREFILL_INSTANCE_HEADER = "x-prefill-instance-id"
-# Agent-session headers (AIPerf, Dynamo). The PD router forwards them to both
-# legs so an engine can keep a session on one DP rank, and --session-affinity
-# keys placement on x-dynamo-session-id.
-_SESSION_HEADERS = ("x-correlation-id", "x-dynamo-session-id", "x-dynamo-parent-session-id")
+# Agent-session headers (AIPerf). The PD router forwards them to both legs so an
+# engine can keep a session on one DP rank, and --session-affinity keys
+# placement on x-session-id.
+_SESSION_HEADERS = ("x-correlation-id", "x-session-id")
 
 
 def _stash_session_headers(body: dict, request: Request) -> None:
@@ -57,19 +57,19 @@ def _stash_session_headers(body: dict, request: Request) -> None:
 
 
 def _session_id_error(request: Request) -> str | None:
-    """Why x-dynamo-session-id cannot key session affinity, else None.
+    """Why x-session-id cannot key session affinity, else None.
 
     Only checked with --session-affinity on, by the Rust router's rules; the
     length cap also bounds what the binding table holds per session."""
     if not isinstance(getattr(router, "policy", None), SessionAffinityPolicy):
         return None
-    values = request.headers.getlist("x-dynamo-session-id")
+    values = request.headers.getlist("x-session-id")
     if len(values) > 1:
-        return "duplicate X-Dynamo-Session-ID"
+        return "duplicate X-Session-ID"
     if values and not (values[0].isascii() and values[0].isprintable()):
-        return "invalid X-Dynamo-Session-ID"
+        return "invalid X-Session-ID"
     if values and not 1 <= len(values[0]) <= 1024:
-        return "X-Dynamo-Session-ID must be 1..1024 bytes"
+        return "X-Session-ID must be 1..1024 bytes"
     return None
 
 

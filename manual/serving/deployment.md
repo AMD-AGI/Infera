@@ -261,7 +261,9 @@ top of `--router-policy`, which still picks a new session's target:
 | `prefill` | Keep each session on its selected Prefill worker/rank; choose Decode normally. |
 | `both` | Keep independent Prefill and Decode targets; also pin aggregated workers. |
 
-Clients opt in per request with `X-Dynamo-Session-ID`. The ID is scoped by model
+Clients opt in per request with `X-Session-ID`; AIPerf sends it, with its stable
+per-conversation `X-Correlation-ID` value, when
+`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true`. The ID is scoped by model
 and role; it is not added to model input. Requests without the header keep
 normal routing. Enabled modes reject duplicate, empty or over-1024-byte IDs.
 Prefill and Decode rank numbers need not match.

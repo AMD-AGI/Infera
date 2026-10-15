@@ -30,8 +30,7 @@ from infera.server.app import init_app
 
 SESSION = {
     "x-correlation-id": "corr-1",
-    "x-dynamo-session-id": "sess-1",
-    "x-dynamo-parent-session-id": "parent-1",
+    "x-session-id": "sess-1",
 }
 
 
@@ -247,13 +246,13 @@ def client_and_router():
 )
 def test_server_stashes_session_headers(client_and_router, path, payload):
     client, router = client_and_router
-    headers = {"X-Correlation-ID": "corr-1", "X-Dynamo-Session-ID": "sess-1", "X-Other": "x"}
+    headers = {"X-Correlation-ID": "corr-1", "X-Session-ID": "sess-1", "X-Other": "x"}
 
     assert client.post(path, json=payload, headers=headers).status_code == 200
 
     assert router.body["_infera_session_headers"] == {
         "x-correlation-id": "corr-1",
-        "x-dynamo-session-id": "sess-1",
+        "x-session-id": "sess-1",
     }
 
 
@@ -277,7 +276,7 @@ def test_server_omits_stash_without_session_headers(client_and_router):
 )
 def test_server_rejects_bad_session_ids_only_with_affinity_on(client_and_router, path, payload):
     client, router = client_and_router
-    sid = "X-Dynamo-Session-ID"
+    sid = "X-Session-ID"
     bad = [
         [(sid, "a"), (sid, "b")],
         [(sid, "")],
@@ -302,6 +301,6 @@ def test_server_drops_client_stash_and_unsendable_values(client_and_router):
     client.post("/v1/completions", json=payload)
     assert "_infera_session_headers" not in router.body
 
-    headers = {"X-Dynamo-Session-ID": "caf\xe9".encode("latin-1"), "X-Correlation-ID": "corr-1"}
+    headers = {"X-Session-ID": "caf\xe9".encode("latin-1"), "X-Correlation-ID": "corr-1"}
     client.post("/v1/completions", json=payload, headers=headers)
     assert router.body["_infera_session_headers"] == {"x-correlation-id": "corr-1"}

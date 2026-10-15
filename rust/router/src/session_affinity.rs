@@ -107,16 +107,16 @@ impl Sessions {
         if self.mode == Mode::Off {
             return Ok(None);
         }
-        let mut values = headers.get_all("x-dynamo-session-id").iter();
+        let mut values = headers.get_all("x-session-id").iter();
         let Some(value) = values.next() else {
             return Ok(None);
         };
         if values.next().is_some() {
-            return Err("duplicate X-Dynamo-Session-ID");
+            return Err("duplicate X-Session-ID");
         }
-        let id = value.to_str().map_err(|_| "invalid X-Dynamo-Session-ID")?;
+        let id = value.to_str().map_err(|_| "invalid X-Session-ID")?;
         if id.is_empty() || id.len() > 1024 {
-            return Err("X-Dynamo-Session-ID must be 1..1024 bytes");
+            return Err("X-Session-ID must be 1..1024 bytes");
         }
         Ok(Some(id))
     }
@@ -588,9 +588,9 @@ mod tests {
         h.insert("x-correlation-id", "not-a-session".parse().unwrap());
         let s = Sessions::new(Mode::Both, Duration::from_secs(10), 1);
         assert_eq!(s.header(&h).unwrap(), None);
-        h.insert("X-Dynamo-Session-ID", "session".parse().unwrap());
+        h.insert("X-Session-ID", "session".parse().unwrap());
         assert_eq!(s.header(&h).unwrap(), Some("session"));
-        h.append("X-Dynamo-Session-ID", "duplicate".parse().unwrap());
+        h.append("X-Session-ID", "duplicate".parse().unwrap());
         assert!(s.header(&h).is_err());
         assert_eq!(Sessions::default().header(&h).unwrap(), None);
     }
