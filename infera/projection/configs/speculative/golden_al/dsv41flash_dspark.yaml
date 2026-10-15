@@ -1,3 +1,6 @@
+# Copied unchanged from InferenceX (https://github.com/SemiAnalysisAI/InferenceX),
+# golden_al_distribution/dsv41flash_dspark.yaml at commit 5d2a8832c20a.
+# Edit upstream and re-copy rather than changing values here.
 # Source GitHub Actions run: https://github.com/SemiAnalysisAI/InferenceX/actions/runs/34493175056
 # Draft lengths 6-8 rejected by the image (no measured AL): https://github.com/SemiAnalysisAI/InferenceX/actions/runs/34494319147
 # Acceptance Length (AL) measured with SPEED-Bench Qualitative coding.
