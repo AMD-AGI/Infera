@@ -203,12 +203,29 @@ line at all. Disambiguate with `grep -c 'Decode batch'` — non-zero with no
 `accept len:` means MTP really is off; zero means send more traffic.
 ```
 
-## 4. What this shape is, and what it is not
+## 4. Anthropic `thinking.budget_tokens` (optional)
+
+Claude Code and other Anthropic clients often send
+`thinking: {type: enabled, budget_tokens: N}`. Hard-capping that budget on
+GLM-5.3 needs **both** of the following; neither is on by default in a blank
+deployment:
+
+1. **Worker**: `--enable-custom-logit-processor` on every prefill and decode
+   leg (SGLang rejects `custom_logit_processor` without it).
+2. **Router / server**: `INFERA_ENABLE_THINKING_BUDGET=1` so the Anthropic shim
+   injects the trusted GLM-5.3 processor. When unset, `budget_tokens` is ignored
+   and only `chat_template_kwargs` are forwarded (requests still succeed).
+
+The [`glm5.3/disaggregated`](../../examples/recipes/glm5.3/README.md) recipe
+documents both knobs. OpenAI `/v1/chat/completions` clients must not supply
+their own `custom_logit_processor` / `custom_params` — the router returns 400.
+
+## 5. What this shape is, and what it is not
 
 | | |
 |---|---|
 | TP4 per leg | the shape the symmetric-DP-attention result was measured in. TP8 untested here. |
-| EAGLE MTP(3,1,4), decode leg only | validated **on this manifest**: 6/6 correct, 0/32 degenerate over three load rounds, acceptance-length median 2.85 (n=45) with none at the 4.00 ceiling. Also validated on the baked and plain-overlay docker paths |
+| EAGLE MTP(3,1,4), decode leg only | validated **on this manifest**: 6/6 correct, 0/32 degenerate over three load rounds, acceptance-length median 2.85 (n=45) with none at the 4.00 ceiling. Also validated on the baked and plain-overlay docker paths. Speculative verify may not run custom logit processors — treat thinking-budget hard caps as best-effort under EAGLE |
 | kvd / hicache off | the overlay carries the ROCm hicache patches, but this arm does not enable them |
 | `mem-fraction-static` 0.70 / 0.85 | deliberately asymmetric; a prefill OOM is fixed by *lowering* it |
 | `hostNetwork: true` | required — RoCE rails are host interfaces and a CNI pod IP has no route to a peer's rail |

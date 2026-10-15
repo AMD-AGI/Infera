@@ -66,6 +66,19 @@ single-variable performance round.
 The health signal is a line that must be **ABSENT** from the worker log:
 `Shared experts fusion optimization enabled.`
 
+## Anthropic thinking budget (optional)
+
+To hard-cap Claude Code / Anthropic `thinking.budget_tokens` on this kit:
+
+1. Add `--enable-custom-logit-processor` to the worker argv in `engine/worker.sh`
+   (or the process that launches `infera.engine.sglang`).
+2. Export `INFERA_ENABLE_THINKING_BUDGET=1` for the router / `infera.server`
+   process.
+
+Without (1), SGLang rejects requests that carry a processor. Without (2), the
+shim ignores `budget_tokens` and only forwards `chat_template_kwargs`. See
+[`manual/examples/k8s_glm5.3.md`](../../manual/examples/k8s_glm5.3.md) §4.
+
 ## Notes and gotchas
 
 **1. A startup line that reads like a clamp is a division.** Under DP-attention
