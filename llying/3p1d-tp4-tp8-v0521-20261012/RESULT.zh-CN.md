@@ -449,7 +449,8 @@ C176 的 09:32–09:33 出现过一次成串（约 10 条请求级失败），�
 2. **前端 / router**：R1、P 会话亲和、R2 来自 infera rust router（相对各自基线 +12%、+3%）。官方 AMD recipe 用 sglang-router（consistent_hashing + dp-aware，
    decode round_robin），NVIDIA 用 Dynamo + nginx 按 `X-Dynamo-Session-ID` 亲和。提交时能否使用 infera router、镜像里的 Mooncake 补丁能否接受，需要按
    InferenceX 规则确认（main 已要求 recipe 依赖的上游 PR 先合入，#2210）。
-3. **`stream-interval`**：官方 recipe 用 20–30，我们是 1。v0.5.21 在 `stream_interval > 1` 时按 `len(output_ids) % k == 1` 发送，首 token 立即发出，TTFT 不受影响；
-   ITL 是请求级平均，也不受影响。每秒输出事件数会降到约 1/k 以下（MTP 一步多个 token，实际更少），decode tokenizer、router、客户端的 CPU 都会下降。
-   这是官方在用的参数，值得测。
+3. **`stream-interval`**：不是官方规定，由各 recipe 自选。InferenceX main 的 137 个 AgentX recipe 文件里，61 个不设（sglang 默认 1），设了的取值有
+   1、10、20、30、32、50、60；规则文档、PR 检查单和 AgentX 校验代码都没有对它的要求。GLM-5.2 的 sglang 多机 recipe 用 30（B200/GB200/GB300，Dynamo 前端）
+   或 60（H200）。我们是 1。v0.5.21 在 `stream_interval > 1` 时按 `len(output_ids) % k == 1` 发送，首 token 立即发出，TTFT 不受影响；ITL 是请求级平均，
+   也不受影响。每秒输出事件数会降到约 1/k 以下（MTP 一步多个 token，实际更少），decode tokenizer、router、客户端的 CPU 都会下降。值得测。
 4. **harness 版本**：用 `agentx-harness==1.0.9` 复跑可以消除版本差，预期影响很小。

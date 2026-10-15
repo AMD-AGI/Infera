@@ -26,7 +26,7 @@
    1P(TP8)1D（每 rank GPU KV 约 +29%，但需 137 整机）。
 4. **按 InferenceX 官方协议复测最优配置**（`RESULT.zh-CN.md` §5）：官方要求每个并发点重新部署、不 flush、不复用在线服务；我们的 30,562 是在复用的栈上、
    tok4 重启后第三轮测得的，而重启后首轮 decode 每步慢 3–17%。做法：整栈重启 → 直接测 C176（只用 AgentX 自带预热），客户端最好换成官方的
-   `agentx-harness==1.0.9`。另外，官方 recipe 的 decode 用 `stream-interval` 20–30（我们是 1），值得作为单独一轮测试。
+   `agentx-harness==1.0.9`。另外，`stream-interval` 是各 recipe 自选的参数（官方 GLM-5.2 sglang 多机 recipe 用 30 或 60，我们是 1），值得作为单独一轮测试。
 
 ## 关键数据口径（易错）
 - interactivity = 1 / aiperf Full-Response ITL（每请求平均 token 间隔）的 P50/P90。
