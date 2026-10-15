@@ -376,3 +376,7 @@
   判断这是前缀缓存命中本身的问题（旧配置下也存在），还是 prefill_complete / write_back 引入的。11:51 之后栈空转（会话已断开，无人处理）。
 - **15:40:15 我们在 137 上的 router、etcd、prefill-1、prefill-2 在同一秒收到 docker kill 并退出**（docker events 可见；同机 `dev_xb`、`crusoe-vector` 正常运行，
   不是守护进程重启；不是我们的脚本）。15:51 查看时 **135 ssh 连接超时**，prefill-0 状态未知；decode（138）仍在运行。未重启任何东西，等用户确认。
+- 16:00 用户：137 应是同事停的，135 不清楚。未重启任何引擎；停掉 137 上我们的 sampler、hang 监视器（栈已不在，只会反复报 down），之后用 start_* 脚本可重新拉起；
+  decode（138）仍在运行、空闲。`hicache_check.py` 重做：探针改为长文开头给出唯一口令、结尾提问（答案确定，top-1 翻转才说明 KV 不同），只比较 top-1 的 logprob
+  （top-5 的最大差另报）；填充量按各 prefill 的 `sglang:max_total_num_tokens` 之和 × 1.6 自动计算（3P1D 约 4,600 万 token）。机器恢复后的顺序：
+  先在旧配置（write_through + early，即 t6-mem092）上跑一次检查作对照，再在 stage-pcwb 上跑，新配置不比旧配置差才继续预热与 C192。

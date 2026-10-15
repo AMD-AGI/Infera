@@ -2,20 +2,25 @@
 """Functional check of the prefill HiCache path (write_back): a prefix pushed out of the GPU pool to
 host memory and loaded back must give the same first token as when it was computed fresh.
 
-  A. probes: PROBES distinct prompts of ~PROBE_TOKENS tokens, each with its own session id,
-     thinking off, max_tokens 1 (the token comes from the prefill forward, so MTP simulation does
-     not enter), top-5 logprobs recorded;
-  B. fillers: FILLERS distinct prompts of ~FILLER_TOKENS tokens, more than the prefill GPU pools hold,
-     so the probes' pages are evicted (under write_back that is when they are copied to host);
+  A. probes: PROBES distinct prompts of ~PROBE_TOKENS tokens, each a retrieval question with one
+     answer (a pass code stated at the start of a long random text, asked for at the end), its own
+     session id, thinking off, max_tokens 1 (the token comes from the prefill forward, so MTP
+     simulation does not enter), top-5 logprobs recorded;
+  B. fillers: distinct prompts of ~FILLER_TOKENS tokens totalling FILL_FACTOR x the prefill GPU pools
+     (sum of sglang:max_total_num_tokens), so the probes' pages are evicted (under write_back that
+     is when they are copied to host);
   C. probes again, same text and session ids (the router must run with prefill session affinity so
-     they reach the same DP rank): first token must match A, logprobs within LOGPROB_TOL.
+     they reach the same DP rank): first token must match A, its logprob within LOGPROB_TOL.
+
+The 10-15 11:51 run asked which random word occurs most often: near-ties, so numeric noise alone
+could flip the first token; a retrieval answer is confident, so a flip means different KV.
 
 Pass needs: no failed request; every probe's first token equal in A and C; the prefill counters show
 evictions and host backups during B and host load-back during C of at least half the probe tokens
 (otherwise the probes never left the GPU and the host path was not exercised: exit 2, inconclusive).
 
 Usage: hicache_check.py ROUTER_URL MODEL OUT_JSON PREFILL_METRICS_URL [PREFILL_METRICS_URL ...]
-Env: PROBES=16 PROBE_TOKENS=40000 FILLERS=240 FILLER_TOKENS=120000 CONCURRENCY=48 LOGPROB_TOL=0.1
+Env: PROBES=16 PROBE_TOKENS=40000 FILLER_TOKENS=120000 FILL_FACTOR=1.6 CONCURRENCY=48 LOGPROB_TOL=0.1
 Exit 0 pass, 1 fail, 2 inconclusive.
 """
 
@@ -32,12 +37,13 @@ ROUTER, MODEL, OUT = sys.argv[1].rstrip("/"), sys.argv[2], sys.argv[3]
 METRICS = sys.argv[4:]
 PROBES = int(os.environ.get("PROBES", 16))
 PROBE_TOKENS = int(os.environ.get("PROBE_TOKENS", 40000))
-FILLERS = int(os.environ.get("FILLERS", 240))
 FILLER_TOKENS = int(os.environ.get("FILLER_TOKENS", 120000))
+FILL_FACTOR = float(os.environ.get("FILL_FACTOR", 1.6))
 CONCURRENCY = int(os.environ.get("CONCURRENCY", 48))
 LOGPROB_TOL = float(os.environ.get("LOGPROB_TOL", 0.1))
 COUNTERS = ("sglang:evicted_tokens_total", "sglang:hicache_backup_tokens_total",
-            "sglang:load_back_tokens_total", "sglang:cached_tokens_total", "sglang:prompt_tokens_total")
+            "sglang:load_back_tokens_total", "sglang:cached_tokens_total", "sglang:prompt_tokens_total",
+            "sglang:max_total_num_tokens")
 SAMPLE = re.compile(r"^(sglang:[a-z_]+)\{[^}]*\} ([0-9.eE+-]+)$")
 WORDS = ("river stone paper window garden silver orange planet market winter engine signal camera "
          "forest pocket ladder candle bridge harbor rocket violin desert castle mirror button tunnel "
@@ -48,6 +54,13 @@ def text(seed: int, tokens: int) -> str:
     rng = random.Random(seed)
     # Roughly one token per word plus separators for this vocabulary and the GLM tokenizer.
     return " ".join(rng.choice(WORDS) for _ in range(int(tokens / 1.15)))
+
+
+def probe(i: int) -> str:
+    code = random.Random(9000 + i).choice(("MAGENTA", "TUNDRA", "QUASAR", "PELICAN", "OBSIDIAN", "ZEPHYR",
+                                           "LANTERN", "GLACIER", "HARPOON", "NEBULA", "SAFFRON", "TORNADO"))
+    return (f"Remember this: the pass code of vault {i} is {code}.\n\n" + text(1000 + i, PROBE_TOKENS)
+            + f"\n\nWhat is the pass code of vault {i}? Answer with the code only.")
 
 
 def counters() -> dict:
@@ -97,19 +110,20 @@ def delta(a: dict, b: dict) -> dict:
 
 
 def main() -> int:
-    probes = [(i, text(1000 + i, PROBE_TOKENS) + "\n\nReply with the single word that appears most often above.",
-               f"hicache-probe-{i}") for i in range(PROBES)]
+    probes = [(i, probe(i), f"hicache-probe-{i}") for i in range(PROBES)]
     c0 = counters()
     first, err_a = run(probes, True)
     c1 = counters()
+    pool_tokens = c1["sglang:max_total_num_tokens"]
+    n_fillers = max(1, int(FILL_FACTOR * pool_tokens / FILLER_TOKENS) + 1)
     fillers = [(i, text(5000 + i, FILLER_TOKENS) + "\n\nReply with one word.", f"hicache-filler-{i}")
-               for i in range(FILLERS)]
+               for i in range(n_fillers)]
     _, err_b = run(fillers, False)
     c2 = counters()
     second, err_c = run(probes, True)
     c3 = counters()
 
-    mismatches, max_dlp = [], 0.0
+    mismatches, max_dlp, max_tail_dlp = [], 0.0, 0.0
     for i, _, _ in probes:
         a, c = first.get(i), second.get(i)
         if a is None or c is None:
@@ -117,9 +131,12 @@ def main() -> int:
         if a["text"] != c["text"]:
             mismatches.append({"probe": i, "fresh": a["text"], "reloaded": c["text"]})
         if a["top"] and c["top"]:
+            best = max(a["top"], key=a["top"].get)
+            if best in c["top"]:
+                max_dlp = max(max_dlp, abs(a["top"][best] - c["top"][best]))
             for token, lp in a["top"].items():
                 if token in c["top"]:
-                    max_dlp = max(max_dlp, abs(lp - c["top"][token]))
+                    max_tail_dlp = max(max_tail_dlp, abs(lp - c["top"][token]))
     phase_b, phase_c = delta(c1, c2), delta(c2, c3)
     probe_tokens = PROBES * PROBE_TOKENS
     exercised = (phase_b["evicted_tokens_total"] > 0 and phase_b["hicache_backup_tokens_total"] > 0
@@ -129,17 +146,19 @@ def main() -> int:
     verdict = "fail" if failed else ("pass" if exercised else "inconclusive")
     summary = {
         "verdict": verdict, "errors": errors[:20], "mismatches": mismatches, "max_logprob_delta": round(max_dlp, 4),
+        "max_top5_logprob_delta": round(max_tail_dlp, 4), "pool_tokens": pool_tokens, "fillers": n_fillers,
+        "fresh_answers": {i: r["text"] for i, r in sorted(first.items())},
         "logprobs_returned": any(r["top"] for r in first.values()),
         "phase_a": delta(c0, c1), "phase_b": phase_b, "phase_c": phase_c, "probe_tokens": probe_tokens,
         "probe_seconds": {"fresh": sorted(r["seconds"] for r in first.values()),
                           "reloaded": sorted(r["seconds"] for r in second.values())},
-        "params": {"probes": PROBES, "probe_tokens": PROBE_TOKENS, "fillers": FILLERS,
+        "params": {"probes": PROBES, "probe_tokens": PROBE_TOKENS, "fill_factor": FILL_FACTOR,
                    "filler_tokens": FILLER_TOKENS, "concurrency": CONCURRENCY},
     }
     with open(OUT, "w") as f:
         json.dump(summary, f, indent=2)
-    print(json.dumps({k: summary[k] for k in ("verdict", "max_logprob_delta", "logprobs_returned",
-                                             "phase_b", "phase_c")}, indent=1))
+    print(json.dumps({k: summary[k] for k in ("verdict", "max_logprob_delta", "max_top5_logprob_delta", "pool_tokens",
+                                             "fillers", "logprobs_returned", "phase_b", "phase_c")}, indent=1))
     print(f"errors {len(errors)}, mismatches {len(mismatches)}; details in {OUT}")
     return {"pass": 0, "fail": 1, "inconclusive": 2}[verdict]
 
