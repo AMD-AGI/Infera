@@ -316,3 +316,12 @@
   约 1 分钟（`runtime/runs/r2/tune/capture-test-prefill-1-0513/`）。
 - 05:14 `restart_prefills.sh ROUND=r2 OVERLAY=config/stage-mem092-nsr.sh TAG=nsr INSTANCES=prefill-2`：只有 prefill-2 加 `HSA_NO_SCRATCH_RECLAIM=1`，
   prefill-0/1 保持 0 作对照。队列第 34 步改名为 warm-mem092b（旧结果目录已存在）。
+- 05:18 prefill-2 健康（KV 2,433,088 token/rank、host 200 GB；launch_server 进程环境 `HSA_NO_SCRATCH_RECLAIM=1`，prefill-1 为 0；scheduler 的
+  `/proc/<pid>/environ` 被 setproctitle 覆盖，不可读）。05:19 传输冒烟 192/192、0 失败。05:19 hang 监视器在 137 启动。05:21 队列启动 warm-mem092b。
+  `start_queue.sh` / `start_hang_watch.sh` 的远端命令原来把整个 `a && b` 链放进后台，子 shell 占着 ssh 的 stdout，ssh 不返回（之前"启动队列"的
+  后台任务一直挂到队列结束就是这个原因）；改为只把重定向后的命令放后台。
+- 05:25 日志 follower 又断了：日志末尾 `write /dev/stdout: disk quota exceeded`。`/home` 是全体共用的 10 TB CephFS 子卷，用量 99% 上下浮动，
+  写满的瞬间所有写入报 EDQUOT（21:59 那次同因）。新增 `scripts/bench-harness/follow_log.sh`：容器运行期间循环 `docker logs -f`，写失败退出后
+  30 s 从文件最后一个时间戳续接（容器 ID 变化即退出，避免重启后两个 follower 写同一文件）；`engine.sh` 和 `log_follow.sh` 改用它，
+  `log_follow.sh` 跳过已有 follower 的实例（可重复执行）。05:30 四个实例都换上新 follower。另：登录节点会话最长 24 小时，到点被强制关闭
+  （`~/SHARED-HOST-LIMITS/`，10-13 16:51 那次监控空档的原因），长任务都要放在计算节点上。

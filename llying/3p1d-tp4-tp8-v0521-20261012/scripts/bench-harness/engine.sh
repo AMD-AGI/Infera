@@ -377,7 +377,7 @@ echo
 "${docker_args[@]}" "$IMAGE" "${engine_args[@]}"
 if [[ -n "${SERVER_LOG:-}" ]]; then
     mkdir -p "$(dirname "$SERVER_LOG")"
-    nohup docker logs --timestamps -f "$container" \
-        >"$SERVER_LOG" 2>&1 </dev/null &
+    : >"$SERVER_LOG"
+    setsid nohup bash "$DIR/follow_log.sh" "$SERVER_LOG" "$container" >/dev/null 2>&1 </dev/null &
     echo "server log: $SERVER_LOG"
 fi
