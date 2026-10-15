@@ -524,9 +524,10 @@ class InferenceRequestConfig:
     speculative_draft_window: int | None = None
     # Acceptance comes from measured acceptance-length files (``golden_al``):
     # the model's own curve for the method, else the sibling method's (MTP and
-    # EAGLE3 stand in for each other), else the method's default curve.
+    # EAGLE3 stand in for each other), both looked up in INFERASIM_GOLDEN_AL_DIR,
+    # else the method's default curve in configs/speculative/defaults.
     # ``speculative_acceptance_curve`` names a file to use instead (a path, or
-    # a name in configs/speculative). ``speculative_thinking`` picks the
+    # a name in either directory). ``speculative_thinking`` picks the
     # curve's thinking_on / thinking_off sweep. An acceptance stated outright
     # -- ``speculative_acceptance_length`` (tokens per step) or
     # ``speculative_acceptance_rate`` (a flat per-draft rate in [0, 1]), at

@@ -27,7 +27,8 @@ from infera.projection.core.projection.inference_projection.performance import (
     PhaseForwardTimes,
 )
 
-_GLM = ga.load_curve("glm5.2_mtp.yaml").points("on")[0]
+# InferenceX's glm5.2_mtp.yaml, thinking_on.
+_GLM = {1: 1.84, 2: 2.50, 3: 2.99, 4: 3.33, 5: 3.61, 6: 3.78, 7: 3.91, 8: 4.06}
 
 
 def _glm():
