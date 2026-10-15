@@ -88,9 +88,9 @@ def test_kimi_token_kv_is_only_the_mla_layers():
     latent = 512 + 64  # kv_lora_rank + rope, fp8
     token_bytes = 24 * latent * ctx * conc
     # Recurrent state is bf16, TP-sharded heads: 69 layers × 12 heads × d×d,
-    # plus the short-conv leftover of (kernel-1) tokens.
+    # plus the short-conv leftover of (kernel-1) tokens over q, k and v.
     d, heads_on_rank, kernel = 128, 96 // 8, 4
-    state_bytes = 69 * heads_on_rank * (d * d + d * (kernel - 1)) * 2 * conc
+    state_bytes = 69 * heads_on_rank * (d * d + 3 * d * (kernel - 1)) * 2 * conc
     assert kv.bytes_total == pytest.approx(token_bytes + state_bytes, rel=1e-6)
     all_mla = 93 * latent * ctx * conc
     assert kv.bytes_total < 0.35 * all_mla
