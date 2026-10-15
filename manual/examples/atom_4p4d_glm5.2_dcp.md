@@ -11,18 +11,23 @@ For the concepts, read [PD disaggregation](../features/pd_disaggregation.md) fir
 
 ## 1. Build the image
 
-The kit needs the ATOM nightly `d9f0720` base plus ATOM and LMCache patches, enabled
-by one opt-in build argument of `Dockerfile.atom`. From the repo root:
+The kit needs the ATOM nightly `661ef766` base plus an ATOM DCP fix and an
+LMCache fix, enabled by one opt-in build argument of `Dockerfile.atom`. From the
+repo root:
 
 ```bash
 docker build -f deploy/docker/Dockerfile.atom \
-  --build-arg ATOM_BASE_IMAGE=rocm/atom-dev:nightly_202609221542 \
+  --build-arg ATOM_BASE_IMAGE=rocm/atom-dev:nightly_202610131505 \
   --build-arg BUILD_MOONCAKE=0 \
-  --build-arg ATOM_DCP_PATCHES=1 \
+  --build-arg ATOM_NIGHTLY=1 \
   -t <infera-atom-image> .
 ```
 
-`BUILD_MOONCAKE=0` keeps the base's Mooncake v0.3.14-rc1; the kit sets its
+`ATOM_NIGHTLY=1` applies `deploy/docker/patches/atom_nightly/`: the ATOM sparse
+DCP padded-row fix (without it the prefill hits a `Memory access fault` under
+long-prefix load), the LMCache ROCm pinned-pool fix (the pool becomes GTT, kit
+README gotcha 4), an AITER kernel prebuild and a `protobuf<7` pin.
+`BUILD_MOONCAKE=0` keeps the base's Mooncake 0.3.13; the kit sets its
 `MC_DISABLE_HIP=1` so same-host P/D on disjoint GPUs goes over RDMA.
 
 ## 2. Fill in `env.sh`
@@ -64,11 +69,15 @@ CONC=48 MTP_AL=2.99 bash engine/up.sh
 bash engine/agentx/agentx.sh   # InferenceX 918524ff, 10 warm-up requests per lane, 3600 s
 ```
 
-At CONC 48 the reference reached 24900 total tokens/s/GPU with a P90
-interactivity of 66.45 tokens/s/user; the kit README lists C24 to C80.
+With this image, CONC 48 reached 26325 total tokens/s/GPU with a P90
+interactivity of 66.52 tokens/s/user, and CONC 64 30821 with 56.83. The kit
+README lists both, and C24 to C80 on the previous image.
 
 ## 5. Tear down
 
 ```bash
 bash engine/down.sh     # saves logs into the run directory, waits for VRAM to drain
 ```
+
+For two prefills and one decode on two nodes, see
+[ATOM 8P4D DCP](atom_8p4d_glm5.2_dcp.md).

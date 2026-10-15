@@ -119,6 +119,8 @@ subtrees:
         title: SGLang 1P1D — DeepSeek-V4-Pro
       - file: examples/atom_4p4d_glm5.2_dcp.md
         title: ATOM 4P4D DCP — GLM-5.2-MXFP4
+      - file: examples/atom_8p4d_glm5.2_dcp.md
+        title: ATOM 8P4D DCP — GLM-5.2-MXFP4, two nodes
 
   - caption: Reference
     entries:
