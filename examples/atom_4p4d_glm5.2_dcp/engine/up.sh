@@ -47,6 +47,8 @@ wait_health "http://$NODE_IP:$ETCD_PORT/version" "$CTR-etcd"
 echo "===== 3. prefill and decode ====="
 bash "$KIT/engine/worker.sh" prefill
 bash "$KIT/engine/worker.sh" decode
+# Prefills on other nodes (atom_8p4d_glm5.2_dcp), started and waited for here.
+[[ -z "$REMOTE_PREFILLS" ]] || bash "$REMOTE_PREFILLS" up
 # Cold start takes many minutes: weights, AITER JIT, graph capture.
 wait_health "http://$NODE_IP:$PREFILL_PORT/health" "$CTR-prefill" "$CTR-decode"
 wait_health "http://$NODE_IP:$DECODE_PORT/health" "$CTR-prefill" "$CTR-decode"
@@ -63,16 +65,16 @@ docker run -d --name "$CTR-router" --network host -v "$MODEL:$MODEL:ro" "$IMAGE"
     --router-policy round-robin --session-affinity "$SESSION_AFFINITY" --router-tokenizer-path "$MODEL" "${router_extra[@]}" >/dev/null
 wait_health "$ROUTER_URL/health" "$CTR-router"
 
-echo "===== 5. router sees one prefill and one decode ====="
+echo "===== 5. router sees $PREFILL_NUM_WORKERS prefill and one decode ====="
 # A prefill registered as "mixed" would serve requests without PD.
 for _ in $(seq 1 12); do
     curl -sf -m 5 "$ROUTER_URL/v1/workers" >"$RUN_DIR/workers.json" || true
     n_prefill="$(grep -o '"disagg_mode": *"prefill"' "$RUN_DIR/workers.json" | wc -l || true)"
     n_decode="$(grep -o '"disagg_mode": *"decode"' "$RUN_DIR/workers.json" | wc -l || true)"
-    ((n_prefill == 1 && n_decode == 1)) && break
+    ((n_prefill == PREFILL_NUM_WORKERS && n_decode == 1)) && break
     sleep 5
 done
-((n_prefill == 1 && n_decode == 1)) ||
-    die "router lists $n_prefill prefill / $n_decode decode workers, want 1 / 1: $RUN_DIR/workers.json"
+((n_prefill == PREFILL_NUM_WORKERS && n_decode == 1)) ||
+    die "router lists $n_prefill prefill / $n_decode decode workers, want $PREFILL_NUM_WORKERS / 1: $RUN_DIR/workers.json"
 
 echo "===== up: $ROUTER_URL  CONC=$CONC MTP_K=$MTP_K MTP_AL=${MTP_AL:-real} run=$RUN_DIR ====="

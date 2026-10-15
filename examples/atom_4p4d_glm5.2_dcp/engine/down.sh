@@ -14,6 +14,12 @@ source "$KIT/engine/common.sh"
 out="$(cat "$WORK_DIR/current_run" 2>/dev/null || echo "$WORK_DIR")/logs"
 mkdir -p "$out"
 failed=""
+# Prefills on other nodes (atom_8p4d_glm5.2_dcp) go down in parallel.
+remote=""
+if [[ -n "$REMOTE_PREFILLS" ]]; then
+    bash "$REMOTE_PREFILLS" down &
+    remote=$!
+fi
 for c in "${CONTAINERS[@]}"; do
     docker inspect --type container "$c" >"$out/$c.inspect.json" 2>/dev/null || { rm -f "$out/$c.inspect.json"; continue; }
     # Let ATOM release its workers and registered KV pools before removal.
@@ -29,6 +35,7 @@ for c in "${CONTAINERS[@]}"; do
     if docker inspect --type container "$c" >/dev/null 2>&1; then failed+=" $c"; continue; fi
     if [[ -f "$out/$c.log" ]]; then echo "removed $c (log: $out/$c.log)"; else echo "removed $c"; fi
 done
+[[ -z "$remote" ]] || wait "$remote" || failed+=" (remote prefills)"
 [[ -z "$failed" ]] || die "failed to remove:$failed"
 
 echo "waiting for VRAM to drain"

@@ -23,7 +23,7 @@ export NODE_IP="${NODE_IP:-<this-node-ip>}"
 # served model name.
 export MODEL="${MODEL:-<weights-dir>}"
 
-# Infera ATOM image built with the ATOM DCP patches (ATOM_DCP_PATCHES=1); see README "Image".
+# Infera ATOM image built on the ATOM nightly base (ATOM_NIGHTLY=1); see README "Image".
 export IMAGE="${IMAGE:-<infera-atom-image>}"
 
 # Host scratch directory: per-run logs and results (runs/), the InferenceX
@@ -31,7 +31,7 @@ export IMAGE="${IMAGE:-<infera-atom-image>}"
 export WORK_DIR="${WORK_DIR:-<scratch-dir>}"
 
 # Host libionic provider, mounted so the image entrypoint can match the host
-# ionic kernel ABI. Skipped when the file does not exist.
+# ionic kernel ABI. Skipped when the file does not exist on the engine's node.
 export HOST_LIBIONIC="${HOST_LIBIONIC:-/lib/x86_64-linux-gnu/libionic.so}"
 
 # RoCE GID index of the ionic rails.
@@ -66,7 +66,8 @@ export PREFILL_MEM_UTIL="${PREFILL_MEM_UTIL:-0.90}"
 export DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-0.90}"
 
 # LMCache CPU KV tier per prefill TP rank, GiB (4 ranks -> 1 TiB pinned host
-# memory at the default). 0 turns it off and the prefill uses Mooncake only.
+# memory at the default, allocated as GTT: README gotcha 4). 0 turns it off and
+# the prefill uses Mooncake only.
 export PREFILL_OFFLOAD_GB="${PREFILL_OFFLOAD_GB:-256}"
 
 # Router --session-affinity on top of round-robin: prefill keeps an agent

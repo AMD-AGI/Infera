@@ -59,7 +59,9 @@ if [[ "$role" == prefill ]]; then
         # shellcheck disable=SC2054  # the commas are part of the value
         env+=(LMCACHE_LOCAL_CPU=True "LMCACHE_MAX_LOCAL_CPU_SIZE=$PREFILL_OFFLOAD_GB"
             LMCACHE_CHUNK_SIZE=256 OFFLOAD_MIN_LOAD_TOKENS=8192 LMCACHE_NUMA_MODE=auto
-            LMCACHE_LOOKUP_SERVER_WORKER_IDS=0,1,2,3)
+            LMCACHE_LOOKUP_SERVER_WORKER_IDS=0,1,2,3
+            # The LMCache pool must be GTT; see patch_lmcache_rocm_pinned_alloc.py.
+            HSA_USERPTR_FOR_PAGED_MEM=0)
     fi
     args=(--max-num-seqs 512)
     read -ra extra <<<"$PREFILL_EXTRA_ARGS"
@@ -75,7 +77,10 @@ fi
 env_args=()
 for kv_pair in "${env[@]}"; do env_args+=(-e "$kv_pair"); done
 mounts=(-v "$MODEL:$MODEL:ro")
-[[ ! -e "$HOST_LIBIONIC" ]] || mounts+=(-v "$HOST_LIBIONIC:/host-libionic/libionic.so:ro")
+# Checked on the docker host: prefill1 of the 8P4D kit runs on another node.
+if on_docker_host "test -e '$HOST_LIBIONIC'"; then
+    mounts+=(-v "$HOST_LIBIONIC:/host-libionic/libionic.so:ro")
+fi
 # JIT caches persist per role and image in a named volume.
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
 mounts+=(-v "$CTR-cache-$role-${image_id:7:12}:/root/.cache")
@@ -88,7 +93,7 @@ docker run -d --name "$CTR-$role" --network host --ipc host --shm-size 32g \
     --group-add video --group-add render --cap-add SYS_PTRACE --cap-add IPC_LOCK \
     --security-opt seccomp=unconfined --ulimit memlock=-1:-1 --ulimit nofile=65536:65536 \
     "${mounts[@]}" -e "HIP_VISIBLE_DEVICES=$gpus" "${env_args[@]}" "$IMAGE" \
-    python3 -m infera.engine.atom --etcd-endpoint "$NODE_IP:$ETCD_PORT" --advertise-host "$NODE_IP" \
+    python3 -m infera.engine.atom --etcd-endpoint "$ETCD_IP:$ETCD_PORT" --advertise-host "$NODE_IP" \
     --model "$MODEL" --host 0.0.0.0 --server-port "$port" --trust-remote-code \
     -tp 4 --decode-context-parallel-size 4 --kv_cache_dtype fp8 --block-size 64 \
     --enable_prefix_caching --online_quant_config "$QUANT_CONFIG" \

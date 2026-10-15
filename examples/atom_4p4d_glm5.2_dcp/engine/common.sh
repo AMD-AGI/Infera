@@ -17,12 +17,21 @@ for var in NODE_IP MODEL IMAGE WORK_DIR; do
 done
 ROUTER_URL="http://$NODE_IP:$ROUTER_PORT"
 
+# Multi-node hooks, set by atom_8p4d_glm5.2_dcp; the defaults are this kit's
+# one-node layout. ETCD_IP: where etcd runs. KIT_GPUS: the GPUs the kit owns on
+# the docker host. REMOTE_PREFILLS: a script that starts (up) or removes (down)
+# prefills on other nodes. PREFILL_NUM_WORKERS: prefills the router must list.
+ETCD_IP="${ETCD_IP:-$NODE_IP}"
+KIT_GPUS="${KIT_GPUS:-$PREFILL_GPUS,$DECODE_GPUS}"
+REMOTE_PREFILLS="${REMOTE_PREFILLS:-}"
+PREFILL_NUM_WORKERS="${PREFILL_NUM_WORKERS:-1}"
+
 # Every container this kit may own, named explicitly. Never a pattern: on a
 # shared node a pattern removes somebody else's containers.
 CONTAINERS=("$CTR-agentx" "$CTR-eval" "$CTR-router" "$CTR-decode" "$CTR-prefill" "$CTR-etcd")
 
 # Settings up.sh records per run, so later scripts report what actually runs.
-RUN_VARS=(CONC MTP_K MTP_AL PREFILL_GPUS DECODE_GPUS PREFILL_MEM_UTIL DECODE_MEM_UTIL
+RUN_VARS=(CONC MTP_K MTP_AL PREFILL_GPUS DECODE_GPUS PREFILL_NUM_WORKERS PREFILL_MEM_UTIL DECODE_MEM_UTIL
     PREFILL_OFFLOAD_GB MOONCAKE_DISABLE_HIP_DMABUF SESSION_AFFINITY PREFILL_EXTRA_ARGS DECODE_EXTRA_ARGS
     ROUTER_EXTRA_ARGS IMAGE MODEL)
 
@@ -62,12 +71,28 @@ wait_health() {
     done
 }
 
-# wait_vram_free: wait until every GPU of this node holds < 4 GiB of VRAM. The
-# kit owns all eight GPUs, and `docker rm` returns before the driver reclaims.
+# on_docker_host CMD: run the shell command CMD on the node docker drives: this
+# one, or the node of DOCKER_HOST=ssh://user@host.
+on_docker_host() {
+    case "${DOCKER_HOST:-}" in
+        ssh://*) ssh -n "${DOCKER_HOST#ssh://}" "$1" ;;
+        *) bash -c "$1" </dev/null ;;
+    esac
+}
+
+# wait_vram_free: wait until each of KIT_GPUS holds < 4 GiB of VRAM on the
+# docker host; `docker rm` returns before the driver reclaims.
 wait_vram_free() {
-    local deadline=$((SECONDS + VRAM_RELEASE_TIMEOUT)) used
-    while used="$(cat /sys/class/drm/card*/device/mem_info_vram_used 2>/dev/null | sort -n | tail -1)"
-        ((${used:-0} >= 4 << 30)); do
+    local deadline=$((SECONDS + VRAM_RELEASE_TIMEOUT)) used gpu vram
+    while :; do
+        # Card numbers sort in HIP device order.
+        mapfile -t vram < <(on_docker_host 'cat $(ls -v /sys/class/drm/card*/device/mem_info_vram_used)')
+        used=0
+        for gpu in ${KIT_GPUS//,/ }; do
+            [[ -n "${vram[gpu]:-}" ]] || die "cannot read the VRAM use of GPU $gpu"
+            ((vram[gpu] <= used)) || used="${vram[gpu]}"
+        done
+        ((used >= 4 << 30)) || return 0
         ((SECONDS < deadline)) || die "VRAM not released after ${VRAM_RELEASE_TIMEOUT}s: $((used >> 30)) GiB in use"
         sleep 10
     done
