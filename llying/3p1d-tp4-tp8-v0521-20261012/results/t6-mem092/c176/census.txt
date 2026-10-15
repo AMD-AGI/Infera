@@ -1,0 +1,43 @@
+== decode-0.after-mem092.log lines=34160 ready=0 hcas=[]
+   FATAL       1 [2026-10-15 07:29:39 DP5 TP5] Decode transfer failed for request rank=5 decode_req.req.rid='4d730bb9187b4222b37c49550c4b7111' decode_req.req.bootstrap_room=4379603780704843265 with exception KVTransferError(bootstrap_room=437960378070484326
+   FATAL       1 [2026-10-15 07:29:37 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='c82868bf424a4d0dabb7d1f233e9fba5' decode_req.req.bootstrap_room=7297336274375479809 with exception KVTransferError(bootstrap_room=729733627437547980
+   FATAL       1 [2026-10-15 07:29:37 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='0ae8046131ea43acab06cefe1a7dee65' decode_req.req.bootstrap_room=1266957040799251649 with exception KVTransferError(bootstrap_room=126695704079925164
+   FATAL       1 [2026-10-15 07:29:37 DP0 TP0] Decode transfer failed for request rank=0 decode_req.req.rid='457e7edab7f54e379f9ff3b78c467014' decode_req.req.bootstrap_room=4702657103286043763 with exception KVTransferError(bootstrap_room=470265710328604376
+   FATAL       1 [2026-10-15 07:26:13 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='c5e8890dc02f48d0b6d9e21cae75530e' decode_req.req.bootstrap_room=660009460607066580 with exception KVTransferError(bootstrap_room=660009460607066580)
+   FATAL       1 [2026-10-15 07:26:12 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='eb86684db5884579942ccc395b242eef' decode_req.req.bootstrap_room=8726066146804236636 with exception KVTransferError(bootstrap_room=872606614680423663
+   FATAL       1 [2026-10-15 07:26:11 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='b8beec1fc85a41c594bc283f80265dee' decode_req.req.bootstrap_room=691620374993907218 with exception KVTransferError(bootstrap_room=691620374993907218)
+   FATAL       1 [2026-10-15 07:26:11 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='69587fd3cb7f4adeb8bd1e83e7ca4480' decode_req.req.bootstrap_room=7380917508544310726 with exception KVTransferError(bootstrap_room=738091750854431072
+   FATAL       1 [2026-10-15 07:26:11 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='218d3c63404b46528d358c6b17f7a8af' decode_req.req.bootstrap_room=4752336339013889464 with exception KVTransferError(bootstrap_room=475233633901388946
+   FATAL       1 [2026-10-15 07:26:10 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='eba69c5fb1164217aca5b0a2d8fd5b85' decode_req.req.bootstrap_room=6538682644555659468 with exception KVTransferError(bootstrap_room=653868264455565946
+== decode-0.after-realacc.log lines=1 ready=0 hcas=[]
+== decode-0.after-tok4.log lines=0 ready=0 hcas=[]
+== decode-0.after-tok4b.log lines=0 ready=0 hcas=[]
+== decode-0.log lines=0 ready=0 hcas=[]
+== prefill-0.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-0.before-mem092p.log lines=0 ready=0 hcas=[]
+== prefill-0.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-0.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=40787 ready=0 hcas=[]
+   FATAL       1 E1015 06:23:14.196825 31154 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x79bd440dee00, length: 65536, dest_addr: 0x742169ed0f00, local_nic: ionic_0, peer_nic: 10.245.157.237:16082@ionic_0, dest_rkey: 3149
+== prefill-1.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-1.before-mem092p.log lines=0 ready=0 hcas=[]
+== prefill-1.before-mem092q.log lines=0 ready=0 hcas=[]
+== prefill-1.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-1.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-1.log lines=33219 ready=0 hcas=[]
+== prefill-2.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-2.before-2p1d.log lines=0 ready=0 hcas=[]
+== prefill-2.before-hang1.log lines=0 ready=0 hcas=[]
+== prefill-2.before-nsr.log lines=1 ready=0 hcas=[]
+== prefill-2.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-2.log lines=34956 ready=0 hcas=[]
+   FATAL       1 [2026-10-15 07:26:14 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='2dd080e8954a4e508da080e5c43fd861' req.bootstrap_room=660009460607066580 with exception KVTransferError(bootstrap_room=660009460607066580): Decode instance cou
+   FATAL       1 [2026-10-15 07:26:12 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='0851c22b826e4273a663b7acc3577595' req.bootstrap_room=8726066146804236636 with exception KVTransferError(bootstrap_room=8726066146804236636): Decode instance c
+   FATAL       1 [2026-10-15 07:26:11 DP2 TP2] Session 10.245.157.237:16963 failed.
+   FATAL       1 [2026-10-15 07:26:11 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='eca6f890aeae4cc8986ff725a6fe5958' req.bootstrap_room=7380917508544310726 with exception KVTransferError(bootstrap_room=7380917508544310726): Decode instance c
+   FATAL       1 [2026-10-15 07:26:11 DP2 TP2] Prefill transfer failed for request rank=2 req.rid='51955538cc1641dc9373f75f2debc95b' req.bootstrap_room=691620374993907218 with exception KVTransferError(bootstrap_room=691620374993907218): Failed to send kv c
+   FATAL       1 [2026-10-15 07:26:11 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='615a3666c2ae463d853e8a838d1746fa' req.bootstrap_room=4752336339013889464 with exception KVTransferError(bootstrap_room=4752336339013889464): Decode instance c
+   FATAL       1 [2026-10-15 07:26:10 DP0 TP0] Session 10.245.157.237:16963 failed.
+   FATAL       1 [2026-10-15 07:26:10 DP0 TP0] Prefill transfer failed for request rank=0 req.rid='9d70b22d3139471eb29fc9c35b5c14db' req.bootstrap_room=6538682644555659468 with exception KVTransferError(bootstrap_room=6538682644555659468): Failed to send kv
+   FATAL       1 E1015 07:25:41.033099 61230 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x6fbc08fa8000, length: 65536, dest_addr: 0x76efb0cbd000, local_nic: ionic_6, peer_nic: 10.245.157.237:16963@ionic_6, dest_rkey: 1153
+   FATAL       1 E1015 07:25:41.033097 61395 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x6fd63c2b7000, length: 65536, dest_addr: 0x76f3d7bd7000, local_nic: ionic_6, peer_nic: 10.245.157.237:16963@ionic_6, dest_rkey: 9862
