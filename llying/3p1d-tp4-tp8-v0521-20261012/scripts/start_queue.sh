@@ -14,6 +14,8 @@ if [[ -n "$running" ]]; then
     echo "queue driver already running on crsuse2-m2m-137: $running"
     exit 0
 fi
+# Only the redirected command goes to the background: backgrounding a whole "a && b" list keeps
+# ssh's stdout open in the subshell and the ssh never returns.
 ssh -o BatchMode=yes -o ConnectTimeout=10 -n crsuse2-m2m-137 \
-    "cd $R/scripts && ROUND=$ROUND QUEUE=$R/operations/tune_queue.tsv setsid nohup bash tune_queue.sh >> $T/queue.log 2>&1 < /dev/null &" </dev/null
+    "cd $R/scripts; ROUND=$ROUND QUEUE=$R/operations/tune_queue.tsv setsid nohup bash tune_queue.sh >> $T/queue.log 2>&1 < /dev/null &" </dev/null
 echo "queue driver started"

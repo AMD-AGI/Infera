@@ -8,17 +8,20 @@
   `--tokenizer-worker-num 4`（`config/best.sh`，复现：`REPRODUCE.zh-CN.md`）。
 - 2P(TP4)1D C176 = 28,900 tok/s/GPU（16 卡，−5.4%，prefill 成瓶颈 + 实例间失衡）。C192（3P1D）因挂起无有效结果（部分数据未超过 C176）。
 
-## 栈当前状态（ROUND=r2，容器前缀 glm52-llying-3p1d-r2-）
-- decode-0（138，mem **0.92**，tok4，日志名 `decode-0.after-mem092.log`）、prefill-0（135，400 GB HiCache）、prefill-1（137 **card4–7**）在运行；
-  **prefill-2（137 card0–3）已因第三次挂起退出**；router 在 137。`config/round.r2.sh` = `config/stage-mem092.sh`（GPU 组已对调）。
-- 队列已停（`operations/tune_queue.tsv`，进度 `runtime/runs/r2/tune/queue.done`）。sampler 在 137 后台运行（`runtime/runs/r2/tune/samples.jsonl`）。
-- **NFS server 日志从 10-14 21:59 起未写入**：继续前先 `bash scripts/log_follow.sh ROUND=r2`（续接日志；看 `/home` 余量）。
+## 栈当前状态（10-15 05:21，ROUND=r2，容器前缀 glm52-llying-3p1d-r2-）
+- decode-0（138，mem **0.92**，tok4，日志名 `decode-0.after-mem092.log`）、prefill-0（135，400 GB HiCache）、prefill-1（137 **card4–7**）、
+  prefill-2（137 card0–3，05:14 重启，**`HSA_NO_SCRATCH_RECLAIM=1`**）在运行；router 在 137。`config/round.r2.sh` = `config/stage-mem092-nsr.sh`。
+- 队列 05:21 起在跑：warm-mem092b → t6-mem092 C176 → C192（`operations/tune_queue.tsv` 第 34–36 步）。sampler 在 137 后台运行。
+- **挂起监视器** `scripts/hang_watch.py` 在 137 后台运行（日志 `runtime/runs/r2/tune/hang_watch.log`；`scripts/start_hang_watch.sh` 幂等启动），
+  任一 prefill 有请求但 10 分钟无进展即自动 `scripts/hang_capture.sh`，结果在 `runtime/runs/r2/tune/hang-<实例>-<MMDD-HHMM>/`。
+- 日志 follower 05:00 已用 `scripts/log_follow.sh ROUND=r2` 恢复（之前 21:59 起全部退出）。
 
 ## 未完成 / 下一步（按优先级）
-1. **prefill-2 挂起根因**（3 次，签名相同：4 个 scheduler 卡在 `process_batch_result_disagg_prefill` → `stream.synchronize()`，GPU 100%；
-   py-spy 在 `runtime/runs/r2/tune/hang-prefill-2-*/`）。第三次时 prefill-2 已在 card0–3 → **跟实例走，不跟 GPU 走**。与 prefill-1 的差别：
-   同节点第二个实例、`PID_OFFSET_prefill_2=60000`（prefill-1 为 30000，ROCr IPC 用 `\0hsa<pid>` 抽象 socket，长时间运行后 PID 是否会交叠？）、端口、启动顺序。
-   建议：对调 PID_OFFSET / 换端口做对照；挂起时抓 RCCL 调试日志或 ROCm debug agent。
+1. **prefill-2 挂起**：排查结论和 A/B 方案见 `RESULT.zh-CN.md` §4.12。主要假设是 prefill 的 `HSA_NO_SCRATCH_RECLAIM=0` 在显存紧张时让 ROCr scratch
+   分配进入 retry 等待，与集合通信互锁；IPC socket 撞名已排除。现在只有 prefill-2 改成 1，prefill-0/1 作对照。
+   - 若 prefill-0/1 挂起：看自动抓取的 `rocgdb-queues-*.txt`（哪个队列有待执行包却没有活跃 dispatch、哪些通信 kernel 在跑），可作为直接证据；
+   - 若 prefill-2 挂起：假设不成立，同样看抓取结果；
+   - 若跑满几轮都不挂：把三个 prefill 都改成 1（注意早期 `OUT_OF_RESOURCES` 风险，见 `scripts/bench-harness/issue.md` §3.4）。
 2. decode mem 0.92 的 3P1D C176 / C192（`config/stage-mem092.sh` 已就位，需先拉起 prefill-2：`restart_prefills.sh INSTANCES=prefill-2`，
    但它可能再挂）→ 看 decode KV 扩大后峰值能否超过 30,562。
 3. prefill_complete（需 prefill HiCache 改 write_back；可释放 decode 中"等 KV 传输"请求占的 7–12% KV；先看 mem 0.92 有没有收益再决定，

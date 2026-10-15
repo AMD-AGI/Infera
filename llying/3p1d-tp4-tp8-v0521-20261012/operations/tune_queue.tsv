@@ -60,6 +60,8 @@ round t5b-2p1d 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFF
 # 13:10 (user: finish 2P1D C176, then hang root cause, then decode-side KV): one restart for both -- decode mem 0.92
 # (KV +13%) and prefill-1/2 GPU sets swapped (hang attribution: GPU set vs instance). Then 3P1D C176 / C192.
 run restart_all_engines.sh ROUND=r2 OVERLAY=config/stage-mem092.sh TAG=mem092
-run warmup_round.sh VARIANT=warm-mem092 CONC=144 MINUTES=30
+# 10-15 05:20: warm-mem092 was aborted (prefill-2 third hang); restarted prefill-2 with HSA_NO_SCRATCH_RECLAIM=1
+# (config/stage-mem092-nsr.sh) and rerun the warm-up under a new name (the old result dir exists).
+run warmup_round.sh VARIANT=warm-mem092b CONC=144 MINUTES=30
 round t6-mem092 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
 round t6-mem092 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on

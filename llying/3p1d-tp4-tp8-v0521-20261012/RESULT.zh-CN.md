@@ -402,8 +402,34 @@ C176 的 09:32–09:33 出现过一次成串（约 10 条请求级失败），�
 
 - 三次：10-14 05:30、11:31（137 card4–7），10-15 约 02:29（与 prefill-1 对调到 card0–3 后）。签名相同：4 个 scheduler 主线程都卡在
   `process_batch_result_disagg_prefill` → `stream.synchronize()`，GPU 100%，日志没有错误；第三次 1 小时后看门狗超时退出（exit 137）。prefill-0、prefill-1 从未挂起。
-- 对调 GPU 后仍挂在 prefill-2：**跟着实例走，不是 card4–7 的硬件问题**。prefill-2 与 prefill-1 的差别：同节点第二个实例、`PID_OFFSET` 60000（prefill-1 为 30000）、
-  端口、启动顺序。排查计划见 `HANDOFF.zh-CN.md`。
+- 对调 GPU 后仍挂在 prefill-2：**不是 card4–7 的硬件问题**。prefill-2 与 prefill-1 的差别：同节点第二个实例、`PID_OFFSET` 60000（prefill-1 为 30000）、
+  端口、启动顺序、按实例名分开的 triton / HF 缓存目录。
+
+**10-15 排查（进行中）**
+
+已排除：
+- **ROCr IPC socket 撞名**：ROCr 默认 IPC 在宿主机共享网络命名空间里绑定 `\0hsa<容器内 pid>`，所以要用 PID_OFFSET 错开。实测只有 scheduler 进程绑定
+  （prefill-1 为 `@hsa30696` 等 4 个）。prefill-1 运行 12 小时后 PID 计数器才到 34141，碰不到 prefill-2 的 60000 段，两个实例的 scheduler 不会撞名。
+- **KV 池打满**：第三次挂起时 DP1 的 token usage 为 0.98，但前两次挂起前只有 0.01–0.72，不是共同条件。
+- **新 GEMM 形状的首次编译**：第一、三次挂起前日志里有 aiter 的新形状提示，第二次没有。
+
+现场特征（三次一致）：4 个 scheduler 主线程都停在 `prefill.py:910` 的 `copy_done.synchronize()`（等前向结果拷回主机的 event），Mooncake
+`transfer_worker` 也在等 event，4 张卡 GPU 100%，日志没有错误。也就是前向在 GPU 上没有执行完，同时有 kernel 在自旋。py-spy 只能看到 Python 线程，
+ROCr 内部线程看不到。
+
+主要假设：**prefill 打开了 scratch 回收（`HSA_NO_SCRATCH_RECLAIM=0`），在显存紧张时 scratch 分配进入等待，与集合通信互锁。**
+- ROCr 7.2 `GpuAgent::AcquireQueueMainScratch`（`amd_gpu_agent.cpp` 约 1952 行）：scratch 分配失败时，只要本卡还有队列持有一次性大 scratch，
+  请求方队列就进入 retry，一直等到那块 scratch 释放。如果持有者是在等对端 GPU 的通信 kernel，而对端在等这个被挂起的队列跑到集合通信，
+  就会形成循环等待：GPU 一直自旋，无报错。`HSA_NO_SCRATCH_RECLAIM=1` 时不走这条等待路径（scratch 常驻在队列上，分配失败直接报错）。
+- prefill 设成 0 是为了规避早期的 `HSA_STATUS_ERROR_OUT_OF_RESOURCES`（`scripts/bench-harness/issue.md` §3.4），decode 一直是 1，从未挂起。
+- 时间线：mem 0.85 时（每轮结束每卡剩约 20 GiB）三个实例共跑了十几个小时，没有挂起；三次挂起都发生在 2a 把 prefill mem 提到 0.88 之后
+  （剩约 9–13 GiB，PyTorch 缓存分配器占住其余显存，ROCr 的 scratch 在 PyTorch 之外分配）。但 2a 同时加大了 HiCache，时间线不能单独归因。
+- 显存余量各实例相近，三次都落在 prefill-2 也可能是概率问题；目前没有找到 prefill-2 特有的触发条件。
+
+验证方案（A/B，10-15 05:15 起）：只给 prefill-2 加 `HSA_NO_SCRATCH_RECLAIM=1`（`config/stage-mem092-nsr.sh`），prefill-0 / prefill-1 保持 0 作对照，
+继续跑 3P1D + decode mem 0.92 的预热、C176、C192。同时启用 `scripts/hang_watch.py`：按引擎自己的计数器（`realtime_tokens_total`、
+`kv_transfer_latency_ms_count`）判断有请求但 10 分钟没有进展即为挂起，自动调用 `scripts/hang_capture.sh` 抓 py-spy 和 rocgdb
+（各 HSA 队列读写指针、活跃 dispatch、全部线程栈），用来拿到挂起时 GPU 侧的直接证据。
 
 ## 5. 与 InferenceX 官方 AgentX 的一致性检查（2026-10-15）
 

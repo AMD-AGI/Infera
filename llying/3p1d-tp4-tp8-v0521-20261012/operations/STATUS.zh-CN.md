@@ -306,3 +306,13 @@
   架构（官方 AMD sglang-router recipe 同样设了 `tokenizer-worker-num 8` + `stream-interval 20`；NVIDIA 用 Dynamo 前端 + `skip-tokenizer-init`，无此瓶颈）。
   主要差异是官方要求每个并发点重新部署，而我们在复用的栈上测。详见 `RESULT.zh-CN.md` §5。同时把讨论中的专题分析整理进 `RESULT.zh-CN.md` §4，
   `REVIEW.zh-CN.md` §6 加容量模型更正。
+- 04:55 用户：继续 debug 并修复 prefill-2 挂起。05:00 `log_follow.sh` 重启日志 follower（全部在 14 日 21:59 后退出；`/home` 余 136 GB）。
+  排查（详见 `RESULT.zh-CN.md` §4.12）：IPC socket 撞名排除（只有 scheduler 绑定 `@hsa<pid>`，prefill-1 运行 12 小时 PID 才到 34141）；
+  两个容器配置只差 GPU 组、PID_OFFSET、端口、缓存目录；第三次挂起的看门狗栈：主线程 `copy_done.synchronize()`、transfer_worker 等 event，
+  DP3/DP1/DP0 KV 池 available 只有 1280/3200/1920 token。prefill-2 日志（去掉 HTTP 访问行）存到 `runtime/runs/r2/tune/hang-prefill-2-0329/`。
+  主要假设：prefill `HSA_NO_SCRATCH_RECLAIM=0` + 显存紧张 → ROCr scratch 分配进入 retry 等待，与集合通信互锁（ROCr 7.2 源码 `AcquireQueueMainScratch`）。
+  rocgdb 可以挂到运行中的 scheduler（约 5 s），能列出 HSA 队列读写指针和活跃 dispatch；libhsa-runtime 无符号，原生栈只有地址。
+  新增 `scripts/hang_capture.sh`、`scripts/hang_watch.py`（按引擎计数器判断挂起，不依赖日志）、`scripts/start_hang_watch.sh`；在空闲的 prefill-1 上试抓一次，
+  约 1 分钟（`runtime/runs/r2/tune/capture-test-prefill-1-0513/`）。
+- 05:14 `restart_prefills.sh ROUND=r2 OVERLAY=config/stage-mem092-nsr.sh TAG=nsr INSTANCES=prefill-2`：只有 prefill-2 加 `HSA_NO_SCRATCH_RECLAIM=1`，
+  prefill-0/1 保持 0 作对照。队列第 34 步改名为 warm-mem092b（旧结果目录已存在）。
