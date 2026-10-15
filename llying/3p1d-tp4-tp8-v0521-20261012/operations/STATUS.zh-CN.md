@@ -367,3 +367,12 @@
   t8 overlay 里挂到 prefill 和 decode（`PREFILL_MOUNTS_ADD` / `DECODE_MOUNTS_ADD`）。栈此时：decode 已退出、router 已退役、三个 prefill 仍是旧配置。
 - 11:07 重跑（TAG=pcwb2，旧 TAG 的容器名已被占用）又因 `restart_all_engines.sh` 要向已退役的 router 查在线 prefill 数而退出（JSON 解析空串）；
   改为查不到 router 时用拓扑里的 prefill 数。11:09 第三次启动，decode 通过校验（启动参数 `prefill_complete`，补丁已挂入），继续重启 prefill。
+- 11:43 三个 prefill 以 stage-pcwb 起来（KV 2,433,088 token/rank，host 400/200/200 GB），11:45 传输冒烟 192/192、0 失败。
+- **11:51 `hicache_check` 失败，队列按设计停下**（`runtime/runs/r2/launch/hicache_check.pcwb.json`）：16 个探针中 5 个首 token 与第一次不同
+  （winter→signal、river→vel、signal→window、needle→wal、c→button），logprob 最大差 3.28；第 2 步淘汰 1.87M token、回写 1.87M（write_back 在淘汰时回写，行为正确），
+  第 3 步主机回读 0、GPU 命中 55.6 万 / 55.7 万，即**主机路径根本没被走到**，探针仍在 GPU 上被命中。两处检查设计问题：① 填充量按 2P1D（8 rank、19.4M token）设计，
+  3P1D 有 12 个 prefill rank、约 29M token，2,900 万填充挤不出探针；② 探针问"随机词里出现最多的词"，各词几乎等概率，答案接近平局，数值差异就能翻转 top-1。
+  但 3.28 的 logprob 差远大于一般数值噪声，不能直接当误报：需要用答案确定的探针（长文中的唯一键值检索）重做，并在旧配置（write_through + early）上做同样的对照，
+  判断这是前缀缓存命中本身的问题（旧配置下也存在），还是 prefill_complete / write_back 引入的。11:51 之后栈空转（会话已断开，无人处理）。
+- **15:40:15 我们在 137 上的 router、etcd、prefill-1、prefill-2 在同一秒收到 docker kill 并退出**（docker events 可见；同机 `dev_xb`、`crusoe-vector` 正常运行，
+  不是守护进程重启；不是我们的脚本）。15:51 查看时 **135 ssh 连接超时**，prefill-0 状态未知；decode（138）仍在运行。未重启任何东西，等用户确认。
