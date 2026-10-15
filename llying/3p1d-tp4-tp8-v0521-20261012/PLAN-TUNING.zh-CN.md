@@ -120,6 +120,17 @@ P 会话亲和后 prefill 缓存份额 94.0%（理论 96.3%）、新算量 −42
 
 不借鉴：只靠会话亲和、不用 KV 事件的路由（我们有 KV 事件 + R2，B300 那次 rank 间请求占比 18.9%–33.2% 不均）；会话亲和、MTP 模拟接受 3.61（已一致）。
 
+**10-15 07:15 决定与复核**：用户决定先把 PD 做到极致，aggregated（实验 1）暂缓，之后再做或由同事做。对 PD 适用项的复核：
+- decode 已自动开启 `enable_tp_lm_head_all_to_all`（TP8 = attention DP8 时的默认），LM head 通信已经是 all-to-all，`--enable-dp-lm-head`
+  只能再省这一点，预期约 1%–2%。
+- `--enable-dp-attention-local-control-broadcast`（NVIDIA 的 GLM-5.2 recipe 都开了，我们没开）：去掉每轮调度在整个 TP 组上的 gloo 同步。
+  decode 调度时间里 `get_next_batch_to_run` 在 8 个 rank 上都约占 24%，py-spy（非阻塞采样）显示其中约 19% 在 DP attention 元数据 all-gather
+  （CPU gloo 组）上等待，约 10% 在 `build_eagle_disagg_draft_input` 的逐请求 `torch.as_tensor(..., device=GPU)`。但 decode 8 卡 GPU 利用率 99%–100%，
+  这些 CPU 开销基本被 overlap 掩盖，decode 仍是 GPU 受限，预期收益小。
+- 因此这两个 decode 开关风险低、收益小，放在下一次 decode 重启时一起带上，不单独占一轮。
+- PD 下一步按 C176（decode mem 0.92）结果定：若扩 KV 有收益 → prefill HiCache `write_back` + `prefill_complete`（释放等传输占的 7%–12% decode KV）；
+  decode 每步 GPU 时间 → `index_share_for_mtp_iteration`（需正确性门禁）。
+
 实验 1 的具体做法：先在 4 卡上起单个实例（v0.5.21 镜像；TP4 + DP4 attention；EAGLE 5/1/6、模拟接受 3.61；KV fp8；chunk 32768；
 HiCache 200–270 GB/rank；`--enable-prefill-delayer`、`--enable-dp-lm-head`；max-running 128、cuda graph bs 64；tokenizer worker 2–4），
 经 router（`INFERA_SESSION_AFFINITY=both`）测 C24 / C32 / C40 / C48，与 3P1D 的每卡吞吐和交互速度对比。单实例达到约 3 万且交互速度可接受，
