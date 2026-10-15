@@ -667,6 +667,7 @@ def test_html_controls_and_measured_overlay(tmp_path):
     # Every control is a dropdown drawn by the page: no native <select> popups
     # to fail in an embedded preview.
     assert "<select" not in html and 'class="dd" id="model"' in html and "closeMenus" in html
+    assert 'class="dd" id="depth"' in html and "best per point" in html
     assert '"measured": [{' in html and "accuracy" not in html
     assert P.load_measured(None) == {}
     blank = P.write_outputs(P.ParetoResult(points=pts), str(tmp_path / "b"), meta={})

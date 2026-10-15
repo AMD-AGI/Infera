@@ -1755,6 +1755,7 @@ circle.pt:hover{r:7}
 <div class="grp"><span>Precision</span><div class="dd" id="precision"></div></div>
 <div class="grp"><span>Mode</span><div class="dd" id="mode"></div></div>
 <div class="grp"><span>Speculative</span><div class="dd" id="spec"></div></div>
+<div class="grp"><span>Draft depth</span><div class="dd" id="depth"></div></div>
 <div class="grp"><span>Points</span><div class="dd" id="show"></div></div>
 <div class="grp" id="measgrp" style="display:none"><span>Measured runs</span><div class="dd" id="meas"></div></div>
 <div class="grp"><span>X axis</span><div class="dd" id="x"></div></div>
@@ -1807,6 +1808,9 @@ function refreshDeps(){
   chips('precision', uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario).map(p=>p.precision)), V.precision);
   const sp=uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision).map(p=>p.spec||'none'));
   chips('spec', ['all',...sp], V.spec||'all', v=>v==='all'?'all settings':v);
+  const ks=[...new Set(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision&&(p.spec||'none')!=='none'
+    &&(V.spec==='all'||p.spec===V.spec)&&p.spec_k).map(p=>p.spec_k))].sort((a,b)=>a-b).map(String);
+  chips('depth', ['best',...ks], V.depth||'best', v=>v==='best'?'best per point':'k = '+v);
 }
 chips('model', uniq(P.map(p=>p.model)), null);
 chips('mode', ['all','benchmark','simulate'], 'all', v=>v==='all'?'benchmark + simulate':v);
@@ -1829,14 +1833,16 @@ function ticks(hi,n=7){ if(hi<=0) return [0,1]; const raw=hi/(n-1), mag=Math.pow
 function fmt(v){ if(Math.abs(v)>=1000) return (v/1000).toFixed(1).replace(/\\.0$/,'')+'k'; return v<10?(+v.toFixed(1)).toString():v.toFixed(0); }
 function num(v,d=1){ return v.toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:0}); }
 function draw(){
-  const m=V.model, sc=V.scenario, pr=V.precision, md=V.mode, sp=V.spec;
+  const m=V.model, sc=V.scenario, pr=V.precision, md=V.mode, sp=V.spec, dk=V.depth;
   const x=V.x, y=V.y, onlyF=V.show==='front';
-  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp));
+  // A chosen depth narrows the speculative lines only; the no-speculation line stays as the reference.
+  const atK = p => dk==='best'||(p.spec||'none')==='none'||String(p.spec_k)===dk;
+  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp)&&atK(p));
   const all=sel.filter(p=>p.feasible);
   const groups=uniq(all.map(p=>group(series(p)))); const col={}; groups.forEach((g,i)=>col[g]=PAL[i%PAL.length]);
   const pts=all.filter(p=>!hidden.has(group(series(p))));
   const mgroup = q => `${'MI355X'} ${q.engine}${q.spec==='none'?'':' '+q.spec}`;
-  const msel = V.meas==='show' ? MS.filter(q=>q.model===m&&q.scenario===sc&&q.precision===pr&&(sp==='all'||q.spec===sp)
+  const msel = V.meas==='show' ? MS.filter(q=>q.model===m&&q.scenario===sc&&q.precision===pr&&(sp==='all'||q.spec===sp)&&atK(q)
     &&!hidden.has(mgroup(q))&&q[x]!=null&&q[y]!=null) : [];
   const W=1000,H=600,L=70,R=24,T=20,B=56; let o=[];
   const x1=Math.max(...pts.map(p=>p[x]),...msel.map(q=>q[x]),1)*1.06, y1=Math.max(...pts.map(p=>p[y]),...msel.map(q=>q[y]),1)*1.08, xt=ticks(x1), yt=ticks(y1);
@@ -1905,13 +1911,13 @@ $('chart').addEventListener('mousemove',e=>{
   t.style.left=lx+'px'; t.style.top=ly+'px';
 });
 $('chart').addEventListener('mouseleave',()=>$('tip').style.display='none');
-['model','scenario','precision','mode','spec','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
+['model','scenario','precision','mode','spec','depth','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
   if(e.target.closest('.ddb')){ const open=$(id).classList.contains('open'); closeMenus(); if(!open) $(id).classList.add('open'); return; }
   const b=e.target.closest('.ddo'); if(!b) return;
   closeMenus();
   V[id]=b.dataset.v; $(id).querySelector('.ddb span').textContent=b.textContent;
   $(id).querySelectorAll('.ddo').forEach(c=>c.classList.toggle('on',c===b));
-  if(['model','scenario','precision'].includes(id)){ if(id==='model') hidden.clear(); refreshDeps(); }
+  if(['model','scenario','precision','spec'].includes(id)){ if(id==='model') hidden.clear(); refreshDeps(); }
   draw();
 }));
 refreshDeps(); draw();
