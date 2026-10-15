@@ -1,0 +1,7 @@
+window 2026-10-14T13:34:16 .. 2026-10-14T14:34:16
+decode ms/step by busiest-rank #running-req [samples]
+           4           5           6           7           8           9          10          11          12          13          14
+   28.2[151]   31.3[498]   36.4[575]   37.7[399]   40.7[521]   50.7[679]   52.1[1149]   61.6[1046]   63.6[1505]   65.5[1388]   66.1[1256]
+prefill ms per full 8192-token chunk while queued (median / p90 [samples])
+  prefill-0     1217 /    1762 [3312]
+  prefill-1     1565 /    2138 [6212]

@@ -259,3 +259,45 @@
   KV 0.76、KV>90% 37.7%、等预分配 0.52；sampler：prefill 到达→完成 5.6 s（排队 1.23、bootstrap 0.97），decode 分配 KV 等待 0.97 s、TTFT 5.25 s、
   ITL 19.9 ms。census：窗口内 09:32–09:33 一次分片失败后的成串传输失败（约 10 条），其余为窗口结束取消。吞吐仍在上升，decode KV 开始成为约束。
   队列已无后续步骤，栈空闲等待决策。
+- 10:44 t4d-tok4 C192 开始（C176 仍在上升）。10:52 提交并 push：`5a9f4af8`（全部实验内容）、`3926d81f`（复现：`config/best.sh`、
+  `scripts/reproduce_best.sh`、`REPRODUCE.zh-CN.md`；`hang_check.py` 改为从本轮开始时刻起算，修正轮次刚开始时的误报）。
+- 10:55 用户离开 3–4 小时，要求以推高吞吐为目标自主推进。队列追加：C192 后从活栈拿掉 prefill-0（2P1D，16 卡，decode 不动）→
+  t5-2p1d C176 → C160。依据：prefill 计算忙碌约 35–45%，吞吐受 decode 约束；总吞吐降幅 < 20% 即每卡吞吐提高。
+- 11:31 **prefill-2 第二次挂起**（t4d-tok4 C192 测量中）：同一签名 —— 4 个 scheduler 都在 `process_batch_result_disagg_prefill` →
+  `stream.synchronize()`，137 card4–7 GPU 100%，挂起前为 aiter 未调优 GEMM 形状提示（M=404 / 3080 / 193），最后一个 batch 为 6 个请求、
+  87 万缓存 token（`hang-prefill-2-1140/py-spy.txt`）。连锁：decode 为其在途请求预分配的 KV 被占住（KV 0.93–0.96、等传输 7–14/rank），
+  decode 产出降到约 2,500 tok/s。两次挂起都在 prefill-2（137 card4–7），prefill-1 / prefill-0 从未挂起 → 怀疑该组 GPU 或只在该实例触发的路径。
+  11:40 中止 C192（abort），改为拿掉 prefill-2 构成 2P1D（prefill-0 + prefill-1，decode 不动）；decode 残留状态清零，传输冒烟 192/192。
+  11:46 开始 t5-2p1d C176 → C160（每卡按 16 卡计）。
+- 11:31 **prefill-2 第二次挂起**（t4d-tok4 C192 测量中）：同一签名 —— 4 个 scheduler 都在 `process_batch_result_disagg_prefill` →
+  `stream.synchronize()`，137 card4–7 GPU 100%，挂起前为 aiter 未调优 GEMM 形状提示（M=404 / 3080 / 193），最后一个 batch 为 6 个请求、
+  87 万缓存 token（`hang-prefill-2-1140/py-spy.txt`）。连锁：decode 为其在途请求预分配的 KV 被占住（KV 0.93–0.96、等传输 7–14/rank），
+  decode 产出降到约 2,500 tok/s。两次挂起都在 prefill-2（137 card4–7），prefill-1 / prefill-0 从未挂起 → 怀疑该组 GPU 或只在该实例触发的路径。
+  11:40 中止 C192（abort），改为拿掉 prefill-2 构成 2P1D（prefill-0 + prefill-1，decode 不动）；decode 残留状态清零，传输冒烟 192/192。
+  11:46 开始 t5-2p1d C176 → C160（每卡按 16 卡计）。
+- 12:29 t5b-2p1d C176 重跑（新 router）。前 10 分钟两 prefill 均衡；12:40 起在预热回放阶段又失衡：prefill 的 bootstrap 队列积压
+  （prefill-0 76、prefill-1 21，平均 bootstrap 20 s），decode 调度器预分配 / 传输队列为 0、tokenizer worker 合计 44%（非瓶颈），
+  卡点在 prefill↔decode bootstrap 握手；13:05 积压已清零，进入测量。C192 部分数据（挂起前 26 分钟，sampler）：5.03 req/s、输出约 4,690 tok/s、
+  decode TTFT 10.2 s，对比 C176 同期 5.19 req/s、约 4,840 tok/s、5.0 s —— C192 未超过 C176，3P1D 当前配置约在 C176 到顶（decode KV 约束）。
+- 13:10 用户决定：2P1D C176 测完作 16 卡参考 → 查 prefill-2 挂起根因（GPU 组对调）→ 3P1D + decode mem 0.92 或 1P(TP8)1D。
+  合并为一次重启：`restart_all_engines.sh`（先 decode 后 prefill，冒烟）+ `config/stage-mem092.sh`（decode mem 0.92；prefill-1 ↔ prefill-2
+  GPU 组对调）→ 30 分钟预热 → t6-mem092 C176 / C192。若再挂起：跟着 card4–7（现 prefill-1）→ 疑 GPU；仍在 prefill-2（现 card0–3）→ 疑实例路径。
+  需有 root 权限的人协助查看 137 card4–7 在 05:30、11:31 前后的 dmesg / RAS（普通用户读不到）。
+- 14:43 **t5b-2p1d C176 完成（2P1D，16 卡：prefill-0 + prefill-1，decode tok4）**：28,900 tok/s/GPU（3P1D C176 30,562，−5.4%；总吞吐 −24%），
+  完成 13,575（−20%），输出 230.7 tok/s/GPU（232.5），平均输入 122.6k（129.2k），P50 / P90 interactivity 54.8 / 49.2，TTFT p50/p90 8.7/46.1 s。
+  瓶颈转到 prefill：GPU 命中 50.3%（75.7%）、host 40.1%，prefill 排队 10.2 s、bootstrap 4.2 s、到达→完成 20.4 s；两实例仍失衡（排队 prefill-1 8.1 /
+  prefill-0 2.7）。decode：有效并发 63.3（92.1），每 rank 在跑 7.6，KV 0.82、KV>90% 61.8%、等传输 6.95 / 等预分配 1.94 per rank（KV 被等 prefill /
+  传输的请求占住）。结论：2P(TP4)1D 在 C176 不提高每卡吞吐；1P(TP8)1D（每 rank GPU KV 约 +29%，无实例间失衡）未测。
+- 14:47–14:50 `restart_all_engines.sh`：decode 以 mem 0.92 重启成功（KV 3,363,648 tokens/rank，+12.4%），但 restart_decode 的 router 校验按新拓扑
+  要求 4 个 worker、prefill-2 尚未拉起 → 失败，队列停止（脚本缺陷）。14:50–16:08 栈空闲；期间巡检等待卡住约 3 小时未发现。
+- 16:09 续做 prefill 重启：第一次因 `pgrep -f` 自匹配误判"已在运行"未启动；随后一次因 router 改名 `router-mem092` 冲突退出（已停 router）；
+  16:10 以 TAG=mem092p 重启三个 prefill（prefill-1 → card4–7，prefill-2 → card0–3）。
+- 16:59 prefill-1 / prefill-2 重启完成（TAG=mem092q；prefill-1 在 card4–7、prefill-2 在 card0–3）。此前 16:36 prefill-1 DP3 绑定 KV 事件端口 28028
+  时瞬时 "Address already in use" 启动失败（端口随后空闲，偶发冲突），重启后正常。17:00 传输冒烟命令被中断（decode 81 条 "Aborted by AbortReq"
+  为客户端取消，非传输故障）。**17:00 – 次日 02:10 空档约 9 小时**：我这边会话在冒烟命令被中断后结束，未继续，栈空闲。
+- 02:12 重跑传输冒烟（后台执行）：192/192、0 失败。02:15 启动队列：warm-mem092（30 分钟）→ t6-mem092 C176 → C192。
+- 02:14 warm-mem092 开始；**prefill-2 第三次挂起**（约 02:29，此时 prefill-2 已换到 card0–3、prefill-1 在 card4–7）：sglang scheduler 看门狗
+  03:29:01 报 "Scheduler watchdog timeout (3600 s)" 后进程被 kill（容器 exit 137，OOMKilled=false）。**挂起跟着 prefill-2 实例走、不跟 card4–7 走 →
+  基本排除 GPU 硬件，指向该实例特有的东西**（与 prefill-1 同配置，差别：同节点第二个实例、PID_OFFSET 60000 vs 30000、端口、启动顺序）。
+  另：NFS 上 server 日志从 14 日 21:59 起停止写入（docker logs follower 退出，原因未查），hang_check / 巡检基于日志的部分自那时起失效。
+  03:40 中止 warm-mem092（abort），队列停止。栈状态：decode（mem 0.92，tok4）、prefill-0、prefill-1（card4–7）在运行，prefill-2 已退出。

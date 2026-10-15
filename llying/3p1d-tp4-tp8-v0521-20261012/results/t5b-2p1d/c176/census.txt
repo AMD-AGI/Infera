@@ -1,0 +1,31 @@
+== decode-0.after-realacc.log lines=1 ready=0 hcas=[]
+== decode-0.after-tok4.log lines=0 ready=0 hcas=[]
+== decode-0.after-tok4b.log lines=50581 ready=0 hcas=[]
+   FATAL       1 [2026-10-14 14:34:50 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='673210016bf54000a733cd9730ea72c4' decode_req.req.bootstrap_room=5807092334918580392 with exception KVTransferError(bootstrap_room=580709233491858039
+   FATAL       1 [2026-10-14 14:34:50 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='9467bd14ecd14f6399811f18ad85e3f4' decode_req.req.bootstrap_room=2032176881385690108 with exception KVTransferError(bootstrap_room=203217688138569010
+   FATAL       1 [2026-10-14 14:34:50 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='659fd189156d4f33ac083301933a772a' decode_req.req.bootstrap_room=5820986443394977740 with exception KVTransferError(bootstrap_room=582098644339497774
+   FATAL       1 [2026-10-14 14:34:50 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='d4d26eacfd0d4bcd8eb43428daca8c7b' decode_req.req.bootstrap_room=4645210136829235580 with exception KVTransferError(bootstrap_room=464521013682923558
+   FATAL       1 [2026-10-14 14:34:50 DP2 TP2] Decode transfer failed for request rank=2 decode_req.req.rid='366aff1c72a8426fafd30e72cacc20cf' decode_req.req.bootstrap_room=6524887614139168712 with exception KVTransferError(bootstrap_room=652488761413916871
+   FATAL       1 [2026-10-14 14:34:49 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='bf674ff1ec89457cb6288f0046c570c4' decode_req.req.bootstrap_room=5978972862585152880 with exception KVTransferError(bootstrap_room=597897286258515288
+   FATAL       1 [2026-10-14 14:34:49 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='adffa9d8fcc748308779c71d3f3ba7ff' decode_req.req.bootstrap_room=3894452261048232680 with exception KVTransferError(bootstrap_room=389445226104823268
+   FATAL       1 [2026-10-14 14:34:49 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='793c336bb1234ffa9a9ebdaecac4dbaa' decode_req.req.bootstrap_room=2736444590071773920 with exception KVTransferError(bootstrap_room=273644459007177392
+   FATAL       1 [2026-10-14 14:34:49 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='4a5f7e576b38477798aaf2917a6ca271' decode_req.req.bootstrap_room=957235542436173392 with exception KVTransferError(bootstrap_room=957235542436173392)
+   FATAL       1 [2026-10-14 14:34:49 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='54a39f8df60b472a9692944acb7bbb72' decode_req.req.bootstrap_room=6188975918004889348 with exception KVTransferError(bootstrap_room=618897591800488934
+   FATAL       1 [2026-10-14 14:34:49 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='c1a45b86003d437bacec5138de9d1033' decode_req.req.bootstrap_room=2269719035467696632 with exception KVTransferError(bootstrap_room=226971903546769663
+   FATAL       1 [2026-10-14 14:34:49 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='e9db1af932464dc2b56969369186f5ce' decode_req.req.bootstrap_room=4394690549992064852 with exception KVTransferError(bootstrap_room=439469054999206485
+== decode-0.log lines=0 ready=0 hcas=[]
+== prefill-0.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-0.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-0.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=63519 ready=0 hcas=[]
+   FATAL       1 E1014 14:06:00.928609 31368 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x7e1b47ca2000, length: 45056, dest_addr: 0x779ebe307000, local_nic: ionic_5, peer_nic: 10.245.157.237:16827@ionic_5, dest_rkey: 8119
+   FATAL       1 E1014 14:06:00.788602 31086 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x77fe003f4000, length: 65536, dest_addr: 0x77a6f4f1b000, local_nic: ionic_2, peer_nic: 10.245.157.237:16827@ionic_2, dest_rkey: 6087
+   FATAL       1 E1014 14:02:27.798792 31080 worker_pool.cpp:650] Worker: Process failed for slice (opcode: 1, source_addr: 0x77e1f29cc700, length: 65536, dest_addr: 0x77849e56cf00, local_nic: ionic_0, peer_nic: 10.245.157.237:16827@ionic_0, dest_rkey: 3341
+== prefill-1.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-1.before-tok4p.log lines=0 ready=0 hcas=[]
+== prefill-1.before-tok4q.log lines=0 ready=0 hcas=[]
+== prefill-1.log lines=47174 ready=0 hcas=[]
+== prefill-2.before-2a.log lines=1 ready=0 hcas=[]
+== prefill-2.before-2p1d.log lines=0 ready=0 hcas=[]
+== prefill-2.before-hang1.log lines=0 ready=0 hcas=[]
+== prefill-2.before-tok4p.log lines=0 ready=0 hcas=[]

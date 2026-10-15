@@ -1,21 +1,17 @@
-# Stage 2a overlay (PLAN-TUNING.zh-CN.md): prefill prefix-cache capacity on the live stack.
-# restart_prefills.sh installs it as config/round.<ROUND>.sh right before restarting the three
-# prefills, so every later script (rounds, agentx_env.py validation) sees what is running.
-# GPU KV: mem 0.85 -> 0.88 is +7% tokens/rank. 0.90 (+12%) would leave only ~3 GiB on the tightest
-# rank: the 137 prefill high-water reached 17.0 GiB free at C160 (0.88 leaves ~8.6 GiB).
-# Host: the DSA indexer region adds ~23% on top of the KV pool size given here.
-#   135 (one instance, 4 ranks): 400 GB/rank -> ~492 GB/rank, ~1.97 TB of 2.75 TB.
-#   137 (two instances, 8 ranks): 200 GB/rank -> ~246 GB/rank, ~1.97 TB of 2.75 TB.
-# 400 GB = 372.5 GiB exceeds the default 256 GiB register chunk (two hipHostRegister calls,
-# MAF past the first; H1), hence chunk 512 on prefill-0.
+# Stage t6 overlay (2026-10-14): 3P1D again with
+#   - decode mem 0.85 -> 0.92: at C176 decode KV sat above 90% for 38% of the time (pre-allocation waits 0.52/rank);
+#     KV 2.99M -> ~3.37M tokens/rank. Decode high-water left 28.3 GiB free at 0.85 (peak use beyond the pool
+#     ~12.6 GiB), so 0.92 (reserve ~21.8 GiB) keeps ~9 GiB headroom;
+#   - prefill-1 / prefill-2 GPU sets swapped (prefill-2 hung twice on crsuse2-m2m-137 card4-7): if a hang follows
+#     card4-7 (now prefill-1) the GPUs are suspect, if it stays with prefill-2 (now card0-3) the instance path is.
+# Everything else as config/stage-tok4.sh (prefill mem 0.88 + HiCache 400/200, decode 4 tokenizer workers).
 PREFILL_MEM_FRACTION=0.88
 HICACHE_SIZE_prefill_0=400
 HICACHE_SIZE_prefill_1=200
 HICACHE_SIZE_prefill_2=200
 HICACHE_HOST_REGISTER_CHUNK_GB_prefill_0=512
-
-# 2026-10-14 03:14 (tok4): decode-only restart with 4 HTTP/TokenizerManager workers. At C176 the
-# single decode TokenizerManager sat at 100% CPU while decode-side TTFT was 31.7 s and prefill
-# finished in 2.8 s (operations/STATUS.zh-CN.md 02:30).
 EXTRA_ARGS_decode_0="--tokenizer-worker-num 4"
-DECODE_LOG=decode-0.after-tok4b.log
+DECODE_MEM_FRACTION=0.92
+GPUS_prefill_1=4,5,6,7
+GPUS_prefill_2=0,1,2,3
+DECODE_LOG=decode-0.after-mem092.log

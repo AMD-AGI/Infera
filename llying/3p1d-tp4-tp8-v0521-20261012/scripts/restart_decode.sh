@@ -87,7 +87,9 @@ python3 "$H/tools/wait_healthy.py" --ssh-options "$SSH_OPTS" --timeout 300 --int
     --probe-timeout 5 --failure-dir "$LAUNCH_DIR/failures" \
     --summary "$LAUNCH_DIR/router-health.after-$TAG.json" \
     --target router "$CONTROL_NODE" "$router" "http://$control_ip:$ROUTER_PORT/health"
-expected=$(( $(python3 "$H/tools/topology.py" count "$TOPOLOGY" prefill) + 1 ))
+# EXPECT_WORKERS overrides the topology count, e.g. when a prefill in the new topology is not up yet
+# (restart_all_engines.sh restarts decode first, then the prefills).
+expected="${EXPECT_WORKERS:-$(( $(python3 "$H/tools/topology.py" count "$TOPOLOGY" prefill) + 1 ))}"
 for i in $(seq 1 30); do
     n="$(curl -fsS --max-time 10 "http://$control_ip:$ROUTER_PORT/v1/workers" | python3 -c '
 import json,sys

@@ -40,3 +40,26 @@ round t4d-tok4 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFF
 round t4d-tok4 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
 # 10:45 (user: push throughput autonomously): C176 30,562 still rising (+7.3% vs C160) -> C192 on the same stack.
 round t4d-tok4 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 10:55 next (autonomous, push tok/s/GPU): 2P1D = drop prefill-0 (135) from the live stack; decode untouched (stays warm).
+run drop_prefill.sh ROUND=r2 INSTANCE=prefill-0 TAG=2p1d
+round t5-2p1d 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t5-2p1d 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 11:45 C192 aborted (prefill-2 hung again 11:31, same signature, 137 card4-7). 2P1D done by dropping prefill-2 instead
+# (prefill-0 135 + prefill-1 137 card0-3; decode untouched): drop_prefill.sh INSTANCE=prefill-2 run manually, smoke 192/192.
+# Queued steps 26-29 (C192, drop prefill-0, t5 C176/C160) skipped.
+round t5-2p1d 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t5-2p1d 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 11:45 C192 aborted (prefill-2 hung again 11:31, same signature, 137 card4-7). 2P1D done by dropping prefill-2 instead
+# (prefill-0 135 + prefill-1 137 card0-3; decode untouched): drop_prefill.sh INSTANCE=prefill-2 run manually, smoke 192/192.
+# Queued steps 26-29 (C192, drop prefill-0, t5 C176/C160) skipped.
+# duplicate (launch command ran twice; skipped): round t5-2p1d 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# duplicate (launch command ran twice; skipped): round t5-2p1d 160 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 12:33 t5-2p1d C176 aborted in warm-up: routing imbalance (prefill-1 queue 130-210 s, prefill-0 idle; router reported no
+# blocks for prefill-0). Re-run with a fresh router; check prefill balance in the first 10 minutes.
+round t5b-2p1d 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+# 13:10 (user: finish 2P1D C176, then hang root cause, then decode-side KV): one restart for both -- decode mem 0.92
+# (KV +13%) and prefill-1/2 GPU sets swapped (hang attribution: GPU set vs instance). Then 3P1D C176 / C192.
+run restart_all_engines.sh ROUND=r2 OVERLAY=config/stage-mem092.sh TAG=mem092
+run warmup_round.sh VARIANT=warm-mem092 CONC=144 MINUTES=30
+round t6-mem092 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+round t6-mem092 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
