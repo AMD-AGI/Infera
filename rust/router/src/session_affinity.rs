@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use axum::http::HeaderMap;
@@ -254,10 +254,11 @@ impl Lease {
         self.binding().invalidate();
     }
 }
+// Never panics: drop can run while unwinding, where a second panic aborts the router.
 impl Drop for Lease {
     fn drop(&mut self) {
-        let mut e = self.entry.lock().expect("session entry poisoned");
-        e.active -= 1;
+        let mut e = self.entry.lock().unwrap_or_else(PoisonError::into_inner);
+        e.active = e.active.saturating_sub(1);
         self.counters.active[self.role].fetch_sub(1, Ordering::Relaxed);
         if e.active == 0 {
             e.idle_since = Instant::now();
@@ -294,6 +295,21 @@ mod tests {
     }
     fn pick(s: &Sessions, p: &dyn Policy, role: Role, id: Option<&str>) -> (Pick, Option<Lease>) {
         s.pick(p, &workers(), &json!({}), &RequestTokens::default(), role, "m", id)
+    }
+
+    #[test]
+    fn lease_release_tolerates_a_poisoned_entry() {
+        let s = Sessions::new(Mode::Prefill, Duration::from_secs(3600), 10);
+        let (_, lease) = pick(&s, &RoundRobin::new(), Role::Prefill, Some("x"));
+        let lease = lease.unwrap();
+        let (entry, poisoner) = (lease.entry.clone(), lease.entry.clone());
+        let _ = std::thread::spawn(move || {
+            let _held = poisoner.lock().unwrap();
+            panic!("poison the session entry");
+        })
+        .join();
+        drop(lease);
+        assert_eq!(entry.lock().unwrap_or_else(PoisonError::into_inner).active, 0);
     }
 
     #[test]

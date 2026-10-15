@@ -3,7 +3,7 @@
 
 //! Router-local in-flight input tokens, not physical allocator occupancy.
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::Value;
 
@@ -66,12 +66,16 @@ impl Reservation {
     }
 }
 
+// Never panics: drop can run while unwinding, where a second panic aborts the router.
 impl Drop for Reservation {
     fn drop(&mut self) {
-        let mut state = self.ledger.lock().expect("decode demand ledger poisoned");
-        let entry = state.get_mut(&self.key).expect("reserved decode target");
-        entry.tokens -= u128::from(self.tokens);
-        entry.requests -= 1;
+        let mut state = self.ledger.lock().unwrap_or_else(PoisonError::into_inner);
+        let Some(entry) = state.get_mut(&self.key) else {
+            tracing::warn!(route_key = %self.key, "decode demand released without a reservation");
+            return;
+        };
+        entry.tokens = entry.tokens.saturating_sub(u128::from(self.tokens));
+        entry.requests = entry.requests.saturating_sub(1);
         if entry.requests == 0 {
             state.remove(&self.key);
         }
@@ -123,6 +127,32 @@ mod tests {
         assert_eq!(ledger.lock().unwrap()["d"].tokens, 1);
         drop(small);
         assert!(ledger.lock().unwrap().is_empty());
+    }
+
+    #[test]
+    fn release_tolerates_a_missing_entry_and_a_poisoned_ledger() {
+        let ledger = Ledger::default();
+        let (gone, kept) = {
+            let mut state = ledger.lock().unwrap();
+            (
+                Reservation::book(&ledger, &mut state, "gone".into(), 5),
+                Reservation::book(&ledger, &mut state, "kept".into(), 7),
+            )
+        };
+        ledger.lock().unwrap().remove("gone");
+        drop(gone);
+        let poisoner = ledger.clone();
+        let _ = std::thread::spawn(move || {
+            let _held = poisoner.lock().unwrap();
+            panic!("poison the ledger");
+        })
+        .join();
+        assert!(ledger.is_poisoned());
+        drop(kept);
+        assert!(ledger
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .is_empty());
     }
 
     #[test]

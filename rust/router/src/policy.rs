@@ -776,7 +776,7 @@ impl Policy for KvEventAwarePolicy {
             let on = self.decode_input_demand == DecodeDemandMode::On;
             let (picked, suggested, reservation, costs) = {
                 // Only snapshot, selection and reservation hold the ledger lock.
-                let mut ledger = self.demand.lock().expect("decode demand ledger poisoned");
+                let mut ledger = self.demand.lock().unwrap_or_else(PoisonError::into_inner);
                 let costs: Vec<u128> = keys
                     .iter()
                     .zip(&work)
