@@ -47,8 +47,6 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
-from .golden_al import golden_al, rate_for_al
-
 # Dtype flags per precision name. The KV cache follows what the serving
 # recipes actually run: fp8 KV for every low-precision weight format.
 PRECISIONS: dict[str, dict[str, str]] = {
@@ -266,17 +264,18 @@ class KvConfig:
         return cls(label=label or "+".join(t.split(":")[0] for t in tiers), tiers=tiers)
 
 
-# method -> (draft depth, per-draft-token acceptance, draft cost per proposed
-# token as a fraction of one target decode step). The depth is InferenceX's
-# recipes' (``speculative-num-steps 3``); an MTP head is one extra layer plus
-# the LM head, so its draft costs a few percent of a 60-90 layer target.
-SPEC_DEFAULTS: dict[str, tuple[int, float, float]] = {
-    "mtp": (3, 0.75, 0.05),
-    "nextn": (3, 0.75, 0.05),
-    "eagle": (3, 0.70, 0.08),
-    "eagle3": (3, 0.75, 0.08),
-    "draft": (4, 0.65, 0.15),
-    "ngram": (4, 0.40, 0.0),
+# method -> the draft depth it runs at when the setting names none:
+# InferenceX's recipes' ``speculative-num-steps 3``, 4 for a separate draft
+# model and n-gram lookup.
+SPEC_DEFAULTS: dict[str, int] = {
+    "mtp": 3,
+    "nextn": 3,
+    "eagle": 3,
+    "eagle3": 3,
+    "dspark": 3,
+    "draft_model": 4,
+    "draft": 4,
+    "ngram": 4,
 }
 
 
@@ -284,39 +283,44 @@ SPEC_DEFAULTS: dict[str, tuple[int, float, float]] = {
 class SpecConfig:
     """One speculative-decoding setting: ``none`` or ``METHOD[:K[:ACCEPT[:DRAFT_COST]]]``.
 
-    ``ACCEPT`` may be ``golden``: the acceptance InferenceX pins the model to
-    at that depth (:mod:`.golden_al`), resolved per model when the sweep is
-    built. With golden acceptance ``K`` may be a range (``mtp:1-8:golden``,
-    or ``mtp:golden`` for every depth the curves have), and every depth is
-    one line, so the frontier picks the depth at each concurrency.
+    Left out (or ``golden``), ``ACCEPT`` is what the measured acceptance-length
+    files give the model at that depth (:mod:`.golden_al`: its own curve, its
+    sibling head's, else the method's default) and ``DRAFT_COST`` is the
+    drafter's own forward, priced from its layers; the projector resolves both
+    and reports where they came from. A number states a per-draft-token
+    acceptance or a flat draft cost per proposed token instead.
+
+    ``K`` may be a range (``mtp:1-8``, or ``mtp:golden`` for every depth the
+    curves cover); each depth is projected, but the method stays one line, so
+    the frontier picks the depth at each concurrency.
     """
 
     method: str = "none"
     k: int = 0
-    accept: float = 0.0
-    draft_cost: float = 0.0
-    golden: bool = False
+    accept: float | None = None
+    draft_cost: float | None = None
+    sweep: bool = False
+    thinking: str = "on"
 
     @classmethod
     def parse_many(cls, spec: str) -> list[SpecConfig]:
         parts = [p.strip() for p in spec.strip().lower().split(":")]
-        if "golden" not in parts[1:3]:
+        if len(parts) < 2 or (parts[1] != "golden" and "-" not in parts[1]):
             return [cls.parse(spec)]
         if parts[0] not in SPEC_DEFAULTS:
             raise ValueError(f"unknown speculative method {parts[0]!r} in {spec!r}")
-        from .golden_al import max_depth
+        from .golden_al import DEFAULT_DEPTHS
 
-        rng = parts[1] if parts[1] != "golden" else ""
-        rest = parts[2:] if parts[1] != "golden" else parts[1:]
+        rng, rest = ("", parts[2:]) if parts[1] == "golden" else (parts[1], parts[2:])
         lo, _, hi = rng.partition("-")
-        top = max_depth(parts[0])
-        if not top:
-            raise ValueError(f"no golden acceptance curve for {parts[0]!r} in {spec!r}")
-        ks = range(int(lo or 1), int(hi or lo or top) + 1)
-        dc = float(rest[1]) if len(rest) > 1 and rest[1] else SPEC_DEFAULTS[parts[0]][2]
-        if not ks or ks[0] < 1 or dc < 0.0:
+        try:
+            ks = range(int(lo or 1), int(hi or lo or max(DEFAULT_DEPTHS)) + 1)
+        except ValueError:
+            raise ValueError(f"bad speculative setting {spec!r}") from None
+        if not ks or ks[0] < 1:
             raise ValueError(f"bad speculative setting {spec!r}")
-        return [cls(method=parts[0], k=k, draft_cost=dc, golden=True) for k in ks]
+        one = cls.parse(":".join([parts[0], str(ks[0]), *rest]))
+        return [replace(one, k=k, sweep=True) for k in ks]
 
     @classmethod
     def parse(cls, spec: str) -> SpecConfig:
@@ -325,16 +329,19 @@ class SpecConfig:
             return cls()
         if parts[0] not in SPEC_DEFAULTS:
             raise ValueError(f"unknown speculative method {parts[0]!r} in {spec!r}")
-        if "golden" in parts[1:3]:
-            raise ValueError(f"golden acceptance can name several depths; use parse_many: {spec!r}")
-        k, acc, dc = SPEC_DEFAULTS[parts[0]]
-        if len(parts) > 1 and parts[1]:
-            k = int(parts[1])
-        if len(parts) > 2 and parts[2]:
-            acc = float(parts[2])
-        if len(parts) > 3 and parts[3]:
-            dc = float(parts[3])
-        if k < 1 or not 0.0 <= acc <= 1.0 or dc < 0.0:
+        if len(parts) > 1 and (parts[1] == "golden" or "-" in parts[1]):
+            raise ValueError(f"a depth range names several settings; use parse_many: {spec!r}")
+        k, acc, dc = SPEC_DEFAULTS[parts[0]], None, None
+        try:
+            if len(parts) > 1 and parts[1]:
+                k = int(parts[1])
+            if len(parts) > 2 and parts[2] not in ("", "golden"):
+                acc = float(parts[2])
+            if len(parts) > 3 and parts[3]:
+                dc = float(parts[3])
+        except ValueError:
+            raise ValueError(f"bad speculative setting {spec!r}") from None
+        if k < 1 or (acc is not None and not 0.0 <= acc <= 1.0) or (dc is not None and dc < 0.0):
             raise ValueError(f"bad speculative setting {spec!r}")
         return cls(method=parts[0], k=k, accept=acc, draft_cost=dc)
 
@@ -342,34 +349,38 @@ class SpecConfig:
     def label(self) -> str:
         if self.method == "none":
             return "none"
-        _, acc, dc = SPEC_DEFAULTS[self.method]
         m = self.method.upper()
-        if self.golden:
-            # One line per method: its depths are a choice the frontier makes.
-            return m + ("" if abs(self.draft_cost - dc) <= 1e-9 else f"/d{self.draft_cost:g}")
-        s = f"{m}{'-' if m[-1].isdigit() else ''}{self.k}"
-        if abs(self.accept - acc) > 1e-9:
+        # A depth sweep is one line per method: its depths are a choice the
+        # frontier makes.
+        s = m if self.sweep else f"{m}{'-' if m[-1].isdigit() else ''}{self.k}"
+        if self.accept is not None:
             s += f"@{self.accept:g}"
-        if abs(self.draft_cost - dc) > 1e-9:
+        if self.draft_cost is not None:
             s += f"/d{self.draft_cost:g}"
         return s
-
-    @property
-    def tokens_per_step(self) -> float:
-        """Expected tokens a verify step keeps: the bonus token plus the accepted run."""
-        return sum(self.accept**i for i in range(self.k + 1)) if self.k else 1.0
 
     def argv(self) -> list[str]:
         if self.method == "none":
             return []
-        return [
+        method = "draft_model" if self.method == "draft" else self.method
+        out = [
+            "--speculative-method",
+            method,
             "--speculative-num-tokens",
             str(self.k),
-            "--speculative-acceptance-rate",
-            str(self.accept),
-            "--speculative-draft-cost-factor",
-            str(self.draft_cost),
+            "--speculative-thinking",
+            self.thinking,
         ]
+        if self.accept is not None:
+            out += ["--speculative-acceptance-rate", str(self.accept)]
+        if self.draft_cost is not None:
+            out += [
+                "--speculative-draft-cost-factor",
+                str(self.draft_cost),
+                "--speculative-draft-cost-model",
+                "flat",
+            ]
+        return out
 
 
 def _sched_argv(v: str) -> list[str]:
@@ -508,6 +519,8 @@ class ParetoPoint:
     memory_per_gpu_gb: float = 0.0
     kv_tiers: str = ""
     spec_tokens_per_step: float = 1.0
+    spec_draft_cost: str = ""
+    spec_draft_ms: float = 0.0
     on_frontier: bool = False
 
     def series(self) -> str:
@@ -896,6 +909,9 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
     pt.gpus = gpus
     extras = getattr(perf, "extras", None) or {}
     pt.spec_tokens_per_step = float(extras.get("speculative_tokens_per_step") or 1.0)
+    pt.spec_al_source = str(extras.get("speculative_acceptance_source") or "")
+    pt.spec_draft_cost = str(extras.get("speculative_draft_cost") or "")
+    pt.spec_draft_ms = float(extras.get("speculative_draft_ms") or 0.0)
     if mem is not None:
         pt.memory_per_gpu_gb = float(getattr(mem, "total_bytes", 0) or 0) / (1024.0**3)
         # Unrunnable only when weights and the step's activations leave no HBM
@@ -1071,13 +1087,8 @@ def build_tasks(
         # replaying all C lanes through one rank's cache would thrash it.
         lanes = -(-conc // max(1, par.dp_attn))
         trace = sc.trace.replace("{c}", str(lanes)) if sc.trace else None
-        al_source = ""
-        if spec.golden:
-            g = golden_al(m.preset, spec.method, spec.k, golden_thinking)
-            if g is None:
-                continue
-            spec = replace(spec, accept=rate_for_al(g[0], spec.k))
-            al_source = g[1]
+        if spec.method != "none":
+            spec = replace(spec, thinking=golden_thinking)
         base = dict(
             model=m.preset,
             checkpoint=m.checkpoint,
@@ -1099,8 +1110,7 @@ def build_tasks(
             concurrency=conc,
             spec=spec.label,
             spec_k=spec.k,
-            spec_accept=spec.accept,
-            spec_al_source=al_source,
+            spec_accept=spec.accept or 0.0,
             knobs=_knob_label(combo),
         )
         tag = ""
@@ -1869,7 +1879,8 @@ $('chart').addEventListener('mousemove',e=>{
   t.innerHTML=`<b>${p.parallelism} · conc ${p.concurrency} · ${p.gpus} GPU</b>\\n${p.model} ${p.engine} ${p.precision} (${p.mode})\\n`+
    `interactivity ${num(p.interactivity)} tok/s/user\\nthroughput/GPU ${num(p.total_tput_per_gpu,0)} (output ${num(p.output_tput_per_gpu,0)})\\n`+
    `TTFT ${num(p.ttft_ms,0)} ms · TPOT ${num(p.tpot_ms,2)} ms`+(p.anchor?`\\nanchor ${p.anchor.split('/').pop()}`:'')+(p.kv_tiers?`\\nKV tiers ${p.kv_tiers}`:'')+
-   ((p.spec||'none')!=='none'?`\\nspeculative ${p.spec} (k=${p.spec_k}, ${(p.spec_tokens_per_step||1).toFixed(2)} tok/step${p.spec_al_source?', golden AL from '+p.spec_al_source:', accept '+p.spec_accept})`:'')+
+   ((p.spec||'none')!=='none'?`\\nspeculative ${p.spec} k=${p.spec_k}, ${(p.spec_tokens_per_step||1).toFixed(2)} tok/step`+
+     (p.spec_al_source?`\\n  acceptance ${p.spec_al_source}`:'')+(p.spec_draft_cost?`\\n  draft ${p.spec_draft_cost}${p.spec_draft_ms?' = '+num(p.spec_draft_ms,2)+' ms/step':''}`:''):'')+
    (p.knobs?`\\n${p.knobs}`:'');
   t.style.display='block';
   const r=t.getBoundingClientRect(); let lx=e.clientX+14, ly=e.clientY+12;
@@ -2066,20 +2077,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=["none"],
         help="Speculative decoding settings, each its own series: 'none' or "
         "METHOD[:K[:ACCEPT[:DRAFT_COST]]] with METHOD in "
-        f"{'/'.join(SPEC_DEFAULTS)} (e.g. none mtp mtp:3:0.8 eagle3:4). K is the "
-        "draft depth, ACCEPT the per-draft-token acceptance, DRAFT_COST one draft "
-        "pass as a fraction of a target decode step; omitted parts take "
-        "the method's defaults "
-        + ", ".join(f"{m}={k}:{a:g}:{d:g}" for m, (k, a, d) in SPEC_DEFAULTS.items())
-        + ". ACCEPT 'golden' takes the acceptance InferenceX pins the model to at "
-        "each depth, and K may then be a range: 'mtp:golden' sweeps every depth "
-        "the curves have as one line, 'mtp:1-4:golden' depths 1 to 4.",
+        f"{'/'.join(SPEC_DEFAULTS)} (e.g. none mtp eagle3:4 mtp:1-8 mtp:3:0.8). "
+        "K is the draft depth (default "
+        + ", ".join(f"{m}={k}" for m, k in SPEC_DEFAULTS.items())
+        + "), or a range swept as one line ('mtp:golden' = every depth the "
+        "curves cover). ACCEPT left out reads the measured acceptance-length "
+        "files for the model (own curve, sibling head's, else the method "
+        "default); a number states a per-draft-token rate. DRAFT_COST left out "
+        "prices the drafter from its layers; a number is a flat cost per draft "
+        "token as a fraction of a target decode step.",
     )
     ap.add_argument(
         "--golden-thinking",
         choices=("on", "off"),
         default="on",
-        help="Which thinking-mode golden curve 'golden' acceptance reads (InferenceX's default is on)",
+        help="Which thinking-mode sweep of the acceptance-length files to read "
+        "(InferenceX's default is on)",
     )
     knobs = ap.add_argument_group(
         "deployment knobs",

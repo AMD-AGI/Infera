@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+from types import SimpleNamespace
 
 import pytest
 
@@ -421,17 +422,24 @@ def test_point_argv_attention_dp_and_tiers():
 def test_spec_config():
     assert P.SpecConfig.parse("none") == P.SpecConfig()
     assert P.SpecConfig.parse("none").argv() == []
+    # Left unstated, acceptance and draft cost are the projector's to resolve:
+    # the model's measured curve and its drafter's own forward.
     mtp = P.SpecConfig.parse("mtp")
-    assert (mtp.k, mtp.accept, mtp.draft_cost, mtp.label) == (3, 0.75, 0.05, "MTP3")
+    assert (mtp.k, mtp.accept, mtp.draft_cost, mtp.label) == (3, None, None, "MTP3")
+    assert " ".join(mtp.argv()) == (
+        "--speculative-method mtp --speculative-num-tokens 3 --speculative-thinking on"
+    )
+    assert P.SpecConfig.parse("mtp:3:golden") == mtp
     s = P.SpecConfig.parse("mtp:2:0.8:0.1")
     assert s.label == "MTP2@0.8/d0.1"
-    assert s.tokens_per_step == pytest.approx(1 + 0.8 + 0.64)
     assert " ".join(s.argv()) == (
-        "--speculative-num-tokens 2 --speculative-acceptance-rate 0.8 "
-        "--speculative-draft-cost-factor 0.1"
+        "--speculative-method mtp --speculative-num-tokens 2 --speculative-thinking on "
+        "--speculative-acceptance-rate 0.8 "
+        "--speculative-draft-cost-factor 0.1 --speculative-draft-cost-model flat"
     )
     assert P.SpecConfig.parse("EAGLE3:4").label == "EAGLE3-4"
-    for bad in ("medusa", "mtp:0", "mtp:3:1.5", "mtp:3:0.7:-1"):
+    assert P.SpecConfig.parse("draft").argv()[1] == "draft_model"
+    for bad in ("medusa", "mtp:0", "mtp:3:1.5", "mtp:3:0.7:-1", "mtp:x"):
         with pytest.raises(ValueError):
             P.SpecConfig.parse(bad)
 
@@ -534,37 +542,18 @@ def test_build_tasks_spec_and_knob_series(tmp_path):
     assert _pt(1, 1).spec == "none" and _pt(1, 1, spec="MTP3").series().endswith("MTP3 (simulate)")
 
 
-def test_golden_acceptance_curves():
-    from infera.projection.core.projection.inference_projection import golden_al as G
-
-    assert G.golden_al("glm5", "mtp", 3) == (2.99, "glm5.2_mtp")
-    assert G.golden_al("deepseek_v4_pro", "mtp", 3, "off") == (2.97, "dsv4_mtp")
-    # GLM-5.2 has no thinking-off curve; it falls back to thinking on.
-    assert G.golden_al("glm5", "mtp", 3, "off") == (2.99, "glm5.2_mtp")
-    # SGLang's EAGLE serves the checkpoint's MTP head.
-    assert G.golden_al("qwen3_5_397B_A17B", "eagle", 1) == (1.93, "qwen3.5_mtp")
-    al, src = G.golden_al("deepseek_v4_flash", "mtp", 3)
-    assert src == "mtp mean" and al == pytest.approx((2.99 + 2.49 + 3.39) / 3)
-    # A model's own curve only counts for the method it was measured with.
-    assert G.golden_al("minimax_m3", "mtp", 3)[1] == "mtp mean"
-    assert G.golden_al("minimax_m3", "eagle3", 3) == (2.83, "minimaxm3_eagle3")
-    assert G.golden_al("glm5", "ngram", 3) is None and G.golden_al("glm5", "mtp", 9) is None
-    for al, k in ((2.99, 3), (1.5, 1), (4.06, 8)):
-        a = G.rate_for_al(al, k)
-        assert sum(a**i for i in range(k + 1)) == pytest.approx(al)
-    assert G.rate_for_al(1.0, 3) == 0.0 and G.rate_for_al(9.0, 3) == 1.0
-
-
-def test_golden_spec_sweeps_depth_as_one_line(tmp_path):
+def test_spec_depth_range_is_one_line(tmp_path):
     specs = P.SpecConfig.parse_many("mtp:golden")
     assert [s.k for s in specs] == list(range(1, 9)) and {s.label for s in specs} == {"MTP"}
     assert [s.k for s in P.SpecConfig.parse_many("eagle3:2-4:golden")] == [2, 3, 4]
-    assert [s.k for s in P.SpecConfig.parse_many("mtp:3:golden")] == [3]
+    assert [s.k for s in P.SpecConfig.parse_many("eagle3:2-4")] == [2, 3, 4]
+    assert {s.label for s in P.SpecConfig.parse_many("ngram:1-2:0.4")} == {"NGRAM@0.4"}
+    assert P.SpecConfig.parse_many("mtp:3:golden") == [P.SpecConfig.parse("mtp:3")]
     assert P.SpecConfig.parse_many("mtp:3") == [P.SpecConfig.parse("mtp:3")]
     with pytest.raises(ValueError):
         P.SpecConfig.parse("mtp:golden")
     with pytest.raises(ValueError):
-        P.SpecConfig.parse_many("ngram:golden")
+        P.SpecConfig.parse_many("mtp:4-2")
     tasks, _ = P.build_tasks(
         models=[P.ModelSpec("glm5", "GLM"), P.ModelSpec("deepseek_v4_flash", "V4F")],
         engines=["sglang"],
@@ -576,20 +565,37 @@ def test_golden_spec_sweeps_depth_as_one_line(tmp_path):
         anchors=[],
         workdir=str(tmp_path),
         specs=[P.SpecConfig(), *P.SpecConfig.parse_many("mtp:1-3:golden")],
+        golden_thinking="off",
     )
     pts = [P.ParetoPoint(**t["point"]) for t in tasks]
     assert len(pts) == 8 and len({P._key(p) for p in pts}) == 8
     glm3 = next(p for p in pts if p.model == "glm5" and p.spec_k == 3)
-    assert glm3.spec == "MTP" and glm3.spec_al_source == "glm5.2_mtp"
+    assert glm3.spec == "MTP" and glm3.spec_accept == 0.0
     assert glm3.series() == "MI355X sglang MTP (simulate)" and glm3.short() == "TP8 c4 k3"
-    assert sum(glm3.spec_accept**i for i in range(4)) == pytest.approx(2.99)
     argv = next(
         t["argv"] for t in tasks if t["point"]["model"] == "glm5" and t["point"]["spec_k"] == 3
     )
-    assert argv[argv.index("--speculative-acceptance-rate") + 1] == str(glm3.spec_accept)
-    assert {p.spec_al_source for p in pts if p.model == "deepseek_v4_flash" and p.spec_k} == {
-        "mtp mean"
-    }
+    # The projector reads the curve and prices the drafter.
+    assert argv[argv.index("--speculative-thinking") + 1] == "off"
+    assert "--speculative-acceptance-rate" not in argv
+    assert "--speculative-draft-cost-factor" not in argv
+
+
+def test_fill_metrics_reports_where_speculation_came_from():
+    pt = _pt(1, 1, spec="MTP3", spec_k=3)
+    perf = SimpleNamespace(
+        replica_gpus=8,
+        extras={
+            "speculative_tokens_per_step": 2.99,
+            "speculative_acceptance_source": "model:glm5.2_mtp.yaml[thinking_on]",
+            "speculative_draft_cost": "analytic (1 MoE layer(s))",
+            "speculative_draft_ms": 0.8,
+        },
+    )
+    P._fill_metrics(pt, {"performance": perf}, 0.0)
+    assert pt.spec_tokens_per_step == 2.99
+    assert pt.spec_al_source == "model:glm5.2_mtp.yaml[thinking_on]"
+    assert pt.spec_draft_cost.startswith("analytic") and pt.spec_draft_ms == 0.8
 
 
 def test_writers_round_trip(tmp_path):

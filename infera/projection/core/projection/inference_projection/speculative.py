@@ -5,11 +5,8 @@
 ###############################################################################
 """The speculative drafter, for a projection that has no measurement of it.
 
-Two things decide what speculation buys, and the simulate path knew neither.
-What the draft costs was a free knob that defaults to nothing, so every
-speculating stack drafted for free. How many drafts the target keeps was a
-single per-token rate handed in from outside, so the projection could not say
-how that changes with the draft depth or with what is being generated.
+Two things decide what speculation buys: what the draft costs, and how many
+drafts the target keeps.
 
 The cost is the drafter's own forward, and a drafter is a small piece of the
 target: an MTP head is one more layer of the target's own shape, an EAGLE3
@@ -20,23 +17,16 @@ head and sampling costs the target step is priced from.
 
 The acceptance is a chain: draft ``i`` is only reached if every draft before it
 was accepted, so a step commits ``AL = 1 + sum_i prod_{j<=i} AR_j`` tokens,
-the conditional rate ``AR_j`` falling with position. Following SPEED-Bench
-(arXiv 2604.09557) the rate is a property of the drafter *and* of the domain's
-entropy: code completion and sorting accept long drafts, creative writing and
-roleplay short ones, STEM and QA sit between. Their throughput split names the
-three classes ``low_entropy``, ``mixed`` and ``high_entropy``.
+the conditional rate ``AR_j`` falling with position. The level comes only from
+measured acceptance-length files (``golden_al``): the chain is solved to
+reproduce the file's AL at the depth being run, so the files fix how many
+tokens a step commits and the chain only spreads them over draft positions.
 
-Everything below is fitted, at import, from published measurements:
-
-* the per-position decay from the golden acceptance lengths InferenceX pins
-  its throughput runs to, which exist as a sweep over draft depth for GLM-5.2's
-  MTP head and Kimi-K3's DSpark drafter;
-* each method's level and its entropy sensitivity from SPEED-Bench Table 1,
-  which reports acceptance length per domain at a draft length of 3.
-
-A projection that knows its own drafter's acceptance at one depth passes it as
-the reference, and that reference is reproduced exactly at that depth; the
-fitted shape only carries it to other depths and other entropy classes.
+An entropy class can be asked for on top. The files are SPEED-Bench's coding
+domain; following SPEED-Bench (arXiv 2604.09557) code and math accept long
+drafts, creative writing and roleplay short ones, and STEM and QA sit between.
+Asking for a class moves the chain by the ratio of that class's acceptance to
+coding's in SPEED-Bench Table 1.
 """
 
 from __future__ import annotations
@@ -46,7 +36,7 @@ from dataclasses import dataclass
 from functools import cache
 
 # A drafter never keeps every draft; capping the rate keeps the chain finite
-# when a low-entropy multiplier would push it past one.
+# when an entropy multiplier would push it past one.
 AR_MAX = 0.99
 
 _ALIASES = {
@@ -181,88 +171,26 @@ def drafter_for(
     return d
 
 
+# What the flat draft-cost fallback charges per draft token, as a fraction of
+# one target decode token, when the drafter cannot be priced from its own
+# layers (a draft model with no stated depth, or a simulator that cannot price
+# the target's layers on this host). Not measured: an order-of-magnitude guess
+# kept so a fallback does not silently draft for free.
+FLAT_DRAFT_COST = {
+    "mtp": 0.05,
+    "eagle3": 0.08,
+    "dspark": 0.05,
+    "draft_model": 0.15,
+    "ngram": 0.0,
+}
+
+
 # ---- acceptance ---------------------------------------------------------------
-
-# SPEED-Bench Table 1: mean acceptance length at a draft length of 3, BS=32,
-# temperature 0, on the Qualitative Split, one entry per target the method was
-# run on. N-Gram: Llama 3.3 70B, GPT-OSS 120B. Vanilla: Llama 3.3 70B,
-# Qwen3 235B. EAGLE3: Llama 3.3 70B, GPT-OSS 120B, Qwen3 235B, Qwen3-Next.
-# MTP: DeepSeek R1, Qwen3-Next.
-_SPEED_BENCH_DL = 3
-_SPEED_BENCH_AL = {
-    "ngram": {
-        "Coding": (1.54, 1.31),
-        "Math": (1.43, 1.30),
-        "STEM": (1.38, 1.30),
-        "QA": (1.21, 1.27),
-        "Writing": (1.33, 1.20),
-        "Roleplay": (1.15, 1.25),
-    },
-    "draft_model": {
-        "Coding": (2.72, 2.62),
-        "Math": (2.43, 2.69),
-        "STEM": (2.45, 2.44),
-        "QA": (2.35, 2.28),
-        "Writing": (2.45, 2.19),
-        "Roleplay": (2.14, 1.92),
-    },
-    "eagle3": {
-        "Coding": (3.00, 2.46, 2.26, 3.17),
-        "Math": (2.45, 2.46, 2.37, 2.90),
-        "STEM": (2.39, 2.28, 2.18, 2.47),
-        "QA": (2.35, 2.25, 2.23, 2.13),
-        "Writing": (2.63, 1.98, 2.02, 2.09),
-        "Roleplay": (2.04, 1.87, 1.87, 1.80),
-    },
-    "mtp": {
-        "Coding": (2.76, 3.34),
-        "Math": (2.77, 3.13),
-        "STEM": (2.62, 2.85),
-        "QA": (2.52, 2.71),
-        "Writing": (2.33, 2.46),
-        "Roleplay": (2.14, 2.09),
-    },
-}
-
-# The three entropy classes of SPEED-Bench's throughput split, by the
-# Qualitative-Split domains the paper files under each: low (coding, math),
-# mixed (STEM and QA, the category its step latencies were measured on), high
-# (creative writing, roleplay).
-ENTROPY_CLASSES = {
-    "low": ("Coding", "Math"),
-    "mixed": ("STEM", "QA"),
-    "high": ("Writing", "Roleplay"),
-}
-_ENTROPY_POINT = {"low": -1.0, "mixed": 0.0, "high": 1.0}
-_ENTROPY_NAMES = {
-    "low": "low",
-    "low_entropy": "low",
-    "mixed": "mixed",
-    "mixed_entropy": "mixed",
-    "medium": "mixed",
-    "high": "high",
-    "high_entropy": "high",
-}
-
-# Golden acceptance length by draft depth, as InferenceX pins its throughput
-# runs: GLM-5.2's MTP head (glm5.2_mtp.yaml) and Kimi-K3's DSpark drafter
-# (kimik3_dspark golden_al_distribution). The only published sweeps over depth.
-_DEPTH_CURVES = {
-    "mtp": {3: 2.99, 4: 3.33, 5: 3.61},
-    "dspark": {3: 3.00, 4: 3.36, 5: 3.62, 7: 3.84},
-}
-# Methods without a depth sweep of their own take the MTP decay. SPEED-Bench
-# reports EAGLE3 losing acceptance faster with depth than MTP or a vanilla
-# draft model, but publishes no chain numbers past a draft length of 3.
-_DECAY_SOURCE = {"mtp": "mtp", "dspark": "dspark"}
-# DSpark has no SPEED-Bench column; it drafts off the target's fused hidden
-# states like an MTP head, so it takes MTP's entropy sensitivity.
-_ENTROPY_SOURCE = {"dspark": "mtp"}
 
 
 def chain_rates(a: float, decay: float, k: int) -> list[float]:
     """Conditional acceptance ``AR_1..AR_k`` of a chain starting at ``a``."""
-    return [min(AR_MAX, max(0.0, a * decay**j)) for j in range(max(0, int(k)))]
+    return [min(1.0, max(0.0, a * decay**j)) for j in range(max(0, int(k)))]
 
 
 def acceptance_length(rates) -> float:
@@ -274,144 +202,124 @@ def acceptance_length(rates) -> float:
     return al
 
 
-def _invert_rate(al: float, k: int, decay: float) -> float:
-    """The first-position rate whose chain commits ``al`` tokens at depth ``k``."""
-    if k <= 0 or al <= 1.0:
-        return 0.0
-    lo, hi = 0.0, AR_MAX
-    if acceptance_length(chain_rates(hi, decay, k)) <= al:
-        return hi
-    for _ in range(60):
-        mid = 0.5 * (lo + hi)
-        if acceptance_length(chain_rates(mid, decay, k)) < al:
-            lo = mid
-        else:
-            hi = mid
-    return 0.5 * (lo + hi)
+_ENTROPY_POINT = {"low": -1.0, "mixed": 0.0, "high": 1.0}
+_ENTROPY_NAMES = {
+    "low": "low",
+    "low_entropy": "low",
+    "mixed": "mixed",
+    "mixed_entropy": "mixed",
+    "medium": "mixed",
+    "high": "high",
+    "high_entropy": "high",
+}
+# DSpark has no SPEED-Bench column; it drafts off the target's fused hidden
+# states like an MTP head, so it takes MTP's entropy sensitivity.
+_ENTROPY_SOURCE = {"dspark": "mtp"}
 
 
-@cache
-def _fit_curve(source: str) -> tuple[float, float]:
-    """Least-squares ``(a, decay)`` through one depth sweep."""
-    curve = _DEPTH_CURVES[source]
-    best = (float("inf"), 0.0, 1.0)
-    for i in range(501):
-        d = 0.5 + i * 0.001
-        lo, hi = 0.0, AR_MAX
-        # SSE is unimodal in ``a`` at fixed decay: golden-section on it.
-        g = (math.sqrt(5.0) - 1.0) / 2.0
-        x1, x2 = hi - g * (hi - lo), lo + g * (hi - lo)
-
-        def sse(a: float, d: float = d) -> float:
-            return sum(
-                (acceptance_length(chain_rates(a, d, k)) - al) ** 2 for k, al in curve.items()
-            )
-
-        f1, f2 = sse(x1), sse(x2)
-        for _ in range(50):
-            if f1 < f2:
-                hi, x2, f2 = x2, x1, f1
-                x1 = hi - g * (hi - lo)
-                f1 = sse(x1)
-            else:
-                lo, x1, f1 = x1, x2, f2
-                x2 = lo + g * (hi - lo)
-                f2 = sse(x2)
-        a = 0.5 * (lo + hi)
-        err = sse(a)
-        if err < best[0]:
-            best = (err, a, d)
-    return best[1], best[2]
-
-
-def decay_for(method: str) -> float:
-    m = canonical_method(method) or "mtp"
-    return _fit_curve(_DECAY_SOURCE.get(m, "mtp"))[1]
-
-
-@cache
-def _class_rates(method: str) -> dict[str, float]:
-    """First-position rate per entropy class, from SPEED-Bench Table 1."""
-    m = _ENTROPY_SOURCE.get(method, method)
-    table = _SPEED_BENCH_AL[m]
-    d = decay_for(m)
-    out = {}
-    for cls, domains in ENTROPY_CLASSES.items():
-        rates = [_invert_rate(al, _SPEED_BENCH_DL, d) for dom in domains for al in table[dom]]
-        out[cls] = sum(rates) / len(rates)
-    return out
-
-
-def resolve_entropy(value) -> float:
+def resolve_entropy(value) -> float | None:
     """An entropy setting as a point on the low (-1) / mixed (0) / high (+1) axis.
 
-    Takes a class name (``low`` / ``mixed`` / ``high``, or SPEED-Bench's
-    ``low_entropy`` / ``high_entropy``) or a number on that axis; numbers are
-    clamped to it, since nothing measured lies beyond its ends.
+    ``None`` (or ``coding``) leaves the curve as measured. Otherwise a class
+    name (``low`` / ``mixed`` / ``high``, or SPEED-Bench's ``low_entropy`` /
+    ``high_entropy``) or a number on that axis, clamped to it since nothing
+    measured lies beyond its ends.
     """
     if value is None or value == "":
-        return 0.0
+        return None
     if isinstance(value, str):
         key = value.strip().lower()
+        if key in ("coding", "none", "golden"):
+            return None
         if key in _ENTROPY_NAMES:
             return _ENTROPY_POINT[_ENTROPY_NAMES[key]]
         value = float(key)
     return max(-1.0, min(1.0, float(value)))
 
 
+@cache
+def _class_rates(method: str) -> dict[str, float]:
+    """First-position rate per entropy class and for coding, from SPEED-Bench Table 1."""
+    from . import golden_al
+
+    m = _ENTROPY_SOURCE.get(method, method)
+    table = golden_al._speed_bench()
+    dl = int(table["draft_length"])
+    decay = golden_al.fit_chain(golden_al.default_curve(m).points("on")[0])[1]
+
+    def mean_rate(domains) -> float:
+        rates = [
+            golden_al.invert_rate(al, dl, decay) for al in golden_al.speed_bench_al(m, domains)
+        ]
+        return sum(rates) / len(rates)
+
+    out = {cls: mean_rate(doms) for cls, doms in table["entropy_classes"].items()}
+    out["coding"] = mean_rate(["Coding"])
+    return out
+
+
 def entropy_multiplier(method: str, entropy) -> float:
-    """How the first-position rate moves from the mixed class to ``entropy``.
+    """How the first-position rate moves from coding, where the curves were measured.
 
-    Read off SPEED-Bench as the ratio of each class's rate to the mixed
-    class's for the same method; between classes the log-ratio is linear.
+    The ratio of the class's SPEED-Bench rate to the coding rate for the same
+    method; between classes the log of the rate is linear on the axis.
     """
-    m = canonical_method(method) or "mtp"
-    rates = _class_rates(m)
     x = resolve_entropy(entropy)
-    end = rates["low"] if x < 0 else rates["high"]
-    base = rates["mixed"]
-    if base <= 0.0 or end <= 0.0:
+    if x is None:
         return 1.0
-    return math.exp(abs(x) * math.log(end / base))
-
-
-def default_rate(method: str) -> float:
-    """A method's mixed-class first-position rate, with no reference given."""
     m = canonical_method(method) or "mtp"
-    if m == "dspark":
-        return _fit_curve("dspark")[0]
-    return _class_rates(m)["mixed"]
+    if m not in ("mtp", "eagle3", "dspark", "draft_model", "ngram"):
+        return 1.0
+    rates = _class_rates(m)
+    end = rates["low"] if x < 0 else rates["high"]
+    mid = rates["mixed"]
+    if min(end, mid, rates["coding"]) <= 0.0:
+        return 1.0
+    target = math.exp(math.log(mid) + abs(x) * math.log(end / mid))
+    return target / rates["coding"]
 
 
 def acceptance_profile(
-    method: str,
+    acceptance,
     k: int,
     *,
+    method: str = "mtp",
     entropy=None,
     reference: tuple[int, float] | None = None,
 ) -> list[float]:
-    """Conditional acceptance ``AR_1..AR_k`` of ``method`` at draft depth ``k``.
+    """Conditional acceptance ``AR_1..AR_k`` at draft depth ``k``.
 
-    ``reference`` is a measured ``(depth, acceptance length)`` for this
-    target's own drafter, taken as the mixed class; without it the method's
-    SPEED-Bench level stands in. ``entropy`` then moves the whole chain.
+    ``acceptance`` is the resolved curve (``golden_al.Acceptance``): its AL at
+    ``k`` is what the chain commits. A ``reference`` -- an acceptance length
+    stated for this deployment at one depth -- rescales the curve so it passes
+    through that point, keeping the curve's shape between depths. ``entropy``
+    then moves the whole chain from coding to the asked-for class.
     """
-    m = canonical_method(method) or "mtp"
-    d = decay_for(m)
+    from .golden_al import invert_rate
+
+    k = int(k)
+    if k <= 0:
+        return []
+    al = acceptance.at(k)
     if reference and reference[0] > 0 and reference[1] > 1.0:
-        a = _invert_rate(float(reference[1]), int(reference[0]), d)
-    else:
-        a = default_rate(m)
-    a *= entropy_multiplier(m, entropy)
-    return chain_rates(min(AR_MAX, a), d, k)
+        ref_k, ref_al = int(reference[0]), float(reference[1])
+        base = acceptance.at(ref_k) - 1.0
+        al = 1.0 + (al - 1.0) * (ref_al - 1.0) / base if base > 0.0 else ref_al
+        al = min(float(k + 1), max(1.0, al))
+    # Every draft kept: no decay can reach that, so the chain is flat.
+    decay = 1.0 if al >= k + 1 - 1e-9 else acceptance.decay
+    a = invert_rate(al, k, decay)
+    mult = entropy_multiplier(method, entropy)
+    if mult != 1.0:
+        a = min(AR_MAX, a * mult)
+    return chain_rates(a, decay, k)
 
 
 def reference_from_rate(k: int, rate: float) -> tuple[int, float] | None:
     """The acceptance length a single per-token ``rate`` implies at depth ``k``.
 
-    The projector's legacy input is that flat rate (``1 + a + ... + a^k``
-    tokens a step); reading it back as a length lets a caller that only has
-    the rate still anchor the chain.
+    A flat rate commits ``1 + a + ... + a^k`` tokens a step; reading it back as
+    a length lets a caller that states acceptance that way anchor the curve.
     """
     if k <= 0 or rate <= 0.0:
         return None
