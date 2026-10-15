@@ -18,6 +18,7 @@ import sys
 base, frac = sys.argv[1].rstrip("Z").split(".")
 print("%s.%09dZ" % (base, int(frac.ljust(9, "0")[:9]) + 1))' "$last")"
     fi
-    docker logs --timestamps -f ${since:+--since "$since"} "$container" >> "$file" 2>/dev/null
+    # docker logs replays the container's stderr (the scheduler logs) on its own stderr.
+    docker logs --timestamps -f ${since:+--since "$since"} "$container" >> "$file" 2>&1
     sleep 30
 done

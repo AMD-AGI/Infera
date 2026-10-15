@@ -325,3 +325,7 @@
   30 s 从文件最后一个时间戳续接（容器 ID 变化即退出，避免重启后两个 follower 写同一文件）；`engine.sh` 和 `log_follow.sh` 改用它，
   `log_follow.sh` 跳过已有 follower 的实例（可重复执行）。05:30 四个实例都换上新 follower。另：登录节点会话最长 24 小时，到点被强制关闭
   （`~/SHARED-HOST-LIMITS/`，10-13 16:51 那次监控空档的原因），长任务都要放在计算节点上。
+- 05:50 发现 `follow_log.sh` 第一版把 `docker logs` 的 stderr 丢进了 /dev/null，而 scheduler 日志正是容器的 stderr：05:30 之后四个日志只有 HTTP
+  访问行（prefill-0/1、decode 从 22:00 补写的那段也一样）。改为 `2>&1`，停掉 follower，把文件截回新 follower 开始写之前的位置
+  （prefill-0/1、decode 截到 05:03 的大小，prefill-2 截到 05:30:46.435916178 那一行之后），重启 follower 从截断点补写；05:52 四个日志都已追到当前，
+  batch 行齐全。warm-mem092b 已平稳度过冷启动段（05:36 进入 30 分钟测量），hang 监视器无停滞。
