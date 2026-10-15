@@ -97,3 +97,30 @@ P 会话亲和后 prefill 缓存份额 94.0%（理论 96.3%）、新算量 −42
    `time_to_first_token_seconds`、`inter_token_latency_seconds`。
 2. 进程资源：decode / prefill 主进程（HTTP + TokenizerManager）、detokenizer、各 scheduler 的 CPU；GPU 侧 KV 使用率与每步耗时。
 "负载最重的一侧"不等于"瓶颈"：只有该侧资源到上限（KV 满、ITL 到约束、进程 CPU 饱和、队列持续增长）才称瓶颈。
+
+## 借鉴 InferenceX B300 Dynamo 42k 的实验候选（10-15 06:50）
+
+来源：`../inferencex-glm52-b300-dynamo-agg-20261015/README.zh-CN.md`（B300、4 卡 aggregated TP4 + DP4 attention，C48 = 42,047 tok/s/GPU）。
+补充 InferenceX API（2026-10-15 取）里 MI355X 上 GLM-5.2 AgentX 的官方数据，作为同硬件参照（aggregated，每卡分母为实例卡数）：
+
+| MI355X 配置 | C16 | C24 | C32 | C40 | C48 |
+|---|---|---|---|---|---|
+| ATOM TP4（4 卡，显存 0.95，KV fp8 + indexer fp4，无 HiCache） | 16,923 / 84.6 | 25,737 / 65.3 | 29,924 / 55.5 | 32,778 / 44.5 | 34,195 / 35.1 |
+| sglang TP4（4 卡，无 DP attention，HiCache 180 GB） | 18,327 / 87.7 | — | — | — | — |
+
+（格式：tok/s/GPU / P50 交互速度。sglang TP4 在 C12 以后 GPU 命中从 0.95 掉到 0.74：没有 DP attention 时，MLA 的 KV 在每个 TP rank 上各存一份完整副本。）
+对照我们 20 卡 3P1D 的 C176 = 30,562 / 48.9：同硬件上 4 卡 aggregated 已在同一量级。
+
+| 优先级 | 实验 | 针对我们哪个瓶颈 | 成本与前提 |
+|---|---|---|---|
+| 1 | **aggregated TP4 + DP4 attention 实例** | 3P1D 在 C176 卡在 decode KV 与每步耗时。PD 下每轮都要把整段上下文 KV（6.4–6.8 GB）传给 decode，decode 再存一份完整副本（每个在跑请求约 20.7 万 token），且轮与轮之间不能复用；aggregated 下会话 KV 只存一份，在跑请求的 KV 就是缓存的前缀，不需要传输 | 压测框架补一个 mixed 角色（engine.sh 不加 `--disaggregation-mode`，拓扑和 agentx_env 校验相应扩展）；router 已支持 `DisaggMode::Mixed`，`INFERA_SESSION_AFFINITY=both` 时按"实例 + DP rank"做会话亲和，并有 KV 事件（B300 那次没有）。需要停掉 3P1D 腾出 4 卡 |
+| 2 | **decode `--enable-dp-lm-head`** | decode 每步耗时。DP attention 下每个 rank 本地算自己的 logits，省掉词表并行后的汇聚；MTP 每步要过 6 次 LM head（5 次草稿 + 1 次校验） | 当前未开。每卡多约 1.7 GB 复制的 LM head（mem 0.92 下余量约 9 GiB）；需确认与 EAGLE 草稿头兼容。一次 decode + prefill 重启、预热、C176，约 3 小时 |
+| 3 | **prefill HiCache `write_back`（+ `direct` IO / `page_first_direct`）** | prefill 缓存容量：137 上实例总容量约 +65%、135 约 +30%，去掉持续 D2H，`direct` 用 DMA 代替 GPU kernel 搬运；也是 prefill_complete 的前提（RESULT §4.7） | 在 3P1D C176 上缓存份额已近理论值，收益小；对 2P1D（GPU 命中掉到 50%）和 C192 以上价值大。ROCm 上 write_back 的 JIT kernel 只在 CUDA 启用，会走回退实现，需功能和性能验证 |
+| 4 | prefill `--enable-prefill-delayer` | 让各 DP rank 的 prefill 同步进行，减少空等 | 3P1D 的 prefill 不是瓶颈，单独做价值低；放进实验 1（aggregated 下 prefill 和 decode 同步执行，才有意义） |
+
+不借鉴：只靠会话亲和、不用 KV 事件的路由（我们有 KV 事件 + R2，B300 那次 rank 间请求占比 18.9%–33.2% 不均）；会话亲和、MTP 模拟接受 3.61（已一致）。
+
+实验 1 的具体做法：先在 4 卡上起单个实例（v0.5.21 镜像；TP4 + DP4 attention；EAGLE 5/1/6、模拟接受 3.61；KV fp8；chunk 32768；
+HiCache 200–270 GB/rank；`--enable-prefill-delayer`、`--enable-dp-lm-head`；max-running 128、cuda graph bs 64；tokenizer worker 2–4），
+经 router（`INFERA_SESSION_AFFINITY=both`）测 C24 / C32 / C40 / C48，与 3P1D 的每卡吞吐和交互速度对比。单实例达到约 3 万且交互速度可接受，
+再扩到 4–5 个实例（16–20 卡）。风险：ROCm 上 DP attention + MTP + HiCache 在 aggregated 下的稳定性；prefill chunk 插进 decode 步对 ITL 的影响。
