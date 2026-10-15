@@ -86,7 +86,7 @@ Recipe parameters split into two kinds.
 
 | Kind | Parameters | Behaviour |
 |---|---|---|
-| **Regime-defining** | dtype, kernel/attention backend, graph mode, speculative decoding, the model itself | Swap the kernel or execution path. Two recipes differing on any of them are **not** transportable from one another — each regime needs its own anchor. |
+| **Anchor-defining** | dtype, kernel/attention backend, graph mode, speculative decoding, the model itself | Swap the kernel or execution path. Two recipes differing on any of them are **not** transportable from one another — each regime needs its own anchor. |
 | **Transportable** | parallel shape (TP/EP/PP), batch, concurrency, sequence and context length, layer count | Move analytically from an existing measurement. |
 
 Reconstruction picks the nearest in-regime anchor and transports it to the target
@@ -183,7 +183,7 @@ supplies one and `--routing-dist none` is the constant-free choice.
 | `--moe-imbalance` | *(unset)* | Target imbalance `I = max/mean` tokens per expert; solves for the Zipf exponent at the model's expert count and overrides `--zipf-s`. Random data sits at low `I`, domain-clustered traffic higher. |
 | `--load-format` | `dummy` | `dummy` for random weights (needs an imposed distribution), `auto`/`safetensors` for real ones. |
 
-### Regime-defining engine settings
+### Anchor-defining engine settings
 
 Everything here changes which kernels run, so it changes the regime the anchor
 certifies. An anchor measured without speculation cannot be transported to a

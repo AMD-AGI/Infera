@@ -989,10 +989,21 @@ def launch_projection_from_cli(args, overrides):
             des_kv_tokens = int(getattr(args, "des_kv_cache_tokens", 0) or 0)
             des_kv_blocks = int(getattr(args, "des_kv_blocks", 0) or 0)
             des_shares_pool = bool(getattr(args, "des_cache_shares_pool", False))
-            des_bs = int(getattr(args, "des_block_size", 0) or 0) or _DEFAULT_BLOCK_SIZE
-            bpt = kv_bytes_per_token(inference_config) if kv_tiers else 0.0
+            des_bs = int(getattr(args, "des_block_size", 0) or 0)
+            if not des_bs and mooncake_trace:
+                from .des import trace_block_tokens
+
+                des_bs = trace_block_tokens(mooncake_trace)
+            des_bs = des_bs or _DEFAULT_BLOCK_SIZE
+            from .kv_cache import decode_context_parallel_size
+
+            # Under decode context parallelism a rank stores 1/dcp of every token,
+            # so the replica's pools (and a tier's per-rank block loads) are per
+            # that slice.
+            dcp = decode_context_parallel_size(inference_config)
+            bpt = kv_bytes_per_token(inference_config) / dcp if kv_tiers else 0.0
             if (kv_tiers or getattr(args, "des_kv_pool_from_memory", False)) and not des_kv_tokens:
-                des_kv_tokens = hbm_kv_pool_tokens(inference_config, hbm_gb)
+                des_kv_tokens = hbm_kv_pool_tokens(inference_config, hbm_gb) * dcp
                 if des_kv_tokens:
                     print(
                         f"[inferasim:Inference] DES KV pool from the memory projection: "
@@ -1042,7 +1053,7 @@ def launch_projection_from_cli(args, overrides):
                 prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
                 prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
                 cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
-                block_size=int(getattr(args, "des_block_size", 0) or 0),
+                block_size=des_bs,
                 cache_blocks=des_kv_blocks,
                 mooncake_trace=mooncake_trace,
                 duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,

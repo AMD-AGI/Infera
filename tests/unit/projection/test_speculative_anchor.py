@@ -144,7 +144,7 @@ def test_a_non_speculative_anchor_falls_back_to_width_with_no_model(spec_k, acce
     nothing better than the width to charge.
 
     A single-token step cannot be turned into a verify pass by arithmetic --
-    which is why speculation is regime-defining and the anchor store refuses
+    which is why speculation is anchor-defining and the anchor store refuses
     this pairing. ``--load-benchmark`` does not refuse it, so the blind width
     stands rather than returning a number that would look calibrated.
     """

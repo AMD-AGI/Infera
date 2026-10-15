@@ -7,7 +7,7 @@
 
 Every inference recipe parameter is one of two kinds (see the design note §2):
 
-* **regime-defining** — swaps the kernel/execution regime (dtype → different
+* **anchor-defining** — swaps the kernel/execution regime (dtype → different
   GEMM/attention kernels, backend, cudagraph/AITER path).  Two recipes that
   differ on any of these are *not* transportable from one another; each regime
   needs its own measured anchor.
@@ -37,9 +37,9 @@ import json
 from collections.abc import Iterable
 from typing import Any
 
-# Regime-defining axes: differ on any of these → a different measured anchor.
+# Anchor-defining axes: differ on any of these → a different measured anchor.
 #
-# ``speculative`` is regime-defining rather than transportable because a
+# ``speculative`` is anchor-defining rather than transportable because a
 # speculative step emits a variable number of tokens: per-output-token latency
 # becomes ``step_cost(batch * (k + 1)) / (1 + a + ... + a**k)``, and the
 # acceptance rate ``a`` depends on the model, the draft head and the data. There
@@ -47,7 +47,7 @@ from typing import Any
 # target that speculates needs its own measurement.
 REGIME_AXES = (
     "model",
-    # The serving engine. Named as regime-defining in the split above and in
+    # The serving engine. Named as anchor-defining in the split above and in
     # the design note, but absent from this tuple until now, so vLLM, SGLang
     # and Atom anchors for one checkpoint all hashed to one signature: the
     # bench cache could return a vLLM measurement for an SGLang run, and
@@ -77,7 +77,7 @@ REGIME_AXES = (
     # twentieth of the measured TTFT, the worst curve in the matrix, while
     # reporting itself calibrated.
     #
-    # Regime-defining rather than transportable, which is the conservative
+    # Anchor-defining rather than transportable, which is the conservative
     # of the two readings. Hardware is transportable in principle -- the
     # analytical model knows both parts -- but only once the anchor says
     # which part it ran on, and until a harvest records that, refusing is
@@ -101,7 +101,7 @@ _AITER_OP_PREFIX = "VLLM_ROCM_USE_AITER_"
 
 # Transportable axes: reconstructed analytically from an anchor in the same
 # regime (the projector's restore + interpolation already implement these).
-# ``attn_dp`` is transportable rather than regime-defining because the
+# ``attn_dp`` is transportable rather than anchor-defining because the
 # analytical model already describes it: data-parallel attention divides the
 # in-flight batch across dp groups and tensor-parallelises attention only inside
 # one, and it drops one of the two per-layer all-reduces. Both are structural,
@@ -213,7 +213,7 @@ def _sig(recipe: dict[str, Any], axes: Iterable[str]) -> str:
 
 
 def regime_signature(recipe: dict[str, Any]) -> str:
-    """Hash over the regime-defining axes only.  Two recipes with the same
+    """Hash over the anchor-defining axes only.  Two recipes with the same
     signature are mutually transportable (same kernels/regime)."""
     return _sig(recipe, REGIME_AXES)
 

@@ -2824,7 +2824,7 @@ class InferencePerformanceProjector:
         dp = attention_dp_size(self.cfg)
         attn_batch = max(1, math.ceil(batch / dp)) if dp > 1 else batch
         factor = self._attn_backend_mult * sparse_scale
-        if phase == "decode" and os.getenv("INFERASIM_DCP_DECODE") == "1":
+        if phase == "decode" and os.getenv("INFERASIM_DCP_DECODE", "1") != "0":
             # Decode context parallelism splits each sequence's cache across
             # the DCP ranks, so a rank's decode attention reads its slice.
             dcp = int(
@@ -2887,6 +2887,8 @@ class InferencePerformanceProjector:
             # (see _overlap_keep), so dense and MoE layers get different exposure
             # and the residual at high batch is captured analytically.
             new_tp_ar = self._comm.tp_allreduce_ms(batch, q_len)
+            if phase == "decode":
+                new_tp_ar += self._comm.dcp_combine_ms(batch, q_len)
             new_ep_a2a = self._comm.ep_a2a_ms(batch, q_len)
             # Dense: 2 TP-AR (attention + MLP). MoE: the post-expert TP-AR is
             # only present while experts stay TP-sharded (EP=1); at EP==TP the
@@ -3259,7 +3261,7 @@ class InferencePerformanceProjector:
         where InferenceX measures GLM-5 MTP at 1.8x the interactivity there;
         the increment (+5.1 ms) gives 1.7x.
 
-        Speculation stays regime-defining and the anchor store still refuses
+        Speculation stays anchor-defining and the anchor store still refuses
         the pairing; this is what ``--load-benchmark`` and a relaxed axis get
         instead of a factor that scales with the draft depth.
         """

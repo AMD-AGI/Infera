@@ -280,6 +280,7 @@ class InferenceCollectiveModel:
         self.ep = max(1, getattr(mp_config, "expert_model_parallel_size", 1) or 1)
         self.cp = max(1, getattr(mp_config, "context_model_parallel_size", 1) or 1)
         self.attn_dp = max(1, getattr(mp_config, "attention_data_parallel_size", 1) or 1)
+        self.dcp = max(1, getattr(mp_config, "decode_context_parallel_size", 1) or 1)
         self.hidden = model_config.hidden_size
         self.topk = getattr(model_config, "moe_router_topk", 2) or 2
 
@@ -380,6 +381,28 @@ class InferenceCollectiveModel:
         return count * (us / 1000.0) * eff
 
     # -- EP AllToAll -----------------------------------------------------------
+
+    def dcp_combine_ms(self, batch: int, tokens: int) -> float:
+        """Decode context parallelism, per attention layer, decode only.
+
+        A rank holds a slice of every sequence's cache, so it gathers the
+        queries of every head over the DCP group, attends over its slice, and
+        reduce-scatters the partial outputs (with their log-sum-exp) back to
+        the heads' owners.
+        """
+        if self.dcp <= 1:
+            return 0.0
+        heads = int(getattr(self.mc, "num_attention_heads", 0) or 0)
+        width = int(getattr(self.mc, "kv_lora_rank", 0) or 0) or int(
+            getattr(self.mc, "kv_channels", 0) or self.hidden // max(1, heads)
+        )
+        msg = max(1, batch * tokens * heads * width * 2)
+        raw = _min_over_protocols(cm.run_allgather, self._args, msg, self.dcp, ["tp"]) + _min_over_protocols(
+            cm.run_reduce_scatter, self._args, msg, self.dcp, ["tp"]
+        )
+        us = raw + 2 * _allreduce_overhead_us(self._args, msg, self.dcp)
+        us = self._floor_small_msg_overhead(us, msg, self.dcp, is_a2a=False)
+        return us / 1000.0
 
     def ep_a2a_ms(self, batch: int, tokens: int) -> float:
         """Dispatch + combine AllToAll per MoE layer, forward only."""

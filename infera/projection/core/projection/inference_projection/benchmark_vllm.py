@@ -829,7 +829,7 @@ def run_vllm_benchmark(args) -> dict:
         # differenced decode timing below reports per-*output-token* latency with
         # the draft acceptance already folded in — which is what a served TPOT
         # measures. The acceptance rate is data- and model-dependent and cannot
-        # be derived analytically, hence the regime-defining classification.
+        # be derived analytically, hence the anchor-defining classification.
         if spec_config is not None:
             kwargs["speculative_config"] = spec_config
         # The benchmark drives the engine purely with ``prompt_token_ids`` (never
@@ -1354,7 +1354,7 @@ def main(argv=None):
         default=None,
         help="speculative-decoding method, e.g. 'deepseek_mtp' "
         "(DeepSeek V3/R1 NextN head) or 'ngram'. Changes how "
-        "many tokens a step emits, so it is regime-defining: "
+        "many tokens a step emits, so it is anchor-defining: "
         "an anchor measured without it cannot be transported "
         "to a target that uses it",
     )

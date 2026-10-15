@@ -118,7 +118,7 @@ def test_an_unrecorded_op_set_matches_defaults_but_not_a_swap():
 def test_two_engines_measuring_one_checkpoint_are_two_regimes():
     """An SGLang anchor does not describe vLLM, and the axes have to say so.
 
-    The engine was named as regime-defining in the design split from the start
+    The engine was named as anchor-defining in the design split from the start
     but was missing from ``REGIME_AXES``, so every engine's anchor for a given
     checkpoint hashed to one signature: the bench cache would hand a vLLM
     measurement to an SGLang run, and ``regime_distance`` called the pair a
