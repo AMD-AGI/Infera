@@ -1,0 +1,6 @@
+# a7: a6b + DP spec/prefill coordination + 2048-token prefill chunks per rank (config/round.a7.sh).
+# decode_check (generated answers under prefill load; baseline 32/32 on t8c) gates the scored round.
+bash scripts/stop_stack.sh ROUND=a6b
+bash scripts/launch_agg.sh ROUND=a7
+python3 scripts/decode_check.py http://10.245.157.237:28200 glm5.2-mxfp4 /mnt/m2m_nobackup/liyingli_3p1d/agg-runs/a7/launch/decode_check.json
+bash scripts/agg_round.sh ROUND=a7 VARIANT=a7-coord-ck2k CONC=64
