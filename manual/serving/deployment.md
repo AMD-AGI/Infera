@@ -232,10 +232,10 @@ SGLang build newer than v0.5.19.
 ### Prefill load accounting in the Rust router
 
 By default a disaggregated request holds both Prefill and Decode routing load
-until Decode finishes. Set `INFERA_PD_PREFILL_GUARD_RELEASE=completion` on the
-Rust router to release Prefill's load after its complete response has been
-consumed. The native Rust CLI equivalent is
-`--pd-prefill-guard-release completion`; `decode` retains the default behavior.
+until Decode finishes. Pass `--pd-prefill-guard-release completion` (with
+`--router-backend rust`) to release Prefill's load after its complete response
+has been consumed; `decode` retains the default behavior. Unset, the Rust router
+reads `INFERA_PD_PREFILL_GUARD_RELEASE`.
 
 This changes router load accounting, not engine KV-cache ownership or eviction.
 It applies to HTTP streaming/unary and NATS delivery. Response headers alone do

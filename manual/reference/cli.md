@@ -20,6 +20,8 @@ the **same** on the server and every worker. See
 | `--router-policy` | `kv-aware` | `kv-aware` \| `round-robin` (used when `--router-mode auto`) |
 | `--session-affinity` | `off` | `off` \| `prefill` \| `both`: pin `X-Session-ID` sessions on top of the policy |
 | `--session-affinity-ttl-seconds` | `3600` | idle seconds before a session binding is dropped, 1–86400 |
+| `--decode-input-demand` | (unset: `$INFERA_DECODE_INPUT_DEMAND`, else `off`) | Rust backend, `kv-aware`: `off` \| `shadow` \| `on` Decode picks by in-flight input tokens |
+| `--pd-prefill-guard-release` | (unset: `$INFERA_PD_PREFILL_GUARD_RELEASE`, else `decode`) | Rust backend: release PD Prefill load at Decode end (`decode`) or Prefill completion (`completion`) |
 | `--kv-overlap-weight` | `1.0` | KV-aware: cache locality vs load balance |
 | `--kv-prefill-overlap-weight` | (unset) | KV-aware PD: prefill-side weight (typical `20.0`); overrides the global |
 | `--kv-decode-overlap-weight` | (unset) | KV-aware PD: decode-side weight (typical `2.0`); overrides the global |

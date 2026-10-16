@@ -18,6 +18,7 @@ import argparse
 
 import pytest
 
+from infera.server.args import parse_server_args
 from infera.server.launch_rust import exec_rust
 
 
@@ -52,6 +53,8 @@ def _args(**overrides) -> argparse.Namespace:
         kv_per_worker_template_kwargs=True,
         session_affinity="off",
         session_affinity_ttl_seconds=3600,
+        decode_input_demand=None,
+        pd_prefill_guard_release=None,
     )
     base.update(overrides)
     return argparse.Namespace(**base)
@@ -119,6 +122,33 @@ def test_nats_tuning_is_omitted_when_unset(monkeypatch):
     argv = _argv(monkeypatch)
     assert "--nats-req-max-pending" not in argv
     assert "--nats-req-idle-timeout-s" not in argv
+
+
+def test_rust_only_routing_switches_are_forwarded_only_when_given(monkeypatch):
+    """Unset defers to the INFERA_* variables the Rust side reads itself."""
+    argv = _argv(monkeypatch)
+    assert "--decode-input-demand" not in argv
+    assert "--pd-prefill-guard-release" not in argv
+    argv = _argv(
+        monkeypatch,
+        router_policy="kv-aware",
+        decode_input_demand="shadow",
+        pd_prefill_guard_release="completion",
+    )
+    assert _value_of(argv, "--decode-input-demand") == "shadow"
+    assert _value_of(argv, "--pd-prefill-guard-release") == "completion"
+
+
+@pytest.mark.parametrize(
+    "flags", [["--decode-input-demand", "on"], ["--pd-prefill-guard-release", "completion"]]
+)
+def test_rust_only_routing_switches_need_the_rust_backend(flags, capsys):
+    argv = ["--router-tokenizer-path", "tokenizer", *flags]
+    with pytest.raises(SystemExit):
+        parse_server_args(["--router-backend", "python", *argv])
+    assert "requires --router-backend rust" in capsys.readouterr().err
+    args = parse_server_args(["--router-backend", "rust", *argv])
+    assert flags[1] in (args.decode_input_demand, args.pd_prefill_guard_release)
 
 
 @pytest.mark.parametrize(

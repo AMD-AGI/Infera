@@ -209,17 +209,16 @@ in-flight requests (the experimental R2 strategy). It defaults to `off` and
 requires `--router-policy kv-aware`.
 
 ```bash
-# Add to the existing Python entrypoint configuration; exec inherits the env.
-INFERA_DECODE_INPUT_DEMAND=shadow \
+# Add to the existing entrypoint configuration.
 RUST_LOG=info,infera_router::decode_demand=debug \
 python -m infera.server --router-backend rust --router-policy kv-aware \
-  --kv-tokenizer-path /path/to/model
+  --router-tokenizer-path /path/to/model --decode-input-demand shadow
 ```
 
 Keep the deployment's discovery, transport and tokenizer/template options.
-The native binary also accepts `--decode-input-demand off|shadow|on`; the Python
-entrypoint uses the environment variable above. The old experiment variable
-`INFERA_R2_DECODE_DEMAND` is not the interface for this extraction.
+Without the flag the Rust router reads `INFERA_DECODE_INPUT_DEMAND`. The old
+experiment variable `INFERA_R2_DECODE_DEMAND` is not the interface for this
+extraction.
 
 | Mode | Selection and overhead |
 |---|---|
@@ -246,7 +245,7 @@ actual choice, without prompt or session text.
 Selection and reservation share one short mutex critical section. The reservation
 moves from the pick into the PD response guard and is released exactly once, on
 response EOF, cancellation, failure or an abandoned pick; release never panics.
-With `INFERA_PD_PREFILL_GUARD_RELEASE=completion` it stays on the Decode guard
+With `--pd-prefill-guard-release completion` it stays on the Decode guard
 after Prefill's load is released. Live reservations survive a worker leaving
 discovery, so late completions cannot subtract from a newly recreated entry.
 State is local to one router process.
