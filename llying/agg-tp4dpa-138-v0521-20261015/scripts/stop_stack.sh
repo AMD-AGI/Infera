@@ -17,7 +17,9 @@ if [[ -n "$names" ]]; then
     # shellcheck disable=SC2086
     ssh "${ssh_args[@]}" -n "$CONTROL_NODE" docker stop --time 120 $names >/dev/null
 fi
-for i in $(seq 1 60); do
+# The driver frees VRAM slowly after a stack with large pinned HiCache pools exits: ~12 min after a4
+# (10-16 05:06 -> 05:18), with no process left holding a KFD context.
+for i in $(seq 1 180); do
     busy="$(ssh "${ssh_args[@]}" -n "$CONTROL_NODE" rocm-smi --showmemuse --json | python3 -c '
 import json, sys
 d = json.load(sys.stdin)
@@ -25,5 +27,5 @@ print(" ".join(k for k, v in d.items() if k.startswith("card") and float(v.get("
     [[ -z "$busy" ]] && { echo "stopped: ${names//$'\n'/ }; GPUs free"; exit 0; }
     sleep 10
 done
-echo "GPUs still in use after 10 min: $busy" >&2
+echo "GPUs still in use after 30 min: $busy" >&2
 exit 1
