@@ -1,6 +1,5 @@
-# a5: TP4/DP4 (GPUs 0-3) + DP spec/prefill coordination, no prefill delayer (config/round.a5.sh).
-# decode_check gates the scored round. C64 compares with a4 C64 (31,221).
+# a5: TP4/DP4 (GPUs 0-3), a4 + prefill delayer 20 passes + 4 tokenizer workers (config/round.a5.sh).
+# HiCache and decode paths as a4 (HiCache check passed 10-16 03:26). C64 compares with a4 C64 (31,221).
 bash scripts/stop_stack.sh ROUND=t8c
 bash scripts/launch_agg.sh ROUND=a5
-python3 scripts/decode_check.py http://10.245.157.237:28200 glm5.2-mxfp4 runtime/runs/a5/launch/decode_check.json
-bash scripts/agg_round.sh ROUND=a5 VARIANT=a5-coord-nodelay CONC=64
+bash scripts/agg_round.sh ROUND=a5 VARIANT=a5-wb-m092-dly20 CONC=64
