@@ -1,0 +1,4 @@
+# a6: TP4/DP4, a4 + prefill delayer 120 passes + 4 tokenizer workers (config/round.a6.sh). C64 vs a4/a5.
+bash scripts/stop_stack.sh ROUND=a5
+bash scripts/launch_agg.sh ROUND=a6
+bash scripts/agg_round.sh ROUND=a6 VARIANT=a6-wb-m092-dly120 CONC=64
