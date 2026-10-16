@@ -1,0 +1,8 @@
+sglang:cuda_graph_passes_total{dp_rank="1",engine_type="unified",mode="prefill_none",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="1"} 2481.0
+sglang:cuda_graph_passes_total{dp_rank="1",engine_type="unified",mode="decode_cuda_graph",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="1"} 35292.0
+sglang:cuda_graph_passes_total{dp_rank="2",engine_type="unified",mode="prefill_none",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="2"} 2063.0
+sglang:cuda_graph_passes_total{dp_rank="2",engine_type="unified",mode="decode_cuda_graph",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="2"} 35396.0
+sglang:cuda_graph_passes_total{dp_rank="3",engine_type="unified",mode="prefill_none",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="3"} 2535.0
+sglang:cuda_graph_passes_total{dp_rank="3",engine_type="unified",mode="decode_cuda_graph",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="3"} 35710.0
+sglang:cuda_graph_passes_total{dp_rank="0",engine_type="unified",mode="prefill_none",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 2052.0
+sglang:cuda_graph_passes_total{dp_rank="0",engine_type="unified",mode="decode_cuda_graph",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 36004.0

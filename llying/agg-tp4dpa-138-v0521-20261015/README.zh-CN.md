@@ -186,6 +186,25 @@ PD 与 mixed 的 prefill 路由均衡（各自 60 分钟窗口，按 rank 统计
 最多/最少 1.98 倍、排队 0.5–3.2（prefill 卡平均利用率约 36%，且不影响 decode）；mixed TP4 a4 C64 为 1.26 倍、排队 2.1–3.4；
 mixed TP8 t8c C128 为 3.26 倍、排队 1.4–22.7（准入受 delayer 等待和 max-prefill-tokens 4096 限速，负载稍高的 rank 队列持续堆积）。
 
+### a6b（TP4，write_back + mem 0.90，delayer 120 步）C64：32,228 tok/s/GPU
+
+ITL p50/p90 32.8/57.8 ms，TTFT p50/p90 14.5/45.6 s；与 a4 每秒完成请求数相同（1.045 对 1.042），+3% 主要来自窗口内平均输入更长
+（123.4k 对 119.8k），属波动范围。C64 下请求速率与总生成速度（约 1,000 tok/s）在 a4/a5/a6b 间几乎不变，"每输出 token 耗时 / 在跑数"
+约为常数：delayer 只在"排队"与"在跑"之间挪请求。
+
+### GPU 时间构成（a6b 栈，C64 负载下 torch profiler，10-16 23:13 / 23:23 两次抓取）
+
+`scripts/trace_breakdown.py`（按 GPU 侧 `scheduler.run_batch` / `step[VERIFY|EXTEND|IDLE]` 注解归集 kernel）。完整性：按阶段抓取时
+各 rank 起止不同，cap1 无 EXTEND 文件、cap2 只有两个 rank 有 EXTEND，cap2 TP-2/3 DECODE 缺批次注解；只用干净窗口和计数器下结论。
+
+- 两次抓取之间 15 分钟（计数器）：每 rank decode 步 6,754（4 个 rank 相同，逐步同步），按 72.7 ms/步约占 54% 时间；其余约 46% 为 eager 步
+  （某 rank prefill、其他 rank 跑 IDLE 批次）；各 rank 自己的 prefill 步 317 / 250 / 143 / 92，多数 prefill 步只有一个 rank 在算。
+- decode 校验步（cap2 TP-0/1，各 29 步，72.7 ms/步，每 rank bs 8–13）：MoE 35–36%，注意力/DSA 24–26%，通信 15–19%，普通 GEMM 16–17%。
+- 单 rank 长 prefill（cap1，同一 8.4 s 窗口）：TP-1 连续 8 个 prefill 批次（665 ms/个，一个长 prompt 的分块续算，delayer 不管续算），
+  构成为注意力/DSA 42%、普通 GEMM 25%、MoE 14%、通信 13%；其余 3 个 rank 这期间在通信 kernel 里空等（TP-0 通信占 78%），该窗口
+  decode 只占约 15%。
+- prefill 用到的 bf16 普通 GEMM 有 4 类 (N, K)、约 5,500 种 M 未调优（aiter 退回默认实现）；decode 尺寸的已调优。
+
 ### 10-16 12:50 /home 卷写满后的运行方式
 
 共享 `/home`（10 TB CephFS）写满（剩余 0 GB，新建目录报 Disk quota exceeded），git 提交与 `/home` 下的日志都写不进去。

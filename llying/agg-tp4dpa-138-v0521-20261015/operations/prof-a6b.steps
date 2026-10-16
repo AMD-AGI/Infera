@@ -1,0 +1,3 @@
+# Profiling load on the live a6b stack (TP4, write_back + mem 0.90, delayer 120): C64 AgentX with a 25-min
+# window; /start_profile is triggered by hand in the steady state. Not a scored round.
+bash scripts/agg_round.sh ROUND=a6b VARIANT=prof-a6b CONC=64 DURATION=1500
