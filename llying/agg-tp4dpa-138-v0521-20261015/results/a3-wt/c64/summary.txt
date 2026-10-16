@@ -1,0 +1,1 @@
+a3-wt c64: 30,027 tok/s/GPU (output 244.2), 3,672 requests, mean input 117.8k, ITL p50/p90 31.9/60.8 ms, TTFT p50/p90 9.2/51.3 s, cache hit GPU/host 33.4%/59.3% (theoretical 96.3%), effective conc 57.9 (before first token 20.1)

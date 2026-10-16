@@ -1,0 +1,3 @@
+Recovered 2026-10-16 02:12 UTC: the login-node driver, sampler and agentx_bench died at ~19:05 UTC;
+the AgentX client on crsuse2-m2m-138 finished the run (exit 0, 20:26 UTC, 0/3672 errors) and these
+files were copied from its node-local output. samples.jsonl stops in the warm-up (no engine-side window).
