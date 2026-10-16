@@ -1,0 +1,6 @@
+# t8a: TP8 + DP8 attention on all 8 GPUs, write_back + mem 0.92 (config/round.t8a.sh).
+# C128 puts the same load per GPU as C64 on TP4. The HiCache check gates the scored round.
+bash scripts/stop_stack.sh ROUND=a4
+bash scripts/launch_agg.sh ROUND=t8a
+bash scripts/hicache_check_agg.sh ROUND=t8a TAG=wb
+bash scripts/agg_round.sh ROUND=t8a VARIANT=t8a-wb-m092 CONC=128

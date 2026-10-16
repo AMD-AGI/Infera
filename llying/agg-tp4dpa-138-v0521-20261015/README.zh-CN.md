@@ -42,7 +42,9 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 |---|---|---|
 | a1 | HiCache write_back 270 GB | 参数校验通过后停掉（按要求先不开 HiCache 调通流程） |
 | a2 | 不开 HiCache，调通流程（预热每 lane 2 个请求） | 完成：C16 / 600 s 全流程通过（不计分） |
-| a3 | HiCache write_through 270 GB / rank | HiCache 功能检查通过；C48 = 31,605；C64 进行中 |
+| a3 | HiCache write_through 270 GB / rank | HiCache 功能检查通过；C48 = 31,605；C64 = 30,027 |
+| a4 | write_back + mem 0.92 | HiCache 功能检查通过；C64 = 31,221 |
+| t8a | TP8 + DP8 attention（8 卡），write_back + mem 0.92，HiCache 200 GB / rank | 已备好 |
 
 ### a2 调通结果（不计分）
 
@@ -102,6 +104,30 @@ C48 时主机命中占到 42.5%，说明那里 GPU 池已经装不下活跃会�
 可调的杠杆（按预期收益）：GPU KV（mem-fraction 0.85 → 0.92，或 TP8/DP8 用满 8 卡、每卡权重 121 → 约 61 GB）；
 write_back（主机不再重复存 GPU 上的页，有效缓存约 590 万 → 800 万 token/rank，并发更高时才有意义）；
 `--prefill-delayer-max-delay-passes`（60 → 30，TTFT 与 decode 打断次数的权衡）；`--prefill-decode-interval`。
+
+### a3 C64 与 a4 C64（write_back + mem 0.92）
+
+| | a3 C48 | a3 C64 | a4 C64 |
+|---|---|---|---|
+| tok/s/GPU | 31,605 | 30,027 | 31,221 |
+| 完成请求 | 3,436 | 3,672 | 3,752 |
+| ITL p50 / p90 (ms) | 24.8 / 48.1 | 31.9 / 60.8 | 37.2 / 69.2 |
+| TTFT p50 / p90 (s) | 4.8 / 14.5 | 9.2 / 51.3 | 8.5 / 29.6 |
+| 引擎侧总命中（理论） | 96.2%（97.1%） | 92.8%（96.3%） | 95.6%（96.2%） |
+| 新算 prefill (tok/s) | 4,679 | 8,090 | 5,404 |
+| 每 rank 在跑 / 排队 | 7.0 / 1.3 | 9.2 / 4.3 | 11.1 / 2.8 |
+| GPU KV 池 / rank | 2.06M | 2.06M | 2.43M |
+| 输出 tok/s（4 卡合计） | 914 | 约 980 | 1,001 |
+
+a3 C64 是登录节点上的驱动在 10-15 约 19:05 消失后，从 138 上客户端的本地输出找回的（`results/a3-wt/c64/RECOVERED.txt`）；
+它的命中构成是用引擎累计计数器相减得到的（含预热）。a4 的 HiCache 功能检查（write_back）通过：首 token 16/16 一致，
+top-1 logprob 最大差 0.0005，从主机载回 557,056 token。tokenizer 在 a4 窗口内平均 0.31 核，没有饱和。
+
+结论：容量杠杆按预期起作用（命中追回到理论值附近，新算 prefill −33%，TTFT p90 51 → 30 s），但吞吐只比 a3 C64
+高 4%，仍在 C48 水平。KV 多了，每 rank 就多跑请求（9.2 → 11.1），单步也随之变慢（ITL 31.9 → 37.2 ms），每 rank
+输出仍是约 340 tok/s。瓶颈是每 rank 的 decode 单步耗时：约 134 ms/步（11 个在跑，含 prefill 打断），而 3P1D 的
+TP8/DP8 decode 在 11.5 个在跑时为 66.7 ms/步（纯 decode）。decode 主要受读权重的时间限制，TP4 每卡读 121 GB 权重，
+TP8 只有约 61 GB，所以下一步是 TP8/DP8（`config/round.t8a.sh`，`operations/t8a.steps`）。
 
 ## 计划
 

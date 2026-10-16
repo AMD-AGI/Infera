@@ -1,0 +1,98 @@
+{
+  "verdict": "pass",
+  "errors": [],
+  "mismatches": [],
+  "max_logprob_delta": 0.0005,
+  "max_top5_logprob_delta": 3.8749,
+  "pool_tokens": 9728512.0,
+  "fillers": 130,
+  "fresh_answers": {
+    "0": "Z",
+    "1": "M",
+    "2": "O",
+    "3": "NE",
+    "4": "GL",
+    "5": "Z",
+    "6": "T",
+    "7": "Z",
+    "8": "NE",
+    "9": "O",
+    "10": "T",
+    "11": "H",
+    "12": "Z",
+    "13": "Z",
+    "14": "Z",
+    "15": "SA"
+  },
+  "logprobs_returned": true,
+  "phase_a": {
+    "evicted_tokens_total": 0.0,
+    "hicache_backup_tokens_total": 0.0,
+    "load_back_tokens_total": 0.0,
+    "cached_tokens_total": 0.0,
+    "prompt_tokens_total": 557133.0,
+    "max_total_num_tokens": 0.0
+  },
+  "phase_b": {
+    "evicted_tokens_total": 4416064.0,
+    "hicache_backup_tokens_total": 4416064.0,
+    "load_back_tokens_total": 0.0,
+    "cached_tokens_total": 0.0,
+    "prompt_tokens_total": 13566726.0,
+    "max_total_num_tokens": 0.0
+  },
+  "phase_c": {
+    "evicted_tokens_total": 555392.0,
+    "hicache_backup_tokens_total": 555392.0,
+    "load_back_tokens_total": 557056.0,
+    "cached_tokens_total": 557056.0,
+    "prompt_tokens_total": 557133.0,
+    "max_total_num_tokens": 0.0
+  },
+  "probe_tokens": 640000,
+  "probe_seconds": {
+    "fresh": [
+      5.87,
+      5.87,
+      6.96,
+      6.96,
+      10.43,
+      10.44,
+      11.6,
+      11.6,
+      15.06,
+      15.07,
+      16.22,
+      16.22,
+      20.59,
+      20.6,
+      20.63,
+      20.63
+    ],
+    "reloaded": [
+      1.15,
+      1.16,
+      1.51,
+      1.51,
+      1.51,
+      1.51,
+      1.51,
+      1.51,
+      1.51,
+      1.51,
+      1.53,
+      1.54,
+      1.54,
+      1.54,
+      1.54,
+      1.96
+    ]
+  },
+  "params": {
+    "probes": 16,
+    "probe_tokens": 40000,
+    "fill_factor": 1.6,
+    "filler_tokens": 120000,
+    "concurrency": 48
+  }
+}
