@@ -138,7 +138,7 @@ production NATS + Kubernetes plane they're the defaults and can be dropped — s
 | `--etcd-endpoint` | — | `host:port` of the shared etcd |
 | `--router-mode` | `auto` | `auto` (in-process policy) \| `direct` (GAIE EPP header) |
 | `--router-policy` | `kv-aware` | `kv-aware` \| `round-robin` |
-| `--session-affinity` | `off` | `off` \| `prefill` \| `both`: pin `X-Dynamo-Session-ID` sessions on top of the policy |
+| `--session-affinity` | `off` | `off` \| `prefill` \| `both`: pin `X-Session-ID` sessions on top of the policy |
 | `--router-tokenizer-path` | (required) | small tokenizer for prefix hashing (e.g. `Qwen/Qwen3-0.6B`) |
 | `--kv-overlap-weight` | 1.0 | KV-aware: trade cache locality vs load balance |
 

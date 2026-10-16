@@ -2,13 +2,13 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use axum::http::HeaderMap;
 use serde_json::Value;
 
-use crate::policy::{Pick, Policy, Role};
+use crate::policy::{Pick, Policy, RequestTokens, Role};
 use crate::pool::{expand_targets, RouteTarget, Worker};
 
 /// Bindings per router process; at capacity new sessions route normally.
@@ -107,33 +107,37 @@ impl Sessions {
         if self.mode == Mode::Off {
             return Ok(None);
         }
-        let mut values = headers.get_all("x-dynamo-session-id").iter();
+        let mut values = headers.get_all("x-session-id").iter();
         let Some(value) = values.next() else {
             return Ok(None);
         };
         if values.next().is_some() {
-            return Err("duplicate X-Dynamo-Session-ID");
+            return Err("duplicate X-Session-ID");
         }
-        let id = value.to_str().map_err(|_| "invalid X-Dynamo-Session-ID")?;
+        let id = value.to_str().map_err(|_| "invalid X-Session-ID")?;
         if id.is_empty() || id.len() > 1024 {
-            return Err("X-Dynamo-Session-ID must be 1..1024 bytes");
+            return Err("X-Session-ID must be 1..1024 bytes");
         }
         Ok(Some(id))
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn pick(
         &self,
         policy: &dyn Policy,
         candidates: &[Arc<Worker>],
         request: &Value,
+        tokens: &RequestTokens,
         role: Role,
         model: &str,
         session: Option<&str>,
     ) -> (Pick, Option<Lease>) {
+        let choose =
+            |targets: &[RouteTarget]| policy.pick_targets_with(targets, request, role, tokens);
         let enabled =
             self.mode == Mode::Both || (self.mode == Mode::Prefill && role == Role::Prefill);
         let Some(session) = session.filter(|_| enabled) else {
-            return (policy.pick(candidates, request, role), None);
+            return (choose(&expand_targets(candidates)), None);
         };
         let now = Instant::now();
         let (entry, swept) = {
@@ -177,7 +181,7 @@ impl Sessions {
                     "session affinity capacity reached; using normal selection"
                 );
             }
-            return (policy.pick(candidates, request, role), None);
+            return (choose(&expand_targets(candidates)), None);
         };
         // Only initialization holds this per-session lock while choosing. Other sessions proceed.
         let mut e = entry.lock().expect("session entry poisoned");
@@ -194,7 +198,7 @@ impl Sessions {
             drop(e);
             self.counters.hits[role_index(role)].fetch_add(1, Ordering::Relaxed);
             let lease = self.lease(entry, generation, role);
-            let pick = policy.pick_target(&target, request, role);
+            let pick = choose(std::slice::from_ref(&target));
             tracing::info!(?role, target=%pick.target.route_key(), reason="hit", "session affinity pick");
             return (pick, Some(lease));
         } else {
@@ -205,7 +209,7 @@ impl Sessions {
             } else {
                 "new"
             };
-            (policy.pick(candidates, request, role), reason)
+            (choose(&expand_targets(candidates)), reason)
         };
         e.target = Some(pick.target.clone());
         e.generation = e.generation.wrapping_add(1);
@@ -250,10 +254,11 @@ impl Lease {
         self.binding().invalidate();
     }
 }
+// Never panics: drop can run while unwinding, where a second panic aborts the router.
 impl Drop for Lease {
     fn drop(&mut self) {
-        let mut e = self.entry.lock().expect("session entry poisoned");
-        e.active -= 1;
+        let mut e = self.entry.lock().unwrap_or_else(PoisonError::into_inner);
+        e.active = e.active.saturating_sub(1);
         self.counters.active[self.role].fetch_sub(1, Ordering::Relaxed);
         if e.active == 0 {
             e.idle_since = Instant::now();
@@ -289,7 +294,33 @@ mod tests {
         )]
     }
     fn pick(s: &Sessions, p: &dyn Policy, role: Role, id: Option<&str>) -> (Pick, Option<Lease>) {
-        s.pick(p, &workers(), &json!({}), role, "m", id)
+        s.pick(
+            p,
+            &workers(),
+            &json!({}),
+            &RequestTokens::default(),
+            role,
+            "m",
+            id,
+        )
+    }
+
+    #[test]
+    fn lease_release_tolerates_a_poisoned_entry() {
+        let s = Sessions::new(Mode::Prefill, Duration::from_secs(3600), 10);
+        let (_, lease) = pick(&s, &RoundRobin::new(), Role::Prefill, Some("x"));
+        let lease = lease.unwrap();
+        let (entry, poisoner) = (lease.entry.clone(), lease.entry.clone());
+        let _ = std::thread::spawn(move || {
+            let _held = poisoner.lock().unwrap();
+            panic!("poison the session entry");
+        })
+        .join();
+        drop(lease);
+        assert_eq!(
+            entry.lock().unwrap_or_else(PoisonError::into_inner).active,
+            0
+        );
     }
 
     #[test]
@@ -304,6 +335,7 @@ mod tests {
             &p,
             &workers(),
             &json!({}),
+            &RequestTokens::default(),
             Role::Prefill,
             "other-model",
             Some("x"),
@@ -419,6 +451,7 @@ mod tests {
             &p,
             &[Arc::new(replacement)],
             &json!({}),
+            &RequestTokens::default(),
             Role::Decode,
             "m",
             Some("x"),
@@ -566,9 +599,9 @@ mod tests {
         h.insert("x-correlation-id", "not-a-session".parse().unwrap());
         let s = Sessions::new(Mode::Both, Duration::from_secs(10), 1);
         assert_eq!(s.header(&h).unwrap(), None);
-        h.insert("X-Dynamo-Session-ID", "session".parse().unwrap());
+        h.insert("X-Session-ID", "session".parse().unwrap());
         assert_eq!(s.header(&h).unwrap(), Some("session"));
-        h.append("X-Dynamo-Session-ID", "duplicate".parse().unwrap());
+        h.append("X-Session-ID", "duplicate".parse().unwrap());
         assert!(s.header(&h).is_err());
         assert_eq!(Sessions::default().header(&h).unwrap(), None);
     }

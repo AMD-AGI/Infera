@@ -35,6 +35,8 @@ struct Metrics {
     pick_request_blocks: HistogramVec,
     prefix_blocks_hit: CounterVec,
     prefix_blocks_total: CounterVec,
+    decode_demand_tokens: GaugeVec,
+    decode_demand_decisions: CounterVec,
     engine_kv_cache_usage: GaugeVec,
     engine_prefix_cache_hit_rate: GaugeVec,
     engine_kv_transfer_queue_reqs: GaugeVec,
@@ -140,6 +142,19 @@ fn m() -> &'static Metrics {
             &["role"]
         )
         .expect("register prefix_blocks_total"),
+        decode_demand_tokens: register_gauge_vec!(
+            "infera_router_decode_demand_tokens",
+            "In-flight input tokens booked by decode input-demand routing, by Decode route key",
+            &["target"]
+        )
+        .expect("register decode_demand_tokens"),
+        decode_demand_decisions: register_counter_vec!(
+            "infera_router_decode_demand_decisions_total",
+            "Decode input-demand picks by mode, exact or estimated input, and whether the \
+             suggestion matched the original policy",
+            &["mode", "input", "agrees"]
+        )
+        .expect("register decode_demand_decisions"),
         engine_kv_cache_usage: register_gauge_vec!(
             "infera_engine_kv_cache_usage",
             "Engine-reported KV-cache pool occupancy fraction (0-1)",
@@ -217,6 +232,25 @@ pub fn set_active_workers_from_snapshot(snap: &crate::pool::Snapshot) {
             .with_label_values(&[&mode, &model])
             .set(n);
     }
+}
+
+/// In-flight decode-demand tokens on `target`; `None` drops its series.
+pub fn set_decode_demand_tokens(target: &str, tokens: Option<u128>) {
+    let gauge = &m().decode_demand_tokens;
+    match tokens {
+        Some(tokens) => gauge.with_label_values(&[target]).set(tokens as f64),
+        None => {
+            let _ = gauge.remove_label_values(&[target]);
+        }
+    }
+}
+
+pub fn record_decode_demand_decision(mode: &str, exact: bool, agrees: bool) {
+    let input = if exact { "exact" } else { "estimated" };
+    let agrees = if agrees { "true" } else { "false" };
+    m().decode_demand_decisions
+        .with_label_values(&[mode, input, agrees])
+        .inc();
 }
 
 pub fn record_pick(role: &str, worker_id: &str, cache_hits: usize, request_blocks: usize) {

@@ -232,10 +232,10 @@ SGLang build newer than v0.5.19.
 ### Prefill load accounting in the Rust router
 
 By default a disaggregated request holds both Prefill and Decode routing load
-until Decode finishes. Set `INFERA_PD_PREFILL_GUARD_RELEASE=completion` on the
-Rust router to release Prefill's load after its complete response has been
-consumed. The native Rust CLI equivalent is
-`--pd-prefill-guard-release completion`; `decode` retains the default behavior.
+until Decode finishes. Pass `--pd-prefill-guard-release completion` (with
+`--router-backend rust`) to release Prefill's load after its complete response
+has been consumed; `decode` retains the default behavior. Unset, the Rust router
+reads `INFERA_PD_PREFILL_GUARD_RELEASE`.
 
 This changes router load accounting, not engine KV-cache ownership or eviction.
 It applies to HTTP streaming/unary and NATS delivery. Response headers alone do
@@ -261,7 +261,9 @@ top of `--router-policy`, which still picks a new session's target:
 | `prefill` | Keep each session on its selected Prefill worker/rank; choose Decode normally. |
 | `both` | Keep independent Prefill and Decode targets; also pin aggregated workers. |
 
-Clients opt in per request with `X-Dynamo-Session-ID`. The ID is scoped by model
+Clients opt in per request with `X-Session-ID`; AIPerf sends it, with its stable
+per-conversation `X-Correlation-ID` value, when
+`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true`. The ID is scoped by model
 and role; it is not added to model input. Requests without the header keep
 normal routing. Enabled modes reject duplicate, empty or over-1024-byte IDs.
 Prefill and Decode rank numbers need not match.
@@ -282,6 +284,14 @@ useful when the engine can retain and reuse Decode prefixes, but does not itself
 enable radix cache or guarantee better throughput. Session active-lease, hit and
 selection counters are exposed through `infera_router_session_*` metrics, with
 role labels and no session-ID labels.
+
+A client that omits `X-Session-ID` gets normal routing without any error, so
+check that sessions arrive. Per role, `infera_router_session_hits_total` plus
+`infera_router_session_selected_total` counts the picks that carried a session;
+`infera_router_picks_total` summed over workers counts all picks. If nearly all
+picks lack a session, the client is not sending the header (for AIPerf, set
+`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true`). These metrics come from the
+Rust router.
 
 The Python router keeps the same modes, scoping, TTL, capacity and ID checks,
 and a failed request also drops its bindings, with less bookkeeping: idle time

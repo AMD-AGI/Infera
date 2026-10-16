@@ -57,7 +57,7 @@ def _worker(wid: str, dp_size: int | None = None) -> WorkerInfo:
 
 
 def _req(session: str | None = None, model: str = "m") -> dict:
-    headers = {"x-dynamo-session-id": session} if session else {}
+    headers = {"x-session-id": session} if session else {}
     return {"model": model, "_infera_session_headers": headers}
 
 
