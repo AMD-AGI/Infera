@@ -1,0 +1,5 @@
+# t8b: TP8 + DP8 attention, write_back + mem 0.92, prefill chunk 4096 per rank (config/round.t8b.sh).
+# HiCache path unchanged from t8a, whose check passed 10-16 05:41 (runtime/runs/t8a/launch/hicache_check.wb.json).
+bash scripts/stop_stack.sh ROUND=t8a
+bash scripts/launch_agg.sh ROUND=t8b
+bash scripts/agg_round.sh ROUND=t8b VARIANT=t8b-wb-m092-ck4k CONC=128

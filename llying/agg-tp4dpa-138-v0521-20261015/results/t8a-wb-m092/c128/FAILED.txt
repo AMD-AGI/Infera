@@ -1,0 +1,2 @@
+FAILED round: the engine died at 2026-10-16 05:57:29 UTC (HIP OOM in the MoE stage-2 buffer during the
+warm-up prefill burst; see ../../../README.zh-CN.md, t8a). Client exited 1 in the warm-up; no scored window.
