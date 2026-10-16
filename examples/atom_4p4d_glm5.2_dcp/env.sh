@@ -65,10 +65,31 @@ export MTP_AL="${MTP_AL:-}"
 export PREFILL_MEM_UTIL="${PREFILL_MEM_UTIL:-0.90}"
 export DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-0.90}"
 
+# Prefill chunk budget (--max-num-batched-tokens); decode keeps 16384. ATOM's
+# compile cache (/root/.cache/atom, kept in the JIT cache volumes) does not key
+# on it: after a change, start with fresh volumes (another CTR), or the prefill
+# fails at startup in assert_size_stride.
+export PREFILL_MAX_BATCHED_TOKENS="${PREFILL_MAX_BATCHED_TOKENS:-16384}"
+
+# KV block size of both legs, which must match. Block x DCP4 must divide the
+# LMCache chunk of 256 tokens.
+export BLOCK_SIZE="${BLOCK_SIZE:-64}"
+
+# Prefill parallelism: 1 = TP4 + DCP4 (this kit's recipe), 4 = TP1 x PP4, eager,
+# with PREFILL_PP_PARTITION layers per stage (atom_4p4d_glm5.2_pp4).
+export PREFILL_PP="${PREFILL_PP:-1}"
+export PREFILL_PP_PARTITION="${PREFILL_PP_PARTITION:-20,20,20,18}"
+
+# Mooncake send workers per prefill rank (num_worker_threads). Empty = ATOM's
+# default, 16.
+export PREFILL_SEND_WORKERS="${PREFILL_SEND_WORKERS:-}"
+
 # LMCache CPU KV tier per prefill TP rank, GiB (4 ranks -> 1 TiB pinned host
 # memory at the default, allocated as GTT: README gotcha 4). 0 turns it off and
 # the prefill uses Mooncake only.
 export PREFILL_OFFLOAD_GB="${PREFILL_OFFLOAD_GB:-256}"
+# Shortest LMCache hit the prefill loads; shorter hits are recomputed.
+export OFFLOAD_MIN_LOAD_TOKENS="${OFFLOAD_MIN_LOAD_TOKENS:-8192}"
 
 # Router --session-affinity on top of round-robin: prefill keeps an agent
 # session on one prefill, both also on one decode, off is stateless.
