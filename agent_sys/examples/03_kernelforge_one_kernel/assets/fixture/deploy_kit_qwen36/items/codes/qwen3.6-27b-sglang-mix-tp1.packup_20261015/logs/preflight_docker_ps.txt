@@ -1,0 +1,10 @@
+recursing_mayer	lmsysorg/sglang:v0.5.12-rocm720-mi30x
+nifty_wright	lmsysorg/sglang:v0.5.12-rocm720-mi30x
+sharp_tu	lmsysorg/sglang:v0.5.12-rocm720-mi30x
+keen_noyce	lmsysorg/sglang:v0.5.12-rocm720-mi30x
+gifted_hermann	lmsysorg/sglang:v0.5.12-rocm720-mi30x
+charming_fermat	lmsysorg/sglang:v0.5.12-rocm720-mi30x
+lingxun-dsv4	tasimage/primus:latest
+yihou-as-e2e-1010c	yihou-agentsys/agent-sys:e2e-20261010b
+hyperloom-xizhao12-q8b3h	lmsysorg/sglang:v0.5.16-rocm720-mi30x
+hyperloom-local	vllm/vllm-openai-rocm:v0.29.0

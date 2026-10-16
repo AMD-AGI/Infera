@@ -132,12 +132,18 @@ def choose_configuration(
     through both `is` comparisons to the global row without any complaint.
     """
     kind = PhaseKind(kind)
+    # The global row's run facts — `AGENT_SYS_*`: where the package and the
+    # store are, which interpreter — hold for every row, under whatever the
+    # selected row says itself. Without this an output phase, which always has a
+    # producer row, never learned the interpreter, and `entry.sh` fell back to
+    # whichever `python3` the host resolved first (TODO.md item 5).
+    facts = {k: v for k, v in (global_ or {}).items() if k.startswith("AGENT_SYS_")}
     if bound is not None:
-        return EnvironmentConfig(ConfigSource.BOUND, dict(bound))
+        return EnvironmentConfig(ConfigSource.BOUND, {**facts, **bound})
     if kind is PhaseKind.INPUT and consumer is not None:
-        return EnvironmentConfig(ConfigSource.CONSUMER, dict(consumer))
+        return EnvironmentConfig(ConfigSource.CONSUMER, {**facts, **consumer})
     if kind is PhaseKind.OUTPUT and producer is not None:
-        return EnvironmentConfig(ConfigSource.PRODUCER, dict(producer))
+        return EnvironmentConfig(ConfigSource.PRODUCER, {**facts, **producer})
     return EnvironmentConfig(ConfigSource.GLOBAL, dict(global_ or {}))
 
 

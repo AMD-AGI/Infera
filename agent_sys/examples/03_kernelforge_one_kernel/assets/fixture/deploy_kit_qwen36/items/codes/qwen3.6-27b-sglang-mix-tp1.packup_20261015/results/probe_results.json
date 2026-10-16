@@ -1,0 +1,128 @@
+{
+  "probes": [
+    {
+      "name": "router_health",
+      "severity": "fail",
+      "direction": "Is anything listening on the product endpoint at all? Everything after this is meaningless if it is not, so it runs first and short-circuits the rest.",
+      "url": "http://127.0.0.1:18101/health",
+      "status": 200,
+      "elapsed_s": 0.002,
+      "body_head": "{\"status\":\"ok\",\"active_workers\":1}",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "worker_registered",
+      "severity": "fail",
+      "direction": "The router is up but is any worker attached? This is the failure that looks like a slow server: the router answers `/health`, accepts a completion, and the request then queues or 500s with nothing in the router log. Measured upstream in the same shape \u2014 sglang-router calls `/get_server_info` during `discover_metadata` with a hard-coded 10 s timeout, and a worker whose metadata call times out is **never registered** while everything else looks healthy.",
+      "url": "http://127.0.0.1:18101/v1/workers",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body_head": "{\"workers\":[{\"worker_id\":\"127.0.0.1:18102\",\"url\":\"http://127.0.0.1:18102\",\"model_name\":\"Qwen3.6-27B\",\"engine\":\"sglang\",\"status\":\"active\",\"disagg_mode\":\"mixed\",\"disagg_meta\":{},\"kv_events_endpoint\":\"tcp://127.0.0.1:42841\",\"kv_block_size\":1,\"dp_rank\":null,\"dp_size\":null}]}",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "mode_readback",
+      "severity": "fail",
+      "direction": "Was the deployment shape actually achieved? `mix` is selected by **omitting** a flag, so the launch command is not evidence of it. This is the router's independent reading; `check_deploy_kit` separately requires the worker's own.",
+      "url": "http://127.0.0.1:18101/v1/workers",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body_head": "{\"workers\":[{\"worker_id\":\"127.0.0.1:18102\",\"url\":\"http://127.0.0.1:18102\",\"model_name\":\"Qwen3.6-27B\",\"engine\":\"sglang\",\"status\":\"active\",\"disagg_mode\":\"mixed\",\"disagg_meta\":{},\"kv_events_endpoint\":\"tcp://127.0.0.1:42841\",\"kv_block_size\":1,\"dp_rank\":null,\"dp_size\":null}]}",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "model_identity",
+      "severity": "fail",
+      "direction": "Is the model registered under its published name, or under the filesystem path it was loaded from? The second is what a caller copies into every request, so it travels much further than the host it came from. It is also the single most common cause of a mysterious 400 against a healthy server: the model id the client sends does not exist on the server.",
+      "url": "http://127.0.0.1:18101/v1/models",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body_head": "{\"object\":\"list\",\"data\":[{\"id\":\"Qwen3.6-27B\",\"object\":\"model\",\"created\":1792047482,\"owned_by\":\"infera\"}]}",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "engine_generation_ready",
+      "severity": "fail",
+      "direction": "**The one probe that separates \"the HTTP layer answers\" from \"the model can generate\".** `/health`, `/v1/models` and `/get_model_info` do not go through the scheduler's ZMQ path, so all three keep answering while generation is wedged; `/health_generate` runs an actual generation. A deployment that passes the four probes above and fails this one is up, is serving, and will hang the first real request.",
+      "url": "http://127.0.0.1:18102/health_generate",
+      "status": 200,
+      "elapsed_s": 1.001,
+      "body_head": "",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "engine_model_info",
+      "severity": "warn",
+      "direction": "Did the engine load the checkpoint the kit says it did? Discriminates a server that is healthy and serving **the wrong weights** \u2014 which no latency or health probe can see and which silently invalidates every number every later stage produces.",
+      "url": "http://127.0.0.1:18102/get_model_info",
+      "status": 200,
+      "elapsed_s": 0.001,
+      "body_head": "{\"model_path\":\"/data/yihou_hf_cache/models/Qwen3.6-27B\",\"tokenizer_path\":\"/data/yihou_hf_cache/models/Qwen3.6-27B\",\"is_generation\":true,\"preferred_sampling_params\":null,\"weight_version\":\"default\",\"has_image_understanding\":true,\"has_audio_understanding\":false,\"model_type\":\"qwen3_5\",\"architectures\":[\"Qwen3_5ForConditionalGeneration\"]}",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "engine_server_info",
+      "severity": "warn",
+      "direction": "Were the launch arguments the kit documents the ones the server is actually running? Read back rather than asserted \u2014 the flags a later stage needs to match (tp size, context length, graph capture) are here.",
+      "url": "http://127.0.0.1:18102/get_server_info",
+      "status": 200,
+      "elapsed_s": 0.005,
+      "body_head": "{\"model_path\":\"/data/yihou_hf_cache/models/Qwen3.6-27B\",\"tokenizer_path\":\"/data/yihou_hf_cache/models/Qwen3.6-27B\",\"tokenizer_mode\":\"auto\",\"tokenizer_backend\":\"huggingface\",\"tokenizer_worker_num\":1,\"detokenizer_worker_num\":1,\"skip_tokenizer_init\":false,\"load_format\":\"auto\",\"model_loader_extra_config\":\"{}\",\"trust_remote_code\":true,\"context_length\":32768,\"is_embedding\":false,\"enable_multimodal\":null,\"revision\":null,\"model_impl\":\"auto\",\"model_config_parser\":\"auto\",\"json_model_override_args\":\"{}\",\"dtype\":\"auto\",\"quantization\":null,\"quantization_param_path\":null,\"kv_cache_dtype\":\"auto\",\"enable_fp32_lm_head\":false,\"modelopt_quant\":null,\"modelopt_checkpoint_restore_path\":null,\"modelopt_checkpoint_save_path\":null,\"modelopt_export_path\":null,\"quantize_and_serve\":false,\"rl_quant_profile\":null,\"enable_tf32_matmul\":false,\"mem_fraction_static\":0.7224999999999999,\"max_running_requests\":null,\"max_queued_requests\":null,\"max_total_tokens\":null,\"chunked_prefill_size\":16384,\"enable_dynamic_chunking\":false,\"max_prefill_tokens\":16384,\"prefill_max_requests\":null,\"schedule_policy\":\"fcfs\",\"enable_priority_scheduling\":false,\"disable_priority_preemption\":false,\"default_priority_value\":null,\"abort_on_priority_when_disabled\":false,\"schedule_low_priority_values_first\":false,\"priority_scheduling_preemption_threshold\":10,\"retraction_policy\":\"length\",\"schedule_conservativeness\":1.0,\"page_size\":1,\"swa_full_tokens_ratio\":0.8,\"disable_hybrid_swa_memory\":false,\"radix_eviction_policy\":\"lru\",\"prefill_only_disable_kv_cache\":false,\"disable_radix_cache\":false,\"enable_page_major_kv_layout\":false,\"enable_unified_memory\":false,\"disable_chunked_prefix_cache\":false,\"disable_overlap_schedule\":false,\"num_continuous_decode_steps\":1,\"scheduler_recv_interval\":1,\"enable_mixed_chunk\":false,\"nccl_port\":null,\"dist_timeout\":null,\"dist_init_addr\":null,\"nnodes\":1,\"node_rank\":0,\"tp_size\":1,\"dcp_size\":1,\"pp_size\":1,\"pp_max_micro_batch_size\":null,\"pp_async_batch_depth\":0,\"dp_size\":1,\"load_balance_method\":\"round_robin\",\"attn_c",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "completion_nonstreaming",
+      "severity": "fail",
+      "direction": "A real answer comes back through the **router**, not only from the engine port, and it finished on its own. Discriminates three faults that all present as a working server: a reasoning parser that eats `content` and leaves it **empty** while the request still succeeds; a token budget too small for a reasoning preamble, which returns `finish_reason: \"length\"`; and a router that accepts but does not forward. **What it does NOT check, corrected after this text claimed otherwise:** it does not look at what the content *says*. The assertions below are `stop`, non-empty, and a model id that is not a path \u2014 so the inverse of the first fault passes. Measured on rung 1: with no `--reasoning-parser`, Qwen3.6-27B returned `finish_reason: stop`, `reasoning_tokens: 0`, and a `content` beginning *\"Here's a thinking process:\"* \u2014 157 tokens of chain-of-thought in the field a caller reads as the answer. Every assertion here passed it. **`nonempty: true` was written against a parser that removes too much and is structurally blind to one that removes nothing.** The fix needs a bar nobody has measured yet; `todo.md` **T21** carries the proposed shape and the one measurement that would set it. Until then, read a pass here as \"the product path returned something\" and not as \"the product path returned an answer\".",
+      "url": "http://127.0.0.1:18101/v1/chat/completions",
+      "status": 200,
+      "elapsed_s": 3.012,
+      "body_head": "{\"id\":\"7515c8fa64da4f94bf822ad134f1ae75\",\"object\":\"chat.completion\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"\\n\\nParis\",\"reasoning_content\":\"Here's a thinking process:\\n\\n1.  **Analyze User Input:**\\n   - Question: \\\"What is the capital of France?\\\"\\n   - Constraint: \\\"Answer with one word.\\\"\\n\\n2.  **Identify Key Information:**\\n   - The capital of France is Paris.\\n\\n3.  **Check Constraint:**\\n   - \\\"Paris\\\" is one word.\\n   - Matches the constraint perfectly.\\n\\n4.  **Formulate Output:**\\n   - Just \\\"Paris\\\" (no extra text to strictly follow the constraint).\\n\\n5.  **Final Verification:**\\n   - Question: Capital of France? -> Paris\\n   - Constraint: One word? -> Yes\\n   - Output: Paris\\n\\n   All good. Proceed.\u2705\\n\",\"tool_calls\":null},\"logprobs\":null,\"finish_reason\":\"stop\",\"matched_stop\":248046}],\"usage\":{\"prompt_tokens\":22,\"total_tokens\":182,\"completion_tokens\":160,\"prompt_tokens_details\":null,\"reasoning_tokens\":157},\"metadata\":{\"weight_version\":\"default\"}}",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "completion_streaming",
+      "severity": "fail",
+      "direction": "The streaming path is **different code** from the non-streaming one, and every benchmark downstream of this stage measures TTFT and ITL over it. A deployment whose non-streaming path works and whose stream never terminates is one that passes every probe above and produces no measurement at all.",
+      "url": "http://127.0.0.1:18101/v1/chat/completions",
+      "status": 200,
+      "elapsed_s": 4.248,
+      "body_head": "data: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":null,\"role\":\"assistant\",\"content\":\"\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"Here\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"'s\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" a\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" thinking\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\" process\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\":\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acdd4d7c9f20ed6eb47aab72\",\"object\":\"chat.completion.chunk\",\"created\":1792047486,\"model\":\"Qwen3.6-27B\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"\\n\\n\"},\"logprobs\":null,\"finish_reason\":null,\"matched_stop\":null}]}\n\ndata: {\"id\":\"4ff35849acd",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "context_limit_refused",
+      "severity": "warn",
+      "direction": "Is the context length the server enforces the one the kit documents? A server started with a smaller window than the kit claims accepts every short request and truncates or refuses the long ones \u2014 visible here and nowhere else in this validator. **And the researched trap this row exists for:** SGLang's OpenAI-compatible endpoint returns HTTP **400** for a context overflow when `stream: false`, but HTTP **200 carrying an error payload** when `stream: true` \u2014 where vLLM returns 400 for both. A checklist that gates on the status line alone therefore reports a streaming failure as a success. So this probe is sent **twice**, once each way, and the streaming half is judged on the body.",
+      "url": "http://127.0.0.1:18101/v1/chat/completions",
+      "status": 400,
+      "elapsed_s": 0.209,
+      "body_head": "{\"object\":\"error\",\"message\":\"The input (39331 tokens) is longer than the model's context length (32768 tokens).\",\"type\":\"BadRequestError\",\"param\":null,\"code\":400}",
+      "faults": [],
+      "passed": true
+    },
+    {
+      "name": "metrics_exposed",
+      "severity": "warn",
+      "direction": "Can a later stage tell **saturated** from **broken**? A server can pass every health probe while requests sit in the scheduler queue, and the two look identical from the outside. `sglang:num_queue_reqs`, `sglang:cache_hit_rate` and the latency histograms are what distinguish them, and they are also what m2 reads.",
+      "url": "http://127.0.0.1:18101/metrics",
+      "status": 200,
+      "elapsed_s": 0.003,
+      "body_head": "# HELP infera_router_picks_total Total number of pick() decisions made by the router, per role and worker.\n# TYPE infera_router_picks_total counter\ninfera_router_picks_total{role=\"mixed\",worker_id=\"127.0.0.1:18102\"} 4.0\n# HELP infera_router_picks_created Total number of pick() decisions made by the router, per role and worker.\n# TYPE infera_router_picks_created gauge\ninfera_router_picks_created{role=\"mixed\",worker_id=\"127.0.0.1:18102\"} 1.7920474673344536e+09\n# HELP infera_router_pick_cache_hits Number of cache blocks the picked worker already had (chained-prefix hits).\n# TYPE infera_router_pick_cache_hits histogram\ninfera_router_pick_cache_hits_bucket{le=\"0.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"1.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"2.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"4.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"8.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"16.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"32.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"64.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"128.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"256.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"512.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"1024.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"2048.0\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_bucket{le=\"+Inf\",role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_count{role=\"mixed\"} 4.0\ninfera_router_pick_cache_hits_sum{role=\"mixed\"} 0.0\n# HELP infera_router_pick_cache_hits_created Number of cache blocks the picked worker already had (chained-prefix hits).\n# TYPE infera_router_pick_cache_hits_created gauge\ninfera_router_pick_cache_hits_created{role=\"mixed\"} 1.7920474673344765e+09\n# HELP infera_router_pick_request_blocks Total request block count seen at pick time.\n# TYPE infera_router_pick_",
+      "faults": [],
+      "passed": true
+    }
+  ],
+  "failed": [],
+  "warned": [],
+  "skipped": []
+}

@@ -64,8 +64,10 @@ def _shape(annotation: object) -> str:
     from the real side because the stub cannot carry them.
     """
     import re
+    import typing
 
-    if isinstance(annotation, type):
+    # `get_origin` first: on Python 3.10 `isinstance(list[X], type)` is True.
+    if isinstance(annotation, type) and typing.get_origin(annotation) is None:
         return annotation.__name__
     return re.sub(r"\b[a-z_][A-Za-z0-9_]*\.", "", str(annotation))
 

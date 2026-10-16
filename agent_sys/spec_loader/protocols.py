@@ -12,7 +12,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol, TypeAlias, TypedDict
+from typing import Any, Protocol, TypeAlias
+
+# pydantic refuses `typing.TypedDict` below Python 3.12 (`ValidatorSpec.body`).
+from typing_extensions import TypedDict
 
 __all__ = [
     "Body",

@@ -1,0 +1,1 @@
+python3 -m infera.server --host 127.0.0.1 --port 18121 --discovery-backend etcd --etcd-endpoint 127.0.0.1:18123 --request-transport http --kv-event-transport zmq --router-policy kv-aware --router-tokenizer-path /data/yihou_hf_cache/models/Qwen3.6-27B --enable-profiling 

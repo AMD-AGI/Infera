@@ -1,0 +1,42 @@
+{
+  "endpoint": "http://127.0.0.1:18101",
+  "engine_endpoint": "http://127.0.0.1:18102",
+  "container": "yihou_l2a_r16aea3",
+  "containers": [
+    "yihou_l2a_r16aea3",
+    "yihou_l2a_r16aea3_etcd"
+  ],
+  "containerized": true,
+  "run_tag": "r16aea3",
+  "label": "infera_e2e_run=r16aea3",
+  "work_root_in_container": "/var/tmp/yihou/demoladder/l2a/work/r16aea3",
+  "work_root_on_host": "/var/tmp/yihou/demoladder/l2a/work/r16aea3",
+  "measurement_roots": [
+    "/var/tmp/yihou/demoladder/l2a/host/runs/20261015T064713-16aea3",
+    "/var/tmp/yihou/demoladder/l2a/scratch"
+  ],
+  "served_model_name": "Qwen3.6-27B",
+  "model_path": "/data/yihou_hf_cache/models/Qwen3.6-27B",
+  "image": "infera:sglang-gfx942-glm52",
+  "image_id": "sha256:c05d2bebe442e8e0ea7c0d25a446ef6984a73c2eac5c5f048b77c708fd080818",
+  "gpu_devices": [
+    6
+  ],
+  "tp_size": 1,
+  "context_length": 32768,
+  "cuda_graph_max_bs": 32,
+  "deploy_mode": "mix",
+  "ports": {
+    "router": 18101,
+    "worker": 18102,
+    "etcd": 18103,
+    "etcd_peer": 18104,
+    "kv_events": 18105,
+    "kv_snapshot": 18106
+  },
+  "logs": {
+    "worker": "/var/tmp/yihou/demoladder/l2a/work/r16aea3/logs/worker.log",
+    "router": "/var/tmp/yihou/demoladder/l2a/work/r16aea3/logs/router.log"
+  },
+  "bringup_seconds": 276
+}

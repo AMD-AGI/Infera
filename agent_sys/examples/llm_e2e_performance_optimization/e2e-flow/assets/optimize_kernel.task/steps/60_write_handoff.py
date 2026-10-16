@@ -197,10 +197,14 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict, forge_
         )
 
     declared_mode = str(integration.get("apply_mode") or "overlay_files")
-    if declared_mode != "overlay_files":
+    # `patch_in_place` is a `call_site_fragment` operator, delivered as the
+    # campaign's own diff of the engine tree (the `patch` entry below, which
+    # apply.py has always run). It cannot fall back to a whole-file
+    # `replacement`: that would be an overlay of the module.
+    if declared_mode not in ("overlay_files", "patch_in_place"):
         lib.die(
             f"the workset declares apply_mode={declared_mode!r}; this stage delivers "
-            "overlay_files only (todo.md T5 defers the registry hook)"
+            "overlay_files or patch_in_place"
         )
 
     files = []
@@ -321,6 +325,16 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict, forge_
             # `apply/patches/`, so a prefixed value lands at
             # `apply/patches/apply/patches/x.patch`.
             entry["patch"] = name
+        elif declared_mode == "patch_in_place":
+            # Nothing kept is a result (`improved: false`), not a fault — but
+            # there is then nothing to install: a whole-file replacement would
+            # be an overlay of the module, which this integration does not allow.
+            print(
+                f"note: engine.patch is empty, so the campaign kept no change to {rel!r}; "
+                "patch_in_place has nothing to deliver",
+                file=sys.stderr,
+            )
+            continue
         else:
             entry["replacement"] = "results/optimized_kernel.py"
         files.append(entry)
@@ -358,7 +372,11 @@ def _apply_block(pinned: dict, packup: Path, kernel: Path, premise: dict, forge_
             ),
         },
         "files": files,
-        "revert": "Remove the overlay and restart the engine; nothing in the stock tree is modified in place.",
+        "revert": (
+            "Reverse-apply the patch under apply/patches/ (or restore the stock file) and restart the engine."
+            if declared_mode == "patch_in_place"
+            else "Remove the overlay and restart the engine; nothing in the stock tree is modified in place."
+        ),
     }
 
     # What a replacement may not change. Carried from the workset rather than

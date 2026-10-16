@@ -568,6 +568,29 @@ def test_a_declared_staged_path_that_is_absent_is_refused(tmp_path: Path, domain
         layout.stage_package(str(package), zone, ("bin",))
 
 
+def test_a_link_that_leaves_the_package_is_staged_as_a_copy(tmp_path: Path, domains) -> None:
+    """A demo links another package's object folder. A relative link copied into
+    the zone would name nothing, so an outward link is materialised; a link that
+    stays inside the package is kept as a link."""
+    shared = tmp_path / "shared" / "run.task"
+    shared.mkdir(parents=True)
+    (shared / "entry.sh").write_text("echo hi\n")
+    package = tmp_path / "package"
+    (package / "assets").mkdir(parents=True)
+    (package / "assets" / "run.task").symlink_to(Path("..") / ".." / "shared" / "run.task")
+    (package / "notes.md").write_text("n")
+    (package / "assets" / "alias.md").symlink_to(Path("..") / "notes.md")
+
+    task = Task()
+    zone = layout.create(task, task.push_execution(), domains)
+    staged = Path(layout.stage_package(str(package), zone))
+
+    outward = staged / "assets" / "run.task"
+    assert not outward.is_symlink() and (outward / "entry.sh").read_text() == "echo hi\n"
+    inward = staged / "assets" / "alias.md"
+    assert inward.is_symlink() and inward.read_text() == "n"
+
+
 @pytest.mark.parametrize("entry", ["../outside", "/etc"])
 def test_a_staged_entry_that_climbs_out_is_refused(tmp_path: Path, domains, entry: str) -> None:
     """Review R36: the include list had no containment check, so `..` read from

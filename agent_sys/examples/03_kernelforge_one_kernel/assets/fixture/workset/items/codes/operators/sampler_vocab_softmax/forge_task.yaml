@@ -1,0 +1,35 @@
+task_id: sampler_vocab_softmax
+gpu_target: gfx942
+fellow: triton-fellow
+generated_from:
+- definition
+- workload
+shapes:
+  primary:
+    CASE_ID: B32_V248320
+    BATCH: 32
+  validation:
+  - CASE_ID: B16_V248320
+    BATCH: 16
+  - CASE_ID: B64_V248320
+    BATCH: 64
+targets:
+  snr_db: 30.0
+  baseline_source: evidence/performance.json, impl=baseline
+edit_target:
+  from_identity: null
+  source_owner: sglang
+  repo_root_var: '@SGLANG_ROOT@'
+  source_file: python/sglang/srt/layers/sampler.py
+  editable_sources:
+  - python/sglang/srt/layers/sampler.py
+  entry_function: Sampler.forward
+  source_resolution_method: declared
+  resolution_evidence: 'Read inside infera:sglang-gfx942-glm52: python/sglang/srt/layers/sampler.py
+    defines class Sampler with forward(), whose standard sampling path runs `logits[:]
+    = torch.softmax(logits, dim=-1)`. The demo replaces that call with the naive baseline
+    (`integration.call_site`); device_symbol is the largest kernel of a standalone
+    torch.profiler capture of the naive baseline at [32, 248320] fp32.'
+  resolution_caveats:
+  - No operator_identity and no in-service trace back this; the location was read
+    by hand from the image.

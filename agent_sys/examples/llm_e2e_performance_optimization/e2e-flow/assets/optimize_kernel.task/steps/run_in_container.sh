@@ -450,6 +450,16 @@ while IFS='=' read -r name value; do
 done <<EOF
 $(env | grep -E '^(AGENT_SYS|KFO|E2E)_' || true)
 EOF
+# The model credentials forge's nested `claude` needs. Through an env file, not
+# `-e`: a `-e NAME=value` is on the docker client's command line, which every
+# user on the host can read. The file is mode 0600 in the zone's workdir.
+# Removed again right after the container returns.
+CRED_FILE=""
+if [ -n "$WORKDIR" ] && env | grep -q '^ANTHROPIC_'; then
+  CRED_FILE="$WORKDIR/.anthropic.env"
+  ( umask 077; env | grep '^ANTHROPIC_' > "$CRED_FILE" )
+  EXEC_ENV="$EXEC_ENV --env-file $(_sq "$CRED_FILE")"
+fi
 # Inside the image the venv is real, which is the whole point of entering it.
 EXEC_ENV="$EXEC_ENV -e KFO_PYTHON=$(_sq "${KFO_PYTHON:-/opt/venv/bin/python3}")"
 
@@ -587,6 +597,9 @@ else
       /shared_nfs/*|/shared_nfs)   printf '/shared_nfs' ;;
       /mnt/m2m_nobackup/*)         printf '%s' "$(printf '%s' "$1" | cut -d/ -f1-4)" ;;
       /home/*)                     printf '%s' "$(printf '%s' "$1" | cut -d/ -f1-3)" ;;
+      # Local disk on a single host (the demo ladder's level 3), where an NFS
+      # home with mode 0700 is unreadable to the daemon: /var/tmp/<user>.
+      /var/tmp/*/*|/var/tmp/*)     printf '%s' "$(printf '%s' "$1" | cut -d/ -f1-4)" ;;
       *)                           printf '' ;;
     esac
   }
@@ -596,7 +609,7 @@ else
     r="$(_mount_root "$m")"
     if [ -z "$r" ]; then
       echo "run_in_container: '$m' is under no mount form this cluster is known to accept" >&2
-      echo "  (/shared_nfs, /home/<user>, /mnt/m2m_nobackup/<user>). Refusing rather than" >&2
+      echo "  (/shared_nfs, /home/<user>, /mnt/m2m_nobackup/<user>, /var/tmp/<user>). Refusing rather than" >&2
       echo "  starting a container that cannot see it -- that failure arrives as 'No such" >&2
       echo "  file or directory' from inside and reads as a broken workset." >&2
       exit 1
@@ -613,6 +626,7 @@ else
         $MOUNTS $EXEC_ENV $WORKDIR_ARG $(_sq "$IMAGE") bash -lc $(_sq "$COMMAND")" || rc=$?
   _teardown
 fi
+[ -n "$CRED_FILE" ] && rm -f -- "$CRED_FILE"
 
 # CONTRACT section 5.0, in a `finally`: idempotent, and a no-op when there is
 # nothing root-owned, so this does not decide first whether it will be needed.

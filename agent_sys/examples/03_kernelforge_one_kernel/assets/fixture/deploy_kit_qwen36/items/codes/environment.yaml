@@ -1,0 +1,26 @@
+schema_version: 1
+fixed:
+  node: smc300x-ccs-aus-a16-19
+  node_ip: 127.0.0.1
+  image: infera:sglang-gfx942-glm52
+  model_name: Qwen3.6-27B
+  model_path: /data/yihou_hf_cache/models/Qwen3.6-27B
+  served_model_name: Qwen3.6-27B
+  deploy_mode: mix
+  tp_size: 1
+  context_length: 32768
+  gpu_arch: gfx942
+  gpu_count: 8
+  gpu_devices:
+  - 6
+  image_id: sha256:c05d2bebe442e8e0ea7c0d25a446ef6984a73c2eac5c5f048b77c708fd080818
+runtime:
+  slurm_jobid: local
+  container: yihou_l2a_r16aea3
+  transport: local
+  ports:
+    router: 18101
+    worker: 18102
+    etcd: 18103
+  started_at: '2026-10-15T07:02:06Z'
+  endpoint: http://127.0.0.1:18101

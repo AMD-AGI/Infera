@@ -48,14 +48,14 @@ It is a thin adapter and deliberately so — it shells out to
 `run_correctness.sh` / `run_performance.sh` rather than re-implementing them, so
 there is exactly one instrument in this workset and not two that can disagree.
 """
-import argparse, json, pathlib, subprocess, sys, tempfile
+import argparse, json, os, pathlib, subprocess, sys, tempfile
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(__file__).resolve().parents[3]  # <root>/operators/<op>/scripts/
 OPERATOR = {operator_id!r}
 CASE_IDS = {case_ids!r}
 
 
-def _run(script, case_id, impl):
+def _run(script, case_id, impl, *extra):
     with tempfile.TemporaryDirectory() as tmp:
         out = pathlib.Path(tmp) / "r.json"
         cmd = [str(ROOT / script), "--operator", OPERATOR, "--json", str(out)]
@@ -63,6 +63,7 @@ def _run(script, case_id, impl):
             cmd += ["--shape", case_id]
         if impl:
             cmd += ["--impl", impl]
+        cmd += list(extra)
         done = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True)
         payload = json.loads(out.read_text()) if out.is_file() else {{}}
         return done.returncode, payload
@@ -77,14 +78,31 @@ def main():
     ap.add_argument("--warmup", type=int, default=3)
     ap.add_argument("--iters", type=int, default=10)
     a = ap.parse_args()
+    # **forge passes no --impl.** It runs this driver bare and edits the kernel
+    # file in its workspace, so without this every number is the Definition's
+    # baseline timed against itself -- measured: a correct vectorised rewrite
+    # of a naive incumbent "measured" 0.68x. m4's STEP 3 exports the path of
+    # the file forge is editing.
+    a.impl = a.impl or os.environ.get("E2E_FORGE_IMPL") or None
     case_id = a.shape.split("=", 1)[1] if "=" in a.shape else None
 
     if a.bench_mode or a.profile_run:
-        rc, payload = _run("run_performance.sh", case_id, a.impl)
+        # Timed as graph replays: forge requires its bench to run under a
+        # CUDA/HIP graph and counts the replays. The workset's own protocol
+        # (and m4's STEP 5) stays eager; this is forge's search signal only.
+        rc, payload = _run("run_performance.sh", case_id, a.impl, "--timing", "cuda_graph_replay")
+        # forge parses `case_ms: <id> <ms>` (whitespace, not `=`) and needs one
+        # aggregate, `mean_ms:` or `median_ms:`; `time_ms:` is not read
+        # (KernelForge f107746 `mcp_server/tools/bench.py`). Measured: the
+        # earlier `case_ms: <id>=<ms>` / `time_ms:` form failed preflight with
+        # "NO TIMING DATA in output".
+        times = []
         for op in payload.get("operators", []):
             for s in op.get("shapes", []):
-                print(f"case_ms: {{s['case_id']}}={{s['weighted_mean_ms']:.6f}}")
-                print(f"time_ms: {{s['weighted_mean_ms']:.6f}}")
+                times.append(s["weighted_mean_ms"])
+                print(f"case_ms: {{s['case_id']}} {{s['weighted_mean_ms']:.6f}}")
+        if times:
+            print(f"mean_ms: {{sum(times) / len(times):.6f}}")
         return rc
 
     rc, payload = _run("run_correctness.sh", case_id, a.impl)

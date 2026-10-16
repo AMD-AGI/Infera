@@ -78,7 +78,7 @@ lets the recipe's `cp` be a `cp`.
 harness from an entry in the *agent's* `.claude/.mcp.json`
 (`env_mgr/docs/spec.md` §6.7), and that entry names `--project`, `HOME` and other
 values that differ per agent. Both add-ons' `.mcp.json` files were moved into
-`examples/ok.agent_capabilities.2/assets/env_probe.agent/.claude/.mcp.json` for exactly that
+`tests/e2e_test/ok.agent_capabilities.2/assets/env_probe.agent/.claude/.mcp.json` for exactly that
 reason. What stays here is the **payload** the entry points at.
 
 **There is no `recipe.yaml` here either.** Nothing finds an add-on by name, so
@@ -102,7 +102,7 @@ an error.
 | [`envchk-baseline`](envchk-baseline/) | one **stdio MCP server** whose single tool returns a nonce-derived token | one `python3` subprocess for the life of the session; no network |
 
 `envchk-baseline` exists to be this directory's worked example, and it is a real
-one rather than a stub: `examples/ok.agent_capabilities.2` installs it from
+one rather than a stub: `tests/e2e_test/ok.agent_capabilities.2` installs it from
 `assets/main.env_recipe.yaml`, declares it in its agent's `.mcp.json`, runs it,
 and its `check_capabilities_genuine` validator re-starts the server itself and
 compares the token the agent reported against the token the server produces.

@@ -16,6 +16,7 @@ field.
 
 from __future__ import annotations
 
+import os
 from collections.abc import Iterable, Mapping, MutableMapping
 from dataclasses import dataclass
 from itertools import permutations
@@ -54,6 +55,26 @@ class _Found:
     how: str
 
 
+def _walk(root: Path) -> list[Path]:
+    """Every file under `root`, **following directory symlinks**, by logical path.
+
+    A demo package reuses another package's objects by linking
+    `assets/<name>.task -> ../../other/assets/<name>.task`; `Path.rglob` does not
+    descend such a link, so the object would have no body. Each real directory is
+    entered once, which is what stops a link cycle.
+    """
+    out: list[Path] = []
+    seen: set[str] = set()
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=True):
+        real = os.path.realpath(dirpath)
+        if real in seen:
+            dirnames[:] = []
+            continue
+        seen.add(real)
+        out.extend(Path(dirpath) / f for f in filenames if os.path.isfile(os.path.join(dirpath, f)))
+    return out
+
+
 class AssetIndex:
     """Every file under `assets/`, ready to be asked for one object's body.
 
@@ -64,9 +85,7 @@ class AssetIndex:
 
     def __init__(self, assets_root: Path) -> None:
         self._root = assets_root
-        self._files: list[Path] = (
-            sorted(p for p in assets_root.rglob("*") if p.is_file()) if assets_root.is_dir() else []
-        )
+        self._files: list[Path] = sorted(_walk(assets_root)) if assets_root.is_dir() else []
 
     def resolve(self, role: str, *, name: str, type_: str | None) -> Path | None:
         """The package-relative path for one object's `readme` or `entry`, or

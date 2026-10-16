@@ -20,7 +20,7 @@ import pytest
 
 from env_mgr.fs.domain import DomainKind, DomainRegistry
 from env_mgr.fs.path import contained as contained_path
-from env_mgr.isolation.policy import interpreter_grants
+from env_mgr.isolation.policy import DEFAULT_SYSTEM_SET, interpreter_grants
 from env_mgr.isolation.probe import Availability
 from env_mgr.prepare import PACKAGE_ENV_VAR, EnvManager, Prepared, prepare
 from env_mgr.protocols import Mode, NoConfinement, PrepareRefused, Tier, UnresolvedGrant
@@ -764,6 +764,9 @@ def test_an_ungranted_interpreter_blames_the_policy_not_python(tmp_path: Path, m
     arriving in our own output. It cost an afternoon when first measured and it
     reappeared here unprompted the first time `spawn` ran a real child.
     """
+    real = os.path.realpath(sys.executable)
+    if any(real == g.path or real.startswith(g.path + os.sep) for g in DEFAULT_SYSTEM_SET):
+        pytest.skip(f"{real} is under the default system set, so it is granted anyway")
     reg = DomainRegistry()
     for name, kind in (
         ("store", DomainKind.HANDOFF_STORAGE),
@@ -1090,7 +1093,7 @@ def test_the_switch_does_not_move_a_body_s_input(ctx, monkeypatch, tmp_path) -> 
 
     Widening moves every staged input **down one level** — the artefact's files
     land at `<materials>/<hid>/v<N>/content/…` instead of at
-    `<materials>/<hid>/v<N>/…`. `examples/ok.filetree_grounded_report.4/bin/render.py` reads the narrow
+    `<materials>/<hid>/v<N>/…`. `tests/e2e_test/ok.filetree_grounded_report.4/bin/render.py` reads the narrow
     shape, so the switch would break a body **by moving its input**, and it
     would present as a body reading one level short rather than as a switch.
 

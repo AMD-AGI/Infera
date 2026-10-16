@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+import shutil
+
 import pytest
 
 from env_mgr.installers.base import (
@@ -9,6 +11,9 @@ from env_mgr.installers.base import (
 )
 from env_mgr.recipe import Item, Target
 from env_mgr.registry import REGISTRY, get_installer
+
+#: `check` reports `uv not on PATH` before it looks at the item.
+needs_uv = pytest.mark.skipif(shutil.which("uv") is None, reason="uv is not installed")
 
 
 def test_run_cmd_success():
@@ -125,6 +130,7 @@ def test_uv_plan_tool_form_no_dry_run(tmp_path):
     assert "uv tool install" in joined
 
 
+@needs_uv
 def test_uv_check_warns_when_no_ref_or_tool(tmp_path):
     # a uv item with neither ref nor tool is misconfigured; check must NOT say ok
     item = Item(installer="uv", importance="required", spec={})
@@ -132,6 +138,7 @@ def test_uv_check_warns_when_no_ref_or_tool(tmp_path):
     assert outs and all(o.level == "warn" for o in outs)
 
 
+@needs_uv
 def test_uv_check_ok_with_valid_ref(tmp_path):
     (tmp_path / "pyproject.toml").write_text("[project]\nname='x'\n")
     item = Item(installer="uv", importance="required", spec={"ref": "pyproject.toml"})

@@ -20,7 +20,7 @@ tagged `ENVCHK_SALT:`, and it exists nowhere else in this repository. That is
 the whole of what the token proves and it is worth stating exactly: **a caller
 that never reached this server cannot produce the string**, because it does not
 have the salt. It does not prove the caller reached the server *rather than*
-reading the file — see `examples/ok.agent_capabilities.2`'s
+reading the file — see `tests/e2e_test/ok.agent_capabilities.2`'s
 `check_capabilities_genuine.validator/readme.md`, which states that limit in
 full and closes it for this component by re-running the server itself.
 
@@ -32,7 +32,7 @@ library, so it starts in milliseconds and cannot fail on a package index being
 unreachable.
 
 **Installing it is one `cp`**, and a recipe does it —
-`examples/ok.agent_capabilities.2/assets/main.env_recipe.yaml`, an `embed` item that locates
+`tests/e2e_test/ok.agent_capabilities.2/assets/main.env_recipe.yaml`, an `embed` item that locates
 this directory by importing `env_mgr` and copies `servers/envchk_baseline_server.py`
 into `$CLAUDE_CONFIG_DIR/servers/`. The item is `required`, because the agent's
 `.mcp.json` names that exact path and a missing server is reported by Claude Code
@@ -63,10 +63,10 @@ so the harness has to be told about it in a file it reads.
 **There is no second copy of that entry in a `.claude/.mcp.json` here**, and no
 `agent_plugins: [envchk-baseline]` key to reach one. This directory holds the
 payload and nothing that configures anything —
-`examples/ok.agent_capabilities.2/assets/env_probe.agent/.claude/.mcp.json` is the one
+`tests/e2e_test/ok.agent_capabilities.2/assets/env_probe.agent/.claude/.mcp.json` is the one
 declaration.
 
-Shipping the server ourselves is what makes a run of `examples/ok.agent_capabilities.2`
+Shipping the server ourselves is what makes a run of `tests/e2e_test/ok.agent_capabilities.2`
 hermetic — no registry, no network, nothing to be unavailable on the day — and
 it changes nothing about the route being exercised.
 

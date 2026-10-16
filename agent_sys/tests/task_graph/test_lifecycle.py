@@ -328,14 +328,13 @@ def test_update_behaves_exactly_like_a_resubmission(scheduler, task_mgr, registr
     twin = original.model_copy(deep=True)
     other.get("scheduler").submit(twin)
     other.get("scheduler").remove_queued(twin.id)
-    manual = twin.model_copy(
+    manual = twin.model_copy(deep=True).model_copy(  # as update_task copies
         update={
             "agent_spec": "tuner",
             "resources": {"gpu": 4},
             "status": TaskStatus.WAITING_HANDOFF,
             "history": [],
         },
-        deep=True,
     )
     other.get("scheduler").submit(manual)
 

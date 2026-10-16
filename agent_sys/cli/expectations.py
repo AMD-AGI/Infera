@@ -3,7 +3,7 @@
 **This file is a compromise and says so.** `cli/` is the program's single entry
 point over *any* task package, and everything else in it — `build.py`,
 `environment.py`, `package.py`, `render/` — names no closure, no handoff kind
-and no validator. This table names three of `examples/ok.filetree_grounded_report.4`'s: the closure
+and no validator. This table names three of `tests/e2e_test/ok.filetree_grounded_report.4`'s: the closure
 `consume`, the validator `check_grounded` and the kind `summary`. **A package
 name appearing in the CLI is a leak**, and enumerating it here does not stop
 being one just because it is now in a file of its own; what it buys is that the
@@ -22,10 +22,10 @@ observed_when, judged_when}]` where the two conditions are expressed in terms
 the loader already has (a closure name and a task status; a validator name, a
 handoff kind and a result). `for_package` then becomes a read of the loaded
 registry instead of a dict lookup, this module keeps only `EMPTY` and the two
-NamedTuples, and the entry below moves into `examples/ok.filetree_grounded_report.4/main.yaml`.
+NamedTuples, and the entry below moves into `tests/e2e_test/ok.filetree_grounded_report.4/main.yaml`.
 
 **The default is `EMPTY`, and an empty set is a statement rather than a gap.**
-It says *this package promises nothing will fail* — which for `examples/ok.algorithms_solve_grade.14`
+It says *this package promises nothing will fail* — which for `tests/e2e_test/ok.algorithms_solve_grade.14`
 is the whole claim its run makes. It does **not** say every promise was kept:
 see `main._strict`, which reports the two differently, because "no promise was
 tested" and "every promise held" are the same green and different facts.
@@ -107,7 +107,7 @@ EMPTY = ExpectationSet({}, {}, _nothing_from_task, _nothing_from_verdict)
 
 
 # --------------------------------------------------------------------------- #
-# examples/ok.filetree_grounded_report.4 — the first reference package
+# tests/e2e_test/ok.filetree_grounded_report.4 — the first reference package
 
 
 def _grounded_verdict_exists(registry: Any) -> bool:
@@ -185,7 +185,7 @@ def _demo_verdict(verdict: Any, handoff: Any) -> str | None:
     return None
 
 
-#: What `examples/ok.filetree_grounded_report.4` promises will go wrong, and therefore what it FAILS for
+#: What `tests/e2e_test/ok.filetree_grounded_report.4` promises will go wrong, and therefore what it FAILS for
 #: if it does not. `cli` design §7.5, and pytest's vocabulary adopted directly:
 #: these are `xfail(strict=True)`, so an expected failure that passes is a
 #: failure.
@@ -205,7 +205,7 @@ _DEMO_PROMISES = {
     ),
 }
 
-#: Validations `examples/ok.filetree_grounded_report.4` deliberately did **not** perform, and why.
+#: Validations `tests/e2e_test/ok.filetree_grounded_report.4` deliberately did **not** perform, and why.
 #:
 #: `docs/interfaces.md` §4.17 — *a green run that is itself the corruption*. The
 #: vocabulary already separated three outcomes: observed, **did not happen**
@@ -239,7 +239,7 @@ DEMO = ExpectationSet(_DEMO_PROMISES, _DEMO_DROPPED, _demo_task, _demo_verdict)
 
 
 # --------------------------------------------------------------------------- #
-# examples/fail.ungrounded_number.4 — deterministic grounding violation
+# tests/e2e_test/fail.ungrounded_number.4 — deterministic grounding violation
 #
 # Pure-program version of demo's check_grounded failure. `transform` writes a
 # summary containing "99999", which does not appear in the facts manifest.
@@ -290,7 +290,7 @@ RT_GROUNDING = ExpectationSet(_RT_GROUNDING_PROMISES, {}, _rt_grounding_task, _r
 
 
 # --------------------------------------------------------------------------- #
-# examples/fail.fanout_partial.5 — fan-out partial failure
+# tests/e2e_test/fail.fanout_partial.5 — fan-out partial failure
 #
 # Three producers fan out; emit_b writes rows missing a required field.
 # check_thing detects the missing key → FAIL → thing_b sealed INVALID →
@@ -340,7 +340,7 @@ RT_FANOUT = ExpectationSet(_RT_FANOUT_PROMISES, {}, _rt_fanout_task, _rt_fanout_
 
 
 # --------------------------------------------------------------------------- #
-# examples/fail.judge_disagreement.5 — body succeeds, content disagrees
+# tests/e2e_test/fail.judge_disagreement.5 — body succeeds, content disagrees
 #
 # Two reviewers produce well-formed reviews but disagree on student_a.
 # reconcile merges them (exit 0), check_agree detects the non-empty
@@ -390,7 +390,7 @@ RT_DISAGREE = ExpectationSet(_RT_DISAGREE_PROMISES, {}, _rt_disagree_task, _rt_d
 
 
 #: Package directory name -> what that package promises. **Absent means `EMPTY`**,
-#: so `examples/ok.algorithms_solve_grade.14` needs no entry: it promises that nothing will fail, which
+#: so `tests/e2e_test/ok.algorithms_solve_grade.14` needs no entry: it promises that nothing will fail, which
 #: is a complete statement and the one its run makes.
 _BY_PACKAGE: dict[str, ExpectationSet] = {
     "ok.filetree_grounded_report.4": DEMO,

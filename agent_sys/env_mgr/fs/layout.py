@@ -359,6 +359,7 @@ def stage_package(
     into = os.path.join(zone.root, PACKAGE)
     if include is None:
         copy_out(resolved, into)
+        _materialise_outward_links(resolved, into)
         return into
     for relative in include:
         # `agent_assets._resolve_recipe`'s check: `..` or an absolute entry
@@ -376,6 +377,30 @@ def stage_package(
             )
         copy_out(src, os.path.join(into, relative))
     return into
+
+
+def _materialise_outward_links(src_root: str, dst_root: str) -> None:
+    """Replace, in the staged copy, every link that leaves the package.
+
+    A demo package reuses another package's objects by linking to them
+    (`assets/<name>.task -> ../../other/assets/<name>.task`). `copy_out` keeps
+    links, and a relative link copied into the zone points at nothing; an
+    absolute one points outside it. So a link whose target lies outside
+    `src_root` becomes a copy of what it names. A link that stays inside the
+    package is left as a link — it is still valid in the copy.
+    """
+    root = os.path.realpath(src_root)
+    for dirpath, dirnames, filenames in os.walk(src_root):
+        for name in dirnames + filenames:
+            link = os.path.join(dirpath, name)
+            if not os.path.islink(link):
+                continue
+            target = os.path.realpath(link)
+            if target == root or target.startswith(root + os.sep):
+                continue
+            staged = os.path.join(dst_root, os.path.relpath(link, src_root))
+            os.unlink(staged)
+            copy_out(target, staged, dereference=True)
 
 
 def copy_out(src: str, dst: str, *, dereference: bool = False) -> str:

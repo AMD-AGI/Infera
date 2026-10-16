@@ -38,6 +38,7 @@ dependencies = [
     "python-jsonpath>=1.1",  # handoff §8.4 — Pointer, three-way failure
     "markdown-it-py>=3",     # handoff §9.2 — CommonMark, not a regex
     "rfc8785>=0.1",          # handoff §4.6 — JCS that raises instead of rounding
+    "typing_extensions>=4.6",  # spec_loader.Body: pydantic needs it below 3.12
 ]
 
 [project.optional-dependencies]
@@ -71,7 +72,7 @@ include = [
     # The program's CLI — the single entry point. `examples*` is deliberately
     # absent and must stay absent: `cli` spec §1.1 says the demo may use
     # nothing an out-of-repository task package could not use, and the moment
-    # `examples/ok.filetree_grounded_report.4/` is an installed Python package it stops looking like
+    # `tests/e2e_test/ok.filetree_grounded_report.4/` is an installed Python package it stops looking like
     # one. `tests/cli/test_package_loads.py::test_examples_has_no_init` is
     # the enforcement. Measured (`cli` design §12, M13): setuptools ships
     # `.py` only, so from a wheel a task package's `.jsonnet` is simply not
@@ -115,7 +116,8 @@ env_mgr = [
 testpaths = ["tests"]
 # `scratch/` is gitignored working space and may hold cloned third-party trees
 # whose own test files pytest would otherwise try to collect.
-norecursedirs = ["scratch"]
+# `tests/e2e_test/` holds task packages, which are data, not tests.
+norecursedirs = ["scratch", "e2e_test"]
 
 # Inherits the repository's ruff settings; adds only what is local to agent_sys.
 [tool.ruff]

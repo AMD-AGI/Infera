@@ -246,7 +246,7 @@ class Ssh:
 
         The split is worth keeping in mind for anything else that gets added
         here: **identity is ours, intent is the package's.** The task-side half
-        lives in `examples/ok.sglang_real_model.2/assets/serve_qwen.task/readme.md`,
+        lives in `tests/e2e_test/ok.sglang_real_model.2/assets/serve_qwen.task/readme.md`,
         keyed on whether these tools are present at all.
         """
         return (

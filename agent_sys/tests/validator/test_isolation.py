@@ -356,6 +356,20 @@ def test_the_chain_reads_a_bare_string_kind_too() -> None:
         choose_configuration("main")
 
 
+def test_the_run_facts_reach_every_row() -> None:
+    """TODO.md item 5: the interpreter is named only on the global row, and an
+    output phase always selects the producer row, so `entry.sh` fell back to the
+    host's first `python3`. The run's `AGENT_SYS_*` facts now sit under any row;
+    the row's own values still win, and nothing else of the global row leaks."""
+    run = {"AGENT_SYS_DEMO_PYTHON": "/venv/bin/python", "PATH": "/global", "TOKEN": "x"}
+    got = choose_configuration(PhaseKind.OUTPUT, producer={"E2E_NODE": "n"}, global_=run).values
+    assert got == {"AGENT_SYS_DEMO_PYTHON": "/venv/bin/python", "E2E_NODE": "n"}
+    own = choose_configuration(
+        PhaseKind.INPUT, consumer={"AGENT_SYS_DEMO_PYTHON": "/mine"}, global_=run
+    ).values
+    assert own["AGENT_SYS_DEMO_PYTHON"] == "/mine"
+
+
 def test_reusing_a_configuration_is_fine_and_inheriting_an_environment_is_not(
     tmp_path: Path,
 ) -> None:

@@ -1,0 +1,30 @@
+# Level 3 of the demo ladder (`../README.md`): optimise one kernel with KernelForge.
+#
+#   publish_inputs   a PROGRAM task: publishes the two inputs stage 4 needs from
+#                    assets/fixture/ - a deploy kit and a one-operator workset
+#                    (sampler_vocab_softmax, measured on gfx942)
+#   m4_kernel_opt    e2e-flow's stage 4, reused by link: an AI agent runs the
+#                    workset's KernelForge one-liner, then the workset's own
+#                    correctness and performance tests, and a validator
+#                    re-measures the claimed speed-up
+#
+# Both inputs are validated when they are published, exactly as if stages 1
+# and 3 had produced them.
+module: task
+name: main
+description: Optimise one kernel with KernelForge and prove the speed-up - e2e-flow's stage 4 on a fixed workset.
+handoffs: [deploy_kit, operator_workset, kernel_optimization]
+validators: []
+task:
+  goal: Publish a measured one-operator workset, then optimise that kernel.
+  version: '1'
+  inputs: []
+  outputs: [kernel_optimization]
+  permissions:
+    grants:
+      - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+      - {path: handoffs/operator_workset, access: write, kind: operator_workset}
+      - {path: handoffs/kernel_optimization, access: write, kind: kernel_optimization}
+  subgraph:
+    - {closure: publish_inputs, froms: []}
+    - {closure: m4_kernel_opt, froms: [publish_inputs], is_end: true}

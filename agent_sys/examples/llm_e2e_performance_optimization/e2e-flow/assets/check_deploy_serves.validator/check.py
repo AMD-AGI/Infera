@@ -463,7 +463,17 @@ def check_one(
     # that takes its container name or its port is a validator that breaks the
     # thing it is checking.
     tag = f"serves-{uuid.uuid4().hex[:8]}"
-    work_root = f"{parameters['work_root'].rstrip('/')}/{tag}"
+    # `--var validate_work_root=` when given; otherwise a directory of our own
+    # under the producer's work root. Empty, the kit would be told to create
+    # `/<tag>` at the filesystem root (measured: `mkdir: Permission denied`).
+    base = parameters["work_root"] or (
+        f"{os.environ['E2E_WORK_ROOT'].rstrip('/')}/validate"
+        if os.environ.get("E2E_WORK_ROOT")
+        else ""
+    )
+    if not base:
+        return ["no work root: pass --var validate_work_root=<local disk>, or set work_root"]
+    work_root = f"{base.rstrip('/')}/{tag}"
     overrides = {
         # Root-owned `__pycache__` inside the handoff is the first half of the
         # problem `reclaim.sh` cleans up after; not creating it is cheaper than

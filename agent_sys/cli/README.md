@@ -29,7 +29,7 @@ agent-sys run                           # the whole thing. Needs credentials and
 agent-sys run --resume                  # continue the last run
 agent-sys run --clean                   # remove every run and exit
 
-agent-sys show --package agent_sys/examples/ok.algorithms_solve_grade.14 \
+agent-sys show --package agent_sys/tests/e2e_test/ok.algorithms_solve_grade.14 \
                --var n_problems=2
 ```
 
@@ -82,8 +82,8 @@ this artefact can produce; exit 3 is what stops it being silent.
 
 ```
 cli/                                     the RUNNER — installed
-examples/ok.filetree_grounded_report.4/  a TASK PACKAGE — YAML and data, not installed
-examples/fail.dangling_handoff_kind.1/   deliberately broken. Only --with-broken loads it
+tests/e2e_test/ok.filetree_grounded_report.4/  a TASK PACKAGE — YAML and data, not installed
+tests/e2e_test/fail.dangling_handoff_kind.1/   deliberately broken. Only --with-broken loads it
 ```
 
 Spec §1.1 says the demo may use nothing an out-of-repository task package could

@@ -5,10 +5,10 @@
 `materials.json`, `verdict.json`. A validator body is started with `cwd` set to
 a freshly allocated zone holding the first three, and it owes the fourth.
 
-**This is deliberately not `examples/ok.algorithms_solve_grade.14/assets/lib/store.py`.** That module
+**This is deliberately not `tests/e2e_test/ok.algorithms_solve_grade.14/assets/lib/store.py`.** That module
 reads `handoff`'s on-disk store layout directly — version-directory naming, the
 manifest filename, the `content/` hop — through `AGENT_SYS_DEMO_STORE`, and it
-is admissible there only because it is a verbatim copy of `examples/ok.filetree_grounded_report.4`'s and
+is admissible there only because it is a verbatim copy of `tests/e2e_test/ok.filetree_grounded_report.4`'s and
 `tests/cli/test_isolation_shown.py` pins *that* copy against `handoff`'s real
 constants. A third copy here would be a third reader of a layout `handoff` owns,
 and an unpinned one.

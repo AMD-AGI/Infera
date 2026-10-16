@@ -1,0 +1,49 @@
+{
+  "engine_extra_env": {
+    "YIHOU_SEAM_PROBE in worker process": "selftest",
+    "YIHOU_SEAM_PROBE2 in worker process": "two",
+    "YIHOU_SEAM_PROBE in sglang child process": "selftest",
+    "YIHOU_SEAM_PROBE in router process": null,
+    "YIHOU_SEAM_PROBE in container env": null
+  },
+  "engine_extra_args": {
+    "last_worker_argv_token": "--enable-cache-report"
+  },
+  "router_extra_args": {
+    "last_router_argv_token": "--enable-profiling"
+  },
+  "hip_visible_devices_in_worker": "6",
+  "writability": {
+    "/var/tmp/yihou/demoladder/l2a/work/selftest-r16aea3": {
+      "written_inside_read_outside": true
+    },
+    "/var/tmp/yihou/demoladder/l2a/host/runs/20261015T064713-16aea3": {
+      "written_inside_read_outside": true
+    },
+    "/var/tmp/yihou/demoladder/l2a/scratch": {
+      "written_inside_read_outside": true
+    }
+  },
+  "mounts": [
+    {
+      "source": "/var/tmp/yihou/demoladder/l2a/host/runs/20261015T064713-16aea3",
+      "destination": "/var/tmp/yihou/demoladder/l2a/host/runs/20261015T064713-16aea3",
+      "rw": true
+    },
+    {
+      "source": "/var/tmp/yihou/demoladder/l2a/scratch",
+      "destination": "/var/tmp/yihou/demoladder/l2a/scratch",
+      "rw": true
+    },
+    {
+      "source": "/data/yihou_hf_cache/models/Qwen3.6-27B",
+      "destination": "/data/yihou_hf_cache/models/Qwen3.6-27B",
+      "rw": false
+    },
+    {
+      "source": "/var/tmp/yihou/demoladder/l2a/work/selftest-r16aea3",
+      "destination": "/var/tmp/yihou/demoladder/l2a/work/selftest-r16aea3",
+      "rw": true
+    }
+  ]
+}

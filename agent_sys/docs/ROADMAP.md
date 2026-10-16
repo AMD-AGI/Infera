@@ -332,7 +332,7 @@ language rule.
 
 ### What an end-to-end run establishes, and what it does not
 
-A full drive of `examples/ok.filetree_grounded_report.4` completes in
+A full drive of `tests/e2e_test/ok.filetree_grounded_report.4` completes in
 **109–124 s** with all four tasks succeeding, the root terminating, both
 validators recording real verdicts, and exit 3. No stalls, no timeouts.
 
@@ -500,7 +500,7 @@ of from the same instincts.
 
 ### The measurement that prompted it
 
-The UI stage's goal was `examples/ok.filetree_grounded_report.4` converted to YAML and **running end to
+The UI stage's goal was `tests/e2e_test/ok.filetree_grounded_report.4` converted to YAML and **running end to
 end**. With permissions enforced it does not:
 
 ```
@@ -627,7 +627,7 @@ disconnected caller, not a deleted module, and re-wiring it is one line.
 ### Why it was disabled
 
 It **refused a correct artefact, and would have refused every correct one.** On
-the first end-to-end run of `examples/ok.sglang_real_model.2` the seal rejected the
+the first end-to-end run of `tests/e2e_test/ok.sglang_real_model.2` the seal rejected the
 agent's reproduction kit at `README.md`, on this line:
 
     `"POST /v1/chat/completions HTTP/1.1" 200 OK`
@@ -932,8 +932,8 @@ row.
 **Why not today, measured rather than assumed:**
 
 ```
-examples/ok.filetree_grounded_report.4/validators/check_facts.yaml        entry: logic/check_facts/entry.sh
-examples/ok.filetree_grounded_report.4/validators/check_grounded.yaml     entry: logic/check_grounded/entry.sh
+tests/e2e_test/ok.filetree_grounded_report.4/validators/check_facts.yaml        entry: logic/check_facts/entry.sh
+tests/e2e_test/ok.filetree_grounded_report.4/validators/check_grounded.yaml     entry: logic/check_grounded/entry.sh
 ```
 
 **Both of the demo's validators are script-bodied.** No AI validator runs in the

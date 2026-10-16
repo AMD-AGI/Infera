@@ -178,6 +178,26 @@ jobs:
       - name: pytest (unit only)
         run: pytest -m "not slow and not integration" -q
 
+  # agent_sys is its own package with its own pytest config, so the root `unit`
+  # job (testpaths = tests/) never collects it. Installed and run from its own
+  # directory; uv is installed because the env_mgr installer tests call it.
+  agent_sys:
+    needs: [lint, changes]
+    # Skip on docs-only changes.
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent_sys
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.10"
+      - run: pip install uv -e ".[dev]"
+      - name: pytest (agent_sys)
+        run: python -m pytest tests -q
+
   # Rust router: clippy + unit/integration tests. GH-hosted ubuntu-latest
   # ships a stable toolchain (with clippy), so no toolchain setup is needed.
   rust:

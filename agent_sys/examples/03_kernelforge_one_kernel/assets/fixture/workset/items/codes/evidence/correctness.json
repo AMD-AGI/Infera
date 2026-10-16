@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "generated_by": "run_correctness.sh",
+  "environment": {
+    "node": "smc300x-ccs-aus-a16-19",
+    "gpu_arch": "gfx942",
+    "gpu_count": 8,
+    "tp_size": 1,
+    "container": "yihou_l3_measure_naive6",
+    "image_id": "sha256:c05d2bebe442e8e0ea7c0d25a446ef6984a73c2eac5c5f048b77c708fd080818",
+    "premise_checked_against": "self (not independently confirmed)"
+  },
+  "started_at": "2026-10-15T16:19:26Z",
+  "impl": "baseline",
+  "impl_path": null,
+  "operators": [
+    {
+      "operator_id": "sampler_vocab_softmax",
+      "ran": true,
+      "failure": null,
+      "passed": true,
+      "gates": {
+        "snr_db": 30.0,
+        "allclose": {
+          "atol": 1e-06,
+          "rtol": 0.001
+        },
+        "extra": [
+          {
+            "name": "rows_sum_to_one",
+            "tolerance": 0.0001,
+            "brief": "Every output row sums to 1. No SNR threshold catches a wrong distribution."
+          },
+          {
+            "name": "writes_in_place",
+            "tolerance": null,
+            "brief": "The returned tensor IS the caller's `out` and `out` was written. The call site is `logits[:] = ...`; a replacement that allocates passes every isolated correctness case and breaks there."
+          }
+        ]
+      },
+      "shapes": [
+        {
+          "case_id": "B16_V248320",
+          "uuid": "0000000000000000",
+          "snr_db": 140.52041053771973,
+          "allclose": true,
+          "extra": {
+            "rows_sum_to_one": true,
+            "writes_in_place": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "B32_V248320",
+          "uuid": "0000000000000001",
+          "snr_db": 140.18561363220215,
+          "allclose": true,
+          "extra": {
+            "rows_sum_to_one": true,
+            "writes_in_place": true
+          },
+          "passed": true,
+          "failure": null
+        },
+        {
+          "case_id": "B64_V248320",
+          "uuid": "0000000000000002",
+          "snr_db": 140.06792068481445,
+          "allclose": true,
+          "extra": {
+            "rows_sum_to_one": true,
+            "writes_in_place": true
+          },
+          "passed": true,
+          "failure": null
+        }
+      ]
+    }
+  ],
+  "passed": true,
+  "finished_at": "2026-10-15T16:19:30Z",
+  "impl_read": null
+}

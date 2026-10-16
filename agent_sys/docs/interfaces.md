@@ -693,7 +693,7 @@ two "nothing was asked" sites call `PhaseOutcome.nothing_expected(kind, skipped=
 
 **Read narrowly, and measured.** §4.15's sentence is *nothing checked what this
 task **produced***, so a task with **no output handoff** has nothing unchecked.
-The wide reading blocks `examples/ok.filetree_grounded_report.4/closures/main.jsonnet` — `outputs: []`,
+The wide reading blocks `tests/e2e_test/ok.filetree_grounded_report.4/closures/main.jsonnet` — `outputs: []`,
 `validators: []` — which is the demo's root. `agent`'s side is unchanged: it
 reads `blocks_the_task` and `evidence` through `getattr`.
 

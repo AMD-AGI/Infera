@@ -32,7 +32,7 @@ from monitor import event as monitor_event
 from task_graph import TaskStatus
 from tests.cli.conftest import by_closure
 
-#: `examples/ok.filetree_grounded_report.4`'s expectation set, which every accounting test here drives.
+#: `tests/e2e_test/ok.filetree_grounded_report.4`'s expectation set, which every accounting test here drives.
 DEMO = cli_expectations.DEMO
 
 # --------------------------------------------------------------------------- #

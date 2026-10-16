@@ -629,12 +629,16 @@ symlink from one package into another. The loader resolves a path, and it does n
 know that packages can be nested, adjacent, or shared. Anything more would be the
 coupling this rule exists to avoid.
 
-#### `examples/` is the exception, and it is a directory rather than a list
+#### `examples/` and `tests/e2e_test/` are the exception, as directories rather than a list
 
-**One directory in this repository may hold task packages: `examples/`.** A
-framework ships examples; that is what the directory is for, and a rule that
-admitted them one at a time would be a rule about this repository's history
-rather than about its structure.
+**Two directories in this repository may hold task packages: `examples/` and
+`tests/e2e_test/`.** `examples/` holds the demos a user learns from, ordered as a
+ladder from a hello world to the full e2e flow; `tests/e2e_test/` holds the
+packages that exist to be run as end-to-end tests. A demo that is also a test
+lives in `examples/` and is linked from `tests/e2e_test/`. A framework ships
+examples; that is what the directories are for, and a rule that admitted them one
+at a time would be a rule about this repository's history rather than about its
+structure.
 
 Earlier revisions enumerated the permitted roots by name and required each new
 one to be argued for. That bought a real thing — nobody adds a workflow package
@@ -647,12 +651,12 @@ component, beside the general specs — is still a violation and is still caught
 What does **not** change is the rest of this section. An example is a task
 package like any other: it may use nothing an outside package could not, it is
 not importable, and nothing in the system depends on one being correct. And
-`examples/` is a permission, not an invitation to move a workflow inside — a
+these directories are a permission, not an invitation to move a workflow inside — a
 package a site actually runs still lives outside this repository, for every
 reason listed at the end of this section.
 
-**An example may require what it requires.** `examples/ok.filetree_grounded_report.4` and
-`examples/ok.algorithms_solve_grade.14` run anywhere; a package demonstrating a real workload will need
+**An example may require what it requires.** `tests/e2e_test/ok.filetree_grounded_report.4` and
+`tests/e2e_test/ok.algorithms_solve_grade.14` run anywhere; a package demonstrating a real workload will need
 real hardware, real weights, or real credentials, and that is a property of the
 thing being demonstrated rather than a defect. What it may not do is make this
 repository's own tests depend on it — the last consequence in this section is
@@ -774,7 +778,7 @@ overlays are: a workflow runs the same shape against different models and
 hardware, and the alternative to templating is copy-paste.
 
 **Measured, that templating was never used.** Counted over every non-comment line
-of all 21 `.jsonnet` and `.libsonnet` sources in `examples/ok.filetree_grounded_report.4/**` and
+of all 21 `.jsonnet` and `.libsonnet` sources in `tests/e2e_test/ok.filetree_grounded_report.4/**` and
 `validator/general_specs/**`, the entire computation surface is three things: a
 shared library of constants, string concatenation to build paths, and
 default-if-absent. No arithmetic, no loops, no comprehensions, no overlays. Every
@@ -1176,7 +1180,7 @@ System-level. Each component spec carries its own; §9 indexes them.
    before it validates", which no longer happens. The rest is strengthened rather
    than relaxed — this was an ordering convention inside `load_package` and is now
    a type boundary (§4.4).*
-5. **This repository contains no workflow-specific spec outside `examples/`.**
+5. **This repository contains no workflow-specific spec outside `examples/` and `tests/e2e_test/`.**
    Every handoff kind, validator, task, agent, and closure here is either a
    schema, or a general spec (§4.5), or an example package's (§4.3). *Amended at
    rev. 13: it said "or the demo package's", and the guard enforcing it

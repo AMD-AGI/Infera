@@ -1,0 +1,11 @@
+{
+  "judge_load_faults": [],
+  "graph_ceiling": {
+    "label": "deploy_and_prove",
+    "ok": true,
+    "ceiling": 32,
+    "decode_concurrency": 14.593,
+    "ceiling_source": "--cuda-graph-max-bs-decode -> 32",
+    "concurrency_source": "effective_decode_concurrency"
+  }
+}
