@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "validator.schema.json",
+  "title": "Validator",
+  "description": "A check over one or more handoff kinds. `validator` spec §4 gives the four elements — purpose, inputs, implementation, result — and §9.2 the tag dictionary. The result type is boolean in v1; a score is reserved and built later, because a threshold set before run-to-run variance is measured is indistinguishable from noise (§4.2).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "brief", "dimension", "strength", "inputs", "tags"],
+  "properties": {
+    "name": { "$ref": "_common.schema.json#/$defs/name" },
+    "version": { "$ref": "_common.schema.json#/$defs/version" },
+    "description": { "$ref": "_common.schema.json#/$defs/description" },
+    "brief": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The purpose, one line: which dimension this checks and what specifically. Required with no default — a registry of forty validators all named `check_trace_v2` is not searchable, and `validator` spec §9.3 check 2 makes absence a rejection rather than a warning because an unlabelled validator would default to being trusted."
+    },
+    "dimension": {
+      "enum": ["completeness", "usability", "trustworthiness"],
+      "description": "`validator` spec §5.1. No default, for §9.3 check 2's reason."
+    },
+    "strength": {
+      "enum": ["strong", "long_term_strong", "weak"],
+      "description": "How far this check can be trusted, and it qualifies a PASS, never a failure (`validator` spec §5.4). `long_term_strong` is not a weaker `strong` — the rigour is the same and the timing is what differs. No default."
+    },
+    "inputs": {
+      "$ref": "_common.schema.json#/$defs/handoff_kind_names",
+      "minItems": 1,
+      "description": "The handoff kinds this consumes, DECLARED rather than discovered, so a phase can dispatch only compatible validators and a reviewer can answer 'what does this actually read' without running it. The binding is many-to-many. The key is `inputs`: both this design and `handoff`'s called it `binds_to` in an early revision and no model has that key (docs/interfaces.md §4.3)."
+    },
+    "body": {
+      "$ref": "_common.schema.json#/$defs/body",
+      "description": "The implementation. A registered Python callable is NOT the interface — it cannot express a validator an agent is responsible for without a wrapper that runs an agent (`validator` spec §6.1). Present iff `members` is absent; that exclusivity is a named load-time check rather than an `if`/`then`, which produces a message nobody can act on."
+    },
+    "agent": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The agent spec that carries this validator's environment — `validator` spec §8.2 row 1, *\"bound to a real agent with a declared environment: that one\"*. A NAME, resolved through `agent_specs`, because the environment already lives on the agent spec as `agent.env`; a second inline copy here would be two writers of one fact and they would diverge silently.\n\n**Absent is legal** and takes §8.2's last row, the predefined global configuration — which is why this is not in `required`. Three of the four rows are reached by *not* naming one, so requiring it would make them unreachable.\n\n**Present-but-unresolvable is fatal**, and the check is `closure`'s pass, not this schema's: the agent registry may not be loaded when this document is (main design §6.1 — *\"resolve-during-load cannot see the far side of a binding\"*). A name admitted here and resolved there is also registered with `agent_mgr`, since `task_graph/bootstrap.py` registers every `agent_specs` name — so a validator cannot name an agent the manager that runs it has never heard of.",
+      "$comment": "Read it through `spec_loader.validator_agent_of`, not as spec['agent']. Not `agent_of` — `closure.agent_of` reads a closure document and returns `str`, and neither raises on the wrong one. This comment named `validator.agent_of` for 55 seconds: it was true when written and withdrawn immediately after, which is why it now names an accessor in the same package as the schema."
+    },
+    "args": {
+      "type": "object",
+      "description": "This instance's parameters, reaching the body as `args.json` in its zone (`validator` design §10.6, D5). **Load-bearing**: criterion 12 is that two validators differing only in a parameter are two registry entries over one implementation, so one spec per instance is how a threshold is expressed at all. Deliberately unconstrained — the keys are the body's business, and a schema here would be this repository declaring another package's parameter vocabulary."
+    },
+    "members": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 2,
+      "uniqueItems": true,
+      "description": "Where several checks combine: one combinator with a pluggable reducer, Inspect AI's `multi_scorer`. Top-level beside `reduce`, matching `ValidatorSpec` (`validator` design §3.2), which is the normative statement of the shape; spec §6.2's `composite(validators=[...], reduce=...)` is function-call prose, not a nesting. **Composition is flat** — a member that is itself a composite is rejected by a load-time check, as OpenAI's multigrader forbids outright. `minItems: 2` because a composite of one is a leaf with ceremony."
+    },
+    "reduce": {
+      "type": "string",
+      "pattern": "^(all|any|at_least\\([1-9][0-9]*\\))$",
+      "description": "`all`, `any`, or `at_least(k)`. Meaningful only beside `members`."
+    },
+    "tags": {
+      "type": "object",
+      "required": ["logic_source", "cost"],
+      "description": "**Required, and so are two of its three fields.** Not a preference: `Tags` cannot be constructed empty, so an optional container would mean either a default `logic_source` — which is a default *trust* claim, and §9.3 check 2 forbids exactly that in the words 'an unlabelled validator would default to being trusted' — or `None`, which makes §5.3's cheap-first ordering crash rather than lose a value. Requiring the container while leaving its required fields optional would move the same gap one level deeper.\n\n`validator` spec §9.2's dictionary, less `dimension` and `strength`, which are top-level here because `Validator` carries them as attributes rather than as tags (§4.1).\n\n**Extra keys are allowed here and forbidden at the top level**, and the asymmetry is deliberate (`validator` design §3.5): a tag dictionary is where a site adds its own key, while a stray top-level field is a typo.",
+      "properties": {
+        "logic_source": {
+          "enum": ["external_static", "external_dynamic", "agent_written"],
+          "description": "Where the checking logic came from. The logic and the criterion are both external to the agent under test (`validator` spec §5.2)."
+        },
+        "cost": {
+          "enum": ["seconds", "minutes", "gpu_hours"],
+          "description": "An order of magnitude. **A closed set, not free text**, because §5.3 orders a phase's validators by it cheap-first — an unordered value cannot be sorted, so a typo would silently become an unordered validator rather than a load error. Feeds the principle the whole system turns on: the expensive gate is very expensive, so anything catchable earlier must be caught earlier."
+        },
+        "domain": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "description": "Free-form, and a **list**: a validator legitimately spans more than one domain — a trace-analysis check is `trace` and `eval` — and §9.2's `trace`, `kernel`, `deploy`, `eval` is a menu of examples rather than a cardinality. A bare string is rejected on purpose: it is iterable, so it would pass a presence check and then iterate as characters, and `Tags.domain` is `tuple[str, ...]`, which pydantic refuses a string for. Admitting one here would let a document through this gate that the next gate rejects."
+        }
+      }
+    }
+  }
+}

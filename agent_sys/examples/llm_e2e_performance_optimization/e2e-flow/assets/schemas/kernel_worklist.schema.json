@@ -1,0 +1,456 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kernel_worklist.schema.json",
+  "title": "kernel_worklist — the ranked, bucketed candidate list",
+  "description": "`items/text.json` of the `kernel_worklist` handoff: which kernels are worth an optimisation attempt, and **why the rest are not**. Written against the real sealed artefact at `cheat_for_mock/stage3-analyze/kernel_worklist/` (34 kernels, five buckets).\n\nThe sealed artefact already carries a schema at `items/schema`, and that one is the reason this one exists: every interior is `{\"type\": \"object\"}`, so it accepts a `buckets` with no shares in it and a `kernels` row that is selected and excluded at the same time. A schema that validates everything is worse than no schema, because it passes and nobody looks again.\n\nWhat this adds over that one, and each is a rule the previous round relied on and did not check:\n\n1. **Selection and exclusion are a biconditional.** A row is selected with a rank and no reason, or unselected with a reason and no rank. Both halves were representable before.\n2. **The bucket names are the taxonomy**, closed. `assets/lib/kernel_taxonomy.yaml` sorts first-match-wins into exactly these five, and a sixth in the document means the taxonomy and the ranker disagree about what a bucket is.\n3. **Every bucket accounts for itself** — a count and a share, so `check_worklist_shape` can add the shares and compare against the profile.\n4. **`source` records what was ranked**, by sha256 and row count. A worklist whose provenance is a filename is a worklist that cannot be told apart from one built over a different capture — and the mock set contains exactly that trap: two artefacts under the name `kernel_table`, one a real 124-kernel capture and one a 34-row synthetic seed.\n\nWhat a schema cannot do and `check_worklist_shape` therefore does: add `buckets[].pct_total` and check the total accounts for the run, and check `summary` against the actual contents of `kernels`. Arithmetic over a document is not expressible here and pretending otherwise would leave it unchecked in both places.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "source",
+    "thresholds",
+    "environment",
+    "buckets",
+    "kernels"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "description": "The one field this schema requires that the sealed artefact does not carry. It is added rather than dropped: an unversioned structured document is one that cannot be migrated, and every other schema in this package carries it."
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "filename",
+        "sha256",
+        "rows"
+      ],
+      "description": "What was ranked. Identity by digest and not by name, for the reason in the header.",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "enriched": {
+          "type": "boolean",
+          "description": "Whether the table carried launcher/Python-frame columns beyond Magpie's own."
+        },
+        "launchers": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "available"
+          ],
+          "description": "Whether any kernel could be tied to a Python frame, and if not, why not. Recorded rather than inferred from an empty result: 'the profiler did not record frames' and 'the frames were recorded and matched nothing' are different facts and only one of them is a defect.",
+          "properties": {
+            "available": {
+              "type": "boolean"
+            },
+            "resolved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rows_with_frames": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reason": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "top_n",
+        "min_pct",
+        "min_calls"
+      ],
+      "description": "The knobs the ranking was run at. Present so that a worklist with two candidates can be told apart from a profile with two candidates — `top_n: 2` explains the first and nothing explains the second.",
+      "properties": {
+        "top_n": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "min_pct": {
+          "type": "number",
+          "minimum": 0
+        },
+        "min_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_cases": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "gpu_target",
+        "framework"
+      ],
+      "description": "A summary for a reader of this document alone. **Not** the environment record: that is `items/env/environment.yaml`, it validates against `environment.schema.json`, and `check_environment` grades it. Two documents because this one is a legend and that one is a contract.",
+      "properties": {
+        "gpu_target": {
+          "type": "string",
+          "pattern": "^(gfx[0-9a-f]{3,4}|sm_[0-9]+)$"
+        },
+        "gpu_type": {
+          "type": "string"
+        },
+        "framework": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image": {
+          "type": "string"
+        },
+        "snr_threshold": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "buckets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "description": "One entry per taxonomy bucket present in the ranking. Closed, and the five names are `assets/lib/kernel_taxonomy.yaml`'s. `vendor_tuned` is excluded wholesale today — right for a first pass and wrong in general, since a vendor kernel can be beaten on a shape the vendor did not tune for; that is `todo.md` T2 and it is deferred, not forgotten.",
+      "properties": {
+        "collective": {
+          "$ref": "#/$defs/bucket"
+        },
+        "vendor_tuned": {
+          "$ref": "#/$defs/bucket"
+        },
+        "framework_native": {
+          "$ref": "#/$defs/bucket"
+        },
+        "routable": {
+          "$ref": "#/$defs/bucket"
+        },
+        "unknown": {
+          "$ref": "#/$defs/bucket"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "kernels": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "excluded": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "kernels": {
+      "type": "array",
+      "minItems": 1,
+      "description": "**Every kernel the ranking saw**, selected or not. Not the candidates: the candidates are the subset with `selected: true`. Carrying the rejected rows with their reasons is what makes the exclusions reviewable, and 63% of profiled GPU time in this capture is in rows that will never be selected.",
+      "items": {
+        "$ref": "#/$defs/kernel"
+      }
+    }
+  },
+  "$defs": {
+    "bucket": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kernels",
+        "pct_total"
+      ],
+      "properties": {
+        "kernels": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pct_total": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100.5,
+          "description": "Share of profiled GPU time. The 100.5 ceiling rather than 100 allows for rounding across rows; above it something is being double-counted across ranks."
+        }
+      }
+    },
+    "kernel": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kernel_id",
+        "name",
+        "calls",
+        "self_us",
+        "avg_us",
+        "pct_total",
+        "bucket",
+        "routable",
+        "selected",
+        "excluded_reason"
+      ],
+      "properties": {
+        "kernel_id": {
+          "type": "string",
+          "pattern": "^k[0-9]{3,}$",
+          "description": "Stable within one worklist and the join key every later artefact uses — `operator_identity.operators[].kernel_id` and `workset.operators[].kernel_id` are this."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The device symbol exactly as the profiler recorded it, parenthesised template arguments included. Not normalised: a normalised symbol cannot be matched back against the trace."
+        },
+        "calls": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "self_us": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "avg_us": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "pct_total": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 100.5
+        },
+        "input_shapes": {
+          "type": "string",
+          "description": "Magpie's `Input Shapes` cell, verbatim and unparsed. Populated only when the capture asked for `record_shapes`; empty here means every roofline downstream is impossible, and it is the one absence nothing else would notice."
+        },
+        "bucket": {
+          "type": "string",
+          "enum": [
+            "collective",
+            "vendor_tuned",
+            "framework_native",
+            "routable",
+            "unknown"
+          ],
+          "description": "Which of the four taxonomy buckets this kernel fell in, from `assets/lib/kernel_taxonomy.yaml`, plus `unknown` for a symbol no rule matched. **`routable` below is derived from this and is not a second predicate** — `taxonomy.bucket_of` reads the bucket's own `routable` flag, and measured against the taxonomy, exactly one bucket carries it: the one named `routable`. So `bucket == 'routable'` and `routable == true` are the same statement, bound by `allOf` below so they cannot drift apart. m4 asked whether these were one predicate or two and could not tell, because this description did not exist — the absence was the finding."
+        },
+        "routable": {
+          "type": "boolean",
+          "description": "Whether an optimiser could act on this kernel at all. **Derived from `bucket`, never set independently** — true exactly when `bucket` is `routable`. Kept as its own field because a consumer filtering the candidate pool should not have to know which bucket name means 'routable'; bound to `bucket` so the convenience cannot become a disagreement."
+        },
+        "category": {
+          "type": "string",
+          "description": "The operator family — `moe_gemm`, `attention`, `norm`, … `unknown` when the taxonomy has no rule for it, which is a gap in the rule table and is recorded as one (`todo.md` T4)."
+        },
+        "fellow": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "precision": {
+          "type": "string"
+        },
+        "dtypes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "selected": {
+          "type": "boolean"
+        },
+        "rank": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "excluded_reason": {
+          "type": "string"
+        },
+        "cases": {
+          "type": "array",
+          "description": "The distinct shapes observed for this kernel, deduplicated. The seed of `workset.operators[].shapes`, and the reason M3.7.4.1's '≥3' is checkable this early: a candidate with one observed shape is one whose speedup claim will be about one shape.",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "case_id",
+              "selector",
+              "shapes"
+            ],
+            "properties": {
+              "case_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_]*$"
+              },
+              "selector": {
+                "type": "object",
+                "additionalProperties": true,
+                "required": [
+                  "CASE_ID"
+                ],
+                "description": "An **identity for the case, not a statement about the GEMM**. The M/K/N are derived mechanically from the raw shape tuple and the sealed artefact's own note says so in as many words: N there is `model_dim//2`, not the GEMM's N. Build tensors from the axes; use this only to select."
+              },
+              "shapes": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "is_primary": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "Selection and exclusion are one decision recorded in three fields, so they are constrained together. A selected row with a reason, or an unselected row without one, was representable in the sealed artefact's own schema and is what `check_worklist_shape`'s brief means by 'every exclusion carries a reason'.",
+          "if": {
+            "properties": {
+              "selected": {
+                "const": true
+              }
+            },
+            "required": [
+              "selected"
+            ]
+          },
+          "then": {
+            "properties": {
+              "rank": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "excluded_reason": {
+                "const": ""
+              }
+            },
+            "required": [
+              "rank"
+            ]
+          },
+          "else": {
+            "properties": {
+              "rank": {
+                "type": "null"
+              },
+              "excluded_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "$comment": "A non-routable kernel cannot be a candidate. The converse does not hold: routable-but-below-threshold is the normal case.",
+          "if": {
+            "properties": {
+              "routable": {
+                "const": false
+              }
+            },
+            "required": [
+              "routable"
+            ]
+          },
+          "then": {
+            "properties": {
+              "selected": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "bucket": {
+                "const": "routable"
+              }
+            },
+            "required": [
+              "bucket"
+            ]
+          },
+          "then": {
+            "properties": {
+              "routable": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "routable": {
+                "const": true
+              }
+            },
+            "required": [
+              "routable"
+            ]
+          },
+          "then": {
+            "properties": {
+              "bucket": {
+                "const": "routable"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

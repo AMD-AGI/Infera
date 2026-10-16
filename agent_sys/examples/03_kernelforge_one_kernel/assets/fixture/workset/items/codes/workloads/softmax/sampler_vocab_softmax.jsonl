@@ -1,0 +1,3 @@
+{"definition": "sampler_vocab_softmax", "workload": {"axes": {"batch": 16}, "inputs": {"logits": {"type": "random"}, "out": {"type": "random"}}, "uuid": "0000000000000000"}, "solution": null, "evaluation": null}
+{"definition": "sampler_vocab_softmax", "workload": {"axes": {"batch": 32}, "inputs": {"logits": {"type": "random"}, "out": {"type": "random"}}, "uuid": "0000000000000001"}, "solution": null, "evaluation": null}
+{"definition": "sampler_vocab_softmax", "workload": {"axes": {"batch": 64}, "inputs": {"logits": {"type": "random"}, "out": {"type": "random"}}, "uuid": "0000000000000002"}, "solution": null, "evaluation": null}

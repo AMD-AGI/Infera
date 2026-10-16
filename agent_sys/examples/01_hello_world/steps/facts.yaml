@@ -1,0 +1,49 @@
+# The program half. Objects are defined before they are referenced within a
+# file: agent, then validator, then the handoff kind that names it, then the task.
+- module: agent
+  name: collect
+  kind: program
+  version: '1'
+  description: Runs the task's entry.sh. No model call.
+
+- module: validator
+  name: check_env_facts
+  version: '1'
+  brief: The facts document carries every required key, each with a value of the right type
+  dimension: completeness
+  strength: strong
+  inputs: [env_facts]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [hello_world]
+
+- module: handoff
+  name: env_facts
+  version: '1'
+  description: Facts about the machine, measured by a script.
+  # structured_text = items/text.json plus a README with Purpose and Schema.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_env_facts]
+
+- module: task
+  name: env_facts
+  description: Measure the machine with a script.
+  agent: collect
+  handoffs: [env_facts]
+  validators: []
+  task:
+    goal: Measure hostname, OS, CPUs, GPUs and whether this is a container.
+    version: '1'
+    inputs: []
+    outputs: [env_facts]
+    permissions:
+      grants:
+        - {path: handoffs/env_facts, access: write, kind: env_facts}
