@@ -1,0 +1,2 @@
+FAILED round: AgentX aborted in the warm-up at 2026-10-16 06:42:18 UTC (a root warm-up request failed while the
+single tokenizer process stalled the worker HTTP endpoint for ~30 s; router returned 502). Engine healthy; no scored window.

@@ -1,0 +1,5 @@
+# t8c: TP8 + DP8 attention, write_back + mem 0.92, chunk 4096 per rank, 4 tokenizer workers
+# (config/round.t8c.sh). HiCache path unchanged since the t8a check (passed 10-16 05:41).
+bash scripts/stop_stack.sh ROUND=t8b
+bash scripts/launch_agg.sh ROUND=t8c
+bash scripts/agg_round.sh ROUND=t8c VARIANT=t8c-wb-m092-ck4k-tok4 CONC=128
