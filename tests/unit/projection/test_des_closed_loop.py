@@ -74,7 +74,13 @@ class _Kernel:
         return _BASE_MS + _PER_SEQ_MS * num_decode + _PER_PREFILL_TOKEN_MS * prefill_tokens
 
 
-def _run(concurrency: int, chunk: int = 256, requests_per_client: int = 6, **kw):
+def _run(
+    concurrency: int,
+    chunk: int = 256,
+    requests_per_client: int = 6,
+    think_ms: float = 0.0,
+    **kw,
+):
     cfg = _Cfg(_Req(max_concurrency=concurrency, chunked_prefill_size=chunk, **kw))
     return des_mod.simulate_once(
         cfg,
@@ -87,6 +93,7 @@ def _run(concurrency: int, chunk: int = 256, requests_per_client: int = 6, **kw)
         # which is a separate finding; here it is dropped.
         warmup_frac=0.5,
         closed_loop_clients=concurrency,
+        closed_loop_think_ms=think_ms,
     )
 
 
@@ -321,3 +328,98 @@ def test_run_des_takes_the_client_count_from_the_configured_concurrency():
     assert point.arrival_model == "closed"
     assert point.packing["closed_loop_clients"] == 32.0
     assert point.ttft["mean"] > 0.0
+
+
+def test_exclusive_prefill_reaches_the_path_a_block_cache_dispatches_to():
+    """Whether prefill excludes decode has to survive the trip through ``run_des``.
+
+    The mechanism is implemented in ``simulate_once``, but a closed-loop run
+    with a block cache to model -- a prefix pool or a trace to replay, which is
+    every agentic replay -- is dispatched through ``simulate_multi_instance``,
+    and that driver did not take the flag at all. A parameter dropped one frame
+    up is indistinguishable from one that was never passed: SGLang and Atom
+    replays scheduled a unified batch while the flag that was meant to
+    serialise them sat unused, which dissolves the herd a closed-loop
+    population forms and reads TTFT early. Assert the effect at the entry point
+    the harness calls, not at the loop that implements it.
+    """
+    clients = 8
+    kw = dict(
+        arrival_model="closed",
+        rate_per_s=0.0,
+        num_requests=clients * 8,
+        closed_loop=True,
+        warmup_frac=0.0,
+        # Enough of a prefix pool to put the run on the multi-instance path.
+        num_prefixes=4,
+        prefix_len=256,
+        block_size=16,
+        cache_blocks=1 << 14,
+    )
+    cfg = _Cfg(_Req(max_concurrency=clients, chunked_prefill_size=256))
+    unified = des_mod.run_des(cfg, _Kernel(), **kw)["point"]
+    exclusive = des_mod.run_des(cfg, _Kernel(), prefill_exclusive=True, **kw)["point"]
+
+    # Serialising prefill against the resident decodes can only make a request
+    # wait longer for its first token.
+    assert exclusive.ttft["mean"] > unified.ttft["mean"], (
+        exclusive.ttft["mean"],
+        unified.ttft["mean"],
+    )
+
+
+# -- client think time --------------------------------------------------------
+#
+# A closed loop that resubmits the instant its last token lands is a load
+# generator, not a user. An agentic harness ends a turn, runs the tool the turn
+# asked for, and sends the next turn when that returns; for the run the replay
+# is scored against, reconstructing each client's cycle from the run's own
+# completed-request count and wall clock leaves half to three quarters of it
+# unserved at the rungs below saturation.
+#
+# What makes it worth modelling rather than absorbing into a level correction
+# is that it does not shift the curve, it bends it: the same delay is most of
+# the cycle when the server is idle and none of it once the server is the
+# bottleneck and the next turn queues anyway.
+
+
+def test_a_thinking_client_leaves_the_server_idle():
+    """Without a think time the server is busy by construction.
+
+    Every client resubmits into the instant it was served in, so there is no
+    interval in which the engine has nothing to run, and the replay reports a
+    saturated server for a load that never saturated one.
+    """
+    c = 16
+    eager = _run(c)
+    # Comparable to the stub's own service time, which is the regime the
+    # AgentX ladders sit in: the delay is the same order as the turn.
+    thinking = _run(c, think_ms=500.0)
+    assert eager.utilization > 0.99, eager.utilization
+    assert thinking.utilization < 0.8 * eager.utilization, (
+        eager.utilization,
+        thinking.utilization,
+    )
+
+
+def test_thinking_costs_throughput_only_while_the_server_has_slack():
+    """The bend, which is the reason this is a workload input and not a factor.
+
+    At low concurrency the delay is most of a client's cycle and throughput
+    falls with it. At high concurrency the client's next turn waits on the
+    server regardless, so the same delay costs progressively less -- a
+    correction applied as a constant could not do both ends at once.
+    """
+    think = 500.0
+    lo_loss = _run(4, think_ms=think).achieved_rate / _run(4).achieved_rate
+    hi_loss = _run(256, think_ms=think).achieved_rate / _run(256).achieved_rate
+    assert lo_loss < 1.0, lo_loss
+    assert hi_loss > lo_loss, (lo_loss, hi_loss)
+
+
+def test_an_unset_think_time_is_the_loop_as_it_was():
+    """The default has to leave every existing closed-loop answer untouched."""
+    a = _run(16)
+    b = _run(16, think_ms=0.0)
+    assert a.achieved_rate == b.achieved_rate
+    assert a.ttft["mean"] == b.ttft["mean"]

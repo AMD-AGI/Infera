@@ -52,3 +52,12 @@ trust_remote_code: true
 
 # init
 init_method_std: 0.02
+
+# Speculative decoding: the checkpoint's MTP head (mtp_num_layers in the base)
+# has no measured curve, and takes the default MTP one. The DSpark drafter's
+# golden curve was measured on DeepSeek-V4.1-Flash.
+speculative:
+  dspark:
+    layers: 3
+    window: 128
+    acceptance: dsv41flash_dspark.yaml
