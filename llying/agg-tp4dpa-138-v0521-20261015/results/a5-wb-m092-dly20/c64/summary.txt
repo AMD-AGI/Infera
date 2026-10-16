@@ -1,0 +1,17 @@
+a5-wb-m092-dly20 c64: 29,810 tok/s/GPU (output 219.7), 3,521 requests, mean input 119.5k, ITL p50/p90 43.7/81.0 ms, TTFT p50/p90 5.2/30.5 s, cache hit GPU/host 45.5%/49.9% (theoretical 96.4%), effective conc 55.4 (before first token 11.8)
+  engine, mean over 60 min: prompt 116,311 tok/s, of which cached 111,109; generated 920 tok/s
+  rank     running       queue      KV use   gen tok/s    hit rate  accept len        util        idle
+     0       12.03        1.36        0.75      294.87        0.71        3.60        0.00        0.03
+     1       13.93        3.36        0.84      356.27        0.68        3.60        0.00        0.03
+     2       11.30        3.10        0.84      279.36        0.82        3.61        0.00        0.03
+     3       10.78        1.91        0.79      266.53        0.75        3.61        0.00        0.03
+  CPU cores (window mean): data_parallel_controller=1.00, detokenizer=0.01, tokenizer=0.31, 0=1.80, 1=1.80, 2=1.81, 3=1.80
+  hicache_backup_bytes_total: 0=9.48e+11, 1=9.31e+11, 2=1.45e+12, 3=1.29e+12
+  hicache_backup_duration_seconds_bucket: 0=3.63e+03, 1=3.29e+03, 2=4.9e+03, 3=3.79e+03
+  hicache_backup_duration_seconds_count: 0=4.21e+03, 1=3.85e+03, 2=5.73e+03, 3=4.5e+03
+  hicache_backup_duration_seconds_sum: 0=46.1, 1=44.2, 2=64.3, 3=56.8
+  hicache_backup_tokens_total: 0=1.7e+07, 1=1.66e+07, 2=2.59e+07, 3=2.31e+07
+  hicache_dropped_tokens_total: 0=0, 1=0, 2=0, 3=0
+  hicache_host_total_tokens: 0=5.93e+06, 1=5.93e+06, 2=5.93e+06, 3=5.93e+06
+  hicache_host_used_tokens: 0=5.92e+06, 1=5.85e+06, 2=5.88e+06, 3=5.9e+06
+  num_retracted_reqs: 0=0, 1=0, 2=0, 3=0

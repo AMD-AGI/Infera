@@ -46,7 +46,8 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 | a4 | write_back + mem 0.92 | HiCache 功能检查通过；C64 = 31,221 |
 | t8a / t8b | TP8 + DP8 attention（8 卡），write_back + mem 0.92，HiCache 200 GB / rank | OOM（chunk 8192/rank）/ AgentX 中止（单 tokenizer） |
 | t8c | t8b + tokenizer 4 个 worker | C128 = 23,366 |
-| t8d / a5 | + DP spec/prefill coordination，关 prefill delayer | 已备好 |
+| t8d | + DP spec/prefill coordination，关 prefill delayer | 未跑（coordination 收益受逐层同步限制） |
+| a5 | a4 + delayer 上限 20 步 + tokenizer 4 个 worker | C64 = 29,810（a4 为 31,221） |
 
 ### a2 调通结果（不计分）
 
@@ -154,6 +155,29 @@ t8c 的瓶颈是 prefill 调度，不是算力：新算 prefill 合计约 8.7k t
 `scripts/decode_check.py`：在后台持续 prefill 负载下发 32 个检索问题（生成最多 16 token，答案须含口令），
 t8c（开关关）基线 32/32 通过（`results/t8c-wb-m092-ck4k-tok4/decode_check.json`），打开后先过这个检查再计分。
 候选：`operations/t8d.steps`（TP8 C128）、`operations/a5.steps`（TP4 C64）。
+
+### a5（TP4，a4 + prefill delayer 上限 20 步 + tokenizer 4 个 worker）C64：29,810 tok/s/GPU，比 a4 低 4.5%
+
+| | a4 C64（delayer 60） | a5 C64（delayer 20） |
+|---|---|---|
+| tok/s/GPU | 31,221 | 29,810 |
+| ITL p50 / p90 (ms) | 37.2 / 69.2 | 43.7 / 81.0 |
+| TTFT p50 / p90 (s) | 8.5 / 29.6 | 5.2 / 30.5 |
+| 首 token 前在途 | 14.3 | 11.8 |
+| 每 rank 在跑 / 排队 | 10.6–11.7 / 1.9–4.5 | 10.8–13.9 / 1.4–3.4 |
+
+delayer（每 rank，60 分钟窗口）：a5 等待 435–627 次、累计 1,020–1,752 s，执行的 prefill 中等齐 69 次、等满上限 360–552 次
+（超时约 85–89%）；a3（60 步）约 219 次等齐、约 250 次超时（约 53%）。TP4 上有相当一部分对齐要等 20–60 步，上限砍到 20
+步后 TTFT p50 少 3.3 s，但对齐大多丢失，prefill 打断 decode 的长步变多，ITL +17%，每请求约 1,000 个输出 token 下 ITL 的
+损失大于 TTFT 的收益。TP4 上 delayer 保持 60 步（或更大）。窗口内每 5 分钟吞吐在 2.2 万–3.7 万之间波动，两轮之差有一部分
+可能是波动，但 ITL 与对齐成功率的变化方向一致。
+
+为什么 coordination 不作为主手段：DP attention 下 MoE 权重按 TP 切在所有 rank 上，每层都有跨 rank 集合通信，各 rank 逐层同步；
+异构步里 decode rank 要陪 prefill rank 走完约 0.6–1.2 s 的一步，只多出一个 decode 步（约挽回被打断时间的 5–10%），且该步全部 eager。
+
+PD 与 mixed 的 prefill 路由均衡（各自 60 分钟窗口，按 rank 统计服务端 prefill 批次）：3P1D C192 的 12 个 prefill rank 新算量
+最多/最少 1.98 倍、排队 0.5–3.2（prefill 卡平均利用率约 36%，且不影响 decode）；mixed TP4 a4 C64 为 1.26 倍、排队 2.1–3.4；
+mixed TP8 t8c C128 为 3.26 倍、排队 1.4–22.7（准入受 delayer 等待和 max-prefill-tokens 4096 限速，负载稍高的 rank 队列持续堆积）。
 
 ## 计划
 
