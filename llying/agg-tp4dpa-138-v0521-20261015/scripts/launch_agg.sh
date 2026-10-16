@@ -86,9 +86,11 @@ done
 # --- router, smoke
 bash "$HERE/router_agg.sh" "ROUND=$ROUND" | tee "$LAUNCH/router.txt"
 curl -fsS --max-time 300 "http://$control_ip:$ROUTER_PORT/v1/chat/completions" -H 'Content-Type: application/json' \
-    -d "{\"model\":\"$SERVED_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"What is 17 * 23? Answer with the number only.\"}],\"max_tokens\":256,\"temperature\":0}" \
+    -d "{\"model\":\"$SERVED_MODEL\",\"messages\":[{\"role\":\"user\",\"content\":\"What is 17 * 23? Answer with the number only.\"}],\"max_tokens\":2048,\"temperature\":0}" \
     > "$LAUNCH/smoke.json"
 python3 -c '
 import json, sys
 m = json.load(open(sys.argv[1]))["choices"][0]["message"]
-print("smoke:", repr((m.get("content") or "")[-80:]), "| reasoning chars:", len(m.get("reasoning_content") or ""))' "$LAUNCH/smoke.json"
+c = json.load(open(sys.argv[1]))["choices"][0]
+print("smoke:", repr((m.get("content") or "")[-80:]), "| reasoning chars:", len(m.get("reasoning_content") or ""),
+      "| finish:", c.get("finish_reason"))' "$LAUNCH/smoke.json"
