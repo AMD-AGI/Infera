@@ -1556,12 +1556,8 @@ mod tests {
             Role::Prefill,
             &tokens,
         );
-        let d = policy.pick_targets_with(
-            &expand_targets(&d_workers),
-            &request,
-            Role::Decode,
-            &tokens,
-        );
+        let d =
+            policy.pick_targets_with(&expand_targets(&d_workers), &request, Role::Decode, &tokens);
         assert_eq!(p.blocks.len(), 4);
         assert_eq!(policy.demand_snapshot()["d"].tokens, 64);
         // Both picks used one cached tokenization, which is never redone.
@@ -1575,7 +1571,11 @@ mod tests {
     #[test]
     fn take_first_leaves_the_decode_reservation_on_the_decode_guard() {
         let policy = Arc::new(demand_policy(DecodeDemandMode::On));
-        let d = policy.pick(&[worker("d", 0, None)], &json!({"prompt":[1,2,3]}), Role::Decode);
+        let d = policy.pick(
+            &[worker("d", 0, None)],
+            &json!({"prompt":[1,2,3]}),
+            Role::Decode,
+        );
         let mut guard = ActiveGuard::start(
             policy.clone(),
             vec![("p".into(), Vec::new()), (d.target.route_key(), Vec::new())],

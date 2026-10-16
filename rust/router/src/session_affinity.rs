@@ -294,7 +294,15 @@ mod tests {
         )]
     }
     fn pick(s: &Sessions, p: &dyn Policy, role: Role, id: Option<&str>) -> (Pick, Option<Lease>) {
-        s.pick(p, &workers(), &json!({}), &RequestTokens::default(), role, "m", id)
+        s.pick(
+            p,
+            &workers(),
+            &json!({}),
+            &RequestTokens::default(),
+            role,
+            "m",
+            id,
+        )
     }
 
     #[test]
@@ -309,7 +317,10 @@ mod tests {
         })
         .join();
         drop(lease);
-        assert_eq!(entry.lock().unwrap_or_else(PoisonError::into_inner).active, 0);
+        assert_eq!(
+            entry.lock().unwrap_or_else(PoisonError::into_inner).active,
+            0
+        );
     }
 
     #[test]
