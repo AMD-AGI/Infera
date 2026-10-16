@@ -17,6 +17,7 @@ NAMES = ("num_running_reqs", "num_queue_reqs", "token_usage", "gen_throughput", 
          "num_requests_total", "hicache_[a-z_]+", "evicted_tokens_total", "utilization", "fwd_occupancy",
          "kv_used_tokens", "kv_evictable_tokens", "scheduler_idle_seconds_total", "spec_accept_rate",
          "prefill_delayer_outcomes_total", "prefill_delayer_wait_seconds_(?:sum|count)",
+         "prefill_delayer_wait_forward_passes_(?:bucket|sum|count)",
          "process_cpu_seconds_total", "scheduler_process_cpu_seconds_total")
 LINE = re.compile(r"^sglang:(" + "|".join(NAMES) + r")(\{[^}]*\})? ([0-9.eE+-]+|NaN)$")
 
