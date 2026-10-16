@@ -351,6 +351,8 @@ pub struct KvEventAwarePolicy {
     w_prefill: f64,
     w_decode: f64,
     // route_key -> {block_hash -> refcount}; len() is the in-flight load.
+    // Poison is recovered: ActiveGuard::drop releases through it, and a
+    // poisoned lock would otherwise fail every later request.
     active: Mutex<HashMap<String, HashMap<u64, i64>>>,
     // route_key -> decayed sum of recently dispatched block counts. Carries the
     // load signal across requests that never overlap in time.
@@ -529,7 +531,7 @@ impl KvEventAwarePolicy {
     fn active_len(&self, route_key: &str) -> usize {
         self.active
             .lock()
-            .expect("active mutex poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .get(route_key)
             .map(|m| m.len())
             .unwrap_or(0)
@@ -741,37 +743,25 @@ impl Policy for KvEventAwarePolicy {
         let demand_enabled =
             role == Role::Decode && self.decode_input_demand != DecodeDemandMode::Off;
         let (picked_i, decode_demand, demand_steered) = if demand_enabled {
-            let diverged: std::collections::HashSet<_> = self
-                .parity
-                .snapshot()
-                .into_iter()
-                .filter(|(_, _, verdict)| *verdict == 0)
-                .map(|(worker, _, _)| worker)
-                .collect();
             let copies = base
                 .get("n")
                 .and_then(Value::as_u64)
                 .filter(|n| *n > 0)
                 .unwrap_or(1);
             let estimate = std::cell::OnceCell::new();
-            // (input tokens, exact). The router's count is exact only for a
-            // text prompt on a worker whose render matches ours.
+            // (input tokens, whether the router tokenized them).
             let work: Vec<(u64, bool)> = targets
                 .iter()
                 .map(|target| {
                     let variant = self.variants.for_worker(&target.worker.worker_id);
-                    let (count, exact) = match ids_for(&variant) {
-                        Some(ids) => (
-                            ids.len() as u64,
-                            !hints.has_multimodal_content
-                                && !diverged.contains(&target.worker.worker_id),
-                        ),
+                    let (count, tokenized) = match ids_for(&variant) {
+                        Some(ids) => (ids.len() as u64, true),
                         None => (
                             *estimate.get_or_init(|| crate::decode_demand::estimate_tokens(&base)),
                             false,
                         ),
                     };
-                    (count.saturating_mul(copies), exact)
+                    (count.saturating_mul(copies), tokenized)
                 })
                 .collect();
             let keys: Vec<_> = targets.iter().map(RouteTarget::route_key).collect();
@@ -805,13 +795,17 @@ impl Policy for KvEventAwarePolicy {
                 );
                 (picked, suggested, reservation, costs)
             };
+            // Exact only for a text prompt on a worker whose render matches ours.
+            let exact = work[picked].1
+                && !hints.has_multimodal_content
+                && !self.parity.diverged(&targets[picked].worker.worker_id);
             tracing::debug!(target: "infera_router::decode_demand",
-                mode=?self.decode_input_demand, exact=work[picked].1, candidates=?keys, projected_tokens=?costs,
+                mode=?self.decode_input_demand, exact, candidates=?keys, projected_tokens=?costs,
                 legacy_selected=%keys[legacy_pick], selected=%keys[picked], suggested=%keys[suggested],
                 "decode input demand");
             crate::metrics::record_decode_demand_decision(
                 if on { "on" } else { "shadow" },
-                work[picked].1,
+                exact,
                 suggested == legacy_pick,
             );
             (picked, Some(reservation), on)
@@ -863,7 +857,7 @@ impl Policy for KvEventAwarePolicy {
         if blocks.is_empty() {
             return;
         }
-        let mut active = self.active.lock().expect("active mutex poisoned");
+        let mut active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
         let refs = active.entry(route_key.to_string()).or_default();
         for &h in blocks {
             *refs.entry(h).or_insert(0) += 1;
@@ -874,7 +868,7 @@ impl Policy for KvEventAwarePolicy {
         if blocks.is_empty() {
             return;
         }
-        let mut active = self.active.lock().expect("active mutex poisoned");
+        let mut active = self.active.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(refs) = active.get_mut(route_key) {
             for &h in blocks {
                 let rc = refs.get(&h).copied().unwrap_or(0) - 1;
@@ -935,7 +929,7 @@ impl Policy for KvEventAwarePolicy {
         self.variants.retain(|wid| ids.contains(wid));
         self.active
             .lock()
-            .expect("active mutex poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .retain(|rk, _| alive(rk));
         self.recent
             .lock()
@@ -1569,6 +1563,29 @@ mod tests {
         let cached = tokens.get_or_tokenize(variant, || unreachable!());
         assert_eq!(cached.map(|ids| ids.len()), Some(64));
         drop((p, d));
+    }
+
+    #[test]
+    fn a_poisoned_load_map_still_releases_and_picks() {
+        let policy = Arc::new(demand_policy(DecodeDemandMode::Off));
+        let workers = vec![worker("a", 16, None)];
+        let request = json!({"prompt": vec![7; 32]});
+        let pick = policy.pick(&workers, &request, Role::Prefill);
+        let guard = ActiveGuard::start(
+            policy.clone(),
+            vec![(pick.target.route_key(), pick.blocks.clone())],
+        );
+        let poisoner = policy.clone();
+        let _ = std::thread::spawn(move || {
+            let _held = poisoner.active.lock().unwrap();
+            panic!("poison the load map");
+        })
+        .join();
+        assert!(policy.active.is_poisoned());
+        assert_eq!(policy.active_len("a"), 2);
+        drop(guard);
+        assert_eq!(policy.active_len("a"), 0);
+        drop(policy.pick(&workers, &request, Role::Prefill));
     }
 
     #[test]

@@ -312,6 +312,15 @@ impl ParityRegistry {
             .retain(|id, _| alive(id));
     }
 
+    /// Whether this worker's render was probed and found to differ from ours.
+    pub fn diverged(&self, worker_id: &str) -> bool {
+        self.state
+            .lock()
+            .expect("parity registry mutex poisoned")
+            .get(worker_id)
+            .is_some_and(|(_, verdict)| matches!(verdict, Parity::Diverged))
+    }
+
     /// `(worker_id, model, gauge value)` for the metrics exposition.
     pub fn snapshot(&self) -> Vec<(String, String, i8)> {
         let mut out: Vec<_> = self
