@@ -1526,6 +1526,13 @@ class DisaggregationConfig:
     # Number of replicas in each pool (for aggregate-throughput / GPU split).
     prefill_replicas: int = 1
     decode_replicas: int = 1
+    # Running-request cap per replica of each pool (SGLang's
+    # --max-running-requests, vLLM's --max-num-seqs). ``None`` falls back to
+    # the shared ``max_num_seqs``. The pools are separate servers and are
+    # launched with separate caps: InferenceX's SGLang split recipes cap a
+    # plain-TP decode server at 128 while its attention-DP one runs 1024.
+    prefill_max_running: int | None = None
+    decode_max_running: int | None = None
     # KV-cache transfer link. ``None`` bw uses the inter-node (pod) bandwidth
     # from the collective model; latency is a fixed per-transfer overhead (us).
     kv_transfer_bw_gbps: float | None = None

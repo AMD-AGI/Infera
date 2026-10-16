@@ -3760,13 +3760,24 @@ class InferencePerformanceProjector:
             # step for all ``pb`` chunks: on DeepSeek-V4-Flash under SGLang the
             # measured TP4 prefill runs 10x the simulated one, almost all of it
             # work each rank repeats per token it holds, and the DP4 step over
-            # four ranks' chunks measures 1.07x the TP4 step over one. Not when
-            # TP moved as well: the rate already carries that part of it.
+            # four ranks' chunks measures 1.07x the TP4 step over one. When TP
+            # moved as well the rate is already the target's, for the one chunk
+            # a rank holds, and the other ranks' chunks add the target's own
+            # difference on top. Billing their tokens at that rate runs the
+            # ranks in series (DeepSeek-V4-Pro DEP8 prefill pool restored from
+            # TP4: 2.3x the measured rate), and so does the ratio, since most of
+            # the measured step is per-rank work the simulator does not see.
             if getattr(self, "_restore_layout_moved", False) and self._tgt_tp == self._bench_tp:
                 steps = self._origami_steps(pb, chunk_tokens, "prefill", bench_batch=1)
                 if steps is not None:
                     own = self._measured_prefill_tokens_ms(chunk_tokens, prefill_kv_len)
                     prefill_piece = max(own, own + steps[0] - steps[1])
+            elif pb > 1 and getattr(self, "_restore_layout_moved", False):
+                many = self._origami_steps(pb, chunk_tokens, "prefill", bench_batch=1)
+                one = self._origami_steps(1, chunk_tokens, "prefill", bench_batch=1)
+                if many is not None and one is not None:
+                    own = self._measured_prefill_tokens_ms(chunk_tokens, prefill_kv_len)
+                    prefill_piece = max(own, own + many[0] - one[0])
             dec_piece = d_ms * spec
             pp = (
                 self._restore_pp_ms(max(1, num_decode), chunk_tokens)

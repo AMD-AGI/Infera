@@ -322,3 +322,61 @@ def test_the_refusal_can_be_overridden_deliberately(monkeypatch, capsys):
     p._setup()
 
     assert "not being transported" in capsys.readouterr().out.lower()
+
+
+class _MeasuredStep:
+    """``mixed_step_latency_ms``'s measured branch over a linear prefill rate.
+
+    The simulator charges ``sim_ms_per_tok`` for every token in the step,
+    whichever rank holds it; the measured rate is several times that, the
+    way a real prefill runs over the analytical one.
+    """
+
+    def __init__(self, *, bench_tp, tgt_tp, meas_ms_per_tok=4.0, sim_ms_per_tok=1.0):
+        from types import SimpleNamespace
+
+        from infera.projection.core.projection.inference_projection.performance import (
+            InferencePerformanceProjector,
+        )
+
+        self.cfg = SimpleNamespace(
+            request_config=SimpleNamespace(resolved_mixed_batch_penalty=lambda: 0.0)
+        )
+        self._measured_mode = True
+        self._restore_layout_moved = True
+        self._bench_tp, self._tgt_tp = bench_tp, tgt_tp
+        self._meas_whole = {}
+        self._meas, self._sim = meas_ms_per_tok, sim_ms_per_tok
+        self.step = InferencePerformanceProjector.mixed_step_latency_ms.__get__(self)
+
+    def _decode_step_overhead_ms(self):
+        return 0.0
+
+    def _measured_decode_step_ms(self, n, ctx):
+        return 0.0
+
+    def _measured_verify_step_scale(self, n, ctx, d_ms):
+        return 1.0
+
+    def _measured_prefill_tokens_ms(self, tokens, kv):
+        return self._meas * tokens
+
+    def _origami_steps(self, batch, tokens, phase, bench_batch=None):
+        return self._sim * batch * tokens, self._sim * tokens
+
+
+@pytest.mark.parametrize("bench_tp", [8, 4])
+def test_attention_dp_ranks_prefill_their_chunks_side_by_side(bench_tp):
+    """Eight ranks' chunks are not eight chunks run one after another.
+
+    Each rank repeats the measured per-token work over only the chunk it holds;
+    what the other ranks add is the simulator's difference. Billing every
+    rank's tokens at the measured rate put a DeepSeek-V4-Pro DEP8 prefill pool
+    restored from TP4 at 2.3x the rate its splits measured.
+    """
+    p = _MeasuredStep(bench_tp=bench_tp, tgt_tp=8)
+    one = p.step(0, 1000, 0, 1000, prefill_batch=1)
+    eight = p.step(0, 1000, 0, 1000, prefill_batch=8)
+
+    assert one == pytest.approx(4000.0)
+    assert eight == pytest.approx(4000.0 + 7 * 1000.0)

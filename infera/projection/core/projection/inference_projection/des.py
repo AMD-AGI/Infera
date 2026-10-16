@@ -234,7 +234,9 @@ class DESResult:
 class _CostKernel:
     """Memoised view over the projector's step-cost methods."""
 
-    def __init__(self, projector: InferencePerformanceProjector, q_len: int):
+    def __init__(
+        self, projector: InferencePerformanceProjector, q_len: int, dpa_spread: bool = False
+    ):
         self._p = projector
         self._q = q_len
         self._decode: dict[tuple, float] = {}
@@ -247,7 +249,7 @@ class _CostKernel:
         # belong to different ranks, which attend over their own share in
         # parallel; only the MoE sees the whole step's tokens.
         self._dp = 1
-        if os.getenv("INFERASIM_DES_DPA_SPREAD") == "1":
+        if dpa_spread or os.getenv("INFERASIM_DES_DPA_SPREAD") == "1":
             from .kv_cache import attention_dp_size
 
             self._dp = max(1, int(attention_dp_size(projector.cfg)))
@@ -2023,6 +2025,7 @@ def simulate_disaggregated(
     return_samples: bool = False,
     duration_ms: float = 0.0,
     closed_loop_idle_cap_ms: float = 0.0,
+    pool_kv_tokens: tuple[int, int] | None = None,
 ) -> DESResult:
     """Run a prefill pool and a decode pool as two stations on one clock.
 
@@ -2058,6 +2061,13 @@ def simulate_disaggregated(
     what makes this a single event loop rather than two sequential replays --
     running the stations one after the other cannot represent the feedback,
     because each one's arrivals are the other's completions.
+
+    Each prefill replica is its own station with its own clock and queue, and a
+    request is routed to the least-loaded one when it is submitted, so
+    ``prefill_replicas`` adds prefill capacity rather than only GPUs to the bill. Attention-DP inside a pool needs no lockstep here:
+    the pool projector already prices attention at the per-rank request count
+    for the replica's whole batch, and ``pool_kv_tokens`` carries each pool's
+    replica-wide KV budget (the sum of its ranks' under attention-DP).
     """
     from .performance import _replica_gpus
 
@@ -2065,7 +2075,10 @@ def simulate_disaggregated(
     input_len = max(1, req.input_seq_len)
     output_len = max(1, req.output_seq_len)
     max_running = max(1, req.resolved_max_concurrency())
-    cap_seqs = _engine_max_running(req)
+    # Only an explicit cap. The SGLang speculative default (48) is a colocated
+    # server's setting; disaggregated recipes launch each pool with their own
+    # (InferenceX's DeepSeek-V4 split runs decode at 1024 under attention-DP).
+    cap_seqs = int(getattr(req, "max_num_seqs", 0) or 0)
     if cap_seqs > 0:
         max_running = min(max_running, cap_seqs)
     token_budget = int(req.max_num_batched_tokens or 0)  # 0 = unlimited
@@ -2084,9 +2097,25 @@ def simulate_disaggregated(
     disagg = inference_config.disaggregation_config
     replicas = max(1, int(getattr(disagg, "decode_replicas", 1) or 1))
     p_replicas = max(1, int(getattr(disagg, "prefill_replicas", 1) or 1))
+    p_max_running = d_max_running = max_running
+    _pc = int(getattr(disagg, "prefill_max_running", 0) or 0)
+    _dc = int(getattr(disagg, "decode_max_running", 0) or 0)
+    if _pc > 0:
+        p_max_running = min(max(1, req.resolved_max_concurrency()), _pc)
+    if _dc > 0:
+        d_max_running = min(max(1, req.resolved_max_concurrency()), _dc)
     prefill_proj, decode_proj = projector.pool_projectors()
-    p_kernel = _CostKernel(prefill_proj, q_len)
+    # A pool is simulated whole, not as one lockstep rank, so a prefill step
+    # under attention-DP spreads its requests over the ranks rather than having
+    # one rank attend over every prompt token in the step.
+    p_kernel = _CostKernel(prefill_proj, q_len, dpa_spread=True)
     d_kernel = _CostKernel(decode_proj, q_len)
+    # Each attention-DP rank schedules prefill against its own token budget, so
+    # the replica's step holds that many budgets' worth of prompt tokens.
+    if token_budget > 0:
+        from .kv_cache import attention_dp_size
+
+        token_budget *= max(1, int(attention_dp_size(prefill_proj.cfg)))
     p_gpus = _replica_gpus(prefill_proj.cfg) * p_replicas
     d_gpus = _replica_gpus(decode_proj.cfg) * replicas
 
@@ -2136,14 +2165,17 @@ def simulate_disaggregated(
     # for the generation's duration, so splitting the budget evenly would
     # mis-state both. Each station is given the pool it would actually have.
     pool_tokens = int(kv_cache_tokens or 0)
-    p_pool = pool_tokens  # 0 = unlimited
-    d_pool = pool_tokens
+    p_pool, d_pool = (  # 0 = unlimited
+        (int(pool_kv_tokens[0] or 0), int(pool_kv_tokens[1] or 0))
+        if pool_kv_tokens
+        else (pool_tokens, pool_tokens)
+    )
 
-    p_waiting: list[_Req] = []
-    p_running: list[_Req] = []
-    p_kv = 0
-    now_p = 0.0
-    p_busy = 0.0
+    p_waiting: list[list[_Req]] = [[] for _ in range(p_replicas)]
+    p_running: list[list[_Req]] = [[] for _ in range(p_replicas)]
+    p_kv = [0] * p_replicas
+    now_p = [0.0] * p_replicas
+    p_busy = [0.0] * p_replicas
     xfer: list[tuple[float, _Req]] = []  # (ready_ms, req) in flight over the link
     d_waiting: list[list[_Req]] = [[] for _ in range(replicas)]
     d_running: list[list[_Req]] = [[] for _ in range(replicas)]
@@ -2183,12 +2215,17 @@ def simulate_disaggregated(
     def _release_arrivals(t: float) -> int:
         nonlocal next_arrival
         got = 0
+
+        def _route(r: _Req) -> None:
+            j = min(range(p_replicas), key=lambda i: (len(p_running[i]) + len(p_waiting[i]), i))
+            p_waiting[j].append(r)
+
         while next_arrival < n and pending[next_arrival].arrival_ms <= t:
-            p_waiting.append(pending[next_arrival])
+            _route(pending[next_arrival])
             next_arrival += 1
             got += 1
         while arrivals_heap and arrivals_heap[0][0] <= t:
-            p_waiting.append(heapq.heappop(arrivals_heap)[2])
+            _route(heapq.heappop(arrivals_heap)[2])
             got += 1
         return got
 
@@ -2204,10 +2241,9 @@ def simulate_disaggregated(
             now_d[k] = max(now_d[k], ts)
         return len(ready)
 
-    def _step_prefill() -> bool:
-        """One prefill-only batch on the prefill pool."""
-        nonlocal now_p, p_kv, p_busy, p_steps, pk_p_batch, pk_maxbatch, pk_kv_peak
-        nonlocal pk_q_tokens
+    def _step_prefill(j: int) -> bool:
+        """One prefill-only batch on prefill replica ``j``."""
+        nonlocal p_steps, pk_p_batch, pk_maxbatch, pk_kv_peak, pk_q_tokens
         # An idle prefill pool advances to meet the next request instead of
         # holding its clock where its last batch left it. The two stations keep
         # separate clocks and in a split it is decode that leads: a closed-loop
@@ -2219,20 +2255,21 @@ def simulate_disaggregated(
         # idle stays invisible to it until its clock crawls forward a step at a
         # time, which is what collapsed a 32-client closed loop to one request
         # in flight and pinned the decode batch at 1.
-        if not p_running and p_waiting:
-            now_p = max(now_p, p_waiting[0].arrival_ms)
+        queue = p_waiting[j]
+        if not p_running[j] and queue:
+            now_p[j] = max(now_p[j], queue[0].arrival_ms)
         budget: float = token_budget if token_budget > 0 else math.inf
         scheduled: list[tuple[_Req, int, int]] = []
-        for r in p_running:
+        for r in p_running[j]:
             if budget < 1:
                 break
             q = _prefill_tokens(r, budget)
             if q > 0:
                 scheduled.append((r, q, r.num_computed))
                 budget -= q
-        while p_waiting and budget >= 1 and len(p_running) < max_running:
-            head = p_waiting[0]
-            if head.arrival_ms > now_p:
+        while queue and budget >= 1 and len(p_running[j]) < p_max_running:
+            head = queue[0]
+            if head.arrival_ms > now_p[j]:
                 # Queued against the simulation clock but not yet submitted on
                 # this station's, so it waits rather than being prefilled before
                 # the client asked for it.
@@ -2240,17 +2277,17 @@ def simulate_disaggregated(
             # A prefill pool reserves the prompt it is about to compute; it hands
             # the KV off and frees it, so it is not charged for the generation.
             need_kv = head.prompt_len
-            if p_pool > 0 and p_kv + need_kv > p_pool:
+            if p_pool > 0 and p_kv[j] + need_kv > p_pool:
                 break
             q = _prefill_tokens(head, budget)
             if q <= 0:
                 break
-            p_waiting.pop(0)
+            queue.pop(0)
             head.status = "RUNNING"
-            head.admit_ms = now_p
-            p_running.append(head)
-            p_kv += need_kv
-            pk_kv_peak = max(pk_kv_peak, p_kv)
+            head.admit_ms = now_p[j]
+            p_running[j].append(head)
+            p_kv[j] += need_kv
+            pk_kv_peak = max(pk_kv_peak, p_kv[j])
             scheduled.append((head, q, head.num_computed))
             budget -= q
         if not scheduled:
@@ -2258,9 +2295,9 @@ def simulate_disaggregated(
         prefill_q = sum(q for _, q, _ in scheduled)
         avg_kv = int(sum(kv + q for _, q, kv in scheduled) / len(scheduled))
         # num_decode=0: this station never co-schedules a decode, by construction.
-        dt = p_kernel.mixed_step_ms(0, prefill_q, input_len, avg_kv)
-        now_p += dt
-        p_busy += dt
+        dt = p_kernel.mixed_step_ms(0, prefill_q, input_len, avg_kv, len(scheduled))
+        now_p[j] += dt
+        p_busy[j] += dt
         p_steps += 1
         pk_p_batch += len(scheduled)
         pk_q_tokens += prefill_q
@@ -2270,30 +2307,30 @@ def simulate_disaggregated(
             r.num_computed += q
             if r.num_computed >= r.prompt_len:
                 r.prefill_done = True
-                r.first_token_ms = now_p  # the last prefill chunk emits token 1
+                r.first_token_ms = now_p[j]  # the last prefill chunk emits token 1
                 r.generated = 1
                 r.itls.append(dt)
                 finished.append(r)
         for r in finished:
-            p_running.remove(r)
-            p_kv -= r.prompt_len
+            p_running[j].remove(r)
+            p_kv[j] -= r.prompt_len
             if r.generated >= r.output_len:
                 # A one-token request never reaches the decode pool.
                 r.status = "FINISHED"
-                r.finish_ms = now_p
+                r.finish_ms = now_p[j]
                 done.append(r)
                 if closed_loop:
-                    _reissue(now_p)
+                    _reissue(now_p[j])
                 continue
             ms = projector.kv_handoff_ms(decode_proj, r.prompt_len)
             handoff[r.idx] = ms
-            xfer.append((now_p + ms, r))
+            xfer.append((now_p[j] + ms, r))
         return True
 
     def _step_decode(k: int) -> bool:
         """One pure decode step on replica ``k``."""
         nonlocal d_steps, pk_d_batch, pk_maxbatch, pk_kv_peak, pk_q_tokens
-        while d_waiting[k] and len(d_running[k]) < max_running:
+        while d_waiting[k] and len(d_running[k]) < d_max_running:
             head = d_waiting[k][0]
             need_kv = head.reserved_kv
             if d_pool > 0 and d_kv[k] + need_kv > d_pool:
@@ -2355,12 +2392,12 @@ def simulate_disaggregated(
     # a prompt longer than the model's context never finishes prefilling, and a
     # request whose reservation exceeds the whole KV pool is never admitted --
     # and the single-engine loop handles the same case by breaking out.
-    stalled_p = False
+    stalled_p = [False] * p_replicas
     stalled_d = [False] * replicas
 
     def _unstall() -> None:
-        nonlocal stalled_p
-        stalled_p = False
+        for j in range(p_replicas):
+            stalled_p[j] = False
         for i in range(replicas):
             stalled_d[i] = False
 
@@ -2373,7 +2410,7 @@ def simulate_disaggregated(
         # prefill station's own. Gating arrivals on ``now_p`` hid every request
         # a client reissued at a decode-clock time from the pool that has to
         # prefill it.
-        now_any = max([now_p, *now_d])
+        now_any = max([*now_p, *now_d])
         if now_any >= horizon:
             break
         moved = _release_arrivals(now_any) + _deliver_handoffs(now_any)
@@ -2381,8 +2418,9 @@ def simulate_disaggregated(
             _unstall()
 
         runnable: list[tuple[float, int]] = []
-        if (p_running or p_waiting) and not stalled_p:
-            runnable.append((now_p, -1))
+        for j in range(p_replicas):
+            if (p_running[j] or p_waiting[j]) and not stalled_p[j]:
+                runnable.append((now_p[j], -1 - j))
         for k in range(replicas):
             if (d_running[k] or d_waiting[k]) and not stalled_d[k]:
                 runnable.append((now_d[k], k))
@@ -2391,8 +2429,8 @@ def simulate_disaggregated(
                 idle_cap_ms > 0
                 and arrivals_heap
                 and not xfer
-                and not p_running
-                and not p_waiting
+                and not any(p_running)
+                and not any(p_waiting)
                 and not any(d_running)
                 and not any(d_waiting)
             ):
@@ -2414,21 +2452,22 @@ def simulate_disaggregated(
             if not nxt:
                 break
             t = min(nxt)
-            now_p = max(now_p, t)
+            for j in range(p_replicas):
+                now_p[j] = max(now_p[j], t)
             for k in range(replicas):
                 now_d[k] = max(now_d[k], t)
             continue
         _t, who = min(runnable)
-        did = _step_prefill() if who < 0 else _step_decode(who)
+        did = _step_prefill(-1 - who) if who < 0 else _step_decode(who)
         if did:
             # Any progress can unblock the other station -- a retiring decode
             # frees the KV a waiting prefill needs, and vice versa.
             _unstall()
         elif who < 0:
-            stalled_p = True
+            stalled_p[-1 - who] = True
         else:
             stalled_d[who] = True
-        backlog.append((now_p, len(p_waiting)))
+        backlog.append((max(now_p), sum(map(len, p_waiting))))
 
     # ---- aggregate ----
     done.sort(key=lambda r: r.finish_ms)
@@ -2478,7 +2517,7 @@ def simulate_disaggregated(
     # Fleet utilisation, GPU-weighted. An unweighted mean of the two stations
     # would rate a 4-GPU prefill pool and a 12-GPU decode pool as equals.
     total_gpus = max(1, p_gpus + d_gpus)
-    busy_gpu_ms = p_busy * p_gpus + sum(d_busy) * (d_gpus / replicas)
+    busy_gpu_ms = sum(p_busy) * (p_gpus / p_replicas) + sum(d_busy) * (d_gpus / replicas)
     utilization = (busy_gpu_ms / (makespan * total_gpus)) if makespan > 0 else 0.0
 
     saturated = False
@@ -2509,10 +2548,10 @@ def simulate_disaggregated(
         "prefill_step_fraction": (p_steps / steps) if steps else 0.0,
         "mixed_step_fraction": 0.0,
         "kv_peak_tokens": float(pk_kv_peak),
-        "kv_utilization": (pk_kv_peak / pool_tokens) if pool_tokens > 0 else 0.0,
+        "kv_utilization": (pk_kv_peak / d_pool) if d_pool > 0 else 0.0,
         "closed_loop_clients": float(clients),
         "disaggregated": 1.0,
-        "prefill_utilization": (p_busy / makespan) if makespan > 0 else 0.0,
+        "prefill_utilization": (sum(p_busy) / p_replicas / makespan) if makespan > 0 else 0.0,
         "decode_utilization": ((sum(d_busy) / replicas / makespan) if makespan > 0 else 0.0),
         "kv_handoff_ms": (sum(handoff.values()) / len(handoff) if handoff else 0.0),
         "prefill_pool_gpus": float(p_gpus),
@@ -2731,6 +2770,7 @@ def run_des(
     closed_loop_idle_cap_ms: float = 0.0,
     kv_tiers: Sequence = (),
     kv_bytes_per_token: float = 0.0,
+    pool_kv_tokens: tuple[int, int] | None = None,
 ) -> dict[str, object]:
     """Run the DES at the configured load and (optionally) a load sweep.
 
@@ -2824,6 +2864,7 @@ def run_des(
             closed_loop_think_ms=closed_loop_think_ms,
             closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
             duration_ms=duration_ms,
+            pool_kv_tokens=pool_kv_tokens,
         )
         # The split warms a prefix cache exactly as the colocated path does,
         # but discarded the summary, so every disaggregated row reported no
