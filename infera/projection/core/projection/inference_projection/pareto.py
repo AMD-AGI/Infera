@@ -121,6 +121,101 @@ class Parallelism:
         return s
 
 
+_POOL_RE = re.compile(r"^(.+?)(?:x(\d+))?$")
+
+
+@dataclass(frozen=True)
+class DisaggConfig:
+    """A prefill pool and a decode pool on disjoint GPUs, each with replicas.
+
+    In benchmark mode both pools are calibrated from the colocated anchor and
+    each is transported to its own layout, the same way a colocated point at an
+    unmeasured layout is; prefill reads the anchor's prefill sweep and decode
+    its decode sweep. Attention DP inside
+    a pool (``tp8ep8dp8``, InferenceX's DEP8) is priced by the pool's own
+    projector at the per-rank request count, and the DES sizes that pool's KV
+    from all of its ranks; decode context parallelism is not modelled in a pool.
+    """
+
+    prefill: Parallelism
+    decode: Parallelism
+    prefill_replicas: int = 1
+    decode_replicas: int = 1
+
+    @classmethod
+    def parse(cls, spec: str) -> DisaggConfig:
+        """``PREFILL[xN]+DECODE[xM]``, e.g. ``tp8+tp8x2`` or ``tp4x2+tp8ep8``."""
+        parts = spec.strip().lower().split("+")
+        if len(parts) != 2:
+            raise ValueError(f"bad disaggregated layout '{spec}' (expected e.g. tp8+tp8x2)")
+        pools = []
+        for part in parts:
+            m = _POOL_RE.match(part)
+            par = Parallelism.parse(m.group(1))
+            if par.dcp > 1:
+                raise ValueError(
+                    f"'{spec}': decode context parallelism is not modeled inside a "
+                    "disaggregated pool"
+                )
+            pools.append((par, int(m.group(2) or 1)))
+        (p, pr), (d, dr) = pools
+        if pr < 1 or dr < 1:
+            raise ValueError(f"'{spec}': replica counts must be at least 1")
+        return cls(prefill=p, decode=d, prefill_replicas=pr, decode_replicas=dr)
+
+    @property
+    def gpus(self) -> int:
+        return self.prefill.gpus * self.prefill_replicas + self.decode.gpus * self.decode_replicas
+
+    @property
+    def label(self) -> str:
+        return (
+            f"{self.prefill_replicas}P {self.prefill.label} + "
+            f"{self.decode_replicas}D {self.decode.label}"
+        )
+
+    def argv(self, transfer: str, engine: str = "") -> list[str]:
+        out = ["--disaggregate"]
+        for pool, par, reps in (
+            ("prefill", self.prefill, self.prefill_replicas),
+            ("decode", self.decode, self.decode_replicas),
+        ):
+            out += [f"--{pool}-tp", str(par.tp), f"--{pool}-ep", str(par.ep)]
+            out += [f"--{pool}-pp", str(par.pp), f"--{pool}-replicas", str(reps)]
+            out += [f"--{pool}-attention-dp", str(par.dp_attn)]
+        if engine == "sglang":
+            p, d = _sglang_split_caps(self.prefill, self.decode)
+            if p:
+                out += ["--prefill-max-running", str(p)]
+            out += ["--decode-max-running", str(d)]
+        return out + ["--transfer-backend", transfer]
+
+
+def _sglang_split_caps(prefill: Parallelism, decode: Parallelism) -> tuple[int, int]:
+    """``--max-running-requests`` of each SGLang PD server, ``(prefill, decode)``.
+
+    The values InferenceX's MI355X split recipes launch with
+    (``multi_node/amd_utils/server_sglang.sh``), which every measured SGLang
+    split ran: a plain-TP server at 128, an EP-only decode at 256, an
+    attention-DP decode at its CUDA-graph ceiling (128 per rank) times its
+    ranks, and an attention-DP prefill at 24 unless experts are sharded too,
+    when the recipe lifts it to the client count (0 = uncapped here). The cap
+    is what flattens a measured split's throughput past ~128 clients while its
+    interactivity holds: requests beyond it queue at the server.
+    """
+    if prefill.dp_attn > 1:
+        p = 0 if prefill.ep > 1 else 24
+    else:
+        p = 128
+    if decode.dp_attn > 1:
+        d = 128 * decode.dp_attn
+    elif decode.ep > 1:
+        d = 256
+    else:
+        d = 128
+    return p, d
+
+
 @dataclass(frozen=True)
 class ModelSpec:
     """A preset plus the checkpoint it is served as.
@@ -504,6 +599,7 @@ class ParetoPoint:
     spec_al_source: str = ""
     knobs: str = ""
     series_label: str = ""
+    disagg: str = ""  # DisaggConfig.label; empty for a colocated deployment
 
     feasible: bool = True
     reason: str = ""
@@ -590,6 +686,7 @@ def _anchor_meta(path: str) -> dict[str, Any] | None:
         gpus=int(m.get("benchmark_gpus") or 0),
         mtime=os.path.getmtime(path),
         precision=_named_precision(str(m.get("weight_dtype") or "").replace("bfloat16", "bf16")),
+        spec_k=int(m.get("speculative_num_tokens") or 0),
     )
 
 
@@ -636,7 +733,8 @@ def with_decode_context(
         return anchor["path"]
     name = os.path.splitext(os.path.basename(anchor["path"]))[0]
     dest = os.path.join(out_dir, f"{name}_ctx.json")
-    if not os.path.exists(dest):
+    newest = max(os.path.getmtime(p) for p in [anchor["path"], *donors])
+    if not os.path.exists(dest) or os.path.getmtime(dest) < newest:
         with open(anchor["path"]) as f:
             doc = json.load(f)
         doc["decode_ctx"] = grid
@@ -722,11 +820,18 @@ def pick_anchor(
     max_anchor_tp: int = 4,
     precision: str | None = None,
     native: str | None = None,
+    spec_k: int = 0,
 ) -> dict[str, Any] | None:
     """The anchor a benchmark-mode point is calibrated from, or None.
 
     ``native`` is the checkpoint's precision when the caller knows it and the
     name does not say.
+
+    An anchor harvested with speculation records a per-output-token time with
+    its own acceptance folded in. That converts to a verify step only at the
+    draft depth it ran, never to a single-token step, so such an anchor serves
+    only points at that depth (``spec_k``). A non-speculating anchor serves
+    every depth: the drafter is priced on top of it.
 
     Same checkpoint and same engine are requirements: no transport converts one
     engine's kernels into another's. Among those, the ranking is the corpus
@@ -760,6 +865,7 @@ def pick_anchor(
         and a["backend"] == engine.lower()
         and a["tp"] <= max(max_anchor_tp, 1)
         and a["tp"] <= par.tp
+        and a.get("spec_k", 0) in (0, spec_k)
     ]
     if not cands:
         return None
@@ -908,6 +1014,11 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
     mem = res.get("memory")
     des = (res.get("des") or {}).get("point")
     gpus = int(getattr(perf, "replica_gpus", 0) or 0) or pt.gpus
+    packing = (getattr(des, "packing", None) or {}) if des is not None else {}
+    if packing.get("disaggregated"):
+        # Throughput is the fleet's, so it is shared over both pools' GPUs; the
+        # projector's replica is one pool's.
+        gpus = int(packing.get("prefill_pool_gpus", 0) + packing.get("decode_pool_gpus", 0)) or gpus
     pt.gpus = gpus
     extras = getattr(perf, "extras", None) or {}
     pt.spec_tokens_per_step = float(extras.get("speculative_tokens_per_step") or 1.0)
@@ -973,7 +1084,7 @@ def project_point(task: dict[str, Any]) -> ParetoPoint:
         os.environ.pop("INFERASIM_DES_LOCKSTEP", None)
     # SGLang's attention-DP decode measures at the dense charge; the sparse
     # DPA decode cost describes ATOM's kernels.
-    if pt.engine == "sglang" and pt.dp_attn > 1:
+    if pt.engine == "sglang" and (pt.dp_attn > 1 or "DPA" in pt.disagg):
         os.environ.setdefault("INFERASIM_DPA_DECODE_DENSE", "1")
     try:
         from infera.projection.cli import build_parser
@@ -1055,6 +1166,10 @@ def build_tasks(
     series_by: Sequence[str] = ("spec", "kv"),
     extra: Sequence[str] = (),
     golden_thinking: str = "on",
+    disaggs: Sequence[DisaggConfig] = (),
+    disagg_concurrencies: Sequence[int] | None = None,
+    disagg_transfer: str = "mori",
+    max_disagg_gpus: int = 64,
 ) -> tuple[list[dict[str, Any]], list[ParetoPoint]]:
     """Every point to project, plus the benchmark points no anchor covers.
 
@@ -1062,23 +1177,38 @@ def build_tasks(
     draws MTP as its own line; every other knob is a deployment choice the
     frontier picks among, the way it picks a parallelism. ``series_by`` names
     the axes -- ``spec``, ``kv`` or a knob -- that get their own line instead.
+
+    A disaggregated layout (``disaggs``) is a layout beside the colocated
+    parallelisms, drawn as its own series and projected in simulate mode only.
+    It spans more GPUs than one node, so it is swept at its own concurrencies.
     """
     tasks: list[dict[str, Any]] = []
     uncovered: list[ParetoPoint] = []
     by = set(series_by)
-    for m, eng, prec, par, conc, sc, mode, kv, spec, combo in itertools.product(
+    layouts: list[tuple[Parallelism, DisaggConfig | None, int]] = [
+        (par, None, conc) for par in parallelisms for conc in concurrencies
+    ] + [
+        # The parent layout carries no attention DP: a split simulates whole
+        # replicas, so the one-rank lockstep path must not divide its clients.
+        (replace(dis.decode, dp_attn=1), dis, conc)
+        for dis in disaggs
+        for conc in (disagg_concurrencies or concurrencies)
+    ]
+    for m, eng, prec, (par, dis, conc), sc, mode, kv, spec, combo in itertools.product(
         models,
         engines,
         precisions,
-        parallelisms,
-        concurrencies,
+        layouts,
         scenarios,
         modes,
         kv_configs,
         specs,
         knob_combos(knob_axes),
     ):
-        if par.gpus > max_gpus:
+        if dis is not None:
+            if dis.gpus > max_disagg_gpus:
+                continue
+        elif par.gpus > max_gpus:
             continue
         if kv.tiers and not sc.trace:
             # A fixed-length scenario never reuses a block, so a tier below HBM
@@ -1087,7 +1217,7 @@ def build_tasks(
         # An attention-DP rank is simulated with its share of the clients, and
         # a conversation-affine router gives it the same share of the lanes;
         # replaying all C lanes through one rank's cache would thrash it.
-        lanes = -(-conc // max(1, par.dp_attn))
+        lanes = conc if dis is not None else -(-conc // max(1, par.dp_attn))
         trace = sc.trace.replace("{c}", str(lanes)) if sc.trace else None
         if spec.method != "none":
             spec = replace(spec, thinking=golden_thinking)
@@ -1102,20 +1232,21 @@ def build_tasks(
             osl=sc.osl,
             mode=mode,
             kv_config=kv.label,
-            parallelism=par.label,
+            parallelism=dis.label if dis else par.label,
             tp=par.tp,
             ep=par.ep,
             dp_attn=par.dp_attn,
             pp=par.pp,
             dcp=par.dcp,
-            gpus=par.gpus,
+            gpus=dis.gpus if dis else par.gpus,
             concurrency=conc,
             spec=spec.label,
             spec_k=spec.k,
             spec_accept=spec.accept or 0.0,
             knobs=_knob_label(combo),
+            disagg=dis.label if dis else "",
         )
-        tag = ""
+        tag = " disagg" if dis else ""
         if "spec" in by and spec.method != "none":
             tag += f" {spec.label}"
         if "kv" in by and kv.label != "hbm":
@@ -1142,6 +1273,7 @@ def build_tasks(
                 max_anchor_tp=max_anchor_tp,
                 precision=prec,
                 native=m.precision,
+                spec_k=spec.k if spec.method != "none" else 0,
             )
             if a is None:
                 uncovered.append(
@@ -1176,7 +1308,7 @@ def build_tasks(
             pool_from_memory=True,
             spec=spec,
             knobs=combo,
-            extra=extra,
+            extra=[*extra, *(dis.argv(disagg_transfer, eng) if dis else ())],
             warmup_requests=warmup_requests,
         )
         tasks.append(
@@ -1275,6 +1407,7 @@ _IDENTITY = (
     "pp",
     "dcp",
     "concurrency",
+    "disagg",
 )
 
 
@@ -1756,6 +1889,7 @@ circle.pt:hover{r:7}
 <div class="grp"><span>Mode</span><div class="dd" id="mode"></div></div>
 <div class="grp"><span>Speculative</span><div class="dd" id="spec"></div></div>
 <div class="grp"><span>Draft depth</span><div class="dd" id="depth"></div></div>
+<div class="grp" id="srvgrp" style="display:none"><span>Serving</span><div class="dd" id="srv"></div></div>
 <div class="grp"><span>Points</span><div class="dd" id="show"></div></div>
 <div class="grp" id="measgrp" style="display:none"><span>Measured runs</span><div class="dd" id="meas"></div></div>
 <div class="grp"><span>X axis</span><div class="dd" id="x"></div></div>
@@ -1801,6 +1935,7 @@ function chips(id, vals, sel, lab){
 const closeMenus = () => document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open'));
 document.addEventListener('click',e=>{ if(!e.target.closest('.dd')) closeMenus(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMenus(); });
+const srvOf = p => p.disagg ? 'disaggregated' : 'colocated';
 const short = k => M[k].label.replace(/\\s*\\(.*\\)$/,'');
 function refreshDeps(){
   const m=V.model;
@@ -1811,6 +1946,9 @@ function refreshDeps(){
   const ks=[...new Set(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision&&(p.spec||'none')!=='none'
     &&(V.spec==='all'||p.spec===V.spec)&&p.spec_k).map(p=>p.spec_k))].sort((a,b)=>a-b).map(String);
   chips('depth', ['best',...ks], V.depth||'best', v=>v==='best'?'best per point':'k = '+v);
+  const sv=uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision).map(srvOf));
+  $('srvgrp').style.display=sv.length>1?'':'none';
+  chips('srv', ['all',...sv], sv.length>1?(V.srv||'all'):'all', v=>v==='all'?'colocated + disaggregated':v);
 }
 chips('model', uniq(P.map(p=>p.model)), null);
 chips('mode', ['all','benchmark','simulate'], 'all', v=>v==='all'?'benchmark + simulate':v);
@@ -1837,7 +1975,8 @@ function draw(){
   const x=V.x, y=V.y, onlyF=V.show==='front';
   // A chosen depth narrows the speculative lines only; the no-speculation line stays as the reference.
   const atK = p => dk==='best'||(p.spec||'none')==='none'||String(p.spec_k)===dk;
-  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp)&&atK(p));
+  const atS = p => V.srv==='all'||srvOf(p)===V.srv;
+  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp)&&atK(p)&&atS(p));
   const all=sel.filter(p=>p.feasible);
   const groups=uniq(all.map(p=>group(series(p)))); const col={}; groups.forEach((g,i)=>col[g]=PAL[i%PAL.length]);
   const pts=all.filter(p=>!hidden.has(group(series(p))));
@@ -1911,7 +2050,7 @@ $('chart').addEventListener('mousemove',e=>{
   t.style.left=lx+'px'; t.style.top=ly+'px';
 });
 $('chart').addEventListener('mouseleave',()=>$('tip').style.display='none');
-['model','scenario','precision','mode','spec','depth','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
+['model','scenario','precision','mode','spec','depth','srv','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
   if(e.target.closest('.ddb')){ const open=$(id).classList.contains('open'); closeMenus(); if(!open) $(id).classList.add('open'); return; }
   const b=e.target.closest('.ddo'); if(!b) return;
   closeMenus();
@@ -2070,6 +2209,32 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         type=int,
         default=[1, 2, 4, 8, 16, 32, 64, 128, 256],
+    )
+    ap.add_argument(
+        "--disagg",
+        nargs="*",
+        default=[],
+        help="Disaggregated layouts PREFILL[xN]+DECODE[xM] (e.g. tp8+tp8x2), each its "
+        "own series, projected in simulate mode only (no measured anchors exist).",
+    )
+    ap.add_argument(
+        "--disagg-concurrency",
+        nargs="+",
+        type=int,
+        default=None,
+        help="Concurrencies for the disaggregated layouts (default: --concurrency).",
+    )
+    ap.add_argument(
+        "--disagg-transfer",
+        default="mori",
+        choices=["nixl", "mooncake", "mori"],
+        help="KV-transfer preset between the prefill and decode pools.",
+    )
+    ap.add_argument(
+        "--max-disagg-gpus",
+        type=int,
+        default=64,
+        help="Skip disaggregated layouts spanning more GPUs than this.",
     )
     ap.add_argument(
         "--scenario",
@@ -2287,6 +2452,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         series_by=a.series_by,
         extra=extra,
         golden_thinking=a.golden_thinking,
+        disaggs=[DisaggConfig.parse(d) for d in a.disagg],
+        disagg_concurrencies=a.disagg_concurrency,
+        disagg_transfer=a.disagg_transfer,
+        max_disagg_gpus=a.max_disagg_gpus,
     )
     print(
         f"[inferasim:pareto] {len(tasks)} point(s) to project, "

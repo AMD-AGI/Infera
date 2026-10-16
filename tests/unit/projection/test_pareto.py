@@ -209,6 +209,13 @@ def test_decode_context_grid_from_sibling_anchors(tmp_path):
     assert doc["meta"]["decode_ctx_donors"] == ["a1k.json"]
     # No sibling at another length: the anchor is used as harvested.
     assert P.with_decode_context(long, [long, *others], str(out)) == long["path"]
+    # A re-harvested source replaces the derived copy rather than being shadowed.
+    src = json.loads(open(long["path"]).read())
+    src["meta"]["prefix_caching"] = False
+    open(long["path"], "w").write(json.dumps(src))
+    os.utime(long["path"], (os.path.getmtime(dest) + 10,) * 2)
+    dest = P.with_decode_context(long, [long, short], str(out))
+    assert json.loads(open(dest).read())["meta"]["prefix_caching"] is False
 
 
 def test_harness_warmup_convention():
@@ -288,6 +295,14 @@ def test_pick_anchor_rules():
     assert P.pick_anchor([unknown], **kw, precision="fp8", native="bf16") is None
     assert P.pick_anchor([unknown], **kw, precision="bf16", native="bf16") is unknown
     assert P.ModelSpec.parse("qwen3_8B@Qwen3-8B=bf16").precision == "bf16"
+    # A speculating anchor measured per-output-token time at its own depth; it
+    # serves only that depth, while a plain anchor serves any.
+    spec3 = dict(_anchor(4, name="s3"), spec_k=3)
+    plain = _anchor(4, name="plain")
+    kw = dict(checkpoint="GLM-5.2-MXFP4", engine="sglang", par=P.Parallelism(4), isl=8192)
+    assert P.pick_anchor([spec3], **kw) is None
+    assert P.pick_anchor([spec3], **kw, spec_k=3) is spec3
+    assert P.pick_anchor([spec3, plain], **kw, spec_k=2) is plain
     with pytest.raises(ValueError):
         P.ModelSpec.parse("qwen3_8B@Qwen3-8B=int3")
 
@@ -596,6 +611,131 @@ def test_fill_metrics_reports_where_speculation_came_from():
     assert pt.spec_tokens_per_step == 2.99
     assert pt.spec_al_source == "model:glm5.2_mtp.yaml[thinking_on]"
     assert pt.spec_draft_cost.startswith("analytic") and pt.spec_draft_ms == 0.8
+
+
+def test_disagg_layout_parse():
+    d = P.DisaggConfig.parse("tp8+tp8ep8x2")
+    assert (d.prefill, d.decode) == (P.Parallelism(8), P.Parallelism(8, 8))
+    assert (d.prefill_replicas, d.decode_replicas, d.gpus) == (1, 2, 24)
+    assert d.label == "1P TP8 + 2D TP8 EP8"
+    argv = d.argv("nixl")
+    assert argv[0] == "--disaggregate" and argv[-2:] == ["--transfer-backend", "nixl"]
+    assert (
+        argv[argv.index("--decode-ep") + 1] == "8"
+        and argv[argv.index("--decode-replicas") + 1] == "2"
+    )
+    assert P.DisaggConfig.parse("tp4x2+tp8").gpus == 16
+    dep = P.DisaggConfig.parse("tp8ep8dp8+tp8ep8dp8x2")
+    assert dep.label == "1P TP8 EP8 DPA8 + 2D TP8 EP8 DPA8"
+    argv = dep.argv("mori")
+    assert argv[argv.index("--prefill-attention-dp") + 1] == "8"
+    assert argv[argv.index("--decode-attention-dp") + 1] == "8"
+    assert d.argv("nixl")[d.argv("nixl").index("--decode-attention-dp") + 1] == "1"
+
+    # SGLang pools carry the running caps InferenceX's split recipes launch with.
+    def caps(spec):
+        a = P.DisaggConfig.parse(spec).argv("mori", "sglang")
+        get = lambda f: int(a[a.index(f) + 1]) if f in a else None  # noqa: E731
+        return get("--prefill-max-running"), get("--decode-max-running")
+
+    assert caps("tp8+tp8") == (128, 128)
+    assert caps("tp8ep8dp8+tp8ep8dp8") == (None, 1024)
+    assert caps("tp8dp8+tp8ep8") == (24, 256)
+    assert "--decode-max-running" not in d.argv("nixl", "vllm")
+    for bad in ("tp8", "tp8+tp8+tp8", "tp8+tp8dcp8", "tp8x0+tp8"):
+        with pytest.raises(ValueError):
+            P.DisaggConfig.parse(bad)
+
+
+def test_build_tasks_disagg_in_both_modes(tmp_path):
+    tasks, _ = P.build_tasks(
+        models=[P.ModelSpec("glm5", "GLM")],
+        engines=["sglang"],
+        precisions=["fp8"],
+        parallelisms=[P.Parallelism(8)],
+        concurrencies=[4],
+        scenarios=[P.Scenario("8k/1k", 8192, 1024)],
+        modes=["simulate", "benchmark"],
+        anchors=[],
+        workdir=str(tmp_path),
+        disaggs=[P.DisaggConfig.parse("tp8+tp8"), P.DisaggConfig.parse("tp8x4+tp8x8")],
+        disagg_concurrencies=[64, 128],
+        max_disagg_gpus=64,
+    )
+    pts = [P.ParetoPoint(**t["point"]) for t in tasks]
+    dis = [p for p in pts if p.disagg]
+    # Benchmark has no anchor to calibrate to, and 96 GPUs is over the cap.
+    assert {(p.mode, p.gpus, p.concurrency) for p in dis} == {
+        ("simulate", 16, 64),
+        ("simulate", 16, 128),
+    }
+    assert len({P._key(p) for p in pts}) == len(pts)
+    assert {p.series() for p in dis} == {"MI355X sglang disagg (simulate)"}
+    assert dis[0].parallelism == "1P TP8 + 1D TP8" and dis[0].dp_attn == 1
+    colo = [p for p in pts if not p.disagg]
+    assert {(p.mode, p.concurrency) for p in colo} == {("simulate", 4)}
+    argv = next(t["argv"] for t in tasks if t["point"]["disagg"])
+    assert "--disaggregate" in argv and argv[argv.index("--transfer-backend") + 1] == "mori"
+    # With an anchor, benchmark mode calibrates both pools from it.
+    tasks, _ = P.build_tasks(
+        models=[P.ModelSpec("glm5", "GLM")],
+        engines=["sglang"],
+        precisions=["fp8"],
+        parallelisms=[],
+        concurrencies=[4],
+        scenarios=[P.Scenario("8k/1k", 8192, 1024)],
+        modes=["benchmark"],
+        anchors=[_anchor(4, ckpt="GLM")],
+        workdir=str(tmp_path),
+        disaggs=[P.DisaggConfig.parse("tp8+tp8")],
+        disagg_concurrencies=[64],
+        max_disagg_gpus=64,
+    )
+    (t,) = tasks
+    assert t["point"]["mode"] == "benchmark" and t["point"]["disagg"]
+    assert t["argv"][t["argv"].index("--load-benchmark") + 1] == "a_tp4_ep1_8192_sglang"
+
+
+def test_build_tasks_disagg_dep_pools_simulate_whole_replicas(tmp_path):
+    """A DEP8 decode pool is priced per rank by its projector; the parent must not
+    take the one-rank lockstep path, which would divide the clients by eight."""
+    tasks, _ = P.build_tasks(
+        models=[P.ModelSpec("glm5", "GLM")],
+        engines=["sglang"],
+        precisions=["fp8"],
+        parallelisms=[],
+        concurrencies=[4],
+        scenarios=[P.Scenario("8k/1k", 8192, 1024)],
+        modes=["simulate"],
+        anchors=[],
+        workdir=str(tmp_path),
+        disaggs=[P.DisaggConfig.parse("tp8ep8dp8+tp8ep8dp8")],
+        disagg_concurrencies=[256],
+        max_disagg_gpus=64,
+    )
+    (t,) = tasks
+    pt = P.ParetoPoint(**t["point"])
+    assert pt.dp_attn == 1 and "DPA8" in pt.disagg
+    argv = t["argv"]
+    assert "--attention-dp-size" not in argv
+    assert argv[argv.index("--max-concurrency") + 1] == "256"
+    assert argv[argv.index("--decode-attention-dp") + 1] == "8"
+
+
+def test_fill_metrics_disagg_counts_both_pools():
+    pt = _pt(1, 1, gpus=16, disagg="1P TP8 + 1D TP8")
+    des = SimpleNamespace(
+        packing={"disaggregated": 1.0, "prefill_pool_gpus": 8, "decode_pool_gpus": 8},
+        ttft_arrival={"mean": 500.0},
+        ttft={},
+        tpot={"mean": 20.0},
+        e2e={"mean": 1000.0},
+        system_throughput_tps=1600.0,
+        system_total_throughput_tps=16000.0,
+    )
+    perf = SimpleNamespace(replica_gpus=8, extras={})
+    P._fill_metrics(pt, {"performance": perf, "des": {"point": des}}, 0.0)
+    assert pt.gpus == 16 and pt.total_tput_per_gpu == 1000.0 and pt.output_tput_per_gpu == 100.0
 
 
 def test_writers_round_trip(tmp_path):
