@@ -46,11 +46,11 @@ def test_the_default_is_empty() -> None:
 
 
 def test_demo_keeps_exactly_its_two_promises() -> None:
-    """The move out of `cli/main.py` changed nothing about what `examples/ok.filetree_grounded_report.4`
+    """The move out of `cli/main.py` changed nothing about what `tests/e2e_test/ok.filetree_grounded_report.4`
     promises. Named here because a silently shortened list is the failure this
     whole file exists to prevent."""
     demo = expectations.for_package(
-        pathlib.Path("agent_sys/examples/ok.filetree_grounded_report.4")
+        pathlib.Path("agent_sys/tests/e2e_test/ok.filetree_grounded_report.4")
     )
     assert demo is expectations.DEMO
     assert set(demo.promises) == {"grounded_verdict_fails", "consumer_waits"}
@@ -58,11 +58,13 @@ def test_demo_keeps_exactly_its_two_promises() -> None:
 
 
 def test_demo2_promises_nothing() -> None:
-    """**Not an omission.** `examples/ok.algorithms_solve_grade.14` is a package whose run is meant to
+    """**Not an omission.** `tests/e2e_test/ok.algorithms_solve_grade.14` is a package whose run is meant to
     complete with every task succeeded, so *nothing will fail* is its claim and
     an empty set states it exactly."""
     assert (
-        expectations.for_package(pathlib.Path("agent_sys/examples/ok.algorithms_solve_grade.14"))
+        expectations.for_package(
+            pathlib.Path("agent_sys/tests/e2e_test/ok.algorithms_solve_grade.14")
+        )
         is expectations.EMPTY
     )
 
@@ -94,7 +96,7 @@ def test_an_empty_expectation_set_exits_ok(tmp_path: pathlib.Path) -> None:
     a graph that completed and a validator set that recorded only passes is a
     green run. The failure mode this guards is the arithmetic reading *zero
     expected failures were observed* as *an expected failure did not happen* —
-    which is exit 3, and which would make every package but `examples/ok.filetree_grounded_report.4`
+    which is exit 3, and which would make every package but `tests/e2e_test/ok.filetree_grounded_report.4`
     fail for promising nothing.
     """
     stream = Stream()
@@ -132,7 +134,7 @@ def test_an_empty_set_says_it_tested_nothing_rather_than_that_all_held(
 
 
 def test_a_non_empty_set_still_counts_the_way_it_did(tmp_path: pathlib.Path) -> None:
-    """The other side of the branch above: `examples/ok.filetree_grounded_report.4`'s wording is
+    """The other side of the branch above: `tests/e2e_test/ok.filetree_grounded_report.4`'s wording is
     unchanged, because a difference in its output is a regression rather than an
     improvement."""
     stream = Stream()
@@ -243,7 +245,7 @@ def test_incomplete_is_neither_of_the_two_promise_codes() -> None:
 def test_a_package_with_promises_is_still_judged_by_its_promises(tmp_path: pathlib.Path) -> None:
     """**The gap, asserted so it is a decision rather than a surprise.**
 
-    `examples/ok.filetree_grounded_report.4`'s specified ending is `consume` left in `WAITING_HANDOFF`
+    `tests/e2e_test/ok.filetree_grounded_report.4`'s specified ending is `consume` left in `WAITING_HANDOFF`
     and a handoff never made valid — every one of which `_completion_gaps`
     names. So the completion rule is applied to the empty set only, and a
     package with promises that hands over the same gaps still exits `OK`.

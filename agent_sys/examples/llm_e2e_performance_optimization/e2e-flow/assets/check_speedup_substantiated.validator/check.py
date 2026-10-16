@@ -121,8 +121,16 @@ def _interpreter(problems: list[str], notes: list[str]) -> str | None:
             continue
         seen.append(candidate)
         try:
+            # A GPU, not just torch: a host's CPU-only torch imports fine and
+            # would time the operator on the CPU (check_workset_runs measured
+            # 1.15 ms against a recorded 0.079 ms that way).
             probe = subprocess.run(
-                [candidate, "-c", "import torch; print(torch.__version__)"],
+                [
+                    candidate,
+                    "-c",
+                    "import sys, torch; print(torch.__version__); "
+                    "sys.exit(0 if torch.cuda.is_available() else 1)",
+                ],
                 capture_output=True,
                 text=True,
                 timeout=180,

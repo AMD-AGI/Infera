@@ -1,0 +1,22 @@
+# Level 2 of the demo ladder (`../README.md`): serve Qwen3.6 with sglang.
+#
+# This package writes only this file, its root task's readme and its README.
+# Everything else is e2e-flow's stage 1, reused by link: steps/m1_deploy.yaml,
+# steps/common.yaml, shared.yaml and assets/<object> all point into
+# ../llm_e2e_performance_optimization/e2e-flow. The run stages a copy of what a
+# link names, so the package behaves as if it held the files itself.
+module: task
+name: main
+description: Deploy Qwen3.6 on sglang and prove it serves - e2e-flow's stage 1 on its own.
+handoffs: [deploy_kit]
+validators: []
+task:
+  goal: Deploy the model on sglang and hand back a runnable, proven deploy kit.
+  version: '1'
+  inputs: []
+  outputs: [deploy_kit]
+  permissions:
+    grants:
+      - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+  subgraph:
+    - {closure: m1_deploy, froms: [], is_end: true}

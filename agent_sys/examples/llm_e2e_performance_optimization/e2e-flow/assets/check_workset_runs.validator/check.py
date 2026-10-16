@@ -60,6 +60,18 @@ import zone  # noqa: E402
 _REVERIFY_TOLERANCE = 0.25
 
 
+def _gpu_torch_here() -> bool:
+    """torch imports in this interpreter AND sees a GPU. Asked in a child, so a
+    torch import's cost and side effects stay out of this process."""
+    if importlib.util.find_spec("torch") is None:
+        return False
+    probe = "import sys, torch; sys.exit(0 if torch.cuda.is_available() else 1)"
+    try:
+        return subprocess.run([sys.executable, "-c", probe], timeout=300).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def _fail(problems: list[str], message: str) -> bool:
     problems.append(message)
     return False
@@ -413,7 +425,12 @@ def _reverify(
             # used — one instrument, two callers. A validator re-measuring
             # through a different arrangement than the producer used would not
             # be re-measuring the same thing.
-            if importlib.util.find_spec("torch") is not None:
+            #
+            # **"torch imports" is not "inside the container"**: a host can have a
+            # CPU-only torch, and the entrypoint then times the operator on the
+            # CPU. Measured: 1.15 ms against a recorded 0.079 ms on the card, so
+            # the validator refused a correct baseline. A GPU must be visible too.
+            if _gpu_torch_here():
                 command, where = inner, root
             else:
                 package = os.environ.get("AGENT_SYS_TASK_PACKAGE") or os.environ.get(

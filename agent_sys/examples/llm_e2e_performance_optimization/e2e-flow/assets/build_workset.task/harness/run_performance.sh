@@ -55,6 +55,30 @@ def _time_group(callable_, inputs, iters: int) -> float:
     return (time.perf_counter() - start) * 1000.0 / iters
 
 
+def _graph_replay(callable_, inputs):
+    """One captured call, replayed: what `cuda_graph_replay` times.
+
+    KernelForge refuses a driver whose bench does not run under a CUDA/HIP
+    graph — it counts `torch.cuda.CUDAGraph.replay` calls during the bench
+    (KernelForge f107746 `loop/task_preparer.py`, `require_graph=True`).
+    Measured: the eager loop failed forge's preflight with 0 replays. This is
+    an opt-in method for forge's driver; the workset's own protocol and m4's
+    STEP 5 stay on `wall_clock_sync`.
+    """
+    import torch
+
+    side = torch.cuda.Stream()
+    side.wait_stream(torch.cuda.current_stream())
+    with torch.cuda.stream(side):
+        for _ in range(3):
+            callable_(**inputs)
+    torch.cuda.current_stream().wait_stream(side)
+    graph = torch.cuda.CUDAGraph()
+    with torch.cuda.graph(graph):
+        callable_(**inputs)
+    return lambda **_: graph.replay()
+
+
 def main() -> int:
     ctx = setup("performance")
     protocol = ctx.doc["protocol"]
@@ -76,10 +100,14 @@ def main() -> int:
     # the method truthfully would fix it once; making the harness *read* the
     # name is what stops it drifting again — the reader that could not be told
     # can now be told (CONTRACT 4.3).
-    timing = str(protocol.get("timing", "wall_clock_sync"))
-    if timing != "wall_clock_sync":
+    timing = str(getattr(ctx.args, "timing", None) or protocol.get("timing", "wall_clock_sync"))
+    # The method actually used, in the field the report already has for it
+    # (a top-level key is refused by the report schema).
+    ctx.report["protocol"] = {**protocol, "timing": timing}
+    if timing not in ("wall_clock_sync", "cuda_graph_replay"):
         sys.exit(
-            f"protocol.timing is {timing!r} and this harness implements only 'wall_clock_sync': "
+            f"protocol.timing is {timing!r} and this harness implements 'wall_clock_sync' "
+            f"(and 'cuda_graph_replay' on request): "
             f"time.perf_counter() around `iters` calls, with torch.cuda.synchronize() before the "
             f"clock starts and again before it stops. Refusing rather than measuring one thing "
             f"and labelling it another — every number here would carry the wrong method name."
@@ -105,7 +133,8 @@ def main() -> int:
                 inputs = build_inputs(definition, shape)
                 for _ in range(warmup):
                     under_test(**inputs)
-                per_group = [_time_group(under_test, inputs, iters) for _ in range(groups)]
+                timed = _graph_replay(under_test, inputs) if timing == "cuda_graph_replay" else under_test
+                per_group = [_time_group(timed, inputs, iters) for _ in range(groups)]
             except Exception as error:  # noqa: BLE001
                 row["failure"] = repr(error)
                 ok = False

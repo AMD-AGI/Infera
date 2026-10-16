@@ -252,7 +252,7 @@ def test_broken_closure_names_its_file(tmp_path: Path) -> None:
     broken file is in the package — so it is a **sibling package** the ordinary
     discovery pass does not reach, behind one flag. Two runs, no editing.
 
-    A subdirectory such as `examples/ok.filetree_grounded_report.4/broken/`
+    A subdirectory such as `tests/e2e_test/ok.filetree_grounded_report.4/broken/`
     would not do: `YamlPackage` scans every `*.yaml` under a root except
     `assets/`, so it would load on every ordinary run. A sibling directory with
     its own `main.yaml` and `assets/` is the smallest thing that is
@@ -451,7 +451,7 @@ def test_no_component_names_the_token_at_all(tmp_path: Path) -> None:
 
 
 def test_examples_has_no_init(package_root: Path) -> None:
-    """`examples/ok.filetree_grounded_report.4/` is **data**, not a Python package.
+    """`tests/e2e_test/ok.filetree_grounded_report.4/` is **data**, not a Python package.
 
     This is what makes spec §1.1's rule checkable rather than a promise: the
     moment it holds an `__init__.py` it is importable, and the example stops
@@ -462,7 +462,7 @@ def test_examples_has_no_init(package_root: Path) -> None:
     """
     assert not list(package_root.rglob("__init__.py"))
     assert (package_root.parent.name, package_root.name) == (
-        "examples",
+        "e2e_test",
         "ok.filetree_grounded_report.4",
     )
 
@@ -484,7 +484,7 @@ def test_the_examples_tree_is_not_installed() -> None:
 
 def test_the_package_imports_no_component(package_root: Path) -> None:
     """The other direction of the wall, and the one design §2 states as a rule:
-    *`examples/ok.filetree_grounded_report.4/` contains no file that `demo/` imports as a module* — and,
+    *`tests/e2e_test/ok.filetree_grounded_report.4/` contains no file that `demo/` imports as a module* — and,
     symmetrically, nothing in it reaches into `agent_sys`.
 
     The programs there are run as subprocesses and told what they need through

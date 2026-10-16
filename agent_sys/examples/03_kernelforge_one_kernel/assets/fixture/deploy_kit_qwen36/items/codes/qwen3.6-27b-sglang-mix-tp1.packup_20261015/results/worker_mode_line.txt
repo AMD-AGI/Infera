@@ -1,0 +1,1 @@
+INFO:__main__:worker ready: model=Qwen3.6-27B url=http://127.0.0.1:18102 engine=EngineType.SGLANG disagg=DisaggMode.MIXED meta={}

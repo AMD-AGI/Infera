@@ -151,9 +151,11 @@ class Scheduler:
             self.remove_queued(tid)
             # model_copy preserves created_at: an update does not cost a task
             # its place in FIFO order.
-            replacement = old.model_copy(
+            # Deep copy first, then a shallow update: pydantic >=2.14's combined
+            # `deep=True, update=...` path bypasses `Task.__deepcopy__` and
+            # deep-copies `_registry`, whose locks cannot be copied.
+            replacement = old.model_copy(deep=True).model_copy(
                 update={**fields, "status": TaskStatus.WAITING_HANDOFF, "history": []},
-                deep=True,
             )
             try:
                 self.submit(replacement)
@@ -305,7 +307,7 @@ class Scheduler:
                 is `HandoffMgr`'s **slot** version. One field, two currencies, merged
                 into one dictionary.
 
-                **Measured, on the first full `examples/ok.algorithms_solve_grade.14` run that reached the end**
+                **Measured, on the first full `tests/e2e_test/ok.algorithms_solve_grade.14` run that reached the end**
         . Handoff `52c75d0a`, kind
                 `scores`:
 
@@ -326,7 +328,7 @@ class Scheduler:
 
                 They agree whenever every handoff is dispatched exactly once, which is
                 every graph this repository had before a non-leaf declared an output —
-                so `examples/ok.filetree_grounded_report.4/` cannot show it and neither can any fixture built to
+                so `tests/e2e_test/ok.filetree_grounded_report.4/` cannot show it and neither can any fixture built to
                 its shape.
 
                 **`store.latest`, not `list_versions()[-1]`**: it filters on the

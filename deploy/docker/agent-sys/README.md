@@ -61,7 +61,7 @@ docker run -d --name agent-sys \
   --network host \
   -e HOME=/home/agent \
   -v "$HOME/.ssh:/home/agent/.ssh:ro" \
-  -v "$HOME/.claude:/home/agent/.claude" \
+  -v "$HOME/.claude:/home/agent/.claude:ro" \
   -e INFERA_AGENT_SYSTEM_WORKROOT="$HOME/.agent_sys_runs" \
   -v "$HOME/.agent_sys_runs:$HOME/.agent_sys_runs" \
   infera/agent-sys:latest \
@@ -71,7 +71,7 @@ docker run -d --name agent-sys \
 docker exec -it agent-sys bash
 
 # Or pass commands through
-docker exec agent-sys agent-sys show --package /opt/Infera/agent_sys/examples/ok.filetree_grounded_report.4
+docker exec agent-sys agent-sys show --package /opt/Infera/agent_sys/tests/e2e_test/ok.filetree_grounded_report.4
 ```
 
 A convenience script is provided at the repository root:
@@ -134,7 +134,7 @@ docker exec agent-sys python3 -m pytest -q /opt/Infera/agent_sys
 
 docker exec agent-sys \
   agent-sys run --dry-run \
-    --package /opt/Infera/agent_sys/examples/ok.filetree_grounded_report.4
+    --package /opt/Infera/agent_sys/tests/e2e_test/ok.filetree_grounded_report.4
 ```
 
 ## Exit codes

@@ -35,7 +35,6 @@ if [ -z "${BASH_VERSION:-}" ]; then
 fi
 set -euo pipefail
 
-: "${E2E_MOCK_ROOT:?set it to the sealed-handoff corpus (--var mock_root=)}"
 : "${E2E_MOCK_STAGES:=all}"
 
 stage="${1:?usage: mock.sh <stage> <kind>[:<source-kind>] ...}"
@@ -57,6 +56,10 @@ case ",${E2E_MOCK_STAGES}," in
   *) echo "mock: ${stage} is not in E2E_MOCK_STAGES=${E2E_MOCK_STAGES}; running for real" >&2
      exit 3 ;;
 esac
+
+# Required only once a stage is to be mocked, so `--var mock_stages=none` runs
+# everything for real without naming a corpus that does not exist.
+: "${E2E_MOCK_ROOT:?set it to the sealed-handoff corpus (--var mock_root=)}"
 
 if [ ! -d "${E2E_MOCK_ROOT}/${stage}" ]; then
   echo "mock: no such stage ${E2E_MOCK_ROOT}/${stage}" >&2

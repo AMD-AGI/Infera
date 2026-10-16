@@ -1,0 +1,28 @@
+# Level 1 of the demo ladder (`../README.md`): the smallest package that shows
+# every moving part once.
+#
+#   main                 a non-leaf: no body of its own, only a subgraph
+#   ├─ env_facts         a PROGRAM task: a script measures this machine
+#   └─ env_check         an AI task: an agent checks those facts itself
+#
+# Each task publishes one handoff, and each handoff kind names the validator
+# that judges it before anything downstream may read it.
+module: task
+name: main
+description: Hello world - a script measures the machine, an AI agent checks the measurement.
+handoffs: [env_facts, env_report]
+validators: []
+task:
+  goal: Measure this machine, then have an AI agent check the measurement.
+  version: '1'
+  inputs: []
+  outputs: []
+  permissions:
+    grants:
+      - {path: handoffs/env_facts, access: write, kind: env_facts}
+      - {path: handoffs/env_report, access: write, kind: env_report}
+  # `froms` is the edge: env_check starts only after env_facts has been
+  # published and validated.
+  subgraph:
+    - {closure: env_facts, froms: []}
+    - {closure: env_check, froms: [env_facts], is_end: true}

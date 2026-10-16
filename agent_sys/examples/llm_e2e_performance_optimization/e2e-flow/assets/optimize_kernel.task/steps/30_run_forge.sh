@@ -58,7 +58,12 @@ KNOWLEDGE_LOCAL_ROOT="${KNOWLEDGE_LOCAL_ROOT:-$KFO_SCRATCH_ROOT/knowledge}"; exp
 # attribute 'get'`. Clean and empty, for the nested process only; the outer
 # session's own is never touched.
 CLAUDE_CONFIG_DIR="$KFO_SCRATCH_ROOT/claude_config"; export CLAUDE_CONFIG_DIR
-mkdir -p "$TMPDIR" "$TRITON_CACHE_DIR" "$KNOWLEDGE_LOCAL_ROOT" "$CLAUDE_CONFIG_DIR"
+# **Per run, under WORKDIR, not the shared TMPDIR.** forge's nested claude runs
+# as root and refuses `$TMPDIR/claude-0` once the exit-trap reclaim has chowned
+# it to the host user ("owned by uid 100882, expected 0") -- measured: every
+# run after the first failed its model probe that way.
+CLAUDE_CODE_TMPDIR="$WORKDIR/claude_tmp"; export CLAUDE_CODE_TMPDIR
+mkdir -p "$TMPDIR" "$TRITON_CACHE_DIR" "$KNOWLEDGE_LOCAL_ROOT" "$CLAUDE_CONFIG_DIR" "$CLAUDE_CODE_TMPDIR"
 
 # --- mock -------------------------------------------------------------------
 if [ "$KFO_MOCK" = "1" ]; then
@@ -135,12 +140,39 @@ fi
 # --- the real campaign ------------------------------------------------------
 [ -n "$ONELINE" ] || { echo "the workset declares no forge.one_line for $OPERATOR; nothing to run" >&2; exit 1; }
 
+# --- kernel-agents, when the engine image does not carry it -----------------
+# Installed from the checkout `--var kernelforge_repo=` names, into this
+# container's own interpreter (it is `--rm`, so the install lasts one step). The
+# source is copied into a fresh TMPDIR directory first: an in-tree build would
+# leave root-owned files in the operator's checkout. The `claude` extra brings
+# claude-agent-sdk, whose bundled CLI is forge's model client when the image has
+# no `claude`.
+if ! command -v kernel-agents >/dev/null 2>&1; then
+  [ -n "${KFO_KERNELFORGE_REPO:-}" ] || {
+    echo "kernel-agents is not on PATH in this image, and KFO_KERNELFORGE_REPO" >&2
+    echo "  (--var kernelforge_repo=<a KernelForge checkout>) is unset" >&2
+    exit 1
+  }
+  KF_SRC=$(mktemp -d "$TMPDIR/kernelforge-src.XXXXXX")
+  cp -a "$KFO_KERNELFORGE_REPO/." "$KF_SRC/"
+  PIP_CACHE_DIR="$KFO_SCRATCH_ROOT/pip_cache" "$PY" -m pip install -q "$KF_SRC[claude]" \
+    || { echo "installing KernelForge from $KFO_KERNELFORGE_REPO failed" >&2; exit 1; }
+  PATH="$(dirname "$PY"):$PATH"; export PATH
+fi
+if [ -z "${FORGE_AGENT_CLI:-}" ] && ! command -v claude >/dev/null 2>&1; then
+  FORGE_AGENT_CLI=$("$PY" -c 'import pathlib, claude_agent_sdk as s
+p = pathlib.Path(s.__file__).parent / "_bundled" / "claude"
+print(p if p.is_file() else "")' 2>/dev/null || true)
+  export FORGE_AGENT_CLI
+  echo "  forge model client: ${FORGE_AGENT_CLI:-<none found>}" >&2
+fi
+
 # The floor is 1.0 and it is ENFORCED (`kernel_agents/cli.py` MIN_MAX_HOURS,
 # `_validate_max_hours` raises `click.BadParameter` below it) -- there is no
 # such thing as a five-minute forge run. Clamp, and say so, rather than passing
 # a smaller value and letting the CLI reject it.
 CLAMPED=$("$PY" -c 'import sys; print(max(1.0, float(sys.argv[1])))' "$KFO_MAX_HOURS")
-if [ "$CLAMPED" != "$KFO_MAX_HOURS" ]; then
+if "$PY" -c 'import sys; sys.exit(float(sys.argv[1]) >= 1.0)' "$KFO_MAX_HOURS"; then
   echo "note: KFO_MAX_HOURS=$KFO_MAX_HOURS is below the enforced floor; clamped to $CLAMPED" >&2
 fi
 # At or below 2.0 forge SILENTLY drops two things. Read from the source
@@ -260,7 +292,24 @@ if [ ! -d "$WS/.git" ]; then
     && git config user.email "m4@e2e-flow.invalid" \
     && git config commit.gpgsign false \
     && git add -A \
-    && git commit -qm "baseline: the engine tree as this container runs it" )
+    && git commit -qm "baseline: the engine tree as this container runs it" \
+    && git checkout -q -b m4/forge )
+  # The branch: forge-loop refuses a workspace on its default branch ("requires
+  # a non-main development branch"). Measured on the first real campaign. The
+  # baseline sha is HEAD either way, so engine.patch is cut against the same
+  # commit.
+  ( cd "$WS" && git rev-parse HEAD ) > "$WORKDIR/engine_baseline.sha"
+  # **A fragment operator gets its interface before forge starts.** Without it
+  # forge edits a module that defines no function the harness can call, and
+  # STEP 4 has nothing to load (measured). See `_expose_call_site.py`. Its own
+  # commit, so the campaign starts from it and `engine.patch` still diffs
+  # against the stock baseline above.
+  SUBST=$("$PY" -c 'import json,sys; print((json.load(open(sys.argv[1])).get("integration") or {}).get("substitution") or "")' "$INPUTS")
+  if [ "$SUBST" = "call_site_fragment" ]; then
+    "$PY" "$(dirname "$0")/_expose_call_site.py" --inputs "$INPUTS" --file "$WS/$SRC_REL" || exit 1
+    ( cd "$WS" && git commit -qam "interface: expose the operator named by integration.signature" \
+      && git rev-parse HEAD ) > "$WORKDIR/engine_interface.sha" || exit 1
+  fi
 fi
 # **Recorded to a file, not held in a variable.** The block above is guarded on
 # `$WS/.git`, so a re-entry skips it — and a variable set only inside it would
@@ -288,9 +337,46 @@ KFO_FORGE_WORKDIR="$WORKDIR"; export KFO_FORGE_WORKDIR
 # file, and such a comment cannot fail. "The bytes measured
 # are the bytes at the path you named" is what this workspace actually depends
 # on, and it survives any rewrite that keeps the promise.
+# **GPU_TARGET is read from the card, never typed.** forge's `detect_gpu_target`
+# (KernelForge f107746, `loop/campaign_config.py`) collects `\bgfx[0-9a-f]+\b`
+# over `rocminfo`, and ROCm 7.2 lists every MI300X ISA twice: `gfx942` and
+# `gfx9-4-generic`. The `-` is a word boundary, so the set is {gfx9, gfx942} and
+# forge refuses with "could not detect exactly one GPU target" before its first
+# iteration. Measured on the first real campaign. The value comes from the card
+# this container sees, the same device the driver times on, so it cannot be a
+# target copied from another host.
+if [ -z "${GPU_TARGET:-}" ]; then
+  GPU_TARGET=$("$PY" -c 'import torch
+print(torch.cuda.get_device_properties(0).gcnArchName.split(":")[0])' 2>/dev/null || true)
+  [ -n "$GPU_TARGET" ] || { echo "cannot read the GPU architecture from torch in this container" >&2; exit 1; }
+  export GPU_TARGET
+  echo "  GPU_TARGET=$GPU_TARGET (read from the visible card)" >&2
+fi
+# forge runs `git status` in the workspace; when the tree's owner is not this
+# container's user, git refuses with "detected dubious ownership" (measured on
+# a re-entered workspace). Environment config counts as command-line scope,
+# which `safe.directory` honours, and reaches forge's own git calls.
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$WS"
+# forge runs the driver with no --impl; this is how the driver measures the file
+# forge is editing rather than the Definition's baseline (see forge_export.py).
+E2E_FORGE_IMPL="$WS/$SRC_REL"; export E2E_FORGE_IMPL
 echo "running the workset's own one-liner: $ONELINE" >&2
 echo "  --workspace $WS (a copy; the container's own checkout is not touched)" >&2
-( cd "$RUN" && sh "./$ONELINE" --workspace "$WS" )
+# The one-liner passes spec, driver, fellow and kernel; the campaign's budget
+# and model are this task's settings and go through as forge-loop flags, or
+# forge silently runs at its own defaults.
+FORGE_FLAGS="--max-hours $KFO_MAX_HOURS"
+[ -n "${KFO_SNR_THRESHOLD:-}" ] && FORGE_FLAGS="$FORGE_FLAGS --snr-threshold $KFO_SNR_THRESHOLD"
+[ -n "${KFO_FORGE_MODEL:-}" ] && FORGE_FLAGS="$FORGE_FLAGS --model $KFO_FORGE_MODEL"
+echo "  forge flags: $FORGE_FLAGS" >&2
+# stdout is kept: a campaign that keeps nothing writes no best_result.json, and
+# its only record is the `__FORGE_RESULT__{...}__FORGE_RESULT__` line.
+# Not a `| tee`: this is POSIX sh, with no pipefail, so a pipe would hide forge's
+# exit status behind tee's.
+# shellcheck disable=SC2086
+( cd "$RUN" && sh "./$ONELINE" --workspace "$WS" $FORGE_FLAGS ) > "$WORKDIR/forge_stdout.log" \
+  || { rc=$?; cat "$WORKDIR/forge_stdout.log"; exit "$rc"; }
+cat "$WORKDIR/forge_stdout.log"
 
 # `kernel-agents list --dir` matters here: `config.experiments_dir` defaults to
 # `<project_root>/experiments` while forge-loop writes `<workspace>/
@@ -325,6 +411,13 @@ native = json.load(open(sys.argv[1]))
 # range, which is the failure this package keeps paying for. Corroborated
 # independently against that campaign: `candidates/` held iter_001..iter_003.
 rounds = (native.get("round_budget") or {}).get("rounds")
+# KernelForge f107746 writes no `round_budget`; then count the campaign's own
+# `iteration_result` events beside best_result.json (measured: null otherwise).
+if rounds is None:
+    import pathlib
+    events = pathlib.Path(sys.argv[1]).with_name("events.jsonl")
+    if events.is_file():
+        rounds = sum(1 for line in events.read_text().splitlines() if '"iteration_result"' in line) or None
 
 # **`improved` is `total_improved`, not `speedup > 1`.** The consumer asks "did the
 # campaign find anything"; forge already answers it. `improved_during_search` holds
@@ -349,6 +442,34 @@ json.dump({
 EOF
 fi
 
+# **A campaign that kept nothing writes no best_result.json.** Measured: 4
+# iterations, every one reverted, `improved: false` -- and this step exited 1
+# on a legitimate outcome. forge's record is then only its stdout line, so it
+# is translated from there, verbatim, into the same keys.
+if [ ! -f "$WORKDIR/forge_result.json" ]; then
+  "$PY" - "$WORKDIR/forge_stdout.log" "$OPERATOR" > "$WORKDIR/forge_result.json.tmp" <<'EOF' \
+    && mv "$WORKDIR/forge_result.json.tmp" "$WORKDIR/forge_result.json"
+import json, re, sys
+found = re.findall(r"__FORGE_RESULT__(\{.*?\})__FORGE_RESULT__", open(sys.argv[1]).read())
+if not found:
+    sys.exit(1)
+native = json.loads(found[-1])
+if "error" in native:
+    sys.exit(1)
+json.dump({
+    "mock": False,
+    "ran": True,
+    "improved": bool(native.get("total_improved", native.get("improved"))),
+    "mean_case_speedup": native.get("mean_case_speedup"),
+    "snr_db": native.get("snr_db"),
+    "iteration_count": (native.get("next_iteration") or 1) - 1,
+    "operator": sys.argv[2],
+    "_what_this_file_is": "forge kept no candidate and wrote no best_result.json; translated from its "
+        "__FORGE_RESULT__ stdout record, which is kept verbatim in `forge_native`.",
+    "forge_native": {"__FORGE_RESULT__": native},
+}, sys.stdout, indent=2)
+EOF
+fi
 [ -f "$WORKDIR/forge_result.json" ] || { echo "the campaign wrote no forge_result.json, and no" >&2
   echo "  $WS/forge_experiments/best_result.json to translate from either" >&2; exit 1; }
 
@@ -393,7 +514,14 @@ cp "$KERNEL" "$WORKDIR/optimized_kernel.py"
 BASE=$(cat "$WORKDIR/engine_baseline.sha" 2>/dev/null || true)
 [ -n "$BASE" ] || { echo "no baseline sha at $WORKDIR/engine_baseline.sha; refusing to" >&2
                     echo "  diff against HEAD, which is empty once forge has committed" >&2; exit 1; }
-( cd "$WS" && git diff "$BASE" ) > "$WORKDIR/engine.patch"
+# The interface commit alone is not an optimisation: when forge kept nothing on
+# top of it, the patch is empty (`improved: false`), not a refactor shipped to m5.
+IFACE=$(cat "$WORKDIR/engine_interface.sha" 2>/dev/null || true)
+if [ -n "$IFACE" ] && [ -z "$(cd "$WS" && git diff "$IFACE")" ]; then
+  : > "$WORKDIR/engine.patch"
+else
+  ( cd "$WS" && git diff "$BASE" ) > "$WORKDIR/engine.patch"
+fi
 
 # `improved: false` is a legitimate outcome and is not a failure of this step.
 echo "ok: campaign finished; kernel at $WORKDIR/optimized_kernel.py"

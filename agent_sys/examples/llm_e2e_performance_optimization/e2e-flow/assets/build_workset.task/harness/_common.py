@@ -41,6 +41,7 @@ import hashlib
 import json
 import os
 import pathlib
+import re
 import sys
 import time
 
@@ -171,6 +172,13 @@ def setup(what: str) -> Ctx:
         help="this run's environment.yaml, against which the workset's is checked; "
         "defaults to one sitting beside this module",
     )
+    if what == "performance":
+        ap.add_argument(
+            "--timing",
+            dest="timing",
+            help="override protocol.timing for this run: `cuda_graph_replay` times replays of "
+            "one captured call, which KernelForge's driver contract requires",
+        )
     args = ap.parse_args()
 
     ground = doc["ground_truth"]
@@ -305,7 +313,9 @@ def finish(ctx: Ctx, ok: bool) -> None:
     sys.exit(0 if ok else 1)
 
 
-def _exec_source(source: str, label: str):
+def _exec_source(
+    source: str, label: str, filename: str | None = None, interface: str | None = None
+):
     """One flashinfer-bench source string as a module namespace.
 
     `reference` and `baseline` are Python source ending in `def run(...)`, which
@@ -313,12 +323,29 @@ def _exec_source(source: str, label: str):
     imported because a Definition is one JSON document and splitting it across
     files to satisfy the import system would break the correspondence
     `check_workset_shape` checks.
+
+    `filename` is the real path of an `--impl`, so `inspect.getsource` works on
+    what it defines: Triton's `@triton.jit` needs it, and under a `<label>`
+    pseudo-filename every Triton candidate failed with "@jit functions should
+    be defined in a Python file". `interface` is the function named by
+    `integration.signature`: an engine module edited in place (a
+    `call_site_fragment` operator, see m4's `_expose_call_site.py`) defines that
+    function and no `run`.
     """
     namespace: dict = {}
-    exec(compile(source, f"<{label}>", "exec"), namespace)  # noqa: S102 — the artefact under test
-    if "run" not in namespace:
-        raise SystemExit(f"the Definition's {label!r} defines no `run`")
-    return namespace["run"]
+    exec(compile(source, filename or f"<{label}>", "exec"), namespace)  # noqa: S102 — the artefact under test
+    if "run" in namespace:
+        return namespace["run"]
+    if interface and callable(namespace.get(interface)):
+        return namespace[interface]
+    raise SystemExit(f"the Definition's {label!r} defines no `run`")
+
+
+def _interface_name(operator: dict) -> str | None:
+    match = re.match(
+        r"\s*([A-Za-z_]\w*)\s*\(", str((operator.get("integration") or {}).get("signature") or "")
+    )
+    return match.group(1) if match else None
 
 
 def load_definition(operator: dict) -> dict:
@@ -369,7 +396,12 @@ def load_impl(operator: dict, definition: dict, impl_path: str | None, which: st
                 "loaded_by": "exec_of_file_contents",
             }
         )
-        return _exec_source(source, f"candidate:{operator['operator_id']}")
+        return _exec_source(
+            source,
+            f"candidate:{operator['operator_id']}",
+            str(path.resolve()),
+            _interface_name(operator),
+        )
     return _exec_source(definition[which], f"{which}:{operator['operator_id']}")
 
 

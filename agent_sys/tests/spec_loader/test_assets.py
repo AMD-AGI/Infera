@@ -103,6 +103,23 @@ def test_the_search_is_recursive(tmp_path: Path) -> None:
     assert got == Path("assets/a/b/c/collect.md")
 
 
+def test_a_symlinked_object_folder_is_found_by_its_link_name(tmp_path: Path) -> None:
+    """A demo reuses another package's object by linking its folder. The body is
+    reported under the link, so it resolves against the staged copy, and a link
+    cycle does not hang the walk."""
+    other = tmp_path / "other" / "collect.task"
+    other.mkdir(parents=True)
+    (other / "readme.md").write_text("x")
+    (other / "loop").symlink_to(other)
+    assets = tmp_path / "pkg" / "assets"
+    assets.mkdir(parents=True)
+    (assets / "collect.task").symlink_to(Path("..") / ".." / "other" / "collect.task")
+
+    got = AssetIndex(assets).resolve("readme", name="collect", type_="task")
+
+    assert got == Path("assets/collect.task/readme.md")
+
+
 # --------------------------------------------------------------------------- #
 # Rule 3 — folders scope a lookup
 
@@ -211,7 +228,7 @@ def test_two_objects_of_different_kinds_may_share_a_name(builder: PackageBuilder
     """`${type}` is what disambiguates them, and it must actually work.
 
     The registries are per kind, so `describe` may be both an agent and a task —
-    `examples/ok.filetree_grounded_report.4` has exactly that pair. Without the type token their assets
+    `tests/e2e_test/ok.filetree_grounded_report.4` has exactly that pair. Without the type token their assets
     would collide and both would crash.
     """
     builder.asset("describe.task.md", "the task")

@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "generated_by": "run_performance.sh",
+  "environment": {
+    "node": "smc300x-ccs-aus-a16-19",
+    "gpu_arch": "gfx942",
+    "gpu_count": 8,
+    "tp_size": 1,
+    "container": "yihou_l3_measure_naive6",
+    "image_id": "sha256:c05d2bebe442e8e0ea7c0d25a446ef6984a73c2eac5c5f048b77c708fd080818",
+    "premise_checked_against": "self (not independently confirmed)"
+  },
+  "started_at": "2026-10-15T16:19:31Z",
+  "impl": "baseline",
+  "impl_path": null,
+  "operators": [
+    {
+      "operator_id": "sampler_vocab_softmax",
+      "ran": true,
+      "failure": null,
+      "weighted_mean_ms": 6.125051077455282,
+      "shapes": [
+        {
+          "case_id": "B16_V248320",
+          "uuid": "0000000000000000",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            2.6378812175244093,
+            2.6373939029872417,
+            2.63625780120492,
+            2.6361338142305613,
+            2.63743476010859
+          ],
+          "weighted_mean_ms": 2.6370202992111444,
+          "median_ms": 2.6373939029872417,
+          "rsd": 0.0002638098293620106
+        },
+        {
+          "case_id": "B32_V248320",
+          "uuid": "0000000000000001",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            5.250209234654903,
+            5.234505319967866,
+            5.235985293984413,
+            5.2357998210936785,
+            5.263960901647806
+          ],
+          "weighted_mean_ms": 5.244092114269733,
+          "median_ms": 5.235985293984413,
+          "rsd": 0.0021885073961312044
+        },
+        {
+          "case_id": "B64_V248320",
+          "uuid": "0000000000000002",
+          "groups": 5,
+          "iters_total": 250,
+          "per_group_ms": [
+            10.469823200255632,
+            10.501627093181014,
+            10.488454718142748,
+            10.472615538164973,
+            10.537683544680476
+          ],
+          "weighted_mean_ms": 10.494040818884969,
+          "median_ms": 10.488454718142748,
+          "rsd": 0.002349287238824015
+        }
+      ]
+    }
+  ],
+  "protocol": {
+    "groups": 5,
+    "iters_per_group": 50,
+    "warmup": 50,
+    "timing": "wall_clock_sync"
+  },
+  "correctness_report": null,
+  "noise_floor": 1.0066,
+  "finished_at": "2026-10-15T16:19:39Z",
+  "impl_read": null
+}

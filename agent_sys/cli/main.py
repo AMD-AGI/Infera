@@ -118,7 +118,7 @@ def _parse_variables(top: argparse.ArgumentParser, raw: Sequence[str] | None) ->
     **A general channel, not a hardcoded keyword.** With only
     `package.task_package(root, outside=...)` the one word `outside` would be the
     whole variable channel: a package could declare `${n_problems:-12}` and have
-    no way to be told otherwise. `examples/ok.algorithms_solve_grade.14` declares
+    no way to be told otherwise. `tests/e2e_test/ok.algorithms_solve_grade.14` declares
     three such knobs, and a cheap bring-up run of it is `--var n_problems=2`.
 
     Both faults are `parser.error`, which is argparse's own usage failure: it
@@ -165,7 +165,7 @@ def parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--with-broken",
         action="store_true",
-        help="also load examples/fail.dangling_handoff_kind.1/, a sibling package that is deliberately broken",
+        help="also load tests/e2e_test/fail.dangling_handoff_kind.1/, a sibling package that is deliberately broken",
     )
     run.add_argument("--resume", action="store_true", help="continue the last run")
     run.add_argument(
@@ -896,7 +896,7 @@ def _registry(
                 # Criterion 8's leak target, and the only route it has: it is
                 # per-run and absolute, and nothing in `Prepared.environment`
                 # takes a value from here. See the `describe` agent's
-                # `env` block in `examples/ok.filetree_grounded_report.4/steps/describe.yaml`.
+                # `env` block in `tests/e2e_test/ok.filetree_grounded_report.4/steps/describe.yaml`.
                 #
                 # **The only variable the CLI itself supplies.** Neither
                 # `package_root` nor `store_root` is passed beside it: the assets
@@ -1670,7 +1670,7 @@ def _strict(
 
     **And it is applied only to the empty set, which is a gap and not an
     oversight.** A package with promises has declared what its own ending looks
-    like, and `examples/ok.filetree_grounded_report.4`'s ending is a task deliberately left in
+    like, and `tests/e2e_test/ok.filetree_grounded_report.4`'s ending is a task deliberately left in
     `WAITING_HANDOFF` and a handoff deliberately never made valid — every one of
     which `_completion_gaps` names. So a generic completion rule applied there
     would contradict the package's own specification. What is missing is the

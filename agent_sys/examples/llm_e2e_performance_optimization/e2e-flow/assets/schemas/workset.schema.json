@@ -347,7 +347,8 @@
         "timing": {
           "type": "string",
           "enum": [
-            "wall_clock_sync"
+            "wall_clock_sync",
+            "cuda_graph_replay"
           ],
           "description": "**How the clock is taken, and it is an enum of what the harness actually implements.** A value of `event` beside measurements that are all `time.perf_counter()` wrapped in `torch.cuda.synchronize()` is declared, consumed by nothing, and therefore never contradicted.\n\n`wall_clock_sync`: sync, start `perf_counter`, `iters` calls, sync, stop; the reported figure is already divided by `iters`. It **includes** per-launch overhead and the synchronise, amortised over the group — a different quantity from HIP event timing, which would differ systematically and in one direction on every case.\n\nOne value on purpose. `run_performance.sh` reads this field and **refuses** anything else, so a second method cannot be declared before it is built. Adding one means adding the code and the enum member together, and re-measuring everything recorded under the old one — numbers are not comparable across methods."
         },
@@ -648,6 +649,27 @@
               ],
               "description": "**Whether a named substitution target exists at all.** Added after m4 read the stock file out of the image and found that `public_symbol: sampler_softmax` is defined nowhere in `target_files[0]` — the engine's corresponding code is a fragment inside `Sampler.forward`, which is what `edit_target.entry_function` already said and what `public_symbol` contradicted.\n\n`module_symbol` — the target file defines `public_symbol` at module level and an overlay replaces it. Substitution is well-defined and `public_symbol` must appear in `module_symbols`.\n\n`call_site_fragment` — the optimised computation exists in the engine only as lines inside `edit_target.entry_function`. **There is no named thing to replace**, `public_symbol` is null, and installing a replacement means editing a method rather than swapping a symbol. That is M5.1.1's open question and this field does not answer it — it makes the workset *say which case it is in* so a consumer refuses early instead of building an overlay against a symbol that does not exist."
             },
+            "call_site": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "fragment",
+                "call"
+              ],
+              "properties": {
+                "fragment": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The source line(s) inside `edit_target.entry_function` that compute the operator, verbatim, e.g. `logits[:] = torch.softmax(logits, dim=-1)`. Must occur exactly once there."
+                },
+                "call": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "The line that replaces `fragment`, calling the function `signature` names, e.g. `sampler_softmax(logits, logits)`."
+                }
+              },
+              "description": "**The common interface for a `call_site_fragment` operator.** forge edits the engine module in place and the harness calls a function out of `--impl`; for a fragment there is no such function in the stock module. m4 (`optimize_kernel.task/steps/_expose_call_site.py`) appends the Definition's `baseline` function named by `signature` and replaces `fragment` with `call`, before the campaign. Required for a real m4 campaign on a `call_site_fragment` operator."
+            },
             "module_symbols": {
               "type": [
                 "array",
@@ -868,7 +890,7 @@
             "driver": {
               "type": "string",
               "minLength": 1,
-              "description": "`scripts/forge_driver.py`, whose stdout contract forge-loop parses (`SNR: <x> dB`, `case_snr:`, `case_allclose:`, `time_ms:`/`case_ms:`) and which forge-loop treats as a **protected file** its optimising agent may not modify. That protection is exactly why `check_workset_runs` exists: forge-loop takes what this prints on trust, so something has to have run it first."
+              "description": "`scripts/forge_driver.py`, whose stdout contract forge-loop parses (`SNR: <x> dB`, `case_snr:`, `case_allclose:`, `case_ms: <id> <ms>`, `mean_ms:`) and which forge-loop treats as a **protected file** its optimising agent may not modify. That protection is exactly why `check_workset_runs` exists: forge-loop takes what this prints on trust, so something has to have run it first."
             },
             "invocation_spec": {
               "type": "string",

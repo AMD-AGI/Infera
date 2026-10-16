@@ -90,7 +90,7 @@ PERMITTED_COMPONENTS = {"general_specs", "tests"}
 #: may hold (main spec §4.3, criterion 5).
 #:
 #: **A directory, not a list, since main spec rev. 13.** This was
-#: `("examples/ok.filetree_grounded_report.4/", "examples/fail.dangling_handoff_kind.1/", "examples/ok.algorithms_solve_grade.14/")` and the
+#: `("tests/e2e_test/ok.filetree_grounded_report.4/", "tests/e2e_test/fail.dangling_handoff_kind.1/", "tests/e2e_test/ok.algorithms_solve_grade.14/")` and the
 #: comment here required a fourth root to be argued for in this file — adding
 #: that a widening "is a specification change and `spec-author`'s". It was
 #: reported as such and the specification changed: §4.3 now makes `examples/` the
@@ -107,7 +107,7 @@ PERMITTED_COMPONENTS = {"general_specs", "tests"}
 #:
 #: **Two roots for one demo, and the second exists because of W3's own scan
 #: rule** — kept because it explains a layout a reader would otherwise misread.
-#: `examples/fail.dangling_handoff_kind.1/` is a sibling rather than a
+#: `tests/e2e_test/fail.dangling_handoff_kind.1/` is a sibling rather than a
 #: subdirectory of the good package. `YamlPackage` scans every `*.yaml` under a
 #: root except `assets/`, so a deliberately-broken document nested inside the
 #: good package would load on every ordinary run — `cli` criterion 13's *"two

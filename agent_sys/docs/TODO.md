@@ -30,7 +30,7 @@ third place.
 | 2 | A package's layout must separate a task's `bin` from the validators' `bin` | OPEN | user |
 | 3 | The `assets/` mechanism resolves entry points and pretends to be a resource mechanism | OPEN | user |
 | 4 | Five packages scan the store instead of declaring a pass-through | OPEN | package authors |
-| 5 | Nothing owns *which* interpreter runs a body | OPEN | `validator` |
+| 5 | Nothing owns *which* interpreter runs a body | CLOSED | `validator` |
 | 6 | A non-leaf pins a store version it can never fill | OPEN | `task_graph` |
 | 7 | User-level AI material outlives the run that declared it | OPEN | user |
 | 8 | A run killed by a signal leaks its servers, and nothing reaps the registry | OPEN | — |
@@ -195,6 +195,11 @@ and a validator dies with `ModuleNotFoundError: No module named 'yaml'` — exit
 no `verdict.json`. Both obvious fixes are wrong: the venv **is** already on the
 dispatch `PATH`, so adding it is a no-op, and putting it first would work by
 shadowing rather than by saying which interpreter is meant.
+
+**CLOSED (2026-10-15):** `choose_configuration` now puts the global row's
+`AGENT_SYS_*` run facts under whichever row it selects (the row's own values
+win) — found blocking the demo ladder, where `check_deploy_kit` ran
+`/usr/lib/python3` and could not import `jsonschema`. The original framing:
 
 **Closes when:** either `choose_configuration` merges the global row's run-facts
 into whichever row it selects, or the validation environment's facts belong on
@@ -616,8 +621,8 @@ Kept because an item closed by construction is worth a reader knowing about.
 
 ### C1 — What tasks the e2e test picks
 
-`examples/as.e2e.test.yaml` is the artefact, and
-`examples/run_simple_e2e_test.sh` runs it. An entry there is a claim that running
+`tests/e2e_test/as.e2e.test.yaml` is the artefact, and
+`tests/e2e_test/run_simple_e2e_test.sh` runs it. An entry there is a claim that running
 that package exercises the system end to end **and the outcome is checkable
 without a human reading prose** — so a case belongs only when its expected result
 is a specific exit code and, where that would be ambiguous, a specific string the

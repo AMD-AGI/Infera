@@ -34,7 +34,7 @@ package is outside the system by construction, and the demo is one.
 **It is the only task package that lives in this repository**, and the exception
 is deliberate.
 
-There is one qualification, added at rev. 7. `examples/fail.dangling_handoff_kind.1/` is a second
+There is one qualification, added at rev. 7. `tests/e2e_test/fail.dangling_handoff_kind.1/` is a second
 directory that is structurally a package, and it exists only so that criterion
 11's *"a deliberately broken closure makes it fail with the offending file
 path"* can be shown without colliding with criterion 13's *no hand-editing*. It
@@ -179,7 +179,7 @@ criteria are assertions over it.
 
 ## 5. Where it lives, and its relationship to the tests
 
-**`examples/ok.filetree_grounded_report.4/`.** It is an example — the first thing someone reads to
+**`tests/e2e_test/ok.filetree_grounded_report.4/`.** It is an example — the first thing someone reads to
 understand the system, and something a person runs by hand. `examples/` is where
 a task package sits when it lives in this repository, and the demo is the only
 one that does (§1.1).

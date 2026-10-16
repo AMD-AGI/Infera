@@ -435,7 +435,7 @@ def test_a_staged_input_is_exported_under_its_declared_kind() -> None:
     Discarding that mapping leaves outputs with a declared name and inputs
     without one, and the only remaining way to find a staged input is to parse
     this module's directory
-    layout, which `examples/ok.filetree_grounded_report.4/logic/store.py` had already become a reader of.
+    layout, which `tests/e2e_test/ok.filetree_grounded_report.4/logic/store.py` had already become a reader of.
     """
     hid = HandoffId.new()
     task = Task(inputs=[hid], kinds={hid: "summary"})

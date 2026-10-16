@@ -368,7 +368,7 @@ class _Zones:
     Modelled rather than mocked: a spy that merely *records* `place_zone` cannot
     fail, and this file's existing depth-2 test is what proved that. It builds a
     root -> mid -> leaf catalogue, ran green throughout, and the same shape in
-    `examples/ok.algorithms_solve_grade.14/` did not survive a run — because nothing here creates a
+    `tests/e2e_test/ok.algorithms_solve_grade.14/` did not survive a run — because nothing here creates a
     zone at all.
     """
 

@@ -5,7 +5,7 @@ against. Two artefacts, and the split is what makes `cli` spec §1.1 checkable:
 
 | | |
 |---|---|
-| `examples/ok.filetree_grounded_report.4/` | the **task package** — YAML specs and the programs they name. Not installed, not importable, on nobody's `sys.path` |
+| `tests/e2e_test/ok.filetree_grounded_report.4/` | the **task package** — YAML specs and the programs they name. Not installed, not importable, on nobody's `sys.path` |
 | `cli/` | the **runner** — `run`, `show`, `--dry-run`. An ordinary top-level package, and where `[project.scripts]` points |
 
 `cli` imports all eight components. **Nothing imports `cli`**, and

@@ -51,7 +51,7 @@ Full version, with the two authority boundaries marked: [`docs/spec.md`](docs/sp
 
 ## Run one
 
-`examples/ok.agent_capabilities.2` asks whether the environment an agent is
+`tests/e2e_test/ok.agent_capabilities.2` asks whether the environment an agent is
 promised actually arrives. `show` loads and type-checks a whole package and
 dispatches nothing — the cheapest way to see a graph:
 
@@ -59,7 +59,7 @@ dispatches nothing — the cheapest way to see a graph:
 pip install -e agent_sys        # once, from the repository root
 
 agent-sys show \
-  --package agent_sys/examples/ok.agent_capabilities.2 \
+  --package agent_sys/tests/e2e_test/ok.agent_capabilities.2 \
   --var nonce=$(python3 -c 'import secrets;print(secrets.token_hex(16))') \
   --var uv_root=/tmp/$USER/agentsys_uv
 ```
