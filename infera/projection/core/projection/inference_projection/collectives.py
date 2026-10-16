@@ -385,6 +385,9 @@ class InferenceCollectiveModel:
         """Dispatch + combine AllToAll per MoE layer, forward only."""
         if self.ep <= 1:
             return 0.0
+        # Attention-DP splits requests across ranks; this rank only dispatches
+        # its share. Replica ``batch`` here prices an 8x AllToAll at DP=8.
+        batch = max(1, (int(batch) + self.attn_dp - 1) // self.attn_dp)
         msg = max(1, batch * tokens * self.hidden * self.topk * 2)
         algo = (self.cc.ep_a2a_algo or "auto").lower()
         if algo == "auto":
