@@ -644,8 +644,9 @@ impl Policy for KvEventAwarePolicy {
         // `chat_template_kwargs` onto a body `to_chat_body` rebuilds from
         // scratch, dropping the variant for `/v1/responses` alone.
         let base = crate::responses_input::normalised(request);
-        let ids_for = |target: &RouteTarget| {
-            let variant = self.variants.for_worker(&target.worker.worker_id);
+        // Takes the variant, not the worker: the render probe can replace a worker's
+        // variant mid-pick, and each cache key must name the variant it tokenized.
+        let ids_for = |variant: &crate::render_variant::RenderVariant| {
             tokens.get_or_tokenize(variant.id(), || {
                 self.hasher.token_ids_for(&variant.apply(&base))
             })
@@ -655,9 +656,10 @@ impl Policy for KvEventAwarePolicy {
         for t in targets {
             let key = match t.worker.kv_block_size {
                 Some(bs) if bs > 0 => {
-                    let key = (bs, self.variants.for_worker(&t.worker.worker_id).id());
+                    let variant = self.variants.for_worker(&t.worker.worker_id);
+                    let key = (bs, variant.id());
                     hashes_for.entry(key).or_insert_with(|| {
-                        ids_for(t)
+                        ids_for(&variant)
                             .map(|ids| crate::hasher::hash_request(&ids, bs as usize))
                             .unwrap_or_default()
                     });
@@ -757,7 +759,8 @@ impl Policy for KvEventAwarePolicy {
             let work: Vec<(u64, bool)> = targets
                 .iter()
                 .map(|target| {
-                    let (tokens, exact) = match ids_for(target) {
+                    let variant = self.variants.for_worker(&target.worker.worker_id);
+                    let (count, exact) = match ids_for(&variant) {
                         Some(ids) => (
                             ids.len() as u64,
                             !hints.has_multimodal_content
@@ -768,7 +771,7 @@ impl Policy for KvEventAwarePolicy {
                             false,
                         ),
                     };
-                    (tokens.saturating_mul(copies), exact)
+                    (count.saturating_mul(copies), exact)
                 })
                 .collect();
             let keys: Vec<_> = targets.iter().map(RouteTarget::route_key).collect();
