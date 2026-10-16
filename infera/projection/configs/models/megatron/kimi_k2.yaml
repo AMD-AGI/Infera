@@ -27,6 +27,13 @@ kv_channels: 128
 mtp_num_layers: 0
 mtp_loss_scaling_factor: 0.1
 
+# Speculative decoding is served with an EAGLE3 head. Acceptance is the golden
+# curve measured on Kimi-K2.5, which keeps this architecture.
+speculative:
+  default: eagle3
+  eagle3:
+    acceptance: kimik2.5_eagle3.yaml
+
 # moe
 moe_layer_freq: "([0]*1+[1]*60)"
 num_experts: 384

@@ -652,7 +652,14 @@ def _build_inference_cmd(
     if getattr(cfg, "fused_kernels", False):
         cmd += ["--fused-kernels"]
     if getattr(cfg, "speculative_draft_cost_factor", 0.0):
-        cmd += ["--speculative-draft-cost-factor", str(cfg.speculative_draft_cost_factor)]
+        # The tuner searches acceptance and draft cost as a pair held to
+        # ``min_draft_cost``, so its factor has to be the cost charged.
+        cmd += [
+            "--speculative-draft-cost-factor",
+            str(cfg.speculative_draft_cost_factor),
+            "--speculative-draft-cost-model",
+            "flat",
+        ]
     # Custom collective ops (extra TP-AllReduce speedups).
     if getattr(cfg, "quick_reduce", False):
         cmd += ["--quick-reduce"]

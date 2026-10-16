@@ -9,7 +9,7 @@ This package turns a *handful of sub-scale benchmark anchors* into projections
 across the whole (very large) serving recipe space, following the design in the
 "Fast, Cheap Inference Config Search" note:
 
-  * :mod:`regime`  — the canonical split of a recipe into *regime-defining*
+  * :mod:`regime`  — the canonical split of a recipe into *anchor-defining*
     axes (each needs its own measurement) and *transportable* axes (moved
     analytically from an anchor).  Provides the regime signature + config key
     used by both the benchmark cache and the anchor store.
