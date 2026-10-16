@@ -1,0 +1,6 @@
+# t8d: TP8/DP8 + DP spec/prefill coordination, no prefill delayer (config/round.t8d.sh).
+# decode_check (generated answers under prefill load) gates the scored round; baseline on t8c passed 32/32.
+bash scripts/stop_stack.sh ROUND=t8c
+bash scripts/launch_agg.sh ROUND=t8d
+python3 scripts/decode_check.py http://10.245.157.237:28200 glm5.2-mxfp4 runtime/runs/t8d/launch/decode_check.json
+bash scripts/agg_round.sh ROUND=t8d VARIANT=t8d-coord-nodelay CONC=128

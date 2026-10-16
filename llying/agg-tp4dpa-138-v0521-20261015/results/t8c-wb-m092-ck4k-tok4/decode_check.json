@@ -1,0 +1,460 @@
+{
+ "verdict": "pass",
+ "passed": 32,
+ "probes": 32,
+ "probe_errors": 0,
+ "fill": {
+  "sent": 334,
+  "errors": 0
+ },
+ "results": [
+  {
+   "i": 0,
+   "code": "OBSIDIAN",
+   "ok": true,
+   "text": "OBSIDIAN",
+   "seconds": 372.79,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 7000,
+    "completion_tokens": 5,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 1,
+   "code": "QUASAR",
+   "ok": true,
+   "text": "QUASAR",
+   "seconds": 189.69,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 2,
+   "code": "GLACIER",
+   "ok": true,
+   "text": "GLACIER",
+   "seconds": 189.68,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 3,
+   "code": "TUNDRA",
+   "ok": true,
+   "text": "TUNDRA",
+   "seconds": 189.69,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 4,
+   "code": "SAFFRON",
+   "ok": true,
+   "text": "SAFFRON",
+   "seconds": 189.68,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 5,
+   "code": "TORNADO",
+   "ok": true,
+   "text": "TORNADO",
+   "seconds": 189.68,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 6,
+   "code": "NEBULA",
+   "ok": true,
+   "text": "NEBULA",
+   "seconds": 189.68,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 7,
+   "code": "MAGENTA",
+   "ok": true,
+   "text": "MAGENTA",
+   "seconds": 189.67,
+   "usage": {
+    "prompt_tokens": 6993,
+    "total_tokens": 6997,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 8,
+   "code": "SAFFRON",
+   "ok": true,
+   "text": "SAFFRON",
+   "seconds": 189.67,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 9,
+   "code": "LANTERN",
+   "ok": true,
+   "text": "LANTERN",
+   "seconds": 189.67,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 10,
+   "code": "NEBULA",
+   "ok": true,
+   "text": "NEBULA",
+   "seconds": 189.67,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 11,
+   "code": "QUASAR",
+   "ok": true,
+   "text": "QUASAR",
+   "seconds": 189.67,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 12,
+   "code": "MAGENTA",
+   "ok": true,
+   "text": "MAGENTA",
+   "seconds": 189.66,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 13,
+   "code": "PELICAN",
+   "ok": true,
+   "text": "PELICAN",
+   "seconds": 372.97,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 7000,
+    "completion_tokens": 5,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 14,
+   "code": "ZEPHYR",
+   "ok": true,
+   "text": "ZEPHYR",
+   "seconds": 372.97,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 7000,
+    "completion_tokens": 5,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 15,
+   "code": "NEBULA",
+   "ok": true,
+   "text": "NEBULA",
+   "seconds": 189.66,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 16,
+   "code": "SAFFRON",
+   "ok": true,
+   "text": "SAFFRON",
+   "seconds": 189.66,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 17,
+   "code": "QUASAR",
+   "ok": true,
+   "text": "QUASAR",
+   "seconds": 189.65,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 18,
+   "code": "GLACIER",
+   "ok": true,
+   "text": "GLACIER",
+   "seconds": 189.65,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 19,
+   "code": "SAFFRON",
+   "ok": true,
+   "text": "SAFFRON",
+   "seconds": 189.65,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 20,
+   "code": "GLACIER",
+   "ok": true,
+   "text": "GLACIER",
+   "seconds": 189.64,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 21,
+   "code": "TORNADO",
+   "ok": true,
+   "text": "TORNADO",
+   "seconds": 189.64,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 22,
+   "code": "GLACIER",
+   "ok": true,
+   "text": "GLACIER",
+   "seconds": 189.64,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 23,
+   "code": "TORNADO",
+   "ok": true,
+   "text": "TORNADO",
+   "seconds": 189.63,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 24,
+   "code": "TUNDRA",
+   "ok": true,
+   "text": "TUNDRA",
+   "seconds": 189.64,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 25,
+   "code": "MAGENTA",
+   "ok": true,
+   "text": "MAGENTA",
+   "seconds": 189.63,
+   "usage": {
+    "prompt_tokens": 6993,
+    "total_tokens": 6997,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 26,
+   "code": "OBSIDIAN",
+   "ok": true,
+   "text": "OBSIDIAN",
+   "seconds": 189.64,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 7000,
+    "completion_tokens": 5,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 27,
+   "code": "SAFFRON",
+   "ok": true,
+   "text": "SAFFRON",
+   "seconds": 189.63,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 28,
+   "code": "MAGENTA",
+   "ok": true,
+   "text": "MAGENTA",
+   "seconds": 189.63,
+   "usage": {
+    "prompt_tokens": 6993,
+    "total_tokens": 6997,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 29,
+   "code": "TUNDRA",
+   "ok": true,
+   "text": "TUNDRA",
+   "seconds": 189.63,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 30,
+   "code": "TUNDRA",
+   "ok": true,
+   "text": "TUNDRA",
+   "seconds": 189.62,
+   "usage": {
+    "prompt_tokens": 6994,
+    "total_tokens": 6998,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  },
+  {
+   "i": 31,
+   "code": "TORNADO",
+   "ok": true,
+   "text": "TORNADO",
+   "seconds": 189.61,
+   "usage": {
+    "prompt_tokens": 6995,
+    "total_tokens": 6999,
+    "completion_tokens": 4,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 0
+   }
+  }
+ ]
+}

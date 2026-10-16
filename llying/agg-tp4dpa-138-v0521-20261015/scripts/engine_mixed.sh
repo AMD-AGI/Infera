@@ -110,8 +110,9 @@ engine_args=(
     --enable-kv-events --kv-events on
     --kv-events-bind "tcp://0.0.0.0:$kv_event_port"
     --kv-snapshot-port "$snapshot_port"
-    --enable-prefill-delayer --prefill-delayer-max-delay-passes "$MIXED_PREFILL_DELAYER_MAX_PASSES"
 )
+[[ "${MIXED_PREFILL_DELAYER:-1}" == 1 ]] &&
+    engine_args+=(--enable-prefill-delayer --prefill-delayer-max-delay-passes "$MIXED_PREFILL_DELAYER_MAX_PASSES")
 (( MIXED_DP > 1 )) && engine_args+=(--dp-size "$MIXED_DP")
 [[ "$MIXED_DPA" == 1 ]] && engine_args+=(--enable-dp-attention)
 [[ "$MIXED_DP_LM_HEAD" == 1 ]] && engine_args+=(--enable-dp-lm-head)

@@ -1,0 +1,21 @@
+t8c-wb-m092-ck4k-tok4 c128: 23,366 tok/s/GPU (output 201.4), 6,420 requests, mean input 100.4k, ITL p50/p90 47.2/107.8 ms, TTFT p50/p90 20.3/108.1 s, cache hit GPU/host 81.9%/12.9% (theoretical 95.9%), effective conc 156.5 (before first token 70.9)
+  engine, mean over 60 min: prompt 176,594 tok/s, of which cached 167,872; generated 1,537 tok/s
+  rank     running       queue      KV use   gen tok/s    hit rate  accept len        util        idle
+     0        7.90        1.06        0.72      194.43        0.72        3.62        0.00        0.06
+     1       10.41        1.06        0.67      262.37        0.57        3.61        0.00        0.06
+     2       10.84        5.13        0.50      266.07        0.23        3.62        0.00        0.06
+     3       11.90       16.42        0.41      286.69        0.14        3.62        0.00        0.06
+     4       12.05       10.22        0.46      279.23        0.24        3.62        0.00        0.06
+     5       11.44        3.02        0.59      298.08        0.25        3.63        0.00        0.06
+     6       14.47       10.49        0.47      373.00        0.16        3.63        0.00        0.06
+     7       12.08       19.36        0.34      284.82        0.10        3.62        0.00        0.06
+  CPU cores (window mean): data_parallel_controller=1.00, detokenizer=0.02, tokenizer=0.53, 0=1.86, 1=1.86, 2=1.86, 3=1.85, 4=1.85, 5=1.85, 6=1.86, 7=1.86
+  hicache_backup_bytes_total: 0=5.21e+11, 1=4.38e+11, 2=4.27e+11, 3=4.44e+11, 4=5.07e+11, 5=5.9e+11, 6=6.93e+11, 7=4.75e+11
+  hicache_backup_duration_seconds_bucket: 0=2.44e+03, 1=2.25e+03, 2=2.15e+03, 3=2.43e+03, 4=2.74e+03, 5=3.1e+03, 6=3.71e+03, 7=2.68e+03
+  hicache_backup_duration_seconds_count: 0=2.84e+03, 1=2.62e+03, 2=2.52e+03, 3=2.81e+03, 4=3.17e+03, 5=3.58e+03, 6=4.26e+03, 7=3.08e+03
+  hicache_backup_duration_seconds_sum: 0=132, 1=20.3, 2=20.5, 3=20.5, 4=24.4, 5=27.5, 6=30.8, 7=22.3
+  hicache_backup_tokens_total: 0=9.32e+06, 1=7.83e+06, 2=7.64e+06, 3=7.95e+06, 4=9.06e+06, 5=1.06e+07, 6=1.24e+07, 7=8.5e+06
+  hicache_dropped_tokens_total: 0=0, 1=0, 2=0, 3=0, 4=0, 5=0, 6=0, 7=0
+  hicache_host_total_tokens: 0=4.4e+06, 1=4.4e+06, 2=4.4e+06, 3=4.4e+06, 4=4.4e+06, 5=4.4e+06, 6=4.4e+06, 7=4.4e+06
+  hicache_host_used_tokens: 0=4.39e+06, 1=4.39e+06, 2=4.38e+06, 3=4.26e+06, 4=4.38e+06, 5=4.38e+06, 6=4.3e+06, 7=4.35e+06
+  num_retracted_reqs: 0=0, 1=0, 2=0, 3=0, 4=0, 5=0, 6=0, 7=0

@@ -44,7 +44,9 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 | a2 | 不开 HiCache，调通流程（预热每 lane 2 个请求） | 完成：C16 / 600 s 全流程通过（不计分） |
 | a3 | HiCache write_through 270 GB / rank | HiCache 功能检查通过；C48 = 31,605；C64 = 30,027 |
 | a4 | write_back + mem 0.92 | HiCache 功能检查通过；C64 = 31,221 |
-| t8a | TP8 + DP8 attention（8 卡），write_back + mem 0.92，HiCache 200 GB / rank | 已备好 |
+| t8a / t8b | TP8 + DP8 attention（8 卡），write_back + mem 0.92，HiCache 200 GB / rank | OOM（chunk 8192/rank）/ AgentX 中止（单 tokenizer） |
+| t8c | t8b + tokenizer 4 个 worker | C128 = 23,366 |
+| t8d / a5 | + DP spec/prefill coordination，关 prefill delayer | 已备好 |
 
 ### a2 调通结果（不计分）
 
@@ -128,6 +130,30 @@ top-1 logprob 最大差 0.0005，从主机载回 557,056 token。tokenizer 在 a
 输出仍是约 340 tok/s。瓶颈是每 rank 的 decode 单步耗时：约 134 ms/步（11 个在跑，含 prefill 打断），而 3P1D 的
 TP8/DP8 decode 在 11.5 个在跑时为 66.7 ms/步（纯 decode）。decode 主要受读权重的时间限制，TP4 每卡读 121 GB 权重，
 TP8 只有约 61 GB，所以下一步是 TP8/DP8（`config/round.t8a.sh`，`operations/t8a.steps`）。
+
+### TP8/DP8（t8a → t8c，8 卡，write_back + mem 0.92）C128：23,366 tok/s/GPU，TP4 的 74%
+
+| 轮次 | 改动 | 结果 |
+|---|---|---|
+| t8a | chunk 8192/rank | 预热第 16 分钟 HIP OOM：MoE 第二阶段缓冲 6.75 GiB（MoE 处理 8 个 rank 汇总的 65,536 token，TP4 是 32,768） |
+| t8b | chunk 4096/rank，max-prefill-tokens 4096 | 预热的"缓存压力"段一次放出约 200 个约 18 万 token 的请求，单个 tokenizer 进程占满 1 核，worker HTTP 约 30 s 无响应，router 502，AgentX 中止 |
+| t8c | + tokenizer 4 个 worker | 跑完：23,366 tok/s/GPU（总 186,928 tok/s，TP4 C48 的 1.48 倍），ITL p50/p90 47.2/107.8 ms，TTFT p50/p90 20.3/108.1 s |
+
+每卡显存：权重 75.8 + draft 6.1 GB（DP attention 下每个 rank 都持有完整 attention 权重，只有 MoE 随 TP 切分），
+GPU KV 每 rank 3,317,760 token（TP4 mem 0.92 为 2,432,128，+36%）。停栈后显存约 25 分钟才释放完（2 TB 锁页主机内存）。
+
+t8c 的瓶颈是 prefill 调度，不是算力：新算 prefill 合计约 8.7k tok/s（每卡约 1.1k，单卡能力约 5k），但平均 70.9 个
+请求停在首 token 之前；每 rank 63–92% 的时间都有 prefill 被 delayer 推迟，执行的 prefill 中 75–80% 等满 60 步
+（TP4 约 50%）；8 个 rank 很少同时都有 prefill。rank 间不均衡：DP3/DP7 平均排队 16–19、命中率 10–14%，DP0 排队 1、
+命中率 72%。每 rank decode 输出 194–373 tok/s，和 TP4 相近，平均每步约 170 ms（3P1D TP8 纯 decode 在相同在跑数下
+45–70 ms），TP8 单步更快的优势被 prefill 停顿和 delayer 吃掉了。tokenizer（4 个 worker）均值 0.53 核。
+
+下一步：`SGLANG_ENABLE_DP_SPEC_PREFILL_COORDINATION=1`（v0.5.21 实验开关，默认关）。EAGLE + DP attention 下，
+默认只要一个 rank 有新 prefill，其他 rank 这一步就只跑 idle 批次；打开后没有 prefill 的 rank 在同一步继续 draft/verify
+（这些异构步全部 eager，prefill rank 要等 decode rank 的 5 步 eager draft），delayer 也就不必再等对齐（关掉）。
+`scripts/decode_check.py`：在后台持续 prefill 负载下发 32 个检索问题（生成最多 16 token，答案须含口令），
+t8c（开关关）基线 32/32 通过（`results/t8c-wb-m092-ck4k-tok4/decode_check.json`），打开后先过这个检查再计分。
+候选：`operations/t8d.steps`（TP8 C128）、`operations/a5.steps`（TP4 C64）。
 
 ## 计划
 
