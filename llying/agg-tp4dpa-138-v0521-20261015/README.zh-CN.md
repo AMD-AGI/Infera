@@ -186,6 +186,15 @@ PD 与 mixed 的 prefill 路由均衡（各自 60 分钟窗口，按 rank 统计
 最多/最少 1.98 倍、排队 0.5–3.2（prefill 卡平均利用率约 36%，且不影响 decode）；mixed TP4 a4 C64 为 1.26 倍、排队 2.1–3.4；
 mixed TP8 t8c C128 为 3.26 倍、排队 1.4–22.7（准入受 delayer 等待和 max-prefill-tokens 4096 限速，负载稍高的 rank 队列持续堆积）。
 
+### 10-16 12:50 /home 卷写满后的运行方式
+
+共享 `/home`（10 TB CephFS）写满（剩余 0 GB，新建目录报 Disk quota exceeded），git 提交与 `/home` 下的日志都写不进去。
+3P1D 的 `runtime/runs/r2`（1,491 个文件、7.40 GB，逐字节核对）已迁到
+`/shared_nfs/liyingli/bench_agentx/3p1d-tp4-tp8-v0521-20261012/runtime-home-r2-20261016/`，腾出的空间随即被占用。
+之后的实验从 `/shared_nfs/liyingli/bench_agentx/agg-tp4dpa-138-v0521-20261015-kit/`（本目录的副本，节点上只读、只用来读脚本）
+运行：`RUNS`、结果、步骤日志都写在 138 本地盘 `/mnt/m2m_nobackup/liyingli_3p1d/agg-runs`、`agg-results`，
+监视脚本经 ssh 在 138 上运行；结果定期同步到 `/shared_nfs`，`/home` 恢复后再提交到 git。
+
 ## 计划
 
 1. a2：C16 / 600 s 调通全流程（flush → router → 采样 → AgentX → 发布 → 汇总）。
