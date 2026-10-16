@@ -1,0 +1,4 @@
+# a4: write_back + mem 0.92 (config/round.a4.sh). HiCache check gates the scored round.
+bash scripts/launch_agg.sh ROUND=a4
+bash scripts/hicache_check_agg.sh ROUND=a4 TAG=wb
+bash scripts/agg_round.sh ROUND=a4 VARIANT=a4-wb-m092 CONC=64
