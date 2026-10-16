@@ -65,8 +65,12 @@ def engine(d: Path) -> dict:
             rank = re.search(r'dp_rank="(\d+)"', key)
             idle[rank.group(1) if rank else "-"] = (value - first["m"][key]) / span
     gauges["idle fraction"] = {r: [v] for r, v in idle.items()}
+    cpu = {}
+    for key, value in last["m"].items():
+        if key.startswith(("process_cpu_seconds_total", "scheduler_process_cpu_seconds_total")) and key in first["m"] and span > 0:
+            cpu[key] = (value - first["m"][key]) / span
     return {"gauges": {n: {r: sum(v) / len(v) for r, v in by.items()} for n, by in gauges.items()},
-            "span": span, "prompt_tps": rate("prompt_tokens_total"),
+            "span": span, "cpu": cpu, "prompt_tps": rate("prompt_tokens_total"),
             "cached_tps": rate("cached_tokens_total"), "gen_tps": rate("generation_tokens_total")}
 
 
@@ -100,6 +104,9 @@ def main() -> int:
         print("  rank  " + "  ".join(f"{h:>10}" for h, _ in cols))
         for r in ranks:
             print(f"  {r:>4}  " + "  ".join(f"{fmt(g.get(n, {}).get(r)):>10}" for _, n in cols))
+        if e["cpu"]:
+            print("  CPU cores (window mean): " + ", ".join(
+                f"{re.sub(r'.*(component|dp_rank)=\"([^\"]+)\".*', r'\2', k)}={v:.2f}" for k, v in sorted(e["cpu"].items())))
         extra = sorted(n for n in g if n.startswith(("hicache_", "num_retracted")))
         for n in extra:
             print(f"  {n}: " + ", ".join(f"{r}={v:.3g}" for r, v in sorted(g[n].items())))
