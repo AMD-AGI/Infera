@@ -1,0 +1,4 @@
+# a6b: TP4/DP4, write_back + mem 0.90, delayer 120 passes, 4 tokenizer workers (config/round.a6b.sh). C64.
+bash scripts/stop_stack.sh ROUND=a6
+bash scripts/launch_agg.sh ROUND=a6b
+bash scripts/agg_round.sh ROUND=a6b VARIANT=a6b-wb-m090-dly120 CONC=64
