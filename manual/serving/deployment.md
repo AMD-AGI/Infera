@@ -285,6 +285,14 @@ enable radix cache or guarantee better throughput. Session active-lease, hit and
 selection counters are exposed through `infera_router_session_*` metrics, with
 role labels and no session-ID labels.
 
+A client that omits `X-Session-ID` gets normal routing without any error, so
+check that sessions arrive. Per role, `infera_router_session_hits_total` plus
+`infera_router_session_selected_total` counts the picks that carried a session;
+`infera_router_picks_total` summed over workers counts all picks. If nearly all
+picks lack a session, the client is not sending the header (for AIPerf, set
+`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true`). These metrics come from the
+Rust router.
+
 The Python router keeps the same modes, scoping, TTL, capacity and ID checks,
 and a failed request also drops its bindings, with less bookkeeping: idle time
 counts from a session's last routed request, a failed PD request drops both
