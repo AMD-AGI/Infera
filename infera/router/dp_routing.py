@@ -3,11 +3,12 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""Carry the router's per-request DP-rank choice to SGLang on the wire.
+"""Carry the router's per-request DP-rank choice to the engine on the wire.
 
-All three helpers no-op for endpoint-addressed targets (``dp_rank is None``,
-e.g. vLLM external-LB) and non-SGLang engines, so callers apply them
-unconditionally.
+SGLang and vLLM read the rank from a header, ATOM from the request body
+(``data_parallel_rank``). Every helper no-ops for endpoint-addressed targets
+(``dp_rank is None``, e.g. vLLM external-LB) and for engines it does not
+apply to, so callers apply them unconditionally.
 """
 
 from __future__ import annotations
@@ -21,14 +22,32 @@ from infera.router.policy.target import RouteTarget
 #: never matching. Mirrors Rust's DP_RANK_HEADER.
 DP_RANK_HEADER = "X-Data-Parallel-Rank"
 
+#: ATOM's request field for the same thing (``ChatCompletionRequest`` /
+#: ``CompletionRequest.data_parallel_rank``); it does not read the header.
+#: An explicit rank wins over ATOM's own load balancing and session affinity.
+DP_RANK_BODY_FIELD = "data_parallel_rank"
+
+
+def _rank_in_body(target: RouteTarget) -> bool:
+    return target.worker.engine == EngineType.ATOM
+
 
 def dp_rank_header(target: RouteTarget) -> dict[str, str] | None:
     """``X-Data-Parallel-Rank`` header pinning the request to a DP rank. Both
     SGLang (``DataParallelController``) and vLLM (``_get_data_parallel_rank``,
-    case-insensitive) honour it; no-op when the target carries no rank."""
-    if target.dp_rank is None:
+    case-insensitive) honour it; no-op when the target carries no rank or its
+    engine reads the rank from the body (see :func:`inject_dp_rank`)."""
+    if target.dp_rank is None or _rank_in_body(target):
         return None
     return {DP_RANK_HEADER: str(target.dp_rank)}
+
+
+def inject_dp_rank(body: dict, target: RouteTarget) -> dict:
+    """Pin an ATOM target's DP rank in the body (a fresh dict; ``body`` is
+    left untouched). No-op for other engines and rank-less targets."""
+    if target.dp_rank is None or not _rank_in_body(target):
+        return body
+    return {**body, DP_RANK_BODY_FIELD: target.dp_rank}
 
 
 def inject_disagg_prefill_dp_rank(
