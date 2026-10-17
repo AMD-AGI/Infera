@@ -102,6 +102,10 @@ export OFFLOAD_MIN_LOAD_TOKENS="${OFFLOAD_MIN_LOAD_TOKENS:-0}"
 # session on one prefill, both also on one decode, off is stateless.
 export SESSION_AFFINITY="${SESSION_AFFINITY:-prefill}"
 
+# Router data plane: python (the reference runs) or rust (the image's
+# infera-router binary). Both route ATOM PD the same way.
+export ROUTER_BACKEND="${ROUTER_BACKEND:-python}"
+
 # Extra flags, space-separated, appended last.
 export PREFILL_EXTRA_ARGS="${PREFILL_EXTRA_ARGS:-}"
 export DECODE_EXTRA_ARGS="${DECODE_EXTRA_ARGS:-}"
