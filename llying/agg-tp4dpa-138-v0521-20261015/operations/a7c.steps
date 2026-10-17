@@ -1,0 +1,4 @@
+# a7c: a7b with HSA_NO_SCRATCH_RECLAIM=0 (config/round.a7c.sh). C64.
+bash scripts/stop_stack.sh ROUND=a7b
+bash scripts/launch_agg.sh ROUND=a7c
+bash scripts/agg_round.sh ROUND=a7c VARIANT=a7c-coord-ck2k-m085-nsr0 CONC=64
