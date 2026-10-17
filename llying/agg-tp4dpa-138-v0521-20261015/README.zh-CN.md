@@ -215,6 +215,18 @@ ITL p50/p90 32.8/57.8 ms，TTFT p50/p90 14.5/45.6 s；与 a4 每秒完成请求�
   4,961 → 4,219 tok/s（−15%，步数 4 倍、每步固定开销与等 decode rank 的 eager draft），排队 19.6 → 37.4、TTFT 均值
   21.6 → 46.8 s、在跑 36.5 → 25.4，每秒完成请求 1.045 → 0.819。下一步 a7d：保留 coordination，块恢复 8192。
 
+### a7d：coordination + 8192-token chunks（mem 0.85，NSR=0）C64：29,307 tok/s/GPU
+
+| 轮次 | tok/s/GPU | 每秒请求 | decode ms/token | TTFT 均值 | 新算 prefill | 在跑 / 排队 |
+|---|---|---|---|---|---|---|
+| a6b（无 coordination，mem 0.90，NSR=1） | 32,228 | 1.045 | 35.9 | 21.6 s | 4,961/s | 36.5 / 19.6 |
+| a7c（coordination，2048 块） | 27,607 | 0.819 | 29.9 | 46.8 s | 4,219/s | 25.4 / 37.4 |
+| a7d（coordination，8192 块） | 29,307 | 0.945 | 35.8 | 29.7 s | 4,825/s | 33.3 / 25.4 |
+
+8192 块下 coordination 对 decode 没有改善，TTFT 与排队变差；2048 块下 decode 快 17% 但 prefill 损失更大。a7d 与 a6b 另有
+mem（0.85 对 0.90，GPU 命中 27% 对 48%）与 NSR（0 对 1）两处不同，但无论怎么分摊，coordination 在 TP4 这个场景下没有净收益，
+此方向收尾。TP4 aggregated 的最好成绩仍是 a6b 32,228 / a3 C48 31,605，约 3.1–3.2 万为当前软件栈下的平台。
+
 ### 10-16 12:50 /home 卷写满后的运行方式
 
 共享 `/home`（10 TB CephFS）写满（剩余 0 GB，新建目录报 Disk quota exceeded），git 提交与 `/home` 下的日志都写不进去。
