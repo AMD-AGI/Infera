@@ -227,6 +227,14 @@ ITL p50/p90 32.8/57.8 ms，TTFT p50/p90 14.5/45.6 s；与 a4 每秒完成请求�
 mem（0.85 对 0.90，GPU 命中 27% 对 48%）与 NSR（0 对 1）两处不同，但无论怎么分摊，coordination 在 TP4 这个场景下没有净收益，
 此方向收尾。TP4 aggregated 的最好成绩仍是 a6b 32,228 / a3 C48 31,605，约 3.1–3.2 万为当前软件栈下的平台。
 
+### prefill bf16 GEMM 调优的准备（未执行）
+
+a6b 日志中未调优的 bf16 GEMM：5,542 种 (M, N, K)，几乎都是 prefill 尺寸，4 类 (N, K)：(6144, 16384)、(2624, 6144)、(32, 6144)、
+(4096, 2048)，M 为 257–8192（清单：`analysis/untuned_bf16_gemm_shapes.a6b.txt`）。aiter `tuned_gemm` 先按原始 M 精确查表，
+再按 `get_padded_m(M, N, K, gl)` 补齐后查：gl=1 时每类 (N, K) 只有 5 个档位（512/1024/2048/4096/8192），gl=0 时 104 个。
+调 4 × 5 = 20 个形状即可让所有 prefill GEMM 命中调优配置。普通 GEMM 约占 prefill 步 25%、prefill 步约占时间 46%，
+调优若快 10–30%，总耗时约降 1–3%。
+
 ### 10-16 12:50 /home 卷写满后的运行方式
 
 共享 `/home`（10 TB CephFS）写满（剩余 0 GB，新建目录报 Disk quota exceeded），git 提交与 `/home` 下的日志都写不进去。
