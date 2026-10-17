@@ -1,0 +1,4 @@
+# a7b: a7 at mem 0.85 (config/round.a7b.sh). decode_check already passed 32/32 with coordination on a7.
+bash scripts/stop_stack.sh ROUND=a7
+bash scripts/launch_agg.sh ROUND=a7b
+bash scripts/agg_round.sh ROUND=a7b VARIANT=a7b-coord-ck2k-m085 CONC=64
