@@ -69,11 +69,12 @@ def _kill_process_group_safely() -> None:
 async def main() -> None:
     args = parse_atom_args()
     logger.info(
-        "parsed args: model=%s host=%s server_port=%d tp=%d disagg=%s disagg_meta=%s",
+        "parsed args: model=%s host=%s server_port=%d tp=%d dp=%s disagg=%s disagg_meta=%s",
         args.model,
         args.host,
         args.server_port,
         args.tensor_parallel_size,
+        args.dp_size,
         args.disagg_mode,
         args.disagg_meta or "{}",
     )
@@ -131,6 +132,7 @@ async def main() -> None:
         kv_block_size=kv_block_size,
         disagg_mode=args.disagg_mode,
         disagg_meta=args.disagg_meta,
+        dp_size=args.dp_size,
     )
 
     try:

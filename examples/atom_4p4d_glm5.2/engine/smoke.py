@@ -9,6 +9,7 @@ Every response is saved to OUT_DIR; exits non-zero if any check fails.
 
 Usage: smoke.py ROUTER_URL MODEL OUT_DIR
 Env:   LONG_PREFIX_REPEATS  filler lines of the long prompt (default 6000, ~66k tokens)
+       PREFILL_NUM_WORKERS  prefill workers the router must list (default 1)
 """
 
 from __future__ import annotations
@@ -21,10 +22,12 @@ import urllib.request
 from pathlib import Path
 
 
-def request(url: str, payload: dict | None = None) -> tuple[str, float]:
+def request(
+    url: str, payload: dict | None = None, headers: dict | None = None
+) -> tuple[str, float]:
     """GET (no payload) or POST JSON; return the body and the elapsed seconds."""
     data = None if payload is None else json.dumps(payload).encode()
-    req = urllib.request.Request(url, data, {"Content-Type": "application/json"})
+    req = urllib.request.Request(url, data, {"Content-Type": "application/json", **(headers or {})})
     start = time.monotonic()
     with urllib.request.urlopen(req, timeout=600) as response:
         body = response.read().decode()
@@ -65,19 +68,21 @@ def main() -> int:
         results.append(result)
         print(json.dumps(result, ensure_ascii=False), flush=True)
 
-    def chat(name: str, content: str, expected: str) -> None:
+    def chat(name: str, content: str, expected: str, headers: dict | None = None) -> None:
         body, elapsed = request(
             f"{router}/v1/chat/completions",
             {**base, "messages": [{"role": "user", "content": content}]},
+            headers,
         )
         text = json.loads(body)["choices"][0]["message"]["content"] or ""
         record(name, body, elapsed, text, expected)
 
     try:
-        # Exactly one prefill and one decode; a "mixed" prefill would bypass PD.
+        # PREFILL_NUM_WORKERS prefills and one decode; a "mixed" prefill would bypass PD.
         body, elapsed = request(f"{router}/v1/workers")
         modes = sorted(str(w.get("disagg_mode")) for w in json.loads(body)["workers"])
-        record("workers", body, elapsed, " ".join(modes), "decode prefill", exact=True)
+        expected = " ".join(["decode"] + ["prefill"] * int(os.getenv("PREFILL_NUM_WORKERS", "1")))
+        record("workers", body, elapsed, " ".join(modes), expected, exact=True)
 
         body, elapsed = request(
             f"{router}/v1/completions",
@@ -101,6 +106,7 @@ def main() -> int:
         record("stream", body, elapsed, stream_text(body), "899")
 
         # The second send must hit the prefix cache; compare the two elapsed_s.
+        # One session id keeps both on the same prefill under session affinity.
         repeats = int(os.getenv("LONG_PREFIX_REPEATS", "6000"))
         filler = "This is a background record with no secret value.\n" * repeats
         half = len(filler) // 2
@@ -109,7 +115,7 @@ def main() -> int:
             "\nWhat is the secret code? Return only the code."
         )
         for name in ("long_prefix_cold", "long_prefix_repeat"):
-            chat(name, prompt, "CEDAR-4729")
+            chat(name, prompt, "CEDAR-4729", {"x-dynamo-session-id": "smoke-long-prefix"})
     finally:
         (out / "summary.json").write_text(json.dumps(results, ensure_ascii=False, indent=2))
 

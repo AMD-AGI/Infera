@@ -110,6 +110,17 @@ fronting N attention-DP ranks — and the router steers each request to a rank v
 the `X-Data-Parallel-Rank` header. In PD this is typically the **decode** engine
 (prefill stays plain-TP); see [PD disaggregation](../features/pd_disaggregation.md).
 
+### DP-attention (ATOM)
+
+An aggregated ATOM worker started with `-tp N --enable-dp-attention` runs N
+attention ranks, each with its own KV and prefix cache, and registers as
+`dp_size=N` (`× --data-parallel-size` when set). The router steers each request
+to a rank through the request body's `data_parallel_rank`, which ATOM honours
+over its own `--dp-load-balance`. With `--session-affinity both` every session
+stays on one rank, so its prefix cache is reused turn after turn; leave
+`ATOM_DP_SESSION_AFFINITY` unset. PD workers do not register their ranks yet:
+the prefill picks its own and reports it in the hand-off.
+
 ### External-LB DP (vLLM)
 
 vLLM DP isn't rank-multiplexed — run **one launcher per rank**, each its own

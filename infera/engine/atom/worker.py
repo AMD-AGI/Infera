@@ -53,6 +53,7 @@ class AtomEngine(BaseEngine):
         kv_block_size: int | None = None,
         disagg_mode: DisaggMode = DisaggMode.MIXED,
         disagg_meta: dict[str, Any] | None = None,
+        dp_size: int | None = None,
     ) -> None:
         self.atom_argv = list(atom_argv)
         self.model_name = model_name
@@ -66,6 +67,7 @@ class AtomEngine(BaseEngine):
         self.kv_block_size = kv_block_size
         self.disagg_mode = disagg_mode
         self.disagg_meta: dict[str, Any] = dict(disagg_meta or {})
+        self.dp_size = dp_size
         self._proc: subprocess.Popen | None = None
 
     async def start(self) -> EngineConfig:
@@ -110,6 +112,7 @@ class AtomEngine(BaseEngine):
             disagg_meta=dict(self.disagg_meta),
             kv_events_endpoint=self.kv_events_endpoint,
             kv_block_size=self.kv_block_size,
+            dp_size=self.dp_size,
         )
 
     async def stop(self) -> None:

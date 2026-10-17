@@ -3,10 +3,10 @@
 //
 // SPDX-License-Identifier: MIT
 ///////////////////////////////////////////////////////////////////////////////
-//! PD coordination protocol. Covers SGLang bootstrap (concurrent topology):
-//! both legs get the same top-level `bootstrap_host/port/room` and are POSTed
-//! concurrently. Other connectors (vLLM mooncake/mori, atom) are served by the
-//! Python backend.
+//! PD coordination protocol. Covers SGLang bootstrap and vLLM Mooncake, whose
+//! legs are POSTed concurrently, and ATOM Mooncake, whose decode body needs the
+//! prefill's response (serial pull). Other connectors (vLLM MoRIIO) are served
+//! by the Python backend.
 
 use serde_json::{Map, Value};
 
@@ -14,6 +14,7 @@ use crate::pool::Worker;
 
 const SGLANG_BOOTSTRAP: &str = "sglang-bootstrap";
 const VLLM_MOONCAKE: &str = "vllm-mooncake";
+const ATOM_MOONCAKE: &str = "atom-mooncake";
 
 /// The PD coordination protocol both legs speak. Selects how `disagg::dispatch`
 /// shapes the prefill vs decode bodies.
@@ -24,21 +25,25 @@ pub enum PdProtocol {
     /// vLLM Mooncake: asymmetric `kv_transfer_params` — prefill pushes KV, decode
     /// pulls it via the prefill's bootstrap server.
     VllmMooncake,
+    /// ATOM Mooncake: serial pull. The prefill runs first, and its response's
+    /// `kv_transfer_params` become the decode's.
+    AtomMooncake,
 }
 
 /// Resolve the PD protocol from the workers' advertised `disagg_meta.protocol`.
 /// Both legs must speak the same supported protocol; errors on an unsupported
-/// connector (atom/mori — use the Python backend) or a P/D mismatch.
+/// connector (mori — use the Python backend) or a P/D mismatch.
 pub fn resolve_pd_protocol(p: &Worker, d: &Worker) -> anyhow::Result<PdProtocol> {
     let pp = p.disagg_meta.get("protocol").and_then(|v| v.as_str());
     let dp = d.disagg_meta.get("protocol").and_then(|v| v.as_str());
     match (pp, dp) {
         (Some(SGLANG_BOOTSTRAP), Some(SGLANG_BOOTSTRAP)) => Ok(PdProtocol::SglangBootstrap),
         (Some(VLLM_MOONCAKE), Some(VLLM_MOONCAKE)) => Ok(PdProtocol::VllmMooncake),
+        (Some(ATOM_MOONCAKE), Some(ATOM_MOONCAKE)) => Ok(PdProtocol::AtomMooncake),
         _ => anyhow::bail!(
             "unsupported or mismatched PD protocol (prefill={pp:?}, decode={dp:?}); \
-             rust backend supports sglang-bootstrap and vllm-mooncake — use \
-             --router-backend python for others (atom/mori)"
+             rust backend supports sglang-bootstrap, vllm-mooncake and atom-mooncake — \
+             use --router-backend python for others (mori)"
         ),
     }
 }
@@ -48,7 +53,7 @@ pub fn resolve_pd_protocol(p: &Worker, d: &Worker) -> anyhow::Result<PdProtocol>
 pub fn require_sglang_bootstrap(p: &Worker, d: &Worker) -> anyhow::Result<()> {
     match resolve_pd_protocol(p, d)? {
         PdProtocol::SglangBootstrap => Ok(()),
-        PdProtocol::VllmMooncake => anyhow::bail!("expected sglang-bootstrap, got vllm-mooncake"),
+        other => anyhow::bail!("expected sglang-bootstrap, got {other:?}"),
     }
 }
 
@@ -131,9 +136,8 @@ fn output_cap_fields(path: &str) -> &'static [&'static str] {
     }
 }
 
-/// Prefill leg: prefill only (one token, non-streaming) plus the
-/// `kv_transfer_params` that tell vLLM to push its KV to a remote decode.
-pub fn annotate_vllm_prefill(body: &mut Map<String, Value>, path: &str, room: u64) {
+/// Cap a prefill leg at one token, non-streaming: just enough to fill the KV.
+fn prefill_one_token(body: &mut Map<String, Value>, path: &str) {
     // The primary cap is set whether or not the client sent it -- an uncapped
     // prefill leg generates the whole completion twice -- while the aliases are
     // only rewritten where they already appear, so the engine is never taught
@@ -150,6 +154,12 @@ pub fn annotate_vllm_prefill(body: &mut Map<String, Value>, path: &str, room: u6
             body.insert((*k).into(), Value::from(1));
         }
     }
+}
+
+/// Prefill leg: prefill only (one token, non-streaming) plus the
+/// `kv_transfer_params` that tell vLLM to push its KV to a remote decode.
+pub fn annotate_vllm_prefill(body: &mut Map<String, Value>, path: &str, room: u64) {
+    prefill_one_token(body, path);
     let mut kv = Map::new();
     kv.insert("do_remote_decode".into(), Value::Bool(true));
     kv.insert("do_remote_prefill".into(), Value::Bool(false));
@@ -191,6 +201,91 @@ pub fn annotate_vllm_decode(
         Value::from(transfer_id_for_room(room)),
     );
     body.insert("kv_transfer_params".into(), Value::Object(kv));
+    Ok(())
+}
+
+// --- ATOM Mooncake ---------------------------------------------------------
+// Mirrors `infera/router/disagg_protocols/atom_mooncake.py`, which replays the
+// body shaping of ATOM's own PD proxy. The prefill runs for one token and pushes
+// its KV to the decode named in its body; its response's `kv_transfer_params`
+// (transfer_id, first_token_id, block ids, the DP rank that holds the KV, ...)
+// are passed to the decode verbatim, plus the producer's parallelism.
+
+/// A required `disagg_meta.params` value of an ATOM worker.
+fn atom_param<'a>(w: &'a Worker, key: &str) -> anyhow::Result<&'a Value> {
+    w.disagg_meta
+        .get("params")
+        .and_then(|v| v.get(key))
+        .filter(|v| !v.is_null())
+        .ok_or_else(|| anyhow::anyhow!("worker {} missing disagg_meta.params.{key}", w.worker_id))
+}
+
+/// Prefill leg: one token, non-streaming, told which decode to push its KV to.
+pub fn annotate_atom_prefill(
+    body: &mut Map<String, Value>,
+    decode: &Worker,
+    path: &str,
+) -> anyhow::Result<()> {
+    let mut kv = Map::new();
+    kv.insert(
+        "remote_dp_size".into(),
+        atom_param(decode, "dp_size")?.clone(),
+    );
+    kv.insert(
+        "remote_tp_size".into(),
+        atom_param(decode, "tp_size")?.clone(),
+    );
+    kv.insert("do_remote_decode".into(), Value::Bool(true));
+    kv.insert("do_remote_prefill".into(), Value::Bool(false));
+    kv.insert(
+        "remote_handshake_port".into(),
+        atom_param(decode, "handshake_port")?.clone(),
+    );
+    kv.insert("remote_engine_id".into(), Value::Null);
+    kv.insert("remote_block_ids".into(), Value::Null);
+    kv.insert("remote_host".into(), atom_param(decode, "host")?.clone());
+    kv.insert(
+        "remote_port".into(),
+        atom_param(decode, "http_port")?.clone(),
+    );
+    prefill_one_token(body, path);
+    body.insert("kv_transfer_params".into(), Value::Object(kv));
+    Ok(())
+}
+
+/// The hand-off the decode needs: the prefill response's `kv_transfer_params`.
+pub fn atom_handoff(prefill_reply: &Value) -> anyhow::Result<Map<String, Value>> {
+    let kv = prefill_reply
+        .get("kv_transfer_params")
+        .and_then(Value::as_object)
+        .ok_or_else(|| anyhow::anyhow!("atom prefill response has no kv_transfer_params"))?;
+    if !kv.contains_key("transfer_id") {
+        anyhow::bail!("atom prefill kv_transfer_params has no transfer_id");
+    }
+    Ok(kv.clone())
+}
+
+/// Decode leg: the prefill's hand-off plus the producer's parallelism, which the
+/// consumer needs to dial the right rank's handshake port
+/// (`remote_handshake_port + remote_dp_rank * tp_size + tp_rank`). `max_tokens`
+/// stays as sent: ATOM's decode re-predicts the first token and counts it.
+pub fn annotate_atom_decode(
+    body: &mut Map<String, Value>,
+    prefill: &Worker,
+    mut handoff: Map<String, Value>,
+) -> anyhow::Result<()> {
+    let tp_size = atom_param(prefill, "tp_size")?.clone();
+    handoff.insert(
+        "remote_dp_size".into(),
+        atom_param(prefill, "dp_size")?.clone(),
+    );
+    handoff.insert("remote_tp_size".into(), tp_size.clone());
+    handoff.entry("tp_size").or_insert(tp_size);
+    // The rank the prefill stored the KV on; a bool is not a rank.
+    if let Some(rank) = handoff.get("dp_rank").and_then(Value::as_i64) {
+        handoff.insert("remote_dp_rank".into(), Value::from(rank));
+    }
+    body.insert("kv_transfer_params".into(), Value::Object(handoff));
     Ok(())
 }
 
@@ -376,5 +471,90 @@ mod tests {
         let w =
             worker(json!({"protocol": "sglang-bootstrap", "params": {"bootstrap_addr": "h:abc"}}));
         assert!(annotate_sglang(&mut b, &w, "/v1/chat/completions", 1).is_err());
+    }
+
+    fn atom(role: &str, handshake_port: i64) -> Worker {
+        serde_json::from_value(json!({
+            "worker_id": role, "url": "http://x", "engine": "atom",
+            "disagg_meta": {"protocol": "atom-mooncake", "params": {
+                "host": "10.0.0.1", "http_port": 19002, "handshake_port": handshake_port,
+                "tp_size": 4, "dp_size": 1
+            }}
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn atom_pair_resolves_to_atom_mooncake() {
+        let (p, d) = (atom("p", 21301), atom("d", 21311));
+        assert_eq!(
+            resolve_pd_protocol(&p, &d).unwrap(),
+            PdProtocol::AtomMooncake
+        );
+        assert!(resolve_pd_protocol(&p, &worker(sglang())).is_err());
+    }
+
+    #[test]
+    fn atom_prefill_leg_runs_one_token_and_names_the_decode() {
+        let mut body = Map::new();
+        body.insert("max_tokens".into(), Value::from(128));
+        body.insert("stream".into(), Value::Bool(true));
+        body.insert("stream_options".into(), json!({"include_usage": true}));
+        annotate_atom_prefill(&mut body, &atom("d", 21311), "/v1/completions").unwrap();
+        assert_eq!(body["max_tokens"], 1);
+        assert_eq!(body["stream"], false);
+        assert!(!body.contains_key("stream_options"));
+        // What ATOM's own proxy sends, field for field.
+        assert_eq!(
+            body["kv_transfer_params"],
+            json!({
+                "remote_dp_size": 1, "remote_tp_size": 4,
+                "do_remote_decode": true, "do_remote_prefill": false,
+                "remote_handshake_port": 21311,
+                "remote_engine_id": null, "remote_block_ids": null,
+                "remote_host": "10.0.0.1", "remote_port": 19002
+            })
+        );
+    }
+
+    #[test]
+    fn atom_prefill_needs_the_decode_addressing() {
+        let bare = worker(json!({"protocol": "atom-mooncake"}));
+        assert!(annotate_atom_prefill(&mut Map::new(), &bare, "/v1/completions").is_err());
+    }
+
+    #[test]
+    fn atom_decode_reuses_the_handoff_and_dials_its_rank() {
+        let reply = json!({"choices": [], "kv_transfer_params": {
+            "do_remote_prefill": true, "do_remote_decode": false, "transfer_id": "t-1",
+            "first_token_id": 7, "remote_block_ids": [1, 2], "dp_rank": 3
+        }});
+        let handoff = atom_handoff(&reply).unwrap();
+        let mut body = Map::new();
+        body.insert("max_tokens".into(), Value::from(128));
+        annotate_atom_decode(&mut body, &atom("p", 21301), handoff).unwrap();
+        // Not decremented: ATOM's decode counts the re-predicted first token.
+        assert_eq!(body["max_tokens"], 128);
+        let kv = &body["kv_transfer_params"];
+        assert_eq!(kv["transfer_id"], "t-1");
+        assert_eq!(kv["first_token_id"], 7);
+        assert_eq!(kv["remote_block_ids"], json!([1, 2]));
+        assert_eq!(kv["remote_dp_size"], 1);
+        assert_eq!(kv["remote_tp_size"], 4);
+        assert_eq!(kv["tp_size"], 4);
+        assert_eq!(kv["remote_dp_rank"], 3);
+    }
+
+    #[test]
+    fn atom_handoff_needs_a_transfer_id() {
+        assert!(atom_handoff(&json!({"choices": []})).is_err());
+        assert!(atom_handoff(&json!({"kv_transfer_params": {"dp_rank": 0}})).is_err());
+        let mut body = Map::new();
+        let handoff = atom_handoff(&json!({"kv_transfer_params": {"transfer_id": "t"}})).unwrap();
+        annotate_atom_decode(&mut body, &atom("p", 21301), handoff).unwrap();
+        assert!(!body["kv_transfer_params"]
+            .as_object()
+            .unwrap()
+            .contains_key("remote_dp_rank"));
     }
 }

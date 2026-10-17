@@ -24,7 +24,7 @@ from infera.common.worker_pool import DisaggMode
 from infera.router.base import BaseRouter
 from infera.router.breaker import is_worker_fault
 from infera.router.cache_control import parse_cache_hints
-from infera.router.dp_routing import dp_rank_header
+from infera.router.dp_routing import dp_rank_header, inject_dp_rank
 from infera.router.engine_priority import inject_engine_priority
 from infera.router.migration import MigrationState, as_chat_chunk
 from infera.router.token_ids import supports_streaming_ids
@@ -148,8 +148,8 @@ class MixedRouter(BaseRouter):
         dp_headers = dp_rank_header(target)
         obs.set_workers(prefill_worker=worker.worker_id, decode_worker=worker.worker_id)
 
-        # Engine-specific priority injection depends on the chosen worker.
-        forwarded_body = inject_engine_priority(body, hints, worker.engine)
+        # Engine-specific priority and DP-rank injection depend on the chosen target.
+        forwarded_body = inject_dp_rank(inject_engine_priority(body, hints, worker.engine), target)
         forwarded_body.pop("_infera_cache_hints", None)
         forwarded_body.pop("_infera_request_id", None)
         session_headers = forwarded_body.pop("_infera_session_headers", None)
@@ -393,7 +393,7 @@ class MixedRouter(BaseRouter):
         agen = self._normalized_stream(
             worker,
             f"{worker.url}{send_path}",
-            body,
+            inject_dp_rank(body, target),
             dp_rank_header(target),
             send_path,
             use_nats=True,

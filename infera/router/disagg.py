@@ -30,6 +30,7 @@ from infera.router.dp_routing import (
     align_room_to_prefill_rank,
     dp_rank_header,
     inject_disagg_prefill_dp_rank,
+    inject_dp_rank,
 )
 from infera.router.engine_priority import inject_engine_priority
 from infera.router.pd_abort import (
@@ -584,6 +585,8 @@ class DisaggRouter(BaseRouter):
 
         p_body = _with_responses_request_id(p_body, proto.name, path, forged_id)
         d_body = _with_responses_request_id(d_body, proto.name, path, forged_id)
+        p_body = inject_dp_rank(p_body, p_target)
+        d_body = inject_dp_rank(d_body, d_target)
 
         # Deliver both legs over NATS when both workers registered for it. KV
         # transfer stays engine<->engine (bootstrap_room in the bodies), so the
@@ -996,6 +999,7 @@ class DisaggRouter(BaseRouter):
             p_body = inject_engine_priority(
                 proto.annotate_prefill(base, p, d, room_id), hints, p.engine
             )
+            p_body = inject_dp_rank(p_body, p_target)
         except ValueError as exc:
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
@@ -1085,6 +1089,7 @@ class DisaggRouter(BaseRouter):
                 prefill_target=p_target,
                 decode_engine=d.engine,
             )
+            d_body = inject_dp_rank(d_body, d_target)
         except ValueError as exc:
             self.policy.on_request_finished(d_target.route_key, d_blocks)
             obs["outcome"] = metrics.outcome_label(500)
