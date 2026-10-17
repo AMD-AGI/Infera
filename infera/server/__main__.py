@@ -36,6 +36,12 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+def uvicorn_config(app, args) -> uvicorn.Config:
+    return uvicorn.Config(
+        app, host=args.host, port=args.port, timeout_keep_alive=args.timeout_keep_alive
+    )
+
+
 async def main(args) -> None:
     tokenizer_path = resolve_tokenizer_path(args.router_tokenizer_path)
 
@@ -305,8 +311,7 @@ async def main(args) -> None:
         )
     )
 
-    config = uvicorn.Config(app, host=args.host, port=args.port)
-    server = uvicorn.Server(config)
+    server = uvicorn.Server(uvicorn_config(app, args))
 
     logger.info("starting Infera on %s:%d", args.host, args.port)
     try:
