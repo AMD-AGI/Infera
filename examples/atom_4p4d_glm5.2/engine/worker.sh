@@ -100,7 +100,7 @@ fi
 env_args=()
 for kv_pair in "${env[@]}"; do env_args+=(-e "$kv_pair"); done
 mounts=(-v "$MODEL:$MODEL:ro")
-# Checked on the docker host: prefill1 of the 8P4D kit runs on another node.
+# Checked on the docker host, which DOCKER_HOST=ssh:// can make another node.
 if on_docker_host "test -e '$HOST_LIBIONIC'"; then
     mounts+=(-v "$HOST_LIBIONIC:/host-libionic/libionic.so:ro")
 fi

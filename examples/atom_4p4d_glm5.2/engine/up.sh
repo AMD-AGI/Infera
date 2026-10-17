@@ -47,7 +47,7 @@ wait_health "http://$NODE_IP:$ETCD_PORT/version" "$CTR-etcd"
 echo "===== 3. prefill and decode ====="
 bash "$KIT/engine/worker.sh" prefill
 bash "$KIT/engine/worker.sh" decode
-# Prefills on other nodes (atom_8p4d_glm5.2_dcp), started and waited for here.
+# Prefills on other nodes (REMOTE_PREFILLS), started and waited for here.
 [[ -z "$REMOTE_PREFILLS" ]] || bash "$REMOTE_PREFILLS" up
 # Cold start takes many minutes: weights, AITER JIT, graph capture.
 wait_health "http://$NODE_IP:$PREFILL_PORT/health" "$CTR-prefill" "$CTR-decode"

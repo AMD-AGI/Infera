@@ -17,8 +17,8 @@ for var in NODE_IP MODEL IMAGE WORK_DIR; do
 done
 ROUTER_URL="http://$NODE_IP:$ROUTER_PORT"
 
-# Multi-node hooks, set by atom_8p4d_glm5.2_dcp; the defaults are this kit's
-# one-node layout. ETCD_IP: where etcd runs. KIT_GPUS: the GPUs the kit owns on
+# Multi-node hooks for a deployment that adds prefills on other nodes; the
+# defaults are this kit's one-node layout. ETCD_IP: where etcd runs. KIT_GPUS: the GPUs the kit owns on
 # the docker host. KIT_ROLES: the roles of its containers there.
 # REMOTE_PREFILLS: a script that starts (up) or removes (down) prefills on
 # other nodes. PREFILL_NUM_WORKERS: prefills the router must list.
