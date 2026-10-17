@@ -3,14 +3,17 @@
 //
 // SPDX-License-Identifier: MIT
 ///////////////////////////////////////////////////////////////////////////////
-//! PD dual-dispatch for SGLang bootstrap (concurrent topology).
+//! PD dual-dispatch.
 //!
-//! Both legs get the same bootstrap fields and are POSTed concurrently; the
-//! decode leg streams back to the client while the prefill leg drains in a
-//! background task. If the client disconnects before the stream completes, or
-//! the prefill POST exceeds `pd_prefill_drain_timeout`, the router aborts the
-//! engine request (`/abort_request`) so a hung Mooncake session cannot occupy
-//! an inflight slot forever.
+//! Concurrent topology (SGLang bootstrap, vLLM Mooncake): both legs are POSTed
+//! concurrently; the decode leg streams back to the client while the prefill
+//! leg drains in a background task. If the client disconnects before the stream
+//! completes, or the prefill POST exceeds `pd_prefill_drain_timeout`, the router
+//! aborts the engine request (`/abort_request`) so a hung Mooncake session
+//! cannot occupy an inflight slot forever.
+//!
+//! Serial pull (ATOM Mooncake): the decode body is built from the prefill's
+//! response, so the prefill runs to completion first (see [`serial_pull`]).
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -135,6 +138,12 @@ pub async fn dispatch(
             }
         };
 
+        // ATOM: the decode body is built from the prefill's response, so the
+        // legs run one after the other, over HTTP as on the Python backend.
+        if proto == protocol::PdProtocol::AtomMooncake {
+            return serial_pull(state, &p, &d, path, base, stream, guard).await;
+        }
+
         let room = dp::align_room_to_prefill_rank(rand::random::<u64>() >> 1, &p);
 
         let mut p_body = base.clone();
@@ -151,6 +160,7 @@ pub async fn dispatch(
                 protocol::annotate_vllm_prefill(&mut p_body, path, room);
                 protocol::annotate_vllm_decode(&mut d_body, &p.worker, path, room)
             }
+            protocol::PdProtocol::AtomMooncake => unreachable!("served by serial_pull"),
         };
         if let Err(e) = shaped {
             guard.invalidate_sessions();
@@ -331,14 +341,177 @@ async fn unary_dual(
     }
 
     drop(prefill_session);
+    let (response, decode_failed) =
+        finish_unary_decode(state, d, d_res, &mut tracker, &_guard).await;
+    pair_failed |= decode_failed;
+    // Both legs answered, so nothing is left running that this guard has to
+    // clean up; a failed pair is aborted below with its own reason logged.
+    abort_on_disconnect.disarm();
+    if pair_failed {
+        tracing::warn!("PD unary pair failed; aborting rid={rid}");
+        abort_sglang_pair(transport, &rid, n);
+        if response.status().is_success() {
+            // Prefill failed while decode returned 200; still count as error.
+            tracker.set_outcome("error");
+        }
+    }
+    tracker.finish();
+    response
+}
+
+/// ATOM Mooncake (serial pull): POST the prefill for one token, then POST the
+/// decode with the `kv_transfer_params` the prefill returned. A failed prefill
+/// never reaches the decode, whose body would be incomplete. No abort to send
+/// either way: ATOM has no abort endpoint, and dropping a leg's connection is
+/// what tells it the client is gone.
+async fn serial_pull(
+    state: &AppState,
+    p: &RouteTarget,
+    d: &RouteTarget,
+    path: &str,
+    base: Map<String, Value>,
+    stream: bool,
+    mut guard: ActiveGuard,
+) -> Response {
+    let mut tracker = crate::metrics::RequestTracker::start_disagg(
+        &d.worker.model_name,
+        &p.worker.worker_id,
+        &d.worker.worker_id,
+    );
+    let prefill_session = guard.take_prefill_session();
+    let handoff = match atom_prefill(state, p, d, path, base.clone()).await {
+        Ok(handoff) => handoff,
+        Err((status, msg)) => {
+            if let Some(lease) = &prefill_session {
+                lease.invalidate();
+            }
+            tracker.set_outcome(if status.is_client_error() {
+                "4xx"
+            } else {
+                "5xx"
+            });
+            tracker.finish();
+            return json_error(status, &msg);
+        }
+    };
+    // The prefill is done: its load ends now, the decode's with the reply.
+    drop(guard.take_first());
+    drop(prefill_session);
+
+    let mut d_body = base;
+    if let Err(e) = protocol::annotate_atom_decode(&mut d_body, &p.worker, handoff) {
+        guard.invalidate_sessions();
+        tracker.set_outcome("error");
+        tracker.finish();
+        return json_error(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string());
+    }
+    dp::insert_body_rank(&mut d_body, d);
+    let d_url = format!("{}{}", d.worker.url, path);
+
+    if !stream {
+        let d_res = post_leg(state, &d_url, d_body, dp::header_rank(d)).await;
+        let (response, _) = finish_unary_decode(state, d, d_res, &mut tracker, &guard).await;
+        tracker.finish();
+        return response;
+    }
+    match open_decode(state, d, &d_url, &d_body).await {
+        Ok(resp) => crate::proxy::sse_response()
+            // guard drops when the decode stream ends -> on_request_finished.
+            .body(Body::from_stream(GuardedStream::new_with_incomplete_abort(
+                resp.bytes_stream(),
+                guard,
+                crate::proxy::StreamSource {
+                    path: path.to_string(),
+                    worker_id: d.worker.worker_id.clone(),
+                    request_id: String::new(),
+                    stall_warn: state.stream_stall_warn,
+                },
+                None,
+                Some(tracker),
+            )))
+            .expect("stream response is valid"),
+        Err(msg) => {
+            tracker.set_outcome("error");
+            tracker.finish();
+            guard.invalidate_sessions();
+            json_error(StatusCode::BAD_GATEWAY, &msg)
+        }
+    }
+}
+
+/// The prefill leg of a serial pull. Returns the decode's hand-off, or the
+/// status and message for the client when the prefill failed.
+async fn atom_prefill(
+    state: &AppState,
+    p: &RouteTarget,
+    d: &RouteTarget,
+    path: &str,
+    mut body: Map<String, Value>,
+) -> Result<Map<String, Value>, (StatusCode, String)> {
+    let wid = &p.worker.worker_id;
+    protocol::annotate_atom_prefill(&mut body, &d.worker, path)
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    dp::insert_body_rank(&mut body, p);
+    let url = format!("{}{}", p.worker.url, path);
+    let reply = post_leg(state, &url, body, dp::header_rank(p)).await;
+    let (status, bytes) = match reply {
+        Ok(resp) => (resp.status(), resp.bytes().await),
+        Err(e) => {
+            state.breaker.record_failure(wid);
+            return Err((
+                StatusCode::BAD_GATEWAY,
+                format!("prefill {wid} unreachable: {e}"),
+            ));
+        }
+    };
+    let Ok(bytes) = bytes else {
+        state.breaker.record_failure(wid);
+        return Err((
+            StatusCode::BAD_GATEWAY,
+            format!("prefill {wid} reply could not be read"),
+        ));
+    };
+    score_leg(&state.breaker, wid, status.as_u16());
+    if !status.is_success() {
+        tracing::warn!("prefill {wid} returned {} in serial pull", status.as_u16());
+        let text = String::from_utf8_lossy(&bytes);
+        let msg = format!(
+            "prefill {}: {}",
+            status.as_u16(),
+            truncate_chars(&text, 500)
+        );
+        return Err((status, msg));
+    }
+    serde_json::from_slice::<Value>(&bytes)
+        .map_err(anyhow::Error::from)
+        .and_then(|reply| protocol::atom_handoff(&reply))
+        .map_err(|e| {
+            tracing::warn!("prefill {wid} hand-off unusable: {e}");
+            (
+                StatusCode::BAD_GATEWAY,
+                format!("prefill {wid} hand-off unusable: {e}"),
+            )
+        })
+}
+
+/// Score a unary decode reply and turn it into the client's response. The bool
+/// is whether the decode failed as a worker fault, which fails the pair.
+async fn finish_unary_decode(
+    state: &AppState,
+    d: &RouteTarget,
+    d_res: reqwest::Result<reqwest::Response>,
+    tracker: &mut crate::metrics::RequestTracker,
+    guard: &ActiveGuard,
+) -> (Response, bool) {
+    let mut failed = false;
     let response = match d_res {
         Ok(resp) => {
             let st = resp.status();
             if !st.is_success() {
-                _guard.invalidate_sessions();
+                guard.invalidate_sessions();
             }
             if is_worker_fault(st.as_u16()) {
-                pair_failed = true;
+                failed = true;
                 state.breaker.record_failure(&d.worker.worker_id);
             } else if st.is_success() {
                 state.breaker.record_success(&d.worker.worker_id);
@@ -378,7 +551,7 @@ async fn unary_dual(
                 }
                 Err(e) => {
                     tracker.set_outcome("error");
-                    _guard.invalidate_sessions();
+                    guard.invalidate_sessions();
                     json_error(
                         StatusCode::BAD_GATEWAY,
                         &format!("decode {} read failed: {e}", d.worker.worker_id),
@@ -387,8 +560,8 @@ async fn unary_dual(
             }
         }
         Err(e) => {
-            _guard.invalidate_sessions();
-            pair_failed = true;
+            guard.invalidate_sessions();
+            failed = true;
             state.breaker.record_failure(&d.worker.worker_id);
             tracker.set_outcome("error");
             json_error(
@@ -397,19 +570,7 @@ async fn unary_dual(
             )
         }
     };
-    // Both legs answered, so nothing is left running that this guard has to
-    // clean up; a failed pair is aborted below with its own reason logged.
-    abort_on_disconnect.disarm();
-    if pair_failed {
-        tracing::warn!("PD unary pair failed; aborting rid={rid}");
-        abort_sglang_pair(transport, &rid, n);
-        if response.status().is_success() {
-            // Prefill failed while decode returned 200; still count as error.
-            tracker.set_outcome("error");
-        }
-    }
-    tracker.finish();
-    response
+    (response, failed)
 }
 
 async fn finish_unary_prefill(
@@ -1104,7 +1265,7 @@ async fn open_decode(
 ) -> Result<reqwest::Response, String> {
     let mut backoff = Duration::from_millis(50);
     for attempt in 0..=DECODE_OPEN_RETRIES {
-        match post_leg(state, url, body.clone(), d.dp_rank).await {
+        match post_leg(state, url, body.clone(), dp::header_rank(d)).await {
             Ok(resp) => {
                 let st = resp.status();
                 if st.is_client_error() || st.is_server_error() {

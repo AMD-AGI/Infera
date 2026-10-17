@@ -5,9 +5,9 @@ Multi-core drop-in for the Python router's hot path. Enabled with
 
 Supports mixed dispatch, round-robin and kv-aware routing, etcd and Kubernetes
 discovery, HTTP and NATS request transports, ZMQ and NATS kv-event feeds, SSE
-relay, and SGLang-bootstrap PD -- between them, what the operator deploys by
-default. Configs outside this set (other PD connectors, GAIE direct mode, the
-profiling control plane) are served by the Python backend.
+relay, and SGLang-bootstrap, vLLM-Mooncake and ATOM-Mooncake PD -- between them,
+what the operator deploys by default. Configs outside this set (vLLM MoRIIO PD,
+GAIE direct mode, the profiling control plane) are served by the Python backend.
 
 The wire formats are the Python ones, so a Rust and a Python router can serve
 the same fleet through the same broker, and workers need no changes either way.

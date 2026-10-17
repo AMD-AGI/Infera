@@ -4,7 +4,7 @@ Runnable kit for **GLM-5.2-MXFP4** served the infera way on a single 8×MI355X
 (gfx950) node, PD-disaggregated: one **TP1 × PP4 prefill** on GPUs 0-3, set up
 as in ATOM's GLM-5.2 AgentX recipe, and one **TP4 + DCP4 decode** on GPUs 4-7,
 KV moved by **Mooncake over the ionic RDMA rails**, a **1 TiB LMCache CPU tier**
-behind the prefill, and the infera Python router (round-robin with
+behind the prefill, and the infera router (round-robin with
 **`--session-affinity prefill`**) in front. `PREFILL_PP=1` runs a TP4 + DCP4
 prefill instead ([below](#the-dcp-prefill)).
 
@@ -201,10 +201,11 @@ socket can take the port before the listener binds. Mooncake handshakes use
 base + PP stage on the prefill and base + TP rank on the decode, so 21301-21304
 and 21311-21314.
 
-**7. The Python router is required.** `--router-backend rust` cannot route ATOM
-PD, and ATOM speaks neither NATS requests nor NATS KV events, so `up.sh` passes
-`--router-backend python --request-transport http --kv-event-transport zmq`.
-`kv-aware` would need engine KV events, so the policy is `round-robin`.
+**7. Router backend and transports.** `ROUTER_BACKEND` picks the Python router
+(default, used for the reference numbers) or the Rust one; both route ATOM PD
+(`atom-mooncake`). ATOM speaks neither NATS requests nor NATS KV events, so
+`up.sh` passes `--request-transport http --kv-event-transport zmq`. `kv-aware`
+would need engine KV events, so the policy is `round-robin`.
 
 **8. Session affinity reads request headers.** `SESSION_AFFINITY` (default
 `prefill`) is passed as `--session-affinity`: requests with an
