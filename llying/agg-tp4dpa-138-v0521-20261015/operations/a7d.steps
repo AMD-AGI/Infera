@@ -1,0 +1,4 @@
+# a7d: coordination + 8192-token chunks per rank, mem 0.85, HSA_NO_SCRATCH_RECLAIM=0 (config/round.a7d.sh). C64.
+bash scripts/stop_stack.sh ROUND=a7c
+bash scripts/launch_agg.sh ROUND=a7d
+bash scripts/agg_round.sh ROUND=a7d VARIANT=a7d-coord-ck8k-m085-nsr0 CONC=64

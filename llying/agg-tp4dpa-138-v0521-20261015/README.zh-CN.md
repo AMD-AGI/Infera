@@ -205,6 +205,16 @@ ITL p50/p90 32.8/57.8 ms，TTFT p50/p90 14.5/45.6 s；与 a4 每秒完成请求�
   decode 只占约 15%。
 - prefill 用到的 bf16 普通 GEMM 有 4 类 (N, K)、约 5,500 种 M 未调优（aiter 退回默认实现）；decode 尺寸的已调优。
 
+### a7 / a7b / a7c：DP spec/prefill coordination + 2048-token chunks（TP4 C64）
+
+- a7（mem 0.90）、a7b（mem 0.85）：负载下 decode 正确性检查 32/32 通过（189 个后台 prefill），但都在 C64 预热 2–3 分钟时
+  `HSA_STATUS_ERROR_OUT_OF_RESOURCES`（队列错误回调）abort，当时 KV 只用 4–9%、a7b 每卡空闲约 40 GB。
+- a7c 改 `HSA_NO_SCRATCH_RECLAIM=0`（恢复 ROCr 回收 scratch 后重试）后跑完全程、无错误：判断是 kernel 申请 scratch 失败、
+  NSR=1 下不回收直接 abort（a6 无 coordination 时也遇到过一次）。
+- a7c 结果 27,607 tok/s/GPU（a6b 32,228）：decode 每输出 token 35.9 → 29.9 ms（−17%，coordination 有效），但新算 prefill
+  4,961 → 4,219 tok/s（−15%，步数 4 倍、每步固定开销与等 decode rank 的 eager draft），排队 19.6 → 37.4、TTFT 均值
+  21.6 → 46.8 s、在跑 36.5 → 25.4，每秒完成请求 1.045 → 0.819。下一步 a7d：保留 coordination，块恢复 8192。
+
 ### 10-16 12:50 /home 卷写满后的运行方式
 
 共享 `/home`（10 TB CephFS）写满（剩余 0 GB，新建目录报 Disk quota exceeded），git 提交与 `/home` 下的日志都写不进去。
