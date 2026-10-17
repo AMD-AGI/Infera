@@ -117,10 +117,8 @@ subtrees:
         title: SGLang mixed — DeepSeek-V4-Pro
       - file: examples/sglang_1p1d_dsv4.md
         title: SGLang 1P1D — DeepSeek-V4-Pro
-      - file: examples/atom_4p4d_glm5.2_dcp.md
-        title: ATOM 4P4D DCP — GLM-5.2-MXFP4
-      - file: examples/atom_8p4d_glm5.2_dcp.md
-        title: ATOM 8P4D DCP — GLM-5.2-MXFP4, two nodes
+      - file: examples/atom_4p4d_glm5.2.md
+        title: ATOM 4P4D — GLM-5.2-MXFP4
 
   - caption: Reference
     entries:

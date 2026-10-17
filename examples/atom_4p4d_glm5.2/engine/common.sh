@@ -17,8 +17,8 @@ for var in NODE_IP MODEL IMAGE WORK_DIR; do
 done
 ROUTER_URL="http://$NODE_IP:$ROUTER_PORT"
 
-# Multi-node hooks, set by atom_8p4d_glm5.2_dcp; the defaults are this kit's
-# one-node layout. ETCD_IP: where etcd runs. KIT_GPUS: the GPUs the kit owns on
+# Multi-node hooks for a deployment that adds prefills on other nodes; the
+# defaults are this kit's one-node layout. ETCD_IP: where etcd runs. KIT_GPUS: the GPUs the kit owns on
 # the docker host. KIT_ROLES: the roles of its containers there.
 # REMOTE_PREFILLS: a script that starts (up) or removes (down) prefills on
 # other nodes. PREFILL_NUM_WORKERS: prefills the router must list.
@@ -35,8 +35,9 @@ for kit_role in $KIT_ROLES; do CONTAINERS+=("$CTR-$kit_role"); done
 
 # Settings up.sh records per run, so later scripts report what actually runs.
 RUN_VARS=(CONC MTP_K MTP_AL PREFILL_GPUS DECODE_GPUS PREFILL_NUM_WORKERS PREFILL_MEM_UTIL DECODE_MEM_UTIL
-    PREFILL_OFFLOAD_GB MOONCAKE_DISABLE_HIP_DMABUF SESSION_AFFINITY PREFILL_EXTRA_ARGS DECODE_EXTRA_ARGS
-    ROUTER_EXTRA_ARGS IMAGE MODEL)
+    PREFILL_MAX_BATCHED_TOKENS BLOCK_SIZE PREFILL_PP PREFILL_PP_PARTITION PREFILL_SEND_WORKERS
+    PREFILL_OFFLOAD_GB OFFLOAD_MIN_LOAD_TOKENS MOONCAKE_DISABLE_HIP_DMABUF SESSION_AFFINITY PREFILL_EXTRA_ARGS
+    DECODE_EXTRA_ARGS ROUTER_EXTRA_ARGS IMAGE MODEL)
 
 # resolve_model: check MODEL exists here and bind its resolved path; a symlink
 # across an NFS mount boundary binds an empty directory into the container.

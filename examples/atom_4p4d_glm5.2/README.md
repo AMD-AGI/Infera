@@ -1,10 +1,12 @@
-# GLM-5.2-MXFP4 — ATOM 4P4D with DCP on one MI355X node
+# GLM-5.2-MXFP4 — ATOM 4P4D on one MI355X node
 
 Runnable kit for **GLM-5.2-MXFP4** served the infera way on a single 8×MI355X
-(gfx950) node, PD-disaggregated: one **TP4 + DCP4 prefill** on GPUs 0-3 and one
-**TP4 + DCP4 decode** on GPUs 4-7, KV moved by **Mooncake over the ionic RDMA
-rails**, a **1 TiB LMCache CPU tier** behind the prefill, and the infera Python
-router (round-robin with **`--session-affinity prefill`**) in front.
+(gfx950) node, PD-disaggregated: one **TP1 × PP4 prefill** on GPUs 0-3, set up
+as in ATOM's GLM-5.2 AgentX recipe, and one **TP4 + DCP4 decode** on GPUs 4-7,
+KV moved by **Mooncake over the ionic RDMA rails**, a **1 TiB LMCache CPU tier**
+behind the prefill, and the infera Python router (round-robin with
+**`--session-affinity prefill`**) in front. `PREFILL_PP=1` runs a TP4 + DCP4
+prefill instead ([below](#the-dcp-prefill)).
 
 One file is site-specific. Fill it in, then:
 
@@ -66,66 +68,91 @@ settings actually started); the other scripts read it and write `smoke/`,
 | | prefill | decode |
 |---|---|---|
 | GPUs | 0-3 | 4-7 |
-| parallelism | TP4 + DCP4, no DP-attention | TP4 + DCP4, no DP-attention |
+| parallelism | TP1 × PP4, layers per stage `20,20,20,18` | TP4 + DCP4, no DP-attention |
+| execution | `--enforce-eager` (ATOM runs PP without CUDA graphs) | CUDA graphs 1, 2, 4, 8, 12 … 2 × CONC |
 | max-num-seqs | 512 | 2 × CONC |
-| KV connector | `multi`: Mooncake `kv_producer` + `lmcache_offload` | Mooncake `kv_consumer` |
-| shared | FP8 KV, block 64, prefix caching, MTP (`--method mtp`), online PTPC-FP8 with MXFP4 experts and BF16 MTP layer, max-num-batched-tokens 16384, mem util 0.90, CUDA graphs 1, 2, 4, 8, 12 … 2 × CONC | |
+| max-num-batched-tokens | 8192 | 16384 |
+| mem util | 0.85 | 0.90 |
+| KV connector | `multi`: Mooncake `kv_producer` (4 send workers per stage) + `lmcache_offload` | Mooncake `kv_consumer` |
+| shared | FP8 KV, block 16, prefix caching, MTP (`--method mtp`), online PTPC-FP8 with MXFP4 experts and BF16 MTP layer | |
+
+The prefill settings are those of ATOM's GLM-5.2 AgentX recipe
+(`/app/ATOM/recipes/Agentic-GLM-5.2.md` in the image), apart from the send
+workers (gotcha 13). Not taken from it: `OFFLOAD_PROFILE=1` (logging only),
+`--timeout-keep-alive 900` (the infera disagg router does not reuse idle
+connections) and the recipe's decode settings (mem util 0.94,
+`--max-num-batched-tokens 2048`, `AITER_REUSE_IDENTICAL_COMM_GROUPS=1`, graphs
+up to 256).
 
 MTP depth follows `CONC`: K3 at CONC ≥ 48, K4 below. LMCache holds 256 GiB per
-prefill rank (`PREFILL_OFFLOAD_GB`), chunk 256, loads from 8192 tokens, and
-looks up all four DCP ranks because each holds a distinct KV shard.
+prefill stage (`PREFILL_OFFLOAD_GB`), chunk 256, loads hits of any length, and
+looks up all four stages because each holds the KV of its own layers.
+
+KV moves from each PP stage (its own layers) to every decode DCP rank: the
+producer gathers the tokens a rank owns into a staging slot
+(`ATOM_PD_MLA_STAGING`, default on) and the decode lands it
+(`ATOM_PD_MLA_LANDING`, default on). This assumes one block size on both legs,
+so `BLOCK_SIZE` sets both. AgentX metadata reports the prefill as TP1 × PP4;
+throughput per GPU is over all 8 GPUs.
+
+### The DCP prefill
+
+`PREFILL_PP=1` starts the prefill as TP4 + DCP4 with CUDA graphs up to
+2 × CONC, as the decode. It was validated with these settings, which are not
+the defaults; set them with it:
+
+```bash
+PREFILL_PP=1 PREFILL_MEM_UTIL=0.90 PREFILL_MAX_BATCHED_TOKENS=16384 BLOCK_SIZE=64 \
+  OFFLOAD_MIN_LOAD_TOKENS=8192 PREFILL_SEND_WORKERS= bash engine/up.sh
+```
+
+Each DCP rank then writes to one decode rank without staging, and the LMCache
+lookup covers the four DCP ranks, each holding a distinct KV shard. Under AgentX
+load it is slower than the PP prefill (reference numbers below).
 
 ## Validation status
 
-The image above, on one 8×MI355X node with the settings of this kit:
+The image above, on one 8×MI355X node:
 
-| item | status |
-|---|---|
-| correctness (`smoke.py`, real MTP acceptance) | **passed**, 6/6 |
-| GSM8K | **0.975** (0.98 on a build without the ATOM DCP fix) |
-| AgentX C48, C64 | **passed**, 3600 s each, no `Memory access fault`, errors ≤ 0.04% (table below) |
+| item | PP prefill (default) | DCP prefill |
+|---|---|---|
+| correctness (`smoke.py`, real MTP acceptance) | **passed**, 6/6 | **passed**, 6/6 |
+| GSM8K (200 questions) | **0.98** (16 send workers) | **0.975** |
+| AgentX, 3600 s | **passed** at C64 and C96, no transfer failure | **passed** at C48, C64, C96, no `Memory access fault` |
 
-The previous image (`nightly_202609221542` base with ATOM DCP patches) was
-validated the same way on the experiment this kit was ported from: the same
-engine recipe and environment, on one 8×MI355X node, amdgpu 6.14.14, 2.7 TiB
-DRAM, `MOONCAKE_DISABLE_HIP_DMABUF=1`, P/D mem util 0.90.
-
-| item | status (previous image) |
-|---|---|
-| correctness (the five `smoke.py` content checks) | **passed** on the reference; 66k-token needle 8.8 s cold, 0.7 s repeated; a ~200k-token prompt also passed |
-| GSM8K | **0.99** (198/200) with this kit and the image from `Dockerfile.atom` |
-| AgentX C24-C80 | **passed**, AIPerf `submission_valid=true` at every point (old base table below) |
-| this kit's scripts and the image from `Dockerfile.atom` | smoke **passed**. AgentX C48 3600 s: 23992.63 total / 165.54 output tok/s/GPU, TTFT p99 105 s, from prefill stalls on a JIT compile during the run. With that kernel compiled before the run (and diagnostic timing hooks): 25904.67 / 180.26, TTFT p50 / p90 / p99 1.953 / 8.992 / 28.981 s (gotcha 12) |
+On shutdown each PP stage logs a few `TypeError` tracebacks from aiter
+`shm_broadcast`; none appear while serving.
 
 ## Reference numbers
 
 AgentX agentic-coding replay, InferenceX `918524ff`, cold start per point, 10
-warm-up requests per lane, 3600 s measured, forced MTP acceptance (`MTP_AL=3.33`
-with K4, `2.99` with K3). Throughput is per GPU over all 8 GPUs and counts
-cache-hit input tokens. Interactivity is the inverse of P90 inter-token
-latency.
+warm-up requests per lane, 3600 s measured, forced MTP acceptance (`MTP_AL=2.99`
+with K3). Throughput is per GPU over all 8 GPUs and counts cache-hit input
+tokens; TTFT in s, ITL in ms.
 
-The image above (C48 and C64 on two different nodes):
+PP and DCP prefill on the same node (crsuse2-m2m-140), image
+`infera-atom:nightly-202610131505-pr198fix`, one run per point:
+
+| CONC | prefill | input tok/s/GPU | output tok/s/GPU | TTFT p50 / p90 / p99 | ITL p50 / p90 | prefill hit GPU / CPU / total % | errors |
+|---:|---|---:|---:|---|---|---|---|
+| 64 | PP4 | **33389.60** (+8.6%) | 262.13 | 2.09 / 5.17 / 15.74 | 16.46 / 17.59 | 77.7 / 17.2 / 95.0 | 1 / 7682 |
+| 64 | DCP | 30739.05 | 242.78 | 3.23 / 17.81 / 49.41 | 16.03 / 17.30 | 79.8 / 16.7 / 96.5 | 1 / 7024 |
+| 96 | PP4 | **30115.94** (+44.1%) | 274.59 | 24.98 / 51.53 / 76.31 | 16.75 / 18.74 | 34.6 / 52.0 / 86.6 | 0 / 8142 |
+| 96 | DCP | 20902.07 | 193.03 | 51.39 / 103.55 / 161.52 | 13.75 / 16.48 | 16.3 / 77.6 / 93.9 | 0 / 5664 |
+
+DCP prefill, image above, C48 and C64 on two different nodes:
 
 | CONC | MTP K / AL | total tok/s/GPU | output tok/s/GPU | input tok/s/GPU | P90 interactivity tok/s/user | TTFT p50 / p90 / p99 s | errors / tail cancels |
 |---:|---|---:|---:|---:|---:|---|---|
 | 48 | 3 / 2.99 | 26325.24 | 183.30 | 26141.94 | 66.52 | 1.759 / 7.662 / 24.695 | 2 / 4 |
 | 64 | 3 / 2.99 | 30820.57 | 241.22 | 30579.35 | 56.83 | 3.114 / 17.256 / 47.358 | 1 / 27 |
 
-Old base (previous image):
-
-| CONC | MTP K / AL | total tok/s/GPU | output tok/s/GPU | P90 interactivity tok/s/user | TTFT p50 / p90 s | errors / tail cancels |
-|---:|---|---:|---:|---:|---|---|
-| 24 | 4 / 3.33 | 15414.73 | 105.67 | 83.75 | 1.074 / 4.436 | 0 / 2 |
-| 36 | 4 / 3.33 | 19426.37 | 133.00 | 71.94 | 1.417 / 13.567 | 1 / 26 |
-| 48 | 3 / 2.99 | 24900.07 | 172.78 | 66.45 | 2.121 / 15.460 | 1 / 9 |
-| 64 | 3 / 2.99 | 22114.39 | 181.11 | 54.59 | 6.872 / 62.619 | 1 / 7 |
-| 80 | 3 / 2.99 | 23053.40 | 200.21 | 57.87 | 25.758 / 75.218 | 2 / 22 |
+Interactivity is the inverse of P90 inter-token latency.
 
 To reproduce a point (cold start each time):
 
 ```bash
-CONC=48 MTP_AL=2.99 bash engine/up.sh    # CONC < 48: MTP_AL=3.33 (K4)
+CONC=64 MTP_AL=2.99 bash engine/up.sh    # CONC < 48: MTP_AL=3.33 (K4)
 bash engine/agentx/agentx.sh             # DURATION=3600 WARMUP_PER_LANE=10 by default
 bash engine/down.sh
 ```
@@ -151,7 +178,7 @@ an operator decision, so the kit always passes it explicitly.
 drafts at a fixed rate whether they are right or not. Use it only for
 performance runs; the default (empty) is real acceptance.
 
-**4. 1 TiB of pinned host memory, as GTT.** The four prefill ranks each pin
+**4. 1 TiB of pinned host memory, as GTT.** The four prefill stages (or DCP ranks) each pin
 `PREFILL_OFFLOAD_GB` GiB. Lower it on smaller hosts, or set `0` to drop the CPU
 tier; the prefill then registers a plain Mooncake producer. Startup also waits
 a few minutes in an RCCL barrier after the pools are pinned. With the CPU tier
@@ -171,7 +198,8 @@ worker readiness probe defaults to port 30090; `worker.sh` sets
 **6. Ports avoid two ranges.** Listeners stay below the ephemeral range
 (32768-60999) and outside Mooncake's random RPC ports (15000-17000): an outgoing
 socket can take the port before the listener binds. Mooncake handshakes use
-base + TP rank, so 21301-21304 and 21311-21314.
+base + PP stage on the prefill and base + TP rank on the decode, so 21301-21304
+and 21311-21314.
 
 **7. The Python router is required.** `--router-backend rust` cannot route ATOM
 PD, and ATOM speaks neither NATS requests nor NATS KV events, so `up.sh` passes
@@ -184,7 +212,7 @@ PD, and ATOM speaks neither NATS requests nor NATS KV events, so `up.sh` passes
 are round-robin. The router also forwards `x-dynamo-session-id`,
 `x-correlation-id` and `x-dynamo-parent-session-id` to both legs. With a single
 prefill and decode it only carries the headers through; it matters once more
-instances are added, as in [`atom_8p4d_glm5.2_dcp`](../atom_8p4d_glm5.2_dcp/).
+instances are added.
 Tune the idle TTL (default 3600 s) through `ROUTER_EXTRA_ARGS` (`--session-affinity-ttl-seconds`). `SESSION_AFFINITY=off`
 is the stateless alternative.
 
@@ -194,7 +222,8 @@ until every GPU holds less than 4 GiB (`VRAM_RELEASE_TIMEOUT`).
 
 **10. Same-numbered rails only.** The fabric routes rail *n* to rail *n*, so the
 prefill sets `ATOM_MOONCAKE_MATCHED_RAILS=auto` and writes on the rail of the
-decode rank it serves. DCP size must also match on both legs in this ATOM.
+decode rank it serves. A DCP prefill must also match the decode's DCP size in
+this ATOM; the PP prefill stages per decode DCP rank instead (see the recipe).
 
 **11. Cold start takes about 10 minutes**, mostly weights, AITER/FlyDSL JIT and
 graph capture. JIT caches persist in per-role, per-image Docker volumes
@@ -211,6 +240,19 @@ archs (gfx942) or paths. AITER keeps such modules in `/app/aiter-test/aiter/jit`
 not `/root/.cache`, so `worker.sh` persists that directory too, for any other
 kernel compiled at run time.
 
+**13. The PP prefill needs fewer Mooncake send workers.** With ATOM's default
+16 send workers per stage, every AgentX run on MI355X (crsuse2-m2m-140) failed
+within its first four requests: one RDMA write from a stage to one decode rank
+never completed (`staged-mla` / `landed-mla RDMA chunk error -1 ... Mooncake's
+sync timeout`, Mooncake `CQ completion timeout diagnostic`, then `Failed to poll
+CQ` and ionic `wqe is not posted` without end). Every later transfer to that
+rank failed, so every request did. It hit `ionic_4` and `ionic_5`, with forced
+and with real MTP acceptance. One send worker removed the hang, but a 443k-token
+prompt then missed ATOM's fixed 120 s transfer deadline (`PD_TRANSFER_DEADLINE_S`,
+queueing included). Four workers (`PREFILL_SEND_WORKERS`, the default) ran C64
+and C96 without a transfer failure. The DCP prefill, whose ranks each write to
+one decode rank without staging, never showed the hang.
+
 ## What this kit exposes on the network
 
 | port | service |
@@ -226,7 +268,6 @@ the checkpoint's Python; serve only weights you trust.
 
 ## Source
 
-- Walkthrough: [`manual/examples/atom_4p4d_glm5.2_dcp.md`](../../manual/examples/atom_4p4d_glm5.2_dcp.md)
+- Walkthrough: [`manual/examples/atom_4p4d_glm5.2.md`](../../manual/examples/atom_4p4d_glm5.2.md)
 - Concepts: [PD disaggregation](../../manual/features/pd_disaggregation.md)
-- Two nodes, 2 prefills + 1 decode on this kit: [`atom_8p4d_glm5.2_dcp`](../atom_8p4d_glm5.2_dcp/)
 - Other ATOM PD launchers: [`deepseek_v4`](../deepseek_v4/)

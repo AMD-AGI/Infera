@@ -14,7 +14,7 @@ source "$KIT/engine/common.sh"
 out="$(cat "$WORK_DIR/current_run" 2>/dev/null || echo "$WORK_DIR")/logs"
 mkdir -p "$out"
 failed=""
-# Prefills on other nodes (atom_8p4d_glm5.2_dcp) go down in parallel.
+# Prefills on other nodes (REMOTE_PREFILLS) go down in parallel.
 remote=""
 if [[ -n "$REMOTE_PREFILLS" ]]; then
     bash "$REMOTE_PREFILLS" down &

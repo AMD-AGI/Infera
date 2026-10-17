@@ -12,6 +12,7 @@ source "$KIT/engine/common.sh"
 
 role="${1:-}"
 case "$role" in prefill | decode) ;; *) die "usage: bash engine/worker.sh prefill|decode" ;; esac
+case "$PREFILL_PP" in 1 | 4) ;; *) die "PREFILL_PP must be 1 or 4, not $PREFILL_PP" ;; esac
 resolve_model
 
 # Experts of layers 0-77 stay MXFP4 and the MTP layer 78 stays BF16; the rest
@@ -32,7 +33,7 @@ env=(
 )
 
 # Graph capture bounded by the concurrency: 1, 2, 4, 8, then every 4 up to 2 x CONC.
-# Left unset, prefill would capture up to batch 512.
+# Left unset, a DCP prefill would capture up to batch 512; a PP prefill runs eager.
 cudagraph="[1,2,4,8"
 for ((size = 12; size <= 2 * CONC; size += 4)); do cudagraph+=",$size"; done
 cudagraph+="]"
@@ -50,10 +51,13 @@ if [[ "$role" == prefill ]]; then
         # decode rank being served.
         ATOM_MOONCAKE_MATCHED_RAILS=auto)
     kv="$(kv_mooncake kv_producer "$PREFILL_HANDSHAKE_PORT" "$PREFILL_PORT")"
+    # Append the send-worker count to that JSON object.
+    [[ -z "$PREFILL_SEND_WORKERS" ]] || kv="${kv%\}},\"num_worker_threads\":$PREFILL_SEND_WORKERS}"
     if ((PREFILL_OFFLOAD_GB > 0)); then
-        # The four pools are GTT, whose cap is machine-wide (gotcha 4): check it
-        # now, not minutes into the cold start. Every card reports the cap as
-        # its total; 64 GiB covers the engine's other pinned buffers (~42 GiB).
+        # The four pools, one per TP rank or PP stage, are GTT, whose cap is
+        # machine-wide (gotcha 4): check it now, not minutes into the cold
+        # start. Every card reports the cap as its total; 64 GiB covers the
+        # engine's other pinned buffers (~42 GiB).
         # shellcheck disable=SC2016  # expanded on the docker host
         gtt_free="$(on_docker_host 'cd /sys/class/drm && used=0 &&
             for f in card*/device/mem_info_gtt_used; do used=$((used + $(cat "$f"))); done &&
@@ -65,22 +69,30 @@ if [[ "$role" == prefill ]]; then
         # Mooncake producer plus LMCache CPU tier. Infera registers a "multi"
         # connector that contains a kv_producer as the PD prefill.
         kv="{\"kv_connector\":\"multi\",\"connectors\":[$kv,{\"kv_connector\":\"lmcache_offload\",\"kv_role\":\"offload\"}]}"
-        # Chunk 256 must be a multiple of block 64 x DCP4. DCP ranks hold
-        # distinct KV shards, so lookups query all four local ranks.
+        # Chunk 256 must be a multiple of the block size x DCP4. DCP ranks and
+        # PP stages hold distinct KV, so lookups query all four local ranks.
         # shellcheck disable=SC2054  # the commas are part of the value
         env+=(LMCACHE_LOCAL_CPU=True "LMCACHE_MAX_LOCAL_CPU_SIZE=$PREFILL_OFFLOAD_GB"
-            LMCACHE_CHUNK_SIZE=256 OFFLOAD_MIN_LOAD_TOKENS=8192 LMCACHE_NUMA_MODE=auto
+            LMCACHE_CHUNK_SIZE=256 "OFFLOAD_MIN_LOAD_TOKENS=$OFFLOAD_MIN_LOAD_TOKENS" LMCACHE_NUMA_MODE=auto
             LMCACHE_LOOKUP_SERVER_WORKER_IDS=0,1,2,3
             # The LMCache pool must be GTT; see patch_lmcache_rocm_pinned_alloc.py.
             HSA_USERPTR_FOR_PAGED_MEM=0)
     fi
-    args=(--max-num-seqs 512)
+    if ((PREFILL_PP > 1)); then
+        # TP1 x PP4 as in ATOM's GLM-5.2 AgentX recipe; PP runs without CUDA graphs.
+        env+=("VLLM_PP_LAYER_PARTITION=$PREFILL_PP_PARTITION")
+        args=(-tp 1 -pp "$PREFILL_PP" --enforce-eager)
+    else
+        args=(-tp 4 --decode-context-parallel-size 4 --cudagraph-capture-sizes "$cudagraph")
+    fi
+    args+=(--max-num-batched-tokens "$PREFILL_MAX_BATCHED_TOKENS" --max-num-seqs 512)
     read -ra extra <<<"$PREFILL_EXTRA_ARGS"
 else
     gpus="$DECODE_GPUS" port="$DECODE_PORT" util="$DECODE_MEM_UTIL"
     env+=("INFERA_READINESS_PORT=$DECODE_READINESS_PORT")
     kv="$(kv_mooncake kv_consumer "$DECODE_HANDSHAKE_PORT" "$DECODE_PORT")"
-    args=(--max-num-seqs $((2 * CONC)))
+    args=(-tp 4 --decode-context-parallel-size 4 --cudagraph-capture-sizes "$cudagraph"
+        --max-num-batched-tokens 16384 --max-num-seqs $((2 * CONC)))
     [[ -z "$MTP_AL" ]] || args+=(--spec-decode-acceptance-length "$MTP_AL")
     read -ra extra <<<"$DECODE_EXTRA_ARGS"
 fi
@@ -88,7 +100,7 @@ fi
 env_args=()
 for kv_pair in "${env[@]}"; do env_args+=(-e "$kv_pair"); done
 mounts=(-v "$MODEL:$MODEL:ro")
-# Checked on the docker host: prefill1 of the 8P4D kit runs on another node.
+# Checked on the docker host, which DOCKER_HOST=ssh:// can make another node.
 if on_docker_host "test -e '$HOST_LIBIONIC'"; then
     mounts+=(-v "$HOST_LIBIONIC:/host-libionic/libionic.so:ro")
 fi
@@ -106,9 +118,8 @@ docker run -d --name "$CTR-$role" --network host --ipc host --shm-size 32g \
     "${mounts[@]}" -e "HIP_VISIBLE_DEVICES=$gpus" "${env_args[@]}" "$IMAGE" \
     python3 -m infera.engine.atom --etcd-endpoint "$ETCD_IP:$ETCD_PORT" --advertise-host "$NODE_IP" \
     --model "$MODEL" --host 0.0.0.0 --server-port "$port" --trust-remote-code \
-    -tp 4 --decode-context-parallel-size 4 --kv_cache_dtype fp8 --block-size 64 \
+    --kv_cache_dtype fp8 --block-size "$BLOCK_SIZE" \
     --enable_prefix_caching --online_quant_config "$QUANT_CONFIG" \
-    --method mtp --num-speculative-tokens "$MTP_K" --max-num-batched-tokens 16384 \
-    --gpu-memory-utilization "$util" --cudagraph-capture-sizes "$cudagraph" \
+    --method mtp --num-speculative-tokens "$MTP_K" --gpu-memory-utilization "$util" \
     --kv-transfer-config "$kv" "${args[@]}" "${extra[@]}" >/dev/null
 echo "started $CTR-$role on GPUs $gpus, port $port"
