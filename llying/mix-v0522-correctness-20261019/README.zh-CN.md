@@ -174,3 +174,23 @@ attention 一直有；版本之间只是表现不同（v0.5.21 起多了模板�
 v0.5.19 的 3P1D PD 部署 GSM8K 0.97，那里 decode 节点同样是 DP attention + CUDA graph，区别是 decode 节点从不做 prefill。
 下一步直接检验"混合步"：`--prefill-delayer-max-delay-passes 2000`（混合时最多等 2000 步，持续负载下各 rank 基本都等到
 "全部可 prefill"再一起做，GSM8K 的 prompt 不分块，混合步基本消失）；同时测 `--disable-overlap-schedule`。
+
+### 混合步不是触发条件
+
+| 变体 | 设置 | correct | 模板标签乱码 | runaway |
+|---|---|---|---|---|
+| dly2000-200 | 基线 + `--prefill-delayer-max-delay-passes 2000` | 0.705 | 61 | 60 |
+
+把引擎日志的 `Prefill batch` 行按 30 ms 间隔分组（同一前向步内各 rank 的日志相差几毫秒），看每个 prefill 步有几个 rank 在做：
+mtp0-200 是 51 步里 17 步只有 1 个 rank（其余 rank 在 decode 或空转），dly2000-200 是 40 步里 36 步 4 个 rank 一起、只有 4 步不齐。
+**混合步基本没了，乱码一条没少**，前面"eager 混合步与 graph 纯 decode 步交替"的工作假设不成立。
+
+`--disable-overlap-schedule` 与 prefill delayer 不能同时开（`AssertionError: To use PrefillDelayer, disable_overlap_schedule must
+be False`），ovl0-200 改为同时关 delayer 重跑（delayer0 已证明 delayer 本身不是原因）。
+
+目前站得住的：只要 DP attention；关 CUDA graph 后长尾少一个数量级；持续到达（200 题 / 并发 64）比一次发完（64 题）严重得多。
+上游在 v0.5.22 的 `models/deepseek_common/moe_transport.py` 里已经写明 "Pad rows are not refreshed during graph replay. Stale
+bf16-max values can overflow the MoE and contaminate the combine output"，并在 HIP + DP attention + TP MoE 时把 DP gather 前的
+填充行清零（`SGLANG_DP_MASK_PAD_ROWS`，默认开；`decode_cuda_graph_runner._set_dp_real_num_tokens` 每次回放写真实行数）。
+清零后的填充行全部路由到同一组专家，MoE 负载极度倾斜——下一项把 `AITER_USE_FLYDSL_MOE_SORTING` 关掉（docker 对重复的
+`-e` 取最后一个，容器内已确认为 0）。
