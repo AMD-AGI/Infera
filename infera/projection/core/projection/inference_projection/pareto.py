@@ -38,6 +38,7 @@ import html
 import io
 import itertools
 import json
+import math
 import os
 import re
 import sys
@@ -555,7 +556,11 @@ def with_decode_context(
                 sweep = json.load(f).get("sweep") or []
         except (OSError, ValueError):
             continue
-        pts = [e for e in sweep if isinstance(e, dict) and e.get("batch") and float(e.get("decode_ms") or 0) > 0]
+        pts = [
+            e
+            for e in sweep
+            if isinstance(e, dict) and e.get("batch") and float(e.get("decode_ms") or 0) > 0
+        ]
         donors += [o["path"]] if pts else []
         grid += [
             dict(batch=int(e["batch"]), context=float(o["isl"]), decode_ms=float(e["decode_ms"]))
@@ -622,9 +627,7 @@ def _packed_is_usable(pa: dict[str, Any]) -> bool:
     a = float(cf.get("ms_per_token") or 0.0)
     b = float(cf.get("ms_per_token_sq") or 0.0)
     fx = float(cf.get("fixed_ms") or 0.0)
-    n, t = max(
-        (int(p.get("step_tokens") or 0), float(p.get("last_ttft_ms") or 0.0)) for p in pts
-    )
+    n, t = max((int(p.get("step_tokens") or 0), float(p.get("last_ttft_ms") or 0.0)) for p in pts)
     single = fx + a * n + b * n * n
     if n <= 0 or t <= 0 or single <= 0 or not 0.5 <= t / single <= 1.5:
         return False
@@ -1070,7 +1073,9 @@ def build_tasks(
                 )
                 continue
             base["anchor"] = a["path"]
-            anchor = with_decode_context(a, anchors, os.path.join(os.path.dirname(workdir), "anchors"))
+            anchor = with_decode_context(
+                a, anchors, os.path.join(os.path.dirname(workdir), "anchors")
+            )
         nreq = max(min_requests, requests_per_client * conc)
         argv = point_argv(
             scenario=sc,
@@ -1258,16 +1263,18 @@ def write_json(result: ParetoResult, path: str, meta: dict[str, Any]) -> None:
 
 
 _PALETTE = [
-    "#e4572e",
-    "#17bebb",
-    "#ffc914",
-    "#76b041",
-    "#2e86ab",
-    "#a23b72",
-    "#f18f01",
-    "#6c757d",
-    "#3b1f2b",
-    "#8338ec",
+    "#3b6fb6",
+    "#e07b39",
+    "#2f9e6e",
+    "#c8414b",
+    "#7d5bb5",
+    "#1fa3b8",
+    "#d4a72c",
+    "#d1609e",
+    "#7a6a58",
+    "#5b8c2a",
+    "#9a9a9a",
+    "#264653",
 ]
 
 
@@ -1275,184 +1282,443 @@ def _slug(*parts: str) -> str:
     return re.sub(r"[^A-Za-z0-9]+", "_", "_".join(parts)).strip("_")
 
 
+def _split_series(s: str) -> tuple[str, str]:
+    """('MI355X sglang MTP3', 'simulate') from 'MI355X sglang MTP3 (simulate)'."""
+    m = re.match(r"^(.*?)\s*\((benchmark|simulate)\)$", s)
+    return (m.group(1), m.group(2)) if m else (s, "")
+
+
+def _nice_ticks(hi: float, n: int = 7) -> list[float]:
+    """Round tick values from 0 up to hi; the axis itself ends at hi, not at the next tick."""
+    if hi <= 0:
+        return [0.0, 1.0]
+    raw = hi / max(n - 1, 1)
+    mag = 10 ** math.floor(math.log10(raw))
+    step = next(k * mag for k in (1, 2, 2.5, 5, 10) if k * mag >= raw)
+    return [i * step for i in range(int(hi / step + 1e-9) + 1)]
+
+
+def _fmt_tick(v: float) -> str:
+    if abs(v) >= 1000:
+        s = f"{v / 1000:.1f}".rstrip("0").rstrip(".")
+        return f"{s}k"
+    return f"{v:.1f}".rstrip("0").rstrip(".") if v < 10 else f"{v:.0f}"
+
+
+def _chart_layout(points: Sequence[ParetoPoint], x: str, y: str):
+    """Feasible points, per-config colour, per-series frontier, and the overall envelope."""
+    feas = [p for p in points if p.feasible]
+    groups = sorted({_split_series(p.series())[0] for p in feas})
+    col = {g: _PALETTE[i % len(_PALETTE)] for i, g in enumerate(groups)}
+    series = sorted(
+        {p.series() for p in feas}, key=lambda s: (_split_series(s)[0], _split_series(s)[1])
+    )
+    fronts = {s: pareto_front([p for p in feas if p.series() == s], x, y) for s in series}
+    envelope = pareto_front(feas, x, y) if feas else []
+    return feas, col, series, fronts, envelope
+
+
+def _label_points(envelope: Sequence[ParetoPoint], px, py, min_gap: float) -> list[ParetoPoint]:
+    """Envelope points spaced at least min_gap apart in plot units, so labels do not pile up."""
+    out: list[ParetoPoint] = []
+    for p in envelope:
+        if all(math.hypot(px(p) - px(q), py(p) - py(q)) >= min_gap for q in out):
+            out.append(p)
+    return out
+
+
 def write_svg(points: Sequence[ParetoPoint], path: str, x: str, y: str, title: str) -> None:
     """A static frontier chart with no plotting dependency."""
-    W, H, L, R, T, B = 900, 560, 80, 220, 50, 60
-    feas = [p for p in points if p.feasible]
+    feas, col, series, fronts, envelope = _chart_layout(points, x, y)
     if not feas:
         return
-    xs = [getattr(p, x) for p in feas]
-    ys = [getattr(p, y) for p in feas]
-    x0, x1 = 0.0, max(xs) * 1.05 or 1.0
-    y0, y1 = 0.0, max(ys) * 1.08 or 1.0
+    W, T, B, L = 1000, 64, 58, 72
+    R = 300
+    H = max(580, T + 40 + 20 * (len(col) + 3))
+    x1 = max(getattr(p, x) for p in feas) * 1.06 or 1.0
+    y1 = max(getattr(p, y) for p in feas) * 1.08 or 1.0
+    xt, yt = _nice_ticks(x1), _nice_ticks(y1)
 
     def px(v):
-        return L + (v - x0) / (x1 - x0) * (W - L - R)
+        return L + v / x1 * (W - L - R)
 
     def py(v):
-        return H - B - (v - y0) / (y1 - y0) * (H - T - B)
+        return H - B - v / y1 * (H - T - B)
 
-    series = sorted({p.series() for p in feas})
-    col = {s: _PALETTE[i % len(_PALETTE)] for i, s in enumerate(series)}
     o = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" '
-        f'font-family="sans-serif" font-size="12">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
+        f'font-family="Inter, Segoe UI, Helvetica, Arial, sans-serif" font-size="12" fill="#333">',
         f'<rect width="{W}" height="{H}" fill="white"/>',
-        f'<text x="{L}" y="28" font-size="15" font-weight="bold">{html.escape(title)}</text>',
+        f'<text x="{L}" y="28" font-size="17" font-weight="600" fill="#111">{html.escape(title)}</text>',
+        f'<text x="{L}" y="47" font-size="12" fill="#777">Pareto frontier per configuration. '
+        "Solid = benchmark, dashed = simulate; faint dots are dominated configurations.</text>",
     ]
-    for i in range(6):
-        gx = x0 + (x1 - x0) * i / 5
-        gy = y0 + (y1 - y0) * i / 5
-        o.append(f'<line x1="{px(gx):.1f}" y1="{T}" x2="{px(gx):.1f}" y2="{H - B}" stroke="#eee"/>')
-        o.append(f'<line x1="{L}" y1="{py(gy):.1f}" x2="{W - R}" y2="{py(gy):.1f}" stroke="#eee"/>')
-        o.append(f'<text x="{px(gx):.1f}" y="{H - B + 16}" text-anchor="middle">{gx:.0f}</text>')
-        o.append(f'<text x="{L - 6}" y="{py(gy) + 4:.1f}" text-anchor="end">{gy:.0f}</text>')
+    if len(envelope) > 1:
+        d = " ".join(f"{px(getattr(p, x)):.1f},{py(getattr(p, y)):.1f}" for p in envelope)
+        e0, e1 = envelope[0], envelope[-1]
+        o.append(
+            f'<polygon points="{px(0):.1f},{py(0):.1f} {px(0):.1f},{py(getattr(e0, y)):.1f} {d} '
+            f'{px(getattr(e1, x)):.1f},{py(0):.1f}" '
+            'fill="#3b6fb6" fill-opacity="0.05"/>'
+        )
+    for v in xt:
+        o.append(
+            f'<line x1="{px(v):.1f}" y1="{T}" x2="{px(v):.1f}" y2="{H - B}" stroke="#eef0f3"/>'
+        )
+        o.append(
+            f'<text x="{px(v):.1f}" y="{H - B + 18}" text-anchor="middle" fill="#666">{_fmt_tick(v)}</text>'
+        )
+    for v in yt:
+        o.append(
+            f'<line x1="{L}" y1="{py(v):.1f}" x2="{W - R}" y2="{py(v):.1f}" stroke="#eef0f3"/>'
+        )
+        o.append(
+            f'<text x="{L - 8}" y="{py(v) + 4:.1f}" text-anchor="end" fill="#666">{_fmt_tick(v)}</text>'
+        )
+    o.append(f'<line x1="{L}" y1="{H - B}" x2="{W - R}" y2="{H - B}" stroke="#999"/>')
+    o.append(f'<line x1="{L}" y1="{T}" x2="{L}" y2="{H - B}" stroke="#999"/>')
     o.append(
-        f'<rect x="{L}" y="{T}" width="{W - L - R}" height="{H - T - B}" fill="none" stroke="#888"/>'
+        f'<text x="{(L + W - R) / 2}" y="{H - 14}" text-anchor="middle" font-size="13" fill="#444">'
+        f"{html.escape(METRICS[x][0])}</text>"
     )
     o.append(
-        f'<text x="{(L + W - R) / 2}" y="{H - 18}" text-anchor="middle">{html.escape(METRICS[x][0])}</text>'
+        f'<text transform="translate(18,{(T + H - B) / 2}) rotate(-90)" text-anchor="middle" '
+        f'font-size="13" fill="#444">{html.escape(METRICS[y][0])}</text>'
     )
-    o.append(
-        f'<text transform="translate(18,{(T + H - B) / 2}) rotate(-90)" text-anchor="middle">'
-        f"{html.escape(METRICS[y][0])}</text>"
-    )
-    for si, s in enumerate(series):
-        grp = [p for p in feas if p.series() == s]
-        front = pareto_front(grp, x, y)
-        c = col[s]
-        dash = ' stroke-dasharray="6,4"' if "(simulate)" in s else ""
+    for s in series:
+        g, mode = _split_series(s)
+        c = col[g]
+        for p in feas:
+            if p.series() == s and p not in fronts[s]:
+                o.append(
+                    f'<circle cx="{px(getattr(p, x)):.1f}" cy="{py(getattr(p, y)):.1f}" r="2.2" '
+                    f'fill="{c}" fill-opacity="0.18"/>'
+                )
+    for s in series:
+        g, mode = _split_series(s)
+        c, front = col[g], fronts[s]
+        sim = mode == "simulate"
+        dash = ' stroke-dasharray="7,4"' if sim else ""
         if len(front) > 1:
             d = " ".join(f"{px(getattr(p, x)):.1f},{py(getattr(p, y)):.1f}" for p in front)
-            o.append(f'<polyline points="{d}" fill="none" stroke="{c}" stroke-width="2"{dash}/>')
-        for p in grp:
-            on = p in front
             o.append(
-                f'<circle cx="{px(getattr(p, x)):.1f}" cy="{py(getattr(p, y)):.1f}" '
-                f'r="{4 if on else 2.5}" fill="{c}" fill-opacity="{1 if on else 0.3}">'
-                f"<title>{html.escape(f'{p.parallelism} c{p.concurrency}')}</title></circle>"
+                f'<polyline points="{d}" fill="none" stroke="{c}" stroke-width="2.2" '
+                f'stroke-linejoin="round"{dash}/>'
             )
         for p in front:
+            fill = "white" if sim else c
             o.append(
-                f'<text x="{px(getattr(p, x)) + 5:.1f}" y="{py(getattr(p, y)) - 5:.1f}" '
-                f'font-size="9" fill="{c}">{html.escape(f"{p.parallelism} c{p.concurrency}")}</text>'
+                f'<circle cx="{px(getattr(p, x)):.1f}" cy="{py(getattr(p, y)):.1f}" r="3.8" '
+                f'fill="{fill}" stroke="{c}" stroke-width="1.6">'
+                f"<title>{html.escape(f'{s}: {p.parallelism} c{p.concurrency}')}</title></circle>"
             )
-        ly = T + 10 + si * 18
+    for p in _label_points(envelope, lambda q: px(getattr(q, x)), lambda q: py(getattr(q, y)), 46):
+        lx, ly = px(getattr(p, x)) + 6, py(getattr(p, y)) - 7
+        txt = html.escape(f"{p.parallelism} c{p.concurrency}")
         o.append(
-            f'<line x1="{W - R + 15}" y1="{ly}" x2="{W - R + 40}" y2="{ly}" stroke="{c}" stroke-width="2"{dash}/>'
+            f'<text x="{lx:.1f}" y="{ly:.1f}" font-size="10" fill="#333" stroke="white" '
+            f'stroke-width="3" paint-order="stroke">{txt}</text>'
         )
-        o.append(f'<text x="{W - R + 46}" y="{ly + 4}">{html.escape(s)}</text>')
+    lx0, ly = W - R + 24, T + 6
+    o.append(
+        f'<text x="{lx0}" y="{ly}" font-size="12" font-weight="600" fill="#111">Configuration</text>'
+    )
+    for g, c in col.items():
+        ly += 20
+        o.append(f'<rect x="{lx0}" y="{ly - 9}" width="14" height="10" rx="2" fill="{c}"/>')
+        o.append(f'<text x="{lx0 + 22}" y="{ly}" font-size="11.5">{html.escape(g)}</text>')
+    ly += 30
+    o.append(f'<text x="{lx0}" y="{ly}" font-size="12" font-weight="600" fill="#111">Mode</text>')
+    for lab, dash, fill in (
+        ("benchmark", "", "#555"),
+        ("simulate", ' stroke-dasharray="7,4"', "white"),
+    ):
+        ly += 20
+        o.append(
+            f'<line x1="{lx0}" y1="{ly - 4}" x2="{lx0 + 30}" y2="{ly - 4}" stroke="#555" stroke-width="2.2"{dash}/>'
+            f'<circle cx="{lx0 + 15}" cy="{ly - 4}" r="3.8" fill="{fill}" stroke="#555" stroke-width="1.6"/>'
+        )
+        o.append(f'<text x="{lx0 + 38}" y="{ly}" font-size="11.5">{lab}</text>')
     o.append("</svg>")
     with open(path, "w") as f:
         f.write("\n".join(o))
 
 
-def write_png(points: Sequence[ParetoPoint], path: str, x: str, y: str, title: str) -> bool:
+def write_png(
+    points: Sequence[ParetoPoint],
+    path: str,
+    x: str,
+    y: str,
+    title: str,
+    measured: Sequence[dict[str, Any]] = (),
+) -> bool:
     try:
         import matplotlib
 
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
+        from matplotlib.lines import Line2D
+        from matplotlib.patches import Patch
+        from matplotlib.ticker import FuncFormatter
     except ImportError:
         return False
-    feas = [p for p in points if p.feasible]
+    feas, col, series, fronts, envelope = _chart_layout(points, x, y)
     if not feas:
         return False
-    fig, ax = plt.subplots(figsize=(10, 6.2), dpi=130)
-    for i, s in enumerate(sorted({p.series() for p in feas})):
-        grp = [p for p in feas if p.series() == s]
-        c = _PALETTE[i % len(_PALETTE)]
-        ls = "--" if "(simulate)" in s else "-"
+    plt.rcParams.update({"font.family": "DejaVu Sans", "font.size": 10})
+    fig, (ax, lax) = plt.subplots(
+        1, 2, figsize=(13, 6.6), dpi=150, gridspec_kw={"width_ratios": [3.0, 1.15], "wspace": 0.04}
+    )
+    lax.axis("off")
+    meas = [q for q in measured if q.get(x) is not None and q.get(y) is not None]
+    x1 = max([getattr(p, x) for p in feas] + [q[x] for q in meas]) * 1.06 or 1.0
+    y1 = max([getattr(p, y) for p in feas] + [q[y] for q in meas]) * 1.08 or 1.0
+    xt, yt = _nice_ticks(x1), _nice_ticks(y1)
+    if len(envelope) > 1:
+        ex = [0.0] + [getattr(p, x) for p in envelope]
+        ey = [getattr(envelope[0], y)] + [getattr(p, y) for p in envelope]
+        ax.fill_between(ex, ey, 0, color="#3b6fb6", alpha=0.05, lw=0, zorder=0)
+    for s in series:
+        g, _ = _split_series(s)
+        dom = [p for p in feas if p.series() == s and p not in fronts[s]]
         ax.scatter(
-            [getattr(p, x) for p in grp], [getattr(p, y) for p in grp], s=10, color=c, alpha=0.3
+            [getattr(p, x) for p in dom],
+            [getattr(p, y) for p in dom],
+            s=9,
+            color=col[g],
+            alpha=0.18,
+            lw=0,
+            zorder=1,
         )
-        front = pareto_front(grp, x, y)
+    for s in series:
+        g, mode = _split_series(s)
+        c, front = col[g], fronts[s]
+        sim = mode == "simulate"
         ax.plot(
             [getattr(p, x) for p in front],
             [getattr(p, y) for p in front],
-            ls,
-            marker="o",
-            ms=4,
+            ls=(0, (5, 3)) if sim else "-",
+            lw=2,
             color=c,
-            label=s,
+            marker="o",
+            ms=4.5,
+            mfc="white" if sim else c,
+            mec=c,
+            mew=1.4,
+            zorder=3,
+            solid_joinstyle="round",
         )
-        for p in front:
-            ax.annotate(
-                f"{p.parallelism} c{p.concurrency}",
-                (getattr(p, x), getattr(p, y)),
-                fontsize=6,
-                color=c,
-                xytext=(3, 3),
-                textcoords="offset points",
-            )
-    ax.set_xlabel(METRICS[x][0])
-    ax.set_ylabel(METRICS[y][0])
-    ax.set_title(title)
-    ax.grid(alpha=0.3)
-    ax.set_xlim(left=0)
-    ax.set_ylim(bottom=0)
-    ax.legend(fontsize=8)
-    fig.tight_layout()
-    fig.savefig(path)
+    pkey = {
+        "interactivity": "interactivity",
+        "total_tput_per_gpu": "tput_per_gpu",
+        "ttft_ms": "ttft_ms",
+    }
+    for q in meas:
+        g = f"MI355X {q['engine']}" + ("" if q["spec"] == "none" else f" {q['spec']}")
+        c = col.get(g, "#111")
+        pj = (q.get("proj") or {}).get("benchmark") or {}
+        if not pj.get("tput_per_gpu"):
+            pj = (q.get("proj") or {}).get("simulate") or {}
+        if x in pkey and y in pkey and pj.get(pkey[x]) and pj.get(pkey[y]):
+            ax.plot([q[x], pj[pkey[x]]], [q[y], pj[pkey[y]]], color=c, lw=0.9, alpha=0.6, zorder=4)
+        ax.scatter([q[x]], [q[y]], marker="x", s=42, lw=2.0, color=c, zorder=5)
+    ax.set_xlim(0, x1)
+    ax.set_ylim(0, y1)
+    fig.canvas.draw()
+
+    def to_px(p):
+        return ax.transData.transform((getattr(p, x), getattr(p, y)))
+
+    for p in _label_points(envelope, lambda q: to_px(q)[0], lambda q: to_px(q)[1], 60):
+        ax.annotate(
+            f"{p.parallelism} c{p.concurrency}",
+            (getattr(p, x), getattr(p, y)),
+            xytext=(6, 6),
+            textcoords="offset points",
+            fontsize=7.5,
+            color="#333",
+            zorder=4,
+            bbox=dict(boxstyle="round,pad=0.18", fc="white", ec="none", alpha=0.85),
+        )
+    ax.set_xticks(xt)
+    ax.set_yticks(yt)
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda v, _: _fmt_tick(v)))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: _fmt_tick(v)))
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color("#999")
+    ax.tick_params(colors="#555", length=0, pad=6)
+    ax.grid(color="#e9ecef", lw=0.8)
+    ax.set_axisbelow(True)
+    ax.set_xlabel(METRICS[x][0], color="#444", labelpad=8)
+    ax.set_ylabel(METRICS[y][0], color="#444", labelpad=8)
+    fig.suptitle(title, x=0.06, ha="left", fontsize=14, fontweight="bold", color="#111", y=0.975)
+    ax.set_title(
+        "Pareto frontier per configuration; faint dots are dominated configurations",
+        loc="left",
+        fontsize=9.5,
+        color="#777",
+        pad=10,
+    )
+    cfg = [Patch(color=c, label=g) for g, c in col.items()]
+    leg1 = lax.legend(
+        handles=cfg,
+        title="Configuration",
+        loc="upper left",
+        bbox_to_anchor=(0.0, 1.0),
+        frameon=False,
+        fontsize=8.5,
+        title_fontproperties={"weight": "bold", "size": 9},
+        alignment="left",
+    )
+    lax.add_artist(leg1)
+    modes = [
+        Line2D([], [], color="#555", lw=2, marker="o", ms=4.5, label="benchmark"),
+        Line2D(
+            [],
+            [],
+            color="#555",
+            lw=2,
+            ls=(0, (5, 3)),
+            marker="o",
+            ms=4.5,
+            mfc="white",
+            label="simulate",
+        ),
+    ]
+    if meas:
+        modes.append(
+            Line2D([], [], color="#555", lw=0, marker="x", ms=7, mew=2, label="measured run")
+        )
+    lax.legend(
+        handles=modes,
+        title="Mode",
+        loc="lower left",
+        bbox_to_anchor=(0.0, 0.0),
+        frameon=False,
+        fontsize=8.5,
+        title_fontproperties={"weight": "bold", "size": 9},
+        alignment="left",
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    fig.savefig(path, facecolor="white", bbox_inches="tight", pad_inches=0.3)
     plt.close(fig)
     return True
 
 
 _HTML = """<!doctype html>
 <html><head><meta charset="utf-8"><title>InferaSim Pareto</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-body{font-family:system-ui,sans-serif;margin:18px;color:#222}
-.ctl{display:flex;flex-wrap:wrap;gap:14px;align-items:end;margin-bottom:10px}
-.ctl label{display:flex;flex-direction:column;font-size:12px;color:#555}
-select{font-size:13px;padding:3px}
-#tip{position:fixed;pointer-events:none;background:#fff;border:1px solid #999;padding:6px 8px;
-font-size:12px;display:none;box-shadow:0 2px 6px rgba(0,0,0,.2);white-space:pre}
-table{border-collapse:collapse;font-size:12px;margin-top:14px}
-td,th{border:1px solid #ddd;padding:3px 7px;text-align:right}
-th{background:#f4f4f4} td:first-child,th:first-child{text-align:left}
-.note{font-size:12px;color:#666;max-width:1000px}
+:root{--ink:#1d2330;--mute:#6b7280;--line:#e5e7eb;--bg:#f6f7f9;--card:#fff;--acc:#3b6fb6}
+*{box-sizing:border-box}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;margin:0;color:var(--ink);background:var(--bg)}
+header{padding:22px 32px 6px}
+header h1{font-size:22px;margin:0 0 4px;font-weight:650;letter-spacing:-.01em}
+header p{margin:0;color:var(--mute);font-size:13px}
+main{padding:12px 32px 40px;max-width:1500px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;
+box-shadow:0 1px 2px rgba(16,24,40,.04);margin-bottom:16px}
+.ctl{display:flex;flex-wrap:wrap;gap:14px 26px;align-items:flex-start}
+.grp{display:flex;flex-direction:column;gap:6px}
+.grp.wide{flex-basis:100%}
+.grp>span{font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font:inherit;font-size:12.5px;color:var(--ink);background:#fff;border:1px solid #d1d5db;border-radius:999px;
+padding:4px 11px;cursor:pointer;line-height:1.3}
+.chip:hover{border-color:var(--acc);background:#f3f7fc}
+.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.plot{display:flex;gap:18px;align-items:flex-start}
+#chart{flex:1;min-width:0;width:100%;height:auto;display:block}
+#legend{width:290px;flex:none;font-size:12.5px}
+#legend h4{margin:2px 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute)}
+.lg{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;cursor:pointer;user-select:none}
+.lg:hover{background:#f3f4f6}.lg.off{opacity:.35}
+.sw{width:12px;height:12px;border-radius:3px;flex:none}
+.md{display:flex;align-items:center;gap:8px;padding:3px 6px;color:#444}
+.hint{font-size:11.5px;color:var(--mute);margin-top:10px}
+#tip{position:fixed;pointer-events:none;background:rgba(17,24,39,.94);color:#f9fafb;border-radius:8px;
+padding:8px 10px;font-size:12px;line-height:1.45;display:none;box-shadow:0 6px 18px rgba(0,0,0,.25);white-space:pre;z-index:9}
+#tip b{color:#fff}
+.tw{overflow:auto;max-height:460px;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:separate;border-spacing:0;font-size:12px;width:100%}
+td,th{padding:6px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid #f0f1f3}
+th{background:#f9fafb;position:sticky;top:0;font-weight:600;color:#374151;border-bottom:1px solid var(--line)}
+tr:hover td{background:#f8fafc}
+td:first-child,th:first-child{text-align:left}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
+.note{font-size:12.5px;color:var(--mute);line-height:1.55;max-width:1050px;margin:0}
+#uncov{margin-top:6px}
+h3{font-size:14px;margin:0 0 10px;font-weight:600}
+circle.pt{transition:r .08s}
+.mx{cursor:pointer}
+circle.pt:hover{r:7}
 </style></head><body>
-<h2>InferaSim Pareto frontier</h2>
-<div class="ctl">
-<label>Model<select id="model"></select></label>
-<label>Scenario<select id="scenario"></select></label>
-<label>Precision<select id="precision"></select></label>
-<label>Mode<select id="mode"><option value="all">benchmark + simulate</option>
-<option value="benchmark">benchmark</option><option value="simulate">simulate</option></select></label>
-<label>Speculative<select id="spec"></select></label>
-<label>X axis<select id="x"></select></label>
-<label>Y axis<select id="y"></select></label>
-<label>Points<select id="show"><option value="all">all</option><option value="front">frontier only</option></select></label>
+<header><h1>InferaSim Pareto frontier</h1>
+<p>Throughput versus interactivity across every parallelism, concurrency and deployment knob swept.</p></header>
+<main>
+<div class="card ctl">
+<div class="grp wide"><span>Model</span><div class="chips" id="model"></div></div>
+<div class="grp"><span>Scenario</span><div class="chips" id="scenario"></div></div>
+<div class="grp"><span>Precision</span><div class="chips" id="precision"></div></div>
+<div class="grp"><span>Mode</span><div class="chips" id="mode"></div></div>
+<div class="grp"><span>Speculative</span><div class="chips" id="spec"></div></div>
+<div class="grp"><span>Points</span><div class="chips" id="show"></div></div>
+<div class="grp" id="measgrp" style="display:none"><span>Measured runs</span><div class="chips" id="meas"></div></div>
+<div class="grp wide"><span>X axis</span><div class="chips" id="x"></div></div>
+<div class="grp wide"><span>Y axis</span><div class="chips" id="y"></div></div>
 </div>
-<svg id="chart" width="1000" height="600"></svg>
-<div id="tip"></div>
-<p class="note">Solid lines are benchmark mode (calibrated from a measured anchor of the same
-model and engine); dashed lines are simulate mode (analytical, no GPU, ranking-quality).
-Each line is the Pareto frontier of one GPU / engine / speculative setting / KV hierarchy / mode
-across every parallelism, concurrency and deployment knob swept; faint dots are dominated
-configurations. Hover a point for its config.</p>
+<div class="card">
+<div class="plot"><svg id="chart" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMin meet"></svg><div id="legend"></div></div>
+<p class="note" style="margin-top:8px">Solid lines with filled markers are benchmark mode (calibrated from a
+measured anchor of the same model and engine); dashed lines with hollow markers are simulate mode (analytical,
+no GPU). Each line is the Pareto frontier of one GPU / engine / speculative setting / KV hierarchy; faint dots
+are dominated configurations, and the shaded area sits under the best frontier overall. Hover a point for its
+configuration; click a legend entry to hide or show it. Crosses are measured runs; the thin line from each cross
+ends at the projection of that same configuration (benchmark mode, or simulate when benchmark has no anchor), so its
+length is the error. A cross below a frontier is usually a dominated configuration, not a frontier miss.</p>
 <div id="uncov" class="note"></div>
-<table id="tbl"></table>
+<div id="chartacc" class="note" style="margin-top:6px"></div>
+</div>
+<div class="card" id="acccard" style="display:none"><h3>Accuracy against measured MI355X runs</h3>
+<p class="note" style="margin-bottom:10px">Every plotted fixed-length configuration that has a measured run (same checkpoint,
+engine, precision, TP/EP/attention-DP, concurrency, ISL/OSL, speculative depth and the scheduler budget the engine ran)
+is compared with the median of its measured runs. r is the Pearson correlation of log values, ρ the Spearman rank
+correlation; "within-chart" is the median ρ inside one chart, which is what the frontier's shape depends on.</p>
+<div class="tw" style="max-height:none"><table id="acctbl"></table></div></div>
+<div class="card"><h3>Frontier points</h3><div class="tw"><table id="tbl"></table></div></div>
+</main>
+<div id="tip"></div>
 <script>
 const DATA = __DATA__;
 const M = DATA.metrics, P = DATA.points;
-const PAL = ["#e4572e","#17bebb","#ffc914","#76b041","#2e86ab","#a23b72","#f18f01","#6c757d","#3b1f2b","#8338ec"];
+const PAL = ["#3b6fb6","#e07b39","#2f9e6e","#c8414b","#7d5bb5","#1fa3b8","#d4a72c","#d1609e","#7a6a58","#5b8c2a","#9a9a9a","#264653"];
 const $ = id => document.getElementById(id);
-function opts(el, vals, sel){ el.innerHTML = vals.map(v=>`<option ${v===sel?'selected':''}>${v}</option>`).join(''); }
+const hidden = new Set();
+const V={};
 const uniq = a => [...new Set(a)].sort();
-opts($('model'), uniq(P.map(p=>p.model)));
-function refreshDeps(){
-  const m=$('model').value;
-  const sc=uniq(P.filter(p=>p.model===m).map(p=>p.scenario)); const cur=$('scenario').value;
-  opts($('scenario'), sc, sc.includes(cur)?cur:sc[0]);
-  const pr=uniq(P.filter(p=>p.model===m && p.scenario===$('scenario').value).map(p=>p.precision));
-  const cp=$('precision').value; opts($('precision'), pr, pr.includes(cp)?cp:pr[0]);
-  const sp=uniq(P.filter(p=>p.model===m && p.scenario===$('scenario').value).map(p=>p.spec||'none'));
-  const cs=$('spec').value; opts($('spec'), ['all',...sp], ['all',...sp].includes(cs)?cs:'all');
+function chips(id, vals, sel, lab){
+  if(!vals.includes(sel)) sel=vals[0]; V[id]=sel;
+  $(id).innerHTML=vals.map(v=>`<button class="chip ${v===sel?'on':''}" data-v="${v}">${lab?lab(v):v}</button>`).join('');
 }
-$('x').innerHTML = Object.keys(M).map(k=>`<option value="${k}" ${k===DATA.x?'selected':''}>${M[k].label}</option>`).join('');
-$('y').innerHTML = Object.keys(M).map(k=>`<option value="${k}" ${k===DATA.y?'selected':''}>${M[k].label}</option>`).join('');
+const short = k => M[k].label.replace(/\\s*\\(.*\\)$/,'');
+function refreshDeps(){
+  const m=V.model;
+  chips('scenario', uniq(P.filter(p=>p.model===m).map(p=>p.scenario)), V.scenario);
+  chips('precision', uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario).map(p=>p.precision)), V.precision);
+  const sp=uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision).map(p=>p.spec||'none'));
+  chips('spec', ['all',...sp], V.spec||'all');
+}
+chips('model', uniq(P.map(p=>p.model)), null);
+chips('mode', ['all','benchmark','simulate'], 'all', v=>v==='all'?'benchmark + simulate':v);
+chips('show', ['all','front'], 'all', v=>v==='all'?'all':'frontier only');
+chips('x', Object.keys(M), DATA.x, short);
+const MS = DATA.measured || [];
+if(MS.length){ $('measgrp').style.display=''; chips('meas', ['show','hide'], 'show', v=>v==='show'?'show':'hide'); }
+chips('y', Object.keys(M), DATA.y, short);
 const series = p => p.series_label || `${p.gpu_arch.toUpperCase()} ${p.engine}${(p.spec||'none')==='none'?'':' '+p.spec}${p.kv_config==='hbm'?'':' KV:'+p.kv_config} (${p.mode})`;
+const group = s => s.replace(/\\s*\\((benchmark|simulate)\\)$/,'');
 function front(pts,x,y){
   const sx=M[x].higher_is_better?1:-1, sy=M[y].higher_is_better?1:-1;
   const s=[...pts].sort((a,b)=>(sx*b[x]-sx*a[x])||(sy*b[y]-sy*a[y]));
@@ -1460,52 +1726,109 @@ function front(pts,x,y){
   for(const p of s){ const v=sy*p[y]; if(best===null||v>best){f.push(p);best=v;} }
   return f.sort((a,b)=>a[x]-b[x]);
 }
+function ticks(hi,n=7){ if(hi<=0) return [0,1]; const raw=hi/(n-1), mag=Math.pow(10,Math.floor(Math.log10(raw)));
+  const step=[1,2,2.5,5,10].map(k=>k*mag).find(v=>v>=raw); const t=[]; for(let i=0;i*step<=hi*(1+1e-9);i++) t.push(i*step); return t; }
+function fmt(v){ if(Math.abs(v)>=1000) return (v/1000).toFixed(1).replace(/\\.0$/,'')+'k'; return v<10?(+v.toFixed(1)).toString():v.toFixed(0); }
+function num(v,d=1){ return v.toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:0}); }
 function draw(){
-  const m=$('model').value, sc=$('scenario').value, pr=$('precision').value, md=$('mode').value, sp=$('spec').value;
-  const x=$('x').value, y=$('y').value, onlyF=$('show').value==='front';
+  const m=V.model, sc=V.scenario, pr=V.precision, md=V.mode, sp=V.spec;
+  const x=V.x, y=V.y, onlyF=V.show==='front';
   const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp));
-  const pts=sel.filter(p=>p.feasible);
-  const svg=$('chart'); const W=1000,H=600,L=80,R=250,T=30,B=60;
-  let o=[];
-  const xs=pts.map(p=>p[x]), ys=pts.map(p=>p[y]);
-  const x1=(Math.max(...xs,1))*1.05, y1=(Math.max(...ys,1))*1.08;
+  const all=sel.filter(p=>p.feasible);
+  const groups=uniq(all.map(p=>group(series(p)))); const col={}; groups.forEach((g,i)=>col[g]=PAL[i%PAL.length]);
+  const pts=all.filter(p=>!hidden.has(group(series(p))));
+  const mgroup = q => `${'MI355X'} ${q.engine}${q.spec==='none'?'':' '+q.spec}`;
+  const msel = V.meas==='show' ? MS.filter(q=>q.model===m&&q.scenario===sc&&q.precision===pr&&(sp==='all'||q.spec===sp)
+    &&!hidden.has(mgroup(q))&&q[x]!=null&&q[y]!=null) : [];
+  const W=1000,H=600,L=70,R=24,T=20,B=56; let o=[];
+  const x1=Math.max(...pts.map(p=>p[x]),...msel.map(q=>q[x]),1)*1.06, y1=Math.max(...pts.map(p=>p[y]),...msel.map(q=>q[y]),1)*1.08, xt=ticks(x1), yt=ticks(y1);
   const X=v=>L+v/x1*(W-L-R), Y=v=>H-B-v/y1*(H-T-B);
-  for(let i=0;i<=5;i++){const gx=x1*i/5, gy=y1*i/5;
-    o.push(`<line x1=${X(gx)} y1=${T} x2=${X(gx)} y2=${H-B} stroke="#eee"/><line x1=${L} y1=${Y(gy)} x2=${W-R} y2=${Y(gy)} stroke="#eee"/>`);
-    o.push(`<text x=${X(gx)} y=${H-B+16} font-size=11 text-anchor=middle>${gx.toFixed(gx<10?1:0)}</text><text x=${L-6} y=${Y(gy)+4} font-size=11 text-anchor=end>${gy.toFixed(gy<10?1:0)}</text>`);}
-  o.push(`<rect x=${L} y=${T} width=${W-L-R} height=${H-T-B} fill=none stroke="#888"/>`);
-  o.push(`<text x=${(L+W-R)/2} y=${H-18} text-anchor=middle font-size=13>${M[x].label}</text>`);
-  o.push(`<text transform="translate(20,${(T+H-B)/2}) rotate(-90)" text-anchor=middle font-size=13>${M[y].label}</text>`);
-  const ser=uniq(pts.map(series)); const rows=[];
-  ser.forEach((s,i)=>{
-    const c=PAL[i%PAL.length], g=pts.filter(p=>series(p)===s), f=front(g,x,y), dash=s.includes('(simulate)')?'stroke-dasharray="6,4"':'';
-    if(f.length>1) o.push(`<polyline fill=none stroke="${c}" stroke-width=2 ${dash} points="${f.map(p=>X(p[x])+','+Y(p[y])).join(' ')}"/>`);
-    (onlyF?f:g).forEach(p=>{const on=f.includes(p);
-      o.push(`<circle cx=${X(p[x])} cy=${Y(p[y])} r=${on?5:3} fill="${c}" fill-opacity=${on?1:.3} data-i="${P.indexOf(p)}"/>`);});
-    f.forEach(p=>rows.push([s,p]));
-    const ly=T+12+i*20;
-    o.push(`<line x1=${W-R+15} y1=${ly} x2=${W-R+42} y2=${ly} stroke="${c}" stroke-width=2 ${dash}/><text x=${W-R+48} y=${ly+4} font-size=12>${s}</text>`);
+  const env=front(pts,x,y);
+  if(env.length>1) o.push(`<polygon fill="#3b6fb6" fill-opacity=".06" points="${X(0)},${Y(0)} ${X(0)},${Y(env[0][y])} ${env.map(p=>X(p[x])+','+Y(p[y])).join(' ')} ${X(env[env.length-1][x])},${Y(0)}"/>`);
+  xt.forEach(v=>o.push(`<line x1=${X(v)} y1=${T} x2=${X(v)} y2=${H-B} stroke="#eef0f3"/><text x=${X(v)} y=${H-B+20} font-size=12 fill="#6b7280" text-anchor=middle>${fmt(v)}</text>`));
+  yt.forEach(v=>o.push(`<line x1=${L} y1=${Y(v)} x2=${W-R} y2=${Y(v)} stroke="#eef0f3"/><text x=${L-10} y=${Y(v)+4} font-size=12 fill="#6b7280" text-anchor=end>${fmt(v)}</text>`));
+  o.push(`<line x1=${L} y1=${H-B} x2=${W-R} y2=${H-B} stroke="#9ca3af"/><line x1=${L} y1=${T} x2=${L} y2=${H-B} stroke="#9ca3af"/>`);
+  o.push(`<text x=${(L+W-R)/2} y=${H-12} text-anchor=middle font-size=13 fill="#374151">${M[x].label}</text>`);
+  o.push(`<text transform="translate(16,${(T+H-B)/2}) rotate(-90)" text-anchor=middle font-size=13 fill="#374151">${M[y].label}</text>`);
+  const ser=uniq(pts.map(series)).sort((a,b)=>group(a).localeCompare(group(b))||a.localeCompare(b));
+  const F={}; ser.forEach(s=>F[s]=front(pts.filter(p=>series(p)===s),x,y));
+  const rows=[], dots=[], lines=[];
+  ser.forEach(s=>{
+    const c=col[group(s)], g=pts.filter(p=>series(p)===s), f=F[s], sim=s.endsWith('(simulate)');
+    if(!onlyF) g.filter(p=>!f.includes(p)).forEach(p=>dots.push(`<circle class=pt cx=${X(p[x])} cy=${Y(p[y])} r=2.4 fill="${c}" fill-opacity=.2 data-i="${P.indexOf(p)}"/>`));
+    if(f.length>1) lines.push(`<polyline fill=none stroke="${c}" stroke-width=2.3 stroke-linejoin=round ${sim?'stroke-dasharray="7,4"':''} points="${f.map(p=>X(p[x])+','+Y(p[y])).join(' ')}"/>`);
+    f.forEach(p=>{lines.push(`<circle class=pt cx=${X(p[x])} cy=${Y(p[y])} r=4.2 fill="${sim?'#fff':c}" stroke="${c}" stroke-width=1.7 data-i="${P.indexOf(p)}"/>`); rows.push([s,p]);});
   });
-  svg.innerHTML=o.join('');
+  o.push(...dots, ...lines);
+  const PK={interactivity:'interactivity',total_tput_per_gpu:'tput_per_gpu',ttft_ms:'ttft_ms'};
+  msel.forEach(q=>{ const cx=X(q[x]), cy=Y(q[y]), c=col[mgroup(q)]||'#111', d=5;
+    const pr=q.proj||{}; const pj=(md!=='simulate'&&pr.benchmark&&pr.benchmark.tput_per_gpu)?pr.benchmark:pr.simulate;
+    if(pj&&PK[x]&&PK[y]&&pj[PK[x]]&&pj[PK[y]]) o.push(`<line x1=${cx} y1=${cy} x2=${X(pj[PK[x]])} y2=${Y(pj[PK[y]])} stroke="${c}" stroke-width=1 stroke-opacity=.55 pointer-events=none />`);
+    o.push(`<g class=mx data-m="${MS.indexOf(q)}"><circle cx=${cx} cy=${cy} r=8 fill="#fff" fill-opacity=.01 data-m="${MS.indexOf(q)}"/>`+
+      `<path d="M${cx-d},${cy-d}L${cx+d},${cy+d}M${cx-d},${cy+d}L${cx+d},${cy-d}" stroke="#fff" stroke-width=4.5 data-m="${MS.indexOf(q)}"/>`+
+      `<path d="M${cx-d},${cy-d}L${cx+d},${cy+d}M${cx-d},${cy+d}L${cx+d},${cy-d}" stroke="${c}" stroke-width=2.2 data-m="${MS.indexOf(q)}"/></g>`); });
+  const lab=[]; env.forEach(p=>{ if(lab.every(q=>Math.hypot(X(p[x])-X(q[x]),Y(p[y])-Y(q[y]))>=50)) lab.push(p); });
+  lab.forEach(p=>o.push(`<text x=${X(p[x])+7} y=${Y(p[y])-8} font-size=11 fill="#1f2937" stroke="#fff" stroke-width=3 paint-order=stroke pointer-events=none>${p.parallelism} c${p.concurrency}</text>`));
+  $('chart').innerHTML=o.join('');
+  let lg='<h4>Configuration</h4>'+groups.map(g=>`<div class="lg ${hidden.has(g)?'off':''}" data-g="${g}"><span class=sw style="background:${col[g]}"></span>${g}</div>`).join('');
+  lg+='<h4 style="margin-top:16px">Mode</h4>'+
+    '<div class=md><svg width=34 height=10><line x1=0 y1=5 x2=34 y2=5 stroke="#555" stroke-width=2.2 /><circle cx=17 cy=5 r=3.8 fill="#555"/></svg>benchmark</div>'+
+    '<div class=md><svg width=34 height=10><line x1=0 y1=5 x2=34 y2=5 stroke="#555" stroke-width=2.2 stroke-dasharray="7,4"/><circle cx=17 cy=5 r=3.8 fill="#fff" stroke="#555" stroke-width=1.6 /></svg>simulate</div>'+
+    (MS.length?'<div class=md><svg width=34 height=12><path d="M12,1L22,11M12,11L22,1" stroke="#555" stroke-width=2.2 /></svg>measured run</div>':'')+
+    `<div class=hint>${pts.length} configurations plotted, ${rows.length} on a frontier${msel.length?`, ${msel.length} measured`:''}.</div>`;
+  $('legend').innerHTML=lg;
+  document.querySelectorAll('.lg').forEach(el=>el.onclick=()=>{const g=el.dataset.g; hidden.has(g)?hidden.delete(g):hidden.add(g); draw();});
+  const ca=[]; const medErr=a=>{const s=[...a].sort((u,v)=>u-v); return s.length?s[Math.floor((s.length-1)/2)]:null;};
+  ['benchmark','simulate'].forEach(md=>{ const e1=[],e2=[];
+    msel.forEach(q=>{ const pj=q.proj&&q.proj[md]; if(!pj) return;
+      if(pj.tput_per_gpu) e1.push(Math.abs(pj.tput_per_gpu/q.total_tput_per_gpu-1));
+      if(pj.interactivity) e2.push(Math.abs(pj.interactivity/q.interactivity-1)); });
+    if(e1.length) ca.push(`${md}: median |error| ${(100*medErr(e1)).toFixed(0)}% on throughput/GPU and ${(100*medErr(e2)).toFixed(0)}% on interactivity over ${e1.length} measured configs`); });
+  $('chartacc').textContent = msel.length ? 'This chart vs measured runs (crosses): '+ca.join('; ')+'.' : (MS.length&&V.meas==='show' ? 'No measured runs match this chart.' : '');
   const un=sel.filter(p=>!p.feasible);
   $('uncov').textContent = un.length ? `${un.length} configuration(s) not plotted (did not fit, or no anchor covered them in benchmark mode).` : '';
-  const cols=['parallelism','concurrency','gpus','mode','kv_config','spec','spec_tokens_per_step','knobs','interactivity','total_tput_per_gpu','output_tput_per_gpu','ttft_ms','tpot_ms','prefix_hit_rate'];
-  $('tbl').innerHTML='<tr><th>series</th>'+cols.map(c=>`<th>${c}</th>`).join('')+'</tr>'+
-    rows.map(([s,p])=>'<tr><td>'+s+'</td>'+cols.map(c=>`<td>${typeof p[c]==='number'&&!Number.isInteger(p[c])?p[c].toFixed(2):p[c]}</td>`).join('')+'</tr>').join('');
+  const cols=[['parallelism','parallelism'],['concurrency','conc'],['gpus','GPUs'],['mode','mode'],['kv_config','KV'],['spec','spec'],['spec_tokens_per_step','tok/step'],['knobs','knobs'],['interactivity','tok/s/user'],['total_tput_per_gpu','tput/GPU'],['output_tput_per_gpu','out tput/GPU'],['ttft_ms','TTFT ms'],['tpot_ms','TPOT ms'],['prefix_hit_rate','prefix hit']];
+  const cell=v=>typeof v==='number'?(Number.isInteger(v)?v:num(v,2)):(v??'');
+  $('tbl').innerHTML='<tr><th>series</th>'+cols.map(c=>`<th>${c[1]}</th>`).join('')+'</tr>'+
+    rows.map(([s,p])=>`<tr><td><span class=dot style="background:${col[group(s)]}"></span>${s}</td>`+cols.map(c=>`<td>${cell(p[c[0]])}</td>`).join('')+'</tr>').join('');
 }
 $('chart').addEventListener('mousemove',e=>{
-  const i=e.target.getAttribute&&e.target.getAttribute('data-i'); const t=$('tip');
+  const t=$('tip'); const mi=e.target.getAttribute&&e.target.getAttribute('data-m');
+  if(mi!==null&&mi!==undefined){ const q=MS[+mi]; let h=`<b>measured · ${q.parallelism} · conc ${q.concurrency}</b>\n${q.model} ${q.engine} ${q.precision}${q.spec==='none'?'':' '+q.spec} · median of ${q.runs} run(s)\n`+
+      `interactivity ${num(q.interactivity)} tok/s/user\nthroughput/GPU ${num(q.total_tput_per_gpu,0)}\nTTFT ${num(q.ttft_ms,0)} ms`;
+    ['benchmark','simulate'].forEach(md=>{ const pj=q.proj&&q.proj[md]; if(!pj||!pj.tput_per_gpu) return;
+      const pc=(a,b)=>`${a>=b?'+':''}${(100*(a/b-1)).toFixed(0)}%`;
+      h+=`\n${md}: tput/GPU ${num(pj.tput_per_gpu,0)} (${pc(pj.tput_per_gpu,q.total_tput_per_gpu)}), interactivity ${num(pj.interactivity)} (${pc(pj.interactivity,q.interactivity)})`; });
+    t.innerHTML=h; t.style.display='block'; const r=t.getBoundingClientRect(); let lx=e.clientX+14, ly=e.clientY+12;
+    if(lx+r.width>innerWidth-8) lx=e.clientX-r.width-14; if(ly+r.height>innerHeight-8) ly=e.clientY-r.height-12;
+    t.style.left=lx+'px'; t.style.top=ly+'px'; return; }
+  const i=e.target.getAttribute&&e.target.getAttribute('data-i');
   if(i===null||i===undefined){t.style.display='none';return;}
-  const p=P[+i];
-  t.textContent=`${p.model} ${p.engine} ${p.precision} (${p.mode})\\n${p.parallelism}  conc ${p.concurrency}  ${p.gpus} GPU\\n`+
-   `interactivity ${p.interactivity.toFixed(1)} tok/s/user\\ntput/gpu ${p.total_tput_per_gpu.toFixed(1)} (out ${p.output_tput_per_gpu.toFixed(1)})\\n`+
-   `TTFT ${p.ttft_ms.toFixed(0)} ms  TPOT ${p.tpot_ms.toFixed(2)} ms`+(p.anchor?`\\nanchor ${p.anchor.split('/').pop()}`:'')+(p.kv_tiers?`\\nKV tiers ${p.kv_tiers}`:'')+
+  const p=Object.fromEntries(Object.entries(P[+i]).map(([k,v])=>[k,typeof v==='string'?v.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])):v]));
+  t.innerHTML=`<b>${p.parallelism} · conc ${p.concurrency} · ${p.gpus} GPU</b>\\n${p.model} ${p.engine} ${p.precision} (${p.mode})\\n`+
+   `interactivity ${num(p.interactivity)} tok/s/user\\nthroughput/GPU ${num(p.total_tput_per_gpu,0)} (output ${num(p.output_tput_per_gpu,0)})\\n`+
+   `TTFT ${num(p.ttft_ms,0)} ms · TPOT ${num(p.tpot_ms,2)} ms`+(p.anchor?`\\nanchor ${p.anchor.split('/').pop()}`:'')+(p.kv_tiers?`\\nKV tiers ${p.kv_tiers}`:'')+
    ((p.spec||'none')!=='none'?`\\nspeculative ${p.spec} (k=${p.spec_k}, accept ${p.spec_accept}, ${(p.spec_tokens_per_step||1).toFixed(2)} tok/step)`:'')+
    (p.knobs?`\\n${p.knobs}`:'');
-  t.style.display='block'; t.style.left=(e.clientX+14)+'px'; t.style.top=(e.clientY+10)+'px';
+  t.style.display='block';
+  const r=t.getBoundingClientRect(); let lx=e.clientX+14, ly=e.clientY+12;
+  if(lx+r.width>innerWidth-8) lx=e.clientX-r.width-14; if(ly+r.height>innerHeight-8) ly=e.clientY-r.height-12;
+  t.style.left=lx+'px'; t.style.top=ly+'px';
 });
-['model','scenario','precision'].forEach(id=>$(id).addEventListener('change',()=>{refreshDeps();draw();}));
-['mode','spec','x','y','show'].forEach(id=>$(id).addEventListener('change',draw));
+$('chart').addEventListener('mouseleave',()=>$('tip').style.display='none');
+['model','scenario','precision','mode','spec','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
+  const b=e.target.closest('.chip'); if(!b) return;
+  V[id]=b.dataset.v; $(id).querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===b));
+  if(['model','scenario','precision'].includes(id)){ if(id==='model') hidden.clear(); refreshDeps(); }
+  draw();
+}));
+const AC = DATA.accuracy || [];
+if(AC.length){ $('acccard').style.display='';
+  const f=(v,d=3)=>v==null||isNaN(v)?'–':(+v).toFixed(d);
+  $('acctbl').innerHTML='<tr><th>scope</th><th>mode</th><th>metric</th><th>n</th><th>r (log)</th><th>Spearman ρ</th><th>median |err|</th><th>≤15%</th><th>≤25%</th><th>bias</th><th>frontier hit</th></tr>'+
+    AC.map(a=>`<tr><td>${a.scope}</td><td>${a.mode}</td><td>${a.metric}</td><td>${a.n}</td><td>${f(a.r_log)}</td><td>${f(a.rho)}</td>`+
+      `<td>${a.mape==null?'–':f(a.mape,1)+'%'}</td><td>${a.w15==null?'–':f(a.w15,0)+'%'}</td><td>${a.w25==null?'–':f(a.w25,0)+'%'}</td>`+
+      `<td>${a.bias==null?'–':f(a.bias,2)+'×'}</td><td>${a.frontier_hit==null?'–':f(a.frontier_hit,0)+'%'}</td></tr>`).join(''); }
 refreshDeps(); draw();
 </script></body></html>
 """
@@ -1514,15 +1837,30 @@ refreshDeps(); draw();
 _HTML_INFEASIBLE = ("model", "scenario", "precision", "mode", "spec", "feasible", "reason")
 
 
-def write_html(result: ParetoResult, path: str) -> None:
+def _compact(v: Any) -> Any:
+    """Five significant digits keep the embedded page small; the CSV and JSON keep full precision."""
+    return float(f"{v:.5g}") if isinstance(v, float) else v
+
+
+def write_html(
+    result: ParetoResult,
+    path: str,
+    measured: Sequence[dict[str, Any]] | None = None,
+    accuracy: Sequence[dict[str, Any]] | None = None,
+) -> None:
+    """The dashboard; ``measured`` runs are drawn over the frontiers and ``accuracy`` rows tabulated."""
     data = dict(
+        measured=list(measured or []),
+        accuracy=list(accuracy or []),
         x=result.x,
         y=result.y,
         metrics={k: dict(label=v[0], higher_is_better=v[1]) for k, v in METRICS.items()},
         # The page only counts the points it cannot plot, so those carry just
         # the fields its filters read; the CSV and JSON keep every column.
         points=[
-            asdict(p) if p.feasible else {k: getattr(p, k) for k in _HTML_INFEASIBLE}
+            {k: _compact(v) for k, v in asdict(p).items()}
+            if p.feasible
+            else {k: getattr(p, k) for k in _HTML_INFEASIBLE}
             for p in result.points
         ],
     )
@@ -1531,7 +1869,29 @@ def write_html(result: ParetoResult, path: str) -> None:
         f.write(_HTML.replace("__DATA__", blob))
 
 
-def write_outputs(result: ParetoResult, out_dir: str, meta: dict[str, Any]) -> dict[str, list[str]]:
+def load_measured(path: str | None) -> dict[str, list[dict[str, Any]]]:
+    """Measured runs and accuracy rows to draw over the frontiers.
+
+    A JSON object with ``measured`` (one record per measured configuration:
+    model, scenario, precision, engine, spec, parallelism, concurrency, the
+    metric values, and optionally ``proj`` -- the projection of that same
+    configuration per mode) and ``accuracy`` (summary rows for the table).
+    """
+    if not path:
+        return {}
+    with open(path) as f:
+        doc = json.load(f)
+    return {k: list(doc.get(k) or []) for k in ("measured", "accuracy")}
+
+
+def write_outputs(
+    result: ParetoResult,
+    out_dir: str,
+    meta: dict[str, Any],
+    measured: dict[str, list[dict[str, Any]]] | None = None,
+) -> dict[str, list[str]]:
+    measured = measured or {}
+    runs = measured.get("measured") or []
     os.makedirs(out_dir, exist_ok=True)
     written: dict[str, list[str]] = {"csv": [], "json": [], "html": [], "svg": [], "png": []}
     p = os.path.join(out_dir, "pareto_points.csv")
@@ -1541,7 +1901,7 @@ def write_outputs(result: ParetoResult, out_dir: str, meta: dict[str, Any]) -> d
     write_json(result, p, meta)
     written["json"].append(p)
     p = os.path.join(out_dir, "pareto.html")
-    write_html(result, p)
+    write_html(result, p, runs, measured.get("accuracy"))
     written["html"].append(p)
     charts: dict[tuple, list[ParetoPoint]] = {}
     for pt in result.points:
@@ -1551,7 +1911,12 @@ def write_outputs(result: ParetoResult, out_dir: str, meta: dict[str, Any]) -> d
         stem = os.path.join(out_dir, "pareto_" + _slug(model, scen, prec))
         write_svg(pts, stem + ".svg", result.x, result.y, title)
         written["svg"].append(stem + ".svg")
-        if write_png(pts, stem + ".png", result.x, result.y, title):
+        mine = [
+            q
+            for q in runs
+            if (q.get("model"), q.get("scenario"), q.get("precision")) == (model, scen, prec)
+        ]
+        if write_png(pts, stem + ".png", result.x, result.y, title, mine):
             written["png"].append(stem + ".png")
     return written
 
@@ -1696,6 +2061,13 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--jobs", type=int, default=max(1, (os.cpu_count() or 2) // 2))
     ap.add_argument("--out-dir", default="pareto_out")
     ap.add_argument(
+        "--measured",
+        default=None,
+        help="JSON of measured runs ({'measured': [...], 'accuracy': [...]}) to draw "
+        "over the frontiers as crosses, each joined to the projection of the same "
+        "configuration, with an accuracy table in the HTML",
+    )
+    ap.add_argument(
         "--append",
         action="store_true",
         help="Merge into the points already in --out-dir (a re-projected point "
@@ -1818,7 +2190,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     res = ParetoResult(points=pts, elapsed_s=time.perf_counter() - t0, x=a.x, y=a.y)
     mark_frontiers(res.points, a.x, a.y)
     meta = dict(argv=list(argv) if argv is not None else sys.argv[1:], n_tasks=len(tasks))
-    written = write_outputs(res, a.out_dir, meta)
+    written = write_outputs(res, a.out_dir, meta, load_measured(a.measured))
     with contextlib.suppress(FileNotFoundError):
         os.remove(partial)
     n_ok = sum(p.feasible for p in res.points)
