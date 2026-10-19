@@ -47,6 +47,11 @@ class _Anchored:
     _spec_tokens_per_step = InferencePerformanceProjector._spec_tokens_per_step
     _verify_width_ratio = InferencePerformanceProjector._verify_width_ratio
     _verify_key = InferencePerformanceProjector._verify_key
+    _spec_method = InferencePerformanceProjector._spec_method
+    _spec_k = InferencePerformanceProjector._spec_k
+    _spec_rates = InferencePerformanceProjector._spec_rates
+    _spec_acceptance = InferencePerformanceProjector._spec_acceptance
+    _spec_reference = InferencePerformanceProjector._spec_reference
 
     def __init__(
         self,
@@ -60,9 +65,12 @@ class _Anchored:
             request_config=SimpleNamespace(
                 speculative_num_tokens=spec_k,
                 speculative_acceptance_rate=accept,
+                speculative_method="mtp",
                 input_seq_len=8192,
-            )
+            ),
+            model_config=SimpleNamespace(mtp_num_layers=1),
         )
+        self._measured_mode = True
         self._bench_spec_k = anchor_spec_k
         self._meas_ref_input = 8192
         self._verify_ratio_cache: dict = {}
@@ -144,7 +152,7 @@ def test_a_non_speculative_anchor_falls_back_to_width_with_no_model(spec_k, acce
     nothing better than the width to charge.
 
     A single-token step cannot be turned into a verify pass by arithmetic --
-    which is why speculation is regime-defining and the anchor store refuses
+    which is why speculation is anchor-defining and the anchor store refuses
     this pairing. ``--load-benchmark`` does not refuse it, so the blind width
     stands rather than returning a number that would look calibrated.
     """

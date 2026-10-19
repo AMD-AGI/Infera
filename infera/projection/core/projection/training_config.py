@@ -210,6 +210,13 @@ class ModelConfig:
     # probe on uncorrelated Gaussian inputs stays at 0.90-1.0, which is what
     # identifies correlation rather than skew as the cause.
     moe_router_coverage: dict = None
+    # Speculative decoding. ``mtp_num_layers`` is the checkpoint's own
+    # next-token-prediction head (num_nextn_predict_layers), the MTP drafter's
+    # depth. ``speculative`` names, per drafter method, the measured
+    # acceptance-length file the model is served with and any drafter shape
+    # that differs from the method's published one; see ``golden_al``.
+    mtp_num_layers: int = 0
+    speculative: object = None
     # Misc
     share_embeddings_and_output_weights: bool = False
     # Precision – None means bf16, "hybrid" means FP8-hybrid (linear GEMMs in FP8)
@@ -565,9 +572,38 @@ class InferenceRequestConfig:
     # cross-request prefix reuse (shared system prompts, agentic multi-turn).
     prefix_cache_hit_rate: float = 0.0
     # Speculative decoding: number of draft tokens proposed per verify step
-    # (0 disables) and the expected acceptance rate in [0, 1].
+    # (0 disables). ``speculative_max_num_tokens`` > 0 instead lets the
+    # projector pick the depth up to that bound that emits the most tokens per
+    # unit of step time.
     speculative_num_tokens: int = 0
+    speculative_max_num_tokens: int = 0
+    # The drafter: mtp / eagle3 / dspark / ngram / draft_model. Unset takes the
+    # model's own (``golden_al.default_method``). Its cost is its own forward
+    # (``speculative.py``); the draft_* fields override the drafter shape the
+    # model YAML or the method's published drafter gives.
+    speculative_method: str | None = None
+    speculative_draft_layers: int = 0
+    speculative_draft_vocab: int = 0
+    speculative_draft_window: int | None = None
+    # Acceptance comes from measured acceptance-length files (``golden_al``):
+    # the model's own curve for the method, else the sibling method's (MTP and
+    # EAGLE3 stand in for each other), both looked up in INFERASIM_GOLDEN_AL_DIR
+    # or fetched from InferenceX on GitHub, else the method's default curve in
+    # configs/speculative/defaults.
+    # ``speculative_acceptance_curve`` names a file to use instead (a path, or
+    # a name in either directory). ``speculative_thinking`` picks the
+    # curve's thinking_on / thinking_off sweep. An acceptance stated outright
+    # -- ``speculative_acceptance_length`` (tokens per step) or
+    # ``speculative_acceptance_rate`` (a flat per-draft rate in [0, 1]), at
+    # ``speculative_num_tokens`` -- rescales the curve through that point.
+    speculative_acceptance_curve: str | None = None
+    speculative_thinking: str = "on"
+    speculative_acceptance_length: float = 0.0
     speculative_acceptance_rate: float = 0.0
+    # Moves acceptance from coding, where the curves were measured, to another
+    # SPEED-Bench entropy class (low / mixed / high, or a number on -1..1).
+    # Unset leaves the curve as measured.
+    speculative_entropy: str | None = None
 
     # ---- Serving / continuous-batching dynamics ----
     # How decode latency is modelled:
@@ -864,10 +900,12 @@ class InferenceRequestConfig:
     act_quant_dtype: str | None = None
 
     # ---- Speculative decoding draft cost ----
-    # Draft-model forward cost per proposed draft token, as a fraction of one
-    # target decode step. The draft runs ``speculative_num_tokens`` times per
-    # verify step; this charges that extra compute (``0`` = ignore the draft
-    # cost, the legacy behaviour that only credited the accepted-token speedup).
+    # ``analytic`` (default) prices the draft as the drafter's own forward.
+    # ``flat`` charges ``speculative_draft_cost_factor`` of one target decode
+    # token per draft token instead, which is also the fallback when the
+    # drafter cannot be priced; a factor of 0 there takes the method's
+    # ``speculative.FLAT_DRAFT_COST``.
+    speculative_draft_cost_model: str = "analytic"
     speculative_draft_cost_factor: float = 0.0
 
     # ---- Token sampling / logits post-processing ----

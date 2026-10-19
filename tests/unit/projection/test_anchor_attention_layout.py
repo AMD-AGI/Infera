@@ -81,14 +81,14 @@ def test_no_flag_string_at_all_is_unknown_rather_than_one():
 
 
 # --------------------------------------------------------------------------
-# The axis exists, and is transportable rather than regime-defining
+# The axis exists, and is transportable rather than anchor-defining
 # --------------------------------------------------------------------------
 
 
 def test_the_layout_is_a_transport_axis():
-    """Transportable, not regime-defining, because the model describes it.
+    """Transportable, not anchor-defining, because the model describes it.
 
-    Speculation is regime-defining because acceptance cannot be derived from a
+    Speculation is anchor-defining because acceptance cannot be derived from a
     non-speculative anchor. Attention-DP is the opposite case: the per-rank
     batch and the collective count both follow from the degree, so the ratio
     reconstructs it and a separate harvest is not required.

@@ -245,7 +245,7 @@ run resolves its anchor from the store before deciding to measure, so a regime
 that has been warmed up once projects freely thereafter, and a run with neither
 an anchor nor an accelerator stops rather than downgrading.
 
-Recipe parameters split in two. **Regime-defining** parameters swap the
+Recipe parameters split in two. **Anchor-defining** parameters swap the
 kernel or execution path — dtype, backend, the graph or attention library in
 use — and two recipes differing on any of them are not transportable from one
 another; each regime needs its own anchor. **Transportable** parameters —

@@ -76,6 +76,16 @@ moe_shared_expert_overlap: true
 # stages 7, but only one is a decode-time draft head).
 mtp_num_layers: 1
 
+# Speculative decoding is served with an EAGLE3 head, one dense layer drafting
+# over a pruned vocabulary; acceptance is InferenceX's golden curve. ATOM pins
+# the run on the GQA drafter's curve.
+speculative:
+  default: eagle3
+  eagle3:
+    acceptance:
+      default: minimaxm3_eagle3.yaml
+      atom: minimaxm3_eagle3_gqa.yaml
+
 # partial rotary embedding (rotary_dim=64, head_dim=128 -> 50%)
 rotary_base: 5000000
 rotary_percent: 0.5

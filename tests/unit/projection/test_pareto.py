@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+from types import SimpleNamespace
 
 import pytest
 
@@ -89,6 +90,9 @@ def test_trace_per_concurrency(tmp_path):
         "lanes_c8.jsonl",
     ]
     assert len(uncovered) == 1 and "no trace" in uncovered[0].reason
+    # Turns keep their recorded think time, under the AgentX idle cap.
+    argv = tasks[0]["argv"]
+    assert argv[argv.index("--des-client-idle-cap-ms") + 1] == "10000.0"
     # An attention-DP rank replays its own share of the lanes.
     tasks, _ = P.build_tasks(
         models=[P.ModelSpec("glm5", "GLM")],
@@ -418,17 +422,24 @@ def test_point_argv_attention_dp_and_tiers():
 def test_spec_config():
     assert P.SpecConfig.parse("none") == P.SpecConfig()
     assert P.SpecConfig.parse("none").argv() == []
+    # Left unstated, acceptance and draft cost are the projector's to resolve:
+    # the model's measured curve and its drafter's own forward.
     mtp = P.SpecConfig.parse("mtp")
-    assert (mtp.k, mtp.accept, mtp.draft_cost, mtp.label) == (3, 0.75, 0.05, "MTP3")
+    assert (mtp.k, mtp.accept, mtp.draft_cost, mtp.label) == (3, None, None, "MTP3")
+    assert " ".join(mtp.argv()) == (
+        "--speculative-method mtp --speculative-num-tokens 3 --speculative-thinking on"
+    )
+    assert P.SpecConfig.parse("mtp:3:golden") == mtp
     s = P.SpecConfig.parse("mtp:2:0.8:0.1")
     assert s.label == "MTP2@0.8/d0.1"
-    assert s.tokens_per_step == pytest.approx(1 + 0.8 + 0.64)
     assert " ".join(s.argv()) == (
-        "--speculative-num-tokens 2 --speculative-acceptance-rate 0.8 "
-        "--speculative-draft-cost-factor 0.1"
+        "--speculative-method mtp --speculative-num-tokens 2 --speculative-thinking on "
+        "--speculative-acceptance-rate 0.8 "
+        "--speculative-draft-cost-factor 0.1 --speculative-draft-cost-model flat"
     )
     assert P.SpecConfig.parse("EAGLE3:4").label == "EAGLE3-4"
-    for bad in ("medusa", "mtp:0", "mtp:3:1.5", "mtp:3:0.7:-1"):
+    assert P.SpecConfig.parse("draft").argv()[1] == "draft_model"
+    for bad in ("medusa", "mtp:0", "mtp:3:1.5", "mtp:3:0.7:-1", "mtp:x"):
         with pytest.raises(ValueError):
             P.SpecConfig.parse(bad)
 
@@ -531,6 +542,62 @@ def test_build_tasks_spec_and_knob_series(tmp_path):
     assert _pt(1, 1).spec == "none" and _pt(1, 1, spec="MTP3").series().endswith("MTP3 (simulate)")
 
 
+def test_spec_depth_range_is_one_line(tmp_path):
+    specs = P.SpecConfig.parse_many("mtp:golden")
+    assert [s.k for s in specs] == list(range(1, 9)) and {s.label for s in specs} == {"MTP"}
+    assert [s.k for s in P.SpecConfig.parse_many("eagle3:2-4:golden")] == [2, 3, 4]
+    assert [s.k for s in P.SpecConfig.parse_many("eagle3:2-4")] == [2, 3, 4]
+    assert {s.label for s in P.SpecConfig.parse_many("ngram:1-2:0.4")} == {"NGRAM@0.4"}
+    assert P.SpecConfig.parse_many("mtp:3:golden") == [P.SpecConfig.parse("mtp:3")]
+    assert P.SpecConfig.parse_many("mtp:3") == [P.SpecConfig.parse("mtp:3")]
+    with pytest.raises(ValueError):
+        P.SpecConfig.parse("mtp:golden")
+    with pytest.raises(ValueError):
+        P.SpecConfig.parse_many("mtp:4-2")
+    tasks, _ = P.build_tasks(
+        models=[P.ModelSpec("glm5", "GLM"), P.ModelSpec("deepseek_v4_flash", "V4F")],
+        engines=["sglang"],
+        precisions=["fp8"],
+        parallelisms=[P.Parallelism(8)],
+        concurrencies=[4],
+        scenarios=[P.Scenario("1k/1k", 1024, 1024)],
+        modes=["simulate"],
+        anchors=[],
+        workdir=str(tmp_path),
+        specs=[P.SpecConfig(), *P.SpecConfig.parse_many("mtp:1-3:golden")],
+        golden_thinking="off",
+    )
+    pts = [P.ParetoPoint(**t["point"]) for t in tasks]
+    assert len(pts) == 8 and len({P._key(p) for p in pts}) == 8
+    glm3 = next(p for p in pts if p.model == "glm5" and p.spec_k == 3)
+    assert glm3.spec == "MTP" and glm3.spec_accept == 0.0
+    assert glm3.series() == "MI355X sglang MTP (simulate)" and glm3.short() == "TP8 c4 k3"
+    argv = next(
+        t["argv"] for t in tasks if t["point"]["model"] == "glm5" and t["point"]["spec_k"] == 3
+    )
+    # The projector reads the curve and prices the drafter.
+    assert argv[argv.index("--speculative-thinking") + 1] == "off"
+    assert "--speculative-acceptance-rate" not in argv
+    assert "--speculative-draft-cost-factor" not in argv
+
+
+def test_fill_metrics_reports_where_speculation_came_from():
+    pt = _pt(1, 1, spec="MTP3", spec_k=3)
+    perf = SimpleNamespace(
+        replica_gpus=8,
+        extras={
+            "speculative_tokens_per_step": 2.99,
+            "speculative_acceptance_source": "model:glm5.2_mtp.yaml[thinking_on]",
+            "speculative_draft_cost": "analytic (1 MoE layer(s))",
+            "speculative_draft_ms": 0.8,
+        },
+    )
+    P._fill_metrics(pt, {"performance": perf}, 0.0)
+    assert pt.spec_tokens_per_step == 2.99
+    assert pt.spec_al_source == "model:glm5.2_mtp.yaml[thinking_on]"
+    assert pt.spec_draft_cost.startswith("analytic") and pt.spec_draft_ms == 0.8
+
+
 def test_writers_round_trip(tmp_path):
     pts = [
         _pt(10, 100),
@@ -587,20 +654,6 @@ def test_html_controls_and_measured_overlay(tmp_path):
                 proj={"simulate": {"interactivity": 10.0, "tput_per_gpu": 100.0, "ttft_ms": 40.0}},
             )
         ],
-        "accuracy": [
-            dict(
-                scope="all",
-                mode="simulate",
-                metric="tput_per_gpu",
-                n=1,
-                r_log=1.0,
-                rho=1.0,
-                mape=5.0,
-                w15=100.0,
-                w25=100.0,
-                bias=1.05,
-            )
-        ],
     }
     path = tmp_path / "m.json"
     path.write_text(json.dumps(meas))
@@ -611,9 +664,11 @@ def test_html_controls_and_measured_overlay(tmp_path):
         measured=P.load_measured(str(path)),
     )
     html = open(out["html"][0]).read()
-    # Every control is a button group: no native <select> popups to fail in an embedded preview.
-    assert "<select" not in html and 'class="chips" id="model"' in html
-    assert '"measured": [{' in html and '"accuracy": [{' in html
+    # Every control is a dropdown drawn by the page: no native <select> popups
+    # to fail in an embedded preview.
+    assert "<select" not in html and 'class="dd" id="model"' in html and "closeMenus" in html
+    assert 'class="dd" id="depth"' in html and "best per point" in html
+    assert '"measured": [{' in html and "accuracy" not in html
     assert P.load_measured(None) == {}
     blank = P.write_outputs(P.ParetoResult(points=pts), str(tmp_path / "b"), meta={})
     assert '"measured": []' in open(blank["html"][0]).read()

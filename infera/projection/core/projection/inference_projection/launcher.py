@@ -31,6 +31,15 @@ _ARG_TO_FIELD = {
     "prefix_cache_hit_rate": "prefix_cache_hit_rate",
     "speculative_num_tokens": "speculative_num_tokens",
     "speculative_acceptance_rate": "speculative_acceptance_rate",
+    "speculative_method": "speculative_method",
+    "speculative_entropy": "speculative_entropy",
+    "speculative_max_num_tokens": "speculative_max_num_tokens",
+    "speculative_draft_layers": "speculative_draft_layers",
+    "speculative_draft_vocab": "speculative_draft_vocab",
+    "speculative_draft_window": "speculative_draft_window",
+    "speculative_acceptance_length": "speculative_acceptance_length",
+    "speculative_acceptance_curve": "speculative_acceptance_curve",
+    "speculative_thinking": "speculative_thinking",
     "serving_model": "serving_model",
     "decode_step_overhead_us": "decode_step_overhead_us",
     "detokenize_overhead_us": "detokenize_overhead_us",
@@ -66,6 +75,7 @@ _ARG_TO_FIELD = {
     "moe_expert_dtype": "moe_expert_dtype",
     "linear_weight_dtype": "linear_weight_dtype",
     "speculative_draft_cost_factor": "speculative_draft_cost_factor",
+    "speculative_draft_cost_model": "speculative_draft_cost_model",
     "sampling_top_k": "sampling_top_k",
     "sampling_top_p": "sampling_top_p",
     "sampling_temperature": "sampling_temperature",
@@ -160,7 +170,8 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"prefix_cache_hit={req.resolved_prefix_cache_hit_rate():.2f}")
     if req.speculative_num_tokens:
         feats.append(
-            f"speculative(k={req.speculative_num_tokens}, accept={req.speculative_acceptance_rate})"
+            f"speculative(k={req.speculative_num_tokens}, "
+            f"method={req.speculative_method or 'model default'})"
         )
     if req.kv_cache_dtype != "bf16":
         feats.append(f"kv_dtype={req.kv_cache_dtype}")
@@ -337,7 +348,17 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     if perf.extras.get("speculative_tokens_per_step", 1.0) > 1.0:
         print(
             f"  Speculative tokens / step:       {perf.extras['speculative_tokens_per_step']:.2f}"
+            f" ({perf.extras.get('speculative_method', '?')}, "
+            f"depth {int(perf.extras.get('speculative_num_tokens_used', 0))})"
         )
+        if perf.extras.get("speculative_acceptance_source"):
+            print(
+                f"    acceptance from:               {perf.extras['speculative_acceptance_source']}"
+            )
+        if perf.extras.get("speculative_draft_cost"):
+            draft_ms = perf.extras.get("speculative_draft_ms")
+            ms = f", {draft_ms:.2f} ms/step" if draft_ms is not None else ""
+            print(f"    draft cost:                    {perf.extras['speculative_draft_cost']}{ms}")
     # Throughput priced in the unit a serving budget is quoted in. Prefill and
     # decode share the GPUs under continuous batching, so a token's cost is the
     # whole replica's cost divided by what the replica emits -- which is why a
@@ -989,10 +1010,21 @@ def launch_projection_from_cli(args, overrides):
             des_kv_tokens = int(getattr(args, "des_kv_cache_tokens", 0) or 0)
             des_kv_blocks = int(getattr(args, "des_kv_blocks", 0) or 0)
             des_shares_pool = bool(getattr(args, "des_cache_shares_pool", False))
-            des_bs = int(getattr(args, "des_block_size", 0) or 0) or _DEFAULT_BLOCK_SIZE
-            bpt = kv_bytes_per_token(inference_config) if kv_tiers else 0.0
+            des_bs = int(getattr(args, "des_block_size", 0) or 0)
+            if not des_bs and mooncake_trace:
+                from .des import trace_block_tokens
+
+                des_bs = trace_block_tokens(mooncake_trace)
+            des_bs = des_bs or _DEFAULT_BLOCK_SIZE
+            from .kv_cache import decode_context_parallel_size
+
+            # Under decode context parallelism a rank stores 1/dcp of every token,
+            # so the replica's pools (and a tier's per-rank block loads) are per
+            # that slice.
+            dcp = decode_context_parallel_size(inference_config)
+            bpt = kv_bytes_per_token(inference_config) / dcp if kv_tiers else 0.0
             if (kv_tiers or getattr(args, "des_kv_pool_from_memory", False)) and not des_kv_tokens:
-                des_kv_tokens = hbm_kv_pool_tokens(inference_config, hbm_gb)
+                des_kv_tokens = hbm_kv_pool_tokens(inference_config, hbm_gb) * dcp
                 if des_kv_tokens:
                     print(
                         f"[inferasim:Inference] DES KV pool from the memory projection: "
@@ -1042,7 +1074,7 @@ def launch_projection_from_cli(args, overrides):
                 prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
                 prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
                 cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
-                block_size=int(getattr(args, "des_block_size", 0) or 0),
+                block_size=des_bs,
                 cache_blocks=des_kv_blocks,
                 mooncake_trace=mooncake_trace,
                 duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,

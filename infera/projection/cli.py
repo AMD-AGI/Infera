@@ -450,7 +450,74 @@ def _add_inference_args(parser):
         "--speculative-acceptance-rate",
         type=float,
         default=None,
-        help="Expected per-token acceptance rate for speculative decoding [0,1].",
+        help="A flat per-draft acceptance rate [0,1] at --speculative-num-tokens. "
+        "Rescales the measured acceptance curve through the length it implies; "
+        "unset, acceptance is read from the curve alone.",
+    )
+    parser.add_argument(
+        "--speculative-acceptance-length",
+        type=float,
+        default=None,
+        help="Tokens one verify step commits (including the verified token) at "
+        "--speculative-num-tokens. Rescales the measured acceptance curve "
+        "through that point; takes precedence over --speculative-acceptance-rate.",
+    )
+    parser.add_argument(
+        "--speculative-acceptance-curve",
+        default=None,
+        help="Acceptance-length file to read instead of the model's own: a path, "
+        "or a name in INFERASIM_GOLDEN_AL_DIR, configs/speculative/defaults or "
+        "InferenceX's golden_al_distribution on GitHub (e.g. glm5.2_mtp.yaml, mtp).",
+    )
+    parser.add_argument(
+        "--speculative-thinking",
+        default=None,
+        choices=["on", "off"],
+        help="Which sweep of the acceptance curve to read: thinking_on (default) "
+        "or thinking_off. A curve measured in one mode only is read in that mode.",
+    )
+    parser.add_argument(
+        "--speculative-method",
+        default=None,
+        help="Drafter family (mtp, eagle3, dspark, ngram, draft_model). Default: "
+        "the model YAML's speculative.default, else its MTP head if it ships "
+        "one, else eagle3. Sets the drafter whose layers price the draft and "
+        "whose measured acceptance curve is read.",
+    )
+    parser.add_argument(
+        "--speculative-entropy",
+        default=None,
+        help="Move acceptance from coding, where the curves were measured, to a "
+        "SPEED-Bench entropy class: low (code, math), mixed (STEM, QA), high "
+        "(creative writing, roleplay), or a number on -1..1 between them. "
+        "Default: the curve as measured.",
+    )
+    parser.add_argument(
+        "--speculative-max-num-tokens",
+        type=int,
+        default=None,
+        help="Simulate mode: choose the draft depth in 1..N that emits the most "
+        "tokens per unit of step time at the projected batch, instead of "
+        "--speculative-num-tokens.",
+    )
+    parser.add_argument(
+        "--speculative-draft-layers",
+        type=int,
+        default=None,
+        help="Draft layers per pass, overriding the model YAML's drafter "
+        "(mtp_num_layers for MTP) and the method's published one.",
+    )
+    parser.add_argument(
+        "--speculative-draft-vocab",
+        type=int,
+        default=None,
+        help="Draft LM-head vocabulary (EAGLE3 defaults to a pruned 32000).",
+    )
+    parser.add_argument(
+        "--speculative-draft-window",
+        type=int,
+        default=None,
+        help="Attention window of the draft layers (0 = full context).",
     )
     # ---- Token sampling / logits post-processing ----
     parser.add_argument(
@@ -1341,8 +1408,17 @@ def _add_inference_args(parser):
         "--speculative-draft-cost-factor",
         type=float,
         default=None,
-        help="Draft-model forward cost per proposed draft token, as a fraction of "
-        "one target decode step. Default: 0 (ignore draft cost).",
+        help="Flat draft cost per proposed draft token, as a fraction of one "
+        "target decode step. Used with --speculative-draft-cost-model flat, "
+        "or when the drafter cannot be priced from its layers. Default: the "
+        "method's flat guess (speculative.FLAT_DRAFT_COST).",
+    )
+    parser.add_argument(
+        "--speculative-draft-cost-model",
+        default=None,
+        choices=["analytic", "flat"],
+        help="How the draft is priced: analytic (default) as the drafter's own "
+        "forward, or flat from --speculative-draft-cost-factor.",
     )
     parser.add_argument(
         "--inference-bench-layers",

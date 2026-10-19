@@ -44,7 +44,7 @@ import re
 import sys
 import time
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
 # Dtype flags per precision name. The KV cache follows what the serving
@@ -77,7 +77,7 @@ METRICS: dict[str, tuple[str, bool]] = {
     "prefix_hit_rate": ("Prefix-cache block reuse", True),
 }
 
-_PAR_RE = re.compile(r"^tp(\d+)(?:ep(\d+))?(?:dp(\d+))?(?:pp(\d+))?$")
+_PAR_RE = re.compile(r"^tp(\d+)(?:ep(\d+))?(?:dp(\d+))?(?:dcp(\d+))?(?:pp(\d+))?$")
 
 
 @dataclass(frozen=True)
@@ -86,17 +86,22 @@ class Parallelism:
     ep: int = 1
     dp_attn: int = 1
     pp: int = 1
+    dcp: int = 1
 
     @classmethod
     def parse(cls, spec: str) -> Parallelism:
-        """``tp8``, ``tp4ep4``, ``tp8ep8dp8`` (attention DP), ``tp4pp2``."""
+        """``tp8``, ``tp4ep4``, ``tp8ep8dp8`` (attention DP), ``tp4dcp4`` (decode context parallel), ``tp4pp2``."""
         m = _PAR_RE.match(spec.strip().lower())
         if not m:
-            raise ValueError(f"bad parallelism '{spec}' (expected e.g. tp8, tp8ep8, tp8ep8dp8)")
-        tp, ep, dp, pp = (int(g) if g else 1 for g in m.groups())
+            raise ValueError(
+                f"bad parallelism '{spec}' (expected e.g. tp8, tp8ep8, tp8ep8dp8, tp4dcp4)"
+            )
+        tp, ep, dp, dcp, pp = (int(g) if g else 1 for g in m.groups())
         if dp > tp:
             raise ValueError(f"'{spec}': attention DP cannot exceed TP")
-        return cls(tp=tp, ep=ep, dp_attn=dp, pp=pp)
+        if tp % dcp:
+            raise ValueError(f"'{spec}': decode context parallelism must divide TP")
+        return cls(tp=tp, ep=ep, dp_attn=dp, pp=pp, dcp=dcp)
 
     @property
     def gpus(self) -> int:
@@ -109,6 +114,8 @@ class Parallelism:
             s += f" EP{self.ep}"
         if self.dp_attn > 1:
             s += f" DPA{self.dp_attn}"
+        if self.dcp > 1:
+            s += f" DCP{self.dcp}"
         if self.pp > 1:
             s += f" PP{self.pp}"
         return s
@@ -212,6 +219,9 @@ def _trace_mean_lengths(path: str, limit: int) -> tuple[int, int]:
     return _trace_stats(path, limit)[:2]
 
 
+AGENTX_IDLE_CAP_MS = 10000.0
+
+
 def _sliced_trace(path: str, limit: int, workdir: str) -> str:
     """The first ``limit`` rows of a trace, so a sweep is not paced by its length.
 
@@ -256,28 +266,63 @@ class KvConfig:
         return cls(label=label or "+".join(t.split(":")[0] for t in tiers), tiers=tiers)
 
 
-# method -> (draft depth, per-draft-token acceptance, draft cost per proposed
-# token as a fraction of one target decode step). The depth is InferenceX's
-# recipes' (``speculative-num-steps 3``); an MTP head is one extra layer plus
-# the LM head, so its draft costs a few percent of a 60-90 layer target.
-SPEC_DEFAULTS: dict[str, tuple[int, float, float]] = {
-    "mtp": (3, 0.75, 0.05),
-    "nextn": (3, 0.75, 0.05),
-    "eagle": (3, 0.70, 0.08),
-    "eagle3": (3, 0.75, 0.08),
-    "draft": (4, 0.65, 0.15),
-    "ngram": (4, 0.40, 0.0),
+# method -> the draft depth it runs at when the setting names none:
+# InferenceX's recipes' ``speculative-num-steps 3``, 4 for a separate draft
+# model and n-gram lookup.
+SPEC_DEFAULTS: dict[str, int] = {
+    "mtp": 3,
+    "nextn": 3,
+    "eagle": 3,
+    "eagle3": 3,
+    "dspark": 3,
+    "draft_model": 4,
+    "draft": 4,
+    "ngram": 4,
 }
 
 
 @dataclass(frozen=True)
 class SpecConfig:
-    """One speculative-decoding setting: ``none`` or ``METHOD[:K[:ACCEPT[:DRAFT_COST]]]``."""
+    """One speculative-decoding setting: ``none`` or ``METHOD[:K[:ACCEPT[:DRAFT_COST]]]``.
+
+    Left out (or ``golden``), ``ACCEPT`` is what the measured acceptance-length
+    files give the model at that depth (:mod:`.golden_al`: its own curve, its
+    sibling head's, else the method's default) and ``DRAFT_COST`` is the
+    drafter's own forward, priced from its layers; the projector resolves both
+    and reports where they came from. A number states a per-draft-token
+    acceptance or a flat draft cost per proposed token instead.
+
+    ``K`` may be a range (``mtp:1-8``, or ``mtp:golden`` for every depth the
+    curves cover); each depth is projected, but the method stays one line, so
+    the frontier picks the depth at each concurrency.
+    """
 
     method: str = "none"
     k: int = 0
-    accept: float = 0.0
-    draft_cost: float = 0.0
+    accept: float | None = None
+    draft_cost: float | None = None
+    sweep: bool = False
+    thinking: str = "on"
+
+    @classmethod
+    def parse_many(cls, spec: str) -> list[SpecConfig]:
+        parts = [p.strip() for p in spec.strip().lower().split(":")]
+        if len(parts) < 2 or (parts[1] != "golden" and "-" not in parts[1]):
+            return [cls.parse(spec)]
+        if parts[0] not in SPEC_DEFAULTS:
+            raise ValueError(f"unknown speculative method {parts[0]!r} in {spec!r}")
+        from .golden_al import DEFAULT_DEPTHS
+
+        rng, rest = ("", parts[2:]) if parts[1] == "golden" else (parts[1], parts[2:])
+        lo, _, hi = rng.partition("-")
+        try:
+            ks = range(int(lo or 1), int(hi or lo or max(DEFAULT_DEPTHS)) + 1)
+        except ValueError:
+            raise ValueError(f"bad speculative setting {spec!r}") from None
+        if not ks or ks[0] < 1:
+            raise ValueError(f"bad speculative setting {spec!r}")
+        one = cls.parse(":".join([parts[0], str(ks[0]), *rest]))
+        return [replace(one, k=k, sweep=True) for k in ks]
 
     @classmethod
     def parse(cls, spec: str) -> SpecConfig:
@@ -286,14 +331,19 @@ class SpecConfig:
             return cls()
         if parts[0] not in SPEC_DEFAULTS:
             raise ValueError(f"unknown speculative method {parts[0]!r} in {spec!r}")
-        k, acc, dc = SPEC_DEFAULTS[parts[0]]
-        if len(parts) > 1 and parts[1]:
-            k = int(parts[1])
-        if len(parts) > 2 and parts[2]:
-            acc = float(parts[2])
-        if len(parts) > 3 and parts[3]:
-            dc = float(parts[3])
-        if k < 1 or not 0.0 <= acc <= 1.0 or dc < 0.0:
+        if len(parts) > 1 and (parts[1] == "golden" or "-" in parts[1]):
+            raise ValueError(f"a depth range names several settings; use parse_many: {spec!r}")
+        k, acc, dc = SPEC_DEFAULTS[parts[0]], None, None
+        try:
+            if len(parts) > 1 and parts[1]:
+                k = int(parts[1])
+            if len(parts) > 2 and parts[2] not in ("", "golden"):
+                acc = float(parts[2])
+            if len(parts) > 3 and parts[3]:
+                dc = float(parts[3])
+        except ValueError:
+            raise ValueError(f"bad speculative setting {spec!r}") from None
+        if k < 1 or (acc is not None and not 0.0 <= acc <= 1.0) or (dc is not None and dc < 0.0):
             raise ValueError(f"bad speculative setting {spec!r}")
         return cls(method=parts[0], k=k, accept=acc, draft_cost=dc)
 
@@ -301,31 +351,38 @@ class SpecConfig:
     def label(self) -> str:
         if self.method == "none":
             return "none"
-        _, acc, dc = SPEC_DEFAULTS[self.method]
         m = self.method.upper()
-        s = f"{m}{'-' if m[-1].isdigit() else ''}{self.k}"
-        if abs(self.accept - acc) > 1e-9:
+        # A depth sweep is one line per method: its depths are a choice the
+        # frontier makes.
+        s = m if self.sweep else f"{m}{'-' if m[-1].isdigit() else ''}{self.k}"
+        if self.accept is not None:
             s += f"@{self.accept:g}"
-        if abs(self.draft_cost - dc) > 1e-9:
+        if self.draft_cost is not None:
             s += f"/d{self.draft_cost:g}"
         return s
-
-    @property
-    def tokens_per_step(self) -> float:
-        """Expected tokens a verify step keeps: the bonus token plus the accepted run."""
-        return sum(self.accept**i for i in range(self.k + 1)) if self.k else 1.0
 
     def argv(self) -> list[str]:
         if self.method == "none":
             return []
-        return [
+        method = "draft_model" if self.method == "draft" else self.method
+        out = [
+            "--speculative-method",
+            method,
             "--speculative-num-tokens",
             str(self.k),
-            "--speculative-acceptance-rate",
-            str(self.accept),
-            "--speculative-draft-cost-factor",
-            str(self.draft_cost),
+            "--speculative-thinking",
+            self.thinking,
         ]
+        if self.accept is not None:
+            out += ["--speculative-acceptance-rate", str(self.accept)]
+        if self.draft_cost is not None:
+            out += [
+                "--speculative-draft-cost-factor",
+                str(self.draft_cost),
+                "--speculative-draft-cost-model",
+                "flat",
+            ]
+        return out
 
 
 def _sched_argv(v: str) -> list[str]:
@@ -440,9 +497,11 @@ class ParetoPoint:
     gpus: int
     concurrency: int
     anchor: str = ""
+    dcp: int = 1
     spec: str = "none"
     spec_k: int = 0
     spec_accept: float = 0.0
+    spec_al_source: str = ""
     knobs: str = ""
     series_label: str = ""
 
@@ -462,6 +521,8 @@ class ParetoPoint:
     memory_per_gpu_gb: float = 0.0
     kv_tiers: str = ""
     spec_tokens_per_step: float = 1.0
+    spec_draft_cost: str = ""
+    spec_draft_ms: float = 0.0
     on_frontier: bool = False
 
     def series(self) -> str:
@@ -473,6 +534,11 @@ class ParetoPoint:
 
     def chart(self) -> tuple[str, str, str]:
         return (self.model, self.scenario, self.precision)
+
+    def short(self) -> str:
+        """Point label on a chart: layout, clients and, if speculating, the depth."""
+        k = f" k{self.spec_k}" if self.spec != "none" and self.spec_k else ""
+        return f"{self.parallelism} c{self.concurrency}{k}"
 
 
 @dataclass
@@ -799,6 +865,8 @@ def point_argv(
         argv += ["--attention-dp-size", str(par.dp_attn)]
         # Each attention-DP rank schedules its own share of the step budget.
         budget = max(1, budget // par.dp_attn)
+    if par.dcp > 1:
+        argv += ["--decode-context-parallel-size", str(par.dcp)]
     argv += ["--max-num-batched-tokens", str(budget)]
     if trace_path:
         # The engine is launched with a context that fits the trace's longest
@@ -809,6 +877,11 @@ def point_argv(
             trace_path,
             "--max-context-len",
             str(_trace_stats(trace_path, 0)[2] + 1),
+            # The AgentX harness waits each turn's recorded think time (the
+            # trace's ``think_ms``) but pulls pending turns forward once nothing
+            # has been in flight for 10 s (AIPerf ``system_idle_gap_cap_seconds``).
+            "--des-client-idle-cap-ms",
+            str(AGENTX_IDLE_CAP_MS),
         ]
     if anchor:
         argv += ["--load-benchmark", anchor, "--bench-model", checkpoint]
@@ -838,6 +911,9 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
     pt.gpus = gpus
     extras = getattr(perf, "extras", None) or {}
     pt.spec_tokens_per_step = float(extras.get("speculative_tokens_per_step") or 1.0)
+    pt.spec_al_source = str(extras.get("speculative_acceptance_source") or "")
+    pt.spec_draft_cost = str(extras.get("speculative_draft_cost") or "")
+    pt.spec_draft_ms = float(extras.get("speculative_draft_ms") or 0.0)
     if mem is not None:
         pt.memory_per_gpu_gb = float(getattr(mem, "total_bytes", 0) or 0) / (1024.0**3)
         # Unrunnable only when weights and the step's activations leave no HBM
@@ -978,6 +1054,7 @@ def build_tasks(
     knob_axes: Sequence[KnobAxis] = (),
     series_by: Sequence[str] = ("spec", "kv"),
     extra: Sequence[str] = (),
+    golden_thinking: str = "on",
 ) -> tuple[list[dict[str, Any]], list[ParetoPoint]]:
     """Every point to project, plus the benchmark points no anchor covers.
 
@@ -1012,6 +1089,8 @@ def build_tasks(
         # replaying all C lanes through one rank's cache would thrash it.
         lanes = -(-conc // max(1, par.dp_attn))
         trace = sc.trace.replace("{c}", str(lanes)) if sc.trace else None
+        if spec.method != "none":
+            spec = replace(spec, thinking=golden_thinking)
         base = dict(
             model=m.preset,
             checkpoint=m.checkpoint,
@@ -1028,11 +1107,12 @@ def build_tasks(
             ep=par.ep,
             dp_attn=par.dp_attn,
             pp=par.pp,
+            dcp=par.dcp,
             gpus=par.gpus,
             concurrency=conc,
             spec=spec.label,
             spec_k=spec.k,
-            spec_accept=spec.accept,
+            spec_accept=spec.accept or 0.0,
             knobs=_knob_label(combo),
         )
         tag = ""
@@ -1187,11 +1267,13 @@ _IDENTITY = (
     "mode",
     "kv_config",
     "spec",
+    "spec_k",
     "knobs",
     "tp",
     "ep",
     "dp_attn",
     "pp",
+    "dcp",
     "concurrency",
 )
 
@@ -1410,11 +1492,11 @@ def write_svg(points: Sequence[ParetoPoint], path: str, x: str, y: str, title: s
             o.append(
                 f'<circle cx="{px(getattr(p, x)):.1f}" cy="{py(getattr(p, y)):.1f}" r="3.8" '
                 f'fill="{fill}" stroke="{c}" stroke-width="1.6">'
-                f"<title>{html.escape(f'{s}: {p.parallelism} c{p.concurrency}')}</title></circle>"
+                f"<title>{html.escape(f'{s}: {p.short()}')}</title></circle>"
             )
     for p in _label_points(envelope, lambda q: px(getattr(q, x)), lambda q: py(getattr(q, y)), 46):
         lx, ly = px(getattr(p, x)) + 6, py(getattr(p, y)) - 7
-        txt = html.escape(f"{p.parallelism} c{p.concurrency}")
+        txt = html.escape(p.short())
         o.append(
             f'<text x="{lx:.1f}" y="{ly:.1f}" font-size="10" fill="#333" stroke="white" '
             f'stroke-width="3" paint-order="stroke">{txt}</text>'
@@ -1531,7 +1613,7 @@ def write_png(
 
     for p in _label_points(envelope, lambda q: to_px(q)[0], lambda q: to_px(q)[1], 60):
         ax.annotate(
-            f"{p.parallelism} c{p.concurrency}",
+            p.short(),
             (getattr(p, x), getattr(p, y)),
             xytext=(6, 6),
             textcoords="offset points",
@@ -1620,15 +1702,24 @@ header p{margin:0;color:var(--mute);font-size:13px}
 main{padding:12px 32px 40px;max-width:1500px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;
 box-shadow:0 1px 2px rgba(16,24,40,.04);margin-bottom:16px}
-.ctl{display:flex;flex-wrap:wrap;gap:14px 26px;align-items:flex-start}
-.grp{display:flex;flex-direction:column;gap:6px}
-.grp.wide{flex-basis:100%}
+.ctl{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:flex-end;position:relative;z-index:5}
+.grp{display:flex;flex-direction:column;gap:5px}
 .grp>span{font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.04em}
-.chips{display:flex;flex-wrap:wrap;gap:5px}
-.chip{font:inherit;font-size:12.5px;color:var(--ink);background:#fff;border:1px solid #d1d5db;border-radius:999px;
-padding:4px 11px;cursor:pointer;line-height:1.3}
-.chip:hover{border-color:var(--acc);background:#f3f7fc}
-.chip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.dd{position:relative}
+.ddb{font:inherit;font-size:13px;color:var(--ink);min-width:140px;max-width:320px;display:flex;justify-content:space-between;
+align-items:center;gap:12px;background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:6px 10px;cursor:pointer;
+line-height:1.3;text-align:left}
+.ddb span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ddb:hover,.dd.open .ddb{border-color:var(--acc)}
+.ddb::after{content:"";flex:none;border:4.5px solid transparent;border-top-color:#6b7280;margin-top:4px}
+.dd.open .ddb::after{border-top-color:transparent;border-bottom-color:var(--acc);margin:-4px 0 0}
+.ddm{display:none;position:absolute;top:calc(100% + 4px);left:0;min-width:100%;max-height:340px;overflow:auto;background:#fff;
+border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 28px rgba(16,24,40,.14);padding:4px;z-index:20}
+.dd.open .ddm{display:block}
+.ddo{display:block;width:100%;text-align:left;font:inherit;font-size:13px;color:var(--ink);background:none;border:0;
+border-radius:6px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.ddo:hover{background:#f3f7fc}
+.ddo.on{color:var(--acc);font-weight:600;background:#eef4fb}
 .plot{display:flex;gap:18px;align-items:flex-start}
 #chart{flex:1;min-width:0;width:100%;height:auto;display:block}
 #legend{width:290px;flex:none;font-size:12.5px}
@@ -1659,15 +1750,16 @@ circle.pt:hover{r:7}
 <p>Throughput versus interactivity across every parallelism, concurrency and deployment knob swept.</p></header>
 <main>
 <div class="card ctl">
-<div class="grp wide"><span>Model</span><div class="chips" id="model"></div></div>
-<div class="grp"><span>Scenario</span><div class="chips" id="scenario"></div></div>
-<div class="grp"><span>Precision</span><div class="chips" id="precision"></div></div>
-<div class="grp"><span>Mode</span><div class="chips" id="mode"></div></div>
-<div class="grp"><span>Speculative</span><div class="chips" id="spec"></div></div>
-<div class="grp"><span>Points</span><div class="chips" id="show"></div></div>
-<div class="grp" id="measgrp" style="display:none"><span>Measured runs</span><div class="chips" id="meas"></div></div>
-<div class="grp wide"><span>X axis</span><div class="chips" id="x"></div></div>
-<div class="grp wide"><span>Y axis</span><div class="chips" id="y"></div></div>
+<div class="grp"><span>Model</span><div class="dd" id="model"></div></div>
+<div class="grp"><span>Scenario</span><div class="dd" id="scenario"></div></div>
+<div class="grp"><span>Precision</span><div class="dd" id="precision"></div></div>
+<div class="grp"><span>Mode</span><div class="dd" id="mode"></div></div>
+<div class="grp"><span>Speculative</span><div class="dd" id="spec"></div></div>
+<div class="grp"><span>Draft depth</span><div class="dd" id="depth"></div></div>
+<div class="grp"><span>Points</span><div class="dd" id="show"></div></div>
+<div class="grp" id="measgrp" style="display:none"><span>Measured runs</span><div class="dd" id="meas"></div></div>
+<div class="grp"><span>X axis</span><div class="dd" id="x"></div></div>
+<div class="grp"><span>Y axis</span><div class="dd" id="y"></div></div>
 </div>
 <div class="card">
 <div class="plot"><svg id="chart" viewBox="0 0 1000 600" preserveAspectRatio="xMinYMin meet"></svg><div id="legend"></div></div>
@@ -1679,36 +1771,46 @@ configuration; click a legend entry to hide or show it. Crosses are measured run
 ends at the projection of that same configuration (benchmark mode, or simulate when benchmark has no anchor), so its
 length is the error. A cross below a frontier is usually a dominated configuration, not a frontier miss.</p>
 <div id="uncov" class="note"></div>
-<div id="chartacc" class="note" style="margin-top:6px"></div>
 </div>
-<div class="card" id="acccard" style="display:none"><h3>Accuracy against measured MI355X runs</h3>
-<p class="note" style="margin-bottom:10px">Every plotted fixed-length configuration that has a measured run (same checkpoint,
-engine, precision, TP/EP/attention-DP, concurrency, ISL/OSL, speculative depth and the scheduler budget the engine ran)
-is compared with the median of its measured runs. r is the Pearson correlation of log values, ρ the Spearman rank
-correlation; "within-chart" is the median ρ inside one chart, which is what the frontier's shape depends on.</p>
-<div class="tw" style="max-height:none"><table id="acctbl"></table></div></div>
 <div class="card"><h3>Frontier points</h3><div class="tw"><table id="tbl"></table></div></div>
 </main>
 <div id="tip"></div>
 <script>
 const DATA = __DATA__;
-const M = DATA.metrics, P = DATA.points;
+const M = DATA.metrics, P = (() => {
+  const C = DATA.points, ks = Object.keys(C.cols), out = new Array(C.n);
+  for (let i = 0; i < C.n; i++) {
+    const o = {};
+    for (const k of ks) { const v = C.cols[k][i]; o[k] = k in C.dicts ? C.dicts[k][v] : v; }
+    out[i] = o;
+  }
+  return out;
+})();
 const PAL = ["#3b6fb6","#e07b39","#2f9e6e","#c8414b","#7d5bb5","#1fa3b8","#d4a72c","#d1609e","#7a6a58","#5b8c2a","#9a9a9a","#264653"];
 const $ = id => document.getElementById(id);
 const hidden = new Set();
 const V={};
 const uniq = a => [...new Set(a)].sort();
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function chips(id, vals, sel, lab){
   if(!vals.includes(sel)) sel=vals[0]; V[id]=sel;
-  $(id).innerHTML=vals.map(v=>`<button class="chip ${v===sel?'on':''}" data-v="${v}">${lab?lab(v):v}</button>`).join('');
+  const L=v=>esc(lab?lab(v):v);
+  $(id).innerHTML=`<button class="ddb" type="button"><span>${L(sel)}</span></button><div class="ddm">`+
+    vals.map(v=>`<button class="ddo ${v===sel?'on':''}" type="button" data-v="${esc(v)}">${L(v)}</button>`).join('')+'</div>';
 }
+const closeMenus = () => document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open'));
+document.addEventListener('click',e=>{ if(!e.target.closest('.dd')) closeMenus(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeMenus(); });
 const short = k => M[k].label.replace(/\\s*\\(.*\\)$/,'');
 function refreshDeps(){
   const m=V.model;
   chips('scenario', uniq(P.filter(p=>p.model===m).map(p=>p.scenario)), V.scenario);
   chips('precision', uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario).map(p=>p.precision)), V.precision);
   const sp=uniq(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision).map(p=>p.spec||'none'));
-  chips('spec', ['all',...sp], V.spec||'all');
+  chips('spec', ['all',...sp], V.spec||'all', v=>v==='all'?'all settings':v);
+  const ks=[...new Set(P.filter(p=>p.model===m&&p.scenario===V.scenario&&p.precision===V.precision&&(p.spec||'none')!=='none'
+    &&(V.spec==='all'||p.spec===V.spec)&&p.spec_k).map(p=>p.spec_k))].sort((a,b)=>a-b).map(String);
+  chips('depth', ['best',...ks], V.depth||'best', v=>v==='best'?'best per point':'k = '+v);
 }
 chips('model', uniq(P.map(p=>p.model)), null);
 chips('mode', ['all','benchmark','simulate'], 'all', v=>v==='all'?'benchmark + simulate':v);
@@ -1731,14 +1833,16 @@ function ticks(hi,n=7){ if(hi<=0) return [0,1]; const raw=hi/(n-1), mag=Math.pow
 function fmt(v){ if(Math.abs(v)>=1000) return (v/1000).toFixed(1).replace(/\\.0$/,'')+'k'; return v<10?(+v.toFixed(1)).toString():v.toFixed(0); }
 function num(v,d=1){ return v.toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:0}); }
 function draw(){
-  const m=V.model, sc=V.scenario, pr=V.precision, md=V.mode, sp=V.spec;
+  const m=V.model, sc=V.scenario, pr=V.precision, md=V.mode, sp=V.spec, dk=V.depth;
   const x=V.x, y=V.y, onlyF=V.show==='front';
-  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp));
+  // A chosen depth narrows the speculative lines only; the no-speculation line stays as the reference.
+  const atK = p => dk==='best'||(p.spec||'none')==='none'||String(p.spec_k)===dk;
+  const sel=P.filter(p=>p.model===m&&p.scenario===sc&&p.precision===pr&&(md==='all'||p.mode===md)&&(sp==='all'||(p.spec||'none')===sp)&&atK(p));
   const all=sel.filter(p=>p.feasible);
   const groups=uniq(all.map(p=>group(series(p)))); const col={}; groups.forEach((g,i)=>col[g]=PAL[i%PAL.length]);
   const pts=all.filter(p=>!hidden.has(group(series(p))));
   const mgroup = q => `${'MI355X'} ${q.engine}${q.spec==='none'?'':' '+q.spec}`;
-  const msel = V.meas==='show' ? MS.filter(q=>q.model===m&&q.scenario===sc&&q.precision===pr&&(sp==='all'||q.spec===sp)
+  const msel = V.meas==='show' ? MS.filter(q=>q.model===m&&q.scenario===sc&&q.precision===pr&&(sp==='all'||q.spec===sp)&&atK(q)
     &&!hidden.has(mgroup(q))&&q[x]!=null&&q[y]!=null) : [];
   const W=1000,H=600,L=70,R=24,T=20,B=56; let o=[];
   const x1=Math.max(...pts.map(p=>p[x]),...msel.map(q=>q[x]),1)*1.06, y1=Math.max(...pts.map(p=>p[y]),...msel.map(q=>q[y]),1)*1.08, xt=ticks(x1), yt=ticks(y1);
@@ -1768,7 +1872,7 @@ function draw(){
       `<path d="M${cx-d},${cy-d}L${cx+d},${cy+d}M${cx-d},${cy+d}L${cx+d},${cy-d}" stroke="#fff" stroke-width=4.5 data-m="${MS.indexOf(q)}"/>`+
       `<path d="M${cx-d},${cy-d}L${cx+d},${cy+d}M${cx-d},${cy+d}L${cx+d},${cy-d}" stroke="${c}" stroke-width=2.2 data-m="${MS.indexOf(q)}"/></g>`); });
   const lab=[]; env.forEach(p=>{ if(lab.every(q=>Math.hypot(X(p[x])-X(q[x]),Y(p[y])-Y(q[y]))>=50)) lab.push(p); });
-  lab.forEach(p=>o.push(`<text x=${X(p[x])+7} y=${Y(p[y])-8} font-size=11 fill="#1f2937" stroke="#fff" stroke-width=3 paint-order=stroke pointer-events=none>${p.parallelism} c${p.concurrency}</text>`));
+  lab.forEach(p=>o.push(`<text x=${X(p[x])+7} y=${Y(p[y])-8} font-size=11 fill="#1f2937" stroke="#fff" stroke-width=3 paint-order=stroke pointer-events=none>${p.parallelism} c${p.concurrency}${(p.spec||'none')!=='none'&&p.spec_k?' k'+p.spec_k:''}</text>`));
   $('chart').innerHTML=o.join('');
   let lg='<h4>Configuration</h4>'+groups.map(g=>`<div class="lg ${hidden.has(g)?'off':''}" data-g="${g}"><span class=sw style="background:${col[g]}"></span>${g}</div>`).join('');
   lg+='<h4 style="margin-top:16px">Mode</h4>'+
@@ -1778,27 +1882,17 @@ function draw(){
     `<div class=hint>${pts.length} configurations plotted, ${rows.length} on a frontier${msel.length?`, ${msel.length} measured`:''}.</div>`;
   $('legend').innerHTML=lg;
   document.querySelectorAll('.lg').forEach(el=>el.onclick=()=>{const g=el.dataset.g; hidden.has(g)?hidden.delete(g):hidden.add(g); draw();});
-  const ca=[]; const medErr=a=>{const s=[...a].sort((u,v)=>u-v); return s.length?s[Math.floor((s.length-1)/2)]:null;};
-  ['benchmark','simulate'].forEach(md=>{ const e1=[],e2=[];
-    msel.forEach(q=>{ const pj=q.proj&&q.proj[md]; if(!pj) return;
-      if(pj.tput_per_gpu) e1.push(Math.abs(pj.tput_per_gpu/q.total_tput_per_gpu-1));
-      if(pj.interactivity) e2.push(Math.abs(pj.interactivity/q.interactivity-1)); });
-    if(e1.length) ca.push(`${md}: median |error| ${(100*medErr(e1)).toFixed(0)}% on throughput/GPU and ${(100*medErr(e2)).toFixed(0)}% on interactivity over ${e1.length} measured configs`); });
-  $('chartacc').textContent = msel.length ? 'This chart vs measured runs (crosses): '+ca.join('; ')+'.' : (MS.length&&V.meas==='show' ? 'No measured runs match this chart.' : '');
   const un=sel.filter(p=>!p.feasible);
   $('uncov').textContent = un.length ? `${un.length} configuration(s) not plotted (did not fit, or no anchor covered them in benchmark mode).` : '';
-  const cols=[['parallelism','parallelism'],['concurrency','conc'],['gpus','GPUs'],['mode','mode'],['kv_config','KV'],['spec','spec'],['spec_tokens_per_step','tok/step'],['knobs','knobs'],['interactivity','tok/s/user'],['total_tput_per_gpu','tput/GPU'],['output_tput_per_gpu','out tput/GPU'],['ttft_ms','TTFT ms'],['tpot_ms','TPOT ms'],['prefix_hit_rate','prefix hit']];
+  const cols=[['parallelism','parallelism'],['concurrency','conc'],['gpus','GPUs'],['mode','mode'],['kv_config','KV'],['spec','spec'],['spec_k','k'],['spec_tokens_per_step','tok/step'],['knobs','knobs'],['interactivity','tok/s/user'],['total_tput_per_gpu','tput/GPU'],['output_tput_per_gpu','out tput/GPU'],['ttft_ms','TTFT ms'],['tpot_ms','TPOT ms'],['prefix_hit_rate','prefix hit']];
   const cell=v=>typeof v==='number'?(Number.isInteger(v)?v:num(v,2)):(v??'');
   $('tbl').innerHTML='<tr><th>series</th>'+cols.map(c=>`<th>${c[1]}</th>`).join('')+'</tr>'+
     rows.map(([s,p])=>`<tr><td><span class=dot style="background:${col[group(s)]}"></span>${s}</td>`+cols.map(c=>`<td>${cell(p[c[0]])}</td>`).join('')+'</tr>').join('');
 }
 $('chart').addEventListener('mousemove',e=>{
   const t=$('tip'); const mi=e.target.getAttribute&&e.target.getAttribute('data-m');
-  if(mi!==null&&mi!==undefined){ const q=MS[+mi]; let h=`<b>measured · ${q.parallelism} · conc ${q.concurrency}</b>\n${q.model} ${q.engine} ${q.precision}${q.spec==='none'?'':' '+q.spec} · median of ${q.runs} run(s)\n`+
+  if(mi!==null&&mi!==undefined){ const q=MS[+mi]; let h=`<b>measured · ${q.parallelism} · conc ${q.concurrency}</b>\n${q.model} ${q.engine} ${q.precision}${q.spec==='none'?'':' '+q.spec+(q.spec_k?' k'+q.spec_k:'')} · median of ${q.runs} run(s)\n`+
       `interactivity ${num(q.interactivity)} tok/s/user\nthroughput/GPU ${num(q.total_tput_per_gpu,0)}\nTTFT ${num(q.ttft_ms,0)} ms`;
-    ['benchmark','simulate'].forEach(md=>{ const pj=q.proj&&q.proj[md]; if(!pj||!pj.tput_per_gpu) return;
-      const pc=(a,b)=>`${a>=b?'+':''}${(100*(a/b-1)).toFixed(0)}%`;
-      h+=`\n${md}: tput/GPU ${num(pj.tput_per_gpu,0)} (${pc(pj.tput_per_gpu,q.total_tput_per_gpu)}), interactivity ${num(pj.interactivity)} (${pc(pj.interactivity,q.interactivity)})`; });
     t.innerHTML=h; t.style.display='block'; const r=t.getBoundingClientRect(); let lx=e.clientX+14, ly=e.clientY+12;
     if(lx+r.width>innerWidth-8) lx=e.clientX-r.width-14; if(ly+r.height>innerHeight-8) ly=e.clientY-r.height-12;
     t.style.left=lx+'px'; t.style.top=ly+'px'; return; }
@@ -1808,7 +1902,8 @@ $('chart').addEventListener('mousemove',e=>{
   t.innerHTML=`<b>${p.parallelism} · conc ${p.concurrency} · ${p.gpus} GPU</b>\\n${p.model} ${p.engine} ${p.precision} (${p.mode})\\n`+
    `interactivity ${num(p.interactivity)} tok/s/user\\nthroughput/GPU ${num(p.total_tput_per_gpu,0)} (output ${num(p.output_tput_per_gpu,0)})\\n`+
    `TTFT ${num(p.ttft_ms,0)} ms · TPOT ${num(p.tpot_ms,2)} ms`+(p.anchor?`\\nanchor ${p.anchor.split('/').pop()}`:'')+(p.kv_tiers?`\\nKV tiers ${p.kv_tiers}`:'')+
-   ((p.spec||'none')!=='none'?`\\nspeculative ${p.spec} (k=${p.spec_k}, accept ${p.spec_accept}, ${(p.spec_tokens_per_step||1).toFixed(2)} tok/step)`:'')+
+   ((p.spec||'none')!=='none'?`\\nspeculative ${p.spec} k=${p.spec_k}, ${(p.spec_tokens_per_step||1).toFixed(2)} tok/step`+
+     (p.spec_al_source?`\\n  acceptance ${p.spec_al_source}`:'')+(p.spec_draft_cost?`\\n  draft ${p.spec_draft_cost}${p.spec_draft_ms?' = '+num(p.spec_draft_ms,2)+' ms/step':''}`:''):'')+
    (p.knobs?`\\n${p.knobs}`:'');
   t.style.display='block';
   const r=t.getBoundingClientRect(); let lx=e.clientX+14, ly=e.clientY+12;
@@ -1816,19 +1911,15 @@ $('chart').addEventListener('mousemove',e=>{
   t.style.left=lx+'px'; t.style.top=ly+'px';
 });
 $('chart').addEventListener('mouseleave',()=>$('tip').style.display='none');
-['model','scenario','precision','mode','spec','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
-  const b=e.target.closest('.chip'); if(!b) return;
-  V[id]=b.dataset.v; $(id).querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===b));
-  if(['model','scenario','precision'].includes(id)){ if(id==='model') hidden.clear(); refreshDeps(); }
+['model','scenario','precision','mode','spec','depth','x','y','show','meas'].forEach(id=>$(id).addEventListener('click',e=>{
+  if(e.target.closest('.ddb')){ const open=$(id).classList.contains('open'); closeMenus(); if(!open) $(id).classList.add('open'); return; }
+  const b=e.target.closest('.ddo'); if(!b) return;
+  closeMenus();
+  V[id]=b.dataset.v; $(id).querySelector('.ddb span').textContent=b.textContent;
+  $(id).querySelectorAll('.ddo').forEach(c=>c.classList.toggle('on',c===b));
+  if(['model','scenario','precision','spec'].includes(id)){ if(id==='model') hidden.clear(); refreshDeps(); }
   draw();
 }));
-const AC = DATA.accuracy || [];
-if(AC.length){ $('acccard').style.display='';
-  const f=(v,d=3)=>v==null||isNaN(v)?'–':(+v).toFixed(d);
-  $('acctbl').innerHTML='<tr><th>scope</th><th>mode</th><th>metric</th><th>n</th><th>r (log)</th><th>Spearman ρ</th><th>median |err|</th><th>≤15%</th><th>≤25%</th><th>bias</th><th>frontier hit</th></tr>'+
-    AC.map(a=>`<tr><td>${a.scope}</td><td>${a.mode}</td><td>${a.metric}</td><td>${a.n}</td><td>${f(a.r_log)}</td><td>${f(a.rho)}</td>`+
-      `<td>${a.mape==null?'–':f(a.mape,1)+'%'}</td><td>${a.w15==null?'–':f(a.w15,0)+'%'}</td><td>${a.w25==null?'–':f(a.w25,0)+'%'}</td>`+
-      `<td>${a.bias==null?'–':f(a.bias,2)+'×'}</td><td>${a.frontier_hit==null?'–':f(a.frontier_hit,0)+'%'}</td></tr>`).join(''); }
 refreshDeps(); draw();
 </script></body></html>
 """
@@ -1842,27 +1933,54 @@ def _compact(v: Any) -> Any:
     return float(f"{v:.5g}") if isinstance(v, float) else v
 
 
+def _columns(rows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    """Rows as one array per field, non-numeric fields as indices into a table of distinct values.
+
+    A sweep of ~200k points embedded row by row is >100 MB of repeated keys and
+    strings, more than a browser will parse inline; the page rebuilds the rows.
+    """
+    keys = sorted({k for r in rows for k in r})
+    cols: dict[str, list[Any]] = {}
+    dicts: dict[str, list[Any]] = {}
+    for k in keys:
+        vals = [r.get(k) for r in rows]
+        if any(isinstance(v, (str, list, dict)) for v in vals):
+            seen: dict[str, int] = {}
+            table: list[Any] = []
+            idx = []
+            for v in vals:
+                s = json.dumps(v, sort_keys=True)
+                if s not in seen:
+                    seen[s] = len(table)
+                    table.append(v)
+                idx.append(seen[s])
+            cols[k], dicts[k] = idx, table
+        else:
+            cols[k] = vals
+    return dict(n=len(rows), cols=cols, dicts=dicts)
+
+
 def write_html(
     result: ParetoResult,
     path: str,
     measured: Sequence[dict[str, Any]] | None = None,
-    accuracy: Sequence[dict[str, Any]] | None = None,
 ) -> None:
-    """The dashboard; ``measured`` runs are drawn over the frontiers and ``accuracy`` rows tabulated."""
+    """The dashboard; ``measured`` runs are drawn over the frontiers."""
     data = dict(
         measured=list(measured or []),
-        accuracy=list(accuracy or []),
         x=result.x,
         y=result.y,
         metrics={k: dict(label=v[0], higher_is_better=v[1]) for k, v in METRICS.items()},
         # The page only counts the points it cannot plot, so those carry just
         # the fields its filters read; the CSV and JSON keep every column.
-        points=[
-            {k: _compact(v) for k, v in asdict(p).items()}
-            if p.feasible
-            else {k: getattr(p, k) for k in _HTML_INFEASIBLE}
-            for p in result.points
-        ],
+        points=_columns(
+            [
+                {k: _compact(v) for k, v in asdict(p).items()}
+                if p.feasible
+                else {k: getattr(p, k) for k in _HTML_INFEASIBLE}
+                for p in result.points
+            ]
+        ),
     )
     blob = json.dumps(data).replace("</", "<\\/")
     with open(path, "w") as f:
@@ -1870,18 +1988,18 @@ def write_html(
 
 
 def load_measured(path: str | None) -> dict[str, list[dict[str, Any]]]:
-    """Measured runs and accuracy rows to draw over the frontiers.
+    """Measured runs to draw over the frontiers.
 
-    A JSON object with ``measured`` (one record per measured configuration:
-    model, scenario, precision, engine, spec, parallelism, concurrency, the
+    A JSON object with ``measured``: one record per measured configuration
+    (model, scenario, precision, engine, spec, parallelism, concurrency, the
     metric values, and optionally ``proj`` -- the projection of that same
-    configuration per mode) and ``accuracy`` (summary rows for the table).
+    configuration per mode).
     """
     if not path:
         return {}
     with open(path) as f:
         doc = json.load(f)
-    return {k: list(doc.get(k) or []) for k in ("measured", "accuracy")}
+    return {"measured": list(doc.get("measured") or [])}
 
 
 def write_outputs(
@@ -1901,7 +2019,7 @@ def write_outputs(
     write_json(result, p, meta)
     written["json"].append(p)
     p = os.path.join(out_dir, "pareto.html")
-    write_html(result, p, runs, measured.get("accuracy"))
+    write_html(result, p, runs)
     written["html"].append(p)
     charts: dict[tuple, list[ParetoPoint]] = {}
     for pt in result.points:
@@ -1985,12 +2103,22 @@ def build_parser() -> argparse.ArgumentParser:
         default=["none"],
         help="Speculative decoding settings, each its own series: 'none' or "
         "METHOD[:K[:ACCEPT[:DRAFT_COST]]] with METHOD in "
-        f"{'/'.join(SPEC_DEFAULTS)} (e.g. none mtp mtp:3:0.8 eagle3:4). K is the "
-        "draft depth, ACCEPT the per-draft-token acceptance, DRAFT_COST one draft "
-        "pass as a fraction of a target decode step; omitted parts take "
-        "the method's defaults "
-        + ", ".join(f"{m}={k}:{a:g}:{d:g}" for m, (k, a, d) in SPEC_DEFAULTS.items())
-        + ".",
+        f"{'/'.join(SPEC_DEFAULTS)} (e.g. none mtp eagle3:4 mtp:1-8 mtp:3:0.8). "
+        "K is the draft depth (default "
+        + ", ".join(f"{m}={k}" for m, k in SPEC_DEFAULTS.items())
+        + "), or a range swept as one line ('mtp:golden' = every depth the "
+        "curves cover). ACCEPT left out reads the measured acceptance-length "
+        "files for the model (own curve, sibling head's, else the method "
+        "default); a number states a per-draft-token rate. DRAFT_COST left out "
+        "prices the drafter from its layers; a number is a flat cost per draft "
+        "token as a fraction of a target decode step.",
+    )
+    ap.add_argument(
+        "--golden-thinking",
+        choices=("on", "off"),
+        default="on",
+        help="Which thinking-mode sweep of the acceptance-length files to read "
+        "(InferenceX's default is on)",
     )
     knobs = ap.add_argument_group(
         "deployment knobs",
@@ -2063,9 +2191,8 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--measured",
         default=None,
-        help="JSON of measured runs ({'measured': [...], 'accuracy': [...]}) to draw "
-        "over the frontiers as crosses, each joined to the projection of the same "
-        "configuration, with an accuracy table in the HTML",
+        help="JSON of measured runs ({'measured': [...]}) to draw over the "
+        "frontiers as crosses, each joined to the projection of the same configuration",
     )
     ap.add_argument(
         "--append",
@@ -2127,7 +2254,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     models = [ModelSpec.parse(m) for m in a.model]
     pars = [Parallelism.parse(p) for p in a.parallelism]
     scen = [Scenario.parse(s, a.trace_max_requests) for s in a.scenario]
-    specs = list(dict.fromkeys(SpecConfig.parse(s) for s in a.spec))
+    specs = list(dict.fromkeys(c for s in a.spec for c in SpecConfig.parse_many(s)))
     axes, hbm_gb = knob_axes_from_args(a)
     anchors = [m for m in (_anchor_meta(p) for p in _anchor_files(a.anchors)) if m]
     if "benchmark" in a.mode and not anchors:
@@ -2159,6 +2286,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         knob_axes=axes,
         series_by=a.series_by,
         extra=extra,
+        golden_thinking=a.golden_thinking,
     )
     print(
         f"[inferasim:pareto] {len(tasks)} point(s) to project, "
@@ -2184,6 +2312,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         before = len(tasks)
         tasks = [t for t in tasks if _key(ParetoPoint(**t["point"])) not in done]
         print(f"[inferasim:pareto] --resume: {before - len(tasks)} point(s) already done")
+        if not tasks and os.path.exists(final) and not os.path.exists(partial):
+            return 0
     t0 = time.perf_counter()
     pts = run(tasks, jobs=a.jobs, sink=partial) + uncovered
     pts = merge_points(salvaged, pts)
