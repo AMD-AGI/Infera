@@ -15,7 +15,7 @@ import json
 import re
 import time
 import urllib.request
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 TAGS = ("<think>", "</think>", "<arg_key>", "</arg_key>", "<arg_value>", "</arg_value>",
@@ -58,23 +58,26 @@ def main():
     jobs = [(d["doc_id"], json.loads(d["arguments"]["gen_args_0"]["arg_0"][0]),
              d["target"].split("####")[-1].strip().replace(",", "")) for d in docs]
 
-    with ThreadPoolExecutor(a.concurrency) as pool:
-        futs = [pool.submit(run_one, a.url, a.model, m, a.max_tokens) for _, m, _ in jobs]
-        rows = []
-        for (doc_id, _, target), fut in zip(jobs, futs):
-            try:
-                r = fut.result()
-            except Exception as e:  # noqa: BLE001 -- a failed request is a result here
-                r = {"error": repr(e), "finish_reason": None, "completion_tokens": None,
-                     "reasoning": "", "content": ""}
-            text = r["reasoning"] + r["content"]
-            r.update(doc_id=doc_id, target=target, correct=last_number(r["content"]) == target,
-                     garbled=any(t in text for t in TAGS))
-            rows.append(r)
+    def one(job):
+        doc_id, messages, target = job
+        try:
+            r = run_one(a.url, a.model, messages, a.max_tokens)
+        except Exception as e:  # noqa: BLE001 -- a failed request is a result here
+            r = {"error": repr(e), "finish_reason": None, "completion_tokens": None,
+                 "reasoning": "", "content": ""}
+        text = r["reasoning"] + r["content"]
+        r.update(doc_id=doc_id, target=target, correct=last_number(r["content"]) == target,
+                 garbled=any(t in text for t in TAGS))
+        return r
 
-    with open(a.out, "w") as f:
-        for r in rows:
+    # One line per request as it completes, so a long tail can be inspected before it ends.
+    rows = []
+    with open(a.out, "w") as f, ThreadPoolExecutor(a.concurrency) as pool:
+        for fut in as_completed([pool.submit(one, job) for job in jobs]):
+            r = fut.result()
+            rows.append(r)
             f.write(json.dumps(r) + "\n")
+            f.flush()
     n = len(rows)
     runaway = sum(r["finish_reason"] == "length" for r in rows)
     garbled = sum(r["garbled"] for r in rows)

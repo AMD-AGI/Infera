@@ -76,8 +76,22 @@ lm-eval 只看 `content`，判不了这个问题。`gsm8k_probe.py` 把 lm-eval 
 | base-p | 基线，64 题同时发 | 64 | 0.859 | 9 | 8 |
 | **dpa0-200** | 关 DP attention（纯 TP4，HiCache + MTP 开） | 200 | **0.980** | **0** | 2（连贯的过度推敲） |
 | cg0-200 | 基线 + `--disable-cuda-graph` | 200 | — | — | 引擎第一个 decode 步即崩溃 |
-| mtp0-200 | 关 MTP | 200 | 进行中 | | |
-| fusion0-200 | 关 `--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion` | 200 | 进行中 | | |
+| **mtp0-200** | **关 MTP** | 200 | 0.685 | **61** | 59 |
+| fusion0-200 | 关 `--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion` | 200 | 0.710 | 56 | 59 |
+| mtp0cg0-200 | 关 MTP + `--disable-cuda-graph`（全部 eager，避开上面的 draft 崩溃） | 200 | 手动停止，无汇总 | | 见下 |
+| lmhead0-200 | 关 `--enable-dp-lm-head` | 200 | 进行中 | | |
+
+**MTP 也不是必要条件。** 关 MTP 后同样 61 / 200 乱码。至此 HiCache、MTP、prefill delayer、GatherV、融合算子、
+HiCache 各种写法都排除，**唯一必要的是 DP attention**，且要在持续并发下（有混合步）。
+
+**关 CUDA graph 后长尾少了一个数量级。** mtp0cg0-200 全部 eager，decode 每请求只有约 8 tok/s，跑满 16384 token 要半小时以上，
+为了把 GPU 0-3 让给 example 的性能对齐，healthy 后 14 分钟手动停掉（`verdict.txt` 有记录）。停时只剩 6 个请求在跑
+（各 rank 合计 3.6k-12.8k token）；对照开 graph 的 mtp0-200，healthy 后 4 分钟每个 rank 还有 13-16 个请求、平均各 1 万
+token 以上。这 6 个是不是乱码没来得及看（之后用逐条落盘的新版 `gsm8k_probe.py` 补测）。
+
+v0.5.19 的 3P1D PD 部署 GSM8K 是 0.97，那里 decode 节点同样是 DP attention + CUDA graph，但 decode 节点从不做 prefill，
+没有混合步。合起来的工作假设：**聚合部署里 eager 的混合步（DP gather `SUM_LEN`）与 CUDA graph 的纯 decode 步
+（`MAX_LEN`）交替时，有状态没有对齐**，graph 回放读到了错位的数据。尚未定位到具体代码。
 
 **cg0-200 的崩溃。** 全部走 eager 后，第一个 decode 步在 MTP draft 的 `_draft_extend_for_decode` → NextN 层 DSA indexer →
 `fast_topk_transform_fused` 报 `RuntimeError: lengths must have one entry per score row`，随后 GPU memory access fault。

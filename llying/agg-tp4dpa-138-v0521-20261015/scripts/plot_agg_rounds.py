@@ -47,6 +47,8 @@ EXPERIMENTS = [
     ("t8b", "t8b-wb-m092-ck4k", 128, "单个 tokenizer 卡住 worker，AgentX 预热中止"),
     ("t8c", "t8c-wb-m092-ck4k-tok4", 128, ""),
     ("t8d", None, 128, "未跑"),
+    ("b1", "b1-a3-piggyback", 48, "a3 + delayer piggyback，140"),
+    ("b0", "b0-a3-140", 48, "b1 关 piggyback 开关的同节点对照"),
 ]
 
 CONFIG_VARS = [
@@ -54,6 +56,7 @@ CONFIG_VARS = [
     "MIXED_MAX_PREFILL_TOKENS", "MIXED_MAX_RUNNING", "MIXED_PREFILL_DELAYER",
     "MIXED_PREFILL_DELAYER_MAX_PASSES", "MIXED_HICACHE", "MIXED_HICACHE_SIZE",
     "MIXED_HICACHE_WRITE_POLICY", "MIXED_TOKENIZER_WORKERS", "MIXED_EXTRA_ENV", "HSA_NO_SCRATCH_RECLAIM",
+    "AGG_NODE",
 ]
 # Keys whose round.env value must equal the resolved configuration.
 CHECKED = ["MIXED_TP", "MIXED_DP", "MIXED_MEM_FRACTION", "MIXED_CHUNK_SIZE", "MIXED_MAX_PREFILL_TOKENS",
@@ -90,7 +93,9 @@ def config_fields(cfg: dict) -> dict:
         "DelayerMaxPasses": delayer,
         "TokenizerWorkers": int(cfg["MIXED_TOKENIZER_WORKERS"]),
         "Coordination": "on" if "SGLANG_ENABLE_DP_SPEC_PREFILL_COORDINATION=1" in cfg["MIXED_EXTRA_ENV"] else "off",
+        "Piggyback": "on" if "SGLANG_PREFILL_DELAYER_PIGGYBACK=1" in cfg["MIXED_EXTRA_ENV"] else "off",
         "HsaNoScratchReclaim": cfg["HSA_NO_SCRATCH_RECLAIM"],
+        "Node": cfg["AGG_NODE"].rsplit("-", 1)[-1],
     }
 
 
@@ -161,7 +166,7 @@ def load_rows() -> list[dict]:
             "Scored": True, "GPUs": r["num_decode_gpu"], "Parallel": "TP4+DPA4",
             "HiCachePerRank": b["hicache"], "MemFraction": b["mem"], "ChunkPerRank": b["chunk"] // 4,
             "MaxPrefillTokens": 8192, "DelayerMaxPasses": b["delayer"], "TokenizerWorkers": 1,
-            "Coordination": "off", "HsaNoScratchReclaim": "",
+            "Coordination": "off", "Piggyback": "off", "HsaNoScratchReclaim": "", "Node": "B300",
             "TokPerSecPerGPU": m["tput_per_gpu"], "OutputTokPerSecPerGPU": m["output_tput_per_gpu"],
             "Requests": m["total_requests_completed"],
             "ReqPerSec": m["total_requests_completed"] / m["duration_seconds"],
@@ -189,8 +194,8 @@ def write_table(rows: list[dict], out: Path) -> None:
         w.writeheader()
         w.writerows(rows)
     (out / "agg_rounds.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1) + "\n")
-    head = ["轮次", "卡数", "并发", "HiCache / rank", "mem", "chunk / rank", "max-prefill", "delayer 上限",
-            "tokenizer", "coordination", "NSR", "tok/s/GPU", "interactivity p50/p90", "每秒请求", "平均输入",
+    head = ["轮次", "节点", "卡数", "并发", "HiCache / rank", "mem", "chunk / rank", "max-prefill", "delayer 上限",
+            "tokenizer", "coordination", "piggyback", "NSR", "tok/s/GPU", "interactivity p50/p90", "每秒请求", "平均输入",
             "ITL p50/p90 (ms)",
             "TTFT p50/p90 (s)", "decode ms/token", "命中 总 / 理论", "服务端命中 GPU / 主机",
             "每 rank 在跑 / 排队", "状态"]
@@ -201,10 +206,10 @@ def write_table(rows: list[dict], out: Path) -> None:
                  if r.get("GPUHitPct") is not None else "—")
         rq = (f"{r['RunningPerRankMean']:.1f} / {r['QueuePerRankMean']:.1f}" if "RunningPerRankMean" in r else "—")
         lines.append("| " + " | ".join([
-            f"**{r['Round']}**" if r["Round"] == "a6b" else r["Round"], str(r["GPUs"]),
+            f"**{r['Round']}**" if r["Round"] == "a6b" else r["Round"], r["Node"], str(r["GPUs"]),
             f(r["Concurrency"], "C{}"), r["HiCachePerRank"], r["MemFraction"], str(r["ChunkPerRank"]),
             str(r["MaxPrefillTokens"]), str(r["DelayerMaxPasses"]), str(r["TokenizerWorkers"]),
-            r["Coordination"], r["HsaNoScratchReclaim"] or "—",
+            r["Coordination"], r["Piggyback"], r["HsaNoScratchReclaim"] or "—",
             f(r.get("TokPerSecPerGPU"), "{:,.0f}"),
             f"{r['IntvtyP50']:.1f} / {r['IntvtyP90']:.1f}" if "IntvtyP50" in r else "—",
             f(r.get("ReqPerSec"), "{:.3f}"),
