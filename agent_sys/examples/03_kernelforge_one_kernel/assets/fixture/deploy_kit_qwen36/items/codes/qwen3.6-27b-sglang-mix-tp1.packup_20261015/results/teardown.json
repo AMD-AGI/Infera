@@ -1,0 +1,22 @@
+{
+  "at": "2026-10-15T07:14:19Z",
+  "run_tag": "r16aea3",
+  "label": "infera_e2e_run=r16aea3",
+  "removed": [],
+  "containers_left_with_label": 0,
+  "ports_checked": [
+    18101,
+    18102,
+    18103,
+    18104,
+    18105,
+    18106
+  ],
+  "ports_still_listening": [],
+  "gpu_devices": "6",
+  "work_root_reclaimed": false,
+  "waited_for_drain": false,
+  "drained": null,
+  "vram_used_mib_after": "6:285",
+  "seconds": 1
+}

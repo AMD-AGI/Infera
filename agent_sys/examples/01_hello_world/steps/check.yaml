@@ -1,0 +1,52 @@
+# The AI half. Same order as facts.yaml: agent, validator, kind, task.
+- module: agent
+  name: env_checker
+  kind: ai
+  version: '1'
+  description: Re-checks measured facts with its own commands and reports agreement.
+  backends:
+    - key: claude_code_sdk
+      backend_entry: agent.backends.claude_sdk:ClaudeSdkBackend
+      err: the claude backend needs `pip install -e "agent_sys[claude]"`
+
+- module: validator
+  name: check_env_report
+  version: '1'
+  brief: Every fact is checked with a command, agreement is stated honestly, and the facts a validator can re-measure match
+  dimension: trustworthiness
+  strength: strong
+  inputs: [env_report]
+  tags:
+    logic_source: external_dynamic
+    cost: seconds
+    domain: [hello_world]
+
+- module: handoff
+  name: env_report
+  version: '1'
+  description: An AI agent's check of the machine facts, one entry per fact.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_env_report]
+
+- module: task
+  name: env_check
+  description: Check each measured fact with your own command and report agreement.
+  agent: env_checker
+  handoffs: [env_facts, env_report]
+  validators: []
+  task:
+    goal: Check every fact in env_facts with your own command; report each.
+    version: '1'
+    inputs: [env_facts]
+    outputs: [env_report]
+    permissions:
+      grants:
+        - {path: handoffs/env_facts, access: read, kind: env_facts}
+        - {path: handoffs/env_report, access: write, kind: env_report}

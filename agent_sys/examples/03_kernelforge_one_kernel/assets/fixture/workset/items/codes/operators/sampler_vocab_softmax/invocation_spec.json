@@ -1,0 +1,56 @@
+{
+  "schema_version": 2,
+  "status": "complete",
+  "missing_fields": [],
+  "logical_operator": "sampler_vocab_softmax",
+  "kernel_id": null,
+  "device_symbol": "void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_merge_sort_block_merge_config<rocprim::ROCPRIM_400200_NS::default_config, float, at::cuda::cub::detail::OpaqueType<8> >, (rocprim::ROCPRIM_400200_NS::detail::target_arch)942, rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config, float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*, bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*, unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1, auto:2, auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2}, rocprim::ROCPRIM_400200_NS::detail::merge_mergepath_config_selector>(rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config, float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*, bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*, unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1, auto:2, auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2})",
+  "description": "Row-wise softmax over the vocabulary, written in place into a caller-provided buffer.",
+  "environment": {
+    "gpu_target": "gfx942",
+    "framework": "sglang"
+  },
+  "implementation": {
+    "source_owner": "sglang",
+    "image_repo_path": "@SGLANG_ROOT@",
+    "sources": [
+      "python/sglang/srt/layers/sampler.py"
+    ],
+    "editable_sources": [
+      "python/sglang/srt/layers/sampler.py"
+    ],
+    "target_kernel_functions": [
+      "Sampler.forward"
+    ],
+    "source_resolution_method": "declared",
+    "fellow": "triton-fellow"
+  },
+  "tests": {
+    "cases_file": "tests/cases.json",
+    "driver_contract": {
+      "driver": "scripts/forge_driver.py",
+      "protected": true,
+      "case_selectors": [
+        "B16_V248320",
+        "B32_V248320",
+        "B64_V248320"
+      ],
+      "selector_flag": "--shape CASE_ID=<id>",
+      "correctness_invocation": "python scripts/forge_driver.py",
+      "bench_invocation": "python scripts/forge_driver.py --bench-mode",
+      "stdout_keys": [
+        "SNR",
+        "allclose",
+        "case_snr",
+        "case_allclose",
+        "case_ms",
+        "time_ms"
+      ]
+    }
+  },
+  "targets": {
+    "snr_db": 30.0,
+    "correctness_gate": "the worst-case SNR over every case must be at or above the threshold",
+    "speedup_baseline": "evidence/performance.json, impl=baseline"
+  }
+}
