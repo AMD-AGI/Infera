@@ -1,0 +1,96 @@
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+index e444b38b..ea5c8e3b 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+@@ -19,11 +19,13 @@
+ #include <sys/time.h>
+ 
+ #include <algorithm>
++#include <atomic>
+ #include <cassert>
+ #include <chrono>
+ #include <cstddef>
+ #include <cstdlib>
+ #include <future>
++#include <limits>
+ #include <set>
+ #include <thread>
+ #include <utility>
+@@ -720,6 +722,21 @@ int RdmaTransport::refreshLocalDeviceDesc(const std::string &device_name,
+     return ERR_DEVICE_NOT_FOUND;
+ }
+ 
++// Max concurrent buffer registrations in registerLocalMemoryBatch. Env:
++// MC_REG_MR_BATCH_THREADS. Default: 1 on ROCm builds, unbounded elsewhere.
++static size_t registerBatchConcurrency() {
++    const char *env = std::getenv("MC_REG_MR_BATCH_THREADS");
++    if (env) {
++        long v = std::atol(env);
++        if (v >= 1) return static_cast<size_t>(v);
++    }
++#ifdef USE_HIP
++    return 1;
++#else
++    return std::numeric_limits<size_t>::max();
++#endif
++}
++
+ int RdmaTransport::registerLocalMemoryBatch(
+     const std::vector<RdmaTransport::BufferEntry> &buffer_list,
+     const std::string &location) {
+@@ -737,26 +754,43 @@ int RdmaTransport::registerLocalMemoryBatch(
+         }
+     } else {
+ #endif
+-        std::vector<std::future<int>> results;
+-        for (auto &buffer : buffer_list) {
+-            results.emplace_back(std::async(
+-                std::launch::async, [this, buffer, location]() -> int {
+-                    // Use force_sequential=true to avoid nested parallelism
+-                    return registerLocalMemoryInternal(buffer.addr,
+-                                                       buffer.length, location,
+-                                                       true, false, true);
+-                }));
++        // Registration fan-out is bounded by MC_REG_MR_BATCH_THREADS. Under
++        // USE_HIP the default is 1 (sequential): launching one thread per
++        // buffer makes hundreds of concurrent ibv_reg_mr calls pin pages
++        // under the process mmap lock while allocator threads queue mmap
++        // writers behind them, which can stall the whole process.
++        const size_t workers = std::min(registerBatchConcurrency(),
++                                        std::max<size_t>(buffer_list.size(), 1));
++        std::vector<int> results(buffer_list.size(), 0);
++        auto register_one = [&](size_t i) {
++            const auto &buffer = buffer_list[i];
++            // force_sequential=true to avoid nested parallelism.
++            results[i] = registerLocalMemoryInternal(
++                buffer.addr, buffer.length, location, true, false, true);
++        };
++        if (workers <= 1) {
++            for (size_t i = 0; i < buffer_list.size(); ++i) register_one(i);
++        } else {
++            std::atomic<size_t> next{0};
++            std::vector<std::thread> pool;
++            pool.reserve(workers);
++            for (size_t w = 0; w < workers; ++w) {
++                pool.emplace_back([&]() {
++                    for (size_t i; (i = next.fetch_add(1)) < buffer_list.size();)
++                        register_one(i);
++                });
++            }
++            for (auto &t : pool) t.join();
+         }
+ 
+         int first_error = 0;
+         for (size_t i = 0; i < buffer_list.size(); ++i) {
+-            int ret = results[i].get();
+-            if (ret) {
++            if (results[i]) {
+                 LOG(WARNING)
+                     << "RdmaTransport: Failed to register memory: addr "
+                     << buffer_list[i].addr << " length "
+                     << buffer_list[i].length;
+-                if (!first_error) first_error = ret;
++                if (!first_error) first_error = results[i];
+             }
+         }
+         if (first_error) return first_error;

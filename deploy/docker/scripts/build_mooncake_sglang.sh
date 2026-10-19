@@ -10,9 +10,13 @@
 #   - large MRs are chunked and registration failures propagate (#2644/#2869);
 #   - chunked dma-buf offsets include each chunk's displacement (#3243).
 #
-# Keep no private source patches here. Build the upstream source, then verify the
-# two artifact capabilities SGLang PD needs: HIP dma-buf registration and
-# cross-host RDMA routing.
+# Build the upstream source, then verify the two artifact capabilities SGLang PD
+# needs: HIP dma-buf registration and cross-host RDMA routing.
+#
+# MC_CPP_PATCH_DIR (optional) points at deploy/docker/patches/mooncake_cpp; when
+# set, rdma_batch_register.diff is applied before the build. It bounds the
+# registration fan-out of registerLocalMemoryBatch (MC_REG_MR_BATCH_THREADS,
+# default 1 on ROCm builds).
 set -euo pipefail
 
 MC_ROOT="${MC_ROOT:-/tmp/mooncake-upstream}"
@@ -28,6 +32,17 @@ git fetch --depth=1 origin "$MC_REF"
 git checkout --detach "$MC_REF"
 git submodule update --init --recursive
 echo "[mc-build] Mooncake $(git rev-parse HEAD)"
+
+if [ -n "${MC_CPP_PATCH_DIR:-}" ]; then
+    PATCH="$MC_CPP_PATCH_DIR/rdma_batch_register.diff"
+    if git apply --reverse --check "$PATCH" 2>/dev/null; then
+        echo "[mc-build] rdma_batch_register.diff already applied"
+    else
+        git apply "$PATCH" ||
+            { echo "[mc-build] ERROR: $PATCH does not apply to $MC_REF" >&2; exit 1; }
+        echo "[mc-build] applied rdma_batch_register.diff"
+    fi
+fi
 
 # Assert the pinned source has the features this image relies on. A ref bump that
 # loses or moves either implementation must fail here, before an expensive build.
