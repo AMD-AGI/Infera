@@ -2,18 +2,19 @@
 # Bisect the garbled-output defect of the aggregated GLM-5.2 recipe under concurrency.
 # Starts etcd + one engine with the recipe of examples/sglang_mix_glm5.2/engine/worker.sh,
 # minus the features switched off below, then runs GSM8K (EVAL_LIMIT questions at
-# EVAL_CONCURRENCY, straight to the engine) and counts garbled answers.
+# EVAL_CONCURRENCY, straight to the engine, scripts/gsm8k_probe.py) and counts runaway answers.
 #
 # Usage (on the GPU node): engine_bisect.sh NAME [FUSE_TOPK=0] [HICACHE=0] [MTP=0] [DPA=0]
-#                          [GATHERV=0] [DELAYER=0] [FUSION=0]
+#                          [GATHERV=0] [DELAYER=0] [FUSION=0] [LMHEAD=0]
 # Env: SITE (file exporting NODE_IP MODEL IMAGE), GPUS, PORT_OFFSET (0 or 100), EVAL_LIMIT=64,
-#      EXTRA_ENV="K=V ...", STOCK=1 [STOCK_IMAGE=...]
+#      EXTRA_ENV="K=V ...", EXTRA_ARGS="--flag ...", STOCK=1 [STOCK_IMAGE=...]
 set -euo pipefail
 name="$1"; shift
 FUSE_TOPK=1 HICACHE=1 MTP=1 DPA=1 GATHERV=1 DELAYER=1 FUSION=1
 for kv in "$@"; do export "$kv"; done
 KIT=/home/liyingli/bench_agentx/baseline/Infera-mix-v0522/examples/sglang_mix_glm5.2
 OUT_ROOT=/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/bisect
+PROBE=/home/liyingli/bench_agentx/baseline/Infera/llying/mix-v0522-correctness-20261019/scripts/gsm8k_probe.py
 set -a; . "$SITE"; set +a
 [[ "${STOCK:-0}" == 1 ]] && IMAGE="${STOCK_IMAGE:-lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018}"
 off=${PORT_OFFSET:-0}
@@ -23,7 +24,7 @@ export KV_EVENTS_PORT=$((27657 + off)) KV_SNAPSHOT_PORT=$((28951 + off)) ROUTER_
 source "$KIT/engine/common.sh"
 mkdir -p "$WORK_DIR/runs/$name"
 echo "$WORK_DIR/runs/$name" > "$WORK_DIR/current_run"
-printf '%s\n' "name=$name FUSE_TOPK=$FUSE_TOPK HICACHE=$HICACHE(${HICACHE_POLICY:-write_through},${HICACHE_IO:-kernel},${HICACHE_LAYOUT:-page_first}) IDXSHARE=${IDXSHARE:-0} MTP=$MTP DPA=$DPA GATHERV=$GATHERV DELAYER=$DELAYER FUSION=$FUSION EXTRA_ENV=[${EXTRA_ENV:-}] STOCK=${STOCK:-0} IMAGE=$IMAGE GPUS=$GPUS" | tee "$WORK_DIR/runs/$name/variant.txt"
+printf '%s\n' "name=$name FUSE_TOPK=$FUSE_TOPK HICACHE=$HICACHE(${HICACHE_POLICY:-write_through},${HICACHE_IO:-kernel},${HICACHE_LAYOUT:-page_first}) IDXSHARE=${IDXSHARE:-0} MTP=$MTP DPA=$DPA GATHERV=$GATHERV DELAYER=$DELAYER FUSION=$FUSION LMHEAD=${LMHEAD:-1} EXTRA_ARGS=[${EXTRA_ARGS:-}] EXTRA_ENV=[${EXTRA_ENV:-}] STOCK=${STOCK:-0} IMAGE=$IMAGE GPUS=$GPUS" | tee "$WORK_DIR/runs/$name/variant.txt"
 
 docker run -d --name "$CTR-etcd" --network host --entrypoint /usr/local/bin/etcd "$ETCD_IMAGE" \
     --advertise-client-urls "http://$NODE_IP:$ETCD_PORT" --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \
@@ -54,13 +55,16 @@ args+=(--tp-size 4 --ep-size 1 --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend t
     --max-running-requests 128 --cuda-graph-max-bs-decode 64
     --reasoning-parser glm45 --tool-call-parser glm47 --enable-metrics --enable-cache-report --watchdog-timeout 3600)
 [[ "${IDXSHARE:-0}" == 1 ]] || args+=(--json-model-override-args '{"index_share_for_mtp_iteration":false}')
-[[ "$DPA" == 1 ]] && args+=(--dp-size 4 --enable-dp-attention --enable-dp-lm-head)
+[[ "$DPA" == 1 ]] && args+=(--dp-size 4 --enable-dp-attention)
+[[ "$DPA" == 1 && "${LMHEAD:-1}" == 1 ]] && args+=(--enable-dp-lm-head)
 [[ "$DELAYER" == 1 ]] && args+=(--enable-prefill-delayer --prefill-delayer-max-delay-passes 60)
 [[ "$MTP" == 1 ]] && args+=(--speculative-algorithm EAGLE --speculative-num-steps 5 --speculative-eagle-topk 1 --speculative-num-draft-tokens 6)
 [[ "$HICACHE" == 1 ]] && args+=(--enable-hierarchical-cache --hicache-size 64 --hicache-ratio 1.5
     --hicache-write-policy "${HICACHE_POLICY:-write_through}" --hicache-io-backend "${HICACHE_IO:-kernel}"
     --hicache-mem-layout "${HICACHE_LAYOUT:-page_first}")
 [[ "$FUSION" == 1 ]] && args+=(--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion)
+read -ra extra_args <<<"${EXTRA_ARGS:-}"
+args+=("${extra_args[@]}")
 
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
 # Two engines sharing --ipc host collide on RCCL's pid-named shared memory (container
@@ -80,16 +84,11 @@ docker run -d --name "$CTR-engine" --network host --ipc host --shm-size 32g \
 wait_health "$ENGINE_URL/health" "$CTR-engine"
 echo "engine healthy $(date -u +%T)"
 
-EVAL_LIMIT="${EVAL_LIMIT:-64}" EVAL_CONCURRENCY="${EVAL_CONCURRENCY:-64}" bash "$KIT/engine/eval.sh" > /dev/null 2>&1 || true
-f="$(ls "$WORK_DIR"/runs/"$name"/gsm8k/*/samples_gsm8k_*.jsonl | tail -1)"
-python3 - "$f" "$WORK_DIR/runs/$name/gsm8k/eval.log" <<'EOF' | tee "$WORK_DIR/runs/$name/verdict.txt"
-import json, re, sys
-rows = [json.loads(l) for l in open(sys.argv[1]) if l.strip()]
-strict = [r for r in rows if r["filter"] == "strict-match"]
-garbled = sum(1 for r in strict if len(r["resps"][0][0]) > 8000 or "</think>" in r["resps"][0][0])
-acc = sum(r["exact_match"] for r in strict) / len(strict)
-print(f"n={len(strict)} strict_acc={acc:.3f} garbled={garbled}")
-EOF
+# Same 64 prompts every variant (the base run's lm-eval samples); runaway = hit max_tokens.
+prompts="$(ls "$OUT_ROOT"/base/runs/base/gsm8k/*/samples_gsm8k_*.jsonl | tail -1)"
+python3 "$PROBE" "$prompts" "$ENGINE_URL" "$SERVED_MODEL" \
+    "$WORK_DIR/runs/$name/probe.jsonl" --limit "${EVAL_LIMIT:-64}" --concurrency "${EVAL_CONCURRENCY:-64}" \
+    | tee "$WORK_DIR/runs/$name/verdict.txt"
 docker logs --timestamps "$CTR-engine" > "$WORK_DIR/runs/$name/engine.log" 2>&1 || true
 docker rm -f "$CTR-engine" "$CTR-etcd" >/dev/null
 echo "removed $CTR-engine $(date -u +%T)"

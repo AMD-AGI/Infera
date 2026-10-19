@@ -19,47 +19,49 @@ GSM8K（lm_eval 0.4.13，5-shot、200 题，经 router，真实 MTP 接受）只
 ## 二分
 
 `scripts/engine_bisect.sh NAME [FUSE_TOPK=0] [HICACHE=0] [MTP=0] [DPA=0] [GATHERV=0] [DELAYER=0] [FUSION=0]`：在 138 上起
-etcd + 引擎（example 配方去掉对应特性，HiCache 64 GB），GSM8K 64 题、并发 64、直连引擎，数乱码题数。结果在
-`/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/bisect/<NAME>/runs/<NAME>/verdict.txt`（138 本地盘）。
+etcd + 引擎（example 配方去掉对应特性，HiCache 64 GB），64 道 GSM8K 同时发、直连引擎。结果在
+`/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/bisect/<NAME>/runs/<NAME>/`（138 本地盘）。
 
-| 变体 | 关掉的特性 | strict | 乱码题 / 64 |
-|---|---|---|---|
-| base | 无（example 配方，HiCache 64 GB） | 0.859 | 8 |
-| fusetopk0 | DSA fused top-k（`SGLANG_DSA_FUSE_TOPK=0`） | 0.812 | 6 |
-| hicache0 | HiCache | 0.891 | **0** |
-| mtp0 | EAGLE MTP | 0.891 | 2 |
-| wb | HiCache 改 `write_back`（其余同基线） | 0.844 | 7 |
-| directio | HiCache I/O 改 `direct` + `page_first_direct` | 0.906 | 2 |
-| b300like | B300 的组合：`write_back` + `direct` + `page_first_direct`，不覆盖 `index_share` | 0.859 | 1 |
-| idxshare1 | 基线去掉 `index_share_for_mtp_iteration=false` 覆盖 | 0.859 | 3 |
-| gtt | 基线 + `HSA_USERPTR_FOR_PAGED_MEM=0`（HiCache 主机池用 hipHostMalloc / GTT） | 0.906 | 1 |
-| dpa0 | DP attention（纯 TP4，HiCache 开） | 0.953 | **0** |
-| gatherv0 | `SGLANG_DP_USE_GATHERV=0` | 0.906 | 3 |
-| delayer0 | prefill delayer | 0.859 | 3 |
-| hicache0-n200 | HiCache，200 题复核 | 进行中 | |
-| stock | 上游镜像 `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`，`sglang.launch_server`，不打 Infera 任何补丁，同配方 | 进行中 | |
+### 更正：HiCache 不是必要条件
 
-剩下的"乱码"逐条看过，都是真乱码（`</think>` 碎片、成串的 `0:`、`2`），不是检测规则误判的长答案。
+前几轮用 lm-eval 的回答数"乱码"（>8000 字符或含 `</think>`），据此得出"关 HiCache 为 0、需要 HiCache 和 DP attention
+同时开"。**这个结论是错的**：漏数了空回答。模型一直不闭合 thinking、生成到 `max_gen_toks=16384` 时，glm45 reasoning
+parser 把全部文本放进 `reasoning_content`，lm-eval 看到的 `content` 是空串。把空回答算上（"坏"= 长/含 `</think>` + 空）：
 
-**基线要用同一套测法。** 最早写的"基线约 19 / 64"是从 200 题、经 router 的 E2E 结果换算的；同脚本（64 题同时发、直连引擎）
-的基线实测是 8 / 64。按这个基线，1–3 题的那些变体（gatherv0、delayer0、idxshare1、directio、mtp0、gtt、b300like）只能说
-"可能减轻"，64 题的样本分不出来；**站得住的只有两条：关 HiCache 为 0，关 DP attention 为 0**，即需要两者同时开。
+| 变体 | 关掉的特性 | strict | 长或含 `</think>` | 空 | 坏 / 64 |
+|---|---|---|---|---|---|
+| base | 无（example 配方，HiCache 64 GB） | 0.859 | 8 | 2 | 10 |
+| hicache0 | HiCache | 0.891 | 0 | 7 | 7 |
+| **dpa0** | **DP attention（纯 TP4，HiCache 开）** | **0.953** | 0 | 2 | **2** |
+| mtp0 | EAGLE MTP | 0.891 | 2 | 4 | 6 |
+| fusetopk0 | DSA fused top-k（`SGLANG_DSA_FUSE_TOPK=0`） | 0.812 | 6 | 6 | 12 |
+| wb | HiCache 改 `write_back` | 0.844 | 7 | 3 | 10 |
+| directio | HiCache I/O 改 `direct` + `page_first_direct` | 0.906 | 2 | 4 | 6 |
+| b300like | `write_back` + `direct` + `page_first_direct`，不覆盖 `index_share` | 0.859 | 1 | 8 | 9 |
+| idxshare1 | 去掉 `index_share_for_mtp_iteration=false` 覆盖 | 0.859 | 3 | 6 | 9 |
+| gtt | `HSA_USERPTR_FOR_PAGED_MEM=0`（HiCache 主机池用 GTT） | 0.906 | 1 | 4 | 5 |
+| gatherv0 | `SGLANG_DP_USE_GATHERV=0` | 0.906 | 3 | 5 | 8 |
+| delayer0 | prefill delayer | 0.859 | 3 | 6 | 9 |
+| **stock** | **上游镜像 `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`，`sglang.launch_server`，不打任何 Infera 补丁** | 0.891 | 0 | 7 | **7** |
 
-**不需要真的发生主机传输。** wb 一项（`write_back`，只在驱逐时写主机）引擎日志里每个 rank 的 GPU KV 池 238 万 token，
-64 题远装不满，没有驱逐也没有载回（prefill 的 `#cached-token` 全为 0），仍有 7 题乱码。两次启动日志（hicache0 对 wb）
-除 HiCache 主机池的几行外完全相同，`server_args` 也只差 HiCache 自身的参数。所以问题在"挂上 HiCache 之后"走的不同代码
-路径上，而不在数据拷贝本身；`HSA_USERPTR_FOR_PAGED_MEM=0`（gtt）也没有消除它。
+空回答是不是乱码，看引擎日志：收尾阶段只剩 1 个请求、已超过 6000 token 的 decode 行里，hicache0 四个 DP rank 的 MTP
+平均接受长度 1.03–1.36、一直跑到 17k token（上限），stock 的 DP2 也是 1.31；正常 decode 是 3.5–4.5。接受长度掉到 1
+说明 target 输出的已经不是 draft 能猜的正常文本——就是乱码，只是写在 thinking 里。dpa0 收尾时 2 个请求合计 5.5k token、
+接受长度 4.4，没有这种长尾（它的 2 个空回答另查）。
 
-读过但排除的点：prefill delayer 的否决发生在 `init_load_back` 之前（`schedule_policy.py` 1401 对 1459 行）；没有待载回数据时
-`start_loading()` 返回 -1，前向不会等任何事件；HiCache 的跨 rank 同步用的是各自的 attention TP 组（DP attention 下大小为 1）。
-上游相近的报告：sglang#30321（GLM-5.2 + MTP + HiCache 偶发乱码，关 HiCache 消失；修复 sglang#31427，维护者称 main 换
-`UnifiedRadixTree` 后不再出现——v0.5.22 已是 `UnifiedRadixCache`，且对方是纯 TP4），sglang#22811（GLM-5 HiCache 下 indexer
-读与层级载回竞争，已合入）。
+所以：
+- **需要的是 DP attention，不是 HiCache。** 只有 dpa0 没有乱码长尾；关 HiCache、换任何 HiCache 组合都还在。
+- **上游无补丁镜像同样出现**，不是我们的 DSA 补丁集或 HiCache 补丁引入的；v0.5.21 也有（见上表）。
+- 之前读 HiCache 代码排除的几点（delayer 否决在 `init_load_back` 之前、无载回时 `start_loading()` 返回 -1、HiCache
+  同步用 attention TP 组）仍然成立，只是不再相关。上游 sglang#30321（GLM-5.2 + MTP + HiCache 乱码）对方是纯 TP4，与这里不同。
+- 上游 CUDA 上 GLM-5.2-NVFP4 TP4/DP4 + EAGLE 的 GSM8K 是 0.948（sglang#32196 的验证），这里同构型只有 0.86–0.89，
+  更可能是 ROCm 上 DP attention 路径（aiter / triton DSA / MXFP4）特有的问题。
 
-下一步：stock 一项区分上游与我们自己的补丁（DSA 补丁集、`patch_hicache_rocm_staged_write_back.py` 等两个镜像都带）。
+### 换判据：`scripts/gsm8k_probe.py`
 
-fusetopk0 关掉 fused top-k 后，decode 改走 `transform_index_page_table_decode`，也就是 `dsa_page_table_rows.diff` 生效的路径；
-该补丁在 token 行数不是请求数整数倍时（DP 填充）会直接裁剪或补齐，真实 token 与请求的对应可能错位，剩下的 6 题可能来自这里。
+lm-eval 只看 `content`，判不了这个问题。`gsm8k_probe.py` 用 base 那一组的同一批 64 个 prompt 直连引擎（temperature 0，
+`max_tokens` 16384），每个请求记 `finish_reason`、生成 token 数、`reasoning_content` 与 `content`；**被上限截断
+（`finish_reason=length`）即判为失控**，与 parser 无关。之后各项都用它（`verdict.txt` 一行汇总，`probe.jsonl` 逐条）。
 
 **同节点两个引擎会撞 RCCL 共享内存名。** 两个容器都 `--ipc host`，容器内 PID 都从很小的数开始，后起的那个在
 `ncclCommInitRank` 报 `HIP failure: 'invalid argument'` 退出（hicache0 前两次即此）。并行跑两个排查栈时，第二个先空转把 PID
