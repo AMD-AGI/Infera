@@ -25,8 +25,13 @@ etcd + 引擎（example 配方去掉对应特性，HiCache 64 GB），GSM8K 64 �
 | 变体 | 关掉的特性 | strict | 乱码题 / 64 |
 |---|---|---|---|
 | fusetopk0 | DSA fused top-k（`SGLANG_DSA_FUSE_TOPK=0`） | 0.812 | 6（基线约 30%，即约 19） |
-| hicache0 | HiCache | 进行中 | |
-| mtp0 | EAGLE MTP | 进行中 | |
+| hicache0 | HiCache | 0.891 | **0** |
+| mtp0 | EAGLE MTP | 0.891 | 2 |
+| wb | HiCache 改 `write_back`（其余同基线） | 进行中 | |
+| directio | HiCache I/O 改 `direct` + `page_first_direct`（B300 的组合） | 进行中 | |
+
+主因在 HiCache，MTP 放大它。GSM8K 的 prompt 短，GPU KV 池远装得下，几乎不发生从主机载回，所以更可能是 write_through 的写主机
+路径（备份拷贝）在并发下破坏了 GPU 上的 KV，而不是载回路径。下一步区分写策略（wb）和 I/O 后端（directio）。
 
 fusetopk0 关掉 fused top-k 后，decode 改走 `transform_index_page_table_decode`，也就是 `dsa_page_table_rows.diff` 生效的路径；
 该补丁在 token 行数不是请求数整数倍时（DP 填充）会直接裁剪或补齐，真实 token 与请求的对应可能错位，剩下的 6 题可能来自这里。

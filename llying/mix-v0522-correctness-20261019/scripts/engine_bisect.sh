@@ -21,7 +21,7 @@ export KV_EVENTS_PORT=$((27657 + off)) KV_SNAPSHOT_PORT=$((28951 + off)) ROUTER_
 source "$KIT/engine/common.sh"
 mkdir -p "$WORK_DIR/runs/$name"
 echo "$WORK_DIR/runs/$name" > "$WORK_DIR/current_run"
-printf '%s\n' "name=$name FUSE_TOPK=$FUSE_TOPK HICACHE=$HICACHE MTP=$MTP DPA=$DPA GATHERV=$GATHERV DELAYER=$DELAYER FUSION=$FUSION IMAGE=$IMAGE GPUS=$GPUS" | tee "$WORK_DIR/runs/$name/variant.txt"
+printf '%s\n' "name=$name FUSE_TOPK=$FUSE_TOPK HICACHE=$HICACHE(${HICACHE_POLICY:-write_through},${HICACHE_IO:-kernel},${HICACHE_LAYOUT:-page_first}) MTP=$MTP DPA=$DPA GATHERV=$GATHERV DELAYER=$DELAYER FUSION=$FUSION IMAGE=$IMAGE GPUS=$GPUS" | tee "$WORK_DIR/runs/$name/variant.txt"
 
 docker run -d --name "$CTR-etcd" --network host --entrypoint /usr/local/bin/etcd "$ETCD_IMAGE" \
     --advertise-client-urls "http://$NODE_IP:$ETCD_PORT" --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \
@@ -52,7 +52,8 @@ args=(--model-path "$MODEL" --served-model-name "$SERVED_MODEL" --trust-remote-c
 [[ "$DELAYER" == 1 ]] && args+=(--enable-prefill-delayer --prefill-delayer-max-delay-passes 60)
 [[ "$MTP" == 1 ]] && args+=(--speculative-algorithm EAGLE --speculative-num-steps 5 --speculative-eagle-topk 1 --speculative-num-draft-tokens 6)
 [[ "$HICACHE" == 1 ]] && args+=(--enable-hierarchical-cache --hicache-size 64 --hicache-ratio 1.5
-    --hicache-write-policy write_through --hicache-io-backend kernel --hicache-mem-layout page_first)
+    --hicache-write-policy "${HICACHE_POLICY:-write_through}" --hicache-io-backend "${HICACHE_IO:-kernel}"
+    --hicache-mem-layout "${HICACHE_LAYOUT:-page_first}")
 [[ "$FUSION" == 1 ]] && args+=(--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion)
 
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
