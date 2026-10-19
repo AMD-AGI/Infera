@@ -71,9 +71,17 @@ THE ROW COUNT DIVERGES BOTH WAYS (`GLM52_P1V3`)
   reproduction kit -- ask the patch author.
 
 WHY A SCRIPT AND NOT A DIFF. Patches 02 and 04 are `--fuzz=0` context diffs
-pinned to the v0.5.18 gfx950 base. This fix is needed on BOTH engine bases, and
-`dsa_indexer.py` drifts between v0.5.16/gfx942 and v0.5.18/gfx950. Anchoring on
-source text instead of line numbers covers both from one source of truth.
+pinned to one base. This fix is needed on every engine base we ship, and
+`dsa_indexer.py` drifts across all of them: v0.5.16/gfx942, v0.5.18/glm53 and
+the v0.5.19 gfx950 nightly. Anchoring on source text instead of line numbers
+covers all three from one source of truth.
+
+  ANCHORS 1 AND 3 ARE DELIBERATELY LOOSE, so do not "tidy" them back onto the
+  adjacent code. Anchor 1 sits on the `contextlib`/`logging` import head rather
+  than the typing line, because v0.5.19 dropped `List` from that line. Anchor 3
+  starts at `if self.paged_mqa_logits_backend.is_aiter():` rather than the
+  `weights.squeeze(2)` above it, because v0.5.19 inserted a nested helper
+  between the two. Both forms verified unique on v0.5.16, v0.5.18 and v0.5.19.
 
   NOTE on the P1V3 anchor. It is the bare `topk_transform(logits,
   self.index_topk)` call. The complete patch was applied and bytecode-verified
@@ -174,15 +182,16 @@ _REL = "layers/attention/dsa/dsa_indexer.py"
 _EDITS: list[tuple[str, str]] = [
     # `os` for the debug-logging env switch below.
     (
-        """from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+        """from __future__ import annotations
 
-import torch
+import contextlib
+import logging
 """,
-        """from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union
+        """from __future__ import annotations
 
+import contextlib
+import logging
 import os
-
-import torch
 """,
     ),
     # Anchored on the two platform flags rather than the whole block: v0.5.16
@@ -200,17 +209,13 @@ _DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
     ),
     # Trim q/weights to the real row count on the aiter branch only.
     (
-        """        weights = weights.squeeze(2)
-
-        if self.paged_mqa_logits_backend.is_aiter():
+        """        if self.paged_mqa_logits_backend.is_aiter():
             logits = aiter_paged_mqa_logits(
                 q_fp8,
                 kv_cache_fp8,
                 weights,
 """,
-        """        weights = weights.squeeze(2)
-
-        # GLM52_P1V2/P1V3: bound BEFORE the branch, not inside it -- _p1v2_clip is
+        """        # GLM52_P1V2/P1V3: bound BEFORE the branch, not inside it -- _p1v2_clip is
         # read unconditionally below, so a branch-local binding is a NameError on
         # any non-aiter backend. See "BOUND BEFORE THE BRANCH" in the header.
         _p1v2_trim = False
