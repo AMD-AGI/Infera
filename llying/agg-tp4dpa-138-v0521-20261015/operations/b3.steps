@@ -1,0 +1,5 @@
+# b3 (crsuse2-m2m-138): a3 as plain TP4 without DP attention (config/round.b3.sh), after b2.
+bash scripts/stop_stack.sh ROUND=b2
+bash scripts/launch_agg.sh ROUND=b3
+python3 scripts/decode_check.py http://10.245.157.237:28200 glm5.2-mxfp4 runtime/runs/b3/launch/decode_check.json
+bash scripts/agg_round.sh ROUND=b3 VARIANT=b3-a3-tp4-nodpa CONC=48
