@@ -45,6 +45,7 @@ from __future__ import annotations
 from typing import Literal
 
 from infera.common.worker_pool import WorkerInfo
+from infera.router.token_ids import prompt_from_chunk
 
 
 def _params(w: WorkerInfo, side: str) -> dict:
@@ -79,6 +80,9 @@ class AtomMooncakeProtocol:
         if "max_completion_tokens" in out:
             out["max_completion_tokens"] = 1
         out.pop("stream_options", None)
+        # Ask for the prompt ids, which extract_handoff passes on so decode
+        # skips rendering and tokenizing the same prompt again.
+        out["return_token_ids"] = True
         out["kv_transfer_params"] = {
             "remote_dp_size": _required(d_params, "dp_size", d, "decode"),
             "remote_tp_size": _required(d_params, "tp_size", d, "decode"),
@@ -154,7 +158,15 @@ class AtomMooncakeProtocol:
         # the decode leg reuses it verbatim (+ enrichment), exactly like ATOM's
         # own proxy / atomesh mesh. A shallow copy keeps the router from
         # mutating the parsed response.
-        return dict(kv)
+        handoff = dict(kv)
+        # ATOM decode takes kv_transfer_params['prompt_token_ids'] as the
+        # prompt (and drops it before the engine), skipping its own template
+        # rendering and tokenization: ~0.25 s per request at 130K tokens. A
+        # prefill that did not return them leaves decode tokenizing as before.
+        ids = prompt_from_chunk(prefill_response_payload)
+        if ids is not None:
+            handoff["prompt_token_ids"] = ids
+        return handoff
 
     def request_id_for(self, p: WorkerInfo, d: WorkerInfo, room_id: int) -> str | None:
         # ATOM correlates P/D via transfer_id in the body, not the request id.

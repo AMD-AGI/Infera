@@ -94,6 +94,24 @@ class TestAtomMooncakeProtocol:
         assert handoff == kv
         assert handoff is not kv
 
+    def test_prompt_ids_flow_from_prefill_to_decode(self):
+        body = {"model": "x", "messages": [], "max_tokens": 50, "stream": True}
+        pre = self.proto.annotate_prefill(body, self.p, self.d, room_id=1)
+        assert pre["return_token_ids"] is True
+        assert "return_token_ids" not in body
+        # ATOM puts them at the top level of a chat response, under the
+        # choice on completions; both reach decode's kv_transfer_params.
+        for payload in (
+            {"kv_transfer_params": self._prefill_response_kv(), "prompt_token_ids": [5, 6, 7]},
+            {
+                "kv_transfer_params": self._prefill_response_kv(),
+                "choices": [{"text": "", "prompt_token_ids": [5, 6, 7]}],
+            },
+        ):
+            handoff = self.proto.extract_handoff(payload)
+            out = self.proto.annotate_decode(body, self.p, self.d, room_id=1, prefill_handoff=handoff)
+            assert out["kv_transfer_params"]["prompt_token_ids"] == [5, 6, 7]
+
     def test_extract_handoff_missing_kv_raises(self):
         with pytest.raises(ValueError, match="kv_transfer_params"):
             self.proto.extract_handoff({"choices": []})
