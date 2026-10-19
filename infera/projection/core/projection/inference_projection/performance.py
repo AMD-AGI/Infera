@@ -2493,6 +2493,59 @@ class InferencePerformanceProjector:
             return None
         return s_tgt, s_bench
 
+    def _measured_decode_shard(self, batch: int) -> float | None:
+        """Per-doubling shrink of the above-floor decode step, measured, or ``None``.
+
+        The floor-preserving law shards the excess over the batch-1 step by
+        ``bench_tp / target_tp``, i.e. perfectly. That holds where it was
+        checked (DeepSeek-V4-Pro on ATOM: 0.50 per doubling from TP4 to TP8 at
+        every batch) and nowhere it was not: GLM-5.2-MXFP4 on SGLang carries
+        its excess at 0.55-0.60 from TP2 to TP4 and 0.56-0.69 from TP4 to TP8,
+        DeepSeek-V4-Flash on SGLang at 0.68-0.71 from TP2 to TP4. A narrower
+        anchor at half the bench width measures the ratio below the node, and
+        sharding only gets worse as a model is spread wider, so it is a bound
+        the target cannot beat. Read at the batch being asked about, because
+        the ratio moves with batch (more of a small step is per-kernel cost).
+        """
+        if os.getenv("INFERASIM_MEASURED_DECODE_SHARD", "1") == "0":
+            return None
+        raw = self._bench_scaling_raw.get("decode") or {}
+        lo, hi = self._bench_tp // 2, self._bench_tp
+        if lo < 1 or lo * 2 != hi:
+            return None
+
+        def at(tp, b):
+            v = (raw.get(b) or {}).get(tp)
+            return v[0] if v else None
+
+        f_lo, f_hi = at(lo, 1), at(hi, 1)
+        if not f_lo or not f_hi:
+            return None
+        pts = []
+        for b in sorted(raw):
+            if b <= 1:
+                continue
+            m_lo, m_hi = at(lo, b), at(hi, b)
+            if m_lo is None or m_hi is None:
+                continue
+            e_lo, e_hi = m_lo - f_lo, m_hi - f_hi
+            # A tiny excess is mostly noise in both steps, so its ratio is not
+            # a measurement of sharding.
+            if e_lo < 1.0 or e_hi <= 0.0:
+                continue
+            pts.append((b, min(1.0, max(0.5, e_hi / e_lo))))
+        if not pts:
+            return None
+        if batch <= pts[0][0]:
+            return pts[0][1]
+        if batch >= pts[-1][0]:
+            return pts[-1][1]
+        for (b0, r0), (b1, r1) in zip(pts, pts[1:]):
+            if b0 <= batch <= b1:
+                w = math.log(batch / b0) / math.log(b1 / b0)
+                return r0 + w * (r1 - r0)
+        return None
+
     def _restore_whole(
         self, ms_bench: float, batch: int, tokens: int, phase: str = "decode"
     ) -> float:
@@ -2547,7 +2600,11 @@ class InferencePerformanceProjector:
         ):
             floor = self._anchor_decode_floor_ms
             excess = max(0.0, ms_bench - floor)
-            restored = floor + excess * (self._bench_tp / self._tgt_tp)
+            shard = self._bench_tp / self._tgt_tp
+            per_doubling = self._measured_decode_shard(batch) if self._tgt_tp > self._bench_tp else None
+            if per_doubling is not None:
+                shard = per_doubling ** math.log2(self._tgt_tp / self._bench_tp)
+            restored = floor + excess * shard
             if os.getenv("INFERASIM_DEBUG_RESTORE"):
                 print(
                     f"[dbg-restore] phase=decode b={batch} floor={floor:.3f} "
