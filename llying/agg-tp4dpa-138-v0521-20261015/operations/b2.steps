@@ -1,0 +1,4 @@
+# b2 (crsuse2-m2m-138): b1's settings on a3's node (config/round.b2.sh); compare with a3 C48.
+bash scripts/launch_agg.sh ROUND=b2
+python3 scripts/decode_check.py http://10.245.157.237:28200 glm5.2-mxfp4 runtime/runs/b2/launch/decode_check.json
+bash scripts/agg_round.sh ROUND=b2 VARIANT=b2-a3-piggyback-138 CONC=48
