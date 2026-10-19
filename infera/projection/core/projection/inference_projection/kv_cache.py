@@ -144,18 +144,19 @@ def linear_state_bytes_per_layer(inference_config: InferenceConfig) -> float:
     token and is not a stored key.
     """
     mc = inference_config.model_config
-    d = mc.linear_attention_state_len() if mc.linear_attention_layer_count() else 0
-    heads = int(mc.num_attention_heads or 0)
-    if heads <= 0 or d <= 0:
+    if not mc.linear_attention_layer_count() or int(mc.num_attention_heads or 0) <= 0:
         return 0.0
+    # One dk×dv state per value head; the short convolution keeps a window of
+    # ``kernel - 1`` rows over the q, k and v channels.
+    hk, hv, dk, dv = mc.linear_attention_geometry()
     mp = inference_config.model_parallel_config
-    tp = max(1, mp.tensor_model_parallel_size)
-    heads_on_rank = heads if attention_dp_size(inference_config) > 1 else max(1, heads // tp)
+    tp = 1 if attention_dp_size(inference_config) > 1 else max(1, mp.tensor_model_parallel_size)
+    hk, hv = max(1, hk // tp), max(1, hv // tp)
     elem = dtype_num_bytes("bf16")
-    state = heads_on_rank * d * d * elem
+    state = hv * dk * dv * elem
     kernel = int(getattr(mc, "linear_attention_conv_kernel", 0) or 0)
     if kernel > 1:
-        state += heads_on_rank * d * (kernel - 1) * elem
+        state += (2 * hk * dk + hv * dv) * (kernel - 1) * elem
     return state
 
 

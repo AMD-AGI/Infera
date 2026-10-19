@@ -111,6 +111,34 @@ class ModelConfig:
     linear_attention_head_dim: int = 0
     linear_attention_conv_kernel: int = 0
     linear_attention_freq: int = 0
+    # Which linear layer it is, for pricing its time from its own operations
+    # rather than as an attention layer over ``d`` keys: ``"kda"`` (Kimi Delta
+    # Attention) or ``"gdn"`` (gated delta net, Qwen3-Next / Qwen3.5). Empty
+    # keeps the attention-equivalent blend. The head counts and dims default
+    # to ``num_attention_heads`` and ``linear_attention_head_dim``; GDN sets
+    # more value heads than key heads, and the state is one dk×dv matrix per
+    # value head.
+    linear_attention_kind: str = ""
+    linear_num_key_heads: int = 0
+    linear_num_value_heads: int = 0
+    linear_key_head_dim: int = 0
+    linear_value_head_dim: int = 0
+    # KDA's output gate is either one full hidden->heads*d projection or a
+    # rank-``head_dim`` pair; Kimi-K3 ships the full one.
+    linear_attention_full_rank_gate: bool = False
+    # A sigmoid gate on the attention output, ``o * sigmoid(x @ W_g)``, on the
+    # full-attention layers (Qwen3.5 GQA, Kimi-K3 MLA). Its projection is as
+    # wide as the attention output, so it is one more O-sized weight read.
+    attention_output_gate: bool = False
+    # Latent MoE (Kimi-K3): routed experts act on a ``moe_latent_hidden_size``
+    # projection of the residual. The expert GEMMs can be sized in residual
+    # width equivalents; the hidden->latent and latent->hidden projections
+    # around them, and the narrower rows the permutation moves, cannot.
+    moe_latent_hidden_size: int = 0
+    # Attention residuals (Kimi-K3): before attention and before the MLP, each
+    # layer mixes the outputs of every ``attn_res_block_size``-layer block so
+    # far with a softmax over them, in place of a plain residual add.
+    attn_res_block_size: int = 0
     # Native sparse attention's indexer keeps a *second* per-token cache. To
     # choose which blocks to attend to it scores the query against one small
     # index key per past token, and that key has to be stored, so a token's
@@ -229,6 +257,20 @@ class ModelConfig:
         d = int(self.linear_attention_head_dim or 0) or int(self.kv_channels or 0)
         return max(1, d)
 
+    def linear_attention_geometry(self) -> tuple[int, int, int, int]:
+        """``(key heads, value heads, key dim, value dim)`` of a linear layer."""
+        d = self.linear_attention_state_len()
+        hk = int(self.linear_num_key_heads or 0) or int(self.num_attention_heads or 0)
+        hv = int(self.linear_num_value_heads or 0) or hk
+        dk = int(self.linear_key_head_dim or 0) or d
+        dv = int(self.linear_value_head_dim or 0) or dk
+        return max(1, hk), max(1, hv), max(1, dk), max(1, dv)
+
+    def prices_linear_attention_ops(self) -> bool:
+        """Whether linear layers are timed from their own operations."""
+        kind = str(self.linear_attention_kind or "").lower()
+        return kind in ("kda", "gdn") and self.linear_attention_layer_count() > 0
+
     def sparse_index_layer_count(self) -> int:
         """How many layers store a sparse-attention index cache."""
         if self.sparse_index_head_dim <= 0:
@@ -345,17 +387,38 @@ def decode_kernels_per_layer(model_config, sparse_attention_topk: int = 0) -> in
 
     if uses_latent_attention(model_config):
         # q_a, q_a_norm, q_b, kv_a, kv_a_norm, kv_b, rope, attention, o_proj
-        kernels += 9
+        attn = 9
     else:
-        kernels += 4  # qkv, rope, attention, o_proj
+        attn = 4  # qkv, rope, attention, o_proj
+    if getattr(model_config, "attention_output_gate", False):
+        attn += 2  # gate projection, sigmoid multiply
+    # A linear layer runs none of that attention, it runs its own: KDA has
+    # separate q/k/v projections each through a short convolution, a low-rank
+    # decay gate, a beta projection, the output gate, the recurrent update, a
+    # gated norm and the output projection; GDN fuses its projections into two.
+    n_layers = int(getattr(model_config, "num_layers", 0) or 0)
+    prices_lin = getattr(model_config, "prices_linear_attention_ops", None)
+    n_lin = model_config.linear_attention_layer_count() if prices_lin and prices_lin() else 0
+    if n_lin and n_layers:
+        if str(model_config.linear_attention_kind).lower() == "kda":
+            gate = 1 if getattr(model_config, "linear_attention_full_rank_gate", False) else 2
+            lin = 3 + 2 + 1 + gate + 3 + 1 + 1 + 1
+        else:
+            lin = 2 + 1 + 1 + 1 + 1 + 1  # qkvz, ba, conv, gating, recurrence, norm, o
+        attn = ((n_layers - n_lin) * attn + n_lin * lin) / n_layers
+    kernels += attn
 
     num_experts = int(getattr(model_config, "num_experts", 0) or 0)
     if num_experts > 1:
         # router, top-k, permute, grouped gate/up, activation, grouped down,
         # combine
         kernels += 7
+        if int(getattr(model_config, "moe_latent_hidden_size", 0) or 0) > 0:
+            kernels += 3  # latent down projection, its norm, latent up projection
     else:
         kernels += 3  # gate/up, activation, down
+    if int(getattr(model_config, "attn_res_block_size", 0) or 0) > 0:
+        kernels += 2  # the block mix before attention and before the MLP
 
     if int(getattr(model_config, "moe_shared_expert_intermediate_size", 0) or 0) > 0:
         kernels += 3
@@ -363,7 +426,7 @@ def decode_kernels_per_layer(model_config, sparse_attention_topk: int = 0) -> in
     if int(sparse_attention_topk or 0) > 0:
         kernels += 4  # index projection, score, top-k, gather
 
-    return kernels
+    return int(round(kernels))
 
 
 def dtype_num_bytes(dtype: str | None) -> float:

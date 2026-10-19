@@ -464,8 +464,11 @@ class MoEMLPProfiler(BaseModuleProfiler):
         # combine reads those rows back and reduces ``topk`` of them into one row
         # per token. Combine reads the down-projection outputs, which are still
         # unquantized (bf16) whatever width the operands were.
-        dispatch_bytes = 2 * topk_tokens * hidden_size * bytes_per_el
-        combine_bytes = (topk_tokens + batch_tokens) * hidden_size * 2
+        # A latent MoE permutes latent-width rows.
+        latent = int(getattr(self.config.model_config, "moe_latent_hidden_size", 0) or 0)
+        row = latent if latent > 0 else hidden_size
+        dispatch_bytes = 2 * topk_tokens * row * bytes_per_el
+        combine_bytes = (topk_tokens + batch_tokens) * row * 2
         permute_fwd_ms = dispatch_bytes / (
             peak_hbm * _PERMUTE_GATHER_BW_FRACTION * 1e6
         ) + combine_bytes / (peak_hbm * _PERMUTE_COMBINE_BW_FRACTION * 1e6)
@@ -474,10 +477,13 @@ class MoEMLPProfiler(BaseModuleProfiler):
 
         # ── 4. Activation function overhead (SwiGLU / GELU) ──
         # Uses the per-rank (tensor-sharded) intermediate ``F``, not full moe_ffn.
+        # A latent MoE's ``moe_ffn`` is in residual-width equivalents; the
+        # activation runs over the real intermediate, wider by hidden / latent.
+        F_act = F * hidden_size // latent if latent > 0 else F
         if self.config.model_config.swiglu:
-            act_bytes = 3 * topk_tokens * F * bytes_per_el  # gate+up read, result write
+            act_bytes = 3 * topk_tokens * F_act * bytes_per_el  # gate+up read, result write
         else:
-            act_bytes = 2 * topk_tokens * F * bytes_per_el  # read + write
+            act_bytes = 2 * topk_tokens * F_act * bytes_per_el  # read + write
         activation_ms = act_bytes / (activation_bw_gbps * 1e6)
 
         fwd_time += activation_ms
@@ -497,6 +503,20 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 swiglu=self.config.model_config.swiglu,
             )
             fwd_time += shared_result.forward_time_ms
+
+        # ── 6. Latent MoE projections ──
+        # hidden -> latent before dispatch and latent -> hidden after combine,
+        # over every token, with a norm on the latent. Sharded over TP like
+        # the shared expert.
+        if latent > 0:
+            lat = max(1, latent // max(1, tp_size))
+            fwd_time += self._gemm_backend.simulate_gemm(
+                batch_tokens, lat, hidden_size, gemm_dtype
+            ).forward_time_ms
+            fwd_time += self._gemm_backend.simulate_gemm(
+                batch_tokens, hidden_size, lat, gemm_dtype
+            ).forward_time_ms
+            fwd_time += 2 * batch_tokens * latent * 2 / (activation_bw_gbps * 1e6)
 
         activation_memory = self.estimated_activation_memory(batch_size, seq_len)
         return (fwd_time, activation_memory)

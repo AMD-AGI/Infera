@@ -18,9 +18,11 @@ extends:
 #
 # Both halves are charged from the keys below. Token-wise KV is stored only on
 # the 24 MLA layers; the 69 KDA layers keep a d×d recurrent state per head
-# (d = linear_attention_head_dim) whose arithmetic is attending to d keys, not
-# the prompt. Modelling only the memory would let search fit batches whose
-# attention time was still priced as 93-layer MLA, so the two travel together.
+# (d = linear_attention_head_dim). Their time is priced from their own
+# operations (``linear_attention_kind: kda``): q/k/v and a full output gate,
+# each 7168 x 96·128, a short convolution, the state read and rewrite, a
+# gated norm and the output projection. That is twice the weights of an MLA
+# layer, so pricing a KDA layer as attention over d keys made it far too cheap.
 #
 # The MoE is latent: experts do not act on the 7168-wide residual, they act on a
 # 3584-wide projection of it (``routed_expert_hidden_size``), with an expert
@@ -28,9 +30,11 @@ extends:
 # exactly 7168 x 1536 -- identical in both FLOPs and weight bytes. Expressing it
 # that way lets the standard expert profiler size this model correctly without
 # a latent-MoE concept, and it reproduces the published parameter count:
-# 92 MoE layers x 896 experts x 3 x 7168 x 1536 = 2.72T. What it leaves out is
-# the residual->latent projection itself, which is two 7168 x 3584 matmuls per
-# layer, about 1.5% of the layer's weights.
+# 92 MoE layers x 896 experts x 3 x 7168 x 1536 = 2.72T. The residual->latent
+# projections around the experts, two 7168 x 3584 matmuls per layer, are
+# priced from ``moe_latent_hidden_size``. They are 1.5% of the weights but
+# ~7% of what one token reads in the MoE block. The two shared experts do not
+# go through the latent: they run on the full residual.
 
 tokenizer_type: HuggingFaceTokenizer
 tokenizer_model: moonshotai/Kimi-K3
@@ -55,13 +59,19 @@ v_head_dim: 128
 linear_attention_layers: 69
 linear_attention_head_dim: 128
 linear_attention_conv_kernel: 4
+linear_attention_kind: kda
+linear_num_key_heads: 96
+linear_attention_full_rank_gate: true   # use_full_rank_gate
+attention_output_gate: true             # mla_use_output_gate
+attn_res_block_size: 12
 
 # Latent MoE, expressed in residual-width equivalents (see header).
 moe_layer_freq: "([0]*1+[1]*92)"
 num_experts: 896
 moe_router_topk: 16
 moe_ffn_hidden_size: 1536                   # 3584 x 3072 == 7168 x 1536
-moe_shared_expert_intermediate_size: 3072   # 2 shared experts, same equivalence
+moe_shared_expert_intermediate_size: 6144   # 2 x 3072; shared experts act on the full residual
+moe_latent_hidden_size: 3584                # routed_expert_hidden_size
 moe_router_score_function: sigmoid
 moe_router_enable_expert_bias: true         # noaux_tc
 moe_router_pre_softmax: false

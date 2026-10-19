@@ -29,6 +29,10 @@ from infera.projection.core.projection.module_profilers.language_model import (
     build_profiler,
     get_language_model_profiler_spec,
 )
+from infera.projection.core.projection.module_profilers.linear_attention import (
+    LinearAttentionProfiler,
+)
+from infera.projection.core.projection.module_profilers.moe_mlp import _ACTIVATION_BW_FRACTION
 from infera.projection.core.projection.module_profilers.quantization import QuantCastProfiler
 from infera.projection.core.projection.module_profilers.sampling import SamplingProfiler
 from infera.projection.core.projection.module_profilers.transformer_layer import (
@@ -525,6 +529,14 @@ class InferencePerformanceProjector:
         self._quant = QuantCastProfiler(
             view, hbm_bandwidth_gbps=_hbm, dtype=self._act_quant_dtype or "fp8"
         )
+        self._lin = (
+            LinearAttentionProfiler(view, self._gemm, hbm_bandwidth_gbps=_hbm)
+            if self._gemm is not None
+            and inference_config.model_config.prices_linear_attention_ops()
+            and os.getenv("INFERASIM_LINEAR_ATTN_BLEND") != "1"
+            else None
+        )
+        self._hbm_gbps = float(_hbm or 5300.0)
 
         mc = inference_config.model_config
         self._moe_pattern = mc.moe_pattern or [0] * mc.num_layers
@@ -2606,6 +2618,22 @@ class InferencePerformanceProjector:
             return 1.0
         return self.cfg.request_config.resolved_ep_imbalance(num_experts)
 
+    def _attn_res_ms(self, batch: int, q_len: int) -> float:
+        """Attention-residual mixing in one layer, both calls.
+
+        Each call reads the block outputs so far plus the running sum and
+        writes one row, per token. Layer ``i`` has ``i // block + 1`` blocks,
+        so the stack averages about ``(layers / block - 1) / 2 + 2`` rows.
+        """
+        mc = self.cfg.model_config
+        blk = int(getattr(mc, "attn_res_block_size", 0) or 0)
+        if blk <= 0:
+            return 0.0
+        rows = (int(mc.num_layers or 0) / blk - 1) / 2 + 2
+        per_call = batch * q_len * (rows + 1) * mc.hidden_size * 2
+        bw = getattr(self, "_hbm_gbps", 5300.0) * _ACTIVATION_BW_FRACTION
+        return 2 * per_call / (bw * 1e6)
+
     def _forward_times(self, batch: int, q_len: int, phase: str, kv_len: int) -> PhaseForwardTimes:
         lm = self._lm
         # Sliding-window / local attention: cap the KV length each attention
@@ -2636,7 +2664,14 @@ class InferencePerformanceProjector:
         # option: they keep a fixed-size state at decode as well as prefill.
         # Sliding-window stays decode-uncapped on the evidence in the comment
         # above; this blend is a different fact and applies to both phases.
-        attn_kv = mc.blend_linear_attn_kv(attn_kv)
+        # When the linear layers are priced from their own operations, the
+        # attention profiler prices only the full layers, at their real length.
+        lin_frac = 0.0
+        lin_p = getattr(self, "_lin", None)
+        if lin_p is not None:
+            lin_frac = mc.linear_attention_layer_count() / max(1, int(mc.num_layers or 1))
+        else:
+            attn_kv = mc.blend_linear_attn_kv(attn_kv)
         # The attention profiler sizes its KV roofline from ``kv_cache_dtype`` on
         # the *model* config, and the serving request carries it on the request
         # config, so the two never met: every projection priced the cache at two
@@ -2848,7 +2883,8 @@ class InferencePerformanceProjector:
                 )
             if g is not None and g < 1.0:
                 growth = g
-        if factor != 1.0 or attn_batch != batch or growth is not None:
+        lin_ms = lin_p.layer_ms(batch, q_len, phase) if lin_frac > 0.0 else 0.0
+        if factor != 1.0 or attn_batch != batch or growth is not None or lin_frac > 0.0:
             for has, prof, is_moe in ((has_dense, dense_p, False), (has_moe, moe_p, True)):
                 if not has or not hasattr(prof, "get_sub_profiler"):
                     continue
@@ -2863,6 +2899,9 @@ class InferencePerformanceProjector:
                     one = sub.measured_forward_time(1, q_len)
                     actual = one + max(0.0, actual - one) * growth
                 actual *= factor
+                # Per-layer average over the stack: the sparse and backend
+                # factors are full-attention facts and stay on that share.
+                actual = (1.0 - lin_frac) * actual + lin_frac * lin_ms
                 if is_moe:
                     moe_compute = max(0.0, moe_compute + actual - charged)
                 else:
@@ -2933,6 +2972,7 @@ class InferencePerformanceProjector:
             moe_fwd = moe_compute + eff_moe_comm
 
         layers = self._n_dense * dense_fwd + self._n_moe * moe_fwd
+        layers += int(mc.num_layers or 0) * self._attn_res_ms(batch, q_len)
 
         emb = _safe_forward(lm.sub_profilers.get("embedding"), batch, q_len)
         # The final LayerNorm is element-wise and not separately timed by the
