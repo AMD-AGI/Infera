@@ -48,6 +48,17 @@ modules:
 _workload_path = None
 
 
+@pytest.fixture(autouse=True)
+def _no_golden_al_fetch(monkeypatch):
+    """Keep acceptance lookups off the network: tests read local files only."""
+    from infera.projection.core.projection.inference_projection import golden_al
+
+    monkeypatch.setenv("INFERASIM_GOLDEN_AL_FETCH", "0")
+    golden_al.fetch_golden.cache_clear()
+    yield
+    golden_al.fetch_golden.cache_clear()
+
+
 def _workload_file():
     global _workload_path
     if _workload_path is None:
@@ -137,6 +148,7 @@ def project_spec(**overrides):
         ("--attention-dp-size", "attn_dp"),
         ("--sparse-attention-topk", "sparse_attention_topk"),
         ("--prefix-cache-hit-rate", "prefix_cache_hit_rate"),
+        ("--kv-pool-tokens", "kv_pool_tokens"),
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
@@ -214,4 +226,7 @@ def project_spec(**overrides):
         # What the run printed, for the parts of the report that are computed
         # nowhere else.
         "report": report.getvalue(),
+        # The whole extras bag, for the projected quantities that are reported
+        # through it and not through the printed report -- admission being one.
+        "extras": extras,
     }

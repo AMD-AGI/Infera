@@ -24,7 +24,8 @@ PD disaggregation is driven by ATOM's ``--kv-transfer-config`` JSON. The
 ``kv_role`` field selects prefill (``kv_producer``) / decode
 (``kv_consumer``) / mixed (absent or ``kv_both``); infera resolves the
 pair through the ``atom-mooncake`` DisaggProtocol, which replays the body
-shaping ATOM's reference proxy does.
+shaping ATOM's reference proxy does. A ``multi`` connector (e.g. a mooncake
+producer next to ``lmcache_offload``) is resolved to its PD entry first.
 """
 
 from __future__ import annotations
@@ -49,6 +50,7 @@ _KV_ROLE_TO_DISAGG: dict[str, DisaggMode] = {
     "kv_consumer": DisaggMode.DECODE,
     "kv_both": DisaggMode.MIXED,
 }
+_PD_ROLES = frozenset({"kv_producer", "kv_consumer"})
 
 # ATOM kv_connector → infera DisaggProtocol identity. Only the mooncake
 # connector is wired through infera's DisaggRouter (it's ATOM's
@@ -83,6 +85,29 @@ class AtomWorkerArgs:
     # ``{"protocol": "atom-mooncake", "params": {...}}`` for PD workers,
     # ``{}`` for mixed. Consumed by the DisaggProtocol on the router side.
     disagg_meta: dict[str, Any] = field(default_factory=dict)
+
+    # DP ranks behind this one endpoint (None = a single rank). Registered so
+    # the router expands the worker into per-rank targets and pins each request
+    # to one rank (ATOM reads ``data_parallel_rank`` from the request body).
+    dp_size: int | None = None
+
+
+def _pd_connector_config(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Return the PD sub-connector of an ATOM ``multi`` config, else ``cfg``.
+
+    Picks the first ``multi`` entry with a PD role (``kv_producer`` /
+    ``kv_consumer``); local connectors such as ``lmcache_offload`` and
+    ``kv_both`` entries are skipped. Without one, ``{}`` (mixed) is returned.
+    """
+    if cfg.get("kv_connector") != "multi":
+        return cfg
+    connectors = cfg.get("connectors")
+    if not isinstance(connectors, list):
+        return {}
+    return next(
+        (c for c in connectors if isinstance(c, dict) and c.get("kv_role") in _PD_ROLES),
+        {},
+    )
 
 
 def _disagg_mode_from_kv_transfer(cfg: dict[str, Any]) -> DisaggMode:
@@ -139,6 +164,22 @@ def _compute_disagg_meta(
         "dp_size": dp_size,
     }
     return {"protocol": protocol, "params": params}
+
+
+def _registered_dp_size(atom_parsed: argparse.Namespace, disagg_mode: DisaggMode) -> int | None:
+    """DP ranks the router should address, or None for a single rank.
+
+    ATOM runs one engine per DP rank, and under ``--enable-dp-attention`` every
+    TP rank becomes its own DP rank (``-tp 4 --enable-dp-attention`` -> 4).
+    Only mixed workers register them: a PD prefill still picks its rank itself,
+    and the atom-mooncake hand-off reads that rank back from its response.
+    """
+    if disagg_mode != DisaggMode.MIXED:
+        return None
+    dp_size = int(getattr(atom_parsed, "data_parallel_size", 1) or 1)
+    if getattr(atom_parsed, "enable_dp_attention", False):
+        dp_size *= atom_parsed.tensor_parallel_size
+    return dp_size if dp_size > 1 else None
 
 
 def parse_atom_args(argv: list[str] | None = None) -> AtomWorkerArgs:
@@ -202,6 +243,7 @@ def parse_atom_args(argv: list[str] | None = None) -> AtomWorkerArgs:
     except (TypeError, ValueError):
         logger.warning("could not parse --kv-transfer-config as JSON; treating as mixed")
         kv_cfg = {}
+    kv_cfg = _pd_connector_config(kv_cfg)
 
     advertise_host = known.advertise_host or atom_parsed.host
     disagg_mode = _disagg_mode_from_kv_transfer(kv_cfg)
@@ -231,4 +273,5 @@ def parse_atom_args(argv: list[str] | None = None) -> AtomWorkerArgs:
         kv_block_size=kv_block_size,
         disagg_mode=disagg_mode,
         disagg_meta=disagg_meta,
+        dp_size=_registered_dp_size(atom_parsed, disagg_mode),
     )

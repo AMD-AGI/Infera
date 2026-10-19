@@ -1,79 +1,73 @@
-# task_graph
+# `task_graph` — which task runs when, and nothing else
 
-Task-management substrate for Infera's agent-driven performance-optimization
-loop.
-
-An AI agent is treated as a function that is not very procedural. A handoff is
-that function's input or output. This system decides **which task runs when**,
-and nothing else — it never inspects what a task does.
-
-## Documents
+The task-management substrate. An AI agent is treated as a function that is not
+very procedural; a handoff is that function's input or output. **This package
+decides which task runs when and never inspects what a task does.**
 
 | | |
 |---|---|
-| [`docs/spec.md`](docs/spec.md) | What the system must do. 35 acceptance criteria |
-| [`docs/design.md`](docs/design.md) | How it is built: files, classes, interfaces, test plan |
+| Specification | [`docs/spec.md`](docs/spec.md) — 54 acceptance criteria |
+| Design | [`docs/design.md`](docs/design.md) |
+| Seam | [`../docs/interfaces.md`](../docs/interfaces.md) §4.7 |
+| Tests | `../tests/task_graph/` |
 
-Read the spec first. The design implements it and records, in its §13, every
-place where implementing it literally did not work.
+## Who uses it
 
-## Layout
+Everything above it. `agent` runs a task and reports back; `validator` runs a
+phase inside one; `monitor` acts on a task through its own transitions;
+`env_mgr` reads a task's grants; `cli` builds the root task and starts the
+scheduler. **This package imports `spec_loader` and nothing else of ours.**
 
-`task_graph` is one of the two components under `agent_sys/`, alongside
-`env_mgr`; both are declared by `agent_sys/pyproject.toml`.
+Content-agnosticism is the load-bearing property: the scheduler never reads a
+spec and never learns what a handoff means, which is why a package can declare
+anything without this code changing.
 
+## The interface
+
+```python
+from task_graph import (
+    Task, Execution, Handoff, HandoffRef, Agent,   # the objects
+    TaskId, AgentId, HandoffId, Id,
+    TaskStatus, HandoffStatus, PHASES, WAITING, RESUMABLE,
+    Scheduler, SchedulePolicy, FifoPolicy, DepthFirstPolicy,
+    TaskRunner, FakeRunner,                        # what the scheduler dispatches to
+    TaskMgr, HandoffMgr, AgentMgr, ResourceMgr,    # the managers
+    GpuMgr, TokenMgr, RenewableMgr, ConsumableMgr,
+    StoreMgr, MemoryStoreMgr, JsonFileStoreMgr,    # persistence
+    Permissions, Grant, Access,                    # what a task may reach
+    Registry, build_registry, check_graph,         # assembly, and the load check
+    Resumable, resume_all, RESUME_ORDER, CascadeReport, OrderedIdSet,
+)
 ```
-agent_sys/
-├── pyproject.toml       declares env_mgr and task_graph
-├── env_mgr/             the sibling component
-├── task_graph/          this package
-│   ├── docs/            spec.md, design.md
-│   └── *.py
-└── tests/
-    ├── env_mgr/
-    └── task_graph/
-```
 
-## Status
+**Ask the object, do not read its fields.** `Handoff.open_next()` hands back a
+version to write and never tells a caller which case it was in;
+`check_if_latest_valid` answers a question rather than publishing a status to
+compare against. That is `engineer_principle.md` §3, and this package is where
+the examples come from.
 
-Implemented. 358 tests, all 35 acceptance criteria covered.
+## What is inside
 
-```bash
-pip install -e agent_sys      # once
-pytest agent_sys/tests/task_graph
-```
+| | |
+|---|---|
+| `models.py` | `Task`, `Execution`, `Agent` and the status enums |
+| `task.py`, `agent.py`, `handoff.py` | the three managers over them |
+| `graph.py` | the graph itself, and `check_graph` |
+| `scheduler.py` | eligibility, dispatch, leases, and the cascade |
+| `policy.py` | ordering: FIFO, and depth-first |
+| `resource.py` | renewable and consumable pools — GPUs, tokens |
+| `permissions.py` | grants, typed by handoff kind name |
+| `store.py` | the store managers, in-memory and on disk |
+| `runner.py` | the `TaskRunner` seam, and a fake for tests |
+| `bootstrap.py` | `build_registry` — loading packages into one registry set |
+| `ids.py`, `ordered.py` | identity, and an insertion-ordered id set |
 
-## Dependencies
+## Two rules that protect it
 
-**pydantic v2**, which the repository already installs — `fastapi` pulls it.
-Everything else is Python ≥ 3.10 standard library, plus `pytest` for the tests,
-already a dev dependency.
+**The scheduler never names a spec registry.** It schedules; interpreting a spec
+is somebody else's job, and `tests/closure/test_authority.py` enforces it.
 
-The task definition requires researching whether a mature solution exists before
-building, and recording the outcome. It does, for parts of this; the table below
-is that record. `docs/design.md` §10 carries the same table with the full
-reasoning, and `docs/spec.md` §9 records the platform-level rejections that came
-out of the prior-art survey.
-
-| Module | Considered | Chosen | Why |
-|---|---|---|---|
-| `models` | dataclasses, msgspec, attrs | **pydantic v2** | Already installed via `fastapi`, so it costs nothing. `model_dump` / `model_validate` remove the two hand-written deserialisers `dataclasses.asdict` would need — it has no inverse — and which would drift from the models on every field added. `validate_assignment` makes in-place mutation checked, which matters because status is assigned directly. |
-| `ids` | bare `str`, `NewType` | `uuid.UUID` subclasses | `NewType` erases at runtime, so two ids of different kinds would still compare equal and collide in one dict. Subclassing gives both static and runtime distinctness. It costs a ten-line `__get_pydantic_core_schema__`: pydantic raises on a `UUID` subclass without one. |
-| `registry` | dependency-injector, pluggy, punq | `dict` | All three are built around constructor injection; the spec requires resolve-at-use-time. What is left is a name→instance map: nine lines. |
-| `store` | sqlite3, shelve, tinydb, diskcache | `json` + `pathlib` | Records stay readable with `cat` while the schema is still moving. `Path.replace` gives per-record atomicity. **sqlite3 is the named upgrade path** — stdlib, and it would supply the cross-manager transaction the spec leaves open. `StoreMgr` is a Protocol so the swap is one file. |
-| `handoff` | content-addressed stores (git, DVC, S3) | own | Versioning here is metadata bookkeeping. Where payloads live is deliberately open (spec §8.2); a content store plugs in behind `Handoff.content`. |
-| `resource` | `threading.Semaphore`, Prefect concurrency limits | own | A semaphore cannot express reserve-then-settle for consumables, nor all-or-nothing multi-pool acquisition. Prefect's limits do exactly the right thing but live server-side — adopting a server to obtain one primitive. |
-| `runner` | Claude Code / Codex / Cursor CLIs, subprocess | Protocol + a fake | The real implementations are harness-specific and out of scope. What this system owes is the seam. |
-| `policy` | graphlib, networkx, OR-Tools | `sorted()` | No graph algorithm is required — the only graph operation is asking whether a task's inputs are valid. `graphlib.TopologicalSorter` additionally cannot accept nodes after `prepare()`, and this graph grows at runtime. |
-| `scheduler` | Prefect, Hatchet, Temporal, Ray, Airflow, Slurm | own | Every one is a platform whose scheduling core is not separable. See spec §9. |
-
-The short version: pydantic is adopted; for everything else each candidate is
-either a platform (adopt the server to get the primitive) or a library for a
-problem this system does not have — graph traversal, dependency injection. The
-named upgrade path, `sqlite3` for the store, sits behind an interface that
-already exists.
-
-Adopted from the prior-art survey as *design* rather than as a dependency:
-RCPSP terminology and its two waiting sets, the parallel schedule generation
-scheme, the A2A task-state vocabulary, reserve-then-settle for consumable pools,
-and "the engine owns routing".
+**A task's status has one writer.** Every transition goes through the task's own
+`_move`; a monitor acts by *calling* a transition, never by assigning a status.
+Both rules exist so that the graph stays reasonable when several things are
+happening at once.

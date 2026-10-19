@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "operator_id": "m5_control_degraded",
+  "logical_operator": "m5_control_degraded",
+  "image": "inferaimage/infera:sglang-local",
+  "apply_mode": "overlay_files",
+  "expect": {
+    "source": "degraded_control",
+    "speedup": 0.83,
+    "note": "control: a DELIBERATE 2ms/step regression. Expected REGRESSED. No optimisation."
+  },
+  "files": [
+    {
+      "container_path": "@SGLANG_ROOT@/srt/layers/sampler.py",
+      "base_sha256": "6b727fcde1724924c71c1148d89005500195527e827fe7ec8d51eef43d92a762",
+      "change": "modify",
+      "replacement": "results/optimized_kernel.py"
+    }
+  ]
+}

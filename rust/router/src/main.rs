@@ -20,6 +20,7 @@ use infera_router::kv_event::KvEventClient;
 use infera_router::policy::{KvEventAwarePolicy, Policy, RoundRobin};
 use infera_router::pool::Snapshot;
 use infera_router::render_variant::{RenderVariant, VariantRegistry};
+use infera_router::session_affinity;
 use infera_router::{
     discovery, discovery_k8s, k8s, kv_event_nats, kv_selfheal, nats_request, proxy,
 };
@@ -90,6 +91,7 @@ async fn main() -> anyhow::Result<()> {
                 RenderVariant::from_default_chat_template_kwargs(parsed_default_ctk.as_ref()),
                 cfg.kv_per_worker_template_kwargs,
             ))
+            .with_decode_input_demand(cfg.decode_input_demand)
             // A worker that served traffic before the router subscribed emits
             // its one rooted event to nobody, and no later event can rebuild
             // the chain. Asking it to flush is the only repair, so the router
@@ -149,7 +151,13 @@ async fn main() -> anyhow::Result<()> {
         None
     };
 
+    let sessions = Arc::new(session_affinity::Sessions::new(
+        cfg.session_affinity,
+        Duration::from_secs(cfg.session_affinity_ttl_seconds),
+        session_affinity::MAX_SESSIONS,
+    ));
     let state = AppState {
+        sessions,
         pool,
         policy,
         http: upstream,
@@ -157,6 +165,7 @@ async fn main() -> anyhow::Result<()> {
         retries: cfg.request_max_retries,
         breaker,
         nats,
+        pd_prefill_guard_release: cfg.pd_prefill_guard_release,
         pd_prefill_drain_timeout: Duration::from_secs_f64(cfg.pd_prefill_drain_timeout_s.max(0.0)),
         stream_stall_warn: proxy::StallWarn {
             before_first_byte: Duration::from_secs_f64(cfg.stream_admission_warn_s.max(0.0)),

@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-15T07:14:13Z",
+  "run_tag": "selftest-r16aea3",
+  "label": "infera_e2e_run=selftest-r16aea3",
+  "removed": [
+    "yihou_l2a_selftest-r16aea3_etcd",
+    "yihou_l2a_selftest-r16aea3"
+  ],
+  "containers_left_with_label": 0,
+  "ports_checked": [
+    18121,
+    18122,
+    18123,
+    18124,
+    18125,
+    18126
+  ],
+  "ports_still_listening": [],
+  "gpu_devices": "6",
+  "work_root_reclaimed": true,
+  "waited_for_drain": true,
+  "drained": true,
+  "vram_used_mib_after": "6:285",
+  "seconds": 7
+}

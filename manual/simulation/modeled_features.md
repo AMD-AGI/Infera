@@ -91,7 +91,7 @@ error here, which is why the linear and expert precisions are separable from
 | `--speculative-acceptance-rate` ⚑ | expected per-token acceptance in [0,1] |
 | `--speculative-draft-cost-factor` | draft forward cost per proposed token, as a fraction of one target decode step. Default `0`, i.e. draft cost ignored. |
 
-Speculation is a **regime-defining** parameter, so a recipe that turns it on
+Speculation is a **anchor-defining** parameter, so a recipe that turns it on
 needs its own anchor — see [Regimes](anchors.md#regimes-when-an-anchor-stops-transferring).
 
 ## Collectives and communication
@@ -126,7 +126,7 @@ this is worth reaching for.
 | `--fused-kernels` | fused RMSNorm / RoPE / quant / KV-store kernels that cut per-step launch overhead |
 | `--gemm-backend origami` | GEMM simulation backend, used only in `simulate` and `both` |
 
-Cudagraph mode is regime-defining. So is the attention backend.
+Cudagraph mode is anchor-defining. So is the attention backend.
 
 ## KV cache and memory
 

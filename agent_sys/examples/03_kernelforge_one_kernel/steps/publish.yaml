@@ -1,0 +1,18 @@
+# The one task this package adds. `runner` is e2e-flow's program agent
+# (shared.yaml); the two kinds and their validators come from steps/m1_deploy.yaml
+# and steps/m3_analysis.yaml.
+- module: task
+  name: publish_inputs
+  description: Publish the fixed deploy kit and operator workset that stage 4 reads.
+  agent: runner
+  handoffs: [deploy_kit, operator_workset]
+  validators: []
+  task:
+    goal: Publish the fixture's deploy kit and one-operator workset.
+    version: '1'
+    inputs: []
+    outputs: [deploy_kit, operator_workset]
+    permissions:
+      grants:
+        - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+        - {path: handoffs/operator_workset, access: write, kind: operator_workset}

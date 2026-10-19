@@ -223,6 +223,15 @@ func (r *InferaDeploymentReconciler) applyUnstructured(ctx context.Context, idep
 			current = map[string]any{}
 		}
 		merged := mergeSpec(current, spec, ownedSpecFields(desired.GetKind()))
+		// The worker pod template's labels and annotations are entirely the
+		// operator's. mergeSpec keeps keys that disappeared from a nested map,
+		// so a removed podLabels or podAnnotations entry would stay on a
+		// multi-node LeaderWorkerSet. Deployments replace .spec outright and
+		// do not have this gap.
+		if desired.GetKind() == lwsKind {
+			replaceOwnedMap(merged, spec, "leaderWorkerTemplate", "workerTemplate", "metadata", "labels")
+			replaceOwnedMap(merged, spec, "leaderWorkerTemplate", "workerTemplate", "metadata", "annotations")
+		}
 		_ = unstructured.SetNestedMap(existing.Object, merged, "spec")
 		existing.SetLabels(desired.GetLabels())
 		return controllerutil.SetControllerReference(idep, existing, r.Scheme)
@@ -250,6 +259,22 @@ func ownedSpecFields(kind string) map[string]bool {
 		return map[string]bool{"replicas": true, "leaderWorkerTemplate": true}
 	}
 	return nil
+}
+
+// replaceOwnedMap sets dst's nested map to a copy of src's, or removes it
+// when src does not have that map. Used for fields the operator owns
+// completely inside an otherwise deep-merged spec.
+func replaceOwnedMap(dst, src map[string]any, fields ...string) {
+	val, found, err := unstructured.NestedMap(src, fields...)
+	if err != nil || !found {
+		unstructured.RemoveNestedField(dst, fields...)
+		return
+	}
+	copied := make(map[string]any, len(val))
+	for k, v := range val {
+		copied[k] = v
+	}
+	_ = unstructured.SetNestedMap(dst, copied, fields...)
 }
 
 // mergeSpec overlays the fields the operator sets onto what is already there,

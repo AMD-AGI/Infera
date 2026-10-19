@@ -184,8 +184,16 @@ class AnchorStore:
 
     def _make_entry(self, path: str, art: dict[str, Any]) -> dict[str, Any]:
         meta = art.get("meta", {})
-        recipe = regime.recipe_from_meta(meta)
-        sig = meta.get("regime_signature") or regime.regime_signature(recipe)
+        recipe = regime.recipe_from_meta(meta, engine=art.get("backend"))
+        # Recomputed, not read back from ``meta``. A recorded signature was
+        # hashed by whichever build harvested the artifact, over whichever axes
+        # that build had, so trusting it pins the store to an older definition
+        # of "same regime" -- and the axis set does grow. Adding ``engine``
+        # found seven DeepSeek-V4-Flash anchors sharing one recorded signature
+        # across SGLang and vLLM: re-indexing could not separate them while the
+        # stale hash was preferred, which is the merge the axis exists to stop.
+        # The recorded value stays in ``meta`` as provenance.
+        sig = regime.regime_signature(recipe)
         sweep = art.get("sweep") or []
         batches = sorted({int(e["batch"]) for e in sweep if e.get("batch") is not None})
         return {

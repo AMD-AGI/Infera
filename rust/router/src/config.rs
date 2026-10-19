@@ -6,7 +6,15 @@
 //! CLI / env configuration. Flag names mirror `infera.server.args` so the
 //! Python `--router-backend rust` shim can translate 1:1.
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
+
+use crate::session_affinity::Mode as SessionAffinityMode;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum PrefillGuardRelease {
+    Decode,
+    Completion,
+}
 
 #[derive(Debug, Clone, Parser)]
 #[command(name = "infera-router", about = "Infera router data plane (Rust)")]
@@ -43,6 +51,33 @@ pub struct Config {
     /// `round-robin` or `kv-aware` (DP-attention cache-locality routing).
     #[arg(long, default_value = "round-robin")]
     pub router_policy: String,
+
+    /// Release PD prefill load when its response completes, or retain it with decode.
+    #[arg(
+        long,
+        env = "INFERA_PD_PREFILL_GUARD_RELEASE",
+        value_enum,
+        default_value = "decode"
+    )]
+    pub pd_prefill_guard_release: PrefillGuardRelease,
+
+    /// Keep each `X-Session-ID` session on its last target: `prefill`
+    /// pins prefill picks only, `both` also decode and aggregated picks.
+    #[arg(long, value_enum, default_value = "off")]
+    pub session_affinity: SessionAffinityMode,
+
+    /// Idle seconds before a session binding is dropped.
+    #[arg(long, default_value_t = 3600, value_parser = clap::value_parser!(u64).range(1..=86400))]
+    pub session_affinity_ttl_seconds: u64,
+
+    /// Decode input-token demand routing (kv-aware only); off, shadow or on.
+    #[arg(
+        long,
+        value_enum,
+        default_value = "off",
+        env = "INFERA_DECODE_INPUT_DEMAND"
+    )]
+    pub decode_input_demand: crate::decode_demand::Mode,
 
     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
     /// annotation and the API server is watched).
@@ -218,6 +253,11 @@ impl Config {
                 Err(e) => anyhow::bail!("--kv-default-chat-template-kwargs is not JSON: {e}"),
             }
         }
+        if self.decode_input_demand != crate::decode_demand::Mode::Off
+            && self.router_policy != "kv-aware"
+        {
+            anyhow::bail!("--decode-input-demand requires --router-policy kv-aware");
+        }
         if self.router_policy == "kv-aware" && self.kv_tokenizer_path.is_none() {
             tracing::warn!(
                 "--router-policy kv-aware without --kv-tokenizer-path: block hashes \
@@ -282,6 +322,50 @@ mod tests {
     ///
     /// Values are from infera/server/args.py; changing one side means changing
     /// both.
+    #[test]
+    fn prefill_guard_release_is_explicit_and_validated() {
+        let default = Config::try_parse_from(["infera-router"]).unwrap();
+        assert_eq!(
+            default.pd_prefill_guard_release,
+            PrefillGuardRelease::Decode
+        );
+        let enabled =
+            Config::try_parse_from(["infera-router", "--pd-prefill-guard-release", "completion"])
+                .unwrap();
+        assert_eq!(
+            enabled.pd_prefill_guard_release,
+            PrefillGuardRelease::Completion
+        );
+        assert!(
+            Config::try_parse_from(["infera-router", "--pd-prefill-guard-release", "typo"])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn session_affinity_flags_are_validated() {
+        let default = Config::try_parse_from(["infera-router"]).unwrap();
+        assert_eq!(default.session_affinity, SessionAffinityMode::Off);
+        assert_eq!(default.session_affinity_ttl_seconds, 3600);
+        let both = Config::try_parse_from([
+            "infera-router",
+            "--session-affinity",
+            "both",
+            "--session-affinity-ttl-seconds",
+            "60",
+        ])
+        .unwrap();
+        assert_eq!(both.session_affinity, SessionAffinityMode::Both);
+        assert_eq!(both.session_affinity_ttl_seconds, 60);
+        for bad in [
+            ["--session-affinity", "Both"],
+            ["--session-affinity-ttl-seconds", "0"],
+            ["--session-affinity-ttl-seconds", "86401"],
+        ] {
+            assert!(Config::try_parse_from(["infera-router", bad[0], bad[1]]).is_err());
+        }
+    }
+
     #[test]
     fn transport_defaults_match_the_python_backend() {
         let c = Config::try_parse_from(["infera-router"]).unwrap();
@@ -397,5 +481,25 @@ mod tests {
         let bad_disc =
             Config::try_parse_from(["infera-router", "--discovery-backend", "k8s"]).unwrap();
         assert!(bad_disc.validate().is_err());
+    }
+    #[test]
+    fn decode_demand_is_opt_in_and_requires_kv_aware() {
+        let off = Config::try_parse_from(["router", "--decode-input-demand", "off"]).unwrap();
+        assert!(off.validate().is_ok());
+        for mode in ["shadow", "on"] {
+            let invalid =
+                Config::try_parse_from(["router", "--decode-input-demand", mode]).unwrap();
+            assert!(invalid.validate().is_err());
+            let valid = Config::try_parse_from([
+                "router",
+                "--router-policy",
+                "kv-aware",
+                "--decode-input-demand",
+                mode,
+            ])
+            .unwrap();
+            assert!(valid.validate().is_ok());
+        }
+        assert!(Config::try_parse_from(["router", "--decode-input-demand", "enabled"]).is_err());
     }
 }

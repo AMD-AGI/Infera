@@ -49,6 +49,8 @@ struct MockState {
     hang_stream: bool,
     /// End the SSE body after one event, with no `data: [DONE]`.
     truncated_sse: bool,
+    /// Pause after accepting the request, before the status is returned.
+    delay: Duration,
 }
 
 impl MockState {
@@ -87,6 +89,9 @@ async fn mock_handle(
 
     if s.hang {
         std::future::pending::<()>().await;
+    }
+    if !s.delay.is_zero() {
+        tokio::time::sleep(s.delay).await;
     }
 
     if s.status != 200 {
@@ -137,6 +142,7 @@ async fn spawn_mock(status: u16, sse: bool, reply: Value) -> (String, Arc<MockSt
         hang: false,
         hang_stream: false,
         truncated_sse: false,
+        delay: Duration::ZERO,
     });
     let router = Router::new()
         .route("/v1/chat/completions", post(mock_handle))
@@ -171,6 +177,7 @@ async fn spawn_mock_cfg(
         hang,
         hang_stream,
         truncated_sse: false,
+        delay: Duration::ZERO,
     });
     serve_mock(state).await
 }
@@ -187,6 +194,7 @@ async fn spawn_mock_truncated_sse() -> (String, Arc<MockState>) {
         hang: false,
         hang_stream: false,
         truncated_sse: true,
+        delay: Duration::ZERO,
     });
     serve_mock(state).await
 }
@@ -217,6 +225,7 @@ fn worker(spec: Value) -> Arc<Worker> {
 
 fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
+        sessions: Arc::new(infera_router::session_affinity::Sessions::default()),
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(RoundRobin::new()),
         http: proxy::build_upstream_client(0.0).unwrap(),
@@ -224,6 +233,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
+        pd_prefill_guard_release: infera_router::config::PrefillGuardRelease::Decode,
         pd_prefill_drain_timeout: Duration::from_secs(300),
         stream_stall_warn: infera_router::proxy::StallWarn {
             before_first_byte: Duration::from_secs(240),
@@ -370,6 +380,7 @@ async fn mixed_round_robin_spreads_load() {
 
 fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
     AppState {
+        sessions: Arc::new(infera_router::session_affinity::Sessions::default()),
         pool: Arc::new(ArcSwap::from_pointee(Snapshot::build(workers))),
         policy: Arc::new(KvEventAwarePolicy::new(
             Arc::new(KvEventClient::new()),
@@ -383,6 +394,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
         retries,
         breaker: Arc::new(CircuitBreaker::default()),
         nats: None,
+        pd_prefill_guard_release: infera_router::config::PrefillGuardRelease::Decode,
         pd_prefill_drain_timeout: Duration::from_secs(300),
         stream_stall_warn: infera_router::proxy::StallWarn {
             before_first_byte: Duration::from_secs(240),
@@ -571,6 +583,69 @@ async fn breaker_stops_reselecting_a_dead_worker() {
         "dead worker must stop being re-picked after the threshold (was 5 before the fix)"
     );
     assert_eq!(ok.hit_count(), 10, "healthy worker still serves everything");
+}
+
+fn duration_sum(body: &str, outcome: &str) -> f64 {
+    body.lines()
+        .find(|line| {
+            line.starts_with("infera_request_duration_seconds_sum")
+                && line.contains("router=\"mixed\"")
+                && line.contains(&format!("outcome=\"{outcome}\""))
+        })
+        .and_then(|line| line.rsplit_once(' '))
+        .and_then(|(_, value)| value.parse().ok())
+        .unwrap_or(0.0)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn mixed_client_error_records_attempt_duration() {
+    let state = Arc::new(MockState {
+        status: 400,
+        sse: false,
+        reply: json!(null),
+        hits: Mutex::new(Vec::new()),
+        abort_rids: Mutex::new(Vec::new()),
+        hang: false,
+        hang_stream: false,
+        truncated_sse: false,
+        delay: Duration::from_millis(200),
+    });
+    let (url, _) = serve_mock(state).await;
+    let app_state = make_state(
+        vec![worker(
+            json!({"worker_id": "w-slow-4xx", "url": url, "model_name": "m", "disagg_mode": "mixed"}),
+        )],
+        0,
+    );
+    let router = spawn_router(app_state).await;
+    let before = client()
+        .get(format!("{router}/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 400);
+    let after = client()
+        .get(format!("{router}/metrics"))
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    let delta = duration_sum(&after, "4xx") - duration_sum(&before, "4xx");
+    assert!(
+        delta >= 0.15,
+        "4xx duration {delta} should cover the worker attempt"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1198,6 +1273,151 @@ async fn pd_protocol_mismatch_is_501() {
 }
 
 // ---------------------------------------------------------------------------
+// ATOM: serial-pull PD (atom-mooncake) and DP ranks in the body
+// ---------------------------------------------------------------------------
+
+fn atom_worker(role: &str, url: &str, handshake_port: i64) -> Arc<Worker> {
+    worker(json!({
+        "worker_id": role, "url": url, "model_name": "m", "engine": "atom",
+        "disagg_mode": role,
+        "disagg_meta": {"protocol": "atom-mooncake", "params": {
+            "host": "10.0.0.1", "http_port": 19000, "handshake_port": handshake_port,
+            "tp_size": 4, "dp_size": 1
+        }}
+    }))
+}
+
+/// What an ATOM prefill answers: its KV hand-off, rank included.
+fn atom_prefill_reply() -> Value {
+    json!({"choices": [{"text": "x"}], "kv_transfer_params": {
+        "do_remote_prefill": true, "do_remote_decode": false,
+        "transfer_id": "t-1", "first_token_id": 7, "remote_block_ids": [1, 2],
+        "remote_host": "10.0.0.2", "remote_handshake_port": 21301, "dp_rank": 0
+    }})
+}
+
+async fn atom_pd(
+    p_status: u16,
+    p_reply: Value,
+    d_sse: bool,
+) -> (String, Arc<MockState>, Arc<MockState>) {
+    let (p_url, p) = spawn_mock(p_status, false, p_reply).await;
+    let (d_url, d) = spawn_mock(200, d_sse, json!({"who": "decode"})).await;
+    let workers = vec![
+        atom_worker("prefill", &p_url, 21301),
+        atom_worker("decode", &d_url, 21311),
+    ];
+    (spawn_router(make_state(workers, 0)).await, p, d)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_pd_unary_pulls_the_prefill_handoff_into_decode() {
+    let (router, p, d) = atom_pd(200, atom_prefill_reply(), false).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/completions"))
+        .json(&json!({"model": "m", "prompt": "hi", "max_tokens": 64}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.json::<Value>().await.unwrap()["who"], "decode");
+
+    let p_hit = &p.hits.lock().unwrap()[0];
+    assert_eq!(p_hit.path, "/v1/completions");
+    assert_eq!(p_hit.body["max_tokens"], 1);
+    assert_eq!(p_hit.body["stream"], false);
+    // The prefill pushes to the decode's handshake port.
+    let p_kv = &p_hit.body["kv_transfer_params"];
+    assert_eq!(p_kv["do_remote_decode"], true);
+    assert_eq!(p_kv["remote_handshake_port"], 21311);
+
+    let d_hit = &d.hits.lock().unwrap()[0];
+    assert_eq!(d_hit.body["max_tokens"], 64);
+    // The decode gets the prefill's hand-off verbatim, plus where its KV sits.
+    let d_kv = &d_hit.body["kv_transfer_params"];
+    assert_eq!(d_kv["transfer_id"], "t-1");
+    assert_eq!(d_kv["first_token_id"], 7);
+    assert_eq!(d_kv["remote_handshake_port"], 21301);
+    assert_eq!(d_kv["remote_tp_size"], 4);
+    assert_eq!(d_kv["remote_dp_rank"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_pd_streaming_relays_the_decode() {
+    let (router, p, d) = atom_pd(200, atom_prefill_reply(), true).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true, "messages": []}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(text.contains("[DONE]"), "expected decode SSE, got {text:?}");
+    // The prefill ran first and non-streaming; the decode streams.
+    assert_eq!(p.hits.lock().unwrap()[0].body["stream"], false);
+    assert_eq!(d.hits.lock().unwrap()[0].body["stream"], true);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_pd_failed_prefill_never_reaches_decode() {
+    for (status, reply, want) in [
+        (503, json!(null), 503),
+        (400, json!(null), 400),
+        // A 200 without a hand-off leaves the decode nothing to pull.
+        (200, json!({"choices": []}), 502),
+    ] {
+        let (router, p, d) = atom_pd(status, reply, false).await;
+        let resp = client()
+            .post(format!("{router}/v1/completions"))
+            .json(&json!({"model": "m", "prompt": "hi"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), want, "prefill answered {status}");
+        assert_eq!(p.hit_count(), 1);
+        assert_eq!(
+            d.hit_count(),
+            0,
+            "decode must not run after a failed prefill"
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_dp_rank_rides_in_the_body_and_follows_the_session() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (url, mock) = spawn_mock(200, false, json!({})).await;
+    let w = worker(json!({
+        "worker_id": "w", "url": url, "model_name": "m", "engine": "atom", "dp_size": 4
+    }));
+    let mut state = make_state(vec![w], 0);
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for session in ["s1", "s2", "s1", "s2"] {
+        let resp = client()
+            .post(format!("{router}/v1/completions"))
+            .header("X-Session-ID", session)
+            .json(&json!({"model": "m", "prompt": "hi"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 200);
+    }
+    let hits = mock.hits.lock().unwrap();
+    // ATOM ignores the header, so none is sent.
+    assert!(hits.iter().all(|h| h.dp_rank.is_none()));
+    let ranks: Vec<_> = hits
+        .iter()
+        .map(|h| h.body["data_parallel_rank"].as_i64().unwrap())
+        .collect();
+    assert_eq!(ranks, vec![0, 1, 0, 1]);
+    assert_eq!(hits[0].body["prompt"], "hi");
+}
+
+// ---------------------------------------------------------------------------
 // Introspection endpoints
 // ---------------------------------------------------------------------------
 
@@ -1405,4 +1625,411 @@ async fn responses_input_tokens_unavailable_without_tokenizer() {
         .await
         .unwrap();
     assert_eq!(r.status(), 503);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_header_pins_each_pd_role_without_aligning_their_ranks() {
+    use infera_router::policy::Role;
+    use infera_router::session_affinity::{Mode, Sessions};
+    for mode in [Mode::Off, Mode::Prefill, Mode::Both] {
+        let (p_url, p) = spawn_mock(200, false, json!({})).await;
+        let (d_url, d) = spawn_mock(200, false, json!({})).await;
+        let mut dw = (*decode(&d_url)).clone();
+        dw.dp_size = Some(8);
+        let dw = Arc::new(dw);
+        let mut state = make_state(vec![prefill(&p_url, Some(8)), dw.clone()], 0);
+        state.sessions = Arc::new(Sessions::new(mode, Duration::from_secs(3600), 64));
+        state.policy.pick(&[dw], &json!({}), Role::Decode);
+        let router = spawn_router(state).await;
+        for session in ["s1", "s2", "s1"] {
+            let response = client()
+                .post(format!("{router}/v1/chat/completions"))
+                .header("X-Session-ID", session)
+                .json(&json!({"model":"m", "messages":[{"role":"user","content":"unchanged"}]}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), 200);
+            response.bytes().await.unwrap();
+        }
+        let ph = p.hits.lock().unwrap();
+        let dh = d.hits.lock().unwrap();
+        let pr: Vec<_> = ph.iter().map(|x| x.dp_rank.as_deref().unwrap()).collect();
+        let dr: Vec<_> = dh.iter().map(|x| x.dp_rank.as_deref().unwrap()).collect();
+        assert_eq!(
+            pr,
+            if mode == Mode::Off {
+                vec!["0", "1", "2"]
+            } else {
+                vec!["0", "1", "0"]
+            }
+        );
+        assert_eq!(
+            dr,
+            if mode == Mode::Both {
+                vec!["1", "2", "1"]
+            } else {
+                vec!["1", "2", "3"]
+            }
+        );
+        for (p, d) in ph.iter().zip(dh.iter()) {
+            assert_eq!(p.body["bootstrap_room"], d.body["bootstrap_room"]);
+            assert_eq!(
+                p.body["messages"],
+                json!([{"role":"user","content":"unchanged"}])
+            );
+            assert!(p.body.get("session_id").is_none());
+        }
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_binding_is_invalidated_on_decode_eof_without_done() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (p_url, _) = spawn_mock(200, false, json!({})).await;
+    let (d_url, d) = spawn_mock_truncated_sse().await;
+    let mut dw = (*decode(&d_url)).clone();
+    dw.dp_size = Some(8);
+    let mut state = make_state(vec![prefill(&p_url, Some(8)), Arc::new(dw)], 0);
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for _ in 0..2 {
+        client()
+            .post(format!("{router}/v1/chat/completions"))
+            .header("X-Session-ID", "same-session")
+            .json(&json!({"model":"m","stream":true}))
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+    }
+    let hits = d.hits.lock().unwrap();
+    assert_eq!(hits[0].dp_rank.as_deref(), Some("0"));
+    assert_eq!(hits[1].dp_rank.as_deref(), Some("1"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_both_also_pins_aggregated_requests() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (url, mock) = spawn_mock(200, false, json!({})).await;
+    let w = worker(json!({"worker_id":"w","url":url,"model_name":"m","dp_size":8}));
+    let mut state = make_state(vec![w], 0);
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for session in ["s1", "s2", "s1"] {
+        client()
+            .post(format!("{router}/v1/completions"))
+            .header("X-Session-ID", session)
+            .json(&json!({"model":"m","prompt":"unchanged"}))
+            .send()
+            .await
+            .unwrap()
+            .bytes()
+            .await
+            .unwrap();
+    }
+    let hits = mock.hits.lock().unwrap();
+    assert_eq!(
+        hits.iter()
+            .map(|h| h.dp_rank.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["0", "1", "0"]
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "needs a broker: INFERA_TEST_NATS"]
+async fn session_binding_is_reselected_after_nats_4xx() {
+    use infera_router::nats_request::{
+        request_subject, NatsRequestClient, HDR_STATUS, HDR_TYPE, TYPE_DONE,
+    };
+    use infera_router::session_affinity::{Mode, Sessions};
+    let url = std::env::var("INFERA_TEST_NATS").expect("set INFERA_TEST_NATS");
+    for stream in [false, true] {
+        let wid = format!("session-nats-{}-{stream}", std::process::id());
+        let nc = async_nats::connect(&url).await.unwrap();
+        let mut requests = nc.subscribe(request_subject(&wid)).await.unwrap();
+        nc.flush().await.unwrap();
+        let worker_task = tokio::spawn(async move {
+            let mut ranks = Vec::new();
+            for _ in 0..2 {
+                let message = tokio::time::timeout(Duration::from_secs(5), requests.next())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                let payload: Value = serde_json::from_slice(&message.payload).unwrap();
+                ranks.push(
+                    payload["headers"][infera_router::dp::DP_RANK_HEADER]
+                        .as_str()
+                        .unwrap()
+                        .to_owned(),
+                );
+                let mut headers = async_nats::HeaderMap::new();
+                headers.insert(HDR_TYPE, TYPE_DONE);
+                headers.insert(HDR_STATUS, "400");
+                nc.publish_with_headers(message.reply.unwrap(), headers, Bytes::new())
+                    .await
+                    .unwrap();
+                nc.flush().await.unwrap();
+            }
+            ranks
+        });
+        let w = worker(
+            json!({"worker_id":wid,"url":"http://unused","model_name":"m","dp_size":8,"request_transport":"nats"}),
+        );
+        let mut state = make_state(vec![w], 0);
+        state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+        state.nats = Some(Arc::new(
+            NatsRequestClient::connect(Some(&url), 3.0, 0.0, 0)
+                .await
+                .unwrap(),
+        ));
+        let router = spawn_router(state).await;
+        for _ in 0..2 {
+            let response = client()
+                .post(format!("{router}/v1/chat/completions"))
+                .header("X-Session-ID", "same-session")
+                .json(&json!({"model":"m","stream":stream}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), 400);
+            response.bytes().await.unwrap();
+        }
+        assert_eq!(worker_task.await.unwrap(), vec!["0", "1"]);
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_transport_mismatch_reselects_both_roles() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (p_url, p) = spawn_mock(200, false, json!({})).await;
+    let (d_url, d) = spawn_mock(200, false, json!({})).await;
+    let mut nats_d = (*decode(&d_url)).clone();
+    nats_d.worker_id = "d-nats".into();
+    nats_d.request_transport = "nats".into();
+    let mut state = make_state(
+        vec![prefill(&p_url, Some(8)), Arc::new(nats_d), decode(&d_url)],
+        0,
+    );
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for expected in [503, 200] {
+        let response = client()
+            .post(format!("{router}/v1/chat/completions"))
+            .header("X-Session-ID", "same-session")
+            .json(&json!({"model":"m", "stream":false}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(response.status(), expected);
+        response.bytes().await.unwrap();
+    }
+    assert_eq!(p.hit_count(), 1);
+    assert_eq!(d.hit_count(), 1);
+    assert_eq!(p.hits.lock().unwrap()[0].dp_rank.as_deref(), Some("1"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn session_http_failure_only_reselects_failed_role() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    // The streaming decode error occurs before the downstream SSE response opens.
+    for (p_status, d_status, stream) in [(500, 200, false), (200, 500, false), (200, 500, true)] {
+        let (p_url, p) = spawn_mock(p_status, false, json!({})).await;
+        let (d_url, d) = spawn_mock(d_status, false, json!({})).await;
+        let mut dw = (*decode(&d_url)).clone();
+        dw.dp_size = Some(8);
+        let mut state = make_state(vec![prefill(&p_url, Some(8)), Arc::new(dw)], 0);
+        state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+        let sessions = state.sessions.clone();
+        let router = spawn_router(state).await;
+        for _ in 0..2 {
+            let response = client()
+                .post(format!("{router}/v1/chat/completions"))
+                .header("X-Session-ID", "same-session")
+                .json(&json!({"model":"m", "stream":stream}))
+                .send()
+                .await
+                .unwrap();
+            assert_eq!(response.status(), if stream { 502 } else { d_status });
+            response.bytes().await.unwrap();
+            // The streaming prefill drain completes independently of decode.
+            tokio::time::timeout(Duration::from_secs(3), async {
+                while !sessions
+                    .metrics()
+                    .contains("infera_router_session_active{role=\"prefill\"} 0")
+                {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+        }
+        let ph = p.hits.lock().unwrap();
+        let dh = d.hits.lock().unwrap();
+        assert_eq!(ph.len(), 2);
+        assert_eq!(dh.len(), 2);
+        assert_eq!(ph[0].dp_rank.as_deref(), Some("0"));
+        assert_eq!(dh[0].dp_rank.as_deref(), Some("0"));
+        assert_eq!(
+            ph[1].dp_rank.as_deref(),
+            Some(if p_status == 200 { "0" } else { "1" })
+        );
+        assert_eq!(
+            dh[1].dp_rank.as_deref(),
+            Some(if d_status == 200 { "0" } else { "1" })
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires INFERA_TEST_NATS with JetStream; run serially"]
+async fn session_nats_pd_failure_only_reselects_failed_role() {
+    use infera_router::nats_request::{
+        request_subject, NatsRequestClient, HDR_INBOX, HDR_STATUS, HDR_TYPE, REQUEST_STREAM,
+        TYPE_DONE,
+    };
+    use infera_router::session_affinity::{Mode, Sessions};
+    let url = std::env::var("INFERA_TEST_NATS").expect("set INFERA_TEST_NATS");
+    let nc = async_nats::connect(&url).await.unwrap();
+    let js = async_nats::jetstream::new(nc.clone());
+    for stream in [false, true] {
+        for (p_status, d_status, fail_dispatch) in
+            [(500, 200, false), (200, 500, false), (200, 200, true)]
+        {
+            let prefix = format!(
+                "session-pd-{}-{stream}-{p_status}-{d_status}-{fail_dispatch}",
+                std::process::id()
+            );
+            let mut pw = (*prefill("http://unused", Some(8))).clone();
+            pw.worker_id = format!("{prefix}-p");
+            pw.request_transport = "nats".into();
+            let mut dw = (*decode("http://unused")).clone();
+            dw.worker_id = format!("{prefix}-d");
+            dw.request_transport = "nats".into();
+            dw.dp_size = Some(8);
+            let nats = NatsRequestClient::connect(Some(&url), 3.0, 0.0, 100)
+                .await
+                .unwrap();
+            let original = js
+                .get_stream(REQUEST_STREAM)
+                .await
+                .unwrap()
+                .cached_info()
+                .config
+                .clone();
+            if fail_dispatch {
+                // P publishes successfully; D fails before it can return a reply stream.
+                let mut config = original.clone();
+                config.subjects = vec![request_subject(&pw.worker_id)];
+                js.update_stream(config).await.unwrap();
+            }
+            let mut tasks = Vec::new();
+            for (w, status) in [(&pw, p_status), (&dw, d_status)] {
+                if fail_dispatch && w.worker_id == dw.worker_id {
+                    continue;
+                }
+                let mut requests = nc.subscribe(request_subject(&w.worker_id)).await.unwrap();
+                let nc = nc.clone();
+                tasks.push(tokio::spawn(async move {
+                    let mut ranks = Vec::new();
+                    while ranks.len() < 2 {
+                        let message =
+                            tokio::time::timeout(Duration::from_secs(10), requests.next())
+                                .await
+                                .unwrap()
+                                .unwrap();
+                        let payload: Value = serde_json::from_slice(&message.payload).unwrap();
+                        let inbox = message
+                            .headers
+                            .as_ref()
+                            .unwrap()
+                            .get(HDR_INBOX)
+                            .unwrap()
+                            .as_str()
+                            .to_owned();
+                        let abort = payload["path"] == "/abort_request";
+                        if !abort {
+                            ranks.push(
+                                payload["headers"][infera_router::dp::DP_RANK_HEADER]
+                                    .as_str()
+                                    .unwrap()
+                                    .to_owned(),
+                            );
+                        }
+                        let mut headers = async_nats::HeaderMap::new();
+                        headers.insert(HDR_TYPE, TYPE_DONE);
+                        headers.insert(HDR_STATUS, if abort { 200 } else { status }.to_string());
+                        nc.publish_with_headers(inbox, headers, Bytes::new())
+                            .await
+                            .unwrap();
+                        nc.flush().await.unwrap();
+                    }
+                    ranks
+                }));
+            }
+            nc.flush().await.unwrap();
+            let mut state = make_state(vec![Arc::new(pw), Arc::new(dw)], 0);
+            state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+            let sessions = state.sessions.clone();
+            state.nats = Some(Arc::new(nats));
+            let router = spawn_router(state).await;
+            for _ in 0..2 {
+                let response = client()
+                    .post(format!("{router}/v1/chat/completions"))
+                    .header("X-Session-ID", "same-session")
+                    .json(&json!({"model":"m", "stream":stream}))
+                    .send()
+                    .await;
+                if stream && d_status != 200 {
+                    // An immediate failed terminal frame may close HTTP before headers flush.
+                    if let Ok(response) = response {
+                        assert_eq!(response.status(), 200);
+                        assert!(response.bytes().await.is_err());
+                    }
+                } else {
+                    let response = response.unwrap();
+                    assert_eq!(
+                        response.status(),
+                        if fail_dispatch {
+                            502
+                        } else if stream {
+                            200
+                        } else {
+                            d_status
+                        }
+                    );
+                    response.bytes().await.unwrap();
+                }
+                tokio::time::timeout(Duration::from_secs(3), async {
+                    loop {
+                        let metrics = sessions.metrics();
+                        if ["prefill", "decode"].iter().all(|role| {
+                            metrics.contains(&format!(
+                                "infera_router_session_active{{role=\"{role}\"}} 0"
+                            ))
+                        }) {
+                            break;
+                        }
+                        tokio::task::yield_now().await;
+                    }
+                })
+                .await
+                .unwrap();
+            }
+            let p_ranks = tasks.remove(0).await.unwrap();
+            assert_eq!(p_ranks, vec!["0", if p_status == 200 { "0" } else { "1" }]);
+            if fail_dispatch {
+                assert!(sessions
+                    .metrics()
+                    .contains("infera_router_session_selected_total{role=\"decode\"} 2"));
+                js.update_stream(original).await.unwrap();
+            } else {
+                let d_ranks = tasks.remove(0).await.unwrap();
+                assert_eq!(d_ranks, vec!["0", if d_status == 200 { "0" } else { "1" }]);
+            }
+        }
+    }
 }

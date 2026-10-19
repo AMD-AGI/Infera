@@ -188,7 +188,7 @@ def test_instances_are_restored_so_the_audit_trail_resolves(mgr, registry):
 
 def test_the_spec_table_is_not_restored(mgr, registry):
     """It is configuration. Reading it back would resurrect a spec the operator
-    has since removed."""
+    had removed."""
     mgr.instantiate("profiler", TaskId.new())
 
     fresh = AgentMgr(registry)

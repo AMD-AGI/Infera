@@ -10,6 +10,7 @@ from .installers.bin import BinInstaller
 from .installers.claude import ClaudeInstaller
 from .installers.embed import EmbedInstaller
 from .installers.oneline import OnelineInstaller
+from .installers.run_server import RunServerInstaller
 from .installers.uv import UvInstaller
 
 REGISTRY: dict[str, Installer] = {
@@ -19,6 +20,7 @@ REGISTRY: dict[str, Installer] = {
     "oneline": OnelineInstaller(),
     "embed": EmbedInstaller(),
     "claude": ClaudeInstaller(),
+    "run_server": RunServerInstaller(),
 }
 
 

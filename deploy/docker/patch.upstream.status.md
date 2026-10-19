@@ -263,15 +263,32 @@ Kept for provenance; both are no-ops on the current verified stack
 | `vllm-dsv4/legacy/patch_dsv4_aiter_moe.py` | DSv4 MXFP4 MoE gate-mode plumbing, before aiter carried it | none found | [aiter#3123](https://github.com/ROCm/aiter/pull/3123) `[MoE] Align Swiglu MXFP4 fused quant paths` | no (`XiaobingSuper`) | **MERGED** 2026-05-12 |
 | `vllm-dsv4/legacy/patch_dsv4_mhc_aiter.py` + `.diff` | `mhc_pre_gemm_sqrsum_kernel` store race → EngineCore dies | none found | [aiter#3033](https://github.com/ROCm/aiter/pull/3033) `Fix sqrsum store race condition` | no (`kkHuang-amd`) | **MERGED** 2026-05-06 |
 
-## ATOM — `patches/atom/` (baked by `Dockerfile.atom`)
+## ATOM — `patches/atom/` (baked by `Dockerfile.atom`, `ATOM_NIGHTLY=0`)
 
 ATOM is an internal engine; there is no public upstream to file against.
+Written for the default release base. An ATOM nightly build (`ATOM_NIGHTLY=1`)
+skips them: on `nightly_202610131505` they are duplicate or dead code (the
+consumer slot is already initialized, `get_rope` accepts `dtype=`, the GDN
+anchor is gone).
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
 | `atom/patch_gdn_pd_state_transfer.py` | hybrid GDN models never transfer the GatedDeltaNet recurrent state in PD, so decode starts from a zero state and cannot recall prompt context (5/5 mixed vs 0/5 PD) | n/a — internal engine | n/a | — | — |
 | `atom/patch_minimax_m2_qknorm_rope.py` | stock `minimax_m2.py` fails to load: `get_rope()` rejects `dtype=`, and the TP fused QK-norm kernel needs a batch guard | n/a | n/a | — | — |
 | `atom/patch_mooncake_consumer_slot.py` | `UnboundLocalError: consumer_staging_pool_idx` crashes the decode worker on the first PD request for models with slot state but no `slot_regions` | n/a | n/a | — | — |
+
+## ATOM nightly — `patches/atom_nightly/` (baked by `Dockerfile.atom`, `ATOM_NIGHTLY=1`)
+
+Strict anchor scripts against `rocm/atom-dev:nightly_202610131505` (ATOM
+`661ef766`, LMCache 0.5.6.dev139+gf22dec28): drift fails the build. Rationale
+is in each script's docstring and `atom_nightly/README.md`. LMCache `dev` and
+its open PRs were checked on 2026-10-14.
+
+| patch | fixes | upstream issue | upstream PR | ours? | PR state |
+|---|---|---|---|---|---|
+| `atom_nightly/patch_lmcache_rocm_pinned_alloc.py` | LMCache's NUMA CPU pool is `hipHostRegister`ed (KFD USERPTR) on ROCm; a page migration (compaction, `move_pages`) evicts every GPU queue of the process → multi-second prefill stalls. With `HSA_USERPTR_FOR_PAGED_MEM=0` the pool comes from exact-size `hipHostMalloc` (GTT) instead | [LMCache#5361](https://github.com/LMCache/LMCache/issues/5361) (MP server pool) | none for the non-MP pool; [LMCache#5591](https://github.com/LMCache/LMCache/pull/5591) does the same for the MP server's L1 only; same approach as [sglang#42553](https://github.com/sgl-project/sglang/pull/42553) | no | #5591 draft |
+| `atom_nightly/patch_atom_dcp_sparse_pad_rows.py` | with sparse MLA + DCP the fused DCP candidate exchange writes `dcp_sparse_kv_indptr_buffer` for the scheduled rows only, so an eager decode step padded to a graph bucket (the P/D producer's q_len=1 decode with MTP on) reads stale offsets in its padded rows; a stale offset below the real end gives a negative-length row, a work with kv_end < kv_start, and the persistent ASM decode kernel reads past kv_indices → `Memory access fault` on the prefill node under long-prefix load. Padded rows now end where the last real row ends | not filed yet | none | — | — |
+| `atom_nightly/prebuild_aiter_mha_varlen.py` (a build step, not a source patch) | the base's AITER prebuilds five `mha_varlen_fwd` variants but not `..._mask_lse_ndropout_nskip_nqscale`, which chunked-MLA prefill calls once a prompt extends a cached prefix; its first call JIT-compiles it for ~30 s and stalls the prefill; built into the image instead. On gfx950 `nightly_202610131505` loads the ASM `fmha_v3` kernel instead; kept for gfx942 | not searched | not filed (add it to AITER `setup.py`'s prebuild list) | — | — |
 
 ## hipFile — `patches/hipfile_async/` (baked by `Dockerfile.vllm`)
 
@@ -283,8 +300,9 @@ ATOM is an internal engine; there is no public upstream to file against.
 
 Every file under `patches/` is covered above except these, which carry no fix of
 their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh`,
-`sglang_dsa/README.md`, `sglang_disagg/README.md` and
-`vllm-dsv4/legacy/README.md`.
+`sglang_dsa/README.md`, `sglang_disagg/README.md`,
+`vllm-dsv4/legacy/README.md`, `atom_nightly/README.md` and
+`atom_nightly/anchor_patch.py` (the strict anchor-edit helper).
 
 ## Retired
 
@@ -294,6 +312,9 @@ the upstream PR itself.
 
 | patch | fixed | superseded by | dropped at |
 |---|---|---|---|
+| `atom_dcp/patch_dcp_prefill_mtp_metadata.py` | a DCP prefill running MTP crashed in `dcp_ops.py` on a `None` `dcp_token_block_tables` at the first draft step | ATOM `0574cebf5` (#2430), which publishes the table unconditionally (`_publish_dcp_token_block_tables`); the anchor is gone, so the strict script failed the build | base `rocm/atom-dev:nightly_202610131505` |
+| `atom_dcp/patch_lmcache_lookup_pin.py` | LMCache `retrieve()` and `lookup_unpin()` both released a CPU lookup pin, so a prefix shared by two requests became evictable early | [LMCache#5098](https://github.com/LMCache/LMCache/pull/5098) (MERGED, `bdb66b8`); the script reported it as already applied | base `rocm/atom-dev:nightly_202610131505` (LMCache 0.5.6.dev139) |
+| `atom_dcp/patch_moe_eager_decode_pad.py` | DP attention + eager decode handed MoE unpadded rows → `MoE was handed N rows ... expecting M` | nothing: not fixed in ATOM `661ef766`. Dropped because only DP attention with eager decode reaches it, which the nightly DCP kits do not use; restore it from git history if one does | base `rocm/atom-dev:nightly_202610131505` |
 | `sglang/patch_glm52_nextn_quark_exclude.py` | GLM-5.2 MTP `eh_proj` built as an MXFP4 param because the quark-exclude check probed the bare layer prefix → draft weight-load died `3072 vs 6144` | [sglang#30265](https://github.com/sgl-project/sglang/pull/30265) (MERGED), whose `GlmMoeDsaForCausalLMNextN` overrides `_resolve_nextn_quant_config` outright | base v0.5.17. Keeping it would have been worse than useless: GLM no longer reaches the base-class path it edits, while DeepSeek-V4 still does. |
 | `mooncake_cpp/rdma_auto_chunk_mr_2017.diff` | buffers over the device `max_mr_size` silently truncated by `ibv_reg_mr` → `IBV_WC_REM_ACCESS_ERR` past the boundary | [Mooncake#2644](https://github.com/kvcache-ai/Mooncake/pull/2644) (MERGED, ours — `jiejingzhangamd`) | Mooncake ref `faae8dd4` |
 | `mooncake_cpp/rdma_transport_dmabuf_cmake.diff` | `USE_HIP_DMABUF` defined only on the `transfer_engine` target, so the `ibv_reg_dmabuf_mr` branch compiled out of `rdma_transport` | [Mooncake#2725](https://github.com/kvcache-ai/Mooncake/pull/2725) (MERGED) moved the wiring into `src/CMakeLists.txt`; the vLLM build now passes `-DUSE_HIP_DMABUF` | Mooncake ref `faae8dd4` |
@@ -312,3 +333,15 @@ check the defect in the new base's source before dropping anything.
 When adding a patch, add its row here in the same commit, and put the full
 argument — evidence, alternatives, how it differs from our own upstream PR — in
 the patch's own header. This table is the index, not the record.
+
+## Experimental Decode radix/speculation — `patches/sglang_decode_radix_spec/`
+
+Checked 2026-10-08. `patch_decode_radix_spec.py` adds the runtime-gated
+EAGLE/NEXTN top-k-1 admission exception to the mi35x image; it is not a KV
+ownership fix. Stock v0.5.18 and v0.5.19 still reject this combination in their
+PD argument hook. SGLang [#40857](https://github.com/sgl-project/sglang/pull/40857)
+is open and addresses hybrid-SWA ownership before allowing EAGLE/EAGLE3; this
+patch does not backport it or claim support for those models. Decode HiCache
+also needs SGLang [#35081](https://github.com/sgl-project/sglang/pull/35081)
+(in v0.5.19, not v0.5.18). See the patch README for scope, source-shape checks
+and the build opt-out.

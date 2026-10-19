@@ -36,10 +36,16 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 
+def uvicorn_config(app, args) -> uvicorn.Config:
+    return uvicorn.Config(
+        app, host=args.host, port=args.port, timeout_keep_alive=args.timeout_keep_alive
+    )
+
+
 async def main(args) -> None:
     tokenizer_path = resolve_tokenizer_path(args.router_tokenizer_path)
 
-    # --- Policy (kv-aware or round-robin) ---
+    # --- Policy (kv-aware or round-robin, optionally under session affinity) ---
     policy = build_policy(
         args.router_policy,
         overlap_weight=args.kv_overlap_weight,
@@ -50,6 +56,8 @@ async def main(args) -> None:
         nats_server=args.nats_server,
         default_chat_template_kwargs=args.kv_default_chat_template_kwargs,
         per_worker_template_kwargs=args.kv_per_worker_template_kwargs,
+        session_affinity=args.session_affinity,
+        session_affinity_ttl_seconds=args.session_affinity_ttl_seconds,
     )
     if args.router_policy == "kv-aware":
         logger.info(
@@ -303,8 +311,7 @@ async def main(args) -> None:
         )
     )
 
-    config = uvicorn.Config(app, host=args.host, port=args.port)
-    server = uvicorn.Server(config)
+    server = uvicorn.Server(uvicorn_config(app, args))
 
     logger.info("starting Infera on %s:%d", args.host, args.port)
     try:
@@ -327,8 +334,6 @@ if __name__ == "__main__":
     _args = parse_server_args()
     # `--router-backend rust` replaces this process with the Rust router binary.
     if _args.router_backend == "rust":
-        if _args.enable_sla_metrics:
-            raise SystemExit("--enable-sla-metrics currently requires --router-backend=python")
         from infera.server.launch_rust import exec_rust
 
         exec_rust(_args)  # never returns

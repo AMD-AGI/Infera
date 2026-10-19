@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import random
+from functools import partial
 
 import anyio
 import httpx
@@ -29,6 +30,7 @@ from infera.router.dp_routing import (
     align_room_to_prefill_rank,
     dp_rank_header,
     inject_disagg_prefill_dp_rank,
+    inject_dp_rank,
 )
 from infera.router.engine_priority import inject_engine_priority
 from infera.router.pd_abort import (
@@ -75,9 +77,11 @@ def _leg_headers(
     target: RouteTarget,
     *,
     proto_name: str,
+    session_headers: dict[str, str] | None = None,
 ) -> dict[str, str] | None:
-    """Shared forged request id (if any) + this leg's DP-rank pin."""
-    headers: dict[str, str] = {}
+    """Client session headers (if any) + shared forged request id (if any) +
+    this leg's DP-rank pin."""
+    headers: dict[str, str] = dict(session_headers or {})
     if forged_id:
         headers[_rid_header(proto_name)] = forged_id
     headers.update(dp_rank_header(target) or {})
@@ -352,7 +356,7 @@ class DisaggRouter(BaseRouter):
             prefills = self.breaker.filter(prefills)
             decodes = self.breaker.filter(decodes)
             if not prefills or not decodes:
-                obs["outcome"] = "503"
+                obs["outcome"] = metrics.outcome_label(503)
                 metrics.pd_bootstrap_failures_total.labels(reason="no_pd_workers").inc()
                 return JSONResponse(
                     content={"error": f"need both prefill and decode workers for model={model!r}"},
@@ -363,6 +367,10 @@ class DisaggRouter(BaseRouter):
             # skips prefill) vs D (load-heavy) differently.
             p_target, p_blocks = self.policy.pick(prefills, body, role_hint="prefill")
             d_target, d_blocks = self.policy.pick(decodes, body, role_hint="decode")
+            for target, role in ((p_target, "prefill"), (d_target, "decode")):
+                obs.on_failure(
+                    partial(self.policy.on_request_failed, target.route_key, body, role_hint=role)
+                )
             return await self._dispatch_pd(
                 obs, p_target, d_target, p_blocks, d_blocks, body, stream, path
             )
@@ -385,7 +393,7 @@ class DisaggRouter(BaseRouter):
             p = self.pool.get(prefill_id)
             d = self.pool.get(decode_id)
             if p is None or d is None:
-                obs["outcome"] = "503"
+                obs["outcome"] = metrics.outcome_label(503)
                 metrics.pd_bootstrap_failures_total.labels(reason="direct_worker_missing").inc()
                 missing = prefill_id if p is None else decode_id
                 return JSONResponse(
@@ -459,7 +467,7 @@ class DisaggRouter(BaseRouter):
         # leg over HTTP, where nothing is listening and decode waits out its
         # KV timeout.
         if p.request_transport != d.request_transport:
-            obs["outcome"] = "503"
+            obs["outcome"] = metrics.outcome_label(503)
             metrics.pd_bootstrap_failures_total.labels(reason="mixed_request_transport").inc()
             return JSONResponse(
                 content={
@@ -474,7 +482,7 @@ class DisaggRouter(BaseRouter):
         try:
             proto = resolve_protocol(p, d)
         except (ProtocolMismatch, UnknownProtocol) as exc:
-            obs["outcome"] = "500"
+            obs["outcome"] = metrics.outcome_label(500)
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_unresolved").inc()
             return _sanitized_error("protocol resolution failed", exc, status_code=500)
 
@@ -486,6 +494,7 @@ class DisaggRouter(BaseRouter):
         base = dict(body)
         hints = base.pop("_infera_cache_hints", None) or parse_cache_hints(body)
         base.pop("_infera_request_id", None)
+        session_headers = base.pop("_infera_session_headers", None)
         base.pop("_infera_direct_worker", None)
         base.pop("_infera_direct_prefill", None)
 
@@ -494,6 +503,7 @@ class DisaggRouter(BaseRouter):
 
         # Fallback ISL for the streaming path, where the reply carries no usage.
         obs.observe_blocks(p_blocks, p.kv_block_size)
+        obs.set_workers(prefill_worker=p.worker_id, decode_worker=d.worker_id)
 
         # request_id_for may raise (e.g. malformed disagg_meta); compute before
         # on_request_started so no started/finished bookkeeping is needed on
@@ -501,7 +511,7 @@ class DisaggRouter(BaseRouter):
         try:
             forged_id = proto.request_id_for(p, d, room_id)
         except ValueError as exc:
-            obs["outcome"] = "500"
+            obs["outcome"] = metrics.outcome_label(500)
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_request_id_failed").inc()
             return _sanitized_error("protocol request-id generation failed", exc, status_code=500)
 
@@ -526,6 +536,7 @@ class DisaggRouter(BaseRouter):
             stream,
             forged_id,
             path=path,
+            session_headers=session_headers,
         )
 
     async def _dispatch_concurrent(
@@ -545,10 +556,15 @@ class DisaggRouter(BaseRouter):
         forged_id: str | None,
         *,
         path: str = DEFAULT_PATH,
+        session_headers: dict[str, str] | None = None,
     ) -> Response:
         p, d = p_target.worker, d_target.worker
-        p_headers = _leg_headers(forged_id, p_target, proto_name=proto.name)
-        d_headers = _leg_headers(forged_id, d_target, proto_name=proto.name)
+        p_headers = _leg_headers(
+            forged_id, p_target, proto_name=proto.name, session_headers=session_headers
+        )
+        d_headers = _leg_headers(
+            forged_id, d_target, proto_name=proto.name, session_headers=session_headers
+        )
         try:
             p_body = inject_engine_priority(
                 proto.annotate_prefill(base, p, d, room_id), hints, p.engine
@@ -563,12 +579,14 @@ class DisaggRouter(BaseRouter):
         except ValueError as exc:
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
-            obs["outcome"] = "500"
+            obs["outcome"] = metrics.outcome_label(500)
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_annotate_failed").inc()
             return _sanitized_error("protocol annotation failed", exc, status_code=500)
 
         p_body = _with_responses_request_id(p_body, proto.name, path, forged_id)
         d_body = _with_responses_request_id(d_body, proto.name, path, forged_id)
+        p_body = inject_dp_rank(p_body, p_target)
+        d_body = inject_dp_rank(d_body, d_target)
 
         # Deliver both legs over NATS when both workers registered for it. KV
         # transfer stays engine<->engine (bootstrap_room in the bodies), so the
@@ -586,7 +604,7 @@ class DisaggRouter(BaseRouter):
             ):
                 self.policy.on_request_finished(p_target.route_key, p_blocks)
                 self.policy.on_request_finished(d_target.route_key, d_blocks)
-                obs["outcome"] = "429"
+                obs["outcome"] = metrics.outcome_label(429)
                 return JSONResponse(
                     content={"error": "PD worker request backlog over limit"},
                     status_code=429,
@@ -669,7 +687,7 @@ class DisaggRouter(BaseRouter):
                 leg, exc = failed
                 if not isinstance(exc, httpx.HTTPError):
                     raise exc
-                obs["outcome"] = "502"
+                obs["outcome"] = metrics.outcome_label(502)
                 metrics.pd_bootstrap_failures_total.labels(reason="worker_unreachable").inc()
                 return _sanitized_error(f"PD {leg} leg failed", exc, status_code=502)
             if p_resp.status_code >= 400:
@@ -683,7 +701,7 @@ class DisaggRouter(BaseRouter):
             try:
                 payload = d_resp.json()
             except ValueError:
-                obs["outcome"] = "502"
+                obs["outcome"] = metrics.outcome_label(502)
                 return JSONResponse(
                     content={
                         "error": f"decode worker {d.worker_id} returned non-JSON",
@@ -691,7 +709,7 @@ class DisaggRouter(BaseRouter):
                     },
                     status_code=502,
                 )
-            obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
+            obs["outcome"] = metrics.outcome_label(d_resp.status_code)
             obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=d_resp.status_code)
         except asyncio.CancelledError:
@@ -803,7 +821,7 @@ class DisaggRouter(BaseRouter):
                     code = st or 502
                     pair_failed = True
                     self._score_leg(d.worker_id, code)
-                    obs["outcome"] = str(code)
+                    obs["outcome"] = metrics.outcome_label(code)
                     return JSONResponse(
                         content={
                             "error": f"decode {d.worker_id} nats failed",
@@ -820,7 +838,7 @@ class DisaggRouter(BaseRouter):
                 payload = json.loads(raw) if raw else {}
             except ValueError:
                 pair_failed = True
-                obs["outcome"] = "502"
+                obs["outcome"] = metrics.outcome_label(502)
                 return JSONResponse(
                     content={
                         "error": f"decode {d.worker_id} non-JSON over nats",
@@ -829,7 +847,7 @@ class DisaggRouter(BaseRouter):
                     status_code=502,
                 )
             self._score_leg(d.worker_id, status)
-            obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
+            obs["outcome"] = metrics.outcome_label(status)
             obs.observe_usage(payload)
             return JSONResponse(content=payload, status_code=status)
         except asyncio.CancelledError:
@@ -951,6 +969,7 @@ class DisaggRouter(BaseRouter):
         forged_id: str | None,
         *,
         path: str = DEFAULT_PATH,
+        session_headers: dict[str, str] | None = None,
     ) -> Response:
         """Serial-pull topology: D needs handoff fields from P's response
         before its body can be assembled, so the two legs cannot be
@@ -966,8 +985,12 @@ class DisaggRouter(BaseRouter):
         each leg so timings line up with the concurrent path.
         """
         p, d = p_target.worker, d_target.worker
-        p_headers = _leg_headers(forged_id, p_target, proto_name=proto.name)
-        d_headers = _leg_headers(forged_id, d_target, proto_name=proto.name)
+        p_headers = _leg_headers(
+            forged_id, p_target, proto_name=proto.name, session_headers=session_headers
+        )
+        d_headers = _leg_headers(
+            forged_id, d_target, proto_name=proto.name, session_headers=session_headers
+        )
         # P-leg first. Any failure here finishes BOTH workers (we never
         # call D, so D's slot is freed immediately). Once P succeeds we
         # finish P right away — serial-pull means it's truly done at
@@ -976,10 +999,11 @@ class DisaggRouter(BaseRouter):
             p_body = inject_engine_priority(
                 proto.annotate_prefill(base, p, d, room_id), hints, p.engine
             )
+            p_body = inject_dp_rank(p_body, p_target)
         except ValueError as exc:
             self.policy.on_request_finished(p_target.route_key, p_blocks)
             self.policy.on_request_finished(d_target.route_key, d_blocks)
-            obs["outcome"] = "500"
+            obs["outcome"] = metrics.outcome_label(500)
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_annotate_failed").inc()
             return _sanitized_error("protocol annotation failed", exc, status_code=500)
 
@@ -990,7 +1014,7 @@ class DisaggRouter(BaseRouter):
                     p_resp = await self._client.post(p_url, json=p_body, headers=p_headers)
                 except httpx.HTTPError as exc:
                     p_failed = True
-                    obs["outcome"] = "502"
+                    obs["outcome"] = metrics.outcome_label(502)
                     metrics.pd_bootstrap_failures_total.labels(reason="prefill_unreachable").inc()
                     self.breaker.record_failure(p.worker_id)
                     return _sanitized_error("prefill leg failed", exc, status_code=502)
@@ -1006,7 +1030,7 @@ class DisaggRouter(BaseRouter):
             self._score_leg(p.worker_id, p_resp.status_code)
             if p_resp.status_code >= 400:
                 p_failed = True
-                obs["outcome"] = f"{p_resp.status_code // 100}xx"
+                obs["outcome"] = metrics.outcome_label(p_resp.status_code)
                 metrics.pd_bootstrap_failures_total.labels(
                     reason=f"prefill_{p_resp.status_code // 100}xx"
                 ).inc()
@@ -1024,7 +1048,7 @@ class DisaggRouter(BaseRouter):
                 p_payload = p_resp.json()
             except ValueError:
                 p_failed = True
-                obs["outcome"] = "502"
+                obs["outcome"] = metrics.outcome_label(502)
                 return JSONResponse(
                     content={
                         "error": f"prefill worker {p.worker_id} returned non-JSON",
@@ -1037,7 +1061,7 @@ class DisaggRouter(BaseRouter):
                 handoff = proto.extract_handoff(p_payload)
             except (KeyError, ValueError) as exc:
                 p_failed = True
-                obs["outcome"] = "502"
+                obs["outcome"] = metrics.outcome_label(502)
                 metrics.pd_bootstrap_failures_total.labels(reason="handoff_extract_failed").inc()
                 logger.warning("handoff extraction failed (%s: %s)", type(exc).__name__, exc)
                 return JSONResponse(
@@ -1065,9 +1089,10 @@ class DisaggRouter(BaseRouter):
                 prefill_target=p_target,
                 decode_engine=d.engine,
             )
+            d_body = inject_dp_rank(d_body, d_target)
         except ValueError as exc:
             self.policy.on_request_finished(d_target.route_key, d_blocks)
-            obs["outcome"] = "500"
+            obs["outcome"] = metrics.outcome_label(500)
             metrics.pd_bootstrap_failures_total.labels(reason="protocol_annotate_failed").inc()
             return _sanitized_error("protocol annotation failed", exc, status_code=500)
 
@@ -1088,7 +1113,7 @@ class DisaggRouter(BaseRouter):
                 try:
                     d_resp = await self._client.post(d_url, json=d_body, headers=d_headers)
                 except httpx.HTTPError as exc:
-                    obs["outcome"] = "502"
+                    obs["outcome"] = metrics.outcome_label(502)
                     metrics.pd_bootstrap_failures_total.labels(reason="decode_unreachable").inc()
                     self.breaker.record_failure(d.worker_id)
                     return _sanitized_error("decode leg failed", exc, status_code=502)
@@ -1097,7 +1122,7 @@ class DisaggRouter(BaseRouter):
             try:
                 d_payload = d_resp.json()
             except ValueError:
-                obs["outcome"] = "502"
+                obs["outcome"] = metrics.outcome_label(502)
                 return JSONResponse(
                     content={
                         "error": f"decode worker {d.worker_id} returned non-JSON",
@@ -1105,7 +1130,7 @@ class DisaggRouter(BaseRouter):
                     },
                     status_code=502,
                 )
-            obs["outcome"] = "ok" if d_resp.status_code < 400 else f"{d_resp.status_code // 100}xx"
+            obs["outcome"] = metrics.outcome_label(d_resp.status_code)
             obs.observe_usage(d_payload)
             return JSONResponse(content=d_payload, status_code=d_resp.status_code)
         finally:

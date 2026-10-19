@@ -9,12 +9,31 @@ import argparse
 import os
 
 from infera.router.policy.factory import POLICY_NAMES
+from infera.router.policy.session_affinity import SESSION_AFFINITY_MODES
+
+
+def _session_ttl(raw: str) -> int:
+    ttl = int(raw)
+    if not 1 <= ttl <= 86400:
+        raise argparse.ArgumentTypeError(f"must be 1..86400 seconds, got {ttl}")
+    return ttl
 
 
 def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Infera server")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument(
+        "--timeout-keep-alive",
+        type=int,
+        default=int(os.environ.get("INFERA_TIMEOUT_KEEP_ALIVE", "900") or 900),
+        help="Seconds the router keeps an idle client connection open (uvicorn "
+        "timeout_keep_alive, whose own default is 5). Agentic clients reuse one "
+        "connection per session across idle turns, and one that resends just as "
+        "the router closes it fails with a server disconnect, so keep it above the "
+        "longest idle gap. Python backend only: the Rust backend never closes "
+        "idle connections. Overrides $INFERA_TIMEOUT_KEEP_ALIVE.",
+    )
     parser.add_argument(
         "--discovery-backend",
         choices=("etcd", "kubernetes"),
@@ -92,6 +111,36 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         "(default) subscribes to worker kv events and routes by prefix-cache "
         "locality (workers must publish kv events). 'round-robin' for a stateless "
         "spread.",
+    )
+    parser.add_argument(
+        "--session-affinity",
+        choices=SESSION_AFFINITY_MODES,
+        default="off",
+        help="On top of --router-policy, keep each session (x-session-id "
+        "header) on the target it used last. 'prefill' pins prefill picks only; "
+        "'both' also pins decode and mixed picks. Both router backends.",
+    )
+    parser.add_argument(
+        "--session-affinity-ttl-seconds",
+        type=_session_ttl,
+        default=3600,
+        help="Idle seconds before a session binding is dropped (1-86400, default 3600).",
+    )
+    parser.add_argument(
+        "--decode-input-demand",
+        choices=("off", "shadow", "on"),
+        default=None,
+        help="Rust backend with kv-aware only: pick Decode targets by in-flight "
+        "input tokens. 'shadow' books demand and reports a suggestion without "
+        "changing selection. Unset defers to $INFERA_DECODE_INPUT_DEMAND, else off.",
+    )
+    parser.add_argument(
+        "--pd-prefill-guard-release",
+        choices=("decode", "completion"),
+        default=None,
+        help="Rust backend only: release a PD request's Prefill load when its "
+        "Decode response ends ('decode') or when the Prefill response completes "
+        "('completion'). Unset defers to $INFERA_PD_PREFILL_GUARD_RELEASE, else decode.",
     )
     parser.add_argument(
         "--kv-event-transport",
@@ -221,12 +270,14 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--enable-sla-metrics",
-        action="store_true",
-        default=os.environ.get("INFERA_ENABLE_SLA_METRICS", "").lower() in ("1", "true", "yes"),
-        help="Enable TTFT/ITL/ISL/OSL instrumentation for the optional SLA "
-        "planner. Default OFF so ordinary inference requests are not modified "
-        "or parsed by planner-specific code. Also enabled via "
-        "$INFERA_ENABLE_SLA_METRICS=1.",
+        action=argparse.BooleanOptionalAction,
+        default=os.environ.get("INFERA_ENABLE_SLA_METRICS", "1").lower()
+        not in ("0", "false", "no"),
+        help="Enable TTFT/ITL/ISL/OSL and token counters on /metrics (default: "
+        "on). Disable with --no-enable-sla-metrics or "
+        "INFERA_ENABLE_SLA_METRICS=0 (python backend only; rust rejects the "
+        "off switch). Required for useful Prometheus latency and throughput "
+        "scrapes; the optional SLA planner reads the same histograms.",
     )
     parser.add_argument(
         "--enable-scaling-api",
@@ -286,4 +337,15 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Ceiling for the cooldown, which doubles on each failed probe. "
         "Overrides $INFERA_BREAKER_MAX_COOLDOWN_S.",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    rust_only = [
+        flag
+        for flag, value in (
+            ("--decode-input-demand", args.decode_input_demand),
+            ("--pd-prefill-guard-release", args.pd_prefill_guard_release),
+        )
+        if value is not None
+    ]
+    if rust_only and args.router_backend != "rust":
+        parser.error(f"{', '.join(rust_only)} requires --router-backend rust")
+    return args

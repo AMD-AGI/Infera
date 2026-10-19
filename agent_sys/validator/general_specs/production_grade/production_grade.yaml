@@ -1,0 +1,22 @@
+# A general spec: workflow-independent, shipped by this repository.
+#
+# See `../downstream_loads/downstream_loads.yaml` for why `inputs` is a literal
+# rather than the `std.objectHas(config, 'inputs')` conditional it was.
+module: validator
+name: production_grade
+version: "1"
+brief: >-
+  judges whether a deployment configuration is state-of-the-art and
+  production-grade — trustworthiness dimension
+inputs: [any]
+dimension: trustworthiness
+strength: weak
+# No `entry`: there is no function to register, only a description an agent
+# carries out. This is the case the withdrawn Python callable could not express
+# without a wrapper whose whole job is to run an agent.
+body:
+  readme: general_specs/production_grade/readme.md
+tags:
+  logic_source: agent_written
+  cost: minutes
+  domain: [deploy]

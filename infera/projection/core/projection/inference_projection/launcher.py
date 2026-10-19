@@ -31,11 +31,22 @@ _ARG_TO_FIELD = {
     "prefix_cache_hit_rate": "prefix_cache_hit_rate",
     "speculative_num_tokens": "speculative_num_tokens",
     "speculative_acceptance_rate": "speculative_acceptance_rate",
+    "speculative_method": "speculative_method",
+    "speculative_entropy": "speculative_entropy",
+    "speculative_max_num_tokens": "speculative_max_num_tokens",
+    "speculative_draft_layers": "speculative_draft_layers",
+    "speculative_draft_vocab": "speculative_draft_vocab",
+    "speculative_draft_window": "speculative_draft_window",
+    "speculative_acceptance_length": "speculative_acceptance_length",
+    "speculative_acceptance_curve": "speculative_acceptance_curve",
+    "speculative_thinking": "speculative_thinking",
     "serving_model": "serving_model",
     "decode_step_overhead_us": "decode_step_overhead_us",
     "detokenize_overhead_us": "detokenize_overhead_us",
     "tokenize_overhead_us": "tokenize_overhead_us",
     "request_overhead_ms": "request_overhead_ms",
+    "uncached_prompt_latency_us": "uncached_prompt_latency_us",
+    "uncached_prompt_latency_max_tokens": "uncached_prompt_latency_max_tokens",
     "prefill_rate_us_per_token": "prefill_rate_us_per_token",
     "prefill_rate_lo_tokens": "prefill_rate_lo_tokens",
     "prefill_rate_hi_tokens": "prefill_rate_hi_tokens",
@@ -47,18 +58,24 @@ _ARG_TO_FIELD = {
     "kv_block_size": "kv_block_size",
     "kv_offload_gb_per_gpu": "kv_offload_gb_per_gpu",
     "kv_offload_bw_gbps": "kv_offload_bw_gbps",
+    "workload_resident_tokens": "workload_resident_tokens",
+    "kv_pool_tokens": "kv_pool_tokens",
     "max_num_batched_tokens": "max_num_batched_tokens",
+    "max_num_seqs": "max_num_seqs",
     "ep_load_balance": "ep_load_balance",
     "redundant_experts": "redundant_experts",
     "request_rate": "request_rate",
     "arrival_model": "arrival_model",
     "attention_backend": "attention_backend",
+    "serving_engine": "serving_engine",
     "sparse_attention_topk": "sparse_attention_topk",
+    "sparse_indexer_cost_scale": "sparse_indexer_cost_scale",
     "sliding_window": "sliding_window",
     "sliding_window_layer_fraction": "sliding_window_layer_fraction",
     "moe_expert_dtype": "moe_expert_dtype",
     "linear_weight_dtype": "linear_weight_dtype",
     "speculative_draft_cost_factor": "speculative_draft_cost_factor",
+    "speculative_draft_cost_model": "speculative_draft_cost_model",
     "sampling_top_k": "sampling_top_k",
     "sampling_top_p": "sampling_top_p",
     "sampling_temperature": "sampling_temperature",
@@ -90,6 +107,8 @@ _DISAGG_ARG_TO_FIELD = {
     "decode_attention_dp": "disagg_decode_attention_dp",
     "prefill_replicas": "disagg_prefill_replicas",
     "decode_replicas": "disagg_decode_replicas",
+    "prefill_max_running": "disagg_prefill_max_running",
+    "decode_max_running": "disagg_decode_max_running",
     "kv_transfer_bw_gbps": "disagg_kv_transfer_bw_gbps",
     "kv_transfer_latency_us": "disagg_kv_transfer_latency_us",
     "transfer_backend": "disagg_transfer_backend",
@@ -112,6 +131,10 @@ def _collect_inference_overrides(args) -> dict[str, object]:
     attn_dp = getattr(args, "attention_dp_size", None)
     if attn_dp is not None:
         overrides["attention_data_parallel_size"] = int(attn_dp)
+    # Decode context parallelism is the same kind of serving-only axis.
+    dcp = getattr(args, "decode_context_parallel_size", None)
+    if dcp is not None:
+        overrides["decode_context_parallel_size"] = int(dcp)
     # --comm-model {explicit,builtin} → collective_enabled.
     comm_model = getattr(args, "comm_model", None)
     if comm_model is not None:
@@ -149,7 +172,8 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"prefix_cache_hit={req.resolved_prefix_cache_hit_rate():.2f}")
     if req.speculative_num_tokens:
         feats.append(
-            f"speculative(k={req.speculative_num_tokens}, accept={req.speculative_acceptance_rate})"
+            f"speculative(k={req.speculative_num_tokens}, "
+            f"method={req.speculative_method or 'model default'})"
         )
     if req.kv_cache_dtype != "bf16":
         feats.append(f"kv_dtype={req.kv_cache_dtype}")
@@ -195,8 +219,18 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"redundant_experts={req.redundant_experts}")
     if getattr(req, "attention_backend", None):
         feats.append(f"attn_backend={req.attention_backend}")
+    if getattr(req, "serving_engine", None):
+        feats.append(f"engine={req.serving_engine}")
     if getattr(req, "sparse_attention_topk", 0):
         feats.append(f"sparse_attn_topk={req.sparse_attention_topk}")
+        idx_heads = int(getattr(mc, "sparse_index_n_heads", 0) or 0)
+        if idx_heads:
+            cost = float(getattr(req, "sparse_indexer_cost_scale", 1.0) or 1.0)
+            feats.append(
+                f"indexer={idx_heads}x{mc.sparse_index_head_dim}"
+                f"@{mc.sparse_index_layers or mc.num_layers}L"
+                + (f"(cost={cost:g}x)" if cost != 1.0 else "")
+            )
     n_lin = mc.linear_attention_layer_count()
     if n_lin:
         feats.append(
@@ -316,7 +350,17 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     if perf.extras.get("speculative_tokens_per_step", 1.0) > 1.0:
         print(
             f"  Speculative tokens / step:       {perf.extras['speculative_tokens_per_step']:.2f}"
+            f" ({perf.extras.get('speculative_method', '?')}, "
+            f"depth {int(perf.extras.get('speculative_num_tokens_used', 0))})"
         )
+        if perf.extras.get("speculative_acceptance_source"):
+            print(
+                f"    acceptance from:               {perf.extras['speculative_acceptance_source']}"
+            )
+        if perf.extras.get("speculative_draft_cost"):
+            draft_ms = perf.extras.get("speculative_draft_ms")
+            ms = f", {draft_ms:.2f} ms/step" if draft_ms is not None else ""
+            print(f"    draft cost:                    {perf.extras['speculative_draft_cost']}{ms}")
     # Throughput priced in the unit a serving budget is quoted in. Prefill and
     # decode share the GPUs under continuous batching, so a token's cost is the
     # whole replica's cost divided by what the replica emits -- which is why a
@@ -429,6 +473,13 @@ def _print_des(des: dict[str, object]) -> None:
         f"  Simulated: {point.num_requests} requests over {point.makespan_ms / 1000.0:.2f} s  "
         f"→ system throughput {point.system_throughput_tps:.0f} tok/s"
     )
+    stalled = float((point.packing or {}).get("stalled_reqs") or 0.0)
+    if stalled:
+        print(
+            f"  WARNING: the run stopped early with {stalled:.0f} request(s) that could never "
+            "be scheduled (prompt past --max-context-len, or a reservation past the KV pool); "
+            "the figures cover only what finished before it."
+        )
     print("-" * 100)
     print(f"  {'metric':<22}{'mean':>12}{'p50':>12}{'p90':>12}{'p99':>12}")
 
@@ -470,6 +521,21 @@ def _print_des(des: dict[str, object]) -> None:
             f"evictions={int(pfx.get('evictions', 0))}, "
             f"block-reuse={pfx.get('block_hit_rate', 0.0) * 100:.1f}%"
         )
+        tiers = pfx.get("tiers")
+        if isinstance(tiers, dict):
+            pk_ = getattr(point, "packing", None) or {}
+            parts = [
+                f"{nm} {t.get('hit_blocks_frac', 0.0) * 100:.1f}%"
+                f" ({int(t.get('capacity_blocks', 0))} blocks)"
+                for nm, t in tiers.items()
+            ]
+            print(f"  KV tiers (share of prompt blocks hit, capacity): {', '.join(parts)}")
+            if pk_.get("tier_load_reqs"):
+                print(
+                    f"  Tier loads: {pk_.get('tier_load_reqs', 0.0):.0f} request(s) per "
+                    f"instance waited a mean {pk_.get('tier_load_ms_mean', 0.0):.1f} ms "
+                    f"for blocks below HBM"
+                )
         print(
             f"  Prefix-cache hit rate: {pfx.get('hit_rate', 0.0) * 100:.1f}% of requests "
             f"(avg {pfx.get('avg_cached_tokens', 0.0):.0f} cached tok/req; "
@@ -655,7 +721,7 @@ def _anchor_from_store(args, inference_config):
         from .search.regime import recipe_from_inference_config
 
         store = AnchorStore(root)
-        recipe = recipe_from_inference_config(inference_config)
+        recipe = recipe_from_inference_config(inference_config, getattr(args, "gpu_arch", None))
         model = _anchor_model_filter(store, args)
         entry, distance = store.nearest(recipe, model=model)
     except Exception as exc:  # noqa: BLE001 - a broken store must not fail a projection
@@ -725,6 +791,20 @@ def launch_projection_from_cli(args, overrides):
             f"({len(_curve)} batch points, "
             f"min {min(float(v) for v in _curve.values()):.2f}x independent)"
         )
+
+    _rl = getattr(args, "moe_rank_load", None)
+    if _rl:
+        import json as _json
+
+        with open(_rl) as _f:
+            _blob = _json.load(_f)
+        _tab = _blob.get("rank_load", _blob)
+        if any(k in ("decode", "prefill") for k in _tab):
+            _tab = {ph: {int(e): v for e, v in t.items()} for ph, t in _tab.items()}
+        else:
+            _tab = {int(e): v for e, v in _tab.items()}
+        inference_config.model_config.moe_rank_load = _tab
+        print(f"[inferasim:Inference] measured busiest-rank load from {_rl}")
 
     explicit_wdt = getattr(args, "weight_dtype", None)
     if explicit_wdt is not None:
@@ -913,6 +993,8 @@ def launch_projection_from_cli(args, overrides):
         perf = projector.project()
         _print_performance(inference_config, perf, getattr(args, "gpu_cost_per_hour", None))
         results["performance"] = perf
+        results["calibrated"] = projector.is_benchmark_calibrated
+        results["anchor"] = load_bench if projector.is_benchmark_calibrated else None
 
         # Phase 3: opt-in discrete-event simulation for arrival-driven
         # percentiles. Reuses ``projector`` as the (possibly benchmark-
@@ -933,7 +1015,81 @@ def launch_projection_from_cli(args, overrides):
             or closed_loop
         )
         if run_des_enabled:
-            from .des import run_des
+            from .des import _DEFAULT_BLOCK_SIZE, run_des
+            from .kv_tiers import describe, hbm_kv_pool_tokens, kv_bytes_per_token, resolve_tiers
+
+            kv_tiers = resolve_tiers(
+                getattr(args, "kv_tier", None),
+                req.kv_offload_gb_per_gpu,
+                req.kv_offload_bw_gbps,
+            )
+            des_kv_tokens = int(getattr(args, "des_kv_cache_tokens", 0) or 0)
+            des_kv_blocks = int(getattr(args, "des_kv_blocks", 0) or 0)
+            des_shares_pool = bool(getattr(args, "des_cache_shares_pool", False))
+            des_bs = int(getattr(args, "des_block_size", 0) or 0)
+            if not des_bs and mooncake_trace:
+                from .des import trace_block_tokens
+
+                des_bs = trace_block_tokens(mooncake_trace)
+            des_bs = des_bs or _DEFAULT_BLOCK_SIZE
+            from .kv_cache import decode_context_parallel_size
+
+            # Under decode context parallelism a rank stores 1/dcp of every token,
+            # so the replica's pools (and a tier's per-rank block loads) are per
+            # that slice.
+            dcp = decode_context_parallel_size(inference_config)
+            bpt = kv_bytes_per_token(inference_config) / dcp if kv_tiers else 0.0
+            if (kv_tiers or getattr(args, "des_kv_pool_from_memory", False)) and not des_kv_tokens:
+                des_kv_tokens = hbm_kv_pool_tokens(inference_config, hbm_gb) * dcp
+                if des_kv_tokens:
+                    print(
+                        f"[inferasim:Inference] DES KV pool from the memory projection: "
+                        f"{des_kv_tokens} tokens per replica"
+                    )
+                    if not des_kv_blocks:
+                        # The cache lives in the same pool as the running set.
+                        des_kv_blocks = max(1, des_kv_tokens // des_bs)
+                        des_shares_pool = True
+                else:
+                    print(
+                        "[inferasim:Inference] no HBM capacity to size the DES KV pool "
+                        "from (--hbm-capacity-gb); HBM block cache left unbounded."
+                    )
+            # A split sizes each pool from its own shape. The parent's pool is a
+            # colocated layout's: under attention-DP a decode pool's ranks each
+            # hold their own requests' whole latent, so the replica holds dp
+            # times what one TP rank of the parent would.
+            pool_kv = None
+            split = getattr(inference_config, "disaggregation_config", None)
+            if (
+                getattr(split, "enabled", False)
+                and getattr(args, "des_kv_pool_from_memory", False)
+                and not int(getattr(args, "des_kv_cache_tokens", 0) or 0)
+            ):
+                from .kv_cache import attention_dp_size
+
+                pool_kv = tuple(
+                    hbm_kv_pool_tokens(pp.cfg, hbm_gb)
+                    * attention_dp_size(pp.cfg)
+                    * decode_context_parallel_size(pp.cfg)
+                    for pp in projector.pool_projectors()
+                )
+                print(
+                    f"[inferasim:Inference] DES KV pools from the memory projection: "
+                    f"prefill {pool_kv[0]}, decode {pool_kv[1]} tokens per replica"
+                )
+                if pool_kv[0]:
+                    des_kv_blocks = max(1, pool_kv[0] // des_bs)
+                    des_shares_pool = True
+            if kv_tiers:
+                seq = max(1, req.input_seq_len + req.output_seq_len)
+                if des_kv_tokens:
+                    print(
+                        f"[inferasim:Inference] KV tier hbm: {des_kv_tokens / 1e6:.2f}M tokens, "
+                        f"{des_kv_tokens // seq} seqs of {seq}"
+                    )
+                for line in describe(kv_tiers, bpt, des_bs, seq):
+                    print(f"[inferasim:Inference] KV tier {line}")
 
             des = run_des(
                 inference_config,
@@ -945,10 +1101,12 @@ def launch_projection_from_cli(args, overrides):
                 num_requests=int(getattr(args, "des_num_requests", 400) or 400),
                 seed=int(getattr(args, "des_seed", 0) or 0),
                 warmup_frac=float(getattr(args, "des_warmup_frac", 0.1) or 0.0),
+                warmup_requests=int(getattr(args, "des_warmup_requests", 0) or 0),
+                admit_backlog_only=bool(getattr(args, "des_admit_backlog_only", False)),
                 sweep=bool(getattr(args, "des_sweep", False)),
                 burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
                 range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),
-                kv_cache_tokens=int(getattr(args, "des_kv_cache_tokens", 0) or 0),
+                kv_cache_tokens=des_kv_tokens,
                 workload_file=workload_file,
                 record_steps=bool(dump_steps),
                 num_instances=int(getattr(args, "des_instances", 1) or 1),
@@ -958,12 +1116,20 @@ def launch_projection_from_cli(args, overrides):
                 prefix_len=int(getattr(args, "des_prefix_len", 0) or 0),
                 prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
                 cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
-                block_size=int(getattr(args, "des_block_size", 0) or 0),
-                cache_blocks=int(getattr(args, "des_kv_blocks", 0) or 0),
+                block_size=des_bs,
+                cache_blocks=des_kv_blocks,
                 mooncake_trace=mooncake_trace,
+                duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
                 closed_loop=closed_loop,
+                closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
+                closed_loop_idle_cap_ms=float(getattr(args, "des_client_idle_cap_ms", 0.0) or 0.0),
+                cache_shares_pool=des_shares_pool,
+                whole_context_residency=bool(getattr(args, "des_whole_context_residency", False)),
                 prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
                 new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
+                kv_tiers=kv_tiers,
+                kv_bytes_per_token=bpt,
+                pool_kv_tokens=pool_kv,
             )
             _print_des(des)
             results["des"] = des

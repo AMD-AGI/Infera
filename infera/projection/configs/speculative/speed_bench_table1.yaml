@@ -1,0 +1,48 @@
+# SPEED-Bench (arXiv 2604.09557) Table 1: mean acceptance length per
+# Qualitative-Split domain at a draft length of 3, batch size 32, temperature 0,
+# one entry per target the method was run on.
+#   ngram:       Llama 3.3 70B, GPT-OSS 120B
+#   draft_model: Llama 3.3 70B, Qwen3 235B (vanilla draft model)
+#   eagle3:      Llama 3.3 70B, GPT-OSS 120B, Qwen3 235B, Qwen3-Next
+#   mtp:         DeepSeek R1, Qwen3-Next
+#
+# Used for two things only: the level of the draft_model and ngram default
+# curves (no golden file measures them), and the opt-in entropy adjustment,
+# which moves a coding-measured curve to another domain class by the ratio of
+# that class's acceptance to coding's.
+draft_length: 3
+acceptance_length:
+  ngram:
+    Coding: [1.54, 1.31]
+    Math: [1.43, 1.30]
+    STEM: [1.38, 1.30]
+    QA: [1.21, 1.27]
+    Writing: [1.33, 1.20]
+    Roleplay: [1.15, 1.25]
+  draft_model:
+    Coding: [2.72, 2.62]
+    Math: [2.43, 2.69]
+    STEM: [2.45, 2.44]
+    QA: [2.35, 2.28]
+    Writing: [2.45, 2.19]
+    Roleplay: [2.14, 1.92]
+  eagle3:
+    Coding: [3.00, 2.46, 2.26, 3.17]
+    Math: [2.45, 2.46, 2.37, 2.90]
+    STEM: [2.39, 2.28, 2.18, 2.47]
+    QA: [2.35, 2.25, 2.23, 2.13]
+    Writing: [2.63, 1.98, 2.02, 2.09]
+    Roleplay: [2.04, 1.87, 1.87, 1.80]
+  mtp:
+    Coding: [2.76, 3.34]
+    Math: [2.77, 3.13]
+    STEM: [2.62, 2.85]
+    QA: [2.52, 2.71]
+    Writing: [2.33, 2.46]
+    Roleplay: [2.14, 2.09]
+# The three entropy classes of SPEED-Bench's throughput split, by the domains
+# the paper files under each. The golden curves are the Coding domain.
+entropy_classes:
+  low: [Coding, Math]
+  mixed: [STEM, QA]
+  high: [Writing, Roleplay]

@@ -125,9 +125,9 @@ def free_tcp_port() -> int:
     """Bind to port 0 to let the kernel assign a free port, then release.
 
     There is a small race window between releasing and the caller re-binding;
-    in practice this is acceptable for our use case (engine processes
-    allocating ports for ZMQ event publishers, PD bootstrap sockets, etc.)
-    and matches what SGLang itself does internally.
+    use this only when that handoff is immediate. Callers whose listener binds
+    after model loading must use ``free_tcp_port_block(1)`` so the kernel cannot
+    recycle the released ephemeral port during that delay.
 
     Ports here are advertised to peers (kv-event publishers on the single-DP
     path, the ATOM rendezvous port), so they carry the same NodePort hazard as
@@ -158,6 +158,6 @@ def free_tcp_port_block(count: int) -> int:
     base so two engines on one host do not pick the same block -- see
     :func:`_scan_free_port_block`.
     """
-    if count <= 1:
-        return free_tcp_port()
+    if count < 1:
+        raise ValueError(f"count must be positive, got {count}")
     return _scan_free_port_block(count, _reserved_nodeport_range())

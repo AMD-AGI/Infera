@@ -1,0 +1,289 @@
+schema_version: 1
+workset_id: fixture.sampler-vocab-softmax.gfx942
+produced_by:
+  package: agent_sys/examples/03_kernelforge_one_kernel
+  commit: 2cbb2fb2
+  step: hand-assembled fixture (assets/fixture/build_fixture.py), measured by e2e-flow
+    build_workset.task/measure_in_container.sh
+ground_truth:
+  abort_on_mismatch:
+  - gpu_arch
+  - gpu_count
+  - tp_size
+  - dtype
+  warn_on_mismatch:
+  - image_id
+  - rocm
+  - torch
+  dtypes:
+    sampler_vocab_softmax: float32
+  noise_floor: 1.0066
+  environment:
+    schema_version: 1
+    fixed:
+      node: smc300x-ccs-aus-a16-19
+      image: infera:sglang-gfx942-glm52
+      model_name: Qwen/Qwen3.6-27B
+      model_path: /data/yihou_hf_cache/models/Qwen3.6-27B
+      tp_size: 1
+      served_model_name: Qwen/Qwen3.6-27B
+      gpu_arch: gfx942
+      gpu_count: 8
+      image_id: sha256:c05d2bebe442e8e0ea7c0d25a446ef6984a73c2eac5c5f048b77c708fd080818
+      rocm: 7.2.0
+      torch: 2.9.1+rocm7.2.0.git7e1940d4
+      sglang: 0.5.16
+    runtime:
+      container: yihou_l3_measure_naive6
+      transport: local
+      started_at: '2026-10-15T16:19:25Z'
+      endpoint: http://127.0.0.1:30000
+      notes: Fixture record for a standalone operator measurement. No engine was served;
+        endpoint names no running server. container is the ephemeral measurement container
+        (GPU 4, --rm).
+entrypoints:
+  correctness:
+    cmd: ./run_correctness.sh
+    report: evidence/correctness.json
+    protected: true
+  performance:
+    cmd: ./run_performance.sh
+    report: evidence/performance.json
+    protected: true
+    timeout_s: 1800
+    impl_contract: &id001
+      form: python-source-file
+      entry_symbol: run
+      call: run(**inputs)
+      inputs_from: definition.inputs
+      replaces: baseline
+      notes: "exec'd in a fresh namespace, not imported: no module, no package, no\
+        \ __file__, so relative imports do not work and the implementation must be\
+        \ self-contained in the one file. Called with keyword arguments named by the\
+        \ Definition's `inputs`. Never replaces `reference` \u2014 a candidate that\
+        \ could would be grading itself. A stock module is made to fit by carrying\
+        \ the whole file verbatim and appending a `run` that delegates to it; `mock_adapt.py:_read_seed`\
+        \ is the worked example."
+protocol:
+  groups: 5
+  iters_per_group: 50
+  warmup: 50
+  timing: wall_clock_sync
+operators:
+- operator_id: sampler_vocab_softmax
+  device_symbol: void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_merge_sort_block_merge_config<rocprim::ROCPRIM_400200_NS::default_config,
+    float, at::cuda::cub::detail::OpaqueType<8> >, (rocprim::ROCPRIM_400200_NS::detail::target_arch)942,
+    rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config,
+    float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+    false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*,
+    unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+    false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*,
+    bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*,
+    unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1, auto:2,
+    auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+    at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+    at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2}, rocprim::ROCPRIM_400200_NS::detail::merge_mergepath_config_selector>(rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config,
+    float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+    false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*,
+    unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+    false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*,
+    bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*,
+    unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1, auto:2,
+    auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+    at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+    at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2})
+  op_type: softmax
+  status: complete
+  missing_fields: []
+  definition: definitions/softmax/sampler_vocab_softmax.json
+  workload: workloads/softmax/sampler_vocab_softmax.jsonl
+  shapes:
+  - case_id: B16_V248320
+    uuid: '0000000000000000'
+    axes:
+      batch: 16
+    role: correctness-and-performance
+    is_primary: false
+    observed: false
+    note: chosen to bracket the primary batch; not observed in a trace
+  - case_id: B32_V248320
+    uuid: '0000000000000001'
+    axes:
+      batch: 32
+    role: correctness-and-performance
+    is_primary: true
+    observed: false
+    note: 'primary by choice: a typical decode batch. No in-service trace exists for
+      this fixture'
+  - case_id: B64_V248320
+    uuid: '0000000000000002'
+    axes:
+      batch: 64
+    role: correctness-and-performance
+    is_primary: false
+    observed: false
+    note: chosen to bracket the primary batch; not observed in a trace
+  entrypoints:
+    correctness:
+      cmd: ./run_correctness.sh --operator sampler_vocab_softmax
+      report: evidence/correctness.json
+      protected: true
+    performance:
+      cmd: ./run_performance.sh --operator sampler_vocab_softmax
+      report: evidence/performance.json
+      protected: true
+      timeout_s: 1800
+      impl_contract: *id001
+  reference:
+    kind: imported
+    module: torch
+    symbol: softmax
+    source_file: torch/functional.py
+    rationale: 'torch.softmax evaluated at float64. Imported rather than written:
+      a hand-written float64 softmax must reproduce the max-subtraction trick or overflow
+      at this vocabulary, and if it reproduces it then it is the same algorithm under
+      test. The wrapper casts and writes into `out`; the algorithm is torch''s.'
+  baseline:
+    kind: written
+    path: definitions/softmax/sampler_vocab_softmax.json
+    rationale: 'A deliberately naive softmax written for the demo (the Definition''s
+      `baseline`): one row at a time, its max found by a full sort. The engine''s
+      own `torch.softmax` gave a one-hour campaign nothing to win; this gives it a
+      slow incumbent with an obvious fix. m4 installs it at the call site before the
+      campaign (`integration.call_site`).'
+  edit_target:
+    from_identity: null
+    source_owner: sglang
+    repo_root_var: '@SGLANG_ROOT@'
+    source_file: python/sglang/srt/layers/sampler.py
+    editable_sources:
+    - python/sglang/srt/layers/sampler.py
+    entry_function: Sampler.forward
+    source_resolution_method: declared
+    resolution_evidence: 'Read inside infera:sglang-gfx942-glm52: python/sglang/srt/layers/sampler.py
+      defines class Sampler with forward(), whose standard sampling path runs `logits[:]
+      = torch.softmax(logits, dim=-1)`. The demo replaces that call with the naive
+      baseline (`integration.call_site`); device_symbol is the largest kernel of a
+      standalone torch.profiler capture of the naive baseline at [32, 248320] fp32.'
+    resolution_caveats:
+    - No operator_identity and no in-service trace back this; the location was read
+      by hand from the image.
+  integration:
+    target_files:
+    - python/sglang/srt/layers/sampler.py
+    base_sha256:
+      python/sglang/srt/layers/sampler.py: b7ee4f148f6a4df3ed295649bbd299a33613522e6b2c0c9bc6296f58ad5809d8
+    module_symbols:
+    - _use_aiter
+    - _disable_aiter_greedy_sample
+    - logger
+    - SYNC_TOKEN_IDS_ACROSS_TP
+    - SGLANG_RETURN_ORIGINAL_LOGPROB
+    - _CUSTOM_SAMPLER_FACTORIES
+    - _BUILT_IN_SAMPLING_BACKENDS
+    - Sampler
+    - register_sampler_backend
+    - create_sampler
+    - top_k_top_p_min_p_sampling_from_probs_torch
+    - top_k_top_p_min_p_sampling_from_logits_ascend
+    - multinomial_with_seed
+    - sampling_from_probs_torch
+    - top_p_normalize_probs_torch
+    - apply_custom_logit_processor
+    substitution: call_site_fragment
+    call_site:
+      fragment: logits[:] = torch.softmax(logits, dim=-1)
+      call: sampler_softmax(logits, logits)
+    public_symbol: null
+    signature: 'sampler_softmax(logits: Tensor[B, V] fp32, out: Tensor[B, V] fp32)
+      -> Tensor'
+    invariants:
+    - writes in place into the caller-provided `out`; the call site is `logits[:]
+      = ...`, so a replacement that allocates is not substitutable there
+    - fp32 in and fp32 out
+    - every output row sums to 1 within 1e-4; these feed torch.multinomial, and a
+      row that does not is a sampler drawing from the wrong distribution
+    - the reduced dimension is the last one and is contiguous; a replacement that
+      relies on that must say so, because a non-contiguous `logits` then gives wrong
+      results rather than an error
+    - no build step may be added; a replacement needing compilation cannot be delivered
+      as an overlay
+    apply_mode: patch_in_place
+    requires_restart: true
+    build_step: null
+  gates:
+    snr_db: 30.0
+    allclose:
+      atol: 1.0e-06
+      rtol: 0.001
+    extra:
+    - name: rows_sum_to_one
+      tolerance: 0.0001
+      brief: Every output row sums to 1. No SNR threshold catches a wrong distribution.
+    - name: writes_in_place
+      tolerance: null
+      brief: The returned tensor IS the caller's `out` and `out` was written. The
+        call site is `logits[:] = ...`; a replacement that allocates passes every
+        isolated correctness case and breaks there.
+  noise_floor: 1.0066
+  apparatus:
+  - _common.py
+  - run_correctness.sh
+  - run_performance.sh
+  - workset.yaml
+  - definitions/softmax/sampler_vocab_softmax.json
+  - workloads/softmax/sampler_vocab_softmax.jsonl
+  provenance:
+    source: 'Standalone torch.profiler capture of the naive baseline call at [32,
+      248320] fp32 on gfx942 (GPU 4, infera:sglang-gfx942-glm52), 4160 calls. NOT
+      an in-service decode profile: ''% Total'' is the softmax kernel''s share of
+      device time in that isolated capture of the naive baseline; this row is its
+      largest kernel.'
+    pct_total: 42.32
+    in_service_avg_us: null
+    magpie_row:
+      Name: void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_merge_sort_block_merge_config<rocprim::ROCPRIM_400200_NS::default_config,
+        float, at::cuda::cub::detail::OpaqueType<8> >, (rocprim::ROCPRIM_400200_NS::detail::target_arch)942,
+        rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config,
+        float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+        false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*,
+        unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+        false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*,
+        bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*,
+        unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1,
+        auto:2, auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+        at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+        at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2}, rocprim::ROCPRIM_400200_NS::detail::merge_mergepath_config_selector>(rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config,
+        float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+        false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*,
+        unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false,
+        false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*,
+        bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*,
+        unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1,
+        auto:2, auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+        at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*,
+        at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2})
+      Calls: 4160
+      Self CUDA total (us): 39492.155
+      Avg time (us): 9.493
+      '% Total': 42.32
+      Input Shapes: per row [[248320]]; the call is [[32, 248320], [32, 248320]]
+      in_service_avg_us: null
+  forge:
+    one_line: operators/sampler_vocab_softmax/run_forge.sh
+    driver: operators/sampler_vocab_softmax/scripts/forge_driver.py
+    invocation_spec: operators/sampler_vocab_softmax/invocation_spec.json
+    task: operators/sampler_vocab_softmax/forge_task.yaml
+    cases: operators/sampler_vocab_softmax/tests/cases.json
+    generated_from:
+    - definition
+    - workload
+    fellow: triton-fellow
+evidence:
+  correctness_report: evidence/correctness.json
+  performance_report: evidence/performance.json
+  measured_on:
+    node: smc300x-ccs-aus-a16-19
+    gpu_arch: gfx942
+    container: yihou_l3_measure_naive6
+    at: '2026-10-15T16:19:31Z'

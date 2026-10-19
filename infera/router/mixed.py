@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import AsyncIterator
+from functools import partial
 
 import httpx
 from fastapi import Response
@@ -23,7 +24,7 @@ from infera.common.worker_pool import DisaggMode
 from infera.router.base import BaseRouter
 from infera.router.breaker import is_worker_fault
 from infera.router.cache_control import parse_cache_hints
-from infera.router.dp_routing import dp_rank_header
+from infera.router.dp_routing import dp_rank_header, inject_dp_rank
 from infera.router.engine_priority import inject_engine_priority
 from infera.router.migration import MigrationState, as_chat_chunk
 from infera.router.token_ids import supports_streaming_ids
@@ -100,6 +101,7 @@ class MixedRouter(BaseRouter):
                 if not candidates:
                     break
                 target, blocks = self.policy.pick(candidates, body)
+                obs.on_failure(partial(self.policy.on_request_failed, target.route_key, body))
                 tried.add(target.worker.worker_id)
                 try:
                     resp = await self._attempt(target, blocks, body, hints, path, stream, obs)
@@ -132,7 +134,7 @@ class MixedRouter(BaseRouter):
 
             if last_error is not None:
                 return last_error
-            obs["outcome"] = "503"
+            obs["outcome"] = metrics.outcome_label(503)
             return JSONResponse(
                 content={"error": f"no active mixed worker for model={model!r}"},
                 status_code=503,
@@ -144,11 +146,13 @@ class MixedRouter(BaseRouter):
         worker = target.worker
         url = f"{worker.url}{path}"
         dp_headers = dp_rank_header(target)
+        obs.set_workers(prefill_worker=worker.worker_id, decode_worker=worker.worker_id)
 
-        # Engine-specific priority injection depends on the chosen worker.
-        forwarded_body = inject_engine_priority(body, hints, worker.engine)
+        # Engine-specific priority and DP-rank injection depend on the chosen target.
+        forwarded_body = inject_dp_rank(inject_engine_priority(body, hints, worker.engine), target)
         forwarded_body.pop("_infera_cache_hints", None)
         forwarded_body.pop("_infera_request_id", None)
+        session_headers = forwarded_body.pop("_infera_session_headers", None)
 
         # Fallback ISL for the streaming path, where the reply carries no usage.
         obs.observe_blocks(blocks, worker.kv_block_size)
@@ -171,7 +175,7 @@ class MixedRouter(BaseRouter):
         # pre-first-byte failure -> retryable to spread to a freer worker.
         if use_nats and not await self.nats_client.admit(worker.worker_id):
             self.policy.on_request_finished(target.route_key, blocks)
-            obs["outcome"] = "429"
+            obs["outcome"] = metrics.outcome_label(429)
             raise _Retry(
                 JSONResponse(
                     content={"error": f"worker {worker.worker_id} request backlog over limit"},
@@ -182,7 +186,16 @@ class MixedRouter(BaseRouter):
 
         if stream:
             return await self._attempt_stream(
-                target, blocks, worker, url, forwarded_body, dp_headers, path, use_nats, obs
+                target,
+                blocks,
+                worker,
+                url,
+                forwarded_body,
+                dp_headers,
+                path,
+                use_nats,
+                obs,
+                session_headers=session_headers,
             )
         try:
             return await self._attempt_unary(
@@ -192,7 +205,18 @@ class MixedRouter(BaseRouter):
             self.policy.on_request_finished(target.route_key, blocks)
 
     async def _attempt_stream(
-        self, target, blocks, worker, url, forwarded_body, dp_headers, path, use_nats, obs
+        self,
+        target,
+        blocks,
+        worker,
+        url,
+        forwarded_body,
+        dp_headers,
+        path,
+        use_nats,
+        obs,
+        *,
+        session_headers=None,
     ) -> Response:
         """Peek the first reply event: if it's data, commit and stream it +
         the rest; if it's an error/empty before any data, raise _Retry."""
@@ -263,7 +287,12 @@ class MixedRouter(BaseRouter):
                         resumed = None
                         if state is not None and state.can_migrate():
                             resumed = await self._resume_elsewhere(
-                                state, cur_target, path, obs, reason
+                                state,
+                                cur_target,
+                                path,
+                                obs,
+                                reason,
+                                session_headers=session_headers,
                             )
                         elif state is not None:
                             # Migration was possible for this request and is not
@@ -297,7 +326,7 @@ class MixedRouter(BaseRouter):
         await agen.aclose()
         self.policy.on_request_finished(target.route_key, blocks)
         code = status if (status and status >= 400) else 502
-        obs["outcome"] = str(code)
+        obs["outcome"] = metrics.outcome_label(code)
         raise _Retry(
             JSONResponse(
                 content={
@@ -319,7 +348,9 @@ class MixedRouter(BaseRouter):
             return None
         return MigrationState(forwarded_body, limit=self._migration_limit, path=path)
 
-    async def _resume_elsewhere(self, state, failed_target, path, obs, reason):
+    async def _resume_elsewhere(
+        self, state, failed_target, path, obs, reason, *, session_headers=None
+    ):
         """Continue this generation on a different worker.
 
         Returns the new event stream and its target, or None when nobody else
@@ -346,7 +377,11 @@ class MixedRouter(BaseRouter):
             metrics.migrations_failed_total.labels(reason="no_candidate").inc()
             return None
 
-        target, blocks = self.policy.pick(candidates, body)
+        # Pick with the session headers so session affinity rebinds to the new
+        # worker; the continuation body sent to it stays without them.
+        pick_request = {**body, "_infera_session_headers": session_headers}
+        target, blocks = self.policy.pick(candidates, pick_request)
+        obs.on_failure(partial(self.policy.on_request_failed, target.route_key, pick_request))
         worker = target.worker
         if worker.request_transport != "nats" or self.nats_client is None:
             # The accumulated state is only resumable over NATS.
@@ -358,7 +393,7 @@ class MixedRouter(BaseRouter):
         agen = self._normalized_stream(
             worker,
             f"{worker.url}{send_path}",
-            body,
+            inject_dp_rank(body, target),
             dp_rank_header(target),
             send_path,
             use_nats=True,
@@ -415,7 +450,7 @@ class MixedRouter(BaseRouter):
                     chunks.append(data)
                 elif kind == TYPE_ERROR:
                     code = st or 502
-                    obs["outcome"] = str(code)
+                    obs["outcome"] = metrics.outcome_label(code)
                     raise _Retry(
                         JSONResponse(
                             content={
@@ -432,7 +467,7 @@ class MixedRouter(BaseRouter):
             try:
                 payload_json = json.loads(raw) if raw else {}
             except ValueError:
-                obs["outcome"] = "502"
+                obs["outcome"] = metrics.outcome_label(502)
                 raise _Retry(
                     JSONResponse(
                         content={
@@ -442,7 +477,7 @@ class MixedRouter(BaseRouter):
                         status_code=502,
                     )
                 ) from None
-            obs["outcome"] = "ok" if status < 400 else f"{status // 100}xx"
+            obs["outcome"] = metrics.outcome_label(status)
             # Same rule as the HTTP path below: a 5xx before any data is a
             # worker fault and retryable; a 4xx belongs to the request.
             if is_worker_fault(status):
@@ -454,7 +489,7 @@ class MixedRouter(BaseRouter):
         try:
             resp = await self._client.post(url, json=forwarded_body, headers=dp_headers)
         except httpx.HTTPError as exc:
-            obs["outcome"] = "502"
+            obs["outcome"] = metrics.outcome_label(502)
             logger.warning(
                 "worker %s unreachable (%s: %s)",
                 worker.worker_id,
@@ -470,7 +505,7 @@ class MixedRouter(BaseRouter):
         try:
             payload_json = resp.json()
         except ValueError:
-            obs["outcome"] = "502"
+            obs["outcome"] = metrics.outcome_label(502)
             raise _Retry(
                 JSONResponse(
                     content={
@@ -480,7 +515,7 @@ class MixedRouter(BaseRouter):
                     status_code=502,
                 )
             ) from None
-        obs["outcome"] = "ok" if resp.status_code < 400 else f"{resp.status_code // 100}xx"
+        obs["outcome"] = metrics.outcome_label(resp.status_code)
         # A 5xx here is the worker failing before a single byte reached the
         # client, which is exactly the case failover exists for -- and until now
         # this path returned it verbatim instead, so a unary request over HTTP

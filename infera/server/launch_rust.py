@@ -58,6 +58,11 @@ def exec_rust(args: argparse.Namespace) -> None:
     unsupported = [hint for attr, want, hint in _REQUIRED if getattr(args, attr, None) != want]
     if args.enable_profiling:
         unsupported.append("the profiling control plane")
+    # Rust always records serving metrics today; refusing the off switch makes
+    # that explicit instead of silently ignoring --no-enable-sla-metrics.
+    # Missing attribute means the caller did not opt out (the flag defaults on).
+    if not getattr(args, "enable_sla_metrics", True):
+        unsupported.append("--no-enable-sla-metrics")
     if args.router_policy not in _SUPPORTED_POLICIES:
         unsupported.append(f"--router-policy {args.router_policy}")
     if args.discovery_backend not in _SUPPORTED_DISCOVERY:
@@ -126,6 +131,8 @@ def exec_rust(args: argparse.Namespace) -> None:
         ("--nats-req-idle-timeout-s", args.nats_req_idle_timeout),
         ("--nats-req-max-duration-s", args.nats_req_max_duration),
         ("--nats-req-max-pending", args.nats_req_max_pending),
+        ("--decode-input-demand", args.decode_input_demand),
+        ("--pd-prefill-guard-release", args.pd_prefill_guard_release),
     ):
         if value is not None:
             argv += [flag, str(value)]
@@ -156,5 +163,13 @@ def exec_rust(args: argparse.Namespace) -> None:
         # failing to start is the right answer.
         if not args.kv_per_worker_template_kwargs:
             argv += ["--kv-per-worker-template-kwargs", "false"]
+    # Only when on, so the default argv still starts an older binary.
+    if args.session_affinity != "off":
+        argv += [
+            "--session-affinity",
+            args.session_affinity,
+            "--session-affinity-ttl-seconds",
+            str(args.session_affinity_ttl_seconds),
+        ]
     print(f"[infera] --router-backend rust: exec {binary}", flush=True)
     os.execvp(binary, argv)

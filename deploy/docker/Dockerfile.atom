@@ -15,18 +15,44 @@ RUN APT_MIRROR="${APT_MIRROR}" APT_SECURITY_MIRROR="${APT_SECURITY_MIRROR}" \
         bash /tmp/apt_mirror.sh \
     && rm -f /tmp/apt_mirror.sh
 
-# ATOM engine source patches (PD KV-transfer robustness, etc). Idempotent,
+# ATOM engine source patches. ATOM_NIGHTLY says which kind of base this is.
+# 0 (default release base): patches/atom/, written for that base. Idempotent,
 # self-locating; each degrades gracefully rather than failing the build. Drop a
-# new patch_*.py here to add a fix. NOTE: no DeepSeek-V4 FP4 dequant patch — on
+# new patch_*.py there to add a fix. NOTE: no DeepSeek-V4 FP4 dequant patch — on
 # gfx942 infera supports dsv4 only in FP8 (native) and fails fast on FP4; the
 # fp8 env/CLI knobs are applied at launch by infera.engine.dsv4_gfx942.
+# 1 (ATOM nightly, verified on rocm/atom-dev:nightly_202610131505): skips that
+# loop (its edits are duplicate or dead code on the nightly) and runs
+# patches/atom_nightly/ instead. Those are strict: a drifted anchor fails the
+# build. It also prebuilds the AITER kernel that chunked-MLA prefill would
+# otherwise JIT-compile on live traffic, for the base's own GPU archs (gfx950
+# loads the ASM fmha_v3 kernel instead), and pins protobuf<7 (see the pip step).
+# Overview: deploy/docker/patches/atom_nightly/README.md.
+ARG ATOM_NIGHTLY=0
+# ATOM_NIGHTLY's old name fails the build: docker only warns about an unused
+# build arg, and the image would silently lack the nightly steps.
+ARG ATOM_DCP_PATCHES=
 COPY deploy/docker/patches/atom/ /tmp/atom-patches/
-RUN for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done \
-    && rm -rf /tmp/atom-patches
+COPY deploy/docker/patches/atom_nightly/ /tmp/atom-nightly/
+RUN if [ -n "${ATOM_DCP_PATCHES}" ]; then \
+        echo "ATOM_DCP_PATCHES was renamed to ATOM_NIGHTLY (1 = ATOM nightly base)" >&2; exit 1; \
+    fi \
+    && case "${ATOM_NIGHTLY}" in \
+        0) for f in /tmp/atom-patches/patch_*.py; do echo "[atom-patch] $f"; python3 "$f" || echo "[atom-patch] skipped $f"; done ;; \
+        1) for f in /tmp/atom-nightly/patch_*.py; do python3 "$f" || exit 1; done \
+            && GPU_ARCHS="${PYTORCH_ROCM_ARCH}" python3 /tmp/atom-nightly/prebuild_aiter_mha_varlen.py ;; \
+        *) echo "ATOM_NIGHTLY must be 0 or 1, got '${ATOM_NIGHTLY}'" >&2; exit 1 ;; \
+    esac \
+    && rm -rf /tmp/atom-patches /tmp/atom-nightly
 
 # ---- Mooncake (pinned upstream + the B.2 hip-transport gate) ---------------
-# WHY: the base ships a single-protocol Mooncake without B.2, so a cross-node PD
-# target is handed to HIP IPC and KV transfer dies on hipIpcOpenMemHandle 201.
+# WHY: the default base ships a single-protocol Mooncake without B.2, so a
+# cross-node PD target is handed to HIP IPC and KV transfer dies on
+# hipIpcOpenMemHandle 201. ATOM nightlies instead ship a multi-protocol
+# Mooncake that sends cross-host targets over RDMA (0.3.13 source; the same
+# engine.so in nightly_202609221542 and nightly_202610131505); builds on them
+# may keep it with BUILD_MOONCAKE=0. Its HIP opt-out is
+# upstream MC_DISABLE_HIP, not B.2's MC_DISABLE_HIP_TRANSPORT.
 # Same ref and args as Dockerfile.vllm, which documents what MOONCAKE_HIP_DMABUF
 # selects; it must not also gate the rebuild, or the default image carries the
 # base's Mooncake and cannot do cross-node PD at all.
@@ -64,7 +90,17 @@ COPY infera ./infera
 # Safe to move because setuptools is build tooling, not a runtime dependency:
 # nothing here imports it to serve a request. Verified against the published
 # image -- vllm and infera both still import, and the count drops 22 -> 19.
-RUN pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0"
+#
+# protobuf<7 is a need of the nightly base: its opentelemetry-proto 1.40 needs
+# protobuf<7, while grpcio-health-checking>=1.82 needs >=7, so unpinned pip
+# upgrades protobuf and breaks the base's OTel. The pin keeps health-checking
+# at 1.81.x. Only with ATOM_NIGHTLY=1, so the default base (not verified with
+# it) is unchanged.
+RUN if [ "${ATOM_NIGHTLY}" = "1" ]; then \
+        pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0" "protobuf<7"; \
+    else \
+        pip install --no-cache-dir ".[atom]" "setuptools>=83.0.0"; \
+    fi
 
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base often ships cargo; use it, and install a minimal toolchain only

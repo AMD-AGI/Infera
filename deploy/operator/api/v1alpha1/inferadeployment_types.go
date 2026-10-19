@@ -123,6 +123,10 @@ type ServiceSpec struct {
 	// no metadata, so pod labels cannot ride along inside it; they are carried
 	// here instead. +optional
 	PodLabels map[string]string `json:"podLabels,omitempty"`
+	// PodAnnotations are extra annotations merged onto this service's pod
+	// template. Same seam as PodLabels for fields that must be annotations
+	// (for example primus-safe.user.account). +optional
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
 }
 
 // NATSSpec controls the operator-managed NATS (JetStream) for the KV-event

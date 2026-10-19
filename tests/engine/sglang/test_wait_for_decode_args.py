@@ -19,7 +19,7 @@ from infera.engine.decode_barrier import DEFAULT_PD_PROBE_TIMEOUT  # noqa: E402
 from infera.engine.sglang.__main__ import (  # noqa: E402
     _maybe_wait_for_decode,
     _run_started_engine,
-    _wait_for_decode_until_stop,
+    _run_startup_barrier_until_stop,
 )
 from infera.engine.sglang.args import parse_sglang_args  # noqa: E402
 
@@ -182,11 +182,11 @@ async def test_maybe_wait_for_decode_gives_a_short_budget_to_the_probe(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_wait_for_decode_until_stop_aborts_when_engine_dies(monkeypatch):
+async def test_startup_barrier_until_stop_aborts_when_engine_dies(monkeypatch):
     async def _hang(*_a, **_k):
         await asyncio.Event().wait()
 
-    monkeypatch.setattr("infera.engine.sglang.__main__._maybe_wait_for_decode", _hang)
+    monkeypatch.setattr("infera.engine.sglang.__main__._startup_barrier", _hang)
     stop = asyncio.Event()
 
     async def _trip():
@@ -194,17 +194,19 @@ async def test_wait_for_decode_until_stop_aborts_when_engine_dies(monkeypatch):
         stop.set()
 
     asyncio.create_task(_trip())
-    assert await _wait_for_decode_until_stop(SimpleNamespace(), SimpleNamespace(), stop) is False
+    assert (
+        await _run_startup_barrier_until_stop(SimpleNamespace(), SimpleNamespace(), stop) is False
+    )
 
 
 @pytest.mark.asyncio
-async def test_wait_for_decode_until_stop_returns_true_on_success(monkeypatch):
+async def test_startup_barrier_until_stop_returns_true_on_success(monkeypatch):
     async def _ok(*_a, **_k):
         return None
 
-    monkeypatch.setattr("infera.engine.sglang.__main__._maybe_wait_for_decode", _ok)
+    monkeypatch.setattr("infera.engine.sglang.__main__._startup_barrier", _ok)
     assert (
-        await _wait_for_decode_until_stop(SimpleNamespace(), SimpleNamespace(), asyncio.Event())
+        await _run_startup_barrier_until_stop(SimpleNamespace(), SimpleNamespace(), asyncio.Event())
         is True
     )
 
@@ -227,10 +229,10 @@ async def test_started_engine_keeps_cancelled_error_and_forces_cleanup(monkeypat
     death_task = asyncio.create_task(_watch())
     monkeypatch.setattr(
         "infera.engine.sglang.__main__._supervise_engine",
-        lambda _engine: (asyncio.Event(), EngineDeath(exit_status=9), death_task),
+        lambda _engine: (asyncio.Event(), EngineDeath(observed=True, returncode=9), death_task),
     )
     monkeypatch.setattr(
-        "infera.engine.sglang.__main__._wait_for_decode_until_stop",
+        "infera.engine.sglang.__main__._run_startup_barrier_until_stop",
         _cancelled,
     )
     monkeypatch.setattr(

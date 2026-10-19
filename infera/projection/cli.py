@@ -450,7 +450,74 @@ def _add_inference_args(parser):
         "--speculative-acceptance-rate",
         type=float,
         default=None,
-        help="Expected per-token acceptance rate for speculative decoding [0,1].",
+        help="A flat per-draft acceptance rate [0,1] at --speculative-num-tokens. "
+        "Rescales the measured acceptance curve through the length it implies; "
+        "unset, acceptance is read from the curve alone.",
+    )
+    parser.add_argument(
+        "--speculative-acceptance-length",
+        type=float,
+        default=None,
+        help="Tokens one verify step commits (including the verified token) at "
+        "--speculative-num-tokens. Rescales the measured acceptance curve "
+        "through that point; takes precedence over --speculative-acceptance-rate.",
+    )
+    parser.add_argument(
+        "--speculative-acceptance-curve",
+        default=None,
+        help="Acceptance-length file to read instead of the model's own: a path, "
+        "or a name in INFERASIM_GOLDEN_AL_DIR, configs/speculative/defaults or "
+        "InferenceX's golden_al_distribution on GitHub (e.g. glm5.2_mtp.yaml, mtp).",
+    )
+    parser.add_argument(
+        "--speculative-thinking",
+        default=None,
+        choices=["on", "off"],
+        help="Which sweep of the acceptance curve to read: thinking_on (default) "
+        "or thinking_off. A curve measured in one mode only is read in that mode.",
+    )
+    parser.add_argument(
+        "--speculative-method",
+        default=None,
+        help="Drafter family (mtp, eagle3, dspark, ngram, draft_model). Default: "
+        "the model YAML's speculative.default, else its MTP head if it ships "
+        "one, else eagle3. Sets the drafter whose layers price the draft and "
+        "whose measured acceptance curve is read.",
+    )
+    parser.add_argument(
+        "--speculative-entropy",
+        default=None,
+        help="Move acceptance from coding, where the curves were measured, to a "
+        "SPEED-Bench entropy class: low (code, math), mixed (STEM, QA), high "
+        "(creative writing, roleplay), or a number on -1..1 between them. "
+        "Default: the curve as measured.",
+    )
+    parser.add_argument(
+        "--speculative-max-num-tokens",
+        type=int,
+        default=None,
+        help="Simulate mode: choose the draft depth in 1..N that emits the most "
+        "tokens per unit of step time at the projected batch, instead of "
+        "--speculative-num-tokens.",
+    )
+    parser.add_argument(
+        "--speculative-draft-layers",
+        type=int,
+        default=None,
+        help="Draft layers per pass, overriding the model YAML's drafter "
+        "(mtp_num_layers for MTP) and the method's published one.",
+    )
+    parser.add_argument(
+        "--speculative-draft-vocab",
+        type=int,
+        default=None,
+        help="Draft LM-head vocabulary (EAGLE3 defaults to a pruned 32000).",
+    )
+    parser.add_argument(
+        "--speculative-draft-window",
+        type=int,
+        default=None,
+        help="Attention window of the draft layers (0 = full context).",
     )
     # ---- Token sampling / logits post-processing ----
     parser.add_argument(
@@ -527,6 +594,54 @@ def _add_inference_args(parser):
         default=None,
         help="Host<->device bandwidth for the KV offload tier in GB/s. "
         "PCIe 5 x16 is ~64; a cache-coherent host link is ~900. Default: 64.",
+    )
+    parser.add_argument(
+        "--kv-tier",
+        action="append",
+        default=None,
+        metavar="NAME:GB[:GBPS[:LAT_US]]",
+        help="A KV storage tier below HBM, per GPU, fastest first; repeat for "
+        "a hierarchy (e.g. --kv-tier dram:512 --kv-tier ssd:4000). HBM's "
+        "evicted prefix blocks spill one tier down instead of being dropped, "
+        "and a later hit on them waits for its blocks to load over that "
+        "tier's link before it can prefill. Bandwidth and per-block latency "
+        "default by name: dram/host 64 GB/s 2 us, cxl 48 GB/s 4 us, ssd/nvme "
+        "12 GB/s 80 us, remote 25 GB/s 20 us. Applies to the DES's block "
+        "cache (traces, shared-prefix pools, fleets). Without it, "
+        "--kv-offload-gb-per-gpu is used as a single dram tier.",
+    )
+    parser.add_argument(
+        "--des-kv-pool-from-memory",
+        action="store_true",
+        default=False,
+        help="DES: size the KV pool (admission) and the HBM block tier from "
+        "the memory projection -- HBM left after weights and activations -- "
+        "when --des-kv-cache-tokens / --des-kv-blocks are not given. Implied "
+        "by --kv-tier, since a tier below HBM only matters once HBM can fill.",
+    )
+    parser.add_argument(
+        "--workload-resident-tokens",
+        type=int,
+        default=None,
+        help="Mean KV tokens one request of the target workload holds while "
+        "resident, which sets how many requests the pool can admit at once and "
+        "so where TTFT stops being a service time. For a spread of lengths pass "
+        "E[L^2]/E[L], not the mean: a request holds the pool for a time "
+        "proportional to its length, so the resident set is length-biased. Do "
+        "not discount it by the prefix-cache hit rate -- a cache hit skips "
+        "prefill compute, it does not free the blocks. Default: the configured "
+        "context (input + output/2), exact for a fixed-length workpoint.",
+    )
+    parser.add_argument(
+        "--kv-pool-tokens",
+        type=int,
+        default=None,
+        help="Size of the KV pool the engine allocated, in tokens, as it "
+        'reports at startup (vLLM\'s "GPU KV cache size", SGLang\'s "KV Cache '
+        'is allocated. #tokens"). The admission bound is evaluated against '
+        "this instead of against the memory model's estimate, which is what "
+        "you want when validating against a deployment that is already "
+        "running. Default: unset, and the pool is predicted.",
     )
     # ---- Feature B: custom collective ops ----
     coll = parser.add_argument_group("inference collectives (feature B)")
@@ -616,6 +731,17 @@ def _add_inference_args(parser):
         "parallelism replicates their compressed KV latent instead of sharding "
         "it, so only splitting by request shrinks the cache a rank holds.",
     )
+    par.add_argument(
+        "--decode-context-parallel-size",
+        type=int,
+        default=None,
+        help="Split each sequence's context across this many ranks during "
+        "decode (vLLM --decode-context-parallel-size, SGLang --dcp-size). The "
+        "other way to shrink an MLA cache: a rank stores context/N of every "
+        "request rather than all of it, so the replica holds N times as many "
+        "tokens. Unlike --attention-dp-size it shrinks a single request's "
+        "footprint, so it raises the concurrency ceiling even at batch 1.",
+    )
     # ---- Feature A: prefill/decode disaggregation ----
     dis = parser.add_argument_group("inference disaggregation (feature A)")
     dis.add_argument(
@@ -657,6 +783,18 @@ def _add_inference_args(parser):
     )
     dis.add_argument(
         "--decode-replicas", type=int, default=None, help="Number of decode-pool replicas."
+    )
+    dis.add_argument(
+        "--prefill-max-running",
+        type=int,
+        default=None,
+        help="Running-request cap per prefill replica (default: --max-num-seqs).",
+    )
+    dis.add_argument(
+        "--decode-max-running",
+        type=int,
+        default=None,
+        help="Running-request cap per decode replica (default: --max-num-seqs).",
     )
     dis.add_argument(
         "--kv-transfer-bw-gbps",
@@ -755,6 +893,15 @@ def _add_inference_args(parser):
         "assumed independent, which over-counts experts at mid batch.",
     )
     serv.add_argument(
+        "--moe-rank-load",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help="JSON of the busiest expert-parallel rank's load over the mean, "
+        "{ep: [[tokens, rows, experts], ...]}, replayed from the checkpoint's "
+        "recorded routing. Without it, a top-k router is sampled.",
+    )
+    serv.add_argument(
         "--moe-routing-skew",
         type=float,
         default=None,
@@ -789,6 +936,20 @@ def _add_inference_args(parser):
         "concurrency 1 and take the intercept. Added to TTFT and end-to-end latency "
         "only (not throughput). A property of the serving stack, so it has no default "
         "worth guessing. Default 0.",
+    )
+    serv.add_argument(
+        "--uncached-prompt-latency-us",
+        type=float,
+        default=None,
+        help="TTFT latency per prompt token the prefix cache did not serve (us/token). "
+        "Added to TTFT and end-to-end latency only (not throughput). Default 0.",
+    )
+    serv.add_argument(
+        "--uncached-prompt-latency-max-tokens",
+        type=int,
+        default=None,
+        help="Uncached tokens past which --uncached-prompt-latency-us stops growing. "
+        "Default 0 (no cap).",
     )
     serv.add_argument(
         "--prefill-rate-us-per-token",
@@ -852,6 +1013,14 @@ def _add_inference_args(parser):
         help="Scheduler per-step token budget (vLLM --max-num-batched-tokens). Caps "
         "prefill-chunk + concurrent-decode tokens per step; oversized steps split, "
         "raising TPOT. Default: 0 (unlimited).",
+    )
+    serv.add_argument(
+        "--max-num-seqs",
+        type=int,
+        default=None,
+        help="Engine cap on running sequences (vLLM --max-num-seqs, SGLang "
+        "--max-running-requests). Clients beyond it queue at the server. "
+        "Default: 0 (bounded by client concurrency only).",
     )
     # ---- Offered load / request rate (open-loop arrivals) ----
     serv.add_argument(
@@ -938,6 +1107,75 @@ def _add_inference_args(parser):
         "which case this is 0 -- and it is not a small correction, because a "
         "fixed-concurrency run is only a few waves long and the opening burst "
         "carries the highest TTFT of any request in it. Default: 0.1.",
+    )
+    serv.add_argument(
+        "--des-client-think-ms",
+        type=float,
+        default=0.0,
+        help="DES: how long a closed-loop client waits after its last token "
+        "before issuing its next request. Zero re-issues immediately, which "
+        "is a load generator saturating the server and not what an agentic "
+        "harness does: a turn ends, the agent runs a tool, and the next turn "
+        "is sent when that returns. It is a property of the workload, like "
+        "the prompt lengths and the prefix reuse, and leaving it out does not "
+        "leave the replay neutral -- it holds every client permanently "
+        "resident. On the AgentX ladders the hardware's clients are idle for "
+        "50-74% of each turn's cycle below saturation and ~0% above it, so "
+        "omitting it overstates throughput several-fold at the low rungs and "
+        "not at all at the high ones, which bends the curve rather than "
+        "shifting it. A Mooncake trace's per-request ``think_ms`` overrides "
+        "it request by request.",
+    )
+    serv.add_argument(
+        "--des-client-idle-cap-ms",
+        type=float,
+        default=0.0,
+        help="DES: longest the engine may sit with no request in flight before "
+        "pending client timers are pulled forward (0 = no cap). Mirrors a "
+        "replay harness's system-idle guard (AIPerf AgentX: 10 s), which "
+        "shortens a single client's idle time far below the trace's gaps.",
+    )
+    serv.add_argument(
+        "--des-admit-backlog-only",
+        action="store_true",
+        help="DES: measure the longest-prefix admission window against the "
+        "backlog rather than the client count, so that below what the KV pool "
+        "holds -- where nothing is queued and there is no choice for a policy "
+        "to make -- admission is the order the lanes arrived in. This is the "
+        "correct account of what a scheduler can reorder, and it is the band "
+        "where measured reuse collapses (kimik3 at C=14 thrashed to 0.67 "
+        "against 0.93 modelled), but on the AgentX corpus it improves ITL "
+        "ordering by one model-engine pair and costs one on throughput, so it "
+        "is off by default.",
+    )
+    serv.add_argument(
+        "--des-warmup-requests",
+        type=int,
+        default=0,
+        help="DES: exclude this many requests, in the order the clients issued "
+        "them, from the reported latency distribution. Prefer this to "
+        "--des-warmup-frac for a closed loop: all C clients fire at once, so "
+        "the first C requests queue against each other and wait far longer "
+        "than anything after them, and dropping the earliest *completions* "
+        "keeps every one of them -- a request that waited 40s for a slot is "
+        "among the last to finish. The harness excludes the same transient by "
+        "advancing each lane AIPERF_WARMUP_REQUESTS_PER_LANE requests and "
+        "draining before it starts profiling, so the matching value is that "
+        "many per client. Default: 0 (use --des-warmup-frac).",
+    )
+    serv.add_argument(
+        "--des-duration-s",
+        type=float,
+        default=0.0,
+        help="DES: stop the run after this many seconds of simulated time and "
+        "report over whatever completed, instead of running to "
+        "--des-num-requests. This is how a fixed-concurrency harness is "
+        "actually bounded, and under a closed loop the two are not "
+        "interchangeable: a request budget divided among C lanes fixes how "
+        "far each lane walks into its conversation, and an agentic turn's "
+        "prompt grows with its position, so a budget-bounded run offers "
+        "different prompt lengths at each concurrency than the measured run "
+        "it is compared against. Default: 0 (run to the request count).",
     )
     serv.add_argument(
         "--des-seed",
@@ -1065,6 +1303,34 @@ def _add_inference_args(parser):
         "LRU-evicted under pressure). 0 = unbounded within the run. Default: 0.",
     )
     serv.add_argument(
+        "--des-whole-context-residency",
+        action="store_true",
+        help="DES: charge a running request the whole context it attends to, "
+        "not just the part of it that was not already cached. The discount is "
+        "an account of one physical copy, and it is only that where the "
+        "sharers are running at the same time. Under a closed loop on "
+        "conversational traffic they are not: each client has one turn in "
+        "flight, reuse is a conversation hitting its own previous turn, and "
+        "the turns running together belong to different conversations whose "
+        "histories do not overlap. Discounted anyway, a pool holding five of "
+        "these conversations reports room for hundreds, never fills, and so "
+        "never shows reuse falling away or the queue that follows it.",
+    )
+    serv.add_argument(
+        "--des-cache-shares-pool",
+        action="store_true",
+        help="DES: size the prefix cache to what the running requests leave "
+        "free, instead of to the whole pool. A request is already not charged "
+        "for the blocks it hit on, because something else is holding them; "
+        "that something is this cache, and giving it the pool as well books "
+        "the same memory twice. Where the pool is roomy the correction is "
+        "nothing, and where it is not it is the whole behaviour: a pool with "
+        "space for five of these conversations cannot also hold their history, "
+        "so reuse falls away as concurrency climbs and TTFT leaves the scale "
+        "the low rungs were on. Double-booked, the replay reports reuse near "
+        "its ceiling and a flat TTFT straight through that.",
+    )
+    serv.add_argument(
         "--des-mooncake-trace",
         type=str,
         default=None,
@@ -1085,12 +1351,35 @@ def _add_inference_args(parser):
         "vs the Triton baseline. Default: engine default (1.0).",
     )
     kern.add_argument(
+        "--serving-engine",
+        type=str,
+        default=None,
+        help="Engine this projection is about (vllm, sglang, atom, or a build "
+        "such as mori-sglang). Simulate mode is unaffected -- it is analytical "
+        "and returns the same number whichever engine is named. This is a "
+        "regime axis, so it decides which measured anchor benchmark mode may "
+        "calibrate from: an anchor harvested on another engine is refused "
+        "rather than substituted. Default: unset (matches as before).",
+    )
+    kern.add_argument(
         "--sparse-attention-topk",
         type=int,
         default=None,
         help="Native sparse attention (DeepSeek V3.2/V4 NSA) top-k KV tokens per "
         "query. Attention scales toward topk/context for long contexts. "
         "Default: 0 (dense).",
+    )
+    kern.add_argument(
+        "--sparse-indexer-cost-scale",
+        type=float,
+        default=None,
+        help="What the sparse indexer's top-k selection costs on this stack "
+        "relative to a fused kernel. The arithmetic is the model's, the kernel "
+        "is the serving stack's: the same selection runs fused through aiter "
+        "on gfx950 and unfused through Torch on gfx942. 1.0 prices the fused "
+        "path; raise it to charge a stack serving without one. Only reaches "
+        "models priced from an indexer geometry (GLM-5.2, MiniMax-M3), not "
+        "ones carrying a per-layer compression schedule. Default: 1.0.",
     )
     kern.add_argument(
         "--sliding-window",
@@ -1140,8 +1429,17 @@ def _add_inference_args(parser):
         "--speculative-draft-cost-factor",
         type=float,
         default=None,
-        help="Draft-model forward cost per proposed draft token, as a fraction of "
-        "one target decode step. Default: 0 (ignore draft cost).",
+        help="Flat draft cost per proposed draft token, as a fraction of one "
+        "target decode step. Used with --speculative-draft-cost-model flat, "
+        "or when the drafter cannot be priced from its layers. Default: the "
+        "method's flat guess (speculative.FLAT_DRAFT_COST).",
+    )
+    parser.add_argument(
+        "--speculative-draft-cost-model",
+        default=None,
+        choices=["analytic", "flat"],
+        help="How the draft is priced: analytic (default) as the drafter's own "
+        "forward, or flat from --speculative-draft-cost-factor.",
     )
     parser.add_argument(
         "--inference-bench-layers",
@@ -1189,6 +1487,13 @@ def build_parser() -> argparse.ArgumentParser:
         "(`inferasim anchor --help` lists its flags).",
         add_help=False,
     )
+    sub.add_parser(
+        "pareto",
+        help="Throughput-vs-interactivity Pareto frontier for one workload across "
+        "models, engines, precisions, parallelism and concurrency "
+        "(`inferasim pareto --help` lists its flags).",
+        add_help=False,
+    )
     return parser
 
 
@@ -1205,6 +1510,10 @@ def main(argv=None):
         )
 
         return benchmark_vllm.main(argv[1:])
+    if argv and argv[0] == "pareto":
+        from infera.projection.core.projection.inference_projection import pareto
+
+        return pareto.main(argv[1:])
 
     parser = build_parser()
     args, overrides = parser.parse_known_args(argv)

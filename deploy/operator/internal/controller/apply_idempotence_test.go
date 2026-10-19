@@ -241,3 +241,51 @@ func TestPruningLeavesServerDefaultsAlone(t *testing.T) {
 		t.Errorf("reconcile rewrote an unchanged object (%s -> %s)", before, got)
 	}
 }
+
+// A removed pod annotation has to leave the LeaderWorkerSet worker template.
+// Deep-merging the template keeps the old key, so the worker pod would keep
+// an annotation the service no longer asks for.
+func TestRemovedWorkerTemplateAnnotationIsCleared(t *testing.T) {
+	s := testScheme(t)
+	c := fake.NewClientBuilder().WithScheme(s).Build()
+	r := &InferaDeploymentReconciler{Client: c, Scheme: s}
+	ctx := context.Background()
+
+	idep := &inferav1alpha1.InferaDeployment{}
+	idep.Name = "qwen"
+	idep.Namespace = "default"
+	idep.UID = "uid-1"
+
+	build := func(account string) *unstructured.Unstructured {
+		u := &unstructured.Unstructured{}
+		u.SetGroupVersionKind(lwsGVK())
+		u.SetName("qwen-worker")
+		u.SetNamespace("default")
+		_ = unstructured.SetNestedField(u.Object, int64(1), "spec", "replicas")
+		meta := map[string]any{"labels": map[string]any{"infera.amd.com/service": "worker"}}
+		if account != "" {
+			meta["annotations"] = map[string]any{"primus-safe.user.account": account}
+		}
+		_ = unstructured.SetNestedMap(u.Object, meta,
+			"spec", "leaderWorkerTemplate", "workerTemplate", "metadata")
+		return u
+	}
+
+	if err := r.applyUnstructured(ctx, idep, build("leiwei12")); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := r.applyUnstructured(ctx, idep, build("")); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+
+	got := &unstructured.Unstructured{}
+	got.SetGroupVersionKind(lwsGVK())
+	if err := c.Get(ctx, types.NamespacedName{Name: "qwen-worker", Namespace: "default"}, got); err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	ann, _, _ := unstructured.NestedString(got.Object,
+		"spec", "leaderWorkerTemplate", "workerTemplate", "metadata", "annotations", "primus-safe.user.account")
+	if ann != "" {
+		t.Fatalf("annotation still %q", ann)
+	}
+}

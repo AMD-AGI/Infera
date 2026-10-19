@@ -98,6 +98,9 @@ Every request is routed by the server. The router is selected by two axes:
   See [KV-aware routing](../features/kv_aware_routing.md).
 - **`round-robin`** — stateless spread.
 
+`--session-affinity prefill|both` (default `off`) adds session pinning on top of
+either policy. See [Routing & transport](../features/routing_and_transport.md).
+
 Independently, the `AutoRouter` picks the **topology**: it prefers a
 prefill+decode pair when [PD](../features/pd_disaggregation.md) workers exist, and
 falls back to a single **mixed** worker otherwise — you don't choose per request.
@@ -135,6 +138,7 @@ production NATS + Kubernetes plane they're the defaults and can be dropped — s
 | `--etcd-endpoint` | — | `host:port` of the shared etcd |
 | `--router-mode` | `auto` | `auto` (in-process policy) \| `direct` (GAIE EPP header) |
 | `--router-policy` | `kv-aware` | `kv-aware` \| `round-robin` |
+| `--session-affinity` | `off` | `off` \| `prefill` \| `both`: pin `X-Session-ID` sessions on top of the policy |
 | `--router-tokenizer-path` | (required) | small tokenizer for prefix hashing (e.g. `Qwen/Qwen3-0.6B`) |
 | `--kv-overlap-weight` | 1.0 | KV-aware: trade cache locality vs load balance |
 

@@ -109,11 +109,17 @@ def test_repeated_calls_do_not_all_collide():
     assert len(set(bases)) > 1, f"all calls returned the same base: {bases[0]}"
 
 
-def test_single_port_delegates_to_ephemeral_helper():
-    # count<=1 lets the kernel choose, which on a default ip_local_port_range
-    # lands above the NodePort range anyway.
+def test_single_port_block_sits_below_ephemeral_range():
+    # A single-DP publisher can spend minutes loading the model before bind.
+    # Its released probe port must not be recycled by bind(("", 0)) meanwhile.
     port = free_tcp_port_block(1)
-    assert 1024 < port < 65536
+    assert 1024 <= port < _ephemeral_low()
+
+
+@pytest.mark.parametrize("count", [0, -1])
+def test_port_block_rejects_non_positive_count(count):
+    with pytest.raises(ValueError, match="count must be positive"):
+        free_tcp_port_block(count)
 
 
 def test_single_port_avoids_custom_nodeport_range(monkeypatch):

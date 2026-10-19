@@ -3,14 +3,15 @@
 #
 # SPDX-License-Identifier: MIT
 ###############################################################################
-"""DP-rank routing through PD-disagg.
+"""DP-rank routing through PD-disagg and mixed dispatch.
 
 Two wire channels carry the router's per-leg DP-rank choice to SGLang:
 ``X-Data-Parallel-Rank`` (header, both legs) and ``disagg_prefill_dp_rank``
 (decode body, names the prefill rank that holds the KV). Endpoint-addressed
 targets (``dp_rank=None``) are untouched; the ``disagg_prefill_dp_rank`` body
 field stays SGLang-only, while the header and room-residue also steer
-vLLM-mooncake per-rank addressing (#119).
+vLLM-mooncake per-rank addressing (#119). ATOM reads the rank from the body
+(``data_parallel_rank``) instead of the header.
 """
 
 from __future__ import annotations
@@ -26,7 +27,11 @@ from infera.router.dp_routing import (
     align_room_to_prefill_rank,
     dp_rank_header,
     inject_disagg_prefill_dp_rank,
+    inject_dp_rank,
 )
+from infera.router.mixed import MixedRouter
+from infera.router.policy.round_robin import RoundRobinPolicy
+from infera.router.policy.session_affinity import SessionAffinityPolicy
 from infera.router.policy.target import RouteTarget
 
 
@@ -57,6 +62,26 @@ def test_dp_rank_header_honored_for_vllm():
     assert dp_rank_header(RouteTarget(_w("p", engine=EngineType.VLLM), 2)) == {
         "X-Data-Parallel-Rank": "2"
     }
+
+
+def test_atom_rank_goes_in_the_body_not_a_header():
+    # ATOM reads ``data_parallel_rank`` from the request; it ignores the header.
+    t = RouteTarget(_w("a", engine=EngineType.ATOM, dp_size=4), 2)
+    body = {"a": 1}
+    assert dp_rank_header(t) is None
+    assert inject_dp_rank(body, t) == {"a": 1, "data_parallel_rank": 2}
+    assert body == {"a": 1}  # original untouched
+
+
+@pytest.mark.parametrize("engine", [EngineType.SGLANG, EngineType.VLLM])
+def test_header_engines_get_no_body_rank(engine):
+    body = {"a": 1}
+    assert inject_dp_rank(body, RouteTarget(_w("p", engine=engine, dp_size=4), 2)) is body
+
+
+def test_inject_dp_rank_noop_for_rankless_atom_target():
+    body = {"a": 1}
+    assert inject_dp_rank(body, RouteTarget(_w("a", engine=EngineType.ATOM))) is body
 
 
 def test_inject_disagg_prefill_dp_rank_sets_field():
@@ -146,6 +171,9 @@ class _PDPolicy:
     def on_request_finished(self, route_key, blocks):
         self.finished.append(route_key)
 
+    def on_request_failed(self, route_key, request, role_hint=None):
+        pass
+
 
 def _capture_router(p_target, d_target):
     """DisaggRouter whose HTTP client records each leg's request and replies
@@ -210,3 +238,50 @@ async def test_disagg_endpoint_target_has_no_dp_wire_fields():
     assert "disagg_prefill_dp_rank" not in d_body
     assert set(policy.started) == {"p1", "d1"}
     await r.aclose()
+
+
+# --- MixedRouter: ATOM DP-attention ranks under session affinity -------------
+
+
+class _MixedPool:
+    def __init__(self, workers):
+        self._workers = workers
+
+    def list_active(self, model=None, mode=None):
+        return list(self._workers)
+
+
+@pytest.mark.asyncio
+async def test_mixed_atom_session_stays_on_one_rank():
+    """An ATOM ``-tp 4 --enable-dp-attention`` worker registers dp_size=4; the
+    router expands it into four rank targets, pins each session to one, and
+    tells ATOM which through the body."""
+    atom = WorkerInfo(
+        worker_id="a1", url="http://a1", model_name="m", engine=EngineType.ATOM, dp_size=4
+    )
+    sent: list[tuple[dict, dict]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        sent.append((dict(request.headers), json.loads(request.content)))
+        return httpx.Response(200, json={"choices": [], "usage": {}})
+
+    policy = SessionAffinityPolicy(RoundRobinPolicy(), mode="both")
+    r = MixedRouter(_MixedPool([atom]), policy)
+    r._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+
+    def turn(session):
+        return {"model": "m", "_infera_session_headers": {"x-session-id": session}}
+
+    for session in ("s1", "s2", "s1", "s2", "s1"):
+        resp = await r.dispatch(turn(session), stream=False)
+        assert resp.status_code == 200
+    await r.aclose()
+
+    ranks = [body["data_parallel_rank"] for _, body in sent]
+    assert ranks[0] == ranks[2] == ranks[4]
+    assert ranks[1] == ranks[3]
+    assert ranks[0] != ranks[1]
+    assert all(0 <= rank < 4 for rank in ranks)
+    for headers, body in sent:
+        assert "x-data-parallel-rank" not in headers
+        assert "_infera_session_headers" not in body

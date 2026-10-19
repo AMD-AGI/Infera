@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_CONFIG_DIR/hooks/envchk_session_start.py\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}
