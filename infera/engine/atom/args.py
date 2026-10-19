@@ -86,6 +86,11 @@ class AtomWorkerArgs:
     # ``{}`` for mixed. Consumed by the DisaggProtocol on the router side.
     disagg_meta: dict[str, Any] = field(default_factory=dict)
 
+    # DP ranks behind this one endpoint (None = a single rank). Registered so
+    # the router expands the worker into per-rank targets and pins each request
+    # to one rank (ATOM reads ``data_parallel_rank`` from the request body).
+    dp_size: int | None = None
+
 
 def _pd_connector_config(cfg: dict[str, Any]) -> dict[str, Any]:
     """Return the PD sub-connector of an ATOM ``multi`` config, else ``cfg``.
@@ -159,6 +164,22 @@ def _compute_disagg_meta(
         "dp_size": dp_size,
     }
     return {"protocol": protocol, "params": params}
+
+
+def _registered_dp_size(atom_parsed: argparse.Namespace, disagg_mode: DisaggMode) -> int | None:
+    """DP ranks the router should address, or None for a single rank.
+
+    ATOM runs one engine per DP rank, and under ``--enable-dp-attention`` every
+    TP rank becomes its own DP rank (``-tp 4 --enable-dp-attention`` -> 4).
+    Only mixed workers register them: a PD prefill still picks its rank itself,
+    and the atom-mooncake hand-off reads that rank back from its response.
+    """
+    if disagg_mode != DisaggMode.MIXED:
+        return None
+    dp_size = int(getattr(atom_parsed, "data_parallel_size", 1) or 1)
+    if getattr(atom_parsed, "enable_dp_attention", False):
+        dp_size *= atom_parsed.tensor_parallel_size
+    return dp_size if dp_size > 1 else None
 
 
 def parse_atom_args(argv: list[str] | None = None) -> AtomWorkerArgs:
@@ -252,4 +273,5 @@ def parse_atom_args(argv: list[str] | None = None) -> AtomWorkerArgs:
         kv_block_size=kv_block_size,
         disagg_mode=disagg_mode,
         disagg_meta=disagg_meta,
+        dp_size=_registered_dp_size(atom_parsed, disagg_mode),
     )

@@ -52,7 +52,17 @@ if ((PREFILL_OFFLOAD_GB > 0)); then
     offload=$'KV_OFFLOADING=dram\nKV_OFFLOAD_BACKEND=lmcache\n'
     offload+="KV_OFFLOAD_BACKEND_METADATA={\"name\":\"lmcache\",\"version\":\"${lmcache_version%%+*}\"}"
 fi
-metrics="$ROUTER_URL/metrics,http://$NODE_IP:$PREFILL_PORT/metrics,http://$NODE_IP:$DECODE_PORT/metrics"
+# The scraped /metrics come from the router's worker list, so workers on
+# other nodes are included. PREPARE_ONLY has no router to ask: this node's ports.
+if [[ "$PREPARE_ONLY" == 1 ]]; then
+    metrics="$ROUTER_URL/metrics,http://$NODE_IP:$PREFILL_PORT/metrics,http://$NODE_IP:$DECODE_PORT/metrics"
+else
+    workers="$(curl -sf -m 10 "$ROUTER_URL/v1/workers")" || die "cannot list workers: $ROUTER_URL/v1/workers"
+    urls="$(python3 -c 'import json, sys; print(*(w["url"] for w in json.load(sys.stdin)["workers"]))' <<<"$workers")" ||
+        die "cannot parse the worker list: $workers"
+    metrics="$ROUTER_URL/metrics"
+    for url in $urls; do metrics+=",$url/metrics"; done
+fi
 
 # TMPDIR stays short: AIPerf's Unix socket paths must fit in 107 bytes.
 cat >"$out/runtime.env" <<EOF
@@ -80,15 +90,16 @@ CONC=$CONC
 DURATION=$DURATION
 IS_AGENTIC=1
 SCENARIO_TYPE=agentic-coding
-IS_MULTINODE=false
+IS_MULTINODE=${IS_MULTINODE:-false}
 DISAGG=true
 ENABLE_AGENTX_POWER=0
 TP=4
 EP_SIZE=1
 DP_ATTENTION=false
-PREFILL_NUM_WORKERS=1
-PREFILL_TP=4
-PREFILL_DCP_SIZE=4
+PREFILL_NUM_WORKERS=$PREFILL_NUM_WORKERS
+PREFILL_TP=$((PREFILL_PP > 1 ? 1 : 4))
+PREFILL_PP_SIZE=$PREFILL_PP
+PREFILL_DCP_SIZE=$((PREFILL_PP > 1 ? 1 : 4))
 PREFILL_EP=1
 PREFILL_DP_ATTN=false
 DECODE_NUM_WORKERS=1
@@ -124,7 +135,7 @@ fi
 
 echo "AgentX C$CONC, ${DURATION}s via $ROUTER_URL -> $out"
 # InferenceX's write_agentic_result_json is replaced so aggregation goes
-# through aggregate.py (8 GPUs for single-node 4P+4D, see that file).
+# through aggregate.py (all PD GPUs, also on a single node, see that file).
 # shellcheck disable=SC2016  # expanded inside the container
 docker run --rm --name "$CTR-agentx" --network host --ipc host --shm-size 32g \
     --user "$(id -u):$(id -g)" -v "$KIT:$KIT:ro" -v "$WORK_DIR:$WORK_DIR" \

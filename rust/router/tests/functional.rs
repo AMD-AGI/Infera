@@ -1273,6 +1273,151 @@ async fn pd_protocol_mismatch_is_501() {
 }
 
 // ---------------------------------------------------------------------------
+// ATOM: serial-pull PD (atom-mooncake) and DP ranks in the body
+// ---------------------------------------------------------------------------
+
+fn atom_worker(role: &str, url: &str, handshake_port: i64) -> Arc<Worker> {
+    worker(json!({
+        "worker_id": role, "url": url, "model_name": "m", "engine": "atom",
+        "disagg_mode": role,
+        "disagg_meta": {"protocol": "atom-mooncake", "params": {
+            "host": "10.0.0.1", "http_port": 19000, "handshake_port": handshake_port,
+            "tp_size": 4, "dp_size": 1
+        }}
+    }))
+}
+
+/// What an ATOM prefill answers: its KV hand-off, rank included.
+fn atom_prefill_reply() -> Value {
+    json!({"choices": [{"text": "x"}], "kv_transfer_params": {
+        "do_remote_prefill": true, "do_remote_decode": false,
+        "transfer_id": "t-1", "first_token_id": 7, "remote_block_ids": [1, 2],
+        "remote_host": "10.0.0.2", "remote_handshake_port": 21301, "dp_rank": 0
+    }})
+}
+
+async fn atom_pd(
+    p_status: u16,
+    p_reply: Value,
+    d_sse: bool,
+) -> (String, Arc<MockState>, Arc<MockState>) {
+    let (p_url, p) = spawn_mock(p_status, false, p_reply).await;
+    let (d_url, d) = spawn_mock(200, d_sse, json!({"who": "decode"})).await;
+    let workers = vec![
+        atom_worker("prefill", &p_url, 21301),
+        atom_worker("decode", &d_url, 21311),
+    ];
+    (spawn_router(make_state(workers, 0)).await, p, d)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_pd_unary_pulls_the_prefill_handoff_into_decode() {
+    let (router, p, d) = atom_pd(200, atom_prefill_reply(), false).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/completions"))
+        .json(&json!({"model": "m", "prompt": "hi", "max_tokens": 64}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    assert_eq!(resp.json::<Value>().await.unwrap()["who"], "decode");
+
+    let p_hit = &p.hits.lock().unwrap()[0];
+    assert_eq!(p_hit.path, "/v1/completions");
+    assert_eq!(p_hit.body["max_tokens"], 1);
+    assert_eq!(p_hit.body["stream"], false);
+    // The prefill pushes to the decode's handshake port.
+    let p_kv = &p_hit.body["kv_transfer_params"];
+    assert_eq!(p_kv["do_remote_decode"], true);
+    assert_eq!(p_kv["remote_handshake_port"], 21311);
+
+    let d_hit = &d.hits.lock().unwrap()[0];
+    assert_eq!(d_hit.body["max_tokens"], 64);
+    // The decode gets the prefill's hand-off verbatim, plus where its KV sits.
+    let d_kv = &d_hit.body["kv_transfer_params"];
+    assert_eq!(d_kv["transfer_id"], "t-1");
+    assert_eq!(d_kv["first_token_id"], 7);
+    assert_eq!(d_kv["remote_handshake_port"], 21301);
+    assert_eq!(d_kv["remote_tp_size"], 4);
+    assert_eq!(d_kv["remote_dp_rank"], 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_pd_streaming_relays_the_decode() {
+    let (router, p, d) = atom_pd(200, atom_prefill_reply(), true).await;
+
+    let resp = client()
+        .post(format!("{router}/v1/chat/completions"))
+        .json(&json!({"model": "m", "stream": true, "messages": []}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let text = resp.text().await.unwrap();
+    assert!(text.contains("[DONE]"), "expected decode SSE, got {text:?}");
+    // The prefill ran first and non-streaming; the decode streams.
+    assert_eq!(p.hits.lock().unwrap()[0].body["stream"], false);
+    assert_eq!(d.hits.lock().unwrap()[0].body["stream"], true);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_pd_failed_prefill_never_reaches_decode() {
+    for (status, reply, want) in [
+        (503, json!(null), 503),
+        (400, json!(null), 400),
+        // A 200 without a hand-off leaves the decode nothing to pull.
+        (200, json!({"choices": []}), 502),
+    ] {
+        let (router, p, d) = atom_pd(status, reply, false).await;
+        let resp = client()
+            .post(format!("{router}/v1/completions"))
+            .json(&json!({"model": "m", "prompt": "hi"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), want, "prefill answered {status}");
+        assert_eq!(p.hit_count(), 1);
+        assert_eq!(
+            d.hit_count(),
+            0,
+            "decode must not run after a failed prefill"
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn atom_dp_rank_rides_in_the_body_and_follows_the_session() {
+    use infera_router::session_affinity::{Mode, Sessions};
+    let (url, mock) = spawn_mock(200, false, json!({})).await;
+    let w = worker(json!({
+        "worker_id": "w", "url": url, "model_name": "m", "engine": "atom", "dp_size": 4
+    }));
+    let mut state = make_state(vec![w], 0);
+    state.sessions = Arc::new(Sessions::new(Mode::Both, Duration::from_secs(3600), 64));
+    let router = spawn_router(state).await;
+    for session in ["s1", "s2", "s1", "s2"] {
+        let resp = client()
+            .post(format!("{router}/v1/completions"))
+            .header("X-Session-ID", session)
+            .json(&json!({"model": "m", "prompt": "hi"}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), 200);
+    }
+    let hits = mock.hits.lock().unwrap();
+    // ATOM ignores the header, so none is sent.
+    assert!(hits.iter().all(|h| h.dp_rank.is_none()));
+    let ranks: Vec<_> = hits
+        .iter()
+        .map(|h| h.body["data_parallel_rank"].as_i64().unwrap())
+        .collect();
+    assert_eq!(ranks, vec![0, 1, 0, 1]);
+    assert_eq!(hits[0].body["prompt"], "hi");
+}
+
+// ---------------------------------------------------------------------------
 // Introspection endpoints
 // ---------------------------------------------------------------------------
 

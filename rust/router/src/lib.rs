@@ -9,10 +9,10 @@
 //!
 //! Supports mixed dispatch + round-robin + kv-aware (DP-attention cache
 //! locality) routing, etcd and Kubernetes discovery, HTTP and NATS request
-//! transports, ZMQ and NATS kv-event feeds, SSE relay, and SGLang-bootstrap PD
-//! -- which together cover what the operator deploys by default. Configs
-//! outside this set (other PD connectors, GAIE direct mode, the profiling
-//! control plane) are served by the Python backend.
+//! transports, ZMQ and NATS kv-event feeds, SSE relay, and SGLang-bootstrap,
+//! vLLM-Mooncake and ATOM-Mooncake PD -- which together cover what the operator
+//! deploys by default. Configs outside this set (vLLM MoRIIO PD, GAIE direct
+//! mode, the profiling control plane) are served by the Python backend.
 //!
 //! Modules are `pub` so the binary and the `tests/` suite share one API.
 

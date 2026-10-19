@@ -24,6 +24,17 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument(
+        "--timeout-keep-alive",
+        type=int,
+        default=int(os.environ.get("INFERA_TIMEOUT_KEEP_ALIVE", "900") or 900),
+        help="Seconds the router keeps an idle client connection open (uvicorn "
+        "timeout_keep_alive, whose own default is 5). Agentic clients reuse one "
+        "connection per session across idle turns, and one that resends just as "
+        "the router closes it fails with a server disconnect, so keep it above the "
+        "longest idle gap. Python backend only: the Rust backend never closes "
+        "idle connections. Overrides $INFERA_TIMEOUT_KEEP_ALIVE.",
+    )
+    parser.add_argument(
         "--discovery-backend",
         choices=("etcd", "kubernetes"),
         default="kubernetes",

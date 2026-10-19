@@ -406,7 +406,7 @@ async fn attempt_nats(
         );
     }
 
-    let body: serde_json::Value = match serde_json::from_slice(raw) {
+    let mut body: serde_json::Value = match serde_json::from_slice(raw) {
         Ok(v) => v,
         Err(e) => {
             return fail(
@@ -418,9 +418,12 @@ async fn attempt_nats(
             )
         }
     };
+    if let serde_json::Value::Object(m) = &mut body {
+        dp::insert_body_rank(m, target);
+    }
     // Same envelope the Python router publishes; the worker side is shared.
     let mut headers = serde_json::Map::new();
-    if let Some(r) = target.dp_rank {
+    if let Some(r) = dp::header_rank(target) {
         headers.insert(
             dp::DP_RANK_HEADER.to_string(),
             serde_json::Value::String(r.to_string()),
@@ -1059,8 +1062,8 @@ async fn attempt(
         .http
         .post(&url)
         .header(header::CONTENT_TYPE, "application/json")
-        .body(raw.clone());
-    if let Some(r) = target.dp_rank {
+        .body(dp::with_body_rank(raw, target));
+    if let Some(r) = dp::header_rank(target) {
         req = req.header(dp::DP_RANK_HEADER, r.to_string());
     }
 
