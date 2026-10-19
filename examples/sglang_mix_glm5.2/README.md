@@ -68,8 +68,9 @@ The image above, on one 8×MI355X node (crsuse2-m2m-138), GPUs 0-3:
 
 | item | result |
 |---|---|
-| correctness (`smoke.py`, real MTP acceptance) | TODO |
-| GSM8K (200 questions, real MTP acceptance) | TODO |
+| correctness (`smoke.py`, real MTP acceptance) | 6/6 pass (66k-token prefix: 9.8 s cold, 1.0 s repeated) |
+| GSM8K, concurrency 1 (24 questions, real MTP acceptance) | 0.958 |
+| GSM8K, concurrency 64 (200 questions, real MTP acceptance) | **0.74** strict / 0.69 flexible — see note 6 |
 | AgentX C48, 3600 s, `SIM_ACCEPT_LEN=3.61` | TODO |
 
 ## Reference numbers
@@ -105,9 +106,25 @@ them with `docker volume rm` when done with an image.
 the engine's memory; 10-40 minutes were observed. Check `rocm-smi` before the
 next `up.sh`.
 
-**4. Session affinity reads request headers.** `--session-affinity both` keeps
+**4. One kit per node.** The engine runs with `--ipc host`, and RCCL names its
+shared-memory segments after process ids, which start low in every container.
+A second engine started on the other four GPUs fails in `ncclCommInitRank` with
+`HIP failure: 'invalid argument'`; run a second deployment on another node.
+
+**5. Session affinity reads request headers.** `--session-affinity both` keeps
 requests with the same `x-session-id` on the DP rank their session used last;
 `agentx.sh` has AIPerf send it (`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID`).
+
+**6. Under sustained concurrency some outputs are garbled (open).** About 30%
+of GSM8K answers at concurrency 64 turn into token soup (template tags such as
+`</think>` as plain text, or runs of `!`); at concurrency 1 the model is fine.
+It needs DP attention only: the same engine as plain TP4 scores 0.980 with no
+garbled answer, while switching off HiCache, MTP, the prefill delayer, the
+fused kernels, `--enable-dp-lm-head` or the DSA decode / top-k backend does not
+help. The unpatched upstream image `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`
+and the v0.5.21 image show it too. AgentX replays with `ignore_eos` (output
+lengths come from the trace), so its throughput numbers stand; do not serve
+this recipe until it is fixed.
 
 ## What this kit exposes on the network
 
