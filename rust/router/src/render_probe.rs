@@ -29,7 +29,7 @@
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, PoisonError};
 
 use serde_json::{json, Value};
 
@@ -313,10 +313,11 @@ impl ParityRegistry {
     }
 
     /// Whether this worker's render was probed and found to differ from ours.
+    /// Called on every Decode pick, so a poisoned lock is recovered.
     pub fn diverged(&self, worker_id: &str) -> bool {
         self.state
             .lock()
-            .expect("parity registry mutex poisoned")
+            .unwrap_or_else(PoisonError::into_inner)
             .get(worker_id)
             .is_some_and(|(_, verdict)| matches!(verdict, Parity::Diverged))
     }

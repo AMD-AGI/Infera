@@ -91,11 +91,11 @@ async fn main() -> anyhow::Result<()> {
                 RenderVariant::from_default_chat_template_kwargs(parsed_default_ctk.as_ref()),
                 cfg.kv_per_worker_template_kwargs,
             ))
+            .with_decode_input_demand(cfg.decode_input_demand)
             // A worker that served traffic before the router subscribed emits
             // its one rooted event to nobody, and no later event can rebuild
             // the chain. Asking it to flush is the only repair, so the router
             // does it itself rather than waiting for someone to read a warning.
-            .with_decode_input_demand(cfg.decode_input_demand)
             .with_self_heal(kv_selfheal::spawn(upstream.clone())),
         )
     } else {

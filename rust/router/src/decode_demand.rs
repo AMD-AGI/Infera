@@ -25,15 +25,20 @@ pub(crate) type Ledger = Arc<Mutex<HashMap<String, Demand>>>;
 /// Text bytes per token assumed when a request's tokens are unavailable.
 const ESTIMATED_BYTES_PER_TOKEN: usize = 4;
 
-/// Input tokens estimated from a body's string bytes. Inline `data:` payloads
-/// (base64 images) are skipped: their size says nothing about their tokens.
+/// Input tokens estimated from a body's string bytes. Inline binary payloads
+/// (`data:` URLs and `data` fields, such as base64 images or audio) are
+/// skipped: their size says nothing about their tokens.
 pub(crate) fn estimate_tokens(body: &Value) -> u64 {
     fn text_bytes(value: &Value) -> usize {
         match value {
             Value::String(s) if s.starts_with("data:") => 0,
             Value::String(s) => s.len(),
             Value::Array(items) => items.iter().map(text_bytes).sum(),
-            Value::Object(fields) => fields.values().map(text_bytes).sum(),
+            Value::Object(fields) => fields
+                .iter()
+                .filter(|(key, _)| key.as_str() != "data")
+                .map(|(_, value)| text_bytes(value))
+                .sum(),
             _ => 0,
         }
     }
@@ -183,10 +188,12 @@ mod tests {
             {"role":"user","content":[
                 {"type":"text","text":"12345678"},
                 {"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}},
+                {"type":"input_audio","input_audio":{"data":"UklGRiQAAABXQVZF","format":"wav"}},
             ]},
         ]});
-        // "user" + "text" + "12345678" + "image_url" = 25 bytes -> 7 tokens.
-        assert_eq!(estimate_tokens(&body), 7);
+        // "user" + "text" + "12345678" + "image_url" + "input_audio" + "wav"
+        // = 39 bytes -> 10 tokens.
+        assert_eq!(estimate_tokens(&body), 10);
         assert_eq!(estimate_tokens(&serde_json::json!({})), 0);
     }
 }

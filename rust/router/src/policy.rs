@@ -79,7 +79,7 @@ pub trait Policy: Send + Sync {
 
     fn pick_targets(&self, targets: &[RouteTarget], request: &Value, role: Role) -> Pick;
 
-    /// `pick_targets` for a request that is picked more than once.
+    /// Like `pick_targets`, reusing `tokens` across one request's picks.
     fn pick_targets_with(
         &self,
         targets: &[RouteTarget],
@@ -144,6 +144,7 @@ pub struct ActiveGuard {
     entries: Vec<(String, Vec<u64>)>,
     prefill_session: Option<crate::session_affinity::Lease>,
     decode_session: Option<crate::session_affinity::Lease>,
+    // Held only for its Drop, which releases the Decode demand.
     _decode_demand: Option<Reservation>,
 }
 
@@ -646,8 +647,12 @@ impl Policy for KvEventAwarePolicy {
         // `chat_template_kwargs` onto a body `to_chat_body` rebuilds from
         // scratch, dropping the variant for `/v1/responses` alone.
         let base = crate::responses_input::normalised(request);
-        // Takes the variant, not the worker: the render probe can replace a worker's
-        // variant mid-pick, and each cache key must name the variant it tokenized.
+        // Read once per target: the render probe can replace a worker's variant
+        // mid-pick, and hashing and demand must tokenize the same variant.
+        let variants: Vec<_> = targets
+            .iter()
+            .map(|t| self.variants.for_worker(&t.worker.worker_id))
+            .collect();
         let ids_for = |variant: &crate::render_variant::RenderVariant| {
             tokens.get_or_tokenize(variant.id(), || {
                 self.hasher.token_ids_for(&variant.apply(&base))
@@ -655,13 +660,12 @@ impl Policy for KvEventAwarePolicy {
         };
         let mut hashes_for: HashMap<(i64, u64), Vec<u64>> = HashMap::new();
         let mut key_of: Vec<Option<(i64, u64)>> = Vec::with_capacity(targets.len());
-        for t in targets {
+        for (t, variant) in targets.iter().zip(&variants) {
             let key = match t.worker.kv_block_size {
                 Some(bs) if bs > 0 => {
-                    let variant = self.variants.for_worker(&t.worker.worker_id);
                     let key = (bs, variant.id());
                     hashes_for.entry(key).or_insert_with(|| {
-                        ids_for(&variant)
+                        ids_for(variant)
                             .map(|ids| crate::hasher::hash_request(&ids, bs as usize))
                             .unwrap_or_default()
                     });
@@ -750,11 +754,10 @@ impl Policy for KvEventAwarePolicy {
                 .unwrap_or(1);
             let estimate = std::cell::OnceCell::new();
             // (input tokens, whether the router tokenized them).
-            let work: Vec<(u64, bool)> = targets
+            let work: Vec<(u64, bool)> = variants
                 .iter()
-                .map(|target| {
-                    let variant = self.variants.for_worker(&target.worker.worker_id);
-                    let (count, tokenized) = match ids_for(&variant) {
+                .map(|variant| {
+                    let (count, tokenized) = match ids_for(variant) {
                         Some(ids) => (ids.len() as u64, true),
                         None => (
                             *estimate.get_or_init(|| crate::decode_demand::estimate_tokens(&base)),
@@ -795,7 +798,7 @@ impl Policy for KvEventAwarePolicy {
                 );
                 (picked, suggested, reservation, costs)
             };
-            // Exact only for a text prompt on a worker whose render matches ours.
+            // Exact unless estimated, multimodal, or the worker is known to render differently.
             let exact = work[picked].1
                 && !hints.has_multimodal_content
                 && !self.parity.diverged(&targets[picked].worker.worker_id);
@@ -808,7 +811,7 @@ impl Policy for KvEventAwarePolicy {
                 exact,
                 suggested == legacy_pick,
             );
-            (picked, Some(reservation), on)
+            (picked, Some(reservation), picked != legacy_pick)
         } else {
             (legacy_pick, None, false)
         };
@@ -1563,6 +1566,26 @@ mod tests {
         let cached = tokens.get_or_tokenize(variant, || unreachable!());
         assert_eq!(cached.map(|ids| ids.len()), Some(64));
         drop((p, d));
+    }
+
+    #[test]
+    fn the_zero_hit_alarm_skips_only_picks_demand_changed() {
+        let request = json!({"prompt": vec![7; 32]});
+        // One candidate: demand agrees with the original policy, so the miss counts.
+        let agreed = demand_policy(DecodeDemandMode::On);
+        drop(agreed.pick(&[worker("a", 16, None)], &request, Role::Decode));
+        assert_eq!(agreed.zero_hit_streak.load(Ordering::Relaxed), 1);
+        // Demand moves the pick off "a", which the original policy would take.
+        let steered = demand_policy(DecodeDemandMode::On);
+        let large = {
+            let mut ledger = steered.demand.lock().unwrap();
+            Reservation::book(&steered.demand, &mut ledger, "a".into(), 10_000)
+        };
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        let pick = steered.pick(&workers, &request, Role::Decode);
+        assert_eq!(pick.target.route_key(), "b");
+        assert_eq!(steered.zero_hit_streak.load(Ordering::Relaxed), 0);
+        drop((large, pick));
     }
 
     #[test]
