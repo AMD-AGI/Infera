@@ -59,9 +59,33 @@ parser 把全部文本放进 `reasoning_content`，lm-eval 看到的 `content` �
 
 ### 换判据：`scripts/gsm8k_probe.py`
 
-lm-eval 只看 `content`，判不了这个问题。`gsm8k_probe.py` 用 base 那一组的同一批 64 个 prompt 直连引擎（temperature 0，
-`max_tokens` 16384），每个请求记 `finish_reason`、生成 token 数、`reasoning_content` 与 `content`；**被上限截断
-（`finish_reason=length`）即判为失控**，与 parser 无关。之后各项都用它（`verdict.txt` 一行汇总，`probe.jsonl` 逐条）。
+lm-eval 只看 `content`，判不了这个问题。`gsm8k_probe.py` 把 lm-eval 样本里的 GSM8K prompt 原样直连引擎重放（temperature 0，
+`max_tokens` 16384），每个请求记 `finish_reason`、生成 token 数、`reasoning_content` 与 `content`，给两个数：
+- **garbled**：正文（thinking + 回答）里出现 `</think>`、`</arg_value>` 等模板标签的字面文本。真的特殊 token 会被 parser
+  剥掉，只有解码坏了才会把它们当普通文本吐出来；hicache0-n200 的 60 条长回答全部命中，dpa0 一条不中。
+- **runaway**：被 `max_tokens` 截断。干净的模型也会在个别有歧义的题上反复推敲到上限（dpa0 的 2 条即此，逐字看过是连贯推理），
+  所以只作参考。
+
+**200 题、并发 64 比 64 题同时发灵敏得多。** 同样关 HiCache，64 题同时发只有 7 条空回答，200 题持续发有 60 条乱码。
+64 题同时发时 prefill 全挤在开头，之后是纯 decode；持续发时新请求不断进来，总有"一个 DP rank 在 prefill、其余在 decode"
+的混合步——这一步全局不能走 CUDA graph，decode 的 rank 走 eager，DP gather 用 `SUM_LEN` 布局（`dp_attention.py`
+`get_dp_padding_mode`），纯 decode 步则是 `MAX_LEN` + CUDA graph。之后都用 200 题、并发 64（prompt 取 hicache0-n200 的样本）。
+
+| 变体 | 设置 | 题数 | correct | garbled | runaway |
+|---|---|---|---|---|---|
+| base-p | 基线，64 题同时发 | 64 | 0.859 | 9 | 8 |
+| **dpa0-200** | 关 DP attention（纯 TP4，HiCache + MTP 开） | 200 | **0.980** | **0** | 2（连贯的过度推敲） |
+| cg0-200 | 基线 + `--disable-cuda-graph` | 200 | — | — | 引擎第一个 decode 步即崩溃 |
+| mtp0-200 | 关 MTP | 200 | 进行中 | | |
+| fusion0-200 | 关 `--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion` | 200 | 进行中 | | |
+
+**cg0-200 的崩溃。** 全部走 eager 后，第一个 decode 步在 MTP draft 的 `_draft_extend_for_decode` → NextN 层 DSA indexer →
+`fast_topk_transform_fused` 报 `RuntimeError: lengths must have one entry per score row`，随后 GPU memory access fault。
+即 DP attention 下 eager 的 draft-extend 路径，打分矩阵的行数与 `lengths` 条目数不一致（纯 decode 步 eager 时 DP gather 是
+`MAX_LEN`，行数按全局最大 token 数填充）。平时纯 decode 走 CUDA graph 绕开了这里；混合步也走 eager，但 `SUM_LEN` 不填充，
+行数凑巧对得上。draft 算错只会拉低接受率、不会让输出乱码（target 逐个验证），所以它不是乱码的直接原因，但说明
+**DP attention 下 eager 路径的 DSA 元数据与 DP 填充对不齐**；target 的 verify / decode 若在同类路径上行错位而不报错，
+就会按错的 top-k 去读 KV，正是乱码的样子。
 
 **同节点两个引擎会撞 RCCL 共享内存名。** 两个容器都 `--ipc host`，容器内 PID 都从很小的数开始，后起的那个在
 `ncclCommInitRank` 报 `HIP failure: 'invalid argument'` 退出（hicache0 前两次即此）。并行跑两个排查栈时，第二个先空转把 PID
