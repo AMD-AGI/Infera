@@ -54,14 +54,35 @@ _FALLBACK_HBM_BW_GBPS = 5300.0  # MI300X default
 # indeed near-ideal.
 _GROUPED_GEMM_PLATEAU = 0.78
 _GROUPED_GEMM_EXPERT_SCALE = 4.0
+# The two rows are two kernels: gpt-oss streams mxfp4 experts, DeepSeek fp8.
+# The fp8 kernel reaches a third more bandwidth from one or two experts, which
+# is the regime a wide expert-parallel decode step lives in (one rank, a
+# handful of experts), so an fp8 or bf16 group is read off its own row.
+_GROUPED_GEMM_FP8_ROW = ((1, 0.25), (2, 0.44), (4, 0.65), (8, 0.74), (16, 0.74),
+                         (32, 0.78), (64, 0.80), (128, 0.81), (256, 0.82))
 
 
-def _grouped_gemm_efficiency(active_experts: int) -> float:
+def _grouped_gemm_efficiency(active_experts: int, dtype: str | None = None) -> float:
     """Fraction of peak HBM bandwidth a group of ``active_experts`` reaches."""
     if active_experts <= 0:
         return _GROUPED_GEMM_PLATEAU
     import math
 
+    d = (dtype or "").lower()
+    if (
+        d
+        and "4" not in d
+        and os.getenv("INFERASIM_GG_EFF_BY_DTYPE", "1").strip().lower() not in ("0", "false", "no")
+    ):
+        pts = _GROUPED_GEMM_FP8_ROW
+        b = float(active_experts)
+        if b <= pts[0][0]:
+            return pts[0][1]
+        for (b0, e0), (b1, e1) in zip(pts, pts[1:]):
+            if b <= b1:
+                w = (math.log(b) - math.log(b0)) / (math.log(b1) - math.log(b0))
+                return e0 + w * (e1 - e0)
+        return pts[-1][1]
     return _GROUPED_GEMM_PLATEAU * (
         1.0 - math.exp(-float(active_experts) / _GROUPED_GEMM_EXPERT_SCALE)
     )
@@ -399,7 +420,9 @@ class MoEMLPProfiler(BaseModuleProfiler):
             # (~16 experts), so it only reshapes the small-batch decode curve --
             # which is exactly where the group is small enough to matter.
             if int(seq_len) <= 1 and B > 0:
-                expert_fwd_ms *= max(1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B))
+                expert_fwd_ms *= max(
+                    1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B, gemm_dtype)
+                )
 
             expert_fwd = expert_fwd_ms
         else:
