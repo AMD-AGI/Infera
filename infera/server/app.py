@@ -522,6 +522,16 @@ async def completions(request: Request) -> Any:
 # through `parse_cache_hints` unchanged. See infera/api/anthropic.py.
 
 
+async def _count_prompt_tokens(count_fn: Any, body: dict) -> int | None:
+    """Count the prompt off the event loop; None when no tokenizer can reproduce it."""
+    try:
+        n = await asyncio.to_thread(count_fn, body)
+    except Exception:
+        logger.debug("anthropic-messages: prompt token count failed", exc_info=True)
+        return None
+    return int(n) if isinstance(n, int) else None
+
+
 @app.post("/v1/messages")
 async def anthropic_messages(request: Request) -> Any:
     from fastapi.responses import JSONResponse, StreamingResponse
@@ -640,6 +650,16 @@ async def anthropic_messages(request: Request) -> Any:
             existing = {**existing, "include_usage": True}
         openai_body["stream_options"] = existing
 
+    # Streaming reports `message_start` before the engine's usage chunk exists,
+    # so count the prompt with the router's tokenizer while the engine prefills.
+    input_tokens_hint = None
+    if stream:
+        count_fn = getattr(getattr(router, "policy", None), "count_input_tokens", None)
+        if callable(count_fn):
+            input_tokens_hint = asyncio.ensure_future(
+                _count_prompt_tokens(count_fn, dict(openai_body))
+            )
+
     # Dispatch the OpenAI-shaped request to the worker.
     engine_resp = await router.dispatch(openai_body, stream=stream, path="/v1/chat/completions")
 
@@ -648,6 +668,8 @@ async def anthropic_messages(request: Request) -> Any:
     # silent error masking would otherwise hide upstream failures
     # from clients. PR #13 review fix P0-1.
     if engine_resp.status_code >= 400:
+        if input_tokens_hint is not None:
+            input_tokens_hint.cancel()
         try:
             engine_resp.headers[_REQUEST_ID_HEADER] = request_id
         except Exception:
@@ -660,7 +682,10 @@ async def anthropic_messages(request: Request) -> Any:
         # bytes; wrap its iterator. Use the validated `model` string.
         async def _anthropic_stream():
             async for chunk in openai_to_anthropic_sse(
-                engine_resp.body_iterator, model=model, msg_id_hint=request_id
+                engine_resp.body_iterator,
+                model=model,
+                msg_id_hint=request_id,
+                input_tokens_hint=input_tokens_hint,
             ):
                 yield chunk
 

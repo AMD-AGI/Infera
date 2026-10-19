@@ -1392,3 +1392,84 @@ def test_sse_tool_call_no_explicit_id_synthesizes_one():
     out = asyncio.run(_run())
     text = out.decode()
     assert '"id": "toolu_' in text
+
+
+def _usage_chunk(prompt_tokens: int, completion_tokens: int) -> bytes:
+    payload = {
+        "choices": [],
+        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+    }
+    return f"data: {json.dumps(payload)}\n".encode()
+
+
+def _sse_events(raw: bytes) -> dict[str, dict]:
+    events: dict[str, dict] = {}
+    name = None
+    for line in raw.decode().splitlines():
+        if line.startswith("event:"):
+            name = line[len("event:") :].strip()
+        elif line.startswith("data:") and name:
+            events[name] = json.loads(line[len("data:") :])
+    return events
+
+
+def _stream_chunks(usage: bytes | None) -> list[bytes]:
+    chunks = [_make_openai_chunk("Hello"), _make_openai_chunk(finish_reason="stop")]
+    if usage is not None:
+        chunks.append(usage)
+    return [*chunks, b"data: [DONE]\n"]
+
+
+def test_sse_message_delta_reports_input_tokens_from_usage_chunk():
+    chunks = _stream_chunks(_usage_chunk(3015, 61))
+    out = asyncio.run(_collect(openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m")))
+    usage = _sse_events(out)["message_delta"]["usage"]
+    assert usage["input_tokens"] == 3015
+    assert usage["output_tokens"] == 61
+    assert usage["cache_read_input_tokens"] == 0
+    assert usage["cache_creation_input_tokens"] == 0
+
+
+def test_sse_message_start_uses_input_tokens_hint():
+    async def _hint() -> int | None:
+        return 3015
+
+    chunks = _stream_chunks(None)
+    out = asyncio.run(
+        _collect(
+            openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m", input_tokens_hint=_hint())
+        )
+    )
+    events = _sse_events(out)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 3015
+    assert events["message_delta"]["usage"]["input_tokens"] == 3015
+
+
+def test_sse_reported_usage_overrides_input_tokens_hint():
+    async def _hint() -> int | None:
+        return 3000
+
+    chunks = _stream_chunks(_usage_chunk(3015, 61))
+    out = asyncio.run(
+        _collect(
+            openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m", input_tokens_hint=_hint())
+        )
+    )
+    events = _sse_events(out)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 3000
+    assert events["message_delta"]["usage"]["input_tokens"] == 3015
+
+
+def test_sse_unknown_input_tokens_keeps_zero_start_and_omits_delta_field():
+    async def _hint() -> int | None:
+        raise RuntimeError("tokenizer unavailable")
+
+    chunks = _stream_chunks(None)
+    out = asyncio.run(
+        _collect(
+            openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m", input_tokens_hint=_hint())
+        )
+    )
+    events = _sse_events(out)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 0
+    assert "input_tokens" not in events["message_delta"]["usage"]

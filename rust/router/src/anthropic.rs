@@ -589,6 +589,8 @@ pub struct SseTranslator {
     next_block_index: u64,
     finish_reason: Option<String>,
     output_tokens: u64,
+    /// Prompt tokens: the router's estimate until the engine reports usage.
+    input_tokens: Option<u64>,
 }
 
 impl SseTranslator {
@@ -606,7 +608,15 @@ impl SseTranslator {
             next_block_index: 0,
             finish_reason: None,
             output_tokens: 0,
+            input_tokens: None,
         }
+    }
+
+    /// Seed `message_start.usage.input_tokens` with the router's prompt token
+    /// count; the engine's final usage chunk replaces it in `message_delta`.
+    pub fn with_input_tokens(mut self, input_tokens: Option<u64>) -> Self {
+        self.input_tokens = input_tokens.filter(|n| *n > 0);
+        self
     }
 
     /// Feed one chunk of the engine's SSE body; returns the Anthropic SSE bytes
@@ -729,12 +739,19 @@ impl SseTranslator {
             None => {
                 // Some engines close with a usage-only chunk carrying no
                 // choices; take the token count from it.
-                if let Some(n) = obj
-                    .get("usage")
+                let usage = obj.get("usage");
+                if let Some(n) = usage
                     .and_then(|u| u.get("completion_tokens"))
                     .and_then(Value::as_u64)
                 {
                     self.output_tokens = self.output_tokens.max(n);
+                }
+                if let Some(n) = usage
+                    .and_then(|u| u.get("prompt_tokens"))
+                    .and_then(Value::as_u64)
+                    .filter(|n| *n > 0)
+                {
+                    self.input_tokens = Some(n);
                 }
                 return;
             }
@@ -760,7 +777,7 @@ impl SseTranslator {
                         "model": self.model,
                         "stop_reason": Value::Null,
                         "stop_sequence": Value::Null,
-                        "usage": {"input_tokens": 0, "output_tokens": 0},
+                        "usage": {"input_tokens": self.input_tokens.unwrap_or(0), "output_tokens": 0},
                     }
                 }),
             );
@@ -889,10 +906,25 @@ impl SseTranslator {
                     "stop_reason": map_finish_reason(self.finish_reason.as_deref()),
                     "stop_sequence": Value::Null,
                 },
-                "usage": {"output_tokens": self.output_tokens},
+                "usage": self.final_usage(),
             }),
         );
         push_event(out, "message_stop", json!({}));
+    }
+}
+
+impl SseTranslator {
+    /// `message_delta.usage`: output tokens, plus input and cache tokens when known.
+    fn final_usage(&self) -> Value {
+        match self.input_tokens {
+            Some(input) => json!({
+                "input_tokens": input,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "output_tokens": self.output_tokens,
+            }),
+            None => json!({"output_tokens": self.output_tokens}),
+        }
     }
 }
 
@@ -937,6 +969,87 @@ fn random_hex(len: usize) -> String {
 #[cfg(test)]
 mod sse_tests {
     use super::*;
+
+    fn stream_events(t: &mut SseTranslator, chunks: &[&str]) -> Vec<(String, Value)> {
+        let mut raw = Vec::new();
+        for c in chunks {
+            raw.extend(t.push(c.as_bytes()));
+        }
+        raw.extend(t.finish());
+        let text = String::from_utf8(raw).unwrap();
+        let mut out = Vec::new();
+        let mut name = String::new();
+        for line in text.lines() {
+            if let Some(n) = line.strip_prefix("event: ") {
+                name = n.to_string();
+            } else if let Some(d) = line.strip_prefix("data: ") {
+                out.push((name.clone(), serde_json::from_str(d).unwrap()));
+            }
+        }
+        out
+    }
+
+    fn event<'a>(events: &'a [(String, Value)], name: &str) -> &'a Value {
+        &events.iter().find(|(n, _)| n == name).unwrap().1
+    }
+
+    const TEXT_CHUNK: &str = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n";
+    const STOP_CHUNK: &str = "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n";
+    const USAGE_CHUNK: &str =
+        "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3015,\"completion_tokens\":61}}\n\n";
+    const DONE_CHUNK: &str = "data: [DONE]\n\n";
+
+    #[test]
+    fn message_delta_reports_input_tokens_from_usage_chunk() {
+        let mut t = SseTranslator::new("m", Some("abc"));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, USAGE_CHUNK, DONE_CHUNK]);
+        let usage = &event(&events, "message_delta")["usage"];
+        assert_eq!(usage["input_tokens"], 3015);
+        assert_eq!(usage["output_tokens"], 61);
+        assert_eq!(usage["cache_read_input_tokens"], 0);
+        assert_eq!(usage["cache_creation_input_tokens"], 0);
+    }
+
+    #[test]
+    fn message_start_uses_the_input_token_estimate() {
+        let mut t = SseTranslator::new("m", Some("abc")).with_input_tokens(Some(3015));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, DONE_CHUNK]);
+        assert_eq!(
+            event(&events, "message_start")["message"]["usage"]["input_tokens"],
+            3015
+        );
+        assert_eq!(
+            event(&events, "message_delta")["usage"]["input_tokens"],
+            3015
+        );
+    }
+
+    #[test]
+    fn reported_usage_overrides_the_input_token_estimate() {
+        let mut t = SseTranslator::new("m", Some("abc")).with_input_tokens(Some(3000));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, USAGE_CHUNK, DONE_CHUNK]);
+        assert_eq!(
+            event(&events, "message_start")["message"]["usage"]["input_tokens"],
+            3000
+        );
+        assert_eq!(
+            event(&events, "message_delta")["usage"]["input_tokens"],
+            3015
+        );
+    }
+
+    #[test]
+    fn unknown_input_tokens_keep_zero_start_and_omit_the_delta_field() {
+        let mut t = SseTranslator::new("m", Some("abc"));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, DONE_CHUNK]);
+        assert_eq!(
+            event(&events, "message_start")["message"]["usage"]["input_tokens"],
+            0
+        );
+        assert!(event(&events, "message_delta")["usage"]
+            .get("input_tokens")
+            .is_none());
+    }
 
     #[test]
     fn an_error_line_does_not_emit_later_content_from_the_same_chunk() {
