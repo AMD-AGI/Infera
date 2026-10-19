@@ -210,6 +210,10 @@ class ModelConfig:
     # probe on uncorrelated Gaussian inputs stays at 0.90-1.0, which is what
     # identifies correlation rather than skew as the cause.
     moe_router_coverage: dict = None
+    # Busiest EP rank's load over the mean, replayed from the checkpoint's
+    # recorded routing: {ep: [[tokens, rows, experts], ...]}. None samples a
+    # top-k router instead.
+    moe_rank_load: dict = None
     # Speculative decoding. ``mtp_num_layers`` is the checkpoint's own
     # next-token-prediction head (num_nextn_predict_layers), the MTP drafter's
     # depth. ``speculative`` names, per drafter method, the measured

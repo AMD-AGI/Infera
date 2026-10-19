@@ -792,6 +792,20 @@ def launch_projection_from_cli(args, overrides):
             f"min {min(float(v) for v in _curve.values()):.2f}x independent)"
         )
 
+    _rl = getattr(args, "moe_rank_load", None)
+    if _rl:
+        import json as _json
+
+        with open(_rl) as _f:
+            _blob = _json.load(_f)
+        _tab = _blob.get("rank_load", _blob)
+        if any(k in ("decode", "prefill") for k in _tab):
+            _tab = {ph: {int(e): v for e, v in t.items()} for ph, t in _tab.items()}
+        else:
+            _tab = {int(e): v for e, v in _tab.items()}
+        inference_config.model_config.moe_rank_load = _tab
+        print(f"[inferasim:Inference] measured busiest-rank load from {_rl}")
+
     explicit_wdt = getattr(args, "weight_dtype", None)
     if explicit_wdt is not None:
         wdt = str(explicit_wdt).lower()
