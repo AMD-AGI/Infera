@@ -1,5 +1,25 @@
 # GLM-5.2 aggregated TP4 + DP4 attention：并发下输出乱码（10-19）
 
+## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
+
+- **现象**：MI355X 上 GLM-5.2-MXFP4 聚合部署 TP4 + DP4 attention，持续并发（GSM8K 200 题、并发 64）下约 30% 的回答坏掉：
+  开头是连贯的推理，decode 中途先零星出现单个错 token（零宽空格、`!`、无关汉字），随后越来越乱，最后成串的数字 / 模板标签 /
+  重复片段，常常跑满 `max_tokens`。并发 1 时正常（0.958）。
+- **必要条件：DP attention + decode CUDA graph**。关 DP attention（纯 TP4，graph 开）0.980、0 乱码；保留 DP attention 但
+  `--disable-cuda-graph` 197 / 199 对、0 乱码（eager decode 每请求约 8 tok/s，不能当绕过办法）。
+- **已排除**（单独关掉或替换后仍乱码）：HiCache（含 write_back、direct I/O、GTT 主机池等所有写法）、EAGLE MTP、prefill delayer、
+  混合步（delayer 上限 2000，prefill 步几乎全是 4 rank 一起）、overlap 调度、GatherV、融合 qk-norm-rope / aiter allreduce 融合、
+  `--enable-dp-lm-head`、DSA decode 后端（triton / tilelang）、DSA top-k（fused / 非 fused / `torch.topk`）、flydsl MoE 排序、
+  上游的 DP 填充行清零开关。`breakable` graph 后端与 KV canary 都不支持 GLM-5.2 的 DSA，用不上。
+- **上游问题，且由来已久**：上游无补丁镜像 v0.5.19、v0.5.20、v0.5.22 都复现；v0.5.19 的 3P1D PD 部署正常（0.97），那里 decode
+  节点只跑 decode 步、从不跑 EXTEND。规律：乱码条数与 EXTEND（prefill）步数大致相当（6 步 / 9 条，40-51 步 / 53-61 条）。
+- **影响**：example 配方不能直接上线（example README note 6 已写明）；AgentX 回放用 `ignore_eos`，输出长度由 trace 决定，
+  性能数据不受影响。
+- **复现**：`scripts/engine_bisect.sh NAME [开关...]`（在 GPU 节点上起 etcd + 引擎）+ `scripts/gsm8k_probe.py`（200 题直连重放，
+  数模板标签外泄 `garbled` 与截断 `runaway`；干净配置 runaway 只有 2 条连贯的过度推敲）。
+- **下一步**：在引擎里插桩，每隔 N 个 decode 步把同一批再用 eager 算一遍，与 graph 回放的 logits 比对，定位第一处分歧的层与行；
+  向上游报告（文末草稿，待 review 后再提）。
+
 ## 现象
 
 在升级 sglang v0.5.22 的 example（`examples/sglang_mix_glm5.2`，分支 `feat/sglang-mix-glm5.2-tp4-v0522`）做端到端验证时，
@@ -230,3 +250,23 @@ mtp0-200 51 步、61 条；dly2000-200 40 步、61 条——像是每个 EXTEND 
 最简配置（只剩 DP attention + decode graph + delayer + 融合算子）在我们的镜像上同样乱码；KV canary 只支持 MHA / SWA / DSv4 的池，
 GLM-5.2 用不了。现成的开关到此基本用完，再往下要在引擎里插桩（比如每隔 N 步把同一批用 eager 再算一遍、比对 graph 回放的 logits），
 留作下一步。23:00 起 138 换去跑 b2（agg 套件，piggyback 的同节点对照），期间不跑排查。
+
+## 上游 issue 草稿（未提交，待 review）
+
+**[Bug][ROCm] GLM-5.2 aggregated TP4 + DP-attention: outputs drift into garbage under sustained concurrency; needs DP attention + decode CUDA graphs**
+
+- Hardware / images: 4 × MI355X (gfx950), ROCm 7.2; `lmsysorg/sglang-rocm` v0.5.19-rocm720-mi35x-20260917, v0.5.20-rocm720-mi35x-20260924,
+  v0.5.22-rocm720-mi35x-20261018 (unpatched, `python3 -m sglang.launch_server`); model `amd/GLM-5.2-MXFP4`.
+- Launch (minimal repro): `--tp-size 4 --dp-size 4 --enable-dp-attention --enable-dp-lm-head --kv-cache-dtype fp8_e4m3
+  --dsa-prefill-backend triton --dsa-decode-backend triton --mem-fraction-static 0.85 --chunked-prefill-size 32768
+  --max-prefill-tokens 8192 --max-running-requests 128 --cuda-graph-max-bs-decode 64 --reasoning-parser glm45`.
+- Workload: 200 GSM8K 5-shot chat prompts, temperature 0, `max_tokens` 16384, 64 concurrent requests (continuous arrival).
+- Result: ~25-30% of answers degrade mid-decode (coherent reasoning, then isolated wrong tokens such as zero-width spaces, `!`
+  (token 0) or unrelated CJK tokens, then repetition / digit soup / chat-template tags as text), most running to `max_tokens`.
+  Accuracy 0.68-0.87 depending on version. Concurrency 1: fine.
+- Same engine with `--disable-cuda-graph`: 197/199 correct, 0 degraded. Same engine without DP attention (TP4, graphs on): 0.980, 0 degraded.
+- Not affected by: hierarchical cache, EAGLE MTP, prefill delayer, overlap scheduling, `SGLANG_DP_USE_GATHERV`, `--enable-dp-lm-head`,
+  fused qk-norm-rope / aiter all-reduce fusion, DSA decode backend (triton / tilelang), DSA top-k (sgl_kernel fused / unfused / torch),
+  `AITER_USE_FLYDSL_MOE_SORTING`, `SGLANG_DP_MASK_PAD_ROWS`.
+- The number of degraded requests tracks the number of prefill (EXTEND) steps in the run. A PD deployment whose decode node only runs
+  decode steps (v0.5.19, DP attention + graphs) scored 0.97.
