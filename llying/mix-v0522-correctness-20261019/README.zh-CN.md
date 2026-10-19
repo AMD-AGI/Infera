@@ -27,8 +27,17 @@ etcd + 引擎（example 配方去掉对应特性，HiCache 64 GB），GSM8K 64 �
 | fusetopk0 | DSA fused top-k（`SGLANG_DSA_FUSE_TOPK=0`） | 0.812 | 6（基线约 30%，即约 19） |
 | hicache0 | HiCache | 0.891 | **0** |
 | mtp0 | EAGLE MTP | 0.891 | 2 |
-| wb | HiCache 改 `write_back`（其余同基线） | 进行中 | |
-| directio | HiCache I/O 改 `direct` + `page_first_direct`（B300 的组合） | 进行中 | |
+| wb | HiCache 改 `write_back`（其余同基线） | 0.844 | 7 |
+| directio | HiCache I/O 改 `direct` + `page_first_direct` | 0.906 | 2 |
+| b300like | B300 的组合：`write_back` + `direct` + `page_first_direct`，不覆盖 `index_share` | 0.859 | 1 |
+| idxshare1 | 基线去掉 `index_share_for_mtp_iteration=false` 覆盖 | 0.859 | 3 |
+| gtt | 基线 + `HSA_USERPTR_FOR_PAGED_MEM=0`（HiCache 主机池用 hipHostMalloc / GTT） | 进行中 | |
+| dpa0 | 基线关 DP attention（纯 TP4） | 进行中 | |
+
+剩下的"乱码"逐条看过，都是真乱码（`</think>` 碎片、成串的 `0:`、`2`），不是检测规则误判的长答案。所以：**只要开着 HiCache，
+各组合都有乱码，只是多少不同**；B300 的组合在这里也不干净；关 MTP 或去掉 `index_share` 覆盖能显著减轻。
+v0.5.22 默认（不设 `HSA_USERPTR_FOR_PAGED_MEM=0`）时，HiCache 主机池是 mmap + `hipHostRegister` 的 USERPTR 内存
+（`pool_host/common.py` `_uses_hip_owned_host_memory`），gtt 一项检验是不是它。
 
 主因在 HiCache，MTP 放大它。GSM8K 的 prompt 短，GPU KV 池远装得下，几乎不发生从主机载回，所以更可能是 write_through 的写主机
 路径（备份拷贝）在并发下破坏了 GPU 上的 KV，而不是载回路径。下一步区分写策略（wb）和 I/O 后端（directio）。
