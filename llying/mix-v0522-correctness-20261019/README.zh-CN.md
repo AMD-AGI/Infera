@@ -124,3 +124,7 @@ example 计分窗口内 GPU 4-7 不再跑排查。之后：`--disable-overlap-sc
 某些 decode 步里某一行的 logits 突然是错的，一个错 token 让模型偏离，错误再累积。`!` 是 0 号 token，通常意味着那一行那一步的
 hidden state 是全 0 / NaN，而 DP 填充行正是用 0 填的：像是某些步里真实请求的行在 gather / scatter 或 graph 输入输出的切片上
 错了位，读到了填充行。
+
+相关的上游记录：sglang#20404（MI355X，PD + DP attention，DeepSeek-R1 输出退化成重复/空串，关 DP attention 94%；2026-03，
+v0.5.9，仍 open）；sglang#37192 第 3 点（DP 下 batch 先补到全局 token 数，graph runner 再补到捕获桶，第二次补齐不进 DP 缓冲区
+长度——说的是 prefill graph，但与这里怀疑的"补齐与切片错位"同类）。
