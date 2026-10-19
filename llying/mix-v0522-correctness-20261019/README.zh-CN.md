@@ -81,7 +81,7 @@ lm-eval 只看 `content`，判不了这个问题。`gsm8k_probe.py` 把 lm-eval 
 | mtp0cg0-200 | 关 MTP + `--disable-cuda-graph`（全部 eager，避开上面的 draft 崩溃） | 200 | 手动停止，无汇总 | | 见下 |
 | lmhead0-200 | 关 `--enable-dp-lm-head` | 200 | 0.675 | 55 | 60 |
 | dec-tilelang-200 | DSA decode 后端 `triton` → `tilelang` | 200 | 0.670 | 55 | 1 |
-| topk-torch-200 | `--dsa-topk-backend torch --speculative-dsa-topk-backend torch`（DSA top-k 改用 `torch.topk`） | 200 | 进行中 | | |
+| topk-torch-200 | `--dsa-topk-backend torch --speculative-dsa-topk-backend torch` + `SGLANG_DSA_FUSE_TOPK=0`（DSA top-k 改用 `torch.topk`；torch 后端不支持 fused top-k，不关会在 graph 捕获时报错） | 152 / 200 | 135 / 152 | 12 | 8 |
 
 **MTP 也不是必要条件。** 关 MTP 后同样 61 / 200 乱码。至此 HiCache、MTP、prefill delayer、GatherV、融合算子、
 DP lm-head、HiCache 各种写法都排除，**唯一必要的是 DP attention**，且要在持续并发下（有混合步）。
@@ -111,3 +111,9 @@ v0.5.19 的 3P1D PD 部署 GSM8K 是 0.97，那里 decode 节点同样是 DP att
 内容是成串的 `!!!!`（0 号 token）夹模板标签。`!` 连串是 logits 全 NaN / 全 0 时 argmax 的典型结果；triton 后端下则是数字和
 标签碎片。两个后端读到的像是同一批无效数据，只是容错不同——它们共用的上游是 DSA indexer 给出的 top-k 索引，所以下一项把
 top-k 换成 `torch.topk`（`--dsa-topk-backend torch`）。
+
+**top-k 换成 `torch.topk` 也乱码。** topk-torch-200 跑到 152 题时已有 12 题乱码（另 48 题未完，多为长尾），为了不和 example 的性能
+对齐（GPU 0-3，计分窗口 20:22-21:22）重叠太久，20:43 手动停掉（`verdict.txt` 记部分结果；20:26-20:43 与该窗口重叠，性能结果
+里注明）。top-k kernel、DSA decode 后端都排除后，剩下的是 indexer 打分及更上游、DP gather/scatter 与 MoE、以及 overlap 调度。
+example 计分窗口内 GPU 4-7 不再跑排查。之后：`--disable-overlap-schedule`；上游 v0.5.20 / v0.5.19 镜像的聚合 DP attention
+（找出从哪个版本开始出现）。
