@@ -1,0 +1,1 @@
+{"workers":[{"worker_id":"10.245.157.237:27101","url":"http://10.245.157.237:27101","model_name":"glm5.2-mxfp4","engine":"sglang","status":"active","disagg_mode":"mixed","disagg_meta":{},"kv_events_endpoint":"tcp://10.245.157.237:5327","kv_block_size":64,"dp_rank":null,"dp_size":4,"request_transport":"http"}]}
