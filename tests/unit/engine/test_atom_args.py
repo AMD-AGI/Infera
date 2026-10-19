@@ -36,6 +36,8 @@ class _StubEngineArgs:
     def add_cli_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--model", type=str, default="m")
         parser.add_argument("-tp", "--tensor-parallel-size", type=int, default=1)
+        parser.add_argument("--data-parallel-size", type=int, default=1)
+        parser.add_argument("--enable-dp-attention", action="store_true")
         parser.add_argument("--block-size", type=int, default=16)
         parser.add_argument("--kv-transfer-config", type=str, default=None)
 
@@ -123,3 +125,32 @@ def test_atom_argv_forwarded_verbatim() -> None:
     args = _parse(kv_cfg)
     assert f"--kv-transfer-config={json.dumps(kv_cfg)}" in args.atom_argv
     assert "--etcd-endpoint=127.0.0.1:2379" not in args.atom_argv
+
+
+def _parse_parallel(*flags: str, kv_cfg: Any = None) -> AtomWorkerArgs:
+    argv = ["--etcd-endpoint=127.0.0.1:2379", "--server-port=19001", "--port=29500", *flags]
+    if kv_cfg is not None:
+        argv.append(f"--kv-transfer-config={json.dumps(kv_cfg)}")
+    return parse_atom_args(argv)
+
+
+@pytest.mark.parametrize(
+    ("flags", "dp_size"),
+    [
+        (("-tp=4",), None),
+        (("-tp=4", "--enable-dp-attention"), 4),
+        (("-tp=4", "--enable-dp-attention", "--data-parallel-size=2"), 8),
+        (("-tp=1", "--data-parallel-size=2"), 2),
+    ],
+)
+def test_mixed_worker_registers_its_dp_ranks(flags: tuple[str, ...], dp_size: int | None) -> None:
+    # Under DP-attention every TP rank is its own DP rank (ATOM's
+    # global_engine_count), so the router can address each one.
+    assert _parse_parallel(*flags).dp_size == dp_size
+
+
+def test_pd_worker_does_not_register_dp_ranks() -> None:
+    # A PD prefill picks its own rank and reports it in the hand-off.
+    args = _parse_parallel("-tp=4", "--enable-dp-attention", kv_cfg=_MOONCAKE_PRODUCER)
+    assert args.disagg_mode is DisaggMode.PREFILL
+    assert args.dp_size is None
