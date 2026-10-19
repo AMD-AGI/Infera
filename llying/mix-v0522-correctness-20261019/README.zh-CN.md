@@ -257,9 +257,13 @@ GLM-5.2 用不了。现成的开关到此基本用完，再往下要在引擎里
 
 - Hardware / images: 4 × MI355X (gfx950), ROCm 7.2; `lmsysorg/sglang-rocm` v0.5.19-rocm720-mi35x-20260917, v0.5.20-rocm720-mi35x-20260924,
   v0.5.22-rocm720-mi35x-20261018 (unpatched, `python3 -m sglang.launch_server`); model `amd/GLM-5.2-MXFP4`.
-- Launch (minimal repro): `--tp-size 4 --dp-size 4 --enable-dp-attention --enable-dp-lm-head --kv-cache-dtype fp8_e4m3
-  --dsa-prefill-backend triton --dsa-decode-backend triton --mem-fraction-static 0.85 --chunked-prefill-size 32768
-  --max-prefill-tokens 8192 --max-running-requests 128 --cuda-graph-max-bs-decode 64 --reasoning-parser glm45`.
+- Launch, as run on the unpatched images: `--tp-size 4 --ep-size 1 --dp-size 4 --enable-dp-attention --enable-dp-lm-head
+  --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton --mem-fraction-static 0.85
+  --chunked-prefill-size 32768 --max-prefill-tokens 8192 --max-running-requests 128 --cuda-graph-max-bs-decode 64
+  --enable-prefill-delayer --prefill-delayer-max-delay-passes 60 --enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion
+  --json-model-override-args '{"index_share_for_mtp_iteration":false}' --reasoning-parser glm45 --tool-call-parser glm47`;
+  env `SGLANG_DP_USE_GATHERV=1 SGLANG_OPT_USE_TOPK_V2=false SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=0 AITER_USE_FLYDSL_MOE_SORTING=1`.
+  The prefill delayer, the two fusions, `--enable-dp-lm-head` and GatherV were each switched off separately on v0.5.22 without effect.
 - Workload: 200 GSM8K 5-shot chat prompts, temperature 0, `max_tokens` 16384, 64 concurrent requests (continuous arrival).
 - Result: ~25-30% of answers degrade mid-decode (coherent reasoning, then isolated wrong tokens such as zero-width spaces, `!`
   (token 0) or unrelated CJK tokens, then repetition / digit soup / chat-template tags as text), most running to `max_tokens`.
