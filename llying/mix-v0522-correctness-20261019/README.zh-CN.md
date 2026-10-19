@@ -80,7 +80,8 @@ lm-eval 只看 `content`，判不了这个问题。`gsm8k_probe.py` 把 lm-eval 
 | fusion0-200 | 关 `--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion` | 200 | 0.710 | 56 | 59 |
 | mtp0cg0-200 | 关 MTP + `--disable-cuda-graph`（全部 eager，避开上面的 draft 崩溃） | 200 | 手动停止，无汇总 | | 见下 |
 | lmhead0-200 | 关 `--enable-dp-lm-head` | 200 | 0.675 | 55 | 60 |
-| dec-tilelang-200 | DSA decode 后端 `triton` → `tilelang` | 200 | 进行中 | | |
+| dec-tilelang-200 | DSA decode 后端 `triton` → `tilelang` | 200 | 0.670 | 55 | 1 |
+| topk-torch-200 | `--dsa-topk-backend torch --speculative-dsa-topk-backend torch`（DSA top-k 改用 `torch.topk`） | 200 | 进行中 | | |
 
 **MTP 也不是必要条件。** 关 MTP 后同样 61 / 200 乱码。至此 HiCache、MTP、prefill delayer、GatherV、融合算子、
 DP lm-head、HiCache 各种写法都排除，**唯一必要的是 DP attention**，且要在持续并发下（有混合步）。
@@ -105,3 +106,8 @@ v0.5.19 的 3P1D PD 部署 GSM8K 是 0.97，那里 decode 节点同样是 DP att
 **同节点两个引擎会撞 RCCL 共享内存名。** 两个容器都 `--ipc host`，容器内 PID 都从很小的数开始，后起的那个在
 `ncclCommInitRank` 报 `HIP failure: 'invalid argument'` 退出（hicache0 前两次即此）。并行跑两个排查栈时，第二个先空转把 PID
 推高（`PID_OFFSET=30000`，与 mixed 套件的 `PID_OFFSET_mixed_0` 同理）。
+
+**换 DSA decode 后端（tilelang）同样乱码，但形态变了。** 55 条乱码里只有 1 条跑到上限，其余都以 `stop` 结束（500-4.8k token），
+内容是成串的 `!!!!`（0 号 token）夹模板标签。`!` 连串是 logits 全 NaN / 全 0 时 argmax 的典型结果；triton 后端下则是数字和
+标签碎片。两个后端读到的像是同一批无效数据，只是容错不同——它们共用的上游是 DSA indexer 给出的 top-k 索引，所以下一项把
+top-k 换成 `torch.topk`（`--dsa-topk-backend torch`）。
