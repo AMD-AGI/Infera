@@ -62,6 +62,11 @@ class ArchitectureRecord:
     moe_shared_expert_intermediate_size: int | None = None
     vocab_size: int | None = None  # padded vocab size if known
     precision: str = "bf16"
+    # Weight precisions the operator has a quality-validated checkpoint for.
+    # The projector prices speed, not accuracy, so a search left free to pick
+    # any precision will pick the lowest one that fits; ``None`` leaves the
+    # full set on the table.
+    checkpoint_weight_dtypes: list[str] | None = None
 
     # baseline runtime overrides
     tensor_model_parallel_size: int = 1
@@ -250,6 +255,11 @@ def resolve_workload(workload_yaml: Path, config_root: Path | None = None) -> Ar
         moe_shared_expert_intermediate_size=model.get("moe_shared_expert_intermediate_size"),
         vocab_size=model.get("padded_vocab_size") or model.get("vocab_size"),
         precision=precision,
+        checkpoint_weight_dtypes=(
+            [str(d).lower() for d in model["checkpoint_weight_dtypes"]]
+            if model.get("checkpoint_weight_dtypes")
+            else None
+        ),
         tensor_model_parallel_size=int(_strip_env(overrides.get("tensor_model_parallel_size", 1))),
         pipeline_model_parallel_size=int(
             _strip_env(overrides.get("pipeline_model_parallel_size", 1))
