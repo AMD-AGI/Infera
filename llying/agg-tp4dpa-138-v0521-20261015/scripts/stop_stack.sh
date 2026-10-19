@@ -19,11 +19,13 @@ if [[ -n "$names" ]]; then
 fi
 # The driver frees VRAM slowly after a stack with large pinned HiCache pools exits: ~12 min after a4
 # (10-16 05:06 -> 05:18), with no process left holding a KFD context.
+# Only this round's GPUs: other users' jobs may hold the rest of a shared node.
 for i in $(seq 1 180); do
-    busy="$(ssh "${ssh_args[@]}" -n "$CONTROL_NODE" rocm-smi --showmemuse --json | python3 -c '
-import json, sys
+    busy="$(ssh "${ssh_args[@]}" -n "$CONTROL_NODE" rocm-smi --showmemuse --json | GPUS="$GPUS_mixed_0" python3 -c '
+import json, os, sys
 d = json.load(sys.stdin)
-print(" ".join(k for k, v in d.items() if k.startswith("card") and float(v.get("GPU Memory Allocated (VRAM%)", 0)) > 1))')"
+mine = {f"card{g}" for g in os.environ["GPUS"].split(",")}
+print(" ".join(k for k, v in d.items() if k in mine and float(v.get("GPU Memory Allocated (VRAM%)", 0)) > 1))')"
     [[ -z "$busy" ]] && { echo "stopped: ${names//$'\n'/ }; GPUs free"; exit 0; }
     sleep 10
 done

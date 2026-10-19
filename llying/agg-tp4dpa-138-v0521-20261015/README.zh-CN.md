@@ -378,6 +378,30 @@ eager（prefill）步。B300 数据来自 CI 产物 `11798041008`。
 `config/topology.agg.140.tsv`，AITER JIT 缓存从 138 拷贝）。b1 = a3 C48 的全部设置（write_through 270 GB、mem 0.85、delayer 60、
 1 个 tokenizer）+ 补丁。负载下 decode 正确性检查 32/32 通过（180 个后台 prefill，0 错误），C48 于 17:07:49 开始。
 
+| | a3 C48（138，10-15） | b1 C48（140，10-19，piggyback） | 变化 |
+|---|---|---|---|
+| tok/s/GPU | 31,605 | 33,677 | +6.6% |
+| 完成请求 / 每秒请求 | 3,409 / 0.947 | 3,637 / 1.002 | +5.8% |
+| interactivity p50 / p90 | 40.4 / 20.8 | 40.8 / 19.5 | p90 −6% |
+| TTFT p50 / p90 (s) | 4.8 / 14.5 | 3.7 / 9.2 | |
+| ITL p50 / p90 (ms) | 24.8 / 48.1 | 24.5 / 51.3 | |
+| eager 步数 / 单 rank prefill 占比 | 1,856 / 61.3% | 1,796 / 48.0% | |
+| 有其他 rank 排队的单 rank 步 | 658 | 396 | −40% |
+
+（prefill 步统计来自 `scripts/prefill_step_timeline.py`：`results/b1-a3-piggyback/c48/prefill_timeline.txt` 与
+`results/prof-a6b/prefill_timeline.a3c48.txt`。）补丁按设计生效：两个 rank 同步 prefill 的步从 12.3% 升到 27.6%，"一个 rank 续算、
+别的 rank 有请求在排队却空等"的步少了 40%，排队的请求更早开始，TTFT 明显下降、完成请求多 5.8%。代价是慢的一端 decode 被 prefill
+打断得更多，interactivity p90 从 20.8 降到 19.5（ITL p90 48.1 → 51.3 ms）。**这是跨节点比较**，需要同节点对照。
+
+**b0（140，b1 去掉开关的对照）无效。** b0 预热 18:55 开始、计分窗口 19:22-20:22；另一位用户的两个作业 19:03（atom，GPU 4）和
+19:10（sglang v0.5.21，GPU 7，`--ipc host`）起在同一节点上，整段计分窗口重叠；20:24 时 GPU 4 占用 100%、主机内存只剩 37 GB、
+load average 12-17。b0 只有 23,069 tok/s/GPU、2,538 个请求（预热 1,604 s，b1 为 1,120 s），远低于 a3 和 b1，判为受干扰，
+`results/b0-a3-140/c48/FAILED.txt` 记下了经过，总表不计分。140 之后不再空闲，按要求暂停 140 上的实验，栈已撤下。
+同节点对照改为：138 空出后在 138 上跑"a3 + piggyback"（与 a3 同节点、同镜像）。
+
+顺带修了 `scripts/stop_stack.sh`：原来等节点上所有 GPU 都空才返回，共享节点上别人的作业会让它等满 30 分钟报错、卡住后续步骤；
+现在只看本轮 `GPUS_mixed_0` 的卡。
+
 ### 10-16 12:50 /home 卷写满后的运行方式
 
 共享 `/home`（10 TB CephFS）写满（剩余 0 GB，新建目录报 Disk quota exceeded），git 提交与 `/home` 下的日志都写不进去。

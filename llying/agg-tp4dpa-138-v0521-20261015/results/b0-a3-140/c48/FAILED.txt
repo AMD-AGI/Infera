@@ -1,0 +1,6 @@
+Not a valid control. Another user's jobs shared crsuse2-m2m-140 for the whole measured window:
+anandaku-blogb-e4val-b (rocm/atom-dev, HIP_VISIBLE_DEVICES=4) started 19:02:50Z and
+anandaku-blogb-e4val-sgl (sglang v0.5.21, HIP_VISIBLE_DEVICES=7, --ipc host) started 19:10:27Z;
+b0 warm-up ran 18:55-19:22Z and the 3600 s window 19:22-20:22Z. At 20:24Z GPU 4 was at 100 %,
+host memory had 37 GB free, load average 12-17. Result 23,069 tok/s/GPU, 2,538 requests
+(b1 on the same node before those jobs: 33,677, 3,637; warm-up 1,604 s vs b1 1,120 s).

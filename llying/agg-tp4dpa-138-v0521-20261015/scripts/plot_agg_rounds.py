@@ -48,7 +48,7 @@ EXPERIMENTS = [
     ("t8c", "t8c-wb-m092-ck4k-tok4", 128, ""),
     ("t8d", None, 128, "未跑"),
     ("b1", "b1-a3-piggyback", 48, "a3 + delayer piggyback，140"),
-    ("b0", "b0-a3-140", 48, "b1 关 piggyback 开关的同节点对照"),
+    ("b0", "b0-a3-140", 48, "无效：计分窗口内同节点有他人作业（FAILED.txt）"),
 ]
 
 CONFIG_VARS = [

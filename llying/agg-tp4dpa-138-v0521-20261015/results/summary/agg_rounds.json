@@ -609,7 +609,7 @@
   "Series": "MI355X",
   "Round": "b0",
   "Concurrency": 48,
-  "Status": "b1 关 piggyback 开关的同节点对照",
+  "Status": "无效：计分窗口内同节点有他人作业（FAILED.txt）",
   "GPUs": 4,
   "Parallel": "TP4+DPA4",
   "HiCachePerRank": "write_through 270 GB",
