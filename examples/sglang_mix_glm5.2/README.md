@@ -71,7 +71,7 @@ The image above, on one 8×MI355X node (crsuse2-m2m-138), GPUs 0-3:
 | correctness (`smoke.py`, real MTP acceptance) | 6/6 pass (66k-token prefix: 9.8 s cold, 1.0 s repeated) |
 | GSM8K, concurrency 1 (24 questions, real MTP acceptance) | 0.958 |
 | GSM8K, concurrency 64 (200 questions, real MTP acceptance) | **0.74** strict / 0.69 flexible — see note 6 |
-| AgentX C48, 3600 s, `SIM_ACCEPT_LEN=3.61` | TODO |
+| AgentX C48, 3600 s, `SIM_ACCEPT_LEN=3.61` | 32,809 tok/s/GPU, 3,494 requests, 0 errors |
 
 ## Reference numbers
 
@@ -80,7 +80,12 @@ lane, 3600 s measured, forced MTP acceptance 3.61. Throughput is per GPU over
 the 4 GPUs and counts cache-hit input tokens; interactivity is per-request
 tokens/s/user.
 
-TODO
+| point | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
+|---|---|---|---|---|---|---|
+| C48 | 32,809 | 3,494 (0.964) | 40.8 / 22.5 | 4.5 / 14.0 s | 24.5 / 44.5 ms | 96.3% (trace bound 97.2%) |
+
+The same recipe on the earlier v0.5.21 image, same node: 31,605 tok/s/GPU,
+interactivity p90 20.8.
 
 To reproduce a point:
 
