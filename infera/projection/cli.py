@@ -785,6 +785,18 @@ def _add_inference_args(parser):
         "--decode-replicas", type=int, default=None, help="Number of decode-pool replicas."
     )
     dis.add_argument(
+        "--prefill-max-running",
+        type=int,
+        default=None,
+        help="Running-request cap per prefill replica (default: --max-num-seqs).",
+    )
+    dis.add_argument(
+        "--decode-max-running",
+        type=int,
+        default=None,
+        help="Running-request cap per decode replica (default: --max-num-seqs).",
+    )
+    dis.add_argument(
         "--kv-transfer-bw-gbps",
         type=float,
         default=None,

@@ -48,6 +48,7 @@ class _Req:
     speculative_acceptance_rate: float = 0.0
     tokenize_overhead_us: float = 0.0
     detokenize_overhead_us: float = 0.0
+    serving_engine: str = ""
 
     def resolved_max_concurrency(self) -> int:
         return self.max_concurrency
@@ -64,6 +65,8 @@ class _Disagg:
     enabled: bool = True
     prefill_replicas: int = 1
     decode_replicas: int = 1
+    prefill_max_running: int | None = None
+    decode_max_running: int | None = None
 
 
 @dataclass
@@ -71,6 +74,7 @@ class _MP:
     tensor_model_parallel_size: int = 4
     pipeline_model_parallel_size: int = 1
     expert_model_parallel_size: int = 1
+    attention_data_parallel_size: int = 1
 
 
 @dataclass
@@ -126,18 +130,22 @@ def _run(
     decode_scale: float = 1.0,
     prefill_scale: float = 1.0,
     decode_replicas: int = 1,
+    prefill_replicas: int = 1,
     handoff_ms: float = 1.0,
     chunk: int = 256,
     output_len: int = 256,
     projector: _Projector | None = None,
+    pool_kv_tokens: tuple[int, int] | None = None,
+    req: _Req | None = None,
 ):
     cfg = _Cfg(
-        _Req(
+        req
+        or _Req(
             max_concurrency=concurrency,
             chunked_prefill_size=chunk,
             output_seq_len=output_len,
         ),
-        _Disagg(decode_replicas=decode_replicas),
+        _Disagg(prefill_replicas=prefill_replicas, decode_replicas=decode_replicas),
     )
     proj = projector or _Projector(_Pool(prefill_scale), _Pool(decode_scale), handoff_ms=handoff_ms)
     res = des_mod.simulate_disaggregated(
@@ -147,6 +155,7 @@ def _run(
         num_requests=concurrency * requests_per_client,
         warmup_frac=0.5,
         closed_loop_clients=concurrency,
+        pool_kv_tokens=pool_kv_tokens,
     )
     return res, proj
 
@@ -418,3 +427,89 @@ def test_no_request_is_prefilled_before_its_client_submitted_it():
     res = _run_split(8)
     assert res.queue_wait["p50"] >= 0.0
     assert res.queue_wait["p99"] >= 0.0
+
+
+def test_prefill_replicas_add_prefill_capacity():
+    """Two prefill replicas are billed for twice the GPUs, so they must also
+    prefill twice as much; one shared station would charge for the second
+    replica and never use it."""
+    one, _ = _run(concurrency=32, prefill_scale=20.0, output_len=16)
+    two, _ = _run(concurrency=32, prefill_scale=20.0, output_len=16, prefill_replicas=2)
+    assert two.system_throughput_tps > 1.6 * one.system_throughput_tps, (
+        one.system_throughput_tps,
+        two.system_throughput_tps,
+    )
+    assert two.packing["prefill_pool_gpus"] == 2 * one.packing["prefill_pool_gpus"]
+
+
+def test_each_pool_gets_its_own_kv_budget():
+    """The decode pool admits what its own budget holds, not the prefill pool's."""
+    small, _ = _run(concurrency=32, pool_kv_tokens=(10**9, 4 * (1024 + 256)))
+    big, _ = _run(concurrency=32, pool_kv_tokens=(10**9, 64 * (1024 + 256)))
+    assert small.packing["avg_decode_reqs"] <= 4
+    assert big.packing["avg_decode_reqs"] > 2 * small.packing["avg_decode_reqs"]
+
+
+def test_the_colocated_sglang_speculative_cap_does_not_bind_a_split():
+    """SGLang's implicit 48-request cap under speculation is a colocated server
+    default; split recipes launch decode with their own (1024 under DP)."""
+    req = _Req(
+        max_concurrency=96,
+        chunked_prefill_size=256,
+        serving_engine="sglang",
+        speculative_num_tokens=2,
+        speculative_acceptance_rate=0.5,
+    )
+    res, _ = _run(concurrency=96, req=req)
+    assert res.packing["max_batch_size"] > 48
+
+
+def test_each_pool_has_its_own_running_cap():
+    """The pools are separate servers launched with separate caps: InferenceX's
+    SGLang splits run a plain-TP decode server at 128 running requests, and the
+    clients past it queue rather than joining the batch."""
+    cfg = _Cfg(
+        _Req(max_concurrency=64, chunked_prefill_size=256, output_seq_len=256),
+        _Disagg(decode_max_running=16),
+    )
+    res = des_mod.simulate_disaggregated(
+        cfg,
+        _Projector(_Pool(0.1), _Pool(1.0)),
+        rate_per_s=0.0,
+        num_requests=64 * 4,
+        warmup_frac=0.5,
+        closed_loop_clients=64,
+    )
+    assert res.packing["avg_decode_reqs"] <= 16
+    uncapped, _ = _run(concurrency=64, prefill_scale=0.1, requests_per_client=4)
+    assert uncapped.packing["avg_decode_reqs"] > 32
+
+
+class _DPAPool(_Pool):
+    """A prefill pool under attention-DP, recording the prompt tokens per step."""
+
+    def __init__(self, dp: int):
+        super().__init__(scale=1.0)
+        self.cfg.model_parallel_config.attention_data_parallel_size = dp
+        self.max_step_tokens = 0
+
+    def mixed_step_latency_ms(self, num_decode, prefill_tokens, ctx, prefill_kv, q_len, **kw):
+        self.max_step_tokens = max(
+            self.max_step_tokens, prefill_tokens * int(kw.get("prefill_batch", 1))
+        )
+        return super().mixed_step_latency_ms(num_decode, prefill_tokens, ctx, prefill_kv, q_len)
+
+
+def test_attention_dp_prefill_ranks_each_get_a_token_budget():
+    """Each attention-DP rank schedules prefill against its own budget, so a DP4
+    prefill server's step holds four budgets of prompt; one shared budget left
+    three ranks idle on every long-prompt step."""
+    pool = _DPAPool(dp=4)
+    req = _Req(
+        max_concurrency=32,
+        input_seq_len=4096,
+        output_seq_len=64,
+        max_num_batched_tokens=4096,
+    )
+    _run(concurrency=32, req=req, projector=_Projector(pool, _Pool(1.0)))
+    assert pool.max_step_tokens > 4096

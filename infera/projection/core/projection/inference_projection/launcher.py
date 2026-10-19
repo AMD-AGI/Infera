@@ -107,6 +107,8 @@ _DISAGG_ARG_TO_FIELD = {
     "decode_attention_dp": "disagg_decode_attention_dp",
     "prefill_replicas": "disagg_prefill_replicas",
     "decode_replicas": "disagg_decode_replicas",
+    "prefill_max_running": "disagg_prefill_max_running",
+    "decode_max_running": "disagg_decode_max_running",
     "kv_transfer_bw_gbps": "disagg_kv_transfer_bw_gbps",
     "kv_transfer_latency_us": "disagg_kv_transfer_latency_us",
     "transfer_backend": "disagg_transfer_backend",
@@ -1039,6 +1041,32 @@ def launch_projection_from_cli(args, overrides):
                         "[inferasim:Inference] no HBM capacity to size the DES KV pool "
                         "from (--hbm-capacity-gb); HBM block cache left unbounded."
                     )
+            # A split sizes each pool from its own shape. The parent's pool is a
+            # colocated layout's: under attention-DP a decode pool's ranks each
+            # hold their own requests' whole latent, so the replica holds dp
+            # times what one TP rank of the parent would.
+            pool_kv = None
+            split = getattr(inference_config, "disaggregation_config", None)
+            if (
+                getattr(split, "enabled", False)
+                and getattr(args, "des_kv_pool_from_memory", False)
+                and not int(getattr(args, "des_kv_cache_tokens", 0) or 0)
+            ):
+                from .kv_cache import attention_dp_size
+
+                pool_kv = tuple(
+                    hbm_kv_pool_tokens(pp.cfg, hbm_gb)
+                    * attention_dp_size(pp.cfg)
+                    * decode_context_parallel_size(pp.cfg)
+                    for pp in projector.pool_projectors()
+                )
+                print(
+                    f"[inferasim:Inference] DES KV pools from the memory projection: "
+                    f"prefill {pool_kv[0]}, decode {pool_kv[1]} tokens per replica"
+                )
+                if pool_kv[0]:
+                    des_kv_blocks = max(1, pool_kv[0] // des_bs)
+                    des_shares_pool = True
             if kv_tiers:
                 seq = max(1, req.input_seq_len + req.output_seq_len)
                 if des_kv_tokens:
@@ -1087,6 +1115,7 @@ def launch_projection_from_cli(args, overrides):
                 new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
                 kv_tiers=kv_tiers,
                 kv_bytes_per_token=bpt,
+                pool_kv_tokens=pool_kv,
             )
             _print_des(des)
             results["des"] = des
