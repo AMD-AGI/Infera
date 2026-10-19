@@ -151,3 +151,26 @@ v0.5.9，仍 open）；sglang#37192 第 3 点（DP 下 batch 先补到全局 tok
 **大块 HiCache 栈撤下后，同节点新引擎会卡住。** example 栈（4 × 270 GB 锁页主机池）21:27 `down.sh` 后，21:28 在 GPU 4-7 起的
 stock0520 引擎进程停在 `D` 状态、没有任何日志，直到 21:42 GPU 0-3 的显存读数归零才继续——驱动回收前一个栈期间，新进程的 KFD
 初始化被挡住。64 GB 主机池的排查栈之间没有这个现象。
+
+### 上游旧版本：v0.5.19、v0.5.20 也有
+
+为了找出从哪个版本开始，用上游镜像（`STOCK=1`，不打任何补丁）跑同一配方，关 MTP、关 HiCache（避开旧版缺 DSA 补丁时的崩溃；
+v0.5.22 上这两项单独关掉都还乱码）：
+
+| 变体 | 镜像 | correct | 模板标签乱码 | 截断（runaway） |
+|---|---|---|---|---|
+| stock0520 | `lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260924` | 0.830 | 0 | 21 |
+| stock0519 | `lmsysorg/sglang-rocm:v0.5.19-rocm720-mi35x-20260917` | 0.870 | 0 | 26 |
+| 对照 dpa0-200 | v0.5.22（我们的镜像），关 DP attention | 0.980 | 0 | 2（连贯） |
+
+两个旧版本没有模板标签，但截断的回答逐条看都是坏的：v0.5.20 是 `tsetsetset…`、`0.0.0.0…`、`1111…`、`magic magic magic…`、
+`field field field…`；v0.5.19 是 `0.8 * 60 = 48.` 无限重复、`,0,0,0…`、`1008 years8 years8…`，还有一条模型自己写
+"I will not include the weird glitching text in the final output"。所以**这不是 v0.5.19 之后的回退**，ROCm 上聚合 DP
+attention 一直有；版本之间只是表现不同（v0.5.21 起多了模板标签外泄）。判据上，`garbled`（标签）只抓到新版本的形态，
+**`runaway` 在干净配置下只有 2 条连贯的过度推敲，作为第二指标更通用**（乱码时 20-60 条）。
+
+注意部分统计会偏乐观：长尾总是最后结束，stock0519 跑到 174 题时还是 0 / 0，剩下的 26 题全是截断。
+
+v0.5.19 的 3P1D PD 部署 GSM8K 0.97，那里 decode 节点同样是 DP attention + CUDA graph，区别是 decode 节点从不做 prefill。
+下一步直接检验"混合步"：`--prefill-delayer-max-delay-passes 2000`（混合时最多等 2000 步，持续负载下各 rank 基本都等到
+"全部可 prefill"再一起做，GSM8K 的 prompt 不分块，混合步基本消失）；同时测 `--disable-overlap-schedule`。
