@@ -199,11 +199,19 @@ bf16-max values can overflow the MoE and contaminate the combine output"，并�
 |---|---|---|---|---|
 | flydsl0-200 | `AITER_USE_FLYDSL_MOE_SORTING=0` | 0.700 | 55 | 60 |
 | ovl0-200 | `--disable-overlap-schedule` + 关 delayer | 200 题 | 53 | 53 |
-| mtp0cg0b-200 | 关 MTP + `--disable-cuda-graph`（重跑，逐条落盘） | 进行中：132 题时 131 对、0 乱码、0 截断 | | |
-| maskpad0-200 | `SGLANG_DP_MASK_PAD_ROWS=false`（关掉上游的填充行清零） | 进行中 | | |
+| **mtp0cg0b-200** | **关 MTP + `--disable-cuda-graph`（重跑，逐条落盘）** | **197 / 199** | **0** | **0** |
+| maskpad0-200 | `SGLANG_DP_MASK_PAD_ROWS=false`（关掉上游的填充行清零） | 进行中：177 题时 31 条乱码 | | |
+| breakable-200 | `--cuda-graph-backend-decode breakable`（graph 分段捕获，注意力层 eager） | 进行中 | | |
 
 MoE 排序实现、overlap 调度也排除。一个规律：乱码条数与 EXTEND 步数大致相当——base-p（64 题一次发完）6 个 prefill 步、9 条乱码；
 mtp0-200 51 步、61 条；dly2000-200 40 步、61 条——像是每个 EXTEND 步之后坏掉约一个请求，而全 eager 时不坏。EXTEND 步本身两种
 模式下一样（总是 eager），不同的只是之后的 decode 走 graph 还是 eager；PD 的 decode 节点只有 decode 步，所以没事。工作假设改为：
 **eager 的 EXTEND 步与随后的 decode graph 回放之间，有共享状态没对齐**（v0.5.22 的 decode 输入缓冲区注册表与 ForwardBatch 共享
 存储，见 `cuda_graph_buffer_registry.py`）。
+
+**关掉 decode CUDA graph 就干净。** mtp0cg0b-200（关 MTP、`--disable-cuda-graph`，其余同基线：DP attention、HiCache、delayer、
+融合算子都开）跑到 199 题：197 对、0 乱码、0 截断（22:41 手动停，剩 1 题在 eager 下以约 8 tok/s 慢慢跑，未到 7k token）。
+对照同配置开 graph 的 mtp0-200：61 乱码、59 截断。加上 dpa0（关 DP attention，开 graph）也干净，结论是：
+**DP attention 下的 decode CUDA graph 路径出错**，与 MTP、HiCache 无关；eager decode 太慢，不能当绕过办法。
+下一项 `--cuda-graph-backend-decode breakable`：graph 分段捕获、注意力层 eager——干净则问题在 graph 内的注意力（DSA indexer /
+注意力对 DP 填充行的处理），仍乱码则在 graph 内的 MoE / DP 通信；若干净且性能可接受，也是一个绕过办法。
