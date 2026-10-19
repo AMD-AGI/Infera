@@ -117,3 +117,10 @@ top-k 换成 `torch.topk`（`--dsa-topk-backend torch`）。
 里注明）。top-k kernel、DSA decode 后端都排除后，剩下的是 indexer 打分及更上游、DP gather/scatter 与 MoE、以及 overlap 调度。
 example 计分窗口内 GPU 4-7 不再跑排查。之后：`--disable-overlap-schedule`；上游 v0.5.20 / v0.5.19 镜像的聚合 DP attention
 （找出从哪个版本开始出现）。
+
+**乱码是 decode 中途逐步出现的，不是 prefill 写坏。** mtp0-200 的 61 条乱码里，第一个模板标签出现在回答的第 721 / 2,049 / 8,033
+个字符（p10 / p50 / p90），开头 200 字符内出现的只有 1 条。逐条看，开头都是连贯、正确的长推理，然后先零星冒出单个错 token——
+`50,000 \u200b\u200b000`（零宽空格）、`17!02`、`7辩论`、`I's`——之后越来越密，最后崩成成串的数字、`!` 和模板标签。也就是说，
+某些 decode 步里某一行的 logits 突然是错的，一个错 token 让模型偏离，错误再累积。`!` 是 0 号 token，通常意味着那一行那一步的
+hidden state 是全 0 / NaN，而 DP 填充行正是用 0 填的：像是某些步里真实请求的行在 gather / scatter 或 graph 输入输出的切片上
+错了位，读到了填充行。
