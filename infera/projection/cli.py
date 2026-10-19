@@ -893,6 +893,15 @@ def _add_inference_args(parser):
         "assumed independent, which over-counts experts at mid batch.",
     )
     serv.add_argument(
+        "--moe-rank-load",
+        type=str,
+        default=None,
+        metavar="FILE",
+        help="JSON of the busiest expert-parallel rank's load over the mean, "
+        "{ep: [[tokens, rows, experts], ...]}, replayed from the checkpoint's "
+        "recorded routing. Without it, a top-k router is sampled.",
+    )
+    serv.add_argument(
         "--moe-routing-skew",
         type=float,
         default=None,

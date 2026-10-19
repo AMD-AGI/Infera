@@ -4,6 +4,7 @@
 # See LICENSE for license information.
 ###############################################################################
 
+import functools
 import os
 
 from infera.projection.core.projection.base_module_profiler import BaseModuleProfiler
@@ -136,6 +137,95 @@ def _expert_hit_fraction(num_experts: int, topk: int, tokens: int, skew: float =
     total = sum(weights)
     hit = sum(1.0 - (1.0 - w / total) ** draws for w in weights)
     return min(1.0, hit / num_experts)
+
+
+_RANK_LOAD_GRID = tuple(1 << i for i in range(13))  # 1 .. 4096 tokens
+
+
+@functools.lru_cache(maxsize=1024)
+def _busiest_rank_load_at(num_experts: int, topk: int, ep: int, tokens: int, skew: float):
+    """Busiest EP rank's load over the mean rank's, in one MoE layer of one step.
+
+    Returns ``(rows, experts)``: the ratio of the hottest rank's routed tokens to
+    the mean, and of the most distinct experts any rank reads to the mean. Each
+    layer's MoE waits for its own busiest rank, so this is the expectation of a
+    per-layer maximum, not a maximum over the whole step. Experts sit on ranks in
+    contiguous blocks, as the engines place them without EPLB.
+
+    A small decode batch is imbalanced even under a perfectly uniform router:
+    with few routings, how many land on each rank is chance, and the rank that
+    draws the most has to read the most expert weights. Sampled, not closed
+    form, because a rank's distinct experts depend on how its draws collide.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(1234 + 31 * tokens + ep)
+    trials = max(8, min(256, 32768 // max(1, tokens)))
+    local = num_experts // ep
+    logw = (
+        -skew * np.log(np.arange(1, num_experts + 1, dtype=np.float64))
+        if skew > 0.0
+        else np.zeros(num_experts)
+    )
+    rows = experts = 0.0
+    for _ in range(trials):
+        g = logw - np.log(-np.log(rng.random((tokens, num_experts))))
+        picks = np.argpartition(-g, topk - 1, axis=1)[:, :topk].ravel()
+        counts = np.bincount(picks, minlength=num_experts).reshape(ep, local)
+        n = counts.sum(axis=1)
+        d = (counts > 0).sum(axis=1)
+        rows += n.max() / max(1e-9, n.mean())
+        experts += d.max() / max(1e-9, d.mean())
+    return rows / trials, experts / trials
+
+
+def _busiest_rank_load(
+    num_experts: int,
+    topk: int,
+    ep: int,
+    tokens: int,
+    skew: float = 0.0,
+    table=None,
+    phase: str = "decode",
+) -> tuple[float, float]:
+    """``(rows, experts)`` busiest-rank factors for ``tokens`` routed this step.
+
+    ``table`` is a measured ``{ep: [[tokens, rows, experts], ...]}`` replayed from
+    the checkpoint's recorded routing, optionally split as ``{"decode": {...},
+    "prefill": {...}}``: a decode step's tokens come from different requests,
+    while a prefill chunk's come from the same prompt and route alike. It
+    replaces the sampled router for any EP it covers. Interpolated in
+    log(tokens) and held flat outside its range.
+    """
+    import math
+
+    if ep <= 1 or num_experts <= 1 or topk <= 0 or num_experts % ep:
+        return 1.0, 1.0
+    if table and hasattr(table, "get") and ("decode" in table or "prefill" in table):
+        table = table.get(phase) or table.get("decode")
+    pts = None
+    if table:
+        items = table.items() if hasattr(table, "items") else table
+        for k, v in items:
+            if int(k) == ep:
+                pts = sorted((int(t), float(r), float(e)) for t, r, e in v)
+                break
+    if pts is None:
+        grid = [t for t in _RANK_LOAD_GRID]
+        pts = [
+            (t, *_busiest_rank_load_at(num_experts, min(topk, num_experts), ep, t, round(skew, 3)))
+            for t in grid
+        ]
+    t = max(1, int(tokens))
+    if t <= pts[0][0]:
+        return pts[0][1], pts[0][2]
+    if t >= pts[-1][0]:
+        return pts[-1][1], pts[-1][2]
+    for (t0, r0, e0), (t1, r1, e1) in zip(pts, pts[1:]):
+        if t0 <= t <= t1:
+            w = (math.log(t) - math.log(t0)) / (math.log(t1) - math.log(t0))
+            return r0 + w * (r1 - r0), e0 + w * (e1 - e0)
+    return pts[-1][1], pts[-1][2]
 
 
 class MoEMLPProfiler(BaseModuleProfiler):
@@ -331,18 +421,46 @@ class MoEMLPProfiler(BaseModuleProfiler):
         # EP-gated (no cross-rank imbalance when EP<=1) and per-view (each view's
         # own ``ep_size``). Toggle: INFERASIM_MOE_IMB_ROOFLINE=0 disables (imbalance
         # then handled by the legacy outer multiplier in performance.py).
+        #
+        # The hottest rank also reads more distinct experts than the mean rank,
+        # which is what a weight-bound decode step pays for: at small batch the
+        # routings per rank are few and uneven by chance alone. Both factors come
+        # from the busiest-rank model (measured table when the checkpoint's routing
+        # was recorded, else a sampled top-k router); an explicit
+        # ``ep_load_balance`` still overrides the row factor.
         imbalance = 1.0
+        hot_experts = 1.0
         if (
             os.getenv("INFERASIM_MOE_IMB_ROOFLINE", "1").strip().lower() not in ("0", "false", "no")
             and ep_size > 1
             and num_experts > 1
         ):
-            elb = float(getattr(self.config.model_config, "ep_load_balance", 1.0) or 1.0)
+            mc = self.config.model_config
+            skew = float(getattr(mc, "moe_routing_skew", 0.0) or 0.0)
+            if os.getenv("INFERASIM_MOE_RANK_LOAD", "1").strip().lower() not in ("0", "false", "no"):
+                imbalance, hot_experts = _busiest_rank_load(
+                    num_experts, topk, ep_size, routing_tokens, skew,
+                    getattr(mc, "moe_rank_load", None),
+                    "decode" if int(seq_len) <= 1 else "prefill",
+                )
+            elb = float(getattr(mc, "ep_load_balance", 1.0) or 1.0)
             if elb > 1.0:
-                red = max(0, int(getattr(self.config.model_config, "redundant_experts", 0) or 0))
-                imbalance = 1.0 + (elb - 1.0) * num_experts / (num_experts + red) if red else elb
-                imbalance = max(1.0, imbalance)
+                imbalance = elb
+            red = max(0, int(getattr(mc, "redundant_experts", 0) or 0))
+            if red:
+                imbalance = 1.0 + (imbalance - 1.0) * num_experts / (num_experts + red)
+            imbalance = max(1.0, imbalance)
+            hot_experts = max(1.0, hot_experts)
+        if hot_experts > 1.0:
+            mean_local = active_local_experts
+            active_local_experts = max(
+                1, min(num_local_experts, int(round(mean_local * hot_experts)))
+            )
+            tokens_per_expert = max(
+                1, int(round(tokens_per_expert * mean_local / active_local_experts))
+            )
         tokens_per_expert = max(1, int(round(tokens_per_expert * imbalance)))
+        topk_tokens = max(1, int(round(topk_tokens * imbalance)))
 
         # The expert grouped-GEMM runs at the *expert weight* precision, which is
         # not necessarily the activation precision: gpt-oss ships mxfp4 experts,
