@@ -194,3 +194,16 @@ bf16-max values can overflow the MoE and contaminate the combine output"，并�
 填充行清零（`SGLANG_DP_MASK_PAD_ROWS`，默认开；`decode_cuda_graph_runner._set_dp_real_num_tokens` 每次回放写真实行数）。
 清零后的填充行全部路由到同一组专家，MoE 负载极度倾斜——下一项把 `AITER_USE_FLYDSL_MOE_SORTING` 关掉（docker 对重复的
 `-e` 取最后一个，容器内已确认为 0）。
+
+| 变体 | 设置 | correct | 模板标签乱码 | runaway |
+|---|---|---|---|---|
+| flydsl0-200 | `AITER_USE_FLYDSL_MOE_SORTING=0` | 0.700 | 55 | 60 |
+| ovl0-200 | `--disable-overlap-schedule` + 关 delayer | 200 题 | 53 | 53 |
+| mtp0cg0b-200 | 关 MTP + `--disable-cuda-graph`（重跑，逐条落盘） | 进行中：132 题时 131 对、0 乱码、0 截断 | | |
+| maskpad0-200 | `SGLANG_DP_MASK_PAD_ROWS=false`（关掉上游的填充行清零） | 进行中 | | |
+
+MoE 排序实现、overlap 调度也排除。一个规律：乱码条数与 EXTEND 步数大致相当——base-p（64 题一次发完）6 个 prefill 步、9 条乱码；
+mtp0-200 51 步、61 条；dly2000-200 40 步、61 条——像是每个 EXTEND 步之后坏掉约一个请求，而全 eager 时不坏。EXTEND 步本身两种
+模式下一样（总是 eager），不同的只是之后的 decode 走 graph 还是 eager；PD 的 decode 节点只有 decode 步，所以没事。工作假设改为：
+**eager 的 EXTEND 步与随后的 decode graph 回放之间，有共享状态没对齐**（v0.5.22 的 decode 输入缓冲区注册表与 ForwardBatch 共享
+存储，见 `cuda_graph_buffer_registry.py`）。
