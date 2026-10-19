@@ -56,13 +56,19 @@ args=(--model-path "$MODEL" --served-model-name "$SERVED_MODEL" --trust-remote-c
 [[ "$FUSION" == 1 ]] && args+=(--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion)
 
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
+# Two engines sharing --ipc host collide on RCCL's pid-named shared memory (container
+# pids start low); PID_OFFSET burns pids first so the second engine's ranks differ.
+cmd=(python3 -m infera.engine.sglang "${args[@]}")
+if [[ -n "${PID_OFFSET:-}" ]]; then
+    cmd=(bash -c "i=0; while [ \$i -lt $PID_OFFSET ]; do ( : ); i=\$((i+1)); done; exec \"\$@\"" _ "${cmd[@]}")
+fi
 docker run -d --name "$CTR-engine" --network host --ipc host --shm-size 32g \
     --device /dev/kfd --device /dev/dri --device /dev/infiniband --group-add video --group-add render \
     --cap-add SYS_PTRACE --cap-add IPC_LOCK --security-opt seccomp=unconfined \
     --ulimit memlock=-1:-1 --ulimit nofile=65536:65536 \
     -v "$MODEL:$MODEL:ro" -v "glm52_mix-cache-${image_id:7:12}:/root/.cache" \
     -v "glm52_mix-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit" \
-    "${env_args[@]}" "$IMAGE" python3 -m infera.engine.sglang "${args[@]}" >/dev/null
+    "${env_args[@]}" "$IMAGE" "${cmd[@]}" >/dev/null
 wait_health "$ENGINE_URL/health" "$CTR-engine"
 echo "engine healthy $(date -u +%T)"
 
