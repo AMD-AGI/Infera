@@ -16,6 +16,25 @@ GSM8K（lm_eval 0.4.13，5-shot、200 题，经 router，真实 MTP 接受）只
 负载下 decode 检查（`decode_check.py`，答案只有 4-5 个 token）都没有暴露它。性能测试用模拟接受长度、输出长度由 trace 决定，
 吞吐数据不受影响，但这个配方直接上线会输出错误内容。
 
+## example 性能对齐（10-19，138 GPU 0-3）
+
+按 example README 手动起：`SIM_ACCEPT_LEN=3.61 bash engine/up.sh`，`CONC=48 bash engine/agentx/agentx.sh`，`bash engine/down.sh`。
+计分窗口 20:21:48-21:21:48；其中 20:26-20:43 GPU 4-7 在跑 topk-torch-200 排查（之后暂停）。产物在 `results/example-c48/`，
+指标用 `agg-tp4dpa-138-v0521-20261015/scripts/plot_agg_rounds.py` 的同一套 `measured()` 算。
+
+| | a3 C48（v0.5.21 镜像，138，10-15） | example C48（v0.5.22 镜像，138，10-19） |
+|---|---|---|
+| tok/s/GPU | 31,605 | **32,809**（+3.8%） |
+| 完成请求 / 每秒 | 3,409 / 0.947 | 3,494 / 0.964（0 错误） |
+| interactivity p50 / p90 | 40.4 / 20.8 | 40.8 / **22.5** |
+| TTFT p50 / p90 (s) | 4.8 / 14.5 | 4.5 / 14.0 |
+| ITL p50 / p90 (ms) | 24.8 / 48.1 | 24.5 / 44.5 |
+| decode ms/token | 30.6 | 30.3 |
+| AIPerf 计入命中 / trace 上限 | 96.1% / 97.1% | 96.3% / 97.2% |
+
+性能对齐（略好）。v0.5.22 的服务端命中计数口径变了：AgentX 实时日志的 `srv prefix_cache_hit` 显示 48.1%、引擎计数器拆分为
+GPU 40.8% / 主机 7.4%，但 AIPerf 按 API `cached_tokens` 算的命中是 96.3%，与 a3 相同，吞吐也对得上，所以是计数口径而非命中下降。
+
 ## 二分
 
 `scripts/engine_bisect.sh NAME [FUSE_TOPK=0] [HICACHE=0] [MTP=0] [DPA=0] [GATHERV=0] [DELAYER=0] [FUSION=0]`：在 138 上起
