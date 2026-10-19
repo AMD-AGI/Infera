@@ -7,7 +7,11 @@
 
 from __future__ import annotations
 
-from infera.common.engine_metrics import federate_engine_metrics, merge_federated_exposition
+from infera.common.engine_metrics import (
+    federate_engine_metrics,
+    frontend_reads,
+    merge_federated_exposition,
+)
 from infera.common.worker_pool import EngineType
 
 
@@ -82,3 +86,11 @@ def test_merge_federated_dedupes_help_and_type():
     assert out.count("# TYPE vllm:num_requests_running") == 1
     assert 'worker_id="w1"' in out
     assert 'worker_id="w2"' in out
+
+
+def test_frontend_reads_skips_engines_it_takes_nothing_from():
+    assert frontend_reads(EngineType.VLLM)
+    assert frontend_reads("sglang")
+    # Nothing is mapped or federated for ATOM: scraping it only costs a render.
+    assert not frontend_reads(EngineType.ATOM)
+    assert not frontend_reads("unknown-engine")
