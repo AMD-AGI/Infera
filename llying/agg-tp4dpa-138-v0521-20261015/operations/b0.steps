@@ -1,0 +1,4 @@
+# b0 (crsuse2-m2m-140): same-node control for b1 -- piggyback mounted but off (config/round.b0.sh).
+bash scripts/stop_stack.sh ROUND=b1
+bash scripts/launch_agg.sh ROUND=b0
+bash scripts/agg_round.sh ROUND=b0 VARIANT=b0-a3-140 CONC=48
