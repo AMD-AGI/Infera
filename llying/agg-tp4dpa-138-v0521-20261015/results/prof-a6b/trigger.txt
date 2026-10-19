@@ -1,0 +1,4 @@
+2026-10-16T23:05:39Z profiling phase seen; first capture in 480s
+2026-10-16T23:13:39Z capture 1: Start profiling.
+2026-10-16T23:23:40Z capture 2: Start profiling.
+2026-10-16T23:28:40Z done; files: 13

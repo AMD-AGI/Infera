@@ -1,0 +1,80 @@
+== cap2-1792193019.6084795-TP-0-DP-0-DECODE.trace.json.gz: 70285 kernels, 698 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 2173.3 ms over span 2184.1 ms, max gap on main stream 0.5 ms
+   main stream: busy 2169.9 ms of span 2183.6 ms -> attn_dsa 31.5%  moe 28.0%  comm 18.9%  gemm 16.7%  norm_rope_act 1.7%  other 1.7%  elementwise 1.4%  sampling_spec 0.2%
+   copies (side streams): Memcpy DtoD (Device -> Device) 2.7 ms, Memcpy HtoD (Host -> Device) 0.4 ms
+   batch VERIFY x  29: mean    72.7 ms (bs 8.1),   2107.2 ms total; attn_dsa 31%  moe 28%  comm 19%  gemm 17%  norm_rope_act 2%  other 2%
+   batch OTHER  x  29: mean     0.0 ms (bs 0.0),      0.1 ms total; elementwise 100%
+        308.3 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+        294.9 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33
+        272.5 ms  attn_dsa      _sparse_mla_fwd_split_dim_kernel
+        172.2 ms  attn_dsa      void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+        165.9 ms  moe           gemm2_a4w4_port_hmax8192_imax512_bm32_bn256_bk128_nt_atomic_bhoist_apf_spart4x2_bf16lds_ks
+        156.3 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+        115.7 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+        101.2 ms  comm          _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPN
+== cap2-1792193019.6084795-TP-1-DP-1-DECODE.trace.json.gz: 70092 kernels, 690 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 2268.0 ms over span 2280.5 ms, max gap on main stream 0.5 ms
+   main stream: busy 2264.4 ms of span 2280.0 ms -> attn_dsa 33.7%  moe 26.9%  comm 19.0%  gemm 15.5%  norm_rope_act 1.8%  other 1.6%  elementwise 1.4%  sampling_spec 0.2%
+   copies (side streams): Memcpy DtoD (Device -> Device) 2.9 ms, Memcpy HtoD (Host -> Device) 0.4 ms
+   batch VERIFY x  29: mean    72.7 ms (bs 13.0),   2107.2 ms total; attn_dsa 35%  moe 28%  gemm 16%  comm 15%  norm_rope_act 2%  other 2%
+   batch OTHER  x  29: mean     0.0 ms (bs 0.0),      0.1 ms total; elementwise 100%
+        327.9 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+        295.6 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33
+        274.6 ms  attn_dsa      _sparse_mla_fwd_split_dim_kernel
+        219.6 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+        182.2 ms  attn_dsa      void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+        166.8 ms  moe           gemm2_a4w4_port_hmax8192_imax512_bm32_bn256_bk128_nt_atomic_bhoist_apf_spart4x2_bf16lds_ks
+        108.5 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+        101.3 ms  comm          _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPN
+== cap1-1792192419.490658-TP-0-DP-0-DECODE.trace.json.gz: 50856 kernels, 588 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 8413.1 ms over span 8426.2 ms, max gap on main stream 0.7 ms
+   main stream: busy 8410.2 ms of span 8425.4 ms -> comm 77.7%  moe 12.6%  attn_dsa 5.5%  gemm 3.3%  other 0.4%  norm_rope_act 0.3%  elementwise 0.2%  sampling_spec 0.0%
+   copies (side streams): Memcpy DtoD (Device -> Device) 2.4 ms, Memcpy HtoD (Host -> Device) 0.2 ms, Memset (Device) 0.0 ms
+   batch VERIFY x  17: mean    76.4 ms (bs 15.5),   1298.3 ms total; attn_dsa 34%  moe 28%  comm 17%  gemm 16%  norm_rope_act 2%  other 2%
+   batch OTHER  x  25: mean     0.0 ms (bs 0.0),      0.2 ms total; elementwise 100%
+       6001.7 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+        461.2 ms  comm          void quickreduce::allreduce_prototype_twoshot<quickreduce::AllReduceTwoshot<__half, quickr
+        181.9 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33
+        167.9 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_async_v2out_v33
+        167.6 ms  attn_dsa      _sparse_mla_fwd_split_dim_kernel
+        161.1 ms  moe           gemm2_a4w4_port_hmax8192_imax512_bm64_reduce_tk9_bhoist_apf_spart4x2_bf16lds_kst_v2_biasab
+        137.2 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+        104.8 ms  moe           gemm2_a4w4_port_hmax8192_imax512_bm32_bn256_bk128_nt_atomic_bhoist_apf_spart4x2_bf16lds_ks
+== cap1-1792192419.490658-TP-1-DP-1-DECODE.trace.json.gz: 62975 kernels, 1154 memcpy, 0 ProfilerStep, 3 kernel streams, GPU busy 8444.2 ms over span 8400.3 ms, max gap on main stream 1.7 ms
+   main stream: busy 8378.9 ms of span 8399.6 ms -> attn_dsa 40.6%  comm 22.7%  gemm 20.7%  moe 12.7%  norm_rope_act 1.4%  other 1.0%  elementwise 0.8%  sampling_spec 0.0%
+   copies (side streams): Memcpy DtoD (Device -> Device) 10.2 ms, Memcpy HtoD (Host -> Device) 0.3 ms, Memset (Device) 0.2 ms
+   batch EXTEND x   8: mean   665.3 ms (bs 1.0),   5322.7 ms total; attn_dsa 48%  gemm 25%  comm 13%  moe 11%  norm_rope_act 2%  other 1%
+   batch VERIFY x  17: mean    76.3 ms (bs 12.0),   1297.9 ms total; attn_dsa 37%  moe 28%  gemm 16%  comm 15%  norm_rope_act 2%  other 2%
+   batch OTHER  x  17: mean     0.0 ms (bs 0.0),      0.1 ms total; elementwise 100%
+       2587.3 ms  attn_dsa      _sparse_mla_fwd_split_dim_kernel
+       1336.0 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+        662.2 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x64_MI16x16x1_CMS_SN_LDSB0_AFC0_AFEM
+        495.8 ms  comm          void quickreduce::allreduce_prototype_twoshot<quickreduce::AllReduceTwoshot<__half, quickr
+        347.7 ms  gemm          _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0
+        317.7 ms  gemm          _gemm_a16_w16_kernel_BLOCK_SIZE_M_256_BLOCK_SIZE_N_128_BLOCK_SIZE_K_64_GROUP_SIZE_M_8_NUM_
+        304.8 ms  attn_dsa      void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+        198.7 ms  attn_dsa      _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOCK_KV_64_NUM_WARPS_2_NUM_BUFFER
+== cap1-1792192419.490658-TP-2-DP-2-DECODE.trace.json.gz: 50681 kernels, 583 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 8353.3 ms over span 8367.0 ms, max gap on main stream 0.8 ms
+   main stream: busy 8350.1 ms of span 8366.2 ms -> comm 73.5%  moe 12.8%  attn_dsa 8.4%  gemm 4.3%  other 0.5%  norm_rope_act 0.3%  elementwise 0.2%  sampling_spec 0.0%
+   copies (side streams): Memcpy DtoD (Device -> Device) 2.6 ms, Memcpy HtoD (Host -> Device) 0.2 ms, Memset (Device) 0.0 ms
+   batch VERIFY x  17: mean    76.4 ms (bs 9.8),   1298.3 ms total; attn_dsa 42%  moe 28%  gemm 16%  comm 10%  norm_rope_act 2%  other 2%
+   batch OTHER  x  25: mean     0.0 ms (bs 0.0),      0.2 ms total; attn_dsa 56%  elementwise 44%
+       5609.9 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+        457.1 ms  comm          void quickreduce::allreduce_prototype_twoshot<quickreduce::AllReduceTwoshot<__half, quickr
+        270.6 ms  attn_dsa      _sparse_mla_fwd_split_dim_kernel
+        182.4 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33
+        175.9 ms  attn_dsa      void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+        168.4 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+        167.7 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_async_v2out_v33
+        162.4 ms  moe           gemm2_a4w4_port_hmax8192_imax512_bm64_reduce_tk9_bhoist_apf_spart4x2_bf16lds_kst_v2_biasab
+== cap1-1792192419.490658-TP-3-DP-3-DECODE.trace.json.gz: 54271 kernels, 1013 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 7756.0 ms over span 7764.5 ms, max gap on main stream 0.4 ms
+   main stream: busy 7750.8 ms of span 7763.7 ms -> comm 65.2%  moe 13.7%  attn_dsa 12.0%  gemm 6.0%  elementwise 2.1%  other 0.6%  norm_rope_act 0.5%  sampling_spec 0.0%
+   copies (side streams): Memcpy DtoD (Device -> Device) 4.4 ms, Memcpy HtoD (Host -> Device) 0.2 ms, Memset (Device) 0.0 ms
+   batch VERIFY x  17: mean    76.4 ms (bs 9.0),   1298.3 ms total; attn_dsa 38%  moe 28%  gemm 16%  comm 13%  norm_rope_act 2%  other 2%
+   batch EXTEND x   1: mean   723.1 ms (bs 1.0),    723.1 ms total; comm 82%  moe 10%  gemm 4%  attn_dsa 3%  other 0%  norm_rope_act 0%
+   batch OTHER  x  24: mean     0.0 ms (bs 0.0),      0.2 ms total; elementwise 100%
+       4523.2 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+        491.1 ms  attn_dsa      _sparse_mla_fwd_split_dim_kernel
+        460.8 ms  comm          void quickreduce::allreduce_prototype_twoshot<quickreduce::AllReduceTwoshot<__half, quickr
+        181.7 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t32x64x256_pm1_fp4q_sort_async_v2out_v33
+        179.4 ms  attn_dsa      void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+        167.9 ms  moe           mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_async_v2out_v33
+        162.4 ms  moe           gemm2_a4w4_port_hmax8192_imax512_bm64_reduce_tk9_bhoist_apf_spart4x2_bf16lds_kst_v2_biasab
+        141.9 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle

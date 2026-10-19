@@ -48,6 +48,13 @@ harness 改动（mixed 角色）：`../3p1d-tp4-tp8-v0521-20261012/scripts/bench
 | t8c | t8b + tokenizer 4 个 worker | C128 = 23,366 |
 | t8d | + DP spec/prefill coordination，关 prefill delayer | 未跑（coordination 收益受逐层同步限制） |
 | a5 | a4 + delayer 上限 20 步 + tokenizer 4 个 worker | C64 = 29,810（a4 为 31,221） |
+| a6 | a4 + delayer 上限 120 步 + tokenizer 4 个 worker | 预热中 DP2 报 `HSA_STATUS_ERROR_OUT_OF_RESOURCES` 后挂起（mem 0.92） |
+| a6b | a6 + mem 0.90 | C64 = 32,228（TP4 最好） |
+| a7 / a7b | a6b + DP spec/prefill coordination + 每 rank 2048 块（mem 0.90 / 0.85） | 负载下 decode 检查 32/32 通过；C64 预热 2–3 分钟 `HSA_STATUS_ERROR_OUT_OF_RESOURCES` 崩溃 |
+| a7c | a7b + `HSA_NO_SCRATCH_RECLAIM=0` | C64 = 27,607 |
+| a7d | a7c，块恢复 8192 | C64 = 29,307 |
+
+全部实验（含失败和未跑的轮次）的配置与数据见 [`results/summary/agg_rounds.md`](results/summary/agg_rounds.md)。
 
 ### a2 调通结果（不计分）
 
@@ -199,10 +206,13 @@ ITL p50/p90 32.8/57.8 ms，TTFT p50/p90 14.5/45.6 s；与 a4 每秒完成请求�
 
 - 两次抓取之间 15 分钟（计数器）：每 rank decode 步 6,754（4 个 rank 相同，逐步同步），按 72.7 ms/步约占 54% 时间；其余约 46% 为 eager 步
   （某 rank prefill、其他 rank 跑 IDLE 批次）；各 rank 自己的 prefill 步 317 / 250 / 143 / 92，多数 prefill 步只有一个 rank 在算。
-- decode 校验步（cap2 TP-0/1，各 29 步，72.7 ms/步，每 rank bs 8–13）：MoE 35–36%，注意力/DSA 24–26%，通信 15–19%，普通 GEMM 16–17%。
+- decode 校验步（cap2 TP-0/1，各 29 步，72.7 ms/步，每 rank bs 8–13）：注意力/DSA 31–35%，MoE 28%，通信 15–19%，普通 GEMM 16–17%。
 - 单 rank 长 prefill（cap1，同一 8.4 s 窗口）：TP-1 连续 8 个 prefill 批次（665 ms/个，一个长 prompt 的分块续算，delayer 不管续算），
-  构成为注意力/DSA 42%、普通 GEMM 25%、MoE 14%、通信 13%；其余 3 个 rank 这期间在通信 kernel 里空等（TP-0 通信占 78%），该窗口
+  构成为注意力/DSA 48%、普通 GEMM 25%、通信 13%、MoE 11%；其余 3 个 rank 这期间在通信 kernel 里空等（TP-0 通信占 78%），该窗口
   decode 只占约 15%。
+- 10-19 更正：最初的分类把 DSA indexer 的 top-k（`sgl::dsa_topk::coop_topk_kernel`，被 `topk_` 匹配进 MoE）和 logits
+  （`_gluon_fp8_mqa_logits_kernel`，被 `logits` 匹配进采样）算错了类别，当时报的是 decode MoE 35–36%、注意力/DSA 24–26%，prefill
+  注意力/DSA 42%、MoE 14%。修正后 decode 中占比最大的是注意力/DSA。重算结果：`results/prof-a6b/breakdown.txt`（`breakdown.json` 供画图）。
 - prefill 用到的 bf16 普通 GEMM 有 4 类 (N, K)、约 5,500 种 M 未调优（aiter 退回默认实现）；decode 尺寸的已调优。
 
 ### a7 / a7b / a7c：DP spec/prefill coordination + 2048-token chunks（TP4 C64）
@@ -234,6 +244,88 @@ a6b 日志中未调优的 bf16 GEMM：5,542 种 (M, N, K)，几乎都是 prefill
 再按 `get_padded_m(M, N, K, gl)` 补齐后查：gl=1 时每类 (N, K) 只有 5 个档位（512/1024/2048/4096/8192），gl=0 时 104 个。
 调 4 × 5 = 20 个形状即可让所有 prefill GEMM 命中调优配置。普通 GEMM 约占 prefill 步 25%、prefill 步约占时间 46%，
 调优若快 10–30%，总耗时约降 1–3%。
+
+### 可视化与实验总表（10-19）
+
+`results/summary/`，由 `scripts/plot_agg_rounds.py` 生成：
+
+| 文件 | 内容 |
+|---|---|
+| `agg_rounds.md` / `.csv` / `.json` | 每行一个实验（含失败和未跑的轮次，另加 B300 C24/C32/C48）：生效配置与测试数据 |
+| `agg_rounds.png` / `.svg` | 各计分轮与 B300 C48 并排：总吞吐、输出吞吐、每秒请求与平均输入、ITL、TTFT、缓存命中、有效并发、每 rank 在跑 / 排队 |
+| `agg_vs_concurrency.png` / `.svg` | 吞吐、decode 每 token 耗时、TTFT p50、每秒请求随并发变化（B300 曲线 + 各轮散点） |
+| `gpu_time_breakdown.png` / `.svg` | a6b profiling：decode 步 / eager 步时间占比、各 rank prefill 步数、kernel 类别构成 |
+
+配置按启动脚本的方式 source `config/config.agg.sh` 与 `config/round.<ROUND>.sh` 得到，并与结果目录的 `round.env` 逐项核对；
+客户端与引擎数据沿用 `agg_report.py`。命中率用 AIPerf 的 API 计入命中：AgentX 记录的服务端 GPU / 主机拆分在 a3 C48 与 a4 两者
+之和超过 100%，拆分只在表中作参考。重绘分两步（表格需 Python ≥ 3.12，画图需要 matplotlib；登录节点上没有 matplotlib，
+图在 138 上用 a6b 镜像的一次性容器画，不挂 GPU、不联网）：
+
+```bash
+python3 -B scripts/plot_agg_rounds.py --table-only
+ssh crsuse2-m2m-138 "docker run --rm --network none -u $(id -u):$(id -g) -e MPLCONFIGDIR=/tmp/mpl \
+  -v $PWD/..:$PWD/.. -w $PWD --entrypoint python3 infera-sglang:v0521-llying-1012-mc4340-destpin \
+  scripts/plot_agg_rounds.py --plot-only"
+```
+
+### 与 B300 C48 的差距拆解（10-19）
+
+同为 C48：B300 42,047，a3 31,605，差 1.33 倍（数据见 `results/summary/agg_rounds.md`）。
+
+| | B300 C48 | a3 C48 |
+|---|---|---|
+| 每秒完成请求 | 1.200 | 0.947（−21%） |
+| 平均每请求 token（输入 + 输出） | 140.2k | 133.6k（−5%） |
+| 端到端延迟均值 | 24.8 s | 37.2 s |
+| TTFT 均值 / p50 | 6.4 / 3.6 s | 7.5 / 4.8 s |
+| decode 阶段每输出 token（（端到端 − TTFT）/ 输出） | 18.5 ms | 30.6 ms |
+| ITL 均值 / p50（比值） | 19.0 / 15.5 ms（1.23） | 44.1 / 24.8 ms（1.78） |
+| 缓存命中 | 94.8% | 96.1% |
+
+- 1.33 ≈ 1.27（请求速率）× 1.05（每请求 token 数），约 85% 的差距来自请求速率；缓存命中不是原因。
+- 请求速率的差距几乎都在 decode 阶段：TTFT 只差 1.1 s，decode 阶段每请求差约 11 s。
+- 我们 decode 阶段 30.6 ms/token 中，纯 decode 约 17–20 ms（profiling 72.7 ms/步 ÷ 接受长度 3.61，C48 batch 更小），其余约 11–14 ms
+  是被 prefill 步打断；ITL 均值 / p50 的比值 1.78（B300 1.23）也说明长尾重。推断：两边 HBM 容量和带宽相近，偏访存的 decode 差得不多；
+  B300 FP4 算力更高、prefill kernel 更成熟，同样的打断代价小得多。所以和 B300 的差距与下一节的单 rank prefill 空等是同一个问题。
+- 局限：B300 的纯 decode 与打断各占多少是推断。CI 产物 `11798041008`（c48 服务端日志，约 41 MB）有每 rank 的 prefill / decode 批次记录，
+  下载需要 GitHub 登录，拿到后可改为实测对比。
+
+### 单 rank prefill 空等：机制、量化与可选方案（10-19）
+
+**机制（读 a6b 镜像中的 v0.5.21 源码；v0.5.22 tag 的这几处与之相同，`prefill_delayer.py` 逐字节一致）：**
+
+- `scheduler.py` `get_next_batch_to_run`：spec + DP attention 且未开 coordination 时，只要有一个 rank 有新的 prefill 批次，其他 rank
+  经 `maybe_prepare_mlp_sync_batch` 拿到 IDLE 批次（"prefill and decode batches will not be mixed"）。
+- `schedule_policy.py` `add_chunked_req`：正在分块续算的 rank 向 delayer 报 prefillable，并且无论结论如何本步都执行续算。
+- `prefill_delayer.py` `_negotiate_should_allow_prefill_pure`：所有 rank 都 prefillable（"all"）才放行，部分 rank prefillable（"mixed"）
+  就推迟，最多 `max_delay_passes` 步。
+- 合起来：A 在续算、B / C 有可接纳的请求、D 没有时，结论是 "mixed"，B / C 被推迟，这一步只有 A 在算、B / C / D 跑 IDLE。这一步
+  本来就是 eager 步，B / C 跟着 prefill 不会多出 eager 步。
+
+**量化（a6b C64 测量窗口，`scripts/prefill_step_timeline.py`，输出 `results/prof-a6b/prefill_timeline.a6b.txt`）：** 服务端日志里各 rank
+的 `Prefill batch` 行按 30 ms 间隔归成步（同一步内各 rank 相差 < 20 ms，相邻步 ≥ 200 ms）。
+
+| 指标 | 值 |
+|---|---|
+| prefill（eager）步 | 1,606 个 / 60 分钟，平均每步 1.92 个 rank 在算 |
+| 每步在 prefill 的 rank 数：1 / 2 / 3 / 4 | 55.0% / 15.0% / 12.8% / 17.2% |
+| 单 rank 步中，该 rank 在续算上一步的满块 | 869 / 883 |
+| 单 rank 步中，至少一个空等的 rank 有排队请求 | 827 / 883（按该 rank 最近一次记录的 `#queue-req`，含暂时不可接纳的请求，偏高） |
+| 各 rank 新算 token（DP0 / 1 / 2 / 3） | 3.12M / 6.02M / 2.91M / 5.80M |
+| 各 rank prefill 步（DP0 / 1 / 2 / 3） | 581 / 984 / 579 / 944 |
+| router 会话亲和 | 3,868 次按亲和定位，634 次重新选择 |
+
+**可选方案（预计收益按 eager 步约占 45.5% 时间换算，均为上限或估计）：**
+
+| 方案 | 机制 | 预计 | 代价 / 风险 |
+|---|---|---|---|
+| 1. delayer 放行搭便车 prefill | 任一 rank 在续算时，其他可 prefill 的 rank 同步放行（all-gather 多带一个续算标志，"mixed" 分支据此放行），约二十行 | eager 步下限 1,606 → 984（最忙 rank），−39%，上限约 +20%；合并后单步变长（MoE、通信随总 token 增加），估计 +5–12% | 不增加 eager 步、decode 不走 eager，不涉及 coordination 的 scratch 问题；TTFT 应改善 |
+| 2. router 按 prefill 负载选 rank | 新会话选 rank 时计入各 rank 后续的新算负担（DP1 / DP3 新算量约为 DP0 / DP2 的 2 倍，且由会话亲和固定） | 与 1 叠加后 eager 步下限 772，上限约 +30% | 改 router；会话一旦绑定就不再纠正，效果不确定 |
+| 3. DSA prefill CP | 把单个长 prompt 的 prefill 拆到多个 rank | — | `attn_cp_size = tp_size / attn_dp_size`，TP4 + DPA4 下为 1，要 CP 就得放弃 DP attention；官方注明实验特性、只在 Hopper 验证。近期不可行 |
+| 4. prefill kernel | prefill 步中注意力/DSA 48%、普通 GEMM 25% | GEMM 调优 1–3%；注意力/DSA 需要 kernel 工作 | kernel 层面 |
+
+候选的下一个实验是方案 1（尚未执行，待讨论）：负载下 decode 正确性检查通过后测 C64，与 a6b 比较每秒完成请求、eager 步数
+（`prefill_step_timeline.py`）和 TTFT。
 
 ### 10-16 12:50 /home 卷写满后的运行方式
 

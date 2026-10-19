@@ -1,0 +1,9 @@
+window 2026-10-16 13:22:01 -> 14:22:01 UTC (60 min), 4 ranks, step gap 30 ms
+prefill (eager) steps: 1606 (26.8/min), rank-prefills 3088 (mean 1.92 ranks per step)
+ranks prefilling per step:  1: 883 (55.0%)  2: 241 (15.0%)  3: 205 (12.8%)  4: 277 (17.2%)
+  of which every prefilling rank continues a full chunk from the previous step:  1: 869  2: 229  3: 86  4: 6
+steps where >= 1 non-prefilling rank had queued requests: 1198 (74.6% of eager steps); by ranks prefilling: 1: 827  2: 208  3: 163  4: 0
+  idle rank-slots with queued requests: 2483 (queue at that time p50 4, p90 9)
+single-rank steps: 883 (55.0%), of which another rank had queued requests: 827
+per rank: DP0: 581 steps, 3.12M new tok, full chunks 260, alone 130  DP1: 984 steps, 6.02M new tok, full chunks 606, alone 341  DP2: 579 steps, 2.91M new tok, full chunks 230, alone 101  DP3: 944 steps, 5.80M new tok, full chunks 561, alone 311
+lower bound on eager steps if every step aligned all prefilling ranks: 984 (busiest rank) vs 1606 now; with prefill steps balanced across ranks: 772

@@ -4,7 +4,7 @@
 Also reports completeness signals: kernel / memcpy event counts, GPU busy time vs. trace span,
 ProfilerStep count, and the largest gap between consecutive GPU events on the main stream.
 
-Usage: trace_breakdown.py TRACE.json.gz [TRACE.json.gz ...]
+Usage: trace_breakdown.py [--json OUT.json] TRACE.json.gz [TRACE.json.gz ...]
 """
 
 import gzip
@@ -15,6 +15,8 @@ from collections import defaultdict
 
 CATEGORIES = [
     ("comm", r"nccl|rccl|all_?reduce|all_?gather|reduce_?scatter|cross_device|custom_ar|quick_?reduce|quickreduce|allreduce|ncclDevKernel|mscclpp"),
+    # DSA indexer kernels; their names also match the moe ("topk_") and sampling ("logits") patterns.
+    ("attn_dsa", r"dsa_topk|mqa_logits"),
     ("moe", r"moe|a4w4|ne257|fused_moe|topk_|grouped_topk|expert|ck_moe|fmoe|flydsl|moe_sorting|scatter_reduce"),
     ("attn_dsa", r"mla|attention|attn|flash|paged|decode_attention|extend_attention|sparse|indexer|nsa|dsa|topk_transform|fp8_index|deepgemm_fp8_paged|lightning"),
     ("gemm", r"gemm|Cijk|hipblaslt|matmul|mm_|wvSplitK|wv_splitk|bf16_|_gemm|hgemm|sgemm|tensile|ck_gemm|batched_gemm|bmm"),
@@ -97,8 +99,16 @@ def analyze(path: str) -> dict:
 
 
 def main() -> int:
-    for path in sys.argv[1:]:
+    args = sys.argv[1:]
+    out = None
+    if "--json" in args:
+        i = args.index("--json")
+        out = args[i + 1]
+        del args[i:i + 2]
+    results = []
+    for path in args:
         r = analyze(path)
+        results.append(r)
         busy = r["busy_ms"] or 1
         print(f"== {r['file']}: {r['kernels']} kernels, {r['memcpy']} memcpy, {r['steps']} ProfilerStep, "
               f"{r['streams']} kernel streams, GPU busy {r['busy_ms']:.1f} ms over span {r['span_ms']:.1f} ms, "
@@ -115,6 +125,9 @@ def main() -> int:
                   + "  ".join(f"{k} {100 * v / k_busy:.0f}%" for k, v in sorted(b["cat"].items(), key=lambda kv: -kv[1])[:6]))
         for name, dur in r["top"][:8]:
             print(f"     {dur / 1000:8.1f} ms  {category(name):13s} {name}")
+    if out:
+        with open(out, "w") as f:
+            json.dump(results, f, indent=1)
     return 0
 
 
