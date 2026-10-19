@@ -1,0 +1,11 @@
+# scripts/pass_timeslices.py on the AIPerf server_metrics_export.json of each run (1 s timeslices, measured window)
+## B300 Dynamo C48 (InferenceX artifact 11798041008)
+window: 3640 one-second slices (2026-10-13T07:11:10.832344 -> 2026-10-13T08:11:50.834151), 4 DP ranks
+decode passes 55,324 (15.20/s); prefill passes per rank 917 / 968 / 871 / 1,363 (sum 4,119)
+pure-decode slices: 1943 (53.4%), mean 21.1 steps/s -> 47.5 ms per decode step at mean running 5.6 / rank (window mean running 5.5 / rank)
+decode share of wall time ~ 72.2%, eager (prefill) share ~ 27.8% -> 246 ms of eager time per rank-prefill
+## MI355X a3 C48 (runs/a3/agentx-a3-wt-c48 on 138)
+window: 3640 one-second slices (2026-10-15T17:54:20.558420 -> 2026-10-15T18:55:00.560694), 4 DP ranks
+decode passes 34,948 (9.60/s); prefill passes per rank 756 / 851 / 1,059 / 819 (sum 3,485)
+pure-decode slices: 1895 (52.1%), mean 15.3 steps/s -> 65.6 ms per decode step at mean running 7.1 / rank (window mean running 6.9 / rank)
+decode share of wall time ~ 62.9%, eager (prefill) share ~ 37.1% -> 387 ms of eager time per rank-prefill

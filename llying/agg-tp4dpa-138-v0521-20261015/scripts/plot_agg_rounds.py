@@ -113,6 +113,7 @@ def measured(d: Path) -> dict:
         "Requests": c["ok"], "ReqPerSec": c["ok"] / m["throughput"]["duration_seconds"],
         "MeanInputK": c["inp"] / 1000, "MeanOutput": tok["output_actual"]["mean"],
         "ITLp50Ms": c["itl50"], "ITLp90Ms": c["itl90"], "TTFTp50S": c["t50"], "TTFTp90S": c["t90"],
+        "IntvtyP50": lat["intvty"]["p50"], "IntvtyP90": lat["intvty"]["p90"],
         "TTFTMeanS": lat["ttft"]["mean"], "E2EMeanS": lat["e2el"]["mean"],
         "DecodeMsPerToken": 1000 * (lat["e2el"]["mean"] - lat["ttft"]["mean"]) / tok["output_actual"]["mean"],
         "UsageHitPct": usage_hit(d),
@@ -167,6 +168,7 @@ def load_rows() -> list[dict]:
             "MeanInputK": m["mean_input_tokens"] / 1000, "MeanOutput": m["mean_output_tokens_actual"],
             "ITLp50Ms": 1000 * m["median_full_response_itl"], "ITLp90Ms": 1000 * m["p90_full_response_itl"],
             "TTFTp50S": m["median_ttft"], "TTFTp90S": m["p90_ttft"], "TTFTMeanS": m["mean_ttft"],
+            "IntvtyP50": m["median_intvty"], "IntvtyP90": m["p90_intvty"],
             "E2EMeanS": m["mean_e2el"],
             "DecodeMsPerToken": 1000 * (m["mean_e2el"] - m["mean_ttft"]) / m["mean_output_tokens_actual"],
             "UsageHitPct": 100 * (m["server_gpu_cache_hit_rate"] + m["server_cpu_cache_hit_rate"]),
@@ -188,7 +190,8 @@ def write_table(rows: list[dict], out: Path) -> None:
         w.writerows(rows)
     (out / "agg_rounds.json").write_text(json.dumps(rows, ensure_ascii=False, indent=1) + "\n")
     head = ["轮次", "卡数", "并发", "HiCache / rank", "mem", "chunk / rank", "max-prefill", "delayer 上限",
-            "tokenizer", "coordination", "NSR", "tok/s/GPU", "每秒请求", "平均输入", "ITL p50/p90 (ms)",
+            "tokenizer", "coordination", "NSR", "tok/s/GPU", "interactivity p50/p90", "每秒请求", "平均输入",
+            "ITL p50/p90 (ms)",
             "TTFT p50/p90 (s)", "decode ms/token", "命中 总 / 理论", "服务端命中 GPU / 主机",
             "每 rank 在跑 / 排队", "状态"]
     lines = ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
@@ -202,13 +205,16 @@ def write_table(rows: list[dict], out: Path) -> None:
             f(r["Concurrency"], "C{}"), r["HiCachePerRank"], r["MemFraction"], str(r["ChunkPerRank"]),
             str(r["MaxPrefillTokens"]), str(r["DelayerMaxPasses"]), str(r["TokenizerWorkers"]),
             r["Coordination"], r["HsaNoScratchReclaim"] or "—",
-            f(r.get("TokPerSecPerGPU"), "{:,.0f}"), f(r.get("ReqPerSec"), "{:.3f}"),
+            f(r.get("TokPerSecPerGPU"), "{:,.0f}"),
+            f"{r['IntvtyP50']:.1f} / {r['IntvtyP90']:.1f}" if "IntvtyP50" in r else "—",
+            f(r.get("ReqPerSec"), "{:.3f}"),
             f(r.get("MeanInputK"), "{:.1f}k"),
             f"{r['ITLp50Ms']:.1f} / {r['ITLp90Ms']:.1f}" if "ITLp50Ms" in r else "—",
             f"{r['TTFTp50S']:.1f} / {r['TTFTp90S']:.1f}" if "TTFTp50S" in r else "—",
             f(r.get("DecodeMsPerToken"), "{:.1f}"), hit, split, rq, r["Status"] or "—"]) + " |")
     note = [
         "", "- 每卡吞吐的分母是该实验的 GPU 数（TP4 为 4，TP8 为 8，B300 为 4）；每秒请求为整个实例的完成速率。",
+        "- interactivity 为每请求 tok/s/user（AgentX `intvty`）；p90 是较慢的那一端（数值低于 p50），InferenceX 上希望它尽量大。",
         "- decode ms/token =（端到端延迟均值 − TTFT 均值）/ 输出 token 均值，包含被 prefill 打断的时间。",
         "- 命中 总：MI355X 为 AIPerf 的 API 计入命中（缓存 token / 输入 token），B300 为服务端 GPU + 主机命中之和"
         "（其 API 数据无前者）。服务端 GPU / 主机拆分来自 AgentX 记录的引擎计数器，a3 C48 与 a4 两者之和超过 100%，"
@@ -436,6 +442,46 @@ def plot(rows: list[dict], out: Path) -> None:
     fig.suptitle("Throughput and latency against concurrency: MI355X rounds vs B300 Dynamo",
                  fontsize=15, fontweight="bold")
     save(fig, out / "agg_vs_concurrency", plt)
+
+    # InferenceX goal: high tokens/s/GPU at high interactivity (p90 = the slow tail of tok/s/user).
+    fig, axes = plt.subplots(1, 2, figsize=(16, 7), layout="constrained")
+    for ax, key, api_key, title in ((axes[0], "IntvtyP90", "p90_intvty", "interactivity p90"),
+                                    (axes[1], "IntvtyP50", "median_intvty", "interactivity p50")):
+        bx = [r["metrics"][api_key] for r in dyn]
+        by = [r["metrics"]["tput_per_gpu"] for r in dyn]
+        ax.plot(bx, by, color="#8a8a8a", linewidth=2, marker="o", label="B300 Dynamo (4 GPUs)")
+        for r, x_, y_ in zip(dyn, bx, by):
+            ax.annotate(f"C{r['conc']}", (x_, y_), xytext=(5, 4), textcoords="offset points", fontsize=8,
+                        color="#555555")
+        pts = []
+        for r in measured_rows:
+            color, marker, _ = point_style[(r["Round"], r["Concurrency"])]
+            hollow = r["Round"] == "a2"
+            ax.scatter(r[key], r["TokPerSecPerGPU"], s=80 if r["Round"] in ("a6b", "a3") else 48, zorder=3,
+                       marker=marker, facecolors="white" if hollow else color, edgecolors=color,
+                       label=f"{r['Round']} C{r['Concurrency']}" + (" (8 GPUs)" if r["GPUs"] == 8 else "")
+                       + (" (600 s debug)" if hollow else ""))
+            ax.annotate(f"{r['Round']} C{r['Concurrency']}", (r[key], r["TokPerSecPerGPU"]), xytext=(6, -10),
+                        textcoords="offset points", fontsize=7.5, color=color)
+            if not hollow:
+                pts.append((r[key], r["TokPerSecPerGPU"]))
+        front = sorted(p for p in pts if not any(q[0] >= p[0] and q[1] >= p[1] and q != p for q in pts))
+        ax.plot([p[0] for p in front], [p[1] for p in front], color="#c66020", linestyle="--", linewidth=1.2,
+                label="MI355X frontier (scored rounds)")
+        ax.set_xscale("log")
+        ax.set(title=f"Total throughput / GPU vs {title}", xlabel=f"{title} (tokens/s/user, log scale)",
+               ylabel="tokens/s/GPU")
+        ax.yaxis.set_major_formatter(StrMethodFormatter("{x:,.0f}"))
+        ax.grid(alpha=0.25, which="both")
+        ax.spines[["top", "right"]].set_visible(False)
+        ax.annotate("better", xy=(0.97, 0.97), xytext=(0.82, 0.86), xycoords="axes fraction",
+                    arrowprops={"arrowstyle": "->", "color": "#555555"}, fontsize=9, color="#555555")
+    axes[0].legend(frameon=False, loc="lower left", fontsize=8)
+    fig.suptitle("InferenceX view: throughput per GPU against per-user interactivity (AgentX, 3600 s per point)",
+                 fontsize=14, fontweight="bold")
+    fig.supxlabel("interactivity p90 is the 90th-percentile slow tail of per-request tok/s/user (lower than p50); "
+                  "points up and to the right are better.", fontsize=9.5)
+    save(fig, out / "agg_pareto_interactivity", plt)
 
     p = profile_data()
     groups = [("attn_dsa", "attention / DSA", "#c66020"), ("moe", "MoE", "#2563a8"),

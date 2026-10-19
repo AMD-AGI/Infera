@@ -254,6 +254,8 @@ a6b 日志中未调优的 bf16 GEMM：5,542 种 (M, N, K)，几乎都是 prefill
 | `agg_rounds.md` / `.csv` / `.json` | 每行一个实验（含失败和未跑的轮次，另加 B300 C24/C32/C48）：生效配置与测试数据 |
 | `agg_rounds.png` / `.svg` | 各计分轮与 B300 C48 并排：总吞吐、输出吞吐、每秒请求与平均输入、ITL、TTFT、缓存命中、有效并发、每 rank 在跑 / 排队 |
 | `agg_vs_concurrency.png` / `.svg` | 吞吐、decode 每 token 耗时、TTFT p50、每秒请求随并发变化（B300 曲线 + 各轮散点） |
+| `agg_pareto_interactivity.png` / `.svg` | InferenceX 视角：tok/s/GPU 对 interactivity p90 / p50（B300 曲线、各轮散点、我们的前沿） |
+| `decode_vs_prefill_c48_b300_a3.txt` | B300 C48 与 a3 C48 的纯 decode 单步耗时、decode / eager 时间占比（`pass_timeslices.py`） |
 | `gpu_time_breakdown.png` / `.svg` | a6b profiling：decode 步 / eager 步时间占比、各 rank prefill 步数、kernel 类别构成 |
 
 配置按启动脚本的方式 source `config/config.agg.sh` 与 `config/round.<ROUND>.sh` 得到，并与结果目录的 `round.env` 逐项核对；
@@ -267,6 +269,24 @@ ssh crsuse2-m2m-138 "docker run --rm --network none -u $(id -u):$(id -g) -e MPLC
   -v $PWD/..:$PWD/.. -w $PWD --entrypoint python3 infera-sglang:v0521-llying-1012-mc4340-destpin \
   scripts/plot_agg_rounds.py --plot-only"
 ```
+
+### InferenceX 视角：吞吐与 interactivity p90（10-19）
+
+InferenceX 上要的是 tokens/s/GPU 尽量大、同时 interactivity（每请求 tok/s/user）的 p90 也尽量大。
+`results/summary/agg_pareto_interactivity.png` 画的是 tok/s/GPU 对 interactivity p90 / p50。
+
+| 点 | tok/s/GPU | interactivity p50 / p90 |
+|---|---|---|
+| a3 C48 | 31,605 | 40.4 / **20.8** |
+| a6b C64 | 32,228 | 30.5 / 17.3 |
+| a4 C64 | 31,221 | 26.9 / 14.5 |
+| a7d C64 | 29,307 | 32.6 / 16.8 |
+| t8c C128（8 卡） | 23,366 | 21.2 / 9.3 |
+| B300 C32 / C48 | 37,390 / 42,047 | 86.6 / 44.9，64.5 / 38.7 |
+
+两个指标一起看，目前最好的是 **a3 C48**：吞吐比 a6b C64 低 2%（在 ±3% 的波动内），interactivity p90 高 20%。C64 的各轮吞吐没有
+提升，只是把延迟变差。我们的点都在 interactivity p90 ≤ 21 的区间，B300 在 39–267；要上 InferenceX，至少要把同等 interactivity
+下的吞吐做出来，而不仅是单点吞吐。
 
 ### 与 B300 C48 的差距拆解（10-19）
 
@@ -284,11 +304,28 @@ ssh crsuse2-m2m-138 "docker run --rm --network none -u $(id -u):$(id -g) -e MPLC
 
 - 1.33 ≈ 1.27（请求速率）× 1.05（每请求 token 数），约 85% 的差距来自请求速率；缓存命中不是原因。
 - 请求速率的差距几乎都在 decode 阶段：TTFT 只差 1.1 s，decode 阶段每请求差约 11 s。
-- 我们 decode 阶段 30.6 ms/token 中，纯 decode 约 17–20 ms（profiling 72.7 ms/步 ÷ 接受长度 3.61，C48 batch 更小），其余约 11–14 ms
-  是被 prefill 步打断；ITL 均值 / p50 的比值 1.78（B300 1.23）也说明长尾重。推断：两边 HBM 容量和带宽相近，偏访存的 decode 差得不多；
-  B300 FP4 算力更高、prefill kernel 更成熟，同样的打断代价小得多。所以和 B300 的差距与下一节的单 rank prefill 空等是同一个问题。
-- 局限：B300 的纯 decode 与打断各占多少是推断。CI 产物 `11798041008`（c48 服务端日志，约 41 MB）有每 rank 的 prefill / decode 批次记录，
-  下载需要 GitHub 登录，拿到后可改为实测对比。
+**实测拆分（10-19，`scripts/pass_timeslices.py`，输出 `results/summary/decode_vs_prefill_c48_b300_a3.txt`）。** 两边 AIPerf 的
+`server_metrics_export.json` 都有 1 秒粒度的 `sglang:cuda_graph_passes`（按 rank、按 decode / prefill 模式）。所有 rank 都没有
+prefill 的 1 秒片里，"1 s / decode 步数"就是纯 decode 单步耗时；再用 decode 总步数 × 单步耗时得到 decode 占墙钟时间的比例，其余为
+eager（prefill）步。B300 数据来自 CI 产物 `11798041008`。
+
+| 每个 DP rank，测量窗口 60 分钟 | B300 C48 | a3 C48 |
+|---|---|---|
+| decode 步速率 | 15.2 步/s | 9.6 步/s |
+| 纯 decode 单步（纯 decode 片占比） | 47.5 ms，在跑 5.6（53%） | 65.6 ms，在跑 7.1（52%） |
+| decode / eager 占墙钟时间 | 72% / 28% | 63% / 37% |
+| prefill 步（4 个 rank 之和） | 4,119（917 / 968 / 871 / 1,363） | 3,485（756 / 851 / 1,059 / 819） |
+| 每次 rank prefill 摊到的 eager 时间 | 246 ms | 387 ms |
+| 平均每个 decode 步摊到的 eager 时间 | 18.3 ms | 38.6 ms |
+
+- 平均每个 decode 步的墙钟时间：B300 65.8 ms（47.5 纯 decode + 18.3 eager），a3 104 ms（65.6 + 38.6），差 38 ms。其中约 18 ms 来自纯
+  decode 更慢（65.6 对 47.5 ms，a3 每 rank 多跑 1.5 个请求，有一部分是因为慢而积压），约 20 ms 来自 prefill 打断更多（2.1 倍 = 每次 rank
+  prefill 慢 1.6 倍 × 每个 decode 步摊到的 prefill 次数多 1.3 倍）。两项大致各占一半。
+- 折成每输出 token：B300 13.2 + 5.1 ms，a3 18.2 + 10.7 ms，与客户端的 18.5 / 30.6 ms 一致。
+- **更正**：这一节最初按 a6b C64 的 profiling（72.7 ms/步）推断"去掉打断后我们的纯 decode 已接近 B300 的整体水平、差距主要在打断"。
+  实测 C48 下纯 decode 也慢约 1.4 倍（同 batch 下估计 1.2–1.3 倍），打断约占差距的一半，不是绝大部分。
+- B300 也有同样的 delayer 现象：各 rank 的判定以 "mixed" 为主，等待 59 步（上限 60）的占多数，prefill 步也不均衡（DP3 比其他多约 45%）。
+  它的打断代价小，主要是因为每次 prefill 快。
 
 ### 单 rank prefill 空等：机制、量化与可选方案（10-19）
 
