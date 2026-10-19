@@ -21,6 +21,7 @@ pub mod block_hasher;
 pub mod breaker;
 pub mod cache_control;
 pub mod config;
+pub mod decode_demand;
 pub mod disagg;
 pub mod discovery;
 pub mod discovery_k8s;

@@ -270,7 +270,7 @@ async def test_mixed_atom_session_stays_on_one_rank():
     r._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
     def turn(session):
-        return {"model": "m", "_infera_session_headers": {"x-dynamo-session-id": session}}
+        return {"model": "m", "_infera_session_headers": {"x-session-id": session}}
 
     for session in ("s1", "s2", "s1", "s2", "s1"):
         resp = await r.dispatch(turn(session), stream=False)

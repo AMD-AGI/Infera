@@ -1399,7 +1399,7 @@ async fn atom_dp_rank_rides_in_the_body_and_follows_the_session() {
     for session in ["s1", "s2", "s1", "s2"] {
         let resp = client()
             .post(format!("{router}/v1/completions"))
-            .header("X-Dynamo-Session-ID", session)
+            .header("X-Session-ID", session)
             .json(&json!({"model": "m", "prompt": "hi"}))
             .send()
             .await
@@ -1644,7 +1644,7 @@ async fn session_header_pins_each_pd_role_without_aligning_their_ranks() {
         for session in ["s1", "s2", "s1"] {
             let response = client()
                 .post(format!("{router}/v1/chat/completions"))
-                .header("X-Dynamo-Session-ID", session)
+                .header("X-Session-ID", session)
                 .json(&json!({"model":"m", "messages":[{"role":"user","content":"unchanged"}]}))
                 .send()
                 .await
@@ -1696,7 +1696,7 @@ async fn session_binding_is_invalidated_on_decode_eof_without_done() {
     for _ in 0..2 {
         client()
             .post(format!("{router}/v1/chat/completions"))
-            .header("X-Dynamo-Session-ID", "same-session")
+            .header("X-Session-ID", "same-session")
             .json(&json!({"model":"m","stream":true}))
             .send()
             .await
@@ -1721,7 +1721,7 @@ async fn session_both_also_pins_aggregated_requests() {
     for session in ["s1", "s2", "s1"] {
         client()
             .post(format!("{router}/v1/completions"))
-            .header("X-Dynamo-Session-ID", session)
+            .header("X-Session-ID", session)
             .json(&json!({"model":"m","prompt":"unchanged"}))
             .send()
             .await
@@ -1790,7 +1790,7 @@ async fn session_binding_is_reselected_after_nats_4xx() {
         for _ in 0..2 {
             let response = client()
                 .post(format!("{router}/v1/chat/completions"))
-                .header("X-Dynamo-Session-ID", "same-session")
+                .header("X-Session-ID", "same-session")
                 .json(&json!({"model":"m","stream":stream}))
                 .send()
                 .await
@@ -1819,7 +1819,7 @@ async fn session_transport_mismatch_reselects_both_roles() {
     for expected in [503, 200] {
         let response = client()
             .post(format!("{router}/v1/chat/completions"))
-            .header("X-Dynamo-Session-ID", "same-session")
+            .header("X-Session-ID", "same-session")
             .json(&json!({"model":"m", "stream":false}))
             .send()
             .await
@@ -1848,7 +1848,7 @@ async fn session_http_failure_only_reselects_failed_role() {
         for _ in 0..2 {
             let response = client()
                 .post(format!("{router}/v1/chat/completions"))
-                .header("X-Dynamo-Session-ID", "same-session")
+                .header("X-Session-ID", "same-session")
                 .json(&json!({"model":"m", "stream":stream}))
                 .send()
                 .await
@@ -1979,7 +1979,7 @@ async fn session_nats_pd_failure_only_reselects_failed_role() {
             for _ in 0..2 {
                 let response = client()
                     .post(format!("{router}/v1/chat/completions"))
-                    .header("X-Dynamo-Session-ID", "same-session")
+                    .header("X-Session-ID", "same-session")
                     .json(&json!({"model":"m", "stream":stream}))
                     .send()
                     .await;

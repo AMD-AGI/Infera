@@ -71,7 +71,7 @@ The defaults (**NATS + Kubernetes**) assume a reachable NATS broker and a k8s AP
   `--kv-overlap-weight` dial.
 
 **Session affinity (`--session-affinity`)** sits on top of either policy, on
-both router backends. A request with an `X-Dynamo-Session-ID` header goes to
+both router backends. A request with an `X-Session-ID` header goes to
 the target its session used last; the policy picks the first one and still
 scores the pinned one. `prefill` pins prefill picks only, `both` also pins
 decode and mixed picks, each role independently. Bindings are per model and
@@ -79,9 +79,9 @@ per router process, dropped after `--session-affinity-ttl-seconds` idle
 (default `3600`), and re-picked when the target leaves the fleet. See
 [Deployment → session affinity](../serving/deployment.md#optional-session-affinity).
 
-The `X-Correlation-ID`, `X-Dynamo-Session-ID` and `X-Dynamo-Parent-Session-ID`
-headers are also forwarded to both PD legs (Python router backend), so an engine
-can keep a session on one DP rank (e.g. ATOM's `ATOM_DP_SESSION_AFFINITY`).
+The `X-Correlation-ID` and `X-Session-ID` headers are also forwarded to both PD
+legs (Python router backend), so an engine can keep a session on one DP rank
+(e.g. ATOM's `ATOM_DP_SESSION_AFFINITY`, which keys on `X-Correlation-ID`).
 
 **3. Topology** — mixed vs disaggregated is **automatic**: when PD workers exist,
 the `AutoRouter` prefers a prefill+decode pair and the `DisaggRouter` shapes the

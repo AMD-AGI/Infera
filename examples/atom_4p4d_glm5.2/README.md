@@ -208,12 +208,12 @@ and 21311-21314.
 would need engine KV events, so the policy is `round-robin`.
 
 **8. Session affinity reads request headers.** `SESSION_AFFINITY` (default
-`prefill`) is passed as `--session-affinity`: requests with an
-`x-dynamo-session-id` keep their session's prefill (`both`: and decode), others
-are round-robin. The router also forwards `x-dynamo-session-id`,
-`x-correlation-id` and `x-dynamo-parent-session-id` to both legs. With a single
-prefill and decode it only carries the headers through; it matters once more
-instances are added.
+`prefill`) is passed as `--session-affinity`: requests with an `x-session-id`
+keep their session's prefill (`both`: and decode), others are round-robin.
+`agentx.sh` has AIPerf send it (`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID`).
+The router also forwards `x-session-id` and `x-correlation-id` to both legs.
+With a single prefill and decode it only carries the headers through; it
+matters once more instances are added.
 Tune the idle TTL (default 3600 s) through `ROUTER_EXTRA_ARGS` (`--session-affinity-ttl-seconds`). `SESSION_AFFINITY=off`
 is the stateless alternative.
 

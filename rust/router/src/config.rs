@@ -61,7 +61,7 @@ pub struct Config {
     )]
     pub pd_prefill_guard_release: PrefillGuardRelease,
 
-    /// Keep each `X-Dynamo-Session-ID` session on its last target: `prefill`
+    /// Keep each `X-Session-ID` session on its last target: `prefill`
     /// pins prefill picks only, `both` also decode and aggregated picks.
     #[arg(long, value_enum, default_value = "off")]
     pub session_affinity: SessionAffinityMode,
@@ -69,6 +69,15 @@ pub struct Config {
     /// Idle seconds before a session binding is dropped.
     #[arg(long, default_value_t = 3600, value_parser = clap::value_parser!(u64).range(1..=86400))]
     pub session_affinity_ttl_seconds: u64,
+
+    /// Decode input-token demand routing (kv-aware only); off, shadow or on.
+    #[arg(
+        long,
+        value_enum,
+        default_value = "off",
+        env = "INFERA_DECODE_INPUT_DEMAND"
+    )]
+    pub decode_input_demand: crate::decode_demand::Mode,
 
     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
     /// annotation and the API server is watched).
@@ -243,6 +252,11 @@ impl Config {
                 ),
                 Err(e) => anyhow::bail!("--kv-default-chat-template-kwargs is not JSON: {e}"),
             }
+        }
+        if self.decode_input_demand != crate::decode_demand::Mode::Off
+            && self.router_policy != "kv-aware"
+        {
+            anyhow::bail!("--decode-input-demand requires --router-policy kv-aware");
         }
         if self.router_policy == "kv-aware" && self.kv_tokenizer_path.is_none() {
             tracing::warn!(
@@ -467,5 +481,25 @@ mod tests {
         let bad_disc =
             Config::try_parse_from(["infera-router", "--discovery-backend", "k8s"]).unwrap();
         assert!(bad_disc.validate().is_err());
+    }
+    #[test]
+    fn decode_demand_is_opt_in_and_requires_kv_aware() {
+        let off = Config::try_parse_from(["router", "--decode-input-demand", "off"]).unwrap();
+        assert!(off.validate().is_ok());
+        for mode in ["shadow", "on"] {
+            let invalid =
+                Config::try_parse_from(["router", "--decode-input-demand", mode]).unwrap();
+            assert!(invalid.validate().is_err());
+            let valid = Config::try_parse_from([
+                "router",
+                "--router-policy",
+                "kv-aware",
+                "--decode-input-demand",
+                mode,
+            ])
+            .unwrap();
+            assert!(valid.validate().is_ok());
+        }
+        assert!(Config::try_parse_from(["router", "--decode-input-demand", "enabled"]).is_err());
     }
 }

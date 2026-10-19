@@ -115,7 +115,7 @@ def main() -> int:
             "\nWhat is the secret code? Return only the code."
         )
         for name in ("long_prefix_cold", "long_prefix_repeat"):
-            chat(name, prompt, "CEDAR-4729", {"x-dynamo-session-id": "smoke-long-prefix"})
+            chat(name, prompt, "CEDAR-4729", {"x-session-id": "smoke-long-prefix"})
     finally:
         (out / "summary.json").write_text(json.dumps(results, ensure_ascii=False, indent=2))
 
