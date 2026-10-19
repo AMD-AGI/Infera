@@ -237,9 +237,10 @@ render-parity probe diverged); then the router's own count is an estimate. A
 worker whose render has not been, or cannot be, checked counts as exact. When the
 router cannot tokenize a request at all, it estimates string bytes / 4, skipping
 inline binary payloads (`data:` URLs and `data` fields such as base64 images or
-audio). Estimates take part in selection like exact counts. Debug events (`infera_router::decode_demand`) show
-the candidates' projected tokens, the original choice, the suggestion and the
-actual choice, without prompt or session text.
+audio). Estimates take part in selection like exact counts. Debug events
+(`infera_router::decode_demand`) show the candidates' projected tokens, the
+original choice, the suggestion and the actual choice, without prompt or session
+text.
 
 Selection and reservation share one short mutex critical section. The reservation
 moves from the pick into the PD response guard and is released exactly once, on
@@ -261,8 +262,8 @@ is `exact` or `estimated` and `agrees` says whether the suggestion matched the
 original policy.
 
 Only input tokens are counted. In a GLM-5.2 AgentX workload a request averaged
-about 112k input and 930 output tokens, so input dominates the KV a Decode rank holds
-and the context each decode step reads. Generated-token growth, compute and
+about 112k input and 930 output tokens, so input dominates the KV a Decode rank
+holds and the context each decode step reads. Generated-token growth, compute and
 capacity differences are not modeled; for long-output workloads, track generated
 tokens as they arrive rather than reserving `max_tokens` up front. This is not
 physical KV allocation either: shared prefixes count once per request, backend

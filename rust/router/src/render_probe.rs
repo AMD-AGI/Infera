@@ -313,7 +313,7 @@ impl ParityRegistry {
     }
 
     /// Whether this worker's render was probed and found to differ from ours.
-    /// Called on every Decode pick, so a poisoned lock is recovered.
+    /// Called on demand-routed Decode picks, so a poisoned lock is recovered.
     pub fn diverged(&self, worker_id: &str) -> bool {
         self.state
             .lock()
