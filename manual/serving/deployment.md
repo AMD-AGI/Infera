@@ -286,12 +286,15 @@ selection counters are exposed through `infera_router_session_*` metrics, with
 role labels and no session-ID labels.
 
 A client that omits `X-Session-ID` gets normal routing without any error, so
-check that sessions arrive. Per role, `infera_router_session_hits_total` plus
-`infera_router_session_selected_total` counts the picks that carried a session;
-`infera_router_picks_total` summed over workers counts all picks. If nearly all
-picks lack a session, the client is not sending the header (for AIPerf, set
-`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true`). These metrics come from the
-Rust router.
+check that sessions arrive. For `role="prefill"` (`role="mixed"` on aggregated
+workers), `infera_router_session_hits_total` plus
+`infera_router_session_selected_total` approximates the picks that carried a
+session, and `infera_router_picks_total` summed over workers counts all picks. If
+nearly all picks lack a session, the client is not sending the header (for
+AIPerf, set `AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID=true`). The comparison
+is approximate: sessions that fall back to normal routing at capacity count as
+neither hits nor selections, `prefill` mode never counts Decode, and mixed
+retries add picks. These metrics come from the Rust router.
 
 The Python router keeps the same modes, scoping, TTL, capacity and ID checks,
 and a failed request also drops its bindings, with less bookkeeping: idle time

@@ -205,8 +205,7 @@ Full list on the [environment variables](../reference/environment.md) page.
 ## Optional Decode input-demand routing (Rust)
 
 The Rust router can select Decode workers/ranks by the input-token demand of
-in-flight requests (the experimental R2 strategy). It defaults to `off` and
-requires `--router-policy kv-aware`.
+in-flight requests. It defaults to `off` and requires `--router-policy kv-aware`.
 
 ```bash
 # Add to the existing entrypoint configuration.
@@ -216,9 +215,8 @@ python -m infera.server --router-backend rust --router-policy kv-aware \
 ```
 
 Keep the deployment's discovery, transport and tokenizer/template options.
-Without the flag the Rust router reads `INFERA_DECODE_INPUT_DEMAND`. The old
-experiment variable `INFERA_R2_DECODE_DEMAND` is not the interface for this
-extraction.
+Without the flag the Rust router reads `INFERA_DECODE_INPUT_DEMAND`; the Python
+backend ignores that variable.
 
 | Mode | Selection and overhead |
 |---|---|
@@ -233,12 +231,13 @@ normal block/cache bookkeeping. Prefill and aggregated/Mixed selection are
 unchanged. Decode input length needs neither KV block metadata nor Decode radix.
 
 A request is rendered and tokenized at most once per worker template variant:
-its Prefill and Decode picks share the result. The count is exact for a text
-request on a worker whose render matches the router's. Otherwise it is an
-estimate: the router's own count for a multimodal request or a worker whose
-render-parity probe diverged, or the request's string bytes / 4 (inline `data:`
-payloads skipped) when the router cannot tokenize it. Estimates take part in
-selection like exact counts. Debug events (`infera_router::decode_demand`) show
+its Prefill and Decode picks share the result. The count is exact unless the
+request is multimodal or the worker is known to render differently (its
+render-parity probe diverged); then the router's own count is an estimate. A
+worker whose render has not been, or cannot be, checked counts as exact. When the
+router cannot tokenize a request at all, it estimates string bytes / 4, skipping
+inline binary payloads (`data:` URLs and `data` fields such as base64 images or
+audio). Estimates take part in selection like exact counts. Debug events (`infera_router::decode_demand`) show
 the candidates' projected tokens, the original choice, the suggestion and the
 actual choice, without prompt or session text.
 
@@ -261,8 +260,8 @@ input tokens per Decode route key, and
 is `exact` or `estimated` and `agrees` says whether the suggestion matched the
 original policy.
 
-Only input tokens are counted. In the AgentX run below a request averaged about
-112k input and 930 output tokens, so input dominates the KV a Decode rank holds
+Only input tokens are counted. In a GLM-5.2 AgentX workload a request averaged
+about 112k input and 930 output tokens, so input dominates the KV a Decode rank holds
 and the context each decode step reads. Generated-token growth, compute and
 capacity differences are not modeled; for long-output workloads, track generated
 tokens as they arrive rather than reserving `max_tokens` up front. This is not
@@ -271,25 +270,16 @@ reclamation lag is ignored, and there is no hard admission limit. Start with
 homogeneous Decode targets; Radix/HiCache reuse can make the estimate
 conservative.
 
-Historical evidence comes from the development branch's experimental code
-(`INFERA_R2_DECODE_DEMAND=on`) in a P8D4 AgentX run with Prefill-only session
-affinity. Against the preceding P8D4 run, samples with one hot and one cold
-Decode rank fell from 36% to 0.2%, the mean occupancy gap between ranks from 42
-to 14 points, and the worst rank's mean allocation wait from 43 s to about 3 s.
-Total throughput rose from 21,081 to 23,051 tokens/s/GPU, but the run also moved
-to different nodes, with Decode spanning two sockets, so that difference is not
-attributable to demand routing alone. No GPU result is claimed for this
-implementation; for a new A/B, hold Prefill policy, cache settings, affinity,
-nodes, capacity and workload fixed.
+In a P8D4 GLM-5.2 AgentX run with Prefill-only session affinity, an earlier
+implementation of this policy evened KV occupancy across the Decode ranks and cut
+the mean Decode allocation wait from 10.5 s to 3.3 s. That run also moved to
+different nodes, so its throughput change is not attributable to demand routing
+alone.
 
 ### Future: one tokenization end to end
 
-The router and each engine still render and tokenize the same prompt separately.
-Sending the router's token ids to the engines (SGLang chat requests accept
-`input_ids`) would drop the engines' tokenization and make the router's block
-hashes match their KV exactly. It would also make the router's render the
-model's actual input, so a render mismatch would change model output rather than
-only cache hits. Measure first: Prefill-engine tokenization as a share of TTFT,
-Decode tokenizer utilization, and render-parity coverage of real traffic. If
-pursued, send ids only to workers with confirmed render parity, keep text for
-multimodal requests, and re-run answer checks before performance runs.
+The router and each engine still tokenize the same prompt separately. Sending the
+router's token ids to the engines would remove that work and match block hashes to
+the engine's KV exactly, but the router's render would become the model's input:
+measure the gain first (engine tokenization's share of TTFT, render-parity
+coverage of real traffic) and limit it to workers with confirmed render parity.
