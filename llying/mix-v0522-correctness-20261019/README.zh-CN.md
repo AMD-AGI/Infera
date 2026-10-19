@@ -147,3 +147,7 @@ hidden state 是全 0 / NaN，而 DP 填充行正是用 0 填的：像是某些�
 相关的上游记录：sglang#20404（MI355X，PD + DP attention，DeepSeek-R1 输出退化成重复/空串，关 DP attention 94%；2026-03，
 v0.5.9，仍 open）；sglang#37192 第 3 点（DP 下 batch 先补到全局 token 数，graph runner 再补到捕获桶，第二次补齐不进 DP 缓冲区
 长度——说的是 prefill graph，但与这里怀疑的"补齐与切片错位"同类）。
+
+**大块 HiCache 栈撤下后，同节点新引擎会卡住。** example 栈（4 × 270 GB 锁页主机池）21:27 `down.sh` 后，21:28 在 GPU 4-7 起的
+stock0520 引擎进程停在 `D` 状态、没有任何日志，直到 21:42 GPU 0-3 的显存读数归零才继续——驱动回收前一个栈期间，新进程的 KFD
+初始化被挡住。64 GB 主机池的排查栈之间没有这个现象。
