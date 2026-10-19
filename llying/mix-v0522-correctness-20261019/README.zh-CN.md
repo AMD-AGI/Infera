@@ -79,10 +79,11 @@ lm-eval 只看 `content`，判不了这个问题。`gsm8k_probe.py` 把 lm-eval 
 | **mtp0-200** | **关 MTP** | 200 | 0.685 | **61** | 59 |
 | fusion0-200 | 关 `--enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion` | 200 | 0.710 | 56 | 59 |
 | mtp0cg0-200 | 关 MTP + `--disable-cuda-graph`（全部 eager，避开上面的 draft 崩溃） | 200 | 手动停止，无汇总 | | 见下 |
-| lmhead0-200 | 关 `--enable-dp-lm-head` | 200 | 进行中 | | |
+| lmhead0-200 | 关 `--enable-dp-lm-head` | 200 | 0.675 | 55 | 60 |
+| dec-tilelang-200 | DSA decode 后端 `triton` → `tilelang` | 200 | 进行中 | | |
 
 **MTP 也不是必要条件。** 关 MTP 后同样 61 / 200 乱码。至此 HiCache、MTP、prefill delayer、GatherV、融合算子、
-HiCache 各种写法都排除，**唯一必要的是 DP attention**，且要在持续并发下（有混合步）。
+DP lm-head、HiCache 各种写法都排除，**唯一必要的是 DP attention**，且要在持续并发下（有混合步）。
 
 **关 CUDA graph 后长尾少了一个数量级。** mtp0cg0-200 全部 eager，decode 每请求只有约 8 tok/s，跑满 16384 token 要半小时以上，
 为了把 GPU 0-3 让给 example 的性能对齐，healthy 后 14 分钟手动停掉（`verdict.txt` 有记录）。停时只剩 6 个请求在跑
