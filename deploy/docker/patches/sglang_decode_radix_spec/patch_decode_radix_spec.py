@@ -45,7 +45,17 @@ def patch_source(source: str) -> str:
             patched = patched.replace(anchor, HELPER + anchor, 1)
             compile(patched, "pd_disaggregation_hook.py", "exec")
             return patched
+    # v0.5.22 dropped the speculative-decoding rejection: nothing to open up.
+    if upstream_allows_spec(source):
+        return source
     raise ValueError("unsupported SGLang Decode radix guard; update or disable this patch")
+
+
+def upstream_allows_spec(source: str) -> bool:
+    return (
+        "--disaggregation-decode-enable-radix-cache is incompatible " in source
+        and "with speculative decoding" not in source
+    )
 
 
 def apply(target: Path) -> bool:
@@ -79,7 +89,13 @@ def main() -> None:
     args = parser.parse_args()
     target = args.target if args.target is not None else installed_hook()
     changed = apply(target)
-    print(f"[decode-radix-spec] {'patched' if changed else 'already present'}: {target}")
+    if changed:
+        status = "patched"
+    elif upstream_allows_spec(target.read_text()):
+        status = "not needed, SGLang no longer rejects Decode radix under speculation"
+    else:
+        status = "already present"
+    print(f"[decode-radix-spec] {status}: {target}")
 
 
 if __name__ == "__main__":
