@@ -52,9 +52,23 @@ def is_glm53_model(model: Any) -> bool:
     return "glm-5-3" in m or "glm-5.3" in m or "glm53" in m
 
 
+# Tokens forced after the budget is reached: newline, then ``</think>``.
+THINKING_FORCED_TOKENS = 2
+# Upper bound of completion tokens kept for the answer after thinking ends.
+MAX_ANSWER_RESERVE = 1024
+# Smallest ``max_tokens`` that fits one thinking token, the forced tokens and one answer token.
+MIN_MAX_TOKENS_FOR_BUDGET = 4
+
+
+def thinking_budget_ceiling(max_tokens: int) -> int:
+    """Return the largest budget that still leaves room to close thinking and answer."""
+    answer_reserve = max(1, min(MAX_ANSWER_RESERVE, int(max_tokens) // 4))
+    return int(max_tokens) - THINKING_FORCED_TOKENS - answer_reserve
+
+
 def resolve_thinking_budget(budget_tokens: int, max_tokens: int) -> int:
-    """Clamp ``budget_tokens`` so at least one completion token remains."""
-    return max(1, min(int(budget_tokens), int(max_tokens) - 1))
+    """Clamp ``budget_tokens`` to the ceiling derived from ``max_tokens``."""
+    return max(1, min(int(budget_tokens), thinking_budget_ceiling(max_tokens)))
 
 
 def apply_glm53_thinking_budget(out: dict[str, Any], budget_tokens: int) -> None:
@@ -63,15 +77,18 @@ def apply_glm53_thinking_budget(out: dict[str, Any], budget_tokens: int) -> None
     out["custom_params"] = {"thinking_budget": int(budget_tokens)}
 
 
-def last_open_thinking_start(token_ids: list[int], start_id: int, end_id: int) -> int:
-    """Return index of the last unclosed thinking-start token, or -1."""
-    start_index = -1
-    for i, tok in enumerate(token_ids):
+def _last_open_in_prompt(origin_input_ids: list[int], start_id: int, end_id: int) -> int:
+    """Return the index of an unclosed start token in the prompt, or -1.
+
+    The last start/end marker decides: scanning backwards stops at it.
+    """
+    for i in range(len(origin_input_ids) - 1, -1, -1):
+        tok = origin_input_ids[i]
         if tok == start_id:
-            start_index = i
-        elif tok == end_id:
-            start_index = -1
-    return start_index
+            return i
+        if tok == end_id:
+            return -1
+    return -1
 
 
 def resolve_thinking_budget_action(
@@ -81,6 +98,7 @@ def resolve_thinking_budget_action(
     start_id: int,
     end_id: int,
     newline_id: int,
+    state: dict[str, int] | None = None,
 ) -> ThinkingBudgetAction | None:
     """Decide whether to force newline or thinking-end for the next token.
 
@@ -89,18 +107,34 @@ def resolve_thinking_budget_action(
     only includes generated ``output_ids`` (or the suffix of output after a
     start token that appears in the output), so closed history ``</think>``
     blocks and prompt-side literals do not exhaust or skip the budget.
+
+    ``state`` caches the prompt scan and the scan position in ``output_ids``
+    so each call only inspects newly generated tokens. It is reset when
+    ``output_ids`` is shorter than the cached position.
     """
     if thinking_budget < 0:
         return None
-    cur_ids = [*origin_input_ids, *output_ids]
-    start_index = last_open_thinking_start(cur_ids, start_id, end_id)
-    if start_index < 0:
-        return None
-    origin_len = len(origin_input_ids)
-    if start_index < origin_len:
-        num_tokens_after_start = len(output_ids)
+    if state is None:
+        state = {}
+    out_len = len(output_ids)
+    if "origin_open" not in state or state["out_scanned"] > out_len:
+        state["origin_open"] = _last_open_in_prompt(origin_input_ids, start_id, end_id)
+        state["out_open"] = -1
+        state["out_scanned"] = 0
+    for i in range(state["out_scanned"], out_len):
+        tok = output_ids[i]
+        if tok == start_id:
+            state["out_open"] = i
+        elif tok == end_id:
+            state["out_open"] = -1
+            state["origin_open"] = -1
+    state["out_scanned"] = out_len
+    if state["out_open"] >= 0:
+        num_tokens_after_start = out_len - state["out_open"] - 1
+    elif state["origin_open"] >= 0:
+        num_tokens_after_start = out_len
     else:
-        num_tokens_after_start = len(cur_ids) - start_index - 1
+        return None
     if num_tokens_after_start < thinking_budget:
         return None
     if not output_ids or output_ids[-1] != newline_id:

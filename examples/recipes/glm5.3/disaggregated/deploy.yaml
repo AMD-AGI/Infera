@@ -158,6 +158,7 @@ spec:
                       "--reasoning-parser","glm45",
                       # Required for Anthropic thinking.budget_tokens hard caps.
                       # Pair with INFERA_ENABLE_THINKING_BUDGET=1 on the server.
+                      # Worker ports must be reachable only from the router.
                       "--enable-custom-logit-processor",
                       # Insurance, not a fix — this checkpoint's shared experts are
                       # themselves MXFP4, and upstream #25261 shows the mismatch
@@ -289,6 +290,7 @@ spec:
                       "--reasoning-parser","glm45",
                       # Required for Anthropic thinking.budget_tokens hard caps.
                       # Pair with INFERA_ENABLE_THINKING_BUDGET=1 on the server.
+                      # Worker ports must be reachable only from the router.
                       "--enable-custom-logit-processor",
                       "--disable-shared-experts-fusion",
                       # Required WITH EAGLE, and kept independent of it: the aiter

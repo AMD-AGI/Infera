@@ -79,6 +79,9 @@ Without (1), SGLang rejects requests that carry a processor. Without (2), the
 shim ignores `budget_tokens` and only forwards `chat_template_kwargs`. See
 [`manual/examples/k8s_glm5.3.md`](../../manual/examples/k8s_glm5.3.md) §4.
 
+With (1) on, a worker deserializes the request-supplied processor with `dill`,
+so worker ports must be reachable only from the router process.
+
 ## Notes and gotchas
 
 **1. A startup line that reads like a clamp is a division.** Under DP-attention

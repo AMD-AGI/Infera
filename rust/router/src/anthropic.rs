@@ -19,7 +19,7 @@
 //!   optional `thinking.budget_tokens` maps to SGLang
 //!   `custom_logit_processor` + `custom_params.thinking_budget` only when
 //!   `INFERA_ENABLE_THINKING_BUDGET` is set and the model id is GLM-5.3
-//!   (budgets >= `max_tokens` are clamped); assistant `thinking` content
+//!   (budgets are clamped to leave room to close thinking and answer); assistant `thinking` content
 //!   blocks map to OpenAI `reasoning_content`.
 //! - Response (unary): OpenAI completion JSON -> Anthropic Messages JSON,
 //!   with `tool_calls` becoming `tool_use` blocks and `reasoning_content`
@@ -191,6 +191,20 @@ fn thinking_budget_injection_enabled() -> bool {
     }
 }
 
+/// Tokens forced after the budget is reached: newline, then `</think>`.
+const THINKING_FORCED_TOKENS: u64 = 2;
+/// Upper bound of completion tokens kept for the answer after thinking ends.
+const MAX_ANSWER_RESERVE: u64 = 1024;
+/// Smallest `max_tokens` that fits one thinking token, the forced tokens and one answer token.
+const MIN_MAX_TOKENS_FOR_BUDGET: u64 = 4;
+
+/// Clamp `budget` so the forced tokens and an answer reserve fit in `max_tokens`.
+fn resolve_thinking_budget(budget: u64, max_tokens: u64) -> u64 {
+    let answer_reserve = (max_tokens / 4).clamp(1, MAX_ANSWER_RESERVE);
+    let ceiling = max_tokens.saturating_sub(THINKING_FORCED_TOKENS + answer_reserve);
+    budget.min(ceiling).max(1)
+}
+
 /// Map Anthropic `thinking.budget_tokens` onto SGLang hard-cap fields.
 fn apply_thinking_budget(
     out: &mut Map<String, Value>,
@@ -211,14 +225,15 @@ fn apply_thinking_budget(
         }
     };
     let max_tokens = match max_tokens.and_then(Value::as_u64) {
-        Some(n) if n >= 2 => n,
+        Some(n) if n >= MIN_MAX_TOKENS_FOR_BUDGET => n,
         _ => {
-            return Err("max_tokens must be >= 2 when thinking.budget_tokens is set".to_string());
+            return Err(format!(
+                "max_tokens must be >= {MIN_MAX_TOKENS_FOR_BUDGET} when thinking.budget_tokens is set"
+            ));
         }
     };
-    // Interleaved-thinking clients may send budget > max_tokens; leave one
-    // token for the final answer.
-    let budget = budget.min(max_tokens - 1).max(1);
+    // Clients may send budget >= max_tokens; keep room to close thinking and answer.
+    let budget = resolve_thinking_budget(budget, max_tokens);
     out.insert(
         "custom_logit_processor".to_string(),
         json!(GLM53_THINKING_BUDGET_PROCESSOR_STR),
@@ -1336,7 +1351,7 @@ mod sse_tests {
     }
 
     #[test]
-    fn request_thinking_budget_tokens_clamped_to_max_tokens_minus_one() {
+    fn request_thinking_budget_tokens_clamped_to_leave_close_and_answer_room() {
         with_thinking_budget_env(true, || {
             let body = json!({
                 "model": "glm-5-3",
@@ -1347,8 +1362,30 @@ mod sse_tests {
             let out = translate_request(&body).unwrap();
             assert_eq!(
                 out.get("custom_params"),
-                Some(&json!({"thinking_budget": 8191}))
+                Some(&json!({"thinking_budget": 8192 - 2 - 1024}))
             );
+        });
+    }
+
+    #[test]
+    fn resolve_thinking_budget_matches_python_ceiling() {
+        assert_eq!(resolve_thinking_budget(1024, 4096), 1024);
+        assert_eq!(resolve_thinking_budget(31999, 32000), 32000 - 2 - 1024);
+        assert_eq!(resolve_thinking_budget(100000, 32000), 32000 - 2 - 1024);
+        assert_eq!(resolve_thinking_budget(1, 4), 1);
+        assert_eq!(resolve_thinking_budget(100, 10), 10 - 2 - 2);
+    }
+
+    #[test]
+    fn request_thinking_budget_rejects_max_tokens_below_minimum() {
+        with_thinking_budget_env(true, || {
+            let body = json!({
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 3,
+                "thinking": {"type": "enabled", "budget_tokens": 1024},
+            });
+            assert!(translate_request(&body).is_err());
         });
     }
 

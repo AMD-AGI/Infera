@@ -1475,7 +1475,7 @@ def test_thinking_budget_ignored_for_non_glm53(monkeypatch):
     assert "custom_params" not in out
 
 
-def test_thinking_budget_tokens_clamped_to_max_tokens_minus_one(monkeypatch):
+def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room(monkeypatch):
     from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
 
     monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
@@ -1487,7 +1487,7 @@ def test_thinking_budget_tokens_clamped_to_max_tokens_minus_one(monkeypatch):
             "thinking": {"type": "enabled", "budget_tokens": 10000},
         }
     )
-    assert out["custom_params"] == {"thinking_budget": 8191}
+    assert out["custom_params"] == {"thinking_budget": 8192 - 2 - 1024}
 
 
 def test_thinking_budget_tokens_rejects_non_positive(monkeypatch):
@@ -1505,16 +1505,16 @@ def test_thinking_budget_tokens_rejects_non_positive(monkeypatch):
         )
 
 
-def test_thinking_budget_tokens_requires_max_tokens_at_least_two(monkeypatch):
+def test_thinking_budget_tokens_requires_max_tokens_at_least_four(monkeypatch):
     from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
 
     monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
-    with pytest.raises(AnthropicRequestRejected, match="max_tokens must be >= 2"):
+    with pytest.raises(AnthropicRequestRejected, match="max_tokens must be >= 4"):
         anthropic_to_openai_request(
             {
                 "model": "glm-5-3",
                 "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 1,
+                "max_tokens": 3,
                 "thinking": {"type": "enabled", "budget_tokens": 1024},
             }
         )

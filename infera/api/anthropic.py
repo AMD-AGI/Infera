@@ -25,8 +25,9 @@ In scope:
   ``custom_logit_processor`` + ``custom_params.thinking_budget``
   only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
   id is GLM-5.3 (workers also need
-  ``--enable-custom-logit-processor``). Budgets at or above
-  ``max_tokens`` are clamped to ``max_tokens - 1``. Assistant
+  ``--enable-custom-logit-processor``). Budgets are clamped so the
+  forced newline and ``</think>`` plus an answer reserve fit in
+  ``max_tokens``. Assistant
   history ``thinking`` blocks map to OpenAI ``reasoning_content``.
 - **Response translation (streaming)**: OpenAI SSE chunks
   (`data: {choices:[{delta:{...}}]}`) → Anthropic events
@@ -252,14 +253,15 @@ def _apply_thinking_budget(
     """Map Anthropic ``thinking.budget_tokens`` onto SGLang hard-cap fields.
 
     Injects only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
-    id is GLM-5.3. Budgets at or above ``max_tokens`` are clamped to
-    ``max_tokens - 1`` (interleaved-thinking clients may send budget >
+    id is GLM-5.3. Budgets are clamped so the forced newline and ``</think>``
+    plus an answer reserve fit in ``max_tokens`` (clients may send budget >=
     max_tokens). Omitted budget, disabled opt-in, or a non-GLM-5.3 model
     leaves thinking uncapped (``chat_template_kwargs`` still apply).
     """
     if "budget_tokens" not in thinking:
         return
     from infera.engine.sglang.thinking_budget_const import (
+        MIN_MAX_TOKENS_FOR_BUDGET,
         apply_glm53_thinking_budget,
         is_glm53_model,
         resolve_thinking_budget,
@@ -271,8 +273,14 @@ def _apply_thinking_budget(
     budget = thinking.get("budget_tokens")
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
         raise AnthropicRequestRejected("thinking.budget_tokens must be a positive integer")
-    if not isinstance(max_tokens, int) or isinstance(max_tokens, bool) or max_tokens < 2:
-        raise AnthropicRequestRejected("max_tokens must be >= 2 when thinking.budget_tokens is set")
+    if (
+        not isinstance(max_tokens, int)
+        or isinstance(max_tokens, bool)
+        or max_tokens < MIN_MAX_TOKENS_FOR_BUDGET
+    ):
+        raise AnthropicRequestRejected(
+            f"max_tokens must be >= {MIN_MAX_TOKENS_FOR_BUDGET} when thinking.budget_tokens is set"
+        )
     apply_glm53_thinking_budget(out, resolve_thinking_budget(budget, max_tokens))
 
 

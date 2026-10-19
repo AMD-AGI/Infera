@@ -12,6 +12,8 @@ import pickletools
 import re
 from pathlib import Path
 
+import pytest
+
 from infera.engine.sglang.thinking_budget_const import (
     GLM53_NEW_LINE_TOKEN_ID,
     GLM53_THINKING_BUDGET_PROCESSOR_STR,
@@ -34,10 +36,30 @@ def test_is_glm53_model_matches_common_ids():
     assert not is_glm53_model(123)
 
 
-def test_resolve_thinking_budget_clamps_to_max_tokens_minus_one():
+def test_resolve_thinking_budget_leaves_room_for_close_and_answer():
     assert resolve_thinking_budget(1024, 4096) == 1024
-    assert resolve_thinking_budget(10000, 8192) == 8191
-    assert resolve_thinking_budget(1, 2) == 1
+    assert resolve_thinking_budget(10000, 8192) == 8192 - 2 - 1024
+    assert resolve_thinking_budget(31999, 32000) == 32000 - 2 - 1024
+    assert resolve_thinking_budget(1, 4) == 1
+    assert resolve_thinking_budget(100, 10) == 10 - 2 - 2
+
+
+@pytest.mark.parametrize(
+    "budget_tokens,max_tokens",
+    [(31999, 32000), (100000, 32000), (10, 10), (5, 20), (4, 4), (4096, 4096)],
+)
+def test_hard_cap_closes_thinking_and_leaves_answer_room(budget_tokens, max_tokens):
+    start, end, nl = 100, 101, 102
+    prompt = [1, 2, start]
+    budget = resolve_thinking_budget(budget_tokens, max_tokens)
+    output: list[int] = []
+    while len(output) < max_tokens:
+        action = resolve_thinking_budget_action(prompt, output, budget, start, end, nl)
+        output.append(nl if action == "newline" else end if action == "end" else 7)
+        if output[-1] == end:
+            break
+    assert end in output
+    assert max_tokens - len(output) >= 1
 
 
 def test_processor_str_targets_glm53_class():
@@ -116,3 +138,71 @@ def test_thinking_budget_module_imports_when_sglang_present():
 
     assert Glm53ThinkingBudgetLogitProcessor.THINKING_START_TOKEN_ID == 154841
     assert callable(Glm53ThinkingBudgetLogitProcessor())
+
+
+class _CountingList(list):
+    """List that counts element reads so tests can detect prompt rescans."""
+
+    reads = 0
+
+    def __iter__(self):
+        type(self).reads += len(self)
+        return super().__iter__()
+
+    def __getitem__(self, key):
+        type(self).reads += 1
+        return super().__getitem__(key)
+
+
+def _reference_action(origin, output, budget, start, end, nl):
+    """Full-scan reference matching the original semantics."""
+    ids = [*origin, *output]
+    start_index = -1
+    for i, tok in enumerate(ids):
+        if tok == start:
+            start_index = i
+        elif tok == end:
+            start_index = -1
+    if start_index < 0:
+        return None
+    count = len(output) if start_index < len(origin) else len(ids) - start_index - 1
+    if count < budget:
+        return None
+    return "newline" if not output or output[-1] != nl else "end"
+
+
+def test_incremental_state_matches_full_scan():
+    import random
+
+    start, end, nl = 100, 101, 102
+    rng = random.Random(7)
+    for _ in range(300):
+        origin = [rng.choice([1, 2, start, end, nl]) for _ in range(rng.randint(0, 12))]
+        budget = rng.randint(0, 6)
+        state: dict = {}
+        output: list[int] = []
+        for _ in range(rng.randint(0, 25)):
+            output.append(rng.choice([7, 8, start, end, nl]))
+            got = resolve_thinking_budget_action(origin, output, budget, start, end, nl, state)
+            assert got == _reference_action(origin, output, budget, start, end, nl)
+
+
+def test_incremental_state_does_not_rescan_prompt():
+    start, end, nl = 100, 101, 102
+    origin = _CountingList([1, 2, 3, start] + [5] * 5000)
+    state: dict = {}
+    output: list[int] = []
+    resolve_thinking_budget_action(origin, output, 1000, start, end, nl, state)
+    reads_after_first = _CountingList.reads
+    for tok in range(50):
+        output.append(7 + tok)
+        resolve_thinking_budget_action(origin, output, 1000, start, end, nl, state)
+    assert _CountingList.reads == reads_after_first
+
+
+def test_incremental_state_recovers_when_output_is_reset():
+    start, end, nl = 100, 101, 102
+    origin = [1, start]
+    state: dict = {}
+    assert resolve_thinking_budget_action(origin, [7, 8, 9], 3, start, end, nl, state) == "newline"
+    assert resolve_thinking_budget_action(origin, [7], 3, start, end, nl, state) is None

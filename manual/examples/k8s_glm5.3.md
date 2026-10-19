@@ -220,6 +220,11 @@ The [`glm5.3/disaggregated`](../../examples/recipes/glm5.3/README.md) recipe
 documents both knobs. OpenAI `/v1/chat/completions` clients must not supply
 their own `custom_logit_processor` / `custom_params` — the router returns 400.
 
+With the worker flag on, a worker deserializes the request-supplied processor
+with `dill`. Worker ports must be reachable only from the router / frontend
+pods (for example through a Kubernetes NetworkPolicy), never from other
+workloads or outside the cluster.
+
 ## 5. What this shape is, and what it is not
 
 | | |

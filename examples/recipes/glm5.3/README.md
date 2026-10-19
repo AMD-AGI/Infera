@@ -24,6 +24,14 @@ Without the worker flag, injected processors make SGLang raise
 `chat_template_kwargs` are forwarded (requests still succeed). OpenAI clients
 must not send `custom_logit_processor` / `custom_params` — those return HTTP 400.
 
+**Network exposure.** With `--enable-custom-logit-processor`, a worker
+deserializes the request-supplied `custom_logit_processor` with `dill`, so any
+client that can reach a worker port can run code on that worker. The router
+filters the field on its OpenAI endpoints; direct worker traffic is not
+filtered. Worker ports must be reachable only from the router / frontend pods
+(for example through a Kubernetes NetworkPolicy) and never exposed outside the
+cluster.
+
 ---
 
 ## What was validated

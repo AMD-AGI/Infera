@@ -71,15 +71,15 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
             req = param_dict.get("__req__")
             if req is None:
                 continue
-            origin = list(getattr(req, "origin_input_ids", None) or [])
-            output = list(getattr(req, "output_ids", None) or [])
+            # Per-request scan cache; param_dict lives as long as the request.
             action = resolve_thinking_budget_action(
-                origin_input_ids=origin,
-                output_ids=output,
+                origin_input_ids=getattr(req, "origin_input_ids", None) or [],
+                output_ids=getattr(req, "output_ids", None) or [],
                 thinking_budget=thinking_budget,
                 start_id=self.THINKING_START_TOKEN_ID,
                 end_id=self.THINKING_END_TOKEN_ID,
                 newline_id=self.NEW_LINE_TOKEN_ID,
+                state=param_dict.setdefault("__thinking_scan__", {}),
             )
             if action is None:
                 continue
