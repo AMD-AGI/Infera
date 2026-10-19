@@ -221,3 +221,12 @@ mtp0-200 51 步、61 条；dly2000-200 40 步、61 条——像是每个 EXTEND 
 （`--kv-canary log --kv-canary-real-data PARTIAL --kv-canary-sweep-interval 50`）：写 KV 时记内容哈希、读和定期巡检时校验。
 有违规说明 graph decode 里有写坏别人 KV 的（如填充行），没有则问题在 hidden state / logits 一侧。配置简化为关 MTP、关 HiCache
 （v0.5.19 / v0.5.20 上这个配置同样乱码），并跑同配置不开 canary 的对照 mtp0hc0-200。
+
+| 变体 | 设置 | correct | 模板标签乱码 | runaway |
+|---|---|---|---|---|
+| mtp0hc0-200 | 关 MTP、关 HiCache（graph 开） | 0.695 | 53 | 59 |
+| canary-200 | mtp0hc0 + `--kv-canary log --kv-canary-real-data partial --kv-canary-sweep-interval 50` | 起不来：kv-canary 不支持 `DSATokenToKVPool` | | |
+
+最简配置（只剩 DP attention + decode graph + delayer + 融合算子）在我们的镜像上同样乱码；KV canary 只支持 MHA / SWA / DSv4 的池，
+GLM-5.2 用不了。现成的开关到此基本用完，再往下要在引擎里插桩（比如每隔 N 步把同一批用 eager 再算一遍、比对 graph 回放的 logits），
+留作下一步。23:00 起 138 换去跑 b2（agg 套件，piggyback 的同节点对照），期间不跑排查。
