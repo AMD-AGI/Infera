@@ -553,7 +553,14 @@ def _decode_radix_cache_unsupported_reason(server_args) -> str | None:
             mamba2_config,
         )
 
-        model_config = server_args.get_model_config()
+        get_model_config = getattr(server_args, "get_model_config", None)
+        if get_model_config is not None:
+            model_config = get_model_config()
+        else:
+            # SGLang >= v0.5.22 builds the ModelConfig from the arguments record.
+            from sglang.srt.arg_groups.model_override_base import model_config_of
+
+            model_config = model_config_of(server_args)
 
         if model_config.is_hybrid_swa:
             return "sliding window attention (SWA) models"

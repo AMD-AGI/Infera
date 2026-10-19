@@ -80,6 +80,13 @@ def to_chat_body(body: dict) -> dict | None:
     # property, and gpt-oss ships a Jinja chat template the ordinary path
     # handles.
     shim: Any = OpenAIServingResponses.__new__(OpenAIServingResponses)
+    # SGLang >= v0.5.22 reads this __init__ attribute in _construct_input_messages:
+    # True keeps mid-conversation system messages in place, False coalesces them
+    # into one leading system message. The engine derives it from the chat
+    # template, which is not available here; False is the answer for every
+    # Jinja template that cannot render them inline, and differs from the
+    # engine only for a body that interleaves system messages on such a model.
+    shim.supports_inline_system = False
     try:
         messages = shim._construct_input_messages(request, None)
         chat_tools = shim._response_tools_to_chat_tools(request)

@@ -282,18 +282,17 @@ def test_an_aggregated_worker_on_chunk_cache_has_no_clear_event_either(monkeypat
 
 
 def test_a_decode_leg_is_read_off_the_argv_not_the_resolved_attribute(monkeypatch):
-    """SGLang's pd_disaggregation_hook sets server_args.disable_radix_cache =
-    True for *every* decode leg, before infera appends the flag that turns it
-    back off. Reading that attribute in decode mode -- the obvious way to write
-    the check added above -- reports ChunkCache for a leg that will run a radix
-    cache, and skips the one flush that had a chain to re-anchor."""
+    """SGLang's pd_disaggregation_hook resolves disable_radix_cache = True for
+    *every* decode leg, before infera appends the flag that turns it back off.
+    Up to v0.5.21 it overwrote the attribute; v0.5.22 records a resolution and
+    the field keeps its CLI value. Either way the attribute does not tell
+    whether the leg will run a radix cache. Reading it in decode mode -- the
+    obvious way to write the check added above -- could report ChunkCache for a
+    leg that runs a radix cache, and skip the one flush that had a chain to
+    re-anchor."""
     _reason(monkeypatch, None)
     args = parse_sglang_args(_DECODE)
     assert _FLAG in args.sglang_argv
-    assert args.server_args.disable_radix_cache is True, (
-        "sglang stopped forcing the attribute for decode legs; the argv read "
-        "below is now belt-and-braces rather than load-bearing"
-    )
     assert no_clear_event_reason(args) is None
 
 
