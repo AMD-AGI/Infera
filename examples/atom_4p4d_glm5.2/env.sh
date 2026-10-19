@@ -54,6 +54,11 @@ export DECODE_GPUS="${DECODE_GPUS:-4,5,6,7}"
 # 2 x CONC (also of a DCP prefill); restart the engines to change it.
 export CONC="${CONC:-48}"
 
+# Spacing of the CUDA-graph batch sizes above 8. A batch runs in the next
+# larger graph, so a finer step pads fewer rows per decode step at the cost of
+# more graphs (capture time and graph memory).
+export DECODE_GRAPH_STEP="${DECODE_GRAPH_STEP:-4}"
+
 # MTP draft depth: K3 at CONC >= 48, K4 below, as in the reference runs.
 export MTP_K="${MTP_K:-$((CONC >= 48 ? 3 : 4))}"
 

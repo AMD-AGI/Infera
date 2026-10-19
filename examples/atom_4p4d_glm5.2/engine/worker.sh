@@ -41,10 +41,11 @@ env=(
     TRITON_CACHE_DIR=/root/.cache/triton TORCHINDUCTOR_CACHE_DIR=/root/.cache/inductor
 )
 
-# Graph capture bounded by the concurrency: 1, 2, 4, 8, then every 4 up to 2 x CONC.
-# Left unset, a DCP prefill would capture up to batch 512; a PP prefill runs eager.
+# Graph capture bounded by the concurrency: 1, 2, 4, 8, then every
+# DECODE_GRAPH_STEP up to 2 x CONC. Left unset, a DCP prefill would capture up
+# to batch 512; a PP prefill runs eager.
 cudagraph="[1,2,4,8"
-for ((size = 12; size <= 2 * CONC; size += 4)); do cudagraph+=",$size"; done
+for ((size = 8 + DECODE_GRAPH_STEP; size <= 2 * CONC; size += DECODE_GRAPH_STEP)); do cudagraph+=",$size"; done
 cudagraph+="]"
 
 # kv_mooncake KV_ROLE HANDSHAKE_PORT HTTP_PORT
