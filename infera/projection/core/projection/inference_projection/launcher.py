@@ -450,6 +450,13 @@ def _print_des(des: dict[str, object]) -> None:
         f"  Simulated: {point.num_requests} requests over {point.makespan_ms / 1000.0:.2f} s  "
         f"→ system throughput {point.system_throughput_tps:.0f} tok/s"
     )
+    stalled = float((point.packing or {}).get("stalled_reqs") or 0.0)
+    if stalled:
+        print(
+            f"  WARNING: the run stopped early with {stalled:.0f} request(s) that could never "
+            "be scheduled (prompt past --max-context-len, or a reservation past the KV pool); "
+            "the figures cover only what finished before it."
+        )
     print("-" * 100)
     print(f"  {'metric':<22}{'mean':>12}{'p50':>12}{'p90':>12}{'p99':>12}")
 
@@ -491,6 +498,21 @@ def _print_des(des: dict[str, object]) -> None:
             f"evictions={int(pfx.get('evictions', 0))}, "
             f"block-reuse={pfx.get('block_hit_rate', 0.0) * 100:.1f}%"
         )
+        tiers = pfx.get("tiers")
+        if isinstance(tiers, dict):
+            pk_ = getattr(point, "packing", None) or {}
+            parts = [
+                f"{nm} {t.get('hit_blocks_frac', 0.0) * 100:.1f}%"
+                f" ({int(t.get('capacity_blocks', 0))} blocks)"
+                for nm, t in tiers.items()
+            ]
+            print(f"  KV tiers (share of prompt blocks hit, capacity): {', '.join(parts)}")
+            if pk_.get("tier_load_reqs"):
+                print(
+                    f"  Tier loads: {pk_.get('tier_load_reqs', 0.0):.0f} request(s) per "
+                    f"instance waited a mean {pk_.get('tier_load_ms_mean', 0.0):.1f} ms "
+                    f"for blocks below HBM"
+                )
         print(
             f"  Prefix-cache hit rate: {pfx.get('hit_rate', 0.0) * 100:.1f}% of requests "
             f"(avg {pfx.get('avg_cached_tokens', 0.0):.0f} cached tok/req; "
@@ -934,6 +956,8 @@ def launch_projection_from_cli(args, overrides):
         perf = projector.project()
         _print_performance(inference_config, perf, getattr(args, "gpu_cost_per_hour", None))
         results["performance"] = perf
+        results["calibrated"] = projector.is_benchmark_calibrated
+        results["anchor"] = load_bench if projector.is_benchmark_calibrated else None
 
         # Phase 3: opt-in discrete-event simulation for arrival-driven
         # percentiles. Reuses ``projector`` as the (possibly benchmark-
@@ -954,7 +978,44 @@ def launch_projection_from_cli(args, overrides):
             or closed_loop
         )
         if run_des_enabled:
-            from .des import run_des
+            from .des import _DEFAULT_BLOCK_SIZE, run_des
+            from .kv_tiers import describe, hbm_kv_pool_tokens, kv_bytes_per_token, resolve_tiers
+
+            kv_tiers = resolve_tiers(
+                getattr(args, "kv_tier", None),
+                req.kv_offload_gb_per_gpu,
+                req.kv_offload_bw_gbps,
+            )
+            des_kv_tokens = int(getattr(args, "des_kv_cache_tokens", 0) or 0)
+            des_kv_blocks = int(getattr(args, "des_kv_blocks", 0) or 0)
+            des_shares_pool = bool(getattr(args, "des_cache_shares_pool", False))
+            des_bs = int(getattr(args, "des_block_size", 0) or 0) or _DEFAULT_BLOCK_SIZE
+            bpt = kv_bytes_per_token(inference_config) if kv_tiers else 0.0
+            if (kv_tiers or getattr(args, "des_kv_pool_from_memory", False)) and not des_kv_tokens:
+                des_kv_tokens = hbm_kv_pool_tokens(inference_config, hbm_gb)
+                if des_kv_tokens:
+                    print(
+                        f"[inferasim:Inference] DES KV pool from the memory projection: "
+                        f"{des_kv_tokens} tokens per replica"
+                    )
+                    if not des_kv_blocks:
+                        # The cache lives in the same pool as the running set.
+                        des_kv_blocks = max(1, des_kv_tokens // des_bs)
+                        des_shares_pool = True
+                else:
+                    print(
+                        "[inferasim:Inference] no HBM capacity to size the DES KV pool "
+                        "from (--hbm-capacity-gb); HBM block cache left unbounded."
+                    )
+            if kv_tiers:
+                seq = max(1, req.input_seq_len + req.output_seq_len)
+                if des_kv_tokens:
+                    print(
+                        f"[inferasim:Inference] KV tier hbm: {des_kv_tokens / 1e6:.2f}M tokens, "
+                        f"{des_kv_tokens // seq} seqs of {seq}"
+                    )
+                for line in describe(kv_tiers, bpt, des_bs, seq):
+                    print(f"[inferasim:Inference] KV tier {line}")
 
             des = run_des(
                 inference_config,
@@ -971,7 +1032,7 @@ def launch_projection_from_cli(args, overrides):
                 sweep=bool(getattr(args, "des_sweep", False)),
                 burstiness=float(getattr(args, "des_burstiness", 1.0) or 1.0),
                 range_ratio=float(getattr(args, "des_range_ratio", 1.0) or 1.0),
-                kv_cache_tokens=int(getattr(args, "des_kv_cache_tokens", 0) or 0),
+                kv_cache_tokens=des_kv_tokens,
                 workload_file=workload_file,
                 record_steps=bool(dump_steps),
                 num_instances=int(getattr(args, "des_instances", 1) or 1),
@@ -982,16 +1043,18 @@ def launch_projection_from_cli(args, overrides):
                 prefix_zipf=float(getattr(args, "des_prefix_zipf", 0.0) or 0.0),
                 cache_slots=int(getattr(args, "des_cache_slots", 0) or 0),
                 block_size=int(getattr(args, "des_block_size", 0) or 0),
-                cache_blocks=int(getattr(args, "des_kv_blocks", 0) or 0),
+                cache_blocks=des_kv_blocks,
                 mooncake_trace=mooncake_trace,
                 duration_ms=float(getattr(args, "des_duration_s", 0.0) or 0.0) * 1000.0,
                 closed_loop=closed_loop,
                 closed_loop_think_ms=float(getattr(args, "des_client_think_ms", 0.0) or 0.0),
                 closed_loop_idle_cap_ms=float(getattr(args, "des_client_idle_cap_ms", 0.0) or 0.0),
-                cache_shares_pool=bool(getattr(args, "des_cache_shares_pool", False)),
+                cache_shares_pool=des_shares_pool,
                 whole_context_residency=bool(getattr(args, "des_whole_context_residency", False)),
                 prefill_exclusive=bool(getattr(args, "des_exclusive_prefill", False)),
                 new_seqs_per_step=int(getattr(args, "des_new_seqs_per_step", 0) or 0),
+                kv_tiers=kv_tiers,
+                kv_bytes_per_token=bpt,
             )
             _print_des(des)
             results["des"] = des

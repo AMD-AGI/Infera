@@ -46,6 +46,7 @@ class _Anchored:
     _measured_verify_step_scale = InferencePerformanceProjector._measured_verify_step_scale
     _spec_tokens_per_step = InferencePerformanceProjector._spec_tokens_per_step
     _verify_width_ratio = InferencePerformanceProjector._verify_width_ratio
+    _verify_key = InferencePerformanceProjector._verify_key
 
     def __init__(
         self,
@@ -180,6 +181,23 @@ def test_the_modelled_widening_stays_between_one_step_and_one_per_position(wide_
     """
     p = _Anchored(spec_k=3, accept=0.8, anchor_spec_k=0, step_ms={1: 10.0, 4: wide_ms})
     assert p._measured_verify_step_scale() == pytest.approx(expected)
+
+
+def test_overhead_the_model_does_not_carry_is_not_widened():
+    """A measured step well above the modelled forward is mostly launches and
+    syncs that run once per step, not once per query position. Only the
+    modelled increment is added; scaling the whole step by the modelled ratio
+    made MTP3 on GLM-5.2 at four clients slower than not speculating.
+    """
+    # The GLM-5.2-MXFP4 TP4 C4 numbers: 2.9 ms modelled, 8.0 ms 4-wide, 11.6 measured.
+    p = _Anchored(spec_k=3, accept=0.75, anchor_spec_k=0, step_ms={1: 2.9, 4: 8.0})
+    scale = p._measured_verify_step_scale(4, 1024, 11.6)
+    assert scale == pytest.approx(1.0 + 5.1 / 11.6)
+    assert 11.6 * scale / p._spec_tokens_per_step() < 11.6, "MTP has to pay off here"
+    # An anchor at or below the modelled level keeps the ratio, the smaller charge.
+    assert p._measured_verify_step_scale(4, 1024, 2.0) == pytest.approx(8.0 / 2.9)
+    # Without the measured step the ratio stands, as before.
+    assert p._measured_verify_step_scale(4, 1024) == pytest.approx(8.0 / 2.9)
 
 
 def test_no_speculation_leaves_the_measured_step_alone():
