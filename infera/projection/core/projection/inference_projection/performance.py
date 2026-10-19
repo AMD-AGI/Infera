@@ -907,7 +907,7 @@ class InferencePerformanceProjector:
             return self._decode_kv_slope_ms
         return self._loglog_transport(batch, pts) if len(pts) >= 2 else pts[0][1]
 
-    def _kv_dtype_delta_ms(self, batch: int, context: float) -> float:
+    def _kv_dtype_delta_ms(self, batch: int, context: float, ref: float | None = None) -> float:
         """Decode-step cost of the target's resident KV over the anchor's --
         another dtype, another context, or both -- priced by the analytic step
         at the target view.
@@ -916,14 +916,15 @@ class InferencePerformanceProjector:
         and the measured step carries the anchor's KV, at the anchor's width
         and length, with nothing to scale it by. The anchor's decode ran from
         its prompt length to prompt plus output, so that midpoint is what it
-        read."""
-        key = (int(batch), int(context) // 256)
+        read. ``ref`` overrides that context, so ``ref=context`` prices the
+        dtype alone."""
+        key = (int(batch), int(context) // 256, None if ref is None else int(ref) // 256)
         memo = self._kv_delta_memo
         if key in memo:
             return memo[key]
         rc = self.cfg.request_config
         tgt = rc.kv_cache_dtype
-        ref = int(self._decode_ctx_mid or context)
+        ref = int(self._decode_ctx_mid or context) if ref is None else int(ref)
         delta = 0.0
         try:
             t = self._forward_times(max(1, batch), 1, "decode", max(1, int(context))).total_ms
@@ -988,10 +989,23 @@ class InferencePerformanceProjector:
                 # step, which is weights and compute and does not go away.
                 slope = self._decode_kv_slope_at(batch)
                 r = getattr(self, "_kv_bytes_ratio", 1.0)
-                base = max(
-                    base + slope * (r * float(context) - self._decode_ctx_ref),
-                    self._decode_floor_ms(batch),
-                )
+                if r != 1.0 and self._sparse_decode_reads():
+                    # A bounded read barely grows with context, so the fitted
+                    # slope is near zero and scaling context by the byte ratio
+                    # prices nothing; the other dtype still doubles what the
+                    # selected set costs to read. Priced analytically at the
+                    # target's own context, so only the dtype moves.
+                    base = max(
+                        base
+                        + slope * (float(context) - self._decode_ctx_ref)
+                        + self._kv_dtype_delta_ms(batch, float(context), ref=float(context)),
+                        self._decode_floor_ms(batch),
+                    )
+                else:
+                    base = max(
+                        base + slope * (r * float(context) - self._decode_ctx_ref),
+                        self._decode_floor_ms(batch),
+                    )
             elif context is not None and (
                 getattr(self, "_kv_bytes_ratio", 1.0) != 1.0
                 or (
