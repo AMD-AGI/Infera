@@ -226,10 +226,16 @@ that ref B.1's wiring is absent, so the image failed its own dma-buf assertion.
 | `mooncake_cpp/rdma_dest_local_rail.diff` | Decode NICs wrote GPU memory across sockets and several NICs wrote one GPU, dropping frames inside the NIC; `MC_ENABLE_DEST_LOCAL_RAIL=1` pins each destination GPU to one HCA used on both hosts | none | [Mooncake#4540](https://github.com/kvcache-ai/Mooncake/pull/4540) | yes (`llying-001`) | DRAFT; SGLang builds only |
 | `mooncake_cpp/rdma_ack_timeout.diff` | the RC ACK timeout is hardcoded at exponent 14 (about 67 ms), shorter than sender-NIC stalls; `MC_IB_TIMEOUT` makes it configurable, default unchanged | none | [Mooncake#4541](https://github.com/kvcache-ai/Mooncake/pull/4541) | yes (`llying-001`) | DRAFT; SGLang builds only |
 
-The two RDMA diffs come from the cross-rank Mooncake RCA on MI355X/ionic: with
-`MC_ENABLE_DEST_LOCAL_RAIL=1 MC_IB_TIMEOUT=18`, C80 transfer failures went from 51
-to 0 and a 64-pair GPU matrix passed. A full ROCm image build and multi-node run
-of this extraction are still pending. Retire each diff when the pinned ref
+The two RDMA diffs come from the cross-rank Mooncake RCA on MI355X/ionic, where the
+original three-patch build took C80 transfer failures from 51 to 0. This extraction
+was validated on its own: Mooncake rebuilt by `build_mooncake_sglang.sh` with these
+two diffs, on two node pairs (P8D8, C80, 1200 s, `PD_DP_RANK_AFFINITY=0`). With both
+switches unset, 41 cross-rank transfer failures reproduce. With
+`MC_ENABLE_DEST_LOCAL_RAIL=1 MC_IB_TIMEOUT=18` on both legs, three runs had 0 transfer
+failures at the original fix's throughput, and a 64-pair GPU matrix passed with no NIC
+loss. `Dockerfile.sglang` and the overlay's `mooncake310` stage build;
+`Dockerfile.sglang.glm53` gets through its Mooncake stage and then stops at the
+sglang_disagg re-anchor step, as it does on main. Retire each diff when the pinned ref
 carries its upstream PR.
 
 Two files were deleted once the pinned ref carried them; see **Retired** below.
