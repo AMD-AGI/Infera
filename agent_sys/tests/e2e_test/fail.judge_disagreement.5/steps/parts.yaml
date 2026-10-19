@@ -1,0 +1,132 @@
+# Validators first, then kinds, then tasks.
+
+- module: validator
+  name: check_review_shape
+  version: '1'
+  brief: Every review row is complete with student, verdict, and comment
+  dimension: completeness
+  strength: strong
+  inputs: [review_x, review_y]
+  args:
+    required_row_keys: [student, verdict, comment]
+    valid_verdicts: [accept, revise]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [runtime]
+
+- module: validator
+  name: check_agree
+  version: '1'
+  brief: The merged review has an empty disagreement list
+  dimension: trustworthiness
+  strength: strong
+  inputs: [review]
+  tags:
+    logic_source: external_static
+    cost: seconds
+    domain: [runtime]
+
+- module: handoff
+  name: review_x
+  version: '1'
+  description: Reviewer X's verdict on each student.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_review_shape]
+
+- module: handoff
+  name: review_y
+  version: '1'
+  description: Reviewer Y's verdict on each student, independently.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_review_shape]
+
+- module: handoff
+  name: review
+  version: '1'
+  description: The two reviewers' verdicts merged, with every disagreement listed.
+  content_type: structured_text
+  scope: fixed.required
+  items_schema:
+    type: object
+    additionalProperties: false
+    required: ['text.json']
+    properties:
+      'text.json': {type: string}
+  validators: [check_agree]
+
+- module: task
+  name: judge_x
+  description: Reviewer X judges each student.
+  agent: runner
+  handoffs: [review_x]
+  validators: [check_review_shape]
+  task:
+    goal: Judge each student and write a review.
+    version: '1'
+    inputs: []
+    outputs: [review_x]
+    permissions:
+      grants:
+        - {path: handoffs/review_x, access: write, kind: review_x}
+
+- module: task
+  name: judge_y
+  description: Reviewer Y judges each student, independently.
+  agent: runner
+  handoffs: [review_y]
+  validators: [check_review_shape]
+  task:
+    goal: Judge each student and write a review.
+    version: '1'
+    inputs: []
+    outputs: [review_y]
+    permissions:
+      grants:
+        - {path: handoffs/review_y, access: write, kind: review_y}
+
+- module: task
+  name: reconcile
+  description: Merge the two reviews, listing every disagreement.
+  agent: runner
+  handoffs: [review_x, review_y, review]
+  validators: [check_review_shape, check_agree]
+  task:
+    goal: Merge the two reviews and list every disagreement.
+    version: '1'
+    inputs: [review_x, review_y]
+    outputs: [review]
+    permissions:
+      grants:
+        - {path: handoffs/review_x, access: read, kind: review_x}
+        - {path: handoffs/review_y, access: read, kind: review_y}
+        - {path: handoffs/review, access: write, kind: review}
+
+- module: task
+  name: downstream
+  description: Consume the review. Never runs because review is sealed INVALID.
+  agent: runner
+  handoffs: [review]
+  validators: [check_agree]
+  task:
+    goal: Process the merged review.
+    version: '1'
+    inputs: [review]
+    outputs: []
+    permissions:
+      grants:
+        - {path: handoffs/review, access: read, kind: review}

@@ -1,0 +1,43 @@
+{
+  "at": "2026-10-15T07:13:44Z",
+  "run_tag": "selftest-r16aea3",
+  "router": "http://127.0.0.1:18121",
+  "expected_mode": "mixed",
+  "served_model_name": "Qwen3.6-27B",
+  "router_disagg_modes": [
+    "mixed"
+  ],
+  "worker_ready_line_mode": "disagg=DisaggMode.MIXED",
+  "model_ids": [
+    "Qwen3.6-27B"
+  ],
+  "finish_reason": "stop",
+  "content": "\n\nParis",
+  "reasoning_chars": 554,
+  "usage": {
+    "prompt_tokens": 22,
+    "total_tokens": 182,
+    "completion_tokens": 160,
+    "prompt_tokens_details": null,
+    "reasoning_tokens": 157
+  },
+  "engine_cuda_graph_max_bs_decode": 32,
+  "engine_cuda_graph_backend_decode": "full",
+  "engine_mem_fraction_static": 0.7224999999999999,
+  "engine_context_length": 32768,
+  "engine_max_running_requests": null,
+  "engine_reasoning_parser": "qwen3",
+  "kit_cuda_graph_max_bs": 32,
+  "criteria": {
+    "router_health_200": true,
+    "worker_active": true,
+    "router_reports_mode": true,
+    "worker_reports_mode": true,
+    "models_equal_served_name": true,
+    "no_model_id_is_a_path": true,
+    "finish_reason_stop": true,
+    "content_nonempty": true,
+    "response_model_is_served_name": true
+  },
+  "all_pass": true
+}

@@ -1,0 +1,22 @@
+schema_version: 1
+fixed:
+  node: smc300x-ccs-aus-a16-19
+  image: infera:sglang-gfx942-glm52
+  model_name: Qwen/Qwen3.6-27B
+  model_path: /data/yihou_hf_cache/models/Qwen3.6-27B
+  tp_size: 1
+  served_model_name: Qwen/Qwen3.6-27B
+  gpu_arch: gfx942
+  gpu_count: 8
+  image_id: sha256:c05d2bebe442e8e0ea7c0d25a446ef6984a73c2eac5c5f048b77c708fd080818
+  rocm: 7.2.0
+  torch: 2.9.1+rocm7.2.0.git7e1940d4
+  sglang: 0.5.16
+runtime:
+  container: yihou_l3_measure_naive6
+  transport: local
+  started_at: '2026-10-15T16:19:25Z'
+  endpoint: http://127.0.0.1:30000
+  notes: Fixture record for a standalone operator measurement. No engine was served;
+    endpoint names no running server. container is the ephemeral measurement container
+    (GPU 4, --rm).

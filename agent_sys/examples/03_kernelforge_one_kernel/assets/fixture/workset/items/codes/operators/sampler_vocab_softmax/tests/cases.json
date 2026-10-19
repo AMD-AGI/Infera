@@ -1,0 +1,57 @@
+{
+  "operator_id": "sampler_vocab_softmax",
+  "kernel_id": null,
+  "device_symbol": "void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_merge_sort_block_merge_config<rocprim::ROCPRIM_400200_NS::default_config, float, at::cuda::cub::detail::OpaqueType<8> >, (rocprim::ROCPRIM_400200_NS::detail::target_arch)942, rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config, float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*, bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*, unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1, auto:2, auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2}, rocprim::ROCPRIM_400200_NS::detail::merge_mergepath_config_selector>(rocprim::ROCPRIM_400200_NS::detail::merge_sort_block_merge_impl<rocprim::ROCPRIM_400200_NS::default_config, float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer> >(float*, at::cuda::cub::detail::OpaqueType<8>*, unsigned int, unsigned int, rocprim::ROCPRIM_400200_NS::detail::radix_merge_compare<false, false, float, rocprim::ROCPRIM_400200_NS::identity_decomposer>, ihipStream_t*, bool, std::iterator_traits<float*>::value_type*, std::iterator_traits<at::cuda::cub::detail::OpaqueType<8>*>::value_type*, unsigned int*, rocprim::ROCPRIM_400200_NS::detail::vsmem_t)::{lambda(auto:1, auto:2, auto:3, auto:4)#1}::operator()<float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*>(float*, float*, at::cuda::cub::detail::OpaqueType<8>*, at::cuda::cub::detail::OpaqueType<8>*) const::{lambda(auto:1)#2})",
+  "snr_threshold_db": 30.0,
+  "generated_from": [
+    "definition",
+    "workload"
+  ],
+  "cases": [
+    {
+      "case_id": "B16_V248320",
+      "selector": {
+        "CASE_ID": "B16_V248320",
+        "BATCH": 16
+      },
+      "uuid": "0000000000000000",
+      "axes": {
+        "vocab": 248320,
+        "batch": 16
+      },
+      "is_primary": false,
+      "synthetic": true,
+      "role": "correctness-and-performance"
+    },
+    {
+      "case_id": "B32_V248320",
+      "selector": {
+        "CASE_ID": "B32_V248320",
+        "BATCH": 32
+      },
+      "uuid": "0000000000000001",
+      "axes": {
+        "vocab": 248320,
+        "batch": 32
+      },
+      "is_primary": true,
+      "synthetic": true,
+      "role": "correctness-and-performance"
+    },
+    {
+      "case_id": "B64_V248320",
+      "selector": {
+        "CASE_ID": "B64_V248320",
+        "BATCH": 64
+      },
+      "uuid": "0000000000000002",
+      "axes": {
+        "vocab": 248320,
+        "batch": 64
+      },
+      "is_primary": false,
+      "synthetic": true,
+      "role": "correctness-and-performance"
+    }
+  ]
+}

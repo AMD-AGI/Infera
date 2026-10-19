@@ -1,0 +1,34 @@
+# Level 2 of the demo ladder (`../README.md`): profile Qwen3.6 online and offline.
+#
+# Stage 1 deploys the model (as in 02a_sglang_serve_qwen36); stage 2 replays
+# the same load twice — once with the profiler off, once with it on — and merges
+# the bench numbers, the torch trace and the kernel table into one evidence
+# handoff. Both stages are e2e-flow's, reused by link: steps/*.yaml, shared.yaml
+# and assets/<object> point into ../llm_e2e_performance_optimization/e2e-flow.
+module: task
+name: main
+description: Deploy Qwen3.6 on sglang, then bench it with the profiler off and on - e2e-flow's stages 1 and 2.
+handoffs:
+  - deploy_kit
+  - profiling_mode_off.bench_result
+  - profiling_mode_on.bench_result
+  - profiling_mode_on.profile_result
+  - profiling_mode_on.kernel_table
+  - profiling_evidence
+validators: []
+task:
+  goal: Deploy the model, then profile it with the profiler off and on.
+  version: '1'
+  inputs: []
+  outputs: [profiling_evidence]
+  permissions:
+    grants:
+      - {path: handoffs/deploy_kit, access: write, kind: deploy_kit}
+      - {path: handoffs/profiling_mode_off.bench_result, access: write, kind: profiling_mode_off.bench_result}
+      - {path: handoffs/profiling_mode_on.bench_result, access: write, kind: profiling_mode_on.bench_result}
+      - {path: handoffs/profiling_mode_on.profile_result, access: write, kind: profiling_mode_on.profile_result}
+      - {path: handoffs/profiling_mode_on.kernel_table, access: write, kind: profiling_mode_on.kernel_table}
+      - {path: handoffs/profiling_evidence, access: write, kind: profiling_evidence}
+  subgraph:
+    - {closure: m1_deploy, froms: []}
+    - {closure: m2_profiling, froms: [m1_deploy], is_end: true}

@@ -1,0 +1,51 @@
+{
+  "name": "sampler_vocab_softmax",
+  "op_type": "softmax",
+  "axes": {
+    "batch": {
+      "type": "var",
+      "description": "Concurrent decode requests; rows of the logits tensor."
+    },
+    "vocab": {
+      "type": "const",
+      "value": 248320,
+      "description": "Vocabulary size of Qwen3.6-27B (config.json vocab_size). Fixed by the model."
+    }
+  },
+  "inputs": {
+    "logits": {
+      "shape": [
+        "batch",
+        "vocab"
+      ],
+      "dtype": "float32",
+      "description": "Raw logits."
+    },
+    "out": {
+      "shape": [
+        "batch",
+        "vocab"
+      ],
+      "dtype": "float32",
+      "description": "Pre-allocated output. The production call site is `logits[:] = ...`, so a replacement that allocates is not substitutable."
+    }
+  },
+  "outputs": {
+    "out": {
+      "shape": [
+        "batch",
+        "vocab"
+      ],
+      "dtype": "float32",
+      "description": "Probabilities."
+    }
+  },
+  "reference": "from __future__ import annotations\nimport torch\n\n\ndef _reference(logits: torch.Tensor, out: torch.Tensor) -> torch.Tensor:\n    \"\"\"Row-wise softmax in float64. Slow and unambiguous.\"\"\"\n    out.copy_(torch.softmax(logits.double(), dim=-1).to(out.dtype))\n    return out\n\n\n# ----- entry point -----\ndef run(*args, **kwargs):\n    return _reference(*args, **kwargs)\n",
+  "baseline": "from __future__ import annotations\nimport torch\n\n\ndef sampler_softmax(logits: torch.Tensor, out: torch.Tensor) -> torch.Tensor:\n    \"\"\"A deliberately naive softmax: one row at a time, the max found by sorting.\n\n    Writes in place into `out`, which may be `logits` itself (the engine's call\n    site is `sampler_softmax(logits, logits)`): a row is read in full before it\n    is written.\n    \"\"\"\n    for b in range(logits.shape[0]):\n        row = logits[b]\n        m = torch.sort(row).values[-1]\n        e = torch.exp(row - m)\n        out[b] = e / e.sum()\n    return out\n\n\n# ----- entry point -----\ndef run(*args, **kwargs):\n    return sampler_softmax(*args, **kwargs)\n",
+  "tags": [
+    "softmax",
+    "sglang",
+    "triton"
+  ],
+  "description": "Row-wise softmax over the vocabulary, written in place into a caller-provided buffer."
+}

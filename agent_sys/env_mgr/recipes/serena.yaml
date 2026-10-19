@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+#
+# serena — installed from UPSTREAM (git+https://github.com/oraios/serena or
+# PyPI), not built by agent_sys, so this recipe carries no `tags: [internal]`.
+# It only installs the binary; the MCP server registration belongs to
+# whichever agent wants serena, in its own `assets/<agent>.agent/.claude/
+# .mcp.json` (`--project` differs per agent) — see the note at the end of
+# this file.
+#
+# `recipes: [agent_sys:serena]` resolves here via env_mgr's own recipe root
+# (`env_mgr/agent_assets.py::_recipe_paths`); a bare `recipes: [serena]` is
+# not supported.
+version: 1
+
+target:
+  kind: workspace
+  name: serena
+  # Used only as `cwd` for the items below; overridden at run time via
+  # `--path`. A real path here would be one machine's answer in a file
+  # that is data — `subprocess.run` raises if `cwd` doesn't exist.
+  path: /path/to/the/zone/workspace
+
+items:
+  # --- refuse before uv writes outside the zone ---------------------------- #
+  # Without env vars, `uv tool install` writes into ~/.local/share/uv,
+  # ~/.local/bin and ~/.cache/uv — host state shared with every other
+  # tenant. This item fails loudly, before install, if the agent's `env:`
+  # block hasn't set all three variables.
+  - installer: embed
+    importance: required
+    name: uv-tool-dirs-pinned
+    tags: [guard, serena]
+    run: |
+      : "${UV_TOOL_DIR:?unset — uv would install into ~/.local/share/uv, which is host state outside every zone}"
+      : "${UV_TOOL_BIN_DIR:?unset — serena's binaries would land in ~/.local/bin}"
+      : "${UV_CACHE_DIR:?unset — uv would cache into ~/.cache/uv}"
+      mkdir -p "$UV_TOOL_DIR" "$UV_TOOL_BIN_DIR" "$UV_CACHE_DIR"
+
+  # --- the uv toolchain ---------------------------------------------------- #
+  # `required`: this recipe's only job is a `uv tool install`, so a missing
+  # uv means the whole recipe fails — better to say so here than later.
+  - installer: bin
+    importance: required
+    name: uv
+    check_cmd: "uv --version"
+    install: "pip install uv"
+    tags: [toolchain, serena]
+
+  # --- serena itself ------------------------------------------------------- #
+  # `suggested`, not `required`: this install crosses the network to a
+  # third-party host, and env_checker's report should still be produced if
+  # it's unreachable — a `warn` here becomes the "unavailable" status
+  # `check_capabilities_genuine` treats as honest.
+  - installer: uv
+    importance: suggested
+    tool: "git+https://github.com/oraios/serena"
+    provides: serena
+    tags: [lsp, serena]
+
+# The MCP entry for serena is NOT written here: it belongs to the consuming
+# agent's own `.claude/.mcp.json` (see env_checker's `env_probe.agent`).
+# `command` must be the absolute `${UV_TOOL_BIN_DIR}` path — `PATH` is
+# computed before installs run. Set `SERENA_HOME` (not `HOME`) to scope
+# serena's writes; `--project` names the directory serena should index.
