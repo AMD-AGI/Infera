@@ -74,7 +74,7 @@ settings actually started); the other scripts read it and write `smoke/`,
 | max-num-batched-tokens | 8192 | 16384 |
 | mem util | 0.85 | 0.90 |
 | KV connector | `multi`: Mooncake `kv_producer` (4 send workers per stage) + `lmcache_offload` | Mooncake `kv_consumer` |
-| shared | FP8 KV, block 16, prefix caching, MTP (`--method mtp`), online PTPC-FP8 with MXFP4 experts and BF16 MTP layer | |
+| shared | FP8 KV, block 16, prefix caching, MTP (`--method mtp`), online PTPC-FP8 with MXFP4 experts (the MTP layer's quantized online, `MTP_EXPERTS`) and the rest of the MTP layer in BF16 | |
 
 The prefill settings are those of ATOM's GLM-5.2 AgentX recipe
 (`/app/ATOM/recipes/Agentic-GLM-5.2.md` in the image), apart from the send

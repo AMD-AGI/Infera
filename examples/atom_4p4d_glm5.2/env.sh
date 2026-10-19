@@ -68,9 +68,10 @@ export MTP_K="${MTP_K:-$((CONC >= 48 ? 3 : 4))}"
 export MTP_AL="${MTP_AL:-}"
 
 # Routed experts of the MTP layer (78), which the checkpoint keeps in BF16:
-# bf16 as shipped, or mxfp4 to quantize them online at load like the experts
-# of the other layers (the draft MoE then reads a quarter of the weight bytes).
-export MTP_EXPERTS="${MTP_EXPERTS:-bf16}"
+# mxfp4 quantizes them online at load like the experts of the other layers, so
+# the draft MoE reads a quarter of the weight bytes (~1 ms per decode step;
+# GSM8K and real MTP acceptance unchanged); bf16 keeps them as shipped.
+export MTP_EXPERTS="${MTP_EXPERTS:-mxfp4}"
 
 # The prefill memory, chunk, block size, layer split and LMCache load length
 # below follow ATOM's GLM-5.2 AgentX recipe (/app/ATOM/recipes/Agentic-GLM-5.2.md
