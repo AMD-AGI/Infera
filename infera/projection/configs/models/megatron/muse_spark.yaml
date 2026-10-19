@@ -1,0 +1,110 @@
+extends:
+  - language_model.yaml
+
+# Muse Spark Open (GQA + interleaved sliding window + latent MoE)
+# 816B total params, ~42B active.
+# https://huggingface.co/amd/Muse-Spark-Open-816B-A42B-Quark-MXFP4
+#
+# The published checkpoint is an omni model; the vision and audio towers are
+# not described here because no benchmark drives them -- every measured run is
+# text.
+#
+# Attention interleaves three sliding-window layers (2048 tokens) with one
+# full-attention layer, starting at layer 1: 46 of the 62 layers are windowed.
+# The full layers carry no rotary embedding (``layer_rope_theta`` 0), which
+# changes nothing about what they cost.
+sink_sliding_window: 2048
+sink_window_layer_fraction: 0.741935        # 46 / 62
+
+# The MoE is latent: the 256 routed experts act on a 4096-wide projection of
+# the 8192-wide residual (``moe_hidden_size``), with an expert intermediate of
+# 4096. An expert matmul is therefore 4096 x 4096, which is exactly 8192 x 2048
+# in FLOPs and weight bytes, so it is written in residual-width equivalents as
+# Kimi-K3's is, and reproduces the parameter count: 62 layers x 256 experts x
+# 3 x 8192 x 2048 = 798B. The residual->latent projections around the experts
+# (``pre_expert_proj`` / ``post_expert_proj``) are priced from
+# ``moe_latent_hidden_size``. There is no shared expert and no dense layer.
+#
+# AMD's MXFP4 release quantizes the routed experts only, and not those of the
+# first and last layers: attention, the router, the latent projections, the
+# LM head and the experts of layers 0 and 61 stay BF16. Serve it with the
+# ``mxfp4moe`` precision and an fp8 KV cache, as InferenceX does.
+moe_unquantized_expert_layers: 2
+
+tokenizer_type: HuggingFaceTokenizer
+tokenizer_model: amd/Muse-Spark-Open-816B-A42B-Quark-MXFP4
+
+# model architecture
+num_layers: 62
+hidden_size: 8192
+ffn_hidden_size: 16384      # intermediate_size; no layer is dense
+num_attention_heads: 128
+
+# GQA (128 Q heads, 16 KV heads, head_dim 64), gated output (self_attn.gate_proj).
+# The gate is per head: a per-channel one would be 67M weights a layer, putting
+# the model at 820B-A46B against the published 816B-A42B that a per-head gate
+# reproduces.
+group_query_attention: true
+num_query_groups: 16
+kv_channels: 64
+attention_output_gate: true
+attention_output_gate_per_head: true
+
+# Latent MoE, expressed in residual-width equivalents (see header).
+moe_layer_freq: 1
+num_experts: 256
+moe_router_topk: 8
+moe_ffn_hidden_size: 2048                   # 4096 x 4096 == 8192 x 2048
+moe_latent_hidden_size: 4096                # moe_hidden_size
+moe_router_score_function: sigmoid
+moe_router_enable_expert_bias: true
+moe_router_pre_softmax: false
+moe_router_topk_scaling_factor: 1.0         # routed_scaling_factor
+moe_token_dispatcher_type: alltoall
+
+# MoE optimization
+expert_model_parallel_size: 8
+moe_grouped_gemm: true
+moe_use_legacy_grouped_gemm: false
+moe_permute_fusion: true
+
+# The checkpoint ships no MTP head. It is served with RadixArk's DFlash2
+# drafter: five dense, non-causal layers of their own shape (GQA 64 x 128 with
+# 8 KV heads, SwiGLU 28672, 2048-token window, BF16) that draft a block of 8 in
+# one pass from the hidden states of five target layers. InferenceX serves it
+# with 8 draft tokens per verify (7 drafts) and measures acceptance on B200.
+# The drafter's rank-256 token selector is not priced.
+speculative:
+  default: dflash
+  dflash:
+    layers: 5
+    window: 2048
+    ffn: 28672
+    heads: 64
+    kv_heads: 8
+    head_dim: 128
+    fused_layers: 5
+    acceptance:
+      default: musespark_dflash.yaml
+
+rotary_base: 500000
+
+# other settings
+vocab_size: 202048
+make_vocab_size_divisible_by: 64
+max_position_embeddings: 1048576
+swiglu: true
+bias_swiglu_fusion: false
+add_bias_linear: false
+attention_softmax_in_fp32: true
+untie_embeddings_and_output_weights: true   # tie_word_embeddings: false
+hidden_dropout: 0.0
+attention_dropout: 0.0
+
+position_embedding_type: rope
+normalization: RMSNorm
+norm_epsilon: 1.0e-5
+init_method_std: 0.02
+
+apply_rope_fusion: false
+masked_softmax_fusion: false

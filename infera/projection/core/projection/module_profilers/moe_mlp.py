@@ -517,55 +517,73 @@ class MoEMLPProfiler(BaseModuleProfiler):
                 f"M={M}, H={H}, F={F})"
             )
 
-        if batched:
-            # ── Batched model (turbo / vLLM-fused): active experts in parallel ──
-            B = active_local_experts
-            if self.config.model_config.swiglu:
-                gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
-                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
-                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
-                expert_fwd_ms = (
-                    gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
-                )
+        def _routed_expert_ms(gemm_dtype: str) -> float:
+            if batched:
+                # ── Batched model (turbo / vLLM-fused): active experts in parallel ──
+                B = active_local_experts
+                if self.config.model_config.swiglu:
+                    gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
+                    up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
+                    down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
+                    expert_fwd_ms = (
+                        gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                    )
+                else:
+                    up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
+                    down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
+                    expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
+
+                # The backend's roofline streams expert weights at its saturated
+                # bandwidth, which a small group does not reach. Charge the measured
+                # shortfall for this group size. A no-op once the group saturates
+                # (~16 experts), so it only reshapes the small-batch decode curve --
+                # which is exactly where the group is small enough to matter.
+                if int(seq_len) <= 1 and B > 0:
+                    expert_fwd_ms *= max(
+                        1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B, gemm_dtype)
+                    )
+
+                expert_fwd = expert_fwd_ms
             else:
-                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=B)
-                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=B)
-                expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                # ── Legacy model: individual GEMM × num_local_experts ──
+                if self.config.model_config.swiglu:
+                    gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
+                    up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
+                    down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
+                    expert_fwd_ms = (
+                        gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                    )
+                else:
+                    up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
+                    down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
+                    expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
 
-            # The backend's roofline streams expert weights at its saturated
-            # bandwidth, which a small group does not reach. Charge the measured
-            # shortfall for this group size. A no-op once the group saturates
-            # (~16 experts), so it only reshapes the small-batch decode curve --
-            # which is exactly where the group is small enough to matter.
-            if int(seq_len) <= 1 and B > 0:
-                expert_fwd_ms *= max(
-                    1.0, _GROUPED_GEMM_PLATEAU / _grouped_gemm_efficiency(B, gemm_dtype)
-                )
+                expert_fwd = expert_fwd_ms * active_local_experts
 
-            expert_fwd = expert_fwd_ms
-        else:
-            # ── Legacy model: individual GEMM × num_local_experts ──
-            if self.config.model_config.swiglu:
-                gate_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
-                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
-                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
-                expert_fwd_ms = (
-                    gate_fwd.forward_time_ms + up_fwd.forward_time_ms + down_fwd.forward_time_ms
-                )
-            else:
-                up_fwd = self._gemm_backend.simulate_gemm(M, F, H, gemm_dtype, batch=1)
-                down_fwd = self._gemm_backend.simulate_gemm(M, H, F, gemm_dtype, batch=1)
-                expert_fwd_ms = up_fwd.forward_time_ms + down_fwd.forward_time_ms
+                # NOTE: Legacy grouped GEMM is not properly modelled. Origami
+                # simulates ideal single-kernel execution
+                if is_rank_0:
+                    print(
+                        "  [MoE MLP] WARNING: Legacy grouped GEMM not properly modelled. "
+                        "Estimates may be inaccurate."
+                    )
+            return expert_fwd
 
-            expert_fwd = expert_fwd_ms * active_local_experts
+        expert_fwd = _routed_expert_ms(gemm_dtype)
 
-            # NOTE: Legacy grouped GEMM is not properly modelled. Origami
-            # simulates ideal single-kernel execution
-            if is_rank_0:
-                print(
-                    "  [MoE MLP] WARNING: Legacy grouped GEMM not properly modelled. "
-                    "Estimates may be inaccurate."
-                )
+        # Experts a quantized checkpoint left unquantized stream at the linear
+        # weights' precision. This profiler prices the average MoE layer, so
+        # blend the two widths by how many layers carry each.
+        n_unq = int(getattr(self.config.model_config, "moe_unquantized_expert_layers", 0) or 0)
+        n_moe = sum(1 for m in getattr(self.config.model_config, "moe_pattern", None) or [] if m)
+        unq_dtype = getattr(self.config.model_config, "linear_weight_dtype", None) or (
+            "fp8" if getattr(self.config.model_config, "fp8", None) else "bf16"
+        )
+        if 0 < n_unq and n_moe > 0 and unq_dtype != gemm_dtype:
+            n_unq = min(n_unq, n_moe)
+            expert_fwd = (
+                (n_moe - n_unq) * expert_fwd + n_unq * _routed_expert_ms(unq_dtype)
+            ) / n_moe
 
         fwd_time = expert_fwd
 
