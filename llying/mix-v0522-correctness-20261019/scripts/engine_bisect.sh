@@ -6,7 +6,8 @@
 #
 # Usage (on the GPU node): engine_bisect.sh NAME [FUSE_TOPK=0] [HICACHE=0] [MTP=0] [DPA=0]
 #                          [GATHERV=0] [DELAYER=0] [FUSION=0]
-# Env: SITE (file exporting NODE_IP MODEL IMAGE), GPUS, PORT_OFFSET (0 or 100), EVAL_LIMIT=64
+# Env: SITE (file exporting NODE_IP MODEL IMAGE), GPUS, PORT_OFFSET (0 or 100), EVAL_LIMIT=64,
+#      EXTRA_ENV="K=V ...", STOCK=1 [STOCK_IMAGE=...]
 set -euo pipefail
 name="$1"; shift
 FUSE_TOPK=1 HICACHE=1 MTP=1 DPA=1 GATHERV=1 DELAYER=1 FUSION=1
@@ -14,6 +15,7 @@ for kv in "$@"; do export "$kv"; done
 KIT=/home/liyingli/bench_agentx/baseline/Infera-mix-v0522/examples/sglang_mix_glm5.2
 OUT_ROOT=/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/bisect
 set -a; . "$SITE"; set +a
+[[ "${STOCK:-0}" == 1 ]] && IMAGE="${STOCK_IMAGE:-lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018}"
 off=${PORT_OFFSET:-0}
 export WORK_DIR="$OUT_ROOT/$name" CTR="bisect_$name"
 export ETCD_PORT=$((24601 + off)) ETCD_PEER_PORT=$((24602 + off)) ENGINE_PORT=$((27101 + off))
@@ -21,7 +23,7 @@ export KV_EVENTS_PORT=$((27657 + off)) KV_SNAPSHOT_PORT=$((28951 + off)) ROUTER_
 source "$KIT/engine/common.sh"
 mkdir -p "$WORK_DIR/runs/$name"
 echo "$WORK_DIR/runs/$name" > "$WORK_DIR/current_run"
-printf '%s\n' "name=$name FUSE_TOPK=$FUSE_TOPK HICACHE=$HICACHE(${HICACHE_POLICY:-write_through},${HICACHE_IO:-kernel},${HICACHE_LAYOUT:-page_first}) IDXSHARE=${IDXSHARE:-0} MTP=$MTP DPA=$DPA GATHERV=$GATHERV DELAYER=$DELAYER FUSION=$FUSION EXTRA_ENV=[${EXTRA_ENV:-}] IMAGE=$IMAGE GPUS=$GPUS" | tee "$WORK_DIR/runs/$name/variant.txt"
+printf '%s\n' "name=$name FUSE_TOPK=$FUSE_TOPK HICACHE=$HICACHE(${HICACHE_POLICY:-write_through},${HICACHE_IO:-kernel},${HICACHE_LAYOUT:-page_first}) IDXSHARE=${IDXSHARE:-0} MTP=$MTP DPA=$DPA GATHERV=$GATHERV DELAYER=$DELAYER FUSION=$FUSION EXTRA_ENV=[${EXTRA_ENV:-}] STOCK=${STOCK:-0} IMAGE=$IMAGE GPUS=$GPUS" | tee "$WORK_DIR/runs/$name/variant.txt"
 
 docker run -d --name "$CTR-etcd" --network host --entrypoint /usr/local/bin/etcd "$ETCD_IMAGE" \
     --advertise-client-urls "http://$NODE_IP:$ETCD_PORT" --listen-client-urls "http://0.0.0.0:$ETCD_PORT" \
@@ -42,10 +44,12 @@ env+=("${extra_env[@]}")
 env_args=(); for kv in "${env[@]}"; do env_args+=(-e "$kv"); done
 
 args=(--model-path "$MODEL" --served-model-name "$SERVED_MODEL" --trust-remote-code
-    --host "$NODE_IP" --port "$ENGINE_PORT" --advertise-host "$NODE_IP"
+    --host "$NODE_IP" --port "$ENGINE_PORT")
+# STOCK=1: the unpatched upstream image, sglang.launch_server, without the Infera-only flags.
+[[ "${STOCK:-0}" == 1 ]] || args+=(--advertise-host "$NODE_IP"
     --discovery-backend etcd --etcd-endpoint "$NODE_IP:$ETCD_PORT" --request-transport http --kv-event-transport zmq
-    --enable-kv-events --kv-events on --kv-events-bind "tcp://0.0.0.0:$KV_EVENTS_PORT" --kv-snapshot-port "$KV_SNAPSHOT_PORT"
-    --tp-size 4 --ep-size 1 --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton
+    --enable-kv-events --kv-events on --kv-events-bind "tcp://0.0.0.0:$KV_EVENTS_PORT" --kv-snapshot-port "$KV_SNAPSHOT_PORT")
+args+=(--tp-size 4 --ep-size 1 --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton
     --mem-fraction-static 0.85 --chunked-prefill-size 32768 --max-prefill-tokens 8192
     --max-running-requests 128 --cuda-graph-max-bs-decode 64
     --reasoning-parser glm45 --tool-call-parser glm47 --enable-metrics --enable-cache-report --watchdog-timeout 3600)
@@ -62,6 +66,7 @@ image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
 # Two engines sharing --ipc host collide on RCCL's pid-named shared memory (container
 # pids start low); PID_OFFSET burns pids first so the second engine's ranks differ.
 cmd=(python3 -m infera.engine.sglang "${args[@]}")
+[[ "${STOCK:-0}" == 1 ]] && cmd=(python3 -m sglang.launch_server "${args[@]}")
 if [[ -n "${PID_OFFSET:-}" ]]; then
     cmd=(bash -c "i=0; while [ \$i -lt $PID_OFFSET ]; do ( : ); i=\$((i+1)); done; exec \"\$@\"" _ "${cmd[@]}")
 fi
