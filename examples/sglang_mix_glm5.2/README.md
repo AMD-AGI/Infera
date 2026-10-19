@@ -123,13 +123,15 @@ requests with the same `x-session-id` on the DP rank their session used last;
 **6. Under sustained concurrency some outputs are garbled (open).** About 30%
 of GSM8K answers at concurrency 64 turn into token soup (template tags such as
 `</think>` as plain text, or runs of `!`); at concurrency 1 the model is fine.
-It needs DP attention only: the same engine as plain TP4 scores 0.980 with no
-garbled answer, while switching off HiCache, MTP, the prefill delayer, the
-fused kernels, `--enable-dp-lm-head` or the DSA decode / top-k backend does not
-help. The unpatched upstream image `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`
-and the v0.5.21 image show it too. AgentX replays with `ignore_eos` (output
-lengths come from the trace), so its throughput numbers stand; do not serve
-this recipe until it is fixed.
+It takes DP attention together with decode CUDA graphs: plain TP4 scores
+0.980 with no garbled answer, and so does DP attention with
+`--disable-cuda-graph` (far too slow to serve), while switching off HiCache,
+MTP, the prefill delayer, overlap scheduling, the fused kernels,
+`--enable-dp-lm-head` or the DSA decode / top-k backend does not help. Every
+unpatched upstream image from v0.5.19 to v0.5.22 (`lmsysorg/sglang-rocm`)
+shows it. AgentX replays with `ignore_eos` (output lengths come from the
+trace), so its throughput numbers stand; do not serve this recipe until it is
+fixed.
 
 ## What this kit exposes on the network
 
