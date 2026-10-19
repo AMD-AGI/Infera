@@ -200,8 +200,8 @@ bf16-max values can overflow the MoE and contaminate the combine output"，并�
 | flydsl0-200 | `AITER_USE_FLYDSL_MOE_SORTING=0` | 0.700 | 55 | 60 |
 | ovl0-200 | `--disable-overlap-schedule` + 关 delayer | 200 题 | 53 | 53 |
 | **mtp0cg0b-200** | **关 MTP + `--disable-cuda-graph`（重跑，逐条落盘）** | **197 / 199** | **0** | **0** |
-| maskpad0-200 | `SGLANG_DP_MASK_PAD_ROWS=false`（关掉上游的填充行清零） | 进行中：177 题时 31 条乱码 | | |
-| breakable-200 | `--cuda-graph-backend-decode breakable`（graph 分段捕获，注意力层 eager） | 进行中 | | |
+| maskpad0-200 | `SGLANG_DP_MASK_PAD_ROWS=false`（关掉上游的填充行清零） | 0.705 | 52 | 61 |
+| breakable-200 | `--cuda-graph-backend-decode breakable` | 起不来：DSA 不支持（`'NoneType' object has no attribute 'get_page_table_64'`） | | |
 
 MoE 排序实现、overlap 调度也排除。一个规律：乱码条数与 EXTEND 步数大致相当——base-p（64 题一次发完）6 个 prefill 步、9 条乱码；
 mtp0-200 51 步、61 条；dly2000-200 40 步、61 条——像是每个 EXTEND 步之后坏掉约一个请求，而全 eager 时不坏。EXTEND 步本身两种
@@ -215,3 +215,9 @@ mtp0-200 51 步、61 条；dly2000-200 40 步、61 条——像是每个 EXTEND 
 **DP attention 下的 decode CUDA graph 路径出错**，与 MTP、HiCache 无关；eager decode 太慢，不能当绕过办法。
 下一项 `--cuda-graph-backend-decode breakable`：graph 分段捕获、注意力层 eager——干净则问题在 graph 内的注意力（DSA indexer /
 注意力对 DP 填充行的处理），仍乱码则在 graph 内的 MoE / DP 通信；若干净且性能可接受，也是一个绕过办法。
+
+上游的填充行清零开关（`SGLANG_DP_MASK_PAD_ROWS`）开或关结果一样，不是它；`breakable` graph 后端不支持 DSA，没法用来区分注意力
+与 MoE；元数据 glue graph（`SGLANG_ENABLE_METADATA_GLUE_GRAPH`）默认就是关的。下一项用 v0.5.22 自带的 KV canary
+（`--kv-canary log --kv-canary-real-data PARTIAL --kv-canary-sweep-interval 50`）：写 KV 时记内容哈希、读和定期巡检时校验。
+有违规说明 graph decode 里有写坏别人 KV 的（如填充行），没有则问题在 hidden state / logits 一侧。配置简化为关 MTP、关 HiCache
+（v0.5.19 / v0.5.20 上这个配置同样乱码），并跑同配置不开 canary 的对照 mtp0hc0-200。
