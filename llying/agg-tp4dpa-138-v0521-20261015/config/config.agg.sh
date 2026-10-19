@@ -7,10 +7,7 @@
 AGG=/home/liyingli/bench_agentx/baseline/Infera/llying/agg-tp4dpa-138-v0521-20261015
 source /home/liyingli/bench_agentx/baseline/Infera/llying/3p1d-tp4-tp8-v0521-20261012/config/config.3p1d.sh
 
-TOPOLOGY="$AGG/config/topology.agg.tsv"
-CONTROL_NODE=crsuse2-m2m-138          # etcd + router + AgentX client + the worker
-BUILDER_NODE="$CONTROL_NODE"
-YIHOU_NODE="$CONTROL_NODE"
+AGG_NODE=crsuse2-m2m-138              # etcd + router + AgentX client + the worker; a round may move it
 CONTAINER_PREFIX="glm52-llying-agg-$ROUND"
 RUNS="$AGG/runtime/runs/$ROUND"
 
@@ -49,3 +46,8 @@ KV_OVERLAP_WEIGHT="${KV_OVERLAP_WEIGHT:-1.0}"
 AITER_JIT_SEED="$NODE_RW_ROOT/cache/aiter/decode-0"
 # Per-bring-up deltas (what differs from the above in that round).
 if [[ -r "$AGG/config/round.$ROUND.sh" ]]; then source "$AGG/config/round.$ROUND.sh"; fi
+
+# Node-dependent values follow the round's AGG_NODE (topology.agg.tsv is 138's).
+CONTROL_NODE="$AGG_NODE" BUILDER_NODE="$AGG_NODE" YIHOU_NODE="$AGG_NODE"
+TOPOLOGY="$AGG/config/topology.agg.tsv"
+[[ "$AGG_NODE" == crsuse2-m2m-138 ]] || TOPOLOGY="$AGG/config/topology.agg.${AGG_NODE##*-}.tsv"

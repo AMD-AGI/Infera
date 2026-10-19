@@ -364,6 +364,20 @@ eager（prefill）步。B300 数据来自 CI 产物 `11798041008`。
 候选的下一个实验是方案 1（尚未执行，待讨论）：负载下 decode 正确性检查通过后测 C64，与 a6b 比较每秒完成请求、eager 步数
 （`prefill_step_timeline.py`）和 TTFT。
 
+### b1（crsuse2-m2m-140）：delayer 搭便车补丁，a3 C48 配置（10-19）
+
+按上一节的方案 1 实现，运行时挂载（`config/mounts.piggyback.tsv`），用 `SGLANG_PREFILL_DELAYER_PIGGYBACK=1` 打开，默认关：
+
+- `patches/runtime-mounts/prefill_delayer.llying-piggyback.py`（对 v0.5.21 镜像原文件的 diff：`*.diff`，26 行）：跨 rank all-gather
+  多带一个 `mid_chunk` 字段；判定为 "mixed" 时，只要有 rank 在续算，就放行（原因记为 `piggyback`，指标里可见）。
+- `patches/runtime-mounts/schedule_policy.llying-piggyback.py`（1 行）：`add_chunked_req` 协商时带上 `local_mid_chunk=True`。
+- `patches/runtime-mounts/test_piggyback_delayer.py`：在镜像里用 CPU 跑判定函数（all-gather 换成固定张量），5 项全过：续算时放行、
+  开关关时照旧推迟、无人续算时照旧推迟、全部可 prefill 时照旧放行、等满上限时照旧超时放行。
+
+节点：138 当时在做 v0.5.22 镜像升级，b1 在 140 上跑（`config.agg.sh` 新增 `AGG_NODE`，round 文件里设置；140 的拓扑在
+`config/topology.agg.140.tsv`，AITER JIT 缓存从 138 拷贝）。b1 = a3 C48 的全部设置（write_through 270 GB、mem 0.85、delayer 60、
+1 个 tokenizer）+ 补丁。负载下 decode 正确性检查 32/32 通过（180 个后台 prefill，0 错误），C48 于 17:07:49 开始。
+
 ### 10-16 12:50 /home 卷写满后的运行方式
 
 共享 `/home`（10 TB CephFS）写满（剩余 0 GB，新建目录报 Disk quota exceeded），git 提交与 `/home` 下的日志都写不进去。

@@ -1,0 +1,10 @@
+--- /shared_nfs/liyingli/bench_agentx/src/sglang-v0521-image/sglang/srt/managers/schedule_policy.py	2026-10-08 14:16:34.000000000 +0000
++++ /home/liyingli/bench_agentx/baseline/Infera/llying/agg-tp4dpa-138-v0521-20261015/patches/runtime-mounts/schedule_policy.llying-piggyback.py	2026-10-19 16:51:29.176696560 +0000
+@@ -1070,6 +1070,7 @@
+                 max_prefill_bs=self.max_prefill_bs,
+                 max_running_requests=self.max_running_requests,
+                 waiting_queue_len=self.waiting_queue_len,
++                local_mid_chunk=True,  # LLYING piggyback, see prefill_delayer.py
+             )
+ 
+         if self.chunked_req_limit is not None:

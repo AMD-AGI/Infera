@@ -1,0 +1,5 @@
+# b1 (crsuse2-m2m-140): a3's C48 settings + delayer piggyback (config/round.b1.sh).
+# decode_check (generated answers under prefill load; 32/32 on t8c and a7) runs before the scored round.
+bash scripts/launch_agg.sh ROUND=b1
+python3 scripts/decode_check.py http://10.245.159.30:28200 glm5.2-mxfp4 runtime/runs/b1/launch/decode_check.json
+bash scripts/agg_round.sh ROUND=b1 VARIANT=b1-a3-piggyback CONC=48
