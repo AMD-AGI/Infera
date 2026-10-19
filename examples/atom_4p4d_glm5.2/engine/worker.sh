@@ -15,9 +15,18 @@ case "$role" in prefill | decode) ;; *) die "usage: bash engine/worker.sh prefil
 case "$PREFILL_PP" in 1 | 4) ;; *) die "PREFILL_PP must be 1 or 4, not $PREFILL_PP" ;; esac
 resolve_model
 
-# Experts of layers 0-77 stay MXFP4 and the MTP layer 78 stays BF16; the rest
-# is quantized online to per-token FP8.
-QUANT_CONFIG='{"global_quant_config":"ptpc_fp8","exclude_layer":["lm_head","model.embed_tokens","*.mlp.gate","model.layers.[0-9].mlp.*expert*","model.layers.[1-6][0-9].mlp.*expert*","model.layers.7[0-7].mlp.*expert*","model.layers.78.*"]}'
+# Experts of layers 0-77 stay MXFP4 and the rest is quantized online to
+# per-token FP8, except the MTP layer 78: BF16 as in the checkpoint, or with
+# MTP_EXPERTS=mxfp4 its routed experts quantized online to MXFP4 at load.
+case "$MTP_EXPERTS" in
+    bf16) mtp_quant="" mtp_exclude='"model.layers.78.*"' ;;
+    mxfp4)
+        mtp_quant=',"layer_quant_config":{"model.layers.78.mlp.experts*":"mxfp4"}'
+        mtp_exclude='"re:^model\\.layers\\.78\\.(?!mlp\\.experts)"'
+        ;;
+    *) die "MTP_EXPERTS must be bf16 or mxfp4, not $MTP_EXPERTS" ;;
+esac
+QUANT_CONFIG='{"global_quant_config":"ptpc_fp8"'"$mtp_quant"',"exclude_layer":["lm_head","model.embed_tokens","*.mlp.gate","model.layers.[0-9].mlp.*expert*","model.layers.[1-6][0-9].mlp.*expert*","model.layers.7[0-7].mlp.*expert*",'"$mtp_exclude"']}'
 
 env=(
     AITER_QUICK_REDUCE_QUANTIZATION=INT4 AITER_USE_FLYDSL_MOE_SORTING=1 AITER_LOG_LEVEL=WARNING

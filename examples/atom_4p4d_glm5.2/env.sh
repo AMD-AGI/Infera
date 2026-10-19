@@ -62,6 +62,11 @@ export MTP_K="${MTP_K:-$((CONC >= 48 ? 3 : 4))}"
 # Set it (K3 -> 2.99, K4 -> 3.33) only to reproduce the AgentX reference numbers.
 export MTP_AL="${MTP_AL:-}"
 
+# Routed experts of the MTP layer (78), which the checkpoint keeps in BF16:
+# bf16 as shipped, or mxfp4 to quantize them online at load like the experts
+# of the other layers (the draft MoE then reads a quarter of the weight bytes).
+export MTP_EXPERTS="${MTP_EXPERTS:-bf16}"
+
 # The prefill memory, chunk, block size, layer split and LMCache load length
 # below follow ATOM's GLM-5.2 AgentX recipe (/app/ATOM/recipes/Agentic-GLM-5.2.md
 # in the image); the decode keeps this kit's settings.
