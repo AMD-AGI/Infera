@@ -1,0 +1,12 @@
+data: {"id":"infera-5087238295306320518","object":"chat.completion.chunk","created":1792512481,"model":"glm5.2-mxfp4","choices":[{"index":0,"delta":{"reasoning_content":null,"role":"assistant","content":""},"logprobs":null,"finish_reason":null,"matched_stop":null}]}
+
+data: {"id":"infera-5087238295306320518","object":"chat.completion.chunk","created":1792512481,"model":"glm5.2-mxfp4","choices":[{"index":0,"delta":{"reasoning_content":null,"content":"8"},"logprobs":null,"finish_reason":null,"matched_stop":null}]}
+
+data: {"id":"infera-5087238295306320518","object":"chat.completion.chunk","created":1792512481,"model":"glm5.2-mxfp4","choices":[{"index":0,"delta":{"reasoning_content":null,"content":"99"},"logprobs":null,"finish_reason":null,"matched_stop":null}]}
+
+data: {"id":"infera-5087238295306320518","object":"chat.completion.chunk","created":1792512481,"model":"glm5.2-mxfp4","choices":[{"index":0,"delta":{"reasoning_content":null},"logprobs":null,"finish_reason":"stop","matched_stop":154827}]}
+
+data: {"id":"infera-5087238295306320518","object":"chat.completion.chunk","created":1792512481,"model":"glm5.2-mxfp4","choices":[],"usage":{"prompt_tokens":20,"total_tokens":23,"completion_tokens":3,"prompt_tokens_details":{"cached_tokens":0},"reasoning_tokens":0}}
+
+data: [DONE]
+

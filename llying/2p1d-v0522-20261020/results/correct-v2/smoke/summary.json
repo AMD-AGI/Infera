@@ -1,0 +1,44 @@
+[
+  {
+    "name": "workers",
+    "elapsed_s": 0.012,
+    "text": "decode prefill prefill",
+    "expected": "decode prefill prefill",
+    "passed": true
+  },
+  {
+    "name": "completion",
+    "elapsed_s": 0.652,
+    "text": " Paris. The city of Paris is located on an island in Seine River. The",
+    "expected": "Paris",
+    "passed": true
+  },
+  {
+    "name": "chat",
+    "elapsed_s": 0.617,
+    "text": "391",
+    "expected": "391",
+    "passed": true
+  },
+  {
+    "name": "stream",
+    "elapsed_s": 0.329,
+    "text": "899",
+    "expected": "899",
+    "passed": true
+  },
+  {
+    "name": "long_prefix_cold",
+    "elapsed_s": 39.999,
+    "text": "CEDAR-4729",
+    "expected": "CEDAR-4729",
+    "passed": true
+  },
+  {
+    "name": "long_prefix_repeat",
+    "elapsed_s": 1.89,
+    "text": "CEDAR-4729",
+    "expected": "CEDAR-4729",
+    "passed": true
+  }
+]
