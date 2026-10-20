@@ -448,8 +448,12 @@ b3b 01:37 开始 AgentX；冷启动预热时引擎待 prefill 647 万 token，�
 
 **b4（140，b0r 的栈，router 关 session affinity）**：针对上面的 DP rank 间 prefill 不均，01:40 起用 b0r 仍在运行的引擎再测一轮，
 只把 `INFERA_SESSION_AFFINITY` 从 `both` 改为 `off`（router 日志 `affinity=Off`），每个请求都按 kv-aware 打分选 rank、不再钉在
-会话上一次的 rank。与 b0r 同节点同引擎，唯一变量是亲和性；预计 03:00 前后出结果，看吞吐、interactivity p90、命中率与各 rank 的
-prefill 量（`prefill_step_timeline.py`）。
+会话上一次的 rank。与 b0r 同节点同引擎，唯一变量是亲和性。**结果：9,694 tok/s/GPU（b0r 32,776，−70%），interactivity p90 2.6，
+TTFT p90 74 s，AIPerf 计入命中 77.5%（b0r 96.3%），GPU 命中 32.5%。** kv-aware 打分留不住会话的 rank，缓存局部性一丢，多出来的
+prefill 远超均衡带来的好处；均衡只能在不损失局部性的地方做（新会话第一轮的落点）。
+
+b3b（纯 TP4，chunk 32768）在预热中（10-20 03:09）停掉：用户指出纯 TP4 只有一个调度器、GPU KV 只有 DP4 的约 30%，性能不会有竞争力，
+没有必要跑；之后的正确性复查也表明 DP4 加 `--disable-custom-all-reduce` 就输出正确，纯 TP4 不再是备选。
 
 ### InferenceX 上 MI355X SGLang 的 18k 点（10-20 查）
 
