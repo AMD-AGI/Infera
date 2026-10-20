@@ -196,7 +196,7 @@ GSM8K（lm_eval 0.4.13，5-shot、200 题，经 router，真实 MTP 接受）只
 | `tests/unit`（镜像内） | v0.5.22 镜像，`tests/lib/container_pytest.sh` | **通过**：2,359 passed，81 skipped（10-19 的 15 个 Responses 相关失败已修好） |
 | `engine`（sglang 那一半） | 按 `Dockerfile.sglang` 构建（标签 `infera/engine-sglang:llying-ci-v0522`，不占用共享的 `test-local`），逐文件跑 `tests/engine/sglang` | **通过**：8 个文件全部通过 |
 | `e2e-mixed`（sglang） | `INFERA_E2E_LOCAL=1 tests/run_tests.sh e2e sglang mixed`；非独占模式（不设 `INFERA_E2E_EXCLUSIVE`、`INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS`，不动别人的容器）；节点上原有的 `test-local`（09-03 构建）先另存、跑完恢复 | 首次 **3 个用例失败、2 个跳过**：worker 报 `ambiguous option: --cuda-graph-max-bs could match --cuda-graph-max-bs-decode, --cuda-graph-max-bs-prefill`。修复（`4403eda6`）后重跑**通过**：gpt-oss-120b-tp2-ep、Kimi-K2.6-MXFP4-tp4-ep-dpattn、GLM-5.1-FP8-tp4 PASSED，DeepSeek-V4-Flash-FP8-tp4-dpattn、GLM-5.2-FP8-tp8-dpattn 按矩阵跳过（与首次相同），30 分钟；`test-local` 标签已恢复 |
-| `e2e-disag`（sglang） | 同上 | **原样跑不了**：跨两节点的 PD 测试要 SLURM（`srun`），138/140 没有。已改 harness 支持 ssh（见下），等性能点跑完后在 138+140 上跑 |
+| `e2e-disag`（sglang） | 原样要 SLURM（`srun`），138/140 没有；改 harness 支持 ssh（见下）后在 138+140 上跑，网络设置同 ci.yml | **通过**（10:39-10:50，11 分钟）：gpt-oss-120b-tp2 PASSED（prefill 138 / decode 140，counting、capital、long-context 三项正确性通过，两侧 KV 传输均为 `rdma`）；GLM-5.2-FP8-tp8-dpattn、DSV4-Flash-FP8-tp4-dpattn 按矩阵在 gfx950 上跳过（与 CI 相同） |
 
 `rust`、`unit-torch-cpu`、`agent_sys`、`engine` 的 vllm 那一半：分支未改相关代码，未跑。
 
@@ -220,6 +220,11 @@ v0.5.22 base 镜像，`docker save | ssh docker load`，64.7 GB）→ 两节点�
 收集到 3 个用例（gpt-oss-120b-tp2；GLM-5.2-FP8 和 DSV4-Flash 在 gfx950 上会运行时跳过）。138 `disag-build` 完成（命中缓存）。
 base 镜像正在传往 140。`scripts/disag_after_prep.sh` 在 138 后台按顺序衔接：准备阶段结束 → 140 `disag-build` → `disag`，
 每步只在上一步报告 rc 0 时继续；日志在 138 `$W/ci/disag-{prep,build-138,build-140}.log`、`disag.log`、`disag-chain.out`。
+
+结果：base 镜像传输约 4 分钟（10:36 完成）；140 构建 2.5 分钟（Mooncake 实际编译了，66 s）；`disag` 10:39-10:50
+`RESULT: PASS`（1 passed、2 skipped）。容器全部清理，两节点显存归零。worker 日志在
+`/home/liyingli/bench_agentx/baseline/ci-disag-v0522/logs/llying-v0522-disag/`。至此 v0.5.22 分支涉及 sglang 的 CI 作业
+（lint、unit、unit-image、engine、e2e-mixed、e2e-disag）在本地全部通过。
 
 **e2e 暴露的升级回归：`--cuda-graph-max-bs`。** v0.5.22 把它拆成 `--cuda-graph-max-bs-decode` / `--cuda-graph-max-bs-prefill`，旧写法
 在 argparse（默认允许缩写）里成了两者的有歧义前缀，Infera 入口用 sglang 的 `ServerArgs.add_cli_args` 解析剩余参数时直接报错，
