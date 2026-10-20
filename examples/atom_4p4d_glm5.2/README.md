@@ -278,7 +278,12 @@ without root through glibc's THP malloc (`GLIBC_TUNABLES=glibc.malloc.hugetlb=1`
 THP `enabled` = `madvise` or `always`) and prints each owner's `AnonHugePages`;
 a fragmented node can leave an owner on 4 KiB pages, and it then fails to mount.
 Each NUMA node needs `STORE_OWNER_GB` free plus the engines' host memory; lower
-it or use `PREFILL_CPU_TIER=lmcache` on smaller hosts. The prefill needs one
+it or use `PREFILL_CPU_TIER=lmcache` on smaller hosts. The prefill refuses to
+start when its startup probe reads back other bytes than it wrote ("the chunk
+read back differs"): on the crusoe MI355X VMs every Store read into HBM
+completed without moving data (puts from HBM and transfers to host buffers were
+fine, and so is the P→D path), with peer memory and DMA-BUF alike; use
+`PREFILL_CPU_TIER=lmcache` there. The prefill needs one
 Store load worker (`OFFLOAD_LOAD_WORKERS=1`): more hung its pipeline at C96 in
 ATOM's tests.
 
