@@ -20,6 +20,9 @@ Optional env overrides (all unset => pure auto-discovery):
                        see :func:`srun_argv`.
   INFERA_E2E_GID_INDEX / INFERA_E2E_WORKER_ENV / INFERA_E2E_BUILD_ARGS — the
                        fabric's KV transport (see :func:`kv_transport_env`).
+  INFERA_E2E_TRANSPORT=ssh — run every node step over ``ssh <node>`` instead of
+                       srun, for a pair pinned by INFERA_E2E_NODES on hosts with
+                       no SLURM; INFERA_E2E_SSH_OPTS adds ssh client flags.
 
 Everything here is best-effort and side-effect free: on a non-SLURM host (or no
 allocation) the discovery helpers return empty/None and the suite skips.
@@ -62,6 +65,28 @@ def have_slurm() -> bool:
     does not reach when ``INFERA_E2E_NODES`` is set. Demanding ``scontrol`` here
     skipped the whole tier on a Spur cluster, which ships no such alias."""
     return shutil.which("srun") is not None
+
+
+def ssh_transport() -> bool:
+    """Whether node steps go over ssh (``INFERA_E2E_TRANSPORT=ssh``) rather than srun."""
+    return os.environ.get("INFERA_E2E_TRANSPORT", "").lower() == "ssh"
+
+
+def have_transport() -> bool:
+    """Whether this host can run a command on a node at all."""
+    return ssh_transport() or have_slurm()
+
+
+def ssh_argv(node: str) -> list[str]:
+    """The ``ssh`` prefix for one node. BatchMode fails fast instead of prompting."""
+    return [
+        "ssh",
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        *shlex.split(os.environ.get("INFERA_E2E_SSH_OPTS", "")),
+        node,
+    ]
 
 
 def in_allocation() -> bool:
@@ -145,7 +170,16 @@ def run_on_node(
     timeout: float = _SRUN_TIMEOUT,
     srun_args: tuple[str, ...] = (),
 ):
-    """Run ``argv`` on ``node`` and capture its output (never raises on rc!=0)."""
+    """Run ``argv`` on ``node`` and capture its output (never raises on rc!=0).
+    Over ssh, ``srun_args`` (GRES requests) have nothing to apply to and are dropped."""
+    if ssh_transport():
+        # ssh hands the remote shell one string, so quote argv into it.
+        return subprocess.run(
+            ssh_argv(node) + [shlex.join(argv)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
     command = srun_argv(node) + list(srun_args) + argv
     pty = _SPUR and in_allocation()
     if pty:
@@ -182,6 +216,7 @@ def require_step_access(node: str, *, timeout: float = 30) -> None:
     accidentally becomes a fresh job remains PENDING until each launcher's
     five-minute Docker timeout, obscuring the scheduling error.
     """
+    step = "ssh" if ssh_transport() else "SLURM step"
     try:
         done = run_on_node(node, ["true"], timeout=timeout)
     except subprocess.TimeoutExpired as exc:
@@ -209,15 +244,15 @@ def require_step_access(node: str, *, timeout: float = 30) -> None:
                 )
             except (OSError, subprocess.SubprocessError):
                 pass
-        message = f"SLURM step to {node} did not start within {timeout}s"
+        message = f"{step} to {node} did not start within {timeout}s"
         if detail:
             message += f": {detail}"
         raise RuntimeError(message) from exc
     except OSError as exc:
-        raise RuntimeError(f"could not run a SLURM step on {node}: {exc}") from exc
+        raise RuntimeError(f"could not run a {step} on {node}: {exc}") from exc
     if done.returncode != 0:
         detail = (done.stderr or done.stdout or "").strip()
-        message = f"SLURM step to {node} failed with rc={done.returncode}"
+        message = f"{step} to {node} failed with rc={done.returncode}"
         if detail:
             message += f": {detail}"
         raise RuntimeError(message)
@@ -312,7 +347,7 @@ def node_ip(node: str) -> str | None:
             return ip
     except OSError:
         pass
-    if not have_slurm():
+    if not have_transport():
         return None
     try:
         out = run_on_node(node, ["hostname", "-I"])

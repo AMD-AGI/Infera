@@ -63,10 +63,13 @@ def _require_node_arch(pair: tuple[str, str]) -> None:
 
 
 def require_disagg_env() -> None:
-    """Skip unless we can actually place a 2-node PD stack (SLURM + allocation +
-    >=2 nodes + resolvable node IPs), all of them on this run's target arch."""
-    if not cluster.have_slurm():
-        _skip_or_fail("PD-disaggregation e2e needs SLURM (srun) on PATH")
+    """Skip unless we can actually place a 2-node PD stack (SLURM + allocation, or
+    ssh to pinned nodes + >=2 nodes + resolvable node IPs), all of them on this
+    run's target arch."""
+    if not cluster.have_transport():
+        _skip_or_fail(
+            "PD-disaggregation e2e needs SLURM (srun) on PATH, or INFERA_E2E_TRANSPORT=ssh"
+        )
     # An explicit node pin (INFERA_E2E_NODES, set by run_tests.sh's disagg
     # dispatcher) means we place the stack ourselves via per-node `srun` and need
     # no held allocation — the Spur scheduler has no salloc/sbatch to sit in.

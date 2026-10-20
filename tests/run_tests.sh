@@ -35,6 +35,8 @@ node; PD-disagg holds two. Common knobs:
   INFERA_E2E_SLURM_ACCOUNT_QOS_PAIRS  account:qos,... ladder, tried in order
   INFERA_E2E_GFX_ARCH                 gfx950 (default) | gfx942
   INFERA_E2E_K                        pytest -k over the e2e case ids
+  INFERA_E2E_TRANSPORT=ssh            PD-disagg without SLURM: ssh to the pair in
+                                      INFERA_E2E_NODES=<prefill>,<decode>
 EOF
   exit "${1:-2}"
 }

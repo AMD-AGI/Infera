@@ -12,11 +12,21 @@ _HOLDER_JID=""
 _INHERITED_JID=""
 _HOLD_SUBMISSIONS=0
 
+_ssh_transport() { [ "${INFERA_E2E_TRANSPORT:-}" = ssh ]; }
+
 # A killed run skips pytest's teardown, so remove this job's PD containers here.
 _wipe_disag_nodes() {
   local n cmd extra=() resv=() wrapped
   for n in ${_DISAG_NODES//,/ }; do
     echo "[cleanup] removing this job's PD containers on $n" >&2
+    if _ssh_transport; then
+      read -ra extra <<< "${INFERA_E2E_SSH_OPTS:-}"
+      printf -v wrapped '%q ' bash -lc \
+        'docker rm -f $(docker ps -aq --filter "label=infera.e2e.job_tag=$1") 2>/dev/null || true' \
+        _ "$CTR_TAG"
+      ssh -n -o BatchMode=yes "${extra[@]}" "$n" "$wrapped" >/dev/null 2>&1 || true
+      continue
+    fi
     if [ -n "$_HOLDER_JID" ]; then
       cmd=(srun --overlap --nodes=1 --ntasks=1 --nodelist "$n" --jobid "$_HOLDER_JID")
     else
@@ -283,13 +293,34 @@ _disagg_engine() {
   [ "$ok" -eq 1 ]
 }
 
+# INFERA_E2E_TRANSPORT=ssh: the caller pinned the pair and owns its scheduling, so
+# there is no hold, no re-pick and no exclusive cleanup — one run on those nodes.
+_disagg_engine_ssh() {
+  local e="$1" out="$SCRATCH/.e2e-disag.out" prc
+  echo "----- e2e disagg — tests/e2e/pd_disag/$e -----"
+  echo "[e2e disagg] $e over ssh on nodes: ${INFERA_E2E_NODES%%,*} (prefill), ${INFERA_E2E_NODES##*,} (decode)"
+  : > "$out"
+  _DISAG_NODES="$INFERA_E2E_NODES"
+  _disagg_pytest "$e" "$INFERA_E2E_NODES" "" "$out"; prc=$?
+  _DISAG_NODES=""
+  grep -aE '^(FAILED|ERROR) ' "$out" 2>/dev/null | sed "s|^|[e2e disagg $e] |" >> "$SCRATCH/failures.txt"
+  return "$prc"
+}
+
 run_e2e_disagg() {
   local engines=("$@") e rc=0 deps_err inherited
   echo "===== e2e PD-disaggregated (cross-node, 2 nodes): ${engines[*]} ====="
-  if ! _have_slurm; then
+  if _ssh_transport; then
+    if [[ "${INFERA_E2E_NODES:-}" != ?*,?* ]]; then
+      _skip_or_fail "e2e disagg" \
+        "INFERA_E2E_TRANSPORT=ssh has no scheduler to pick nodes, and INFERA_E2E_NODES is '${INFERA_E2E_NODES:-}'" \
+        "set INFERA_E2E_NODES=<prefill-node>,<decode-node>"
+      return $?
+    fi
+  elif ! _have_slurm; then
     _skip_or_fail "e2e disagg" \
       "no SLURM: srun is not on PATH, so the PD-disaggregated tests cannot run" \
-      "expose the SLURM client on this host"
+      "expose the SLURM client on this host, or set INFERA_E2E_TRANSPORT=ssh with INFERA_E2E_NODES"
     return $?
   fi
   # Name the interpreter actually consulted and quote its ImportError.
@@ -301,6 +332,12 @@ run_e2e_disagg() {
   fi
   if [ -n "$SHARED_LOG_DIR" ]; then
     exec > >(stdbuf -oL tee -a "$SHARED_LOG_DIR/dispatch-disag-$$.log") 2>&1
+  fi
+  if _ssh_transport; then
+    for e in "${engines[@]}"; do
+      _disagg_engine_ssh "$e" || rc=1
+    done
+    return "$rc"
   fi
   _drop_dead_reservation "e2e disagg"
   inherited="$(_inherited_pair)"

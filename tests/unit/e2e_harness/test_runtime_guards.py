@@ -284,6 +284,62 @@ def test_spur_detached_srun_keeps_submission_placement(monkeypatch):
     assert "--reservation=ci-reservation" in argv
 
 
+def test_ssh_transport_quotes_argv_into_one_remote_command(monkeypatch):
+    calls = []
+    monkeypatch.setenv("INFERA_E2E_TRANSPORT", "ssh")
+    monkeypatch.setenv("INFERA_E2E_SSH_OPTS", "-o ConnectTimeout=5")
+    monkeypatch.setenv("SLURM_JOB_ID", "4242")
+
+    def run(argv, **kwargs):
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0, "true\n", "")
+
+    monkeypatch.setattr(cluster.subprocess, "run", run)
+
+    done = cluster.run_on_node(
+        "node-a",
+        ["docker", "inspect", "-f", "{{.State.Running}}", "my ctr"],
+        timeout=7,
+        srun_args=("--gres=gpu:1",),
+    )
+
+    argv, kwargs = calls[0]
+    assert argv == [
+        "ssh",
+        "-n",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ConnectTimeout=5",
+        "node-a",
+        "docker inspect -f '{{.State.Running}}' 'my ctr'",
+    ]
+    assert kwargs["timeout"] == 7
+    assert done.stdout == "true\n"
+
+
+def test_ssh_transport_stands_in_for_slurm(monkeypatch):
+    monkeypatch.setattr(cluster.shutil, "which", lambda command: None)
+    monkeypatch.delenv("INFERA_E2E_TRANSPORT", raising=False)
+    assert not cluster.have_transport()
+    monkeypatch.setenv("INFERA_E2E_TRANSPORT", "ssh")
+    assert cluster.have_transport()
+
+
+def test_ssh_step_access_failure_names_ssh(monkeypatch):
+    monkeypatch.setenv("INFERA_E2E_TRANSPORT", "ssh")
+    monkeypatch.setattr(
+        cluster,
+        "run_on_node",
+        lambda node, argv, **kwargs: subprocess.CompletedProcess(
+            argv, 255, "", "Permission denied (publickey)."
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match=r"^ssh to node-a failed with rc=255: Permission"):
+        cluster.require_step_access("node-a")
+
+
 @pytest.mark.parametrize(
     "timeout_output",
     [
