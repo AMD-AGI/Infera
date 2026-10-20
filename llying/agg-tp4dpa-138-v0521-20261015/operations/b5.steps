@@ -1,0 +1,3 @@
+# b5 (crsuse2-m2m-140): b0r + --disable-custom-all-reduce (config/round.b5.sh); compare with b0r.
+bash scripts/launch_agg.sh ROUND=b5
+bash scripts/agg_round.sh ROUND=b5 VARIANT=b5-a3-140-dcar CONC=48
