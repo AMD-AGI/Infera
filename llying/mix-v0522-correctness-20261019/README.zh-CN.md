@@ -145,6 +145,21 @@ GSM8K（lm_eval 0.4.13，5-shot、200 题，经 router，真实 MTP 接受）只
 负载下 decode 检查（`decode_check.py`，答案只有 4-5 个 token）都没有暴露它。性能测试用模拟接受长度、输出长度由 trace 决定，
 吞吐数据不受影响，但这个配方直接上线会输出错误内容。
 
+## CI 验证（10-20，138，分支 `feat/sglang-mix-glm5.2-tp4-v0522`）
+
+按 `.github/workflows/ci.yml` 在 138 上复现与 sglang 镜像相关的 job（`scripts/ci_local.sh`，从本地仓库克隆分支，不写工作目录；
+日志在 138 `/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/ci/`）：
+
+| CI job | 做法 | 结果 |
+|---|---|---|
+| `lint` | `python:3.10` 容器，`pre-commit run --all-files`，`CI=1`；cargo-fmt / gofmt 跳过（分支未改 Rust、Go，容器无工具链） | 首次 `ruff format` 失败（两个补丁脚本的路径拼接写法），按 ruff 结果改好（`fe6cfa01`）后**通过** |
+| `unit` | 同一容器，`pip install -e ".[dev,gaie,projection]"`，`pytest -m "not slow and not integration"` | **通过**：2,570 passed，137 skipped，25 deselected |
+| `tests/unit`（镜像内） | v0.5.22 镜像，`tests/lib/container_pytest.sh` | **通过**：2,359 passed，81 skipped（10-19 的 15 个 Responses 相关失败已修好） |
+| `engine`（sglang 那一半） | 按 `Dockerfile.sglang` 构建（标签 `infera/engine-sglang:llying-ci-v0522`，不占用共享的 `test-local`），逐文件跑 `tests/engine/sglang` | **通过**：8 个文件全部通过 |
+| `e2e-mixed` / `e2e-disag`（sglang） | `INFERA_E2E_LOCAL=1 tests/run_tests.sh e2e sglang mixed/disag`；非独占模式（不设 `INFERA_E2E_EXCLUSIVE`、`INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS`，不动别人的容器）；节点上原有的 `test-local` 先另存、跑完恢复 | 进行中 |
+
+`rust`、`unit-torch-cpu`、`agent_sys`、`engine` 的 vllm 那一半：分支未改相关代码，未跑。
+
 ## example 性能对齐（10-19，138 GPU 0-3）
 
 按 example README 手动起：`SIM_ACCEPT_LEN=3.61 bash engine/up.sh`，`CONC=48 bash engine/agentx/agentx.sh`，`bash engine/down.sh`。
