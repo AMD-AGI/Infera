@@ -28,10 +28,12 @@ aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.
 | **v0522-qrnone-200：只关 QuickReduce**（`ROCM_QUICK_REDUCE_QUANTIZATION=NONE`，aiter custom all-reduce 保留） | v0.5.22 / 138 | 157 / 198 | **44** | 44（03:42 手动停，结论已清楚） |
 | v0521-qrnone-200：同上 | v0.5.21 / 140 | 起不来：启动正赶上同节点 b0r 栈回收显存，引擎退出、容器与日志没留下；v0.5.22 已回答，未重跑 | | |
 | **v0522-dcar-topkv2-200：`--disable-custom-all-reduce` + `SGLANG_OPT_USE_TOPK_V2=true`** | v0.5.22 / 138 | **0.980** | **0** | 2（119、93，连贯） |
-| v0522-dcar-idxshare1-200：`--disable-custom-all-reduce` + 不覆盖 `index_share_for_mtp_iteration` | v0.5.22 / 138 | 进行中 | | |
+| **v0522-dcar-idxshare1-200：`--disable-custom-all-reduce` + 不覆盖 `index_share_for_mtp_iteration`** | v0.5.22 / 138 | **0.975** | **0** | 3（100、119、93，连贯） |
 
 - **元凶是 aiter custom all-reduce 本身，不是 INT8 QuickReduce**：只关 QuickReduce 仍有 44 条乱码。
-- **top-k v2 不影响正确性**（在关 custom all-reduce 的前提下），可以进入性能 A/B。
+- **top-k v2、`index_share` 默认值在 GSM8K 上都没有引入乱码**（在关 custom all-reduce 的前提下）。但 GSM8K 的 prompt 只有约 1,000
+  token，DSA 只有上下文超过 top-k（2048）才走稀疏选择；三组里总上下文超过约 2,048 的请求只有 11-17 条（全部无乱码）。这两项改的
+  正是稀疏路径，要算验证充分，还需一个长上下文、多请求并发的检查（每个请求都走稀疏路径），再进性能 A/B。
 - 性能代价（10-20 03:46 起）：138 上 example（v0.5.22）加 `ENGINE_EXTRA_ARGS=--disable-custom-all-reduce` 跑 AgentX C48，对照同节点
   example 基线 32,809；140 上 agg 套件 b5（b0r + 该参数），对照 b0r 32,776。
 
