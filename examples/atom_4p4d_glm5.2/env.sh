@@ -120,6 +120,8 @@ export ROUTER_BACKEND="${ROUTER_BACKEND:-python}"
 # Extra flags, space-separated, appended last.
 export PREFILL_EXTRA_ARGS="${PREFILL_EXTRA_ARGS:-}"
 export DECODE_EXTRA_ARGS="${DECODE_EXTRA_ARGS:-}"
+# Extra decode container environment, space-separated KEY=VALUE pairs.
+export DECODE_EXTRA_ENV="${DECODE_EXTRA_ENV:-}"
 export ROUTER_EXTRA_ARGS="${ROUTER_EXTRA_ARGS:-}"
 
 # ---------------------------------------------------------------------------

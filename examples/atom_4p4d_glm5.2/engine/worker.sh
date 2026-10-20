@@ -105,6 +105,8 @@ else
         --max-num-batched-tokens 16384 --max-num-seqs $((2 * CONC)))
     [[ -z "$MTP_AL" ]] || args+=(--spec-decode-acceptance-length "$MTP_AL")
     read -ra extra <<<"$DECODE_EXTRA_ARGS"
+    read -ra extra_env <<<"$DECODE_EXTRA_ENV"
+    env+=("${extra_env[@]}")
 fi
 
 env_args=()
