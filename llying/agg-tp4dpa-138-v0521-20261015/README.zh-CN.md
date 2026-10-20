@@ -451,6 +451,47 @@ b3b 01:37 开始 AgentX；冷启动预热时引擎待 prefill 647 万 token，�
 会话上一次的 rank。与 b0r 同节点同引擎，唯一变量是亲和性；预计 03:00 前后出结果，看吞吐、interactivity p90、命中率与各 rank 的
 prefill 量（`prefill_step_timeline.py`）。
 
+### InferenceX 上 MI355X SGLang 的 18k 点（10-20 查）
+
+InferenceX API（`evidence/api-glm52-all-20261020.json`，116 行，MI355X 30 行）里 SGLang 在 MI355X 上最高的点是 **TP4/EP4、C16、
+18,327 tok/s/GPU、interactivity p90 42.0**（10-06，镜像 `lmsysorg/sglang-rocm:v0.5.20-rocm720-mi35x-20260930`，运行
+[37326853365](https://github.com/SemiAnalysisAI/InferenceX/actions/runs/37326853365)，来自 [InferenceX#3724](https://github.com/SemiAnalysisAI/InferenceX/pull/3724)
+"enable SGLANG_OPT_USE_TOPK_V2"）。当时的 recipe 存在 `evidence/inferencex-mi355x-sglang-18k/agentic.yaml`。
+
+| | InferenceX 18k（C16） | 我们（example v0.5.22 / a3，C48） |
+|---|---|---|
+| 镜像 | 上游 v0.5.20（0930），不打补丁 | v0.5.22 + Infera 补丁（a3 为 v0.5.21） |
+| 前端 | SGLang（srt-slurm 单 worker） | Infera Rust router，kv-aware + session affinity |
+| 并行 | **TP4 + EP4，不开 DP attention** | TP4、EP1、DP4 attention + dp-lm-head |
+| 并发 / max-running / decode graph bs | 16 / 32 / 32（都是 2×CONC） | 48 / 128 / 64 |
+| chunk / max-prefill | 32768 / 默认 | 32768（每 rank 8192）/ 8192 |
+| HiCache | 180 GB/rank，write_through，I/O 与布局默认 | 270 GB/rank，write_through，kernel，page_first |
+| DSA 后端 | triton / triton | 相同 |
+| **`SGLANG_OPT_USE_TOPK_V2`** | **true** | false |
+| `index_share_for_mtp_iteration` | 不覆盖（默认 true） | 覆盖为 false |
+| 融合 qk-norm-rope / aiter allreduce 融合 | 不开 | 开 |
+| prefill delayer | 不开 | 开（60） |
+| `SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK` | 不设（默认 0） | 0（相同） |
+| 结果 | 18,327 tok/s/GPU，p90 42.0，TTFT p50 0.65 s，2,078 请求 | 32,809，p90 22.5，TTFT p50 4.5 s，3,494 请求 |
+
+它和我们不在同一段 Pareto 上：它是低并发、高 interactivity 的点（DP attention 那一路在 InferenceX 脚本里注明暂停，DSA + DP
+attention 在 v0.5.14 长上下文 prefill 时集合通信会挂），我们在 C48 的吞吐是它的 1.8 倍、p90 是它的一半。我们没有 p90 40 附近的
+点，要在同一 interactivity 下比较需补低并发点。
+
+可借鉴的：
+- **top-k v2**：#3724 实测 MI355X TP4 +4.1% tok/s/GPU、+1.3% p90（依赖 sglang#37889 packed prefill、#39931 row-split）；
+  v0.5.22 里已有 `_topk_transform_v2_packed` / `plan_topk_v2`。我们一直设 `false`（沿用"v2 只能为 CUDA 编译"的旧结论，已过时）。
+  它换的是 DSA top-k，需要先过正确性（DP 填充行的 v2 长度钳位 sglang#30378 已在 v0.5.22）再做 AgentX A/B。
+- **EP4**：它的 MoE 走专家并行（每卡 64 个专家、整宽 GEMM），我们是 TP-MoE（每个专家切 4 份）。DP attention 下改 EP 牵涉 MoE
+  的通信方式，需要单独验证可行性，优先级在 top-k v2 之后。
+- 其余差异（不开 DP attention、C16、2×CONC 的 graph bs）是为高 interactivity 那一段选的，不适用于 C48 的点。
+
+**`SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK`**：v0.5.22 在 ROCm 上它只切换 MoE 路由 kernel——1 用统一 Triton 实现
+`moe_fused_gate`，0（默认、我们的设置、InferenceX 也一样）用 aiter `biased_grouped_topk`（`layers/moe/topk.py`）。a6b 的 decode
+profile 里主流 busy 2,169.9 ms，耗时前 12 的 kernel 最小一个 44.3 ms（2.0%），路由 kernel 不在其中，所以它对 decode GPU 时间的
+影响上限不到 2%，低于两次 AgentX 之间约 ±3% 的波动；要确认应在 kernel 级别比较两种路由 kernel 在我们 batch 形状下的耗时，
+而不是跑整轮 AgentX。同一份 profile 里 aiter custom all-reduce（`cross_device_reduce_2stage`）占 4.7%。
+
 顺带修了 `scripts/stop_stack.sh`：原来等节点上所有 GPU 都空才返回，共享节点上别人的作业会让它等满 30 分钟报错、卡住后续步骤；
 现在只看本轮 `GPUS_mixed_0` 的卡。
 
