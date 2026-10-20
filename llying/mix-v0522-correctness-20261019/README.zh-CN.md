@@ -162,9 +162,20 @@ GSM8K（lm_eval 0.4.13，5-shot、200 题，经 router，真实 MTP 接受）只
 | `unit` | 同一容器，`pip install -e ".[dev,gaie,projection]"`，`pytest -m "not slow and not integration"` | **通过**：2,570 passed，137 skipped，25 deselected |
 | `tests/unit`（镜像内） | v0.5.22 镜像，`tests/lib/container_pytest.sh` | **通过**：2,359 passed，81 skipped（10-19 的 15 个 Responses 相关失败已修好） |
 | `engine`（sglang 那一半） | 按 `Dockerfile.sglang` 构建（标签 `infera/engine-sglang:llying-ci-v0522`，不占用共享的 `test-local`），逐文件跑 `tests/engine/sglang` | **通过**：8 个文件全部通过 |
-| `e2e-mixed` / `e2e-disag`（sglang） | `INFERA_E2E_LOCAL=1 tests/run_tests.sh e2e sglang mixed/disag`；非独占模式（不设 `INFERA_E2E_EXCLUSIVE`、`INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS`，不动别人的容器）；节点上原有的 `test-local` 先另存、跑完恢复 | 进行中 |
+| `e2e-mixed`（sglang） | `INFERA_E2E_LOCAL=1 tests/run_tests.sh e2e sglang mixed`；非独占模式（不设 `INFERA_E2E_EXCLUSIVE`、`INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS`，不动别人的容器）；节点上原有的 `test-local`（09-03 构建）先另存、跑完恢复 | 首次 **3 个用例失败、2 个跳过**：worker 报 `ambiguous option: --cuda-graph-max-bs could match --cuda-graph-max-bs-decode, --cuda-graph-max-bs-prefill`。修复后重跑中 |
+| `e2e-disag`（sglang） | 同上 | **在 138 上跑不了**：跨两节点的 PD 测试要 SLURM（`srun`），138 没有；只能在 CI 集群上跑（按用户决定，review 之后再触发） |
 
 `rust`、`unit-torch-cpu`、`agent_sys`、`engine` 的 vllm 那一半：分支未改相关代码，未跑。
+
+**e2e 暴露的升级回归：`--cuda-graph-max-bs`。** v0.5.22 把它拆成 `--cuda-graph-max-bs-decode` / `--cuda-graph-max-bs-prefill`，旧写法
+在 argparse（默认允许缩写）里成了两者的有歧义前缀，Infera 入口用 sglang 的 `ServerArgs.add_cli_args` 解析剩余参数时直接报错，
+worker 退出码 2。e2e 的 `tests/e2e/pd_mixed/sglang/conftest.py` 传 `--cuda-graph-max-bs 8`；仓库里还有十来处 example / 部署配方
+（`deepseek_v4` 三套 engine 脚本、`k8s-deployments/glm5.2-sglang.yaml`、`recipes/glm5.2/*`、`recipes/glm5.3/*`、`sglang_1p1d_glm5.2`）
+用它，凡跑在 `Dockerfile.sglang` 镜像上都会起不来。按用户决定在 `infera/engine/sglang/args.py` 加兼容转换
+`_rename_cuda_graph_max_bs`：当前 sglang 没有 `--cuda-graph-max-bs` 而有 `-decode` 时，把参数（含 `=` 写法）改写成
+`--cuda-graph-max-bs-decode`（旧参数本就只管 decode graph），改写后的参数列表同时用于解析和转发给 `sglang.launch_server`；旧版
+sglang 上什么都不变。新增 `tests/engine/sglang/test_cuda_graph_max_bs_args.py`（镜像内 3 passed；CPU 环境按设计跳过）。
+提交 `4403eda6` 后 `lint`、`unit`、`engine` 全部重跑通过。
 
 ## example 性能对齐（10-19，138 GPU 0-3）
 
