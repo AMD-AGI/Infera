@@ -102,6 +102,26 @@ pub fn strip_internal_hints(body: &mut Value) {
     }
 }
 
+/// Reject client-supplied SGLang custom logit fields on OpenAI-shaped bodies.
+///
+/// `--enable-custom-logit-processor` deserializes these with dill on the
+/// worker; untrusted clients must not be able to inject callables. Trusted
+/// Anthropic translation injects its own processor on the `/v1/messages` path
+/// only (via `dispatch_routed_session`, which does not call this check).
+pub fn reject_client_custom_logit(body: &Value) -> Result<(), &'static str> {
+    let Some(obj) = body.as_object() else {
+        return Ok(());
+    };
+    if obj.contains_key("custom_logit_processor") || obj.contains_key("custom_params") {
+        return Err(
+            "custom_logit_processor and custom_params are not allowed on OpenAI endpoints; \
+             use Anthropic /v1/messages with INFERA_ENABLE_THINKING_BUDGET for GLM-5.3 \
+             thinking budgets",
+        );
+    }
+    Ok(())
+}
+
 pub fn parse_cache_hints(body: &Value) -> CacheHints {
     let obj = match body.as_object() {
         Some(o) => o,
@@ -598,5 +618,17 @@ mod tests {
         let d3 = openai_img("data:image/png;base64,ZZZ");
         assert_eq!(extract_image_keys(&d1), extract_image_keys(&d2));
         assert_ne!(extract_image_keys(&d1), extract_image_keys(&d3));
+    }
+
+    #[test]
+    fn reject_client_custom_logit_errors_when_processor_fields_present() {
+        let body = json!({
+            "model": "m",
+            "custom_logit_processor": "evil",
+            "custom_params": {"thinking_budget": 1},
+            "messages": [],
+        });
+        assert!(reject_client_custom_logit(&body).is_err());
+        assert!(reject_client_custom_logit(&json!({"model": "m"})).is_ok());
     }
 }

@@ -1392,3 +1392,267 @@ def test_sse_tool_call_no_explicit_id_synthesizes_one():
     out = asyncio.run(_run())
     text = out.decode()
     assert '"id": "toolu_' in text
+
+
+# ----------------------------------------------------------------------
+# Thinking / reasoning_content
+# ----------------------------------------------------------------------
+
+
+def test_thinking_enabled_sets_chat_template_kwargs():
+    out = anthropic_to_openai_request(
+        {
+            "model": "m",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 16,
+            "thinking": {"type": "enabled"},
+        }
+    )
+    assert out["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "thinking": True,
+    }
+    assert "custom_logit_processor" not in out
+    assert "custom_params" not in out
+
+
+def test_thinking_budget_tokens_maps_to_sglang_hard_cap(monkeypatch):
+    from infera.engine.sglang.thinking_budget_const import (
+        GLM53_THINKING_BUDGET_PROCESSOR_STR,
+        THINKING_BUDGET_ENV,
+    )
+
+    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+    out = anthropic_to_openai_request(
+        {
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        }
+    )
+    assert out["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "thinking": True,
+    }
+    assert out["custom_logit_processor"] == GLM53_THINKING_BUDGET_PROCESSOR_STR
+    assert out["custom_params"] == {"thinking_budget": 1024}
+
+
+def test_thinking_budget_ignored_when_opt_in_disabled(monkeypatch):
+    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
+
+    monkeypatch.delenv(THINKING_BUDGET_ENV, raising=False)
+    out = anthropic_to_openai_request(
+        {
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        }
+    )
+    assert out["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "thinking": True,
+    }
+    assert "custom_logit_processor" not in out
+    assert "custom_params" not in out
+
+
+def test_thinking_budget_ignored_for_non_glm53(monkeypatch):
+    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
+
+    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+    out = anthropic_to_openai_request(
+        {
+            "model": "qwen3-32b",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        }
+    )
+    assert "custom_logit_processor" not in out
+    assert "custom_params" not in out
+
+
+def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room(monkeypatch):
+    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
+
+    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+    out = anthropic_to_openai_request(
+        {
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 8192,
+            "thinking": {"type": "enabled", "budget_tokens": 10000},
+        }
+    )
+    assert out["custom_params"] == {"thinking_budget": 8192 - 2 - 1024}
+
+
+def test_thinking_budget_tokens_rejects_non_positive(monkeypatch):
+    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
+
+    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+    with pytest.raises(AnthropicRequestRejected, match="positive integer"):
+        anthropic_to_openai_request(
+            {
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 4096,
+                "thinking": {"type": "enabled", "budget_tokens": 0},
+            }
+        )
+
+
+def test_thinking_budget_tokens_requires_max_tokens_at_least_four(monkeypatch):
+    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
+
+    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+    with pytest.raises(AnthropicRequestRejected, match="max_tokens must be >= 4"):
+        anthropic_to_openai_request(
+            {
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 3,
+                "thinking": {"type": "enabled", "budget_tokens": 1024},
+            }
+        )
+
+
+def test_thinking_disabled_sets_chat_template_kwargs_false():
+    out = anthropic_to_openai_request(
+        {
+            "model": "m",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 16,
+            "thinking": {"type": "disabled"},
+        }
+    )
+    assert out["chat_template_kwargs"] == {
+        "enable_thinking": False,
+        "thinking": False,
+    }
+
+
+def test_assistant_thinking_block_becomes_reasoning_content():
+    out = anthropic_to_openai_request(
+        {
+            "model": "m",
+            "messages": [
+                {"role": "user", "content": "q"},
+                {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "thinking", "thinking": "step 1"},
+                        {"type": "text", "text": "answer"},
+                    ],
+                },
+                {"role": "user", "content": "follow"},
+            ],
+            "max_tokens": 16,
+        }
+    )
+    assistant = out["messages"][1]
+    assert assistant["role"] == "assistant"
+    assert assistant["content"] == "answer"
+    assert assistant["reasoning_content"] == "step 1"
+
+
+def test_response_reasoning_content_becomes_thinking_block():
+    out = openai_to_anthropic_response(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "answer",
+                        "reasoning_content": "chain of thought",
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 1, "completion_tokens": 2},
+        },
+        model="m",
+    )
+    assert out["content"] == [
+        {
+            "type": "thinking",
+            "thinking": "chain of thought",
+            "signature": "",
+        },
+        {"type": "text", "text": "answer"},
+    ]
+
+
+def test_response_reasoning_only_no_empty_text_placeholder():
+    """Reasoning alone is enough; do not append an empty text block."""
+    out = openai_to_anthropic_response(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "only thinking",
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {},
+        },
+        model="m",
+    )
+    assert out["content"] == [{"type": "thinking", "thinking": "only thinking", "signature": ""}]
+
+
+def _make_reasoning_chunk(reasoning: str) -> bytes:
+    payload = {"choices": [{"delta": {"reasoning_content": reasoning}, "finish_reason": None}]}
+    return f"data: {json.dumps(payload)}\n".encode()
+
+
+def test_sse_reasoning_content_emits_thinking_block():
+    async def _run():
+        chunks = [
+            _make_reasoning_chunk("think "),
+            _make_reasoning_chunk("more"),
+            _make_openai_chunk("answer"),
+            _make_openai_chunk(finish_reason="stop"),
+            b"data: [DONE]\n",
+        ]
+        return await _collect(openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m"))
+
+    out = asyncio.run(_run())
+    text = out.decode()
+    assert '"type": "thinking"' in text
+    assert '"type": "thinking_delta"' in text
+    assert "think " in text
+    assert "more" in text
+    assert '"type": "text_delta"' in text
+    assert "answer" in text
+    # Thinking opens before text, and closes before text starts.
+    thinking_start = text.index('"content_block": {"type": "thinking"')
+    text_start = text.index('"content_block": {"type": "text"')
+    assert thinking_start < text_start
+    thinking_stop = text.index("event: content_block_stop", thinking_start)
+    assert thinking_stop < text_start
+    assert text.count("event: content_block_stop") == 2
+
+
+def test_sse_reasoning_after_text_closes_text_before_new_thinking():
+    async def _run():
+        chunks = [
+            _make_openai_chunk("answer"),
+            _make_reasoning_chunk("later think"),
+            _make_openai_chunk(finish_reason="stop"),
+            b"data: [DONE]\n",
+        ]
+        return await _collect(openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m"))
+
+    out = asyncio.run(_run())
+    text = out.decode()
+    text_start = text.index('"content_block": {"type": "text"')
+    text_stop = text.index("event: content_block_stop", text_start)
+    thinking_start = text.index('"content_block": {"type": "thinking"', text_stop)
+    assert text_stop < thinking_start
