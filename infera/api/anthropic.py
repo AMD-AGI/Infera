@@ -18,15 +18,28 @@ In scope:
   `messages` (text content), `system` (string or block array),
   `max_tokens`, `stop_sequences`, `temperature`, `top_p`,
   `metadata.user_id` → `user`, **tool definitions, tool_use,
-  tool_result, and tool_choice**.
+  tool_result, and tool_choice**. Top-level ``thinking``
+  (``enabled`` / ``disabled``) maps to
+  ``chat_template_kwargs.enable_thinking`` and ``thinking``.
+  Optional ``thinking.budget_tokens`` maps to SGLang
+  ``custom_logit_processor`` + ``custom_params.thinking_budget``
+  only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
+  id is GLM-5.3 (workers also need
+  ``--enable-custom-logit-processor``). Budgets are clamped so the
+  forced newline and ``</think>`` plus an answer reserve fit in
+  ``max_tokens``. Assistant
+  history ``thinking`` blocks map to OpenAI ``reasoning_content``.
 - **Response translation (streaming)**: OpenAI SSE chunks
   (`data: {choices:[{delta:{...}}]}`) → Anthropic events
   (`event: message_start | content_block_start |
    content_block_delta | content_block_stop | message_delta |
    message_stop`). Tool-call deltas are reassembled into Anthropic
   `tool_use` content blocks with `input_json_delta` fragments.
+  ``delta.reasoning_content`` becomes a ``thinking`` content block
+  with ``thinking_delta`` fragments.
 - **Response translation (non-streaming)**: OpenAI completion JSON
   → Anthropic Messages JSON. Tool calls become `tool_use` blocks.
+  ``message.reasoning_content`` becomes a leading ``thinking`` block.
 - **Usage block translation**: `prompt_tokens` / `completion_tokens`
   → `input_tokens` / `output_tokens`. `cache_read_input_tokens` /
   `cache_creation_input_tokens` are left at 0 in v1 (need engine
@@ -41,10 +54,10 @@ Out of scope (v1):
 - **Multimodal content** (`image`/`audio`/`video`/`document` blocks)
   — explicit 400, including when nested inside `tool_result.content`.
   Follow-up.
-- **Anthropic thinking blocks** (`anthropic-beta: interleaved-
-  thinking-2025-05-14`). Will pass through as text in v1; the
-  beta header is accepted but the rich `thinking` events aren't
-  produced.
+- **Thinking signatures / redacted_thinking**: engines do not emit
+  Anthropic ``signature`` values, so responses use an empty
+  ``signature`` string; ``redacted_thinking`` history is ignored
+  on the request path.
 
 ## Why a shim instead of a proxy
 
@@ -212,7 +225,63 @@ def anthropic_to_openai_request(body: dict[str, Any]) -> dict[str, Any]:
     if isinstance(md, dict) and isinstance(md.get("user_id"), str):
         out["user"] = md["user_id"]
 
+    # Extended thinking: Anthropic ``thinking:{type}`` → engine
+    # ``chat_template_kwargs`` (both ``enable_thinking`` and ``thinking``
+    # for templates that read either name). Optional ``budget_tokens``
+    # → SGLang hard cap, GLM-5.3 only.
+    thinking = body.get("thinking")
+    if isinstance(thinking, dict):
+        ttype = thinking.get("type")
+        if ttype == "enabled":
+            out["chat_template_kwargs"] = {
+                "enable_thinking": True,
+                "thinking": True,
+            }
+            _apply_thinking_budget(out, thinking, body.get("max_tokens"), body.get("model"))
+        elif ttype == "disabled":
+            out["chat_template_kwargs"] = {
+                "enable_thinking": False,
+                "thinking": False,
+            }
+
     return out
+
+
+def _apply_thinking_budget(
+    out: dict[str, Any], thinking: dict[str, Any], max_tokens: Any, model: Any
+) -> None:
+    """Map Anthropic ``thinking.budget_tokens`` onto SGLang hard-cap fields.
+
+    Injects only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
+    id is GLM-5.3. Budgets are clamped so the forced newline and ``</think>``
+    plus an answer reserve fit in ``max_tokens`` (clients may send budget >=
+    max_tokens). Omitted budget, disabled opt-in, or a non-GLM-5.3 model
+    leaves thinking uncapped (``chat_template_kwargs`` still apply).
+    """
+    if "budget_tokens" not in thinking:
+        return
+    from infera.engine.sglang.thinking_budget_const import (
+        MIN_MAX_TOKENS_FOR_BUDGET,
+        apply_glm53_thinking_budget,
+        is_glm53_model,
+        resolve_thinking_budget,
+        thinking_budget_injection_enabled,
+    )
+
+    if not is_glm53_model(model) or not thinking_budget_injection_enabled():
+        return
+    budget = thinking.get("budget_tokens")
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
+        raise AnthropicRequestRejected("thinking.budget_tokens must be a positive integer")
+    if (
+        not isinstance(max_tokens, int)
+        or isinstance(max_tokens, bool)
+        or max_tokens < MIN_MAX_TOKENS_FOR_BUDGET
+    ):
+        raise AnthropicRequestRejected(
+            f"max_tokens must be >= {MIN_MAX_TOKENS_FOR_BUDGET} when thinking.budget_tokens is set"
+        )
+    apply_glm53_thinking_budget(out, resolve_thinking_budget(budget, max_tokens))
 
 
 def _flatten_system(system: Any) -> str:
@@ -380,9 +449,10 @@ def _translate_anthropic_message(role: str, content: Any) -> list[dict[str, Any]
         return [{"role": role, "content": ""}]
 
     if role == "assistant":
-        # Collect text + tool_use into ONE assistant message with
-        # `content` + `tool_calls` (OpenAI's combined shape).
+        # Collect text + thinking + tool_use into ONE assistant message
+        # with `content` + optional `reasoning_content` + `tool_calls`.
         text_parts: list[str] = []
+        thinking_parts: list[str] = []
         tool_calls: list[dict[str, Any]] = []
         for block in content:
             if not isinstance(block, dict):
@@ -392,6 +462,12 @@ def _translate_anthropic_message(role: str, content: Any) -> list[dict[str, Any]
                 text = block.get("text")
                 if isinstance(text, str):
                     text_parts.append(text)
+            elif bt == "thinking":
+                # Multi-turn replay: Anthropic thinking blocks map to
+                # engine `reasoning_content` so the model sees prior CoT.
+                thought = block.get("thinking")
+                if isinstance(thought, str) and thought:
+                    thinking_parts.append(thought)
             elif bt == "tool_use":
                 # Anthropic's `input` is a dict; OpenAI's `arguments` is a
                 # json-string of that dict. The engine expects a string
@@ -409,6 +485,8 @@ def _translate_anthropic_message(role: str, content: Any) -> list[dict[str, Any]
         msg: dict[str, Any] = {"role": "assistant"}
         if text_parts:
             msg["content"] = "\n".join(text_parts)
+        if thinking_parts:
+            msg["reasoning_content"] = "\n".join(thinking_parts)
         if tool_calls:
             msg["tool_calls"] = tool_calls
         # OpenAI requires `content` even if null when tool_calls present.
@@ -511,9 +589,12 @@ def openai_to_anthropic_response(
         else f"msg_{uuid.uuid4().hex[:24]}"
     )
 
-    # Build Anthropic content array. Text (if any) first, then any
-    # tool_use blocks (matching Anthropic's response shape).
+    # Build Anthropic content array. Thinking (if any) first, then text,
+    # then tool_use blocks (matching Anthropic's response shape).
     anthropic_content: list[dict[str, Any]] = []
+    reasoning = msg.get("reasoning_content")
+    if isinstance(reasoning, str) and reasoning:
+        anthropic_content.append({"type": "thinking", "thinking": reasoning, "signature": ""})
     if content_text:
         anthropic_content.append({"type": "text", "text": content_text})
     for tc in msg.get("tool_calls") or []:
@@ -653,12 +734,16 @@ async def openai_to_anthropic_sse(
     `message_start.usage.input_tokens`; the engine's final usage chunk
     (`prompt_tokens`) replaces it in `message_delta.usage`.
 
-    Handles two interleaved kinds of OpenAI delta content:
+    Handles three interleaved kinds of OpenAI delta content:
 
-      1. Text — `delta.content` is a string. Emitted as an Anthropic
+      1. Thinking — `delta.reasoning_content` is a string. Emitted as
+         an Anthropic thinking content block (`{"type":"thinking"}`)
+         with `content_block_delta` carrying
+         `{"type":"thinking_delta","thinking":...}`.
+      2. Text — `delta.content` is a string. Emitted as an Anthropic
          text content block (`{"type":"text"}`) with `content_block_
          delta` carrying `{"type":"text_delta","text":...}`.
-      2. Tool calls — `delta.tool_calls[]` arrives in pieces: a first
+      3. Tool calls — `delta.tool_calls[]` arrives in pieces: a first
          chunk with `id`, `type`, `function.name`, then arbitrary
          many chunks each appending to `function.arguments`. Each
          OpenAI tool_call index becomes its own Anthropic content
@@ -666,15 +751,13 @@ async def openai_to_anthropic_sse(
          emitted as `input_json_delta` deltas — the JSON is a
          valid prefix at each step, NOT a complete value.
 
-    Block-index policy: FCFS. Whichever block type (text vs.
-    tool_use) we observe first in the OpenAI delta stream takes
+    Block-index policy: FCFS. Whichever block type (thinking vs. text
+    vs. tool_use) we observe first in the OpenAI delta stream takes
     Anthropic block index 0; the next distinct block takes 1, and
-    so on. A request that emits text before tools yields text at 0
-    and tool blocks at 1+. A request whose engine emits tool deltas
-    first (no preceding text) yields the first tool at index 0 and
-    any later text at the next free index. We do NOT reserve index
-    0 for text — that would break clients that key on the index to
-    map back to specific content blocks.
+    so on. Engines that emit reasoning before content yield thinking
+    at 0 and text at 1. We do NOT reserve index 0 for text — that
+    would break clients that key on the index to map back to
+    specific content blocks.
 
     Robustness:
       - tolerates blank lines, `:` keepalive comments, malformed JSON
@@ -694,6 +777,7 @@ async def openai_to_anthropic_sse(
         else f"msg_{uuid.uuid4().hex[:24]}"
     )
     started = False
+    thinking_index: int | None = None  # Currently open thinking block, if any
     text_index: int | None = None  # Anthropic block index for the text block, if any
     # Map OpenAI delta.tool_calls[].index → Anthropic content block index.
     tool_index_map: dict[int, int] = {}
@@ -718,13 +802,26 @@ async def openai_to_anthropic_sse(
         body = json.dumps({"type": event_type, **payload})
         return f"event: {event_type}\ndata: {body}\n\n".encode()
 
+    async def _close_thinking_if_open() -> AsyncIterator[bytes]:
+        """Close an open thinking block before text/tool content starts."""
+        nonlocal thinking_index
+        if thinking_index is not None:
+            yield await _yield_event("content_block_stop", {"index": thinking_index})
+            thinking_index = None
+
+    async def _close_text_if_open() -> AsyncIterator[bytes]:
+        """Close an open text block before a later thinking block starts."""
+        nonlocal text_index
+        if text_index is not None:
+            yield await _yield_event("content_block_stop", {"index": text_index})
+            text_index = None
+
     async def _close_all_blocks() -> AsyncIterator[bytes]:
-        """Emit content_block_stop for every block we opened."""
-        # Use a stable order: text (if any) first, then tool blocks in
-        # ascending Anthropic-index order. Order doesn't matter for
-        # protocol correctness as long as every opened block gets a
-        # matching stop, but keeping it deterministic helps tests.
+        """Emit content_block_stop for every block still open."""
+        # Stable order: thinking (if still open), then text, then tools.
         indices: list[int] = []
+        if thinking_index is not None:
+            indices.append(thinking_index)
         if text_index is not None:
             indices.append(text_index)
         indices.extend(sorted(tool_index_map.values()))
@@ -820,9 +917,41 @@ async def openai_to_anthropic_sse(
                 )
                 started = True
 
+            # --- Thinking / reasoning_content delta path ---
+            reasoning_delta = delta.get("reasoning_content")
+            if isinstance(reasoning_delta, str) and reasoning_delta:
+                async for ev in _close_text_if_open():
+                    yield ev
+                if thinking_index is None:
+                    thinking_index = next_anthropic_block_index
+                    next_anthropic_block_index += 1
+                    yield await _yield_event(
+                        "content_block_start",
+                        {
+                            "index": thinking_index,
+                            "content_block": {
+                                "type": "thinking",
+                                "thinking": "",
+                                "signature": "",
+                            },
+                        },
+                    )
+                yield await _yield_event(
+                    "content_block_delta",
+                    {
+                        "index": thinking_index,
+                        "delta": {
+                            "type": "thinking_delta",
+                            "thinking": reasoning_delta,
+                        },
+                    },
+                )
+
             # --- Text delta path ---
             text_delta = delta.get("content")
             if isinstance(text_delta, str) and text_delta:
+                async for ev in _close_thinking_if_open():
+                    yield ev
                 if text_index is None:
                     text_index = next_anthropic_block_index
                     next_anthropic_block_index += 1
@@ -851,6 +980,8 @@ async def openai_to_anthropic_sse(
                     fn = tc.get("function") or {}
                     # First chunk for this tool call carries id + name.
                     if openai_idx not in tool_index_map:
+                        async for ev in _close_thinking_if_open():
+                            yield ev
                         anthro_idx = next_anthropic_block_index
                         next_anthropic_block_index += 1
                         tool_index_map[openai_idx] = anthro_idx
