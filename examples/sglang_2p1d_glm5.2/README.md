@@ -82,11 +82,25 @@ cache, so session affinity pins prefill picks only.
 
 ## Validation status
 
-(filled in from the validation runs)
+The image above on two 8×MI355X nodes, prefill on crsuse2-m2m-138 and decode
+on crsuse2-m2m-140:
+
+| item | result |
+|---|---|
+| correctness (`smoke.sh`, real MTP acceptance) | 6/6 pass (66k-token prefix: 40.0 s cold, 1.9 s repeated) |
+| GSM8K (`eval.sh`: InferenceX `run_eval`, 1,319 questions, concurrency 64, real MTP acceptance) | 0.9697 strict / 0.9704 flexible; no template-tag leakage, no empty answer |
+| AgentX C176, 3600 s, `SIM_ACCEPT_LEN=3.61` | 35,637 tok/s/GPU, 15,881 requests, 0 failed, 11 invalid responses |
 
 ## Reference numbers
 
-(filled in from the AgentX runs)
+AgentX agentic-coding replay, InferenceX `918524ff`, 10 warm-up requests per
+lane, 3600 s measured, forced MTP acceptance 3.61, every point on a freshly
+started deployment. Throughput is per GPU over all 16 and counts cache-hit
+input tokens; interactivity is per-request tokens/s/user.
+
+| point | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
+|---|---|---|---|---|---|---|
+| C176 | 35,637 | 15,881 (4.38) | 40.4 / 35.7 | 4.3 / 8.1 s | 24.8 / 28.0 ms | 95.9% (trace bound 96.8%) |
 
 To reproduce a point the way InferenceX does, start the whole deployment
 afresh for it:
