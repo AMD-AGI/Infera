@@ -112,8 +112,20 @@ aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.
 里的 `SGLANG_OPT_USE_TOPK_V2=false` 改成 `true`，提交的 example 没有改）；`idxshare`（`ENGINE_EXTRA_ARGS` 追加
 `--json-model-override-args {}`，覆盖掉 `index_share_for_mtp_iteration=false`）。日志在 140 `/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/perf140/`。
 
-待做：上面三点；同时关 custom reduce-scatter 与 all-gather（看是否等价于关整个 custom all-reduce）；修复代价复测；之后 example 与
-agg 配方补上修复。
+**base（140）与 138 的同配置对照**（example + `--disable-custom-all-reduce`，同镜像，产物 `results/example-c48-dcar-140/`）：
+
+| | 138（04:07-05:07） | 140（06:3x-07:3x） | 差 |
+|---|---|---|---|
+| tok/s/GPU | 33,098 | 31,931 | −3.5% |
+| 每秒请求 | 0.974 | 0.944 | −3.1% |
+| interactivity p50 / p90 | 40.3 / 19.1 | 38.8 / 19.3 | |
+| TTFT p90 (s) | 10.1 | 12.4 | |
+
+完全相同的配置，两节点（或两次运行）差 3.5%。之前写的"140 比 138 快约 3.7%"来自跨天、跨镜像的比较（b0r 对 a3），方向是错的。
+这说明 ±3% 以内的差异都在噪声里（包括修复的吞吐代价 +0.9%）；top-k v2 / `index_share` 只与 140 上的 base 比。
+
+待做：topkv2、idxshare 两点；同时关 custom reduce-scatter 与 all-gather（看是否等价于关整个 custom all-reduce）；修复代价复测；之后
+example 与 agg 配方补上修复。
 
 ## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
 
