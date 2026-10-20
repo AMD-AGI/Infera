@@ -129,6 +129,22 @@ aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.
 对比 138 的 33,098，日志 138 `$W/perf138/`）。引擎日志确认生效的是 `json_model_override_args='{}'`（即用模型默认的 index_share）。
 topkv2 的预热在 480-510 s 只剩 1 个在途，与 base 同期形态一致（base 同期返回 41/531，topkv2 50/531），不是卡住。
 
+**结果**（都在修复之上，C48，3,600 s，与同节点 base 比；引擎 inspect 确认 140 base `SGLANG_OPT_USE_TOPK_V2=false`、
+topkv2 `=true`，138 idxshare 为 `false`、`json_model_override_args='{}'`）：
+
+| | tok/s/GPU | 每秒请求 | 成功/错误 | intvty p50 / p90 | TTFT p50 / p90 (s) | ITL p50 / p90 (ms) | E2E p90 (s) |
+|---|---|---|---|---|---|---|---|
+| 140 base | 31,931 | 0.943 | 3,418 / 2 | 38.8 / 19.3 | 4.09 / 12.35 | 25.8 / 51.7 | 85.2 |
+| **140 topkv2** | **34,662（+8.6%）** | 1.020（+8.2%） | 3,699 / 1 | 42.3 / 22.7（+9.0% / +17.6%） | 3.78 / 10.62（−8% / −14%） | 23.6 / 44.1（−9% / −15%） | 74.7（−12%） |
+| 138 base | 33,098 | 0.975 | 3,530 / 2 | 40.3 / 19.1 | 3.70 / 10.09 | 24.8 / 52.2 | 84.6 |
+| 138 idxshare | 32,675（−1.3%） | 0.972 | 3,524 / 1 | 40.2 / 20.5（0 / +7%） | 3.96 / 11.64（+7% / +15%） | 24.9 / 48.9（0 / −6%） | 85.8（+1%） |
+
+- **top-k v2：吞吐和延迟全面变好**，幅度远超同配置两节点之间 3.5% 的差异；绝对值也比 138 base 高 4.7%。正确性此前已验证
+  （v0.5.22 GSM8K 0.980、0 乱码；长上下文 needle 64/64）。值得放进 example，放之前建议在 138 上复测一次。
+- **`index_share`：没有明确收益**，吞吐 −1.3% 在噪声内，intvty p90 略好、TTFT p90 略差，方向不一致。维持 example 现有的
+  `index_share_for_mtp_iteration=false`。
+- 产物：`results/example-c48-dcar-topkv2-140/`、`results/example-c48-dcar-idxshare1/`。
+
 待做：topkv2、idxshare 两点；同时关 custom reduce-scatter 与 all-gather（看是否等价于关整个 custom all-reduce）；修复代价复测；之后
 example 与 agg 配方补上修复。
 
