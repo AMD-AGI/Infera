@@ -102,6 +102,15 @@ router 列出 2 prefill + 1 decode（prefill 容器中途退出则报错），ki
 **16:22 性能串行开始**：`scripts/pd_perf_chain.sh`（kit v4，138 后台），C176 → C128 → C96 → C64 → C32，每点：等两节点显存释放 →
 记录干扰检查 `perf/c<C>.env-check` → `SIM_ACCEPT_LEN=3.61 up.sh` → `agentx.sh`（3,600 s，预热 10/lane）→ `down.sh`。
 
+**18:26–19:18 C176 下线后 138 显存回收 52 分钟**（GPU 0 停在 52%、GPU 3–7 停在 95% 约 30 分钟，期间无 D 状态 kworker、
+ionic MR 已全部注销、无进程持有 `/dev/kfd`），驱动延迟回收，只能等。顺手结束了两个 17 小时前遗留的 agg 实验采样器
+（`agg_sampler.py`，b3 / b3b 中止后残留，CPU 0%，不影响测量）。
+
+**19:20 C128 起栈后中止**：19:21 140 上出现他人容器 `v41-dbg`（`rocm/atom-dev:nightly_202610131505`，`HIP_VISIBLE_DEVICES=4,5`，
+ATOM TP0/TP1 各占约 790% CPU，TP1 占 GPU 5 约 160 GB 显存），正在用 decode 的 GPU 4–5。按约定不动他人容器；本点结果无效，
+19:23 手动结束串行脚本并下线（`down.sh` 第一次在 prefill 0 上 `docker rm -f` 失败——容器进程卡在内核里收不到退出事件——
+因 `set -e` 中途退出，第二次清干净；example 的 `down.sh` 已改为删不掉时提示并继续）。等 140 GPU 4–5 空出后从 C128 续跑。
+
 ## 性能结果（每卡按 16 张计，产物 `results/c<C>/`）
 
 | 点 | tok/s/GPU | 输出 tok/s/GPU | 每秒请求 | 完成 / 无效 | intvty p50 / p90 | ITL p50 / p90 (ms) | TTFT p50 / p90 / 均值 (s) | E2E p90 (s) | API 命中（理论） |
