@@ -14,7 +14,15 @@ v0.5.22 各变体 53-61 条乱码。
 后照样乱码，说明受影响的不只是推测路径。a6b 的 decode profile 里 aiter custom all-reduce（`cross_device_reduce_2stage`）占 GPU 时间 4.7%；
 yihou 测过的代价是 C40 +0.7%、C56 −4.2%（PD decode）。
 
-待做：v0.5.22（example 镜像）上复核；AgentX C48 量性能代价；之后 example 与 agg 配方补上该参数。
+**QuickReduce 默认就是开的，而且是 INT8 有损量化。** sglang 在 HIP 上除 aiter custom all-reduce（`ca_comm`）外还初始化
+QuickReduce（`qr_comm`，`distributed/device_communicators/quick_all_reduce.py`），由 `ROCM_QUICK_REDUCE_QUANTIZATION` 控制，
+代码默认 `NONE`（关）；但上游基础镜像设置了 `ROCM_QUICK_REDUCE_QUANTIZATION=INT8`，v0.5.21、v0.5.22 两个 Infera 镜像都继承了它
+（`docker image inspect` 与运行中引擎的环境均为 INT8）。`--disable-custom-all-reduce` 会把两者一起关掉。DP attention 下 MoE 之后要对
+gather 后的大缓冲区做 all-reduce，正是 QuickReduce 的适用范围，所以单独关 QuickReduce（`ROCM_QUICK_REDUCE_QUANTIZATION=NONE`、保留
+aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.21）和 138（v0.5.22）上各跑一组。
+
+待做：v0.5.22（example 镜像）上复核；单关 QuickReduce；关 custom all-reduce 后 top-k v2、`index_share` 默认值对正确性的影响；
+AgentX C48 量性能代价；之后 example 与 agg 配方补上修复。
 
 ## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
 
