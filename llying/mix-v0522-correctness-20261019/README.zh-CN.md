@@ -216,6 +216,11 @@ v0.5.22 base 镜像，`docker save | ssh docker load`，64.7 GB）→ 两节点�
 `MOONCAKE_HIP_DMABUF`，这个构建参数对 sglang 镜像不起作用，只给 tag 加后缀 `test-local-mooncake_hip_dmabuf1`；138 可命中缓存，
 140 要从头编 Mooncake）→ `disag`。
 
+进度（10-20）：10:32 `disag-prep` 开始，cherry-pick 干净地落在 `4403eda6` 上（`25867ca8`），venv 已建好；`--collect-only`
+收集到 3 个用例（gpt-oss-120b-tp2；GLM-5.2-FP8 和 DSV4-Flash 在 gfx950 上会运行时跳过）。138 `disag-build` 完成（命中缓存）。
+base 镜像正在传往 140。`scripts/disag_after_prep.sh` 在 138 后台按顺序衔接：准备阶段结束 → 140 `disag-build` → `disag`，
+每步只在上一步报告 rc 0 时继续；日志在 138 `$W/ci/disag-{prep,build-138,build-140}.log`、`disag.log`、`disag-chain.out`。
+
 **e2e 暴露的升级回归：`--cuda-graph-max-bs`。** v0.5.22 把它拆成 `--cuda-graph-max-bs-decode` / `--cuda-graph-max-bs-prefill`，旧写法
 在 argparse（默认允许缩写）里成了两者的有歧义前缀，Infera 入口用 sglang 的 `ServerArgs.add_cli_args` 解析剩余参数时直接报错，
 worker 退出码 2。e2e 的 `tests/e2e/pd_mixed/sglang/conftest.py` 传 `--cuda-graph-max-bs 8`；仓库里还有十来处 example / 部署配方
