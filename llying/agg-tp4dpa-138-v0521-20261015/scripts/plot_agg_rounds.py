@@ -49,6 +49,9 @@ EXPERIMENTS = [
     ("t8d", None, 128, "未跑"),
     ("b1", "b1-a3-piggyback", 48, "a3 + delayer piggyback，140"),
     ("b0", "b0-a3-140", 48, "无效：计分窗口内同节点有他人作业（FAILED.txt）"),
+    ("b2", "b2-a3-piggyback-138", 48, "b1 的设置放到 a3 的节点上"),
+    ("b0r", "b0r-a3-140", 48, "b0 重跑（140 空闲后）"),
+    ("b3", "b3-a3-tp4-nodpa", 48, "a3 去掉 DP attention（纯 TP4）"),
 ]
 
 CONFIG_VARS = [

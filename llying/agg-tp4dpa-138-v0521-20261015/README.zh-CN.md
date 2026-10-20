@@ -402,6 +402,28 @@ load average 12-17。b0 只有 23,069 tok/s/GPU、2,538 个请求（预热 1,604
 00:09 在 140 上重跑 b0（b0r，`config/round.b0r.sh`，与 b0 完全相同），给 b1 补上同节点对照。b2 之后在 138 上跑 b3
 （a3 去掉 DP attention，纯 TP4，`config/round.b3.sh`）：正确性排查表明并发下只有纯 TP4 输出正确，b3 量它在 C48 的代价。
 
+**b2（138，b1 的设置放到 a3 的节点上，10-19 23:31-00:31）：同节点上 piggyback 不是改进。**
+
+| | a3 C48（138，无 piggyback） | b2 C48（138，piggyback） | 变化 |
+|---|---|---|---|
+| tok/s/GPU | 31,605 | 31,004 | −1.9% |
+| 完成请求 / 每秒请求 | 3,409 / 0.947 | 3,432 / 0.946 | 持平 |
+| interactivity p50 / p90 | 40.4 / 20.8 | 39.7 / 18.6 | p90 −11% |
+| TTFT p50 / p90 (s) | 4.8 / 14.5 | 3.9 / 11.0 | |
+| ITL p50 / p90 (ms) | 24.8 / 48.1 | 25.2 / 53.9 | |
+| eager 步数 / 单 rank prefill 占比 | 1,856 / 61.3% | 1,824 / 53.3% | |
+| 有其他 rank 排队的单 rank 步 | 658 | 468 | −29% |
+
+补丁照样生效（两 rank 同步的 prefill 步 12.3% → 24.1%，空等的步减少），但 prefill 总步数几乎不变（1,856 → 1,824），每步
+prefill 量也差不多：多个 rank 一起 prefill 时，这一步的耗时由最慢的 rank 决定，decode 被打断的总时间没有减少，只是排队的请求
+更早开始——TTFT 降、吞吐不变、慢的一端 ITL 变差。按 InferenceX 的两个轴（tok/s/GPU、interactivity p90）它是退步。b1 相对 a3 的
++6.6% 主要来自节点或日间差异，b0r（140 上的同节点对照）会给出最终结论。
+
+同一份统计里更大的杠杆是 **DP rank 间 prefill 负载不均**：b2 中 DP0 做了 595 万新 token、1,029 个 prefill 步，DP2 只有 317 万、
+726 步；若各 rank 均衡，eager 步数下限 809，现在 1,824（a3 也是 DP2 偏重：569 万对 329 万）。session 亲和性把会话钉在 rank 上
+是主要原因之一，下一步的方向是 router 按各 rank 待 prefill 的 token 量分配新会话（`prefill_timeline.txt` 在
+`results/b2-a3-piggyback-138/c48/`）。
+
 顺带修了 `scripts/stop_stack.sh`：原来等节点上所有 GPU 都空才返回，共享节点上别人的作业会让它等满 30 分钟报错、卡住后续步骤；
 现在只看本轮 `GPUS_mixed_0` 的卡。
 
