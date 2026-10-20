@@ -106,8 +106,14 @@ aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.
 `SGLANG_DP_USE_REDUCE_SCATTER=1` 没有单独测：它在 HIP 上默认就是 1（`environ.py` `EnvBool(_default_hip)`，未设置时检测到 ROCm
 即为 True），之前所有乱码的基线都是这个设置。目前只有 `--disable-custom-all-reduce`（ca_comm 整体不初始化）能消除乱码。
 
-待做：同时关 custom reduce-scatter 与 all-gather（看是否等价于关整个 custom all-reduce）；top-k v2（带修复）的 AgentX A/B；修复代价
-复测；CI 补验证；之后 example 与 agg 配方补上修复。
+**top-k v2 / `index_share` 的性能（140，10-20 06:13 起，`scripts/example_perf_chain.sh`，依次跑完、每点之间等 GPU 0-3 显存回收）：**
+三个 AgentX C48 点，都在修复（`--disable-custom-all-reduce`）之上、都用 example 套件（v0.5.22，`SIM_ACCEPT_LEN=3.61`）：
+`base`（只加修复，140 的同节点基线——140 比 138 快约 3.7%，不能直接用 138 的数）；`topkv2`（example 的本地副本，只把 `worker.sh`
+里的 `SGLANG_OPT_USE_TOPK_V2=false` 改成 `true`，提交的 example 没有改）；`idxshare`（`ENGINE_EXTRA_ARGS` 追加
+`--json-model-override-args {}`，覆盖掉 `index_share_for_mtp_iteration=false`）。日志在 140 `/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/perf140/`。
+
+待做：上面三点；同时关 custom reduce-scatter 与 all-gather（看是否等价于关整个 custom all-reduce）；修复代价复测；之后 example 与
+agg 配方补上修复。
 
 ## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
 
