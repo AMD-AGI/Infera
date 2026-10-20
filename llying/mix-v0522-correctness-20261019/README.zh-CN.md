@@ -1,5 +1,21 @@
 # GLM-5.2 aggregated TP4 + DP4 attention：并发下输出乱码（10-19）
 
+## 10-20 03:22 更新：`--disable-custom-all-reduce` 消除乱码
+
+**v0.5.21 镜像（`infera-sglang:v0521-llying-1012-mc4340-destpin`）基线配置（DP attention、MTP、HiCache 64 GB、delayer、融合
+算子全开）只加 `--disable-custom-all-reduce`：200 题 197 对（0.985）、0 乱码、1 条截断**（doc 119，连贯的过度推敲，dpa0 也在这题
+上跑满）；另 2 条答错是正常算错。140 GPU 4-7，`bisect/v0521-dcar-200/`。同一镜像不加此参数（10-19，138，lm-eval）0.745、59 条乱码；
+v0.5.22 各变体 53-61 条乱码。
+
+这正是已验证配置与这次配置的关键差异：09-24 完成完整 GSM8K（0.968 / 0.976）的 PD P4D4 部署，decode 引擎带着
+`--disable-custom-all-reduce`；yihou 09-18 已查明"decode 上的 custom all-reduce 破坏推测路径"并以此修复（`yihou/glm52-mtp-garbled-decode-rootcause.packup_20260918/`，
+症状同为 `1!...` 开头的退化文本、MTP 接受长度约 1.25）。a3 / example 的聚合配方没有带这个参数，我在二分中也没有先与已验证配置
+对比、没有测过它（只关过 aiter allreduce 融合），下面"当前结论"一节的排查方向因此绕了远路。与 yihou 的结论有一处不同：关 MTP
+后照样乱码，说明受影响的不只是推测路径。a6b 的 decode profile 里 aiter custom all-reduce（`cross_device_reduce_2stage`）占 GPU 时间 4.7%；
+yihou 测过的代价是 C40 +0.7%、C56 −4.2%（PD decode）。
+
+待做：v0.5.22（example 镜像）上复核；AgentX C48 量性能代价；之后 example 与 agg 配方补上该参数。
+
 ## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
 
 - **现象**：MI355X 上 GLM-5.2-MXFP4 聚合部署 TP4 + DP4 attention，持续并发（GSM8K 200 题、并发 64）下约 30% 的回答坏掉：
