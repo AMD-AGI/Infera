@@ -49,7 +49,19 @@ docker run -d --name "$CTR-router" --network host -v "$MODEL:$MODEL:ro" "$IMAGE"
     --session-affinity prefill --pd-prefill-guard-release completion --decode-input-demand on \
     "${router_extra[@]}" >/dev/null
 wait_health "$ROUTER_URL/health" "$CTR-router"
-sleep 10
-curl -sf -m 10 "$ROUTER_URL/v1/workers" >"$RUN_DIR/workers.json" || true
-echo "router workers (expect 2 prefill + 1 decode): $(cat "$RUN_DIR/workers.json")"
+# A prefill registers only after infera's start-up probe has moved KV to every
+# decode rank, a minute or more after its /health answers.
+modes() {
+    curl -sf -m 10 "$ROUTER_URL/v1/workers" | python3 -c \
+        'import json, sys; print(*sorted(w["disagg_mode"] for w in json.load(sys.stdin)["workers"]))'
+}
+until [[ "$(modes 2>/dev/null)" == "decode prefill prefill" ]]; do
+    for c in "$CTR-prefill0" "$CTR-prefill1"; do
+        [[ "$(docker inspect -f '{{.State.Running}}' "$c")" == true ]] ||
+            die "$c stopped before registering with the router; see: docker logs $c"
+    done
+    sleep 10
+done
+curl -sf -m 10 "$ROUTER_URL/v1/workers" >"$RUN_DIR/workers.json"
+echo "router workers: 2 prefill + 1 decode"
 echo "===== up: $ROUTER_URL  SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}  run=$RUN_DIR ====="
