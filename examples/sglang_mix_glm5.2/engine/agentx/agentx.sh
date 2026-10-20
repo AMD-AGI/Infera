@@ -17,27 +17,17 @@ source "$KIT/engine/common.sh"
 RUN_DIR="$(run_dir)"
 # shellcheck source=/dev/null
 source "$RUN_DIR/engine-config.env"
+inferencex_checkout
 
-INFERENCEX_REPO="${INFERENCEX_REPO:-https://github.com/SemiAnalysisAI/InferenceX.git}"
-INFERENCEX_REF="${INFERENCEX_REF:-918524ff94045b3f091115f1051c22a8588edf2b}"
 DURATION="${DURATION:-3600}"
 WARMUP_PER_LANE="${WARMUP_PER_LANE:-10}"
-
 out="$RUN_DIR/agentx"
-ix="$WORK_DIR/cache/InferenceX"
 cache="$WORK_DIR/cache/agentx"
 mkdir -p "$out/tmp" "$cache"
-if [[ ! -d "$ix/.git" ]]; then
-    git clone --filter=blob:none "$INFERENCEX_REPO" "$ix"
-    git -C "$ix" checkout --detach "$INFERENCEX_REF"
-    git -C "$ix" submodule update --init --recursive
-fi
-[[ "$(git -C "$ix" rev-parse HEAD)" == "$INFERENCEX_REF" ]] ||
-    die "InferenceX checkout $ix is not at $INFERENCEX_REF"
 
 # TMPDIR stays short: AIPerf's Unix socket paths must fit in 107 bytes.
 cat >"$out/runtime.env" <<EOF
-INFMAX_CONTAINER_WORKSPACE=$ix
+INFMAX_CONTAINER_WORKSPACE=$IX
 INFERENCEX_COMMIT=$INFERENCEX_REF
 MODEL=$MODEL
 SERVED_MODEL_NAME=$SERVED_MODEL

@@ -13,7 +13,7 @@ One file is site-specific. Fill it in, then:
 $EDITOR env.sh                 # the only file you edit
 bash engine/up.sh              # etcd -> engine -> router
 bash engine/smoke.sh           # registration, completion/chat/stream, 66k-token prefix reuse
-bash engine/eval.sh            # GSM8K, 200 questions
+bash engine/eval.sh            # GSM8K as InferenceX runs it, 1,319 questions
 bash engine/down.sh            # save logs, remove containers
 ```
 
@@ -35,7 +35,7 @@ docker build -f deploy/docker/Dockerfile.sglang -t <infera-sglang-image> .
 | [`engine/worker.sh`](engine/worker.sh) | starts the engine container; carries the tuned recipe |
 | [`engine/up.sh`](engine/up.sh) | etcd → engine → router, waiting on each health endpoint |
 | [`engine/smoke.sh`](engine/smoke.sh), [`engine/smoke.py`](engine/smoke.py) | correctness checks through the router |
-| [`engine/eval.sh`](engine/eval.sh) | GSM8K (5-shot, 200 questions) with `lm_eval` 0.4.13 through the router |
+| [`engine/eval.sh`](engine/eval.sh) | GSM8K through the router with InferenceX's `run_eval` (its lm-eval revision, `utils/evals/gsm8k.yaml`, full test set) |
 | [`engine/agentx/agentx.sh`](engine/agentx/agentx.sh) | one InferenceX AgentX point, pinned at `918524ff` |
 | [`engine/agentx/constraints.txt`](engine/agentx/constraints.txt) | AgentX client package pins |
 | [`engine/down.sh`](engine/down.sh) | save logs + inspect, remove the kit's containers by name |
@@ -76,7 +76,7 @@ were added, and were not repeated.
 |---|---|
 | correctness (`smoke.py`, real MTP acceptance)* | 6/6 pass (66k-token prefix: 9.8 s cold, 1.0 s repeated) |
 | GSM8K, concurrency 1 (24 questions, real MTP acceptance)* | 0.958 |
-| GSM8K, concurrency 64 (`eval.sh`'s 200 prompts, real MTP acceptance, last number in the answer scored; host pool 64 GB instead of 270 GB) | 0.980, no garbled answer (about 30% garbled without `--disable-custom-all-reduce`, note 6) |
+| GSM8K, concurrency 64 (200 prompts of the earlier lm-eval 0.4.13 `eval.sh`, real MTP acceptance, last number in the answer scored; host pool 64 GB instead of 270 GB) | 0.980, no garbled answer (about 30% garbled without `--disable-custom-all-reduce`, note 6) |
 | long context (128 requests of ~14k tokens at concurrency 32: needle retrieval, GSM8K behind filler; crsuse2-m2m-140) | needle 64/64, GSM8K 63/64, nothing garbled |
 | AgentX C48, 3600 s, `SIM_ACCEPT_LEN=3.61` (crsuse2-m2m-140) | 34,662 tok/s/GPU, 3,699 requests, 1 invalid response |
 

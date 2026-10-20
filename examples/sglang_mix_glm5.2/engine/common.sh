@@ -17,6 +17,9 @@ done
 ROUTER_URL="http://$NODE_IP:$ROUTER_PORT"
 ENGINE_URL="http://$NODE_IP:$ENGINE_PORT"
 CONTAINERS=("$CTR-agentx" "$CTR-eval" "$CTR-router" "$CTR-engine" "$CTR-etcd")
+INFERENCEX_REPO="${INFERENCEX_REPO:-https://github.com/SemiAnalysisAI/InferenceX.git}"
+INFERENCEX_REF="${INFERENCEX_REF:-918524ff94045b3f091115f1051c22a8588edf2b}"
+IX="$WORK_DIR/cache/InferenceX"
 
 # run_dir: the directory up.sh created for the current deployment.
 run_dir() {
@@ -32,4 +35,15 @@ wait_health() {
             die "$container stopped while waiting for $url; see: docker logs $container"
         sleep 10
     done
+}
+
+# inferencex_checkout: InferenceX at INFERENCEX_REF in $IX (AgentX and GSM8K).
+inferencex_checkout() {
+    if [[ ! -d "$IX/.git" ]]; then
+        git clone --filter=blob:none "$INFERENCEX_REPO" "$IX"
+        git -C "$IX" checkout --detach "$INFERENCEX_REF"
+        git -C "$IX" submodule update --init --recursive
+    fi
+    [[ "$(git -C "$IX" rev-parse HEAD)" == "$INFERENCEX_REF" ]] ||
+        die "InferenceX checkout $IX is not at $INFERENCEX_REF"
 }

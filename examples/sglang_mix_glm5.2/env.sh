@@ -46,6 +46,8 @@ export ROUTER_EXTRA_ARGS="${ROUTER_EXTRA_ARGS:-}"
 # ---------------------------------------------------------------------------
 # AgentX client concurrency (agentx.sh only; the engine does not depend on it).
 export CONC="${CONC:-48}"
+# GSM8K request concurrency (eval.sh; InferenceX's default).
+export EVAL_CONC="${EVAL_CONC:-64}"
 
 # ---------------------------------------------------------------------------
 # 4. Ports and names
