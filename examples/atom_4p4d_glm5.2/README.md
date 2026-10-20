@@ -3,9 +3,10 @@
 Runnable kit for **GLM-5.2-MXFP4** served the infera way on a single 8×MI355X
 (gfx950) node, PD-disaggregated: one **TP1 × PP4 prefill** on GPUs 0-3, set up
 as in ATOM's GLM-5.2 AgentX recipe, and one **TP4 + DCP4 decode** on GPUs 4-7,
-KV moved by **Mooncake over the ionic RDMA rails**, a **1 TiB LMCache CPU tier**
-behind the prefill, and the infera router (round-robin with
-**`--session-affinity prefill`**) in front. `PREFILL_PP=1` runs a TP4 + DCP4
+KV moved by **Mooncake over the ionic RDMA rails**, a **1.5 TiB Mooncake Store
+CPU tier** behind the prefill, and the infera Rust router (round-robin with
+**`--session-affinity prefill`**) in front. Engine settings follow ATOM's GLM-5.2
+AgentX recipe and InferenceX PR #4045's 1P1D. `PREFILL_PP=1` runs a TP4 + DCP4
 prefill instead ([below](#the-dcp-prefill)).
 
 One file is site-specific. Fill it in, then:
@@ -51,7 +52,8 @@ docker build -f deploy/docker/Dockerfile.atom \
 |---|---|
 | [`env.sh`](env.sh) | **the only file you edit** — node IP, weights, image, scratch dir, load shape, ports |
 | [`engine/worker.sh`](engine/worker.sh) | starts ONE engine container (`prefill` or `decode`); carries the tuned recipe |
-| [`engine/up.sh`](engine/up.sh) | etcd → both workers → router; checks the router sees 1 prefill + 1 decode |
+| [`engine/up.sh`](engine/up.sh) | etcd → Store → both workers → router; checks the router sees 1 prefill + 1 decode |
+| [`engine/store.sh`](engine/store.sh) | the Mooncake Store CPU tier: a master and one owner per NUMA node |
 | [`engine/smoke.sh`](engine/smoke.sh), [`engine/smoke.py`](engine/smoke.py) | correctness checks through the router; need real MTP acceptance |
 | [`engine/eval.sh`](engine/eval.sh) | GSM8K (5-shot, 200 questions) with `lm_eval` from the image; needs real MTP acceptance |
 | [`engine/agentx/agentx.sh`](engine/agentx/agentx.sh), [`engine/agentx/aggregate.py`](engine/agentx/aggregate.py) | one InferenceX AgentX point, pinned at `918524ff`, with the single-node PD GPU count fixed |
@@ -71,22 +73,29 @@ settings actually started); the other scripts read it and write `smoke/`,
 | parallelism | TP1 × PP4, layers per stage `20,20,20,18` | TP4 + DCP4, no DP-attention |
 | execution | `--enforce-eager` (ATOM runs PP without CUDA graphs) | CUDA graphs 1, 2, 4, 8, 12 … 2 × CONC |
 | max-num-seqs | 512 | 2 × CONC |
-| max-num-batched-tokens | 8192 | 16384 |
-| mem util | 0.85 | 0.90 |
-| KV connector | `multi`: Mooncake `kv_producer` (4 send workers per stage) + `lmcache_offload` | Mooncake `kv_consumer` |
+| max-num-batched-tokens | 8192 | 2048 |
+| mem util | 0.85 | 0.94, communicator groups shared (`AITER_REUSE_IDENTICAL_COMM_GROUPS=1`) |
+| KV connector | `multi`: Mooncake `kv_producer` (16 send workers per stage) + `mooncake_store` offload | Mooncake `kv_consumer` |
 | shared | FP8 KV, block 16, prefix caching, MTP (`--method mtp`), online PTPC-FP8 with MXFP4 experts (the MTP layer's quantized online, `MTP_EXPERTS`) and the rest of the MTP layer in BF16 | |
 
-The prefill settings are those of ATOM's GLM-5.2 AgentX recipe
-(`/app/ATOM/recipes/Agentic-GLM-5.2.md` in the image), apart from the send
-workers (gotcha 13). Not taken from it: `OFFLOAD_PROFILE=1` (logging only),
-`--timeout-keep-alive 900` (the infera disagg router does not reuse idle
-connections) and the recipe's decode settings (mem util 0.94,
-`--max-num-batched-tokens 2048`, `AITER_REUSE_IDENTICAL_COMM_GROUPS=1`, graphs
-up to 256).
+The settings are those of ATOM's GLM-5.2 AgentX recipe
+(`/app/ATOM/recipes/Agentic-GLM-5.2.md` in the image) and of InferenceX PR
+#4045's 1P1D (`MC_NUM_QP_PER_EP=1` on every Mooncake peer, `TOPK_FORCE_PATH=one`,
+`--timeout-keep-alive 900`, the Store). The decode's memory settings give it
+~196K KV blocks instead of ~156K at 0.90 / 16384 with separate communicators:
+AgentX lanes reuse their whole context every turn, and once C × mean prompt
+length outgrows the decode's KV pool its prefix hits collapse, the prefill
+re-sends whole prompts and TTFT explodes (about C85 before, C105 now). Not
+taken from them: `OFFLOAD_PROFILE=1` (logging only), the decode's graphs (here
+every 4 up to 2 × CONC, there every 8 up to 256) and BF16 MTP experts
+(`MTP_EXPERTS`).
 
-MTP depth follows `CONC`: K3 at CONC ≥ 48, K4 below. LMCache holds 256 GiB per
-prefill stage (`PREFILL_OFFLOAD_GB`), chunk 256, loads hits of any length, and
-looks up all four stages because each holds the KV of its own layers.
+MTP depth follows `CONC`: K3 at CONC ≥ 48, K4 below. The Store
+(`PREFILL_CPU_TIER=store`, gotcha 14) is one pool of 2 × 768 GiB that the four
+PP stages share, each through its own NIC; `PREFILL_CPU_TIER=lmcache` instead
+holds 256 GiB of LMCache per stage (`PREFILL_OFFLOAD_GB`), chunk 256, and looks
+up all four stages because each holds the KV of its own layers. Both load hits
+of any length.
 
 KV moves from each PP stage (its own layers) to every decode DCP rank: the
 producer gathers the tokens a rank owns into a staging slot
@@ -124,6 +133,9 @@ On shutdown each PP stage logs a few `TypeError` tracebacks from aiter
 `shm_broadcast`; none appear while serving.
 
 ## Reference numbers
+
+These are the previous defaults: Python router, decode at 0.90 / 16384 with
+separate communicators, 4 send workers, LMCache.
 
 AgentX agentic-coding replay, InferenceX `918524ff`, cold start per point, 10
 warm-up requests per lane, 3600 s measured, forced MTP acceptance (`MTP_AL=2.99`
@@ -178,7 +190,7 @@ an operator decision, so the kit always passes it explicitly.
 drafts at a fixed rate whether they are right or not. Use it only for
 performance runs; the default (empty) is real acceptance.
 
-**4. 1 TiB of pinned host memory, as GTT.** The four prefill stages (or DCP ranks) each pin
+**4. LMCache: 1 TiB of pinned host memory, as GTT.** With `PREFILL_CPU_TIER=lmcache` the four prefill stages (or DCP ranks) each pin
 `PREFILL_OFFLOAD_GB` GiB. Lower it on smaller hosts, or set `0` to drop the CPU
 tier; the prefill then registers a plain Mooncake producer. Startup also waits
 a few minutes in an RCCL barrier after the pools are pinned. With the CPU tier
@@ -201,9 +213,10 @@ socket can take the port before the listener binds. Mooncake handshakes use
 base + PP stage on the prefill and base + TP rank on the decode, so 21301-21304
 and 21311-21314.
 
-**7. Router backend and transports.** `ROUTER_BACKEND` picks the Python router
-(default, used for the reference numbers) or the Rust one; both route ATOM PD
-(`atom-mooncake`). ATOM speaks neither NATS requests nor NATS KV events, so
+**7. Router backend and transports.** `ROUTER_BACKEND` picks the Rust router
+(default) or the Python one (used for the reference numbers below); both route
+ATOM PD (`atom-mooncake`) and hand the prefill's prompt token ids to the decode,
+so the decode does not tokenize the prompt again. ATOM speaks neither NATS requests nor NATS KV events, so
 `up.sh` passes `--request-transport http --kv-event-transport zmq`. `kv-aware`
 would need engine KV events, so the policy is `round-robin`.
 
@@ -250,9 +263,24 @@ CQ` and ionic `wqe is not posted` without end). Every later transfer to that
 rank failed, so every request did. It hit `ionic_4` and `ionic_5`, with forced
 and with real MTP acceptance. One send worker removed the hang, but a 443k-token
 prompt then missed ATOM's fixed 120 s transfer deadline (`PD_TRANSFER_DEADLINE_S`,
-queueing included). Four workers (`PREFILL_SEND_WORKERS`, the default) ran C64
-and C96 without a transfer failure. The DCP prefill, whose ranks each write to
-one decode rank without staging, never showed the hang.
+queueing included). Four workers ran C64 and C96 without a transfer failure.
+All of that was with Mooncake's default two QPs per endpoint. ATOM's offload
+README reports the same symptom for concurrent reads at two QPs, and ATOM's CI
+and InferenceX PR #4045 run the 16 workers with `MC_NUM_QP_PER_EP=1`, which the
+kit now sets on every Mooncake peer; `PREFILL_SEND_WORKERS=4` is the fallback.
+The DCP prefill, whose ranks each write to one decode rank without staging,
+never showed the hang.
+
+**14. The Store owners need 2 MiB pages.** Each owner pins `STORE_OWNER_GB`
+(768 GiB) of its NUMA node and registers it with the NICs in 64 GiB regions,
+which the ionic NICs only accept when backed by huge pages. `store.sh` gets them
+without root through glibc's THP malloc (`GLIBC_TUNABLES=glibc.malloc.hugetlb=1`,
+THP `enabled` = `madvise` or `always`) and prints each owner's `AnonHugePages`;
+a fragmented node can leave an owner on 4 KiB pages, and it then fails to mount.
+Each NUMA node needs `STORE_OWNER_GB` free plus the engines' host memory; lower
+it or use `PREFILL_CPU_TIER=lmcache` on smaller hosts. The prefill needs one
+Store load worker (`OFFLOAD_LOAD_WORKERS=1`): more hung its pipeline at C96 in
+ATOM's tests.
 
 ## What this kit exposes on the network
 
@@ -263,6 +291,8 @@ one decode rank without staging, never showed the hang.
 | 19011 / 19012 | prefill / decode readiness probe |
 | 21301-21304 / 21311-21314 | Mooncake handshakes |
 | 23379 / 23380 | etcd client / peer (peer on 127.0.0.1) |
+| 26051 / 26080 / 26090 | Store master RPC / metadata HTTP / metrics |
+| 26052-26053 | Store owners |
 
 All bind on the host network without authentication. `--trust-remote-code` runs
 the checkpoint's Python; serve only weights you trust.

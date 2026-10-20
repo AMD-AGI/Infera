@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 #
 # Bring up the 4P4D deployment on this node:
-#   etcd -> prefill (GPUs 0-3) + decode (GPUs 4-7) -> router.
+#   etcd (+ Mooncake Store) -> prefill (GPUs 0-3) + decode (GPUs 4-7) -> router.
 # Each run gets a directory under $WORK_DIR/runs that records the settings used;
 # smoke.sh, eval.sh, agentx.sh and down.sh write into it.
 #
@@ -19,6 +19,10 @@ esac
 case "$ROUTER_BACKEND" in
     python | rust) ;;
     *) die "ROUTER_BACKEND must be python or rust, not $ROUTER_BACKEND" ;;
+esac
+case "$PREFILL_CPU_TIER" in
+    store | lmcache | off) ;;
+    *) die "PREFILL_CPU_TIER must be store, lmcache or off, not $PREFILL_CPU_TIER" ;;
 esac
 for gpus in "$PREFILL_GPUS" "$DECODE_GPUS"; do
     [[ "$gpus" =~ ^[0-9]+(,[0-9]+){3}$ ]] || die "each leg needs exactly four GPUs, got $gpus"
@@ -47,6 +51,8 @@ docker run -d --name "$CTR-etcd" --network host --entrypoint /usr/local/bin/etcd
     --initial-advertise-peer-urls "http://127.0.0.1:$ETCD_PEER_PORT" \
     --initial-cluster "default=http://127.0.0.1:$ETCD_PEER_PORT" >/dev/null
 wait_health "http://$NODE_IP:$ETCD_PORT/version" "$CTR-etcd"
+# The prefill connects to the Store at startup.
+[[ "$PREFILL_CPU_TIER" != store ]] || bash "$KIT/engine/store.sh"
 
 echo "===== 3. prefill and decode ====="
 bash "$KIT/engine/worker.sh" prefill
