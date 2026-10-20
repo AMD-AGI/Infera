@@ -180,9 +180,25 @@ GSM8K（lm_eval 0.4.13，5-shot、200 题，经 router，真实 MTP 接受）只
 | `tests/unit`（镜像内） | v0.5.22 镜像，`tests/lib/container_pytest.sh` | **通过**：2,359 passed，81 skipped（10-19 的 15 个 Responses 相关失败已修好） |
 | `engine`（sglang 那一半） | 按 `Dockerfile.sglang` 构建（标签 `infera/engine-sglang:llying-ci-v0522`，不占用共享的 `test-local`），逐文件跑 `tests/engine/sglang` | **通过**：8 个文件全部通过 |
 | `e2e-mixed`（sglang） | `INFERA_E2E_LOCAL=1 tests/run_tests.sh e2e sglang mixed`；非独占模式（不设 `INFERA_E2E_EXCLUSIVE`、`INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS`，不动别人的容器）；节点上原有的 `test-local`（09-03 构建）先另存、跑完恢复 | 首次 **3 个用例失败、2 个跳过**：worker 报 `ambiguous option: --cuda-graph-max-bs could match --cuda-graph-max-bs-decode, --cuda-graph-max-bs-prefill`。修复（`4403eda6`）后重跑**通过**：gpt-oss-120b-tp2-ep、Kimi-K2.6-MXFP4-tp4-ep-dpattn、GLM-5.1-FP8-tp4 PASSED，DeepSeek-V4-Flash-FP8-tp4-dpattn、GLM-5.2-FP8-tp8-dpattn 按矩阵跳过（与首次相同），30 分钟；`test-local` 标签已恢复 |
-| `e2e-disag`（sglang） | 同上 | **在 138 上跑不了**：跨两节点的 PD 测试要 SLURM（`srun`），138 没有；只能在 CI 集群上跑（按用户决定，review 之后再触发） |
+| `e2e-disag`（sglang） | 同上 | **原样跑不了**：跨两节点的 PD 测试要 SLURM（`srun`），138/140 没有。已改 harness 支持 ssh（见下），等性能点跑完后在 138+140 上跑 |
 
 `rust`、`unit-torch-cpu`、`agent_sys`、`engine` 的 vllm 那一半：分支未改相关代码，未跑。
+
+**e2e-disag 改为可在 138+140 上跑（10-20）**：独立分支 `feat/e2e-disag-ssh-transport`（`a99fd8eb`，基于 main，已推送，未开 PR）。
+`INFERA_E2E_TRANSPORT=ssh` 时，所有节点操作走 `ssh <node>` 而不是 `srun`（唯一出口 `cluster.run_on_node`），节点由
+`INFERA_E2E_NODES` 指定；`disagg.sh` 在此模式下不抢占/不换节点/不重试，以非独占方式跑一次（只删本次带标签的容器，不做 GPU
+清理）。不设这个变量时 SLURM 路径不变。`tests/unit/e2e_harness/` 168 passed（含新增 3 个），ruff 0.13.0 通过。
+
+前提（已只读确认）：两节点 mlx5_0 的 GID 3 都是由管理网 IP 映射出的可路由 RoCEv2 地址（138 `10.245.157.237`，140 `10.245.159.30`），
+都没有 ib_peer_mem，与 ci.yml 的 e2e-disag 网络设置（GID 3、`MC_TE_FILTERS=mlx5_0`、dma-buf）一致；`/home` 两节点共享，
+`/mnt/m2m_nobackup` 是各自本地盘（checkout 必须放 `/home`）；138↔140 免密 ssh 双向可用。gfx950 上 sglang 矩阵只跑 gpt-oss-120b：
+prefill TP2 在 138 GPU 0-1，decode TP2 在 140 GPU 0-1，etcd/router 在 138。
+
+步骤（`scripts/ci_local.sh`，在 138 上手动执行，`OUT=/home/liyingli/bench_agentx/baseline/ci-disag-v0522`）：
+`disag-prep`（clone v0522 分支并 cherry-pick `a99fd8eb`；OUT 下建 venv 装 pytest/pytest-asyncio/httpx，不动系统 python；140 缺
+v0.5.22 base 镜像，`docker save | ssh docker load`，64.7 GB）→ 两节点并行 `disag-build`（`Dockerfile.sglang` 没有声明
+`MOONCAKE_HIP_DMABUF`，这个构建参数对 sglang 镜像不起作用，只给 tag 加后缀 `test-local-mooncake_hip_dmabuf1`；138 可命中缓存，
+140 要从头编 Mooncake）→ `disag`。
 
 **e2e 暴露的升级回归：`--cuda-graph-max-bs`。** v0.5.22 把它拆成 `--cuda-graph-max-bs-decode` / `--cuda-graph-max-bs-prefill`，旧写法
 在 argparse（默认允许缩写）里成了两者的有歧义前缀，Infera 入口用 sglang 的 `ServerArgs.add_cli_args` 解析剩余参数时直接报错，
