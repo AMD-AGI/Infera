@@ -53,6 +53,7 @@ EXPERIMENTS = [
     ("b0r", "b0r-a3-140", 48, "b0 重跑（140 空闲后）"),
     ("b3", None, 48, "a3 去掉 DP attention（纯 TP4），chunk 8192：预热中止（prefill 只有 DP4 的 1/4）"),
     ("b3b", "b3b-a3-tp4-nodpa-ck32k", 48, "a3 去掉 DP attention（纯 TP4），chunk 32768"),
+    ("b4", "b4-a3-140-affinity-off", 48, "b0r 的栈，router 关 session affinity"),
 ]
 
 CONFIG_VARS = [

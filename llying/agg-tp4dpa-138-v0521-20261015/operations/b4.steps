@@ -1,0 +1,2 @@
+# b4 (crsuse2-m2m-140): the b0r stack (ROUND=b0r) scored with session affinity off; compare with b0r.
+bash scripts/agg_round.sh ROUND=b0r VARIANT=b4-a3-140-affinity-off CONC=48 ROUTER_ENV=INFERA_SESSION_AFFINITY=off
