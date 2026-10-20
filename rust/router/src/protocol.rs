@@ -249,11 +249,19 @@ pub fn annotate_atom_prefill(
         atom_param(decode, "http_port")?.clone(),
     );
     prefill_one_token(body, path);
+    // Ask for the prompt ids, which atom_handoff passes on so the decode skips
+    // rendering and tokenizing the same prompt again.
+    body.insert("return_token_ids".into(), Value::Bool(true));
     body.insert("kv_transfer_params".into(), Value::Object(kv));
     Ok(())
 }
 
-/// The hand-off the decode needs: the prefill response's `kv_transfer_params`.
+/// The hand-off the decode needs: the prefill response's `kv_transfer_params`,
+/// plus the prompt ids the prefill returned. ATOM's decode takes
+/// `kv_transfer_params['prompt_token_ids']` as the prompt (and drops it before
+/// the engine), skipping its own template rendering and tokenization: ~0.25 s
+/// per request at 130K tokens. A prefill that returned no ids leaves the decode
+/// tokenizing as before.
 pub fn atom_handoff(prefill_reply: &Value) -> anyhow::Result<Map<String, Value>> {
     let kv = prefill_reply
         .get("kv_transfer_params")
@@ -262,7 +270,26 @@ pub fn atom_handoff(prefill_reply: &Value) -> anyhow::Result<Map<String, Value>>
     if !kv.contains_key("transfer_id") {
         anyhow::bail!("atom prefill kv_transfer_params has no transfer_id");
     }
-    Ok(kv.clone())
+    let mut handoff = kv.clone();
+    if let Some(ids) = atom_prompt_ids(prefill_reply) {
+        handoff.insert("prompt_token_ids".into(), ids.clone());
+    }
+    Ok(handoff)
+}
+
+/// The prompt ids of a `return_token_ids` reply: top level for chat
+/// completions, on the first choice for completions. Only a list of integers.
+fn atom_prompt_ids(reply: &Value) -> Option<&Value> {
+    [
+        reply.get("prompt_token_ids"),
+        reply.pointer("/choices/0/prompt_token_ids"),
+    ]
+    .into_iter()
+    .flatten()
+    .find(|ids| {
+        ids.as_array()
+            .is_some_and(|a| !a.is_empty() && a.iter().all(Value::is_u64))
+    })
 }
 
 /// Decode leg: the prefill's hand-off plus the producer's parallelism, which the
@@ -504,6 +531,7 @@ mod tests {
         assert_eq!(body["max_tokens"], 1);
         assert_eq!(body["stream"], false);
         assert!(!body.contains_key("stream_options"));
+        assert_eq!(body["return_token_ids"], true);
         // What ATOM's own proxy sends, field for field.
         assert_eq!(
             body["kv_transfer_params"],
@@ -543,6 +571,27 @@ mod tests {
         assert_eq!(kv["remote_tp_size"], 4);
         assert_eq!(kv["tp_size"], 4);
         assert_eq!(kv["remote_dp_rank"], 3);
+        assert!(!kv.as_object().unwrap().contains_key("prompt_token_ids"));
+    }
+
+    #[test]
+    fn atom_handoff_carries_the_prompt_ids() {
+        let kv = json!({"transfer_id": "t"});
+        // Chat completions: top level; completions: the first choice.
+        for reply in [
+            json!({"kv_transfer_params": kv, "prompt_token_ids": [5, 6, 7]}),
+            json!({"kv_transfer_params": kv, "choices": [{"prompt_token_ids": [5, 6, 7]}]}),
+        ] {
+            let handoff = atom_handoff(&reply).unwrap();
+            assert_eq!(handoff["prompt_token_ids"], json!([5, 6, 7]));
+        }
+        // Anything but a non-empty list of ids is left out.
+        for ids in [json!([]), json!(["a"]), json!([1, -2]), json!("1 2")] {
+            let reply = json!({"kv_transfer_params": kv, "prompt_token_ids": ids});
+            assert!(!atom_handoff(&reply)
+                .unwrap()
+                .contains_key("prompt_token_ids"));
+        }
     }
 
     #[test]

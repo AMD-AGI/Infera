@@ -534,6 +534,13 @@ const SGLANG_FEDERATE: &[&str] = &[
     "sglang:num_used_tokens",
 ];
 
+/// Whether the frontend /metrics takes anything from `engine`'s exposition.
+/// False for ATOM (and unknown engines): no gauge or federated family is known
+/// for it, so a scrape only costs the engine's API process a /metrics render.
+pub fn frontend_reads(engine: &str) -> bool {
+    matches!(engine.to_ascii_lowercase().as_str(), "sglang" | "vllm")
+}
+
 fn federate_families(engine: &str) -> &'static [&'static str] {
     match engine.to_ascii_lowercase().as_str() {
         "vllm" => VLLM_FEDERATE,
@@ -922,6 +929,12 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+
+    #[test]
+    fn frontend_scrapes_only_engines_it_reads() {
+        assert!(frontend_reads("vllm") && frontend_reads("SGLang"));
+        assert!(!frontend_reads("atom") && !frontend_reads(""));
+    }
 
     #[test]
     fn federate_vllm_keeps_buckets_and_injects_labels() {
