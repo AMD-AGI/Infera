@@ -226,6 +226,12 @@ base 镜像正在传往 140。`scripts/disag_after_prep.sh` 在 138 后台按顺
 `/home/liyingli/bench_agentx/baseline/ci-disag-v0522/logs/llying-v0522-disag/`。至此 v0.5.22 分支涉及 sglang 的 CI 作业
 （lint、unit、unit-image、engine、e2e-mixed、e2e-disag）在本地全部通过。
 
+**example 已更新（10-20，`00da3cf3`，按用户决定不另跑）**：`worker.sh` 加 `--disable-custom-all-reduce`、
+`SGLANG_OPT_USE_TOPK_V2=true`；README 的验证状态、参考数据（140 topkv2 那组：34,662 tok/s/GPU、intvty p90 22.7，命中 96.5%）
+与 note 6 改写。smoke 6/6 与并发 1 的 GSM8K 0.958 是加这两项之前的结果，README 中以 * 标出；并发 64 的 GSM8K 0.980 来自
+bisect 基线配置（与 example 只差主机池 64 GB 对 270 GB），一并注明。旧 README 写的"0 errors"实际是 3 条
+`InvalidInferenceResultError`，新数据如实写 1 条。example 仍不合入 main；`feat/e2e-disag-ssh-transport` 等用户 review。
+
 **e2e 暴露的升级回归：`--cuda-graph-max-bs`。** v0.5.22 把它拆成 `--cuda-graph-max-bs-decode` / `--cuda-graph-max-bs-prefill`，旧写法
 在 argparse（默认允许缩写）里成了两者的有歧义前缀，Infera 入口用 sglang 的 `ServerArgs.add_cli_args` 解析剩余参数时直接报错，
 worker 退出码 2。e2e 的 `tests/e2e/pd_mixed/sglang/conftest.py` 传 `--cuda-graph-max-bs 8`；仓库里还有十来处 example / 部署配方
