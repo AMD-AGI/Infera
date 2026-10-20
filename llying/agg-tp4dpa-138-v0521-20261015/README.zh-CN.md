@@ -424,6 +424,12 @@ prefill 量也差不多：多个 rank 一起 prefill 时，这一步的耗时由
 是主要原因之一，下一步的方向是 router 按各 rank 待 prefill 的 token 量分配新会话（`prefill_timeline.txt` 在
 `results/b2-a3-piggyback-138/c48/`）。
 
+**b3（138，纯 TP4，chunk 8192）预热中手动中止，b3b 重跑。** 我把 b3 的 chunk 设成 8192，理由写成"一步的 prefill 与 DP4 一个 rank
+相当"——这是错的：TP4 一步里每个 token 由 4 张卡分摊，32768 token 的一步对每张卡的开销才相当于 DP4 一个 rank 的 8192。按 8192
+跑，TP4 的 prefill 能力只有 DP4 的 1/4：预热 9.5 分钟只回来 47 / 531，引擎待 prefill 168 万 token、约 1.17 万 tok/s。01:12 停掉，
+`round.b3.sh` 保留当时的配置并注明中止；b3b（`config/round.b3b.sh`）把 chunk 与 max-prefill 都设为 32768，01:14 启动（先等 b3
+栈的显存回收）。纯 TP4 的 GPU KV 池是 249 万 token（MLA latent KV 在 TP rank 间复制），DP4 是每 rank 206 万、共 823 万。
+
 顺带修了 `scripts/stop_stack.sh`：原来等节点上所有 GPU 都空才返回，共享节点上别人的作业会让它等满 30 分钟报错、卡住后续步骤；
 现在只看本轮 `GPUS_mixed_0` 的卡。
 
