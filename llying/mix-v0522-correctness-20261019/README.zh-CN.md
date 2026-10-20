@@ -140,7 +140,7 @@ topkv2 `=true`，138 idxshare 为 `false`、`json_model_override_args='{}'`）�
 | 138 idxshare | 32,675（−1.3%） | 0.972 | 3,524 / 1 | 40.2 / 20.5（0 / +7%） | 3.96 / 11.64（+7% / +15%） | 24.9 / 48.9（0 / −6%） | 85.8（+1%） |
 
 - **top-k v2：吞吐和延迟全面变好**，幅度远超同配置两节点之间 3.5% 的差异；绝对值也比 138 base 高 4.7%。正确性此前已验证
-  （v0.5.22 GSM8K 0.980、0 乱码；长上下文 needle 64/64）。值得放进 example，放之前建议在 138 上复测一次。
+  （v0.5.22 GSM8K 0.980、0 乱码；长上下文 needle 64/64）。值得放进 example；按用户决定不在 138 上复测。
 - **`index_share`：没有明确收益**，吞吐 −1.3% 在噪声内，intvty p90 略好、TTFT p90 略差，方向不一致。维持 example 现有的
   `index_share_for_mtp_iteration=false`。
 - 产物：`results/example-c48-dcar-topkv2-140/`、`results/example-c48-dcar-idxshare1/`。
