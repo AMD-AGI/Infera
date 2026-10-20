@@ -443,6 +443,13 @@ b1 相对 a3 的 +6.6% 约 3.7% 来自节点（140 的 b0r 比 138 的 a3 高 3.
 跑，TP4 的 prefill 能力只有 DP4 的 1/4：预热 9.5 分钟只回来 47 / 531，引擎待 prefill 168 万 token、约 1.17 万 tok/s。01:12 停掉，
 `round.b3.sh` 保留当时的配置并注明中止；b3b（`config/round.b3b.sh`）把 chunk 与 max-prefill 都设为 32768，01:14 启动（先等 b3
 栈的显存回收）。纯 TP4 的 GPU KV 池是 249 万 token（MLA latent KV 在 TP rank 间复制），DP4 是每 rank 206 万、共 823 万。
+b3b 01:37 开始 AgentX；冷启动预热时引擎待 prefill 647 万 token，单个调度器 chunk 32768 的 prefill 约 1.6-1.8 万 tok/s（chunk 8192
+时 1.17 万），预热会比 DP4 慢得多，预计 02:30 前后进计分窗口、03:30 前后出结果。
+
+**b4（140，b0r 的栈，router 关 session affinity）**：针对上面的 DP rank 间 prefill 不均，01:40 起用 b0r 仍在运行的引擎再测一轮，
+只把 `INFERA_SESSION_AFFINITY` 从 `both` 改为 `off`（router 日志 `affinity=Off`），每个请求都按 kv-aware 打分选 rank、不再钉在
+会话上一次的 rank。与 b0r 同节点同引擎，唯一变量是亲和性；预计 03:00 前后出结果，看吞吐、interactivity p90、命中率与各 rank 的
+prefill 量（`prefill_step_timeline.py`）。
 
 顺带修了 `scripts/stop_stack.sh`：原来等节点上所有 GPU 都空才返回，共享节点上别人的作业会让它等满 30 分钟报错、卡住后续步骤；
 现在只看本轮 `GPUS_mixed_0` 的卡。
