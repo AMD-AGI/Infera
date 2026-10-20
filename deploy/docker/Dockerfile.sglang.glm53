@@ -193,21 +193,23 @@ RUN set -eu; \
         "$mc" "$ionic" "$abi" "$reanchor" > /etc/glm53-platform.env; \
     echo "[glm53-platform] GPU_PLATFORM=$p $(tr '\n' ' ' < /etc/glm53-platform.env)"
 
-# ---- Mooncake: pinned upstream, no private source patches -------------------
-# Unchanged from Dockerfile.sglang -- same script, same upstream ref. The build
-# is independent of the sglang Python tree above.
+# ---- Mooncake: pinned upstream + rdma_batch_register.diff -------------------
+# Same script and upstream ref as Dockerfile.sglang, plus the bounded batch
+# registration patch. The build is independent of the sglang Python tree above.
 ARG BUILD_MOONCAKE=1
 ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
 COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
 RUN set -eu; \
     . /etc/glm53-platform.env; \
     if [ "${BUILD_MOONCAKE}" = "1" ]; then \
         MC_GPU_ARCH="$MC_GPU_ARCH" MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
+            MC_CPP_PATCH_DIR=/tmp/mooncake_cpp \
             bash /tmp/build_mooncake_sglang.sh; \
     else \
         echo "BUILD_MOONCAKE=0 — leaving base Mooncake as-is"; \
     fi \
-    && rm -f /tmp/build_mooncake_sglang.sh
+    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mooncake_cpp
 
 # ---- assert cross-host routing in the .so this image will LOAD --------------
 ARG REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1
