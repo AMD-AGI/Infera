@@ -21,8 +21,21 @@ QuickReduce（`qr_comm`，`distributed/device_communicators/quick_all_reduce.py`
 gather 后的大缓冲区做 all-reduce，正是 QuickReduce 的适用范围，所以单独关 QuickReduce（`ROCM_QUICK_REDUCE_QUANTIZATION=NONE`、保留
 aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.21）和 138（v0.5.22）上各跑一组。
 
-待做：v0.5.22（example 镜像）上复核；单关 QuickReduce；关 custom all-reduce 后 top-k v2、`index_share` 默认值对正确性的影响；
-AgentX C48 量性能代价；之后 example 与 agg 配方补上修复。
+| 变体（200 题、并发 64，基线配置上改动） | 镜像 / 节点 | correct | 模板标签乱码 | runaway |
+|---|---|---|---|---|
+| v0521-dcar-200：`--disable-custom-all-reduce` | v0.5.21 / 140 | 0.985 | 0 | 1（连贯） |
+| **v0522-dcar-200：`--disable-custom-all-reduce`** | v0.5.22 / 138 | **0.975** | **0** | 3（45、2、119，连贯，与 dpa0 同题） |
+| **v0522-qrnone-200：只关 QuickReduce**（`ROCM_QUICK_REDUCE_QUANTIZATION=NONE`，aiter custom all-reduce 保留） | v0.5.22 / 138 | 157 / 198 | **44** | 44（03:42 手动停，结论已清楚） |
+| v0521-qrnone-200：同上 | v0.5.21 / 140 | 起不来：启动正赶上同节点 b0r 栈回收显存，引擎退出、容器与日志没留下；v0.5.22 已回答，未重跑 | | |
+| **v0522-dcar-topkv2-200：`--disable-custom-all-reduce` + `SGLANG_OPT_USE_TOPK_V2=true`** | v0.5.22 / 138 | **0.980** | **0** | 2（119、93，连贯） |
+| v0522-dcar-idxshare1-200：`--disable-custom-all-reduce` + 不覆盖 `index_share_for_mtp_iteration` | v0.5.22 / 138 | 进行中 | | |
+
+- **元凶是 aiter custom all-reduce 本身，不是 INT8 QuickReduce**：只关 QuickReduce 仍有 44 条乱码。
+- **top-k v2 不影响正确性**（在关 custom all-reduce 的前提下），可以进入性能 A/B。
+- 性能代价（10-20 03:46 起）：138 上 example（v0.5.22）加 `ENGINE_EXTRA_ARGS=--disable-custom-all-reduce` 跑 AgentX C48，对照同节点
+  example 基线 32,809；140 上 agg 套件 b5（b0r + 该参数），对照 b0r 32,776。
+
+待做：`index_share` 默认值的结果；两组性能代价；之后 example 与 agg 配方补上修复。
 
 ## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
 
