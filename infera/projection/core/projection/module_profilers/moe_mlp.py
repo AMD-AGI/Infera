@@ -59,8 +59,17 @@ _GROUPED_GEMM_EXPERT_SCALE = 4.0
 # The fp8 kernel reaches a third more bandwidth from one or two experts, which
 # is the regime a wide expert-parallel decode step lives in (one rank, a
 # handful of experts), so an fp8 or bf16 group is read off its own row.
-_GROUPED_GEMM_FP8_ROW = ((1, 0.25), (2, 0.44), (4, 0.65), (8, 0.74), (16, 0.74),
-                         (32, 0.78), (64, 0.80), (128, 0.81), (256, 0.82))
+_GROUPED_GEMM_FP8_ROW = (
+    (1, 0.25),
+    (2, 0.44),
+    (4, 0.65),
+    (8, 0.74),
+    (16, 0.74),
+    (32, 0.78),
+    (64, 0.80),
+    (128, 0.81),
+    (256, 0.82),
+)
 
 
 def _grouped_gemm_efficiency(active_experts: int, dtype: str | None = None) -> float:
@@ -437,9 +446,17 @@ class MoEMLPProfiler(BaseModuleProfiler):
         ):
             mc = self.config.model_config
             skew = float(getattr(mc, "moe_routing_skew", 0.0) or 0.0)
-            if os.getenv("INFERASIM_MOE_RANK_LOAD", "1").strip().lower() not in ("0", "false", "no"):
+            if os.getenv("INFERASIM_MOE_RANK_LOAD", "1").strip().lower() not in (
+                "0",
+                "false",
+                "no",
+            ):
                 imbalance, hot_experts = _busiest_rank_load(
-                    num_experts, topk, ep_size, routing_tokens, skew,
+                    num_experts,
+                    topk,
+                    ep_size,
+                    routing_tokens,
+                    skew,
                     getattr(mc, "moe_rank_load", None),
                     "decode" if int(seq_len) <= 1 else "prefill",
                 )
