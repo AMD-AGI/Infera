@@ -96,7 +96,18 @@ aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.
 只关 custom all-gather `SGLANG_USE_AITER_AG=0`（140 GPU 0-3）。上一轮我提议的"设 `SGLANG_DP_USE_REDUCE_SCATTER=1`"没有先核对
 默认值——HIP 上它本来就是 1，设了等于没改。
 
-待做：上面三组；通过的那组做性能代价；top-k v2（带修复）的 AgentX A/B；之后 example 与 agg 配方补上修复。
+| 变体（v0.5.22，custom all-reduce 保留） | 节点 | 题数 | correct | 模板标签乱码 | runaway |
+|---|---|---|---|---|---|
+| v0522-copyin-200：`SGLANG_AITER_CAPTURE_COPY_IN=1` | 138 | 200 | 159 | 43 | 41 |
+| v0522-rs0-200：`SGLANG_DP_USE_REDUCE_SCATTER=0` | 138 | 200 | 139 | 50 | 61 |
+| v0522-ag0-200：`SGLANG_USE_AITER_AG=0` | 140 | 187（06:02 时） | 135 | 50 | 49 |
+
+**三个更窄的开关单独都不行**，与基线（53-61 条）同一水平；中途 110 题、0 乱码的部分统计是长尾未完时的假象。
+`SGLANG_DP_USE_REDUCE_SCATTER=1` 没有单独测：它在 HIP 上默认就是 1（`environ.py` `EnvBool(_default_hip)`，未设置时检测到 ROCm
+即为 True），之前所有乱码的基线都是这个设置。目前只有 `--disable-custom-all-reduce`（ca_comm 整体不初始化）能消除乱码。
+
+待做：同时关 custom reduce-scatter 与 all-gather（看是否等价于关整个 custom all-reduce）；top-k v2（带修复）的 AgentX A/B；修复代价
+复测；CI 补验证；之后 example 与 agg 配方补上修复。
 
 ## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
 
