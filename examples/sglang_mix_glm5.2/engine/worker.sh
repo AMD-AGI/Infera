@@ -21,7 +21,7 @@ env=(
     "SGLANG_LOCAL_IP_NIC=$nic" "GLOO_SOCKET_IFNAME=$nic" "NCCL_SOCKET_IFNAME=$nic"
     NCCL_IB_DISABLE=1 NCCL_IGNORE_CPU_AFFINITY=1
     AITER_USE_FLYDSL_MOE_SORTING=1 PYTHONHASHSEED=0 SAFETENSORS_FAST_GPU=1
-    SGLANG_DP_USE_GATHERV=1 SGLANG_OPT_USE_TOPK_V2=false SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=0
+    SGLANG_DP_USE_GATHERV=1 SGLANG_OPT_USE_TOPK_V2=true SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=0
     # Per-call hipHostRegister limit: keeps each 270 GB host pool in one
     # registration (the 256 GB default would split it).
     SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512
@@ -47,6 +47,8 @@ mounts=(-v "$MODEL:$MODEL:ro"
     mounts+=(-v /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro)
 
 read -ra extra <<<"$ENGINE_EXTRA_ARGS"
+# --disable-custom-all-reduce: with DP attention and decode CUDA graphs, the AITER
+# custom all-reduce garbles outputs under load (README note 6).
 docker run -d --name "$CTR-engine" --network host --ipc host --shm-size 32g \
     --device /dev/kfd --device /dev/dri --device /dev/infiniband \
     --group-add video --group-add render --cap-add SYS_PTRACE --cap-add IPC_LOCK \
@@ -60,6 +62,7 @@ docker run -d --name "$CTR-engine" --network host --ipc host --shm-size 32g \
     --enable-kv-events --kv-events on --kv-events-bind "tcp://0.0.0.0:$KV_EVENTS_PORT" \
     --kv-snapshot-port "$KV_SNAPSHOT_PORT" \
     --tp-size 4 --ep-size 1 --dp-size 4 --enable-dp-attention --enable-dp-lm-head \
+    --disable-custom-all-reduce \
     --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton \
     --mem-fraction-static 0.85 --chunked-prefill-size 32768 --max-prefill-tokens 8192 \
     --max-running-requests 128 --cuda-graph-max-bs-decode 64 \

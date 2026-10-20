@@ -51,8 +51,9 @@ settings started); the other scripts write `smoke/`, `gsm8k/`, `agentx/` and
 |---|---|
 | GPUs | 4 (`GPUS`, default 0-3) |
 | parallelism | TP4, DP4 attention (`--enable-dp-attention --enable-dp-lm-head`), EP1 |
+| all-reduce | RCCL: `--disable-custom-all-reduce` (see note 6) |
 | MTP | EAGLE 5 steps / top-k 1 / 6 draft tokens; `index_share_for_mtp_iteration=false` |
-| KV | FP8 (`fp8_e4m3`), `--mem-fraction-static 0.85`, DSA prefill and decode on the Triton backend |
+| KV | FP8 (`fp8_e4m3`), `--mem-fraction-static 0.85`, DSA prefill and decode on the Triton backend, v2 top-k kernel (`SGLANG_OPT_USE_TOPK_V2=true`) |
 | scheduling | chunk 32768 (8192 per DP rank), `--max-prefill-tokens 8192`, max running 128, decode graphs up to 64, prefill delayer up to 60 passes |
 | HiCache | 270 GB host pool per rank, ratio 1.5, `write_through`, `kernel` I/O, `page_first` layout |
 | router | Rust backend, `kv-aware` with `--kv-overlap-weight 1.0`, `--session-affinity both` |
@@ -61,17 +62,23 @@ These are the settings of the best MI355X point on the InferenceX axes
 (tokens/s/GPU against interactivity p90) among the aggregated runs that
 preceded this kit; `write_back`, a larger memory fraction or a longer delayer
 cap raised throughput by at most noise at C64 while lowering interactivity.
+The v2 top-k kernel then added 8.6% throughput and 18% interactivity p90 on
+the same node; leaving `index_share_for_mtp_iteration` at its default changed
+nothing beyond noise.
 
 ## Validation status
 
-The image above, on one 8×MI355X node (crsuse2-m2m-138), GPUs 0-3:
+The image above, GPUs 0-3 of an 8×MI355X node (crsuse2-m2m-138 unless noted).
+Rows marked * ran before `--disable-custom-all-reduce` and the v2 top-k kernel
+were added, and were not repeated.
 
 | item | result |
 |---|---|
-| correctness (`smoke.py`, real MTP acceptance) | 6/6 pass (66k-token prefix: 9.8 s cold, 1.0 s repeated) |
-| GSM8K, concurrency 1 (24 questions, real MTP acceptance) | 0.958 |
-| GSM8K, concurrency 64 (200 questions, real MTP acceptance) | **0.74** strict / 0.69 flexible — see note 6 |
-| AgentX C48, 3600 s, `SIM_ACCEPT_LEN=3.61` | 32,809 tok/s/GPU, 3,494 requests, 0 errors |
+| correctness (`smoke.py`, real MTP acceptance)* | 6/6 pass (66k-token prefix: 9.8 s cold, 1.0 s repeated) |
+| GSM8K, concurrency 1 (24 questions, real MTP acceptance)* | 0.958 |
+| GSM8K, concurrency 64 (`eval.sh`'s 200 prompts, real MTP acceptance, last number in the answer scored; host pool 64 GB instead of 270 GB) | 0.980, no garbled answer (about 30% garbled without `--disable-custom-all-reduce`, note 6) |
+| long context (128 requests of ~14k tokens at concurrency 32: needle retrieval, GSM8K behind filler; crsuse2-m2m-140) | needle 64/64, GSM8K 63/64, nothing garbled |
+| AgentX C48, 3600 s, `SIM_ACCEPT_LEN=3.61` (crsuse2-m2m-140) | 34,662 tok/s/GPU, 3,699 requests, 1 invalid response |
 
 ## Reference numbers
 
@@ -82,10 +89,12 @@ tokens/s/user.
 
 | point | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
 |---|---|---|---|---|---|---|
-| C48 | 32,809 | 3,494 (0.964) | 40.8 / 22.5 | 4.5 / 14.0 s | 24.5 / 44.5 ms | 96.3% (trace bound 97.2%) |
+| C48 | 34,662 | 3,699 (1.020) | 42.3 / 22.7 | 3.8 / 10.6 s | 23.6 / 44.1 ms | 96.5% (trace bound 97.2%) |
 
-The same recipe on the earlier v0.5.21 image, same node: 31,605 tok/s/GPU,
-interactivity p90 20.8.
+Measured on crsuse2-m2m-140. On that node the recipe without the v2 top-k
+kernel gave 31,931 tok/s/GPU, interactivity p90 19.3; the identical
+configuration ran 3.5% faster on crsuse2-m2m-138, so differences within a few
+percent between nodes are noise.
 
 To reproduce a point:
 
@@ -120,18 +129,16 @@ A second engine started on the other four GPUs fails in `ncclCommInitRank` with
 requests with the same `x-session-id` on the DP rank their session used last;
 `agentx.sh` has AIPerf send it (`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID`).
 
-**6. Under sustained concurrency some outputs are garbled (open).** About 30%
-of GSM8K answers at concurrency 64 turn into token soup (template tags such as
-`</think>` as plain text, or runs of `!`); at concurrency 1 the model is fine.
-It takes DP attention together with decode CUDA graphs: plain TP4 scores
-0.980 with no garbled answer, and so does DP attention with
-`--disable-cuda-graph` (far too slow to serve), while switching off HiCache,
-MTP, the prefill delayer, overlap scheduling, the fused kernels,
-`--enable-dp-lm-head` or the DSA decode / top-k backend does not help. Every
-unpatched upstream image from v0.5.19 to v0.5.22 (`lmsysorg/sglang-rocm`)
-shows it. AgentX replays with `ignore_eos` (output lengths come from the
-trace), so its throughput numbers stand; do not serve this recipe until it is
-fixed.
+**6. Keep `--disable-custom-all-reduce`.** With the AITER custom all-reduce
+on, about 30% of GSM8K answers at concurrency 64 turn into token soup
+(template tags such as `</think>` as plain text, or runs of `!`); at
+concurrency 1 the model is fine. It takes DP attention together with decode
+CUDA graphs, and every upstream image from v0.5.19 to v0.5.22
+(`lmsysorg/sglang-rocm`) shows it. Neither disabling QuickReduce
+(`ROCM_QUICK_REDUCE_QUANTIZATION=NONE`) nor the narrower switches
+`SGLANG_AITER_CAPTURE_COPY_IN=1`, `SGLANG_DP_USE_REDUCE_SCATTER=0` or
+`SGLANG_USE_AITER_AG=0` removes it. Collectives on RCCL cost no throughput at
+C48 but lowered interactivity p90 by about 15% in one comparison.
 
 ## What this kit exposes on the network
 
