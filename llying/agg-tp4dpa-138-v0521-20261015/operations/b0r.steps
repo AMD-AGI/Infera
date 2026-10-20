@@ -1,0 +1,3 @@
+# b0r (crsuse2-m2m-140): b0 rerun on an idle node (config/round.b0r.sh); compare with b1.
+bash scripts/launch_agg.sh ROUND=b0r
+bash scripts/agg_round.sh ROUND=b0r VARIANT=b0r-a3-140 CONC=48
