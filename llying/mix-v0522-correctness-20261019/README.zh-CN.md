@@ -124,6 +124,11 @@ aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.
 完全相同的配置，两节点（或两次运行）差 3.5%。之前写的"140 比 138 快约 3.7%"来自跨天、跨镜像的比较（b0r 对 a3），方向是错的。
 这说明 ±3% 以内的差异都在噪声里（包括修复的吞吐代价 +0.9%）；top-k v2 / `index_share` 只与 140 上的 base 比。
 
+**调整（08:07）**：base 本不该在 140 重测（138 已有 33,098），机器分配应是 138 测性能、140 做 CI。改为：140 只跑完 topkv2
+（07:53 开始，对比 140 base 31,931），已手工结束串行脚本的外层循环、不再接着跑 idxshare；idxshare 改到 138（08:07 开始，
+对比 138 的 33,098，日志 138 `$W/perf138/`）。引擎日志确认生效的是 `json_model_override_args='{}'`（即用模型默认的 index_share）。
+topkv2 的预热在 480-510 s 只剩 1 个在途，与 base 同期形态一致（base 同期返回 41/531，topkv2 50/531），不是卡住。
+
 待做：topkv2、idxshare 两点；同时关 custom reduce-scatter 与 all-gather（看是否等价于关整个 custom all-reduce）；修复代价复测；之后
 example 与 agg 配方补上修复。
 
