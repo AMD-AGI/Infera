@@ -44,8 +44,13 @@ def main() -> int:
     if not spec or not spec.origin:
         print(f"{TAG} cannot locate sglang")
         return 1
-    path = (Path(spec.origin).parent / "srt" / "managers" / "scheduler_components"
-            / "kv_events_publisher.py")
+    path = (
+        Path(spec.origin).parent
+        / "srt"
+        / "managers"
+        / "scheduler_components"
+        / "kv_events_publisher.py"
+    )
     source = path.read_text()
     if MARKER in source:
         print(f"{TAG} already present — skipping")

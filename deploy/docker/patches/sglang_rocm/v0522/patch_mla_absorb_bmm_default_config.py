@@ -41,8 +41,14 @@ def main() -> int:
     if not spec or not spec.origin:
         print(f"{TAG} cannot locate sglang")
         return 1
-    path = (Path(spec.origin).parent / "srt" / "models" / "deepseek_common"
-            / "attention_forward_methods" / "forward_mla_rocm.py")
+    path = (
+        Path(spec.origin).parent
+        / "srt"
+        / "models"
+        / "deepseek_common"
+        / "attention_forward_methods"
+        / "forward_mla_rocm.py"
+    )
     source = path.read_text()
     if MARKER in source:
         print(f"{TAG} already present — skipping")
