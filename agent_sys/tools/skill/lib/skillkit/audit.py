@@ -15,6 +15,7 @@ check was switched off after measuring 97% false positives, and an
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +23,10 @@ from pathlib import Path
 from skillkit.secretscan import looks_secret
 
 BIG_FILE = 4 << 20
+#: Placeholder text in source code is code (a validator's own pattern), not a gap.
+CODE_SUFFIXES = frozenset(
+    ".py .sh .bash .js .mjs .ts .c .cc .cpp .h .hpp .go .rs .java .cu .hip".split()
+)
 TEXT_SCAN_LIMIT = 4 << 20
 PLACEHOLDERS = re.compile(r"\[More Information Needed\]|<fill[^>]*>|\bTODO: fill\b", re.I)
 
@@ -68,18 +73,38 @@ class Audit:
         return "\n".join(lines)
 
 
-def audit(root: Path) -> Audit:
+def files(root: Path, *, follow: bool = True) -> list[tuple[str, Path]]:
+    """`(relative path, real file)` for every file under `root`.
+
+    `follow=True` walks INTO symlinked files and directories, because that is
+    what a dereferencing copy (a task backup) publishes: a link to a secret
+    outside the package is the secret. Directory cycles are cut."""
+    root = root.resolve()
+    out: list[tuple[str, Path]] = []
+    seen: set[Path] = set()
+    for dirpath, dirnames, filenames in os.walk(root, followlinks=follow):
+        real = Path(dirpath).resolve()
+        if real in seen:
+            dirnames[:] = []
+            continue
+        seen.add(real)
+        dirnames.sort()
+        for name in sorted(filenames):
+            p = Path(dirpath) / name
+            if p.is_symlink() and not follow:
+                continue
+            if p.is_file():
+                out.append((str(p.relative_to(root)), p.resolve()))
+    return out
+
+
+def audit(root: Path, *, follow: bool = True) -> Audit:
     root = root.resolve()
     a = Audit(root=str(root))
     for p in sorted(root.rglob("*")):
-        rel = str(p.relative_to(root))
-        if p.is_symlink():
-            target = p.resolve()
-            if not str(target).startswith(str(root)):
-                a.symlinks_out.append(f"{rel} -> {target}")
-            continue
-        if not p.is_file():
-            continue
+        if p.is_symlink() and not str(p.resolve()).startswith(str(root)):
+            a.symlinks_out.append(f"{p.relative_to(root)} -> {p.resolve()}")
+    for rel, p in files(root, follow=follow):
         size = p.stat().st_size
         a.files += 1
         a.total_bytes += size
@@ -93,7 +118,7 @@ def audit(root: Path) -> Audit:
             text = p.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        prose = _prose(text)
+        prose = {} if p.suffix in CODE_SUFFIXES else _prose(text)
         for n, line in enumerate(text.splitlines(), 1):
             if looks_secret(line):
                 a.secrets.append(f"{rel}:{n}")

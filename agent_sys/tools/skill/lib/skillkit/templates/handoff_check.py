@@ -46,8 +46,10 @@ from pathlib import Path
 
 PLACEHOLDER = re.compile(r"\[More Information Needed\]|<fill[^>]*>|TODO: fill", re.I)
 # -- copied from skillkit/secretscan.py (a test keeps the two equal) --
-#: A value: 8+ non-delimiter characters, at least one a letter.
-_VALUE = r"(?=[^\s\"',;}{]*[A-Za-z])[^\s\"',;}{]{8,}"
+#: A value: not a flag; has a letter; and either a digit (8+ chars) or 16+ chars —
+#: random-looking and not an UPPER_CASE constant name, so `initial-cluster-token:
+#: etcd-cluster` and `token = "M4_FRAGMENT_FIRST_CALL"` are not ones.
+_VALUE = r"(?!-)(?![A-Z0-9_]+(?:[\s\"',;}{]|$))(?=[^\s\"',;}{]*[A-Za-z])(?:(?=[^\s\"',;}{]*\d)[^\s\"',;}{]{8,}|[^\s\"',;}{]{16,})"
 #: A credential-ish name at the END of an identifier (so `max_tokens` is not one).
 _NAME = (
     r"(?i:[A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?key|secret(?:[_-]?key)?|token|password|passwd"
@@ -75,6 +77,10 @@ SECRETS = [re.compile(p) for p, _ in PATTERNS]
 _REFERENCE = re.compile(r"[$(\[<{]|REDACTED")
 # -- end of copy --
 TEXT_LIMIT = 4 << 20
+#: Placeholder text in source code is code (e.g. this file's own pattern), not a gap.
+CODE_SUFFIXES = frozenset(
+    ".py .sh .bash .js .mjs .ts .c .cc .cpp .h .hpp .go .rs .java .cu .hip".split()
+)
 
 
 def _load(name, default):
@@ -318,7 +324,7 @@ def check(root, args):
             text = p.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        prose = _prose(text) if scan_ph else {}
+        prose = _prose(text) if scan_ph and p.suffix not in CODE_SUFFIXES else {}
         for n, line in enumerate(text.splitlines(), 1):
             if scan_ph and PLACEHOLDER.search(prose.get(n, "")):
                 problems.append(f"{rel}:{n} still holds template text: {line.strip()[:80]!r}")

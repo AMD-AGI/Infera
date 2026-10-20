@@ -13,8 +13,9 @@ seal test and the same validators agent_sys would have run on it.
 ## Setup — and recommend ultracode
 
 ```bash
-ASTK="$(realpath "${CLAUDE_SKILL_DIR}")/../lib/astk.py"   # executable; one word, so bash and zsh both run `$ASTK cmd`
-DOCS="$(realpath "${CLAUDE_SKILL_DIR}")/../docs"
+SKILL_ROOT="$(realpath "${CLAUDE_SKILL_DIR}/..")"
+ASTK="$SKILL_ROOT/lib/astk.py"     # executable; one word, so `$ASTK cmd` works in bash and zsh
+DOCS="$SKILL_ROOT/docs"
 ```
 
 Each Bash call is a fresh shell: repeat these two lines (or use the full path).
@@ -127,6 +128,11 @@ run (`references/workflow_patterns.md` § divergences). Then reuse:
 ```bash
 $ASTK export --run <run> --to <run>/fixtures     # fixtures + the publish line for agent_sys
 ```
+
+Then offer, in one question, to back the run's published handoffs up to the
+knowledge repo (`$ASTK remote backup <run>/handoffs/handoff.<kind>.<hid>/v<N>
+--summary ... --tag ...`; see `$DOCS/knowledge_repo.md`) — a handoff from a
+real run is what the next person's prior-work search will find.
 
 Copying fixtures into a package is the user's decision (the package is
 read-only to this skill). `export` notes kinds whose validators re-measure the

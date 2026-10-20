@@ -47,7 +47,11 @@ items/watchout       optional
 ```
 
 `Interface` = how a consumer uses it (entry points, arguments, the files it
-reads/writes); `Boundary` = what it does not do, what it assumes.
+reads/writes); `Boundary` = what it does not do, what it assumes — and, for
+any number it carries, what that number is **not** comparable to (e.g. "the
+baseline is a deliberately naive implementation; against stock torch.softmax
+the measured gain was 0.99x"). The next reader's prior-work search lands on
+the README first; the caveat that changes their conclusion belongs there.
 
 ## `structured_text` — a record another program reads
 

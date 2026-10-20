@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import re
 
-#: A value: 8+ non-delimiter characters, at least one a letter.
-_VALUE = r"(?=[^\s\"',;}{]*[A-Za-z])[^\s\"',;}{]{8,}"
+#: A value: not a flag; has a letter; and either a digit (8+ chars) or 16+ chars —
+#: random-looking and not an UPPER_CASE constant name, so `initial-cluster-token:
+#: etcd-cluster` and `token = "M4_FRAGMENT_FIRST_CALL"` are not ones.
+_VALUE = r"(?!-)(?![A-Z0-9_]+(?:[\s\"',;}{]|$))(?=[^\s\"',;}{]*[A-Za-z])(?:(?=[^\s\"',;}{]*\d)[^\s\"',;}{]{8,}|[^\s\"',;}{]{16,})"
 #: A credential-ish name at the END of an identifier (so `max_tokens` is not one).
 _NAME = (
     r"(?i:[A-Za-z0-9_.-]*(?:api[_-]?key|access[_-]?key|secret(?:[_-]?key)?|token|password|passwd"

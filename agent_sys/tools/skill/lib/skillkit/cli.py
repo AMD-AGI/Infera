@@ -1,6 +1,7 @@
 """`astk` — command line for the agent_sys skills. Run `astk <command> -h`.
 
-Exit codes: 0 ok / passed, 1 refused / not passed, 2 usage or load error.
+Exit codes: 0 ok / passed, 1 refused / not passed, 2 usage or load error,
+3 knowledge repo not configured.
 """
 
 from __future__ import annotations
@@ -14,10 +15,14 @@ import tempfile
 from pathlib import Path
 
 from handoff.errors import Malformed
+from skillkit import AGENT_SYS, envinfo, history, hstore, remote, runner, scaffold, wf
 from skillkit import audit as audit_mod
-from skillkit import envinfo, history, hstore, runner, scaffold, wf
 from skillkit import pkg as pkg_mod
+from skillkit import search as search_mod
+from skillkit import settings as settings_mod
 from skillkit import validate as vmod
+
+SKILL_ROOT = AGENT_SYS / "tools" / "skill"
 
 
 def _vars(raw: list[str] | None) -> dict[str, str]:
@@ -424,6 +429,174 @@ def cmd_export(a: argparse.Namespace) -> int:
     return 0
 
 
+# -- the knowledge repo --------------------------------------------------------- #
+
+
+def cmd_remote_init(a: argparse.Namespace) -> int:
+    cfg = remote.init(a.url, user=a.user, clone=a.clone, branch=a.branch)
+    print(
+        f"configured {remote.config_path()}\n  url {cfg.url}\n  clone {cfg.clone}\n  user {cfg.user}"
+    )
+    ok, why = remote.can_push(cfg)
+    print(
+        f"  push: {'ok' if ok else 'DENIED — backups will fail until you have write access: ' + why}"
+    )
+    return 0
+
+
+def cmd_remote_status(a: argparse.Namespace) -> int:
+    try:
+        cfg = remote.load()
+    except remote.NotConfigured as exc:
+        print(str(exc))
+        return 3
+    st = remote.status(cfg, offline=a.offline)
+    _emit(st, a.json, "\n".join(f"{k}: {v}" for k, v in st.items()))
+    return 0
+
+
+def cmd_remote_sync(a: argparse.Namespace) -> int:
+    print(f"up to date at {remote.sync(remote.load())}")
+    return 0
+
+
+def cmd_remote_list(a: argparse.Namespace) -> int:
+    rows = remote.items(remote.load())
+    if a.json:
+        print(json.dumps([r.__dict__ for r in rows], indent=2, ensure_ascii=False))
+        return 0
+    for r in rows:
+        where = "release" if r.tier == "release" else f"{r.user}/{r.tier}"
+        print(f"  {r.type:<8} {where:<28} {r.name:<40} {r.meta.get('summary', '')[:80]}")
+    print(f"{len(rows)} items")
+    return 0
+
+
+def cmd_remote_backup(a: argparse.Namespace) -> int:
+    cfg = remote.load()
+    out = remote.backup(
+        cfg,
+        Path(a.path),
+        name=a.name,
+        summary=a.summary or "",
+        tags=a.tag or [],
+        context=_vars(a.context),
+        allow_big=a.allow_big,
+        dry_run=a.dry_run,
+    )
+    if a.dry_run:
+        print(f"dry run: would publish {out['files']} files as {out['relative']}; nothing pushed")
+    else:
+        print(f"backed up to {out['relative']} (pushed)")
+    return 0
+
+
+def cmd_remote_promote(a: argparse.Namespace) -> int:
+    out = remote.promote(remote.load(), a.type, a.name)
+    print(f"promoted to staging: {out['path']}")
+    return 0
+
+
+def cmd_remote_release_pr(a: argparse.Namespace) -> int:
+    out = remote.release_pr(remote.load(), a.type, a.name)
+    print(json.dumps(out, indent=2))
+    return 0
+
+
+def cmd_remote_search(a: argparse.Namespace) -> int:
+    try:
+        cfg = remote.load()
+    except remote.NotConfigured:
+        cfg = None
+        print("knowledge repo not configured: searching the local agent_sys examples only")
+    if cfg is not None and not a.no_sync:
+        try:
+            print(f"synced {remote.sync(cfg)}")
+        except remote.RemoteError as exc:
+            print(f"sync failed, searching the local clone as it is: {str(exc).splitlines()[0]}")
+    res = search_mod.search(
+        cfg,
+        " ".join(a.query),
+        limit=a.limit,
+        types=tuple(a.type or ("task", "handoff")),
+        local=not a.no_local,
+    )
+    if a.json:
+        print(
+            json.dumps(
+                {"searched": res.searched, "hits": [h.__dict__ for h in res.hits]},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        return 0
+    print(f"searched {res.searched} items; {len(res.hits)} shown")
+    for h in res.hits:
+        where = {"release": "release", "local": "local example"}.get(h.tier, f"{h.user}/{h.tier}")
+        flags = [
+            x for x in ("weak" if h.weak else "", "unsealed" if h.sealed is False else "") if x
+        ]
+        print(f"[{h.score:6.2f}] {h.type:<8} {where:<24} {h.name}  {' '.join(flags)}")
+        print(f"         {h.path}")
+        if h.summary:
+            print(f"         summary: {h.summary[:160]}")
+        if h.context:
+            print("         context: " + ", ".join(f"{k}={v}" for k, v in h.context.items()))
+        print(
+            f"         matched: {', '.join(h.matched)}"
+            + (f"   created {h.created[:10]}" if h.created else "")
+        )
+        for sn in h.snippets:
+            print(f"         | {sn}")
+    return 0
+
+
+def cmd_mode(a: argparse.Namespace) -> int:
+    changes: dict = {}
+    if a.trigger:
+        changes["trigger"] = a.trigger
+    if a.ask_remote:
+        changes["ask_remote"] = a.ask_remote == "yes"
+    existed = settings_mod.path().is_file()
+    data = settings_mod.save(**changes) if changes else settings_mod.load()
+    if "trigger" in changes and settings_mod.rendered_dir().is_dir():
+        for p in settings_mod.render_gated(SKILL_ROOT, data["trigger"]):
+            print(f"re-rendered {p}")
+    where = (
+        settings_mod.path()
+        if (existed or changes)
+        else f"defaults; {settings_mod.path()} not written"
+    )
+    print(
+        f"trigger: {data['trigger']}  ask_remote: {'yes' if data['ask_remote'] else 'no'}  ({where})"
+    )
+    prompt = (
+        sys.stdin.read()
+        if a.prompt_file == "-"
+        else (Path(a.prompt_file).read_text() if a.prompt_file else a.prompt)
+    )
+    if prompt is not None:
+        if settings_mod.engaged(prompt, data):
+            print(
+                f"engage: yes ({', '.join(settings_mod.matches(prompt)[:6]) or 'agent_sys named'})"
+            )
+            return 0
+        why = (
+            "agent_sys is not named (explicit mode)"
+            if data["trigger"] == "explicit"
+            else "not in the domain"
+        )
+        print(f"engage: no — {why}")
+        return 1
+    return 0
+
+
+def cmd_render(a: argparse.Namespace) -> int:
+    for p in settings_mod.render_gated(SKILL_ROOT):
+        print(p)
+    return 0
+
+
 # -- parser ------------------------------------------------------------------- #
 
 
@@ -579,6 +752,79 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--to", required=True)
     s.add_argument("--kind", action="append")
     s.set_defaults(fn=cmd_export)
+    r = sub.add_parser(
+        "remote", help="the shared knowledge repo (tasks/handoffs backup and search)"
+    )
+    rs = r.add_subparsers(dest="rcmd", required=True)
+    s = rs.add_parser("init", help="configure once: clone the repo, remember url/user/clone")
+    s.add_argument("--url", required=True)
+    s.add_argument("--user", help="your directory in the repo (default: git user.email local part)")
+    s.add_argument(
+        "--clone", help="where the local clone lives (default: ~/.cache/infera-agent-sys/knowledge)"
+    )
+    s.add_argument("--branch", default="main")
+    s.set_defaults(fn=cmd_remote_init)
+    s = rs.add_parser("status", help="config + clone state; exit 3 = not configured")
+    s.add_argument("--json", action="store_true")
+    s.add_argument("--offline", action="store_true", help="do not fetch")
+    s.set_defaults(fn=cmd_remote_status)
+    s = rs.add_parser("sync", help="update the clone from the remote")
+    s.set_defaults(fn=cmd_remote_sync)
+    s = rs.add_parser("list", help="every task/handoff in release and every user's staging/draft")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_remote_list)
+    s = rs.add_parser(
+        "backup", help="copy a task package or handoff into <user>/draft, commit, push"
+    )
+    s.add_argument("path", help="a task package dir, a handoff content dir, or a store version dir")
+    s.add_argument("--name")
+    s.add_argument("--summary", help="one line: what it is and what it achieved (shown in search)")
+    s.add_argument("--tag", action="append")
+    s.add_argument(
+        "--context",
+        action="append",
+        metavar="K=V",
+        help="model=, engine=, engine_version=, gpu=, image=, ... (searchable; judged by prior-work)",
+    )
+    s.add_argument("--allow-big", action="store_true", help="the user agreed to files over 4 MB")
+    s.add_argument("--dry-run", action="store_true", help="build the commit, push nothing")
+    s.set_defaults(fn=cmd_remote_backup)
+    s = rs.add_parser("promote", help="draft -> staging after the user's own review")
+    s.add_argument("type", choices=["task", "handoff"])
+    s.add_argument("name")
+    s.set_defaults(fn=cmd_remote_promote)
+    s = rs.add_parser("release-pr", help="propose a staging item for release/ as a pull request")
+    s.add_argument("type", choices=["task", "handoff"])
+    s.add_argument("name")
+    s.set_defaults(fn=cmd_remote_release_pr)
+    s = rs.add_parser("search", help="sync, then rank tasks/handoffs by relevance to a request")
+    s.add_argument("query", nargs="+")
+    s.add_argument("--limit", type=int, default=10)
+    s.add_argument("--type", action="append", choices=["task", "handoff"])
+    s.add_argument("--no-sync", action="store_true")
+    s.add_argument(
+        "--no-local", action="store_true", help="skip this checkout's agent_sys examples"
+    )
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_remote_search)
+    s = sub.add_parser(
+        "mode", help="when the entry skill engages: auto | explicit (only if agent_sys is named)"
+    )
+    s.add_argument("trigger", nargs="?", choices=[*settings_mod.TRIGGERS, *settings_mod.ALIASES])
+    s.add_argument("--prompt", help="exit 0 if the skill should engage on this prompt, 1 if not")
+    s.add_argument(
+        "--prompt-file", help="the prompt from a file, or - for stdin (no shell quoting issues)"
+    )
+    s.add_argument(
+        "--ask-remote",
+        choices=["yes", "no"],
+        help="offer to configure the knowledge repo when missing",
+    )
+    s.set_defaults(fn=cmd_mode)
+    s = sub.add_parser(
+        "render", help="(installer) write the gated entry skills for the current mode"
+    )
+    s.set_defaults(fn=cmd_render)
     return top
 
 
@@ -586,9 +832,18 @@ def main(argv: list[str] | None = None) -> int:
     a = parser().parse_args(argv)
     try:
         return int(a.fn(a))
-    except runner.NotReady as exc:
+    except (runner.NotReady, remote.Refused) as exc:
         print(f"astk: {exc}", file=sys.stderr)
         return 1
-    except (pkg_mod.PackageError, scaffold.PlanError, FileNotFoundError, Malformed) as exc:
+    except remote.NotConfigured as exc:
+        print(f"astk: {exc}", file=sys.stderr)
+        return 3
+    except (
+        pkg_mod.PackageError,
+        scaffold.PlanError,
+        FileNotFoundError,
+        Malformed,
+        remote.RemoteError,
+    ) as exc:
         print(f"astk: {exc}", file=sys.stderr)
         return 2

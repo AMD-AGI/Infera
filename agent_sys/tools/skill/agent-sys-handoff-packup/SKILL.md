@@ -16,8 +16,9 @@ starts from it cold. Two properties, in this order:
 ## Setup
 
 ```bash
-ASTK="$(realpath "${CLAUDE_SKILL_DIR}")/../lib/astk.py"   # executable; one word, so bash and zsh both run `$ASTK cmd`
-DOCS="$(realpath "${CLAUDE_SKILL_DIR}")/../docs"
+SKILL_ROOT="$(realpath "${CLAUDE_SKILL_DIR}/..")"
+ASTK="$SKILL_ROOT/lib/astk.py"     # executable; one word, so `$ASTK cmd` works in bash and zsh
+DOCS="$SKILL_ROOT/docs"
 ```
 
 Each Bash call is a fresh shell: repeat these two lines (or use the full path).
@@ -164,3 +165,22 @@ time"), stated as gaps; any bar that looked too weak or too strong while
 packing (for `agent-sys-task-from-history` to fix in the plan); and how
 agent_sys consumes it (fixture + publish leaf, or the store path for
 `agent-sys-task-runner`'s `seed`).
+
+## 7. Offer a backup to the knowledge repo
+
+Ask once (AskUserQuestion): back this handoff up to the shared knowledge repo?
+It lands in `<user>/draft/` (`$DOCS/knowledge_repo.md`), where teammates'
+`agent-sys-prior-work` searches will find it.
+
+```bash
+$ASTK remote status        # exit 3 = not configured: if `$ASTK mode` shows `ask_remote: yes`, offer
+                           # setup (`$ASTK remote init --url <git url>`), else skip silently
+$ASTK remote backup <the delivered content dir, or the store version dir that holds content/ + manifest.yaml> --summary "<one line: what it is, what it achieved, where>" \
+    --tag <engine> --tag <model> --tag <hardware> ...
+```
+
+The summary and tags are what a search matches — name the engine, model,
+hardware, operator and the headline number. A refusal (secret, template
+text, a file over 4 MB) is fixed or asked about, never forced. Promotion to
+`staging` (`$ASTK remote promote ...`) is the user's call after their own
+review; `release/` only changes through `$ASTK remote release-pr` and a review.
