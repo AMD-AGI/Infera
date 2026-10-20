@@ -2735,10 +2735,11 @@ class InferencePerformanceProjector:
         #
         # Prefill keeps the cap: there the window is a masking decision inside a
         # compute-bound kernel rather than a streaming cost, and nothing here
-        # measured it.
+        # measured it. A model whose engine does window its decode says so
+        # (``sink_window_decode_capped``) and is capped in both phases.
         mc = self.cfg.model_config
         attn_kv = int(max(1, kv_len))
-        if phase != "decode":
+        if phase != "decode" or getattr(mc, "sink_window_decode_capped", False):
             attn_kv = self.cfg.request_config.effective_attn_kv(
                 kv_len,
                 model_window=getattr(mc, "sink_sliding_window", 0),
@@ -2747,8 +2748,8 @@ class InferencePerformanceProjector:
             )
         # Linear / KDA / GDN layers are the architecture, not an engine
         # option: they keep a fixed-size state at decode as well as prefill.
-        # Sliding-window stays decode-uncapped on the evidence in the comment
-        # above; this blend is a different fact and applies to both phases.
+        # Sliding-window follows the comment above; this blend is a different
+        # fact and applies to both phases.
         # When the linear layers are priced from their own operations, the
         # attention profiler prices only the full layers, at their real length.
         lin_frac = 0.0

@@ -184,6 +184,7 @@ def project_spec(**overrides):
         f"tensor_model_parallel_size={spec['tp']}",
         f"expert_model_parallel_size={spec['ep']}",
         f"pipeline_model_parallel_size={spec['pp']}",
+        *spec.get("model_overrides", ()),
     ]
 
     prev = os.environ.get("INFERASIM_MODEL")

@@ -103,6 +103,19 @@ def test_muse_spark_fits_tp4_with_mxfp4_experts():
     assert 105.0 < weights < 120.0
 
 
+def test_muse_spark_decode_reads_only_the_window():
+    """SGLang windows Muse's decode, so long context grows only its 16 full layers."""
+    long = dict(_MUSE, input_len=131072, output_len=64, concurrency=8)
+    capped = project_spec(**long)
+    full = project_spec(**long, model_overrides=["sink_window_decode_capped=false"])
+    assert capped["decode_step_ms"] < full["decode_step_ms"]
+    short = dict(_MUSE, input_len=1024, output_len=64, concurrency=8)
+    a = project_spec(**short)["decode_step_ms"]
+    b = project_spec(**short, model_overrides=["sink_window_decode_capped=false"])
+    # Inside the window the cap changes nothing.
+    assert a == pytest.approx(b["decode_step_ms"], rel=1e-6)
+
+
 def test_dflash_drafts_from_its_own_layers():
     plain = project_spec(**_MUSE)
     spec = project_spec(**_MUSE, speculative_num_tokens=7)

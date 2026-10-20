@@ -88,6 +88,10 @@ class ModelConfig:
     # than every other layer (Muse Spark: 46 of 62). 0 defers to
     # ``sink_window_even_layers_only``.
     sink_window_layer_fraction: float = 0.0
+    # The serving engine reads only the window on windowed layers at decode as
+    # well as prefill (SGLang's hybrid SWA pool, as Muse Spark runs). Off, decode
+    # charges the full context, which is what vLLM's runs measured.
+    sink_window_decode_capped: bool = False
     # Hybrid compressed attention (DeepSeek-V4). ``compress_ratios`` is a
     # per-layer schedule naming which attention branch each layer runs, using
     # the same 0 / 4 / 128 encoding the reference implementation accepts (see

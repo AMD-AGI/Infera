@@ -15,6 +15,10 @@ extends:
 # changes nothing about what they cost.
 sink_sliding_window: 2048
 sink_window_layer_fraction: 0.741935        # 46 / 62
+# SGLang serves it on its hybrid SWA pool (the text config opts in through
+# ``is_hybrid_swa``), and AITER's unified attention passes the window to the
+# decode kernel too, so decode reads only the window on the windowed layers.
+sink_window_decode_capped: true
 
 # The MoE is latent: the 256 routed experts act on a 4096-wide projection of
 # the 8192-wide residual (``moe_hidden_size``), with an expert intermediate of
