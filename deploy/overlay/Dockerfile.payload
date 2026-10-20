@@ -96,13 +96,15 @@ RUN sh /tmp/harvest_native.sh
 # routes per target with isHipReachableTarget(), skipping "hip" buffers for a
 # cross-host peer and falling back to rdma/tcp on its own.
 #
-# So this stage mirrors Dockerfile.sglang exactly — same builder, pure upstream,
-# no private patch dir. Asserting MC_ENABLE_HIP_TRANSPORT here would assert a
-# string only the dropped patch produced, which is what broke this build when
-# a3037b7b made the builder patch-free. Assert the mechanism that replaced it.
+# So this stage mirrors Dockerfile.sglang exactly — same builder, same two RDMA
+# diffs from patches/mooncake_cpp (both off unless MC_ENABLE_DEST_LOCAL_RAIL /
+# MC_IB_TIMEOUT are set), no B.2 gate. Asserting MC_ENABLE_HIP_TRANSPORT here
+# would assert a string only the dropped patch produced, which is what broke
+# this build when a3037b7b removed it. Assert the mechanism that replaced it.
 FROM ${SGLANG_BASE_IMAGE} AS mooncake310
 COPY deploy/docker/scripts/build_mooncake_sglang.sh /tmp/build_mooncake_sglang.sh
-RUN bash /tmp/build_mooncake_sglang.sh \
+COPY deploy/docker/patches/mooncake_cpp/ /tmp/mooncake_cpp/
+RUN MC_CPP_PATCH_DIR=/tmp/mooncake_cpp bash /tmp/build_mooncake_sglang.sh \
     && python3 -c "import mooncake.engine as e; print(e.__file__)" \
     && strings "$(python3 -c 'import mooncake.engine as e; print(e.__file__)')" \
          | grep -q isHipReachableTarget \
