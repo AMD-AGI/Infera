@@ -7,7 +7,8 @@
 # Usage (on the GPU node): engine_bisect.sh NAME [FUSE_TOPK=0] [HICACHE=0] [MTP=0] [DPA=0]
 #                          [GATHERV=0] [DELAYER=0] [FUSION=0] [LMHEAD=0]
 # Env: SITE (file exporting NODE_IP MODEL IMAGE), GPUS, PORT_OFFSET (0 or 100), EVAL_LIMIT=200,
-#      EXTRA_ENV="K=V ...", EXTRA_ARGS="--flag ...", STOCK=1 [STOCK_IMAGE=...]
+#      EXTRA_ENV="K=V ...", EXTRA_ARGS="--flag ...", STOCK=1 [STOCK_IMAGE=...],
+#      PROBE_KIND=longctx (scripts/longctx_probe.py, 128 requests of ~16k tokens at 32 in flight)
 set -euo pipefail
 name="$1"; shift
 FUSE_TOPK=1 HICACHE=1 MTP=1 DPA=1 GATHERV=1 DELAYER=1 FUSION=1
@@ -86,9 +87,16 @@ echo "engine healthy $(date -u +%T)"
 
 # Same prompts every variant (200 GSM8K questions from an lm-eval samples file); runaway = hit max_tokens.
 prompts="$(ls "$OUT_ROOT"/hicache0-n200/runs/hicache0-n200/gsm8k/*/samples_gsm8k_*.jsonl | tail -1)"
-python3 "$PROBE" "$prompts" "$ENGINE_URL" "$SERVED_MODEL" \
-    "$WORK_DIR/runs/$name/probe.jsonl" --limit "${EVAL_LIMIT:-200}" --concurrency "${EVAL_CONCURRENCY:-64}" \
-    | tee "$WORK_DIR/runs/$name/verdict.txt"
+if [[ "${PROBE_KIND:-gsm8k}" == longctx ]]; then
+    # ~16k-token requests so every one takes the DSA sparse top-k path (scripts/longctx_probe.py).
+    python3 "$(dirname "$PROBE")/longctx_probe.py" "$prompts" "$ENGINE_URL" "$SERVED_MODEL" \
+        "$WORK_DIR/runs/$name/probe.jsonl" --n "${EVAL_LIMIT:-128}" --concurrency "${EVAL_CONCURRENCY:-32}" \
+        | tee "$WORK_DIR/runs/$name/verdict.txt"
+else
+    python3 "$PROBE" "$prompts" "$ENGINE_URL" "$SERVED_MODEL" \
+        "$WORK_DIR/runs/$name/probe.jsonl" --limit "${EVAL_LIMIT:-200}" --concurrency "${EVAL_CONCURRENCY:-64}" \
+        | tee "$WORK_DIR/runs/$name/verdict.txt"
+fi
 docker logs --timestamps "$CTR-engine" > "$WORK_DIR/runs/$name/engine.log" 2>&1 || true
 docker rm -f "$CTR-engine" "$CTR-etcd" >/dev/null
 echo "removed $CTR-engine $(date -u +%T)"
