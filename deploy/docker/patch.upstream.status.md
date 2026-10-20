@@ -210,9 +210,10 @@ is a hardware run plus a measurement of the thing it claims to change.
 
 ## Mooncake C++ — `patches/mooncake_cpp/`
 
-SGLang now builds Mooncake `faae8dd4` directly and carries no private Mooncake
-source patch. The one file below is still applied by the vLLM and ATOM builds, and
-must be removed there once they enable upstream multi-protocol routing.
+SGLang builds Mooncake `faae8dd4` with only the two `rdma_*.diff` files below;
+both keep upstream behavior unless their environment variables are set.
+`transfer_engine_impl.diff` is applied only by the vLLM and ATOM builds, and must
+be removed there once they enable upstream multi-protocol routing.
 
 `Dockerfile.atom` stayed on `747003c` through the retirement of B.1 and B.3 below,
 on the premise that nothing passed the `MOONCAKE_HIP_DMABUF=1` its rebuild was
@@ -222,6 +223,20 @@ that ref B.1's wiring is absent, so the image failed its own dma-buf assertion.
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
 | `mooncake_cpp/transfer_engine_impl.diff` | old single-protocol builds preferred HIP IPC for cross-host targets | none | [Mooncake#2753](https://github.com/kvcache-ai/Mooncake/pull/2753) | no | **MERGED**; still needed while the vLLM build leaves `ENABLE_MULTI_PROTOCOL` off |
+| `mooncake_cpp/rdma_dest_local_rail.diff` | Decode NICs wrote GPU memory across sockets and several NICs wrote one GPU, dropping frames inside the NIC; `MC_ENABLE_DEST_LOCAL_RAIL=1` pins each destination GPU to one HCA used on both hosts | none | [Mooncake#4540](https://github.com/kvcache-ai/Mooncake/pull/4540) | yes (`llying-001`) | DRAFT; SGLang builds only |
+| `mooncake_cpp/rdma_ack_timeout.diff` | the RC ACK timeout is hardcoded at exponent 14 (about 67 ms), shorter than sender-NIC stalls; `MC_IB_TIMEOUT` makes it configurable, default unchanged | none | [Mooncake#4541](https://github.com/kvcache-ai/Mooncake/pull/4541) | yes (`llying-001`) | DRAFT; SGLang builds only |
+
+The two RDMA diffs come from the cross-rank Mooncake RCA on MI355X/ionic, where the
+original three-patch build took C80 transfer failures from 51 to 0. This extraction
+was validated on its own: Mooncake rebuilt by `build_mooncake_sglang.sh` with these
+two diffs, on two node pairs (P8D8, C80, 1200 s, `PD_DP_RANK_AFFINITY=0`). With both
+switches unset, 41 cross-rank transfer failures reproduce. With
+`MC_ENABLE_DEST_LOCAL_RAIL=1 MC_IB_TIMEOUT=18` on both legs, three runs had 0 transfer
+failures at the original fix's throughput, and a 64-pair GPU matrix passed with no NIC
+loss. `Dockerfile.sglang` and the overlay's `mooncake310` stage build;
+`Dockerfile.sglang.glm53` gets through its Mooncake stage and then stops at the
+sglang_disagg re-anchor step, as it does on main. Retire each diff when the pinned ref
+carries its upstream PR.
 
 Two files were deleted once the pinned ref carried them; see **Retired** below.
 The upstream source includes a GPU dma-buf chunk test, but it is not registered

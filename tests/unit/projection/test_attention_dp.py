@@ -75,16 +75,23 @@ def test_the_capacity_is_bought_with_per_rank_batch_efficiency():
 
     A rank runs attention over 1/dp of the batch at dp times the heads. The work
     is the same but the shape is narrower, and narrow GEMMs are worse GEMMs -- so
-    the decode step gets slower even as the cache it can hold grows eightfold.
-    A projector that reported only the capacity would be recommending the axis
-    without its cost.
+    the decode step's compute gets slower even as the cache it can hold grows
+    eightfold. A projector that reported only the capacity would be recommending
+    the axis without its cost.
+
+    The whole step need not get slower: the same split shrinks the expert
+    AllToAll and the attention all-reduce to the sequences a rank owns, which can
+    outweigh it. So the cost is asserted on the step net of that communication.
     """
     tp_only = project_spec(**MLA)
     dp_attn = project_spec(**MLA, attn_dp=8)
 
-    assert dp_attn["decode_step_ms"] > tp_only["decode_step_ms"]
-    # Small next to what it buys: the step pays single-digit percent for 8x cache.
-    assert dp_attn["decode_step_ms"] < 1.3 * tp_only["decode_step_ms"]
+    def compute_ms(r):
+        return r["decode_step_ms"] - r["comm_decode_ep_a2a_ms"] - r["comm_decode_tp_allreduce_ms"]
+
+    assert compute_ms(dp_attn) > compute_ms(tp_only)
+    # Small next to what it buys: the compute pays a modest share for 8x cache.
+    assert compute_ms(dp_attn) < 1.3 * compute_ms(tp_only)
 
 
 def test_a_mixed_step_is_shared_by_the_ranks_that_prefill_in_it():
@@ -121,3 +128,55 @@ def test_the_axis_subdivides_the_tensor_parallel_group_rather_than_adding_gpus()
     # a silently rounded one.
     with pytest.raises(ValueError, match="must divide"):
         project_spec(**{**MLA, "tp": 4}, attn_dp=8)
+
+
+def _sdpa_batch_seen(replica_batch: int, *, dp: int, tp: int = 8) -> int:
+    """Batch the SDPA backend sees after the profiler applies attention-DP."""
+    from infera.projection.core.projection.module_profilers.attention import (
+        AttentionProfiler,
+    )
+    from infera.projection.core.projection.simulation_backends.base import (
+        SimulationResult,
+    )
+    from infera.projection.core.projection.training_config import (
+        ModelConfig,
+        ModelParallelConfig,
+    )
+
+    class _Cfg:
+        model_config = ModelConfig(
+            hidden_size=1024,
+            num_attention_heads=16,
+            kv_channels=64,
+        )
+        model_parallel_config = ModelParallelConfig(
+            tensor_model_parallel_size=tp,
+            attention_data_parallel_size=dp,
+            context_model_parallel_size=1,
+        )
+
+    class _Rec:
+        def __init__(self):
+            self.batches = []
+
+        def simulate_sdpa(self, batch_size, **_kwargs):
+            self.batches.append(int(batch_size))
+            return SimulationResult(forward_time_ms=1.0)
+
+    rec = _Rec()
+    prof = AttentionProfiler(_Cfg())
+    prof.set_sdpa_backend(rec)
+    prof.measured_forward_time(replica_batch, 1)
+    assert rec.batches, "SDPA backend was not invoked"
+    return rec.batches[-1]
+
+
+def test_attention_profiler_applies_dp_once_to_the_replica_batch():
+    """Callers pass the replica-wide batch; the profiler splits it.
+
+    A second ceil(B/dp) — what _forward_times used to do by re-pricing at
+    attn_batch — would turn DP=8 / batch 512 into 8 sequences instead of 64.
+    """
+    assert _sdpa_batch_seen(512, dp=8) == 64
+    assert _sdpa_batch_seen(64, dp=8) == 8
+    assert _sdpa_batch_seen(512, dp=1) == 512

@@ -33,6 +33,7 @@ kv_channels: 256
 
 # Linear attention (gated delta net) + full attention every 4 layers (HF full_attention_interval: 4)
 experimental_attention_variant: gated_delta_net
+linear_attention_kind: gdn
 linear_attention_freq: 4
 linear_conv_kernel_dim: 4
 linear_key_head_dim: 128

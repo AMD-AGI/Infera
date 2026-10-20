@@ -332,6 +332,9 @@ def derive_inference_legality(
     # search that cannot say "fp4" cannot say anything about it: every trial is
     # rejected on memory before its performance is ever read.
     weight_dtype = ["bf16", "fp8", "fp4"]
+    validated = getattr(arch, "checkpoint_weight_dtypes", None)
+    if validated:
+        weight_dtype = [d for d in weight_dtype if d in validated] or list(validated)
     kv_cache_dtype = ["bf16", "fp8", "int8"]
     chunked_prefill_size = [0, 512, 1024, 2048]
     speculative_num_tokens = [0, 2, 4]

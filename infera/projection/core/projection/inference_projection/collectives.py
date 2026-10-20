@@ -24,6 +24,7 @@ stay consistent; the delta only appears when a knob is changed.
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 
@@ -280,6 +281,7 @@ class InferenceCollectiveModel:
         self.ep = max(1, getattr(mp_config, "expert_model_parallel_size", 1) or 1)
         self.cp = max(1, getattr(mp_config, "context_model_parallel_size", 1) or 1)
         self.attn_dp = max(1, getattr(mp_config, "attention_data_parallel_size", 1) or 1)
+        self.dcp = max(1, getattr(mp_config, "decode_context_parallel_size", 1) or 1)
         self.hidden = model_config.hidden_size
         self.topk = getattr(model_config, "moe_router_topk", 2) or 2
 
@@ -298,6 +300,11 @@ class InferenceCollectiveModel:
         )
         nn = num_nodes if num_nodes else int(os.environ.get("NNODES", "1"))
         hw = dict(coll_config.hardware_config or {})
+        # A calibrated system profile (JSON object, or a path to one), e.g. the
+        # one-parameter xGMI mesh fit {"node_bw": 594.5, "node_topology": "mesh"}.
+        prof = os.environ.get("INFERASIM_COLL_HW", "").strip()
+        if prof:
+            hw.update(json.load(open(prof)) if os.path.isfile(prof) else json.loads(prof))
         for key in ("node_bw", "pod_bw"):
             if key in ic:
                 hw.setdefault(key, ic[key])
@@ -319,6 +326,15 @@ class InferenceCollectiveModel:
         # on-node dispatch at pod bandwidth. ``1`` makes the test read
         # ``ep <= node_size``, the question actually being asked; where ``ep``
         # genuinely exceeds a node, the crossing is still charged.
+        self._args_intra = get_default_args(
+            num_nodes=1,
+            gpus_per_node=gpn,
+            tp=self.tp,
+            pp=self.pp,
+            ep=self.ep,
+            cp=self.cp,
+            hardware_config=hw,
+        )
         self._a2a_args = get_default_args(
             num_nodes=nn,
             gpus_per_node=gpn,
@@ -381,10 +397,35 @@ class InferenceCollectiveModel:
 
     # -- EP AllToAll -----------------------------------------------------------
 
+    def dcp_combine_ms(self, batch: int, tokens: int) -> float:
+        """Decode context parallelism, per attention layer, decode only.
+
+        A rank holds a slice of every sequence's cache, so it gathers the
+        queries of every head over the DCP group, attends over its slice, and
+        reduce-scatters the partial outputs (with their log-sum-exp) back to
+        the heads' owners.
+        """
+        if self.dcp <= 1:
+            return 0.0
+        heads = int(getattr(self.mc, "num_attention_heads", 0) or 0)
+        width = int(getattr(self.mc, "kv_lora_rank", 0) or 0) or int(
+            getattr(self.mc, "kv_channels", 0) or self.hidden // max(1, heads)
+        )
+        msg = max(1, batch * tokens * heads * width * 2)
+        raw = _min_over_protocols(
+            cm.run_allgather, self._args, msg, self.dcp, ["tp"]
+        ) + _min_over_protocols(cm.run_reduce_scatter, self._args, msg, self.dcp, ["tp"])
+        us = raw + 2 * _allreduce_overhead_us(self._args, msg, self.dcp)
+        us = self._floor_small_msg_overhead(us, msg, self.dcp, is_a2a=False)
+        return us / 1000.0
+
     def ep_a2a_ms(self, batch: int, tokens: int) -> float:
         """Dispatch + combine AllToAll per MoE layer, forward only."""
         if self.ep <= 1:
             return 0.0
+        # Attention-DP splits requests across ranks; this rank only dispatches
+        # its share. Replica ``batch`` here prices an 8x AllToAll at DP=8.
+        batch = max(1, (int(batch) + self.attn_dp - 1) // self.attn_dp)
         msg = max(1, batch * tokens * self.hidden * self.topk * 2)
         algo = (self.cc.ep_a2a_algo or "auto").lower()
         if algo == "auto":
@@ -487,12 +528,43 @@ class InferenceCollectiveModel:
     # -- Pipeline P2P ----------------------------------------------------------
 
     def pp_p2p_ms(self, batch: int, tokens: int) -> float:
-        """Activation send/recv across (pp-1) stage boundaries per forward."""
+        """Activation send/recv across (pp-1) stage boundaries per forward, and
+        the last stage's sampled tokens back to the first, which cannot
+        schedule that micro-batch again until they land."""
         if self.pp <= 1 or not self.cc.include_pp_p2p:
             return 0.0
         msg = max(1, batch * tokens * self.hidden * 2 // self.cp)
-        us = cm.sendrecv(self._args, msg)
-        return (self.pp - 1) * (us / 1000.0)
+        ov = float(getattr(self.cc, "pp_stage_overhead_us", 0.0) or 0.0)
+        tok = max(1, batch * 8)
+        nodes = self.pp_nodes()
+        if nodes <= 1:
+            fwd = (self.pp - 1) * (cm.sendrecv(self._args, msg) + ov)
+            back = cm.sendrecv(self._args, tok) + ov
+            return (fwd + back) / 1000.0
+        # Stages are placed contiguously, so a pipeline over n nodes has n-1
+        # forward boundaries on the NIC, and the token return from the last
+        # stage to the first crosses it too; the rest stay on xGMI.
+        cross = nodes - 1
+        intra = cm.sendrecv(self._args_intra, msg) + ov
+        fwd = (self.pp - 1 - cross) * intra + cross * (self._nic_sendrecv_us(msg) + ov)
+        back = self._nic_sendrecv_us(tok) + ov
+        return (fwd + back) / 1000.0
+
+    def pp_nodes(self) -> int:
+        """Nodes the pipeline spans: ``INFERASIM_PP_NODES`` when the placement
+        is given, else as many as ``tp * pp`` GPUs fill."""
+        env = os.getenv("INFERASIM_PP_NODES")
+        if env:
+            return max(1, min(self.pp, int(env)))
+        gpn = max(1, int(self._args.node_size))
+        return max(1, min(self.pp, -(-self.tp * self.pp // gpn)))
+
+    def _nic_sendrecv_us(self, msg: float) -> float:
+        """One point-to-point transfer over a single NIC (us)."""
+        a = self._args
+        raw_pod = getattr(a, "_raw_pod_bw", a.pod_bw / a.bw_eff)
+        bw = raw_pod * getattr(a, "p2p_bw_eff", 0.80)
+        return (msg / bw) * 1.0e-3 + a.pod_lat + a.kernel_launch_latency
 
     # -- KV-cache transfer (disaggregation) ------------------------------------
 

@@ -44,3 +44,15 @@ tokenizer_model: deepseek-ai/DeepSeek-V4-Pro
 trust_remote_code: true
 
 init_method_std: 0.02
+
+# Speculative decoding: the checkpoint's MTP head (mtp_num_layers in the base),
+# or the DSpark drafter -- three MoE layers over a 128-token window with a
+# rank-256 serial head. Acceptance is InferenceX's golden curve for each; the
+# DSpark sweep was measured on the 0813 checkpoint.
+speculative:
+  mtp:
+    acceptance: dsv4_mtp.yaml
+  dspark:
+    layers: 3
+    window: 128
+    acceptance: dsv4-pro-0813-dspark.yaml
