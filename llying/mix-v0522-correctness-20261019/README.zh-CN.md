@@ -80,7 +80,23 @@ aiter custom all-reduce）是更精确的检验，10-20 03:30 起在 140（v0.5.
 结论：top-k v2 与 `index_share` 默认值都没有破坏长上下文下的稀疏选择（捞针每组 64/64）。`index_share` 那组的一条重复循环是连贯文本、
 不是乱码，同题在 lc-dcar 正常结束；只有一例，不足为据，但留意。
 
-待做：top-k v2（带修复）的 AgentX A/B；修复代价复测一次；之后 example 与 agg 配方补上修复。
+**更精确的修复：上游代码里已有，但默认关闭。** 关 custom all-reduce 让 interactivity p90 降约 15%，于是找更窄的开关。v0.5.22
+`distributed/parallel_state.py` 里，DP attention 的 gather / scatter 在 HIP 上走 aiter custom all-gather（`SGLANG_USE_AITER_AG`，
+默认开）与 aiter custom reduce-scatter（`SGLANG_DP_USE_REDUCE_SCATTER`，HIP 默认开，只用于 `MAX_LEN` 即 graph decode 步），
+两者在 v0.5.19、v0.5.21 里也有。第 87-91 行：
+
+> Under CUDA-graph capture, stage aiter custom all-gather / reduce-scatter inputs through the pre-registered IPC pool instead of
+> registering graph-pool tensors: the registered path makes peers read stale data over IPC on replay (garbage rows / NaN under DP
+> attention + TP MoE on MI355X). Set to 0 to restore it.
+> `_AITER_CAPTURE_COPY_IN = os.environ.get("SGLANG_AITER_CAPTURE_COPY_IN", "0") == "1"`
+
+描述的正是这里的症状（乱码行、NaN 式的 `!`、只在 DP attention + graph 下），但默认值是 `"0"`（注释却写"设为 0 恢复"，两者不一致），
+即默认走的是有问题的注册路径。10-20 05:35 起三组（v0.5.22，GSM8K 200 题 / 并发 64，custom all-reduce 保留）：
+`SGLANG_AITER_CAPTURE_COPY_IN=1`（138 GPU 0-3）、只关 custom reduce-scatter `SGLANG_DP_USE_REDUCE_SCATTER=0`（138 GPU 4-7）、
+只关 custom all-gather `SGLANG_USE_AITER_AG=0`（140 GPU 0-3）。上一轮我提议的"设 `SGLANG_DP_USE_REDUCE_SCATTER=1`"没有先核对
+默认值——HIP 上它本来就是 1，设了等于没改。
+
+待做：上面三组；通过的那组做性能代价；top-k v2（带修复）的 AgentX A/B；之后 example 与 agg 配方补上修复。
 
 ## 当前结论（10-19 23:10，后面各节是按时间记的过程，其中"需要 HiCache""混合步触发"两个中间假设已被推翻）
 
