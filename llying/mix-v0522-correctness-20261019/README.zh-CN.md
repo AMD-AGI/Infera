@@ -174,7 +174,7 @@ GSM8K（lm_eval 0.4.13，5-shot、200 题，经 router，真实 MTP 接受）只
 | `unit` | 同一容器，`pip install -e ".[dev,gaie,projection]"`，`pytest -m "not slow and not integration"` | **通过**：2,570 passed，137 skipped，25 deselected |
 | `tests/unit`（镜像内） | v0.5.22 镜像，`tests/lib/container_pytest.sh` | **通过**：2,359 passed，81 skipped（10-19 的 15 个 Responses 相关失败已修好） |
 | `engine`（sglang 那一半） | 按 `Dockerfile.sglang` 构建（标签 `infera/engine-sglang:llying-ci-v0522`，不占用共享的 `test-local`），逐文件跑 `tests/engine/sglang` | **通过**：8 个文件全部通过 |
-| `e2e-mixed`（sglang） | `INFERA_E2E_LOCAL=1 tests/run_tests.sh e2e sglang mixed`；非独占模式（不设 `INFERA_E2E_EXCLUSIVE`、`INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS`，不动别人的容器）；节点上原有的 `test-local`（09-03 构建）先另存、跑完恢复 | 首次 **3 个用例失败、2 个跳过**：worker 报 `ambiguous option: --cuda-graph-max-bs could match --cuda-graph-max-bs-decode, --cuda-graph-max-bs-prefill`。修复后重跑中 |
+| `e2e-mixed`（sglang） | `INFERA_E2E_LOCAL=1 tests/run_tests.sh e2e sglang mixed`；非独占模式（不设 `INFERA_E2E_EXCLUSIVE`、`INFERA_E2E_RECLAIM_FOREIGN_CONTAINERS`，不动别人的容器）；节点上原有的 `test-local`（09-03 构建）先另存、跑完恢复 | 首次 **3 个用例失败、2 个跳过**：worker 报 `ambiguous option: --cuda-graph-max-bs could match --cuda-graph-max-bs-decode, --cuda-graph-max-bs-prefill`。修复（`4403eda6`）后重跑**通过**：gpt-oss-120b-tp2-ep、Kimi-K2.6-MXFP4-tp4-ep-dpattn、GLM-5.1-FP8-tp4 PASSED，DeepSeek-V4-Flash-FP8-tp4-dpattn、GLM-5.2-FP8-tp8-dpattn 按矩阵跳过（与首次相同），30 分钟；`test-local` 标签已恢复 |
 | `e2e-disag`（sglang） | 同上 | **在 138 上跑不了**：跨两节点的 PD 测试要 SLURM（`srun`），138 没有；只能在 CI 集群上跑（按用户决定，review 之后再触发） |
 
 `rust`、`unit-torch-cpu`、`agent_sys`、`engine` 的 vllm 那一半：分支未改相关代码，未跑。
