@@ -79,6 +79,23 @@ class SglangWorkerArgs:
     k8s_label_selector: str | None
 
 
+def _rename_cuda_graph_max_bs(argv: list[str], parser: argparse.ArgumentParser) -> list[str]:
+    """SGLang v0.5.22 split --cuda-graph-max-bs into --cuda-graph-max-bs-decode and
+    --cuda-graph-max-bs-prefill; argparse then rejects the old spelling as an ambiguous
+    prefix of both. It sized the decode graphs, so it maps onto the decode flag."""
+    options = parser._option_string_actions
+    if "--cuda-graph-max-bs" in options or "--cuda-graph-max-bs-decode" not in options:
+        return argv
+    renamed = []
+    for token in argv:
+        if token == "--cuda-graph-max-bs":
+            token = "--cuda-graph-max-bs-decode"
+        elif token.startswith("--cuda-graph-max-bs="):
+            token = "--cuda-graph-max-bs-decode=" + token.split("=", 1)[1]
+        renamed.append(token)
+    return renamed
+
+
 def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
     parser = argparse.ArgumentParser(add_help=True)
 
@@ -291,6 +308,7 @@ def parse_sglang_args(argv: list[str] | None = None) -> SglangWorkerArgs:
     # Parse the rest as SGLang ServerArgs
     sglang_parser = argparse.ArgumentParser(add_help=False)
     ServerArgs.add_cli_args(sglang_parser)
+    remaining = _rename_cuda_graph_max_bs(remaining, sglang_parser)
     sglang_parsed = sglang_parser.parse_args(remaining)
 
     # infera product default: fp8 KV cache (fp8_e4m3) unless the operator passed
