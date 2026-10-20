@@ -430,3 +430,8 @@ decode 本身的计算还有余量（每步耗时与 C176 相同，在跑数更�
   decode 输出约为走平值的八成）；风险是 ITL 上升、TTFT 极端尾部逼近客户端 900 s 超时、decode KV 压力。
 - 10-20 07:55（用户）：C192 比 C176 低 4.7%、约束是 decode KV 被等传输的请求占满（§2.10）→ prefill_complete + write_back + SPF（全栈重启，
   `config/stage-b5-pcwb-spf.sh`）→ HiCache 检查 → C192；不单独加预热轮，用同等负载下 decode 每步耗时检验公平性（慢 > 5% 则补测）。
+- 10-20 10:50（用户）：不加并发到 C208；留在 pcwb 上做 prefill / router 改动 → R4（10:53 开始，11:57 作业被抢占，无结果）。
+- 10-20 15:00（用户）：作业重新开始后换回 SPF + early（`config/stage-b4-spf.sh`）：C176 两轮（预热 decode，并在轮次中自动抓冷 / 热 decode profile）→
+  R4 C176 → SPF 加老化 → 正确性门禁。
+- 10-20 15:20（用户）：`mix-v0522-correctness-20261019` 发现 aiter custom all-reduce 会导致乱码（只关 QuickReduce 不够，需 `--disable-custom-all-reduce`），
+  与本实验的正确性和 prefill 挂起可能相关；用户决定暂不处理，按原计划进行。
