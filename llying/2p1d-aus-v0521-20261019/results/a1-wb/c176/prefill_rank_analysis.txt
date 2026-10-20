@@ -1,0 +1,11 @@
+window 2026-10-20T01:25:23 .. 2026-10-20T02:25:23
+prefill-0.before-spf/DP0: batches  1625 new   10.2M ( 2826 tok/s) busy  66% backlogged  60% queue mean  4.4 p90  14 long runs(>=5 chunks)  28 longest  67
+prefill-0.before-spf/DP1: batches  1563 new   10.3M ( 2868 tok/s) busy  63% backlogged  65% queue mean  5.6 p90  16 long runs(>=5 chunks)  48 longest  74
+prefill-0.before-spf/DP2: batches  1701 new   11.1M ( 3084 tok/s) busy  69% backlogged  68% queue mean  5.2 p90  15 long runs(>=5 chunks)  41 longest  57
+prefill-0.before-spf/DP3: batches  1570 new   10.3M ( 2859 tok/s) busy  64% backlogged  64% queue mean  6.4 p90  19 long runs(>=5 chunks)  31 longest  79
+prefill-1.before-spf/DP0: batches  1629 new   11.0M ( 3055 tok/s) busy  65% backlogged  67% queue mean  5.6 p90  15 long runs(>=5 chunks)  40 longest  30
+prefill-1.before-spf/DP1: batches  1686 new   10.9M ( 3036 tok/s) busy  67% backlogged  67% queue mean  5.4 p90  16 long runs(>=5 chunks)  36 longest  92
+prefill-1.before-spf/DP2: batches  1623 new   10.1M ( 2802 tok/s) busy  63% backlogged  62% queue mean  5.5 p90  15 long runs(>=5 chunks)  49 longest  56
+prefill-1.before-spf/DP3: batches  1498 new    8.6M ( 2393 tok/s) busy  56% backlogged  48% queue mean  3.0 p90  11 long runs(>=5 chunks)  32 longest  26
+full single-request chunks: 49% of prefill busy time, 60% of new tokens
+seconds with a rank idle while another has queue >= 5: 38%; queue spread across ranks median 15 p90 21

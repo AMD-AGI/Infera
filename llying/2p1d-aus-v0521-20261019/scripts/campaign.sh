@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Unattended driver across preemptions (login host, detached). Job JOB is QOS batch with Requeue=1: it was preempted at
+# 15:23 (34389) and again at ~19:50 (34439, requeued). On every (re)start of the job:
+#   1. ROUND = a<Slurm restart count> (a fresh run dir and fresh variant names per allocation);
+#   2. prepare_alloc.sh (node names, image, root-owned cache dirs, dataset cache, 16-GPU stream check);
+#   3. config/round.<ROUND>.sh <- the file named in operations/current_stage (the config the plan is at);
+#   4. operations/tune_queue.tsv <- operations/queue.next.tsv with {R} replaced by ROUND; queue driver started;
+#   5. while the job runs: nothing (the queue, patrol and operator do the work);
+#   6. job no longer running: stop this round's login-host processes, log it, raise an alert, back to 1.
+# operations/current_round holds the live ROUND (read by patrol.sh and wait_event.sh).
+# The operator edits queue.next.tsv / current_stage as experiments finish, so a restart resumes where the plan is.
+# Usage: JOB=<id> campaign.sh
+set -uo pipefail
+: "${JOB:?}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+R="$(cd "$HERE/.." && pwd)"
+O="$R/operations"
+export SHIM_JOB="$JOB" PATH="$R/tools/sshshim:$PATH"   # see tools/sshshim/ssh
+log() { echo "$(date -u +%FT%TZ) campaign: $*"; }
+alert() { mkdir -p "$R/runtime/patrol"; echo "$(date -u +%FT%TZ) [campaign] $*" >> "$R/runtime/patrol/ALERT.log"; log "$*"; }
+while true; do
+    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" != RUNNING ]]; do
+        [[ -z "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" ]] && { alert "job $JOB is gone ($(sacct -n -X -j "$JOB" -o State | xargs)); stopping"; exit 1; }
+        sleep 30
+    done
+    restarts="$(scontrol show job "$JOB" | sed -nE 's/.*Restarts=([0-9]+).*/\1/p')"
+    ROUND="a${restarts:-0}"
+    if [[ -e "$R/runtime/runs/$ROUND" ]]; then ROUND="${ROUND}x$(date +%H%M)"; fi
+    log "job $JOB running (restart $restarts) -> ROUND=$ROUND"
+    echo "$ROUND" > "$O/current_round"
+    JOB="$JOB" ROUND="$ROUND" START_QUEUE=0 bash "$HERE/prepare_alloc.sh" > "$R/logs/prepare.$JOB.$ROUND.log" 2>&1 ||
+        { alert "prepare failed for $ROUND (logs/prepare.$JOB.$ROUND.log); waiting for the job to change state";
+          while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do sleep 60; done; continue; }
+    stage="$(cat "$O/current_stage")"
+    cp "$R/$stage" "$R/config/round.$ROUND.sh"
+    sed "s/{R}/$ROUND/g" "$O/queue.next.tsv" > "$O/tune_queue.tsv"
+    cp "$O/tune_queue.tsv" "$O/tune_queue.$ROUND.tsv"
+    log "stage $stage installed as config/round.$ROUND.sh; queue from queue.next.tsv"
+    bash "$HERE/start_queue.sh" "ROUND=$ROUND"
+    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do sleep 60; done
+    alert "job $JOB left RUNNING during ROUND=$ROUND (state $(squeue -h -j "$JOB" -o %T 2>/dev/null); restarts now $(scontrol show job "$JOB" | sed -nE 's/.*Restarts=([0-9]+).*/\1/p'))"
+    for pat in '^bash tune_queue.sh' 'sampler.py' 'hang_watch.py' 'agentx_bench.sh' 'tune_round.sh' 'tune_post.sh'; do
+        pkill -u "$(id -u)" -f "$pat" 2>/dev/null
+    done
+    log "stopped login-host processes of $ROUND"
+done

@@ -1,0 +1,14 @@
+2026-10-19T22:29:20Z
+device,GPU use (%),GPU Memory Allocated (VRAM%),GPU Memory Read/Write Activity (%),Memory Activity,VRAM Total Memory (B),VRAM Total Used Memory (B)
+card0,100,96,0,N/A,309220868096,298281574400
+card1,100,96,0,N/A,309220868096,298726424576
+card2,100,96,0,N/A,309220868096,297285668864
+card3,100,96,0,N/A,309220868096,299884015616
+card4,1,95,0,N/A,309220868096,294788534272
+card5,0,95,0,N/A,309220868096,295338090496
+card6,1,95,0,N/A,309220868096,295262359552
+card7,1,96,0,N/A,309220868096,298899275776
+
+               total        used        free      shared  buff/cache   available
+Mem:            3023         240          39        2305        2743         460
+Swap:              7           0           7

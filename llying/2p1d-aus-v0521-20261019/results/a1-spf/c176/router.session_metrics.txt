@@ -1,0 +1,9 @@
+infera_router_session_active{role="prefill"} 0
+infera_router_session_hits_total{role="prefill"} 15423
+infera_router_session_selected_total{role="prefill"} 2242
+infera_router_session_active{role="decode"} 0
+infera_router_session_hits_total{role="decode"} 0
+infera_router_session_selected_total{role="decode"} 0
+infera_router_session_active{role="mixed"} 0
+infera_router_session_hits_total{role="mixed"} 0
+infera_router_session_selected_total{role="mixed"} 0

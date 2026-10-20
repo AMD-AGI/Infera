@@ -1,0 +1,11 @@
+window 2026-10-20T09:20:21 .. 2026-10-20T10:20:21
+prefill-0/DP0: batches  1499 new   10.9M ( 3036 tok/s) busy  65% backlogged  84% queue mean  1.9 p90   4 long runs(>=5 chunks)   6 longest  11
+prefill-0/DP1: batches  1462 new   10.8M ( 3006 tok/s) busy  64% backlogged  83% queue mean  2.6 p90   6 long runs(>=5 chunks)   0 longest   4
+prefill-0/DP2: batches  1417 new   10.7M ( 2966 tok/s) busy  63% backlogged  84% queue mean  2.0 p90   4 long runs(>=5 chunks)  13 longest   7
+prefill-0/DP3: batches  1449 new   10.6M ( 2936 tok/s) busy  63% backlogged  81% queue mean  1.9 p90   4 long runs(>=5 chunks)   4 longest  16
+prefill-1/DP0: batches  1593 new   11.4M ( 3171 tok/s) busy  74% backlogged  80% queue mean  2.0 p90   5 long runs(>=5 chunks)   6 longest   7
+prefill-1/DP1: batches  1605 new   11.8M ( 3269 tok/s) busy  77% backlogged  84% queue mean  1.9 p90   4 long runs(>=5 chunks)   2 longest   5
+prefill-1/DP2: batches  1580 new   11.9M ( 3305 tok/s) busy  76% backlogged  86% queue mean  3.0 p90   7 long runs(>=5 chunks)  10 longest   7
+prefill-1/DP3: batches  1567 new   12.2M ( 3382 tok/s) busy  75% backlogged  87% queue mean  3.2 p90   6 long runs(>=5 chunks)   5 longest   8
+full single-request chunks: 26% of prefill busy time, 29% of new tokens
+seconds with a rank idle while another has queue >= 5: 10%; queue spread across ranks median 5 p90 9

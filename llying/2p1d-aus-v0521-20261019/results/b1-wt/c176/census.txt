@@ -1,0 +1,17 @@
+== decode-0.after-realacc.log lines=11409 ready=0 hcas=[]
+   FATAL       1 [2026-10-19 13:13:01 DP3 TP3] Decode transfer failed for request rank=3 decode_req.req.rid='37bf4ea4a43b45908f100591a5f19051' decode_req.req.bootstrap_room=6418976532868915171 with exception KVTransferError(bootstrap_room=641897653286891517
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='fe87a6c75a4d487e862b14df61732fce' decode_req.req.bootstrap_room=4217222042786851475 with exception KVTransferError(bootstrap_room=421722204278685147
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='b9a720c105c247c38b59d3cc276bf8d4' decode_req.req.bootstrap_room=5290642020593391243 with exception KVTransferError(bootstrap_room=529064202059339124
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='a1e64e0975d244bd8563d9628d4adb08' decode_req.req.bootstrap_room=1515361172213834152 with exception KVTransferError(bootstrap_room=151536117221383415
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='991623adc3f04ed5b36aebd901ce7b6b' decode_req.req.bootstrap_room=4729217893364067401 with exception KVTransferError(bootstrap_room=472921789336406740
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='829865b4e8c847afa4ad9d6b6fd7c3d0' decode_req.req.bootstrap_room=8283690578173837396 with exception KVTransferError(bootstrap_room=828369057817383739
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='79f00d3da3d64da0b19bf649902b0bda' decode_req.req.bootstrap_room=1963762825262319807 with exception KVTransferError(bootstrap_room=196376282526231980
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='4ecb368e2d0446509e38d5a6b15d9f88' decode_req.req.bootstrap_room=4516370650975800637 with exception KVTransferError(bootstrap_room=451637065097580063
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='35ab87c4acaa4e409ff54b7190c3e16a' decode_req.req.bootstrap_room=5028262015110794165 with exception KVTransferError(bootstrap_room=502826201511079416
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='2eabfc03b5704b31b532da268fafe1ac' decode_req.req.bootstrap_room=4353986856306019195 with exception KVTransferError(bootstrap_room=435398685630601919
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='0d242e1dd4814110ad32665577e15744' decode_req.req.bootstrap_room=5455008930283237414 with exception KVTransferError(bootstrap_room=545500893028323741
+   FATAL       1 [2026-10-19 13:13:00 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='01ac74bfe2e2430cb09ad43eb9ff08e5' decode_req.req.bootstrap_room=5267728990185436495 with exception KVTransferError(bootstrap_room=526772899018543649
+== decode-0.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=12205 ready=0 hcas=[]
+   FATAL       1 Memory access fault by GPU node-3 (Agent handle: 0x5555608296c0) on address 0xfffffffff000. Reason: Unknown.
+== prefill-1.log lines=13046 ready=0 hcas=[]

@@ -1,0 +1,10 @@
+== decode-0.log lines=29074 ready=0 hcas=[]
+   FATAL       1 [2026-10-20 04:54:15 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='82adfcf9c05742bcba99bf2656324f00' decode_req.req.bootstrap_room=1317670268828061704 with exception KVTransferError(bootstrap_room=131767026882806170
+== prefill-0.before-qr0.log lines=0 ready=0 hcas=[]
+== prefill-0.before-spf.log lines=0 ready=0 hcas=[]
+== prefill-0.before-wb.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=26709 ready=0 hcas=[]
+== prefill-1.before-qr0.log lines=0 ready=0 hcas=[]
+== prefill-1.before-spf.log lines=0 ready=0 hcas=[]
+== prefill-1.before-wb.log lines=0 ready=0 hcas=[]
+== prefill-1.log lines=27696 ready=0 hcas=[]

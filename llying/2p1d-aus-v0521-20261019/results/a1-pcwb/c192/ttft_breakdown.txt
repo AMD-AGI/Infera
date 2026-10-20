@@ -1,0 +1,7 @@
+samples 2026-10-20T09:21:07 .. 2026-10-20T10:20:10
+prefill  n=14751: queue 5.48 s, bootstrap 12.99 s, transfer 4.69 s (6.65 GB), arrival->done 17.01 s
+decode   n=14726: KV alloc wait 0.12 s, queue 0.00 s, TTFT 17.18 s, ITL 22.6 ms, e2e 39.00 s
+CPU % over the window (100 = one core):
+  glm52-llying-2p1d-a1-decode-0 main(HTTP/tokenizer) max 0 / sum 0 (x267), tokenizer workers max 34 / sum 113 (x4), detokenizer 4, dp_controller 100, scheduler mean 193 / max 193 (x8)
+  glm52-llying-2p1d-a1-prefill-0 main(HTTP/tokenizer) max 56 / sum 56 (x135), detokenizer 0, dp_controller 100, scheduler mean 252 / max 260 (x4)
+  glm52-llying-2p1d-a1-prefill-1 main(HTTP/tokenizer) max 57 / sum 57 (x135), detokenizer 0, dp_controller 100, scheduler mean 268 / max 283 (x4)

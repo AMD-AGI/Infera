@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# ssh replacement for job 34439: its extern step ended at 19:48 (31 min into the job), and pam_slurm_adopt
+# (action_adopt_failure=deny) then refuses every ssh login to the job's nodes, while srun into the job still works.
+# Runs "ssh [options] host [command ...]" as "srun --jobid=$SHIM_JOB --overlap -w host bash -c 'command'".
+# A step's processes are killed when it ends, so nothing started here may be left running in the background on the
+# node (log followers and the queue driver run on the login host instead). Put this directory first in PATH.
+# --gres=gpu:8: a step without GPUs gets none (rocm-smi sees no device); --overlap lets steps share them.
+set -uo pipefail
+: "${SHIM_JOB:?set SHIM_JOB to the Slurm job id}"
+no_stdin=0
+while (( $# )); do
+    case "$1" in
+        -[bcDEeFIiJLlmOoPpQRSWw]) shift 2 ;;
+        -[bcDEeFIiJLlmOoPpQRSWw]?*) shift ;;
+        -n) no_stdin=1; shift ;;
+        --) shift; break ;;
+        -*) shift ;;
+        *) break ;;
+    esac
+done
+host="${1:?no host}"; shift
+host="${host#*@}"
+cmd="$*"
+[[ -n "$cmd" ]] || { echo "ssh shim: interactive login is not supported" >&2; exit 255; }
+remote="export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/slurm/bin HOME=$HOME USER=$USER; cd \$HOME 2>/dev/null; $cmd"
+if (( no_stdin )); then
+    exec srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 --quiet --export=NONE /bin/bash -c "$remote" < /dev/null
+fi
+exec srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 --quiet --export=NONE /bin/bash -c "$remote"

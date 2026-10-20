@@ -1,0 +1,3 @@
+2026-10-20T00:53:33.571117Z  INFO infera_router: router experiment controls experiments=Experiments { prefill_guard_completion: true, decode: On, tiers: Off, prefill: Off, dynamo_prefill: Off, host_weight: 0.0 }
+2026-10-20T00:53:33.571120Z  INFO infera_router: P/D streaming guard experiment prefill_guard_release=completion enabled=true
+2026-10-20T00:53:33.876700Z  INFO infera_router::session_affinity: session affinity configuration mode=Prefill ttl=3600

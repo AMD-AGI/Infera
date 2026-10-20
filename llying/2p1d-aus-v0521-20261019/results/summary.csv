@@ -1,0 +1,3 @@
+round,conc,gpus,tok_s_per_gpu,total_tok_s,out_tok_s_per_gpu,p90_intv,p50_intv,itl_p50_ms,itl_p90_ms,ttft_p50_s,ttft_p90_s,ttft_mean_s,tpot_mean_ms,e2e_p50_s,requests_ok,error_dropped,input_mean,output_mean,theoretical_hit,gpu_cache_hit,cpu_cache_hit,duration_s
+b1-wt,176,16,16606.2,265699.1,158.27,41.27,45.96,21.76,24.23,7.561,48.869,19.635,19.73,19.968,4110,471,99712,959,0.957,0.35226,0.48758,1557.2
+warm-b1,176,16,24957.7,399323.3,216.03,37.51,41.84,23.9,26.66,7.973,46.403,19.534,22.44,21.991,6885,7,105067,917,0.961,0.5469,0.37299,1827.4

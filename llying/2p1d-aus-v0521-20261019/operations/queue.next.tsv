@@ -1,0 +1,13 @@
+# Template for the next allocation (scripts/campaign.sh replaces {R}). Plan (10-20 15:00, user): back to SPF + early (best: a1-spf C176
+# = 35,377), config/stage-b4-spf.sh. Two C176 rounds warm decode up (cold / warm decode profiles for the drift study), the second one is
+# the warm baseline; then router R4 (new-session placement by prefill work) at C176. SPF aging and the correctness gate come after.
+run bringup_fast.sh ROUND={R}
+run start_sampler.sh ROUND={R}
+run start_hang_watch.sh ROUND={R}
+run hicache_check.sh ROUND={R} TAG=wb DECODE_LOG=decode-0.log
+run start_profile_round.sh ROUND={R} VARIANT={R}-spf CONC=176 DELAY=900
+round {R}-spf 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+run start_profile_round.sh ROUND={R} VARIANT={R}-spf2 CONC=176 DELAY=900
+round {R}-spf2 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+run start_profile_round.sh ROUND={R} VARIANT={R}-r4 CONC=176 DELAY=900
+round {R}-r4 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on INFERA_R4_PREFILL_WORK=on

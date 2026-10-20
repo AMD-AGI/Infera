@@ -1,0 +1,17 @@
+== decode-0.log lines=27954 ready=0 hcas=[]
+   FATAL       1 [2026-10-20 02:25:57 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='f273d07f250044439979815e9cc68656' decode_req.req.bootstrap_room=1751362739125088416 with exception KVTransferError(bootstrap_room=175136273912508841
+   FATAL       1 [2026-10-20 02:25:56 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='f6a7d103e8bf4bdc91b4c5ac2ec11126' decode_req.req.bootstrap_room=2557792455174204056 with exception KVTransferError(bootstrap_room=255779245517420405
+   FATAL       1 [2026-10-20 02:25:56 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='f18bdfd713c34bb19c98f4f6412c6679' decode_req.req.bootstrap_room=6670216704503278576 with exception KVTransferError(bootstrap_room=667021670450327857
+   FATAL       1 [2026-10-20 02:25:56 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='10d0106bec764f9b9bb054ff26dd9d9a' decode_req.req.bootstrap_room=4572167986581404672 with exception KVTransferError(bootstrap_room=457216798658140467
+   FATAL       1 [2026-10-20 02:25:56 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='e455b80731d54a159b5b4dc4272ec8ed' decode_req.req.bootstrap_room=8649192127424296576 with exception KVTransferError(bootstrap_room=864919212742429657
+   FATAL       1 [2026-10-20 02:25:56 DP0 TP0] Decode transfer failed for request rank=0 decode_req.req.rid='c3b0ff5019ee4eae9624193417b698da' decode_req.req.bootstrap_room=3153127497451458124 with exception KVTransferError(bootstrap_room=315312749745145812
+   FATAL       1 [2026-10-20 02:25:55 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='1bf8b01ecb154808a24caffb222373ab' decode_req.req.bootstrap_room=8910438523318571328 with exception KVTransferError(bootstrap_room=891043852331857132
+   FATAL       1 [2026-10-20 02:25:55 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='9f3f5515e06b4ea0a1a47520a1c4864f' decode_req.req.bootstrap_room=8809317025665344840 with exception KVTransferError(bootstrap_room=880931702566534484
+   FATAL       1 [2026-10-20 02:25:54 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='bde33fbeb89e4b7bb66496de749673cd' decode_req.req.bootstrap_room=8261070174642809452 with exception KVTransferError(bootstrap_room=826107017464280945
+   FATAL       1 [2026-10-20 02:25:54 DP4 TP4] Decode transfer failed for request rank=4 decode_req.req.rid='8d8f98ac23c34d0eb1024a15b861c45a' decode_req.req.bootstrap_room=6177554550361016164 with exception KVTransferError(bootstrap_room=617755455036101616
+== prefill-0.before-qr0.log lines=0 ready=0 hcas=[]
+== prefill-0.before-wb.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=25806 ready=0 hcas=[]
+== prefill-1.before-qr0.log lines=0 ready=0 hcas=[]
+== prefill-1.before-wb.log lines=0 ready=0 hcas=[]
+== prefill-1.log lines=27256 ready=0 hcas=[]
