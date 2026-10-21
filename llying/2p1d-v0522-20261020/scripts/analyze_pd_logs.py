@@ -1,6 +1,6 @@
 """Bottleneck numbers of one 2P1D run from its engine logs, over the AgentX measurement window.
   python3 analyze_pd_logs.py RUN_DIR WINDOW_START WINDOW_END      (times as 2026-10-20T17:17)
-Prefill (per instance): median time of a full 8192-token chunk taken back to back (queue > 0),
+Prefill (per instance): median time of a full chunk (>= 8000 tokens) taken back to back (queue > 0),
 uncached tokens/s, mean waiting requests, share of 10 s bins with a queue.
 Decode: requests running in total and on the busiest of the 8 DP ranks (10 s bins), step time
 by the busiest rank's running count, mean requests waiting for preallocation / KV transfer."""
@@ -13,7 +13,9 @@ import sys
 from pathlib import Path
 
 run, t0, t1 = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
-TS = re.compile(r"^(\S+)Z \[\S+ \S+ DP(\d+) TP\d+\] ")
+# DP-attention ranks log as "DP<r> TP<t>"; a pipeline-parallel prefill logs as "PP<s>", every stage
+# repeating the same batch, so only stage 0 is counted (as rank 0).
+TS = re.compile(r"^(\S+)Z \[\S+ \S+ (?:DP(\d+) TP\d+|PP(\d+))\] ")
 PRE = re.compile(r"Prefill batch, #new-seq: \d+, #new-token: (\d+), #cached-token: (\d+).*#queue-req: (\d+)")
 DEC = re.compile(r"Decode batch, #running-req: (\d+).*#prealloc-req: (\d+), #transfer-req: (\d+)")
 
@@ -21,8 +23,8 @@ DEC = re.compile(r"Decode batch, #running-req: (\d+).*#prealloc-req: (\d+), #tra
 def lines(name):
     for line in open(run / "logs" / f"glm52_2p1d-{name}.log", errors="replace"):
         m = TS.match(line)
-        if m and t0 <= m.group(1) <= t1:
-            yield datetime.datetime.fromisoformat(m.group(1)[:26]), int(m.group(2)), line
+        if m and t0 <= m.group(1) <= t1 and m.group(3) in (None, "0"):
+            yield datetime.datetime.fromisoformat(m.group(1)[:26]), int(m.group(2) or 0), line
 
 
 def bin10(ts):
@@ -45,8 +47,9 @@ for inst in ("prefill0", "prefill1"):
         last[dp] = (ts, new, q)
     secs = (datetime.datetime.fromisoformat(t1) - datetime.datetime.fromisoformat(t0)).total_seconds()
     qsum = [sum(v.values()) for v in queue.values()]
+    chunk = f"{st.median(chunk_ms):.0f} ms" if chunk_ms else "n/a"
     print(
-        f"{inst}: full-chunk median {st.median(chunk_ms):.0f} ms (n={len(chunk_ms)}), "
+        f"{inst}: full-chunk median {chunk} (n={len(chunk_ms)}), "
         f"uncached {new_tok / secs:,.0f} tok/s, waiting mean {st.mean(qsum):.2f}, "
         f"bins with a queue {100 * sum(1 for q in qsum if q) / len(qsum):.0f}%"
     )

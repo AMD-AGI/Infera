@@ -19,8 +19,8 @@
 4. **对 GB300：同等单卡负载下每接受 token 快约 2 倍**（每卡约 13 个在跑：11 ms 对我们 21.6 ms），来自硬件（FP4 算力约 1.5 倍、NVLink 上的
    EP all-to-all）和 NVFP4 kernel；再加上 decode 按请求数均衡、NVL72 让 decode 跨 tray 做 EP8 / EP16、KV 走 NVLink。机柜级 scale-up
    这部分在 8 卡节点上无法复制。
-5. **可借鉴、按投入产出排序**：decode 按在跑请求数均衡（GB300 原样做法）→ prefill 带 MTP 参数（AUS 在做）→ decode 缩到 4 卡（1P1D 4+4，
-   当前镜像可测）→ TP4 + DCP4（需新 sglang）→ PP4 prefill、非专家层 FP8、恢复快速 all-reduce。目标见第 7 节：阶段 1（当前镜像）p90 ≈ 45
+5. **可借鉴、按投入产出排序**：decode 按在跑请求数均衡（GB300 原样做法）→ prefill 带 MTP 参数（AUS 已验证）→ PP4 prefill（10-21 已在
+   v0.5.22 跑通）→ TP4 + DCP4（需新 sglang）→ 非专家层 FP8、恢复快速 all-reduce；decode 缩到 4 卡要等 decode 均衡之后（第 7 节更正）。目标见第 7 节：阶段 1（当前镜像）p90 ≈ 45
    处 ≥ 33k、≈ 55 处 ≥ 28k；阶段 2 追平 ATOM PD（p90 ≈ 43 处 ≥ 40k）；阶段 3 追平 B300 单机线（8 卡节点同级）。
 
 ## 1. 数据与可比性
@@ -171,9 +171,9 @@ prefill 每卡上限三家相同（约 0.7 req/s，再往上 TTFT 爆，ATOM C11
 |---|---|---|---|---|
 | P0 | **decode 按在跑请求数均衡 DP rank**（GB300 `router-decode-active-request-weight`） | R2 按在途 token 均衡，最忙 / 均值 p90 1.8–2.4 | 最忙 p90 压到均值 × 1.3：1P1D C88 每步 82 → ~64 ms，**p90 42.8 → ~55**（吞吐受 prefill 限，~28k）；2P1D C176 p90 35.7 → ~44；1P1D C64 51.4 → ~65–75 | router 小改：在 KV 不超阈值（如 0.85）的 rank 中选在跑最少的，都接近阈值时退回 R2。免改代码的先验：C64 / C88 关 R2 |
 | P0 | **prefill 带 EAGLE 参数**（GB300、ATOM；AUS `d1e7ff1b`） | 冷态：@6 46、@8 54 ms | AUS 实测热态 @6 −12、@8 −10、@12 −4 ms；C176 吞吐 +2%。与上一项叠加后 1P1D C88 p90 ~60–65、C64 ~75+ | AUS 在做；prefill 多一层草稿（AUS −0.8%） |
-| P0 | **decode 缩到 4 卡：1P1D 4+4，decode TP4/DPA**（ATOM 1P1D 的卡数配比） | 1P1D 用 4+8 | C64：总吞吐不变则 279k / 8 ≈ 35k/GPU；decode 每 rank 8.5 个，最忙约 13–15 → p90 ~38–42（有均衡则 ~49）。**预计 30–35k @ 38–49**，可同时支配 1P1D C88 与 2P1D C176 附近的线 | 当前镜像只改配置；KV 上限约 C64–C72（第 5 节第 3 条）。P 在 138 GPU 4–7、D 在 140 GPU 4–7（rail 对齐） |
-| P1 | **decode TP4 + DCP4**（ATOM；sglang#43735 + #44322） | DP attention | 无 rank 不均衡、KV 不复制，4 卡可到 C96：**追平 ATOM PD，~40k @ ~43、~31k @ ~58** | 需新 sglang（ROCm DSA DCP），验证正确性（GSM8K） |
-| P1 | **prefill PP4 × TP1**（GB300、ATOM） | TP4 / DP4 attention；C88 实例忙 81% 而 rank 均值 57%，会话亲和把长会话钉在热 rank | 去掉 DP 同步与热 rank，prefill 容量 +15–30% → 1P1D 可到 C96–C104 而 TTFT p90 < 10 s | 需确认 sglang ROCm 的 PP + PD + HiCache + DSA |
+| P2 | **decode 缩到 4 卡：1P1D 4+4，decode TP4/DPA**（ATOM 1P1D 的卡数配比） | 1P1D 用 4+8 | C64：decode 每 rank 8.5 个，最忙约 13–15，在每步 78–81 ms 的平台上，TP4 时每卡 MoE 权重翻倍，p90 约 36–41；吞吐 30–35k。**落在 2P1D C176（35.6k @ 35.7）附近，最多比 C176–C88 连线高 5–10%**（10-21 16:40 更正：之前写"可同时支配"说过头了）；要等 decode 均衡做好后才有意义 | 当前镜像只改配置；KV 上限约 C64–C72（第 5 节第 3 条） |
+| P1 | **decode TP4 + DCP4**（ATOM；sglang#43735 + #44322） | DP attention | 无 rank 不均衡、KV 不复制，4 卡可到 C96：**追平 ATOM PD，~40k @ ~43、~31k @ ~58** | 需新 sglang：10-21 查 v0.5.22 镜像源码，DSA 的 DCP 只有 trtllm（NVIDIA）实现，ROCm 的 triton 后端没有 |
+| P1 | **prefill PP4 × TP1**（GB300、ATOM） | TP4 / DP4 attention；C88 实例忙 81% 而 rank 均值 57%，会话亲和把长会话钉在热 rank | 去掉 DP 同步与热 rank，prefill 容量 +15–30%（上限按 14.0k ÷ 0.57 ≈ 24.6k 新 token/s 估约 1.6 倍）→ 1P1D 可推到 C100–C130 | 10-21 已在 v0.5.22 跑通（带 prefill MTP，开 / 不开 HiCache，smoke 与 GSM8K 通过），需要一处 `deepseek_v2.py` 补丁，见 `../2p1d-v0522-20261020/README.zh-CN.md` |
 | P1 | **恢复快速 all-reduce**（ATOM INT4 QuickReduce；之前的窄修复：只关 custom reduce-scatter / all-gather） | 全走 RCCL | mixed 上关 custom AR 曾使 p90 −15%，恢复后每步约 −10–15% | 正确性优先，需先验证 |
 | P2 | **非专家层 FP8**（ATOM `ptpc_fp8`） | 注意力、dense MLP、gate、lm_head 为 BF16（checkpoint `exclude`），DP attention 每 rank 复制约 30 GB | 每步少读 ~15 GB（约 −2 ms）；4 卡 decode 每 rank 多 ~0.34M token（+11%） | 需 sglang 支持或离线重量化 checkpoint；GSM8K 重验 |
 | P2 | decode 准入与 CPU 开销（GB300 `SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION=8`、`stream-interval 30`、`skip-tokenizer-init`） | 默认 | C176（KV 受限）多收几个请求；CPU 开销小幅下降 | 低成本；`skip-tokenizer-init` 需 router 传 token id，先确认兼容 |
@@ -217,7 +217,8 @@ prefill 每卡上限三家相同（约 0.7 req/s，再往上 TTFT 爆，ATOM C11
 
 ## 9. 建议的下一步（待确认后执行）
 
-1. **1P1D 4+4 C64**（当前镜像、只改配置、约 1.5 小时）：验证"decode 4 卡"这一条，预期 30–35k @ 38–49。
-2. 1P1D C88 / C64 关 R2 各一次：免改代码地先验证按请求数均衡的方向（R2 关时 router 近似按派发个数轮转）。
-3. 等 AUS 的 prefill MTP 修复合入后重测前沿点。
-4. 调研 sglang 的 TP4 + DCP4（#43735 / #44322）与 PP4 prefill 在 ROCm 上的可用性，决定阶段 2 是否用 v0.5.22 之后的镜像。
+10-21 16:40 与用户讨论后的顺序（4+4 C64 不做：它落在 C176 附近，见第 7 节更正）：
+1. prefill MTP 加进 2P1D example（PR #210），用 example 补 smoke 与 GSM8K；prefill MTP 的性能 A/B 以 AUS 的结果为准。
+2. PP4 prefill（带 prefill MTP）跑通并验证正确性，然后在 1P1D 上测 C88，再按结果测更高并发（C112、C128）。
+3. decode 按在跑请求数均衡（router 改动）单独做；可先用 C88 / C64 关 R2 免改代码地看方向。
+4. TP4 + DCP4 需要 v0.5.22 之后带 ROCm DSA DCP 的镜像（#44322），阶段 2 再评估。
