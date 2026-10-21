@@ -401,3 +401,43 @@ agent，与前 4 个点配置一致：AUS harness 里"lean mode … ~1.00x"只�
 
 **干扰检查（15:36）**：两节点 GPU 显存为 0；138 上他人容器 `dev_xb`、`yihou-expert8-tools-138` CPU ≈ 0；138 有一个
 12 天前启动的 root python 进程（pid 2906078）持有 GPU 句柄、显存 0，之前所有性能测试期间都在，不动它。140 只有系统 `gpuagent`。
+
+## 10-21 17:00 起：prefill MTP + PP4 prefill（用户决定）
+
+**决定**（17:11）：先跑通 PP4 prefill（TP1 × PP4，同时带 prefill MTP），不限时；调试时先不开 HiCache（失败重启不用等显存回收），正确性通过后
+再开 HiCache 验证正确性，然后做性能测试。之后用 example 本身（TP4/DPA prefill + prefill MTP）补 PR #210 的 smoke 与 GSM8K。prefill MTP
+不再单独测 C64 的性能 A/B（AUS 已在 v0.5.21 测过，见 `../2p1d-aus-v0521-20261019/RESULT.zh-CN.md` §2.13–2.14）。
+
+**prefill MTP 改动**（example，未提交，`config/example-prefill-mtp.diff`）：EAGLE 5/1/6 从 decode 专用参数移到两侧共用参数；模拟接受率的环境变量
+仍只给 decode（与 AUS `PREFILL_MTP=1` 相同）；README 加 note 10。
+
+**v0.5.22 对 PP prefill 的支持（只读查镜像源码）**：
+- 支持：`deepseek_v2.py`（GLM-5.2 走这条路径）有 PP 层切分，最后一级带 MTP 时也加载 embedding；PD 连接层允许"prefill PP4 + decode PP1"，
+  Mooncake 支持 PP；PP + EAGLE 只允许在 PD prefill 上用（不设 `SGLANG_ENABLE_PP_SPEC` 的分支要求 `disaggregation-mode == prefill`）；
+  PP 要求 `--disable-overlap-schedule`；KV event 只由 pp_rank 0 发布（不会抢端口）。
+- 不支持：DSA 的 DCP 只有 trtllm（NVIDIA）实现，ROCm 的 triton 后端没有，所以 TP4 + DCP4 decode 在这个镜像上用不了。
+
+**PP4 实验副本**：`2p1d-kit/v6-pp4`（由 example 复制，不进 PR，相对 example 的全部改动见 `config/kit-v6-pp4.diff`）：prefill `--tp-size 1 --pp-size 4
+--disable-overlap-schedule --chunked-prefill-size 16384`，`SGLANG_PP_LAYER_PARTITION=20,20,20,18`（GLM-5.2 78 层，最后一级还放 LM head 和
+MTP 草稿层，与 GB300 相同）；`PP4_HICACHE=0|1` 开关；decode 不变。站点配置 `config/site-1p-pp4.env`（1 个 prefill，138 GPU 4–7）。
+
+**问题 1：PP 中间级启动即崩（16:57）**。PP1 加载模型时 `AttributeError`：v0.5.22 `deepseek_v2.py:2987` 读 `self.embed_tokens.embedding_dim`，
+而 PP 中间级的 `embed_tokens` 是 `PPMissingLayer`。修法：改读 `config.hidden_size`（embedding 维度即 hidden size，语义不变；`:3022` 同一分支
+一并改）。补丁文件 `2p1d-kit/v6-pp4/patches/deepseek_v2.py`，只挂载进 PP4 的 prefill 容器，不改镜像。GLM-5.2 hidden size 是 6144，
+这个分支本来就不会进入，所以只是绕过属性访问。
+
+**问题 2：起栈命令被执行了两次（16:54–16:56）**。第二次因容器名冲突在 etcd 一步退出、没有删任何东西，但多建了一个运行目录并改写了
+`current_run`；已删除空目录、把 `current_run` 改回正在跑的那次。之后启动前先检查 `^bash engine/up\.sh` 是否在跑。
+
+**PP4、不开 HiCache（`pp4-nohc-1021T1713`，17:13 起栈，17:19 可用）**：
+- 4 级权重 93.5 / 104.8 / 104.8 / 98.1 GB，最后一级另加 MTP 草稿层 21.6 GB（TP1 下草稿层专家不切分）；KV 池整个实例 10,738,496 token（FP8），
+  4 级共用（TP4/DPA 时每 rank 2,956,096、合计约 1,180 万但按 rank 分开）；KV 分配后每卡仍有 52–67 GB 空余，之后可考虑提高 mem-fraction。
+- smoke 6/6（66k token 冷态 60.6 s，含首次遇到新形状的 JIT，example 当时 40.0 s；重复 1.5 s，6 万 token 全部命中缓存只新算 61 个）。
+- GSM8K（InferenceX `run_eval`，1,319 题，并发 64，真实接受率）：**strict 0.9674 / flexible 0.9682**（± 0.005），与 example 的 0.9697 / 0.9704
+  一致；无空回答、无模板标签泄漏；超过 5,000 字符的回答 18 条（example 当时 16 条，都是题意含糊时的反复推敲）。
+- **真实接受长度**（GSM8K 期间 decode 日志）：中位 4.55 / 均值 4.82；修复前的 correct-v2 为 3.86 / 4.18（+18%），说明草稿层 KV 已从 PP 的
+  最后一级正确传到 decode。
+- 撤栈后 20 秒内两节点显存清零（开 HiCache 时 10–65 分钟），证实显存回收慢来自 HiCache 的固定主机内存。
+
+**17:32 起 PP4 + HiCache（`pp4-hc-1021T1732`）**：每级 `--hicache-size 250`、write_back、page_first，与 example 相同；起栈前两节点显存 0、
+无他人 GPU 进程（负载 10–15 来自内核线程与刚撤下的容器，无他人计算进程）。

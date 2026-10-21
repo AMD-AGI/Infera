@@ -1,0 +1,35 @@
+diff --git a/examples/sglang_2p1d_glm5.2/engine/worker.sh b/examples/sglang_2p1d_glm5.2/engine/worker.sh
+index b94554dc..e3dbc4bd 100755
+--- a/examples/sglang_2p1d_glm5.2/engine/worker.sh
++++ b/examples/sglang_2p1d_glm5.2/engine/worker.sh
+@@ -3,7 +3,8 @@
+ # SPDX-License-Identifier: MIT
+ #
+ # Start one engine container on THIS node: a TP4 + DP4-attention prefill with
+-# a host-memory HiCache tier, or the TP8 + DP8-attention decode with EAGLE MTP.
++# a host-memory HiCache tier, or the TP8 + DP8-attention decode; both legs
++# carry EAGLE MTP.
+ # This file carries the tuned recipe; site values come from env.sh. Normally
+ # called by up.sh (the decode over ssh).
+ #
+@@ -70,6 +71,11 @@ args=(
+     --enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion
+     --reasoning-parser glm45 --tool-call-parser glm47
+     --enable-metrics --enable-cache-report --watchdog-timeout 3600
++    # The prefill needs the decode's EAGLE flags too: without its NextN layer
++    # the transfer carries no draft KV, and the decode's draft layer reads
++    # uninitialised KV for every prompt token (README note 10).
++    --speculative-algorithm EAGLE --speculative-num-steps 5 --speculative-eagle-topk 1
++    --speculative-num-draft-tokens 6
+ )
+ if [[ "$role" == prefill ]]; then
+     # Per-call hipHostRegister limit: keeps each 250 GB host pool in one
+@@ -93,8 +99,6 @@ else
+     args+=(
+         --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 256 --tokenizer-worker-num 4
+         --no-enable-kv-events --kv-events off
+-        --speculative-algorithm EAGLE --speculative-num-steps 5 --speculative-eagle-topk 1
+-        --speculative-num-draft-tokens 6
+     )
+     read -ra extra <<<"$DECODE_EXTRA_ARGS"
+ fi

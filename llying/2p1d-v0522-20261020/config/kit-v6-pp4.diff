@@ -1,0 +1,78 @@
+diff -ru -x patches Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/worker.sh 2p1d-kit/v6-pp4/engine/worker.sh
+--- Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/worker.sh	2026-10-21 16:53:14.773980386 +0000
++++ 2p1d-kit/v6-pp4/engine/worker.sh	2026-10-21 17:12:34.801155021 +0000
+@@ -63,7 +63,7 @@
+     --request-transport http --kv-event-transport zmq
+     --disaggregation-mode "$role" --disaggregation-transfer-backend mooncake
+     --disaggregation-ib-device "$RDMA_DEVICES"
+-    --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention --ep-size 1
++    --ep-size 1
+     --disable-custom-all-reduce
+     --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton
+     --chunked-prefill-size 32768 --max-running-requests 256
+@@ -81,15 +81,25 @@
+     # Per-call hipHostRegister limit: keeps each 250 GB host pool in one
+     # registration (the 256 GB default would split it).
+     env+=(SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512)
++    # PP4 x TP1 prefill (as GB300 Dynamo+SGLang): the last stage also holds
++    # the LM head and the NextN draft layer, so it takes two fewer layers.
++    env+=(SGLANG_PP_LAYER_PARTITION=20,20,20,18)
+     args+=(
++        --tp-size 1 --pp-size "$n_gpus" --disable-overlap-schedule --chunked-prefill-size 16384
+         --mem-fraction-static 0.88 --schedule-policy shortest-prefill-first
+         --disaggregation-bootstrap-port $((BOOTSTRAP_PORT + idx))
+         --enable-kv-events --kv-events on
+         --kv-events-bind "tcp://0.0.0.0:$((KV_EVENTS_PORT + 8 * idx))"
+         --kv-snapshot-port $((KV_SNAPSHOT_PORT + idx))
+-        --enable-hierarchical-cache --hicache-size 250 --hicache-ratio 1.5
+-        --hicache-write-policy write_back --hicache-io-backend kernel --hicache-mem-layout page_first
+     )
++    # PP4_HICACHE=0 while debugging: without the pinned host pools a failed
++    # start releases its VRAM in seconds instead of tens of minutes.
++    if [[ "${PP4_HICACHE:-1}" == 1 ]]; then
++        args+=(
++            --enable-hierarchical-cache --hicache-size 250 --hicache-ratio 1.5
++            --hicache-write-policy write_back --hicache-io-backend kernel --hicache-mem-layout page_first
++        )
++    fi
+     read -ra extra <<<"$PREFILL_EXTRA_ARGS"
+ else
+     if [[ -n "$SIM_ACCEPT_LEN" ]]; then
+@@ -97,6 +107,7 @@
+             SGLANG_SIMULATE_ACC_METHOD=match-expected SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token)
+     fi
+     args+=(
++        --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention
+         --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 256 --tokenizer-worker-num 4
+         --no-enable-kv-events --kv-events off
+     )
+@@ -121,6 +132,9 @@
+ mounts=(-v "$MODEL:$MODEL:ro"
+     -v "$name-cache-${image_id:7:12}:/root/.cache"
+     -v "$name-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit")
++# v0.5.22 reads embed_tokens.embedding_dim on every PP stage, but the middle
++# stages hold a PPMissingLayer there; the patched copy reads config.hidden_size.
++[[ "$role" != prefill ]] || mounts+=(-v "$KIT/patches/deepseek_v2.py:/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py:ro")
+ # Host libionic, so the entrypoint can match the host ionic kernel ABI.
+ [[ ! -e /lib/x86_64-linux-gnu/libionic.so ]] ||
+     mounts+=(-v /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro)
+--- 2p1d-kit/v6-pp4/patches/deepseek_v2.py.orig	2026-10-21 17:12:12.546382955 +0000
++++ 2p1d-kit/v6-pp4/patches/deepseek_v2.py	2026-10-21 17:12:19.828915215 +0000
+@@ -2984,7 +2984,7 @@
+         if (
+             _use_aiter_gfx95
+             and config.n_routed_experts == 256
+-            and self.embed_tokens.embedding_dim == 7168
++            and config.hidden_size == 7168
+         ):
+             num_moe_layers = sum(
+                 [
+@@ -3019,7 +3019,7 @@
+                     config.n_routed_experts,
+                     num_moe_layers,
+                     allocate_size,
+-                    self.embed_tokens.embedding_dim,
++                    config.hidden_size,
+                 )
+             )
+         self.layers_to_capture = []
