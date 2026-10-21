@@ -469,3 +469,49 @@ MTP 草稿层，与 GB300 相同）；`PP4_HICACHE=0|1` 开关；decode 不变�
   1.705 s / 8,192 token，4 rank 全忙也只有约 19.2k tok/s（计分期实测平均 14.0k）。多个请求能填满流水线，与 ATOM PP4 的约 26k 同级。
 - prefill 日志有大量 aiter 提示 `not found tuned config in bf16_tuned_gemm.csv, will use default config`：TP1 下注意力投影等 BF16 GEMM 的形状
   没有现成调优配置，回退到 torch 默认实现——PP4 的一个可调优点。（巡检脚本的 `fault` 匹配会误中 "default"，之后改为精确匹配。）
+
+**PP4 C88 结果（计分 18:35–19:35，产物 `results/pp4-c88/`，含撤栈前的 prefill / decode `/metrics` 快照）**：
+
+| C88 | tok/s/GPU | 输出 tok/s/GPU | 每秒请求 | 完成 / 无效 | intvty p50 / p90 | ITL p50 / p90 (ms) | TTFT p50 / p90 / 均值 (s) | E2E p90 (s) | API 命中（理论） |
+|---|---|---|---|---|---|---|---|---|---|
+| TP4/DPA（冷态） | 27,453 | 228.5 | 2.749 | 9,970 / 3 | 49.1 / 42.8 | 20.4 / 23.4 | 4.94 / 9.45 / 7.29 | 53.5 | 95.77%（96.55%） |
+| **PP4 + prefill MTP** | **28,202** | 236.4 | 2.785 | 10,096 / 2 | **67.1 / 51.4** | 14.9 / 19.5 | 7.13 / **18.69** / 10.13 | 46.6 | 96.27%（96.61%） |
+
+- 吞吐 +2.7%、interactivity p90 +20%（42.8 → 51.4），TTFT p90 翻倍（9.45 → 18.69 s）。巡检全程无错误、无他人 GPU 作业。
+- 日志分析（`analyze_pd_logs.py`，已支持 PP 日志）：
+
+| | TP4/DPA C88 | PP4 C88 |
+|---|---|---|
+| prefill 现算 token/s | 14.0k | 12.4k |
+| prefill 缓存份额（日志口径） | 95.8% | 96.3%（4 级共用池，命中更好） |
+| 满 chunk 间隔 | 1,705 ms / 8k（每 rank） | 956 ms / 16k |
+| 排队均值 / 有排队的 10 s 占比 | 4.61 / 74% | 4.72 / 67% |
+| decode 在跑中位 / 最忙 rank 中位、p90 | 54 / 11、16 | 41 / 8、14 |
+| decode 等 KV | 20.2 | **28.6** |
+| decode 每步 @8 / @12 / @16 | 54 / 75 / 82 ms | 44 / 65 / 71 ms |
+
+- **prefill MTP 的效果**：同等最忙负载下 decode 每步快 12%–19%（与 AUS 的冷→热一致），这是 interactivity 提升的一部分；另一部分是闭环效应——
+  更多请求停在 TTFT 阶段，decode 上同时在跑的请求少了（54 → 41）。
+- **PP4 的瓶颈在"prefill 算完 → decode 拿到 KV"这一段**：prefill 需要现算的 token 反而少了、排队没减少，decode 等 KV 的请求更多。prefill 的
+  `/metrics`：每级每请求 `prefill_transfer_kv_cache` 平均 4.63 s（P8D8 同节点同 Mooncake 的参照 `../cross-rank-rca-20260921/runs/*` 为 0.94–1.28 s），
+  `prefill_forward` 4.30 s（P8D8 5.2–5.5 s）；decode 侧 `decode_transferred` 平均 12.17 s。传输时延直方图（PP0）：≤1 s 10%、≤5 s 68%、> 5 s 32%。
+  按总量每级只送了约 3.5 GB/s，远未到 4 条 400G rail 的上限——慢在排队，不在线路。
+- **等释放的请求占满 KV 池**：PP 下 prefill 释放已传完请求的 KV 要走两趟 PP 共识（`event_loop_pp_disagg_prefill`：传完的 ID 逐级传到最后一级，
+  释放 ID 再逐级传回），每一跳等一轮流水线迭代。"已算完、等释放"的请求常有 20–41 个（TP4/DPA 5–16），每个都占着整段上下文的 KV，
+  到 30–41 个时 KV 使用率冲到 0.65–0.82（在线快照见过 1.00），随后排队飙到 14–16。
+- **TTFT 按现算 token 分桶**（AIPerf 逐请求记录，计分阶段）：
+
+| 现算 token | 占比 | TTFT p50（TP4/DPA → PP4） | TTFT p90（TP4/DPA → PP4） |
+|---|---|---|---|
+| < 2k | 53% | 4.56 → 6.73 s | 7.10 → 16.75 s |
+| 2–8k | 38% | 5.08 → 7.21 s | 8.74 → 17.44 s |
+| 8–32k | 7% | 11.75 → 9.58 s | 37.5 → 34.6 s |
+| ≥ 32k | 2% | 34.35 → 16.87 s | 130 → 123 s |
+
+  PP4 让大 prefill 快了一倍，却让占九成的小增量请求变慢。解释：PP 下一个 batch 要依次走完 4 级，延迟 ≈ 4 × 单级时间；计分期 16k batch 每级
+  约 0.96 s（带长缓存上下文的 attention；预热期冷 prompt 只要 0.58 s），所以只算几百个 token 的小请求也要等它所在的 batch 走完 4 级（≈ 3.8 s），
+  最后一级的 KV 才能发出；TP4/DPA 下小请求只等本 rank 的一个 batch（≤ 1.7 s）。这同时解释了约 4.6 s 的传输时延（发送端从提前发送的缓存前缀
+  算起、到最后一个 chunk 发完；提前发送 `SGLANG_DISAGG_PREFILL_EARLY_SEND_CACHED_PREFIX` 默认开、PP 路径也走 `run_batch`，已核实不是它没生效）
+  和等释放请求的堆积。
+- **下一步（单变量）**：PP4 chunk 16,384 → 8,192（GB300 在 C264 用 8,192），单级时间约减半，小请求的流水线延迟、KV 发出与释放都应随之缩短；
+  仍测 C88，与本次直接对比，再决定 C112 / C128。
