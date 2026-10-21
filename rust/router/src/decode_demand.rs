@@ -64,6 +64,7 @@ impl Reservation {
         entry.tokens += u128::from(tokens);
         entry.requests += 1;
         crate::metrics::set_decode_demand_tokens(&key, Some(entry.tokens));
+        crate::metrics::set_decode_demand_requests(&key, Some(entry.requests));
         Self {
             ledger: ledger.clone(),
             key,
@@ -85,8 +86,10 @@ impl Drop for Reservation {
         if entry.requests == 0 {
             state.remove(&self.key);
             crate::metrics::set_decode_demand_tokens(&self.key, None);
+            crate::metrics::set_decode_demand_requests(&self.key, None);
         } else {
             crate::metrics::set_decode_demand_tokens(&self.key, Some(entry.tokens));
+            crate::metrics::set_decode_demand_requests(&self.key, Some(entry.requests));
         }
     }
 }

@@ -19,6 +19,13 @@ def _session_ttl(raw: str) -> int:
     return ttl
 
 
+def _non_negative_int(raw: str) -> int:
+    value = int(raw)
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
+    return value
+
+
 def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Infera server")
     parser.add_argument("--host", default="0.0.0.0")
@@ -133,6 +140,15 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Rust backend with kv-aware only: pick Decode targets by in-flight "
         "input tokens. 'shadow' books demand and reports a suggestion without "
         "changing selection. Unset defers to $INFERA_DECODE_INPUT_DEMAND, else off.",
+    )
+    parser.add_argument(
+        "--decode-request-weight",
+        type=_non_negative_int,
+        default=None,
+        help="Rust backend with --decode-input-demand: input tokens charged per "
+        "request a Decode target already holds, so DP ranks are balanced by "
+        "request count as well as tokens. Unset defers to "
+        "$INFERA_DECODE_REQUEST_WEIGHT, else 0 (tokens only).",
     )
     parser.add_argument(
         "--pd-prefill-guard-release",
@@ -342,6 +358,7 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
         flag
         for flag, value in (
             ("--decode-input-demand", args.decode_input_demand),
+            ("--decode-request-weight", args.decode_request_weight),
             ("--pd-prefill-guard-release", args.pd_prefill_guard_release),
         )
         if value is not None
