@@ -16,7 +16,8 @@
 - 完整 pre-commit `--all-files` 在 138 的 `python:3.10` 一次性容器里通过：trailing-whitespace / end-of-file / check-yaml / large-files / merge-conflict / ruff format / ruff check 全过，没有改动任何文件。
   - `cargo-fmt`、`gofmt` 跳过：分支相对 main 不改 Rust 和 operator Go，容器里也没有工具链。
   - `check-author-email` 在容器里因为没有 git 身份退出 128；在登录节点用真实身份运行通过，分支 26 个提交的作者和提交者都是 `liyingli@amd.com`。
-- 待办：`PREFILL_WORKERS=1` 用 example 本身起一次栈做 smoke，然后开 PR。15:15 起 140 GPU 4–7 被 anandaku 的 ATOM DeepSeek-V4.1 TP4 rocprof 作业占用（约 95 GB/卡），decode 需要 140 全部 8 卡，等其结束。
+- 15:30 按用户决定先开 PR（draft，不合入）：[AMD-AGI/Infera#210](https://github.com/AMD-AGI/Infera/pull/210)，head `aab4cc36`，39 个文件，描述里注明 smoke 未做。
+- 待办：`PREFILL_WORKERS=1` 用 example 本身起一次栈做 smoke，结果补到 PR。15:15 起 140 GPU 4–7 被 anandaku 的 ATOM DeepSeek-V4.1 TP4 rocprof 作业占用（约 95 GB/卡），decode 需要 140 全部 8 卡，等其结束。
 
 ## 复现所需文件
 
