@@ -262,10 +262,12 @@ custom AR 开（后者正确性存疑）；R2 在 decode KV 受限时换吞吐�
 会少约 30% KV，优先级下调；单 prefill 只适合中低并发。Pareto 分段设想：C176 用 2P1D + R2；C64–C128 用 2P1D + 按个数均衡；
 C32–C64 用 1P(TP4)+1D(TP8)；都保留 `--disable-custom-all-reduce`，decode 每步成本另靠窄修复 / kernel 优化。
 
-**C32 作废（02:44 起栈，02:54 计分开始）**：03:07 巡检发现 138 上只剩 4 个容器——prefill 0 在 02:59:24 由 DP3 报
-`Memory access fault by GPU node-4 ... on address 0xfffffffff000. Reason: Unknown.`，GPU core dump 失败、进程中止（-6），其余
+**C32 作废（02:44 起栈，02:54 计分开始）**：03:07 巡检发现 138 上只剩 4 个容器——prefill 0 在 02:59:24 报
+`Memory access fault by GPU node-4 ... on address 0xfffffffff000. Reason: Unknown.`，GPU core dump 失败，`scheduler_3`（pid 301）中止（-6），其余
 3 个 rank 停在 `process_batch_result_disagg_prefill`（`prefill.py:882`）等前向事件；sglang 60 s 后杀进程树，03:01:31 注销，
-之后计分窗口只剩 prefill 1。崩溃前 DP3 的最后一个 batch：352 新算 + 174,848 缓存 token（长缓存前缀）。**与 AUS §2.3 的崩溃
+之后计分窗口只剩 prefill 1。**更正（06:40）**：崩溃的是 **DP2**（py-spy 记录 pid 299 / 300 / 302 = DP0 / DP1 / DP3，故 pid 301 = DP2），
+在 GPU 2 上，与 KFD node-4 = PCI 0002:00:03.0 = rocm-smi GPU 2 一致；之前写的 "DP3、352 新算 + 174,848 缓存" 是 DP3 的 batch，记错了。
+DP2 崩溃前最后记录的 batch（02:59:12）：553 新算 + 104,768 缓存 token（长缓存前缀、小增量）。**与 AUS §2.3 的崩溃
 完全同一签名**（同一地址 0xfffffffff000、长前缀小增量 batch、同一函数），而本次已 `--disable-custom-all-reduce`（QuickReduce 也关），
 所以与 custom AR / QuickReduce 无关，更像某个按页 / 索引寻址的 kernel 拿到 −1（如 DSA top-k 的填充值，AUS 当时的推断）；AUS 用的是
 top-k v1，所以也不是 top-k v2 引入的。证据摘录 `evidence/c32-prefill0-memfault.txt`，完整日志 138 `.../runs/c32-1021T0244/logs/`。
