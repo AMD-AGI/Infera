@@ -1,26 +1,14 @@
-# ROUND=a1 (job 34439 restart 1). Steps 1-4 done; step 5 (a1-wt) aborted at 22:30: prefill-0 hang at 22:19 (QuickReduce vs RCCL).
-run bringup_fast.sh ROUND=a1
-run start_sampler.sh ROUND=a1
-run start_hang_watch.sh ROUND=a1
-run warmup_round.sh VARIANT=warm-a1 CONC=176 MINUTES=20
-run restart_prefills.sh ROUND=a1 OVERLAY=config/stage-b1-wt-qr0.sh TAG=qr0
-round a1-wt2 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
-run hicache_check.sh ROUND=a1 TAG=wt DECODE_LOG=decode-0.log
-run restart_prefills.sh ROUND=a1 OVERLAY=config/stage-b2-wb.sh TAG=wb
-run hicache_check.sh ROUND=a1 TAG=wb DECODE_LOG=decode-0.log
-round a1-wb 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
-# 02:55 C144 stopped (user, after bottleneck analysis: C144 not expected to beat C176; prefill FCFS head-of-line blocking is the binding constraint).
-# prefill_complete deferred (~+2% at C176). Next: prefill shortest-prefill-first, prefill-only restart, C176 vs a1-wb.
-run restart_prefills.sh ROUND=a1 OVERLAY=config/stage-b4-spf.sh TAG=spf
-round a1-spf 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
-# 05:42 (user: P50 interactivity >= 50 is not a hard constraint; push throughput). a1-spf C176 = 35,377: prefill ~68% busy, decode ~80%
-# of its output plateau -> C192 on the same stack (no restart). Expect +3-8%; watch TTFT max (685 s at C176, client timeout 900 s), failures, decode KV.
-round a1-spf 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
-# 07:55 (user): a1-spf C192 = 33,698 (-4.7% vs C176), decode KV bound by transfer-waiting requests -> prefill_complete + write_back + SPF,
-# full restart, HiCache check, C192 without a separate warm-up round (fairness checked with decode step time at matched load).
-run restart_all_engines.sh ROUND=a1 OVERLAY=config/stage-b5-pcwb-spf.sh TAG=pcwb
-run hicache_check.sh ROUND=a1 TAG=pcwb
-round a1-pcwb 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
-# 11:00 (user: stay on pcwb, prefill/router-side changes). R4 prefill work for NEW sessions only (session-affinity hits skip
-# scoring): place cold first turns by pending prefill work. Targets the prefill-1 (74-77% busy) vs prefill-0 (63-65%) imbalance.
-round a1-pcwb-r4 192 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on INFERA_R4_PREFILL_WORK=on
+# a5 (10-21 08:30, user: fix the cold/warm decode gap first, R4 later). Root cause: the prefills run without the EAGLE flags,
+# so no draft KV / DSA index-K reaches the decode (RESULT §2.13). Step 1 (bring-up with config/stage-b4-spf.sh) was already
+# running; after it, only the prefills restart with config/stage-b6-spf-pmtp.sh (PREFILL_MTP=1) while the decode stays up and
+# cold (only smoke traffic so far). Two C176 rounds with decode profiles: a5-pmtp on the cold decode is the test (a4-spf cold
+# 33,793 / a4-spf2 warm 34,862; k_scatter per call 3.2 ms cold / 0.18 ms warm), a5-pmtp2 checks that nothing drifts.
+run bringup_fast.sh ROUND=a5
+run start_sampler.sh ROUND=a5
+run start_hang_watch.sh ROUND=a5
+run restart_prefills.sh ROUND=a5 OVERLAY=config/stage-b6-spf-pmtp.sh TAG=nomtp
+run hicache_check.sh ROUND=a5 TAG=pmtp DECODE_LOG=decode-0.log
+run start_profile_round.sh ROUND=a5 VARIANT=a5-pmtp CONC=176 DELAY=900
+round a5-pmtp 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on
+run start_profile_round.sh ROUND=a5 VARIANT=a5-pmtp2 CONC=176 DELAY=900
+round a5-pmtp2 176 INFERA_PD_PREFILL_GUARD_RELEASE=completion INFERA_SESSION_AFFINITY=prefill INFERA_SESSION_AFFINITY_TTL_SECS=3600 INFERA_R2_DECODE_DEMAND=on

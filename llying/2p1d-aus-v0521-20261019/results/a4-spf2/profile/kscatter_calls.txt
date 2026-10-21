@@ -1,0 +1,56 @@
+== a4-spf2-1792563768.3471675-TP-0-DP-0-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 10.8 ms  median 15.9 us  p90 447.4 us  max 461.6 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 0: 16, 2: 16, 3: 16, 1: 16
+   position medians: 16 16 16 16
+   first call args: {'device': 2, 'stream': 8, 'correlation': 9300, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(462, None), (458, None), (458, None), (457, None), (454, None)]
+== a4-spf2-1792563768.3471675-TP-1-DP-1-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 3.4 ms  median 15.9 us  p90 17.1 us  max 447.7 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 2: 16, 1: 16, 3: 16, 0: 15
+   position medians: 15 16 16 16
+   first call args: {'device': 3, 'stream': 8, 'correlation': 9511, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(448, None), (440, None), (54, None), (18, None), (18, None)]
+== a4-spf2-1792563768.3471675-TP-2-DP-2-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 30.1 ms  median 182.8 us  p90 185.3 us  max 290.7 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 0: 183, 3: 183, 1: 183, 2: 182
+   position medians: 183 183 182 183
+   first call args: {'device': 4, 'stream': 8, 'correlation': 8979, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(291, None), (290, None), (289, None), (289, None), (289, None)]
+== a4-spf2-1792563768.3471675-TP-3-DP-3-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 79.2 ms  median 181.7 us  p90 1439.9 us  max 1470.0 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 2: 183, 1: 183, 3: 17, 0: 17
+   position medians: 17 183 183 17
+   first call args: {'device': 5, 'stream': 8, 'correlation': 9460, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(1470, None), (1467, None), (1463, None), (1462, None), (1453, None)]
+== a4-spf2-1792563768.3471675-TP-4-DP-4-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 8.5 ms  median 14.3 us  p90 15.0 us  max 719.6 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 3: 14, 2: 14, 0: 14, 1: 14
+   position medians: 14 14 14 14
+   first call args: {'device': 6, 'stream': 8, 'correlation': 9375, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(720, None), (719, None), (714, None), (711, None), (711, None)]
+== a4-spf2-1792563768.3471675-TP-5-DP-5-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 36.0 ms  median 137.1 us  p90 139.5 us  max 2007.3 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 2: 138, 3: 137, 0: 137, 1: 137
+   position medians: 137 137 138 137
+   first call args: {'device': 7, 'stream': 8, 'correlation': 9406, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(2007, None), (2001, None), (1998, None), (1990, None), (1979, None)]
+== a4-spf2-1792563768.3471675-TP-6-DP-6-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 31.3 ms  median 15.5 us  p90 17.2 us  max 1979.6 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 1: 16, 3: 15, 0: 15, 2: 15
+   position medians: 15 16 15 15
+   first call args: {'device': 8, 'stream': 8, 'correlation': 9366, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(1980, None), (1964, None), (1962, None), (1960, None), (1958, None)]
+== a4-spf2-1792563768.3471675-TP-7-DP-7-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 7.8 ms  median 16.6 us  p90 86.0 us  max 1287.3 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 3: 17, 2: 16, 0: 16, 1: 16
+   position medians: 16 16 16 17
+   first call args: {'device': 9, 'stream': 8, 'correlation': 9440, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(1287, None), (1279, None), (1266, None), (88, None), (87, None)]

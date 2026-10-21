@@ -1,0 +1,56 @@
+== a4-spf-1792556595.0287519-TP-0-DP-0-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 332.0 ms  median 2351.0 us  p90 2402.5 us  max 4431.0 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 3: 2371, 2: 2362, 1: 2337, 0: 1531
+   position medians: 1531 2337 2362 2371
+   first call args: {'device': 2, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(4431, None), (3670, None), (3264, None), (3242, None), (3222, None)]
+== a4-spf-1792556595.0287519-TP-1-DP-1-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 389.6 ms  median 2342.3 us  p90 2684.2 us  max 2815.1 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 1: 2350, 2: 2343, 3: 2341, 0: 2338
+   position medians: 2338 2350 2343 2341
+   first call args: {'device': 3, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(2815, None), (2722, None), (2720, None), (2720, None), (2714, None)]
+== a4-spf-1792556595.0287519-TP-2-DP-2-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 511.3 ms  median 3187.9 us  p90 3255.5 us  max 3528.2 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 2: 3204, 3: 3194, 0: 3187, 1: 3184
+   position medians: 3187 3184 3204 3194
+   first call args: {'device': 4, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(3528, None), (3481, None), (3383, None), (3370, None), (3349, None)]
+== a4-spf-1792556595.0287519-TP-3-DP-3-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 376.8 ms  median 2689.3 us  p90 2741.7 us  max 2929.0 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 1: 2695, 2: 2694, 0: 2693, 3: 1471
+   position medians: 2693 2695 2694 1471
+   first call args: {'device': 5, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(2929, None), (2882, None), (2851, None), (2816, None), (2786, None)]
+== a4-spf-1792556595.0287519-TP-4-DP-4-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 440.3 ms  median 2422.7 us  p90 3572.7 us  max 4353.9 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 0: 3478, 1: 2423, 3: 2415, 2: 2410
+   position medians: 3478 2423 2410 2415
+   first call args: {'device': 6, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(4354, None), (4352, None), (4334, None), (4332, None), (4320, None)]
+== a4-spf-1792556595.0287519-TP-5-DP-5-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 165.4 ms  median 887.2 us  p90 928.2 us  max 3240.0 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 3: 891, 2: 889, 0: 885, 1: 787
+   position medians: 885 787 889 891
+   first call args: {'device': 7, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(3240, None), (3215, None), (3199, None), (3197, None), (3192, None)]
+== a4-spf-1792556595.0287519-TP-6-DP-6-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 342.2 ms  median 2398.4 us  p90 2439.3 us  max 2465.5 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 1: 2411, 2: 2402, 3: 2392, 0: 2391
+   position medians: 2391 2411 2402 2392
+   first call args: {'device': 8, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(2465, None), (2464, None), (2462, None), (2455, None), (2454, None)]
+== a4-spf-1792556595.0287519-TP-7-DP-7-DECODE.trace.json.gz
+   k_scatter calls 160  logits_hist calls 160  total 348.2 ms  median 2763.7 us  p90 2823.0 us  max 2850.6 us
+   steps 40  calls/step min 4 median 4.0 max 4
+   slowest positions (index: median us): 2: 2790, 1: 2788, 3: 2772, 0: 1305
+   position medians: 1305 2788 2790 2772
+   first call args: {'device': 9, 'stream': 8, 'correlation': 65, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(2851, None), (2844, None), (2844, None), (2842, None), (2840, None)]

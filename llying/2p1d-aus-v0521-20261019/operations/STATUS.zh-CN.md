@@ -114,3 +114,13 @@
   03:30 一个并行删除版，运行中的旧版不能重启——杀掉它本身就会触发清理）。`campaign.sh` 改为每次准备完成后自动启动守护，并新增
   `RESUME_ROUND`（作业运行期间重启 campaign 时接管当前轮、不重做准备）；03:29 以 `RESUME_ROUND=a4` 重启 campaign。
   取舍：守护依赖登录节点上的 srun 进程，若它被杀，step 结束同样会删除容器（即停掉实验）。
+- 03:38–05:15 a4-spf C176 = 33,793（decode 冷）；05:15–07:16 a4-spf2 C176 = 34,862（热，换节点复现 a1-spf 的 98.5%）。两轮各在测量开始 15 分钟时
+  自动抓了 decode profile。07:16 a4-r4 开始，**07:31 作业第 5 次被抢占**：守护在 07:31:02 收到 SIGTERM，两台节点并行删除全部容器（prefill 容器
+  锁页内存大，07:36 仍在退出中，进程已收到 SIGKILL）。
+- 07:42 作业再次开始（a5，n02-21 + n04-33），镜像重建，07:53 起栈（旧配置 stage-b4-spf）。
+- 07:45–08:30 冷 / 热 profile 分析（RESULT §2.13）：差距在 MTP 草稿层 indexer 的 `k_scatter`（每次调用冷 0.9–3.2 ms / 热 14–183 µs）；
+  从镜像取出 `topk_transform.cuh`：等于阈值档的候选逐个全局原子追加，K 为 0 → 打分并列为 0 → 候选暴增。prefill 的 `speculative_algorithm=None`
+  → 草稿层 KV / index-K 从未传给 decode。InferenceX 官方 recipe 注释描述的正是这个坑；规则要求模拟接受（草稿质量不计分），官方每次新起服务 = 冷态。
+- 08:00 用户：先修冷热差，R4 暂缓，方案须符合 InferenceX 规则。08:30 改动：`engine.sh` 加 `PREFILL_MTP=1`（prefill 用 decode 同一组 EAGLE 参数），
+  `agentx_env.py` 的部署核对随之认 prefill 的 MTP，新 stage `config/stage-b6-spf-pmtp.sh`；a5 队列第 2 步起改为 只重启 prefill → HiCache 检查 →
+  a5-pmtp / a5-pmtp2 C176（各抓 profile）；`operations/current_stage` 与 `queue.next.tsv` 改为新配置直接起栈。
