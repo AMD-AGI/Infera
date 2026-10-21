@@ -320,7 +320,10 @@ if [[ "$role" == prefill ]]; then
 else
     engine_args+=(--no-enable-kv-events --kv-events off)
 fi
-if [[ "$role" == decode && "$DECODE_MTP" == 1 ]]; then
+# PREFILL_MTP=1 gives the prefills the same EAGLE flags (as InferenceX amd_utils/server_sglang.sh does): without
+# them the prefill has no NextN layer, transfers no draft KV / DSA index-K, and the decode's draft reads
+# uninitialised slots for every prompt position.
+if [[ "$DECODE_MTP" == 1 && ( "$role" == decode || "${PREFILL_MTP:-0}" == 1 ) ]]; then
     engine_args+=(
         --speculative-algorithm EAGLE
         --speculative-num-steps "$DECODE_SPEC_STEPS"
