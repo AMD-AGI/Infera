@@ -1,0 +1,48 @@
+diff -ru v5/engine/agentx/agentx.sh v5-1p/engine/agentx/agentx.sh
+--- v5/engine/agentx/agentx.sh	2026-10-20 15:35:04.920705616 +0000
++++ v5-1p/engine/agentx/agentx.sh	2026-10-21 03:26:48.329329344 +0000
+@@ -61,7 +61,7 @@
+ IS_MULTINODE=true
+ DISAGG=true
+ ENABLE_AGENTX_POWER=0
+-PREFILL_NUM_WORKERS=2
++PREFILL_NUM_WORKERS=1
+ PREFILL_TP=4
+ PREFILL_EP=1
+ PREFILL_DP_ATTN=true
+diff -ru v5/engine/up.sh v5-1p/engine/up.sh
+--- v5/engine/up.sh	2026-10-20 16:10:36.467836497 +0000
++++ v5-1p/engine/up.sh	2026-10-21 03:26:48.324763738 +0000
+@@ -29,14 +29,12 @@
+     --initial-cluster "default=http://127.0.0.1:$ETCD_PEER_PORT" >/dev/null
+ wait_health "http://$PREFILL_NODE_IP:$ETCD_PORT/version" "$CTR-etcd"
+ 
+-echo "===== 2. engines: 2 prefills here, decode on $DECODE_SSH (cold start takes 10-15 minutes) ====="
++echo "===== 2. engines: 1 prefill here (experiment copy), decode on $DECODE_SSH (cold start takes 10-15 minutes) ====="
+ bash "$KIT/engine/worker.sh" prefill 0
+-bash "$KIT/engine/worker.sh" prefill 1
+ # The decode node reads the same env.sh; this invocation's settings ride along.
+ forward="$(sed 's/$/ /' "$RUN_DIR/engine-config.env" | tr -d '\n')"
+ on_decode "$forward bash $(printf %q "$KIT/engine/worker.sh") decode"
+ wait_health "http://$PREFILL_NODE_IP:$PREFILL_PORT/health" "$CTR-prefill0"
+-wait_health "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256))/health" "$CTR-prefill1"
+ wait_health "http://$DECODE_NODE_IP:$DECODE_PORT/health" "$DECODE_CONTAINER" decode
+ 
+ echo "===== 3. router: kv-aware, session affinity on prefill picks ====="
+@@ -55,13 +53,13 @@
+     curl -sf -m 10 "$ROUTER_URL/v1/workers" | python3 -c \
+         'import json, sys; print(*sorted(w["disagg_mode"] for w in json.load(sys.stdin)["workers"]))'
+ }
+-until [[ "$(modes 2>/dev/null)" == "decode prefill prefill" ]]; do
+-    for c in "$CTR-prefill0" "$CTR-prefill1"; do
++until [[ "$(modes 2>/dev/null)" == "decode prefill" ]]; do
++    for c in "$CTR-prefill0"; do
+         [[ "$(docker inspect -f '{{.State.Running}}' "$c")" == true ]] ||
+             die "$c stopped before registering with the router; see: docker logs $c"
+     done
+     sleep 10
+ done
+ curl -sf -m 10 "$ROUTER_URL/v1/workers" >"$RUN_DIR/workers.json"
+-echo "router workers: 2 prefill + 1 decode"
++echo "router workers: 1 prefill + 1 decode"
+ echo "===== up: $ROUTER_URL  SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}  run=$RUN_DIR ====="

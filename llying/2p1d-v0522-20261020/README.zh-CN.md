@@ -4,6 +4,16 @@
 端到端验证正确性，用融合配置测性能，再测 C176 以外的并发点，为 InferenceX 上 infera + sglang 的 Pareto 线提供数据。
 每卡吞吐按 16 张 GPU 计。
 
+## 复现所需文件
+
+- 2P1D kit：分支 `feat/sglang-mix-glm5.2-tp4-v0522` 的 `examples/sglang_2p1d_glm5.2/`；各点运行时用的是同内容的快照
+  `/home/liyingli/bench_agentx/baseline/2p1d-kit/v5`（与分支脚本一致，只有 README 后来又更新）。
+- 1P1D：实验副本 `2p1d-kit/v5-1p`，相对 v5 的改动见 `config/kit-v5-1p.diff`（`up.sh` 不起 prefill 1、router 期望 1 prefill + 1 decode，
+  `agentx.sh` `PREFILL_NUM_WORKERS=1`）。
+- 站点配置：`config/site.env`（2P1D）、`config/site-1p-gpu4567.env`（1P1D，prefill 在 GPU 4–7）。
+- 串行与分析：`scripts/pd_perf_chain.sh`（`pd_perf_chain.sh KIT SITE_ENV LOG_DIR CONC...`）、`analyze_pd_logs.py`、`summarize_points.py`、
+  `plot_pareto.py`；注册复现 `mr_align_test*.py`。
+
 ## 部署
 
 | 实例 | 节点 | GPU |
