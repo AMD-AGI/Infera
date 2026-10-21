@@ -91,6 +91,8 @@ on crsuse2-m2m-140:
 | correctness (`smoke.sh`, real MTP acceptance) | 6/6 pass (66k-token prefix: 40.0 s cold, 1.9 s repeated) |
 | GSM8K (`eval.sh`: InferenceX `run_eval`, 1,319 questions, concurrency 64, real MTP acceptance) | 0.9697 strict / 0.9704 flexible; no template-tag leakage, no empty answer |
 | AgentX C176, 3600 s, `SIM_ACCEPT_LEN=3.61` | 35,637 tok/s/GPU, 15,881 requests, 0 failed, 11 invalid responses |
+| with the prefills' EAGLE flags (note 10), `PREFILL_WORKERS=1`: `smoke.sh` | 6/6 pass (66k-token prefix: 14.2 s cold, 0.7 s repeated) |
+| same: GSM8K as above | 0.9704 strict / 0.9697 flexible; no template-tag leakage, no empty answer; real acceptance length median 4.60 (3.86 without the prefills' flags) |
 
 ## Reference numbers
 
@@ -152,6 +154,9 @@ volume rm` when done with an image.
 **3. VRAM is released late.** `docker rm` returns long before the driver frees
 the engines' memory; 10-65 minutes were observed on the prefill node, a few
 on the decode node. Check `rocm-smi` on both nodes before the next `up.sh`.
+The delay comes from the prefills' pinned HiCache host pools: a deployment
+whose prefill ran without `--enable-hierarchical-cache` released its VRAM on
+both nodes within 20 s, which makes bring-up debugging much quicker.
 A container that `docker stop` cannot end ("did not receive an exit event")
 is left for the next `down.sh`, which removes it once its process exits.
 
@@ -199,6 +204,17 @@ with no process on it, and every new process hangs or segfaults at its first
 allocation there (`parallel_state.py`), until an administrator resets it
 (`sudo rocm-smi --gpureset -d <gpu>`). Check each GPU with a one-line
 allocation before the next `up.sh` after such a fault.
+
+**10. The prefills carry the decode's EAGLE flags.** A prefill started
+without them has no NextN layer, so the KV transfer carries no draft-layer KV
+or DSA index-K, and the decode's draft layer reads uninitialised KV for every
+prompt token. In a fresh process those slots are zero, the draft indexer's
+scores tie, and its top-k scatter runs 15-170x slower: on the v0.5.21 image
+the decode took 48.7 ms a step at 6 running requests on the busiest rank,
+36.5 ms with the flags. The prefill pays one more layer (about 4.6 GB per GPU,
+6.6% less KV). InferenceX's AMD multi-node recipe passes the flags to both
+roles for this reason. The reference numbers above were measured before this
+change.
 
 ## What this kit exposes on the network
 
