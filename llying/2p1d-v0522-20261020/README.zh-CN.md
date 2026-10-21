@@ -296,6 +296,20 @@ agent，与前 4 个点配置一致：AUS harness 里"lean mode … ~1.00x"只�
 上限约 100。同样的总吞吐按 16 卡（2P1D）只有 ~10.6k，即 1P1D 在 C32 每卡 +33%，与估计一致；TTFT 与 2P1D C64 相同，单 prefill 不是约束，
 按每 rank 15% 推算 1P1D 到 C64 仍有余量。巡检全程无他人 GPU 作业。05:08 复查 138 GPU 2 仍卡住（GPU use 13%，测试容器在该卡上挂住）。
 
+**与 InferenceX 对比（10-21 06:30，`figures/pareto-p90-20261021.png` / `.svg`，脚本 `scripts/plot_pareto.py`）**：InferenceX 数据为
+10-21 拉取的 `evidence/inferencex-api-glm52-20261021.json`（`api/v1/benchmarks?model=GLM-5.2`，117 行，取 agentic_traces），每条线是该
+硬件 + 框架所有点的 Pareto 前沿：B300 Dynamo+SGLang（单机聚合 TP4 / TP4 DPA，C1–C48）、GB300 Dynamo+SGLang（聚合 + PD，
+1P(TP1)+nD(TP4) 与 3–4P(TP1)+1D(TP8/16 EP DPA)，C1–C264）、MI355X SGLang（TP8 与 TP4/EP4 单机，C1–C16）、MI355X ATOM（TP8 / TP4，C1–C48）。
+
+![pareto](figures/pareto-p90-20261021.png)
+
+- **C176（35.7, 35,637）是 MI355X 上吞吐最高的点**：同一交互下 MI355X 前沿只有 ~25.7k（ATOM TP4 C24 @ 36.6），ours +39%；也支配 ATOM C40 / C48
+  和 mixed TP4/DPA C48。**C96（40.8, 23,515）也在 MI355X 前沿之上**（该处前沿约 20k）。
+- **C64 和 1P1D C32 被 InferenceX 的 MI355X SGLang 单机 TP4/EP4 支配**：TP4/EP4 C14 是 18.0k @ 63.2（vs ours C64 18.2k @ 49.4），C12 16.0k @ 85.0
+  （vs 1P1D C32 14.2k @ 73.2，同交互下低约 17%）。即交互 > ~45 的区间，4 卡单机聚合（无 PD、单机 EP4）比我们的 PD 配置更划算。
+- **与 NVIDIA**：B300 单机 4 卡 TP4/DPA C48 是 42.0k @ 38.7、C32 37.4k @ 44.9，同交互下比 ours C176 高约 18%；GB300 PD（3P(TP1)+1D(TP8/EP8/DPA)
+  C264）63.6k @ 89.4，高一个量级的交互与近 2 倍吞吐。
+
 **当前 Pareto 点（横轴 interactivity p90，都保留 `--disable-custom-all-reduce`）**：
 
 | 配置 / 点 | 卡 | intvty p90 | tok/s/GPU | 备注 |
