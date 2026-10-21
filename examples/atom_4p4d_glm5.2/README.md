@@ -128,10 +128,10 @@ been run with the Store or with the current decode settings.
 
 The image above with the defaults of `env.sh`, on 8×MI355X nodes:
 
-| item | PP prefill, Store (default) | PP prefill, `PREFILL_CPU_TIER=lmcache` |
+| item | PP prefill, Store (default) | PP prefill, `PREFILL_CPU_TIER=lmcache`, MXFP4 MTP experts (earlier image) |
 |---|---|---|
 | correctness (`smoke.py`, real MTP acceptance) | **passed**, 6/6 | **passed**, 6/6 |
-| GSM8K (200 questions) | **0.970** | **0.985** |
+| GSM8K (200 questions) | **0.975** | **0.985** |
 | AgentX, 3600 s | **passed** at C56, C72, C96, C112, 0 errors | **passed** at C56, C72, C96, C112, 0 errors |
 
 The DCP prefill passed smoke 6/6, GSM8K 0.975 and AgentX at C48, C64 and C96
@@ -149,21 +149,26 @@ warm-up, 3600 s measured, forced MTP acceptance on both legs (AL 2.99 with K3),
 PR #4045's runs. The client was InferenceX CI's (InferenceX `288471b3`,
 agentx-harness 1.0.11), not `agentx.sh`'s `918524ff`. Throughput is per GPU
 over all 8 GPUs and counts cache-hit input tokens; interactivity is the inverse
-of P90 inter-token latency. C56 and C96 ran on one node, C72 and C112 on
-another.
+of P90 inter-token latency. C72 and C112 ran on one node, C56 and C96 on two
+others.
 
 | CONC | input tok/s/GPU | output tok/s/GPU | P90 interactivity tok/s/user | TTFT mean / p50 / p90 s | ITL p50 / p90 ms | prefill hit GPU / CPU / total % | decode hit % | requests / errors |
 |---:|---:|---:|---:|---|---|---|---:|---|
-| 56 | 33578 | 249.0 | 66.1 | 1.12 / 0.84 / 2.00 | 13.62 / 15.12 | 86.0 / 10.2 / 96.2 | 92.6 | 7117 / 0 |
-| 72 | 40844 | 327.4 | 53.6 | 1.51 / 1.05 / 2.68 | 16.11 / 18.64 | 76.4 / 18.5 / 94.9 | 85.5 | 9627 / 0 |
-| 96 | 47444 | 393.4 | 46.8 | 2.42 / 1.50 / 4.72 | 19.25 / 21.35 | 65.6 / 28.2 / 93.8 | 60.4 | 11482 / 0 |
-| 112 | **48859** | 416.6 | 43.9 | 4.42 / 2.86 / 9.19 | 20.52 / 22.76 | 59.9 / 33.1 / 93.0 | 32.1 | 12062 / 0 |
+| 56 | 32925 | 246.2 | 64.0 | 1.12 / 0.84 / 1.96 | 14.17 / 15.62 | 84.1 / 11.9 / 96.0 | 92.3 | 7049 / 0 |
+| 72 | 40075 | 321.9 | 52.1 | 1.50 / 1.05 / 2.56 | 16.75 / 19.21 | 72.7 / 21.7 / 94.4 | 84.1 | 9477 / 0 |
+| 96 | 46234 | 387.3 | 45.6 | 2.68 / 1.66 / 5.47 | 19.88 / 21.94 | 62.4 / 31.2 / 93.5 | 52.9 | 11291 / 0 |
+| 112 | **48154** | 406.0 | 42.1 | 5.05 / 3.64 / 9.63 | 21.21 / 23.73 | 55.5 / 36.6 / 92.1 | 25.1 | 12027 / 0 |
 
 The decode hit falls from C96 on, as C × prompt length outgrows the decode's
 KV pool; the Store's RDMA loads do not block the prefill, so throughput still
-rises to C112. With `PREFILL_CPU_TIER=lmcache` (other nodes) C56 and C72 match
-(33392 / 40326), but C96 and C112 drop to 30690 / 23321: LMCache loads
+rises to C112. With `PREFILL_CPU_TIER=lmcache` (other nodes, and the MTP
+layer's experts then quantized to MXFP4) C56 and C72 matched the Store
+(33392 / 40326), but C96 and C112 dropped to 30690 / 23321: LMCache loads
 synchronously and takes about half of each PP stage's time there.
+
+Those MXFP4 MTP experts gave the Store 1.4–2.5% more at each point
+(33578 / 40844 / 47444 / 48859): shorter decode steps, and ~203K KV blocks
+instead of ~198K.
 
 The previous defaults (Python router, decode at 0.90 / 16384 with separate
 communicators, 4 send workers, LMCache, an image without the decode patches)
