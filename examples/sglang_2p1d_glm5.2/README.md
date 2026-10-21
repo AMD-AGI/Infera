@@ -101,6 +101,12 @@ input tokens; interactivity is per-request tokens/s/user.
 | point | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
 |---|---|---|---|---|---|---|
 | C176 | 35,637 | 15,881 (4.38) | 40.4 / 35.7 | 4.3 / 8.1 s | 24.8 / 28.0 ms | 95.9% (trace bound 96.8%) |
+| C128 | 26,592 | 13,202 (3.64) | 43.8 / 36.7 | 2.4 / 4.6 s | 22.8 / 27.2 ms | 95.7% (trace bound 96.4%) |
+| C96 | 23,515 | 11,248 (3.10) | 44.9 / 40.8 | 1.6 / 3.7 s | 22.3 / 24.5 ms | 96.1% (trace bound 96.6%) |
+
+Down to C96 interactivity barely moves: under DP attention every decode step
+waits for the busiest of the eight ranks, and while that rank runs seven or
+more requests a step takes 80-90 ms.
 
 To reproduce a point the way InferenceX does, start the whole deployment
 afresh for it:
