@@ -461,3 +461,11 @@ MTP 草稿层，与 GB300 相同）；`PP4_HICACHE=0|1` 开关；decode 不变�
   1 个 chunk 在流水线里（`#inflight-req: 1`），即 sglang 不把同一请求的相邻 chunk 放进不同级并行算，单条长请求要依次走完 4 级。PP4 的吞吐
   要靠多个请求同时填满流水线（C88 时 TP4/DPA 平均 4.6 个在排队），长冷首轮的 TTFT 会变长——这是 C88 要看的。
 - 18:03 example 撤栈，PP4 C88 开始等显存（日志 `$W/2p1d/perf-pp4/`）。
+
+**PP4 C88（`c88-1021T1812`，kit `v6-pp4`、HiCache 开、prefill MTP、`SIM_ACCEPT_LEN=3.61`、整栈重启）**：18:12 起栈（干扰检查 `perf-pp4/c88.env-check`：
+两节点显存 0、无他人 GPU 进程、他人容器 CPU ≈ 0），18:17 预热开始，18:35 预热结束（17.6 分钟，973 个请求、0 错误；TP4/DPA C88 约 30 分钟），
+**计分 18:35–19:35**。
+- 预热期间（全是冷 prompt、无缓存命中，队列 9–27 个请求）PP4 prefill 每秒新算 **27.9k token**，16k batch 间隔中位 0.58 s；TP4/DPA C88 的满 chunk
+  1.705 s / 8,192 token，4 rank 全忙也只有约 19.2k tok/s（计分期实测平均 14.0k）。多个请求能填满流水线，与 ATOM PP4 的约 26k 同级。
+- prefill 日志有大量 aiter 提示 `not found tuned config in bf16_tuned_gemm.csv, will use default config`：TP1 下注意力投影等 BF16 GEMM 的形状
+  没有现成调优配置，回退到 torch 默认实现——PP4 的一个可调优点。（巡检脚本的 `fault` 匹配会误中 "default"，之后改为精确匹配。）
