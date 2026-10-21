@@ -1,0 +1,285 @@
+{
+  "hw": "cluster:mi355x-amds",
+  "conc": 56,
+  "image": "rocm/atom-dev:nightly_202610131249@sha256:d5b3fcd99bd44e3489740d1b026037f49f2e3f6160dc70b70c3fd23a125a4905",
+  "recipe_fingerprint": "8ebd3be54fc75a348f98954211121263165343cf7b32e6bd6eebc930b629db58",
+  "model": "amd/GLM-5.2-MXFP4",
+  "infmax_model_prefix": "glm5.2",
+  "framework": "atom-disagg",
+  "precision": "fp4",
+  "spec_decoding": "mtp",
+  "disagg": true,
+  "scenario_type": "agentic-coding",
+  "is_multinode": true,
+  "num_gpus": 8,
+  "tp": 5,
+  "ep": 1,
+  "dp_attention": "false",
+  "kv_offloading": "dram",
+  "kv_offload_backend": {
+    "name": "mooncake",
+    "version": "0.3.13"
+  },
+  "allocated_cpu_dram_gb": 1499,
+  "num_requests_total": 7319,
+  "num_requests_successful": 6700,
+  "request_accounting": {
+    "records_total": 7319,
+    "records_profiled": 6700,
+    "records_dropped_total": 619,
+    "records_warmup_dropped": 619,
+    "records_error_dropped": 0,
+    "records_profiling_error_dropped": 0,
+    "error_categories": {}
+  },
+  "prefill_num_workers": 1,
+  "prefill_tp": 1,
+  "prefill_pp": 4,
+  "prefill_dcp_size": 1,
+  "prefill_pcp_size": 1,
+  "prefill_ep": 1,
+  "prefill_dp_attention": "false",
+  "num_prefill_gpu": 4,
+  "decode_num_workers": 1,
+  "decode_tp": 4,
+  "decode_pp": 1,
+  "decode_dcp_size": 4,
+  "decode_pcp_size": 1,
+  "decode_ep": 1,
+  "decode_dp_attention": "false",
+  "num_decode_gpu": 4,
+  "decode_allocated_cpu_dram_gb": 1499,
+  "router": {
+    "name": "atomesh",
+    "version": "6fd1bb1be97c79b571eb86674786d0d888353b73"
+  },
+  "kv_p2p_transfer": "mooncake",
+  "dataset": {
+    "source_type": "public_dataset",
+    "loader": "semianalysis_cc_traces_weka_062126",
+    "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+    "hf_split": "train",
+    "num_dataset_entries": 393
+  },
+  "request_metrics": {
+    "qps": {
+      "window_seconds": 1,
+      "samples": 3619,
+      "mean": 1.85106,
+      "p50": 2,
+      "p75": 3,
+      "p90": 4,
+      "p95": 4,
+      "std": 1.4335
+    },
+    "latency": {
+      "ttft": {
+        "mean": 1.72005,
+        "p50": 1.4467,
+        "p75": 2.05298,
+        "p90": 2.85163,
+        "p95": 3.555,
+        "std": 1.14322
+      },
+      "e2el": {
+        "mean": 17.08808,
+        "p50": 8.57764,
+        "p75": 17.8477,
+        "p90": 37.56328,
+        "p95": 60.36536,
+        "std": 31.03943
+      },
+      "itl": {
+        "mean": 0.01522,
+        "p50": 0.0153,
+        "p75": 0.01655,
+        "p90": 0.01712,
+        "p95": 0.01765,
+        "std": 0.00294
+      },
+      "tpot": {
+        "mean": 0.01522,
+        "p50": 0.0153,
+        "p75": 0.01655,
+        "p90": 0.01712,
+        "p95": 0.01765,
+        "std": 0.00294
+      },
+      "intvty": {
+        "mean": 65.7222,
+        "p50": 65.3703,
+        "p75": 60.4208,
+        "p90": 58.40183,
+        "p95": 56.64654,
+        "std": 140.28705
+      },
+      "e2e_norm_intvty": {
+        "mean": 39.94149,
+        "p50": 53.67794,
+        "p75": 44.10668,
+        "p90": 32.54017,
+        "p95": 23.26307,
+        "std": 15.3308
+      },
+      "full_response_itl": {
+        "mean": 0.01514,
+        "p50": 0.01528,
+        "p75": 0.01655,
+        "p90": 0.01712,
+        "p95": 0.01764,
+        "std": 0.00313
+      },
+      "full_response_intvty": {
+        "mean": 66.04426,
+        "p50": 65.43919,
+        "p75": 60.43335,
+        "p90": 58.40836,
+        "p95": 56.67435,
+        "std": 7718.05365
+      }
+    },
+    "tokens": {
+      "input": {
+        "mean": 133324.21433,
+        "p50": 83878.5,
+        "p75": 162817,
+        "p90": 289260.3,
+        "p95": 509128.2,
+        "std": 147030.63881
+      },
+      "output_actual": {
+        "mean": 1008.33821,
+        "p50": 450,
+        "p75": 1059.25,
+        "p90": 2328.7,
+        "p95": 3761.25,
+        "std": 2019.37648
+      },
+      "output_expected": {
+        "mean": 1160.86405,
+        "p50": 536,
+        "p75": 1313,
+        "p90": 3134,
+        "p95": 4619.85,
+        "std": 1873.01456
+      }
+    },
+    "throughput": {
+      "input": {
+        "tokens_per_second": 246672.95213
+      },
+      "output": {
+        "tokens_per_second": 1865.60081
+      },
+      "total": {
+        "tokens_per_second": 248538.55295
+      },
+      "duration_seconds": 3621.28165,
+      "per_gpu": {
+        "total_tput_tps": 31067.31912,
+        "output_tput_tps": 233.2001,
+        "input_tput_tps": 30834.11902
+      }
+    },
+    "cache": {
+      "theoretical_cache_hit_rate": 0.97105
+    }
+  },
+  "server_metrics": {
+    "present": true,
+    "adapter": "atom",
+    "metric_count": 70,
+    "cache": {
+      "gpu_cache_hit_rate": 0.83334,
+      "cpu_cache_hit_rate": 0.12512,
+      "external_cache_hit_rate": 0.12512,
+      "overall_cache_hit_rate": 0.95846,
+      "prefix_cache_hits": 760410240,
+      "prefix_cache_queries": 912480421,
+      "external_prefix_cache_hits": 114168448,
+      "external_prefix_cache_queries": 912480421,
+      "cached_tokens_by_source": {},
+      "frontend_cache_hit_rate": null,
+      "router_kv_hit_rate": null,
+      "router_shared_cache_hit_rate": null,
+      "frontend_cached_tokens": null,
+      "frontend_input_tokens": null
+    },
+    "cache_validity": {
+      "schema": "atom-cache-validity/1",
+      "status": "REQUEST_SCOPE_UNRESOLVED",
+      "pricing_eligible": false,
+      "observed_scope": "profiling_window_interior_timeslices",
+      "requested_scope": "profiling_successful_requests",
+      "cpu_component": "MEASURED",
+      "roles_source": "launcher_env",
+      "accounted_endpoints": [
+        "http://10.24.112.106:6100/metrics"
+      ],
+      "window": {
+        "start_ns": 1792284316303395290,
+        "end_ns": 1792287946305130555,
+        "boundary_issues": []
+      },
+      "request_scope": {
+        "server_window_admissions": 6834,
+        "server_window_prompt_tokens": 912480421,
+        "profiling_requests": 6700,
+        "profiling_prompt_tokens": 893272236,
+        "error_records": 0,
+        "cancelled_records": 0,
+        "conserved": false
+      },
+      "diagnostics": {
+        "cumulative_stats_total": {
+          "atom:prefix_cache_full_tokens": 1041943738,
+          "atom:prefix_cache_cached_tokens": 772798352,
+          "atom:prefix_cache_offload_tokens": 211991680,
+          "atom:lmcache_loaded_tokens": 211965696,
+          "atom:prefix_cache_requests": 7465
+        }
+      },
+      "reasons": [
+        "server window admissions/prompt tokens do not match the successful profiling requests (6834.0 vs 6700; 912480421.0 vs 893272236)"
+      ]
+    },
+    "kv_cache": {
+      "gpu_usage_pct": 0.79615,
+      "gpu_total_tokens": null,
+      "cpu_usage_pct": null,
+      "cpu_used_tokens": null,
+      "cpu_total_tokens": null
+    },
+    "kv_offload": {
+      "bytes_gpu_to_cpu": null,
+      "bytes_cpu_to_gpu": null,
+      "time_gpu_to_cpu": null,
+      "time_cpu_to_gpu": null,
+      "bandwidth_gpu_to_cpu_bytes_per_second": null,
+      "bandwidth_cpu_to_gpu_bytes_per_second": null
+    },
+    "tokens": {
+      "prompt_total": 2047858722,
+      "generation_total": 6842481,
+      "requests_completed": 6700,
+      "prompt_by_source": {
+        "gpu_cache_hit": 760410240,
+        "cpu_or_external_cache_hit": 114168448,
+        "computed": 37901733,
+        "raw": {
+          "atom:prefix_cache_full_tokens": 912480421,
+          "atom:prefix_cache_cached_tokens": 760410240,
+          "atom:prefix_cache_offload_tokens": 114168448,
+          "atom:lmcache_loaded_tokens": 114144768,
+          "atom:prefix_cache_requests": 6834
+        }
+      }
+    },
+    "sources": []
+  },
+  "kv_cache_pool_tokens": null,
+  "warnings": [
+    "atom cache accounting: REQUEST_SCOPE_UNRESOLVED; rates are telemetry, not pricing input"
+  ],
+  "run_attempt": 1
+}

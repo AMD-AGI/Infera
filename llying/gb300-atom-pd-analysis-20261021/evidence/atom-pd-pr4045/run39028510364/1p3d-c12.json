@@ -1,0 +1,287 @@
+{
+  "hw": "cluster:mi355x-amds",
+  "conc": 12,
+  "image": "rocm/atom-dev:nightly_202610131249@sha256:d5b3fcd99bd44e3489740d1b026037f49f2e3f6160dc70b70c3fd23a125a4905",
+  "recipe_fingerprint": "3f6077329d6029b1eafc254d9ac206b452d1a50a3e3e9a30157c8790124208c7",
+  "model": "amd/GLM-5.2-MXFP4",
+  "infmax_model_prefix": "glm5.2",
+  "framework": "atom-disagg",
+  "precision": "fp4",
+  "spec_decoding": "mtp",
+  "disagg": true,
+  "scenario_type": "agentic-coding",
+  "is_multinode": true,
+  "num_gpus": 16,
+  "tp": 5,
+  "ep": 1,
+  "dp_attention": "false",
+  "kv_offloading": "dram",
+  "kv_offload_backend": {
+    "name": "mooncake",
+    "version": "0.3.13"
+  },
+  "allocated_cpu_dram_gb": 1499,
+  "num_requests_total": 1772,
+  "num_requests_successful": 1641,
+  "request_accounting": {
+    "records_total": 1772,
+    "records_profiled": 1641,
+    "records_dropped_total": 131,
+    "records_warmup_dropped": 131,
+    "records_error_dropped": 0,
+    "records_profiling_error_dropped": 0,
+    "error_categories": {}
+  },
+  "prefill_num_workers": 1,
+  "prefill_tp": 1,
+  "prefill_pp": 4,
+  "prefill_dcp_size": 1,
+  "prefill_pcp_size": 1,
+  "prefill_ep": 1,
+  "prefill_dp_attention": "false",
+  "num_prefill_gpu": 4,
+  "decode_num_workers": 3,
+  "decode_tp": 4,
+  "decode_pp": 1,
+  "decode_dcp_size": 1,
+  "decode_pcp_size": 1,
+  "decode_ep": 1,
+  "decode_dp_attention": "false",
+  "num_decode_gpu": 12,
+  "decode_allocated_cpu_dram_gb": 1499,
+  "router": {
+    "name": "atomesh",
+    "version": "6fd1bb1be97c79b571eb86674786d0d888353b73"
+  },
+  "kv_p2p_transfer": "mooncake",
+  "dataset": {
+    "source_type": "public_dataset",
+    "loader": "semianalysis_cc_traces_weka_062126",
+    "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+    "hf_split": "train",
+    "num_dataset_entries": 393
+  },
+  "request_metrics": {
+    "qps": {
+      "window_seconds": 1,
+      "samples": 3600,
+      "mean": 0.45556,
+      "p50": 0.0,
+      "p75": 1,
+      "p90": 1,
+      "p95": 2,
+      "std": 0.70571
+    },
+    "latency": {
+      "ttft": {
+        "mean": 1.09567,
+        "p50": 0.9374,
+        "p75": 1.33993,
+        "p90": 1.7977,
+        "p95": 2.19449,
+        "std": 0.67723
+      },
+      "e2el": {
+        "mean": 6.07156,
+        "p50": 2.8044,
+        "p75": 5.74,
+        "p90": 13.7612,
+        "p95": 23.24752,
+        "std": 10.38092
+      },
+      "itl": {
+        "mean": 0.00451,
+        "p50": 0.00441,
+        "p75": 0.00484,
+        "p90": 0.00538,
+        "p95": 0.00564,
+        "std": 0.0006
+      },
+      "tpot": {
+        "mean": 0.00451,
+        "p50": 0.00441,
+        "p75": 0.00484,
+        "p90": 0.00538,
+        "p95": 0.00564,
+        "std": 0.0006
+      },
+      "intvty": {
+        "mean": 221.84791,
+        "p50": 226.90236,
+        "p75": 206.45953,
+        "p90": 185.95607,
+        "p95": 177.42555,
+        "std": 28.02497
+      },
+      "e2e_norm_intvty": {
+        "mean": 76.24923,
+        "p50": 142.6449,
+        "p75": 107.78717,
+        "p90": 75.50198,
+        "p95": 57.38786,
+        "std": 49.97652
+      },
+      "full_response_itl": {
+        "mean": 0.00451,
+        "p50": 0.00441,
+        "p75": 0.00485,
+        "p90": 0.00538,
+        "p95": 0.00564,
+        "std": 0.00063
+      },
+      "full_response_intvty": {
+        "mean": 221.92045,
+        "p50": 226.51703,
+        "p75": 206.14337,
+        "p90": 185.96074,
+        "p95": 177.23686,
+        "std": 61.87784
+      }
+    },
+    "tokens": {
+      "input": {
+        "mean": 138457.96283,
+        "p50": 107985,
+        "p75": 166178,
+        "p90": 269272,
+        "p95": 374021,
+        "std": 107194.01608
+      },
+      "output_actual": {
+        "mean": 1088.29982,
+        "p50": 374,
+        "p75": 997,
+        "p90": 2630,
+        "p95": 4725,
+        "std": 2217.78469
+      },
+      "output_expected": {
+        "mean": 1760.90594,
+        "p50": 807,
+        "p75": 2306,
+        "p90": 4378,
+        "p95": 6114.7,
+        "std": 2789.31924
+      }
+    },
+    "throughput": {
+      "input": {
+        "tokens_per_second": 63090.31554
+      },
+      "output": {
+        "tokens_per_second": 495.8991
+      },
+      "total": {
+        "tokens_per_second": 63586.21464
+      },
+      "duration_seconds": 3601.33746,
+      "per_gpu": {
+        "total_tput_tps": 3974.13842,
+        "output_tput_tps": 30.99369,
+        "input_tput_tps": 3943.14472
+      }
+    },
+    "cache": {
+      "theoretical_cache_hit_rate": 0.97382
+    }
+  },
+  "server_metrics": {
+    "present": true,
+    "adapter": "atom",
+    "metric_count": 70,
+    "cache": {
+      "gpu_cache_hit_rate": 0.96993,
+      "cpu_cache_hit_rate": 0.0,
+      "external_cache_hit_rate": 0.0,
+      "overall_cache_hit_rate": 0.96993,
+      "prefix_cache_hits": 220375808,
+      "prefix_cache_queries": 227207766,
+      "external_prefix_cache_hits": 0.0,
+      "external_prefix_cache_queries": 227207766,
+      "cached_tokens_by_source": {},
+      "frontend_cache_hit_rate": null,
+      "router_kv_hit_rate": null,
+      "router_shared_cache_hit_rate": null,
+      "frontend_cached_tokens": null,
+      "frontend_input_tokens": null
+    },
+    "cache_validity": {
+      "schema": "atom-cache-validity/1",
+      "status": "WINDOW_UNRESOLVED",
+      "pricing_eligible": false,
+      "observed_scope": "profiling_window_interior_timeslices",
+      "requested_scope": "profiling_successful_requests",
+      "cpu_component": "MEASURED",
+      "roles_source": "launcher_env",
+      "accounted_endpoints": [
+        "http://10.24.112.107:6100/metrics"
+      ],
+      "window": {
+        "start_ns": 1792244624228525309,
+        "end_ns": 1792248225579469523,
+        "boundary_issues": [
+          "prefix_cache_full_tokens@http://10.24.112.107:6100/metrics: activity in the slice straddling profiling start is not proven warmup-only by warmup_metrics"
+        ]
+      },
+      "request_scope": {
+        "server_window_admissions": 1640,
+        "server_window_prompt_tokens": 227207766,
+        "profiling_requests": 1641,
+        "profiling_prompt_tokens": 227209517,
+        "error_records": 0,
+        "cancelled_records": 0,
+        "conserved": false
+      },
+      "diagnostics": {
+        "cumulative_stats_total": {
+          "atom:prefix_cache_full_tokens": 256526871,
+          "atom:prefix_cache_cached_tokens": 245243440,
+          "atom:prefix_cache_offload_tokens": 12736,
+          "atom:lmcache_loaded_tokens": 12288,
+          "atom:prefix_cache_requests": 1776
+        }
+      },
+      "reasons": [
+        "prefix_cache_full_tokens@http://10.24.112.107:6100/metrics: activity in the slice straddling profiling start is not proven warmup-only by warmup_metrics"
+      ]
+    },
+    "kv_cache": {
+      "gpu_usage_pct": 0.40931,
+      "gpu_total_tokens": null,
+      "cpu_usage_pct": null,
+      "cpu_used_tokens": null,
+      "cpu_total_tokens": null
+    },
+    "kv_offload": {
+      "bytes_gpu_to_cpu": null,
+      "bytes_cpu_to_gpu": null,
+      "time_gpu_to_cpu": null,
+      "time_cpu_to_gpu": null,
+      "bandwidth_gpu_to_cpu_bytes_per_second": null,
+      "bandwidth_cpu_to_gpu_bytes_per_second": null
+    },
+    "tokens": {
+      "prompt_total": 512733972,
+      "generation_total": 1783637,
+      "requests_completed": 1641,
+      "prompt_by_source": {
+        "gpu_cache_hit": 220375808,
+        "cpu_or_external_cache_hit": 0.0,
+        "computed": 6831958,
+        "raw": {
+          "atom:prefix_cache_full_tokens": 227207766,
+          "atom:prefix_cache_cached_tokens": 220375808,
+          "atom:prefix_cache_offload_tokens": 0.0,
+          "atom:lmcache_loaded_tokens": 0.0,
+          "atom:prefix_cache_requests": 1640
+        }
+      }
+    },
+    "sources": []
+  },
+  "kv_cache_pool_tokens": null,
+  "warnings": [
+    "atom cache accounting: WINDOW_UNRESOLVED; rates are telemetry, not pricing input"
+  ],
+  "run_attempt": 1
+}

@@ -11,7 +11,8 @@
 端口 stride 256、`MC_MAX_MR_SIZE`（note 8）、up.sh 等 router 列出 prefill、down.sh 删不掉时继续（2P1D 与 mixed）、两 example 的
 `--disable-custom-all-reduce` + top-k v2、InferenceX GSM8K；14:10 新增 `c7b7a35d`（ruff format `moe_mlp.py`，全仓 ruff format / check 通过）、
 `cdfb8dc4`（mixed down.sh）、`4ad59fc2`（2P1D `PREFILL_WORKERS=1` 跑 1P1D，README 全部测点 + note 9 prefill 内存访问错误 / GPU 卡死）。
-待办：C88 结果补进 README；最终分支上重跑 lint / unit / engine；`PREFILL_WORKERS=1` 用 example 本身起一次栈做 smoke；然后开 PR。
+待办：C88 结果补进 README；最终分支上跑一次完整 pre-commit lint（用户确认不重建镜像、不重跑 unit / engine）；`PREFILL_WORKERS=1`
+用 example 本身起一次栈做 smoke；然后开 PR。
 
 ## 复现所需文件
 
@@ -362,16 +363,34 @@ agent，与前 4 个点配置一致：AUS harness 里"lean mode … ~1.00x"只�
 吻合；1P1D C88 的单实例负荷 = 2P1D C176 每实例的负荷，已实测可稳定运行（TTFT p90 8.1 s），C96 则超出实测范围）。配置同 1P1D C32 / C64
 （`v5-1p`、`site-1p-gpu4567.env`、无 debug agent、整栈重启、3,600 s）。起栈前两节点显存 0、无他人 GPU 进程。预期约 28k @ p90 42–45。
 
-**当前 Pareto 点（横轴 interactivity p90，都保留 `--disable-custom-all-reduce`）**：
+**1P(TP4)+1D(TP8) C88 结果（12 卡，计分 13:51–14:50，产物 `results/1p1d-c88/`）**：
+
+| 点 | 卡 | tok/s/GPU | 输出 tok/s/GPU | 每秒请求 | 完成 / 无效 | intvty p50 / p90 | ITL p50 / p90 (ms) | TTFT p50 / p90 / 均值 (s) | E2E p90 (s) | API 命中（理论） |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1P1D C88 | 12 | **27,453** | 228.5 | 2.749 | 9,970 / 3 | **49.1 / 42.8** | 20.4 / 23.4 | 4.94 / 9.45 / 7.29 | 53.5 | 95.77%（96.55%） |
+| 对照 2P1D C128 | 16 | 26,592 | 227.0 | 3.638 | 13,202 / 7 | 43.8 / 36.7 | 22.8 / 27.2 | 2.38 / 4.62 / 2.87 | 51.8 | 95.74%（96.37%） |
+
+- 与预期（约 28k @ p90 42–45）吻合。**同时支配 2P1D C128（吞吐 +3%、p90 交互 +17%）和 C96（+17% / +5%）**，2P1D 只剩 C176 在前沿上。
+- prefill（单实例）已饱和：实例忙碌 81%，**dp0–3 计算 60 / 62 / 48 / 59%**（均值 57%，2P1D C176 每实例 47%），新算 14.0k tok/s；
+  每 10 s 等待请求均值 4.61、p90 12、最大 22，有等待的时间 74%（各 rank 均值 1.09 / 1.74 / 0.69 / 1.07）。缓存份额 95.8%（C64 96.6%），
+  host 池满（server 口径 GPU / host 命中 48.0% / 15.8%）。TTFT p50 4.94 s 是 2P1D C176（4.28 s）的水平，所以 1P1D 不再往上加并发。
+- decode：在跑总数中位 54，最忙 rank 中位 11 / p90 16（÷ 均值 2.4），等 KV 传输 20.2；最忙 16 对应每步约 82 ms，÷ 3.61 ≈ 22.7 ms，
+  与 ITL p90 23.4 ms 吻合——交互仍由 decode 最忙 rank 决定。
+- 巡检全程两节点无他人 GPU 作业；14:57 下线，15:00 停掉巡检定时器。
+
+**当前 Pareto 点（横轴 interactivity p90，都保留 `--disable-custom-all-reduce`；图已更新，另加 ATOM PD 的未上榜点作对照）**：
 
 | 配置 / 点 | 卡 | intvty p90 | tok/s/GPU | 备注 |
 |---|---|---|---|---|
-| 1P1D C32 | 12 | 73.2 | 14,153 | 新的高交互端 |
-| **1P1D C64** | 12 | 51.4 | 23,241 | 支配 2P1D C64，实际支配 2P1D C96 |
+| 1P1D C32 | 12 | 73.2 | 14,153 | 高交互端 |
+| **1P1D C64** | 12 | 51.4 | 23,241 | 支配 2P1D C64 |
+| **1P1D C88** | 12 | 42.8 | 27,453 | 支配 2P1D C96 / C128 |
 | 2P1D C64 | 16 | 49.4 | 18,202 | 被 1P1D C64 支配 |
-| 2P1D C96 | 16 | 40.8 | 23,515 | |
-| 2P1D C128 | 16 | 36.7 | 26,592 | 基本被 C176 支配 |
-| 2P1D C176 | 16 | 35.7 | 35,637 | 吞吐峰值 |
+| 2P1D C96 | 16 | 40.8 | 23,515 | 被 1P1D C88 支配 |
+| 2P1D C128 | 16 | 36.7 | 26,592 | 被 1P1D C88 支配 |
+| **2P1D C176** | 16 | 35.7 | 35,637 | 吞吐峰值 |
+
+与 GB300 Dynamo+SGLang、ATOM MI355X PD 的配置对比和可借鉴项见单独报告 `../gb300-atom-pd-analysis-20261021/README.zh-CN.md`。
 
 10-21 02:21 起用本地定时器每 15 分钟唤醒做一次人工巡检（用户要求巡检不中断，同时可以讨论下一步）。
 
