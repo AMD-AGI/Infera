@@ -27,7 +27,9 @@ n02-29 + n03-33，restart 1（ROUND=a1）= n01-29 + n02-33。节点名、IP 由 
   pam_slurm_adopt 会拒绝 ssh）。step 结束会杀掉其进程，所以长期进程都在登录节点上：
   - `scripts/campaign.sh`：作业每次（重新）开始 → ROUND = a<重启次数> → `scripts/prepare_alloc.sh`（节点名、镜像复用 / 拷贝 / 重建、清理旧容器、
     chown、数据集缓存、16 卡 stream 检查）→ `config/round.<ROUND>.sh` ← `operations/current_stage` → 队列 ← `operations/queue.next.tsv` 模板 → 启动；
-    作业离开 RUNNING 时停掉本轮进程并告警。
+    作业离开 RUNNING 时停掉本轮进程并告警。作业运行期间重启 campaign 用 `RESUME_ROUND=<当前轮>`。
+  - `scripts/guard_containers.sh`（campaign 在每台节点上作为 srun step 启动）：抢占 / 作业结束时 Slurm 给 step 发 SIGTERM，守护删除本节点
+    所有 `glm52-llying-2p1d-*` 容器（否则容器会留在已分给别人的节点上占 GPU）。**不要手动杀守护的 srun 进程**——那同样会删掉实验容器。
   - `scripts/tune_queue.sh`（队列驱动，`start_queue.sh`）、`sampler.py`、`hang_watch.py`；日志跟随 `scripts/follow_supervisor.sh` +
     `bench-harness/follow_remote.sh`（`engine.sh` 写 `<log>.follow` 标记，`FOLLOW_ON_NODE=0`）。
   - 巡检 `scripts/patrol.sh`（每 2 分钟：作业状态、队列失败 / 空转、引擎健康、日志致命模式、传输失败、客户端停滞 → `runtime/patrol/ALERT.log`），

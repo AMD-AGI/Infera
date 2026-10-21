@@ -4,12 +4,13 @@
 #   1. ROUND = a<Slurm restart count> (a fresh run dir and fresh variant names per allocation);
 #   2. prepare_alloc.sh (node names, image, root-owned cache dirs, dataset cache, 16-GPU stream check);
 #   3. config/round.<ROUND>.sh <- the file named in operations/current_stage (the config the plan is at);
-#   4. operations/tune_queue.tsv <- operations/queue.next.tsv with {R} replaced by ROUND; queue driver started;
+#   4. operations/tune_queue.tsv <- operations/queue.next.tsv with {R} replaced by ROUND; container guard step
+#      (guard_containers.sh: removes our containers when Slurm signals the steps at preemption) and queue driver started;
 #   5. while the job runs: nothing (the queue, patrol and operator do the work);
 #   6. job no longer running: stop this round's login-host processes, log it, raise an alert, back to 1.
 # operations/current_round holds the live ROUND (read by patrol.sh and wait_event.sh).
 # The operator edits queue.next.tsv / current_stage as experiments finish, so a restart resumes where the plan is.
-# Usage: JOB=<id> campaign.sh
+# Usage: JOB=<id> [RESUME_ROUND=<live round, when restarting this script during an allocation>] campaign.sh
 set -uo pipefail
 : "${JOB:?}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -18,6 +19,19 @@ O="$R/operations"
 export SHIM_JOB="$JOB" PATH="$R/tools/sshshim:$PATH"   # see tools/sshshim/ssh
 log() { echo "$(date -u +%FT%TZ) campaign: $*"; }
 alert() { mkdir -p "$R/runtime/patrol"; echo "$(date -u +%FT%TZ) [campaign] $*" >> "$R/runtime/patrol/ALERT.log"; log "$*"; }
+watch_round() {
+    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do sleep 60; done
+    alert "job $JOB left RUNNING during ROUND=$ROUND (state $(squeue -h -j "$JOB" -o %T 2>/dev/null); restarts now $(scontrol show job "$JOB" | sed -nE 's/.*Restarts=([0-9]+).*/\1/p'))"
+    for pat in '^bash tune_queue.sh' 'sampler.py' 'hang_watch.py' 'agentx_bench.sh' 'tune_round.sh' 'tune_post.sh'; do
+        pkill -u "$(id -u)" -f "$pat" 2>/dev/null
+    done
+    log "stopped login-host processes of $ROUND"
+}
+if [[ -n "${RESUME_ROUND:-}" ]]; then
+    ROUND="$RESUME_ROUND"
+    log "resuming ROUND=$ROUND of the running allocation"
+    watch_round
+fi
 while true; do
     while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" != RUNNING ]]; do
         [[ -z "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" ]] && { alert "job $JOB is gone ($(sacct -n -X -j "$JOB" -o State | xargs)); stopping"; exit 1; }
@@ -36,11 +50,8 @@ while true; do
     sed "s/{R}/$ROUND/g" "$O/queue.next.tsv" > "$O/tune_queue.tsv"
     cp "$O/tune_queue.tsv" "$O/tune_queue.$ROUND.tsv"
     log "stage $stage installed as config/round.$ROUND.sh; queue from queue.next.tsv"
+    setsid nohup srun --jobid="$JOB" --overlap -N "$(squeue -h -j "$JOB" -o %D)" --ntasks-per-node=1 --export=NONE \
+        /bin/bash "$HERE/guard_containers.sh" glm52-llying-2p1d- >> "$R/logs/guard.$JOB.log" 2>&1 < /dev/null &
     bash "$HERE/start_queue.sh" "ROUND=$ROUND"
-    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do sleep 60; done
-    alert "job $JOB left RUNNING during ROUND=$ROUND (state $(squeue -h -j "$JOB" -o %T 2>/dev/null); restarts now $(scontrol show job "$JOB" | sed -nE 's/.*Restarts=([0-9]+).*/\1/p'))"
-    for pat in '^bash tune_queue.sh' 'sampler.py' 'hang_watch.py' 'agentx_bench.sh' 'tune_round.sh' 'tune_post.sh'; do
-        pkill -u "$(id -u)" -f "$pat" 2>/dev/null
-    done
-    log "stopped login-host processes of $ROUND"
+    watch_round
 done
