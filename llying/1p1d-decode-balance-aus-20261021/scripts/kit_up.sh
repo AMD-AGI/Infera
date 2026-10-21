@@ -19,8 +19,10 @@ for pair in "$CTR-prefill0 $P_NODE prefill-0" "$CTR-decode $D_NODE decode-0" "$C
     read -r name node log <<< "$pair"
     follow_when_created "$name" "$node" "$LOGS/$log.log"
 done
+touch "$OUT/.starting"   # kit_patrol.sh skips /health while this exists
 kit_on "$P_NODE" "RUN_ID=$(q "$RUN") $(q "${extra[@]}") bash engine/up.sh" > "$OUT/up.log" 2>&1
 rc=$?
+rm -f "$OUT/.starting"
 tail -n 3 "$OUT/up.log"
 (( rc == 0 )) || die "up.sh rc=$rc (see $OUT/up.log)"
 ssh "$P_NODE" "cat /scratch/liyingli_2p1d/pr210/work/runs/$RUN/engine-config.env" > "$OUT/engine-config.env"

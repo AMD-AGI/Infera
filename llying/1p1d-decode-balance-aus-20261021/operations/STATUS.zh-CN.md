@@ -27,3 +27,13 @@
   `PREFILL_EXTRA_ARGS`，`kit_up.sh MTP=1`，不改 kit 文件，省去中途重启 prefill），同一部署上 w0 → w180k（prefill 开 MTP 后 decode
   不漂移，AUS 2P1D 已验证）；之后重新部署 kit 原样做 PR 210 C88 的严格复现。`kit_round.sh` 增加核对：B 组 router 必须是新二进制且
   `INFERA_DECODE_REQUEST_WEIGHT` 生效；`kit_prep.sh WAIT_VRAM=60` 在重新部署前等显存释放。
+- 18:35 作业重新排队，Slurm 预计 10-22 00:57；**20:33:50 提前开始**（ROUND=a7，P = n04-33、D = n06-25，两台无外部容器、显存为 0）。
+  20:39–20:43 n06-25 构建镜像（4 分钟；n04-33 已有）。20:43–20:50 `kit_up.sh RUN=ka7 MTP=1`：**prefill 带 EAGLE 参数在 v0.5.22 上正常
+  起栈**（7 分钟，JIT 缓存在节点上）；prefill 两次 KV 分配：主 122.57 GB（2,758,976 token / rank）+ 草稿 1.82 GB。日志里的
+  `post-warmup freeze_gc failed`（uvicorn 起来 2 ms 内发 POST 被拒）是 sglang 自身的无害时序竞争，进程继续。巡检在起栈期间误报三个
+  /health（`current_run` 现在起栈一开始就写）→ 起栈 / 重启 prefill 期间放 `.starting` 标记，巡检跳过 /health。
+- 20:50 `ka7-pmtp-w0` 开始（router = 新二进制，权重 0，核对通过）。预热进度与 `k6-repro` 逐点相同（开头 93 个冷请求约 14 分钟才陆续
+  返回，之后才放出后续轮次），prefill MTP 没有拖慢预热。**21:04:36 作业第 8 次被抢占**（这次只有 31 分钟），无结果。
+- 21:10 再调整（分配时长 51 / 31 分钟，而标准一轮至少 1.6 小时）：新策略（w180k）先跑、w0 后跑；A/B 两组测量窗口 1800 s
+  （预热仍为每 lane 10 个），一轮约 1 小时；被抢占时 `kit_round.sh` 仍按已覆盖的测量窗口做 decode 均衡 / 步长分析（日志实时在登录节点上）。
+  decode 每 rank 均衡统计与节点无关，A、B 即使落在不同分配上，机制层面也可比。严格复现（3600 s）放最后。

@@ -1,0 +1,14 @@
+# Fallback template if the prefill does not start with the EAGLE flags on the v0.5.22 image: the PR 210 methodology,
+# every point on a freshly started deployment of the unmodified kit (all cold, so A and B see the same decode state).
+# repro (image router) -> w180k (new router) -> w0 (new router, = PR 210 behaviour; checks the binary is a no-op at 0).
+run pr210/kit_prep.sh
+run pr210/kit_up.sh RUN=k{R}r
+run pr210/kit_round.sh RUN=k{R}r VARIANT=k{R}-repro CONC=88 ROUTER=image
+run pr210/kit_down.sh RUN=k{R}r
+run pr210/kit_prep.sh WAIT_VRAM=60
+run pr210/kit_up.sh RUN=k{R}b
+run pr210/kit_round.sh RUN=k{R}b VARIANT=k{R}-w180k CONC=88 ROUTER=exp WEIGHT=180000
+run pr210/kit_down.sh RUN=k{R}b
+run pr210/kit_prep.sh WAIT_VRAM=60
+run pr210/kit_up.sh RUN=k{R}a
+run pr210/kit_round.sh RUN=k{R}a VARIANT=k{R}-w0 CONC=88 ROUTER=exp WEIGHT=0
