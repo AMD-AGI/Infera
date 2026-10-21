@@ -81,20 +81,18 @@ settings actually started); the other scripts read it and write `smoke/`,
 | max-num-batched-tokens | 8192 | 2048 |
 | mem util | 0.85 | 0.94, communicator groups shared (`AITER_REUSE_IDENTICAL_COMM_GROUPS=1`) |
 | KV connector | `multi`: Mooncake `kv_producer` (16 send workers per stage) + `mooncake_store` offload | Mooncake `kv_consumer` |
-| shared | FP8 KV, block 16, prefix caching, MTP (`--method mtp`), online PTPC-FP8 with MXFP4 experts (the MTP layer's quantized online, `MTP_EXPERTS`) and the rest of the MTP layer in BF16 | |
+| shared | FP8 KV, block 16, prefix caching, MTP (`--method mtp`), online PTPC-FP8 with MXFP4 experts and BF16 MTP layer | |
 
 The settings are those of ATOM's GLM-5.2 AgentX recipe
 (`/app/ATOM/recipes/Agentic-GLM-5.2.md` in the image) and of InferenceX PR
 #4045's 1P1D (`MC_NUM_QP_PER_EP=1` on every Mooncake peer, `TOPK_FORCE_PATH=one`,
 `--timeout-keep-alive 900`, the Store). The decode's memory settings give it
-~203K KV blocks (~196K with BF16 MTP experts) instead of ~160K at
-0.90 / 16384 with separate communicators: AgentX lanes reuse their whole
+~196K KV blocks instead of ~160K at 0.90 / 16384 with separate communicators: AgentX lanes reuse their whole
 context every turn, and once C × mean prompt length outgrows the decode's KV
 pool its prefix hits collapse, the prefill re-sends whole prompts and TTFT
 explodes (about C85 before, C105 now). Not taken from them: `OFFLOAD_PROFILE=1`
 (logging only), the decode's graphs (here every 4 up to 2 × CONC, there every 8
-up to 256), its max-num-seqs (here 2 × CONC, there 512) and BF16 MTP experts
-(`MTP_EXPERTS`).
+up to 256) and its max-num-seqs (here 2 × CONC, there 512).
 
 MTP depth follows `CONC`: K3 at CONC ≥ 48, K4 below. The Store
 (`PREFILL_CPU_TIER=store`, gotcha 14) is one pool of 2 × 768 GiB that the four

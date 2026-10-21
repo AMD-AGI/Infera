@@ -62,16 +62,10 @@ export MTP_K="${MTP_K:-$((CONC >= 48 ? 3 : 4))}"
 # Set it (K3 -> 2.99, K4 -> 3.33) only to reproduce the AgentX reference numbers.
 export MTP_AL="${MTP_AL:-}"
 
-# Routed experts of the MTP layer (78), which the checkpoint keeps in BF16:
-# mxfp4 quantizes them online at load like the experts of the other layers, so
-# the draft MoE reads a quarter of the weight bytes (~1 ms per decode step;
-# GSM8K and real MTP acceptance unchanged); bf16 keeps them as shipped.
-export MTP_EXPERTS="${MTP_EXPERTS:-mxfp4}"
-
 # Memory, chunk budgets, block size, layer split and offload load length below
 # follow ATOM's GLM-5.2 AgentX recipe (/app/ATOM/recipes/Agentic-GLM-5.2.md in
 # the image) and InferenceX PR #4045. The decode's 0.94 and 2048, with the
-# shared communicator groups worker.sh sets, give it ~27% more KV blocks, which
+# shared communicator groups worker.sh sets, give it ~22% more KV blocks, which
 # keeps the agents' prefixes on the decode up to about C105 (README "The recipe").
 export PREFILL_MEM_UTIL="${PREFILL_MEM_UTIL:-0.85}"
 export DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-0.94}"
