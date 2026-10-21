@@ -97,3 +97,20 @@
 - R4 的残缺数据：AgentX 预热阶段两实例新算量在开 / 不开 R4 时都均衡（9.6k / 9.8k vs 9.5k / 9.7k）；测量前 8 分钟太短，无法判断。
 - 预热漂移排查进展：decode 启动后第一轮显存每卡涨约 3.2 GiB（273.9 → 277.1），之后几轮共再涨约 1.3 GiB 后走平，与每步变慢的幅度同步
   （pcwb 重启后同样 273.9 → 277.0），支持"显存分配器扩容"的猜测，待在线 profile 验证。
+
+## 10-21（作业 34439 反复抢占；SPF + early 计划）
+
+- 10-20 20:56 作业再次开始（Restarts=2 → ROUND=a2，n03-33 + n04-25）：没有匹配镜像 → 重建 10 分钟；21:07 起栈，21:32 launch 失败，
+  21:33 作业又被抢占（起栈失败就是抢占开始所致）。
+- 00:26 再次开始（a3，n02-25 + n02-33）：镜像重建；**n02-33 上 a1 的 decode 容器（`…-a1-decode-0`、`…-a1-decode-0-pcwb`）还在**，
+  prepare 将其删除；n02-25 GPU1 的 stream 检查崩溃 → prepare 失败，campaign 按设计不在坏卡上跑、原地等待；之后作业又被抢占。
+- 02:17 再次开始（a4，n01-33 + n10-29）：镜像重建；02:28–03:22 起栈（55 分钟：两台新节点冷读模型 + 首次 JIT），census 0 致命行、
+  冒烟通过、传输冒烟 192/192（p50 190 s，首次编译所致）；03:26 进入 HiCache 检查，之后按计划跑 C176 两轮（抓冷 / 热 decode profile）→ R4。
+- **容器泄漏**：抢占时 Slurm 只杀 step 进程，docker 容器不归 Slurm 管，会留在节点上继续占 GPU 和锁页内存。a1 的 decode 在 n02-33 上
+  留了 12.5 小时。可能仍有泄漏的节点：n01-29（a1 的 prefill-0/1、router、etcd）、n03-33 / n04-25（a2 起栈中途的容器）——三台现在都分给了
+  guanchen 的作业 34506，我们无权登录，无法确认或清理（需联系对方或管理员执行 `docker rm -f $(docker ps -aq --filter name=glm52-llying-2p1d-)`）。
+- 03:28 新增 `scripts/guard_containers.sh`：作业每台节点上一个 srun step；Slurm 抢占 / 结束作业时先给所有 step 发 SIGTERM（KillWait = 30 s
+  后才 SIGKILL，GraceTime = 0），守护收到后并行 `docker rm -f` 本节点所有 `glm52-llying-2p1d-*` 容器。a4 已手动启动（03:28 一个顺序删除版、
+  03:30 一个并行删除版，运行中的旧版不能重启——杀掉它本身就会触发清理）。`campaign.sh` 改为每次准备完成后自动启动守护，并新增
+  `RESUME_ROUND`（作业运行期间重启 campaign 时接管当前轮、不重做准备）；03:29 以 `RESUME_ROUND=a4` 重启 campaign。
+  取舍：守护依赖登录节点上的 srun 进程，若它被杀，step 结束同样会删除容器（即停掉实验）。
