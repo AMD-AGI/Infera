@@ -46,11 +46,10 @@ env=(
     TRITON_CACHE_DIR=/root/.cache/triton TORCHINDUCTOR_CACHE_DIR=/root/.cache/inductor
 )
 
-# Graph capture bounded by the concurrency: 1, 2, 4, 8, then every
-# DECODE_GRAPH_STEP up to 2 x CONC. Left unset, a DCP prefill would capture up
-# to batch 512; a PP prefill runs eager.
+# Graph capture bounded by the concurrency: 1, 2, 4, 8, then every 4 up to 2 x CONC.
+# Left unset, a DCP prefill would capture up to batch 512; a PP prefill runs eager.
 cudagraph="[1,2,4,8"
-for ((size = 8 + DECODE_GRAPH_STEP; size <= 2 * CONC; size += DECODE_GRAPH_STEP)); do cudagraph+=",$size"; done
+for ((size = 12; size <= 2 * CONC; size += 4)); do cudagraph+=",$size"; done
 cudagraph+="]"
 
 # kv_mooncake KV_ROLE HANDSHAKE_PORT HTTP_PORT
@@ -60,7 +59,7 @@ kv_mooncake() {
 }
 
 if [[ "$role" == prefill ]]; then
-    gpus="$PREFILL_GPUS" port="$PREFILL_PORT" util="$PREFILL_MEM_UTIL"
+    gpus="$PREFILL_GPUS" port="$PREFILL_PORT" util="$PREFILL_MEM_UTIL" mbt="$PREFILL_MAX_BATCHED_TOKENS"
     env+=("INFERA_READINESS_PORT=$PREFILL_READINESS_PORT" OFFLOAD_PROFILE=0
         # The fabric routes same-numbered rails only: write on the rail of the
         # decode rank being served.
@@ -110,22 +109,23 @@ if [[ "$role" == prefill ]]; then
     else
         args=(-tp 4 --decode-context-parallel-size 4 --cudagraph-capture-sizes "$cudagraph")
     fi
-    args+=(--max-num-batched-tokens "$PREFILL_MAX_BATCHED_TOKENS" --max-num-seqs 512)
+    args+=(--max-num-batched-tokens "$mbt" --max-num-seqs 512)
     read -ra extra <<<"$PREFILL_EXTRA_ARGS"
+    read -ra extra_env <<<"$PREFILL_EXTRA_ENV"
 else
-    gpus="$DECODE_GPUS" port="$DECODE_PORT" util="$DECODE_MEM_UTIL"
+    gpus="$DECODE_GPUS" port="$DECODE_PORT" util="$DECODE_MEM_UTIL" mbt="$DECODE_MAX_BATCHED_TOKENS"
     env+=("INFERA_READINESS_PORT=$DECODE_READINESS_PORT")
     kv="$(kv_mooncake kv_consumer "$DECODE_HANDSHAKE_PORT" "$DECODE_PORT")"
     # DCP and EP groups reuse the TP group's communicators (same GPUs) instead
     # of allocating their own buffers, which leaves that memory to the KV cache.
     env+=(AITER_REUSE_IDENTICAL_COMM_GROUPS=1)
     args=(-tp 4 --decode-context-parallel-size 4 --cudagraph-capture-sizes "$cudagraph"
-        --max-num-batched-tokens "$DECODE_MAX_BATCHED_TOKENS" --max-num-seqs $((2 * CONC)))
+        --max-num-batched-tokens "$mbt" --max-num-seqs $((2 * CONC)))
     [[ -z "$MTP_AL" ]] || args+=(--spec-decode-acceptance-length "$MTP_AL")
     read -ra extra <<<"$DECODE_EXTRA_ARGS"
     read -ra extra_env <<<"$DECODE_EXTRA_ENV"
-    env+=("${extra_env[@]}")
 fi
+env+=("${extra_env[@]}")
 
 # The Rust router keeps idle connections pooled; ATOM's 5 s default closes them under it.
 args+=(--timeout-keep-alive 900)
@@ -137,9 +137,11 @@ mounts=(-v "$MODEL:$MODEL:ro")
 if on_docker_host "test -e '$HOST_LIBIONIC'"; then
     mounts+=(-v "$HOST_LIBIONIC:/host-libionic/libionic.so:ro")
 fi
-# JIT caches persist per role and image in a named volume.
+# JIT caches persist per role and image in a named volume. ATOM's compile cache
+# in it does not key on --max-num-batched-tokens (a stale one fails the prefill
+# in assert_size_stride), so the volume name carries that too.
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
-mounts+=(-v "$CTR-cache-$role-${image_id:7:12}:/root/.cache")
+mounts+=(-v "$CTR-cache-$role-${image_id:7:12}-mbt$mbt:/root/.cache")
 # AITER builds its native modules inside its package, not under /root/.cache.
 # A new named volume starts as a copy of the image's directory.
 mounts+=(-v "$CTR-aiter-jit-$role-${image_id:7:12}:/app/aiter-test/aiter/jit")

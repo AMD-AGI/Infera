@@ -109,8 +109,14 @@ class TestAtomMooncakeProtocol:
             },
         ):
             handoff = self.proto.extract_handoff(payload)
-            out = self.proto.annotate_decode(body, self.p, self.d, room_id=1, prefill_handoff=handoff)
+            out = self.proto.annotate_decode(
+                body, self.p, self.d, room_id=1, prefill_handoff=handoff
+            )
             assert out["kv_transfer_params"]["prompt_token_ids"] == [5, 6, 7]
+        # Anything but a non-empty list of ids is left out, as the Rust router does.
+        for ids in ([], ["a"], [1, -2], "1 2"):
+            payload = {"kv_transfer_params": self._prefill_response_kv(), "prompt_token_ids": ids}
+            assert "prompt_token_ids" not in self.proto.extract_handoff(payload)
 
     def test_extract_handoff_missing_kv_raises(self):
         with pytest.raises(ValueError, match="kv_transfer_params"):

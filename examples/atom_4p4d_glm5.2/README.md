@@ -21,8 +21,8 @@ bash engine/down.sh          # save logs, remove containers, wait for VRAM to dr
 ## Image
 
 The engines need the ATOM nightly `661ef766` (`rocm/atom-dev:nightly_202610131505`)
-plus an ATOM DCP fix and an LMCache fix, and the router needs Infera's
-`--session-affinity`. Build the image from the repo root:
+plus Infera's ATOM, aiter and LMCache patches for it, and the router needs
+Infera's `--session-affinity`. Build the image from the repo root:
 
 ```bash
 docker build -f deploy/docker/Dockerfile.atom \
@@ -36,11 +36,16 @@ docker build -f deploy/docker/Dockerfile.atom \
   [`deploy/docker/patches/atom_nightly/`](../../deploy/docker/patches/atom_nightly/)
   instead of the release-base `patches/atom/`: the ATOM sparse DCP padded-row
   fix (without it the prefill hits a `Memory access fault` under long-prefix
-  load), the LMCache ROCm pinned-pool fix (the CPU tier becomes GTT, gotcha 4),
-  the AITER kernel prebuild of gotcha 12 and the `protobuf<7` pin the nightly's
-  OpenTelemetry needs. This nightly already has the DCP MTP-draft and LMCache
-  lookup-pin fixes the previous image patched in.
-  A drifted anchor fails the build.
+  load), the LMCache ROCm pinned-pool fix (the LMCache tier becomes GTT,
+  gotcha 4), the decode patches (no gen-2 GC stalls in ATOM's API process, the
+  DCP exchanges on aiter's custom IPC kernels, tuned MLA bmm configs and FP8
+  GEMM rows), the AITER kernel prebuild of gotcha 12 and the `protobuf<7` pin
+  the nightly's OpenTelemetry needs. A drifted anchor fails the build.
+- The API-process GC fix leaves ATOM's per-request context gauges
+  (`atom:prefill_request_context_tokens`, `atom:decode_request_context_tokens`)
+  off: each request added a series that every `/metrics` render re-read. Set
+  `ATOM_METRICS_PER_REQUEST_CONTEXT=1` in `PREFILL_EXTRA_ENV` /
+  `DECODE_EXTRA_ENV` to record them, for example for profiling.
 - `BUILD_MOONCAKE=0` keeps the base's Mooncake 0.3.13. That build routes
   same-host targets by upstream `MC_DISABLE_HIP`, which this kit sets (gotcha 1).
 - The default `Dockerfile.atom` build (ATOM 0.1.4 base) is not validated with this
@@ -82,12 +87,13 @@ The settings are those of ATOM's GLM-5.2 AgentX recipe
 (`/app/ATOM/recipes/Agentic-GLM-5.2.md` in the image) and of InferenceX PR
 #4045's 1P1D (`MC_NUM_QP_PER_EP=1` on every Mooncake peer, `TOPK_FORCE_PATH=one`,
 `--timeout-keep-alive 900`, the Store). The decode's memory settings give it
-~196K KV blocks instead of ~156K at 0.90 / 16384 with separate communicators:
-AgentX lanes reuse their whole context every turn, and once C × mean prompt
-length outgrows the decode's KV pool its prefix hits collapse, the prefill
-re-sends whole prompts and TTFT explodes (about C85 before, C105 now). Not
-taken from them: `OFFLOAD_PROFILE=1` (logging only), the decode's graphs (here
-every 4 up to 2 × CONC, there every 8 up to 256) and BF16 MTP experts
+~203K KV blocks (~196K with BF16 MTP experts) instead of ~160K at
+0.90 / 16384 with separate communicators: AgentX lanes reuse their whole
+context every turn, and once C × mean prompt length outgrows the decode's KV
+pool its prefix hits collapse, the prefill re-sends whole prompts and TTFT
+explodes (about C85 before, C105 now). Not taken from them: `OFFLOAD_PROFILE=1`
+(logging only), the decode's graphs (here every 4 up to 2 × CONC, there every 8
+up to 256), its max-num-seqs (here 2 × CONC, there 512) and BF16 MTP experts
 (`MTP_EXPERTS`).
 
 MTP depth follows `CONC`: K3 at CONC ≥ 48, K4 below. The Store
@@ -108,63 +114,75 @@ throughput per GPU is over all 8 GPUs.
 
 `PREFILL_PP=1` starts the prefill as TP4 + DCP4 with CUDA graphs up to
 2 × CONC, as the decode. It was validated with these settings, which are not
-the defaults; set them with it:
+the defaults, and with the LMCache tier; set them with it:
 
 ```bash
 PREFILL_PP=1 PREFILL_MEM_UTIL=0.90 PREFILL_MAX_BATCHED_TOKENS=16384 BLOCK_SIZE=64 \
-  OFFLOAD_MIN_LOAD_TOKENS=8192 PREFILL_SEND_WORKERS= bash engine/up.sh
+  OFFLOAD_MIN_LOAD_TOKENS=8192 PREFILL_SEND_WORKERS= PREFILL_CPU_TIER=lmcache bash engine/up.sh
 ```
 
 Each DCP rank then writes to one decode rank without staging, and the LMCache
 lookup covers the four DCP ranks, each holding a distinct KV shard. Under AgentX
-load it is slower than the PP prefill (reference numbers below).
+load it is slower than the PP prefill (reference numbers below). It has not
+been run with the Store or with the current decode settings.
 
 ## Validation status
 
-The image above, on one 8×MI355X node:
+The image above with the defaults of `env.sh`, on 8×MI355X nodes:
 
-| item | PP prefill (default) | DCP prefill |
+| item | PP prefill, Store (default) | PP prefill, `PREFILL_CPU_TIER=lmcache` |
 |---|---|---|
 | correctness (`smoke.py`, real MTP acceptance) | **passed**, 6/6 | **passed**, 6/6 |
-| GSM8K (200 questions) | **0.98** (16 send workers) | **0.975** |
-| AgentX, 3600 s | **passed** at C64 and C96, no transfer failure | **passed** at C48, C64, C96, no `Memory access fault` |
+| GSM8K (200 questions) | **0.970** | **0.985** |
+| AgentX, 3600 s | **passed** at C56, C72, C96, C112, 0 errors | **passed** at C56, C72, C96, C112, 0 errors |
+
+The DCP prefill passed smoke 6/6, GSM8K 0.975 and AgentX at C48, C64 and C96
+with an image without the decode patches, the LMCache tier and the decode at
+0.90 / 16384 with separate communicators; it has not been re-run since.
 
 On shutdown each PP stage logs a few `TypeError` tracebacks from aiter
 `shm_broadcast`; none appear while serving.
 
 ## Reference numbers
 
-These are the previous defaults: Python router, decode at 0.90 / 16384 with
-separate communicators, 4 send workers, LMCache.
+AgentX agentic-coding replay with the defaults above, one cold start per point,
+warm-up, 3600 s measured, forced MTP acceptance on both legs (AL 2.99 with K3),
+`SESSION_AFFINITY=off` and router `--breaker-failure-threshold 0`, as InferenceX
+PR #4045's runs. The client was InferenceX CI's (InferenceX `288471b3`,
+agentx-harness 1.0.11), not `agentx.sh`'s `918524ff`. Throughput is per GPU
+over all 8 GPUs and counts cache-hit input tokens; interactivity is the inverse
+of P90 inter-token latency. C56 and C96 ran on one node, C72 and C112 on
+another.
 
-AgentX agentic-coding replay, InferenceX `918524ff`, cold start per point, 10
-warm-up requests per lane, 3600 s measured, forced MTP acceptance (`MTP_AL=2.99`
-with K3). Throughput is per GPU over all 8 GPUs and counts cache-hit input
-tokens; TTFT in s, ITL in ms.
+| CONC | input tok/s/GPU | output tok/s/GPU | P90 interactivity tok/s/user | TTFT mean / p50 / p90 s | ITL p50 / p90 ms | prefill hit GPU / CPU / total % | decode hit % | requests / errors |
+|---:|---:|---:|---:|---|---|---|---:|---|
+| 56 | 33578 | 249.0 | 66.1 | 1.12 / 0.84 / 2.00 | 13.62 / 15.12 | 86.0 / 10.2 / 96.2 | 92.6 | 7117 / 0 |
+| 72 | 40844 | 327.4 | 53.6 | 1.51 / 1.05 / 2.68 | 16.11 / 18.64 | 76.4 / 18.5 / 94.9 | 85.5 | 9627 / 0 |
+| 96 | 47444 | 393.4 | 46.8 | 2.42 / 1.50 / 4.72 | 19.25 / 21.35 | 65.6 / 28.2 / 93.8 | 60.4 | 11482 / 0 |
+| 112 | **48859** | 416.6 | 43.9 | 4.42 / 2.86 / 9.19 | 20.52 / 22.76 | 59.9 / 33.1 / 93.0 | 32.1 | 12062 / 0 |
 
-PP and DCP prefill on the same node (crsuse2-m2m-140), image
-`infera-atom:nightly-202610131505-pr198fix`, one run per point:
+The decode hit falls from C96 on, as C × prompt length outgrows the decode's
+KV pool; the Store's RDMA loads do not block the prefill, so throughput still
+rises to C112. With `PREFILL_CPU_TIER=lmcache` (other nodes) C56 and C72 match
+(33392 / 40326), but C96 and C112 drop to 30690 / 23321: LMCache loads
+synchronously and takes about half of each PP stage's time there.
 
-| CONC | prefill | input tok/s/GPU | output tok/s/GPU | TTFT p50 / p90 / p99 | ITL p50 / p90 | prefill hit GPU / CPU / total % | errors |
+The previous defaults (Python router, decode at 0.90 / 16384 with separate
+communicators, 4 send workers, LMCache, an image without the decode patches)
+compared the two prefills on one node, with `agentx.sh`:
+
+| CONC | prefill | input tok/s/GPU | output tok/s/GPU | TTFT p50 / p90 / p99 s | ITL p50 / p90 ms | prefill hit GPU / CPU / total % | errors |
 |---:|---|---:|---:|---|---|---|---|
 | 64 | PP4 | **33389.60** (+8.6%) | 262.13 | 2.09 / 5.17 / 15.74 | 16.46 / 17.59 | 77.7 / 17.2 / 95.0 | 1 / 7682 |
 | 64 | DCP | 30739.05 | 242.78 | 3.23 / 17.81 / 49.41 | 16.03 / 17.30 | 79.8 / 16.7 / 96.5 | 1 / 7024 |
 | 96 | PP4 | **30115.94** (+44.1%) | 274.59 | 24.98 / 51.53 / 76.31 | 16.75 / 18.74 | 34.6 / 52.0 / 86.6 | 0 / 8142 |
 | 96 | DCP | 20902.07 | 193.03 | 51.39 / 103.55 / 161.52 | 13.75 / 16.48 | 16.3 / 77.6 / 93.9 | 0 / 5664 |
 
-DCP prefill, image above, C48 and C64 on two different nodes:
-
-| CONC | MTP K / AL | total tok/s/GPU | output tok/s/GPU | input tok/s/GPU | P90 interactivity tok/s/user | TTFT p50 / p90 / p99 s | errors / tail cancels |
-|---:|---|---:|---:|---:|---:|---|---|
-| 48 | 3 / 2.99 | 26325.24 | 183.30 | 26141.94 | 66.52 | 1.759 / 7.662 / 24.695 | 2 / 4 |
-| 64 | 3 / 2.99 | 30820.57 | 241.22 | 30579.35 | 56.83 | 3.114 / 17.256 / 47.358 | 1 / 27 |
-
-Interactivity is the inverse of P90 inter-token latency.
-
-To reproduce a point (cold start each time):
+To run a point (cold start each time) with the settings of the first table:
 
 ```bash
-CONC=64 MTP_AL=2.99 bash engine/up.sh    # CONC < 48: MTP_AL=3.33 (K4)
+CONC=96 MTP_AL=2.99 SESSION_AFFINITY=off ROUTER_EXTRA_ARGS="--breaker-failure-threshold 0" \
+  PREFILL_EXTRA_ARGS="--spec-decode-acceptance-length 2.99" bash engine/up.sh   # CONC < 48: 3.33 (K4)
 bash engine/agentx/agentx.sh             # DURATION=3600 WARMUP_PER_LANE=10 by default
 bash engine/down.sh
 ```
@@ -214,7 +232,7 @@ base + PP stage on the prefill and base + TP rank on the decode, so 21301-21304
 and 21311-21314.
 
 **7. Router backend and transports.** `ROUTER_BACKEND` picks the Rust router
-(default) or the Python one (used for the reference numbers below); both route
+(default) or the Python one (used for the previous-defaults numbers); both route
 ATOM PD (`atom-mooncake`) and hand the prefill's prompt token ids to the decode,
 so the decode does not tokenize the prompt again. ATOM speaks neither NATS requests nor NATS KV events, so
 `up.sh` passes `--request-transport http --kv-event-transport zmq`. `kv-aware`
@@ -224,9 +242,9 @@ would need engine KV events, so the policy is `round-robin`.
 `prefill`) is passed as `--session-affinity`: requests with an `x-session-id`
 keep their session's prefill (`both`: and decode), others are round-robin.
 `agentx.sh` has AIPerf send it (`AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID`).
-The router also forwards `x-session-id` and `x-correlation-id` to both legs.
-With a single prefill and decode it only carries the headers through; it
-matters once more instances are added.
+The Python router also forwards `x-session-id` and `x-correlation-id` to both
+legs; the Rust router reads them for placement only. With a single prefill and
+decode, affinity has nothing to choose; it matters once more instances are added.
 Tune the idle TTL (default 3600 s) through `ROUTER_EXTRA_ARGS` (`--session-affinity-ttl-seconds`). `SESSION_AFFINITY=off`
 is the stateless alternative.
 
@@ -241,8 +259,11 @@ this ATOM; the PP prefill stages per decode DCP rank instead (see the recipe).
 
 **11. Cold start takes about 10 minutes**, mostly weights, AITER/FlyDSL JIT and
 graph capture. JIT caches persist in per-role, per-image Docker volumes
-`<CTR>-cache-<role>-<image-id>` and `<CTR>-aiter-jit-<role>-<image-id>`; remove
-them with `docker volume rm` when done with an image.
+`<CTR>-cache-<role>-<image-id>-mbt<N>` and `<CTR>-aiter-jit-<role>-<image-id>`;
+remove them with `docker volume rm` when done with an image. `<N>` is the leg's
+`--max-num-batched-tokens`: ATOM's compile cache does not key on it, and the
+prefill fails at startup in `assert_size_stride` on artifacts compiled for
+another value.
 
 **12. A JIT compile on live traffic stalls the prefill.** The base does not
 prebuild the AITER varlen attention that chunked-MLA prefill calls once a prompt
@@ -254,20 +275,21 @@ archs (gfx942) or paths. AITER keeps such modules in `/app/aiter-test/aiter/jit`
 not `/root/.cache`, so `worker.sh` persists that directory too, for any other
 kernel compiled at run time.
 
-**13. The PP prefill needs fewer Mooncake send workers.** With ATOM's default
-16 send workers per stage, every AgentX run on MI355X (crsuse2-m2m-140) failed
-within its first four requests: one RDMA write from a stage to one decode rank
-never completed (`staged-mla` / `landed-mla RDMA chunk error -1 ... Mooncake's
-sync timeout`, Mooncake `CQ completion timeout diagnostic`, then `Failed to poll
-CQ` and ionic `wqe is not posted` without end). Every later transfer to that
-rank failed, so every request did. It hit `ionic_4` and `ionic_5`, with forced
-and with real MTP acceptance. One send worker removed the hang, but a 443k-token
-prompt then missed ATOM's fixed 120 s transfer deadline (`PD_TRANSFER_DEADLINE_S`,
-queueing included). Four workers ran C64 and C96 without a transfer failure.
-All of that was with Mooncake's default two QPs per endpoint. ATOM's offload
+**13. The PP prefill's 16 send workers need one QP per endpoint.** With
+Mooncake's default two QPs per endpoint and ATOM's default 16 send workers per
+stage, every AgentX run on one MI355X node failed within its first four
+requests: one RDMA write from a stage to one decode rank never completed
+(`staged-mla` / `landed-mla RDMA chunk error -1 ... Mooncake's sync timeout`,
+Mooncake `CQ completion timeout diagnostic`, then `Failed to poll CQ` and ionic
+`wqe is not posted` without end). Every later transfer to that rank failed, so
+every request did. It hit `ionic_4` and `ionic_5`, with forced and with real MTP
+acceptance. One send worker removed the hang, but a 443k-token prompt then
+missed ATOM's fixed 120 s transfer deadline (`PD_TRANSFER_DEADLINE_S`, queueing
+included); four ran C64 and C96 without a transfer failure. ATOM's offload
 README reports the same symptom for concurrent reads at two QPs, and ATOM's CI
 and InferenceX PR #4045 run the 16 workers with `MC_NUM_QP_PER_EP=1`, which the
-kit now sets on every Mooncake peer; `PREFILL_SEND_WORKERS=4` is the fallback.
+kit now sets on every Mooncake peer: 16 workers then ran 10 deployments (C56 to
+C112) without a transfer failure. `PREFILL_SEND_WORKERS=4` remains the fallback.
 The DCP prefill, whose ranks each write to one decode rank without staging,
 never showed the hang.
 
@@ -277,15 +299,19 @@ which the ionic NICs only accept when backed by huge pages. `store.sh` gets them
 without root through glibc's THP malloc (`GLIBC_TUNABLES=glibc.malloc.hugetlb=1`,
 THP `enabled` = `madvise` or `always`) and prints each owner's `AnonHugePages`;
 a fragmented node can leave an owner on 4 KiB pages, and it then fails to mount.
-Each NUMA node needs `STORE_OWNER_GB` free plus the engines' host memory; lower
-it or use `PREFILL_CPU_TIER=lmcache` on smaller hosts. The prefill refuses to
-start when its startup probe reads back other bytes than it wrote ("the chunk
-read back differs"): on the crusoe MI355X VMs every Store read into HBM
-completed without moving data (puts from HBM and transfers to host buffers were
-fine, and so is the P→D path), with peer memory and DMA-BUF alike; use
-`PREFILL_CPU_TIER=lmcache` there. The prefill needs one
-Store load worker (`OFFLOAD_LOAD_WORKERS=1`): more hung its pipeline at C96 in
-ATOM's tests.
+Each NUMA node needs `STORE_OWNER_GB` free plus the engines' host memory, and
+`store.sh` refuses to start when THP is off or a NUMA node has less than
+`STORE_OWNER_GB` free. Page cache does not count as free: on a node where it
+holds most of the memory (a large weights read fills it), the owners reclaim it
+slowly or end up on 4 KiB pages, so drop it first (as root,
+`sync; echo 1 > /proc/sys/vm/drop_caches`, as InferenceX PR #4045's host setup
+does). Otherwise lower `STORE_OWNER_GB` or use `PREFILL_CPU_TIER=lmcache`. The
+prefill refuses to start when its startup probe reads back other bytes than it
+wrote ("the chunk read back differs"): on some MI355X VM hosts every Store read
+into HBM completed without moving data (puts from HBM and transfers to host
+buffers were fine, and so is the P→D path), with peer memory and DMA-BUF alike;
+use `PREFILL_CPU_TIER=lmcache` there. The prefill needs one Store load worker
+(`OFFLOAD_LOAD_WORKERS=1`): more hung its pipeline at C96 in ATOM's tests.
 
 ## What this kit exposes on the network
 

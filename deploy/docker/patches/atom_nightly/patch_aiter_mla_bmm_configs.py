@@ -20,7 +20,9 @@ This adds an M_BOUNDS list with one bucket per decode M (multiples of 4 up to
 64, of 16 up to 512) and the fastest config for each from a sweep on MI355X
 (72 candidates, CUDA-graph timing, output checked against the stock config):
 at graph 40 q-up 19.1 -> 8.4 us and v-up 15.2 -> 8.1 us, ~1.4 ms per decode
-step over 78 layers. The stock M_GEQ_*/any entries still serve M > 512.
+step over 78 layers. The stock M_GEQ_*/any entries still serve M > 512. The
+sweep starts at M 16: smaller M (graphs 1-3, drafts below 16) takes the M 16
+row, BLOCK_SIZE_M 16 as the stock M_LEQ_16 it replaces.
 
 Written against aiter 9205e1059 in rocm/atom-dev:nightly_202610131505. Strict:
 a file that no longer holds the stock buckets fails the build.
@@ -49,6 +51,7 @@ STOCK_LEQ_256 = {
     "cache_modifier": ".cg",
 }
 # (N, K): [(M, BLOCK_SIZE_M, BLOCK_SIZE_N, num_warps, waves_per_eu, cache_modifier)]
+# fmt: off
 TUNED = {
     (512, 192): [
         (16, 16, 128, 4, 2, None), (20, 16, 128, 4, 2, None), (24, 16, 128, 4, 2, None),
@@ -93,6 +96,7 @@ TUNED = {
         (496, 16, 256, 4, 2, None), (512, 64, 256, 8, 1, None),
     ],
 }
+# fmt: on
 # Above 512 the stock M_GEQ_* / any entries keep serving (prefill sizes).
 UPPER_BOUNDS = [1024, 2048, 4096, 8192]
 

@@ -54,11 +54,6 @@ export DECODE_GPUS="${DECODE_GPUS:-4,5,6,7}"
 # 2 x CONC (also of a DCP prefill); restart the engines to change it.
 export CONC="${CONC:-48}"
 
-# Spacing of the CUDA-graph batch sizes above 8. A batch runs in the next
-# larger graph, so a finer step pads fewer rows per decode step at the cost of
-# more graphs (capture time and graph memory).
-export DECODE_GRAPH_STEP="${DECODE_GRAPH_STEP:-4}"
-
 # MTP draft depth: K3 at CONC >= 48, K4 below, as in the reference runs.
 export MTP_K="${MTP_K:-$((CONC >= 48 ? 3 : 4))}"
 
@@ -76,16 +71,15 @@ export MTP_EXPERTS="${MTP_EXPERTS:-mxfp4}"
 # Memory, chunk budgets, block size, layer split and offload load length below
 # follow ATOM's GLM-5.2 AgentX recipe (/app/ATOM/recipes/Agentic-GLM-5.2.md in
 # the image) and InferenceX PR #4045. The decode's 0.94 and 2048, with the
-# shared communicator groups worker.sh sets, give it ~25% more KV blocks, which
-# keeps the agents' prefixes on the decode up to about C100 (README "The recipe").
+# shared communicator groups worker.sh sets, give it ~27% more KV blocks, which
+# keeps the agents' prefixes on the decode up to about C105 (README "The recipe").
 export PREFILL_MEM_UTIL="${PREFILL_MEM_UTIL:-0.85}"
 export DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-0.94}"
 
 # Chunk budgets (--max-num-batched-tokens). ATOM's compile cache
-# (/root/.cache/atom, kept in the JIT cache volumes) does not key on the
-# prefill's: after a change, start with fresh volumes (another CTR), or the
-# prefill fails at startup in assert_size_stride. MTP decode batches stay far
-# below 2048 tokens.
+# (/root/.cache/atom) does not key on them, so worker.sh keeps it in a volume per
+# value (README gotcha 11). A full decode step takes (MTP_K + 1) x 2 x CONC
+# tokens, 896 at CONC 112; up.sh refuses a decode budget below that.
 export PREFILL_MAX_BATCHED_TOKENS="${PREFILL_MAX_BATCHED_TOKENS:-8192}"
 export DECODE_MAX_BATCHED_TOKENS="${DECODE_MAX_BATCHED_TOKENS:-2048}"
 
@@ -138,9 +132,12 @@ export ROUTER_BACKEND="${ROUTER_BACKEND:-rust}"
 # Extra flags, space-separated, appended last.
 export PREFILL_EXTRA_ARGS="${PREFILL_EXTRA_ARGS:-}"
 export DECODE_EXTRA_ARGS="${DECODE_EXTRA_ARGS:-}"
-# Extra decode container environment, space-separated KEY=VALUE pairs.
-export DECODE_EXTRA_ENV="${DECODE_EXTRA_ENV:-}"
 export ROUTER_EXTRA_ARGS="${ROUTER_EXTRA_ARGS:-}"
+# Extra engine container environment, space-separated KEY=VALUE pairs, appended
+# last; e.g. ATOM_METRICS_PER_REQUEST_CONTEXT=1 for ATOM's per-request context
+# gauges, which the image leaves off (README "Image").
+export PREFILL_EXTRA_ENV="${PREFILL_EXTRA_ENV:-}"
+export DECODE_EXTRA_ENV="${DECODE_EXTRA_ENV:-}"
 
 # ---------------------------------------------------------------------------
 # 3. Ports and names

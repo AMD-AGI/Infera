@@ -162,9 +162,10 @@ class AtomMooncakeProtocol:
         # ATOM decode takes kv_transfer_params['prompt_token_ids'] as the
         # prompt (and drops it before the engine), skipping its own template
         # rendering and tokenization: ~0.25 s per request at 130K tokens. A
-        # prefill that did not return them leaves decode tokenizing as before.
+        # prefill that did not return them leaves decode tokenizing as before;
+        # so does an empty list or a negative id, which decode would reject.
         ids = prompt_from_chunk(prefill_response_payload)
-        if ids is not None:
+        if ids and min(ids) >= 0:
             handoff["prompt_token_ids"] = ids
         return handoff
 

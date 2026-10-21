@@ -49,7 +49,7 @@ PATCH = {
                 "                        # this queue. Queued anyway, every finished Sequence\n"
                 "                        # stayed reachable and each gen-2 GC pass grew.\n"
                 "                        if self._flush_stream_batch_fn is None or getattr(\n"
-                "                            self, \"_asyncio_mode\", False\n"
+                '                            self, "_asyncio_mode", False\n'
                 "                        ):\n"
                 "                            self.outputs_queue.put_nowait(seqs)\n",
             ),
@@ -64,7 +64,7 @@ PATCH = {
                 "    # infera: per-request context gauges are opt-in. Each request adds a\n"
                 "    # series that is never removed, and every /metrics render of the API\n"
                 "    # process re-reads all of them (render time and GC grow with requests).\n"
-                "    _PER_REQUEST = os.environ.get(\"ATOM_METRICS_PER_REQUEST_CONTEXT\") == \"1\"\n"
+                '    _PER_REQUEST = os.environ.get("ATOM_METRICS_PER_REQUEST_CONTEXT") == "1"\n'
                 "\n"
                 "    def _record_request_context(self, metric, req_id, seq, tokens):\n"
                 "        if not self._PER_REQUEST:\n"

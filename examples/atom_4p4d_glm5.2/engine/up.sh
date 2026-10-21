@@ -24,6 +24,10 @@ case "$PREFILL_CPU_TIER" in
     store | lmcache | off) ;;
     *) die "PREFILL_CPU_TIER must be store, lmcache or off, not $PREFILL_CPU_TIER" ;;
 esac
+# A full decode step, 2 x CONC sequences of MTP_K + 1 tokens, must fit one
+# batch; otherwise every step is cut short of max-num-seqs.
+(((MTP_K + 1) * 2 * CONC <= DECODE_MAX_BATCHED_TOKENS)) ||
+    die "DECODE_MAX_BATCHED_TOKENS=$DECODE_MAX_BATCHED_TOKENS is below (MTP_K + 1) x 2 x CONC = $(((MTP_K + 1) * 2 * CONC))"
 for gpus in "$PREFILL_GPUS" "$DECODE_GPUS"; do
     [[ "$gpus" =~ ^[0-9]+(,[0-9]+){3}$ ]] || die "each leg needs exactly four GPUs, got $gpus"
 done

@@ -17,17 +17,25 @@ candidates, MI355X) for M 144..240; only the ones at least 5% faster than the
 production path at the same shape (the tuner's --run_config, measured on the
 same node) are kept, since for M not a multiple of 32 the tuned kernel is often
 slower than the padded one. They go in as one more model_configs table, which
-aiter merges with the others at startup (none of these keys exist there).
+aiter merges with the others at startup. On a key that two tables share
+(gfx, cu_num, M, N, K, q_dtype_w) aiter raises at engine start
+(update_config_files), so the build fails instead when the base already holds
+one of these keys: drop or re-cut the rows then.
 
 Written against aiter 9205e1059 in rocm/atom-dev:nightly_202610131505.
 """
 
+import csv
+import glob
 import importlib.util
+import io
 import os
 import sys
 
 TAG = "aiter-patch glm52-decode-gemm-rows"
 REL = "configs/model_configs/a8w8_bpreshuffle_tuned_gemm_glm5.2_decode.csv"
+# The key aiter de-duplicates the merged a8w8_bpreshuffle tables on.
+KEY = ("gfx", "cu_num", "M", "N", "K", "q_dtype_w")
 CSV = """\
 gfx,cu_num,M,N,K,q_dtype_w,libtype,kernelId,splitK,us,kernelName,tflops,bw,errRatio
 gfx950,256,160,2048,2048,torch.float8_e4m3fn,flydsl,2371,0,5.6743,flydsl_bpreshuflle_32x32x512_F8_F8_B16_1x4x4x2_default,236.54,912.42,0.0
@@ -60,14 +68,44 @@ gfx950,256,240,7168,512,torch.float8_e4m3fn,flydsl,586,0,5.4215,flydsl_bpreshufl
 """
 
 
+def shared_keys(root: str) -> list[str]:
+    """The rows of CSV whose key a table aiter merges them with already has."""
+    ours = [tuple(row[k] for k in KEY) for row in csv.DictReader(io.StringIO(CSV))]
+    configs = os.path.join(root, "configs")
+    # The tables aiter merges: the default one and this glob under model_configs/.
+    tables = glob.glob(os.path.join(configs, "a8w8_bpreshuffle_tuned_gemm.csv"))
+    tables += sorted(
+        glob.glob(os.path.join(configs, "model_configs", "*a8w8_bpreshuffle_tuned_gemm*.csv"))
+    )
+    found = []
+    for table in tables:
+        name = os.path.basename(table)
+        if "untuned" in name or table == os.path.join(root, REL):
+            continue
+        with open(table, encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            # aiter fills a missing gfx from cu_num; compare on the columns present.
+            cols = [i for i, k in enumerate(KEY) if k in (reader.fieldnames or ())]
+            have = {tuple(row[KEY[i]].strip() for i in cols) for row in reader}
+        found += [
+            f"{name} M={k[2]} N={k[3]} K={k[4]}" for k in ours if tuple(k[i] for i in cols) in have
+        ]
+    return found
+
+
 def main() -> int:
     spec = importlib.util.find_spec("aiter")
     if spec is None or not spec.submodule_search_locations:
         print(f"[{TAG}] FAILED: package 'aiter' not found")
         return 1
-    path = os.path.join(list(spec.submodule_search_locations)[0], REL)
+    root = list(spec.submodule_search_locations)[0]
+    path = os.path.join(root, REL)
     if not os.path.isdir(os.path.dirname(path)):
         print(f"[{TAG}] FAILED: {os.path.dirname(path)} not found")
+        return 1
+    shared = shared_keys(root)
+    if shared:
+        print(f"[{TAG}] FAILED: aiter already has these keys: {'; '.join(shared)}")
         return 1
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:

@@ -8,11 +8,12 @@
 
 When the DCP merge also quantizes for o_proj (PBM + per-token FP8, the decode
 of the GLM-5.2 kit), cp_lse_a2a runs pack -> all-to-all -> unpack + combine +
-quant. With patch_aiter_custom_alltoall_combine.py the last two are one aiter
-kernel that reads each rank's partials straight from the peers: the pack writes
-the split layout that kernel reads (data, then the fp32 LSE), and the unpack
-launch and the received copy go away. Where the aiter kernel does not apply
-(no custom communicator, other dtypes or sizes) the path is unchanged.
+quant. With patch_aiter_custom_alltoall.py the last two are one aiter kernel
+(alltoall_combine_quant) that reads each rank's partials straight from the
+peers: the pack writes the split layout that kernel reads (data, then the fp32
+LSE), and the unpack launch and the received copy go away. Where the aiter
+kernel does not apply (no custom communicator, other dtypes, sizes or world
+sizes) the path is unchanged.
 
 Written against ATOM 661ef766 in rocm/atom-dev:nightly_202610131505, on top of
 patch_atom_dcp_custom_a2a.py. Strict: see anchor_patch.py.

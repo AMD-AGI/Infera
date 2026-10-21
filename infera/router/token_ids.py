@@ -106,8 +106,8 @@ def supports_streaming_ids(engine: EngineType | None, path: str) -> bool:
     chat request into a 400. Its completions endpoint is fine, and vLLM
     supports both.
 
-    ATOM is left out: it is not known to accept the field, and an engine that
-    errors on an unknown parameter would fail requests that work today.
+    ATOM is left out: it rejects the field on a streaming request. Its PD
+    prefill leg asks for the ids without streaming (atom_mooncake).
     """
     if engine == EngineType.VLLM:
         return True

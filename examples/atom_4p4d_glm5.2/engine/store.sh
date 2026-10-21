@@ -5,12 +5,25 @@
 # Start the Mooncake Store the prefill offloads its KV to (PREFILL_CPU_TIER=store),
 # laid out as InferenceX PR #4045's 1P1D: a master on NUMA node 1 and two owners,
 # owner i holding STORE_OWNER_GB of NUMA node i's DRAM, both registered on the
-# prefill's rails. Waits until both owners serve. Normally called by up.sh.
+# prefill's rails. Checks THP and the free memory of both NUMA nodes first, and
+# waits until both owners serve. Normally called by up.sh.
 #
 # Usage: bash engine/store.sh
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=common.sh
 source "$KIT/engine/common.sh"
+
+# Each owner faults in its segment as 2 MiB pages, which needs THP and that much
+# free memory on its NUMA node (gotcha 14): fail now, not minutes into the mount.
+thp="$(on_docker_host 'cat /sys/kernel/mm/transparent_hugepage/enabled')" ||
+    die "cannot read the THP setting on the docker host"
+[[ "$thp" != *"[never]"* ]] || die "THP is off on the docker host ($thp); the Store owners need madvise or always"
+for i in 0 1; do
+    free_gb="$(on_docker_host "awk '/MemFree/ {print int(\$4 / 1048576)}' /sys/devices/system/node/node$i/meminfo")" ||
+        die "cannot read the free memory of NUMA node $i on the docker host"
+    ((free_gb >= STORE_OWNER_GB)) ||
+        die "NUMA node $i has $free_gb GiB free, its Store owner takes STORE_OWNER_GB=$STORE_OWNER_GB: drop the page cache or lower STORE_OWNER_GB (README gotcha 14)"
+done
 
 # Bind a process's CPUs and memory to one NUMA node; set_mempolicy needs SYS_NICE.
 numa_exec=/app/ATOM/.github/scripts/atomesh/numa_exec.py
