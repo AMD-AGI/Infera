@@ -272,6 +272,11 @@ top-k v1，所以也不是 top-k v2 引入的。证据摘录 `evidence/c32-prefi
 03:13 手动结束串行并下线（prefill 1 第一次 stop 又"收不到退出事件"，改过的 down.sh 继续并清干净）。这是 v0.5.22 上第一次见到；
 前 4 个点（共约 5 小时计分）没有出现。
 
+**03:27 重跑 2P1D C32，之后 1P(TP4)+1D(TP8) C32**（用户选"两个都跑"）。1P1D 用实验副本 kit `v5-1p`（只改 `up.sh` 不起 prefill 1、
+router 期望 1 prefill + 1 decode，`agentx.sh` `PREFILL_NUM_WORKERS=1` → 按 12 卡计），日志 `perf-1p1d/`。两次都**不挂** ROCm debug
+agent，与前 4 个点配置一致：AUS harness 里"lean mode … ~1.00x"只是一行代码注释，没有找到有记录的开 / 关对比，是否影响性能未验证；
+是否在之后的运行里挂上待用户决定。
+
 10-21 02:21 起用本地定时器每 15 分钟唤醒做一次人工巡检（用户要求巡检不中断，同时可以讨论下一步）。
 
 **干扰检查（15:36）**：两节点 GPU 显存为 0；138 上他人容器 `dev_xb`、`yihou-expert8-tools-138` CPU ≈ 0；138 有一个
