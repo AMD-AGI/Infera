@@ -312,6 +312,11 @@ agent，与前 4 个点配置一致：AUS harness 里"lean mode … ~1.00x"只�
 - **与 NVIDIA**：B300 单机 4 卡 TP4/DPA C48 是 42.0k @ 38.7、C32 37.4k @ 44.9，同交互下比 ours C176 高约 18%；GB300 PD（3P(TP1)+1D(TP8/EP8/DPA)
   C264）63.6k @ 89.4，高一个量级的交互与近 2 倍吞吐。
 
+**07:56 起 1P(TP4)+1D(TP8) C64**（用户确认）：与 1P1D C32 完全相同的实验副本 `v5-1p` 与 `site-1p-gpu4567.env`（prefill 在 138 GPU 4–7），
+不挂 debug agent，整栈重启，3,600 s；日志 `perf-1p1d/c64.log`。起栈前两节点显存 0、无他人 GPU 进程（140 只有空闲的 `anandaku-blogb-monofly`）；
+138 GPU 2 仍卡住（13%），本次不用。预期：若总吞吐不变，按 12 卡约 24k @ p90 ~49，会成为 MI355X 在 p90 40–55 段的新前沿（并压过 2P1D C96）；
+单 prefill 使 TTFT 尾部上升、decode 并发略降，实际可能 22k–24k。重新打开 15 分钟一次的巡检。
+
 **当前 Pareto 点（横轴 interactivity p90，都保留 `--disable-custom-all-reduce`）**：
 
 | 配置 / 点 | 卡 | intvty p90 | tok/s/GPU | 备注 |
