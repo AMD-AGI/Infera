@@ -30,6 +30,8 @@ def bin10(ts):
 
 
 for inst in ("prefill0", "prefill1"):
+    if not (run / "logs" / f"glm52_2p1d-{inst}.log").exists():
+        continue
     last, chunk_ms, new_tok, queue = {}, [], 0, collections.defaultdict(dict)
     for ts, dp, line in lines(inst):
         m = PRE.search(line)
