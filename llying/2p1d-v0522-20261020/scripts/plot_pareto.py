@@ -16,8 +16,9 @@ report, api, out = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 ours = [  # (results dir, label, label offset in points)
     ("results/c176", "2P(TP4/DPA)+1D(TP8/DPA) C176, 16 GPU", (8, 4)),
     ("results/c128", "2P1D C128, 16 GPU", (8, -2)),
-    ("results/c96", "2P1D C96, 16 GPU", (8, -4)),
+    ("results/c96", "2P1D C96, 16 GPU", (-95, -12)),
     ("results/c64", "2P1D C64, 16 GPU", (6, -13)),
+    ("results/1p1d-c64", "1P(TP4/DPA)+1D(TP8/DPA) C64, 12 GPU", (8, 4)),
     ("results/1p1d-c32", "1P(TP4/DPA)+1D(TP8/DPA) C32, 12 GPU", (6, -13)),
 ]
 ZOOM_X, ZOOM_Y = 130, 46000
