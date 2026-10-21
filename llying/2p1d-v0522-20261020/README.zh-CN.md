@@ -11,8 +11,12 @@
 端口 stride 256、`MC_MAX_MR_SIZE`（note 8）、up.sh 等 router 列出 prefill、down.sh 删不掉时继续（2P1D 与 mixed）、两 example 的
 `--disable-custom-all-reduce` + top-k v2、InferenceX GSM8K；14:10 新增 `c7b7a35d`（ruff format `moe_mlp.py`，全仓 ruff format / check 通过）、
 `cdfb8dc4`（mixed down.sh）、`4ad59fc2`（2P1D `PREFILL_WORKERS=1` 跑 1P1D，README 全部测点 + note 9 prefill 内存访问错误 / GPU 卡死）。
-待办：C88 结果补进 README；最终分支上跑一次完整 pre-commit lint（用户确认不重建镜像、不重跑 unit / engine）；`PREFILL_WORKERS=1`
-用 example 本身起一次栈做 smoke；然后开 PR。
+15:20 进度：
+- C88 已补进 example README（`aab4cc36`，note 9 改为约 19 个 prefill 实例小时）。
+- 完整 pre-commit `--all-files` 在 138 的 `python:3.10` 一次性容器里通过：trailing-whitespace / end-of-file / check-yaml / large-files / merge-conflict / ruff format / ruff check 全过，没有改动任何文件。
+  - `cargo-fmt`、`gofmt` 跳过：分支相对 main 不改 Rust 和 operator Go，容器里也没有工具链。
+  - `check-author-email` 在容器里因为没有 git 身份退出 128；在登录节点用真实身份运行通过，分支 26 个提交的作者和提交者都是 `liyingli@amd.com`。
+- 待办：`PREFILL_WORKERS=1` 用 example 本身起一次栈做 smoke，然后开 PR。15:15 起 140 GPU 4–7 被 anandaku 的 ATOM DeepSeek-V4.1 TP4 rocprof 作业占用（约 95 GB/卡），decode 需要 140 全部 8 卡，等其结束。
 
 ## 复现所需文件
 
