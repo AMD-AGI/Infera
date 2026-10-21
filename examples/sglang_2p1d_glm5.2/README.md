@@ -106,6 +106,7 @@ tokens/s/user (InferenceX plots p90).
 | 2P1D | C128 | 16 | 26,592 | 13,202 (3.64) | 43.8 / 36.7 | 2.4 / 4.6 s | 22.8 / 27.2 ms | 95.7% (trace bound 96.4%) |
 | 2P1D | C96 | 16 | 23,515 | 11,248 (3.10) | 44.9 / 40.8 | 1.6 / 3.7 s | 22.3 / 24.5 ms | 96.1% (trace bound 96.6%) |
 | 2P1D | C64 | 16 | 18,202 | 8,158 (2.25) | 63.2 / 49.4 | 1.0 / 2.9 s | 15.8 / 20.3 ms | 96.7% (trace bound 96.9%) |
+| 1P1D | C88 | 12 | 27,453 | 9,970 (2.75) | 49.1 / 42.8 | 4.9 / 9.5 s | 20.4 / 23.4 ms | 95.8% (trace bound 96.6%) |
 | 1P1D | C64 | 12 | 23,241 | 7,831 (2.16) | 65.0 / 51.4 | 2.7 / 5.2 s | 15.4 / 19.4 ms | 96.6% (trace bound 96.9%) |
 | 1P1D | C32 | 12 | 14,153 | 3,881 (1.07) | 91.7 / 73.2 | 1.0 / 2.9 s | 10.9 / 13.7 ms | 97.4% (trace bound 97.7%) |
 
@@ -116,12 +117,15 @@ The 1P1D points ran with prefill 0 on GPUs 4-7 of the prefill node.
   seven or more requests a step takes 80-90 ms, so 2P1D from C176 down to
   C96 stays near 36-41 at p90 and C128 / C96 buy almost nothing for the
   throughput they give up.
-- **Below C88 one prefill is enough.** Prefill load follows the sessions per
+- **Up to C88 one prefill is enough.** Prefill load follows the sessions per
   prefill instance: one instance at C64 carries what each instance carries
   at 2P1D C128 (busy about 78% of the time, ranks computing about a third of
   it), and at C88 what each carries at C176. Dropping a prefill there costs
   some TTFT and gives each GPU about a quarter more throughput: 1P1D C64
-  matches 2P1D C96's throughput at 26% higher p90 interactivity.
+  matches 2P1D C96's throughput at 26% higher p90 interactivity, and 1P1D C88
+  beats 2P1D C128 and C96 on both throughput and p90 interactivity. At C88
+  the prefill is saturated (waiting requests in 74% of 10 s windows, TTFT
+  p50 4.9 s), so 2P1D takes over above it.
 
 To reproduce a point the way InferenceX does, start the whole deployment
 afresh for it:
@@ -184,7 +188,7 @@ probe then stopped both prefills. A standalone registration test reproduces it
 on the first aligned allocation and registers the same buffer in 1 GiB chunks.
 
 **9. A prefill rank can hit a GPU memory access fault (open).** Once so far,
-in about 17 prefill-instance hours, a prefill rank died with `Memory access fault
+in about 19 prefill-instance hours, a prefill rank died with `Memory access fault
 by GPU node-N ... on address 0xfffffffff000. Reason: Unknown.` while
 extending a long cached prefix by a few hundred tokens; the rest of its
 instance hung in `process_batch_result_disagg_prefill` until SGLang killed
