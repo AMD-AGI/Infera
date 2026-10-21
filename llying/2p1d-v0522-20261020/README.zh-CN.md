@@ -450,3 +450,14 @@ MTP 草稿层，与 GB300 相同）；`PP4_HICACHE=0|1` 开关；decode 不变�
   主机命中 8%–16%），届时用无效回答数和日志检查这条路径。
 - **结论：PP4 prefill（TP1 × PP4 + prefill MTP，开 / 不开 HiCache）在 v0.5.22 上正确性通过**，只需要上面那一处 `deepseek_v2.py` 补丁。
   17:45 撤栈，下一步用 example 本身（TP4/DPA + prefill MTP）补 PR #210 的 smoke 与 GSM8K，然后做 PP4 的性能测试。
+
+**17:50 起串行（`scripts/pd_correct_chain.sh` 接 `scripts/pd_perf_chain.sh`，日志 138 `$W/2p1d/chain-1021T1750.out`）**：example 正确性 → PP4 C88。
+- 显存这次约 6 分钟回收完（17:45 撤栈，17:51 起栈）。
+- **example（TP4/DPA + prefill MTP，`PREFILL_WORKERS=1`，`ex-pmtp-1p-1021T1750`）**：smoke 6/6（66k 冷态 14.2 s、重复 0.7 s）；GSM8K **strict 0.9704 /
+  flexible 0.9697**；无空回答、无模板标签，超长回答 16 条；真实接受长度中位 4.60 / 均值 4.93（修改前 3.86 / 4.18）。
+- **PR #210 更新**：提交 `d395c3b3`（prefill 带 EAGLE 参数 + README note 10、note 3 补"显存回收慢来自 HiCache"、验证表加这次的 smoke / GSM8K），
+  推送；PR 描述用 REST API 更新（`gh pr edit` 被 classic Projects 的 GraphQL 弃用错误挡住），去掉"smoke 待做"，副本 `config/pr210-body.md`；仍为 draft。
+- **PP4 的一个结构性代价**：同一条孤立的 66k 冷请求，TP4/DPA 14.2 s、PP4 37.5 s（2.6 倍，JIT 都已就绪）。PP4 prefill 日志里每个请求同时只有
+  1 个 chunk 在流水线里（`#inflight-req: 1`），即 sglang 不把同一请求的相邻 chunk 放进不同级并行算，单条长请求要依次走完 4 级。PP4 的吞吐
+  要靠多个请求同时填满流水线（C88 时 TP4/DPA 平均 4.6 个在排队），长冷首轮的 TTFT 会变长——这是 C88 要看的。
+- 18:03 example 撤栈，PP4 C88 开始等显存（日志 `$W/2p1d/perf-pp4/`）。
