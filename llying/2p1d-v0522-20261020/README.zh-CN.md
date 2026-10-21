@@ -441,3 +441,12 @@ MTP 草稿层，与 GB300 相同）；`PP4_HICACHE=0|1` 开关；decode 不变�
 
 **17:32 起 PP4 + HiCache（`pp4-hc-1021T1732`）**：每级 `--hicache-size 250`、write_back、page_first，与 example 相同；起栈前两节点显存 0、
 无他人 GPU 进程（负载 10–15 来自内核线程与刚撤下的容器，无他人计算进程）。
+- 17:36 可用。主机池整个实例共用 21,701,440 token（每级 250 GB，最后一级 237.5 GB 且打包了 MTP 草稿层的 KV），另有每级 14–20 GB 的 DSA
+  indexer 主机缓存；TP4/DPA 时每 rank 5,564,480 token，合计相近但按 rank 分开。启动日志里的 `post-warmup freeze_gc failed` 在之前每次运行
+  （包括 C88、correct-v2）都有，是启动时序的无害报错。
+- smoke 6/6（66k 冷态 37.5 s，JIT 缓存已有；重复 1.1 s）。GSM8K **strict 0.9719 / flexible 0.9712**；无空回答、无模板标签，超长回答 12 条；
+  真实接受长度中位 4.54 / 均值 4.81（与不开 HiCache 相同）。
+- 说明：GSM8K 与 smoke 的前缀都在 GPU 上命中，主机池的读回路径在这里没有被走到；它会在 AgentX 性能测试中被大量使用（之前 TP4/DPA 的
+  主机命中 8%–16%），届时用无效回答数和日志检查这条路径。
+- **结论：PP4 prefill（TP1 × PP4 + prefill MTP，开 / 不开 HiCache）在 v0.5.22 上正确性通过**，只需要上面那一处 `deepseek_v2.py` 补丁。
+  17:45 撤栈，下一步用 example 本身（TP4/DPA + prefill MTP）补 PR #210 的 smoke 与 GSM8K，然后做 PP4 的性能测试。
