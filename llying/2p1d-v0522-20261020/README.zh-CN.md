@@ -4,6 +4,15 @@
 端到端验证正确性，用融合配置测性能，再测 C176 以外的并发点，为 InferenceX 上 infera + sglang 的 Pareto 线提供数据。
 每卡吞吐按 16 张 GPU 计。
 
+## 合入 main 的 PR 准备（10-21 14:00 起，用户决定）
+
+一个 PR：镜像升级（`Dockerfile.sglang` v0.5.22 + 补丁 + `infera/engine/sglang/args.py` 兼容 + router `responses_input.py` 修复 + 测试）+ mixed 与 2P1D
+两个 example + lint 修复；ssh e2e 分支不合入（只是本地临时适配，CI 以 SLURM 为准）。已同步到 `feat/sglang-mix-glm5.2-tp4-v0522` 的 sweep 修复：
+端口 stride 256、`MC_MAX_MR_SIZE`（note 8）、up.sh 等 router 列出 prefill、down.sh 删不掉时继续（2P1D 与 mixed）、两 example 的
+`--disable-custom-all-reduce` + top-k v2、InferenceX GSM8K；14:10 新增 `c7b7a35d`（ruff format `moe_mlp.py`，全仓 ruff format / check 通过）、
+`cdfb8dc4`（mixed down.sh）、`4ad59fc2`（2P1D `PREFILL_WORKERS=1` 跑 1P1D，README 全部测点 + note 9 prefill 内存访问错误 / GPU 卡死）。
+待办：C88 结果补进 README；最终分支上重跑 lint / unit / engine；`PREFILL_WORKERS=1` 用 example 本身起一次栈做 smoke；然后开 PR。
+
 ## 复现所需文件
 
 - 2P1D kit：分支 `feat/sglang-mix-glm5.2-tp4-v0522` 的 `examples/sglang_2p1d_glm5.2/`；各点运行时用的是同内容的快照
