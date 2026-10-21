@@ -277,6 +277,14 @@ router 期望 1 prefill + 1 decode，`agentx.sh` `PREFILL_NUM_WORKERS=1` → 按
 agent，与前 4 个点配置一致：AUS harness 里"lean mode … ~1.00x"只是一行代码注释，没有找到有记录的开 / 关对比，是否影响性能未验证；
 是否在之后的运行里挂上待用户决定。
 
+**03:27–03:38 两次起栈都失败 → 138 GPU 2 卡死**：2P1D C32 重跑时 prefill 0 在启动时段错误（`parallel_state.py:401`，第一次在设备上分配
+`torch.ones(..., device=...)`），随后 1P1D 也一样（返回码 −11）；中间 prefill 1 的容器 stop 又"收不到退出事件"。逐卡检查（每卡一个容器，
+分配张量 + 建 stream）：138 GPU 2 无输出、其余 15 张正常；`rocm-smi` 显示 GPU 2 无进程、显存 0、**GPU use 94%**。即 02:59 内存访问错误
+（KFD node-4 = GPU 2）留下的任务没有退出，卡被占住，新上下文无法初始化。这与 AUS §2.1 "出过故障的 GPU 上新开进程一建 stream 就段错误"
+相同。恢复需要重置该卡（`rocm-smi --gpureset -d 2`），要 sudo，本账号没有权限 → **需要管理员**。在此之前 2P1D 无法起栈（要 138 全部 8 卡）。
+**03:41 改跑 1P(TP4)+1D(TP8) C32，prefill 放在 138 健康的 GPU 4–7**（`site-1p-gpu4567.env`，其余同 v5-1p），2P1D C32 等 GPU 2 恢复后再重跑。
+失败的两次日志在 `perf/aborted/`、`perf-1p1d/aborted/`。
+
 10-21 02:21 起用本地定时器每 15 分钟唤醒做一次人工巡检（用户要求巡检不中断，同时可以讨论下一步）。
 
 **干扰检查（15:36）**：两节点 GPU 显存为 0；138 上他人容器 `dev_xb`、`yihou-expert8-tools-138` CPU ≈ 0；138 有一个
