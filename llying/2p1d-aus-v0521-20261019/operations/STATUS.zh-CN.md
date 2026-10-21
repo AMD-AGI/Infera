@@ -134,3 +134,15 @@
 - 10:31 **a5-pmtp C176 = 34,582**（a4 冷轮 +2.3%，热轮 −0.8%；RESULT §2.14）。10:31 a5-pmtp2 开始，11:00 测量开始，11:15 抓了 profile
   （`k_scatter` 16–25 µs，decode 节奏与第 1 轮一致 → 无漂移）。**11:22 作业第 6 次被抢占**，11:27 守护删除容器；作业重新排队，
   Slurm 预计 10-22 00:57 开始（Priority）。下一次分配按 `operations/queue.next.tsv` 用新配置直接起栈。
+
+## 10-21 17:32 起：新任务——PR 210 镜像上的 1P1D C88 复现 + decode 按请求数均衡 A/B（用户）
+
+- 17:32 用户：参照 Dynamo 做 decode 侧 DP rank 负载均衡（PR 210 的 sweep 里 2P1D 从 C176 降到 C96，p90 交互几乎不变，GB300 分析认为是
+  decode 最忙 rank 决定步长）；分到节点后先复现 1P1D C88（PR 210：27,453 tok/s/GPU @ p90 42.8），再在其上 A/B decode 策略；顺带 review PR 210。
+- 17:39 **作业 34439 提前开始**（Slurm 原预计 00:57；ROUND=a6，P = n02-29、D = n04-33）。17:40 把 `operations/queue.next.tsv` 改成空模板
+  （原 2P1D 模板存为 `queue.next.2p1d-pmtp.tsv`），campaign 准备完成后队列原地等待。17:41 两台节点开始构建 PR 210 镜像
+  （`scripts/pr210/build_image.sh`，源码 = PR 210 head `aab4cc36` 导出到 `pr210/src-aab4cc36`，tag `infera-sglang:pr210-aab4cc36`）。
+- 17:47 **decode 节点 n04-33 上有 cyao 的 7 个容器**（`cyao-pr4045-k3-*`，ATOM `infera-atom:pr209-a20162b3`，14:38 启动，早于本作业），
+  ATOM 进程占着 8 张卡各 263–288 GB 显存和约 1.8 TB 内存；`squeue` 显示该节点只属于 34439（`OverSubscribe=NO`）——是 cyao 上一个作业结束后
+  遗留的。prepare 的 GPU 检查只做小分配，没发现。17:49 对这 7 个容器做了 `docker stop`（**未删除**，容器与日志保留供 cyao 查看），8 卡显存
+  归零。同节点的 `xiaoming-dev`（2 天前起，不占 GPU）未动。n02-29 上无外部容器。
