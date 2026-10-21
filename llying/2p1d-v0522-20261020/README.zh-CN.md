@@ -262,6 +262,16 @@ custom AR 开（后者正确性存疑）；R2 在 decode KV 受限时换吞吐�
 会少约 30% KV，优先级下调；单 prefill 只适合中低并发。Pareto 分段设想：C176 用 2P1D + R2；C64–C128 用 2P1D + 按个数均衡；
 C32–C64 用 1P(TP4)+1D(TP8)；都保留 `--disable-custom-all-reduce`，decode 每步成本另靠窄修复 / kernel 优化。
 
+**C32 作废（02:44 起栈，02:54 计分开始）**：03:07 巡检发现 138 上只剩 4 个容器——prefill 0 在 02:59:24 由 DP3 报
+`Memory access fault by GPU node-4 ... on address 0xfffffffff000. Reason: Unknown.`，GPU core dump 失败、进程中止（-6），其余
+3 个 rank 停在 `process_batch_result_disagg_prefill`（`prefill.py:882`）等前向事件；sglang 60 s 后杀进程树，03:01:31 注销，
+之后计分窗口只剩 prefill 1。崩溃前 DP3 的最后一个 batch：352 新算 + 174,848 缓存 token（长缓存前缀）。**与 AUS §2.3 的崩溃
+完全同一签名**（同一地址 0xfffffffff000、长前缀小增量 batch、同一函数），而本次已 `--disable-custom-all-reduce`（QuickReduce 也关），
+所以与 custom AR / QuickReduce 无关，更像某个按页 / 索引寻址的 kernel 拿到 −1（如 DSA top-k 的填充值，AUS 当时的推断）；AUS 用的是
+top-k v1，所以也不是 top-k v2 引入的。证据摘录 `evidence/c32-prefill0-memfault.txt`，完整日志 138 `.../runs/c32-1021T0244/logs/`。
+03:13 手动结束串行并下线（prefill 1 第一次 stop 又"收不到退出事件"，改过的 down.sh 继续并清干净）。这是 v0.5.22 上第一次见到；
+前 4 个点（共约 5 小时计分）没有出现。
+
 10-21 02:21 起用本地定时器每 15 分钟唤醒做一次人工巡检（用户要求巡检不中断，同时可以讨论下一步）。
 
 **干扰检查（15:36）**：两节点 GPU 显存为 0；138 上他人容器 `dev_xb`、`yihou-expert8-tools-138` CPU ≈ 0；138 有一个

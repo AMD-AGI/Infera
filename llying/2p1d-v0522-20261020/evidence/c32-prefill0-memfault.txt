@@ -1,0 +1,29 @@
+2026-10-21T02:58:00.121472280Z [2026-10-21 02:58:00 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 714, #cached-token: 158144, token usage: 0.05, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 90.45
+2026-10-21T02:58:05.385566819Z [2026-10-21 02:58:05 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 1869, #cached-token: 158848, token usage: 0.05, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 355.05
+2026-10-21T02:58:13.030983590Z [2026-10-21 02:58:13 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 4426, #cached-token: 160704, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 578.92
+2026-10-21T02:58:19.333895138Z [2026-10-21 02:58:19 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 3281, #cached-token: 165120, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 520.55
+2026-10-21T02:58:39.283163592Z [2026-10-21 02:58:39 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 2322, #cached-token: 168384, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 116.40
+2026-10-21T02:58:47.286916209Z [2026-10-21 02:58:47 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 854, #cached-token: 170688, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 106.70
+2026-10-21T02:58:59.043427637Z [2026-10-21 02:58:59 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 1947, #cached-token: 171520, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 165.61
+2026-10-21T02:59:03.241143540Z [2026-10-21 02:59:03 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 1436, #cached-token: 173440, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 342.09
+2026-10-21T02:59:09.456315159Z [2026-10-21 02:59:09 DP3 TP3] Prefill batch, #new-seq: 1, #new-token: 352, #cached-token: 174848, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 56.64
+2026-10-21T02:59:24.535200912Z Memory access fault by GPU node-4 (Agent handle: 0x59831dc34360) on address 0xfffffffff000. Reason: Unknown.
+2026-10-21T02:59:28.539804421Z GPU core dump failed
+2026-10-21T02:59:28.539807141Z Fatal Python error: Aborted
+2026-10-21T02:59:28.540066067Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/prefill.py", line 882 in process_batch_result_disagg_prefill
+2026-10-21T02:59:28.540089977Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/prefill.py", line 816 in event_loop_overlap_disagg_prefill
+2026-10-21T02:59:47.621744458Z [2026-10-21 02:59:47] Subprocess scheduler_3 (pid=301) crashed with exit code -6. Triggering SIGQUIT for cleanup...
+2026-10-21T02:59:53.480553360Z [2026-10-21 02:59:53] Pyspy dump for PID 299 (py-spy dump --native --pid 299):
+2026-10-21T02:59:53.480598949Z Process 299: sglang::scheduler_DP0_TP0
+2026-10-21T02:59:53.480616679Z     process_batch_result_disagg_prefill (prefill.py:882)
+2026-10-21T02:59:53.480619969Z     event_loop_overlap_disagg_prefill (prefill.py:816)
+2026-10-21T02:59:54.241827034Z [2026-10-21 02:59:54] Pyspy dump for PID 300 (py-spy dump --native --pid 300):
+2026-10-21T02:59:54.241862633Z Process 300: sglang::scheduler_DP1_TP1
+2026-10-21T02:59:54.241873733Z     process_batch_result_disagg_prefill (prefill.py:882)
+2026-10-21T02:59:54.241876753Z     event_loop_overlap_disagg_prefill (prefill.py:816)
+2026-10-21T02:59:54.984431368Z [2026-10-21 02:59:54] Pyspy dump for PID 302 (py-spy dump --native --pid 302):
+2026-10-21T02:59:54.984473957Z Process 302: sglang::scheduler_DP3_TP3
+2026-10-21T02:59:54.984486557Z     process_batch_result_disagg_prefill (prefill.py:882)
+2026-10-21T02:59:54.984489547Z     event_loop_overlap_disagg_prefill (prefill.py:816)
+2026-10-21T03:00:55.039837602Z [2026-10-21 03:00:55] kill_process_tree called: parent_pid=142, include_parent=True, pid=142
+2026-10-21T03:01:31.900125676Z ERROR:infera.engine.base:engine subprocess exited (code=-9); deregistering worker and shutting down
