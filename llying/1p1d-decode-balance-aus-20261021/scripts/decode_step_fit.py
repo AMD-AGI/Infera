@@ -62,7 +62,7 @@ def main():
             if len(state) == 8:
                 b = int((t - start).total_seconds() // BIN_S)
                 bins.setdefault(b, {"steps": [], "state": None})["state"] = dict(state)
-    rows, ys, ratio = [], [], []
+    rows, ys, ratio, busiest, mean_r, tok_ratio = [], [], [], [], [], []
     for b in bins.values():
         if not b["steps"] or not b["state"]:
             continue
@@ -70,8 +70,12 @@ def main():
         ts_ = [v[1] / 1e6 for v in b["state"].values()]
         rows.append([1.0, max(rs), max(ts_), sum(rs), sum(ts_)])
         ys.append(statistics.median(b["steps"]))
+        busiest.append(max(rs))
+        mean_r.append(sum(rs) / 8)
         if sum(rs):
             ratio.append(max(rs) / (sum(rs) / 8))
+        if sum(ts_):
+            tok_ratio.append(max(ts_) / (sum(ts_) / 8))
     a, bb, c, d, e = solve(rows, ys)
     pred = [sum(x * w for x, w in zip(r, (a, bb, c, d, e))) for r in rows]
     resid = [y - p for y, p in zip(ys, pred)]
@@ -83,8 +87,11 @@ def main():
     print(f"step_ms = {a:.1f} + {bb:.2f}*max_req + {c:.2f}*max_tok(M) + {d:.3f}*sum_req + {e:.3f}*sum_tok(M)")
     if c > 0:
         print(f"busiest-rank tokens equivalent to one request there: {bb / c * 1e6:,.0f}")
-    print(f"busiest / mean running per rank: median {statistics.median(ratio):.2f}  "
-          f"p90 {sorted(ratio)[int(len(ratio) * 0.9)]:.2f}")
+    p90 = lambda xs: sorted(xs)[int(len(xs) * 0.9)]  # noqa: E731
+    print(f"running per rank: mean {statistics.mean(mean_r):.2f}  busiest median {statistics.median(busiest):.0f}  "
+          f"p90 {p90(busiest):.0f}")
+    print(f"busiest / mean running per rank: median {statistics.median(ratio):.2f}  p90 {p90(ratio):.2f}")
+    print(f"busiest / mean context per rank: median {statistics.median(tok_ratio):.2f}  p90 {p90(tok_ratio):.2f}")
     # Single-term fits, to see which busiest-rank quantity explains the step on its own.
     for name, idx in (("max_req", 1), ("max_tok", 2)):
         sub = [[1.0, r[idx], r[3], r[4]] for r in rows]

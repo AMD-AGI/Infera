@@ -55,6 +55,11 @@ done
 echo "=== $(date -u +%FT%TZ) router for $VARIANT (ROUTER=$ROUTER WEIGHT=$WEIGHT)" >> "$LOGS/router.log"
 follow "$CTR-router" "$P_NODE" "$LOGS/router.log"
 ssh "$P_NODE" "docker exec $CTR-router ps -eo args | grep -m1 infera-router" > "$OUT/router.cmdline"
+if [[ "$ROUTER" == exp ]]; then
+    grep -q /opt/infera-router-exp "$OUT/router.cmdline" || die "router is not the experimental binary: $(cat "$OUT/router.cmdline")"
+    got="$(ssh "$P_NODE" "docker exec $CTR-router printenv INFERA_DECODE_REQUEST_WEIGHT")"
+    [[ "$got" == "$WEIGHT" ]] || die "router has INFERA_DECODE_REQUEST_WEIGHT='$got', want $WEIGHT"
+fi
 curl -sf -m 10 "$ROUTER_URL/v1/workers" > "$OUT/workers.json"
 say "router up ($(tr -s ' ' < "$OUT/router.cmdline" | cut -c1-160))"
 

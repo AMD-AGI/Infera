@@ -18,3 +18,12 @@
 - 17:56 `scripts/kit_prep.sh`：两台镜像就绪、kit 端口空闲、显存干净；prefill 节点 WORK_DIR 预置 InferenceX `918524ff` 与 AgentX 数据集（1.8 GB）。
 - 17:57 队列开始：`kit_up.sh RUN=k6`（kit 的 `engine/up.sh` 原样）→ etcd、prefill0（GPU 4–7）、decode（经 srun 替身在 D 上启动）。
   `scripts/kit_patrol.sh` 巡检（容器、三个 /health、日志致命行、AgentX 进度）与原 `patrol.sh`（作业 / 队列）同时运行。
+- 18:08 起栈完成（11 分钟）：**PR 210 kit 从分支本身以 `PREFILL_WORKERS=1` 跑通**（PR 的待办项之一）。router 参数与 PR 210 一致
+  （`--decode-input-demand on`、guard completion、重叠权重 20 / 2、prefill 会话亲和）。18:08 `k6-repro` 开始：flush 成功，AgentX 载入 393 条 trace。
+- **18:29:41 作业第 7 次被抢占**（`PreemptTime 18:29:41`、`EndTime 18:34:41`：Slurm 先给所有 step 发 SIGTERM，留 5 分钟宽限再结束作业
+  并重新排队；本作业的 extern step 18:30:10 结束）。容器守护在 18:29:41 删除了两台节点上的全部容器；`k6-repro` 当时在预热
+  （845 / 973），无结果。这次分配只有 51 分钟。
+- 18:35 **调整顺序**（两天 7 次抢占，最短 51 分钟；原计划整套约 5.5 小时）：A/B 优先，部署时 prefill 就带 EAGLE 参数（kit 的
+  `PREFILL_EXTRA_ARGS`，`kit_up.sh MTP=1`，不改 kit 文件，省去中途重启 prefill），同一部署上 w0 → w180k（prefill 开 MTP 后 decode
+  不漂移，AUS 2P1D 已验证）；之后重新部署 kit 原样做 PR 210 C88 的严格复现。`kit_round.sh` 增加核对：B 组 router 必须是新二进制且
+  `INFERA_DECODE_REQUEST_WEIGHT` 生效；`kit_prep.sh WAIT_VRAM=60` 在重新部署前等显存释放。
