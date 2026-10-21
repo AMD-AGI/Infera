@@ -32,7 +32,9 @@ while true; do
     if [[ -z "$p_ctrs$d_ctrs" ]]; then
         echo "$(date -u +%FT%TZ) ${summary[*]} (not deployed)" >> "$LOG"; continue
     fi
-    for svc in "router $ROUTER_URL" "prefill $PREFILL_URL" "decode http://$D_IP:27301"; do
+    if [[ -e "$PR_RUNS/$run/.starting" ]]; then services=(); summary+=("starting"); else
+        services=("router $ROUTER_URL" "prefill $PREFILL_URL" "decode http://$D_IP:27301"); fi
+    for svc in "${services[@]}"; do
         read -r n url <<< "$svc"
         if curl -sf -m 20 -o /dev/null "$url/health"; then
             fails[$n]=0; clear_key "down-$n"; summary+=("$n=ok")

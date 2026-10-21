@@ -1,12 +1,13 @@
-# Template for the next allocation (scripts/campaign.sh replaces {R}). Plan (10-21 18:35, after the 7th preemption cut the
-# first repro at 51 min): A/B first, on a deployment whose prefill already carries the EAGLE flags (no decode drift between
-# the two rounds, ../RESULT §2.13): weight 0 (= PR 210's token-only decode demand) then 180,000 tokens per held request,
-# router = PR 210 + --decode-request-weight in both, prefill flushed before each. Then the exact PR 210 repro on a fresh
-# deployment of the unmodified kit (prefill without MTP, the image's router).
+# Template for the next allocation (scripts/campaign.sh replaces {R}). Plan (10-21 21:10, after two allocations of 51 and
+# 31 min): prefill with the EAGLE flags from the start (no decode drift); the new policy first (weight 180,000 tokens per
+# held request), then weight 0 (= PR 210's token-only decode demand), both with the new router binary, prefill flushed
+# before each, measured window 1800 s (10 warm-up requests per lane as canonical) so that a round fits in about an hour.
+# A cut round still leaves its decode-balance / step analysis (kit_round.sh partial window). Then the exact PR 210 repro
+# (unmodified kit, image router, canonical 3600 s) on a fresh deployment.
 run pr210/kit_prep.sh
 run pr210/kit_up.sh RUN=k{R} MTP=1
-run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w0 CONC=88 ROUTER=exp WEIGHT=0
-run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w180k CONC=88 ROUTER=exp WEIGHT=180000
+run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w180k CONC=88 ROUTER=exp WEIGHT=180000 DURATION=1800
+run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w0 CONC=88 ROUTER=exp WEIGHT=0 DURATION=1800
 run pr210/kit_down.sh RUN=k{R}
 run pr210/kit_prep.sh WAIT_VRAM=60
 run pr210/kit_up.sh RUN=k{R}r

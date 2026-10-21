@@ -21,6 +21,8 @@ prefill_ids() {
 old_id="$(prefill_ids)"
 say "old prefill worker: ${old_id:-none}"
 
+touch "$PR_RUNS/$RUN/.starting"   # kit_patrol.sh skips /health while this exists
+trap 'rm -f "$PR_RUNS/$RUN/.starting"' EXIT
 ssh "$P_NODE" "docker stop -t 60 $name >/dev/null && docker rename $name $name-$TAG" || die "stop $name"
 sleep 5
 [[ -e "$LOGS/prefill-0.log" ]] && mv "$LOGS/prefill-0.log" "$LOGS/prefill-0.before-$TAG.log"

@@ -14,6 +14,7 @@ ROUTER="${ROUTER:-image}" WEIGHT="${WEIGHT:-0}" DURATION="${DURATION:-3600}" WAR
 source "$(dirname "$0")/kit_env.sh"
 OUT="$PR_RUNS/$RUN/$VARIANT"; LOGS="$PR_RUNS/$RUN/logs"; WD=/scratch/liyingli_2p1d/pr210/work
 mkdir -p "$OUT"
+rm -f "$PR_RUNS/$RUN/.starting"   # the deployment is up by the time a round starts
 exec > >(tee -a "$OUT/round.log") 2>&1
 echo "ROUTER=$ROUTER WEIGHT=$WEIGHT CONC=$CONC DURATION=$DURATION WARMUP_PER_LANE=$WARMUP_PER_LANE" > "$OUT/round.env"
 
@@ -75,8 +76,15 @@ say "agentx rc=$rc"
 
 # --- analysis
 agx="$OUT/agentx-$VARIANT"
-python3 "$R/scripts/pr210/kit_window.py" "$agx/runner.log" "$started" > "$OUT/window" || die "no profiling window"
+# The console copy is on the login host even when the client was killed (preemption sends SIGTERM to every step).
+python3 "$R/scripts/pr210/kit_window.py" "$OUT/agentx.console.log" "$started" > "$OUT/window" || die "no profiling window"
 read -r w0 w1 < "$OUT/window"
+if (( rc != 0 )); then
+    # Cut short: analyse the part of the measured window the followed logs cover.
+    w1="$(date -u +%Y-%m-%dT%H:%M:%S)"
+    echo "$w0 $w1 partial" > "$OUT/window"
+    say "partial window $w0 .. $w1"
+fi
 python3 "$R/scripts/flush_check.py" "$LOGS" "$flushed_at" > "$OUT/flush_check.txt" 2>&1
 python3 "$R/scripts/engine_pace.py" "$LOGS" decode-0.log "$w0" "$w1" > "$OUT/engine_pace.txt" 2>&1
 python3 "$R/scripts/decode_step_fit.py" "$LOGS/decode-0.log" "$w0" "$w1" > "$OUT/decode_fit.txt" 2>&1
