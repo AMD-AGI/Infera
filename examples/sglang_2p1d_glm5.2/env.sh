@@ -45,7 +45,10 @@ export MOONCAKE_DISABLE_HIP_DMABUF="${MOONCAKE_DISABLE_HIP_DMABUF:-0}"
 # 2. Engines
 # ---------------------------------------------------------------------------
 # Two TP4 + DP4-attention prefills on the prefill node, one TP8 +
-# DP8-attention decode on the decode node.
+# DP8-attention decode on the decode node. PREFILL_WORKERS=1 starts prefill 0
+# only (1P1D, 12 GPUs), which serves lower concurrencies better (README
+# "Reference numbers").
+export PREFILL_WORKERS="${PREFILL_WORKERS:-2}"
 export PREFILL0_GPUS="${PREFILL0_GPUS:-0,1,2,3}"
 export PREFILL1_GPUS="${PREFILL1_GPUS:-4,5,6,7}"
 export DECODE_GPUS="${DECODE_GPUS:-0,1,2,3,4,5,6,7}"

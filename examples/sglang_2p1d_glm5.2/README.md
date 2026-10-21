@@ -6,13 +6,14 @@ across two 8×MI355X (gfx950) nodes: **two TP4 + DP4-attention prefills** with a
 DP8-attention decode** with EAGLE MTP on the other, KV moved by **Mooncake over
 the eight ionic RDMA rails**, and the infera router in front (**kv-aware**,
 **session affinity on prefill picks**). Tuned for the InferenceX AgentX
-agentic-coding replay.
+agentic-coding replay. `PREFILL_WORKERS=1` runs the same recipe with one
+prefill (1P1D, 12 GPUs), the better shape below about C88.
 
 One file is site-specific. Fill it in, then, on the prefill node:
 
 ```bash
 $EDITOR env.sh                 # the only file you edit
-bash engine/up.sh              # etcd -> 2 prefills + decode (over ssh) -> router
+bash engine/up.sh              # etcd -> prefills + decode (over ssh) -> router
 bash engine/smoke.sh           # PD registration, completion/chat/stream, 66k-token prefix reuse
 bash engine/eval.sh            # GSM8K as InferenceX runs it, 1,319 questions
 bash engine/down.sh            # save logs, remove containers on both nodes
@@ -34,12 +35,12 @@ docker build -f deploy/docker/Dockerfile.sglang -t <infera-sglang-image> .
 
 | path | what |
 |---|---|
-| [`env.sh`](env.sh) | **the only file you edit** — node IPs, ssh target, weights, image, scratch dir, RDMA rails, GPUs, ports |
+| [`env.sh`](env.sh) | **the only file you edit** — node IPs, ssh target, weights, image, scratch dir, RDMA rails, prefill count, GPUs, ports |
 | [`engine/worker.sh`](engine/worker.sh) | starts ONE engine container on its own node (`prefill 0`, `prefill 1` or `decode`); carries the tuned recipe |
-| [`engine/up.sh`](engine/up.sh) | etcd → both prefills here and the decode over ssh → router, waiting on each health endpoint |
+| [`engine/up.sh`](engine/up.sh) | etcd → `PREFILL_WORKERS` prefills here and the decode over ssh → router, waiting on each health endpoint and on the router listing every prefill |
 | [`engine/smoke.sh`](engine/smoke.sh), [`engine/smoke.py`](engine/smoke.py) | correctness checks through the router; need real MTP acceptance |
 | [`engine/eval.sh`](engine/eval.sh) | GSM8K through the router with InferenceX's `run_eval` (its lm-eval revision, `utils/evals/gsm8k.yaml`, full test set) |
-| [`engine/agentx/agentx.sh`](engine/agentx/agentx.sh) | one InferenceX AgentX point, pinned at `918524ff`, counted over the 16 GPUs |
+| [`engine/agentx/agentx.sh`](engine/agentx/agentx.sh) | one InferenceX AgentX point, pinned at `918524ff`, counted over all the deployment's GPUs (16, or 12 with one prefill) |
 | [`engine/agentx/constraints.txt`](engine/agentx/constraints.txt) | AgentX client package pins |
 | [`engine/down.sh`](engine/down.sh) | save logs + inspect, remove the kit's containers by name on both nodes |
 | [`engine/common.sh`](engine/common.sh) | sourced helpers: placeholder check, run directory, health wait, InferenceX checkout |
@@ -95,24 +96,38 @@ on crsuse2-m2m-140:
 
 AgentX agentic-coding replay, InferenceX `918524ff`, 10 warm-up requests per
 lane, 3600 s measured, forced MTP acceptance 3.61, every point on a freshly
-started deployment. Throughput is per GPU over all 16 and counts cache-hit
-input tokens; interactivity is per-request tokens/s/user.
+started deployment. Throughput is per GPU over all of the deployment's GPUs
+and counts cache-hit input tokens; interactivity is per-request
+tokens/s/user (InferenceX plots p90).
 
-| point | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
-|---|---|---|---|---|---|---|
-| C176 | 35,637 | 15,881 (4.38) | 40.4 / 35.7 | 4.3 / 8.1 s | 24.8 / 28.0 ms | 95.9% (trace bound 96.8%) |
-| C128 | 26,592 | 13,202 (3.64) | 43.8 / 36.7 | 2.4 / 4.6 s | 22.8 / 27.2 ms | 95.7% (trace bound 96.4%) |
-| C96 | 23,515 | 11,248 (3.10) | 44.9 / 40.8 | 1.6 / 3.7 s | 22.3 / 24.5 ms | 96.1% (trace bound 96.6%) |
+| shape | point | GPUs | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
+|---|---|---|---|---|---|---|---|---|
+| 2P1D | C176 | 16 | 35,637 | 15,881 (4.38) | 40.4 / 35.7 | 4.3 / 8.1 s | 24.8 / 28.0 ms | 95.9% (trace bound 96.8%) |
+| 2P1D | C128 | 16 | 26,592 | 13,202 (3.64) | 43.8 / 36.7 | 2.4 / 4.6 s | 22.8 / 27.2 ms | 95.7% (trace bound 96.4%) |
+| 2P1D | C96 | 16 | 23,515 | 11,248 (3.10) | 44.9 / 40.8 | 1.6 / 3.7 s | 22.3 / 24.5 ms | 96.1% (trace bound 96.6%) |
+| 2P1D | C64 | 16 | 18,202 | 8,158 (2.25) | 63.2 / 49.4 | 1.0 / 2.9 s | 15.8 / 20.3 ms | 96.7% (trace bound 96.9%) |
+| 1P1D | C64 | 12 | 23,241 | 7,831 (2.16) | 65.0 / 51.4 | 2.7 / 5.2 s | 15.4 / 19.4 ms | 96.6% (trace bound 96.9%) |
+| 1P1D | C32 | 12 | 14,153 | 3,881 (1.07) | 91.7 / 73.2 | 1.0 / 2.9 s | 10.9 / 13.7 ms | 97.4% (trace bound 97.7%) |
 
-Down to C96 interactivity barely moves: under DP attention every decode step
-waits for the busiest of the eight ranks, and while that rank runs seven or
-more requests a step takes 80-90 ms.
+The 1P1D points ran with prefill 0 on GPUs 4-7 of the prefill node.
+
+- **Interactivity is set by the busiest decode rank.** Under DP attention
+  every decode step waits for the busiest of the eight ranks; while it runs
+  seven or more requests a step takes 80-90 ms, so 2P1D from C176 down to
+  C96 stays near 36-41 at p90 and C128 / C96 buy almost nothing for the
+  throughput they give up.
+- **Below C88 one prefill is enough.** Prefill load follows the sessions per
+  prefill instance: one instance at C64 carries what each instance carries
+  at 2P1D C128 (busy about 78% of the time, ranks computing about a third of
+  it), and at C88 what each carries at C176. Dropping a prefill there costs
+  some TTFT and gives each GPU about a quarter more throughput: 1P1D C64
+  matches 2P1D C96's throughput at 26% higher p90 interactivity.
 
 To reproduce a point the way InferenceX does, start the whole deployment
 afresh for it:
 
 ```bash
-SIM_ACCEPT_LEN=3.61 bash engine/up.sh
+SIM_ACCEPT_LEN=3.61 bash engine/up.sh                     # PREFILL_WORKERS=1 for 1P1D
 CONC=176 bash engine/agentx/agentx.sh      # DURATION=3600 WARMUP_PER_LANE=10 by default
 bash engine/down.sh                        # then wait for VRAM to drain on both nodes
 ```
@@ -131,8 +146,10 @@ persist in per-container named volumes `<container>-cache-<image-id>` and
 volume rm` when done with an image.
 
 **3. VRAM is released late.** `docker rm` returns long before the driver frees
-the engines' memory; 10-40 minutes were observed. Check `rocm-smi` on both
-nodes before the next `up.sh`.
+the engines' memory; 10-65 minutes were observed on the prefill node, a few
+on the decode node. Check `rocm-smi` on both nodes before the next `up.sh`.
+A container that `docker stop` cannot end ("did not receive an exit event")
+is left for the next `down.sh`, which removes it once its process exits.
 
 **4. Two engines on one node.** The prefills run with `--ipc host`, and RCCL
 names its shared-memory segments after process ids, which start low in every
@@ -165,6 +182,19 @@ behind it can neither send nor receive KV: with the decode's 79 buffers per
 rank this hit 2 of 8 ranks on the first bring-up, and infera's start-up PD
 probe then stopped both prefills. A standalone registration test reproduces it
 on the first aligned allocation and registers the same buffer in 1 GiB chunks.
+
+**9. A prefill rank can hit a GPU memory access fault (open).** Once so far,
+in about 17 prefill-instance hours, a prefill rank died with `Memory access fault
+by GPU node-N ... on address 0xfffffffff000. Reason: Unknown.` while
+extending a long cached prefix by a few hundred tokens; the rest of its
+instance hung in `process_batch_result_disagg_prefill` until SGLang killed
+it, and the run continued on the other prefill. The same signature appears on
+the v0.5.21 image, with and without the custom all-reduce, and the address
+(page −1) points at a kernel indexing with −1. Afterwards that GPU stays busy
+with no process on it, and every new process hangs or segfaults at its first
+allocation there (`parallel_state.py`), until an administrator resets it
+(`sudo rocm-smi --gpureset -d <gpu>`). Check each GPU with a one-line
+allocation before the next `up.sh` after such a fault.
 
 ## What this kit exposes on the network
 

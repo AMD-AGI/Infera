@@ -29,14 +29,16 @@ docker run -d --name "$CTR-etcd" --network host --entrypoint /usr/local/bin/etcd
     --initial-cluster "default=http://127.0.0.1:$ETCD_PEER_PORT" >/dev/null
 wait_health "http://$PREFILL_NODE_IP:$ETCD_PORT/version" "$CTR-etcd"
 
-echo "===== 2. engines: 2 prefills here, decode on $DECODE_SSH (cold start takes 10-15 minutes) ====="
-bash "$KIT/engine/worker.sh" prefill 0
-bash "$KIT/engine/worker.sh" prefill 1
+prefills=()
+for ((i = 0; i < PREFILL_WORKERS; i++)); do prefills+=("$CTR-prefill$i"); done
+echo "===== 2. engines: $PREFILL_WORKERS prefill(s) here, decode on $DECODE_SSH (cold start takes 10-15 minutes) ====="
+for ((i = 0; i < PREFILL_WORKERS; i++)); do bash "$KIT/engine/worker.sh" prefill "$i"; done
 # The decode node reads the same env.sh; this invocation's settings ride along.
 forward="$(sed 's/$/ /' "$RUN_DIR/engine-config.env" | tr -d '\n')"
 on_decode "$forward bash $(printf %q "$KIT/engine/worker.sh") decode"
-wait_health "http://$PREFILL_NODE_IP:$PREFILL_PORT/health" "$CTR-prefill0"
-wait_health "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256))/health" "$CTR-prefill1"
+for ((i = 0; i < PREFILL_WORKERS; i++)); do
+    wait_health "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256 * i))/health" "$CTR-prefill$i"
+done
 wait_health "http://$DECODE_NODE_IP:$DECODE_PORT/health" "$DECODE_CONTAINER" decode
 
 echo "===== 3. router: kv-aware, session affinity on prefill picks ====="
@@ -55,13 +57,14 @@ modes() {
     curl -sf -m 10 "$ROUTER_URL/v1/workers" | python3 -c \
         'import json, sys; print(*sorted(w["disagg_mode"] for w in json.load(sys.stdin)["workers"]))'
 }
-until [[ "$(modes 2>/dev/null)" == "decode prefill prefill" ]]; do
-    for c in "$CTR-prefill0" "$CTR-prefill1"; do
+want="decode$(printf ' prefill%.0s' "${prefills[@]}")"
+until [[ "$(modes 2>/dev/null)" == "$want" ]]; do
+    for c in "${prefills[@]}"; do
         [[ "$(docker inspect -f '{{.State.Running}}' "$c")" == true ]] ||
             die "$c stopped before registering with the router; see: docker logs $c"
     done
     sleep 10
 done
 curl -sf -m 10 "$ROUTER_URL/v1/workers" >"$RUN_DIR/workers.json"
-echo "router workers: 2 prefill + 1 decode"
+echo "router workers: $PREFILL_WORKERS prefill + 1 decode"
 echo "===== up: $ROUTER_URL  SIM_ACCEPT_LEN=${SIM_ACCEPT_LEN:-real}  run=$RUN_DIR ====="
