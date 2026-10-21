@@ -124,3 +124,13 @@
 - 08:00 用户：先修冷热差，R4 暂缓，方案须符合 InferenceX 规则。08:30 改动：`engine.sh` 加 `PREFILL_MTP=1`（prefill 用 decode 同一组 EAGLE 参数），
   `agentx_env.py` 的部署核对随之认 prefill 的 MTP，新 stage `config/stage-b6-spf-pmtp.sh`；a5 队列第 2 步起改为 只重启 prefill → HiCache 检查 →
   a5-pmtp / a5-pmtp2 C176（各抓 profile）；`operations/current_stage` 与 `queue.next.tsv` 改为新配置直接起栈。
+- 08:29 a5 起栈完成（36 分钟，传输冒烟 192/192）；08:30–08:39 只重启 prefill（`PREFILL_MTP=1`）：server_args `speculative_algorithm=EAGLE`，多一块 1.54 GB
+  的草稿 KV 池，GPU KV 2,501,248 → 2,336,704 token/rank（−6.6%）；HiCache 检查的传输冒烟 192/192（p50 42.5 s，a4 为 29.5 s，含新进程首次编译）。
+- 08:50 a5-pmtp C176 开始（decode 自起栈后只经过冒烟流量 = 冷态）。预热阶段 prefill 每满 chunk 1,673 / 1,652 ms（a4 冷轮 1,624 / 1,532，+3% / +8%），
+  第 1,200 s 完成数 1,010（a4 1,296 / 1,483）。09:16 两个 prefill 健康检查约 4 分钟无响应后自行恢复（AgentX 0 错误）。09:24:36 测量开始。
+- 09:40 测量前 15 分钟：**decode 冷态问题消失**——同等负载每步 @6 36.5 / @8 40.0 / @12 67.7 ms（a4 冷 48.7 / 50.4 / 72.1，热 37.6 / 39.2 / 65.9）；
+  09:39 profile：草稿 `k_scatter` 每次 19–24 µs（a4 冷 887–3,188、热 14–183），40 步 GPU 忙碌 256 ms（冷 820、热 364），跨度 2,913 ms（热 3,140，−7%）。
+  prefill 侧压力上升：hang watch 待处理平均 33 / 39（a4 20–27），prefill-1 每满 chunk 2,146 ms（a4 1,872–1,879）。
+- 10:31 **a5-pmtp C176 = 34,582**（a4 冷轮 +2.3%，热轮 −0.8%；RESULT §2.14）。10:31 a5-pmtp2 开始，11:00 测量开始，11:15 抓了 profile
+  （`k_scatter` 16–25 µs，decode 节奏与第 1 轮一致 → 无漂移）。**11:22 作业第 6 次被抢占**，11:27 守护删除容器；作业重新排队，
+  Slurm 预计 10-22 00:57 开始（Priority）。下一次分配按 `operations/queue.next.tsv` 用新配置直接起栈。

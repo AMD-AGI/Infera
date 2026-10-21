@@ -1,0 +1,96 @@
+== a5-pmtp2-1792581335.7266402-TP-0-DP-0-DECODE.trace.json.gz: 12885 kernels, 703 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 266.9 ms over span 3066.3 ms, max gap on main stream 72.2 ms
+   main stream: busy 262.4 ms of span 3064.1 ms -> moe 37.1%  attn_dsa 20.1%  gemm 16.9%  comm 11.7%  elementwise 9.2%  norm_rope_act 2.0%  sampling_spec 1.7%  other 1.3%
+   copies (side streams): Memcpy DtoD (Device -> Device) 3.4 ms, Memcpy HtoD (Host -> Device) 0.6 ms, Memcpy DtoH (Device -> Host) 0.0 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2964.3 ms total; moe 37%  attn_dsa 20%  gemm 17%  comm 12%  elementwise 9%  norm_rope_act 2%
+         58.0 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         25.4 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         25.3 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         15.1 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+         13.9 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+         10.9 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+         10.1 ms  moe           void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+          7.8 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+== a5-pmtp2-1792581335.7266402-TP-1-DP-1-DECODE.trace.json.gz: 12291 kernels, 784 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 266.7 ms over span 3066.3 ms, max gap on main stream 72.2 ms
+   main stream: busy 261.2 ms of span 3064.1 ms -> moe 34.9%  comm 17.7%  attn_dsa 17.1%  gemm 17.1%  elementwise 8.3%  norm_rope_act 2.0%  sampling_spec 1.7%  other 1.3%
+   copies (side streams): Memcpy DtoD (Device -> Device) 3.5 ms, Memcpy HtoD (Host -> Device) 0.8 ms, Memcpy DtoH (Device -> Host) 0.1 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2963.4 ms total; moe 35%  comm 18%  attn_dsa 17%  gemm 17%  elementwise 8%  norm_rope_act 2%
+         57.4 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         39.8 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         25.1 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         10.9 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+         10.8 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+         10.7 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          7.8 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          6.3 ms  comm          _ZN5aiter26cross_device_reduce_2stageIDF16bLi8ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPN
+== a5-pmtp2-1792581335.7266402-TP-2-DP-2-DECODE.trace.json.gz: 12463 kernels, 686 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 264.6 ms over span 3066.3 ms, max gap on main stream 72.2 ms
+   main stream: busy 260.3 ms of span 3064.1 ms -> moe 37.1%  attn_dsa 21.0%  gemm 17.0%  comm 11.3%  elementwise 8.7%  norm_rope_act 2.0%  sampling_spec 1.7%  other 1.3%
+   copies (side streams): Memcpy DtoD (Device -> Device) 3.4 ms, Memcpy HtoD (Host -> Device) 0.3 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2963.1 ms total; moe 37%  attn_dsa 21%  gemm 17%  comm 11%  elementwise 9%  norm_rope_act 2%
+         56.6 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         25.0 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         22.1 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         15.9 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+         14.7 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+         10.9 ms  moe           void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+         10.8 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          7.8 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+== a5-pmtp2-1792581335.7266402-TP-3-DP-3-DECODE.trace.json.gz: 12525 kernels, 732 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 267.2 ms over span 3066.3 ms, max gap on main stream 72.2 ms
+   main stream: busy 262.3 ms of span 3064.1 ms -> moe 36.5%  attn_dsa 20.8%  gemm 17.0%  comm 12.0%  elementwise 8.6%  norm_rope_act 2.0%  sampling_spec 1.7%  other 1.3%
+   copies (side streams): Memcpy DtoD (Device -> Device) 3.5 ms, Memcpy HtoD (Host -> Device) 0.6 ms, Memcpy DtoH (Device -> Host) 0.0 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2964.0 ms total; moe 37%  attn_dsa 21%  gemm 17%  comm 12%  elementwise 9%  norm_rope_act 2%
+         57.0 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         25.1 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         24.7 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         15.6 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+         15.0 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+         10.9 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          9.9 ms  moe           void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+          8.0 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+== a5-pmtp2-1792581335.7266402-TP-4-DP-4-DECODE.trace.json.gz: 12533 kernels, 745 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 266.9 ms over span 3066.3 ms, max gap on main stream 72.2 ms
+   main stream: busy 262.0 ms of span 3064.1 ms -> moe 37.3%  attn_dsa 20.6%  gemm 16.5%  comm 11.2%  elementwise 9.1%  norm_rope_act 2.2%  sampling_spec 1.7%  other 1.4%
+   copies (side streams): Memcpy DtoD (Device -> Device) 3.7 ms, Memcpy HtoD (Host -> Device) 0.6 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2964.0 ms total; moe 37%  attn_dsa 21%  gemm 17%  comm 11%  elementwise 9%  norm_rope_act 2%
+         57.5 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         25.3 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         23.3 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         15.8 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+         14.1 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+         10.8 ms  moe           void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+         10.1 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          7.8 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+== a5-pmtp2-1792581335.7266402-TP-5-DP-5-DECODE.trace.json.gz: 12512 kernels, 719 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 1191.9 ms over span 3066.4 ms, max gap on main stream 72.2 ms
+   main stream: busy 261.9 ms of span 3064.1 ms -> moe 35.8%  attn_dsa 19.2%  gemm 16.6%  comm 14.0%  elementwise 9.1%  norm_rope_act 2.2%  sampling_spec 1.7%  other 1.5%
+   copies (side streams): Memcpy DtoH (Device -> Host) 376.9 ms, Memcpy DtoD (Device -> Device) 3.7 ms, Memcpy HtoD (Host -> Device) 0.6 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2964.1 ms total; moe 36%  attn_dsa 19%  gemm 17%  comm 14%  elementwise 9%  norm_rope_act 2%
+        549.4 ms  elementwise   void at::native::index_elementwise_kernel<128, 4, at::native::gpu_index_kernel<at::native:
+         56.7 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         29.6 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         25.0 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         13.1 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+         13.0 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+         10.5 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          8.1 ms  moe           void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+== a5-pmtp2-1792581335.7266402-TP-6-DP-6-DECODE.trace.json.gz: 12490 kernels, 694 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 267.7 ms over span 3066.3 ms, max gap on main stream 72.2 ms
+   main stream: busy 263.2 ms of span 3064.1 ms -> moe 34.5%  comm 20.0%  gemm 16.3%  attn_dsa 14.8%  elementwise 9.0%  norm_rope_act 2.2%  sampling_spec 1.7%  other 1.4%
+   copies (side streams): Memcpy DtoD (Device -> Device) 3.6 ms, Memcpy HtoD (Host -> Device) 0.4 ms, Memcpy DtoH (Device -> Host) 0.0 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2964.8 ms total; moe 35%  comm 20%  gemm 16%  attn_dsa 15%  elementwise 9%  norm_rope_act 2%
+         56.8 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         45.6 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         25.0 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         10.0 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          8.8 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+          7.8 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          7.6 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+          6.9 ms  comm          _ZN5aiter26cross_device_reduce_2stageIDF16bLi8ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPN
+== a5-pmtp2-1792581335.7266402-TP-7-DP-7-DECODE.trace.json.gz: 12445 kernels, 680 memcpy, 0 ProfilerStep, 2 kernel streams, GPU busy 266.8 ms over span 3066.3 ms, max gap on main stream 72.2 ms
+   main stream: busy 262.4 ms of span 3064.1 ms -> moe 37.2%  attn_dsa 20.9%  gemm 16.4%  comm 11.2%  elementwise 9.0%  norm_rope_act 2.2%  sampling_spec 1.7%  other 1.4%
+   copies (side streams): Memcpy DtoD (Device -> Device) 3.5 ms, Memcpy HtoD (Host -> Device) 0.5 ms
+   batch OTHER  x  78: mean    38.0 ms (bs 0.0),   2964.4 ms total; moe 37%  attn_dsa 21%  gemm 16%  comm 11%  elementwise 9%  norm_rope_act 2%
+         56.6 ms  moe           _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11Column
+         25.0 ms  moe           _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11C
+         22.1 ms  comm          ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+         16.2 ms  attn_dsa      void sglang::dsa_gfx950::logits::logits_hist_m<8, 12>(unsigned char const*, unsigned char 
+         14.9 ms  attn_dsa      _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+         12.0 ms  moe           void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+         10.0 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT96x160x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF
+          7.7 ms  gemm          Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AF

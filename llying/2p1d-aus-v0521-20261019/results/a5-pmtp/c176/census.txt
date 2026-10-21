@@ -1,0 +1,9 @@
+== decode-0.log lines=28541 ready=0 hcas=[]
+   FATAL       1 [2026-10-21 10:25:10 DP7 TP7] Decode transfer failed for request rank=7 decode_req.req.rid='877f9bcad3f54511af28da8689fefe79' decode_req.req.bootstrap_room=7555024577179024513 with exception KVTransferError(bootstrap_room=755502457717902451
+   FATAL       1 [2026-10-21 10:25:10 DP1 TP1] Decode transfer failed for request rank=1 decode_req.req.rid='dd8134cd32d440e8b924ab1143407aa4' decode_req.req.bootstrap_room=3100632598881006302 with exception KVTransferError(bootstrap_room=310063259888100630
+   FATAL       1 [2026-10-21 10:25:08 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='ff950e677bd44cf1ac94fbb9b526090d' decode_req.req.bootstrap_room=2874559151419422937 with exception KVTransferError(bootstrap_room=287455915141942293
+   FATAL       1 [2026-10-21 10:25:08 DP6 TP6] Decode transfer failed for request rank=6 decode_req.req.rid='0a907f056a7d415bacc78b002e6ea5e3' decode_req.req.bootstrap_room=1088190027518152036 with exception KVTransferError(bootstrap_room=108819002751815203
+== prefill-0.before-nomtp.log lines=0 ready=0 hcas=[]
+== prefill-0.log lines=24348 ready=0 hcas=[]
+== prefill-1.before-nomtp.log lines=0 ready=0 hcas=[]
+== prefill-1.log lines=27590 ready=0 hcas=[]
