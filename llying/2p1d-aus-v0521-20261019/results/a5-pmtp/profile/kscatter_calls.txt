@@ -1,0 +1,56 @@
+== a5-pmtp-1792575580.9894078-TP-0-DP-0-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 2.9 ms  median 18.6 us  p90 20.6 us  max 23.0 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 2: 19, 1: 19, 3: 19, 0: 19
+   position medians: 19 19 19 19
+   first call args: {'device': 2, 'stream': 8, 'correlation': 302, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(23, None), (22, None), (22, None), (21, None), (21, None)]
+== a5-pmtp-1792575580.9894078-TP-1-DP-1-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 3.0 ms  median 19.1 us  p90 22.0 us  max 23.4 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 0: 20, 1: 19, 3: 19, 2: 19
+   position medians: 20 19 19 19
+   first call args: {'device': 3, 'stream': 8, 'correlation': 259, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(23, None), (23, None), (23, None), (23, None), (23, None)]
+== a5-pmtp-1792575580.9894078-TP-2-DP-2-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 3.8 ms  median 23.8 us  p90 28.9 us  max 33.1 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 0: 24, 1: 24, 2: 24, 3: 23
+   position medians: 24 24 24 23
+   first call args: {'device': 4, 'stream': 8, 'correlation': 302, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(33, None), (33, None), (33, None), (32, None), (32, None)]
+== a5-pmtp-1792575580.9894078-TP-3-DP-3-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 3.4 ms  median 22.1 us  p90 23.8 us  max 24.6 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 0: 23, 1: 22, 3: 22, 2: 22
+   position medians: 23 22 22 22
+   first call args: {'device': 5, 'stream': 8, 'correlation': 302, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(25, None), (24, None), (24, None), (24, None), (24, None)]
+== a5-pmtp-1792575580.9894078-TP-4-DP-4-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 3.6 ms  median 23.1 us  p90 25.3 us  max 27.9 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 3: 24, 0: 23, 1: 23, 2: 23
+   position medians: 23 23 23 24
+   first call args: {'device': 6, 'stream': 8, 'correlation': 285, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(28, None), (27, None), (27, None), (26, None), (26, None)]
+== a5-pmtp-1792575580.9894078-TP-5-DP-5-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 3.4 ms  median 21.5 us  p90 24.8 us  max 30.6 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 2: 22, 3: 22, 0: 21, 1: 21
+   position medians: 21 21 22 22
+   first call args: {'device': 7, 'stream': 8, 'correlation': 285, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(31, None), (29, None), (28, None), (27, None), (27, None)]
+== a5-pmtp-1792575580.9894078-TP-6-DP-6-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 3.6 ms  median 23.0 us  p90 25.9 us  max 28.0 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 0: 23, 1: 23, 2: 23, 3: 23
+   position medians: 23 23 23 23
+   first call args: {'device': 8, 'stream': 8, 'correlation': 302, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(28, None), (28, None), (28, None), (27, None), (27, None)]
+== a5-pmtp-1792575580.9894078-TP-7-DP-7-DECODE.trace.json.gz
+   k_scatter calls 156  logits_hist calls 156  total 3.2 ms  median 20.7 us  p90 22.6 us  max 24.1 us
+   steps 39  calls/step min 4 median 4 max 4
+   slowest positions (index: median us): 1: 21, 3: 21, 0: 21, 2: 20
+   position medians: 21 21 20 21
+   first call args: {'device': 9, 'stream': 8, 'correlation': 302, 'kind': 'Dispatch Task'}
+   largest calls (us, grid): [(24, None), (24, None), (24, None), (24, None), (23, None)]
