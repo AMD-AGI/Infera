@@ -263,7 +263,7 @@ def test_precheck_is_the_store_seal_and_the_gate(tmp_path):
     problems = hstore.precheck(c, "reproducible", None)
     assert any("README" in x for x in problems)
     (c / "items" / "command").chmod(0o644)
-    assert any("not executable" in x for x in hstore.precheck(c, "reproducible", None))
+    assert any("not an executable file" in x for x in hstore.precheck(c, "reproducible", None))
 
 
 # -- the runner ----------------------------------------------------------------- #
@@ -275,7 +275,7 @@ def test_runner_executes_a_package_and_publishes_validated_handoffs(scaffolded, 
     for leaf in ("publish_inputs", "write_note"):
         runner.prepare(run, leaf)
         assert runner.run_program(run, leaf) == 0
-        checks = runner.finish(run, leaf, timeout=60)
+        checks = runner.finish(run, leaf)
         assert all(c.passed for c in checks), [vmod.render(c) for c in checks]
 
     with pytest.raises(runner.NotReady, match="not ready"):
@@ -290,17 +290,21 @@ def test_runner_executes_a_package_and_publishes_validated_handoffs(scaffolded, 
     (out / "items").mkdir()
     (out / "README.md").write_text("# review\n\n## Purpose\nChecks the note.\n")
     (out / "items" / "content").write_text("only one line\n")
-    first = runner.finish(run, "review", timeout=60)
+    first = runner.finish(run, "review")
     assert not first[0].passed  # min_lines floor of 2
     (out / "items" / "content").write_text("line one\nline two\n")
-    second = runner.finish(run, "review", timeout=60)
+    second = runner.finish(run, "review")
     assert second[0].passed
 
     slot = hstore.latest_published(run / "handoffs", "review")
     manifest = (slot.vdir / "manifest.yaml").read_text()
     assert hstore.digest(slot.content) in manifest
     rows = hstore.verdicts(slot)
-    assert [r["result"] for r in rows] == [False, True]
+    assert [r["result"] for r in rows] == [
+        True
+    ]  # the seal creates validation.yaml; the refusal is in state
+    state, _ = runner.open_run(run)
+    assert [bool(x["failed"]) for x in state["leaves"]["review"]["finish_log"]] == [True, False]
     # agent_sys's own store reads what the runner published: digest verified, verdicts parse.
     from handoff import verdict as verdict_mod  # noqa: PLC0415
     from handoff.store import FilesystemStore  # noqa: PLC0415
@@ -308,7 +312,7 @@ def test_runner_executes_a_package_and_publishes_validated_handoffs(scaffolded, 
     store = FilesystemStore(run / "handoffs")
     content = store.copy_out(slot.hid, slot.version, tmp_path / "copied")
     assert sorted(content.items) == ["content"]
-    assert [v.result for v in verdict_mod.read(slot.vdir / "validation.yaml")] == [False, True]
+    assert [v.result for v in verdict_mod.read(slot.vdir / "validation.yaml")] == [True]
     report = runner.closure_report(run)
     assert report["complete"], report
     script = wf.emit(pkg.load(scaffolded), run)
@@ -320,7 +324,7 @@ def test_runner_executes_a_package_and_publishes_validated_handoffs(scaffolded, 
     run2 = tmp_path / "run2"
     runner.init(run2, scaffolded, {})
     note = hstore.latest_published(run / "handoffs", "note")
-    assert runner.seed(run2, "note", note.content, timeout=60).passed
+    assert runner.seed(run2, "note", note.content).passed
     state, p2 = runner.open_run(run2)
     status = {x.name: runner.leaf_status(state, x, run2 / "handoffs") for x in p2.leaves()}
     assert status["write_note"] == "seeded" and status["review"] == "pending"
@@ -496,7 +500,7 @@ def test_multi_input_validator_sees_all_outputs_and_cannot_mutate_them(tmp_path)
     runner.init(run, dest, {})
     runner.prepare(run, "make")
     assert runner.run_program(run, "make") == 0
-    checks = runner.finish(run, "make", timeout=60)
+    checks = runner.finish(run, "make")
     assert all(c.passed for c in checks), [vmod.render(c) for c in checks]
     for k in ("a", "b"):
         slot = hstore.latest_published(run / "handoffs", k)
@@ -585,3 +589,21 @@ def test_emitted_workflow_parses_as_javascript(scaffolded, tmp_path):
     src.write_text(f"async function main() {{\n{body}\n}}\n")
     proc = subprocess.run([node, "--check", str(src)], capture_output=True, text=True, check=False)
     assert proc.returncode == 0, proc.stderr
+
+
+def test_skillkit_uses_the_runtime_functions_not_copies():
+    """The pieces that must agree with agent_sys are agent_sys's own objects."""
+    import agent.gate  # noqa: PLC0415
+    import agent.runner  # noqa: PLC0415
+    import env_mgr.grants  # noqa: PLC0415
+    import handoff.store  # noqa: PLC0415
+    import validator.phase  # noqa: PLC0415
+
+    assert pkg.env_name is env_mgr.grants.env_name
+    assert (
+        hstore.runnable is agent.gate.runnable
+        and hstore.FilesystemStore is handoff.store.FilesystemStore
+    )
+    assert runner.outputs_brief is agent.runner.outputs_brief
+    assert vmod.LeafValidator is validator.phase.LeafValidator
+    assert vmod.declare_materials is validator.phase.declare_materials

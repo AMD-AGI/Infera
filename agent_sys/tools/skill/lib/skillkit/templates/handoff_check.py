@@ -10,7 +10,7 @@ holding `inputs.json` (handoff ids), `args.json` (this validator's `args`) and
 `materials.json` (id -> content dir with README.md and items/). The body MUST
 write `verdict.json` `{id: bool}` — this one always does, even when it crashes,
 because a missing verdict is "nothing was decided", which helps nobody. Reasons
-go to `validator_report.txt` (the runtime discards stdout).
+go to `validator_report.txt` (stdout is kept only as the zone's body_output.txt).
 
 Calibration — what this checks and what it refuses to check:
   * presence, non-emptiness, structure, parseability, internal consistency,

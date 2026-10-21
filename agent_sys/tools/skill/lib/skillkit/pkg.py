@@ -22,9 +22,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from env_mgr.grants import env_name  # noqa: F401  (re-exported: AGENT_SYS_{INPUT,OUTPUT}_<this>)
 from skillkit import AGENT_SYS
 from spec_loader.package import YamlPackage
 from spec_loader.report import format_problems
+from task_graph.models import derived_edges, subgraph_entries
 
 #: `tags.cost` order, cheapest first — `validator/phase.py` sorts the same way.
 COST_RANK = {"seconds": 0, "minutes": 1, "gpu_hours": 2}
@@ -102,11 +104,16 @@ class Package:
     # -- the graph ---------------------------------------------------------- #
 
     def leaves(self, root: str = "main") -> list[Leaf]:
+        """Leaves in execution order, each with the leaves it waits for.
+
+        The edges are `task_graph.derived_edges` — the runtime's single writer of
+        "which entry depends on which" — applied level by level, plus each
+        entry's declared `froms`. A kind no entry produces resolves to the
+        parent's input, i.e. to whatever produced it one level up."""
         if root not in self.closures:
             raise PackageError(f"no task {root!r} (have: {sorted(self.closures)})")
         out: list[Leaf] = []
-        producer: dict[str, str] = {}
-        self._unfold(root, [], [], out, producer)
+        self._unfold(root, [], [], {}, out)
         return out
 
     def _unfold(
@@ -114,10 +121,10 @@ class Package:
         name: str,
         ancestors: list[str],
         extra_deps: list[str],
+        outer: dict[str, str],
         out: list[Leaf],
-        producer: dict[str, str],
-    ) -> list[str]:
-        """Append `name`'s leaves to `out`; return their names."""
+    ) -> dict[str, str]:
+        """Append `name`'s leaves to `out`; return {kind: leaf that produces it} for this subtree."""
         task = self.task(name)
         if self.is_leaf(name):
             agent = str(self.closures[name].get("agent") or "")
@@ -135,24 +142,42 @@ class Package:
             )
             deps = list(extra_deps)
             for k in leaf.inputs:
-                if k in producer:
-                    deps.append(producer[k])
+                if k in outer:
+                    deps.append(outer[k])
                 else:
                     leaf.external_inputs.append(k)
             leaf.deps = sorted(set(deps) - {name})
-            for k in leaf.outputs:
-                producer[k] = name
             out.append(leaf)
-            return [name]
+            return {k: name for k in leaf.outputs}
 
-        subtree: dict[str, list[str]] = {}
-        mine: list[str] = []
-        for entry in task.get("subgraph") or []:
-            child = entry["closure"]
-            ordering = [leaf for f in entry.get("froms") or [] for leaf in subtree.get(f, [])]
-            got = self._unfold(child, [*ancestors, name], [*extra_deps, *ordering], out, producer)
-            subtree[child] = got
-            mine += got
+        entries = subgraph_entries(task)
+        specs = {e.closure: self.task(e.closure) for e in entries if e.closure in self.closures}
+        edges = derived_edges(entries, specs)
+        produced: list[dict[str, str]] = []  # per entry: kind -> producing leaf
+        leaves_of: list[list[str]] = []
+        mine: dict[str, str] = {}
+        for index, entry in enumerate(entries):
+            ordering = [
+                leaf
+                for f in entry.froms
+                for k, e in enumerate(entries[:index])
+                if e.closure == f
+                for leaf in leaves_of[k]
+            ]
+            # The runtime's edges name the producing ENTRIES; what each exports is
+            # its declared `outputs` (a non-leaf exports through its end entry).
+            visible = dict(outer)
+            for idx in sorted({edge.producer_index for edge in edges[index]}):
+                for kind in specs.get(entries[idx].closure, {}).get("outputs") or []:
+                    if kind in produced[idx]:
+                        visible[kind] = produced[idx][kind]
+            before = len(out)
+            got = self._unfold(
+                entry.closure, [*ancestors, name], [*extra_deps, *ordering], visible, out
+            )
+            produced.append(got)
+            leaves_of.append([leaf.name for leaf in out[before:]])
+            mine.update(got)
         return mine
 
 
@@ -244,8 +269,3 @@ def _plain(node: Any) -> Any:
     if isinstance(node, (bool, int, float)) or node is None:
         return node
     return str(node)
-
-
-def env_name(kind: str) -> str:
-    """`AGENT_SYS_{INPUT,OUTPUT}_<this>` — `env_mgr/grants.py`'s rule."""
-    return "".join(c if c.isalnum() else "_" for c in kind).upper()

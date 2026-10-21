@@ -23,16 +23,23 @@ import fcntl
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import sys
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
+from agent.runner import outputs_brief
+from env_mgr.fs.domain import DomainKind, subdir_for
+from env_mgr.fs.layout import LOGS, stage, stage_package
+from env_mgr.fs.zone import Zone
+from env_mgr.grants import input_env, output_env
+from env_mgr.paths import zone_env
 from skillkit import AGENT_SYS, hstore
 from skillkit import validate as vmod
-from skillkit.pkg import Leaf, Package, PackageError, env_name, load
+from skillkit.pkg import Leaf, Package, PackageError, load
+from task_graph.ids import HandoffId
 
 STATE = "state.json"
 
@@ -42,8 +49,6 @@ class NotReady(Exception):
     A refusal (exit 1), not a usage error."""
 
 
-#: A package bigger than this is linked, not copied, into each zone.
-COPY_LIMIT = 200 << 20
 ASTK = AGENT_SYS / "tools" / "skill" / "lib" / "astk.py"
 
 
@@ -133,7 +138,7 @@ def leaf_of(pkg: Package, name: str) -> Leaf:
 # -- seeding an external input ---------------------------------------------- #
 
 
-def seed(run: Path, kind: str, src: Path, *, timeout: float) -> vmod.KindCheck:
+def seed(run: Path, kind: str, src: Path) -> vmod.KindCheck:
     """Publish an existing content dir as `kind`, validated like a producer's.
 
     This is what a publisher task does in agent_sys (`cp -a` into the output,
@@ -142,14 +147,10 @@ def seed(run: Path, kind: str, src: Path, *, timeout: float) -> vmod.KindCheck:
     """
     _state, pkg = open_run(run)
     pkg.kind(kind)
-    slot = hstore.import_content(run.resolve() / "handoffs", kind, src.resolve())
+    slot = hstore.import_content(run.resolve() / "handoffs", kind, pkg.kinds, src.resolve())
     work = _fresh_dir(run.resolve() / "validation" / f"seed.{kind}")
-    check = vmod.check_kind(
-        pkg, kind, slot.content, work, hid=slot.hid, store=run / "handoffs", timeout=timeout
-    )
-    hstore.record_verdicts(slot, vmod.rows_for_store(check, task_id=f"seed:{kind}"))
-    if check.passed:
-        hstore.seal(slot, producer=f"seed:{src}")
+    check = vmod.check_kind(pkg, kind, slot.content, work, hid=slot.hid, store=run / "handoffs")
+    _publish(slot, check, pkg, label=f"seed:{kind}")
     with locked(run) as st:
         st["seeded"][kind] = {
             "from": str(src.resolve()),
@@ -192,18 +193,23 @@ def prepare(run: Path, name: str) -> dict:
         rec["attempts"] = attempt + 1
         rec["status"] = "preparing"
     zone = _fresh_dir(run / "zones" / f"task.{name}.{attempt}")
-    for d in ("handoffs", "workspace", "playground", "logs", "tmp"):
+    ezone = Zone(task_id=name, attempt=attempt, root=str(zone))
+    for d in [subdir_for(k) for k in DomainKind] + [LOGS, "tmp"]:
         (zone / d).mkdir(parents=True, exist_ok=True)
-    package_copy = _stage_package(pkg.root, zone / "package")
+    # env_mgr's own staging: the package copied (outward links materialised),
+    # each input's content/ copied under handoffs/ in the store's naming.
+    package_copy = Path(stage_package(str(pkg.root), ezone) or "")
+    by_hid = {HandoffId(s.hid): (kind, s) for kind, s in inputs.items()}
+    staged_by_hid = stage(
+        list(by_hid),
+        {h: s.version for h, (_k, s) in by_hid.items()},
+        str(zone / subdir_for(DomainKind.HANDOFF_STORAGE)),
+        str(store),
+    )
+    staged = {by_hid[h][0]: Path(p) for h, p in staged_by_hid.items()}
+    outputs = {kind: hstore.allocate(store, kind, pkg.kinds) for kind in leaf.outputs}
 
-    staged: dict[str, Path] = {}
-    for kind, slot in inputs.items():
-        dst = zone / "handoffs" / slot.root.name / f"v{slot.version}"
-        shutil.copytree(slot.content, dst, symlinks=True)
-        staged[kind] = dst
-    outputs = {kind: hstore.allocate(store, kind) for kind in leaf.outputs}
-
-    env = _environment(pkg, leaf, zone, package_copy, staged, outputs, store)
+    env = _environment(pkg, leaf, ezone, package_copy, staged_by_hid, by_hid, outputs, store)
     (zone / "env.json").write_text(json.dumps(env, indent=2))
     (zone / "env.sh").write_text(
         "# Source this before every command: `. "
@@ -261,48 +267,36 @@ def _input_phase(run: Path, pkg: Package, leaf: Leaf, inputs: dict[str, hstore.S
         raise NotReady(f"leaf {leaf.name!r}: input validation refused:\n  " + "\n  ".join(refused))
 
 
-def _stage_package(root: Path, dst: Path) -> Path:
-    size = sum(f.stat().st_size for f in root.rglob("*") if f.is_file())
-    if size > COPY_LIMIT:
-        dst.symlink_to(root, target_is_directory=True)
-    else:
-        # Dereference: a package may link files from a sibling package
-        # (02a/02b/03 link into e2e-flow), and a relative link would dangle here.
-        shutil.copytree(root, dst, symlinks=False, ignore_dangling_symlinks=True)
-    return dst
-
-
 def _environment(
     pkg: Package,
     leaf: Leaf,
-    zone: Path,
+    zone: Zone,
     package_copy: Path,
-    staged: dict[str, Path],
+    staged_by_hid: dict,
+    by_hid: dict,
     outputs: dict[str, hstore.Slot],
     store: Path,
 ) -> dict[str, str]:
-    """`env_mgr.prepare`'s exports, in its order; the agent's `env` wins."""
+    """What a body sees, from env_mgr's own functions in `prepare`'s order —
+    `paths.zone_env`, `grants.output_env`, `grants.input_env` — then the CLI's
+    `AGENT_SYS_DEMO_*` facts, the zone's tmp, and the agent's `env:` last."""
+    out_hids = {HandoffId(s.hid): kind for kind, s in outputs.items()}
+    task = SimpleNamespace(
+        outputs=tuple(out_hids),
+        kinds={**out_hids, **{h: k for h, (k, _s) in by_hid.items()}},
+    )
+    execution = SimpleNamespace(
+        output_versions={HandoffId(s.hid): s.version for s in outputs.values()}
+    )
     env: dict[str, str] = {
-        "AGENT_SYS_MY_ZONE": str(zone),
-        "AGENT_SYS_MY_HANDOFFS": str(zone / "handoffs"),
-        "AGENT_SYS_MY_WORKSPACE": str(zone / "workspace"),
-        "AGENT_SYS_MY_PLAYGROUND": str(zone / "playground"),
-        "AGENT_SYS_MY_LOGS": str(zone / "logs"),
-        "AGENT_SYS_TASK_PACKAGE": str(package_copy),
+        **zone_env(zone, staged_package=str(package_copy)),
+        **output_env(task, execution, str(store)),
+        **input_env(task, staged_by_hid),
         "AGENT_SYS_DEMO_PACKAGE": str(pkg.root),
         "AGENT_SYS_DEMO_STORE": str(store),
         "AGENT_SYS_DEMO_PYTHON": sys.executable,
-        "TMPDIR": str(zone / "tmp"),
+        "TMPDIR": str(Path(zone.root) / "tmp"),
     }
-    for prefix, paths in (
-        ("AGENT_SYS_OUTPUT_", {k: s.content for k, s in outputs.items()}),
-        ("AGENT_SYS_INPUT_", staged),
-    ):
-        names: dict[str, list[Path]] = {}
-        for kind, path in paths.items():
-            names.setdefault(prefix + env_name(kind), []).append(path)
-        # Two kinds on one name: the runtime exports neither (env_mgr/grants.py).
-        env.update({n: str(p[0]) for n, p in names.items() if len(p) == 1})
     agent = pkg.agents.get(leaf.agent, {})
     if agent.get("assets"):
         env["AGENT_SYS_AGENT_ASSETS"] = str(package_copy / str(agent["assets"]))
@@ -333,23 +327,19 @@ def _brief(
         "",
         f'Every shell is fresh: start every command with `. {shlex.quote(str(zone / "env.sh"))} && cd "$AGENT_SYS_MY_ZONE"`.',
         "It exports what agent_sys would: `AGENT_SYS_INPUT_<KIND>`, `AGENT_SYS_OUTPUT_<KIND>`,",
-        "`AGENT_SYS_TASK_PACKAGE`, `AGENT_SYS_MY_*`, and the agent's `env:` block.",
-        (
-            "`AGENT_SYS_TASK_PACKAGE` is a SYMLINK to the original package (too large to copy): "
-            "treat it as read-only."
-            if (zone / "package").is_symlink()
-            else "`AGENT_SYS_TASK_PACKAGE` is a private copy of the package."
-        ),
+        "`AGENT_SYS_TASK_PACKAGE` (a private copy of the package), `AGENT_SYS_MY_*`, and the agent's `env:` block.",
         "",
         "## Inputs (staged copies of each input's content: `README.md` + `items/` directly under the path; read, do not edit)",
         "",
     ]
     out += [f"- **{k}**: `{p}`" for k, p in staged.items()] or ["- (none)"]
-    out += ["", "## What this task must deliver", ""]
+    # The runtime's own wording for the paths (agent.runner.outputs_brief),
+    # then, per output, what the seal and the validators will hold it to.
+    out += ["", outputs_brief([(k, s.hid, s.content) for k, s in outputs.items()]), ""]
     for kind, slot in outputs.items():
         spec = pkg.kind(kind)
         ctype = content_mod.content_type(str(spec["content_type"]))
-        out.append(f"- **{kind}** (`{slot.hid}`): write it into `{slot.content}`")
+        out.append(f"- **{kind}**:")
         out.append(
             f"  - content_type `{ctype.name}`: `README.md` with document-root sections "
             + ", ".join(f"`## {s}`" for s in ctype.readme_sections)
@@ -437,7 +427,7 @@ def run_program(run: Path, name: str, *, timeout: float | None = None) -> int:
     return rc
 
 
-def finish(run: Path, name: str, *, timeout: float) -> list[vmod.KindCheck]:
+def finish(run: Path, name: str) -> list[vmod.KindCheck]:
     """The gate. All unpublished outputs are judged together, so a validator
     spanning two of them (e2e-flow's `check_measurement_order`) sees both."""
     run = run.resolve()
@@ -455,8 +445,8 @@ def finish(run: Path, name: str, *, timeout: float) -> list[vmod.KindCheck]:
     }
     pending = {k: s for k, s in slots.items() if not s.published}
     before = {k: hstore.digest(s.content) for k, s in pending.items() if s.content.is_dir()}
-    zone_env = Path(rec["zone"]) / "env.json"
-    source_env = json.loads(zone_env.read_text()) if zone_env.is_file() else None
+    env_file = Path(rec["zone"]) / "env.json"
+    source_env = json.loads(env_file.read_text()) if env_file.is_file() else None
     work = _fresh_dir(run / "validation" / f"{name}.{rec['attempts'] - 1}")
     checks = vmod.check_targets(
         pkg,
@@ -465,16 +455,13 @@ def finish(run: Path, name: str, *, timeout: float) -> list[vmod.KindCheck]:
         closure=leaf.name,
         source_env=source_env,
         store=run / "handoffs",
-        timeout=timeout,
     )
     for kind, check in checks.items():
         slot = pending[kind]
-        hstore.record_verdicts(slot, vmod.rows_for_store(check, task_id=label))
-        if check.passed:
-            if hstore.digest(slot.content) != before.get(kind):
-                check.precheck.append("content changed while it was being validated; not sealed")
-                continue
-            hstore.seal(slot, producer=label)
+        if check.passed and hstore.digest(slot.content) != before.get(kind):
+            check.precheck.append("content changed while it was being validated; not sealed")
+            continue
+        _publish(slot, check, pkg, label=label)
     done = all(s.published for s in slots.values())
     with locked(run) as st:
         r = st["leaves"][name]
@@ -487,6 +474,19 @@ def finish(run: Path, name: str, *, timeout: float) -> list[vmod.KindCheck]:
             }
         )
     return list(checks.values())
+
+
+def _publish(slot: hstore.Slot, check: vmod.KindCheck, pkg: Package, *, label: str) -> None:
+    """On a full pass: the store's seal, then the verdicts appended to the
+    `validation.yaml` the seal created — the runtime's order. A refused seal
+    (it re-runs the admission checks) is reported on the check."""
+    if not check.passed:
+        return
+    reason = hstore.seal(slot, pkg.kinds, producer=label)
+    if reason is not None:
+        check.precheck.append(f"the store refused to seal it: {reason}")
+        return
+    hstore.record_verdicts(slot, vmod.rows_for_store(check, task_id=label))
 
 
 def leaf_status(state: dict, leaf: Leaf, store: Path) -> str:
@@ -507,7 +507,7 @@ def leaf_status(state: dict, leaf: Leaf, store: Path) -> str:
 DONE = ("succeeded", "seeded")
 
 
-def closure_report(run: Path, *, timeout: float = vmod.DEFAULT_TIMEOUT) -> dict:
+def closure_report(run: Path) -> dict:
     """The end-of-run view, and the non-leaves' own output phase.
 
     Every leaf succeeded (or was seeded); every non-leaf's declared outputs are
@@ -536,7 +536,7 @@ def closure_report(run: Path, *, timeout: float = vmod.DEFAULT_TIMEOUT) -> dict:
                 verdicts[v] = "UNREACHED (no published input)"
                 continue
             work = _fresh_dir(run / "validation" / f"{name}.closure")
-            res = vmod.run_one(pkg, v, mine, work, store=store, timeout=timeout)
+            res = vmod.run_one(pkg, v, mine, work, store=store)
             verdicts[v] = (
                 "PASS"
                 if all(o.result is True for o in res.values())

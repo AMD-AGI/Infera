@@ -21,6 +21,7 @@ from skillkit import pkg as pkg_mod
 from skillkit import search as search_mod
 from skillkit import settings as settings_mod
 from skillkit import validate as vmod
+from task_graph.ids import HandoffId
 
 SKILL_ROOT = AGENT_SYS / "tools" / "skill"
 
@@ -256,7 +257,6 @@ def cmd_check(a: argparse.Namespace) -> int:
         content,
         work,
         closure=a.closure or p.producer_of(a.kind),
-        timeout=a.timeout,
         precheck_only=a.precheck_only,
     )
     _emit(check.to_dict(), a.json, vmod.render(check) + f"\n(validator zones under {work})")
@@ -272,25 +272,20 @@ def cmd_seal(a: argparse.Namespace) -> int:
     if same is not None:
         print(f"already published, identical content: {same.vdir} (nothing written)")
         return 0
-    slot = hstore.import_content(store, a.kind, content)
+    slot = hstore.import_content(store, a.kind, p.kinds, content)
     work = _work(a, f"seal.{a.kind}")
     check = vmod.check_kind(
-        p,
-        a.kind,
-        slot.content,
-        work,
-        closure=p.producer_of(a.kind),
-        hid=slot.hid,
-        store=store,
-        timeout=a.timeout,
+        p, a.kind, slot.content, work, closure=p.producer_of(a.kind), hid=slot.hid, store=store
     )
-    hstore.record_verdicts(slot, vmod.rows_for_store(check, task_id=a.task_id))
+    runner._publish(slot, check, p, label=a.task_id)
     print(vmod.render(check))
-    if check.passed:
-        m = hstore.seal(slot, producer=a.task_id)
-        print(f"published {slot.vdir}  sha256={m['digest']['sha256']}")
+    if slot.published:
+        sha = (
+            hstore.store(store)[0].get_manifest(HandoffId(slot.hid), slot.version).digest["sha256"]
+        )
+        print(f"published {slot.vdir}  sha256={sha}")
         return 0
-    print(f"NOT published: {slot.vdir} keeps content + validation.yaml, no manifest.yaml")
+    print(f"NOT published: {slot.vdir} holds the content, unsealed (no manifest.yaml)")
     return 1
 
 
@@ -321,7 +316,7 @@ def cmd_run_init(a: argparse.Namespace) -> int:
 
 
 def cmd_seed(a: argparse.Namespace) -> int:
-    check = runner.seed(Path(a.run), a.kind, Path(a.content), timeout=a.timeout)
+    check = runner.seed(Path(a.run), a.kind, Path(a.content))
     print(vmod.render(check))
     return 0 if check.passed else 1
 
@@ -342,7 +337,7 @@ def cmd_run_program(a: argparse.Namespace) -> int:
 
 
 def cmd_finish(a: argparse.Namespace) -> int:
-    checks = runner.finish(Path(a.run), a.leaf, timeout=a.timeout)
+    checks = runner.finish(Path(a.run), a.leaf)
     for c in checks:
         print(vmod.render(c))
     state, _ = runner.open_run(Path(a.run))
@@ -667,7 +662,6 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--work", help="where validator zones go (default: $TMPDIR/astk-<uid>/validation)"
     )
-    s.add_argument("--timeout", type=float, default=vmod.DEFAULT_TIMEOUT)
     s.add_argument(
         "--precheck-only", action="store_true", help="seal + gate test only, no validator"
     )
@@ -690,7 +684,6 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument(
         "--work", help="where validator zones go (default: $TMPDIR/astk-<uid>/validation)"
     )
-    s.add_argument("--timeout", type=float, default=vmod.DEFAULT_TIMEOUT)
     _add_var(s)
     _add_unset(s)
     s.set_defaults(fn=cmd_seal)
@@ -716,7 +709,6 @@ def parser() -> argparse.ArgumentParser:
     s.add_argument("--run", required=True)
     s.add_argument("--kind", required=True)
     s.add_argument("--content", required=True)
-    s.add_argument("--timeout", type=float, default=vmod.DEFAULT_TIMEOUT)
     s.set_defaults(fn=cmd_seed)
     for name, fn, helptext in (
         ("prepare", cmd_prepare, "stage a leaf: zone, inputs, output slots, env.sh, brief.md"),
@@ -726,11 +718,9 @@ def parser() -> argparse.ArgumentParser:
         s = sub.add_parser(name, help=helptext)
         s.add_argument("--run", required=True)
         s.add_argument("--leaf", required=True)
-        if name != "prepare":
+        if name == "run-program":
             s.add_argument(
-                "--timeout",
-                type=float,
-                default=None if name == "run-program" else vmod.DEFAULT_TIMEOUT,
+                "--timeout", type=float, default=None, help="seconds (the runtime has none)"
             )
         s.set_defaults(fn=fn)
     s = sub.add_parser("status", help="per-leaf status of a run")

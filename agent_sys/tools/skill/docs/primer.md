@@ -67,13 +67,16 @@ bit included — copy with `cp -a`) and `validation.yaml` (verdict rows).
     materials.json   {"<id>": "<content dir: README.md + items/>"}
     verdict.json     YOU WRITE IT: {"<id>": true|false}; no file = UNREACHED
 
-Nothing is inherited from the caller's environment; **only these are set**:
-`PATH`, `HOME`, `TMPDIR`, `AGENT_SYS_DEMO_PACKAGE`, `AGENT_SYS_DEMO_PYTHON`,
-the producer's `AGENT_SYS_TASK_PACKAGE` (plus the operator's harness
-credentials). An agent's `env:` block never reaches a validator — pass what it
-needs in `args`. agent_sys discards stdout, so write reasons to
-`validator_report.txt` (`astk` also keeps stdout, as `validator_output.txt`,
-for you — the runtime does not). Exit code does not matter; the verdict file does.
+Nothing is inherited from the caller's shell. An **output** check runs in the
+producer's environment (`validator.environment.choose_configuration`'s
+producer row: its `AGENT_SYS_*` paths, and the agent's `env:` block), plus
+`AGENT_SYS_DEMO_PACKAGE`/`_PYTHON`/`_STORE`, with `HOME`, `TMPDIR`, `PWD` in the
+zone; a validator that names an `agent:` gets that agent's `env:` instead.
+(Read from `validator/phase.py`, where the producer row is marked LIVE; the
+comment in e2e-flow's `m1_deploy.yaml` saying a validator never receives the
+block predates it. Not re-measured in a run.) Pass what a validator needs in `args` anyway — args are the declared channel.
+What the body prints is kept in its zone as `body_output.txt`; a body that
+wants its reasons read writes them to `validator_report.txt`. Exit code does not matter; the verdict file does.
 
 A task's validators = its closure `validators:` + every input/output kind's
 `validators:`, run cheapest `tags.cost` first. **One failure fails the task, at

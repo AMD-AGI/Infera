@@ -1,15 +1,17 @@
-"""Handoffs on disk, in agent_sys's store layout, checked by agent_sys's code.
-
-A store here is the same tree `handoff/store.py` writes, so a reader (or
-`replay`-style tooling) cannot tell the two apart:
+"""Handoffs on disk — agent_sys's own `handoff.FilesystemStore`, with the
+package's kinds plugged in.
 
     <store>/handoff.<kind-slug>.<uuid>/v<N>/content/{README.md, items/...}
-                                           /validation.yaml   verdict rows
-                                           /manifest.yaml     written LAST = published
+                                           /claim/            (allocate's, unused here)
+                                           /manifest.yaml     written by the store's seal = published
+                                           /validation.yaml   created empty by the seal, verdicts appended
 
-`precheck` is exactly the store's seal test (README sections, items) plus the
-gate's executable-bit test, both through agent_sys's own functions. Nothing
-the runtime does not enforce is enforced here.
+Allocation, the seal (README and items admission, digest, manifest) and the
+verdict record are the store's and `handoff.verdict`'s; the executable-bit test
+is `agent.gate.runnable`. What this module adds is only what a run outside the
+runtime has no other source for: which kind an id holds (a `.kind` file beside
+the version directories — the runtime keeps that in `task_graph`), and a
+listing of the store by kind.
 """
 
 from __future__ import annotations
@@ -17,22 +19,23 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
-import shutil
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
+from agent.gate import EXECUTABLE_ITEMS, runnable
 from handoff import content as content_mod
+from handoff import kind as kind_mod
 from handoff import readme as readme_mod
+from handoff import verdict as verdict_mod
 from handoff.digest import tree_digest
 from handoff.errors import Malformed
-from handoff.store import handoff_dirname
+from handoff.protocols import Verdict
+from handoff.store import FilesystemStore, handoff_dir, handoff_dirname
+from task_graph.ids import HandoffId, TaskId
 
-#: `agent/gate.py`: items with these names must carry the executable bit.
-EXECUTABLE_ITEMS = ("script", "command", "entry")
-ALGORITHM = "agent_sys.handoff.tree.v1"
+KIND_FILE = ".kind"
 
 
 @dataclass
@@ -55,83 +58,149 @@ class Slot:
         return (self.vdir / "manifest.yaml").is_file()
 
 
-# -- the store -------------------------------------------------------------- #
+class _Kinds:
+    """`handoff.store.KindSource` over the package's kind specs: hid -> kind via
+    the `.kind` file (or an id just registered), kind -> `HandoffKind` via
+    `handoff.kind.from_spec`, the same constructor the runtime's registry uses."""
+
+    def __init__(self, root: Path, specs: Mapping[str, Mapping]) -> None:
+        self.root, self.specs = root, specs
+        self.pending: dict[str, str] = {}
+
+    def name_for(self, hid: object) -> str | None:
+        if str(hid) in self.pending:
+            return self.pending[str(hid)]
+        side = handoff_dir(self.root, HandoffId(str(hid))) / KIND_FILE
+        return side.read_text().strip() if side.is_file() else None
+
+    def kind_for(self, hid: object):  # -> HandoffKind | None
+        name = self.name_for(hid)
+        if name is None or name not in self.specs:
+            return None
+        return kind_mod.from_spec(self.specs[name], origin=f"package kind {name}")
 
 
-def slots(store: Path, kind: str | None = None) -> list[Slot]:
-    """Every version directory under `store`, oldest first."""
-    out = []
-    if not store.is_dir():
+def store(root: Path, specs: Mapping[str, Mapping] | None = None) -> tuple[FilesystemStore, _Kinds]:
+    kinds = _Kinds(Path(root), specs or {})
+    return FilesystemStore(Path(root), kinds=kinds), kinds
+
+
+# -- listing ---------------------------------------------------------------- #
+
+
+def slots(root: Path, kind: str | None = None) -> list[Slot]:
+    """Every version directory under `root`, oldest first (published or not)."""
+    out: list[Slot] = []
+    if not root.is_dir():
         return out
-    for d in sorted(store.glob("handoff.*")):
+    for d in sorted(root.glob("handoff.*")):
         hid = d.name.rsplit(".", 1)[-1]
-        label = kind_of(d)
+        label = (d / KIND_FILE).read_text().strip() if (d / KIND_FILE).is_file() else "?"
         if kind is not None and label != kind:
             continue
-        for v in sorted(
-            d.glob("v*"), key=lambda p: int(p.name[1:]) if p.name[1:].isdigit() else -1
-        ):
-            if v.name[1:].isdigit():
-                out.append(Slot(kind=label or "?", hid=hid, version=int(v.name[1:]), root=d))
+        versions = sorted(int(v.name[1:]) for v in d.glob("v*") if v.name[1:].isdigit())
+        out += [Slot(kind=label, hid=hid, version=n, root=d) for n in versions]
     return out
 
 
-def kind_of(handoff_root: Path) -> str | None:
-    """The kind, from the newest manifest, else from the `.kind` sidecar."""
-    for m in sorted(handoff_root.glob("v*/manifest.yaml"), reverse=True):
-        return str(yaml.safe_load(m.read_text()).get("kind"))
-    side = handoff_root / ".kind"
-    return side.read_text().strip() if side.is_file() else None
+def latest_published(root: Path, kind: str) -> Slot | None:
+    """The newest published version of `kind` — the store's `latest`, per id."""
+    fs, _ = store(root)
+    best: Slot | None = None
+    for d in sorted(root.glob("handoff.*")) if root.is_dir() else []:
+        if not ((d / KIND_FILE).is_file() and (d / KIND_FILE).read_text().strip() == kind):
+            continue
+        hid = d.name.rsplit(".", 1)[-1]
+        n = fs.latest(HandoffId(hid))
+        if n is not None:
+            cand = Slot(kind=kind, hid=hid, version=n, root=d)
+            if (
+                best is None
+                or (cand.vdir / "manifest.yaml").stat().st_mtime
+                >= (best.vdir / "manifest.yaml").stat().st_mtime
+            ):
+                best = cand
+    return best
 
 
-def latest_published(store: Path, kind: str) -> Slot | None:
-    pub = [s for s in slots(store, kind) if s.published]
-    return pub[-1] if pub else None
-
-
-def find_digest(store: Path, kind: str, sha256: str) -> Slot | None:
+def find_digest(root: Path, kind: str, sha256: str) -> Slot | None:
     """A published version of `kind` whose manifest digest is `sha256`."""
-    for s in slots(store, kind):
-        m = s.vdir / "manifest.yaml"
+    fs, _ = store(root)
+    for s in slots(root, kind):
         if (
-            m.is_file()
-            and (yaml.safe_load(m.read_text()) or {}).get("digest", {}).get("sha256") == sha256
+            s.published
+            and fs.get_manifest(HandoffId(s.hid), s.version).digest.get("sha256") == sha256
         ):
             return s
     return None
 
 
-def allocate(store: Path, kind: str, hid: str | None = None) -> Slot:
-    """A fresh `v<N>/content/` for `kind` (a new handoff id unless `hid`)."""
+# -- writing ---------------------------------------------------------------- #
+
+
+def allocate(root: Path, kind: str, specs: Mapping[str, Mapping], hid: str | None = None) -> Slot:
+    """The store's `allocate`: a fresh `v<N>/content/` for `kind` (a new version
+    of the kind's existing handoff id, as a re-dispatch would get)."""
     if hid is None:
-        existing = [s for s in slots(store, kind)]
+        existing = slots(root, kind)
         hid = existing[-1].hid if existing else str(uuid.uuid4())
-    root = store / handoff_dirname(hid, kind)
-    root.mkdir(parents=True, exist_ok=True)
-    (root / ".kind").write_text(kind + "\n")
-    n = 0
-    while (root / f"v{n}").exists():
-        n += 1
-    slot = Slot(kind=kind, hid=hid, version=n, root=root)
-    slot.content.mkdir(parents=True)
-    return slot
+    fs, kinds = store(root, specs)
+    kinds.pending[hid] = kind
+    n = fs.allocate(HandoffId(hid))
+    d = handoff_dir(root, HandoffId(hid), kind)
+    (d / KIND_FILE).write_text(kind + "\n")
+    return Slot(kind=kind, hid=hid, version=n, root=d)
 
 
-def import_content(store: Path, kind: str, src: Path) -> Slot:
-    """Copy an existing content dir into a fresh slot, modes and links kept."""
+def import_content(root: Path, kind: str, specs: Mapping[str, Mapping], src: Path) -> Slot:
+    """Copy an existing content dir into a freshly allocated version (modes and links kept)."""
     if not (src / "README.md").is_file():
         raise Malformed(f"{src} is not a handoff content dir (no README.md)")
-    slot = allocate(store, kind)
-    slot.content.rmdir()
-    shutil.copytree(src, slot.content, symlinks=True)
+    slot = allocate(root, kind, specs)
+    from env_mgr.fs.layout import copy_out  # noqa: PLC0415 — the runtime's copy, links kept
+
+    copy_out(str(src), str(slot.content))
     return slot
+
+
+def seal(slot: Slot, specs: Mapping[str, Mapping], *, producer: str) -> str | None:
+    """The store's seal: admission checks, digest, manifest, empty validation.yaml.
+    Returns None when published, else the store's reason."""
+    fs, _ = store(slot.root.parent, specs)
+    return fs.seal(HandoffId(slot.hid), slot.version, producer=TaskId(task_id(producer)))
+
+
+def record_verdicts(slot: Slot, rows: list[dict]) -> None:
+    """`handoff.verdict.append`, one row each, onto a published version."""
+    path = slot.vdir / verdict_mod.VERDICT_FILE
+    for row in rows:
+        verdict_mod.append(
+            path,
+            Verdict(
+                validator=row["validator"],
+                result=bool(row["result"]),
+                strength=row["strength"],
+                dimension=row["dimension"],
+                task_id=TaskId(row["task_id"]),
+                agent_id=None,
+                environment=row["environment"],
+                at=dt.datetime.fromisoformat(row["at"]),
+            ),
+        )
+
+
+def verdicts(slot: Slot) -> list[dict]:
+    path = slot.vdir / verdict_mod.VERDICT_FILE
+    return [verdict_mod.to_row(v) for v in verdict_mod.read(path)] if path.is_file() else []
 
 
 # -- checks ----------------------------------------------------------------- #
 
 
 def precheck(content_dir: Path, content_type: str, items_schema: dict | None) -> list[str]:
-    """The store's seal test and the gate's +x test. Returns problems ([] = sealable)."""
+    """The store's seal admission and the gate's executable test, as a list of
+    problems ([] = it would publish), so they can be fixed before sealing — a
+    sealed version is immutable."""
     problems: list[str] = []
     if not content_dir.is_dir() or not any(content_dir.iterdir()):
         return [f"{content_dir}: content is empty (the store refuses to seal it)"]
@@ -144,35 +213,24 @@ def precheck(content_dir: Path, content_type: str, items_schema: dict | None) ->
     except Malformed as exc:
         problems.append(f"README: {exc}")
     try:
+        items = content_mod.load(content_dir).items
         content_mod.check_items(content_mod.load(content_dir), ctype, items_schema or {})
     except Malformed as exc:
         problems.append(f"items: {exc}")
-    try:
-        items = content_mod.load(content_dir).items
-    except Malformed:
         items = {}
-    for name in EXECUTABLE_ITEMS:  # `agent/gate.py` `_executable`, the same test
-        item = items.get(name)
-        if item is None:
-            continue
-        if item.path is None:
+    for key in sorted(set(items) & EXECUTABLE_ITEMS):
+        if not runnable(items[key]):
             problems.append(
-                f"items/{name} is a value in items.json; the gate needs an executable file"
-            )
-        elif not os.access(item.path, os.X_OK):
-            problems.append(
-                f"items/{name} is not executable (the gate refuses it): chmod +x {item.path}"
+                f"items/{key} is not an executable file (the gate refuses it): chmod +x, "
+                "and not an items.json value"
             )
     return problems
 
 
 def template(content_dir: Path, content_type: str, items_schema: dict | None = None) -> list[Path]:
-    """Write a README skeleton and the required items' placeholders.
-
-    The README is `handoff.readme.template` — every body is the placeholder the
-    seal rejects, so an unfilled skeleton cannot pass by accident. Returns the
-    paths created. Never overwrites an existing file.
-    """
+    """Write a README skeleton (`handoff.readme.template` — every body is the
+    placeholder the seal rejects) and the required items' placeholders.
+    Never overwrites an existing file."""
     ctype = content_mod.content_type(content_type)
     created: list[Path] = []
     content_dir.mkdir(parents=True, exist_ok=True)
@@ -206,48 +264,11 @@ def digest(content_dir: Path) -> str:
     return tree_digest(os.fsencode(content_dir)).hex()
 
 
-# -- verdicts and the manifest --------------------------------------------- #
-
-
-def record_verdicts(slot: Slot, rows: list[dict]) -> None:
-    """Append rows to `validation.yaml` (the store's file; outside the digest)."""
-    path = slot.vdir / "validation.yaml"
-    data = yaml.safe_load(path.read_text()) if path.is_file() else None
-    data = data or {"verdicts": []}
-    data["verdicts"] = list(data.get("verdicts") or []) + rows
-    path.write_text(yaml.safe_dump(data, sort_keys=False))
-
-
-def verdicts(slot: Slot) -> list[dict]:
-    path = slot.vdir / "validation.yaml"
-    if not path.is_file():
-        return []
-    return list((yaml.safe_load(path.read_text()) or {}).get("verdicts") or [])
-
-
 def task_id(label: str) -> str:
     """A `TaskId` for `label`. agent_sys parses `producer` and a verdict's
-    `task_id` as UUIDs (`task_graph.ids`), so a readable label would make the
-    store unreadable to it; the label goes into `state.json` and the verdict's
-    `environment` instead. Deterministic, so one attempt keeps one id."""
+    `task_id` as UUIDs, so the readable label goes into `state.json` and the
+    verdict's `environment` instead. Deterministic: one attempt, one id."""
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"agent_sys-skillkit:{label}"))
-
-
-def seal(slot: Slot, *, producer: str) -> dict:
-    """Write `manifest.yaml` — the publish step. Caller has checked first.
-
-    `producer` is a label; the manifest carries its `task_id`."""
-    manifest = {
-        "digest": {"sha256": digest(slot.content)},
-        "algorithm": ALGORITHM,
-        "kind": slot.kind,
-        "producer": task_id(producer),
-        "created_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-    }
-    tmp = slot.vdir / ".manifest.yaml.pending"
-    tmp.write_text(yaml.safe_dump(manifest, sort_keys=False))
-    tmp.rename(slot.vdir / "manifest.yaml")
-    return manifest
 
 
 def describe(slot: Slot) -> dict:
@@ -263,3 +284,27 @@ def describe(slot: Slot) -> dict:
 
 def dumps(obj: object) -> str:
     return json.dumps(obj, indent=2, default=str)
+
+
+def kind_label(handoff_root: Path) -> str | None:
+    side = handoff_root / KIND_FILE
+    return side.read_text().strip() if side.is_file() else None
+
+
+__all__ = [
+    "Slot",
+    "allocate",
+    "digest",
+    "find_digest",
+    "handoff_dirname",
+    "import_content",
+    "latest_published",
+    "precheck",
+    "record_verdicts",
+    "seal",
+    "slots",
+    "store",
+    "task_id",
+    "template",
+    "verdicts",
+]

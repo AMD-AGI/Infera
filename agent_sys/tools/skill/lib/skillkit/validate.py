@@ -1,16 +1,17 @@
-"""Run a handoff kind's validators offline, as `validator/phase.py` would.
+"""Run a handoff kind's validators offline, with agent_sys's validator code.
 
-Each validator gets a fresh zone as its cwd holding `inputs.json`,
-`args.json` and `materials.json`, an environment that is NOT inherited
-(`PATH`, `HOME`, `TMPDIR`, `PWD`, the `AGENT_SYS_DEMO_*` trio, the producer's
-`AGENT_SYS_TASK_PACKAGE`, and the operator's harness credentials), and must
-write `verdict.json`. Its stdout is kept here (the runtime discards it) because
-a human reading a refusal needs it; `validator_report.txt` is read when present.
+`run_one` builds each validator through `validator.spec.admit`, chooses its
+environment with `validator.environment.choose_configuration` (the producer's
+environment for an output check, as the runtime does) and allocates the zone
+with `build_environment`, stages COPIES of the contents, declares them with
+`validator.phase.declare_materials`, and runs the body with `LeafValidator` /
+`Composite`, which also read `verdict.json`. A body that writes no verdict —
+or an agent-bodied validator, for which production registers no executor — is
+UNREACHED ("nothing was decided"), with the runtime's own message.
 
-A body that writes no verdict is UNREACHED — "nothing was decided" — which is
-neither a pass nor a fail, exactly as the runtime reports it. An agent-bodied
-validator (no `entry`) is UNREACHED too: production registers no executor
-for one (`validator/phase.py`), so pretending to run it would be a lie.
+What is this module's: grouping a leaf's outputs so a multi-input validator
+sees them together (`check_targets`, as `PhaseRunner` does), the sealing
+pre-check, and the human report.
 """
 
 from __future__ import annotations
@@ -18,17 +19,22 @@ from __future__ import annotations
 import datetime as dt
 import json
 import os
-import shutil
-import subprocess
 import sys
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from env_mgr.fs.layout import copy_out
 from skillkit import hstore
 from skillkit.pkg import UNSET, Package
-
-DEFAULT_TIMEOUT = 4 * 3600.0
+from task_graph.ids import HandoffId
+from validator.composite import Composite
+from validator.environment import build_environment, choose_configuration
+from validator.phase import BODY_OUTPUT, LeafValidator, declare_materials
+from validator.protocols import PhaseKind
+from validator.reducers import get_reducer
+from validator.spec import admit
 
 
 @dataclass
@@ -94,24 +100,27 @@ def run_one(
     *,
     source_env: dict[str, str] | None = None,
     store: Path | None = None,
-    timeout: float = DEFAULT_TIMEOUT,
+    phase: str = "output_validation",
 ) -> dict[str, Outcome]:
-    """Run validator `name` ONCE over every target `{hid: content dir}` — as
-    `validator/phase.py` does for a validator whose `inputs` span several of a
-    task's kinds — and return one `Outcome` per hid.
+    """Run validator `name` ONCE over every target `{hid: content dir}` with
+    agent_sys's own machinery, and return one `Outcome` per hid.
 
-    Each zone holds COPIES of the contents (`materials/<n>/`), never the store's
-    own `content/`: a validator must not be able to change what gets published.
-    `source_env` is the configuration row agent_sys would choose: the producing
-    leaf's environment for an output check; a validator naming an `agent:` gets
-    that agent's `env:` instead (the BOUND row)."""
-    spec = pkg.validators.get(name)
+    `validator.spec.admit` builds the spec; `validator.environment` chooses the
+    configuration row (`bound` if the validator names an agent, else
+    `source_env` — the producer's environment for an output check, as the
+    runtime passes it) and allocates the zone; the contents are staged as
+    COPIES (`env_mgr.fs.layout.copy_out`) and declared with
+    `validator.phase.declare_materials`; `LeafValidator` (or `Composite`) runs
+    the body and reads the verdict. Like the runtime, there is no per-validator
+    timeout.
+    """
     hids = list(targets)
 
     def every(**kw) -> dict[str, Outcome]:
         return {h: Outcome(**kw) for h in hids}
 
-    if spec is None:
+    record = pkg.validators.get(name)
+    if record is None:
         return every(
             validator=name,
             result=None,
@@ -122,33 +131,14 @@ def run_one(
             seconds=0.0,
             why_unreached=f"no validator {name!r}",
         )
-    tags = spec.get("tags") or {}
+    tags = record.get("tags") or {}
     base = dict(
         validator=name,
-        strength=str(spec.get("strength", "?")),
-        dimension=str(spec.get("dimension", "?")),
+        strength=str(record.get("strength", "?")),
+        dimension=str(record.get("dimension", "?")),
         cost=str(tags.get("cost", "?")),
     )
-    members = spec.get("members") or []
-    if members:
-        subs = [
-            run_one(pkg, m, targets, work, source_env=source_env, store=store, timeout=timeout)
-            for m in members
-        ]
-        out = {}
-        for h in hids:
-            results = [sub[h].result for sub in subs]
-            result = None if None in results else all(results)
-            out[h] = Outcome(
-                **base,
-                result=result,
-                zone=None,
-                seconds=sum(sub[h].seconds for sub in subs),
-                members=[asdict(sub[h]) for sub in subs],
-                why_unreached="a member was unreached" if result is None else "",
-            )
-        return out
-    if UNSET in json.dumps(spec.get("args") or {}):
+    if UNSET in json.dumps(record.get("args") or {}):
         return every(
             **base,
             result=None,
@@ -157,103 +147,83 @@ def run_one(
             why_unreached="its args use a --var that was not given (filled with "
             f"{UNSET!r}); pass the real value to judge with this validator",
         )
-    entry = (spec.get("body") or {}).get("entry")
-    if not entry:
+    try:
+        spec = admit(record, origin=f"package validator {name}")
+        members = [
+            admit(pkg.validators[m], origin=f"package validator {m}") for m in spec.members or ()
+        ]
+    except Exception as exc:  # noqa: BLE001 — an inadmissible spec decides nothing
         return every(
-            **base,
-            result=None,
-            zone=None,
-            seconds=0.0,
-            why_unreached=(
-                "agent-bodied validator (no entry.sh): agent_sys production registers no "
-                "executor for it, so the runtime reports it unreached too. Judge it by "
-                "reading its readme, and label that judgement as Claude's, not agent_sys's."
-            ),
+            **base, result=None, zone=None, seconds=0.0, why_unreached=f"inadmissible: {exc}"
         )
 
-    zone = _fresh(work / name)
-    (zone / "tmp").mkdir()
-    (zone / "home").mkdir()
-    materials = {}
-    for n, (hid, content) in enumerate(targets.items()):
-        staged = zone / "materials" / str(n)
-        shutil.copytree(content, staged, symlinks=True)
-        materials[hid] = f"materials/{n}"
-    (zone / "inputs.json").write_text(json.dumps(sorted(hids)))
-    (zone / "args.json").write_text(json.dumps(spec.get("args") or {}, indent=2))
-    (zone / "materials.json").write_text(json.dumps(materials))
-    agent = spec.get("agent")
-    row = dict((pkg.agents.get(str(agent), {}).get("env") or {}) if agent else (source_env or {}))
-    env = {
+    facts = {
         **harness_env(),
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "AGENT_SYS_DEMO_PACKAGE": str(pkg.root),
         "AGENT_SYS_DEMO_PYTHON": sys.executable,
-        "AGENT_SYS_TASK_PACKAGE": str(pkg.root),
         **({"AGENT_SYS_DEMO_STORE": str(store)} if store is not None else {}),
-        **{str(k): str(v) for k, v in row.items()},
-        "HOME": str(zone / "home"),
-        "TMPDIR": str(zone / "tmp"),
-        "PWD": str(zone),
     }
-    t0 = time.monotonic()
-    try:
-        proc = subprocess.run(
-            ["/bin/sh", str(pkg.root / entry)],
-            cwd=str(zone),
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
+    bound = None
+    if spec.agent:
+        bound = {
+            str(k): str(v) for k, v in (pkg.agents.get(spec.agent, {}).get("env") or {}).items()
+        }
+    kind = PhaseKind(phase)
+    config = choose_configuration(
+        kind,
+        bound=bound,
+        producer={**facts, "AGENT_SYS_TASK_PACKAGE": str(pkg.root), **(source_env or {})}
+        if kind is PhaseKind.OUTPUT
+        else None,
+        consumer={**facts, **(source_env or {})}
+        if kind is PhaseKind.INPUT and source_env
+        else None,
+        global_=facts,
+    )
+    root = work / name
+    env = build_environment(root, config=config, agent_id=f"skillkit:{name}:{kind.value}")
+    staged = {}
+    for n, (hid, content) in enumerate(targets.items()):
+        staged[HandoffId(hid)] = copy_out(str(content), str(env.zone / "materials" / str(n)))
+    declare_materials(env, staged)
+    if spec.is_composite:
+        validator = Composite(
+            spec.name,
+            brief=spec.brief,
+            dimension=spec.dimension,
+            strength=spec.strength,
+            members=[LeafValidator(m, env, {}, package_root=pkg.root) for m in members],
+            reduce=get_reducer(spec.reduce or ""),
         )
-        tail = (proc.stdout + proc.stderr)[-4000:]
-        rc = proc.returncode
-    except subprocess.TimeoutExpired as exc:
-        tail = f"timed out after {timeout:.0f}s: {exc}"
-        rc = None
+    else:
+        validator = LeafValidator(spec, env, {}, package_root=pkg.root)
+
+    t0 = time.monotonic()
+    result: dict | None = None
+    why = ""
+    try:
+        result = validator({h: None for h in staged})
+    except Exception as exc:  # noqa: BLE001 — ValidatorInvalid and friends: nothing was decided
+        why = str(exc)
     seconds = round(time.monotonic() - t0, 2)
-    (zone / "validator_output.txt").write_text(tail)
-    report_path = zone / "validator_report.txt"
+    report_path = env.zone / "validator_report.txt"
     report = report_path.read_text(errors="replace")[-8000:] if report_path.is_file() else ""
+    printed = env.zone / BODY_OUTPUT
+    tail = printed.read_text(errors="replace")[-4000:] if printed.is_file() else ""
     out = {}
     for hid in hids:
-        result, why = _verdict(zone / "verdict.json", hid, rc)
+        value = None if result is None else result.get(HandoffId(hid))
         out[hid] = Outcome(
             **base,
-            result=result,
-            zone=str(zone),
+            result=None if value is None else bool(value),
+            zone=str(env.zone),
             seconds=seconds,
             report=report,
             output_tail=tail,
             why_unreached=why,
         )
     return out
-
-
-def _verdict(path: Path, hid: str, rc: int | None) -> tuple[bool | None, str]:
-    """`validator/phase.py` `read_verdict_file`: the file decides, not the exit code."""
-    if not path.is_file():
-        return None, f"exited {rc} and wrote no verdict.json; nothing was decided"
-    try:
-        data = json.loads(path.read_text())
-    except json.JSONDecodeError as exc:
-        return None, f"verdict.json is not JSON: {exc}"
-    if not isinstance(data, dict) or hid not in data:
-        return None, f"verdict.json does not decide {hid!r}: {data!r}"[:500]
-    return bool(data[hid]), ""
-
-
-def _fresh(prefix: Path) -> Path:
-    prefix.parent.mkdir(parents=True, exist_ok=True)
-    n = 0
-    while True:
-        p = prefix.with_name(f"{prefix.name}.{n}")
-        try:
-            p.mkdir()
-            return p
-        except FileExistsError:
-            n += 1
 
 
 def check_targets(
@@ -264,7 +234,6 @@ def check_targets(
     closure: str | None = None,
     source_env: dict[str, str] | None = None,
     store: Path | None = None,
-    timeout: float = DEFAULT_TIMEOUT,
     precheck_only: bool = False,
 ) -> dict[str, KindCheck]:
     """Judge several kinds at once: `{kind: (hid, content dir)}`.
@@ -295,7 +264,6 @@ def check_targets(
             work,
             source_env=source_env,
             store=store,
-            timeout=timeout,
         )
         for kind, (hid, _content) in mine.items():
             checks[kind].outcomes.append(res[hid])
@@ -309,12 +277,12 @@ def check_kind(
     work: Path,
     *,
     closure: str | None = None,
-    hid: str = "skillkit-handoff",
+    hid: str | None = None,
     source_env: dict[str, str] | None = None,
     store: Path | None = None,
-    timeout: float = DEFAULT_TIMEOUT,
     precheck_only: bool = False,
 ) -> KindCheck:
+    hid = hid or str(uuid.uuid4())  # agent_sys ids are UUIDs
     return check_targets(
         pkg,
         {kind: (hid, content_dir)},
@@ -322,7 +290,6 @@ def check_kind(
         closure=closure,
         source_env=source_env,
         store=store,
-        timeout=timeout,
         precheck_only=precheck_only,
     )[kind]
 
