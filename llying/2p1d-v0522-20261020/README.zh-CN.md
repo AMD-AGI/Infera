@@ -603,3 +603,16 @@ MTP 草稿层，与 GB300 相同）；`PP4_HICACHE=0|1` 开关；decode 不变�
 | **2P(TP4/DPA)+1D C176** | 16 | 35.7 | 35,637 | 吞吐峰值（冷态，未带 prefill MTP） |
 
 PP4 的点都带 prefill MTP，chunk 8,192；2P1D 的点仍是冷态、TP4/DPA prefill（要用 2P 就需要 138 的 8 张卡，GPU 2 仍卡死）。
+
+## 10-22 03:35 起：1P(PP4)+1D(TP4) 4+4 C64，然后 4+8 C48（用户决定）
+
+- **为什么重新考虑 4+4**：12 卡 1P1D 里 prefill 只占三分之一的卡，单个 PP4 prefill 到顶（约 3.0 req/s × 约 13 万 token）后每卡上限约 30k，
+  正是 C88–C112 卡住的地方；decode 只用 4 卡时上限约 44k。之前否定 4+4 是因为冷态 decode 每步太慢、交互会掉到 C176 的水平；现在 prefill MTP
+  让同等负载下每步快 12%–19%，PP4 的容量也更高。粗估 4+4 C64：decode 每 rank 平均约 7 个在跑、最忙 p90 约 11，TP4 下每卡 MoE 权重翻倍、
+  每步再加几毫秒，约 65–70 ms → p90 约 45–48；吞吐约 2.4 req/s × 13 万 ÷ 8 ≈ 38–40k/GPU。风险是 decode KV：4 卡约 1,190 万 token
+  （冷态 C64 的 decode 占用均值 665 万、最大 1,011 万），带 prefill MTP 后草稿层 KV 会再占一些。
+- **C48**：按 C32 / C64 实测估计约 22–23k @ p90 80–85，基本在两点连线上，主要用于补完整曲线。
+- **配置**：kit `v6-pp4` 不变；`agentx.sh` 的 `DECODE_TP` 改为按 `DECODE_GPUS` 的卡数计算（原来写死 8，4+4 会被按 12 卡算；默认 8 卡时不变）。
+  4+4 站点 `config/site-1p-pp4-ck8k-d4.env`：prefill 138 GPU 4–7、decode 140 GPU 4–7（TP4/DP4 attention，rail 对齐）；C48 用 `site-1p-pp4-ck8k.env`。
+  串行日志 138 `$W/2p1d/chain-1022T0335.out`，4+4 结果在 `perf-pp4-ck8k-d4/`，C48 在 `perf-pp4-ck8k/`。起栈前两节点显存 0、无他人 GPU 进程。
+  138 GPU 2 仍卡死（占用 13%、无进程），本轮不用。

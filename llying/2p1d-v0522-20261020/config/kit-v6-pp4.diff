@@ -20,6 +20,18 @@ diff -ru -x patches Infera-mix-v0522/examples/sglang_2p1d_glm5.2/README.md 2p1d-
  A container that `docker stop` cannot end ("did not receive an exit event")
  is left for the next `down.sh`, which removes it once its process exits.
  
+diff -ru -x patches Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/agentx/agentx.sh 2p1d-kit/v6-pp4/engine/agentx/agentx.sh
+--- Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/agentx/agentx.sh	2026-10-21 14:05:01.219205164 +0000
++++ 2p1d-kit/v6-pp4/engine/agentx/agentx.sh	2026-10-22 03:34:07.267622769 +0000
+@@ -67,7 +67,7 @@
+ PREFILL_EP=1
+ PREFILL_DP_ATTN=true
+ DECODE_NUM_WORKERS=1
+-DECODE_TP=8
++DECODE_TP=$(($(tr -cd , <<<"$DECODE_GPUS" | wc -c) + 1))
+ DECODE_EP=1
+ DECODE_DP_ATTN=true
+ SPEC_DECODING=mtp
 diff -ru -x patches Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/worker.sh 2p1d-kit/v6-pp4/engine/worker.sh
 --- Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/worker.sh	2026-10-21 16:53:14.773980386 +0000
 +++ 2p1d-kit/v6-pp4/engine/worker.sh	2026-10-21 19:47:19.379126364 +0000
