@@ -54,18 +54,18 @@ for inst in ("prefill0", "prefill1"):
         f"bins with a queue {100 * sum(1 for q in qsum if q) / len(qsum):.0f}%"
     )
 
+decode = [(ts, dp, m) for ts, dp, line in lines("decode") if (m := DEC.search(line))]
+# A 10 s bin counts once three quarters of the decode's DP ranks have logged in it.
+need = max(1, 3 * (max(dp for _, dp, _ in decode) + 1) // 4)
 state, steps, last = collections.defaultdict(dict), collections.defaultdict(list), {}
-for ts, dp, line in lines("decode"):
-    m = DEC.search(line)
-    if not m:
-        continue
+for ts, dp, m in decode:
     b = bin10(ts)
     state[b][dp] = tuple(map(int, m.groups()))
-    if dp in last and (ts - last[dp]).total_seconds() < 20 and len(state[b]) >= 6:
+    if dp in last and (ts - last[dp]).total_seconds() < 20 and len(state[b]) >= need:
         busiest = max(v[0] for v in state[b].values())
         steps[busiest].append((ts - last[dp]).total_seconds() * 1000 / 40)
     last[dp] = ts
-full = [v for v in state.values() if len(v) >= 6]
+full = [v for v in state.values() if len(v) >= need]
 tot = [sum(x[0] for x in v.values()) for v in full]
 top = sorted(max(x[0] for x in v.values()) for v in full)
 pre = [sum(x[1] for x in v.values()) for v in full]
