@@ -217,14 +217,15 @@ _E = GLM53_THINKING_END_TOKEN_ID
 _NL = GLM53_NEW_LINE_TOKEN_ID
 
 
-def _spec(origin, output, committed, cands, budget):
+def _spec(origin, output, committed, cands, budget, history=()):
     from infera.engine.sglang.thinking_budget_const import resolve_thinking_budget_spec_actions
 
     return resolve_thinking_budget_spec_actions(
         origin_input_ids=origin,
         output_ids=output,
-        committed_output_len=committed,
         candidates=cands,
+        seq_len=len(origin) + committed - 1,
+        history=list(history),
         thinking_budget=budget,
         start_id=_S,
         end_id=_E,
@@ -260,6 +261,36 @@ def test_spec_actions_none_when_thinking_is_closed_or_budget_negative():
 
 def test_spec_actions_length_follows_candidates():
     assert len(_spec([5, _S], [1, 2], 2, [2, 7], 100)) == 2
+
+
+def test_spec_actions_see_a_close_in_committed_tokens_missing_from_output_ids():
+    # Visible output [1, 2]; the previous step committed [newline, </think>, 9].
+    # seq_len grew by 3 over that step, so the chain [2, newline, </think>, 9]
+    # contributed its two accepted drafts plus the new bonus token 9.
+    history = [([2, _NL, _E, 9], 3)]
+    assert _spec([5, _S], [1, 2], 5, [9, 10, 11, 12], 2, history) == [None] * 4
+
+
+def test_spec_actions_rebuild_the_tail_across_several_steps():
+    # Two unseen steps: [3, 4] then [_E, 9]; the close is two steps back.
+    history = [([2, 3, 4, 8], 3), ([8, _E, 9, 6], 5)]
+    assert _spec([5, _S], [1, 2], 7, [9, 10, 11, 12], 3, history) == [None] * 4
+
+
+def test_spec_actions_fall_back_to_the_bonus_token_when_history_is_inconsistent():
+    history = [([2, 3, 4, 8], 4)]
+    # seq_len did not grow over the recorded step, so it cannot be decoded and only
+    # the bonus token is known: count 3 at row 0, then the budget of 4 is reached.
+    assert _spec([5, _S], [1, 2], 3, [9, 7, 8, 6], 4, history) == [
+        None,
+        "newline",
+        "newline",
+        "newline",
+    ]
+
+
+def test_spec_actions_open_marker_in_the_candidates_is_counted():
+    assert _spec([5], [9], 1, [9, _S, 7, 8], 1) == [None, None, "newline", "newline"]
 
 
 class _FakeTensor:
@@ -309,7 +340,7 @@ def _processor_class(monkeypatch):
     return Glm53ThinkingBudgetLogitProcessor
 
 
-def _spec_param(origin, output, budget, cands, seq_len, n=4):
+def _spec_param(origin, output, budget, cands, seq_len, n=4, history=()):
     req = type("Req", (), {"origin_input_ids": origin, "output_ids": output})()
     return {
         "thinking_budget": budget,
@@ -317,6 +348,7 @@ def _spec_param(origin, output, budget, cands, seq_len, n=4):
         "__spec_num_tokens__": n,
         "__spec_candidates__": _FakeTensor(cands),
         "__spec_seq_len__": _FakeTensor(seq_len),
+        "__spec_history__": list(history),
     }
 
 
@@ -337,3 +369,38 @@ def test_processor_without_spec_keys_keeps_single_row_behaviour(monkeypatch):
     logits = _FakeLogits(rows=1)
     proc(logits, [{"thinking_budget": 4, "__req__": req}])
     assert logits.forced == {0: _NL}
+
+
+def test_processor_one_row_block_uses_the_committed_bonus_token(monkeypatch):
+    proc = _processor_class(monkeypatch)()
+    # Visible output [1, 2], committed bonus 7, budget 3: the next token must be a newline.
+    p = _spec_param([5, _S], [1, 2], 3, [7], seq_len=2 + 3 - 1, n=1)
+    logits = _FakeLogits(rows=1)
+    proc(logits, [p])
+    assert logits.forced == {0: _NL}
+
+
+def test_processor_reads_back_when_the_open_marker_is_unseen(monkeypatch):
+    proc = _processor_class(monkeypatch)()
+    p = _spec_param([5], [9], 1, [9, _S, 7, 8], seq_len=1 + 1 - 1)
+    logits = _FakeLogits(rows=4)
+    proc(logits, [p])
+    assert logits.forced == {2: _NL, 3: _NL}
+
+
+def test_processor_uses_history_to_see_a_close_in_unseen_tokens(monkeypatch):
+    proc = _processor_class(monkeypatch)()
+    history = [(_FakeTensor([2, _NL, _E, 9]), _FakeTensor(3))]
+    p = _spec_param([5, _S], [1, 2], 2, [9, 10, 11, 12], seq_len=2 + 5 - 1, history=history)
+    logits = _FakeLogits(rows=4)
+    proc(logits, [p])
+    assert logits.forced == {}
+
+
+def test_processor_skips_the_readback_when_the_budget_is_out_of_reach(monkeypatch):
+    proc = _processor_class(monkeypatch)()
+    cands = _FakeTensor([2, 7, 8, 9])
+    cands.tolist = lambda: (_ for _ in ()).throw(AssertionError("unexpected readback"))
+    p = _spec_param([5, _S], [1, 2], 1000, [2, 7, 8, 9], seq_len=3)
+    p["__spec_candidates__"] = cands
+    proc(_FakeLogits(rows=4), [p])

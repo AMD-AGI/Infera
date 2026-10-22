@@ -303,8 +303,9 @@ spec:
                       # on this manifest: 6/6 correct, 0/32 degenerate, acceptance
                       # median 2.85. If missing: one token per decode step.
                       # Thinking-budget hard caps apply under EAGLE through the
-                      # sglang_eagle_custom_logit patch (chain drafts only, so
-                      # --speculative-eagle-topk must stay 1).
+                      # sglang_eagle_custom_logit patch, which infera-exec applies
+                      # at start (chain drafts only, so --speculative-eagle-topk
+                      # must stay 1).
                       "--speculative-algorithm","EAGLE",
                       "--speculative-num-steps","3",
                       "--speculative-eagle-topk","1",

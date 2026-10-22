@@ -137,6 +137,7 @@ COPY deploy/docker/patches/sglang_dsa/       /payload/patches/sglang_dsa/
 COPY deploy/docker/patches/sglang_disagg/    /payload/patches/sglang_disagg/
 COPY deploy/docker/patches/sglang_responses/ /payload/patches/sglang_responses/
 COPY deploy/docker/patches/sglang_rocm/      /payload/patches/sglang_rocm/
+COPY deploy/docker/patches/sglang_eagle_custom_logit/ /payload/patches/sglang_eagle_custom_logit/
 # sglang_dsa is diffs pinned at `--fuzz=0`, not runnable scripts, so its applier
 # ships too and drives that group instead of infera-exec's `<dir>/*.py` glob —
 # the glob would also run a v0.5.16-only script and fail on this base. For the

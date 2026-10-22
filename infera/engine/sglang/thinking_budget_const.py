@@ -142,15 +142,50 @@ def resolve_thinking_budget_action(
     return "end"
 
 
-# Placeholder for committed tokens whose ids are not visible to the processor yet.
+# Placeholder for committed tokens whose ids cannot be recovered.
 _UNKNOWN_TOKEN_ID = -1
+
+
+def _committed_tail(
+    history: list[tuple[list[int], int]],
+    candidates: list[int],
+    seq_len: int,
+    lag: int,
+) -> list[int]:
+    """Return the last ``lag`` committed tokens, rebuilt from earlier verify steps.
+
+    ``history`` holds ``(chain, seq_len)`` of previous verify steps, oldest first.
+    A step that grew the sequence by ``c`` committed the drafts ``chain[1:c]`` plus
+    the bonus token, which is the first entry of the next step's chain. The last
+    committed token is always ``candidates[0]``. Tokens older than the history are
+    reported as ``_UNKNOWN_TOKEN_ID``.
+    """
+    tail: list[int] = []
+    for j, (chain, seq) in enumerate(history):
+        if j + 1 < len(history):
+            next_chain, next_seq = history[j + 1]
+            next_bonus = next_chain[0]
+        else:
+            next_seq, next_bonus = seq_len, candidates[0]
+        committed = next_seq - seq
+        if committed < 1 or committed > len(chain):
+            tail = []
+            continue
+        tail.extend(chain[1:committed])
+        tail.append(next_bonus)
+    if not tail:
+        tail = [candidates[0]]
+    if len(tail) < lag:
+        return [_UNKNOWN_TOKEN_ID] * (lag - len(tail)) + tail
+    return tail[len(tail) - lag :]
 
 
 def resolve_thinking_budget_spec_actions(
     origin_input_ids: list[int],
     output_ids: list[int],
-    committed_output_len: int,
     candidates: list[int],
+    seq_len: int,
+    history: list[tuple[list[int], int]],
     thinking_budget: int,
     start_id: int,
     end_id: int,
@@ -161,18 +196,17 @@ def resolve_thinking_budget_spec_actions(
     ``candidates`` is the draft chain of one request: ``candidates[0]`` is the
     bonus token (the last committed token) and row ``k`` predicts the token that
     follows ``candidates[k]``. The context of row ``k`` is the committed outputs
-    plus ``candidates[1..k]``. When ``committed_output_len`` exceeds
-    ``len(output_ids)``, the tokens not yet written to ``output_ids`` count toward
-    the budget; only the bonus token among them has a known id.
+    plus ``candidates[1..k]``. ``seq_len`` counts the prompt and every committed
+    output except the bonus token. Committed tokens that are not yet in
+    ``output_ids`` are rebuilt from ``history`` (see ``_committed_tail``).
     """
     n = len(candidates)
     if thinking_budget < 0 or n == 0:
         return [None] * n
-    lag = committed_output_len - len(output_ids)
+    lag = seq_len - len(origin_input_ids) + 1 - len(output_ids)
     base = list(output_ids)
     if lag >= 1:
-        base.extend([_UNKNOWN_TOKEN_ID] * (lag - 1))
-        base.append(candidates[0])
+        base.extend(_committed_tail(history, candidates, seq_len, lag))
     return [
         resolve_thinking_budget_action(
             origin_input_ids,

@@ -186,6 +186,7 @@ if [ -z "${INFERA_SKIP_ENGINE_PATCHES:-}" ]; then
                     _run_patch_dir sglang_disagg   || _ok=0
                     _run_patch_dir sglang_responses || _ok=0
                     _run_patch_dir sglang_rocm     || _ok=0
+                    _run_patch_dir sglang_eagle_custom_logit || _ok=0
                     _applier="$PAYLOAD_ROOT/bin/apply_sglang_dsa_patches.sh"
                     if [ -d "$PAYLOAD_ROOT/patches/sglang_dsa" ] && [ -f "$_applier" ]; then
                         # SGLANG_DIR is passed explicitly and always non-empty:

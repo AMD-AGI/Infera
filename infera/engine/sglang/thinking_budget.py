@@ -72,9 +72,9 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
             req = param_dict.get("__req__")
             if req is None:
                 continue
-            num_rows = int(param_dict.get("__spec_num_tokens__", 1))
-            if num_rows > 1 and logits.shape[0] == len(custom_param_list) * num_rows:
-                self._apply_spec_block(logits, i, num_rows, param_dict, req, thinking_budget)
+            num_rows = param_dict.get("__spec_num_tokens__")
+            if num_rows is not None and logits.shape[0] == len(custom_param_list) * int(num_rows):
+                self._apply_spec_block(logits, i, int(num_rows), param_dict, req, thinking_budget)
                 continue
             # Per-request scan cache; param_dict lives as long as the request.
             action = resolve_thinking_budget_action(
@@ -108,27 +108,29 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
         """Force tokens on the rows of one request in an EAGLE chain verify block."""
         origin = getattr(req, "origin_input_ids", None) or []
         output = getattr(req, "output_ids", None) or []
-        # Cheap gate on the cached scan: skip the draft readback unless the budget
-        # can be reached within this block, allowing for the unwritten committed tokens.
-        gate = resolve_thinking_budget_action(
+        history = param_dict.get("__spec_history__") or ()
+        # Tokens not visible in output_ids (committed history plus the draft chain) span
+        # at most ``reach`` positions. The draft chain is read back from the device only
+        # when the budget can be reached inside that span: either it is not larger than
+        # the span, or the visible thinking block is already within the span of it.
+        reach = num_rows * (len(history) + 2)
+        near = resolve_thinking_budget_action(
             origin_input_ids=origin,
             output_ids=output,
-            thinking_budget=max(0, thinking_budget - 2 * num_rows),
+            thinking_budget=max(0, thinking_budget - reach),
             start_id=self.THINKING_START_TOKEN_ID,
             end_id=self.THINKING_END_TOKEN_ID,
             newline_id=self.NEW_LINE_TOKEN_ID,
             state=param_dict.setdefault("__thinking_scan__", {}),
         )
-        if gate is None:
+        if thinking_budget > reach and near is None:
             return
-        candidates = param_dict["__spec_candidates__"].tolist()
-        # seq_len counts the prompt and every committed output except the bonus token.
-        committed = int(param_dict["__spec_seq_len__"]) - len(origin) + 1
         actions = resolve_thinking_budget_spec_actions(
             origin_input_ids=origin,
             output_ids=output,
-            committed_output_len=committed,
-            candidates=candidates,
+            candidates=param_dict["__spec_candidates__"].tolist(),
+            seq_len=int(param_dict["__spec_seq_len__"]),
+            history=[(chain.tolist(), int(seq)) for chain, seq in history],
             thinking_budget=thinking_budget,
             start_id=self.THINKING_START_TOKEN_ID,
             end_id=self.THINKING_END_TOKEN_ID,

@@ -11,18 +11,21 @@ from pathlib import Path
 MARKER = "_infera_apply_custom_logit_processor"
 
 HELPER = '''_INFERA_SPEC_PARAM_KEYS = ("__spec_num_tokens__", "__spec_candidates__", "__spec_seq_len__")
+_INFERA_SPEC_HISTORY_STEPS = 4
 _infera_topk_warned = False
 
 
 def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch, verify_input):
     """Run custom logit processors over the rows of a chain verify block.
 
-    Each request owns draft_token_num rows. The draft chain and committed length
-    are exposed to the processor through the request's custom params for the
-    duration of the call. Tree drafts (topk > 1) are left untouched.
+    Each request owns draft_token_num rows. The draft chain and sequence length of
+    the current step are exposed to the processor through the request's custom
+    params for the duration of the call, together with the same pair from the
+    previous steps (__spec_history__). Tree drafts (topk > 1) are left untouched.
     """
     global _infera_topk_warned
-    if verify_input.tree_topk != 1:
+    num_tokens = verify_input.draft_token_num
+    if verify_input.tree_topk != 1 and num_tokens != 1:
         if not _infera_topk_warned:
             _infera_topk_warned = True
             logger.warning(
@@ -30,17 +33,21 @@ def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch
                 "--speculative-eagle-topk > 1"
             )
         return
+    from collections import deque
+
     from sglang.srt.layers.sampler import apply_custom_logit_processor
 
-    num_tokens = verify_input.draft_token_num
-    candidates = verify_input.draft_token.reshape(len(batch.seq_lens), num_tokens)
+    candidates = verify_input.draft_token.reshape(len(batch.seq_lens), num_tokens).clone()
+    seq_lens = batch.seq_lens.clone()
     stashed = []
     for i, params in enumerate(sampling_info.custom_params):
         if params is None:
             continue
         params["__spec_num_tokens__"] = num_tokens
         params["__spec_candidates__"] = candidates[i]
-        params["__spec_seq_len__"] = batch.seq_lens[i]
+        params["__spec_seq_len__"] = seq_lens[i]
+        if "__spec_history__" not in params:
+            params["__spec_history__"] = deque(maxlen=_INFERA_SPEC_HISTORY_STEPS)
         stashed.append(params)
     try:
         apply_custom_logit_processor(
@@ -48,6 +55,9 @@ def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch
         )
     finally:
         for params in stashed:
+            params["__spec_history__"].append(
+                (params["__spec_candidates__"], params["__spec_seq_len__"])
+            )
             for key in _INFERA_SPEC_PARAM_KEYS:
                 params.pop(key, None)
 
@@ -75,6 +85,9 @@ def patch_source(source: str) -> str:
         if source.count(f"{MARKER}(") != 2 or source.count(CALL_ANCHOR + CALL) != 1:
             raise ValueError("partial EAGLE custom logit patch; refusing to guess")
         return source
+    if DEF_ANCHOR not in source:
+        # No EAGLE verify step in this module: nothing to patch.
+        return source
     if source.count(DEF_ANCHOR) != 1 or source.count(CALL_ANCHOR) != 1:
         raise ValueError("unexpected eagle_sample layout; update or disable this patch")
     if "\nlogger = logging.getLogger(__name__)\n" not in source:
@@ -86,6 +99,8 @@ def patch_source(source: str) -> str:
 
 
 def apply(target: Path) -> bool:
+    if not target.exists():
+        return False
     original = target.read_text()
     patched = patch_source(original)
     changed = patched != original
@@ -113,7 +128,9 @@ def main() -> None:
     args = parser.parse_args()
     target = args.target if args.target is not None else installed_target()
     changed = apply(target)
-    print(f"[eagle-custom-logit] {'patched' if changed else 'already present'}: {target}")
+    print(
+        f"[eagle-custom-logit] {'patched' if changed else 'already present or not applicable'}: {target}"
+    )
 
 
 if __name__ == "__main__":
