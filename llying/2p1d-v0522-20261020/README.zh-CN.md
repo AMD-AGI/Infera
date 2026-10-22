@@ -667,5 +667,18 @@ decode TP4/DP4 每 rank KV 3,001,920 token（合计约 1,200 万，与估计一�
 - **结论**：C80 已碰到 4+4 的 decode KV 上限，但每步仍在平台区，所以吞吐 +14.7%、交互只 −9%。再加并发会主要卡在 KV 上，4+4 的上限约在 C80、
   每卡约 37k。
 
+## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
+
+| 方向 | 依据 | 备注 |
+|---|---|---|
+| PP4 进 example（另开 PR） | PP4 + prefill MTP 抬高 1P1D 前沿：C32 交互 +46%，C64 吞吐 +17% / 交互 +28%，C88 吞吐 +6% / 交互 +18%；4+4 C80 37.3k @ 44.3 支配 2P1D C176 | 需把 `deepseek_v2.py` 的 PP 补丁（中间级读 `embed_tokens.embedding_dim`）加进 Dockerfile 补丁集，不放进 #210 |
+| 2P(PP4)+1D 测高吞吐端 | 单 PP4 prefill 约 3.0 req/s 到顶（C88 → C112 吞吐只 +1.6%） | 需要 138 的 8 张卡；预计 C176 约 37–39k @ 39–40，受 decode KV 截顶，C192 意义不大 |
+| TP1 下 aiter BF16 GEMM 无调优配置 | PP4 prefill 日志有几千条 `not found tuned config in bf16_tuned_gemm.csv, will use default config`（MXFP4 checkpoint 的注意力投影等是 BF16，TP1 形状没有现成配置） | 单 prefill 到顶后提高其效率的现成可疑点；先 profile 看 BF16 GEMM 在 prefill 每步的占比 |
+| PP 下 KV 释放的两趟确认（sglang 上游） | PP4 16k C88 等释放的请求 20–41 个，占满 prefill KV 池（0.65–1.0）→ 排队、TTFT 尖峰；`event_loop_pp_disagg_prefill` 释放要逐级来回两趟，每跳一轮流水线迭代 | chunk 8k 缓解但结构问题仍在；可提 issue / 改上游 |
+| decode DP rank 均衡（带 KV 约束的混合策略） | 最忙 rank 为均值的 1.3–2.4 倍、每步由它决定 | 只在"已用 + 预分配 + 本请求 ≤ 阈值"的 rank 中选在跑最少的，都接近阈值时退回 R2；对 KV 有余量的点（4+8 C64 / C88，KV 18%–32%）有效，对 KV 已满的点（4+4 C80、2P1D C176）帮助小（10-22 07:06 更正：不能单纯按请求数均衡，R2 正是为 KV 均衡而引入）。另一会话在 AUS 上做 decode 按请求权重路由 |
+| decode KV 扩容（DCP / FP8 非专家层 / 显存比例） | 4+4 C80 已到 KV 上限（总使用 p90 95%、45% 的时间有 rank > 0.9、最多 25 个等预分配） | DCP 消除不均衡与 KV 碎片（粗估有效容量 +15%–30%，4+4 可到 C88–C96），但 v0.5.22 的 DSA DCP 只有 trtllm 实现，需 sglang#43735 + #44322 的新镜像；显存比例 0.92 → 0.95 约 +6% |
+| PP4 prefill 显存余量 | KV 分配后每卡还剩 52–67 GB | 可提高 prefill mem-fraction，缓解等释放请求占满 KV 池 |
+| 超长冷请求被推后 | prefill 饱和时 shortest-prefill-first 让 ≥ 32k 冷请求的 TTFT p90 到 224–459 s | 不影响吞吐 / 交互，但尾部 TTFT 难看；可考虑老化或给冷请求保底预算 |
+
 **当前 Pareto 前沿（10-22 06:50）**：4+4 C80 37.3k @ 44.3 → 4+4 C64 32.5k @ 48.6 → 4+8 C88 29.1k @ 50.7 → 4+8 C64 27.3k @ 66.0 → 4+8 C32 16.1k @ 106.7
 （都是 PP4 prefill + prefill MTP、chunk 8k）；2P1D C176（冷态）已被 4+4 C80 支配。
