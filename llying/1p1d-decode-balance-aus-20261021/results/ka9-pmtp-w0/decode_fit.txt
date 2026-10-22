@@ -1,0 +1,7 @@
+bins 588  step median 44.4 ms  R^2 0.856  rmse 4.12 ms
+step_ms = 15.8 + 2.85*max_req + -1.96*max_tok(M) + 0.242*sum_req + 0.235*sum_tok(M)
+running per rank: mean 4.66  busiest median 8  p90 11
+busiest / mean running per rank: median 1.67  p90 2.13
+busiest / mean context per rank: median 1.23  p90 1.44
+  only max_req + totals: R^2 0.856  coef 2.84
+  only max_tok + totals: R^2 0.710  coef -1.46
