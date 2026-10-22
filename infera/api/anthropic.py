@@ -21,12 +21,13 @@ In scope:
   tool_result, and tool_choice**. Top-level ``thinking``
   (``enabled`` / ``disabled``) maps to
   ``chat_template_kwargs.enable_thinking`` and ``thinking``.
-  Optional ``thinking.budget_tokens`` maps to SGLang
+  For GLM-5.3 model ids the thinking budget maps to SGLang
   ``custom_logit_processor`` + ``custom_params.thinking_budget``
-  when the model id is GLM-5.3 (workers run with
-  ``--enable-custom-logit-processor``). Budgets are clamped so the
-  forced newline and ``</think>`` plus an answer reserve fit in
-  ``max_tokens``. Assistant
+  (workers run with ``--enable-custom-logit-processor``): the default
+  budget when ``thinking.budget_tokens`` is omitted, the given value
+  otherwise, and no cap for ``-1`` or ``thinking.type=disabled``.
+  Budgets are clamped so the forced newline and ``</think>`` plus an
+  answer reserve fit in ``max_tokens``. Assistant
   history ``thinking`` blocks map to OpenAI ``reasoning_content``.
 - **Response translation (streaming)**: OpenAI SSE chunks
   (`data: {choices:[{delta:{...}}]}`) → Anthropic events
@@ -226,8 +227,8 @@ def anthropic_to_openai_request(body: dict[str, Any]) -> dict[str, Any]:
 
     # Extended thinking: Anthropic ``thinking:{type}`` → engine
     # ``chat_template_kwargs`` (both ``enable_thinking`` and ``thinking``
-    # for templates that read either name). Optional ``budget_tokens``
-    # → SGLang hard cap, GLM-5.3 only.
+    # for templates that read either name). The thinking budget (default,
+    # ``budget_tokens``, ``-1`` for none) → SGLang hard cap, GLM-5.3 only.
     thinking = body.get("thinking")
     if isinstance(thinking, dict):
         ttype = thinking.get("type")
@@ -236,50 +237,38 @@ def anthropic_to_openai_request(body: dict[str, Any]) -> dict[str, Any]:
                 "enable_thinking": True,
                 "thinking": True,
             }
-            _apply_thinking_budget(out, thinking, body.get("max_tokens"), body.get("model"))
         elif ttype == "disabled":
             out["chat_template_kwargs"] = {
                 "enable_thinking": False,
                 "thinking": False,
             }
+    _apply_thinking_budget(out, thinking, body.get("max_tokens"), body.get("model"))
 
     return out
 
 
-def _apply_thinking_budget(
-    out: dict[str, Any], thinking: dict[str, Any], max_tokens: Any, model: Any
-) -> None:
-    """Map Anthropic ``thinking.budget_tokens`` onto SGLang hard-cap fields.
+def _apply_thinking_budget(out: dict[str, Any], thinking: Any, max_tokens: Any, model: Any) -> None:
+    """Map the Anthropic thinking budget onto SGLang hard-cap fields.
 
-    Injects when the request carries ``budget_tokens`` and the model id is
-    GLM-5.3. Budgets are clamped so the forced newline and ``</think>`` plus an
-    answer reserve fit in ``max_tokens`` (clients may send budget >=
-    max_tokens). An omitted budget or a non-GLM-5.3 model leaves thinking
-    uncapped (``chat_template_kwargs`` still apply).
+    Applies to GLM-5.3 model ids. The budget is ``thinking.budget_tokens`` when
+    present, otherwise the default; ``-1`` and ``thinking.type=disabled`` leave
+    thinking uncapped. Budgets are clamped so the forced newline and ``</think>``
+    plus an answer reserve fit in ``max_tokens``. Other models are not capped.
     """
-    if "budget_tokens" not in thinking:
-        return
     from infera.engine.sglang.thinking_budget_const import (
-        MIN_MAX_TOKENS_FOR_BUDGET,
         apply_glm53_thinking_budget,
         is_glm53_model,
-        resolve_thinking_budget,
+        resolve_request_thinking_budget,
     )
 
     if not is_glm53_model(model):
         return
-    budget = thinking.get("budget_tokens")
-    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
-        raise AnthropicRequestRejected("thinking.budget_tokens must be a positive integer")
-    if (
-        not isinstance(max_tokens, int)
-        or isinstance(max_tokens, bool)
-        or max_tokens < MIN_MAX_TOKENS_FOR_BUDGET
-    ):
-        raise AnthropicRequestRejected(
-            f"max_tokens must be >= {MIN_MAX_TOKENS_FOR_BUDGET} when thinking.budget_tokens is set"
-        )
-    apply_glm53_thinking_budget(out, resolve_thinking_budget(budget, max_tokens))
+    try:
+        budget = resolve_request_thinking_budget(thinking, max_tokens)
+    except ValueError as e:
+        raise AnthropicRequestRejected(str(e)) from e
+    if budget is not None:
+        apply_glm53_thinking_budget(out, budget)
 
 
 def _flatten_system(system: Any) -> str:

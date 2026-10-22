@@ -9,11 +9,26 @@ the infera overlay mounted over it. One combo today:
 
 Not here: aggregated — use `examples/sglang_mix_glm5.3/` under docker for now.
 
-### Anthropic thinking budget (recommended when using Claude Code)
+### Thinking budget (Anthropic and OpenAI requests)
 
-For GLM-5.3 requests that carry `thinking.budget_tokens`, the Anthropic shim
-injects the trusted processor that hard-caps thinking. Requests without
-`budget_tokens` leave thinking uncapped (up to `max_tokens`).
+For GLM-5.3 requests the router injects the trusted processor that hard-caps
+thinking, on `/v1/messages` and on `/v1/chat/completions`. The budget comes from
+`thinking.budget_tokens`:
+
+| `thinking.budget_tokens` | Thinking cap |
+|---|---|
+| omitted | 1024 tokens (default) |
+| positive `N` | `N`, clamped so the forced newline and `</think>` plus an answer reserve fit in `max_tokens` |
+| `-1` | no limit; thinking runs up to `max_tokens` |
+
+`thinking.type=disabled` also leaves thinking uncapped, and on the OpenAI endpoint so does
+`chat_template_kwargs.enable_thinking=false`. Any other non-positive value returns HTTP 400.
+
+Anthropic clients send `thinking: {"type": "enabled", "budget_tokens": N}`. OpenAI
+chat clients send the same top-level `thinking` object, and
+`max_completion_tokens` takes precedence over `max_tokens` for the clamp. The
+OpenAI endpoint maps `thinking.type` to `chat_template_kwargs` without
+overriding keys the client set.
 
 | Where | Knob | Effect |
 |---|---|---|

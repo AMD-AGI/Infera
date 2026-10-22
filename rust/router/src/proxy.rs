@@ -793,6 +793,11 @@ async fn dispatch_session(
     if let Err(msg) = crate::cache_control::reject_client_custom_logit(&v) {
         return json_error(StatusCode::BAD_REQUEST, msg);
     }
+    if path == "/v1/chat/completions" {
+        if let Err(msg) = crate::anthropic::apply_openai_thinking_budget(&mut v) {
+            return json_error(StatusCode::BAD_REQUEST, &msg);
+        }
+    }
     let hints = crate::cache_control::parse_cache_hints(&v);
     let mut routing = v.clone();
     crate::cache_control::attach_cache_hints(&mut routing, &hints);

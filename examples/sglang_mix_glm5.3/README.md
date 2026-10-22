@@ -66,12 +66,13 @@ single-variable performance round.
 The health signal is a line that must be **ABSENT** from the worker log:
 `Shared experts fusion optimization enabled.`
 
-## Anthropic thinking budget
+## Thinking budget
 
-Anthropic `thinking.budget_tokens` on GLM-5.3 is hard-capped by a request-scoped
-logit processor that the router / `infera.server` injects. The SGLang worker
-launcher (`infera.engine.sglang`) adds `--enable-custom-logit-processor`
-automatically. Requests without `budget_tokens` are not capped. See
+Thinking on GLM-5.3 is hard-capped by a request-scoped logit processor that the
+router / `infera.server` injects on `/v1/messages` and `/v1/chat/completions`.
+The budget is `thinking.budget_tokens`: 1024 when omitted, `-1` for no limit.
+The SGLang worker launcher (`infera.engine.sglang`) adds
+`--enable-custom-logit-processor` automatically. See
 [`manual/examples/k8s_glm5.3.md`](../../manual/examples/k8s_glm5.3.md) §4.
 
 With the flag on, a worker deserializes the request-supplied processor with `dill`,

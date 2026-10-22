@@ -1516,6 +1516,36 @@ def test_thinking_budget_tokens_maps_to_sglang_hard_cap():
     assert out["custom_params"] == {"thinking_budget": 1024}
 
 
+def test_thinking_budget_defaults_to_1024_for_glm53_without_budget_tokens():
+    for thinking in ({"type": "enabled"}, None):
+        body = {
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+        }
+        if thinking is not None:
+            body["thinking"] = thinking
+        out = anthropic_to_openai_request(body)
+        assert out["custom_params"] == {"thinking_budget": 1024}
+
+
+def test_thinking_budget_minus_one_and_disabled_leave_thinking_uncapped():
+    for thinking in (
+        {"type": "enabled", "budget_tokens": -1},
+        {"type": "disabled"},
+    ):
+        out = anthropic_to_openai_request(
+            {
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 4096,
+                "thinking": thinking,
+            }
+        )
+        assert "custom_logit_processor" not in out
+        assert "custom_params" not in out
+
+
 def test_thinking_budget_ignored_for_non_glm53():
     out = anthropic_to_openai_request(
         {

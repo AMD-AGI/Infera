@@ -354,10 +354,19 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
             status_code=400,
             detail=(
                 "custom_logit_processor and custom_params are not allowed on "
-                "OpenAI endpoints; use Anthropic /v1/messages with "
-                "thinking.budget_tokens for GLM-5.3 thinking budgets"
+                "OpenAI endpoints; use thinking.budget_tokens for "
+                "GLM-5.3 thinking budgets"
             ),
         )
+    if path == "/v1/chat/completions" and isinstance(body, dict):
+        # GLM-5.3 thinking budget from the top-level ``thinking`` object, with the
+        # same default and ``-1`` semantics as the Anthropic Messages shim.
+        from infera.engine.sglang.thinking_budget_const import apply_openai_thinking_budget
+
+        try:
+            apply_openai_thinking_budget(body)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
     stream = bool(body.get("stream"))
     if stream and _enable_sla_metrics:
         # The SLA planner needs exact ISL/OSL even with round-robin routing,
