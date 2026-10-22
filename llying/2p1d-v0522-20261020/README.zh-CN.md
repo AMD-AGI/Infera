@@ -675,6 +675,14 @@ decode TP4/DP4 每 rank KV 3,001,920 token（合计约 1,200 万，与估计一�
 - 配置：kit `v6-pp4`，两个 PP4 prefill（138 GPU 0–3 / 4–7，chunk 8k，prefill MTP，HiCache 每级 250 GB），decode 140 TP8/DPA；站点
   `config/site-2p-pp4-ck8k.env`；串行 `chain-1022T0828.out`，日志 `perf-2p-pp4-ck8k/`。起栈前两节点显存 0、无他人 GPU 进程，138 可用内存 2.73 TB
   （8 级 × 约 267 GB ≈ 2.1 TB）。预计约 37–39k @ p90 39–40，受 decode KV（约 3,200 万 token）截顶。
+- 起栈 08:29–08:49（138 重启后页缓存为空，两个 prefill 冷读权重 760–807 s，平时约 15 s）；prefill1 的 infera readiness 端口 30090 绑定失败
+  （固定端口被 prefill0 先占；以前 2P1D 每次都有 1 条，"serving without one"，不影响服务）。预热 08:50–09:10（1,953 个请求、0 错误），计分 09:10 开始。
+- **09:32:55 decode 的 8 个调度进程被外部结束，本轮作废**：09:32:54 之前 decode 一切正常（各 rank KV 0.66–0.81、无等预分配、prefill 不排队），
+  随后各 rank 同时连不上本机 27780 端口的 TCPStore，09:33:01 日志 `Subprocess scheduler_1 (pid=299) crashed with exit code -15`（SIGTERM，不是 OOM 的 -9）；
+  容器内只剩数据并行控制器、tokenizer、detokenizer，prefill 连不上 decode 的 Mooncake 握手端口。引擎内部无任何报错；我们容器上没有 docker 层面的
+  stop / kill 事件，信号是从宿主机以 root 身份直接发给进程的。140 的 `last` 显示 09:24:49–09:26:04 有 `ubuntu` 账号从 10.181.92.17 每秒一次地连续登录
+  （像自动化脚本，最后一次无登出记录）。我没有 root 权限，查不到信号来源。证据：`runs/c176-1022T0829/incident-decode-sigterm.txt` 与完整日志。
+- 09:45 巡检发现（两个 prefill 自 09:31 起无新 batch、decode 出现错误），09:50 停掉串行并撤栈，日志已保存；巡检定时器已停。
 
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 
