@@ -88,6 +88,10 @@ fi
 python3 "$R/scripts/flush_check.py" "$LOGS" "$flushed_at" > "$OUT/flush_check.txt" 2>&1
 python3 "$R/scripts/engine_pace.py" "$LOGS" decode-0.log "$w0" "$w1" > "$OUT/engine_pace.txt" 2>&1
 python3 "$R/scripts/decode_step_fit.py" "$LOGS/decode-0.log" "$w0" "$w1" > "$OUT/decode_fit.txt" 2>&1
+# AIPerf appends per-request records as they finish: client metrics survive a run cut before its summary.
+recs="$(find "$agx" -name profile_export.jsonl 2>/dev/null | head -1)"
+[[ -n "$recs" ]] && python3 "$R/scripts/pr210/records_summary.py" "$recs" "$DURATION" 12 > "$OUT/records_summary.txt" 2>&1
+cat "$OUT/records_summary.txt" 2>/dev/null
 res="$R/results/$VARIANT/c$CONC"; mkdir -p "$res"
 cp "$agx/agentx_conc$CONC.json" "$res/" 2>/dev/null
 find "$agx" -name profile_export_aiperf.json -exec cp {} "$res/" \; -quit

@@ -1,0 +1,8 @@
+bins 593  step median 41.6 ms  R^2 0.863  rmse 2.14 ms
+step_ms = 20.6 + 1.70*max_req + 1.63*max_tok(M) + 0.219*sum_req + -0.052*sum_tok(M)
+busiest-rank tokens equivalent to one request there: 1,046,127
+running per rank: mean 4.08  busiest median 6  p90 8
+busiest / mean running per rank: median 1.47  p90 1.82
+busiest / mean context per rank: median 1.39  p90 1.61
+  only max_req + totals: R^2 0.862  coef 1.74
+  only max_tok + totals: R^2 0.813  coef 2.84
