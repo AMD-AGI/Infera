@@ -683,6 +683,11 @@ decode TP4/DP4 每 rank KV 3,001,920 token（合计约 1,200 万，与估计一�
   stop / kill 事件，信号是从宿主机以 root 身份直接发给进程的。140 的 `last` 显示 09:24:49–09:26:04 有 `ubuntu` 账号从 10.181.92.17 每秒一次地连续登录
   （像自动化脚本，最后一次无登出记录）。我没有 root 权限，查不到信号来源。证据：`runs/c176-1022T0829/incident-decode-sigterm.txt` 与完整日志。
 - 09:45 巡检发现（两个 prefill 自 09:31 起无新 batch、decode 出现错误），09:50 停掉串行并撤栈，日志已保存；巡检定时器已停。
+- 140 事后检查（09:55）：GPU 空闲、网卡 ACTIVE、无登录。09:24:45 Fleet 自动化（即上述 `ubuntu` 连续登录）在 140 上重启了 `healthagent`（root 运行的
+  GPU 节点健康检查）、`fleet-rdma-telemetry`、`fleet-telemetry-writer`。healthagent 配置只做只读检查、`remediation.enabled: false`，其事件日志在
+  09:30–09:35 只有日常告警（`nicctl show card failed` 等），无处置动作——没有证据表明是它结束了进程；SIGTERM 来源需要 root 查 journal / 审计日志。
+- **09:58 重跑 2P(PP4)+1D C176**（用户决定；整栈重启，巡检改为每 10 分钟）：作废那次的日志改名为 `perf-2p-pp4-ck8k/c176-voided-1022T0829.*`；
+  新串行 `chain-1022T0958.out`。起栈前两节点显存 0、无他人 GPU 进程。
 
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 
