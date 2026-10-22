@@ -1,0 +1,61 @@
+diff -ru 2p1d-kit/v6-pp4/engine/worker.sh 2p1d-kit/v7-dcp4/engine/worker.sh
+--- 2p1d-kit/v6-pp4/engine/worker.sh	2026-10-21 19:47:19.379126364 +0000
++++ 2p1d-kit/v7-dcp4/engine/worker.sh	2026-10-22 12:28:44.680280463 +0000
+@@ -2,9 +2,9 @@
+ # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+ # SPDX-License-Identifier: MIT
+ #
+-# Start one engine container on THIS node: a TP4 + DP4-attention prefill with
+-# a host-memory HiCache tier, or the TP8 + DP8-attention decode; both legs
+-# carry EAGLE MTP.
++# Start one engine container on THIS node: a PP4 prefill with a host-memory
++# HiCache tier, or the decode with decode context parallelism (TP = DCP = its
++# GPU count); both legs carry EAGLE MTP.
+ # This file carries the tuned recipe; site values come from env.sh. Normally
+ # called by up.sh (the decode over ssh).
+ #
+@@ -108,7 +108,7 @@
+             SGLANG_SIMULATE_ACC_METHOD=match-expected SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token)
+     fi
+     args+=(
+-        --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention
++        --tp-size "$n_gpus" --dcp-size "$n_gpus"
+         --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 256 --tokenizer-worker-num 4
+         --no-enable-kv-events --kv-events off
+     )
+@@ -133,9 +133,12 @@
+ mounts=(-v "$MODEL:$MODEL:ro"
+     -v "$name-cache-${image_id:7:12}:/root/.cache"
+     -v "$name-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit")
+-# v0.5.22 reads embed_tokens.embedding_dim on every PP stage, but the middle
+-# stages hold a PPMissingLayer there; the patched copy reads config.hidden_size.
+-[[ "$role" != prefill ]] || mounts+=(-v "$KIT/patches/deepseek_v2.py:/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py:ro")
++# v0.5.22 has no DSA DCP on ROCm and rejects DCP behind a PD prefill, so both
++# legs run overlay/sglang: sglang 93034eba91 (main fda84f80b7 + sglang#44322 +
++# PD/DCP fixes, carrying the image's Infera patches) plus the v0.5.22 PP fix in
++# models/deepseek_v2.py (middle stages read config.hidden_size, not
++# embed_tokens.embedding_dim).
++mounts+=(-v "$KIT/overlay/sglang:/sgl-workspace/sglang/python/sglang:ro")
+ # Host libionic, so the entrypoint can match the host ionic kernel ABI.
+ [[ ! -e /lib/x86_64-linux-gnu/libionic.so ]] ||
+     mounts+=(-v /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro)
+--- yihou overlay sglang-93034eba91/python/sglang/srt/models/deepseek_v2.py
++++ v7-dcp4/overlay/sglang/srt/models/deepseek_v2.py
+@@ -3000,7 +3000,7 @@
+         if (
+             _use_aiter_gfx95
+             and config.n_routed_experts == 256
+-            and self.embed_tokens.embedding_dim == 7168
++            and config.hidden_size == 7168
+         ):
+             num_moe_layers = sum(
+                 [
+@@ -3035,7 +3035,7 @@
+                     config.n_routed_experts,
+                     num_moe_layers,
+                     allocate_size,
+-                    self.embed_tokens.embedding_dim,
++                    config.hidden_size,
+                 )
+             )
+         self.layers_to_capture = []

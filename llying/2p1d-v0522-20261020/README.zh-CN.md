@@ -721,12 +721,46 @@ decode TP4/DP4 每 rank KV 3,001,920 token（合计约 1,200 万，与估计一�
 decode KV（AUS 上 C192 比 C176 低 4.7% 的机制）。138 显存回收用了约 32 分钟（11:33 → 12:05），12:05:31 起栈；干扰检查两节点无 GPU 进程，
 他人容器 CPU 0%。
 
+**C192 结果（`c192-1022T1205`，计分 12:33–13:33，产物 `results/pp4-ck8k-2p-c192/`）**：巡检 7 次无错误、无他人 GPU 作业、140 无新登录。13:40 AgentX 退出、
+13:43 撤栈，期间本地会话断开，撤栈前的 `/metrics` 快照没有存到（计分 JSON 与引擎日志完整）。
+
+| 配置 / 点 | 卡 | tok/s/GPU | 每秒请求 | 完成 / 无效 | intvty p50 / p90 | ITL p50 / p90 (ms) | TTFT p50 / p90 / 均值 (s) |
+|---|---|---|---|---|---|---|---|
+| 2P(PP4)+1D C176 | 16 | **38,392** | 4.658 | 16,897 / 4 | 46.8 / **43.2** | 21.4 / 23.2 | 4.00 / 9.52 / 5.48 |
+| 2P(PP4)+1D C192 | 16 | 36,781（−4.2%） | 4.548 | 16,500 / 7 | 45.9 / 42.3 | 21.8 / 23.6 | 5.16 / 13.70 / 10.32 |
+
+- **C192 被 C176 支配**：吞吐 −4.2%、p90 交互 −2%、TTFT p90 +44%（均值 +88%），与 AUS（−4.7%）一致。2P(PP4)+1D 的峰值在 C176。
+- **prefill 饱和**：两实例有排队的时间 44% / 59% → **92% / 92%**，排队均值 1.56 / 2.35 → 8.85 / 8.15；新算 23.6k → 24.4k tok/s（+3.5%，到顶），
+  两实例反而更均衡（12.8k / 11.6k）。
+- **decode 在跑不变**：合计中位 102（C176 102）、最忙 rank 18 / 23，每步仍在平台区（@18 76 ms）。多出的 16 个并发全部变成排队。
+- **decode KV 被在途请求占满**：等 KV 传输的请求 25.5 → **46.3**；使用均值 0.66 → 0.77、最忙 rank p50 / p90 0.76 / 0.87 → 0.89 / 0.98（算上预分配
+  p90 1.52），有 rank > 0.9 的时间 5% → **44%**，等预分配最多 3 → 20。机制：decode 在握手时就为请求预分配 KV，prefill 要拿到 decode 的目的地址才开始算，
+  所以在 prefill 排队的请求已经占着 decode KV 却不产出 token。decode KV 的压力是 prefill 饱和的结果，不是 decode 在跑的请求变多。
+- **TTFT 各桶都变差**：< 2k p50 / p90 3.77 / 7.87 → 4.76 / 10.11 s；8–32k 6.47 / 18.99 → 10.67 / 46.84 s；≥ 32k 14.8 / 53.0 → 35.3 / **205** s。
+- **结论**：C192 同时碰到两个上限——两个 PP4 prefill 的产能，以及被在途请求占住的 decode KV。2P(PP4)+1D 再往上要先加 prefill 产能（例如 3P），
+  decode KV 扩容（DCP）只能缓解后者。待明天讨论。
+
+## 10-22 14:07 起：4+4 的 decode 由 DPA4 换成 DCP4（用户决定）
+
+目标：在与 4+4 C80（37.3k @ 44.3，decode KV 顶满）可比的条件下，看 DCP 能否解掉 decode 的 KV 容量瓶颈。同事实验包的分析与取舍依据见
+`../dcp4-pd-analysis-20261022/README.zh-CN.md`。
+
+- **kit `v7-dcp4`**（相对 `v6-pp4` 的全部改动见 `config/kit-v7-dcp4.diff`）：decode `--dp-size 4 --enable-dp-attention` → `--dcp-size 4`（TP 仍为 4）；
+  两侧挂 sglang overlay（同事的 `sglang-93034eba91` = main `fda84f80b7` + sglang#44322 + PD/DCP 修复，已含我们镜像用到的全部 Infera 补丁），
+  并在其 `models/deepseek_v2.py` 上加我们的 PP 中间级修复（同事版本里仍有这个 bug）。原来只挂在 prefill 上的单文件补丁去掉。
+- **其余保持不变**：prefill PP4 + chunk 8k + prefill MTP（+ HiCache）；decode EP1、`--disable-custom-all-reduce`、显存 0.92、graph bs 256、最大在跑 256；
+  138 GPU 4–7 / 140 GPU 4–7；router 不变。同事的 `KEEP_KV_B_BF16`、拆分 indexer 第一轮不开，DCP 默认路径跑完 C80 后再做 A/B。
+- **顺序**：① 不开 HiCache 的正确性（smoke + GSM8K + 真实接受长度，记录 decode KV 池大小）→ ② 开 HiCache 复测 → ③ C80 性能（模拟接受率 3.61）
+  → ④ 两个开关的 A/B，KV 不再受限时再加并发。
+- **① 14:07 起**：站点 `config/site-1p-pp4-ck8k-d4-nohc.env`（4+4 + `PP4_HICACHE=0`），串行 `chain-1022T1407.out`，日志 `dcp4-correct/dcp4-nohc-1022T1407.log`。
+  起栈前两节点显存 0、无他人 GPU 进程。
+
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 
 | 方向 | 依据 | 备注 |
 |---|---|---|
 | PP4 进 example（另开 PR） | PP4 + prefill MTP 抬高 1P1D 前沿：C32 交互 +46%，C64 吞吐 +17% / 交互 +28%，C88 吞吐 +6% / 交互 +18%；4+4 C80 37.3k @ 44.3 支配 2P1D C176 | 需把 `deepseek_v2.py` 的 PP 补丁（中间级读 `embed_tokens.embedding_dim`）加进 Dockerfile 补丁集，不放进 #210 |
-| 2P(PP4)+1D 测高吞吐端 | 单 PP4 prefill 约 3.0 req/s 到顶（C88 → C112 吞吐只 +1.6%） | 需要 138 的 8 张卡；预计 C176 约 37–39k @ 39–40，受 decode KV 截顶，C192 意义不大。10-22 已测 C176：38.4k @ 43.2（+7.7% / +21%），decode KV 未顶满，C192 待定 |
+| 2P(PP4)+1D 测高吞吐端 | 单 PP4 prefill 约 3.0 req/s 到顶（C88 → C112 吞吐只 +1.6%） | 需要 138 的 8 张卡；预计 C176 约 37–39k @ 39–40，受 decode KV 截顶，C192 意义不大。10-22 已测 C176：38.4k @ 43.2（+7.7% / +21%）；C192 36.8k @ 42.3，被 C176 支配（两个 prefill 92% 的时间排队，在途请求占满 decode KV），峰值在 C176 |
 | TP1 下 aiter BF16 GEMM 无调优配置 | PP4 prefill 日志有几千条 `not found tuned config in bf16_tuned_gemm.csv, will use default config`（MXFP4 checkpoint 的注意力投影等是 BF16，TP1 形状没有现成配置） | 单 prefill 到顶后提高其效率的现成可疑点；先 profile 看 BF16 GEMM 在 prefill 每步的占比 |
 | PP 下 KV 释放的两趟确认（sglang 上游） | PP4 16k C88 等释放的请求 20–41 个，占满 prefill KV 池（0.65–1.0）→ 排队、TTFT 尖峰；`event_loop_pp_disagg_prefill` 释放要逐级来回两趟，每跳一轮流水线迭代 | chunk 8k 缓解但结构问题仍在；可提 issue / 改上游 |
 | decode DP rank 均衡（带 KV 约束的混合策略） | 最忙 rank 为均值的 1.3–2.4 倍、每步由它决定 | 只在"已用 + 预分配 + 本请求 ≤ 阈值"的 rank 中选在跑最少的，都接近阈值时退回 R2；对 KV 有余量的点（4+8 C64 / C88，KV 18%–32%）有效，对 KV 已满的点（4+4 C80、2P1D C176）帮助小（10-22 07:06 更正：不能单纯按请求数均衡，R2 正是为 KV 均衡而引入）。另一会话在 AUS 上做 decode 按请求权重路由 |
