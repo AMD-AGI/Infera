@@ -15,11 +15,12 @@ import matplotlib.pyplot as plt  # noqa: E402
 
 report, api, out = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 ours = [  # (results dir, label, label offset in points)
-    ("results/c176", "2P(TP4/DPA)+1D(TP8/DPA) C176, 16 GPU", (8, 4)),
+    ("results/c176", "2P(TP4/DPA)+1D(TP8/DPA) C176, 16 GPU", (-150, -16)),
     ("results/c128", "2P1D C128, 16 GPU", (8, -2)),
     ("results/c96", "2P1D C96, 16 GPU", (-95, -12)),
     ("results/c64", "2P1D C64, 16 GPU", (6, -13)),
-    ("results/pp4-ck8k-d4-c80", "1P(PP4)+1D(TP4/DPA) C80, prefill MTP, 8 GPU", (8, 4)),
+    ("results/pp4-ck8k-2p-c176", "2P(PP4)+1D(TP8/DPA) C176, prefill MTP, 16 GPU", (8, 8)),
+    ("results/pp4-ck8k-d4-c80", "1P(PP4)+1D(TP4/DPA) C80, prefill MTP, 8 GPU", (10, -6)),
     ("results/pp4-ck8k-d4-c64", "1P(PP4)+1D(TP4/DPA) C64, prefill MTP, 8 GPU", (8, 4)),
     ("results/pp4-ck8k-c112", "1P(PP4)+1D C112, prefill MTP, 12 GPU", (8, 4)),
     ("results/pp4-ck8k-c88", "1P(PP4)+1D(TP8/DPA) C88, prefill MTP, 12 GPU", (8, -12)),
