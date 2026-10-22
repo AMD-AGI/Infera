@@ -1,0 +1,121 @@
+2026-10-20T12:53:00.642755491Z [2026-10-20 12:53:00 DP3 TP3] YIHOU-SKGUARD-EAGER BAD fast_topk_transform_fused|eager|dsa_topk_backend.py:topk_transform:204<dsa_indexer_metadata.py:topk_transform:158<dsa_indexer.py:_forward_cuda_k_only:1942<dsa_indexer.py:forward_cuda:2114 score=(1, 2048) lengths=(1,) width=2048 max_len=104740 min_len=104740 nbad=1 row_starts=None
+2026-10-20T12:53:00.722291043Z [2026-10-20 12:53:00] INFO:     10.245.144.36:60584 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-20T12:53:00.979124354Z rocm-debug-agent: warning: could not open `/root/.cache/sglang/jit/gfx950/sgl_kernel_jit_speculative_tree/build-211e6c271cb3ca65/.staging-0ca997eabd3a4f8fa1140c54d988a6cc/sgl_kernel_jit_speculative_tree.so'
+2026-10-20T12:53:00.979161974Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979183964Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979191304Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979194884Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979197154Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979199504Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979201604Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979203714Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979206054Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979208224Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979210064Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979214083Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979216833Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979223113Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979225273Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979228733Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979230813Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979232213Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979233863Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979235543Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979238433Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979241893Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979243323Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO minNChannels:112
+2026-10-20T12:53:00.979245303Z crsuse2-m2m-097:31654:31654 [3] NCCL INFO post-adjustment based on threadThreshold:32 nBytes:36864 nc:48
+2026-10-20T12:53:00.979168354Z rocm-debug-agent: warning: could not open code_object_265
+2026-10-20T12:53:00.988233906Z [2026-10-20 12:53:00 DP3 TP3] YIHOU-SKGUARD-EAGER BAD rows=[0] lens=[104740] stack=  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+2026-10-20T12:53:00.988242256Z     self._target(*self._args, **self._kwargs)
+2026-10-20T12:53:00.988244986Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5956, in run_scheduler_process
+2026-10-20T12:53:00.988247646Z     scheduler.run_event_loop()
+2026-10-20T12:53:00.988250026Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 1887, in run_event_loop
+2026-10-20T12:53:00.988252426Z     dispatch_event_loop(self)
+2026-10-20T12:53:00.988254406Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5804, in dispatch_event_loop
+2026-10-20T12:53:00.988256596Z     return _dispatch_event_loop_once(scheduler)
+2026-10-20T12:53:00.988258496Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5833, in _dispatch_event_loop_once
+2026-10-20T12:53:00.988260396Z     scheduler.event_loop_overlap_disagg_decode()
+2026-10-20T12:53:00.988271926Z   File "/opt/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+2026-10-20T12:53:00.988274256Z     return func(*args, **kwargs)
+2026-10-20T12:53:00.988275876Z   File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py", line 2989, in event_loop_overlap_disagg_decode
+2026-10-20T12:53:00.988277666Z     batch_result = self.run_batch(batch)
+2026-10-20T12:53:00.988279536Z   File "/sgl-workspace/sglang/python/sglang/srt/observability/scheduler_stage_metrics.py", line 186, in wrapper
+2026-10-20T12:53:00.988287336Z     return profiled_func(self, *args, **kwargs)
+2026-10-20T12:53:00.988289216Z   File "/sgl-workspace/sglang/python/sglang/srt/utils/nvtx_utils.py", line 109, in wrapper
+2026-10-20T12:53:00.988291146Z     return func(*args, **kwargs)
+2026-10-20T12:53:00.988292556Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 4424, in run_batch
+2026-10-20T12:53:00.988294126Z     batch_result = self.model_worker.forward_batch_generation(
+2026-10-20T12:53:00.988295606Z   File "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 1440, in forward_batch_generation
+2026-10-20T12:53:00.988297366Z     verify_input: EagleVerifyInput = self.draft_worker.draft(batch)
+2026-10-20T12:53:00.988298836Z   File "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 682, in draft
+2026-10-20T12:53:00.988300416Z     self.draft_forward(forward_batch)
+2026-10-20T12:53:00.988301836Z   File "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 714, in draft_forward
+2026-10-20T12:53:00.988303316Z     return self._draft_forward_idle(forward_batch, spec_info)
+2026-10-20T12:53:00.988305436Z   File "/sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py", line 917, in _draft_forward_idle
+2026-10-20T12:53:00.988308236Z     self.draft_runner.forward(forward_batch)
+2026-10-20T12:53:00.988309926Z   File "/sgl-workspace/sglang/python/sglang/srt/model_executor/model_runner.py", line 1781, in forward
+2026-10-20T12:53:00.988311546Z     output = self._forward_raw(
+2026-10-20T12:53:00.988312966Z   File "/sgl-workspace/sglang/python/sglang/srt/model_executor/model_runner.py", line 1973, in _forward_raw
+2026-10-20T12:53:00.988314496Z     ret = self.eager_runner.execute(
+2026-10-20T12:53:00.988325576Z   File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/eager_runner.py", line 226, in execute
+2026-10-20T12:53:00.988327776Z     return self._execute_idle(forward_batch, pp_proxy_tensors)
+2026-10-20T12:53:00.988331576Z   File "/sgl-workspace/sglang/python/sglang/srt/model_executor/runner/eager_runner.py", line 467, in _execute_idle
+2026-10-20T12:53:00.988333316Z     return model_runner.model.forward(
+2026-10-20T12:53:00.988334846Z   File "/opt/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+2026-10-20T12:53:00.988336446Z     return func(*args, **kwargs)
+2026-10-20T12:53:00.988337846Z   File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_nextn.py", line 308, in forward
+2026-10-20T12:53:00.988339316Z     hidden_states = self.model(input_ids, positions, forward_batch)
+2026-10-20T12:53:00.988340836Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+2026-10-20T12:53:00.988342416Z     return self._call_impl(*args, **kwargs)
+2026-10-20T12:53:00.988344496Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+2026-10-20T12:53:00.988346936Z     return forward_call(*args, **kwargs)
+2026-10-20T12:53:00.988348386Z   File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_nextn.py", line 224, in forward
+2026-10-20T12:53:00.988349876Z     (hidden_states, topk_indices) = self.decoder(
+2026-10-20T12:53:00.988351306Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+2026-10-20T12:53:00.988352766Z     return self._call_impl(*args, **kwargs)
+2026-10-20T12:53:00.988354656Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+2026-10-20T12:53:00.988356196Z     return forward_call(*args, **kwargs)
+2026-10-20T12:53:00.988357596Z   File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py", line 2736, in forward
+2026-10-20T12:53:00.988359186Z     hidden_states = self.self_attn(
+2026-10-20T12:53:00.988360576Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+2026-10-20T12:53:00.988362176Z     return self._call_impl(*args, **kwargs)
+2026-10-20T12:53:00.988363576Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+2026-10-20T12:53:00.988365016Z     return forward_call(*args, **kwargs)
+2026-10-20T12:53:00.988366426Z   File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py", line 2311, in forward
+2026-10-20T12:53:00.988367906Z     s = self.forward_prepare(
+2026-10-20T12:53:00.988369276Z   File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py", line 2390, in forward_prepare
+2026-10-20T12:53:00.988370786Z     inner_state = self.forward_absorb_rocm_prepare(
+2026-10-20T12:53:00.988372246Z   File "/sgl-workspace/sglang/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py", line 639, in forward_absorb_rocm_prepare
+2026-10-20T12:53:00.988373776Z     topk_indices = self.indexer(
+2026-10-20T12:53:00.988375156Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl
+2026-10-20T12:53:00.988376616Z     return self._call_impl(*args, **kwargs)
+2026-10-20T12:53:00.988377996Z   File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1786, in _call_impl
+2026-10-20T12:53:00.988379466Z     return forward_call(*args, **kwargs)
+2026-10-20T12:53:00.988380856Z   File "/sgl-workspace/sglang/python/sglang/kernels/fused_op.py", line 659, in forward
+2026-10-20T12:53:00.988383226Z     result = method(*args, **kwargs)
+2026-10-20T12:53:00.988384636Z   File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py", line 2114, in forward_cuda
+2026-10-20T12:53:00.988386146Z     topk_result = self._forward_cuda_k_only(
+2026-10-20T12:53:00.988387526Z   File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer.py", line 1942, in _forward_cuda_k_only
+2026-10-20T12:53:00.988389806Z     raw_topk_result = metadata.topk_transform(dummy_logits, self.index_topk)
+2026-10-20T12:53:00.988391256Z   File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py", line 158, in topk_transform
+2026-10-20T12:53:00.988392756Z     return self.topk_backend.topk_transform(
+2026-10-20T12:53:00.988394146Z   File "/sgl-workspace/sglang/python/sglang/srt/layers/attention/dsa/dsa_topk_backend.py", line 204, in topk_transform
+2026-10-20T12:53:00.988395646Z     return fast_topk_transform_fused(
+2026-10-20T12:53:00.988397066Z   File "/opt/venv/lib/python3.10/site-packages/sgl_kernel/top_k.py", line 279, in fast_topk_transform_fused
+2026-10-20T12:53:00.988398566Z     lengths = _yg_guard("fast_topk_transform_fused", score, lengths, row_starts)
+2026-10-20T12:53:00.988400086Z 
+2026-10-20T12:53:00.988540035Z [2026-10-20 12:53:00 DP3 TP3] YIHOU-SKGUARD-EAGER BAD batch={'mode': 'ForwardMode.IDLE', 'orig_mode': 'None', 'bs': 2, 'seq_lens': [1, 1], 'seq_lens_cpu': [1, 1], 'seq_lens_sum': 2, 'req_pool_indices': [0, 0], 'extend_seq_lens_cpu': None, 'num_token_non_padded_cpu': None, 'global_num_tokens_cpu': [2, 2, 2, 2], 'spec_info': 'EagleDraftInput', 'capture_hidden_mode': 'CaptureHiddenMode.LAST', 'input_ids_shape': (2,), 'am_cache_seqlens': [104740], 'am_seqlens_expanded': [104740], 'am_max_seq_len_k': 1048651, 'am_page_table_1_shape': (1, 1048651)}
+2026-10-20T12:53:00.995562566Z [2026-10-20 12:53:00 DP3 TP3] YIHOU-SKGUARD-EAGER BAD fast_topk_transform_fused|eager|dsa_topk_backend.py:topk_transform:204<dsa_indexer_metadata.py:topk_transform:158<dsa_indexer.py:_forward_cuda_k_only:1942<dsa_indexer.py:forward_cuda:2114 score=(1, 2048) lengths=(1,) width=2048 max_len=104740 min_len=104740 nbad=1 row_starts=None
+2026-10-20T12:53:00.995937075Z [2026-10-20 12:53:00 DP3 TP3] YIHOU-SKGUARD-EAGER BAD rows=[0] lens=[104740] stack=  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+2026-10-20T12:53:00.995940195Z     self._target(*self._args, **self._kwargs)
+2026-10-20T12:53:00.995942915Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5956, in run_scheduler_process
+2026-10-20T12:53:00.995945104Z     scheduler.run_event_loop()
+2026-10-20T12:53:00.995947374Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 1887, in run_event_loop
+2026-10-20T12:53:00.995950634Z     dispatch_event_loop(self)
+2026-10-20T12:53:00.995952874Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5804, in dispatch_event_loop
+2026-10-20T12:53:00.995955074Z     return _dispatch_event_loop_once(scheduler)
+2026-10-20T12:53:00.995957054Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5833, in _dispatch_event_loop_once
+2026-10-20T12:53:00.995958924Z     scheduler.event_loop_overlap_disagg_decode()
+2026-10-20T12:53:00.995961254Z   File "/opt/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 120, in decorate_context
+2026-10-20T12:53:00.995963284Z     return func(*args, **kwargs)

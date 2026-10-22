@@ -1,0 +1,94 @@
+--- a/python/sglang/srt/disaggregation/prefill.py (upstream 11b1fb21de)
++++ b/prefill.yihou-nonfinal-event.py
+@@ -103,6 +103,54 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++# [yihou] YIHOU_NONFINAL_EVENT -- mount patch (R036), not upstream. Selects the wait_event
++# handed to the mooncake transfer worker for an overlap-mode NON-FINAL chunk:
++#   orig   (default) identical to the image: event recorded on forward_stream inside
++#          process_batch_result(N). Under overlap batch N+1 is already launched, so it
++#          covers N's forward AND N+1's forward; the worker waits for both.
++#   launch event recorded on forward_stream right after run_batch(N). Covers everything
++#          enqueued on forward_stream through N's forward (the chunk's KV / DSA / draft
++#          writes), not N+1. Falls back to orig if the batch result carries no event.
++#   off    no event. Relies only on copy_done.synchronize() at the top of
++#          process_batch_result_disagg_prefill (copy_done is recorded after N's forward:
++#          on forward_stream on HIP, on copy_stream after wait_stream(forward_stream) else).
++# Logs YIHOU-NONFINAL once a minute: chunks per mode, fallbacks, and how many events
++# were already complete when handed over (query() at send time).
++import os as _yihou_os
++import time as _yihou_time
++
++_YIHOU_NONFINAL_EVENT = _yihou_os.environ.get("YIHOU_NONFINAL_EVENT", "orig").strip()
++if _YIHOU_NONFINAL_EVENT not in ("orig", "launch", "off"):
++    raise ValueError(
++        f"YIHOU_NONFINAL_EVENT={_YIHOU_NONFINAL_EVENT!r} (want orig|launch|off)"
++    )
++
++
++class _YihouNonfinalStats:
++    def __init__(self):
++        self.last = _yihou_time.monotonic()
++        self.n = self.fallback = self.done_at_send = 0
++
++    def note(self, ev, fallback=False):
++        self.n += 1
++        self.fallback += int(fallback)
++        if ev is not None and ev.query():
++            self.done_at_send += 1
++        now = _yihou_time.monotonic()
++        if now - self.last >= 60.0:
++            logger.info(
++                "YIHOU-NONFINAL mode=%s span=%.0fs nonfinal_chunks=%d fallback=%d "
++                "event_done_at_send=%d",
++                _YIHOU_NONFINAL_EVENT, now - self.last, self.n, self.fallback,
++                self.done_at_send,
++            )
++            self.last = now
++            self.n = self.fallback = self.done_at_send = 0
++
++
++_yihou_nonfinal_stats = _YihouNonfinalStats()
++logger.info("YIHOU-NONFINAL mode=%s (import)", _YIHOU_NONFINAL_EVENT)
++
+ # TP=1 yield between polls of a pending result. An initial heuristic rather
+ # than a tuned value: long enough that the bootstrap, transfer and cache
+ # threads reliably win the GIL even when the input socket is empty, and far
+@@ -821,6 +869,10 @@
+                     if self.enable_staging:
+                         self.maybe_prefetch_staging_for_batch(batch)
+                     batch_result = self.run_batch(batch)
++                    if _YIHOU_NONFINAL_EVENT == "launch" and batch_result is not None:
++                        _yihou_ev = torch.cuda.Event()
++                        _yihou_ev.record(self.forward_stream)
++                        batch_result._yihou_launch_event = _yihou_ev
+                     self._apply_war_barrier()
+                     self.result_queue.append((batch.copy(), batch_result))
+                 else:
+@@ -1104,6 +1156,25 @@
+                     assert req.metadata_buffer_index >= 0, (
+                         f"Req {req.rid} does not have metadata buffer allocated"
+                     )
++                    # Non-final chunks are handed over while later chunks are
++                    # already running on forward_stream, and the transfer worker
++                    # reads device memory outside the CUDA stream. Gate the read
++                    # on this chunk's writes completing.
++                    _yihou_fallback = False
++                    if _YIHOU_NONFINAL_EVENT == "off":
++                        _infera_nonfinal_chunk_wait_event = None
++                    elif _YIHOU_NONFINAL_EVENT == "launch" and (
++                        getattr(result, "_yihou_launch_event", None) is not None
++                    ):
++                        _infera_nonfinal_chunk_wait_event = result._yihou_launch_event
++                    else:
++                        _yihou_fallback = _YIHOU_NONFINAL_EVENT == "launch"
++                        _infera_nonfinal_chunk_wait_event = torch.cuda.Event()
++                        _infera_nonfinal_chunk_wait_event.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = _infera_nonfinal_chunk_wait_event
++                    _yihou_nonfinal_stats.note(
++                        _infera_nonfinal_chunk_wait_event, _yihou_fallback
++                    )
+                     self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
+                 req.time_stats.set_last_chunked_prefill_finish_time()
+ 

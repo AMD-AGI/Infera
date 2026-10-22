@@ -1,0 +1,8 @@
+=== prefill: < dryrun.pf90-089.yihou.txt   > dryrun.cx90-089.yihou.txt
+=== decode: < dryrun.pf90-089.yihou.txt   > dryrun.cx90-089.yihou.txt
+< -e
+< SGLANG_SIMULATE_ACC_LEN=3.61
+< -e
+< SGLANG_SIMULATE_ACC_METHOD=match-expected
+< -e
+< SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token

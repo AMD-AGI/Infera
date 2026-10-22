@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Node-local `ssh` stand-in (task v0521cap2). Drivers run ON the held spur compute node (started detached
+# via `spur exec`), so a lost login host or a flaky spur controller cannot kill them. The harness keeps
+# calling `ssh <opts> <node> <cmd...>`; this runs <cmd> locally and REFUSES any other host.
+# Semantics as ssh: remote args are joined with spaces and parsed by bash; -n = stdin from /dev/null.
+set -uo pipefail
+want_stdin=1; node=""; declare -a cmd=()
+while (($#)); do
+    if [[ -n "$node" ]]; then cmd+=("$1"); shift; continue; fi
+    case "$1" in
+        -n) want_stdin=0; shift ;;
+        -o|-i|-l|-p|-F|-E|-b|-c|-D|-e|-I|-J|-L|-m|-O|-Q|-R|-S|-W|-w) shift 2 ;;
+        -*) shift ;;
+        *)  node="$1"; shift ;;
+    esac
+done
+me="$(hostname -s)"
+case "$node" in
+    "$me"|"$(hostname)"|localhost|127.0.0.1) ;;
+    *) echo "local ssh shim: refusing host '$node' (this host is $me)" >&2; exit 255 ;;
+esac
+((${#cmd[@]})) || { echo "local ssh shim: no command (interactive ssh unsupported)" >&2; exit 255; }
+if ((want_stdin)); then exec bash -c "${cmd[*]}"; else exec bash -c "${cmd[*]}" < /dev/null; fi

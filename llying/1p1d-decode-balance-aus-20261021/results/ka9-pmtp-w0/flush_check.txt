@@ -1,0 +1,5 @@
+prefill-0 DP0  first batch 2026-10-22T01:28:05  new=1  cached=0
+prefill-0 DP1  first batch 2026-10-22T01:31:16  new=8192  cached=0
+prefill-0 DP2  first batch 2026-10-22T01:31:16  new=8192  cached=0
+prefill-0 DP3  first batch 2026-10-22T01:31:16  new=8192  cached=0
+ranks seen 4/4, non-empty first batches 0

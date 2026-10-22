@@ -1,0 +1,13 @@
+2026-10-10T07:26:14Z	start	exp=E1+mc4340 round=e1c image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.mc4340.sh
+2026-10-10T07:26:14Z	ports-all	ok:33 ports <30000 and free
+2026-10-10T07:27:15Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-10T07:27:16Z	etcd	ok
+2026-10-10T07:36:42Z	prefill	ok:28x20s
+2026-10-10T07:50:57Z	decode-a1	ok
+2026-10-10T07:50:57Z	bothlegs	ok
+2026-10-10T07:51:03Z	router	ok
+2026-10-10T07:51:08Z	smoke	ok
+2026-10-10T07:51:08Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/e1c/agentx-c40
+2026-10-10T07:52:03Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/e1c/agentx-c40.log)
+2026-10-10T08:01:38Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/e1c/agentx-c40-r2
+2026-10-10T09:24:05Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/e1c/agentx-c40-r2/agentx_conc40.json

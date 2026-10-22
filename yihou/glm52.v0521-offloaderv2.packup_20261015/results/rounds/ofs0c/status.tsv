@@ -1,0 +1,9 @@
+2026-10-14T12:42:17Z	start	exp=E2+mc4340+offload-g8k1s1 round=ofs0c image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.offload.sh
+2026-10-14T12:42:17Z	ports-all	ok:33 ports <30000 and free
+2026-10-14T12:58:50Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-14T12:58:51Z	etcd	ok
+2026-10-14T13:04:32Z	prefill	ok:18x20s
+2026-10-14T13:10:49Z	decode-a1	ok
+2026-10-14T13:10:49Z	bothlegs	ok
+2026-10-14T13:10:54Z	router	ok
+2026-10-14T13:10:58Z	smoke	ok

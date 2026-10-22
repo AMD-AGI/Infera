@@ -1,0 +1,202 @@
+== /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/tw90/server-logs/prefill-0.log
+  Found N HCAs   :       4 Found 0 HCAs   (want: 4 x Found 0 HCAs)
+  HIP installed  : 4  (want 4)
+  HIP inst FAIL  : 0  (want 0)
+  isHipReachable : 0  (r013 baseline: 0 per leg; informational)
+  rdma installs  : 0  (want 0)
+  Invalid arg    : 0  (want 0)
+  hipIpc failed  : 0  (want 0)
+  OOM/Traceback  : 0/0  (want 0/0; + 0 health-check aborts, benign)
+  fused idx ON   : 4  (want 4: DSA_FUSED_INDEXER=default)
+  fused idx decl : 0  (informational)
+  REGBASE summary:       4 interior=0   'extends past its allocation'=0 (want 0)
+max_total_num_tokens=2541376, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=16, context_len=1048576, available_gpu_mem=27.47 GB
+      4   Allocating kv hierarchical KV host pool: 10016064 tokens, 450.00 GB host memory
+      4 Allocating 103.13 GB host memory for DSA indexer (layout=page_first)
+== /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/tw90/server-logs/decode-0.a1.log
+  Found N HCAs   :       4 Found 0 HCAs   (want: 4 x Found 0 HCAs)
+  HIP installed  : 4  (want 4)
+  HIP inst FAIL  : 0  (want 0)
+  isHipReachable : 0  (r013 baseline: 0 per leg; informational)
+  rdma installs  : 0  (want 0)
+  Invalid arg    : 0  (want 0)
+  hipIpc failed  : 0  (want 0)
+  OOM/Traceback  : 0/0  (want 0/0; + 0 health-check aborts, benign)
+  fused idx ON   : 4  (want 4: DSA_FUSED_INDEXER=default)
+  fused idx decl : 4  (informational)
+  REGBASE summary:       4 interior=0   'extends past its allocation'=0 (want 0)
+max_total_num_tokens=2762176, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=24, context_len=1048576, available_gpu_mem=9.14 GB
+  (host pool want: 450.00 GB per rank, fixed size)
+== prefill container env (docker inspect)
+  MC_TE_FILTERS=yihou_no_such_rdma_device
+  SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512
+  (want SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512)
+== ROCm debug agent (DEBUG_AGENT=0, report goes to stderr = the server logs)
+== same-node IPC namespace (ENGINE_PID_HOST=0 IPC_MODE_LEGACY=0)
+-- glm52-v0521-yihou-089-tw90-prefill-0 PidMode=<private> legacy_ipc=0
+   ns_pid=1118     @hsa1118=1  sglang::schedul
+   ns_pid=143      @hsa143=0  python3
+   ns_pid=370      @hsa370=0  python3
+   ns_pid=371      @hsa371=0  sglang::data_pa
+   ns_pid=501      @hsa501=0  sglang::detoken
+   ns_pid=673      @hsa673=1  sglang::schedul
+   ns_pid=7        @hsa7=0  python3
+   ns_pid=817      @hsa817=1  sglang::schedul
+   ns_pid=964      @hsa964=1  sglang::schedul
+   (9 processes; host pids: 1184323 1184339 1184538 1184897 1184898 1185105 1185308 1185462 1185615 1185782 )
+-- glm52-v0521-yihou-089-tw90-decode-0 PidMode=<private> legacy_ipc=0
+   ns_pid=30143    @hsa30143=0  python3
+   ns_pid=30370    @hsa30370=0  python3
+   ns_pid=30371    @hsa30371=0  sglang::data_pa
+   ns_pid=30501    @hsa30501=0  sglang::detoken
+   ns_pid=30678    @hsa30678=1  sglang::schedul
+   ns_pid=30813    @hsa30813=1  sglang::schedul
+   ns_pid=30959    @hsa30959=1  sglang::schedul
+   ns_pid=31114    @hsa31114=1  sglang::schedul
+   ns_pid=32469    @hsa32469=0  python3
+   ns_pid=32471    @hsa32471=0  python3
+   ns_pid=32473    @hsa32473=0  python3
+   ns_pid=32475    @hsa32475=0  python3
+   ns_pid=32725    @hsa32725=0  python3
+   ns_pid=32727    @hsa32727=0  python3
+   ns_pid=32729    @hsa32729=0  python3
+   ns_pid=32731    @hsa32731=0  python3
+   ns_pid=32733    @hsa32733=0  python3
+   ns_pid=32735    @hsa32735=0  python3
+   ns_pid=32737    @hsa32737=0  python3
+   ns_pid=32739    @hsa32739=0  python3
+   ns_pid=32741    @hsa32741=0  python3
+   ns_pid=32743    @hsa32743=0  python3
+   ns_pid=32745    @hsa32745=0  python3
+   ns_pid=32747    @hsa32747=0  python3
+   ns_pid=32749    @hsa32749=0  python3
+   ns_pid=32751    @hsa32751=0  python3
+   ns_pid=32753    @hsa32753=0  python3
+   ns_pid=32756    @hsa32756=0  python3
+   ns_pid=32758    @hsa32758=0  python3
+   ns_pid=32760    @hsa32760=0  python3
+   ns_pid=32762    @hsa32762=0  python3
+   ns_pid=32763    @hsa32763=0  python3
+   ns_pid=32766    @hsa32766=0  python3
+   ns_pid=32767    @hsa32767=0  python3
+   ns_pid=32770    @hsa32770=0  python3
+   ns_pid=32771    @hsa32771=0  python3
+   ns_pid=32774    @hsa32774=0  python3
+   ns_pid=32775    @hsa32775=0  python3
+   ns_pid=32778    @hsa32778=0  python3
+   ns_pid=32779    @hsa32779=0  python3
+   ns_pid=32781    @hsa32781=0  python3
+   ns_pid=32783    @hsa32783=0  python3
+   ns_pid=32785    @hsa32785=0  python3
+   ns_pid=32788    @hsa32788=0  python3
+   ns_pid=32789    @hsa32789=0  python3
+   ns_pid=32792    @hsa32792=0  python3
+   ns_pid=32793    @hsa32793=0  python3
+   ns_pid=32796    @hsa32796=0  python3
+   ns_pid=32797    @hsa32797=0  python3
+   ns_pid=32800    @hsa32800=0  python3
+   ns_pid=32801    @hsa32801=0  python3
+   ns_pid=32803    @hsa32803=0  python3
+   ns_pid=32805    @hsa32805=0  python3
+   ns_pid=32808    @hsa32808=0  python3
+   ns_pid=32809    @hsa32809=0  python3
+   ns_pid=32812    @hsa32812=0  python3
+   ns_pid=32813    @hsa32813=0  python3
+   ns_pid=32818    @hsa32818=0  python3
+   ns_pid=32820    @hsa32820=0  python3
+   ns_pid=32822    @hsa32822=0  python3
+   ns_pid=32824    @hsa32824=0  python3
+   ns_pid=32826    @hsa32826=0  python3
+   ns_pid=32828    @hsa32828=0  python3
+   ns_pid=32830    @hsa32830=0  python3
+   ns_pid=32832    @hsa32832=0  python3
+   ns_pid=32833    @hsa32833=0  python3
+   ns_pid=32836    @hsa32836=0  python3
+   ns_pid=32838    @hsa32838=0  python3
+   ns_pid=32840    @hsa32840=0  python3
+   ns_pid=32842    @hsa32842=0  python3
+   ns_pid=32844    @hsa32844=0  python3
+   ns_pid=32846    @hsa32846=0  python3
+   ns_pid=32848    @hsa32848=0  python3
+   ns_pid=32850    @hsa32850=0  python3
+   ns_pid=32852    @hsa32852=0  python3
+   ns_pid=32854    @hsa32854=0  python3
+   ns_pid=32859    @hsa32859=0  python3
+   ns_pid=32861    @hsa32861=0  python3
+   ns_pid=32863    @hsa32863=0  python3
+   ns_pid=32865    @hsa32865=0  python3
+   ns_pid=32867    @hsa32867=0  python3
+   ns_pid=32869    @hsa32869=0  python3
+   ns_pid=32871    @hsa32871=0  python3
+   ns_pid=32873    @hsa32873=0  python3
+   ns_pid=32875    @hsa32875=0  python3
+   ns_pid=32876    @hsa32876=0  python3
+   ns_pid=32879    @hsa32879=0  python3
+   ns_pid=32881    @hsa32881=0  python3
+   ns_pid=32883    @hsa32883=0  python3
+   ns_pid=32885    @hsa32885=0  python3
+   ns_pid=32887    @hsa32887=0  python3
+   ns_pid=32889    @hsa32889=0  python3
+   ns_pid=32891    @hsa32891=0  python3
+   ns_pid=32893    @hsa32893=0  python3
+   ns_pid=32895    @hsa32895=0  python3
+   ns_pid=32897    @hsa32897=0  python3
+   ns_pid=32899    @hsa32899=0  python3
+   ns_pid=32901    @hsa32901=0  python3
+   ns_pid=32903    @hsa32903=0  python3
+   ns_pid=32905    @hsa32905=0  python3
+   ns_pid=32907    @hsa32907=0  python3
+   ns_pid=32909    @hsa32909=0  python3
+   ns_pid=32911    @hsa32911=0  python3
+   ns_pid=32913    @hsa32913=0  python3
+   ns_pid=32915    @hsa32915=0  python3
+   ns_pid=32917    @hsa32917=0  python3
+   ns_pid=32919    @hsa32919=0  python3
+   ns_pid=32921    @hsa32921=0  python3
+   ns_pid=32926    @hsa32926=0  python3
+   ns_pid=32928    @hsa32928=0  python3
+   ns_pid=32930    @hsa32930=0  python3
+   ns_pid=32932    @hsa32932=0  python3
+   ns_pid=32934    @hsa32934=0  python3
+   ns_pid=32936    @hsa32936=0  python3
+   ns_pid=32938    @hsa32938=0  python3
+   ns_pid=32940    @hsa32940=0  python3
+   ns_pid=32942    @hsa32942=0  python3
+   ns_pid=32944    @hsa32944=0  python3
+   ns_pid=32946    @hsa32946=0  python3
+   ns_pid=32948    @hsa32948=0  python3
+   ns_pid=32950    @hsa32950=0  python3
+   ns_pid=32952    @hsa32952=0  python3
+   ns_pid=32954    @hsa32954=0  python3
+   ns_pid=32956    @hsa32956=0  python3
+   ns_pid=32958    @hsa32958=0  python3
+   ns_pid=32960    @hsa32960=0  python3
+   ns_pid=32962    @hsa32962=0  python3
+   ns_pid=32964    @hsa32964=0  python3
+   ns_pid=32966    @hsa32966=0  python3
+   ns_pid=32968    @hsa32968=0  python3
+   ns_pid=32970    @hsa32970=0  python3
+   ns_pid=32972    @hsa32972=0  python3
+   ns_pid=32974    @hsa32974=0  python3
+   ns_pid=32976    @hsa32976=0  python3
+   ns_pid=32978    @hsa32978=0  python3
+   ns_pid=32980    @hsa32980=0  python3
+   ns_pid=32982    @hsa32982=0  python3
+   ns_pid=32984    @hsa32984=0  python3
+   ns_pid=32986    @hsa32986=0  python3
+   ns_pid=32988    @hsa32988=0  python3
+   ns_pid=33142    @hsa33142=0  sglang::tokeniz
+   ns_pid=33143    @hsa33143=0  sglang::tokeniz
+   ns_pid=33144    @hsa33144=0  sglang::tokeniz
+   ns_pid=33145    @hsa33145=0  sglang::tokeniz
+   ns_pid=7        @hsa7=0  python3
+   (145 processes; host pids: 1193351 1193368 1223775 1224229 1224230 1224429 1224623 1224763 1224997 1225160 1231794 1231849 1231936 1232004 1233102 1233104 1233106 1233108 1233110 1233112 1233114 1233116 1233118 1233120 1233122 1233124 1233126 1233128 1233130 1233133 1233135 1233137 1233139 1233140 1233143 1233144 1233147 1233148 1233151 1233152 1233155 1233156 1233158 1233160 1233162 1233165 1233166 1233169 1233170 1233173 1233174 1233177 1233178 1233180 1233182 1233185 1233186 1233189 1233190 1233195 1233197 1233199 1233201 1233203 1233205 1233207 1233209 1233210 1233213 1233215 1233217 1233219 1233221 1233223 1233225 1233227 1233229 1233231 1233236 1233238 1233240 1233242 1233244 1233246 1233248 1233250 1233252 1233253 1233256 1233258 1233260 1233262 1233264 1233266 1233268 1233270 1233272 1233274 1233276 1233278 1233280 1233282 1233284 1233286 1233288 1233290 1233292 1233294 1233296 1233298 1233303 1233305 1233307 1233309 1233311 1233313 1233315 1233317 1233319 1233321 1233323 1233325 1233327 1233329 1233331 1233333 1233335 1233337 1233339 1233341 1233343 1233345 1233347 1233349 1233351 1233353 1233355 1233357 1233359 1233361 1233363 1233365 1234287 1234288 1234289 1234290 )
+   @hsa sockets in host netns: 8  (duplicated names: )
+   scheduler rank PIDs: prefill [ 1118 673 817 964 ] decode [ 30678 30813 30959 31114 ]
+   rank-PID overlap prefill/decode: none  (OK: disjoint)
+   ns-PID collisions prefill/decode (all processes): 7 
+   (harmless iff no @hsa<pid> socket is bound, i.e. legacy IPC on both legs, or --pid host; with
+    default ROCr IPC on private PID namespaces a shared ns pid is the hipIpcGetMemHandle EINVAL race)
+== decode eager-fallback counter: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/tw90/server-logs/decode-0.a1.log
+  NCCL INFO after last capture end : 1
+  NCCL INFO after fired-up         : 0  (want 0)

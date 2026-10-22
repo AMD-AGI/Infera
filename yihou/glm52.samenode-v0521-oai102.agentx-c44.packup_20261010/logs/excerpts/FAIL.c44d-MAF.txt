@@ -1,0 +1,9 @@
+##### /shared_nfs/yihou_glm52/agentx44_20261009/runs/c44d/server-logs/decode-0.a1.log
+##### /shared_nfs/yihou_glm52/agentx44_20261009/runs/c44d/server-logs/prefill-0.log
+2026-10-09T10:25:08.647882981Z [2026-10-09 10:25:08 DP1 TP1] Prefill batch, #new-seq: 1, #new-token: 8192, #cached-token: 123328, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 4277, #bootstrap-req: 0, #inflight-req: 0, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 5435.29
+2026-10-09T10:25:08.938742722Z [2026-10-09 10:25:08] INFO:     10.245.147.130:38120 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-09T10:25:09.206225611Z [2026-10-09 10:25:09 DP1 TP1] Prefill batch, #new-seq: 1, #new-token: 4277, #cached-token: 0, token usage: 0.06, #running-req: 0, #queue-req: 0, #pending-token: 0, #bootstrap-req: 0, #inflight-req: 1, #optimistic-req: 0, cuda graph: False, input throughput (token/s): 7659.51
+2026-10-09T10:25:09.214508149Z Memory access fault by GPU node-3 (Agent handle: 0x5fafa34b1830) on address 0x7c7812a08000. Reason: Unknown.
+2026-10-09T10:25:09.220077730Z [aiter] shape is M:2141, N:2624, K:6144 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-10-09T10:25:09.221258994Z [aiter] shape is M:2141, N:4096, K:2048 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-10-09T10:25:09.222620727Z [aiter] shape is M:2141, N:32, K:6144 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0

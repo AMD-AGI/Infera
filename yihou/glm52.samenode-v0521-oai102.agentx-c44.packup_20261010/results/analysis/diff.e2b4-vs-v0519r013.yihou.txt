@@ -1,0 +1,101 @@
+# e2b4 (dryrun.e2b4-102.yihou.txt, v0521-mc4340) vs PROVEN v0519 r013 (r013-1p1d-validate)
+# repro, 2026-10-10 ~09:15 UTC. Read-only.
+# Sources (first-hand):
+#   r013 actual docker cmd: kvcap_20261008/rounds/r013-1p1d-validate/engine-{prefill,decode.a1}.log (" + docker + run ..." line)
+#   r013 server_args dump : .../r013-1p1d-validate/server-logs/{prefill-0,decode-0.a1}.log
+#   e2b4 docker cmd       : harness/dryrun.e2b4-102.yihou.txt lines 19 (prefill) / 27 (decode)
+#   v0521 server_args     : runs/e2b2/server-logs/{prefill-0,decode-0.a1}.log (closest real v0521 E2b run;
+#                           e2b4 itself has not run, so no dump exists)
+# Parser: /tmp/yihou_parse.py, /tmp/yihou_sa.py (token-level diff of -e / -v / docker flags / engine args).
+# Verdicts: (a) intentional v0521 change, (b) obsolete/renamed in v0521, (c) MISSING.
+#
+# ==== RESULT: NO (c) MISSING item. Every r013 env var / engine flag is present in e2b4 with the same
+#      value, except the items below. ====
+
+## 0. Headline finding about r013 itself (affects what "proven" means)
+- r013's driver passed EXTRA_ENV=SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512 (run.cmd.yihou.sh COMMON[]), but the
+  v0519 engine.sh reads only PREFILL_EXTRA_ENV / DECODE_EXTRA_ENV (kvcap scripts/bench-harness/engine.sh:51,64).
+  => r013's actual prefill docker env has NO SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB (0 matches in engine-prefill.log).
+  r013 ran --hicache-size 450 (server_args hicache_size 450, ratio 1.5) with the DEFAULT 256 GiB chunk, and the v0519
+  image chunks the same way (pool_host/common.py:128-136 in the v0519 image). So H1 was LATENT in r013 too; its short
+  validation never addressed slots past the first chunk. (config.yihou.274-1p1d-hc450.sh:66 shows the correct form:
+  PREFILL_EXTRA_ENV="... SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512".)
+- e2b4 prefill HAS SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512 in the docker env -> (a) intentional H1 fix, and better than r013.
+
+## 1. Container env differences
+prefill+decode  HF_HOME / TMPDIR / TRITON_CACHE_DIR / XDG_CACHE_HOME  kvcap_20261008/... -> v0521dbg_20261010/...   (a) new workspace
+prefill+decode  INFERA_NODEPORT_RANGE  40000-42767 -> 43000-45767   (a) port plan (sub-30000 engine ports; window to avoid)
+prefill         SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB  absent -> 512   (a) H1 fix (see §0)
+prefill+decode  SGLANG_DISABLE_AITER_FUSED_FP8_DSA_INDEXER  absent -> 1   (a) E2b/H3 knob (fused DSA indexer OFF), with
+                --no-enable-dsa-fused-indexer below. enable_dsa_fused_indexer is a NEW v0521 flag (absent from r013's
+                server_args); v0521 default resolved to False in e2b2's dump anyway.
+decode          SGLANG_SIMULATE_ACC_LEN=3.61, SGLANG_SIMULATE_ACC_METHOD=match-expected,
+                SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token   absent -> set   ** MTP VALUE DIFFERENCE **
+                r013 ran REAL acceptance: its config (kvcap scripts/config.yihou.274-1p1d.sh:25) sets
+                DECODE_SIMULATE_ACC_LEN='' so engine.sh emits none of the three. e2b4 inherits
+                harness/config.yihou.v0521-base.sh:111 DECODE_SIMULATE_ACC_LEN=3.61 ("simulated accept"), emitted by
+                bench-harness/engine.sh:213-217. v0521 environ.py:521-523 defaults: -1 / match-expected / fixed.
+                Verdict: (a) intentional per v0521-base comment (AgentX benchmark convention), but it is NOT r013's
+                setting; decode MTP verify/accept path differs from the proven run. Leader decision.
+(unchanged, same in both: MC_GID_INDEX=1, MC_TE_FILTERS=yihou_no_such_rdma_device, MC_DISABLE_HIP_TRANSPORT=1 (not read
+ by mooncake faae8dd4: only MC_DISABLE_HIP at multi_transport.cpp:489 -> inert in both), MC_ENABLE_DEST_DEVICE_AFFINITY=1,
+ MOONCAKE_DISABLE_HIP_DMABUF=0, RDMAV_FORK_SAFE=1, NCCL_IB_DISABLE=1, NCCL_IGNORE_CPU_AFFINITY=1,
+ HSA_NO_SCRATCH_RECLAIM=0 prefill / 1 decode, SGLANG_USE_AITER=1, SGLANG_OPT_USE_TOPK_V2=false,
+ SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=0, AITER_USE_FLYDSL_MOE_SORTING=1, SAFETENSORS_FAST_GPU=1,
+ HIP_FORCE_DEV_KERNARG=1, PYTHONHASHSEED=0, SGLANG_DP_USE_GATHERV=1, SGLANG_TIMEOUT_KEEP_ALIVE=900,
+ INFERA_ENGINE_READY_TIMEOUT=3600, SGLANG_DISAGGREGATION_{BOOTSTRAP,WAITING}_TIMEOUT=1800,
+ SGLANG_ENABLE_FAILED_SESSION_PROBE=1, SGLANG_FAILED_SESSION_PROBE_INTERVAL_S=30, MC_LOG_LEVEL=INFO,
+ decode NCCL_DEBUG=INFO, HIP_VISIBLE_DEVICES 0-3 / 4-7, *_IFNAME=ens3)
+
+## 2. Engine flag differences (infera.engine.sglang args)
+prefill+decode  --etcd-endpoint / --port / --disaggregation-bootstrap-port / --kv-events-bind / --kv-snapshot-port   (a) port plan
+prefill+decode  --model-path kvcap_20261008/model (overlay) -> /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4;
+                --served-model-name glm5.2-mxfp4-fullexpert-yihou -> glm5.2-mxfp4   (a) v0521-base uses the real
+                256-expert checkpoint unmodified (config.yihou.v0521-base.sh "no overlay"); r013's overlay was the
+                same checkpoint with the expert8 hooks inert (packup patches/README.md). Draft path follows (server_args
+                speculative_draft_model_path).
+prefill+decode  --json-model-override-args index_share_for_mtp_iteration true -> false   (a) H2 (FAULT 1) fix
+prefill+decode  --no-enable-dsa-fused-indexer  absent -> set   (a) E2b H3 knob (new v0521 flag)
+decode          --mem-fraction-static 0.92 -> 0.95   ** MEM VALUE DIFFERENCE ** (a) mission target (decode 0.95);
+                r013 validated 0.92 (Stage-2 L1 sweep rounds went to 0.97 on v0519, short runs).
+decode          wrapper: python3 -m infera.engine.sglang -> bash -c '<30000 throwaway subshells>; exec "$@"' _ python3 ...
+                (a) R022 PID-offset (spur denies --pid=host); rank PIDs forked after exec get > 30000.
+(unchanged: TP4/EP1/DP4 + --enable-dp-attention, kv-cache fp8_e4m3, dsa prefill/decode triton, chunked-prefill 32768,
+ prefill --mem-fraction-static 0.85, --cuda-graph-max-bs-prefill 64 / -decode 64, max-running 64, watchdog 3600,
+ HiCache: --enable-hierarchical-cache --hicache-ratio 1.5 --hicache-size 450 write_through / kernel / page_first,
+ MTP: EAGLE steps 5 / topk 1 / draft 6, --enable-aiter-allreduce-fusion, decode --disable-custom-all-reduce,
+ --disaggregation-transfer-backend mooncake, --disaggregation-ib-device {ionic_0..3}, kv-events on/off as before,
+ --enable-fused-qk-norm-rope, --enable-cache-report, --enable-metrics, parsers glm45/glm47)
+
+## 3. Mounts
+r013 only: models/yihou_expert8.py, models/deepseek_v2.py, model_loader/loader.py, layers/moe/topk.py
+           (b) not applicable: v0519-era expert8 overlay hooks, inert on the real config (packup patches/README.md
+           table "Effect here: inert"); v0521 image has its own deepseek_v2/loader/topk; mounting v0519 copies over
+           v0521 would downgrade them (config.yihou.v0521-base.sh comment).
+both:      managers/scheduler_components/kv_events_publisher.py (non-blocking send; v0521 copy kv_events_publisher.yihou-noblock.py)
+e2b4 only: models/deepseek_common/attention_forward_methods/forward_mla_rocm.py (R003 _absorb_bmm_config->None)   (a)
+           disaggregation/mooncake/conn.py (YIHOU-REGBASE diagnostic, log-only)   (a)
+both:      /lib/x86_64-linux-gnu/libionic.so -> /host-libionic/libionic.so (same target in both)
+
+## 4. Docker flags
+Identical except container --name and --tmpfs path (workspace). Both: --network host --ipc host --shm-size 32g, kfd/dri/
+infiniband, video+render, SYS_PTRACE+IPC_LOCK, seccomp=unconfined, memlock -1, nofile 65536, --init.
+No --pid in either (private PID namespaces; e2b4 relies on the R022 offset instead).
+
+## 5. sglang server_args (r013 v0519 dump vs e2b2 v0521 dump), keys in hicache/MTP/mem/disagg/cuda-graph/dsa areas
+dp_size 4 -> 1 with attn_dp_size 4 (new key)   (b) renamed in v0521: --dp-size with --enable-dp-attention now resolves to
+                attn_dp_size (harness validator reads attn_dp_size since R002).
+disaggregation_decode_allocation_policy  absent -> 'early'   (b) new v0521 knob; 'early' = previous behaviour, the
+                alternative 'prefill_complete' (arg_groups/pd_disaggregation_hook.py:47) is not used.
+disaggregation_decode_host_receive_threshold  absent -> 0.0   (b) new v0521 knob at default.
+hicache_host_memory_fraction  absent -> prefill None / decode 0.8   (b) new v0521 auto-sizing knob; prefill: an explicit
+                --hicache-ratio/--hicache-size resolves it to None (arg_groups/hicache_hook.py:104-105) -> our 450 GB is
+                honoured as given; decode: no HiCache -> inert.
+speculative_boundary_reduction  absent -> 'rs+rsv' (and boundary_reduction)   (b) new v0521 field derived from the
+                draft model config (arg_groups/boundary_reduction.py:75-91), not a user knob.
+speculative_use_block_verification False, speculative_draft_sink_size None, speculative_enable_w4a4_mxfp4_megamoe None,
+                dsa_triton_union 0, prefill_kv_cache_dequant_dtype 'auto', shared_experts_tp_size None,
+                disable_aiter_allreduce_fusion_in_{prefill,decode} False, cuda_graph_max_seq_len_prefill None,
+                cuda_graph_config.*.max_seq_len None   (b) new v0521 keys at defaults (off / auto).
+cuda_graph_config bs lists, hicache_* values, speculative steps/topk/draft, mem_fraction prefill: identical.
+mem_fraction_static decode 0.92 -> 0.95 (as §2).

@@ -1,0 +1,3 @@
+=== round r001-hc274 on crsuse2-m2m-136 ===
+hicache=274 write_policy=write_through conc=56 duration=3600
+max_running=64 extra_env='' prefix=glm52-hc-yihou-136-r001-hc274

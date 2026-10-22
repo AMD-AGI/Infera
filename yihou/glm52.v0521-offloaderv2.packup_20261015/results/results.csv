@@ -1,0 +1,11 @@
+run,node,round,variant,stack,conc,score_tok_s_chip,qps,isl_mean,ttft_mean_s,ttft_p95_s,tpot_ms,gpu_hit,cpu_hit,overall_hit,ok,err,json
+pf90 A1 (ref),089,pf90,"none",fresh,48,21858.87,1.219,142517,9.569,31.318,15.680,0.911,0.035,0.947,4415,0,pf90/agentx-c48-A1/agentx_conc48.json
+pf90 A2 (ref),089,pf90,"none",warm(scored),48,23127.06,1.276,143964,9.297,28.757,13.120,0.860,0.071,0.931,4632,3,pf90/agentx-c48-A2/agentx_conc48.json
+ofs0 A1,089,ofs0,"G8K1 (1/8, 9 layers)",fresh,48,22380.36,1.228,144840,9.192,27.118,15.230,0.931,0.024,0.955,4456,2,ofs0/agentx-c48-A1/agentx_conc48.json
+ofs0 A2,089,ofs0,"G8K1 (1/8, 9 layers)",warm(scored),48,22824.62,1.267,143116,9.749,30.507,12.900,0.887,0.049,0.936,4599,4,ofs0/agentx-c48-A2/agentx_conc48.json
+ofg4 A1,252,ofg4,"G4K1 (1/4, 19 layers)",fresh,,,,,,,,,,,,,(not available at packing) ofg4/agentx-c48-A1/agentx_conc48.json
+ofg4 A2,252,ofg4,"G4K1 (1/4, 19 layers)",warm(scored),,,,,,,,,,,,,(not available at packing) ofg4/agentx-c48-A2/agentx_conc48.json
+ofg4 A3 C56,252,ofg4,"G4K1 (1/4, 19 layers)",warm,,,,,,,,,,,,,(not available at packing) ofg4/agentx-c56-A3/agentx_conc56.json
+ofg2 A1,288,ofg2,"G2K1 (1/2, 39 layers)",fresh,,,,,,,,,,,,,(not available at packing) ofg2/agentx-c48-A1/agentx_conc48.json
+ofg2 A2,288,ofg2,"G2K1 (1/2, 39 layers)",warm(scored),,,,,,,,,,,,,(not available at packing) ofg2/agentx-c48-A2/agentx_conc48.json
+ofg2 A3 C56,288,ofg2,"G2K1 (1/2, 39 layers)",warm,,,,,,,,,,,,,(not available at packing) ofg2/agentx-c56-A3/agentx_conc56.json

@@ -1,0 +1,8 @@
+# Kernel log lines of three decode faults. NOT a raw dmesg capture: transcribed into
+# analysis/NOTES.prep.20261020.md (2026-10-20 06:xxZ) from `dmesg` read inside a CAP_SYSLOG container on
+# crsuse2-m2m-250. The raw dmesg output was not saved to a file. dmesg clock ran ~49 s ahead of the server log.
+# time(dmesg)     round  GPU PCI        fault page        client            PERMISSION_FAULTS  RW
+02:50:52          g4n2   0003:00:02.0   0x7b3ff5400000    UTCL2 / TCP (0x8) 0x3                0 (read)
+04:09:13          g4n2b  0003:00:03.0   0x7b40f0600000    TCP               0x5                1 (write)
+05:34:03          g4n4   0003:00:04.0   0x7e9b9c200000    TCP               0x3                0 (read)
+# TCP = shader (compute kernel) access; WALKER_ERROR 0, MAPPING_ERROR 0; 2 MiB-aligned page bases.

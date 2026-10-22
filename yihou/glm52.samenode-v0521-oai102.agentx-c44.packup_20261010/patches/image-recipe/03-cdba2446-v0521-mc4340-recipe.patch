@@ -1,0 +1,678 @@
+From cdba2446aaa72077d79a8898aac05e38aa7da3ef Mon Sep 17 00:00:00 2001
+From: Yinxing Hou <yihou@crsuse2-slog-005.us-east2-a.compute.internal>
+Date: Sat, 10 Oct 2026 06:28:10 +0000
+Subject: [PATCH] docker: v0521 + Mooncake #4340 (HIP IPC sub-allocation
+ relocation) image recipe
+
+Port of kvcache-ai/Mooncake#4340 (e8062249) to faae8dd4: hip_transport.{h,cpp}
+verbatim, transfer_engine_impl.cpp unregister hunks re-based. The full PR diff
+does not apply to faae8dd4 (NVLink/tests drift); those files are not compiled
+under USE_HIP. New .yihou copies of the Dockerfile and mooncake build script;
+committed originals untouched.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ .../Dockerfile.sglang.v0521-mc4340.yihou      | 279 ++++++++++++++++++
+ ...e-pr4340-e8062249.faae8dd4-port.yihou.diff | 232 +++++++++++++++
+ .../build_mooncake_sglang.mc4340.yihou.sh     | 124 ++++++++
+ 3 files changed, 635 insertions(+)
+ create mode 100644 deploy/docker/Dockerfile.sglang.v0521-mc4340.yihou
+ create mode 100644 deploy/docker/patches/mooncake/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff
+ create mode 100644 deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh
+
+diff --git a/deploy/docker/Dockerfile.sglang.v0521-mc4340.yihou b/deploy/docker/Dockerfile.sglang.v0521-mc4340.yihou
+new file mode 100644
+index 00000000..57b504f0
+--- /dev/null
++++ b/deploy/docker/Dockerfile.sglang.v0521-mc4340.yihou
+@@ -0,0 +1,279 @@
++# Infera SGLang engine image: layers the infera source onto the ROCm SGLang
++# base and sets an entrypoint that injects the host's libionic before exec'ing
++# the command.
++#
++# ==== v0521.yihou variant (2026-10-09) =======================================
++# Copy of Dockerfile.sglang re-pinned to the v0.5.21 nightly
++# (0.5.21.dev20261008+g11b1fb21de, git 9f5d8712). The notes below that name
++# v0.5.19 describe the parent recipe; this file differs only in:
++#   * base ARG default;
++#   * DSA block: patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh
++#     (01 + dp_sync + RE-CUT page_table_rows + GLM NextN fusion-arch fix;
++#     draft_cuda_graph_dp_vote DROPPED -- upstream #32196 -- and asserted present);
++#   * disagg block: explicit list. patch_mooncake_early_send_wait_event.py is
++#     replaced by v0521/patch_prefill_nonfinal_chunk_wait_event.py (the
++#     mooncake/conn.py half is upstream #41395); patch_responses_pd_bootstrap.py
++#     is dropped (upstream #41756, PDRoutingFields);
++#   * hicache #37152 is upstream (993d1fcc) and needs nothing here.
++# Mooncake: keep the defaults (BUILD_MOONCAKE=1, MOONCAKE_GIT_REF=faae8dd4,
++# REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1). The proven v0519 image LOADS a
++# faae8dd4 rebuild (isHipReachableTarget / MC_DISABLE_HIP present); the v0.5.21
++# base's own 01d1eb2a engine.so lacks both, so it is not the proven transport.
++# ============================================================================
++#
++# ⚠️ The base tag is PINNED and must stay pinned: the GLM-5.2 DSA patches near
++# the end of this file are context diffs applied at --fuzz=0 against this exact
++# sglang release. Bumping the base fails the build there rather than silently
++# mis-applying. Build with APPLY_SGLANG_DSA_PATCHES=0 if you need a newer base.
++#
++# ⚠️ The pin is a DATED NIGHTLY, not the v0.5.19 release: it reports
++# 0.5.19.dev20260916+ge7f7447333, which is main well past the release branch
++# point. Several anchors below match the v0.5.19 tag but not this image, and
++# vice versa, so "verified on v0.5.19" is not a statement about this base.
++# Patch verdicts in patch.upstream.status.md are recorded against this digest.
++#
++# ⚠️ The patch directories below are consumed by EXPLICIT file lists, not by a
++# whole-directory glob, because this base and the other two SGLang recipes no
++# longer need the same set. Two patches here would still APPLY cleanly to this
++# base while fixing nothing -- see the Responses and ROCm blocks for which, and
++# what upstream replaced them with. A glob would re-apply them silently.
++#
++# GLM-5.3 and GLM-5.3-MXFP4 need NO new model source here: they are model_type
++# `glm_moe_dsa` / GlmMoeDsaForCausalLM, and their config.json is field-for-field
++# identical to GLM-5.2's except `transformers_version`, so the released engine
++# already serves them through glm4_moe.py.
++ARG SGLANG_BASE_IMAGE=lmsysorg/sglang-rocm:v0.5.21-rocm720-mi35x-20261008
++FROM ${SGLANG_BASE_IMAGE}
++
++WORKDIR /opt/infera
++
++# ---- Mooncake: pinned upstream, no private source patches -------------------
++# The base bundles an older Mooncake. Rebuild its source checkout at the same
++# upstream revision used by the vLLM image. That revision already includes HIP
++# dma-buf build wiring, automatic cross-host RDMA routing, large-MR chunking,
++# chunk-offset correctness, and registration-error propagation. The build script
++# verifies those capabilities in the installed engine.so.
++# yihou mc4340: + kvcache-ai/Mooncake#4340 (e8062249) ported to faae8dd4 -- HIP
++# IPC relocation for buffers inside a larger allocation (hipIpcOpenMemHandle maps
++# the allocation base; without the fix writes land (ptr - base) bytes low,
++# silently). The full PR diff does not apply to faae8dd4 (NVLink/tests drift);
++# the port carries the compiled-in files: hip_transport.{h,cpp} verbatim and the
++# transfer_engine_impl.cpp unregister hunks re-based. Both PD legs need it.
++ARG BUILD_MOONCAKE=1
++ARG MOONCAKE_GIT_REF=faae8dd4a6309c3ecd47e0721a83b0250d686fa2
++COPY deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh /tmp/build_mooncake_sglang.sh
++COPY deploy/docker/patches/mooncake/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff /tmp/mc-patches/
++RUN if [ "${BUILD_MOONCAKE}" != "1" ]; then \
++        echo "ERROR: mc4340 image requires BUILD_MOONCAKE=1" >&2; exit 1; \
++    fi \
++    && MOONCAKE_GIT_REF="${MOONCAKE_GIT_REF}" \
++       MOONCAKE_PATCHES="/tmp/mc-patches/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff" \
++       bash /tmp/build_mooncake_sglang.sh \
++    && rm -rf /tmp/build_mooncake_sglang.sh /tmp/mc-patches
++
++# ---- assert cross-host routing in the .so this image will LOAD --------------
++# This separate artifact check also covers BUILD_MOONCAKE=0.
++ARG REQUIRE_MOONCAKE_CROSS_HOST_ROUTING=1
++RUN set -eu; \
++    if [ "${REQUIRE_MOONCAKE_CROSS_HOST_ROUTING}" != "1" ]; then \
++        echo "skipping Mooncake cross-host routing assertion"; \
++    else \
++        so_dir="$(python3 -c 'import mooncake, os; print(os.path.dirname(mooncake.__file__))')"; \
++        so="$(ls "$so_dir"/engine*.so | head -1)"; \
++        syms="$(strings "$so")"; \
++        printf '%s\n' "$syms" | grep -q "MC_DISABLE_HIP" || { \
++            echo "ERROR: $so lacks upstream cross-host HIP locality routing" >&2; \
++            exit 1; }; \
++        echo "MOONCAKE_CROSS_HOST_ROUTING=present ($so)"; \
++    fi
++
++# ---- libionic (host ionic ABI match) -----------------------------------------
++# WHY: the sglang base ships libionic with an old kernel ABI (e.g. 54.0-149 = ABI
++# 1); MI355X ionic kernel 26.03 needs ABI 4 (54.0-187) or ibv_get_device_list
++# returns 0 HCAs -> RDMA silently degrades to TCP and cross-node PD KV transfer
++# fails ("remote mooncake session not alive"). HOW: bake the ABI-4 deb so RDMA
++# works even without the runtime host-libionic injection (which the entrypoint
++# still does as a belt-and-braces match when /host-libionic is mounted).
++ARG INSTALL_LIBIONIC=1
++ARG LIBIONIC_DEB_URL=https://repo.radeon.com/amdainic/pensando/ubuntu/1.117.5-a-77/pool/main/r/rdma-core/libionic1_54.0-187-1_amd64.deb
++RUN if [ "${INSTALL_LIBIONIC}" = "1" ]; then \
++        (curl -4 -fsSL --retry 3 -o /tmp/libionic.deb "${LIBIONIC_DEB_URL}" \
++          && dpkg -i --force-downgrade /tmp/libionic.deb \
++          && ldconfig \
++          && echo "libionic: $(dpkg -l | awk '/libionic1/{print $3}')" \
++          && rm -f /tmp/libionic.deb) \
++        || echo "[libionic] install failed (offline build?) — inject at runtime instead"; \
++    else \
++        echo "INSTALL_LIBIONIC=0 — libionic injected at container start"; \
++    fi
++
++# Install infera + its declared deps from pyproject (single source of truth).
++# The base already ships torch/sglang and most of infera's runtime stack; pip
++# leaves those satisfied versions untouched and only pulls what's missing (e.g.
++# nats-py). `.[sglang]` = infera core + the EPP (gaie) deps so this image can
++# also run `python -m infera.gaie`.
++COPY pyproject.toml README.md ./
++COPY infera ./infera
++# setuptools is bumped in the same RUN. The bases ship 79.0.1, whose bundled
++# _vendor/ tree carries an old jaraco.context and wheel; those three are the
++# only reported issues here that a version bump can reach, since every other
++# Python finding sits on a package the base pins for its own runtime (pillow,
++# aiohttp, cryptography, h2, torch) and is the vendor's to move.
++#
++# Safe to move because setuptools is build tooling, not a runtime dependency:
++# nothing here imports it to serve a request. Verified against the published
++# image -- vllm and infera both still import, and the count drops 22 -> 19.
++RUN pip install --no-cache-dir ".[sglang]" "setuptools>=83.0.0"
++
++# ---- GLM-5.2 DSA patch set (PD + DP-attention on gfx950) --------------------
++# WHAT: four patches that together make PD + DP-attention work for GLM-5.2, with
++# EAGLE MTP on top; without them it crashes on the first batch or deadlocks the DP
++# group. patches/sglang_dsa/README.md carries the per-patch rationale.
++#
++# Three of the four are context diffs at --fuzz=0 against the pinned base, so a
++# base bump FAILS here instead of mis-applying. The fourth is an anchor script
++# instead: Dockerfile.sglang.gfx942 needs the same fix on a v0.5.16 base where
++# those diffs cannot apply, and one source of truth beats two.
++#
++# The script also verifies each patch reached the BYTECODE, not just the source:
++# a stale __pycache__ silently reverts a patch and has voided an experiment here.
++# APPLY_SGLANG_DSA_PATCHES=0 builds a stock engine to A/B against.
++ARG APPLY_SGLANG_DSA_PATCHES=1
++#
++# v0521: driven by sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh, which
++# reads 01 and dsa_dp_sync.diff from the parent directory and the re-cut
++# page_table_rows diff + NextN fix from v0521/. See that script's header.
++ARG APPLY_SGLANG_DSA_PATCHES=1
++COPY deploy/docker/patches/sglang_dsa/ /tmp/sglang_dsa/
++RUN if [ "${APPLY_SGLANG_DSA_PATCHES}" = "1" ]; then \
++        PATCH_DIR=/tmp/sglang_dsa bash /tmp/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh; \
++    else \
++        echo "APPLY_SGLANG_DSA_PATCHES=0 — stock sglang, GLM-5.2 PD+DPA+MTP will NOT work"; \
++    fi \
++    && rm -rf /tmp/sglang_dsa
++
++# ---- sglang PD patches (mooncake early-send KV wait event) ----
++# REQUIRED FOR CORRECTNESS on any PD deployment doing chunked prefill over mooncake:
++# without it every chunk but the last is RDMA-read while the forward is still writing
++# those pages, so prompts longer than one chunk come back partially wrong with nothing in
++# any log. Self-locating and idempotent, and reports "already present" once the base
++# sglang carries the fix. Order-independent w.r.t. the DSA set above: it touches
++# prefill.py / mooncake/conn.py, which no DSA diff does. A script here exits non-zero
++# when its anchors drifted, i.e. when the fix did not go in — an engine image that
++# silently corrupts long prompts is worse than a failed build.
++#
++# The v0519/ subdirectory holds patches only this base needs. Today that is the
++# PD rejection-sampling guard: v0.5.19 started auto-enabling EAGLE rejection
++# sampling on HIP without excluding PD decode, which cannot supply draft_probs,
++# so the decode worker dies at startup warmup. Older bases never auto-enable it
++# and must not receive the patch, which is why it is not in the glob above.
++#
++# v0521: explicit list. The mooncake/conn.py half of the wait-event fix and the
++# Responses bootstrap trio are upstream in this base (#41395, #41756); only the
++# prefill.py non-final-chunk event and the PD rejection-sampling guard remain.
++COPY deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py \
++     deploy/docker/patches/sglang_disagg/v0519/patch_pd_disable_implicit_rocm_rejection_sampling.py \
++     /tmp/sglang-disagg-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-disagg-patches/*.py; do \
++        echo "[sglang-patch] $f"; python "$f"; \
++    done; \
++    rm -rf /tmp/sglang-disagg-patches
++
++# ---- sglang Responses API patches (not PD-specific) ------------------------
++# REQUIRED FOR ANY Codex-driven workload against a model with a custom chat
++# encoder (kimi_k3, inkling): OpenAIServingResponses reuses OpenAIServingChat's
++# _process_messages but not its prompt-selection ladder, so it feeds
++# GenerateReqInput the empty `prompt` string those encoders deliberately leave
++# unset instead of the pre-rendered prompt_ids they actually produced. Every
++# POST /v1/responses then 400s with "texts cannot be empty and tokenizer must be
++# initialized" -- in ~5 ms, with no traceback, because create_responses swallows
++# the ValueError. Chat on the same model is unaffected, which is what makes it
++# hard to spot.
++#
++# Distinct from sglang_disagg/patch_responses_pd_bootstrap.py above: that one
++# plumbs the bootstrap trio so a PD pair accepts the request at all, this one
++# fixes the prompt the request carries. A Kimi-K3 PD deployment needs both, and
++# the order does not matter -- disjoint anchors, different functions. Applies on
++# aggregated servers too.
++#
++# NOT tolerant: self-locating, idempotent, and it exits non-zero when its anchor
++# drifted. An image whose Responses endpoint 400s on every request should not
++# ship quietly. Reports "already present" once base sglang routes both paths
++# through one helper.
++#
++# Only the v0519/ set is copied here. The sibling
++# patch_responses_custom_encoder_prompt.py is NOT applied to this base and is
++# not a regression: v0.5.19 added OpenAIServingChat._engine_prompt and routes
++# both Chat and Responses through it, which is the shared prompt-selection
++# helper that patch named as its own exit criterion. It is still applied by the
++# two recipes on older bases, which is why the file stays where it is.
++COPY deploy/docker/patches/sglang_responses/v0519/ /tmp/sglang-responses-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-responses-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
++    rm -rf /tmp/sglang-responses-patches
++
++# ---- sglang ROCm patch (staged write-back gate) -----------------------------
++# Resyncs two gates that disagree about the staged write-back JIT on ROCm: MLA
++# enables it on HIP while DSAIndexerPoolHost still gates it on _is_cuda, which
++# poisons the pool group's capability AND. The patch gates MLA back down to the
++# safe non-JIT path until the full ROCm parity repair lands upstream. It checks
++# that precondition rather than its own anchor, so it refuses and tells the
++# operator to drop it once the group stops reading False -- anchor drift alone
++# would leave it silently forfeiting a kernel upstream had just enabled.
++#
++# ONLY this file is copied. The sibling patch_hicache_rocm_host_alloc.py is
++# deliberately NOT applied to this base, and it is the reason this block uses a
++# file list instead of a glob: it still applies cleanly here, so a glob would
++# keep it with no complaint, but its defect is fixed. It rerouted hicache host
++# pools to hipHostMalloc because registered host pages carry a device address
++# that differs from the host VA on gfx950, and the pointer tables handed raw
++# host data_ptr()s to GPU kernels. sglang#35233 (merged 2026-09-14, in this
++# base) instead translates every such table through hipHostGetDevicePointer,
++# which is the more thorough shape our own PR conceded to. Keeping our version
++# on top would cost the storage-backend allocators on ROCm -- alloc_with_pin_
++# memory ignores the allocator argument -- and warn on every buffer at teardown.
++# Older bases lack #35233 and still apply it; that is why the file stays put.
++COPY deploy/docker/patches/sglang_rocm/patch_hicache_rocm_staged_write_back.py /tmp/sglang-rocm-patches/
++RUN set -eu; \
++    for f in /tmp/sglang-rocm-patches/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
++    rm -rf /tmp/sglang-rocm-patches
++
++# ---- Rust router (multi-core data plane; --router-backend rust) ----
++# The ROCm base often ships cargo; use it, and install a minimal toolchain only
++# if absent. Needs cc for linking and libclang (onig_sys/bindgen).
++#
++# Build and remove in the SAME RUN. This is about what a scanner finds in the
++# final image, not about size: image scanning reads the flattened filesystem, so
++# a toolchain deleted in a later step is still reported, while one deleted here
++# is gone. A serving image has no business shipping a compiler toolchain.
++#
++# Removed unconditionally, including when the base supplied it. Who installed it
++# does not change whether it is present in the image being scanned, and nothing
++# at runtime needs cargo: the engines are Python, and the built infera-router
++# links only against base system libs (libc/libstdc++/libgcc/libm), none of
++# which the toolchain provides.
++#
++# The rc files go with it: rustup appends an unguarded `. "$HOME/.cargo/env"`,
++# which then errors on every login shell the image runs.
++COPY rust ./rust
++RUN set -eu; \
++    command -v cc >/dev/null || { apt-get update && apt-get install -y --no-install-recommends build-essential && rm -rf /var/lib/apt/lists/*; }; \
++    export LIBCLANG_PATH="$(dirname "$(find /opt/rocm* /usr/lib /usr/lib64 -name 'libclang.so*' 2>/dev/null | head -1)")"; \
++    case "$LIBCLANG_PATH" in ""|".") apt-get update && apt-get install -y --no-install-recommends libclang-dev && rm -rf /var/lib/apt/lists/* && export LIBCLANG_PATH="$(dirname "$(find /usr/lib -name 'libclang.so*' 2>/dev/null | head -1)")";; esac; \
++    command -v cargo >/dev/null || { curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal; . "$HOME/.cargo/env"; }; \
++    export PATH="$HOME/.cargo/bin:$PATH"; \
++    export LIBCLANG_PATH="${LIBCLANG_PATH:-/opt/rocm/llvm/lib}"; \
++    ( cd rust && cargo build --release --bin infera-router ); \
++    cp rust/target/release/infera-router /usr/local/bin/infera-router; \
++    rm -rf rust "$HOME/.cargo" "$HOME/.rustup" /usr/local/cargo /usr/local/rustup; \
++    rm -f /usr/local/bin/cargo /usr/local/bin/rustc /usr/local/bin/rustup /usr/local/bin/rustdoc; \
++    sed -i '/\.cargo\/env/d' "$HOME/.profile" "$HOME/.bashrc" 2>/dev/null || true; \
++    ! command -v cargo >/dev/null || { echo "cargo still on PATH after cleanup: $(command -v cargo)" >&2; exit 1; }; \
++    ! bash -lc true 2>&1 | grep -q cargo || { echo "a login shell still references cargo" >&2; exit 1; }; \
++    /usr/local/bin/infera-router --help >/dev/null 2>&1 || { echo "infera-router unusable after cleanup" >&2; exit 1; }
++
++COPY deploy/docker/scripts/infera_inject_host_ionic.sh /usr/local/bin/infera-inject-host-ionic
++
++ENTRYPOINT ["/usr/local/bin/infera-inject-host-ionic"]
++CMD ["/bin/bash"]
+diff --git a/deploy/docker/patches/mooncake/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff b/deploy/docker/patches/mooncake/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff
+new file mode 100644
+index 00000000..3bc79f0a
+--- /dev/null
++++ b/deploy/docker/patches/mooncake/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff
+@@ -0,0 +1,232 @@
++diff --git a/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h
++index a8f48c35..60ec85ce 100644
++--- a/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h
+++++ b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h
++@@ -66,8 +66,12 @@ class HipTransport : public Transport {
++ 
++    private:
++     struct OpenedShmEntry {
++-        void* shm_addr;
+++        void* shm_addr;  // what hipIpcOpenMemHandle / the fabric map returned
++         uint64_t length;
+++        // Byte offset of the registered buffer inside the mapping at
+++        // shm_addr. An IPC handle maps its whole allocation, so a buffer that
+++        // starts inside the allocation is at shm_addr + offset.
+++        uint64_t offset = 0;
++     };
++ 
++     struct PendingTransfer {
++diff --git a/mooncake-transfer-engine/src/transfer_engine_impl.cpp b/mooncake-transfer-engine/src/transfer_engine_impl.cpp
++index 62a32b09..35db5ab8 100644
++--- a/mooncake-transfer-engine/src/transfer_engine_impl.cpp
+++++ b/mooncake-transfer-engine/src/transfer_engine_impl.cpp
++@@ -647,14 +647,25 @@ int TransferEngineImpl::registerLocalMemory(void* addr, size_t length,
++ 
++ int TransferEngineImpl::unregisterLocalMemory(void* addr,
++                                               bool update_metadata) {
+++    // A transport can skip a range while registration succeeds on the engine.
+++    // Missing transport metadata must not retain the engine's reservation.
+++    // (yihou: kvcache-ai/Mooncake#4340 e8062249 ported to faae8dd4, whose
+++    // single-address unregister still returns on the first transport error.)
+++    bool missing_on_transport = false;
++     for (auto& transport : multi_transports_->listTransports()) {
++         int ret = transport->unregisterLocalMemory(addr, update_metadata);
+++        if (ret == ERR_ADDRESS_NOT_REGISTERED) {
+++            missing_on_transport = true;
+++            continue;
+++        }
++         if (ret) return ret;
++     }
++ 
++     std::unique_lock<std::shared_mutex> lock(mutex_);
+++    const bool registered =
+++        local_memory_regions_.count(reinterpret_cast<uintptr_t>(addr)) != 0;
++     eraseMemoryRegionLocked(addr);
++-    return 0;
+++    return missing_on_transport && !registered ? ERR_ADDRESS_NOT_REGISTERED : 0;
++ }
++ 
++ #ifdef ENABLE_MULTI_PROTOCOL
++@@ -847,17 +858,26 @@ int TransferEngineImpl::registerLocalMemoryBatch(
++ int TransferEngineImpl::unregisterLocalMemoryBatch(
++     const std::vector<void*>& addr_list) {
++     int first_error = 0;
+++    bool missing_on_transport = false;
++     for (auto transport : multi_transports_->listTransports()) {
++         int ret = transport->unregisterLocalMemoryBatch(addr_list);
++-        if (ret && !first_error) first_error = ret;
+++        if (ret == ERR_ADDRESS_NOT_REGISTERED)
+++            missing_on_transport = true;
+++        else if (ret && !first_error)
+++            first_error = ret;
++     }
++     if (first_error) return first_error;
++ 
++     std::unique_lock<std::shared_mutex> lock(mutex_);
+++    bool missing_on_engine = false;
++     for (auto& addr : addr_list) {
+++        missing_on_engine |=
+++            local_memory_regions_.count(reinterpret_cast<uintptr_t>(addr)) == 0;
++         eraseMemoryRegionLocked(addr);
++     }
++-    return 0;
+++    return missing_on_transport && missing_on_engine
+++               ? ERR_ADDRESS_NOT_REGISTERED
+++               : 0;
++ }
++ 
++ bool TransferEngineImpl::hasOverlapLocked(uintptr_t addr,
++diff --git a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
++index 71031c3b..7eef5d88 100644
++--- a/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
+++++ b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
++@@ -125,6 +125,67 @@ static int open_fd(const hipxFabricHandle& export_handle) {
++     return open_fd;
++ }
++ 
+++// An IPC handle exports a whole allocation, and hipIpcOpenMemHandle maps it
+++// at its base, so a buffer carved out of a larger allocation (as by a caching
+++// allocator) sits `offset` bytes into the peer's mapping. The published
+++// BufferDesc keeps the buffer's own range, so lookup and unregister still work
+++// per buffer; the offset travels with the handle. Wire format of shm_name:
+++//   hipIpcMemHandle_t                       buffer starts its allocation
+++//   hipIpcMemHandle_t + uint64_t offset     buffer starts `offset` bytes in
+++// The offset is in host byte order (IPC peers share a host). The short form
+++// is what this transport has always published, so buffers that start their
+++// allocation stay compatible with older peers; an older peer rejects the long
+++// form ("Mismatched HIP data transfer method") instead of writing to the
+++// wrong address.
+++constexpr size_t kIpcHandleBytes = sizeof(hipIpcMemHandle_t);
+++constexpr size_t kIpcHandleWithOffsetBytes =
+++    sizeof(hipIpcMemHandle_t) + sizeof(uint64_t);
+++
+++// Finds the allocation holding [addr, addr + length) and addr's offset in it.
+++// Returns 0 on success, 1 for an unsupported range, or -1 on lookup failure.
+++static int findIpcAllocation(void* addr, size_t length, void** base,
+++                             uint64_t* offset) {
+++    hipDeviceptr_t alloc_base = nullptr;
+++    size_t alloc_size = 0;
+++    if (!checkHip(hipMemGetAddressRange(&alloc_base, &alloc_size,
+++                                        (hipDeviceptr_t)addr),
+++                  "HipTransport: hipMemGetAddressRange failed")) {
+++        return -1;
+++    }
+++    *base = alloc_base;
+++    *offset = (uint64_t)addr - (uint64_t)alloc_base;
+++    if (*offset > alloc_size || length > alloc_size - *offset) {
+++        LOG(WARNING) << "HipTransport: skipping buffer " << addr << " + "
+++                     << length << " extends past its allocation " << alloc_base
+++                     << " + " << alloc_size
+++                     << ", leaving it to other transports";
+++        return 1;
+++    }
+++    return 0;
+++}
+++
+++static std::string serializeIpcHandle(const hipIpcMemHandle_t& handle,
+++                                      uint64_t offset) {
+++    if (offset == 0) return serializeBinaryData(&handle, kIpcHandleBytes);
+++    unsigned char payload[kIpcHandleWithOffsetBytes];
+++    memcpy(payload, &handle, kIpcHandleBytes);
+++    memcpy(payload + kIpcHandleBytes, &offset, sizeof(offset));
+++    return serializeBinaryData(payload, sizeof(payload));
+++}
+++
+++static bool isIpcPayload(const std::vector<unsigned char>& buffer) {
+++    return buffer.size() == kIpcHandleBytes ||
+++           buffer.size() == kIpcHandleWithOffsetBytes;
+++}
+++
+++static uint64_t ipcPayloadOffset(const std::vector<unsigned char>& buffer) {
+++    uint64_t offset = 0;
+++    if (buffer.size() == kIpcHandleWithOffsetBytes) {
+++        memcpy(&offset, buffer.data() + kIpcHandleBytes, sizeof(offset));
+++    }
+++    return offset;
+++}
+++
++ static int openIPCHandle(const std::vector<unsigned char>& buffer,
++                          void** shm_addr) {
++     hipIpcMemHandle_t handle;
++@@ -683,9 +744,18 @@ int HipTransport::registerLocalMemory(void* addr, size_t length,
++             return 0;
++         }
++ 
++-        // Get IPC handle
+++        // Export the handle from the allocation base, so the handle itself
+++        // carries no offset and ipc_offset is the only one the peer applies.
+++        void* alloc_base = nullptr;
+++        uint64_t ipc_offset = 0;
+++        const int allocation_rc =
+++            findIpcAllocation(addr, length, &alloc_base, &ipc_offset);
+++        if (allocation_rc != 0) {
+++            // A skipped IPC range must not roll back other transports.
+++            return allocation_rc < 0 ? -1 : 0;
+++        }
++         hipIpcMemHandle_t handle;
++-        if (!checkHip(hipIpcGetMemHandle(&handle, addr),
+++        if (!checkHip(hipIpcGetMemHandle(&handle, alloc_base),
++                       "HipTransport: hipIpcGetMemHandle failed")) {
++             return -1;
++         }
++@@ -696,7 +766,7 @@ int HipTransport::registerLocalMemory(void* addr, size_t length,
++         desc.addr = (uint64_t)addr;
++         desc.length = length;
++         desc.name = location;
++-        desc.shm_name = serializeBinaryData(&handle, sizeof(hipIpcMemHandle_t));
+++        desc.shm_name = serializeIpcHandle(handle, ipc_offset);
++ #ifdef ENABLE_MULTI_PROTOCOL
++         desc.protocol = "hip";
++ #endif
++@@ -762,14 +832,15 @@ int HipTransport::relocateSharedMemoryAddress(uint64_t& dest_addr,
++     for (auto& entry : desc->buffers) {
++         if (!entry.shm_name.empty() && entry.addr <= dest_addr &&
++             dest_addr + length <= entry.addr + entry.length) {
+++            auto relocate = [&](const OpenedShmEntry& opened) {
+++                dest_addr = dest_addr - entry.addr +
+++                            ((uint64_t)opened.shm_addr) + opened.offset;
+++            };
++             // Check if already remapped (shared lock)
++             remap_lock_.lockShared();
++             if (remap_entries_.count(std::make_pair(target_id, entry.addr))) {
++-                auto shm_addr =
++-                    remap_entries_[std::make_pair(target_id, entry.addr)]
++-                        .shm_addr;
+++                relocate(remap_entries_[std::make_pair(target_id, entry.addr)]);
++                 remap_lock_.unlockShared();
++-                dest_addr = dest_addr - entry.addr + ((uint64_t)shm_addr);
++                 return 0;
++             }
++             remap_lock_.unlockShared();
++@@ -780,11 +851,12 @@ int HipTransport::relocateSharedMemoryAddress(uint64_t& dest_addr,
++                 deserializeBinaryData(entry.shm_name, output_buffer);
++ 
++                 void* shm_addr = nullptr;
+++                uint64_t offset = 0;
++                 int rc = -1;
++ 
++-                if (output_buffer.size() == sizeof(hipIpcMemHandle_t) &&
++-                    !use_fabric_mem_) {
+++                if (isIpcPayload(output_buffer) && !use_fabric_mem_) {
++                     rc = openIPCHandle(output_buffer, &shm_addr);
+++                    offset = ipcPayloadOffset(output_buffer);
++                 } else if (output_buffer.size() == sizeof(hipxFabricHandle) &&
++                            use_fabric_mem_) {
++                     rc = openShareableHandle(output_buffer, entry.length,
++@@ -801,14 +873,12 @@ int HipTransport::relocateSharedMemoryAddress(uint64_t& dest_addr,
++                 OpenedShmEntry shm_entry;
++                 shm_entry.shm_addr = shm_addr;
++                 shm_entry.length = entry.length;
+++                shm_entry.offset = offset;
++                 remap_entries_[std::make_pair(target_id, entry.addr)] =
++                     shm_entry;
++             }
++ 
++-            // Calculate relocated address
++-            auto shm_addr =
++-                remap_entries_[std::make_pair(target_id, entry.addr)].shm_addr;
++-            dest_addr = dest_addr - entry.addr + ((uint64_t)shm_addr);
+++            relocate(remap_entries_[std::make_pair(target_id, entry.addr)]);
++             return 0;
++         }
++     }
+diff --git a/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh
+new file mode 100644
+index 00000000..f682a5d1
+--- /dev/null
++++ b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh
+@@ -0,0 +1,124 @@
++#!/usr/bin/env bash
++# Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
++# SPDX-License-Identifier: MIT
++#
++# Rebuild the SGLang image's Mooncake from one pinned upstream revision.
++# (yihou copy: + `git apply --check` before each MOONCAKE_PATCHES entry and
++#  #4340 presence assertions; the committed build_mooncake_sglang.sh is unchanged.)
++#
++# That revision already contains the fixes Infera used to carry locally:
++#   - HIP dma-buf is compiled into rdma_transport (#2725);
++#   - cross-host hip+rdma segments automatically choose RDMA (#2753);
++#   - large MRs are chunked and registration failures propagate (#2644/#2869);
++#   - chunked dma-buf offsets include each chunk's displacement (#3243).
++#
++# Keep no private source patches here; an overlay image may pass its own diffs in
++# MOONCAKE_PATCHES (space-separated paths, applied to the pinned ref). Build the
++# source, then verify the two artifact capabilities SGLang PD needs: HIP dma-buf
++# registration and cross-host RDMA routing.
++set -euo pipefail
++
++MC_ROOT="${MC_ROOT:-/tmp/mooncake-upstream}"
++MC_REPO="${MOONCAKE_REPO:-https://github.com/kvcache-ai/Mooncake.git}"
++MC_REF="${MOONCAKE_GIT_REF:-faae8dd4a6309c3ecd47e0721a83b0250d686fa2}"
++MC_PATCHES="${MOONCAKE_PATCHES:-}"
++# gfx950 = MI355X; Dockerfile.sglang.gfx942 overrides this for MI300/MI325.
++MC_GPU_ARCH="${MC_GPU_ARCH:-gfx950}"
++
++rm -rf "$MC_ROOT"
++git clone --filter=blob:none --no-checkout "$MC_REPO" "$MC_ROOT"
++cd "$MC_ROOT"
++git fetch --depth=1 origin "$MC_REF"
++git checkout --detach "$MC_REF"
++git submodule update --init --recursive
++echo "[mc-build] Mooncake $(git rev-parse HEAD)"
++for patch in $MC_PATCHES; do
++    # Fail loudly on drift: check first, then apply.
++    git apply --check -v "$patch" ||
++        { echo "[mc-build] ERROR: $(basename "$patch") does not apply to $MC_REF" >&2; exit 1; }
++    git apply "$patch"
++    echo "[mc-build] applied $(basename "$patch") sha256=$(sha256sum "$patch" | cut -c1-16)"
++done
++# yihou: Mooncake#4340 (HIP IPC relocation for sub-allocated buffers) must be in
++# the source before the build; assert its code path is present.
++if [ -n "$MC_PATCHES" ]; then
++    HT=mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp
++    grep -q "findIpcAllocation" "$HT" && grep -q "kIpcHandleWithOffsetBytes" "$HT" ||
++        { echo "[mc-build] ERROR: #4340 HIP IPC offset path missing from source" >&2; exit 1; }
++fi
++
++# Assert the pinned source has the features this image relies on. A ref bump that
++# loses or moves either implementation must fail here, before an expensive build.
++RT=mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
++grep -q "target_compile_definitions(rdma_transport PRIVATE USE_HIP_DMABUF)" \
++    mooncake-transfer-engine/src/CMakeLists.txt ||
++    { echo "[mc-build] ERROR: upstream HIP dma-buf build wiring missing" >&2; exit 1; }
++grep -q "isHipReachableTarget" mooncake-transfer-engine/src/multi_transport.cpp ||
++    { echo "[mc-build] ERROR: upstream cross-host HIP locality routing missing" >&2; exit 1; }
++# ionic caps max_mr_size at 2 GiB, so a KV buffer above it is registered as
++# several MRs. Both halves must be there: the split itself, and adding each
++# chunk's displacement to its dma-buf offset. Without the second, every chunk
++# past the first registers the wrong bytes.
++grep -q "chunk_limit" "$RT" ||
++    { echo "[mc-build] ERROR: upstream large-MR chunking missing (#2644)" >&2; exit 1; }
++grep -q "chunk_dmabuf_exp.offset += chunk_offset" "$RT" ||
++    { echo "[mc-build] ERROR: upstream per-chunk dma-buf offset missing (#3243)" >&2; exit 1; }
++
++# docker build has no GPU, so pin the target architecture explicitly.
++export PYTORCH_ROCM_ARCH="${PYTORCH_ROCM_ARCH:-$MC_GPU_ARCH}"
++export GPU_ARCHS="${GPU_ARCHS:-$MC_GPU_ARCH}"
++export AMDGPU_TARGETS="${AMDGPU_TARGETS:-$MC_GPU_ARCH}"
++export HIP_ARCHITECTURES="${HIP_ARCHITECTURES:-$MC_GPU_ARCH}"
++export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/opt/rocm-7.2.0/lib/cmake:$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())'):${CMAKE_PREFIX_PATH:-}"
++
++rm -rf build
++mkdir build
++cd build
++if ! cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF \
++    -DENABLE_MULTI_PROTOCOL=ON -DWITH_STORE=OFF -DWITH_STORE_RUST=OFF \
++    -DBUILD_UNIT_TESTS=OFF -DBUILD_EXAMPLES=OFF \
++    -DCMAKE_HIP_ARCHITECTURES="$MC_GPU_ARCH" -GNinja \
++    >/tmp/mooncake-cmake.log 2>&1; then
++    tail -80 /tmp/mooncake-cmake.log >&2
++    exit 1
++fi
++grep -iE "dmabuf|hsa-runtime|error" /tmp/mooncake-cmake.log || true
++
++target="engine.cpython-310-x86_64-linux-gnu.so"
++if ! ninja "$target" >/tmp/mooncake-ninja.log 2>&1; then
++    tail -80 /tmp/mooncake-ninja.log >&2
++    exit 1
++fi
++tail -10 /tmp/mooncake-ninja.log
++
++SO="$MC_ROOT/build/mooncake-integration/$target"
++DEST="$(python3 -c 'import mooncake.engine as e; print(e.__file__)')"
++cp "$SO" "$DEST"
++
++ASIO="$MC_ROOT/build/mooncake-common/libasio.so"
++if [ -f "$ASIO" ]; then
++    cp "$ASIO" "$(dirname "$DEST")/"
++    cp "$ASIO" /usr/local/lib/
++    ldconfig
++fi
++
++# Artifact checks: inspect the .so Python will actually load.
++dynsyms="$(nm -D "$DEST" 2>/dev/null || true)"
++printf '%s\n' "$dynsyms" | grep -q "ibv_reg_dmabuf_mr" ||
++    { echo "[mc-build] ERROR: dma-buf registration is absent from $DEST" >&2; exit 1; }
++ldd "$DEST" | grep -qi hsa-runtime64 ||
++    { echo "[mc-build] ERROR: $DEST does not link hsa-runtime64" >&2; exit 1; }
++binary_strings="$(strings "$DEST")"
++printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
++    { echo "[mc-build] ERROR: cross-host HIP locality routing is absent" >&2; exit 1; }
++if [ -n "$MC_PATCHES" ]; then
++    printf '%s\n' "$binary_strings" | grep -q "extends past its allocation" ||
++        { echo "[mc-build] ERROR: #4340 code path absent from $DEST" >&2; exit 1; }
++    echo "[mc-build] #4340 HIP IPC offset path present in $DEST"
++fi
++python3 -c "from mooncake.engine import TransferEngine"
++
++echo "[mc-build] DONE: upstream Mooncake $MC_REF${MC_PATCHES:+ + patches}"
++echo "[mc-build] dma-buf=present cross-host-routing=present arch=$MC_GPU_ARCH"
++cd /
++rm -rf "$MC_ROOT"
+-- 
+2.43.0
+

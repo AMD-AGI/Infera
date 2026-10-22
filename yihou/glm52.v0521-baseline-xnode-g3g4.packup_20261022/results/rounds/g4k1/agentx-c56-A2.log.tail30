@@ -1,0 +1,30 @@
+│    Operation: Profiling                                                      │
+│    Error: ProfileAborted                                                     │
+│    Reason: A root AgentX warmup request failed, so profiling was not         │
+│            started. Check the preceding request error and                    │
+│            inference server logs.                                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+Log File: 
+/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4k1/agentx-c56-A2/aiperf_artifac
+ts/logs/aiperf.log
+
++ replay_rc=1
++ set +x
+Saved aggregated agentic result to /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4k1/agentx-c56-A2/agentx_conc56.json
+  Requests: 0 successful / 282 total (282 warmup, 150 error dropped)
+Saved /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4k1/agentx-c56-A2/metrics_plots.png
+  Records: 132 | TTFT median 83455ms | E2E median 83455ms
+Loaded 282 records from /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4k1/agentx-c56-A2/aiperf_artifacts
+======================================================================
+BENCHMARK WORKLOAD DISTRIBUTION ANALYSIS
+======================================================================
+Total requests: 282
+
+ALL REQUESTS ISL:
+  n=132  mean=162,809  median=103,987  p75=202,871  p90=421,876  p95=516,036
+ALL REQUESTS OSL:
+  n=132  mean=1  median=1  p75=1  p90=1  p95=1
+======================================================================
+Saved plots to /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4k1/agentx-c56-A2/workload_distribution_plots.png
+ERROR: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4k1/agentx-c56-A2/aiperf_artifacts/profile_export_aiperf.json not found
+ERROR: agentic trace replay exited with code 1 after writing available results

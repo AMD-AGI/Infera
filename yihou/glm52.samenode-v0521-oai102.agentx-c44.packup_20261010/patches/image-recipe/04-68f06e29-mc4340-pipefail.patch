@@ -1,0 +1,29 @@
+From 68f06e29b8bd8267330d042268201b4ab349a4e5 Mon Sep 17 00:00:00 2001
+From: Yinxing Hou <yihou@crsuse2-slog-005.us-east2-a.compute.internal>
+Date: Sat, 10 Oct 2026 06:30:49 +0000
+Subject: [PATCH] docker(mc4340): avoid pipefail SIGPIPE false failure in the
+ #4340 artifact check
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh
+index f682a5d1..46cf3ad0 100644
+--- a/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh
++++ b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh
+@@ -112,7 +112,9 @@ binary_strings="$(strings "$DEST")"
+ printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
+     { echo "[mc-build] ERROR: cross-host HIP locality routing is absent" >&2; exit 1; }
+ if [ -n "$MC_PATCHES" ]; then
+-    printf '%s\n' "$binary_strings" | grep -q "extends past its allocation" ||
++    # here-string, not `printf | grep -q`: grep -q exits early and pipefail turns
++    # the writer's SIGPIPE into a false failure.
++    grep -q "extends past its allocation" <<<"$binary_strings" ||
+         { echo "[mc-build] ERROR: #4340 code path absent from $DEST" >&2; exit 1; }
+     echo "[mc-build] #4340 HIP IPC offset path present in $DEST"
+ fi
+-- 
+2.43.0
+

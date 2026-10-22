@@ -1,0 +1,11 @@
+2026-10-20T01:55:32Z	start	exp=E2+mc4340+tokw4detok4+offload-g4k1s1+xferfix2-orig-dest+pr42553-idxshare-customar round=g4n2 image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.g4new.sh
+2026-10-20T01:55:32Z	ports-all	ok:33 ports <30000 and free
+2026-10-20T01:56:32Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-20T01:56:33Z	etcd	ok
+2026-10-20T02:00:36Z	prefill	ok:13x20s
+2026-10-20T02:08:54Z	decode-a1	ok
+2026-10-20T02:08:54Z	bothlegs	ok
+2026-10-20T02:08:59Z	router	ok
+2026-10-20T02:09:03Z	smoke	ok
+2026-10-20T02:20:20Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4n2/agentx-c56-A1
+2026-10-20T03:19:53Z	chain	STOPPED by operator: decode Memory access fault GPU node-7 02:50:03Z (A1 stalled at done=544)

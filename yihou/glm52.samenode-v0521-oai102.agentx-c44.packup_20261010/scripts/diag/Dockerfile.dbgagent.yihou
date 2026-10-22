@@ -1,0 +1,31 @@
+# Thin layer adding the ROCm debug agent (librocm-debug-agent.so.2) + ROCdbgapi to the run image.
+# Build ON THE NODE (image is local there), context = this diag dir:
+#   docker build -f Dockerfile.dbgagent.yihou -t infera-sglang:v0521-yihou-1009-dbgagent \
+#     --build-arg ROCM_APT_VER=7.2 /shared_nfs/yihou_glm52/v0521dbg_20261010/diag
+# ROCM_APT_VER must equal the image's /opt/rocm/.info/version major.minor (run_dbg --check prints it);
+# if it is a point release (e.g. 7.2.1) use that string -- repo.radeon.com/rocm/apt/<ver>/.
+FROM infera-sglang:v0521-yihou-1009
+ARG ROCM_APT_VER=7.2
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+RUN set -eux; \
+    if ! grep -rqs "repo.radeon.com/rocm/apt" /etc/apt/sources.list /etc/apt/sources.list.d/; then \
+      . /etc/os-release; \
+      apt-get update && apt-get install -y --no-install-recommends ca-certificates gnupg wget; \
+      mkdir -p /etc/apt/keyrings; \
+      wget -qO- https://repo.radeon.com/rocm/rocm.gpg.key | gpg --dearmor > /etc/apt/keyrings/rocm.gpg; \
+      echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_APT_VER} ${VERSION_CODENAME} main" \
+        > /etc/apt/sources.list.d/rocm-dbgagent-yihou.list; \
+    fi; \
+    apt-get update; \
+    apt-cache policy rocm-debug-agent rocm-dbgapi rocm-core; \
+    # --no-install-recommends + refuse to touch rocm-core/hip-runtime: fail rather than drift the runtime
+    apt-get install -y --no-install-recommends rocm-debug-agent rocm-dbgapi \
+      | tee /tmp/apt-dbgagent.log; \
+    if grep -E "^(Unpacking|Setting up) (rocm-core|hip-runtime-amd|hsa-rocr)[ :]" /tmp/apt-dbgagent.log; then \
+      echo "apt drifted the ROCm runtime; use the COPY --from alternative below" >&2; exit 1; fi; \
+    ls -l /opt/rocm/lib/librocm-debug-agent.so* /opt/rocm/lib/librocm-dbgapi.so*; \
+    ldd /opt/rocm/lib/librocm-debug-agent.so.2 | grep -v "not found"; \
+    rm -rf /var/lib/apt/lists/*
+# Alternative if apt drifts the runtime: copy the two libs from the matching official image
+#   FROM rocm/dev-ubuntu-24.04:<same ROCm ver> AS dbg
+#   COPY --from=dbg /opt/rocm/lib/librocm-debug-agent.so* /opt/rocm/lib/librocm-dbgapi.so* /opt/rocm/lib/

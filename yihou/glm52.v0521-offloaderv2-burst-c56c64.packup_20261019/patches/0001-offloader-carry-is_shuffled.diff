@@ -1,0 +1,17 @@
+--- /shared_nfs/yihou_glm52/v0521cap2_20261013/offload/offloader.py.orig	2026-10-14 08:17:47.170899237 +0000
++++ /shared_nfs/yihou_glm52/v0521cap2_20261013/offload/offloader.yihou-attrs.py	2026-10-14 08:17:47.162948522 +0000
+@@ -427,7 +427,13 @@
+         _move_param_to_cpu(self._param, pin_memory=True)
+ 
+     def create_device_tensor(self):
+-        return self._param.to("cuda", non_blocking=True)
++        # YIHOU-OFFLOAD-ATTRS (task v0521cap2): the .to() copy is a plain tensor and drops Python attributes that kernels
++        # read off the weight; aiter fused_moe selects its preshuffled MXFP4 kernels by getattr(w, "is_shuffled") and quark
++        # apply_weights re-tags only if hasattr(layer.w13_weight, "is_shuffled"). Carry the flag over from the host param.
++        t = self._param.to("cuda", non_blocking=True)
++        if getattr(self._param, "is_shuffled", False):
++            t.is_shuffled = True
++        return t
+ 
+ 
+ class _ShmCpuParamOffloader(_BaseParamOffloader):

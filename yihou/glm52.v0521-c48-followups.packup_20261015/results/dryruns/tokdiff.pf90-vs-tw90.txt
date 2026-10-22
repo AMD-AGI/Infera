@@ -1,0 +1,4 @@
+=== prefill: < dryrun.pf90-089.yihou.txt   > dryrun.tw90-089.yihou.txt
+=== decode: < dryrun.pf90-089.yihou.txt   > dryrun.tw90-089.yihou.txt
+> --tokenizer-worker-num
+> 4

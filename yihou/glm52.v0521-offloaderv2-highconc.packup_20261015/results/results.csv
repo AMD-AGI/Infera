@@ -1,0 +1,20 @@
+run,node,round,variant,stack,conc,score_tok_s_chip,qps,isl_mean,ttft_mean_s,ttft_p95_s,tpot_ms,gpu_hit,cpu_hit,overall_hit,ok,err,json
+pf90 A1 (ref),089,pf90,"none; HiCache 450; mem 0.90",fresh,48,21858.87,1.219,142517,9.569,31.318,15.680,0.911,0.035,0.947,4415,0,pf90/agentx-c48-A1/agentx_conc48.json
+pf90 A2 (ref),089,pf90,"none; HiCache 450; mem 0.90",warm(scored),48,23127.06,1.276,143964,9.297,28.757,13.120,0.860,0.071,0.931,4632,3,pf90/agentx-c48-A2/agentx_conc48.json
+tb56n A2 C56 (ref; NOT like-for-like),085,tb56n,"none; HiCache ratio 1.5 (~154 GB); mem 0.88",warm,56,18015.87,1.041,137357,30.092,92.781,12.540,0.680,0.204,0.885,3780,4,tb56n/agentx-c56-A2/agentx_conc56.json
+tb56 A2 C56 (ref; NOT like-for-like),085,tb56,"runshare v2; HiCache ~154 GB; mem 0.88",warm,56,17610.61,1.053,132674,31.075,98.678,12.800,0.718,0.166,0.884,3824,3,tb56/agentx-c56-A2/agentx_conc56.json
+ofg2 A1,288,ofg2,"G2K1 1/2",fresh,48,21156.55,1.171,143593,12.321,29.132,14.530,0.960,0.003,0.963,4246,1,ofg2/agentx-c48-A1/agentx_conc48.json
+ofg2 A2,288,ofg2,"G2K1 1/2",ABORTED (oai released),,,,,,,,,,,,,(not available at packing) ofg2/agentx-c48-A2/agentx_conc48.json
+ofg4 A1,252,ofg4,"G4K1 1/4",ABORTED (oai released),,,,,,,,,,,,,(not available at packing) ofg4/agentx-c48-A1/agentx_conc48.json
+ofg4b A1,136,ofg4b,"G4K1 1/4",fresh,48,22506.38,1.242,143992,8.791,27.220,15.450,0.941,0.017,0.958,4502,1,ofg4b/agentx-c48-A1/agentx_conc48.json
+ofg4b A2,136,ofg4b,"G4K1 1/4",warm(scored),48,23771.03,1.307,144584,9.710,28.771,12.120,0.925,0.018,0.943,4741,3,ofg4b/agentx-c48-A2/agentx_conc48.json
+ofg4b A3 C56,136,ofg4b,"G4K1 1/4",warm(3rd),56,21744.42,1.238,139513,20.042,51.985,12.420,0.857,0.067,0.924,4488,0,ofg4b/agentx-c56-A3/agentx_conc56.json
+ofg3b A1,v3-020,ofg3b,"G3K1 1/3",fresh,48,22484.28,1.237,144488,9.267,23.861,15.030,0.954,0.008,0.962,4484,2,ofg3b/agentx-c48-A1/agentx_conc48.json
+ofg3b A2,v3-020,ofg3b,"G3K1 1/3",warm(scored),48,23199.62,1.250,147540,10.784,29.348,11.950,0.936,0.010,0.946,4531,2,ofg3b/agentx-c48-A2/agentx_conc48.json
+ofg3b A3 C56,v3-020,ofg3b,"G3K1 1/3",warm(3rd),,,,,,,,,,,,,(not available at packing) ofg3b/agentx-c56-A3/agentx_conc56.json
+ofg2h3 A1 C56,v3-026,ofg2h3,"G2K1 1/2 + decode tok4/detok4",fresh,,,,,,,,,,,,,(not available at packing) ofg2h3/agentx-c56-A1/agentx_conc56.json
+ofg2h3 A2 C56,v3-026,ofg2h3,"G2K1 1/2 + decode tok4/detok4",warm(scored),,,,,,,,,,,,,(not available at packing) ofg2h3/agentx-c56-A2/agentx_conc56.json
+ofg2h3 C64,v3-026,ofg2h3,"G2K1 1/2 + decode tok4/detok4",warm(3rd),,,,,,,,,,,,,(not available at packing) ofg2h3/agentx-c64-A2/agentx_conc64.json
+ofg4h A1 C56,136,ofg4h,"G4K1 1/4 + decode tok4/detok4",fresh,,,,,,,,,,,,,(not available at packing) ofg4h/agentx-c56-A1/agentx_conc56.json
+ofg4h A2 C56,136,ofg4h,"G4K1 1/4 + decode tok4/detok4",warm(scored),,,,,,,,,,,,,(not available at packing) ofg4h/agentx-c56-A2/agentx_conc56.json
+ofg4h A3 C64,136,ofg4h,"G4K1 1/4 + decode tok4/detok4",warm(3rd),,,,,,,,,,,,,(not available at packing) ofg4h/agentx-c64-A3/agentx_conc64.json

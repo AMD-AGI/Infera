@@ -1,0 +1,5 @@
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/config.expert8.json	/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4/config.json
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/models/yihou_expert8.py	/sgl-workspace/sglang/python/sglang/srt/models/yihou_expert8.py
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/models/deepseek_v2.py	/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/model_loader/loader.py	/sgl-workspace/sglang/python/sglang/srt/model_loader/loader.py
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/layers/moe/topk.py	/sgl-workspace/sglang/python/sglang/srt/layers/moe/topk.py

@@ -1,0 +1,11 @@
+2026-10-12T15:10:13Z	start	exp=E2+mc4340+runshare2-0.5w5 round=pc40d image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.runshare2.sh
+2026-10-12T15:10:14Z	ports-all	ok:33 ports <30000 and free
+2026-10-12T15:29:29Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-12T15:29:30Z	etcd	ok
+2026-10-12T15:39:54Z	prefill	ok:31x20s
+2026-10-12T15:45:45Z	decode-a1	ok
+2026-10-12T15:45:45Z	bothlegs	ok
+2026-10-12T15:45:51Z	router	ok
+2026-10-12T15:45:55Z	smoke	ok
+2026-10-12T15:56:16Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pc40d/agentx-c40
+2026-10-12T17:17:12Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pc40d/agentx-c40/agentx_conc40.json

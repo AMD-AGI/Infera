@@ -1,0 +1,30 @@
+
++ replay_rc=0
++ set +x
+Saved aggregated agentic result to /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g3x1/agentx-c64-A4/agentx_conc64.json
+  Requests: 5413 successful / 6120 total (707 warmup, 2 error dropped)
+  QPS: mean=1.49 p75=2.00 p95=4.00
+  GPU cache hit rate: 81.4%
+  CPU/offload cache hit rate: 8.7%
+  External cache hit rate: 8.7%
+  GPU KV cache usage:  100.0%
+  GPU KV cache capacity: 22905344 tokens
+  Theoretical cache hit rate: 96.6%
+  Throughput per GPU: 22860 tok/s
+Saved /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g3x1/agentx-c64-A4/metrics_plots.png
+  Records: 6118 | TTFT median 9516ms | E2E median 21895ms
+Loaded 6,120 records from /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g3x1/agentx-c64-A4/aiperf_artifacts
+======================================================================
+BENCHMARK WORKLOAD DISTRIBUTION ANALYSIS
+======================================================================
+Total requests: 6,120
+
+ALL REQUESTS ISL:
+  n=6,118  mean=130,165  median=86,442  p75=158,708  p90=277,154  p95=484,046
+ALL REQUESTS OSL:
+  n=6,118  mean=905  median=375  p75=960  p90=2,075  p95=3,518
+======================================================================
+Saved plots to /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g3x1/agentx-c64-A4/workload_distribution_plots.png
+Validated aiperf request error rate: 0/5413 = 0.000% <= 10.000%
+Validated required AIPerf server metrics prefix 'sglang:'
+AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g3x1/agentx-c64-A4/agentx_conc64.json

@@ -1,0 +1,14 @@
+2026-10-15T07:22:30Z	start	exp=E2+mc4340+offload-g3k1s1 round=ofg3b image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.offload.sh
+2026-10-15T07:22:30Z	ports-all	ok:33 ports <30000 and free
+2026-10-15T07:23:30Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-15T07:23:32Z	etcd	ok
+2026-10-15T07:41:35Z	prefill	ok:55x20s
+2026-10-15T07:59:09Z	decode-a1	ok
+2026-10-15T07:59:09Z	bothlegs	ok
+2026-10-15T07:59:14Z	router	ok
+2026-10-15T07:59:18Z	smoke	ok
+2026-10-15T07:59:18Z	bench	start CONC=48 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg3b/agentx-c48-A1
+2026-10-15T09:24:59Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg3b/agentx-c48-A1/agentx_conc48.json
+2026-10-15T09:27:10Z	bench	start CONC=48 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg3b/agentx-c48-A2
+2026-10-15T10:50:32Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg3b/agentx-c48-A2/agentx_conc48.json
+2026-10-15T10:57:57Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg3b/agentx-c56-A3

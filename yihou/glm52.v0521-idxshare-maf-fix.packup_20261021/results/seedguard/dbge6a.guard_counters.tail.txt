@@ -1,0 +1,40 @@
+2026-10-20T14:43:08.315662303Z [2026-10-20 14:43:08 DP1 TP1] YIHOU-SKGUARD mode=count dev=cuda:1
+2026-10-20T14:43:09.064235416Z [2026-10-20 14:43:09 DP2 TP2] YIHOU-SKGUARD mode=count dev=cuda:2
+2026-10-20T14:43:45.151252075Z [2026-10-20 14:43:45 DP2 TP2] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=244398 pd_seedless_batches=1040 draft_iters=70227 draft_local_graph_incompatible=918 draft_eager=3300
+2026-10-20T14:43:53.865334553Z [2026-10-20 14:43:53 DP1 TP1] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=323115 pd_seedless_batches=1282 draft_iters=79549 draft_local_graph_incompatible=1083 draft_eager=3600
+2026-10-20T14:44:05.658046754Z [2026-10-20 14:44:05 DP0 TP0] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=367467 pd_seedless_batches=1357 draft_iters=83297 draft_local_graph_incompatible=1176 draft_eager=3653
+2026-10-20T14:44:06.958294732Z [2026-10-20 14:44:06 DP3 TP3] YIHOU-SKGUARD mode=count dev=cuda:3
+2026-10-20T14:44:07.690577724Z [2026-10-20 14:44:07 DP0 TP0] YIHOU-SKGUARD mode=count dev=cuda:0
+2026-10-20T14:44:08.376123032Z [2026-10-20 14:44:08 DP1 TP1] YIHOU-SKGUARD mode=count dev=cuda:1
+2026-10-20T14:44:09.071725474Z [2026-10-20 14:44:09 DP2 TP2] YIHOU-SKGUARD mode=count dev=cuda:2
+2026-10-20T14:44:16.689772716Z [2026-10-20 14:44:16 DP3 TP3] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=333758 pd_seedless_batches=1224 draft_iters=86106 draft_local_graph_incompatible=1069 draft_eager=3746
+2026-10-20T14:44:57.541414722Z [2026-10-20 14:44:57 DP2 TP2] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=244398 pd_seedless_batches=1042 draft_iters=70227 draft_local_graph_incompatible=918 draft_eager=3300
+2026-10-20T14:45:00.636627986Z [2026-10-20 14:45:00 DP1 TP1] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=323115 pd_seedless_batches=1284 draft_iters=79549 draft_local_graph_incompatible=1083 draft_eager=3600
+2026-10-20T14:45:07.018649722Z [2026-10-20 14:45:07 DP3 TP3] YIHOU-SKGUARD mode=count dev=cuda:3
+2026-10-20T14:45:07.699923245Z [2026-10-20 14:45:07 DP0 TP0] YIHOU-SKGUARD mode=count dev=cuda:0
+2026-10-20T14:45:08.432162216Z [2026-10-20 14:45:08 DP1 TP1] YIHOU-SKGUARD mode=count dev=cuda:1
+2026-10-20T14:45:09.132351962Z [2026-10-20 14:45:09 DP2 TP2] YIHOU-SKGUARD mode=count dev=cuda:2
+2026-10-20T14:46:02.210708333Z [2026-10-20 14:46:02 DP2 TP2] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=244398 pd_seedless_batches=1043 draft_iters=70227 draft_local_graph_incompatible=918 draft_eager=3300
+2026-10-20T14:46:05.872678298Z [2026-10-20 14:46:05 DP0 TP0] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=367467 pd_seedless_batches=1359 draft_iters=83297 draft_local_graph_incompatible=1176 draft_eager=3653
+2026-10-20T14:46:07.079327589Z [2026-10-20 14:46:07 DP3 TP3] YIHOU-SKGUARD mode=count dev=cuda:3
+2026-10-20T14:46:07.702788508Z [2026-10-20 14:46:07 DP0 TP0] YIHOU-SKGUARD mode=count dev=cuda:0
+2026-10-20T14:46:08.478128396Z [2026-10-20 14:46:08 DP1 TP1] YIHOU-SKGUARD mode=count dev=cuda:1
+2026-10-20T14:46:09.192991020Z [2026-10-20 14:46:09 DP2 TP2] YIHOU-SKGUARD mode=count dev=cuda:2
+2026-10-20T14:46:12.634614800Z [2026-10-20 14:46:12 DP3 TP3] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=333758 pd_seedless_batches=1226 draft_iters=86106 draft_local_graph_incompatible=1069 draft_eager=3746
+2026-10-20T14:46:28.022461044Z [2026-10-20 14:46:28 DP1 TP1] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=323115 pd_seedless_batches=1285 draft_iters=79549 draft_local_graph_incompatible=1083 draft_eager=3600
+2026-10-20T14:47:07.139931768Z [2026-10-20 14:47:07 DP3 TP3] YIHOU-SKGUARD mode=count dev=cuda:3
+2026-10-20T14:47:07.762976728Z [2026-10-20 14:47:07 DP0 TP0] YIHOU-SKGUARD mode=count dev=cuda:0
+2026-10-20T14:47:08.492985398Z [2026-10-20 14:47:08 DP1 TP1] YIHOU-SKGUARD mode=count dev=cuda:1
+2026-10-20T14:47:09.253596668Z [2026-10-20 14:47:09 DP2 TP2] YIHOU-SKGUARD mode=count dev=cuda:2
+2026-10-20T14:47:10.138078728Z [2026-10-20 14:47:10 DP0 TP0] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=367467 pd_seedless_batches=1360 draft_iters=83297 draft_local_graph_incompatible=1176 draft_eager=3653
+2026-10-20T14:48:07.200620806Z [2026-10-20 14:48:07 DP3 TP3] YIHOU-SKGUARD mode=count dev=cuda:3
+2026-10-20T14:48:07.823619167Z [2026-10-20 14:48:07 DP0 TP0] YIHOU-SKGUARD mode=count dev=cuda:0
+2026-10-20T14:48:08.533854997Z [2026-10-20 14:48:08 DP1 TP1] YIHOU-SKGUARD mode=count dev=cuda:1
+2026-10-20T14:48:09.314331406Z [2026-10-20 14:48:09 DP2 TP2] YIHOU-SKGUARD mode=count dev=cuda:2
+2026-10-20T14:48:35.703413982Z [2026-10-20 14:48:35 DP2 TP2] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=244398 pd_seedless_batches=1044 draft_iters=70227 draft_local_graph_incompatible=918 draft_eager=3300
+2026-10-20T14:48:38.222943226Z [2026-10-20 14:48:38 DP1 TP1] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=323115 pd_seedless_batches=1287 draft_iters=79549 draft_local_graph_incompatible=1083 draft_eager=3600
+2026-10-20T14:48:45.467907878Z [2026-10-20 14:48:45 DP3 TP3] YIHOU-SEEDGUARD mode=count extend_seed.bad_entries=0 extend_seed.rows=333758 pd_seedless_batches=1227 draft_iters=86106 draft_local_graph_incompatible=1069 draft_eager=3746
+2026-10-20T14:49:07.259365730Z [2026-10-20 14:49:07 DP3 TP3] YIHOU-SKGUARD mode=count dev=cuda:3
+2026-10-20T14:49:07.883914305Z [2026-10-20 14:49:07 DP0 TP0] YIHOU-SKGUARD mode=count dev=cuda:0
+2026-10-20T14:49:08.550888769Z [2026-10-20 14:49:08 DP1 TP1] YIHOU-SKGUARD mode=count dev=cuda:1
+2026-10-20T14:49:09.374891883Z [2026-10-20 14:49:09 DP2 TP2] YIHOU-SKGUARD mode=count dev=cuda:2

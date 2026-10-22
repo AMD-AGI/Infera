@@ -1,0 +1,547 @@
+# Poll ledger — task v0521cap
+
+## Poll 2026-10-12 08:11 UTC
+- Workflow wf_f78a24f2-89b (research, relaunched 08:0x after session loss): only R1 + R2 started so far (agent
+  concurrency apparently 2 on this login host); R3-R5 queued; no research files yet.
+- Job 207495 RUNNING (21:15 left). 102: e2j stack up (idle after X1). `yihou-msampler-x1` still sampling (self-exits
+  ~08:38). FIRST SIGHTING: new CPU-only `yihou-hostsample-e2jR2-…-e2j-router` created 08:05:08 (thread_cpu on router,
+  3600 s, output dir from the 04:26 e2jR2 run) — origin unclear, no host process found; harmless (no devices). Next poll:
+  stop it if still up and before any benchmark.
+- 137: 8 GPUs 0 VRAM; foreign containers dev_xb (sleep) + crusoe-vector only; image not loaded yet (R4 queued).
+
+## Poll 2026-10-12 08:31 UTC
+- User 08:15: no 13x nodes; two amd-oai nodes. 137: image removed, no containers of ours (not watched further).
+- Research wf_f78a24f2-89b (resumed w/o the 137 track): R1/R2/R3/R5 reports written; verify R1 done, R2/R3 verifying.
+- Job 207495 RUNNING (20:55 left); 2nd oai hold 208970 PENDING (QOSGrpNodeLimit).
+- 102: k1 pipeline in gpuidle gate since 08:16 (VRAM max 273 GB draining after e2j stop — expected 28-35 min). The
+  stray e2jR2 router hostsample + x1 sampler were removed before k1 (resolved).
+
+## Poll 2026-10-12 08:51 UTC
+- Research workflow done (8/8). Job 207495 RUNNING (20:35 left); 208970 PENDING (QOSGrpNodeLimit).
+- 102: k1 gpuidle ok 08:45:50, etcd ok, prefill bring-up in progress (expected ~7 min + decode ~6 min). q1 env +
+  dryrun ready (`env.q1-102.yihou.sh`). 137 not used (user directive).
+
+## Poll 2026-10-12 09:11 UTC
+- Burst job 209081 RUNNING on crsuse2-m2m-174 (10.245.152.55, 8 GPUs idle, NFS rw, 2751 GB RAM) -> patch/debug node.
+  docker load of the mc4340 image started 09:11 (log v0521cap/logs/load_image.174.log). 208970 (oai) still PENDING.
+- 102: k1 A1 warmup since 08:58, metrics sampler running, 0 fault/Traceback lines in decode log.
+
+## Poll 2026-10-12 09:31 UTC
+- PROBLEM (acted on immediately, node lost): burst job 209081 PREEMPTED at 09:30:43 after 20 min, during pc40 prefill
+  bring-up on 174. spur exec refused (job CANCELLED); pc40 prefill log stopped growing at 09:30:33 -> containers gone
+  with the job (cannot verify directly). Killed the pc40 chain + its run.v2 up (PID-specific; k1 bench untouched).
+- Resubmitted burst hold: job 209141 (yihou-burst-patch2). Burst QOS is preemptible: expect repeats.
+- 102: k1 A1 profiling since 09:15, 0 fault lines. 208970 (oai) still PENDING (QOSGrpNodeLimit).
+
+## Poll 2026-10-12 09:51 UTC
+- k1 A1 (C44, HiCache 360) healthy, 0 fault lines; profiling 09:15 -> ~10:16. /metrics so far: decode token_usage
+  max 0.64-0.85, running max 16 (DP0, cap hit) / 15 / 13 / 13, transfer q max 9-13, retract 0; prefill host pool 360 GB
+  (8.01 M tok/rank) already full on 3 of 4 DPs by ~35 min.
+- 209141 (burst) PENDING (Resources); 208970 (oai) PENDING (QOSGrpNodeLimit).
+
+## Poll 2026-10-12 10:11 UTC
+- Burst 209141 got crsuse2-m2m-205, but 205 runs a FOREIGN GPU container `crusoe-sgl-q36` (since 09:16, /dev/kfd+dri):
+  a cross-node "drain pool" (pool.sh) that keeps booting sglang servers on GPUs 0-5 in VRAM gaps. Not usable without
+  disturbing another user -> stopped my image load there, scancel 209141, resubmitted burst job 209186 excluding
+  102/174/205. Rule for any new node: check foreign GPU containers before loading/launching.
+- k1 A1 profiling ends ~10:16; 0 fault lines. 208970 (oai) PENDING (QOSGrpNodeLimit).
+
+## Poll 2026-10-12 10:31 UTC
+- 029 (burst 209186): pc40b prefill bring-up since ~10:23 (only our containers on the node), 0 faults.
+- 102: k1 A2 (warm, scored) running since 10:22, 0 faults. 208970 PENDING.
+
+## Poll-note 2026-10-12 10:38 UTC
+- Burst 209186 (029) CANCELLED at 20:00 elapsed (burst QOS PreemptMode=cancel). pc40b driver stopped. pc40c armed on
+  102 behind k1 (waits for k1 chain done). No further burst requests.
+
+## Poll 2026-10-12 10:56 UTC
+- 137: q1 prefill bring-up since 10:55, 0 faults; foreign containers: dev_xb (sleep, no GPU use) + crusoe-vector only.
+- 102: k1 A2 running, 0 faults; pc40c armed behind k1. 208970 PENDING (QOSGrpNodeLimit).
+
+## Poll 2026-10-12 11:11 UTC
+- 137 q1: prefill ok 11:09:38 (14 min, cold-ish host alloc), decode bring-up next; 0 faults; no foreign GPU containers.
+- 102 k1 A2 running, 0 faults. 208970 PENDING.
+
+## Poll 2026-10-12 11:31 UTC
+- 137 q1 A1 bench since 11:21 (max_running 24/DP, extra_slots 48, prefill mem 0.88 verified in logs), 0 faults, no
+  foreign GPU containers. 102 k1 A2 profiling since 10:38 (ends ~11:38, JSON ~11:45), 0 faults. 208970 PENDING.
+
+## Poll 2026-10-12 11:51 UTC
+- 102: k1 done (A2 21,342); pc40c in gpuidle gate (VRAM draining, expected ~30 min). 137: q1 A1 running, 0 faults, no
+  foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 12:11 UTC
+- 102 pc40c: gpuidle 12:01, prefill ok 12:07, decode bring-up. 137 q1 A1 running, 0 faults, no foreign GPU containers.
+  208970 PENDING.
+
+## Poll 2026-10-12 12:31 UTC
+- FIRST SIGHTING (pc40c, 102): runshare cap fires heavily during AgentX warmup (max_tokens=1, decode idle):
+  26,144 log lines (every 100th block) ≈ 2.6 M blocked admission checks in 14 min ≈ one per scheduler loop. Examples:
+  DP1 nonrunning=1,125,888 cand=688,430 cap=1,381,088 running=0 xfer=9; DP1 nonrunning=705,216 cand=704,353 xfer=1.
+  i.e. a few 0.69-0.70 M-token prompts are held behind in-flight KV (FIFO head-of-line, verify gap G3). Warmup still
+  progresses (385/444 at 810 s, 0 errors); 0 faults. /metrics decode gauges stay 0 in warmup (only refreshed by decode
+  batches) → not usable to cross-check here. Next poll: check profiling-phase blocks (running>0 must appear), TTFT.
+- 137 q1 A1 running, 0 faults, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 12:51 UTC
+- 12:31 first sighting (runshare warmup blocking) resolved: profiling phase blocks are sparse and show running>0; no
+  stall. pc40c A1 profiling, 0 faults. 137: q1 A2 since 12:43, 0 faults, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 13:11 UTC
+- 102 pc40c A1 profiling (ends ~13:33), 0 faults; 137 q1 A2 running, 0 faults, no foreign GPU containers.
+  Armed: a3_q1c48 (137), chain_q3 (102). 208970 PENDING.
+
+## Poll 2026-10-12 13:31 UTC
+- 102 pc40c A1 finishing (~13:38 JSON), 0 faults; 137 q1 A2 running, 0 faults, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 13:51 UTC
+- 102 pc40c A2 since 13:37 (≈15:00), 0 faults; 137 q1 A2 (≈14:05), 0 faults, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 14:11 UTC
+- 137: q1 A2 done (21,862); A3 C48 running since 14:04, 0 faults, no foreign GPU containers. 102 pc40c A2 running,
+  0 faults. 208970 PENDING.
+
+## Poll 2026-10-12 14:31 UTC
+- 102 pc40c A2 running (≈15:00), 0 faults; 137 q1 A3 C48 running (≈15:25), 0 faults, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 14:51 UTC
+- 102 pc40c A2 finishing (≈15:00), 0 faults; 137 q1 A3 C48 running, 0 faults, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 15:11 UTC
+- 102: pc40c smoke2 PASS (cap holds 0.50, 64/64 ok, 0 faults); pc40d in gpuidle gate. 137: q1 A3 C48 finishing, 0 faults,
+  no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 15:31 UTC
+- 137: q1 A3 C48 = 22,306 (new best); A4 C52 running since 15:28, 0 faults/retracts, no foreign GPU containers.
+- 102: pc40d etcd ok 15:29, prefill bring-up. 208970 PENDING.
+
+## Poll 2026-10-12 15:51 UTC
+- 102 pc40d: v2 active (container env + mounted file verified), burst smoke running: blocks with waited=78-152 s "stop"
+  (anti-starvation engaged on equal-size 231k prompts — expected in this synthetic burst). 137 q1 A4 C52 running, 0
+  faults/retracts, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 16:11 UTC
+- 102 pc40d A1 running, 0 faults. 137 q1 A4 C52 running, 0 faults/retracts, no foreign GPU containers. q4 armed. 208970 PENDING.
+
+## Poll 2026-10-12 16:31 UTC
+- 102 pc40d A1, 0 faults; 137 q1 A4 C52 (≈16:50), 0 faults/retracts, no foreign GPU containers. 208970 PENDING.
+
+## Poll 2026-10-12 16:51 UTC
+- 137: q1 A4 C52 = 21,418 (below C48 22,306); q4 chain proceeding (stop q1 → drain → up). 102 pc40d A1, 0 faults.
+  208970 PENDING.
+
+## Poll 2026-10-13 (slog-003)
+- 207495 (102) ended (TIMEOUT 10-12 20:01). 208970 holds crsuse2-m2m-256 (idle). 137 taken by another user. No runs, no
+  drivers (paused for the user's session migration; login host is memory-monitored).
+- CORRECTION 03:12: 208970 also ended (COMPLETED 2026-10-13 02:23:35; hold script ended — cause unknown, possibly the
+  login-host session loss). We hold NO node now.
+
+## 2026-10-13T06:50:54Z poll (session 2)
+- x8d (026): up in progress, prefill not yet healthy at ~18 min (HiCache 450 registration; q1 took 15 min). prefill max_total_num_tokens 2,433,088 (256-expert leg).
+- x8p (274): up in progress; prefill = expert8 confirmed (304 YIHOU_EXPERT8 lines, routed=8 ep=4 local=2), prefill max_total_num_tokens 3,670,016 (cap; vs 2,433,088 on a 256-expert prefill at 0.88).
+- tb56 (085): prefill ok 06:46 (29x20s), decode a1 starting; no fault lines.
+- First sighting: squeue from spur006 failed once "failed to connect to spurctld" (controller flaky; chains run on the nodes, unaffected).
+
+## 2026-10-13T07:10Z poll
+- All three in bench A1, AUDIT PASS, 0 Traceback/MAF lines. tb56 A1 C56 started 06:53, x8d A1 C48 07:01, x8p A1 C48 07:03.
+- x8d decode = expert8 confirmed incl. MTP draft (312 YIHOU_EXPERT8 lines, 8 role=draft); max_total_num_tokens decode 3,670,016 (256-expert decode 0.95: 2,762,176, +32.9 %), prefill 2,433,088.
+- x8p prefill = expert8 (304 lines), prefill 3,670,016 (+50.8 % vs 2,433,088), decode 2,762,176.
+- tb56 prefill 2,433,088 / decode 2,762,176 (HiCache ratio 1.5).
+- squeue via spur006 refused again (spurctld); resolved by retry — controller flakiness, chains unaffected.
+
+## 2026-10-13T08:30Z poll — A1 (fresh, unscored) results; all A2 running, no faults
+- x8d A1 C48 (decode expert8, 026): 20,230/chip, qps 1.146, ISL 140,330, TTFT 14.03/46.28 s, TPOT 14.0 ms.
+- x8p A1 C48 (prefill expert8, 274): 25,347/chip, qps 1.392, ISL 144,802, TTFT 5.03/16.05 s, TPOT 14.5 ms.
+- tb56 A1 C56 (runshare v2 + HiCache 154 GB, 085): 17,545/chip, qps 1.038, ISL 134,256, TTFT 28.22/85.95 s, TPOT 15.0 ms.
+- refs (137): q1 A1 C44 fresh 21,433 (TTFT 5.91); q1 A3 C48 warm 22,306 (TTFT 11.97). Fresh vs warm and node differ.
+
+## 2026-10-13T08:50Z poll — x8d A2 died: HARDWARE (026 GPU3 HBM ECC)
+- x8d A2 (C48) bench FAIL 08:41; both legs logged "Memory access fault by GPU node-5 ... Reason: DRAM ECC failure / SRAM ECC failure" at 08:39:57-58, then Fatal Python errors.
+- amd-smi metric --ecc on 026: GPU3 (KFD node 5, 0002:00:04.0, a PREFILL GPU) UMC correctable 13,198,148, deferred 2; GPUs 0-2,4-7 all 0. -> x8d A1 (20,230) ran on this GPU too: treat as suspect.
+- Actions (own jobs only): x8d containers stopped (0 left); released 211170 (026); cancelled pending 211594 and resubmitted 211763 with -x crsuse2-m2m-026 (amd-oai, 24 h). 211763: 4 JobLaunchFailure restarts ("gpu/resource allocation mismatch"), now PENDING (Resources), SchedNodeList m2m-147. Watch next poll.
+- x8p (274) A2 and tb56 (085) A2 running, 0 faults.
+
+## 2026-10-13T10:10Z poll
+- SCORED: x8p A2 C48 (prefill expert8, 274) 25,905/chip, qps 1.409, ISL 146,053, TTFT 5.45/17.02 s, TPOT 13.2 ms (A1 25,347).
+- SCORED: tb56 A2 C56 (runshare v2 + HiCache 154 GB, 085) 17,611/chip, qps 1.053, ISL 132,674, TTFT 31.08/98.68 s, TPOT 12.8 ms (A1 17,545). A3 C64 running.
+- x8d2 (206): A1 C48 running since 09:50; decode expert8 incl. draft (312 / 8 lines), decode 3,670,016 / prefill 2,433,088.
+- pc48 (274) died at prefill startup: ValueError "prefill_complete does not yet support attention tensor parallelism greater than one".
+  Cause [code]: parallel_hook.handle_deprecated_dp_attention (runs first) rewrites --dp-size 4 --enable-dp-attention to
+  attn_dp_size=4, dp_size=1, enable_dp_attention=False; _validate_prefill_complete (pd_disaggregation_hook.py:213) still
+  computes cfg.dp_size if cfg.enable_dp_attention else 1 = 1 != tp 4. Upstream main still has the same line (checked via gh 10:0x).
+  Fix: mount pd_disaggregation_hook.yihou-attndp.py (base sha == image ad3a2f7a; one line: use cfg.attn_dp_size) on both legs
+  -> round pc48b launched 10:11; prefill passed validation (no ValueError), HiCache 370 GB host pool allocated.
+
+## 2026-10-13T10:30Z poll
+- pc48b pipeline STOP at audit 10:24 = known false negative of mine: same hook TSV in PREFILL_ and DECODE_MOUNTS_ADD trips the
+  role-only rule (2 FAILs, 93 PASS). Stack healthy (smoke ok). server-info: allocation_policy=prefill_complete on BOTH legs;
+  prefill optimistic_prefill_attempts=1, hicache write_back 370; decode mem 0.96 -> max_total_num_tokens 2,816,896 (0.95: 2,762,176).
+  Continued on the live stack with cont_bench.yihou.sh: A1 C48 started 10:30, then flush -> A2 C48. (Next time: put
+  both-leg mounts in YIHOU_MOUNTS, not *_MOUNTS_ADD.)
+- x8d2 A1 C48 running (since 09:50), tb56 A3 C64 running (since 09:52); no faults.
+
+## 2026-10-13T11:29Z poll
+- x8d2 A1 C48 fresh (decode expert8, 206): 22,511/chip, qps 1.231, ISL 145,265, TTFT 9.95/37.04 s, TPOT 14.3 ms. A2 started 11:16.
+- tb56 A3 C64 still running at 11:29 (A1/A2 took 89-90 min -> due ~11:25); pc48b A1 running. No faults.
+
+## 2026-10-13T11:49Z poll
+- tb56 DONE 11:33. A3 C64 warm: 15,070/chip, qps 0.926, ISL 129,104, TTFT 51.22/135.36 s, TPOT 11.1 ms.
+  tb56 series (runshare v2 0.5 + HiCache 154 GB, q1 config): C56 A1 17,545 / A2 17,611 / C64 A3 15,070 (-14.4 % vs C56 A2).
+  t2f (v0.5.19 cross-node, no patch): C40 19,798 / C56 14,675 / C72 8,763. No same-config no-patch control yet. 085 stack left running, idle.
+- x8d2 A2 and pc48b A1 running; no faults.
+
+## 2026-10-13T12:15Z poll
+- pc48b A1 C48 fresh (prefill_complete + write_back + HiCache 370 + decode 0.96): 18,225/chip, qps 1.040, ISL 139,272, TTFT 17.42/68.59 s, TPOT 15.3 ms. A2 started 11:54.
+- x8d2 A2 running (since 11:16); tb56n up in progress (prefill ok 12:11). No faults.
+
+## 2026-10-13T12:55Z poll
+- SCORED: x8d2 A2 C48 warm (decode expert8, 206): 23,591/chip, qps 1.286, ISL 145,686, TTFT 10.43/33.44 s, TPOT 11.9 ms.
+  Bottleneck pair (C48 warm A2): prefill-only expert8 x8p 25,905 (274) vs decode-only expert8 x8d2 23,591 (206) vs q1 22,306 (137, A3).
+  Different nodes; expert8 changes both KV capacity and MoE compute on that leg.
+- x8d2 A3 C52 started 12:39; pc48b A2 and tb56n A1 running. No faults.
+
+## 2026-10-13T13:35Z poll
+- SCORED: pc48b A2 C48 warm (prefill_complete [+attndp fix] + HiCache 370 write_back + decode 0.96; 274): 20,002/chip, qps 1.112,
+  ISL 142,959, TTFT 16.57/52.70 s, TPOT 12.2 ms (A1 18,225). vs q1 C48 A3 22,306 (-10.3 %). 4 variables changed vs q1; no attribution.
+  274 now idle (pc48b stack left running).
+- x8d2 A3 C52 and tb56n A1 running; no faults.
+
+## 2026-10-13T13:55Z poll
+- tb56n A1 C56 fresh (NO-patch control, 085): 17,791/chip, qps 1.057, ISL 133,693, TTFT 27.76/87.55 s, TPOT 14.9 ms.
+  vs tb56 A1 (runshare v2, same node, same config otherwise) 17,545 / qps 1.038 / TTFT 28.22. A2 C56 started 13:45.
+- x8d2 A3 C52 running; 274 idle (pc48b stack up), awaiting the user choice. No faults.
+
+## 2026-10-13T14:15Z poll
+- x8d2 DONE 14:02. A3 C52 warm: 21,713/chip, qps 1.268, ISL 136,044, TTFT 16.12/52.11 s, TPOT 11.3 ms (C48 A2 23,591; q1 C52 A4 21,418).
+- 206 and 274 idle (stacks up); tb56n A2 C56 running. No faults.
+
+## 2026-10-13T15:15Z
+- SCORED: tb56n A2 C56 warm (NO patch control, 085): 18,016/chip, qps 1.041, ISL 137,357, TTFT 30.09/92.78 s, TPOT 12.5 ms.
+  vs tb56 A2 (runshare v2) 17,611 / qps 1.053 / ISL 132,674 / TTFT 31.08. tb56n A3 C64 started 15:11.
+- Launched (user "跑"): pc48e on 274 (early + write_back + HiCache 370 + decode 0.96, control of pc48b) and x8pc on 206
+  (prefill expert8 with --max-total-tokens 2433088, split of x8p). Dryrun diffs = only the intended deltas. Both C48 A1 -> A2.
+
+## 2026-10-13T16:56Z poll
+- tb56n DONE 16:48. A3 C64 warm (NO patch): 15,108/chip, qps 0.930, ISL 128,977, TTFT 50.84/134.50 s, TPOT 11.5 ms.
+  Track B same-node A/B (085): C56 A2 runshare 17,611 vs none 18,016; C64 A3 runshare 15,070 vs none 15,108.
+- x128p started on 085 16:49 (tb56n stopped cleanly); prefill log shows YIHOU_EXPERTN keep lines.
+- pc48e/x8pc/hc50 A1 running; no faults.
+
+## 2026-10-13T17:16Z poll
+- x8pc A1 C48 fresh (prefill expert8, KV capped 2,433,088; 206): 21,591/chip, qps 1.202, ISL 142,780, TTFT 11.41/38.23 s, TPOT 14.0 ms.
+  vs x8p A1 (uncapped 3,670,016; 274) 25,347 / qps 1.392 / TTFT 5.03. A2 started 16:59.
+- x128p up OK: prefill max_total_num_tokens 3,318,400 (+36 % vs 2,433,088), A1 C48 started 17:16.
+- pc48e A1 and hc50 A1 running; no faults.
+
+## 2026-10-13T17:36Z poll
+- pc48e A1 C48 fresh (early + write_back + HiCache 370 + decode 0.96; 274): 19,313/chip, qps 1.107, ISL 138,615, TTFT 15.18/52.97 s, TPOT 14.9 ms.
+  vs pc48b A1 (prefill_complete, same node/config otherwise) 18,225 / qps 1.040 / TTFT 17.42. A2 started 17:26.
+- x8pc A2, x128p A1, hc50 A1 running; no faults.
+
+## 2026-10-13T17:56Z poll
+- hc50 A1 C40 fresh (e2g + HiCache 50 GB; 136): 17,733/chip, qps 1.044, ISL 134,925, TTFT 9.26/33.71 s, TPOT 14.2 ms.
+  vs e2g A1 C40 fresh (HiCache 450; 102) 19,640 / qps 1.100 / ISL 141,791 / TTFT 7.61. A2 started 17:52. Node + image build differ (136/9872bbda).
+- pc48e A2, x8pc A2, x128p A1 running; no faults.
+
+## 2026-10-13T18:36Z poll
+- SCORED: x8pc A2 C48 warm (prefill expert8, KV capped 2,433,088; 206): 22,489/chip, qps 1.234, ISL 144,759, TTFT 12.28/43.83 s, TPOT 12.4 ms.
+  Split of x8p: uncapped (3,670,016) 25,905 vs capped 22,489 vs q1 (real 256 experts, 2,433,088) 22,306. Nodes differ (274/206/137).
+  206 idle now (x8pc stack up).
+- pc48e A2, hc50 A2, x128p A1 running; no faults.
+
+## 2026-10-13T18:56Z poll
+- SCORED: pc48e A2 C48 warm (EARLY + write_back + HiCache 370 + decode 0.96; 274): 19,158/chip, qps 1.097, ISL 138,769, TTFT 17.79/60.45 s, TPOT 12.1 ms.
+  Same-node A/B (274): prefill_complete pc48b 20,002 vs early pc48e 19,158 (A2); A1 18,225 vs 19,313. Both far below q1 22,306
+  (write_through + 450 + decode 0.95; 137). 274 idle now.
+- x128p A1 C48 fresh (prefill 128 experts, KV 3,318,400; 085): 24,316/chip, qps 1.346, ISL 143,619, TTFT 5.64/16.74 s, TPOT 15.1 ms. A2 started 18:40.
+- hc50 A2 running; no faults.
+
+## 2026-10-13T19:12Z
+- SCORED: hc50 A2 C40 warm (e2g + HiCache 50 GB; 136, image 9872bbda): 20,112/chip, qps 1.119, ISL 142,664, TTFT 8.41/30.92 s, TPOT 11.9 ms.
+  vs e2g A2 (HiCache 450; 102, 9d755dd6) 22,114 / qps 1.181 / ISL 148,711 / TTFT 5.30. -9.1 %. Node/build differ. 136 stack left up.
+
+## 2026-10-13T20:16Z poll
+- SCORED: x128p A2 C48 warm (prefill 128 experts, prefill KV 3,318,400; 085): 25,297/chip, qps 1.387, ISL 145,013, TTFT 6.23/19.47 s, TPOT 13.3 ms.
+  Prefill-KV series at C48 A2: 2,433,088 -> q1 22,306 (256 exp) / x8pc 22,489 (8 exp); 3,318,400 -> x128p 25,297 (128 exp); 3,670,016 -> x8p 25,905 (8 exp).
+- All rounds done. 085/136/206/274/089 idle (stacks up on 085/136/206/274). Awaiting the user for the next experiments.
+
+## 2026-10-14T03:25Z poll — NODE FAILURE 274
+- Job 211171 (crsuse2-m2m-274) ended JobState=NODE_FAIL Reason=NodeDown (EndTime 03:10:51; sacct COMPLETE -1:0). pf88 server logs stop at
+  02:32:36 (16 min into A1 C48) -> pf88 lost, no result. Second node lost this session after 206 (211763, JobHoldMaxRequeue ~01:30).
+- Replacement hold 214829: PENDING JobLaunchFailure ("1 gpu/resource allocation mismatch"), retrying. Plan: rerun pf88 there when it starts.
+- pf90 (089) and pf92 (085) A1 running; no errors.
+
+## 2026-10-14T03:40Z
+- User ~03:30: new round wts48 = q1 config + PREFILL_HICACHE_WRITE_POLICY=write_through_selective (threshold 2 vs 1); keep 4 nodes;
+  fallback 135-139 below llying, not 136. Prepared env.wts48-NODE.template (dryrun vs q1: only the write policy).
+- hc50 stack on 136 stopped (0 containers). 135/137/138 = llying 3p1d; 139 no dockerd (inactive) -> unusable.
+- sbatch failing: "refusing to re-forward an already-forwarded request", then "raft propose failed: ... snapshot not found" (x2).
+  Holding: 085 (pf92), 089 (pf90); 214829 PENDING (QOSGrpNodeLimit / JobLaunchFailure).
+
+## 2026-10-14T03:37Z
+- User "使用136": wts48 (q1 config + write_through_selective) launched on 136 at 03:35 via chain_cap2l on spur006 (image 9872bbda).
+  Launch redirect slip: chain stdout went to /dev/null (wts48.chain.log empty) -> monitor wts48/status.tsv, wts48.pipeline.log, JSONs.
+
+## 2026-10-14T03:55Z poll: pf90 A1 C48 fresh 21,859 (qps 1.219, ISL 142,517, TTFT 9.57/31.32, TPOT 15.7); A2 started 03:52. pf92 A1 running; wts48 prefill ok 03:46. 214829 JobLaunchFailure retries.
+
+## 2026-10-14T04:16Z poll: pf92 A1 C48 fresh 23,003 (qps 1.267, ISL 144,228, TTFT 7.49/23.90, TPOT 15.6); pf92 A2 03:57, pf90 A2 03:52, wts48 A1 03:58 running; no errors.
+
+## 2026-10-14T04:20Z re-plan (user ~04:20: pc64 = pc48b at C64; stop runshare work — none running)
+- No free node (214829 JobLaunchFailure; sbatch raft errors). pf90 (089) and pf92 (085) chain drivers killed (A2 benches keep
+  running, no A3). Handovers armed (after_a2_then.yihou.sh): 089 -> pc64 (config.yihou.pcomplete2.sh = pcomplete + attndp hook via
+  YIHOU_MOUNTS; C64 A1 -> A2), 085 -> pf88b (q1 config 0.88 rerun; C48 A1 -> A2 -> C52 A3). Dryruns: pc64 == pc48b argv; pf88b == q1 argv.
+
+## 2026-10-14T05:11Z poll — 085 LOST
+- Job 211169 (085) ended 05:07:15 JobState=NODE_FAIL Reason=NodeDown, RunTime 1-00:00:24, TimeLimit shown 1-00:00:00
+  (the 36 h extension did not hold; QOS MaxWall 24 h). pf92 A2 lost ~70 min in (logs end 05:07:19); pf88b handover never started.
+- Remaining: 089 (pf90 A2 -> pc64), 136 (wts48). 214829 still JobLaunchFailure. Submitted 2 more oai holds (-x 026,206,274,085).
+
+## 2026-10-14T05:31Z poll
+- SCORED: pf90 A2 C48 (real 256-expert model, q1 config + prefill mem 0.90 -> prefill KV 2,541,376; 089): 23,127/chip, qps 1.276,
+  ISL 143,964, TTFT 9.30/28.76 s, TPOT 13.1 ms, GPU hit 0.860, CPU hit 0.071, err 3. vs q1 A3 C48 22,306 (137; GPU 0.839 CPU 0.088): +3.7 %.
+- pc64 started on 089 (pf90 stopped 05:16). wts48 A1 still finishing. 3 oai holds pending.
+- wts48 (136): login-host driver + bench client terminated 04:47 (agentx-c48-A1.log ends "Terminated", ~50 min into A1; no driver
+  processes left on spur006; cause NOT established). Stack stayed up. Restarted with cont_benchl.yihou.sh (login-host variant): flush ->
+  A2 C48 started 05:31 (the partial A1 serves as warm-up; protocol deviation recorded). Log runs/wts48.cont.log.
+
+## 2026-10-14T05:55Z
+- pc64 (089): pipeline STOP at smoke 05:42 — first smoke request hung 300 s then aborted ("Decode handshake failed ... Aborted by
+  AbortReq"); prefill startup identical to pc48b (warm-up #inflight-req 1). Manual smoke 05:52 OK in 1 s; audit PASS (policy
+  prefill_complete on all DP ranks both legs). Cause of the first-request hang NOT established. Benches continued with cont_bench:
+  A1 C64 -> A2 C64.
+- Cleanup: phase-2 approved after review (293 lines, 0 audit problems, dry-run 292/292 PASS); running.
+
+## 2026-10-14T07:11Z poll
+- SCORED: wts48 A2 C48 (136, q1 config + HiCache write_through_selective; A2 after an interrupted A1 + flush): 21,226/chip, qps 1.169,
+  ISL 144,218, TTFT 13.63/42.03 s, TPOT 12.5 ms, GPU hit 0.868, CPU hit 0.039, err 1. vs q1 A3 (write_through, 137) 22,306 (-4.8 %;
+  GPU 0.839, CPU 0.088). Node + image build (136 9872bbda) differ; protocol deviation (A1 cut at ~50 min). 136 stack left up, idle.
+- pc64 A1 C64 running (089). 3 oai holds pending.
+
+## 2026-10-14T07:35Z
+- wts64 (136, C64 on the live wts48 stack): the 07:16 launch (shown to the user as rejected) DID run: flushed and started bench C64 at
+  ~07:17 (cont_benchl PID 1464883). My 07:22 relaunch then saw decode flush 400 x60 ("pending requests" = the running bench) and exited.
+  One wts64 bench is running; cont_benchl2 (decode-flush tolerant) written but not used.
+- Prefill memory accounting (DP0): avail after weights 158.58 GiB (weights 119.84); KV 0.88/0.90/0.92 = 125.14/130.71/136.28 GiB
+  (2,433,088/2,541,376/2,649,600 tok); post-pool free = 33.18/27.70/22.21 GiB = 278.42 x (1-frac). 089 pc64 (0.88) 4-min VRAM peak:
+  prefill GPUs 274.8 of 287.98 GiB -> ~20 GiB runtime use over the pool, ~13 GiB unused. Full-run sampler running (/runs/pc64/vram.089.tsv).
+
+## 2026-10-14T07:34Z poll
+- pc64 A1 C64 fresh (089, prefill_complete + write_back + HiCache 370 + decode 0.96): 10,480/chip, qps 0.664, ISL 125,286, TTFT 82.77/262.94 s,
+  TPOT 13.9 ms, GPU hit 0.493, CPU hit 0.341, err 2. vs pc48b A1 C48 18,225. A2 C64 started 07:28.
+- 089 VRAM peak (57 samples, 5 s, during pc64 A1 tail + A2 start): prefill GPUs 277.36/276.92/274.89/276.20, decode 285.0 GiB of 287.98.
+- wts64 (136) bench running since 07:17. No errors.
+
+## 2026-10-14T07:5xZ
+- User: abandon the prefill_complete path. pc64 A2 aborted (my first stop attempt self-killed via a pgrep pattern matching its own
+  command line; second attempt: run.v3 stop -> 0 pc64 containers). pc64 A1 C64 10,480 is the only pc64 result.
+- cx90 (089): correctness round = pf90 config with simulated acceptance OFF (dryrun diff = only the 3 SIMULATE envs); chain_cx:
+  up -> census -> smoke -> audit -> correctness_tests.yihou.py (smoke greedy+sampled, needle 8k..256k x 3 depths, 5-fact 100k) -> stop.
+
+## 2026-10-14T08:0xZ
+- User: decode --tokenizer-worker-num 4 on the current best config. Code check (v0.5.21): rejected only with --grpc-port, Elastic EP,
+  (skip_tokenizer_init forces detok=1); detokenizer_worker_num left at 1 (one variable). tw90 = pf90 config + decode tokw 4
+  (config.yihou.tokw.sh; dryrun diff vs pf90 = only the flag). Armed on 089 after cx90 (wait_log_then -> chain_cap2 48 48); same node as pf90.
+
+## 2026-10-14T09:08Z poll — cx90 correctness DONE (089, pf90 config, sim OFF, real EAGLE acceptance)
+- 22/23 PASS: smoke arith/primes/capital greedy+sampled 6/6; needle 8k/32k/64k/128k/256k x d10/50/90 sampled 14/15; 5-fact 100k greedy+sampled 5/5 each.
+- FAIL needle_128k_d10: finish=length, content empty; reasoning_tokens 4101 = max_tokens 4096 exhausted while the reasoning re-quoted the
+  haystack (no answer emitted) -> budget-limited, not a wrong answer. needle_256k_d10 took 470 s (first 256k prefill on a cold cache).
+- Results: /runs/cx90/{correctness.log,results.jsonl}. Stack stopped 09:06; tw90 handover now waiting on 089 VRAM drain.
+- wts64 (136) still running at 09:08 (C64 run longer than 85 min; client log alive). ofs0 handover waiting.
+
+## 2026-10-14T09:28Z poll
+- wts64 (136): AgentX warmup at C64 took 5,354 s (707 requests, 07:17 -> 08:46); profiling 3600 s started 08:46:39 -> result ~09:50.
+  Live srv stats 09:27: prefix_cache_hit 75 %, kv_usage 100 %, cpu_kv_usage 54 %, queue 3r/20w.
+- tw90 (089) started 09:07 (VRAM gate). ofs0 handover still waiting for wts64. No errors.
+
+## 2026-10-14T10:10Z poll
+- SCORED: wts64 (136, write_through_selective, C64, 3rd run on the wts48 stack): 8,681/chip, qps 0.572, ISL 120,479, TTFT 107.15/307.53 s,
+  TPOT 9.2 ms, GPU hit 0.428, CPU hit 0.185, err 3. Warmup alone 5,354 s at C64. vs wts48 A2 C48 21,226; pc64 A1 C64 10,480.
+- tw90 (089) A1 C48 running since 09:40. 136 -> ofs0c handover.
+
+## 2026-10-14T11:0xZ — 136 lost to limou; spur006 hung
+- spur006 stopped answering ~10:50 (spur007 OK, NFS OK). The 136 handover (after_wts64_s0 on spur006) had been stuck since ~09:55 in run.v3
+  stop copy-back. Meanwhile limou started vllm-megamoe-ep4-dspark-c64-limou (~10:37) and vllm-tp4-aiter-dspark-c64-limou on 136 (all 8 GPUs).
+  Not touched. If the spur006 driver resumes, the chain_cxl KFD check stops it.
+- S0 moved to 089 after tw90: env.ofs0c-089 / env.ofs0-089 (base mc4340n4); dryrun diffs vs pf90/cx90 on 089 = only offload mount+flags.
+  Driver after_tw90_s0.yihou.sh ON 089 (log runs/ofs0.handover089.log). pf94 not scheduled.
+
+## 2026-10-14T11:15Z poll: tw90 A1 C48 fresh (089, pf90 + decode tokenizer-worker-num 4): 22,231/chip, qps 1.235, ISL 143,101, TTFT 8.63/29.11, TPOT 15.4, GPU 0.914 CPU 0.035, err 4. vs pf90 A1 (same node) 21,859 (+1.7 %). A2 started 11:11. spur006 still unreachable.
+
+## 2026-10-14T12:55Z poll: SCORED tw90 A2 C48 (089, pf90 + decode tokenizer-worker-num 4): 22,597/chip, qps 1.243, ISL 144,451, TTFT 10.94/34.84, TPOT 12.5, GPU 0.871 CPU 0.056, err 4. vs pf90 A2 same node 23,127 (-2.3 %); A1 22,231 vs 21,859 (+1.7 %) -> no consistent effect. ofs0c started 12:42 on 089.
+
+## 2026-10-14T13:16Z — ofs0c (OffloaderV2 S0 correctness, 089) DONE: 23/23 PASS (cx90 22/23; needle_128k_d10 now answered in 14.9 s).
+- Offload active: 9 FusedMoE modules (index 7,15,...,71) offloaded, w13+w2 per layer 1.10 GiB (memory_allocated step 11,809,982,464 B
+  per layer across... per log), weights 119.84 -> 110.77 GiB/GPU (-9.07), avail after weights 158.58 -> 167.65 GiB.
+- Prefill KV at mem 0.90: 2,541,376 -> 2,717,696 tokens (+176,320 = +6.9 %); post-pool avail 27.63 GiB (pf90 27.70).
+- Only error line = uvicorn shutdown Traceback at stop (13:15). ofs0 perf (C48 A1->A2) started 13:15:57.
+
+## 2026-10-14 15:18 UTC poll
+- ofs0 (089, job 213048): A1 C48 running since 14:02:10Z; 0 Traceback/MAF/ValueError/OOM/HIP error in last 30 MB of prefill-0/decode-0.a1 logs; decode DP1 15:18 token usage 0.47, accept 3.55. A1 ETA ~15:25, A2 ~16:50.
+- oai holds 214829/215368/215369 still PENDING (QOSGrpNodeLimit).
+- spur006: probe hung again; stale after_wts64_s0 driver not touched.
+
+## 2026-10-14 15:35 UTC poll
+- ofs0 A1 C48 finished 15:24:58Z: score 22,380 qps 1.228 ISL 144,840 TTFT 9.19/27.12 TPOT 15.2 gpu-hit 0.931 cpu-hit 0.024 err 2 (vs pf90 A1 21,859, +2.4%). A2 started 15:24:58Z, ETA ~16:50.
+- 0 errors in last 30 MB of ofs0 server logs. oai holds still PENDING. spur006 not probed.
+
+## 2026-10-14 15:55 UTC poll
+- ofs0 A2 C48 running (start 15:24:58Z, ETA ~16:50); 0 errors in last 30 MB of server logs. oai holds still PENDING.
+
+## 2026-10-14 16:15 UTC poll
+- ofs0 A2 C48 still running (ETA ~16:50); 0 errors in server logs. oai holds still PENDING.
+
+## 2026-10-14 16:35 UTC poll
+- ofs0 A2 C48 still running (ETA ~16:50); 0 errors. oai holds still PENDING.
+
+## 2026-10-14 16:55 UTC poll
+- ofs0 A2 C48 DONE 16:47:30Z: score 22,825 qps 1.267 ISL 143,116 TTFT 9.75/30.51 TPOT 12.9 gpu-hit 0.887 cpu-hit 0.049 err 4. vs pf90 A2 23,127: -1.3% (qps -0.7%). A1 was +2.4% vs pf90 A1. 0 server-log errors. Chain DONE, stack left running on 089 (job ends 19:27Z).
+- S0 gate: loss <=2% -> propose 25% offload (G4K1); awaiting user decision.
+
+## 2026-10-14 18:15 UTC poll
+- oai holds STARTED: 214829 m2m-252 (10.245.149.156), 215368 m2m-266 (10.245.157.132), 215369 m2m-288 (10.245.152.60). Verified: ROCR 0-7, 8x MI355X, ECC uncorrectable 0 on all (288: one GPU 8 correctable), no running containers, docker root /mnt/m2m_nobackup (8.6-17 TB free).
+- 18:17Z: started zstd|docker load of 9d755dd6 tar + seed aiter/triton caches from cache/102 into cache/{252,266,288} (logs $N/logs/prep.<n>.yihou.log).
+- 089: idle stack, job ends 19:27Z.
+
+## 2026-10-14 18:35 UTC poll
+- 252/266/288 prep done 18:22Z: docker load rc=0, image ID sha256:9d755dd6a7bf... on all three, SEED_OK, 0 containers. Idle, awaiting user choice of rounds (G4K1 / pf94-93 / pf92 A2).
+- 089 idle, job ends 19:27Z.
+
+## 2026-10-14 19:35 UTC poll
+- 089 job 213048 gone from squeue (time limit 19:27Z). ofs0 stack containers were left running at chain end; their fate after job end not checked (no spur exec possible).
+- 252/266/288 idle, ready, awaiting user choice.
+
+## 2026-10-14 22:15 UTC poll
+- After the 22:00 window: 214829/215368/215369 still RUNNING on 252/266/288 (idle, awaiting user). 089 expired 19:27Z.
+
+## 2026-10-15 01:45 UTC - OffloaderV2 ratio sweep launched (user: raise offload ratio, push conc, check correctness; 3 oai nodes in parallel)
+- New files (harness, nothing existing edited): config.yihou.mc4340n5.sh (n4 + 252/266/288), env.ofg{4,3,2}{,c}-{252,266,288}.yihou.sh, ofs_seq.yihou.sh (chain_cx correctness -> chain_cap2 C1 C2 C3).
+- K=1 everywhere (offloaded modules are index % G >= G-K; K>1 puts offloaded layers back to back with prefetch_step 1, so ratio is raised via G).
+- 252 job 214829: ofg4c -> ofg4  G4K1 (1/4), C48/C48/C56.
+- 266 job 215368: ofg3c -> ofg3  G3K1 (1/3), C48/C48/C56.
+- 288 job 215369: ofg2c -> ofg2  G2K1 (1/2), C48/C48/C56.
+- Dryrun tokdiff vs ofs0-089 / ofs0c-089: only node paths/IP and --offload-group-size 8->4/3/2. Host RAM 2751 GiB each, 0 KFD, 0 containers at launch. Logs runs/ofg*.seq.log, runs/ofg*c.chain.log, runs/ofg*.chain.log.
+
+## 2026-10-15 01:52 UTC poll
+- ofg4c/ofg3c/ofg2c: stacks loading (waiting for prefill HTTP, 300 s). Offloaded MoE modules per prefill rank (DP0 TP0): G4 19, G3 26, G2 39 (ofs0 G8: 9). 0 errors in prefill logs. Load-weight-end / KV not logged yet.
+
+## 2026-10-15 02:12 UTC poll
+- Prefill per rank: G4 weights 99.40 GB, KV 2,938,752, avail 27.72 GB | G3 91.50 GB, KV 3,092,288, avail 27.70 | G2 76.78 GB, KV 3,378,496, avail 27.79 (pf90 2,541,376; ofs0 G8 2,717,696). 0 errors.
+- ofg3c smoke ok 02:09:29, correctness tests running; ofg2c smoke ok 02:11:16, tests running; ofg4c prefill HTTP still not up at 1502 s (02:11).
+
+## 2026-10-15 user: free node 136 for colleague Huang Zhen
+- Checked 136 (via spur007 ssh): no yihou containers (present: sikl_xb, dev_xb, crusoe-* agents - not ours, untouched), no yihou processes, 0 KFD GPU processes. Login hosts spur005/006/007: no yihou driver targeting 136. spur006 reachable again; stale after_wts64_s0 driver no longer present (nothing killed). Nothing to release.
+
+## 2026-10-15 02:35 UTC poll
+- ofg3c DONE 02:14:40: 23/23 PASS. ofg2c DONE 02:20:23: 23/23 PASS (same test list as ofs0c 23/23; cx90 22/23 with needle_128k_d10 FAIL). ofg3 perf chain started 02:14:40, ofg2 02:20:23 (C48/C48/C56).
+- ofg4c (252) ANOMALY: prefill Engine startup scheduler_e2e=2063.85 s (ofg3c 894, ofg2c 685), load_weight 389 s; Uvicorn up 02:21:23, "Start of pd disaggregation warmup" 02:21:24 with no "End of disaggregation warmup" by 02:31 (ofg3c: warmup completed in 60 s). /health 503 since; waiting-for-HTTP at 2734 s. rocm-smi GPU use 0% on GPU0-4. 0 Traceback/MAF/ValueError/OOM/HIP error. Only prefill + etcd containers up (decode not started). Not touched; asked user.
+
+## 2026-10-15 02:45 UTC user: request a new node, release 266 to admins
+- Submitted oai hold 217052 (HOLD_SECONDS=86400, -t 24h; first submit 217051 cancelled because it lacked HOLD_SECONDS) -> PENDING (QOSGrpNodeLimit).
+- 266 NOT released yet: it runs the healthy ofg3 (G3K1) perf chain; the stuck round is ofg4c on 252. Asked user to confirm which node to release.
+
+## 2026-10-15 02:50-03:10 UTC
+- 266 released per user ("管理员指定266"): killed ofg3 driver PIDs 650/4319/4320/4328 by number, run.v3 stop (rc=1 "cleanup completed with errors", but 0 containers running, 0 KFD), docker rm of our 7 named exited containers (ofg3-*, ofg3c-*), scancel 215368. ofg3 perf ABORTED in bring-up.
+- 252 ofg4c: NOT restarted - before acting, found the PD warm-up had completed on its own at 02:42:09 (20 min 45 s; ofg3c 60 s) and decode was coming up; evidence copied to runs/ofg4c.hang1/. ofg4c smoke/audit PASS, correctness tests started 02:57:09.
+- ofg2 (288): A1 C48 started 02:57:20.
+- Replacement hold 217052 PENDING (QOSGrpNodeLimit). Job 217099 (yihou-dsp-burst2, amd-primus/burst) is NOT from this session; untouched.
+- Packups (copy-only builders in $N): glm52.v0521-offloaderv2.packup_20261015 (16M, 339 files) and glm52.v0521-c48-followups.packup_20261015 (16M, 268 files) under ~/dev/git/infera.glm52.pd/yihou; no file >4MB, secret grep clean, SHA256SUMS ok. CONCLUSIONS index row "(not yet packed)" replaced by the two packups.
+
+## 2026-10-15 03:14 UTC poll
+- ofg4c (252, G4K1) DONE 03:08:16: 22/23. FAIL needle_128k_d50 (sampled): finish=length, content empty, reasoning_tokens 4098 vs max_tokens 4096, reasoning re-quoting the haystack (same pattern as cx90 needle_128k_d10). The 1 Traceback in prefill-0.log is at 03:07:06 during stop (SIGTERM -> lifespan CancelledError), not during tests.
+- ofg4 perf chain started 03:08:16 (C48/C48/C56). ofg2 A1 C48 running since 02:57:20. 0 errors otherwise. 217052 PENDING.
+
+## 2026-10-15 ~03:40 UTC - new partition (user: "spur新加了amd之外的新的partition…申请两个burst节点")
+- New partition amd-spur-v2: 28 nodes crsuse2-m2m-v3-*, 8x MI355X each (gres gpu:mi355x:1 x8; --gres=gpu:8 accepted), 236 CPUs, ~2.8 TB RAM, MaxTime 3 d, PreemptMode=CANCEL, AllowAccounts same as amd-spur (incl. amd-burst/amd-oai), AllowQos=ALL. At ~03:39: 22 alloc, 6 mix, 0 idle. Also amd-di (amd-di only) and amd-aifw-sglang (amd-aifw-sglang only) - not usable by yihou.
+- Submitted 217125, 217126: HOLD_SECONDS=86400 sbatch --export=ALL -A amd-burst -p amd-spur-v2 -q amd-burst-qos -N1 --gres=gpu:8 -c 160 -t 24:00:00 -J yihou-newpart-burst ~/spur-hold/hold_node.sh -> PENDING (Resources). amd-burst-qos MaxSubmitPU=4.
+
+## 2026-10-15 04:34 UTC poll
+- ofg2 A1 C48 (288, G2K1 1/2, KV 3,378,496) DONE 04:23:45: 21,157/chip, qps 1.171, ISL 143,593, TTFT 12.32/29.13, TPOT 14.5, GPU hit 0.960, CPU hit 0.003, err 1. vs pf90 A1 21,859 (-3.2%), ofs0 A1 22,380 (-5.5%) (both 089; cross-node). A2 started 04:23:45.
+- ofg4 A1 C48 running since 03:39. 0 errors. Holds 217052/217125/217126 PENDING; 217187 yihou-dsp-ws not ours.
+
+## 2026-10-15 04:4x UTC - user: cancel pending oai job -> scancel 217052 (yihou-oai-hold, amd-oai). Other pending jobs untouched.
+
+## 2026-10-15 ~04:50 UTC - user: no further oai node requests (pending oai 217052 already cancelled). Running: 214829 (252), 215369 (288). Burst 217125/217126 on amd-spur-v2 still pending (kept; requested earlier by user).
+
+## 2026-10-15 05:00 UTC - user: stop experiments, release oai nodes (TL gave nodes to another team)
+- 252: killed ofg4 driver PIDs 765/6938/11717/12037 by number, run.v3 stop (rc=1 "cleanup completed with errors"; 0 containers running, 0 KFD), docker rm of our 9 exited containers (glm52-v0521-yihou-252-ofg4*-). ofg4 A1 C48 ABORTED ~76 min into 3600 s bench (no JSON).
+- 288: killed PIDs 660/10323/10326, run.v3 stop (rc=1, 0 running, 0 KFD), docker rm of our 10 exited containers. ofg2 A2 C48 ABORTED ~31 min in (no JSON). ofg2 A1 21,157 is the only ofg2 score.
+- scancel 214829 215369 -> gone from squeue. Remaining: burst 217125/217126 PENDING (amd-spur-v2), 217187 not ours.
+- User: use burst nodes if they start. Node 136 check: containers sikl_xb (created 10-15 02:12, mounts /home/xiaobche/SIKL) and dev_xb (created 09-29) - owner xiaobche by mount path; logged in: limou102 (since 10-15 02:44), jiejizha (since 09-04); 0 KFD, GPU use 0% on all 8.
+
+## 2026-10-15 05:19 UTC - user: "用136继续"
+- 136 pre-check: our image sha256:9872bbda present; VRAM 284 MiB used per GPU, 0 KFD, GPU use 0%; host RAM 2702 GiB available; /mnt/m2m_nobackup 7.4 TB free. Foreign containers sikl_xb/dev_xb (xiaobche) left untouched.
+- New: env.ofg4b-136 / env.ofg2b-136 (from env.ofs0-136, OFF_G 4/2), ofs_seq136l.yihou.sh (login-host sequencer: chain_cap2l per round -> run.v3 stop -> wait 0 KFD). Dryrun tokdiff vs ofs0-136: only --offload-group-size 8 -> 4/2.
+- Launched on spur007 05:19:40 (setsid): ofg4b 48 48 56 then ofg2b 48 48 56. Log runs/ofs136.seq.log, runs/ofg4b.chain.log; server logs node-local on 136.
+
+## 2026-10-15 05:45 UTC poll
+- 136 ofg4b: prefill up 05:33:55, decode coming up; server logs /mnt/m2m_nobackup/yihou_v0521dbg/runs/ofg4b/server-logs (node-local). rocm-smi --showpids on 136 lists PID 17976 gpuagent (crusoe exporter, 0 VRAM) - ofs_seq136l kfd gate counts it; watch at the ofg4b->ofg2b handover.
+- Burst holds STARTED: 217125 crsuse2-m2m-v3-020 (10.245.150.105), 217126 crsuse2-m2m-v3-026 (10.245.152.176). Both: ROCR 0-7, 8 GPUs, ECC 0/0, RAM 2.7 TB, docker root /mnt/m2m_nobackup (27 TB free), no infera image.
+  - v3-020: 8 running containers glm52x_*_chuschen (lmsysorg/sglang-rocm:v0.5.20-rocm720, created 04:02, mount /shared_nfs/chuschen/agent-kernel-arena), 0 KFD, GPU0 1.8 GB used.
+  - v3-026: guanchen container crusoe-sgl-q36 (sleep infinity, created 10-14 05:11), 2 KFD PIDs (0 VRAM).
+  Foreign containers not touched; no image load yet; asked user.
+
+## 2026-10-15 06:15 UTC
+- 136: ofs_seq136l KFD gate always sees crusoe gpuagent PID 17976 -> would never hand over to ofg2b. Killed only the sequencer parent PID 1843976 (chain_cap2l 1844010 for ofg4b keeps running); started after_ofg4b136l.yihou.sh on spur007 (VRAM<1GiB gate; log runs/ofs136.after.log). ofg4b A1 C48 bench since 05:47:15; prefill 19 offloaded, KV 2,938,752, avail 27.81 GB; 0 errors.
+
+## 2026-10-15 07:13 UTC: ofg4b A1 C48 (136, G4K1) DONE 07:07:29; A2 started 07:07:29.
+
+## 2026-10-15 07:15-07:23 UTC - burst nodes (user: "burst节点你自己规划就好，持有节点以后杀死所有block我们的GPU非系统supervisor进程")
+- docker stop (not rm) of foreign GPU containers: v3-020 chuschen glm52x_*_chuschen (5 running at stop time, sglang-rocm v0.5.20 kernel tests); v3-026 guanchen crusoe-sgl-q36 (sleep infinity, 2 KFD PIDs). After: 0 containers, 0 KFD, ~284 MiB VRAM/GPU. No crusoe system agents run on these v3 nodes.
+- prep_node.yihou.sh (new, $N): docker load 9d755dd6 rc=0 on both, image ID sha256:9d755dd6...; cache key 020 seeded from 102; key 026 already seeded (old node m2m-026, same image). NODE_KEY collision note: v3-026 -> key 026 (reuses cache/026, rewrites topology.yihou.026.tsv via base config).
+- New: config.yihou.mc4340n6.sh (n5 + v3-020/v3-026), env.ofg3b-v3020 (G3K1, rerun of aborted ofg3), env.pf90b-v3026 (pf90, no offload, same-partition reference). Dryrun tokdiff vs ofg3-266 / pf90-089: only IP and node paths.
+- Launched 07:22 on-node chain_cap2 48 48 56: ofg3b (v3-020, job 217125), pf90b (v3-026, job 217126).
+- 136: ofg4b A1 C48 = 22,506 (07:07); A2 running.
+
+## 2026-10-15 07:45 UTC poll
+- ofg3b (v3-020): prefill up 07:41:35; 26 offloaded/rank, weights 91.50 GB, KV 3,092,288, avail 27.70 GB (= ofg3c on 266). pf90b (v3-026): weights 119.84 GB, KV 2,541,376, avail 27.70 GB (= pf90 089), HiCache allocating. ofg4b (136) A2 C48 running since 07:07. 0 errors in all server logs.
+
+## 2026-10-15 07:50 UTC - user: "没必要…我们是要测offload在高conc下能不能拿到更多的吞吐，baseline早就有了"
+- pf90b (v3-026) STOPPED in bring-up (killed PIDs 959/968/970/977, run.v3 stop rc=1, 0 containers, 0 KFD). No pf90b result.
+- v3-026 -> ofg2h: G2K1 at C56 (A1 fresh) / C56 (A2 scored) / C64 (A3), env.ofg2h-v3026 (tokdiff vs ofg2-288: engine argv identical; only CONC differs). Launched 07:50:49.
+- 136 follow-up changed: killed waiter after_ofg4b136l (PID 2003006, was waiting); started after_ofg4b136l2 -> after ofg4b: ofg4h = G4K1 at C56/C56/C64 (env.ofg4h-136; argv identical to ofg4b). ofg2b on 136 dropped (G2 high conc runs on v3-026).
+- v3-020 ofg3b unchanged (C48/C48/C56).
+
+## 2026-10-15 08:41 UTC poll
+- ofg4b (136, G4K1) A2 C48 DONE 08:28:55: 23,771/chip, qps 1.307, ISL 144,584, TTFT 9.71/28.77, TPOT 12.1, GPU hit 0.925, CPU hit 0.018, err 3. vs pf90 A2 23,127 (089, +2.8%), ofs0 A2 22,825 (089). A3 C56 started 08:28:56.
+- ofg2h (v3-026) FAILED in bring-up: prefill PD warm-up started 07:57:04, no end; 08:27:05 "Initialization failed. warmup error ... asyncio.TimeoutError" (_send_disaggregation_warmup_requests) -> prefill exited, decode never started. load_weight 85 s, scheduler_e2e 272 s. Evidence copied to runs/ofg2h.fail1/. Stopped (killed PIDs 2446/2455/2456/2464, run.v3 stop rc=1, 0 KFD).
+- Relaunched as ofg2h2 (same argv; tokdiff empty) at 08:43:05, chain_cap2 56 56 64, plus warmup_pyspy.yihou.sh (new): if warm-up not ended within 300 s, two py-spy dumps of all python procs in the prefill container -> runs/ofg2h2/pyspy/. (A first relaunch attempt as ofg2h stopped at up: exited containers with that prefix exist.)
+- ofg3b (v3-020) A1 C48 running since 07:59. 0 errors.
+
+## 2026-10-15 ~08:55 UTC - RULE (user): all rounds from now: decode --tokenizer-worker-num 4 --detokenizer-worker-num 4 ("decode侧cpu解码都是用4个worker"; clarified: tokenizer 4 + detokenizer 4; running chains ofg4b/ofg3b/ofg2h2 finish as-is, new rounds get it).
+- New overlay config.yihou.tokw2.sh (chain TOKW2_BASE_CONFIG; v0.5.21 forces detok=1 only with --skip-tokenizer-init, not used). Verified by dryrun: decode argv gains exactly those 2 flags.
+- env.ofg4h-136 (queued on 136 after ofg4b, not started) switched to tokw2; tokdiff vs ofg4b-136 = the 2 decode flags only.
+
+## 2026-10-15 09:20 UTC - ofg2h2 failure, root cause (first-hand) and fix
+- ofg2h2 (v3-026) PD warm-up started 08:52:37 and hung. py-spy (runs/ofg2h2/pyspy/dump3.sched.091626.txt): DP1/DP2/DP3 schedulers blocked in aiter file_baton.wait <- mp_lock <- build_module (forward_hip layernorm, dsa_indexer _get_k_bf16) on /aiter-jit/build/lock_module_norm; DP0 in an idle forward (flydsl gemm compile). The lock file was dated 07:47:27, content "1417 / crsuse2-m2m-v3-026" = left by the pf90b prefill that was killed in bring-up ~07:48.
+- Cache key 026 (inherited from old node m2m-026, marked SEED_SKIP at prep) had only 4 aiter .so in prefill vs 16 in cache/102,020,252,288,089 -> modules were being JIT-built during warm-up (also the likely reason ofg2h warm-up exceeded 30 min - not verified).
+- Removed the single stale lock file (named path in our cache) at 09:17:02 -> DP1 raised ModuleNotFoundError: module_norm (build never completed) -> prefill exited. Stopped ofg2h2 (killed chain/pipeline/run.v3/watcher by PID pattern of our harness scripts, run.v3 stop, 0 KFD).
+- Re-seeded cache/026 from cache/102 with cp -an (no clobber): prefill .so 16 (set identical to 102), decode 14 (= 102), triton merged. No locks left.
+- Relaunched as ofg2h3 at 09:19:55 (G2K1, C56/C56/C64, + decode tokenizer 4 + detokenizer 4 per the new rule; tokdiff vs ofg2h2 = those 2 flags only) with warmup_pyspy watcher.
+- Lesson: never mark a reused cache key as seeded without counting .so vs cache/102; killing a stack during JIT build can leave an aiter lock that blocks the next run.
+
+## 2026-10-15 09:46 UTC poll
+- ofg3b A1 C48 (v3-020, G3K1, KV 3,092,288) DONE 09:27:10: 22,484/chip, qps 1.237, ISL 144,488, TTFT 9.27/23.86, TPOT 15.0, GPU hit 0.954, CPU hit 0.008, err 2. A2 C48 started 09:27:10. (A1 pf90 21,859 / ofs0 22,380 on 089, ofg4b 22,506 on 136, ofg2 21,157 on 288; all cross-node, no tokw2).
+- ofg2h3 (v3-026, G2K1 + tokw2): prefill weight load 249.6 s, PD warm-up 61 s (09:28:21 -> 09:29:21) after cache re-seed; prefill ok 09:29:38. 0 errors.
+- ofg4b A3 C56 (136) running since 08:28:56.
+
+## 2026-10-15 10:16-10:45 UTC
+- ofg4b A3 C56 (136, G4K1, no tokw2) DONE 09:53:45: 21,744/chip, qps 1.238, ISL 139,513, TTFT 20.04/51.99, TPOT 12.4, GPU hit 0.857, CPU hit 0.067, err 0. The only C56 no-offload refs (tb56n 18,016 / tb56 17,611, 085) used PREFILL_HICACHE_RATIO=1.5 (~154 GB, not 450 GB) and prefill mem 0.88 -> NOT a like-for-like baseline.
+- ofg2h3 (v3-026) A1 bench FAIL 09:46:48 rc=2 in client setup: uv "Python installation is missing a _sysconfigdata_ file", client-home missing - client caches under reused key cache/026. Moved cache/026/{agentx,uv-python,client-home,client-pycache} aside to *.bad1-20261015 (mv, nothing deleted); moved failed out dir to agentx-c56-A1.fail1. Continued on the LIVE fresh stack via cont2_v3026.yihou.sh (cont_bench 56 56, then cont_bench - 64 -> out agentx-c64-A2); A1 C56 started 10:31:29, client install OK.
+- 136: after_ofg4b136l2 was stuck 50 min inside "run.v3 stop" (ofg4b) in its sync_back copy of node-local logs over ssh; containers already gone, VRAM 284 MiB. Killed only run.v3 stop PID 3035584 -> driver proceeded: ofg4h (G4K1 + tokw2) 56 56 64 started 10:44:09. ofg4b server logs remain node-local on 136 (/mnt/m2m_nobackup/yihou_v0521dbg/runs/ofg4b).
+- ofg3b (v3-020) A2 C48 running since 09:27. spur007 slow (60 s timeouts); spur005 OK.
+
+## 2026-10-15 10:49 UTC: ofg3b A2 C48 (v3-020, G3K1, no tokw2) DONE: 23,200/chip, qps 1.250, ISL 147,540, TTFT 10.78/29.35, TPOT 12.0, GPU hit 0.936, CPU hit 0.010. A3 C56 next. Packup builder packup_copy_highconc.yihou.sh started on spur005 (log $N/logs/packup_highconc.yihou.log).
+
+## 2026-10-15 ~11:40 UTC - packup glm52.v0521-offloaderv2-highconc.packup_20261015 (31M, 472 files, no file >4MB, secret scan clean, SHA256SUMS ok); CONCLUSIONS index row added. ofg4h2 relaunched on 136 from spur005 11:24 (driver run136_ofg4h2, VRAM gate; old spur007 driver had vanished after ofg4h prefill up 10:54).
+
+## 2026-10-15 11:46 UTC poll
+- Burst holds 217125 (v3-020) and 217126 (v3-026) CANCELLED at 11:35:12-13 (sacct State=CANCELLED, ExitCode -1:0; not cancelled by this session; amd-burst-qos PreemptMode=CANCEL). Bench logs stop with "Terminated" at 11:35: ofg3b A3 C56 (started 10:57:57) and ofg2h3 A1 C56 (started 10:31:29) LOST, no JSON. Our docker containers on v3-020/v3-026 may still be running - nodes not reachable without a job.
+- 136: ofg4h2 driver still in VRAM gate. 11:4x VRAM per GPU: GPU0 8.6 GB, GPU1 8.7, GPU2 282.0, GPU3 281.9, GPU4-6 0.6, GPU7 1.7 GB; rocm-smi --showpids lists none; no new containers (sikl_xb/dev_xb + crusoe agents). At 11:23 GPU0-3 were 176-285 GB. Values change between samples; owner not identified.
+
+## 2026-10-15 12:14 UTC poll: 136 VRAM drained by 11:49:57 (max 284 MiB) -> ofg4h2 (G4K1 + tok4/detok4) chain_cap2l 56 56 64 started; router ok 12:12:35, A1 C56 next. No yihou-* jobs of ours in squeue.
+
+## 2026-10-15 13:03 UTC - ofg4h2 (136) STOP at census
+- Stack was up (bothlegs 12:12:30, router 12:12:35). pipeline stage census hung 50 min on login host spur005: run.v3 census -> sync_back (ssh tar | base64 into a bash variable, then base64 -d | tar -x into $R/ofg4h2) ; the bash process sat in D state, wchan mem_cgroup_handle_over_high (login-host memory cgroup throttling); $R/ofg4h2/server-logs stayed empty (node-side decode-0.a1.log 22.9 MB, prefill 0.27 MB).
+- Killed the census PIDs (237518/786177) at 13:02 -> pipeline: STOP at census (scheduler rank PIDs overlap/not found - census output missing). chain stops; run136 driver then runs run.v3 stop (600 s cap).
+- Same mechanism as the 50-min ofg4b stop hang on spur007 (sync_back). No A1 C56 result.

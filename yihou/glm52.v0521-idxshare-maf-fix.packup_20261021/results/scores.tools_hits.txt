@@ -1,0 +1,11 @@
+# tools_hits.yihou.py read-out, run 2026-10-21 ~02:00Z on spur006:
+#   cd /shared_nfs/yihou_glm52/v0521dbg_20261010/runs && python3 -B /shared_nfs/yihou_glm52/v0521cap2_20261013/tools_hits.yihou.py "<label>=<round>/agentx-c56-<A>/agentx_conc56.json" ...
+# score = request_metrics.throughput.per_gpu.total_tput_tps (tok/s/chip); err = client-side request errors (not engine faults).
+idxf1a-A1        score   20530 qps 1.192 ISL  136797 TTFT 23.11/69.51 TPOT 12.2 gpu 0.900 cpu 0.035 err 0
+idxf1a-A2        score   21814 qps 1.252 ISL  138462 TTFT 20.19/58.30 TPOT 12.7 gpu 0.846 cpu 0.078 err 3
+g4n3-A1          score   20331 qps 1.196 ISL  135047 TTFT 20.50/60.21 TPOT 15.1 gpu 0.895 cpu 0.036 err 3
+g4n3-A2          score   22045 qps 1.264 ISL  138583 TTFT 19.67/60.83 TPOT 12.8 gpu 0.854 cpu 0.070 err 4
+g4n3b-A1         score   19933 qps 1.179 ISL  134241 TTFT 21.52/68.02 TPOT 15.2 gpu 0.898 cpu 0.035 err 2
+g4n3b-A2         score   21044 qps 1.226 ISL  136363 TTFT 20.93/54.52 TPOT 12.1 gpu 0.832 cpu 0.080 err 1
+g4n1-A1          score   21671 qps 1.221 ISL  140983 TTFT 21.25/59.21 TPOT 12.3 gpu 0.902 cpu 0.035 err 2
+dbge6a-A1        score   21189 qps 1.206 ISL  139548 TTFT 21.99/74.74 TPOT 12.7 gpu 0.901 cpu 0.035 err 3

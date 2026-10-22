@@ -1,0 +1,16 @@
+== sha256 image vs .orig vs mounted
+c52ea126fb283612d8692846649de4374786f6659eb4da8c8044737473423337  /shared_nfs/yihou_glm52/v0521cap_20261012/src/image-9d755dd6/sglang/srt/models/deepseek_v2.py
+c52ea126fb283612d8692846649de4374786f6659eb4da8c8044737473423337  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/models/deepseek_v2.py.orig
+29a731bf500b9d9ec15524f98e3a4d8e9c824f432031dada1e4377f7df2d456f  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/models/deepseek_v2.py
+d99ac646233af81ef73cd6834f2d80abf7d48f2a8570cddc03239db087d1becc  /shared_nfs/yihou_glm52/v0521cap_20261012/src/image-9d755dd6/sglang/srt/model_loader/loader.py
+d99ac646233af81ef73cd6834f2d80abf7d48f2a8570cddc03239db087d1becc  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/model_loader/loader.py.orig
+b3843751911c59eaa43f8f8b7163e24360203dad659ba7d78ebe04d0df7a7c07  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/model_loader/loader.py
+3f9d2d57bb11b26d4b24acc577ba1345ea9f3bdbb38d002d3d506346ed487b79  /shared_nfs/yihou_glm52/v0521cap_20261012/src/image-9d755dd6/sglang/srt/layers/moe/topk.py
+3f9d2d57bb11b26d4b24acc577ba1345ea9f3bdbb38d002d3d506346ed487b79  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/layers/moe/topk.py.orig
+f0a8519aa21142e48194d0282254ba3144cf2ede75614f03d37f88aaaf9ab303  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/layers/moe/topk.py
+0c8d6796b0955fe6b8f1211afc690b3396f873b737c47737acdad65b44507acc  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/tree/python/sglang/srt/models/yihou_expert8.py
+9f5c5f6d9b59759a8c568e01ce25e4cd37e799cb28ce3eb21f5943805cc505f6  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expertn/yihou_expertn.py
+6f6e5294c0a6ce957bbdbe4844a586c8026cdabdba8c24718eb8ce4094bb7c3f  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expertn/loader.yihou-expertn.py
+7b002084af813225e83f92c2145afe8b2d780cfa14ef8a9328257b0d3bab347e  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expert8/config.expert8.json
+4e2fc0455262727b0bf998480f7a925ab612d1076f6b9c3e78a65397ed2e000e  /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expertn/config.expert128.json
+8b46225f7afd7181735c2dd97b925bcb70dfebb72b1a105d4ac0be7583a5c726  /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4/config.json

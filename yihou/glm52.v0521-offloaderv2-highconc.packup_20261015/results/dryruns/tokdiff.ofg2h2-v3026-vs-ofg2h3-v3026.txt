@@ -1,0 +1,6 @@
+=== prefill: < dryrun.ofg2h2-v3026.yihou.txt   > dryrun.ofg2h3-v3026.yihou.txt
+=== decode: < dryrun.ofg2h2-v3026.yihou.txt   > dryrun.ofg2h3-v3026.yihou.txt
+> --tokenizer-worker-num
+> 4
+> --detokenizer-worker-num
+> 4

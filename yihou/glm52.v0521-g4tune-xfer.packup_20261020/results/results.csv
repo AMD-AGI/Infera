@@ -1,0 +1,15 @@
+round,variable,node,pool_job,bench,status,score_tok_s_chip,qps,isl_mean,ttft_mean_s,ttft_p95_s,tpot_ms,gpu_hit,cpu_hit,err,prefill_transfer_kv_p50_s,prefill_transfer_kv_p90_s,prefill_transfer_kv_avg_s,kv_transfer_latency_p50_ms,kv_speed_p50_gb_s,kv_total_mb_avg,prefill_forward_p50_s,prefill_forward_avg_s,prefill_queue_avg_s,prefill_queue_p90_s,decode_transferred_p50_s,decode_transferred_p90_s,decode_alloc_p90_ms
+g4xb5,SHARD=dest (R1 baseline),crsuse2-m2m-250,OAI 225298,A1,ok,20606,1.212,135094,17.95,57.35,17.0,0.903,0.038,2,5.349,18.991,8.036,5366.189,1.059,7244.5,2.403,3.980,9.429,23.643,12.037,44.555,1.333
+g4xb5,SHARD=dest (R1 baseline),crsuse2-m2m-250,OAI 225298,A2,SCORED,21262,1.223,138105,20.59,61.90,13.3,0.851,0.073,2,7.312,21.758,9.977,8348.832,0.862,7729.5,2.577,4.178,9.636,26.378,15.166,51.304,573.577
+g4xm3,SHARD=mix (R2),crsuse2-m2m-v3-017,burst v2 225364,A1,ok,21769,1.314,131591,14.16,52.28,17.9,0.893,0.044,2,1.865,4.029,2.144,1867.772,2.974,7087.8,2.862,4.521,10.656,30.602,7.257,41.885,1.121
+g4xm3,SHARD=mix (R2),crsuse2-m2m-v3-017,burst v2 225364,A2,SCORED,22495,1.329,134476,15.88,58.43,14.4,0.839,0.084,3,1.958,4.123,2.220,1964.992,2.936,7521.1,3.198,4.824,11.757,32.201,8.312,44.643,400.666
+g4xm4,SHARD=mix (R2 same node as R1),crsuse2-m2m-250,OAI 225298,A1,no JSON (wrapper died on EDQUOT; aiperf CSV only),,,,,,,,,,1.828,3.882,2.073,1823.946,2.935,7107.1,2.880,4.441,10.158,28.252,7.476,38.099,1.171
+g4xm4,SHARD=mix (R2 same node as R1),crsuse2-m2m-250,OAI 225298,A2,SCORED,22854,1.372,132321,14.83,49.37,15.0,0.857,0.065,5,1.894,4.011,2.156,1881.019,3.092,7410.7,3.082,4.618,10.319,26.443,7.956,37.213,1.202
+g4xc1,PREFILL_CHUNK_SIZE=65536 (R3),crsuse2-m2m-097,OAI 225299,A1,stopped in warm-up (~3m15s per 16384-tok/DP prefill step),,,,,,,,,,,,,,,,,,,,,,
+g4xc2,PREFILL_CHUNK_SIZE=65536 (R3b),crsuse2-m2m-250,OAI 225298,A1+A2,IN PROGRESS (started 2026-10-20T01:27:27Z),,,,,,,,,,,,,,,,,,,,,,
+g4xb1,SHARD=dest,crsuse2-m2m-v3-021,burst 225102,-,lost: preempted in bring-up,,,,,,,,,,,,,,,,,,,,,,
+g4xb2,SHARD=dest,crsuse2-m2m-v3-021,burst 225141,A1,lost: preempted in A1 warm-up,,,,,,,,,,,,,,,,,,,,,,
+g4xb3,SHARD=dest,crsuse2-m2m-v3-021,burst 225205,A1,lost: job ended 7 min into A1,,,,,,,,,,,,,,,,,,,,,,
+g4xb4,SHARD=dest,crsuse2-m2m-v3-032,burst 225312,A1,lost: cancelled ~66 min into A1,,,,,,,,,,,,,,,,,,,,,,
+g4xm1,SHARD=mix,crsuse2-m2m-v3-032,burst 225242,-,lost: cancelled in bring-up,,,,,,,,,,,,,,,,,,,,,,
+g4xm2,SHARD=mix,crsuse2-m2m-v3-021,burst 225265,A1,lost: cancelled ~22 min into A1,,,,,,,,,,,,,,,,,,,,,,

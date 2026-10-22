@@ -1,0 +1,12 @@
+2026-10-15T09:19:55Z	start	exp=E2+mc4340+tokw4detok4+offload-g2k1s1 round=ofg2h3 image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.offload.sh
+2026-10-15T09:19:55Z	ports-all	ok:33 ports <30000 and free
+2026-10-15T09:20:55Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-15T09:20:56Z	etcd	ok
+2026-10-15T09:29:38Z	prefill	ok:27x20s
+2026-10-15T09:46:27Z	decode-a1	ok
+2026-10-15T09:46:27Z	bothlegs	ok
+2026-10-15T09:46:32Z	router	ok
+2026-10-15T09:46:36Z	smoke	ok
+2026-10-15T09:46:36Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg2h3/agentx-c56-A1
+2026-10-15T09:46:48Z	bench	FAIL rc=2 (see /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg2h3/agentx-c56-A1.log)
+2026-10-15T10:31:29Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ofg2h3/agentx-c56-A1

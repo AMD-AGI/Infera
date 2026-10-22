@@ -1,0 +1,2 @@
+2026-10-20T12:17:06.697080848Z [2026-10-20 12:17:06 DP3 TP3] YIHOU-SKGUARD-EAGER BAD fast_topk_transform_fused|eager|dsa_topk_backend.py:topk_transform:204<dsa_indexer_metadata.py:topk_transform:158<dsa_indexer.py:_forward_cuda_k_only:1942<dsa_indexer.py:forward_cuda:2114 score=(2, 2048) lengths=(2,) width=2048 max_len=19238 min_len=1 nbad=1 row_starts=None
+2026-10-20T12:17:07.228894624Z [2026-10-20 12:17:07 DP3 TP3] YIHOU-SKGUARD-EAGER BAD rows=[0] lens=[19238] stack=  File "/opt/venv/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1775, in _wrapped_call_impl

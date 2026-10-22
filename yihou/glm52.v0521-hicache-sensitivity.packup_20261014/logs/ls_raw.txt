@@ -1,0 +1,39 @@
+## sizes at pack-up time (2026-10-14T02:03:32Z)
+/shared_nfs/yihou_glm52/v0521cap2_20261013/runs/hc50/:
+total 21593
+-rw-r--r-- 1 yihou ubuntu 11012144 Oct 13 17:58 metrics.A1.tsv
+-rw-r--r-- 1 yihou ubuntu 11097956 Oct 13 19:22 metrics.A2.tsv
+
+/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/e2g/server-logs/:
+total 41311
+-rw-r--r-- 1 yihou ubuntu 26789303 Oct 11 08:36 decode-0.a1.log
+-rw-r--r-- 1 yihou ubuntu 15512306 Oct 11 08:36 prefill-0.log
+
+/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/hc50/agentx-c40-A1/aiperf_artifacts/:
+total 1569840
+drwxr-xr-x 2 yihou ubuntu       4096 Oct 13 16:29 logs
+-rw-r--r-- 1 yihou ubuntu   25413794 Oct 13 17:49 profile_export.jsonl
+-rw-r--r-- 1 yihou ubuntu       7189 Oct 13 17:51 profile_export_aiperf.csv
+-rw-r--r-- 1 yihou ubuntu      45242 Oct 13 17:51 profile_export_aiperf.json
+-rw-r--r-- 1 yihou ubuntu  117904438 Oct 13 17:51 profile_export_aiperf_timeslices.csv
+-rw-r--r-- 1 yihou ubuntu   49595991 Oct 13 17:51 profile_export_aiperf_timeslices.json
+-rw-r--r-- 1 yihou ubuntu      16435 Oct 13 17:51 profile_export_console.txt
+-rw-r--r-- 1 yihou ubuntu     325086 Oct 13 17:51 server_metrics_export.csv
+-rw-r--r-- 1 yihou ubuntu 1414205056 Oct 13 17:51 server_metrics_export.json
+
+/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/hc50/agentx-c40-A2/aiperf_artifacts/:
+total 1551493
+drwxr-xr-x 2 yihou ubuntu       4096 Oct 13 17:52 logs
+-rw-r--r-- 1 yihou ubuntu   27047960 Oct 13 19:08 profile_export.jsonl
+-rw-r--r-- 1 yihou ubuntu       7196 Oct 13 19:10 profile_export_aiperf.csv
+-rw-r--r-- 1 yihou ubuntu      45129 Oct 13 19:10 profile_export_aiperf.json
+-rw-r--r-- 1 yihou ubuntu  121759440 Oct 13 19:10 profile_export_aiperf_timeslices.csv
+-rw-r--r-- 1 yihou ubuntu   51225223 Oct 13 19:10 profile_export_aiperf_timeslices.json
+-rw-r--r-- 1 yihou ubuntu      16489 Oct 13 19:10 profile_export_console.txt
+-rw-r--r-- 1 yihou ubuntu     328559 Oct 13 19:10 server_metrics_export.csv
+-rw-r--r-- 1 yihou ubuntu 1388295977 Oct 13 19:10 server_metrics_export.json
+
+/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/hc50/server-logs/:
+total 17127
+-rw-r--r-- 1 yihou ubuntu 17258600 Oct 13 16:28 decode-0.a1.log
+-rw-r--r-- 1 yihou ubuntu   278854 Oct 13 16:28 prefill-0.log

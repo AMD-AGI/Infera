@@ -1,0 +1,3 @@
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expertn/config.expert128.json	/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4/config.json
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expertn/yihou_expertn.py	/sgl-workspace/sglang/python/sglang/srt/models/yihou_expertn.py
+/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/expertn/loader.yihou-expertn.py	/sgl-workspace/sglang/python/sglang/srt/model_loader/loader.py

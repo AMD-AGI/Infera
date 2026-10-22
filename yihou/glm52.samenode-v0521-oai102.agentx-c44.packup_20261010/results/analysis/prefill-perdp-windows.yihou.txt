@@ -1,0 +1,8 @@
+== warmup: first 15 min; per DP rank: batches/min, new_tok, cached_tok
+c44d  DP0:  28.4/min new= 3.48M cached= 2.32M  DP1:  28.3/min new= 3.35M cached=15.22M  DP2:  28.9/min new= 3.42M cached=19.54M  DP3:  29.1/min new= 3.29M cached=21.49M
+e1c   DP0:  24.9/min new= 2.82M cached=16.81M  DP1:  28.5/min new= 3.40M cached=12.49M  DP2:  27.3/min new= 3.16M cached=18.02M  DP3:  27.4/min new= 3.20M cached=11.12M
+e2b4  DP0:  17.9/min new= 2.20M cached= 0.00M  DP1:  21.1/min new= 2.60M cached= 0.00M  DP2:  16.9/min new= 2.07M cached= 0.00M  DP3:  19.1/min new= 2.34M cached= 0.00M
+== profiling: first 18 min; per DP rank: batches/min, new_tok, cached_tok
+c44d  DP0:  24.6/min new= 2.48M cached=24.91M  DP1:  20.7/min new= 2.21M cached=22.43M  DP2:  10.1/min new= 0.75M cached=20.51M  DP3:  19.6/min new= 1.46M cached=30.35M
+e1c   DP0:  33.2/min new= 2.43M cached=47.80M  DP1:  32.3/min new= 2.89M cached=33.52M  DP2:  17.1/min new= 1.29M cached=38.97M  DP3:  24.1/min new= 2.17M cached=34.76M
+e2b4  DP0:  33.9/min new= 3.17M cached=41.19M  DP1:  29.6/min new= 2.72M cached=35.72M  DP2:  25.4/min new= 2.13M cached=41.11M  DP3:  16.7/min new= 1.67M cached=30.19M

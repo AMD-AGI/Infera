@@ -1,0 +1,3 @@
+role	node	data_ip
+prefill	crsuse2-m2m-v3-020	10.245.150.105
+decode	crsuse2-m2m-v3-020	10.245.150.105
