@@ -1,0 +1,308 @@
+[
+    {
+        "Id": "f417813334176bbc432ee71a969e4cc81fbb657862389f16186070f16627e99b",
+        "Created": "2026-09-14T05:13:44.787268443Z",
+        "Path": "sleep",
+        "Args": [
+            "infinity"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 861147,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-09-14T05:13:44.799025751Z",
+            "FinishedAt": "0001-01-01T00:00:00Z"
+        },
+        "Image": "sha256:b5aa5bd3d828285bff8dd01bb92e6106f569f5b1eab5de24558790b1b10a5dc0",
+        "ResolvConfPath": "/data/docker-data/containers/f417813334176bbc432ee71a969e4cc81fbb657862389f16186070f16627e99b/resolv.conf",
+        "HostnamePath": "/data/docker-data/containers/f417813334176bbc432ee71a969e4cc81fbb657862389f16186070f16627e99b/hostname",
+        "HostsPath": "/data/docker-data/containers/f417813334176bbc432ee71a969e4cc81fbb657862389f16186070f16627e99b/hosts",
+        "LogPath": "/data/docker-data/containers/f417813334176bbc432ee71a969e4cc81fbb657862389f16186070f16627e99b/f417813334176bbc432ee71a969e4cc81fbb657862389f16186070f16627e99b-json.log",
+        "Name": "/yihou-glm52-tp8ep8-0914",
+        "RestartCount": 0,
+        "Driver": "overlay2",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "docker-default",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script:/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script",
+                "/perf_apps/data/models/GLM-5.2-MXFP4:/perf_apps/data/models/GLM-5.2-MXFP4:ro",
+                "/var/tmp/yihou-glm52-aiter-configs:/tmp/aiter_configs",
+                "/var/tmp/yihou-glm52-nss/passwd:/etc/passwd:ro",
+                "/var/tmp/yihou-glm52-nss/group:/etc/group:ro"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {
+                    "max-file": "5",
+                    "max-size": "100m"
+                }
+            },
+            "NetworkMode": "host",
+            "PortBindings": {},
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": [
+                "video",
+                "render"
+            ],
+            "IpcMode": "host",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": [
+                "seccomp=unconfined",
+                "label=disable"
+            ],
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 34359738368,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [
+                {
+                    "PathOnHost": "/dev/kfd",
+                    "PathInContainer": "/dev/kfd",
+                    "CgroupPermissions": "rwm"
+                },
+                {
+                    "PathOnHost": "/dev/dri",
+                    "PathInContainer": "/dev/dri",
+                    "CgroupPermissions": "rwm"
+                }
+            ],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": [
+                {
+                    "Name": "memlock",
+                    "Hard": -1,
+                    "Soft": -1
+                }
+            ],
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "GraphDriver": {
+            "Data": {
+                "ID": "f417813334176bbc432ee71a969e4cc81fbb657862389f16186070f16627e99b",
+                "LowerDir": "/data/docker-data/overlay2/78849883cc389c2a7876fafb34cdf7e5b0372e0dc60e856f59f2dc9c1dea926c-init/diff:/data/docker-data/overlay2/vxn1e4mm1lxabxveg6svtglh7/diff:/data/docker-data/overlay2/1geq6fzai9ws0ox9ykbm0sb1s/diff:/data/docker-data/overlay2/ds52wdq1nbq1w4qd2mst0j772/diff:/data/docker-data/overlay2/417437fa7e0161684604e6b482f173c3bb5f24d461ff86197cde5fde625165cc/diff:/data/docker-data/overlay2/582d7be8f55e81d5626152881a7c43913d3dd312e090d39583f890efdd0931b2/diff:/data/docker-data/overlay2/cbe8a6fb8eff5967e72a086a31cc8edcb965d7ebc50f3bbed49e12ed78e7f480/diff:/data/docker-data/overlay2/bb2f0e78ebbd2a28678ed82f85ee5521f455fd1f74b40d13dc1c9bf6bde03d1a/diff:/data/docker-data/overlay2/ae3007744dea0380adebea8de03187fe1558bd244fbcc87367cb13286a6b0b0f/diff:/data/docker-data/overlay2/0e2db7edbf999e5a1c70af285b417aae7eb2ca0b7158a446f658c442d6772793/diff:/data/docker-data/overlay2/cc65513a6e84c15726ddf077ebac3d1e20de7cd69d66794dc649e26f862dcc68/diff:/data/docker-data/overlay2/f4a333121ff1e8917c37c28ce1f0c361a56adcdaedd5877737f439b3ca1665d2/diff:/data/docker-data/overlay2/fedfc1a1a11c9b62b1d59787149c2ce77e29abc5355ff7830f5208f7508ee7e8/diff:/data/docker-data/overlay2/73796925cde25b10bc51015cc911ec44fddec4dce517cf46b604c23392865b8a/diff:/data/docker-data/overlay2/adf57e38eec6a0e336d0d0bf0cdea6a5e97f22007d8564e7206d5673a18093ab/diff:/data/docker-data/overlay2/6ee6f33b8d310e52534bdc73b6c819c2fa3a7d010b6439aa3d646c612932b16c/diff:/data/docker-data/overlay2/d9bd7dc75f205a4e71e489c0eb10b85a2a59d4d508f1059bf461006951c6fc29/diff:/data/docker-data/overlay2/17a125221ebc86164e735aa9b0d5e0ec02cd0d925a8f00fa00a150f0b7449427/diff:/data/docker-data/overlay2/5a4740195b8b6432acf121eb27b3948c96ab8f5fb9ae1e04993ee51f46e7a3ca/diff:/data/docker-data/overlay2/ed612d81b94d9dde7b47407e7b1ac1f2155c02ad2bb96cf205f24a0cc8cb1aec/diff:/data/docker-data/overlay2/6b280ea556591f6c5fea67589daadc513ab067196c15664db151b4ab007dfabd/diff:/data/docker-data/overlay2/6ef1b4360661208d4ccc7e862154a338c48152696322536c6916fa528f9893dc/diff:/data/docker-data/overlay2/ba953a0fcce3531dd78bbee919256e0ff0e04cd5b6d3ae4b17961b471e2f5dc7/diff:/data/docker-data/overlay2/cad6a93456112e96106bf6b7398afe5a54417d2ccbe52ad89de3d7c18e94aee2/diff:/data/docker-data/overlay2/4e2269d8301e28c1fb1b34437e9e28752b388a8bd779677b4cab3ccdbd80f57f/diff:/data/docker-data/overlay2/9bc100c029b4967da23dfefa08aea0bc4dd693990302ac208b424ea2403197fe/diff:/data/docker-data/overlay2/31622c816b73d75fff8210c512fa7271c6b18f6c01e7de7e4fc51fcc1c2356a1/diff:/data/docker-data/overlay2/1aafd0573bde53b6ebf44505215cd1e2fb0910dc26ec78f6ab739d829c213e31/diff:/data/docker-data/overlay2/2b8e873c76606cfab986546b328d377ef02a2f3be0df4d0660c7a33827648f36/diff:/data/docker-data/overlay2/5d66e351e1c36ea44816bc974f24a52fc96e6242255f789a1af1c6377baceaa5/diff:/data/docker-data/overlay2/6fa4a41f6ad6dd0b20265779abca01a097108465a9070df63a51b6ead4f08f1d/diff:/data/docker-data/overlay2/aaa31812eb99767d8de6770ae29473e52a8bfddb745675569a1e58d4b2c8c354/diff:/data/docker-data/overlay2/2d05bf7be76510031a6a7c30364b871797a952452ee54bc40efc231540165bc0/diff:/data/docker-data/overlay2/d2fd88e638bbf012083bc4a1973d39605c53a23f2dd3b36ee0470fa15b32bc5f/diff:/data/docker-data/overlay2/7c4281ad51994f34ef187df12055b5fb945c364ed987e72907703143268a4dbc/diff:/data/docker-data/overlay2/ef391895fe4e27e89cdfed27482e1f1f126ede2771a4b3c1273deb2cd7674436/diff:/data/docker-data/overlay2/fde2f08e11bf097b0051cc6724fd5d0e1570a2b40ef20ab6d5e630ef630a4d99/diff:/data/docker-data/overlay2/deb208c6a486ac4d154e9c67c32342bfb9caa0688a7aa163b9fe84d9c97982aa/diff:/data/docker-data/overlay2/6847386d73e410f97d2ff2b575b9e8a3ce28d32808fb068af737607ae546eaed/diff:/data/docker-data/overlay2/c5854a5779dac952162625a887f9f52555bc18db1bbc0057d0a68add59d20f92/diff:/data/docker-data/overlay2/3c4b951171695536389c17a410d49a20c6183cb751c3e9e345b0c12ace457cb7/diff:/data/docker-data/overlay2/16afd288d22133663c9041ae333725777bc91cb40363cec913a66cad4e373f06/diff:/data/docker-data/overlay2/203100804dee8f9a8a61126a148f93b972b603783e4fd9bbf1dceb9ff907f658/diff",
+                "MergedDir": "/data/docker-data/overlay2/78849883cc389c2a7876fafb34cdf7e5b0372e0dc60e856f59f2dc9c1dea926c/merged",
+                "UpperDir": "/data/docker-data/overlay2/78849883cc389c2a7876fafb34cdf7e5b0372e0dc60e856f59f2dc9c1dea926c/diff",
+                "WorkDir": "/data/docker-data/overlay2/78849883cc389c2a7876fafb34cdf7e5b0372e0dc60e856f59f2dc9c1dea926c/work"
+            },
+            "Name": "overlay2"
+        },
+        "Mounts": [
+            {
+                "Type": "bind",
+                "Source": "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script",
+                "Destination": "/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/perf_apps/data/models/GLM-5.2-MXFP4",
+                "Destination": "/perf_apps/data/models/GLM-5.2-MXFP4",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/var/tmp/yihou-glm52-aiter-configs",
+                "Destination": "/tmp/aiter_configs",
+                "Mode": "",
+                "RW": true,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/var/tmp/yihou-glm52-nss/passwd",
+                "Destination": "/etc/passwd",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            },
+            {
+                "Type": "bind",
+                "Source": "/var/tmp/yihou-glm52-nss/group",
+                "Destination": "/etc/group",
+                "Mode": "ro",
+                "RW": false,
+                "Propagation": "rprivate"
+            }
+        ],
+        "Config": {
+            "Hostname": "smci355-ccs-aus-n06-25.prov.aus.ccs.cpe.ice.amd.com",
+            "Domainname": "",
+            "User": "100882:100882",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "HOME=/tmp/yihou-home",
+                "LOGNAME=yihou",
+                "PATH=/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin",
+                "PYTHONUNBUFFERED=1",
+                "HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7",
+                "HF_HOME=/tmp/yihou-hf-cache",
+                "SGLANG_TIMEOUT_KEEP_ALIVE=900",
+                "SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1",
+                "USER=yihou",
+                "PYTHONNOUSERSITE=1",
+                "AITER_JIT_DIR=/tmp/yihou-aiter-b5aa5bd3d828",
+                "HF_HUB_OFFLINE=1",
+                "SGLANG_OPT_USE_TOPK_V2=false",
+                "AITER_USE_FLYDSL_MOE_SORTING=1",
+                "DEBIAN_FRONTEND=noninteractive",
+                "LD_LIBRARY_PATH=/opt/rocm/lib",
+                "BUILD_VLLM=0",
+                "BUILD_TRITON=1",
+                "BUILD_LLVM=0",
+                "BUILD_AITER_ALL=1",
+                "BUILD_MOONCAKE=1",
+                "AITER_COMMIT_DEFAULT=d9e5ef7ce08ee7045d583aed768cff41aa9210fe",
+                "GPU_ARCH_LIST=gfx950",
+                "PYTORCH_ROCM_ARCH=gfx942;gfx950",
+                "AITER_COMMIT=d9e5ef7ce08ee7045d583aed768cff41aa9210fe",
+                "SETUPTOOLS_SCM_PRETEND_VERSION=",
+                "AITER_USE_SYSTEM_TRITON=1",
+                "CARGO_BUILD_JOBS=4",
+                "LIBGL_ALWAYS_INDIRECT=1",
+                "SGLANG_DISABLE_CUDNN_CHECK=1",
+                "HIP_FORCE_DEV_KERNARG=1",
+                "HSA_NO_SCRATCH_RECLAIM=1",
+                "SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1",
+                "SGLANG_INT4_WEIGHT=0",
+                "SGLANG_MOE_PADDING=1",
+                "SGLANG_ROCM_DISABLE_LINEARQUANT=0",
+                "SGLANG_ROCM_FUSED_DECODE_MLA=1",
+                "SGLANG_SET_CPU_AFFINITY=1",
+                "SGLANG_USE_AITER=1",
+                "SGLANG_USE_ROCM700A=1",
+                "NCCL_MIN_NCHANNELS=112",
+                "ROCM_QUICK_REDUCE_QUANTIZATION=INT8",
+                "TORCHINDUCTOR_MAX_AUTOTUNE=1",
+                "TORCHINDUCTOR_MAX_AUTOTUNE_POINTWISE=1"
+            ],
+            "Cmd": [
+                "sleep",
+                "infinity"
+            ],
+            "Image": "sha256:b5aa5bd3d828285bff8dd01bb92e6106f569f5b1eab5de24558790b1b10a5dc0",
+            "Volumes": null,
+            "WorkingDir": "/",
+            "Entrypoint": null,
+            "Labels": {
+                "org.opencontainers.image.ref.name": "ubuntu",
+                "org.opencontainers.image.version": "22.04",
+                "owner": "yihou",
+                "task": "glm52-internal-decode"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "285d341a19e183b62ef1900061961c75444175b09e4062716764f5bdfed1e570",
+            "SandboxKey": "/var/run/docker/netns/default",
+            "Ports": {},
+            "Networks": {
+                "host": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "f9efa59a34aa33f6da9abc81efab1059208d74fd9e54de4764f3e643767f9586",
+                    "EndpointID": "0c108e89f3ddfdf20b9421337108a8c5512d0f2997180586d85c6ede4c09ac35",
+                    "Gateway": "",
+                    "IPAddress": "",
+                    "MacAddress": "",
+                    "IPPrefixLen": 0,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": null
+                }
+            }
+        }
+    }
+]

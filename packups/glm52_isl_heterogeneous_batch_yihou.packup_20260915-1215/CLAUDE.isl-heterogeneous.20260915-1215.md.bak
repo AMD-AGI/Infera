@@ -1,0 +1,111 @@
+# Current task — heterogeneous-ISL batches in the internal SGLang decode harness
+
+**Started** 2026-09-15 11:14 UTC. **Workspace**
+`temp_workspace/isl_hetero_batch_yihou_20260915-1114/`.
+Authoritative task definition: that workspace's `mission.md` (re-injected every 10 min).
+
+> Previous root `CLAUDE.md` (GLM-5.2 TP8/EP1 PR #51/#50/#54 integration) backed up as
+> `CLAUDE.glm52-pr51-50-54.20260915-1114.md.bak`. That task is finished and packed up in
+> `packups/glm52_tp8_ep1_c256_pr51_50_54_yihou.packup_20260915-1019/`.
+
+## What we are doing
+
+Make `sglang_decode_internal_bench_and_profiling` able to run a batch whose requests have
+**different input lengths**. Today `--input-len` is one scalar and batch-uniformity is asserted
+every iteration, so a ragged batch is not merely unsupported — it is actively rejected.
+
+**Plan 1, chosen by the user:** every attention-DP rank receives the **same ISL multiset in the
+same order**. All ranks stay in lockstep, so the cross-rank determinism check survives intact
+rather than being deleted. (Plan 2 — split a global distribution unevenly across ranks — was
+considered and rejected: it would cost the harness its strongest invariant.)
+
+### Four ways to specify the ISL multiset
+
+| mode | spec | note |
+|---|---|---|
+| uniform | `70000` or `uniform:70000` | today's behaviour, must stay byte-compatible |
+| bimodal | `bimodal:8192,70000,0.25` | **minority side rounds UP (ceil)** |
+| normal | `normal:40000,8000[,lo,hi]` | clamp by saturation; realized list recorded |
+| list | `list:a,b,c,...` or `list:@file` | most general; the other three reduce to it |
+
+The spec describes the **per-rank** batch (`local_batch_size = batch_size // dp_size`), not the
+global one.
+
+## The four findings that shrink this task
+
+Established first-hand on 2026-09-15 before work began. Do not re-derive.
+
+**F1. The attention backend needs zero changes.** `dsa_backend.py:1143-1153` takes `seq_lens` as a
+per-request tensor and derives `max_seqlen_k` via `.max()`. Ragged batches are the normal serving
+path. CUDA graphs key on batch size, not sequence length.
+
+**F2. `len(set(accept_lens)) == 1` is TRUE and must be KEPT.** `spec_utils.py:411-419` draws one
+scalar `simulate_acc_len` per iteration and broadcasts it across the batch. That uniformity is
+upstream behaviour and is what makes `realized_accept_length` bit-reproducible. Only the
+`len(set(previous_lens)) == 1` half of `topology.py:69` is what has to go.
+
+**F3. KV allocation is already decoupled from the logical ISL.** `batch.prepare_for_extend()` runs
+*before* the per-request truncation loop, over a uniform max row width. Short requests simply
+over-reserve. **Consequence to state in the report: a mixed batch costs the same KV as an all-max
+batch.** Changing that means changing the allocation path and is out of scope.
+
+**F4. `validate_worker_progress` is already elementwise** — zero changes.
+
+## Core principles for this task
+
+**Determinism is the product.** `realized_accept_length = 3.6134393063583814` (EP1, C=256,
+ISL 70000) is the regression gate. A uniform-mode run that does not reproduce it exactly is a bug,
+however good its TPOT looks. Baseline TPOT for reference: **25.6740 ms**, `verify_iterations 2768`.
+
+**The ISL generator must not touch any global RNG.** It owns a private `random.Random(seed)`.
+Perturbing `random` / `numpy.random` / `torch` would shift the acceptance coin sequence and break
+the gate above.
+
+**Suspend, don't conclude.** Whether a heterogeneous batch's TPOT is interpretable at all is an
+**open question** — DSA is sparse with `index_topk = 2048` and the per-step cost-vs-length
+relationship has not been measured. Do not predict it and do not design around a guess about it.
+
+**A backend that was requested is not a backend that ran.** Any GPU run asserts from the log which
+kernel actually executed. `dsa_backend.py:257` records that this exact silent fallback once cost
+27 hours.
+
+## Key references
+
+| what | where |
+|---|---|
+| Mission book | `<workspace>/mission.md` |
+| Interface contract, file ownership, per-mode semantics | `<workspace>/plan/design_spec_yihou.md` |
+| The harness (bench + scripts + traps) | `sglang_decode_internal_bench_and_profiling/README.md` |
+| Previous task's results | `packups/glm52_tp8_ep1_c256_pr51_50_54_yihou.packup_20260915-1019/` |
+| Baseline numbers | that packup's `results/`, and the root `GLM52-MXFP4_…_PR51-50-54_…_yihou.md` |
+
+## Traps that already cost a run (do not rediscover)
+
+- `--max-running-requests <C>` is **mandatory**, not tuning. At dp=8 SGLang's default 48 sizes the
+  per-worker `ReqToTokenPool` to 6 slots and `alloc_req_slots` fails. Its error message is
+  misleading — it is a slot count, not KV bytes.
+- `run_decode.sh` refuses to run if the iteration directory already exists. Do not pre-create it to
+  stash a pre-run capture; that killed a run at 07:24 on 2026-09-15.
+- `pgrep -f <pattern>` self-matches the command containing the pattern. Use precise `ps` + grep.
+- A `docker exec` killed by an outer timeout **leaves the in-container process running**. Check the
+  whole process tree after any timeout.
+- CUDA-graph capture is slow (~30 min) and prints nothing. Silence is not a hang.
+- `runtime.log` holds multi-megabyte single-line tqdm bars — never pipe driver output through
+  `tail`; it has caused host memory pressure that killed the driver.
+- A profiled run is **not** a performance measurement. Quote TPOT only from a clean run.
+
+## Machine
+
+`smci355-ccs-aus-n10-29`, shared, we hold it. **Never run on the local host.** Four of our
+containers still exist (`yihou-glm52-tp8ep1-{round2-ptpc1,pr50-51-ptpc1,pr50-51,oldpin}`); other
+people's containers run on the same host — touch none of them.
+
+Most of this task is CPU-only Python needing no GPU. Only the final smoke run does.
+
+## Hard rules inherited from the user-level CLAUDE.md
+
+Work inside a `yihou/` directory. Outside one you may read and create, but **never delete** — no
+`rm`, no `--delete`, no truncate-and-rewrite of a file you did not create, no `docker rm` of a
+container you did not start. **Never write a recursive delete whose target is a variable.**
+DCO sign-off (`git commit -s`, as yourself) is mandatory on every commit.
+English at work; Chinese only when reporting to the user.

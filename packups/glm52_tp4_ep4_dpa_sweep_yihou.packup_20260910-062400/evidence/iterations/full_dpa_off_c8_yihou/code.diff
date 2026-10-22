@@ -1,0 +1,448 @@
+diff --git a/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py b/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py
+index 819d18a..ef5a830 100644
+--- a/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py
++++ b/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py
+@@ -20,6 +20,14 @@ from batch_state import (
+     validate_worker_progress,
+ )
+ 
++from topology import (
++    DecodeTopology,
++    aggregate_rank_summaries,
++    prepare_dp_metadata,
++    rank_progress_signature,
++    validate_rank_progress,
++)
++
+ PINNED_SGLANG = "402df1e1e453e1e85ec0f5ac4052d36598cc691a"
+ 
+ 
+@@ -33,6 +41,8 @@ def make_parser():
+     parser.add_argument("--accept-method", choices=("match-expected", "multinomial"), default="match-expected")
+     parser.add_argument("--accept-token-mode", choices=("real-draft-token", "fixed"), default="real-draft-token")
+     parser.add_argument("--tp-size", type=int, default=8)
++    parser.add_argument("--ep-size", type=int, default=1)
++    parser.add_argument("--enable-dp-attention", action="store_true")
+     parser.add_argument("--result-dir", required=True)
+     parser.add_argument("--disable-cuda-graph", action="store_true")
+     parser.add_argument("--max-steps", type=int, default=0, help="0 means full OSL; positive values are incomplete smoke runs")
+@@ -43,6 +53,7 @@ def make_parser():
+ 
+ 
+ def validate_args(args):
++    DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+     if min(args.batch_size, args.input_len, args.output_len, args.tp_size) <= 0:
+         raise ValueError("batch size, lengths and TP size must be positive")
+     if args.max_steps < 0 or args.warmup_steps < 0:
+@@ -54,8 +65,17 @@ def validate_args(args):
+ 
+ 
+ def server_cli(args, extra):
++    topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+     flags = {item.split("=", 1)[0] for item in extra if item.startswith("--")}
+-    result = ["--model-path", args.model_path, "--tp-size", str(args.tp_size)] + list(extra)
++    owned = {"--dp-size", "--ep-size", "--tp-size", "--enable-dp-attention", "--moe-a2a-backend",
++             "--cuda-graph-bs-decode", "--cuda-graph-max-bs-decode"}
++    if flags & owned:
++        raise ValueError(f"Benchmark controls these topology/graph flags: {sorted(flags & owned)}")
++    result = ["--model-path", args.model_path, "--tp-size", str(args.tp_size),
++              "--ep-size", str(args.ep_size), "--dp-size", str(topology.dp_size),
++              "--moe-a2a-backend", "none"] + list(extra)
++    if args.enable_dp_attention:
++        result.append("--enable-dp-attention")
+     defaults = {
+         "--speculative-algorithm": "EAGLE",
+         "--speculative-num-steps": "5",
+@@ -65,8 +85,8 @@ def server_cli(args, extra):
+         "--dsa-decode-backend": "flydsl",
+         "--dsa-prefill-backend": "flydsl",
+         "--dsa-topk-backend": "aiter",
+-        "--cuda-graph-bs-decode": str(args.batch_size),
+-        "--cuda-graph-max-bs-decode": str(args.batch_size),
++        "--cuda-graph-bs-decode": str(topology.local_batch_size),
++        "--cuda-graph-max-bs-decode": str(topology.local_batch_size),
+         "--random-seed": str(args.seed),
+     }
+     for name, value in defaults.items():
+@@ -105,13 +125,8 @@ def create_workers(server_args, port_args, rank, args):
+     initialize_fp8_gemm_config(server_args)
+     initialize_fp4_gemm_config(server_args)
+     configure_logger(server_args, prefix=f" TP{rank}")
+-    ps = ParallelState(
+-        tp_rank=rank, tp_size=args.tp_size, pp_rank=0, pp_size=1,
+-        dp_rank=None, dp_size=1, attn_tp_rank=rank, attn_tp_size=args.tp_size,
+-        attn_cp_rank=0, attn_cp_size=1, attn_dcp_rank=0, attn_dcp_size=1,
+-        attn_dp_rank=0, attn_dp_size=1, moe_ep_rank=0, moe_ep_size=1,
+-        moe_dp_rank=None, moe_dp_size=1, gpu_id=rank,
+-    )
++    topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
++    ps = ParallelState(**topology.parallel_state_kwargs(rank))
+     log(rank, "loading target weights")
+     target = TpModelWorker(server_args, rank, ps, port_args.nccl_port)
+     if server_args.is_startup_weight_load_overlap:
+@@ -168,7 +183,7 @@ def initialize_kv(model_runner, seed):
+     return num_bytes
+ 
+ 
+-def allocate_batch(target, args):
++def allocate_batch(target, args, topology, rank):
+     import torch
+     from sglang.benchmark.one_batch import TreeCacheNamespace, prepare_synthetic_inputs_for_latency_test
+     from sglang.srt.managers.schedule_batch import ScheduleBatch
+@@ -178,8 +193,9 @@ def allocate_batch(target, args):
+     runner = target.model_runner
+     page_size = runner.token_to_kv_pool_allocator.page_size
+     reserve = get_alloc_reserve_per_decode()
+-    num_tokens = required_token_capacity(args.batch_size, args.input_len, args.output_len, page_size, reserve)
+-    reserved_len = num_tokens // args.batch_size
++    local_batch_size = topology.local_batch_size
++    num_tokens = required_token_capacity(local_batch_size, args.input_len, args.output_len, page_size, reserve)
++    reserved_len = num_tokens // local_batch_size
+     pool = runner.req_to_token_pool
+     allocator = runner.token_to_kv_pool_allocator
+     if allocator.available_size() < num_tokens:
+@@ -188,8 +204,9 @@ def allocate_batch(target, args):
+         raise RuntimeError(f"Request row too short: need {reserved_len}, have {pool.req_to_token.shape[1]}")
+     if runner.model_config.context_len < args.input_len + args.output_len + reserve:
+         raise RuntimeError("Model context length does not cover requested progression plus speculative reserve")
+-    reqs = prepare_synthetic_inputs_for_latency_test(args.batch_size, reserved_len)
+-    for req in reqs:
++    reqs = prepare_synthetic_inputs_for_latency_test(local_batch_size, reserved_len)
++    for index, req in enumerate(reqs):
++        req.rid = topology.request_id_offset(rank) + index
+         req.sampling_params.max_new_tokens = args.output_len
+         req.sampling_params.ignore_eos = True
+     batch = ScheduleBatch.init_new(
+@@ -209,13 +226,13 @@ def allocate_batch(target, args):
+     return batch, prompt_tokens, {"reserved_tokens": num_tokens, "reserved_tokens_per_request": reserved_len, "page_size": page_size, "speculative_reserve": reserve}
+ 
+ 
+-def bootstrap(batch, prompt_tokens, worker, args):
++def bootstrap(batch, prompt_tokens, worker, args, topology):
+     """One real last-prompt-token target+draft forward over the synthetic prefix."""
+     import torch
+     from sglang.srt.model_executor.forward_batch_info import ForwardMode
+-    size, length = args.batch_size, args.input_len
++    size, length = topology.local_batch_size, args.input_len
+     batch.forward_mode = ForwardMode.EXTEND
+-    batch.is_extend_in_batch = False
++    prepare_dp_metadata(batch, topology, is_extend=True, disable_cuda_graph=args.disable_cuda_graph)
+     batch.spec_info = None
+     batch.input_ids = prompt_tokens.clone()
+     batch.prefill_input_ids_cpu = None
+@@ -262,42 +279,74 @@ def commit_result(batch, result, seq_lens):
+             raise RuntimeError("Committed sequence exceeds physical allocation")
+ 
+ 
++def check_rank_progress(iteration, previous_lens, accept_lens, new_lens, final_len, buffers):
++    import torch
++    import torch.distributed as dist
++    signature = rank_progress_signature(iteration, previous_lens, accept_lens, new_lens, final_len)
++    local, gathered = buffers
++    local.copy_(torch.tensor(signature, dtype=torch.int64, device=local.device))
++    dist.all_gather(gathered, local)
++    validate_rank_progress([value.cpu().tolist() for value in gathered])
++
++
+ def run_rank(rank, server_args, port_args, args):
+     import torch
+     import torch.distributed as dist
+     import numpy as np
+     import random
++    rank_start = time.perf_counter()
++    topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
++    phase_seconds = {}
+     configure_acceptance(args)
+     random.seed(args.seed)
+     np.random.seed(args.seed)
+     torch.manual_seed(args.seed)
++    phase_start = time.perf_counter()
+     target, worker = create_workers(server_args, port_args, rank, args)
++    phase_seconds["load_pool_capture"] = time.perf_counter() - phase_start
++    log(rank, f"topology={topology.parallel_state_kwargs(rank)} local_batch={topology.local_batch_size} global_batch={args.batch_size} moe_a2a={server_args.moe_a2a_backend} moe_runner={server_args.moe_runner_backend}")
++    progress_buffers = (torch.empty(7, dtype=torch.int64, device="cuda"),
++                        [torch.empty(7, dtype=torch.int64, device="cuda") for _ in range(args.tp_size)])
+     import sglang.srt.server_args as server_args_module
+     import sglang.srt.speculative.eagle_worker_v2 as eagle_worker_module
+     source_paths = module_source_paths([server_args_module, eagle_worker_module])
+     log(rank, f"runtime source paths={source_paths}")
+     result_dir = Path(args.result_dir)
+     with torch.inference_mode():
+-        batch, prompt_tokens, memory = allocate_batch(target, args)
++        phase_start = time.perf_counter()
++        np.random.seed(args.seed)  # Same distribution and TP-equivalent initial data.
++        batch, prompt_tokens, memory = allocate_batch(target, args, topology, rank)
+         log(rank, f"physically initializing pools; mapping={memory}")
+         memory["target_initialized_bytes"] = initialize_kv(target.model_runner, args.seed)
+         memory["draft_initialized_bytes"] = initialize_kv(worker.draft_worker.draft_runner, args.seed + 1)
++        torch.cuda.synchronize()
++        phase_seconds["physical_initialization"] = time.perf_counter() - phase_start
++        phase_start = time.perf_counter()
++        torch.manual_seed(args.seed)  # Uniform shared CPU coin on all TP/DP ranks.
+         log(rank, "running one-token untimed target+draft bootstrap")
+-        bootstrap(batch, prompt_tokens, worker, args)
++        bootstrap(batch, prompt_tokens, worker, args, topology)
++        phase_seconds["bootstrap"] = time.perf_counter() - phase_start
++        phase_start = time.perf_counter()
+         log(rank, f"warming up {args.warmup_steps} complete speculative iterations")
+-        for _ in range(args.warmup_steps):
++        for iteration in range(args.warmup_steps):
++            previous_lens = batch.seq_lens_cpu.tolist()
+             batch.prepare_for_decode()
++            prepare_dp_metadata(batch, topology, is_extend=False, disable_cuda_graph=args.disable_cuda_graph)
+             result = worker.forward_batch_generation(batch)
+             torch.cuda.synchronize()
+-            commit_result(batch, result, result.new_seq_lens.cpu().tolist())
++            new_lens = result.new_seq_lens.cpu().tolist()
++            check_rank_progress(iteration, previous_lens, result.accept_lens.cpu().tolist(), new_lens,
++                                args.input_len + args.output_len, progress_buffers)
++            commit_result(batch, result, new_lens)
+         if args.warmup_steps:
+-            bootstrap(batch, prompt_tokens, worker, args)
++            bootstrap(batch, prompt_tokens, worker, args, topology)
++        phase_seconds["warmup_and_reset"] = time.perf_counter() - phase_start
+         # Acceptance uses CPU torch RNG; reseed after weight/init/warmup work so
+         # every TP rank consumes identical coins independent of startup branches.
+         torch.manual_seed(args.seed)
+         torch.cuda.synchronize()
+         dist.barrier()
+-        accounting = DecodeAccounting(args.batch_size, args.input_len, args.output_len)
++        accounting = DecodeAccounting(topology.local_batch_size, args.input_len, args.output_len)
+         steps = []
+         graph_steps = 0
+         graph_execution_counts = count_graph_executions({
+@@ -310,11 +359,13 @@ def run_rank(rank, server_args, port_args, args):
+         while not accounting.complete and (not args.max_steps or accounting.verify_ct < args.max_steps):
+             tick = time.perf_counter()
+             batch.prepare_for_decode()
++            prepare_dp_metadata(batch, topology, is_extend=False, disable_cuda_graph=args.disable_cuda_graph)
+             result = worker.forward_batch_generation(batch)
+             torch.cuda.synchronize()  # result tensors and cross-stream keep-alives stay live through here
+             accept_lens = result.accept_lens.cpu().tolist()
+-            if len(set(accept_lens)) != 1:
+-                raise RuntimeError("Pinned simulation must use one shared acceptance coin per batch; unequal lengths need active-request compaction")
++            check_rank_progress(accounting.verify_ct, accounting.seq_lens, accept_lens,
++                                result.new_seq_lens.cpu().tolist(), args.input_len + args.output_len,
++                                progress_buffers)
+             validate_worker_progress(
+                 accounting.seq_lens, accept_lens, result.new_seq_lens.cpu().tolist()
+             )
+@@ -331,16 +382,22 @@ def run_rank(rank, server_args, port_args, args):
+                 log(rank, f"iteration={accounting.verify_ct} context={accounting.seq_lens[0]} useful={sum(accounting.emitted)} target_graph={step['target_graph']}")
+         torch.cuda.synchronize()
+         elapsed = time.perf_counter() - start
+-        rank_elapsed = torch.tensor(elapsed, dtype=torch.float64, device="cuda")
+-        dist.all_reduce(rank_elapsed, op=dist.ReduceOp.MAX)
+-        summary = accounting.summary(rank_elapsed.item())
++        phase_seconds["decode"] = elapsed
++        phase_seconds["rank_total_to_result"] = time.perf_counter() - rank_start
++        summary = accounting.summary(elapsed)
++        summary.update(topology.summary())
+         summary.update({
+             "expected_accept_length": args.accept_length, "accept_method": args.accept_method,
+             "accept_token_mode": args.accept_token_mode, "tp_size": args.tp_size,
+             "output_tokens_per_second_per_gpu": summary["output_tokens_per_second"] / args.tp_size,
+             "target_graph_iterations": graph_steps, "warmup_steps_excluded": args.warmup_steps,
+             "graph_execution_counts": graph_execution_counts,
+-            "bootstrap_tokens_excluded": args.batch_size,
++            "bootstrap_tokens_excluded": topology.local_batch_size,
++            "rank": rank, "parallel_state": topology.parallel_state_kwargs(rank),
++            "report_scope": "local_attention_dp_shard", "graph_execution_counts_scope": "local_rank",
++            "phase_seconds": phase_seconds, "moe_a2a_backend": server_args.moe_a2a_backend,
++            "moe_runner_backend": server_args.moe_runner_backend,
++            "cross_rank_progress_check": "every warmup and measured iteration; included in timing",
+             "synthetic_prefix": True, "simulated_acceptance": True, "real_model_weights": True,
+             "real_moe_routing": True, "scheduler_used": False, "pinned_sglang": PINNED_SGLANG,
+             "module_source_paths": source_paths,
+@@ -354,10 +411,14 @@ def run_rank(rank, server_args, port_args, args):
+             "draft_extend_graph_available": worker.draft_worker.cuda_graph_runner_for_draft_extend is not None,
+         })
+         (result_dir / f"rank_{rank}_yihou.json").write_text(json.dumps(summary, indent=2) + "\n")
++        (result_dir / f"steps_rank_{rank}_yihou.jsonl").write_text("".join(json.dumps(step) + "\n" for step in steps))
++        reports = [None] * args.tp_size
++        dist.all_gather_object(reports, summary)
++        aggregate = aggregate_rank_summaries(reports, topology)
+         if rank == 0:
+-            (result_dir / "result_yihou.json").write_text(json.dumps(summary, indent=2) + "\n")
++            (result_dir / "result_yihou.json").write_text(json.dumps(aggregate, indent=2) + "\n")
+             (result_dir / "steps_yihou.jsonl").write_text("".join(json.dumps(step) + "\n" for step in steps))
+-            log(rank, json.dumps(summary, sort_keys=True))
++            log(rank, json.dumps(aggregate, sort_keys=True))
+     dist.barrier()
+     dist.destroy_process_group()
+ 
+@@ -375,8 +436,15 @@ def main():
+     ServerArgs.add_cli_args(parser)
+     cli = server_cli(args, extra)
+     server_args = ServerArgs.from_cli_args(parser.parse_args(cli))
+-    if server_args.dp_size != 1 or server_args.ep_size != 1 or server_args.pp_size != 1 or server_args.nnodes != 1:
+-        raise ValueError("This fixed-batch wrapper supports only one node, DP1/EP1/PP1")
++    topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
++    if (server_args.tp_size, server_args.ep_size, server_args.dp_size, server_args.enable_dp_attention) != (
++        topology.tp_size, topology.ep_size, topology.dp_size, topology.enable_dp_attention
++    ):
++        raise ValueError("Resolved server topology differs from benchmark topology")
++    if server_args.pp_size != 1 or server_args.nnodes != 1 or server_args.attn_cp_size != 1 or server_args.dcp_size != 1 or server_args.moe_dp_size != 1:
++        raise ValueError("This wrapper requires one node, PP1/CP1/DCP1/MoEDP1")
++    if server_args.moe_a2a_backend != "none":
++        raise ValueError("Pinned EP benchmark requires moe-a2a-backend=none")
+     if (server_args.speculative_algorithm, server_args.speculative_num_steps, server_args.speculative_num_draft_tokens, server_args.speculative_eagle_topk) != ("EAGLE", 5, 6, 1):
+         raise ValueError("This benchmark requires EAGLE steps5/draft6/topk1")
+     if server_args.load_format == "dummy":
+diff --git a/glm52_decode_internal_yihou_20260909_1057/scripts/create_container_yihou.sh b/glm52_decode_internal_yihou_20260909_1057/scripts/create_container_yihou.sh
+index c861656..ff5aa40 100644
+--- a/glm52_decode_internal_yihou_20260909_1057/scripts/create_container_yihou.sh
++++ b/glm52_decode_internal_yihou_20260909_1057/scripts/create_container_yihou.sh
+@@ -1,22 +1,24 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ ROOT=$(cd "$(dirname "$0")/.." && pwd)
+-JOB=126175
+-NODE=crsuse2-m2m-055
+-NAME=yihou-glm52-internal-20260909
++: "${JOB_ID:?Set existing authorized JOB_ID}" "${NODE:?Set assigned NODE}" "${CONTAINER:?Set unique yihou CONTAINER}"
++[[ "$JOB_ID" =~ ^[0-9]+$ && "$NODE" =~ ^crsuse2-m2m-[0-9]+$ && "$CONTAINER" =~ ^yihou-[A-Za-z0-9_-]+$ ]] || exit 2
++case "$NODE" in crsuse2-m2m-234|crsuse2-m2m-036|crsuse2-m2m-249) printf 'Forbidden or peer-owned node: %s\n' "$NODE" >&2; exit 2;; esac
+ IMAGE=sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d
+-STATE=$(squeue -j "$JOB" -h -o '%u %T %N')
+-[[ "$STATE" == "yihou RUNNING $NODE" ]] || { printf 'Unexpected allocation: %s\n' "$STATE" >&2; exit 1; }
+-CMD=(docker run -d --name "$NAME" --label owner=yihou --label task=glm52-internal-decode
++GPU_DEVICES=${GPU_DEVICES:-0,1,2,3}
++[[ "$GPU_DEVICES" =~ ^[0-7](,[0-7])*$ ]] || exit 2
++STATE=$(squeue -j "$JOB_ID" -h -o '%u %T %N')
++[[ "$STATE" == "$USER RUNNING $NODE" ]] || { printf 'Unexpected allocation: %s\n' "$STATE" >&2; exit 1; }
++CMD=(docker run -d --name "$CONTAINER" --label owner="$USER" --label task=glm52-internal-decode
+     -w / --network host --ipc=host --shm-size 32g
+     --device=/dev/kfd --device=/dev/dri --group-add video --group-add render
+     --security-opt seccomp=unconfined --ulimit memlock=-1:-1
+     -v "$ROOT:$ROOT" -v /shared_nfs/models/GLM-5.2-MXFP4:/shared_nfs/models/GLM-5.2-MXFP4:ro
+-    -e PYTHONNOUSERSITE=1 -e PYTHONUNBUFFERED=1
++    -e PYTHONNOUSERSITE=1 -e PYTHONUNBUFFERED=1 -e HIP_VISIBLE_DEVICES="$GPU_DEVICES"
+     -e AITER_JIT_DIR=/tmp/yihou-aiter-b9a83742f631
+     -e HF_HOME=/tmp/yihou-hf-cache -e HF_HUB_OFFLINE=1
+     -e SGLANG_OPT_USE_TOPK_V2=false -e SGLANG_TIMEOUT_KEEP_ALIVE=900
+     -e AITER_USE_FLYDSL_MOE_SORTING=1 -e SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1
+     "$IMAGE" sleep infinity)
+ printf -v REMOTE '%q ' "${CMD[@]}"
+-spur exec "$JOB" bash -lc "set -euo pipefail; test \"\$(hostname)\" = $NODE; if docker container inspect $NAME >/dev/null 2>&1; then printf 'Refusing existing container\\n' >&2; exit 1; fi; $REMOTE"
++spur exec "$JOB_ID" bash -lc "set -euo pipefail; test \"\$(hostname)\" = $NODE; if docker container inspect $CONTAINER >/dev/null 2>&1; then printf 'Refusing existing container\\n' >&2; exit 1; fi; $REMOTE"
+diff --git a/glm52_decode_internal_yihou_20260909_1057/scripts/run_decode.sh b/glm52_decode_internal_yihou_20260909_1057/scripts/run_decode.sh
+index 81c5671..eab6431 100644
+--- a/glm52_decode_internal_yihou_20260909_1057/scripts/run_decode.sh
++++ b/glm52_decode_internal_yihou_20260909_1057/scripts/run_decode.sh
+@@ -1,53 +1,47 @@
+ #!/usr/bin/env bash
+ set -euo pipefail
+ ROOT=$(cd "$(dirname "$0")/.." && pwd)
+-JOB=126175
+-NODE=crsuse2-m2m-055
+-CONTAINER=yihou-glm52-internal-20260909
+ IMAGE=sha256:b9a83742f631d7321c6b75aceb031a8b347c70f97c62ef8c62370c686853de7d
+ DRY_RUN=0
+-if [[ "${1:-}" == --dry-run ]]; then
+-    DRY_RUN=1
+-    shift
+-fi
++if [[ "${1:-}" == --dry-run ]]; then DRY_RUN=1; shift; fi
+ if [[ $# -lt 1 ]]; then
+-    printf 'Usage: bash %s [--dry-run] ITERATION [benchmark arguments...]\n' "$0" >&2
++    printf 'Usage: JOB_ID=... NODE=... CONTAINER=... bash %s [--dry-run] ITERATION [benchmark arguments...]\n' "$0" >&2
+     exit 2
+ fi
+ ITERATION=$1
+ shift
+ if [[ ! "$ITERATION" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]]; then
+-    printf 'Invalid iteration name: %s\n' "$ITERATION" >&2
+-    exit 2
++    printf 'Invalid iteration name: %s\n' "$ITERATION" >&2; exit 2
+ fi
+-OUT="$ROOT/iterations/$ITERATION"
+-INNER=(python3 "$ROOT/bench/profile_decode.py"
+-    --model-path /shared_nfs/models/GLM-5.2-MXFP4 --result-dir "$OUT" "$@")
++: "${JOB_ID:?Set an existing authorized JOB_ID}" "${NODE:?Set its NODE}" "${CONTAINER:?Set the owned CONTAINER}"
++[[ "$JOB_ID" =~ ^[0-9]+$ && "$NODE" =~ ^crsuse2-m2m-[0-9]+$ && "$CONTAINER" =~ ^yihou-[A-Za-z0-9_-]+$ ]] || exit 2
++case "$NODE" in crsuse2-m2m-234|crsuse2-m2m-036|crsuse2-m2m-249) printf 'Forbidden or peer-owned node: %s\n' "$NODE" >&2; exit 2;; esac
++OUT="${OUTPUT_ROOT:-$ROOT/iterations}/$ITERATION"
++INNER=(python3 "$ROOT/bench/profile_decode.py" --model-path /shared_nfs/models/GLM-5.2-MXFP4 --result-dir "$OUT" "$@")
+ printf -v INNER_CMD '%q ' "${INNER[@]}"
+ printf -v LIVE_LOG '%q' "$OUT/runtime.log"
+ CMD=(docker exec -w / "$CONTAINER" bash -lc "set -o pipefail; $INNER_CMD 2>&1 | tee $LIVE_LOG")
+ if [[ "$DRY_RUN" == 1 ]]; then
+-    printf 'Existing allocation: %s; required node: %s\n' "$JOB" "$NODE"
+-    printf 'Benchmark command: %s\n' "$INNER_CMD"
+-    printf '%q ' "${CMD[@]}"
+-    printf '\n'
+-    exit 0
+-fi
+-STATE=$(squeue -j "$JOB" -h -o '%u %T %N')
+-if [[ "$STATE" != "yihou RUNNING $NODE" ]]; then
+-    printf 'Refusing unexpected allocation state: %s\n' "$STATE" >&2
+-    exit 1
+-fi
+-if [[ -e "$OUT" ]]; then
+-    printf 'Refusing existing iteration directory: %s\n' "$OUT" >&2
+-    exit 1
++    printf 'Existing allocation: %s; required node: %s\nBenchmark command: %s\n' "$JOB_ID" "$NODE" "$INNER_CMD"
++    printf '%q ' "${CMD[@]}"; printf '\n'; exit 0
+ fi
++STATE=$(squeue -j "$JOB_ID" -h -o '%u %T %N')
++[[ "$STATE" == "$USER RUNNING $NODE" ]] || { printf 'Refusing unexpected allocation state: %s\n' "$STATE" >&2; exit 1; }
++[[ ! -e "$OUT" ]] || { printf 'Refusing existing iteration: %s\n' "$OUT" >&2; exit 1; }
+ mkdir -p "$OUT"
+-printf '%q ' "${CMD[@]}" > "$OUT/command.txt"
+-printf '\n' >> "$OUT/command.txt"
++printf '%q ' "${CMD[@]}" > "$OUT/command.txt"; printf '\n' >> "$OUT/command.txt"
++git -C "$ROOT" rev-parse HEAD > "$OUT/git_head.txt"
++git -C "$ROOT" diff --binary > "$OUT/code.diff"
++sha256sum "$ROOT"/bench/*.py > "$OUT/code_hashes.sha256"
++cp -a "$ROOT/bench" "$OUT/bench_snapshot"
+ printf -v REMOTE '%q ' "${CMD[@]}"
+-PRECHECK='set -euo pipefail; test "$(hostname)" = crsuse2-m2m-055; '
+-PRECHECK+='test "$(docker inspect -f '\''{{.Image}}'\'' yihou-glm52-internal-20260909)" = '
+-PRECHECK+="$IMAGE; "
+-PRECHECK+='test "$(docker inspect -f '\''{{index .Config.Labels "owner"}}'\'' yihou-glm52-internal-20260909)" = yihou; '
+-spur exec "$JOB" bash -lc "$PRECHECK $REMOTE" 2>&1 | tee "$OUT/console.log"
++PRECHECK="set -euo pipefail; test \"\$(hostname)\" = $NODE; "
++PRECHECK+="test \"\$(docker inspect -f '{{.Image}}' $CONTAINER)\" = $IMAGE; "
++PRECHECK+="test \"\$(docker inspect -f '{{index .Config.Labels \"owner\"}}' $CONTAINER)\" = $USER; "
++START=$(date +%s)
++set +e
++spur exec "$JOB_ID" bash -lc "$PRECHECK $REMOTE" 2>&1 | tee "$OUT/console.log"
++STATUS=${PIPESTATUS[0]}
++set -e
++printf '{"exit_code":%s,"launch_wall_seconds":%s}\n' "$STATUS" "$(( $(date +%s) - START ))" > "$OUT/launch_status.json"
++exit "$STATUS"
+diff --git a/glm52_decode_internal_yihou_20260909_1057/scripts/test_run_decode_yihou.py b/glm52_decode_internal_yihou_20260909_1057/scripts/test_run_decode_yihou.py
+index 1a2bba3..d1c075a 100644
+--- a/glm52_decode_internal_yihou_20260909_1057/scripts/test_run_decode_yihou.py
++++ b/glm52_decode_internal_yihou_20260909_1057/scripts/test_run_decode_yihou.py
+@@ -1,3 +1,4 @@
++import os
+ import pathlib
+ import subprocess
+ import unittest
+@@ -23,13 +24,21 @@ class LauncherTests(unittest.TestCase):
+         self.assertIn("Usage", result.stderr)
+ 
+     def test_dry_run_is_local_and_explicit(self):
+-        result = self.run_script("--dry-run", "002_smoke_yihou", "--max-steps", "2")
++        env = dict(os.environ, JOB_ID="130737", NODE="crsuse2-m2m-056", CONTAINER="yihou-sweep-test")
++        result = subprocess.run(["bash", str(SCRIPT), "--dry-run", "002_smoke_yihou", "--max-steps", "2"], env=env, text=True, capture_output=True)
+         self.assertEqual(result.returncode, 0, result.stderr)
+-        self.assertIn("126175", result.stdout)
+-        self.assertIn("crsuse2-m2m-055", result.stdout)
++        self.assertIn("130737", result.stdout)
++        self.assertIn("crsuse2-m2m-056", result.stdout)
++        self.assertIn("yihou-sweep-test", result.stdout)
+         self.assertIn("profile_decode.py", result.stdout)
+         self.assertIn("--max-steps 2", result.stdout)
+ 
++    def test_rejects_forbidden_node_before_remote_call(self):
++        env = dict(os.environ, JOB_ID="1", NODE="crsuse2-m2m-234", CONTAINER="yihou-test")
++        result = subprocess.run(["bash", str(SCRIPT), "--dry-run", "test_yihou"], env=env, text=True, capture_output=True)
++        self.assertNotEqual(result.returncode, 0)
++        self.assertIn("forbidden", result.stderr.lower())
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

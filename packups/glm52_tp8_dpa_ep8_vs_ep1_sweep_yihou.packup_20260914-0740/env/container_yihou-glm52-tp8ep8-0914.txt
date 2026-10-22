@@ -1,0 +1,81 @@
+===== CONTAINER yihou-glm52-tp8ep8-0914 (captured 2026-09-14T08:24Z) =====
+image=sha256:b5aa5bd3d828285bff8dd01bb92e6106f569f5b1eab5de24558790b1b10a5dc0
+created=2026-09-14T05:13:44.787268443Z started=2026-09-14T05:13:44.799025751Z
+--- env ---
+HOME=/tmp/yihou-home
+LOGNAME=yihou
+PATH=/opt/venv/bin:/opt/rocm/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/go/bin
+PYTHONUNBUFFERED=1
+HIP_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+HF_HOME=/tmp/yihou-hf-cache
+SGLANG_TIMEOUT_KEEP_ALIVE=900
+SGLANG_OPT_USE_JIT_KERNEL_GROUPED_TOPK=1
+USER=yihou
+PYTHONNOUSERSITE=1
+AITER_JIT_DIR=/tmp/yihou-aiter-b5aa5bd3d828
+HF_HUB_OFFLINE=1
+SGLANG_OPT_USE_TOPK_V2=false
+AITER_USE_FLYDSL_MOE_SORTING=1
+DEBIAN_FRONTEND=noninteractive
+LD_LIBRARY_PATH=/opt/rocm/lib
+BUILD_VLLM=0
+BUILD_TRITON=1
+BUILD_LLVM=0
+BUILD_AITER_ALL=1
+BUILD_MOONCAKE=1
+AITER_COMMIT_DEFAULT=d9e5ef7ce08ee7045d583aed768cff41aa9210fe
+GPU_ARCH_LIST=gfx950
+PYTORCH_ROCM_ARCH=gfx942;gfx950
+AITER_COMMIT=d9e5ef7ce08ee7045d583aed768cff41aa9210fe
+SETUPTOOLS_SCM_PRETEND_VERSION=
+AITER_USE_SYSTEM_TRITON=1
+CARGO_BUILD_JOBS=4
+LIBGL_ALWAYS_INDIRECT=1
+SGLANG_DISABLE_CUDNN_CHECK=1
+HIP_FORCE_DEV_KERNARG=1
+HSA_NO_SCRATCH_RECLAIM=1
+SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1
+SGLANG_INT4_WEIGHT=0
+SGLANG_MOE_PADDING=1
+SGLANG_ROCM_DISABLE_LINEARQUANT=0
+SGLANG_ROCM_FUSED_DECODE_MLA=1
+SGLANG_SET_CPU_AFFINITY=1
+SGLANG_USE_AITER=1
+SGLANG_USE_ROCM700A=1
+NCCL_MIN_NCHANNELS=112
+ROCM_QUICK_REDUCE_QUANTIZATION=INT8
+TORCHINDUCTOR_MAX_AUTOTUNE=1
+TORCHINDUCTOR_MAX_AUTOTUNE_POINTWISE=1
+
+--- mounts ---
+/home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script -> /home/yihou/dev/git.16-19/infera.dev.yihou.sglang.bench.fast.script rw=true
+/perf_apps/data/models/GLM-5.2-MXFP4 -> /perf_apps/data/models/GLM-5.2-MXFP4 rw=false
+/var/tmp/yihou-glm52-aiter-configs -> /tmp/aiter_configs rw=true
+/var/tmp/yihou-glm52-nss/passwd -> /etc/passwd rw=false
+/var/tmp/yihou-glm52-nss/group -> /etc/group rw=false
+
+--- inside ---
+fatal: detected dubious ownership in repository at '/sglang'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /sglang
+fatal: detected dubious ownership in repository at '/aiter'
+To add an exception for this directory, call:
+
+	git config --global --add safe.directory /aiter
+flydsl                                   0.3.2
+sglang                                   0.0.0.dev16896+g402df1e1e.d20260908 /sglang/python
+torch                                    2.9.1+rocm7.2.0.lw.git7e1940d4
+transformers                             5.12.1
+triton                                   3.7.0+amd.rocm7.2.0.git89002410
+Python 3.10.12
+--- image labels/base ---
+created=2026-09-08T11:51:53.386910426Z size=66304135225
+
+--- git HEADs (re-probed with safe.directory; the run-user probe above failed on dubious ownership) ---
+sglang 402df1e1e453e1e85ec0f5ac4052d36598cc691a
+aiter  2c71811b32c8ce2e1266aedaec199df7d90f597d
+
+NOTE: the image build-arg AITER_COMMIT=d9e5ef7ce08ee7045d583aed768cff41aa9210fe recorded in the
+container env does NOT match the AITER tree actually checked out in the image. The checked-out
+HEAD is what ran. Recorded here as measured; the discrepancy was not investigated.

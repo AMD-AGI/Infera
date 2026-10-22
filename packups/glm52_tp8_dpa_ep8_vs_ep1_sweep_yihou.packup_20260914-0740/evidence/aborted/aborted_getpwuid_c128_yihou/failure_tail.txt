@@ -1,0 +1,39 @@
+  File "/opt/venv/lib/python3.10/site-packages/compressed_tensors/compressors/base.py", line 8, in <module>
+    from compressed_tensors.compressors.format import infer_module_format
+  File "/opt/venv/lib/python3.10/site-packages/compressed_tensors/compressors/format.py", line 8, in <module>
+    from compressed_tensors.quantization import QuantizationScheme
+  File "/opt/venv/lib/python3.10/site-packages/compressed_tensors/quantization/__init__.py", line 7, in <module>
+    from .quant_args import *
+  File "/opt/venv/lib/python3.10/site-packages/compressed_tensors/quantization/quant_args.py", line 46, in <module>
+    class FP4_E2M1_DATA(FloatArgs):
+  File "/opt/venv/lib/python3.10/site-packages/compressed_tensors/quantization/quant_args.py", line 55, in FP4_E2M1_DATA
+    def cast_to_fp4(x):
+  File "/opt/venv/lib/python3.10/site-packages/torch/__init__.py", line 2640, in compile
+    return torch._dynamo.optimize(
+  File "/opt/venv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 1263, in optimize
+    return _optimize(rebuild_ctx, *args, **kwargs)
+  File "/opt/venv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 1338, in _optimize
+    backend = get_compiler_fn(backend)
+  File "/opt/venv/lib/python3.10/site-packages/torch/_dynamo/eval_frame.py", line 1103, in get_compiler_fn
+    from .repro.after_dynamo import wrap_backend_debug
+  File "/opt/venv/lib/python3.10/site-packages/torch/_dynamo/repro/after_dynamo.py", line 33, in <module>
+    from torch._dynamo.debug_utils import (
+  File "/opt/venv/lib/python3.10/site-packages/torch/_dynamo/debug_utils.py", line 43, in <module>
+    from torch._dynamo.testing import rand_strided
+  File "/opt/venv/lib/python3.10/site-packages/torch/_dynamo/testing.py", line 33, in <module>
+    from torch._dynamo.backends.debugging import aot_eager
+  File "/opt/venv/lib/python3.10/site-packages/torch/_dynamo/backends/debugging.py", line 34, in <module>
+    from functorch.compile import min_cut_rematerialization_partition
+  File "/opt/venv/lib/python3.10/site-packages/functorch/compile/__init__.py", line 2, in <module>
+    from torch._functorch.aot_autograd import (
+  File "/opt/venv/lib/python3.10/site-packages/torch/_functorch/aot_autograd.py", line 38, in <module>
+    from ._aot_autograd.autograd_cache import (  # noqa: F401
+  File "/opt/venv/lib/python3.10/site-packages/torch/_functorch/_aot_autograd/autograd_cache.py", line 34, in <module>
+    from torch._inductor.codecache import (
+  File "/opt/venv/lib/python3.10/site-packages/torch/_inductor/codecache.py", line 2560, in <module>
+    _HEADER_DIR = os.path.join(default_cache_dir(), "precompiled_headers")
+  File "/opt/venv/lib/python3.10/site-packages/torch/_inductor/runtime/cache_dir_utils.py", line 23, in default_cache_dir
+    sanitized_username = re.sub(r'[\\/:*?"<>|]', "_", getpass.getuser())
+  File "/usr/lib/python3.10/getpass.py", line 169, in getuser
+    return pwd.getpwuid(os.getuid())[0]
+KeyError: 'getpwuid(): uid not found: 100882'

@@ -1,0 +1,49 @@
+# Host probe: smci355-ccs-aus-n06-25.prov.aus.ccs.cpe.ice.amd.com
+captured: 2026-09-15T02:23:19Z
+
+## uname
+Linux smci355-ccs-aus-n06-25.prov.aus.ccs.cpe.ice.amd.com 6.8.0-107-generic #107~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC Wed Mar 18 23:40:43 UTC  x86_64 x86_64 x86_64 GNU/Linux
+
+## os
+Ubuntu 22.04.5 LTS
+
+## cpu
+CPU(s):                                  256
+Model name:                              AMD EPYC 9575F 64-Core Processor
+Thread(s) per core:                      2
+Core(s) per socket:                      64
+Socket(s):                               2
+
+## mem
+               total        used        free      shared  buff/cache   available
+Mem:           3.0Ti       111Gi       2.6Ti       9.0Mi       217Gi       2.8Ti
+
+## rocm-smi
+
+
+============================ ROCm System Management Interface ============================
+====================================== Product Info ======================================
+GPU[0]		: Card Series: 		AMD Instinct MI355X
+GPU[0]		: Card Model: 		0x75a3
+GPU[0]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[0]		: Card SKU: 		N/A
+GPU[0]		: Subsystem ID: 	0x75a3
+GPU[0]		: Device Rev: 		0x00
+GPU[0]		: Node ID: 		3
+GPU[0]		: GUID: 		42583
+GPU[0]		: GFX Version: 		gfx950
+GPU[1]		: Card Series: 		AMD Instinct MI355X
+GPU[1]		: Card Model: 		0x75a3
+GPU[1]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+GPU[1]		: Card SKU: 		N/A
+GPU[1]		: Subsystem ID: 	0x75a3
+GPU[1]		: Device Rev: 		0x00
+GPU[1]		: Node ID: 		5
+GPU[1]		: GUID: 		27226
+GPU[1]		: GFX Version: 		gfx950
+GPU[2]		: Card Series: 		AMD Instinct MI355X
+GPU[2]		: Card Model: 		0x75a3
+GPU[2]		: Card Vendor: 		Advanced Micro Devices, Inc. [AMD/ATI]
+
+## driver
+6.16.13

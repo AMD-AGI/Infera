@@ -1,0 +1,123 @@
+{
+  "complete": false,
+  "batch_size": 4,
+  "input_len": 1024,
+  "output_len": 32,
+  "emitted_per_request": [
+    16,
+    16,
+    16,
+    16
+  ],
+  "final_seq_lens": [
+    1040,
+    1040,
+    1040,
+    1040
+  ],
+  "verify_iterations": 4,
+  "useful_output_tokens": 64,
+  "raw_accept_tokens": 64,
+  "num_correct_drafts": 48,
+  "terminal_extra_tokens": 0,
+  "realized_accept_length": 4.0,
+  "accept_histogram": {
+    "4": 16
+  },
+  "elapsed_seconds": 0.0842069009959232,
+  "output_tokens_per_second": 760.0327199204077,
+  "effective_token_latency_ms_per_user": 5.2629313122452,
+  "tp_size": 4,
+  "ep_size": 4,
+  "dp_size": 1,
+  "enable_dp_attention": false,
+  "global_batch_size": 4,
+  "local_batch_size": 4,
+  "expected_accept_length": 3.61,
+  "accept_method": "match-expected",
+  "accept_token_mode": "real-draft-token",
+  "output_tokens_per_second_per_gpu": 190.00817998010191,
+  "target_graph_iterations": 4,
+  "warmup_steps_excluded": 3,
+  "graph_execution_counts": {
+    "target": 4,
+    "draft": 4,
+    "draft_extend": 4
+  },
+  "bootstrap_tokens_excluded": 4,
+  "report_scope": "global",
+  "graph_execution_counts_scope": "rank_0",
+  "phase_seconds": {
+    "load_pool_capture": 802.2684912599943,
+    "physical_initialization": 0.19444472900067922,
+    "bootstrap": 34.04707125600544,
+    "warmup_and_reset": 7.7683730729913805,
+    "decode": 0.0842069009959232,
+    "rank_total_to_result": 844.3658841290016
+  },
+  "moe_a2a_backend": "none",
+  "moe_runner_backend": "auto",
+  "cross_rank_progress_check": "every warmup and measured iteration; included in timing",
+  "synthetic_prefix": true,
+  "simulated_acceptance": true,
+  "real_model_weights": true,
+  "real_moe_routing": true,
+  "scheduler_used": false,
+  "pinned_sglang": "402df1e1e453e1e85ec0f5ac4052d36598cc691a",
+  "module_source_paths": {
+    "sglang.srt.server_args": "/sglang/python/sglang/srt/server_args.py",
+    "sglang.srt.speculative.eagle_worker_v2": "/sglang/python/sglang/srt/speculative/eagle_worker_v2.py"
+  },
+  "timing_boundary": "complete internal speculative loop + synchronization + bookkeeping; excludes bootstrap/warmup/load/capture",
+  "terminal_policy": "count only remaining useful tokens; pay full terminal computation; no subsequent forward",
+  "memory": {
+    "reserved_tokens": 4352,
+    "reserved_tokens_per_request": 1088,
+    "page_size": 64,
+    "speculative_reserve": 12,
+    "target_initialized_bytes": 136432684800,
+    "draft_initialized_bytes": 2025038592
+  },
+  "max_memory_allocated_bytes": 255085356032,
+  "model_path": "/shared_nfs/models/GLM-5.2-MXFP4",
+  "target_backend": "DeepseekSparseAttnBackend",
+  "draft_backend": "DeepseekSparseAttnBackend",
+  "draft_graph_available": true,
+  "draft_extend_graph_available": true,
+  "representative_ranks": [
+    0
+  ],
+  "graph_execution_counts_by_rank": {
+    "0": {
+      "target": 4,
+      "draft": 4,
+      "draft_extend": 4
+    },
+    "1": {
+      "target": 4,
+      "draft": 4,
+      "draft_extend": 4
+    },
+    "2": {
+      "target": 4,
+      "draft": 4,
+      "draft_extend": 4
+    },
+    "3": {
+      "target": 4,
+      "draft": 4,
+      "draft_extend": 4
+    }
+  },
+  "per_dp_useful_output_tokens": [
+    64
+  ],
+  "phase_seconds_max_rank": {
+    "load_pool_capture": 802.2684912599943,
+    "physical_initialization": 0.32874696800718084,
+    "bootstrap": 34.096489832998486,
+    "warmup_and_reset": 7.768518323005992,
+    "decode": 0.0842069009959232,
+    "rank_total_to_result": 844.3658841290016
+  }
+}

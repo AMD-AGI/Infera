@@ -1,0 +1,101 @@
+diff --git a/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py b/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py
+index ef5a830d..42bd7119 100644
+--- a/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py
++++ b/glm52_decode_internal_yihou_20260909_1057/bench/profile_decode.py
+@@ -28,6 +28,15 @@ from topology import (
+     validate_rank_progress,
+ )
+ 
++# Opt-in profiling. This module is stdlib-only at import time (torch and SGLang are
++# imported lazily inside it) and nothing it owns is constructed unless --profile.
++from profiling_yihou import (
++    ProfileSession,
++    add_profile_cli_args,
++    configure_profile_env,
++    validate_profile_args,
++)
++
+ PINNED_SGLANG = "402df1e1e453e1e85ec0f5ac4052d36598cc691a"
+ 
+ 
+@@ -49,6 +58,7 @@ def make_parser():
+     parser.add_argument("--warmup-steps", type=int, default=3)
+     parser.add_argument("--seed", type=int, default=1234)
+     parser.add_argument("--log-interval", type=int, default=100)
++    add_profile_cli_args(parser)
+     return parser
+ 
+ 
+@@ -62,6 +72,7 @@ def validate_args(args):
+         raise ValueError("accept-length must be in [1, 6] for steps=5/draft=6")
+     if args.input_len < 2:
+         raise ValueError("input-len must be at least 2 for a populated-prefix bootstrap")
++    validate_profile_args(args)
+ 
+ 
+ def server_cli(args, extra):
+@@ -297,6 +308,7 @@ def run_rank(rank, server_args, port_args, args):
+     rank_start = time.perf_counter()
+     topology = DecodeTopology(args.tp_size, args.ep_size, args.batch_size, args.enable_dp_attention)
+     phase_seconds = {}
++    session = ProfileSession.create(args, rank, log)  # None unless --profile
+     configure_acceptance(args)
+     random.seed(args.seed)
+     np.random.seed(args.seed)
+@@ -354,9 +366,20 @@ def run_rank(rank, server_args, port_args, args):
+             "draft": worker.draft_worker.cuda_graph_runner,
+             "draft_extend": worker.draft_worker.cuda_graph_runner_for_draft_extend,
+         })
++        if session is not None:
++            # After warmup on purpose: every graph is already captured, so no
++            # torch.cuda.Event is ever recorded inside a capture.
++            timed_runners = {"target": target.model_runner,
++                             "draft": worker.draft_worker.draft_runner}
++            for index, extra_runner in enumerate(getattr(worker.draft_worker, "draft_runner_list", []) or []):
++                if extra_runner is not timed_runners["draft"]:
++                    timed_runners[f"draft_layer_{index}"] = extra_runner
++            session.attach_device_timer(timed_runners)
+         log(rank, "measured decode loop begins at exact requested ISL")
+         start = time.perf_counter()
+         while not accounting.complete and (not args.max_steps or accounting.verify_ct < args.max_steps):
++            if session is not None:
++                session.step_boundary(accounting.verify_ct)  # outside the per-step tick
+             tick = time.perf_counter()
+             batch.prepare_for_decode()
+             prepare_dp_metadata(batch, topology, is_extend=False, disable_cuda_graph=args.disable_cuda_graph)
+@@ -410,6 +433,17 @@ def run_rank(rank, server_args, port_args, args):
+             "draft_graph_available": worker.draft_worker.cuda_graph_runner is not None,
+             "draft_extend_graph_available": worker.draft_worker.cuda_graph_runner_for_draft_extend is not None,
+         })
++        if session is not None:
++            summary["profiled"] = True
++            summary["is_performance_measurement"] = False
++            session.finish(target.model_runner.ps, {
++                "measured_iterations": accounting.verify_ct,
++                "measured_elapsed_seconds": elapsed,
++                "pinned_sglang": PINNED_SGLANG,
++                "module_source_paths": source_paths,
++                "topology": topology.summary(),
++                "result_dir": args.result_dir,
++            })
+         (result_dir / f"rank_{rank}_yihou.json").write_text(json.dumps(summary, indent=2) + "\n")
+         (result_dir / f"steps_rank_{rank}_yihou.jsonl").write_text("".join(json.dumps(step) + "\n" for step in steps))
+         reports = [None] * args.tp_size
+@@ -452,7 +486,16 @@ def main():
+     result_dir = Path(args.result_dir).resolve()
+     result_dir.mkdir(parents=True, exist_ok=True)
+     args.result_dir = str(result_dir)
+-    (result_dir / "config_yihou.json").write_text(json.dumps({"benchmark": vars(args), "server_cli": cli, "expected_sglang_commit": PINNED_SGLANG}, indent=2, sort_keys=True) + "\n")
++    if args.profile:
++        # Must precede mp.spawn: SGLANG_TORCH_PROFILER_DIR has to be in the children's
++        # environment before CUDA-graph capture, which runs inside each spawned rank.
++        profile_env = configure_profile_env(args)
++        print(f"[INTERNAL-DECODE] profiling enabled; env={profile_env}", flush=True)
++    # Keep config_yihou.json byte-compatible with the published packup when profiling
++    # is off: the new --profile* defaults are recorded only on a profiled run.
++    recorded = {key: value for key, value in vars(args).items()
++                if args.profile or not (key == "profile" or key.startswith("profile_") or key == "device_timer")}
++    (result_dir / "config_yihou.json").write_text(json.dumps({"benchmark": recorded, "server_cli": cli, "expected_sglang_commit": PINNED_SGLANG}, indent=2, sort_keys=True) + "\n")
+     _set_envs_and_config(server_args)
+     port_args = PortArgs.init_new(server_args)
+     if args.tp_size == 1:
