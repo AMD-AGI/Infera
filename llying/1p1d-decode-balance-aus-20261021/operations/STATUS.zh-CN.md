@@ -85,3 +85,5 @@
   `n04-29,n02-25`；下次分配的模板改为同一部署 3600 s：kit 原样复现 → prefill 加 EAGLE（GPU 0–3，权重 0）→ 权重 1,000,000。
 - 12:20 campaign 又误判一次：拆部署时 `squeue` 短暂显示 **SIGNALING**，campaign 只认 RUNNING，当成"作业离开"、随即又当成"新分配"
   （`a10x1220`）跑了一遍 prepare。修正：RUNNING 与 SIGNALING 都算在运行（`running()`），12:24 重启 campaign。
+- 12:52 用户决定不再跑排队中的 3600 s 验证（作业预计 21:32 才开始）：`scancel 34439`，停掉 campaign、`patrol.sh`、`kit_patrol.sh`，
+  无残留 srun 步骤。未完成：同一部署 3600 s 的 kit 原样复现 / prefill MTP + w0 / w1m（`operations/queue.next.tsv` 保留计划）。
