@@ -1,0 +1,11 @@
+2026-10-22T05:09:56Z	start	exp=E2+mc4340+tokw4detok4+offload-g3k1s1+xferfix2-orig-dest+pr42553-idxtrue-caron+idlefix+xnode-135x136+dcpx4-destlocal-list-split1 round=dcpx3 image=infera-sglang:v0522-1020-yihou-dcp-mc4340-destpin config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.dcpx.sh
+2026-10-22T05:09:57Z	ports-decode	ok:9 ports <30000 and free
+2026-10-22T05:09:57Z	ports-all	ok:21 ports <30000 and free
+2026-10-22T05:10:59Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-22T05:11:00Z	etcd	ok
+2026-10-22T05:13:24Z	prefill	ok:8x20s
+2026-10-22T05:19:55Z	decode-a1	ok
+2026-10-22T05:19:55Z	bothlegs	ok
+2026-10-22T05:20:01Z	router	ok
+2026-10-22T05:20:04Z	smoke	ok
+2026-10-22T05:20:04Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dcpx3/agentx-c56-A1

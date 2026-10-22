@@ -1,0 +1,200 @@
+2026-10-22T07:51:28.769952142Z [2026-10-22 07:51:28 TP1 EP1] Decode transfer failed for request rank=1 decode_req.req.rid='6a74f04057004fc18b6f29987a50a492' decode_req.req.bootstrap_room=5854850207722288601 with exception KVTransferError(bootstrap_room=5854850207722288601): Aborted by AbortReq.
+2026-10-22T07:51:28.769959751Z [2026-10-22 07:51:28 TP0 EP0] Decode transfer failed for request rank=0 decode_req.req.rid='6a74f04057004fc18b6f29987a50a492' decode_req.req.bootstrap_room=5854850207722288601 with exception KVTransferError(bootstrap_room=5854850207722288601): Aborted by AbortReq.
+2026-10-22T07:51:28.769962361Z [2026-10-22 07:51:28 TP2 EP2] Decode transfer failed for request rank=2 decode_req.req.rid='6a74f04057004fc18b6f29987a50a492' decode_req.req.bootstrap_room=5854850207722288601 with exception KVTransferError(bootstrap_room=5854850207722288601): Aborted by AbortReq.
+2026-10-22T07:51:28.769984371Z [2026-10-22 07:51:28 TP3 EP3] Decode transfer failed for request rank=3 decode_req.req.rid='6a74f04057004fc18b6f29987a50a492' decode_req.req.bootstrap_room=5854850207722288601 with exception KVTransferError(bootstrap_room=5854850207722288601): Aborted by AbortReq.
+2026-10-22T07:51:28.805719462Z [2026-10-22 07:51:28 TP0 EP0] Decode transfer failed for request rank=0 decode_req.req.rid='3d10ce558e0044cf8f77c1bb9e0126a2' decode_req.req.bootstrap_room=7011298607174218237 with exception KVTransferError(bootstrap_room=7011298607174218237): Aborted by AbortReq.
+2026-10-22T07:51:28.805729092Z [2026-10-22 07:51:28 TP1 EP1] Decode transfer failed for request rank=1 decode_req.req.rid='3d10ce558e0044cf8f77c1bb9e0126a2' decode_req.req.bootstrap_room=7011298607174218237 with exception KVTransferError(bootstrap_room=7011298607174218237): Aborted by AbortReq.
+2026-10-22T07:51:28.805733042Z [2026-10-22 07:51:28 TP3 EP3] Decode transfer failed for request rank=3 decode_req.req.rid='3d10ce558e0044cf8f77c1bb9e0126a2' decode_req.req.bootstrap_room=7011298607174218237 with exception KVTransferError(bootstrap_room=7011298607174218237): Aborted by AbortReq.
+2026-10-22T07:51:28.805735762Z [2026-10-22 07:51:28 TP2 EP2] Decode transfer failed for request rank=2 decode_req.req.rid='3d10ce558e0044cf8f77c1bb9e0126a2' decode_req.req.bootstrap_room=7011298607174218237 with exception KVTransferError(bootstrap_room=7011298607174218237): Aborted by AbortReq.
+2026-10-22T07:51:28.851108014Z [2026-10-22 07:51:28 TP0 EP0] Decode transfer failed for request rank=0 decode_req.req.rid='6bd284e53b6a4364853259c044e49f48' decode_req.req.bootstrap_room=4601867855676803500 with exception KVTransferError(bootstrap_room=4601867855676803500): Aborted by AbortReq.
+2026-10-22T07:51:28.851133514Z [2026-10-22 07:51:28 TP3 EP3] Decode transfer failed for request rank=3 decode_req.req.rid='6bd284e53b6a4364853259c044e49f48' decode_req.req.bootstrap_room=4601867855676803500 with exception KVTransferError(bootstrap_room=4601867855676803500): Aborted by AbortReq.
+2026-10-22T07:51:28.851139844Z [2026-10-22 07:51:28 TP1 EP1] Decode transfer failed for request rank=1 decode_req.req.rid='6bd284e53b6a4364853259c044e49f48' decode_req.req.bootstrap_room=4601867855676803500 with exception KVTransferError(bootstrap_room=4601867855676803500): Aborted by AbortReq.
+2026-10-22T07:51:28.851143484Z [2026-10-22 07:51:28 TP2 EP2] Decode transfer failed for request rank=2 decode_req.req.rid='6bd284e53b6a4364853259c044e49f48' decode_req.req.bootstrap_room=4601867855676803500 with exception KVTransferError(bootstrap_room=4601867855676803500): Aborted by AbortReq.
+2026-10-22T07:51:28.961905829Z [2026-10-22 07:51:28 TP0 EP0] Decode transfer failed for request rank=0 decode_req.req.rid='404b4e27185142638fd51290edf5c030' decode_req.req.bootstrap_room=3893291685832938191 with exception KVTransferError(bootstrap_room=3893291685832938191): Aborted by AbortReq.
+2026-10-22T07:51:28.961933908Z [2026-10-22 07:51:28 TP3 EP3] Decode transfer failed for request rank=3 decode_req.req.rid='404b4e27185142638fd51290edf5c030' decode_req.req.bootstrap_room=3893291685832938191 with exception KVTransferError(bootstrap_room=3893291685832938191): Aborted by AbortReq.
+2026-10-22T07:51:28.961941448Z [2026-10-22 07:51:28 TP1 EP1] Decode transfer failed for request rank=1 decode_req.req.rid='404b4e27185142638fd51290edf5c030' decode_req.req.bootstrap_room=3893291685832938191 with exception KVTransferError(bootstrap_room=3893291685832938191): Aborted by AbortReq.
+2026-10-22T07:51:28.961969468Z [2026-10-22 07:51:28 TP2 EP2] Decode transfer failed for request rank=2 decode_req.req.rid='404b4e27185142638fd51290edf5c030' decode_req.req.bootstrap_room=3893291685832938191 with exception KVTransferError(bootstrap_room=3893291685832938191): Aborted by AbortReq.
+2026-10-22T07:51:28.990621355Z [2026-10-22 07:51:28 TP0 EP0] Decode transfer failed for request rank=0 decode_req.req.rid='0e64a8cd5202455aa449e89012e1631c' decode_req.req.bootstrap_room=298352572670347670 with exception KVTransferError(bootstrap_room=298352572670347670): Aborted by AbortReq.
+2026-10-22T07:51:28.990630315Z [2026-10-22 07:51:28 TP3 EP3] Decode transfer failed for request rank=3 decode_req.req.rid='0e64a8cd5202455aa449e89012e1631c' decode_req.req.bootstrap_room=298352572670347670 with exception KVTransferError(bootstrap_room=298352572670347670): Aborted by AbortReq.
+2026-10-22T07:51:28.990664415Z [2026-10-22 07:51:28 TP2 EP2] Decode transfer failed for request rank=2 decode_req.req.rid='0e64a8cd5202455aa449e89012e1631c' decode_req.req.bootstrap_room=298352572670347670 with exception KVTransferError(bootstrap_room=298352572670347670): Aborted by AbortReq.
+2026-10-22T07:51:28.990666865Z [2026-10-22 07:51:28 TP1 EP1] Decode transfer failed for request rank=1 decode_req.req.rid='0e64a8cd5202455aa449e89012e1631c' decode_req.req.bootstrap_room=298352572670347670 with exception KVTransferError(bootstrap_room=298352572670347670): Aborted by AbortReq.
+2026-10-22T07:51:29.364390997Z [2026-10-22 07:51:29 TP0 EP0] Decode transfer failed for request rank=0 decode_req.req.rid='fcf63f671d954ec0b6c177723b61baeb' decode_req.req.bootstrap_room=2163552380912545717 with exception KVTransferError(bootstrap_room=2163552380912545717): Aborted by AbortReq.
+2026-10-22T07:51:29.364479935Z [2026-10-22 07:51:29 TP1 EP1] Decode transfer failed for request rank=1 decode_req.req.rid='fcf63f671d954ec0b6c177723b61baeb' decode_req.req.bootstrap_room=2163552380912545717 with exception KVTransferError(bootstrap_room=2163552380912545717): Aborted by AbortReq.
+2026-10-22T07:51:29.364492365Z [2026-10-22 07:51:29 TP3 EP3] Decode transfer failed for request rank=3 decode_req.req.rid='fcf63f671d954ec0b6c177723b61baeb' decode_req.req.bootstrap_room=2163552380912545717 with exception KVTransferError(bootstrap_room=2163552380912545717): Aborted by AbortReq.
+2026-10-22T07:51:29.364495765Z [2026-10-22 07:51:29 TP2 EP2] Decode transfer failed for request rank=2 decode_req.req.rid='fcf63f671d954ec0b6c177723b61baeb' decode_req.req.bootstrap_room=2163552380912545717 with exception KVTransferError(bootstrap_room=2163552380912545717): Aborted by AbortReq.
+2026-10-22T07:51:30.149056798Z [2026-10-22 07:51:30] INFO:     10.245.154.168:42852 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:31.251109229Z [2026-10-22 07:51:31] INFO:     10.245.148.209:38580 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:35.148555270Z [2026-10-22 07:51:35] INFO:     10.245.154.168:46590 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:36.255829155Z [2026-10-22 07:51:36] INFO:     10.245.148.209:44564 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:40.147317934Z [2026-10-22 07:51:40] INFO:     10.245.154.168:46600 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:41.256482038Z [2026-10-22 07:51:41] INFO:     10.245.148.209:44572 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:45.148417530Z [2026-10-22 07:51:45] INFO:     10.245.154.168:41430 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:46.250880465Z [2026-10-22 07:51:46] INFO:     10.245.148.209:54486 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:47.691287921Z [2026-10-22 07:51:47 TP0 EP0] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:47.733001744Z [2026-10-22 07:51:47 TP3 EP3] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:47.909887199Z [2026-10-22 07:51:47 TP2 EP2] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:47.963333118Z [2026-10-22 07:51:47 TP1 EP1] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:49.160364565Z INFO:infera.common.registration:deregistered worker 10.245.154.168:29357 (lease 6909262222811769143 revoked)
+2026-10-22T07:51:49.198457207Z [2026-10-22 07:51:49] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:49.724537789Z [2026-10-22 07:51:49] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:50.150255644Z [2026-10-22 07:51:50] INFO:     10.245.154.168:41450 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:50.254449137Z [2026-10-22 07:51:50] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:50.778532742Z [2026-10-22 07:51:50] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:51.251126865Z [2026-10-22 07:51:51] INFO:     10.245.148.209:54498 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:51.302709915Z [2026-10-22 07:51:51] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:51.826953727Z [2026-10-22 07:51:51] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:52.351136640Z [2026-10-22 07:51:52] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:52.692214120Z [2026-10-22 07:51:52 TP0 EP0] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:52.692451946Z [2026-10-22 07:51:52 TP0 EP0] Lost connection with prefill instance (bootstrap_addr: 10.245.154.168:28198), 0 requests affected
+2026-10-22T07:51:52.733898153Z [2026-10-22 07:51:52 TP3 EP3] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:52.734025651Z [2026-10-22 07:51:52 TP3 EP3] Lost connection with prefill instance (bootstrap_addr: 10.245.154.168:28198), 0 requests affected
+2026-10-22T07:51:52.875840664Z [2026-10-22 07:51:52] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:52.910870847Z [2026-10-22 07:51:52 TP2 EP2] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:52.910980165Z [2026-10-22 07:51:52 TP2 EP2] Lost connection with prefill instance (bootstrap_addr: 10.245.154.168:28198), 0 requests affected
+2026-10-22T07:51:52.964919706Z [2026-10-22 07:51:52 TP1 EP1] Attempting to reconnect to 10.245.154.168:28198...
+2026-10-22T07:51:52.965015525Z [2026-10-22 07:51:52 TP1 EP1] Lost connection with prefill instance (bootstrap_addr: 10.245.154.168:28198), 0 requests affected
+2026-10-22T07:51:53.399833900Z [2026-10-22 07:51:53] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:53.923900325Z [2026-10-22 07:51:53] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:54.448124157Z [2026-10-22 07:51:54] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:54.972340680Z [2026-10-22 07:51:54] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:55.152164546Z [2026-10-22 07:51:55] INFO:     10.245.154.168:58634 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:55.496544732Z [2026-10-22 07:51:55] INFO:     10.245.154.168:41446 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:55.501707017Z INFO:infera.engine.sglang.worker:SGLang engine stopping
+2026-10-22T07:51:55.501843145Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:55.501874114Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:55.501984862Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:55.501988132Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:55.834007292Z [2026-10-22 07:51:55] INFO:     Received SIGTERM, exiting.
+2026-10-22T07:51:55.834054651Z [2026-10-22 07:51:55] INFO:     Terminated child process [33523]
+2026-10-22T07:51:55.834058511Z [2026-10-22 07:51:55] INFO:     Terminated child process [33524]
+2026-10-22T07:51:55.834071371Z [2026-10-22 07:51:55] INFO:     Terminated child process [33525]
+2026-10-22T07:51:55.834087200Z [2026-10-22 07:51:55] INFO:     Terminated child process [33526]
+2026-10-22T07:51:55.834161609Z [2026-10-22 07:51:55] INFO:     Waiting for child process [33523]
+2026-10-22T07:51:55.834279997Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:55.834284177Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:55.834331046Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:55.834364596Z [2026-10-22 07:51:55] SIGTERM received. signum=None frame=None. Draining requests and shutting down...
+2026-10-22T07:51:56.122795933Z [2026-10-22 07:51:56] Subprocess scheduler_0 (pid=30374) crashed with exit code -15. Triggering SIGQUIT for cleanup...
+2026-10-22T07:51:56.256673707Z [2026-10-22 07:51:56] INFO:     10.245.148.209:35268 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:51:57.966215599Z [2026-10-22 07:51:57] ERROR:    Traceback (most recent call last):
+2026-10-22T07:51:57.966236588Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/_compat.py", line 60, in asyncio_run
+2026-10-22T07:51:57.966239698Z     return loop.run_until_complete(main)
+2026-10-22T07:51:57.966242408Z   File "uvloop/loop.pyx", line 1509, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:51:57.966244778Z   File "uvloop/loop.pyx", line 1502, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:51:57.966248268Z   File "uvloop/loop.pyx", line 1371, in uvloop.loop.Loop.run_forever
+2026-10-22T07:51:57.966250738Z   File "uvloop/loop.pyx", line 551, in uvloop.loop.Loop._run
+2026-10-22T07:51:57.966252938Z   File "uvloop/loop.pyx", line 471, in uvloop.loop.Loop._on_idle
+2026-10-22T07:51:57.966255318Z   File "uvloop/cbhandles.pyx", line 86, in uvloop.loop.Handle._run
+2026-10-22T07:51:57.966257148Z   File "uvloop/cbhandles.pyx", line 66, in uvloop.loop.Handle._run
+2026-10-22T07:51:57.966259268Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 4052, in print_exception_wrapper
+2026-10-22T07:51:57.966261058Z     await func()
+2026-10-22T07:51:57.966262678Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 3583, in sigterm_watchdog
+2026-10-22T07:51:57.966264178Z     sys.exit(0)
+2026-10-22T07:51:57.966265758Z SystemExit: 0
+2026-10-22T07:51:57.966267348Z 
+2026-10-22T07:51:57.966268778Z During handling of the above exception, another exception occurred:
+2026-10-22T07:51:57.966270248Z 
+2026-10-22T07:51:57.966271818Z Traceback (most recent call last):
+2026-10-22T07:51:57.966273258Z   File "/opt/venv/lib/python3.10/site-packages/starlette/routing.py", line 661, in lifespan
+2026-10-22T07:51:57.966274738Z     await receive()
+2026-10-22T07:51:57.966282838Z   File "/opt/venv/lib/python3.10/site-packages/fastapi/telemetry/_runtime.py", line 214, in wrapped_receive
+2026-10-22T07:51:57.966322417Z     message = await receive()
+2026-10-22T07:51:57.966324147Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/lifespan/on.py", line 137, in receive
+2026-10-22T07:51:57.966325847Z     return await self.receive_queue.get()
+2026-10-22T07:51:57.966327267Z   File "/usr/lib/python3.10/asyncio/queues.py", line 159, in get
+2026-10-22T07:51:57.966328747Z     await getter
+2026-10-22T07:51:57.966330157Z asyncio.exceptions.CancelledError
+2026-10-22T07:51:57.966331577Z 
+2026-10-22T07:51:58.053933683Z [2026-10-22 07:51:58] ERROR:    Traceback (most recent call last):
+2026-10-22T07:51:58.053985733Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/_compat.py", line 60, in asyncio_run
+2026-10-22T07:51:58.053989602Z     return loop.run_until_complete(main)
+2026-10-22T07:51:58.053993062Z   File "uvloop/loop.pyx", line 1509, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:51:58.053996822Z   File "uvloop/loop.pyx", line 1502, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:51:58.054000222Z   File "uvloop/loop.pyx", line 1371, in uvloop.loop.Loop.run_forever
+2026-10-22T07:51:58.054002802Z   File "uvloop/loop.pyx", line 551, in uvloop.loop.Loop._run
+2026-10-22T07:51:58.054005482Z   File "uvloop/loop.pyx", line 471, in uvloop.loop.Loop._on_idle
+2026-10-22T07:51:58.054008552Z   File "uvloop/cbhandles.pyx", line 86, in uvloop.loop.Handle._run
+2026-10-22T07:51:58.054010472Z   File "uvloop/cbhandles.pyx", line 66, in uvloop.loop.Handle._run
+2026-10-22T07:51:58.054012322Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 4052, in print_exception_wrapper
+2026-10-22T07:51:58.054014312Z     await func()
+2026-10-22T07:51:58.054015922Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 3583, in sigterm_watchdog
+2026-10-22T07:51:58.054017412Z     sys.exit(0)
+2026-10-22T07:51:58.054023682Z SystemExit: 0
+2026-10-22T07:51:58.054025052Z 
+2026-10-22T07:51:58.054026482Z During handling of the above exception, another exception occurred:
+2026-10-22T07:51:58.054027962Z 
+2026-10-22T07:51:58.054029382Z Traceback (most recent call last):
+2026-10-22T07:51:58.054031022Z   File "/opt/venv/lib/python3.10/site-packages/starlette/routing.py", line 661, in lifespan
+2026-10-22T07:51:58.054076901Z     await receive()
+2026-10-22T07:51:58.054183209Z   File "/opt/venv/lib/python3.10/site-packages/fastapi/telemetry/_runtime.py", line 214, in wrapped_receive
+2026-10-22T07:51:58.054195509Z     message = await receive()
+2026-10-22T07:51:58.054198749Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/lifespan/on.py", line 137, in receive
+2026-10-22T07:51:58.054204999Z     return await self.receive_queue.get()
+2026-10-22T07:51:58.054207339Z   File "/usr/lib/python3.10/asyncio/queues.py", line 159, in get
+2026-10-22T07:51:58.054209669Z     await getter
+2026-10-22T07:51:58.054212059Z asyncio.exceptions.CancelledError
+2026-10-22T07:51:58.054214559Z 
+2026-10-22T07:51:58.254668886Z [2026-10-22 07:51:58] ERROR:    Traceback (most recent call last):
+2026-10-22T07:51:58.254738715Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/_compat.py", line 60, in asyncio_run
+2026-10-22T07:51:58.254742835Z     return loop.run_until_complete(main)
+2026-10-22T07:51:58.254745695Z   File "uvloop/loop.pyx", line 1509, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:51:58.254748564Z   File "uvloop/loop.pyx", line 1502, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:51:58.254751074Z   File "uvloop/loop.pyx", line 1371, in uvloop.loop.Loop.run_forever
+2026-10-22T07:51:58.254753284Z   File "uvloop/loop.pyx", line 551, in uvloop.loop.Loop._run
+2026-10-22T07:51:58.254755564Z   File "uvloop/loop.pyx", line 471, in uvloop.loop.Loop._on_idle
+2026-10-22T07:51:58.254758314Z   File "uvloop/cbhandles.pyx", line 86, in uvloop.loop.Handle._run
+2026-10-22T07:51:58.254759814Z   File "uvloop/cbhandles.pyx", line 66, in uvloop.loop.Handle._run
+2026-10-22T07:51:58.254761604Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 4052, in print_exception_wrapper
+2026-10-22T07:51:58.254763154Z     await func()
+2026-10-22T07:51:58.254764594Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 3583, in sigterm_watchdog
+2026-10-22T07:51:58.254766094Z     sys.exit(0)
+2026-10-22T07:51:58.254767704Z SystemExit: 0
+2026-10-22T07:51:58.254769114Z 
+2026-10-22T07:51:58.254770544Z During handling of the above exception, another exception occurred:
+2026-10-22T07:51:58.254772004Z 
+2026-10-22T07:51:58.254774314Z Traceback (most recent call last):
+2026-10-22T07:51:58.254776324Z   File "/opt/venv/lib/python3.10/site-packages/starlette/routing.py", line 661, in lifespan
+2026-10-22T07:51:58.254777814Z     await receive()
+2026-10-22T07:51:58.254779244Z   File "/opt/venv/lib/python3.10/site-packages/fastapi/telemetry/_runtime.py", line 214, in wrapped_receive
+2026-10-22T07:51:58.254780744Z     message = await receive()
+2026-10-22T07:51:58.254782134Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/lifespan/on.py", line 137, in receive
+2026-10-22T07:51:58.254783624Z     return await self.receive_queue.get()
+2026-10-22T07:51:58.254785054Z   File "/usr/lib/python3.10/asyncio/queues.py", line 159, in get
+2026-10-22T07:51:58.254786544Z     await getter
+2026-10-22T07:51:58.254787944Z asyncio.exceptions.CancelledError
+2026-10-22T07:51:58.254789374Z 
+2026-10-22T07:51:58.337976133Z [2026-10-22 07:51:58] INFO:     Waiting for child process [33524]
+2026-10-22T07:51:58.338141390Z [2026-10-22 07:51:58] INFO:     Waiting for child process [33525]
+2026-10-22T07:52:00.148114347Z [2026-10-22 07:52:00] INFO:     10.245.154.168:58648 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T07:52:00.161542786Z [2026-10-22 07:52:00] ERROR:    Traceback (most recent call last):
+2026-10-22T07:52:00.161558706Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/_compat.py", line 60, in asyncio_run
+2026-10-22T07:52:00.161562186Z     return loop.run_until_complete(main)
+2026-10-22T07:52:00.161564756Z   File "uvloop/loop.pyx", line 1509, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:52:00.161567295Z   File "uvloop/loop.pyx", line 1502, in uvloop.loop.Loop.run_until_complete
+2026-10-22T07:52:00.161569615Z   File "uvloop/loop.pyx", line 1371, in uvloop.loop.Loop.run_forever
+2026-10-22T07:52:00.161571775Z   File "uvloop/loop.pyx", line 551, in uvloop.loop.Loop._run
+2026-10-22T07:52:00.161574015Z   File "uvloop/loop.pyx", line 471, in uvloop.loop.Loop._on_idle
+2026-10-22T07:52:00.161576515Z   File "uvloop/cbhandles.pyx", line 86, in uvloop.loop.Handle._run
+2026-10-22T07:52:00.161578775Z   File "uvloop/cbhandles.pyx", line 66, in uvloop.loop.Handle._run
+2026-10-22T07:52:00.161580835Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 4052, in print_exception_wrapper
+2026-10-22T07:52:00.161582565Z     await func()
+2026-10-22T07:52:00.161584815Z   File "/sgl-workspace/sglang/python/sglang/srt/managers/tokenizer_manager.py", line 3583, in sigterm_watchdog
+2026-10-22T07:52:00.161586515Z     sys.exit(0)
+2026-10-22T07:52:00.161588895Z SystemExit: 0
+2026-10-22T07:52:00.161590505Z 
+2026-10-22T07:52:00.161592075Z During handling of the above exception, another exception occurred:
+2026-10-22T07:52:00.161593515Z 
+2026-10-22T07:52:00.161594995Z Traceback (most recent call last):
+2026-10-22T07:52:00.161596415Z   File "/opt/venv/lib/python3.10/site-packages/starlette/routing.py", line 661, in lifespan
+2026-10-22T07:52:00.161598165Z     await receive()
+2026-10-22T07:52:00.161599605Z   File "/opt/venv/lib/python3.10/site-packages/fastapi/telemetry/_runtime.py", line 214, in wrapped_receive
+2026-10-22T07:52:00.161601125Z     message = await receive()
+2026-10-22T07:52:00.161602565Z   File "/opt/venv/lib/python3.10/site-packages/uvicorn/lifespan/on.py", line 137, in receive
+2026-10-22T07:52:00.161604035Z     return await self.receive_queue.get()
+2026-10-22T07:52:00.161605445Z   File "/usr/lib/python3.10/asyncio/queues.py", line 159, in get
+2026-10-22T07:52:00.161606905Z     await getter
+2026-10-22T07:52:00.161608325Z asyncio.exceptions.CancelledError
+2026-10-22T07:52:00.161609735Z 
+2026-10-22T07:52:00.465066425Z [2026-10-22 07:52:00] INFO:     Waiting for child process [33526]
+2026-10-22T07:52:00.465259222Z [2026-10-22 07:52:00] INFO:     Stopping parent process [30143]
+2026-10-22T07:52:00.465601956Z [2026-10-22 07:52:00] kill_process_tree called: parent_pid=30143, include_parent=False, pid=30143

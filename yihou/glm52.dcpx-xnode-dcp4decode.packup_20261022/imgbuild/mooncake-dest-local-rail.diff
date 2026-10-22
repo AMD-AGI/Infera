@@ -1,0 +1,85 @@
+diff --git a/mooncake-transfer-engine/include/config.h b/mooncake-transfer-engine/include/config.h
+index 08c9647e..00281478 100644
+--- a/mooncake-transfer-engine/include/config.h
++++ b/mooncake-transfer-engine/include/config.h
+@@ -90,6 +90,7 @@ struct GlobalConfig {
+     bool use_ipv6 = false;
+     size_t fragment_limit = 16384;
+     bool enable_dest_device_affinity = false;
++    bool enable_dest_local_rail = false;
+     bool enable_hca_peer_affinity = false;
+     std::unordered_map<std::string, std::vector<std::string>> nic_peer_affinity;
+     bool log_rdma_slice_affinity = false;
+diff --git a/mooncake-transfer-engine/src/config.cpp b/mooncake-transfer-engine/src/config.cpp
+index a6f4108b..b6d619b6 100644
+--- a/mooncake-transfer-engine/src/config.cpp
++++ b/mooncake-transfer-engine/src/config.cpp
+@@ -510,6 +510,18 @@ void loadGlobalConfig(GlobalConfig& config) {
+         config.enable_dest_device_affinity = false;
+     }
+ 
++    const char* dest_local_rail_env = std::getenv("MC_ENABLE_DEST_LOCAL_RAIL");
++    if (dest_local_rail_env) {
++        parseBoolConfigEnv(dest_local_rail_env, "MC_ENABLE_DEST_LOCAL_RAIL",
++                           config.enable_dest_local_rail);
++    }
++    // The peer only stays on the chosen rail through dest device affinity.
++    if (config.enable_dest_local_rail && !config.enable_dest_device_affinity) {
++        LOG(WARNING) << "MC_ENABLE_DEST_LOCAL_RAIL requires "
++                        "MC_ENABLE_DEST_DEVICE_AFFINITY; ignoring it.";
++        config.enable_dest_local_rail = false;
++    }
++
+     const char* log_rdma_slice_affinity_env =
+         std::getenv("MC_LOG_RDMA_SLICE_AFFINITY");
+     if (log_rdma_slice_affinity_env) {
+@@ -754,6 +766,8 @@ void dumpGlobalConfig() {
+     }
+     LOG(INFO) << "mlx5_qp_lag_port_balance = "
+               << (config.mlx5_qp_lag_port_balance ? "true" : "false");
++    LOG(INFO) << "enable_dest_local_rail = "
++              << (config.enable_dest_local_rail ? "true" : "false");
+     LOG(INFO) << "log_rdma_slice_affinity = "
+               << (config.log_rdma_slice_affinity ? "true" : "false");
+     LOG(INFO) << "track_rdma_posted_slices = "
+diff --git a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+index e444b38b..f0f9e814 100644
+--- a/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
++++ b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp
+@@ -54,6 +54,24 @@ static std::string resolveBufferLocation(
+     return location;
+ }
+ 
++// MC_ENABLE_DEST_LOCAL_RAIL: post a WRITE on the HCA the peer prefers for the
++// destination buffer; dest device affinity keeps the peer on that same rail.
++// A cross-NUMA transfer then crosses the socket on the sender's DMA reads, not
++// on the receiver's DMA writes, which a receiving NIC drops under load.
++static std::string destinationLocalHca(
++    TransferMetadata::SegmentDesc *peer_desc,
++    const Transport::TransferRequest &request) {
++    if (!globalConfig().enable_dest_local_rail ||
++        request.opcode != Transport::TransferRequest::WRITE)
++        return {};
++    int buffer_id = -1, device_id = -1;
++    if (RdmaTransport::selectDevice(peer_desc, request.target_offset,
++                                    request.length, buffer_id, device_id) ||
++        static_cast<size_t>(device_id) >= peer_desc->devices.size())
++        return {};
++    return peer_desc->devices[device_id].name;
++}
++
+ // Calculate remaining bytes in buffer for 'address'.
+ // Caches 'last_buffer_idx' across sequential slices to avoid rescanning
+ // buffers.
+@@ -883,8 +901,9 @@ Status RdmaTransport::submitTransferTask(
+ 
+         auto request_buffer_id = -1, request_device_id = -1;
+         if (selectDevice(local_segment_desc.get(), (uint64_t)request.source,
+-                         request.length, request_buffer_id,
+-                         request_device_id)) {
++                         request.length,
++                         destinationLocalHca(target_segment_desc.get(), request),
++                         request_buffer_id, request_device_id)) {
+             request_buffer_id = -1;
+             request_device_id = -1;
+         }

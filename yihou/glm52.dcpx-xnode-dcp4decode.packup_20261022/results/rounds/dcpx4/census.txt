@@ -1,0 +1,38 @@
+== /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dcpx4/server-logs/prefill-0.log
+  Found N HCAs   :       4 Found 4 HCAs   (xnode want: 4 x Found 4 HCAs)
+  HIP installed  : 4  (want 4)
+  HIP inst FAIL  : 0  (want 0)
+  isHipReachable : 0  (r013 baseline: 0 per leg; informational)
+  rdma installs  : 4  (xnode want 4)
+  Invalid arg    : 0  (want 0)
+  hipIpc failed  : 0  (want 0)
+  OOM/Traceback  : 0/0  (want 0/0; + 0 health-check aborts, benign)
+  fused idx ON   : 4  (want 4: DSA_FUSED_INDEXER=default)
+  fused idx decl : 0  (informational)
+  REGBASE summary: none  'extends past its allocation'=0 (want 0)
+max_total_num_tokens=3580096, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=16, context_len=1048576, available_gpu_mem=27.50 GB
+      4   Allocating kv hierarchical KV host pool: 5787072 tokens, 260.00 GB host memory
+      4 Allocating 16.04 GB host memory for DSA indexer (layout=page_first)
+== /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dcpx4/server-logs/decode-0.a1.log
+  Found N HCAs   :       4 Found 4 HCAs   (xnode want: 4 x Found 4 HCAs)
+  HIP installed  : 4  (want 4)
+  HIP inst FAIL  : 0  (want 0)
+  isHipReachable : 0  (r013 baseline: 0 per leg; informational)
+  rdma installs  : 4  (xnode want 4)
+  Invalid arg    : 0  (want 0)
+  hipIpc failed  : 0  (want 0)
+  OOM/Traceback  : 0/0  (want 0/0; + 0 health-check aborts, benign)
+  fused idx ON   : 4  (want 4: DSA_FUSED_INDEXER=default)
+  fused idx decl : 4  (informational)
+  REGBASE summary: none  'extends past its allocation'=0 (want 0)
+max_total_num_tokens=9854976, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=128, context_len=1048576, available_gpu_mem=11.11 GB
+  (host pool want: 260.00 GB per rank, fixed size)
+== prefill container env (docker inspect)
+  MC_TE_FILTERS=ionic_0,ionic_1,ionic_2,ionic_3
+  SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512
+  (want SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512)
+== ROCm debug agent (DEBUG_AGENT=0, report goes to stderr = the server logs)
+== same-node IPC namespace: not applicable cross-node (xnode; legs on crsuse2-m2m-135 and crsuse2-m2m-136)
+== decode eager-fallback counter: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dcpx4/server-logs/decode-0.a1.log
+  NCCL INFO after last capture end : 0
+  NCCL INFO after fired-up         : 0  (want 0)
