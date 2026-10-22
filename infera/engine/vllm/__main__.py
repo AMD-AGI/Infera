@@ -63,7 +63,10 @@ def _inject_kv_events_config(args: VllmWorkerArgs) -> str | None:
     # `*` or `::` means bind, anything else means connect (see
     # vllm/distributed/kv_events.py _socket_setup). `tcp://*:<port>` is the
     # only form that gets the PUB socket to actually bind.
-    bind = f"tcp://*:{port}"
+    # vLLM also adds the data-parallel rank to this port (offset_endpoint_port),
+    # so an external-LB rank must be handed `port - rank` to bind the port we
+    # probed and advertise.
+    bind = f"tcp://*:{port - (args.dp_rank or 0)}"
     advertise = f"tcp://{args.advertise_host or args.host}:{port}"
     if args.advertise_host is None and args.host in ("0.0.0.0", ""):
         logger.warning(
