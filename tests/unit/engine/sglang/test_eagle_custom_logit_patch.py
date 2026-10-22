@@ -116,6 +116,13 @@ class _Unsup:
     pass
 
 
+class _ProcessorEntry:
+    """Represent the ProcessorEntry shape used by current SGLang releases."""
+
+    def __init__(self, processor):
+        self.processor = processor
+
+
 @pytest.fixture
 def helper(patch_mod, monkeypatch):
     calls = []
@@ -125,7 +132,10 @@ def helper(patch_mod, monkeypatch):
     def apply_custom_logit_processor(logits, sampling_info, num_tokens_in_batch=1):
         calls.append(
             {
-                "processors": [type(p) for p, _ in sampling_info.custom_logit_processor.values()],
+                "processors": [
+                    type(value.processor if hasattr(value, "processor") else value[0])
+                    for value in sampling_info.custom_logit_processor.values()
+                ],
                 "n": num_tokens_in_batch,
                 "params": [None if p is None else dict(p) for p in sampling_info.custom_params],
             }
@@ -199,6 +209,26 @@ def test_helper_only_runs_processors_that_support_spec_rows(helper):
     info = _call(fn, [_Sup(), _Unsup()], [{}])
     assert calls[0]["processors"] == [_Sup]
     assert [type(p) for p, _ in info.custom_logit_processor.values()] == [_Sup, _Unsup]
+
+
+def test_helper_supports_processor_entry_values(helper):
+    fn, calls, _ = helper
+    params = [{}]
+    info = types.SimpleNamespace(
+        custom_logit_processor={0: _ProcessorEntry(_Sup())},
+        custom_params=params,
+    )
+    batch = types.SimpleNamespace(seq_lens=_Rows([10]))
+    verify = types.SimpleNamespace(
+        draft_token_num=1,
+        tree_topk=1,
+        draft_token=_Rows([7]),
+    )
+
+    fn(object(), info, batch, verify)
+
+    assert calls[0]["processors"] == [_Sup]
+    assert isinstance(info.custom_logit_processor[0], _ProcessorEntry)
 
 
 def test_helper_skips_when_no_processor_supports_spec_rows(helper):
