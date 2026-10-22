@@ -1,0 +1,10 @@
+# a10 (10-22 11:28, started by hand: the campaign idled from 04:25 after prepare failed on n02-25 GPU1). User 11:25: why is
+# prefill MTP + weight 0 below crsuse2's throughput? -> canonical 3600 s rounds on ONE deployment: the unmodified PR 210 kit
+# (repro), then the same prefill restarted with the EAGLE flags (weight 0), then weight 1,000,000. P = n02-25 on GPUs 4-7
+# (GPU1 is broken), D = n03-33.
+run pr210/kit_prep.sh
+run pr210/kit_up.sh RUN=ka10r
+run pr210/kit_round.sh RUN=ka10r VARIANT=ka10-repro CONC=88 ROUTER=image
+run pr210/kit_restart_prefill.sh RUN=ka10r TAG=nomtp GPUS=4,5,6,7 MTP=1
+run pr210/kit_round.sh RUN=ka10r VARIANT=ka10-pmtp-w0 CONC=88 ROUTER=exp WEIGHT=0
+run pr210/kit_round.sh RUN=ka10r VARIANT=ka10-pmtp-w1m CONC=88 ROUTER=exp WEIGHT=1000000

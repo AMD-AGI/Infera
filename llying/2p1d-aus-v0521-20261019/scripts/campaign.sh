@@ -19,8 +19,22 @@ O="$R/operations"
 export SHIM_JOB="$JOB" PATH="$R/tools/sshshim:$PATH"   # see tools/sshshim/ssh
 log() { echo "$(date -u +%FT%TZ) campaign: $*"; }
 alert() { mkdir -p "$R/runtime/patrol"; echo "$(date -u +%FT%TZ) [campaign] $*" >> "$R/runtime/patrol/ALERT.log"; log "$*"; }
+# Watchdog: a queue that stopped on a failed step leaves the allocation idle until the next preemption, which can be
+# hours away (a10: 7 h). After STALL_MIN minutes of that, give the nodes back by requeueing the job.
+STALL_MIN="${STALL_MIN:-30}"
 watch_round() {
-    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do sleep 60; done
+    local qlog="$R/runtime/runs/$ROUND/tune/queue.log" last age
+    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do
+        sleep 60
+        last="$(grep -E 'queue: step [0-9]+' "$qlog" 2>/dev/null | tail -n 1)"
+        [[ "$last" == *"failed rc="* ]] || continue
+        age=$(( $(date +%s) - $(date -d "$(cut -c1-20 <<< "$last")" +%s) ))
+        if (( age > STALL_MIN * 60 )); then
+            alert "queue of $ROUND stopped on a failed step ${age}s ago ($last); requeueing job $JOB to release the nodes"
+            scontrol requeue "$JOB" || alert "scontrol requeue $JOB failed"
+            sleep 120
+        fi
+    done
     alert "job $JOB left RUNNING during ROUND=$ROUND (state $(squeue -h -j "$JOB" -o %T 2>/dev/null); restarts now $(scontrol show job "$JOB" | sed -nE 's/.*Restarts=([0-9]+).*/\1/p'))"
     for pat in '^bash tune_queue.sh' 'sampler.py' 'hang_watch.py' 'agentx_bench.sh' 'tune_round.sh' 'tune_post.sh'; do
         pkill -u "$(id -u)" -f "$pat" 2>/dev/null
@@ -43,8 +57,7 @@ while true; do
     log "job $JOB running (restart $restarts) -> ROUND=$ROUND"
     echo "$ROUND" > "$O/current_round"
     JOB="$JOB" ROUND="$ROUND" START_QUEUE=0 bash "$HERE/prepare_alloc.sh" > "$R/logs/prepare.$JOB.$ROUND.log" 2>&1 ||
-        { alert "prepare failed for $ROUND (logs/prepare.$JOB.$ROUND.log); waiting for the job to change state";
-          while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do sleep 60; done; continue; }
+        alert "prepare failed for $ROUND (logs/prepare.$JOB.$ROUND.log); starting the queue anyway (its steps check what they need)"
     stage="$(cat "$O/current_stage")"
     cp "$R/$stage" "$R/config/round.$ROUND.sh"
     sed "s/{R}/$ROUND/g" "$O/queue.next.tsv" > "$O/tune_queue.tsv"

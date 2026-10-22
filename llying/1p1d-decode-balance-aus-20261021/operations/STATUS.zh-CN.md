@@ -60,3 +60,20 @@
   **26,462 tok/s/GPU @ 75.8 / 55.7**；逐请求记录算 26,620 / 75.6 / 55.7（验证了 w180k 的挽救算法）。
 - 02:29 `ka9-pmtp-w1m`（同部署，权重 1,000,000），02:53 测量，03:27 完整结束：**27,186 @ 86.5 / 79.6**——同部署对 w0：p90 +43%、
   吞吐 +2.7%、TTFT 均值 +15% / p90 +8%。03:27 队列进入 `kit_down.sh` → 等显存 → kit 原样起栈 → PR 210 严格复现（3600 s）。
+
+## 10-22
+
+- **03:39 第 10 次抢占**（复现还在等 decode 显存释放，未起栈）。
+- **04:15 作业再次开始**（a10，P = n02-25、D = n03-33）；04:25 **prepare 失败：n02-25 GPU1 的 stream 检查崩溃**（10-21 a3 同一张卡）；
+  prepare 顺带删掉了 n03-33 上 a2（10-20，守护上线前）遗留的 3 个容器。**campaign 按原设计"等作业状态变化"，作业一直没被抢占，
+  两台节点从 04:25 空到 11:28（7 小时）**；巡检 04:25 写了告警，但当时无人值守（会话 03:30 结束）。
+- 11:25 用户问起；11:27 手动启动 a10 的容器守护与队列：P 用 n02-25 的 GPU 4–7（避开坏的 GPU1），D = n03-33；计划改为同一部署上
+  3600 s 的三组：PR 210 kit 原样复现 → 重启 prefill 加 EAGLE 参数、权重 0 → 权重 1,000,000（回答"prefill 带 MTP 后吞吐为何低于 crsuse2"）。
+  `kit_restart_prefill.sh` 等显存上限 60 → 90 分钟（P 上只有 GPU 4–7 可用，必须等旧 prefill 释放）。
+- 11:29 **campaign 修正**：prepare 失败不再原地等，而是照常装模板、起守护和队列（kit 各步自己检查镜像 / 端口 / 显存）；新增看门狗：作业仍在
+  运行但队列停在失败步骤超过 30 分钟，就 `scontrol requeue` 交还节点。以 `RESUME_ROUND=a10` 重启 campaign。
+- 11:30 窗口长度分析（RESULT §2）：1800 s 窗口比 3600 s 低估 tok/s/GPU 约 6%（会话后段的长上下文轮次到得晚），p90 交互基本不变——
+  w0 的 26,462 低于 crsuse2 的 27,453 是窗口所致：请求速率反而高 3.5%（2.867 对 2.769），每请求 token 少 6.9%（110,770 对 118,953）。
+- 11:31 PR 210 head 已更新为 `d395c3b3`：kit 的 prefill 加上了 decode 的 EAGLE 参数（note 10，引用了 AUS 的冷态数据），1P1D smoke 6/6、
+  GSM8K 0.9704。router 分支变基到 `d395c3b3`，补文档（`manual/reference/cli.md`、`manual/features/kv_aware_routing.md`、kit README 的
+  "Decode request balancing"），**开 PR [#213](https://github.com/AMD-AGI/Infera/pull/213)**（base 为 PR 210 的分支，PR 210 合入后改指 main）。

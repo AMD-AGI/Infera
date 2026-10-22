@@ -37,7 +37,7 @@ done
 say "old registration gone"
 
 need_gb=1100
-for i in $(seq 1 120); do
+for i in $(seq 1 180); do   # 90 min: the driver frees a HiCache prefill's VRAM late
     avail="$(ssh "$P_NODE" "free -g | awk '/^Mem:/ {print \$7}'")"
     busy="$(ssh "$P_NODE" "rocm-smi --showmemuse --csv" | awk -F, -v g="$PREFILL0_GPUS" 'BEGIN{n=split(g,a,","); for(i=1;i<=n;i++) w["card" a[i]]=1} /^card/ && ($1 in w) && $2+0 >= 2 {print $1}' | tr '\n' ' ')"
     (( ${avail:-0} >= need_gb )) && [[ -z "$busy" ]] && break
