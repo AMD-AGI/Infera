@@ -11,7 +11,6 @@ use these helpers without blocking the API event loop on first request.
 
 from __future__ import annotations
 
-import os
 from typing import Any, Literal
 
 # dill STACK_GLOBAL for
@@ -31,17 +30,10 @@ GLM53_THINKING_START_TOKEN_ID = 154841
 GLM53_THINKING_END_TOKEN_ID = 154842
 GLM53_NEW_LINE_TOKEN_ID = 198
 
-# Router/API opt-in: inject custom_logit_processor only when set. Workers must
-# also run with ``--enable-custom-logit-processor`` or SGLang rejects the field.
-THINKING_BUDGET_ENV = "INFERA_ENABLE_THINKING_BUDGET"
-
+# The processor is injected into the request whenever ``thinking.budget_tokens``
+# is present. Workers run with ``--enable-custom-logit-processor`` (added by the
+# SGLang worker launcher) so SGLang accepts the field.
 ThinkingBudgetAction = Literal["newline", "end"]
-
-
-def thinking_budget_injection_enabled() -> bool:
-    """Return True when hard-cap injection is explicitly enabled."""
-    raw = os.environ.get(THINKING_BUDGET_ENV, "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
 
 
 def is_glm53_model(model: Any) -> bool:

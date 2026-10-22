@@ -355,7 +355,7 @@ async def _dispatch_inference(request: Request, *, path: str) -> Any:
             detail=(
                 "custom_logit_processor and custom_params are not allowed on "
                 "OpenAI endpoints; use Anthropic /v1/messages with "
-                "INFERA_ENABLE_THINKING_BUDGET for GLM-5.3 thinking budgets"
+                "thinking.budget_tokens for GLM-5.3 thinking budgets"
             ),
         )
     stream = bool(body.get("stream"))

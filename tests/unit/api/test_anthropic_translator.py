@@ -1497,13 +1497,9 @@ def test_thinking_enabled_sets_chat_template_kwargs():
     assert "custom_params" not in out
 
 
-def test_thinking_budget_tokens_maps_to_sglang_hard_cap(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import (
-        GLM53_THINKING_BUDGET_PROCESSOR_STR,
-        THINKING_BUDGET_ENV,
-    )
+def test_thinking_budget_tokens_maps_to_sglang_hard_cap():
+    from infera.engine.sglang.thinking_budget_const import GLM53_THINKING_BUDGET_PROCESSOR_STR
 
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
     out = anthropic_to_openai_request(
         {
             "model": "glm-5-3",
@@ -1520,30 +1516,7 @@ def test_thinking_budget_tokens_maps_to_sglang_hard_cap(monkeypatch):
     assert out["custom_params"] == {"thinking_budget": 1024}
 
 
-def test_thinking_budget_ignored_when_opt_in_disabled(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.delenv(THINKING_BUDGET_ENV, raising=False)
-    out = anthropic_to_openai_request(
-        {
-            "model": "glm-5-3",
-            "messages": [{"role": "user", "content": "hi"}],
-            "max_tokens": 4096,
-            "thinking": {"type": "enabled", "budget_tokens": 1024},
-        }
-    )
-    assert out["chat_template_kwargs"] == {
-        "enable_thinking": True,
-        "thinking": True,
-    }
-    assert "custom_logit_processor" not in out
-    assert "custom_params" not in out
-
-
-def test_thinking_budget_ignored_for_non_glm53(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+def test_thinking_budget_ignored_for_non_glm53():
     out = anthropic_to_openai_request(
         {
             "model": "qwen3-32b",
@@ -1556,10 +1529,7 @@ def test_thinking_budget_ignored_for_non_glm53(monkeypatch):
     assert "custom_params" not in out
 
 
-def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room():
     out = anthropic_to_openai_request(
         {
             "model": "glm-5-3",
@@ -1571,10 +1541,7 @@ def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room(monkeypat
     assert out["custom_params"] == {"thinking_budget": 8192 - 2 - 1024}
 
 
-def test_thinking_budget_tokens_rejects_non_positive(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+def test_thinking_budget_tokens_rejects_non_positive():
     with pytest.raises(AnthropicRequestRejected, match="positive integer"):
         anthropic_to_openai_request(
             {
@@ -1586,10 +1553,7 @@ def test_thinking_budget_tokens_rejects_non_positive(monkeypatch):
         )
 
 
-def test_thinking_budget_tokens_requires_max_tokens_at_least_four(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+def test_thinking_budget_tokens_requires_max_tokens_at_least_four():
     with pytest.raises(AnthropicRequestRejected, match="max_tokens must be >= 4"):
         anthropic_to_openai_request(
             {

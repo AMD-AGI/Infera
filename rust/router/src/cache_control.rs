@@ -115,7 +115,7 @@ pub fn reject_client_custom_logit(body: &Value) -> Result<(), &'static str> {
     if obj.contains_key("custom_logit_processor") || obj.contains_key("custom_params") {
         return Err(
             "custom_logit_processor and custom_params are not allowed on OpenAI endpoints; \
-             use Anthropic /v1/messages with INFERA_ENABLE_THINKING_BUDGET for GLM-5.3 \
+             use Anthropic /v1/messages with thinking.budget_tokens for GLM-5.3 \
              thinking budgets",
         );
     }

@@ -23,8 +23,7 @@ In scope:
   ``chat_template_kwargs.enable_thinking`` and ``thinking``.
   Optional ``thinking.budget_tokens`` maps to SGLang
   ``custom_logit_processor`` + ``custom_params.thinking_budget``
-  only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
-  id is GLM-5.3 (workers also need
+  when the model id is GLM-5.3 (workers run with
   ``--enable-custom-logit-processor``). Budgets are clamped so the
   forced newline and ``</think>`` plus an answer reserve fit in
   ``max_tokens``. Assistant
@@ -252,11 +251,11 @@ def _apply_thinking_budget(
 ) -> None:
     """Map Anthropic ``thinking.budget_tokens`` onto SGLang hard-cap fields.
 
-    Injects only when ``INFERA_ENABLE_THINKING_BUDGET`` is set and the model
-    id is GLM-5.3. Budgets are clamped so the forced newline and ``</think>``
-    plus an answer reserve fit in ``max_tokens`` (clients may send budget >=
-    max_tokens). Omitted budget, disabled opt-in, or a non-GLM-5.3 model
-    leaves thinking uncapped (``chat_template_kwargs`` still apply).
+    Injects when the request carries ``budget_tokens`` and the model id is
+    GLM-5.3. Budgets are clamped so the forced newline and ``</think>`` plus an
+    answer reserve fit in ``max_tokens`` (clients may send budget >=
+    max_tokens). An omitted budget or a non-GLM-5.3 model leaves thinking
+    uncapped (``chat_template_kwargs`` still apply).
     """
     if "budget_tokens" not in thinking:
         return
@@ -265,10 +264,9 @@ def _apply_thinking_budget(
         apply_glm53_thinking_budget,
         is_glm53_model,
         resolve_thinking_budget,
-        thinking_budget_injection_enabled,
     )
 
-    if not is_glm53_model(model) or not thinking_budget_injection_enabled():
+    if not is_glm53_model(model):
         return
     budget = thinking.get("budget_tokens")
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:

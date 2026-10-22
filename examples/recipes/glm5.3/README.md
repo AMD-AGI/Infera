@@ -11,18 +11,15 @@ Not here: aggregated — use `examples/sglang_mix_glm5.3/` under docker for now.
 
 ### Anthropic thinking budget (recommended when using Claude Code)
 
-Hard-capping `thinking.budget_tokens` on GLM-5.3 needs two knobs (both in
-[`disaggregated/deploy.yaml`](disaggregated/deploy.yaml)):
+For GLM-5.3 requests that carry `thinking.budget_tokens`, the Anthropic shim
+injects the trusted processor that hard-caps thinking. Requests without
+`budget_tokens` leave thinking uncapped (up to `max_tokens`).
 
 | Where | Knob | Effect |
 |---|---|---|
-| prefill + decode workers | `--enable-custom-logit-processor` | SGLang accepts a request-scoped logit processor |
-| server (router) | `INFERA_ENABLE_THINKING_BUDGET=1` | Anthropic shim injects the trusted GLM-5.3 processor |
+| prefill + decode workers | `--enable-custom-logit-processor` | SGLang accepts a request-scoped logit processor; the worker launcher adds it when absent (also set in [`disaggregated/deploy.yaml`](disaggregated/deploy.yaml)) |
 
-Without the worker flag, injected processors make SGLang raise
-`ValueError`. Without the server env, `budget_tokens` is ignored and only
-`chat_template_kwargs` are forwarded (requests still succeed). OpenAI clients
-must not send `custom_logit_processor` / `custom_params` — those return HTTP 400.
+OpenAI clients must not send `custom_logit_processor` / `custom_params` — those return HTTP 400.
 
 **Network exposure.** With `--enable-custom-logit-processor`, a worker
 deserializes the request-supplied `custom_logit_processor` with `dill`, so any
