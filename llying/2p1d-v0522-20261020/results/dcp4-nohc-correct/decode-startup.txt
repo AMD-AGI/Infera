@@ -1,0 +1,40 @@
+[2026-10-22 14:55:23 TP0] DCP enabled, dcp_size=4, tp_size=4
+[2026-10-22 14:56:03 TP3] Load weight end. elapsed=33.71 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=182.93 GB, mem usage=101.42 GB.
+[2026-10-22 14:56:04 TP1] Load weight end. elapsed=33.77 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=182.68 GB, mem usage=101.42 GB.
+[2026-10-22 14:56:04 TP2] Load weight end. elapsed=33.98 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=182.74 GB, mem usage=101.42 GB.
+[2026-10-22 14:56:05 TP0] Load weight end. elapsed=35.39 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=182.74 GB, mem usage=101.42 GB.
+[2026-10-22 14:56:14 TP1] Load weight end. elapsed=3.51 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=177.27 GB, mem usage=5.40 GB.
+[2026-10-22 14:56:14 TP0] Load weight end. elapsed=3.58 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=177.33 GB, mem usage=5.40 GB.
+[2026-10-22 14:56:14 TP2] Load weight end. elapsed=3.65 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=177.33 GB, mem usage=5.40 GB.
+[2026-10-22 14:56:14 TP3] Load weight end. elapsed=3.75 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=177.52 GB, mem usage=5.40 GB.
+[2026-10-22 14:56:15 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 147.10 GB
+[2026-10-22 14:56:15 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 147.10 GB
+[2026-10-22 14:56:15 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 147.10 GB
+[2026-10-22 14:56:15 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 147.10 GB
+[2026-10-22 14:56:15 TP2] Memory pool end. avail mem=29.12 GB
+[2026-10-22 14:56:15 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 2.90 GB
+[2026-10-22 14:56:15 TP2] Memory pool end. avail mem=26.22 GB
+[2026-10-22 14:56:15 TP1] Memory pool end. avail mem=29.06 GB
+[2026-10-22 14:56:15 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 2.90 GB
+[2026-10-22 14:56:15 TP1] Memory pool end. avail mem=26.16 GB
+[2026-10-22 14:56:15 TP0] Memory pool end. avail mem=29.12 GB
+[2026-10-22 14:56:15 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 2.90 GB
+[2026-10-22 14:56:15 TP0] Memory pool end. avail mem=26.22 GB
+[2026-10-22 14:56:15 TP3] Memory pool end. avail mem=29.31 GB
+[2026-10-22 14:56:15 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2819712, KV size: 2.90 GB
+[2026-10-22 14:56:15 TP3] Memory pool end. avail mem=26.41 GB
+[2026-10-22 14:56:16 TP2] dcp_replicate_q_proj: prepared full-head Q weights for 0 MLA layers
+[2026-10-22 14:56:16 TP1] dcp_replicate_q_proj: prepared full-head Q weights for 0 MLA layers
+[2026-10-22 14:56:16 TP0] dcp_replicate_q_proj: prepared full-head Q weights for 0 MLA layers
+[2026-10-22 14:56:16 TP3] dcp_replicate_q_proj: prepared full-head Q weights for 0 MLA layers
+[2026-10-22 14:56:18 TP3] dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+[2026-10-22 14:56:18 TP0] dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+[2026-10-22 14:56:18 TP2] dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+[2026-10-22 14:56:18 TP1] dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+[2026-10-22 14:59:46 TP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96, 104, 112, 120, 128], elapsed=207.94 s, mem usage=14.08 GB, avail mem=11.08 GB.
+[2026-10-22 14:59:46 TP2] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96, 104, 112, 120, 128], elapsed=207.95 s, mem usage=14.08 GB, avail mem=11.08 GB.
+[2026-10-22 14:59:46 TP3] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96, 104, 112, 120, 128], elapsed=208.04 s, mem usage=14.08 GB, avail mem=11.37 GB.
+[2026-10-22 14:59:46 TP1] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96, 104, 112, 120, 128], elapsed=208.15 s, mem usage=14.08 GB, avail mem=10.99 GB.
+[2026-10-22 14:59:59 TP0] Capture draft decode CUDA graph end. elapsed=13.09 s, mem usage=2.57 GB, avail mem=8.51 GB.
+[2026-10-22 15:00:03 TP0] Capture draft extend CUDA graph end. elapsed=3.74 s, mem usage=3.09 GB, avail mem=5.42 GB.
+[2026-10-22 15:00:03 TP0] max_total_num_tokens=11278848, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=256, context_len=1048576, available_gpu_mem=5.42 GB

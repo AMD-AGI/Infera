@@ -772,6 +772,16 @@ decode KV（AUS 上 C192 比 C176 低 4.7% 的机制）。138 显存回收用了
   p90 11.4M，DCP4 在 C80 同样会碰到总容量上限。`../dcp4-pd-analysis-20261022/` 里"有效容量 +15%–30%"的估计漏算了 index-K 复制，已更正。
 - **14:53 重试**：decode `--cuda-graph-max-bs-decode 256 → 128`（C80 时合计在跑最多约 80，C96–C112 也在 110 以内），显存比例保持 0.92 不牺牲 KV；
   串行 `chain-1022T1453.out`，日志 `dcp4-correct/dcp4-nohc-1022T1453.log`。
+- **① 通过（产物 `results/dcp4-nohc-correct/`）**：
+  - 起栈 6 分钟（decode 的 3 个 CUDA graph 捕获共约 3.7 分钟：目标验证 208 s / 14.1 GB、草稿 decode 2.6 GB、草稿 extend 3.1 GB）；
+    `max_total_num_tokens=11278848`（= 4 × 2,819,712，证实上面的换算）；捕获完只剩 **5.42 GB**（DPA4 为 11.2 GB；同事在剩 5.87 GB 时运行 7 分钟后 OOM 过），
+    性能测试时要盯显存。
+  - smoke 6/6（66k 冷请求 41.3 s，PP4 + DPA 时 37.5 s；重复请求命中前缀缓存）；GSM8K（64 并发）**0.9704 / 0.9689**（flexible / strict），
+    与 PP4 + DPA + prefill MTP 的 0.9704 / 0.9697 一致——关着 custom all-reduce、graph 开着、64 并发下没有乱码。
+  - 真实接受长度（decode 日志、在跑 ≥ 8 的行）：中位 4.62，对照 `pp4-nohc-1021T1713`（PP4 + TP8/DPA decode）4.40；都远高于 prefill 不带 MTP
+    时的 3.86，说明草稿 KV 在 DCP 下的重排正确。
+  - GSM8K 期间 decode 在跑约 61、全部走 graph，生成约 3,350 tok/s，折合每步约 80 ms（短上下文）；与 DPA4 的对比留到 C80 性能测试。
+- **② 15:09 起开 HiCache 复测**：站点 `config/site-1p-pp4-ck8k-d4.env`，串行 `chain-1022T1509.out`。
 
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 
