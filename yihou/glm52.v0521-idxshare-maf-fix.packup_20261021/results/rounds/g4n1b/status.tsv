@@ -1,0 +1,12 @@
+2026-10-20T04:21:12Z	start	exp=E2+mc4340+tokw4detok4+offload-g4k1s1+xferfix2-orig-dest+pr42553-idxshare-customar round=g4n1b image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.g4new.sh
+2026-10-20T04:21:13Z	ports-all	ok:33 ports <30000 and free
+2026-10-20T04:22:13Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-20T04:22:14Z	etcd	ok
+2026-10-20T04:25:15Z	prefill	ok:10x20s
+2026-10-20T04:31:02Z	decode-a1	ok
+2026-10-20T04:31:02Z	bothlegs	ok
+2026-10-20T04:31:07Z	router	ok
+2026-10-20T04:31:13Z	smoke	ok
+2026-10-20T04:31:13Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4n1b/agentx-c56-A1
+2026-10-20T04:49:44Z	chain	STOPPED by operator: superseded (g4n1 on 097 also faulted, node question answered)
+2026-10-20T04:50:40Z	bench	FAIL rc=143 (see /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4n1b/agentx-c56-A1.log)

@@ -1,0 +1,221 @@
+    0xbb40: 3d813c03 3ce83c9c 3d933d63 bc0c3d98 bcd5bce9 bc473db2 3d0e3cf1 bcf83c7a
+    0xbb60: 3dcc3c21 3d24bd45 bb72bcc8 3c3c3cea 3d653d26 bc033c41 bc1d3c6d bd07bd1b
+    0xbb80: 3ca3bcba 3d463c83 bd023aeb 3dc83d32 bd793d3e 3ce53c1f bd81bd12 bb06bcbe
+    0xbba0: 3c943a84 3d84bcc3 3d093c80 3d323d95 bcd93d79 3c6cbcaf 3c283b87 bc95bbea
+    0xbbc0: bd3fbd2f bcc83ca3 3c5f3d82 3ca4bd70 bcc7bd36 bd5bb937 3c2abbbc bd23bcb7
+    0xbbe0: bd33bde2 3c893ca5 3cc8bc93 babbbc96 3b92bced 3bbbbc1d 3d53bc09 bcfe3d86
+    0xbc00: bd72bd3e bd7dbd87 bd24bd3a bd9dbc3f 3c403d08 3dafbd15 bd0bbcba 3d99bbe8
+    0xbc20: 3d0b3c0e 3d49bd1e 3c143bf2 3c47bc3a 3c6fbd94 3d153c8a ba4dbd05 bcb83cb7
+    0xbc40: 3d0c3a03 bcffbd0b bd243d78 bd72bc38 bd3ebd4a ba33bb93 bbe83c87 bd3f3cde
+    0xbc60: bd83bd00 3cc3bca3 3ac03cdb 3cc63c89 bc4ebd77 bb103c6e 3d593cb5 3b9a3bd3
+    0xbc80: 3ca33d50 3d753cce 3c18bc93 bd87bc70 3a9b3d3a 3c923ad6 bc08bd99 3d283d62
+    0xbca0: bc4b3d36 3b963bca 3cd9bd04 3d583cdc bd563ab8 babebcfe 3cc53cb3 3cdc3c62
+    0xbcc0: bcba3cc0 bbe3bc8e 3dd63cf0 bc9d3c99 3ce33d2f 3c3a3b82 bcc63cb2 bc1c3ab3
+    0xbce0: bd3dbd04 bd823c04 3c633d2f 3df13da0 bc8e3cfc 3cdabc8c bca8bbde 3cacbcd5
+    0xbd00: bd5abccc bc043cf0 bd7d3c3c 3ce9bc7f bc96bb3e bcd6bced baa03b27 bca93c93
+    0xbd20: bbabbcea bc923ce4 bceb3d89 3d8f3c25 3d7dbd48 3d65bd38 bca0bd19 bd33bc49
+    0xbd40: bcb9bc07 bbd8bc82 3bcebadd 3b003a3c 3c20bc2c bcab3cee bb783c2d bc5a3cab
+    0xbd60: 3d21bd9b bd3bb97e bcd6bc03 3795bb1e 3c16bd1b 3d353cae bcd73d44 bd8cbcff
+    0xbd80: 3cecbc10 3c8b3bab 3d313bde 3c593b34 bbdd3c44 3c44ba78 bbbd3c40 ba973aed
+    0xbda0: 3cea3d42 bc08bcef bd92bd27 3da1bc36 bc403d15 3d18bc58 bb25bc93 bc993beb
+    0xbdc0: bbe1bc93 bcd43d92 bc1cbd8d bc88ba3c bd62bcce bbb13c90 bc983b17 bc813c04
+    0xbde0: 3d023d0a bd293d96 bccebd35 3d473c10 3cce3cbc 3c473bad 3e0fbc3b 3d3cbd01
+    0xbe00: 3cee3c03 3d1d3c20 bd08bd2f 3d593c9a 3c90bb7e bb413bd6 bcbe3c64 bcb83d08
+    0xbe20: b9d5bbcb bd173d59 3bf53de3 bc903c18 3d9c3c4c bd23bcd3 3d70bc2c bdb93d45
+    0xbe40: 3d80bd2f baa2bd8d bcad3be0 bbc8bd7e 3d2d3bf7 3d203ce6 bcaf3c78 3ce4bc59
+    0xbe60: bd313d52 bb2f3c9f bd0abd79 bd2a3c56 3d25bd29 3d153c7e 3cc23c00 bba2b803
+    0xbe80: 3c753938 3cc9bbe8 3d113bb5 bcfa3ce7 3ad43ca5 3d013ca3 bc7c3d1e bd5d3c96
+    0xbea0: 3cdabc85 bd5cbd7d bc28bbd3 3d3c3c05 3d323b21 3d3ebd0c bcc93d2f ba6ebca7
+    0xbec0: 3c363c9b bd4abd15 bc9ebda3 3ce93c20 bd1fbae0 3c553c46 3bfa3c5e 3cda3ba6
+    0xbee0: bcc0bd76 bc1bbcfd 3c103b61 3c903d76 bd0f3d9a 3caabbc7 3d423d23 bc83bd3c
+    0xbf00: 3d403cc0 3cc33c48 bdc4bce2 bbfebd32 bd08bb8c 3d0dbcd2 3d85bd0f bdc83c0e
+    0xbf20: bd253d1e bc993c65 3ca8bc0e bd9e3d24 bd0c3c8f 3cdcbcd0 3c4b3d03 3d24bc72
+    0xbf40: 3c753cf1 3cebbba6 3d4c3c44 bccfbc1b 3d673c05 bc1a3d5e bcba3d92 bcdc3d29
+    0xbf60: bd80bd32 bca5bd49 3d3d3c3c 3cbe3d14 3cac3d68 bd0cbd22 bd10bce7 3d783da1
+    0xbf80: bda53d4a 3d20bca2 bce23bd5 3c76bbd7 3c6a3d6f 3c6dbbfe 379d3d4e bc2cbc73
+    0xbfa0: bc893da4 3c99bd4f 3cf4bce2 bd66bc95 3b97bd65 3d03bcc1 bc1dbd83 bcf2bd57
+    0xbfc0: 3ac23d03 3d5e3d33 3cf93bea 3d9dbbb7 3d90bc3b 3d3ebd4e 3ce0bca7 3ce03a95
+    0xbfe0: 3d373c8d 3d673da0 bca83c94 3cbf3cd3 bd463d06 bd013b9f bcc53c3a bc873d75
+    0xc000: bd5ebcf9 3d6a3c46 bb57bbc0 3c903d1d 3c88bce2 bb443d45 3d7dbcff 3a973d03
+    0xc020: bc47bd05 3d1e3c94 3d7cbc79 bd403d68 bc3e3c08 3c8c3c1e 3b663c13 bcffbc15
+    0xc040: 3d323c4f bd053d84 00000000 00000000 00000000 3d033d4f 3be6ba88 bb993d1f
+    0xc060: 3b9dbc06 bbf7bda0 bc903d5e bdfdbc1d 3d34bce3 bd883d2a 3c9f3c94 bcc13d1e
+    0xc080: bc423d00 3c5f3c74 bcd5bc24 3c2c3c48 bc57bce8 bd453d36 3babbc0b bd3ebc58
+    0xc0a0: bd95bdd1 bbc6ba1a 3d513ba6 bd4cbd5e 3c04bd84 3d07bd20 bc63bc8e bd553cbf
+    0xc0c0: bd52bd83 bd84bd4b bda2bb3f bd0f3be0 bd273a06 3ab0bd1e bc48bc56 3c933d93
+    0xc0e0: 39b1bd07 bc76bdbf bd1dba99 3d013da1 bc8f3d0a 3d5d3c8a bcd03cda bd7f3d50
+    0xc100: bcfe3d0a bd01bbf3 bd2b3ce3 3d9fbd95 3cc9bd39 3d1e3dcd 3cfebc29 3c59bbd6
+    0xc120: 3cfbbd20 3c9f3d33 bcbb3c9f bd0c3d70 bca6bd04 3d6dbd5f 3c2bbd13 3db83ba5
+    0xc140: bc25bd36 bd77bbda bcbdbd06 3d15bd09 bd413d27 3d93bbb7 bceb3d0c 3985bc81
+    0xc160: 3b563d55 3be73d23 bd1fbbe9 bc1e3a23 3cacbd4f bd7d3b22 3bf83a8a 3cffbd32
+    0xc180: 3d443d15 bc263c93 bcaf3b99 bc7f3d17 3cd4bd45 3c233d22 bc383cb6 bd173d1a
+    0xc1a0: 3bff3c82 bc9f3c60 3c0ebcfb 3c40bcde 3c8f3c1d 3c963b58 bce1baf8 3c9bbb70
+    0xc1c0: 3bfdbda5 3d343ab0 3cebbd97 3c423a3d bd7a3bdb 3c81bd2d bcaabc61 3c34bcde
+    0xc1e0: 3ab2badf bcd8bd01 bb90bd06 bd043cb3 39bfbcb3 bb3f3d07 bd79bcc6 3cf3bd55
+    0xc200: bc223ce0 bc1aba6e bd5cbcc6 3c53bc82 bcde3d3a bcdcbcc8 bd773c7c bd3dbdc5
+    0xc220: bd203ccc bd973cf3 bd1a399a bc463d2e bc1c3cc7 bc76bd42 3d323b9f bbdfbcd7
+    0xc240: bcd8bd89 3d13bde2 baacbc9a bd2bbc7b 3d093c5d bc9e3c8e bc40bbf6 3c7b3d8e
+    0xc260: 3c043ca5 3c533d93 bbb03c02 bd6b3cb2 3d49bca7 3d083ba3 3ac03c60 3d36bc0c
+    0xc280: bd3d3ccd 3d5b3c2f 3d3a3d61 3d79bcff 3d82bc88 bc77bbbf 3d563ca9 bc6a3c4f
+    0xc2a0: 3b60bc01 bd2bbc6b 3d20bd0a bce93d17 bc36bc88 bcc9bbd5 3cc2bd37 bb153c94
+    0xc2c0: bbacbd44 bdbdbd39 bd6a3dad bcd93d20 3b3b3daa bd5e3ce5 3d1e3d19 3cd73d8a
+    0xc2e0: 3cce3b4a 3cd93cac bd063d1e bd223cac bd67bd82 bc8d3d99 3d8c3c68 bc8ebd59
+
+Disassembly for function void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2048u>):
+    code object: file:///opt/venv/lib/python3.10/site-packages/sgl_kernel/common_ops.cpython-310-x86_64-linux-gnu.so#offset=1781760&size=47624
+    loaded at: [0x7d1668ef0000-0x7d1668efcba1]
+ => 0x7d1668ef27bc <+700>:    s_waitcnt vmcnt(0)
+    0x7d1668ef27c0 <+704>:    v_not_b32_e32 v14, v2
+    0x7d1668ef27c4 <+708>:    v_or_b32_e32 v15, 0x80000000, v2
+    0x7d1668ef27cc <+716>:    v_cmp_gt_i32_e32 vcc, 0, v2
+    0x7d1668ef27d0 <+720>:    s_nop 1
+    ...
+
+End of disassembly.
+Memory access fault by GPU node-8 (Agent handle: 0x65261ad9d270) on address 0x7cc61ac00000. Reason: Unknown.
+Failed to enable debug interface, debugger might be already attached.
+GPU core dump failed
+Fatal Python error: Aborted
+
+Thread 0x00007ce9c7fff640 (most recent call first):
+  File "/usr/lib/python3.10/threading.py", line 324 in wait
+  File "/usr/lib/python3.10/threading.py", line 607 in wait
+  File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/conn.py", line 1665 in heartbeat_checker
+  File "/usr/lib/python3.10/threading.py", line 953 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x00007ce9d3fff640 (most recent call first):
+  File "/opt/venv/lib/python3.10/site-packages/zmq/sugar/socket.py", line 813 in recv_multipart
+  File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/mooncake/conn.py", line 3085 in decode_thread
+  File "/usr/lib/python3.10/threading.py", line 953 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x00007ce9f7bff640 (most recent call first):
+  File "/sgl-workspace/sglang/python/sglang/srt/utils/watchdog.py", line 147 in _watchdog_once
+  File "/sgl-workspace/sglang/python/sglang/srt/utils/watchdog.py", line 127 in _watchdog_thread
+  File "/usr/lib/python3.10/threading.py", line 953 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x00007cede3fff640 (most recent call first):
+  File "/usr/lib/python3.10/threading.py", line 324 in wait
+  File "/usr/lib/python3.10/threading.py", line 607 in wait
+  File "/opt/venv/lib/python3.10/site-packages/tqdm/_monitor.py", line 60 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x00007cedeffff640 (most recent call first):
+  File "/opt/venv/lib/python3.10/site-packages/torch/_inductor/compile_worker/subproc_pool.py", line 73 in _recv_msg
+  File "/opt/venv/lib/python3.10/site-packages/torch/_inductor/compile_worker/subproc_pool.py", line 228 in _read_thread
+  File "/usr/lib/python3.10/threading.py", line 953 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x00007ceea7fff640 (most recent call first):
+  File "/usr/lib/python3.10/threading.py", line 324 in wait
+  File "/usr/lib/python3.10/threading.py", line 607 in wait
+  File "/opt/venv/lib/python3.10/site-packages/tqdm/_monitor.py", line 60 in run
+  File "/usr/lib/python3.10/threading.py", line 1016 in _bootstrap_inner
+  File "/usr/lib/python3.10/threading.py", line 973 in _bootstrap
+
+Thread 0x00007d5c60028000 (most recent call first):
+  File "/opt/venv/lib/python3.10/site-packages/torch/distributed/distributed_c10d.py", line 2841 in broadcast
+  File "/opt/venv/lib/python3.10/site-packages/torch/distributed/c10d_logger.py", line 81 in wrapper
+  File "/sgl-workspace/sglang/python/sglang/srt/utils/common.py", line 2693 in broadcast_pyobj
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler_components/request_receiver.py", line 194 in _broadcast_reqs_across_ranks
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler_components/request_receiver.py", line 101 in recv_requests
+  File "/sgl-workspace/sglang/python/sglang/srt/utils/nvtx_utils.py", line 109 in wrapper
+  File "/sgl-workspace/sglang/python/sglang/srt/observability/scheduler_stage_metrics.py", line 186 in wrapper
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 2081 in ingest_requests
+  File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py", line 2963 in event_loop_overlap_disagg_decode
+  File "/opt/venv/lib/python3.10/site-packages/torch/utils/_contextlib.py", line 120 in decorate_context
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5833 in _dispatch_event_loop_once
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5804 in dispatch_event_loop
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 1887 in run_event_loop
+  File "/sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py", line 5956 in run_scheduler_process
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108 in run
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314 in _bootstrap
+  File "/usr/lib/python3.10/multiprocessing/spawn.py", line 129 in _main
+  File "/usr/lib/python3.10/multiprocessing/spawn.py", line 116 in spawn_main
+  File "<string>", line 1 in <module>
+
+Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, psutil._psutil_linux, pybase64._pybase64, charset_normalizer.md, charset_normalizer.cd, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normalizer.cd, requests.packages.chardet.cd, torch._C, torch._C._dynamo.autograd_compiler, torch._C._dynamo.eval_frame, torch._C._dynamo.guards, torch._C._dynamo.utils, torch._C._fft, torch._C._linalg, torch._C._nested, torch._C._nn, torch._C._sparse, torch._C._special, PIL._imaging, msgspec._core, zmq.backend.cython._zmq, regex._regex, markupsafe._speedups, yaml._yaml, numpy.random._common, numpy.random.bit_generator, numpy.random._bounded_integers, numpy.random._mt19937, numpy.random.mtrand, numpy.random._philox, numpy.random._pcg64, numpy.random._sfc64, numpy.random._generator, scipy._lib._ccallback_c, scipy.linalg._fblas, scipy.linalg._flapack, scipy.linalg.cython_lapack, scipy.linalg._cythonized_array_utils, scipy.linalg._solve_toeplitz, scipy.linalg._decomp_lu_cython, scipy.linalg._matfuncs_sqrtm_triu, scipy.linalg._matfuncs_expm, scipy.linalg._linalg_pythran, scipy.linalg.cython_blas, scipy.linalg._decomp_update, scipy.sparse._sparsetools, _csparsetools, scipy.sparse._csparsetools, scipy.sparse.linalg._dsolve._superlu, scipy.sparse.linalg._eigen.arpack._arpack, scipy.sparse.linalg._propack._spropack, scipy.sparse.linalg._propack._dpropack, scipy.sparse.linalg._propack._cpropack, scipy.sparse.linalg._propack._zpropack, scipy.sparse.csgraph._tools, scipy.sparse.csgraph._shortest_path, scipy.sparse.csgraph._traversal, scipy.sparse.csgraph._min_spanning_tree, scipy.sparse.csgraph._flow, scipy.sparse.csgraph._matching, scipy.sparse.csgraph._reordering, scipy.optimize._group_columns, scipy._lib.messagestream, scipy.optimize._trlib._trlib, scipy.optimize._lbfgsb, _moduleTNC, scipy.optimize._moduleTNC, scipy.optimize._cobyla, scipy.optimize._slsqp, scipy.optimize._minpack, scipy.optimize._lsq.givens_elimination, scipy.optimize._zeros, scipy.optimize._cython_nnls, scipy._lib._uarray._uarray, scipy.special._ufuncs_cxx, scipy.special._ufuncs, scipy.special._specfun, scipy.special._comb, scipy.special._ellip_harm_2, scipy.linalg._decomp_interpolative, scipy.optimize._bglu_dense, scipy.optimize._lsap, scipy.spatial._ckdtree, scipy.spatial._qhull, scipy.spatial._voronoi, scipy.spatial._distance_wrap, scipy.spatial._hausdorff, scipy.spatial.transform._rotation, scipy.optimize._direct, PIL._imagingft, av._core, av.logging, av.buffer, av.audio.format, av.error, av.dictionary, av.container.pyio, av.format, av.index, av.utils, av.stream, av.container.streams, av.sidedata.encparams, av.sidedata.motionvectors, av.sidedata.sidedata, av.opaque, av.packet, av.container.input, av.container.output, av.container.core, av.codec.context, av.video.format, av.video.reformatter, av.plane, av.video.plane, av.video.frame, av.video.stream, av.codec.hwaccel, av.codec.codec, av.frame, av.audio.layout, av.audio.plane, av.audio.frame, av.audio.stream, av.filter.link, av.filter.context, av.filter.graph, av.filter.filter, av.filter.loudnorm, av.audio.resampler, av.audio.codeccontext, av.audio.fifo, av.bitstream, av.device, av.video.codeccontext, _cffi_backend, wcwidth._wcwidth_c, multidict._multidict, yarl._quoting_c, propcache._helpers_c, aiohttp._http_writer, aiohttp._http_parser, aiohttp._websocket.mask, aiohttp._websocket.reader_c, frozenlist._frozenlist, setproctitle._setproctitle, hip_utils, sentencepiece._sentencepiece, Cython.Plex.Actions, Cython.Plex.Scanners, Cython.Compiler.Scanning, pyarrow.lib, pandas._libs.tslibs.ccalendar, pandas._libs.tslibs.np_datetime, pandas._libs.tslibs.dtypes, pandas._libs.tslibs.base, pandas._libs.tslibs.nattype, pandas._libs.tslibs.timezones, pandas._libs.tslibs.fields, pandas._libs.tslibs.timedeltas, pandas._libs.tslibs.tzconversion, pandas._libs.tslibs.timestamps, pandas._libs.properties, pandas._libs.tslibs.offsets, pandas._libs.tslibs.strptime, pandas._libs.tslibs.parsing, pandas._libs.tslibs.conversion, pandas._libs.tslibs.period, pandas._libs.tslibs.vectorized, pandas._libs.ops_dispatch, pandas._libs.missing, pandas._libs.hashtable, pandas._libs.algos, pandas._libs.interval, pandas._libs.lib, pyarrow._compute, pandas._libs.ops, pandas._libs.hashing, pandas._libs.arrays, pandas._libs.tslib, pandas._libs.sparse, pandas._libs.internals, pandas._libs.indexing, pandas._libs.index, pandas._libs.writers, pandas._libs.join, pandas._libs.window.aggregations, pandas._libs.window.indexers, pandas._libs.reshape, pandas._libs.groupby, pandas._libs.json, pandas._libs.parsers, pandas._libs.testing, tvm_ffi.core, grpc._cython.cygrpc, google._upb._message, tilelang_cython_wrapper (total: 200)
+[2026-10-20 08:53:31] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:31] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:31] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:32] INFO:     10.245.144.36:57748 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:32] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:32] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:32] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:33] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:33] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:33] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:34] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:34] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:34] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:35] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:35] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:35] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:36] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:36] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:36] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:37] INFO:     10.245.144.36:50432 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:37] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:37] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:37] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:38] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:38] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:38] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:39] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:39] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:39] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:40] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:40] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:40] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:41] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:41] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:41] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:42] INFO:     10.245.144.36:50446 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:42] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:42] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:42] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:43] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:43] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:43] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:44] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:44] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:44] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:45] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:45] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:45] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:46] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:46] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:46] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:47] INFO:     10.245.144.36:58618 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:47] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:47] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:47] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:48] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:48] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:48] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:49] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:49] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:49] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:50] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:50] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:50] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:51] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:51] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:51] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:52] INFO:     10.245.144.36:58620 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:52] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:52] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:52] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:53] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:53] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:53] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:54] INFO:     10.245.144.36:55688 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:54] INFO:     10.245.144.36:60938 - "GET /metrics HTTP/1.1" 200 OK
+[2026-10-20 08:53:54] INFO:     10.245.144.36:60964 - "GET /metrics HTTP/1.1" 200 OK

@@ -1,0 +1,8 @@
+# Task idxshare debug E2 on crsuse2-m2m-250 (OAI 225298): E1 + YIHOU_TOPK_GUARD=count, guard v4 (v3 + the k-only dense-skip path with index_topk-wide dummy logits) (indexer top-k length vs logits width counters). Driver chain_cap2 ON the node.
+# prefill leg (G=4 K=1 step=1 cpu -> 1/4 of the MoE layers' experts in pinned host memory) + YIHOU-OFFLOAD-ATTRS patch, on the pf90
+# config. PERF, sim 3.61, SHORT round C56 C56 (A1+A2); decode tok4/detok4 (rule 10-15). Driver chain_cap2 ON the node.
+export H=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness
+export YIHOU_NODE=crsuse2-m2m-250 YIHOU_IP=10.245.158.155 YIHOU_JOB=225298 YIHOU_ROUND=dbge2e
+unset EXPECTED_IMAGE_ID
+export CONFIG=$H/config.yihou.dbgE2.sh
+export YIHOU_OVERRIDES="YIHOU_TOPKGUARD_VER=4 E2_BASE_CONFIG=$H/config.yihou.dbgE1.sh DBG_BASE_CONFIG=$H/config.yihou.g4new.sh NEW_BASE_CONFIG=$H/config.yihou.xferfix2.sh PREFILL_HICACHE_SIZE=260 XFERFIX_BASE_CONFIG=$H/config.yihou.offload.sh YIHOU_XFER_LOG=1 YIHOU_XFER_SHARD=dest YIHOU_NONFINAL_EVENT=orig OFF_BASE_CONFIG=$H/config.yihou.tokw2.sh TOKW2_BASE_CONFIG=$H/config.yihou.mc4340n16.sh OFF_G=4 OFF_K=1 OFF_STEP=1 MC4340_BASE_CONFIG=$H/config.yihou.E2-target.sh CONC=56 DECODE_MAX_RUNNING=96 PREFILL_MEM_FRACTION=0.90 DECODE_MEM_FRACTION=0.95 DECODE_SIMULATE_ACC_LEN=3.61 ENGINE_PID_HOST=0 IPC_MODE_LEGACY=0 DEBUG_AGENT=0 DECODE_PID_OFFSET=30000"

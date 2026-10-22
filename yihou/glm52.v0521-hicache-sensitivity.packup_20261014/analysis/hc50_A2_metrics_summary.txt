@@ -1,0 +1,55 @@
+hc50 A2 (C40 warm, scored) — /metrics sampler summary, window 2026-10-13T17:52:41Z .. 19:11:26Z
+(epoch 1791913961 .. 1791918686). Source: /shared_nfs/yihou_glm52/v0521cap2_20261013/runs/hc50/metrics.A2.tsv
+(= results/metrics/hc50.metrics.A2.tsv.gz). Columns: epoch, role, dp rank, metric, value; 5 s samples.
+No equivalent TSV exists for e2g (sampler introduced later), so these numbers have no same-recipe 450 GB counterpart.
+
+== gauges, mean / max over all samples and all 4 ranks
+awk -F'\t' -v s=1791913961 -v e=1791918686 '$1>=s && $1<=e && ($4=="num_queue_reqs"||...) {k=$2" "$4; n[k]++; sum[k]+=$5; if($5>mx[k])mx[k]=$5} END{...}'
+decode cache_hit_rate                         n=3772 mean=0.0000 max=0.0000
+decode num_decode_prealloc_queue_reqs         n=3772 mean=0.0000 max=0.0000
+decode num_decode_transfer_queue_reqs         n=3772 mean=1.5928 max=13.0000
+decode num_prefill_bootstrap_queue_reqs       n=3772 mean=0.0000 max=0.0000
+decode num_prefill_inflight_queue_reqs        n=3772 mean=0.0000 max=0.0000
+decode num_queue_reqs                         n=3772 mean=0.0000 max=0.0000
+decode num_running_reqs                       n=3772 mean=2.6384 max=14.0000
+decode token_usage                            n=3772 mean=0.2701 max=0.7900
+prefill cache_hit_rate                        n=3780 mean=0.5902 max=1.0000
+prefill num_decode_prealloc_queue_reqs        n=3780 mean=0.0000 max=0.0000
+prefill num_decode_transfer_queue_reqs        n=3780 mean=0.0000 max=0.0000
+prefill num_prefill_bootstrap_queue_reqs      n=3780 mean=0.0042 max=2.0000
+prefill num_prefill_inflight_queue_reqs       n=3780 mean=1.2733 max=15.0000
+prefill num_queue_reqs                        n=3780 mean=1.1320 max=13.0000
+prefill num_running_reqs                      n=3780 mean=0.8196 max=8.0000
+prefill token_usage                           n=3780 mean=0.1299 max=0.9900
+(means are per-rank-sample means, i.e. per DP rank; "prefill cache_hit_rate" is the per-batch gauge, not the
+ request-weighted AgentX gpu_cache_hit_rate 0.930.)
+
+== prefill HiCache counters per rank, first / last sample in the window
+rank 0 evicted_tokens_total             first=8697152 last=17842944 delta=9145792 max=17842944
+rank 0 hicache_backup_tokens_total      first=5540672 last=11113216 delta=5572544 max=11113216
+rank 0 hicache_host_total_tokens        first=1112896 last=1112896 delta=0 max=1112896
+rank 0 hicache_host_used_tokens         first=1112192 last=1110912 delta=-1280 max=1112896
+rank 0 load_back_tokens_total           first=8192 last=8192 delta=0 max=8192
+rank 1 evicted_tokens_total             first=8528512 last=19976000 delta=11447488 max=19976000
+rank 1 hicache_backup_tokens_total      first=4626432 last=10606208 delta=5979776 max=10606208
+rank 1 hicache_host_total_tokens        first=1112896 last=1112896 delta=0 max=1112896
+rank 1 hicache_host_used_tokens         first=1112896 last=1112128 delta=-768 max=1112896
+rank 2 evicted_tokens_total             first=9585664 last=18551168 delta=8965504 max=18551168
+rank 2 hicache_backup_tokens_total      first=5558336 last=10891456 delta=5333120 max=10891456
+rank 2 hicache_host_total_tokens        first=1112896 last=1112896 delta=0 max=1112896
+rank 2 hicache_host_used_tokens         first=1111872 last=1111424 delta=-448 max=1112896
+rank 3 evicted_tokens_total             first=10984896 last=18752960 delta=7768064 max=18752960
+rank 3 hicache_backup_tokens_total      first=5413440 last=10200000 delta=4786560 max=10200000
+rank 3 hicache_host_total_tokens        first=1112896 last=1112896 delta=0 max=1112896
+rank 3 hicache_host_used_tokens         first=1111680 last=1107328 delta=-4352 max=1112896
+(load_back_tokens_total appears for rank 0 only in this TSV; ranks 1-3 have no such rows.)
+
+== AgentX server-side token accounting (results/results.csv)
+                         hc50 A2         e2g A2          delta
+prompt_total             1,321,302,984   1,438,670,852
+gpu (device) hit tokens  1,228,221,312   1,332,272,384
+cpu (host) hit tokens    0               29,881,600
+computed tokens          46,532,644      38,258,435      +21.6 %
+records profiled         4,048           4,286
+computed / record        11,495          8,926           +28.8 %
+(hit + computed does not sum to prompt_total in either run; the difference is not explained here.)

@@ -1,0 +1,17 @@
+2026-10-12T10:54:15Z	start	exp=E2+mc4340 round=q1 image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.mc4340n.sh
+2026-10-12T10:54:16Z	ports-all	ok:33 ports <30000 and free
+2026-10-12T10:55:17Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-12T10:55:18Z	etcd	ok
+2026-10-12T11:09:38Z	prefill	ok:43x20s
+2026-10-12T11:21:26Z	decode-a1	ok
+2026-10-12T11:21:26Z	bothlegs	ok
+2026-10-12T11:21:32Z	router	ok
+2026-10-12T11:21:41Z	smoke	ok
+2026-10-12T11:21:42Z	bench	start CONC=44 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c44
+2026-10-12T12:43:20Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c44/agentx_conc44.json
+2026-10-12T12:43:20Z	bench	start CONC=44 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c44-A2
+2026-10-12T14:03:13Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c44-A2/agentx_conc44.json
+2026-10-12T14:04:07Z	bench	start CONC=48 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c48-A3
+2026-10-12T15:24:22Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c48-A3/agentx_conc48.json
+2026-10-12T15:28:10Z	bench	start CONC=52 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c52-A4
+2026-10-12T16:51:02Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c52-A4/agentx_conc52.json

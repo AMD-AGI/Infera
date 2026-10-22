@@ -1,0 +1,39 @@
+===== q1 C44 (A2)
+P queue (wait for prefill)         mean_sum=  2.42  residence=  2.01 s  max_sum=19
+P bootstrap                        mean_sum=  0.04  residence=  0.03 s  max_sum=3
+P forward/chunking                 mean_sum=  3.13  residence=  2.59 s  max_sum=11
+P KV send (inflight)               mean_sum=  5.48  residence=  4.54 s  max_sum=31
+D prealloc (admission wait)        mean_sum=  0.00  residence=  0.00 s  max_sum=0
+D transfer queue                   mean_sum=  8.50  residence=  7.04 s  max_sum=32
+D waiting (arrived, not batched)   mean_sum=  0.00  residence=  0.00 s  max_sum=0
+D running (decode)                 mean_sum= 15.45  residence= 12.79 s  max_sum=37
+prefill token_usage     mean 0:0.11 1:0.09 2:0.12 3:0.12 | max 0:0.89 1:0.94 2:0.87 3:0.80
+prefill cache_hit_rate  mean 0:0.71 1:0.69 2:0.74 3:0.75 | max 0:1.00 1:1.00 2:1.00 3:1.00
+decode token_usage     mean 0:0.39 1:0.35 2:0.40 3:0.37 | max 0:0.83 1:0.87 2:0.83 3:0.71
+prefill host pool >=99.9% full first at (from window start): {'0': '51min', '1': '51min', '2': '49min', '3': '52min'}
+===== q1 C48 (A3c48)
+P queue (wait for prefill)         mean_sum=  4.34  residence=  3.55 s  max_sum=24
+P bootstrap                        mean_sum=  0.03  residence=  0.02 s  max_sum=2
+P forward/chunking                 mean_sum=  3.99  residence=  3.27 s  max_sum=13
+P KV send (inflight)               mean_sum=  7.95  residence=  6.52 s  max_sum=29
+D prealloc (admission wait)        mean_sum=  0.00  residence=  0.00 s  max_sum=0
+D transfer queue                   mean_sum= 13.44  residence= 11.02 s  max_sum=35
+D waiting (arrived, not batched)   mean_sum=  0.00  residence=  0.00 s  max_sum=0
+D running (decode)                 mean_sum= 14.70  residence= 12.05 s  max_sum=37
+prefill token_usage     mean 0:0.14 1:0.16 2:0.16 3:0.18 | max 0:0.82 1:0.96 2:0.87 3:0.83
+prefill cache_hit_rate  mean 0:0.63 1:0.66 2:0.60 3:0.67 | max 0:1.00 1:1.00 2:1.00 3:1.00
+decode token_usage     mean 0:0.41 1:0.50 2:0.45 3:0.43 | max 0:0.77 1:0.99 2:0.92 3:0.91
+prefill host pool >=99.9% full first at (from window start): {'0': '36min', '1': '45min', '2': '31min', '3': '37min'}
+===== q1 C52 (A4c52)
+P queue (wait for prefill)         mean_sum=  6.47  residence=  5.15 s  max_sum=41
+P bootstrap                        mean_sum=  0.08  residence=  0.06 s  max_sum=2
+P forward/chunking                 mean_sum=  4.31  residence=  3.43 s  max_sum=14
+P KV send (inflight)               mean_sum= 10.33  residence=  8.23 s  max_sum=40
+D prealloc (admission wait)        mean_sum=  0.03  residence=  0.02 s  max_sum=2
+D transfer queue                   mean_sum= 18.77  residence= 14.95 s  max_sum=50
+D waiting (arrived, not batched)   mean_sum=  0.00  residence=  0.00 s  max_sum=0
+D running (decode)                 mean_sum= 15.94  residence= 12.69 s  max_sum=54
+prefill token_usage     mean 0:0.19 1:0.18 2:0.17 3:0.20 | max 0:0.95 1:0.85 2:1.00 3:0.82
+prefill cache_hit_rate  mean 0:0.54 1:0.60 2:0.62 3:0.58 | max 0:1.00 1:1.00 2:1.00 3:1.00
+decode token_usage     mean 0:0.51 1:0.50 2:0.54 3:0.50 | max 0:0.93 1:0.84 2:0.98 3:0.89
+prefill host pool >=99.9% full first at (from window start): {'0': '28min', '1': '32min', '2': '34min', '3': '28min'}

@@ -1,0 +1,2 @@
+control  |  | exp: [exp pid=1 RESULT exp OK importer_write_seen=False | imp: [imp pid=1 RESULT imp FAIL hipIpcOpenMemHandle rc=201 | hipIpcOpenMemHandle rc=201 invalid device context
+offset   | OFFSET_LOOP_S=7.9 | exp: [exp pid=30010 RESULT exp OK importer_write_seen=True | imp: [imp pid=1 RESULT imp OK agent_mapped=False | hipIpcOpenMemHandle rc=0 no error

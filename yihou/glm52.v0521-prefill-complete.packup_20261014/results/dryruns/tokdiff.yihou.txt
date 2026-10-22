@@ -1,0 +1,85 @@
+### tokdiff q1-137 (reference) vs pc48-274
+=== prefill: < dryrun.q1-137.yihou.txt   > dryrun.pc48-274.yihou.txt
+< /shared_nfs/yihou_glm52/v0521dbg_20261010:/shared_nfs/yihou_glm52/v0521dbg_20261010:ro
+> /shared_nfs/yihou_glm52/v0521dbg_20261010:/shared_nfs/yihou_glm52/v0521dbg_20261010
+< /mnt/m2m_nobackup/yihou_v0521dbg/cache/137/aiter/prefill/0000000000000000000000000000000000000000000000000000000000000000:/aiter-jit
+> /shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/aiter/prefill/0000000000000000000000000000000000000000000000000000000000000000:/aiter-jit
+< /mnt/m2m_nobackup/yihou_v0521dbg/tmp/137/prefill:rw\,exec\,size=8g
+> /shared_nfs/yihou_glm52/v0521dbg_20261010/tmp/274/prefill:rw\,exec\,size=8g
+< TMPDIR=/mnt/m2m_nobackup/yihou_v0521dbg/tmp/137/prefill
+> TMPDIR=/shared_nfs/yihou_glm52/v0521dbg_20261010/tmp/274/prefill
+< TRITON_CACHE_DIR=/mnt/m2m_nobackup/yihou_v0521dbg/cache/137/triton/prefill
+> TRITON_CACHE_DIR=/shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/triton/prefill
+< HF_HOME=/mnt/m2m_nobackup/yihou_v0521dbg/cache/137/hf/prefill
+> HF_HOME=/shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/hf/prefill
+< XDG_CACHE_HOME=/mnt/m2m_nobackup/yihou_v0521dbg/cache/137/xdg/prefill
+> XDG_CACHE_HOME=/shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/xdg/prefill
+< /mnt/m2m_nobackup/yihou_v0521dbg:/mnt/m2m_nobackup/yihou_v0521dbg
+< -v
+< SGLANG_HOST_IP=10.245.153.247
+> SGLANG_HOST_IP=10.245.157.34
+< HOST_IP=10.245.153.247
+> HOST_IP=10.245.157.34
+< 10.245.153.247
+> 10.245.157.34
+< 10.245.153.247
+> 10.245.157.34
+< 10.245.153.247:24501
+> 10.245.157.34:24501
+< write_through
+> write_back
+< 450
+> 370
+> --disaggregation-decode-allocation-policy
+> prefill_complete
+=== decode: < dryrun.q1-137.yihou.txt   > dryrun.pc48-274.yihou.txt
+< /shared_nfs/yihou_glm52/v0521dbg_20261010:/shared_nfs/yihou_glm52/v0521dbg_20261010:ro
+> /shared_nfs/yihou_glm52/v0521dbg_20261010:/shared_nfs/yihou_glm52/v0521dbg_20261010
+< /mnt/m2m_nobackup/yihou_v0521dbg/cache/137/aiter/decode/0000000000000000000000000000000000000000000000000000000000000000:/aiter-jit
+> /shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/aiter/decode/0000000000000000000000000000000000000000000000000000000000000000:/aiter-jit
+< /mnt/m2m_nobackup/yihou_v0521dbg/tmp/137/decode:rw\,exec\,size=8g
+> /shared_nfs/yihou_glm52/v0521dbg_20261010/tmp/274/decode:rw\,exec\,size=8g
+< TMPDIR=/mnt/m2m_nobackup/yihou_v0521dbg/tmp/137/decode
+> TMPDIR=/shared_nfs/yihou_glm52/v0521dbg_20261010/tmp/274/decode
+< TRITON_CACHE_DIR=/mnt/m2m_nobackup/yihou_v0521dbg/cache/137/triton/decode
+> TRITON_CACHE_DIR=/shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/triton/decode
+< HF_HOME=/mnt/m2m_nobackup/yihou_v0521dbg/cache/137/hf/decode
+> HF_HOME=/shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/hf/decode
+< XDG_CACHE_HOME=/mnt/m2m_nobackup/yihou_v0521dbg/cache/137/xdg/decode
+> XDG_CACHE_HOME=/shared_nfs/yihou_glm52/v0521dbg_20261010/cache/274/xdg/decode
+< /mnt/m2m_nobackup/yihou_v0521dbg:/mnt/m2m_nobackup/yihou_v0521dbg
+< -v
+< SGLANG_HOST_IP=10.245.153.247
+> SGLANG_HOST_IP=10.245.157.34
+< HOST_IP=10.245.153.247
+> HOST_IP=10.245.157.34
+< 10.245.153.247
+> 10.245.157.34
+< 10.245.153.247
+> 10.245.157.34
+< 10.245.153.247:24501
+> 10.245.157.34:24501
+< 0.95
+> 0.96
+> --disaggregation-decode-allocation-policy
+> prefill_complete
+
+### tokdiff pc48-274 vs pc48b-274 (attndp hook fix)
+=== prefill: < dryrun.pc48-274.yihou.txt   > dryrun.pc48b-274.yihou.txt
+> /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/pcomplete/pd_disaggregation_hook.yihou-attndp.py:/sgl-workspace/sglang/python/sglang/srt/arg_groups/pd_disaggregation_hook.py:ro
+> -v
+=== decode: < dryrun.pc48-274.yihou.txt   > dryrun.pc48b-274.yihou.txt
+> /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/pcomplete/pd_disaggregation_hook.yihou-attndp.py:/sgl-workspace/sglang/python/sglang/srt/arg_groups/pd_disaggregation_hook.py:ro
+> -v
+
+### tokdiff pc48b-274 vs pc48e-274 (control: policy early, no hook mount)
+=== prefill: < dryrun.pc48b-274.yihou.txt   > dryrun.pc48e-274.yihou.txt
+< /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/pcomplete/pd_disaggregation_hook.yihou-attndp.py:/sgl-workspace/sglang/python/sglang/srt/arg_groups/pd_disaggregation_hook.py:ro
+< -v
+< --disaggregation-decode-allocation-policy
+< prefill_complete
+=== decode: < dryrun.pc48b-274.yihou.txt   > dryrun.pc48e-274.yihou.txt
+< /shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/pcomplete/pd_disaggregation_hook.yihou-attndp.py:/sgl-workspace/sglang/python/sglang/srt/arg_groups/pd_disaggregation_hook.py:ro
+< -v
+< --disaggregation-decode-allocation-policy
+< prefill_complete

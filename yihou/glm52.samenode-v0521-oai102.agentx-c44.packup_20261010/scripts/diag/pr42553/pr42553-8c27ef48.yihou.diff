@@ -1,0 +1,571 @@
+diff --git a/benchmark/hicache/bench_host_memory_migration.py b/benchmark/hicache/bench_host_memory_migration.py
+new file mode 100644
+index 000000000000..1ff6ee2b5674
+--- /dev/null
++++ b/benchmark/hicache/bench_host_memory_migration.py
+@@ -0,0 +1,278 @@
++"""Reproduce ROCm HiCache USERPTR eviction stalls on an otherwise idle NUMA host.
++
++Run each allocator in a separate process on the same GPU and node:
++  HSA_USERPTR_FOR_PAGED_MEM=0 python benchmark/hicache/bench_host_memory_migration.py --allocator registered --pool-gb 180
++  HSA_USERPTR_FOR_PAGED_MEM=0 python benchmark/hicache/bench_host_memory_migration.py --allocator gtt --pool-gb 180
++
++The registered arm uses the pre-fix mmap + host-register path; the gtt arm
++uses alloc_with_host_register from this checkout. Both keep the HIP environment
++identical. This is a manual hardware test, not a CI test or an LLM benchmark.
++It needs two allowed memory NUMA nodes, sufficient host/GTT memory, and permission
++to call move_pages. A container's seccomp policy must permit NUMA migration;
++pass its worker's host PID with --kfd-pid if PID namespaces differ.
++Only this process's own allocation is migrated; no system policy is changed.
++"""
++
++from __future__ import annotations
++
++import argparse
++import ctypes
++import errno
++import json
++import os
++import statistics
++import threading
++import time
++from concurrent.futures import ThreadPoolExecutor
++from pathlib import Path
++
++import torch
++
++from sglang.srt.mem_cache.pool_host.common import (
++    HostTensorAllocator,
++    _cuda_host_register,
++    _cuda_host_unregister,
++    alloc_with_host_register,
++)
++
++COPY_BYTES = 16 * 1024**2
++MIGRATE_BYTES = 2 * 1024**2
++
++
++def memory_nodes():
++    allowed = next(
++        line.split()[1]
++        for line in Path("/proc/self/status").read_text().splitlines()
++        if line.startswith("Mems_allowed_list:")
++    )
++    nodes = []
++    for entry in allowed.split(","):
++        bounds = [int(value) for value in entry.split("-")]
++        for node in range(bounds[0], bounds[-1] + 1):
++            info = Path(f"/sys/devices/system/node/node{node}/meminfo").read_text()
++            if any(
++                "MemTotal:" in line and int(line.split()[-2]) > 0
++                for line in info.splitlines()
++            ):
++                nodes.append(node)
++    if len(nodes) < 2:
++        raise RuntimeError("Two allowed NUMA nodes with memory are required")
++    return nodes
++
++
++def evicted_ms(pid):
++    counters = {}
++    for path in Path(f"/sys/class/kfd/kfd/proc/{pid}").glob("stats_*"):
++        counters[path.name] = int((path / "evicted_ms").read_text())
++    if not counters:
++        raise RuntimeError(
++            "KFD evicted_ms counters unavailable; --kfd-pid must identify this worker on the host"
++        )
++    return counters
++
++
++class PageMover:
++    def __init__(self, ptr):
++        page_size = os.sysconf("SC_PAGE_SIZE")
++        if ptr % page_size or MIGRATE_BYTES % page_size:
++            raise RuntimeError("Migration range must be page aligned")
++        self.count = MIGRATE_BYTES // page_size
++        self.pages = (ctypes.c_void_p * self.count)(
++            *(ptr + offset * page_size for offset in range(self.count))
++        )
++        self.lib = ctypes.CDLL("libnuma.so.1", use_errno=True)
++        self.lib.move_pages.argtypes = [
++            ctypes.c_int,
++            ctypes.c_ulong,
++            ctypes.POINTER(ctypes.c_void_p),
++            ctypes.POINTER(ctypes.c_int),
++            ctypes.POINTER(ctypes.c_int),
++            ctypes.c_int,
++        ]
++        self.lib.move_pages.restype = ctypes.c_long
++
++    def call(self, target=None):
++        status = (ctypes.c_int * self.count)(*([-errno.EIO] * self.count))
++        nodes = (
++            None
++            if target is None
++            else (ctypes.c_int * self.count)(*([target] * self.count))
++        )
++        ctypes.set_errno(0)
++        # pid=0: own process. MPOL_MF_MOVE=2: move only exclusively owned pages.
++        rc = self.lib.move_pages(
++            0, self.count, self.pages, nodes, status, 0 if target is None else 2
++        )
++        return {
++            "rc": rc,
++            "errno": ctypes.get_errno() if rc < 0 else 0,
++            "status": list(status),
++        }
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--allocator", choices=("registered", "gtt"), required=True)
++    parser.add_argument("--pool-gb", type=float, default=180)
++    parser.add_argument("--trials", type=int, default=3)
++    parser.add_argument("--iterations", type=int, default=1000)
++    parser.add_argument(
++        "--kfd-pid",
++        type=int,
++        default=os.getpid(),
++        help="This worker's host PID (for containerized runs)",
++    )
++    args = parser.parse_args()
++    size = int(args.pool_gb * 1e9)
++    if size < COPY_BYTES or args.trials < 1 or args.iterations < 1:
++        parser.error("Pool must fit 16 MiB; trials and iterations must be positive")
++    if os.environ.get("HSA_USERPTR_FOR_PAGED_MEM") != "0":
++        parser.error("Set HSA_USERPTR_FOR_PAGED_MEM=0 before starting either arm")
++    if not torch.version.hip or not torch.cuda.is_available():
++        parser.error("A ROCm GPU is required")
++    nodes = memory_nodes()
++    torch.cuda.set_device(0)
++    evicted_ms(args.kfd_pid)
++    torch.set_num_threads(1)
++    allocator = HostTensorAllocator()
++    if args.allocator == "registered":
++        host = allocator.allocate((size,), torch.uint8, "cpu")
++        _cuda_host_register(host)
++    else:
++        host = alloc_with_host_register((size,), torch.uint8, "cpu", True, allocator)
++    host[:COPY_BYTES].fill_(42)
++    mover = PageMover(host.data_ptr())
++    source = host[:COPY_BYTES]
++    dest = torch.empty(COPY_BYTES, dtype=torch.uint8, device="cuda")
++    a = torch.randn((4096, 4096), dtype=torch.bfloat16, device="cuda")
++    b = torch.randn_like(a)
++    c = torch.empty_like(a)
++
++    def iteration(trigger=None):
++        start = time.perf_counter()
++        for _ in range(4):
++            torch.mm(a, b, out=c)
++        if trigger is not None:
++            trigger.set()
++        dest.copy_(source, non_blocking=True)
++        torch.cuda.synchronize()
++        return (time.perf_counter() - start) * 1000
++
++    try:
++        for _ in range(50):
++            iteration()
++        control = [iteration() for _ in range(args.iterations)]
++        median = statistics.median(control)
++        print(
++            json.dumps(
++                {
++                    "allocator": args.allocator,
++                    "pool_bytes": size,
++                    "gpu": torch.cuda.get_device_name(0),
++                    "torch": torch.__version__,
++                    "kfd_pid": args.kfd_pid,
++                    "numa_nodes": nodes,
++                    "control_median_ms": median,
++                    "control_max_ms": max(control),
++                }
++            ),
++            flush=True,
++        )
++        results = []
++        with ThreadPoolExecutor(max_workers=1) as executor:
++            for trial in range(args.trials):
++                current = mover.call()
++                if args.allocator == "registered":
++                    if current["rc"] != 0 or any(
++                        node < 0 for node in current["status"]
++                    ):
++                        raise RuntimeError(f"Cannot query USERPTR pages: {current}")
++                    target = next(
++                        node for node in nodes if node != current["status"][0]
++                    )
++                else:
++                    target = nodes[trial % len(nodes)]
++                before = evicted_ms(args.kfd_pid)
++                trigger = threading.Event()
++
++                def migrate():
++                    if not trigger.wait(30):
++                        raise RuntimeError("GPU workload did not start")
++                    return mover.call(target)
++
++                future = executor.submit(migrate)
++                samples = [iteration(trigger)]
++                after_migration = 0
++                while after_migration < args.iterations:
++                    samples.append(iteration())
++                    if future.done():
++                        after_migration += 1
++                migration = future.result()
++                after = evicted_ms(args.kfd_pid)
++                delta = {key: after[key] - before[key] for key in before}
++                moved = sum(
++                    old >= 0 and old != target and new == target
++                    for old, new in zip(current["status"], migration["status"])
++                )
++                rejected = (
++                    migration["rc"] == -1 and migration["errno"] == errno.EFAULT
++                ) or (
++                    migration["rc"] >= 0
++                    and all(value == -errno.EFAULT for value in migration["status"])
++                )
++                result = {
++                    "trial": trial + 1,
++                    "target_node": target,
++                    "move_rc": migration["rc"],
++                    "move_errno": migration["errno"],
++                    "page_status_counts": {
++                        str(value): migration["status"].count(value)
++                        for value in set(migration["status"])
++                    },
++                    "moved_pages": moved,
++                    "gtt_migration_rejected": rejected,
++                    "max_iteration_ms": max(samples),
++                    "excess_over_control_ms": sum(
++                        max(0, value - median) for value in samples
++                    ),
++                    "evicted_ms_delta": delta,
++                }
++                print(json.dumps(result), flush=True)
++                if args.allocator == "registered" and moved == 0:
++                    raise RuntimeError(
++                        "No pages migrated; USERPTR reproduction is inconclusive"
++                    )
++                if args.allocator == "gtt" and (
++                    not rejected or max(delta.values()) != 0
++                ):
++                    raise RuntimeError(
++                        "GTT migration rejection / zero-eviction check failed"
++                    )
++                if not torch.all(dest == 42).item():
++                    raise RuntimeError("Host-to-device copy returned incorrect data")
++                results.append(result)
++        reproduced = any(
++            max(r["evicted_ms_delta"].values()) > 0 and r["max_iteration_ms"] > 100
++            for r in results
++        )
++        print(
++            json.dumps(
++                {
++                    "allocator": args.allocator,
++                    "trials": len(results),
++                    "userptr_stall_reproduced": reproduced,
++                }
++            ),
++            flush=True,
++        )
++        if args.allocator == "registered" and not reproduced:
++            raise RuntimeError(
++                "Pages migrated, but no >100 ms GPU eviction stall was reproduced"
++            )
++    finally:
++        torch.cuda.synchronize()
++        _cuda_host_unregister(host)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/python/sglang/srt/mem_cache/pool_host/common.py b/python/sglang/srt/mem_cache/pool_host/common.py
+index 5728dbde58ad..decd4b368f66 100644
+--- a/python/sglang/srt/mem_cache/pool_host/common.py
++++ b/python/sglang/srt/mem_cache/pool_host/common.py
+@@ -1,8 +1,11 @@
+ from __future__ import annotations
+ 
++import ctypes
+ import json
+ import logging
++import math
+ import os
++import weakref
+ from collections import defaultdict
+ from functools import lru_cache
+ 
+@@ -233,6 +236,97 @@ def _cuda_host_unregister(buffer: torch.Tensor) -> None:
+     setattr(buffer, _CUDA_HOST_REGISTERED_RANGES_ATTR, remaining_ranges)
+ 
+ 
++@lru_cache(maxsize=1)
++def _hip_runtime() -> ctypes.CDLL:
++    from sglang.srt.distributed.device_communicators.cuda_wrapper import (
++        find_loaded_library,
++    )
++
++    # Bind the copy torch loaded; dlopen by soname could load a second HIP runtime.
++    path = find_loaded_library("libamdhip64")
++    if path is None:
++        raise RuntimeError("libamdhip64 is not loaded in this process")
++    lib = ctypes.CDLL(path)
++    lib.hipHostMalloc.argtypes = [
++        ctypes.POINTER(ctypes.c_void_p),
++        ctypes.c_size_t,
++        ctypes.c_uint,
++    ]
++    lib.hipHostMalloc.restype = ctypes.c_int
++    lib.hipHostFree.argtypes = [ctypes.c_void_p]
++    lib.hipHostFree.restype = ctypes.c_int
++    lib.hipGetErrorString.argtypes = [ctypes.c_int]
++    lib.hipGetErrorString.restype = ctypes.c_char_p
++    return lib
++
++
++def _hip_host_malloc(nbytes: int) -> int:
++    lib = _hip_runtime()
++    ptr = ctypes.c_void_p()
++    # hipHostMallocDefault, the flags torch's pinned allocator uses.
++    rc = lib.hipHostMalloc(ctypes.byref(ptr), nbytes, 0)
++    if rc != 0:
++        raise RuntimeError(
++            f"hipHostMalloc of {nbytes / 1e9:.2f} GB for a HiCache host pool failed "
++            f"(rc={rc}, {lib.hipGetErrorString(rc).decode()}). With "
++            "HSA_USERPTR_FOR_PAGED_MEM=0 host pools are GTT memory, which all ranks "
++            "on a node share up to /sys/class/drm/card*/device/mem_info_gtt_total. "
++            "Reduce --hicache-size or unset HSA_USERPTR_FOR_PAGED_MEM."
++        )
++    return ptr.value
++
++
++def _hip_host_free(ptr: int) -> None:
++    rc = _hip_runtime().hipHostFree(ptr)
++    if rc != 0:
++        logger.warning("hipHostFree failed (rc=%d) for ptr=%#x", rc, ptr)
++
++
++@lru_cache(maxsize=1)
++def _log_hip_owned_host_pool() -> None:
++    logger.info(
++        "HSA_USERPTR_FOR_PAGED_MEM=0: allocating HiCache host pools with "
++        "hipHostMalloc (GTT) instead of hipHostRegister (USERPTR)."
++    )
++    if envs.SGLANG_HUGEPAGE_SIZE.get():
++        logger.warning(
++            "SGLANG_HUGEPAGE_SIZE is ignored for hipHostMalloc HiCache host pools."
++        )
++
++
++def _uses_hip_owned_host_memory(
++    pin_memory: bool, allocator: HostTensorAllocator
++) -> bool:
++    # hipHostRegister memory is USERPTR even with HSA_USERPTR_FOR_PAGED_MEM=0; any page
++    # migration in it stalls every GPU queue while KFD revalidates. GTT never migrates.
++    return (
++        _is_hip
++        and pin_memory
++        # Storage allocators own their backing (shm fds, registered transfer buffers).
++        and type(allocator) is HostTensorAllocator
++        and os.environ.get("HSA_USERPTR_FOR_PAGED_MEM") == "0"
++    )
++
++
++def _alloc_hip_host_tensor(dims: tuple, dtype: torch.dtype) -> torch.Tensor:
++    # Not torch pin_memory: its host allocator rounds each block up to a power of
++    # two, so a 180 GB pool would pin 256 GiB of GTT.
++    numel = math.prod(dims)
++    nbytes = numel * dtype.itemsize
++    ptr = _hip_host_malloc(nbytes)
++    try:
++        array = (ctypes.c_uint8 * nbytes).from_address(ptr)
++        buffer = torch.frombuffer(array, dtype=dtype, count=numel).reshape(dims)
++    except BaseException:
++        _hip_host_free(ptr)
++        raise
++    # Freed with the tensor's last view; at interpreter exit the driver reclaims it.
++    weakref.finalize(array, _hip_host_free, ptr).atexit = False
++    # Not host-registered, so HostKVCache.destroy() must not cudaHostUnregister it.
++    setattr(buffer, _CUDA_HOST_REGISTERED_RANGES_ATTR, [])
++    return buffer
++
++
+ def alloc_with_host_register(
+     dims: tuple,
+     dtype: torch.dtype,
+@@ -243,8 +337,13 @@ def alloc_with_host_register(
+ ) -> torch.Tensor:
+     """
+     Allocate tensor and register host memory with cudaHostRegister.
+-    CudaHostRegister only applies when pin_memory=True.
++    CudaHostRegister only applies when pin_memory=True. On ROCm with
++    HSA_USERPTR_FOR_PAGED_MEM=0, default-allocator pools come from hipHostMalloc.
+     """
++    if _uses_hip_owned_host_memory(pin_memory=pin_memory, allocator=allocator):
++        assert device == "cpu", f"HiCache host pools are CPU memory; got {device!r}"
++        _log_hip_owned_host_pool()
++        return _alloc_hip_host_tensor(dims=dims, dtype=dtype)
+     buffer = allocator.allocate(dims, dtype=dtype, device=device)
+     if pin_memory:
+         _cuda_host_register(buffer, registration_granularity_bytes)
+diff --git a/test/registered/unit/mem_cache/test_hicache_host_register.py b/test/registered/unit/mem_cache/test_hicache_host_register.py
+index a7f74cbc136e..10837c83cb49 100644
+--- a/test/registered/unit/mem_cache/test_hicache_host_register.py
++++ b/test/registered/unit/mem_cache/test_hicache_host_register.py
+@@ -1,3 +1,6 @@
++import ctypes
++import gc
++import os
+ import unittest
+ from types import SimpleNamespace
+ from unittest import mock
+@@ -10,6 +13,7 @@
+     DeepSeekV4PagedHostPool,
+     DeepSeekV4StateHostPool,
+ )
++from sglang.srt.mem_cache.pool_host import common as host_common
+ from sglang.srt.mem_cache.pool_host import mha as mha_pool_host
+ from sglang.srt.mem_cache.pool_host import mla as mla_pool_host
+ from sglang.srt.mem_cache.pool_host.common import (
+@@ -66,6 +70,138 @@ def cudaGetErrorString(self, rc: int) -> str:
+ 
+ 
+ class TestHiCacheHostRegister(unittest.TestCase):
++    def _hip_non_userptr(self):
++        return (
++            mock.patch.object(host_common, "_is_hip", True),
++            mock.patch.dict(os.environ, {"HSA_USERPTR_FOR_PAGED_MEM": "0"}),
++        )
++
++    def test_hip_non_userptr_pool_is_exact_size_and_never_unregistered(self):
++        """The pool must not be rounded up to a power of two (torch pin_memory pins
++        256 GiB for a 180 GB pool) and destroy() must not cudaHostUnregister it."""
++        dims = (3, 5, 7)  # 105 bf16 elements: 210 bytes, not a power of two
++        backing = (ctypes.c_uint8 * 210)()
++        allocator = host_common.HostTensorAllocator()
++        cudart = _FakeCudart()
++        is_hip, env = self._hip_non_userptr()
++        with (
++            is_hip,
++            env,
++            mock.patch.object(
++                host_common, "_hip_host_malloc", return_value=ctypes.addressof(backing)
++            ) as malloc,
++            mock.patch.object(host_common, "_hip_host_free"),
++            mock.patch.object(allocator, "allocate") as allocate,
++            mock.patch.object(torch.cuda, "cudart", return_value=cudart),
++        ):
++            buffer = host_common.alloc_with_host_register(
++                dims=dims,
++                dtype=torch.bfloat16,
++                device="cpu",
++                pin_memory=True,
++                allocator=allocator,
++            )
++            malloc.assert_called_once_with(210)
++            allocate.assert_not_called()
++            self.assertEqual(buffer.shape, dims)
++            self.assertEqual(buffer.data_ptr(), ctypes.addressof(backing))
++            _cuda_host_unregister(buffer)
++        self.assertEqual(cudart.registrations, [])
++        self.assertEqual(cudart.unregistrations, [])
++
++    def test_hip_host_pool_is_freed_once_after_its_last_view(self):
++        """hipHostFree must wait for every view (the pools keep per-layer views)
++        and run exactly once."""
++        backing = (ctypes.c_uint8 * 64)()
++        ptr = ctypes.addressof(backing)
++        is_hip, env = self._hip_non_userptr()
++        with (
++            is_hip,
++            env,
++            mock.patch.object(host_common, "_hip_host_malloc", return_value=ptr),
++            mock.patch.object(host_common, "_hip_host_free") as free,
++        ):
++            buffer = host_common.alloc_with_host_register(
++                dims=(4, 16),
++                dtype=torch.uint8,
++                device="cpu",
++                pin_memory=True,
++                allocator=host_common.HostTensorAllocator(),
++            )
++            layer_view = buffer[1]
++            del buffer
++            gc.collect()
++            free.assert_not_called()
++            del layer_view
++            gc.collect()
++            free.assert_called_once_with(ptr)
++
++    def test_non_userptr_path_preserves_other_allocators_and_platforms(self):
++        class StorageAllocator(host_common.HostTensorAllocator):
++            pass
++
++        for hip, userptr, custom, pinned in (
++            (False, "0", False, True),
++            (True, "1", False, True),
++            (True, None, False, True),
++            (True, "0", True, True),
++            (True, "0", False, False),
++        ):
++            with self.subTest(hip=hip, userptr=userptr, custom=custom, pinned=pinned):
++                allocator = (
++                    StorageAllocator if custom else host_common.HostTensorAllocator
++                )()
++                buffer = _FakeBuffer(0x10000000, 4096)
++                with (
++                    mock.patch.object(host_common, "_is_hip", hip),
++                    mock.patch.dict(os.environ),
++                    mock.patch.object(host_common, "_hip_host_malloc") as malloc,
++                    mock.patch.object(
++                        allocator, "allocate", return_value=buffer
++                    ) as allocate,
++                    mock.patch.object(host_common, "_cuda_host_register") as register,
++                ):
++                    os.environ.pop("HSA_USERPTR_FOR_PAGED_MEM", None)
++                    if userptr is not None:
++                        os.environ["HSA_USERPTR_FOR_PAGED_MEM"] = userptr
++                    got = host_common.alloc_with_host_register(
++                        (4096,), torch.uint8, "cpu", pinned, allocator, 512
++                    )
++                    self.assertIs(got, buffer)
++                    malloc.assert_not_called()
++                    allocate.assert_called_once_with(
++                        (4096,), dtype=torch.uint8, device="cpu"
++                    )
++                    if pinned:
++                        register.assert_called_once_with(buffer, 512)
++                    else:
++                        register.assert_not_called()
++
++    def test_gtt_exhaustion_names_the_cap_and_does_not_fall_back_to_userptr(self):
++        """Running out of GTT must fail startup with the remedy, not silently
++        fall back to a USERPTR pool."""
++        allocator = host_common.HostTensorAllocator()
++        out_of_memory = SimpleNamespace(
++            hipHostMalloc=lambda ptr, nbytes, flags: 2,
++            hipGetErrorString=lambda rc: b"out of memory",
++        )
++        is_hip, env = self._hip_non_userptr()
++        with (
++            is_hip,
++            env,
++            mock.patch.object(host_common, "_hip_runtime", return_value=out_of_memory),
++            mock.patch.object(allocator, "allocate") as allocate,
++            self.assertRaisesRegex(RuntimeError, "mem_info_gtt_total.*--hicache-size"),
++        ):
++            host_common.alloc_with_host_register(
++                dims=(8,),
++                dtype=torch.uint8,
++                device="cpu",
++                pin_memory=True,
++                allocator=allocator,
++            )
++        allocate.assert_not_called()
++
+     def test_dsa_page_layouts_with_draft_use_page_registration_granularity(self):
+         target_buffers = [torch.empty(1, dtype=torch.uint8) for _ in range(3)]
+         draft_buffer = torch.empty(1, dtype=torch.uint8)

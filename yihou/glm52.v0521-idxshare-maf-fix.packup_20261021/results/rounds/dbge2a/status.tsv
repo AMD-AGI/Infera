@@ -1,0 +1,12 @@
+2026-10-20T09:34:41Z	start	exp=E2+mc4340+tokw4detok4+offload-g4k1s1+xferfix2-orig-dest+pr42553-idxtrue-caron+dbgE1-sgcount-agent1+topkguard-count round=dbge2a image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.dbgE2.sh
+2026-10-20T09:34:41Z	ports-all	ok:33 ports <30000 and free
+2026-10-20T09:35:41Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-20T09:35:42Z	etcd	ok
+2026-10-20T09:38:23Z	prefill	ok:9x20s
+2026-10-20T09:44:10Z	decode-a1	ok
+2026-10-20T09:44:10Z	bothlegs	ok
+2026-10-20T09:44:15Z	router	ok
+2026-10-20T09:44:23Z	smoke	ok
+2026-10-20T09:44:23Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge2a/agentx-c56-A1
+2026-10-20T10:00:00Z	bench	FAIL rc=143 (see /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge2a/agentx-c56-A1.log)
+2026-10-20T10:00:21Z	chain	STOPPED by operator: guard v1 logs only from eager calls (none seen in 17 min); replaced by dbge2b (guard v2 thread logger)

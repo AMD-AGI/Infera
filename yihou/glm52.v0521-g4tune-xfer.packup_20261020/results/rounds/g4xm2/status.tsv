@@ -1,0 +1,10 @@
+2026-10-19T12:13:59Z	start	exp=E2+mc4340+tokw4detok4+offload-g4k1s1+xferfix2-orig-mix round=g4xm2 image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.xferfix2.sh
+2026-10-19T12:14:00Z	ports-all	ok:33 ports <30000 and free
+2026-10-19T12:15:00Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-19T12:15:01Z	etcd	ok
+2026-10-19T12:28:02Z	prefill	ok:40x20s
+2026-10-19T12:47:07Z	decode-a1	ok
+2026-10-19T12:47:07Z	bothlegs	ok
+2026-10-19T12:47:12Z	router	ok
+2026-10-19T12:47:16Z	smoke	ok
+2026-10-19T12:47:16Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm2/agentx-c56-A1

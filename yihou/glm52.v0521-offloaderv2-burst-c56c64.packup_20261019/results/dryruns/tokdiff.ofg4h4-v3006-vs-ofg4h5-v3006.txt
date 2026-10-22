@@ -1,0 +1,2 @@
+=== prefill: < dryrun.ofg4h4-v3006.yihou.txt   > dryrun.ofg4h5-v3006.yihou.txt
+=== decode: < dryrun.ofg4h4-v3006.yihou.txt   > dryrun.ofg4h5-v3006.yihou.txt

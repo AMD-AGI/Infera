@@ -1,0 +1,15 @@
+round,run,conc,patch,protocol,score_tok_s_chip,qps,isl_mean,ttft_mean_s,ttft_p50_s,ttft_p95_s,tpot_mean_ms,gpu_hit,cpu_hit,overall_hit,records_ok,records_err,cpu_pool_tok,json
+tb56,A1,56,runshare v2 0.5/5s,fresh (unscored),17545.0,1.038,134256.0,28.22,19.44,85.95,14.97,0.814,0.082,0.896,3764,3,3649664,results/tb56/agentx-c56-A1/agentx_conc56.json
+tb56,A2,56,runshare v2 0.5/5s,warm (scored),17610.6,1.053,132674.0,31.08,18.56,98.68,12.8,0.718,0.166,0.884,3824,3,3649664,results/tb56/agentx-c56-A2/agentx_conc56.json
+tb56,A3,64,runshare v2 0.5/5s,warm 3rd run,15069.8,0.926,129104.0,51.22,43.51,135.36,11.13,0.561,0.276,0.837,3363,2,3649664,results/tb56/agentx-c64-A3/agentx_conc64.json
+tb56n,A1,56,none,fresh (unscored),17791.2,1.057,133693.0,27.76,17.89,87.55,14.92,0.819,0.078,0.897,3822,2,3649664,results/tb56n/agentx-c56-A1/agentx_conc56.json
+tb56n,A2,56,none,warm (scored),18015.9,1.041,137357.0,30.09,22.38,92.78,12.54,0.68,0.204,0.885,3780,4,3649664,results/tb56n/agentx-c56-A2/agentx_conc56.json
+tb56n,A3,64,none,warm 3rd run,15107.5,0.93,128977.0,50.84,44.14,134.5,11.5,0.544,0.296,0.841,3374,1,3649664,results/tb56n/agentx-c64-A3/agentx_conc64.json
+ref:q1-137,A2,44,none (HiCache 450),warm,21862.2,1.208,143725.0,7.79,4.29,28.22,12.61,0.885,0.05,0.935,4383,3,10016064,results/reference/q1-137/q1-A2-C44.agentx_conc44.json
+ref:q1-137,A3,48,none (HiCache 450),warm 3rd run,22305.8,1.22,145303.0,11.97,7.3,38.19,12.08,0.839,0.088,0.927,4425,2,10016064,results/reference/q1-137/q1-A3-C48.agentx_conc48.json
+ref:q1-137,A4,52,none (HiCache 450),warm 4th run,21418.2,1.256,135507.0,15.82,9.45,51.97,12.74,0.816,0.102,0.918,4552,2,10016064,results/reference/q1-137/q1-A4-C52.agentx_conc52.json
+ref:pc40d-102,A1,40,runshare v2 0.5/5s (HiCache 450),fresh,20679.7,1.137,144513.0,5.26,3.17,18.29,14.21,0.94,0.018,0.958,4122,0,10016064,results/reference/pc40d-A1-C40-runshare2/agentx_conc40.json
+ref:t2f-v0519-crossnode,sweep,40,none (v0.5.19 cross-node),sweep point,19798.7,1.109,141801.0,7.41,4.17,26.89,13.58,0.939,0.013,0.952,4025,1,3423488,results/reference/t2f-v0519-crossnode/agentx_conc40.json
+ref:t2f-v0519-crossnode,sweep,56,none (v0.5.19 cross-node),sweep point,14675.9,0.884,131720.0,38.74,17.64,131.92,13.77,0.65,0.218,0.868,3205,2,3423488,results/reference/t2f-v0519-crossnode/agentx_conc56.json
+ref:t2f-v0519-crossnode,sweep,72,none (v0.5.19 cross-node),sweep point,8763.8,0.55,126487.0,124.52,85.21,390.89,12.1,0.273,0.48,0.753,1996,5,3423488,results/reference/t2f-v0519-crossnode/agentx_conc72.json
+ref:t2f-v0519-crossnode,sweep,96,none (v0.5.19 cross-node),sweep point,3028.1,0.223,107554.0,418.61,44.67,1180.99,11.08,0.115,0.108,0.223,808,3,3423488,results/reference/t2f-v0519-crossnode/agentx_conc96.json

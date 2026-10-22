@@ -1,0 +1,12 @@
+=== prefill: < dryrun.pf90-089.yihou.txt   > dryrun.ofs0-089.yihou.txt
+> /shared_nfs/yihou_glm52/v0521cap2_20261013/offload/offloader.yihou-attrs.py:/sgl-workspace/sglang/python/sglang/srt/utils/offloader.py:ro
+> -v
+> --offload-group-size
+> 8
+> --offload-num-in-group
+> 1
+> --offload-prefetch-step
+> 1
+> --offload-mode
+> cpu
+=== decode: < dryrun.pf90-089.yihou.txt   > dryrun.ofs0-089.yihou.txt

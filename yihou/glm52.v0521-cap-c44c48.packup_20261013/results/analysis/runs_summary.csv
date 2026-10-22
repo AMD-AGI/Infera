@@ -1,0 +1,11 @@
+run,node,stack_state,config_delta_vs_e2g,conc,ok,err_dropped,tok_s_per_chip,qps,isl_mean,ttft_mean_s,ttft_p95_s,tpot_mean_ms
+X1-e2j-C44-R3,102,e2j stack 3rd run (warm),HiCache450 dec0.95 mr64 +hostvariant+graphbs1-16,44,4373,4,21773,1.207,143345,9.02,30.60,11.7
+k1-A1-C44,102,fresh,HiCache360,44,4218,5,20729,1.163,141612,7.40,27.03,15.1
+k1-A2-C44,102,warm,HiCache360,44,4304,2,21342,1.186,142958,8.55,28.87,12.4
+q1-A1-C44,137,fresh,mr96 prefill0.88,44,4337,2,21433,1.195,142474,5.91,19.05,15.4
+q1-A2-C44,137,warm,mr96 prefill0.88,44,4383,3,21862,1.208,143725,7.79,28.22,12.6
+q1-A3-C48,137,warm (3rd run),mr96 prefill0.88,48,4425,2,22306,1.220,145303,11.97,38.19,12.1
+q1-A4-C52,137,warm (4th run),mr96 prefill0.88,52,4552,2,21418,1.256,135507,15.82,51.97,12.7
+pc40c-A1-C40-runshare1,102,fresh,runshare v1 0.5,40,4091,3,20361,1.127,143478,5.15,17.00,14.5
+pc40c-A2-C40-runshare1,102,warm,runshare v1 0.5,40,4208,0,21271,1.160,145655,6.17,20.93,12.2
+pc40d-A1-C40-runshare2,102,fresh,runshare v2 0.5 wait5s,40,4122,0,20680,1.137,144513,5.26,18.29,14.2

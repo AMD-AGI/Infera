@@ -1,0 +1,86 @@
+--- agentx_bench.orig.yihou.sh	2026-10-09 06:23:15.409525127 +0000
++++ bench-harness/agentx_bench.sh	2026-10-10 03:53:06.172754188 +0000
+@@ -71,7 +71,25 @@
+ [[ "$orphans" == 0 ]] ||
+     { echo "$orphans orphaned aiperf processes found on $CONTROL_NODE" >&2; exit 1; }
+ 
+-mounts=(-v "$REPO:$REPO")
++# yihou v0521dbg: NODE_RW_ROOT set = the node mounts /shared_nfs read-only. The client then
++# writes its output, aiperf runtime and HF cache under NODE_RW_ROOT (runtime.node.env points
++# there) and the output is copied back to OUT_DIR afterwards. $REPO stays the read side.
++node_rw="${NODE_RW_ROOT:-}"
++client_rw="${node_rw:-$WS}"
++client_out="$OUT_DIR"
++env_file="$OUT_DIR/runtime.env"
++if [[ -n "$node_rw" ]]; then
++    client_out="$node_rw/runs/${YIHOU_ROUND:?}/$(basename "$OUT_DIR")"
++    node_cache="$node_rw/cache/${YIHOU_NODE##*-}/agentx"
++    sed -e "s#^AGENTIC_OUTPUT_DIR=.*#AGENTIC_OUTPUT_DIR=$client_out#" \
++        -e "s#^AIPERF_RUNTIME_DIR=.*#AIPERF_RUNTIME_DIR=$node_cache/aiperf#" \
++        -e "s#^HF_HOME=.*#HF_HOME=$node_cache/hf#" \
++        "$OUT_DIR/runtime.env" > "$OUT_DIR/runtime.node.env"
++    env_file="$OUT_DIR/runtime.node.env"
++    ssh_run "$CONTROL_NODE" mkdir -p "$client_out" "$node_cache/aiperf" "$node_cache/hf"
++fi
++mounts=(-v "$REPO:$REPO${node_rw:+:ro}")
++[[ -z "$node_rw" ]] || mounts+=(-v "$node_rw:$node_rw")
+ [[ "$INFERENCEX_DIR" == "$REPO"/* ]] ||
+     mounts+=(-v "$INFERENCEX_DIR:$INFERENCEX_DIR:ro")
+ [[ "$runtime_model" == "$REPO"/* ]] ||
+@@ -80,12 +98,23 @@
+ # SOURCE_MODEL only matters when MODEL is a symlink overlay onto it.
+ [[ "$SOURCE_MODEL" == "$runtime_model" || "$SOURCE_MODEL" == "$REPO"/* ]] ||
+     mounts+=(-v "$SOURCE_MODEL:$SOURCE_MODEL:ro")
+-[[ "$cache" == "$REPO"/* ]] || mounts+=(-v "$cache:$cache")
++[[ -n "$node_rw" || "$cache" == "$REPO"/* ]] || mounts+=(-v "$cache:$cache")
+ 
+ name="$CONTAINER_PREFIX-agentx-client-$(date -u +%Y%m%dT%H%M%S)-$$"
+ printf '%s\n' "$name" > "$OUT_DIR/client.container"
++copied_back=0
++copy_back() {
++    # NODE_RW_ROOT: copy the node-local client output back (base64: the spur shim mangles
++    # binary stdout). Runs on success and, via record_exit, on failure too.
++    [[ -n "$node_rw" && "$copied_back" == 0 ]] || return 0
++    copied_back=1
++    ssh_run "$CONTROL_NODE" bash -c "tar -C $(printf '%q' "$client_out") -cf - . | base64 -w0" |
++        base64 -d | tar -C "$OUT_DIR" -xf - ||
++        echo "copy-back of $client_out from $CONTROL_NODE failed" >&2
++}
+ record_exit() {
+     local rc=$?
++    copy_back || true
+     printf '%s\n' "$rc" > "$OUT_DIR/client.shell-exit-code"
+     ssh_run "$CONTROL_NODE" docker inspect --format '{{.State.ExitCode}}' "$name" \
+         > "$OUT_DIR/client.container-exit-code" 2>/dev/null || true
+@@ -97,13 +126,13 @@
+ ssh_run "$CONTROL_NODE" docker run --name "$name" \
+     --network host --ipc host --shm-size "${CLIENT_SHM_SIZE:-32g}" \
+     "${mounts[@]}" \
+-    --tmpfs "$WS/tmp/${YIHOU_NODE##*-}/client:rw,exec,size=16g" \
+-    -e "TMPDIR=$WS/tmp/${YIHOU_NODE##*-}/client" \
+-    -e "HOME=$WS/cache/${YIHOU_NODE##*-}/client-home" \
+-    -e "XDG_CACHE_HOME=$WS/cache/${YIHOU_NODE##*-}/client-xdg" \
+-    -e "PYTHONPYCACHEPREFIX=$WS/cache/${YIHOU_NODE##*-}/client-pycache" \
+-    -e "UV_PYTHON_INSTALL_DIR=$WS/cache/${YIHOU_NODE##*-}/uv-python" \
+-    --env-file "$OUT_DIR/runtime.env" \
++    --tmpfs "$client_rw/tmp/${YIHOU_NODE##*-}/client:rw,exec,size=16g" \
++    -e "TMPDIR=$client_rw/tmp/${YIHOU_NODE##*-}/client" \
++    -e "HOME=$client_rw/cache/${YIHOU_NODE##*-}/client-home" \
++    -e "XDG_CACHE_HOME=$client_rw/cache/${YIHOU_NODE##*-}/client-xdg" \
++    -e "PYTHONPYCACHEPREFIX=$client_rw/cache/${YIHOU_NODE##*-}/client-pycache" \
++    -e "UV_PYTHON_INSTALL_DIR=$client_rw/cache/${YIHOU_NODE##*-}/uv-python" \
++    --env-file "$env_file" \
+     "$IMAGE" bash -c '
+         set -euo pipefail
+         out="$1"
+@@ -116,8 +145,9 @@
+         resolve_trace_source
+         build_replay_cmd "$out"
+         run_agentic_replay_and_write_outputs "$out"
+-    ' _ "$OUT_DIR" 2>&1 | tee "$OUT_DIR/runner.log"
++    ' _ "$client_out" 2>&1 | tee "$OUT_DIR/runner.log"
+ trap - INT TERM
++copy_back
+ result="$OUT_DIR/agentx_conc$CONC.json"
+ [[ -s "$result" ]] || { echo "AgentX result is missing: $result" >&2; exit 1; }
+ echo "AgentX passed: $result"

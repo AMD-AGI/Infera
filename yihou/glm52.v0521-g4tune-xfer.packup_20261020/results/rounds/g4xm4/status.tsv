@@ -1,0 +1,13 @@
+2026-10-19T18:21:18Z	start	exp=E2+mc4340+tokw4detok4+offload-g4k1s1+xferfix2-orig-mix round=g4xm4 image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.xferfix2.sh
+2026-10-19T18:21:18Z	ports-all	ok:33 ports <30000 and free
+2026-10-19T18:33:50Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-19T18:33:51Z	etcd	ok
+2026-10-19T18:55:53Z	prefill	ok:67x20s
+2026-10-19T19:06:26Z	decode-a1	ok
+2026-10-19T19:06:26Z	bothlegs	ok
+2026-10-19T19:06:31Z	router	ok
+2026-10-19T19:06:35Z	smoke	ok
+2026-10-19T19:06:35Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A1
+2026-10-19T19:35:29Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A1.log)
+2026-10-19T20:32:11Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A2
+2026-10-19T21:57:34Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A2/agentx_conc56.json

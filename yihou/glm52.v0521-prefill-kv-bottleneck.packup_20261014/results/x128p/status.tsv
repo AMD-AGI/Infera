@@ -1,0 +1,13 @@
+2026-10-13T16:49:53Z	start	exp=E2+mc4340+expert128-prefill round=x128p image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.expertnleg.sh
+2026-10-13T16:49:53Z	ports-all	ok:33 ports <30000 and free
+2026-10-13T16:54:24Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-13T16:54:24Z	etcd	ok
+2026-10-13T17:05:46Z	prefill	ok:35x20s
+2026-10-13T17:16:04Z	decode-a1	ok
+2026-10-13T17:16:04Z	bothlegs	ok
+2026-10-13T17:16:09Z	router	ok
+2026-10-13T17:16:13Z	smoke	ok
+2026-10-13T17:16:13Z	bench	start CONC=48 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/x128p/agentx-c48-A1
+2026-10-13T18:40:36Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/x128p/agentx-c48-A1/agentx_conc48.json
+2026-10-13T18:40:36Z	bench	start CONC=48 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/x128p/agentx-c48-A2
+2026-10-13T20:03:11Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/x128p/agentx-c48-A2/agentx_conc48.json

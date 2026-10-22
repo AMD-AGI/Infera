@@ -1,0 +1,4 @@
+run,node,stack_state,config_delta_vs_e2g,conc,ok,err_dropped,tok_s_per_chip,qps,isl_mean,ttft_mean_s,ttft_p95_s,tpot_mean_ms
+pc40c-A1-C40-runshare1,102,fresh,runshare v1 0.5,40,4091,3,20361,1.127,143478,5.15,17.00,14.5
+pc40c-A2-C40-runshare1,102,warm,runshare v1 0.5,40,4208,0,21271,1.160,145655,6.17,20.93,12.2
+pc40d-A1-C40-runshare2,102,fresh,runshare v2 0.5 wait5s,40,4122,0,20680,1.137,144513,5.26,18.29,14.2

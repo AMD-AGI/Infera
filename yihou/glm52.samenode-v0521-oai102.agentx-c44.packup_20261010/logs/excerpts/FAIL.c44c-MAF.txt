@@ -1,0 +1,11 @@
+##### /shared_nfs/yihou_glm52/agentx44_20261009/runs/c44c/server-logs/decode-0.a1.log
+##### /shared_nfs/yihou_glm52/agentx44_20261009/runs/c44c/server-logs/decode-0.a2.log
+##### /shared_nfs/yihou_glm52/agentx44_20261009/runs/c44c/server-logs/decode-0.a3.log
+2026-10-09T09:21:20.527134166Z crsuse2-m2m-102:958:958 [2] NCCL INFO post-adjustment based on threadThreshold:64 nBytes:442368 nc:48
+2026-10-09T09:21:20.527137906Z crsuse2-m2m-102:958:958 [2] NCCL INFO pre-adjustment threadThreshold:32 nBytes:442368 nc:48
+2026-10-09T09:21:20.527139336Z crsuse2-m2m-102:958:958 [2] NCCL INFO minNChannels:112
+2026-10-09T09:21:20.527530605Z Memory access fault by GPU node-9 (Agent handle: 0x55cd9a1d10f0) on address 0x772e5ca00000. Reason: Unknown.
+2026-10-09T09:21:20.527899293Z [aiter] shape is M:9, N:6144, K:16384 dtype='torch.bfloat16' otype='torch.bfloat16' bias=False, scaleAB=False, bpreshuffle=False, not found tuned config in /tmp/aiter_configs/bf16_tuned_gemm.csv, will use default config! using torch solution:0
+2026-10-09T09:21:20.528972158Z crsuse2-m2m-102:958:958 [2] N] NCCL INFO pre-adjustment threadThreshold:32 nBytes:393216 nc:48
+2026-10-09T09:21:20.528987178Z crsuse2-m2m-102:808:808 [1] NCCL INFO minNChannels:112
+##### /shared_nfs/yihou_glm52/agentx44_20261009/runs/c44c/server-logs/prefill-0.log

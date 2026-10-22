@@ -1,0 +1,8 @@
+sglang:spec_accept_length{dp_rank="3",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="3",pp_rank="0",tp_rank="3"} 3.73
+sglang:spec_accept_length{dp_rank="2",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="2",pp_rank="0",tp_rank="2"} 3.668539325842697
+sglang:spec_accept_length{dp_rank="1",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="1",pp_rank="0",tp_rank="1"} 3.45
+sglang:spec_accept_length{dp_rank="0",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 3.6276150627615062
+sglang:spec_accept_rate{dp_rank="3",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="3",pp_rank="0",tp_rank="3"} 0.546
+sglang:spec_accept_rate{dp_rank="2",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="2",pp_rank="0",tp_rank="2"} 0.5337078651685393
+sglang:spec_accept_rate{dp_rank="1",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="1",pp_rank="0",tp_rank="1"} 0.49
+sglang:spec_accept_rate{dp_rank="0",engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 0.5255230125523013

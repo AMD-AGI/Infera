@@ -1,0 +1,5 @@
+GPU0->GPU4 4GiB 1 block: 59.7 GB/s ; 4GiB in 10000 blocks: 12.9 GB/s
+GPU1->GPU5 4GiB 1 block: 59.7 GB/s ; 4GiB in 10000 blocks: 13.1 GB/s
+GPU2->GPU6 4GiB 1 block: 59.7 GB/s ; 4GiB in 10000 blocks: 13.2 GB/s
+GPU3->GPU7 4GiB 1 block: 59.7 GB/s ; 4GiB in 10000 blocks: 13.2 GB/s
+GPU0->GPU1 4GiB 1 block: 60.0 GB/s ; 4GiB in 10000 blocks: 13.5 GB/s

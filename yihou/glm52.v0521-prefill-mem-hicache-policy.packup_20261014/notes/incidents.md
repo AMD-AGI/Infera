@@ -1,0 +1,13 @@
+# Incidents of 2026-10-14 (from analysis/ledger/poll.md + round logs; first-hand unless marked)
+
+| time UTC | what | effect | evidence |
+|---|---|---|---|
+| ~01:30 | job 211763 on `crsuse2-m2m-206` ended `JobHoldMaxRequeue` | pf92 moved from 206 to 085 (env.pf92-206 → env.pf92-085) | poll.md 03:25; both env files in scripts/harness |
+| 02:32 / 03:10 | node `crsuse2-m2m-274` (job 211171) `NODE_FAIL`, Reason NodeDown, EndTime 03:10:51 | pf88 (0.88 same-session control) lost 16 min into A1 (still in warm-up: 130/531 returned, 57 in flight from 02:30 on); its JSON has 0 profiled / 84 errors (71 Service Unavailable, 13 InvalidInferenceResult) | `results/pf88-c48-A1/agentx_conc48.json`, `results/rounds/pf88/agentx-c48-A1.log.gz` |
+| 03:2x-03:40 | `sbatch` failures: "refusing to re-forward an already-forwarded request", "raft propose failed: ... snapshot not found" (x2); replacement hold 214829 PENDING JobLaunchFailure ("1 gpu/resource allocation mismatch") | no replacement node for pf88/pf88b | poll.md 03:25, 03:40 |
+| 04:47 | login-host driver (`chain_cap2l` on spur006) and the wts48 bench client terminated (A1 log ends `Terminated`, ~50 min into A1) | wts48 A1 lost (no JSON); stack stayed up; continued with `cont_benchl` (flush → A2) at 05:31. **Cause not established** | `results/rounds/wts48/agentx-c48-A1.log.gz`, `wts48.cont.log` |
+| 05:07 | job 211169 on `crsuse2-m2m-085` ended `NODE_FAIL` at RunTime 1-00:00:24 ([inferred] QOS MaxWall 24 h; the scontrol extension to 36 h did not hold; sacct shows COMPLETE -1:0, Elapsed 1-00:00:23) | pf92 A2 lost ~70 min in; pf88b handover never started | poll.md 05:11; pf92 logs end 05:07:19 |
+| 05:42 | pc64 first smoke request hung 300 s, aborted ("Decode handshake failed ... Aborted by AbortReq"); manual smoke at 05:52 OK in 1 s; audit PASS | pipeline STOP at smoke; benches continued via `cont_bench`. **Cause not established** | `results/rounds/pc64/pc64.pipeline.log`, `status.tsv` |
+| 07:16-07:22 | wts64 launched at 07:16 (reported to the user as rejected) DID run; a 07:22 relaunch hit decode `/flush_cache` 400 × 60 ("pending requests" = the running bench) and exited | one wts64 bench running (cont_benchl PID 1464883); `cont_benchl2` (decode-flush tolerant) written but unused | `results/rounds/wts48/wts48.cont.log`, poll.md 07:35 |
+| 07:5x | pc64 A2 stop: the first attempt killed itself (pgrep pattern matched its own command line); second attempt `run.v3 stop` → 0 pc64 containers | pc64 A2 aborted (user abandoned prefill_complete) | poll.md 07:5x |
+| earlier (10-13) | `crsuse2-m2m-026` released for GPU3 HBM ECC (UMC correctable 13,198,148 + 2 deferred) | not used today | sibling packup prefill-complete REPRODUCE §2 |

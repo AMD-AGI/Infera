@@ -1,0 +1,9 @@
+2026-10-14T07:52:44Z	start	exp=E2+mc4340 round=cx90 image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.mc4340n4.sh
+2026-10-14T07:52:44Z	ports-all	ok:33 ports <30000 and free
+2026-10-14T08:10:16Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-14T08:10:17Z	etcd	ok
+2026-10-14T08:47:47Z	prefill	ok:94x20s
+2026-10-14T08:54:04Z	decode-a1	ok
+2026-10-14T08:54:04Z	bothlegs	ok
+2026-10-14T08:54:09Z	router	ok
+2026-10-14T08:54:13Z	smoke	ok

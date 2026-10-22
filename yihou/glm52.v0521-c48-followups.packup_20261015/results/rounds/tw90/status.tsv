@@ -1,0 +1,13 @@
+2026-10-14T09:07:11Z	start	exp=E2+mc4340+tokw4 round=tw90 image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.tokw.sh
+2026-10-14T09:07:11Z	ports-all	ok:33 ports <30000 and free
+2026-10-14T09:28:44Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-14T09:28:45Z	etcd	ok
+2026-10-14T09:34:26Z	prefill	ok:18x20s
+2026-10-14T09:40:28Z	decode-a1	ok
+2026-10-14T09:40:28Z	bothlegs	ok
+2026-10-14T09:40:33Z	router	ok
+2026-10-14T09:40:37Z	smoke	ok
+2026-10-14T09:40:37Z	bench	start CONC=48 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/tw90/agentx-c48-A1
+2026-10-14T11:11:09Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/tw90/agentx-c48-A1/agentx_conc48.json
+2026-10-14T11:18:52Z	bench	start CONC=48 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/tw90/agentx-c48-A2
+2026-10-14T12:40:29Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/tw90/agentx-c48-A2/agentx_conc48.json

@@ -1,0 +1,10 @@
+window = first 18 min of the profiling phase; DP0 TP0 'Prefill batch' lines
+run      start                   n per_min     mean      p10      p50      p90  <1000  new_tok_sum   cached_sum
+c44d     2026-10-09T10:13:09   443    24.6     6918      409     6353    11790     87      2475641     24912064
+e1c      2026-10-10T08:19:31   598    33.2     5660      192     2519    10464    192      2430308     47802560
+e2b4     2026-10-10T10:04:41   610    33.9     6143      332     5269    11495    136      3169883     41192960
+window = first 15 min of the WARMUP phase; DP0 TP0 'Prefill batch' lines
+run      start                   n per_min     mean      p10      p50      p90  <1000  new_tok_sum   cached_sum
+c44d     2026-10-09T09:54:41   426    28.4     6530     3722     5155     6929      3      3476521      2315456
+e1c      2026-10-10T08:03:43   373    24.9     6532     1377     5194     7415     25      2815959     16810816
+e2b4     2026-10-10T09:40:59   268    17.9     6089     3507     5458     6964     17      2195200            0

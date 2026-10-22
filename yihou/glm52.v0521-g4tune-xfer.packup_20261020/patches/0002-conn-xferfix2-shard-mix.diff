@@ -1,0 +1,29 @@
+--- /shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/conn.yihou-xferfix.py	2026-10-10 21:00:20.514350074 +0000
++++ /shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/conn.yihou-xferfix2.py	2026-10-19 05:58:41.924657203 +0000
+@@ -99,9 +99,13 @@
+ #        before final, aux/Success last); different requests spread over all
+ #        SGLANG_DISAGGREGATION_QUEUE_SIZE workers. Failed-session early abort is checked per
+ #        chunk inside the worker, so it still holds in any queue.
++#   mix  (g4tune 2026-10-19) like room, but the room is hashed first: in run e2f (10-10) room %
++#        len(queues) equalled the prefill DP rank for every request (DPi used only shard i), so
++#        room sharding never spread a rank's chunks. mix = ((room * 0x9E3779B97F4A7C15) mod 2^64)
++#        >> 32 % len(queues): all chunks of one request still stay in one FIFO.
+ _YIHOU_XFER_SHARD = os.environ.get("YIHOU_XFER_SHARD", "dest").strip()
+-if _YIHOU_XFER_SHARD not in ("dest", "room"):
+-    raise ValueError(f"YIHOU_XFER_SHARD={_YIHOU_XFER_SHARD!r} (want dest|room)")
++if _YIHOU_XFER_SHARD not in ("dest", "room", "mix"):
++    raise ValueError(f"YIHOU_XFER_SHARD={_YIHOU_XFER_SHARD!r} (want dest|room|mix)")
+ 
+ 
+ class _YihouXferStats:
+@@ -3168,6 +3172,10 @@
+         shard_idx = session_port_sum % len(self.transfer_queues)
+         if _YIHOU_XFER_SHARD == "room":
+             shard_idx = int(bootstrap_room) % len(self.transfer_queues)
++        elif _YIHOU_XFER_SHARD == "mix":
++            shard_idx = (
++                ((int(bootstrap_room) * 0x9E3779B97F4A7C15) & 0xFFFFFFFFFFFFFFFF) >> 32
++            ) % len(self.transfer_queues)
+ 
+         if trace_ctx is None:
+             trace_ctx = TraceNullContext()

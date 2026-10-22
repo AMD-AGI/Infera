@@ -1,0 +1,7 @@
+# Task g4tune xnode 2026-10-21 g4x2 = REPLICATE of g4x1 (same config, same placement): CROSS-NODE 1P1D P4D4 = the 10-21 baseline (idxf1b config: new rule + index_share true + idlefix, G4K1 step1, C56) with prefill on crsuse2-m2m-135 GPU0-3 and decode on crsuse2-m2m-136 GPU0-3, KV over Mooncake RDMA rail i <-> rail i (config.yihou.xnode.sh). Plain ssh nodes; everything written on NFS (NODE_RW_ROOT=). Driver chain_x ON 135. Short round C56 (A1+A2).
+export H=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness
+export YIHOU_NODE=crsuse2-m2m-135 YIHOU_IP=10.245.148.209 YIHOU_JOB= YIHOU_ROUND=g4x2
+export XNODE_DECODE_NODE=crsuse2-m2m-136 XNODE_DECODE_IP=10.245.154.168
+unset EXPECTED_IMAGE_ID
+export CONFIG=$H/config.yihou.xnode.sh
+export YIHOU_OVERRIDES="XNODE_BASE_CONFIG=$H/config.yihou.idlefix.sh XNODE_DECODE_NODE=crsuse2-m2m-136 XNODE_DECODE_IP=10.245.154.168 NODE_RW_ROOT= IDLEFIX_BASE_CONFIG=$H/config.yihou.g4new.sh NEW_BASE_CONFIG=$H/config.yihou.xferfix2.sh PREFILL_HICACHE_SIZE=260 XFERFIX_BASE_CONFIG=$H/config.yihou.offload.sh YIHOU_XFER_LOG=1 YIHOU_XFER_SHARD=dest YIHOU_NONFINAL_EVENT=orig OFF_BASE_CONFIG=$H/config.yihou.tokw2.sh TOKW2_BASE_CONFIG=$H/config.yihou.mc4340n19.sh OFF_G=4 OFF_K=1 OFF_STEP=1 MC4340_BASE_CONFIG=$H/config.yihou.E2-target.sh CONC=56 DECODE_MAX_RUNNING=96 PREFILL_MEM_FRACTION=0.90 DECODE_MEM_FRACTION=0.95 DECODE_SIMULATE_ACC_LEN=3.61 ENGINE_PID_HOST=0 IPC_MODE_LEGACY=0 DEBUG_AGENT=0 DECODE_PID_OFFSET=30000"

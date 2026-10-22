@@ -1,0 +1,12 @@
+2026-10-20T10:46:18Z	start	exp=E2+mc4340+tokw4detok4+offload-g4k1s1+xferfix2-orig-dest+pr42553-idxtrue-caron+dbgE1-sgcount-agent1+topkguard-count round=dbge2e image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.dbgE2.sh
+2026-10-20T10:46:18Z	ports-all	ok:33 ports <30000 and free
+2026-10-20T10:47:18Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-20T10:47:19Z	etcd	ok
+2026-10-20T10:50:01Z	prefill	ok:9x20s
+2026-10-20T10:55:48Z	decode-a1	ok
+2026-10-20T10:55:48Z	bothlegs	ok
+2026-10-20T10:55:53Z	router	ok
+2026-10-20T10:56:05Z	smoke	ok
+2026-10-20T10:56:06Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge2e/agentx-c56-A1
+2026-10-20T11:15:53Z	bench	FAIL rc=143 (see /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge2e/agentx-c56-A1.log)
+2026-10-20T11:16:13Z	chain	STOPPED by operator: indexer guard v4 counters frozen in serving (no instrumented path runs); replaced by dbge3 (sgl_kernel call-site guard)

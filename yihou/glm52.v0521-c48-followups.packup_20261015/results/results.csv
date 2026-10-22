@@ -1,0 +1,7 @@
+run,node,round,variant,stack,conc,score_tok_s_chip,qps,isl_mean,ttft_mean_s,ttft_p95_s,tpot_ms,gpu_hit,cpu_hit,overall_hit,ok,err,json
+pf90 A1 (ref),089,pf90,"pf90",fresh,48,21858.87,1.219,142517,9.569,31.318,15.680,0.911,0.035,0.947,4415,0,pf90/agentx-c48-A1/agentx_conc48.json
+pf90 A2 (ref),089,pf90,"pf90",warm(scored),48,23127.06,1.276,143964,9.297,28.757,13.120,0.860,0.071,0.931,4632,3,pf90/agentx-c48-A2/agentx_conc48.json
+tw90 A1,089,tw90,"pf90 + decode --tokenizer-worker-num 4",fresh,48,22230.93,1.235,143101,8.633,29.110,15.370,0.914,0.035,0.949,4470,4,tw90/agentx-c48-A1/agentx_conc48.json
+tw90 A2,089,tw90,"pf90 + decode --tokenizer-worker-num 4",warm(scored),48,22596.80,1.243,144451,10.940,34.836,12.510,0.871,0.056,0.927,4510,4,tw90/agentx-c48-A2/agentx_conc48.json
+wts48 A2 (ref),136,wts48,"write_through_selective C48",warm(scored),48,21225.50,1.169,144218,13.630,42.026,12.490,0.868,0.039,0.907,4243,1,wts48/agentx-c48-A2/agentx_conc48.json
+wts64 (C64),136,wts48,"write_through_selective C64",warm(3rd stack use),64,8680.58,0.572,120479,107.154,307.526,9.210,0.428,0.185,0.613,2074,3,wts48/agentx-c64-A2/agentx_conc64.json

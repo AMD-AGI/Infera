@@ -1,0 +1,84 @@
+--- engine.orig.yihou.sh	2026-10-09 06:23:15.396937362 +0000
++++ bench-harness/engine.sh	2026-10-10 07:25:48.230985218 +0000
+@@ -105,6 +105,11 @@
+ aiter_jit_cache="${AITER_JIT_CACHE_ROOT:-/tmp/aiter-jit-$(id -u)}/$image_key"
+ [[ "${DRY_RUN:-0}" == 1 ]] || mkdir -p "$aiter_jit_cache"
+ 
++# yihou v0521dbg: NODE_RW_ROOT = node-local writable root for everything the node writes
++# (tmp, triton/hf/xdg caches; AITER and SERVER_LOG via the config/driver). Needed where
++# /shared_nfs is mounted read-only (136/138). Empty = the old $WS behaviour.
++rw="${NODE_RW_ROOT:-$WS}"
++[[ "$rw" == /* ]] || { echo "NODE_RW_ROOT must be absolute" >&2; exit 2; }
+ docker_args=(
+     docker run -d --init --name "$container"
+     --network host --ipc host --shm-size "${SHM_SIZE:-32g}"
+@@ -113,17 +118,29 @@
+     --cap-add SYS_PTRACE --cap-add IPC_LOCK
+     --security-opt seccomp=unconfined
+     --ulimit memlock=-1:-1 --ulimit nofile=65536:65536
+-    -v "$WS:$WS"
++    -v "$WS:$WS${NODE_RW_ROOT:+:ro}"   # yihou: read side only when NODE_RW_ROOT is set
+     -v "$MODEL:$MODEL:ro"
+     -v "$aiter_jit_cache:/aiter-jit"
+     -e AITER_JIT_DIR=/aiter-jit
+-    --tmpfs "$WS/tmp/$node_key/$role:rw,exec,size=8g"
+-    -e "TMPDIR=$WS/tmp/$node_key/$role"
+-    -e "TRITON_CACHE_DIR=$WS/cache/$node_key/triton/$role"
+-    -e "HF_HOME=$WS/cache/$node_key/hf/$role"
+-    -e "XDG_CACHE_HOME=$WS/cache/$node_key/xdg/$role"
++    --tmpfs "$rw/tmp/$node_key/$role:rw,exec,size=8g"
++    -e "TMPDIR=$rw/tmp/$node_key/$role"
++    -e "TRITON_CACHE_DIR=$rw/cache/$node_key/triton/$role"
++    -e "HF_HOME=$rw/cache/$node_key/hf/$role"
++    -e "XDG_CACHE_HOME=$rw/cache/$node_key/xdg/$role"
+     -e PYTHONDONTWRITEBYTECODE=1
+ )
++# yihou v0521dbg: same-node IPC. ROCr's default IPC binds the abstract socket "\0hsa<pid>"
++# (namespace pid) in the shared host netns; two private PID namespaces collide -> the
++# "RCCL race" (hipIpcGetMemHandle invalid argument). --pid host makes the pids unique.
++# Both knobs come from the shared config, so both legs always get the same value.
++[[ "${ENGINE_PID_HOST:-0}" == 1 && -n "${YIHOU_JOB:-}" ]] &&
++    { echo "ENGINE_PID_HOST=1 refused on spur node (spur-authz denies --pid=host)" >&2; exit 2; }
++[[ "${ENGINE_PID_HOST:-0}" == 1 ]] && docker_args+=(--pid host)
++[[ "${IPC_MODE_LEGACY:-0}" == 1 ]] && docker_args+=(-e HSA_ENABLE_IPC_MODE_LEGACY=1)
++if [[ -n "${NODE_RW_ROOT:-}" ]]; then
++    [[ "${DRY_RUN:-0}" == 1 ]] || mkdir -p "$NODE_RW_ROOT"
++    docker_args+=(-v "$NODE_RW_ROOT:$NODE_RW_ROOT")
++fi
+ # SOURCE_MODEL is only needed when MODEL is a symlink overlay onto it; docker
+ # rejects a duplicate mount point when the two are the same path.
+ [[ "$SOURCE_MODEL" == "$MODEL" ]] || docker_args+=(-v "$SOURCE_MODEL:$SOURCE_MODEL:ro")
+@@ -182,6 +199,17 @@
+         docker_args+=(-e "$item")
+     done
+ fi
++# yihou v0521dbg: ROCm debug agent, lean mode (names the faulting kernel, also under
++# CUDA-graph replay; ~1.00x measured). No --output: the report goes to stderr, i.e. into
++# the server log next to "Memory access fault", with docker timestamps. Dedicated -e
++# (not EXTRA_ENV) so a future multi-word option value survives.
++if [[ "${DEBUG_AGENT:-0}" == 1 ]]; then
++    docker_args+=(
++        -e "HSA_TOOLS_LIB=${DEBUG_AGENT_LIB:-/opt/rocm/lib/librocm-debug-agent.so.2}"
++        -e HSA_ENABLE_DEBUG=1
++        -e "ROCM_DEBUG_AGENT_OPTIONS=${DEBUG_AGENT_OPTIONS:---disable-linux-signals}"
++    )
++fi
+ if [[ "$role" == decode && -n "${DECODE_SIMULATE_ACC_LEN:-}" ]]; then
+     docker_args+=(
+         -e "SGLANG_SIMULATE_ACC_LEN=$DECODE_SIMULATE_ACC_LEN"
+@@ -265,6 +293,15 @@
+     engine_args+=("${extra_arg_items[@]}")
+ fi
+ 
++# yihou v0521dbg (R022): DECODE_PID_OFFSET=K>0 burns K pids inside the decode container before
++# exec'ing the engine, so decode ranks get pids >= K. The CLR hipIpcOpenMemHandle guard returns
++# 201 when exporter pid == importer pid across private PID namespaces (e1a: DP0 973 == 973),
++# and --pid host is denied by spur-authz on spur nodes. The image ENTRYPOINT
++# (infera-inject-host-ionic) ends in `exec "$@"`, so the wrapper runs under it and under --init.
++if [[ "$role" == decode && "${DECODE_PID_OFFSET:-0}" != 0 ]]; then
++    [[ "$DECODE_PID_OFFSET" =~ ^[1-9][0-9]*$ ]] || { echo "DECODE_PID_OFFSET must be a positive integer" >&2; exit 2; }
++    engine_args=(bash -c 'i=0; while [ $i -lt '"$DECODE_PID_OFFSET"' ]; do ( : ); i=$((i+1)); done; exec "$@"' _ "${engine_args[@]}")
++fi
+ echo "$instance role=$role ip=$node_ip port=$engine_port GPUs=$gpus TP=$tp EP=$ep DP=$dp DPA=$dpa HiCache=$hicache"
+ echo "AITER JIT cache: $aiter_jit_cache"
+ printf ' + %q' "${docker_args[@]}" "$IMAGE" "${engine_args[@]}"

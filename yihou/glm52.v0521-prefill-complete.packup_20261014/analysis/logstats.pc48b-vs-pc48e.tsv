@@ -1,0 +1,54 @@
+# awk -f scripts/tools/logstats.yihou.awk; W1 = A1 bench window, W2 = A2 bench window (UTC, from status.tsv); all 4 DPs pooled; n = log lines
+# pc48b A1 10:30:30-11:54:32, A2 11:54:32-13:18:29 ; pc48e A1 15:53:48-17:24:21, A2 17:26:22-18:50:08
+pc48b.prefill_complete	W1	prefill #bootstrap-req	n=8450	max=0	mean=0.000
+pc48b.prefill_complete	W1	prefill #inflight-req	n=8450	max=15	mean=1.464
+pc48b.prefill_complete	W1	prefill #optimistic-req	n=8450	max=9	mean=1.215
+pc48b.prefill_complete	W1	prefill #queue-req	n=8450	max=20	mean=3.096
+pc48b.prefill_complete	W1	prefill #running-req	n=8450	max=0	mean=0.000
+pc48b.prefill_complete	W1	prefill token usage	n=8450	max=1	mean=0.145
+pc48b.prefill_complete	W2	prefill #bootstrap-req	n=9014	max=0	mean=0.000
+pc48b.prefill_complete	W2	prefill #inflight-req	n=9014	max=16	mean=1.625
+pc48b.prefill_complete	W2	prefill #optimistic-req	n=9014	max=8	mean=1.239
+pc48b.prefill_complete	W2	prefill #queue-req	n=9014	max=19	mean=3.408
+pc48b.prefill_complete	W2	prefill #running-req	n=9014	max=0	mean=0.000
+pc48b.prefill_complete	W2	prefill token usage	n=9014	max=1	mean=0.155
+pc48b.prefill_complete	W1	decode #prealloc-req	n=6742	max=22	mean=2.526
+pc48b.prefill_complete	W1	decode #queue-req	n=6742	max=0	mean=0.000
+pc48b.prefill_complete	W1	decode #retracted-req	n=6742	max=0	mean=0.000
+pc48b.prefill_complete	W1	decode #running-req	n=6742	max=16	mean=3.889
+pc48b.prefill_complete	W1	decode #transfer-req	n=6742	max=13	mean=1.559
+pc48b.prefill_complete	W1	decode pre-allocated usage	n=6742	max=0.83	mean=0.085
+pc48b.prefill_complete	W1	decode token usage	n=6742	max=0.91	mean=0.333
+pc48b.prefill_complete	W2	decode #prealloc-req	n=8147	max=20	mean=2.582
+pc48b.prefill_complete	W2	decode #queue-req	n=8147	max=0	mean=0.000
+pc48b.prefill_complete	W2	decode #retracted-req	n=8147	max=0	mean=0.000
+pc48b.prefill_complete	W2	decode #running-req	n=8147	max=19	mean=3.509
+pc48b.prefill_complete	W2	decode #transfer-req	n=8147	max=15	mean=1.667
+pc48b.prefill_complete	W2	decode pre-allocated usage	n=8147	max=0.69	mean=0.093
+pc48b.prefill_complete	W2	decode token usage	n=8147	max=0.89	mean=0.321
+pc48e.early	W1	prefill #bootstrap-req	n=8899	max=7	mean=0.065
+pc48e.early	W1	prefill #inflight-req	n=8899	max=15	mean=1.353
+pc48e.early	W1	prefill #optimistic-req	n=8899	max=0	mean=0.000
+pc48e.early	W1	prefill #queue-req	n=8899	max=18	mean=3.115
+pc48e.early	W1	prefill #running-req	n=8899	max=0	mean=0.000
+pc48e.early	W1	prefill token usage	n=8899	max=1	mean=0.139
+pc48e.early	W2	prefill #bootstrap-req	n=9275	max=11	mean=0.106
+pc48e.early	W2	prefill #inflight-req	n=9275	max=12	mean=1.251
+pc48e.early	W2	prefill #optimistic-req	n=9275	max=0	mean=0.000
+pc48e.early	W2	prefill #queue-req	n=9275	max=23	mean=3.407
+pc48e.early	W2	prefill #running-req	n=9275	max=0	mean=0.000
+pc48e.early	W2	prefill token usage	n=9275	max=1	mean=0.142
+pc48e.early	W1	decode #prealloc-req	n=6932	max=0	mean=0.000
+pc48e.early	W1	decode #queue-req	n=6932	max=0	mean=0.000
+pc48e.early	W1	decode #retracted-req	n=6932	max=0	mean=0.000
+pc48e.early	W1	decode #running-req	n=6932	max=19	mean=4.032
+pc48e.early	W1	decode #transfer-req	n=6932	max=20	mean=3.810
+pc48e.early	W1	decode pre-allocated usage	n=6932	max=0.84	mean=0.218
+pc48e.early	W1	decode token usage	n=6932	max=0.99	mean=0.474
+pc48e.early	W2	decode #prealloc-req	n=7893	max=0	mean=0.000
+pc48e.early	W2	decode #queue-req	n=7893	max=0	mean=0.000
+pc48e.early	W2	decode #retracted-req	n=7893	max=0	mean=0.000
+pc48e.early	W2	decode #running-req	n=7893	max=16	mean=3.532
+pc48e.early	W2	decode #transfer-req	n=7893	max=23	mean=4.055
+pc48e.early	W2	decode pre-allocated usage	n=7893	max=0.92	mean=0.232
+pc48e.early	W2	decode token usage	n=7893	max=0.97	mean=0.457

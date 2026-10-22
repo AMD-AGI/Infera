@@ -1,0 +1,79 @@
+=== g4n2 /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4n2/server-logs/decode-0.a1.log
+2026-10-20T02:50:03.144334782Z [2026-10-20 02:50:03] INFO:     10.245.158.155:48020 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-10-20T02:50:03.151091868Z Memory access fault by GPU node-7 (Agent handle: 0x59c83d63f5d0) on address 0x7b3ff5400000. Reason: Unknown.
+2026-10-20T02:50:03.279112172Z GPU coredump: execvp failed: No such file or directory
+2026-10-20T02:50:03.348522901Z Failed to write program header to pipe: Broken pipe
+2026-10-20T02:50:03.348539361Z GPU coredump: handler exited with error (status: 1)
+2026-10-20T02:50:03.348542661Z GPU core dump failed
+=== g4n2b /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4n2b/server-logs/decode-0.a1.log
+2026-10-20T04:08:23.189894477Z [2026-10-20 04:08:23] INFO:     10.245.158.155:52650 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-10-20T04:08:23.205592311Z Memory access fault by GPU node-8 (Agent handle: 0x5d76210e5290) on address 0x7b40f0600000. Reason: Unknown.
+2026-10-20T04:08:23.274394536Z [2026-10-20 04:08:23] INFO:     10.245.158.155:58004 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-20T04:08:23.323369790Z GPU coredump: execvp failed: No such file or directory
+2026-10-20T04:08:23.384918964Z Failed to write program header to pipe: Broken pipe
+2026-10-20T04:08:23.384935154Z GPU coredump: handler exited with error (status: 1)
+=== g4n1 /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4n1/server-logs/decode-0.a1.log
+2026-10-20T04:29:02.747569530Z [2026-10-20 04:29:02] INFO:     10.245.144.36:39804 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+2026-10-20T04:29:02.761261334Z Memory access fault by GPU node-7 (Agent handle: 0x5b8dce08d2c0) on address 0x79bae4a02000. Reason: Unknown.
+2026-10-20T04:29:02.822912900Z [2026-10-20 04:29:02] INFO:     10.245.144.36:41118 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-20T04:29:02.887465626Z GPU coredump: execvp failed: No such file or directory
+2026-10-20T04:29:02.954137124Z Failed to write program header to pipe: Broken pipe
+2026-10-20T04:29:02.954156214Z GPU coredump: handler exited with error (status: 1)
+=== g4n4 /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4n4/server-logs/decode-0.a1.log
+2026-10-20T05:33:13.585562062Z crsuse2-m2m-250:31626:31626 [3] NCCL INFO pre-adjustment threadThreshold:32 nBytes:442368 nc:48
+2026-10-20T05:33:13.587217980Z Memory access fault by GPU node-9 (Agent handle: 0x615d48262bd0) on address 0x7e9b9c200000. Reason: Unknown.
+2026-10-20T05:33:13.589385280Z crsusreshold:64 nBytes:319488 nc:48
+2026-10-20T05:33:13.589403939Z crsuse2-m2m-250:31317:31317 [2] NCCL INFO minNChannels:112
+2026-10-20T05:33:13.589406979Z crsuse2-m2m-250:31317:31317 [2] NCCL INFO post-adjustment based on threadThreshold:64 nBytes:319488 nc:48
+2026-10-20T05:33:13.589410309Z crsuse2-m2m-250:31317:31317 [2] NCCL INFO pre-adjustment threadThreshold:64 nBytes:8053760 nc:48
+=== dbge1a /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge1a/server-logs/decode-0.a1.log
+2026-10-20T08:53:31.020965890Z End of disassembly.
+2026-10-20T08:53:31.021039010Z Memory access fault by GPU node-8 (Agent handle: 0x65261ad9d270) on address 0x7cc61ac00000. Reason: Unknown.
+2026-10-20T08:53:31.035864522Z Failed to enable debug interface, debugger might be already attached.
+2026-10-20T08:53:31.035872552Z GPU core dump failed
+2026-10-20T08:53:31.035875052Z Fatal Python error: Aborted
+2026-10-20T08:53:31.035877242Z 
+=== dbge1b /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge1b/server-logs/decode-0.a1.log
+2026-10-20T10:42:30.765555397Z End of disassembly.
+2026-10-20T10:42:30.765699574Z Memory access fault by GPU node-9 (Agent handle: 0x608a079ca100) on address 0x73914c800000. Reason: Unknown.
+2026-10-20T10:42:30.777575428Z Failed to enable debug interface, debugger might be already attached.
+2026-10-20T10:42:30.777579558Z GPU core dump failed
+2026-10-20T10:42:30.777600148Z Fatal Python error: Aborted
+2026-10-20T10:42:30.777607718Z 
+=== dbge4a /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge4a/server-logs/decode-0.a1.log
+2026-10-20T12:17:07.633025600Z End of disassembly.
+2026-10-20T12:17:07.633165179Z Memory access fault by GPU node-9 (Agent handle: 0x5f15d246f1c0) on address 0x71a8f6800000. Reason: Unknown.
+2026-10-20T12:17:07.644426902Z Failed to enable debug interface, debugger might be already attached.
+2026-10-20T12:17:07.644441252Z GPU core dump failed
+2026-10-20T12:17:07.644443542Z Fatal Python error: Aborted
+2026-10-20T12:17:07.644445282Z 
+=== dbge4b /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/dbge4b/server-logs/decode-0.a1.log
+2026-10-20T12:21:12.804373671Z End of disassembly.
+2026-10-20T12:21:12.804490340Z Memory access fault by GPU node-9 (Agent handle: 0x564ccff971f0) on address 0x74f89b800000. Reason: Unknown.
+2026-10-20T12:21:12.804545399Z Failed to enable debug interface, debugger might be already attached.
+2026-10-20T12:21:12.804550029Z GPU core dump failed
+2026-10-20T12:21:12.804583938Z Fatal Python error: Aborted
+2026-10-20T12:21:12.804585558Z 
+=== MAF/BAD counts per round (grep -c 'Memory access fault' / 'SKGUARD-EAGER BAD fast_topk')
+g4n1 MAF=1 BAD=0
+g4n1b MAF=0 BAD=0
+g4n2 MAF=1 BAD=0
+g4n2b MAF=1 BAD=0
+g4n3 MAF=0 BAD=0
+g4n3b MAF=0 BAD=0
+g4n4 MAF=1 BAD=0
+dbge1a MAF=1 BAD=0
+dbge1b MAF=1 BAD=0
+dbge2a MAF=0 BAD=0
+dbge2b MAF=0 BAD=0
+dbge2c MAF=0 BAD=0
+dbge2d MAF=0 BAD=0
+dbge2e MAF=0 BAD=0
+dbge3a MAF=0 BAD=0
+dbge3b MAF=0 BAD=0
+dbge4a MAF=1 BAD=1
+dbge4b MAF=1 BAD=6
+dbge5a MAF=0 BAD=12
+dbge5b MAF=0 BAD=24
+dbge6a MAF=0 BAD=0
+idxf1a MAF=0 BAD=0

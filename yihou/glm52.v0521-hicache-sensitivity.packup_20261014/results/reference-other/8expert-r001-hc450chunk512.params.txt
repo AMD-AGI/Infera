@@ -1,0 +1,3 @@
+=== round r001-hc450chunk512 on crsuse2-m2m-137 ===
+hicache=450 write_policy=write_through conc=56 duration=3600
+max_running=64 extra_env='SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512' prefix=glm52-hc-yihou-137-r001-hc450chunk512

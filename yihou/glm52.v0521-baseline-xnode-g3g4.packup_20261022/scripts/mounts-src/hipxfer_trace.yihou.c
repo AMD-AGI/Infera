@@ -1,0 +1,206 @@
+// hipxfer_trace.yihou.c -- LD_PRELOAD shim (task g4tune 2026-10-21): per-batch timing of the Mooncake HIP
+// transport inside the production prefill sender, without rebuilding Mooncake.
+//
+// Mooncake HipTransport::submitTransfer (mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp)
+// is synchronous per batch: for each request it calls hipMemcpyAsync(..., hipMemcpyDefault, pooled stream) and
+// hipEventRecord, then hipEventSynchronize on every event. This shim interposes those three calls and, for
+// hipMemcpyAsync with kind hipMemcpyDefault and size >= HIPXFER_MIN_BYTES (default 64 KiB), keeps a per-thread
+// batch: host time spent inside the enqueue calls, host time spent in hipEventSynchronize, and GPU timing from
+// its own start/end events around each copy (hipEventElapsedTime). A batch ends when the thread enqueues a new
+// copy after having synchronized; it is then written as one line:
+//   ts_ns tid dev n bytes wall_us enq_us gap_us sync_us gpu_span_us gpu_sum_us gpu_max_us streams
+// wall = first enqueue -> last sync return (host); enq = inside hipMemcpyAsync+hipEventRecord; gap = rest of
+// the enqueue phase (Mooncake relocate etc.); sync = inside hipEventSynchronize; gpu_span = min copy start ->
+// max copy end; gpu_sum / gpu_max = sum / max of per-copy GPU durations.
+// Output: $HIPXFER_DIR/hipxfer.<pid>.log (default /tmp). Only threads that issue such copies pay any cost.
+#define _GNU_SOURCE
+#define __HIP_PLATFORM_AMD__
+#include <hip/hip_runtime_api.h>
+#include <dlfcn.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/syscall.h>
+#include <time.h>
+#include <unistd.h>
+
+#define MAXC 1024
+#define MAXS 16
+
+typedef hipError_t (*memcpy_fn)(void*, const void*, size_t, hipMemcpyKind, hipStream_t);
+typedef hipError_t (*rec_fn)(hipEvent_t, hipStream_t);
+typedef hipError_t (*sync_fn)(hipEvent_t);
+typedef hipError_t (*create_fn)(hipEvent_t*);
+typedef hipError_t (*elapsed_fn)(float*, hipEvent_t, hipEvent_t);
+typedef hipError_t (*getdev_fn)(int*);
+
+static memcpy_fn r_memcpy;
+static rec_fn r_record;
+static sync_fn r_sync;
+static create_fn r_create;
+static elapsed_fn r_elapsed;
+static getdev_fn r_getdev;
+static size_t g_min = 64 << 10;
+static FILE* g_out;
+static pthread_mutex_t g_mu = PTHREAD_MUTEX_INITIALIZER;
+static pthread_once_t g_once = PTHREAD_ONCE_INIT;
+
+enum { IDLE = 0, ENQ = 1, SYNC = 2 };
+
+typedef struct {
+    int state, dev, n, overflow, active;
+    size_t bytes;
+    long long t_first, t_last_sync_end, t_enq_end, enq_ns, sync_ns;
+    hipEvent_t ev_s[MAXC], ev_e[MAXC];
+    int pool_dev, pool_n;
+    hipStream_t streams[MAXS];
+    int nstreams;
+} tstate;
+
+static __thread tstate* T;
+static __thread int in_shim;
+
+static long long now_ns(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return ts.tv_sec * 1000000000LL + ts.tv_nsec;
+}
+
+static void* real_sym(const char* name) {
+    // libamdhip64 may be loaded RTLD_LOCAL (python extension dependency), invisible to RTLD_NEXT.
+    static const char* libs[] = {"libamdhip64.so.7", "libamdhip64.so.6", "libamdhip64.so"};
+    void* p = dlsym(RTLD_NEXT, name);
+    for (int i = 0; !p && i < 3; i++) {
+        void* h = dlopen(libs[i], RTLD_NOW | RTLD_NOLOAD);
+        if (h) p = dlsym(h, name);
+    }
+    for (int i = 0; !p && i < 3; i++) {
+        void* h = dlopen(libs[i], RTLD_NOW);
+        if (h) p = dlsym(h, name);
+    }
+    if (!p) {
+        fprintf(stderr, "hipxfer_trace: cannot resolve %s\n", name);
+        abort();
+    }
+    return p;
+}
+
+static void init(void) {
+    r_memcpy = (memcpy_fn)real_sym("hipMemcpyAsync");
+    r_record = (rec_fn)real_sym("hipEventRecord");
+    r_sync = (sync_fn)real_sym("hipEventSynchronize");
+    r_create = (create_fn)real_sym("hipEventCreate");
+    r_elapsed = (elapsed_fn)real_sym("hipEventElapsedTime");
+    r_getdev = (getdev_fn)real_sym("hipGetDevice");
+    const char* m = getenv("HIPXFER_MIN_BYTES");
+    if (m) g_min = (size_t)strtoull(m, NULL, 10);
+    const char* d = getenv("HIPXFER_DIR");
+    char path[512];
+    snprintf(path, sizeof path, "%s/hipxfer.%d.log", d ? d : "/tmp", (int)getpid());
+    g_out = fopen(path, "a");
+    if (g_out) {
+        fprintf(g_out, "# ts_ns tid dev n bytes wall_us enq_us gap_us sync_us gpu_span_us gpu_sum_us gpu_max_us streams\n");
+        fflush(g_out);
+    }
+}
+
+static void flush_batch(tstate* s) {
+    if (!s->active || s->n == 0) return;
+    // All copies of the batch were synchronized by Mooncake before this point, so our end events are done.
+    // Times are relative to copy 0's start event; a copy on another stream may start earlier (negative).
+    float lo = 0, hi = 0, sum = 0, mx = 0, a, b;
+    int ok = 1;
+    for (int i = 0; i < s->n; i++) {
+        if (r_elapsed(&a, s->ev_s[0], s->ev_s[i]) != hipSuccess ||
+            r_elapsed(&b, s->ev_s[0], s->ev_e[i]) != hipSuccess) { ok = 0; break; }
+        float d = b - a;
+        sum += d;
+        if (d > mx) mx = d;
+        if (a < lo) lo = a;
+        if (b > hi) hi = b;
+    }
+    float span = hi - lo;
+    long long wall = s->t_last_sync_end - s->t_first;
+    long long enq_phase = s->t_enq_end - s->t_first;
+    pthread_mutex_lock(&g_mu);
+    if (g_out) {
+        fprintf(g_out, "%lld %ld %d %d %zu %.1f %.1f %.1f %.1f %.1f %.1f %.1f %d%s\n", s->t_first,
+                (long)syscall(SYS_gettid), s->dev, s->n, s->bytes, wall / 1e3, s->enq_ns / 1e3,
+                (enq_phase - s->enq_ns) / 1e3, s->sync_ns / 1e3, ok ? span * 1e3 : -1.0, ok ? sum * 1e3 : -1.0,
+                ok ? mx * 1e3 : -1.0, s->nstreams, s->overflow ? " OVERFLOW" : "");
+        fflush(g_out);
+    }
+    pthread_mutex_unlock(&g_mu);
+    s->active = 0;
+}
+
+static int ensure_pool(tstate* s, int dev) {
+    if (s->pool_n && s->pool_dev == dev) return 1;
+    if (s->pool_n) return 0;  // pool bound to another device: skip timing (logged as overflow)
+    for (int i = 0; i < MAXC; i++) {
+        if (r_create(&s->ev_s[i]) != hipSuccess || r_create(&s->ev_e[i]) != hipSuccess) return 0;
+    }
+    s->pool_dev = dev;
+    s->pool_n = MAXC;
+    return 1;
+}
+
+hipError_t hipMemcpyAsync(void* dst, const void* src, size_t n, hipMemcpyKind kind, hipStream_t st) {
+    pthread_once(&g_once, init);
+    if (in_shim || kind != hipMemcpyDefault || n < g_min) return r_memcpy(dst, src, n, kind, st);
+    in_shim = 1;
+    if (!T) T = (tstate*)calloc(1, sizeof(tstate));
+    tstate* s = T;
+    long long t0 = now_ns();
+    if (s->state == SYNC) { flush_batch(s); s->state = IDLE; }
+    if (s->state == IDLE) {
+        int dev = -1;
+        r_getdev(&dev);
+        s->state = ENQ; s->active = 1; s->dev = dev; s->n = 0; s->bytes = 0; s->overflow = 0;
+        s->enq_ns = 0; s->sync_ns = 0; s->t_first = t0; s->nstreams = 0;
+        if (!ensure_pool(s, dev)) s->overflow = 1;
+    }
+    int timed = !s->overflow && s->n < MAXC;
+    if (!timed) s->overflow = 1;
+    if (timed) r_record(s->ev_s[s->n], st);
+    hipError_t e = r_memcpy(dst, src, n, kind, st);
+    if (timed) { r_record(s->ev_e[s->n], st); s->n++; }
+    s->bytes += n;
+    int seen = 0;
+    for (int i = 0; i < s->nstreams; i++) if (s->streams[i] == st) seen = 1;
+    if (!seen && s->nstreams < MAXS) s->streams[s->nstreams++] = st;
+    long long t1 = now_ns();
+    s->enq_ns += t1 - t0;
+    s->t_enq_end = t1;
+    in_shim = 0;
+    return e;
+}
+
+hipError_t hipEventRecord(hipEvent_t ev, hipStream_t st) {
+    pthread_once(&g_once, init);
+    tstate* s = T;
+    if (in_shim || !s || s->state != ENQ) return r_record(ev, st);
+    long long t0 = now_ns();
+    hipError_t e = r_record(ev, st);
+    long long t1 = now_ns();
+    s->enq_ns += t1 - t0;
+    s->t_enq_end = t1;
+    return e;
+}
+
+hipError_t hipEventSynchronize(hipEvent_t ev) {
+    pthread_once(&g_once, init);
+    tstate* s = T;
+    if (in_shim || !s || s->state == IDLE) return r_sync(ev);
+    long long t0 = now_ns();
+    hipError_t e = r_sync(ev);
+    long long t1 = now_ns();
+    s->state = SYNC;
+    s->sync_ns += t1 - t0;
+    s->t_last_sync_end = t1;
+    return e;
+}
+
+// No destructor flush: at process exit the HIP runtime may already be torn down; each thread's last batch
+// is dropped.

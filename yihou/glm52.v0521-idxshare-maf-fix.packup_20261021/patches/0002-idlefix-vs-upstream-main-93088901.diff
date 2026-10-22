@@ -1,0 +1,32 @@
+--- a/python/sglang/srt/model_executor/runner/eager_runner.py	2026-10-21 02:00:01.534759918 +0000
++++ b/python/sglang/srt/model_executor/runner/eager_runner.py	2026-10-21 02:00:01.534759918 +0000
+@@ -46,9 +46,11 @@
+ from sglang.srt.model_executor.forward_context import (
+     ForwardContext,
+     forward_context,
++    get_attn_backend,
+     get_forward_context,
+     get_req_to_token_pool,
+     get_token_to_kv_pool,
++    has_forward_context,
+ )
+ from sglang.srt.model_executor.runner.base_runner import BaseRunner
+ from sglang.srt.model_executor.runner_utils.shared_read_event import (
+@@ -452,6 +454,17 @@
+             if not self.enable_pdmux:
+                 forward_batch = self.load_batch(forward_batch, pp_proxy_tensors)
+             model_runner.attn_backend.init_forward_metadata(forward_batch)
++            # Layers read the backend of the ACTIVE forward context, which is not
++            # always model_runner.attn_backend: the EAGLE v2 idle draft runs each
++            # step under ForwardContext(draft_attn_backend.attn_backends[i]) while
++            # the draft runner's attn_backend is the draft-extend backend. Without
++            # this, the step backend keeps the forward_metadata of an earlier real
++            # batch (e.g. the DSA indexer then ranks index_topk-wide dummy logits
++            # with stale lengths and the top-k kernel reads out of bounds).
++            if has_forward_context():
++                active = get_attn_backend()
++                if active is not model_runner.attn_backend:
++                    active.init_forward_metadata(forward_batch)
+         else:
+             model_runner.attn_backend.forward_metadata = None
+ 

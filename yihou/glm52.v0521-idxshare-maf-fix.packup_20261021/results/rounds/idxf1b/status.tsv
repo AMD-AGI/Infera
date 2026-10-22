@@ -1,0 +1,4 @@
+2026-10-21T01:57:14Z	start	exp=E2+mc4340+tokw4detok4+offload-g4k1s1+xferfix2-orig-dest+pr42553-idxtrue-caron+idlefix round=idxf1b image=infera-sglang:v0521-yihou-1010-mc4340 config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.idlefix.sh
+2026-10-21T01:57:14Z	ports-all	ok:33 ports <30000 and free
+2026-10-21T01:58:14Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-21T01:58:16Z	etcd	ok

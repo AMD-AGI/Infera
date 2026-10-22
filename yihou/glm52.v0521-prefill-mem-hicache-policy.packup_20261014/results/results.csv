@@ -1,0 +1,13 @@
+run,node,round,prefill_mem,prefill_hicache_policy,stack,conc,score_tok_s_chip,qps,isl_mean,ttft_mean_s,ttft_p95_s,tpot_ms,gpu_hit,cpu_hit,overall_hit,ok,err,json
+q1 A3 (ref),137,q1,0.88,write_through,warm(3rd),48,22305.78,1.220,145303,11.97,38.19,12.08,0.839,0.088,0.927,4425,2,/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/q1/agentx-c48-A3/agentx_conc48.json
+pf90 A1,089,pf90,0.90,write_through,fresh,48,21858.87,1.219,142517,9.57,31.32,15.68,0.911,0.035,0.947,4415,0,/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pf90/agentx-c48-A1/agentx_conc48.json
+pf90 A2,089,pf90,0.90,write_through,warm(scored),48,23127.06,1.276,143964,9.30,28.76,13.12,0.860,0.071,0.931,4632,3,/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pf90/agentx-c48-A2/agentx_conc48.json
+pf92 A1,085,pf92,0.92,write_through,fresh,48,23002.84,1.267,144228,7.49,23.90,15.64,0.930,0.024,0.954,4593,1,/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pf92/agentx-c48-A1/agentx_conc48.json
+pf92 A2,085,pf92,0.92,write_through,LOST(NODE_FAIL),,,,,,,,,,,,,(no JSON) /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pf92/agentx-c48-A2/agentx_conc48.json
+pf88 A1,274,pf88,0.88,write_through,LOST(NODE_FAIL),48,,,,,,,,,,0,84,(JSON has no metrics) /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pf88/agentx-c48-A1/agentx_conc48.json
+wts48 A1,136,wts48,0.88,write_through_selective,killed@~50min,,,,,,,,,,,,,(no JSON) /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/wts48/agentx-c48-A1/agentx_conc48.json
+wts48 A2,136,wts48,0.88,write_through_selective,warm(scored;after partial A1),48,21225.50,1.169,144218,13.63,42.03,12.49,0.868,0.039,0.907,4243,1,/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/wts48/agentx-c48-A2/agentx_conc48.json
+wts64 (C64),136,wts48,0.88,write_through_selective,warm(3rd stack use),,,,,,,,,,,,,(no JSON) /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/wts48/agentx-c64-A2/agentx_conc64.json
+pc48b A2 (ref),274,pc48b,0.88,write_back(prefill_complete),warm(scored),48,20001.62,1.112,142959,16.57,52.70,12.24,0.811,0.101,0.912,4027,3,/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pc48b/agentx-c48-A2/agentx_conc48.json
+pc64 A1,089,pc64,0.88,write_back(prefill_complete),fresh,64,10479.78,0.664,125286,82.77,262.94,13.86,0.493,0.341,0.834,2409,2,/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pc64/agentx-c64-A1/agentx_conc64.json
+pc64 A2,089,pc64,0.88,write_back(prefill_complete),ABORTED(user),,,,,,,,,,,,,(no JSON) /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/pc64/agentx-c64-A2/agentx_conc64.json

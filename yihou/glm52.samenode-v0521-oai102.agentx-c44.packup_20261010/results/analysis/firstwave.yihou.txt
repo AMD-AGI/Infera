@@ -1,0 +1,8 @@
+run      n  wave_s ttft_mean ttft_p50 ttft_p90 ttft_max   isl_sum isl_mean agg_tok/s
+e2b4    48     836     318.4    249.4    715.2    826.8   8744292   186049     10461  no_ttft=1
+e2c     48     649     249.2    202.8    528.6    639.6   9087737   193356     14010  no_ttft=1
+c44d    48     595     249.9    194.0    477.8    586.1   9187580   191408     15437  no_ttft=0
+e1c     48     565     265.9    243.8    484.9    541.8   8708183   181420     15419  no_ttft=0
+same conversations e2b4 vs e2c: 48/48
+same conversations e2b4 vs c44d: 48/48
+same conversations e2b4 vs e1c: 44/48

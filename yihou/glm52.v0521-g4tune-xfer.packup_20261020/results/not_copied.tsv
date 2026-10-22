@@ -1,0 +1,19 @@
+bytes	path (external evidence, not copied)
+32389595	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xb5/server-logs/decode-0.a1.log
+16142572	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xb5/server-logs/prefill-0.log
+29426955	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xb5/agentx-c56-A1/aiperf_artifacts/profile_export.jsonl
+29904015	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xb5/agentx-c56-A2/aiperf_artifacts/profile_export.jsonl
+1451127862	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xb5/agentx-c56-A1/aiperf_artifacts/server_metrics_export.json
+1499476908	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xb5/agentx-c56-A2/aiperf_artifacts/server_metrics_export.json
+32652502	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm3/server-logs/decode-0.a1.log
+16525061	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm3/server-logs/prefill-0.log
+31489616	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm3/agentx-c56-A1/aiperf_artifacts/profile_export.jsonl
+32439024	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm3/agentx-c56-A2/aiperf_artifacts/profile_export.jsonl
+1505642498	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm3/agentx-c56-A1/aiperf_artifacts/server_metrics_export.json
+1508846241	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm3/agentx-c56-A2/aiperf_artifacts/server_metrics_export.json
+24002003	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/server-logs/decode-0.a1.log
+32586320	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A1/aiperf_artifacts/profile_export.jsonl
+33100248	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A2/aiperf_artifacts/profile_export.jsonl
+1439244127	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A1/aiperf_artifacts/server_metrics_export.json
+1501395639	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xm4/agentx-c56-A2/aiperf_artifacts/server_metrics_export.json
+23194222	/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/g4xc1/server-logs/decode-0.a1.log

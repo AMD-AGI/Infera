@@ -1,0 +1,34 @@
+--- a/python/sglang/srt/model_executor/runner/eager_runner.py	2026-10-21 02:00:01.526760064 +0000
++++ b/python/sglang/srt/model_executor/runner/eager_runner.py	2026-10-21 02:00:01.530759991 +0000
+@@ -46,8 +46,10 @@
+ from sglang.srt.model_executor.forward_context import (
+     ForwardContext,
+     forward_context,
++    get_attn_backend,
+     get_req_to_token_pool,
+     get_token_to_kv_pool,
++    has_forward_context,
+ )
+ from sglang.srt.model_executor.runner.base_runner import BaseRunner
+ from sglang.srt.model_executor.runner_backend_utils.tc_piecewise_cuda_graph import (
+@@ -459,6 +461,20 @@
+             if not self.enable_pdmux:
+                 forward_batch = self.load_batch(forward_batch, pp_proxy_tensors)
+             model_runner.attn_backend.init_forward_metadata(forward_batch)
++            # YIHOU-IDLEFIX (idxshare debug 2026-10-20): layers read the backend of the
++            # ACTIVE forward context, which is not always model_runner.attn_backend. The
++            # EAGLE v2 idle draft (EAGLEWorkerV2._draft_forward_idle) runs each step under
++            # ForwardContext(draft_attn_backend.attn_backends[i]) while the draft runner's
++            # attn_backend is the draft-extend backend, so the step backend kept the
++            # forward_metadata of an earlier, real batch. The DSA indexer then took the
++            # k-only path for this 1-token idle batch (seq_lens_cpu [1]) but ranked dummy
++            # logits index_topk wide with the stale lengths (e.g. 104740) -> coop_topk_kernel
++            # read past the buffer (decode "Memory access fault", index_share=true only,
++            # because only then does a seedless PD batch force the whole DP group eager).
++            if has_forward_context():
++                active = get_attn_backend()
++                if active is not model_runner.attn_backend:
++                    active.init_forward_metadata(forward_batch)
+         else:
+             model_runner.attn_backend.forward_metadata = None
+ 

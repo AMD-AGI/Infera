@@ -1,0 +1,54 @@
+===== pid 1: /sbin/docker-init -- /usr/local/bin/infera-inject-host-ionic python3 -m infera.engine.sglang --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --host 10.24
+Error: Failed to find python version from target process
+===== pid 7: python3 -m infera.engine.sglang --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --host 10.245.158.136 --port 29101 --advertise-host 10.245.158.136 --etcd
+Process 7: python3 -m infera.engine.sglang --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --host 10.245.158.136 --port 29101 --advertise-host 10.245.158.136 --etcd-endpoint 10.245.158.136:24501 --discovery-backend etcd --request-transport http --kv-event-transport zmq --tp-size 4 --ep-size 1 --trust-remote-code --dsa-prefill-backend triton --dsa-decode-backend triton --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.90 --chunked-prefill-size 32768 --cuda-graph-max-bs-prefill 64 --max-running-requests 64 --watchdog-timeout 3600 --reasoning-parser glm45 --tool-call-parser glm47 --enable-fused-qk-norm-rope --enable-cache-report --enable-metrics --disaggregation-mode prefill --disaggregation-transfer-backend mooncake --dp-size 4 --enable-dp-attention --json-model-override-args {"index_share_for_mtp_iteration":false} --disaggregation-ib-device {"0":"ionic_0","1":"ionic_1","2":"ionic_2","3":"ionic_3"} --disaggregation-bootstrap-port 28198 --enable-kv-events --kv-events on --kv-events-bind tcp://0.0.0.0:25657 --kv-snapshot-port 28901 --enable-hierarchical-cache --hicache-ratio 1.5 --hicache-write-policy write_through --hicache-io-backend kernel --hicache-mem-layout page_first --enable-aiter-allreduce-fusion --hicache-size 450 --offload-group-size 2 --offload-num-in-group 1 --offload-prefetch-step 1 --offload-mode cpu
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 7 (idle): "MainThread"
+    select (selectors.py:469)
+    _run_once (asyncio/base_events.py:1871)
+    run_forever (asyncio/base_events.py:603)
+    run_until_complete (asyncio/base_events.py:636)
+    run (asyncio/runners.py:44)
+    <module> (infera/engine/sglang/__main__.py:546)
+    _run_code (runpy.py:86)
+    _run_module_as_main (runpy.py:196)
+===== pid 143: /opt/venv/bin/python3 -m sglang.launch_server --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --host 10.245.158.136 --port 29101 --tp-size 4 --ep-size 1 
+Process 143: /opt/venv/bin/python3 -m sglang.launch_server --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --host 10.245.158.136 --port 29101 --tp-size 4 --ep-size 1 --trust-remote-code --dsa-prefill-backend triton --dsa-decode-backend triton --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.90 --chunked-prefill-size 32768 --cuda-graph-max-bs-prefill 64 --max-running-requests 64 --watchdog-timeout 3600 --reasoning-parser glm45 --tool-call-parser glm47 --enable-fused-qk-norm-rope --enable-cache-report --enable-metrics --disaggregation-mode prefill --disaggregation-transfer-backend mooncake --dp-size 4 --enable-dp-attention --json-model-override-args {"index_share_for_mtp_iteration":false} --disaggregation-ib-device {"0":"ionic_0","1":"ionic_1","2":"ionic_2","3":"ionic_3"} --disaggregation-bootstrap-port 28198 --enable-hierarchical-cache --hicache-ratio 1.5 --hicache-write-policy write_through --hicache-io-backend kernel --hicache-mem-layout page_first --enable-aiter-allreduce-fusion --hicache-size 450 --offload-group-size 2 --offload-num-in-group 1 --offload-prefetch-step 1 --offload-mode cpu --kv-events-config {"publisher": "zmq", "endpoint": "tcp://*:29881", "topic": "kv-events"}
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 143 (idle): "MainThread"
+    asyncio_run (uvicorn/_compat.py:60)
+    run (uvicorn/server.py:86)
+    _setup_and_run_http_server (http_server.py:2772)
+    launch_server (http_server.py:2933)
+    run_server (sglang/launch_server.py:67)
+    <module> (sglang/launch_server.py:84)
+    _run_code (runpy.py:86)
+    _run_module_as_main (runpy.py:196)
+Thread 808 (idle): "Thread-1 (_run_server)"
+    _run_server (common/conn.py:2752)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 809 (idle): "Thread-2 (monitor)"
+    monitor (cpu_monitor.py:21)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 2143 (idle): "subprocess-watchdog"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    _monitor_loop (utils/watchdog.py:205)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+===== pid 370: /opt/venv/bin/python3 -B -s -c from multiprocessing.resource_tracker import main;main(16) 
+Process 370: /opt/venv/bin/python3 -B -s -c from multiprocessing.resource_tracker import main;main(16)
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 370 (idle): "MainThread"
+    main (multiprocessing/resource_tracker.py:197)
+    <module> (<string>:1)
+===== pid 2655: bash -c for p in $(pgrep -f python); do echo "===== pid $p: $(tr "\0" " " < /proc/$p/cmdline | cut -c1-200)"; py-spy dump --pid $p 2>&1; done 
+Error: Failed to find python version from target process

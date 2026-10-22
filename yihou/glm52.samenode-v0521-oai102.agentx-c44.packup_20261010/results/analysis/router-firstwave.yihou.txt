@@ -1,0 +1,6 @@
+e2b4: window 836s | prefill picks=74 per-DP=[17, 13, 30, 14] first-48 picks span=829s | decode picks=74 decode active_blocks max=0 | prefill legs drained=48 elapsed_s p50=252 max=826
+e2c: window 649s | prefill picks=74 per-DP=[15, 26, 12, 21] first-48 picks span=642s | decode picks=74 decode active_blocks max=0 | prefill legs drained=48 elapsed_s p50=203 max=639
+c44d: window 595s | prefill picks=57 per-DP=[16, 12, 9, 20] first-48 picks span=595s | decode picks=57 decode active_blocks max=0 | prefill legs drained=48 elapsed_s p50=194 max=586
+e2b4: picks in first 60 s=48; per-DP count=[10, 13, 14, 11]; per-DP request_blocks=[34295, 40565, 32154, 36519] (block=64 tok -> per-DP Mtok=[2.19, 2.6, 2.06, 2.34])
+e2c: picks in first 60 s=48; per-DP count=[10, 15, 12, 11]; per-DP request_blocks=[33769, 33405, 42308, 34052] (block=64 tok -> per-DP Mtok=[2.16, 2.14, 2.71, 2.18])
+c44d: picks in first 60 s=48; per-DP count=[11, 11, 11, 15]; per-DP request_blocks=[32283, 34827, 35348, 41075] (block=64 tok -> per-DP Mtok=[2.07, 2.23, 2.26, 2.63])
