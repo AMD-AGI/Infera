@@ -28,6 +28,7 @@ from infera.engine.sglang.thinking_budget_const import (
     is_glm53_model,
     resolve_thinking_budget,
     resolve_thinking_budget_action,
+    resolve_thinking_budget_spec_actions,
 )
 
 __all__ = [
@@ -53,6 +54,8 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
     THINKING_START_TOKEN_ID = GLM53_THINKING_START_TOKEN_ID
     THINKING_END_TOKEN_ID = GLM53_THINKING_END_TOKEN_ID
     NEW_LINE_TOKEN_ID = GLM53_NEW_LINE_TOKEN_ID
+    # Read by the EAGLE verify patch: this processor handles several rows per request.
+    SUPPORTS_SPEC_VERIFY_ROWS = True
 
     def __call__(self, logits: Any, custom_param_list: list[dict[str, Any]] | None = None) -> Any:
         if custom_param_list is None or not custom_param_list:
@@ -71,6 +74,14 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
             req = param_dict.get("__req__")
             if req is None:
                 continue
+            num_rows = param_dict.get("__spec_num_tokens__")
+            if num_rows is not None:
+                # Verify-step metadata is present: rows are blocks, never a single row.
+                if logits.shape[0] == len(custom_param_list) * int(num_rows):
+                    self._apply_spec_block(
+                        logits, i, int(num_rows), param_dict, req, thinking_budget
+                    )
+                continue
             # Per-request scan cache; param_dict lives as long as the request.
             action = resolve_thinking_budget_action(
                 origin_input_ids=getattr(req, "origin_input_ids", None) or [],
@@ -83,7 +94,62 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
             )
             if action is None:
                 continue
-            token_id = self.NEW_LINE_TOKEN_ID if action == "newline" else self.THINKING_END_TOKEN_ID
-            logits[i, :] = -float("inf")
-            logits[i, token_id] = 0.0
+            self._force(logits, i, action)
         return logits
+
+    def _force(self, logits: Any, row: int, action: str) -> None:
+        token_id = self.NEW_LINE_TOKEN_ID if action == "newline" else self.THINKING_END_TOKEN_ID
+        logits[row, :] = -float("inf")
+        logits[row, token_id] = 0.0
+
+    def _apply_spec_block(
+        self,
+        logits: Any,
+        index: int,
+        num_rows: int,
+        param_dict: dict[str, Any],
+        req: Any,
+        thinking_budget: int,
+    ) -> None:
+        """Force tokens on the rows of one request in an EAGLE chain verify block."""
+        origin = getattr(req, "origin_input_ids", None) or []
+        output = getattr(req, "output_ids", None) or []
+        history = param_dict.get("__spec_history__") or ()
+        # Tokens not visible in output_ids (committed history plus the draft chain) span
+        # at most ``reach`` positions. The draft chain is read back from the device only
+        # when the budget can be reached inside that span: either it is not larger than
+        # the span, or the visible thinking block is already within the span of it.
+        reach = num_rows * (len(history) + 2)
+        near = resolve_thinking_budget_action(
+            origin_input_ids=origin,
+            output_ids=output,
+            thinking_budget=max(0, thinking_budget - reach),
+            start_id=self.THINKING_START_TOKEN_ID,
+            end_id=self.THINKING_END_TOKEN_ID,
+            newline_id=self.NEW_LINE_TOKEN_ID,
+            state=param_dict.setdefault("__thinking_scan__", {}),
+        )
+        if thinking_budget > reach and near is None:
+            return
+        # Host copies are shared by every request of a step and made at most once.
+        chains, seqs = param_dict["__spec_step__"].cpu()
+        row = param_dict["__spec_row__"]
+        past = []
+        for step, step_row in history:
+            past_chains, past_seqs = step.cpu()
+            past.append((past_chains[step_row], int(past_seqs[step_row])))
+        actions = resolve_thinking_budget_spec_actions(
+            origin_input_ids=origin,
+            output_ids=output,
+            candidates=chains[row],
+            seq_len=int(seqs[row]),
+            history=past,
+            thinking_budget=thinking_budget,
+            start_id=self.THINKING_START_TOKEN_ID,
+            end_id=self.THINKING_END_TOKEN_ID,
+            newline_id=self.NEW_LINE_TOKEN_ID,
+            state=param_dict["__thinking_scan__"],
+        )
+        for k, action in enumerate(actions):
+            if action is not None:
+                self._force(logits, index * num_rows + k, action)

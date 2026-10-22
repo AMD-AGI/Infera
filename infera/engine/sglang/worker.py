@@ -21,6 +21,7 @@ from sglang.srt.server_args import ServerArgs
 from infera.common.net import free_tcp_port_block
 from infera.common.worker_pool import DisaggMode, EngineType
 from infera.engine.base import BaseEngine, EngineConfig
+from infera.engine.sglang.thinking_budget_const import eagle_topk_disables_thinking_budget
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,15 @@ class SglangEngine(BaseEngine):
                 }
             )
             argv += ["--kv-events-config", kv_cfg]
+
+        if eagle_topk_disables_thinking_budget(
+            getattr(self.server_args, "speculative_algorithm", None),
+            getattr(self.server_args, "speculative_eagle_topk", None),
+        ):
+            logger.warning(
+                "thinking budget is not applied under EAGLE with "
+                "--speculative-eagle-topk > 1; use topk 1 to enable it"
+            )
 
         cmd = [sys.executable, "-m", "sglang.launch_server", *argv]
         logger.info("spawning sglang subprocess: %s", " ".join(cmd))

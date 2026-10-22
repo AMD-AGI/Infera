@@ -206,3 +206,95 @@ def resolve_thinking_budget_action(
     if not output_ids or output_ids[-1] != newline_id:
         return "newline"
     return "end"
+
+
+# Placeholder for committed tokens whose ids cannot be recovered.
+_UNKNOWN_TOKEN_ID = -1
+
+
+def _committed_tail(
+    history: list[tuple[list[int], int]],
+    candidates: list[int],
+    seq_len: int,
+    lag: int,
+) -> list[int]:
+    """Return the last ``lag`` committed tokens, rebuilt from earlier verify steps.
+
+    ``history`` holds ``(chain, seq_len)`` of previous verify steps, oldest first.
+    A step that grew the sequence by ``c`` committed the drafts ``chain[1:c]`` plus
+    the bonus token, which is the first entry of the next step's chain. The last
+    committed token is always ``candidates[0]``. Tokens older than the history are
+    reported as ``_UNKNOWN_TOKEN_ID``.
+    """
+    tail: list[int] = []
+    for j, (chain, seq) in enumerate(history):
+        if j + 1 < len(history):
+            next_chain, next_seq = history[j + 1]
+            next_bonus = next_chain[0]
+        else:
+            next_seq, next_bonus = seq_len, candidates[0]
+        committed = next_seq - seq
+        if committed < 1 or committed > len(chain):
+            tail = []
+            continue
+        tail.extend(chain[1:committed])
+        tail.append(next_bonus)
+    if not tail:
+        tail = [candidates[0]]
+    if len(tail) < lag:
+        return [_UNKNOWN_TOKEN_ID] * (lag - len(tail)) + tail
+    return tail[len(tail) - lag :]
+
+
+def resolve_thinking_budget_spec_actions(
+    origin_input_ids: list[int],
+    output_ids: list[int],
+    candidates: list[int],
+    seq_len: int,
+    history: list[tuple[list[int], int]],
+    thinking_budget: int,
+    start_id: int,
+    end_id: int,
+    newline_id: int,
+    state: dict[str, int] | None = None,
+) -> list[ThinkingBudgetAction | None]:
+    """Return the forced action for each row of an EAGLE chain verify block.
+
+    ``candidates`` is the draft chain of one request: ``candidates[0]`` is the
+    bonus token (the last committed token) and row ``k`` predicts the token that
+    follows ``candidates[k]``. The context of row ``k`` is the committed outputs
+    plus ``candidates[1..k]``. ``seq_len`` counts the prompt and every committed
+    output except the bonus token. Committed tokens that are not yet in
+    ``output_ids`` are rebuilt from ``history`` (see ``_committed_tail``). No row is
+    forced when a committed token cannot be recovered, since it may be a marker.
+    ``state`` is a scan state of ``output_ids`` as kept for
+    ``resolve_thinking_budget_action``; it is copied and never modified.
+    """
+    n = len(candidates)
+    if thinking_budget < 0 or n == 0:
+        return [None] * n
+    lag = seq_len - len(origin_input_ids) + 1 - len(output_ids)
+    context = list(output_ids)
+    if lag >= 1:
+        tail = _committed_tail(history, candidates, seq_len, lag)
+        if _UNKNOWN_TOKEN_ID in tail:
+            return [None] * n
+        context.extend(tail)
+    scan = dict(state) if state else {}
+    actions: list[ThinkingBudgetAction | None] = []
+    for k in range(n):
+        if k:
+            context.append(candidates[k])
+        actions.append(
+            resolve_thinking_budget_action(
+                origin_input_ids, context, thinking_budget, start_id, end_id, newline_id, scan
+            )
+        )
+    return actions
+
+
+def eagle_topk_disables_thinking_budget(algorithm: Any, topk: Any) -> bool:
+    """Return True when EAGLE tree drafts (topk > 1) make the thinking budget inert."""
+    if not isinstance(algorithm, str) or not algorithm.upper().startswith(("EAGLE", "NEXTN")):
+        return False
+    return isinstance(topk, int) and not isinstance(topk, bool) and topk > 1
