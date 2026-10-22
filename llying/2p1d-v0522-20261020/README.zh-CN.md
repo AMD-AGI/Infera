@@ -782,6 +782,16 @@ decode KV（AUS 上 C192 比 C176 低 4.7% 的机制）。138 显存回收用了
     时的 3.86，说明草稿 KV 在 DCP 下的重排正确。
   - GSM8K 期间 decode 在跑约 61、全部走 graph，生成约 3,350 tok/s，折合每步约 80 ms（短上下文）；与 DPA4 的对比留到 C80 性能测试。
 - **② 15:09 起开 HiCache 复测**：站点 `config/site-1p-pp4-ck8k-d4.env`，串行 `chain-1022T1509.out`。
+- **② 通过（产物 `results/dcp4-hc-correct/`）**：smoke 6/6（66k 冷请求 18.1 s）；GSM8K **0.9682 / 0.9682**，与不开 HiCache 的 0.9704 / 0.9689 相差在一个标准误
+  （±0.0048）内；真实接受长度中位 4.50。运行期间 decode 无报错（日志里 8 条 Traceback 都是撤栈时 SIGTERM 后 tokenizer worker 退出的
+  `SystemExit` / `CancelledError`）。
+- **同事的同类实验（`../../yihou/glm52.llying-dcp-s1s3.packup_20261022/`，10-22 推送）**：用我们的配置在单机 4+4 跑 C80（1800 s、各一次）：
+  DPA4 decode 34,509 → DCP4 decode 25,941（−25%；他们的 DCP4 用 EP4、显存 0.85、graph / 最大在跑 96、开 `KEEP_KV_B_BF16` 与拆分 indexer、custom AR 开）。
+  DCP4 时 decode KV 96%–99%、平均 12.8 个请求等预分配、在跑只有 30.8（DPA4 合计约 40），TTFT 17.7 s；他们记为"原因未确定"。按上面的显存账，
+  DCP4 在 0.85 时只有 9.76M token（DPA4 12.0M 的 81%），在 KV 受限的 C80 下必然吃亏；同等全节点负载下 DCP 每步也更慢（在跑 41–64 时 78.9 ms，
+  DPA4 同负载约 67–72 ms）。我们用 0.92（11.28M，比他们多 15%，只比 DPA4 少 6%），C80 是更公平的对比。
+- **③ 15:22 起 C80 性能**：站点 `config/site-1p-pp4-ck8k-d4.env`，串行 `chain-1022T1522.out`，日志 `perf-dcp4/c80.log`；串行脚本已改为在撤栈前自动存
+  三个引擎的 `/metrics`。预期（按容量账与同事数据）：DCP4 难以超过 DPA4 C80——共享池最多省下约 5% 的碎片损失，但总容量少 6%、每步慢 10%–15%。
 
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 
