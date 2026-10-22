@@ -221,6 +221,12 @@ jobs:
       # a prefix the engine never produced and kv-aware settles at 0% hit rate --
       # so diff the two here. sglang's module is pure stdlib and loads straight
       # off disk, hence --no-deps: no torch, no GPU, seconds not minutes.
+      # A pinned Python, because sglang only publishes wheels for the versions
+      # it supports: on the runner's own (3.14 on Ubuntu 26.04) pip quietly
+      # falls back to the last pure-Python release, 0.5.9, which predates dsv4.
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
       - name: dsv4 encoder parity with sglang
         working-directory: .
         run: |
