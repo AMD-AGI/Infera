@@ -1,0 +1,3 @@
+{"id":"8da3954ee0dc404ea497e5a1a4faf9be","object":"text_completion","created":1792608747,"model":"glm5.2-mxfp4","choices":[{"index":0,"text":" 2, 3, 5, 7, 11. The first prime number is 2, the second is 3, the third is 5, and so on. The","logprobs":null,"finish_reason":"length","matched_stop":null}],"usage":{"prompt_tokens":7,"total_tokens":47,"completion_tokens":40,"prompt_tokens_details":{"cached_tokens":0},"reasoning_tokens":0},"metadata":{"weight_version":"default","weight_versions":[{"version":"default","start":0,"end":40}]}}
+2026-10-21T18:52:27Z	smoke	ok
+NOTE: simulated acceptance is ON -> the text is expected to be garbled; this only proves KV moved.

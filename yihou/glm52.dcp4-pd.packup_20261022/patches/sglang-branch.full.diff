@@ -1,0 +1,4208 @@
+diff --git a/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py
+index 221beafbd0..024c30a5e0 100644
+--- a/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py
++++ b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py
+@@ -323,10 +323,10 @@ def _sparse_mla_fwd_split_dim_kernel(
+     D_V: tl.constexpr,
+     D_TAIL: tl.constexpr,
+     NUM_GROUPS: tl.constexpr,
+-    STRIDE_QN_T: tl.constexpr,
+-    STRIDE_QN_H: tl.constexpr,
+-    STRIDE_QR_T: tl.constexpr,
+-    STRIDE_QR_H: tl.constexpr,
++    STRIDE_QN_T,
++    STRIDE_QN_H,
++    STRIDE_QR_T,
++    STRIDE_QR_H,
+     USE_FP8_DOT: tl.constexpr,
+     SEQ_BUCKET: tl.constexpr,
+     BLOCK_N: tl.constexpr,
+@@ -598,16 +598,23 @@ def _sparse_mla_fused_kernel(
+     D_V: tl.constexpr,
+     D_TAIL: tl.constexpr,
+     NUM_GROUPS: tl.constexpr,
+-    STRIDE_QN_T: tl.constexpr,
+-    STRIDE_QN_H: tl.constexpr,
+-    STRIDE_QR_T: tl.constexpr,
+-    STRIDE_QR_H: tl.constexpr,
++    STRIDE_QN_T,
++    STRIDE_QN_H,
++    STRIDE_QR_T,
++    STRIDE_QR_H,
+     USE_FP8_DOT: tl.constexpr,
+     USE_TOPK_LENGTH: tl.constexpr,
+     BLOCK_H: tl.constexpr,
+     BLOCK_K: tl.constexpr,
+     USE_I64_PAGE: tl.constexpr = True,
+     PIPE_STAGES: tl.constexpr = 3,
++    lse_out_ptr=None,
++    STORE_LSE: tl.constexpr = False,
++    # Set only when 0 <= topk_length <= topk and every index past it is -1,
++    # as transform_index_page_table_dcp writes the DCP-localized table: the
++    # tile count skips the clamp and the index load masks on the constexpr
++    # topk, leaving the -1 tail to slot >= 0.
++    TOPK_TAIL_INVALID: tl.constexpr = False,
+ ):
+     """Single-pass with head-block splitting. grid=(seq, head_blocks)."""
+     t = tl.program_id(0)
+@@ -661,12 +668,14 @@ def _sparse_mla_fused_kernel(
+     if NUM_GROUPS >= 4:
+         acc3 = tl.zeros((BLOCK_H, _G), dtype=tl.float32)
+ 
+-    valid_topk = topk
+-    if USE_TOPK_LENGTH:
+-        valid_topk = tl.minimum(tl.maximum(tl.load(topk_length_ptr + t), 0), topk)
+-
+     k_offs = tl.arange(0, BLOCK_K)
+-    num_tiles = tl.cdiv(valid_topk, BLOCK_K)
++    valid_topk = topk
++    if TOPK_TAIL_INVALID:
++        num_tiles = tl.cdiv(tl.load(topk_length_ptr + t), BLOCK_K)
++    else:
++        if USE_TOPK_LENGTH:
++            valid_topk = tl.minimum(tl.maximum(tl.load(topk_length_ptr + t), 0), topk)
++        num_tiles = tl.cdiv(valid_topk, BLOCK_K)
+ 
+     for j in tl.range(0, num_tiles, num_stages=PIPE_STAGES):
+         k_start = j * BLOCK_K
+@@ -749,6 +758,12 @@ def _sparse_mla_fused_kernel(
+     if NUM_GROUPS >= 4:
+         acc3 = tl.where(l_i[:, None] > 0.0, acc3 * inv_denom[:, None], 0.0)
+ 
++    if STORE_LSE:
++        # Finite floor: the DCP merge weights an empty rank by exp2(lse - max),
++        # so an all-masked row must not come back as -inf.
++        lse = tl.where(l_i > 0.0, tl.log2(denom) + m_i, -1073741824.0)
++        tl.store(lse_out_ptr + t * H + h_offs, lse, mask=h_mask)
++
+     o_base = out_ptr + t * H * D_V
+     tl.store(
+         o_base + h_offs[:, None] * D_V + g[None, :],
+@@ -791,14 +806,16 @@ def _sparse_mla_split_k_kernel(
+     D_V: tl.constexpr,
+     D_TAIL: tl.constexpr,
+     NUM_GROUPS: tl.constexpr,
+-    STRIDE_QN_T: tl.constexpr,
+-    STRIDE_QN_H: tl.constexpr,
+-    STRIDE_QR_T: tl.constexpr,
+-    STRIDE_QR_H: tl.constexpr,
++    STRIDE_QN_T,
++    STRIDE_QN_H,
++    STRIDE_QR_T,
++    STRIDE_QR_H,
+     USE_FP8_DOT: tl.constexpr,
+     KV_SPLITS: tl.constexpr,
+     BLOCK_H: tl.constexpr,
+     BLOCK_K: tl.constexpr,
++    topk_length_ptr=None,
++    USE_TOPK_LENGTH: tl.constexpr = False,
+ ):
+     """Split-K partial kernel. grid=(seq, head_blocks, kv_splits)."""
+     t = tl.program_id(0)
+@@ -842,12 +859,21 @@ def _sparse_mla_split_k_kernel(
+         other=0.0,
+     ).to(input_type)
+ 
+-    tiles_per_segment = tl.cdiv(topk, KV_SPLITS * BLOCK_K)
+-    if pid_k * tiles_per_segment * BLOCK_K >= topk:
+-        return
+-    num_tiles = tl.cdiv(topk, BLOCK_K)
+-    tile_start = pid_k * tiles_per_segment
+-    tile_end = tl.minimum((pid_k + 1) * tiles_per_segment, num_tiles)
++    if USE_TOPK_LENGTH:
++        # The reduce reads all KV_SPLITS partials, so a split left with no tiles
++        # must fall through and store an empty one rather than return early.
++        valid_topk = tl.minimum(tl.maximum(tl.load(topk_length_ptr + t), 0), topk)
++        num_tiles = tl.cdiv(valid_topk, BLOCK_K)
++        tiles_per_segment = tl.cdiv(num_tiles, KV_SPLITS)
++        tile_start = pid_k * tiles_per_segment
++        tile_end = tl.minimum(tile_start + tiles_per_segment, num_tiles)
++    else:
++        tiles_per_segment = tl.cdiv(topk, KV_SPLITS * BLOCK_K)
++        if pid_k * tiles_per_segment * BLOCK_K >= topk:
++            return
++        num_tiles = tl.cdiv(topk, BLOCK_K)
++        tile_start = pid_k * tiles_per_segment
++        tile_end = tl.minimum((pid_k + 1) * tiles_per_segment, num_tiles)
+ 
+     neg_large = -3.4028234663852886e38
+     m_i = tl.full((BLOCK_H,), neg_large, dtype=tl.float32)
+@@ -983,6 +1009,8 @@ def _sparse_mla_reduce_kernel(
+     ACTIVE_SPLITS_POW2: tl.constexpr,
+     D_CHUNK: tl.constexpr,
+     BLOCK_K: tl.constexpr,
++    lse_out_ptr=None,
++    STORE_LSE: tl.constexpr = False,
+ ):
+     """Reduce split-K partials via log-space combine. grid=(seq, H, d_v_chunks)."""
+     t = tl.program_id(0)
+@@ -1028,6 +1056,12 @@ def _sparse_mla_reduce_kernel(
+         out.to(tl.bfloat16),
+         mask=d_mask,
+     )
++    if STORE_LSE:
++        if dc == 0:
++            tl.store(
++                lse_out_ptr + t * H + h,
++                lse_max + tl.log2(tl.maximum(w_sum, 1.0e-30)),
++            )
+ 
+ 
+ def _triton_sparse_mla_fwd_splitk(
+diff --git a/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py
+index 4062087281..a6a050b9c0 100644
+--- a/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py
++++ b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py
+@@ -85,7 +85,9 @@ def triton_sparse_mla_decode_splitk(
+     d_v: int = 512,
+     kv_splits: int | None = None,
+     workspace: _SplitKWorkspace | None = None,
+-) -> torch.Tensor:
++    return_lse: bool = False,
++    lengths: torch.Tensor | None = None,
++) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+     """Split-K Triton sparse MLA decode (DSv4 pattern).
+ 
+     q_nope:  [bs, H, d_v] fp8/bf16
+@@ -93,7 +95,11 @@ def triton_sparse_mla_decode_splitk(
+     kv:      [num_pages, 1, DIM] fp8/bf16
+     indices: [bs, 1, topk] int32
+     workspace: backend-owned grow-only split-K buffers for graph-safe reuse
+-    returns: [1, bs, H, d_v] bf16
++    lengths: optional [bs] int32 in [0, topk]; only the first lengths[i]
++             indices of row i are scanned, and the rest of the row must be -1.
++             Under DCP these are the owned counts and the -1 tail written by
++             transform_index_page_table_dcp (transform_index.py).
++    returns: [1, bs, H, d_v] bf16, plus a [bs, H] fp32 base-2 LSE if return_lse
+     """
+     is_fp8 = _validate_input_dtypes(q_nope, q_rope, kv)
+     use_fp8_dot = is_fp8
+@@ -102,6 +108,12 @@ def triton_sparse_mla_decode_splitk(
+     d_tail = q_rope.shape[-1]
+     kv_dim = kv.shape[-1]
+     topk = indices.shape[-1]
++    if lengths is not None:
++        assert lengths.shape == (bs,) and lengths.dtype == torch.int32, (
++            f"lengths must be [bs={bs}] int32, got {tuple(lengths.shape)} "
++            f"{lengths.dtype}"
++        )
++        assert indices.dtype == torch.int32
+     idx_flat = indices.squeeze(1).contiguous()
+     # The kernels address q by explicit row strides, so a packed [N, H, D] layout
+     # is not required -- only a unit-stride last dim. Callers that pass an
+@@ -162,6 +174,12 @@ def triton_sparse_mla_decode_splitk(
+         kv_splits = min(kv_splits, max_kv_splits)
+ 
+     qk_scale = float(sm_scale) * _LOG2E
++    lse = (
++        torch.empty(bs, H, device=q_nope.device, dtype=torch.float32)
++        if return_lse
++        else None
++    )
++    topk_length = lengths if lengths is not None else idx_flat
+ 
+     if kv_splits == 1:
+         fused_num_warps = 4
+@@ -174,7 +192,7 @@ def triton_sparse_mla_decode_splitk(
+                 q_rope,
+                 kv,
+                 idx_flat,
+-                idx_flat,
++                topk_length,
+                 out,
+                 qk_scale,
+                 _FP8_MAX,
+@@ -189,7 +207,8 @@ def triton_sparse_mla_decode_splitk(
+                 STRIDE_QR_T=stride_qr_t,
+                 STRIDE_QR_H=stride_qr_h,
+                 USE_FP8_DOT=use_fp8_dot,
+-                USE_TOPK_LENGTH=False,
++                USE_TOPK_LENGTH=lengths is not None,
++                TOPK_TAIL_INVALID=lengths is not None,
+                 BLOCK_H=BLOCK_H,
+                 BLOCK_K=BLOCK_K,
+                 USE_I64_PAGE=not (
+@@ -198,16 +217,24 @@ def triton_sparse_mla_decode_splitk(
+                     and topk >= 2048
+                     and _page_offsets_fit_i32(kv.shape[0], kv_dim)
+                 ),
++                lse_out_ptr=lse,
++                STORE_LSE=return_lse,
+                 num_warps=fused_num_warps,
+                 num_stages=2,
+             )
+-        return out.unsqueeze(0)
++        return (out.unsqueeze(0), lse) if return_lse else out.unsqueeze(0)
+ 
+-    tiles_per_split = (topk + kv_splits * BLOCK_K - 1) // (kv_splits * BLOCK_K)
+-    active_splits = (topk + tiles_per_split * BLOCK_K - 1) // (
+-        tiles_per_split * BLOCK_K
+-    )
+-    active_splits = min(active_splits, kv_splits)
++    if lengths is None:
++        tiles_per_split = (topk + kv_splits * BLOCK_K - 1) // (kv_splits * BLOCK_K)
++        active_splits = (topk + tiles_per_split * BLOCK_K - 1) // (
++            tiles_per_split * BLOCK_K
++        )
++        active_splits = min(active_splits, kv_splits)
++    else:
++        # Per-row counts differ, so the active split count cannot be derived on
++        # the host; every split stores a partial and the reduce masks the empty
++        # ones by their LSE.
++        active_splits = kv_splits
+     split_num_warps = 4
+     if optimize_gfx950_fp8:
+         split_num_warps = _gfx950_sparse_mla_num_warps(base_ctas, active_splits, num_cu)
+@@ -242,6 +269,8 @@ def triton_sparse_mla_decode_splitk(
+             KV_SPLITS=kv_splits,
+             BLOCK_H=BLOCK_H,
+             BLOCK_K=BLOCK_K,
++            topk_length_ptr=topk_length,
++            USE_TOPK_LENGTH=lengths is not None,
+             num_warps=split_num_warps,
+             num_stages=2,
+         )
+@@ -259,9 +288,11 @@ def triton_sparse_mla_decode_splitk(
+         ACTIVE_SPLITS_POW2=_next_pow2(active_splits),
+         D_CHUNK=D_CHUNK,
+         BLOCK_K=BLOCK_K,
++        lse_out_ptr=lse,
++        STORE_LSE=return_lse,
+         num_warps=4,
+     )
+-    return out.unsqueeze(0)
++    return (out.unsqueeze(0), lse) if return_lse else out.unsqueeze(0)
+ 
+ 
+ # ---------------------------------------------------------------------------
+diff --git a/python/sglang/kernels/ops/kvcache/mla_buffer.py b/python/sglang/kernels/ops/kvcache/mla_buffer.py
+index bff498fcf2..ad99481c7f 100644
+--- a/python/sglang/kernels/ops/kvcache/mla_buffer.py
++++ b/python/sglang/kernels/ops/kvcache/mla_buffer.py
+@@ -342,6 +342,8 @@ def set_mla_kv_buffer_fp8_quant_kernel(
+     nope_dim: tl.constexpr,
+     rope_dim: tl.constexpr,
+     BLOCK: tl.constexpr,
++    DCP_RANK: tl.constexpr = 0,
++    DCP_WORLD_SIZE: tl.constexpr = 1,
+     USE_GDC: tl.constexpr = False,
+ ):
+     """Fuse BF16/FP16->FP8 cast with paged KV write."""
+@@ -357,8 +359,9 @@ def set_mla_kv_buffer_fp8_quant_kernel(
+         tl.extra.cuda.gdc_wait()
+ 
+     loc = tl.load(loc_ptr + pid_loc).to(tl.int64)
+-    is_valid = loc != reserved_skip_index
++    is_valid = (loc != reserved_skip_index) & (loc % DCP_WORLD_SIZE == DCP_RANK)
+     safe_loc = tl.where(is_valid, loc, 0)
++    safe_loc = safe_loc // DCP_WORLD_SIZE
+     dst_ptr = kv_buffer_fp8_ptr + safe_loc * buffer_stride + offs
+ 
+     if base + BLOCK <= nope_dim:
+@@ -403,10 +406,14 @@ def set_mla_kv_buffer_triton_fp8_quant(
+     fp8_dtype: torch.dtype,
+     *,
+     reserved_skip_index: int = 0,
++    dcp_world_size: int = 1,
++    dcp_rank: int = 0,
+ ):
+     """Fuse BF16/FP16 MLA K quantization with paged KV write.
+ 
+     Writes targeting ``reserved_skip_index`` are skipped. Pass -1 to disable.
++    With ``dcp_world_size > 1`` the locs are DCP-widened: only this rank's slots
++    are written, at row ``loc // dcp_world_size``.
+     """
+     kv_buffer_fp8 = kv_buffer.view(fp8_dtype)
+ 
+@@ -431,6 +438,8 @@ def set_mla_kv_buffer_triton_fp8_quant(
+         nope_dim,
+         rope_dim,
+         BLOCK=BLOCK,
++        DCP_RANK=dcp_rank,
++        DCP_WORLD_SIZE=dcp_world_size,
+         **pdl_kwargs,
+     )
+ 
+diff --git a/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py b/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py
+index a620c1eeba..fdbabcf9c8 100644
+--- a/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py
++++ b/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py
+@@ -20,12 +20,21 @@ def _dsa_dcp_overrides(cfg: Any) -> dict:
+         return {}
+     if cfg.enable_hisparse or cfg.enable_hierarchical_cache:
+         raise ValueError("DSA DCP does not support HiSparse or HiCache.")
+-    if cfg.disaggregation_mode != "null":
+-        raise ValueError("DSA DCP does not support PD disaggregation.")
++    # The PD relayout pairs a DCP1 prefill with a decode whose draft KV is
++    # striped like the target, which only the ROCm DSA draft does.
++    if cfg.disaggregation_mode != "null" and not (
++        cfg.disaggregation_mode == "decode" and get_platform().is_hip
++    ):
++        raise ValueError(
++            "DSA DCP with PD disaggregation is supported only as a DCP1 prefill "
++            "feeding a ROCm DCP decode."
++        )
+     if cfg.speculative_eagle_topk not in (None, 1):
+         raise ValueError("DSA DCP requires --speculative-eagle-topk 1.")
++    # The DCP paths: trtllm on CUDA, triton on ROCm.
++    backend = "triton" if get_platform().is_hip else "trtllm"
+     overrides = {
+-        name: "trtllm"
++        name: backend
+         for name in ("dsa_prefill_backend", "dsa_decode_backend")
+         if getattr(cfg, name) is None
+     }
+diff --git a/python/sglang/srt/arg_groups/overrides.py b/python/sglang/srt/arg_groups/overrides.py
+index 9a672420d6..58d1fb2f37 100644
+--- a/python/sglang/srt/arg_groups/overrides.py
++++ b/python/sglang/srt/arg_groups/overrides.py
+@@ -566,6 +566,15 @@ def _check_dsa_backend_constraints(
+             "(flashmla_kv on Hopper, trtllm on Blackwell)."
+         )
+ 
++    if hip and dcp_size > 1:
++        no_dcp_path = chosen - {"triton", None}
++        if no_dcp_path:
++            raise ValueError(
++                f"The {'/'.join(sorted(no_dcp_path))} DSA backend has no DCP path "
++                "on ROCm; use --dsa-prefill-backend triton --dsa-decode-backend "
++                "triton with --dcp-size > 1."
++            )
++
+     if hip or kv_cache_dtype != "fp8_e4m3" or "tilelang" not in chosen:
+         return
+     if prefill_backend != "tilelang" or decode_backend != "tilelang":
+diff --git a/python/sglang/srt/arg_groups/speculative_hook.py b/python/sglang/srt/arg_groups/speculative_hook.py
+index 40995d45ea..3b6236d8f7 100644
+--- a/python/sglang/srt/arg_groups/speculative_hook.py
++++ b/python/sglang/srt/arg_groups/speculative_hook.py
+@@ -1104,7 +1104,8 @@ def _handle_eagle_family(server_args: ServerArgs) -> None:
+     # chain sampler -- for configs that support it. See
+     # _should_auto_enable_hip_rejection_sampling for the cases we must not flip.
+     if _should_auto_enable_hip_rejection_sampling(
+-        is_hip=get_platform().is_hip,
++        # PD decode does not receive draft_probs from prefill; do not implicitly select the incompatible path.
++        is_hip=get_platform().is_hip and cfg.disaggregation_mode != "decode",
+         use_rejection_sampling=cfg.speculative_use_rejection_sampling,
+         algorithm=cfg.speculative_algorithm,
+         token_map=cfg.speculative_token_map,
+diff --git a/python/sglang/srt/configs/model_config.py b/python/sglang/srt/configs/model_config.py
+index 6006a5a902..19974ac382 100644
+--- a/python/sglang/srt/configs/model_config.py
++++ b/python/sglang/srt/configs/model_config.py
+@@ -211,6 +211,15 @@ def is_deepseek_dsa(config) -> bool:
+     )
+ 
+ 
++def dsa_draft_shards_under_dcp(config, dcp_size: int) -> bool:
++    """Whether a DSA EAGLE/NEXTN draft shards its KV like the DCP target.
++
++    Only on ROCm; elsewhere the draft keeps a replicated pool and attends it
++    with dcp_size 1.
++    """
++    return dcp_size > 1 and is_hip() and is_deepseek_dsa(config)
++
++
+ def is_glm_moe_dsa(config) -> bool:
+     """True for GLM-5.2, both the main arch and the NextN draft head."""
+     return _hf_arch(config) in (
+diff --git a/python/sglang/srt/disaggregation/common/conn.py b/python/sglang/srt/disaggregation/common/conn.py
+index 7b6012eebe..f678a56ad5 100644
+--- a/python/sglang/srt/disaggregation/common/conn.py
++++ b/python/sglang/srt/disaggregation/common/conn.py
+@@ -88,6 +88,18 @@ def _get_bootstrap_session(bootstrap_addr: str) -> requests.Session:
+     return session
+ 
+ 
++def _decode_draft_shards_under_dcp(dst_dcp_size: int) -> bool:
++    """Whether a DCP decode of this model stripes its draft KV like the target.
++
++    Both PD peers serve the same model on the same platform, so the prefill can
++    apply the decode's rule locally.
++    """
++    from sglang.srt.configs.model_config import dsa_draft_shards_under_dcp
++    from sglang.srt.runtime_context import process_model_config
++
++    return dsa_draft_shards_under_dcp(process_model_config().hf_config, dst_dcp_size)
++
++
+ class KVTransferError(Exception):
+     def __init__(
+         self,
+@@ -523,8 +535,24 @@ class CommonKVManager(BaseKVManager):
+             f"Unsupported PD DCP topology: {self.dcp_size} -> {dst_dcp_size}"
+         )
+ 
++    def dcp_draft_sharded(self, dst_dcp_size: int) -> bool:
++        return self.kv_args.num_draft_entries > 0 and _decode_draft_shards_under_dcp(
++            dst_dcp_size
++        )
++
++    def reject_sharded_dcp_draft(self, dst_dcp_size: int, backend: str) -> None:
++        if self.dcp_draft_sharded(dst_dcp_size):
++            raise NotImplementedError(
++                f"PD DCP on {backend} does not relayout a DCP-sharded draft KV "
++                "(ROCm DSA MTP); use --disaggregation-transfer-backend mooncake."
++            )
++
+     def prepare_dcp_token_item_lens(
+-        self, dst_page_item_lens: List[Optional[int]], dst_dcp_size: int
++        self,
++        dst_page_item_lens: List[Optional[int]],
++        dst_dcp_size: int,
++        *,
++        draft_sharded: bool = False,
+     ) -> List[int]:
+         page_size = self.kv_args.page_size
+         num_draft = self.kv_args.num_draft_entries
+@@ -541,9 +569,9 @@ class CommonKVManager(BaseKVManager):
+         for i, dst_item_len in enumerate(dst_page_item_lens):
+             if dst_item_len is None:
+                 continue
+-            dst_page_scale = page_size * (
+-                dst_dcp_size if i >= num_entries - num_draft else 1
+-            )
++            # A replicated draft pages over the widened page; a sharded one like the target.
++            is_replicated_draft = i >= num_entries - num_draft and not draft_sharded
++            dst_page_scale = page_size * (dst_dcp_size if is_replicated_draft else 1)
+             if dst_item_len // dst_page_scale != src_token_lens[i]:
+                 raise RuntimeError(
+                     "PD DCP source/destination KV geometry differs at entry "
+diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
+index fabdcfc1ac..5553f35a9a 100644
+--- a/python/sglang/srt/disaggregation/decode.py
++++ b/python/sglang/srt/disaggregation/decode.py
+@@ -2498,6 +2498,7 @@ class DecodeTransferQueue(DecodeHiCacheTransferMixin):
+     ):
+         self.queue: List[DecodeRequest] = []
+         self.gloo_group = get_parallel().attn_tp_group.cpu_group
++        self.gloo_world_size = torch.distributed.get_world_size(self.gloo_group)
+         self.req_to_metadata_buffer_idx_allocator = req_to_metadata_buffer_idx_allocator
+         self.tp_rank = get_parallel().tp_rank
+         self.metadata_buffers = metadata_buffers
+@@ -2752,9 +2753,29 @@ class DecodeTransferQueue(DecodeHiCacheTransferMixin):
+         if self.enable_host_receive and decode_req.host_staged:
+             decode_req.kv_receiver.abort()
+ 
++    def _transfer_queue_len_bounds(self) -> Tuple[int, int]:
++        """(min, max) transfer queue length over the attn-TP group."""
++        n = len(self.queue)
++        if self.gloo_world_size == 1:
++            return n, n
++        bounds = torch.tensor([-n, n], dtype=torch.int64)
++        torch.distributed.all_reduce(
++            bounds, op=torch.distributed.ReduceOp.MAX, group=self.gloo_group
++        )
++        return -int(bounds[0]), int(bounds[1])
++
+     def pop_transferred(self, rids_to_check: Optional[List[str]] = None) -> List[Req]:
+-        if not self.queue:
++        # The poll all-reduce below needs every rank to join with the same
++        # queue length; a rank-local empty check would strand its peers in it.
++        min_len, max_len = self._transfer_queue_len_bounds()
++        if max_len == 0:
+             return []
++        if min_len != max_len:
++            raise RuntimeError(
++                f"Decode transfer queues diverged across attn-TP ranks: "
++                f"rank {self.tp_rank} has {len(self.queue)}, "
++                f"group range [{min_len}, {max_len}]"
++            )
+ 
+         if self.scheduler.enable_decode_hicache:
+             self._process_hicache_local_restores(
+@@ -2961,52 +2982,44 @@ class DecodeTransferQueue(DecodeHiCacheTransferMixin):
+                 outcome=outcome,
+             )
+ 
++    def _local_release_state(self, entry, now: float) -> Tuple[bool, bool]:
++        """(ready, drained) for one deferred entry, as seen by this rank."""
++        decode_req, _, deadline, _, required_acks = entry
++        if self.enable_host_receive and decode_req.host_staged:
++            # A timeout cannot prove that a remote write has stopped.
++            drained = decode_req.kv_receiver.is_abort_release_safe()
++            return drained, drained
++        drained = decode_req.kv_receiver.kv_mgr.is_abort_release_safe(
++            decode_req.req.bootstrap_room, required_acks
++        )
++        return drained or now >= deadline, drained
++
+     def resolve_deferred_releases(self) -> None:
+         """Release drained transfers; device destinations may also time out."""
+         if not self._deferred_releases:
+             return
+-        host_ready = torch.tensor(
+-            [
+-                req.kv_receiver.is_abort_release_safe()
+-                for req, _, _, _, _ in self._deferred_releases
+-                if self.enable_host_receive and req.host_staged
+-            ],
+-            dtype=torch.int32,
+-        )
+-        if host_ready.numel() and torch.distributed.get_world_size(self.gloo_group) > 1:
+-            # Admission must see identical host capacity and page order on every rank.
++        now = time.monotonic()
++        states = [
++            self._local_release_state(entry, now) for entry in self._deferred_releases
++        ]
++        ready = torch.tensor([r for r, _ in states], dtype=torch.int32)
++        if self.gloo_world_size > 1:
++            # Acks and deadlines are rank-local; admission must see identical
++            # capacity and page order on every rank, so release only in unison.
+             torch.distributed.all_reduce(
+-                host_ready, op=torch.distributed.ReduceOp.MIN, group=self.gloo_group
++                ready, op=torch.distributed.ReduceOp.MIN, group=self.gloo_group
+             )
+-        host_ready = iter(host_ready.tolist())
+-        now = time.monotonic()
+         still_held = []
+         to_release = []
+-        for (
+-            decode_req,
+-            start_time,
+-            deadline,
+-            idx,
+-            required_acks,
+-        ) in self._deferred_releases:
+-            room = decode_req.req.bootstrap_room
+-            if self.enable_host_receive and decode_req.host_staged:
+-                if next(host_ready):
+-                    to_release.append((decode_req, start_time, idx, room, True))
+-                else:
+-                    # A timeout cannot prove that a remote write has stopped.
+-                    still_held.append(
+-                        (decode_req, start_time, deadline, idx, required_acks)
+-                    )
+-                continue
+-            kv_mgr = decode_req.kv_receiver.kv_mgr
+-            drained = kv_mgr.is_abort_release_safe(room, required_acks)
+-            if not drained and now < deadline:
+-                still_held.append(
+-                    (decode_req, start_time, deadline, idx, required_acks)
+-                )
+-            else:
++        for entry, group_ready, (_, drained) in zip(
++            self._deferred_releases, ready.tolist(), states
++        ):
++            decode_req, start_time, _, idx, _ = entry
++            if group_ready:
++                room = decode_req.req.bootstrap_room
+                 to_release.append((decode_req, start_time, idx, room, drained))
++            else:
++                still_held.append(entry)
+         # Commit the survivors before releasing so a _do_release exception can't
+         # leave a released entry in the list (double-free / None receiver on retry).
+         self._deferred_releases = still_held
+diff --git a/python/sglang/srt/disaggregation/mooncake/conn.py b/python/sglang/srt/disaggregation/mooncake/conn.py
+index 351937c24d..a7d620e84f 100644
+--- a/python/sglang/srt/disaggregation/mooncake/conn.py
++++ b/python/sglang/srt/disaggregation/mooncake/conn.py
+@@ -168,6 +168,8 @@ class KVArgsRegisterInfo:
+     dst_dcp_rank: int = 0
+     requires_dcp_relayout: bool = False
+     dcp_token_item_lens: Optional[List[int]] = None
++    # Set by the prefill: the decode stripes its draft KV like the target.
++    dcp_draft_sharded: bool = False
+     dst_kv_item_lens: List[int] = dataclasses.field(default_factory=list)
+     staging_base_ptr: int = 0
+     staging_total_size: int = 0
+@@ -1402,6 +1404,7 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
+         dst_kv_item_lens: Optional[List[int]] = None,
+         dst_tp_rank: int = 0,
+         dst_attn_tp_size: Optional[int] = None,
++        draft_sharded: bool = False,
+     ) -> int:
+         if num_kv_tokens is None:
+             raise ValueError("PD DCP transfer requires num_kv_tokens")
+@@ -1430,7 +1433,8 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
+                 _, dst_kv_item_lens, _ = self.get_mla_kv_ptrs_with_pp(
+                     self.kv_args.kv_item_lens, dst_kv_item_lens
+                 )
+-        num_draft = self.kv_args.num_draft_entries
++        # A sharded draft takes the target's rows and shares its pack.
++        num_draft = 0 if draft_sharded else self.kv_args.num_draft_entries
+         num_target = len(src_kv_ptrs) - num_draft
+ 
+         plan = build_dcp_token_transfer_plan(
+@@ -2648,6 +2652,7 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
+                                 ),
+                                 pack_buffer=pack_buffer,
+                                 dst_kv_item_lens=target_rank_registration_info.dst_kv_item_lens,
++                                draft_sharded=target_rank_registration_info.dcp_draft_sharded,
+                                 dst_tp_rank=target_rank_registration_info.dst_tp_rank,
+                                 dst_attn_tp_size=target_rank_registration_info.dst_attn_tp_size,
+                             )
+@@ -2950,13 +2955,28 @@ class MooncakeKVManager(StagingManagerMixin, CommonKVManager):
+                     if decode_kv_args.requires_dcp_relayout:
+                         num_entries = len(self.kv_args.kv_item_lens)
+                         num_draft = self.kv_args.num_draft_entries
++                        draft_sharded = self.dcp_draft_sharded(
++                            decode_kv_args.dst_dcp_size
++                        )
++                        dst_draft_item_lens: List[Optional[int]] = [None] * num_draft
++                        if (
++                            draft_sharded
++                            and len(decode_kv_args.dst_kv_item_lens) == num_entries
++                        ):
++                            dst_draft_item_lens = list(
++                                decode_kv_args.dst_kv_item_lens[
++                                    num_entries - num_draft :
++                                ]
++                            )
+                         dst_item_lens: List[Optional[int]] = [
+                             decode_kv_args.dst_kv_item_len
+-                        ] * (num_entries - num_draft) + [None] * num_draft
++                        ] * (num_entries - num_draft) + dst_draft_item_lens
++                        decode_kv_args.dcp_draft_sharded = draft_sharded
+                         decode_kv_args.dcp_token_item_lens = (
+                             self.prepare_dcp_token_item_lens(
+                                 dst_item_lens,
+                                 decode_kv_args.dst_dcp_size,
++                                draft_sharded=draft_sharded,
+                             )
+                         )
+                         self._init_dcp_pack_buffers_once(
+diff --git a/python/sglang/srt/disaggregation/mori/conn.py b/python/sglang/srt/disaggregation/mori/conn.py
+index 5df253eed1..0cfb29c26d 100644
+--- a/python/sglang/srt/disaggregation/mori/conn.py
++++ b/python/sglang/srt/disaggregation/mori/conn.py
+@@ -1094,6 +1094,7 @@ class MoriKVManager(CommonKVManager):
+             register_info.dst_dcp_size, register_info.dst_dcp_rank
+         )
+         if register_info.requires_dcp_relayout:
++            self.reject_sharded_dcp_draft(register_info.dst_dcp_size, "mori")
+             num_entries = len(self.kv_args.kv_item_lens)
+             num_draft = self.kv_args.num_draft_entries
+             # The wire format registers only the target page item length.
+diff --git a/python/sglang/srt/disaggregation/nixl/conn.py b/python/sglang/srt/disaggregation/nixl/conn.py
+index b79b2c410c..ffdc7c15f0 100644
+--- a/python/sglang/srt/disaggregation/nixl/conn.py
++++ b/python/sglang/srt/disaggregation/nixl/conn.py
+@@ -1525,6 +1525,7 @@ class NixlKVManager(StagingManagerMixin, CommonKVManager):
+         decode_only_spec_dec = n_dst > n_src
+ 
+         if peer_info.requires_dcp_relayout:
++            self.reject_sharded_dcp_draft(peer_info.dst_dcp_size, "nixl")
+             dst_indices = resolve_dcp_dst_entry_indices(
+                 self.kv_args.kv_layer_ids,
+                 peer_info.dst_kv_layer_ids,
+diff --git a/python/sglang/srt/disaggregation/prefill.py b/python/sglang/srt/disaggregation/prefill.py
+index 5f85be3815..c62d57f674 100644
+--- a/python/sglang/srt/disaggregation/prefill.py
++++ b/python/sglang/srt/disaggregation/prefill.py
+@@ -1097,6 +1097,13 @@ class SchedulerDisaggregationPrefillMixin:
+                     assert req.metadata_buffer_index >= 0, (
+                         f"Req {req.rid} does not have metadata buffer allocated"
+                     )
++                    # Non-final chunks are handed over while later chunks are
++                    # already running on forward_stream, and the transfer worker
++                    # reads device memory outside the CUDA stream. Gate the read
++                    # on this chunk's writes completing.
++                    _infera_nonfinal_chunk_wait_event = torch.cuda.Event()
++                    _infera_nonfinal_chunk_wait_event.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = _infera_nonfinal_chunk_wait_event
+                     self.send_kv_chunk(req, last_chunk=False, end_idx=req.tmp_end_idx)
+                 req.time_stats.set_last_chunked_prefill_finish_time()
+ 
+@@ -1416,6 +1423,12 @@ class SchedulerDisaggregationPrefillMixin:
+                     len(req.origin_input_ids),
+                 )
+             else:
++                if get_parallel().pp_size > 1:
++                    # Under PP this chunk's forward ran in an earlier microbatch and may
++                    # still be queued on forward_stream; gate the transfer read on it.
++                    wait_event = torch.cuda.Event()
++                    wait_event.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = wait_event
+                 self.send_kv_chunk(req)
+ 
+             if self.chunked_req is not None:
+diff --git a/python/sglang/srt/entrypoints/openai/serving_responses.py b/python/sglang/srt/entrypoints/openai/serving_responses.py
+index 6ce269e0fe..2a9811314c 100644
+--- a/python/sglang/srt/entrypoints/openai/serving_responses.py
++++ b/python/sglang/srt/entrypoints/openai/serving_responses.py
+@@ -105,6 +105,37 @@ if TYPE_CHECKING:
+ logger = logging.getLogger(__name__)
+ 
+ 
++def _infera_responses_unstreamed_tool_args(parser, tool_index, streamed):
++    """Return the tool-argument suffix the streaming detector never emitted.
++
++    Mirrors ``serving_chat._check_for_unstreamed_tool_args``. The detector's
++    ``prev_tool_call_arr`` holds the fully parsed call, so serialising it and
++    dropping the already-streamed prefix yields whatever is still owed.
++    Returns an empty string when the stream is already complete, when the
++    detector exposes nothing to compare against, or when the serialisation
++    does not extend the streamed bytes -- in that last case the delta stream
++    is not a prefix of the parsed form and appending would corrupt it.
++    """
++    detector = getattr(parser, "detector", parser)
++    parsed_calls = getattr(detector, "prev_tool_call_arr", None)
++    if not parsed_calls or not isinstance(tool_index, int):
++        return ""
++    if tool_index < 0 or tool_index >= len(parsed_calls):
++        return ""
++    entry = parsed_calls[tool_index]
++    if not isinstance(entry, dict):
++        return ""
++    expected = entry.get("arguments", {})
++    if not isinstance(expected, str):
++        try:
++            expected = json.dumps(expected, ensure_ascii=False)
++        except (TypeError, ValueError):
++            return ""
++    if not expected.startswith(streamed):
++        return ""
++    return expected[len(streamed) :]
++
++
+ class _MediaInputValidationError(ValueError):
+     pass
+ 
+@@ -2302,6 +2333,24 @@ class OpenAIServingResponses(OpenAIServingChat):
+                 return []
+             arguments = state["arguments"]
+             events: list = []
++            if not state["custom"]:
++                pending = _infera_responses_unstreamed_tool_args(
++                    tool_parser, tool_index, arguments
++                )
++                if pending:
++                    arguments += pending
++                    state["arguments"] = arguments
++                    events.append(
++                        _send_event(
++                            openai_responses_types.ResponseFunctionCallArgumentsDeltaEvent(
++                                type="response.function_call_arguments.delta",
++                                sequence_number=-1,
++                                item_id=state["item_id"],
++                                output_index=state["output_index"],
++                                delta=pending,
++                            )
++                        )
++                    )
+             if state["custom"]:
+                 payload = decode_custom_tool_input(arguments)
+                 # Deltas cannot be retracted, so a payload that no longer
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index 29f788db03..6884ee97b0 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -350,6 +350,8 @@ class Envs:
+     # ===================================================================
+     SGLANG_LOG_GC = EnvBool(False)
+     SGLANG_LOG_FORWARD_ITERS = EnvBool(False)
++    # Decode log line: rows, sum and max of the running requests' context lengths.
++    SGLANG_LOG_DECODE_SEQ_LENS = EnvBool(False)
+     SGLANG_LOG_DECODE_GRAPH_KEY = EnvBool(False)
+     SGLANG_LOG_MS = EnvBool(False)
+     SGLANG_LOG_REQUEST_EXCEEDED_MS = EnvInt(-1)
+@@ -1861,6 +1863,22 @@ class Envs:
+     SGLANG_DSA_TOPK_FLASHINFER_DETERMINISTIC = EnvBool(False)
+     SGLANG_DSA_TOPK_FLASHINFER_TIE_BREAK = EnvStr(None)
+     SGLANG_DSA_PREFILL_DENSE_ATTN_KV_LEN_THRESHOLD = EnvInt(2048)
++    # DCP prefill: attend owned slots + LSE merge once the cached prefix reaches
++    # ratio * gathered heads * extend tokens, else all-gather the prefix KV.
++    # 0 always takes the owned path; negative never does.
++    SGLANG_DSA_DCP_OWNED_PREFILL_RATIO = EnvFloat(3.0)
++    # PD decode under DCP: drop the prefill's MTP top-k seed so the first draft
++    # step recomputes it. A/B switch for the seed path; costs one eager draft step.
++    SGLANG_DSA_DCP_PD_DROP_MTP_SEED = EnvBool(False)
++    # ROCm DCP: each rank scores 1/W of the context pages in the decode indexer
++    # over the replicated index K, then all-gathers and merges the top-k.
++    SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER = EnvBool(False)
++    # With the split decode indexer: one Triton launch each for the candidate
++    # pack and the merge (+ slot transform) instead of torch elementwise chains.
++    SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON = EnvBool(False)
++    # ROCm DCP: keep GLM's bf16 kv_b_proj (skip the gfx950 fp8 conversion) on DCP
++    # layers so --dcp-replicate-q-proj can drop the per-layer Q all-gather.
++    SGLANG_DSA_DCP_KEEP_KV_B_BF16 = EnvBool(False)
+     SGLANG_DSA_HIP_DISABLE_PRESHUFFLE = EnvBool(False)
+     SGLANG_DSA_MQA_LOGITS_FREE_MEM_FRACTION = EnvFloat(0.2)
+     SGLANG_ENABLE_PCG_DSV2_DUAL_STREAM = EnvBool(False)
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp.py
+index b5fc67532e..93f8efd2b4 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_dcp.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp.py
+@@ -1,6 +1,6 @@
+ from __future__ import annotations
+ 
+-from typing import Optional
++from typing import List, Optional, Tuple
+ 
+ import msgspec
+ import torch
+@@ -9,6 +9,8 @@ from sglang.kernels.ops.attention.dsa.transform_index import (
+     transform_index_page_table_dcp,
+ )
+ from sglang.kernels.ops.attention.fixup_zero_kv import fixup_zero_kv_rows
++from sglang.srt.environ import envs
++from sglang.srt.runtime_context import get_parallel
+ 
+ TRTLLM_MAX_BATCH_ROWS = 65535
+ # FlashInfer carves heads * rows * 256 float2 softmax slots out of the workspace per call;
+@@ -116,3 +118,58 @@ def dcp_trtllm_sparse_attention(
+         outputs.append(output)
+     output = outputs[0] if len(outputs) == 1 else torch.cat(outputs)
+     return output.view(rows, 1, heads, -1), lse
++
++
++def dcp_use_gathered_prefill(
++    extend_prefix_lens_cpu: List[int], extend_num_tokens: int, gathered_heads: int
++) -> bool:
++    """Whether a DCP prefill all-gathers the cached prefix KV and attends with
++    this rank's heads, instead of all-gathering Q and LSE-merging owned slots.
++
++    The gathered path moves one latent per prefix token; the owned path moves
++    every extend token's Q for all heads plus the head partials back. The
++    prefix all-gather reads position p from rank p % W, so every prefix must
++    be a whole number of widened pages.
++    """
++    w = get_parallel().dcp_group.world_size
++    if any(p % w for p in extend_prefix_lens_cpu):
++        return False
++    ratio = envs.SGLANG_DSA_DCP_OWNED_PREFILL_RATIO.get()
++    if ratio < 0:
++        return True
++    return sum(extend_prefix_lens_cpu) < ratio * gathered_heads * extend_num_tokens
++
++
++def dcp_gathered_page_table(
++    dcp_kv_indptr: torch.Tensor,
++    dcp_kv_indices: torch.Tensor,
++    seq_lens: torch.Tensor,
++    width: int,
++) -> torch.Tensor:
++    """[bs, width] sequence position -> row of the all-gathered ``dcp_kv_buffer``."""
++    cols = torch.arange(width, device=seq_lens.device)
++    valid = cols < seq_lens[:, None]
++    flat = torch.where(valid, dcp_kv_indptr[:-1, None].long() + cols, 0)
++    return torch.where(valid, dcp_kv_indices[flat], 0).to(torch.int32)
++
++
++def dcp_split_rows(rows: int) -> Tuple[int, int, int, int]:
++    """``(per, slot, lo, hi)``: every rank owns a stride of ``per`` rows starting
++    at ``slot``, and scores the rows ``[lo, hi)`` of it that exist.
++
++    The uniform stride makes the rank-major concatenation of the strides land
++    row ``i`` back at row ``i``. ``slot`` is not clamped to ``rows``: the
++    in-place all-gather needs this rank's own slot even when it has no rows.
++    """
++    group = get_parallel().dcp_group
++    per = -(-rows // group.world_size)
++    slot = group.rank_in_group * per
++    return per, slot, min(slot, rows), min(slot + per, rows)
++
++
++def dcp_all_gather_rows_(buf: torch.Tensor, per: int, slot: int) -> None:
++    """In-place inverse of ``dcp_split_rows`` on ``world_size * per`` rows of
++    ``buf``. Rows at and past the real row count are left unspecified."""
++    group = get_parallel().dcp_group
++    out = buf[: group.world_size * per]
++    group.all_gather_into_tensor(out, out[slot : slot + per])
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+new file mode 100644
+index 0000000000..02838a7a88
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+@@ -0,0 +1,189 @@
++"""Split the DSA decode indexer across a DCP group over a replicated index K.
++
++Every DCP rank holds the whole index K, so the paged MQA scoring of a decode,
++target-verify or draft-extend row can be divided by context page: rank ``r``
++scores request pages ``r, r + W, ...``, keeps a local top-k, and the ranks
++all-gather (score, position) candidates and merge them. The merge is exact: a
++token in the global top-k is in the local top-k of the rank that scored it.
++"""
++
++from __future__ import annotations
++
++from typing import Callable, Optional, Tuple
++
++import msgspec
++import torch
++
++
++def owned_page_table(block_tables: torch.Tensor, w: int, r: int) -> torch.Tensor:
++    """[rows, pages] request page table -> the pages rank ``r`` scores."""
++    return block_tables[:, r::w].contiguous()
++
++
++def owned_lens(lens: torch.Tensor, page: int, w: int, r: int) -> torch.Tensor:
++    """Tokens of ``[0, lens)`` that fall in pages ``r, r + w, ...`` (int32).
++
++    Only the page holding position ``lens - 1`` can be partial, and owned pages
++    are scored in order, so the owned positions are a prefix of the local logits.
++    """
++    lens = lens.to(torch.int64).clamp(min=0)
++    full = lens // page
++    rem = lens % page
++    owned_full = ((full - r + w - 1) // w).clamp(min=0)
++    tail = torch.where(full % w == r, rem, torch.zeros_like(rem))
++    return (owned_full * page + tail).to(torch.int32)
++
++
++def local_to_global_pos(
++    local_idx: torch.Tensor, page: int, w: int, r: int
++) -> torch.Tensor:
++    """Local logits column -> request position; negative stays -1."""
++    idx = local_idx.to(torch.int64)
++    pos = ((idx // page) * w + r) * page + idx % page
++    return torch.where(idx >= 0, pos, torch.full_like(pos, -1)).to(torch.int32)
++
++
++def pack_candidates(
++    local_logits: torch.Tensor,
++    local_idx: torch.Tensor,
++    local_lens: torch.Tensor,
++    topk: int,
++    page: int,
++    w: int,
++    r: int,
++) -> torch.Tensor:
++    """[2, rows, topk] int32: fp32 score bits (-inf if invalid), global pos (-1)."""
++    rows = local_idx.shape[0]
++    idx = local_idx.to(torch.int64)
++    valid = (idx >= 0) & (idx < local_lens.view(rows, 1).to(torch.int64))
++    safe = torch.where(valid, idx, torch.zeros_like(idx))
++    width = local_logits.shape[1]
++    if width == 0:
++        scores = torch.full(
++            (rows, topk), -float("inf"), dtype=torch.float32, device=idx.device
++        )
++    else:
++        scores = local_logits.float().gather(1, safe.clamp(max=width - 1))
++    scores = torch.where(valid, scores, torch.full_like(scores, -float("inf")))
++    pos = torch.where(
++        valid,
++        local_to_global_pos(safe, page, w, r).to(torch.int64),
++        torch.full_like(idx, -1),
++    )
++    out = torch.empty((2, rows, topk), dtype=torch.int32, device=idx.device)
++    out[0] = scores.contiguous().view(torch.int32)
++    out[1] = pos.to(torch.int32)
++    return out
++
++
++def merge_candidates(gathered: torch.Tensor, w: int, topk: int) -> torch.Tensor:
++    """[w * 2, rows, topk] gathered packs -> [rows, topk] global positions (-1 padded)."""
++    packs = gathered.view(w, 2, gathered.shape[1], topk)
++    scores = packs[:, 0].contiguous().view(torch.float32)  # [w, rows, topk]
++    pos = packs[:, 1]
++    rows = packs.shape[2]
++    scores = scores.permute(1, 0, 2).reshape(rows, w * topk)
++    pos = pos.permute(1, 0, 2).reshape(rows, w * topk)
++    best, pick = torch.topk(scores, topk, dim=1)
++    chosen = pos.gather(1, pick)
++    return torch.where(best > -float("inf"), chosen, torch.full_like(chosen, -1))
++
++
++def positions_to_slots(
++    pos: torch.Tensor, real_page_table: torch.Tensor, page: int
++) -> torch.Tensor:
++    """Request positions -> KV slots, as the fused paged top-k emits them."""
++    p = pos.to(torch.int64)
++    safe = p.clamp(min=0)
++    pages = real_page_table.to(torch.int64).gather(1, safe // page)
++    slots = pages * page + safe % page
++    return torch.where(p >= 0, slots, torch.full_like(slots, -1)).to(torch.int32)
++
++
++class OwnedInputsCache(msgspec.Struct):
++    """Per-forward reuse of the owned page table and lens across indexer layers.
++
++    They depend only on the forward's page table and lens, not on the layer. A
++    new forward is detected by a different forward metadata object, a layer id
++    that does not increase, or a different (pointer, shape) of either input.
++    """
++
++    metadata: object = None
++    layer_id: int = -1
++    key: Optional[Tuple] = None
++    tables: Optional[torch.Tensor] = None
++    lens: Optional[torch.Tensor] = None
++
++
++def _input_key(block_tables: torch.Tensor, lens: torch.Tensor) -> Tuple:
++    return (
++        block_tables.data_ptr(),
++        tuple(block_tables.shape),
++        lens.data_ptr(),
++        tuple(lens.shape),
++    )
++
++
++def owned_inputs(
++    cache: OwnedInputsCache,
++    *,
++    metadata: object,
++    layer_id: int,
++    block_tables: torch.Tensor,
++    lens: torch.Tensor,
++    page: int,
++    w: int,
++    r: int,
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    key = _input_key(block_tables, lens)
++    if not (
++        cache.metadata is metadata and layer_id > cache.layer_id and cache.key == key
++    ):
++        cache.metadata = metadata
++        cache.key = key
++        cache.tables = owned_page_table(block_tables, w, r)
++        cache.lens = owned_lens(lens, page, w, r)
++    cache.layer_id = layer_id
++    return cache.tables, cache.lens
++
++
++def split_decode_topk(
++    *,
++    block_tables: torch.Tensor,
++    lens: torch.Tensor,
++    page: int,
++    topk: int,
++    w: int,
++    r: int,
++    logits_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
++    local_topk_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
++    all_gather_fn: Callable[[torch.Tensor], torch.Tensor],
++    owned: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
++    pack_fn: Callable[..., torch.Tensor] = pack_candidates,
++    merge_fn: Callable[..., torch.Tensor] = merge_candidates,
++) -> torch.Tensor:
++    """Global top-k request positions [rows, topk] (-1 padded) for every row.
++
++    ``logits_fn(owned_block_tables, owned_lens, max_len)`` scores this rank's
++    pages; ``local_topk_fn(logits, lens, k)`` returns column indices;
++    ``all_gather_fn`` concatenates the [2, rows, topk] packs of all W ranks
++    along dim 0 in rank order. ``owned`` passes precomputed
++    (``owned_page_table``, ``owned_lens``) for these inputs. ``pack_fn`` and
++    ``merge_fn`` take the signatures of ``pack_candidates`` / ``merge_candidates``.
++    """
++    if owned is None:
++        owned = (owned_page_table(block_tables, w, r), owned_lens(lens, page, w, r))
++    local_tables, local_lens = owned
++    local_logits = logits_fn(local_tables, local_lens, local_tables.shape[1] * page)
++    if local_logits.shape[1] < topk:
++        local_logits = torch.nn.functional.pad(
++            local_logits, (0, topk - local_logits.shape[1]), value=-float("inf")
++        )
++    local_idx = local_topk_fn(local_logits, local_lens, topk)
++    pack = pack_fn(local_logits, local_idx, local_lens, topk, page, w, r)
++    return merge_fn(all_gather_fn(pack), w, topk)
++
++
++# One per process: draft and target forwards use different forward metadata
++# objects, so they never share an entry.
++OWNED_INPUTS_CACHE = OwnedInputsCache()
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+new file mode 100644
+index 0000000000..e5e4e8b3a0
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+@@ -0,0 +1,191 @@
++"""Triton pack and merge for the page-split DCP decode indexer.
++
++Drop-in replacements for ``pack_candidates`` and ``merge_candidates`` (plus
++``positions_to_slots``) in ``dsa_dcp_split_indexer``: one launch each instead
++of a chain of small elementwise ops per indexer layer.
++"""
++
++from __future__ import annotations
++
++from typing import Optional
++
++import torch
++import triton
++import triton.language as tl
++
++
++@triton.jit
++def _pack_candidates_kernel(
++    logits_ptr,
++    logits_stride,
++    width,
++    idx_ptr,
++    idx_stride,
++    lens_ptr,
++    out_ptr,
++    rows,
++    TOPK: tl.constexpr,
++    BLOCK: tl.constexpr,
++    PAGE: tl.constexpr,
++    W: tl.constexpr,
++    R: tl.constexpr,
++):
++    row = tl.program_id(0)
++    offs = tl.arange(0, BLOCK)
++    lane = offs < TOPK
++    idx = tl.load(idx_ptr + row * idx_stride + offs, mask=lane, other=-1).to(tl.int64)
++    length = tl.load(lens_ptr + row).to(tl.int64)
++    valid = lane & (idx >= 0) & (idx < length) & (idx < width)
++    safe = tl.where(valid, idx, 0)
++    score = tl.load(
++        logits_ptr + row * logits_stride + safe, mask=valid, other=float("-inf")
++    ).to(tl.float32)
++    score = tl.where(valid, score, float("-inf"))
++    pos = ((safe // PAGE) * W + R) * PAGE + safe % PAGE
++    pos = tl.where(valid, pos, -1).to(tl.int32)
++    # out is [2, rows, TOPK] int32: fp32 score bits, then the request position.
++    tl.store(out_ptr + row * TOPK + offs, score.to(tl.int32, bitcast=True), mask=lane)
++    tl.store(out_ptr + (rows + row) * TOPK + offs, pos, mask=lane)
++
++
++def pack_candidates_triton(
++    local_logits: torch.Tensor,
++    local_idx: torch.Tensor,
++    local_lens: torch.Tensor,
++    topk: int,
++    page: int,
++    w: int,
++    r: int,
++) -> torch.Tensor:
++    """Same contract as ``dsa_dcp_split_indexer.pack_candidates``."""
++    rows = local_idx.shape[0]
++    out = torch.empty((2, rows, topk), dtype=torch.int32, device=local_idx.device)
++    if rows == 0:
++        return out
++    assert local_logits.stride(1) == 1 and local_idx.stride(1) == 1
++    _pack_candidates_kernel[(rows,)](
++        local_logits,
++        local_logits.stride(0),
++        local_logits.shape[1],
++        local_idx,
++        local_idx.stride(0),
++        local_lens,
++        out,
++        rows,
++        TOPK=topk,
++        BLOCK=triton.next_power_of_2(topk),
++        PAGE=page,
++        W=w,
++        R=r,
++    )
++    return out
++
++
++@triton.jit
++def _merge_candidates_kernel(
++    packs_ptr,
++    rows,
++    page_table_ptr,
++    page_table_stride,
++    out_ptr,
++    TOPK: tl.constexpr,
++    W: tl.constexpr,
++    BLOCK: tl.constexpr,
++    PAGE: tl.constexpr,
++    HAS_PAGE_TABLE: tl.constexpr,
++):
++    row = tl.program_id(0)
++    cand = tl.arange(0, BLOCK)
++    lane = cand < W * TOPK
++    rank = cand // TOPK
++    j = cand % TOPK
++    # packs is [W, 2, rows, TOPK] int32 (one gathered pack per rank).
++    score_off = ((rank * 2) * rows + row) * TOPK + j
++    bits = tl.load(packs_ptr + score_off, mask=lane, other=-8388608)  # -inf bits
++    # Order-preserving map of the fp32 bits onto [0, 2^32): integer order = float
++    # order (negative floats flip all bits, others set the top bit). -inf maps to
++    # 0x007FFFFF; padding lanes get 0 so they rank below every real candidate.
++    ubits = bits.to(tl.int64) & 0xFFFFFFFF
++    ordered = tl.where(bits < 0, 0xFFFFFFFF - ubits, ubits + 0x80000000)
++    ordered = tl.where(lane, ordered, 0)
++
++    # Radix select, 8 bits per pass: find the TOPK-th largest value `prefix` and
++    # how many of the candidates equal to it are still needed.
++    bins = tl.arange(0, 512)
++    prefix = tl.zeros((), dtype=tl.int64)
++    prefix_mask = tl.zeros((), dtype=tl.int64)
++    need = tl.full((), TOPK, dtype=tl.int64)
++    for p in tl.static_range(4):
++        shift = 24 - 8 * p
++        digit = (ordered >> shift) & 255
++        match = (ordered & prefix_mask) == prefix
++        # Non-matching candidates go to bins 256..511, which are ignored.
++        hist = tl.histogram(tl.where(match, digit, 256 + digit).to(tl.int32), 512)
++        hist = tl.where(bins < 256, hist, 0).to(tl.int64)
++        total = tl.sum(hist)
++        count_ge = total - tl.cumsum(hist, 0) + hist
++        d = tl.max(tl.where((bins < 256) & (count_ge >= need), bins, -1))
++        count_gt = tl.sum(tl.where(bins > d, hist, 0))
++        need = need - count_gt
++        prefix = prefix | (d.to(tl.int64) << shift)
++        prefix_mask = prefix_mask | (255 << shift)
++
++    above = ordered > prefix
++    equal = ordered == prefix
++    # Among ties at the threshold, the lowest candidate indices are kept.
++    selected = above | (equal & (tl.cumsum(equal.to(tl.int32), 0) <= need))
++    out_idx = tl.cumsum(selected.to(tl.int32), 0) - 1
++    # 0x007FFFFF is the mapped -inf; a selected -inf candidate is padding.
++    real = ordered > 0x007FFFFF
++    pos_off = ((rank * 2 + 1) * rows + row) * TOPK + j
++    pos = tl.load(packs_ptr + pos_off, mask=selected & real, other=-1).to(tl.int64)
++    valid = selected & real & (pos >= 0)
++    if HAS_PAGE_TABLE:
++        safe = tl.where(valid, pos, 0)
++        page_id = tl.load(
++            page_table_ptr + row * page_table_stride + safe // PAGE,
++            mask=valid,
++            other=0,
++        ).to(tl.int64)
++        result = page_id * PAGE + safe % PAGE
++    else:
++        result = pos
++    result = tl.where(valid, result, -1).to(tl.int32)
++    tl.store(out_ptr + row * TOPK + out_idx, result, mask=selected)
++
++
++def merge_candidates_triton(
++    gathered: torch.Tensor,
++    w: int,
++    topk: int,
++    *,
++    page_table: Optional[torch.Tensor] = None,
++    page: int = 1,
++) -> torch.Tensor:
++    """``merge_candidates`` and, given ``page_table``, ``positions_to_slots``.
++
++    Returns [rows, topk] int32, -1 padded. The selected set equals the torch
++    reference; the order is candidate order (rank-major), not score order.
++    """
++    rows = gathered.shape[1]
++    out = torch.empty((rows, topk), dtype=torch.int32, device=gathered.device)
++    if rows == 0:
++        return out
++    packs = gathered.contiguous()
++    block = triton.next_power_of_2(w * topk)
++    has_page_table = page_table is not None
++    if has_page_table:
++        assert page_table.stride(1) == 1
++    _merge_candidates_kernel[(rows,)](
++        packs,
++        rows,
++        page_table if has_page_table else packs,
++        page_table.stride(0) if has_page_table else 0,
++        out,
++        TOPK=topk,
++        W=w,
++        BLOCK=block,
++        PAGE=page,
++        HAS_PAGE_TABLE=has_page_table,
++    )
++    return out
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index 6587e5fbe9..879892b0f6 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -1,7 +1,9 @@
+ from __future__ import annotations
+ 
+ import contextlib
++import functools
+ import logging
++import os
+ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
+ 
+ import torch
+@@ -21,6 +23,10 @@ from sglang.kernels.ops.kvcache.dsa_fused_store_index_cache import (
+ from sglang.kernels.ops.quantization.fp8_kernel import fp8_dtype, is_fp8_fnuz
+ from sglang.srt.compilation.compilation_config import register_split_op
+ from sglang.srt.environ import envs
++from sglang.srt.layers.attention.dsa.dsa_dcp import (
++    dcp_all_gather_rows_,
++    dcp_split_rows,
++)
+ from sglang.srt.layers.attention.dsa.dsa_indexer_metadata import BaseIndexerMetadata
+ from sglang.srt.layers.attention.dsa.dsa_npu_indexer import DSANPUIndexerMixin
+ from sglang.srt.layers.attention.dsa.dsa_prefill_cuda_graph import (
+@@ -88,6 +94,9 @@ _FUSED_FP8_WRITER_LOGGED = False
+ 
+ _is_cuda = is_cuda()
+ _is_hip = is_hip()
++# Set SGLANG_DEBUG_DSA_ROWS=1 to log the indexer row bookkeeping (padded vs real).
++_DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
++
+ 
+ # Every per-call decline in _gfx950_fused_decode falls through to the standard
+ # path, which is silent by construction. Without a trace, a config that turns
+@@ -227,6 +236,18 @@ def _broadcast_indexer_topk_from_rank0(
+     return topk_indices
+ 
+ 
++def _skips_eager_idle(forward_batch: ForwardBatch) -> bool:
++    """Whether the indexer returns all-invalid rows without running: an eager
++    IDLE forward (a DP-attention rank padded with no requests) has no valid
++    page-table rows or lengths to score. On ROCm the paged top-k v2 kernel
++    faulted on them in the idle NextN draft forward under DP2 x DCP2."""
++    return (
++        (_is_cuda or _is_hip)
++        and forward_batch.forward_mode.is_idle()
++        and not get_is_capture_mode()
++    )
++
++
+ def _make_eager_idle_topk_result(
+     x: torch.Tensor, index_topk: int, return_indices: bool
+ ) -> Optional[torch.Tensor]:
+@@ -1367,11 +1388,73 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+                 )
+             return torch.cat(logits_chunks, dim=0)
+ 
++        # GLM52_P1V2/P1V3: bound BEFORE the branch, not inside it -- _p1v2_clip is
++        # read unconditionally below, so a branch-local binding is a NameError on
++        # any non-aiter backend. See "BOUND BEFORE THE BRANCH" in the header.
++        _p1v2_trim = False
++        _p1v2_clip = False
++        _p1v2_real = q_offset
++        _p1v2_padded = q_fp8.shape[0]
++        _p1v2_rows = _p1v2_padded
+         if self.paged_mqa_logits_backend.is_aiter():
++            # WHY aiter sizes logits from q_fp8.shape[0], which disagrees with
++            # `lengths` BOTH ways. HOW reconcile to min(): trim when longer, clip
++            # when shorter. Cases: "DIVERGES BOTH WAYS" in the header.
++            _p1v2_rows = min(_p1v2_real, _p1v2_padded)
++            _p1v2_trim = _p1v2_rows < _p1v2_padded
++            _p1v2_clip = _p1v2_rows < _p1v2_real
++            _q_mqa, _w_mqa = q_fp8, weights
++            if _p1v2_trim:
++                _q_mqa = q_fp8[:_p1v2_rows]
++                _w_mqa = weights[:_p1v2_rows]
++            if _DSA_DEBUG_ROWS:
++                # Cross-check against the padding bookkeeping #32762 keys off.
++                # NOT an assert: it does NOT agree with q_offset on the MTP
++                # draft-extend path -- that disagreement is the P1V3 case above,
++                # and this log is how it was caught.
++                _p1v2_ntnp = getattr(forward_batch, "_original_num_tokens", None)
++                if _p1v2_ntnp is None:
++                    _p1v2_ntnp = forward_batch.num_token_non_padded_cpu
++                logger.info(
++                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s ntnp=%s agree=%s "
++                    "lengths=%s -> mqa_q=%s",
++                    forward_batch.forward_mode,
++                    tuple(q_fp8.shape),
++                    _p1v2_real,
++                    _p1v2_ntnp,
++                    _p1v2_ntnp == _p1v2_real,
++                    tuple(metadata.get_seqlens_expanded().shape),
++                    tuple(_q_mqa.shape),
++                )
++            if self._use_dcp_split_decode_indexer(
++                forward_batch, metadata, block_tables, seqlens_32, _p1v2_rows
++            ):
++                topk_result = self._dcp_split_decode_topk(
++                    _q_mqa,
++                    kv_cache_fp8,
++                    _w_mqa,
++                    seqlens_32[:_p1v2_rows],
++                    block_tables[:_p1v2_rows],
++                    page_size,
++                    metadata,
++                    layer_id,
++                )
++                if _p1v2_trim:
++                    topk_result = torch.cat(
++                        [
++                            topk_result,
++                            topk_result.new_full(
++                                (_p1v2_padded - _p1v2_rows, topk_result.shape[1]),
++                                -1,
++                            ),
++                        ],
++                        dim=0,
++                    )
++                return topk_result
+             logits = aiter_paged_mqa_logits(
+-                q_fp8,
++                _q_mqa,
+                 kv_cache_fp8,
+-                weights,
++                _w_mqa,
+                 seqlens_32,
+                 block_tables,
+                 max_seq_len,
+@@ -1437,12 +1520,33 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+ 
+         # NOTE(dark): logits should be cleaned in topk_transform
+         self._mask_init_and_local_tokens(logits, seqlens_32)
+-        topk_result = metadata.topk_transform(logits, self.index_topk)
+-        # Restore possible padding exist in the hidden states.
+-        if not _is_hip and q_offset < q_fp8.shape[0]:
+-            pad_len = q_fp8.shape[0] - q_offset
++        # GLM52_P1V3: rows were CLIPPED (real > padded), so the lengths this
++        # indexes must be clipped to match. Via topk_transform's existing
++        # `ke_offset` -- an extension point that only overrides seq_lens_topk --
++        # NOT by mutating shared, possibly graph-captured metadata.
++        if _p1v2_clip:
++            topk_result = metadata.topk_transform(
++                logits,
++                self.index_topk,
++                ke_offset=metadata.get_seqlens_expanded()[:_p1v2_rows],
++            )
++        else:
++            topk_result = metadata.topk_transform(logits, self.index_topk)
++        # GLM52_P1V2: restore the trimmed padding -- gate on the SAME boolean and
++        # assert the row count. BEFORE, a re-derived condition skipped the restore
++        # on a shape drift, returning a short tensor instead of crashing.
++        #
++        # Keyed off _p1v2_rows, not _p1v2_real: under P1V3's clip case the two
++        # differ, and it is _p1v2_rows that the kernel actually ran over.
++        if _p1v2_trim:
++            assert topk_result.shape[0] == _p1v2_rows, (
++                "GLM52_P1V3: paged-MQA top-k returned "
++                f"{topk_result.shape[0]} rows for {_p1v2_rows} trimmed query "
++                f"rows (real={_p1v2_real}, padded={_p1v2_padded}); refusing to "
++                "pad a mis-shaped result."
++            )
+             padding = torch.full(
+-                (pad_len, topk_result.shape[1]),
++                (_p1v2_padded - _p1v2_rows, topk_result.shape[1]),
+                 -1,
+                 dtype=topk_result.dtype,
+                 device=topk_result.device,
+@@ -1450,6 +1554,111 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+             topk_result = torch.cat([topk_result, padding], dim=0)
+         return topk_result
+ 
++    def _use_dcp_split_decode_indexer(
++        self,
++        forward_batch: ForwardBatch,
++        metadata: BaseIndexerMetadata,
++        block_tables: torch.Tensor,
++        seqlens_32: torch.Tensor,
++        rows: int,
++    ) -> bool:
++        mode = forward_batch.forward_mode
++        return (
++            _is_hip
++            and _use_aiter_preshuffle
++            and envs.SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER.get()
++            and getattr(metadata, "dcp_size", 1) > 1
++            and (
++                mode.is_decode() or mode.is_target_verify() or mode.is_draft_extend_v2()
++            )
++            and self.num_init_tokens == 0
++            and self.num_local_tokens == 0
++            and seqlens_32.dim() == 1
++            # One page-table row per query row; otherwise keep the replicated path.
++            and block_tables.shape[0] >= rows
++            and seqlens_32.shape[0] >= rows
++        )
++
++    def _dcp_split_decode_topk(
++        self,
++        q_fp8: torch.Tensor,
++        kv_cache_fp8: torch.Tensor,
++        weights: torch.Tensor,
++        lens: torch.Tensor,
++        block_tables: torch.Tensor,
++        page_size: int,
++        metadata: BaseIndexerMetadata,
++        layer_id: int,
++    ) -> torch.Tensor:
++        """Top-k over this rank's pages, merged across the DCP group, in the
++        same index space ``topk_transform`` would return (slots when fused)."""
++        from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (
++            OWNED_INPUTS_CACHE,
++            owned_inputs,
++            positions_to_slots,
++            split_decode_topk,
++        )
++
++        group = get_parallel().dcp_group
++        w, r = group.world_size, group.rank_in_group
++        # attn_metadata is shared by every layer of one forward.
++        owned = owned_inputs(
++            OWNED_INPUTS_CACHE,
++            metadata=metadata.attn_metadata,
++            layer_id=layer_id,
++            block_tables=block_tables,
++            lens=lens,
++            page=page_size,
++            w=w,
++            r=r,
++        )
++
++        def logits_fn(tables, local_lens, max_len):
++            return aiter_paged_mqa_logits(
++                q_fp8,
++                kv_cache_fp8,
++                weights,
++                local_lens,
++                tables,
++                max_len,
++                preshuffle=_use_aiter_preshuffle,
++                kv_block_size=page_size,
++            )
++
++        fused = envs.SGLANG_DSA_FUSE_TOPK.get() and not metadata.force_unfused_topk
++        use_triton = envs.SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON.get()
++        kernel_fns = {}
++        if use_triton:
++            from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer_triton import (
++                merge_candidates_triton,
++                pack_candidates_triton,
++            )
++
++            kernel_fns = dict(
++                pack_fn=pack_candidates_triton,
++                merge_fn=functools.partial(
++                    merge_candidates_triton,
++                    page_table=block_tables if fused else None,
++                    page=page_size,
++                ),
++            )
++        pos = split_decode_topk(
++            block_tables=block_tables,
++            lens=lens,
++            page=page_size,
++            topk=self.index_topk,
++            w=w,
++            r=r,
++            logits_fn=logits_fn,
++            local_topk_fn=metadata.topk_backend.topk_func,
++            all_gather_fn=lambda pack: group.all_gather(pack, dim=0),
++            owned=owned,
++            **kernel_fns,
++        )
++        if fused and not use_triton:
++            return positions_to_slots(pos, block_tables, page_size)
++        return pos
++
+     def _get_mqa_logits_budget_bytes(self, device_index: int) -> int:
+         cached_budget = self._mqa_logits_budget_bytes.get(device_index)
+         if cached_budget is not None:
+@@ -1555,14 +1764,30 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+         token_to_batch_idx = metadata.get_token_to_batch_idx()
+         q_offset = ks.shape[0]
+         k_offset = k_fp8.shape[0]
++        # Every DCP rank holds the whole index K: score 1/W of the rows each, then
++        # all-gather the top-k.
++        split = _is_hip and getattr(metadata, "dcp_size", 1) > 1
++        topk_dst = topk_result
++        if split:
++            row_per, row_slot, row_lo, row_hi = dcp_split_rows(q_offset)
++            # Gather in place unless the strides would spill past the real rows.
++            if (
++                row_per * metadata.dcp_size != q_offset
++                or not topk_result.is_contiguous()
++            ):
++                topk_dst = topk_result.new_empty(
++                    (row_per * metadata.dcp_size, topk_result.shape[1])
++                )
++        else:
++            row_lo, row_hi = 0, q_offset
+         need_chunk, logits_budget_bytes = mqa_logits_should_chunk(
+-            num_rows=q_offset,
++            num_rows=row_hi - row_lo,
+             num_cols=k_offset,
+             get_budget_bytes=lambda: self._get_mqa_logits_budget_bytes(device_index),
+             rocm=_is_hip,
+         )
+ 
+-        if not need_chunk:
++        if not need_chunk and not split:
+             assert q_fp8[:q_offset].shape[0] != 0
+             with self._with_real_sm_count():
+                 if _is_hip:
+@@ -1611,9 +1836,11 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+             topk_result[:q_offset] = raw_topk_result
+             return topk_result
+ 
+-        bytes_per_row = k_offset * self._MQA_LOGITS_BYTES_PER_ELEM
+-        max_rows = max(1, int(logits_budget_bytes // max(bytes_per_row, 1)))
+-        max_rows = min(max_rows, q_offset)
++        max_rows = max(1, row_hi - row_lo)
++        if need_chunk:
++            bytes_per_row = k_offset * self._MQA_LOGITS_BYTES_PER_ELEM
++            max_rows = max(1, int(logits_budget_bytes // max(bytes_per_row, 1)))
++            max_rows = min(max_rows, q_offset)
+ 
+         global_topk_offset = metadata.attn_metadata.topk_indices_offset
+         cu_seqlens_q_full = None
+@@ -1628,9 +1855,9 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+                 f"topk_indices_offset too short: {global_topk_offset.shape[0]} < {q_offset}"
+             )
+ 
+-        start = 0
+-        while start < q_offset:
+-            end = min(start + max_rows, q_offset)
++        start = row_lo
++        while start < row_hi:
++            end = min(start + max_rows, row_hi)
+ 
+             with self._with_real_sm_count():
+                 if _is_hip:
+@@ -1693,9 +1920,13 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+                 batch_idx_list=batch_idx_chunk,
+                 topk_indices_offset_override=topk_offset_chunk,
+             )
+-            topk_result[start:end] = raw_topk_chunk
++            topk_dst[start:end] = raw_topk_chunk
+             start = end
+ 
++        if split:
++            dcp_all_gather_rows_(topk_dst, row_per, row_slot)
++            if topk_dst is not topk_result:
++                topk_result[:q_offset] = topk_dst[:q_offset]
+         return topk_result
+ 
+     def _forward_cuda_k_only(
+@@ -1906,11 +2137,7 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+         # DSA page-table rows to index. Return invalid rows with the physical DP
+         # shape so later MLP/EP collectives still agree across ranks.
+         x_meta = x[0] if isinstance(x, tuple) else x
+-        if (
+-            _is_cuda
+-            and forward_batch.forward_mode.is_idle()
+-            and not get_is_capture_mode()
+-        ):
++        if _skips_eager_idle(forward_batch):
+             topk_result = _make_eager_idle_topk_result(
+                 x_meta, self.index_topk, return_indices
+             )
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py
+index 134b65aaf5..da70464535 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py
+@@ -98,6 +98,7 @@ class DSAIndexerMetadata(BaseIndexerMetadata):
+     paged_mqa_schedule_metadata: Optional[torch.Tensor] = None
+     paged_mqa_ctx_lens_2d: Optional[torch.Tensor] = None
+     force_unfused_topk: bool = False
++    dcp_size: int = 1
+ 
+     def get_seqlens_int32(self) -> torch.Tensor:
+         return self.attn_metadata.cache_seqlens_int32
+diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
+index 650923ed4b..c4a6b2592a 100644
+--- a/python/sglang/srt/layers/attention/dsa_backend.py
++++ b/python/sglang/srt/layers/attention/dsa_backend.py
+@@ -14,7 +14,11 @@ from typing import (
+ 
+ import torch
+ 
+-from sglang.srt.configs.model_config import get_dsa_index_topk, is_deepseek_dsa
++from sglang.srt.configs.model_config import (
++    dsa_draft_shards_under_dcp,
++    get_dsa_index_topk,
++    is_deepseek_dsa,
++)
+ from sglang.srt.constants import GPU_MEMORY_TYPE_CUDA_GRAPH
+ from sglang.srt.runtime_context import (
+     get_buffer,
+@@ -62,7 +66,9 @@ from sglang.srt.layers.attention.dsa.dsa_backend_mtp_precompute import (
+ )
+ from sglang.srt.layers.attention.dsa.dsa_dcp import (
+     DcpPageTableCache,
++    dcp_gathered_page_table,
+     dcp_trtllm_sparse_attention,
++    dcp_use_gathered_prefill,
+     localize_dcp_page_table,
+ )
+ from sglang.srt.layers.attention.dsa.dsa_indexer_metadata import DSAIndexerMetadata
+@@ -93,6 +99,7 @@ from sglang.srt.layers.attention.trtllm_mla_backend import (
+ )
+ from sglang.srt.layers.cp.base import get_cp_strategy
+ from sglang.srt.layers.cp.utils import is_cp_active
++from sglang.srt.layers.dcp import is_dsa_dcp_gathered_prefill
+ from sglang.srt.model_executor.forward_batch_info import ForwardBatch, ForwardMode
+ from sglang.srt.utils import (
+     is_cuda,
+@@ -180,6 +187,29 @@ def _to_2d_context_lens(seqlens_32: torch.Tensor, batch_size: int) -> torch.Tens
+     return seqlens_32.contiguous().view(-1, 1)
+ 
+ 
++def _glm52_match_page_table_rows(page_table, topk_indices):
++    """GLM52_BUG2B: give page_table one row per TOKEN, matching topk_indices.
++
++    page_table_1 is per-REQUEST, topk_indices per-TOKEN -- equal for plain decode,
++    not under MTP, where decode then trips `assert page_table.shape[0] ==
++    topk_indices.shape[0]`. Padded rows are masked, so only the COUNT matters.
++    """
++    if topk_indices is None or page_table is None:
++        return page_table
++    n_topk = topk_indices.shape[0]
++    n_rows = page_table.shape[0]
++    if n_rows == n_topk:
++        return page_table
++    if n_rows > 0 and n_topk % n_rows == 0:
++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
++    # only through padded (-1) topk entries is masked, so its content is moot.
++    if n_rows > n_topk:
++        return page_table[:n_topk]
++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
++    return torch.cat([page_table, pad], dim=0)
++
++
+ def _trim_trtllm_decode_dp_padding(
+     q_all: torch.Tensor,
+     topk_indices: Optional[torch.Tensor],
+@@ -534,7 +564,9 @@ class DeepseekSparseAttnBackend(
+         self.num_q_heads = (
+             model_runner.model_config.num_attention_heads // get_parallel().attn_tp_size
+         )
+-        if model_runner.is_draft_worker:
++        if model_runner.is_draft_worker and not dsa_draft_shards_under_dcp(
++            model_runner.model_config.hf_config, get_parallel().attn_dcp_size
++        ):
+             self.dcp_size, self.dcp_rank = 1, 0
+         else:
+             self.dcp_size = get_parallel().attn_dcp_size
+@@ -1100,7 +1132,15 @@ class DeepseekSparseAttnBackend(
+             # needs_cpu_seq_lens=False nulls the host mirror for spec-v2 relay
+             # batches; graph replay uses the static page-table width, so only this
+             # eager (e.g. over-capture-bs) fallback needs a length here.
+-            max_seqlen_k = int(forward_batch.seq_lens.max().item()) + draft_token_num
++            #
++            # Use the static width rather than seq_lens.max().item(): that is a
++            # device-to-host sync, and this branch is entered per rank (an idle
++            # DP peer keeps its host mirror and takes the arm above), so under
++            # DP attention the ranks stop issuing the same collective sequence
++            # and the group deadlocks. Over-allocating columns is safe -- the
++            # page table is only indexed through top-k, which masks per row by
++            # cache_seqlens, so the extra columns are never selected.
++            max_seqlen_k = self.req_to_token.shape[1]
+         # [b, max_seqlen_k]
+         page_table = self.req_to_token_pool.req_to_token[
+             forward_batch.req_pool_indices, :max_seqlen_k
+@@ -1170,19 +1210,19 @@ class DeepseekSparseAttnBackend(
+                 page_table, repeats=self.speculative_num_draft_tokens, dim=0
+             )
+         elif forward_batch.forward_mode.is_draft_extend_v2():
+-            if forward_batch.extend_prefix_lens_cpu is None:
+-                assert forward_batch.extend_prefix_lens is not None
+-                forward_batch.extend_prefix_lens_cpu = (
+-                    forward_batch.extend_prefix_lens.cpu().tolist()
+-                )
+-            if forward_batch.seq_lens_cpu is None:
+-                forward_batch.seq_lens_cpu = forward_batch.seq_lens.cpu()
+-                forward_batch.seq_lens_sum = int(forward_batch.seq_lens_cpu.sum())
++            # No host mirrors are materialized here. Both would be D2H syncs on
++            # this same per-rank branch, so with only the max_seqlen_k fix above
++            # the DP group still deadlocks. Neither is read on this path:
++            # extend_prefix_lens_cpu and seq_lens_sum are consumed only inside
++            # the is_extend() arm below, and DRAFT_EXTEND_V2 is not is_extend()
++            # (include_draft_extend_v2 defaults to False). What this branch does
++            # need -- extend_seq_lens_cpu -- is already supplied by
++            # eagle_worker_common.prepare_for_draft_extend, on the same
++            # gpu_only branch and for this same reason.
+             assert (
+                 forward_batch.extend_seq_lens_cpu is not None
+                 and forward_batch.extend_seq_lens is not None
+-                and forward_batch.extend_prefix_lens_cpu is not None
+-            ), "All of them must not be None"
++            ), "extend_seq_lens{,_cpu} must not be None for DRAFT_EXTEND_V2"
+ 
+             extend_seq_lens_cpu = forward_batch.extend_seq_lens_cpu
+             assert forward_batch.extend_seq_lens is not None
+@@ -1393,6 +1433,68 @@ class DeepseekSparseAttnBackend(
+             kpool_inputs=kpool_inputs,
+         )
+         self.forward_metadata = metadata
++        # Re-plan only over this backend's own plan: another planner's metadata
++        # (prepare_context_parallel_metadata_for_dcp) is not ours to replace.
++        existing = forward_batch.attn_dcp_metadata
++        if (
++            _is_hip
++            and self.dcp_size > 1
++            and (existing is None or is_dsa_dcp_gathered_prefill(existing))
++        ):
++            forward_batch.attn_dcp_metadata = self._plan_dcp_gathered_prefill(
++                forward_batch, page_table.shape[1]
++            )
++
++    def _dcp_gathered_prefill(self, forward_batch: ForwardBatch) -> bool:
++        return is_dsa_dcp_gathered_prefill(forward_batch.attn_dcp_metadata)
++
++    def _plan_dcp_gathered_prefill(
++        self, forward_batch: ForwardBatch, page_table_width: int
++    ):
++        """Gathered-prefix DCP prefill plan, or None to attend owned slots."""
++        if not (
++            _is_hip
++            and self.dsa_prefill_impl == "triton"
++            and not self.use_mha
++            and forward_batch.forward_mode.is_extend_without_speculative()
++            and not self._is_in_tc_piecewise_cuda_graph()
++            and not self._is_in_breakable_cuda_graph()
++            and forward_batch.extend_prefix_lens is not None
++            and dcp_use_gathered_prefill(
++                forward_batch.extend_prefix_lens_cpu,
++                forward_batch.extend_num_tokens,
++                self.num_dcp_q_heads,
++            )
++        ):
++            return None
++        from sglang.srt.layers.dcp.planner import (
++            prepare_decode_context_parallel_metadata,
++        )
++        from sglang.srt.model_executor.forward_batch_deepseek_mha_mixin import (
++            create_chunked_prefix_cache_kv_indices,
++        )
++
++        dcp_meta = prepare_decode_context_parallel_metadata(
++            seq_lens=forward_batch.seq_lens,
++            extend_prefix_lens=forward_batch.extend_prefix_lens,
++            extend_prefix_lens_cpu=forward_batch.extend_prefix_lens_cpu,
++            extend_seq_lens=forward_batch.extend_seq_lens,
++            req_pool_indices=forward_batch.req_pool_indices,
++            req_to_token=self.req_to_token,
++            seq_lens_sum=forward_batch.seq_lens_sum,
++            kv_buffer_shape=self.token_to_kv_pool.get_kv_buffer_shape()[0],
++            kv_cache_dtype=self.token_to_kv_pool.dtype,
++            kv_cache_device=forward_batch.seq_lens.device,
++            create_chunked_prefix_cache_kv_indices_fn=create_chunked_prefix_cache_kv_indices,
++        )
++        dcp_meta.dsa_page_table_1 = dcp_gathered_page_table(
++            dcp_meta.dcp_kv_indptr,
++            dcp_meta.dcp_kv_indices,
++            forward_batch.seq_lens,
++            page_table_width,
++        )
++        dcp_meta.dsa_gathered_prefill = True
++        return dcp_meta
+ 
+     def _cal_indexer_k_start_end(
+         self,
+@@ -2228,6 +2330,12 @@ class DeepseekSparseAttnBackend(
+ 
+         # Do absorbed multi-latent attention (MLA path)
+         kv_cache = self.token_to_kv_pool.get_key_buffer(layer.layer_id)
++        prefill_page_table_1 = metadata.page_table_1
++        dcp_gathered = self._dcp_gathered_prefill(forward_batch)
++        if dcp_gathered:
++            # The caller all-gathered the prefix and appended this extend's KV.
++            kv_cache = forward_batch.attn_dcp_metadata.dcp_kv_buffer
++            prefill_page_table_1 = forward_batch.attn_dcp_metadata.dsa_page_table_1
+ 
+         if q_rope is not None:
+             q_nope = q.view(-1, layer.tp_q_head_num, layer.v_head_dim)
+@@ -2242,6 +2350,7 @@ class DeepseekSparseAttnBackend(
+             q_nope = q_all[:, :, : layer.v_head_dim]
+             q_rope = q_all[:, :, layer.v_head_dim :]
+ 
++        shared_topk_indices = topk_indices
+         # NOTE(dark): here, we use page size = 1
+         topk_transform_method = self.get_topk_transform_method(
+             forward_batch.forward_mode
+@@ -2259,7 +2368,7 @@ class DeepseekSparseAttnBackend(
+                 "--dllm-algorithm; --enable-mixed-chunk is rejected at launch)."
+             )
+ 
+-        if self.use_fused_topk:
++        if self.use_fused_topk and not dcp_gathered:
+             if topk_indices is not None:
+                 topk_indices = self._pad_topk_indices(topk_indices, q_nope.shape[0])
+ 
+@@ -2282,7 +2391,7 @@ class DeepseekSparseAttnBackend(
+             elif topk_transform_method == TopkTransformMethod.PAGED:
+                 assert metadata.dsa_extend_seq_lens_list is not None
+                 page_table_1 = transform_index_page_table_prefill(
+-                    page_table=metadata.page_table_1,
++                    page_table=prefill_page_table_1,
+                     topk_indices=topk_indices,
+                     extend_lens_cpu=metadata.dsa_extend_seq_lens_list,
+                     page_size=1,
+@@ -2329,6 +2438,18 @@ class DeepseekSparseAttnBackend(
+                 v_head_dim=layer.v_head_dim,
+             )
+         elif dsa_impl == "triton":
++            if _is_hip and self.dcp_size > 1 and not dcp_gathered:
++                assert topk_transform_method == TopkTransformMethod.PAGED
++                return self._forward_triton_dcp(
++                    q_nope=q_nope,
++                    q_rope=q_rope,
++                    kv_cache=kv_cache,
++                    v_head_dim=layer.v_head_dim,
++                    page_table_1=page_table_1,
++                    sm_scale=layer.scaling,
++                    layer=layer,
++                    topk_indices=shared_topk_indices,
++                )
+             from sglang.kernels.ops.attention.dsa.triton_sparse_mla import (
+                 triton_sparse_mla_fwd,
+             )
+@@ -2586,6 +2707,7 @@ class DeepseekSparseAttnBackend(
+             q_nope = q_all[:, :, : layer.v_head_dim]
+             q_rope = q_all[:, :, layer.v_head_dim :]
+ 
++        shared_topk_indices = topk_indices
+         # Align topk_indices with q dimensions
+         if topk_indices is not None:
+             topk_indices = self._pad_topk_indices(topk_indices, q_nope.shape[0])
+@@ -2601,7 +2723,9 @@ class DeepseekSparseAttnBackend(
+             page_table_1 = self._get_fused_topk_page_table(topk_indices)
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+@@ -2657,6 +2781,19 @@ class DeepseekSparseAttnBackend(
+                 v_head_dim=layer.v_head_dim,
+             )
+         elif dsa_impl == "triton":
++            # CUDA keeps upstream's dispatch: #43735 wires DCP to the trtllm
++            # backends, and this localized path has only been run on ROCm.
++            if _is_hip and self.dcp_size > 1:
++                return self._forward_triton_dcp(
++                    q_nope=q_nope,
++                    q_rope=q_rope,
++                    kv_cache=kv_cache,
++                    v_head_dim=layer.v_head_dim,
++                    page_table_1=page_table_1,
++                    sm_scale=layer.scaling,
++                    layer=layer,
++                    topk_indices=shared_topk_indices,
++                )
+             return self._forward_triton_decode(
+                 q_nope=q_nope,
+                 q_rope=q_rope,
+@@ -3459,6 +3596,52 @@ class DeepseekSparseAttnBackend(
+             workspace=workspace,
+         )
+ 
++    def _forward_triton_dcp(
++        self,
++        q_nope: torch.Tensor,
++        q_rope: torch.Tensor,
++        kv_cache: torch.Tensor,
++        v_head_dim: int,
++        page_table_1: torch.Tensor,
++        sm_scale: float,
++        layer: RadixAttention,
++        topk_indices: Optional[torch.Tensor],
++    ) -> tuple[torch.Tensor, torch.Tensor]:
++        """Attend the owned slots of the global top-k; one query row per token."""
++        from sglang.kernels.ops.attention.dsa.triton_sparse_mla_decode import (
++            triton_sparse_mla_decode_splitk,
++        )
++
++        rows, heads = q_nope.shape[0], q_nope.shape[1]
++        if rows == 0:
++            return (
++                q_nope.new_empty((rows, heads, v_head_dim), dtype=torch.bfloat16),
++                q_nope.new_empty((rows, heads), dtype=torch.float32),
++            )
++        local_page_table, owned_counts = localize_dcp_page_table(
++            self._dcp_page_table_cache,
++            metadata=self.forward_metadata,
++            layer_id=layer.layer_id,
++            topk_indices=topk_indices,
++            page_table=page_table_1[:rows].contiguous(),
++            dcp_size=self.dcp_size,
++            dcp_rank=self.dcp_rank,
++        )
++        stream_id = int(torch.cuda.current_stream(q_nope.device).cuda_stream)
++        workspace = self._triton_sparse_mla_workspaces.setdefault(stream_id, [])
++        out, lse = triton_sparse_mla_decode_splitk(
++            q_nope=q_nope,
++            q_rope=q_rope,
++            kv=kv_cache,
++            indices=local_page_table.unsqueeze(1),
++            sm_scale=sm_scale,
++            d_v=v_head_dim,
++            workspace=workspace,
++            return_lse=True,
++            lengths=owned_counts,
++        )
++        return out.view(rows, heads, v_head_dim), lse
++
+     def _forward_intel_xpu_sparse_decode(
+         self,
+         q_nope: torch.Tensor,
+@@ -3869,7 +4052,9 @@ class DeepseekSparseAttnBackend(
+             )
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+@@ -4064,12 +4249,17 @@ class DeepseekSparseAttnBackend(
+     def get_indexer_metadata(
+         self, layer_id: int, forward_batch: ForwardBatch
+     ) -> DSAIndexerMetadata:
+-        force_unfused = not self.use_fused_topk or (
+-            self.hisparse_coordinator is not None
+-            and (
+-                forward_batch.forward_mode.is_decode_or_idle()
+-                or forward_batch.forward_mode.is_target_verify()
++        force_unfused = (
++            not self.use_fused_topk
++            or (
++                self.hisparse_coordinator is not None
++                and (
++                    forward_batch.forward_mode.is_decode_or_idle()
++                    or forward_batch.forward_mode.is_target_verify()
++                )
+             )
++            # The gathered prefix is addressed by position, not by slot.
++            or self._dcp_gathered_prefill(forward_batch)
+         )
+         return DSAIndexerMetadata(
+             attn_metadata=self.forward_metadata,
+@@ -4080,6 +4270,7 @@ class DeepseekSparseAttnBackend(
+             paged_mqa_schedule_metadata=self.forward_metadata.paged_mqa_schedule_metadata,
+             paged_mqa_ctx_lens_2d=self.forward_metadata.paged_mqa_ctx_lens_2d,
+             force_unfused_topk=force_unfused,
++            dcp_size=self.dcp_size,
+         )
+ 
+     def _compute_flashmla_metadata(self, cache_seqlens: torch.Tensor, seq_len_q: int):
+diff --git a/python/sglang/srt/layers/attention/graph_utils.py b/python/sglang/srt/layers/attention/graph_utils.py
+index d1bd074670..7c114a90df 100644
+--- a/python/sglang/srt/layers/attention/graph_utils.py
++++ b/python/sglang/srt/layers/attention/graph_utils.py
+@@ -218,11 +218,22 @@ def _attention_on_real_rows(
+         forward_batch._attn_output = attn_output
+ 
+     def padded(t):
+-        if not isinstance(t, torch.Tensor) or t.shape[0] != real_num_tokens:
++        if not isinstance(t, torch.Tensor) or t.dim() == 0:
+             return t
+-        full = t.new_empty((num_tokens, *t.shape[1:]))
+-        full[:real_num_tokens].copy_(t)
+-        full[real_num_tokens:].zero_()
++        if t.shape[0] == real_num_tokens:
++            dim = 0
++        elif t.dim() > 1 and t.shape[0] == 1 and t.shape[1] == real_num_tokens:
++            # Batch-major [1, tokens, ...] output (the DSA sparse-MLA prefill
++            # kernels). Left unpadded, its caller's view(-1, ...) yields the
++            # real rows only, one short of the residual's padded rows.
++            dim = 1
++        else:
++            return t
++        shape = list(t.shape)
++        shape[dim] = num_tokens
++        full = t.new_empty(shape)
++        full.narrow(dim, 0, real_num_tokens).copy_(t)
++        full.narrow(dim, real_num_tokens, num_tokens - real_num_tokens).zero_()
+         return full
+ 
+     if isinstance(ret, tuple):
+diff --git a/python/sglang/srt/layers/dcp/__init__.py b/python/sglang/srt/layers/dcp/__init__.py
+index 0cb9848295..2a19b29c71 100644
+--- a/python/sglang/srt/layers/dcp/__init__.py
++++ b/python/sglang/srt/layers/dcp/__init__.py
+@@ -44,7 +44,10 @@ from sglang.srt.layers.dcp.layout import (
+     get_dcp_lens,
+     update_local_kv_lens_for_dcp,
+ )
+-from sglang.srt.layers.dcp.metadata import DecodeContextParallelMetadata
++from sglang.srt.layers.dcp.metadata import (
++    DecodeContextParallelMetadata,
++    is_dsa_dcp_gathered_prefill,
++)
+ 
+ # NOTE: planner.py is intentionally NOT imported here. It depends on server_args
+ # (get_server_args), whereas this package-init executes at module-load time
+@@ -56,6 +59,7 @@ from sglang.srt.layers.dcp.metadata import DecodeContextParallelMetadata
+ 
+ __all__ = [
+     "DecodeContextParallelMetadata",
++    "is_dsa_dcp_gathered_prefill",
+     "dcp_a2a_lse_reduce",
+     "init_fi_a2a_workspace",
+     "all_gather_kv_cache_for_dcp",
+diff --git a/python/sglang/srt/layers/dcp/metadata.py b/python/sglang/srt/layers/dcp/metadata.py
+index 9ec2ff33e8..00d54d74f5 100644
+--- a/python/sglang/srt/layers/dcp/metadata.py
++++ b/python/sglang/srt/layers/dcp/metadata.py
+@@ -35,3 +35,14 @@ class DecodeContextParallelMetadata:
+     dcp_kv_indices: Optional[torch.Tensor] = None
+     dcp_local_prefix_kv_indices: Optional[torch.Tensor] = None
+     dcp_extend_prefix_lens_sum: Optional[int] = None
++    # DSA prefill: [bs, max_len] sequence position -> dcp_kv_buffer row.
++    dsa_page_table_1: Optional[torch.Tensor] = None
++    # Set by the ROCm DSA backend when this extend attends the all-gathered
++    # prefix in dcp_kv_buffer instead of merging per-rank partials.
++    dsa_gathered_prefill: bool = False
++
++
++def is_dsa_dcp_gathered_prefill(
++    metadata: Optional[DecodeContextParallelMetadata],
++) -> bool:
++    return metadata is not None and metadata.dsa_gathered_prefill
+diff --git a/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py b/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py
+index d236da1de9..70ad3344c5 100644
+--- a/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py
++++ b/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py
+@@ -9,6 +9,8 @@ from typing import (
+     Optional,
+ )
+ 
++import logging
++
+ import msgspec
+ import zmq
+ 
+@@ -21,6 +23,8 @@ from sglang.srt.disaggregation.kv_events import (
+ from sglang.srt.managers.io_struct import hook_custom_types, sock_send
+ from sglang.srt.runtime_context import get_parallel
+ 
++logger = logging.getLogger(__name__)
++
+ if TYPE_CHECKING:
+     from sglang.srt.mem_cache.base_prefix_cache import BasePrefixCache
+ 
+@@ -52,6 +56,7 @@ class SchedulerKvEventsPublisher:
+     get_stats: Callable
+     enable_kv_cache_events: bool = False
+     kv_event_publisher: Any = None
++    metrics_drop_warned: bool = False
+ 
+     def __post_init__(self) -> None:
+         self.init_kv_events(self.kv_events_config)
+@@ -87,7 +92,15 @@ class SchedulerKvEventsPublisher:
+         )
+ 
+         if not self.send_metrics_from_scheduler.closed:
+-            sock_send(self.send_metrics_from_scheduler, kv_metrics)
++            # YIHOU: the metrics PUSH socket connects to an endpoint nothing binds in
++            # this deployment; a blocking send stalls the scheduler once the queue is
++            # full (c44a prefill, py-spy 2026-10-09). Drop instead of blocking.
++            try:
++                sock_send(self.send_metrics_from_scheduler, kv_metrics, flags=zmq.NOBLOCK)
++            except zmq.Again:
++                if not self.metrics_drop_warned:
++                    logger.warning("YIHOU: auxiliary KV metrics receiver unavailable; dropping telemetry, preserving KV events and Prometheus metrics")
++                    self.metrics_drop_warned = True
+ 
+     def local_kv_event_sources(self, block_size: int) -> list[dict[str, Any]]:
+         if self.kv_event_publisher is None:
+diff --git a/python/sglang/srt/managers/scheduler_components/metrics_reporter.py b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
+index ece7752556..f9f447db0a 100644
+--- a/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
++++ b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
+@@ -57,6 +57,7 @@ logger = logging.getLogger(__name__)
+ 
+ RECORD_STEP_TIME = envs.SGLANG_RECORD_STEP_TIME.get()
+ LOG_FORWARD_ITERS = envs.SGLANG_LOG_FORWARD_ITERS.get()
++LOG_DECODE_SEQ_LENS = envs.SGLANG_LOG_DECODE_SEQ_LENS.get()
+ _SPEC_DECODE_SNAPSHOT_ALGORITHMS = (
+     SpeculativeAlgorithm.EAGLE,
+     SpeculativeAlgorithm.EAGLE3,
+@@ -73,6 +74,14 @@ GEN_THROUGHPUT_STALENESS_SECONDS = 30.0
+ _SCHEDULER_TIME_ACCOUNTING_INTERVAL_NS = 1_000_000_000
+ 
+ 
++def _seq_lens_log_part(reqs) -> str:
++    # Host-side lengths (prompt + generated), so logging never syncs the device.
++    lens = [len(r.origin_input_ids) + len(r.output_ids) for r in reqs]
++    if not lens:
++        return "seq-lens rows: 0, sum: 0, max: 0, "
++    return f"seq-lens rows: {len(lens)}, sum: {sum(lens)}, max: {max(lens)}, "
++
++
+ class _CacheHitRateWindow:
+     def __init__(self) -> None:
+         self.samples = deque()
+@@ -958,6 +967,8 @@ class SchedulerMetricsReporter:
+         )
+         iter_msg = f" [{batch_iter}]" if LOG_FORWARD_ITERS else ""
+         msg = f"Decode batch{iter_msg}, #running-req: {num_running_reqs}, {token_usage_msg}"
++        if LOG_DECODE_SEQ_LENS and batch is not None:
++            msg += _seq_lens_log_part(batch.reqs)
+ 
+         spec_num_steps = 0
+         spec_num_draft_tokens = 0
+diff --git a/python/sglang/srt/mem_cache/kv_cache_configurator.py b/python/sglang/srt/mem_cache/kv_cache_configurator.py
+index 660941cbc6..41a6559f63 100644
+--- a/python/sglang/srt/mem_cache/kv_cache_configurator.py
++++ b/python/sglang/srt/mem_cache/kv_cache_configurator.py
+@@ -19,6 +19,7 @@ from sglang.srt.configs.hybrid_arch import (
+ from sglang.srt.configs.model_config import (
+     AttentionArch,
+     ModelConfig,
++    dsa_draft_shards_under_dcp,
+     dsa_layer_skips_topk,
+     get_dsa_index_head_dim,
+     get_dsa_index_kpool,
+@@ -490,11 +491,15 @@ class KVCacheConfigurator:
+     # Note(kpham-sgl):
+     # 1. A replicated draft indexes the allocator's virtual locs raw, so its pools
+     #    span and page that space; the sharded target translates and stays per-rank.
++    #    A ROCm DSA draft runs under DCP itself and shards like the target.
+     # 2. A pool must page as its allocator does, or its last page falls short.
+     @property
+     def loc_space_scale(self) -> int:
+         dcp_size = get_parallel().attn_dcp_size
+-        return dcp_size if (self.is_draft_worker and dcp_size > 1) else 1
++        replicated_draft = self.is_draft_worker and not dsa_draft_shards_under_dcp(
++            self.model_config.hf_config, dcp_size
++        )
++        return dcp_size if (replicated_draft and dcp_size > 1) else 1
+ 
+     @property
+     def pool_page_size(self) -> int:
+diff --git a/python/sglang/srt/mem_cache/memory_pool.py b/python/sglang/srt/mem_cache/memory_pool.py
+index 23eeaacea8..65d4db0126 100644
+--- a/python/sglang/srt/mem_cache/memory_pool.py
++++ b/python/sglang/srt/mem_cache/memory_pool.py
+@@ -5005,6 +5005,8 @@ class MLATokenToKVPool(KVCache):
+                 cache_k_nope,
+                 cache_k_rope,
+                 fp8_dtype,
++                dcp_world_size=self._write_loc_dcp_span,
++                dcp_rank=get_parallel().attn_dcp_rank,
+             )
+         elif self.dsa_kv_cache_store_fp8:
+             # OPTIMIZATION: Quantize k_nope and k_rope separately to avoid concat overhead
+diff --git a/python/sglang/srt/mem_cache/pool_host/mla.py b/python/sglang/srt/mem_cache/pool_host/mla.py
+index 31d284daea..48f67c0e05 100644
+--- a/python/sglang/srt/mem_cache/pool_host/mla.py
++++ b/python/sglang/srt/mem_cache/pool_host/mla.py
+@@ -458,11 +458,15 @@ class MLATokenToKVPoolHost(HiSparseHostPoolMixin, HostKVCache):
+         ):
+             return
+ 
+-        # The staged write-back JIT kernel builds with hipcc and has a ROCm
+-        # path, so enable it on HIP too (consistent with the CUDA path).
+-        self.can_use_write_back_jit = (
+-            _is_cuda or _is_hip
+-        ) and can_use_write_back_jit_kernel(
++        # GLM52_ROCM_STAGED_WRITE_BACK: WHY the ROCm build of this kernel wants
++        # host-resident dst_indices while the caller passes a GPU tensor ->
++        # "Tensor match failed ... device=rocm:0" kills the legacy controller
++        # on first write-back. HOW align this MLA gate with its CUDA-only DSA
++        # child; HIP uses transfer_kv_all_layer_mla_lf_pf. On controllers with
++        # per-pool indices this remains a conservative non-JIT path. See infera
++        # patch_hicache_rocm_staged_write_back.py.
++        GLM52_ROCM_STAGED_WRITE_BACK = "applied"  # a literal, so `strings *.pyc` can prove it
++        self.can_use_write_back_jit = _is_cuda and can_use_write_back_jit_kernel(
+             element_size=self.kv_cache_dim * self.dtype.itemsize,
+         )
+         if not self.can_use_write_back_jit:
+diff --git a/python/sglang/srt/model_executor/forward_batch_info.py b/python/sglang/srt/model_executor/forward_batch_info.py
+index 0af731d5a2..fddfaad62f 100644
+--- a/python/sglang/srt/model_executor/forward_batch_info.py
++++ b/python/sglang/srt/model_executor/forward_batch_info.py
+@@ -2047,8 +2047,12 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
+                 self.extend_prefix_lens, bs
+             )
+         if self.extend_seq_lens_cpu is not None:
+-            self.extend_seq_lens_cpu.extend(
+-                [dummy_extend_len] * (bs - len(self.extend_seq_lens_cpu))
++            # A new list, not an in-place extend: attention metadata planned
++            # before this padding (the draft extend's, see
++            # prepare_for_draft_extend) holds the old list as its real
++            # per-request lengths, and the DSA indexer sizes its rows from it.
++            self.extend_seq_lens_cpu = self.extend_seq_lens_cpu + [dummy_extend_len] * (
++                bs - len(self.extend_seq_lens_cpu)
+             )
+         if self.extend_prefix_lens_cpu is not None:
+             self.extend_prefix_lens_cpu.extend(
+diff --git a/python/sglang/srt/model_executor/runner/eager_runner.py b/python/sglang/srt/model_executor/runner/eager_runner.py
+index a598fc7637..8b516a2d65 100644
+--- a/python/sglang/srt/model_executor/runner/eager_runner.py
++++ b/python/sglang/srt/model_executor/runner/eager_runner.py
+@@ -452,6 +452,13 @@ class EagerRunner(BaseRunner):
+             if not self.enable_pdmux:
+                 forward_batch = self.load_batch(forward_batch, pp_proxy_tensors)
+             model_runner.attn_backend.init_forward_metadata(forward_batch)
++            # Layers read the ForwardContext backend, which can differ from
++            # model_runner.attn_backend (EAGLE v2 idle draft steps run under the
++            # per-step decode backend); init it too so it does not keep a
++            # previous batch's forward_metadata.
++            active_backend = get_forward_context().attn_backend
++            if active_backend is not model_runner.attn_backend:
++                active_backend.init_forward_metadata(forward_batch)
+         else:
+             model_runner.attn_backend.forward_metadata = None
+ 
+diff --git a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py
+index 476b91efa7..69aa822ca9 100644
+--- a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py
++++ b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py
+@@ -21,6 +21,7 @@ from sglang.srt.layers.dcp import (
+     all_gather_q_for_mla_decode,
+     cp_lse_ag_out_rs_mla,
+     dcp_a2a_lse_reduce,
++    is_dsa_dcp_gathered_prefill,
+ )
+ from sglang.srt.layers.layer_boundary import get_attn_tp_context
+ from sglang.srt.layers.logits_processor import get_in_autotune_dummy_run
+@@ -127,7 +128,14 @@ class DeepseekMLAForwardMixin:
+         return (
+             mode.is_decode()
+             or mode.is_target_verify()
+-            or (self.use_dsa and mode.is_extend())
++            or (
++                self.use_dsa
++                # ROCm only: the draft shards its KV like the target, and the
++                # DSA backend may plan a gathered prefix, in which case the MLA
++                # path attends this rank's heads instead of merging partials.
++                and mode.is_extend(include_draft_extend_v2=_is_hip)
++                and not is_dsa_dcp_gathered_prefill(forward_batch.attn_dcp_metadata)
++            )
+         )
+ 
+     def is_dcp_q_replicate_phase(
+diff --git a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
+index 5b265075f6..e3b2f8b81e 100644
+--- a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
++++ b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
+@@ -155,6 +155,10 @@ _absorb_bmm_num_cu = 0
+ 
+ def _absorb_bmm_config(heads: int, m: int, n: int) -> Optional[dict]:
+     """Return decode tile settings, or None outside the decode row limit."""
++    # YIHOU: disabled -> aiter picks its own config, exactly as v0519 called it. The
++    # hand-built config aborted triton's LLVM (Sequence.h:275 iota_range assertion) in a
++    # c44b prefill rank; see agentx44_20261009 debug R003.
++    return None
+     global _absorb_bmm_num_cu
+     if m <= 0 or m > _ABSORB_BMM_DECODE_MAX_M:
+         return None
+@@ -794,7 +798,9 @@ class DeepseekMLARocmForwardMixin:
+                         k_nope,
+                         k_pe,
+                     )
+-            else:
++            elif not forward_batch.forward_mode.is_idle():
++                # An idle DP rank runs the layer on its padding rows only; its
++                # DCP peers are idle too, so it gathers nothing.
+                 logger.warning(
+                     f"not supported forward_mode {forward_batch.forward_mode}"
+                 )
+@@ -1100,8 +1106,10 @@ class DeepseekMLARocmForwardMixin:
+         """
+         Check if we should skip rope and use fused rope+cache path for TileLang/Triton DSA on gfx95.
+         """
++        # The fused write targets the unsharded loc and its core path takes no LSE.
+         return (
+             _use_aiter_gfx95
++            and self.dcp_size == 1
+             and self.current_attention_backend in ("dsa", "nsa")
+             and (
+                 get_exec().kernel.dsa_decode_backend in ("tilelang", "triton")
+diff --git a/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
+index 3a62ecc828..593db859f1 100644
+--- a/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
++++ b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
+@@ -61,6 +61,7 @@ from sglang.srt.models.deepseek_common.utils import (
+     enable_nextn_moe_bf16_cast_to_fp8,
+     is_wint4afp8_or_wint4a16_config,
+ )
++from sglang.srt.runtime_context import get_parallel
+ from sglang.srt.utils import bind_or_assign, log_info_on_rank0
+ 
+ if _use_aiter_gfx95:
+@@ -68,6 +69,23 @@ if _use_aiter_gfx95:
+ 
+ logger = logging.getLogger(__name__)
+ 
++
++def _quantize_glm_kv_b_to_fp8(
++    *, architecture: Optional[str], w_dtype: torch.dtype
++) -> bool:
++    """Whether GLM's bf16 kv_b_proj is converted to per-tensor fp8 on gfx950."""
++    if not (
++        _use_aiter_gfx95
++        and architecture == "GlmMoeDsaForCausalLM"
++        and w_dtype == torch.bfloat16
++    ):
++        return False
++    # q-rep (_prepare_replicated_q_proj) only takes a bf16/fp16 w_kc.
++    return not (
++        get_parallel().attn_dcp_size > 1 and envs.SGLANG_DSA_DCP_KEEP_KV_B_BF16.get()
++    )
++
++
+ # Optional quantization for DeepSeek nvfp4 checkpoint
+ NVFP4_CKPT_FP8_ATTN_QUANT_MODULES = ["q_b_proj"]
+ 
+@@ -723,11 +741,11 @@ class DeepseekV2WeightLoaderMixin:
+ 
+             # GLM ships kv_b_proj as bf16, which falls back to torch.bmm. Quantize to
+             # per-tensor e4m3fn (not fnuz) to match forward_mla_rocm's dtype gate.
+-            if (
+-                _use_aiter_gfx95
+-                and self.config.architectures
+-                and self.config.architectures[0] == "GlmMoeDsaForCausalLM"
+-                and w.dtype == torch.bfloat16
++            if _quantize_glm_kv_b_to_fp8(
++                architecture=(
++                    self.config.architectures[0] if self.config.architectures else None
++                ),
++                w_dtype=w.dtype,
+             ):
+                 w, self_attn.w_scale = input_to_float8(w, dtype=torch.float8_e4m3fn)
+ 
+diff --git a/python/sglang/srt/models/deepseek_v2.py b/python/sglang/srt/models/deepseek_v2.py
+index 60c7f4a27f..03cba89711 100644
+--- a/python/sglang/srt/models/deepseek_v2.py
++++ b/python/sglang/srt/models/deepseek_v2.py
+@@ -54,6 +54,7 @@ from sglang.srt.batch_overlap.two_batch_overlap import (
+ )
+ from sglang.srt.configs.model_config import (
+     compute_mla_mscale_scaling,
++    dsa_draft_shards_under_dcp,
+     dsa_layer_skips_topk,
+     get_dsa_index_head_dim,
+     get_dsa_index_kpool,
+@@ -2043,9 +2044,13 @@ class DeepseekV2AttentionMLA(
+         self.is_nextn = is_nextn
+         attn_tp_size = get_parallel().attn_tp_size
+         self.use_dsa = is_deepseek_dsa(config)
+-        self.dcp_size = (
+-            1 if (is_nextn and self.use_dsa) else get_parallel().attn_dcp_size
+-        )
++        self.dcp_size = get_parallel().attn_dcp_size
++        if (
++            is_nextn
++            and self.use_dsa
++            and not dsa_draft_shards_under_dcp(config, self.dcp_size)
++        ):
++            self.dcp_size = 1
+         self.num_heads = num_heads
+         assert num_heads % attn_tp_size == 0
+         self.num_local_heads = num_heads // attn_tp_size
+diff --git a/python/sglang/srt/speculative/eagle_disaggregation.py b/python/sglang/srt/speculative/eagle_disaggregation.py
+index f8b5a23bb6..ebceda67f1 100644
+--- a/python/sglang/srt/speculative/eagle_disaggregation.py
++++ b/python/sglang/srt/speculative/eagle_disaggregation.py
+@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING
+ import torch
+ 
+ from sglang.srt.disaggregation.utils import get_dsa_seed_metadata_dim
++from sglang.srt.environ import envs
+ from sglang.srt.layers.attention.dsa.utils import (
+     should_remap_pd_dsa_seed_to_local_slots,
+ )
+ from sglang.srt.managers.overlap_utils import RelayPayload
+ from sglang.srt.model_executor.forward_batch_info import CaptureHiddenMode
+-from sglang.srt.runtime_context import get_spec
++from sglang.srt.runtime_context import get_parallel, get_spec
+ from sglang.srt.speculative.eagle_info import EagleDraftInput
+ from sglang.srt.utils.common import async_h2d_stack
+ 
+@@ -107,6 +108,12 @@ def build_eagle_disagg_draft_input(
+             dsa_topk_indices = local_slots
+         if torch.any(torch.all(dsa_topk_indices < 0, dim=1)).item():
+             dsa_topk_indices = None
++        if (
++            dsa_topk_indices is not None
++            and get_parallel().dcp_enabled
++            and envs.SGLANG_DSA_DCP_PD_DROP_MTP_SEED.get()
++        ):
++            dsa_topk_indices = None
+ 
+     requires_dsa_seed_for_cuda_graph = _requires_dsa_seed_for_cuda_graph(
+         batch.model_config.hf_config,
+diff --git a/python/sglang/srt/speculative/eagle_worker_v2.py b/python/sglang/srt/speculative/eagle_worker_v2.py
+index 36c1410bf7..b2b1c2b9c0 100644
+--- a/python/sglang/srt/speculative/eagle_worker_v2.py
++++ b/python/sglang/srt/speculative/eagle_worker_v2.py
+@@ -397,9 +397,13 @@ class EagleDraftWorker(EagleDraftWorkerBase):
+         # Boot guard: every backend a draft forward reaches must carry its
+         # runner's translator or the index builders emit virtual ids.
+         translator = self.draft_runner.kv_index_translator
+-        if translator.is_translating:
+-            backends = [self.draft_attn_backend, self.draft_extend_attn_backend]
++        # DCP read production (e.g. a gathered draft prefill) needs it too,
++        # but only ROCm shards the draft; CUDA keys on is_translating as before.
++        if translator.is_translating or (_is_hip and translator.needs_read_translate):
++            backends = [self.draft_extend_attn_backend]
+             if self.draft_attn_backend is not None:
++                if translator.is_translating:
++                    backends.append(self.draft_attn_backend)
+                 backends += self.draft_attn_backend.attn_backends
+             translator.bind_and_verify_backends(backends)
+ 
+diff --git a/python/sglang/srt/utils/offloader.py b/python/sglang/srt/utils/offloader.py
+index 17bf994d92..cd7db016df 100644
+--- a/python/sglang/srt/utils/offloader.py
++++ b/python/sglang/srt/utils/offloader.py
+@@ -427,7 +427,12 @@ class _CpuParamOffloader(_BaseParamOffloader):
+         _move_param_to_cpu(self._param, pin_memory=True)
+ 
+     def create_device_tensor(self):
+-        return self._param.to("cuda", non_blocking=True)
++        # .to() returns a plain tensor; aiter fused_moe picks its preshuffled
++        # MXFP4 kernels by the weight's is_shuffled attribute, so carry it over.
++        device_tensor = self._param.to("cuda", non_blocking=True)
++        if getattr(self._param, "is_shuffled", False):
++            device_tensor.is_shuffled = True
++        return device_tensor
+ 
+ 
+ class _ShmCpuParamOffloader(_BaseParamOffloader):
+diff --git a/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py b/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py
+index 5536f2786d..e2f9903e06 100644
+--- a/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py
++++ b/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py
+@@ -1,9 +1,15 @@
+ """ROCm tests for Triton sparse MLA launch tuning."""
+ 
++import math
++
+ import pytest
+ import torch
+ 
++from sglang.kernels.ops.attention.dsa.transform_index import (
++    transform_index_page_table_dcp,
++)
+ from sglang.kernels.ops.attention.dsa.triton_sparse_mla import (
++    _IS_FNUZ,
+     _cu_count,
+     _cu_count_for_device,
+     _is_gfx950_sparse_mla_fp8,
+@@ -15,6 +21,7 @@ from sglang.kernels.ops.attention.dsa.triton_sparse_mla import (
+ from sglang.kernels.ops.attention.dsa.triton_sparse_mla_decode import (
+     _get_splitk_bufs,
+     _splitk_bufs,
++    triton_sparse_mla_decode_splitk,
+ )
+ from sglang.srt.utils import is_hip
+ from sglang.test.ci.ci_register import register_amd_ci
+@@ -156,5 +163,87 @@ def test_reduce_d_chunk_is_bitwise_identical(active_splits):
+     )
+ 
+ 
++def _dcp_decode_table(dcp_size, topk, num_slots):
++    """Rows covering a single owner, all -1, one slot, a -1-interleaved row,
++    and full rows, so some ranks see empty rows."""
++    rows = torch.full((6, topk), -1, dtype=torch.int32)
++    owner_only = torch.randperm(num_slots // dcp_size)[:300] * dcp_size
++    rows[0, : owner_only.numel()] = owner_only.to(torch.int32)
++    rows[2] = torch.randperm(num_slots)[:topk].to(torch.int32)
++    rows[3, 0] = 5
++    rows[4, ::2][:200] = torch.randperm(num_slots)[:200].to(torch.int32)
++    rows[5] = torch.randperm(num_slots)[:topk].to(torch.int32)
++    return rows.cuda()
++
++
++def _sparse_mla_reference(q, kv, indices, sm_scale, d_v):
++    out = torch.zeros(*q.shape[:2], d_v, device=q.device)
++    lse = torch.full(q.shape[:2], float("-inf"), device=q.device)
++    for row in range(q.shape[0]):
++        slots = indices[row][indices[row] >= 0].long()
++        if slots.numel() == 0:
++            continue
++        keys = kv[slots, 0].float()
++        scores = q[row].float() @ keys.T * sm_scale
++        out[row] = torch.softmax(scores, dim=-1) @ keys[:, :d_v]
++        lse[row] = torch.logsumexp(scores, dim=-1) / math.log(2)
++    return out, lse
++
++
++@pytest.mark.parametrize("kv_splits", [1, 4])
++@pytest.mark.parametrize("heads", [16, 64])
++@pytest.mark.parametrize("fp8", [False, True])
++def test_dcp_owned_count_decode_merges_to_full_kv(fp8, heads, kv_splits):
++    torch.manual_seed(heads + kv_splits)
++    dcp_size, topk, num_slots, d_v, d_tail = 4, 512, 4096, 512, 64
++    sm_scale = (d_v + d_tail) ** -0.5
++    kv_dtype = (
++        (torch.float8_e4m3fnuz if _IS_FNUZ else torch.float8_e4m3fn)
++        if fp8
++        else torch.bfloat16
++    )
++    kv = torch.randn(num_slots, 1, d_v + d_tail, device="cuda").clamp_(-2, 2)
++    kv = kv.to(kv_dtype)
++    q = torch.randn(6, heads, d_v + d_tail, device="cuda", dtype=torch.bfloat16)
++    indices = _dcp_decode_table(dcp_size, topk, num_slots)
++
++    outs, lses = [], []
++    for rank in range(dcp_size):
++        local_indices, owned_counts = transform_index_page_table_dcp(
++            indices, dcp_size, rank
++        )
++        out, lse = triton_sparse_mla_decode_splitk(
++            q[..., :d_v],
++            q[..., d_v:],
++            kv[rank::dcp_size].contiguous(),
++            local_indices.unsqueeze(1),
++            sm_scale,
++            d_v,
++            kv_splits=kv_splits,
++            return_lse=True,
++            lengths=owned_counts,
++        )
++        assert torch.isfinite(lse).all()
++        outs.append(out[0].float())
++        lses.append(lse)
++
++    lse_all = torch.stack(lses)
++    lse_max = lse_all.max(dim=0).values
++    weights = torch.exp2(lse_all - lse_max)
++    merged = (weights.unsqueeze(-1) * torch.stack(outs)).sum(0) / weights.sum(
++        0
++    ).unsqueeze(-1)
++    merged_lse = lse_max + torch.log2(weights.sum(0))
++
++    q_ref = q.to(kv_dtype) if fp8 else q
++    expected, expected_lse = _sparse_mla_reference(q_ref, kv, indices, sm_scale, d_v)
++    atol = 3e-2 if fp8 else 1e-2
++    torch.testing.assert_close(merged, expected, rtol=0, atol=atol)
++    non_empty = (indices >= 0).any(dim=-1)
++    torch.testing.assert_close(
++        merged_lse[non_empty], expected_lse[non_empty], rtol=0, atol=atol
++    )
++
++
+ if __name__ == "__main__":
+     raise SystemExit(pytest.main([__file__, "-v"]))
+diff --git a/test/registered/kernels/ops/kvcache/test_set_mla_kv_buffer.py b/test/registered/kernels/ops/kvcache/test_set_mla_kv_buffer.py
+index f59c4368ae..ff0f9afea3 100644
+--- a/test/registered/kernels/ops/kvcache/test_set_mla_kv_buffer.py
++++ b/test/registered/kernels/ops/kvcache/test_set_mla_kv_buffer.py
+@@ -286,6 +286,50 @@ def test_set_mla_kv_buffer_triton_fp8_quant_reserved_skip_index():
+     )
+ 
+ 
++@pytest.mark.parametrize("dcp_rank", range(4))
++def test_set_mla_kv_buffer_triton_fp8_quant_dcp_owner_rows(dcp_rank):
++    dcp_world_size = 4
++    fp8_dtype = torch.float8_e4m3fnuz if torch.version.hip else torch.float8_e4m3fn
++    # DCP-widened locs: every residue, the reserved slot 0 (owned by rank 0),
++    # and the last widened slot.
++    loc = torch.tensor(
++        [0, 1, 2, 3, 4, 7, 9, 14, 4 * CACHE_SIZE - 1],
++        dtype=torch.int64,
++        device=DEVICE,
++    )
++    cache_k_nope = torch.randn(
++        (loc.numel(), 1, TRITON_NOPE_DIM), dtype=torch.bfloat16, device=DEVICE
++    )
++    cache_k_rope = torch.randn(
++        (loc.numel(), 1, TRITON_ROPE_DIM), dtype=torch.bfloat16, device=DEVICE
++    )
++    kv_buffer = torch.randint(
++        0,
++        256,
++        (CACHE_SIZE, 1, TRITON_NOPE_DIM + TRITON_ROPE_DIM),
++        dtype=torch.uint8,
++        device=DEVICE,
++    )
++    expected = kv_buffer.clone()
++    owned = (loc % dcp_world_size == dcp_rank) & (loc != 0)
++    rows = torch.cat((cache_k_nope[:, 0], cache_k_rope[:, 0]), dim=-1)
++    expected[loc[owned] // dcp_world_size, 0] = (
++        rows[owned].to(fp8_dtype).view(torch.uint8)
++    )
++
++    set_mla_kv_buffer_triton_fp8_quant(
++        kv_buffer,
++        loc,
++        cache_k_nope,
++        cache_k_rope,
++        fp8_dtype,
++        dcp_world_size=dcp_world_size,
++        dcp_rank=dcp_rank,
++    )
++
++    torch.testing.assert_close(kv_buffer, expected, rtol=0.0, atol=0.0)
++
++
+ def test_set_mla_kv_scale_buffer_triton_reserved_skip_index():
+     cache_k_nope = torch.randn((4, 1, 16), dtype=torch.float32, device=DEVICE)
+     cache_k_rope = torch.randn((4, 1, 4), dtype=torch.float32, device=DEVICE)
+diff --git a/test/registered/unit/disaggregation/test_decode_queue_cleanup.py b/test/registered/unit/disaggregation/test_decode_queue_cleanup.py
+index a37ae2ad77..4af44c52d4 100644
+--- a/test/registered/unit/disaggregation/test_decode_queue_cleanup.py
++++ b/test/registered/unit/disaggregation/test_decode_queue_cleanup.py
+@@ -383,6 +383,7 @@ class TestDecodeQueueCleanup(CustomTestCase):
+         queue.enable_staging = False
+         queue.enable_deferred_kv_release = False
+         queue.gloo_group = MagicMock()
++        queue.gloo_world_size = 1
+         queue.req_to_metadata_buffer_idx_allocator = MagicMock()
+         queue.tp_rank = 0
+         queue.tree_cache = MagicMock()
+@@ -499,6 +500,7 @@ class TestDecodeQueueCleanup(CustomTestCase):
+         queue.enable_deferred_kv_release = True
+         queue._defer_release = MagicMock()
+         queue.gloo_group = MagicMock()
++        queue.gloo_world_size = 1
+         queue.req_to_metadata_buffer_idx_allocator = MagicMock()
+         queue.tp_rank = 0
+         queue.tree_cache = MagicMock()
+@@ -636,6 +638,7 @@ class TestDecodeHiCacheRestoreGate(CustomTestCase):
+             queue.enable_host_receive = False
+             queue.enable_deferred_kv_release = False
+             queue.gloo_group = MagicMock()
++            queue.gloo_world_size = 1
+             queue.req_to_metadata_buffer_idx_allocator = MagicMock()
+             queue.tp_rank = 0
+             queue.tree_cache = MagicMock()
+diff --git a/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py b/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py
+index 1c9673e4b6..746b1accc4 100644
+--- a/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py
++++ b/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py
+@@ -665,6 +665,8 @@ def _make_queue(timeout=30.0, enable_metrics=False):
+     q.enable_host_receive = False
+     q.enable_staging = False
+     q.staging_handler = None
++    q.gloo_group = None
++    q.gloo_world_size = 1
+     q.tree_cache = object()
+     q.metadata_buffers = SimpleNamespace(bootstrap_room={})
+     q.req_to_metadata_buffer_idx_allocator = _FakeIdxAllocator()
+@@ -698,7 +700,7 @@ class TestResolveDeferredReleases(CustomTestCase):
+         mgr = _make_manager()
+         q = _make_queue(timeout=-1)
+         q.enable_host_receive = True
+-        q.gloo_group = object()
++        q.gloo_world_size = 2
+         entries = [_make_decode_req(room, room, mgr) for room in (1, 2)]
+         generations = {}
+         for entry in entries:
+@@ -709,7 +711,6 @@ class TestResolveDeferredReleases(CustomTestCase):
+         with (
+             patch.object(decode_mod, "discard_kv_cache_backup") as discard,
+             patch.object(decode_mod, "release_kv_cache") as device_release,
+-            patch("torch.distributed.get_world_size", return_value=2),
+             patch("torch.distributed.all_reduce") as reduce,
+         ):
+             q.resolve_deferred_releases()
+@@ -976,6 +977,156 @@ class TestFailedTransfersDeferOnEveryFailure(CustomTestCase):
+         self.assertEqual(q._deferred_releases, [])
+ 
+ 
++class _FakeGlooGroup:
++    """Two in-process ranks whose all_reduce rendezvous across threads."""
++
++    def __init__(self, world_size=2):
++        self.world_size = world_size
++        self.barrier = threading.Barrier(world_size)
++        self.slots = [None] * world_size
++        self.calls = [0] * world_size
++
++    def rank_handle(self, rank):
++        return SimpleNamespace(group=self, rank=rank)
++
++    @staticmethod
++    def all_reduce(tensor, op, group):
++        import torch
++
++        g, rank = group.group, group.rank
++        g.calls[rank] += 1
++        g.slots[rank] = tensor.clone()
++        g.barrier.wait()
++        stacked = torch.stack(g.slots)
++        if op == torch.distributed.ReduceOp.MIN:
++            reduced = stacked.min(dim=0).values
++        else:
++            reduced = stacked.max(dim=0).values
++        g.barrier.wait()
++        tensor.copy_(reduced)
++
++
++def _run_ranks(fns):
++    errors = []
++
++    def run(fn):
++        try:
++            fn()
++        except BaseException as e:  # surfaced to the test thread below
++            errors.append(e)
++
++    threads = [threading.Thread(target=run, args=(fn,)) for fn in fns]
++    for t in threads:
++        t.start()
++    for t in threads:
++        t.join(timeout=10)
++    return errors
++
++
++class TestRankConsistentDeferredRelease(CustomTestCase):
++    """Attn-TP ranks must free deferred KV in the same iteration: a rank-local
++    ack or deadline decision diverges prealloc admission and hangs the poll
++    all-reduce (TP ranks stuck in different collectives after client cancels)."""
++
++    def _ranks(self):
++        group = _FakeGlooGroup()
++        ranks = []
++        for rank in range(2):
++            mgr = _make_manager()
++            q = _make_queue(timeout=30.0)
++            q.gloo_group = group.rank_handle(rank)
++            q.gloo_world_size = 2
++            q.tp_rank = rank
++            dreq = _make_decode_req(room=500, idx=6, mgr=mgr)
++            generation = mgr.register_deferred_abort_room(500)
++            ranks.append((q, mgr, dreq, generation))
++        return group, ranks
++
++    def _resolve_all(self, ranks, now):
++        with (
++            patch.object(decode_mod.time, "monotonic", return_value=now),
++            patch("torch.distributed.all_reduce", _FakeGlooGroup.all_reduce),
++            patch.object(decode_mod, "release_kv_cache"),
++        ):
++            errors = _run_ranks([q.resolve_deferred_releases for q, *_ in ranks])
++        self.assertEqual(errors, [])
++        return [len(q._deferred_releases) for q, *_ in ranks]
++
++    def test_ack_on_one_rank_holds_every_rank(self):
++        _, ranks = self._ranks()
++        for q, _, dreq, _ in ranks:
++            q._deferred_releases.append((dreq, 0.0, 30.0, 6, 1))
++        q0, mgr0, _, gen0 = ranks[0]
++        mgr0.note_abort_ack(500, 0, gen0)
++        self.assertEqual(self._resolve_all(ranks, now=1.0), [1, 1])
++        _, mgr1, _, gen1 = ranks[1]
++        mgr1.note_abort_ack(500, 0, gen1)
++        self.assertEqual(self._resolve_all(ranks, now=2.0), [0, 0])
++
++    def test_deadline_on_one_rank_holds_every_rank(self):
++        _, ranks = self._ranks()
++        # Rank 0 armed earlier, so its local deadline passes first.
++        ranks[0][0]._deferred_releases.append((ranks[0][2], 0.0, 10.0, 6, 1))
++        ranks[1][0]._deferred_releases.append((ranks[1][2], 5.0, 15.0, 6, 1))
++        self.assertEqual(self._resolve_all(ranks, now=12.0), [1, 1])
++        self.assertEqual(self._resolve_all(ranks, now=16.0), [0, 0])
++
++
++class TestPopTransferredQueueLengthConsensus(CustomTestCase):
++    """pop_transferred must not skip its poll all-reduce on a rank-local empty
++    queue while a peer enters it."""
++
++    def _queue(self, group, rank, n):
++        mgr = _make_manager()
++        q = _make_pop_queue(mgr)
++        q.gloo_group = group.rank_handle(rank)
++        q.gloo_world_size = 2
++        q.tp_rank = rank
++        q.queue = [
++            _make_failed_req(mgr, room=900 + i, idx=i, abort_notified=True)
++            for i in range(n)
++        ]
++        q._poll_with_metadata_gate = lambda: [KVPoll.Transferring] * len(q.queue)
++        return q
++
++    def _pop_all(self, queues):
++        results = [None] * len(queues)
++
++        def pop(i):
++            def fn():
++                results[i] = queues[i].pop_transferred()
++
++            return fn
++
++        with patch("torch.distributed.all_reduce", _FakeGlooGroup.all_reduce):
++            errors = _run_ranks([pop(i) for i in range(len(queues))])
++        return results, errors
++
++    def test_all_empty_returns_after_one_collective(self):
++        group = _FakeGlooGroup()
++        results, errors = self._pop_all([self._queue(group, r, 0) for r in range(2)])
++        self.assertEqual(errors, [])
++        self.assertEqual(results, [[], []])
++        self.assertEqual(group.calls, [1, 1])
++
++    def test_equal_lengths_proceed_to_poll(self):
++        group = _FakeGlooGroup()
++        queues = [self._queue(group, r, 2) for r in range(2)]
++        results, errors = self._pop_all(queues)
++        self.assertEqual(errors, [])
++        self.assertEqual(results, [[], []])
++        self.assertEqual([len(q.queue) for q in queues], [2, 2])
++
++    def test_divergent_lengths_fail_loudly_on_every_rank(self):
++        group = _FakeGlooGroup()
++        queues = [self._queue(group, 0, 0), self._queue(group, 1, 2)]
++        _, errors = self._pop_all(queues)
++        self.assertEqual(len(errors), 2)
++        for e in errors:
++            self.assertIsInstance(e, RuntimeError)
++            self.assertIn("diverged across attn-TP ranks", str(e))
++
++
+ class TestBackendOptIn(CustomTestCase):
+     """Without a prefill ack, every hold waits out the full release timeout."""
+ 
+diff --git a/test/registered/unit/disaggregation/test_dsa_pd_dcp.py b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
+new file mode 100644
+index 0000000000..13cce3a94e
+--- /dev/null
++++ b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
+@@ -0,0 +1,459 @@
++"""PD DCP1 prefill -> DCP-N decode for DSA models (GLM-5.2) on ROCm.
++
++The decode stripes the target latent KV and, on ROCm, the MTP draft latent KV
++by position, while the index-K cache stays replicated over the widened slots.
++These tests simulate the transfers on host byte arrays.
++"""
++
++import unittest
++from types import SimpleNamespace
++from unittest.mock import patch
++
++import numpy as np
++import torch
++
++from sglang.srt.disaggregation.base.conn import StateType
++from sglang.srt.disaggregation.common.conn import CommonKVManager, PrefillServerInfo
++from sglang.srt.disaggregation.mooncake.conn import MooncakeKVManager
++from sglang.srt.mem_cache.common import suffix_page_indices
++from sglang.test.ci.ci_register import register_cpu_ci
++from sglang.test.test_utils import CustomTestCase
++
++register_cpu_ci(est_time=10, suite="base-a-test-cpu")
++
++
++def _mgr_stub(*, page_size, kv_item_lens, num_draft_entries):
++    return SimpleNamespace(
++        kv_args=SimpleNamespace(
++            page_size=page_size,
++            kv_item_lens=kv_item_lens,
++            num_draft_entries=num_draft_entries,
++        )
++    )
++
++
++class TestShardedDraftItemLens(CustomTestCase):
++    """T1: a DCP-sharded draft pages like the target, not over the widened page."""
++
++    def test_sharded_draft_uses_target_page_scale(self):
++        mgr = _mgr_stub(
++            page_size=64, kv_item_lens=[64 * 576, 64 * 576], num_draft_entries=1
++        )
++        token_lens = CommonKVManager.prepare_dcp_token_item_lens(
++            mgr, [64 * 576, 64 * 576], dst_dcp_size=4, draft_sharded=True
++        )
++        self.assertEqual(token_lens, [576, 576])
++
++    def test_sharded_draft_rejects_widened_dst(self):
++        mgr = _mgr_stub(
++            page_size=64, kv_item_lens=[64 * 576, 64 * 576], num_draft_entries=1
++        )
++        with self.assertRaisesRegex(RuntimeError, "geometry differs at entry 1"):
++            CommonKVManager.prepare_dcp_token_item_lens(
++                mgr, [64 * 576, 4 * 64 * 576], dst_dcp_size=4, draft_sharded=True
++            )
++
++    def test_draft_sharded_follows_model_rule(self):
++        mgr = _mgr_stub(page_size=64, kv_item_lens=[1, 1], num_draft_entries=1)
++        target = "sglang.srt.disaggregation.common.conn._decode_draft_shards_under_dcp"
++        with patch(target, return_value=True):
++            self.assertTrue(CommonKVManager.dcp_draft_sharded(mgr, 4))
++        with patch(target, return_value=False):
++            self.assertFalse(CommonKVManager.dcp_draft_sharded(mgr, 4))
++        no_draft = _mgr_stub(page_size=64, kv_item_lens=[1], num_draft_entries=0)
++        with patch(target, return_value=True):
++            self.assertFalse(CommonKVManager.dcp_draft_sharded(no_draft, 4))
++
++
++class _HostMemory:
++    """Byte regions at fake addresses; applies (src, dst, length) blocks."""
++
++    def __init__(self):
++        self.regions = []
++
++    def alloc(self, nbytes: int) -> int:
++        base = (len(self.regions) + 1) << 40
++        self.regions.append((base, np.zeros(nbytes, dtype=np.uint8)))
++        return base
++
++    def view(self, addr: int, nbytes: int) -> np.ndarray:
++        for base, buf in self.regions:
++            if base <= addr < base + buf.size:
++                off = addr - base
++                assert off + nbytes <= buf.size, "block overruns its region"
++                return buf[off : off + nbytes]
++        raise AssertionError(f"unknown address {addr:#x}")
++
++    def apply(self, blocks):
++        for src, dst, length in blocks:
++            self.view(dst, length)[:] = self.view(src, length)
++
++
++def _fill_rows(mem, ptr, rows, row_bytes, values):
++    for row, value in zip(rows, values):
++        mem.view(ptr + int(row) * row_bytes, row_bytes)[:] = value % 251 + 1
++
++
++def _relayout(
++    test,
++    *,
++    num_tokens,
++    src_pages,
++    dst_pages,
++    dcp,
++    src_layer_ids,
++    dst_layer_ids,
++    prefill_draft_entries,
++    draft_sharded,
++    prefill_attn_tp_size,
++    chunk_pages=None,
++):
++    """Send one prefill rank's KV to every decode DCP rank; check each rank holds
++    exactly its owned positions in every target (and sharded draft) entry."""
++    page, row = 4, 8  # tokens per page, bytes per token per entry
++    n_rows_src = (max(src_pages) + 1) * page
++    n_rows_dst = (max(dst_pages) + 1) * page
++    src_rows = [src_pages[p // page] * page + p % page for p in range(num_tokens)]
++    for rank in range(dcp):
++        mem = _HostMemory()
++        src_ptrs = [mem.alloc(n_rows_src * row) for _ in src_layer_ids]
++        dst_ptrs = [mem.alloc(n_rows_dst * row) for _ in dst_layer_ids]
++        for e, ptr in enumerate(src_ptrs):
++            values = [p * 3 + src_layer_ids[e] for p in range(num_tokens)]
++            _fill_rows(mem, ptr, src_rows, row, values)
++
++        mgr = object.__new__(MooncakeKVManager)
++        mgr.kv_args = SimpleNamespace(
++            page_size=page,
++            kv_data_ptrs=src_ptrs,
++            kv_item_lens=[page * row] * len(src_layer_ids),
++            kv_layer_ids=src_layer_ids,
++            num_draft_entries=prefill_draft_entries,
++            engine_rank=0,
++        )
++        mgr.attn_tp_size = prefill_attn_tp_size
++        mgr.is_mla_backend = True
++        mgr.enable_custom_mem_pool = False
++        mgr.max_transfer_batch_indices = 4096
++        mgr._transfer_data = lambda _session, blocks, _mem=mem: (_mem.apply(blocks), 0)[
++            1
++        ]
++
++        start = 0
++        for n in chunk_pages or [len(src_pages)]:
++            ret = MooncakeKVManager.send_kvcache_dcp(
++                mgr,
++                "session",
++                np.asarray(src_pages[start : start + n], dtype=np.int32),
++                dst_ptrs,
++                np.asarray(dst_pages, dtype=np.int32),
++                dcp_token_item_lens=[row] * len(src_layer_ids),
++                dst_dcp_size=dcp,
++                dst_dcp_rank=rank,
++                src_page_offset=start,
++                decode_prefix_len=0,
++                num_kv_tokens=min(n * page, num_tokens - start * page),
++                executor=None,
++                dst_layer_ids=dst_layer_ids,
++                pack_buffer=None,
++                dst_kv_item_lens=[page * row] * len(dst_layer_ids),
++                dst_tp_rank=rank,
++                dst_attn_tp_size=dcp,
++                draft_sharded=draft_sharded,
++            )
++            test.assertEqual(ret, 0)
++            start += n
++
++        owned = [p for p in range(num_tokens) if p % dcp == rank]
++        for j, (lid, ptr) in enumerate(zip(dst_layer_ids, dst_ptrs)):
++            buf = mem.view(ptr, n_rows_dst * row).reshape(n_rows_dst, row)
++            written = int(np.count_nonzero(buf[:, 0]))
++            if lid not in src_layer_ids:
++                test.assertEqual(written, 0, f"rank {rank} entry {lid} has no source")
++                continue
++            test.assertEqual(written, len(owned), f"rank {rank} entry {lid} row count")
++            for p in owned:
++                local = p // dcp
++                dst_row = dst_pages[local // page] * page + local % page
++                want = (p * 3 + lid) % 251 + 1
++                test.assertTrue(
++                    np.all(buf[dst_row] == want),
++                    f"rank {rank} entry {lid} pos {p}: got {buf[dst_row][0]} want {want}",
++                )
++
++
++class TestShardedDraftRelayout(CustomTestCase):
++    """T2: with a sharded draft, the draft rows follow the target's owner rule."""
++
++    def _run(self, **kwargs):
++        layer_ids = [0, 1, 78]  # two target layers + the NextN draft layer
++        _relayout(
++            self,
++            dcp=2,
++            src_layer_ids=layer_ids,
++            dst_layer_ids=layer_ids,
++            prefill_draft_entries=1,
++            draft_sharded=True,
++            prefill_attn_tp_size=2,
++            **kwargs,
++        )
++
++    def test_one_virtual_page(self):
++        self._run(num_tokens=8, src_pages=[5, 2], dst_pages=[3])
++
++    def test_partial_last_page_and_chunks(self):
++        self._run(
++            num_tokens=21,
++            src_pages=[9, 0, 4, 7, 1, 6],
++            dst_pages=[2, 0, 5],
++            chunk_pages=[2, 2, 2],
++        )
++
++
++class TestDpaPrefillFanOut(CustomTestCase):
++    """The 22k shape on a DCP decode: one DP-attention prefill rank (attn TP1, no
++    EAGLE) feeds all four TP4/DCP4 decode ranks."""
++
++    def test_rank_mapping_fans_out_to_every_dcp_rank(self):
++        info = PrefillServerInfo(
++            attn_tp_size=1,
++            attn_cp_size=1,
++            dp_size=4,
++            pp_size=1,
++            page_size=64,
++            kv_cache_dtype="fp8_e4m3",
++            follow_bootstrap_room=True,
++        )
++        for engine_rank in range(4):
++            mgr = SimpleNamespace(
++                is_mla_backend=True,
++                is_hybrid_mla_backend=False,
++                attn_tp_size=4,
++                attn_cp_size=1,
++                attn_cp_rank=0,
++                pp_size=1,
++                pp_rank=0,
++                enable_all_cp_ranks_for_transfer=False,
++                kv_args=SimpleNamespace(engine_rank=engine_rank),
++            )
++            CommonKVManager._resolve_rank_mapping(mgr, info)
++            self.assertEqual(info.target_tp_ranks, [0])
++            self.assertEqual(info.required_dst_info_num, 4)
++            self.assertEqual(info.required_prefill_response_num, 1)
++
++    def test_target_only_prefill_to_dcp4_decode_with_draft(self):
++        # Mode N: the prefill has no draft entry; the decode's NextN entry
++        # (layer 78) must be skipped, not paired with a target layer.
++        _relayout(
++            self,
++            num_tokens=45,
++            src_pages=list(range(11, -1, -1)),
++            dst_pages=[1, 0, 2],
++            dcp=4,
++            src_layer_ids=[0, 1],
++            dst_layer_ids=[0, 1, 78],
++            prefill_draft_entries=0,
++            draft_sharded=False,
++            prefill_attn_tp_size=1,
++            chunk_pages=[5, 7],
++        )
++
++
++class TestDpaPrefillFanOutToDp2Dcp2(CustomTestCase):
++    """E2 shape: the DP-attention prefill (attn TP1) feeds a decode with DP2
++    attention over TP4, i.e. attn TP2 with DCP2 inside each decode DP group."""
++
++    def test_rank_mapping_fans_out_to_both_dcp_ranks_of_a_group(self):
++        info = PrefillServerInfo(
++            attn_tp_size=1,
++            attn_cp_size=1,
++            dp_size=4,
++            pp_size=1,
++            page_size=64,
++            kv_cache_dtype="fp8_e4m3",
++            follow_bootstrap_room=True,
++        )
++        for engine_rank in range(4):
++            mgr = SimpleNamespace(
++                is_mla_backend=True,
++                is_hybrid_mla_backend=False,
++                attn_tp_size=2,
++                attn_cp_size=1,
++                attn_cp_rank=0,
++                pp_size=1,
++                pp_rank=0,
++                enable_all_cp_ranks_for_transfer=False,
++                kv_args=SimpleNamespace(engine_rank=engine_rank),
++            )
++            CommonKVManager._resolve_rank_mapping(mgr, info)
++            self.assertEqual(info.target_tp_ranks, [0])
++            self.assertEqual(info.required_dst_info_num, 2)
++            self.assertEqual(info.required_prefill_response_num, 1)
++
++    def test_target_only_prefill_to_dcp2_decode_with_draft(self):
++        _relayout(
++            self,
++            num_tokens=45,
++            src_pages=list(range(11, -1, -1)),
++            dst_pages=[2, 0, 5, 1, 3, 4],
++            dcp=2,
++            src_layer_ids=[0, 1],
++            dst_layer_ids=[0, 1, 78],
++            prefill_draft_entries=0,
++            draft_sharded=False,
++            prefill_attn_tp_size=1,
++            chunk_pages=[5, 7],
++        )
++
++
++class TestPpPrefillToDcpDecode(CustomTestCase):
++    """PP prefill: each stage sends its own layer range; the unpipelined DCP4
++    decode registers all 78 target layers plus the NextN draft (79 entries)."""
++
++    STAGES = [
++        (0, 20),
++        (20, 40),
++        (40, 60),
++        (60, 78),
++    ]  # SGLANG_PP_LAYER_PARTITION=20,20,20,18
++
++    def test_each_stage_lands_on_its_layers(self):
++        dst_layer_ids = list(range(79))
++        for start, end in self.STAGES:
++            with self.subTest(stage=(start, end)):
++                _relayout(
++                    self,
++                    num_tokens=21,
++                    src_pages=[3, 0, 5, 1, 2, 4],
++                    dst_pages=[1, 0],
++                    dcp=4,
++                    src_layer_ids=list(range(start, end)),
++                    dst_layer_ids=dst_layer_ids,
++                    prefill_draft_entries=0,
++                    draft_sharded=False,
++                    prefill_attn_tp_size=1,
++                )
++
++    def test_index_k_state_slices_by_stage_offset(self):
++        # StateType.DSA has no layer ids: the stage's entries map positionally from
++        # prefill_start_layer; the last stage's draft index-K follows its target.
++        dst = list(range(1000, 1079))
++        for (start, end), n_draft in zip(self.STAGES, (0, 0, 0, 1)):
++            n_src = end - start + n_draft
++            mgr = object.__new__(MooncakeKVManager)
++            mgr.kv_args = SimpleNamespace(
++                prefill_start_layer=start,
++                mla_compression_ratios=None,
++                num_draft_entries=n_draft,
++            )
++            src = list(range(n_src))
++            _, sliced, n = CommonKVManager.get_mla_kv_ptrs_with_pp(
++                mgr, src, dst, state_type=StateType.DSA
++            )
++            self.assertEqual(n, n_src)
++            self.assertEqual(sliced, dst[start : start + n_src])
++
++
++class TestPpNonFinalChunkWaitEvent(CustomTestCase):
++    """Under PP the non-overlap loop sends a non-final chunk whose forward ran
++    in an earlier microbatch; the send must carry a forward-stream event so the
++    transfer worker does not read KV pages before they are written."""
++
++    def _run(self, pp_size):
++        from sglang.srt.disaggregation import prefill as prefill_mod
++
++        sender = SimpleNamespace(_early_send_wait_event=None)
++
++        class Req:  # hashable, like the real Req
++            disagg_kv_sender = sender
++
++        req = Req()
++        seen = {}
++        stub = SimpleNamespace(
++            chunked_req=req,
++            enable_overlap=False,
++            forward_stream="forward-stream",
++            checkpoint_disagg_prefill=lambda r: None,
++            check_bootstrap=lambda r: True,
++            send_kv_chunk=lambda r: seen.setdefault(
++                "event", sender._early_send_wait_event
++            ),
++        )
++        events = []
++
++        class FakeEvent:
++            def record(self, stream):
++                events.append(stream)
++
++        with (
++            patch.object(
++                prefill_mod,
++                "get_parallel",
++                return_value=SimpleNamespace(pp_size=pp_size),
++            ),
++            patch.object(prefill_mod.torch.cuda, "Event", FakeEvent),
++        ):
++            prefill_mod.SchedulerDisaggregationPrefillMixin.process_prefill_chunk(
++                stub, None, SimpleNamespace(batch_is_full=True)
++            )
++        return seen["event"], events
++
++    def test_pp_send_carries_forward_stream_event(self):
++        event, recorded = self._run(pp_size=4)
++        self.assertIsNotNone(event)
++        self.assertEqual(recorded, ["forward-stream"])
++
++    def test_no_pp_send_unchanged(self):
++        event, recorded = self._run(pp_size=1)
++        self.assertIsNone(event)
++        self.assertEqual(recorded, [])
++
++
++class TestIndexKPagePairing(CustomTestCase):
++    """T3: replicated index K pairs prefill 64-slot pages with decode index pages
++    over the widened slots, through the generic DSA page path."""
++
++    P, W = 64, 4
++
++    def _simulate(self, seq_len, prefix_len, seed):
++        P, W = self.P, self.W
++        rng = np.random.default_rng(seed)
++        n_src_pages = -(-seq_len // P)
++        n_dst_vpages = -(-seq_len // (P * W))
++        src_pages = rng.permutation(4 * n_src_pages + 3)[:n_src_pages] + 1
++        dst_vpages = rng.permutation(4 * n_dst_vpages + 3)[:n_dst_vpages] + 1
++        pos = np.arange(seq_len)
++        src_slots = src_pages[pos // P] * P + pos % P
++        dst_slots = dst_vpages[pos // (P * W)] * (P * W) + pos % (P * W)
++        width = n_dst_vpages * P * W + P
++        p_req = torch.zeros((1, width), dtype=torch.int64)
++        d_req = torch.zeros((1, width), dtype=torch.int64)
++        p_req[0, :seq_len] = torch.from_numpy(src_slots)
++        d_req[0, :seq_len] = torch.from_numpy(dst_slots)
++
++        # Prefill index rows: one row per 64-slot page, entry = position + 1.
++        src_buf = np.zeros(((src_pages.max() + 1), P), dtype=np.int64)
++        src_buf[src_slots // P, src_slots % P] = pos + 1
++        # Decode replicated index K: rows by widened slot // 64.
++        dst_buf = np.zeros(((dst_vpages.max() + 1) * W, P), dtype=np.int64)
++
++        src_list = suffix_page_indices(p_req, 0, prefix_len, seq_len, P)
++        dst_list = suffix_page_indices(d_req, 0, prefix_len, seq_len, P)
++        self.assertEqual(len(src_list), len(dst_list))
++        dst_buf[dst_list] = src_buf[src_list]
++
++        got = dst_buf[dst_slots // P, dst_slots % P]
++        want = np.where(pos >= prefix_len, pos + 1, 0)
++        np.testing.assert_array_equal(got[prefix_len:], want[prefix_len:])
++
++    def test_pairs_every_position(self):
++        for seq_len in (1, 63, 64, 65, 255, 256, 257, 10000):
++            for prefix_len in (0, 256):
++                if prefix_len >= seq_len:
++                    continue
++                with self.subTest(seq_len=seq_len, prefix_len=prefix_len):
++                    self._simulate(seq_len, prefix_len, seed=seq_len + prefix_len)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/test/registered/unit/layers/attention/test_dsa_indexer_idle.py b/test/registered/unit/layers/attention/test_dsa_indexer_idle.py
+index 3af04bf07c..2b5c2a10fa 100644
+--- a/test/registered/unit/layers/attention/test_dsa_indexer_idle.py
++++ b/test/registered/unit/layers/attention/test_dsa_indexer_idle.py
+@@ -38,11 +38,19 @@ class TestDSAIndexerIdle(unittest.TestCase):
+         )
+ 
+     def test_eager_idle_short_circuits_before_paged_mqa(self):
++        for is_cuda, is_hip in ((True, False), (False, True)):
++            with self.subTest(is_cuda=is_cuda, is_hip=is_hip):
++                self._check_eager_idle_short_circuits(is_cuda, is_hip)
++
++    def _check_eager_idle_short_circuits(self, is_cuda, is_hip):
++        # On ROCm the idle rank of a DP2 x DCP2 server faulted in the paged
++        # top-k v2 kernel when the indexer ran on its padding rows.
+         indexer = SimpleNamespace(index_topk=4)
+         batch = SimpleNamespace(forward_mode=ForwardMode.IDLE)
+ 
+         with (
+-            patch(f"{_INDEXER}._is_cuda", True),
++            patch(f"{_INDEXER}._is_cuda", is_cuda),
++            patch(f"{_INDEXER}._is_hip", is_hip),
+             patch(f"{_INDEXER}.get_is_capture_mode", return_value=False),
+             patch(
+                 f"{_INDEXER}._broadcast_indexer_topk_from_rank0",
+diff --git a/test/registered/unit/layers/test_radix_attention_padded_extend.py b/test/registered/unit/layers/test_radix_attention_padded_extend.py
+index 848a84fdbf..b82be65e7e 100644
+--- a/test/registered/unit/layers/test_radix_attention_padded_extend.py
++++ b/test/registered/unit/layers/test_radix_attention_padded_extend.py
+@@ -60,6 +60,20 @@ class _IndexerBackend:
+         return idx_out.reshape(q.shape[0], -1), torch.ones(q.shape[0], 2)
+ 
+ 
++class _BatchMajorBackend:
++    """Stand-in with the DSA sparse-MLA prefill contract: a [1, tokens, heads,
++    d_v] output, optionally beside a [tokens, heads] LSE."""
++
++    def __init__(self, with_lse):
++        self.with_lse = with_lse
++
++    def forward(self, q, k, v, layer, forward_batch, save_kv_cache, **kwargs):
++        out = torch.ones(1, q.shape[0], 2, 3)
++        if self.with_lse:
++            return out, torch.ones(q.shape[0], 2)
++        return out
++
++
+ def _rows(value):
+     if isinstance(value, list):
+         return [t.shape[0] for t in value]
+@@ -221,6 +235,40 @@ class TestPaddedExtendAttention(CustomTestCase):
+         self.assertEqual(idx_out[5:].count_nonzero().item(), 0)
+         self.assertEqual(idx_out[:5].count_nonzero().item(), 5 * 128)
+ 
++    def test_a_batch_major_output_is_padded_on_its_token_dim(self):
++        # DP attention pads 49 rows to 50 for attention TP 2; the DSA prefill
++        # kernel's [1, 49, H, D] output must come back with 50 token rows, or
++        # the caller's view(-1, H, D) is one row short of the residual.
++        layer = SimpleNamespace(
++            qk_head_dim=4, v_head_dim=3, tp_q_head_num=2, is_cross_attention=False
++        )
++        for real, rows in ((49, 50), (5, 8), (1, 2)):
++            for with_lse in (False, True):
++                with self.subTest(real=real, with_lse=with_lse):
++                    with patch.object(
++                        radix_attention,
++                        "get_attn_backend",
++                        return_value=_BatchMajorBackend(with_lse),
++                    ):
++                        ret = radix_attention._attention_on_real_rows(
++                            layer,
++                            real,
++                            torch.zeros(rows, 2, 4),
++                            torch.zeros(rows, 1, 3),
++                            torch.zeros(rows, 1, 3),
++                            _batch(ForwardMode.EXTEND, real, rows=rows),
++                            False,
++                        )
++                    out = ret[0] if with_lse else ret
++                    out = out.view(-1, 2, 3)
++                    self.assertEqual(out.shape[0], rows)
++                    torch.testing.assert_close(out[:real], torch.ones(real, 2, 3))
++                    torch.testing.assert_close(
++                        out[real:], torch.zeros(rows - real, 2, 3)
++                    )
++                    if with_lse:
++                        self.assertEqual(tuple(ret[1].shape), (rows, 2))
++
+     def test_the_output_is_written_in_place_or_copied(self):
+         for in_place in (True, False):
+             with self.subTest(in_place=in_place):
+diff --git a/test/registered/unit/managers/test_dcp_logical_capacity.py b/test/registered/unit/managers/test_dcp_logical_capacity.py
+index ef20cf1344..4591fbf89f 100644
+--- a/test/registered/unit/managers/test_dcp_logical_capacity.py
++++ b/test/registered/unit/managers/test_dcp_logical_capacity.py
+@@ -32,6 +32,7 @@ def make_configurator(*, is_hybrid_swa=False, is_draft_worker=False):
+     configurator = KVCacheConfigurator.__new__(KVCacheConfigurator)
+     configurator.is_hybrid_swa = is_hybrid_swa
+     configurator.is_draft_worker = is_draft_worker
++    configurator.model_config = NS(hf_config=NS(architectures=["LlamaForCausalLM"]))
+     return configurator
+ 
+ 
+diff --git a/test/registered/unit/model_executor/runner/test_eager_idle_active_backend.py b/test/registered/unit/model_executor/runner/test_eager_idle_active_backend.py
+new file mode 100644
+index 0000000000..16a45e7bee
+--- /dev/null
++++ b/test/registered/unit/model_executor/runner/test_eager_idle_active_backend.py
+@@ -0,0 +1,96 @@
++"""EagerRunner._execute_idle must init the active forward-context backend.
++
++The EAGLE draft idle loop runs each step under a ForwardContext whose
++attn_backend is the per-step decode backend, while the draft runner's
++model_runner.attn_backend is the draft-extend backend. Layers read the active
++context backend, so it has to get forward_metadata for the idle batch too.
++"""
++
++import unittest
++from types import SimpleNamespace
++from unittest.mock import MagicMock
++
++from sglang.srt.model_executor.forward_batch_info import ForwardMode
++from sglang.srt.model_executor.forward_context import (
++    ForwardContext,
++    forward_context,
++    get_attn_backend,
++)
++from sglang.srt.model_executor.runner.eager_runner import EagerRunner
++from sglang.test.ci.ci_register import register_cpu_ci
++
++register_cpu_ci(est_time=5, suite="base-a-test-cpu")
++
++
++def _make_runner(runner_backend):
++    seen = {}
++
++    def _model_forward(input_ids, positions, forward_batch, **kwargs):
++        # Record the backend the layers would read during the forward.
++        seen["backend"] = get_attn_backend()
++        return "out"
++
++    model_runner = SimpleNamespace(
++        attn_backend=runner_backend,
++        device_timer=None,
++        model=SimpleNamespace(forward=_model_forward),
++        _pp_kwargs=lambda pp_proxy_tensors: {},
++    )
++    runner = EagerRunner.__new__(EagerRunner)
++    runner.model_runner = model_runner
++    runner.enable_pdmux = False
++    runner.load_batch = lambda forward_batch, pp_proxy_tensors=None: forward_batch
++    return runner, seen
++
++
++def _idle_batch(batch_size):
++    return SimpleNamespace(
++        forward_mode=ForwardMode.IDLE,
++        batch_size=batch_size,
++        input_ids=None,
++        positions=None,
++        moe_num_token_non_padded=None,
++    )
++
++
++class TestEagerIdleActiveBackend(unittest.TestCase):
++    def test_context_backend_differs_from_runner_backend(self):
++        draft_extend_backend = MagicMock(name="draft_extend_backend")
++        step_backend = MagicMock(name="step_backend")
++        runner, seen = _make_runner(draft_extend_backend)
++        batch = _idle_batch(batch_size=1)
++
++        with forward_context(ForwardContext(attn_backend=step_backend)):
++            out = runner._execute_idle(batch)
++
++        self.assertEqual(out, "out")
++        self.assertIs(seen["backend"], step_backend)
++        draft_extend_backend.init_forward_metadata.assert_called_once_with(batch)
++        step_backend.init_forward_metadata.assert_called_once_with(batch)
++
++    def test_context_backend_is_runner_backend(self):
++        backend = MagicMock(name="backend")
++        runner, seen = _make_runner(backend)
++        batch = _idle_batch(batch_size=1)
++
++        with forward_context(ForwardContext(attn_backend=backend)):
++            runner._execute_idle(batch)
++
++        self.assertIs(seen["backend"], backend)
++        backend.init_forward_metadata.assert_called_once_with(batch)
++
++    def test_empty_idle_batch_does_not_init_metadata(self):
++        draft_extend_backend = MagicMock(name="draft_extend_backend")
++        step_backend = MagicMock(name="step_backend")
++        runner, _ = _make_runner(draft_extend_backend)
++
++        with forward_context(ForwardContext(attn_backend=step_backend)):
++            runner._execute_idle(_idle_batch(batch_size=0))
++
++        draft_extend_backend.init_forward_metadata.assert_not_called()
++        step_backend.init_forward_metadata.assert_not_called()
++        self.assertIsNone(draft_extend_backend.forward_metadata)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py b/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py
+index 395791b2b7..cb2503aa49 100644
+--- a/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py
++++ b/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py
+@@ -298,6 +298,35 @@ class TestMlpSyncPadUnpad(CustomTestCase):
+         self.assertEqual(fb.extend_prefix_lens_cpu, [0])
+         self.assertEqual(fb.extend_logprob_start_lens_cpu, [0])
+ 
++    def test_draft_extend_padding_leaves_pre_pad_metadata_lens_alone(self):
++        # prepare_for_draft_extend plans attention metadata before MLP-sync
++        # padding, and the DSA metadata keeps extend_seq_lens_cpu as its real
++        # lengths. Extending that list in place made the indexer size 42 query
++        # rows over 36-row lengths/page tables (DP2 x DCP2 memory fault).
++        spec_info = MagicMock()
++        spec_info.num_tokens_per_req = 6
++        spec_info.is_draft_input.return_value = False
++        real_lens = [6] * 6
++        fb = ForwardBatch(
++            forward_mode=ForwardMode.DRAFT_EXTEND_V2,
++            batch_size=6,
++            input_ids=torch.zeros(36, dtype=torch.int64),
++            req_pool_indices=torch.arange(6),
++            seq_lens=torch.full((6,), 100),
++            seq_lens_sum=600,
++            out_cache_loc=torch.zeros(36, dtype=torch.int64),
++            positions=torch.zeros(36, dtype=torch.int64),
++            extend_seq_lens=torch.full((6,), 6, dtype=torch.int32),
++            extend_seq_lens_cpu=real_lens,
++            spec_info=spec_info,
++        )
++        planned_lens = fb.extend_seq_lens_cpu  # what the pre-pad plan holds
++
++        fb._pad_inputs_to_size(_mock_model_runner(), num_tokens=42, bs=7)
++
++        self.assertEqual(fb.extend_seq_lens_cpu, [6] * 7)
++        self.assertEqual(sum(planned_lens), 36)
++
+ 
+ class TestDraftScopeMlpSync(CustomTestCase):
+     SLOT = 2
+diff --git a/test/registered/unit/spec/test_eagle_worker_v2_topk1_fastpath.py b/test/registered/unit/spec/test_eagle_worker_v2_topk1_fastpath.py
+index 3969b04b87..71f273ef8b 100644
+--- a/test/registered/unit/spec/test_eagle_worker_v2_topk1_fastpath.py
++++ b/test/registered/unit/spec/test_eagle_worker_v2_topk1_fastpath.py
+@@ -273,7 +273,9 @@ class TestEagleWorkerV2BackendFallback(CustomTestCase):
+         worker.draft_runner = SimpleNamespace(
+             attn_backend=existing_backend,
+             model_config=SimpleNamespace(hf_config=SimpleNamespace()),
+-            kv_index_translator=SimpleNamespace(is_translating=False),
++            kv_index_translator=SimpleNamespace(
++                is_translating=False, needs_read_translate=False
++            ),
+         )
+         worker.topk = 1
+         worker.speculative_num_steps = 2
+@@ -308,7 +310,9 @@ class TestEagleWorkerV2BackendFallback(CustomTestCase):
+         worker.draft_runner = SimpleNamespace(
+             attn_backend=existing_backend,
+             model_config=SimpleNamespace(hf_config=SimpleNamespace()),
+-            kv_index_translator=SimpleNamespace(is_translating=False),
++            kv_index_translator=SimpleNamespace(
++                is_translating=False, needs_read_translate=False
++            ),
+         )
+         worker.topk = 1
+         worker.speculative_num_steps = 2
+diff --git a/test/registered/unit/test_dsa_dcp_backend_defaults.py b/test/registered/unit/test_dsa_dcp_backend_defaults.py
+new file mode 100644
+index 0000000000..28115dc121
+--- /dev/null
++++ b/test/registered/unit/test_dsa_dcp_backend_defaults.py
+@@ -0,0 +1,133 @@
++"""DSA DCP resolves unset backends to the platform's DCP path."""
++
++import unittest
++from types import SimpleNamespace
++from unittest.mock import patch
++
++import torch
++
++from sglang.srt.arg_groups.model_overrides.deepseek_v2 import _dsa_dcp_overrides
++from sglang.srt.arg_groups.overrides import _check_dsa_backend_constraints
++from sglang.srt.environ import envs
++from sglang.srt.models.deepseek_common import deepseek_weight_loader as loader_mod
++from sglang.test.ci.ci_register import register_cpu_ci
++from sglang.test.test_utils import CustomTestCase
++
++register_cpu_ci(est_time=5, suite="base-a-test-cpu")
++
++_PLATFORM = "sglang.srt.arg_groups.model_overrides.deepseek_v2.get_platform"
++
++
++def _cfg(**kw):
++    base = dict(
++        dcp_size=4,
++        enable_hisparse=False,
++        enable_hierarchical_cache=False,
++        disaggregation_mode="null",
++        speculative_eagle_topk=1,
++        dsa_prefill_backend=None,
++        dsa_decode_backend=None,
++        dcp_replicate_q_proj=None,
++        dcp_comm_backend=None,
++    )
++    base.update(kw)
++    return SimpleNamespace(**base)
++
++
++def _backends(overrides):
++    return overrides.get("dsa_prefill_backend"), overrides.get("dsa_decode_backend")
++
++
++class TestDsaDcpBackendDefaults(CustomTestCase):
++    def test_hip_defaults_to_triton(self):
++        with patch(_PLATFORM, return_value=SimpleNamespace(is_hip=True)):
++            self.assertEqual(
++                _backends(_dsa_dcp_overrides(_cfg())), ("triton", "triton")
++            )
++
++    def test_cuda_defaults_to_trtllm(self):
++        with patch(_PLATFORM, return_value=SimpleNamespace(is_hip=False)):
++            self.assertEqual(
++                _backends(_dsa_dcp_overrides(_cfg())), ("trtllm", "trtllm")
++            )
++
++    def test_explicit_backend_is_kept(self):
++        with patch(_PLATFORM, return_value=SimpleNamespace(is_hip=True)):
++            overrides = _dsa_dcp_overrides(_cfg(dsa_decode_backend="triton"))
++        self.assertEqual(_backends(overrides), ("triton", None))
++
++    def test_no_dcp_sets_nothing(self):
++        self.assertEqual(_dsa_dcp_overrides(_cfg(dcp_size=1)), {})
++
++    def test_pd_only_rocm_decode(self):
++        """Only a ROCm DCP decode may join PD; its draft KV must stripe like the
++        target for the DCP1 -> DCP-N relayout."""
++        with patch(_PLATFORM, return_value=SimpleNamespace(is_hip=True)):
++            _dsa_dcp_overrides(_cfg(disaggregation_mode="decode"))
++            with self.assertRaisesRegex(ValueError, "PD disaggregation"):
++                _dsa_dcp_overrides(_cfg(disaggregation_mode="prefill"))
++        with patch(_PLATFORM, return_value=SimpleNamespace(is_hip=False)):
++            with self.assertRaisesRegex(ValueError, "PD disaggregation"):
++                _dsa_dcp_overrides(_cfg(disaggregation_mode="decode"))
++
++
++class TestDsaDcpBackendConstraints(CustomTestCase):
++    def test_hip_dcp_triton_allowed(self):
++        _check_dsa_backend_constraints(
++            "fp8_e4m3", "triton", "triton", hip=True, dcp_size=4
++        )
++
++    def test_hip_dcp_rejects_other_backends(self):
++        for prefill, decode in (
++            ("trtllm", "trtllm"),
++            ("tilelang", "tilelang"),
++            ("triton", "tilelang"),
++            ("aiter", "triton"),
++        ):
++            with self.subTest(prefill=prefill, decode=decode):
++                with self.assertRaisesRegex(ValueError, "no DCP path on ROCm"):
++                    _check_dsa_backend_constraints(
++                        "fp8_e4m3", prefill, decode, hip=True, dcp_size=4
++                    )
++
++    def test_hip_without_dcp_keeps_other_backends(self):
++        _check_dsa_backend_constraints(
++            "fp8_e4m3", "tilelang", "tilelang", hip=True, dcp_size=1
++        )
++
++
++class TestKeepKvBBf16UnderDcp(CustomTestCase):
++    """SGLANG_DSA_DCP_KEEP_KV_B_BF16 keeps GLM's kv_b bf16 only on DCP layers,
++    which is what lets --dcp-replicate-q-proj prepare the target's w_kc."""
++
++    def _quantized(self, *, dcp_size, keep, arch="GlmMoeDsaForCausalLM"):
++        with (
++            patch.object(loader_mod, "_use_aiter_gfx95", True),
++            patch.object(
++                loader_mod,
++                "get_parallel",
++                return_value=SimpleNamespace(attn_dcp_size=dcp_size),
++            ),
++            envs.SGLANG_DSA_DCP_KEEP_KV_B_BF16.override(keep),
++        ):
++            return loader_mod._quantize_glm_kv_b_to_fp8(
++                architecture=arch, w_dtype=torch.bfloat16
++            )
++
++    def test_default_still_quantizes_under_dcp(self):
++        self.assertTrue(self._quantized(dcp_size=4, keep=False))
++
++    def test_flag_keeps_bf16_under_dcp(self):
++        self.assertFalse(self._quantized(dcp_size=4, keep=True))
++
++    def test_flag_does_not_touch_a_dcp1_prefill(self):
++        self.assertTrue(self._quantized(dcp_size=1, keep=True))
++
++    def test_other_architectures_are_never_quantized(self):
++        self.assertFalse(
++            self._quantized(dcp_size=4, keep=False, arch="DeepseekV3ForCausalLM")
++        )
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/test/registered/unit/test_dsa_dcp_split_indexer.py b/test/registered/unit/test_dsa_dcp_split_indexer.py
+new file mode 100644
+index 0000000000..36f576248a
+--- /dev/null
++++ b/test/registered/unit/test_dsa_dcp_split_indexer.py
+@@ -0,0 +1,165 @@
++"""Page-split DSA decode indexer under DCP: the merged top-k must equal the
++top-k a single rank computes over the whole replicated index K."""
++
++import unittest
++
++import torch
++
++from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (
++    OwnedInputsCache,
++    owned_inputs,
++    owned_lens,
++    owned_page_table,
++    positions_to_slots,
++    split_decode_topk,
++)
++from sglang.test.ci.ci_register import register_cpu_ci
++from sglang.test.test_utils import CustomTestCase
++
++register_cpu_ci(est_time=10, suite="base-a-test-cpu")
++
++
++def _local_topk(logits, lens, k):
++    """Column indices of the top-k among the first ``lens`` columns, -1 padded."""
++    cols = torch.arange(logits.shape[1]).view(1, -1)
++    masked = torch.where(cols < lens.view(-1, 1).long(), logits, -float("inf"))
++    best, idx = torch.topk(masked, k, dim=1)
++    return torch.where(best > -float("inf"), idx, torch.full_like(idx, -1))
++
++
++def _split(scores, lens, page, topk, w, garbage=1e9):
++    """Run every rank of the split on a [rows, positions] score matrix."""
++    rows, n_pos = scores.shape
++    n_pages = -(-n_pos // page)
++    # Arbitrary physical page ids; the scores are keyed by request position.
++    block_tables = torch.randperm(4 * n_pages + 3)[:n_pages].repeat(rows, 1)
++
++    packs = {}
++
++    def run(r, gather):
++        def logits_fn(tables, local_lens, max_len):
++            out = torch.full((rows, max_len), garbage)
++            for c in range(max_len):
++                gpos = ((c // page) * w + r) * page + c % page
++                if gpos < n_pos:
++                    out[:, c] = scores[:, gpos]
++            return out
++
++        return split_decode_topk(
++            block_tables=block_tables,
++            lens=lens,
++            page=page,
++            topk=topk,
++            w=w,
++            r=r,
++            logits_fn=logits_fn,
++            local_topk_fn=_local_topk,
++            all_gather_fn=gather,
++        )
++
++    # Pass 1 collects every rank's pack; pass 2 merges the gathered packs.
++    for r in range(w):
++
++        def collect(pack, r=r):
++            packs[r] = pack
++            return torch.cat([pack] * w, dim=0)
++
++        run(r, collect)
++    gathered = torch.cat([packs[r] for r in range(w)], dim=0)
++    return [run(r, lambda _pack: gathered) for r in range(w)], block_tables
++
++
++class TestDcpSplitDecodeIndexer(CustomTestCase):
++    def _check(self, scores, lens, page, topk, w):
++        results, _ = _split(scores, lens, page, topk, w)
++        for r in range(1, w):
++            self.assertTrue(torch.equal(results[0], results[r]), "ranks disagree")
++        got = results[0]
++        for row in range(scores.shape[0]):
++            n = int(lens[row])
++            want = torch.sort(scores[row, :n], descending=True).values[: min(topk, n)]
++            sel = got[row][got[row] >= 0]
++            self.assertEqual(sel.numel(), min(topk, n), f"row {row} count")
++            self.assertEqual(sel.unique().numel(), sel.numel(), f"row {row} dup")
++            self.assertTrue(bool((sel < n).all()), f"row {row} past length")
++            # Equal score multisets: exact up to the order of tied scores.
++            got_scores = torch.sort(scores[row, sel.long()], descending=True).values
++            self.assertTrue(torch.equal(got_scores, want), f"row {row} scores")
++
++    def test_random_scores_partial_pages(self):
++        torch.manual_seed(0)
++        page, topk, w = 4, 16, 4
++        lens = torch.tensor([0, 1, 3, 4, 5, 15, 16, 17, 31, 63, 64, 65, 100, 129])
++        scores = torch.randn(lens.numel(), 140)
++        self._check(scores, lens, page, topk, w)
++
++    def test_ties(self):
++        torch.manual_seed(1)
++        page, topk, w = 4, 8, 4
++        lens = torch.tensor([7, 33, 50, 97])
++        scores = torch.randint(0, 3, (4, 100)).float()
++        self._check(scores, lens, page, topk, w)
++
++    def test_mtp_verify_rows(self):
++        # Six verify rows per request: causal lengths seq_len - 5 .. seq_len.
++        torch.manual_seed(2)
++        page, topk, w = 8, 32, 4
++        lens = torch.cat([torch.arange(s - 5, s + 1) for s in (40, 77, 300)])
++        scores = torch.randn(lens.numel(), 320)
++        self._check(scores, lens, page, topk, w)
++
++    def test_owned_lens_partition(self):
++        page, w = 64, 4
++        lens = torch.arange(0, 2000, 7)
++        total = sum(owned_lens(lens, page, w, r).long() for r in range(w))
++        self.assertTrue(torch.equal(total, lens))
++
++    def test_positions_to_slots_matches_fused_contract(self):
++        page = 4
++        table = torch.tensor([[7, 2, 9], [1, 0, 5]])
++        pos = torch.tensor([[0, 5, 11, -1], [3, 4, -1, 8]])
++        slots = positions_to_slots(pos, table, page)
++        want = torch.tensor([[28, 9, 39, -1], [7, 0, -1, 20]], dtype=torch.int32)
++        self.assertTrue(torch.equal(slots, want))
++
++
++class TestOwnedInputsPerForward(CustomTestCase):
++    """The owned page table and lens are computed once per forward and reused by
++    later indexer layers, but never carried into the next forward."""
++
++    def _call(self, cache, metadata, layer_id, tables, lens):
++        return owned_inputs(
++            cache,
++            metadata=metadata,
++            layer_id=layer_id,
++            block_tables=tables,
++            lens=lens,
++            page=4,
++            w=4,
++            r=1,
++        )
++
++    def test_reuse_within_forward_recompute_across(self):
++        tables = torch.arange(3 * 9, dtype=torch.int32).view(3, 9)
++        lens = torch.tensor([5, 17, 33], dtype=torch.int32)
++        meta, cache = object(), OwnedInputsCache()
++        first = self._call(cache, meta, 0, tables, lens)
++        self.assertTrue(torch.equal(first[0], owned_page_table(tables, 4, 1)))
++        self.assertTrue(torch.equal(first[1], owned_lens(lens, 4, 4, 1)))
++        # A slice of the same storage, as each layer passes, still hits.
++        again = self._call(cache, meta, 6, tables[:3], lens[:3])
++        self.assertIs(again[0], first[0])
++        # Non-increasing layer id: the next forward (e.g. the next draft step on
++        # the same metadata object) recomputes from the updated lens.
++        lens.add_(1)
++        nxt = self._call(cache, meta, 6, tables, lens)
++        self.assertIsNot(nxt[0], first[0])
++        self.assertTrue(torch.equal(nxt[1], owned_lens(lens, 4, 4, 1)))
++        # Another forward's metadata, or different rows, recomputes too.
++        self.assertIsNot(self._call(cache, object(), 10, tables, lens)[0], nxt[0])
++        other = self._call(cache, meta, 20, tables[:2], lens[:2])
++        self.assertEqual(other[0].shape[0], 2)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/test/registered/unit/test_dsa_dcp_split_indexer_triton.py b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py
+new file mode 100644
+index 0000000000..5e1701e2aa
+--- /dev/null
++++ b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py
+@@ -0,0 +1,180 @@
++"""The Triton pack/merge of the page-split DCP decode indexer must match the
++torch reference (pack_candidates, merge_candidates, positions_to_slots): the pack
++bit for bit, the merge as the same per-row set (it does not sort), including
++invalid lanes, partial rows and the -1 padding. Runs the kernels
++in the Triton interpreter on CPU."""
++
++import os
++import subprocess
++import sys
++import unittest
++
++# The interpreter only takes effect for @triton.jit functions created after it is
++# set, including triton.language's own (tl.sort); if triton is already loaded in
++# this process, the kernel cases re-run this file in a fresh one instead.
++_FRESH_TRITON = "triton" not in sys.modules
++os.environ["TRITON_INTERPRET"] = "1"
++
++import torch  # noqa: E402
++
++from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (  # noqa: E402
++    merge_candidates,
++    pack_candidates,
++    positions_to_slots,
++    split_decode_topk,
++)
++from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer_triton import (  # noqa: E402
++    merge_candidates_triton,
++    pack_candidates_triton,
++)
++from sglang.test.ci.ci_register import register_cpu_ci  # noqa: E402
++from sglang.test.test_utils import CustomTestCase  # noqa: E402
++
++register_cpu_ci(est_time=60, suite="base-a-test-cpu")
++
++
++def _distinct_scores(*shape, seed):
++    g = torch.Generator().manual_seed(seed)
++    n = 1
++    for d in shape:
++        n *= d
++    return (torch.randperm(n, generator=g).float() / n - 0.5).view(*shape)
++
++
++def _local_case(rows, width, topk, seed):
++    """Local logits, a local top-k (with -1 and out-of-length lanes), lens."""
++    g = torch.Generator().manual_seed(seed)
++    logits = _distinct_scores(rows, width, seed=seed)
++    lens = torch.randint(0, width + 1, (rows,), generator=g, dtype=torch.int32)
++    lens[0] = width  # a full row
++    lens[1] = 0  # an empty row
++    idx = torch.randint(0, width, (rows, topk), generator=g, dtype=torch.int32)
++    idx[torch.rand(rows, topk, generator=g) < 0.2] = -1
++    return logits, idx, lens
++
++
++_needs_fresh = unittest.skipUnless(
++    _FRESH_TRITON, "triton loaded before the interpreter"
++)
++
++
++@_needs_fresh
++class TestPackTriton(CustomTestCase):
++    def test_matches_reference(self):
++        for page, w, r in ((64, 4, 0), (64, 4, 3), (16, 2, 1)):
++            logits, idx, lens = _local_case(rows=5, width=192, topk=96, seed=r)
++            ref = pack_candidates(logits, idx, lens, 96, page, w, r)
++            out = pack_candidates_triton(logits, idx, lens, 96, page, w, r)
++            self.assertTrue(torch.equal(out, ref), f"{page=} {w=} {r=}")
++
++    def test_padded_logits_view(self):
++        # The aiter logits are a row-padded view; only stride(1) == 1 is assumed.
++        logits, idx, lens = _local_case(rows=3, width=128, topk=64, seed=7)
++        padded = torch.full((3, 160), 9.0)
++        padded[:, :128] = logits
++        view = padded[:, :128]
++        ref = pack_candidates(logits, idx, lens, 64, 64, 4, 1)
++        out = pack_candidates_triton(view, idx, lens, 64, 64, 4, 1)
++        self.assertTrue(torch.equal(out, ref))
++
++
++def _same_rows(a, b):
++    """Equal as per-row multisets: the merge keeps candidate order, not score order."""
++    a, b = a.to(torch.int32), b.to(torch.int32)
++    return a.shape == b.shape and torch.equal(
++        a.sort(dim=1).values, b.sort(dim=1).values
++    )
++
++
++def _gathered(rows, topk, w, n_pos, seed):
++    """Per-rank packs with distinct scores, some -inf lanes and -1 positions."""
++    g = torch.Generator().manual_seed(seed)
++    scores = _distinct_scores(w, rows, topk, seed=seed)
++    scores[torch.rand(w, rows, topk, generator=g) < 0.3] = -float("inf")
++    pos = torch.randint(0, n_pos, (w, rows, topk), generator=g, dtype=torch.int32)
++    pos[scores == -float("inf")] = -1
++    packs = torch.empty((w, 2, rows, topk), dtype=torch.int32)
++    packs[:, 0] = scores.view(torch.int32)
++    packs[:, 1] = pos
++    return packs.view(w * 2, rows, topk)
++
++
++@_needs_fresh
++class TestMergeTriton(CustomTestCase):
++    def test_positions_match_reference(self):
++        for w, topk in ((4, 64), (2, 32), (3, 16)):  # w * topk not a power of 2 too
++            gathered = _gathered(rows=4, topk=topk, w=w, n_pos=1000, seed=w)
++            ref = merge_candidates(gathered, w, topk)
++            out = merge_candidates_triton(gathered, w, topk)
++            self.assertTrue(_same_rows(out, ref), f"{w=} {topk=}")
++
++    def test_production_shape(self):
++        # GLM-5.2: index_topk 2048 over DCP4, an 8192-wide sort per row.
++        gathered = _gathered(rows=2, topk=2048, w=4, n_pos=200_000, seed=13)
++        ref = merge_candidates(gathered, 4, 2048)
++        out = merge_candidates_triton(gathered, 4, 2048)
++        self.assertTrue(_same_rows(out, ref))
++
++    def test_slots_match_reference(self):
++        page, n_pos = 16, 1000
++        gathered = _gathered(rows=3, topk=64, w=4, n_pos=n_pos, seed=11)
++        n_pages = -(-n_pos // page)
++        g = torch.Generator().manual_seed(3)
++        table = torch.stack(
++            [torch.randperm(8 * n_pages, generator=g)[:n_pages] for _ in range(3)]
++        ).to(torch.int32)
++        ref = positions_to_slots(merge_candidates(gathered, 4, 64), table, page)
++        out = merge_candidates_triton(gathered, 4, 64, page_table=table, page=page)
++        self.assertTrue(_same_rows(out, ref))
++
++    def test_all_invalid_row_is_all_minus_one(self):
++        gathered = _gathered(rows=2, topk=32, w=4, n_pos=100, seed=5)
++        packs = gathered.view(4, 2, 2, 32)
++        packs[:, 0, 1] = torch.tensor(-float("inf")).view(torch.int32)
++        packs[:, 1, 1] = -1
++        out = merge_candidates_triton(gathered, 4, 32)
++        self.assertTrue(torch.equal(out[1], torch.full((32,), -1, dtype=torch.int32)))
++
++
++@_needs_fresh
++class TestSplitTopkPlumbing(CustomTestCase):
++    def test_triton_fns_slot_into_split_decode_topk(self):
++        rows, page, w, r, topk = 3, 16, 4, 2, 32
++        g = torch.Generator().manual_seed(1)
++        table = torch.randperm(64, generator=g)[:40].to(torch.int32).repeat(rows, 1)
++        lens = torch.tensor([640, 300, 17], dtype=torch.int32)
++
++        def run(**fns):
++            return split_decode_topk(
++                block_tables=table,
++                lens=lens,
++                page=page,
++                topk=topk,
++                w=w,
++                r=r,
++                logits_fn=lambda t, ln, n: _distinct_scores(rows, n, seed=2),
++                local_topk_fn=lambda lg, ln, k: torch.topk(lg, k, dim=1)[1].int(),
++                # Stand-in for the W-rank gather: rank r's pack in every slot.
++                all_gather_fn=lambda pack: torch.cat([pack] * w),
++                **fns,
++            )
++
++        ref = run()
++        out = run(pack_fn=pack_candidates_triton, merge_fn=merge_candidates_triton)
++        self.assertTrue(_same_rows(out, ref))
++
++
++@unittest.skipIf(_FRESH_TRITON, "kernel cases run in this process")
++class TestKernelsInFreshProcess(CustomTestCase):
++    def test_kernel_cases_pass(self):
++        proc = subprocess.run(
++            [sys.executable, os.path.abspath(__file__)],
++            capture_output=True,
++            text=True,
++            timeout=600,
++        )
++        self.assertEqual(proc.returncode, 0, proc.stderr[-4000:])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/test/registered/unit/utils/test_offloader_cpu_param_attrs.py b/test/registered/unit/utils/test_offloader_cpu_param_attrs.py
+new file mode 100644
+index 0000000000..9d612f6ef2
+--- /dev/null
++++ b/test/registered/unit/utils/test_offloader_cpu_param_attrs.py
+@@ -0,0 +1,46 @@
++"""A CPU-offloaded weight streamed back to the device must keep is_shuffled:
++aiter fused_moe selects its preshuffled MXFP4 kernels by that attribute."""
++
++import unittest
++from types import SimpleNamespace
++
++import torch
++
++from sglang.srt.utils.offloader import _CpuParamOffloader
++from sglang.test.ci.ci_register import register_cpu_ci
++from sglang.test.test_utils import CustomTestCase
++
++register_cpu_ci(est_time=5, suite="base-a-test-cpu")
++
++
++class _HostParam:
++    """Stands in for the pinned host param; .to() yields a plain tensor."""
++
++    def __init__(self, is_shuffled=None):
++        if is_shuffled is not None:
++            self.is_shuffled = is_shuffled
++
++    def to(self, device, non_blocking=False):
++        return torch.zeros(2, 2)
++
++
++def _offloader(host_param):
++    offloader = _CpuParamOffloader.__new__(_CpuParamOffloader)
++    offloader._module = SimpleNamespace(w13_weight=host_param)
++    offloader._param_name = "w13_weight"
++    return offloader
++
++
++class TestCpuParamOffloaderAttrs(CustomTestCase):
++    def test_shuffled_flag_is_carried_to_device_tensor(self):
++        device_tensor = _offloader(_HostParam(is_shuffled=True)).create_device_tensor()
++        self.assertTrue(device_tensor.is_shuffled)
++
++    def test_unshuffled_weight_gets_no_flag(self):
++        for host_param in (_HostParam(), _HostParam(is_shuffled=False)):
++            device_tensor = _offloader(host_param).create_device_tensor()
++            self.assertFalse(hasattr(device_tensor, "is_shuffled"))
++
++
++if __name__ == "__main__":
++    unittest.main()

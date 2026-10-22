@@ -1,0 +1,45 @@
+### r2A2b prefill all ranks
+[prefill]  (steady-state lines: 3938)
+  state                             mean  median   p95   max
+  1 prefill-input                    0.3     0.0     2    10
+    handshake                        0.0     0.0     0     3
+  2 prefill-outbound(KV-send)        1.7     1.0     5    14
+
+[rdma] no mooncake metrics
+[transfer errors] none
+
+--- verdict inputs (apply parent skill's rule) ---
+  state1 prefill-input max=10 | state2 prefill-outbound max=14 | state3 decode-admission max=? | decode-running occupancy=?%
+  rule: input deep + outbound shallow + decode headroom => PREFILL-bound
+        outbound(state2) deep                          => TRANSFER-bound
+        admission(state3) deep + decode near cap        => DECODE-bound
+### r4A2 prefill all ranks
+[prefill]  (steady-state lines: 4238)
+  state                             mean  median   p95   max
+  1 prefill-input                    0.3     0.0     2     6
+    handshake                        0.0     0.0     0     1
+  2 prefill-outbound(KV-send)        1.8     1.0     6    12
+
+[rdma] no mooncake metrics
+[transfer errors] none
+
+--- verdict inputs (apply parent skill's rule) ---
+  state1 prefill-input max=6 | state2 prefill-outbound max=12 | state3 decode-admission max=? | decode-running occupancy=?%
+  rule: input deep + outbound shallow + decode headroom => PREFILL-bound
+        outbound(state2) deep                          => TRANSFER-bound
+        admission(state3) deep + decode near cap        => DECODE-bound
+### r4C52 prefill all ranks
+[prefill]  (steady-state lines: 5463)
+  state                             mean  median   p95   max
+  1 prefill-input                    1.2       0     6    18
+    handshake                        0.0       0     0     2
+  2 prefill-outbound(KV-send)        3.6       2    12    16
+
+[rdma] no mooncake metrics
+[transfer errors] none
+
+--- verdict inputs (apply parent skill's rule) ---
+  state1 prefill-input max=18 | state2 prefill-outbound max=16 | state3 decode-admission max=? | decode-running occupancy=?%
+  rule: input deep + outbound shallow + decode headroom => PREFILL-bound
+        outbound(state2) deep                          => TRANSFER-bound
+        admission(state3) deep + decode near cap        => DECODE-bound

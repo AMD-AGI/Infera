@@ -1,0 +1,38 @@
+{
+  "label": "r4C52",
+  "rank": "DP0",
+  "prefill": {
+    "queue-req": {
+      "state": "1 prefill-input",
+      "mean": 1.2,
+      "median": 0.0,
+      "p95": 6,
+      "max": 16,
+      "n": 1358
+    },
+    "bootstrap-req": {
+      "state": "  handshake",
+      "mean": 0.0,
+      "median": 0.0,
+      "p95": 0,
+      "max": 2,
+      "n": 1358
+    },
+    "inflight-req": {
+      "state": "2 prefill-outbound(KV-send)",
+      "mean": 3.9,
+      "median": 3.0,
+      "p95": 12,
+      "max": 16,
+      "n": 1358
+    }
+  },
+  "prefill_steady_lines": 1358,
+  "decode": {},
+  "decode_steady_lines": 0,
+  "rdma": {
+    "available": false,
+    "disabled_note": false
+  },
+  "transfer_errors": "none"
+}

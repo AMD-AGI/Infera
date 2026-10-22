@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 51,
+   "completion_tokens": 2,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 8.52,
+  "expect": "29",
+  "pass": true
+ },
+ "math_think": {
+  "content": "29",
+  "reasoning": "1.  Identify the initial number of sheep: 17.\n2.  Add the first purchase: 17 + 3 = 20.\n3.  Subtract the sheep that ran away: 20 - 5 = 15.\n4.  Add the second purchase: 15 + 14 = 29.\n5.  The question asks for the final number of sheep, answering with *only* the number.",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 145,
+   "completion_tokens": 90,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 88
+  },
+  "secs": 6.02,
+  "expect": "29",
+  "pass": true
+ },
+ "passkey_8k": {
+  "content": "67767",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9186,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 162.36,
+  "expect": "67767",
+  "pass": true
+ },
+ "passkey_34k": {
+  "content": "25315",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38922,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 4544
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 4.47,
+  "expect": "25315",
+  "pass": true
+ },
+ "passkey_96k": {
+  "content": "10981",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109767,
+   "completion_tokens": 3,
+   "prompt_tokens_details": {
+    "cached_tokens": 19392
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 11.13,
+  "expect": "10981",
+  "pass": true
+ }
+}

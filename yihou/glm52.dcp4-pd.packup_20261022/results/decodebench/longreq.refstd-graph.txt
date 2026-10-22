@@ -1,0 +1,1 @@
+{'prompt_tokens': 10007, 'total_tokens': 12007, 'completion_tokens': 2000, 'prompt_tokens_details': {'cached_tokens': 0}, 'reasoning_tokens': 0} 14.8 'This is the story of the Aethelgard Clockwork, the valley of Oakhaven, and a young woman named Elara.\n\nFor as long as anyone in the village of Oakhaven could remember, the great clock tower in the cen'

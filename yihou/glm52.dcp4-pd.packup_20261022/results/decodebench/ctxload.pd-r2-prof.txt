@@ -1,0 +1,24 @@
+export=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-prof/aiperf_artifacts/profile_export.jsonl phase='' requests=694 skipped=50
+window 2026-10-21T18:21:39Z .. 2026-10-21T18:41:05Z (1166 s)
+ALL  rows   6.26  sum_ctx   0.987 M  ctx/row   157.5 K
+  2026-10-21T18:21:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row    49.1 K
+  2026-10-21T18:22:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row    61.3 K
+  2026-10-21T18:23:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row     0.0 K
+  2026-10-21T18:24:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row    93.4 K
+  2026-10-21T18:25:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row     0.0 K
+  2026-10-21T18:26:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row    99.0 K
+  2026-10-21T18:27:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row   211.3 K
+  2026-10-21T18:28:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row     0.0 K
+  2026-10-21T18:29:39Z  rows   0.00  sum_ctx   0.000 M  ctx/row    14.8 K
+  2026-10-21T18:30:39Z  rows   3.57  sum_ctx   0.279 M  ctx/row    78.2 K
+  2026-10-21T18:31:39Z  rows   8.32  sum_ctx   0.869 M  ctx/row   104.5 K
+  2026-10-21T18:32:39Z  rows   7.46  sum_ctx   0.813 M  ctx/row   109.0 K
+  2026-10-21T18:33:39Z  rows   6.31  sum_ctx   0.701 M  ctx/row   111.1 K
+  2026-10-21T18:34:39Z  rows   3.91  sum_ctx   0.385 M  ctx/row    98.3 K
+  2026-10-21T18:35:39Z  rows  17.24  sum_ctx   4.019 M  ctx/row   233.1 K
+  2026-10-21T18:36:39Z  rows  18.51  sum_ctx   3.667 M  ctx/row   198.1 K
+  2026-10-21T18:37:39Z  rows  19.30  sum_ctx   2.695 M  ctx/row   139.6 K
+  2026-10-21T18:38:39Z  rows  15.85  sum_ctx   2.606 M  ctx/row   164.5 K
+  2026-10-21T18:39:39Z  rows  18.40  sum_ctx   2.723 M  ctx/row   147.9 K
+  2026-10-21T18:40:39Z  rows   6.55  sum_ctx   0.968 M  ctx/row   147.7 K
+AT 2026-10-21T18:35:56Z  rows 26  sum_ctx 5.625 M  max 696.7 K  mean 216.3 K

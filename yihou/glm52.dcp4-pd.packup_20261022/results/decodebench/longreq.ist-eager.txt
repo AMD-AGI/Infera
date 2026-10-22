@@ -1,0 +1,1 @@
+{'prompt_tokens': 10007, 'total_tokens': 11507, 'completion_tokens': 1500, 'prompt_tokens_details': {'cached_tokens': 0}, 'reasoning_tokens': 0} 130.6 '# The Cartographer of Lost Worlds\n\n## Part One: The Inheritance\n\nThe letter arrived on a Tuesday, which was strange because Elara had always believed that life-altering events should happen on more dr'

@@ -1,0 +1,31 @@
+From 6a439488e0c7962af7da48c6e1d134accde38cb2 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:09:14 +0000
+Subject: [PATCH 05/31] [yihou] infera recipe: PD decode skips implicit ROCm
+ rejection sampling
+
+Infera image patch patch_pd_disable_implicit_rocm_rejection_sampling.py.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/arg_groups/speculative_hook.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/python/sglang/srt/arg_groups/speculative_hook.py b/python/sglang/srt/arg_groups/speculative_hook.py
+index 40995d45ea..3b6236d8f7 100644
+--- a/python/sglang/srt/arg_groups/speculative_hook.py
++++ b/python/sglang/srt/arg_groups/speculative_hook.py
+@@ -1104,7 +1104,8 @@ def _handle_eagle_family(server_args: ServerArgs) -> None:
+     # chain sampler -- for configs that support it. See
+     # _should_auto_enable_hip_rejection_sampling for the cases we must not flip.
+     if _should_auto_enable_hip_rejection_sampling(
+-        is_hip=get_platform().is_hip,
++        # PD decode does not receive draft_probs from prefill; do not implicitly select the incompatible path.
++        is_hip=get_platform().is_hip and cfg.disaggregation_mode != "decode",
+         use_rejection_sampling=cfg.speculative_use_rejection_sampling,
+         algorithm=cfg.speculative_algorithm,
+         token_map=cfg.speculative_token_map,
+-- 
+2.34.1
+

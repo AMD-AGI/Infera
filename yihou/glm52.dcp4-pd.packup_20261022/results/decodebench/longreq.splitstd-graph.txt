@@ -1,0 +1,1 @@
+{'prompt_tokens': 10007, 'total_tokens': 12007, 'completion_tokens': 2000, 'prompt_tokens_details': {'cached_tokens': 0}, 'reasoning_tokens': 0} 20.8 '\n\n\n# The Cartographer of Forgotten Light\n\n## Part One: The Weight of Empty Spaces\n\nThe rain had been falling for seventeen days when Maren Ashford first noticed the map was breathing.\n\nShe sat in the '

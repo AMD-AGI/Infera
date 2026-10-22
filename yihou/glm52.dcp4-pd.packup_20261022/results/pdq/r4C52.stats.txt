@@ -1,0 +1,22 @@
+
+===== PD bottleneck stats: r4C52 (rank DP0) =====
+
+[prefill]  (steady-state lines: 1358)
+  state                             mean  median   p95   max
+  1 prefill-input                    1.2     0.0     6    16
+    handshake                        0.0     0.0     0     2
+  2 prefill-outbound(KV-send)        3.9     3.0    12    16
+
+[decode]  (steady-state lines: 0)
+  state                             mean  median   p95   max
+
+[rdma] no mooncake metrics
+[transfer errors] none
+
+--- verdict inputs (apply parent skill's rule) ---
+  state1 prefill-input max=16 | state2 prefill-outbound max=16 | state3 decode-admission max=? | decode-running occupancy=?%
+  rule: input deep + outbound shallow + decode headroom => PREFILL-bound
+        outbound(state2) deep                          => TRANSFER-bound
+        admission(state3) deep + decode near cap        => DECODE-bound
+
+wrote r4C52.json

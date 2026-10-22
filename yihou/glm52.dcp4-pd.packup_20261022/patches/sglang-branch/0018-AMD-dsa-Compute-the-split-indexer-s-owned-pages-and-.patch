@@ -1,0 +1,233 @@
+From 6ffb90ae6b90199a7b73bd7fff9244819f7c4958 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 19:15:13 +0000
+Subject: [PATCH 18/31] [AMD] dsa: Compute the split indexer's owned pages and
+ lens once per forward
+
+They depend only on the forward's page table and lens, so the 21 indexer
+layers of a verify step reuse the first layer's result. A new forward
+metadata object, a non-increasing layer id or different inputs recompute.
+Still behind SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../attention/dsa/dsa_dcp_split_indexer.py    | 64 +++++++++++++++++--
+ .../srt/layers/attention/dsa/dsa_indexer.py   | 16 +++++
+ .../unit/test_dsa_dcp_split_indexer.py        | 41 ++++++++++++
+ 3 files changed, 117 insertions(+), 4 deletions(-)
+
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+index 241cea9a9e..53de7a9c3d 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+@@ -9,8 +9,9 @@ token in the global top-k is in the local top-k of the rank that scored it.
+ 
+ from __future__ import annotations
+ 
+-from typing import Callable
++from typing import Callable, Optional, Tuple
+ 
++import msgspec
+ import torch
+ 
+ 
+@@ -99,6 +100,53 @@ def positions_to_slots(
+     return torch.where(p >= 0, slots, torch.full_like(slots, -1)).to(torch.int32)
+ 
+ 
++class OwnedInputsCache(msgspec.Struct):
++    """Per-forward reuse of the owned page table and lens across indexer layers.
++
++    They depend only on the forward's page table and lens, not on the layer. A
++    new forward is detected by a different forward metadata object, a layer id
++    that does not increase, or a different (pointer, shape) of either input.
++    """
++
++    metadata: object = None
++    layer_id: int = -1
++    key: Optional[Tuple] = None
++    tables: Optional[torch.Tensor] = None
++    lens: Optional[torch.Tensor] = None
++
++
++def _input_key(block_tables: torch.Tensor, lens: torch.Tensor) -> Tuple:
++    return (
++        block_tables.data_ptr(),
++        tuple(block_tables.shape),
++        lens.data_ptr(),
++        tuple(lens.shape),
++    )
++
++
++def owned_inputs(
++    cache: OwnedInputsCache,
++    *,
++    metadata: object,
++    layer_id: int,
++    block_tables: torch.Tensor,
++    lens: torch.Tensor,
++    page: int,
++    w: int,
++    r: int,
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    key = _input_key(block_tables, lens)
++    if not (
++        cache.metadata is metadata and layer_id > cache.layer_id and cache.key == key
++    ):
++        cache.metadata = metadata
++        cache.key = key
++        cache.tables = owned_page_table(block_tables, w, r)
++        cache.lens = owned_lens(lens, page, w, r)
++    cache.layer_id = layer_id
++    return cache.tables, cache.lens
++
++
+ def split_decode_topk(
+     *,
+     block_tables: torch.Tensor,
+@@ -110,16 +158,19 @@ def split_decode_topk(
+     logits_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
+     local_topk_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
+     all_gather_fn: Callable[[torch.Tensor], torch.Tensor],
++    owned: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+ ) -> torch.Tensor:
+     """Global top-k request positions [rows, topk] (-1 padded) for every row.
+ 
+     ``logits_fn(owned_block_tables, owned_lens, max_len)`` scores this rank's
+     pages; ``local_topk_fn(logits, lens, k)`` returns column indices;
+     ``all_gather_fn`` concatenates the [2, rows, topk] packs of all W ranks
+-    along dim 0 in rank order.
++    along dim 0 in rank order. ``owned`` passes precomputed
++    (``owned_page_table``, ``owned_lens``) for these inputs.
+     """
+-    local_tables = owned_page_table(block_tables, w, r)
+-    local_lens = owned_lens(lens, page, w, r)
++    if owned is None:
++        owned = (owned_page_table(block_tables, w, r), owned_lens(lens, page, w, r))
++    local_tables, local_lens = owned
+     local_logits = logits_fn(local_tables, local_lens, local_tables.shape[1] * page)
+     if local_logits.shape[1] < topk:
+         local_logits = torch.nn.functional.pad(
+@@ -128,3 +179,8 @@ def split_decode_topk(
+     local_idx = local_topk_fn(local_logits, local_lens, topk)
+     pack = pack_candidates(local_logits, local_idx, local_lens, topk, page, w, r)
+     return merge_candidates(all_gather_fn(pack), w, topk)
++
++
++# One per process: draft and target forwards use different forward metadata
++# objects, so they never share an entry.
++OWNED_INPUTS_CACHE = OwnedInputsCache()
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index d3adeac068..f0bbbedbae 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -1424,6 +1424,7 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+                     block_tables[:_p1v2_rows],
+                     page_size,
+                     metadata,
++                    layer_id,
+                 )
+                 if _p1v2_trim:
+                     topk_result = torch.cat(
+@@ -1574,16 +1575,30 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+         block_tables: torch.Tensor,
+         page_size: int,
+         metadata: BaseIndexerMetadata,
++        layer_id: int,
+     ) -> torch.Tensor:
+         """Top-k over this rank's pages, merged across the DCP group, in the
+         same index space ``topk_transform`` would return (slots when fused)."""
+         from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (
++            OWNED_INPUTS_CACHE,
++            owned_inputs,
+             positions_to_slots,
+             split_decode_topk,
+         )
+ 
+         group = get_parallel().dcp_group
+         w, r = group.world_size, group.rank_in_group
++        # attn_metadata is shared by every layer of one forward.
++        owned = owned_inputs(
++            OWNED_INPUTS_CACHE,
++            metadata=metadata.attn_metadata,
++            layer_id=layer_id,
++            block_tables=block_tables,
++            lens=lens,
++            page=page_size,
++            w=w,
++            r=r,
++        )
+ 
+         def logits_fn(tables, local_lens, max_len):
+             return aiter_paged_mqa_logits(
+@@ -1607,6 +1622,7 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+             logits_fn=logits_fn,
+             local_topk_fn=metadata.topk_backend.topk_func,
+             all_gather_fn=lambda pack: group.all_gather(pack, dim=0),
++            owned=owned,
+         )
+         fused = envs.SGLANG_DSA_FUSE_TOPK.get() and not metadata.force_unfused_topk
+         if fused:
+diff --git a/test/registered/unit/test_dsa_dcp_split_indexer.py b/test/registered/unit/test_dsa_dcp_split_indexer.py
+index 52dbb2bc9e..36f576248a 100644
+--- a/test/registered/unit/test_dsa_dcp_split_indexer.py
++++ b/test/registered/unit/test_dsa_dcp_split_indexer.py
+@@ -6,7 +6,10 @@ import unittest
+ import torch
+ 
+ from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (
++    OwnedInputsCache,
++    owned_inputs,
+     owned_lens,
++    owned_page_table,
+     positions_to_slots,
+     split_decode_topk,
+ )
+@@ -120,5 +123,43 @@ class TestDcpSplitDecodeIndexer(CustomTestCase):
+         self.assertTrue(torch.equal(slots, want))
+ 
+ 
++class TestOwnedInputsPerForward(CustomTestCase):
++    """The owned page table and lens are computed once per forward and reused by
++    later indexer layers, but never carried into the next forward."""
++
++    def _call(self, cache, metadata, layer_id, tables, lens):
++        return owned_inputs(
++            cache,
++            metadata=metadata,
++            layer_id=layer_id,
++            block_tables=tables,
++            lens=lens,
++            page=4,
++            w=4,
++            r=1,
++        )
++
++    def test_reuse_within_forward_recompute_across(self):
++        tables = torch.arange(3 * 9, dtype=torch.int32).view(3, 9)
++        lens = torch.tensor([5, 17, 33], dtype=torch.int32)
++        meta, cache = object(), OwnedInputsCache()
++        first = self._call(cache, meta, 0, tables, lens)
++        self.assertTrue(torch.equal(first[0], owned_page_table(tables, 4, 1)))
++        self.assertTrue(torch.equal(first[1], owned_lens(lens, 4, 4, 1)))
++        # A slice of the same storage, as each layer passes, still hits.
++        again = self._call(cache, meta, 6, tables[:3], lens[:3])
++        self.assertIs(again[0], first[0])
++        # Non-increasing layer id: the next forward (e.g. the next draft step on
++        # the same metadata object) recomputes from the updated lens.
++        lens.add_(1)
++        nxt = self._call(cache, meta, 6, tables, lens)
++        self.assertIsNot(nxt[0], first[0])
++        self.assertTrue(torch.equal(nxt[1], owned_lens(lens, 4, 4, 1)))
++        # Another forward's metadata, or different rows, recomputes too.
++        self.assertIsNot(self._call(cache, object(), 10, tables, lens)[0], nxt[0])
++        other = self._call(cache, meta, 20, tables[:2], lens[:2])
++        self.assertEqual(other[0].shape[0], 2)
++
++
+ if __name__ == "__main__":
+     unittest.main()
+-- 
+2.34.1
+

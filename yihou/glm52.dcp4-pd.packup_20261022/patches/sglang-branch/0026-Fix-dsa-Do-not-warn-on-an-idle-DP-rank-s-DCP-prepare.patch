@@ -1,0 +1,33 @@
+From e9e1432ce6d36ff66a450c42dd1cbb7e0f1c8b3e Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 19:59:45 +0000
+Subject: [PATCH 26/31] [Fix] dsa: Do not warn on an idle DP rank's DCP prepare
+
+Under DP attention an idle rank runs the layer on padding rows; the DCP
+prepare logged 'not supported forward_mode 4' per layer per step.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+(cherry picked from commit 075edb377e395c672a12eb810a0f4df2a910bef5)
+---
+ .../attention_forward_methods/forward_mla_rocm.py             | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
+index a1848ad07c..e3b2f8b81e 100644
+--- a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
++++ b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
+@@ -798,7 +798,9 @@ class DeepseekMLARocmForwardMixin:
+                         k_nope,
+                         k_pe,
+                     )
+-            else:
++            elif not forward_batch.forward_mode.is_idle():
++                # An idle DP rank runs the layer on its padding rows only; its
++                # DCP peers are idle too, so it gathers nothing.
+                 logger.warning(
+                     f"not supported forward_mode {forward_batch.forward_mode}"
+                 )
+-- 
+2.34.1
+

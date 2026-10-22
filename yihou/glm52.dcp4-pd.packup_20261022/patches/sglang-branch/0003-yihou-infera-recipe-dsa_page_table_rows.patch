@@ -1,0 +1,75 @@
+From 344765b3bc72f2c3d7b0530a512ed77011e94ca3 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:09:14 +0000
+Subject: [PATCH 03/31] [yihou] infera recipe: dsa_page_table_rows
+
+Infera image patch sglang_dsa/v0521/dsa_page_table_rows.diff: give the
+decode page table one row per token to match top-k under MTP. DCP: the
+row-matched table is what localize_dcp_page_table then maps to rank-local
+rows, so the triton DCP decode sees the same per-token rows.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../srt/layers/attention/dsa_backend.py       | 31 +++++++++++++++++--
+ 1 file changed, 29 insertions(+), 2 deletions(-)
+
+diff --git a/python/sglang/srt/layers/attention/dsa_backend.py b/python/sglang/srt/layers/attention/dsa_backend.py
+index 95b27949e1..c4a6b2592a 100644
+--- a/python/sglang/srt/layers/attention/dsa_backend.py
++++ b/python/sglang/srt/layers/attention/dsa_backend.py
+@@ -187,6 +187,29 @@ def _to_2d_context_lens(seqlens_32: torch.Tensor, batch_size: int) -> torch.Tens
+     return seqlens_32.contiguous().view(-1, 1)
+ 
+ 
++def _glm52_match_page_table_rows(page_table, topk_indices):
++    """GLM52_BUG2B: give page_table one row per TOKEN, matching topk_indices.
++
++    page_table_1 is per-REQUEST, topk_indices per-TOKEN -- equal for plain decode,
++    not under MTP, where decode then trips `assert page_table.shape[0] ==
++    topk_indices.shape[0]`. Padded rows are masked, so only the COUNT matters.
++    """
++    if topk_indices is None or page_table is None:
++        return page_table
++    n_topk = topk_indices.shape[0]
++    n_rows = page_table.shape[0]
++    if n_rows == n_topk:
++        return page_table
++    if n_rows > 0 and n_topk % n_rows == 0:
++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
++    # only through padded (-1) topk entries is masked, so its content is moot.
++    if n_rows > n_topk:
++        return page_table[:n_topk]
++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
++    return torch.cat([page_table, pad], dim=0)
++
++
+ def _trim_trtllm_decode_dp_padding(
+     q_all: torch.Tensor,
+     topk_indices: Optional[torch.Tensor],
+@@ -2700,7 +2723,9 @@ class DeepseekSparseAttnBackend(
+             page_table_1 = self._get_fused_topk_page_table(topk_indices)
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+@@ -4027,7 +4052,9 @@ class DeepseekSparseAttnBackend(
+             )
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+-- 
+2.34.1
+

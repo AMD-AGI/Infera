@@ -1,0 +1,314 @@
+{
+ "concurrent40": [
+  {
+   "kind": "math",
+   "expect": "39",
+   "got": "39",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "15",
+   "got": "15",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "20",
+   "got": "20",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "43",
+   "got": "43",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "43",
+   "got": "43",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "64",
+   "got": "64",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "49",
+   "got": "49",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "74",
+   "got": "74",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "70",
+   "got": "70",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "39",
+   "got": "39",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "62",
+   "got": "62",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "81",
+   "got": "81",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "33",
+   "got": "33",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "50",
+   "got": "50",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "85",
+   "got": "85",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "15",
+   "got": "15",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "30",
+   "got": "30",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "54",
+   "got": "54",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "58",
+   "got": "58",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "36",
+   "got": "36",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "pk8k",
+   "expect": "92071",
+   "got": "92071",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "60710",
+   "got": "60710",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "54063",
+   "got": "54063",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "19725",
+   "got": "19725",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "72186",
+   "got": "72186",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "25125",
+   "got": "25125",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "61090",
+   "got": "61090",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "12018",
+   "got": "12018",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "22103",
+   "got": "22103",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "18416",
+   "got": "18416",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk34k",
+   "expect": "69070",
+   "got": "69070",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "43430",
+   "got": "43430",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "75526",
+   "got": "75526",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "73041",
+   "got": "73041",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "15642",
+   "got": "15642",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "18087",
+   "got": "18087",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "20711",
+   "got": "20711",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "70593",
+   "got": "70593",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "87770",
+   "got": "87770",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "43505",
+   "got": "43505",
+   "pass": true,
+   "prompt_tokens": 38918
+  }
+ ],
+ "summary": {
+  "math": [
+   20,
+   20
+  ],
+  "pk8k": [
+   10,
+   10
+  ],
+  "pk34k": [
+   10,
+   10
+  ]
+ },
+ "long_window": [
+  "2026-10-22 01:53:46",
+  "2026-10-22 01:54:04"
+ ],
+ "long_tokens": [
+  1500,
+  1500,
+  1500,
+  1500
+ ],
+ "long_heads": [
+  "**The Catalyst of Modernity: A Comprehensive History of the Printing Press**\n\nThe story of human civilization is, in many respects, the story of how information is recorded, preserved, and disseminate",
+  "Turning C source code into machine code is a highly complex, multi-stage process. A compiler is not a single monolithic program that magically translates text into binary; rather, it is a pipeline of ",
+  "\n\n\n# The Keeper of Wreck Light\n\n## Part One: The Bottle\n\nThe morning fog came in thick as wool off the Atlantic, pressing itself against the windows of the lighthouse keeper's cottage with a kind of d",
+  "To understand how Earth sustains life, it is helpful to look at the planet as a single, interconnected system. Three of the most critical biological and geological processes are the **water cycle**, *"
+ ]
+}

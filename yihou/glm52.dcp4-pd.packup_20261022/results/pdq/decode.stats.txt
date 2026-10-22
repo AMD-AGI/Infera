@@ -1,0 +1,30 @@
+### r2A2b
+[decode]  (steady-state lines: 1357)
+  state                             mean  median   p95   max
+  5 decode-running                  19.4      20    33    46
+  4 decode-transfer-in               6.0       2    24    36
+  3 decode-admission                   0       0     0     0
+    decode-input                       0       0     0     0
+    mem-retracted                      0       0     0     0
+
+[rdma] no mooncake metrics
+### r4A2
+[decode]  (steady-state lines: 1467)
+  state                             mean  median   p95   max
+  5 decode-running                  18.9      19    31    44
+  4 decode-transfer-in               4.9       2    21    33
+  3 decode-admission                   0       0     0     0
+    decode-input                       0       0     0     0
+    mem-retracted                      0       0     0     0
+
+[rdma] no mooncake metrics
+### r4C52
+[decode]  (steady-state lines: 1505)
+  state                             mean  median   p95   max
+  5 decode-running                  18.5      16    40    52
+  4 decode-transfer-in              18.2      15    45    51
+  3 decode-admission                 0.0       0     0     6
+    decode-input                       0       0     0     0
+    mem-retracted                      0       0     0     0
+
+[rdma] no mooncake metrics

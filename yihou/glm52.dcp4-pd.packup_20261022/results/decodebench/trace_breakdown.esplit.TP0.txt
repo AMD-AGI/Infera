@@ -1,0 +1,842 @@
+trace: kernels=46845 GPU span 3167.2 ms busy 682.6 ms (21.6%) step spans=60 gpu step spans=60
+
+DRAFT: steps=50 kernel-ms/step mean 1.31 median 0.91
+  moe_route          0.009 ms/step    0.7%
+  idx_unfused_logits    0.007 ms/step    0.6%
+  idx_unfused_topk    0.019 ms/step    1.4%
+  idx_unfused_prep    0.003 ms/step    0.3%
+  attention          0.041 ms/step    3.1%
+  dcp_merge          0.012 ms/step    0.9%
+  comm               0.335 ms/step   25.5%
+  moe                0.514 ms/step   39.1%
+  gemm               0.205 ms/step   15.6%
+  kv_write           0.020 ms/step    1.5%
+  norm_rope_act      0.024 ms/step    1.8%
+  copy_misc          0.117 ms/step    8.9%
+  other              0.007 ms/step    0.6%
+
+VERIFY: steps=10 kernel-ms/step mean 60.05 median 58.42
+  moe_route          1.803 ms/step    3.0%
+  idx_unfused_logits    0.770 ms/step    1.3%
+  idx_unfused_topk    1.882 ms/step    3.1%
+  idx_unfused_prep    0.605 ms/step    1.0%
+  attention          3.664 ms/step    6.1%
+  dcp_merge          1.121 ms/step    1.9%
+  comm              19.642 ms/step   32.7%
+  moe               13.171 ms/step   21.9%
+  gemm               7.820 ms/step   13.0%
+  kv_write           0.938 ms/step    1.6%
+  norm_rope_act      1.125 ms/step    1.9%
+  copy_misc          7.072 ms/step   11.8%
+  other              0.437 ms/step    0.7%
+
+cross-check (GPU step annotations, time overlap):
+  DRAFT: steps=50 kernel-ms/step mean 1.31
+  VERIFY: steps=10 kernel-ms/step mean 60.05
+  step[VERIFY bs=32] at +2871.6 ms:
+    comm                   18.063 ms   30.8%
+    moe                    13.235 ms   22.6%
+    gemm                    7.822 ms   13.4%
+    copy_misc               7.054 ms   12.0%
+    attention               3.725 ms    6.4%
+    idx_unfused_topk        1.877 ms    3.2%
+    moe_route               1.797 ms    3.1%
+    dcp_merge               1.130 ms    1.9%
+    norm_rope_act           1.116 ms    1.9%
+    kv_write                0.950 ms    1.6%
+    idx_unfused_logits      0.771 ms    1.3%
+    idx_unfused_prep        0.606 ms    1.0%
+    other                   0.440 ms    0.8%
+  step[DRAFT bs=32] at +2867.5 ms:
+    moe                     0.431 ms   49.3%
+    gemm                    0.181 ms   20.7%
+    comm                    0.103 ms   11.8%
+    copy_misc               0.052 ms    5.9%
+    attention               0.040 ms    4.6%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.020 ms    2.3%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.006 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +2863.6 ms:
+    moe                     0.404 ms   47.3%
+    gemm                    0.183 ms   21.3%
+    comm                    0.104 ms   12.1%
+    copy_misc               0.053 ms    6.2%
+    attention               0.040 ms    4.7%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.020 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    idx_unfused_topk        0.010 ms    1.1%
+    moe_route               0.008 ms    1.0%
+    other                   0.003 ms    0.4%
+  step[DRAFT bs=32] at +2851.0 ms:
+    moe                     0.409 ms   47.8%
+    gemm                    0.189 ms   22.1%
+    comm                    0.096 ms   11.2%
+    copy_misc               0.053 ms    6.2%
+    attention               0.041 ms    4.8%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.017 ms    1.9%
+    dcp_merge               0.011 ms    1.3%
+    moe_route               0.010 ms    1.1%
+    idx_unfused_topk        0.006 ms    0.7%
+    other                   0.003 ms    0.4%
+  step[VERIFY bs=32] at +2553.1 ms:
+    comm                   17.971 ms   30.8%
+    moe                    13.206 ms   22.6%
+    gemm                    7.831 ms   13.4%
+    copy_misc               7.084 ms   12.1%
+    attention               3.624 ms    6.2%
+    idx_unfused_topk        1.887 ms    3.2%
+    moe_route               1.813 ms    3.1%
+    dcp_merge               1.122 ms    1.9%
+    norm_rope_act           1.118 ms    1.9%
+    kv_write                0.943 ms    1.6%
+    idx_unfused_logits      0.772 ms    1.3%
+    idx_unfused_prep        0.604 ms    1.0%
+    other                   0.438 ms    0.7%
+  step[DRAFT bs=32] at +2549.0 ms:
+    moe                     0.460 ms   50.4%
+    gemm                    0.182 ms   19.9%
+    comm                    0.106 ms   11.7%
+    copy_misc               0.056 ms    6.1%
+    attention               0.039 ms    4.3%
+    kv_write                0.021 ms    2.3%
+    norm_rope_act           0.020 ms    2.2%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.009 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +2545.2 ms:
+    moe                     0.485 ms   52.3%
+    gemm                    0.181 ms   19.5%
+    comm                    0.105 ms   11.3%
+    copy_misc               0.052 ms    5.6%
+    attention               0.038 ms    4.1%
+    kv_write                0.020 ms    2.2%
+    norm_rope_act           0.020 ms    2.2%
+    dcp_merge               0.010 ms    1.0%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +2532.7 ms:
+    moe                     0.487 ms   52.0%
+    gemm                    0.189 ms   20.1%
+    comm                    0.099 ms   10.6%
+    copy_misc               0.056 ms    5.9%
+    attention               0.039 ms    4.1%
+    norm_rope_act           0.022 ms    2.3%
+    kv_write                0.016 ms    1.7%
+    dcp_merge               0.011 ms    1.2%
+    moe_route               0.009 ms    1.0%
+    idx_unfused_topk        0.006 ms    0.6%
+    other                   0.004 ms    0.4%
+  step[DRAFT bs=32] at +2521.2 ms:
+    moe                     0.766 ms   33.5%
+    comm                    0.597 ms   26.1%
+    copy_misc               0.366 ms   16.0%
+    gemm                    0.289 ms   12.6%
+    idx_unfused_topk        0.070 ms    3.1%
+    attention               0.041 ms    1.8%
+    idx_unfused_logits      0.036 ms    1.6%
+    norm_rope_act           0.032 ms    1.4%
+    other                   0.024 ms    1.1%
+    kv_write                0.021 ms    0.9%
+    dcp_merge               0.018 ms    0.8%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.009 ms    0.4%
+  step[DRAFT bs=32] at +2839.7 ms:
+    moe                     0.817 ms   34.7%
+    comm                    0.607 ms   25.8%
+    copy_misc               0.368 ms   15.6%
+    gemm                    0.290 ms   12.3%
+    idx_unfused_topk        0.071 ms    3.0%
+    attention               0.044 ms    1.9%
+    idx_unfused_logits      0.037 ms    1.6%
+    norm_rope_act           0.032 ms    1.4%
+    other                   0.024 ms    1.0%
+    kv_write                0.020 ms    0.9%
+    dcp_merge               0.018 ms    0.8%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.010 ms    0.4%
+  step[DRAFT bs=32] at +1586.8 ms:
+    moe                     0.513 ms   53.5%
+    gemm                    0.186 ms   19.4%
+    comm                    0.102 ms   10.6%
+    copy_misc               0.053 ms    5.5%
+    attention               0.038 ms    4.0%
+    norm_rope_act           0.021 ms    2.2%
+    kv_write                0.020 ms    2.1%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.8%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +2213.6 ms:
+    moe                     0.427 ms   49.1%
+    gemm                    0.190 ms   21.8%
+    comm                    0.097 ms   11.1%
+    copy_misc               0.052 ms    6.0%
+    attention               0.038 ms    4.3%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.017 ms    1.9%
+    dcp_merge               0.012 ms    1.4%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.006 ms    0.6%
+    other                   0.003 ms    0.4%
+  step[VERIFY bs=32] at +2234.3 ms:
+    comm                   18.082 ms   31.0%
+    moe                    13.159 ms   22.5%
+    gemm                    7.829 ms   13.4%
+    copy_misc               7.057 ms   12.1%
+    attention               3.599 ms    6.2%
+    idx_unfused_topk        1.871 ms    3.2%
+    moe_route               1.790 ms    3.1%
+    dcp_merge               1.119 ms    1.9%
+    norm_rope_act           1.113 ms    1.9%
+    kv_write                0.944 ms    1.6%
+    idx_unfused_logits      0.772 ms    1.3%
+    idx_unfused_prep        0.602 ms    1.0%
+    other                   0.438 ms    0.7%
+  step[DRAFT bs=32] at +629.6 ms:
+    moe                     0.488 ms   52.3%
+    gemm                    0.190 ms   20.3%
+    comm                    0.096 ms   10.3%
+    copy_misc               0.053 ms    5.7%
+    attention               0.042 ms    4.5%
+    norm_rope_act           0.021 ms    2.3%
+    kv_write                0.016 ms    1.7%
+    dcp_merge               0.012 ms    1.2%
+    moe_route               0.008 ms    0.8%
+    idx_unfused_topk        0.006 ms    0.6%
+    other                   0.002 ms    0.3%
+  step[DRAFT bs=32] at +1903.1 ms:
+    moe                     0.426 ms   48.7%
+    gemm                    0.183 ms   20.9%
+    comm                    0.102 ms   11.7%
+    copy_misc               0.053 ms    6.0%
+    attention               0.037 ms    4.2%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.020 ms    2.3%
+    dcp_merge               0.010 ms    1.1%
+    other                   0.009 ms    1.0%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+  step[DRAFT bs=32] at +645.8 ms:
+    moe                     0.456 ms   50.2%
+    gemm                    0.181 ms   19.9%
+    comm                    0.106 ms   11.7%
+    copy_misc               0.057 ms    6.3%
+    attention               0.041 ms    4.5%
+    norm_rope_act           0.020 ms    2.2%
+    kv_write                0.020 ms    2.2%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[VERIFY bs=32] at +17.9 ms:
+    comm                   34.007 ms   45.6%
+    moe                    13.152 ms   17.6%
+    gemm                    7.790 ms   10.5%
+    copy_misc               7.133 ms    9.6%
+    attention               3.726 ms    5.0%
+    idx_unfused_topk        1.873 ms    2.5%
+    moe_route               1.819 ms    2.4%
+    norm_rope_act           1.147 ms    1.5%
+    dcp_merge               1.118 ms    1.5%
+    kv_write                0.952 ms    1.3%
+    idx_unfused_logits      0.768 ms    1.0%
+    idx_unfused_prep        0.608 ms    0.8%
+    other                   0.437 ms    0.6%
+  step[DRAFT bs=32] at +2.2 ms:
+    comm                    2.164 ms   71.9%
+    moe                     0.491 ms   16.3%
+    gemm                    0.185 ms    6.1%
+    copy_misc               0.051 ms    1.7%
+    attention               0.041 ms    1.4%
+    norm_rope_act           0.029 ms    1.0%
+    kv_write                0.017 ms    0.6%
+    dcp_merge               0.012 ms    0.4%
+    moe_route               0.008 ms    0.3%
+    other                   0.007 ms    0.2%
+    idx_unfused_topk        0.005 ms    0.2%
+  step[DRAFT bs=32] at +2230.1 ms:
+    moe                     0.420 ms   48.3%
+    gemm                    0.181 ms   20.8%
+    comm                    0.103 ms   11.9%
+    copy_misc               0.056 ms    6.5%
+    attention               0.037 ms    4.3%
+    kv_write                0.021 ms    2.4%
+    norm_rope_act           0.021 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    idx_unfused_topk        0.009 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +945.1 ms:
+    moe                     0.475 ms   50.7%
+    gemm                    0.190 ms   20.2%
+    comm                    0.099 ms   10.6%
+    copy_misc               0.055 ms    5.9%
+    attention               0.041 ms    4.3%
+    norm_rope_act           0.026 ms    2.8%
+    kv_write                0.020 ms    2.1%
+    dcp_merge               0.011 ms    1.2%
+    moe_route               0.010 ms    1.1%
+    idx_unfused_topk        0.006 ms    0.6%
+    other                   0.004 ms    0.4%
+  step[DRAFT bs=32] at +7.1 ms:
+    comm                    1.884 ms   70.4%
+    moe                     0.426 ms   15.9%
+    gemm                    0.181 ms    6.8%
+    copy_misc               0.061 ms    2.3%
+    attention               0.041 ms    1.5%
+    norm_rope_act           0.024 ms    0.9%
+    kv_write                0.021 ms    0.8%
+    dcp_merge               0.011 ms    0.4%
+    idx_unfused_topk        0.011 ms    0.4%
+    moe_route               0.008 ms    0.3%
+    other                   0.004 ms    0.2%
+  step[DRAFT bs=32] at +14.4 ms:
+    comm                    1.311 ms   61.2%
+    moe                     0.481 ms   22.4%
+    gemm                    0.178 ms    8.3%
+    copy_misc               0.059 ms    2.7%
+    attention               0.041 ms    1.9%
+    norm_rope_act           0.024 ms    1.1%
+    kv_write                0.020 ms    0.9%
+    dcp_merge               0.011 ms    0.5%
+    moe_route               0.009 ms    0.4%
+    idx_unfused_topk        0.005 ms    0.2%
+    other                   0.004 ms    0.2%
+  step[DRAFT bs=32] at +301.8 ms:
+    moe                     0.831 ms   35.0%
+    comm                    0.603 ms   25.4%
+    copy_misc               0.371 ms   15.6%
+    gemm                    0.295 ms   12.4%
+    idx_unfused_topk        0.071 ms    3.0%
+    attention               0.046 ms    1.9%
+    idx_unfused_logits      0.037 ms    1.5%
+    norm_rope_act           0.032 ms    1.3%
+    other                   0.024 ms    1.0%
+    kv_write                0.020 ms    0.8%
+    dcp_merge               0.018 ms    0.8%
+    idx_unfused_prep        0.018 ms    0.7%
+    moe_route               0.010 ms    0.4%
+  step[DRAFT bs=32] at +637.4 ms:
+    moe                     0.416 ms   43.5%
+    comm                    0.190 ms   19.8%
+    gemm                    0.182 ms   19.0%
+    copy_misc               0.053 ms    5.6%
+    attention               0.041 ms    4.3%
+    norm_rope_act           0.021 ms    2.2%
+    kv_write                0.020 ms    2.1%
+    idx_unfused_topk        0.011 ms    1.1%
+    dcp_merge               0.010 ms    1.0%
+    moe_route               0.008 ms    0.9%
+    other                   0.003 ms    0.4%
+  step[DRAFT bs=32] at +933.8 ms:
+    moe                     0.800 ms   34.2%
+    comm                    0.603 ms   25.8%
+    copy_misc               0.373 ms   15.9%
+    gemm                    0.291 ms   12.5%
+    idx_unfused_topk        0.071 ms    3.0%
+    attention               0.044 ms    1.9%
+    idx_unfused_logits      0.036 ms    1.6%
+    norm_rope_act           0.032 ms    1.4%
+    other                   0.024 ms    1.0%
+    kv_write                0.020 ms    0.9%
+    dcp_merge               0.019 ms    0.8%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.009 ms    0.4%
+  step[DRAFT bs=32] at +10.8 ms:
+    comm                    1.560 ms   66.8%
+    moe                     0.415 ms   17.8%
+    gemm                    0.180 ms    7.7%
+    copy_misc               0.059 ms    2.5%
+    attention               0.041 ms    1.8%
+    norm_rope_act           0.024 ms    1.0%
+    kv_write                0.021 ms    0.9%
+    dcp_merge               0.012 ms    0.5%
+    idx_unfused_topk        0.011 ms    0.5%
+    moe_route               0.008 ms    0.4%
+    other                   0.004 ms    0.2%
+  step[DRAFT bs=32] at +641.9 ms:
+    moe                     0.405 ms   47.2%
+    gemm                    0.181 ms   21.1%
+    comm                    0.105 ms   12.3%
+    copy_misc               0.057 ms    6.6%
+    attention               0.042 ms    4.8%
+    kv_write                0.021 ms    2.4%
+    norm_rope_act           0.020 ms    2.3%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.009 ms    1.0%
+    idx_unfused_topk        0.006 ms    0.7%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +961.4 ms:
+    moe                     0.467 ms   50.9%
+    gemm                    0.183 ms   20.0%
+    comm                    0.105 ms   11.4%
+    copy_misc               0.054 ms    5.9%
+    attention               0.040 ms    4.4%
+    kv_write                0.021 ms    2.3%
+    norm_rope_act           0.021 ms    2.3%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +953.1 ms:
+    moe                     0.393 ms   46.9%
+    gemm                    0.183 ms   21.8%
+    comm                    0.102 ms   12.2%
+    copy_misc               0.052 ms    6.1%
+    attention               0.040 ms    4.8%
+    kv_write                0.021 ms    2.5%
+    norm_rope_act           0.021 ms    2.5%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.4%
+  step[DRAFT bs=32] at +313.5 ms:
+    moe                     0.475 ms   51.2%
+    gemm                    0.190 ms   20.4%
+    comm                    0.100 ms   10.8%
+    copy_misc               0.054 ms    5.8%
+    attention               0.039 ms    4.2%
+    norm_rope_act           0.025 ms    2.7%
+    kv_write                0.016 ms    1.7%
+    dcp_merge               0.011 ms    1.2%
+    moe_route               0.009 ms    0.9%
+    idx_unfused_topk        0.006 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +321.3 ms:
+    moe                     0.475 ms   51.7%
+    gemm                    0.182 ms   19.8%
+    comm                    0.103 ms   11.2%
+    copy_misc               0.052 ms    5.7%
+    attention               0.038 ms    4.1%
+    norm_rope_act           0.021 ms    2.2%
+    kv_write                0.020 ms    2.2%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.006 ms    0.6%
+    other                   0.003 ms    0.4%
+  step[DRAFT bs=32] at +1250.6 ms:
+    moe                     0.822 ms   34.7%
+    comm                    0.610 ms   25.8%
+    copy_misc               0.368 ms   15.6%
+    gemm                    0.291 ms   12.3%
+    idx_unfused_topk        0.070 ms    3.0%
+    attention               0.047 ms    2.0%
+    idx_unfused_logits      0.037 ms    1.6%
+    norm_rope_act           0.032 ms    1.4%
+    other                   0.024 ms    1.0%
+    kv_write                0.020 ms    0.8%
+    dcp_merge               0.018 ms    0.8%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.010 ms    0.4%
+  step[DRAFT bs=32] at +957.5 ms:
+    moe                     0.563 ms   56.0%
+    gemm                    0.181 ms   18.0%
+    comm                    0.102 ms   10.1%
+    copy_misc               0.053 ms    5.2%
+    attention               0.040 ms    3.9%
+    kv_write                0.021 ms    2.1%
+    norm_rope_act           0.020 ms    2.0%
+    dcp_merge               0.010 ms    1.0%
+    moe_route               0.008 ms    0.8%
+    idx_unfused_topk        0.005 ms    0.5%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +329.8 ms:
+    moe                     0.410 ms   47.8%
+    gemm                    0.181 ms   21.1%
+    comm                    0.105 ms   12.3%
+    copy_misc               0.056 ms    6.5%
+    attention               0.038 ms    4.4%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.021 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[VERIFY bs=32] at +334.0 ms:
+    comm                   18.042 ms   30.9%
+    moe                    13.057 ms   22.4%
+    gemm                    7.815 ms   13.4%
+    copy_misc               7.057 ms   12.1%
+    attention               3.678 ms    6.3%
+    idx_unfused_topk        1.891 ms    3.2%
+    moe_route               1.784 ms    3.1%
+    norm_rope_act           1.130 ms    1.9%
+    dcp_merge               1.118 ms    1.9%
+    kv_write                0.937 ms    1.6%
+    idx_unfused_logits      0.768 ms    1.3%
+    idx_unfused_prep        0.607 ms    1.0%
+    other                   0.437 ms    0.7%
+  step[DRAFT bs=32] at +618.3 ms:
+    moe                     0.806 ms   34.4%
+    comm                    0.595 ms   25.4%
+    copy_misc               0.365 ms   15.6%
+    gemm                    0.292 ms   12.5%
+    idx_unfused_topk        0.070 ms    3.0%
+    attention               0.055 ms    2.3%
+    idx_unfused_logits      0.036 ms    1.6%
+    norm_rope_act           0.032 ms    1.4%
+    kv_write                0.025 ms    1.1%
+    other                   0.024 ms    1.0%
+    dcp_merge               0.017 ms    0.7%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.010 ms    0.4%
+  step[VERIFY bs=32] at +965.5 ms:
+    comm                   18.035 ms   30.9%
+    moe                    13.151 ms   22.5%
+    gemm                    7.826 ms   13.4%
+    copy_misc               7.102 ms   12.2%
+    attention               3.623 ms    6.2%
+    idx_unfused_topk        1.880 ms    3.2%
+    moe_route               1.802 ms    3.1%
+    norm_rope_act           1.128 ms    1.9%
+    dcp_merge               1.127 ms    1.9%
+    kv_write                0.934 ms    1.6%
+    idx_unfused_logits      0.773 ms    1.3%
+    idx_unfused_prep        0.605 ms    1.0%
+    other                   0.437 ms    0.7%
+  step[DRAFT bs=32] at +1591.3 ms:
+    moe                     0.468 ms   51.5%
+    gemm                    0.179 ms   19.7%
+    comm                    0.103 ms   11.4%
+    copy_misc               0.053 ms    5.8%
+    attention               0.038 ms    4.2%
+    norm_rope_act           0.021 ms    2.3%
+    kv_write                0.021 ms    2.3%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +326.0 ms:
+    moe                     0.397 ms   47.2%
+    gemm                    0.183 ms   21.8%
+    comm                    0.102 ms   12.2%
+    copy_misc               0.053 ms    6.3%
+    attention               0.038 ms    4.5%
+    kv_write                0.021 ms    2.4%
+    norm_rope_act           0.021 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.009 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +3158.9 ms:
+    moe                     0.806 ms   34.5%
+    comm                    0.607 ms   25.9%
+    copy_misc               0.363 ms   15.5%
+    gemm                    0.291 ms   12.5%
+    idx_unfused_topk        0.070 ms    3.0%
+    attention               0.043 ms    1.8%
+    idx_unfused_logits      0.037 ms    1.6%
+    norm_rope_act           0.032 ms    1.4%
+    other                   0.024 ms    1.0%
+    kv_write                0.020 ms    0.8%
+    dcp_merge               0.019 ms    0.8%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.010 ms    0.4%
+  step[DRAFT bs=32] at +1261.9 ms:
+    moe                     0.408 ms   47.1%
+    gemm                    0.190 ms   22.0%
+    comm                    0.098 ms   11.3%
+    copy_misc               0.054 ms    6.2%
+    attention               0.042 ms    4.9%
+    norm_rope_act           0.023 ms    2.7%
+    kv_write                0.017 ms    2.0%
+    dcp_merge               0.016 ms    1.9%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.4%
+  step[VERIFY bs=32] at +1282.3 ms:
+    comm                   18.095 ms   31.0%
+    moe                    12.952 ms   22.2%
+    gemm                    7.827 ms   13.4%
+    copy_misc               7.107 ms   12.2%
+    attention               3.619 ms    6.2%
+    idx_unfused_topk        1.890 ms    3.2%
+    moe_route               1.804 ms    3.1%
+    norm_rope_act           1.123 ms    1.9%
+    dcp_merge               1.120 ms    1.9%
+    kv_write                0.928 ms    1.6%
+    idx_unfused_logits      0.772 ms    1.3%
+    idx_unfused_prep        0.607 ms    1.0%
+    other                   0.438 ms    0.8%
+  step[DRAFT bs=32] at +1269.8 ms:
+    moe                     0.469 ms   51.2%
+    gemm                    0.185 ms   20.2%
+    comm                    0.100 ms   10.9%
+    copy_misc               0.052 ms    5.7%
+    attention               0.041 ms    4.5%
+    norm_rope_act           0.021 ms    2.3%
+    kv_write                0.020 ms    2.2%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.4%
+  step[DRAFT bs=32] at +1274.3 ms:
+    moe                     0.417 ms   48.1%
+    gemm                    0.181 ms   20.8%
+    comm                    0.104 ms   12.0%
+    copy_misc               0.054 ms    6.2%
+    attention               0.043 ms    5.0%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.021 ms    2.4%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +1278.2 ms:
+    moe                     0.377 ms   45.6%
+    gemm                    0.180 ms   21.8%
+    comm                    0.105 ms   12.7%
+    copy_misc               0.060 ms    7.3%
+    attention               0.041 ms    5.0%
+    norm_rope_act           0.021 ms    2.5%
+    kv_write                0.016 ms    1.9%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.7%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +2540.7 ms:
+    moe                     0.398 ms   46.9%
+    gemm                    0.182 ms   21.5%
+    comm                    0.104 ms   12.3%
+    copy_misc               0.053 ms    6.2%
+    attention               0.038 ms    4.5%
+    norm_rope_act           0.026 ms    3.0%
+    kv_write                0.020 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.4%
+  step[DRAFT bs=32] at +2221.6 ms:
+    moe                     0.409 ms   47.7%
+    gemm                    0.183 ms   21.3%
+    comm                    0.104 ms   12.1%
+    copy_misc               0.052 ms    6.1%
+    attention               0.042 ms    4.9%
+    norm_rope_act           0.021 ms    2.4%
+    kv_write                0.020 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.006 ms    0.7%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +1567.4 ms:
+    moe                     0.777 ms   33.6%
+    comm                    0.612 ms   26.4%
+    copy_misc               0.368 ms   15.9%
+    gemm                    0.289 ms   12.5%
+    idx_unfused_topk        0.071 ms    3.0%
+    attention               0.043 ms    1.9%
+    idx_unfused_logits      0.036 ms    1.6%
+    norm_rope_act           0.031 ms    1.3%
+    other                   0.024 ms    1.0%
+    kv_write                0.020 ms    0.9%
+    dcp_merge               0.018 ms    0.8%
+    idx_unfused_prep        0.017 ms    0.8%
+    moe_route               0.009 ms    0.4%
+  step[DRAFT bs=32] at +1578.9 ms:
+    moe                     0.421 ms   48.3%
+    gemm                    0.189 ms   21.7%
+    comm                    0.097 ms   11.1%
+    copy_misc               0.057 ms    6.6%
+    attention               0.039 ms    4.5%
+    norm_rope_act           0.021 ms    2.5%
+    kv_write                0.017 ms    2.0%
+    dcp_merge               0.011 ms    1.2%
+    moe_route               0.010 ms    1.2%
+    idx_unfused_topk        0.006 ms    0.7%
+    other                   0.003 ms    0.3%
+  step[VERIFY bs=32] at +1599.4 ms:
+    comm                   18.031 ms   30.7%
+    moe                    13.403 ms   22.9%
+    gemm                    7.835 ms   13.4%
+    copy_misc               7.011 ms   12.0%
+    attention               3.702 ms    6.3%
+    idx_unfused_topk        1.879 ms    3.2%
+    moe_route               1.810 ms    3.1%
+    norm_rope_act           1.129 ms    1.9%
+    dcp_merge               1.118 ms    1.9%
+    kv_write                0.928 ms    1.6%
+    idx_unfused_logits      0.770 ms    1.3%
+    idx_unfused_prep        0.601 ms    1.0%
+    other                   0.435 ms    0.7%
+  step[DRAFT bs=32] at +1595.2 ms:
+    moe                     0.397 ms   46.8%
+    gemm                    0.180 ms   21.3%
+    comm                    0.103 ms   12.2%
+    copy_misc               0.061 ms    7.2%
+    attention               0.039 ms    4.6%
+    kv_write                0.021 ms    2.4%
+    norm_rope_act           0.021 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +2859.1 ms:
+    moe                     0.454 ms   50.2%
+    gemm                    0.180 ms   20.0%
+    comm                    0.105 ms   11.6%
+    copy_misc               0.055 ms    6.1%
+    attention               0.041 ms    4.6%
+    norm_rope_act           0.021 ms    2.3%
+    kv_write                0.021 ms    2.3%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[VERIFY bs=32] at +649.9 ms:
+    comm                   18.051 ms   31.0%
+    moe                    13.073 ms   22.4%
+    gemm                    7.820 ms   13.4%
+    copy_misc               7.024 ms   12.0%
+    attention               3.644 ms    6.3%
+    idx_unfused_topk        1.890 ms    3.2%
+    moe_route               1.814 ms    3.1%
+    norm_rope_act           1.129 ms    1.9%
+    dcp_merge               1.118 ms    1.9%
+    kv_write                0.930 ms    1.6%
+    idx_unfused_logits      0.770 ms    1.3%
+    idx_unfused_prep        0.604 ms    1.0%
+    other                   0.438 ms    0.8%
+  step[DRAFT bs=32] at +1884.0 ms:
+    moe                     0.812 ms   34.6%
+    comm                    0.597 ms   25.5%
+    copy_misc               0.369 ms   15.7%
+    gemm                    0.293 ms   12.5%
+    idx_unfused_topk        0.075 ms    3.2%
+    attention               0.044 ms    1.9%
+    idx_unfused_logits      0.037 ms    1.6%
+    norm_rope_act           0.032 ms    1.4%
+    other                   0.023 ms    1.0%
+    kv_write                0.019 ms    0.8%
+    dcp_merge               0.018 ms    0.7%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.010 ms    0.4%
+  step[DRAFT bs=32] at +1895.1 ms:
+    moe                     0.461 ms   50.5%
+    gemm                    0.191 ms   20.9%
+    comm                    0.097 ms   10.6%
+    copy_misc               0.058 ms    6.3%
+    attention               0.039 ms    4.3%
+    norm_rope_act           0.022 ms    2.4%
+    kv_write                0.016 ms    1.8%
+    dcp_merge               0.012 ms    1.3%
+    moe_route               0.009 ms    1.0%
+    idx_unfused_topk        0.006 ms    0.7%
+    other                   0.003 ms    0.4%
+  step[VERIFY bs=32] at +1915.7 ms:
+    comm                   18.044 ms   30.8%
+    moe                    13.324 ms   22.7%
+    gemm                    7.806 ms   13.3%
+    copy_misc               7.092 ms   12.1%
+    attention               3.703 ms    6.3%
+    idx_unfused_topk        1.879 ms    3.2%
+    moe_route               1.797 ms    3.1%
+    dcp_merge               1.124 ms    1.9%
+    norm_rope_act           1.117 ms    1.9%
+    kv_write                0.938 ms    1.6%
+    idx_unfused_logits      0.768 ms    1.3%
+    idx_unfused_prep        0.604 ms    1.0%
+    other                   0.437 ms    0.7%
+  step[DRAFT bs=32] at +1907.7 ms:
+    moe                     0.424 ms   48.9%
+    gemm                    0.182 ms   20.9%
+    comm                    0.105 ms   12.1%
+    copy_misc               0.053 ms    6.1%
+    attention               0.038 ms    4.3%
+    norm_rope_act           0.020 ms    2.4%
+    kv_write                0.020 ms    2.3%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +1911.6 ms:
+    moe                     0.386 ms   46.2%
+    gemm                    0.181 ms   21.7%
+    comm                    0.104 ms   12.4%
+    copy_misc               0.059 ms    7.1%
+    attention               0.037 ms    4.5%
+    kv_write                0.021 ms    2.5%
+    norm_rope_act           0.020 ms    2.4%
+    dcp_merge               0.010 ms    1.2%
+    moe_route               0.008 ms    1.0%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+  step[DRAFT bs=32] at +2201.0 ms:
+    moe                     0.802 ms   34.3%
+    comm                    0.612 ms   26.2%
+    copy_misc               0.363 ms   15.5%
+    gemm                    0.288 ms   12.3%
+    idx_unfused_topk        0.071 ms    3.0%
+    attention               0.044 ms    1.9%
+    idx_unfused_logits      0.037 ms    1.6%
+    norm_rope_act           0.032 ms    1.3%
+    other                   0.024 ms    1.0%
+    kv_write                0.019 ms    0.8%
+    dcp_merge               0.019 ms    0.8%
+    idx_unfused_prep        0.017 ms    0.7%
+    moe_route               0.010 ms    0.4%
+  step[DRAFT bs=32] at +2226.2 ms:
+    moe                     0.457 ms   50.3%
+    gemm                    0.181 ms   20.0%
+    comm                    0.104 ms   11.4%
+    copy_misc               0.061 ms    6.7%
+    attention               0.037 ms    4.1%
+    norm_rope_act           0.021 ms    2.3%
+    kv_write                0.020 ms    2.2%
+    dcp_merge               0.010 ms    1.1%
+    moe_route               0.008 ms    0.9%
+    idx_unfused_topk        0.005 ms    0.6%
+    other                   0.003 ms    0.3%
+
+uncategorized top kernels (whole trace, refine with --cat):
+      3.86 ms  void at::native::radixSortKVInPlace<2, -1, 256, 8, float, long, unsigned int>(at::cuda::detail::Tens
+      0.59 ms  void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, uns
+      0.54 ms  triton_poi_fused_mul_unsqueeze_0
+      0.51 ms  void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapp
+      0.22 ms  _vocab_parallel_embedding_kernel
+      0.11 ms  sglang::speculative::build_tree_efficient(long*, long*, long*, bool*, long*, long*, long*, long*, in
+      0.06 ms  void sglang::speculative::VerifyTreeGreedy<int, long>(int*, int*, int*, long*, long*, long*, long*, 
+      0.04 ms  seqlens_expand_kernel
+      0.03 ms  _verify_commit_outputs_kernel
+      0.03 ms  _prepare_draft_extend_lengths_kernel
+      0.01 ms  assign_req_to_token_pool
+      0.00 ms  alloc_extend_kernel
+      0.00 ms  _get_last_loc_safe_kernel
+
+top kernels (whole trace):
+     88.88 ms  13.0% [comm] ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+     84.18 ms  12.3% [moe] mfma_moe1_silu_mul_afp4_wfp4_bf16_t32x128x256_pm1_async_v33
+     66.33 ms   9.7% [comm] _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+     52.87 ms   7.7% [comm] _ZN5aiter33reduce_scatter_cross_device_storeIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalE
+     45.74 ms   6.7% [moe] mfma_moe2_afp4_wfp4_bf16_cshuffle_t32x128x256_vscale_fix3_fp4opt_v1_persist_cu256_abuffer
+     37.09 ms   5.4% [attention] _sparse_mla_fused_kernel
+     20.65 ms   3.0% [gemm] hgemm_bf16_t64x96x128x3_ks1_w2x2x2_gm4_bias0_lnt_pft_0
+     18.97 ms   2.8% [gemm] hgemm_bf16_t64x96x64x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+     17.54 ms   2.6% [moe] _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5
+     15.15 ms   2.2% [gemm] _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZ
+     14.83 ms   2.2% [copy_misc] void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::di
+     12.13 ms   1.8% [gemm] hgemm_bf16_t64x64x64x6_ks1_w4x2x1_gm0_bias0_lnt_pft_0
+     11.17 ms   1.6% [copy_misc] void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl_nocast<at::nat
+     11.09 ms   1.6% [copy_misc] Memcpy DtoD (Device -> Device)
+     10.00 ms   1.5% [idx_unfused_prep] void at::native::index_elementwise_kernel<128, 4, at::native::gpu_index_kernel<at::native::index_ker
+      8.11 ms   1.2% [kv_write] void aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true,
+      8.07 ms   1.2% [idx_unfused_logits] _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+      8.02 ms   1.2% [moe] _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajor
+      7.48 ms   1.1% [norm_rope_act] _ZN5aiter25local_device_load_rmsnormIDF16bLi512ELi2ELb0EEEvNS_11RankSignalsEPT_S3_S3_S3_fiiii
+      6.34 ms   0.9% [gemm] hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+      6.30 ms   0.9% [dcp_merge] _dcp_pack_a2a_send_kernel
+      6.25 ms   0.9% [copy_misc] void at::native::(anonymous namespace)::CatArrayBatchedCopy<at::native::(anonymous namespace)::Opaqu
+      5.71 ms   0.8% [copy_misc] void at::native::vectorized_elementwise_kernel<4, at::native::(anonymous namespace)::where_kernel_im
+      5.65 ms   0.8% [copy_misc] void at::native::vectorized_elementwise_kernel<4, at::native::BUnaryFunctor<long, long, long, at::na
+      5.45 ms   0.8% [moe_route] _ZN5aiter30fused_mx_quant_moe_sort_kernelIDF16bN4opus5fp4_tELi256ELi32EEEvPT0_PhPKT_PKiSA_PKfiiiiiii
+      5.32 ms   0.8% [comm] _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6Sig
+      5.17 ms   0.8% [moe_route] _ZN5aiter30fused_mx_quant_moe_sort_kernelIDF16bN4opus5fp4_tELi256ELi8EEEvPT0_PhPKT_PKiSA_PKfiiiiiiii
+      4.86 ms   0.7% [idx_unfused_topk] void at::native::mbtopk::computeBlockDigitCounts<float, unsigned int, unsigned int, 2>(at::cuda::det
+      4.65 ms   0.7% [idx_unfused_topk] void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, 
+      4.47 ms   0.7% [gemm] Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_

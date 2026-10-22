@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 51,
+   "completion_tokens": 2,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 0.19,
+  "expect": "29",
+  "pass": true
+ },
+ "math_think": {
+  "content": "29",
+  "reasoning": "1.  **Analyze the Request:** The user is asking for the final number of sheep a farmer has after a series of additions and subtractions. The response must be *only* the number.\n\n2.  **Initial State:** The farmer starts with 17 sheep.\n    *   Current count = 17\n\n3.  **Step 1:** He buys 3 more sheep.\n    *   Current count = 17 + 3 = 20\n\n4.  **Step 2:** 5 sheep run away.\n    *   Current count = 20 - ",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 296,
+   "completion_tokens": 241,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 239
+  },
+  "secs": 1.05,
+  "expect": "29",
+  "pass": true
+ },
+ "passkey_8k": {
+  "content": "67767",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9186,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 7.08,
+  "expect": "67767",
+  "pass": true
+ },
+ "passkey_34k": {
+  "content": "25315",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38922,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 4352
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 4.54,
+  "expect": "25315",
+  "pass": true
+ },
+ "passkey_96k": {
+  "content": "10981",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109767,
+   "completion_tokens": 3,
+   "prompt_tokens_details": {
+    "cached_tokens": 19200
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 4.22,
+  "expect": "10981",
+  "pass": true
+ }
+}

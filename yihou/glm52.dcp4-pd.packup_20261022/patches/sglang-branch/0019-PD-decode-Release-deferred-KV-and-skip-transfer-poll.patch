@@ -1,0 +1,363 @@
+From c4eda0343e9a0643c2753c7be39ec05579964dad Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 19:37:57 +0000
+Subject: [PATCH 19/31] [PD] decode: Release deferred KV and skip transfer
+ polling in unison across attn-TP ranks
+
+Deferred releases freed device pages on a rank-local ack or deadline, so
+attn-TP ranks admitted different prealloc requests after client cancels and
+hung in different collectives. MIN-reduce the ready flag for every deferred
+entry, and make pop_transferred's empty-queue skip a group decision that
+fails loudly if the queues have already diverged.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/disaggregation/decode.py    |  89 +++++-----
+ .../test_decode_queue_cleanup.py              |   3 +
+ .../test_deferred_decode_kv_release.py        | 155 +++++++++++++++++-
+ 3 files changed, 207 insertions(+), 40 deletions(-)
+
+diff --git a/python/sglang/srt/disaggregation/decode.py b/python/sglang/srt/disaggregation/decode.py
+index fabdcfc1ac..5553f35a9a 100644
+--- a/python/sglang/srt/disaggregation/decode.py
++++ b/python/sglang/srt/disaggregation/decode.py
+@@ -2498,6 +2498,7 @@ class DecodeTransferQueue(DecodeHiCacheTransferMixin):
+     ):
+         self.queue: List[DecodeRequest] = []
+         self.gloo_group = get_parallel().attn_tp_group.cpu_group
++        self.gloo_world_size = torch.distributed.get_world_size(self.gloo_group)
+         self.req_to_metadata_buffer_idx_allocator = req_to_metadata_buffer_idx_allocator
+         self.tp_rank = get_parallel().tp_rank
+         self.metadata_buffers = metadata_buffers
+@@ -2752,9 +2753,29 @@ class DecodeTransferQueue(DecodeHiCacheTransferMixin):
+         if self.enable_host_receive and decode_req.host_staged:
+             decode_req.kv_receiver.abort()
+ 
++    def _transfer_queue_len_bounds(self) -> Tuple[int, int]:
++        """(min, max) transfer queue length over the attn-TP group."""
++        n = len(self.queue)
++        if self.gloo_world_size == 1:
++            return n, n
++        bounds = torch.tensor([-n, n], dtype=torch.int64)
++        torch.distributed.all_reduce(
++            bounds, op=torch.distributed.ReduceOp.MAX, group=self.gloo_group
++        )
++        return -int(bounds[0]), int(bounds[1])
++
+     def pop_transferred(self, rids_to_check: Optional[List[str]] = None) -> List[Req]:
+-        if not self.queue:
++        # The poll all-reduce below needs every rank to join with the same
++        # queue length; a rank-local empty check would strand its peers in it.
++        min_len, max_len = self._transfer_queue_len_bounds()
++        if max_len == 0:
+             return []
++        if min_len != max_len:
++            raise RuntimeError(
++                f"Decode transfer queues diverged across attn-TP ranks: "
++                f"rank {self.tp_rank} has {len(self.queue)}, "
++                f"group range [{min_len}, {max_len}]"
++            )
+ 
+         if self.scheduler.enable_decode_hicache:
+             self._process_hicache_local_restores(
+@@ -2961,52 +2982,44 @@ class DecodeTransferQueue(DecodeHiCacheTransferMixin):
+                 outcome=outcome,
+             )
+ 
++    def _local_release_state(self, entry, now: float) -> Tuple[bool, bool]:
++        """(ready, drained) for one deferred entry, as seen by this rank."""
++        decode_req, _, deadline, _, required_acks = entry
++        if self.enable_host_receive and decode_req.host_staged:
++            # A timeout cannot prove that a remote write has stopped.
++            drained = decode_req.kv_receiver.is_abort_release_safe()
++            return drained, drained
++        drained = decode_req.kv_receiver.kv_mgr.is_abort_release_safe(
++            decode_req.req.bootstrap_room, required_acks
++        )
++        return drained or now >= deadline, drained
++
+     def resolve_deferred_releases(self) -> None:
+         """Release drained transfers; device destinations may also time out."""
+         if not self._deferred_releases:
+             return
+-        host_ready = torch.tensor(
+-            [
+-                req.kv_receiver.is_abort_release_safe()
+-                for req, _, _, _, _ in self._deferred_releases
+-                if self.enable_host_receive and req.host_staged
+-            ],
+-            dtype=torch.int32,
+-        )
+-        if host_ready.numel() and torch.distributed.get_world_size(self.gloo_group) > 1:
+-            # Admission must see identical host capacity and page order on every rank.
++        now = time.monotonic()
++        states = [
++            self._local_release_state(entry, now) for entry in self._deferred_releases
++        ]
++        ready = torch.tensor([r for r, _ in states], dtype=torch.int32)
++        if self.gloo_world_size > 1:
++            # Acks and deadlines are rank-local; admission must see identical
++            # capacity and page order on every rank, so release only in unison.
+             torch.distributed.all_reduce(
+-                host_ready, op=torch.distributed.ReduceOp.MIN, group=self.gloo_group
++                ready, op=torch.distributed.ReduceOp.MIN, group=self.gloo_group
+             )
+-        host_ready = iter(host_ready.tolist())
+-        now = time.monotonic()
+         still_held = []
+         to_release = []
+-        for (
+-            decode_req,
+-            start_time,
+-            deadline,
+-            idx,
+-            required_acks,
+-        ) in self._deferred_releases:
+-            room = decode_req.req.bootstrap_room
+-            if self.enable_host_receive and decode_req.host_staged:
+-                if next(host_ready):
+-                    to_release.append((decode_req, start_time, idx, room, True))
+-                else:
+-                    # A timeout cannot prove that a remote write has stopped.
+-                    still_held.append(
+-                        (decode_req, start_time, deadline, idx, required_acks)
+-                    )
+-                continue
+-            kv_mgr = decode_req.kv_receiver.kv_mgr
+-            drained = kv_mgr.is_abort_release_safe(room, required_acks)
+-            if not drained and now < deadline:
+-                still_held.append(
+-                    (decode_req, start_time, deadline, idx, required_acks)
+-                )
+-            else:
++        for entry, group_ready, (_, drained) in zip(
++            self._deferred_releases, ready.tolist(), states
++        ):
++            decode_req, start_time, _, idx, _ = entry
++            if group_ready:
++                room = decode_req.req.bootstrap_room
+                 to_release.append((decode_req, start_time, idx, room, drained))
++            else:
++                still_held.append(entry)
+         # Commit the survivors before releasing so a _do_release exception can't
+         # leave a released entry in the list (double-free / None receiver on retry).
+         self._deferred_releases = still_held
+diff --git a/test/registered/unit/disaggregation/test_decode_queue_cleanup.py b/test/registered/unit/disaggregation/test_decode_queue_cleanup.py
+index a37ae2ad77..4af44c52d4 100644
+--- a/test/registered/unit/disaggregation/test_decode_queue_cleanup.py
++++ b/test/registered/unit/disaggregation/test_decode_queue_cleanup.py
+@@ -383,6 +383,7 @@ class TestDecodeQueueCleanup(CustomTestCase):
+         queue.enable_staging = False
+         queue.enable_deferred_kv_release = False
+         queue.gloo_group = MagicMock()
++        queue.gloo_world_size = 1
+         queue.req_to_metadata_buffer_idx_allocator = MagicMock()
+         queue.tp_rank = 0
+         queue.tree_cache = MagicMock()
+@@ -499,6 +500,7 @@ class TestDecodeQueueCleanup(CustomTestCase):
+         queue.enable_deferred_kv_release = True
+         queue._defer_release = MagicMock()
+         queue.gloo_group = MagicMock()
++        queue.gloo_world_size = 1
+         queue.req_to_metadata_buffer_idx_allocator = MagicMock()
+         queue.tp_rank = 0
+         queue.tree_cache = MagicMock()
+@@ -636,6 +638,7 @@ class TestDecodeHiCacheRestoreGate(CustomTestCase):
+             queue.enable_host_receive = False
+             queue.enable_deferred_kv_release = False
+             queue.gloo_group = MagicMock()
++            queue.gloo_world_size = 1
+             queue.req_to_metadata_buffer_idx_allocator = MagicMock()
+             queue.tp_rank = 0
+             queue.tree_cache = MagicMock()
+diff --git a/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py b/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py
+index 1c9673e4b6..746b1accc4 100644
+--- a/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py
++++ b/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py
+@@ -665,6 +665,8 @@ def _make_queue(timeout=30.0, enable_metrics=False):
+     q.enable_host_receive = False
+     q.enable_staging = False
+     q.staging_handler = None
++    q.gloo_group = None
++    q.gloo_world_size = 1
+     q.tree_cache = object()
+     q.metadata_buffers = SimpleNamespace(bootstrap_room={})
+     q.req_to_metadata_buffer_idx_allocator = _FakeIdxAllocator()
+@@ -698,7 +700,7 @@ class TestResolveDeferredReleases(CustomTestCase):
+         mgr = _make_manager()
+         q = _make_queue(timeout=-1)
+         q.enable_host_receive = True
+-        q.gloo_group = object()
++        q.gloo_world_size = 2
+         entries = [_make_decode_req(room, room, mgr) for room in (1, 2)]
+         generations = {}
+         for entry in entries:
+@@ -709,7 +711,6 @@ class TestResolveDeferredReleases(CustomTestCase):
+         with (
+             patch.object(decode_mod, "discard_kv_cache_backup") as discard,
+             patch.object(decode_mod, "release_kv_cache") as device_release,
+-            patch("torch.distributed.get_world_size", return_value=2),
+             patch("torch.distributed.all_reduce") as reduce,
+         ):
+             q.resolve_deferred_releases()
+@@ -976,6 +977,156 @@ class TestFailedTransfersDeferOnEveryFailure(CustomTestCase):
+         self.assertEqual(q._deferred_releases, [])
+ 
+ 
++class _FakeGlooGroup:
++    """Two in-process ranks whose all_reduce rendezvous across threads."""
++
++    def __init__(self, world_size=2):
++        self.world_size = world_size
++        self.barrier = threading.Barrier(world_size)
++        self.slots = [None] * world_size
++        self.calls = [0] * world_size
++
++    def rank_handle(self, rank):
++        return SimpleNamespace(group=self, rank=rank)
++
++    @staticmethod
++    def all_reduce(tensor, op, group):
++        import torch
++
++        g, rank = group.group, group.rank
++        g.calls[rank] += 1
++        g.slots[rank] = tensor.clone()
++        g.barrier.wait()
++        stacked = torch.stack(g.slots)
++        if op == torch.distributed.ReduceOp.MIN:
++            reduced = stacked.min(dim=0).values
++        else:
++            reduced = stacked.max(dim=0).values
++        g.barrier.wait()
++        tensor.copy_(reduced)
++
++
++def _run_ranks(fns):
++    errors = []
++
++    def run(fn):
++        try:
++            fn()
++        except BaseException as e:  # surfaced to the test thread below
++            errors.append(e)
++
++    threads = [threading.Thread(target=run, args=(fn,)) for fn in fns]
++    for t in threads:
++        t.start()
++    for t in threads:
++        t.join(timeout=10)
++    return errors
++
++
++class TestRankConsistentDeferredRelease(CustomTestCase):
++    """Attn-TP ranks must free deferred KV in the same iteration: a rank-local
++    ack or deadline decision diverges prealloc admission and hangs the poll
++    all-reduce (TP ranks stuck in different collectives after client cancels)."""
++
++    def _ranks(self):
++        group = _FakeGlooGroup()
++        ranks = []
++        for rank in range(2):
++            mgr = _make_manager()
++            q = _make_queue(timeout=30.0)
++            q.gloo_group = group.rank_handle(rank)
++            q.gloo_world_size = 2
++            q.tp_rank = rank
++            dreq = _make_decode_req(room=500, idx=6, mgr=mgr)
++            generation = mgr.register_deferred_abort_room(500)
++            ranks.append((q, mgr, dreq, generation))
++        return group, ranks
++
++    def _resolve_all(self, ranks, now):
++        with (
++            patch.object(decode_mod.time, "monotonic", return_value=now),
++            patch("torch.distributed.all_reduce", _FakeGlooGroup.all_reduce),
++            patch.object(decode_mod, "release_kv_cache"),
++        ):
++            errors = _run_ranks([q.resolve_deferred_releases for q, *_ in ranks])
++        self.assertEqual(errors, [])
++        return [len(q._deferred_releases) for q, *_ in ranks]
++
++    def test_ack_on_one_rank_holds_every_rank(self):
++        _, ranks = self._ranks()
++        for q, _, dreq, _ in ranks:
++            q._deferred_releases.append((dreq, 0.0, 30.0, 6, 1))
++        q0, mgr0, _, gen0 = ranks[0]
++        mgr0.note_abort_ack(500, 0, gen0)
++        self.assertEqual(self._resolve_all(ranks, now=1.0), [1, 1])
++        _, mgr1, _, gen1 = ranks[1]
++        mgr1.note_abort_ack(500, 0, gen1)
++        self.assertEqual(self._resolve_all(ranks, now=2.0), [0, 0])
++
++    def test_deadline_on_one_rank_holds_every_rank(self):
++        _, ranks = self._ranks()
++        # Rank 0 armed earlier, so its local deadline passes first.
++        ranks[0][0]._deferred_releases.append((ranks[0][2], 0.0, 10.0, 6, 1))
++        ranks[1][0]._deferred_releases.append((ranks[1][2], 5.0, 15.0, 6, 1))
++        self.assertEqual(self._resolve_all(ranks, now=12.0), [1, 1])
++        self.assertEqual(self._resolve_all(ranks, now=16.0), [0, 0])
++
++
++class TestPopTransferredQueueLengthConsensus(CustomTestCase):
++    """pop_transferred must not skip its poll all-reduce on a rank-local empty
++    queue while a peer enters it."""
++
++    def _queue(self, group, rank, n):
++        mgr = _make_manager()
++        q = _make_pop_queue(mgr)
++        q.gloo_group = group.rank_handle(rank)
++        q.gloo_world_size = 2
++        q.tp_rank = rank
++        q.queue = [
++            _make_failed_req(mgr, room=900 + i, idx=i, abort_notified=True)
++            for i in range(n)
++        ]
++        q._poll_with_metadata_gate = lambda: [KVPoll.Transferring] * len(q.queue)
++        return q
++
++    def _pop_all(self, queues):
++        results = [None] * len(queues)
++
++        def pop(i):
++            def fn():
++                results[i] = queues[i].pop_transferred()
++
++            return fn
++
++        with patch("torch.distributed.all_reduce", _FakeGlooGroup.all_reduce):
++            errors = _run_ranks([pop(i) for i in range(len(queues))])
++        return results, errors
++
++    def test_all_empty_returns_after_one_collective(self):
++        group = _FakeGlooGroup()
++        results, errors = self._pop_all([self._queue(group, r, 0) for r in range(2)])
++        self.assertEqual(errors, [])
++        self.assertEqual(results, [[], []])
++        self.assertEqual(group.calls, [1, 1])
++
++    def test_equal_lengths_proceed_to_poll(self):
++        group = _FakeGlooGroup()
++        queues = [self._queue(group, r, 2) for r in range(2)]
++        results, errors = self._pop_all(queues)
++        self.assertEqual(errors, [])
++        self.assertEqual(results, [[], []])
++        self.assertEqual([len(q.queue) for q in queues], [2, 2])
++
++    def test_divergent_lengths_fail_loudly_on_every_rank(self):
++        group = _FakeGlooGroup()
++        queues = [self._queue(group, 0, 0), self._queue(group, 1, 2)]
++        _, errors = self._pop_all(queues)
++        self.assertEqual(len(errors), 2)
++        for e in errors:
++            self.assertIsInstance(e, RuntimeError)
++            self.assertIn("diverged across attn-TP ranks", str(e))
++
++
+ class TestBackendOptIn(CustomTestCase):
+     """Without a prefill ack, every hold waits out the full release timeout."""
+ 
+-- 
+2.34.1
+

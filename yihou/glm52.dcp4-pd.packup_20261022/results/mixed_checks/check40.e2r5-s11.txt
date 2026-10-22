@@ -1,0 +1,5 @@
+concurrent40 {'math': '19/20', 'pk8k': '8/10', 'pk34k': '10/10'} secs 12.9
+FAIL {'kind': 'math', 'expect': '35', 'got': '35下一次仪', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'pk8k', 'expect': '42294', 'got': '4 crater saturated.', 'pass': False, 'prompt_tokens': 9182}
+FAIL {'kind': 'pk8k', 'expect': '11435', 'got': '114!战的', 'pass': False, 'prompt_tokens': 9180}
+long_greedy window 2026-10-22 01:51:44 -> 2026-10-22 01:52:03 completion_tokens [1500, 1500, 1500, 1470] secs 18.3

@@ -1,0 +1,314 @@
+{
+ "concurrent40": [
+  {
+   "kind": "math",
+   "expect": "64",
+   "got": "64",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "47",
+   "got": "47",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "38",
+   "got": "38",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "71",
+   "got": "71 requires carefulorra again\u8fd9\u53e5\u8bdd</think>1 14(14 sheep(14.15. 15.615.648.628.628.",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "51",
+   "got": "51",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "71",
+   "got": "71",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "93",
+   "got": "93",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "90",
+   "got": "90",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "72",
+   "got": "72",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "29",
+   "got": "29",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "45",
+   "got": "45ekoenvilla",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "73",
+   "got": "73",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "66",
+   "got": "66",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "80",
+   "got": "80",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "85",
+   "got": "85",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "79",
+   "got": "79",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "59",
+   "got": "599",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "34",
+   "got": "34",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "46",
+   "got": "46",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "43",
+   "got": "43",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "pk8k",
+   "expect": "82545",
+   "got": "82545",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "42790",
+   "got": "42790",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "55589",
+   "got": "55589",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "32377",
+   "got": "32377",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "22335",
+   "got": "22335",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "85804",
+   "got": "85804",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "53923",
+   "got": "53923",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "16635",
+   "got": "16635",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "12518",
+   "got": "12518 and back again. The the the grass,... the the the the the economic economi",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "45717",
+   "got": "45717",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk34k",
+   "expect": "92981",
+   "got": "92981",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "35990",
+   "got": "35990",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "43826",
+   "got": "43826",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "73557",
+   "got": "73557",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "91403",
+   "got": "91403",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "78845",
+   "got": "78845",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "62823",
+   "got": "62823",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "87351",
+   "got": "87351",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "34023",
+   "got": "34023",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "42953",
+   "got": "42953",
+   "pass": true,
+   "prompt_tokens": 38918
+  }
+ ],
+ "summary": {
+  "math": [
+   17,
+   20
+  ],
+  "pk8k": [
+   10,
+   10
+  ],
+  "pk34k": [
+   10,
+   10
+  ]
+ },
+ "long_window": [
+  "2026-10-22 02:12:45",
+  "2026-10-22 02:13:04"
+ ],
+ "long_tokens": [
+  1500,
+  1500,
+  1500,
+  1500
+ ],
+ "long_heads": [
+  "**The Catalyst of Modernity: A History of the Printing Press**\n\nThe invention of the printing press stands as one of the most pivotal moments in human history, frequently cited as the primary catalyst",
+  "Turning C source code into machine code is a complex, multi-stage process. Although we often think of \"compiling\" as a single step, a standard C compiler (like GCC or Clang) actually drives a pipeline",
+  "\n\n\n# The Keeper of Wreck Light\n\n## Part One: The Bottle\n\nThe sea had been angry for three days straight.\n\nElias Crowe stood at the base of Wreck Light's spiral staircase, listening to the wind scream ",
+  "To understand how Earth sustains life, it is helpful to look at the planet not just as a collection of rocks and water, but as a series of interconnected, dynamic systems. Three of the most critical o"
+ ]
+}

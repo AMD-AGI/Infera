@@ -1,0 +1,1 @@
+{'prompt_tokens': 10007, 'total_tokens': 13007, 'completion_tokens': 3000, 'prompt_tokens_details': {'cached_tokens': 0}, 'reasoning_tokens': 0} 216.5 "# The Cartographer of Lost Dreams\n\n## Part One: The Map That Breathed\n\nIn the forgotten coastal town of Merrow's End, where the sea mist clung to the cliffs like ghosts reluctant to leave, there lived"

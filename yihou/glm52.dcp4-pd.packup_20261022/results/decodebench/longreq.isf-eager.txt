@@ -1,0 +1,1 @@
+{'prompt_tokens': 10007, 'total_tokens': 11507, 'completion_tokens': 1500, 'prompt_tokens_details': {'cached_tokens': 0}, 'reasoning_tokens': 0} 133.6 '# The Last Cartographer of Aelith\n\n## Part One: The Map That Breathed\n\nThe rain had been falling for seventeen days when Maren Voss first realized the map was wrong.\n\nShe sat in the upper study of the'

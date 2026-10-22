@@ -1,0 +1,10 @@
+concurrent40 {'math': '14/20', 'pk8k': '8/10', 'pk34k': '10/10'} secs 12.5
+FAIL {'kind': 'math', 'expect': '73', 'got': '73!!0!!!!!!!!!!!!!!!!!!!!!!!!! The) and0,13,112388,879,028\n\n</think></think></th', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '70', 'got': '70!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!0542. The0.5.1.8. et al.1</think></think></thi', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '56', 'got': '56!!9!!!!!!!!!!!!!!!!!!!!!!!!! the6737.1.1. Thea,1,11,01,02,1,0,2,34,5,', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '48', 'got': '48!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!0212. The797 and8,9108.\nThe1,2,3,4,', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '36', 'got': '36 but the 14 + 6 - 8 + 24 = 36. \n\n36', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '18', 'got': '18!!!!!!!!!!!!!!!!!!!!!!!!!!1,31 and89(12.0. The,', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'pk8k', 'expect': '89143', 'got': '89!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', 'pass': False, 'prompt_tokens': 9182}
+FAIL {'kind': 'pk8k', 'expect': '81007', 'got': '85 order', 'pass': False, 'prompt_tokens': 9182}
+long_greedy window 2026-10-22 02:12:11 -> 2026-10-22 02:12:34 completion_tokens [1500, 1500, 1500, 1500] secs 22.8

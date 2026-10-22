@@ -1,0 +1,2 @@
+r2-A1 10-21 15:45:17+3640s nDP=1 lines=1208 (per DP 1208) ms/step=75.3 run=21.38 tok=4218k usage=0.432 acc=3.610 gen/DP=994.9 gen_total=994.9 per-req=53.6 graph%=100.0 xfer>0%=67.3 q>0%=0.0 prealloc>0%=0.0 retracted>0%=0.0 imb=nan(n=0) | pf_batches=4378 pf_new=16.4M pf_cached=464.5M
+r2-A2b 10-21 17:13:36+3640s nDP=1 lines=1369 (per DP 1369) ms/step=66.5 run=19.37 tok=4306k usage=0.441 acc=3.609 gen/DP=1001.5 gen_total=1001.5 per-req=64.1 graph%=100.0 xfer>0%=72.0 q>0%=0.0 prealloc>0%=0.0 retracted>0%=0.0 imb=nan(n=0) | pf_batches=4355 pf_new=16.6M pf_cached=477.5M

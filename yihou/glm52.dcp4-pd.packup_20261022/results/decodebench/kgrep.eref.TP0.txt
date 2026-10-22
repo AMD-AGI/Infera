@@ -1,0 +1,11 @@
+kernels 30122 total ms 2470.21
+paged_mqa: n=220 ms=27.04 names=['_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle']
+topk_reg: n=800 ms=4.35 names=['void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bf']
+radix: n=0 ms=0.00 names=[]
+nccl: n=860 ms=289.76 names=['ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)']
+allgather_vec: n=850 ms=802.97 names=['_ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPN']
+cross_device_reduce: n=120 ms=38.34 names=['_ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDat']
+sparse_mla: n=870 ms=38.15 names=['_sparse_mla_fused_kernel', '_sparse_mla_reduce_kernel', '_sparse_mla_split_k_kernel']
+logits_hist: n=0 ms=0.00 names=[]
+cats ['Trace', 'cpu_op', 'cuda_runtime', 'gpu_memcpy', 'gpu_user_annotation', 'kernel', 'python_function', 'user_annotation']
+graph launches 0 []

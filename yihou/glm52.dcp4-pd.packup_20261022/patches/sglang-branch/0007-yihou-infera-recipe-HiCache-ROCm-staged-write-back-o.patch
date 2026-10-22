@@ -1,0 +1,42 @@
+From 7abe9a8d5e13299f84f30f57bf7fcf10f55c8ee4 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:09:15 +0000
+Subject: [PATCH 07/31] [yihou] infera recipe: HiCache ROCm staged write-back
+ off
+
+Infera image patch patch_hicache_rocm_staged_write_back.py.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/mem_cache/pool_host/mla.py | 14 +++++++++-----
+ 1 file changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/python/sglang/srt/mem_cache/pool_host/mla.py b/python/sglang/srt/mem_cache/pool_host/mla.py
+index 31d284daea..48f67c0e05 100644
+--- a/python/sglang/srt/mem_cache/pool_host/mla.py
++++ b/python/sglang/srt/mem_cache/pool_host/mla.py
+@@ -458,11 +458,15 @@ class MLATokenToKVPoolHost(HiSparseHostPoolMixin, HostKVCache):
+         ):
+             return
+ 
+-        # The staged write-back JIT kernel builds with hipcc and has a ROCm
+-        # path, so enable it on HIP too (consistent with the CUDA path).
+-        self.can_use_write_back_jit = (
+-            _is_cuda or _is_hip
+-        ) and can_use_write_back_jit_kernel(
++        # GLM52_ROCM_STAGED_WRITE_BACK: WHY the ROCm build of this kernel wants
++        # host-resident dst_indices while the caller passes a GPU tensor ->
++        # "Tensor match failed ... device=rocm:0" kills the legacy controller
++        # on first write-back. HOW align this MLA gate with its CUDA-only DSA
++        # child; HIP uses transfer_kv_all_layer_mla_lf_pf. On controllers with
++        # per-pool indices this remains a conservative non-JIT path. See infera
++        # patch_hicache_rocm_staged_write_back.py.
++        GLM52_ROCM_STAGED_WRITE_BACK = "applied"  # a literal, so `strings *.pyc` can prove it
++        self.can_use_write_back_jit = _is_cuda and can_use_write_back_jit_kernel(
+             element_size=self.kv_cache_dim * self.dtype.itemsize,
+         )
+         if not self.can_use_write_back_jit:
+-- 
+2.34.1
+

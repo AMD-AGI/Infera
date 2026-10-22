@@ -1,0 +1,9 @@
+2026-10-21T13:32:42Z	start	exp=pdpa-dcp4-overlay round=pdBe-r1 image=infera-sglang:v0522-1020-yihou-dcp-mc4340 config=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/harness/config.yihou.dcp.sh
+2026-10-21T13:32:42Z	ports-all	ok:30 ports <30000 and free
+2026-10-21T13:33:42Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-21T13:33:43Z	etcd	ok
+2026-10-21T13:42:29Z	prefill	ok:26x20s
+2026-10-21T13:56:00Z	decode-a1	ok
+2026-10-21T13:56:00Z	bothlegs	ok
+2026-10-21T13:56:05Z	router	ok
+2026-10-21T13:56:12Z	smoke	ok

@@ -1,0 +1,5 @@
+math_nothink PASS '29' 49 0.21
+math_think PASS '29' 55 0.94
+passkey_8k PASS '67767' 9182 7.02
+passkey_34k PASS '25315' 38918 7.74
+passkey_96k PASS '10981' 109764 5.68

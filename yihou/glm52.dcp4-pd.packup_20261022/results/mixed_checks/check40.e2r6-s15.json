@@ -1,0 +1,314 @@
+{
+ "concurrent40": [
+  {
+   "kind": "math",
+   "expect": "39",
+   "got": "39",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "15",
+   "got": "15",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "20",
+   "got": "20",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "43",
+   "got": "43",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "43",
+   "got": "43",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "64",
+   "got": "64",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "49",
+   "got": "49",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "74",
+   "got": "74",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "70",
+   "got": "70",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "39",
+   "got": "39",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "62",
+   "got": "62",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "81",
+   "got": "81",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "33",
+   "got": "33",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "50",
+   "got": "50",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "85",
+   "got": "85 personen",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "15",
+   "got": "15",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "30",
+   "got": "30 congr8585:",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "54",
+   "got": "54",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "58",
+   "got": "58",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "36",
+   "got": "36alia.",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "pk8k",
+   "expect": "92071",
+   "got": "92071",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "60710",
+   "got": "60710",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "54063",
+   "got": "5Comments are currently unavailable. Please try again later.54063",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "19725",
+   "got": "19 requirements. I need to output only the number. The pass key is 19725. I will",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "72186",
+   "got": "7",
+   "pass": false,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "25125",
+   "got": "25125 is not, to model.....0.0.0.0.0..0.0.0.0.",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "61090",
+   "got": "6 LeisureComments61090",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "12018",
+   "got": "12018",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "22103",
+   "got": "22103",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "18416",
+   "got": "18416",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk34k",
+   "expect": "69070",
+   "got": "69070",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "43430",
+   "got": "43430",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "75526",
+   "got": "75526",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "73041",
+   "got": "73041",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "15642",
+   "got": "15642",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "18087",
+   "got": "18087",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "20711",
+   "got": "20711",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "70593",
+   "got": "70593",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "87770",
+   "got": "87770",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "43505",
+   "got": "43505",
+   "pass": true,
+   "prompt_tokens": 38918
+  }
+ ],
+ "summary": {
+  "math": [
+   17,
+   20
+  ],
+  "pk8k": [
+   9,
+   10
+  ],
+  "pk34k": [
+   10,
+   10
+  ]
+ },
+ "long_window": [
+  "2026-10-22 02:11:39",
+  "2026-10-22 02:11:59"
+ ],
+ "long_tokens": [
+  1500,
+  1500,
+  1500,
+  1500
+ ],
+ "long_heads": [
+  "**The Invention That Redefined Humanity: A Comprehensive History of the Printing Press**\n\nThe story of human civilization is, in many ways, the story of how we record, preserve, and transmit informati",
+  "Turning C source code into machine code is a complex, highly orchestrated process. A compiler is not a single monolithic program, but rather a \"pipeline\" of specialized tools and phases. \n\nTo understa",
+  "\n\n\n# The Keeper of Wreck Light\n\n## Part One: The Routine\n\nThe sea had a language, and Elias Thornberg had spent thirty-seven years learning to read it.\n\nHe stood on the gallery of Wreck Light at five-",
+  "To understand how Earth functions as a living, self-regulating system, it is essential to look at the foundational natural processes that govern it. The water cycle, photosynthesis, and the carbon cyc"
+ ]
+}

@@ -1,0 +1,22 @@
+
+===== PD bottleneck stats: r4A2 (rank DP0) =====
+
+[prefill]  (steady-state lines: 1405)
+  state                             mean  median   p95   max
+  1 prefill-input                    0.3       0     3     6
+    handshake                        0.0       0     0     1
+  2 prefill-outbound(KV-send)        1.8       1     6    11
+
+[decode]  (steady-state lines: 0)
+  state                             mean  median   p95   max
+
+[rdma] no mooncake metrics
+[transfer errors] none
+
+--- verdict inputs (apply parent skill's rule) ---
+  state1 prefill-input max=6 | state2 prefill-outbound max=11 | state3 decode-admission max=? | decode-running occupancy=?%
+  rule: input deep + outbound shallow + decode headroom => PREFILL-bound
+        outbound(state2) deep                          => TRANSFER-bound
+        admission(state3) deep + decode near cap        => DECODE-bound
+
+wrote r4A2.json

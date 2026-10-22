@@ -1,0 +1,82 @@
+== 30374
+Process 30374: sglang::scheduler_TP0_EP0
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 30374 (idle): "MainThread"
+    broadcast (torch/distributed/distributed_c10d.py:2841)
+    wrapper (torch/distributed/c10d_logger.py:81)
+    broadcast_pyobj (utils/common.py:2699)
+    _broadcast_reqs_across_ranks (scheduler_components/request_receiver.py:206)
+    recv_requests (scheduler_components/request_receiver.py:101)
+    wrapper (utils/nvtx_utils.py:109)
+    wrapper (scheduler_stage_metrics.py:186)
+    ingest_requests (scheduler.py:2155)
+    event_loop_overlap_disagg_decode (decode.py:3104)
+    decorate_context (torch/utils/_contextlib.py:120)
+    _dispatch_event_loop_once (scheduler.py:6118)
+    dispatch_event_loop (scheduler.py:6088)
+    run_event_loop (scheduler.py:1960)
+    run_scheduler_process (scheduler.py:6241)
+    run (multiprocessing/process.py:108)
+    _bootstrap (multiprocessing/process.py:314)
+    _main (multiprocessing/spawn.py:129)
+    spawn_main (multiprocessing/spawn.py:116)
+    <module> (<string>:1)
+Thread 31788 (idle): "Thread-2"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:60)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 32083 (idle): "Thread-3"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    run (tqdm/_monitor.py:60)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 32531 (idle): "InductorSubproc"
+    _recv_msg (torch/_inductor/compile_worker/subproc_pool.py:73)
+    _read_thread (torch/_inductor/compile_worker/subproc_pool.py:228)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+== 30144
+Process 30144: /opt/venv/bin/python3 -m sglang.launch_server --model-path /shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --host 10.245.144.125 --port 29357 --tp-size 4 --ep-size 4 --trust-remote-code --dsa-prefill-backend triton --dsa-decode-backend triton --kv-cache-dtype fp8_e4m3 --mem-fraction-static 0.85 --chunked-prefill-size 32768 --cuda-graph-max-bs-decode 64 --max-running-requests 64 --watchdog-timeout 3600 --reasoning-parser glm45 --tool-call-parser glm47 --enable-fused-qk-norm-rope --enable-cache-report --enable-metrics --disaggregation-mode decode --disaggregation-transfer-backend mooncake --json-model-override-args {"index_share_for_mtp_iteration":false} --disaggregation-ib-device {"0":"ionic_0","1":"ionic_1","2":"ionic_2","3":"ionic_3"} --speculative-algorithm EAGLE --speculative-num-steps 5 --speculative-eagle-topk 1 --speculative-num-draft-tokens 6 --enable-aiter-allreduce-fusion --dcp-size 4
+Python v3.10.12 (/usr/bin/python3.10)
+
+Thread 30144 (idle): "MainThread"
+    asyncio_run (uvicorn/_compat.py:60)
+    run (uvicorn/server.py:86)
+    _setup_and_run_http_server (http_server.py:2819)
+    launch_server (http_server.py:2975)
+    run_server (sglang/launch_server.py:67)
+    <module> (sglang/launch_server.py:84)
+    _run_code (runpy.py:86)
+    _run_module_as_main (runpy.py:196)
+Thread 31187 (idle): "Thread-1 (monitor)"
+    monitor (cpu_monitor.py:21)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 32949 (idle): "subprocess-watchdog"
+    wait (threading.py:324)
+    wait (threading.py:607)
+    _monitor_loop (utils/watchdog.py:205)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 33272 (idle): "uvloop_0"
+    _worker (concurrent/futures/thread.py:81)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 33421 (idle): "uvloop_1"
+    _worker (concurrent/futures/thread.py:81)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 33430 (idle): "uvloop_2"
+    _worker (concurrent/futures/thread.py:81)
+    run (threading.py:953)
+    _bootstrap_inner (threading.py:1016)
+    _bootstrap (threading.py:973)
+Thread 33431 (idle): "uvloop_3"

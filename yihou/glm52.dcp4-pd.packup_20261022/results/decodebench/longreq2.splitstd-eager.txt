@@ -1,0 +1,1 @@
+{'prompt_tokens': 10007, 'total_tokens': 10307, 'completion_tokens': 300, 'prompt_tokens_details': {'cached_tokens': 9984}, 'reasoning_tokens': 0} 28.4 '# The Cartographer of Forgotten Places\n\n## Part One: The Inheritance\n\nThe rain had been falling for three days straight when Elara Voss received the letter that would unravel the carefully woven fabri'

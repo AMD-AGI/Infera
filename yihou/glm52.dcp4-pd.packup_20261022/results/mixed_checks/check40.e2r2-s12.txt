@@ -1,0 +1,4 @@
+concurrent40 {'math': '19/20', 'pk8k': '9/10', 'pk34k': '10/10'} secs 13.8
+FAIL {'kind': 'math', 'expect': '44', 'got': '44!! in1.123.53.02,2,</think></think></think></think></think>1</think></think></', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'pk8k', 'expect': '13373', 'got': '133 amy', 'pass': False, 'prompt_tokens': 9180}
+long_greedy window 2026-10-22 01:15:40 -> 2026-10-22 01:15:58 completion_tokens [1500, 1500, 1500, 1500] secs 18.3
