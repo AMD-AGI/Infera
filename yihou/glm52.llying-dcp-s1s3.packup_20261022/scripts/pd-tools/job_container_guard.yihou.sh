@@ -1,0 +1,115 @@
+#!/bin/bash
+# job_container_guard.yihou.sh (v5) -- make our PD containers on a burst node stop themselves soon after the
+# spur job leaves RUNNING.  No docker socket is mounted anywhere (burst nodes' docker-authz forbids it).
+#
+# How:
+#   * host loop (started inside the job via spur exec, setsid nohup; it dies with the job) runs every HB_SEC:
+#       for every RUNNING container whose name starts with the literal prefix yihou-dcp-pd-<NK>-:
+#         - `docker exec` writes epoch seconds to /tmp/yihou-hb.<JOB> inside the container (heartbeat)
+#         - if the in-container watcher is not alive, `docker exec -d` starts it (so new containers get covered)
+#   * squeue gate: each cycle the host loop asks `squeue -h -j <JOB> -o %T`; RUNNING -> refresh heartbeats;
+#     another non-empty state -> stop refreshing and exit.  Empty output (spur drops finished jobs from squeue)
+#     -> ask sacct; a terminal sacct state (CANCELLED, COMPLETED, FAILED, TIMEOUT, NODE_FAIL, PREEMPTED, ...) -> exit;
+#     empty/failed sacct too -> treat as alive (scheduler hiccup must not stop anything).  So the guard fires whether
+#     or not the job end kills the host loop.  GATE_JOB=<id> overrides the queried job id (testing only).
+#   * in-container watcher: when /tmp/yihou-hb.<JOB> is older than STALE_SEC it sends SIGTERM to PID 1 of its own
+#     container (docker stop's first step; tini/--init forwards it) and exits.  It signals nothing else.
+#     It logs to /tmp/yihou-guard.<JOB>.log in the container, to the container's stdout (docker logs), and to
+#     the shared-NFS event log below if that directory is mounted in the container.
+#   * shared-NFS event log /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/guard/<JOB>.<NK>.log: host loop start,
+#     watcher started, UNGUARDED, gate exit; watcher start and SIGTERM lines (when the dir is mounted).
+#     In --dry-run it only logs what it would do.  PID 1 must handle SIGTERM (docker run --init does).
+#     Containers without /bin/sh (e.g. distroless quay.io/coreos/etcd) cannot be guarded: logged as UNGUARDED
+#     in /tmp/yihou-guard-loop.<JOB>.out and shown by `status`.
+#   Never docker rm, never names outside the prefix.
+#
+# Usage (on the node):  spur exec <JOB> bash -c 'cd /tmp && bash <this> start <JOB> <NK> [--dry-run]'
+#   start  <JOB> <NK> [--dry-run]   start the host loop (refuses if one is already running for <JOB>)
+#   status <JOB> <NK>               host loop alive?  per container: heartbeat age, watcher alive, last log line
+#   disarm <JOB> <NK>               kill host loop and every watcher (normal end of work; containers untouched)
+#   test-stale <JOB> <NK>           kill only the host loop (simulates job loss)
+# Env: HB_SEC (30), STALE_SEC (90), CHECK_SEC (10).
+set -u
+CMD=${1:-}; JOB=${2:-}; NK=${3:-}; shift 3 2>/dev/null || true
+DRY=0
+while [ $# -gt 0 ]; do case $1 in --dry-run) DRY=1;; *) echo "unknown arg $1"; exit 2;; esac; shift; done
+GATE_JOB=${GATE_JOB:-$JOB}; HB_SEC=${HB_SEC:-30}; STALE_SEC=${STALE_SEC:-90}; CHECK_SEC=${CHECK_SEC:-10}
+[[ "$JOB" =~ ^[0-9]+$ ]] || { echo "bad JOB '$JOB'"; exit 2; }
+[[ "$GATE_JOB" =~ ^[0-9]+$ ]] || { echo "bad GATE_JOB '$GATE_JOB'"; exit 2; }
+[[ "$NK" =~ ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$ ]] || { echo "bad NK '$NK' (need e.g. 075)"; exit 2; }
+PREFIX="yihou-dcp-pd-${NK}-"
+[ ${#PREFIX} -gt 14 ] || { echo "prefix too short: '$PREFIX'"; exit 2; }
+[ "$STALE_SEC" -ge $((2*HB_SEC)) ] || { echo "STALE_SEC ($STALE_SEC) must be >= 2*HB_SEC ($HB_SEC)"; exit 2; }
+GDIR="/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/guard"; NLOG="${GDIR}/${JOB}.${NK}.log"   # shared-NFS event log
+LOOPF="/tmp/yihou-guard-loop.${JOB}.v5.sh"  # host loop script; its path is the process marker
+HBF="/tmp/yihou-hb.${JOB}"; WPID="/tmp/yihou-guard.${JOB}.v5.pid"; WLOG="/tmp/yihou-guard.${JOB}.log"
+
+targets() { docker ps --format '{{.Names}}' | awk -v p="$PREFIX" 'index($0,p)==1'; }
+loop_pids() { pgrep -f "^bash ${LOOPF}\$" || true; }
+
+# in-container watcher (POSIX sh); args: JOB STALE CHECK DRY
+read -r -d '' WATCH <<'W'
+J=$1; S=$2; C=$3; D=$4; N=$5; CN=$6; H=/tmp/yihou-hb.$J; L=/tmp/yihou-guard.$J.log
+echo $$ > /tmp/yihou-guard.$J.v5.pid
+log() { m="$(date -u +%FT%TZ) [yihou-guard $J] $(hostname) $CN $*"; echo "$m" >> $L; echo "$m" > /proc/1/fd/1 2>/dev/null
+        [ -d "${N%/*}" ] && echo "$m" >> "$N" 2>/dev/null; }
+log "watcher start pid=$$ stale=${S}s check=${C}s dry=$D"
+while :; do
+  if [ -f $H ]; then a=$(( $(date +%s) - $(stat -c %Y $H) )); else a=999999; fi
+  if [ $a -gt $S ]; then
+    if [ "$D" = 1 ]; then log "heartbeat stale (age=${a}s): DRY-RUN would SIGTERM pid 1"; exit 0; fi
+    log "heartbeat stale (age=${a}s): SIGTERM pid 1 (own container only), exiting"; kill -TERM 1; exit 0
+  fi
+  sleep $C
+done
+W
+
+case "$CMD" in
+start)
+  [ -z "$(loop_pids)" ] || { echo "host loop already running for job $JOB: $(loop_pids)"; exit 1; }
+  printf '%s\n' "$WATCH" > /tmp/yihou-guard-watch.${JOB}.sh
+  cat > "$LOOPF" <<LOOP
+#!/bin/bash
+# host loop for job $JOB, prefix $PREFIX (generated by job_container_guard.yihou.sh)
+W=\$(cat /tmp/yihou-guard-watch.${JOB}.sh); UNG=''
+ev() { m="\$(date -u +%FT%TZ) [host-loop $JOB] \$(hostname) \$*"; echo "\$m"; echo "\$m" >> $NLOG 2>/dev/null; }
+ev "start prefix=$PREFIX gate_job=$GATE_JOB dry=$DRY hb=${HB_SEC}s stale=${STALE_SEC}s"
+while :; do
+  st=\$(/usr/local/bin/squeue -h -j $GATE_JOB -o %T 2>/dev/null | head -n 1 | tr -d ' ')
+  if [ -z "\$st" ]; then
+    st=\$(/usr/local/bin/sacct -j $GATE_JOB 2>/dev/null | awk '\$1=="$GATE_JOB" {print \$6; exit}')
+    case "\$st" in RUNNING|PENDING|REQUEUE*|CONFIGUR*|COMPLETING|SUSPEND*|"") st=RUNNING;; esac
+  fi
+  if [ "\$st" != RUNNING ]; then ev "job $GATE_JOB state '\$st': stop refreshing heartbeats, exit"; exit 0; fi
+  for c in \$(docker ps --format '{{.Names}}' | awk -v p='$PREFIX' 'index(\$0,p)==1'); do
+    case " \$UNG " in *" \$c "*) continue;; esac
+    if ! docker exec "\$c" sh -c true >/dev/null 2>&1; then
+      UNG="\$UNG \$c"; ev "UNGUARDED (no sh in container): \$c"; continue
+    fi
+    docker exec "\$c" sh -c 'date +%s > $HBF; p=\$(cat $WPID 2>/dev/null); [ -n "\$p" ] && [ -d /proc/\$p ]' \\
+      || { docker exec -d "\$c" sh -c "\$W" yihou-guard $JOB $STALE_SEC $CHECK_SEC $DRY $NLOG "\$c"; ev "watcher started in \$c"; }
+  done
+  sleep $HB_SEC
+done
+LOOP
+  mkdir -p "$GDIR" 2>/dev/null
+  setsid nohup bash "$LOOPF" > /tmp/yihou-guard-loop.${JOB}.v5.out 2>&1 < /dev/null &
+  sleep 3
+  [ -n "$(loop_pids)" ] || { echo "host loop failed to start"; cat /tmp/yihou-guard-loop.${JOB}.v5.out; exit 1; }
+  echo "armed: job=$JOB gate_job=$GATE_JOB prefix=$PREFIX dry=$DRY loop_pid=$(loop_pids | tr '\n' ' ') targets=$(targets | tr '\n' ' ')"
+  ;;
+status)
+  echo "host loop: $(loop_pids | tr '\n' ' ')"; tail -n 3 "$NLOG" 2>/dev/null; grep UNGUARDED /tmp/yihou-guard-loop.${JOB}.v5.out 2>/dev/null
+  for c in $(targets); do
+    echo "$c: $(docker exec "$c" sh -c "echo hb_age=\$(( \$(date +%s) - \$(stat -c %Y $HBF 2>/dev/null || echo 0) ))s watcher=\$(p=\$(cat $WPID 2>/dev/null); [ -n \"\$p\" ] && [ -d /proc/\$p ] && echo alive:\$p || echo none); tail -n 1 $WLOG 2>/dev/null")"
+  done
+  ;;
+disarm)
+  p=$(loop_pids); [ -n "$p" ] && kill $p && echo "host loop killed ($p)"
+  for c in $(targets); do docker exec "$c" sh -c "p=\$(cat $WPID 2>/dev/null); [ -n \"\$p\" ] && [ -d /proc/\$p ] && kill \$p && echo 'watcher killed in $c'"; done
+  ;;
+test-stale)
+  p=$(loop_pids); [ -n "$p" ] && kill $p && echo "host loop killed ($p); watchers act in ~${STALE_SEC}-$((STALE_SEC+CHECK_SEC+HB_SEC))s"
+  ;;
+*) sed -n '2,24p' "$0"; exit 2;;
+esac

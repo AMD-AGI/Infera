@@ -1,0 +1,2 @@
+#!/bin/sh
+echo "2: ens3    inet $RENDER_IP/20 brd x scope global ens3"

@@ -109,3 +109,6 @@ Node `crsuse2-m2m-054` (amdgpu 6.14.14, SDMA on), image `infera-sglang:v0522-102
 
 - `/home/yihou/dev/git/infera.glm52.pd/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012` — the non-DCP PD
   baseline (22,114 tok/s/chip, e2g A2) whose prefill leg and AgentX protocol this kit reuses.
+- `../glm52.llying-dcp-s1s3.packup_20261022/` — follow-up line (2026-10-22): llying's v0522 best config same-node
+  P4D4 with PP4 prefill. S1 DPA4 decode 34,509, S2 DCP4 decode 25,941, S3 S2 + OffloaderV2 prefill 21,025 tok/s/chip
+  (AgentX C80, one 1800 s run each). Its overlay `ab7a898b77` = this kit's `93034eba91` + one PP fix.

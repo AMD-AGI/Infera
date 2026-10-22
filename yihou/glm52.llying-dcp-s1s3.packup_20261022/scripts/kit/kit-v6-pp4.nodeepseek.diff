@@ -1,0 +1,93 @@
+diff -ru -x patches Infera-mix-v0522/examples/sglang_2p1d_glm5.2/README.md 2p1d-kit/v6-pp4/README.md
+--- Infera-mix-v0522/examples/sglang_2p1d_glm5.2/README.md	2026-10-21 18:03:50.624562289 +0000
++++ 2p1d-kit/v6-pp4/README.md	2026-10-21 16:54:05.264707255 +0000
+@@ -91,8 +91,6 @@
+ | correctness (`smoke.sh`, real MTP acceptance) | 6/6 pass (66k-token prefix: 40.0 s cold, 1.9 s repeated) |
+ | GSM8K (`eval.sh`: InferenceX `run_eval`, 1,319 questions, concurrency 64, real MTP acceptance) | 0.9697 strict / 0.9704 flexible; no template-tag leakage, no empty answer |
+ | AgentX C176, 3600 s, `SIM_ACCEPT_LEN=3.61` | 35,637 tok/s/GPU, 15,881 requests, 0 failed, 11 invalid responses |
+-| with the prefills' EAGLE flags (note 10), `PREFILL_WORKERS=1`: `smoke.sh` | 6/6 pass (66k-token prefix: 14.2 s cold, 0.7 s repeated) |
+-| same: GSM8K as above | 0.9704 strict / 0.9697 flexible; no template-tag leakage, no empty answer; real acceptance length median 4.60 (3.86 without the prefills' flags) |
+ 
+ ## Reference numbers
+ 
+@@ -154,9 +152,6 @@
+ **3. VRAM is released late.** `docker rm` returns long before the driver frees
+ the engines' memory; 10-65 minutes were observed on the prefill node, a few
+ on the decode node. Check `rocm-smi` on both nodes before the next `up.sh`.
+-The delay comes from the prefills' pinned HiCache host pools: a deployment
+-whose prefill ran without `--enable-hierarchical-cache` released its VRAM on
+-both nodes within 20 s, which makes bring-up debugging much quicker.
+ A container that `docker stop` cannot end ("did not receive an exit event")
+ is left for the next `down.sh`, which removes it once its process exits.
+ 
+diff -ru -x patches Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/agentx/agentx.sh 2p1d-kit/v6-pp4/engine/agentx/agentx.sh
+--- Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/agentx/agentx.sh	2026-10-21 14:05:01.219205164 +0000
++++ 2p1d-kit/v6-pp4/engine/agentx/agentx.sh	2026-10-22 03:34:07.267622769 +0000
+@@ -67,7 +67,7 @@
+ PREFILL_EP=1
+ PREFILL_DP_ATTN=true
+ DECODE_NUM_WORKERS=1
+-DECODE_TP=8
++DECODE_TP=$(($(tr -cd , <<<"$DECODE_GPUS" | wc -c) + 1))
+ DECODE_EP=1
+ DECODE_DP_ATTN=true
+ SPEC_DECODING=mtp
+diff -ru -x patches Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/worker.sh 2p1d-kit/v6-pp4/engine/worker.sh
+--- Infera-mix-v0522/examples/sglang_2p1d_glm5.2/engine/worker.sh	2026-10-21 16:53:14.773980386 +0000
++++ 2p1d-kit/v6-pp4/engine/worker.sh	2026-10-21 19:47:19.379126364 +0000
+@@ -63,7 +63,7 @@
+     --request-transport http --kv-event-transport zmq
+     --disaggregation-mode "$role" --disaggregation-transfer-backend mooncake
+     --disaggregation-ib-device "$RDMA_DEVICES"
+-    --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention --ep-size 1
++    --ep-size 1
+     --disable-custom-all-reduce
+     --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton
+     --chunked-prefill-size 32768 --max-running-requests 256
+@@ -81,15 +81,26 @@
+     # Per-call hipHostRegister limit: keeps each 250 GB host pool in one
+     # registration (the 256 GB default would split it).
+     env+=(SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512)
++    # PP4 x TP1 prefill (as GB300 Dynamo+SGLang): the last stage also holds
++    # the LM head and the NextN draft layer, so it takes two fewer layers.
++    env+=(SGLANG_PP_LAYER_PARTITION=20,20,20,18)
+     args+=(
++        --tp-size 1 --pp-size "$n_gpus" --disable-overlap-schedule
++        --chunked-prefill-size "${PP4_CHUNK:-16384}" --max-prefill-tokens "${PP4_CHUNK:-16384}"
+         --mem-fraction-static 0.88 --schedule-policy shortest-prefill-first
+         --disaggregation-bootstrap-port $((BOOTSTRAP_PORT + idx))
+         --enable-kv-events --kv-events on
+         --kv-events-bind "tcp://0.0.0.0:$((KV_EVENTS_PORT + 8 * idx))"
+         --kv-snapshot-port $((KV_SNAPSHOT_PORT + idx))
+-        --enable-hierarchical-cache --hicache-size 250 --hicache-ratio 1.5
+-        --hicache-write-policy write_back --hicache-io-backend kernel --hicache-mem-layout page_first
+     )
++    # PP4_HICACHE=0 while debugging: without the pinned host pools a failed
++    # start releases its VRAM in seconds instead of tens of minutes.
++    if [[ "${PP4_HICACHE:-1}" == 1 ]]; then
++        args+=(
++            --enable-hierarchical-cache --hicache-size 250 --hicache-ratio 1.5
++            --hicache-write-policy write_back --hicache-io-backend kernel --hicache-mem-layout page_first
++        )
++    fi
+     read -ra extra <<<"$PREFILL_EXTRA_ARGS"
+ else
+     if [[ -n "$SIM_ACCEPT_LEN" ]]; then
+@@ -97,6 +108,7 @@
+             SGLANG_SIMULATE_ACC_METHOD=match-expected SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token)
+     fi
+     args+=(
++        --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention
+         --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 256 --tokenizer-worker-num 4
+         --no-enable-kv-events --kv-events off
+     )
+@@ -121,6 +133,9 @@
+ mounts=(-v "$MODEL:$MODEL:ro"
+     -v "$name-cache-${image_id:7:12}:/root/.cache"
+     -v "$name-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit")
++# v0.5.22 reads embed_tokens.embedding_dim on every PP stage, but the middle
++# stages hold a PPMissingLayer there; the patched copy reads config.hidden_size.
++[[ "$role" != prefill ]] || mounts+=(-v "$KIT/patches/deepseek_v2.py:/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py:ro")
+ # Host libionic, so the entrypoint can match the host ionic kernel ABI.
+ [[ ! -e /lib/x86_64-linux-gnu/libionic.so ]] ||
+     mounts+=(-v /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro)

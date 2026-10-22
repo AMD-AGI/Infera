@@ -1,0 +1,2 @@
+usage: worker.sh prefill 0|1 | decode
+started yihou-dcp-pd-999-s1-decode on smc300x-ccs-aus-a16-19 GPUs 4,5,6,7, port 27301
