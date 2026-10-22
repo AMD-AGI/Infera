@@ -22,6 +22,7 @@ ours = [  # (results dir, label, label offset in points)
     ("results/pp4-ck8k-c112", "1P(PP4)+1D C112, prefill MTP, 12 GPU", (8, 4)),
     ("results/pp4-ck8k-c88", "1P(PP4)+1D(TP8/DPA) C88, prefill MTP, 12 GPU", (8, -12)),
     ("results/pp4-ck8k-c64", "1P(PP4)+1D C64, prefill MTP, 12 GPU", (8, 4)),
+    ("results/pp4-ck8k-c32", "1P(PP4)+1D C32, prefill MTP, 12 GPU", (8, 4)),
     ("results/1p1d-c88", "1P(TP4/DPA)+1D(TP8/DPA) C88, 12 GPU", (8, -12)),
     ("results/1p1d-c64", "1P1D C64, 12 GPU", (8, 4)),
     ("results/1p1d-c32", "1P(TP4/DPA)+1D(TP8/DPA) C32, 12 GPU", (6, -13)),
