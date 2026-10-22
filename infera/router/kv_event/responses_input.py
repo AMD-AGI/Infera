@@ -21,10 +21,11 @@ same reason -- a second implementation of a prefix transformation is a second
 thing to keep byte-aligned, and nothing reports it when the two drift.
 
 Both of those are effectively static: ``_construct_input_messages`` touches
-``self`` only for two sibling helpers and for ``msg_store``, which is reached
-only on the ``previous_response_id`` path this module refuses outright. So an
-uninitialised instance is enough to borrow them from, and nothing here starts a
-server.
+``self`` only for two sibling helpers, for ``msg_store``, which is reached
+only on the ``previous_response_id`` path this module refuses outright, and
+(v0.5.22) for ``supports_inline_system``, which `to_chat_body` sets itself. So
+an uninitialised instance is enough to borrow them from, and nothing here
+starts a server.
 
 Refuses (returns ``None``) rather than guessing, matching ``render_dsv4``: a
 prefix a few tokens off the engine's does not error, it silently never hits the
@@ -80,15 +81,18 @@ def to_chat_body(body: dict) -> dict | None:
     # property, and gpt-oss ships a Jinja chat template the ordinary path
     # handles.
     shim: Any = OpenAIServingResponses.__new__(OpenAIServingResponses)
-    # SGLang >= v0.5.22 reads this __init__ attribute in _construct_input_messages:
-    # True keeps mid-conversation system messages in place, False coalesces them
-    # into one leading system message. The engine derives it from the chat
-    # template, which is not available here; False is the answer for every
-    # Jinja template that cannot render them inline, and differs from the
-    # engine only for a body that interleaves system messages on such a model.
-    shim.supports_inline_system = False
     try:
+        # SGLang >= v0.5.22 reads `supports_inline_system`, which the engine's
+        # __init__ derives from its chat template: True keeps the system
+        # messages (instructions, developer items) where they are, False
+        # coalesces them into one leading system message. The template is not
+        # known here, so a body whose two renderings differ is not reproducible.
+        shim.supports_inline_system = True
         messages = shim._construct_input_messages(request, None)
+        shim.supports_inline_system = False
+        if shim._construct_input_messages(request, None) != messages:
+            logger.debug("kv-aware: Responses system messages depend on the engine's template")
+            return None
         chat_tools = shim._response_tools_to_chat_tools(request)
     except Exception as exc:
         logger.debug("kv-aware: Responses input not reproducible: %s", exc)

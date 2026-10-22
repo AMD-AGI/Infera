@@ -18,6 +18,8 @@ function drops is dropped from the golden too and the comparison passes.
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
 from infera.router.kv_event import responses_input
@@ -131,6 +133,43 @@ def test_a_plain_body_carries_no_chat_template_kwargs_key():
     """Absent, not empty: `template_context` binds nothing, and an empty dict
     would still be a body shape the chat path never sees."""
     assert "chat_template_kwargs" not in _chat({"input": "hi"})
+
+
+# ---- system messages ------------------------------------------------------
+#
+# From v0.5.22 `_construct_input_messages` keeps the system messages in place or
+# coalesces them into one, by `supports_inline_system`, which the engine derives
+# from its chat template and the router cannot see.
+
+
+def _engine_reads_inline_system() -> bool:
+    from sglang.srt.entrypoints.openai.serving_responses import OpenAIServingResponses
+
+    return "supports_inline_system" in inspect.getsource(
+        OpenAIServingResponses._construct_input_messages
+    )
+
+
+def test_instructions_alone_render_the_same_on_every_template():
+    out = _chat({"instructions": "be brief", "input": "hi"})
+    assert out["messages"][0] == {"role": "system", "content": "be brief"}
+
+
+def test_system_messages_the_template_decides_are_not_guessed():
+    """Instructions plus a developer item (Codex sends both) stay two system
+    messages on an engine that renders them inline (Kimi-K3's encoder does) and
+    become one everywhere else. Either guess hashes a prefix the other kind of
+    engine never built."""
+    if not _engine_reads_inline_system():
+        pytest.skip("this sglang always coalesces system messages")
+    body = {
+        "instructions": "be brief",
+        "input": [
+            {"type": "message", "role": "developer", "content": "sandbox: read-only"},
+            {"type": "message", "role": "user", "content": "hi"},
+        ],
+    }
+    assert responses_input.to_chat_body(body) is None
 
 
 # ---- normalised(): the order the variant is applied in --------------------
