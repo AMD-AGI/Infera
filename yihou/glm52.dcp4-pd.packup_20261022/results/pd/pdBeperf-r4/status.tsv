@@ -1,0 +1,17 @@
+2026-10-21T19:26:35Z	start	exp=pdpa-dcp4-overlay round=pdBeperf-r4 image=infera-sglang:v0522-1020-yihou-dcp-mc4340 config=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/harness/config.yihou.dcp.sh
+2026-10-21T19:26:36Z	ports-all	ok:30 ports <30000 and free
+2026-10-21T19:39:43Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-21T19:39:45Z	etcd	ok
+2026-10-21T19:51:33Z	prefill	ok:36x20s
+2026-10-21T19:57:40Z	decode-a1	ok
+2026-10-21T19:57:40Z	bothlegs	ok
+2026-10-21T19:57:46Z	router	ok
+2026-10-21T19:57:48Z	smoke	ok
+2026-10-21T19:57:49Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c40-A1
+2026-10-21T19:57:50Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c40-A1.log)
+2026-10-21T20:02:33Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c40-A1b
+2026-10-21T20:02:38Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c40-A1b.log)
+2026-10-21T21:28:44Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c40-A2
+2026-10-21T21:28:54Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c40-A2.log)
+2026-10-21T23:00:00Z	bench	start CONC=52 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c52-C52
+2026-10-21T23:00:05Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/agentx-c52-C52.log)

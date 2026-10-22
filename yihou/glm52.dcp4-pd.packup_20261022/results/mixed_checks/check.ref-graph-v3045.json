@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 51,
+   "completion_tokens": 2,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 0.51,
+  "expect": "29",
+  "pass": true
+ },
+ "math_think": {
+  "content": "29",
+  "reasoning": "1.  **Analyze the Request:** The user is asking a simple math word problem about sheep. The final answer must be *only* the number.\n2.  **Initial State:** The farmer starts with 17 sheep.\n    *   Current count = 17\n3.  **First Event:** He buys 3 more sheep.\n    *   Current count = 17 + 3 = 20\n4.  **Second Event:** 5 sheep run away.\n    *   Current count = 20 - 5 = 15\n5.  **Third Event:** He buys 1",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 227,
+   "completion_tokens": 172,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 170
+  },
+  "secs": 0.72,
+  "expect": "29",
+  "pass": true
+ },
+ "passkey_8k": {
+  "content": "67767",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9186,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 4.7,
+  "expect": "67767",
+  "pass": true
+ },
+ "passkey_34k": {
+  "content": "25315",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38922,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 4544
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 10.58,
+  "expect": "25315",
+  "pass": true
+ },
+ "passkey_96k": {
+  "content": "10981",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109767,
+   "completion_tokens": 3,
+   "prompt_tokens_details": {
+    "cached_tokens": 19392
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 7.1,
+  "expect": "10981",
+  "pass": true
+ }
+}

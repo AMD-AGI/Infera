@@ -1,0 +1,132 @@
+From e75479a189b5f84ef1463d3e8c817a18ee248a06 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:09:13 +0000
+Subject: [PATCH 01/31] [yihou] infera recipe: dsa_indexer HIP DP padded rows
+
+Infera image patch patch_dsa_indexer_hip_dp_padded_rows.py, as applied by
+pdrun's overlay builder on 4792dc0e52. The paged (decode/verify/draft
+extend) aiter MQA logits path reconciles padded q rows with the real row
+count. DCP: the #44322 indexer row split is in the ragged prefill path;
+this paged path runs identically on every DCP rank.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../srt/layers/attention/dsa/dsa_indexer.py   | 76 +++++++++++++++++--
+ 1 file changed, 69 insertions(+), 7 deletions(-)
+
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index f4b08861e5..12db3a9571 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -2,6 +2,7 @@ from __future__ import annotations
+ 
+ import contextlib
+ import logging
++import os
+ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
+ 
+ import torch
+@@ -92,6 +93,9 @@ _FUSED_FP8_WRITER_LOGGED = False
+ 
+ _is_cuda = is_cuda()
+ _is_hip = is_hip()
++# Set SGLANG_DEBUG_DSA_ROWS=1 to log the indexer row bookkeeping (padded vs real).
++_DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
++
+ 
+ # Every per-call decline in _gfx950_fused_decode falls through to the standard
+ # path, which is silent by construction. Without a trace, a config that turns
+@@ -1371,11 +1375,48 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+                 )
+             return torch.cat(logits_chunks, dim=0)
+ 
++        # GLM52_P1V2/P1V3: bound BEFORE the branch, not inside it -- _p1v2_clip is
++        # read unconditionally below, so a branch-local binding is a NameError on
++        # any non-aiter backend. See "BOUND BEFORE THE BRANCH" in the header.
++        _p1v2_trim = False
++        _p1v2_clip = False
++        _p1v2_real = q_offset
++        _p1v2_padded = q_fp8.shape[0]
++        _p1v2_rows = _p1v2_padded
+         if self.paged_mqa_logits_backend.is_aiter():
++            # WHY aiter sizes logits from q_fp8.shape[0], which disagrees with
++            # `lengths` BOTH ways. HOW reconcile to min(): trim when longer, clip
++            # when shorter. Cases: "DIVERGES BOTH WAYS" in the header.
++            _p1v2_rows = min(_p1v2_real, _p1v2_padded)
++            _p1v2_trim = _p1v2_rows < _p1v2_padded
++            _p1v2_clip = _p1v2_rows < _p1v2_real
++            _q_mqa, _w_mqa = q_fp8, weights
++            if _p1v2_trim:
++                _q_mqa = q_fp8[:_p1v2_rows]
++                _w_mqa = weights[:_p1v2_rows]
++            if _DSA_DEBUG_ROWS:
++                # Cross-check against the padding bookkeeping #32762 keys off.
++                # NOT an assert: it does NOT agree with q_offset on the MTP
++                # draft-extend path -- that disagreement is the P1V3 case above,
++                # and this log is how it was caught.
++                _p1v2_ntnp = getattr(forward_batch, "_original_num_tokens", None)
++                if _p1v2_ntnp is None:
++                    _p1v2_ntnp = forward_batch.num_token_non_padded_cpu
++                logger.info(
++                    "[dsa-rows] mode=%s q_fp8=%s q_offset=%s ntnp=%s agree=%s "
++                    "lengths=%s -> mqa_q=%s",
++                    forward_batch.forward_mode,
++                    tuple(q_fp8.shape),
++                    _p1v2_real,
++                    _p1v2_ntnp,
++                    _p1v2_ntnp == _p1v2_real,
++                    tuple(metadata.get_seqlens_expanded().shape),
++                    tuple(_q_mqa.shape),
++                )
+             logits = aiter_paged_mqa_logits(
+-                q_fp8,
++                _q_mqa,
+                 kv_cache_fp8,
+-                weights,
++                _w_mqa,
+                 seqlens_32,
+                 block_tables,
+                 max_seq_len,
+@@ -1441,12 +1482,33 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+ 
+         # NOTE(dark): logits should be cleaned in topk_transform
+         self._mask_init_and_local_tokens(logits, seqlens_32)
+-        topk_result = metadata.topk_transform(logits, self.index_topk)
+-        # Restore possible padding exist in the hidden states.
+-        if not _is_hip and q_offset < q_fp8.shape[0]:
+-            pad_len = q_fp8.shape[0] - q_offset
++        # GLM52_P1V3: rows were CLIPPED (real > padded), so the lengths this
++        # indexes must be clipped to match. Via topk_transform's existing
++        # `ke_offset` -- an extension point that only overrides seq_lens_topk --
++        # NOT by mutating shared, possibly graph-captured metadata.
++        if _p1v2_clip:
++            topk_result = metadata.topk_transform(
++                logits,
++                self.index_topk,
++                ke_offset=metadata.get_seqlens_expanded()[:_p1v2_rows],
++            )
++        else:
++            topk_result = metadata.topk_transform(logits, self.index_topk)
++        # GLM52_P1V2: restore the trimmed padding -- gate on the SAME boolean and
++        # assert the row count. BEFORE, a re-derived condition skipped the restore
++        # on a shape drift, returning a short tensor instead of crashing.
++        #
++        # Keyed off _p1v2_rows, not _p1v2_real: under P1V3's clip case the two
++        # differ, and it is _p1v2_rows that the kernel actually ran over.
++        if _p1v2_trim:
++            assert topk_result.shape[0] == _p1v2_rows, (
++                "GLM52_P1V3: paged-MQA top-k returned "
++                f"{topk_result.shape[0]} rows for {_p1v2_rows} trimmed query "
++                f"rows (real={_p1v2_real}, padded={_p1v2_padded}); refusing to "
++                "pad a mis-shaped result."
++            )
+             padding = torch.full(
+-                (pad_len, topk_result.shape[1]),
++                (_p1v2_padded - _p1v2_rows, topk_result.shape[1]),
+                 -1,
+                 dtype=topk_result.dtype,
+                 device=topk_result.device,
+-- 
+2.34.1
+

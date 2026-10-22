@@ -1,0 +1,31 @@
+From 4d1d6a647ef9ce9b7fa9072831439b78b7beff84 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:09:16 +0000
+Subject: [PATCH 09/31] [yihou] infera recipe: absorb-bmm config off on ROCm
+
+Kit runtime fix R003 (overlay-patches/forward_mla_rocm.noabsorbcfg.diff).
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../attention_forward_methods/forward_mla_rocm.py             | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
+index 2103ea3cf5..a1848ad07c 100644
+--- a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
++++ b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
+@@ -155,6 +155,10 @@ _absorb_bmm_num_cu = 0
+ 
+ def _absorb_bmm_config(heads: int, m: int, n: int) -> Optional[dict]:
+     """Return decode tile settings, or None outside the decode row limit."""
++    # YIHOU: disabled -> aiter picks its own config, exactly as v0519 called it. The
++    # hand-built config aborted triton's LLVM (Sequence.h:275 iota_range assertion) in a
++    # c44b prefill rank; see agentx44_20261009 debug R003.
++    return None
+     global _absorb_bmm_num_cu
+     if m <= 0 or m > _ABSORB_BMM_DECODE_MAX_M:
+         return None
+-- 
+2.34.1
+

@@ -1,0 +1,13 @@
+--- /tmp/yihou-orig-fmla.py	2026-10-10 13:51:27.952134327 +0000
++++ forward_mla_rocm.yihou-noabsorbcfg.py	2026-10-10 13:48:17.058667589 +0000
+@@ -156,6 +156,10 @@
+ 
+ def _absorb_bmm_config(heads: int, m: int, n: int) -> Optional[dict]:
+     """Return decode tile settings, or None outside the decode row limit."""
++    # YIHOU: disabled -> aiter picks its own config, exactly as v0519 called it. The
++    # hand-built config aborted triton's LLVM (Sequence.h:275 iota_range assertion) in a
++    # c44b prefill rank; see agentx44_20261009 debug R003.
++    return None
+     global _absorb_bmm_num_cu
+     if m <= 0 or m > _ABSORB_BMM_DECODE_MAX_M:
+         return None

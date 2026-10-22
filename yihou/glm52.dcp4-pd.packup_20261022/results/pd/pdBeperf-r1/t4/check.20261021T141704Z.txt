@@ -1,0 +1,5 @@
+math_nothink FAIL '29!auithorithing' 49 0.7
+math_think FAIL '' 55 11.83
+passkey_8k FAIL '6!au!\n677769' 9182 9.52
+passkey_34k FAIL '25!au!\nWait, I see the number you want is 531,5, but the number is 25,315. Let me double-check' 38918 3.49
+passkey_96k PASS '109!au8s islet me. 10981!au. 10981. 10981. 10981. 10981. ' 109764 9.38

@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 51,
+   "completion_tokens": 2,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 2.66,
+  "expect": "29",
+  "pass": true
+ },
+ "math_think": {
+  "content": "29",
+  "reasoning": "1.  **Analyze the Request:** The user is asking for the final number of sheep a farmer has after a series of events (buying and losing sheep). The constraint is to answer with *only* the number.\n\n2.  **Initial State:** The farmer starts with 17 sheep.\n    *   Current count = 17\n\n3.  **Event 1:** He buys 3 more sheep.\n    *   Current count = 17 + 3 = 20\n\n4.  **Event 2:** 5 sheep run away.\n    *   C",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 263,
+   "completion_tokens": 208,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 206
+  },
+  "secs": 8.69,
+  "expect": "29",
+  "pass": true
+ },
+ "passkey_8k": {
+  "content": "67767",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9186,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 18.06,
+  "expect": "67767",
+  "pass": true
+ },
+ "passkey_34k": {
+  "content": "25315",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38922,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 9.37,
+  "expect": "25315",
+  "pass": true
+ },
+ "passkey_96k": {
+  "content": "10981",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109767,
+   "completion_tokens": 3,
+   "prompt_tokens_details": {
+    "cached_tokens": 4480
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 8.0,
+  "expect": "10981",
+  "pass": true
+ }
+}

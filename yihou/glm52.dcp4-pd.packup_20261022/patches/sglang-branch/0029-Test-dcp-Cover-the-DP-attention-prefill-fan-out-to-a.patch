@@ -1,0 +1,73 @@
+From efa41449fe7437bf8367c5447c205a6e9f5d88b2 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 22:15:33 +0000
+Subject: [PATCH 29/31] [Test] dcp: Cover the DP-attention prefill fan-out to a
+ DP2 x DCP2 decode
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../unit/disaggregation/test_dsa_pd_dcp.py    | 47 +++++++++++++++++++
+ 1 file changed, 47 insertions(+)
+
+diff --git a/test/registered/unit/disaggregation/test_dsa_pd_dcp.py b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
+index 0e32be0eae..13cce3a94e 100644
+--- a/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
++++ b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
+@@ -259,6 +259,53 @@ class TestDpaPrefillFanOut(CustomTestCase):
+         )
+ 
+ 
++class TestDpaPrefillFanOutToDp2Dcp2(CustomTestCase):
++    """E2 shape: the DP-attention prefill (attn TP1) feeds a decode with DP2
++    attention over TP4, i.e. attn TP2 with DCP2 inside each decode DP group."""
++
++    def test_rank_mapping_fans_out_to_both_dcp_ranks_of_a_group(self):
++        info = PrefillServerInfo(
++            attn_tp_size=1,
++            attn_cp_size=1,
++            dp_size=4,
++            pp_size=1,
++            page_size=64,
++            kv_cache_dtype="fp8_e4m3",
++            follow_bootstrap_room=True,
++        )
++        for engine_rank in range(4):
++            mgr = SimpleNamespace(
++                is_mla_backend=True,
++                is_hybrid_mla_backend=False,
++                attn_tp_size=2,
++                attn_cp_size=1,
++                attn_cp_rank=0,
++                pp_size=1,
++                pp_rank=0,
++                enable_all_cp_ranks_for_transfer=False,
++                kv_args=SimpleNamespace(engine_rank=engine_rank),
++            )
++            CommonKVManager._resolve_rank_mapping(mgr, info)
++            self.assertEqual(info.target_tp_ranks, [0])
++            self.assertEqual(info.required_dst_info_num, 2)
++            self.assertEqual(info.required_prefill_response_num, 1)
++
++    def test_target_only_prefill_to_dcp2_decode_with_draft(self):
++        _relayout(
++            self,
++            num_tokens=45,
++            src_pages=list(range(11, -1, -1)),
++            dst_pages=[2, 0, 5, 1, 3, 4],
++            dcp=2,
++            src_layer_ids=[0, 1],
++            dst_layer_ids=[0, 1, 78],
++            prefill_draft_entries=0,
++            draft_sharded=False,
++            prefill_attn_tp_size=1,
++            chunk_pages=[5, 7],
++        )
++
++
+ class TestPpPrefillToDcpDecode(CustomTestCase):
+     """PP prefill: each stage sends its own layer range; the unpipelined DCP4
+     decode registers all 78 target layers plus the NextN draft (79 entries)."""
+-- 
+2.34.1
+

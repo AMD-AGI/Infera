@@ -1,0 +1,150 @@
+From a04c3f8e0c2ed829aa94ea9017f6635a35862b50 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 14:22:07 +0000
+Subject: [PATCH 15/31] [AMD] dsa: Gate the page-split decode indexer behind
+ SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER
+
+Off by default. On ROCm with DCP and the aiter preshuffle paged MQA path,
+decode, target verify and draft extend score 1/W of the context pages and
+return the merged top-k in the space topk_transform would use (KV slots
+when fused). Other cases keep the replicated scoring.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/environ.py                  |  3 +
+ .../srt/layers/attention/dsa/dsa_indexer.py   | 97 +++++++++++++++++++
+ 2 files changed, 100 insertions(+)
+
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index 7efe126b30..20c0dbb8ef 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -1868,6 +1868,9 @@ class Envs:
+     # PD decode under DCP: drop the prefill's MTP top-k seed so the first draft
+     # step recomputes it. A/B switch for the seed path; costs one eager draft step.
+     SGLANG_DSA_DCP_PD_DROP_MTP_SEED = EnvBool(False)
++    # ROCm DCP: each rank scores 1/W of the context pages in the decode indexer
++    # over the replicated index K, then all-gathers and merges the top-k.
++    SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER = EnvBool(False)
+     SGLANG_DSA_HIP_DISABLE_PRESHUFFLE = EnvBool(False)
+     SGLANG_DSA_MQA_LOGITS_FREE_MEM_FRACTION = EnvFloat(0.2)
+     SGLANG_ENABLE_PCG_DSV2_DUAL_STREAM = EnvBool(False)
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index 12db3a9571..d3adeac068 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -1413,6 +1413,30 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+                     tuple(metadata.get_seqlens_expanded().shape),
+                     tuple(_q_mqa.shape),
+                 )
++            if self._use_dcp_split_decode_indexer(
++                forward_batch, metadata, block_tables, seqlens_32, _p1v2_rows
++            ):
++                topk_result = self._dcp_split_decode_topk(
++                    _q_mqa,
++                    kv_cache_fp8,
++                    _w_mqa,
++                    seqlens_32[:_p1v2_rows],
++                    block_tables[:_p1v2_rows],
++                    page_size,
++                    metadata,
++                )
++                if _p1v2_trim:
++                    topk_result = torch.cat(
++                        [
++                            topk_result,
++                            topk_result.new_full(
++                                (_p1v2_padded - _p1v2_rows, topk_result.shape[1]),
++                                -1,
++                            ),
++                        ],
++                        dim=0,
++                    )
++                return topk_result
+             logits = aiter_paged_mqa_logits(
+                 _q_mqa,
+                 kv_cache_fp8,
+@@ -1516,6 +1540,79 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+             topk_result = torch.cat([topk_result, padding], dim=0)
+         return topk_result
+ 
++    def _use_dcp_split_decode_indexer(
++        self,
++        forward_batch: ForwardBatch,
++        metadata: BaseIndexerMetadata,
++        block_tables: torch.Tensor,
++        seqlens_32: torch.Tensor,
++        rows: int,
++    ) -> bool:
++        mode = forward_batch.forward_mode
++        return (
++            _is_hip
++            and _use_aiter_preshuffle
++            and envs.SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER.get()
++            and getattr(metadata, "dcp_size", 1) > 1
++            and (
++                mode.is_decode() or mode.is_target_verify() or mode.is_draft_extend_v2()
++            )
++            and self.num_init_tokens == 0
++            and self.num_local_tokens == 0
++            and seqlens_32.dim() == 1
++            # One page-table row per query row; otherwise keep the replicated path.
++            and block_tables.shape[0] >= rows
++            and seqlens_32.shape[0] >= rows
++        )
++
++    def _dcp_split_decode_topk(
++        self,
++        q_fp8: torch.Tensor,
++        kv_cache_fp8: torch.Tensor,
++        weights: torch.Tensor,
++        lens: torch.Tensor,
++        block_tables: torch.Tensor,
++        page_size: int,
++        metadata: BaseIndexerMetadata,
++    ) -> torch.Tensor:
++        """Top-k over this rank's pages, merged across the DCP group, in the
++        same index space ``topk_transform`` would return (slots when fused)."""
++        from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (
++            positions_to_slots,
++            split_decode_topk,
++        )
++
++        group = get_parallel().dcp_group
++        w, r = group.world_size, group.rank_in_group
++
++        def logits_fn(tables, local_lens, max_len):
++            return aiter_paged_mqa_logits(
++                q_fp8,
++                kv_cache_fp8,
++                weights,
++                local_lens,
++                tables,
++                max_len,
++                preshuffle=_use_aiter_preshuffle,
++                kv_block_size=page_size,
++            )
++
++        pos = split_decode_topk(
++            block_tables=block_tables,
++            lens=lens,
++            page=page_size,
++            topk=self.index_topk,
++            w=w,
++            r=r,
++            logits_fn=logits_fn,
++            local_topk_fn=metadata.topk_backend.topk_func,
++            all_gather_fn=lambda pack: group.all_gather(pack, dim=0),
++        )
++        fused = envs.SGLANG_DSA_FUSE_TOPK.get() and not metadata.force_unfused_topk
++        if fused:
++            return positions_to_slots(pos, block_tables, page_size)
++        return pos
++
+     def _get_mqa_logits_budget_bytes(self, device_index: int) -> int:
+         cached_budget = self._mqa_logits_budget_bytes.get(device_index)
+         if cached_budget is not None:
+-- 
+2.34.1
+

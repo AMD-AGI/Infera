@@ -1,0 +1,45 @@
+--- /tmp/yihou-orig-kvev.py	2026-10-10 13:51:27.624138980 +0000
++++ kv_events_publisher.yihou-noblock.py	2026-10-10 13:48:17.062426793 +0000
+@@ -9,6 +9,8 @@
+     Optional,
+ )
+ 
++import logging
++
+ import msgspec
+ import zmq
+ 
+@@ -21,6 +23,8 @@
+ from sglang.srt.managers.io_struct import hook_custom_types, sock_send
+ from sglang.srt.runtime_context import get_parallel
+ 
++logger = logging.getLogger(__name__)
++
+ if TYPE_CHECKING:
+     from sglang.srt.mem_cache.base_prefix_cache import BasePrefixCache
+ 
+@@ -52,6 +56,7 @@
+     get_stats: Callable
+     enable_kv_cache_events: bool = False
+     kv_event_publisher: Any = None
++    metrics_drop_warned: bool = False
+ 
+     def __post_init__(self) -> None:
+         self.init_kv_events(self.kv_events_config)
+@@ -87,7 +92,15 @@
+         )
+ 
+         if not self.send_metrics_from_scheduler.closed:
+-            sock_send(self.send_metrics_from_scheduler, kv_metrics)
++            # YIHOU: the metrics PUSH socket connects to an endpoint nothing binds in
++            # this deployment; a blocking send stalls the scheduler once the queue is
++            # full (c44a prefill, py-spy 2026-10-09). Drop instead of blocking.
++            try:
++                sock_send(self.send_metrics_from_scheduler, kv_metrics, flags=zmq.NOBLOCK)
++            except zmq.Again:
++                if not self.metrics_drop_warned:
++                    logger.warning("YIHOU: auxiliary KV metrics receiver unavailable; dropping telemetry, preserving KV events and Prometheus metrics")
++                    self.metrics_drop_warned = True
+ 
+     def local_kv_event_sources(self, block_size: int) -> list[dict[str, Any]]:
+         if self.kv_event_publisher is None:

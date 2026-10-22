@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 51,
+   "completion_tokens": 2,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 0.19,
+  "expect": "29",
+  "pass": true
+ },
+ "math_think": {
+  "content": "29",
+  "reasoning": "1.  **Analyze the Request:** The user is asking a math word problem about sheep. The final instruction is \"Answer with only the number.\"\n\n2.  **Break down the math:**\n    *   Initial sheep: 17\n    *   Buys 3 more: 17 + 3 = 20\n    *   5 run away: 20 - 5 = 15\n    *   Buys 14 more: 15 + 14 = 29\n\n3.  **Format the Output:** The user explicitly requested \"Answer with only the number.\" So the output must",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 258,
+   "completion_tokens": 203,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 201
+  },
+  "secs": 1.17,
+  "expect": "29",
+  "pass": true
+ },
+ "passkey_8k": {
+  "content": "67767",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9186,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 5.89,
+  "expect": "67767",
+  "pass": true
+ },
+ "passkey_34k": {
+  "content": "25315",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38922,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 4352
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 3.62,
+  "expect": "25315",
+  "pass": true
+ },
+ "passkey_96k": {
+  "content": "10981",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109767,
+   "completion_tokens": 3,
+   "prompt_tokens_details": {
+    "cached_tokens": 19200
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 5.67,
+  "expect": "10981",
+  "pass": true
+ }
+}

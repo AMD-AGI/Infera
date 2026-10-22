@@ -1,0 +1,38 @@
+From 6ee35f361768caee0eda884add44d41e971d4dc0 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 15:33:52 +0000
+Subject: [PATCH 17/31] [PD] pp: Gate non-final prefill chunk sends on the
+ forward stream
+
+Pipeline parallelism runs the disagg prefill loop without the overlap
+schedule, so process_prefill_chunk sends a chunk whose forward was
+launched in an earlier microbatch and may still be queued on this stage.
+Record a forward-stream event and hand it to the transfer worker, as the
+overlap path already does.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/disaggregation/prefill.py | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/python/sglang/srt/disaggregation/prefill.py b/python/sglang/srt/disaggregation/prefill.py
+index 11e1963392..c62d57f674 100644
+--- a/python/sglang/srt/disaggregation/prefill.py
++++ b/python/sglang/srt/disaggregation/prefill.py
+@@ -1423,6 +1423,12 @@ class SchedulerDisaggregationPrefillMixin:
+                     len(req.origin_input_ids),
+                 )
+             else:
++                if get_parallel().pp_size > 1:
++                    # Under PP this chunk's forward ran in an earlier microbatch and may
++                    # still be queued on forward_stream; gate the transfer read on it.
++                    wait_event = torch.cuda.Event()
++                    wait_event.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = wait_event
+                 self.send_kv_chunk(req)
+ 
+             if self.chunked_req is not None:
+-- 
+2.34.1
+

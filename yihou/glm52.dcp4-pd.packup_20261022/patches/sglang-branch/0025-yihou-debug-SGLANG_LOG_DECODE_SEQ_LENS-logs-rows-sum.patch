@@ -1,0 +1,67 @@
+From 9af2166f3fef86dd9cb3de1bacb30eb7a64a5991 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 20:12:14 +0000
+Subject: [PATCH 25/31] [yihou] debug: SGLANG_LOG_DECODE_SEQ_LENS logs rows /
+ sum / max context per decode log line
+
+Local diagnostic for comparing decode step time against context load.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/environ.py                          |  2 ++
+ .../managers/scheduler_components/metrics_reporter.py | 11 +++++++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index 5be0ced7bb..6884ee97b0 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -350,6 +350,8 @@ class Envs:
+     # ===================================================================
+     SGLANG_LOG_GC = EnvBool(False)
+     SGLANG_LOG_FORWARD_ITERS = EnvBool(False)
++    # Decode log line: rows, sum and max of the running requests' context lengths.
++    SGLANG_LOG_DECODE_SEQ_LENS = EnvBool(False)
+     SGLANG_LOG_DECODE_GRAPH_KEY = EnvBool(False)
+     SGLANG_LOG_MS = EnvBool(False)
+     SGLANG_LOG_REQUEST_EXCEEDED_MS = EnvInt(-1)
+diff --git a/python/sglang/srt/managers/scheduler_components/metrics_reporter.py b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
+index ece7752556..f9f447db0a 100644
+--- a/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
++++ b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
+@@ -57,6 +57,7 @@ logger = logging.getLogger(__name__)
+ 
+ RECORD_STEP_TIME = envs.SGLANG_RECORD_STEP_TIME.get()
+ LOG_FORWARD_ITERS = envs.SGLANG_LOG_FORWARD_ITERS.get()
++LOG_DECODE_SEQ_LENS = envs.SGLANG_LOG_DECODE_SEQ_LENS.get()
+ _SPEC_DECODE_SNAPSHOT_ALGORITHMS = (
+     SpeculativeAlgorithm.EAGLE,
+     SpeculativeAlgorithm.EAGLE3,
+@@ -73,6 +74,14 @@ GEN_THROUGHPUT_STALENESS_SECONDS = 30.0
+ _SCHEDULER_TIME_ACCOUNTING_INTERVAL_NS = 1_000_000_000
+ 
+ 
++def _seq_lens_log_part(reqs) -> str:
++    # Host-side lengths (prompt + generated), so logging never syncs the device.
++    lens = [len(r.origin_input_ids) + len(r.output_ids) for r in reqs]
++    if not lens:
++        return "seq-lens rows: 0, sum: 0, max: 0, "
++    return f"seq-lens rows: {len(lens)}, sum: {sum(lens)}, max: {max(lens)}, "
++
++
+ class _CacheHitRateWindow:
+     def __init__(self) -> None:
+         self.samples = deque()
+@@ -958,6 +967,8 @@ class SchedulerMetricsReporter:
+         )
+         iter_msg = f" [{batch_iter}]" if LOG_FORWARD_ITERS else ""
+         msg = f"Decode batch{iter_msg}, #running-req: {num_running_reqs}, {token_usage_msg}"
++        if LOG_DECODE_SEQ_LENS and batch is not None:
++            msg += _seq_lens_log_part(batch.reqs)
+ 
+         spec_num_steps = 0
+         spec_num_draft_tokens = 0
+-- 
+2.34.1
+

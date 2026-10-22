@@ -1,0 +1,314 @@
+{
+ "concurrent40": [
+  {
+   "kind": "math",
+   "expect": "63",
+   "got": "63",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "63",
+   "got": "63",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "59",
+   "got": "59",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "48",
+   "got": "48",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "54",
+   "got": "54",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "88",
+   "got": "88",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "27",
+   "got": "27",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "35",
+   "got": "35\u4e0b\u4e00\u6b21\u4eea",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "35",
+   "got": "35",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "53",
+   "got": "53",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "53",
+   "got": "53",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "68",
+   "got": "68",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "62",
+   "got": "62",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "43",
+   "got": "43",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "37",
+   "got": "37",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "44",
+   "got": "44",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "22",
+   "got": "22",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "15",
+   "got": "15",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "45",
+   "got": "45",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "66",
+   "got": "66",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "pk8k",
+   "expect": "92503",
+   "got": "92503",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "98461",
+   "got": "98461",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "54157",
+   "got": "54157",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "50790",
+   "got": "50790",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "11985",
+   "got": "11985",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "25465",
+   "got": "25465",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "42294",
+   "got": "4 crater saturated.",
+   "pass": false,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "11435",
+   "got": "114!\u6218\u7684",
+   "pass": false,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "70940",
+   "got": "70940",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "33288",
+   "got": "33288",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk34k",
+   "expect": "34692",
+   "got": "34692",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "76698",
+   "got": "76698",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "27166",
+   "got": "27166",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "94373",
+   "got": "94373",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "25270",
+   "got": "25270",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "65149",
+   "got": "65149",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "10061",
+   "got": "10061",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "87691",
+   "got": "87691",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "12573",
+   "got": "12573",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "34550",
+   "got": "34550",
+   "pass": true,
+   "prompt_tokens": 38918
+  }
+ ],
+ "summary": {
+  "math": [
+   19,
+   20
+  ],
+  "pk8k": [
+   8,
+   10
+  ],
+  "pk34k": [
+   10,
+   10
+  ]
+ },
+ "long_window": [
+  "2026-10-22 01:51:44",
+  "2026-10-22 01:52:03"
+ ],
+ "long_tokens": [
+  1500,
+  1500,
+  1500,
+  1470
+ ],
+ "long_heads": [
+  "**Title:** The Catalyst of Modernity: A Detailed History of the Printing Press\n\n**Introduction**\nFew inventions in the annals of human history have possessed the transformative power to alter the traj",
+  "Turning C source code into machine code is a highly complex, multi-stage process. A compiler is essentially a sophisticated translator that bridges the gap between human-readable logic and the microsc",
+  "\n\n\n# The Keeper of Wreath Point\n\n## Part One: The Bottle\n\nThe morning fog hadn't lifted by the time Elias Morrow made his usual descent down the iron spiral staircase of the Wreath Point Lighthouse. H",
+  "To understand how Earth sustains life, it is helpful to look at the planet as a tightly woven tapestry of matter and energy. Three of the most critical threads in this tapestry are the water cycle, ph"
+ ]
+}

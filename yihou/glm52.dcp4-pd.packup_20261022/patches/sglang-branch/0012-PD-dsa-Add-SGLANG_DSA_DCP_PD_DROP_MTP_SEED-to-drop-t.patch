@@ -1,0 +1,64 @@
+From ae529c96bffdc51a2477a8682d5b2ca9f3361788 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:04:42 +0000
+Subject: [PATCH 12/31] [PD] dsa: Add SGLANG_DSA_DCP_PD_DROP_MTP_SEED to drop
+ the PD MTP seed under DCP
+
+A/B switch for the PD prefill's top-k seed on a DCP decode.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/environ.py                          | 3 +++
+ python/sglang/srt/speculative/eagle_disaggregation.py | 9 ++++++++-
+ 2 files changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index f308914a44..7efe126b30 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -1865,6 +1865,9 @@ class Envs:
+     # ratio * gathered heads * extend tokens, else all-gather the prefix KV.
+     # 0 always takes the owned path; negative never does.
+     SGLANG_DSA_DCP_OWNED_PREFILL_RATIO = EnvFloat(3.0)
++    # PD decode under DCP: drop the prefill's MTP top-k seed so the first draft
++    # step recomputes it. A/B switch for the seed path; costs one eager draft step.
++    SGLANG_DSA_DCP_PD_DROP_MTP_SEED = EnvBool(False)
+     SGLANG_DSA_HIP_DISABLE_PRESHUFFLE = EnvBool(False)
+     SGLANG_DSA_MQA_LOGITS_FREE_MEM_FRACTION = EnvFloat(0.2)
+     SGLANG_ENABLE_PCG_DSV2_DUAL_STREAM = EnvBool(False)
+diff --git a/python/sglang/srt/speculative/eagle_disaggregation.py b/python/sglang/srt/speculative/eagle_disaggregation.py
+index f8b5a23bb6..ebceda67f1 100644
+--- a/python/sglang/srt/speculative/eagle_disaggregation.py
++++ b/python/sglang/srt/speculative/eagle_disaggregation.py
+@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING
+ import torch
+ 
+ from sglang.srt.disaggregation.utils import get_dsa_seed_metadata_dim
++from sglang.srt.environ import envs
+ from sglang.srt.layers.attention.dsa.utils import (
+     should_remap_pd_dsa_seed_to_local_slots,
+ )
+ from sglang.srt.managers.overlap_utils import RelayPayload
+ from sglang.srt.model_executor.forward_batch_info import CaptureHiddenMode
+-from sglang.srt.runtime_context import get_spec
++from sglang.srt.runtime_context import get_parallel, get_spec
+ from sglang.srt.speculative.eagle_info import EagleDraftInput
+ from sglang.srt.utils.common import async_h2d_stack
+ 
+@@ -107,6 +108,12 @@ def build_eagle_disagg_draft_input(
+             dsa_topk_indices = local_slots
+         if torch.any(torch.all(dsa_topk_indices < 0, dim=1)).item():
+             dsa_topk_indices = None
++        if (
++            dsa_topk_indices is not None
++            and get_parallel().dcp_enabled
++            and envs.SGLANG_DSA_DCP_PD_DROP_MTP_SEED.get()
++        ):
++            dsa_topk_indices = None
+ 
+     requires_dsa_seed_for_cuda_graph = _requires_dsa_seed_for_cuda_graph(
+         batch.model_config.hf_config,
+-- 
+2.34.1
+

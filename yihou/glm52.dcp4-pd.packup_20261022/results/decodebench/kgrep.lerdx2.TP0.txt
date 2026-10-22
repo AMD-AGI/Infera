@@ -1,0 +1,7 @@
+kernels 29565 total ms 2430.41
+_pack_candidates: n=220 ms=1.21 names=['_pack_candidates_kernel']
+_merge_candidates: n=220 ms=10.12 names=['_merge_candidates_kernel']
+paged_mqa: n=220 ms=22.90 names=['_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle']
+coop_topk: n=220 ms=8.52 names=['void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::ds']
+cats ['Trace', 'cpu_op', 'cuda_runtime', 'gpu_memcpy', 'gpu_user_annotation', 'kernel', 'python_function', 'user_annotation']
+graph launches 0 []

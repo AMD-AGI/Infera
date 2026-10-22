@@ -1,0 +1,1 @@
+{'prompt_tokens': 10007, 'total_tokens': 13007, 'completion_tokens': 3000, 'prompt_tokens_details': {'cached_tokens': 0}, 'reasoning_tokens': 0} 256.0 '# The Cartographer of Forgotten Places\n\n## Part One: The Map That Breathed\n\nThe rain had been falling for three days straight when Marcus Vane arrived in the village of Thornwick. It was the kind of r'

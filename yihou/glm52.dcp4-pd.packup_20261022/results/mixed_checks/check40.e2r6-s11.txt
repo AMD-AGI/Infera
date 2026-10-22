@@ -1,0 +1,10 @@
+concurrent40 {'math': '16/20', 'pk8k': '6/10', 'pk34k': '10/10'} secs 12.5
+FAIL {'kind': 'math', 'expect': '68', 'got': '68!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!01 </think>The231, and0, and0oireoirepel', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '43', 'got': '43!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!021219: 238\n</think>1.eme omittltltl Fut', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '44', 'got': '44!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!097,The first commentssts the, and theoi', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '66', 'got': '6622', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'pk8k', 'expect': '50790', 'got': '503roid3uthuthuth biscquawing555ingly_50| the', 'pass': False, 'prompt_tokens': 9182}
+FAIL {'kind': 'pk8k', 'expect': '42294', 'got': '422 to there and back again.', 'pass': False, 'prompt_tokens': 9182}
+FAIL {'kind': 'pk8k', 'expect': '11435', 'got': '114 Responsesss 51 COMMENTS21TheThe Introduction counted荷5tlrish countedrishrish', 'pass': False, 'prompt_tokens': 9180}
+FAIL {'kind': 'pk8k', 'expect': '70940', 'got': '70!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', 'pass': False, 'prompt_tokens': 9182}
+long_greedy window 2026-10-22 02:09:44 -> 2026-10-22 02:10:02 completion_tokens [1500, 1500, 1500, 1500] secs 18.1

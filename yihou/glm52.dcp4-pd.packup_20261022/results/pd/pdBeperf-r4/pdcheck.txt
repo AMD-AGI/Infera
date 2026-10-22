@@ -1,0 +1,62 @@
+=================== /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/server-logs/prefill-0.log
+-- DCP pack buffers
+-- full-head Q weights
+-- dcp / server_args dcp_size
+      1 2026-10-21T19:40:08.830288029Z [2026-10-21 19:40:08] server_args={'model_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingfac
+-- KV capacity
+      1 2026-10-21T19:41:33.862836484Z [2026-10-21 19:41:33 DP0 TP0] max_total_num_tokens=2628800, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=16, context_len=1048576, available_gpu_mem=41.38 GB
+-- KV/draft pool alloc
+      1 2026-10-21T19:41:29.668324969Z [2026-10-21 19:41:29 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2628800, KV size: 116.78 GB
+      1 2026-10-21T19:41:29.668189711Z [2026-10-21 19:41:29 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2628800, KV size: 116.78 GB
+      1 2026-10-21T19:41:29.667841886Z [2026-10-21 19:41:29 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2628800, KV size: 116.78 GB
+      1 2026-10-21T19:41:29.667806936Z [2026-10-21 19:41:29 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2628800, KV size: 116.78 GB
+-- mooncake HIP/registration
+      1 2026-10-21T19:40:17.738312755Z I1021 19:40:17.738274  1287 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:40:17.738106868Z I1021 19:40:17.738086  1287 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+      1 2026-10-21T19:40:17.737923481Z I1021 19:40:17.737877  1285 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:40:17.737675114Z I1021 19:40:17.737648  1285 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+      1 2026-10-21T19:40:17.696172905Z I1021 19:40:17.696112  1281 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:40:17.695980688Z I1021 19:40:17.695950  1281 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+      1 2026-10-21T19:40:17.407648024Z I1021 19:40:17.407585  1278 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:40:17.407437737Z I1021 19:40:17.407379  1278 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+-- transfer errors
+-- faults
+-- up
+      1 2026-10-21T19:51:30.805924949Z [2026-10-21 19:51:30] The server is fired up and ready to roll!
+=================== /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r4/server-logs/decode-0.a1.log
+-- DCP pack buffers
+-- full-head Q weights
+      1 2026-10-21T19:55:51.129212268Z [2026-10-21 19:55:51 TP0 EP0] dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+      1 2026-10-21T19:55:51.105815618Z [2026-10-21 19:55:51 TP0 EP0] dcp_replicate_q_proj: prepared full-head Q weights for 0 MLA layers
+      1 2026-10-21T19:55:51.072878043Z [2026-10-21 19:55:51 TP1 EP1] dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+      1 2026-10-21T19:55:51.052024027Z [2026-10-21 19:55:51 TP1 EP1] dcp_replicate_q_proj: prepared full-head Q weights for 0 MLA layers
+      1 2026-10-21T19:55:50.792053113Z [2026-10-21 19:55:50 TP3 EP3] dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+      1 2026-10-21T19:55:50.772226273Z [2026-10-21 19:55:50 TP3 EP3] dcp_replicate_q_proj: prepared full-head Q weights for 0 MLA layers
+-- dcp / server_args dcp_size
+      1 2026-10-21T19:54:54.862300375Z [2026-10-21 19:54:54 TP0 EP0] DCP enabled, dcp_size=4, tp_size=4
+      1 2026-10-21T19:54:17.058016952Z [2026-10-21 19:54:17] server_args={'model_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingfac
+      1 2026-10-21T19:54:00.772572857Z [2026-10-21 19:54:00] DCP (dcp_size=4) selects communication backend 'a2a'.
+-- KV capacity
+      1 2026-10-21T19:57:18.740783106Z [2026-10-21 19:57:18 TP0 EP0] max_total_num_tokens=8893952, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=33.31 GB
+-- KV/draft pool alloc
+      1 2026-10-21T19:55:49.648922105Z [2026-10-21 19:55:49 TP0 EP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2223488, KV size: 2.29 GB
+      1 2026-10-21T19:55:49.624023426Z [2026-10-21 19:55:49 TP1 EP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2223488, KV size: 2.29 GB
+      1 2026-10-21T19:55:49.623946847Z [2026-10-21 19:55:49 TP3 EP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2223488, KV size: 2.29 GB
+      1 2026-10-21T19:55:49.572913017Z [2026-10-21 19:55:49 TP2 EP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2223488, KV size: 2.29 GB
+      1 2026-10-21T19:55:49.319051817Z [2026-10-21 19:55:49 TP3 EP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2223488, KV size: 116.00 GB
+      1 2026-10-21T19:55:49.319003068Z [2026-10-21 19:55:49 TP2 EP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2223488, KV size: 116.00 GB
+-- mooncake HIP/registration
+      1 2026-10-21T19:54:44.886532964Z I1021 19:54:44.886467 31138 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:54:44.886310757Z I1021 19:54:44.886282 31138 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+      1 2026-10-21T19:54:40.581879353Z I1021 19:54:40.581845 31033 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:54:40.581701186Z I1021 19:54:40.581645 31033 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+      1 2026-10-21T19:54:34.091839113Z I1021 19:54:34.091768 30746 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:54:34.091614536Z I1021 19:54:34.091588 30746 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+      1 2026-10-21T19:54:28.534248152Z I1021 19:54:28.534212 30655 transfer_engine_impl.cpp:412] HIP transport installed for intra-node GPU P2P
+      1 2026-10-21T19:54:28.534047405Z I1021 19:54:28.534018 30655 transfer_engine_impl.cpp:274] Topology discovery complete. Found 0 HCAs.
+-- transfer errors
+-- faults
+-- up
+      1 2026-10-21T19:57:29.597662300Z [2026-10-21 19:57:29] The server is fired up and ready to roll!
+      1 2026-10-21T19:57:18.740022447Z [2026-10-21 19:57:18 TP0 EP0] Capture draft extend CUDA graph end. elapsed=2.55 s, mem usage=1.58 GB, avail mem=33.31 GB.
+      1 2026-10-21T19:57:16.192196429Z [2026-10-21 19:57:16 TP0 EP0] Capture draft extend CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], avail mem=34.88 GB

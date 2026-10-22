@@ -1,0 +1,46 @@
+== /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/server-logs/prefill-0.log
+  Found N HCAs   :       4 Found 0 HCAs   (want: 4 x Found 0 HCAs)
+  HIP installed  : 4  (want 4)
+  HIP inst FAIL  : 0  (want 0)
+  isHipReachable : 0  (r013 baseline: 0 per leg; informational)
+  rdma installs  : 0  (want 0)
+  Invalid arg    : 0  (want 0)
+  hipIpc failed  : 0  (want 0)
+  OOM/Traceback  : 0/0  (want 0/0; + 0 health-check aborts, benign)
+  fused idx ON   : 4  (want 4: DSA_FUSED_INDEXER=default)
+  fused idx decl : 0  (informational)
+  REGBASE summary: none  'extends past its allocation'=0 (want 0)
+max_total_num_tokens=2628800, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=16, context_len=1048576, available_gpu_mem=41.38 GB
+      4   Allocating kv hierarchical KV host pool: 10016064 tokens, 450.00 GB host memory
+      4 Allocating 27.76 GB host memory for DSA indexer (layout=page_first)
+== /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/server-logs/decode-0.a2.log
+  Found N HCAs   :       4 Found 0 HCAs   (want: 4 x Found 0 HCAs)
+  HIP installed  : 4  (want 4)
+  HIP inst FAIL  : 0  (want 0)
+  isHipReachable : 0  (r013 baseline: 0 per leg; informational)
+  rdma installs  : 0  (want 0)
+  Invalid arg    : 0  (want 0)
+  hipIpc failed  : 0  (want 0)
+  OOM/Traceback  : 0/0  (want 0/0; + 0 health-check aborts, benign)
+  fused idx ON   : 4  (want 4: DSA_FUSED_INDEXER=default)
+  fused idx decl : 4  (informational)
+  REGBASE summary: none  'extends past its allocation'=0 (want 0)
+max_total_num_tokens=987392, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=11.08 GB
+  (host pool want: 450.00 GB per rank, fixed size)
+== prefill container env (docker inspect)
+  MC_TE_FILTERS=yihou_no_such_rdma_device
+  SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512
+  (want SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512)
+== ROCm debug agent (DEBUG_AGENT=1, report goes to stderr = the server logs)
+  decode-0.a1.log              kernel_code_entry=0  stopped,reason=0  "Memory access fault"=0
+  decode-0.a2.log              kernel_code_entry=0  stopped,reason=0  "Memory access fault"=0
+  prefill-0.log                kernel_code_entry=0  stopped,reason=0  "Memory access fault"=0
+  (want 0/0/0; any hit = a GPU fault, and the agent names the kernel next to it)
+== same-node IPC namespace (ENGINE_PID_HOST=0 IPC_MODE_LEGACY=0)
+Error: exec failed
+
+Caused by:
+    code: 'Unknown error', message: "transport error"
+== decode eager-fallback counter: /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/server-logs/decode-0.a2.log
+  NCCL INFO after last capture end : 0
+  NCCL INFO after fired-up         : 0  (want 0)

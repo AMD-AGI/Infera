@@ -1,0 +1,24 @@
+2026-10-21T14:53:31Z	start	exp=pdpa-dcp4-overlay round=pdBeperf-r2 image=infera-sglang:v0522-1020-yihou-dcp-mc4340 config=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/harness/config.yihou.dcp.sh
+2026-10-21T14:53:31Z	ports-all	ok:30 ports <30000 and free
+2026-10-21T14:54:31Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-21T14:54:33Z	etcd	ok
+2026-10-21T15:16:28Z	prefill	ok:66x20s
+2026-10-21T15:26:25Z	decode-a1	ok
+2026-10-21T15:26:25Z	bothlegs	ok
+2026-10-21T15:26:30Z	router	ok
+2026-10-21T15:27:09Z	smoke	ok
+2026-10-21T15:27:13Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-A1
+2026-10-21T15:27:17Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-A1.log)
+2026-10-21T16:51:09Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-A2
+2026-10-21T16:51:12Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-A2.log)
+2026-10-21T16:52:14Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-A2b
+2026-10-21T16:52:25Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-A2b.log)
+2026-10-21T18:20:27Z	bench	start CONC=40 DURATION=600 warmup=2 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-prof
+2026-10-21T18:20:38Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-prof.log)
+2026-10-21T18:47:20Z	ports-decode	ok:9 ports <30000 and free
+2026-10-21T18:52:01Z	decode-a2	ok
+2026-10-21T18:52:27Z	smoke	ok
+2026-10-21T18:53:34Z	ports-decode	ok:9 ports <30000 and free
+2026-10-21T18:57:57Z	decode-a3	ok
+2026-10-21T18:58:29Z	bench	start CONC=40 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-r3
+2026-10-21T18:58:37Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r2/agentx-c40-r3.log)

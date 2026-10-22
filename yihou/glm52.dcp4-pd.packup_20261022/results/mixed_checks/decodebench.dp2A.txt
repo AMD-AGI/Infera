@@ -1,0 +1,5 @@
+primed 21:48:52 21:50:36
+wave 8 21:50:36 21:51:13 37.0 min_cached 0
+wave 16 21:51:13 21:52:06 53.0 min_cached 0
+wave 24 21:52:06 21:52:47 40.6 min_cached 0
+wave 32 21:52:47 21:53:37 50.1 min_cached 0

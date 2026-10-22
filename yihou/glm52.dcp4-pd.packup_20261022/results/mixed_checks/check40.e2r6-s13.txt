@@ -1,0 +1,5 @@
+concurrent40 {'math': '17/20', 'pk8k': '10/10', 'pk34k': '10/10'} secs 10.7
+FAIL {'kind': 'math', 'expect': '62', 'got': '627 Historic在这个过程中oonsoonsoonsoonsoonsoonsoonsoonsoonsoonsoonsoonsoonsoonsoonsoo', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '65', 'got': '65OPS+cka counted counted counted counted counted counted counted counted counte', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '49', 'got': '49 гон5999999995995959995595955559595999999�009999999999999999999959', 'pass': False, 'prompt_tokens': 49}
+long_greedy window 2026-10-22 02:10:41 -> 2026-10-22 02:10:59 completion_tokens [1500, 1500, 1500, 1500] secs 17.7

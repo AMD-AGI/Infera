@@ -1,0 +1,314 @@
+{
+ "concurrent40": [
+  {
+   "kind": "math",
+   "expect": "54",
+   "got": "54",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "46",
+   "got": "46",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "62",
+   "got": "62",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "47",
+   "got": "47",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "50",
+   "got": "50",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "44",
+   "got": "44",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "75",
+   "got": "75!!11!1.1.378,0.</think></think></think></think></think></think>1</think></thin",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "50",
+   "got": "50!! </think>The1.,0,02,,5.1,1</think></think></think></think></think></think></",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "91",
+   "got": "91",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "62",
+   "got": "62!!8,9,,1,,8,</think> the, or0</think>08</think>0,1,2,32,3,42,5,6,7,8,9,0,1,2,3",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "47",
+   "got": "47!9",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "68",
+   "got": "68!!1.! the\n</think>,!!!\u4eea!!!\u4eea4\n,12.5. The1 01",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "65",
+   "got": "65!",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "49",
+   "got": "49",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "50",
+   "got": "50",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "54",
+   "got": "54",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "47",
+   "got": "47!! ",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "69",
+   "got": "69",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "34",
+   "got": "34",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "46",
+   "got": "46",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "pk8k",
+   "expect": "65615",
+   "got": "65615",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "39478",
+   "got": "39478",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "75277",
+   "got": "75277",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "93762",
+   "got": "9inou!!!elps!93\n\n</think>93762 is the pass key. The grass is green. The sky is b",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "30939",
+   "got": "30939",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "42935",
+   "got": "42935",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "36615",
+   "got": "36615",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "78203",
+   "got": "78203",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "89101",
+   "got": "89!!101",
+   "pass": false,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "75056",
+   "got": "75056",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk34k",
+   "expect": "90902",
+   "got": "90902",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "86136",
+   "got": "86136",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "15065",
+   "got": "15065",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "86418",
+   "got": "86418",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "54739",
+   "got": "54739",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "48708",
+   "got": "48708",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "31559",
+   "got": "31559",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "24714",
+   "got": "24714",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "31932",
+   "got": "31932",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "66248",
+   "got": "66248",
+   "pass": true,
+   "prompt_tokens": 38918
+  }
+ ],
+ "summary": {
+  "math": [
+   13,
+   20
+  ],
+  "pk8k": [
+   9,
+   10
+  ],
+  "pk34k": [
+   10,
+   10
+  ]
+ },
+ "long_window": [
+  "2026-10-22 01:52:44",
+  "2026-10-22 01:53:04"
+ ],
+ "long_tokens": [
+  1500,
+  1500,
+  1500,
+  1500
+ ],
+ "long_heads": [
+  "**The Invention and Evolution of the Printing Press: A Catalyst for Human Civilization**\n\nThe story of human civilization is, in many respects, the story of how information is recorded, shared, and pr",
+  "Turning C source code into an executable machine code file is a complex, multi-stage process. Although we often think of \"compiling\" as a single step, it is actually a pipeline of distinct phases. \n\nH",
+  "\n\n\n# The Keeper of Wreck Light\n\n## Part One: The Finding\n\nThe morning fog hadn't lifted by the time Elias Thorn walked the spiral stairs to the lamp room of Wreck Light. It was a slow, deliberate asce",
+  "To understand how Earth functions as a living, self-regulating system, it is helpful to look at three of its most critical biological and geological processes: the water cycle, photosynthesis, and the"
+ ]
+}

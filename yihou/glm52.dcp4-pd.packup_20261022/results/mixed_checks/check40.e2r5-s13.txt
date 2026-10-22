@@ -1,0 +1,10 @@
+concurrent40 {'math': '13/20', 'pk8k': '9/10', 'pk34k': '10/10'} secs 11.4
+FAIL {'kind': 'math', 'expect': '75', 'got': '75!!11!1.1.378,0.</think></think></think></think></think></think>1</think></thin', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '50', 'got': '50!! </think>The1.,0,02,,5.1,1</think></think></think></think></think></think></', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '62', 'got': '62!!8,9,,1,,8,</think> the, or0</think>08</think>0,1,2,32,3,42,5,6,7,8,9,0,1,2,3', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '47', 'got': '47!9', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '68', 'got': '68!!1.! the\n</think>,!!!仪!!!仪4\n,12.5. The1 01', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '65', 'got': '65!', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '47', 'got': '47!! ', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'pk8k', 'expect': '89101', 'got': '89!!101', 'pass': False, 'prompt_tokens': 9182}
+long_greedy window 2026-10-22 01:52:44 -> 2026-10-22 01:53:04 completion_tokens [1500, 1500, 1500, 1500] secs 19.4

@@ -1,0 +1,642 @@
+[
+ {
+  "i": "math0",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 244,
+   "completion_tokens": 189,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 187
+  },
+  "secs": 27.3
+ },
+ {
+  "i": "math1",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 313,
+   "completion_tokens": 258,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 256
+  },
+  "secs": 30.8
+ },
+ {
+  "i": "math2",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 228,
+   "completion_tokens": 173,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 171
+  },
+  "secs": 26.5
+ },
+ {
+  "i": "math3",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 220,
+   "completion_tokens": 165,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 163
+  },
+  "secs": 27.1
+ },
+ {
+  "i": "math4",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 252,
+   "completion_tokens": 197,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 195
+  },
+  "secs": 27.4
+ },
+ {
+  "i": "math5",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 220,
+   "completion_tokens": 165,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 163
+  },
+  "secs": 27.0
+ },
+ {
+  "i": "math6",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 243,
+   "completion_tokens": 188,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 186
+  },
+  "secs": 27.2
+ },
+ {
+  "i": "math7",
+  "key": "29",
+  "pass": true,
+  "head": "29",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 266,
+   "completion_tokens": 211,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 209
+  },
+  "secs": 27.5
+ },
+ {
+  "i": 0,
+  "key": "66226",
+  "pass": true,
+  "head": "66226\n\nA secret hidden in the green,\nAmidst the skies of tranquil blue,\nA yellow",
+  "usage": {
+   "prompt_tokens": 34294,
+   "total_tokens": 34550,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 4864
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 35.6
+ },
+ {
+  "i": 1,
+  "key": "17684",
+  "pass": true,
+  "head": "17684\n\nA hidden key within the green and blue,\nA sudden number, bright and stran",
+  "usage": {
+   "prompt_tokens": 37676,
+   "total_tokens": 37932,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 37120
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 35.5
+ },
+ {
+  "i": 2,
+  "key": "78281",
+  "pass": true,
+  "head": "78281\n\nA hidden key within the text,\nA secret code, what will be next?\nThrough e",
+  "usage": {
+   "prompt_tokens": 31510,
+   "total_tokens": 31766,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 20480
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 28.3
+ },
+ {
+  "i": 3,
+  "key": "75187",
+  "pass": true,
+  "head": "75187\n\nA hidden key of five small digits,\nTucked away where nothing fidgets.\nAmi",
+  "usage": {
+   "prompt_tokens": 30118,
+   "total_tokens": 30374,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 17664
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 41.2
+ },
+ {
+  "i": 4,
+  "key": "65197",
+  "pass": true,
+  "head": "65197\n\nA hidden key within the text,\nAmidst the green and blue it rests.\nA secre",
+  "usage": {
+   "prompt_tokens": 13174,
+   "total_tokens": 13430,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 12288
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 32.1
+ },
+ {
+  "i": 5,
+  "key": "73322",
+  "pass": true,
+  "head": "73322\n\nA hidden key within the text,\nAmidst the green and blue and yellow,\nA sec",
+  "usage": {
+   "prompt_tokens": 38758,
+   "total_tokens": 39014,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 19456
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 30.2
+ },
+ {
+  "i": 6,
+  "key": "55432",
+  "pass": true,
+  "head": "55432\n\nA secret hidden in the green,\nAmidst the skies of blue,\nA yellow sun has ",
+  "usage": {
+   "prompt_tokens": 11302,
+   "total_tokens": 11558,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 2816
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 40.3
+ },
+ {
+  "i": 7,
+  "key": "14223",
+  "pass": true,
+  "head": "14223\n\nA secret hidden in the green,\nAmidst the skies and skies serene.\nOne four",
+  "usage": {
+   "prompt_tokens": 31436,
+   "total_tokens": 31692,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 8448
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 38.2
+ },
+ {
+  "i": 8,
+  "key": "78134",
+  "pass": true,
+  "head": "78134\n\nA hidden key within the text,\nA five-digit secret, what comes next?\nThrou",
+  "usage": {
+   "prompt_tokens": 25870,
+   "total_tokens": 26126,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 16640
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 31.5
+ },
+ {
+  "i": 9,
+  "key": "33618",
+  "pass": true,
+  "head": "33618\n\nA secret hidden in the plain,\nAmidst the green grass and the rain,\nThe sk",
+  "usage": {
+   "prompt_tokens": 9646,
+   "total_tokens": 9902,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 5888
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 35.6
+ },
+ {
+  "i": 10,
+  "key": "97950",
+  "pass": true,
+  "head": "97950\n\nA secret hidden in the plain,\nA five-digit lock to break the chain.\nThrou",
+  "usage": {
+   "prompt_tokens": 31822,
+   "total_tokens": 32078,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 12032
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 40.4
+ },
+ {
+  "i": 11,
+  "key": "58093",
+  "pass": true,
+  "head": "58093\n\nA hidden key in seas of green and blue,\nAmidst the yellow sun, it waited ",
+  "usage": {
+   "prompt_tokens": 18694,
+   "total_tokens": 18950,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 768
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 32.7
+ },
+ {
+  "i": 12,
+  "key": "54364",
+  "pass": true,
+  "head": "54364\n\nFive, four, three, six, four,\nA secret sequence, nothing more.\nHidden dee",
+  "usage": {
+   "prompt_tokens": 15142,
+   "total_tokens": 15398,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 3328
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 34.9
+ },
+ {
+  "i": 13,
+  "key": "74470",
+  "pass": true,
+  "head": "74470\n\nA hidden key within the text,\nConcealed where sky and grass are next.\nFiv",
+  "usage": {
+   "prompt_tokens": 37870,
+   "total_tokens": 38126,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 12544
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 38.9
+ },
+ {
+  "i": 14,
+  "key": "77572",
+  "pass": true,
+  "head": "77572\n\nA secret hidden in the green,\nAmidst the skies and yellow sun,\nA five-dig",
+  "usage": {
+   "prompt_tokens": 9406,
+   "total_tokens": 9662,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 2816
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 36.3
+ },
+ {
+  "i": 15,
+  "key": "23600",
+  "pass": true,
+  "head": "23600\n\nA needle in a field of green,\nAmidst the skies and yellow sun,\nA secret n",
+  "usage": {
+   "prompt_tokens": 37750,
+   "total_tokens": 38006,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 14592
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 36.9
+ },
+ {
+  "i": 16,
+  "key": "57819",
+  "pass": true,
+  "head": "57819\n\nA secret hidden in the sea of green and blue,\nA five-digit code, both old",
+  "usage": {
+   "prompt_tokens": 36526,
+   "total_tokens": 36782,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 19200
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 41.4
+ },
+ {
+  "i": 17,
+  "key": "73087",
+  "pass": true,
+  "head": "73087\n\nA secret hidden in the plain,\nAmidst the green and blue and rain.\nA five-",
+  "usage": {
+   "prompt_tokens": 32998,
+   "total_tokens": 33254,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 20992
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 32.1
+ },
+ {
+  "i": 18,
+  "key": "61638",
+  "pass": true,
+  "head": "61638\n\nA hidden key within the text,\nAmidst the green and sky's blue hue,\nA secr",
+  "usage": {
+   "prompt_tokens": 33238,
+   "total_tokens": 33494,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 19200
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 36.9
+ },
+ {
+  "i": 19,
+  "key": "14490",
+  "pass": true,
+  "head": "14490\n\nAmidst the endless fields of green,\nA hidden number goes unseen.\nThrough ",
+  "usage": {
+   "prompt_tokens": 21644,
+   "total_tokens": 21900,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 5120
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 37.6
+ },
+ {
+  "i": 20,
+  "key": "24771",
+  "pass": true,
+  "head": "24771\n\nA needle of numbers in a field of green,\nHidden where skies of blue are s",
+  "usage": {
+   "prompt_tokens": 10126,
+   "total_tokens": 10382,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 5632
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 31.5
+ },
+ {
+  "i": 21,
+  "key": "79614",
+  "pass": true,
+  "head": "79614\n\nA secret hidden in the green,\nAmidst the skies and yellow sun,\nA five-dig",
+  "usage": {
+   "prompt_tokens": 28222,
+   "total_tokens": 28478,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 8704
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 30.8
+ },
+ {
+  "i": 22,
+  "key": "27356",
+  "pass": true,
+  "head": "27356\n\nA secret hidden in the green,\nAmidst the skies of tranquil blue,\nA five-d",
+  "usage": {
+   "prompt_tokens": 24646,
+   "total_tokens": 24902,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 17664
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 36.9
+ },
+ {
+  "i": 23,
+  "key": "74036",
+  "pass": true,
+  "head": "74036\n\nA secret hidden in the plain,\nA five-digit lock, a quiet chain.\nSeven, fo",
+  "usage": {
+   "prompt_tokens": 36094,
+   "total_tokens": 36350,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 22016
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 33.4
+ },
+ {
+  "i": 24,
+  "key": "12507",
+  "pass": true,
+  "head": "12507\n\nA quiet code of five,\nA secret kept alive.\nOne, two, five, oh seven,\nA hi",
+  "usage": {
+   "prompt_tokens": 27308,
+   "total_tokens": 27564,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 18944
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 33.4
+ },
+ {
+  "i": 25,
+  "key": "37504",
+  "pass": true,
+  "head": "37504\n\nA quiet code of five,\nKept the green grass alive.\nThrough the sky of deep",
+  "usage": {
+   "prompt_tokens": 11350,
+   "total_tokens": 11606,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 512
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 30.2
+ },
+ {
+  "i": 26,
+  "key": "13352",
+  "pass": true,
+  "head": "13352\n\nA secret hidden in the green,\nAmidst the skies and suns unseen.\nOne three",
+  "usage": {
+   "prompt_tokens": 26948,
+   "total_tokens": 27204,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 13056
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 32.7
+ },
+ {
+  "i": 27,
+  "key": "12659",
+  "pass": true,
+  "head": "12659\n\nA secret hidden in the green,\nAmidst the skies and suns unseen.\nOne two s",
+  "usage": {
+   "prompt_tokens": 13580,
+   "total_tokens": 13836,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 1792
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 31.5
+ },
+ {
+  "i": 28,
+  "key": "70634",
+  "pass": true,
+  "head": "70634\n\nA secret hidden in the plain,\nA five-digit anchor in the rain.\nAmidst the",
+  "usage": {
+   "prompt_tokens": 31510,
+   "total_tokens": 31766,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 19200
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 28.3
+ },
+ {
+  "i": 29,
+  "key": "89224",
+  "pass": true,
+  "head": "89224\n\nA secret hidden in the plain,\nA five-digit code lost in the rain.\nAmidst ",
+  "usage": {
+   "prompt_tokens": 20758,
+   "total_tokens": 21014,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 17152
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 32.1
+ },
+ {
+  "i": 30,
+  "key": "17269",
+  "pass": true,
+  "head": "17269\n\nA hidden key within the text,\nFive digits standing in the next,\nAmidst th",
+  "usage": {
+   "prompt_tokens": 25148,
+   "total_tokens": 25404,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 7680
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 29.5
+ },
+ {
+  "i": 31,
+  "key": "84770",
+  "pass": true,
+  "head": "84770\n\nA number hidden in the plain,\nAmidst the green and blue domain.\nEight, fo",
+  "usage": {
+   "prompt_tokens": 29830,
+   "total_tokens": 30086,
+   "completion_tokens": 256,
+   "prompt_tokens_details": {
+    "cached_tokens": 1792
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 35.6
+ }
+]

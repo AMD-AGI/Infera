@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 51,
+   "completion_tokens": 2,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 0.21,
+  "expect": "29",
+  "pass": true
+ },
+ "math_think": {
+  "content": "29",
+  "reasoning": "1.  **Analyze the Request:**\n    *   Initial state: 17 sheep.\n    *   Action 1: Buys 3 more sheep (+3).\n    *   Action 2: 5 sheep run away (-5).\n    *   Action 3: Buys 14 more sheep (+14).\n    *   Constraint: Answer with *only* the number.\n\n2.  **Perform the calculations:**\n    *   Start: 17\n    *   Add 3: 17 + 3 = 20\n    *   Subtract 5: 20 - 5 = 15\n    *   Add 14: 15 + 14 = 29\n\n3.  **Format the O",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 287,
+   "completion_tokens": 232,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 230
+  },
+  "secs": 0.94,
+  "expect": "29",
+  "pass": true
+ },
+ "passkey_8k": {
+  "content": "67767",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9186,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 7.02,
+  "expect": "67767",
+  "pass": true
+ },
+ "passkey_34k": {
+  "content": "25315",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38922,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 4352
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 7.74,
+  "expect": "25315",
+  "pass": true
+ },
+ "passkey_96k": {
+  "content": "10981",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109767,
+   "completion_tokens": 3,
+   "prompt_tokens_details": {
+    "cached_tokens": 19200
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 5.68,
+  "expect": "10981",
+  "pass": true
+ }
+}

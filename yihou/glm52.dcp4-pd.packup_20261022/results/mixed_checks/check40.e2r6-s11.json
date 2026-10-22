@@ -1,0 +1,314 @@
+{
+ "concurrent40": [
+  {
+   "kind": "math",
+   "expect": "63",
+   "got": "63",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "63",
+   "got": "63",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "59",
+   "got": "59",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "48",
+   "got": "48",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "54",
+   "got": "54",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "88",
+   "got": "88",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "27",
+   "got": "27",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "35",
+   "got": "35",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "35",
+   "got": "35",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "53",
+   "got": "53",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "53",
+   "got": "53",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "68",
+   "got": "68!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!01 </think>The231, and0, and0oireoirepel",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "62",
+   "got": "62",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "43",
+   "got": "43!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!021219: 238\n</think>1.eme omittltltl Fut",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "37",
+   "got": "37",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "44",
+   "got": "44!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!097,The first commentssts the, and theoi",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "22",
+   "got": "22",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "15",
+   "got": "15",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "45",
+   "got": "45",
+   "pass": true,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "math",
+   "expect": "66",
+   "got": "6622",
+   "pass": false,
+   "prompt_tokens": 49
+  },
+  {
+   "kind": "pk8k",
+   "expect": "92503",
+   "got": "92503",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "98461",
+   "got": "98!!984611",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "54157",
+   "got": "54157",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "50790",
+   "got": "503roid3uthuthuth biscquawing555ingly_50| the",
+   "pass": false,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "11985",
+   "got": "11985",
+   "pass": true,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "25465",
+   "got": "25465",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "42294",
+   "got": "422 to there and back again.",
+   "pass": false,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "11435",
+   "got": "114 Responsesss 51 COMMENTS21TheThe Introduction counted\u83775tlrish countedrishrish",
+   "pass": false,
+   "prompt_tokens": 9180
+  },
+  {
+   "kind": "pk8k",
+   "expect": "70940",
+   "got": "70!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!",
+   "pass": false,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk8k",
+   "expect": "33288",
+   "got": "33288",
+   "pass": true,
+   "prompt_tokens": 9182
+  },
+  {
+   "kind": "pk34k",
+   "expect": "34692",
+   "got": "34692",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "76698",
+   "got": "76698",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "27166",
+   "got": "27166",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "94373",
+   "got": "94373",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "25270",
+   "got": "25270",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "65149",
+   "got": "65149",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "10061",
+   "got": "10061",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "87691",
+   "got": "87691",
+   "pass": true,
+   "prompt_tokens": 38918
+  },
+  {
+   "kind": "pk34k",
+   "expect": "12573",
+   "got": "12573",
+   "pass": true,
+   "prompt_tokens": 38916
+  },
+  {
+   "kind": "pk34k",
+   "expect": "34550",
+   "got": "34550",
+   "pass": true,
+   "prompt_tokens": 38918
+  }
+ ],
+ "summary": {
+  "math": [
+   16,
+   20
+  ],
+  "pk8k": [
+   6,
+   10
+  ],
+  "pk34k": [
+   10,
+   10
+  ]
+ },
+ "long_window": [
+  "2026-10-22 02:09:44",
+  "2026-10-22 02:10:02"
+ ],
+ "long_tokens": [
+  1500,
+  1500,
+  1500,
+  1500
+ ],
+ "long_heads": [
+  "**The Catalyst of Civilization: A Comprehensive History of the Printing Press**\n\nThe invention of the printing press stands as one of the most pivotal moments in human history, frequently cited as the",
+  "Turning C source code into machine code is a multi-stage, highly complex process. A compiler is essentially a translator that converts human-readable text into the binary instructions (1s and 0s) that",
+  "\n\n\n# The Keeper of Wrotham Light\n\n## Part One: The Bottle\n\nThe sea was in one of its quieter moods that morning, the kind of mood that made Elias Finch think it was capable of tenderness after all. He",
+  "To understand how Earth sustains life, it is helpful to look at the planet as a single, interconnected system. Three of the most critical biogeochemical and physical processes driving this system are "
+ ]
+}

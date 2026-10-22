@@ -1,0 +1,59 @@
+From 228263d116f54a696e6a9790d26948d716e71591 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:04:42 +0000
+Subject: [PATCH 11/31] [PD] dsa: Allow a ROCm DCP decode behind a DCP1 prefill
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../srt/arg_groups/model_overrides/deepseek_v2.py     | 11 +++++++++--
+ test/registered/unit/test_dsa_dcp_backend_defaults.py | 11 +++++++++++
+ 2 files changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py b/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py
+index 35c551ff8d..fdbabcf9c8 100644
+--- a/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py
++++ b/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py
+@@ -20,8 +20,15 @@ def _dsa_dcp_overrides(cfg: Any) -> dict:
+         return {}
+     if cfg.enable_hisparse or cfg.enable_hierarchical_cache:
+         raise ValueError("DSA DCP does not support HiSparse or HiCache.")
+-    if cfg.disaggregation_mode != "null":
+-        raise ValueError("DSA DCP does not support PD disaggregation.")
++    # The PD relayout pairs a DCP1 prefill with a decode whose draft KV is
++    # striped like the target, which only the ROCm DSA draft does.
++    if cfg.disaggregation_mode != "null" and not (
++        cfg.disaggregation_mode == "decode" and get_platform().is_hip
++    ):
++        raise ValueError(
++            "DSA DCP with PD disaggregation is supported only as a DCP1 prefill "
++            "feeding a ROCm DCP decode."
++        )
+     if cfg.speculative_eagle_topk not in (None, 1):
+         raise ValueError("DSA DCP requires --speculative-eagle-topk 1.")
+     # The DCP paths: trtllm on CUDA, triton on ROCm.
+diff --git a/test/registered/unit/test_dsa_dcp_backend_defaults.py b/test/registered/unit/test_dsa_dcp_backend_defaults.py
+index 666582867d..f67ac73420 100644
+--- a/test/registered/unit/test_dsa_dcp_backend_defaults.py
++++ b/test/registered/unit/test_dsa_dcp_backend_defaults.py
+@@ -55,6 +55,17 @@ class TestDsaDcpBackendDefaults(CustomTestCase):
+     def test_no_dcp_sets_nothing(self):
+         self.assertEqual(_dsa_dcp_overrides(_cfg(dcp_size=1)), {})
+ 
++    def test_pd_only_rocm_decode(self):
++        """Only a ROCm DCP decode may join PD; its draft KV must stripe like the
++        target for the DCP1 -> DCP-N relayout."""
++        with patch(_PLATFORM, return_value=SimpleNamespace(is_hip=True)):
++            _dsa_dcp_overrides(_cfg(disaggregation_mode="decode"))
++            with self.assertRaisesRegex(ValueError, "PD disaggregation"):
++                _dsa_dcp_overrides(_cfg(disaggregation_mode="prefill"))
++        with patch(_PLATFORM, return_value=SimpleNamespace(is_hip=False)):
++            with self.assertRaisesRegex(ValueError, "PD disaggregation"):
++                _dsa_dcp_overrides(_cfg(disaggregation_mode="decode"))
++
+ 
+ class TestDsaDcpBackendConstraints(CustomTestCase):
+     def test_hip_dcp_triton_allowed(self):
+-- 
+2.34.1
+

@@ -1,0 +1,5 @@
+concurrent40 {'math': '17/20', 'pk8k': '10/10', 'pk34k': '10/10'} secs 11.4
+FAIL {'kind': 'math', 'expect': '71', 'got': '71 requires carefulorra again这句话</think>1 14(14 sheep(14.15. 15.615.648.628.628.', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '45', 'got': '45ekoenvilla', 'pass': False, 'prompt_tokens': 49}
+FAIL {'kind': 'math', 'expect': '59', 'got': '599', 'pass': False, 'prompt_tokens': 49}
+long_greedy window 2026-10-22 02:12:45 -> 2026-10-22 02:13:04 completion_tokens [1500, 1500, 1500, 1500] secs 18.3

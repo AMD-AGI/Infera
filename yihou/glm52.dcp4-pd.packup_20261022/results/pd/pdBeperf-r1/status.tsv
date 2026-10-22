@@ -1,0 +1,11 @@
+2026-10-21T14:05:23Z	start	exp=pdpa-dcp4-overlay round=pdBeperf-r1 image=infera-sglang:v0522-1020-yihou-dcp-mc4340 config=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/harness/config.yihou.dcp.sh
+2026-10-21T14:05:23Z	ports-all	ok:30 ports <30000 and free
+2026-10-21T14:06:24Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-21T14:06:25Z	etcd	ok
+2026-10-21T14:08:47Z	prefill	ok:8x20s
+2026-10-21T14:16:41Z	decode-a1	ok
+2026-10-21T14:16:41Z	bothlegs	ok
+2026-10-21T14:16:47Z	router	ok
+2026-10-21T14:17:00Z	smoke	ok
+2026-10-21T14:24:05Z	bench	start CONC=8 DURATION=600 warmup=2 out=/shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r1/agentx-c8-short
+2026-10-21T14:24:14Z	bench	FAIL rc=1 (see /shared_nfs/yihou_glm52/dcp_pd_20261021/pd/runs/pdBeperf-r1/agentx-c8-short.log)

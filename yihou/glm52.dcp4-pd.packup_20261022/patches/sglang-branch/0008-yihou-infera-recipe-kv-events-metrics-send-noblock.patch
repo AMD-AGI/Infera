@@ -1,0 +1,63 @@
+From 36bc86517d49e76e12700ffed84b32ccd4430308 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:09:15 +0000
+Subject: [PATCH 08/31] [yihou] infera recipe: kv-events metrics send noblock
+
+Kit runtime fix R001 (overlay-patches/kv_events_publisher.noblock.diff).
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../scheduler_components/kv_events_publisher.py   | 15 ++++++++++++++-
+ 1 file changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py b/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py
+index d236da1de9..70ad3344c5 100644
+--- a/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py
++++ b/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py
+@@ -9,6 +9,8 @@ from typing import (
+     Optional,
+ )
+ 
++import logging
++
+ import msgspec
+ import zmq
+ 
+@@ -21,6 +23,8 @@ from sglang.srt.disaggregation.kv_events import (
+ from sglang.srt.managers.io_struct import hook_custom_types, sock_send
+ from sglang.srt.runtime_context import get_parallel
+ 
++logger = logging.getLogger(__name__)
++
+ if TYPE_CHECKING:
+     from sglang.srt.mem_cache.base_prefix_cache import BasePrefixCache
+ 
+@@ -52,6 +56,7 @@ class SchedulerKvEventsPublisher:
+     get_stats: Callable
+     enable_kv_cache_events: bool = False
+     kv_event_publisher: Any = None
++    metrics_drop_warned: bool = False
+ 
+     def __post_init__(self) -> None:
+         self.init_kv_events(self.kv_events_config)
+@@ -87,7 +92,15 @@ class SchedulerKvEventsPublisher:
+         )
+ 
+         if not self.send_metrics_from_scheduler.closed:
+-            sock_send(self.send_metrics_from_scheduler, kv_metrics)
++            # YIHOU: the metrics PUSH socket connects to an endpoint nothing binds in
++            # this deployment; a blocking send stalls the scheduler once the queue is
++            # full (c44a prefill, py-spy 2026-10-09). Drop instead of blocking.
++            try:
++                sock_send(self.send_metrics_from_scheduler, kv_metrics, flags=zmq.NOBLOCK)
++            except zmq.Again:
++                if not self.metrics_drop_warned:
++                    logger.warning("YIHOU: auxiliary KV metrics receiver unavailable; dropping telemetry, preserving KV events and Prometheus metrics")
++                    self.metrics_drop_warned = True
+ 
+     def local_kv_event_sources(self, block_size: int) -> list[dict[str, Any]]:
+         if self.kv_event_publisher is None:
+-- 
+2.34.1
+

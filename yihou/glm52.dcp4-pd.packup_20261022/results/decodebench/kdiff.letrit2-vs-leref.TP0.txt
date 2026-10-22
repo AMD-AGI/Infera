@@ -1,0 +1,31 @@
+verify steps A=10 B=10; ms/step A, B, A-B
+  21.205   80.642  -59.438  _ZN5aiter33reduce_scatter_cross_device_storeIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPN
+   0.288   55.327  -55.038  _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+  19.565   27.519   -7.955  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+   2.198    8.357   -6.160  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+   0.000    2.552   -2.552  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0
+   2.166    0.000   +2.166  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x80x128_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AF
+   2.142    0.000   +2.142  _merge_candidates_kernel
+   1.404    0.131   +1.273  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x144x64_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AF
+   0.000    1.232   -1.232  void sglang::topk_main_kernel<false, 2, (sglang::TopKMode)1>(sglang::TopKPagedParams)
+   1.076    0.000   +1.076  Cijk_Ailk_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x144x64_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AF
+   1.790    0.764   +1.026  void aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, t
+   0.998    0.033   +0.965  void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_noca
+   0.834    0.000   +0.834  void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2
+   0.235    1.039   -0.804  hgemm_bf16_t64x64x64x6_ks1_w4x2x1_gm0_bias0_lnt_pft_0
+   0.420    1.067   -0.646  _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignal
+   0.000    0.571   -0.571  void at::native::(anonymous namespace)::CatArrayBatchedCopy<at::native::(anonymous namespa
+   0.632    1.014   -0.382  Memcpy DtoD (Device -> Device)
+   0.197    0.296   -0.099  _fused_append_shared_experts_kernel
+   0.253    0.352   -0.099  set_mla_kv_buffer_fp8_quant_kernel
+   3.139    3.057   +0.082  _sparse_mla_fused_kernel
+   0.247    0.328   -0.082  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+   0.490    0.564   -0.074  _dcp_pack_a2a_send_kernel
+   0.071    0.000   +0.071  _pack_candidates_kernel
+   1.989    1.926   +0.064  hgemm_bf16_t64x96x128x3_ks1_w2x2x2_gm4_bias0_lnt_pft_0
+   0.708    0.763   -0.055  _ZN5aiter25local_device_load_rmsnormIDF16bLi512ELi2ELb0EEEvNS_11RankSignalsEPT_S3_S3_S3_fi
+   0.455    0.400   +0.055  void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat1
+   0.379    0.349   +0.030  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSorti
+   0.417    0.389   +0.027  _dcp_lse_combine_kernel
+   0.603    0.577   +0.026  hgemm_bf16_t32x64x128x4_ksd_w1x4x1_gm0_bias0_lnt_pft_0
+   0.554    0.536   +0.018  _ZN5aiter30fused_mx_quant_moe_sort_kernelIDF16bN4opus5fp4_tELi256ELi32EEEvPT0_PhPKT_PKiSA_

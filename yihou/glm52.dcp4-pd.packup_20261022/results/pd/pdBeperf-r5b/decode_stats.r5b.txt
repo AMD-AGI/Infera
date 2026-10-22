@@ -1,0 +1,1 @@
+r5b-A1 10-22 02:15:04+3630s nDP=1 lines=1723 (per DP 1723) ms/step=52.7 run=16.71 tok=4021k usage=0.453 acc=3.612 gen/DP=1099.2 gen_total=1099.2 per-req=75.3 graph%=100.0 xfer>0%=80.3 q>0%=0.0 prealloc>0%=0.0 retracted>0%=0.0 imb=nan(n=0) | pf_batches=4836 pf_new=18.8M pf_cached=539.6M

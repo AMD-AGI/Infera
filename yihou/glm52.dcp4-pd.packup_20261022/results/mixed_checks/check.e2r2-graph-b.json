@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 51,
+   "completion_tokens": 2,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 0.23,
+  "expect": "29",
+  "pass": true
+ },
+ "math_think": {
+  "content": "29",
+  "reasoning": "1.  **Analyze the initial state:**\n    *   The farmer starts with 17 sheep.\n    *   Current count: 17\n\n2.  **Process the first event (buying 3 more sheep):**\n    *   Action: Addition (+ 3)\n    *   Calculation: 17 + 3 = 20\n    *   Current count: 20\n\n3.  **Process the second event (5 sheep run away):**\n    *   Action: Subtraction (- 5)\n    *   Calculation: 20 - 5 = 15\n    *   Current count: 15\n\n4.  ",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 279,
+   "completion_tokens": 224,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 222
+  },
+  "secs": 1.65,
+  "expect": "29",
+  "pass": true
+ },
+ "passkey_8k": {
+  "content": "67767",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9186,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 9152
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 1.3,
+  "expect": "67767",
+  "pass": true
+ },
+ "passkey_34k": {
+  "content": "25315",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38922,
+   "completion_tokens": 4,
+   "prompt_tokens_details": {
+    "cached_tokens": 38912
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 1.71,
+  "expect": "25315",
+  "pass": true
+ },
+ "passkey_96k": {
+  "content": "10981",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109767,
+   "completion_tokens": 3,
+   "prompt_tokens_details": {
+    "cached_tokens": 109760
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 1.31,
+  "expect": "10981",
+  "pass": true
+ }
+}

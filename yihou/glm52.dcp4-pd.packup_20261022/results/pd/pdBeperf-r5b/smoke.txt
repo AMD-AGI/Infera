@@ -1,0 +1,3 @@
+{"id":"b823b578f7c7458e80a75b86cdca1234","object":"text_completion","created":1792634151,"model":"glm5.2-mxfp4","choices":[{"index":0,"text":" !auq\n!a!a!a!a!a!a!a!a!a!a!a!a!a!a!a!a!a!","logprobs":null,"finish_reason":"length","matched_stop":null}],"usage":{"prompt_tokens":7,"total_tokens":47,"completion_tokens":40,"prompt_tokens_details":{"cached_tokens":0},"reasoning_tokens":0},"metadata":{"weight_version":"default","weight_versions":[{"version":"default","start":0,"end":40}]}}
+2026-10-22T01:55:51Z	smoke	ok
+NOTE: simulated acceptance is ON -> the text is expected to be garbled; this only proves KV moved.

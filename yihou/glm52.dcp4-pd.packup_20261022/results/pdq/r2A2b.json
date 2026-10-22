@@ -1,0 +1,38 @@
+{
+  "label": "r2A2b",
+  "rank": "DP0",
+  "prefill": {
+    "queue-req": {
+      "state": "1 prefill-input",
+      "mean": 0.4,
+      "median": 0.0,
+      "p95": 3,
+      "max": 10,
+      "n": 1428
+    },
+    "bootstrap-req": {
+      "state": "  handshake",
+      "mean": 0.0,
+      "median": 0.0,
+      "p95": 0,
+      "max": 1,
+      "n": 1428
+    },
+    "inflight-req": {
+      "state": "2 prefill-outbound(KV-send)",
+      "mean": 2.0,
+      "median": 1.0,
+      "p95": 7,
+      "max": 14,
+      "n": 1428
+    }
+  },
+  "prefill_steady_lines": 1428,
+  "decode": {},
+  "decode_steady_lines": 0,
+  "rdma": {
+    "available": false,
+    "disabled_note": false
+  },
+  "transfer_errors": "none"
+}

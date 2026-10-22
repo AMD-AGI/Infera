@@ -1,0 +1,60 @@
+trace: kernels=5648 GPU span 1246.1 ms busy 121.2 ms (9.7%) step spans=20 gpu step spans=0
+
+VERIFY: 20 steps, no kernels attributed
+
+per graph launch (kernels sharing the launch correlation):
+  graph launches=60 with traced kernels=40 (launches without kernels were not captured by the profiler)
+  draft: launches=40 kernels/launch mean 110 kernel-ms/launch mean 2.68
+    moe_route               0.024 ms    0.9%
+    idx_unfused_logits      0.065 ms    2.4%
+    idx_unfused_topk        0.042 ms    1.6%
+    idx_unfused_prep        0.009 ms    0.3%
+    attention               0.099 ms    3.7%
+    dcp_merge               0.040 ms    1.5%
+    comm                    0.488 ms   18.2%
+    moe                     1.178 ms   44.0%
+    gemm                    0.502 ms   18.7%
+    kv_write                0.047 ms    1.8%
+    norm_rope_act           0.073 ms    2.7%
+    copy_misc               0.099 ms    3.7%
+    other                   0.014 ms    0.5%
+
+uncategorized top kernels (whole trace, refine with --cat):
+      1.93 ms  _fused_dsa_draft_extend_metadata_kernel
+      1.88 ms  _fused_dsa_decode_metadata_kernel
+      1.26 ms  void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, uns
+      0.47 ms  _vocab_parallel_embedding_kernel
+      0.12 ms  void sglang::speculative::VerifyTreeGreedy<int, long>(int*, int*, int*, long*, long*, long*, long*, 
+      0.09 ms  _prepare_draft_extend_lengths_kernel
+      0.09 ms  _verify_commit_outputs_kernel
+      0.09 ms  triton_poi_fused_mul_unsqueeze_0
+      0.03 ms  assign_req_to_token_pool
+      0.02 ms  alloc_extend_kernel
+      0.01 ms  _get_last_loc_safe_kernel
+
+top kernels (whole trace):
+     31.85 ms  26.3% [moe] _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5
+     14.84 ms  12.2% [moe] _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajor
+     10.82 ms   8.9% [gemm] Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x32x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_
+      7.23 ms   6.0% [comm] _ZN5aiter13allgather_vecIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalEPT_ii
+      6.62 ms   5.5% [comm] _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6Sig
+      4.82 ms   4.0% [comm] ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+      2.63 ms   2.2% [gemm] hgemm_bf16_t32x96x128x3_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+      2.59 ms   2.1% [idx_unfused_logits] _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+      2.27 ms   1.9% [copy_misc] void sglang::fused_metadata_copy_multi_kernel<true, false>(sglang::FusedMetadataCopyMultiParams)
+      2.21 ms   1.8% [copy_misc] Memcpy DtoD (Device -> Device)
+      1.93 ms   1.6% [other] _fused_dsa_draft_extend_metadata_kernel
+      1.88 ms   1.6% [other] _fused_dsa_decode_metadata_kernel
+      1.49 ms   1.2% [copy_misc] void at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at::nat
+      1.43 ms   1.2% [kv_write] void aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true,
+      1.36 ms   1.1% [comm] _ZN5aiter33reduce_scatter_cross_device_storeIDF16bLi4EEEvPNS_8RankDataENS_11RankSignalsEPNS_6SignalE
+      1.35 ms   1.1% [norm_rope_act] _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_db
+      1.26 ms   1.0% [other] void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, uns
+      1.20 ms   1.0% [attention] _sparse_mla_split_k_kernel
+      1.19 ms   1.0% [gemm] Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT64x32x256_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AFEM1_ASEM1_C
+      1.05 ms   0.9% [attention] _gemm_a16_w16_kernel_BLOCK_SIZE_M_32_BLOCK_SIZE_N_32_BLOCK_SIZE_K_256_GROUP_SIZE_M_1_NUM_KSPLIT_1_SP
+      0.95 ms   0.8% [attention] _sparse_mla_fused_kernel
+      0.95 ms   0.8% [gemm] Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x192x64_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AFEM1_ASEM1_
+      0.87 ms   0.7% [gemm] hgemm_bf16_t32x64x64x9_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+      0.74 ms   0.6% [attention] _sparse_mla_reduce_kernel
+      0.72 ms   0.6% [idx_unfused_prep] void at::native::index_elementwise_kernel<128, 4, at::native::gpu_index_kernel<at::native::index_put

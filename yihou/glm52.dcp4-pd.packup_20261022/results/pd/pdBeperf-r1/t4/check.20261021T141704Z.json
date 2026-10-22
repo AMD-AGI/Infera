@@ -1,0 +1,82 @@
+{
+ "math_nothink": {
+  "content": "29!auithorithing",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 49,
+   "total_tokens": 57,
+   "completion_tokens": 8,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 0.7,
+  "expect": "29",
+  "pass": false
+ },
+ "math_think": {
+  "content": "",
+  "reasoning": "1!au!\n1.  **Analyze the Request:**\n    *   **Initial state:** 17 sheep.\n    *   **Action 1:** Buys.\n    *   **Action 2:** 5 run away.\n    *   **Action 3:** 14 sheep.\n    *   **Constraint:** *Output only the number.*\n\n2.  **Analyze the text:**\n    *   \"A1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! 1! ",
+  "usage": {
+   "prompt_tokens": 55,
+   "total_tokens": 2103,
+   "completion_tokens": 2048,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 2050
+  },
+  "secs": 11.83,
+  "expect": "29",
+  "pass": false
+ },
+ "passkey_8k": {
+  "content": "6!au!\n677769",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 9182,
+   "total_tokens": 9191,
+   "completion_tokens": 9,
+   "prompt_tokens_details": {
+    "cached_tokens": 0
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 9.52,
+  "expect": "67767",
+  "pass": false
+ },
+ "passkey_34k": {
+  "content": "25!au!\nWait, I see the number you want is 531,5, but the number is 25,315. Let me double-check",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 38918,
+   "total_tokens": 38950,
+   "completion_tokens": 32,
+   "prompt_tokens_details": {
+    "cached_tokens": 4544
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 3.49,
+  "expect": "25315",
+  "pass": false
+ },
+ "passkey_96k": {
+  "content": "109!au8s islet me. 10981!au. 10981. 10981. 10981. 10981. ",
+  "reasoning": "",
+  "usage": {
+   "prompt_tokens": 109764,
+   "total_tokens": 109796,
+   "completion_tokens": 32,
+   "prompt_tokens_details": {
+    "cached_tokens": 19392
+   },
+   "reasoning_tokens": 0
+  },
+  "secs": 9.38,
+  "expect": "10981",
+  "pass": true
+ }
+}

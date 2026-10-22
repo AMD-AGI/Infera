@@ -1,0 +1,2 @@
+concurrent40 {'math': '20/20', 'pk8k': '10/10', 'pk34k': '10/10'} secs 17.8
+long_greedy window 2026-10-22 01:15:08 -> 2026-10-22 01:15:26 completion_tokens [1500, 1500, 1500, 1500] secs 18.5
