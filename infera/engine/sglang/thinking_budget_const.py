@@ -11,7 +11,6 @@ use these helpers without blocking the API event loop on first request.
 
 from __future__ import annotations
 
-import os
 from typing import Any, Literal
 
 # dill STACK_GLOBAL for
@@ -31,17 +30,10 @@ GLM53_THINKING_START_TOKEN_ID = 154841
 GLM53_THINKING_END_TOKEN_ID = 154842
 GLM53_NEW_LINE_TOKEN_ID = 198
 
-# Router/API opt-in: inject custom_logit_processor only when set. Workers must
-# also run with ``--enable-custom-logit-processor`` or SGLang rejects the field.
-THINKING_BUDGET_ENV = "INFERA_ENABLE_THINKING_BUDGET"
-
+# The processor is injected into the request whenever ``thinking.budget_tokens``
+# is present. Workers run with ``--enable-custom-logit-processor`` (added by the
+# SGLang worker launcher) so SGLang accepts the field.
 ThinkingBudgetAction = Literal["newline", "end"]
-
-
-def thinking_budget_injection_enabled() -> bool:
-    """Return True when hard-cap injection is explicitly enabled."""
-    raw = os.environ.get(THINKING_BUDGET_ENV, "").strip().lower()
-    return raw in {"1", "true", "yes", "on"}
 
 
 def is_glm53_model(model: Any) -> bool:
@@ -75,6 +67,80 @@ def apply_glm53_thinking_budget(out: dict[str, Any], budget_tokens: int) -> None
     """Attach SGLang custom logit processor fields for a thinking budget."""
     out["custom_logit_processor"] = GLM53_THINKING_BUDGET_PROCESSOR_STR
     out["custom_params"] = {"thinking_budget": int(budget_tokens)}
+
+
+# Budget used when a GLM-5.3 request does not carry ``budget_tokens``.
+DEFAULT_THINKING_BUDGET = 1024
+# ``budget_tokens`` value that leaves thinking uncapped.
+UNLIMITED_THINKING_BUDGET = -1
+
+
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def resolve_request_thinking_budget(thinking: Any, max_tokens: Any) -> int | None:
+    """Return the thinking budget to enforce for a GLM-5.3 request, or None for no cap.
+
+    ``thinking`` is the request's ``thinking`` object (``type`` and optional
+    ``budget_tokens``). ``type=disabled`` and ``budget_tokens=-1`` leave thinking
+    uncapped. An omitted budget uses ``DEFAULT_THINKING_BUDGET``. The budget is
+    clamped so the forced newline and ``</think>`` plus an answer reserve fit in
+    ``max_tokens``; a missing ``max_tokens`` needs no clamp. An omitted budget is
+    skipped when ``max_tokens`` cannot fit one, an explicit one is rejected.
+    Raises ``ValueError`` for an invalid explicit ``budget_tokens`` or ``max_tokens``.
+    """
+    thinking = thinking if isinstance(thinking, dict) else {}
+    if thinking.get("type") == "disabled":
+        return None
+    max_ok = max_tokens is None or (_is_int(max_tokens) and max_tokens >= MIN_MAX_TOKENS_FOR_BUDGET)
+    if "budget_tokens" in thinking:
+        budget = thinking["budget_tokens"]
+        if _is_int(budget) and budget == UNLIMITED_THINKING_BUDGET:
+            return None
+        if not _is_int(budget) or budget < 1:
+            raise ValueError("thinking.budget_tokens must be a positive integer or -1")
+        if not max_ok:
+            raise ValueError(
+                f"max_tokens must be >= {MIN_MAX_TOKENS_FOR_BUDGET} when thinking.budget_tokens is set"
+            )
+    else:
+        budget = DEFAULT_THINKING_BUDGET
+        if not max_ok:
+            return None
+    return budget if max_tokens is None else resolve_thinking_budget(budget, max_tokens)
+
+
+def apply_openai_thinking_budget(body: dict[str, Any]) -> None:
+    """Apply the thinking controls of an OpenAI chat body in place (GLM-5.3 only).
+
+    The top-level ``thinking`` object maps to ``chat_template_kwargs`` without
+    overriding keys the client set, and is removed from the forwarded body. The
+    budget comes from ``resolve_request_thinking_budget`` with
+    ``max_completion_tokens`` taking precedence over ``max_tokens``. Thinking
+    turned off through ``chat_template_kwargs`` is not capped.
+    """
+    if not is_glm53_model(body.get("model")):
+        return
+    thinking = body.pop("thinking", None) if isinstance(body.get("thinking"), dict) else None
+    kwargs = body.get("chat_template_kwargs")
+    if isinstance(thinking, dict) and thinking.get("type") in ("enabled", "disabled"):
+        flag = thinking["type"] == "enabled"
+        if kwargs is None:
+            kwargs = body["chat_template_kwargs"] = {}
+        if isinstance(kwargs, dict):
+            kwargs.setdefault("enable_thinking", flag)
+            kwargs.setdefault("thinking", flag)
+    if isinstance(kwargs, dict) and (
+        kwargs.get("enable_thinking") is False or kwargs.get("thinking") is False
+    ):
+        return
+    max_tokens = body.get("max_completion_tokens")
+    if max_tokens is None:
+        max_tokens = body.get("max_tokens")
+    budget = resolve_request_thinking_budget(thinking, max_tokens)
+    if budget is not None:
+        apply_glm53_thinking_budget(body, budget)
 
 
 def _last_open_in_prompt(origin_input_ids: list[int], start_id: int, end_id: int) -> int:

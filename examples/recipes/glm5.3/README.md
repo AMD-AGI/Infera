@@ -9,20 +9,32 @@ the infera overlay mounted over it. One combo today:
 
 Not here: aggregated — use `examples/sglang_mix_glm5.3/` under docker for now.
 
-### Anthropic thinking budget (recommended when using Claude Code)
+### Thinking budget (Anthropic and OpenAI requests)
 
-Hard-capping `thinking.budget_tokens` on GLM-5.3 needs two knobs (both in
-[`disaggregated/deploy.yaml`](disaggregated/deploy.yaml)):
+For GLM-5.3 requests the router injects the trusted processor that hard-caps
+thinking, on `/v1/messages` and on `/v1/chat/completions`. The budget comes from
+`thinking.budget_tokens`:
+
+| `thinking.budget_tokens` | Thinking cap |
+|---|---|
+| omitted | 1024 tokens (default) |
+| positive `N` | `N`, clamped so the forced newline and `</think>` plus an answer reserve fit in `max_tokens` |
+| `-1` | no limit; thinking runs up to `max_tokens` |
+
+`thinking.type=disabled` also leaves thinking uncapped, and on the OpenAI endpoint so does
+`chat_template_kwargs.enable_thinking=false`. Any other non-positive value returns HTTP 400.
+
+Anthropic clients send `thinking: {"type": "enabled", "budget_tokens": N}`. OpenAI
+chat clients send the same top-level `thinking` object, and
+`max_completion_tokens` takes precedence over `max_tokens` for the clamp. The
+OpenAI endpoint maps `thinking.type` to `chat_template_kwargs` without
+overriding keys the client set.
 
 | Where | Knob | Effect |
 |---|---|---|
-| prefill + decode workers | `--enable-custom-logit-processor` | SGLang accepts a request-scoped logit processor |
-| server (router) | `INFERA_ENABLE_THINKING_BUDGET=1` | Anthropic shim injects the trusted GLM-5.3 processor |
+| prefill + decode workers | `--enable-custom-logit-processor` | SGLang accepts a request-scoped logit processor; the worker launcher adds it when absent (also set in [`disaggregated/deploy.yaml`](disaggregated/deploy.yaml)) |
 
-Without the worker flag, injected processors make SGLang raise
-`ValueError`. Without the server env, `budget_tokens` is ignored and only
-`chat_template_kwargs` are forwarded (requests still succeed). OpenAI clients
-must not send `custom_logit_processor` / `custom_params` — those return HTTP 400.
+OpenAI clients must not send `custom_logit_processor` / `custom_params` — those return HTTP 400.
 
 **EAGLE.** The thinking-budget processor also applies to the rows of the EAGLE
 verify step. This comes from `deploy/docker/patches/sglang_eagle_custom_logit/`,

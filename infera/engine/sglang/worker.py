@@ -103,6 +103,11 @@ class SglangEngine(BaseEngine):
         if not any(a == "--enable-metrics" for a in argv):
             argv.append("--enable-metrics")
 
+        # The Anthropic shim injects a trusted request-scoped logit processor
+        # for thinking budgets; sglang rejects the field without this flag.
+        if "--enable-custom-logit-processor" not in argv:
+            argv.append("--enable-custom-logit-processor")
+
         if self.enable_kv_events:
             dp_size = int(getattr(self.server_args, "dp_size", 1) or 1)
             # The scheduler creates its publisher only after model loading. Use

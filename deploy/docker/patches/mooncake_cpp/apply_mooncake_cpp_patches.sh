@@ -16,6 +16,10 @@
 #       pinned for that GPU on both hosts. Off by default. Mooncake#4540.
 #   rdma_ack_timeout: MC_IB_TIMEOUT sets the RC ACK timeout exponent
 #       (4.096 us * 2^n); unset keeps the hardcoded 14, about 67 ms. Mooncake#4541.
+#   rdma_batch_register: MC_REG_MR_BATCH_THREADS bounds how many buffers
+#       registerLocalMemoryBatch registers concurrently. Default 1 on ROCm builds
+#       (the old one-thread-per-buffer fan-out is what a ROCm prefill start-up
+#       could stall in); unset keeps unbounded elsewhere. Used by the GLM-5.3 image.
 #   (Gone, all upstream at the pinned ref: B.1 propagated USE_HIP_DMABUF to
 #   rdma_transport, now done by src/CMakeLists.txt; B.3 auto-chunked MRs larger
 #   than max_mr_size, now Mooncake#2644 along with the batch-registration error

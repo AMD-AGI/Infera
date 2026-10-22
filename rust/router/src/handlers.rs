@@ -214,6 +214,13 @@ async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -
     };
     let mut routing_request = openai_body;
     attach_cache_hints(&mut routing_request, &hints);
+    // `message_start` precedes the engine's usage chunk, so count the prompt
+    // with the router's tokenizer while the engine prefills.
+    let input_tokens = stream.then(|| {
+        let policy = Arc::clone(&st.policy);
+        let request = routing_request.clone();
+        tokio::task::spawn_blocking(move || policy.count_input_tokens(&request).map(|n| n as u64))
+    });
 
     let request_id = headers
         .get(REQUEST_ID_HEADER)
@@ -239,7 +246,11 @@ async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -
     }
 
     if stream {
-        return translate_anthropic_stream(upstream, &model, &request_id);
+        let input_tokens = match input_tokens {
+            Some(task) => task.await.ok().flatten(),
+            None => None,
+        };
+        return translate_anthropic_stream(upstream, &model, &request_id, input_tokens);
     }
 
     let (parts, upstream_body) = upstream.into_parts();
@@ -268,10 +279,15 @@ async fn messages(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -
 }
 
 /// Convert an OpenAI SSE body to Anthropic events without buffering the stream.
-fn translate_anthropic_stream(upstream: Response, model: &str, request_id: &str) -> Response {
+fn translate_anthropic_stream(
+    upstream: Response,
+    model: &str,
+    request_id: &str,
+    input_tokens: Option<u64>,
+) -> Response {
     let (_, body) = upstream.into_parts();
     let source = body.into_data_stream();
-    let translator = SseTranslator::new(model, Some(request_id));
+    let translator = SseTranslator::new(model, Some(request_id)).with_input_tokens(input_tokens);
     let translated = futures::stream::unfold(
         (source, translator, false, request_id.to_string()),
         |(mut source, mut translator, finished, rid)| async move {

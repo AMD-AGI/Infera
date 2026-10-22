@@ -10,11 +10,16 @@
 #   - large MRs are chunked and registration failures propagate (#2644/#2869);
 #   - chunked dma-buf offsets include each chunk's displacement (#3243).
 #
-# The only private source patches are the two RDMA diffs in patches/mooncake_cpp:
-# destination-local rail selection and a configurable RC ACK timeout. Both keep
-# upstream behavior unless MC_ENABLE_DEST_LOCAL_RAIL / MC_IB_TIMEOUT are set.
+# The private source patches live in patches/mooncake_cpp:
+#   - rdma_dest_local_rail.diff and rdma_ack_timeout.diff (always applied):
+#     destination-local rail selection and a configurable RC ACK timeout. Both
+#     keep upstream behavior unless MC_ENABLE_DEST_LOCAL_RAIL / MC_IB_TIMEOUT
+#     are set.
+#   - MC_EXTRA_CPP_PATCHES (optional, space separated diff names), e.g.
+#     rdma_batch_register.diff, which bounds the registration fan-out of
+#     registerLocalMemoryBatch (MC_REG_MR_BATCH_THREADS, default 1 on ROCm).
 # Build, then verify the artifact capabilities SGLang PD needs: HIP dma-buf
-# registration, cross-host RDMA routing and both patch switches.
+# registration, cross-host RDMA routing and the patch switches.
 set -euo pipefail
 
 MC_ROOT="${MC_ROOT:-/tmp/mooncake-upstream}"
@@ -31,8 +36,10 @@ git fetch --depth=1 origin "$MC_REF"
 git checkout --detach "$MC_REF"
 git submodule update --init --recursive
 echo "[mc-build] Mooncake $(git rev-parse HEAD)"
+# shellcheck disable=SC2086
 MC_ROOT="$MC_ROOT" bash "$MC_CPP_PATCH_DIR/apply_mooncake_cpp_patches.sh" \
-    rdma_dest_local_rail.diff rdma_ack_timeout.diff
+    rdma_dest_local_rail.diff rdma_ack_timeout.diff ${MC_EXTRA_CPP_PATCHES:-}
+
 
 # Assert the pinned source has the features this image relies on. A ref bump that
 # loses or moves either implementation must fail here, before an expensive build.
@@ -98,7 +105,11 @@ ldd "$DEST" | grep -qi hsa-runtime64 ||
 binary_strings="$(strings "$DEST")"
 printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
     { echo "[mc-build] ERROR: cross-host HIP locality routing is absent" >&2; exit 1; }
-for feature in MC_ENABLE_DEST_LOCAL_RAIL MC_IB_TIMEOUT; do
+features="MC_ENABLE_DEST_LOCAL_RAIL MC_IB_TIMEOUT"
+case " ${MC_EXTRA_CPP_PATCHES:-} " in
+    *" rdma_batch_register.diff "*) features="$features MC_REG_MR_BATCH_THREADS" ;;
+esac
+for feature in $features; do
     [[ "$binary_strings" == *"$feature"* ]] ||
         { echo "[mc-build] ERROR: $DEST lacks $feature" >&2; exit 1; }
 done

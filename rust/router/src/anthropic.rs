@@ -17,8 +17,8 @@
 //!   assistant `tool_use` and user `tool_result`. Top-level `thinking`
 //!   maps to `chat_template_kwargs.enable_thinking` and `thinking`;
 //!   optional `thinking.budget_tokens` maps to SGLang
-//!   `custom_logit_processor` + `custom_params.thinking_budget` only when
-//!   `INFERA_ENABLE_THINKING_BUDGET` is set and the model id is GLM-5.3
+//!   `custom_logit_processor` + `custom_params.thinking_budget` when the
+//!   model id is GLM-5.3
 //!   (budgets are clamped to leave room to close thinking and answer); assistant `thinking` content
 //!   blocks map to OpenAI `reasoning_content`.
 //! - Response (unary): OpenAI completion JSON -> Anthropic Messages JSON,
@@ -144,21 +144,17 @@ pub fn translate_request(body: &Value) -> Result<Value, String> {
     }
 
     // Extended thinking: Anthropic `thinking:{type}` -> engine
-    // `chat_template_kwargs` (`enable_thinking` + `thinking`). Optional
-    // `budget_tokens` -> SGLang hard cap for GLM-5.3 model ids only.
-    if let Some(thinking) = obj.get("thinking").and_then(Value::as_object) {
+    // `chat_template_kwargs` (`enable_thinking` + `thinking`). The thinking
+    // budget (default, `budget_tokens`, `-1` for none) -> SGLang hard cap for
+    // GLM-5.3 model ids only.
+    let thinking = obj.get("thinking").and_then(Value::as_object);
+    if let Some(thinking) = thinking {
         match thinking.get("type").and_then(Value::as_str) {
             Some("enabled") => {
                 out.insert(
                     "chat_template_kwargs".to_string(),
                     json!({"enable_thinking": true, "thinking": true}),
                 );
-                apply_thinking_budget(
-                    &mut out,
-                    thinking,
-                    obj.get("max_tokens"),
-                    obj.get("model").and_then(Value::as_str),
-                )?;
             }
             Some("disabled") => {
                 out.insert(
@@ -169,6 +165,12 @@ pub fn translate_request(body: &Value) -> Result<Value, String> {
             _ => {}
         }
     }
+    apply_thinking_budget(
+        &mut out,
+        thinking,
+        obj.get("max_tokens"),
+        obj.get("model").and_then(Value::as_str),
+    )?;
 
     Ok(Value::Object(out))
 }
@@ -179,16 +181,6 @@ fn is_glm53_model(model: Option<&str>) -> bool {
     };
     let m = model.to_ascii_lowercase().replace('_', "-");
     m.contains("glm-5-3") || m.contains("glm-5.3") || m.contains("glm53")
-}
-
-fn thinking_budget_injection_enabled() -> bool {
-    match std::env::var("INFERA_ENABLE_THINKING_BUDGET") {
-        Ok(v) => {
-            let v = v.trim().to_ascii_lowercase();
-            matches!(v.as_str(), "1" | "true" | "yes" | "on")
-        }
-        Err(_) => false,
-    }
 }
 
 /// Tokens forced after the budget is reached: newline, then `</think>`.
@@ -205,35 +197,61 @@ fn resolve_thinking_budget(budget: u64, max_tokens: u64) -> u64 {
     budget.min(ceiling).max(1)
 }
 
-/// Map Anthropic `thinking.budget_tokens` onto SGLang hard-cap fields.
-fn apply_thinking_budget(
-    out: &mut Map<String, Value>,
-    thinking: &Map<String, Value>,
+/// Budget used when a GLM-5.3 request does not carry `budget_tokens`.
+const DEFAULT_THINKING_BUDGET: u64 = 1024;
+/// `budget_tokens` value that leaves thinking uncapped.
+const UNLIMITED_THINKING_BUDGET: i64 = -1;
+
+/// Integer value of a JSON number (not a bool, string or float).
+fn json_int(v: &Value) -> Option<i64> {
+    v.as_i64()
+        .or_else(|| v.as_u64().and_then(|n| i64::try_from(n).ok()))
+}
+
+/// Return the thinking budget to enforce for a GLM-5.3 request, or `None` for no cap.
+///
+/// `type=disabled` and `budget_tokens=-1` leave thinking uncapped. An omitted
+/// budget uses `DEFAULT_THINKING_BUDGET`. The budget is clamped so the forced
+/// tokens and an answer reserve fit in `max_tokens`; a missing `max_tokens`
+/// needs no clamp. An omitted budget is skipped when `max_tokens` cannot fit
+/// one, an explicit one is rejected.
+fn resolve_request_thinking_budget(
+    thinking: Option<&Map<String, Value>>,
     max_tokens: Option<&Value>,
-    model: Option<&str>,
-) -> Result<(), String> {
-    if !thinking.contains_key("budget_tokens") {
-        return Ok(());
+) -> Result<Option<u64>, String> {
+    if thinking.and_then(|t| t.get("type")).and_then(Value::as_str) == Some("disabled") {
+        return Ok(None);
     }
-    if !is_glm53_model(model) || !thinking_budget_injection_enabled() {
-        return Ok(());
-    }
-    let budget = match thinking.get("budget_tokens").and_then(Value::as_u64) {
-        Some(n) if n >= 1 => n,
-        _ => {
-            return Err("thinking.budget_tokens must be a positive integer".to_string());
+    let max_tokens = match max_tokens {
+        None | Some(Value::Null) => None,
+        Some(v) => match json_int(v) {
+            Some(n) if n >= MIN_MAX_TOKENS_FOR_BUDGET as i64 => Some(Some(n as u64)),
+            _ => Some(None),
+        },
+    };
+    let budget = match thinking.and_then(|t| t.get("budget_tokens")) {
+        Some(v) => match json_int(v) {
+            Some(UNLIMITED_THINKING_BUDGET) => return Ok(None),
+            Some(n) if n >= 1 && !v.is_boolean() => n as u64,
+            _ => return Err("thinking.budget_tokens must be a positive integer or -1".to_string()),
+        },
+        None => {
+            if max_tokens == Some(None) {
+                return Ok(None);
+            }
+            DEFAULT_THINKING_BUDGET
         }
     };
-    let max_tokens = match max_tokens.and_then(Value::as_u64) {
-        Some(n) if n >= MIN_MAX_TOKENS_FOR_BUDGET => n,
-        _ => {
-            return Err(format!(
-                "max_tokens must be >= {MIN_MAX_TOKENS_FOR_BUDGET} when thinking.budget_tokens is set"
-            ));
-        }
-    };
-    // Clients may send budget >= max_tokens; keep room to close thinking and answer.
-    let budget = resolve_thinking_budget(budget, max_tokens);
+    match max_tokens {
+        None => Ok(Some(budget)),
+        Some(Some(n)) => Ok(Some(resolve_thinking_budget(budget, n))),
+        Some(None) => Err(format!(
+            "max_tokens must be >= {MIN_MAX_TOKENS_FOR_BUDGET} when thinking.budget_tokens is set"
+        )),
+    }
+}
+
+fn insert_thinking_budget(out: &mut Map<String, Value>, budget: u64) {
     out.insert(
         "custom_logit_processor".to_string(),
         json!(GLM53_THINKING_BUDGET_PROCESSOR_STR),
@@ -242,6 +260,77 @@ fn apply_thinking_budget(
         "custom_params".to_string(),
         json!({"thinking_budget": budget}),
     );
+}
+
+/// Map the Anthropic thinking budget onto SGLang hard-cap fields (GLM-5.3 only).
+fn apply_thinking_budget(
+    out: &mut Map<String, Value>,
+    thinking: Option<&Map<String, Value>>,
+    max_tokens: Option<&Value>,
+    model: Option<&str>,
+) -> Result<(), String> {
+    if !is_glm53_model(model) {
+        return Ok(());
+    }
+    if let Some(budget) = resolve_request_thinking_budget(thinking, max_tokens)? {
+        insert_thinking_budget(out, budget);
+    }
+    Ok(())
+}
+
+/// Apply the thinking controls of an OpenAI chat body in place (GLM-5.3 only).
+///
+/// The top-level `thinking` object maps to `chat_template_kwargs` without
+/// overriding keys the client set, and is removed from the forwarded body. The
+/// budget follows `resolve_request_thinking_budget` with `max_completion_tokens`
+/// taking precedence over `max_tokens`. Thinking turned off through
+/// `chat_template_kwargs` is not capped.
+pub(crate) fn apply_openai_thinking_budget(body: &mut Value) -> Result<(), String> {
+    let Some(obj) = body.as_object_mut() else {
+        return Ok(());
+    };
+    if !is_glm53_model(obj.get("model").and_then(Value::as_str)) {
+        return Ok(());
+    }
+    let thinking = match obj.get("thinking") {
+        Some(Value::Object(_)) => obj.remove("thinking").and_then(|v| match v {
+            Value::Object(m) => Some(m),
+            _ => None,
+        }),
+        _ => None,
+    };
+    if let Some(flag) = thinking
+        .as_ref()
+        .and_then(|t| t.get("type"))
+        .and_then(Value::as_str)
+        .and_then(|t| match t {
+            "enabled" => Some(true),
+            "disabled" => Some(false),
+            _ => None,
+        })
+    {
+        let kwargs = obj
+            .entry("chat_template_kwargs")
+            .or_insert_with(|| json!({}));
+        if let Some(kwargs) = kwargs.as_object_mut() {
+            kwargs.entry("enable_thinking").or_insert(json!(flag));
+            kwargs.entry("thinking").or_insert(json!(flag));
+        }
+    }
+    if let Some(kwargs) = obj.get("chat_template_kwargs").and_then(Value::as_object) {
+        if kwargs.get("enable_thinking") == Some(&json!(false))
+            || kwargs.get("thinking") == Some(&json!(false))
+        {
+            return Ok(());
+        }
+    }
+    let max_tokens = match obj.get("max_completion_tokens") {
+        Some(v) if !v.is_null() => Some(v.clone()),
+        _ => obj.get("max_tokens").cloned(),
+    };
+    if let Some(budget) = resolve_request_thinking_budget(thinking.as_ref(), max_tokens.as_ref())? {
+        insert_thinking_budget(obj, budget);
+    }
     Ok(())
 }
 
@@ -736,6 +825,8 @@ pub struct SseTranslator {
     next_block_index: u64,
     finish_reason: Option<String>,
     output_tokens: u64,
+    /// Prompt tokens: the router's estimate until the engine reports usage.
+    input_tokens: Option<u64>,
 }
 
 impl SseTranslator {
@@ -754,7 +845,15 @@ impl SseTranslator {
             next_block_index: 0,
             finish_reason: None,
             output_tokens: 0,
+            input_tokens: None,
         }
+    }
+
+    /// Seed `message_start.usage.input_tokens` with the router's prompt token
+    /// count; the engine's final usage chunk replaces it in `message_delta`.
+    pub fn with_input_tokens(mut self, input_tokens: Option<u64>) -> Self {
+        self.input_tokens = input_tokens.filter(|n| *n > 0);
+        self
     }
 
     /// Feed one chunk of the engine's SSE body; returns the Anthropic SSE bytes
@@ -877,12 +976,19 @@ impl SseTranslator {
             None => {
                 // Some engines close with a usage-only chunk carrying no
                 // choices; take the token count from it.
-                if let Some(n) = obj
-                    .get("usage")
+                let usage = obj.get("usage");
+                if let Some(n) = usage
                     .and_then(|u| u.get("completion_tokens"))
                     .and_then(Value::as_u64)
                 {
                     self.output_tokens = self.output_tokens.max(n);
+                }
+                if let Some(n) = usage
+                    .and_then(|u| u.get("prompt_tokens"))
+                    .and_then(Value::as_u64)
+                    .filter(|n| *n > 0)
+                {
+                    self.input_tokens = Some(n);
                 }
                 return;
             }
@@ -908,7 +1014,7 @@ impl SseTranslator {
                         "model": self.model,
                         "stop_reason": Value::Null,
                         "stop_sequence": Value::Null,
-                        "usage": {"input_tokens": 0, "output_tokens": 0},
+                        "usage": {"input_tokens": self.input_tokens.unwrap_or(0), "output_tokens": 0},
                     }
                 }),
             );
@@ -1092,10 +1198,25 @@ impl SseTranslator {
                     "stop_reason": map_finish_reason(self.finish_reason.as_deref()),
                     "stop_sequence": Value::Null,
                 },
-                "usage": {"output_tokens": self.output_tokens},
+                "usage": self.final_usage(),
             }),
         );
         push_event(out, "message_stop", json!({}));
+    }
+}
+
+impl SseTranslator {
+    /// `message_delta.usage`: output tokens, plus input and cache tokens when known.
+    fn final_usage(&self) -> Value {
+        match self.input_tokens {
+            Some(input) => json!({
+                "input_tokens": input,
+                "cache_creation_input_tokens": 0,
+                "cache_read_input_tokens": 0,
+                "output_tokens": self.output_tokens,
+            }),
+            None => json!({"output_tokens": self.output_tokens}),
+        }
     }
 }
 
@@ -1140,21 +1261,86 @@ fn random_hex(len: usize) -> String {
 #[cfg(test)]
 mod sse_tests {
     use super::*;
-    use std::sync::Mutex;
 
-    // Env-gated budget tests must not race under cargo's parallel runner.
-    static THINKING_BUDGET_ENV_LOCK: Mutex<()> = Mutex::new(());
-
-    fn with_thinking_budget_env<T>(enabled: bool, f: impl FnOnce() -> T) -> T {
-        let _guard = THINKING_BUDGET_ENV_LOCK.lock().unwrap();
-        if enabled {
-            std::env::set_var("INFERA_ENABLE_THINKING_BUDGET", "1");
-        } else {
-            std::env::remove_var("INFERA_ENABLE_THINKING_BUDGET");
+    fn stream_events(t: &mut SseTranslator, chunks: &[&str]) -> Vec<(String, Value)> {
+        let mut raw = Vec::new();
+        for c in chunks {
+            raw.extend(t.push(c.as_bytes()));
         }
-        let out = f();
-        std::env::remove_var("INFERA_ENABLE_THINKING_BUDGET");
+        raw.extend(t.finish());
+        let text = String::from_utf8(raw).unwrap();
+        let mut out = Vec::new();
+        let mut name = String::new();
+        for line in text.lines() {
+            if let Some(n) = line.strip_prefix("event: ") {
+                name = n.to_string();
+            } else if let Some(d) = line.strip_prefix("data: ") {
+                out.push((name.clone(), serde_json::from_str(d).unwrap()));
+            }
+        }
         out
+    }
+
+    fn event<'a>(events: &'a [(String, Value)], name: &str) -> &'a Value {
+        &events.iter().find(|(n, _)| n == name).unwrap().1
+    }
+
+    const TEXT_CHUNK: &str = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n";
+    const STOP_CHUNK: &str = "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n";
+    const USAGE_CHUNK: &str =
+        "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3015,\"completion_tokens\":61}}\n\n";
+    const DONE_CHUNK: &str = "data: [DONE]\n\n";
+
+    #[test]
+    fn message_delta_reports_input_tokens_from_usage_chunk() {
+        let mut t = SseTranslator::new("m", Some("abc"));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, USAGE_CHUNK, DONE_CHUNK]);
+        let usage = &event(&events, "message_delta")["usage"];
+        assert_eq!(usage["input_tokens"], 3015);
+        assert_eq!(usage["output_tokens"], 61);
+        assert_eq!(usage["cache_read_input_tokens"], 0);
+        assert_eq!(usage["cache_creation_input_tokens"], 0);
+    }
+
+    #[test]
+    fn message_start_uses_the_input_token_estimate() {
+        let mut t = SseTranslator::new("m", Some("abc")).with_input_tokens(Some(3015));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, DONE_CHUNK]);
+        assert_eq!(
+            event(&events, "message_start")["message"]["usage"]["input_tokens"],
+            3015
+        );
+        assert_eq!(
+            event(&events, "message_delta")["usage"]["input_tokens"],
+            3015
+        );
+    }
+
+    #[test]
+    fn reported_usage_overrides_the_input_token_estimate() {
+        let mut t = SseTranslator::new("m", Some("abc")).with_input_tokens(Some(3000));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, USAGE_CHUNK, DONE_CHUNK]);
+        assert_eq!(
+            event(&events, "message_start")["message"]["usage"]["input_tokens"],
+            3000
+        );
+        assert_eq!(
+            event(&events, "message_delta")["usage"]["input_tokens"],
+            3015
+        );
+    }
+
+    #[test]
+    fn unknown_input_tokens_keep_zero_start_and_omit_the_delta_field() {
+        let mut t = SseTranslator::new("m", Some("abc"));
+        let events = stream_events(&mut t, &[TEXT_CHUNK, STOP_CHUNK, DONE_CHUNK]);
+        assert_eq!(
+            event(&events, "message_start")["message"]["usage"]["input_tokens"],
+            0
+        );
+        assert!(event(&events, "message_delta")["usage"]
+            .get("input_tokens")
+            .is_none());
     }
 
     #[test]
@@ -1297,74 +1483,228 @@ mod sse_tests {
 
     #[test]
     fn request_thinking_budget_tokens_maps_to_sglang_hard_cap() {
-        with_thinking_budget_env(true, || {
-            let body = json!({
-                "model": "glm-5-3",
-                "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 4096,
-                "thinking": {"type": "enabled", "budget_tokens": 1024},
-            });
-            let out = translate_request(&body).unwrap();
-            assert_eq!(
-                out.get("chat_template_kwargs"),
-                Some(&json!({"enable_thinking": true, "thinking": true}))
-            );
-            assert_eq!(
-                out.get("custom_logit_processor"),
-                Some(&json!(GLM53_THINKING_BUDGET_PROCESSOR_STR))
-            );
-            assert_eq!(
-                out.get("custom_params"),
-                Some(&json!({"thinking_budget": 1024}))
-            );
+        let body = json!({
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
         });
-    }
-
-    #[test]
-    fn request_thinking_budget_ignored_when_opt_in_disabled() {
-        with_thinking_budget_env(false, || {
-            let body = json!({
-                "model": "glm-5-3",
-                "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 4096,
-                "thinking": {"type": "enabled", "budget_tokens": 1024},
-            });
-            let out = translate_request(&body).unwrap();
-            assert!(out.get("custom_logit_processor").is_none());
-            assert!(out.get("custom_params").is_none());
-        });
+        let out = translate_request(&body).unwrap();
+        assert_eq!(
+            out.get("chat_template_kwargs"),
+            Some(&json!({"enable_thinking": true, "thinking": true}))
+        );
+        assert_eq!(
+            out.get("custom_logit_processor"),
+            Some(&json!(GLM53_THINKING_BUDGET_PROCESSOR_STR))
+        );
+        assert_eq!(
+            out.get("custom_params"),
+            Some(&json!({"thinking_budget": 1024}))
+        );
     }
 
     #[test]
     fn request_thinking_budget_ignored_for_non_glm53() {
-        with_thinking_budget_env(true, || {
-            let body = json!({
-                "model": "qwen3-32b",
-                "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 4096,
-                "thinking": {"type": "enabled", "budget_tokens": 1024},
-            });
-            let out = translate_request(&body).unwrap();
-            assert!(out.get("custom_logit_processor").is_none());
-            assert!(out.get("custom_params").is_none());
+        let body = json!({
+            "model": "qwen3-32b",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
         });
+        let out = translate_request(&body).unwrap();
+        assert!(out.get("custom_logit_processor").is_none());
+        assert!(out.get("custom_params").is_none());
     }
 
     #[test]
     fn request_thinking_budget_tokens_clamped_to_leave_close_and_answer_room() {
-        with_thinking_budget_env(true, || {
+        let body = json!({
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 8192,
+            "thinking": {"type": "enabled", "budget_tokens": 10000},
+        });
+        let out = translate_request(&body).unwrap();
+        assert_eq!(
+            out.get("custom_params"),
+            Some(&json!({"thinking_budget": 8192 - 2 - 1024}))
+        );
+    }
+
+    fn budget_of(out: &Value) -> Option<u64> {
+        out.get("custom_params")
+            .and_then(|p| p.get("thinking_budget"))
+            .and_then(Value::as_u64)
+    }
+
+    #[test]
+    fn request_thinking_budget_defaults_to_1024_without_budget_tokens() {
+        for thinking in [Some(json!({"type": "enabled"})), None] {
+            let mut body = json!({
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 4096,
+            });
+            if let Some(t) = thinking {
+                body["thinking"] = t;
+            }
+            let out = translate_request(&body).unwrap();
+            assert_eq!(budget_of(&out), Some(1024));
+        }
+    }
+
+    #[test]
+    fn request_thinking_budget_minus_one_and_disabled_leave_thinking_uncapped() {
+        for thinking in [
+            json!({"type": "enabled", "budget_tokens": -1}),
+            json!({"type": "disabled"}),
+        ] {
             let body = json!({
                 "model": "glm-5-3",
                 "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 8192,
-                "thinking": {"type": "enabled", "budget_tokens": 10000},
+                "max_tokens": 4096,
+                "thinking": thinking,
             });
             let out = translate_request(&body).unwrap();
-            assert_eq!(
-                out.get("custom_params"),
-                Some(&json!({"thinking_budget": 8192 - 2 - 1024}))
-            );
-        });
+            assert!(out.get("custom_logit_processor").is_none());
+            assert!(out.get("custom_params").is_none());
+        }
+    }
+
+    fn resolve(thinking: Value, max_tokens: Value) -> Result<Option<u64>, String> {
+        resolve_request_thinking_budget(thinking.as_object(), Some(&max_tokens))
+    }
+
+    #[test]
+    fn resolve_request_budget_default_clamp_and_skip() {
+        assert_eq!(resolve(json!({}), json!(4096)), Ok(Some(1024)));
+        assert_eq!(resolve(json!({}), json!(1000)), Ok(Some(1000 - 2 - 250)));
+        assert_eq!(resolve(json!({}), json!(3)), Ok(None));
+        assert_eq!(resolve(json!({}), json!("x")), Ok(None));
+        assert_eq!(resolve_request_thinking_budget(None, None), Ok(Some(1024)));
+        assert_eq!(
+            resolve(json!({"budget_tokens": 10000}), json!(8192)),
+            Ok(Some(8192 - 2 - 1024))
+        );
+        assert_eq!(
+            resolve_request_thinking_budget(json!({"budget_tokens": 2048}).as_object(), None),
+            Ok(Some(2048))
+        );
+    }
+
+    #[test]
+    fn resolve_request_budget_rejects_invalid_explicit_values() {
+        for bad in [json!(0), json!(-2), json!(true), json!("1024"), json!(1.5)] {
+            let err = resolve(json!({"budget_tokens": bad}), json!(4096)).unwrap_err();
+            assert!(err.contains("positive integer or -1"), "{err}");
+        }
+        let err = resolve(json!({"budget_tokens": 1024}), json!(3)).unwrap_err();
+        assert!(err.contains("max_tokens must be >= 4"), "{err}");
+        assert_eq!(resolve(json!({"budget_tokens": -1}), json!(4096)), Ok(None));
+        assert_eq!(resolve(json!({"type": "disabled"}), json!(4096)), Ok(None));
+    }
+
+    fn openai(mut body: Value) -> Result<Value, String> {
+        apply_openai_thinking_budget(&mut body)?;
+        Ok(body)
+    }
+
+    #[test]
+    fn openai_glm53_body_gets_the_default_budget() {
+        let out = openai(json!({"model": "glm-5-3", "messages": [], "max_tokens": 4096})).unwrap();
+        assert_eq!(
+            out.get("custom_logit_processor"),
+            Some(&json!(GLM53_THINKING_BUDGET_PROCESSOR_STR))
+        );
+        assert_eq!(budget_of(&out), Some(1024));
+        assert!(out.get("chat_template_kwargs").is_none());
+    }
+
+    #[test]
+    fn openai_thinking_object_sets_budget_and_template_kwargs() {
+        let out = openai(json!({
+            "model": "glm-5-3",
+            "max_completion_tokens": 8192,
+            "thinking": {"type": "enabled", "budget_tokens": 2000},
+        }))
+        .unwrap();
+        assert_eq!(budget_of(&out), Some(2000));
+        assert_eq!(
+            out.get("chat_template_kwargs"),
+            Some(&json!({"enable_thinking": true, "thinking": true}))
+        );
+        assert!(out.get("thinking").is_none());
+    }
+
+    #[test]
+    fn openai_max_completion_tokens_wins_over_max_tokens() {
+        let out = openai(json!({
+            "model": "glm-5-3",
+            "max_tokens": 100000,
+            "max_completion_tokens": 1000,
+            "thinking": {"type": "enabled", "budget_tokens": 5000},
+        }))
+        .unwrap();
+        assert_eq!(budget_of(&out), Some(1000 - 2 - 250));
+    }
+
+    #[test]
+    fn openai_minus_one_and_disabled_are_not_capped() {
+        let out = openai(json!({
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": -1},
+        }))
+        .unwrap();
+        assert!(out.get("custom_logit_processor").is_none());
+        assert!(out.get("custom_params").is_none());
+        let out = openai(json!({
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "thinking": {"type": "disabled"},
+        }))
+        .unwrap();
+        assert!(out.get("custom_logit_processor").is_none());
+        assert_eq!(
+            out.get("chat_template_kwargs"),
+            Some(&json!({"enable_thinking": false, "thinking": false}))
+        );
+        let out = openai(json!({
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "chat_template_kwargs": {"enable_thinking": false},
+        }))
+        .unwrap();
+        assert!(out.get("custom_logit_processor").is_none());
+    }
+
+    #[test]
+    fn openai_explicit_template_kwargs_are_not_overridden() {
+        let out = openai(json!({
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled"},
+            "chat_template_kwargs": {"enable_thinking": true, "extra": 1},
+        }))
+        .unwrap();
+        assert_eq!(
+            out.get("chat_template_kwargs"),
+            Some(&json!({"enable_thinking": true, "extra": 1, "thinking": true}))
+        );
+    }
+
+    #[test]
+    fn openai_other_models_are_left_untouched_and_invalid_budget_errors() {
+        let body =
+            json!({"model": "qwen3-32b", "max_tokens": 4096, "thinking": {"type": "enabled"}});
+        assert_eq!(openai(body.clone()).unwrap(), body);
+        let err = openai(json!({
+            "model": "glm-5-3",
+            "thinking": {"type": "enabled", "budget_tokens": 0},
+        }))
+        .unwrap_err();
+        assert!(err.contains("positive integer or -1"), "{err}");
     }
 
     #[test]
@@ -1378,15 +1718,13 @@ mod sse_tests {
 
     #[test]
     fn request_thinking_budget_rejects_max_tokens_below_minimum() {
-        with_thinking_budget_env(true, || {
-            let body = json!({
-                "model": "glm-5-3",
-                "messages": [{"role": "user", "content": "hi"}],
-                "max_tokens": 3,
-                "thinking": {"type": "enabled", "budget_tokens": 1024},
-            });
-            assert!(translate_request(&body).is_err());
+        let body = json!({
+            "model": "glm-5-3",
+            "messages": [{"role": "user", "content": "hi"}],
+            "max_tokens": 3,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
         });
+        assert!(translate_request(&body).is_err());
     }
 
     #[test]

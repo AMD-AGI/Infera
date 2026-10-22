@@ -493,3 +493,143 @@ def test_eagle_topk_disables_thinking_budget(algorithm, topk, expected):
     from infera.engine.sglang.thinking_budget_const import eagle_topk_disables_thinking_budget
 
     assert eagle_topk_disables_thinking_budget(algorithm, topk) is expected
+
+
+# ---------------------------------------------------------------------------
+# Request-level budget: default, unlimited and OpenAI-shaped bodies
+# ---------------------------------------------------------------------------
+
+
+def _resolve(thinking, max_tokens):
+    from infera.engine.sglang.thinking_budget_const import resolve_request_thinking_budget
+
+    return resolve_request_thinking_budget(thinking, max_tokens)
+
+
+def test_request_budget_defaults_to_1024_when_omitted():
+    from infera.engine.sglang.thinking_budget_const import DEFAULT_THINKING_BUDGET
+
+    assert DEFAULT_THINKING_BUDGET == 1024
+    assert _resolve(None, 4096) == 1024
+    assert _resolve({"type": "enabled"}, 4096) == 1024
+    assert _resolve({"type": "enabled"}, None) == 1024
+
+
+def test_request_budget_default_is_clamped_or_skipped_for_small_max_tokens():
+    assert _resolve(None, 1000) == 1000 - 2 - 250
+    assert _resolve(None, 3) is None
+    assert _resolve(None, "x") is None
+
+
+def test_request_budget_minus_one_and_disabled_mean_no_cap():
+    assert _resolve({"type": "enabled", "budget_tokens": -1}, 4096) is None
+    assert _resolve({"type": "disabled"}, 4096) is None
+    assert _resolve({"type": "disabled", "budget_tokens": 512}, 4096) is None
+
+
+def test_request_budget_explicit_value_is_used_and_clamped():
+    assert _resolve({"type": "enabled", "budget_tokens": 2048}, 8192) == 2048
+    assert _resolve({"type": "enabled", "budget_tokens": 10000}, 8192) == 8192 - 2 - 1024
+    assert _resolve({"type": "enabled", "budget_tokens": 2048}, None) == 2048
+
+
+@pytest.mark.parametrize("bad", [0, -2, True, "1024", 1.5])
+def test_request_budget_rejects_invalid_explicit_values(bad):
+    with pytest.raises(ValueError, match="positive integer or -1"):
+        _resolve({"type": "enabled", "budget_tokens": bad}, 4096)
+
+
+def test_request_budget_rejects_explicit_value_with_tiny_max_tokens():
+    with pytest.raises(ValueError, match="max_tokens must be >= 4"):
+        _resolve({"type": "enabled", "budget_tokens": 1024}, 3)
+
+
+def _openai(body):
+    from infera.engine.sglang.thinking_budget_const import apply_openai_thinking_budget
+
+    apply_openai_thinking_budget(body)
+    return body
+
+
+def test_openai_glm53_body_gets_the_default_budget():
+    from infera.engine.sglang.thinking_budget_const import GLM53_THINKING_BUDGET_PROCESSOR_STR
+
+    out = _openai({"model": "glm-5-3", "messages": [], "max_tokens": 4096})
+    assert out["custom_logit_processor"] == GLM53_THINKING_BUDGET_PROCESSOR_STR
+    assert out["custom_params"] == {"thinking_budget": 1024}
+    assert "chat_template_kwargs" not in out
+
+
+def test_openai_thinking_object_sets_budget_and_template_kwargs():
+    out = _openai(
+        {
+            "model": "glm-5-3",
+            "messages": [],
+            "max_completion_tokens": 8192,
+            "thinking": {"type": "enabled", "budget_tokens": 2000},
+        }
+    )
+    assert out["custom_params"] == {"thinking_budget": 2000}
+    assert out["chat_template_kwargs"] == {"enable_thinking": True, "thinking": True}
+    assert "thinking" not in out
+
+
+def test_openai_max_completion_tokens_wins_over_max_tokens_for_the_clamp():
+    out = _openai(
+        {
+            "model": "glm-5-3",
+            "max_tokens": 100000,
+            "max_completion_tokens": 1000,
+            "thinking": {"type": "enabled", "budget_tokens": 5000},
+        }
+    )
+    assert out["custom_params"] == {"thinking_budget": 1000 - 2 - 250}
+
+
+def test_openai_minus_one_disables_the_cap():
+    out = _openai(
+        {
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled", "budget_tokens": -1},
+        }
+    )
+    assert "custom_logit_processor" not in out
+    assert "custom_params" not in out
+    assert out["chat_template_kwargs"] == {"enable_thinking": True, "thinking": True}
+
+
+def test_openai_disabled_thinking_is_not_capped():
+    out = _openai({"model": "glm-5-3", "max_tokens": 4096, "thinking": {"type": "disabled"}})
+    assert "custom_logit_processor" not in out
+    assert out["chat_template_kwargs"] == {"enable_thinking": False, "thinking": False}
+    out = _openai(
+        {
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "chat_template_kwargs": {"enable_thinking": False},
+        }
+    )
+    assert "custom_logit_processor" not in out
+
+
+def test_openai_explicit_template_kwargs_are_not_overridden():
+    out = _openai(
+        {
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "thinking": {"type": "enabled"},
+            "chat_template_kwargs": {"enable_thinking": True, "extra": 1},
+        }
+    )
+    assert out["chat_template_kwargs"] == {"enable_thinking": True, "extra": 1, "thinking": True}
+
+
+def test_openai_other_models_are_left_untouched():
+    body = {"model": "qwen3-32b", "max_tokens": 4096, "thinking": {"type": "enabled"}}
+    assert _openai(dict(body)) == body
+
+
+def test_openai_invalid_budget_raises():
+    with pytest.raises(ValueError, match="positive integer or -1"):
+        _openai({"model": "glm-5-3", "thinking": {"type": "enabled", "budget_tokens": 0}})
