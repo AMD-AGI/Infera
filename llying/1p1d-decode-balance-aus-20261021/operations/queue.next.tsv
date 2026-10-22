@@ -1,11 +1,10 @@
-# Template for the next allocation (scripts/campaign.sh replaces {R}). Plan (10-22 03:40): A/B done on a9 (w0 26,462 @ p90
-# 55.7, w1m 27,186 @ p90 79.6). Next: the exact PR 210 repro first (unmodified kit, image router, canonical 3600 s), then the
-# A/B once more in the opposite order (w1m, then w0; prefill with EAGLE flags, 1800 s) to check it replicates.
+# Template for the next allocation (scripts/campaign.sh replaces {R}). Plan (10-22 12:20, user: requeue away from n02-25,
+# whose GPU is stuck): canonical 3600 s rounds on ONE deployment, to answer why prefill MTP + weight 0 measured below
+# crsuse2's throughput (1800 s windows understate tok/s/GPU by ~6%): the unmodified PR 210 kit (aab4cc36) as the repro,
+# then the prefill restarted with the decode's EAGLE flags on GPUs 0-3 (weight 0), then weight 1,000,000.
 run pr210/kit_prep.sh
 run pr210/kit_up.sh RUN=k{R}r
 run pr210/kit_round.sh RUN=k{R}r VARIANT=k{R}-repro CONC=88 ROUTER=image
-run pr210/kit_down.sh RUN=k{R}r
-run pr210/kit_prep.sh WAIT_VRAM=60
-run pr210/kit_up.sh RUN=k{R} MTP=1
-run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w1m CONC=88 ROUTER=exp WEIGHT=1000000 DURATION=1800
-run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w0 CONC=88 ROUTER=exp WEIGHT=0 DURATION=1800
+run pr210/kit_restart_prefill.sh RUN=k{R}r TAG=nomtp GPUS=0,1,2,3 MTP=1
+run pr210/kit_round.sh RUN=k{R}r VARIANT=k{R}-pmtp-w0 CONC=88 ROUTER=exp WEIGHT=0
+run pr210/kit_round.sh RUN=k{R}r VARIANT=k{R}-pmtp-w1m CONC=88 ROUTER=exp WEIGHT=1000000

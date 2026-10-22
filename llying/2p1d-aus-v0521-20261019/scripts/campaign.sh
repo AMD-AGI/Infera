@@ -18,13 +18,16 @@ R="$(cd "$HERE/.." && pwd)"
 O="$R/operations"
 export SHIM_JOB="$JOB" PATH="$R/tools/sshshim:$PATH"   # see tools/sshshim/ssh
 log() { echo "$(date -u +%FT%TZ) campaign: $*"; }
+# SIGNALING shows while Slurm signals a step of a running job (seen 10-22 12:20 when kit containers were removed):
+# it is not the job leaving its nodes.
+running() { [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" =~ ^(RUNNING|SIGNALING)$ ]]; }
 alert() { mkdir -p "$R/runtime/patrol"; echo "$(date -u +%FT%TZ) [campaign] $*" >> "$R/runtime/patrol/ALERT.log"; log "$*"; }
 # Watchdog: a queue that stopped on a failed step leaves the allocation idle until the next preemption, which can be
 # hours away (a10: 7 h). After STALL_MIN minutes of that, give the nodes back by requeueing the job.
 STALL_MIN="${STALL_MIN:-30}"
 watch_round() {
     local qlog="$R/runtime/runs/$ROUND/tune/queue.log" last age
-    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" == RUNNING ]]; do
+    while running; do
         sleep 60
         last="$(grep -E 'queue: step [0-9]+' "$qlog" 2>/dev/null | tail -n 1)"
         [[ "$last" == *"failed rc="* ]] || continue
@@ -47,7 +50,7 @@ if [[ -n "${RESUME_ROUND:-}" ]]; then
     watch_round
 fi
 while true; do
-    while [[ "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" != RUNNING ]]; do
+    while ! running; do
         [[ -z "$(squeue -h -j "$JOB" -o %T 2>/dev/null)" ]] && { alert "job $JOB is gone ($(sacct -n -X -j "$JOB" -o State | xargs)); stopping"; exit 1; }
         sleep 30
     done

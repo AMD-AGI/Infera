@@ -77,3 +77,11 @@
 - 11:31 PR 210 head 已更新为 `d395c3b3`：kit 的 prefill 加上了 decode 的 EAGLE 参数（note 10，引用了 AUS 的冷态数据），1P1D smoke 6/6、
   GSM8K 0.9704。router 分支变基到 `d395c3b3`，补文档（`manual/reference/cli.md`、`manual/features/kv_aware_routing.md`、kit README 的
   "Decode request balancing"），**开 PR [#213](https://github.com/AMD-AGI/Infera/pull/213)**（base 为 PR 210 的分支，PR 210 合入后改指 main）。
+- 11:28–11:38 两台构建镜像；11:38 起栈（kit 原样）。prefill 11:51 服务起来，但第一个预热请求一直跑不完，`/health` 持续超时。
+  12:10 查 n02-25：rocm-smi **card0 利用率 100%、显存 0%（无进程却一直忙，即 kit README note 9 的 GPU 卡死状态，与 prepare 报的
+  "HIP GPU1 崩溃"是同一张卡）**；prefill（GPU 4–7）只有 card4 100%、card5–7 为 0%，4 个调度器各吃满一个 CPU；节点负载约 50，
+  加载权重 104 s（其他节点 37 s）。判断节点坏了。
+- 12:15 用户选择：拆掉部署、排除 n02-25、重新排队。12:20 `kit_down.sh`；12:22 `scontrol requeue`，PENDING 期间把 `ExcNodeList` 改为
+  `n04-29,n02-25`；下次分配的模板改为同一部署 3600 s：kit 原样复现 → prefill 加 EAGLE（GPU 0–3，权重 0）→ 权重 1,000,000。
+- 12:20 campaign 又误判一次：拆部署时 `squeue` 短暂显示 **SIGNALING**，campaign 只认 RUNNING，当成"作业离开"、随即又当成"新分配"
+  （`a10x1220`）跑了一遍 prepare。修正：RUNNING 与 SIGNALING 都算在运行（`running()`），12:24 重启 campaign。
