@@ -1,14 +1,11 @@
-# Template for the next allocation (scripts/campaign.sh replaces {R}). Plan (10-22 00:45): ka8-pmtp-w180k is in (records,
-# cut 2 s after its 1800 s window: 27,577 tok/s/GPU, interactivity p90 74.4). The v0.5.22 C88 step fit puts one request on
-# the busiest rank at ~1.05M tokens, so 180,000 under-weights requests (busiest / mean requests still 1.47 / 1.82).
-# Next: the control (weight 0 = PR 210's token-only decode demand, new router) first, then weight 1,000,000; prefill with
-# the EAGLE flags, flushed before each round, 1800 s windows (a cut round is measured over what it covered). Then the exact
-# PR 210 repro (unmodified kit, image router, canonical 3600 s) on a fresh deployment.
+# Template for the next allocation (scripts/campaign.sh replaces {R}). Plan (10-22 03:40): A/B done on a9 (w0 26,462 @ p90
+# 55.7, w1m 27,186 @ p90 79.6). Next: the exact PR 210 repro first (unmodified kit, image router, canonical 3600 s), then the
+# A/B once more in the opposite order (w1m, then w0; prefill with EAGLE flags, 1800 s) to check it replicates.
 run pr210/kit_prep.sh
-run pr210/kit_up.sh RUN=k{R} MTP=1
-run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w0 CONC=88 ROUTER=exp WEIGHT=0 DURATION=1800
-run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w1m CONC=88 ROUTER=exp WEIGHT=1000000 DURATION=1800
-run pr210/kit_down.sh RUN=k{R}
-run pr210/kit_prep.sh WAIT_VRAM=60
 run pr210/kit_up.sh RUN=k{R}r
 run pr210/kit_round.sh RUN=k{R}r VARIANT=k{R}-repro CONC=88 ROUTER=image
+run pr210/kit_down.sh RUN=k{R}r
+run pr210/kit_prep.sh WAIT_VRAM=60
+run pr210/kit_up.sh RUN=k{R} MTP=1
+run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w1m CONC=88 ROUTER=exp WEIGHT=1000000 DURATION=1800
+run pr210/kit_round.sh RUN=k{R} VARIANT=k{R}-pmtp-w0 CONC=88 ROUTER=exp WEIGHT=0 DURATION=1800
