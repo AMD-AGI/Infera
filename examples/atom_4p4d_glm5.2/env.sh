@@ -65,8 +65,8 @@ export MTP_AL="${MTP_AL:-}"
 # Memory, chunk budgets, block size, layer split and offload load length below
 # follow ATOM's GLM-5.2 AgentX recipe (/app/ATOM/recipes/Agentic-GLM-5.2.md in
 # the image) and InferenceX PR #4045. The decode's 0.94 and 2048, with the
-# shared communicator groups worker.sh sets, give it ~22% more KV blocks, which
-# keeps the agents' prefixes on the decode up to about C105 (README "The recipe").
+# shared communicator groups worker.sh sets, give it ~24% more KV blocks, which
+# keeps the agents' prefixes on the decode up to about C100 (README "The recipe").
 export PREFILL_MEM_UTIL="${PREFILL_MEM_UTIL:-0.85}"
 export DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-0.94}"
 
@@ -84,9 +84,10 @@ export BLOCK_SIZE="${BLOCK_SIZE:-16}"
 
 # Prefill parallelism: 4 = TP1 x PP4, eager, with PREFILL_PP_PARTITION layers
 # per stage. 1 = TP4 + DCP4 with CUDA graphs, slower under AgentX load (README
-# "Reference numbers"); its validated settings were PREFILL_MEM_UTIL=0.90,
-# PREFILL_MAX_BATCHED_TOKENS=16384, BLOCK_SIZE=64, OFFLOAD_MIN_LOAD_TOKENS=8192
-# and PREFILL_SEND_WORKERS empty.
+# "Reference numbers"); it cannot use the Store (ATOM's Store offload does not
+# support DCP), and its validated settings were PREFILL_CPU_TIER=lmcache,
+# PREFILL_MEM_UTIL=0.90, PREFILL_MAX_BATCHED_TOKENS=16384, BLOCK_SIZE=64,
+# OFFLOAD_MIN_LOAD_TOKENS=8192 and PREFILL_SEND_WORKERS empty.
 export PREFILL_PP="${PREFILL_PP:-4}"
 export PREFILL_PP_PARTITION="${PREFILL_PP_PARTITION:-20,20,20,18}"
 
@@ -100,7 +101,7 @@ export PREFILL_SEND_WORKERS="${PREFILL_SEND_WORKERS-}"
 #   store    Mooncake Store, as InferenceX PR #4045: one master and two owners
 #            of STORE_OWNER_GB each, one per NUMA node, one pool shared by the
 #            four PP stages, read and written over RDMA (engine/store.sh,
-#            README gotcha 14)
+#            README gotcha 14); not with PREFILL_PP=1
 #   lmcache  LMCache, PREFILL_OFFLOAD_GB per PP stage, as GTT (gotcha 4)
 #   off      Mooncake P->D only
 export PREFILL_CPU_TIER="${PREFILL_CPU_TIER:-store}"

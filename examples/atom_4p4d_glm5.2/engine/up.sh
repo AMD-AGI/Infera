@@ -24,6 +24,9 @@ case "$PREFILL_CPU_TIER" in
     store | lmcache | off) ;;
     *) die "PREFILL_CPU_TIER must be store, lmcache or off, not $PREFILL_CPU_TIER" ;;
 esac
+# ATOM's Mooncake Store offload refuses decode context parallelism at startup.
+[[ "$PREFILL_PP" != 1 || "$PREFILL_CPU_TIER" != store ]] ||
+    die "the DCP prefill (PREFILL_PP=1) cannot use the Store: set PREFILL_CPU_TIER=lmcache or off"
 # A full decode step, 2 x CONC sequences of MTP_K + 1 tokens, must fit one
 # batch; otherwise every step is cut short of max-num-seqs.
 (((MTP_K + 1) * 2 * CONC <= DECODE_MAX_BATCHED_TOKENS)) ||

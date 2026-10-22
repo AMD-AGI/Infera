@@ -277,8 +277,9 @@ pub fn atom_handoff(prefill_reply: &Value) -> anyhow::Result<Map<String, Value>>
     Ok(handoff)
 }
 
-/// The prompt ids of a `return_token_ids` reply: top level for chat
-/// completions, on the first choice for completions. Only a list of integers.
+/// The prompt ids of a `return_token_ids` reply: ATOM puts them at the top
+/// level (chat and completions); the first choice is read too. Only a
+/// non-empty list of non-negative integers.
 fn atom_prompt_ids(reply: &Value) -> Option<&Value> {
     [
         reply.get("prompt_token_ids"),
@@ -577,7 +578,7 @@ mod tests {
     #[test]
     fn atom_handoff_carries_the_prompt_ids() {
         let kv = json!({"transfer_id": "t"});
-        // Chat completions: top level; completions: the first choice.
+        // At the top level, as ATOM returns them, or on the first choice.
         for reply in [
             json!({"kv_transfer_params": kv, "prompt_token_ids": [5, 6, 7]}),
             json!({"kv_transfer_params": kv, "choices": [{"prompt_token_ids": [5, 6, 7]}]}),

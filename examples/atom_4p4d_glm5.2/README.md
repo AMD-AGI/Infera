@@ -13,7 +13,7 @@ One file is site-specific. Fill it in, then:
 
 ```bash
 $EDITOR env.sh               # the only file you edit
-bash engine/up.sh            # etcd -> prefill + decode -> router, waiting on health
+bash engine/up.sh            # etcd -> Store -> prefill + decode -> router, waiting on health
 bash engine/smoke.sh         # PD registration, completion/chat/stream, 66k-token prefix reuse
 bash engine/down.sh          # save logs, remove containers, wait for VRAM to drain
 ```
@@ -87,12 +87,13 @@ The settings are those of ATOM's GLM-5.2 AgentX recipe
 (`/app/ATOM/recipes/Agentic-GLM-5.2.md` in the image) and of InferenceX PR
 #4045's 1P1D (`MC_NUM_QP_PER_EP=1` on every Mooncake peer, `TOPK_FORCE_PATH=one`,
 `--timeout-keep-alive 900`, the Store). The decode's memory settings give it
-~196K KV blocks instead of ~160K at 0.90 / 16384 with separate communicators: AgentX lanes reuse their whole
-context every turn, and once C × mean prompt length outgrows the decode's KV
-pool its prefix hits collapse, the prefill re-sends whole prompts and TTFT
-explodes (about C85 before, C105 now). Not taken from them: `OFFLOAD_PROFILE=1`
-(logging only), the decode's graphs (here every 4 up to 2 × CONC, there every 8
-up to 256) and its max-num-seqs (here 2 × CONC, there 512).
+~198.5K KV blocks instead of ~160K at 0.90 / 16384 with separate communicators:
+AgentX lanes reuse their whole context every turn, and once C × mean prompt
+length outgrows the decode's KV pool its prefix hits collapse, the prefill
+re-sends whole prompts and TTFT explodes (about C85 before, C100 now). Not
+taken from them: `OFFLOAD_PROFILE=1` (logging only), the decode's graphs (here
+every 4 up to 2 × CONC, there every 8 up to 256) and its max-num-seqs (here
+2 × CONC, there 512).
 
 MTP depth follows `CONC`: K3 at CONC ≥ 48, K4 below. The Store
 (`PREFILL_CPU_TIER=store`, gotcha 14) is one pool of 2 × 768 GiB that the four
@@ -111,8 +112,10 @@ throughput per GPU is over all 8 GPUs.
 ### The DCP prefill
 
 `PREFILL_PP=1` starts the prefill as TP4 + DCP4 with CUDA graphs up to
-2 × CONC, as the decode. It was validated with these settings, which are not
-the defaults, and with the LMCache tier; set them with it:
+2 × CONC, as the decode. ATOM's Mooncake Store offload does not support DCP, so
+this prefill takes `PREFILL_CPU_TIER=lmcache` (or `off`); `up.sh` refuses it
+with the Store. It was validated with these settings, which are not the
+defaults; set them with it:
 
 ```bash
 PREFILL_PP=1 PREFILL_MEM_UTIL=0.90 PREFILL_MAX_BATCHED_TOKENS=16384 BLOCK_SIZE=64 \
@@ -122,13 +125,13 @@ PREFILL_PP=1 PREFILL_MEM_UTIL=0.90 PREFILL_MAX_BATCHED_TOKENS=16384 BLOCK_SIZE=6
 Each DCP rank then writes to one decode rank without staging, and the LMCache
 lookup covers the four DCP ranks, each holding a distinct KV shard. Under AgentX
 load it is slower than the PP prefill (reference numbers below). It has not
-been run with the Store or with the current decode settings.
+been run with the current decode settings.
 
 ## Validation status
 
 The image above with the defaults of `env.sh`, on 8×MI355X nodes:
 
-| item | PP prefill, Store (default) | PP prefill, `PREFILL_CPU_TIER=lmcache`, MXFP4 MTP experts (earlier image) |
+| item | PP prefill, Store (default) | PP prefill, `PREFILL_CPU_TIER=lmcache` (earlier image and kit) |
 |---|---|---|
 | correctness (`smoke.py`, real MTP acceptance) | **passed**, 6/6 | **passed**, 6/6 |
 | GSM8K (200 questions) | **0.975** | **0.985** |
@@ -161,14 +164,10 @@ others.
 
 The decode hit falls from C96 on, as C × prompt length outgrows the decode's
 KV pool; the Store's RDMA loads do not block the prefill, so throughput still
-rises to C112. With `PREFILL_CPU_TIER=lmcache` (other nodes, and the MTP
-layer's experts then quantized to MXFP4) C56 and C72 matched the Store
-(33392 / 40326), but C96 and C112 dropped to 30690 / 23321: LMCache loads
-synchronously and takes about half of each PP stage's time there.
-
-Those MXFP4 MTP experts gave the Store 1.4–2.5% more at each point
-(33578 / 40844 / 47444 / 48859): shorter decode steps, and ~203K KV blocks
-instead of ~198K.
+rises to C112. With `PREFILL_CPU_TIER=lmcache` (other nodes, an earlier image
+and kit) C56 and C72 were on par with the Store (33392 / 40326), but C96 and
+C112 dropped to 30690 / 23321: LMCache loads synchronously and takes about half
+of each PP stage's time there.
 
 The previous defaults (Python router, decode at 0.90 / 16384 with separate
 communicators, 4 send workers, LMCache, an image without the decode patches)

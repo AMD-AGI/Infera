@@ -45,12 +45,20 @@ fi
 [[ "$(git -C "$ix" rev-parse HEAD)" == "$INFERENCEX_REF" ]] ||
     die "InferenceX checkout $ix is not at $INFERENCEX_REF"
 
-# AgentX metadata: the prefill's LMCache CPU tier is DRAM offload.
-offload="KV_OFFLOADING=none"
-if ((PREFILL_OFFLOAD_GB > 0)); then
-    lmcache_version="$(docker run --rm "$IMAGE" pip show lmcache | awk '/^Version:/ {print $2}')"
-    offload=$'KV_OFFLOADING=dram\nKV_OFFLOAD_BACKEND=lmcache\n'
-    offload+="KV_OFFLOAD_BACKEND_METADATA={\"name\":\"lmcache\",\"version\":\"${lmcache_version%%+*}\"}"
+# AgentX metadata: the prefill's CPU tier (PREFILL_CPU_TIER) is DRAM offload,
+# backed by the Mooncake Store or by LMCache.
+offload="KV_OFFLOADING=none" backend="" version=""
+if [[ "$PREFILL_CPU_TIER" == store ]]; then
+    backend=mooncake
+    version="$(docker run --rm "$IMAGE" mooncake_master --version | awk '/version/ {print $3}')"
+elif [[ "$PREFILL_CPU_TIER" == lmcache ]] && ((PREFILL_OFFLOAD_GB > 0)); then
+    backend=lmcache
+    version="$(docker run --rm "$IMAGE" pip show lmcache | awk '/^Version:/ {print $2}')"
+fi
+if [[ -n "$backend" ]]; then
+    [[ -n "$version" ]] || die "cannot read the $backend version from $IMAGE"
+    offload=$'KV_OFFLOADING=dram\n'"KV_OFFLOAD_BACKEND=$backend"$'\n'
+    offload+="KV_OFFLOAD_BACKEND_METADATA={\"name\":\"$backend\",\"version\":\"${version%%+*}\"}"
 fi
 # The scraped /metrics come from the router's worker list, so workers on
 # other nodes are included. PREPARE_ONLY has no router to ask: this node's ports.

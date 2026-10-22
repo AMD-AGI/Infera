@@ -51,7 +51,9 @@ all of them. Set it where those series are needed, such as profiling runs.
 The anchors only show that the source text did not drift, not that the two
 aiter kernels still agree with RCCL once aiter's sync primitives or buffer
 registration change. After a base move, run `check_dcp_merge.py` in the new
-image on 2, 4 or 8 GPUs; it exits 1 on any mismatch:
+image on 4 or 8 GPUs (its merge cases use GLM-5.2's 64 heads, which on 2 GPUs
+leave each rank more heads than the merge kernel takes); it exits 1 on any
+mismatch:
 
 ```bash
 docker run --rm --network host --ipc host --device /dev/kfd --device /dev/dri \

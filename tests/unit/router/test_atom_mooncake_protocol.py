@@ -99,8 +99,8 @@ class TestAtomMooncakeProtocol:
         pre = self.proto.annotate_prefill(body, self.p, self.d, room_id=1)
         assert pre["return_token_ids"] is True
         assert "return_token_ids" not in body
-        # ATOM puts them at the top level of a chat response, under the
-        # choice on completions; both reach decode's kv_transfer_params.
+        # ATOM puts them at the top level (chat and completions); ids on the
+        # first choice are taken too. Both reach decode's kv_transfer_params.
         for payload in (
             {"kv_transfer_params": self._prefill_response_kv(), "prompt_token_ids": [5, 6, 7]},
             {

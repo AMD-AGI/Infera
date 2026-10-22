@@ -7,7 +7,7 @@
 """GPU check of the DCP merge kernels of patch_aiter_custom_alltoall.py.
 
 The strict anchors only prove that the patched source text did not drift. Run
-this in the image whenever ATOM_BASE_IMAGE moves, on 2, 4 or 8 GPUs of a node
+this in the image whenever ATOM_BASE_IMAGE moves, on 4 or 8 GPUs of a node
 (see README.md):
 
     torchrun --nproc-per-node 4 check_dcp_merge.py
@@ -35,6 +35,11 @@ import torch.distributed as dist
 
 dist.init_process_group("nccl")
 rank, world = dist.get_rank(), dist.get_world_size()
+# On 2 GPUs a rank would merge 32 of the 64 heads, more than the one-kernel
+# merge takes (h_local x head_dim <= 4096), so the merge cases could not pass.
+if world not in (4, 8):
+    dist.destroy_process_group()
+    sys.exit(f"[check_dcp_merge] run on 4 or 8 GPUs, not {world}")
 torch.cuda.set_device(rank)
 dev = torch.device(f"cuda:{rank}")
 

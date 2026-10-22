@@ -4,8 +4,9 @@ A PD-disaggregated GLM-5.2-MXFP4 deployment on a single 8×MI355X node: one
 **TP1 × PP4 prefill** (GPUs 0-3, ATOM's GLM-5.2 AgentX recipe) with a Mooncake
 Store CPU KV tier, one **TP4 + DCP4 decode** (GPUs 4-7), KV moved by Mooncake
 over the ionic RDMA rails, and the Infera Rust router (round-robin with
-`--session-affinity prefill`). `PREFILL_PP=1` runs a TP4 + DCP4 prefill instead.
-The runnable kit is
+`--session-affinity prefill`). `PREFILL_PP=1` runs a TP4 + DCP4 prefill instead,
+with the LMCache tier: ATOM's Store offload does not support DCP. The runnable
+kit is
 [`examples/atom_4p4d_glm5.2/`](https://github.com/AMD-AGI/Infera/tree/main/examples/atom_4p4d_glm5.2);
 its README carries the full recipe, reference numbers and gotchas.
 
@@ -77,8 +78,8 @@ CONC=96 MTP_AL=2.99 SESSION_AFFINITY=off ROUTER_EXTRA_ARGS="--breaker-failure-th
 bash engine/agentx/agentx.sh   # InferenceX 918524ff, 10 warm-up requests per lane, 3600 s
 ```
 
-With the kit's defaults, C56, C72, C96 and C112 reached 33578, 40844, 47444 and
-48859 input tokens/s/GPU (InferenceX CI's AgentX client). The kit README lists
+With the kit's defaults, C56, C72, C96 and C112 reached 32925, 40075, 46234 and
+48154 input tokens/s/GPU (InferenceX CI's AgentX client). The kit README lists
 them, the LMCache tier, and the PP and DCP prefills under the previous
 defaults.
 
