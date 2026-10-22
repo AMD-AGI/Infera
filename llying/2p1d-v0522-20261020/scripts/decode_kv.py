@@ -3,13 +3,14 @@ and whether the busiest rank by running requests is also the busiest by KV.
   python3 decode_kv.py RUN_DIR WINDOW_START WINDOW_END TOKENS_PER_RANK"""
 import re, sys, datetime, collections, statistics as st
 run, t0, t1, cap = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
-P = re.compile(r'^(\S+)Z \[\S+ \S+ DP(\d+) TP\d+\] Decode batch, #running-req: (\d+), #token: (\d+), token usage: ([0-9.]+).*?pre-allocated usage: ([0-9.]+), #prealloc-req: (\d+), #transfer-req: (\d+), #retracted-req: (\d+)')
+# DP-attention ranks log as "DP<r> TP<t>"; a DCP decode logs its one batch from TP 0 only (rank 0).
+P = re.compile(r'^(\S+)Z \[\S+ \S+ (?:DP(\d+) TP\d+|TP0)\] Decode batch, #running-req: (\d+), #token: (\d+), token usage: ([0-9.]+).*?pre-allocated usage: ([0-9.]+), #prealloc-req: (\d+), #transfer-req: (\d+), #retracted-req: (\d+)')
 b = collections.defaultdict(dict); nr = 0
 for line in open(run + '/logs/glm52_2p1d-decode.log', errors='replace'):
     m = P.match(line)
     if not m or not (t0 <= m.group(1) <= t1): continue
     ts = datetime.datetime.fromisoformat(m.group(1)[:26]); k = ts.replace(second=ts.second // 10 * 10, microsecond=0)
-    r = int(m.group(2)); nr = max(nr, r + 1)
+    r = int(m.group(2) or 0); nr = max(nr, r + 1)
     b[k][r] = (int(m.group(3)), int(m.group(4)), float(m.group(5)), float(m.group(6)), int(m.group(7)), int(m.group(9)))
 full = [v for v in b.values() if len(v) >= 3 * nr // 4]
 tok = sorted(sum(x[1] for x in v.values()) for v in full)

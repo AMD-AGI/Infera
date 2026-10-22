@@ -32,6 +32,13 @@ for conc in "$@"; do
     (cd "$kit" && SIM_ACCEPT_LEN=3.61 RUN_ID="$label-$(date -u +%m%dT%H%M)" bash engine/up.sh) >"$log_dir/$label.log" 2>&1 &&
         (cd "$kit" && CONC="$conc" bash engine/agentx/agentx.sh) >>"$log_dir/$label.log" 2>&1
     echo "$(date -u +%T) $label agentx exited $?"
+    # The engines' counters at the end of the run, before down.sh removes them.
+    run_dir="$(cat "$WORK_DIR/current_run")"
+    mkdir -p "$run_dir/metrics"
+    for ((i = 0; i < ${PREFILL_WORKERS:-2}; i++)); do
+        curl -s -m 10 "http://$PREFILL_NODE_IP:$((27201 + 256 * i))/metrics" >"$run_dir/metrics/prefill$i.prom"
+    done
+    curl -s -m 10 "http://$DECODE_NODE_IP:27301/metrics" >"$run_dir/metrics/decode.prom"
     (cd "$kit" && bash engine/down.sh) >>"$log_dir/$label.log" 2>&1
     echo "$(date -u +%T) $label down"
 done

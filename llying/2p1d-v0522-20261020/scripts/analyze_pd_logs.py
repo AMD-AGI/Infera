@@ -14,8 +14,9 @@ from pathlib import Path
 
 run, t0, t1 = Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 # DP-attention ranks log as "DP<r> TP<t>"; a pipeline-parallel prefill logs as "PP<s>", every stage
-# repeating the same batch, so only stage 0 is counted (as rank 0).
-TS = re.compile(r"^(\S+)Z \[\S+ \S+ (?:DP(\d+) TP\d+|PP(\d+))\] ")
+# repeating the same batch, and a DCP decode (one batch for all its GPUs) as "TP<t>", so only stage 0
+# and TP 0 are counted (as rank 0).
+TS = re.compile(r"^(\S+)Z \[\S+ \S+ (?:DP(\d+) TP\d+|PP(\d+)|TP(\d+))\] ")
 PRE = re.compile(r"Prefill batch, #new-seq: \d+, #new-token: (\d+), #cached-token: (\d+).*#queue-req: (\d+)")
 DEC = re.compile(r"Decode batch, #running-req: (\d+).*#prealloc-req: (\d+), #transfer-req: (\d+)")
 
@@ -23,7 +24,7 @@ DEC = re.compile(r"Decode batch, #running-req: (\d+).*#prealloc-req: (\d+), #tra
 def lines(name):
     for line in open(run / "logs" / f"glm52_2p1d-{name}.log", errors="replace"):
         m = TS.match(line)
-        if m and t0 <= m.group(1) <= t1 and m.group(3) in (None, "0"):
+        if m and t0 <= m.group(1) <= t1 and m.group(3) in (None, "0") and m.group(4) in (None, "0"):
             yield datetime.datetime.fromisoformat(m.group(1)[:26]), int(m.group(2) or 0), line
 
 
