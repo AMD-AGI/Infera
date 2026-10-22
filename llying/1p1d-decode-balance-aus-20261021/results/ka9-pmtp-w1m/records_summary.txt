@@ -1,0 +1,4 @@
+requests 5142 in 1800 s of a 1800 s window (5184 profiling records)
+throughput 27,452 tok/s/GPU  output 230.5  rps 2.857
+interactivity p50 / p90 86.5 / 79.6  ITL p50 / p90 11.6 / 12.6 ms
+TTFT p50 / p90 / mean 5.60 / 11.91 / 9.50 s
