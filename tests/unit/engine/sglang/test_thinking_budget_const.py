@@ -217,7 +217,7 @@ _E = GLM53_THINKING_END_TOKEN_ID
 _NL = GLM53_NEW_LINE_TOKEN_ID
 
 
-def _spec(origin, output, committed, cands, budget, history=()):
+def _spec(origin, output, committed, cands, budget, history=(), state=None):
     from infera.engine.sglang.thinking_budget_const import resolve_thinking_budget_spec_actions
 
     return resolve_thinking_budget_spec_actions(
@@ -230,6 +230,7 @@ def _spec(origin, output, committed, cands, budget, history=()):
         start_id=_S,
         end_id=_E,
         newline_id=_NL,
+        state=state,
     )
 
 
@@ -247,7 +248,30 @@ def test_spec_actions_stop_forcing_after_a_natural_end_in_the_draft():
 
 def test_spec_actions_count_committed_tokens_missing_from_output_ids():
     # Two tokens are committed but not yet in output_ids; the last one is the bonus.
-    assert _spec([5, _S], [1, 2], 4, [8, 7, 9, _NL], 6) == [None, None, "newline", "end"]
+    history = [([2, 3, 8, 6], 3)]
+    assert _spec([5, _S], [1, 2], 4, [8, 7, 9, _NL], 6, history) == [
+        None,
+        None,
+        "newline",
+        "end",
+    ]
+
+
+def test_spec_actions_do_not_force_when_committed_tokens_cannot_be_recovered():
+    # Two unseen committed tokens and no history: the first could be </think>.
+    assert _spec([5, _S], [1, 2], 4, [_NL, 10, 11, 12], 3) == [None] * 4
+    assert _spec([5, _S], [1, 2], 4, [9, 10, 11, 12], 3) == [None] * 4
+
+
+def test_spec_actions_reuse_a_scan_state_without_mutating_it():
+    from infera.engine.sglang.thinking_budget_const import resolve_thinking_budget_action
+
+    state: dict = {}
+    resolve_thinking_budget_action([5, _S], [1, 2], 4, _S, _E, _NL, state)
+    snapshot = dict(state)
+    with_state = _spec([5, _S], [1, 2], 2, [2, 7, 8, _NL], 4, state=state)
+    assert state == snapshot
+    assert with_state == _spec([5, _S], [1, 2], 2, [2, 7, 8, _NL], 4)
 
 
 def test_spec_actions_treat_a_shorter_committed_len_as_no_lag():
@@ -293,17 +317,17 @@ def test_spec_actions_open_marker_in_the_candidates_is_counted():
     assert _spec([5], [9], 1, [9, _S, 7, 8], 1) == [None, None, "newline", "newline"]
 
 
-class _FakeTensor:
-    """Minimal stand-in for a device tensor slice."""
+class _FakeStep:
+    """Host-side view of one verify step; counts host copies."""
 
-    def __init__(self, values):
-        self._values = values
+    def __init__(self, rows, seqs):
+        self.rows = rows
+        self.seqs = seqs
+        self.copies = 0
 
-    def tolist(self):
-        return list(self._values)
-
-    def __int__(self):
-        return int(self._values)
+    def cpu(self):
+        self.copies += 1
+        return self.rows, self.seqs
 
 
 class _FakeLogits:
@@ -321,9 +345,17 @@ class _FakeLogits:
             self.forced[row] = col
 
 
-def _processor_class(monkeypatch):
+@pytest.fixture
+def processor_cls(monkeypatch):
+    """The processor class built on a stub SGLang base, with module state restored."""
     import sys
     import types
+
+    import infera.engine.sglang as pkg
+
+    name = "infera.engine.sglang.thinking_budget"
+    saved_module = sys.modules.pop(name, None)
+    saved_attr = pkg.__dict__.pop("thinking_budget", None)
 
     base_mod = types.ModuleType("sglang.srt.sampling.custom_logit_processor")
 
@@ -331,29 +363,35 @@ def _processor_class(monkeypatch):
         pass
 
     base_mod.ThinkingBudgetLogitProcessor = ThinkingBudgetLogitProcessor
-    for name in ("sglang", "sglang.srt", "sglang.srt.sampling"):
-        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    for mod_name in ("sglang", "sglang.srt", "sglang.srt.sampling"):
+        monkeypatch.setitem(sys.modules, mod_name, types.ModuleType(mod_name))
     monkeypatch.setitem(sys.modules, "sglang.srt.sampling.custom_logit_processor", base_mod)
-    monkeypatch.delitem(sys.modules, "infera.engine.sglang.thinking_budget", raising=False)
     from infera.engine.sglang.thinking_budget import Glm53ThinkingBudgetLogitProcessor
 
-    return Glm53ThinkingBudgetLogitProcessor
+    yield Glm53ThinkingBudgetLogitProcessor
+
+    sys.modules.pop(name, None)
+    pkg.__dict__.pop("thinking_budget", None)
+    if saved_module is not None:
+        sys.modules[name] = saved_module
+    if saved_attr is not None:
+        pkg.thinking_budget = saved_attr
 
 
-def _spec_param(origin, output, budget, cands, seq_len, n=4, history=()):
+def _spec_param(origin, output, budget, cands, seq_len, n=4, history=(), step=None, row=0):
     req = type("Req", (), {"origin_input_ids": origin, "output_ids": output})()
     return {
         "thinking_budget": budget,
         "__req__": req,
         "__spec_num_tokens__": n,
-        "__spec_candidates__": _FakeTensor(cands),
-        "__spec_seq_len__": _FakeTensor(seq_len),
-        "__spec_history__": list(history),
+        "__spec_step__": step or _FakeStep([cands], [seq_len]),
+        "__spec_row__": row,
+        "__spec_history__": [(_FakeStep([chain], [seq]), 0) for chain, seq in history],
     }
 
 
-def test_processor_forces_tokens_on_the_right_rows_of_a_spec_block(monkeypatch):
-    proc = _processor_class(monkeypatch)()
+def test_processor_forces_tokens_on_the_right_rows_of_a_spec_block(processor_cls):
+    proc = processor_cls()
     # Request 0 hits the budget at row 2; request 1 is far from it.
     # seq_len = prompt_len + committed_outputs - 1 with the bonus token excluded.
     p0 = _spec_param([5, _S], [1, 2], 4, [2, 7, 8, _NL], seq_len=2 + 2 - 1)
@@ -363,16 +401,24 @@ def test_processor_forces_tokens_on_the_right_rows_of_a_spec_block(monkeypatch):
     assert logits.forced == {2: _NL, 3: _E}
 
 
-def test_processor_without_spec_keys_keeps_single_row_behaviour(monkeypatch):
-    proc = _processor_class(monkeypatch)()
+def test_processor_without_spec_keys_keeps_single_row_behaviour(processor_cls):
+    proc = processor_cls()
     req = type("Req", (), {"origin_input_ids": [5, _S], "output_ids": [1, 2, 3, 4]})()
     logits = _FakeLogits(rows=1)
     proc(logits, [{"thinking_budget": 4, "__req__": req}])
     assert logits.forced == {0: _NL}
 
 
-def test_processor_one_row_block_uses_the_committed_bonus_token(monkeypatch):
-    proc = _processor_class(monkeypatch)()
+def test_processor_skips_a_block_whose_row_count_does_not_match(processor_cls):
+    proc = processor_cls()
+    p = _spec_param([5, _S], [1, 2], 4, [2, 7, 8, _NL], seq_len=3)
+    logits = _FakeLogits(rows=5)
+    proc(logits, [p])
+    assert logits.forced == {}
+
+
+def test_processor_one_row_block_uses_the_committed_bonus_token(processor_cls):
+    proc = processor_cls()
     # Visible output [1, 2], committed bonus 7, budget 3: the next token must be a newline.
     p = _spec_param([5, _S], [1, 2], 3, [7], seq_len=2 + 3 - 1, n=1)
     logits = _FakeLogits(rows=1)
@@ -380,27 +426,70 @@ def test_processor_one_row_block_uses_the_committed_bonus_token(monkeypatch):
     assert logits.forced == {0: _NL}
 
 
-def test_processor_reads_back_when_the_open_marker_is_unseen(monkeypatch):
-    proc = _processor_class(monkeypatch)()
+def test_processor_reads_back_when_the_open_marker_is_unseen(processor_cls):
+    proc = processor_cls()
     p = _spec_param([5], [9], 1, [9, _S, 7, 8], seq_len=1 + 1 - 1)
     logits = _FakeLogits(rows=4)
     proc(logits, [p])
     assert logits.forced == {2: _NL, 3: _NL}
 
 
-def test_processor_uses_history_to_see_a_close_in_unseen_tokens(monkeypatch):
-    proc = _processor_class(monkeypatch)()
-    history = [(_FakeTensor([2, _NL, _E, 9]), _FakeTensor(3))]
+def test_processor_sees_a_think_block_opened_inside_unseen_tokens(processor_cls):
+    proc = processor_cls()
+    # No <think> in the prompt; the model opened one in the previous step, which is
+    # not in output_ids yet. Budget 2 is reached inside this block.
+    history = [([9, _S, 7, 8], 1)]
+    p = _spec_param([5], [9], 2, [8, 10, 11, 12], seq_len=1 + 3 - 1, history=history)
+    logits = _FakeLogits(rows=4)
+    proc(logits, [p])
+    assert logits.forced == {1: _NL, 2: _NL, 3: _NL}
+
+
+def test_processor_uses_history_to_see_a_close_in_unseen_tokens(processor_cls):
+    proc = processor_cls()
+    history = [([2, _NL, _E, 9], 3)]
     p = _spec_param([5, _S], [1, 2], 2, [9, 10, 11, 12], seq_len=2 + 5 - 1, history=history)
     logits = _FakeLogits(rows=4)
     proc(logits, [p])
     assert logits.forced == {}
 
 
-def test_processor_skips_the_readback_when_the_budget_is_out_of_reach(monkeypatch):
-    proc = _processor_class(monkeypatch)()
-    cands = _FakeTensor([2, 7, 8, 9])
-    cands.tolist = lambda: (_ for _ in ()).throw(AssertionError("unexpected readback"))
-    p = _spec_param([5, _S], [1, 2], 1000, [2, 7, 8, 9], seq_len=3)
-    p["__spec_candidates__"] = cands
+def test_processor_skips_the_readback_when_the_budget_is_out_of_reach(processor_cls):
+    proc = processor_cls()
+    step = _FakeStep([[2, 7, 8, 9]], [3])
+    p = _spec_param([5, _S], [1, 2], 1000, [2, 7, 8, 9], seq_len=3, step=step)
     proc(_FakeLogits(rows=4), [p])
+    assert step.copies == 0
+
+
+def test_processor_shares_one_host_copy_between_requests_of_a_step(processor_cls):
+    proc = processor_cls()
+    # One step object for the whole batch; the host copy is made by the step, not per request.
+    step = _FakeStep([[2, 7, 8, _NL], [2, 7, 8, _NL]], [3, 3])
+    p0 = _spec_param([5, _S], [1, 2], 4, None, None, step=step, row=0)
+    p1 = _spec_param([5, _S], [1, 2], 4, None, None, step=step, row=1)
+    logits = _FakeLogits(rows=8)
+    proc(logits, [p0, p1])
+    assert logits.forced == {2: _NL, 3: _E, 6: _NL, 7: _E}
+
+
+def test_processor_declares_spec_row_support(processor_cls):
+    assert processor_cls.SUPPORTS_SPEC_VERIFY_ROWS is True
+
+
+@pytest.mark.parametrize(
+    ("algorithm", "topk", "expected"),
+    [
+        ("EAGLE", 2, True),
+        ("EAGLE3", 4, True),
+        ("NEXTN", 2, True),
+        ("EAGLE", 1, False),
+        ("EAGLE", None, False),
+        (None, 4, False),
+        ("NGRAM", 4, False),
+    ],
+)
+def test_eagle_topk_disables_thinking_budget(algorithm, topk, expected):
+    from infera.engine.sglang.thinking_budget_const import eagle_topk_disables_thinking_budget
+
+    assert eagle_topk_disables_thinking_budget(algorithm, topk) is expected

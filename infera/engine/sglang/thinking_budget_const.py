@@ -190,6 +190,7 @@ def resolve_thinking_budget_spec_actions(
     start_id: int,
     end_id: int,
     newline_id: int,
+    state: dict[str, int] | None = None,
 ) -> list[ThinkingBudgetAction | None]:
     """Return the forced action for each row of an EAGLE chain verify block.
 
@@ -198,23 +199,36 @@ def resolve_thinking_budget_spec_actions(
     follows ``candidates[k]``. The context of row ``k`` is the committed outputs
     plus ``candidates[1..k]``. ``seq_len`` counts the prompt and every committed
     output except the bonus token. Committed tokens that are not yet in
-    ``output_ids`` are rebuilt from ``history`` (see ``_committed_tail``).
+    ``output_ids`` are rebuilt from ``history`` (see ``_committed_tail``). No row is
+    forced when a committed token cannot be recovered, since it may be a marker.
+    ``state`` is a scan state of ``output_ids`` as kept for
+    ``resolve_thinking_budget_action``; it is copied and never modified.
     """
     n = len(candidates)
     if thinking_budget < 0 or n == 0:
         return [None] * n
     lag = seq_len - len(origin_input_ids) + 1 - len(output_ids)
-    base = list(output_ids)
+    context = list(output_ids)
     if lag >= 1:
-        base.extend(_committed_tail(history, candidates, seq_len, lag))
-    return [
-        resolve_thinking_budget_action(
-            origin_input_ids,
-            base + list(candidates[1 : k + 1]),
-            thinking_budget,
-            start_id,
-            end_id,
-            newline_id,
+        tail = _committed_tail(history, candidates, seq_len, lag)
+        if _UNKNOWN_TOKEN_ID in tail:
+            return [None] * n
+        context.extend(tail)
+    scan = dict(state) if state else {}
+    actions: list[ThinkingBudgetAction | None] = []
+    for k in range(n):
+        if k:
+            context.append(candidates[k])
+        actions.append(
+            resolve_thinking_budget_action(
+                origin_input_ids, context, thinking_budget, start_id, end_id, newline_id, scan
+            )
         )
-        for k in range(n)
-    ]
+    return actions
+
+
+def eagle_topk_disables_thinking_budget(algorithm: Any, topk: Any) -> bool:
+    """Return True when EAGLE tree drafts (topk > 1) make the thinking budget inert."""
+    if not isinstance(algorithm, str) or not algorithm.upper().startswith(("EAGLE", "NEXTN")):
+        return False
+    return isinstance(topk, int) and not isinstance(topk, bool) and topk > 1

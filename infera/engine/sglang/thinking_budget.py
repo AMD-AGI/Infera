@@ -54,6 +54,8 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
     THINKING_START_TOKEN_ID = GLM53_THINKING_START_TOKEN_ID
     THINKING_END_TOKEN_ID = GLM53_THINKING_END_TOKEN_ID
     NEW_LINE_TOKEN_ID = GLM53_NEW_LINE_TOKEN_ID
+    # Read by the EAGLE verify patch: this processor handles several rows per request.
+    SUPPORTS_SPEC_VERIFY_ROWS = True
 
     def __call__(self, logits: Any, custom_param_list: list[dict[str, Any]] | None = None) -> Any:
         if custom_param_list is None or not custom_param_list:
@@ -73,8 +75,12 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
             if req is None:
                 continue
             num_rows = param_dict.get("__spec_num_tokens__")
-            if num_rows is not None and logits.shape[0] == len(custom_param_list) * int(num_rows):
-                self._apply_spec_block(logits, i, int(num_rows), param_dict, req, thinking_budget)
+            if num_rows is not None:
+                # Verify-step metadata is present: rows are blocks, never a single row.
+                if logits.shape[0] == len(custom_param_list) * int(num_rows):
+                    self._apply_spec_block(
+                        logits, i, int(num_rows), param_dict, req, thinking_budget
+                    )
                 continue
             # Per-request scan cache; param_dict lives as long as the request.
             action = resolve_thinking_budget_action(
@@ -125,16 +131,24 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
         )
         if thinking_budget > reach and near is None:
             return
+        # Host copies are shared by every request of a step and made at most once.
+        chains, seqs = param_dict["__spec_step__"].cpu()
+        row = param_dict["__spec_row__"]
+        past = []
+        for step, step_row in history:
+            past_chains, past_seqs = step.cpu()
+            past.append((past_chains[step_row], int(past_seqs[step_row])))
         actions = resolve_thinking_budget_spec_actions(
             origin_input_ids=origin,
             output_ids=output,
-            candidates=param_dict["__spec_candidates__"].tolist(),
-            seq_len=int(param_dict["__spec_seq_len__"]),
-            history=[(chain.tolist(), int(seq)) for chain, seq in history],
+            candidates=chains[row],
+            seq_len=int(seqs[row]),
+            history=past,
             thinking_budget=thinking_budget,
             start_id=self.THINKING_START_TOKEN_ID,
             end_id=self.THINKING_END_TOKEN_ID,
             newline_id=self.NEW_LINE_TOKEN_ID,
+            state=param_dict["__thinking_scan__"],
         )
         for k, action in enumerate(actions):
             if action is not None:

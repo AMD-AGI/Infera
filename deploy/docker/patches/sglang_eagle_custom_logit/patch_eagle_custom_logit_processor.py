@@ -10,18 +10,35 @@ from pathlib import Path
 
 MARKER = "_infera_apply_custom_logit_processor"
 
-HELPER = '''_INFERA_SPEC_PARAM_KEYS = ("__spec_num_tokens__", "__spec_candidates__", "__spec_seq_len__")
+HELPER = '''_INFERA_SPEC_PARAM_KEYS = ("__spec_num_tokens__", "__spec_step__", "__spec_row__")
 _INFERA_SPEC_HISTORY_STEPS = 4
 _infera_topk_warned = False
 
 
-def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch, verify_input):
-    """Run custom logit processors over the rows of a chain verify block.
+class _InferaSpecStep:
+    """Draft chains and sequence lengths of one verify step, copied to the host once."""
 
-    Each request owns draft_token_num rows. The draft chain and sequence length of
-    the current step are exposed to the processor through the request's custom
-    params for the duration of the call, together with the same pair from the
-    previous steps (__spec_history__). Tree drafts (topk > 1) are left untouched.
+    def __init__(self, candidates, seq_lens):
+        self._candidates = candidates
+        self._seq_lens = seq_lens
+        self._host = None
+
+    def cpu(self):
+        if self._host is None:
+            self._host = (self._candidates.tolist(), self._seq_lens.tolist())
+            self._candidates = self._seq_lens = None
+        return self._host
+
+
+def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch, verify_input):
+    """Run multi-row custom logit processors over the rows of a chain verify block.
+
+    Each request owns draft_token_num rows. The current step (draft chains and
+    sequence lengths of the batch) and the request's row in it are exposed to the
+    processors through the request's custom params for the duration of the call.
+    The same pair from previous steps is kept in __spec_history__. Only processors
+    that set SUPPORTS_SPEC_VERIFY_ROWS run here. Tree drafts (topk > 1) are left
+    untouched.
     """
     global _infera_topk_warned
     num_tokens = verify_input.draft_token_num
@@ -37,27 +54,37 @@ def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch
 
     from sglang.srt.layers.sampler import apply_custom_logit_processor
 
-    candidates = verify_input.draft_token.reshape(len(batch.seq_lens), num_tokens).clone()
-    seq_lens = batch.seq_lens.clone()
+    all_processors = sampling_info.custom_logit_processor
+    supported = {
+        key: value
+        for key, value in all_processors.items()
+        if getattr(value[0], "SUPPORTS_SPEC_VERIFY_ROWS", False)
+    }
+    if not supported:
+        return
+    step = _InferaSpecStep(
+        verify_input.draft_token.reshape(len(batch.seq_lens), num_tokens).clone(),
+        batch.seq_lens.clone(),
+    )
     stashed = []
     for i, params in enumerate(sampling_info.custom_params):
         if params is None:
             continue
         params["__spec_num_tokens__"] = num_tokens
-        params["__spec_candidates__"] = candidates[i]
-        params["__spec_seq_len__"] = seq_lens[i]
+        params["__spec_step__"] = step
+        params["__spec_row__"] = i
         if "__spec_history__" not in params:
             params["__spec_history__"] = deque(maxlen=_INFERA_SPEC_HISTORY_STEPS)
         stashed.append(params)
+    sampling_info.custom_logit_processor = supported
     try:
         apply_custom_logit_processor(
             next_token_logits, sampling_info, num_tokens_in_batch=num_tokens
         )
     finally:
+        sampling_info.custom_logit_processor = all_processors
         for params in stashed:
-            params["__spec_history__"].append(
-                (params["__spec_candidates__"], params["__spec_seq_len__"])
-            )
+            params["__spec_history__"].append((step, params["__spec_row__"]))
             for key in _INFERA_SPEC_PARAM_KEYS:
                 params.pop(key, None)
 
