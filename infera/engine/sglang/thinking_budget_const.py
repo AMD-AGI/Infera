@@ -140,3 +140,47 @@ def resolve_thinking_budget_action(
     if not output_ids or output_ids[-1] != newline_id:
         return "newline"
     return "end"
+
+
+# Placeholder for committed tokens whose ids are not visible to the processor yet.
+_UNKNOWN_TOKEN_ID = -1
+
+
+def resolve_thinking_budget_spec_actions(
+    origin_input_ids: list[int],
+    output_ids: list[int],
+    committed_output_len: int,
+    candidates: list[int],
+    thinking_budget: int,
+    start_id: int,
+    end_id: int,
+    newline_id: int,
+) -> list[ThinkingBudgetAction | None]:
+    """Return the forced action for each row of an EAGLE chain verify block.
+
+    ``candidates`` is the draft chain of one request: ``candidates[0]`` is the
+    bonus token (the last committed token) and row ``k`` predicts the token that
+    follows ``candidates[k]``. The context of row ``k`` is the committed outputs
+    plus ``candidates[1..k]``. When ``committed_output_len`` exceeds
+    ``len(output_ids)``, the tokens not yet written to ``output_ids`` count toward
+    the budget; only the bonus token among them has a known id.
+    """
+    n = len(candidates)
+    if thinking_budget < 0 or n == 0:
+        return [None] * n
+    lag = committed_output_len - len(output_ids)
+    base = list(output_ids)
+    if lag >= 1:
+        base.extend([_UNKNOWN_TOKEN_ID] * (lag - 1))
+        base.append(candidates[0])
+    return [
+        resolve_thinking_budget_action(
+            origin_input_ids,
+            base + list(candidates[1 : k + 1]),
+            thinking_budget,
+            start_id,
+            end_id,
+            newline_id,
+        )
+        for k in range(n)
+    ]

@@ -206,3 +206,134 @@ def test_incremental_state_recovers_when_output_is_reset():
     state: dict = {}
     assert resolve_thinking_budget_action(origin, [7, 8, 9], 3, start, end, nl, state) == "newline"
     assert resolve_thinking_budget_action(origin, [7], 3, start, end, nl, state) is None
+
+
+# ---------------------------------------------------------------------------
+# EAGLE verify: one request owns several logits rows (chain draft, topk == 1)
+# ---------------------------------------------------------------------------
+
+_S = GLM53_THINKING_START_TOKEN_ID
+_E = GLM53_THINKING_END_TOKEN_ID
+_NL = GLM53_NEW_LINE_TOKEN_ID
+
+
+def _spec(origin, output, committed, cands, budget):
+    from infera.engine.sglang.thinking_budget_const import resolve_thinking_budget_spec_actions
+
+    return resolve_thinking_budget_spec_actions(
+        origin_input_ids=origin,
+        output_ids=output,
+        committed_output_len=committed,
+        candidates=cands,
+        thinking_budget=budget,
+        start_id=_S,
+        end_id=_E,
+        newline_id=_NL,
+    )
+
+
+def test_spec_actions_far_from_budget_are_all_none():
+    assert _spec([5, _S], [1, 2], 2, [2, 7, 8, 9], 100) == [None] * 4
+
+
+def test_spec_actions_force_newline_then_end_inside_one_block():
+    assert _spec([5, _S], [1, 2], 2, [2, 7, 8, _NL], 4) == [None, None, "newline", "end"]
+
+
+def test_spec_actions_stop_forcing_after_a_natural_end_in_the_draft():
+    assert _spec([5, _S], [1, 2], 2, [2, 7, _E, 9], 4) == [None] * 4
+
+
+def test_spec_actions_count_committed_tokens_missing_from_output_ids():
+    # Two tokens are committed but not yet in output_ids; the last one is the bonus.
+    assert _spec([5, _S], [1, 2], 4, [8, 7, 9, _NL], 6) == [None, None, "newline", "end"]
+
+
+def test_spec_actions_treat_a_shorter_committed_len_as_no_lag():
+    assert _spec([5, _S], [1, 2], 0, [2, 7, 8, _NL], 4) == [None, None, "newline", "end"]
+
+
+def test_spec_actions_none_when_thinking_is_closed_or_budget_negative():
+    assert _spec([], [_S, 1, _E], 3, [_E, 7, 8, 9], 1) == [None] * 4
+    assert _spec([5, _S], [1, 2], 2, [2, 7, 8, 9], -1) == [None] * 4
+
+
+def test_spec_actions_length_follows_candidates():
+    assert len(_spec([5, _S], [1, 2], 2, [2, 7], 100)) == 2
+
+
+class _FakeTensor:
+    """Minimal stand-in for a device tensor slice."""
+
+    def __init__(self, values):
+        self._values = values
+
+    def tolist(self):
+        return list(self._values)
+
+    def __int__(self):
+        return int(self._values)
+
+
+class _FakeLogits:
+    """Records the forced token per row without needing torch."""
+
+    def __init__(self, rows, vocab=200000):
+        self.shape = (rows, vocab)
+        self.forced = {}
+
+    def __setitem__(self, key, value):
+        row, col = key
+        if isinstance(col, slice):
+            self.forced[row] = None
+        else:
+            self.forced[row] = col
+
+
+def _processor_class(monkeypatch):
+    import sys
+    import types
+
+    base_mod = types.ModuleType("sglang.srt.sampling.custom_logit_processor")
+
+    class ThinkingBudgetLogitProcessor:
+        pass
+
+    base_mod.ThinkingBudgetLogitProcessor = ThinkingBudgetLogitProcessor
+    for name in ("sglang", "sglang.srt", "sglang.srt.sampling"):
+        monkeypatch.setitem(sys.modules, name, types.ModuleType(name))
+    monkeypatch.setitem(sys.modules, "sglang.srt.sampling.custom_logit_processor", base_mod)
+    monkeypatch.delitem(sys.modules, "infera.engine.sglang.thinking_budget", raising=False)
+    from infera.engine.sglang.thinking_budget import Glm53ThinkingBudgetLogitProcessor
+
+    return Glm53ThinkingBudgetLogitProcessor
+
+
+def _spec_param(origin, output, budget, cands, seq_len, n=4):
+    req = type("Req", (), {"origin_input_ids": origin, "output_ids": output})()
+    return {
+        "thinking_budget": budget,
+        "__req__": req,
+        "__spec_num_tokens__": n,
+        "__spec_candidates__": _FakeTensor(cands),
+        "__spec_seq_len__": _FakeTensor(seq_len),
+    }
+
+
+def test_processor_forces_tokens_on_the_right_rows_of_a_spec_block(monkeypatch):
+    proc = _processor_class(monkeypatch)()
+    # Request 0 hits the budget at row 2; request 1 is far from it.
+    # seq_len = prompt_len + committed_outputs - 1 with the bonus token excluded.
+    p0 = _spec_param([5, _S], [1, 2], 4, [2, 7, 8, _NL], seq_len=2 + 2 - 1)
+    p1 = _spec_param([5, _S], [1, 2], 100, [2, 7, 8, 9], seq_len=2 + 2 - 1)
+    logits = _FakeLogits(rows=8)
+    proc(logits, [p0, p1])
+    assert logits.forced == {2: _NL, 3: _E}
+
+
+def test_processor_without_spec_keys_keeps_single_row_behaviour(monkeypatch):
+    proc = _processor_class(monkeypatch)()
+    req = type("Req", (), {"origin_input_ids": [5, _S], "output_ids": [1, 2, 3, 4]})()
+    logits = _FakeLogits(rows=1)
+    proc(logits, [{"thinking_budget": 4, "__req__": req}])
+    assert logits.forced == {0: _NL}

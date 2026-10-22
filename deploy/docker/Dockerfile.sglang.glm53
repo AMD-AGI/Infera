@@ -340,6 +340,16 @@ RUN set -eu; \
     for f in "${patch_dir}"/*.py; do echo "[sglang-patch] $f"; python "$f"; done; \
     rm -rf /tmp/sglang-disagg-patches /tmp/sglang-disagg-glm53 /tmp/reanchor.sh
 
+# ---- sglang EAGLE custom logit processor patch ------------------------------
+# The EAGLE verify step applies request-scoped custom logit processors to every
+# row of a chain draft block, which the GLM-5.3 thinking-budget processor relies
+# on. Chain drafts only (--speculative-eagle-topk 1). The script exits non-zero
+# if the eagle_sample anchors are gone.
+COPY deploy/docker/patches/sglang_eagle_custom_logit/ /tmp/sglang-eagle-custom-logit/
+RUN set -eu; \
+    python /tmp/sglang-eagle-custom-logit/patch_eagle_custom_logit_processor.py; \
+    rm -rf /tmp/sglang-eagle-custom-logit
+
 # ---- sglang Responses API patches (not PD-specific) -------------------------
 # Anchors verified intact at SGLANG_GLM53_REF; apply unmodified.
 #

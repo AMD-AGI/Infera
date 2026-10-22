@@ -24,6 +24,12 @@ Without the worker flag, injected processors make SGLang raise
 `chat_template_kwargs` are forwarded (requests still succeed). OpenAI clients
 must not send `custom_logit_processor` / `custom_params` — those return HTTP 400.
 
+**EAGLE.** The thinking-budget processor also applies to the rows of the EAGLE
+verify step. This comes from `deploy/docker/patches/sglang_eagle_custom_logit/`,
+which `Dockerfile.sglang.glm53` applies to the SGLang image. Only chain drafts
+(`--speculative-eagle-topk 1`) are supported; with a larger top-k the router and
+worker still accept the request but the cap is not applied.
+
 **Network exposure.** With `--enable-custom-logit-processor`, a worker
 deserializes the request-supplied `custom_logit_processor` with `dill`, so any
 client that can reach a worker port can run code on that worker. The router

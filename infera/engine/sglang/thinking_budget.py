@@ -28,6 +28,7 @@ from infera.engine.sglang.thinking_budget_const import (
     is_glm53_model,
     resolve_thinking_budget,
     resolve_thinking_budget_action,
+    resolve_thinking_budget_spec_actions,
 )
 
 __all__ = [
@@ -71,6 +72,10 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
             req = param_dict.get("__req__")
             if req is None:
                 continue
+            num_rows = int(param_dict.get("__spec_num_tokens__", 1))
+            if num_rows > 1 and logits.shape[0] == len(custom_param_list) * num_rows:
+                self._apply_spec_block(logits, i, num_rows, param_dict, req, thinking_budget)
+                continue
             # Per-request scan cache; param_dict lives as long as the request.
             action = resolve_thinking_budget_action(
                 origin_input_ids=getattr(req, "origin_input_ids", None) or [],
@@ -83,7 +88,52 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
             )
             if action is None:
                 continue
-            token_id = self.NEW_LINE_TOKEN_ID if action == "newline" else self.THINKING_END_TOKEN_ID
-            logits[i, :] = -float("inf")
-            logits[i, token_id] = 0.0
+            self._force(logits, i, action)
         return logits
+
+    def _force(self, logits: Any, row: int, action: str) -> None:
+        token_id = self.NEW_LINE_TOKEN_ID if action == "newline" else self.THINKING_END_TOKEN_ID
+        logits[row, :] = -float("inf")
+        logits[row, token_id] = 0.0
+
+    def _apply_spec_block(
+        self,
+        logits: Any,
+        index: int,
+        num_rows: int,
+        param_dict: dict[str, Any],
+        req: Any,
+        thinking_budget: int,
+    ) -> None:
+        """Force tokens on the rows of one request in an EAGLE chain verify block."""
+        origin = getattr(req, "origin_input_ids", None) or []
+        output = getattr(req, "output_ids", None) or []
+        # Cheap gate on the cached scan: skip the draft readback unless the budget
+        # can be reached within this block, allowing for the unwritten committed tokens.
+        gate = resolve_thinking_budget_action(
+            origin_input_ids=origin,
+            output_ids=output,
+            thinking_budget=max(0, thinking_budget - 2 * num_rows),
+            start_id=self.THINKING_START_TOKEN_ID,
+            end_id=self.THINKING_END_TOKEN_ID,
+            newline_id=self.NEW_LINE_TOKEN_ID,
+            state=param_dict.setdefault("__thinking_scan__", {}),
+        )
+        if gate is None:
+            return
+        candidates = param_dict["__spec_candidates__"].tolist()
+        # seq_len counts the prompt and every committed output except the bonus token.
+        committed = int(param_dict["__spec_seq_len__"]) - len(origin) + 1
+        actions = resolve_thinking_budget_spec_actions(
+            origin_input_ids=origin,
+            output_ids=output,
+            committed_output_len=committed,
+            candidates=candidates,
+            thinking_budget=thinking_budget,
+            start_id=self.THINKING_START_TOKEN_ID,
+            end_id=self.THINKING_END_TOKEN_ID,
+            newline_id=self.NEW_LINE_TOKEN_ID,
+        )
+        for k, action in enumerate(actions):
+            if action is not None:
+                self._force(logits, index * num_rows + k, action)
