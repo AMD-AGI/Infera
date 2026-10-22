@@ -1,0 +1,28 @@
+name: debug-rust-segv
+
+# Temporary: run ci.yml's dsv4 parity step on the fix branch, on both runner
+# images. Lives only on dev/yaoc/ci-debug-rust-segv; never merged.
+on:
+  push:
+    branches: [dev/yaoc/ci-debug-rust-segv]
+
+permissions:
+  contents: read
+
+jobs:
+  dsv4_parity:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.12"
+      - name: dsv4 encoder parity with sglang
+        run: |
+          pip install --no-deps --quiet sglang
+          pip show sglang | head -2; python3 -V
+          python3 scripts/dsv4_parity.py
