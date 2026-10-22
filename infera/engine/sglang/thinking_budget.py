@@ -76,11 +76,25 @@ class Glm53ThinkingBudgetLogitProcessor(ThinkingBudgetLogitProcessor):
                 continue
             num_rows = param_dict.get("__spec_num_tokens__")
             if num_rows is not None:
-                # Verify-step metadata is present: rows are blocks, never a single row.
-                if logits.shape[0] == len(custom_param_list) * int(num_rows):
-                    self._apply_spec_block(
-                        logits, i, int(num_rows), param_dict, req, thinking_budget
-                    )
+                # The direct form has one param per request. SGLang's sampler repeats
+                # each request's params once per verify row before this call.
+                num_rows = int(num_rows)
+                n_params = len(custom_param_list)
+                n_logits = logits.shape[0]
+                if num_rows > 0 and n_logits == n_params * num_rows:
+                    request_index = i
+                elif (
+                    num_rows > 0
+                    and n_logits == n_params
+                    and n_params % num_rows == 0
+                    and i % num_rows == 0
+                ):
+                    request_index = i // num_rows
+                else:
+                    continue
+                self._apply_spec_block(
+                    logits, request_index, num_rows, param_dict, req, thinking_budget
+                )
                 continue
             # Per-request scan cache; param_dict lives as long as the request.
             action = resolve_thinking_budget_action(
