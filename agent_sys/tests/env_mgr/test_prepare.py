@@ -577,7 +577,9 @@ def test_wrap_argv_refuses_when_the_binary_vanished(ctx, tmp_path: Path, monkeyp
         availability=Availability(bwrap=str(fake), landlock_abi=None),
     )
     fake.unlink()
-    monkeypatch.setenv("PATH", os.environ["PATH"].split(os.pathsep, 1)[1])
+    # Only the emptied directory: the rest of PATH may hold a real bwrap
+    # (GitHub's Ubuntu 26.04 runners ship one), which would not have vanished.
+    monkeypatch.setenv("PATH", str(fake.parent))
     with pytest.raises(NoConfinement, match="does not start"):
         prepared.wrap_argv(["python3"])
 
