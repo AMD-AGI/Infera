@@ -754,6 +754,24 @@ decode KV（AUS 上 C192 比 C176 低 4.7% 的机制）。138 显存回收用了
   → ④ 两个开关的 A/B，KV 不再受限时再加并发。
 - **① 14:07 起**：站点 `config/site-1p-pp4-ck8k-d4-nohc.env`（4+4 + `PP4_HICACHE=0`），串行 `chain-1022T1407.out`，日志 `dcp4-correct/dcp4-nohc-1022T1407.log`。
   起栈前两节点显存 0、无他人 GPU 进程。
+- **14:09 decode 在 CUDA graph 捕获时 OOM，起栈失败**（14:12 自动撤栈；prefill 正常，overlay 与镜像兼容、DCP 已启用：`DCP enabled, dcp_size=4`）：
+  捕获 bs 256 时 DSA indexer 的 `aiter_paged_mqa_logits` 再要 6 GB 的 logits 缓冲，KV 池分配后只剩 26.2 GB，捕获过程中耗尽。
+  DCP 下 decode 只有一个 batch（全节点的请求），而 DPA4 时每个 DP rank 各自一个 batch（日志里 DPA4 每 rank 最大在跑 64）。
+- **显存账（每卡）与 KV 容量——DCP4 不比 DPA4 多 KV**：
+
+  | | DPA4（4+4 C80） | DCP4（本次） |
+  |---|---|---|
+  | 主模型 + 草稿层权重 | 119.8 + 6.9 GB | 101.4 + 5.4 GB（−19.9 GB，注意力投影按 TP4 切分） |
+  | KV 池 | 133.4 GB，3,001,920 槽（44.4 KB/槽） | 147.1 GB，2,819,712 槽（52.2 KB/槽，+18%） |
+  | 总 KV 容量（token） | 4 × 3.00M = 12.0M（分在 4 个 rank） | 4 × 2.82M = **11.28M**（一个共享池），−6% |
+  | KV 池分配后剩余 | 22.5 GB（bs 256 捕获成功） | 26.2 GB（bs 256 捕获 OOM） |
+
+  DCP 的总容量 = 每 rank 槽数 × 4（同事 DCP4 decode 在显存 0.85 时 `max_total_num_tokens` = 9,764,096 = 4 × 2,441,024，与此一致）。每槽更大，
+  推测是 DSA 的 index-K 在 4 个 rank 上各存一份完整副本（按 DPA 44.4 = L + I、DCP 52.2 = L + 4I 解得 I ≈ 2.6 KB，约 20 层 × 132 B），抵消了权重节省。
+  所以 DCP4 相对 DPA4 的收益只来自共享池（没有某个 rank 满了而别的 rank 空着、没有 DP 不均衡），总容量反而少 6%；DPA4 C80 的总用量均值 9.1M、
+  p90 11.4M，DCP4 在 C80 同样会碰到总容量上限。`../dcp4-pd-analysis-20261022/` 里"有效容量 +15%–30%"的估计漏算了 index-K 复制，已更正。
+- **14:53 重试**：decode `--cuda-graph-max-bs-decode 256 → 128`（C80 时合计在跑最多约 80，C96–C112 也在 110 以内），显存比例保持 0.92 不牺牲 KV；
+  串行 `chain-1022T1453.out`，日志 `dcp4-correct/dcp4-nohc-1022T1453.log`。
 
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 
