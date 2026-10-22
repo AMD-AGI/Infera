@@ -6,7 +6,7 @@
 
 - **第一个结果（`ka8-pmtp-w180k`：prefill 带 EAGLE 参数 + router 权重 180,000，1P1D C88，1800 s）：27,577 tok/s/GPU，interactivity
   p50 / p90 = 85.0 / 74.4**；PR 210 的 1P1D C88（crsuse2，prefill 无 MTP，router 无权重）为 27,453 @ 49.1 / 42.8。吞吐相同（prefill 是瓶颈），
-  p90 交互 +74%。这一轮在测量窗口结束 2 秒后被抢占，结果由 AIPerf 的逐请求记录算出（§3）。
+  p90 交互 +74%。这一轮在测量窗口结束 2 秒后被抢占，结果由 AIPerf 的逐请求记录算出（§2）。
 - 拆分两个因素需要同部署的 w0 对照（排在下一次分配）。机制上：decode 每 rank 平均只有 4.1 个在跑（PR 210 为 6.7），每步中位 41.6 ms——
   主要是 prefill 带 MTP 让 decode 草稿层拿到真实 KV、每步变快、在跑数随之减少。
 - v0.5.22 C88 上最忙 rank 多 1 个请求 ≈ 多 105 万 token（v0.5.21 C176 为 17–19 万），180,000 低估了请求数；B 组请求数最忙 / 均值仍为
@@ -39,7 +39,7 @@ DP attention 下 8 个 decode rank 每步同步，所有请求在同一步里经
 - 这一组系数下，C176 若请求数完全均衡（最忙 15 → 10）约省 4 ms / 步（−6%）；C88 的相对不均衡更大（crsuse2 v0.5.22：均值 6.7、
   最忙中位 11 / p90 16），收益取决于 v0.5.22 上的系数，在复现轮日志上重拟。
 
-## 3. 结果
+## 2. 结果
 
 | 轮次 | prefill MTP | router | 窗口 | tok/s/GPU | 请求 / rps | intvty p50 / p90 | ITL p50 / p90 (ms) | TTFT p50 / p90 / 均值 (s) |
 |---|---|---|---|---|---|---|---|---|
@@ -61,13 +61,13 @@ decode（测量窗口，`decode_fit.txt` / `engine_pace.txt`）：
 步长拟合（v0.5.22，C88，593 个 3 s 分箱，R² 0.863）：`每步 ms = 20.6 + 1.70·最忙请求 + 1.63·最忙上下文(M) + 0.219·总请求 − 0.05·总上下文(M)`，
 最忙 rank 1 个请求 ≈ 1,046,000 token。每步按最忙 rank 在跑数：@4 31.9、@5 35.6、@6 40.9、@7 42.1、@8 43.4、@9 49.2 ms。
 
-## 2. PR 210 review（代码阅读 + AUS 上的验证，持续更新）
+## 3. PR 210 review（代码阅读 + AUS 上的验证，持续更新）
 
 | # | 位置 | 结论 |
 |---|---|---|
 | 1 | `examples/sglang_2p1d_glm5.2/engine/worker.sh` | **prefill 没有 EAGLE 参数**（只在 decode 分支加）。prefill 不加载 NextN 层，PD 传输里没有草稿 KV / DSA index-K，decode 草稿层对每个 prompt 位置读未初始化显存：新进程里是 0，草稿 indexer 打分大量并列，top-k 散射 kernel 慢 15–170 倍（AUS `../2p1d-aus-v0521-20261019/RESULT.zh-CN.md` §2.13）。README 的每个参考点都是"新起部署"= 冷态，受这个影响；InferenceX 官方 AMD recipe（`amd_utils/server_sglang.sh`）明确两侧都给 MTP 参数，v0.5.13 起 Mori 后端会因状态分量数不一致直接拒绝，Mooncake 后端（本 kit）静默放过。修法已有：`../2p1d-v0522-20261020/config/example-prefill-mtp.diff`。 |
 | 2 | `deploy/docker/Dockerfile.sglang` | AUS 两台节点原样构建成功（base 拉取 + Mooncake + infera + Rust router，约 7 分钟）。两台各自构建的镜像 ID 不同（非可复现构建），内容来自同一 commit 与固定版本。 |
-| 3 | kit，`PREFILL_WORKERS=1`（PR 的待办项） | 从分支本身在 AUS 上起栈成功（11 分钟），router 列出 1 prefill + 1 decode。只需站点环境变量；kit 的 `ssh` 用本作业的 srun 替身即可。AgentX C88 结果见 §3。 |
+| 3 | kit，`PREFILL_WORKERS=1`（PR 的待办项） | 从分支本身在 AUS 上起栈成功（11 分钟），router 列出 1 prefill + 1 decode。只需站点环境变量；kit 的 `ssh` 用本作业的 srun 替身即可。AgentX C88 结果见 §2。 |
 | 4 | `infera/engine/sglang/args.py` `_rename_cuda_graph_max_bs` | 逻辑正确（只在新 sglang 没有旧参数、有 `-decode` 参数时改名，旧镜像不变）。小问题：用了 argparse 私有的 `_option_string_actions`；没有处理 argparse 默认允许的前缀缩写（如 `--cuda-graph-max`）。 |
 | 5 | `infera/router/kv_event/responses_input.py` | 固定 `supports_inline_system = False`：对会在对话中插 system 消息、且模板支持内联 system 的模型，router 侧渲染（缓存感知哈希）会与引擎不同，只影响路由的缓存命中，不影响正确性；注释已说明。 |
 | 6 | 新补丁（disagg 非末 chunk wait event、MLA absorb BMM 默认配置、KV metrics 非阻塞） | 都有锚点自检与幂等标记，头注释如实写了"是否仍必要未测"（wait event）与"v0.5.22 上未复测崩溃"（absorb BMM）。 |
