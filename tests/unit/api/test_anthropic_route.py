@@ -716,3 +716,126 @@ def test_route_streaming_tool_call(app_and_router):
     assert '"type": "input_json_delta"' in text
     assert '"partial_json": "{\\"city\\":"' in text
     assert '"stop_reason": "tool_use"' in text
+
+
+# ----------------------------------------------------------------------
+# Streaming input tokens
+# ----------------------------------------------------------------------
+
+
+class _CountingPolicy:
+    def __init__(self, result: int | None = 3015, fail: bool = False) -> None:
+        self._result = result
+        self._fail = fail
+        self.bodies: list[dict] = []
+
+    def count_input_tokens(self, body: dict) -> int | None:
+        self.bodies.append(body)
+        if self._fail:
+            raise RuntimeError("tokenizer unavailable")
+        return self._result
+
+
+def _stream_events(response_text: str) -> dict[str, dict]:
+    events: dict[str, dict] = {}
+    name = None
+    for line in response_text.splitlines():
+        if line.startswith("event:"):
+            name = line[len("event:") :].strip()
+        elif line.startswith("data:") and name:
+            events[name] = json.loads(line[len("data:") :])
+    return events
+
+
+def _post_stream(app, router, policy):
+    router.policy = policy
+    router._stream_chunks = [
+        b'data: {"choices":[{"delta":{"content":"hi"},"finish_reason":null}]}\n',
+        b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n',
+        b"data: [DONE]\n",
+    ]
+    client = TestClient(app)
+    return client.post(
+        "/v1/messages",
+        json={
+            "model": "m",
+            "max_tokens": 16,
+            "stream": True,
+            "messages": [{"role": "user", "content": "hi"}],
+        },
+    )
+
+
+def test_streaming_message_start_reports_router_input_tokens(app_and_router):
+    app, router = app_and_router
+    policy = _CountingPolicy(3015)
+    r = _post_stream(app, router, policy)
+    assert r.status_code == 200
+    events = _stream_events(r.text)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 3015
+    assert events["message_delta"]["usage"]["input_tokens"] == 3015
+    assert policy.bodies and policy.bodies[0]["messages"][0]["content"] == "hi"
+
+
+def test_streaming_survives_a_failing_token_counter(app_and_router):
+    app, router = app_and_router
+    r = _post_stream(app, router, _CountingPolicy(fail=True))
+    assert r.status_code == 200
+    events = _stream_events(r.text)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 0
+    assert "input_tokens" not in events["message_delta"]["usage"]
+
+
+# ----------------------------------------------------------------------
+# OpenAI chat: GLM-5.3 thinking budget
+# ----------------------------------------------------------------------
+
+
+def _chat(client, **extra):
+    return client.post(
+        "/v1/chat/completions",
+        json={
+            "model": "glm-5-3",
+            "max_tokens": 4096,
+            "messages": [{"role": "user", "content": "hi"}],
+            **extra,
+        },
+    )
+
+
+def test_openai_chat_gets_default_thinking_budget(app_and_router):
+    app, router = app_and_router
+    r = _chat(TestClient(app))
+    assert r.status_code == 200
+    assert router.last_body["custom_params"] == {"thinking_budget": 1024}
+    assert "custom_logit_processor" in router.last_body
+
+
+def test_openai_chat_thinking_budget_tokens_and_unlimited(app_and_router):
+    app, router = app_and_router
+    client = TestClient(app)
+    _chat(client, thinking={"type": "enabled", "budget_tokens": 2000})
+    assert router.last_body["custom_params"] == {"thinking_budget": 2000}
+    assert "thinking" not in router.last_body
+    assert router.last_body["chat_template_kwargs"] == {"enable_thinking": True, "thinking": True}
+    _chat(client, thinking={"type": "enabled", "budget_tokens": -1})
+    assert "custom_logit_processor" not in router.last_body
+    assert "custom_params" not in router.last_body
+
+
+def test_openai_chat_invalid_budget_is_400_and_client_processor_still_rejected(app_and_router):
+    app, _ = app_and_router
+    client = TestClient(app)
+    assert _chat(client, thinking={"type": "enabled", "budget_tokens": 0}).status_code == 400
+    assert _chat(client, custom_logit_processor="x").status_code == 400
+    assert _chat(client, custom_params={"thinking_budget": 1}).status_code == 400
+
+
+def test_openai_chat_other_models_are_not_capped(app_and_router):
+    app, router = app_and_router
+    client = TestClient(app)
+    client.post(
+        "/v1/chat/completions",
+        json={"model": "qwen3-32b", "messages": [{"role": "user", "content": "hi"}]},
+    )
+    assert "custom_logit_processor" not in router.last_body

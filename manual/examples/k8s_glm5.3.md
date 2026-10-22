@@ -203,21 +203,28 @@ line at all. Disambiguate with `grep -c 'Decode batch'` — non-zero with no
 `accept len:` means MTP really is off; zero means send more traffic.
 ```
 
-## 4. Anthropic `thinking.budget_tokens` (optional)
+## 4. `thinking.budget_tokens`
 
 Claude Code and other Anthropic clients often send
-`thinking: {type: enabled, budget_tokens: N}`. Hard-capping that budget on
-GLM-5.3 needs **both** of the following; neither is on by default in a blank
-deployment:
+`thinking: {type: enabled, budget_tokens: N}`. For GLM-5.3 requests the router
+injects the trusted logit processor that hard-caps thinking, on `/v1/messages`
+and on OpenAI `/v1/chat/completions` (same top-level `thinking` object):
 
-1. **Worker**: `--enable-custom-logit-processor` on every prefill and decode
-   leg (SGLang rejects `custom_logit_processor` without it).
-2. **Router / server**: `INFERA_ENABLE_THINKING_BUDGET=1` so the Anthropic shim
-   injects the trusted GLM-5.3 processor. When unset, `budget_tokens` is ignored
-   and only `chat_template_kwargs` are forwarded (requests still succeed).
+| `thinking.budget_tokens` | Thinking cap |
+|---|---|
+| omitted | 1024 tokens (default) |
+| positive `N` | `N`, clamped so the forced newline and `</think>` plus an answer reserve fit in `max_tokens` |
+| `-1` | no limit; thinking runs up to `max_tokens` |
+
+`thinking.type=disabled` also leaves thinking uncapped, and on the OpenAI endpoint so does
+`chat_template_kwargs.enable_thinking=false`. Any other non-positive value returns HTTP 400.
+
+The SGLang worker launcher adds `--enable-custom-logit-processor` to every
+prefill and decode leg when it is not already present, so SGLang accepts the
+injected `custom_logit_processor`.
 
 The [`glm5.3/disaggregated`](../../examples/recipes/glm5.3/README.md) recipe
-documents both knobs. OpenAI `/v1/chat/completions` clients must not supply
+shows the worker flag. OpenAI `/v1/chat/completions` clients must not supply
 their own `custom_logit_processor` / `custom_params` — the router returns 400.
 
 With the worker flag on, a worker deserializes the request-supplied processor

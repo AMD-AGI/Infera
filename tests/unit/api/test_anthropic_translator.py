@@ -1394,6 +1394,87 @@ def test_sse_tool_call_no_explicit_id_synthesizes_one():
     assert '"id": "toolu_' in text
 
 
+def _usage_chunk(prompt_tokens: int, completion_tokens: int) -> bytes:
+    payload = {
+        "choices": [],
+        "usage": {"prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens},
+    }
+    return f"data: {json.dumps(payload)}\n".encode()
+
+
+def _sse_events(raw: bytes) -> dict[str, dict]:
+    events: dict[str, dict] = {}
+    name = None
+    for line in raw.decode().splitlines():
+        if line.startswith("event:"):
+            name = line[len("event:") :].strip()
+        elif line.startswith("data:") and name:
+            events[name] = json.loads(line[len("data:") :])
+    return events
+
+
+def _stream_chunks(usage: bytes | None) -> list[bytes]:
+    chunks = [_make_openai_chunk("Hello"), _make_openai_chunk(finish_reason="stop")]
+    if usage is not None:
+        chunks.append(usage)
+    return [*chunks, b"data: [DONE]\n"]
+
+
+def test_sse_message_delta_reports_input_tokens_from_usage_chunk():
+    chunks = _stream_chunks(_usage_chunk(3015, 61))
+    out = asyncio.run(_collect(openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m")))
+    usage = _sse_events(out)["message_delta"]["usage"]
+    assert usage["input_tokens"] == 3015
+    assert usage["output_tokens"] == 61
+    assert usage["cache_read_input_tokens"] == 0
+    assert usage["cache_creation_input_tokens"] == 0
+
+
+def test_sse_message_start_uses_input_tokens_hint():
+    async def _hint() -> int | None:
+        return 3015
+
+    chunks = _stream_chunks(None)
+    out = asyncio.run(
+        _collect(
+            openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m", input_tokens_hint=_hint())
+        )
+    )
+    events = _sse_events(out)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 3015
+    assert events["message_delta"]["usage"]["input_tokens"] == 3015
+
+
+def test_sse_reported_usage_overrides_input_tokens_hint():
+    async def _hint() -> int | None:
+        return 3000
+
+    chunks = _stream_chunks(_usage_chunk(3015, 61))
+    out = asyncio.run(
+        _collect(
+            openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m", input_tokens_hint=_hint())
+        )
+    )
+    events = _sse_events(out)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 3000
+    assert events["message_delta"]["usage"]["input_tokens"] == 3015
+
+
+def test_sse_unknown_input_tokens_keeps_zero_start_and_omits_delta_field():
+    async def _hint() -> int | None:
+        raise RuntimeError("tokenizer unavailable")
+
+    chunks = _stream_chunks(None)
+    out = asyncio.run(
+        _collect(
+            openai_to_anthropic_sse(_make_chunk_iter(chunks), model="m", input_tokens_hint=_hint())
+        )
+    )
+    events = _sse_events(out)
+    assert events["message_start"]["message"]["usage"]["input_tokens"] == 0
+    assert "input_tokens" not in events["message_delta"]["usage"]
+
+
 # ----------------------------------------------------------------------
 # Thinking / reasoning_content
 # ----------------------------------------------------------------------
@@ -1416,13 +1497,9 @@ def test_thinking_enabled_sets_chat_template_kwargs():
     assert "custom_params" not in out
 
 
-def test_thinking_budget_tokens_maps_to_sglang_hard_cap(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import (
-        GLM53_THINKING_BUDGET_PROCESSOR_STR,
-        THINKING_BUDGET_ENV,
-    )
+def test_thinking_budget_tokens_maps_to_sglang_hard_cap():
+    from infera.engine.sglang.thinking_budget_const import GLM53_THINKING_BUDGET_PROCESSOR_STR
 
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
     out = anthropic_to_openai_request(
         {
             "model": "glm-5-3",
@@ -1439,30 +1516,37 @@ def test_thinking_budget_tokens_maps_to_sglang_hard_cap(monkeypatch):
     assert out["custom_params"] == {"thinking_budget": 1024}
 
 
-def test_thinking_budget_ignored_when_opt_in_disabled(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.delenv(THINKING_BUDGET_ENV, raising=False)
-    out = anthropic_to_openai_request(
-        {
+def test_thinking_budget_defaults_to_1024_for_glm53_without_budget_tokens():
+    for thinking in ({"type": "enabled"}, None):
+        body = {
             "model": "glm-5-3",
             "messages": [{"role": "user", "content": "hi"}],
             "max_tokens": 4096,
-            "thinking": {"type": "enabled", "budget_tokens": 1024},
         }
-    )
-    assert out["chat_template_kwargs"] == {
-        "enable_thinking": True,
-        "thinking": True,
-    }
-    assert "custom_logit_processor" not in out
-    assert "custom_params" not in out
+        if thinking is not None:
+            body["thinking"] = thinking
+        out = anthropic_to_openai_request(body)
+        assert out["custom_params"] == {"thinking_budget": 1024}
 
 
-def test_thinking_budget_ignored_for_non_glm53(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
+def test_thinking_budget_minus_one_and_disabled_leave_thinking_uncapped():
+    for thinking in (
+        {"type": "enabled", "budget_tokens": -1},
+        {"type": "disabled"},
+    ):
+        out = anthropic_to_openai_request(
+            {
+                "model": "glm-5-3",
+                "messages": [{"role": "user", "content": "hi"}],
+                "max_tokens": 4096,
+                "thinking": thinking,
+            }
+        )
+        assert "custom_logit_processor" not in out
+        assert "custom_params" not in out
 
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+
+def test_thinking_budget_ignored_for_non_glm53():
     out = anthropic_to_openai_request(
         {
             "model": "qwen3-32b",
@@ -1475,10 +1559,7 @@ def test_thinking_budget_ignored_for_non_glm53(monkeypatch):
     assert "custom_params" not in out
 
 
-def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room():
     out = anthropic_to_openai_request(
         {
             "model": "glm-5-3",
@@ -1490,10 +1571,7 @@ def test_thinking_budget_tokens_clamped_to_leave_close_and_answer_room(monkeypat
     assert out["custom_params"] == {"thinking_budget": 8192 - 2 - 1024}
 
 
-def test_thinking_budget_tokens_rejects_non_positive(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+def test_thinking_budget_tokens_rejects_non_positive():
     with pytest.raises(AnthropicRequestRejected, match="positive integer"):
         anthropic_to_openai_request(
             {
@@ -1505,10 +1583,7 @@ def test_thinking_budget_tokens_rejects_non_positive(monkeypatch):
         )
 
 
-def test_thinking_budget_tokens_requires_max_tokens_at_least_four(monkeypatch):
-    from infera.engine.sglang.thinking_budget_const import THINKING_BUDGET_ENV
-
-    monkeypatch.setenv(THINKING_BUDGET_ENV, "1")
+def test_thinking_budget_tokens_requires_max_tokens_at_least_four():
     with pytest.raises(AnthropicRequestRejected, match="max_tokens must be >= 4"):
         anthropic_to_openai_request(
             {
