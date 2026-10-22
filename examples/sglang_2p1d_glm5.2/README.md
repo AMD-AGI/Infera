@@ -139,6 +139,41 @@ CONC=176 bash engine/agentx/agentx.sh      # DURATION=3600 WARMUP_PER_LANE=10 by
 bash engine/down.sh                        # then wait for VRAM to drain on both nodes
 ```
 
+## Decode request balancing (optional)
+
+`--decode-input-demand on` balances the decode ranks by in-flight input tokens.
+That evens their KV, but not their request counts: one rank can hold many short
+requests for another's one long request, and the busiest rank sets every step.
+`--decode-request-weight W` adds `W` tokens per request a rank already holds to
+its demand (the shape of Dynamo's `router-decode-active-request-weight`); 0, the
+default, is token-only demand. Enable it with
+`ROUTER_EXTRA_ARGS="--decode-request-weight 1000000"`.
+
+1P1D C88 on two AUS MI355X nodes (smci355-ccs-aus-n04-25 / n06-33), prefills
+with the EAGLE flags (note 10), one deployment, prefill cache flushed and router
+restarted before each point, 10 warm-up requests per lane, **1800 s measured**:
+
+| weight | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 / mean | ITL p50 / p90 | busiest rank running, median / p90 |
+|---|---|---|---|---|---|---|
+| 0 | 26,462 | 5,160 (2.87) | 75.8 / 55.7 | 5.5 / 11.1 / 8.3 s | 13.2 / 18.0 ms | 8 / 11 |
+| 1,000,000 | 27,186 | 5,184 (2.88) | 86.5 / 79.6 | 5.6 / 12.0 / 9.5 s | 11.6 / 12.6 ms | 6 / 8 |
+
+- p90 interactivity +43% at the same throughput. Both points take the same time
+  per step at the same busiest-rank load (40.5 / 40.8 ms at 6 requests, 43.6 /
+  43.5 ms at 8): the gain is the load distribution, the busiest rank no longer
+  reaching 10-14 requests.
+- TTFT rises (mean +15%, p90 +8%): the ranks' context is less even (busiest /
+  mean 1.23 → 1.52 at the median), so more KV lands on fewer ranks.
+- On this point one more request on the busiest rank cost as much as about
+  1.05M more context tokens there (least-squares fit of step time against the
+  busiest rank's requests and tokens and the totals over 3 s bins of the decode
+  log), which is why the weight is a million; on 2P1D C176 with the v0.5.21
+  image the same fit gave 0.17-0.19M. A 180,000 weight on another node pair
+  gave 27,577 tok/s/GPU at 85.0 / 74.4.
+- 1800 s windows understate tok/s/GPU against the canonical 3600 s by about 6%
+  (sessions reach their longer turns later), and leave p90 interactivity within
+  2%.
+
 ## Notes
 
 **1. Forced MTP acceptance produces wrong text.** `SIM_ACCEPT_LEN` makes the
