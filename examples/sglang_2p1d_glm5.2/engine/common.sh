@@ -15,9 +15,12 @@ for var in PREFILL_NODE_IP DECODE_NODE_IP MODEL IMAGE WORK_DIR; do
     case "${!var}" in "<"*) die "edit env.sh: $var is still a placeholder" ;; esac
 done
 [[ "$PREFILL_WORKERS" == 1 || "$PREFILL_WORKERS" == 2 ]] || die "PREFILL_WORKERS must be 1 or 2"
-ROUTER_URL="http://$PREFILL_NODE_IP:$ROUTER_PORT"
-PREFILL_CONTAINERS=("$CTR-agentx" "$CTR-eval" "$CTR-router" "$CTR-prefill0" "$CTR-prefill1" "$CTR-etcd")
-DECODE_CONTAINER="$CTR-decode"
+derive_names() {
+    ROUTER_URL="http://$PREFILL_NODE_IP:$ROUTER_PORT"
+    PREFILL_CONTAINERS=("$CTR-agentx" "$CTR-eval" "$CTR-router" "$CTR-prefill0" "$CTR-prefill1" "$CTR-etcd")
+    DECODE_CONTAINER="$CTR-decode"
+}
+derive_names
 # The env.sh settings of a deployment (not the benchmark ones): recorded per
 # run, and forwarded to the decode node.
 KIT_VARS=(PREFILL_NODE_IP DECODE_NODE_IP DECODE_SSH MODEL SERVED_MODEL IMAGE WORK_DIR
@@ -37,6 +40,16 @@ on_decode() { ssh -o BatchMode=yes "$DECODE_SSH" "$1"; }
 run_dir() {
     [[ -f "$WORK_DIR/current_run" ]] || die "no run found: bash engine/up.sh first"
     cat "$WORK_DIR/current_run"
+}
+
+# load_run: set RUN_DIR and restore the settings up.sh recorded there. The
+# environment of this invocation may differ from the one up.sh ran with (e.g.
+# ROUTER_PORT=... bash engine/up.sh), so the names derived from them follow.
+load_run() {
+    RUN_DIR="$(run_dir)"
+    # shellcheck source=/dev/null
+    source "$RUN_DIR/engine-config.env"
+    derive_names
 }
 
 # wait_health URL CONTAINER [decode]: poll URL until it answers; fail if

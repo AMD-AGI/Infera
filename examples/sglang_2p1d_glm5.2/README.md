@@ -47,7 +47,8 @@ docker build -f deploy/docker/Dockerfile.sglang -t <infera-sglang-image> .
 
 `up.sh` creates `$WORK_DIR/runs/<RUN_ID>/` on the prefill node with
 `engine-config.env` (the settings started, also handed to the decode node); the
-other scripts write `smoke/`, `gsm8k/`, `agentx/` and `logs/` there.
+other scripts read those settings back, so an override given to `up.sh` alone
+still applies to them, and write `smoke/`, `gsm8k/`, `agentx/` and `logs/` there.
 
 ## Topology
 

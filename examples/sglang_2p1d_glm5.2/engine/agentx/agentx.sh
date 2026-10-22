@@ -16,9 +16,7 @@
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 # shellcheck source=../common.sh
 source "$KIT/engine/common.sh"
-RUN_DIR="$(run_dir)"
-# shellcheck source=/dev/null
-source "$RUN_DIR/engine-config.env"
+load_run
 inferencex_checkout
 
 DURATION="${DURATION:-3600}"

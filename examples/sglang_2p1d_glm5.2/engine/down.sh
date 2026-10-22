@@ -11,7 +11,12 @@ KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=common.sh
 source "$KIT/engine/common.sh"
 
-out="$(cat "$WORK_DIR/current_run" 2>/dev/null || echo "$WORK_DIR")/logs"
+if [[ -f "$WORK_DIR/current_run" ]]; then
+    load_run
+    out="$RUN_DIR/logs"
+else
+    out="$WORK_DIR/logs"
+fi
 mkdir -p "$out"
 for c in "${PREFILL_CONTAINERS[@]}"; do
     docker inspect --type container "$c" >"$out/$c.inspect.json" 2>/dev/null || { rm -f "$out/$c.inspect.json"; continue; }

@@ -12,7 +12,5 @@
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=common.sh
 source "$KIT/engine/common.sh"
-RUN_DIR="$(run_dir)"
-# shellcheck source=/dev/null
-source "$RUN_DIR/engine-config.env"
+load_run
 PREFILL_NUM_WORKERS=$PREFILL_WORKERS python3 "$KIT/engine/smoke.py" "$ROUTER_URL" "$SERVED_MODEL" "$RUN_DIR/smoke"

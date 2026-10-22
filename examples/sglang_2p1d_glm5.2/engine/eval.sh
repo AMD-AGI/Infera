@@ -13,7 +13,7 @@
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=common.sh
 source "$KIT/engine/common.sh"
-RUN_DIR="$(run_dir)"
+load_run
 inferencex_checkout
 
 out="$RUN_DIR/gsm8k"
