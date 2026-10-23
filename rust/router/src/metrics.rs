@@ -36,6 +36,7 @@ struct Metrics {
     prefix_blocks_hit: CounterVec,
     prefix_blocks_total: CounterVec,
     decode_demand_tokens: GaugeVec,
+    decode_demand_requests: GaugeVec,
     decode_demand_decisions: CounterVec,
     engine_kv_cache_usage: GaugeVec,
     engine_prefix_cache_hit_rate: GaugeVec,
@@ -148,6 +149,12 @@ fn m() -> &'static Metrics {
             &["target"]
         )
         .expect("register decode_demand_tokens"),
+        decode_demand_requests: register_gauge_vec!(
+            "infera_router_decode_demand_requests",
+            "In-flight requests booked by decode input-demand routing, by Decode route key",
+            &["target"]
+        )
+        .expect("register decode_demand_requests"),
         decode_demand_decisions: register_counter_vec!(
             "infera_router_decode_demand_decisions_total",
             "Decode input-demand picks by mode, exact or estimated input, and whether the \
@@ -239,6 +246,16 @@ pub fn set_decode_demand_tokens(target: &str, tokens: Option<u128>) {
     let gauge = &m().decode_demand_tokens;
     match tokens {
         Some(tokens) => gauge.with_label_values(&[target]).set(tokens as f64),
+        None => {
+            let _ = gauge.remove_label_values(&[target]);
+        }
+    }
+}
+
+pub fn set_decode_demand_requests(target: &str, requests: Option<usize>) {
+    let gauge = &m().decode_demand_requests;
+    match requests {
+        Some(requests) => gauge.with_label_values(&[target]).set(requests as f64),
         None => {
             let _ = gauge.remove_label_values(&[target]);
         }

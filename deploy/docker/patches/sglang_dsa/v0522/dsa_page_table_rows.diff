@@ -1,0 +1,70 @@
+--------------------------------------------------------------------------------
+dsa_page_table_rows (v0522 re-cut) -- decode page-table rows under MTP
+SAME FIX as ../dsa_page_table_rows.diff, whose header is the record (WHAT / WHY /
+UPSTREAM / the #32209 negative result / the IndexShare substitution).  Only the
+anchors moved; the three edits are byte-identical to the v0.5.21 re-cut.
+
+WHY A RE-CUT.  Against lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018
+(sglang 0.5.22.dev20261018+g8dee3f6bdb) the v0.5.18 diff rejects 2 of 3 hunks at
+--fuzz=0, and the v0.5.21 re-cut applies only at offsets of 6, 136 and 191 lines.
+
+STILL NEEDED ON v0.5.22: transform_index_page_table_decode still asserts
+`page_table.shape[0] == topk_indices.shape[0]`
+(kernels/ops/attention/dsa/transform_index.py:289), and forward_decode still
+passes the per-request metadata.page_table_1 next to the per-token, padded
+topk_indices (layers/attention/dsa_backend.py:2600-2605).
+--------------------------------------------------------------------------------
+--- a/python/sglang/srt/layers/attention/dsa_backend.py
++++ b/python/sglang/srt/layers/attention/dsa_backend.py
+@@ -180,6 +180,29 @@
+     return seqlens_32.contiguous().view(-1, 1)
+ 
+ 
++def _glm52_match_page_table_rows(page_table, topk_indices):
++    """GLM52_BUG2B: give page_table one row per TOKEN, matching topk_indices.
++
++    page_table_1 is per-REQUEST, topk_indices per-TOKEN -- equal for plain decode,
++    not under MTP, where decode then trips `assert page_table.shape[0] ==
++    topk_indices.shape[0]`. Padded rows are masked, so only the COUNT matters.
++    """
++    if topk_indices is None or page_table is None:
++        return page_table
++    n_topk = topk_indices.shape[0]
++    n_rows = page_table.shape[0]
++    if n_rows == n_topk:
++        return page_table
++    if n_rows > 0 and n_topk % n_rows == 0:
++        return page_table.repeat_interleave(n_topk // n_rows, dim=0)
++    # Non-integral ratio: trim or edge-pad so the shapes agree. Any row reached
++    # only through padded (-1) topk entries is masked, so its content is moot.
++    if n_rows > n_topk:
++        return page_table[:n_topk]
++    pad = page_table[-1:].expand(n_topk - n_rows, -1)
++    return torch.cat([page_table, pad], dim=0)
++
++
+ def _trim_trtllm_decode_dp_padding(
+     q_all: torch.Tensor,
+     topk_indices: Optional[torch.Tensor],
+@@ -2600,7 +2623,9 @@
+             page_table_1 = self._get_fused_topk_page_table(topk_indices)
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )
+@@ -3868,7 +3893,9 @@
+             )
+         else:
+             page_table_1 = transform_index_page_table_decode(
+-                page_table=metadata.page_table_1,
++                page_table=_glm52_match_page_table_rows(
++                    metadata.page_table_1, topk_indices
++                ),
+                 topk_indices=topk_indices,
+                 page_size=1,
+             )

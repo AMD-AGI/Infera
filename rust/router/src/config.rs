@@ -79,6 +79,14 @@ pub struct Config {
     )]
     pub decode_input_demand: crate::decode_demand::Mode,
 
+    /// Decode input demand: the input tokens one in-flight request is worth on a
+    /// decode target, added per request it already holds. Under DP attention a
+    /// step waits for the busiest rank, whose cost grows with its request count
+    /// as well as its context, so token-only balancing can leave one rank with
+    /// many short requests. 0 keeps token-only balancing.
+    #[arg(long, default_value_t = 0, env = "INFERA_DECODE_REQUEST_WEIGHT")]
+    pub decode_request_weight: u64,
+
     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
     /// annotation and the API server is watched).
     #[arg(long, default_value = "etcd")]
@@ -257,6 +265,11 @@ impl Config {
             && self.router_policy != "kv-aware"
         {
             anyhow::bail!("--decode-input-demand requires --router-policy kv-aware");
+        }
+        if self.decode_request_weight > 0
+            && self.decode_input_demand == crate::decode_demand::Mode::Off
+        {
+            anyhow::bail!("--decode-request-weight requires --decode-input-demand shadow or on");
         }
         if self.router_policy == "kv-aware" && self.kv_tokenizer_path.is_none() {
             tracing::warn!(
@@ -501,5 +514,26 @@ mod tests {
             assert!(valid.validate().is_ok());
         }
         assert!(Config::try_parse_from(["router", "--decode-input-demand", "enabled"]).is_err());
+    }
+
+    #[test]
+    fn decode_request_weight_requires_decode_demand() {
+        let weighted = |mode: &str| {
+            Config::try_parse_from([
+                "router",
+                "--router-policy",
+                "kv-aware",
+                "--decode-input-demand",
+                mode,
+                "--decode-request-weight",
+                "180000",
+            ])
+            .unwrap()
+        };
+        assert!(weighted("off").validate().is_err());
+        assert!(weighted("shadow").validate().is_ok());
+        assert!(weighted("on").validate().is_ok());
+        let default = Config::try_parse_from(["router"]).unwrap();
+        assert_eq!(default.decode_request_weight, 0);
     }
 }

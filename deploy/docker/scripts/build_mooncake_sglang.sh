@@ -65,6 +65,19 @@ export AMDGPU_TARGETS="${AMDGPU_TARGETS:-$MC_GPU_ARCH}"
 export HIP_ARCHITECTURES="${HIP_ARCHITECTURES:-$MC_GPU_ARCH}"
 export CMAKE_PREFIX_PATH="/opt/rocm:/opt/rocm/lib/cmake:/opt/rocm-7.2.0/lib/cmake:$(python3 -c 'import pybind11; print(pybind11.get_cmake_dir())'):${CMAKE_PREFIX_PATH:-}"
 
+# The v0.5.21 base installed yalantinglibs under /usr/local; the v0.5.22 base does
+# not. Install it from the pinned submodule, as Mooncake's dependencies.sh does.
+if [ ! -f /usr/local/lib/cmake/yalantinglibs/yalantinglibsConfig.cmake ]; then
+    if ! { cmake -S extern/yalantinglibs -B /tmp/ylt-build -GNinja -DBUILD_EXAMPLES=OFF \
+            -DBUILD_BENCHMARK=OFF -DBUILD_UNIT_TESTS=OFF &&
+        cmake --build /tmp/ylt-build && cmake --install /tmp/ylt-build; } >/tmp/ylt.log 2>&1; then
+        tail -40 /tmp/ylt.log >&2
+        exit 1
+    fi
+    rm -rf /tmp/ylt-build
+    echo "[mc-build] installed yalantinglibs from the Mooncake submodule"
+fi
+
 rm -rf build
 mkdir build
 cd build

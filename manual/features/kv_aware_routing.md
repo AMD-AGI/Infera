@@ -277,6 +277,32 @@ the mean Decode allocation wait from 10.5 s to 3.3 s. That run also moved to
 different nodes, so its throughput change is not attributable to demand routing
 alone.
 
+### Request-count weight
+
+Under DP attention every decode step waits for the busiest rank, and that rank's
+step time grows with its request count as well as its context. Token-only demand
+evens the context but can leave one rank with many short requests.
+`--decode-request-weight W` (or `INFERA_DECODE_REQUEST_WEIGHT`; requires
+`--decode-input-demand shadow|on`) changes a candidate's cost to
+
+    in-flight input tokens + this request's tokens + W × requests the target holds
+
+where held requests are the reservations above (booked at the pick, released at
+response EOF, cancellation or failure). `W = 0`, the default, is token-only
+demand. Dynamo's `router-decode-active-request-weight` scores Decode workers the
+same way (`decode blocks + weight × active requests`).
+
+Choose `W` as the context, in tokens, that costs one decode step as much as one
+more request on the busiest rank. A least-squares fit of step time against the
+busiest rank's requests and tokens (3 s bins of the Decode log) gave about 1.05M
+for GLM-5.2 1P1D C88 on SGLang v0.5.22 and 0.17-0.19M for 2P1D C176 on v0.5.21.
+On that 1P1D C88 deployment, `W = 1000000` raised p90 interactivity from 55.7 to
+79.6 at the same throughput and raised TTFT (mean +15%), because context spreads
+less evenly; see `examples/sglang_2p1d_glm5.2/README.md`.
+
+`/metrics` adds `infera_router_decode_demand_requests{target}`, the held
+requests per Decode route key.
+
 ### Future: one tokenization end to end
 
 The router and each engine still tokenize the same prompt separately. Sending the
