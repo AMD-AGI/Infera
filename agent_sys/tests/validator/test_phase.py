@@ -679,3 +679,27 @@ def test_the_registry_records_that_the_validator_ran(
     runner(zone_root, package_root).run_phase(PhaseKind.OUTPUT, dispatched, registry)
     assert registry.get("validator_specs").never_run() == []
     assert registry.get("validator_specs").has_ever_run("shape").runs == 1
+
+
+def test_what_a_script_body_prints_is_kept_in_its_zone(
+    registry, dispatched, zone_root, tmp_path
+) -> None:
+    """A body's reasons are often only printed; they stay beside its verdict
+    (`BODY_OUTPUT`), in the validator's zone and outside every handoff."""
+    from validator.phase import BODY_OUTPUT
+
+    package_root = tmp_path / "chatty"
+    package_root.mkdir()
+    (package_root / "readme.md").write_text("# x")
+    (package_root / "entry.sh").write_text(
+        "#!/bin/sh\necho 'facts must be non-empty'\necho warn >&2\n"
+        "python3 -c \"import json; ids=json.load(open('inputs.json')); "
+        "json.dump({i: False for i in ids}, open('verdict.json', 'w'))\"\n"
+    )
+    register(registry, "chatty", inputs=["trace"])
+    bind_kind(registry, "trace", ["chatty"])
+
+    runner(zone_root, package_root).run_phase(PhaseKind.OUTPUT, dispatched, registry)
+
+    (kept,) = list(zone_root.rglob(BODY_OUTPUT))
+    assert "facts must be non-empty" in kept.read_text() and "warn" in kept.read_text()

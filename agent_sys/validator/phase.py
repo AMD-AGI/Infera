@@ -55,7 +55,9 @@ __all__ = [
     "BodyRunner",
     "LeafValidator",
     "PhaseRunner",
+    "BODY_OUTPUT",
     "ScriptBodyRunner",
+    "declare_materials",
     "read_verdict_file",
 ]
 
@@ -107,6 +109,16 @@ class BodyRunner(Protocol):
 STDERR_TAIL = 2000
 
 
+#: What a script body printed, kept in its zone (tail, per stream).
+BODY_OUTPUT = "body_output.txt"
+BODY_OUTPUT_BYTES = 64 * 1024
+
+
+def _tail(text: str | None, limit: int) -> str:
+    text = text or ""
+    return text if len(text) <= limit else "…" + text[-limit:]
+
+
 def _stderr_tail(stderr: str) -> str:
     text = (stderr or "").strip()
     if len(text) <= STDERR_TAIL:
@@ -148,6 +160,12 @@ class ScriptBodyRunner:
             env=dict(env.env),
             capture_output=True,
             text=True,
+        )
+        # Kept beside the verdict: a body's reasons are often only printed, and
+        # the run would otherwise lose them (e2e-flow writes validator_report.txt
+        # for exactly this). The zone is the validator's, outside every handoff.
+        (env.zone / BODY_OUTPUT).write_text(
+            _tail(completed.stdout, BODY_OUTPUT_BYTES) + _tail(completed.stderr, BODY_OUTPUT_BYTES)
         )
         if not env.verdict_file.exists():
             # **A body that reports nothing must not pass — and must not fail
@@ -232,7 +250,7 @@ def runner_for(spec: ValidatorSpec, package_root: Path | None) -> BodyRunner:
 ZONE_FILES = ("args.json", "inputs.json", "materials.json", "verdict.json")
 
 
-def _declare_materials(env: ValidationEnvironment, staged: Mapping[Any, str]) -> None:
+def declare_materials(env: ValidationEnvironment, staged: Mapping[Any, str]) -> None:
     """Name what the body is validating, in its own working directory.
 
     **The gap this closes is one name wide.** `env_mgr.prepare_validation`
@@ -895,7 +913,7 @@ class PhaseRunner:
         # cannot contain them. Producer-versus-standard separation is
         # `check_separation`'s, at load (review R08).
         env = build_environment(root, config=config, agent_id=agent_id, standards=())
-        _declare_materials(env, materials)
+        declare_materials(env, materials)
         return env
 
     def _placed_root(
