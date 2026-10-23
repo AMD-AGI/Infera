@@ -1,6 +1,7 @@
-"""Tokens/s/GPU against interactivity p90, InferenceX style: our 2P1D / 1P1D sweep (and the mixed
-TP4 C48 point) next to InferenceX's GLM-5.2 agentic lines for B300 and GB300 Dynamo + SGLang and
-MI355X SGLang and ATOM, plus ATOM's MI355X PD points from InferenceX PR #4045 (not yet on the site).
+"""Tokens/s/GPU against interactivity p90, InferenceX style: the PD example's baseline points (TP1 x PP4
+prefills, decode request balance on the 1P1D points) and the mixed TP4 C48 point, next to InferenceX's
+GLM-5.2 agentic lines for B300 and GB300 Dynamo + SGLang and MI355X SGLang and ATOM, plus ATOM's
+MI355X PD points from InferenceX PR #4045 (not yet on the site).
 Each line is the Pareto frontier of its points; dominated points are faint.
   python3 plot_pareto.py REPORT_DIR INFERENCEX_API_JSON OUT_PREFIX"""
 
@@ -14,23 +15,17 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 report, api, out = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
-ours = [  # (results dir, label, label offset in points)
-    ("results/c176", "2P(TP4/DPA)+1D(TP8/DPA) C176, 16 GPU", (-150, -16)),
-    ("results/c128", "2P1D C128, 16 GPU", (8, -2)),
-    ("results/c96", "2P1D C96, 16 GPU", (-95, -12)),
-    ("results/c64", "2P1D C64, 16 GPU", (6, -13)),
-    ("results/pp4-ck8k-2p-c176", "2P(PP4)+1D(TP8/DPA) C176, prefill MTP, 16 GPU", (8, 8)),
-    ("results/pp4-ck8k-2p-c192", "2P(PP4)+1D C192", (-80, 4)),
-    ("results/pp4-ck8k-d4-c80", "1P(PP4)+1D(TP4/DPA) C80, prefill MTP, 8 GPU", (10, -6)),
-    ("results/pp4-ck8k-d4-c64", "1P(PP4)+1D(TP4/DPA) C64, prefill MTP, 8 GPU", (8, 4)),
-    ("results/pp4-ck8k-c112", "1P(PP4)+1D C112, prefill MTP, 12 GPU", (8, 4)),
-    ("results/pp4-ck8k-c88", "1P(PP4)+1D(TP8/DPA) C88, prefill MTP, 12 GPU", (8, -12)),
-    ("results/pp4-ck8k-c64", "1P(PP4)+1D C64, prefill MTP, 12 GPU", (8, 4)),
-    ("results/pp4-ck8k-c32", "1P(PP4)+1D C32, prefill MTP, 12 GPU", (8, 4)),
-    ("results/1p1d-c88", "1P(TP4/DPA)+1D(TP8/DPA) C88, 12 GPU", (8, -12)),
-    ("results/1p1d-c64", "1P1D C64, 12 GPU", (8, 4)),
-    ("results/1p1d-c32", "1P(TP4/DPA)+1D(TP8/DPA) C32, 12 GPU", (6, -13)),
+ours = [  # (results dir, label, label offset in points): the PD example's baseline points
+    ("results/pp4-ck8k-2p-c176", "2P(PP4)+1D(TP8/DPA) C176, 16 GPU", (-205, 4)),
+    ("results/pp4-ck8k-2p-c192", "2P1D C192", (-58, -10)),
+    ("results/pp4-ck8k-d4-c80", "1P(PP4)+1D(TP4/DPA) C80, 8 GPU", (10, 2)),
+    ("results/pp4-ck8k-d4-c64", "1P+1D(TP4) C64, 8 GPU", (8, 2)),
+    ("results/pp4-ck8k-rb-c88", "1P(PP4)+1D(TP8/DPA) C88, balance, 12 GPU", (6, 10)),
+    ("results/ex-rb-c64", "1P1D C64, balance, 12 GPU", (8, 4)),
+    ("results/ex-rb-c48", "1P1D C48, balance, 12 GPU", (8, 4)),
+    ("results/ex-rb-c32", "1P1D C32, balance, 12 GPU", (8, 4)),
 ]
+ours = [p for p in ours if (report / p[0]).is_dir()]
 ZOOM_X, ZOOM_Y = 130, 46000
 mixed = report.parent / "mix-v0522-correctness-20261019/results/example-c48-dcar-topkv2-140"
 atom_pd = sorted((report.parent / "gb300-atom-pd-analysis-20261021/evidence/atom-pd-pr4045/run39028510364").glob("*.json"))
@@ -93,7 +88,7 @@ for ax, zoom in zip(axes, (False, True)):
     pts = [(*our_point(report / d), lab, off) for d, lab, off in ours]
     f = frontier([p[:3] for p in pts])
     ax.plot([p[0] for p in f], [p[1] for p in f], "-", color="tab:red", lw=2.4,
-            label="Infera + SGLang v0.5.22, MI355X PD (this sweep)")
+            label="Infera + SGLang v0.5.22, MI355X PD baseline (PR #210)")
     ax.scatter([p[0] for p in pts], [p[1] for p in pts], color="tab:red", s=55, zorder=5, edgecolor="black")
     mx, my = our_point(mixed)
     ax.scatter([mx], [my], marker="s", color="tab:red", facecolor="none", s=60, zorder=5)
@@ -116,7 +111,7 @@ for ax, zoom in zip(axes, (False, True)):
         ax.set_title("GLM-5.2 agentic (AgentX), tokens/s/GPU vs interactivity p90")
         ax.legend(loc="upper right", fontsize=9)
 fig.text(0.01, 0.005, f"InferenceX: {api.name} (api/v1/benchmarks?model=GLM-5.2, agentic_traces); "
-         "ours: results/*/agentx_conc*.json, all with --disable-custom-all-reduce, forced MTP acceptance 3.61",
+         "ours: results/*/agentx_conc*.json, PP4 prefill + prefill MTP, all with --disable-custom-all-reduce, forced MTP acceptance 3.61",
          fontsize=8, color="gray")
 fig.tight_layout(rect=(0, 0.02, 1, 1))
 fig.savefig(f"{out}.png", dpi=130)

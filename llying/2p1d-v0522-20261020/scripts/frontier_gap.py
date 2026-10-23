@@ -9,10 +9,14 @@ from pathlib import Path
 
 report, api = Path(sys.argv[1]).resolve(), Path(sys.argv[2])
 ours = [  # (label, results dir, GPUs)
-    ("4+8 C32", "pp4-ck8k-c32", 12),
-    ("4+8 C64", "pp4-ck8k-c64", 12),
-    ("4+8 C88", "pp4-ck8k-c88", 12),
-    ("4+8 C112", "pp4-ck8k-c112", 12),
+    ("4+8 C32 R2", "pp4-ck8k-c32", 12),
+    ("4+8 C64 R2", "pp4-ck8k-c64", 12),
+    ("4+8 C88 R2", "pp4-ck8k-c88", 12),
+    ("4+8 C112 R2", "pp4-ck8k-c112", 12),
+    ("4+8 C32 balance", "ex-rb-c32", 12),
+    ("4+8 C48 balance", "ex-rb-c48", 12),
+    ("4+8 C64 balance", "ex-rb-c64", 12),
+    ("4+8 C88 balance", "pp4-ck8k-rb-c88", 12),
     ("4+4 C64", "pp4-ck8k-d4-c64", 8),
     ("4+4 C80", "pp4-ck8k-d4-c80", 8),
     ("2P C176", "pp4-ck8k-2p-c176", 16),
