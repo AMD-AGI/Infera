@@ -17,7 +17,9 @@ docker build -f deploy/docker/Dockerfile.atom \
 ```
 
 `BUILD_MOONCAKE=0` keeps the base's multi-protocol Mooncake (see the Mooncake
-comment in `Dockerfile.atom`).
+comment in `Dockerfile.atom`). Release builds publish this build as the
+`atom-nightly` image; its base pin in `.github/scripts/build_test_push.sh` moves
+together with the one above.
 
 ## Scripts
 

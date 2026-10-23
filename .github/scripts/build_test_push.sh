@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 # Build/push/ship one Infera engine image on a node that has docker.
 # ship = login+build+push
-#   build|push|ship <sglang|vllm|atom|kvd|server|overlay>
+#   build|push|ship <sglang|vllm|atom|atom-nightly|kvd|server|overlay>
 #
 # `overlay` builds the base-agnostic payload (deploy/overlay/). It consumes the
 # vllm and sglang images, so it must run AFTER them — release.yml gates it, and
@@ -16,11 +16,11 @@ engine="${2:-}"
 case "$engine" in
   sglang)  dockerfile="deploy/docker/Dockerfile.sglang" ;;
   vllm)    dockerfile="deploy/docker/Dockerfile.vllm" ;;
-  atom)    dockerfile="deploy/docker/Dockerfile.atom" ;;
+  atom | atom-nightly) dockerfile="deploy/docker/Dockerfile.atom" ;;
   kvd)     dockerfile="deploy/docker/Dockerfile.kvd" ;;
   server)  dockerfile="deploy/docker/Dockerfile.server" ;;
   overlay) dockerfile="deploy/overlay/Dockerfile.payload" ;;
-  *) echo "usage: $0 <build|push|ship> <sglang|vllm|atom|kvd|server|overlay>" >&2; exit 2 ;;
+  *) echo "usage: $0 <build|push|ship> <sglang|vllm|atom|atom-nightly|kvd|server|overlay>" >&2; exit 2 ;;
 esac
 
 # Tag precedence: ID (release/nightly) > PR > local. IMAGE = target repo.
@@ -112,6 +112,22 @@ if [ "$engine" = overlay ]; then
   echo "overlay: deps on  sglang=${sglang_base}"
 fi
 
+# ---- atom-nightly build args -------------------------------------------------
+# Dockerfile.atom on the ATOM nightly base with patches/atom_nightly/: the image
+# examples/atom_4p4d_glm5.2 runs. `atom` stays on the release base that
+# patches/atom/ is written for. BUILD_MOONCAKE=0 keeps the nightly's
+# multi-protocol Mooncake (see Dockerfile.atom). Move this base together with
+# the one patches/atom_nightly/README.md is verified on.
+if [ "$engine" = atom-nightly ]; then
+  atom_nightly_base="rocm/atom-dev:nightly_202610131505"
+  build_args=(
+    --build-arg "ATOM_BASE_IMAGE=${atom_nightly_base}"
+    --build-arg "ATOM_NIGHTLY=1"
+    --build-arg "BUILD_MOONCAKE=0"
+  )
+  echo "atom-nightly: base=${atom_nightly_base} ATOM_NIGHTLY=1 BUILD_MOONCAKE=0"
+fi
+
 case "$cmd" in
   build)
     # BUILD_TARGET stops at one stage instead of building the whole file. CI uses
@@ -157,5 +173,5 @@ case "$cmd" in
     ;;
 
   *)
-    echo "usage: $0 <build|push|ship> <sglang|vllm|atom|kvd|server|overlay>" >&2; exit 2 ;;
+    echo "usage: $0 <build|push|ship> <sglang|vllm|atom|atom-nightly|kvd|server|overlay>" >&2; exit 2 ;;
 esac
