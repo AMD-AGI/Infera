@@ -77,6 +77,44 @@ decode 日志里的 8 行 Traceback 都在 18:13:40 撤栈时（SIGTERM 后的�
 - `../mix-v0522-correctness-20261019/scripts/engine_bisect.sh` 加了 `EXTRA_MOUNTS`（教训：正在被 bash 执行的脚本不能原地改写，bash 按偏移边读边执行；
   18:20 误改后已原样写回同一 inode，等那条串行跑完才替换）。
 
+V1（`car-arcopy-mtp0hc0`，只让 all-reduce 捕获时拷入，custom all-gather / reduce-scatter 仍走注册路径）：**0.975，乱码 0**，截断 4（doc 85、87、119、182，
+逐条看是连贯的反复推敲）；引擎日志 4 个 rank 都打印了 `all-reduce capture copy-in`，且仍是 `Using AiterCustomAllreduce`（另一条
+`All-reduce call path: NCCL (custom AR disabled)` 在乱码的基线里同样有 4 条，是只有 1 个 rank 的组；整体关的对照是 8 条）。V2（三者都拷入）0.975 / 0 / 4。
+开 MTP 再验（`car-arcopy-mtp1hc0`）：0.980 / 0 / 3。**根因：MI355X 上 aiter custom all-reduce 在 CUDA graph 捕获时注册 graph 池里的输入张量；聚合部署里
+eager 的 EXTEND 步与 decode graph 回放交替时，对端回放读到旧数据。all-reduce 捕获时改为拷进预注册的 IPC 池即可，custom all-reduce 保留。**
+
+### 步骤 2：prefill profile（`prof-c88-1023T1822`，真实接受率，4+8 C88，预热结束 10 分钟后每级 30 步）
+
+trace 在 138 `$W/2p1d/exp/traces/prefill-185742-p0/`，`scripts/prof_breakdown.py` 的输出：
+
+| | PP0 | PP1 | PP2 | PP3 |
+|---|---|---|---|---|
+| GPU 忙碌（30 步，折每步） | 11.37 s（≈379 ms） | 11.80 s（≈393 ms） | 11.59 s（≈386 ms） | 9.23 s（≈308 ms） |
+| DSA 稀疏 MLA attention（triton `_sparse_mla_fwd_split_dim_kernel`） | 18% | 21% | 22% | 25% |
+| DSA indexer（`_gluon_fp8_mqa_logits` + `topk_packed`） | 5% | 10% | 9% | 7% |
+| GEMM（BF16 hipBLASLt `Cijk_*MT256x256`、MXFP4 `gemm2_a4w4`、a16w16、batched a8w8） | 14% | 18% | 19% | 21% |
+| MoE（`mfma_moe1_*afp4_wfp4`） | 4% | 5% | 6% | 8% |
+| NCCL（级间收发） | 17% | 27% | 26% | 13% |
+| 拷贝 / 其他（HtoD、direct copy、Fill 等） | 32% | 19% | 14% | 24% |
+（占 kernel 时间的比例；kernel 时间含并行流，所以大于忙碌时间。）
+
+- **最大的单项是 DSA 稀疏 attention 的 triton kernel**（每级每步约 100 ms），DSA 合计约占计算的 30%–40%；MoE 只有约 5%。负载下 prefill 慢在长上下文的
+  attention / indexer。
+- **PP0 是瓶颈**：采样时段 88% 忙，且比其他级多约 2 s / 30 步的输入准备拷贝（HtoD 1.94 s、direct copy 0.99 s、Fill 0.56 s）；PP 关了 overlap 调度，
+  CPU 准备 batch 时 GPU 空着（约 12%）。379 ms 的 kernel 加空隙约 430 ms，与日志节拍吻合。
+- **NCCL 时间多是空泡**：级间每次只传约 100–200 MB 激活，按带宽几毫秒；中间两级 26%–27% 的收发时间主要是在等上游。
+- 日志对齐后的各级时间差（`pp_stage_times.py` 已改为按 (请求数, 新 token, 缓存 token) 对齐，窗口切在流水线中间时不再错位）：
+
+  | 运行 | PP0→1 | PP1→2 | PP2→3 | 节拍 |
+  |---|---|---|---|---|
+  | `prof-c88`（真实接受率，中位缓存 10.6 万） | 361 | 372 | 320 | 384 ms |
+  | `c88-1023T0854`（强制 3.61，12.6 万） | 422 | 434 | 356 | 445 ms |
+
+  前两级稳定比第三级慢 13%–20%，最后一级最轻。
+
+**配置实验候选**：层切分 19/19/20/20（估计节拍 −5%）；`--pp-async-batch-depth 1`（让下一个 batch 的准备与计算重叠，针对 PP0 的空隙）；DSA prefill 后端
+`aiter`（v0.5.22 可选 `aiter`、`tilelang`、`triton_sparse_mla` 等；先过正确性，含长上下文）。
+
 ### HiCache 撤栈对同节点的影响
 
 18:13 撤下 PD 栈后，同节点 GPU 0–3 上新起的 mixed 引擎停在 D 状态、没有日志，直到 GPU 4–7 回收完（约 9 分钟）才继续——锁页主机池回收期间新进程的 KFD

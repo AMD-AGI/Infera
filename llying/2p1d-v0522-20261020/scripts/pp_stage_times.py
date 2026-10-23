@@ -23,6 +23,17 @@ for line in open(log, errors="replace"):
         ts = datetime.datetime.fromisoformat(m.group(1)[:26])
         stages[int(m.group(2))].append((ts, int(m.group(3)), int(m.group(4)), int(m.group(5)), int(m.group(6))))
 n_stage = max(stages) + 1
+# The window can cut the pipeline mid-flight, so stage s+1's first line need not be stage s's first batch:
+# align each stage to PP0 by the shift that best matches (seqs, new tokens, cached tokens).
+for s in range(1, n_stage):
+    sig0 = [b[1:4] for b in stages[0]]
+    best = max(range(-4, 5), key=lambda d: sum(
+        1 for k in range(max(0, -d), min(len(sig0), len(stages[s]) - d)) if sig0[k] == stages[s][k + d][1:4]))
+    stages[s] = stages[s][best:] if best >= 0 else [stages[s][0]] * 0 + stages[s]
+    if best < 0:
+        stages[0] = stages[0][-best:]
+        for t in range(1, s):
+            stages[t] = stages[t][-best:]
 n = min(len(v) for v in stages.values())
 print(f"{n_stage} stages, {n} batches in window (per stage: {[len(stages[s]) for s in range(n_stage)]})")
 
