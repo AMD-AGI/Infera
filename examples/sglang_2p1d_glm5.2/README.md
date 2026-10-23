@@ -146,8 +146,9 @@ That evens their KV, but not their request counts: one rank can hold many short
 requests for another's one long request, and the busiest rank sets every step.
 `--decode-request-weight W` adds `W` tokens per request a rank already holds to
 its demand (the shape of Dynamo's `router-decode-active-request-weight`); 0 is
-token-only demand. The kit passes `DECODE_REQUEST_WEIGHT` (env.sh, default
-1,000,000); `DECODE_REQUEST_WEIGHT=0` turns it off.
+token-only demand. The kit passes `DECODE_REQUEST_WEIGHT` (env.sh, default 0);
+the 1P points with an 8-GPU decode run 1,000,000, where the decode has KV to
+spare and its eight ranks were the least even. The KV-bound shapes keep 0.
 
 1P1D C88 on two AUS MI355X nodes (smci355-ccs-aus-n04-25 / n06-33), prefills
 with the EAGLE flags (note 10), one deployment, prefill cache flushed and router

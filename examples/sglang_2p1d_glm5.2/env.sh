@@ -59,9 +59,9 @@ export DECODE_GPUS="${DECODE_GPUS:-0,1,2,3,4,5,6,7}"
 export SIM_ACCEPT_LEN="${SIM_ACCEPT_LEN:-}"
 
 # Tokens one held request is worth when the router balances the decode ranks
-# (--decode-request-weight); 0 balances by input tokens only (README "Decode
-# request balancing").
-export DECODE_REQUEST_WEIGHT="${DECODE_REQUEST_WEIGHT:-1000000}"
+# (--decode-request-weight); 0 balances by input tokens only. Which shapes run
+# 1000000: README "Reference numbers".
+export DECODE_REQUEST_WEIGHT="${DECODE_REQUEST_WEIGHT:-0}"
 
 # Extra flags, space-separated, appended last.
 export PREFILL_EXTRA_ARGS="${PREFILL_EXTRA_ARGS:-}"
