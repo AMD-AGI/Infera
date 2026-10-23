@@ -194,6 +194,14 @@ RUN set -eu; \
 COPY deploy/docker/patches/sglang_kv_events/patch_kv_metrics_send_noblock.py /tmp/patch_kv_metrics_send_noblock.py
 RUN python /tmp/patch_kv_metrics_send_noblock.py && rm -f /tmp/patch_kv_metrics_send_noblock.py
 
+# ---- sglang PP patch (DeepseekV2 stages without an embedding) ---------------
+# DeepseekV2Model sizes its gemm-output allocator from embed_tokens, which is a
+# PPMissingLayer on every middle pipeline stage, so --pp-size > 2 failed to load.
+# The patch reads config.hidden_size (the same width). The 2P1D GLM-5.2 example's
+# TP1 x PP4 prefill needs it.
+COPY deploy/docker/patches/sglang_pp/v0522/patch_deepseek_v2_pp_embed_dim.py /tmp/patch_deepseek_v2_pp_embed_dim.py
+RUN python /tmp/patch_deepseek_v2_pp_embed_dim.py && rm -f /tmp/patch_deepseek_v2_pp_embed_dim.py
+
 # ---- Rust router (multi-core data plane; --router-backend rust) ----
 # The ROCm base often ships cargo; use it, and install a minimal toolchain only
 # if absent. Needs cc for linking and libclang (onig_sys/bindgen).

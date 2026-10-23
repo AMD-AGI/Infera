@@ -40,6 +40,7 @@ top-level patch files.
 | `sglang_rocm/patch_hicache_rocm_host_alloc.py` | not baked | HIP-owned host pools, device pointer tables |
 | `sglang_rocm/v0522/patch_mla_absorb_bmm_default_config.py` | baked | keeps aiter's own config, as the v0.5.21 deployments ran |
 | `sglang_kv_events/patch_kv_metrics_send_noblock.py` | baked | `kv_events_publisher.py` still sends blocking |
+| `sglang_pp/v0522/patch_deepseek_v2_pp_embed_dim.py` | baked (2026-10-23) | `deepseek_v2.py` sizes the gemm-output allocator from `embed_tokens`, a `PPMissingLayer` on middle stages |
 | `sglang_decode_radix_spec/patch_decode_radix_spec.py` | no-op | the speculative-decoding rejection is gone |
 
 Column meanings:
