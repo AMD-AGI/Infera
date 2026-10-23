@@ -143,7 +143,14 @@ OOM 在 `dsa_backend._forward_aiter_extend` → `aiter.mla.mla_decode_fwd` 的 `
 
 ### 步骤 3：prefill 配置 A/B（排在 4+4 C80 之后，`scripts/perf_plan.sh`，计划 138 `$W/2p1d/ab/plan.txt`）
 
-4+8 C112（prefill 饱和，均衡开，`site-exp-1p.env`）：基线 → 层切分 19/19/20/20 → `--pp-async-batch-depth 1`。decode 是否开 custom all-reduce 等 4+4 C80 的结果再定。
+4+8 C112（prefill 饱和，均衡开，`site-exp-1p.env`）：基线 → 层切分 19/19/20/20 → `--pp-async-batch-depth 1`。decode 保持关 custom all-reduce。
+比较的量：prefill 新算 token/s、每秒请求、满 8k batch 的节拍（`pp_stage_times.py`），以及 tok/s/GPU、p90 交互。
+
+| 组 | tok/s/GPU | 每秒请求 | intvty p50 / p90 | TTFT p50 / p90 (s) | 新算 tok/s | 节拍中位 / p90 (ms) | PP0→1 / 1→2 / 2→3 (ms) | 排队均值 / 有排队的 10 s |
+|---|---|---|---|---|---|---|---|---|
+| ab-base（20/20/20/18，`c112-1023T2116`，计分 21:43–22:43） | 30,071 | 2.990 | 79.2 / 57.6 | 5.41 / 11.35 | 12,980 | 481 / 1,162 | 459 / 467 / 386 | 30.6 / 94% |
+
+（中位缓存上下文 12.9 万、每 batch 3 个请求；decode 最忙 rank 中位 / p90 7 / 10。对照 kit 测的 4+8 C112 R2 29,540 @ 49.8、新算 13.1k；C88 均衡 31,088 @ 71.7、13.0k。）
 
 ### 操作上的两点
 
