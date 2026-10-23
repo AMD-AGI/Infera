@@ -1,0 +1,5 @@
+DP0: win=1354s GB=2819.6 rate=2.08GB/s calls=29731 t_xfer=217s (13.0GB/s while in xfer) dcp_calls=26651 t_dcp=2314s t_pack=2131s pack/dcp=0.92 ms/pack=79.9 ms/xfercall=7.3 hist=[16230, 621180, 1218108, 989220, 1056195, 1586794]
+DP1: win=1344s GB=3298.2 rate=2.45GB/s calls=34677 t_xfer=293s (11.3GB/s while in xfer) dcp_calls=31309 t_dcp=2494s t_pack=2244s pack/dcp=0.90 ms/pack=71.7 ms/xfercall=8.5 hist=[17210, 771193, 1667795, 1233730, 1387014, 1817473]
+DP2: win=1337s GB=2889.5 rate=2.16GB/s calls=28507 t_xfer=241s (12.0GB/s while in xfer) dcp_calls=26427 t_dcp=2151s t_pack=1945s pack/dcp=0.90 ms/pack=73.6 ms/xfercall=8.5 hist=[10466, 296458, 1329037, 870859, 988083, 1613106]
+DP3: win=1346s GB=3200.3 rate=2.38GB/s calls=37116 t_xfer=281s (11.4GB/s while in xfer) dcp_calls=31628 t_dcp=2912s t_pack=2678s pack/dcp=0.92 ms/pack=84.7 ms/xfercall=7.6 hist=[28172, 988624, 1537890, 1426484, 1292290, 1720308]
+ALL: win=5381s GB=12207.6 rate=2.27GB/s calls=130031 t_xfer=1033s (11.8GB/s while in xfer) dcp_calls=116015 t_dcp=9872s t_pack=8998s pack/dcp=0.91 ms/pack=77.6 ms/xfercall=7.9 hist=[72078, 2677455, 5752830, 4520293, 4723582, 6737681]

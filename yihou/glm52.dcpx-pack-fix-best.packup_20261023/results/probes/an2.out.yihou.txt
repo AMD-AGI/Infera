@@ -1,0 +1,88 @@
+== rdma (GB/s per 30 s interval)
+rdma.135.log s1 ionic_0 dt=31 tx=3.70 rx=0.00 retx+0
+rdma.135.log s1 ionic_1 dt=30 tx=3.85 rx=0.00 retx+0
+rdma.135.log s1 ionic_2 dt=30 tx=3.89 rx=0.00 retx+0
+rdma.135.log s1 ionic_3 dt=30 tx=3.91 rx=0.00 retx+0
+rdma.135.log s2 ionic_0 dt=31 tx=3.25 rx=0.00 retx+0
+rdma.135.log s2 ionic_1 dt=31 tx=3.22 rx=0.00 retx+0
+rdma.135.log s2 ionic_2 dt=31 tx=3.19 rx=0.00 retx+0
+rdma.135.log s2 ionic_3 dt=31 tx=3.15 rx=0.00 retx+0
+rdma.135.log s3 ionic_0 dt=31 tx=3.09 rx=0.00 retx+0
+rdma.135.log s3 ionic_1 dt=31 tx=3.11 rx=0.00 retx+0
+rdma.135.log s3 ionic_2 dt=31 tx=3.11 rx=0.00 retx+0
+rdma.135.log s3 ionic_3 dt=31 tx=3.09 rx=0.00 retx+0
+rdma.136.log s1 ionic_0 dt=31 tx=0.00 rx=3.43 retx+0
+rdma.136.log s1 ionic_1 dt=31 tx=0.00 rx=3.46 retx+0
+rdma.136.log s1 ionic_2 dt=31 tx=0.00 rx=3.37 retx+0
+rdma.136.log s1 ionic_3 dt=31 tx=0.00 rx=3.38 retx+0
+rdma.136.log s2 ionic_0 dt=31 tx=0.00 rx=3.14 retx+0
+rdma.136.log s2 ionic_1 dt=31 tx=0.00 rx=3.14 retx+0
+rdma.136.log s2 ionic_2 dt=31 tx=0.00 rx=3.14 retx+0
+rdma.136.log s2 ionic_3 dt=31 tx=0.00 rx=3.14 retx+0
+rdma.136.log s3 ionic_0 dt=31 tx=0.00 rx=3.09 retx+0
+rdma.136.log s3 ionic_1 dt=31 tx=0.00 rx=3.10 retx+0
+rdma.136.log s3 ionic_2 dt=31 tx=0.00 rx=3.11 retx+0
+rdma.136.log s3 ionic_3 dt=31 tx=0.00 rx=3.09 retx+0
+== top -H (last iteration, threads >5% CPU)
+MiB 1489553.+avail 
+2486 99.9 sglang:+
+2482 99.9 sglang:+
+2480 99.9 sglang:+
+2476 99.9 sglang:+
+2474 99.8 sglang:+
+2488 99.6 sglang:+
+2487 99.6 sglang:+
+2485 99.6 sglang:+
+2475 98.2 sglang:+
+2473 98.2 sglang:+
+692 94.8 python3
+698 94.6 python3
+694 94.6 python3
+2610 87.1 sglang:+
+701 86.5 python3
+370 79.5 sglang:+
+372 68.7 sglang:+
+371 39.4 sglang:+
+369 36.9 sglang:+
+2607 18.9 sglang:+
+1303 17.7 sglang:+
+1302 17.7 sglang:+
+1291 15.5 sglang:+
+1290 15.5 sglang:+
+1288 15.5 sglang:+
+1287 15.5 sglang:+
+1270 15.1 sglang:+
+1269 15.1 sglang:+
+1264 14.9 sglang:+
+== top -H per-thread name totals (last iteration)
+1702.3 sglang:+
+370.7 python3
+== native stack: innermost 3 frames of active transfer_worker threads
+      7 0x768ee05ef812 < 0x768ee05ef46e < 0x768ee05f3719
+      7 0x7396e5ce7812 < 0x7396e5ce746e < 0x7396e5ceb719
+      4 0x7f918aae482d < 0x7f918aae446e < 0x7f918aae8719
+      4 0x7f918aae4812 < 0x7f918aae446e < 0x7f918aae8719
+      4 0x7a954db78812 < 0x7a954db7846e < 0x7a954db7c719
+      3 0x7f918aae4828 < 0x7f918aae446e < 0x7f918aae8719
+      2 mooncake::RdmaTransport::getTransferStatus < mooncake::Status::ok < mooncake::MultiTransport::getTransferStatus
+      2 mooncake::MultiTransport::getTransferStatus < mooncake::MultiTransport::getBatchTransferStatus < mooncake::TransferEngineImpl::getBatchTransferStatus
+      2 0x7f918aae4836 < 0x7f918aae446e < 0x7f918aae8719
+      2 0x7f918aae4816 < 0x7f918aae446e < 0x7f918aae8719
+      2 0x768ee05ef816 < 0x768ee05ef46e < 0x768ee05f3719
+      2 0x7396e5ce7836 < 0x7396e5ce746e < 0x7396e5ceb719
+      2 0x7396e5ce782d < 0x7396e5ce746e < 0x7396e5ceb719
+      2 0x7396e5ce7816 < 0x7396e5ce746e < 0x7396e5ceb719
+      1 mooncake::globalConfig < operator() < mooncake::MultiTransport::getTransferStatus
+      1 mooncake::MultiTransport::getBatchTransferStatus < mooncake::TransferEngineImpl::getBatchTransferStatus < mooncake::TransferEngine::getBatchTransferStatus
+      1 _Prepare_execution<std::call_once<mooncake::globalConfig()::<lambda()> >(std::once_flag&, mooncake::globalConfig()::<lambda()>&&)::<lambda()> > < call_once<mooncake::globalConfig()::<lambda()> > < mooncake::globalConfig
+      1 0x7f94298becae < 0x7f94298bed0c < __tls_get_addr
+      1 0x7f94298beca4 < 0x7f94298bed0c < __tls_get_addr
+      1 0x7a954db7882d < 0x7a954db7846e < 0x7a954db7c719
+      1 0x7a954db78828 < 0x7a954db7846e < 0x7a954db7c719
+      1 0x7a954db78816 < 0x7a954db7846e < 0x7a954db7c719
+      1 0x76917f3cacae < 0x76917f3cad0c < __tls_get_addr
+      1 0x76917f3cacaa < 0x76917f3cad0c < __tls_get_addr
+      1 0x768ee05ef8a0 < 0x768ee05ef46e < 0x768ee05f3719
+== decode schedulers: innermost frames of active threads
+     11 : "MainThread" | select | _resolve_attention_variant
+      1 : "MainThread" | _should_skip_logits_computation | forward_cuda

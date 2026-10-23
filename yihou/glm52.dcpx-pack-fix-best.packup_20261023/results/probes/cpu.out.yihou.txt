@@ -1,0 +1,12 @@
+pid 369 cpus=0-28,118-146 threads=270
+pid 370 cpus=29-57,147-175 threads=269
+pid 371 cpus=58-86,176-204 threads=269
+pid 372 cpus=87-115,205-233 threads=269
+cpuset= mems=
+CPU(s):                                  236
+NUMA node0 CPU(s):                       0-117
+NUMA node1 CPU(s):                       118-235
+cpus 0-28     n= 29 mean busy  12.0%  >90%: 0
+cpus 118-146  n= 29 mean busy  13.6%  >90%: 1
+cpus 29-117   n= 89 mean busy  18.6%  >90%: 2
+cpus 147-235  n= 89 mean busy   3.9%  >90%: 0

@@ -1,0 +1,12 @@
+== dcpx10 profiling from 20:28:21
+ALL: win=14482s GB=40717.0 rate=2.81GB/s calls=432499 t_xfer=3054s (13.3GB/s while in xfer) dcp_calls=388524 t_dcp=2678s t_pack=242s pack/dcp=0.09 ms/pack=0.6 ms/xfercall=7.1 hist=[217642, 15384151, 23231255, 20674460, 17709817, 21615790]
+index 54.8s launch 23.6s sync 142.1s n=388525 -> ms/pack index 0.14 launch 0.06 sync 0.37
+== dcpx11 profiling from 23:59:33
+ALL: win=414s GB=134.4 rate=0.32GB/s calls=1471 t_xfer=8s (17.1GB/s while in xfer) dcp_calls=1303 t_dcp=7s t_pack=1s pack/dcp=0.13 ms/pack=0.7 ms/xfercall=5.3 hist=[756, 27852, 7824, 21801, 31386, 90298]
+index 0.2s launch 0.1s sync 0.5s n=1303 -> ms/pack index 0.18 launch 0.06 sync 0.41
+== dcpx12 profiling from 01:54:11
+ALL: win=14459s GB=40524.9 rate=2.80GB/s calls=431714 t_xfer=2919s (13.9GB/s while in xfer) dcp_calls=387476 t_dcp=2557s t_pack=238s pack/dcp=0.09 ms/pack=0.6 ms/xfercall=6.8 hist=[221753, 14908140, 21571963, 19864222, 17418118, 21647339]
+index 52.7s launch 22.8s sync 141.4s n=387474 -> ms/pack index 0.14 launch 0.06 sync 0.36
+== dpax1 profiling from 22:01:53
+ALL: win=14383s GB=36619.9 rate=2.55GB/s calls=26292 t_xfer=1668s (22.0GB/s while in xfer) dcp_calls=0 t_dcp=0s t_pack=0s pack/dcp=0.00 ms/pack=0.0 ms/xfercall=63.5 hist=[52092, 5125652, 21317031, 12813237, 10418001, 7893785]
+index 0.0s launch 0.0s sync 0.0s n=0 -> ms/pack index 0.00 launch 0.00 sync 0.00

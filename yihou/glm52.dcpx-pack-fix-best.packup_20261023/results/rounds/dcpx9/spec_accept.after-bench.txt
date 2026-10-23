@@ -1,0 +1,2 @@
+sglang:spec_accept_length{engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 3.5729032258064515
+sglang:spec_accept_rate{engine_type="decode",model_name="glm5.2-mxfp4",moe_ep_rank="0",pp_rank="0",tp_rank="0"} 0.5145806451612903
