@@ -1015,3 +1015,8 @@ PR #213 记的是持有数（派发 +1、decode 流结束 −1），并与 token
 - 10:24 C88 串行结束，campaign 开始构建新镜像（此时没有测试在跑），10:27 构建完成（`infera-sglang:v0522-ex-3ad7527c`，`sha256:f00137a0…`，层缓存命中，
   不到 3 分钟），开始拷到 140。
 - 10:30 用户决定新镜像上不重跑 C88（4+8 C88 均衡沿用上面 kit 的结果）：`plan.txt` 改为 C64、C48、C32；PR 的验证靠 example 的正确性运行与这三个点。
+- **新镜像 + example 的检查与正确性**（日志 138 `$W/2p1d/ex-3ad7527c/`）：镜像内 `tests/unit` 2,656 passed / 91 skipped，`tests/engine/sglang` 逐文件全过；
+  正确性（4+8、PP4 + HiCache、真实接受率，`correct-ex-1023T1034`）：smoke 6/6（66k 冷请求 51.4 s，新镜像 JIT 首次编译；重复 2.6 s），GSM8K **strict 0.9666 /
+  flexible 0.9674**（PP4 kit 开 HiCache 时 0.9719 / 0.9712、不开 0.9674 / 0.9682，差在约一个标准误 ±0.005 内），真实接受长度中位 4.62。
+- 10:53 起 C64（`perf-site-ex-1p/c64.log`），11:12 预热结束，计分到 12:12；之后 C48、C32。#210 的 CI：dco、lint、unit、unit-torch-cpu、rust、agent_sys 通过，
+  engine 与 e2e 排队中。
