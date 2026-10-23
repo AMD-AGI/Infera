@@ -30,6 +30,13 @@ class _InferaSpecStep:
         return self._host
 
 
+def _infera_processor(entry):
+    """Return the processor from current entries or legacy tuple values."""
+    if hasattr(entry, "processor"):
+        return entry.processor
+    return entry[0]
+
+
 def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch, verify_input):
     """Run multi-row custom logit processors over the rows of a chain verify block.
 
@@ -58,7 +65,7 @@ def _infera_apply_custom_logit_processor(next_token_logits, sampling_info, batch
     supported = {
         key: value
         for key, value in all_processors.items()
-        if getattr(value[0], "SUPPORTS_SPEC_VERIFY_ROWS", False)
+        if getattr(_infera_processor(value), "SUPPORTS_SPEC_VERIFY_ROWS", False)
     }
     if not supported:
         return
