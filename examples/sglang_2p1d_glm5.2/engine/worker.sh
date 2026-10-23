@@ -2,9 +2,9 @@
 # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
 #
-# Start one engine container on THIS node: a TP4 + DP4-attention prefill with
-# a host-memory HiCache tier, or the TP8 + DP8-attention decode; both legs
-# carry EAGLE MTP.
+# Start one engine container on THIS node: a TP1 x PP4 prefill with a
+# host-memory HiCache tier, or the TP + DP-attention decode (8 or 4 GPUs); both
+# legs carry EAGLE MTP.
 # This file carries the tuned recipe; site values come from env.sh. Normally
 # called by up.sh (the decode over ssh).
 #
@@ -28,6 +28,7 @@ decode)
 *) die "usage: worker.sh prefill 0|1 | decode" ;;
 esac
 n_gpus=$(($(tr -cd , <<<"$gpus" | wc -c) + 1))
+[[ "$role" != prefill || "$n_gpus" == 4 ]] || die "a prefill is TP1 x PP4: $gpus_var needs 4 GPUs"
 
 # NCCL / gloo / SGLang bind to the interface that carries this node's IP.
 nic="$(ip -o -4 addr show | awk -v ip="$node_ip" '$4 ~ ("^" ip "/") {print $2; exit}')"
@@ -63,10 +64,9 @@ args=(
     --request-transport http --kv-event-transport zmq
     --disaggregation-mode "$role" --disaggregation-transfer-backend mooncake
     --disaggregation-ib-device "$RDMA_DEVICES"
-    --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention --ep-size 1
-    --disable-custom-all-reduce
+    --ep-size 1 --disable-custom-all-reduce
     --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton
-    --chunked-prefill-size 32768 --max-running-requests 256
+    --max-running-requests 256
     --json-model-override-args '{"index_share_for_mtp_iteration":false}'
     --enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion
     --reasoning-parser glm45 --tool-call-parser glm47
@@ -81,7 +81,15 @@ if [[ "$role" == prefill ]]; then
     # Per-call hipHostRegister limit: keeps each 250 GB host pool in one
     # registration (the 256 GB default would split it).
     env+=(SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512)
+    # GLM-5.2 has 78 layers; the last stage also holds the LM head and the
+    # NextN draft layer, so it takes two fewer.
+    env+=(SGLANG_PP_LAYER_PARTITION=20,20,20,18)
     args+=(
+        # Pipeline parallelism needs the overlap scheduler off. 8k chunks keep
+        # a stage short, so a small prefill does not wait behind a long one
+        # through all four stages (README note 11).
+        --tp-size 1 --pp-size 4 --disable-overlap-schedule
+        --chunked-prefill-size 8192 --max-prefill-tokens 8192
         --mem-fraction-static 0.88 --schedule-policy shortest-prefill-first
         --disaggregation-bootstrap-port $((BOOTSTRAP_PORT + idx))
         --enable-kv-events --kv-events on
@@ -97,6 +105,7 @@ else
             SGLANG_SIMULATE_ACC_METHOD=match-expected SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token)
     fi
     args+=(
+        --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention --chunked-prefill-size 32768
         --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 256 --tokenizer-worker-num 4
         --no-enable-kv-events --kv-events off
     )
