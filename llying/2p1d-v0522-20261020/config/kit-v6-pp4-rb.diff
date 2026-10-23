@@ -1,0 +1,42 @@
+diff -ru 2p1d-kit/v6-pp4/engine/common.sh 2p1d-kit/v6-pp4-rb/engine/common.sh
+--- 2p1d-kit/v6-pp4/engine/common.sh	2026-10-21 16:54:05.293883551 +0000
++++ 2p1d-kit/v6-pp4-rb/engine/common.sh	2026-10-23 08:46:46.856984289 +0000
+@@ -22,7 +22,7 @@
+ # run, and forwarded to the decode node.
+ KIT_VARS=(PREFILL_NODE_IP DECODE_NODE_IP DECODE_SSH MODEL SERVED_MODEL IMAGE WORK_DIR
+     RDMA_DEVICES MC_GID_INDEX MOONCAKE_DISABLE_HIP_DMABUF PREFILL_WORKERS PREFILL0_GPUS PREFILL1_GPUS DECODE_GPUS
+-    SIM_ACCEPT_LEN PREFILL_EXTRA_ARGS DECODE_EXTRA_ARGS ROUTER_EXTRA_ARGS
++    SIM_ACCEPT_LEN PREFILL_EXTRA_ARGS DECODE_EXTRA_ARGS ROUTER_EXTRA_ARGS ROUTER_BIN DECODE_REQUEST_WEIGHT
+     ETCD_PORT ETCD_PEER_PORT ROUTER_PORT PREFILL_PORT DECODE_PORT BOOTSTRAP_PORT
+     KV_EVENTS_PORT KV_SNAPSHOT_PORT ETCD_IMAGE CTR)
+ 
+diff -ru 2p1d-kit/v6-pp4/engine/up.sh 2p1d-kit/v6-pp4-rb/engine/up.sh
+--- 2p1d-kit/v6-pp4/engine/up.sh	2026-10-21 16:54:05.284766665 +0000
++++ 2p1d-kit/v6-pp4-rb/engine/up.sh	2026-10-23 08:46:49.847493430 +0000
+@@ -43,7 +43,10 @@
+ 
+ echo "===== 3. router: kv-aware, session affinity on prefill picks ====="
+ read -ra router_extra <<<"$ROUTER_EXTRA_ARGS"
+-docker run -d --name "$CTR-router" --network host -v "$MODEL:$MODEL:ro" "$IMAGE" \
++router_docker=()
++[[ -z "$ROUTER_BIN" ]] || router_docker+=(-v "$ROUTER_BIN:/opt/infera-router:ro" -e INFERA_ROUTER_BIN=/opt/infera-router)
++[[ -z "$DECODE_REQUEST_WEIGHT" ]] || router_docker+=(-e "INFERA_DECODE_REQUEST_WEIGHT=$DECODE_REQUEST_WEIGHT")
++docker run -d --name "$CTR-router" --network host -v "$MODEL:$MODEL:ro" "${router_docker[@]}" "$IMAGE" \
+     python3 -m infera.server --host 0.0.0.0 --port "$ROUTER_PORT" --router-backend rust \
+     --discovery-backend etcd --etcd-endpoint "$PREFILL_NODE_IP:$ETCD_PORT" \
+     --request-transport http --kv-event-transport zmq --router-tokenizer-path "$MODEL" \
+diff -ru 2p1d-kit/v6-pp4/env.sh 2p1d-kit/v6-pp4-rb/env.sh
+--- 2p1d-kit/v6-pp4/env.sh	2026-10-21 16:54:05.260868492 +0000
++++ 2p1d-kit/v6-pp4-rb/env.sh	2026-10-23 08:46:45.028167220 +0000
+@@ -63,6 +63,11 @@
+ export DECODE_EXTRA_ARGS="${DECODE_EXTRA_ARGS:-}"
+ export ROUTER_EXTRA_ARGS="${ROUTER_EXTRA_ARGS:-}"
+ 
++# Router binary built outside the image (mounted into the router container), and
++# the decode request weight it reads (needs --decode-input-demand on). Empty = image router.
++export ROUTER_BIN="${ROUTER_BIN:-}"
++export DECODE_REQUEST_WEIGHT="${DECODE_REQUEST_WEIGHT:-}"
++
+ # ---------------------------------------------------------------------------
+ # 3. Benchmarks
+ # ---------------------------------------------------------------------------
