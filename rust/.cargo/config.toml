@@ -1,0 +1,8 @@
+[env]
+# libzmq (built from source by zeromq-src) declares command_t aligned(64) but,
+# without HAVE_POSIX_MEMALIGN, allocates its queues with plain malloc (16-byte
+# aligned). Any compiler that emits AVX for those copies -- gcc 15 on Ubuntu
+# 26.04 defaults to -march=x86-64-v3 -- faults on the first zmq_connect.
+# ZMQ_CACHELINE_SIZE is the alignment posix_memalign is then asked for; the
+# cmake build that normally defines it is bypassed by zeromq-src.
+CXXFLAGS_x86_64_unknown_linux_gnu = "-DHAVE_POSIX_MEMALIGN=1 -DZMQ_CACHELINE_SIZE=64"

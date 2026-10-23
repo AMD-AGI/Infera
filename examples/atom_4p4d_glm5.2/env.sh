@@ -62,17 +62,20 @@ export MTP_K="${MTP_K:-$((CONC >= 48 ? 3 : 4))}"
 # Set it (K3 -> 2.99, K4 -> 3.33) only to reproduce the AgentX reference numbers.
 export MTP_AL="${MTP_AL:-}"
 
-# The prefill memory, chunk, block size, layer split and LMCache load length
-# below follow ATOM's GLM-5.2 AgentX recipe (/app/ATOM/recipes/Agentic-GLM-5.2.md
-# in the image); the decode keeps this kit's settings.
+# Memory, chunk budgets, block size, layer split and offload load length below
+# follow ATOM's GLM-5.2 AgentX recipe (/app/ATOM/recipes/Agentic-GLM-5.2.md in
+# the image) and InferenceX PR #4045. The decode's 0.94 and 2048, with the
+# shared communicator groups worker.sh sets, give it ~24% more KV blocks, which
+# keeps the agents' prefixes on the decode up to about C100 (README "The recipe").
 export PREFILL_MEM_UTIL="${PREFILL_MEM_UTIL:-0.85}"
-export DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-0.90}"
+export DECODE_MEM_UTIL="${DECODE_MEM_UTIL:-0.94}"
 
-# Prefill chunk budget (--max-num-batched-tokens); decode keeps 16384. ATOM's
-# compile cache (/root/.cache/atom, kept in the JIT cache volumes) does not key
-# on it: after a change, start with fresh volumes (another CTR), or the prefill
-# fails at startup in assert_size_stride.
+# Chunk budgets (--max-num-batched-tokens). ATOM's compile cache
+# (/root/.cache/atom) does not key on them, so worker.sh keeps it in a volume per
+# value (README gotcha 11). A full decode step takes (MTP_K + 1) x 2 x CONC
+# tokens, 896 at CONC 112; up.sh refuses a decode budget below that.
 export PREFILL_MAX_BATCHED_TOKENS="${PREFILL_MAX_BATCHED_TOKENS:-8192}"
+export DECODE_MAX_BATCHED_TOKENS="${DECODE_MAX_BATCHED_TOKENS:-2048}"
 
 # KV block size of both legs, which must match: the PP prefill lays the tokens
 # each decode DCP rank owns into that rank's pages. Block x DCP4 must divide
@@ -81,35 +84,55 @@ export BLOCK_SIZE="${BLOCK_SIZE:-16}"
 
 # Prefill parallelism: 4 = TP1 x PP4, eager, with PREFILL_PP_PARTITION layers
 # per stage. 1 = TP4 + DCP4 with CUDA graphs, slower under AgentX load (README
-# "Reference numbers"); its validated settings were PREFILL_MEM_UTIL=0.90,
-# PREFILL_MAX_BATCHED_TOKENS=16384, BLOCK_SIZE=64, OFFLOAD_MIN_LOAD_TOKENS=8192
-# and PREFILL_SEND_WORKERS empty.
+# "Reference numbers"); it cannot use the Store (ATOM's Store offload does not
+# support DCP), and its validated settings were PREFILL_CPU_TIER=lmcache,
+# PREFILL_MEM_UTIL=0.90, PREFILL_MAX_BATCHED_TOKENS=16384, BLOCK_SIZE=64,
+# OFFLOAD_MIN_LOAD_TOKENS=8192 and PREFILL_SEND_WORKERS empty.
 export PREFILL_PP="${PREFILL_PP:-4}"
 export PREFILL_PP_PARTITION="${PREFILL_PP_PARTITION:-20,20,20,18}"
 
-# Mooncake send workers per prefill rank (num_worker_threads). Set empty for
-# ATOM's default, 16, which hangs an RDMA write of the PP prefill (README gotcha 13).
-export PREFILL_SEND_WORKERS="${PREFILL_SEND_WORKERS-4}"
+# Mooncake send workers per prefill rank (num_worker_threads). Empty = ATOM's
+# default, 16, run with one QP per endpoint (MC_NUM_QP_PER_EP=1, worker.sh);
+# with Mooncake's default two QPs 16 workers hung an RDMA write of the PP
+# prefill (README gotcha 13).
+export PREFILL_SEND_WORKERS="${PREFILL_SEND_WORKERS-}"
 
-# LMCache CPU KV tier per prefill PP stage, GiB (4 stages -> 1 TiB pinned host
-# memory at the default, allocated as GTT: README gotcha 4). 0 turns it off and
-# the prefill uses Mooncake only.
+# CPU KV tier behind the prefill:
+#   store    Mooncake Store, as InferenceX PR #4045: one master and two owners
+#            of STORE_OWNER_GB each, one per NUMA node, one pool shared by the
+#            four PP stages, read and written over RDMA (engine/store.sh,
+#            README gotcha 14); not with PREFILL_PP=1
+#   lmcache  LMCache, PREFILL_OFFLOAD_GB per PP stage, as GTT (gotcha 4)
+#   off      Mooncake P->D only
+export PREFILL_CPU_TIER="${PREFILL_CPU_TIER:-store}"
+export STORE_OWNER_GB="${STORE_OWNER_GB:-768}"
+# The prefill's rails in PREFILL_GPUS order: the owners register on all of
+# them, and stage i's Store client uses the i-th, so each stage reaches the
+# owners on its own rail (the fabric routes same-numbered rails only, gotcha
+# 10). Explicit, because ATOM finds a GPU's NIC from the PCI tree, which a VM
+# can flatten.
+export STORE_OWNER_DEVICES="${STORE_OWNER_DEVICES:-ionic_0,ionic_1,ionic_2,ionic_3}"
 export PREFILL_OFFLOAD_GB="${PREFILL_OFFLOAD_GB:-256}"
-# Shortest LMCache hit the prefill loads; shorter hits are recomputed.
+# Shortest CPU-tier hit the prefill loads; shorter hits are recomputed.
 export OFFLOAD_MIN_LOAD_TOKENS="${OFFLOAD_MIN_LOAD_TOKENS:-0}"
 
 # Router --session-affinity on top of round-robin: prefill keeps an agent
 # session on one prefill, both also on one decode, off is stateless.
 export SESSION_AFFINITY="${SESSION_AFFINITY:-prefill}"
 
-# Router data plane: python (the reference runs) or rust (the image's
-# infera-router binary). Both route ATOM PD the same way.
-export ROUTER_BACKEND="${ROUTER_BACKEND:-python}"
+# Router data plane: rust (the image's infera-router binary) or python. Both
+# route ATOM PD the same way.
+export ROUTER_BACKEND="${ROUTER_BACKEND:-rust}"
 
 # Extra flags, space-separated, appended last.
 export PREFILL_EXTRA_ARGS="${PREFILL_EXTRA_ARGS:-}"
 export DECODE_EXTRA_ARGS="${DECODE_EXTRA_ARGS:-}"
 export ROUTER_EXTRA_ARGS="${ROUTER_EXTRA_ARGS:-}"
+# Extra engine container environment, space-separated KEY=VALUE pairs, appended
+# last; e.g. ATOM_METRICS_PER_REQUEST_CONTEXT=1 for ATOM's per-request context
+# gauges, which the image leaves off (README "Image").
+export PREFILL_EXTRA_ENV="${PREFILL_EXTRA_ENV:-}"
+export DECODE_EXTRA_ENV="${DECODE_EXTRA_ENV:-}"
 
 # ---------------------------------------------------------------------------
 # 3. Ports and names
@@ -128,9 +151,15 @@ export DECODE_READINESS_PORT="${DECODE_READINESS_PORT:-19012}"
 # Mooncake handshake: base + PP stage or TP rank, so 21301-21304 and 21311-21314.
 export PREFILL_HANDSHAKE_PORT="${PREFILL_HANDSHAKE_PORT:-21301}"
 export DECODE_HANDSHAKE_PORT="${DECODE_HANDSHAKE_PORT:-21311}"
+# Mooncake Store: master RPC, metadata HTTP, metrics, owner i on base + i.
+export STORE_MASTER_PORT="${STORE_MASTER_PORT:-26051}"
+export STORE_METADATA_PORT="${STORE_METADATA_PORT:-26080}"
+export STORE_METRICS_PORT="${STORE_METRICS_PORT:-26090}"
+export STORE_OWNER_PORT="${STORE_OWNER_PORT:-26052}"
 
 export ETCD_IMAGE="${ETCD_IMAGE:-quay.io/coreos/etcd:v3.5.14}"
-# Container name prefix: <CTR>-etcd, -prefill, -decode, -router, -agentx, -eval.
+# Container name prefix: <CTR>-etcd, -prefill, -decode, -router, -agentx, -eval,
+# -store-master, -store-owner0, -store-owner1.
 export CTR="${CTR:-glm52_4p4d}"
 
 # ---------------------------------------------------------------------------

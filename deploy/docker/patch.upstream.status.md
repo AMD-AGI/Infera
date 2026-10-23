@@ -295,14 +295,24 @@ anchor is gone).
 ## ATOM nightly — `patches/atom_nightly/` (baked by `Dockerfile.atom`, `ATOM_NIGHTLY=1`)
 
 Strict anchor scripts against `rocm/atom-dev:nightly_202610131505` (ATOM
-`661ef766`, LMCache 0.5.6.dev139+gf22dec28): drift fails the build. Rationale
-is in each script's docstring and `atom_nightly/README.md`. LMCache `dev` and
-its open PRs were checked on 2026-10-14.
+`661ef766`, aiter `9205e1059`, LMCache 0.5.6.dev139+gf22dec28): drift fails the
+build. Rationale is in each script's docstring and `atom_nightly/README.md`.
+LMCache `dev` and its open PRs were checked on 2026-10-14. The ATOM and aiter
+decode patches (the GLM-5.2 4P4D kit's) were written 2026-10-19/20 and none is
+filed yet; aiter is public ([ROCm/aiter](https://github.com/ROCm/aiter)), so
+its rows can go there.
 
 | patch | fixes | upstream issue | upstream PR | ours? | PR state |
 |---|---|---|---|---|---|
 | `atom_nightly/patch_lmcache_rocm_pinned_alloc.py` | LMCache's NUMA CPU pool is `hipHostRegister`ed (KFD USERPTR) on ROCm; a page migration (compaction, `move_pages`) evicts every GPU queue of the process → multi-second prefill stalls. With `HSA_USERPTR_FOR_PAGED_MEM=0` the pool comes from exact-size `hipHostMalloc` (GTT) instead | [LMCache#5361](https://github.com/LMCache/LMCache/issues/5361) (MP server pool) | none for the non-MP pool; [LMCache#5591](https://github.com/LMCache/LMCache/pull/5591) does the same for the MP server's L1 only; same approach as [sglang#42553](https://github.com/sgl-project/sglang/pull/42553) | no | #5591 draft |
 | `atom_nightly/patch_atom_dcp_sparse_pad_rows.py` | with sparse MLA + DCP the fused DCP candidate exchange writes `dcp_sparse_kv_indptr_buffer` for the scheduled rows only, so an eager decode step padded to a graph bucket (the P/D producer's q_len=1 decode with MTP on) reads stale offsets in its padded rows; a stale offset below the real end gives a negative-length row, a work with kv_end < kv_start, and the persistent ASM decode kernel reads past kv_indices → `Memory access fault` on the prefill node under long-prefix load. Padded rows now end where the last real row ends | not filed yet | none | — | — |
+| `atom_nightly/patch_atom_api_gc_stalls.py` | ATOM's API process: the output thread queued every batch of finished sequences on `CoreManager.outputs_queue`, which nothing reads when serving online, and every request added a per-request context gauge series that was never removed; both kept growing with requests served, and so did every gen-2 GC pass (~45% of the wall clock under AgentX load, ~0.7 s on each TTFT). Online the batch is no longer queued, and the gauges are opt-in (`ATOM_METRICS_PER_REQUEST_CONTEXT=1`) | not filed yet | not filed yet | — | — |
+| `atom_nightly/patch_atom_dcp_topk_custom_ag.py` | the sparse indexer's DCP top-k exchange used `GroupCoordinator.all_gather` (pynccl, ~43 us per gather, 24 per GLM-5.2 decode step) while ATOM's own `dcp_all_gather` picks aiter's IPC all-gather; now it does too | not filed yet | not filed yet | — | — |
+| `atom_nightly/patch_aiter_custom_alltoall.py` | aiter has no IPC all-to-all: adds `alltoall_vec` and `alltoall_combine_quant` (all-to-all + LSE combine + per-token FP8 quant) to the custom all-reduce, dispatched through `all_gather_reg/unreg`, and rebuilds `module_custom_all_reduce` | not filed yet | not filed yet (ROCm/aiter) | — | — |
+| `atom_nightly/patch_atom_dcp_custom_a2a.py` | the DCP attention merge's `all_to_all_single` runs on RCCL (~40 us per layer, ~3.3 ms per GLM-5.2 step); uses `custom_all_to_all` where it applies | not filed yet | not filed yet | — | — |
+| `atom_nightly/patch_atom_dcp_custom_a2a_combine.py` | the quantized DCP merge (pack, all-to-all, unpack + combine + quant) as pack + one aiter kernel (`custom_a2a_combine_quant`) where it applies | not filed yet | not filed yet | — | — |
+| `atom_nightly/patch_aiter_mla_bmm_configs.py` | aiter's gfx950 configs of the MLA absorbed bmm (N=512 K=192, N=256 K=512) use BLOCK_SIZE_M 64 from M 64 up, so any decode M that is not a multiple of 64 takes a masked path at 2-2.5x the time; adds per-M buckets up to 512 from a sweep on MI355X | not filed yet | not filed yet (ROCm/aiter) | — | — |
+| `atom_nightly/patch_aiter_glm52_decode_gemm_rows.py` | aiter's GLM-5.2 a8w8_bpreshuffle table has no rows for the decode's M 144-240 (MTP verify at graph 36 and up), which then take a padded or default kernel; adds 27 tuned rows | not filed yet | not filed yet (ROCm/aiter) | — | — |
 | `atom_nightly/prebuild_aiter_mha_varlen.py` (a build step, not a source patch) | the base's AITER prebuilds five `mha_varlen_fwd` variants but not `..._mask_lse_ndropout_nskip_nqscale`, which chunked-MLA prefill calls once a prompt extends a cached prefix; its first call JIT-compiles it for ~30 s and stalls the prefill; built into the image instead. On gfx950 `nightly_202610131505` loads the ASM `fmha_v3` kernel instead; kept for gfx942 | not searched | not filed (add it to AITER `setup.py`'s prebuild list) | — | — |
 
 ## hipFile — `patches/hipfile_async/` (baked by `Dockerfile.vllm`)
@@ -316,8 +326,10 @@ its open PRs were checked on 2026-10-14.
 Every file under `patches/` is covered above except these, which carry no fix of
 their own: `mooncake_cpp/apply_mooncake_cpp_patches.sh`,
 `sglang_dsa/README.md`, `sglang_disagg/README.md`,
-`vllm-dsv4/legacy/README.md`, `atom_nightly/README.md` and
-`atom_nightly/anchor_patch.py` (the strict anchor-edit helper).
+`vllm-dsv4/legacy/README.md`, `atom_nightly/README.md`,
+`atom_nightly/anchor_patch.py` (the strict anchor-edit helper) and
+`atom_nightly/check_dcp_merge.py` (a GPU check of
+`patch_aiter_custom_alltoall.py`, run by hand).
 
 ## Retired
 

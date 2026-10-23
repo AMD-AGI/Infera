@@ -761,14 +761,21 @@ async def _scrape_engine_metrics() -> bytes:
     """
     from infera.common.engine_metrics import (
         federate_engine_metrics,
+        frontend_reads,
         merge_federated_exposition,
     )
 
     if registry is None:
         return b""
     # Scrape every active worker over its HTTP /metrics URL. NATS is only the
-    # request path; the engine still exposes Prometheus on w.url.
-    workers = [w for w in registry.list_all() if w.status == WorkerStatus.ACTIVE]
+    # request path; the engine still exposes Prometheus on w.url. Skip engines
+    # nothing here is read from (ATOM): each scrape costs the engine's API
+    # process a render, and under a 3/s client scrape that doubled its GC load.
+    workers = [
+        w
+        for w in registry.list_all()
+        if w.status == WorkerStatus.ACTIVE and frontend_reads(w.engine)
+    ]
     metrics.engine_kv_cache_usage.clear()
     metrics.engine_prefix_cache_hit_rate.clear()
     metrics.engine_kv_transfer_queue_reqs.clear()

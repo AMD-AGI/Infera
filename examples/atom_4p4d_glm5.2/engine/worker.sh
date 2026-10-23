@@ -23,7 +23,12 @@ env=(
     AITER_QUICK_REDUCE_QUANTIZATION=INT4 AITER_USE_FLYDSL_MOE_SORTING=1 AITER_LOG_LEVEL=WARNING
     PYTHONHASHSEED=0 ATOM_MLA_PAGE_SIZE=1 ATOM_ONLINE_QUANT_STREAMING=0
     ATOM_SPARSE_INDEXER_LOGITS_BUDGET_MB=2047 ATOM_USE_TRITON_MLA=0
+    # The indexer top-k always on aiter's one-block kernel, as ATOM's CI runs GLM-5.2.
+    TOPK_FORCE_PATH=one
     MC_ENABLE_DEST_DEVICE_AFFINITY=1 "MC_GID_INDEX=$MC_GID_INDEX"
+    # One QP per endpoint on every Mooncake peer (P, D and the Store): peers
+    # with different counts cannot connect, and the Store requires one.
+    MC_NUM_QP_PER_EP=1
     "MOONCAKE_DISABLE_HIP_DMABUF=$MOONCAKE_DISABLE_HIP_DMABUF"
     # P and D see disjoint GPUs, which breaks the base Mooncake's same-host HIP
     # IPC path ("invalid device context"); send KV over the RDMA rails instead.
@@ -45,7 +50,7 @@ kv_mooncake() {
 }
 
 if [[ "$role" == prefill ]]; then
-    gpus="$PREFILL_GPUS" port="$PREFILL_PORT" util="$PREFILL_MEM_UTIL"
+    gpus="$PREFILL_GPUS" port="$PREFILL_PORT" util="$PREFILL_MEM_UTIL" mbt="$PREFILL_MAX_BATCHED_TOKENS"
     env+=("INFERA_READINESS_PORT=$PREFILL_READINESS_PORT" OFFLOAD_PROFILE=0
         # The fabric routes same-numbered rails only: write on the rail of the
         # decode rank being served.
@@ -53,7 +58,17 @@ if [[ "$role" == prefill ]]; then
     kv="$(kv_mooncake kv_producer "$PREFILL_HANDSHAKE_PORT" "$PREFILL_PORT")"
     # Append the send-worker count to that JSON object.
     [[ -z "$PREFILL_SEND_WORKERS" ]] || kv="${kv%\}},\"num_worker_threads\":$PREFILL_SEND_WORKERS}"
-    if ((PREFILL_OFFLOAD_GB > 0)); then
+    if [[ "$PREFILL_CPU_TIER" == store ]]; then
+        # Mooncake producer plus the Store of engine/store.sh, one pool shared by
+        # the four PP stages; each stage's client uses its GPU's NIC.
+        store="\"mooncake_store.protocol\":\"rdma\",\"mooncake_store.master\":\"$NODE_IP:$STORE_MASTER_PORT\""
+        store+=",\"mooncake_store.metadata\":\"http://$NODE_IP:$STORE_METADATA_PORT/metadata\""
+        store+=",\"mooncake_store.rdma_devices\":\"$STORE_OWNER_DEVICES\""
+        kv="{\"kv_connector\":\"multi\",\"connectors\":[$kv,{\"kv_connector\":\"mooncake_store\",\"kv_role\":\"offload\",\"kv_connector_extra_config\":{$store}}]}"
+        # One load worker: more hung the PP prefill pipeline at C96 (ATOM #2459).
+        # The HBM transfer pool registers in 1 GiB regions.
+        env+=(OFFLOAD_LOAD_WORKERS=1 MC_MAX_MR_SIZE=1073741824 "OFFLOAD_MIN_LOAD_TOKENS=$OFFLOAD_MIN_LOAD_TOKENS")
+    elif [[ "$PREFILL_CPU_TIER" == lmcache ]] && ((PREFILL_OFFLOAD_GB > 0)); then
         # The four pools, one per TP rank or PP stage, are GTT, whose cap is
         # machine-wide (gotcha 4): check it now, not minutes into the cold
         # start. Every card reports the cap as its total; 64 GiB covers the
@@ -85,17 +100,26 @@ if [[ "$role" == prefill ]]; then
     else
         args=(-tp 4 --decode-context-parallel-size 4 --cudagraph-capture-sizes "$cudagraph")
     fi
-    args+=(--max-num-batched-tokens "$PREFILL_MAX_BATCHED_TOKENS" --max-num-seqs 512)
+    args+=(--max-num-batched-tokens "$mbt" --max-num-seqs 512)
     read -ra extra <<<"$PREFILL_EXTRA_ARGS"
+    read -ra extra_env <<<"$PREFILL_EXTRA_ENV"
 else
-    gpus="$DECODE_GPUS" port="$DECODE_PORT" util="$DECODE_MEM_UTIL"
+    gpus="$DECODE_GPUS" port="$DECODE_PORT" util="$DECODE_MEM_UTIL" mbt="$DECODE_MAX_BATCHED_TOKENS"
     env+=("INFERA_READINESS_PORT=$DECODE_READINESS_PORT")
     kv="$(kv_mooncake kv_consumer "$DECODE_HANDSHAKE_PORT" "$DECODE_PORT")"
+    # DCP and EP groups reuse the TP group's communicators (same GPUs) instead
+    # of allocating their own buffers, which leaves that memory to the KV cache.
+    env+=(AITER_REUSE_IDENTICAL_COMM_GROUPS=1)
     args=(-tp 4 --decode-context-parallel-size 4 --cudagraph-capture-sizes "$cudagraph"
-        --max-num-batched-tokens 16384 --max-num-seqs $((2 * CONC)))
+        --max-num-batched-tokens "$mbt" --max-num-seqs $((2 * CONC)))
     [[ -z "$MTP_AL" ]] || args+=(--spec-decode-acceptance-length "$MTP_AL")
     read -ra extra <<<"$DECODE_EXTRA_ARGS"
+    read -ra extra_env <<<"$DECODE_EXTRA_ENV"
 fi
+env+=("${extra_env[@]}")
+
+# The Rust router keeps idle connections pooled; ATOM's 5 s default closes them under it.
+args+=(--timeout-keep-alive 900)
 
 env_args=()
 for kv_pair in "${env[@]}"; do env_args+=(-e "$kv_pair"); done
@@ -104,9 +128,11 @@ mounts=(-v "$MODEL:$MODEL:ro")
 if on_docker_host "test -e '$HOST_LIBIONIC'"; then
     mounts+=(-v "$HOST_LIBIONIC:/host-libionic/libionic.so:ro")
 fi
-# JIT caches persist per role and image in a named volume.
+# JIT caches persist per role and image in a named volume. ATOM's compile cache
+# in it does not key on --max-num-batched-tokens (a stale one fails the prefill
+# in assert_size_stride), so the volume name carries that too.
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
-mounts+=(-v "$CTR-cache-$role-${image_id:7:12}:/root/.cache")
+mounts+=(-v "$CTR-cache-$role-${image_id:7:12}-mbt$mbt:/root/.cache")
 # AITER builds its native modules inside its package, not under /root/.cache.
 # A new named volume starts as a copy of the image's directory.
 mounts+=(-v "$CTR-aiter-jit-$role-${image_id:7:12}:/app/aiter-test/aiter/jit")

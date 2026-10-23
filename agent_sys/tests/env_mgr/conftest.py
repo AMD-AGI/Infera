@@ -115,6 +115,10 @@ def run_confined(policy: Policy, body: Callable[[], Any], *, tier: Any = None) -
     outcome if the child dies on a signal.
     """
     from env_mgr.isolation import apply as _apply
+
+    # Imported here, not taken from this module's globals, so the child sees
+    # the probe `_landlock_over_bwrap` pinned.
+    from env_mgr.isolation.probe import probe
     from env_mgr.protocols import Tier
 
     # `pickle` here is this process talking to its own fork over an anonymous
@@ -225,3 +229,27 @@ def _switch_off_the_kill_switch(monkeypatch: pytest.MonkeyPatch) -> None:
     applied after this and wins.
     """
     monkeypatch.setenv("AGENT_SYS_NO_PERMISSIONS", "0")
+
+
+@pytest.fixture(autouse=True)
+def _landlock_over_bwrap(monkeypatch: pytest.MonkeyPatch) -> None:
+    """**This directory asserts Landlock, so it gets Landlock where bwrap is also present.**
+
+    `select` prefers bubblewrap whenever it is on PATH, and bubblewrap confines
+    by exec: `apply` does nothing in-process, and inside a bwrap'd child an
+    ungranted path is an entry on bwrap's own tmpfs rather than an EACCES. Every
+    denial asserted here is Landlock's. Measured: GitHub's Ubuntu 26.04 runners
+    ship `bwrap` (24.04 did not), and 24 tests here failed there against the
+    wrong mechanism. bubblewrap's branch keeps its tests, which fake the binary
+    (`test_wrap_argv_builds_the_bwrap_command`,
+    `test_spawn_uses_bwrap_when_that_is_the_mechanism`).
+
+    The session `availability` fixture still reports what the machine has. A
+    test that wants another mechanism patches `probe` itself, after this.
+    """
+    av = probe()
+    if not (av.bwrap and av.landlock_abi):
+        return
+    pinned = av._replace(bwrap=None)
+    monkeypatch.setattr("env_mgr.isolation.probe.probe", lambda: pinned)
+    monkeypatch.setattr("env_mgr.prepare.probe", lambda: pinned)

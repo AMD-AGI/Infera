@@ -508,8 +508,15 @@ const ENGINE_METRICS_SCRAPE_TIMEOUT: Duration = Duration::from_secs(1);
 async fn scrape_engine_metrics(st: &AppState, snap: &crate::pool::Snapshot) -> String {
     crate::metrics::clear_engine_gauges();
     // Scrape every active worker over its HTTP /metrics URL. NATS is only the
-    // request path; the engine still exposes Prometheus on w.url.
-    let workers: Vec<_> = snap.all.iter().filter(|w| w.is_active()).cloned().collect();
+    // request path; the engine still exposes Prometheus on w.url. Skip engines
+    // nothing here is read from (ATOM): each scrape costs the engine's API
+    // process a render, and under a 3/s client scrape that doubled its GC load.
+    let workers: Vec<_> = snap
+        .all
+        .iter()
+        .filter(|w| w.is_active() && crate::metrics::frontend_reads(&w.engine))
+        .cloned()
+        .collect();
     if workers.is_empty() {
         return String::new();
     }

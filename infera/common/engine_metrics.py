@@ -251,6 +251,25 @@ def _inject_labels(sample_line: str, extra: dict[str, str]) -> str:
     return f"{name}{new_block} {rest}"
 
 
+def frontend_reads(engine: str | EngineType) -> bool:
+    """Whether the frontend /metrics takes anything from ``engine``'s exposition.
+
+    False for ATOM (and unknown engines): no gauge names, transfer queues or
+    federated families are known for it, so scraping it only costs the engine a
+    /metrics render.
+    """
+    try:
+        engine = EngineType(engine)
+    except ValueError:
+        return False
+    return bool(
+        metric_names("kv_cache_usage", engine)
+        or metric_names("prefix_cache_hit_rate", engine)
+        or transfer_queue_names(engine)
+        or _FEDERATE_FAMILIES.get(engine)
+    )
+
+
 def federate_engine_metrics(
     text: str,
     *,
