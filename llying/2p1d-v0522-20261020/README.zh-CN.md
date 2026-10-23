@@ -1048,7 +1048,7 @@ PR #213 记的是持有数（派发 +1、decode 流结束 −1），并与 token
 
 ## 10-23 15:10 第一版 Pareto 基线（PR #210 的 PD example：PP4 prefill + prefill MTP，1P1D 开 decode 均衡）
 
-图 `figures/pareto-p90-baseline-20261023.png`（`scripts/plot_pareto.py`，只画 baseline 各点），数字 `scripts/frontier_gap.py`：
+图 `figures/pareto-p90-baseline-v4-20261023.png`（`scripts/plot_pareto_baseline.py`：单图，只标注我们的点，参考线 GB300 / B300 / MI355X SGLang / ATOM PD；旧版双图 `pareto-p90-baseline-20261023.png`），数字 `scripts/frontier_gap.py`：
 
 | 拓扑 | 卡 | 权重 | 点 | tok/s/GPU | intvty p90 | 来源 |
 |---|---|---|---|---|---|---|

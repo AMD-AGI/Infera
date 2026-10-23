@@ -75,7 +75,7 @@ Each point on a freshly started deployment, 3,600 s measured, 10 warm-up request
 | 1P1D | 12 | 1,000,000 | C48 | 22,331 | 103.9 |
 | 1P1D | 12 | 1,000,000 | C32 | 16,309 | 111.7 |
 
-![Pareto](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/llying/2p1d-v0522-20261020/figures/pareto-p90-baseline-20261023.png?raw=true)
+![Pareto](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/llying/2p1d-v0522-20261020/figures/pareto-p90-baseline-v4-20261023.png?raw=true)
 
 - Against the InferenceX MI355X lines (SGLang and ATOM, single node, up to C48) it is 1.4-2.2x higher from p90 43 to 107. Against ATOM's unlisted PD run (InferenceX PR #4045) it is 2-16% lower from p90 43 to 55 and 4-27% higher from 60 to 107; against the B300 single-node line it is up to 9% lower to p90 55, up to 26% higher from 60 to 100, and level at 107 (interpolated between each line's points).
 - Request balancing on 1P1D (same deployment, weight 0 → 1,000,000): C88 29,071 → 31,088 tok/s/GPU at p90 50.7 → 71.7, C64 27,253 → 28,981 at 66.0 → 86.0; the busiest of the eight decode ranks runs 8 requests at p90 instead of 15 at C88, at the same step time per load. The KV-bound shapes (4-GPU decode, 2P1D) keep weight 0.
