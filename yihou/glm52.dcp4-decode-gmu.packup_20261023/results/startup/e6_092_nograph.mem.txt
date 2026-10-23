@@ -1,0 +1,7 @@
+## e6_092_nograph status=DIED MEM=0.92 EXTRA=[--cuda-graph-backend-decode disabled] ENVX=[ HSA_ENABLE_SDMA=0] 2026-10-22T16:09:32Z
+    raise RuntimeError(f"NCCL error: {error_str}")
+RuntimeError: NCCL error: unhandled cuda error (run with NCCL_DEBUG=INFO for details)
+    raise RuntimeError(f"NCCL error: {error_str}")
+RuntimeError: NCCL error: unhandled cuda error (run with NCCL_DEBUG=INFO for details)
+    raise RuntimeError(f"NCCL error: {error_str}")
+vram_used_GiB {'card0': 0.3, 'card1': 0.3, 'card2': 0.3, 'card3': 0.3, 'card4': 119.1, 'card5': 119.2, 'card6': 119.1, 'card7': 118.9}

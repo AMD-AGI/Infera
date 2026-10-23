@@ -1,0 +1,2 @@
+# e6 rerun on v3-012 slot a
+a e6c_092_nograph 0.92 | --cuda-graph-backend-decode disabled |

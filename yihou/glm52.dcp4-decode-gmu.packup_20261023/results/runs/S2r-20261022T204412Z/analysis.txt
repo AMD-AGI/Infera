@@ -1,0 +1,37 @@
+## /shared_nfs/yihou_glm52/llying_dcp_20261022/work/S2r-227/runs/S2r-20261022T204412Z
+ok 3267 accounting {'InvalidInferenceResultError': 4} err_dropped 4
+tok/s/GPU 25433 total {'tokens_per_second': 203467.65508}
+TTFT s: mean=18.71 p50=11.22 p90=33.54 p95=58.85
+TPOT ms: mean=20.54 p50=21.51 p90=24.07 p95=25.08
+ITL ms: mean=20.54 p50=21.51 p90=24.07
+S2r-20261022T204412Z/agentx/aiperf_artifacts/profile_export. {('warmup', 'ok'): 880, ('warmup', 'err'): 4, ('profiling', 'ok'): 3267} {'warmup': 1792702977}
+profiling window 2026-10-22T21:33:53 .. 2026-10-22T22:03:53
+-- decode lines per rank:
+    759 TP0 EP0]
+-- queue readout prefill (all PP ranks pooled)
+[prefill]  (steady-state lines: 10528)
+  state                             mean  median   p95   max
+  1 prefill-input                    0.6     0.0     3    38
+    handshake                       12.1     8.0    38    61
+  2 prefill-outbound(KV-send)       15.6    11.0    45    69
+
+-- queue readout decode (all ranks pooled; per-rank for DP)
+[decode]  (steady-state lines: 759)
+  state                             mean  median   p95   max
+  5 decode-running                  28.6      25    57    70
+  4 decode-transfer-in              24.9      15    71    71
+  3 decode-admission                14.2      12    39    62
+    decode-input                       0       0     0     0
+    mem-retracted                      0       0     0     0
+-- step p50/p90 by running, rank 'TP0 EP0'
+ running     n    p50    p90
+  1-8      149   25.3   32.8
+  9-16      76   45.9   49.5
+ 17-24     148   52.7   58.1
+ 25-32      49   64.3   69.6
+ 33-40      76   72.4   74.9
+ 41-64     254   79.0   85.4
+     all   758   59.9   82.1
+-- faults
+prefill0 5
+decode 0

@@ -1,0 +1,20 @@
+## e7_092_noCustomAR status=UP MEM=0.92 EXTRA=[--disable-custom-all-reduce] ENVX=[ ] 2026-10-22T16:37:34Z
+Load weight begin. avail mem=284.16 GB
+gfx950 fused DSA indexer: workspace preallocated (max_cols=1048896, 581 MiB) before pool sizing
+Load weight end. elapsed=25.99 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=181.59 GB, mem usage=102.57 GB.
+Load weight begin. avail mem=181.59 GB
+Load weight end. elapsed=3.21 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=176.13 GB, mem usage=5.46 GB.
+KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2797760, KV size: 145.96 GB
+Memory pool end. avail mem=29.66 GB
+KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2797760, KV size: 2.88 GB
+Memory pool end. avail mem=26.78 GB
+dcp_replicate_q_proj: prepared full-head Q weights for 78 MLA layers
+dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=19.86 GB
+Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], elapsed=162.24 s, mem usage=5.40 GB, avail mem=14.46 GB.
+Capture draft decode CUDA graph begin. backend=full, num_tokens_per_req=1, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], avail mem=14.46 GB
+Capture draft decode CUDA graph end. elapsed=8.20 s, mem usage=1.92 GB, avail mem=12.54 GB.
+Capture draft extend CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], avail mem=12.54 GB
+Capture draft extend CUDA graph end. elapsed=5.35 s, mem usage=3.41 GB, avail mem=9.13 GB.
+max_total_num_tokens=11191040, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=96, context_len=1048576, available_gpu_mem=9.13 GB
+vram_used_GiB {'card0': 270.8, 'card1': 270.9, 'card2': 270.8, 'card3': 270.6, 'card4': 279.9, 'card5': 279.9, 'card6': 279.9, 'card7': 279.5}

@@ -1,0 +1,13 @@
+2026-10-22T18:15:48.235482508Z [2026-10-22 18:15:48 TP0 EP0] Load weight begin. avail mem=270.13 GB
+2026-10-22T18:20:09.586145516Z [2026-10-22 18:20:09 TP0 EP0] Load weight end. elapsed=261.35 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=167.56 GB, mem usage=102.57 GB.
+2026-10-22T18:20:52.122076767Z [2026-10-22 18:20:52 TP0 EP0] Load weight begin. avail mem=167.56 GB
+2026-10-22T18:21:13.121517515Z [2026-10-22 18:21:13 TP0 EP0] Load weight end. elapsed=21.00 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=162.11 GB, mem usage=5.46 GB.
+2026-10-22T18:21:22.323096642Z [2026-10-22 18:21:22 TP0 EP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2562304, KV size: 133.68 GB
+2026-10-22T18:21:22.804843036Z [2026-10-22 18:21:22 TP0 EP0] Memory pool end. avail mem=27.96 GB
+2026-10-22T18:21:22.806476413Z [2026-10-22 18:21:22 TP0 EP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2562304, KV size: 2.63 GB
+2026-10-22T18:21:22.806508473Z [2026-10-22 18:21:22 TP0 EP0] Memory pool end. avail mem=25.32 GB
+2026-10-22T18:21:23.751656538Z [2026-10-22 18:21:23 TP0 EP0] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=20.02 GB
+2026-10-22T18:23:11.335326069Z [2026-10-22 18:23:11 TP0 EP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=107.58 s, mem usage=4.54 GB, avail mem=15.48 GB.
+2026-10-22T18:23:11.338803273Z [2026-10-22 18:23:11 TP0 EP0] Capture draft decode CUDA graph begin. backend=full, num_tokens_per_req=1, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], avail mem=15.48 GB
+2026-10-22T18:24:07.305943513Z [2026-10-22 18:24:07 TP0 EP0] Capture draft decode CUDA graph end. elapsed=55.97 s, mem usage=1.26 GB, avail mem=14.22 GB.
+2026-10-22T18:24:07.722071723Z [2026-10-22 18:24:07 TP0 EP0] max_total_num_tokens=10249216, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=96, context_len=1048576, available_gpu_mem=14.22 GB

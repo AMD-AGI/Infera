@@ -1,0 +1,5 @@
+# gmu series 1 on OAI 227 (one variable each on top of S2 decode flags at 0.92)
+a e4_092_ctx256k 0.92 | --context-length 262144 |
+b e3_092_noDraftExtGraph 0.92 | | SGLANG_DISABLE_DRAFT_EXTEND_CUDA_GRAPH=1
+a e2_092_bs96only 0.92 | --cuda-graph-bs-decode 96 |
+b e7_092_noCustomAR 0.92 | --disable-custom-all-reduce |

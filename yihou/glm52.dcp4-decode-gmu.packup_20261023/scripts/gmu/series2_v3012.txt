@@ -1,0 +1,2 @@
+# gmu series 2 on burst v3-012 (SDMA=0): e6 rerun alone
+a e6b_092_nograph 0.92 | --cuda-graph-backend-decode disabled |

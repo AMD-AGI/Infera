@@ -1,0 +1,11 @@
+2026-10-22T18:02:56.777007102Z [2026-10-22 18:02:56] INFO:     10.245.151.183:59790 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T18:02:56.786396694Z [2026-10-22 18:02:56] INFO:     10.245.151.183:55466 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T18:02:56.878383982Z :0:rocdevice.cpp            :3582: 4476046626726 us:  Callback: Queue 0x755cf4200000 Aborting with error : HSA_STATUS_ERROR_OUT_OF_RESOURCES: The runtime failed to allocate the necessary resources. This error may also occur when the core runtime library needs to spawn 
+--
+2026-10-22T18:02:56.878567349Z 
+2026-10-22T18:02:56.879518213Z Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, psutil._psutil_linux, pybase64._pybase64, charset_normalizer.md, charset_normalizer.cd, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normal
+2026-10-22T18:02:56.896600305Z :0:rocdevice.cpp            :3582: 4476046644986 us:  Callback: Queue 0x740fe2000000 Aborting with error : HSA_STATUS_ERROR_OUT_OF_RESOURCES: The runtime failed to allocate the necessary resources. This error may also occur when the core runtime library needs to spawn 
+--
+2026-10-22T18:02:56.896827271Z 
+2026-10-22T18:02:56.897777445Z Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, psutil._psutil_linux, pybase64._pybase64, charset_normalizer.md, charset_normalizer.cd, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normal
+2026-10-22T18:02:56.939828216Z :0:rocdevice.cpp            :3582: 4476046688262 us:  Callback: Queue 0x7dd090400000 Aborting with error : HSA_STATUS_ERROR_OUT_OF_RESOURCES: The runtime failed to allocate the necessary resources. This error may also occur when the core runtime library needs to spawn 

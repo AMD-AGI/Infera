@@ -1,0 +1,15 @@
+2026-10-22T21:15:39.473472329Z [2026-10-22 21:15:39 TP0 EP0] Load weight begin. avail mem=270.13 GB
+2026-10-22T21:22:25.754143756Z [2026-10-22 21:22:25 TP0 EP0] Load weight end. elapsed=406.28 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=167.57 GB, mem usage=102.57 GB.
+2026-10-22T21:23:56.022933852Z [2026-10-22 21:23:56 TP0 EP0] Load weight begin. avail mem=167.57 GB
+2026-10-22T21:24:35.680435667Z [2026-10-22 21:24:35 TP0 EP0] Load weight end. elapsed=39.66 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=162.11 GB, mem usage=5.46 GB.
+2026-10-22T21:25:08.032488638Z [2026-10-22 21:25:08 TP0 EP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2562368, KV size: 133.68 GB
+2026-10-22T21:25:08.558079851Z [2026-10-22 21:25:08 TP0 EP0] Memory pool end. avail mem=27.96 GB
+2026-10-22T21:25:08.559553280Z [2026-10-22 21:25:08 TP0 EP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2562368, KV size: 2.63 GB
+2026-10-22T21:25:08.559607280Z [2026-10-22 21:25:08 TP0 EP0] Memory pool end. avail mem=25.32 GB
+2026-10-22T21:25:09.706255324Z [2026-10-22 21:25:09 TP0 EP0] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=20.02 GB
+2026-10-22T21:27:05.024248246Z [2026-10-22 21:27:05 TP0 EP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], elapsed=115.32 s, mem usage=5.75 GB, avail mem=14.27 GB.
+2026-10-22T21:27:05.028501235Z [2026-10-22 21:27:05 TP0 EP0] Capture draft decode CUDA graph begin. backend=full, num_tokens_per_req=1, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], avail mem=14.27 GB
+2026-10-22T21:28:01.865927398Z [2026-10-22 21:28:01 TP0 EP0] Capture draft decode CUDA graph end. elapsed=56.84 s, mem usage=1.92 GB, avail mem=12.35 GB.
+2026-10-22T21:28:02.130629702Z [2026-10-22 21:28:02 TP0 EP0] Capture draft extend CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], avail mem=12.35 GB
+2026-10-22T21:28:08.366398958Z [2026-10-22 21:28:08 TP0 EP0] Capture draft extend CUDA graph end. elapsed=6.24 s, mem usage=3.31 GB, avail mem=9.04 GB.
+2026-10-22T21:28:08.367100693Z [2026-10-22 21:28:08 TP0 EP0] max_total_num_tokens=10249472, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=96, context_len=1048576, available_gpu_mem=9.04 GB

@@ -1,0 +1,2 @@
+# e4 rerun on 227 slot a (e4b tag taken by the failed 079 attempt)
+a e4c_092_ctx256k 0.92 | --context-length 262144 |

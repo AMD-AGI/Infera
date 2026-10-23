@@ -1,0 +1,3 @@
+# gmu series 2 on OAI 227: e4 rerun (slot a) + e7 (slot b, PID burn)
+a e4b_092_ctx256k 0.92 | --context-length 262144 |
+b e7_092_noCustomAR 0.92 | --disable-custom-all-reduce |

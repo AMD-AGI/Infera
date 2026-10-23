@@ -1,0 +1,8 @@
+# gmu series 1: one variable each on top of the S2 decode flags at 0.92 (user 10-22: skip e0/e1; reference = S2 0.85 log).
+# Slot a / b run in parallel.
+a e4_092_ctx256k 0.92 | --context-length 262144 |
+b e3_092_noDraftExtGraph 0.92 | | SGLANG_DISABLE_DRAFT_EXTEND_CUDA_GRAPH=1
+a e2_092_bs96only 0.92 | --cuda-graph-bs-decode 96 |
+b e5_092_maxbs64 0.92 | --cuda-graph-max-bs-decode 64 |
+a e6_092_nograph 0.92 | --cuda-graph-backend-decode disabled |
+b e7_092_noCustomAR 0.92 | --disable-custom-all-reduce |

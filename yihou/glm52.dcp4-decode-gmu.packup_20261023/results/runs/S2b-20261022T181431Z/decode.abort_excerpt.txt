@@ -1,0 +1,7 @@
+2026-10-22T18:59:04.423925874Z [2026-10-22 18:59:04] INFO:     10.245.158.97:37240 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T18:59:04.648279328Z [2026-10-22 18:59:04] INFO:     10.245.158.97:41152 - "GET /metrics HTTP/1.1" 200 OK
+2026-10-22T18:59:04.738313115Z :0:rocdevice.cpp            :3582: 304372797361 us:  Callback: Queue 0x71cbd4200000 Aborting with error : HSA_STATUS_ERROR_OUT_OF_RESOURCES: The runtime failed to allocate the necessary resources. This error may also occur when the core runtime library needs to spawn t
+--
+2026-10-22T18:59:04.738575524Z 
+2026-10-22T18:59:04.739537691Z Extension modules: numpy._core._multiarray_umath, numpy.linalg._umath_linalg, psutil._psutil_linux, pybase64._pybase64, charset_normalizer.md, charset_normalizer.cd, requests.packages.charset_normalizer.md, requests.packages.chardet.md, requests.packages.charset_normal
+2026-10-22T18:59:04.751563411Z :0:rocdevice.cpp            :3582: 304372810650 us:  Callback: Queue 0x72b4b0600000 Aborting with error : HSA_STATUS_ERROR_OUT_OF_RESOURCES: The runtime failed to allocate the necessary resources. This error may also occur when the core runtime library needs to spawn t

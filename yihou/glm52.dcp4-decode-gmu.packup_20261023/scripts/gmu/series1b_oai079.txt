@@ -1,0 +1,3 @@
+# gmu series 1b on OAI 079: reruns of e4/e6 (died at RCCL init when two slots started together; slot b now burns PIDs)
+a e4b_092_ctx256k 0.92 | --context-length 262144 |
+b e6b_092_nograph 0.92 | --cuda-graph-backend-decode disabled |

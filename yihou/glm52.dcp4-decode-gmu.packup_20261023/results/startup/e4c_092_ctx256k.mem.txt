@@ -1,0 +1,20 @@
+## e4c_092_ctx256k status=UP MEM=0.92 EXTRA=[--context-length 262144] ENVX=[ ] 2026-10-22T16:38:20Z
+Load weight begin. avail mem=270.13 GB
+gfx950 fused DSA indexer: workspace preallocated (max_cols=1048896, 581 MiB) before pool sizing
+Load weight end. elapsed=26.43 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=167.56 GB, mem usage=102.57 GB.
+Load weight begin. avail mem=167.56 GB
+Load weight end. elapsed=3.73 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=162.11 GB, mem usage=5.46 GB.
+KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2562304, KV size: 133.68 GB
+Memory pool end. avail mem=28.34 GB
+KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2562304, KV size: 2.63 GB
+Memory pool end. avail mem=25.70 GB
+dcp_replicate_q_proj: prepared full-head Q weights for 78 MLA layers
+dcp_replicate_q_proj: prepared full-head Q weights for 1 MLA layers
+Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=20.30 GB
+Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], elapsed=94.66 s, mem usage=3.83 GB, avail mem=16.47 GB.
+Capture draft decode CUDA graph begin. backend=full, num_tokens_per_req=1, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], avail mem=16.47 GB
+Capture draft decode CUDA graph end. elapsed=5.07 s, mem usage=0.62 GB, avail mem=15.85 GB.
+Capture draft extend CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96], avail mem=15.85 GB
+Capture draft extend CUDA graph end. elapsed=3.95 s, mem usage=0.79 GB, avail mem=15.06 GB.
+max_total_num_tokens=10249216, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=96, context_len=262144, available_gpu_mem=15.06 GB
+vram_used_GiB {'card0': 275.2, 'card1': 275.3, 'card2': 275.2, 'card3': 274.8, 'card4': 0.3, 'card5': 0.3, 'card6': 0.3, 'card7': 0.3}

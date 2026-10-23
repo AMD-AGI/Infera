@@ -1,0 +1,3 @@
+# gmu series 1 on burst v3-012 (GLOBAL_ENVX=HSA_ENABLE_SDMA=0)
+a e6_092_nograph 0.92 | --cuda-graph-backend-decode disabled |
+b e5_092_maxbs64 0.92 | --cuda-graph-max-bs-decode 64 |
