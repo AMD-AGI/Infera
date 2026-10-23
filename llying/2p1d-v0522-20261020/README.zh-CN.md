@@ -954,3 +954,37 @@ KV 已顶满的点（4+4 C80、2P C176 / C192）不用大权重：AUS 上均衡�
 均衡改动在 PR #213（未合入，base 为 PR #210 的分支），镜像里没有。照 AUS 的做法：在 138 上用 base 镜像编译 router，挂进 router 容器，
 权重用 `INFERA_DECODE_REQUEST_WEIGHT` 传（`../1p1d-decode-balance-aus-20261021/scripts/kit_round.sh`），kit 的 `up.sh` 加两行挂载。
 每点连同 HiCache 撤栈后的显存回收约 2 小时；建议顺序 4+8 C88 均衡 → C64 均衡 → C48 → 2P C128 均衡（约 8 小时），之后可选 C16、K=3。待用户决定。
+
+## 10-23 08:40 起：PP4 + decode 均衡作为 baseline；PR #210 / #213 rebase 到 main（用户决定）
+
+**关 R2 不等于按请求数均衡**（回答用户）：decode 不上报 `kv_block_size`（三个前沿点的 `workers.json` 里 decode 都是空），关 R2 后
+`legacy_pick` 的在途块数恒为 0、每次派发只记 1.0（每次派发全体 ×0.97），即按最近派发个数平滑轮转，不知道请求何时结束，也丢掉了 token 账本。
+PR #213 记的是持有数（派发 +1、decode 流结束 −1），并与 token 账本合在一个代价里（权重可调）。
+
+**4+8 C88 + PR #213 均衡（kit `v6-pp4-rb`，`config/kit-v6-pp4-rb.diff`）**：router 二进制在 138 上用 base 镜像编译（`e923f90c`，cargo 测试全过，
+138 `$W/2p1d/router-bin/infera-router-pr213-e923f90c`），挂进 router 容器，`INFERA_DECODE_REQUEST_WEIGHT=1000000`，R2 开；站点
+`config/site-1p-pp4-ck8k-rb.env`。08:42 先误起了一次关 R2（用户选项选错，起栈中撤掉，日志 `perf-pp4-ck8k-r2off-aborted/`）；08:50 一次起栈失败
+（撤栈留下的已退出 prefill0 容器重名，`perf-pp4-ck8k-rb-failed-0850/`）；**08:54 起栈，08:58 预热**，串行 `chain-1023T0853.out`，日志 `perf-pp4-ck8k-rb/c88.log`。
+
+**PR rebase 到 main `adbb9dc5`**（main 自 10-20 进了 17 个提交：#204 Anthropic 输入 token、#211 thinking budget、#209 ATOM PD 等）：
+- #210：本地 worktree 里有 10-22 04:12 的未推送改写（filter-branch 给全部提交补 DCO 签名 + 3 个新提交）。以它为准 rebase：丢掉已由 #187 squash 进 main 的
+  6 个 Mooncake 提交、丢掉"CI 改用 ubuntu-24.04"（main 已用正式修法解决 agent_sys / rust 的 26.04 问题），`ruff format moe_mlp.py` 变空提交跳过；
+  其余 22 个提交无冲突，rebase 前后的功能 diff 逐行一致。备份分支 `backup/pr210-local-signed-20261022`、`backup/pr210-origin-d395c3b3`。
+- #213：两个提交 `--signoff` 移到新 #210 上，`metrics.rs` 自动合并，功能 diff 一致；备份 `backup/pr213-origin-e923f90c`。
+- main 对我们的影响（已查）：#211 让所有 sglang worker 自动加 `--enable-custom-logit-processor`——v0.5.22 里它只在请求带处理器时生效（每个 batch 一次
+  `any()`），只与 watermark 互斥；thinking budget 注入只认 GLM-5.3 模型名，`glm5.2-mxfp4` 和 AgentX 的 `/v1/chat/completions` 不受影响。Mooncake 新补丁
+  `rdma_batch_register` 是可选的（`MC_EXTRA_CPP_PATCHES`，只给 GLM-5.3 镜像），`Dockerfile.sglang` 不设。
+- **新提交**：#210 `d843b287` 镜像补丁 `sglang_pp/v0522/patch_deepseek_v2_pp_embed_dim.py`（PP 中间级读 `config.hidden_size`，在镜像一次性容器里验证：
+  打一次、再跑跳过）；`f491b56e` example 改为 TP1 × PP4 prefill（20,20,20,18、关 overlap、chunk 8192），decode 按 `DECODE_GPUS` 卡数做 TP + DPA（4 卡即 4+4），
+  `agentx.sh` 记录 prefill TP1 / PP4 / 无 DPA（**之前 PP4 各点的结果 JSON 把 prefill 记成了 TP4 / DPA，吞吐按 4 卡算不受影响**）、decode TP 按卡数。
+  #213 `3ad7527c` example 默认 `DECODE_REQUEST_WEIGHT=1000000`（0 关闭）。
+- 检查（138 本地克隆，限制在 NUMA0 的 16 个核，避免干扰 C88）：pre-commit 全过（cargo-fmt / gofmt 在 Python 容器里跳过）；unit 2,864 passed；
+  Rust fmt / clippy（-D warnings）/ test 369 + 46 + 4 + 14 全过；27 个提交都带 DCO 签名。09:0x `--force-with-lease` 推送：#210 `d395c3b3 → f491b56e`、
+  #213 `e923f90c → 3ad7527c`；GitHub 上 DCO、lint 已通过。
+- example README（#210，未提交）：PP4 拓扑与配方、PP4 + R2 的参考数字（kit 实测）、note 9 / 10 更新、新增 note 11（PP4 的理由与代价）、端口表；
+  等 example 在新镜像上的正确性结果出来后一起提交。
+
+**新镜像上用 example 跑**（`scripts/ex_campaign.sh`，138 上等 C88 串行结束后自动开始，日志 `$W/2p1d/ex-3ad7527c/campaign.out`）：从 `3ad7527c` 的干净
+克隆构建 `infera-sglang:v0522-ex-3ad7527c` → `docker save | load` 到 140 → 镜像内 `tests/unit`、`tests/engine/sglang`（只记录）→ example 正确性
+（4+8、真实接受率；smoke 6/6 且 GSM8K strict ≥ 0.96 才继续）→ `plan.txt` 逐点：4+8 C88（与 kit + 二进制的 C88 对照，验证 example）、C64、C48、
+4+4 C80、2P C176、4+4 C64、4+8 C32。example 快照 `2p1d-kit/ex-3ad7527c`，站点 `config/site-ex-{1p,1p-d4,2p}.env`。
