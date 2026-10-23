@@ -115,6 +115,34 @@ trace 在 138 `$W/2p1d/exp/traces/prefill-185742-p0/`，`scripts/prof_breakdown.
 **配置实验候选**：层切分 19/19/20/20（估计节拍 −5%）；`--pp-async-batch-depth 1`（让下一个 batch 的准备与计算重叠，针对 PP0 的空隙）；DSA prefill 后端
 `aiter`（v0.5.22 可选 `aiter`、`tilelang`、`triton_sparse_mla` 等；先过正确性，含长上下文）。
 
+### DSA prefill 后端 `aiter`：长上下文 OOM，暂不能用
+
+聚合单机（关 custom all-reduce、关 MTP / HiCache，138 GPU 0–3）：
+
+| 变体 | 200 题 GSM8K | 长上下文（128 个约 13.9k token，并发 32） |
+|---|---|---|
+| `--dsa-prefill-backend aiter` | 0.985，乱码 0，截断 1 | **128 个全部报错**：四个 rank 同时 `torch.OutOfMemoryError: Tried to allocate 64.00 GiB` |
+| `triton`（现用，对照） | — | 捞针 64/64，长前缀 GSM8K 63/64，乱码 0 |
+
+OOM 在 `dsa_backend._forward_aiter_extend` → `aiter.mla.mla_decode_fwd` 的 `logits = torch.empty(...)`：extend 借用 decode kernel，按"token 数 × split 数 ×
+头数 × 维度"预分配 logits，16k token 一次要 64 GiB；PD prefill 用 8k chunk 时约 32 GiB，PP4 每卡 KV 分配后剩 52–67 GB，余量太小。要用需改这块分配
+（或降 chunk 到 4k，影响效率），列为待议，不进今晚的 A/B。
+
+### 步骤 2'：decode 开 custom all-reduce 的性能（进行中）
+
+4+4 C80，强制接受率 3.61，权重 0，decode 走默认注册路径（PD 已验证干净），`config/../../2p1d-v0522-20261020/config/site-exp-1p-d4-car.env`；19:41 起栈。
+对照 kit 测的 4+4 C80（custom all-reduce 关）37,310 @ p90 44.3。
+
+### 步骤 3：prefill 配置 A/B（排在 4+4 C80 之后，`scripts/perf_plan.sh`，计划 138 `$W/2p1d/ab/plan.txt`）
+
+4+8 C112（prefill 饱和，均衡开，`site-exp-1p.env`）：基线 → 层切分 19/19/20/20 → `--pp-async-batch-depth 1`。decode 是否开 custom all-reduce 等 4+4 C80 的结果再定。
+
+### 操作上的两点
+
+- `pd_perf_chain.sh` 等的是两台机器全部 GPU 空闲；同节点另一个任务卡在 HiCache 回收（D 状态）时，回收结束的一刻可能所有卡都空，性能测试会与之同时起栈。
+  所以排队的性能测试改为显式等前一个任务的进程（19:18 停掉了一个这样的等待，没有起栈）。
+- 等待要盯 `pd_perf_chain.sh` 本身的进程号，不要盯外层启动 shell（19:50 改正，同样没有起栈）。
+
 ### HiCache 撤栈对同节点的影响
 
 18:13 撤下 PD 栈后，同节点 GPU 0–3 上新起的 mixed 引擎停在 D 状态、没有日志，直到 GPU 4–7 回收完（约 9 分钟）才继续——锁页主机池回收期间新进程的 KFD
