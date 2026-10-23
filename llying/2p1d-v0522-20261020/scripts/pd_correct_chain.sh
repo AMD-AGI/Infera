@@ -30,6 +30,14 @@ echo "$(date -u +%T) $run_id up"
     echo "$(date -u +%T) $run_id smoke exited $?"
     (cd "$kit" && bash engine/eval.sh) >>"$log_dir/$run_id.log" 2>&1
     echo "$(date -u +%T) $run_id eval exited $?"
+    # PROBE_PROMPTS (an lm-eval GSM8K samples file): 200 prompts at 64 in flight through the router,
+    # counting template tags in the text and answers cut at max_tokens, which lm-eval cannot see.
+    if [[ -n "${PROBE_PROMPTS:-}" ]]; then
+        timeout 5400 python3 "$(dirname "$0")/../../mix-v0522-correctness-20261019/scripts/gsm8k_probe.py" \
+            "$PROBE_PROMPTS" "http://$PREFILL_NODE_IP:${ROUTER_PORT:-28300}" "${SERVED_MODEL:-glm5.2-mxfp4}" \
+            "$log_dir/$run_id.probe.jsonl" --limit 200 --concurrency 64 >>"$log_dir/$run_id.log" 2>&1
+        echo "$(date -u +%T) $run_id probe exited $?: $(tail -1 "$log_dir/$run_id.log")"
+    fi
 }
 (cd "$kit" && bash engine/down.sh) >>"$log_dir/$run_id.log" 2>&1
 echo "$(date -u +%T) $run_id down"
