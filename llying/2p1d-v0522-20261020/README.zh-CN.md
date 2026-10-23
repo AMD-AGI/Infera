@@ -991,3 +991,8 @@ PR #213 记的是持有数（派发 +1、decode 流结束 −1），并与 token
 - **09:35 用户决定只跑 4+8**（`plan.txt` 改为 C88、C64、C48、C32，权重 1,000,000）：R2 与均衡共存（#213 的代价 = R2 已预约输入 token + 本请求 token
   + 权重 × 持有请求数，权重 0 即纯 R2，权重 > 0 要求 R2 开），不同的点用不同的权重。4+4 C64 / C80、2P C176 每步在平台区、C80 受 KV 限制，均衡预计
   收益 ≤ 8%，按权重 0 沿用已测结果（与 example `DECODE_REQUEST_WEIGHT=0` 配置相同）；它们结果 JSON 里错写的 prefill 拓扑字段离线改正。
+- **09:40 用户决定把 #213 并进 #210**：#210 分支快进到 `3ad7527c`（= 原 #213 head），推送。因为 #213 的 base 是 #210 的分支，GitHub 自动把 #213 标成
+  "merged"（合进的是 #210 的分支，main 仍是 `adbb9dc5`），已在 #213 留言说明。#210 改标题为 "v0.5.22 image, GLM-5.2-MXFP4 mixed and PD (TP1xPP4 prefill)
+  examples, router decode request balancing"，描述开头加了状态说明（副本 `config/pr210-body.md`），完整描述等数字出来后重写。
+- 10-22 那 3 个本地提交：CI 改 ubuntu-24.04 丢掉（main 已正式修好）；"客户端使用本次运行的 router 地址和容器名"（`6c09562b`）与"Responses 的 system
+  消息依赖模板时放弃前缀哈希"（`fe8eee77`）保留在 #210。

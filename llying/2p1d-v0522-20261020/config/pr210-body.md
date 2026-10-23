@@ -1,3 +1,9 @@
+> **Status (10-23).** Rebased onto main `adbb9dc5`; every commit is signed off, and the #187 commits main already carries were dropped (so was the `moe_mlp.py` ruff fix, now on main). Added since the description below was written, which will be rewritten with the new numbers when the runs finish:
+> - the 2P1D example's prefills are TP1 × PP4 (new image patch `sglang_pp/v0522/patch_deepseek_v2_pp_embed_dim.py`), and the decode takes 8 or 4 GPUs;
+> - #213 is folded in: router `--decode-request-weight` (decode input demand also charges the requests a target holds), on by default in the example (`DECODE_REQUEST_WEIGHT=1000000`).
+>
+> The example is being validated on an image built from this head (smoke, GSM8K, AgentX 1P1D C88 / C64 / C48 / C32).
+
 # Description
 
 Moves `Dockerfile.sglang` from the SGLang v0.5.18 base to `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018` and keeps infera's SGLang integration working on it. Adds two runnable GLM-5.2-MXFP4 kits for MI355X, tuned for the InferenceX AgentX replay:
@@ -121,3 +127,4 @@ Concurrency sweep (each point on a freshly started deployment, 3,600 s, forced a
 - [x] My changes generate no new warnings
 - [x] I have added tests that prove my fix is effective or that my feature works
 - [x] New and existing unit tests pass locally with my changes
+
