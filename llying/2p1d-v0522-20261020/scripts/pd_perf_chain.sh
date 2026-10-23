@@ -16,6 +16,24 @@ mkdir -p "$log_dir"
 nodes=(localhost "$DECODE_SSH")
 on() { if [[ "$1" == localhost ]]; then bash -c "$2"; else ssh -o BatchMode=yes "$1" "$2"; fi; }
 vram() { on "$1" "rocm-smi --showmeminfo vram --csv | awk -F, 'NR>1 && \$2 != \"\" {printf \"%d \", 100 * \$3 / \$2}'"; }
+# Stops the AgentX client once an engine process dies or the client has completed nothing for 15 minutes,
+# so a broken deployment does not hold both nodes for the rest of the run.
+guard() {
+    local log="$1" ctr="${CTR:-glm52_2p1d}" last="" since=$SECONDS fault progress i
+    while sleep 60; do
+        fault="$( {
+            for ((i = 0; i < ${PREFILL_WORKERS:-2}; i++)); do docker logs --since 70s "$ctr-prefill$i" 2>&1; done
+            on "$DECODE_SSH" "docker logs --since 70s $ctr-decode 2>&1"
+        } | grep -aE 'Fatal Python error|crashed with exit code' | head -1)"
+        progress="$(tr '\r' '\n' <"$log" | grep -aoE '(returned|done)=[0-9,]+' | tail -1)"
+        [[ "$progress" == "$last" ]] || { last="$progress" since=$SECONDS; }
+        if [[ -n "$fault" ]] || ((SECONDS - since > 900)); then
+            echo "$(date -u +%T) guard: stopping AgentX (${fault:-nothing completed for 15 min, last $last})"
+            docker stop "$ctr-agentx" >/dev/null 2>&1
+            return
+        fi
+    done
+}
 
 for conc in "$@"; do
     label="c$conc"
@@ -29,9 +47,16 @@ for conc in "$@"; do
         done
     } >"$log_dir/$label.env-check" 2>&1
     echo "$(date -u +%T) $label up"
-    (cd "$kit" && SIM_ACCEPT_LEN=3.61 RUN_ID="$label-$(date -u +%m%dT%H%M)" bash engine/up.sh) >"$log_dir/$label.log" 2>&1 &&
+    if (cd "$kit" && SIM_ACCEPT_LEN=3.61 RUN_ID="$label-$(date -u +%m%dT%H%M)" bash engine/up.sh) >"$log_dir/$label.log" 2>&1; then
+        guard "$log_dir/$label.log" &
+        guard_pid=$!
         (cd "$kit" && CONC="$conc" bash engine/agentx/agentx.sh) >>"$log_dir/$label.log" 2>&1
-    echo "$(date -u +%T) $label agentx exited $?"
+        rc=$?
+        kill "$guard_pid" 2>/dev/null
+        echo "$(date -u +%T) $label agentx exited $rc"
+    else
+        echo "$(date -u +%T) $label up failed"
+    fi
     # The engines' counters at the end of the run, before down.sh removes them.
     run_dir="$(cat "$WORK_DIR/current_run")"
     mkdir -p "$run_dir/metrics"

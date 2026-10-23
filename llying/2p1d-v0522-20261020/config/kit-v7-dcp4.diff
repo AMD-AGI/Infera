@@ -1,6 +1,6 @@
 diff -ru 2p1d-kit/v6-pp4/engine/worker.sh 2p1d-kit/v7-dcp4/engine/worker.sh
 --- 2p1d-kit/v6-pp4/engine/worker.sh	2026-10-21 19:47:19.379126364 +0000
-+++ 2p1d-kit/v7-dcp4/engine/worker.sh	2026-10-22 14:53:30.054693351 +0000
++++ 2p1d-kit/v7-dcp4/engine/worker.sh	2026-10-23 02:30:35.019615137 +0000
 @@ -2,9 +2,9 @@
  # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
  # SPDX-License-Identifier: MIT
@@ -14,20 +14,21 @@ diff -ru 2p1d-kit/v6-pp4/engine/worker.sh 2p1d-kit/v7-dcp4/engine/worker.sh
  # This file carries the tuned recipe; site values come from env.sh. Normally
  # called by up.sh (the decode over ssh).
  #
-@@ -108,8 +108,10 @@
+@@ -108,8 +108,11 @@
              SGLANG_SIMULATE_ACC_METHOD=match-expected SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token)
      fi
      args+=(
 -        --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention
 -        --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 256 --tokenizer-worker-num 4
 +        --tp-size "$n_gpus" --dcp-size "$n_gpus"
-+        # Under DCP the decode batch is the whole node's, and capturing bs 256
-+        # runs out of memory in the indexer's logits buffer at 0.92.
-+        --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 128 --tokenizer-worker-num 4
++        # Under DCP the decode batch is the whole node's: capturing bs 256 runs
++        # out of memory in the indexer's logits buffer, and at 0.92 the 5.4 GB
++        # left after capture ran out under full load (HSA out of resources).
++        --mem-fraction-static 0.90 --cuda-graph-max-bs-decode 128 --tokenizer-worker-num 4
          --no-enable-kv-events --kv-events off
      )
      read -ra extra <<<"$DECODE_EXTRA_ARGS"
-@@ -133,9 +135,12 @@
+@@ -133,9 +136,12 @@
  mounts=(-v "$MODEL:$MODEL:ro"
      -v "$name-cache-${image_id:7:12}:/root/.cache"
      -v "$name-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit")
