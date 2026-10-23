@@ -1,0 +1,24 @@
+--- a/python/sglang/srt/disaggregation/decode.py
++++ b/python/sglang/srt/disaggregation/decode.py
+@@ -3072,6 +3072,10 @@
+                 self._record_scheduler_state_for_paused_engine()
+                 continue
+             self.process_decode_queue()
++            # yihou gmu: release cached allocator blocks on every rank when device free < 6 GiB.
++            self._yihou_it = getattr(self, "_yihou_it", 0) + 1
++            if self._yihou_it % 8 == 0 and torch.cuda.mem_get_info()[0] < 6 * 2**30:
++                torch.cuda.empty_cache()
+ 
+             # Get the next batch to run
+             plan = self.get_next_disagg_decode_batch_to_run(
+@@ -3119,6 +3123,10 @@
+                 self._record_scheduler_state_for_paused_engine()
+                 continue
+             self.process_decode_queue()
++            # yihou gmu: release cached allocator blocks on every rank when device free < 6 GiB.
++            self._yihou_it = getattr(self, "_yihou_it", 0) + 1
++            if self._yihou_it % 8 == 0 and torch.cuda.mem_get_info()[0] < 6 * 2**30:
++                torch.cuda.empty_cache()
+ 
+             # Get the next batch to run
+             plan = self.get_next_disagg_decode_batch_to_run(

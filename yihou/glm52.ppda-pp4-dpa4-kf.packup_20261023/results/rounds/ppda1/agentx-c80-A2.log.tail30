@@ -1,0 +1,6 @@
+HEAD is now at 918524ff CollectiveX: name Slurm allocations after the GHA runner (dash correlation) (#2762)
+Synchronizing submodule url for 'utils/aiperf'
+Entering 'utils/aiperf'
+InferenceX ready: /shared_nfs/yihou_glm52/agentx44_20261009/cache/InferenceX @ 918524ff94045b3f091115f1051c22a8588edf2b
+agentx_env: PASS (2 workers, /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ppda1/agentx-c80-A2/runtime.env)
+running AgentX C80 for 3600s via http://10.245.148.209:28100

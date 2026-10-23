@@ -1,0 +1,40 @@
+From ab7a898b7758dbbe3144d892e63e4c642a412ba9 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Thu, 22 Oct 2026 10:34:58 +0000
+Subject: [PATCH] [Fix] deepseek_v2: Read hidden size from config on non-first
+ PP ranks
+
+On a pipeline stage that does not own the embedding, embed_tokens is a
+PPMissingLayer without embedding_dim, so model construction raised
+AttributeError. Use config.hidden_size, which is the same value.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+---
+ python/sglang/srt/models/deepseek_v2.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/python/sglang/srt/models/deepseek_v2.py b/python/sglang/srt/models/deepseek_v2.py
+index 03cba89711..67da788323 100644
+--- a/python/sglang/srt/models/deepseek_v2.py
++++ b/python/sglang/srt/models/deepseek_v2.py
+@@ -3000,7 +3000,7 @@ class DeepseekV2Model(nn.Module):
+         if (
+             _use_aiter_gfx95
+             and config.n_routed_experts == 256
+-            and self.embed_tokens.embedding_dim == 7168
++            and config.hidden_size == 7168
+         ):
+             num_moe_layers = sum(
+                 [
+@@ -3035,7 +3035,7 @@ class DeepseekV2Model(nn.Module):
+                     config.n_routed_experts,
+                     num_moe_layers,
+                     allocate_size,
+-                    self.embed_tokens.embedding_dim,
++                    config.hidden_size,
+                 )
+             )
+         self.layers_to_capture = []
+-- 
+2.34.1
+

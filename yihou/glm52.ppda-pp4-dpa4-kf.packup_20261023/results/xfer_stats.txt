@@ -1,0 +1,6 @@
+== ppda1 profiling from 12:14:37
+ALL: win=14511s GB=48060.1 rate=3.31GB/s calls=144162 t_xfer=3386s (14.2GB/s while in xfer) dcp_calls=0 t_dcp=0s t_pack=0s pack/dcp=0.00 ms/pack=0.0 ms/xfercall=23.5 hist=[310266, 13340461, 56214236, 37327584, 27691185, 10921556]
+index 0.0s launch 0.0s sync 0.0s n=0 -> ms/pack index 0.00 launch 0.00 sync 0.00
+== ppda2 profiling from 13:51:10
+ALL: win=14518s GB=57205.6 rate=3.94GB/s calls=164980 t_xfer=4236s (13.5GB/s while in xfer) dcp_calls=0 t_dcp=0s t_pack=0s pack/dcp=0.00 ms/pack=0.0 ms/xfercall=25.7 hist=[351108, 15816457, 67232863, 46636174, 34465973, 13078086]
+index 0.0s launch 0.0s sync 0.0s n=0 -> ms/pack index 0.00 launch 0.00 sync 0.00
