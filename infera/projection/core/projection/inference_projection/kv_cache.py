@@ -207,7 +207,8 @@ def estimate_kv_cache(
     window = req.resolved_sliding_window(getattr(mc, "sink_sliding_window", 0))
     if window > 0 and window < context_len:
         frac = req.resolved_sliding_window_fraction(
-            getattr(mc, "sink_window_even_layers_only", False)
+            getattr(mc, "sink_window_even_layers_only", False),
+            getattr(mc, "sink_window_layer_fraction", 0.0),
         )
         effective_context = frac * _alloc(window) + (1.0 - frac) * alloc_context_len
     else:

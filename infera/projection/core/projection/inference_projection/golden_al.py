@@ -72,7 +72,7 @@ THINKING_MODES = ("on", "off")
 _SIBLING = {"mtp": "eagle3", "eagle3": "mtp"}
 
 # Methods with golden files; the rest are derived from SPEED-Bench Table 1.
-_GOLDEN_METHODS = ("mtp", "eagle3", "dspark")
+_GOLDEN_METHODS = ("mtp", "eagle3", "dspark", "dflash")
 
 
 def golden_dir() -> Path | None:
@@ -116,7 +116,7 @@ def normalize_thinking(value) -> str:
 def method_of_file(name: str) -> str | None:
     """The method a golden file measures, from the name InferenceX gives it."""
     stem = Path(name).stem.lower()
-    for token in ("dspark", "eagle3", "mtp", "ngram", "draft_model"):
+    for token in ("dspark", "dflash", "eagle3", "mtp", "ngram", "draft_model"):
         if token in stem:
             return token
     return None

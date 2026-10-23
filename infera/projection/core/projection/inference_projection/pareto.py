@@ -362,14 +362,15 @@ class KvConfig:
 
 
 # method -> the draft depth it runs at when the setting names none:
-# InferenceX's recipes' ``speculative-num-steps 3``, 4 for a separate draft
-# model and n-gram lookup.
+# InferenceX's recipes' ``speculative-num-steps 3``, 7 for DFlash (its recipes
+# verify a block of 8), 4 for a separate draft model and n-gram lookup.
 SPEC_DEFAULTS: dict[str, int] = {
     "mtp": 3,
     "nextn": 3,
     "eagle": 3,
     "eagle3": 3,
     "dspark": 3,
+    "dflash": 7,
     "draft_model": 4,
     "draft": 4,
     "ngram": 4,

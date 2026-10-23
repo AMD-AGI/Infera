@@ -84,6 +84,14 @@ class ModelConfig:
     # full-attention), i.e. half the layers.
     sink_sliding_window: int = 0
     sink_window_even_layers_only: bool = False
+    # Share of the attention layers that are windowed, for an interleave other
+    # than every other layer (Muse Spark: 46 of 62). 0 defers to
+    # ``sink_window_even_layers_only``.
+    sink_window_layer_fraction: float = 0.0
+    # The serving engine reads only the window on windowed layers at decode as
+    # well as prefill (SGLang's hybrid SWA pool, as Muse Spark runs). Off, decode
+    # charges the full context, which is what vLLM's runs measured.
+    sink_window_decode_capped: bool = False
     # Hybrid compressed attention (DeepSeek-V4). ``compress_ratios`` is a
     # per-layer schedule naming which attention branch each layer runs, using
     # the same 0 / 4 / 128 encoding the reference implementation accepts (see
@@ -130,11 +138,17 @@ class ModelConfig:
     # full-attention layers (Qwen3.5 GQA, Kimi-K3 MLA). Its projection is as
     # wide as the attention output, so it is one more O-sized weight read.
     attention_output_gate: bool = False
+    # The gate is one scalar per head (Muse Spark) rather than per channel.
+    attention_output_gate_per_head: bool = False
     # Latent MoE (Kimi-K3): routed experts act on a ``moe_latent_hidden_size``
     # projection of the residual. The expert GEMMs can be sized in residual
     # width equivalents; the hidden->latent and latent->hidden projections
     # around them, and the narrower rows the permutation moves, cannot.
     moe_latent_hidden_size: int = 0
+    # MoE layers whose routed experts a quantized checkpoint leaves at the
+    # linear weights' precision (Muse Spark's MXFP4 release: the first and the
+    # last, 2 of 62). They hold and stream more bytes than the other layers.
+    moe_unquantized_expert_layers: int = 0
     # Attention residuals (Kimi-K3): before attention and before the MLP, each
     # layer mixes the outputs of every ``attn_res_block_size``-layer block so
     # far with a softmax over them, in place of a plain residual add.
@@ -1094,20 +1108,28 @@ class InferenceRequestConfig:
         w = int(w or 0)
         return w if w > 0 else 0
 
-    def resolved_sliding_window_fraction(self, even_layers_only: bool = False) -> float:
+    def resolved_sliding_window_fraction(
+        self, even_layers_only: bool = False, model_fraction: float = 0.0
+    ) -> float:
         """Fraction of attention layers that are windowed, clamped to [0, 1].
 
-        ``sliding_window_layer_fraction`` wins when set; otherwise 0.5 for an
-        even-layers-only interleave (e.g. gpt-oss) or 1.0 when every layer is
-        windowed.
+        ``sliding_window_layer_fraction`` wins when set; then the model's own
+        ``model_fraction`` when positive; otherwise 0.5 for an even-layers-only
+        interleave (e.g. gpt-oss) or 1.0 when every layer is windowed.
         """
         f = self.sliding_window_layer_fraction
+        if f is None and model_fraction and model_fraction > 0:
+            f = model_fraction
         if f is None:
             f = 0.5 if even_layers_only else 1.0
         return min(1.0, max(0.0, float(f)))
 
     def effective_attn_kv(
-        self, kv_len: int, model_window: int = 0, even_layers_only: bool = False
+        self,
+        kv_len: int,
+        model_window: int = 0,
+        even_layers_only: bool = False,
+        model_fraction: float = 0.0,
     ) -> int:
         """KV length an average attention layer reads under sliding-window.
 
@@ -1122,7 +1144,7 @@ class InferenceRequestConfig:
         w = self.resolved_sliding_window(model_window)
         if w <= 0 or kv <= w:
             return kv
-        frac = self.resolved_sliding_window_fraction(even_layers_only)
+        frac = self.resolved_sliding_window_fraction(even_layers_only, model_fraction)
         return int(round(frac * w + (1.0 - frac) * kv))
 
     def resolved_moe_expert_dtype_speedup(self) -> float:

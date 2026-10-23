@@ -148,7 +148,7 @@ def project_inference_memory(
     # well under a percent of the total.
     tp = max(1, inference_config.model_parallel_config.tensor_model_parallel_size)
     num_params = profiler.estimated_num_params(rank=eff_rank) // tp
-    weight_bytes = int(num_params * dtype_num_bytes(inference_config.request_config.weight_dtype))
+    weight_bytes = _weight_bytes(inference_config, profiler, num_params, tp)
 
     layers_on_rank = _layers_on_rank(inference_config)
     kv = estimate_kv_cache(inference_config, layers_on_rank)
@@ -192,6 +192,42 @@ def project_inference_memory(
     if verbose:
         _print_memory(inference_config, result)
     return result
+
+
+def _routed_expert_params(model_config, layers) -> tuple[int, int]:
+    """Routed-expert parameters per MoE layer, and the MoE layers among ``layers``."""
+    num_experts = int(getattr(model_config, "num_experts", 0) or 0)
+    pattern = getattr(model_config, "moe_pattern", None) or []
+    if num_experts <= 1 or not pattern:
+        return 0, 0
+    ffn = model_config.moe_ffn_hidden_size or model_config.ffn_hidden_size
+    proj = 3 if model_config.swiglu else 2
+    n_moe = sum(1 for layer in layers if layer < len(pattern) and pattern[layer])
+    return num_experts * proj * model_config.hidden_size * ffn, n_moe
+
+
+def _weight_bytes(inference_config: InferenceConfig, profiler, num_params: int, tp: int) -> int:
+    """This rank's weight bytes, with experts and the rest at their own widths.
+
+    ``moe_expert_dtype`` and ``linear_weight_dtype`` fall back to
+    ``weight_dtype``, so a single-precision checkpoint costs ``num_params``
+    times one width. A mixed one (mxfp4 experts, bf16 attention) does not.
+    """
+    req = inference_config.request_config
+    mc = inference_config.model_config
+    base = req.weight_dtype
+    expert_dt = getattr(req, "moe_expert_dtype", None) or base
+    linear_dt = getattr(req, "linear_weight_dtype", None) or base
+    per_layer, n_moe = _routed_expert_params(mc, profiler.layers)
+    if per_layer == 0 or n_moe == 0:
+        return int(num_params * dtype_num_bytes(base))
+    n_unq = min(n_moe, int(getattr(mc, "moe_unquantized_expert_layers", 0) or 0))
+    quantized = per_layer * (n_moe - n_unq) // tp
+    unquantized = per_layer * n_unq // tp
+    rest = max(0, num_params - quantized - unquantized)
+    return int(
+        quantized * dtype_num_bytes(expert_dt) + (unquantized + rest) * dtype_num_bytes(linear_dt)
+    )
 
 
 def _print_memory(inference_config: InferenceConfig, r: InferenceMemoryResult) -> None:
