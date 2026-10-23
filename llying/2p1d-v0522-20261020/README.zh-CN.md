@@ -1065,3 +1065,7 @@ PR #213 记的是持有数（派发 +1、decode 流结束 −1），并与 token
 - 仍然弱的一段是 p90 45–55（4+4 C64 → 4+8 C88 均衡之间，ATOM PD 高 13%–16%）和高吞吐端（ATOM #209 C96 46.2k @ 45.6 高约 25%）。
 - 旧 PP4 各点（kit 测的）结果 JSON 里 prefill 记成 TP4 / DPA，实际是 TP1 × PP4；原文件未改，以本节和 README 为准。example 测的点字段正确。
 - PR #210（head `900cc9db`）：example README（参考数字按拓扑给出权重和起栈命令）、PR 描述已更新（副本 `config/pr210-body.md`）。
+- **16:40 review**：router 改动正确（沿用 R2 预约记账，派发 +1、流结束 / 取消 / 失败释放），托管 CI 全过、与 main 无冲突。待办：Copilot 10-22 的两条评论
+  （smoke / agentx 的 `ROUTER_URL`、Responses 的 `supports_inline_system`）已由 `6c09562b`、`fe8eee77` 修复但线程未回复；自托管 crusoe runner 不接任务
+  （engine、e2e 一直排队，main 02:57 的 CI 也在排队），需 reviewer 决定是否接受本地替代验证；建议 squash 合并；可选：mixed 在新镜像上复验、PD example 的 manual 页。
+  用户选择先修 README：均衡一节改为先给本配方的 3600 s A/B（C88、C64，权重 0 / 1,000,000），AUS 的 A/B 注明旧 TP4 / DPA prefill 与 1800 s 窗口，`8859b247`。
