@@ -1,0 +1,150 @@
+diff -ru 2p1d-kit/v6-pp4/engine/worker.sh 2p1d-kit/v8-dcp4a/engine/worker.sh
+--- 2p1d-kit/v6-pp4/engine/worker.sh	2026-10-21 19:47:19.379126364 +0000
++++ 2p1d-kit/v8-dcp4a/engine/worker.sh	2026-10-23 04:49:07.535849103 +0000
+@@ -2,9 +2,9 @@
+ # Copyright (c) 2026, Advanced Micro Devices, Inc. All rights reserved.
+ # SPDX-License-Identifier: MIT
+ #
+-# Start one engine container on THIS node: a TP4 + DP4-attention prefill with
+-# a host-memory HiCache tier, or the TP8 + DP8-attention decode; both legs
+-# carry EAGLE MTP.
++# Start one engine container on THIS node: a PP4 prefill with a host-memory
++# HiCache tier, or the decode with decode context parallelism (TP = DCP = its
++# GPU count); both legs carry EAGLE MTP.
+ # This file carries the tuned recipe; site values come from env.sh. Normally
+ # called by up.sh (the decode over ssh).
+ #
+@@ -66,7 +66,7 @@
+     --ep-size 1
+     --disable-custom-all-reduce
+     --kv-cache-dtype fp8_e4m3 --dsa-prefill-backend triton --dsa-decode-backend triton
+-    --chunked-prefill-size 32768 --max-running-requests 256
++    --chunked-prefill-size 32768
+     --json-model-override-args '{"index_share_for_mtp_iteration":false}'
+     --enable-fused-qk-norm-rope --enable-aiter-allreduce-fusion
+     --reasoning-parser glm45 --tool-call-parser glm47
+@@ -84,8 +84,14 @@
+     # PP4 x TP1 prefill (as GB300 Dynamo+SGLang): the last stage also holds
+     # the LM head and the NextN draft layer, so it takes two fewer layers.
+     env+=(SGLANG_PP_LAYER_PARTITION=20,20,20,18)
++    # Sends to a DCP decode (overlay mooncake/conn.py and common/dcp_pack.py,
++    # from yihou/glm52.dcpx-pack-fix-best.packup_20261023): shard the transfer
++    # queues by request, since a DP1 decode makes the port-sum shard constant;
++    # pack on a high-priority stream with device-cached metadata instead of
++    # behind the forward; log transfer and pack times every 30 s.
++    env+=(YIHOU_DCP_SHARD=room YIHOU_PACK_NOWAIT=2 YIHOU_XFER_STATS=1)
+     args+=(
+-        --tp-size 1 --pp-size "$n_gpus" --disable-overlap-schedule
++        --tp-size 1 --pp-size "$n_gpus" --disable-overlap-schedule --max-running-requests 256
+         --chunked-prefill-size "${PP4_CHUNK:-16384}" --max-prefill-tokens "${PP4_CHUNK:-16384}"
+         --mem-fraction-static 0.88 --schedule-policy shortest-prefill-first
+         --disaggregation-bootstrap-port $((BOOTSTRAP_PORT + idx))
+@@ -107,9 +113,18 @@
+         env+=("SGLANG_SIMULATE_ACC_LEN=$SIM_ACCEPT_LEN"
+             SGLANG_SIMULATE_ACC_METHOD=match-expected SGLANG_SIMULATE_ACC_TOKEN_MODE=real-draft-token)
+     fi
++    # Each DCP rank scores only the context pages it owns in the indexer and
++    # the ranks merge their top-k, instead of every rank scoring the whole
++    # context: a quarter of the logits memory and compute.
++    env+=(SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER=1 SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON=1)
+     args+=(
+-        --tp-size "$n_gpus" --dp-size "$n_gpus" --enable-dp-attention
+-        --mem-fraction-static 0.92 --cuda-graph-max-bs-decode 256 --tokenizer-worker-num 4
++        --tp-size "$n_gpus" --dcp-size "$n_gpus"
++        # Under DCP the decode batch is the whole node's: capturing bs 256 runs
++        # out of memory in the indexer's logits buffer. A batch above the
++        # captured 128 runs eager, where the indexer allocates full-context
++        # page tables and logits, so the running cap matches the graph.
++        --mem-fraction-static 0.90 --cuda-graph-max-bs-decode 128 --max-running-requests 128
++        --tokenizer-worker-num 4
+         --no-enable-kv-events --kv-events off
+     )
+     read -ra extra <<<"$DECODE_EXTRA_ARGS"
+@@ -133,9 +148,13 @@
+ mounts=(-v "$MODEL:$MODEL:ro"
+     -v "$name-cache-${image_id:7:12}:/root/.cache"
+     -v "$name-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit")
+-# v0.5.22 reads embed_tokens.embedding_dim on every PP stage, but the middle
+-# stages hold a PPMissingLayer there; the patched copy reads config.hidden_size.
+-[[ "$role" != prefill ]] || mounts+=(-v "$KIT/patches/deepseek_v2.py:/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py:ro")
++# v0.5.22 has no DSA DCP on ROCm and rejects DCP behind a PD prefill, so both
++# legs run overlay/sglang: sglang 93034eba91 (main fda84f80b7 + sglang#44322 +
++# PD/DCP fixes, carrying the image's Infera patches) plus the v0.5.22 PP fix in
++# models/deepseek_v2.py (middle stages read config.hidden_size, not
++# embed_tokens.embedding_dim), the decode's allocator release in
++# disaggregation/decode.py, and the two transfer files named above.
++mounts+=(-v "$KIT/overlay/sglang:/sgl-workspace/sglang/python/sglang:ro")
+ # Host libionic, so the entrypoint can match the host ionic kernel ABI.
+ [[ ! -e /lib/x86_64-linux-gnu/libionic.so ]] ||
+     mounts+=(-v /lib/x86_64-linux-gnu/libionic.so:/host-libionic/libionic.so:ro)
+--- yihou overlay 93034eba91 srt/models/deepseek_v2.py
++++ v8-dcp4a/overlay/sglang/srt/models/deepseek_v2.py
+@@ -3000,7 +3000,7 @@
+         if (
+             _use_aiter_gfx95
+             and config.n_routed_experts == 256
+-            and self.embed_tokens.embedding_dim == 7168
++            and config.hidden_size == 7168
+         ):
+             num_moe_layers = sum(
+                 [
+@@ -3035,7 +3035,7 @@
+                     config.n_routed_experts,
+                     num_moe_layers,
+                     allocate_size,
+-                    self.embed_tokens.embedding_dim,
++                    config.hidden_size,
+                 )
+             )
+         self.layers_to_capture = []
+--- yihou overlay 93034eba91 srt/disaggregation/decode.py
++++ v8-dcp4a/overlay/sglang/srt/disaggregation/decode.py
+@@ -3054,10 +3054,18 @@
+ 
+ 
+ class SchedulerDisaggregationDecodeMixin:
++    def _release_cached_blocks_if_low(self: Scheduler):
++        # Under load the caching allocator keeps 15-17 GiB of freed blocks above
++        # the live tensors until the HIP runtime's own allocations fail
++        # (HSA_STATUS_ERROR_OUT_OF_RESOURCES); every rank must release its own.
++        if torch.cuda.mem_get_info()[0] < 6 << 30:
++            torch.cuda.empty_cache()
++
+     @torch.no_grad()
+     def event_loop_normal_disagg_decode(self: Scheduler):
+         """A normal scheduler loop for decode worker in disaggregation mode."""
+ 
++        loop_ct = 0
+         while True:
+             if self.gracefully_exit:
+                 break
+@@ -3072,6 +3080,9 @@
+                 self._record_scheduler_state_for_paused_engine()
+                 continue
+             self.process_decode_queue()
++            loop_ct += 1
++            if loop_ct % 8 == 0:
++                self._release_cached_blocks_if_low()
+ 
+             # Get the next batch to run
+             plan = self.get_next_disagg_decode_batch_to_run(
+@@ -3105,6 +3116,7 @@
+             tmp_batch, tmp_result = self.result_queue.popleft()
+             self.process_batch_result(tmp_batch, tmp_result)
+ 
++        loop_ct = 0
+         while True:
+             if self.gracefully_exit:
+                 break
+@@ -3119,6 +3131,9 @@
+                 self._record_scheduler_state_for_paused_engine()
+                 continue
+             self.process_decode_queue()
++            loop_ct += 1
++            if loop_ct % 8 == 0:
++                self._release_cached_blocks_if_low()
+ 
+             # Get the next batch to run
+             plan = self.get_next_disagg_decode_batch_to_run(
+# srt/disaggregation/mooncake/conn.py = yihou/glm52.dcpx-pack-fix-best.packup_20261023/patches/conn.yihou-dcpshard2-xferstats2.py (verbatim)
+# srt/disaggregation/common/dcp_pack.py = yihou/glm52.dcpx-pack-fix-best.packup_20261023/patches/dcp_pack.yihou-nowait2.py (verbatim)

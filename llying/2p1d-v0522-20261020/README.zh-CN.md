@@ -820,6 +820,18 @@ decode KV（AUS 上 C192 比 C176 低 4.7% 的机制）。138 显存回收用了
     PyTorch 缓存分配器的碎片、新到请求的草稿 extend。同事的 DCP4 在显存 0.85 下跑满 30 分钟未出问题，差别是拆分 indexer（logits 缓冲缩到 1/4）、
     最大在跑 96、EP4、custom AR 开。
   - 巡检：本地 10 分钟定时器在跑，但在用户不发消息时提醒到不了我，实际起作用的是远端 guard。
+- 10-23 03:10–04:45 分析（不上机）：崩溃根因、ATOM 对比与改进方案见 `../dcp4-improve-20261023/README.zh-CN.md`。
+
+**10-23 04:49 起方案 A（用户决定）：kit `v8-dcp4a`，相对 `v7-dcp4` 四项改动**（全部改动 `config/kit-v8-dcp4a.diff`）：
+1. decode 所有 rank 每 8 次事件循环检查一次，设备剩余 < 6 GiB 时 `torch.cuda.empty_cache()`（移植同事 `glm52.dcp4-decode-gmu` 的修复，
+   `disaggregation/decode.py` 两个事件循环）。
+2. prefill 侧跨节点传输修复：overlay 的 `mooncake/conn.py`、`common/dcp_pack.py` 直接用同事 `glm52.dcpx-pack-fix-best` 实测过的文件，
+   prefill 设 `YIHOU_DCP_SHARD=room`（传输队列按请求哈希分片）、`YIHOU_PACK_NOWAIT=2`（打包元数据缓存在 GPU、高优先级流、不等默认流）、
+   `YIHOU_XFER_STATS=1`（每 30 秒打一条传输与打包耗时统计）。
+3. decode `--max-running-requests 128`（= graph 上限，避免进入按全上下文宽度分配的 eager 路径）；prefill 保持 256。
+4. decode 拆分 indexer：`SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER=1`、`SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON=1`。
+显存 0.90 不变。打包修复在 PP prefill 下有顺序风险（同事提示），所以先做开 HiCache 的正确性（smoke 含长前缀冷 / 重复、GSM8K、真实接受长度），
+再 C80（串行 `chain-1023T0449.out`：正确性 `dcp4-correct/dcp4a-hc-1023T0449.log`，之后性能 `perf-dcp4a/c80.log`）。起栈前两节点显存 0、无他人 GPU 进程。
 
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 
