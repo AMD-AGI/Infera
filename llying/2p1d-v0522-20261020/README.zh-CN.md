@@ -988,3 +988,6 @@ PR #213 记的是持有数（派发 +1、decode 流结束 −1），并与 token
 克隆构建 `infera-sglang:v0522-ex-3ad7527c` → `docker save | load` 到 140 → 镜像内 `tests/unit`、`tests/engine/sglang`（只记录）→ example 正确性
 （4+8、真实接受率；smoke 6/6 且 GSM8K strict ≥ 0.96 才继续）→ `plan.txt` 逐点：4+8 C88（与 kit + 二进制的 C88 对照，验证 example）、C64、C48、
 4+4 C80、2P C176、4+4 C64、4+8 C32。example 快照 `2p1d-kit/ex-3ad7527c`，站点 `config/site-ex-{1p,1p-d4,2p}.env`。
+- **09:35 用户决定只跑 4+8**（`plan.txt` 改为 C88、C64、C48、C32，权重 1,000,000）：R2 与均衡共存（#213 的代价 = R2 已预约输入 token + 本请求 token
+  + 权重 × 持有请求数，权重 0 即纯 R2，权重 > 0 要求 R2 开），不同的点用不同的权重。4+4 C64 / C80、2P C176 每步在平台区、C80 受 KV 限制，均衡预计
+  收益 ≤ 8%，按权重 0 沿用已测结果（与 example `DECODE_REQUEST_WEIGHT=0` 配置相同）；它们结果 JSON 里错写的 prefill 拓扑字段离线改正。
