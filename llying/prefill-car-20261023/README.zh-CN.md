@@ -128,10 +128,18 @@ OOM 在 `dsa_backend._forward_aiter_extend` → `aiter.mla.mla_decode_fwd` 的 `
 头数 × 维度"预分配 logits，16k token 一次要 64 GiB；PD prefill 用 8k chunk 时约 32 GiB，PP4 每卡 KV 分配后剩 52–67 GB，余量太小。要用需改这块分配
 （或降 chunk 到 4k，影响效率），列为待议，不进今晚的 A/B。
 
-### 步骤 2'：decode 开 custom all-reduce 的性能（进行中）
+### 步骤 2'：decode 开 custom all-reduce 的性能——PD 4 卡 decode 上收益很小
 
-4+4 C80，强制接受率 3.61，权重 0，decode 走默认注册路径（PD 已验证干净），`config/../../2p1d-v0522-20261020/config/site-exp-1p-d4-car.env`；19:41 起栈。
-对照 kit 测的 4+4 C80（custom all-reduce 关）37,310 @ p90 44.3。
+4+4 C80，强制接受率 3.61，权重 0，decode 走默认注册路径（PD 已验证干净），`c80-1023T1941`（计分 20:03–21:03），产物 `../2p1d-v0522-20261020/results/exp-d4-car-c80/`：
+
+| 4+4 C80 | tok/s/GPU | 每秒请求 | intvty p50 / p90 | ITL p50 / p90 (ms) | TTFT p50 / p90 (s) |
+|---|---|---|---|---|---|
+| custom all-reduce 关（kit，10-22） | 37,310 | 2.553 | 49.2 / 44.3 | 20.3 / 22.6 | 3.75 / 10.83 |
+| custom all-reduce 开 | 37,400（+0.2%） | 2.563 | 50.1 / 45.0（+1.6%） | 19.9 / 22.2 | 3.74 / 11.75 |
+
+同等最忙负载下每步只快 1–2 ms（@6 43 / 44、@9 55 / 56、@11 63 / 65、@13 65 / 67、@17 70 / 71、@20 73 / 74、@24 77 / 78 ms），约 1.5%–3%；
+4+4 C80 本身又受 KV 限制。TP4 + DP attention 的 decode 里通信不是大头。结论：PD decode 开 custom all-reduce 正确但收益小，A/B 的 decode 保持关；
+修复对聚合部署（mixed，以前关它 p90 −15%）更有意义。
 
 ### 步骤 3：prefill 配置 A/B（排在 4+4 C80 之后，`scripts/perf_plan.sh`，计划 138 `$W/2p1d/ab/plan.txt`）
 
