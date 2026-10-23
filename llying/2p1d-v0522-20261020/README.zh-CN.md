@@ -832,6 +832,10 @@ decode KV（AUS 上 C192 比 C176 低 4.7% 的机制）。138 显存回收用了
 4. decode 拆分 indexer：`SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER=1`、`SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON=1`。
 显存 0.90 不变。打包修复在 PP prefill 下有顺序风险（同事提示），所以先做开 HiCache 的正确性（smoke 含长前缀冷 / 重复、GSM8K、真实接受长度），
 再 C80（串行 `chain-1023T0449.out`：正确性 `dcp4-correct/dcp4a-hc-1023T0449.log`，之后性能 `perf-dcp4a/c80.log`）。起栈前两节点显存 0、无他人 GPU 进程。
+- **A 的正确性通过（产物 `results/dcp4a-hc-correct/`）**：smoke 6/6（`long_prefix_repeat` 正确——打包修复在 PP prefill 下有风险的就是前缀命中后的提前发送）；
+  GSM8K **0.9712 / 0.9697**；真实接受长度中位 4.53；decode 无 Traceback。decode `max_total_num_tokens` 10,864,128，最大在跑 128，**捕获后剩 17.45 GB**
+  （改动前 11.02 GB，拆分 indexer 缩小了 graph 里的 logits 缓冲）。prefill 的传输统计：每 30 秒约 560 次打包合计 0.22 s，**每次约 0.4 ms**
+  （同事修复前每次 78 ms）。C80 接着排队，等 138 回收显存后起栈。
 
 ## 待讨论的优化方向（10-22 07:50 汇总，用户要求保存、之后讨论）
 

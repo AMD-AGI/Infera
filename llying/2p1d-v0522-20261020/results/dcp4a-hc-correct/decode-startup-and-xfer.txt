@@ -1,0 +1,15 @@
+[2026-10-23 04:50:19 TP0] DCP enabled, dcp_size=4, tp_size=4
+[2026-10-23 04:51:01 TP0] Load weight end. elapsed=34.85 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=182.74 GB, mem usage=101.42 GB.
+[2026-10-23 04:51:10 TP0] Load weight end. elapsed=3.77 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=177.33 GB, mem usage=5.40 GB.
+[2026-10-23 04:51:11 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2716032, KV size: 141.70 GB
+[2026-10-23 04:51:11 TP0] Memory pool end. avail mem=35.10 GB
+[2026-10-23 04:51:11 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2716032, KV size: 2.79 GB
+[2026-10-23 04:51:11 TP0] Memory pool end. avail mem=32.31 GB
+[2026-10-23 04:54:49 TP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64, 72, 80, 88, 96, 104, 112, 120, 128], elapsed=215.50 s, mem usage=6.44 GB, avail mem=24.81 GB.
+[2026-10-23 04:55:01 TP0] Capture draft decode CUDA graph end. elapsed=11.32 s, mem usage=2.93 GB, avail mem=21.88 GB.
+[2026-10-23 04:55:05 TP0] Capture draft extend CUDA graph end. elapsed=4.05 s, mem usage=4.42 GB, avail mem=17.45 GB.
+[2026-10-23 04:55:05 TP0] max_total_num_tokens=10864128, chunked_prefill_size=32768, max_prefill_tokens=16384, max_running_requests=128, context_len=1048576, available_gpu_mem=17.45 GB
+
+40
+[2026-10-23 05:00:39 PP0] [yihou-xfer] win=30.1s calls=1568 blocks=20160 bytes=1.982GB rate=0.07GB/s t_xfer=0.33s max=0.002s per_call_GBps=6.04 avg_block=98324B hist(<4K,<16K,<64K,<256K,<1M,>=1M)=[4536, 828, 1188, 13608, 0, 0] dcp_calls=560 t_dcp=0.54s pack_calls=560 t_pack=0.22s pack_sub(index,launch,sync,n)=[0.1, 0.04, 0.03, 560] busy={Thread-6 (transfer_worker):0.
+[2026-10-23 05:00:40 PP3] [yihou-xfer] win=30.1s calls=1544 blocks=18208 bytes=1.737GB rate=0.06GB/s t_xfer=0.31s max=0.001s per_call_GBps=5.60 avg_block=95425B hist(<4K,<16K,<64K,<256K,<1M,>=1M)=[4464, 784, 1056, 11904, 0, 0] dcp_calls=552 t_dcp=0.52s pack_calls=552 t_pack=0.22s pack_sub(index,launch,sync,n)=[0.11, 0.04, 0.04, 552] busy={Thread-6 (transfer_worker):0
