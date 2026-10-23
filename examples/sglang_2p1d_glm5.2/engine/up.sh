@@ -49,7 +49,7 @@ docker run -d --name "$CTR-router" --network host -v "$MODEL:$MODEL:ro" "$IMAGE"
     --request-transport http --kv-event-transport zmq --router-tokenizer-path "$MODEL" \
     --router-policy kv-aware --kv-prefill-overlap-weight 20 --kv-decode-overlap-weight 2 \
     --session-affinity prefill --pd-prefill-guard-release completion --decode-input-demand on \
-    "${router_extra[@]}" >/dev/null
+    --decode-request-weight "$DECODE_REQUEST_WEIGHT" "${router_extra[@]}" >/dev/null
 wait_health "$ROUTER_URL/health" "$CTR-router"
 # A prefill registers only after infera's start-up probe has moved KV to every
 # decode rank, a minute or more after its /health answers.

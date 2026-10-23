@@ -139,15 +139,15 @@ CONC=176 bash engine/agentx/agentx.sh      # DURATION=3600 WARMUP_PER_LANE=10 by
 bash engine/down.sh                        # then wait for VRAM to drain on both nodes
 ```
 
-## Decode request balancing (optional)
+## Decode request balancing
 
 `--decode-input-demand on` balances the decode ranks by in-flight input tokens.
 That evens their KV, but not their request counts: one rank can hold many short
 requests for another's one long request, and the busiest rank sets every step.
 `--decode-request-weight W` adds `W` tokens per request a rank already holds to
-its demand (the shape of Dynamo's `router-decode-active-request-weight`); 0, the
-default, is token-only demand. Enable it with
-`ROUTER_EXTRA_ARGS="--decode-request-weight 1000000"`.
+its demand (the shape of Dynamo's `router-decode-active-request-weight`); 0 is
+token-only demand. The kit passes `DECODE_REQUEST_WEIGHT` (env.sh, default
+1,000,000); `DECODE_REQUEST_WEIGHT=0` turns it off.
 
 1P1D C88 on two AUS MI355X nodes (smci355-ccs-aus-n04-25 / n06-33), prefills
 with the EAGLE flags (note 10), one deployment, prefill cache flushed and router
