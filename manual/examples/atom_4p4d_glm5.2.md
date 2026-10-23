@@ -16,7 +16,9 @@ For the concepts, read [PD disaggregation](../features/pd_disaggregation.md) fir
 
 The kit needs the ATOM nightly `661ef766` base plus Infera's ATOM, aiter and
 LMCache patches for it, enabled by one opt-in build argument of
-`Dockerfile.atom`. From the repo root:
+`Dockerfile.atom`. Release builds publish this image as
+`rocm/infera:atom-nightly-<version>` (the `atom-<version>` image is on the
+ATOM release base and does not run this kit). To build it from the repo root:
 
 ```bash
 docker build -f deploy/docker/Dockerfile.atom \

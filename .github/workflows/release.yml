@@ -10,6 +10,10 @@ name: Build & publish images
 #   release:  inferaimage/infera:sglang-v0.1.0
 #   nightly:  inferaimage/infera:sglang-20260711-a1b2c3d
 #
+# ATOM ships twice: `atom` on the ATOM release base, `atom-nightly` on the ATOM
+# nightly base with patches/atom_nightly/ (what examples/atom_4p4d_glm5.2 runs;
+# build args in .github/scripts/build_test_push.sh).
+#
 # The `overlay` image (deploy/overlay/) is built in its own job after the engine
 # images, because it harvests their compiled pieces — see the `overlay` job.
 # It is published to BOTH repos from a single build, same image, two names:
@@ -40,7 +44,7 @@ on:
       engines:
         description: "Space-separated engines to build"
         required: false
-        default: "sglang vllm atom kvd server"
+        default: "sglang vllm atom atom-nightly kvd server"
       id:
         description: "Custom image id (overrides the default <date>-<sha1>)"
         required: false
@@ -68,7 +72,7 @@ jobs:
       - id: set
         run: |
           raw="${{ github.event.inputs.engines }}"
-          [ -z "$raw" ] && raw="sglang vllm atom kvd server"
+          [ -z "$raw" ] && raw="sglang vllm atom atom-nightly kvd server"
 
           has() { printf '%s\n' $raw | grep -qx "$1"; }
           has overlay && asked_overlay=1 || asked_overlay=0

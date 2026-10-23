@@ -4,7 +4,7 @@
 # Build (and by default push) an engine image on a SLURM node (the runner has no
 # docker). Spur's srun propagates the caller's env, so the token is set inline on
 # the srun call.
-#   .github/scripts/dispatch_build.sh <sglang|vllm|atom|kvd|server|overlay> [cmd]
+#   .github/scripts/dispatch_build.sh <sglang|vllm|atom|atom-nightly|kvd|server|overlay> [cmd]
 #
 # cmd defaults to `ship` (login+build+push), which is what release.yml wants. CI
 # passes `build` to verify an image compiles without publishing it — that needs no

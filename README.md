@@ -180,6 +180,10 @@ Prebuilt images are published to the `rocm/infera` repository on
 | `rocm/infera:kvd-v0.1.1`    | tiered KV-cache daemon (`infera.kvd`) |
 | `rocm/infera:server-v0.1.1` | OpenAI-compatible server + router |
 
+Newer releases also publish `atom-nightly-<version>`: the ATOM engine on the
+ATOM nightly base with `deploy/docker/patches/atom_nightly/`, the image the
+[GLM-5.2 ATOM 4P4D kit](examples/atom_4p4d_glm5.2/) runs.
+
 ```bash
 docker pull rocm/infera:sglang-v0.1.1
 ```
