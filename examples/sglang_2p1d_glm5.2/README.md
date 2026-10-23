@@ -1,13 +1,15 @@
-# GLM-5.2-MXFP4 — SGLang 2P1D (2 × TP4 prefill, TP8 decode) on two MI355X nodes
+# GLM-5.2-MXFP4 — SGLang 2P1D (2 × TP1·PP4 prefill, TP8 decode) on two MI355X nodes
 
 Runnable kit for **GLM-5.2-MXFP4** served the infera way, PD-disaggregated
-across two 8×MI355X (gfx950) nodes: **two TP4 + DP4-attention prefills** with a
-**250 GB-per-rank host-memory HiCache tier** on one node, **one TP8 +
+across two 8×MI355X (gfx950) nodes: **two TP1 × PP4 prefills** with a
+**250 GB-per-stage host-memory HiCache tier** on one node, **one TP8 +
 DP8-attention decode** with EAGLE MTP on the other, KV moved by **Mooncake over
 the eight ionic RDMA rails**, and the infera router in front (**kv-aware**,
 **session affinity on prefill picks**). Tuned for the InferenceX AgentX
-agentic-coding replay. `PREFILL_WORKERS=1` runs the same recipe with one
-prefill (1P1D, 12 GPUs), the better shape below about C88.
+agentic-coding replay. `PREFILL_WORKERS=1` runs one prefill, and a 4-GPU
+`DECODE_GPUS` a TP4 + DP4-attention decode: 1P with an 8-GPU decode (12 GPUs)
+and 1P with a 4-GPU decode (8 GPUs) are the better shapes below C176 (see
+"Reference numbers").
 
 One file is site-specific. Fill it in, then, on the prefill node:
 
@@ -24,8 +26,8 @@ bash engine/down.sh            # save logs, remove containers on both nodes
 Build from the repo root on both nodes (or build once and `docker save |
 docker load` it across); `deploy/docker/Dockerfile.sglang` is pinned to the
 SGLang v0.5.22 nightly `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`
-and carries the GLM-5.2 DSA, HiCache, KV-events and Mooncake RDMA patches this
-kit relies on:
+and carries the GLM-5.2 DSA, HiCache, KV-events, pipeline-stage and Mooncake
+RDMA patches this kit relies on:
 
 ```bash
 docker build -f deploy/docker/Dockerfile.sglang -t <infera-sglang-image> .
@@ -40,7 +42,7 @@ docker build -f deploy/docker/Dockerfile.sglang -t <infera-sglang-image> .
 | [`engine/up.sh`](engine/up.sh) | etcd → `PREFILL_WORKERS` prefills here and the decode over ssh → router, waiting on each health endpoint and on the router listing every prefill |
 | [`engine/smoke.sh`](engine/smoke.sh), [`engine/smoke.py`](engine/smoke.py) | correctness checks through the router; need real MTP acceptance |
 | [`engine/eval.sh`](engine/eval.sh) | GSM8K through the router with InferenceX's `run_eval` (its lm-eval revision, `utils/evals/gsm8k.yaml`, full test set) |
-| [`engine/agentx/agentx.sh`](engine/agentx/agentx.sh) | one InferenceX AgentX point, pinned at `918524ff`, counted over all the deployment's GPUs (16, or 12 with one prefill) |
+| [`engine/agentx/agentx.sh`](engine/agentx/agentx.sh) | one InferenceX AgentX point, pinned at `918524ff`, counted over all the deployment's GPUs (16, 12 or 8) |
 | [`engine/agentx/constraints.txt`](engine/agentx/constraints.txt) | AgentX client package pins |
 | [`engine/down.sh`](engine/down.sh) | save logs + inspect, remove the kit's containers by name on both nodes |
 | [`engine/common.sh`](engine/common.sh) | sourced helpers: placeholder check, run directory, health wait, InferenceX checkout |
@@ -55,9 +57,9 @@ still applies to them, and write `smoke/`, `gsm8k/`, `agentx/` and `logs/` there
 ```
 prefill node                                      decode node
 ├─ etcd, infera router :28300  ◀── clients
-├─ prefill 0  GPUs 0-3  TP4/DP4  ══ KV over 8 ionic rails ══▶  decode  GPUs 0-7
-└─ prefill 1  GPUs 4-7  TP4/DP4                                TP8/DP8, EAGLE MTP
-   250 GB host HiCache per rank                                 no KV offload
+├─ prefill 0  GPUs 0-3  TP1×PP4  ══ KV over 8 ionic rails ══▶  decode  GPUs 0-7
+└─ prefill 1  GPUs 4-7  TP1×PP4                                TP8/DP8, EAGLE MTP
+   250 GB host HiCache per stage                                no KV offload
 ```
 
 Both nodes need the same `MODEL` path, the image under the same tag, and this
@@ -68,17 +70,17 @@ kit at the same path (the decode is started as `ssh $DECODE_SSH bash
 
 | | prefill (× 2) | decode |
 |---|---|---|
-| parallelism | TP4, DP4 attention, EP1 | TP8, DP8 attention, EP1 |
+| parallelism | TP1 × PP4, layers 20 / 20 / 20 / 18 (the last stage also holds the LM head and the NextN layer), EP1 (note 11) | TP8 (or TP4), DP attention over all ranks, EP1 |
 | all-reduce | RCCL: `--disable-custom-all-reduce` (note 6) | same |
 | memory | `--mem-fraction-static 0.88` | `--mem-fraction-static 0.92` |
-| scheduling | chunk 32768, max running 256, `--schedule-policy shortest-prefill-first` | max running 256, decode graphs up to 256, 4 tokenizer workers |
-| KV | FP8, HiCache 250 GB per rank, ratio 1.5, `write_back`, `kernel` I/O, `page_first` | FP8, no offload |
-| MTP | — | EAGLE 5 steps / top-k 1 / 6 draft tokens; `index_share_for_mtp_iteration=false` |
+| scheduling | chunk 8192, overlap scheduler off (PP needs it), max running 256, `--schedule-policy shortest-prefill-first` | max running 256, decode graphs up to 256, 4 tokenizer workers |
+| KV | FP8, one pool for the four stages, HiCache 250 GB per stage, ratio 1.5, `write_back`, `kernel` I/O, `page_first` | FP8, no offload |
+| MTP | the decode's EAGLE flags, so the transfer carries draft-layer KV (note 10) | EAGLE 5 steps / top-k 1 / 6 draft tokens; `index_share_for_mtp_iteration=false` |
 | DSA | Triton prefill and decode backends, v2 top-k kernel (`SGLANG_OPT_USE_TOPK_V2=true`) | same |
 | router | Rust backend, `kv-aware` with prefill / decode overlap weights 20 / 2, `--session-affinity prefill`, `--pd-prefill-guard-release completion`, `--decode-input-demand on` | |
 
 Shortest-prefill-first stops short continuation turns from queueing behind a
-long cold first turn pinned to the same prefill rank; `write_back` keeps the
+long cold first turn; `write_back` keeps the
 prefix cache on GPU plus host instead of host alone. The decode keeps no prefix
 cache, so session affinity pins prefill picks only.
 
@@ -89,11 +91,11 @@ on crsuse2-m2m-140:
 
 | item | result |
 |---|---|
-| correctness (`smoke.sh`, real MTP acceptance) | 6/6 pass (66k-token prefix: 40.0 s cold, 1.9 s repeated) |
-| GSM8K (`eval.sh`: InferenceX `run_eval`, 1,319 questions, concurrency 64, real MTP acceptance) | 0.9697 strict / 0.9704 flexible; no template-tag leakage, no empty answer |
-| AgentX C176, 3600 s, `SIM_ACCEPT_LEN=3.61` | 35,637 tok/s/GPU, 15,881 requests, 0 failed, 11 invalid responses |
-| with the prefills' EAGLE flags (note 10), `PREFILL_WORKERS=1`: `smoke.sh` | 6/6 pass (66k-token prefix: 14.2 s cold, 0.7 s repeated) |
-| same: GSM8K as above | 0.9704 strict / 0.9697 flexible; no template-tag leakage, no empty answer; real acceptance length median 4.60 (3.86 without the prefills' flags) |
+| `tests/unit`, `tests/engine/sglang` inside the image | pass (2,656 passed, 91 skipped; every engine file) |
+| correctness (`smoke.sh`, real MTP acceptance), `PREFILL_WORKERS=1` | 6/6 pass (66k-token prefix: 51.4 s cold on the image's first JIT, 2.6 s repeated) |
+| GSM8K (`eval.sh`: InferenceX `run_eval`, 1,319 questions, concurrency 64, real MTP acceptance) | 0.9666 strict / 0.9674 flexible; real acceptance length median 4.62 |
+| same, PP4 prefill from a copy of this kit before the image patch, HiCache off / on | 0.9674 / 0.9682 and 0.9719 / 0.9712 (strict / flexible) |
+| AgentX, `SIM_ACCEPT_LEN=3.61` | "Reference numbers" |
 
 ## Reference numbers
 
@@ -103,41 +105,65 @@ started deployment. Throughput is per GPU over all of the deployment's GPUs
 and counts cache-hit input tokens; interactivity is per-request
 tokens/s/user (InferenceX plots p90).
 
-| shape | point | GPUs | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
-|---|---|---|---|---|---|---|---|---|
-| 2P1D | C176 | 16 | 35,637 | 15,881 (4.38) | 40.4 / 35.7 | 4.3 / 8.1 s | 24.8 / 28.0 ms | 95.9% (trace bound 96.8%) |
-| 2P1D | C128 | 16 | 26,592 | 13,202 (3.64) | 43.8 / 36.7 | 2.4 / 4.6 s | 22.8 / 27.2 ms | 95.7% (trace bound 96.4%) |
-| 2P1D | C96 | 16 | 23,515 | 11,248 (3.10) | 44.9 / 40.8 | 1.6 / 3.7 s | 22.3 / 24.5 ms | 96.1% (trace bound 96.6%) |
-| 2P1D | C64 | 16 | 18,202 | 8,158 (2.25) | 63.2 / 49.4 | 1.0 / 2.9 s | 15.8 / 20.3 ms | 96.7% (trace bound 96.9%) |
-| 1P1D | C88 | 12 | 27,453 | 9,970 (2.75) | 49.1 / 42.8 | 4.9 / 9.5 s | 20.4 / 23.4 ms | 95.8% (trace bound 96.6%) |
-| 1P1D | C64 | 12 | 23,241 | 7,831 (2.16) | 65.0 / 51.4 | 2.7 / 5.2 s | 15.4 / 19.4 ms | 96.6% (trace bound 96.9%) |
-| 1P1D | C32 | 12 | 14,153 | 3,881 (1.07) | 91.7 / 73.2 | 1.0 / 2.9 s | 10.9 / 13.7 ms | 97.4% (trace bound 97.7%) |
+Each shape covers one stretch of the Pareto line; `DECODE_REQUEST_WEIGHT` is
+the decode request balancing weight (next section).
 
-The 1P1D points ran with prefill 0 on GPUs 4-7 of the prefill node.
+| shape | weight | point | GPUs | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | prompt cache hit |
+|---|---|---|---|---|---|---|---|---|---|
+| 2P1D | 0 | C192 | 16 | 36,781 | 16,500 (4.55) | 45.9 / 42.3 | 5.2 / 13.7 s | 21.8 / 23.6 ms | 95.8% (trace bound 96.7%) |
+| 2P1D | 0 | C176 | 16 | 38,392 | 16,897 (4.66) | 46.8 / 43.2 | 4.0 / 9.5 s | 21.4 / 23.2 ms | 96.2% (trace bound 96.9%) |
+| 1P, 4-GPU decode | 0 | C80 | 8 | 37,310 | 9,264 (2.55) | 49.2 / 44.3 | 3.8 / 10.8 s | 20.3 / 22.6 ms | 96.1% (trace bound 96.4%) |
+| 1P, 4-GPU decode | 0 | C64 | 8 | 32,532 | 7,407 (2.04) | 52.9 / 48.6 | 1.9 / 4.2 s | 18.9 / 20.6 ms | 96.7% (trace bound 96.9%) |
+| 1P1D | 1,000,000 | C88 | 12 | 31,088 | 10,862 (3.00) | 84.1 / 71.7 | 4.8 / 11.5 s | 11.9 / 13.9 ms | 96.5% (trace bound 96.8%) |
+| 1P1D | 1,000,000 | C64 | 12 | 28,981 | 9,318 (2.57) | 100.9 / 86.0 | 2.6 / 5.9 s | 9.9 / 11.6 ms | 97.0% (trace bound 97.1%) |
+| 1P1D | 1,000,000 | C48 | 12 | 22,331 | 6,279 (1.73) | 113.0 / 103.9 | 1.5 / 3.0 s | 8.8 / 9.6 ms | 97.3% (trace bound 97.5%) |
+| 1P1D | 1,000,000 | C32 | 12 | 16,309 | 4,215 (1.16) | 130.3 / 111.7 | 1.0 / 2.4 s | 7.7 / 8.9 ms | 97.6% (trace bound 97.9%) |
 
-- **Interactivity is set by the busiest decode rank.** Under DP attention
-  every decode step waits for the busiest of the eight ranks; while it runs
-  seven or more requests a step takes 80-90 ms, so 2P1D from C176 down to
-  C96 stays near 36-41 at p90 and C128 / C96 buy almost nothing for the
-  throughput they give up.
-- **Up to C88 one prefill is enough.** Prefill load follows the sessions per
-  prefill instance: one instance at C64 carries what each instance carries
-  at 2P1D C128 (busy about 78% of the time, ranks computing about a third of
-  it), and at C88 what each carries at C176. Dropping a prefill there costs
-  some TTFT and gives each GPU about a quarter more throughput: 1P1D C64
-  matches 2P1D C96's throughput at 26% higher p90 interactivity, and 1P1D C88
-  beats 2P1D C128 and C96 on both throughput and p90 interactivity. At C88
-  the prefill is saturated (waiting requests in 74% of 10 s windows, TTFT
-  p50 4.9 s), so 2P1D takes over above it.
-
-To reproduce a point the way InferenceX does, start the whole deployment
-afresh for it:
+Start each point on a fresh deployment, as InferenceX does (then wait for VRAM
+to drain on both nodes before the next one):
 
 ```bash
-SIM_ACCEPT_LEN=3.61 bash engine/up.sh                     # PREFILL_WORKERS=1 for 1P1D
+# 2P1D
+DECODE_REQUEST_WEIGHT=0 SIM_ACCEPT_LEN=3.61 bash engine/up.sh
+# 1P with a 4-GPU decode
+PREFILL_WORKERS=1 PREFILL0_GPUS=4,5,6,7 DECODE_GPUS=4,5,6,7 DECODE_REQUEST_WEIGHT=0 \
+    SIM_ACCEPT_LEN=3.61 bash engine/up.sh
+# 1P1D
+PREFILL_WORKERS=1 PREFILL0_GPUS=4,5,6,7 DECODE_REQUEST_WEIGHT=1000000 \
+    SIM_ACCEPT_LEN=3.61 bash engine/up.sh
+
 CONC=176 bash engine/agentx/agentx.sh      # DURATION=3600 WARMUP_PER_LANE=10 by default
-bash engine/down.sh                        # then wait for VRAM to drain on both nodes
+bash engine/down.sh
 ```
+
+The 1P points ran with prefill 0 on GPUs 4-7 of the prefill node and the
+4-GPU decode on GPUs 4-7 of the decode node. 1P1D C64, C48 and C32 ran from
+this kit on an image built from this branch. The other points ran from a copy
+of the kit with the same flags, on an image built before the pipeline-stage
+patch (the patched `deepseek_v2.py` bind-mounted into the prefills) and, for
+1P1D C88, with the balancing router built from the same source and mounted in.
+
+- **One shape per range.** 2P1D C176 is the throughput peak; the 4-GPU decode
+  gives the same throughput per GPU at C80 with half the GPUs and is the best
+  shape from there to p90 about 49; 1P1D with decode request balancing takes
+  over above it.
+- **Balancing the 1P1D decode by requests**: with weight 0 the same deployment
+  gave C88 29,071 at p90 50.7, C64 27,253 at 66.0 and C32 16,085 at 106.7; at
+  C88 the busiest of the eight ranks ran 15 requests at p90 against a mean of
+  6, and 8 with the weight. A step takes the same time at the same busiest-rank
+  load either way.
+- **One PP4 prefill tops out near 3.0 requests/s.** Balanced 1P1D C88 reaches
+  3.00 with requests waiting 88% of the time; with weight 0, C88 → C112 gains
+  1.6%. Two prefills top out at C176 (C192: 92% of the time with requests
+  waiting on both, and requests waiting for their prefill already hold decode
+  KV, so throughput drops 4%).
+- **The 4-GPU decode is KV-bound at C80**: its four ranks hold 12.0M tokens,
+  used 95% at p90 with up to 25 requests waiting for a KV reservation, while
+  each step is already on its plateau (66-78 ms from 13 requests on the
+  busiest rank up), so balancing by requests has little to gain there.
+- Against the previous recipe (TP4 + DP4-attention prefills, before note 10):
+  2P1D C176 35,637 at p90 35.7, 1P1D C88 27,453 at 42.8, C64 23,241 at 51.4,
+  C32 14,153 at 73.2.
 
 ## Decode request balancing
 
@@ -230,7 +256,8 @@ probe then stopped both prefills. A standalone registration test reproduces it
 on the first aligned allocation and registers the same buffer in 1 GiB chunks.
 
 **9. A prefill rank can hit a GPU memory access fault (open).** Once so far,
-in about 19 prefill-instance hours, a prefill rank died with `Memory access fault
+in about 19 instance hours of the previous TP4 + DP4-attention prefills (none
+yet with PP4), a prefill rank died with `Memory access fault
 by GPU node-N ... on address 0xfffffffff000. Reason: Unknown.` while
 extending a long cached prefix by a few hundred tokens; the rest of its
 instance hung in `process_batch_result_disagg_prefill` until SGLang killed
@@ -250,17 +277,36 @@ scores tie, and its top-k scatter runs 15-170x slower: on the v0.5.21 image
 the decode took 48.7 ms a step at 6 running requests on the busiest rank,
 36.5 ms with the flags. The prefill pays one more layer (about 4.6 GB per GPU,
 6.6% less KV). InferenceX's AMD multi-node recipe passes the flags to both
-roles for this reason. The reference numbers above were measured before this
-change.
+roles for this reason.
+
+**11. Why TP1 × PP4 prefills, and what they cost.** A TP4 + DP4-attention
+prefill steps all four ranks together, so one rank computing holds the whole
+instance (busy 81% of the time at 1P1D C88 while its ranks computed 57%), and
+session affinity pins a long session to one hot rank. Four pipeline stages
+share one KV pool and have no such barrier: one PP4 prefill computes about 26k
+new tokens/s on cold prompts and sustains about 3.0 AgentX requests/s, where a
+TP4 + DP4-attention one saturated near 2.75. The costs:
+- A batch crosses all four stages before its KV can go, so a single request
+  is not faster: an isolated 66k-token cold prompt takes 37.5 s against 14.2 s.
+  8k chunks keep each stage short: at 1P1D C88, TTFT p90 was 18.7 s with 16k
+  chunks and 12.1 s with 8k, small continuation turns no longer waiting behind
+  long ones.
+- With the prefill saturated, shortest-prefill-first keeps pushing long cold
+  first turns back (TTFT p90 of prompts with 32k or more new tokens 224 s at
+  1P1D C88).
+- SGLang releases a transferred request's KV only after two rounds of
+  consensus across the stages, so finished requests briefly hold prefill KV.
+- Middle stages hold no embedding; the image's pipeline-stage patch keeps
+  `deepseek_v2.py` from reading one there.
 
 ## What this kit exposes on the network
 
 | port | node | service |
 |---|---|---|
 | 28300 | prefill | router (OpenAI API, `/metrics`, `/v1/workers`) |
-| 27201, 27457 | prefill | prefill engine HTTP (SGLang adds 27434-27444, 27690-27700) |
+| 27201, 27457 | prefill | prefill engine HTTP |
 | 28398, 28399 | prefill | PD bootstrap |
-| 27757-27760, 27765-27768 | prefill | KV events, one per prefill DP rank |
+| 27757, 27765 | prefill | KV events, one per prefill (its first stage publishes) |
 | 29051, 29052 | prefill | KV snapshot |
 | 24701 / 24702 | prefill | etcd client / peer (peer on 127.0.0.1) |
 | 27301 | decode | decode engine HTTP (SGLang adds 27534-27548) |
