@@ -176,30 +176,33 @@ token-only demand. The kit passes `DECODE_REQUEST_WEIGHT` (env.sh, default 0);
 the 1P points with an 8-GPU decode run 1,000,000, where the decode has KV to
 spare and its eight ranks were the least even. The KV-bound shapes keep 0.
 
-1P1D C88 on two AUS MI355X nodes (smci355-ccs-aus-n04-25 / n06-33), prefills
-with the EAGLE flags (note 10), one deployment, prefill cache flushed and router
-restarted before each point, 10 warm-up requests per lane, **1800 s measured**:
+1P1D with this recipe (PP4 prefill, 8-GPU decode), each point on a fresh
+deployment, 3600 s measured as in "Reference numbers":
 
-| weight | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 / mean | ITL p50 / p90 | busiest rank running, median / p90 |
-|---|---|---|---|---|---|---|
-| 0 | 26,462 | 5,160 (2.87) | 75.8 / 55.7 | 5.5 / 11.1 / 8.3 s | 13.2 / 18.0 ms | 8 / 11 |
-| 1,000,000 | 27,186 | 5,184 (2.88) | 86.5 / 79.6 | 5.6 / 12.0 / 9.5 s | 11.6 / 12.6 ms | 6 / 8 |
+| weight | point | tok/s/GPU | requests (per s) | interactivity p50 / p90 | TTFT p50 / p90 | ITL p50 / p90 | busiest rank running, median / p90 |
+|---|---|---|---|---|---|---|---|
+| 0 | C88 | 29,071 | 10,408 (2.87) | 64.7 / 50.7 | 4.6 / 12.1 s | 15.5 / 19.7 ms | 9 / 15 |
+| 1,000,000 | C88 | 31,088 | 10,862 (3.00) | 84.1 / 71.7 | 4.8 / 11.5 s | 11.9 / 13.9 ms | 6 / 8 |
+| 0 | C64 | 27,253 | 8,878 (2.45) | 85.6 / 66.0 | 2.5 / 5.5 s | 11.7 / 15.2 ms | 6 / 9 |
+| 1,000,000 | C64 | 28,981 | 9,318 (2.57) | 100.9 / 86.0 | 2.6 / 5.9 s | 9.9 / 11.6 ms | 4 / 6 |
 
-- p90 interactivity +43% at the same throughput. Both points take the same time
-  per step at the same busiest-rank load (40.5 / 40.8 ms at 6 requests, 43.6 /
-  43.5 ms at 8): the gain is the load distribution, the busiest rank no longer
-  reaching 10-14 requests.
-- TTFT rises (mean +15%, p90 +8%): the ranks' context is less even (busiest /
-  mean 1.23 → 1.52 at the median), so more KV lands on fewer ranks.
-- On this point one more request on the busiest rank cost as much as about
+- p90 interactivity +41% at C88 and +30% at C64, throughput +7% and +6%. A
+  step takes the same time at the same busiest-rank load either way (44 ms at
+  8 requests); with the weight the busiest rank no longer reaches 10-19
+  requests, each turn is shorter, and requests per second rise, at C88 up to
+  the PP4 prefill's limit. TTFT moves little.
+- Decode KV stays far from its limit (busiest rank 0.58 used at p90 at C88).
+  The 4-GPU decode and 2P1D are KV-bound, which is where the token term keeps a
+  rank from running out of KV, so they keep weight 0.
+- Why a million: one more request on the busiest rank cost as much as about
   1.05M more context tokens there (least-squares fit of step time against the
-  busiest rank's requests and tokens and the totals over 3 s bins of the decode
-  log), which is why the weight is a million; on 2P1D C176 with the v0.5.21
-  image the same fit gave 0.17-0.19M. A 180,000 weight on another node pair
-  gave 27,577 tok/s/GPU at 85.0 / 74.4.
-- 1800 s windows understate tok/s/GPU against the canonical 3600 s by about 6%
-  (sessions reach their longer turns later), and leave p90 interactivity within
-  2%.
+  busiest rank's requests and tokens and the totals, over 3 s bins of the
+  decode log of a 1P1D C88 run on v0.5.22); on 2P1D C176 with the v0.5.21
+  image the same fit gave 0.17-0.19M.
+- An earlier same-deployment A/B on two AUS MI355X nodes, with the previous
+  recipe's TP4 + DP4-attention prefills (carrying the EAGLE flags) and 1800 s
+  windows (which understate tok/s/GPU by about 6%), gave weight 0 26,462 at
+  p90 55.7 and weight 1,000,000 27,186 at 79.6, with TTFT mean +15%.
 
 ## Notes
 
