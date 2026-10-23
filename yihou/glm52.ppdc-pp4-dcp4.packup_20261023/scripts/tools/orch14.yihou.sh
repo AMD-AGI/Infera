@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# orch14 (task dcpx11 2026-10-22, ON 135): rounds given as args, each A1 only, stopped after A1.
+# containers) A1 only -> stop -> dpax1 (DPA control) A1 only -> stop. Also aborts on a chain STOP line.
+set -uo pipefail
+W=/shared_nfs/yihou_glm52/g4tune_20261019; H=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness; R=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs
+ts(){ date -u +%FT%TZ; }
+stop_round(){ # $1 = round
+  local r=$1 pids c5 c6 k5 k6
+  pids=$(pgrep -f "^bash $H/chain_x.yihou.sh $W/env.$r-135x136.yihou.sh"); echo "$(ts) stop $r chain pids: $pids"
+  for p in $pids; do pkill -TERM -P "$p"; kill -TERM "$p"; done; sleep 3
+  for c in $(docker ps --format '{{.Names}}' | grep "^glm52-v0521-yihou-135-$r-agentx-client"); do docker stop -t 10 "$c"; done
+  ( cd $H && source $W/env.$r-135x136.yihou.sh && bash $H/run.v3x.yihou.sh stop ) > /dev/null 2>&1
+  for i in $(seq 1 30); do
+    c5=$(docker ps -q --filter name=yihou | wc -l); c6=$(ssh -o BatchMode=yes crsuse2-m2m-136 "docker ps -q --filter name=yihou | wc -l")
+    k5=$(rocm-smi --showpids 2>/dev/null | grep -c -E "^[0-9]+ "); k6=$(ssh -o BatchMode=yes crsuse2-m2m-136 'rocm-smi --showpids 2>/dev/null | grep -c -E "^[0-9]+ "')
+    [[ "$c5" == 0 && "$c6" == 0 && "$k5" == 0 && "$k6" == 0 ]] && { echo "$(ts) $r stopped, both nodes clean"; return 0; }; sleep 10
+  done
+  echo "$(ts) $r NOT CLEAN c5=$c5 c6=$c6 k5=$k5 k6=$k6"; return 1
+}
+launch(){ # $1 = round
+  df -h / | tail -1; ssh -o BatchMode=yes crsuse2-m2m-136 "df -h / | tail -1"
+  cd /; setsid nohup bash $H/chain_x.yihou.sh $W/env.$1-135x136.yihou.sh 56 56 > $R/$1.chain.log 2>&1 < /dev/null &
+  echo "$(ts) launched $1"
+}
+wait_status(){ # $1 = round, $2 = ok pattern in status.tsv, $3 = timeout s; returns 1 early on a fail line
+  local i; for i in $(seq 1 $(( $3 / 30 ))); do grep -q -E "$2" $R/$1/status.tsv 2>/dev/null && return 0
+    grep -q -E "[[:space:]](fail|FAIL)" $R/$1/status.tsv 2>/dev/null && return 1
+    grep -q "STOP" $R/$1.chain.log 2>/dev/null && return 1; sleep 30; done; return 1; }
+wait_profiling(){ # $1 = round, $2 = minutes after profiling start, $3 = timeout s
+  local i; for i in $(seq 1 $(( $3 / 30 ))); do
+    grep -q "Phase profiling (profiling) started" $R/$1/agentx-c56-A1.log 2>/dev/null && { sleep $(( $2 * 60 )); return 0; }
+    grep -q -E "fail|FAIL" $R/$1/status.tsv 2>/dev/null && return 1; sleep 30; done; return 1; }
+echo "$(ts) orch14 start: $*"
+for r in "$@"; do
+  launch $r
+  if wait_status $r "bench.*ok.*A1" 10800; then tail -1 $R/$r/status.tsv | cut -c1-200
+  else echo "$(ts) $r A1 did not finish ok:"; tail -3 $R/$r/status.tsv | cut -c1-200; stop_round $r; echo "$(ts) orch14 abort"; exit 1; fi
+  stop_round $r || exit 1
+done
+echo "$(ts) orch14 done"

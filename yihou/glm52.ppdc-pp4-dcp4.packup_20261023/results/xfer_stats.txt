@@ -1,0 +1,12 @@
+== ppdc1 profiling from 03:54:00
+ALL: win=14404s GB=45252.9 rate=3.14GB/s calls=1897861 t_xfer=3537s (12.8GB/s while in xfer) dcp_calls=1704143 t_dcp=4341s t_pack=986s pack/dcp=0.23 ms/pack=0.6 ms/xfercall=1.9 hist=[891596, 21440729, 25174351, 24893048, 18824903, 24301840]
+index 225.6s launch 95.0s sync 592.1s n=1704135 -> ms/pack index 0.13 launch 0.06 sync 0.35
+== ppdc2 profiling from 05:46:12
+ALL: win=34781s GB=109865.6 rate=3.16GB/s calls=4678898 t_xfer=8719s (12.6GB/s while in xfer) dcp_calls=4191794 t_dcp=11395s t_pack=2921s pack/dcp=0.26 ms/pack=0.7 ms/xfercall=1.9 hist=[2260771, 58130120, 122559259, 89904687, 63016856, 46873291]
+index 643.0s launch 241.6s sync 1804.4s n=4191779 -> ms/pack index 0.15 launch 0.06 sync 0.43
+== ppdc3 profiling from 08:40:45
+ALL: win=14428s GB=45333.6 rate=3.14GB/s calls=1902111 t_xfer=3189s (14.2GB/s while in xfer) dcp_calls=1708117 t_dcp=4105s t_pack=996s pack/dcp=0.24 ms/pack=0.6 ms/xfercall=1.7 hist=[895463, 20699929, 24794576, 24383894, 18663224, 24572563]
+index 226.3s launch 94.3s sync 601.8s n=1708104 -> ms/pack index 0.13 launch 0.06 sync 0.35
+== ppdc4 profiling from 10:24:55
+ALL: win=14373s GB=51162.0 rate=3.56GB/s calls=2219764 t_xfer=4867s (10.5GB/s while in xfer) dcp_calls=1964444 t_dcp=6128s t_pack=1539s pack/dcp=0.25 ms/pack=0.8 ms/xfercall=2.2 hist=[1203170, 33987691, 118132374, 68561549, 37567662, 14415267]
+index 321.3s launch 117.6s sync 976.5s n=1964436 -> ms/pack index 0.16 launch 0.06 sync 0.50

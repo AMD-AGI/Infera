@@ -1,0 +1,9 @@
+2026-10-23T09:57:11.886606952Z [2026-10-23 09:57:11 PP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 108.97 GB
+2026-10-23T09:57:11.888571136Z [2026-10-23 09:57:11 PP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 124.45 GB
+2026-10-23T09:57:11.888771442Z [2026-10-23 09:57:11 PP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 121.81 GB
+2026-10-23T09:57:11.888828511Z [2026-10-23 09:57:11 PP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 121.81 GB
+2026-10-23T09:57:12.076589476Z [2026-10-23 09:57:12 PP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 7.08 GB
+2026-10-23T09:57:12.702065868Z [2026-10-23 09:57:12 PP1] max_total_num_tokens=10738496, chunked_prefill_size=8192, max_prefill_tokens=8192, max_running_requests=256, context_len=1048576, available_gpu_mem=58.25 GB
+2026-10-23T09:57:13.045978885Z [2026-10-23 09:57:13 PP3] max_total_num_tokens=10738496, chunked_prefill_size=8192, max_prefill_tokens=8192, max_running_requests=256, context_len=1048576, available_gpu_mem=52.01 GB
+2026-10-23T09:57:13.085615272Z [2026-10-23 09:57:13 PP2] max_total_num_tokens=10738496, chunked_prefill_size=8192, max_prefill_tokens=8192, max_running_requests=256, context_len=1048576, available_gpu_mem=58.28 GB
+2026-10-23T09:57:13.119022792Z [2026-10-23 09:57:13 PP0] max_total_num_tokens=10738496, chunked_prefill_size=8192, max_prefill_tokens=8192, max_running_requests=256, context_len=1048576, available_gpu_mem=66.99 GB

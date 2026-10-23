@@ -1,0 +1,13 @@
+2026-10-23T08:16:41Z	start	exp=E2+mc4340+tokw4detok4+offload-g3k1s1+xferfix2-orig-dest+pr42553-idxtrue-caron+idlefix+xnode-135x136+dcpx4-shardxstats-pmtp1-pnw2-gbs96-pp4-spf1-nooff1-ec1-destlocal-list-split1 round=ppdc3 image=infera-sglang:v0522-1020-yihou-dcp-mc4340-destpin config=/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/config.yihou.dcpx.sh
+2026-10-23T08:16:42Z	ports-decode	ok:9 ports <30000 and free
+2026-10-23T08:16:42Z	ports-all	ok:15 ports <30000 and free
+2026-10-23T08:17:44Z	gpuidle	ok:max=283MiB (2 consecutive)
+2026-10-23T08:17:45Z	etcd	ok
+2026-10-23T08:20:29Z	prefill	ok:9x20s
+2026-10-23T08:25:42Z	decode-a1	ok
+2026-10-23T08:25:42Z	bothlegs	ok
+2026-10-23T08:25:48Z	router	ok
+2026-10-23T08:25:51Z	smoke	ok
+2026-10-23T08:25:52Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ppdc3/agentx-c56-A1
+2026-10-23T09:45:15Z	bench	ok rc=0 AgentX passed: /shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ppdc3/agentx-c56-A1/agentx_conc56.json
+2026-10-23T09:45:15Z	bench	start CONC=56 DURATION=3600 warmup=10 out=/shared_nfs/yihou_glm52/v0521dbg_20261010/runs/ppdc3/agentx-c56-A2
