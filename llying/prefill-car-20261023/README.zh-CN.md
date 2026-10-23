@@ -44,3 +44,40 @@ all-reduce 的正确性问题；decode kernel 由同事负责。镜像 `infera-s
 ## 进度
 
 - 18:02 步骤 1 起栈（`config/../../2p1d-v0522-20261020/config/site-exp-1p-car.env`，138 `$W/2p1d/exp/`）；18:03 步骤 1' 开始（138 `$W/bisect/car-*`）。
+
+### 步骤 1：PD decode 开 custom all-reduce 的正确性——通过
+
+4+8，decode TP8 / DP8 attention 开 custom all-reduce（prefill PP4 不变），真实接受率，`car-correct-1023T1802`：
+
+| 检查 | decode 开 custom all-reduce | 同镜像关（example 正确性，`correct-ex-1023T1034`） |
+|---|---|---|
+| smoke | 6/6 | 6/6 |
+| GSM8K（1,319，并发 64）strict / flexible | 0.9659 / 0.9674 | 0.9666 / 0.9674 |
+| 200 题 / 并发 64 探测（经 router） | 0.985，乱码 0，截断 2（doc 119、182，逐条看是连贯的反复推敲；119 是每次都推敲到上限的歧义题） | — |
+| 真实接受长度 | 中位 4.64，p10 4.18 | 4.62 |
+| 长上下文（`prof-c88` 起栈后，128 个约 13.9k token 请求、并发 32） | 捞针 64/64；长前缀 GSM8K 62/64，乱码 0，截断 1（连贯） | 以前 mixed 关 custom all-reduce：64/64、62/64 |
+
+decode 日志里的 8 行 Traceback 都在 18:13:40 撤栈时（SIGTERM 后的退出）。与"乱码需要 EXTEND 步与 decode graph 交替"一致：PD 的 decode 只有 decode 步。
+
+### 步骤 1'：mixed 定位到 custom all-reduce 本身（最简配置：关 MTP、关 HiCache，200 题 / 并发 64 直连引擎）
+
+| 变体 | correct | 乱码 | 截断 |
+|---|---|---|---|
+| car-new-mtp0hc0：新镜像，开 custom all-reduce | 0.690 | 50 | 58 |
+| car-agrs0-mtp0hc0：`SGLANG_DP_USE_REDUCE_SCATTER=0` + `SGLANG_USE_AITER_AG=0`（custom all-gather / reduce-scatter 都关，只留 all-reduce） | 0.710 | **50** | 51 |
+| car-dcar-mtp0hc0：`--disable-custom-all-reduce`（对照） | 0.990 | 0 | 1 |
+
+- 元凶是 custom all-reduce 这个操作本身。
+- 代码（v0.5.22）：ROCm 上 `dispatch_custom_allreduce` 返回 aiter 的 `CustomAllreduce`，`enable_register_for_capturing = not SGLANG_MEMORY_SAVER_CUDA_GRAPH`，
+  即 graph 捕获时走"注册 graph 池张量"路径（`registered_input=True`）。sglang 在 `parallel_state.py` 对 custom all-gather / reduce-scatter 的注释写明这条路径
+  "makes peers read stale data over IPC on replay (garbage rows / NaN under DP attention + TP MoE on MI355X)"，并提供 `SGLANG_AITER_CAPTURE_COPY_IN=1` 让它们
+  拷进预注册的 IPC 池，但 all-reduce 没有对应开关；aiter 自己对 gfx1250 已强制走拷入。
+- 验证（`patches/custom_all_reduce.py`：新增 `SGLANG_AITER_AR_CAPTURE_COPY_IN`，置 1 时 `enable_register_for_capturing=False`，挂进容器，镜像不变）：
+  V1 只让 all-reduce 拷入、V2 三者都拷入，18:40 起。
+- `../mix-v0522-correctness-20261019/scripts/engine_bisect.sh` 加了 `EXTRA_MOUNTS`（教训：正在被 bash 执行的脚本不能原地改写，bash 按偏移边读边执行；
+  18:20 误改后已原样写回同一 inode，等那条串行跑完才替换）。
+
+### HiCache 撤栈对同节点的影响
+
+18:13 撤下 PD 栈后，同节点 GPU 0–3 上新起的 mixed 引擎停在 D 状态、没有日志，直到 GPU 4–7 回收完（约 9 分钟）才继续——锁页主机池回收期间新进程的 KFD
+初始化被挡住（以前记录过）。之后正确性类测试 prefill 关 HiCache，性能 A/B 保持开。

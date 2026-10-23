@@ -7,7 +7,7 @@
 # Usage (on the GPU node): engine_bisect.sh NAME [FUSE_TOPK=0] [HICACHE=0] [MTP=0] [DPA=0]
 #                          [GATHERV=0] [DELAYER=0] [FUSION=0] [LMHEAD=0]
 # Env: SITE (file exporting NODE_IP MODEL IMAGE), GPUS, PORT_OFFSET (0 or 100), EVAL_LIMIT=200,
-#      EXTRA_ENV="K=V ...", EXTRA_ARGS="--flag ...", STOCK=1 [STOCK_IMAGE=...],
+#      EXTRA_ENV="K=V ...", EXTRA_ARGS="--flag ...", EXTRA_MOUNTS="-v SRC:DST:ro ...", STOCK=1 [STOCK_IMAGE=...],
 #      PROBE_KIND=longctx (scripts/longctx_probe.py, 128 requests of ~16k tokens at 32 in flight)
 set -euo pipefail
 name="$1"; shift
@@ -68,6 +68,7 @@ read -ra extra_args <<<"${EXTRA_ARGS:-}"
 args+=("${extra_args[@]}")
 
 image_id="$(docker image inspect -f '{{.Id}}' "$IMAGE")"
+read -ra extra_mounts <<<"${EXTRA_MOUNTS:-}"
 # Two engines sharing --ipc host collide on RCCL's pid-named shared memory (container
 # pids start low); PID_OFFSET burns pids first so the second engine's ranks differ.
 cmd=(python3 -m infera.engine.sglang "${args[@]}")
@@ -80,7 +81,7 @@ docker run -d --name "$CTR-engine" --network host --ipc host --shm-size 32g \
     --cap-add SYS_PTRACE --cap-add IPC_LOCK --security-opt seccomp=unconfined \
     --ulimit memlock=-1:-1 --ulimit nofile=65536:65536 \
     -v "$MODEL:$MODEL:ro" -v "glm52_mix-cache-${image_id:7:12}:/root/.cache" \
-    -v "glm52_mix-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit" \
+    -v "glm52_mix-aiter-jit-${image_id:7:12}:/sgl-workspace/aiter/aiter/jit" "${extra_mounts[@]}" \
     "${env_args[@]}" "$IMAGE" "${cmd[@]}" >/dev/null
 wait_health "$ENGINE_URL/health" "$CTR-engine"
 echo "engine healthy $(date -u +%T)"
