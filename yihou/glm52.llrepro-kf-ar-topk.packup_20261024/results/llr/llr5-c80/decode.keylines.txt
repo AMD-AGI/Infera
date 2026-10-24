@@ -1,0 +1,400 @@
+[yihou-kf] pid=1 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=142 installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-23 23:21:11] server_args={'model_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 4, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': Tr
+[yihou-kf] pid=301 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=299 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=298 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=300 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=302 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=303 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=949 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=301 patched DSATopKBackend.topk_transform
+[yihou-kf] pid=299 patched DSATopKBackend.topk_transform
+[yihou-kf] pid=302 patched DSATopKBackend.topk_transform
+[yihou-kf] pid=300 patched DSATopKBackend.topk_transform
+[yihou-kf] pid=301 patched dsa_indexer.aiter_paged_mqa_logits
+[yihou-kf] pid=301 patched Indexer._get_topk_paged (mode)
+[yihou-kf] pid=299 patched dsa_indexer.aiter_paged_mqa_logits
+[yihou-kf] pid=299 patched Indexer._get_topk_paged (mode)
+[yihou-kf] pid=300 patched dsa_indexer.aiter_paged_mqa_logits
+[yihou-kf] pid=300 patched Indexer._get_topk_paged (mode)
+[yihou-kf] pid=302 patched dsa_indexer.aiter_paged_mqa_logits
+[yihou-kf] pid=302 patched Indexer._get_topk_paged (mode)
+[yihou-kf] pid=301 patched DeepseekSparseAttnBackend.forward_{extend,decode} (mode)
+[yihou-kf] pid=300 patched DeepseekSparseAttnBackend.forward_{extend,decode} (mode)
+[yihou-kf] pid=302 patched DeepseekSparseAttnBackend.forward_{extend,decode} (mode)
+[yihou-kf] pid=299 patched DeepseekSparseAttnBackend.forward_{extend,decode} (mode)
+[yihou-kf] pid=1754 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=1759 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=1763 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=1765 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=301 patched AiterRunnerCore.run
+[yihou-kf] pid=299 patched AiterRunnerCore.run
+[yihou-kf] pid=300 patched AiterRunnerCore.run
+[yihou-kf] pid=302 patched AiterRunnerCore.run
+[2026-10-23 23:22:15 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 23:22:15 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 23:22:15 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 23:22:15 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 23:22:15 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[2026-10-23 23:22:15 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[2026-10-23 23:22:15 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[2026-10-23 23:22:15 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[yihou-kf] pid=301 indexer_logits rows=384 q=(384, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=384 method=1 v2=True -> orig
+[yihou-kf] pid=301 patched triton_sparse_mla_fwd
+[yihou-kf] pid=301 sparse_mla rows=384 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 indexer_logits rows=384 q=(384, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_logits rows=384 q=(384, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_logits rows=384 q=(384, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_topk rows=384 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_topk rows=384 method=1 v2=True -> orig
+[yihou-kf] pid=302 indexer_topk rows=384 method=1 v2=True -> orig
+[yihou-kf] pid=299 patched triton_sparse_mla_fwd
+[yihou-kf] pid=299 sparse_mla rows=384 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 patched triton_sparse_mla_fwd
+[yihou-kf] pid=300 sparse_mla rows=384 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 patched triton_sparse_mla_fwd
+[yihou-kf] pid=302 sparse_mla rows=384 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 CHECK sparse_mla rows=384: snr(KF vs orig)=100.00 dB maxabs=0
+[yihou-kf] pid=299 CHECK sparse_mla rows=384: snr(KF vs orig)=100.00 dB maxabs=0
+[yihou-kf] pid=300 moe M=1536 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 CHECK sparse_mla rows=384: snr(KF vs orig)=100.00 dB maxabs=0
+[yihou-kf] pid=299 moe M=1536 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 moe M=1536 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 CHECK sparse_mla rows=384: snr(KF vs orig)=100.00 dB maxabs=0
+[yihou-kf] pid=301 moe M=1536 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 indexer_logits rows=360 q=(360, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_logits rows=360 q=(360, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=360 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_logits rows=360 q=(360, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=360 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=360 q=(360, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=360 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=360 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=360 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=360 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=360 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=360 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 moe M=1440 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 moe M=1440 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=1440 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=1440 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 indexer_logits rows=336 q=(336, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_logits rows=336 q=(336, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=336 method=1 v2=True -> orig
+[yihou-kf] pid=302 indexer_topk rows=336 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_logits rows=336 q=(336, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_logits rows=336 q=(336, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=336 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=336 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=336 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=336 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=336 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=336 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=1344 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=1344 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=1344 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=1344 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 indexer_logits rows=312 q=(312, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_logits rows=312 q=(312, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=312 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=312 method=1 v2=True -> orig
+[yihou-kf] pid=302 indexer_logits rows=312 q=(312, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=312 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_logits rows=312 q=(312, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=312 method=1 v2=True -> orig
+[yihou-kf] pid=300 sparse_mla rows=312 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=312 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=312 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=312 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 moe M=1248 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 moe M=1248 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=1248 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=1248 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 indexer_logits rows=288 q=(288, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_logits rows=288 q=(288, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=288 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_topk rows=288 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=288 q=(288, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_logits rows=288 q=(288, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_topk rows=288 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_topk rows=288 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=288 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=288 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=288 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=288 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=1152 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=1152 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=1152 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=1152 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 indexer_logits rows=264 q=(264, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_logits rows=264 q=(264, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=264 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_topk rows=264 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_logits rows=264 q=(264, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_logits rows=264 q=(264, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=264 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=264 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=264 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=264 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=264 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=264 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=1056 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=1056 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=1056 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=1056 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=44 avail_mem=14.19 GB):  22%|██▏       | 6/27 [00:49<01:44,  4.95s/it]Capturing batches (bs=40 avail_mem=14.19 GB):  22%|██▏       | 6/27 [00:49<01:44,  4.95s/it][yihou-kf] pid=300 indexer_logits rows=240 q=(240, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=240 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=240 q=(240, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_logits rows=240 q=(240, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_topk rows=240 method=1 v2=True -> orig
+[yihou-kf] pid=302 indexer_topk rows=240 method=1 v2=True -> orig
+[yihou-kf] pid=300 sparse_mla rows=240 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 indexer_logits rows=240 q=(240, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=240 method=1 v2=True -> orig
+[yihou-kf] pid=299 sparse_mla rows=240 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=240 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=240 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 moe M=960 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 moe M=960 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=960 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=960 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=40 avail_mem=14.19 GB):  26%|██▌       | 7/27 [00:52<01:29,  4.47s/it]Capturing batches (bs=32 avail_mem=14.15 GB):  26%|██▌       | 7/27 [00:52<01:29,  4.47s/it][yihou-kf] pid=302 indexer_logits rows=192 q=(192, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_logits rows=192 q=(192, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=192 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_topk rows=192 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=192 q=(192, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_logits rows=192 q=(192, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_topk rows=192 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_topk rows=192 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=192 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=192 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=192 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=192 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 moe M=768 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 moe M=768 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=768 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=768 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=32 avail_mem=14.15 GB):  30%|██▉       | 8/27 [00:56<01:18,  4.11s/it]Capturing batches (bs=30 avail_mem=14.14 GB):  30%|██▉       | 8/27 [00:56<01:18,  4.11s/it][yihou-kf] pid=302 indexer_logits rows=180 q=(180, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_logits rows=180 q=(180, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_logits rows=180 q=(180, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_logits rows=180 q=(180, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=180 method=1 v2=True -> orig
+[yihou-kf] pid=302 indexer_topk rows=180 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_topk rows=180 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=180 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=180 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=180 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=180 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=180 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=720 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=720 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=720 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=720 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=30 avail_mem=14.14 GB):  33%|███▎      | 9/27 [00:59<01:09,  3.87s/it]Capturing batches (bs=28 avail_mem=14.15 GB):  33%|███▎      | 9/27 [00:59<01:09,  3.87s/it][yihou-kf] pid=302 indexer_logits rows=168 q=(168, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_logits rows=168 q=(168, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_logits rows=168 q=(168, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=168 method=1 v2=True -> orig
+[yihou-kf] pid=302 indexer_topk rows=168 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=168 q=(168, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=168 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=168 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=168 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=168 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=168 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=168 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 moe M=672 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 moe M=672 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=672 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=672 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=28 avail_mem=14.15 GB):  37%|███▋      | 10/27 [01:02<01:03,  3.72s/it]Capturing batches (bs=26 avail_mem=14.15 GB):  37%|███▋      | 10/27 [01:02<01:03,  3.72s/it][yihou-kf] pid=302 indexer_logits rows=156 q=(156, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_logits rows=156 q=(156, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_logits rows=156 q=(156, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=156 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_topk rows=156 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=156 q=(156, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=156 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=156 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=156 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=156 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=156 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=156 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=624 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=624 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=624 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=624 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=26 avail_mem=14.15 GB):  41%|████      | 11/27 [01:06<00:57,  3.60s/it]Capturing batches (bs=24 avail_mem=14.14 GB):  41%|████      | 11/27 [01:06<00:57,  3.60s/it][yihou-kf] pid=302 indexer_logits rows=144 q=(144, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_logits rows=144 q=(144, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=144 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=144 q=(144, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=301 indexer_topk rows=144 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_logits rows=144 q=(144, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=299 indexer_topk rows=144 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=144 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 indexer_topk rows=144 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=144 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=144 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=144 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=576 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=576 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=576 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=576 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=24 avail_mem=14.14 GB):  44%|████▍     | 12/27 [01:09<00:52,  3.52s/it]Capturing batches (bs=22 avail_mem=14.14 GB):  44%|████▍     | 12/27 [01:09<00:52,  3.52s/it][yihou-kf] pid=301 indexer_logits rows=132 q=(132, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_logits rows=132 q=(132, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_logits rows=132 q=(132, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=302 indexer_topk rows=132 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_topk rows=132 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=132 q=(132, 32, 128) max_seq_len=1048704 -> orig
+[yihou-kf] pid=300 indexer_topk rows=132 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=132 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=132 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=132 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=132 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=132 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=528 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=528 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=528 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=528 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=22 avail_mem=14.14 GB):  48%|████▊     | 13/27 [01:12<00:48,  3.43s/it]Capturing batches (bs=20 avail_mem=14.13 GB):  48%|████▊     | 13/27 [01:12<00:48,  3.43s/it][yihou-kf] pid=299 indexer_logits rows=120 q=(120, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 indexer_logits rows=120 q=(120, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=301 indexer_logits rows=120 q=(120, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=300 indexer_logits rows=120 q=(120, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 CHECK indexer_logits rows=120: valid=540 maxabs=9.537e-07 exact=False
+[yihou-kf] pid=302 indexer_topk rows=120 method=1 v2=True -> orig
+[yihou-kf] pid=301 CHECK indexer_logits rows=120: valid=540 maxabs=9.537e-07 exact=False
+[yihou-kf] pid=301 indexer_topk rows=120 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=120 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=120 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 CHECK indexer_logits rows=120: valid=540 maxabs=9.537e-07 exact=False
+[yihou-kf] pid=299 indexer_topk rows=120 method=1 v2=True -> orig
+[yihou-kf] pid=300 CHECK indexer_logits rows=120: valid=540 maxabs=9.537e-07 exact=False
+[yihou-kf] pid=300 indexer_topk rows=120 method=1 v2=True -> orig
+[yihou-kf] pid=299 sparse_mla rows=120 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=120 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=480 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=301 moe M=480 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=299 moe M=480 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=300 moe M=480 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+Capturing batches (bs=20 avail_mem=14.13 GB):  52%|█████▏    | 14/27 [01:17<00:49,  3.81s/it]Capturing batches (bs=18 avail_mem=14.08 GB):  52%|█████▏    | 14/27 [01:17<00:49,  3.81s/it][yihou-kf] pid=302 indexer_logits rows=108 q=(108, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=300 indexer_logits rows=108 q=(108, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=301 indexer_logits rows=108 q=(108, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=299 indexer_logits rows=108 q=(108, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 indexer_topk rows=108 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_topk rows=108 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_topk rows=108 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=108 method=1 v2=True -> orig
+[yihou-kf] pid=300 sparse_mla rows=108 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=108 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=108 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=108 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=432 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=432 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 moe M=432 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=432 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 CHECK moe M=432: snr(KF vs orig)=51.64 dB
+[yihou-kf] pid=300 CHECK moe M=432: snr(KF vs orig)=50.62 dB
+[yihou-kf] pid=302 CHECK moe M=432: snr(KF vs orig)=51.58 dB
+[yihou-kf] pid=299 CHECK moe M=432: snr(KF vs orig)=51.63 dB
+Capturing batches (bs=18 avail_mem=14.08 GB):  56%|█████▌    | 15/27 [01:22<00:51,  4.31s/it]Capturing batches (bs=16 avail_mem=14.07 GB):  56%|█████▌    | 15/27 [01:22<00:51,  4.31s/it][yihou-kf] pid=301 indexer_logits rows=96 q=(96, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 indexer_logits rows=96 q=(96, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=300 indexer_logits rows=96 q=(96, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=299 indexer_logits rows=96 q=(96, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 indexer_topk rows=96 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=96 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 indexer_topk rows=96 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_topk rows=96 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_topk rows=96 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=96 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=96 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=96 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=384 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=384 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 moe M=384 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=384 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=16 avail_mem=14.07 GB):  59%|█████▉    | 16/27 [01:26<00:45,  4.13s/it]Capturing batches (bs=14 avail_mem=14.06 GB):  59%|█████▉    | 16/27 [01:26<00:45,  4.13s/it][yihou-kf] pid=299 indexer_logits rows=84 q=(84, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=299 indexer_topk rows=84 method=1 v2=True -> orig
+[yihou-kf] pid=299 sparse_mla rows=84 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 indexer_logits rows=84 q=(84, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=300 indexer_topk rows=84 method=1 v2=True -> orig
+[yihou-kf] pid=300 sparse_mla rows=84 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 indexer_logits rows=84 q=(84, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 indexer_topk rows=84 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_logits rows=84 q=(84, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 sparse_mla rows=84 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 indexer_topk rows=84 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=84 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=336 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 moe M=336 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=336 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=336 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=14 avail_mem=14.06 GB):  63%|██████▎   | 17/27 [01:30<00:41,  4.12s/it]Capturing batches (bs=12 avail_mem=14.04 GB):  63%|██████▎   | 17/27 [01:30<00:41,  4.12s/it][yihou-kf] pid=302 indexer_logits rows=72 q=(72, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 indexer_topk rows=72 method=1 v2=True -> orig
+[yihou-kf] pid=300 indexer_logits rows=72 q=(72, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=300 indexer_topk rows=72 method=1 v2=True -> orig
+[yihou-kf] pid=301 indexer_logits rows=72 q=(72, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=299 indexer_logits rows=72 q=(72, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=301 indexer_topk rows=72 method=1 v2=True -> orig
+[yihou-kf] pid=302 sparse_mla rows=72 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 indexer_topk rows=72 method=1 v2=True -> orig
+[yihou-kf] pid=300 sparse_mla rows=72 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=72 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=72 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=288 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=288 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 moe M=288 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=288 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=12 avail_mem=14.04 GB):  67%|██████▋   | 18/27 [01:34<00:35,  3.90s/it]Capturing batches (bs=10 avail_mem=14.03 GB):  67%|██████▋   | 18/27 [01:34<00:35,  3.90s/it][yihou-kf] pid=300 indexer_logits rows=60 q=(60, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=300 indexer_topk rows=60 method=1 v2=True -> orig
+[yihou-kf] pid=299 indexer_logits rows=60 q=(60, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=299 indexer_topk rows=60 method=1 v2=True -> orig
+[yihou-kf] pid=302 indexer_logits rows=60 q=(60, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=302 indexer_topk rows=60 method=1 v2=True -> orig
+[yihou-kf] pid=300 sparse_mla rows=60 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=60 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=60 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 indexer_logits rows=60 q=(60, 32, 128) max_seq_len=1048704 -> KF
+[yihou-kf] pid=301 indexer_topk rows=60 method=1 v2=True -> orig
+[yihou-kf] pid=301 sparse_mla rows=60 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=240 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 moe M=240 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=240 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=240 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=10 avail_mem=14.03 GB):  70%|███████   | 19/27 [01:38<00:31,  3.89s/it]Capturing batches (bs=8 avail_mem=14.01 GB):  70%|███████   | 19/27 [01:38<00:31,  3.89s/it] [yihou-kf] pid=299 sparse_mla rows=48 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=48 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=48 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=48 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 moe M=192 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=302 moe M=192 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=192 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=192 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=8 avail_mem=14.01 GB):  74%|███████▍  | 20/27 [01:41<00:26,  3.85s/it]Capturing batches (bs=7 avail_mem=13.99 GB):  74%|███████▍  | 20/27 [01:41<00:26,  3.85s/it][yihou-kf] pid=300 sparse_mla rows=42 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=42 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=42 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=42 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 moe M=168 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=302 moe M=168 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=168 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=168 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=7 avail_mem=13.99 GB):  78%|███████▊  | 21/27 [01:45<00:22,  3.80s/it]Capturing batches (bs=6 avail_mem=13.97 GB):  78%|███████▊  | 21/27 [01:45<00:22,  3.80s/it][yihou-kf] pid=300 sparse_mla rows=36 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=36 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=36 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=36 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=144 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 moe M=144 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=144 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=144 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=6 avail_mem=13.97 GB):  81%|████████▏ | 22/27 [01:49<00:19,  3.80s/it]Capturing batches (bs=5 avail_mem=13.96 GB):  81%|████████▏ | 22/27 [01:49<00:19,  3.80s/it][yihou-kf] pid=300 sparse_mla rows=30 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=30 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 sparse_mla rows=30 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=30 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=302 moe M=120 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=299 moe M=120 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=301 moe M=120 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+[yihou-kf] pid=300 moe M=120 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> KF
+Capturing batches (bs=5 avail_mem=13.96 GB):  85%|████████▌ | 23/27 [01:53<00:15,  3.80s/it]Capturing batches (bs=4 avail_mem=13.94 GB):  85%|████████▌ | 23/27 [01:53<00:15,  3.80s/it][yihou-kf] pid=302 sparse_mla rows=24 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=300 sparse_mla rows=24 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=299 sparse_mla rows=24 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 sparse_mla rows=24 heads=64 kv=(3001984, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[yihou-kf] pid=301 moe M=96 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
+[yihou-kf] pid=302 moe M=96 E=257 topk=9 qt=per_1x32 mask=False kw=['gate_mode'] act=silu -> orig
