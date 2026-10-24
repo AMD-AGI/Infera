@@ -1,0 +1,10 @@
+14246-[2026-10-24 04:55:27] INFO:     10.245.148.209:56816 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+14247-[2026-10-24 04:55:27] INFO:     10.245.148.209:57040 - "POST /v1/chat/completions HTTP/1.1" 200 OK
+14248-[2026-10-24 04:55:26 DP1 TP1] Decode batch, #running-req: 10, #token: 2074944, token usage: 0.68, accept len: 3.58, accept rate: 0.52, pre-allocated usage: 0.00, #prealloc-req: 0, #transfer-req: 0, #retracted-req: 0, cuda graph: True, gen throughput (token/s): 739.85, #queue-req: 0
+14249::0:rocdevice.cpp            :3582: 426560976759 us:  Callback: Queue 0x737210200000 Aborting with error : HSA_STATUS_ERROR_OUT_OF_RESOURCES: The runtime failed to allocate the necessary resources. This error may also occur when the core runtime library needs to spawn threads or create internal OS-specific events. Code: 0x1008 Available Free mem : 0 MB
+14250-Fatal Python error: Aborted
+14251-
+14252-Thread 0x00007343e7fff640 (most recent call first):
+14253-  File "/usr/lib/python3.10/threading.py", line 324 in wait
+14254-  File "/usr/lib/python3.10/threading.py", line 607 in wait
+14255-  File "/sgl-workspace/sglang/python/sglang/srt/disaggregation/common/conn.py", line 1838 in heartbeat_checker

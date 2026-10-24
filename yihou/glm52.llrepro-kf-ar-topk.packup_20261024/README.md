@@ -13,7 +13,7 @@ one at a time, (3) the KF decode kernels. This pack-up is step (3) plus two perf
 | **llr5** | + KF decode kernels (sparse MLA, indexer logits, MoE) | **40,777** | 2.707 | 119.6k | 4.22 / 10.84 | 16.5 | 1.97 / 4.68 | 55.3 | kept (+8.0 %, qps +5.2 %, ISL +2.8 %) |
 | **llr6** | + decode custom all-reduce ON | **40,937** | 2.721 | 119.4k | 4.25 / 12.25 | 15.7 | 1.97 / 4.67 | 52.9 | kept (+0.4 %, TPOT -4.8 %) |
 | **llr7** | + decode `SGLANG_OPT_USE_TOPK_V2=false` (KF indexer top-k engages) | **41,679** | 2.744 | 120.6k | 4.45 / 12.32 | 15.4 | 1.99 / 4.72 | 50.5 | kept (+1.8 %, qps +0.8 %, ISL +1.0 %) - best |
-| llr8 | + decode `--mem-fraction-static 0.95` | running at pack-up | | | | | | | |
+| llr8 | + decode `--mem-fraction-static 0.95` | VOID | | | | | | | decode aborted 04:55:27 (~7 min into profiling): `HSA_STATUS_ERROR_OUT_OF_RESOURCES ... Available Free mem : 0 MB`; after graph capture 2.22 GB free (llr7 10.46 GB); KV 3.04 M tokens/rank (llr7 2.86 M) |
 
 llr3 -> llr7: +10.4 % score, +6.6 % qps, TPOT 19.8 -> 15.4 ms, with a 3.6 % longer mean ISL.
 GPU / CPU prefix hit stayed 0.49 / 0.15 for llr5-7 (llr3 0.41 / 0.12). 0 Traceback / Memory access fault in all three.
@@ -28,6 +28,15 @@ GPU / CPU prefix hit stayed 0.49 / 0.15 for llr5-7 (llr3 0.41 / 0.12). 0 Traceba
   120 s average cannot show burst saturation.
 - CPU (llr6): 135 no core > 44 %; 136 one core 100 %, two > 80 % (one sglang thread 99.9 %, four python3 threads ~98 %).
   Whether that thread delays GPU launches is not measured.
+
+## Addendum (2026-10-24 07:5xZ)
+- llr8 VOID (above). Logs: `results/llr/llr8-c80/decode.abort.txt`, `decode.keylines.txt`, `decode.last_batches.txt`.
+  The AgentX client kept running against the dead decode for 55 min (our patrol grepped only the last 5000 lines and
+  missed it); decode mem stays 0.92 with custom AR + KF. Not yet tried: 0.95 with the other session's decode
+  empty_cache patch, or 0.93.
+- KF coverage at llr7 (`results/llr/llr7-c80.rowbuckets.txt`): in the steady window 33.3 % of decode log lines have
+  TARGET_VERIFY rows <= 48 (running <= 8 per rank), where only `-> orig` was logged for indexer logits / top-k; 65.2 % are
+  in 49-128 (KF), 1.6 % > 128. Cause for rows <= 48 not found yet (notes.md section 2).
 
 ## Layout
 - `REPRODUCE.md` - commands. `notes.md` - KF engagement per shape, caveats, open questions. `environment.md`.
