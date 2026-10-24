@@ -163,6 +163,16 @@ OOM 在 `dsa_backend._forward_aiter_extend` → `aiter.mla.mla_decode_fwd` 的 `
   整小时反转。
 - 下一步（02:15 起，`scripts/correct_then_plan.sh`，138 `$W/2p1d/async/`）：先用真实接受率做 4+8 + async 的正确性（smoke、GSM8K、200 题探测），通过后依次跑
   2P1D C176 / C192（对照 38,392 @ 43.2）、4+4 C80（对照 37,310 @ 44.3）、4+8 C88 均衡（对照 31,088 @ 71.7），全部加 async。
+- **async 的正确性通过**（`correct-1024T0212`，4+8，真实接受率）：smoke 6/6；GSM8K strict 0.9682 / flexible 0.9704；200 题探测 0.980、乱码 0、截断 2。
+  02:33 起自动跑上面的 4 个性能点（结果的收集方法见 `../HANDOFF-20261024.zh-CN.md`）。
+
+## 结论（10-24 02:35）
+
+1. **prefill**：`--pp-async-batch-depth 1` 让 PP4 prefill 容量 +8.5%（4+8 C112 吞吐 +7.2%），正确性通过；层切分 19/19/20/20 无效；DSA `aiter` prefill 后端
+   长 prompt OOM。profile：DSA 稀疏 attention（triton）最大、MoE 小，瓶颈是 PP 下每级串行调度的开销（PP0 最重）。
+2. **custom all-reduce**：mixed 乱码根因是 aiter custom all-reduce 捕获时注册 graph 池张量（回放读旧数据），all-reduce 捕获拷入即可修复（`patches/`）；
+   PD decode 开 custom all-reduce 正确但每步只快 1–2 ms。
+3. **待定**：async 是否进 PR #210 的 example（等 2P1D / 4+4 / 4+8 的结果）；AR 拷入补丁是否进 PR（mixed 可去掉 `--disable-custom-all-reduce`，需再测 mixed 性能）。
 
 （中位缓存上下文 12.9 万、每 batch 3 个请求；decode 最忙 rank 中位 / p90 7 / 10。对照 kit 测的 4+8 C112 R2 29,540 @ 49.8、新算 13.1k；C88 均衡 31,088 @ 71.7、13.0k。）
 
