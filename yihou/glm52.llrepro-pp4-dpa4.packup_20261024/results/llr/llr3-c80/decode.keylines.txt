@@ -1,0 +1,9 @@
+[2026-10-23 19:53:43 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 19:53:43 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 19:53:43 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 19:53:43 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 133.36 GB
+[2026-10-23 19:53:43 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[2026-10-23 19:53:43 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[2026-10-23 19:53:43 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[2026-10-23 19:53:43 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3001920, KV size: 1.98 GB
+[2026-10-23 19:55:30 DP0 TP0] max_total_num_tokens=3001920, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=11.20 GB

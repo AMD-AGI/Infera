@@ -1,0 +1,4 @@
+round	bench	conc	score	qps	isl_mean	ttft_p50	ttft_p90	tpot_ms	gpu_hit	cpu_hit	err	kvlat_p50	kvlat_p90	kvlat_avg	kvspeed_p50	kvspeed_p90	kvspeed_avg	kvmb_p50	kvmb_p90	kvmb_avg	xfer_stage_p50	xfer_stage_p90	xfer_stage_avg	pqueue_p50	pqueue_p90	pqueue_avg	dtransferred_p50	dtransferred_p90	dtransferred_avg
+ppda3	agentx-c80-A1	80	36543	2.520	115055	3.87	10.04	20.9	0.735	0.226	5	1.73	4.03	1.98	0.52	5.17	2.88	829.60	3631.59	1406.99	1.74	3.66	1.98	0.01	1.00	3.05	3.42	8.39	7.05
+ppda1	agentx-c80-A1	80	34288	2.372	114721	4.12	22.95	20.0	0.698	0.261	5	1.66	4.07	1.96	0.55	8.08	3.58	831.12	3648.62	1406.78	1.67	3.71	1.95	0.02	0.97	3.08	3.44	8.68	7.18
+ppda2	agentx-c80-A1	80	40780	2.684	120592	4.79	18.25	14.2	0.728	0.235	6	2.07	4.60	2.42	0.44	3.42	2.13	859.97	3688.87	1459.57	2.04	4.54	2.42	0.03	1.70	3.41	4.13	10.52	8.14
