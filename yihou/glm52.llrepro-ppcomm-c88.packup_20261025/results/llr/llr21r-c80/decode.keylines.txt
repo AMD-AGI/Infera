@@ -1,0 +1,33 @@
+[yihou-kf] pid=1 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=142 installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-25 11:53:26] server_args={'model_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 4, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': Tr
+[yihou-kf] pid=301 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=300 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=302 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=299 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=298 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=303 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=949 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=1750 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=1764 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=1766 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=1768 installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-25 11:54:30 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 11:54:30 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 11:54:30 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 11:54:30 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 11:54:31 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 11:54:31 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 11:54:31 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 11:54:31 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 11:55:41 DP0 TP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=68.94 s, mem usage=10.51 GB, avail mem=10.42 GB.
+[2026-10-25 11:55:41 DP2 TP2] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=69.01 s, mem usage=10.51 GB, avail mem=10.41 GB.
+[2026-10-25 11:55:41 DP1 TP1] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=69.09 s, mem usage=10.51 GB, avail mem=10.38 GB.
+[2026-10-25 11:55:41 DP3 TP3] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=69.19 s, mem usage=10.51 GB, avail mem=10.51 GB.
+[2026-10-25 11:55:46 DP0 TP0] Capture draft decode CUDA graph end. elapsed=5.25 s, mem usage=1.17 GB, avail mem=9.24 GB.
+[2026-10-25 11:55:49 DP0 TP0] Capture draft extend CUDA graph end. elapsed=2.66 s, mem usage=1.58 GB, avail mem=7.66 GB.
+[2026-10-25 11:55:49 DP0 TP0] max_total_num_tokens=2920128, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=7.66 GB
+[yihou-kf] pid=3150 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=3151 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=3148 installed: ['INDEXER', 'MOE', 'SPARSE']
+[yihou-kf] pid=3149 installed: ['INDEXER', 'MOE', 'SPARSE']

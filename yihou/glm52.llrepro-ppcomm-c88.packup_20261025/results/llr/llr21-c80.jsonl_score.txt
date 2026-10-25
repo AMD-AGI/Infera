@@ -1,0 +1,1 @@
+records 10186 (bad lines 2) span 3630 s  score 42983  isl mean 121537  ttft p50/p90 3.17/6.81

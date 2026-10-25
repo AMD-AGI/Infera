@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/shared_nfs/yihou_glm52/llrepro_20261023/bneck.yihou.py", line 46, in <module>
+    dec = parse(f'{run}/logs/yihou-llr-decode.log', 'Decode batch,')
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/shared_nfs/yihou_glm52/llrepro_20261023/bneck.yihou.py", line 21, in parse
+    with open(path, errors='replace') as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/shared_nfs/yihou_glm52/llrepro_20261023/work/runs/llr20-c80/logs/yihou-llr-decode.log'

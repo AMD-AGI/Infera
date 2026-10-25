@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/shared_nfs/yihou_glm52/llrepro_20261023/bneck.yihou.py", line 49, in <module>
+    t0, t1 = busy[0] + timedelta(minutes=skip), busy[-1] - timedelta(minutes=tail)
+             ~~~~^^^
+IndexError: list index out of range
