@@ -1,0 +1,53 @@
+window 2026-10-24 03:23:05 .. 2026-10-24 04:10:05 excl [] grid 2821 s
+
+== 3) request accounting (time-averaged over the 1 s grid) ==
+client records 10828 (file work/runs/llr7-c80/agentx/aiperf_artifacts/profile_export.jsonl)
+client in-flight (start..end) mean 63.4 p10 44 p50 64 max 100 ; of which pre-first-token mean 19.2, streaming (post-first-token) 44.1
+client not in flight (80 - in-flight; AgentX idle/think/tool replay, credit gaps) mean 16.6
+credit_issued -> request_start gap s: mean 0.002 max 0.196
+decode (sum over ranks): #running-req 44.2, #prealloc-req 1.8, #transfer-req 17.0, #queue-req 0.0, #retracted-req 0.0
+prefill PP0 (carry-forward): #queue-req 3.4, #bootstrap-req 1.9, #running-req 0.0, #inflight-req 8.8, #optimistic-req 0.0
+note: prefill inflight-req (sent, awaiting transfer completion) and decode transfer-req/prealloc-req can refer to the SAME request; not additive.
+
+== 4) per decode rank: token usage >= thr vs prealloc / transfer (1 s grid, carry-forward) ==
+-- thr 0.95
+rank | frac(tu>=thr) | P(prealloc>0|hi) P(prealloc>0|lo) | mean prealloc hi/lo | mean transfer hi/lo | mean running hi/lo | frac of prealloc>0 time with hi | corr(tu,prealloc) corr(tu,transfer) corr(tu+pre-alloc usage,prealloc)
+DP0  | 0.190 | 0.56 0.15 | 1.24 0.26 | 6.02 3.68 | 10.2 10.4 | 0.47 | 0.35 0.33 0.27
+DP1  | 0.209 | 0.54 0.12 | 1.24 0.23 | 5.74 4.06 | 11.5 11.3 | 0.54 | 0.31 0.31 0.22
+DP2  | 0.200 | 0.55 0.14 | 1.25 0.26 | 5.84 4.05 | 11.7 11.4 | 0.49 | 0.33 0.35 0.24
+DP3  | 0.193 | 0.60 0.14 | 1.25 0.27 | 5.49 3.71 | 11.7 10.8 | 0.50 | 0.29 0.30 0.22
+-- thr 0.9
+rank | frac(tu>=thr) | P(prealloc>0|hi) P(prealloc>0|lo) | mean prealloc hi/lo | mean transfer hi/lo | mean running hi/lo | frac of prealloc>0 time with hi | corr(tu,prealloc) corr(tu,transfer) corr(tu+pre-alloc usage,prealloc)
+DP0  | 0.340 | 0.45 0.12 | 0.97 0.18 | 5.50 3.42 | 10.2 10.5 | 0.66 | 0.35 0.33 0.27
+DP1  | 0.345 | 0.46 0.08 | 0.97 0.17 | 5.75 3.71 | 11.7 11.2 | 0.75 | 0.31 0.31 0.22
+DP2  | 0.327 | 0.46 0.11 | 1.00 0.19 | 5.91 3.67 | 12.2 11.1 | 0.67 | 0.33 0.35 0.24
+DP3  | 0.344 | 0.49 0.09 | 0.96 0.20 | 5.38 3.35 | 11.5 10.8 | 0.74 | 0.29 0.30 0.22
+token usage quantiles per rank (p50/p90/max) and pre-allocated usage mean:
+  DP0: 0.83/0.98/1.00 ; pre-alloc usage mean 0.203 ; tu+prealloc usage >=0.95 frac 0.541
+  DP1: 0.82/0.97/1.00 ; pre-alloc usage mean 0.205 ; tu+prealloc usage >=0.95 frac 0.571
+  DP2: 0.81/0.97/1.00 ; pre-alloc usage mean 0.186 ; tu+prealloc usage >=0.95 frac 0.546
+  DP3: 0.83/0.97/1.00 ; pre-alloc usage mean 0.179 ; tu+prealloc usage >=0.95 frac 0.533
+
+== 5) prefill (PP0) ==
+PP0 batches 4991 over 2821 s: 1.77/s, mean interval 565 ms; seconds with >=1 PP0 batch 0.893; batches/s in active seconds p50 2
+new tok/s 12428, cached tok/s 332035; new tokens per batch mean 7025
+frac of time queue-req>0 (carry-forward) 0.652; line-weighted 0.596
+per-minute buckets (stats over minutes): new tok/s | cached tok/s | batches/min | queue-req mean | pending-token mean | inflight mean | bootstrap mean
+  new tok/s      min     6065.9 p10     7998.2 p50    12495.5 p90    16575.8 max    19447.0 cv 0.26
+  cached tok/s   min   252346.7 p10   278914.1 p50   329889.1 p90   382471.5 max   397095.5 cv 0.11
+  batches/min    min       50.0 p10       64.0 p50      110.0 p90      134.0 max      146.0 cv 0.23
+  queue-req      min        0.0 p10        0.2 p50        2.9 p90        8.3 max       11.9 cv 0.88
+  pending-token  min      864.6 p10    21113.6 p50   296205.4 p90   919755.7 max  1669811.7 cv 1.02
+  inflight       min        2.6 p10        4.4 p50        8.9 p90       13.2 max       15.3 cv 0.33
+  bootstrap      min        0.0 p10        0.0 p50        0.6 p90        6.1 max       13.5 cv 1.51
+5-min buckets: start(min) new tok/s, queue-req, pending-token(k), inflight, decode running sum, decode prealloc sum, decode transfer sum, decode tokusage mean
+     0    14307   1.3     146   6.4  48.1   0.5  11.2 0.770
+     5    10347   0.3      39   5.0  36.3   0.0   7.8 0.614
+    10    15663   2.8     436   8.0  49.7   0.0  15.1 0.780
+    15    14439   2.1     321   6.8  36.9   0.0  12.3 0.606
+    20    13410   1.6     174   7.9  43.4   1.0  14.1 0.739
+    25    11768   2.7     219  11.0  54.3   2.5  19.5 0.885
+    30    11194   4.5     303  11.1  53.5   5.3  21.7 0.891
+    35    12324   5.7     582  10.7  43.6   1.4  22.1 0.900
+    40    10023   7.5    1081  11.6  35.5   4.3  24.8 0.902
+    45     8406   9.2    1504  11.5  35.2   4.5  27.8 0.932

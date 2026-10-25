@@ -1,0 +1,138 @@
+/shared_nfs/yihou_glm52/llrepro_20261023/analysis_llr7r.yihou/verify_prefill/raw.yihou.py:5: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  utc=lambda t: datetime.datetime.utcfromtimestamp((base+t)/1e6).strftime('%H:%M:%S.%f')[:-3]
+n gpu step annotations 40
+0 08:51:58.164 211.1 step[EXTEND bs=2 toks=8150]
+1 08:51:58.376 19.1 step[DRAFT bs=2 toks=8150]
+2 08:51:58.462 196.4 step[EXTEND bs=1 toks=8192]
+3 08:51:58.659 19.2 step[DRAFT bs=1 toks=8192]
+4 08:51:58.783 200.7 step[EXTEND bs=1 toks=8192]
+5 08:51:58.984 19.3 step[DRAFT bs=1 toks=8192]
+6 08:52:01.125 355.2 step[EXTEND bs=2 toks=8150]
+7 08:52:01.344 20.4 step[DRAFT bs=2 toks=8150]
+8 08:52:01.484 535.6 step[EXTEND bs=4 toks=8092]
+9 08:52:01.710 22.4 step[DRAFT bs=4 toks=8092]
+10 08:52:02.032 482.5 step[EXTEND bs=3 toks=8137]
+11 08:52:02.264 23.8 step[DRAFT bs=3 toks=8137]
+12 08:52:02.535 521.9 step[EXTEND bs=5 toks=8053]
+13 08:52:02.764 24.6 step[DRAFT bs=5 toks=8053]
+14 08:52:03.056 229.8 step[EXTEND bs=3 toks=8117]
+15 08:52:03.287 23.4 step[DRAFT bs=3 toks=8117]
+16 08:52:03.385 224.6 step[EXTEND bs=2 toks=8147]
+17 08:52:03.611 21.7 step[DRAFT bs=2 toks=8147]
+18 08:52:03.744 203.0 step[EXTEND bs=3 toks=8103]
+19 08:52:03.948 18.8 step[DRAFT bs=3 toks=8103]
+20 08:52:04.096 210.7 step[EXTEND bs=1 toks=8192]
+21 08:52:04.307 22.3 step[DRAFT bs=1 toks=8192]
+22 08:52:04.434 227.9 step[EXTEND bs=2 toks=8191]
+23 08:52:04.663 22.5 step[DRAFT bs=2 toks=8191]
+24 08:52:04.766 243.5 step[EXTEND bs=2 toks=8190]
+25 08:52:05.011 27.1 step[DRAFT bs=2 toks=8190]
+26 08:52:05.103 216.9 step[EXTEND bs=1 toks=8192]
+27 08:52:05.320 23.3 step[DRAFT bs=1 toks=8192]
+28 08:52:05.473 218.5 step[EXTEND bs=1 toks=8192]
+29 08:52:05.692 23.7 step[DRAFT bs=1 toks=8192]
+30 08:52:05.814 218.9 step[EXTEND bs=1 toks=8192]
+31 08:52:06.034 24.3 step[DRAFT bs=1 toks=8192]
+32 08:52:06.142 236.9 step[EXTEND bs=2 toks=8140]
+33 08:52:06.380 24.9 step[DRAFT bs=2 toks=8140]
+34 08:52:06.449 234.4 step[EXTEND bs=3 toks=8086]
+35 08:52:06.685 24.0 step[DRAFT bs=3 toks=8086]
+36 08:52:55.776 218.5 step[EXTEND bs=2 toks=8192]
+37 08:52:55.995 23.9 step[DRAFT bs=2 toks=8192]
+38 08:53:41.957 205.0 step[EXTEND bs=3 toks=8192]
+39 08:53:42.163 21.2 step[DRAFT bs=3 toks=8192]
+batches 20
+b00 dur 231.4 maxkernel 5.4 ms toks 8150
+b01 dur 216.2 maxkernel 5.5 ms toks 8192
+b02 dur 220.5 maxkernel 5.8 ms toks 8192
+b03 dur 355.2 maxkernel 308.9 ms toks 8150
+b04 dur 535.6 maxkernel 493.0 ms toks 8092
+b05 dur 482.5 maxkernel 436.6 ms toks 8137
+b06 dur 521.9 maxkernel 473.6 ms toks 8053
+b07 dur 254.4 maxkernel 5.7 ms toks 8117
+b08 dur 247.5 maxkernel 5.6 ms toks 8147
+b09 dur 223.0 maxkernel 5.2 ms toks 8103
+b10 dur 233.4 maxkernel 5.7 ms toks 8192
+b11 dur 251.6 maxkernel 5.7 ms toks 8191
+b12 dur 271.7 maxkernel 5.8 ms toks 8190
+b13 dur 240.6 maxkernel 5.9 ms toks 8192
+b14 dur 242.6 maxkernel 6.0 ms toks 8192
+b15 dur 243.7 maxkernel 5.8 ms toks 8192
+b16 dur 263.0 maxkernel 5.8 ms toks 8140
+b17 dur 259.6 maxkernel 5.7 ms toks 8086
+b18 dur 243.6 maxkernel 5.8 ms toks 8192
+b19 dur 227.3 maxkernel 5.5 ms toks 8192
+total kernel ms per clean batch (all streams, by start inside step) 239.47
+  103.03 ms/b n/b=  19.0 {6: 209} _sparse_mla_fwd_split_dim_kernel
+   23.32 ms/b n/b=  18.0 {6: 198} mfma_moe#_silu_mul_afp#_wfp#_fp#_t#x#x#_pm#_fp#q_sort_async_v#out_v#
+   20.36 ms/b n/b=  25.0 {6: 275} Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT#x#x#_MI#x#x#_CMS_SN_LDSB#_AFC#_AFEM#_AFEM#_ASEM#_CLR#_CADS#_DT
+   19.92 ms/b n/b=  18.0 {6: 198} gemm#_a#w#_port_hmax#_imax#_bm#_bn#_bk#_atomic_persist_cu#_bhoist_apf_spart#x#_bf#lds_v#_biasabi#
+   15.72 ms/b n/b=  36.0 {6: 396} _batched_gemm_a#w#_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_#_BLOCK_SIZE_M_#_BLOC
+   12.72 ms/b n/b=  12.3 {6: 135} _gluon_fp#_mqa_logits_kernel_NUM_HEADS_#_HEAD_SIZE_#_BLOCK_KV_#_NUM_WARPS_#_NUM_BUFFERS_#_NUM_CHAINS_#_USE_BUF
+   12.34 ms/b n/b=  19.0 {6: 209} _gemm_a#_w#_kernel_BLOCK_SIZE_M_#_BLOCK_SIZE_N_#_BLOCK_SIZE_K_#_GROUP_SIZE_M_#_NUM_KSPLIT_#_SPLITK_BLOCK_SIZE_
+    8.07 ms/b n/b=   2.0 {6: 22} _ZN#ck#kernel_moe_gemm_#ldsINS_#GridwiseMoeGemmINS_#tensor_layout#gemm#RowMajorENS#_#ColumnMajorENS_#TupleIJS#
+    6.15 ms/b n/b=  28.0 {6: 308} Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT#x#x#_MI#x#x#_SN_LDSB#_AFC#_AFEM#_AFEM#_ASEM#_CLR#_CADS#_DTLA#_
+    4.19 ms/b n/b=   9.8 {6: 108} void sglang::topk_packed_kernel<false>(sglang::TopKPackedParams)
+    3.41 ms/b n/b=  19.0 {6: 209} _fused_qk_rope_cat_and_cache_mla_kernel_QH_#_KH_#_QH_PER_KH_#_BLOCK_D_nope_#_BLOCK_D_pe_#_BLOCK_D_HALF_pe_#_BL
+    2.46 ms/b n/b=  42.0 {6: 462} _ZN#aiter#add_rmsnorm_quant_kernelIDF#bDF#bLi#ELi#ELb#ELb#ELb#ELi#ELb#EEEvPT#_PT_PfS#_S#_S#_dbiiiiiiibb
+    1.45 ms/b n/b=   2.5 {6: 27} void sgl::dsa_topk::coop_topk_kernel<#u, #u, #u, #u>(sgl::dsa_topk::CoopParams<#u>)
+    1.00 ms/b n/b=  19.0 {6: 209} hgemm_bf#_t#x#x#x#_ks#_w#x#x#_gm#_bias#_lnt_pft_#
+    0.69 ms/b n/b=  38.0 {6: 418} void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P#<aiter::MoeSortingProblemMp<int, float,
+    0.56 ms/b n/b=  10.0 {6: 110} void fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<#, #, c#::BFloat#> >(HadamardParamsB
+    0.36 ms/b n/b=  18.0 {6: 198} _ZN#aiter#dynamic_per_group_scaled_quant_kernelIDF#bN#opus#fp#_tELi#ELi#ELb#ELi#ELb#ELb#ELi#ELb#ELb#ELb#ELb#EL
+    0.35 ms/b n/b=  19.0 {6: 209} _ZN#aiter#fused_qk_rmsnorm_kernelIDF#bLi#ELi#ELb#ELi#EEEvPT_S#_PKS#_S#_S#_S#_ffiiiiiii
+    0.24 ms/b n/b=  38.0 {6: 418} void at::native::vectorized_elementwise_kernel<#, at::native::FillFunctor<int>, std::array<char*, #ul> >(int, 
+    0.22 ms/b n/b=  37.3 {6: 410} void rocprim::ROCPRIM_#_NS::detail::trampoline_kernel<rocprim::ROCPRIM_#_NS::detail::wrapped_scan_config<rocpr
+    0.22 ms/b n/b=   5.0 {6: 55} hgemm_bf#_t#x#x#x#_ksd_w#x#x#_gm#_bias#_lnt_pft_#
+    0.21 ms/b n/b=  18.0 {6: 198} void aiter::mxfp#_moe_sort_kernel<#, #, #, #>(unsigned char*, unsigned char*, int const*, int const*, int, int
+    0.19 ms/b n/b=   0.5 {6: 5} void at::native::tensor_kernel_scan_innermost_dim<float, std::plus<float> >(float*, float const*, unsigned int
+    0.18 ms/b n/b=  19.0 {6: 209} void aiter::topk_reg_kernel<hip_bfloat#, #, true, false, true>(hip_bfloat#*, hip_bfloat# const*, float*, int*,
+    0.18 ms/b n/b=   6.3 {6: 69} void at::native::(anonymous namespace)::CatArrayBatchedCopy_contig<at::native::(anonymous namespace)::OpaqueTy
+    0.18 ms/b n/b=  25.4 {6: 279} void at::native::elementwise_kernel_manual_unroll<#, #, at::native::gpu_kernel_impl<at::native::direct_copy_ke
+    0.17 ms/b n/b=  20.7 {6: 228} void rocprim::ROCPRIM_#_NS::detail::trampoline_kernel<rocprim::ROCPRIM_#_NS::detail::wrapped_merge_sort_block_
+    0.15 ms/b n/b=   5.0 {6: 55} act_quant_kernel__kernel
+    0.13 ms/b n/b=   5.0 {6: 55} _ZN#ck_tile#kentryILi#ENS_#Layernorm#dFwdINS_#Layernorm#dFwdPipelineOnePassINS_#Layernorm#dFwdPipelineProblemI
+    0.11 ms/b n/b=   5.0 {6: 55} void aiter::kn_entry_#c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, #, true, false, true, true, #, true, 
+    0.10 ms/b n/b=  19.0 {6: 209} _fused_append_shared_experts_kernel
+    0.10 ms/b n/b=  19.0 {6: 209} void aiter::opus_moe_sorting_entry<aiter::MoeSortingClearWorkspaceKernel<aiter::MoeSortingClearWorkspaceProble
+    0.10 ms/b n/b=  19.0 {6: 209} void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P#_v#<aiter::MoeSortingProblemMp<int, flo
+    0.07 ms/b n/b=  12.4 {6: 136} void at::native::_scatter_gather_elementwise_kernel<#, #, at::native::_cuda_scatter_gather_internal_kernel<fal
+    0.07 ms/b n/b=  12.1 {6: 133} void rocprim::ROCPRIM_#_NS::detail::init_lookback_scan_state_kernel<rocprim::ROCPRIM_#_NS::detail::lookback_sc
+    0.06 ms/b n/b=   5.0 {6: 55} void aiter::cp_gather_indexer_k_quant_cache_kernel<#, #>(char const*, char*, char*, int const*, int const*, in
+    0.06 ms/b n/b=   1.0 {6: 11} void at::native::(anonymous namespace)::cunn_SoftMaxForwardGmem<#, float, float, float, at::native::(anonymous
+    0.06 ms/b n/b=  11.4 {6: 125} void compute_cuda_kernel<int>(int const*, long const*, int*, long, long)
+    0.05 ms/b n/b=   1.0 {6: 11} transform_index_page_table_prefill_kernel
+    0.05 ms/b n/b=   3.0 {6: 33} void at::native::reduce_kernel<#, #, at::native::ReduceOp<float, at::native::func_wrapper_t<float, at::native:
+    0.05 ms/b n/b=   9.5 {6: 105} void (anonymous namespace)::elementwise_kernel_with_index<int, at::native::arange_cuda_out(c#::Scalar const&, 
+    0.04 ms/b n/b=   5.6 {6: 62} void at::native::index_elementwise_kernel<#, #, at::native::gpu_index_kernel<at::native::index_kernel_impl<at:
+    0.04 ms/b n/b=   2.4 {6: 26} void at::native::vectorized_gather_kernel<#, long>(char*, char*, long*, int, long, long, long, long, bool)
+    0.03 ms/b n/b=   6.0 {6: 66} void at::native::vectorized_elementwise_kernel<#, at::native::CUDAFunctorOnSelf_add<long>, std::array<char*, #
+    0.03 ms/b n/b=   1.0 {6: 11} void at::native::reduce_kernel<#, #, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, l
+    0.03 ms/b n/b=   5.0 {6: 55} _ZN#aiter#indexer_k_quant_and_cache_kernelIDF#bDB#_LN#vllm#Fp#KVCacheDataTypeE#ELi#ELi#EEEvPKT_PT#_PKliiiiibb
+    0.03 ms/b n/b=   5.0 {6: 55} triton_poi_fused_mul_unsqueeze_#
+    0.02 ms/b n/b=   1.5 {6: 16} void rocprim::ROCPRIM_#_NS::detail::trampoline_kernel<rocprim::ROCPRIM_#_NS::detail::wrapped_radix_sort_block_
+    0.01 ms/b n/b=   3.3 {6: 36} void at::native::vectorized_elementwise_kernel<#, at::native::CUDAFunctor_add<int>, std::array<char*, #ul> >(i
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::elementwise_kernel_manual_unroll<#, #, at::native::gpu_kernel_impl<at::native::(anonymous nam
+    0.01 ms/b n/b=   2.0 {6: 22} void at::native::vectorized_elementwise_kernel<#, at::native::compare_scalar_kernel<float>(at::TensorIteratorB
+    0.01 ms/b n/b=   2.0 {6: 22} void at::native::vectorized_elementwise_kernel<#, at::native::bfloat#tofloat#_copy_kernel_cuda(at::TensorItera
+    0.01 ms/b n/b=   2.0 {6: 22} void at::native::vectorized_elementwise_kernel<#, at::native::(anonymous namespace)::masked_fill_kernel(at::Te
+    0.01 ms/b n/b=   2.0 {6: 22} void at::native::_assert_async_cuda_kernel<bool>(bool const*, at::native::Msg)
+    0.01 ms/b n/b=   2.0 {6: 22} void at::native::vectorized_elementwise_kernel<#, at::native::FillFunctor<float>, std::array<char*, #ul> >(int
+    0.01 ms/b n/b=   2.0 {6: 22} _small_copy_kernel
+    0.01 ms/b n/b=   2.0 {6: 22} void at::native::vectorized_elementwise_kernel<#, at::native::BUnaryFunctor<int, int, int, at::native::binary_
+    0.01 ms/b n/b=   2.0 {6: 22} void at::native::vectorized_elementwise_kernel<#, at::native::(anonymous namespace)::launch_clamp_scalar(at::T
+    0.01 ms/b n/b=   1.4 {6: 15} void rocprim::ROCPRIM_#_NS::detail::trampoline_kernel<rocprim::ROCPRIM_#_NS::detail::wrapped_transform_config<
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::elementwise_kernel_manual_unroll<#, #, at::native::gpu_kernel_impl_nocast<at::native::(anonym
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::(anonymous namespace)::distribution_elementwise_grid_stride_kernel<float, #, at::native::temp
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::vectorized_elementwise_kernel<#, at::native::BinaryFunctor<float, float, float, at::native::b
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::vectorized_elementwise_kernel<#, at::native::AUnaryFunctor<float, float, bool, at::native::(a
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::vectorized_elementwise_kernel<#, at::native::BinaryFunctor<bool, bool, bool, at::native::Bitw
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::elementwise_kernel_manual_unroll<#, #, at::native::gpu_kernel_impl_nocast<at::native::BinaryF
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::vectorized_elementwise_kernel<#, at::native::FillFunctor<long>, std::array<char*, #ul> >(int,
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::vectorized_elementwise_kernel<#, at::native::bitwise_not_kernel_cuda(at::TensorIteratorBase&)
+    0.01 ms/b n/b=   1.0 {6: 11} void at::native::vectorized_elementwise_kernel<#, at::native::CUDAFunctor_add<float>, std::array<char*, #ul> >
+    0.01 ms/b n/b=   1.0 {6: 11} compute_position_kernel
+    0.00 ms/b n/b=   0.5 {6: 6} at::native::(anonymous namespace)::fill_reverse_indices_kernel(long*, int, at::cuda::detail::IntDivider<unsign
+    0.00 ms/b n/b=   0.5 {6: 5} void at::native::reduce_kernel<#, #, at::native::ReduceOp<bool, at::native::func_wrapper_t<bool, at::native::o
+    0.00 ms/b n/b=   0.5 {6: 5} void at::native::(anonymous namespace)::sort_postprocess_kernel<float>(float const*, float*, long*, HIP_vector
+    0.00 ms/b n/b=   0.5 {6: 5} at::native::(anonymous namespace)::fill_index_and_segment_kernel(HIP_vector_type<int, #u>*, int, at::cuda::det

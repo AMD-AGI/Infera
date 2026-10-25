@@ -1,0 +1,35 @@
+dur 45.7 ms
+    /sgl-workspace/sglang/python/sglang/srt/managers/data_parallel_controller.py(917): run_scheduler_process_with_init_pipe 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(6235): run_scheduler_process 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(1957): run_event_loop 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(6082): dispatch_event_loop 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(6112): _dispatch_event_loop_once 2054.50
+    /sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py(3092): event_loop_overlap_disagg_decode 2054.50
+    /sgl-workspace/sglang/python/sglang/srt/observability/scheduler_stage_metrics.py(174): wrapper 50.06
+    /sgl-workspace/sglang/python/sglang/srt/utils/nvtx_utils.py(106): wrapper 50.05
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(4550): run_batch 50.02
+    /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py(1350): forward_batch_generation 49.58
+    /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py(1907): verify 47.94
+    /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_common.py(565): run_eagle_verify 47.93
+    /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_utils.py(523): eagle_prepare_for_verify 46.19
+    /sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py(1364): load_batch 46.07
+    /sgl-workspace/sglang/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py(609): _resolve_attention_variant 45.74
+    /sgl-workspace/sglang/python/sglang/srt/layers/attention/graph_variants.py(32): select 45.74
+    aten::item 45.72
+    aten::_local_scalar_dense 45.72
+dur 43.2 ms
+    /sgl-workspace/sglang/python/sglang/srt/managers/data_parallel_controller.py(917): run_scheduler_process_with_init_pipe 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(6235): run_scheduler_process 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(1957): run_event_loop 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(6082): dispatch_event_loop 2054.51
+    /sgl-workspace/sglang/python/sglang/srt/managers/scheduler.py(6112): _dispatch_event_loop_once 2054.50
+    /sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py(3092): event_loop_overlap_disagg_decode 2054.50
+    /sgl-workspace/sglang/python/sglang/srt/observability/scheduler_stage_metrics.py(174): wrapper 45.67
+    /sgl-workspace/sglang/python/sglang/srt/utils/nvtx_utils.py(106): wrapper 45.67
+    /sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py(3150): get_next_disagg_decode_batch_to_run 45.62
+    /sgl-workspace/sglang/python/sglang/srt/disaggregation/decode.py(3183): get_new_prebuilt_batch 44.21
+    /sgl-workspace/sglang/python/sglang/srt/disaggregation/decode_schedule_batch_mixin.py(111): process_prebuilt 43.82
+    /sgl-workspace/sglang/python/sglang/srt/speculative/spec_info.py(201): build_disagg_draft_input 43.77
+    /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_disaggregation.py(50): build_eagle_disagg_draft_input 43.77
+    aten::item 43.24
+    aten::_local_scalar_dense 43.24

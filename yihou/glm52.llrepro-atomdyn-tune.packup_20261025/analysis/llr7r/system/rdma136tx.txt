@@ -1,0 +1,9 @@
+# ../../trace_llr7r.yihou/probe.crsuse2-m2m-136.rdma1s col=tx line=50 GB/s; rates GB/s per sample interval
+ionic_0 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0
+ionic_1 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0
+ionic_2 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0
+ionic_3 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0
+ionic_4 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0
+ionic_5 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0
+ionic_6 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0
+ionic_7 n=119 dur=133.6s total=0.0GB mean=0.00 p50=0.00 p90=0.00 max=0.00 >50%=0.000 >80%=0.000 zero(<0.01)=1.000 d_retx=0 d_acktmo=0

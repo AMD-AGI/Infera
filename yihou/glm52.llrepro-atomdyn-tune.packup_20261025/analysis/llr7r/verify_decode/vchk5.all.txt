@@ -1,0 +1,4 @@
+TP-0 n=40 verify-graph upper bound (first same-stream post kernel start - launch call start) ms p10/p50/p90/mean 41.32 42.29 44.04 42.51 ; post-verify..de-graph ms p50 0.253 ; window(d1->de graph) p50 43.05 ; period mean 50.49 ; ub share 0.842
+TP-1 n=40 verify-graph upper bound (first same-stream post kernel start - launch call start) ms p10/p50/p90/mean 41.27 42.04 43.98 42.45 ; post-verify..de-graph ms p50 0.252 ; window(d1->de graph) p50 43.08 ; period mean 50.49 ; ub share 0.841
+TP-2 n=40 verify-graph upper bound (first same-stream post kernel start - launch call start) ms p10/p50/p90/mean 41.31 42.26 44.05 42.49 ; post-verify..de-graph ms p50 0.252 ; window(d1->de graph) p50 43.08 ; period mean 50.49 ; ub share 0.842
+TP-3 n=40 verify-graph upper bound (first same-stream post kernel start - launch call start) ms p10/p50/p90/mean 41.31 42.28 44.05 42.49 ; post-verify..de-graph ms p50 0.253 ; window(d1->de graph) p50 43.08 ; period mean 50.49 ; ub share 0.842

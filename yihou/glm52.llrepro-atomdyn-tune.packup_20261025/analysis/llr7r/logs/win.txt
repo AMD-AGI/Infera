@@ -1,0 +1,8 @@
+llr7-matched-excl
+span 2100 s n 5812 req/s 2.768 ISL mean 126290 OSL mean 1076 in tok/s/GPU(8) 43690 out tok/s/GPU(8) 372 TTFT p50/p90 5.06/13.88 s ITL mean 16.3 ms
+llr7r-excl
+span 2100 s n 6046 req/s 2.879 ISL mean 121893 OSL mean 1040 in tok/s/GPU(8) 43867 out tok/s/GPU(8) 374 TTFT p50/p90 4.85/13.47 s ITL mean 16.5 ms
+llr7-perturb-equiv
+span 720 s n 2143 req/s 2.976 ISL mean 111587 OSL mean 947 in tok/s/GPU(8) 41516 out tok/s/GPU(8) 352 TTFT p50/p90 3.99/7.73 s ITL mean 14.6 ms
+llr7r-perturb
+span 720 s n 1519 req/s 2.110 ISL mean 112649 OSL mean 954 in tok/s/GPU(8) 29707 out tok/s/GPU(8) 252 TTFT p50/p90 4.11/27.02 s ITL mean 14.9 ms

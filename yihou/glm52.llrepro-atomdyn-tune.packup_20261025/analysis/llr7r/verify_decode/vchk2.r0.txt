@@ -1,0 +1,138 @@
+graph launch kernel-count sequence head [178, 0, 58, 178, 0, 58, 178, 0, 58, 178, 0, 54]
+steps 40 draft kernels/launch Counter({178: 40}) de kernels/launch Counter({54: 37, 58: 3})
+GPU events strictly inside verify windows (all steps): n 1475 sum ms 10.980 [('void at::native::vectorized_elementwise_kernel<4, at::native::FillFunc', 434), ('void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::', 249), ('Memcpy DtoD (Device -> Device)', 197), ('void at::native::index_elementwise_kernel<128, 4, at::native::gpu_inde', 144), ('Memcpy HtoD (Host -> Device)', 72), ('void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at:', 40), ('void sglang::speculative::VerifyTreeGreedy<int, long>(int*, int*, int*', 40), ('void (anonymous namespace)::elementwise_kernel_with_index<int, at::nat', 40)]
+events between draft end and verify graph launch: 0 []
+period p50 50.93 mean 50.49; verify window p50 42.95 mean 43.32; share 0.858
+draft span p50 4.100 de span p50 2.219
+vl0-d1 p50 0.557 mean 0.566 min 0.488
+get_next_batch syncs >1ms: [40.3, 40.9, 40.5, 43.2]
+  step 1 gap 3.38 ms ; get_next syncs ending near de end (rel ms) []
+  step 2 gap 3.55 ms ; get_next syncs ending near de end (rel ms) []
+  step 5 gap 2.89 ms ; get_next syncs ending near de end (rel ms) [0.27]
+  step 6 gap 2.75 ms ; get_next syncs ending near de end (rel ms) [0.27]
+  step 20 gap 3.11 ms ; get_next syncs ending near de end (rel ms) [0.26]
+  step 22 gap 3.30 ms ; get_next syncs ending near de end (rel ms) []
+  step 26 gap 2.92 ms ; get_next syncs ending near de end (rel ms) [0.26]
+gap>1ms count 7 sum of big/step 0.561 small/step 0.248
+graph kernel sum per step ms: draft 4.123 de 2.211
+  D  1.4055   4.0  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_S5_S4_EEES4_DF16bDF16bffNS6_IJfffEEEDF16
+  D  0.6601   4.0  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_S5_S4_EEES4_DF16bDF16bffNS6_IJfffEEEDF16
+  E  0.4993   0.9  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_S5_S4_EEES4_DF16bDF16bffNS6_IJfffEE
+  D  0.3722  12.0  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+  E  0.2826   0.9  _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_S5_S4_EEES4_DF16bDF16bffNS6_IJfffEE
+  E  0.2826   1.0  _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+  D  0.2741   2.4  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x48x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  E  0.2571   3.0  ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+  E  0.1877   0.9  sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2048u>)
+  D  0.1802   1.6  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x64x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  D  0.1406   4.0  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x16x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  D  0.1282   4.0  hgemm_bf16_t16x96x64x5_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+  E  0.1059   0.9  _sparse_mla_fwd_split_dim_kernel
+  D  0.0886   4.0  _sparse_mla_decode_split_kernel
+  D  0.0846   4.0  _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6SignalEPT_ii
+  E  0.0685   0.6  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x48x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  D  0.0637   4.0  _gemm_a16_w16_kernel_BLOCK_SIZE_M_16_BLOCK_SIZE_N_16_BLOCK_SIZE_K_256_GROUP_SIZE_M_1_NUM_KSPLIT_1_SPLITK_BLOCK_SIZE_2048_EVEN_K_1_EVEN_MN_0_cache_modi
+  D  0.0521  12.0  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+  E  0.0493   1.0  _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6SignalEPT_ii
+  E  0.0488   0.9  hgemm_bf16_t64x128x64x4_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+  E  0.0450   0.4  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x64x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  D  0.0434   4.0  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x16x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  D  0.0434   4.0  at::native::(anonymous namespace)::indexSelectSmallIndex<c10::BFloat16, long, unsigned int, 2, 2, -2>(at::cuda::detail::TensorInfo<c10::BFloat16, unsi
+  E  0.0388   0.1  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_S5_S4_EEES4_DF16bDF16bffNS6_IJfffEEEDF16
+  D  0.0366   8.0  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+  D  0.0338   8.0  rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_scan_config<rocprim::ROCPRIM_400200_NS::default_conf
+  D  0.0336   8.0  at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda
+  D  0.0327   4.0  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x16x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM1
+  D  0.0290   4.0  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU16_VW4
+  D  0.0260   4.0  at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::
+  D  0.0221   4.0  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char
+  D  0.0220   4.0  at::native::(anonymous namespace)::CatArrayBatchedCopy_contig<at::native::(anonymous namespace)::OpaqueType<2u>, unsigned int, 2, 128, 1>(at::native::
+  D  0.0218   4.0  at::native::vectorized_elementwise_kernel<4, at::native::bfloat16tofloat32_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda(c10::BFloat16)#1}, std::
+  D  0.0215   2.1  hgemm_bf16_t16x64x128x3_ksd_w1x4x1_gm0_bias0_lnt_pft_0
+  D  0.0213   4.0  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsigned long, unsigned long, int, int, i
+  E  0.0211   0.5  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x80x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  E  0.0210   0.9  hgemm_bf16_t128x64x64x4_ks1_w4x1x2_gm4_bias0_lnt_pft_0
+  E  0.0203   0.4  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x96x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  D  0.0201   1.9  hgemm_bf16_t16x64x128x3_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+  D  0.0200   4.0  _sparse_mla_reduce_kernel
+  D  0.0195   4.0  aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, int, 1, false, false, true> >, aiter::MoeSo
+  E  0.0189   0.1  _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_S5_S4_EEES4_DF16bDF16bffNS6_IJfffEEEDF16
+  D  0.0186   4.0  _fused_qk_rope_cat_and_cache_mla_kernel_QH_64_KH_1_QH_PER_KH_64_BLOCK_D_nope_512_BLOCK_D_pe_64_BLOCK_D_HALF_pe_32_BLOCK_SIZE_1_REUSE_FREQS_FRONT_PART_
+  D  0.0182   4.0  _draft_topk1_partial_argmax_kernel
+  D  0.0182   4.0  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+  D  0.0181   4.0  at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul> >(int, at::native::FillFunctor<c10::BFloat
+  D  0.0180   4.0  _draft_topk1_finalize_kernel
+  D  0.0178   4.0  memcpy_triton_kernel
+  D  0.0171   4.0  aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, float, int, 1, false, false, true> >, aiter::Moe
+  D  0.0170   4.0  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::array<char*, 1ul> >(int, at::native::FillFunctor<float>, std::array<
+  D  0.0169   4.0  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<long>, std::array<char*, 1ul> >(int, at::native::FillFunctor<long>, std::array<ch
+  D  0.0169   4.0  _fused_append_shared_experts_kernel
+  D  0.0164   4.0  _small_copy_kernel
+  D  0.0143   2.4  hgemm_bf16_t16x32x64x8_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+  E  0.0135   3.0  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+  E  0.0103   2.0  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+  D  0.0102   1.6  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+  E  0.0096   1.0  aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 1, true, hip_bfloat16, hip_bfloat16, long>(hip_bfloat1
+  E  0.0092   0.9  hgemm_bf16_t32x64x128x4_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+  E  0.0089   2.0  at::native::vectorized_gather_kernel<16, long>(char*, char*, long*, int, long, long, long, long, bool)
+  E  0.0088   0.6  hgemm_bf16_t64x64x64x6_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+  E  0.0087   2.0  fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)
+  E  0.0087   2.0  at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda
+  E  0.0087   2.0  rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_scan_config<rocprim::ROCPRIM_400200_NS::default_conf
+  E  0.0076   0.5  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x80x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  E  0.0067   0.1  _sparse_mla_fused_kernel
+  E  0.0067   1.0  at::native::elementwise_kernel_manual_unroll<128, 8, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::
+  E  0.0061   0.4  hgemm_bf16_t96x64x64x5_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+  E  0.0060   0.5  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x80x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM1
+  E  0.0057   1.0  aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, int, 1, false, false, true> >, aiter::MoeSo
+  E  0.0057   1.0  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native::FillFunctor<int>, std::array<char
+  E  0.0057   0.9  hgemm_bf16_t16x32x128x7_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+  E  0.0057   0.4  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x96x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM1
+  E  0.0055   1.0  aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsigned long, unsigned long, int, int, i
+  E  0.0054   1.0  _fused_qk_rope_cat_and_cache_mla_kernel_QH_64_KH_1_QH_PER_KH_64_BLOCK_D_nope_512_BLOCK_D_pe_64_BLOCK_D_HALF_pe_32_BLOCK_SIZE_1_REUSE_FREQS_FRONT_PART_
+  E  0.0053   1.0  act_quant_kernel__kernel
+  E  0.0053   1.0  at::native::(anonymous namespace)::CatArrayBatchedCopy_contig<at::native::(anonymous namespace)::OpaqueType<2u>, unsigned int, 2, 128, 1>(at::native::
+  E  0.0052   0.5  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU16_VW4
+  E  0.0051   1.0  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF16bDF16bDF16bfDF16bDF16bDF16bf
+  E  0.0049   1.0  aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v2<aiter::MoeSortingProblemMp<int, float, int, 1, false, false, true> >, aiter::Moe
+  D  0.0048   1.0  at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl_nocast<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::
+  E  0.0048   0.9  hgemm_bf16_t16x32x128x6_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+  E  0.0048   1.0  at::native::vectorized_elementwise_kernel<8, at::native::FillFunctor<c10::BFloat16>, std::array<char*, 1ul> >(int, at::native::FillFunctor<c10::BFloat
+  E  0.0047   0.5  hgemm_bf16_t64x32x128x4_ks1_w4x1x1_gm4_bias0_lnt_pft_0
+  E  0.0046   1.0  memcpy_triton_kernel
+  E  0.0046   1.0  at::native::vectorized_elementwise_kernel<4, at::native::bfloat16tofloat32_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda(c10::BFloat16)#1}, std::
+  E  0.0046   1.0  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi1EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii
+  E  0.0046   1.0  _ZN5aiter32indexer_k_quant_and_cache_kernelIDF16bDB8_LN4vllm18Fp8KVCacheDataTypeE1ELi8ELi16EEEvPKT_PT0_PKliiiiibb
+  E  0.0045   1.0  triton_poi_fused_mul_unsqueeze_0
+  E  0.0044   1.0  _fused_append_shared_experts_kernel
+  E  0.0043   1.0  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<long>, std::array<char*, 1ul> >(int, at::native::FillFunctor<long>, std::array<ch
+  E  0.0043   1.0  at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<float>, std::array<char*, 1ul> >(int, at::native::FillFunctor<float>, std::array<
+  E  0.0042   1.0  __amd_rocclr_copyBuffer
+  E  0.0042   0.4  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x96x64_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AFEM1_ASEM1_CLR0_CADS0_DTLA1_DTLB1_DTVA0_DTVB0_EPS0_FDSI0_GRPM1
+  E  0.0039   0.1  sgl::dsa_topk::coop_mb_scatter<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopMbParams<2048u>, unsigned int)
+  E  0.0037   0.4  hgemm_bf16_t48x32x128x5_ks1_w1x2x2_gm4_bias0_lnt_pft_0
+  E  0.0037   0.1  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x64x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM
+  D  0.0036   1.0  at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctorOnSelf_add<long>, std::array<char*, 2ul> >(int, at::native::CUDAFunctorOnSelf_add<
+  E  0.0032   0.1  hgemm_bf16_t96x64x128x2_ksd_w2x2x2_gm0_bias0_lnt_pft_0
+  E  0.0027   0.1  sgl::dsa_topk::coop_mb_hist0<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopMbParams<2048u>, unsigned int)
+  E  0.0024   0.5  Cijk_SB_BiasS_HAS_ScaleAlphaVec_PostGSU8_VW4
+  E  0.0023   0.1  _gemm_a16_w16_kernel_BLOCK_SIZE_M_64_BLOCK_SIZE_N_32_BLOCK_SIZE_K_256_GROUP_SIZE_M_4_NUM_KSPLIT_1_SPLITK_BLOCK_SIZE_2048_EVEN_K_1_EVEN_MN_0_cache_modi
+  E  0.0010   0.1  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x64x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM1
+  E  0.0008   0.1  sgl::dsa_topk::coop_mb_refine<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopMbParams<2048u>)
+  E  0.0007   0.1  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT128x64x64_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB0_DTVA0_DTVB0_EPS0_FDSI0_GRPM1
+  E  0.0007   0.1  hgemm_bf16_t32x64x128x4_ksd_w1x4x1_gm0_bias0_lnt_pft_0
+  E  0.0004   0.1  sgl::dsa_topk::coop_mb_hist1<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopMbParams<2048u>, unsigned int)
+  E  0.0004   0.1  hgemm_bf16_t32x32x128x6_ksd_w2x2x1_gm0_bias0_lnt_pft_0
+  E  0.0004   0.1  hgemm_bf16_t16x32x128x4_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+  E  0.0003   0.1  __amd_rocclr_fillBufferAligned
+non-graph kernels total ms/step 0.548
+   0.0959 Memcpy DtoD (Device -> Device)
+   0.0487 void sglang::fused_metadata_copy_multi_kernel<true, false>(sglang::FusedMetadataCopyMultiP
+   0.0481 void at::native::index_elementwise_kernel<128, 4, at::native::gpu_index_kernel<at::native:
+   0.0471 void at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<f
+   0.0470 void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array
+   0.0465 _fused_dsa_draft_extend_metadata_kernel
+   0.0426 _fused_dsa_decode_metadata_kernel
+   0.0365 void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::
+   0.0233 void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<long>, std::arra
+   0.0215 Memcpy HtoD (Host -> Device)

@@ -1,0 +1,220 @@
+file ../../trace_llr7r.yihou/prefill_early/llr7r-prefill-1792831917.2129517-TP-0-PP-3.trace.json.gz
+launch tids [(747, 47612), (1194, 1270)] main 747
+streams busy ms {5: 278.3, 10: 876.3, 14: 0.7, 16: 143.4, 6: 8621.7, 15: 0.6, 17: 35.5} compute stream 6
+n steps 40
+STALL excluded 08:52:06.709 -> 08:52:55.776 (49.1 s)
+STALL excluded 08:52:56.019 -> 08:53:41.957 (45.9 s)
+window 08:51:58.164 -> 08:53:42.185 span 104020.9 ms, excl stalls 9015.8 ms
+ACTIVE window 9015.8 ms: GPU busy(any stream, incl memcpy+nccl) 71.7%, excl nccl 66.6%, compute-kernels only (no memcpy, no nccl, all streams) 64.2%, compute stream 6 (incl its memcpy) 64.2%
+
+# per step: utc_start gpu_ms bs toks kernel_busy_ms(non-nccl kernels, any stream) gap_before_ms cpu_launch_ms
+08:51:58.164    211.1 bs=2 toks=8150 busy=209.1 gap_before=nan cpu_launch=50.3
+08:51:58.376     19.1 bs=2 toks=8150 busy=19.1 gap_before=1.2 cpu_launch=nan
+08:51:58.462    196.4 bs=1 toks=8192 busy=196.3 gap_before=66.9 cpu_launch=46.1
+08:51:58.659     19.2 bs=1 toks=8192 busy=19.2 gap_before=0.5 cpu_launch=nan
+08:51:58.783    200.7 bs=1 toks=8192 busy=200.6 gap_before=104.3 cpu_launch=45.6
+08:51:58.984     19.3 bs=1 toks=8192 busy=19.3 gap_before=0.4 cpu_launch=nan
+08:52:01.125    355.2 bs=2 toks=8150 busy=353.5 gap_before=2122.2 cpu_launch=50.5
+08:52:01.344     20.4 bs=2 toks=8150 busy=20.4 gap_before=-136.6 cpu_launch=nan
+08:52:01.484    535.6 bs=4 toks=8092 busy=533.8 gap_before=119.7 cpu_launch=50.7
+08:52:01.710     22.4 bs=4 toks=8092 busy=22.4 gap_before=-309.1 cpu_launch=nan
+08:52:02.032    482.5 bs=3 toks=8137 busy=480.7 gap_before=299.3 cpu_launch=56.5
+08:52:02.264     23.8 bs=3 toks=8137 busy=23.8 gap_before=-250.7 cpu_launch=nan
+08:52:02.535    521.9 bs=5 toks=8053 busy=519.9 gap_before=247.0 cpu_launch=59.8
+08:52:02.764     24.6 bs=5 toks=8053 busy=24.6 gap_before=-292.9 cpu_launch=nan
+08:52:03.056    229.8 bs=3 toks=8117 busy=228.2 gap_before=267.3 cpu_launch=52.2
+08:52:03.287     23.4 bs=3 toks=8117 busy=23.3 gap_before=1.2 cpu_launch=nan
+08:52:03.385    224.6 bs=2 toks=8147 busy=222.8 gap_before=75.3 cpu_launch=51.0
+08:52:03.611     21.7 bs=2 toks=8147 busy=21.7 gap_before=1.2 cpu_launch=nan
+08:52:03.744    203.0 bs=3 toks=8103 busy=202.8 gap_before=111.0 cpu_launch=49.0
+08:52:03.948     18.8 bs=3 toks=8103 busy=18.7 gap_before=1.2 cpu_launch=nan
+08:52:04.096    210.7 bs=1 toks=8192 busy=210.5 gap_before=128.7 cpu_launch=49.3
+08:52:04.307     22.3 bs=1 toks=8192 busy=22.2 gap_before=0.5 cpu_launch=nan
+08:52:04.434    227.9 bs=2 toks=8191 busy=226.2 gap_before=105.0 cpu_launch=50.2
+08:52:04.663     22.5 bs=2 toks=8191 busy=22.4 gap_before=1.2 cpu_launch=nan
+08:52:04.766    243.5 bs=2 toks=8190 busy=241.6 gap_before=80.6 cpu_launch=53.4
+08:52:05.011     27.1 bs=2 toks=8190 busy=27.0 gap_before=1.1 cpu_launch=nan
+08:52:05.103    216.9 bs=1 toks=8192 busy=216.7 gap_before=64.9 cpu_launch=47.1
+08:52:05.320     23.3 bs=1 toks=8192 busy=23.2 gap_before=0.5 cpu_launch=nan
+08:52:05.473    218.5 bs=1 toks=8192 busy=218.3 gap_before=129.7 cpu_launch=47.6
+08:52:05.692     23.7 bs=1 toks=8192 busy=23.6 gap_before=0.4 cpu_launch=nan
+08:52:05.814    218.9 bs=1 toks=8192 busy=218.7 gap_before=98.8 cpu_launch=50.1
+08:52:06.034     24.3 bs=1 toks=8192 busy=24.2 gap_before=0.5 cpu_launch=nan
+08:52:06.142    236.9 bs=2 toks=8140 busy=235.1 gap_before=84.2 cpu_launch=50.6
+08:52:06.380     24.9 bs=2 toks=8140 busy=24.8 gap_before=1.2 cpu_launch=nan
+08:52:06.449    234.4 bs=3 toks=8086 busy=232.6 gap_before=43.7 cpu_launch=50.6
+08:52:06.685     24.0 bs=3 toks=8086 busy=24.0 gap_before=1.2 cpu_launch=nan
+08:52:55.776    218.5 bs=2 toks=8192 busy=216.7 gap_before=49067.1 (STALL) cpu_launch=48.6
+08:52:55.995     23.9 bs=2 toks=8192 busy=23.9 gap_before=1.2 cpu_launch=nan
+08:53:41.957    205.0 bs=3 toks=8192 busy=203.1 gap_before=45938.1 (STALL) cpu_launch=50.9
+08:53:42.163     21.2 bs=3 toks=8192 busy=21.2 gap_before=1.1 cpu_launch=nan
+step GPU ms p50 196.4 p90 243.5 mean 146.0 max 535.6; toks/step mean 8155; non-stall inter-step gap p50 1.2 p90 129.7 mean 85.8 ms
+time inside step annotations 5841.9 ms = 64.8% of active; gaps 35.2%
+
+# kernel category (sum of durations, active window; per step = /40)
+attn_sparse_mla                          n=   380    2530.9 ms    63.27 ms/step  bytes=0.000 GB
+elementwise/other                        n=  5046    1458.0 ms    36.45 ms/step  bytes=0.000 GB
+moe                                      n=  3760    1057.6 ms    26.44 ms/step  bytes=0.000 GB
+dense_gemm                               n=  1920     817.0 ms    20.43 ms/step  bytes=0.000 GB
+indexer(logits/topk/hadamard/kquant)     n=  1193     801.3 ms    20.03 ms/step  bytes=0.000 GB
+memcpy_HtoD                              n=   127     778.2 ms    19.46 ms/step  bytes=0.008 GB
+attn_misc(rope/cache/bmm/qknorm)         n=  1580     734.1 ms    18.35 ms/step  bytes=0.000 GB
+nccl                                     n=   221     672.5 ms    16.81 ms/step  bytes=0.000 GB
+memcpy_DtoH                              n=   176     564.1 ms    14.10 ms/step  bytes=0.001 GB
+hicache_kernel                           n=   132     162.5 ms     4.06 ms/step  bytes=0.000 GB
+memcpy_DtoD                              n=  1540      94.7 ms     2.37 ms/step  bytes=6.745 GB
+norm                                     n=   940      51.4 ms     1.29 ms/step  bytes=0.000 GB
+rocprim_scan                             n=  1862      11.9 ms     0.30 ms/step  bytes=0.000 GB
+memset                                   n=    52       0.3 ms     0.01 ms/step  bytes=0.000 GB
+
+# launch context (python stack) -> GPU ms (top categories)
+target_fwd          7772.5 ms  attn_sparse_mla=2423.2, elementwise/other=1407.4, moe=895.5, memcpy_HtoD=763.0, dense_gemm=746.2, indexer(logits/topk/hadamard/kquant)=745.5
+pp_comm              673.0 ms  nccl=672.5, elementwise/other=0.5
+kv_send              564.2 ms  memcpy_DtoH=563.8, elementwise/other=0.4
+draft                452.4 ms  moe=162.0, attn_sparse_mla=107.7, dense_gemm=70.8, indexer(logits/topk/hadamard/kquant)=55.8, elementwise/other=42.6, norm=4.9
+hicache_backup       142.7 ms  hicache_kernel=127.1, memcpy_HtoD=15.2, elementwise/other=0.4
+hicache_load         121.7 ms  memcpy_DtoD=86.0, hicache_kernel=35.4, elementwise/other=0.2, memcpy_HtoD=0.1
+other                  8.1 ms  elementwise/other=6.6, memcpy_DtoD=1.2, memcpy_DtoH=0.3
+
+# memcpy/hicache-kernel detail by (kind, stream, cpu_op, python leaf)
+n=   17    763.0 ms max   199.9 ms    0.001 GB ('HtoD', 6, 'aten::copy_', 'srt/managers/overlap_utils.py(87): resolve_forward_inputs < srt/managers/scheduler.py(4550): run_batch')
+n=   16    396.3 ms max   200.6 ms    0.000 GB ('DtoH', 6, 'aten::copy_', 'srt/mem_cache/common.py(46): kv_to_page_indices < srt/disaggregation/prefill.py(1480): _send_kv_chunk')
+n=   23    167.1 ms max    89.0 ms    0.000 GB ('DtoH', 5, 'aten::copy_', 'srt/mem_cache/common.py(46): kv_to_page_indices < srt/mem_cache/common.py(50): suffix_page_indices')
+n=   54    122.3 ms max     4.0 ms    0.000 GB ('Dispatch Kernel', 16, 'sgl_kernel::transfer_kv_all_layer_mla_lf_pf', 'srt/mem_cache/pool_host/mla.py(851): backup_from_device_all_layer < srt/mem_cache/pool_host/base.py(431): backup_from_device_all_layer_physical')
+n=   39     86.0 ms max    43.0 ms    0.001 GB ('DtoD', 5, 'aten::copy_', 'srt/mem_cache/unified_cache/components/full.py(424): commit_hicache_transfer < srt/mem_cache/unified_cache/unified_tree_core.py(2610): commit_load_back')
+n=   19     33.8 ms max     2.3 ms    0.000 GB ('Dispatch Kernel', 17, '-', 'kernels/ops/kvcache/hicache.py(325): transfer_hicache_one_layer_mla < srt/mem_cache/pool_host/mla.py(636): load_to_device_per_layer')
+n=  110     15.3 ms max     9.3 ms    0.007 GB ('HtoD', 5, 'aten::copy_', 'srt/managers/cache_controller.py(892): move_indices < srt/mem_cache/hybrid_cache/hybrid_cache_controller.py(1440): _move_pool_indices')
+n=   54      4.8 ms max     0.1 ms    0.000 GB ('Dispatch Kernel', 16, 'sgl_kernel::transfer_kv_all_layer_mla_lf_pf', 'srt/mem_cache/pool_host/dsa.py(480): backup_from_device_all_layer < srt/mem_cache/pool_host/base.py(431): backup_from_device_all_layer_physical')
+n=  385      3.6 ms max     0.0 ms    6.680 GB ('DtoD', 6, 'aten::copy_', 'srt/layers/attention/dsa/dsa_indexer.py(1527): _get_topk_ragged < srt/layers/attention/dsa/dsa_indexer.py(1954): forward_cuda')
+n=  370      1.9 ms max     0.0 ms    0.003 GB ('DtoD', 6, 'aten::copy_', 'srt/layers/attention/dsa/dsa_backend_mtp_precompute.py(58): compute_cu_seqlens < srt/layers/attention/dsa/dsa_indexer_metadata.py(129): topk_transform')
+n=    5      1.7 ms max     0.3 ms    0.000 GB ('Dispatch Kernel', 17, 'sgl_kernel::transfer_kv_per_layer_mla_pf_lf', 'srt/mem_cache/pool_host/dsa.py(351): load_to_device_per_layer < srt/mem_cache/pool_host/base.py(438): load_to_device_per_layer_physical')
+n=  120      0.5 ms max     0.0 ms    0.001 GB ('DtoD', 6, 'aten::copy_', 'srt/layers/attention/dsa/dsa_backend_mtp_precompute.py(58): compute_cu_seqlens < srt/layers/attention/dsa_backend.py(1105): init_forward_metadata')
+n=   62      0.4 ms max     0.0 ms    0.002 GB ('DtoD', 6, 'aten::copy_', 'srt/speculative/eagle_worker_v2.py(910): _draft_extend_for_prefill < srt/speculative/eagle_worker_v2.py(1482): _forward_prefill_batch')
+n=   51      0.3 ms max     0.0 ms    0.001 GB ('DtoH', 5, 'aten::copy_', 'srt/disaggregation/prefill.py(858): process_batch_result_disagg_prefill < srt/managers/scheduler.py(5007): process_batch_result')
+n=   68      0.3 ms max     0.0 ms    0.000 GB ('DtoD', 5, 'aten::copy_', 'srt/sampling/sampling_batch_info.py(126): from_schedule_batch < srt/managers/schedule_batch.py(2811): prepare_for_extend')
+n=   46      0.2 ms max     0.0 ms    0.000 GB ('DtoH', 5, 'aten::copy_', 'srt/disaggregation/utils.py(538): set_buf < srt/disaggregation/prefill.py(1480): _send_kv_chunk')
+n=   40      0.2 ms max     0.0 ms    0.000 GB ('DtoH', 5, 'aten::copy_', 'srt/mem_cache/common.py(46): kv_to_page_indices < srt/disaggregation/prefill.py(1480): _send_kv_chunk')
+n=   51      0.2 ms max     0.0 ms    0.000 GB ('DtoD', 5, 'aten::copy_', 'srt/mem_cache/allocation.py(374): alloc_for_extend < srt/managers/schedule_batch.py(2811): prepare_for_extend')
+n=   36      0.2 ms max     0.0 ms    0.001 GB ('DtoD', 6, 'aten::cat', 'srt/layers/attention/dsa_backend.py(1427): _cal_indexer_k_start_end < srt/layers/attention/dsa_backend.py(1105): init_forward_metadata')
+n=   40      0.2 ms max     0.0 ms    0.000 GB ('DtoD', 6, 'aten::copy_', 'srt/model_executor/forward_batch_info.py(944): init_new < srt/speculative/eagle_worker_v2.py(910): _draft_extend_for_prefill')
+n=   34      0.2 ms max     0.0 ms    0.000 GB ('DtoD', 6, 'aten::copy_', 'srt/model_executor/forward_batch_info.py(944): init_new < srt/managers/tp_worker.py(603): forward_batch_generation')
+n=   26      0.2 ms max     0.0 ms    0.027 GB ('DtoD', 6, 'aten::copy_', 'srt/layers/sampler.py(785): top_k_top_p_min_p_sampling_from_probs_torch < srt/layers/sampler.py(362): _sample_from_probs')
+n=   34      0.1 ms max     0.0 ms    0.000 GB ('DtoD', 5, 'aten::copy_', 'srt/managers/schedule_batch.py(2811): prepare_for_extend < srt/managers/scheduler.py(4016): _get_new_batch_prefill_raw')
+n=   50      0.1 ms max     0.0 ms    0.000 GB ('DtoD', 5, 'aten::cat', 'srt/mem_cache/allocator/paged.py(171): get_all_free_pages < srt/mem_cache/allocator/paged.py(174): merge_and_sort_free')
+n=   20      0.1 ms max     0.0 ms    0.027 GB ('DtoD', 6, 'aten::copy_', 'srt/layers/sampler.py(148): forward < srt/model_executor/model_runner.py(2078): sample')
+n=   40      0.1 ms max     0.0 ms    0.001 GB ('DtoD', 5, 'aten::copy_', 'srt/mem_cache/unified_cache/unified_tree_core.py(1508): _add_new_node < srt/mem_cache/unified_cache/unified_tree_core.py(1360): _insert_commit_step')
+n=   51      0.1 ms max     0.0 ms    0.000 GB ('DtoD', 5, 'aten::copy_', 'srt/mem_cache/allocator/paged.py(174): merge_and_sort_free < srt/mem_cache/allocator/paged.py(204): alloc_extend')
+n=   20      0.1 ms max     0.0 ms    0.000 GB ('DtoD', 6, 'aten::copy_', 'srt/layers/attention/index_topk_share.py(94): write_mtp_seed < srt/layers/attention/index_topk_share.py(62): publish')
+n=   20      0.1 ms max     0.0 ms    0.000 GB ('DtoD', 6, 'aten::copy_', 'srt/speculative/eagle_utils.py(94): _eagle_prefill_tail_tokens < srt/speculative/eagle_worker_v2.py(910): _draft_extend_for_prefill')
+n=   17      0.1 ms max     0.0 ms    0.000 GB ('DtoD', 5, 'aten::copy_', 'srt/mem_cache/allocation.py(56): write_cache_indices < srt/mem_cache/allocation.py(374): alloc_for_extend')
+
+# top kernels: name | top cpu_op | ms
+  2530.9 ms n=  380 _sparse_mla_fwd_split_dim_kernel | - @target_fwd kernels/ops/attention/dsa/triton_sparse_mla.py(458): _triton_sparse_mla_fwd_single 2423; - @draft kernels/ops/attention/dsa/triton_sparse_mla.py(458): _triton_sparse_mla_fwd_single 108
+   698.1 ms n=  385 _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOCK_KV_64_NU | - @target_fwd srt/layers/attention/dsa/dsa_indexer.py(1527): _get_topk_ragged 646; - @draft srt/layers/attention/dsa/dsa_indexer.py(1527): _get_topk_ragged 53
+   672.5 ms n=  221 ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>) | record_param_comms @pp_comm srt/distributed/parallel_state.py(1851): recv_tensor_dict 672; record_param_comms @pp_comm srt/distributed/parallel_state.py(1796): send_tensor_dict 1
+   479.3 ms n= 1012 void at::native::vectorized_elementwise_kernel<4, at::native::FillFunc | aten::fill_ @target_fwd srt/layers/attention/dsa/dsa_backend_mtp_precompute.py(58): compute_cu_seqlens 475; aten::fill_ @target_fwd srt/layers/attention/dsa/dsa_indexer.py(1527): _get_topk_ragged 1
+   475.5 ms n=  370 void compute_cuda_kernel<int>(int const*, long const*, int*, long, lon | aten::repeat_interleave @target_fwd srt/layers/attention/dsa/dsa_indexer_metadata.py(129): topk_transform 475; aten::repeat_interleave @draft srt/layers/attention/dsa/dsa_indexer_metadata.py(129): topk_transform 0
+   464.9 ms n=  360 mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_async_v2out | aiter::fused_moe_ @target_fwd kernels/ops/moe/moe_sorting_small.py(544): fused_moe_wrapper 465
+   443.4 ms n= 1106 void at::native::elementwise_kernel_manual_unroll<128, 4, at::native:: | aten::copy_ @target_fwd srt/layers/attention/dsa/dsa_indexer_metadata.py(129): topk_transform 439; aten::copy_ @draft srt/layers/attention/dsa/dsa_indexer_metadata.py(129): topk_transform 1
+   407.6 ms n=  500 Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x64_MI16x16x1_CM | aten::mm @target_fwd srt/layers/quantization/unquant.py(566): apply 370; aten::mm @draft srt/layers/quantization/unquant.py(566): apply 37
+   397.1 ms n=  360 gemm2_a4w4_port_hmax8192_imax2048_bm64_bn256_bk128_atomic_persist_cu25 | aiter::fused_moe_ @target_fwd kernels/ops/moe/moe_sorting_small.py(544): fused_moe_wrapper 397
+   376.2 ms n=  380 _fused_qk_rope_cat_and_cache_mla_kernel_QH_64_KH_1_QH_PER_KH_64_BLOCK_ | aiter::fused_qk_rope_cat_and_cache_mla @target_fwd srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py(384): _fused_rope_cat_and_cache 373; aiter::fused_qk_rope_cat_and_cache_mla @draft srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py(384): _fused_rope_cat_and_cache 3
+   348.7 ms n=  720 _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_qua | - @target_fwd srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py(199): rocm_absorb_q_bmm 228; - @target_fwd srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py(252): rocm_absorb_v_bmm 121
+   259.0 ms n=  380 _gemm_a16_w16_kernel_BLOCK_SIZE_M_256_BLOCK_SIZE_N_128_BLOCK_SIZE_K_64 | aiter::gemm_a16w16_ @target_fwd srt/layers/quantization/unquant.py(566): apply 247; aiter::gemm_a16w16_ @draft srt/layers/quantization/unquant.py(566): apply 12
+   160.8 ms n=   40 _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4g | aiter::ck_moe_stage1 @draft kernels/ops/moe/moe_sorting_small.py(544): fused_moe_wrapper 107; aiter::ck_moe_stage2 @draft kernels/ops/moe/moe_sorting_small.py(544): fused_moe_wrapper 54
+   127.1 ms n=  108 _Z20transfer_kernel_implITnDaXadL_Z24get_global_offset_lf_tblIKcEPT_S3 | sgl_kernel::transfer_kv_all_layer_mla_lf_pf @hicache_backup srt/mem_cache/pool_host/mla.py(851): backup_from_device_all_layer 122; sgl_kernel::transfer_kv_all_layer_mla_lf_pf @hicache_backup srt/mem_cache/pool_host/dsa.py(480): backup_from_device_all_layer 5
+    86.3 ms n=  308 void sglang::topk_packed_kernel<false>(sglang::TopKPackedParams) | - @target_fwd kernels/ops/attention/dsv4/topk.py(284): topk_transform_packed_v2 86
+    52.0 ms n=  171 Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x240x64_MI16x16x1_SN | aten::mm @target_fwd srt/layers/quantization/unquant.py(566): apply 49; aten::mm @draft srt/layers/quantization/unquant.py(566): apply 3
+    47.3 ms n=  190 Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT176x256x64_MI16x16x1_SN | aten::mm @target_fwd srt/layers/quantization/unquant.py(566): apply 45; aten::mm @draft srt/layers/quantization/unquant.py(566): apply 2
+    47.0 ms n=  780 _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1EL | aiter::add_rmsnorm @target_fwd srt/layers/layernorm.py(650): forward_aiter 45; aiter::add_rmsnorm @draft srt/layers/layernorm.py(650): forward_aiter 2
+    33.8 ms n=   19 void sglang::hicache_transfer_per_layer<long, 576l, 2u, 32u, 1024u, tr | - @hicache_load kernels/ops/kvcache/hicache.py(325): transfer_hicache_one_layer_mla 34
+    29.8 ms n=   77 void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::ds | sgl_kernel::fast_topk @draft srt/layers/attention/dsa/dsa_topk_backend.py(58): topk_func 30
+    20.0 ms n=  380 hgemm_bf16_t64x128x128x3_ks1_w2x2x2_gm4_bias0_lnt_pft_0 | aiter::gemm_a16w16 @target_fwd srt/layers/rocm_linear_utils.py(30): aiter_dsv3_router_gemm 19; aiter::gemm_a16w16 @draft srt/layers/rocm_linear_utils.py(30): aiter_dsv3_router_gemm 1
+    15.8 ms n= 1140 void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P | aiter::moe_sorting_opus_fwd @target_fwd kernels/ops/moe/moe_sorting_small.py(567): sorting_impl_wrapper 15; aiter::moe_sorting_opus_fwd @draft kernels/ops/moe/moe_sorting_small.py(567): sorting_impl_wrapper 1
+    11.1 ms n=  200 void fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_tra | HadamardTransformFn @target_fwd srt/layers/attention/dsa/dsa_indexer.py(245): rotate_activation 9; HadamardTransformFn @draft srt/layers/attention/dsa/dsa_indexer.py(245): rotate_activation 2
+    10.9 ms n= 1656 void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::RO | aten::sort @target_fwd srt/layers/sampler.py(785): top_k_top_p_min_p_sampling_from_probs_torch 5; aten::cumsum @target_fwd srt/layers/attention/dsa/dsa_backend_mtp_precompute.py(58): compute_cu_seqlens 2
+     8.1 ms n=   40 Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x32_MI16x16x1_SN | aten::bmm @draft srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py(199): rocm_absorb_q_bmm 4; aten::bmm @draft srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py(252): rocm_absorb_v_bmm 4
+
+# inter-step gaps (non-stall): what the compute stream / GPU / CPU main thread did
+n gaps 33 total 4163.2 ms mean 126.2 ms
+  GPU gpu_any_busy             1626.7 ms (39% of gap time)
+  GPU nccl_kernels              672.5 ms (16% of gap time)
+  GPU compute_stream_busy       949.6 ms (23% of gap time)
+  CPU main _pp_recv_pyobj_from_prev_stage                            1132.8 ms (27%)
+  CPU main recv_requests                                             1078.4 ms (26%)
+  CPU main _pp_commit_send_output_work_and_preprocess_output_tensors    828.9 ms (20%)
+  CPU main _pp_recv_dict_from_prev_stage                              827.9 ms (20%)
+  CPU main synchronize                                                561.4 ms (13%)
+  CPU main _pp_launch_batch                                           132.2 ms (3%)
+  CPU main run_batch                                                  130.7 ms (3%)
+  CPU main process_batch_result_disagg_prefill                        125.4 ms (3%)
+  CPU main checkpoint_disagg_prefill                                  114.6 ms (3%)
+  CPU main process_disagg_prefill_inflight_queue                       94.5 ms (2%)
+  CPU main load_back                                                   76.6 ms (2%)
+  CPU main send_kv_chunk                                               74.3 ms (2%)
+  CPU main kv_to_page_indices                                          65.7 ms (2%)
+  CPU main forward_batch_generation                                    47.1 ms (1%)
+  CPU main _execute_kv_backup                                          18.2 ms (0%)
+  CPU main resolve_forward_inputs                                      17.6 ms (0%)
+  CPU main _pp_recv_proxy_tensors                                       9.0 ms (0%)
+  CPU main _pp_send_dict_to_next_stage                                  0.4 ms (0%)
+
+# main-thread python totals in active window (union, ms)
+  synchronize                                                2536.2 ms
+  _pp_recv_pyobj_from_prev_stage                             2132.0 ms
+  _pp_commit_send_output_work_and_preprocess_output_tensors    1565.2 ms
+  _pp_recv_dict_from_prev_stage                              1549.9 ms
+  _pp_launch_batch                                           1272.0 ms
+  run_batch                                                  1267.3 ms
+  forward_batch_generation                                   1182.8 ms
+  recv_requests                                              1078.4 ms
+  _draft_extend_for_prefill                                   131.2 ms
+  process_batch_result_disagg_prefill                         125.4 ms
+  checkpoint_disagg_prefill                                   114.6 ms
+  process_disagg_prefill_inflight_queue                        94.5 ms
+  load_back                                                    76.6 ms
+  send_kv_chunk                                                74.3 ms
+  kv_to_page_indices                                           65.7 ms
+  _execute_kv_backup                                           18.2 ms
+  resolve_forward_inputs                                       17.6 ms
+  _pp_recv_proxy_tensors                                        9.0 ms
+  _pp_send_dict_to_next_stage                                   6.9 ms
+
+# nccl kernels in active window
+  stream 10 n=136 sum 671.9 ms p50 0.01 p90 10.62 max 186.3
+  stream 14 n=85 sum 0.6 ms p50 0.01 p90 0.01 max 0.0
+
+# memcpy events > 10 ms: utc start, dur, kind, stream, bytes, py leaf, overlapping nccl (stream, start, dur)
+  t=  2957.9 08:52:01.122 dur   199.9 HtoD s6 65200 B srt/managers/overlap_utils.py(87): resolve_forward_inputs | launch cpu dur 0.0 | nccl []
+  t=  3319.5 08:52:01.483 dur   186.8 HtoD s6 64736 B srt/managers/overlap_utils.py(87): resolve_forward_inputs | launch cpu dur 0.0 | nccl []
+  t=  3854.3 08:52:02.018 dur   195.7 DtoH s6 30428 B srt/mem_cache/common.py(46): kv_to_page_indices | launch cpu dur 3.4 | nccl []
+  t=  3859.9 08:52:02.024 dur   190.2 HtoD s6 65096 B srt/managers/overlap_utils.py(87): resolve_forward_inputs | launch cpu dur 0.0 | nccl []
+  t=  4349.3 08:52:02.513 dur   200.6 DtoH s6 46468 B srt/mem_cache/common.py(46): kv_to_page_indices | launch cpu dur 3.4 | nccl []
+  t=  4365.0 08:52:02.529 dur   186.0 HtoD s6 64424 B srt/managers/overlap_utils.py(87): resolve_forward_inputs | launch cpu dur 0.0 | nccl []
+  t=  4845.1 08:52:03.009 dur    43.0 DtoD s5 25088 B srt/mem_cache/unified_cache/components/full.py(424): commit_hicache_transfer | launch cpu dur 0.0 | nccl [(10, 4886.8, 1.1), (10, 4887.9, 1.6)]
+  t=  4845.2 08:52:03.009 dur    42.9 DtoD s5 24576 B srt/mem_cache/unified_cache/components/full.py(424): commit_hicache_transfer | launch cpu dur 0.0 | nccl [(10, 4886.8, 1.1), (10, 4887.9, 1.6)]
+  t=  5486.3 08:52:03.650 dur    89.0 DtoH s5 30472 B srt/mem_cache/common.py(46): kv_to_page_indices | launch cpu dur 0.0 | nccl []
+  t=  5845.3 08:52:04.009 dur    78.0 DtoH s5 46492 B srt/mem_cache/common.py(46): kv_to_page_indices | launch cpu dur 0.0 | nccl []
+
+# memcpy per-event duration p50/p90 by group
+  ('HtoD', 'srt/managers/overlap_utils.py(87): resolve_forward_inputs') n=17 sum 763.0 p50 0.007 p90 186.799 max 199.9 ms, bytes/ev p50 65200, eff BW(sum bytes/sum time of events<p90) 0.0 GB/s
+  ('DtoH', 'srt/mem_cache/common.py(46): kv_to_page_indices') n=79 sum 563.6 p50 0.005 p90 0.006 max 200.6 ms, bytes/ev p50 512, eff BW(sum bytes/sum time of events<p90) 0.5 GB/s
+  ('DtoD', 'srt/mem_cache/unified_cache/components/full.py(424): commit_hicache_transfer') n=39 sum 86.0 p50 0.002 p90 0.003 max 43.0 ms, bytes/ev p50 19968, eff BW(sum bytes/sum time of events<p90) 12.5 GB/s
+  ('HtoD', 'srt/managers/cache_controller.py(892): move_indices') n=110 sum 15.3 p50 0.007 p90 0.019 max 9.3 ms, bytes/ev p50 61440, eff BW(sum bytes/sum time of events<p90) 5.4 GB/s
+  ('DtoD', 'srt/layers/attention/dsa/dsa_indexer.py(1527): _get_topk_ragged') n=385 sum 3.6 p50 0.007 p90 0.018 max 0.0 ms, bytes/ev p50 13213696, eff BW(sum bytes/sum time of events<p90) 1631.2 GB/s
+  ('DtoD', 'srt/layers/attention/dsa/dsa_backend_mtp_precompute.py(58): compute_cu_seqlens') n=490 sum 2.4 p50 0.005 p90 0.006 max 0.0 ms, bytes/ev p50 3564, eff BW(sum bytes/sum time of events<p90) 1.8 GB/s
+  ('DtoD', 'srt/speculative/eagle_worker_v2.py(910): _draft_extend_for_prefill') n=62 sum 0.4 p50 0.006 p90 0.007 max 0.0 ms, bytes/ev p50 20480, eff BW(sum bytes/sum time of events<p90) 4.3 GB/s
+  ('DtoD', 'srt/model_executor/forward_batch_info.py(944): init_new') n=74 sum 0.3 p50 0.004 p90 0.006 max 0.0 ms, bytes/ev p50 8, eff BW(sum bytes/sum time of events<p90) 0.0 GB/s
+  ('DtoH', 'srt/disaggregation/prefill.py(858): process_batch_result_disagg_prefill') n=51 sum 0.3 p50 0.006 p90 0.006 max 0.0 ms, bytes/ev p50 16384, eff BW(sum bytes/sum time of events<p90) 3.2 GB/s
+  ('DtoD', 'srt/sampling/sampling_batch_info.py(126): from_schedule_batch') n=68 sum 0.3 p50 0.004 p90 0.004 max 0.0 ms, bytes/ev p50 8, eff BW(sum bytes/sum time of events<p90) 0.0 GB/s
+
+# non-nccl kernel time OUTSIDE step annotations by context/category
+  ('hicache_backup', 'hicache_kernel')                   46.8 ms
+  ('target_fwd', 'elementwise/other')                     8.9 ms
+  ('other', 'elementwise/other')                          5.2 ms
+  ('target_fwd', 'rocprim_scan')                          3.8 ms
+  ('draft', 'elementwise/other')                          1.4 ms
+  ('pp_comm', 'elementwise/other')                        0.4 ms
+  ('kv_send', 'elementwise/other')                        0.3 ms
+  ('hicache_backup', 'elementwise/other')                 0.3 ms
+  ('draft', 'rocprim_scan')                               0.1 ms

@@ -1,0 +1,4 @@
+PP0 clean cycles 11, mean cycle 355.4 ms: compute 71.7%, nccl 15.2%, any 89.9%, memcpy 20.8%
+PP1 clean cycles 11, mean cycle 338.9 ms: compute 71.7%, nccl 21.0%, any 93.9%, memcpy 5.4%
+PP2 clean cycles 11, mean cycle 332.5 ms: compute 74.4%, nccl 18.4%, any 93.9%, memcpy 2.4%
+PP3 clean cycles 11, mean cycle 328.1 ms: compute 74.1%, nccl 5.8%, any 84.5%, memcpy 4.8%

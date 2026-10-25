@@ -1,0 +1,41 @@
+round score qps isl ttft_p50 ttft_p90 tpot gpu_hit cpu_hit err kvlat xfer_stage pqueue dtransferred
+llr7-c80 41679 2.744 120566 4.45 12.32 15.4 0.493 0.148 4 1.99/4.72 1.96/4.80 0.03/1.84 4.01/10.62
+window 2026-10-24 03:27:48 .. 2026-10-24 04:10:13 (42.4 min)
+
+DECODE per rank: n | running mean/p50/p90 | tokusage mean/max | prealloc-req mean/frac>0 | transfer-req mean | queue-req mean/frac>0 | gen tok/s mean | step ms p50/p90
+DP0   1211 |   9.9   10   15 | 0.79 1.00 |   0.5 0.24 |   4.5 |   0.0 0.00 |     676 |  50.5  67.2
+DP1   1210 |  10.7   10   16 | 0.79 1.00 |   0.5 0.22 |   4.7 |   0.0 0.00 |     734 |  50.4  67.5
+DP2   1211 |  10.7   10   17 | 0.79 1.00 |   0.5 0.24 |   4.6 |   0.0 0.00 |     721 |  50.6  66.9
+DP3   1210 |  10.7   10   15 | 0.79 1.00 |   0.5 0.24 |   4.4 |   0.0 0.00 |     734 |  50.3  65.2
+
+PREFILL PP0: batches 4415 (1.73/s) | new tok/s 12253 | cached tok/s 334275 | hit 0.965
+  #new-seq                     mean       2.41 p50       2.00 p90       4.00 max      11.00 frac>0 1.00
+  #new-token                   mean    7063.13 p50    8152.00 p90    8192.00 max    8192.00 frac>0 1.00
+  #queue-req                   mean       2.87 p50       2.00 p90       8.00 max      21.00 frac>0 0.61
+  #pending-token               mean  366698.96 p50  195533.00 p90  962664.00 max 2571436.00 frac>0 0.79
+  #bootstrap-req               mean       1.56 p50       0.00 p90       6.00 max      26.00 frac>0 0.36
+  #inflight-req                mean       8.48 p50       8.00 p90      16.00 max      29.00 frac>0 0.99
+  #running-req                 mean       0.00 p50       0.00 p90       0.00 max       0.00 frac>0 0.00
+  token usage                  mean       0.16 p50       0.14 p90       0.31 max       0.57 frac>0 0.99
+  input throughput (token/s)   mean   16328.01 p50   16297.91 p90   27465.33 max   46585.64 frac>0 1.00
+
+BNECKW
+window 2026-10-24 03:23:05 .. 2026-10-24 04:10:05 excl None (47.0 min)
+
+DECODE per rank: n | running mean/p50/p90 | tokusage mean/max | prealloc-req mean/frac>0 | transfer-req mean | queue-req mean/frac>0 | gen tok/s mean | step ms p50/p90
+DP0   1332 |  10.0   10   15 | 0.79 1.00 |   0.4 0.22 |   4.3 |   0.0 0.00 |     682 |  50.7  68.5
+DP1   1332 |  11.0   11   16 | 0.79 1.00 |   0.4 0.21 |   4.5 |   0.0 0.00 |     742 |  50.6  68.9
+DP2   1332 |  10.9   10   17 | 0.79 1.00 |   0.4 0.22 |   4.5 |   0.0 0.00 |     723 |  50.7  69.4
+DP3   1332 |  10.7   10   15 | 0.79 1.00 |   0.5 0.23 |   4.1 |   0.0 0.00 |     732 |  50.5  66.4
+
+PREFILL PP0: batches 4991 (1.77/s) | new tok/s 12432 | cached tok/s 332153 | hit 0.964
+  #new-seq                     mean       2.38 p50       2.00 p90       4.00 max      11.00 frac>0 1.00
+  #new-token                   mean    7024.56 p50    8152.00 p90    8192.00 max    8192.00 frac>0 1.00
+  #queue-req                   mean       2.69 p50       1.00 p90       8.00 max      21.00 frac>0 0.60
+  #pending-token               mean  338391.94 p50  164981.00 p90  894443.00 max 2571436.00 frac>0 0.79
+  #bootstrap-req               mean       1.44 p50       0.00 p90       5.00 max      26.00 frac>0 0.34
+  #inflight-req                mean       8.27 p50       8.00 p90      15.00 max      29.00 frac>0 0.99
+  #running-req                 mean       0.00 p50       0.00 p90       0.00 max       0.00 frac>0 0.00
+  token usage                  mean       0.15 p50       0.13 p90       0.30 max       0.57 frac>0 0.99
+  input throughput (token/s)   mean   16564.22 p50   16726.04 p90   27632.47 max   49178.99 frac>0 1.00
+{"label": "llr7", "decode|kv_transfer_alloc_ms|": {"n": 10838, "avg": 1174.115, "p50": 0.879, "p90": 4034.3}, "decode|kv_transfer_bootstrap_ms|": {"n": 10838, "avg": 0.073, "p50": 0.073, "p90": 0.126}, "decode|per_stage_req_latency_seconds|decode_bootstrap": {"n": 10838, "avg": 1.174, "p50": 0.001, "p90": 2.914}, "decode|per_stage_req_latency_seconds|decode_prepare": {"n": 10838, "avg": 0.0, "p50": 0.0, "p90": 0.0}, "decode|per_stage_req_latency_seconds|decode_transferred": {"n": 10838, "avg": 7.861, "p50": 4.011, "p90": 10.623}, "decode|per_stage_req_latency_seconds|decode_waiting": {"n": 10838, "avg": 0.0, "p50": 0.0, "p90": 0.0}, "decode|per_stage_req_latency_seconds|fake_output": {"n": 10838, "avg": 0.044, "p50": 0.044, "p90": 0.068}, "decode|queue_time_seconds|": {"n": 10838, "avg": 0.0, "p50": 0.0, "p90": 0.0}, "decode|time_to_first_token_seconds|": {"n": 19910, "avg": 6.538, "p50": 4.246, "p90": 12.561}, "prefill|kv_transfer_alloc_ms|": {"n": 43352, "avg": 0.008, "p50": 0.006, "p90": 0.02}, "prefill|kv_transfer_bootstrap_ms|": {"n": 43352, "avg": 1164.428, "p50": 0.662, "p90": 4076.922}, "prefill|kv_transfer_latency_ms|": {"n": 43352, "avg": 2426.401, "p50": 1994.009, "p90": 4720.643}, "prefill|kv_transfer_speed_gb_s|": {"n": 43352, "avg": 1.918, "p50": 0.453, "p90": 3.284}, "prefill|kv_transfer_total_mb|": {"n": 43352, "avg": 1457.391, "p50": 862.912, "p90": 3685.273}, "prefill|per_stage_req_latency_seconds|chunked_prefill": {"n": 20004, "avg": 0.961, "p50": 0.533, "p90": 2.161}, "prefill|per_stage_req_latency_seconds|prefill_bootstrap": {"n": 43352, "avg": 1.164, "p50": 0.001, "p90": 3.032}, "prefill|per_stage_req_latency_seconds|prefill_forward": {"n": 43352, "avg": 2.445, "p50": 1.857, "p90": 4.536}, "prefill|per_stage_req_latency_seconds|prefill_transfer_kv_cache": {"n": 43352, "avg": 2.424, "p50": 1.958, "p90": 4.805}, "prefill|queue_time_seconds|": {"n": 43352, "avg": 3.203, "p50": 0.026, "p90": 1.839}}

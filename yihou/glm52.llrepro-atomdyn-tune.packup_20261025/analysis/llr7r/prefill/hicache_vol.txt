@@ -1,0 +1,28 @@
+PP0
+   backup D2H lf_pf item576 L20             calls   61  index-rows   299200  bytes 3.447 GB
+   backup D2H lf_pf item8448 L7             calls   61  index-rows     4675  bytes 0.276 GB
+   load H2D per-layer pf_lf item8448        calls    7  index-rows    15064  bytes 0.127 GB
+   kernel ('hicache_backup', '_Z20transfer_kernel_implITnDaXadL_Z24get') 147.2 ms
+   kernel ('hicache_load', 'void sglang::hicache_transfer_per_layer<') 34.1 ms
+   kernel ('hicache_load', '_Z20transfer_kernel_implITnDaXadL_Z20get') 2.3 ms
+PP1
+   backup D2H lf_pf item576 L20             calls   61  index-rows   299200  bytes 3.447 GB
+   backup D2H lf_pf item8448 L5             calls   61  index-rows     4675  bytes 0.197 GB
+   load H2D per-layer pf_lf item8448        calls    5  index-rows    10760  bytes 0.091 GB
+   kernel ('hicache_backup', '_Z20transfer_kernel_implITnDaXadL_Z24get') 146.4 ms
+   kernel ('hicache_load', 'void sglang::hicache_transfer_per_layer<') 34.0 ms
+   kernel ('hicache_load', '_Z20transfer_kernel_implITnDaXadL_Z20get') 1.6 ms
+PP2
+   backup D2H lf_pf item576 L20             calls   58  index-rows   291136  bytes 3.354 GB
+   backup D2H lf_pf item8448 L5             calls   58  index-rows     4549  bytes 0.192 GB
+   load H2D per-layer pf_lf item8448        calls    5  index-rows    10760  bytes 0.091 GB
+   kernel ('hicache_backup', '_Z20transfer_kernel_implITnDaXadL_Z24get') 142.6 ms
+   kernel ('hicache_load', 'void sglang::hicache_transfer_per_layer<') 35.1 ms
+   kernel ('hicache_load', '_Z20transfer_kernel_implITnDaXadL_Z20get') 1.7 ms
+PP3
+   backup D2H lf_pf item576 L19             calls   55  index-rows   286272  bytes 3.133 GB
+   backup D2H lf_pf item8448 L5             calls   55  index-rows     4473  bytes 0.189 GB
+   load H2D per-layer pf_lf item8448        calls    5  index-rows    10760  bytes 0.091 GB
+   kernel ('hicache_backup', '_Z20transfer_kernel_implITnDaXadL_Z24get') 130.7 ms
+   kernel ('hicache_load', 'void sglang::hicache_transfer_per_layer<') 33.8 ms
+   kernel ('hicache_load', '_Z20transfer_kernel_implITnDaXadL_Z20get') 1.7 ms

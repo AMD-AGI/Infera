@@ -1,0 +1,27 @@
+rt hipPointerGetAttribute n=4722 sum=0.8 ms
+rt hipLaunchKernel n=2449 sum=8.8 ms
+rt hipMemcpyAsync n=1101 sum=4.6 ms
+rt hipModuleLaunchKernel n=549 sum=2.4 ms
+rt hipEventDestroy n=124 sum=0.2 ms
+rt hipStreamIsCapturing n=120 sum=0.1 ms
+rt hipGraphLaunch n=120 sum=44.5 ms
+rt hipDriverGetVersion n=120 sum=0.0 ms
+rt hipStreamGetCaptureInfo n=84 sum=0.0 ms
+rt hipMemcpyWithStream n=84 sum=1624.1 ms
+rt hipStreamWaitEvent n=44 sum=0.3 ms
+rt hipEventSynchronize n=40 sum=0.0 ms
+rt hipDeviceSynchronize n=1 sum=37.1 ms
+k     84.9 ms n=326 _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8R
+k     31.3 ms n=74 _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4g
+k     25.2 ms n=600 ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+k     13.7 ms n=120 Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x48x128_MI16x16x1_SN
+k     11.3 ms n=40 _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+k      9.0 ms n=80 Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x64x128_MI16x16x1_SN
+k      7.5 ms n=37 void sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::ds
+k      7.4 ms n=320 Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x16x128_MI16x16x1_SN
+k      5.7 ms n=1308 void at::native::vectorized_elementwise_kernel<4, at::native::FillFunc
+k      5.4 ms n=200 _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDat
+k      5.1 ms n=160 hgemm_bf16_t16x96x64x5_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+k      4.2 ms n=37 _sparse_mla_fwd_split_dim_kernel
+gpu run_batch ms: 46.1 46.9 48.6 48.6 48.6 48.7 48.8 48.8 48.9 48.9 49.1 49.1 49.2 49.3 49.3 49.4 49.4 49.5 49.6 49.6 49.8 50.0 50.7 50.8 50.9 51.0 51.0 51.1 51.1 51.2 51.3 51.5 51.6 51.6 51.8 51.8 51.8 52.0 52.3 52.3
+select ms: 37.1 0.0 39.3 0.0 4.1 0.0 4.5 0.0 42.2 0.0 42.7 0.0 3.8 0.0 4.0 0.0 45.5 0.0 45.7 0.0 44.7 0.0 45.2 0.0 43.4 0.0 43.6 0.0 43.6 0.0 43.7 0.0 43.3 0.0 39.5 0.0 41.9 0.0 42.9 0.0 43.3 0.0 3.9 0.0 44.8 0.0 3.9 0.0 45.0 0.0 45.0 0.0 45.2 0.0 4.1 0.0 44.9 0.0 44.8 0.0 44.2 0.0 45.2 0.0 45.2 0.0 44.7 0.0 42.6 0.0 42.8 0.0 42.9 0.1 42.6 0.0 42.7 0.0 41.8 0.0

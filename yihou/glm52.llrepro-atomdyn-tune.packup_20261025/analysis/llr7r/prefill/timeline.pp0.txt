@@ -1,0 +1,790 @@
+t0 1974891303430.711 baseTimeNanoseconds 1790857026000000000
+SAMPLE {"ph": "X", "cat": "cuda_runtime", "name": "hipLaunchKernel", "pid": 299, "tid": 299, "ts": 1974891304800.339, "dur": 10.17, "args": {"External id": 22, "kernel": "void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#4}::operator()() const::{lambda(long)#1}>(at::TensorIteratorBase&, at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#4}::operator()() const::{lambda(long)#1} const&)::{lambda(int, bool)#1}>(int, at::native::gpu_kernel_impl<at::native::direct_copy_kernel_cuda(at::TensorIteratorBase&)::{lambda()#3}::operator()() const::{lambda()#4}::operator()() const::{lambda(long)#1}>(at::TensorIterato
+SAMPLE {"ph": "X", "cat": "kernel", "name": "ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)", "pid": 6, "tid": 10, "ts": 1974891316698.001, "dur": 1577.818, "args": {"device": 6, "stream": 10, "correlation": 0, "kind": "Dispatch Kernel"}}
+SAMPLE {"ph": "X", "cat": "gpu_memcpy", "name": "Memcpy DtoD (Device -> Device)", "pid": 6, "tid": 5, "ts": 1974891305027.321, "dur": 2.879, "args": {"External id": 31, "device": 6, "stream": 5, "correlation": 2, "kind": "DtoD", "bytes": 53760, "memory bandwidth (GB/s)": 18.666666666666668}}
+SAMPLE {"ph": "X", "cat": "gpu_user_annotation", "name": "gloo:send", "pid": 6, "tid": 5, "ts": 1974900439982.747, "dur": 38531.719, "args": {"External id": 141384}}
+STREAM (6, 10) 162 1903.8 ms
+STREAM (6, 5) 1454 913.2 ms
+STREAM (6, 14) 100 25.9 ms
+STREAM (6, 16) 252 154.4 ms
+STREAM (6, 6) 16464 10979.1 ms
+STREAM (6, 15) 100 0.5 ms
+STREAM (6, 17) 41 36.5 ms
+MEMCPY ('Memcpy DtoD (Device -> Device)', 5) 442 357.0 ms 0.00 GB
+MEMCPY ('Memcpy DtoH (Device -> Host)', 5) 177 303.5 ms 0.00 GB
+MEMCPY ('Memcpy HtoD (Host -> Device)', 5) 128 247.2 ms 0.01 GB
+MEMCPY ('Memcpy DtoH (Device -> Host)', 6) 19 1262.8 ms 0.00 GB
+MEMCPY ('Memcpy HtoD (Host -> Device)', 6) 20 1499.9 ms 0.00 GB
+MEMCPY ('Memcpy DtoD (Device -> Device)', 6) 1201 572.3 ms 9.36 GB
+      0.88      0.33 C 299    scheduler.process_queue
+      1.04    862.53 C 299    gloo:send
+      1.08    862.50 C 299    gloo:send
+      1.38      3.45 G 5      gloo:send
+      4.92    282.28 C 299    gloo:send
+      6.31     17.11 G 5      gloo:send
+     15.95      3.91 G 16     gloo:send
+     23.69     57.12 C 299    scheduler.run_batch
+     26.31     54.42 C 299    step[EXTEND bs=2 toks=8150]
+     26.62    241.73 G 6      step[EXTEND bs=2 toks=8150]
+     81.10      0.56 C 299    send_res_dict_to_next_stage
+     81.30    290.27 C 299    gloo:send
+     81.33    290.24 C 299    gloo:send
+     81.67      0.62 C 299    recv_res_dict_from_prev_stage
+     81.73      0.12 C 299    gloo:recv
+     81.87      0.05 C 299    gloo:recv
+     82.70      0.08 C 299    gloo:recv
+     82.80      0.10 C 299    gloo:recv
+    268.41      0.01 G 10     nccl:send 0->1
+    268.45      0.01 G 10     nccl:send 0->1
+    268.47      0.01 G 10     nccl:send 0->1
+    268.50      0.01 G 10     nccl:send 0->1
+    268.53      0.01 G 10     nccl:send 0->1
+    268.55      0.01 G 14     nccl:recv 0<-3
+    268.59      0.01 G 14     nccl:recv 0<-3
+    268.62      0.01 G 14     nccl:recv 0<-3
+    268.66      0.01 G 14     nccl:recv 0<-3
+    268.69      0.01 G 14     nccl:recv 0<-3
+    268.73      0.02 G 15     gloo:send
+    268.80      3.91 C 299    scheduler.process_batch_result
+    277.22      2.90 C 299    scheduler.process_queue
+    280.60      0.35 C 299    send_proxy_dict_to_next_stage
+    280.70     37.97 C 299    gloo:send
+    280.71     37.97 C 299    gloo:send
+    280.81     27.51 G 10     nccl:send 0->1
+    281.00      0.08 C 299    scheduler.recv_requests
+    281.15      0.02 C 299    scheduler.process_queue
+    283.83      3.36 G 5      gloo:send
+    287.28    283.79 C 299    gloo:send
+    287.61     30.95 G 5      gloo:send
+    308.34      1.58 G 10     nccl:send 0->1
+    309.94      1.06 G 10     nccl:send 0->1
+    311.03      3.88 G 16     gloo:send
+    318.81     52.63 C 299    scheduler.run_batch
+    319.37     52.02 C 299    step[EXTEND bs=1 toks=8192]
+    319.85    228.84 G 6      step[EXTEND bs=1 toks=8192]
+    371.68      0.47 C 299    send_res_dict_to_next_stage
+    371.84    278.38 C 299    gloo:send
+    371.85    278.37 C 299    gloo:send
+    372.16      0.53 C 299    recv_res_dict_from_prev_stage
+    372.21      0.09 C 299    gloo:recv
+    372.32      0.04 C 299    gloo:recv
+    373.05      0.07 C 299    gloo:recv
+    373.14      0.03 C 299    gloo:recv
+    548.76      0.01 G 10     nccl:send 0->1
+    548.79      0.01 G 10     nccl:send 0->1
+    548.81      0.01 G 10     nccl:send 0->1
+    548.84      0.01 G 10     nccl:send 0->1
+    548.87      0.01 G 10     nccl:send 0->1
+    548.90      0.01 G 14     nccl:recv 0<-3
+    548.93      0.01 G 14     nccl:recv 0<-3
+    548.97      0.01 G 14     nccl:recv 0<-3
+    549.00      0.01 G 14     nccl:recv 0<-3
+    549.04      0.01 G 14     nccl:recv 0<-3
+    549.08      0.02 G 15     gloo:send
+    549.14      9.35 C 299    scheduler.process_batch_result
+    563.69      2.01 C 299    scheduler.process_queue
+    565.94      0.53 C 299    send_proxy_dict_to_next_stage
+    566.17     31.64 C 299    gloo:send
+    566.18     31.63 C 299    gloo:send
+    566.26     20.53 G 10     nccl:send 0->1
+    566.51      0.06 C 299    scheduler.recv_requests
+    566.64      0.01 C 299    scheduler.process_queue
+    566.79      4.26 G 5      gloo:send
+    571.14    298.00 C 299    gloo:send
+    571.79     25.89 G 5      gloo:send
+    586.81      1.59 G 10     nccl:send 0->1
+    588.41      1.07 G 10     nccl:send 0->1
+    589.51      4.24 G 16     gloo:send
+    597.92     52.16 C 299    scheduler.run_batch
+    598.43     51.59 C 299    step[EXTEND bs=1 toks=8192]
+    598.89    232.52 G 6      step[EXTEND bs=1 toks=8192]
+    650.34      0.46 C 299    send_res_dict_to_next_stage
+    650.48    294.74 C 299    gloo:send
+    650.50    294.74 C 299    gloo:send
+    650.81      0.58 C 299    recv_res_dict_from_prev_stage
+    650.86      0.10 C 299    gloo:recv
+    650.98      0.04 C 299    gloo:recv
+    651.74      0.06 C 299    gloo:recv
+    651.82      0.03 C 299    gloo:recv
+    831.48      0.01 G 10     nccl:send 0->1
+    831.51      0.01 G 10     nccl:send 0->1
+    831.53      0.01 G 10     nccl:send 0->1
+    831.56      0.01 G 10     nccl:send 0->1
+    831.59      0.01 G 10     nccl:send 0->1
+    831.62      0.01 G 14     nccl:recv 0<-3
+    831.66      0.01 G 14     nccl:recv 0<-3
+    831.69      0.01 G 14     nccl:recv 0<-3
+    831.73      0.01 G 14     nccl:recv 0<-3
+    831.77      0.01 G 14     nccl:recv 0<-3
+    831.80      0.02 G 15     gloo:send
+    831.89     18.63 C 299    scheduler.process_batch_result
+    856.56      0.17 C 299    scheduler.process_queue
+    857.07      6.76 C 299    gloo:send
+    857.08      6.75 C 299    gloo:send
+    857.10      0.44 C 299    send_proxy_dict_to_next_stage
+    857.25     27.40 C 299    gloo:send
+    857.26     27.39 C 299    gloo:send
+    857.38     16.29 G 10     nccl:send 0->1
+    857.59      0.86 C 299    scheduler.recv_requests
+    863.51      0.27 C 299    scheduler.process_queue
+    863.64    294.56 C 299    gloo:send
+    863.66    294.60 C 299    gloo:send
+    863.94      5.19 G 5      gloo:send
+    869.22    293.70 C 299    gloo:send
+    870.90     13.63 G 5      gloo:send
+    873.69      1.59 G 10     nccl:send 0->1
+    875.30      1.07 G 10     nccl:send 0->1
+    876.39      4.39 G 16     gloo:send
+    884.80     60.26 C 299    scheduler.run_batch
+    887.63     57.37 C 299    step[EXTEND bs=2 toks=8150]
+    887.97    299.30 G 6      step[EXTEND bs=2 toks=8150]
+    945.37      0.54 C 299    send_res_dict_to_next_stage
+    945.57    310.30 C 299    gloo:send
+    945.59    310.28 C 299    gloo:send
+    945.93      0.60 C 299    recv_res_dict_from_prev_stage
+    945.98      0.12 C 299    gloo:recv
+    946.13      0.04 C 299    gloo:recv
+    946.92      0.06 C 299    gloo:recv
+    947.00      0.03 C 299    gloo:recv
+   1139.16      0.01 G 10     nccl:send 0->1
+   1139.19      0.01 G 10     nccl:send 0->1
+   1139.22      0.01 G 10     nccl:send 0->1
+   1139.24      0.01 G 10     nccl:send 0->1
+   1139.27      0.01 G 10     nccl:send 0->1
+   1139.31      0.01 G 14     nccl:recv 0<-3
+   1139.34      0.01 G 14     nccl:recv 0<-3
+   1139.37      0.01 G 14     nccl:recv 0<-3
+   1139.41      0.01 G 14     nccl:recv 0<-3
+   1139.45      0.01 G 14     nccl:recv 0<-3
+   1139.48      0.02 G 15     gloo:send
+   1139.55      4.73 C 299    scheduler.process_batch_result
+   1150.53      4.99 C 299    scheduler.process_queue
+   1156.06      0.32 C 299    send_proxy_dict_to_next_stage
+   1156.16     30.02 C 299    gloo:send
+   1156.17     30.01 C 299    gloo:send
+   1156.25     18.93 G 10     nccl:send 0->1
+   1156.43      0.65 C 299    scheduler.recv_requests
+   1157.59      0.89 C 299    scheduler.process_queue
+   1158.34   1284.21 C 299    gloo:send
+   1158.35   1284.24 C 299    gloo:send
+   1158.66      4.25 G 5      gloo:send
+   1163.00   1286.03 C 299    gloo:send
+   1170.47     15.56 G 5      gloo:send
+   1175.20      1.59 G 10     nccl:send 0->1
+   1176.80      1.06 G 10     nccl:send 0->1
+   1177.89      4.33 G 16     gloo:send
+   1186.34     69.32 C 299    scheduler.run_batch
+   1190.46     65.14 C 299    step[EXTEND bs=4 toks=8092]
+   1190.79   1291.59 G 6      step[EXTEND bs=4 toks=8092]
+   1256.01      0.61 C 299    send_res_dict_to_next_stage
+   1256.26   2334.33 C 299    gloo:send
+   1256.29   2334.32 C 299    gloo:send
+   1256.64      0.61 C 299    recv_res_dict_from_prev_stage
+   1256.70      0.11 C 299    gloo:recv
+   1256.83      0.05 C 299    gloo:recv
+   1257.66      0.07 C 299    gloo:recv
+   1257.76      0.04 C 299    gloo:recv
+   1452.01      0.01 G 10     nccl:send 0->1
+   1452.04      0.01 G 10     nccl:send 0->1
+   1452.07      0.01 G 10     nccl:send 0->1
+   1452.09      0.01 G 10     nccl:send 0->1
+   1452.12      0.01 G 10     nccl:send 0->1
+   1452.15      0.01 G 14     nccl:recv 0<-3
+   1452.18      0.01 G 14     nccl:recv 0<-3
+   1452.22      0.01 G 14     nccl:recv 0<-3
+   1452.25      0.01 G 14     nccl:recv 0<-3
+   1452.29      0.01 G 14     nccl:recv 0<-3
+   1452.32      0.02 G 15     gloo:send
+   1452.40      1.54 C 299    scheduler.process_batch_result
+   1459.20      6.41 C 299    scheduler.process_queue
+   1466.59    976.46 C 299    gloo:send
+   1466.61    976.45 C 299    gloo:send
+   1466.62      0.46 C 299    send_proxy_dict_to_next_stage
+   1466.79   1013.98 C 299    gloo:send
+   1466.80   1013.97 C 299    gloo:send
+   1466.93   1002.32 G 10     nccl:send 0->1
+   1467.15      1.03 C 299    scheduler.recv_requests
+   1468.70    974.29 C 299    scheduler.process_queue
+   2442.77   1363.16 C 299    gloo:send
+   2442.79   1363.15 C 299    gloo:send
+   2443.28      3.03 G 5      gloo:send
+   2449.14   1361.39 C 299    gloo:send
+   2460.99     19.75 G 5      gloo:send
+   2469.26      1.57 G 10     nccl:send 0->1
+   2470.85      1.05 G 10     nccl:send 0->1
+   2471.92      4.26 G 16     gloo:send
+   2481.09   1109.30 C 299    scheduler.run_batch
+   3514.90     75.40 C 299    step[EXTEND bs=3 toks=8137]
+   3515.70    332.49 G 6      step[EXTEND bs=3 toks=8137]
+   3590.76      0.62 C 299    send_res_dict_to_next_stage
+   3591.02    360.69 C 299    gloo:send
+   3591.04    360.68 C 299    gloo:send
+   3591.40      0.61 C 299    recv_res_dict_from_prev_stage
+   3591.45      0.11 C 299    gloo:recv
+   3591.59      0.05 C 299    gloo:recv
+   3592.43      0.07 C 299    gloo:recv
+   3592.53      0.03 C 299    gloo:recv
+   3791.81      0.01 G 10     nccl:send 0->1
+   3791.84      0.01 G 10     nccl:send 0->1
+   3791.86      0.01 G 10     nccl:send 0->1
+   3791.89      0.01 G 10     nccl:send 0->1
+   3791.92      0.01 G 10     nccl:send 0->1
+   3791.95      0.01 G 14     nccl:recv 0<-3
+   3791.99      0.01 G 14     nccl:recv 0<-3
+   3792.02      0.01 G 14     nccl:recv 0<-3
+   3792.06      0.01 G 14     nccl:recv 0<-3
+   3792.09      0.01 G 14     nccl:recv 0<-3
+   3792.12      0.02 G 15     gloo:send
+   3793.42      1.65 C 299    scheduler.process_batch_result
+   3799.27      2.06 C 299    scheduler.process_queue
+   3802.33      0.47 C 299    send_proxy_dict_to_next_stage
+   3802.49     44.13 C 299    gloo:send
+   3802.51     44.13 C 299    gloo:send
+   3802.64     32.28 G 10     nccl:send 0->1
+   3802.86      2.01 C 299    scheduler.recv_requests
+   3805.80      0.41 C 299    scheduler.process_queue
+   3806.02    359.07 C 299    gloo:send
+   3806.04    359.11 C 299    gloo:send
+   3806.43      3.97 G 5      gloo:send
+   3810.63    356.76 C 299    gloo:send
+   3834.93      1.58 G 10     nccl:send 0->1
+   3836.11     10.59 G 5      gloo:send
+   3836.53      1.05 G 10     nccl:send 0->1
+   3838.68      4.22 G 16     gloo:send
+   3846.86    104.66 C 299    scheduler.run_batch
+   3877.52     73.93 C 299    step[EXTEND bs=5 toks=8053]
+   3877.89    539.42 G 6      step[EXTEND bs=5 toks=8053]
+   3951.86      0.59 C 299    send_res_dict_to_next_stage
+   3952.10    532.68 C 299    gloo:send
+   3952.13    532.67 C 299    gloo:send
+   3952.47      0.60 C 299    recv_res_dict_from_prev_stage
+   3952.52      0.11 C 299    gloo:recv
+   3952.65      0.05 C 299    gloo:recv
+   3953.46      0.07 C 299    gloo:recv
+   3953.55      0.03 C 299    gloo:recv
+   4147.66      0.01 G 10     nccl:send 0->1
+   4147.70      0.01 G 10     nccl:send 0->1
+   4147.73      0.01 G 10     nccl:send 0->1
+   4147.75      0.01 G 10     nccl:send 0->1
+   4147.79      0.01 G 10     nccl:send 0->1
+   4147.81      0.01 G 14     nccl:recv 0<-3
+   4147.85      0.01 G 14     nccl:recv 0<-3
+   4147.89      0.01 G 14     nccl:recv 0<-3
+   4147.92      0.01 G 14     nccl:recv 0<-3
+   4147.96      0.01 G 14     nccl:recv 0<-3
+   4147.99      0.02 G 15     gloo:send
+   4148.07      3.39 C 299    scheduler.process_batch_result
+   4155.14      3.12 C 299    scheduler.process_queue
+   4161.20      0.41 C 299    send_proxy_dict_to_next_stage
+   4161.35    253.20 C 299    gloo:send
+   4161.36    253.20 C 299    gloo:send
+   4161.47     34.09 G 10     nccl:send 0->1
+   4161.66      0.20 C 299    scheduler.recv_requests
+   4162.54      2.80 C 299    scheduler.process_queue
+   4165.24    594.39 C 299    gloo:send
+   4165.26    594.38 C 299    gloo:send
+   4165.64      1.75 G 5      gloo:send
+   4167.47    595.29 C 299    gloo:send
+   4173.54    240.82 G 5      gloo:send
+   4195.58      1.56 G 10     nccl:send 0->1
+   4197.16      1.04 G 10     nccl:send 0->1
+   4198.23    212.53 G 16     gloo:send
+   4370.06     36.63 G 17     gloo:send
+   4414.79     69.81 C 299    scheduler.run_batch
+   4415.61     68.91 C 299    step[EXTEND bs=3 toks=8117]
+   4416.29    267.11 G 6      step[EXTEND bs=3 toks=8117]
+   4484.92      0.61 C 299    send_res_dict_to_next_stage
+   4485.18    477.31 C 299    gloo:send
+   4485.20    477.29 C 299    gloo:send
+   4485.55      0.64 C 299    recv_res_dict_from_prev_stage
+   4485.61      0.11 C 299    gloo:recv
+   4485.76      0.05 C 299    gloo:recv
+   4486.58      0.06 C 299    gloo:recv
+   4486.66      0.03 C 299    gloo:recv
+   4683.45      0.01 G 10     nccl:send 0->1
+   4683.48      0.01 G 10     nccl:send 0->1
+   4683.51      0.01 G 10     nccl:send 0->1
+   4683.53      0.01 G 10     nccl:send 0->1
+   4683.56      0.01 G 10     nccl:send 0->1
+   4683.59      0.01 G 14     nccl:recv 0<-3
+   4683.62      0.01 G 14     nccl:recv 0<-3
+   4683.66      0.01 G 14     nccl:recv 0<-3
+   4683.69      0.01 G 14     nccl:recv 0<-3
+   4683.73      0.01 G 14     nccl:recv 0<-3
+   4683.77      0.02 G 15     gloo:send
+   4683.95     15.38 C 299    scheduler.process_batch_result
+   4742.08     15.19 C 299    scheduler.process_queue
+   4757.99      0.61 C 299    send_proxy_dict_to_next_stage
+   4758.22    140.70 C 299    gloo:send
+   4758.23    140.69 C 299    gloo:send
+   4758.41    129.50 G 10     nccl:send 0->1
+   4758.69      0.31 C 299    scheduler.recv_requests
+   4759.58      0.23 C 299    scheduler.process_queue
+   4759.70    486.11 C 299    gloo:send
+   4759.71    486.10 C 299    gloo:send
+   4760.00      2.75 G 5      gloo:send
+   4762.86    488.13 C 299    gloo:send
+   4768.15    130.63 G 5      gloo:send
+   4887.93      1.58 G 10     nccl:send 0->1
+   4889.52      1.06 G 10     nccl:send 0->1
+   4890.60      4.03 G 16     gloo:send
+   4899.07     63.24 C 299    scheduler.run_batch
+   4904.55     57.69 C 299    step[EXTEND bs=2 toks=8147]
+   4904.90    259.13 G 6      step[EXTEND bs=2 toks=8147]
+   4962.62      0.53 C 299    send_res_dict_to_next_stage
+   4962.82    451.10 C 299    gloo:send
+   4962.84    451.08 C 299    gloo:send
+   4963.17      0.62 C 299    recv_res_dict_from_prev_stage
+   4963.22      0.14 C 299    gloo:recv
+   4963.38      0.04 C 299    gloo:recv
+   4964.18      0.07 C 299    gloo:recv
+   4964.27      0.04 C 299    gloo:recv
+   5164.10      0.01 G 10     nccl:send 0->1
+   5164.13      0.01 G 10     nccl:send 0->1
+   5164.16      0.01 G 10     nccl:send 0->1
+   5164.18      0.01 G 10     nccl:send 0->1
+   5164.21      0.01 G 10     nccl:send 0->1
+   5164.24      0.01 G 14     nccl:recv 0<-3
+   5164.28      0.01 G 14     nccl:recv 0<-3
+   5164.31      0.01 G 14     nccl:recv 0<-3
+   5164.35      0.01 G 14     nccl:recv 0<-3
+   5164.38      0.01 G 14     nccl:recv 0<-3
+   5164.42      0.02 G 15     gloo:send
+   5164.48     39.07 C 299    scheduler.process_batch_result
+   5243.27      0.19 C 299    scheduler.process_queue
+   5244.38      0.56 C 299    send_proxy_dict_to_next_stage
+   5244.57    112.66 C 299    gloo:send
+   5244.58    112.65 C 299    gloo:send
+   5244.77     99.57 G 10     nccl:send 0->1
+   5244.99      0.24 C 299    scheduler.recv_requests
+   5245.76      0.22 C 299    scheduler.process_queue
+   5245.87    827.53 C 299    gloo:send
+   5245.88    827.53 C 299    gloo:send
+   5246.17      4.81 G 5      gloo:send
+   5251.08    420.85 C 299    gloo:send
+   5253.10    346.23 G 5      gloo:send
+   5344.36      1.58 G 10     nccl:send 0->1
+   5345.95      1.06 G 10     nccl:send 0->1
+   5347.04      7.91 G 16     gloo:send
+   5357.36     56.40 C 299    scheduler.run_batch
+   5357.82     55.87 C 299    step[EXTEND bs=3 toks=8103]
+   5358.31    233.81 G 6      step[EXTEND bs=3 toks=8103]
+   5414.06      0.51 C 299    send_res_dict_to_next_stage
+   5414.25    421.05 C 299    gloo:send
+   5414.27    421.03 C 299    gloo:send
+   5414.58      0.62 C 299    recv_res_dict_from_prev_stage
+   5414.63      0.13 C 299    gloo:recv
+   5414.79      0.06 C 299    gloo:recv
+   5415.61      0.07 C 299    gloo:recv
+   5415.71      0.03 C 299    gloo:recv
+   5592.19      0.01 G 10     nccl:send 0->1
+   5592.23      0.01 G 10     nccl:send 0->1
+   5592.25      0.01 G 10     nccl:send 0->1
+   5592.28      0.01 G 10     nccl:send 0->1
+   5592.31      0.01 G 10     nccl:send 0->1
+   5592.34      6.85 G 14     nccl:recv 0<-3
+   5599.22      0.01 G 14     nccl:recv 0<-3
+   5599.25      0.01 G 14     nccl:recv 0<-3
+   5599.28      0.01 G 14     nccl:recv 0<-3
+   5599.31      0.01 G 14     nccl:recv 0<-3
+   5599.35      0.02 G 15     gloo:send
+   5599.41     57.20 C 299    scheduler.process_batch_result
+   5666.93      0.19 C 299    scheduler.process_queue
+   5667.61      0.56 C 299    send_proxy_dict_to_next_stage
+   5667.82    110.86 C 299    gloo:send
+   5667.83    110.85 C 299    gloo:send
+   5668.00    100.72 G 10     nccl:send 0->1
+   5668.23      0.10 C 299    scheduler.recv_requests
+   5668.40      0.01 C 299    scheduler.process_queue
+   5669.07      2.85 G 5      gloo:send
+   5672.01    407.00 C 299    gloo:send
+   5672.80    355.67 G 5      gloo:send
+   5768.73      1.58 G 10     nccl:send 0->1
+   5770.33      1.06 G 10     nccl:send 0->1
+   5771.41      4.74 G 16     gloo:send
+   5778.83     56.30 C 299    scheduler.run_batch
+   5779.31     55.76 C 299    step[EXTEND bs=1 toks=8192]
+   5779.81    248.30 G 6      step[EXTEND bs=1 toks=8192]
+   5835.43      0.55 C 299    send_res_dict_to_next_stage
+   5835.63    339.16 C 299    gloo:send
+   5835.65    339.15 C 299    gloo:send
+   5836.00      0.61 C 299    recv_res_dict_from_prev_stage
+   5836.05      0.13 C 299    gloo:recv
+   5836.20      0.05 C 299    gloo:recv
+   5837.01      0.07 C 299    gloo:recv
+   5837.11      0.03 C 299    gloo:recv
+   6028.18      0.01 G 10     nccl:send 0->1
+   6028.21      0.01 G 10     nccl:send 0->1
+   6028.24      0.01 G 10     nccl:send 0->1
+   6028.26      0.01 G 10     nccl:send 0->1
+   6028.29      0.01 G 10     nccl:send 0->1
+   6028.32      0.01 G 14     nccl:recv 0<-3
+   6028.36      0.01 G 14     nccl:recv 0<-3
+   6028.39      0.01 G 14     nccl:recv 0<-3
+   6028.42      0.01 G 14     nccl:recv 0<-3
+   6028.46      0.01 G 14     nccl:recv 0<-3
+   6028.50      0.02 G 15     gloo:send
+   6028.58     12.18 C 299    scheduler.process_batch_result
+   6045.35      0.18 C 299    scheduler.process_queue
+   6045.66     27.66 C 299    gloo:send
+   6045.84     27.83 C 299    gloo:send
+   6045.94     27.73 C 299    gloo:send
+   6045.99      4.36 C 299    send_proxy_dict_to_next_stage
+   6046.17     65.18 C 299    gloo:send
+   6046.26     65.09 C 299    gloo:send
+   6050.18     44.36 G 10     nccl:send 0->1
+   6050.41      0.22 C 299    scheduler.recv_requests
+   6073.35      0.27 C 299    scheduler.process_queue
+   6073.48    353.94 C 299    gloo:send
+   6073.49    354.00 C 299    gloo:send
+   6073.82      5.19 G 5      gloo:send
+   6079.10    354.89 C 299    gloo:send
+   6081.82     29.40 G 5      gloo:send
+   6094.56      1.58 G 10     nccl:send 0->1
+   6096.16      1.06 G 10     nccl:send 0->1
+   6097.24     11.54 G 16     gloo:send
+   6111.48     63.13 C 299    scheduler.run_batch
+   6114.67     59.88 C 299    step[EXTEND bs=2 toks=8191]
+   6115.01    264.48 G 6      step[EXTEND bs=2 toks=8191]
+   6174.93      0.54 C 299    send_res_dict_to_next_stage
+   6175.13    365.98 C 299    gloo:send
+   6175.16    365.97 C 299    gloo:send
+   6175.48      0.57 C 299    recv_res_dict_from_prev_stage
+   6175.53      0.10 C 299    gloo:recv
+   6175.65      0.03 C 299    gloo:recv
+   6176.42      0.06 C 299    gloo:recv
+   6176.50      0.04 C 299    gloo:recv
+   6379.56      0.01 G 10     nccl:send 0->1
+   6379.59      0.01 G 10     nccl:send 0->1
+   6379.62      0.01 G 10     nccl:send 0->1
+   6379.65      0.01 G 10     nccl:send 0->1
+   6379.68      0.01 G 10     nccl:send 0->1
+   6379.71      0.01 G 14     nccl:recv 0<-3
+   6379.74      0.01 G 14     nccl:recv 0<-3
+   6379.77      0.01 G 14     nccl:recv 0<-3
+   6379.81      0.01 G 14     nccl:recv 0<-3
+   6379.84      0.01 G 14     nccl:recv 0<-3
+   6379.88      0.02 G 15     gloo:send
+   6379.97     11.81 C 299    scheduler.process_batch_result
+   6393.00      6.01 C 299    scheduler.process_queue
+   6399.48     28.35 C 299    gloo:send
+   6399.49     28.40 C 299    gloo:send
+   6399.50      0.41 C 299    send_proxy_dict_to_next_stage
+   6399.63     71.70 C 299    gloo:send
+   6399.64     71.69 C 299    gloo:send
+   6399.76     61.46 G 10     nccl:send 0->1
+   6399.97      0.70 C 299    scheduler.recv_requests
+   6401.29     26.43 C 299    scheduler.process_queue
+   6427.58   1375.34 C 299    gloo:send
+   6427.59   1375.33 C 299    gloo:send
+   6428.20      5.79 G 5      gloo:send
+   6434.09    363.98 C 299    gloo:send
+   6440.43     30.81 G 5      gloo:send
+   6461.24      1.59 G 10     nccl:send 0->1
+   6462.85      1.07 G 10     nccl:send 0->1
+   6463.94      3.73 G 16     gloo:send
+   6471.47     69.46 C 299    scheduler.run_batch
+   6479.73     61.13 C 299    step[EXTEND bs=2 toks=8190]
+   6480.20    290.55 G 6      step[EXTEND bs=2 toks=8190]
+   6541.26      0.58 C 299    send_res_dict_to_next_stage
+   6541.48    338.71 C 299    gloo:send
+   6541.50    338.69 C 299    gloo:send
+   6541.85      0.59 C 299    recv_res_dict_from_prev_stage
+   6541.90      0.11 C 299    gloo:recv
+   6542.03      0.05 C 299    gloo:recv
+   6542.84      0.07 C 299    gloo:recv
+   6542.93      0.04 C 299    gloo:recv
+   6770.82      0.01 G 10     nccl:send 0->1
+   6770.85      0.01 G 10     nccl:send 0->1
+   6770.88      0.01 G 10     nccl:send 0->1
+   6770.90      0.01 G 10     nccl:send 0->1
+   6770.93      0.01 G 10     nccl:send 0->1
+   6770.96      0.01 G 14     nccl:recv 0<-3
+   6771.00      0.01 G 14     nccl:recv 0<-3
+   6771.03      0.01 G 14     nccl:recv 0<-3
+   6771.07      0.01 G 14     nccl:recv 0<-3
+   6771.10      0.01 G 14     nccl:recv 0<-3
+   6771.14      0.02 G 15     gloo:send
+   6771.21      5.38 C 299    scheduler.process_batch_result
+   6782.14      7.80 C 299    scheduler.process_queue
+   6791.01      0.40 C 299    send_proxy_dict_to_next_stage
+   6791.15     31.42 C 299    gloo:send
+   6791.16     31.41 C 299    gloo:send
+   6791.27     20.74 G 10     nccl:send 0->1
+   6791.46      0.09 C 299    scheduler.recv_requests
+   6791.69      0.02 C 299    scheduler.process_queue
+   6793.40      4.65 G 5      gloo:send
+   6798.15    321.41 C 299    gloo:send
+   6799.90     22.53 G 5      gloo:send
+   6812.03      1.58 G 10     nccl:send 0->1
+   6813.62      1.06 G 10     nccl:send 0->1
+   6814.71      3.75 G 16     gloo:send
+   6822.72     57.30 C 299    scheduler.run_batch
+   6823.20     56.75 C 299    step[EXTEND bs=1 toks=8192]
+   6823.63    255.97 G 6      step[EXTEND bs=1 toks=8192]
+   6880.31      0.54 C 299    send_res_dict_to_next_stage
+   6880.51    328.92 C 299    gloo:send
+   6880.53    328.90 C 299    gloo:send
+   6880.87      0.61 C 299    recv_res_dict_from_prev_stage
+   6880.93      0.12 C 299    gloo:recv
+   6881.08      0.05 C 299    gloo:recv
+   6881.88      0.07 C 299    gloo:recv
+   6881.97      0.03 C 299    gloo:recv
+   7079.67      0.01 G 10     nccl:send 0->1
+   7079.70      0.01 G 10     nccl:send 0->1
+   7079.72      0.01 G 10     nccl:send 0->1
+   7079.75      0.01 G 10     nccl:send 0->1
+   7079.78      0.01 G 10     nccl:send 0->1
+   7079.81      0.01 G 14     nccl:recv 0<-3
+   7079.84      0.01 G 14     nccl:recv 0<-3
+   7079.88      0.01 G 14     nccl:recv 0<-3
+   7079.91      0.01 G 14     nccl:recv 0<-3
+   7079.95      0.01 G 14     nccl:recv 0<-3
+   7079.98      0.03 G 15     gloo:send
+   7080.05      1.51 C 299    scheduler.process_batch_result
+   7085.55     26.93 C 299    scheduler.process_queue
+   7113.17      0.59 C 299    send_proxy_dict_to_next_stage
+   7113.39     38.14 C 299    gloo:send
+   7113.41     38.13 C 299    gloo:send
+   7113.58     29.38 G 10     nccl:send 0->1
+   7113.84      0.11 C 299    scheduler.recv_requests
+   7114.03      0.02 C 299    scheduler.process_queue
+   7114.38      5.04 G 5      gloo:send
+   7120.45    362.49 C 299    gloo:send
+   7122.30     29.09 G 5      gloo:send
+   7142.98      1.60 G 10     nccl:send 0->1
+   7144.59      1.07 G 10     nccl:send 0->1
+   7145.68      3.87 G 16     gloo:send
+   7151.69     57.59 C 299    scheduler.run_batch
+   7152.57     56.65 C 299    step[EXTEND bs=1 toks=8192]
+   7153.12    257.88 G 6      step[EXTEND bs=1 toks=8192]
+   7209.56      0.58 C 299    send_res_dict_to_next_stage
+   7209.78    350.33 C 299    gloo:send
+   7209.80    350.32 C 299    gloo:send
+   7210.15      0.62 C 299    recv_res_dict_from_prev_stage
+   7210.20      0.12 C 299    gloo:recv
+   7210.35      0.04 C 299    gloo:recv
+   7211.15      0.04 C 299    gloo:recv
+   7211.21      0.05 C 299    gloo:recv
+   7411.06      0.01 G 10     nccl:send 0->1
+   7411.09      0.01 G 10     nccl:send 0->1
+   7411.12      0.01 G 10     nccl:send 0->1
+   7411.14      0.01 G 10     nccl:send 0->1
+   7411.17      0.01 G 10     nccl:send 0->1
+   7411.20     12.83 G 14     nccl:recv 0<-3
+   7424.06      0.01 G 14     nccl:recv 0<-3
+   7424.09      0.01 G 14     nccl:recv 0<-3
+   7424.12      0.01 G 14     nccl:recv 0<-3
+   7424.15      0.01 G 14     nccl:recv 0<-3
+   7424.19      0.02 G 15     gloo:send
+   7424.25      3.91 C 299    scheduler.process_batch_result
+   7431.66     42.19 C 299    scheduler.process_queue
+   7474.65      0.66 C 299    send_proxy_dict_to_next_stage
+   7474.90     26.57 C 299    gloo:send
+   7474.91     26.56 C 299    gloo:send
+   7475.10     13.26 G 10     nccl:send 0->1
+   7475.40      0.11 C 299    scheduler.recv_requests
+   7475.60      0.02 C 299    scheduler.process_queue
+   7475.99      6.94 G 5      gloo:send
+   7483.06    327.33 C 299    gloo:send
+   7484.92     16.41 G 5      gloo:send
+   7488.38      1.58 G 10     nccl:send 0->1
+   7489.98      1.05 G 10     nccl:send 0->1
+   7491.06      8.33 G 16     gloo:send
+   7501.63     58.30 C 299    scheduler.run_batch
+   7502.19     57.06 C 299    step[EXTEND bs=1 toks=8192]
+   7502.68    261.43 G 6      step[EXTEND bs=1 toks=8192]
+   7560.23      0.59 C 299    send_res_dict_to_next_stage
+   7560.45    340.34 C 299    gloo:send
+   7560.48    340.32 C 299    gloo:send
+   7560.84      0.64 C 299    recv_res_dict_from_prev_stage
+   7560.89      0.13 C 299    gloo:recv
+   7561.05      0.06 C 299    gloo:recv
+   7561.87      0.07 C 299    gloo:recv
+   7561.96      0.04 C 299    gloo:recv
+   7764.15      0.01 G 10     nccl:send 0->1
+   7764.18      0.01 G 10     nccl:send 0->1
+   7764.21      0.01 G 10     nccl:send 0->1
+   7764.24      0.01 G 10     nccl:send 0->1
+   7764.27      0.01 G 10     nccl:send 0->1
+   7764.31      0.01 G 14     nccl:recv 0<-3
+   7764.34      0.01 G 14     nccl:recv 0<-3
+   7764.38      0.01 G 14     nccl:recv 0<-3
+   7764.41      0.01 G 14     nccl:recv 0<-3
+   7764.45      0.01 G 14     nccl:recv 0<-3
+   7764.49      0.02 G 15     gloo:send
+   7764.55     16.35 C 299    scheduler.process_batch_result
+   7781.54      9.77 C 299    scheduler.process_queue
+   7791.67     11.17 C 299    gloo:send
+   7791.78     11.37 C 299    gloo:send
+   7791.79     11.38 C 299    gloo:send
+   7791.81      0.53 C 299    send_proxy_dict_to_next_stage
+   7791.99     43.81 C 299    gloo:send
+   7792.01     43.80 C 299    gloo:send
+   7792.17     31.76 G 10     nccl:send 0->1
+   7792.40      0.40 C 299    scheduler.recv_requests
+   7802.87      0.24 C 299    scheduler.process_queue
+   7802.99    355.31 C 299    gloo:send
+   7803.01    355.38 C 299    gloo:send
+   7803.45      6.94 G 5      gloo:send
+   7810.49    353.36 C 299    gloo:send
+   7818.25     17.38 G 5      gloo:send
+   7823.94      1.59 G 10     nccl:send 0->1
+   7825.55      1.07 G 10     nccl:send 0->1
+   7826.65      7.45 G 16     gloo:send
+   7836.01     64.60 C 299    scheduler.run_batch
+   7841.84     58.70 C 299    step[EXTEND bs=2 toks=8140]
+   7842.19    278.57 G 6      step[EXTEND bs=2 toks=8140]
+   7900.93      0.60 C 299    send_res_dict_to_next_stage
+   7901.18    368.84 C 299    gloo:send
+   7901.20    368.83 C 299    gloo:send
+   7901.55      0.60 C 299    recv_res_dict_from_prev_stage
+   7901.60      0.12 C 299    gloo:recv
+   7901.74      0.05 C 299    gloo:recv
+   7902.53      0.06 C 299    gloo:recv
+   7902.61      0.02 C 299    gloo:recv
+   8120.83      0.01 G 10     nccl:send 0->1
+   8120.86      0.01 G 10     nccl:send 0->1
+   8120.88      0.01 G 10     nccl:send 0->1
+   8120.91      0.01 G 10     nccl:send 0->1
+   8120.94      0.01 G 10     nccl:send 0->1
+   8120.97      0.01 G 14     nccl:recv 0<-3
+   8121.00      0.01 G 14     nccl:recv 0<-3
+   8121.04      0.01 G 14     nccl:recv 0<-3
+   8121.07      0.01 G 14     nccl:recv 0<-3
+   8121.11      0.01 G 14     nccl:recv 0<-3
+   8121.14      0.02 G 15     gloo:send
+   8121.22      1.56 C 299    scheduler.process_batch_result
+   8128.46      5.51 C 299    scheduler.process_queue
+   8134.82     23.85 C 299    gloo:send
+   8134.83     23.91 C 299    gloo:send
+   8134.85      0.36 C 299    send_proxy_dict_to_next_stage
+   8134.96     67.34 C 299    gloo:send
+   8134.97     67.33 C 299    gloo:send
+   8135.07     52.76 G 10     nccl:send 0->1
+   8135.25      0.48 C 299    scheduler.recv_requests
+   8138.48     20.07 C 299    scheduler.process_queue
+   8158.45    655.22 C 299    gloo:send
+   8158.46    655.21 C 299    gloo:send
+   8159.03      4.68 G 5      gloo:send
+   8165.01    337.16 C 299    gloo:send
+   8172.54     29.44 G 5      gloo:send
+   8187.85      1.57 G 10     nccl:send 0->1
+   8189.44      1.05 G 10     nccl:send 0->1
+   8190.52      9.28 G 16     gloo:send
+   8202.49     63.97 C 299    scheduler.run_batch
+   8206.56     59.84 C 299    step[EXTEND bs=3 toks=8086]
+   8206.91    271.62 G 6      step[EXTEND bs=3 toks=8086]
+   8270.17      0.62 C 299    send_res_dict_to_next_stage
+   8270.41    332.98 C 299    gloo:send
+   8270.44    332.96 C 299    gloo:send
+   8270.80      0.63 C 299    recv_res_dict_from_prev_stage
+   8270.86      0.13 C 299    gloo:recv
+   8271.01      0.07 C 299    gloo:recv
+   8271.83      0.07 C 299    gloo:recv
+   8271.92      0.05 C 299    gloo:recv
+   8478.60      0.01 G 10     nccl:send 0->1
+   8478.63      0.01 G 10     nccl:send 0->1
+   8478.66      0.01 G 10     nccl:send 0->1
+   8478.68      0.01 G 10     nccl:send 0->1
+   8478.71      0.01 G 10     nccl:send 0->1
+   8478.74      0.01 G 14     nccl:recv 0<-3
+   8478.77      0.01 G 14     nccl:recv 0<-3
+   8478.81      0.01 G 14     nccl:recv 0<-3
+   8478.84      0.01 G 14     nccl:recv 0<-3
+   8478.88      0.01 G 14     nccl:recv 0<-3
+   8478.91      0.02 G 15     gloo:send
+   8478.98      1.50 C 299    scheduler.process_batch_result
+   8485.67      0.12 C 299    scheduler.process_queue
+   8487.01     11.22 C 299    gloo:send
+   8487.02     11.27 C 299    gloo:send
+   8487.04      0.33 C 299    send_proxy_dict_to_next_stage
+   8487.15     52.62 C 299    gloo:send
+   8487.16     52.62 C 299    gloo:send
+   8487.24     44.08 G 10     nccl:send 0->1
+   8487.42      0.09 C 299    scheduler.recv_requests
+   8487.57      0.09 C 299    scheduler.process_queue
+   8498.64      3.42 G 5      gloo:send
+   8503.52    315.43 C 299    gloo:send
+   8506.23     33.40 G 5      gloo:send
+   8531.34      1.57 G 10     nccl:send 0->1
+   8532.93      1.04 G 10     nccl:send 0->1
+   8534.00      4.18 G 16     gloo:send
+   8539.91     63.33 C 299    scheduler.run_batch
+   8543.93     59.24 C 299    step[EXTEND bs=2 toks=8192]
+   8544.26    258.83 G 6      step[EXTEND bs=2 toks=8192]
+   8603.51      0.57 C 299    send_res_dict_to_next_stage
+   8603.72    320.43 C 299    gloo:send
+   8603.74    320.41 C 299    gloo:send
+   8604.10      0.57 C 299    recv_res_dict_from_prev_stage
+   8604.15      0.10 C 299    gloo:recv
+   8604.27      0.04 C 299    gloo:recv
+   8605.06      0.07 C 299    gloo:recv
+   8605.15      0.04 C 299    gloo:recv
+   8803.13      0.01 G 10     nccl:send 0->1
+   8803.16      0.01 G 10     nccl:send 0->1
+   8803.19      0.01 G 10     nccl:send 0->1
+   8803.21      0.01 G 10     nccl:send 0->1
+   8803.25      0.01 G 10     nccl:send 0->1
+   8803.27      0.01 G 14     nccl:recv 0<-3
+   8803.31      0.01 G 14     nccl:recv 0<-3
+   8803.34      0.01 G 14     nccl:recv 0<-3
+   8803.38      0.01 G 14     nccl:recv 0<-3
+   8803.41      0.01 G 14     nccl:recv 0<-3
+   8803.45      0.02 G 15     gloo:send
+   8803.51      1.43 C 299    scheduler.process_batch_result
+   8808.76      3.31 C 299    scheduler.process_queue
+   8812.27      0.31 C 299    send_proxy_dict_to_next_stage
+   8812.36     51.05 C 299    gloo:send
+   8812.37     51.04 C 299    gloo:send
+   8812.46     38.71 G 10     nccl:send 0->1
+   8812.63      0.26 C 299    scheduler.recv_requests
+   8813.63      0.20 C 299    scheduler.process_queue
+   8813.73    316.64 C 299    gloo:send
+   8813.74    316.63 C 299    gloo:send
+   8813.98      2.96 G 5      gloo:send
+   8819.05    314.15 C 299    gloo:send
+   8823.06     40.23 G 5      gloo:send
+   8851.18      1.60 G 10     nccl:send 0->1
+   8852.79      1.06 G 10     nccl:send 0->1
+   8853.88      6.94 G 16     gloo:send
+   8863.53     60.46 C 299    scheduler.run_batch
+   8867.95     55.98 C 299    step[EXTEND bs=3 toks=8192]
+   8868.25    239.55 G 6      step[EXTEND bs=3 toks=8192]
+   8924.26      0.54 C 299    send_res_dict_to_next_stage
+   8924.46   2386.44 C 299    gloo:send
+   8924.48   2386.42 C 299    gloo:send
+   8924.81      0.60 C 299    recv_res_dict_from_prev_stage
+   8924.86      0.12 C 299    gloo:recv
+   8925.01      0.06 C 299    gloo:recv
+   8925.79      0.05 C 299    gloo:recv
+   8925.86      0.05 C 299    gloo:recv
+   9107.84      0.01 G 10     nccl:send 0->1
+   9107.87      0.01 G 10     nccl:send 0->1
+   9107.90      0.01 G 10     nccl:send 0->1
+   9107.92      0.01 G 10     nccl:send 0->1
+   9107.95      0.01 G 10     nccl:send 0->1
+   9107.98      5.27 G 14     nccl:recv 0<-3
+   9113.28      0.01 G 14     nccl:recv 0<-3
+   9113.31      0.01 G 14     nccl:recv 0<-3
+   9113.34      0.01 G 14     nccl:recv 0<-3
+   9113.38      0.01 G 14     nccl:recv 0<-3
+   9113.41      0.02 G 15     gloo:send
+   9113.47      8.58 C 299    scheduler.process_batch_result
+   9128.59      0.12 C 299    scheduler.process_queue
+   9129.16      0.34 C 299    send_proxy_dict_to_next_stage
+   9129.27     45.93 C 299    gloo:send
+   9129.29     45.93 C 299    gloo:send
+   9129.38     29.04 G 10     nccl:send 0->1
+   9129.55      0.28 C 299    scheduler.recv_requests
+   9130.32      0.23 C 299    scheduler.process_queue
+   9130.43   2180.46 C 299    gloo:send
+   9130.44   2180.45 C 299    gloo:send
+   9130.68      1.52 G 5      gloo:send
+   9133.28   2177.61 C 299    gloo:send
+   9136.55     38.53 G 5      gloo:send
+   9158.43      1.58 G 10     nccl:send 0->1
+   9160.03      1.06 G 10     nccl:send 0->1
+   9161.12     10.19 G 16     gloo:send
+   9175.34   2135.55 C 299    scheduler.run_batch
+span ms 11310.891219238281

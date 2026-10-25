@@ -1,0 +1,20 @@
+llr7r system analysis (probe window 08:46:20-08:48:13Z; decode profile 08:46:57-59 inside it). Scripts *.yihou.py in this dir.
+RDMA (rdma135tx.txt, rdma136rx.txt): active rails ionic_4..7 only, line rate 400 Gb/s = 50 GB/s each (sysfs rate).
+  135 tx per rail mean/p50/p90/max GB/s: i4 4.49/3.22/12.88/23.92  i5 3.19/1.31/9.11/28.80  i6 3.41/1.07/12.66/30.20  i7 4.86/3.18/12.28/30.79
+  sum mean 16.35 p50 12.18 p90 33.45 max 65.90 GB/s of 200 (8.2% mean). >50% line: 0-0.8% of samples per rail; >80%: 0.
+  window totals 597/425/454/647 GB (i7/i5 = 1.52x); per-sample max/mean rail p50 2.27 p90 3.14. zero-traffic samples 2.5-27%.
+  136 rx mirrors (sum mean 16.42). retx / ack_timeout deltas = 0 on all rails, both nodes. Sample interval ~1.12 s.
+CPU (cpugpu.txt): 135 sum 17.2 cores busy, max core 37%; 136 sum 10.0 cores, max core 76% (threads migrate).
+  136 hot threads (top -H + /proc): DP controller main (ns pid 303) 99.9%; per scheduler: main thread 89-96% (user time),
+  plus one native comm=python3 thread (ns tid 621/624/628/630) 98.7%, ~83% system time, not visible in py-spy -> identity UNKNOWN.
+  135 prefill has the same native python3 thread per PP scheduler (stime 86% of its time).
+py-spy (3 dumps; cpu= field is lifetime ps %cpu, not instantaneous): schedulers 11/12 samples in
+  eagle_prepare_for_verify -> load_batch -> _resolve_attention_variant -> graph_variants.select; 1/12 broadcast_pyobj (recv_requests).
+  DP controller: event_loop recv_pyobj, 2/3 samples inside zmq.error.__init__ (zmq.Again raised by non-blocking recv) -> busy-poll.
+  decode_thread (mooncake conn.py:2973) in recv_multipart; watchdog/heartbeat/tqdm idle. Tokenizer workers mostly idle; one in prometheus generate_latest.
+Decode trace (dtrace_dp0.txt, dstep.txt): graph_variants.select calls Tensor.item() -> hipMemcpyWithStream (blocking D2H).
+  per step blocking select p50 43.2 ms of 50.9 ms period (all 4 ranks); 1462 ms of 2054 ms on DP0.
+  select return -> next hipGraphLaunch p50 0.16 ms; GPU gap between run_batch annotations p50 27 us, p90 ~2.1 ms, sum 0.8% of span.
+  Graph-internal kernels are not in the trace (kernel-union busy 13% is an artifact).
+GPU (rocm-smi 10 s): 136 GPU4-7 100% use except the 08:47:01 sample (0%, trace export), power mean 867-894 W.
+  135 GPU4-7 use mean 72-82%, one sample 08:47:10 at 1-8% on all four (power ~310 W), mean power ~750-770 W.

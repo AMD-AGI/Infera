@@ -1,0 +1,14 @@
+== 135 cpu: n=236 mean busy=7.3% sum-cores=17.2 cores; >90%:0 >50%:0 >20%:21
+   top10: cpu150=37 cpu170=27 cpu193=26 cpu118=25 cpu88=25 cpu96=25 cpu194=24 cpu227=24 cpu152=24 cpu202=23
+== 135 gpu: 12 samples 08:46:20..08:48:10
+   card4: use mean=77.4 min=4 max=100 | power mean=767 min=313 max=1070 W | use series 95 82 98 32 90 4 50 99 89 98 100 92
+   card5: use mean=82.3 min=1 max=100 | power mean=747 min=302 max=1024 W | use series 97 96 99 99 98 1 4 99 97 100 100 98
+   card6: use mean=79.7 min=1 max=100 | power mean=748 min=313 max=1046 W | use series 94 96 99 93 96 1 28 100 51 100 100 98
+   card7: use mean=72.0 min=8 max=99 | power mean=772 min=316 max=1070 W | use series 93 91 96 61 88 8 92 99 20 45 78 93
+== 136 cpu: n=236 mean busy=4.2% sum-cores=10.0 cores; >90%:0 >50%:2 >20%:21
+   top10: cpu214=76 cpu107=54 cpu138=48 cpu120=44 cpu51=42 cpu106=39 cpu182=38 cpu37=35 cpu80=32 cpu50=29
+== 136 gpu: 12 samples 08:46:20..08:48:11
+   card4: use mean=91.7 min=0 max=100 | power mean=867 min=306 max=942 W | use series 100 100 100 100 0 100 100 100 100 100 100 100
+   card5: use mean=91.6 min=0 max=100 | power mean=894 min=303 max=971 W | use series 100 100 100 100 0 100 100 99 100 100 100 100
+   card6: use mean=91.6 min=0 max=100 | power mean=867 min=310 max=939 W | use series 100 100 100 100 0 100 100 99 100 100 100 100
+   card7: use mean=91.6 min=0 max=100 | power mean=871 min=301 max=949 W | use series 100 100 100 100 0 100 100 99 100 100 100 100

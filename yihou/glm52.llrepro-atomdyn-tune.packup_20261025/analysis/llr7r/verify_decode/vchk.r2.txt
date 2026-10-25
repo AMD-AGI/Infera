@@ -1,0 +1,10 @@
+top-level keys ['schemaVersion', 'deviceProperties', 'roctracer_version', 'hip_runtime_version', 'distributedInfo', 'record_shapes', 'hip_driver_version', 'with_stack', 'trace_id', 'displayTimeUnit', 'baseTimeNanoseconds', 'traceName']
+cats [('python_function', 334509), ('cpu_op', 30363), ('ac2g', 21577), ('kernel', 11288), ('cuda_runtime', 9487), ('gpu_memcpy', 802), ('user_annotation', 525), ('gpu_user_annotation', 201), (None, 74), ('Trace', 1)]
+ph Counter({'X': 387176, 'f': 17299, 's': 4278, 'M': 72, 'i': 2})
+gpu events 12090 pids [((8, 8), 11972), ((8, 7), 118)]
+span ms 2053.6, gpu kernel-sum ms 273.7, #gaps>5ms 42, gap ms p50 38.61 sum 1597.3
+other events on gpu pid [(('gpu_user_annotation', 'scheduler.get_next_batch_to_run'), 41), (('gpu_user_annotation', 'draft_extend'), 40), (('gpu_user_annotation', 'draft'), 40), (('gpu_user_annotation', 'scheduler.run_batch'), 40), (('gpu_user_annotation', 'copy_result_to_cpu'), 40)]
+hipGraphLaunch n 120 kernels/launch counter [(170, 40), (0, 40), (52, 37), (56, 3)]
+graphlaunch durs ms [0.76, 0.86, 0.86, 0.86, 0.91] ...
+flow events 21577
+user_annotation names [('gloo:broadcast', 81), ('gloo:gather', 41), ('scheduler.process_queue', 41), ('scheduler.get_next_batch_to_run', 41), ('scheduler.run_batch', 41), ('draft', 40), ('step[VERIFY bs=N]', 40), ('draft_extend', 40), ('copy_result_to_cpu', 40), ('scheduler.process_batch_result', 40), ('scheduler.recv_requests', 40), ('scheduler.process_input_requests', 40)]

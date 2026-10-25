@@ -1,0 +1,201 @@
+
+=== batch 10 (times rel. PP0 GPU start of batch 10, ms) ===
+ PP0 GPU step b10: 0.0 -> 248.3 ; next b11 GPU start 335.2
+      -106.9    248.7 ( 355.6) gpu memcpy_DtoD other
+        57.4    248.7 ( 191.4) cpu synchronize
+       248.7    265.3 (  16.6) cpu _pp_process_batch_result
+       249.1    260.8 (  11.7) cpu process_batch_result_disagg_prefill
+       249.4    250.7 (   1.4) cpu checkpoint_disagg_prefill
+       250.8    251.2 (   0.4) cpu send_kv_chunk
+       251.2    259.3 (   8.1) cpu checkpoint_disagg_prefill
+       259.5    259.8 (   0.3) cpu send_kv_chunk
+       266.2    270.5 (   4.3) cpu _pp_send_dict_to_next_stage
+       270.4    314.7 (  44.4) gpu nccl pp_send s10
+       271.1    271.4 (   0.3) cpu process_input_requests
+       293.9    298.5 (   4.6) cpu checkpoint_disagg_prefill
+       298.5    298.8 (   0.4) cpu send_kv_chunk
+       302.6    303.7 (   1.2) cpu _execute_kv_backup
+       304.2    318.0 (  13.8) cpu synchronize
+       314.8    316.3 (   1.6) gpu nccl pp_send s10
+       316.3    317.4 (   1.1) gpu nccl pp_send s10
+       319.0    319.2 (   0.2) cpu synchronize
+       319.9    320.2 (   0.4) cpu synchronize
+       321.0    321.5 (   0.5) cpu synchronize
+       322.2    322.4 (   0.2) cpu synchronize
+       323.0    323.3 (   0.3) cpu synchronize
+       324.5    324.8 (   0.3) cpu synchronize
+       325.1    325.7 (   0.6) cpu _execute_kv_backup
+       326.0    329.0 (   3.0) cpu synchronize
+       331.6    394.9 (  63.3) cpu _pp_launch_batch
+       331.7    394.8 (  63.1) cpu run_batch
+ PP1 GPU step b10: 317.5 -> 550.7 ; next b11 GPU start 687.9
+       397.4    600.0 ( 202.5) cpu synchronize
+       550.8    599.8 (  49.0) gpu nccl pp_recv s10
+       600.0    608.7 (   8.7) cpu _pp_process_batch_result
+       600.1    607.9 (   7.8) cpu process_batch_result_disagg_prefill
+       600.6    601.6 (   1.0) cpu checkpoint_disagg_prefill
+       601.6    602.1 (   0.5) cpu send_kv_chunk
+       602.1    606.6 (   4.5) cpu checkpoint_disagg_prefill
+       606.6    607.0 (   0.4) cpu send_kv_chunk
+       613.7    614.3 (   0.5) cpu _pp_send_dict_to_next_stage
+       614.1    667.0 (  52.8) gpu nccl pp_send s14
+       614.3    620.0 (   5.6) cpu recv_requests
+       620.1    620.4 (   0.3) cpu process_input_requests
+       648.2    649.4 (   1.2) cpu checkpoint_disagg_prefill
+       649.4    649.6 (   0.2) cpu send_kv_chunk
+       653.4    654.4 (   1.0) cpu _execute_kv_backup
+       654.9    670.4 (  15.6) cpu synchronize
+       667.0    668.6 (   1.6) gpu nccl pp_send s14
+       668.6    669.6 (   1.1) gpu nccl pp_send s14
+       671.0    671.3 (   0.3) cpu synchronize
+       671.7    672.3 (   0.5) cpu synchronize
+       672.6    673.1 (   0.5) cpu synchronize
+       673.5    673.7 (   0.2) cpu synchronize
+       674.0    674.3 (   0.3) cpu synchronize
+       675.2    675.5 (   0.3) cpu synchronize
+       675.6    675.9 (   0.3) cpu _execute_kv_backup
+       676.2    679.1 (   3.0) cpu synchronize
+       680.0    680.5 (   0.5) cpu _pp_recv_proxy_tensors
+       680.3    681.4 (   1.1) gpu nccl pp_recv s10
+       680.5    745.7 (  65.2) cpu _pp_launch_batch
+       680.6    745.6 (  64.9) cpu run_batch
+       680.6    684.3 (   3.6) cpu send_kv_chunk
+       681.5    683.0 (   1.6) gpu nccl pp_recv s10
+       683.1    684.1 (   1.1) gpu nccl pp_recv s10
+ PP2 GPU step b10: 669.7 -> 906.5 ; next b11 GPU start 1030.3
+       763.8    991.4 ( 227.6) cpu synchronize
+       906.7    991.2 (  84.5) gpu nccl pp_recv s10
+       991.4    999.3 (   7.9) cpu _pp_process_batch_result
+       991.6    999.2 (   7.6) cpu process_batch_result_disagg_prefill
+       992.0    993.0 (   1.0) cpu checkpoint_disagg_prefill
+       993.0    993.5 (   0.4) cpu send_kv_chunk
+       993.5    997.5 (   4.0) cpu checkpoint_disagg_prefill
+       997.5    997.8 (   0.3) cpu send_kv_chunk
+       999.8   1000.4 (   0.6) cpu _pp_send_dict_to_next_stage
+      1000.2   1010.0 (   9.7) gpu nccl pp_send s14
+      1000.5   1004.2 (   3.6) cpu recv_requests
+      1004.2   1004.6 (   0.3) cpu process_input_requests
+      1005.2   1006.4 (   1.2) cpu checkpoint_disagg_prefill
+      1010.0   1011.6 (   1.6) gpu nccl pp_send s14
+      1010.1   1010.9 (   0.8) cpu _execute_kv_backup
+      1011.4   1013.2 (   1.9) cpu synchronize
+      1011.6   1012.7 (   1.1) gpu nccl pp_send s14
+      1013.8   1014.0 (   0.2) cpu synchronize
+      1014.6   1014.9 (   0.4) cpu synchronize
+      1015.4   1015.7 (   0.3) cpu synchronize
+      1017.6   1017.8 (   0.2) cpu synchronize
+      1017.9   1018.4 (   0.5) cpu _execute_kv_backup
+      1018.6   1021.0 (   2.4) cpu synchronize
+      1021.9   1022.5 (   0.6) cpu _pp_recv_proxy_tensors
+      1022.3   1023.4 (   1.1) gpu nccl pp_recv s10
+      1022.6   1085.7 (  63.1) cpu _pp_launch_batch
+      1022.8   1085.5 (  62.8) cpu run_batch
+      1022.8   1026.3 (   3.5) cpu send_kv_chunk
+      1023.4   1025.0 (   1.6) gpu nccl pp_recv s10
+      1025.0   1026.1 (   1.1) gpu nccl pp_recv s10
+ PP3 GPU step b10: 1012.8 -> 1246.2 ; next b11 GPU start 1351.1
+      1105.2   1288.0 ( 182.8) cpu synchronize
+      1246.3   1287.8 (  41.5) gpu nccl pp_recv s10
+      1288.0   1294.4 (   6.5) cpu _pp_process_batch_result
+      1288.0   1294.4 (   6.3) cpu process_batch_result_disagg_prefill
+      1288.3   1289.0 (   0.7) cpu checkpoint_disagg_prefill
+      1289.0   1289.3 (   0.3) cpu send_kv_chunk
+      1289.4   1293.3 (   4.0) cpu checkpoint_disagg_prefill
+      1293.4   1293.6 (   0.2) cpu send_kv_chunk
+      1294.7   1328.0 (  33.3) cpu recv_requests
+      1328.1   1328.4 (   0.3) cpu process_input_requests
+      1328.7   1328.9 (   0.2) cpu _pp_recv_pyobj_from_prev_stage
+      1329.0   1330.2 (   1.3) cpu checkpoint_disagg_prefill
+      1330.2   1330.5 (   0.3) cpu send_kv_chunk
+      1334.0   1334.7 (   0.8) cpu _execute_kv_backup
+      1335.2   1335.6 (   0.4) cpu synchronize
+      1336.1   1336.3 (   0.2) cpu synchronize
+      1336.8   1337.2 (   0.4) cpu synchronize
+      1337.6   1337.9 (   0.3) cpu synchronize
+      1340.0   1340.4 (   0.3) cpu _execute_kv_backup
+      1340.6   1342.9 (   2.2) cpu synchronize
+      1343.7   1344.2 (   0.5) cpu _pp_recv_proxy_tensors
+      1344.0   1345.1 (   1.1) gpu nccl pp_recv s10
+      1344.2   1408.7 (  64.5) cpu _pp_launch_batch
+      1344.3   1408.5 (  64.3) cpu run_batch
+      1344.3   1348.0 (   3.6) cpu send_kv_chunk
+      1345.1   1346.7 (   1.6) gpu nccl pp_recv s10
+      1346.7   1347.8 (   1.1) gpu nccl pp_recv s10
+
+=== batch 13 (times rel. PP0 GPU start of batch 13, ms) ===
+ PP0 GPU step b13: 0.0 -> 256.0 ; next b14 GPU start 329.5
+        59.2    256.4 ( 197.2) cpu synchronize
+       256.4    257.9 (   1.6) cpu _pp_process_batch_result
+       256.7    257.9 (   1.1) cpu process_batch_result_disagg_prefill
+       261.9    288.8 (  26.8) cpu process_disagg_prefill_inflight_queue
+       289.6    290.1 (   0.5) cpu _pp_send_dict_to_next_stage
+       290.0    319.3 (  29.4) gpu nccl pp_send s10
+       290.5    295.5 (   5.0) cpu checkpoint_disagg_prefill
+       295.5    295.9 (   0.4) cpu send_kv_chunk
+       299.8    322.8 (  23.0) cpu synchronize
+       319.4    321.0 (   1.6) gpu nccl pp_send s10
+       321.0    322.0 (   1.1) gpu nccl pp_send s10
+       324.7    325.9 (   1.2) cpu synchronize
+       328.0    385.8 (  57.8) cpu _pp_launch_batch
+       328.1    385.6 (  57.6) cpu run_batch
+ PP1 GPU step b13: 322.1 -> 559.4 ; next b14 GPU start 667.5
+       388.1    587.7 ( 199.5) cpu synchronize
+       559.4    587.5 (  28.0) gpu nccl pp_recv s10
+       587.7    588.8 (   1.1) cpu _pp_process_batch_result
+       587.7    588.7 (   1.0) cpu process_batch_result_disagg_prefill
+       588.8    607.4 (  18.6) cpu process_disagg_prefill_inflight_queue
+       608.0    608.5 (   0.5) cpu _pp_send_dict_to_next_stage
+       608.4    637.0 (  28.6) gpu nccl pp_send s14
+       608.6    650.9 (  42.3) cpu recv_requests
+       637.0    638.6 (   1.6) gpu nccl pp_send s14
+       638.6    639.6 (   1.1) gpu nccl pp_send s14
+       651.1    651.7 (   0.6) cpu _pp_recv_pyobj_from_prev_stage
+       651.9    654.6 (   2.8) cpu checkpoint_disagg_prefill
+       654.6    655.0 (   0.3) cpu send_kv_chunk
+       659.1    659.6 (   0.5) cpu synchronize
+       660.9    662.1 (   1.2) cpu synchronize
+       663.3    663.9 (   0.6) cpu _pp_recv_proxy_tensors
+       663.7    664.7 (   1.1) gpu nccl pp_recv s10
+       663.9    725.6 (  61.7) cpu _pp_launch_batch
+       664.1    725.5 (  61.4) cpu run_batch
+       664.8    666.3 (   1.6) gpu nccl pp_recv s10
+       666.4    667.4 (   1.1) gpu nccl pp_recv s10
+ PP2 GPU step b13: 639.7 -> 884.3 ; next b14 GPU start 992.2
+       739.0    940.9 ( 201.9) cpu synchronize
+       884.5    940.7 (  56.2) gpu nccl pp_recv s10
+       940.9    942.1 (   1.2) cpu _pp_process_batch_result
+       941.0    942.0 (   1.1) cpu process_batch_result_disagg_prefill
+       942.1    961.8 (  19.7) cpu process_disagg_prefill_inflight_queue
+       962.5    963.1 (   0.6) cpu _pp_send_dict_to_next_stage
+       963.0    973.3 (  10.3) gpu nccl pp_send s14
+       963.2    978.3 (  15.1) cpu recv_requests
+       973.3    974.9 (   1.6) gpu nccl pp_send s14
+       974.9    976.0 (   1.1) gpu nccl pp_send s14
+       978.4    978.7 (   0.3) cpu _pp_recv_pyobj_from_prev_stage
+       978.7    980.2 (   1.5) cpu checkpoint_disagg_prefill
+       980.2    980.5 (   0.2) cpu send_kv_chunk
+       983.8    984.7 (   0.8) cpu synchronize
+       985.8    987.0 (   1.2) cpu synchronize
+       988.0    988.5 (   0.6) cpu _pp_recv_proxy_tensors
+       988.3    989.4 (   1.1) gpu nccl pp_recv s10
+       988.6   1045.0 (  56.4) cpu _pp_launch_batch
+       988.7   1044.9 (  56.2) cpu run_batch
+       989.5    991.0 (   1.6) gpu nccl pp_recv s10
+       991.1    992.1 (   1.1) gpu nccl pp_recv s10
+ PP3 GPU step b13: 976.1 -> 1216.7 ; next b14 GPU start 1346.4
+      1079.6   1238.1 ( 158.4) cpu synchronize
+      1216.8   1237.9 (  21.0) gpu nccl pp_recv s10
+      1238.1   1239.3 (   1.3) cpu _pp_process_batch_result
+      1238.2   1239.2 (   1.0) cpu process_batch_result_disagg_prefill
+      1239.4   1257.6 (  18.2) cpu process_disagg_prefill_inflight_queue
+      1257.9   1333.7 (  75.7) cpu recv_requests
+      1333.8   1334.1 (   0.3) cpu _pp_recv_pyobj_from_prev_stage
+      1334.2   1335.7 (   1.5) cpu checkpoint_disagg_prefill
+      1338.8   1339.3 (   0.6) cpu synchronize
+      1340.3   1341.3 (   1.1) cpu synchronize
+      1342.2   1342.7 (   0.5) cpu _pp_recv_proxy_tensors
+      1342.6   1343.7 (   1.1) gpu nccl pp_recv s10
+      1342.7   1397.3 (  54.6) cpu _pp_launch_batch
+      1342.8   1397.2 (  54.4) cpu run_batch
+      1343.7   1345.3 (   1.6) gpu nccl pp_recv s10
+      1345.3   1346.4 (   1.1) gpu nccl pp_recv s10

@@ -1,0 +1,143 @@
+file /shared_nfs/yihou_glm52/llrepro_20261023/trace_llr7r.yihou/decode_early/llr7r-decode-1792831617.1838768-TP-0-DP-0.trace.json.gz
+steps 39 kernel-events in steps 12187
+step period ms p10/p50/p90/mean: 48.72 50.92 52.36 50.49
+GPU busy (union) per step ms p50/p90/mean: 6.86 7.13 6.88 ; busy frac 0.1364 ; idle per step mean 43.602 ms
+sum kernel dur / period (overlap>1 means multi-stream) 0.1364
+verify bs per step {None: 39}
+
+phase kernel-time per step (ms): mean p50 p90  [n steps]
+  draft          4.305 4.297 4.438 [39]
+  draft_extend   2.335 2.350 2.398 [39]
+  scheduler.run_batch 0.163 0.161 0.183 [39]
+  scheduler.get_next_batch_to_run 0.068 0.040 0.228 [39]
+  copy_result    0.008 0.008 0.009 [39]
+  scheduler.process_batch_result 0.047 0.047 0.072 [3]
+phase wall span per step (first kernel start..last end) mean p50:
+  scheduler.run_batch 50.082 49.759
+  draft          4.399 4.314
+  scheduler.get_next_batch_to_run 4.522 0.214
+  draft_extend   2.360 2.378
+  copy_result    0.008 0.008
+  scheduler.process_batch_result 0.310 0.303
+inter-phase GPU gaps (ms; next phase first kernel - prev phase last end) mean p50 p90 n:
+  scheduler.run_batch->draft     -50.011 -49.745 -48.601 39
+  draft->scheduler.get_next_batch_to_run 4.413 4.195 5.195 36
+  scheduler.get_next_batch_to_run->draft_extend 34.306 38.436 40.404 39
+  draft_extend->copy_result      0.028 0.027 0.033 39
+  draft->scheduler.process_batch_result 3.470 3.391 3.646 3
+  scheduler.process_batch_result->scheduler.get_next_batch_to_run 0.413 0.418 0.428 3
+between-step GPU gap ms p50/p90/max/mean: 0.019 0.967 2.532 0.295
+
+category per step ms (%% of summed kernel time) ; split by phase
+  moe                    2.972 ms  43.2%   draft=2.12 draft_extend=0.85
+  gemm_dense             1.270 ms  18.4%   draft=0.96 draft_extend=0.31
+  allreduce_comm         0.765 ms  11.1%   draft=0.46 draft_extend=0.31
+  memcpy_memset          0.665 ms   9.7%   draft=0.43 draft_extend=0.13 copy_result=0.01
+  indexer                0.629 ms   9.1%   draft=0.04 draft_extend=0.54
+  sparse_mla             0.245 ms   3.6%   draft=0.13 draft_extend=0.12
+  norm_rope_act_quant    0.155 ms   2.3%   draft=0.11 draft_extend=0.05
+  sampling_spec          0.137 ms   2.0%   draft=0.06 draft_extend=0.02
+  other                  0.046 ms   0.7%   draft=0.00 draft_extend=0.00
+
+top-30 kernels by total time: ms/step  count/step  %%  cat  phases(ms/step)  name
+    1.404    4.0  20.4% moe                draft=1.40                               _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+    0.660    4.0   9.6% moe                draft=0.66                               _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+    0.631   15.0   9.2% allreduce_comm     draft=0.37 draft_extend=0.26             ncclDevKernel_Generic_1(ncclDevKernelArgsStorage<4096ul>)
+    0.498    0.9   7.2% moe                draft_extend=0.50                        _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+    0.337    2.9   4.9% gemm_dense         draft=0.27 draft_extend=0.07             Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x48x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0
+    0.283    1.0   4.1% indexer            draft_extend=0.28                        _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle
+    0.282    0.9   4.1% moe                draft_extend=0.28                        _ZN2ck20kernel_moe_gemm_2ldsINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5Tuple
+    0.231    2.1   3.4% gemm_dense         draft=0.18 draft_extend=0.05             Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x64x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0
+    0.188    0.9   2.7% indexer            draft_extend=0.19                        sgl::dsa_topk::coop_topk_kernel<2048u, 12u, 4096u, 1024u>(sgl::dsa_topk::CoopParams<2048u>)
+    0.141    4.0   2.0% gemm_dense         draft=0.14                               Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x16x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0
+    0.134    5.0   2.0% allreduce_comm     draft=0.09 draft_extend=0.05             _ZN5aiter26cross_device_reduce_2stageIDF16bLi4ELb0ELb0EEEvPNS_8RankDataES2_NS_11RankSignalsEPNS_6SignalEPT_ii
+    0.128    4.0   1.9% gemm_dense         draft=0.13                               hgemm_bf16_t16x96x64x5_ksd_w1x2x1_gm0_bias0_lnt_pft_0
+    0.106    0.9   1.5% sparse_mla         draft_extend=0.11                        _sparse_mla_fwd_split_dim_kernel
+    0.096   19.6   1.4% memcpy_memset      draft=0.06 draft_extend=0.02 scheduler.get_next_batch_to_run=0.01 Memcpy DtoD (Device -> Device)
+    0.089    4.0   1.3% sparse_mla         draft=0.09                               _sparse_mla_decode_split_kernel
+    0.075   16.3   1.1% memcpy_memset      draft=0.03 draft_extend=0.03 scheduler.run_batch=0.02 at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::n
+    0.066   15.0   1.0% norm_rope_act_quant draft=0.05 draft_extend=0.01             _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb0ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    0.064    4.0   0.9% gemm_dense         draft=0.06                               _gemm_a16_w16_kernel_BLOCK_SIZE_M_16_BLOCK_SIZE_N_16_BLOCK_SIZE_K_256_GROUP_SIZE_M_1_NUM_KSPLIT_1_SPLITK_BLOCK
+    0.050   11.3   0.7% memcpy_memset      draft=0.03 draft_extend=0.01 scheduler.run_batch=0.00 at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::direct_copy_kerne
+    0.049    1.0   0.7% memcpy_memset      draft=0.05                               sglang::fused_metadata_copy_multi_kernel<true, false>(sglang::FusedMetadataCopyMultiParams)
+    0.049    0.9   0.7% gemm_dense         draft_extend=0.05                        hgemm_bf16_t64x128x64x4_ksd_w2x4x1_gm0_bias0_lnt_pft_0
+    0.047    1.0   0.7% sampling_spec      scheduler.run_batch=0.05                 at::native::reduce_kernel<512, 1, at::native::ReduceOp<float, at::native::ArgMaxOps<float>, unsigned int, long
+    0.047   10.0   0.7% norm_rope_act_quant draft=0.04 draft_extend=0.01             _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb
+    0.047    1.0   0.7% indexer            draft_extend=0.05                        _fused_dsa_draft_extend_metadata_kernel
+    0.045   11.1   0.7% memcpy_memset      draft=0.03 draft_extend=0.02             at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<long>, std::array<char*, 1ul> >(int, at::
+    0.043    4.0   0.6% gemm_dense         draft=0.04                               Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x16x128_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0
+    0.043    4.0   0.6% memcpy_memset      draft=0.04                               at::native::(anonymous namespace)::indexSelectSmallIndex<c10::BFloat16, long, unsigned int, 2, 2, -2>(at::cuda
+    0.043    1.0   0.6% indexer            draft=0.04                               _fused_dsa_decode_metadata_kernel
+    0.042   10.0   0.6% memcpy_memset      draft=0.03 draft_extend=0.01             rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_scan_config<
+    0.040    0.1   0.6% moe                draft_extend=0.04                        _ZN2ck15kernel_moe_gemmINS_15GridwiseMoeGemmINS_13tensor_layout4gemm8RowMajorENS3_11ColumnMajorENS_5TupleIJS4_
+
+all kernel names in "other" category:
+    0.006 alloc_extend_kernel
+    0.005 at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::CUDAFunctor_add<l
+    0.005 assign_req_to_token_pool
+    0.005 at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctorOnSelf_add<int>, std::array<char*, 2ul> >(
+    0.005 triton_poi_fused_mul_unsqueeze_0
+    0.004 (anonymous namespace)::elementwise_kernel_with_index<int, at::native::arange_cuda_out(c10::Scalar const&, c10:
+    0.004 _get_last_loc_safe_kernel
+    0.004 at::native::vectorized_elementwise_kernel<4, at::native::CUDAFunctorOnSelf_add<long>, std::array<char*, 2ul> >
+    0.002 at::native::vectorized_elementwise_kernel<4, at::native::compare_scalar_kernel<int>(at::TensorIteratorBase&, a
+    0.001 at::native::vectorized_elementwise_kernel<16, at::native::BinaryFunctor<bool, bool, bool, at::native::BitwiseO
+    0.001 at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::(anonymous namesp
+    0.001 at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl_nocast<at::native::BUnaryFunc
+    0.001 at::native::reduce_kernel<512, 1, at::native::ReduceOp<bool, at::native::func_wrapper_t<bool, at::native::or_k
+    0.001 at::native::reduce_kernel<512, 1, at::native::ReduceOp<bool, at::native::func_wrapper_t<bool, at::native::and_
+    0.000 at::native::vectorized_elementwise_kernel<16, at::native::BinaryFunctor<bool, bool, bool, at::native::BitwiseA
+    0.000 at::native::vectorized_elementwise_kernel<16, at::native::bitwise_not_kernel_cuda(at::TensorIteratorBase&)::{l
+    0.000 at::native::vectorized_elementwise_kernel<4, at::native::(anonymous namespace)::launch_clamp_scalar(at::Tensor
+    0.000 at::native::unrolled_elementwise_kernel<at::native::BUnaryFunctor<int, int, int, at::native::binary_internal::
+
+AR / comm kernel durations (us): n/step p10 p50 p90 max sum/step(ms)
+  rccl:draft                12.0    20.1    21.7    37.0    788.7 0.373
+  custom_ar                  5.0    10.8    23.7    48.4     69.5 0.134
+  rccl:draft_extend          3.0    22.8    34.4   230.4    255.5 0.257
+
+long CPU syncs (>1 ms): count 45, total 1660.6 ms
+   40 ('hipMemcpyWithStream', ('scheduler.run_batch',), ('decode_cuda_graph_runner.py(609): _resolve_attention_variant', 'graph_variants.py(32): select'))
+    4 ('hipMemcpyWithStream', ('scheduler.get_next_batch_to_run',), ('spec_info.py(201): build_disagg_draft_input', 'eagle_disaggregation.py(50): build_eagle_disagg_draft_input'))
+    1 ('hipDeviceSynchronize', ('scheduler.run_batch',), ('profiler_manager.py(413): _profile_batch_predicate', 'profiler_manager.py(318): _stop_profile'))
+
+per-step rows: i period busy bs verify draft draft_extend gaps
+   0 46.17 6.37 None scheduler.run_batch=0.16 draft=4.08 scheduler.get_next_batch_to_run=0.06 draft_extend=2.06 copy_result=0.01 scheduler.run_batch->draft=-46.13 draft->scheduler.get_next_batch_to_run=4.24 scheduler.get_next_batch_to_run->draft_extend=35.39 draft_extend->copy_result=0.03
+   1 49.36 6.32 None scheduler.run_batch=0.16 draft=4.01 scheduler.get_next_batch_to_run=0.01 draft_extend=2.13 copy_result=0.01 scheduler.run_batch->draft=-46.93 draft->scheduler.get_next_batch_to_run=5.19 scheduler.get_next_batch_to_run->draft_extend=35.51 draft_extend->copy_result=0.03
+   2 51.14 6.98 None scheduler.run_batch=0.16 draft=4.63 scheduler.get_next_batch_to_run=0.02 draft_extend=2.16 copy_result=0.01 scheduler.run_batch->draft=-48.28 draft->scheduler.get_next_batch_to_run=5.80 scheduler.get_next_batch_to_run->draft_extend=35.18 draft_extend->copy_result=0.03
+   3 50.71 7.50 None scheduler.run_batch=0.16 draft=4.96 scheduler.get_next_batch_to_run=0.02 draft_extend=2.35 copy_result=0.01 scheduler.run_batch->draft=-50.37 draft->scheduler.get_next_batch_to_run=4.97 scheduler.get_next_batch_to_run->draft_extend=37.54 draft_extend->copy_result=0.03
+   4 49.19 6.70 None scheduler.run_batch=0.18 draft=4.12 scheduler.get_next_batch_to_run=0.02 draft_extend=2.37 copy_result=0.01 scheduler.run_batch->draft=-49.14 draft->scheduler.get_next_batch_to_run=4.53 scheduler.get_next_batch_to_run->draft_extend=37.81 draft_extend->copy_result=0.03
+   5 51.66 7.04 None scheduler.run_batch=0.19 draft=4.17 scheduler.get_next_batch_to_run=0.33 draft_extend=2.35 copy_result=0.01 scheduler.run_batch->draft=-49.75 draft->scheduler.get_next_batch_to_run=4.71 scheduler.get_next_batch_to_run->draft_extend=-3.54 draft_extend->copy_result=0.03
+   6 52.52 7.15 None scheduler.run_batch=0.18 draft=4.32 scheduler.get_next_batch_to_run=0.27 draft_extend=2.37 copy_result=0.01 scheduler.run_batch->draft=-50.49 draft->scheduler.get_next_batch_to_run=4.44 scheduler.get_next_batch_to_run->draft_extend=-3.40 draft_extend->copy_result=0.03
+   7 52.36 7.08 None scheduler.run_batch=0.16 draft=4.42 scheduler.get_next_batch_to_run=0.10 draft_extend=2.40 copy_result=0.01 scheduler.run_batch->draft=-52.00 draft->scheduler.get_next_batch_to_run=3.98 scheduler.get_next_batch_to_run->draft_extend=40.47 draft_extend->copy_result=0.03
+   8 51.55 6.89 None scheduler.run_batch=0.16 draft=4.27 scheduler.get_next_batch_to_run=0.04 draft_extend=2.41 copy_result=0.01 scheduler.run_batch->draft=-51.50 draft->scheduler.get_next_batch_to_run=3.94 scheduler.get_next_batch_to_run->draft_extend=40.59 draft_extend->copy_result=0.03
+   9 51.68 7.00 None scheduler.run_batch=0.16 draft=4.35 scheduler.get_next_batch_to_run=0.06 draft_extend=2.43 copy_result=0.01 scheduler.run_batch->draft=-51.63 draft->scheduler.get_next_batch_to_run=4.71 scheduler.get_next_batch_to_run->draft_extend=39.85 draft_extend->copy_result=0.03
+  10 51.61 7.06 None scheduler.run_batch=0.16 draft=4.31 scheduler.process_batch_result=0.07 scheduler.get_next_batch_to_run=0.11 draft_extend=2.40 copy_result=0.01 scheduler.run_batch->draft=-51.56 draft->scheduler.process_batch_result=3.39 scheduler.process_batch_result->scheduler.get_next_batch_to_run=0.42 scheduler.get_next_batch_to_run->draft_extend=40.18 draft_extend->copy_result=0.03
+  11 49.38 6.79 None scheduler.run_batch=0.16 draft=4.23 scheduler.get_next_batch_to_run=0.03 draft_extend=2.36 copy_result=0.01 scheduler.run_batch->draft=-49.33 draft->scheduler.get_next_batch_to_run=4.02 scheduler.get_next_batch_to_run->draft_extend=38.44 draft_extend->copy_result=0.03
+  12 49.33 6.86 None scheduler.run_batch=0.16 draft=4.25 scheduler.get_next_batch_to_run=0.05 draft_extend=2.38 copy_result=0.01 scheduler.run_batch->draft=-49.28 draft->scheduler.get_next_batch_to_run=3.91 scheduler.get_next_batch_to_run->draft_extend=38.45 draft_extend->copy_result=0.03
+  13 49.58 7.01 None scheduler.run_batch=0.16 draft=4.44 scheduler.get_next_batch_to_run=0.03 draft_extend=2.38 copy_result=0.01 scheduler.run_batch->draft=-49.54 draft->scheduler.get_next_batch_to_run=3.90 scheduler.get_next_batch_to_run->draft_extend=38.73 draft_extend->copy_result=0.03
+  14 49.38 6.85 None scheduler.run_batch=0.16 draft=4.23 scheduler.get_next_batch_to_run=0.07 draft_extend=2.37 copy_result=0.01 scheduler.run_batch->draft=-49.34 draft->scheduler.get_next_batch_to_run=3.87 scheduler.get_next_batch_to_run->draft_extend=38.57 draft_extend->copy_result=0.03
+  15 49.45 6.97 None scheduler.run_batch=0.16 draft=4.39 scheduler.get_next_batch_to_run=0.06 draft_extend=2.35 copy_result=0.01 scheduler.run_batch->draft=-49.41 draft->scheduler.get_next_batch_to_run=3.99 scheduler.get_next_batch_to_run->draft_extend=38.37 draft_extend->copy_result=0.03
+  16 49.64 6.77 None scheduler.run_batch=0.16 draft=4.19 scheduler.get_next_batch_to_run=0.03 draft_extend=2.38 copy_result=0.01 scheduler.run_batch->draft=-49.60 draft->scheduler.get_next_batch_to_run=8.04 scheduler.get_next_batch_to_run->draft_extend=34.88 draft_extend->copy_result=0.03
+  17 49.14 6.86 None scheduler.run_batch=0.16 draft=4.26 scheduler.get_next_batch_to_run=0.07 draft_extend=2.37 copy_result=0.01 scheduler.run_batch->draft=-49.10 draft->scheduler.get_next_batch_to_run=5.29 scheduler.get_next_batch_to_run->draft_extend=36.90 draft_extend->copy_result=0.03
+  18 49.15 6.76 None scheduler.run_batch=0.16 draft=4.15 scheduler.get_next_batch_to_run=0.06 draft_extend=2.39 copy_result=0.01 scheduler.run_batch->draft=-49.11 draft->scheduler.get_next_batch_to_run=4.27 scheduler.get_next_batch_to_run->draft_extend=38.00 draft_extend->copy_result=0.03
+  19 49.48 6.82 None scheduler.run_batch=0.16 draft=4.28 scheduler.get_next_batch_to_run=0.03 draft_extend=2.34 copy_result=0.01 scheduler.run_batch->draft=-49.44 draft->scheduler.get_next_batch_to_run=3.97 scheduler.get_next_batch_to_run->draft_extend=38.75 draft_extend->copy_result=0.03
+  20 52.11 7.13 None scheduler.run_batch=0.19 draft=4.21 scheduler.get_next_batch_to_run=0.32 draft_extend=2.39 copy_result=0.01 scheduler.run_batch->draft=-50.01 draft->scheduler.get_next_batch_to_run=4.80 scheduler.get_next_batch_to_run->draft_extend=-3.62 draft_extend->copy_result=0.03
+  21 51.83 6.91 None scheduler.run_batch=0.16 draft=4.37 scheduler.get_next_batch_to_run=0.04 draft_extend=2.33 copy_result=0.01 scheduler.run_batch->draft=-51.49 draft->scheduler.get_next_batch_to_run=4.07 scheduler.get_next_batch_to_run->draft_extend=39.99 draft_extend->copy_result=0.03
+  22 54.10 6.77 None scheduler.run_batch=0.16 draft=4.22 scheduler.get_next_batch_to_run=0.02 draft_extend=2.36 copy_result=0.01 scheduler.run_batch->draft=-51.80 draft->scheduler.get_next_batch_to_run=4.08 scheduler.get_next_batch_to_run->draft_extend=41.05 draft_extend->copy_result=0.03
+  23 51.80 6.91 None scheduler.run_batch=0.16 draft=4.35 scheduler.get_next_batch_to_run=0.06 draft_extend=2.34 copy_result=0.01 scheduler.run_batch->draft=-51.45 draft->scheduler.get_next_batch_to_run=3.91 scheduler.get_next_batch_to_run->draft_extend=40.29 draft_extend->copy_result=0.03
+  24 51.02 6.81 None scheduler.run_batch=0.16 draft=4.24 scheduler.get_next_batch_to_run=0.06 draft_extend=2.34 copy_result=0.01 scheduler.run_batch->draft=-50.98 draft->scheduler.get_next_batch_to_run=3.99 scheduler.get_next_batch_to_run->draft_extend=40.28 draft_extend->copy_result=0.03
+  25 51.16 6.85 None scheduler.run_batch=0.16 draft=4.30 scheduler.get_next_batch_to_run=0.06 draft_extend=2.33 copy_result=0.01 scheduler.run_batch->draft=-51.12 draft->scheduler.get_next_batch_to_run=3.96 scheduler.get_next_batch_to_run->draft_extend=40.40 draft_extend->copy_result=0.03
+  26 54.26 7.15 None scheduler.run_batch=0.20 draft=4.37 scheduler.get_next_batch_to_run=0.23 draft_extend=2.35 copy_result=0.01 scheduler.run_batch->draft=-52.28 draft->scheduler.get_next_batch_to_run=4.26 scheduler.get_next_batch_to_run->draft_extend=-3.42 draft_extend->copy_result=0.04
+  27 52.06 7.09 None scheduler.run_batch=0.16 draft=4.47 scheduler.process_batch_result=0.02 scheduler.get_next_batch_to_run=0.10 draft_extend=2.34 copy_result=0.01 scheduler.run_batch->draft=-51.69 draft->scheduler.process_batch_result=3.37 scheduler.process_batch_result->scheduler.get_next_batch_to_run=0.43 scheduler.get_next_batch_to_run->draft_extend=39.92 draft_extend->copy_result=0.03
+  28 50.92 6.78 None scheduler.run_batch=0.16 draft=4.25 scheduler.get_next_batch_to_run=0.03 draft_extend=2.32 copy_result=0.01 scheduler.run_batch->draft=-50.88 draft->scheduler.get_next_batch_to_run=4.10 scheduler.get_next_batch_to_run->draft_extend=39.92 draft_extend->copy_result=0.03
+  29 50.99 6.84 None scheduler.run_batch=0.16 draft=4.27 scheduler.get_next_batch_to_run=0.06 draft_extend=2.34 copy_result=0.01 scheduler.run_batch->draft=-50.94 draft->scheduler.get_next_batch_to_run=4.71 scheduler.get_next_batch_to_run->draft_extend=39.30 draft_extend->copy_result=0.03
+  30 51.31 6.89 None scheduler.run_batch=0.16 draft=4.36 scheduler.get_next_batch_to_run=0.01 draft_extend=2.35 copy_result=0.01 scheduler.run_batch->draft=-51.27 draft->scheduler.get_next_batch_to_run=4.28 scheduler.get_next_batch_to_run->draft_extend=40.20 draft_extend->copy_result=0.03
+  31 51.26 6.91 None scheduler.run_batch=0.16 draft=4.36 scheduler.get_next_batch_to_run=0.01 draft_extend=2.37 copy_result=0.01 scheduler.run_batch->draft=-51.22 draft->scheduler.get_next_batch_to_run=4.25 scheduler.get_next_batch_to_run->draft_extend=40.17 draft_extend->copy_result=0.03
+  32 51.11 6.97 None scheduler.run_batch=0.16 draft=4.32 scheduler.process_batch_result=0.05 scheduler.get_next_batch_to_run=0.11 draft_extend=2.33 copy_result=0.01 scheduler.run_batch->draft=-51.06 draft->scheduler.process_batch_result=3.65 scheduler.process_batch_result->scheduler.get_next_batch_to_run=0.39 scheduler.get_next_batch_to_run->draft_extend=39.59 draft_extend->copy_result=0.03
+  33 48.80 6.81 None scheduler.run_batch=0.16 draft=4.34 scheduler.get_next_batch_to_run=0.01 draft_extend=2.29 copy_result=0.01 scheduler.run_batch->draft=-48.76 draft->scheduler.get_next_batch_to_run=4.20 scheduler.get_next_batch_to_run->draft_extend=37.85 draft_extend->copy_result=0.03
+  34 48.78 6.82 None scheduler.run_batch=0.16 draft=4.30 scheduler.get_next_batch_to_run=0.03 draft_extend=2.33 copy_result=0.01 scheduler.run_batch->draft=-48.74 draft->scheduler.get_next_batch_to_run=3.98 scheduler.get_next_batch_to_run->draft_extend=37.86 draft_extend->copy_result=0.03
+  35 48.95 6.77 None scheduler.run_batch=0.16 draft=4.24 scheduler.get_next_batch_to_run=0.04 draft_extend=2.32 copy_result=0.01 scheduler.run_batch->draft=-48.91 draft->scheduler.get_next_batch_to_run=4.06 scheduler.get_next_batch_to_run->draft_extend=37.97 draft_extend->copy_result=0.03
+  36 48.64 6.79 None scheduler.run_batch=0.16 draft=4.31 scheduler.get_next_batch_to_run=0.01 draft_extend=2.31 copy_result=0.01 scheduler.run_batch->draft=-48.60 draft->scheduler.get_next_batch_to_run=4.07 scheduler.get_next_batch_to_run->draft_extend=37.83 draft_extend->copy_result=0.03
+  37 48.72 6.80 None scheduler.run_batch=0.16 draft=4.32 scheduler.get_next_batch_to_run=0.01 draft_extend=2.30 copy_result=0.01 scheduler.run_batch->draft=-48.68 draft->scheduler.get_next_batch_to_run=3.96 scheduler.get_next_batch_to_run->draft_extend=38.02 draft_extend->copy_result=0.03
+  38 48.67 6.69 None scheduler.run_batch=0.16 draft=4.23 scheduler.get_next_batch_to_run=0.02 draft_extend=2.28 copy_result=0.01 scheduler.run_batch->draft=-48.63 draft->scheduler.get_next_batch_to_run=4.36 scheduler.get_next_batch_to_run->draft_extend=37.68 draft_extend->copy_result=0.03

@@ -1,0 +1,19 @@
+PP0 active 9081 ms segs 1; transfer_worker union 9081 ms (100.0%); _send_kvcache_generic union 3500 ms (38.5%); batch_transfer_sync union 2340 ms (25.8%); send_kvcache union 3207 ms (35.3%)
+   run_batch >200ms: [1109.3]
+   clean cycles mean 355.4 ms: compute_incl_hicache 71.7%, compute_excl_hicache 70.7%, any 89.9%, any_excl_memcpy>1ms 87.0%, any_excl_memcpy>1ms_and_nccl>2ms 72.5%, hicache_kernel 1.0%
+   hicache_backup kernels n=120 streams {16: 120} total 143.3 ms, outside steps 57.4 ms
+PP1 active 9077 ms segs 1; transfer_worker union 9077 ms (100.0%); send_kvcache union 2358 ms (26.0%); _send_kvcache_generic union 2574 ms (28.4%); batch_transfer_sync union 2458 ms (27.1%)
+   run_batch >200ms: []
+   clean cycles mean 338.9 ms: compute_incl_hicache 71.7%, compute_excl_hicache 70.7%, any 93.9%, any_excl_memcpy>1ms 92.8%, any_excl_memcpy>1ms_and_nccl>2ms 73.6%, hicache_kernel 1.0%
+   hicache_backup kernels n=120 streams {16: 120} total 142.4 ms, outside steps 57.5 ms
+PP2 active 9048 ms segs 2; transfer_worker union 9048 ms (100.0%); _send_kvcache_generic union 3471 ms (38.4%); batch_transfer_sync union 2385 ms (26.4%); send_kvcache union 2297 ms (25.4%)
+   run_batch >200ms: []
+   clean cycles mean 332.5 ms: compute_incl_hicache 74.4%, compute_excl_hicache 73.3%, any 93.9%, any_excl_memcpy>1ms 92.8%, any_excl_memcpy>1ms_and_nccl>2ms 76.3%, hicache_kernel 1.0%
+   hicache_backup kernels n=114 streams {16: 114} total 138.6 ms, outside steps 52.9 ms
+PP3 active 9016 ms segs 3; transfer_worker union 9016 ms (100.0%); send_kvcache union 2391 ms (26.5%); _send_kvcache_generic union 2610 ms (28.9%); batch_transfer_sync union 2503 ms (27.8%)
+   run_batch >200ms: []
+   clean cycles mean 328.1 ms: compute_incl_hicache 74.1%, compute_excl_hicache 73.1%, any 84.5%, any_excl_memcpy>1ms 80.0%, any_excl_memcpy>1ms_and_nccl>2ms 75.3%, hicache_kernel 1.0%
+   hicache_backup kernels n=108 streams {16: 108} total 127.1 ms, outside steps 46.8 ms
+PP1 recv_requests>5ms: (dur, end minus latest PP0 recv_requests end) ms [(11.2, 284.85), (16.2, 290.39), (5.1, 0.42), (6.1, 310.31), (5.1, -0.4), (11.6, 2.17), (65.8, 596.35), (58.5, 485.48), (38.4, -0.46), (5.6, 349.18), (10.7, 0.57), (7.5, 321.55), (42.3, 360.62), (5.9, 324.76), (17.1, -0.31), (16.2, 49342.31)]
+PP2 recv_requests>5ms: (dur, end minus latest PP1 recv_requests end) ms [(6.7, 531.26), (12.2, 427.43), (6.3, 384.79), (10.7, 402.22), (15.1, 327.36), (5.0, 46164.18)]
+PP3 recv_requests>5ms: (dur, end minus latest PP2 recv_requests end) ms [(49.4, 306.3), (67.0, 314.76), (194.5, 2334.36), (61.9, 352.2), (194.7, 532.76), (161.9, 480.75), (17.5, 436.87), (20.5, 429.82), (67.8, 353.97), (54.7, 352.38), (33.3, 323.82), (42.3, 351.07), (75.7, 355.38), (34.5, 337.35), (196.2, 49333.71), (190.4, 46178.12), (9.3, 47232.29)]

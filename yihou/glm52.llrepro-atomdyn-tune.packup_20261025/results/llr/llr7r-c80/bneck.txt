@@ -1,0 +1,18 @@
+window 2026-10-24 08:31:55 .. 2026-10-24 09:18:20 (46.4 min)
+
+DECODE per rank: n | running mean/p50/p90 | tokusage mean/max | prealloc-req mean/frac>0 | transfer-req mean | queue-req mean/frac>0 | gen tok/s mean | step ms p50/p90
+DP0   1232 |   9.9    9   15 | 0.78 1.00 |   0.7 0.24 |   4.8 |   0.0 0.00 |     667 |  50.1  72.0
+DP1   1289 |  10.2   10   17 | 0.79 1.00 |   0.8 0.28 |   4.7 |   0.0 0.00 |     689 |  50.1  70.2
+DP2   1267 |  10.4   10   16 | 0.79 1.00 |   0.8 0.23 |   5.4 |   0.0 0.00 |     701 |  50.0  70.9
+DP3   1295 |  10.7   10   17 | 0.79 1.00 |   0.8 0.28 |   5.4 |   0.0 0.00 |     718 |  50.0  70.9
+
+PREFILL PP0: batches 4636 (1.66/s) | new tok/s 11776 | cached tok/s 308271 | hit 0.963
+  #new-seq                     mean       2.39 p50       2.00 p90       4.00 max      16.00 frac>0 1.00
+  #new-token                   mean    7074.42 p50    8150.00 p90    8192.00 max    8192.00 frac>0 1.00
+  #queue-req                   mean       3.47 p50       2.00 p90       9.00 max      50.00 frac>0 0.65
+  #pending-token               mean  422421.11 p50  264307.00 p90 1091570.00 max 7716918.00 frac>0 0.79
+  #bootstrap-req               mean       2.59 p50       0.00 p90       8.00 max      45.00 frac>0 0.38
+  #inflight-req                mean       8.45 p50       8.00 p90      16.00 max      38.00 frac>0 0.99
+  #running-req                 mean       0.00 p50       0.00 p90       0.00 max       0.00 frac>0 0.00
+  token usage                  mean       0.15 p50       0.13 p90       0.29 max       0.64 frac>0 0.99
+  input throughput (token/s)   mean   16855.27 p50   17499.82 p90   27804.16 max   57214.39 frac>0 1.00

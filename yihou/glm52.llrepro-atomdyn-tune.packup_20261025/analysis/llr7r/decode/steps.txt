@@ -1,0 +1,100 @@
+
+== rank 0: steps 40, verify-graph kernels recorded total 0
+ bs (verify annot) counts {9: 6, 11: 1, 13: 15, 12: 17, 14: 1}  mean 11.95
+ step period (draft start->next draft start) ms p10/p50/p90/max: 48.72 50.93 52.41 54.57 mean 50.49
+ draft (4 MTP fwd) GPU span ms p50/p90: 4.314 4.851 ; kernel-sum mean 4.305
+ draft_extend GPU span ms p50/p90: 2.378 2.423 ; kernel-sum mean 2.334
+ verify window (draft end -> draft_extend start) ms p10/p50/p90: 41.99 42.96 44.78 mean 43.20
+ CPU blocking D2H sync (graph_variants select) returns after draft GPU end by ms p50/p90: 0.373 0.417
+ verify hipGraphLaunch start - draft GPU end (lower bound of GPU idle before verify) ms p10/p50/p90/mean: 0.529 0.560 0.620 0.566
+ verify hipGraphLaunch end - draft GPU end ms p50/p90/mean: 1.547 1.678 1.555
+ GPU gap draft_extend end -> next draft start ms p50/p90/max/mean: 0.070 2.432 2.881 0.503
+ next CPU run_batch start - draft_extend GPU end ms (neg = CPU ahead) p50/p90/max: -40.13 1.92 2.48
+ step share of mean period: draft 8.7% draft_extend 4.7% verify-window 85.6% gap_between 1.0%
+
+== rank 1: steps 40, verify-graph kernels recorded total 0
+ bs (verify annot) counts {9: 3, 11: 31, 10: 6}  mean 10.70
+ step period (draft start->next draft start) ms p10/p50/p90/max: 48.72 50.92 52.52 54.62 mean 50.49
+ draft (4 MTP fwd) GPU span ms p50/p90: 4.317 4.772 ; kernel-sum mean 4.257
+ draft_extend GPU span ms p50/p90: 2.380 2.430 ; kernel-sum mean 2.338
+ verify window (draft end -> draft_extend start) ms p10/p50/p90: 41.99 42.95 44.78 mean 43.20
+ CPU blocking D2H sync (graph_variants select) returns after draft GPU end by ms p50/p90: 0.389 0.422
+ verify hipGraphLaunch start - draft GPU end (lower bound of GPU idle before verify) ms p10/p50/p90/mean: 0.573 0.609 0.642 0.619
+ verify hipGraphLaunch end - draft GPU end ms p50/p90/mean: 1.461 1.646 1.509
+ GPU gap draft_extend end -> next draft start ms p50/p90/max/mean: 0.067 2.644 3.323 0.534
+ next CPU run_batch start - draft_extend GPU end ms (neg = CPU ahead) p50/p90/max: -40.05 2.01 2.66
+ step share of mean period: draft 8.6% draft_extend 4.7% verify-window 85.6% gap_between 1.1%
+
+== rank 2: steps 40, verify-graph kernels recorded total 0
+ bs (verify annot) counts {6: 40}  mean 6.00
+ step period (draft start->next draft start) ms p10/p50/p90/max: 48.72 50.92 52.47 54.66 mean 50.49
+ draft (4 MTP fwd) GPU span ms p50/p90: 4.314 4.782 ; kernel-sum mean 4.299
+ draft_extend GPU span ms p50/p90: 2.380 2.430 ; kernel-sum mean 2.337
+ verify window (draft end -> draft_extend start) ms p10/p50/p90: 41.99 42.95 44.78 mean 43.20
+ CPU blocking D2H sync (graph_variants select) returns after draft GPU end by ms p50/p90: 0.385 0.421
+ verify hipGraphLaunch start - draft GPU end (lower bound of GPU idle before verify) ms p10/p50/p90/mean: 0.553 0.579 0.612 0.582
+ verify hipGraphLaunch end - draft GPU end ms p50/p90/mean: 1.569 1.635 1.568
+ GPU gap draft_extend end -> next draft start ms p50/p90/max/mean: 0.068 2.499 2.973 0.514
+ next CPU run_batch start - draft_extend GPU end ms (neg = CPU ahead) p50/p90/max: -40.08 2.00 2.56
+ step share of mean period: draft 8.7% draft_extend 4.7% verify-window 85.6% gap_between 1.0%
+
+== rank 3: steps 40, verify-graph kernels recorded total 0
+ bs (verify annot) counts {9: 12, 8: 12, 7: 3, 10: 13}  mean 8.88
+ step period (draft start->next draft start) ms p10/p50/p90/max: 48.72 50.92 52.42 54.63 mean 50.49
+ draft (4 MTP fwd) GPU span ms p50/p90: 4.311 4.788 ; kernel-sum mean 4.293
+ draft_extend GPU span ms p50/p90: 2.377 2.426 ; kernel-sum mean 2.334
+ verify window (draft end -> draft_extend start) ms p10/p50/p90: 41.99 42.95 44.78 mean 43.20
+ CPU blocking D2H sync (graph_variants select) returns after draft GPU end by ms p50/p90: 0.386 0.421
+ verify hipGraphLaunch start - draft GPU end (lower bound of GPU idle before verify) ms p10/p50/p90/mean: 0.553 0.576 0.613 0.582
+ verify hipGraphLaunch end - draft GPU end ms p50/p90/mean: 1.533 1.615 1.531
+ GPU gap draft_extend end -> next draft start ms p50/p90/max/mean: 0.070 2.457 3.009 0.517
+ next CPU run_batch start - draft_extend GPU end ms (neg = CPU ahead) p50/p90/max: -40.04 2.03 2.59
+ step share of mean period: draft 8.7% draft_extend 4.7% verify-window 85.6% gap_between 1.0%
+
+== cross-rank (rank0 reference; matched by nearest draft start)
+ rank 0: n 40 draft-start offset ms p50 0.000 [min 0.000 max 0.000]; draft-end offset p50 0.000; draft_extend-start (=verify end) offset p50 0.000 [min 0.000 max 0.000]
+ rank 1: n 40 draft-start offset ms p50 -0.003 [min -0.014 max 0.448]; draft-end offset p50 -0.001; draft_extend-start (=verify end) offset p50 -0.003 [min -0.031 max 0.022]
+ rank 2: n 40 draft-start offset ms p50 -0.000 [min -0.009 max 0.091]; draft-end offset p50 0.000; draft_extend-start (=verify end) offset p50 -0.000 [min -0.028 max 0.006]
+ rank 3: n 40 draft-start offset ms p50 0.000 [min -0.009 max 0.126]; draft-end offset p50 -0.001; draft_extend-start (=verify end) offset p50 -0.001 [min -0.027 max 0.023]
+
+== per matched step: bs per rank, verify window per rank (ms)
+  0:bs9 v39.92 lb0.55  1:bs9 v39.92 lb0.58  2:bs6 v39.92 lb0.55  3:bs9 v39.92 lb0.55
+  0:bs9 v40.72 lb0.53  1:bs9 v40.75 lb0.64  2:bs6 v40.72 lb0.55  3:bs9 v40.72 lb0.54
+  0:bs9 v41.00 lb0.49  1:bs9 v41.01 lb0.59  2:bs6 v40.99 lb0.50  3:bs9 v40.99 lb0.50
+  0:bs9 v42.53 lb0.52  1:bs11 v42.52 lb0.59  2:bs6 v42.53 lb0.54  3:bs9 v42.53 lb0.53
+  0:bs9 v42.58 lb0.59  1:bs11 v42.58 lb0.63  2:bs6 v42.58 lb0.58  3:bs9 v42.58 lb0.57
+  0:bs9 v43.15 lb0.57  1:bs11 v43.12 lb0.59  2:bs6 v43.12 lb0.57  3:bs9 v43.12 lb0.58
+  0:bs11 v43.29 lb0.54  1:bs11 v43.26 lb0.56  2:bs6 v43.26 lb0.54  3:bs9 v43.26 lb0.54
+  0:bs13 v44.68 lb0.57  1:bs11 v44.68 lb0.59  2:bs6 v44.68 lb0.58  3:bs9 v44.68 lb0.58
+  0:bs13 v44.74 lb0.63  1:bs11 v44.73 lb0.64  2:bs6 v44.75 lb0.60  3:bs8 v44.73 lb0.59
+  0:bs13 v44.79 lb0.62  1:bs11 v44.79 lb0.67  2:bs6 v44.78 lb0.61  3:bs8 v44.79 lb0.59
+  0:bs13 v44.78 lb0.59  1:bs11 v44.78 lb0.62  2:bs6 v44.78 lb0.61  3:bs8 v44.78 lb0.61
+  0:bs12 v42.67 lb0.53  1:bs11 v42.66 lb0.59  2:bs6 v42.66 lb0.56  3:bs8 v42.66 lb0.56
+  0:bs12 v42.58 lb0.54  1:bs11 v42.57 lb0.62  2:bs6 v42.57 lb0.58  3:bs8 v42.58 lb0.57
+  0:bs12 v42.65 lb0.53  1:bs11 v42.65 lb0.58  2:bs6 v42.65 lb0.56  3:bs8 v42.66 lb0.56
+  0:bs12 v42.66 lb0.53  1:bs11 v42.66 lb0.61  2:bs6 v42.66 lb0.57  3:bs8 v42.67 lb0.59
+  0:bs12 v42.60 lb0.53  1:bs11 v42.60 lb0.61  2:bs6 v42.60 lb0.55  3:bs8 v42.60 lb0.57
+  0:bs12 v42.96 lb0.53  1:bs11 v42.95 lb1.08  2:bs6 v42.95 lb0.57  3:bs8 v42.95 lb0.55
+  0:bs12 v42.41 lb0.54  1:bs11 v42.41 lb0.63  2:bs6 v42.41 lb0.58  3:bs8 v42.41 lb0.56
+  0:bs12 v42.50 lb0.54  1:bs11 v42.50 lb0.61  2:bs6 v42.50 lb0.56  3:bs8 v42.51 lb0.57
+  0:bs12 v42.75 lb0.55  1:bs11 v42.74 lb0.58  2:bs6 v42.75 lb0.58  3:bs8 v42.75 lb0.57
+  0:bs12 v43.33 lb0.54  1:bs11 v43.30 lb0.58  2:bs6 v43.30 lb0.56  3:bs7 v43.31 lb0.58
+  0:bs13 v44.27 lb0.56  1:bs10 v44.27 lb0.57  2:bs6 v44.27 lb0.57  3:bs7 v44.27 lb0.57
+  0:bs13 v45.15 lb0.61  1:bs10 v45.15 lb0.61  2:bs6 v45.15 lb0.59  3:bs7 v45.18 lb0.60
+  0:bs13 v44.26 lb0.58  1:bs10 v44.25 lb0.57  2:bs6 v44.26 lb0.57  3:bs9 v44.26 lb0.58
+  0:bs13 v44.33 lb0.62  1:bs10 v44.33 lb0.63  2:bs6 v44.33 lb0.60  3:bs9 v44.33 lb0.60
+  0:bs13 v44.42 lb0.61  1:bs10 v44.42 lb0.59  2:bs6 v44.42 lb0.61  3:bs9 v44.43 lb0.63
+  0:bs13 v45.47 lb0.62  1:bs10 v45.47 lb0.63  2:bs6 v45.44 lb0.62  3:bs9 v45.47 lb0.60
+  0:bs14 v44.45 lb0.54  1:bs11 v44.45 lb0.57  2:bs6 v44.45 lb0.57  3:bs10 v44.46 lb0.57
+  0:bs13 v44.23 lb0.59  1:bs11 v44.24 lb0.60  2:bs6 v44.23 lb0.60  3:bs10 v44.24 lb0.61
+  0:bs13 v44.26 lb0.62  1:bs11 v44.26 lb0.64  2:bs6 v44.26 lb0.61  3:bs10 v44.26 lb0.61
+  0:bs13 v44.50 lb0.59  1:bs11 v44.49 lb0.64  2:bs6 v44.50 lb0.60  3:bs10 v44.51 lb0.61
+  0:bs13 v44.42 lb0.59  1:bs11 v44.42 lb0.64  2:bs6 v44.43 lb0.59  3:bs10 v44.41 lb0.62
+  0:bs13 v44.35 lb0.60  1:bs11 v44.35 lb0.63  2:bs6 v44.35 lb0.61  3:bs10 v44.35 lb0.59
+  0:bs12 v42.06 lb0.52  1:bs11 v42.06 lb0.60  2:bs6 v42.06 lb0.59  3:bs10 v42.06 lb0.56
+  0:bs12 v42.04 lb0.55  1:bs11 v42.04 lb0.61  2:bs6 v42.04 lb0.58  3:bs10 v42.04 lb0.59
+  0:bs12 v42.28 lb0.53  1:bs11 v42.27 lb0.57  2:bs6 v42.28 lb0.58  3:bs10 v42.28 lb0.56
+  0:bs12 v41.92 lb0.56  1:bs11 v41.91 lb0.60  2:bs6 v41.92 lb0.58  3:bs10 v41.92 lb0.57
+  0:bs12 v41.99 lb0.54  1:bs11 v41.99 lb0.57  2:bs6 v41.99 lb0.56  3:bs10 v41.99 lb0.56
+  0:bs12 v42.05 lb0.59  1:bs11 v42.05 lb0.65  2:bs6 v42.05 lb0.58  3:bs10 v42.06 lb0.61
+  0:bs12 v42.28 lb0.64  1:bs11 v42.28 lb0.62  2:bs6 v42.28 lb0.80  3:bs10 v42.28 lb0.74

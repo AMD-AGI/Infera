@@ -1,0 +1,6 @@
+draft graph kernel tids Counter({8: 7120}) window kernel tids Counter({8: 1274, 7: 201})
+first event in verify window after draft end ms p10/p50/p90/min: 3.90 4.09 5.29 3.37
+first window event names [('Memcpy HtoD (Host -> Device)', 33), ('void at::native::elementwise_kernel_manual_unroll<128, 4, at', 7)]
+first window event GPU start - its CPU launch ms p50 0.02 min 0.02
+post-verify kernel cluster span ms p50 38.809 ; gap cluster end -> draft_extend start p50 0.000
+recorded-kernel union busy per period: idle (incl. verify graph) mean 43.60 ms
