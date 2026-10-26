@@ -176,8 +176,9 @@ OOM 在 `dsa_backend._forward_aiter_extend` → `aiter.mla.mla_decode_fwd` 的 `
   日志（`analyze_pd_logs.py`）：async 让满块 prefill 变快（中位 369 / 354 ms，基线 446 / 410 ms），但两台 prefill 的新算吞吐合计不变
   （23.8k 对 23.6k tok/s），说明 2P1D C176 的 prefill 有余量，瓶颈在 decode（在跑约 100、最忙 rank 17–23、每步 75–80 ms，等传输约 26）。
   −1.6% 在单次运行的波动范围内（命中率等基本相同）；TTFT p50 降 12%。
-  **结论**：async 只在 prefill 饱和的配置（1P：4+8、4+4）有效；2P1D 高吞吐端受 decode 限制，要推高需要 decode 侧的优化，或在 4+4 这类 prefill 饱和、
-  每 GPU 吞吐接近 2P1D 的配置上测 prefill 优化。
+  **结论**：async 只在 P:D = 1:2、prefill 是瓶颈的配置有效（4+8 中段 C88–C112，实测 C112 +7.2%），这一项已测完，不再补点。
+  高吞吐端的 2P1D C176 和 4+4 C80 都是 P:D = 1:1、受 decode 限制（4+4 C80 decode KV p90 95%、最多 25 个等预分配，prefill 只用到上限约 85%），
+  prefill 优化推不动；要推高吞吐端需要 decode 侧（kernel、KV 扩容）。之后的 prefill 优化项以 4+8 中段为测试点。
 
 ## 结论（10-24 02:35）
 
