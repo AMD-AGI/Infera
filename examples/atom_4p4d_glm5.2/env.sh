@@ -23,7 +23,8 @@ export NODE_IP="${NODE_IP:-<this-node-ip>}"
 # served model name.
 export MODEL="${MODEL:-<weights-dir>}"
 
-# Infera ATOM image built on the ATOM nightly base (ATOM_NIGHTLY=1); see README "Image".
+# Infera ATOM image built on the ATOM nightly base (ATOM_NIGHTLY=1): the
+# release's atom-nightly-<version> or your own build; see README "Image".
 export IMAGE="${IMAGE:-<infera-atom-image>}"
 
 # Host scratch directory: per-run logs and results (runs/), the InferenceX

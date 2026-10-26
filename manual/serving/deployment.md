@@ -60,6 +60,7 @@ Mooncake/ionic RDMA shims on top of a vendor base. Pick by runtime:
 | `Dockerfile.sglang` | `lmsysorg/sglang:v0.5.18-rocm720-mi35x` | SGLang on MI355X |
 | `Dockerfile.sglang.gfx942` | `lmsysorg/sglang:v0.5.16-rocm720-mi30x` | SGLang on MI325X |
 | `Dockerfile.atom` | `rocm/atom:rocm7.2.4_…atom0.1.4` | ATOM on ROCm |
+| `Dockerfile.atom`, `ATOM_NIGHTLY=1` | `rocm/atom-dev:nightly_…` | the [GLM-5.2 ATOM PD kit](../examples/atom_4p4d_glm5.2.md); released as `atom-nightly-<version>` |
 
 Build from the repo root, e.g.:
 
@@ -72,7 +73,9 @@ docker build -f deploy/docker/Dockerfile.sglang \
 :class: important
 The SGLang base is tied to a specific ROCm + build-date tag and is selected via
 the `SGLANG_BASE_IMAGE` build-arg — override it to match the tag you've validated
-rather than relying on the default. vLLM and ATOM each use a single base image.
+rather than relying on the default. vLLM uses a single base image. ATOM has
+two: its release base, and the ATOM nightly base of the `ATOM_NIGHTLY=1` row,
+whose full build command is on the GLM-5.2 ATOM PD kit page.
 ```
 
 ```{admonition} hipFile on upstream rocm/sgl-dev

@@ -22,7 +22,12 @@ bash engine/down.sh          # save logs, remove containers, wait for VRAM to dr
 
 The engines need the ATOM nightly `661ef766` (`rocm/atom-dev:nightly_202610131505`)
 plus Infera's ATOM, aiter and LMCache patches for it, and the router needs
-Infera's `--session-affinity`. Build the image from the repo root:
+Infera's `--session-affinity`. Releases from v0.3.1 build this image as
+`atom-nightly-<version>`, on Docker Hub as `rocm/infera:atom-nightly-<version>`
+once that release is promoted there (check the
+[tags](https://hub.docker.com/r/rocm/infera/tags)). The `atom-<version>` image
+is on the ATOM release base and does not run this kit. To build it from the
+repo root:
 
 ```bash
 docker build -f deploy/docker/Dockerfile.atom \
