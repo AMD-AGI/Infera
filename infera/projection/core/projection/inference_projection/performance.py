@@ -4847,6 +4847,11 @@ class InferencePerformanceProjector:
         100k) purely from a handoff that is the same size for each request.
         Contention between concurrent handoffs belongs in the pool's throughput,
         not multiplied into one request's first-token latency.
+
+        A layer-wise engine (MoRI, MoRI-IO) sends each layer's KV while the
+        next layer computes, so by the time prefill retires only the last
+        layer is still on the wire: the exposed transfer is the request's KV
+        over the layers on the rank, plus the one batched transfer's floor.
         """
         from .kv_cache import estimate_kv_cache
 
@@ -4855,6 +4860,9 @@ class InferencePerformanceProjector:
         kv = estimate_kv_cache(
             decode_proj.cfg, layers_on_rank, concurrency=1, context_len=input_len
         )
+        exposed_bytes = kv.bytes_total
+        if disagg.resolved_kv_transfer_layerwise():
+            exposed_bytes = kv.bytes_total / max(1, int(layers_on_rank))
         comm = decode_proj._comm or self._comm
         if comm is None:
             # No collective model available; fall back to a direct bytes/bw calc.
@@ -4866,7 +4874,7 @@ class InferencePerformanceProjector:
                 decode_proj.cfg.collective_config,
             )
         return comm.kv_transfer_ms(
-            kv.bytes_total,
+            exposed_bytes,
             bw_gbps=disagg.resolved_kv_transfer_bw_gbps(),
             latency_us=disagg.resolved_kv_transfer_latency_us(),
         )

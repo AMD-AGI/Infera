@@ -1040,7 +1040,13 @@ def launch_projection_from_cli(args, overrides):
         if run_des_enabled:
             from . import gemm_shapes
             from .des import _DEFAULT_BLOCK_SIZE, run_des
-            from .kv_tiers import describe, hbm_kv_pool_tokens, kv_bytes_per_token, resolve_tiers
+            from .kv_tiers import (
+                describe,
+                hbm_kv_pool_tokens,
+                kv_bytes_per_token,
+                resolve_tiers,
+                tiers_for_pool,
+            )
 
             kv_tiers = resolve_tiers(
                 getattr(args, "kv_tier", None),
@@ -1108,9 +1114,12 @@ def launch_projection_from_cli(args, overrides):
             if getattr(split, "enabled", False) and kv_tiers:
                 # The tier sits under the prefill pool's cache, so a token's
                 # per-GPU footprint (what sizes the tier and its loads) is that
-                # pool's.
+                # pool's, and so is the layout a node tier is keyed by.
                 p_cfg = projector.pool_projectors()[0].cfg
                 bpt = kv_bytes_per_token(p_cfg) / decode_context_parallel_size(p_cfg)
+                kv_tiers = tiers_for_pool(kv_tiers, p_cfg)
+            elif kv_tiers:
+                kv_tiers = tiers_for_pool(kv_tiers, inference_config)
             if kv_tiers:
                 seq = max(1, req.input_seq_len + req.output_seq_len)
                 if des_kv_tokens:

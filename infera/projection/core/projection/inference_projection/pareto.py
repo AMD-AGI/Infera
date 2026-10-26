@@ -2227,7 +2227,7 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument(
         "--disagg-transfer",
         default="mori",
-        choices=["nixl", "mooncake", "mori"],
+        choices=["nixl", "mooncake", "mori", "moriio"],
         help="KV-transfer preset between the prefill and decode pools.",
     )
     ap.add_argument(

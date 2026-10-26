@@ -1626,9 +1626,10 @@ class DisaggregationConfig:
     kv_transfer_bw_gbps: float | None = None
     kv_transfer_latency_us: float = 0.0
     # Friendly preset over the two link knobs above, naming the KV-transfer
-    # engine: "nixl", "mooncake", or "mori".  ``None`` leaves the explicit link
-    # values untouched.  An explicit non-zero/non-None link knob overrides the
-    # preset value for that field.
+    # engine: "nixl", "mooncake", "mori" or "moriio".  ``None`` leaves the
+    # explicit link values untouched.  An explicit non-zero/non-None link knob
+    # overrides the preset value for that field; whether the engine streams
+    # per layer is a property of the engine and is not overridden by them.
     transfer_backend: str | None = None
 
     def resolved_kv_transfer_bw_gbps(self) -> float | None:
@@ -1640,6 +1641,15 @@ class DisaggregationConfig:
         if self.kv_transfer_latency_us:
             return float(self.kv_transfer_latency_us)
         return _TRANSFER_BACKEND_PRESETS.get(self.transfer_backend, (None, 0.0))[1]
+
+    def resolved_kv_transfer_layerwise(self) -> bool:
+        """Whether the engine streams each layer's KV while the next one computes.
+
+        A layer-wise engine has moved every layer but the last by the time
+        prefill retires, so only the last layer's transfer and one batched
+        transfer's floor are left in front of the decode.
+        """
+        return _TRANSFER_BACKEND_LAYERWISE.get(self.transfer_backend, False)
 
     def prefill_parallel(self, mp: ModelParallelConfig) -> "ModelParallelConfig":
         return _override_parallel(
@@ -1657,14 +1667,38 @@ class DisaggregationConfig:
         )
 
 
-# KV-transfer engine presets → (kv_transfer_bw_gbps, kv_transfer_latency_us).
-# Representative effective point-to-point KV link numbers; override with the
+# KV-transfer engine presets → (kv_transfer_bw_gbps, kv_transfer_latency_us),
+# per prefill rank: each rank sends its own shard of the KV over its own NIC,
+# which is the per-rank KV the handoff is sized from. Override with the
 # explicit link knobs for a measured fabric.
+#
+# mori / moriio: measured. MI355X nodes carry one RDMA NIC per GPU (Pensando
+#   Pollara 400, 390 Gb/s line rate); MoRI-IO's own RDMA benchmark reaches
+#   47.9 GB/s per initiator with a 114-120 us floor per batched transfer.
+#   "moriio" is vLLM's MoRI-IO connector, which drives the same RDMA engine as
+#   SGLang's MoRI backend.
+# nixl / mooncake: NOT measured -- representative values kept from before the
+#   MoRI measurement, with no benchmark behind them.
 _TRANSFER_BACKEND_PRESETS = {
     "nixl": (400.0, 5.0),
     "mooncake": (200.0, 10.0),
-    "mori": (300.0, 7.0),
+    "mori": (47.9, 120.0),
+    "moriio": (47.9, 120.0),
 }
+
+# Engines that stream KV per layer, overlapped with the next layer's prefill:
+# SGLang's MoRI backend and vLLM's MoRI-IO connector in write mode. Mooncake
+# and NIXL (read mode) move the whole request once prefill ends.
+_TRANSFER_BACKEND_LAYERWISE = {
+    "nixl": False,
+    "mooncake": False,
+    "mori": True,
+    "moriio": True,
+}
+
+# Lets a caller that used to emulate layer-wise streaming (by scaling the link
+# bandwidth by the layer count) tell that this projector already models it.
+KV_TRANSFER_LAYERWISE_MODELED = True
 
 
 def _override_parallel(
