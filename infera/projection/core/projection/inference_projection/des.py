@@ -149,6 +149,9 @@ class _Req:
     # them back delayed this request's admission.
     load_blocks: tuple = ()
     kv_load_ms: float = 0.0
+    # Split serving: the prefill replica whose cache warmed this request's
+    # prefix (-1: none), which is where its prefill runs.
+    pool_inst: int = -1
     # Session replay (closed loop): which client session this request belongs
     # to, in the order a shared sampler hands sessions out, and the requests
     # it waits on -- the previous turn of its own stream (``dep``) and any
@@ -2130,8 +2133,15 @@ def simulate_disaggregated(
     duration_ms: float = 0.0,
     closed_loop_idle_cap_ms: float = 0.0,
     pool_kv_tokens: tuple[int, int] | None = None,
+    tier_block_ms: Sequence[float] = (),
 ) -> DESResult:
     """Run a prefill pool and a decode pool as two stations on one clock.
+
+    ``tier_block_ms`` prices the prefill pool's storage tiers below HBM as
+    :func:`simulate_once` does: a request whose cache hit includes lower-tier
+    blocks (``_Req.load_blocks``) joins its prefill replica's queue only once
+    they have crossed that replica's host link, one request's blocks at a time,
+    so the wait is queue time and lands on TTFT measured from arrival.
 
     The single-engine loop above cannot represent this topology, and did not try
     to: it has no notion of pools, so a disaggregated candidate handed to it was
@@ -2331,6 +2341,15 @@ def simulate_disaggregated(
     pk_maxbatch = 0
     pk_kv_peak = 0
     backlog: list[tuple[float, int]] = []
+    # Requests waiting on blocks from a lower tier: (lands_ms, idx, replica, req).
+    p_loading: list[tuple[float, int, int, _Req]] = []
+    p_nloading = [0] * p_replicas
+    p_link_free = [[0.0] * len(tier_block_ms) for _ in range(p_replicas)]
+    load_ms_total = 0.0
+    load_reqs = 0
+
+    def _ready_ms(r: _Req) -> float:
+        return r.arrival_ms + r.kv_load_ms
 
     def _prefill_tokens(r: _Req, budget: float) -> int:
         need = r.prompt_len - r.num_computed
@@ -2347,8 +2366,29 @@ def simulate_disaggregated(
         got = 0
 
         def _route(r: _Req) -> None:
-            j = min(range(p_replicas), key=lambda i: (len(p_running[i]) + len(p_waiting[i]), i))
-            p_waiting[j].append(r)
+            nonlocal load_ms_total, load_reqs
+            if 0 <= r.pool_inst < p_replicas:
+                j = r.pool_inst
+            else:
+                j = min(
+                    range(p_replicas),
+                    key=lambda i: (len(p_running[i]) + len(p_waiting[i]) + p_nloading[i], i),
+                )
+            if not tier_block_ms or not r.load_blocks or not any(r.load_blocks):
+                p_waiting[j].append(r)
+                return
+            ready = r.arrival_ms
+            for i, nb in enumerate(r.load_blocks[: len(tier_block_ms)]):
+                if nb <= 0:
+                    continue
+                start = max(r.arrival_ms, p_link_free[j][i])
+                p_link_free[j][i] = start + nb * tier_block_ms[i]
+                ready = max(ready, p_link_free[j][i])
+            r.kv_load_ms = ready - r.arrival_ms
+            load_ms_total += r.kv_load_ms
+            load_reqs += 1
+            p_nloading[j] += 1
+            heapq.heappush(p_loading, (ready, r.idx, j, r))
 
         while next_arrival < n and pending[next_arrival].arrival_ms <= t:
             _route(pending[next_arrival])
@@ -2356,6 +2396,11 @@ def simulate_disaggregated(
             got += 1
         while arrivals_heap and arrivals_heap[0][0] <= t:
             _route(heapq.heappop(arrivals_heap)[2])
+            got += 1
+        while p_loading and p_loading[0][0] <= t:
+            _, _, j, r = heapq.heappop(p_loading)
+            p_nloading[j] -= 1
+            p_waiting[j].append(r)
             got += 1
         return got
 
@@ -2387,7 +2432,7 @@ def simulate_disaggregated(
         # in flight and pinned the decode batch at 1.
         queue = p_waiting[j]
         if not p_running[j] and queue:
-            now_p[j] = max(now_p[j], queue[0].arrival_ms)
+            now_p[j] = max(now_p[j], _ready_ms(queue[0]))
         budget: float = token_budget if token_budget > 0 else math.inf
         scheduled: list[tuple[_Req, int, int]] = []
         for r in p_running[j]:
@@ -2399,10 +2444,10 @@ def simulate_disaggregated(
                 budget -= q
         while queue and budget >= 1 and len(p_running[j]) < p_max_running:
             head = queue[0]
-            if head.arrival_ms > now_p[j]:
+            if _ready_ms(head) > now_p[j]:
                 # Queued against the simulation clock but not yet submitted on
-                # this station's, so it waits rather than being prefilled before
-                # the client asked for it.
+                # this station's (or its tier blocks not yet landed there), so
+                # it waits rather than being prefilled before it can be.
                 break
             # A prefill pool reserves the prompt it is about to compute; it hands
             # the KV off and frees it, so it is not charged for the generation.
@@ -2586,6 +2631,7 @@ def simulate_disaggregated(
                     pending[next_arrival].arrival_ms if next_arrival < n else None,
                     arrivals_heap[0][0] if arrivals_heap else None,
                     min((ts for ts, _ in xfer), default=None),
+                    p_loading[0][0] if p_loading else None,
                 )
                 if t is not None and t < math.inf
             ]
@@ -2697,6 +2743,9 @@ def simulate_disaggregated(
         "prefill_pool_gpus": float(p_gpus),
         "decode_pool_gpus": float(d_gpus),
     }
+    if tier_block_ms:
+        packing["tier_load_reqs"] = float(load_reqs)
+        packing["tier_load_ms_mean"] = (load_ms_total / load_reqs) if load_reqs else 0.0
 
     samples = None
     if return_samples:
@@ -2918,8 +2967,8 @@ def run_des(
     below HBM to every instance's block cache, sized and priced from
     ``kv_bytes_per_token``, the per-GPU KV footprint of one token. They change
     anything only where there is a block cache to spill from -- a trace, a
-    shared-prefix pool or a fleet -- and are not applied to a disaggregated
-    split, whose prefill pool is warmed without a scheduler to charge loads to.
+    shared-prefix pool or a fleet. In a disaggregated split they sit under the
+    prefill pool's cache, which is the one that serves prefix hits.
 
     Returns ``{"point": DESResult, "curve": [DESResult, ...],
     "max_sustainable_rate": mu}``. The sweep derives the engine's max-sustainable
@@ -2956,12 +3005,14 @@ def run_des(
             hasher = _BlockHasher()
             bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
             reqs = _reqs_from_rows(mooncake_rows)
-            # The prefill pool is what owns a prefix cache here, so the hits are
-            # warmed against one station rather than routed across a fleet.
-            _, prefix_summary = _route_and_warm(
+            # The prefill pool is what owns a prefix cache here: each prefill
+            # replica holds its own, and a conversation stays on the replica
+            # that holds its prefix, as across a colocated fleet.
+            p_rep = max(1, int(getattr(inference_config.disaggregation_config, "prefill_replicas", 1) or 1))
+            per_inst, prefix_summary = _route_and_warm(
                 reqs,
                 policy="kv",
-                num_instances=1,
+                num_instances=p_rep,
                 block_size=bs,
                 cache_blocks=eff_cache_blocks,
                 rng=random.Random(seed),
@@ -2975,9 +3026,14 @@ def run_des(
                     inference_config.request_config.resolved_max_concurrency(),
                     admit_backlog_only,
                 ),
+                lower_tiers=tier_kw.get("lower_tier_blocks", ()),
+                tier_names=tier_kw.get("tier_names", ()),
             )
             prefix_summary["routing"] = float(_ROUTING_POLICIES.index("kv"))
             prefix_summary["trace_driven"] = 1.0
+            for i, sub in enumerate(per_inst):
+                for r in sub:
+                    r.pool_inst = i
             del hasher
         eff_rate = rate_per_s
         if mooncake_rows and not closed_loop:
@@ -3005,6 +3061,7 @@ def run_des(
             closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
             duration_ms=duration_ms,
             pool_kv_tokens=pool_kv_tokens,
+            tier_block_ms=tier_kw.get("tier_block_ms", ()) if reqs is not None else (),
         )
         # The split warms a prefix cache exactly as the colocated path does,
         # but discarded the summary, so every disaggregated row reported no

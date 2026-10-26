@@ -1105,6 +1105,12 @@ def launch_projection_from_cli(args, overrides):
                 if pool_kv[0]:
                     des_kv_blocks = max(1, pool_kv[0] // des_bs)
                     des_shares_pool = True
+            if getattr(split, "enabled", False) and kv_tiers:
+                # The tier sits under the prefill pool's cache, so a token's
+                # per-GPU footprint (what sizes the tier and its loads) is that
+                # pool's.
+                p_cfg = projector.pool_projectors()[0].cfg
+                bpt = kv_bytes_per_token(p_cfg) / decode_context_parallel_size(p_cfg)
             if kv_tiers:
                 seq = max(1, req.input_seq_len + req.output_seq_len)
                 if des_kv_tokens:
