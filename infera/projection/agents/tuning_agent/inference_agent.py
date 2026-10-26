@@ -67,7 +67,7 @@ _PROPOSAL_KEYS = (
     "kv_block_size, max_num_batched_tokens, ep_load_balance, redundant_experts, "
     "disaggregate, prefill_tp, decode_tp, decode_replicas, transfer_backend, "
     "request_rate, arrival_model, attention_backend, sparse_attention_topk, "
-    "moe_expert_dtype, fused_kernels, quick_reduce, fuse_rmsnorm_allreduce"
+    "moe_expert_dtype, fused_kernels, fusions, quick_reduce, fuse_rmsnorm_allreduce"
 )
 
 
@@ -93,6 +93,13 @@ class InferenceTuningPlanSignature(dspy.Signature):
     (ep, use_turbo_deepep, ep_load_balance), disaggregation, and the ROCm
     kernel knobs (attention_backend, moe_expert_dtype, fused_kernels,
     quick_reduce, fuse_rmsnorm_allreduce, sparse_attention_topk).
+
+    Every trial result carries ``fusion_opportunities``: the named fusions
+    (legal_axes.fusions) that would save at least 2% of that trial's decode
+    step, each with its saving in ms (lower/mid/upper) and share of the step.
+    Propose ``fusions`` as a list of those names, largest share first; it
+    replaces ``fused_kernels``, so leave that off when fusions are set. The
+    quant-fed ones (norm_quant, act_quant) need fp8/fp4 weights.
     """
 
     architecture: str = dspy.InputField(desc="JSON architecture record")
@@ -217,6 +224,12 @@ def _result_for_llm(r: EvalResult, score: float | None) -> dict:
         "memory_per_gpu_gb": r.memory_per_gpu_gb,
         "kv_cache_gb": r.kv_cache_gb,
         "max_concurrent_sequences": r.max_concurrent_sequences,
+        # Only the ones worth proposing: under 2% of the step is noise.
+        "fusion_opportunities": [
+            {k: o[k] for k in ("fusion", "saving_ms", "share_of_step")}
+            for o in (r.fusion_opportunities or [])
+            if o.get("worth_it")
+        ],
         "config": r.config,
     }
 

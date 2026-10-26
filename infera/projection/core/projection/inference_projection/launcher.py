@@ -147,6 +147,12 @@ def _collect_inference_overrides(args) -> dict[str, object]:
     # clobber a value carried by a YAML ``inference:`` block.
     if getattr(args, "fused_kernels", False):
         overrides["fused_kernels"] = True
+    if getattr(args, "fusions", None):
+        from .fusion import validate
+
+        overrides["fusions"] = tuple(validate(str(args.fusions).split(",")))
+        if overrides.get("fused_kernels"):
+            raise ValueError("--fusions names its fusions; drop --fused-kernels")
     if getattr(args, "no_sampling", False):
         overrides["sampling_enabled"] = False
     if getattr(args, "quick_reduce", False):
@@ -241,6 +247,8 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
         feats.append(f"moe_expert_dtype={req.moe_expert_dtype}")
     if getattr(req, "fused_kernels", False):
         feats.append("fused_kernels")
+    if getattr(req, "fusions", ()):
+        feats.append("fusions=" + "+".join(req.fusions))
     if getattr(req, "speculative_draft_cost_factor", 0.0):
         feats.append(f"draft_cost={req.speculative_draft_cost_factor:.2f}")
     if getattr(req, "request_rate", 0.0) and (req.arrival_model or "closed") != "closed":
@@ -993,6 +1001,15 @@ def launch_projection_from_cli(args, overrides):
         )
         perf = projector.project()
         _print_performance(inference_config, perf, getattr(args, "gpu_cost_per_hour", None))
+        if getattr(args, "fusion_report", False):
+            import json as _json
+
+            req = inference_config.request_config
+            rep = projector.fusion_report(
+                req.resolved_max_concurrency(),
+                int(req.input_seq_len) + int(req.output_seq_len) // 2,
+            )
+            print("[inferasim:Inference] Fusion opportunities: " + _json.dumps(rep))
         results["performance"] = perf
         results["calibrated"] = projector.is_benchmark_calibrated
         results["anchor"] = load_bench if projector.is_benchmark_calibrated else None

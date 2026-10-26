@@ -6,7 +6,7 @@
 """A warmup should ask for as few GPUs as it can and still be useful.
 
 The rule is deliberately simple: measure a config on its own footprint when that
-fits in four GPUs, and on four when it does not. Anything larger is projected
+fits on one node, and on one node when it does not. Anything larger is projected
 rather than measured, which is what keeps a warmup to one short run instead of a
 ladder over every parallelism a search might ask about.
 """
@@ -26,26 +26,26 @@ from infera.projection.core.projection.inference_projection.benchmark_vllm impor
     [
         (1, 1, 1),  # a single-GPU config is measured on one GPU
         (2, 1, 2),
-        (4, 1, 4),  # exactly the cap
+        (4, 1, 4),
         # A TP=2 EP=2 target occupies two GPUs in vLLM, where EP follows TP, so
         # the warmup cannot be wider than the thing it is measuring.
         (2, 2, 2),
-        (8, 1, 4),  # beyond the cap: measure on four, project the rest
-        (8, 8, 4),
-        (16, 1, 4),  # multi-node targets never enlarge the warmup
+        (8, 1, 8),  # exactly the cap: a full node is measured at its own width
+        (8, 8, 8),
+        (16, 1, 8),  # multi-node targets never enlarge the warmup past a node
         (4, 4, 4),
     ],
 )
-def test_a_warmup_never_asks_for_more_than_half_a_node(tp, ep, expected):
+def test_a_warmup_never_asks_for_more_than_a_node(tp, ep, expected):
     assert warmup_gpu_count(tp, ep) == expected
     assert warmup_gpu_count(tp, ep) <= WARMUP_GPU_CAP
 
 
-def test_tp4_is_the_anchor_for_every_target_at_or_above_four():
-    """The calibration anchor is TP4 even when TP4 does not divide target TP."""
-    assert warmup_gpu_count(3, 1) == 3  # below four: keep the target TP
-    assert warmup_gpu_count(6, 1) == 4  # at or above four: always use TP4
-    assert warmup_gpu_count(12, 1) == 4
+def test_a_target_that_fits_a_node_is_measured_at_its_own_width():
+    """Only a target that spans nodes is measured narrower than itself."""
+    assert warmup_gpu_count(3, 1) == 3
+    assert warmup_gpu_count(6, 1) == 6
+    assert warmup_gpu_count(12, 1) == 8
 
 
 def test_a_larger_target_never_costs_a_larger_warmup():

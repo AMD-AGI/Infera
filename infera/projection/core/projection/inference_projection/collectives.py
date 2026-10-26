@@ -254,10 +254,11 @@ class CommBreakdown:
     tp_allreduce_ms: float = 0.0
     ep_a2a_ms: float = 0.0
     pp_p2p_ms: float = 0.0
+    dcp_ms: float = 0.0
 
     @property
     def total_ms(self) -> float:
-        return self.tp_allreduce_ms + self.ep_a2a_ms + self.pp_p2p_ms
+        return self.tp_allreduce_ms + self.ep_a2a_ms + self.pp_p2p_ms + self.dcp_ms
 
 
 class InferenceCollectiveModel:
@@ -281,7 +282,7 @@ class InferenceCollectiveModel:
         self.ep = max(1, getattr(mp_config, "expert_model_parallel_size", 1) or 1)
         self.cp = max(1, getattr(mp_config, "context_model_parallel_size", 1) or 1)
         self.attn_dp = max(1, getattr(mp_config, "attention_data_parallel_size", 1) or 1)
-        self.dcp = max(1, getattr(mp_config, "decode_context_parallel_size", 1) or 1)
+        self.dcp = max(1, int(getattr(mp_config, "decode_context_parallel_size", 1) or 1))
         self.hidden = model_config.hidden_size
         self.topk = getattr(model_config, "moe_router_topk", 2) or 2
 
@@ -565,6 +566,39 @@ class InferenceCollectiveModel:
         raw_pod = getattr(a, "_raw_pod_bw", a.pod_bw / a.bw_eff)
         bw = raw_pod * getattr(a, "p2p_bw_eff", 0.80)
         return (msg / bw) * 1.0e-3 + a.pod_lat + a.kernel_launch_latency
+
+    # -- Decode context parallelism ---------------------------------------------
+
+    def dcp_decode_ms(self, batch: int, tokens: int) -> float:
+        """The DCP exchange of one attention layer's decode, forward only.
+
+        Each DCP rank holds a slice of every sequence's tokens, so it needs every
+        head's query for that slice: the TP-sharded queries are all-gathered
+        across the DCP group. Each rank's attention then yields a partial output
+        and log-sum-exp per head; the LSEs are all-gathered to rescale, and the
+        corrected outputs are reduce-scattered back to their head shards. All
+        three sit on the attention's critical path, so none of it is hidden.
+        Under MLA the absorbed query is ``kv_lora_rank + rope`` wide and the
+        output ``kv_lora_rank``.
+        """
+        if self.dcp <= 1:
+            return 0.0
+        mc = self.mc
+        heads = max(1, int(getattr(mc, "num_attention_heads", 0) or 0) // self.tp) * self.dcp
+        lora = int(getattr(mc, "kv_lora_rank", 0) or 0)
+        if getattr(mc, "multi_latent_attention", False) and lora:
+            q_dim = lora + int(getattr(mc, "qk_pos_emb_head_dim", 0) or 0)
+            o_dim = lora
+        else:
+            q_dim = int(getattr(mc, "qk_head_dim", 0) or 0) or int(mc.kv_channels or 0)
+            o_dim = int(getattr(mc, "v_head_dim", 0) or 0) or q_dim
+        rows = max(1, batch * tokens) * heads
+        us = 0.0
+        for msg, fn in ((rows * q_dim * 2, cm.allgather), (rows * 4, cm.allgather),
+                        (rows * o_dim * 2, cm.reduce_scatter)):
+            raw = fn(self._args, msg, self.dcp, groups=["hp"])
+            us += self._floor_small_msg_overhead(raw, msg, self.dcp, is_a2a=False)
+        return us / 1000.0
 
     # -- KV-cache transfer (disaggregation) ------------------------------------
 

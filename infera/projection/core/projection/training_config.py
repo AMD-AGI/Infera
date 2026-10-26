@@ -929,6 +929,10 @@ class InferenceRequestConfig:
     # ``_FUSED_KERNEL_OVERHEAD_FACTOR`` (representative). No-op when there is no
     # per-step overhead to cut (e.g. full CUDA graph already amortises it).
     fused_kernels: bool = False
+    # Named fusions (``inference_projection.fusion.PATTERNS``), each priced by
+    # the kernels and intermediate bytes it removes. Empty = none beyond what
+    # the step already is. Not combined with ``fused_kernels``.
+    fusions: tuple = ()
 
     def resolved_max_context_len(self) -> int:
         if self.max_context_len is not None:

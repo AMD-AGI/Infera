@@ -82,6 +82,9 @@ class EvalResult:
     mixed_step_fraction_pct: float | None = None
     tpot_pollution_pct: float | None = None
     replica_gpus: int | None = None
+    # Fusions that apply to the trial's model and precision, ranked by what
+    # each would save per decode step (``fusion.opportunities``).
+    fusion_opportunities: list | None = None
     source: str = "memory_only"
     stdout_tail: str = ""
     returncode: int = 0
@@ -651,6 +654,9 @@ def _build_inference_cmd(
         cmd += ["--moe-expert-dtype", str(cfg.moe_expert_dtype)]
     if getattr(cfg, "fused_kernels", False):
         cmd += ["--fused-kernels"]
+    if getattr(cfg, "fusions", None):
+        cmd += ["--fusions", ",".join(cfg.fusions)]
+    cmd += ["--fusion-report"]
     if getattr(cfg, "speculative_draft_cost_factor", 0.0):
         # The tuner searches acceptance and draft cost as a pair held to
         # ``min_draft_cost``, so its factor has to be the cost charged.

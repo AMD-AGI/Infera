@@ -184,6 +184,7 @@ class _Restorable:
         self.cfg = _inference_config(tp=tgt_tp, attn_dp=tgt_attn_dp, disaggregate=False)
         self._bench_tp, self._bench_ep, self._bench_pp = bench_tp, 1, 1
         self._bench_attn_dp = bench_attn_dp
+        self._bench_dcp = None
         self._restore = False
         self._restore_layout_moved = False
         self._bench_attn_dp_eff = 1
@@ -360,6 +361,9 @@ class _MeasuredStep:
 
     def _measured_prefill_tokens_ms(self, tokens, kv):
         return self._meas * tokens
+
+    def _fused_mixed(self, step, num_decode, q_len, pb, chunk):
+        return step
 
     def _origami_steps(self, batch, tokens, phase, bench_batch=None):
         return self._sim * batch * tokens, self._sim * tokens

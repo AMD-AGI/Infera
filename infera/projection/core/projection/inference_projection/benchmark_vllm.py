@@ -199,24 +199,25 @@ def _num_experts(model: str, trust_remote_code: bool) -> int:
     return 0
 
 
-WARMUP_GPU_CAP = 4
+GPUS_PER_NODE = 8
+WARMUP_GPU_CAP = int(os.environ.get("INFERA_WARMUP_GPU_CAP", GPUS_PER_NODE))
 
 
 def warmup_gpu_count(target_tp, target_ep=1, target_pp=1):
-    """How many GPUs a warmup needs: target TP below four, otherwise TP4.
+    """How many GPUs a warmup needs: the target's TP up to one node.
 
     ``target_ep`` and ``target_pp`` are accepted and ignored. Neither widens a
     warmup: in vLLM expert parallelism shards experts across the TP group rather
     than adding GPUs, and a pipeline stage is measured one stage at a time. So
-    the target's warmup footprint is its TP degree, capped at four.
+    the target's warmup footprint is its TP degree, capped at one node.
 
-    Four is not an arbitrary cap. Scoring each rung of the measured TP ladder as
-    an anchor for the degrees it did *not* measure, a four-GPU anchor was the
-    best single choice at 6.6% -- better than the full-node eight-GPU anchor at
-    7.6% -- because it interpolates in both directions where an end rung has to
-    extrapolate. The cap is a GPU count, not a fraction of a node, because node
-    sizes differ; a small fixed allocation also keeps a warmup from waiting on a
-    large one.
+    As in projection for distributed training, a target that fits on a node is
+    measured at its own width and only a target that spans nodes is reduced, so
+    the anchor carries the target's own kernels and collectives. A narrower
+    anchor is a cost choice rather than an accuracy one: scoring each rung of a
+    measured TP ladder as the anchor for the degrees it did not measure, a
+    four-GPU anchor projected the ladder about as well as the eight-GPU one
+    (6.6% vs 7.6%). ``--benchmark-gpus`` or ``INFERA_WARMUP_GPU_CAP`` sets it.
     """
     tp = max(1, int(target_tp or 1))
     return min(tp, WARMUP_GPU_CAP)
