@@ -1,0 +1,5301 @@
+{
+ "args": {
+  "draft_bs": "8:24",
+  "verify_bs": "8:24",
+  "draft_tokens": 6,
+  "kinds": "qup_fused,qup_bmm,vup_bmm",
+  "nbuf": 8,
+  "iters": 64,
+  "reps": 50,
+  "num_slots": 65536,
+  "sweep": false,
+  "out": "/out/r1.json",
+  "max_used_gib": 2.0
+ },
+ "results": [
+  {
+   "kind": "qup_fused",
+   "M": 8,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.868203170597553,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.872867139056325,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 9,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.8060236517339945,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.952874965965748,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 10,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 7.194781210273504,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.064117256551981,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 11,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 7.397578097879887,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.194750148802996,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 12,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 7.577585754916072,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.2619376219809055,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 13,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 8.08353116735816,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.428812466561794,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 14,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 8.236031513661146,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.659437505528331,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 15,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 8.626664057374,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.781624931842089,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 16,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 8.847914170473814,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.953515646979213,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 17,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 9.401672054082155,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.136344142258167,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 18,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 9.609171655029058,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.162281010299921,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 19,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 9.795117191970348,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.311976213008165,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 20,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 10.071054566651583,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.383539039641619,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 21,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 10.351062286645174,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.56791390106082,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 22,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 10.603874921798706,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.746351581066847,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 23,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 10.97919512540102,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.83197644725442,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 24,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 11.187945492565632,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.955109398812056,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 48,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 11.72795332968235,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 12.64921110123396,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 54,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 12.585461139678955,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 12.297960929572582,
+     "bitwise_eq_image": false,
+     "max_abs_diff_vs_image": 0.4375
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 60,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 13.721718918532133,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 13.033281080424786,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 66,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 18.40084418654442,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 14.758304692804813,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 72,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 19.34522669762373,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 15.535499900579453,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 78,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 20.36867942661047,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 16.32206980139017,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 84,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 21.53307106345892,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 19.998984411358833,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 90,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 22.23933581262827,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 20.782750099897385,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 96,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 23.106844164431095,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 21.813702769577503,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 102,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 23.948405869305134,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 20.696500316262245,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 108,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 24.84092954546213,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 21.457437425851822,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 114,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 25.894999504089355,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 26.58062521368265,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 120,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 26.80844534188509,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 27.60001551359892,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 126,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 27.83689834177494,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 28.39475031942129,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 132,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 30.025984160602093,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 26.04656293988228,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 138,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 31.020374968647957,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 26.767820119857788,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_fused",
+   "M": 144,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 32.072875648736954,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 27.44376566261053,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 8,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.400062374770641,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.440679680556059,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.023438727483153343,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 9,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.513500025495887,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.560671746730804,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.0262010395526886,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 10,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.542242269963026,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.618499893695116,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.029465850442647934,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 11,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.6159999910742044,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.65818727388978,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025424880906939507,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 12,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.683804698288441,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.730992252007127,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.028450174257159233,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 13,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.785687662661076,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.83600003644824,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.024009451270103455,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 14,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.870054544880986,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.910054616630077,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02568754181265831,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 15,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.9694376066327095,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.021617049351335,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02553481236100197,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 16,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 4.022547043859959,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 3.9247344247996807,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.0237374696880579,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 17,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.417882930487394,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.256312433630228,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025479638949036598,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 18,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.449749995023012,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.301937460899353,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.026337329298257828,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 19,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.452562589198351,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.261312471702695,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025485055521130562,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 20,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.501632811501622,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.340375006198883,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02902267687022686,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 21,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.5078750010579824,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.345062352716923,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.028861647471785545,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 22,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.5981953628361225,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.4397499188780785,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02611064910888672,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 23,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.631320411339402,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.451624980196357,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02588852494955063,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 24,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.588507745414972,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.431625060737133,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.03068137727677822,
+   "phase": "draft"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 48,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 10.962000116705894,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 5.492570344358683,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025392675772309303,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 54,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 12.583585921674967,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.05885111913085,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.024117613211274147,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 60,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 13.373280875384808,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 8.469781372696161,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02542208880186081,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 66,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.360171742737293,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 10.415124706923962,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02639949880540371,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 72,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 12.865468859672546,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 10.118562262505293,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.03184263035655022,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 78,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.478304889053106,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 11.153578292578459,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.026707734912633896,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 84,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.550484251230955,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 12.166390661150217,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027438819408416748,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 90,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.5373591221869,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 12.779523152858019,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.030417032539844513,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 96,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 13.171093538403511,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.9444687105715275,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02892226167023182,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 102,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.692679513245821,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 13.986421748995781,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.024389727041125298,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 108,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.738296624273062,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 14.436421915888786,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027709627524018288,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 114,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.77830484509468,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 14.164234045892954,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027746975421905518,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 120,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 13.422664254903793,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 12.80328119173646,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02492401748895645,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 126,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.830172061920166,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 14.161734376102686,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.026614973321557045,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 132,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 18.0858438834548,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 16.92676544189453,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02739000879228115,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 138,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 18.88553984463215,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 17.70677324384451,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.030017418786883354,
+   "phase": "verify"
+  },
+  {
+   "kind": "qup_bmm",
+   "M": 144,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 18.46334431320429,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 10.93138288706541,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02793450653553009,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 8,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.87257812730968,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.248804645612836,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02765795961022377,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 9,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.949125159531832,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.2772500310093164,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.029378967359662056,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 10,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.023515481501818,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.314429592341185,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.024946054443717003,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 11,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.066320231184363,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.351929761469364,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025454388931393623,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 12,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.126320222392678,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.375679884105921,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025045504793524742,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 13,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.16163294762373,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.405679646879435,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.023228952661156654,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 14,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.248187273740768,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.436617251485586,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.026677660644054413,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 15,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.30756258033216,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.4669220224022865,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027202416211366653,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 16,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 16,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 5.418499931693077,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 3.9863046258687973,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027471216395497322,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 17,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.694460986182094,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.61506238207221,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02594129554927349,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 18,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.678203120827675,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.610992269590497,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02635873295366764,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 19,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.710710935294628,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.6306876465678215,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.022071538493037224,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 20,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.694773444905877,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.631617339327931,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.024934181943535805,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 21,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.77664065733552,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.677554592490196,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.026438573375344276,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 22,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.821648450568318,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.698500037193298,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02488989382982254,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 23,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.916648475453258,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.746624967083335,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.0261488426476717,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 24,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 32,
+    "BLOCK_SIZE_N": 128,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 2,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 6.948827998712659,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 64,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.761929623782635,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.029089748859405518,
+   "phase": "draft"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 48,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.345796778798103,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 4.97568747960031,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02631857618689537,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 54,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 14.969867188483477,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 6.59852335229516,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027660785242915154,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 60,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 15.657062642276287,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 128,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 6.611640565097332,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025723300874233246,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 66,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 15.969570726156235,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.102281484752893,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027024494484066963,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 72,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.02268684655428,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 8.536663837730885,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02593330293893814,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 78,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.039570793509483,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.255117271095514,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02742384374141693,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 84,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.03550836443901,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.508234448730946,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.026841068640351295,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 90,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.089257784187794,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.550109505653381,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.025339538231492043,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 96,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.080820001661777,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 6.692578084766865,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02572067826986313,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 102,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.15456212311983,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.778250008821487,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.027614038437604904,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 108,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.16925746202469,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.820117149502039,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.028083810582756996,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 114,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.183000057935715,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.79230459779501,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.024550786241889,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 120,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.249882988631725,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.856999851763248,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.026246169582009315,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 126,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.27487502992153,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 32,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.936992079019547,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02591813914477825,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 132,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.273945569992065,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 12.580468319356441,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02475445158779621,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 138,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.314883716404438,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 13.2739064283669,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.028704877942800522,
+   "phase": "verify"
+  },
+  {
+   "kind": "vup_bmm",
+   "M": 144,
+   "image_cfg": {
+    "BLOCK_SIZE_M": 64,
+    "BLOCK_SIZE_N": 256,
+    "GROUP_SIZE_M": 1,
+    "num_warps": 8,
+    "num_stages": 2,
+    "waves_per_eu": 1,
+    "matrix_instr_nonkdim": 16,
+    "cache_modifier": ".cg"
+   },
+   "rows": [
+    {
+     "name": "image",
+     "cfg": {
+      "BLOCK_SIZE_M": 64,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 8,
+      "num_stages": 2,
+      "waves_per_eu": 1,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": ".cg"
+     },
+     "us": 16.33739098906517,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    },
+    {
+     "name": "pr209",
+     "cfg": {
+      "BLOCK_SIZE_M": 16,
+      "BLOCK_SIZE_N": 256,
+      "GROUP_SIZE_M": 1,
+      "num_warps": 4,
+      "num_stages": 2,
+      "waves_per_eu": 2,
+      "matrix_instr_nonkdim": 16,
+      "cache_modifier": null
+     },
+     "us": 9.592296555638313,
+     "bitwise_eq_image": true,
+     "max_abs_diff_vs_image": 0.0
+    }
+   ],
+   "image_ref_rel_err": 0.02530568093061447,
+   "phase": "verify"
+  }
+ ],
+ "summary": {
+  "qup_fused/image": {
+   "8": 6.868203170597553,
+   "9": 6.8060236517339945,
+   "10": 7.194781210273504,
+   "11": 7.397578097879887,
+   "12": 7.577585754916072,
+   "13": 8.08353116735816,
+   "14": 8.236031513661146,
+   "15": 8.626664057374,
+   "16": 8.847914170473814,
+   "17": 9.401672054082155,
+   "18": 9.609171655029058,
+   "19": 9.795117191970348,
+   "20": 10.071054566651583,
+   "21": 10.351062286645174,
+   "22": 10.603874921798706,
+   "23": 10.97919512540102,
+   "24": 11.187945492565632,
+   "48": 11.72795332968235,
+   "54": 12.585461139678955,
+   "60": 13.721718918532133,
+   "66": 18.40084418654442,
+   "72": 19.34522669762373,
+   "78": 20.36867942661047,
+   "84": 21.53307106345892,
+   "90": 22.23933581262827,
+   "96": 23.106844164431095,
+   "102": 23.948405869305134,
+   "108": 24.84092954546213,
+   "114": 25.894999504089355,
+   "120": 26.80844534188509,
+   "126": 27.83689834177494,
+   "132": 30.025984160602093,
+   "138": 31.020374968647957,
+   "144": 32.072875648736954
+  },
+  "qup_fused/pr209": {
+   "8": 4.872867139056325,
+   "9": 4.952874965965748,
+   "10": 5.064117256551981,
+   "11": 5.194750148802996,
+   "12": 5.2619376219809055,
+   "13": 5.428812466561794,
+   "14": 5.659437505528331,
+   "15": 5.781624931842089,
+   "16": 5.953515646979213,
+   "17": 8.136344142258167,
+   "18": 8.162281010299921,
+   "19": 8.311976213008165,
+   "20": 8.383539039641619,
+   "21": 8.56791390106082,
+   "22": 8.746351581066847,
+   "23": 8.83197644725442,
+   "24": 8.955109398812056,
+   "48": 12.64921110123396,
+   "54": 12.297960929572582,
+   "60": 13.033281080424786,
+   "66": 14.758304692804813,
+   "72": 15.535499900579453,
+   "78": 16.32206980139017,
+   "84": 19.998984411358833,
+   "90": 20.782750099897385,
+   "96": 21.813702769577503,
+   "102": 20.696500316262245,
+   "108": 21.457437425851822,
+   "114": 26.58062521368265,
+   "120": 27.60001551359892,
+   "126": 28.39475031942129,
+   "132": 26.04656293988228,
+   "138": 26.767820119857788,
+   "144": 27.44376566261053
+  },
+  "qup_bmm/image": {
+   "8": 4.400062374770641,
+   "9": 4.513500025495887,
+   "10": 4.542242269963026,
+   "11": 4.6159999910742044,
+   "12": 4.683804698288441,
+   "13": 4.785687662661076,
+   "14": 4.870054544880986,
+   "15": 4.9694376066327095,
+   "16": 4.022547043859959,
+   "17": 5.417882930487394,
+   "18": 5.449749995023012,
+   "19": 5.452562589198351,
+   "20": 5.501632811501622,
+   "21": 5.5078750010579824,
+   "22": 5.5981953628361225,
+   "23": 5.631320411339402,
+   "24": 5.588507745414972,
+   "48": 10.962000116705894,
+   "54": 12.583585921674967,
+   "60": 13.373280875384808,
+   "66": 14.360171742737293,
+   "72": 12.865468859672546,
+   "78": 14.478304889053106,
+   "84": 14.550484251230955,
+   "90": 14.5373591221869,
+   "96": 13.171093538403511,
+   "102": 14.692679513245821,
+   "108": 14.738296624273062,
+   "114": 14.77830484509468,
+   "120": 13.422664254903793,
+   "126": 14.830172061920166,
+   "132": 18.0858438834548,
+   "138": 18.88553984463215,
+   "144": 18.46334431320429
+  },
+  "qup_bmm/pr209": {
+   "8": 4.440679680556059,
+   "9": 4.560671746730804,
+   "10": 4.618499893695116,
+   "11": 4.65818727388978,
+   "12": 4.730992252007127,
+   "13": 4.83600003644824,
+   "14": 4.910054616630077,
+   "15": 5.021617049351335,
+   "16": 3.9247344247996807,
+   "17": 5.256312433630228,
+   "18": 5.301937460899353,
+   "19": 5.261312471702695,
+   "20": 5.340375006198883,
+   "21": 5.345062352716923,
+   "22": 5.4397499188780785,
+   "23": 5.451624980196357,
+   "24": 5.431625060737133,
+   "48": 5.492570344358683,
+   "54": 8.05885111913085,
+   "60": 8.469781372696161,
+   "66": 10.415124706923962,
+   "72": 10.118562262505293,
+   "78": 11.153578292578459,
+   "84": 12.166390661150217,
+   "90": 12.779523152858019,
+   "96": 6.9444687105715275,
+   "102": 13.986421748995781,
+   "108": 14.436421915888786,
+   "114": 14.164234045892954,
+   "120": 12.80328119173646,
+   "126": 14.161734376102686,
+   "132": 16.92676544189453,
+   "138": 17.70677324384451,
+   "144": 10.93138288706541
+  },
+  "vup_bmm/image": {
+   "8": 5.87257812730968,
+   "9": 5.949125159531832,
+   "10": 6.023515481501818,
+   "11": 6.066320231184363,
+   "12": 6.126320222392678,
+   "13": 6.16163294762373,
+   "14": 6.248187273740768,
+   "15": 6.30756258033216,
+   "16": 5.418499931693077,
+   "17": 6.694460986182094,
+   "18": 6.678203120827675,
+   "19": 6.710710935294628,
+   "20": 6.694773444905877,
+   "21": 6.77664065733552,
+   "22": 6.821648450568318,
+   "23": 6.916648475453258,
+   "24": 6.948827998712659,
+   "48": 14.345796778798103,
+   "54": 14.969867188483477,
+   "60": 15.657062642276287,
+   "66": 15.969570726156235,
+   "72": 16.02268684655428,
+   "78": 16.039570793509483,
+   "84": 16.03550836443901,
+   "90": 16.089257784187794,
+   "96": 16.080820001661777,
+   "102": 16.15456212311983,
+   "108": 16.16925746202469,
+   "114": 16.183000057935715,
+   "120": 16.249882988631725,
+   "126": 16.27487502992153,
+   "132": 16.273945569992065,
+   "138": 16.314883716404438,
+   "144": 16.33739098906517
+  },
+  "vup_bmm/pr209": {
+   "8": 4.248804645612836,
+   "9": 4.2772500310093164,
+   "10": 4.314429592341185,
+   "11": 4.351929761469364,
+   "12": 4.375679884105921,
+   "13": 4.405679646879435,
+   "14": 4.436617251485586,
+   "15": 4.4669220224022865,
+   "16": 3.9863046258687973,
+   "17": 4.61506238207221,
+   "18": 4.610992269590497,
+   "19": 4.6306876465678215,
+   "20": 4.631617339327931,
+   "21": 4.677554592490196,
+   "22": 4.698500037193298,
+   "23": 4.746624967083335,
+   "24": 4.761929623782635,
+   "48": 4.97568747960031,
+   "54": 6.59852335229516,
+   "60": 6.611640565097332,
+   "66": 8.102281484752893,
+   "72": 8.536663837730885,
+   "78": 9.255117271095514,
+   "84": 9.508234448730946,
+   "90": 9.550109505653381,
+   "96": 6.692578084766865,
+   "102": 9.778250008821487,
+   "108": 9.820117149502039,
+   "114": 9.79230459779501,
+   "120": 9.856999851763248,
+   "126": 9.936992079019547,
+   "132": 12.580468319356441,
+   "138": 13.2739064283669,
+   "144": 9.592296555638313
+  }
+ }
+}

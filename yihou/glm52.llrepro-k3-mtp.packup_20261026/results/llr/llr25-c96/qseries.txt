@@ -1,0 +1,9 @@
+llr25-c96  window 06:14:38-07:14:38  bucket 10 min
+DECODE (sum of 4 ranks): bucket | running | prealloc | transfer | queue | retracted | usage mean/max-rank | rank running min-max
+06:14 |  35.5 |  4.4 |   9.7 |  0.0 | 0.0 | 0.54/0.58 |  8.4- 9.5
+06:24 |  55.2 |  1.8 |  13.9 |  0.0 | 0.0 | 0.86/0.92 | 11.9-14.9
+06:34 |  58.3 |  3.8 |  18.4 |  0.0 | 0.0 | 0.89/0.93 | 13.3-15.7
+PREFILL PP0 (line mean): bucket | queue | bootstrap | inflight | pending-tok(k) | new tok/s | cached tok/s | batches/s
+06:14 |  1.4 |  3.7 |  5.3 |    148 |   12990 |  270050 | 2.25
+06:24 |  1.9 |  1.6 |  7.0 |    243 |   16205 |  348495 | 2.31
+06:34 |  3.4 |  3.6 |  9.1 |    339 |   12246 |  261206 | 1.59
