@@ -1,0 +1,126 @@
+== 05:11:14
+yihou-llr-agentx cpu=31.36% mem=16.21GiB / 2.687TiB
+yihou-llr-router cpu=32.69% mem=16.09GiB / 2.687TiB
+yihou-llr-prefill0 cpu=773.19% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.15% mem=17.25MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1179         719         988        1864        1572
+== 05:11:26
+yihou-llr-agentx cpu=29.96% mem=16.21GiB / 2.687TiB
+yihou-llr-router cpu=17.65% mem=16.17GiB / 2.687TiB
+yihou-llr-prefill0 cpu=2680.13% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.15% mem=16.97MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1179         719         988        1864        1572
+== 05:11:38
+yihou-llr-agentx cpu=29.16% mem=16.33GiB / 2.687TiB
+yihou-llr-router cpu=18.38% mem=16.17GiB / 2.687TiB
+yihou-llr-prefill0 cpu=882.32% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.25% mem=17.22MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1179         719         988        1864        1571
+== 05:11:50
+yihou-llr-agentx cpu=30.59% mem=16.37GiB / 2.687TiB
+yihou-llr-router cpu=17.88% mem=16.17GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1254.38% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.19% mem=16.97MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1179         719         988        1864        1571
+== 05:12:02
+yihou-llr-agentx cpu=31.65% mem=16.38GiB / 2.687TiB
+yihou-llr-router cpu=20.76% mem=16.17GiB / 2.687TiB
+yihou-llr-prefill0 cpu=2668.48% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.40% mem=16.98MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1179         719         988        1864        1571
+== 05:12:14
+yihou-llr-agentx cpu=125.87% mem=16.43GiB / 2.687TiB
+yihou-llr-router cpu=2.87% mem=16.17GiB / 2.687TiB
+yihou-llr-prefill0 cpu=2449.01% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.16% mem=17.94MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         719         988        1864        1571
+== 05:12:26
+yihou-llr-agentx cpu=28.78% mem=16.54GiB / 2.687TiB
+yihou-llr-router cpu=9.11% mem=16.17GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1418.64% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.37% mem=18.23MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         719         988        1864        1571
+== 05:12:39
+yihou-llr-agentx cpu=31.58% mem=16.54GiB / 2.687TiB
+yihou-llr-router cpu=16.74% mem=16.17GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1540.25% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.20% mem=17.48MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         719         988        1864        1571
+== 05:12:51
+yihou-llr-agentx cpu=28.19% mem=16.56GiB / 2.687TiB
+yihou-llr-router cpu=11.27% mem=16.23GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1725.48% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.19% mem=17.48MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         719         988        1864        1571
+== 05:13:03
+yihou-llr-agentx cpu=39.04% mem=16.64GiB / 2.687TiB
+yihou-llr-router cpu=9.80% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1262.25% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.44% mem=17.23MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:13:15
+yihou-llr-agentx cpu=30.21% mem=16.64GiB / 2.687TiB
+yihou-llr-router cpu=25.87% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1878.07% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.18% mem=17.23MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:13:27
+yihou-llr-agentx cpu=28.78% mem=16.64GiB / 2.687TiB
+yihou-llr-router cpu=32.76% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=2594.70% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.22% mem=17.23MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:13:39
+yihou-llr-agentx cpu=29.04% mem=16.65GiB / 2.687TiB
+yihou-llr-router cpu=21.80% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1148.21% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.18% mem=17.24MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:13:51
+yihou-llr-agentx cpu=29.58% mem=16.7GiB / 2.687TiB
+yihou-llr-router cpu=19.72% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1901.19% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.14% mem=17.24MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:14:03
+yihou-llr-agentx cpu=32.73% mem=16.7GiB / 2.687TiB
+yihou-llr-router cpu=13.52% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=2287.06% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=1.75% mem=18.52MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:14:16
+yihou-llr-agentx cpu=30.68% mem=16.7GiB / 2.687TiB
+yihou-llr-router cpu=26.77% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=635.44% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.39% mem=17.75MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:14:28
+yihou-llr-agentx cpu=126.00% mem=16.75GiB / 2.687TiB
+yihou-llr-router cpu=18.70% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=1511.34% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.19% mem=17.52MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
+== 05:14:40
+yihou-llr-agentx cpu=29.33% mem=16.76GiB / 2.687TiB
+yihou-llr-router cpu=21.74% mem=16.3GiB / 2.687TiB
+yihou-llr-prefill0 cpu=2525.09% mem=1.071TiB / 2.687TiB
+yihou-llr-etcd cpu=0.17% mem=17.25MiB / 2.687TiB
+               total        used        free      shared  buff/cache   available
+Mem:            2751        1180         718         988        1864        1571
