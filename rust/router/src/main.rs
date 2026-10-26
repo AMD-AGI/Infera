@@ -92,6 +92,7 @@ async fn main() -> anyhow::Result<()> {
                 cfg.kv_per_worker_template_kwargs,
             ))
             .with_decode_input_demand(cfg.decode_input_demand)
+            .with_decode_request_weight(cfg.decode_request_weight)
             // A worker that served traffic before the router subscribed emits
             // its one rooted event to nobody, and no later event can rebuild
             // the chain. Asking it to flush is the only repair, so the router

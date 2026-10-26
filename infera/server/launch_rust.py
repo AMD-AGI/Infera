@@ -132,6 +132,7 @@ def exec_rust(args: argparse.Namespace) -> None:
         ("--nats-req-max-duration-s", args.nats_req_max_duration),
         ("--nats-req-max-pending", args.nats_req_max_pending),
         ("--decode-input-demand", args.decode_input_demand),
+        ("--decode-request-weight", args.decode_request_weight),
         ("--pd-prefill-guard-release", args.pd_prefill_guard_release),
     ):
         if value is not None:

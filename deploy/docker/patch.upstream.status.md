@@ -14,6 +14,35 @@ matches titles and bodies, **not diff content**, so "no upstream PR" means "none
 found by search", not "none exists" — where a row could be checked by reading
 upstream source instead, it says so.
 
+## v0.5.22 — what `Dockerfile.sglang` bakes on its current base
+
+Re-verified on 2026-10-19 against `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`
+(`0.5.22.dev20261018+g8dee3f6bdb`): every patch below was applied in a throwaway
+container of that base, and upstream fixes were checked in its source. The
+sections further down describe the v0.5.16/v0.5.18 recipes
+(`Dockerfile.sglang.gfx942`, `Dockerfile.sglang.glm53`), which keep using the
+top-level patch files.
+
+| patch | on v0.5.22 | evidence |
+|---|---|---|
+| `sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py` | baked | anchors loosened for v0.5.19 also hold here |
+| `sglang_dsa/dsa_dp_sync.diff` | baked | applies at an offset, `--fuzz=0` |
+| `sglang_dsa/v0522/dsa_page_table_rows.diff` | baked, re-cut | `transform_index.py:289` still asserts equal rows |
+| draft-graph DP vote | upstream, asserted | `dp_attn.py` `_spec_input_cuda_graph_compatible` |
+| GLM NextN `fused_shared_experts_architecture` | upstream, asserted | `glm4_moe.py` NextN class body |
+| `sglang_disagg/v0522/patch_prefill_nonfinal_chunk_wait_event.py` | baked | upstream consumer present, non-final overlap send records no event |
+| `sglang_disagg/patch_mooncake_early_send_wait_event.py` | not baked | `conn.py` half upstream (sglang#41395) |
+| `sglang_disagg/patch_responses_pd_bootstrap.py` | not baked | `ResponsesRequest(PDRoutingFields)` |
+| PD-decode implicit rejection sampling guard | not baked | PD handoff rebuilds `draft_probs` (`eagle_disaggregation.py`) |
+| `sglang_responses/v0522/patch_responses_unstreamed_tool_args.py` | baked | `serving_responses.py` still has no reconciliation |
+| `sglang_responses/patch_responses_custom_encoder_prompt.py` | not baked | one `_engine_prompt` helper serves chat and Responses |
+| `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | baked | `pool_host/dsa.py:316` still gates on `_is_cuda` |
+| `sglang_rocm/patch_hicache_rocm_host_alloc.py` | not baked | HIP-owned host pools, device pointer tables |
+| `sglang_rocm/v0522/patch_mla_absorb_bmm_default_config.py` | baked | keeps aiter's own config, as the v0.5.21 deployments ran |
+| `sglang_kv_events/patch_kv_metrics_send_noblock.py` | baked | `kv_events_publisher.py` still sends blocking |
+| `sglang_pp/v0522/patch_deepseek_v2_pp_embed_dim.py` | baked (2026-10-23) | `deepseek_v2.py` sizes the gemm-output allocator from `embed_tokens`, a `PPMissingLayer` on middle stages |
+| `sglang_decode_radix_spec/patch_decode_radix_spec.py` | no-op | the speculative-decoding rejection is gone |
+
 Column meanings:
 
 - **ours?** — was the upstream PR opened by a contributor of this repo?

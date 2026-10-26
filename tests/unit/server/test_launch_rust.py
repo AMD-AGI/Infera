@@ -54,6 +54,7 @@ def _args(**overrides) -> argparse.Namespace:
         session_affinity="off",
         session_affinity_ttl_seconds=3600,
         decode_input_demand=None,
+        decode_request_weight=None,
         pd_prefill_guard_release=None,
     )
     base.update(overrides)
@@ -128,19 +129,27 @@ def test_rust_only_routing_switches_are_forwarded_only_when_given(monkeypatch):
     """Unset defers to the INFERA_* variables the Rust side reads itself."""
     argv = _argv(monkeypatch)
     assert "--decode-input-demand" not in argv
+    assert "--decode-request-weight" not in argv
     assert "--pd-prefill-guard-release" not in argv
     argv = _argv(
         monkeypatch,
         router_policy="kv-aware",
         decode_input_demand="shadow",
+        decode_request_weight=0,
         pd_prefill_guard_release="completion",
     )
     assert _value_of(argv, "--decode-input-demand") == "shadow"
+    assert _value_of(argv, "--decode-request-weight") == "0"
     assert _value_of(argv, "--pd-prefill-guard-release") == "completion"
 
 
 @pytest.mark.parametrize(
-    "flags", [["--decode-input-demand", "on"], ["--pd-prefill-guard-release", "completion"]]
+    "flags",
+    [
+        ["--decode-input-demand", "on"],
+        ["--decode-request-weight", "180000"],
+        ["--pd-prefill-guard-release", "completion"],
+    ],
 )
 def test_rust_only_routing_switches_need_the_rust_backend(flags, capsys):
     argv = ["--router-tokenizer-path", "tokenizer", *flags]
@@ -148,7 +157,14 @@ def test_rust_only_routing_switches_need_the_rust_backend(flags, capsys):
         parse_server_args(["--router-backend", "python", *argv])
     assert "requires --router-backend rust" in capsys.readouterr().err
     args = parse_server_args(["--router-backend", "rust", *argv])
-    assert flags[1] in (args.decode_input_demand, args.pd_prefill_guard_release)
+    given = (args.decode_input_demand, args.decode_request_weight, args.pd_prefill_guard_release)
+    assert flags[1] in [str(v) for v in given if v is not None]
+
+
+def test_decode_request_weight_rejects_negative(capsys):
+    with pytest.raises(SystemExit):
+        parse_server_args(["--router-backend", "rust", "--decode-request-weight", "-1"])
+    assert "must be >= 0" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

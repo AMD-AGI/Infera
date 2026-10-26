@@ -336,6 +336,9 @@ const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
 /// it. Both halves of the load term are needed -- see [`RECENT_DECAY`].
 pub struct KvEventAwarePolicy {
     decode_input_demand: DecodeDemandMode,
+    /// Input tokens charged per request a Decode target already holds; see
+    /// `Config::decode_request_weight`.
+    decode_request_weight: u64,
     demand: Ledger,
     kv: Arc<KvEventClient>,
     hasher: Arc<BlockHasher>,
@@ -381,6 +384,7 @@ impl KvEventAwarePolicy {
     ) -> Self {
         KvEventAwarePolicy {
             decode_input_demand: DecodeDemandMode::Off,
+            decode_request_weight: 0,
             demand: Ledger::default(),
             kv,
             hasher: Arc::new(hasher),
@@ -399,6 +403,11 @@ impl KvEventAwarePolicy {
 
     pub fn with_decode_input_demand(mut self, mode: DecodeDemandMode) -> Self {
         self.decode_input_demand = mode;
+        self
+    }
+
+    pub fn with_decode_request_weight(mut self, tokens_per_request: u64) -> Self {
+        self.decode_request_weight = tokens_per_request;
         self
     }
 
@@ -773,11 +782,15 @@ impl Policy for KvEventAwarePolicy {
             let (picked, suggested, reservation, costs) = {
                 // Only snapshot, selection and reservation hold the ledger lock.
                 let mut ledger = self.demand.lock().unwrap_or_else(PoisonError::into_inner);
+                let weight = u128::from(self.decode_request_weight);
                 let costs: Vec<u128> = keys
                     .iter()
                     .zip(&work)
                     .map(|(key, (tokens, _))| {
-                        ledger.get(key).map_or(0, |d| d.tokens) + u128::from(*tokens)
+                        let booked = ledger.get(key);
+                        booked.map_or(0, |d| d.tokens)
+                            + u128::from(*tokens)
+                            + weight * booked.map_or(0, |d| d.requests as u128)
                     })
                     .collect();
                 let suggested = (0..targets.len())
@@ -804,6 +817,7 @@ impl Policy for KvEventAwarePolicy {
                 && !self.parity.diverged(&targets[picked].worker.worker_id);
             tracing::debug!(target: "infera_router::decode_demand",
                 mode=?self.decode_input_demand, exact, candidates=?keys, projected_tokens=?costs,
+                request_weight=self.decode_request_weight,
                 legacy_selected=%keys[legacy_pick], selected=%keys[picked], suggested=%keys[suggested],
                 "decode input demand");
             crate::metrics::record_decode_demand_decision(
@@ -1435,6 +1449,58 @@ mod tests {
         assert_eq!(policy.demand_snapshot()["b"].tokens, 96);
         drop((a, b, c));
         assert!(policy.demand_snapshot().is_empty());
+    }
+
+    #[test]
+    fn decode_request_weight_balances_requests_held() {
+        // "a" holds one long request, "b" three short ones: token-only demand
+        // sends the next request to "b"; at 1000 tokens per held request "a"
+        // costs 2000 + 1000 + 32 against "b"'s 300 + 3000 + 32.
+        for (weight, want) in [(0, "b"), (1000, "a")] {
+            let policy = demand_policy(DecodeDemandMode::On).with_decode_request_weight(weight);
+            let workers = vec![worker("a", 0, None), worker("b", 0, None)];
+            let held = {
+                let mut ledger = policy.demand.lock().unwrap();
+                let mut held = vec![Reservation::book(
+                    &policy.demand,
+                    &mut ledger,
+                    "a".into(),
+                    2000,
+                )];
+                for _ in 0..3 {
+                    held.push(Reservation::book(
+                        &policy.demand,
+                        &mut ledger,
+                        "b".into(),
+                        100,
+                    ));
+                }
+                held
+            };
+            let pick = policy.pick(&workers, &json!({"prompt": vec![7;32]}), Role::Decode);
+            assert_eq!(pick.target.route_key(), want, "weight {weight}");
+            let snapshot = policy.demand_snapshot();
+            assert_eq!(snapshot[want].requests, if want == "a" { 2 } else { 4 });
+            drop((held, pick));
+            assert!(policy.demand_snapshot().is_empty());
+        }
+    }
+
+    #[test]
+    fn decode_request_weight_in_shadow_keeps_the_legacy_pick() {
+        let legacy = demand_policy(DecodeDemandMode::Off);
+        let shadow = demand_policy(DecodeDemandMode::Shadow).with_decode_request_weight(1_000_000);
+        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
+        let mut picks = Vec::new();
+        for n in 1..12 {
+            let request = json!({"prompt": vec![7; n * 16]});
+            let a = legacy.pick(&workers, &request, Role::Decode);
+            let b = shadow.pick(&workers, &request, Role::Decode);
+            assert_eq!(a.target.route_key(), b.target.route_key());
+            picks.push((a, b));
+        }
+        drop(picks);
+        assert!(shadow.demand_snapshot().is_empty());
     }
 
     #[test]
