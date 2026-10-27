@@ -83,9 +83,12 @@ jobs:
           while IFS= read -r f; do
             [ -z "$f" ] && continue
             case "$f" in
+              # agent_sys_v2's prompts, templates, skills and test fixtures are .md
+              # files its tests read: code, whatever the extension. First match wins.
+              agent_sys_v2/src/*|agent_sys_v2/tests/*) code=true ;;
               # docs / examples / meta — no package code to lint, test, or run on
               # GPU. manual/ is validated by the ReadTheDocs check; examples/ are
-              # standalone recipes; *.md / LICENSE are prose.
+              # standalone recipes; other *.md / LICENSE are prose.
               manual/*|examples/*|*.md|LICENSE) ;;
               *)        code=true ;;
             esac
@@ -197,6 +200,28 @@ jobs:
       - run: pip install uv -e ".[dev]"
       - name: pytest (agent_sys)
         run: python -m pytest tests -q
+
+  # agent_sys_v2 (the agent workbench beside agent_sys) is a package of its own as well. Its tests start runs in
+  # tmux windows, replaying recorded sessions: no test calls a model.
+  agent_sys_v2:
+    needs: [lint, changes]
+    # Skip on docs-only changes.
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: agent_sys_v2
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: "3.10"
+      - run: sudo apt-get install -y tmux
+      - run: pip install -e ".[dev]"
+      - name: pytest (agent_sys_v2)
+        run: python -m pytest tests -q
+      - name: node --test (agent_sys_v2 web UI)
+        run: node --test src/agent_sys_v2/web/test/*.test.js
 
   # Rust router: clippy + unit/integration tests. GH-hosted ubuntu-latest
   # ships a stable toolchain (with clippy), so no toolchain setup is needed.

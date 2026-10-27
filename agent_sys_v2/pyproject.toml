@@ -1,0 +1,59 @@
+[project]
+name = "infera-agent-sys-v2"
+dynamic = ["version"]
+description = "agent_sys v2: an agent workbench for Infera performance work, with a web console"
+readme = "README.md"
+authors = [
+    { name = "YaoCheng", email = "Cheng.Yao2@amd.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",              # REST + SSE server
+    "starlette>=0.46",             # its GZipMiddleware leaves text/event-stream alone
+    "uvicorn>=0.32",               # on a Unix socket: only you can connect
+    "ruamel.yaml>=0.18.6",         # round-trip frontmatter: keeps comments, key order and flow style
+    # The runner reads the SDK's raw message frames (a private interface): pinned, an upgrade is re-tested.
+    # It also brings the claude CLI the runs use.
+    "claude-agent-sdk==0.2.170",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "httpx>=0.28",                 # FastAPI's test client
+]
+
+[project.scripts]
+agent-sys-v2 = "agent_sys_v2.cli:main"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = {attr = "agent_sys_v2.__version__"}
+
+# src layout: an editable install then puts src/ on sys.path. A package at the top (flat layout) is found by an import
+# hook that comes after sys.path, and `python -m agent_sys_v2...` (the server in tmux, the runners, the checks) run in
+# the Infera repository root would import this directory, agent_sys_v2/, as a namespace package instead.
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["agent_sys_v2*"]
+namespaces = false        # web/, templates/ and skills/ are package data (below), not packages
+
+# The web UI, the project templates and the skills ship inside the package, so a wheel install works too.
+[tool.setuptools.package-data]
+agent_sys_v2 = ["web/**/*", "templates/**/*", "skills/**/*"]
+
+[tool.setuptools.exclude-package-data]
+agent_sys_v2 = ["web/test/*", "**/__pycache__/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+# Inherits the repository's ruff settings.
+[tool.ruff]
+extend = "../pyproject.toml"
+
+[tool.ruff.lint.isort]
+known-first-party = ["agent_sys_v2"]

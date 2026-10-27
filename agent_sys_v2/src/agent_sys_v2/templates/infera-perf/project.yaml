@@ -1,0 +1,21 @@
+title: Infera 性能优化
+description: 按轮推进的端到端性能项目：问卷 → 对标 ∥ 基线 → profile → plan → 实验 → 收尾封版，建项目时预置第 1 轮的 5 个任务；台账按系列画 Y–X 曲线、算工作点 Δ
+goal: ""               # 一句话目标，显示在看板顶部；intake 按问卷填写，例如：AgentX 工作点 P90 interactivity ≥ 30 下的输入 tok/s/GPU +10%
+machines: []           # 可用的节点，同一台同时只给一个任务；intake 按问卷 C1 填写：- {name: <主机名>, gpus: 8, note: MI355X}
+round: 1               # 当前轮次：intake/rN 开始一轮时写 N
+version: v0            # 当前版本：可复现的栈（代码、镜像、配置、客户端）加它的曲线；close/rN 集成通过后写 vN
+ledger:                # 结果台账：任务写在 results/ 下的 infera.result 文件（skill infera-bench；AgentX 输出用 ledger agentx 转换）
+  primary: input_tput_per_gpu   # Y：输入 tok/s/GPU（含缓存命中，P+D 全部卡，InferenceX 口径）
+  higher_is_better: true
+  x: p90_intvty                 # X：P90 interactivity = 1/p90 full-response ITL（tok/s/user，InferenceX 看板默认）
+  baseline_series: v0           # 基线曲线：当前版本的系列；close 封版后改成 vN
+  working_point: {}             # 判 A/B 的工作点，intake 按问卷 B3 填写：{x: 30}（X ≥ 30 下 Y 最大）或 {conc: 64}
+skills: [infera-deploy, infera-bench, infera-quality-gate, infera-profile, infera-diagnose, infera-experiment, infera-hygiene]
+autorun: true          # 上游完成后自动启动下游；关掉则所有任务都要手动点"开始"
+max_running: 3         # 本项目同时运行的任务数（后台等待和终端接管的任务也计入）
+lanes: [intake, survey, baseline, profile, plan, experiment, close, develop, review]
+agent:                 # 任务默认值，新建任务时可改
+  model: opus
+  effort: high
+  budget_usd: 200
+  extra_args: []       # 任意额外的 claude CLI 参数，原样透传

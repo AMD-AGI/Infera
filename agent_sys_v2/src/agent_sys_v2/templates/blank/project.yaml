@@ -1,0 +1,9 @@
+title: 空白项目
+description: 只有一个 develop 类型，适合任何项目；类型可以在看板上新建
+autorun: true          # 上游完成后自动启动下游；关掉则所有任务都要手动点"开始"
+max_running: 3         # 本项目同时运行的任务数
+agent:                 # 任务默认值，新建任务时可改
+  model: opus
+  effort: high
+  budget_usd: 200
+  extra_args: []       # 任意额外的 claude CLI 参数，原样透传

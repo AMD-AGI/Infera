@@ -1,0 +1,9 @@
+title: Llama-70B 推理吞吐
+template: blank
+autorun: true          # 上游完成后自动启动下游
+max_running: 3
+agent:                 # 任务默认值
+  model: opus
+  effort: high
+  budget_usd: 200
+  extra_args: []
