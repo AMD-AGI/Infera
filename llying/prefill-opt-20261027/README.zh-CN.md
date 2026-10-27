@@ -308,6 +308,11 @@ VSA / SLA 稀疏 attention 的 CK 实现、按 M 选 GEMM 实现的 sglang 补�
   `init_load_back` 3.0 s、`prepare_for_extend` 2.8 s；PP 接收 `recv_tensor_dict` 1.9 s（14%）；发射前向 `run_batch` 1.8 s（14%）；
   `check_hicache_events` 0.9 s。PP1 同样（驱逐 4.8 s、接收 2.4 s）。
 
+**第 1 步部署的 prefill `/metrics`（PP0，整个部署累计，`c104-1027T1635/metrics/prefill0.prom`）印证了量级**：驱逐 12,005 次、
+`eviction_duration_seconds` 合计 **1,686 s（平均每次 140 ms）**，而整个部署只跑了约 5,000 s；新算 8,478 万 token（约 1.04 万步），
+每步驱逐约 5.7 万 token、回载约 5.0 万 token（主机命中占缓存命中的 34%）；备份 5.13 亿 token / 6.39 TB，D2H 约 25 GB/s、每 token 12.4 KB。
+→ 512K 余量约每 9 步驱逐一次（现在每步 1.15 次），"等前向"的次数降约 10 倍；D2H 总量不变（约 24 ms / 步）。
+
 **更正旧 trace 的"停顿"结论**：上面"旧 trace 复查"和 `prefill_trace_map.py` 的 STALL 行把主 stream 上个别操作的时长（一次 64 KB 的 HtoD 200 ms、
 一个 5 µs 的 kernel 450–780 ms）当成 GPU 在等。新 trace 里这些操作期间**同一 stream 的后续 kernel 照常在跑**（同一 stream 不可能真重叠），
 是 ROCm profiler 给部分操作记了过晚的结束时间；按"截到同 stream 下一操作开始"重算后，步内空闲只有 PP0 106 ms / 30 步。
