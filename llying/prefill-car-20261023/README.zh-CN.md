@@ -164,6 +164,7 @@ OOM 在 `dsa_backend._forward_aiter_extend` → `aiter.mla.mla_decode_fwd` 的 `
 - 下一步（02:15 起，`scripts/correct_then_plan.sh`，138 `$W/2p1d/async/`）：先用真实接受率做 4+8 + async 的正确性（smoke、GSM8K、200 题探测），通过后依次跑
   2P1D C176 / C192（对照 38,392 @ 43.2）、4+4 C80（对照 37,310 @ 44.3）、4+8 C88 均衡（对照 31,088 @ 71.7），全部加 async。
 - **async 的正确性通过**（`correct-1024T0212`，4+8，真实接受率）：smoke 6/6；GSM8K strict 0.9682 / flexible 0.9704；200 题探测 0.980、乱码 0、截断 2。
+  **10-27 更正：这次没跑长上下文，而 async 在长上下文下会乱码**（`prefill-opt-20261027`：干净配置只加 async，16k 捞针 2/16）。async 不能用。
   按 02:49 定的方式（优化项只在收益最大的点上测，攒够后再扫第二版 Pareto），只跑 2P1D C176（02:41 起栈），其余 3 个点取消。
   async 的适用场景：prefill 饱和的高吞吐端；中段和高交互端 prefill 不饱和，预计收益小。
 - **2P1D C176 + async：吞吐没有提升**（`results/async-2p-c176`，run `c176-1024T0241`，计分 03:15–04:15）：

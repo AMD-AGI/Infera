@@ -5,7 +5,7 @@
 
 ## llr35 在 PD 下长上下文严重乱码（10-27 04:10，`correct-1027T0333`，真实接受率，138 → 140）
 
-| 检查 | llr35 | 以前验过的干净配置（async 4+8 / custom all-reduce 4+4，K5、无 KF） |
+| 检查 | llr35 | 以前验过的配置（async 4+8 / custom all-reduce 4+4，K5、无 KF；长上下文只有后者测过） |
 |---|---|---|
 | smoke | 5/6：`long_prefix_cold` 乱码（重复片段、`</think>` 当正文），同一前缀的 `long_prefix_repeat` 正确 | 6/6 |
 | lm-eval GSM8K strict / flexible | 0.9697 / 0.9712 | 0.966–0.968 |
@@ -55,8 +55,26 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 
   - **第二个问题是 prefill 的 async（`--pp-async-batch-depth 1`，yihou llr35，+2.5%）**：只有去掉它长上下文才恢复到 clean-k3 的水平；
     其余 decode 侧选项单独去掉都无效。
-  - 但 10-23 async 在 K5、无 index_share、无 PP 通信重叠的 4+8 上验过（16k × 128 捞针 64/64），所以怀疑是 async 与 K3 叠加才坏。
-    09:01 起确认（`waiter5-*.out`）：clean-k3 + async、clean-k5 + async（`config/site-bis3-*.env`）。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
+  - 更正：10-24 的 async 正确性（`correct-1024T0212`，4+8 K5）只跑了 smoke、GSM8K、200 题探测，**没有跑长上下文**；
+    上表"以前验过的干净配置"一栏的长上下文 64/64 来自 4+4 custom all-reduce K5（10-23 `prof-c88` 起栈后）。async 从未在长上下文上验过。
+  - 确认（`waiter5-*.out`，`config/site-bis3-*.env`）：**clean-k3 + async（只加 async）长上下文就坏**：捞针 2/16（上限 12）、长前缀 GSM8K 2/16；
+    短 prompt 正常（0.990，乱码 0）。**clean-k5 + async 同样坏**（捞针 2/16、长前缀 GSM8K 0/16）→ async 本身的问题，与 K 无关。
+  - async 坏掉的长上下文输出：开头正常，之后换行丢失、数字粘连（"…Taylor2. Extract the access code3. …"），捞出的 code 错；
+    像 decode 收到的 prompt KV 有一部分不对（PP4 每级只传自己的层），而不是整段错。smoke 的冷长前缀（几千 token）在 async 下是对的。
+  - 下一步（`waiter6-*.out`）：clean-k5 + async 长上下文并发 1（区分 microbatch 间交错 / 每请求确定性）；然后全量 GSM8K 1319 题探测
+    （`PROBE_N=1319`，看低频的开头坏）跑 b3（llr35 去掉 PP 通信重叠、async、custom all-reduce）、clean-k3 + custom all-reduce、clean-k3、
+    clean-k3 + PP 通信重叠（`config/site-bis4-*.env`）。
+
+**第三个现象：开头坏（`scripts/probe_badstart.py`）**。去掉两个主因后，200 题探测里仍有 reasoning 在第一个 token 之后就坏的样本
+（"Therenzcaff1:"、"The9每小时…"、多次运行里重复出现同一串 "Theedb7…"），最终答案常仍对，探测的 `garbled` 标记漏掉了它们。
+
+| 是否开 decode custom all-reduce | 变体（200 题探测里开头坏的条数） |
+|---|---|
+| 开 | ref 6、no-kf 6、no-fp8draft 4、k5 4、no-ppcomm 4、no-idxshare 2、bis2-no-kf 2、bis2-no-async 5、bis2-no-decodeknobs 2；bis2-no-gemmcsv / no-idxshare / no-fp8draft 0 |
+| 关 | no-car 0、bis2-no-car 0、clean-k5 0、clean-k3 0、clean-k3 + async 0、clean-k5 + async 0 |
+
+  1–3% 的低频事件，200 题分辨不了；指向 decode custom all-reduce 与 yihou decode 栈的组合（10-23 4+4 K5 无 KF 开 custom all-reduce 的 200 题为 0）。
+  全量 1319 题加回测试确认。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
 
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 

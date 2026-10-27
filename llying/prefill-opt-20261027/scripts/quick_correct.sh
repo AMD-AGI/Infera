@@ -3,7 +3,8 @@
 # 200-prompt GSM8K probe at 64 in flight (template tags in the text, answers cut at max_tokens) and the long-context
 # probe (no shared prefix, past the 2048-token sparse top-k threshold; LONGCTX_SPECS="" skips it); no lm-eval GSM8K.
 # For bisecting garbled output; waits for both nodes' VRAM before each start.
-# Usage: [LONGCTX_SPECS="16000:64"] quick_correct.sh KIT LOG_DIR SITE_ENV...
+# PROBE_N=1319 with PROBE_PROMPTS=<full GSM8K samples> for rare failures; bad_start = reasoning corrupted after the first token.
+# Usage: [PROBE_N=200] [LONGCTX_CONC=32] [LONGCTX_SPECS="16000:64"] quick_correct.sh KIT LOG_DIR SITE_ENV...
 set -uo pipefail
 kit="$1" log_dir="$2"
 shift 2
@@ -29,11 +30,11 @@ for site in "$@"; do
             echo "$(date -u +%T) $label smoke: $(grep -a 'checks passed' "$log" | tail -1); cold: $(grep -a '"long_prefix_cold"' "$log" | grep -o '"passed": [a-z]*')"
             timeout 3600 python3 "$here/../../mix-v0522-correctness-20261019/scripts/gsm8k_probe.py" "$prompts" \
                 "http://$PREFILL_NODE_IP:${ROUTER_PORT:-28300}" "${SERVED_MODEL:-glm5.2-mxfp4}" "$log_dir/$label.probe.jsonl" \
-                --limit 200 --concurrency 64 >>"$log" 2>&1
-            echo "$(date -u +%T) $label probe: $(grep -a '^n=200 ' "$log" | tail -1)"
+                --limit "${PROBE_N:-200}" --concurrency 64 >>"$log" 2>&1
+            echo "$(date -u +%T) $label probe: $(grep -a "^n=${PROBE_N:-200} " "$log" | tail -1); $(python3 "$here/probe_badstart.py" --show 0 "$log_dir/$label.probe.jsonl" | grep -o 'bad_start=.*')"
             for spec in ${LONGCTX_SPECS-16000:64}; do
                 timeout 3600 python3 "$probe_py" "$prompts" "http://$PREFILL_NODE_IP:${ROUTER_PORT:-28300}" "${SERVED_MODEL:-glm5.2-mxfp4}" \
-                    "$log_dir/$label.longctx-${spec%%:*}.jsonl" --ctx-tokens "${spec%%:*}" --n "${spec##*:}" --concurrency 32 >>"$log" 2>&1
+                    "$log_dir/$label.longctx-${spec%%:*}.jsonl" --ctx-tokens "${spec%%:*}" --n "${spec##*:}" --concurrency "${LONGCTX_CONC:-32}" >>"$log" 2>&1
                 echo "$(date -u +%T) $label longctx $spec: $(grep -aE '^(needle|gsm8k): n=' "$log" | tail -2 | tr '\n' ' ')"
             done
         else
