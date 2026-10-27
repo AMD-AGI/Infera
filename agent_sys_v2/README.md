@@ -10,8 +10,10 @@ measured result, and every agent visible and steerable in a web console.
   task graph grows during the work: an agent drafts subtasks, you approve them (one click for a whole plan).
 - **Evidence, not procedure, is checked.** Acceptance checks that the harness runs when an agent says it is done (a
   failure goes back to the agent); results in one schema feed a ledger with the baseline, the best and the curves.
-- **Observable and controllable.** Live output of every run and what it was given, cost, what it waits for; message,
-  stop, take over in a terminal, raise the budget, review. A machine is held by one task at a time.
+- **Observable and controllable.** Live output of every run and what it was given, cost, what it waits for; a run
+  that has given no event for long, or whose foreground command is past its own timeout, is marked "maybe stuck" and
+  listed with what needs you (a reminder; nothing is stopped). Message, stop, take over in a terminal, raise the
+  budget, review. A machine is held by one task at a time.
 
 It stands beside [`../agent_sys`](../agent_sys) (v1, the task-package runtime), which it does not touch; both can
 be installed in one environment (`agent-sys` is v1's command, `agent-sys-v2` this one's). The design — product, web

@@ -37,6 +37,7 @@ GLOBAL_DEFAULTS = {
     "language": i18n.DEFAULT,
     "protocol_language": "zh",
     "claude_config": "isolated",
+    "stall_minutes": 15,
 }
 PROJECT_DEFAULTS = {
     "autorun": True,
@@ -217,6 +218,15 @@ def positive(value, default):
     """A limit such as max_running from a file: a positive integer, else the default."""
     return (
         value if isinstance(value, int) and not isinstance(value, bool) and value >= 1 else default
+    )
+
+
+def non_negative(value, default):
+    """A number of minutes such as stall_minutes from a file: a number >= 0 (0: off), else the default."""
+    return (
+        value
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0
+        else default
     )
 
 
@@ -713,7 +723,11 @@ class Project:
         counts = dict.fromkeys(STATUSES, 0)
         for t in self.tasks.values():
             counts[t.status] += 1
-        return {"total": len(self.tasks), **counts}
+        # running tasks that may be stuck (疑似卡住): they need you as much as 待确认
+        stalled = sum(
+            t.status == "running" and bool(t.detail.get("stall")) for t in self.tasks.values()
+        )
+        return {"total": len(self.tasks), **counts, "stalled": stalled}
 
     def running(self):
         """Managed tasks that are running: they hold a slot of max_running."""

@@ -404,6 +404,14 @@ def home_json(store):
     )
     return {
         "needs_you": [task_summary(t) for t in pick("needs_you")],  # longest waiting first
+        # 疑似卡住: running tasks that need you too (they stay running), the longest quiet first
+        "stalled": [
+            task_summary(t)
+            for t in sorted(
+                (t for t in tasks if t.status == "running" and t.detail.get("stall")),
+                key=lambda t: t.detail["stall"]["since"],
+            )
+        ],
         "in_review": [task_summary(t) for t in pick("in_review")],
         "unread": [
             task_summary(t)

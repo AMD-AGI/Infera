@@ -184,6 +184,7 @@ EN = {
     "项目「{project}」中还有 {n} 个运行中的任务（含后台等待和终端接管），请先停止或等待其结束后再归档": 'Project "{project}" still has {n} running tasks (background waits and terminal takeovers included); stop them or let them finish before archiving',
     "不认识的设置「{key}」": 'Unknown setting "{key}"',
     "并发上限应为正整数": "The concurrency limit must be a positive integer",
+    "疑似卡住的分钟数应为大于等于 0 的数（0 为关闭）": "The minutes before a run counts as maybe stuck must be a number of 0 or more (0: off)",
     "语言应为 {languages}": "The language must be {languages}",
     "模板「{template}」不存在": 'Template "{template}" does not exist',
     "项目「{project}」已存在": 'Project "{project}" already exists',

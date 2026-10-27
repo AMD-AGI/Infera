@@ -10,7 +10,7 @@ import { html, Icon, StatusMark, statusLine, useApi, useNow, money, ago, since, 
 import { t, lang, LANGS } from './i18n.js';
 import { BoardPage, ArchiveButton } from './board.js';
 import { TaskDrawer, NewTaskDrawer } from './task.js';
-import { NeedsCard, ReviewCard, MarkAllRead, resumeAll, interruptedOf } from './cards.js';
+import { NeedsCard, ReviewCard, MarkAllRead, resumeAll, interruptedOf, needsOf, needsCount } from './cards.js';
 import { RulesPage, KnowledgePage } from './knowledge.js';
 import { LedgerPage } from './ledger.js';
 
@@ -30,8 +30,8 @@ function App() {
   const home = useApi('/api/home');
   const [conn, setConn] = useState(true);
   useEffect(() => api.onChange((c) => { if (c.type === 'conn') setConn(c.state === 'open'); }), []);
-  // the tab title counts what needs you: 待确认 + 待审核
-  const n = home.data ? home.data.needs_you.length + home.data.in_review.length : 0;
+  // the tab title counts what needs you: 待确认 (with the running tasks that may be stuck) + 待审核
+  const n = home.data ? needsOf(home.data).length + home.data.in_review.length : 0;
   useEffect(() => { document.title = n ? `(${n}) agent_sys` : 'agent_sys'; }, [n]);
   const m = path.match(/^\/p\/([^/]+)(?:\/(ledger|rules|knowledge|settings))?$/);
   const g = path.match(/^\/(rules|knowledge|settings|archived)$/);
@@ -74,7 +74,7 @@ function App() {
 
 function AppBar({ home, pid, page, conn }) {
   const project = projectOf(home, pid);
-  const n = home ? home.needs_you.length + home.in_review.length : 0;
+  const n = home ? needsOf(home).length + home.in_review.length : 0;
   const nav = (key, label) => html`<a href=${`#/p/${pid}${key === 'board' ? '' : `/${key}`}`} aria-current=${page === key ? 'page' : undefined}>${label}</a>`;
   return html`<header class="appbar">
     <a class="brand" href="#/" aria-label=${t('agent_sys 首页')}><${Icon} name="logo" size=${22} /><span>agent_sys</span></a>
@@ -85,7 +85,7 @@ function AppBar({ home, pid, page, conn }) {
       <a href="#/rules" aria-current=${page === 'rules' ? 'page' : undefined}>${t('全局规则')}</a><a href="#/knowledge" aria-current=${page === 'knowledge' ? 'page' : undefined}>${t('全局经验')}</a>
       <a href="#/settings" aria-current=${page === 'settings' ? 'page' : undefined}>${t('设置')}</a></nav>`}
     <span class="spacer"></span>
-    ${home && html`<a class=${`needs-pill ${n ? 'on' : ''}`} href="#/" title=${t('待确认和待审核的任务（不含已归档项目）')}><${Icon} name="needs_you" />${n ? t('{n} 项待处理', { n }) : t('暂无待处理事项')}</a>
+    ${home && html`<a class=${`needs-pill ${n ? 'on' : ''}`} href="#/" title=${t('待确认（含疑似卡住）和待审核的任务（不含已归档项目）')}><${Icon} name="needs_you" />${n ? t('{n} 项待处理', { n }) : t('暂无待处理事项')}</a>
       <span class="muted small" title=${t('今天开始的运行的花费合计')}>${t('今日花费 {cost}', { cost: money(home.cost_today_usd) })}</span>`}
     <span class=${`conn ${conn ? 'on' : 'off'}`} title=${conn ? t('实时连接正常') : t('实时连接已断开，正在重新连接')}><span class="dot" aria-hidden="true"></span><span class="sr-only">${conn ? t('实时连接正常') : t('实时连接已断开')}</span></span>
     <${LangToggle} />
@@ -141,6 +141,7 @@ function HomePage({ home, drawerPid }) {
   const now = useNow(30000);
   if (error && !data) return html`<main id="main" tabIndex="-1" class="page"><${ErrorBox} what=${t('加载首页')} error=${error} retry=${reload} /></main>`;
   if (!data) return html`<${Loading} />`;
+  const needs = needsOf(data);
   const interrupted = interruptedOf(data.needs_you);
   const archived = data.archived_projects.length;
   if (!data.projects.length) return html`<main id="main" tabIndex="-1" class="page home">
@@ -148,7 +149,7 @@ function HomePage({ home, drawerPid }) {
       ${archived > 0 && html`<p class="muted">${t('另有 {n} 个已归档项目，', { n: archived })}<a href="#/archived">${t('查看已归档项目')}</a>${t('。')}</p>`}
       <${NewProject} templates=${data.templates} root=${data.projects_path} first /></section></main>`;
   const queues = [
-    { key: 'needs', icon: 'needs_you', label: t('待确认'), n: data.needs_you.length, hint: t('agent 提问、运行中断或预算用尽时，任务会出现在这里。') },
+    { key: 'needs', icon: 'needs_you', label: t('待确认'), n: needs.length, hint: t('agent 提问、运行中断、预算用尽或运行中疑似卡住时，任务会出现在这里。') },
     { key: 'review', icon: 'in_review', label: t('待审核'), n: data.in_review.length, hint: t('设置了"完成后需审核"的任务完成后会出现在这里，审核通过后下游任务才会开始。') },
     { key: 'unread', icon: 'done', label: t('最近完成'), n: data.unread.length, hint: t('完成后还没查看的任务，查看后移出列表。') },
   ];
@@ -169,11 +170,11 @@ function HomePage({ home, drawerPid }) {
       ${quiet.length === queues.length ? html`<div class="queues-quiet" role="status"><${Icon} name="done" className="quiet-ok" />
           <b>${t('暂无待处理事项')}</b><span class="muted small">${t('需要你回复、审核或查看的任务会出现在这里。')}</span>${chips}</div>`
         : html`
-        ${data.needs_you.length > 0 && html`<section class="queue" aria-labelledby="h-needs">
-          <div class="section-head"><h2 id="h-needs"><${Icon} name="needs_you" />${t('待确认')} <span class="count">${data.needs_you.length}</span></h2>
+        ${needs.length > 0 && html`<section class="queue" aria-labelledby="h-needs">
+          <div class="section-head"><h2 id="h-needs"><${Icon} name="needs_you" />${t('待确认')} <span class="count">${needs.length}</span></h2>
             ${interrupted.length >= 2 && html`<button class="btn primary" onClick=${() => resumeAll(interrupted)}>
               ${t('继续全部中断任务（{n}）', { n: interrupted.length })}</button>`}</div>
-          ${data.needs_you.map((x) => html`<${NeedsCard} key=${x.project + x.id} t=${x} now=${now} />`)}
+          ${needs.map((x) => html`<${NeedsCard} key=${x.project + x.id} t=${x} now=${now} />`)}
         </section>`}
         ${data.in_review.length > 0 && html`<section class="queue" aria-labelledby="h-review">
           <div class="section-head"><h2 id="h-review"><${Icon} name="in_review" />${t('待审核')} <span class="count">${data.in_review.length}</span></h2></div>
@@ -211,7 +212,7 @@ function ProjectsCard({ data }) {
         <a class="proj-name" href=${`#/p/${p.id}`}><b class="ellipsis">${p.title}</b>${p.title !== p.id && html`<span class="mono small muted ellipsis">${p.id}</span>`}</a>
         <span class="proj-sub counts small">
           ${p.template_review && html`<a class="st-in_review" href=${`#/p/${p.id}`} title=${t('模板预置的任务等你审核后才开始')}><${Icon} name="in_review" />${t('待审核模板')}</a>`}
-          ${p.counts.needs_you > 0 && html`<span class="st-needs_you"><${Icon} name="needs_you" />${t('{n} 项待确认', { n: p.counts.needs_you })}</span>`}
+          ${needsCount(p.counts) > 0 && html`<span class="st-needs_you"><${Icon} name="needs_you" />${t('{n} 项待确认', { n: needsCount(p.counts) })}</span>`}
           ${p.counts.in_review > 0 && html`<span class="st-in_review"><${Icon} name="in_review" />${t('{n} 项待审核', { n: p.counts.in_review })}</span>`}
           ${p.counts.running > 0 && html`<span class="st-running"><${Icon} name="running" />${t('{n} 个运行中', { n: p.counts.running })}</span>`}
           <span class="muted">${t('共 {n} 个任务，今日花费 {cost}', { n: p.counts.total, cost: money(p.cost_today_usd) })}</span></span>
@@ -346,7 +347,7 @@ function SettingsPage({ pid, project }) {
   const pick = (v, keys) => Object.fromEntries(keys.map((k) => [k, v[k]]));
   const save = (scope, values) => api.put('/api/settings', { scope, project: pid,
     values: scope === 'project' ? { ...pick(values, ['title', 'goal', 'autorun', 'max_running', 'agent', 'ledger']), machines: parseMachines(values.machinesText) }
-      : pick(values, ['language', 'protocol_language', 'max_running', 'claude_config']) })
+      : pick(values, ['language', 'protocol_language', 'max_running', 'claude_config', 'stall_minutes']) })
     .then(() => {
       if (scope === 'global' && values.language !== lang) return location.reload();
       // saved: what the server reads back replaces the form, even where it writes a value its own way
@@ -392,6 +393,8 @@ function SettingsPage({ pid, project }) {
           <option value="isolated">${t('独立（推荐）')}</option><option value="inherit">${t('继承我的 ~/.claude')}</option></select>
           <span class="muted small">${t('独立：agent 用 AGENT_SYS_HOME 下自己的 claude 配置目录，只带登录和模型路由要用的设置，不加载你的 MCP server、插件、CLAUDE.md 和 skills；需要的在任务的额外 claude 参数里显式加（--mcp-config、--plugin-dir）。继承：agent 会话加载你 ~/.claude 里的全部配置。')}</span></label>
         <label class="field">${t('全局并发上限（所有项目合计）')}<input type="number" min="1" value=${g.max_running} onInput=${(e) => setG({ ...g, max_running: +e.target.value })} /></label>
+        <label class="field">${t('疑似卡住提醒（分钟）')}<input type="number" min="0" required value=${g.stall_minutes} onInput=${(e) => setG({ ...g, stall_minutes: e.target.value === '' ? '' : +e.target.value })} />
+          <span class="muted small">${t('运行中的会话这么久没有任何事件（没有前台命令在跑，或前台是子 agent），卡片标"疑似卡住"并列入待确认；前台命令超过它自己的超时 5 分钟仍未返回时也提醒。只提醒，不停止。0 为关闭。')}</span></label>
         <div class="row-actions"><button class="btn primary" onClick=${() => save('global', g)}>${t('保存全局设置')}</button></div></section>
       ${!p && data.projects && html`<${ProjectDefaults} projects=${data.projects} />`}
     </div></main>`;

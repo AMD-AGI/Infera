@@ -26,10 +26,12 @@ from . import checks, files, launch, machines, preflight, questions, tmux
 from .events import Follow
 from .i18n import _, status_word
 from .model import (
+    GLOBAL_DEFAULTS,
     AgentSysError,
     iso,
     load_config,
     mtime,
+    non_negative,
     now_iso,
     read_json,
     run_cost,
@@ -709,6 +711,15 @@ class Monitor:
         self.store = store
         self.follows = {}  # run dir -> Follow
         self.told = {}  # run dir -> the last seq the listeners were told of
+        self._quiet = (None, 0)  # (agent_sys.yaml's mtime, stall_minutes in seconds)
+
+    def quiet(self):
+        """stall_minutes of agent_sys.yaml in seconds (0: off), read again when the file changes."""
+        m = mtime(Path(self.store.home) / "agent_sys.yaml")
+        if self._quiet[0] != m or m is None:
+            value = load_config(self.store.home).get("stall_minutes")
+            self._quiet = (m, 60 * non_negative(value, GLOBAL_DEFAULTS["stall_minutes"]))
+        return self._quiet[1]
 
     def follow(self, t):
         run_dir = runs_dir(t.workspace) / t.state["run_id"]
@@ -738,8 +749,15 @@ class Monitor:
             detail = {"kind": "working"}
         if cur and detail["kind"] != "waiting":
             detail["current"] = f"{cur['tool']} {cur['text']}"[:160]
+            detail["current_since"] = cur["since"]  # 已运行 N 分钟 (超时 M 分钟)
+            if cur.get("timeout"):
+                detail["current_timeout"] = cur["timeout"]
         if rec.get("host") and rec["host"] != HOST:
+            # only shown: its clock is not ours (no 疑似卡住), and it cannot be stopped from here
             detail["host"] = rec["host"]
+        elif detail["kind"] == "working" and (stall := f.stall(time.time(), self.quiet())):
+            # 疑似卡住: the task stays running; it is listed with what needs you
+            detail["stall"] = stall
         t.detail = detail
         if f.cost is not None:  # the run's cost so far counts in the task's cost while it runs
             t.cost_running = run_cost(rec, f.cost)

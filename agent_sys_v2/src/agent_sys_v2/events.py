@@ -4,13 +4,25 @@ pages, one whole), and as the server follows a live run (Follow)."""
 from __future__ import annotations
 
 import json
+import os
 import threading
+from pathlib import Path
 
-from .model import iso
+from . import claude_config
+from .model import iso, read_json
 
 # frames the runner leaves out of events.jsonl: dozens per round, or a plugin's periodic status
 DROP = ("thinking_tokens", "ui_status", "ui_panes")
 PREVIEW = 2000  # characters of a tool's input or result that the run view gets at first; the rest when you open it
+# 疑似卡住 is judged from the events, never from how long a run has gone on (Follow.stall). A foreground tool that ends
+# itself at a timeout: tool -> (its input key, in ms; the default, in s; the variable that sets the default). Claude
+# Code moves a Bash past its timeout to the background and returns at once (recorded: within 0.4 s).
+TIMEOUTS = {
+    "Bash": ("timeout", 120, "BASH_DEFAULT_TIMEOUT_MS"),
+    "TaskOutput": ("timeout", 30, None),
+}
+GRACE = 300  # seconds past its own timeout before such a tool counts as not returned
+VCS = ("vcs_state_changed", "code_change_published")  # frames of a git change, whoever made it
 _UNREAD = {
     "uuid",
     "session_id",
@@ -217,7 +229,7 @@ def read_event(run_dir, seq):
 
 class Follow:
     """A run as its events tell it, read incrementally: session state, background commands, the foreground command
-    in flight, the agent's last words, the session's cost."""
+    in flight, the agent's last words, the session's cost, when the last event came (stall)."""
 
     def __init__(self, run_dir):
         self.path = run_dir / "events.jsonl"
@@ -226,6 +238,13 @@ class Follow:
         self.idle_since = None
         self.last_text, self.cost = "", None
         self.checking = None  # the acceptance check being run, as a foreground command
+        self.last_ts = None  # of the last event that shows the foreground going on (moves)
+        # that event ended a turn: no model call is waited for until the next one
+        self.ended = False
+        # tools gone to the background, and the tools of a background subagent
+        self.detached = set()
+        # TIMEOUTS' defaults for this run (its launch.json env over ours), read when first needed
+        self.defaults = None
 
     def poll(self):
         try:
@@ -246,15 +265,29 @@ class Follow:
 
     def feed(self, e):
         t, sub = e.get("type"), e.get("subtype")
+        if isinstance(e.get("ts"), (int, float)) and self.moves(e):
+            self.last_ts = e["ts"]
+            # a turn is over: with background subagents left the session may stay running until they end. Only
+            # a message or the CLI's start of a turn begins the next (a background subagent's api_retry, say, has
+            # nothing that tells it from the main session's).
+            if t == "result":
+                self.ended = True
+            elif t in ("assistant", "user") or sub in ("init", "session_state_changed"):
+                self.ended = False
         if t == "system" and sub == "session_state_changed":
             self.state = e.get("state")
             self.idle_since = e.get("ts") if self.state == "idle" else None
         elif t == "system" and sub == "background_tasks_changed":
             self.bg = e.get("tasks") or []
         elif t == "assistant":
+            # a subagent's frames name its tool in parent_tool_use_id: the tools of one in the background are not
+            # in the foreground either
+            detached = e.get("parent_tool_use_id") in self.detached
             for c in (e.get("message") or {}).get("content") or []:
                 if c.get("type") == "text" and c.get("text", "").strip():
                     self.last_text = c["text"].strip()
+                elif c.get("type") == "tool_use" and detached:
+                    self.detached.add(c.get("id"))
                 elif c.get("type") == "tool_use" and not (c.get("input") or {}).get(
                     "run_in_background"
                 ):
@@ -270,9 +303,12 @@ class Follow:
                         "tool": c.get("name"),
                         "text": str(text)[:200],
                         "since": iso(e.get("ts")),
+                        "ts": e.get("ts") if isinstance(e.get("ts"), (int, float)) else None,
+                        "input": i,
                     }
         elif t == "system" and sub == "task_started" and e.get("is_backgrounded"):
             self.fg.pop(e.get("tool_use_id"), None)
+            self.detached.add(e.get("tool_use_id"))
         elif t == "user":
             content = (e.get("message") or {}).get("content")
             for c in content if isinstance(content, list) else []:
@@ -284,6 +320,26 @@ class Follow:
             name, since = str(e.get("name") or "")[:200], iso(e.get("ts"))
             start = sub == "check" and e.get("phase") == "start"
             self.checking = {"tool": "Check", "text": name, "since": since} if start else None
+
+    def moves(self, e):
+        """Whether an event shows the session's foreground going on: any frame of the CLI (a subagent's in the
+        foreground too) but the 30 s heartbeat of a tool in flight (the CLI sends it whatever the tool does) and the
+        frames of background work (a background task's, a background subagent's; a commit or a pull request, which
+        may be theirs, and follows the main session's own command by seconds); of the runner's own events only
+        that the CLI has started and the checks' start and end. Your message is not one: sent to a session that
+        hangs, it would end the reminder."""
+        t, sub = e.get("type"), e.get("subtype")
+        if t == "runner":
+            return sub in ("connected", "checks")
+        if t == "tool_progress" or sub == "background_tasks_changed":
+            return False
+        if t == "system" and str(sub).startswith("task_"):  # a task's start, progress, end
+            return e.get("tool_use_id") in self.fg
+        if sub in VCS:
+            return False
+        if e.get("tool_use_id") in self.detached:  # e.g. a background subagent's permission_denied
+            return False
+        return e.get("parent_tool_use_id") not in self.detached
 
     @property
     def activity(self):
@@ -297,7 +353,70 @@ class Follow:
     def current(self):
         if self.checking:
             return self.checking
-        return next(iter(self.fg.values()), None) if self.state != "idle" else None
+        if self.state == "idle" or not self.fg:
+            return None
+        f = next(iter(self.fg.values()))
+        return {
+            "tool": f["tool"],
+            "text": f["text"],
+            "since": f["since"],
+            "timeout": self.timeout(f),
+        }
+
+    def timeout(self, f):
+        """A foreground tool's own timeout in seconds: what its input says, else the tool's default; None for a tool
+        that has none (a subagent, Read, an MCP tool: they are late when no event comes, see stall)."""
+        if f["tool"] not in TIMEOUTS:
+            return None
+        key, default, var = TIMEOUTS[f["tool"]]
+        value = f["input"].get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+            return value / 1000
+        if self.defaults is None:
+            self.defaults = {
+                tool: max([d, *self.settings(v)]) for tool, (_, d, v) in TIMEOUTS.items()
+            }
+        return self.defaults[f["tool"]]
+
+    def settings(self, var):
+        """What the run's environment may set var to, in seconds: launch.json's env, ours, and the env of the
+        settings the CLI reads (its own directory's, ~/.claude's when it inherits them). The largest one counts: a
+        default set where we do not look would make a healthy command look late, a larger one only a late one later."""
+        if not var:
+            return []
+        launch = read_json(self.path.parent / "launch.json")
+        envs = [launch.get("env") or {}, os.environ]
+        dirs = {(launch.get("env") or {}).get("CLAUDE_CONFIG_DIR"), str(claude_config.OPERATOR_DIR)}
+        envs += [read_json(Path(d) / "settings.json").get("env") or {} for d in dirs if d]
+        out = []
+        for env in envs:
+            try:
+                if isinstance(env, dict) and int(env[var]) > 0:
+                    out.append(int(env[var]) / 1000)
+            except (KeyError, TypeError, ValueError):
+                pass
+        return out
+
+    def stall(self, now, quiet):
+        """疑似卡住, or None. Only while the session runs: not while it is idle (waiting in the background, or done)
+        or its turn is over (background subagents keep it running), not during the checks (they have timeouts of
+        their own), not with quiet 0 (stall_minutes: 0, off).
+          {"kind": "timeout", "tool", "since", "timeout"}: a foreground tool with a timeout has run past it plus
+              GRACE; it should have ended and did not;
+          {"kind": "silent", "tool", "since"}: nothing that ends itself is in flight (no tool: the model call; a
+              subagent, whose own frames count; a tool without a timeout) and no event came for `quiet` seconds.
+        A tool under its timeout is not late, however long it runs. since: of the tool, or of the last event."""
+        if not quiet or self.checking or self.state == "idle" or self.ended or self.last_ts is None:
+            return None
+        timed = [(f, self.timeout(f)) for f in self.fg.values()]
+        timed = [(f, s) for f, s in timed if s is not None and f["ts"] is not None]
+        for f, s in timed:
+            if now - f["ts"] > s + GRACE:
+                return {"kind": "timeout", "tool": f["tool"], "since": f["since"], "timeout": s}
+        if timed or now - self.last_ts <= quiet:
+            return None
+        f = next(iter(self.fg.values()), None)
+        return {"kind": "silent", "tool": f["tool"] if f else None, "since": iso(self.last_ts)}
 
     def delivery(self):
         """When a message sent now is read: during the checks the session is idle and takes it at once."""

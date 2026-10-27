@@ -2,9 +2,9 @@
 // panels above it and the task table below. Where cards go and how edges run between them is in graph.js.
 import { useState, useEffect, useRef, useMemo } from './vendor/hooks.module.js';
 import { api, paths } from './api.js';
-import { html, Icon, StatusMark, STATUS, STATUS_ORDER, EDGE_KINDS, statusLine, useApi, useNow, usePopover, money, ago,
+import { html, Icon, StatusMark, STATUS, STATUS_ORDER, EDGE_KINDS, statusLine, stallWhy, useApi, useNow, usePopover, money, ago,
   since, clock, parseHash, taskHref, closeHref, go, toast, fail, confirmDialog, ErrorBox, Loading, Holder, Problems } from './ui.js';
-import { NeedsCard, ReviewCard, MarkAllRead, resumeAll, interruptedOf } from './cards.js';
+import { NeedsCard, ReviewCard, MarkAllRead, resumeAll, interruptedOf, stalledOf, needsCount } from './cards.js';
 import { confirmMove } from './task.js';
 import { t as tr, list as listOf } from './i18n.js';
 import { LedgerChips, deltaText } from './ledger.js';
@@ -173,7 +173,7 @@ export function ArchiveButton({ project, small = true }) {
     const c = project.counts;
     if (!await confirmDialog({ title: tr('确认归档项目「{title}」？', { title: project.title }), ok: tr('归档'),
       body: html`<p>${tr('归档后，该项目不再显示在首页，调度器也不会自动开始其中的任务。项目文件不会改动，可随时在"已归档项目"中取消归档。')}</p>
-        ${c.needs_you + c.in_review > 0 && html`<p class="warn-text">${tr('该项目还有 {needs} 项待确认、{review} 项待审核，归档后将不再显示在首页。', { needs: c.needs_you, review: c.in_review })}</p>`}
+        ${needsCount(c) + c.in_review > 0 && html`<p class="warn-text">${tr('该项目还有 {needs} 项待确认、{review} 项待审核，归档后将不再显示在首页。', { needs: needsCount(c), review: c.in_review })}</p>`}
         ${c.queued > 0 && html`<p class="muted">${tr('{n} 个待开始的任务将保持排队，取消归档后才会开始。', { n: c.queued })}</p>`}` })) return;
     api.post(`/api/projects/${project.id}/archive`).then(() => toast(tr('已归档：{title}', { title: project.title }), { href: '#/archived', link: tr('查看已归档项目') }), fail);
   };
@@ -188,8 +188,8 @@ export function ArchiveButton({ project, small = true }) {
 function Attention({ pid, tasks, titleOf }) {
   const [open, setOpen] = useState(false);
   const now = useNow(30000);
-  // the same order as the home page: 待确认 then 待审核, the longest waiting first
-  const needs = ['needs_you', 'in_review'].flatMap((s) => tasks.filter((t) => t.status === s).sort((a, b) => a.since.localeCompare(b.since)));
+  // the same order as the home page: 疑似卡住 and 待确认, then 待审核, the longest waiting first
+  const needs = [...stalledOf(tasks), ...['needs_you', 'in_review'].flatMap((s) => tasks.filter((t) => t.status === s).sort((a, b) => a.since.localeCompare(b.since)))];
   const interrupted = interruptedOf(needs);
   const unread = tasks.filter((t) => t.status === 'done' && t.unread);
   const running = tasks.filter((t) => t.status === 'running');
@@ -207,7 +207,7 @@ function Attention({ pid, tasks, titleOf }) {
       <span class=${warnings.length ? 'warn-text' : ''}><${Icon} name="warning" />${tr('记录提醒 {n}', { n: warnings.length })}</span>
       <span class="muted">${open ? tr('收起') : tr('展开')}</span></button></div>
     ${open && html`<div class="att-grid">
-      <div class="att-panel att-needs"><h2 title=${tr('待确认和待审核的任务')}><${Icon} name="needs_you" />${tr('待处理 {n}', { n: needs.length })}
+      <div class="att-panel att-needs"><h2 title=${tr('待确认、待审核和疑似卡住的任务')}><${Icon} name="needs_you" />${tr('待处理 {n}', { n: needs.length })}
           ${interrupted.length >= 2 && html`<button class="btn primary small" onClick=${() => resumeAll(interrupted)}>${tr('继续全部中断任务（{n}）', { n: interrupted.length })}</button>`}</h2>
         ${needs.length ? needs.map((t) => (t.status === 'in_review' ? html`<${ReviewCard} key=${t.id} t=${t} now=${now} here />`
           : html`<${NeedsCard} key=${t.id} t=${t} now=${now} here />`)) : html`<div class="empty-line">${tr('暂无待处理事项')}</div>`}
@@ -215,7 +215,7 @@ function Attention({ pid, tasks, titleOf }) {
           ${list(unread.map((t) => item(t, t.report ? tr('报告：{report}', { report: t.report }) : '', ago(t.since, now))), '')}`}
       </div>
       <div class="att-panel"><h2><${Icon} name="running" className="busy" />${tr('运行中 {n}', { n: running.length })}${queued.length ? html`<span class="muted">${tr('（待开始 {n}）', { n: queued.length })}</span>` : ''}</h2>
-        ${list([...running.map((t) => item(t, statusLine(t, titleOf), since(t.since, now))),
+        ${list([...running.map((t) => item(t, statusLine(t, titleOf, now), since(t.since, now))),
           ...queued.map((t) => item(t, statusLine(t, titleOf)))], tr('暂无运行中的任务'))}
       </div>
       <div class="att-panel"><h2><${Icon} name="warning" />${tr('记录提醒 {n}', { n: warnings.length })}</h2>
@@ -475,11 +475,12 @@ function Canvas({ pid, types, tasks, edges, view, set, selected, collapse, byId,
 }
 
 function Card({ t, p, titleOf, compact, now, selected, dim, hit, drag, onPointerDown, onClick }) {
-  const line = statusLine(t, titleOf);
+  const stall = t.status === 'running' && t.detail?.stall;
+  const line = stall ? stallWhy(stall, now) : statusLine(t, titleOf, now);
   const time = t.status === 'draft' ? '' : t.status === 'running' && t.managed ? tr('已运行 {time}', { time: since(t.since, now) }) : t.since ? (t.managed ? ago(t.since, now) : tr('更新于 {time}', { time: ago(t.since, now) })) : '';
-  const cls = `card st-${t.status} ${t.managed ? '' : 'unmanaged'} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${dim ? 'dim' : ''} ${hit ? 'hit' : ''} ${drag ? 'dragging' : ''}`;
+  const cls = `card st-${t.status} ${t.status === 'running' && t.detail?.stall ? 'stalled' : ''} ${t.managed ? '' : 'unmanaged'} ${compact ? 'compact' : ''} ${selected ? 'selected' : ''} ${dim ? 'dim' : ''} ${hit ? 'hit' : ''} ${drag ? 'dragging' : ''}`;
   const sep = tr('，');
-  const label = `${t.title}${sep}${STATUS[t.status]?.label}${line ? `${sep}${line}` : ''}${t.managed ? '' : `${sep}${tr('未托管')}`}`;
+  const label = `${t.title}${sep}${STATUS[t.status]?.label}${stall ? `${sep}${tr('疑似卡住')}` : ''}${line ? `${sep}${line}` : ''}${t.managed ? '' : `${sep}${tr('未托管')}`}`;
   return html`<button class=${cls} style=${{ left: `${p.x}px`, top: `${p.y}px`, width: `${p.w}px`, height: `${p.h}px`,
       transform: drag ? `translate(${drag.dx}px, ${drag.dy}px)` : undefined }}
     onPointerDown=${onPointerDown} onClick=${(ev) => { ev.stopPropagation(); onClick(); }} aria-label=${label} aria-current=${selected ? 'true' : undefined}
@@ -487,7 +488,8 @@ function Card({ t, p, titleOf, compact, now, selected, dim, hit, drag, onPointer
     <span class="c-title"><${StatusMark} t=${t} short />${t.unread ? html`<${Icon} name="unread" className="unread-dot" label=${tr('未查看')} />` : ''}<span class="ellipsis">${t.title}</span></span>
     ${!compact && html`
       <span class="c-meta"><span class="mono ellipsis">${t.name}</span><span class="nowrap">${time}</span></span>
-      <span class="c-foot"><span class="c-status">${STATUS[t.status]?.label}${t.status === 'running' && t.detail?.kind === 'waiting' ? ` · ${tr('等待中')}` : ''}</span>
+      <span class="c-foot">${stall ? html`<span class="c-status stall">${tr('疑似卡住')}</span>`
+        : html`<span class="c-status">${STATUS[t.status]?.label}${t.status === 'running' && t.detail?.kind === 'waiting' ? ` · ${tr('等待中')}` : ''}</span>`}
         <span class="ellipsis">${line}</span>
         ${t.review && !['done', 'in_review'].includes(t.status) && html`<span class="tag" title=${tr('完成后需审核')}>${tr('需审核')}</span>`}
         <${Badges} t=${t} />

@@ -25,8 +25,27 @@ export const STATUS = {
 };
 export const STATUS_ORDER = ['needs_you', 'in_review', 'running', 'queued', 'done', 'draft', 'cancelled', 'unknown'];
 
+// 疑似卡住 (detail.stall, judged by the server from the run's events): which of the two, and for how long.
+export function stallWhy(s, now = Date.now()) {
+  const time = since(s.since, now);
+  if (s.kind === 'timeout') return t('前台命令超时未返回（{tool} 已运行 {time}，超时 {timeout}）', { tool: s.tool, time, timeout: duration(s.timeout * 1000) });
+  if (!s.tool) return t('模型调用无响应，已 {time}没有任何事件', { time });
+  if (['Agent', 'Task'].includes(s.tool)) return t('前台子 agent 已 {time}没有任何事件', { time });
+  return t('{tool} 已 {time}没有返回，也没有任何事件', { tool: s.tool, time });
+}
+export const stallText = (s, now = Date.now()) => t('疑似卡住：{why}', { why: stallWhy(s, now) });
+
+// 正在执行：<command>, and from a minute on how long it has run and its own timeout (not stuck while under it).
+function doing(d, now) {
+  const what = t('正在执行：{what}', { what: d.current });
+  const ran = d.current_since ? now - Date.parse(d.current_since) : 0;
+  if (ran < 60000) return what;
+  const time = duration(ran);
+  return `${what} · ${d.current_timeout ? t('已运行 {time}（超时 {timeout}）', { time, timeout: duration(d.current_timeout * 1000) }) : t('已运行 {time}', { time })}`;
+}
+
 // The sub-state a card shows next to the status: what it is doing or waiting for.
-export function statusLine(task, titleOf = (id) => id) {
+export function statusLine(task, titleOf = (id) => id, now = Date.now()) {
   const d = task.detail || {};
   const next = task.progress?.next;
   switch (`${task.status}:${d.kind || ''}`) {
@@ -43,7 +62,7 @@ export function statusLine(task, titleOf = (id) => id) {
     case 'running:waiting': return t('等待中：{what}', { what: next || d.waiting_for || t('后台命令') });
     case 'running:terminal': return d.current ? t('正在执行：{what}', { what: d.current }) : t('终端接管中');  // claude exited: the checks
     case 'running:unmanaged': return next || t('进行中');
-    case 'running:working': return d.host ? t('在 {host} 上运行', { host: d.host }) : d.current ? t('正在执行：{what}', { what: d.current }) : t('运行中');
+    case 'running:working': return d.host ? t('在 {host} 上运行', { host: d.host }) : d.stall ? stallText(d.stall, now) : d.current ? doing(d, now) : t('运行中');
     case 'needs_you:asked': return t('待答复：{what}', { what: next || brief(task.last_message) });
     case 'needs_you:questions': return d.count ? t('{n} 个问题待回答（{path}）', { n: d.count, path: d.path || 'questions.md' }) : t('有问题待回答（{path}）', { path: d.path || 'questions.md' });
     case 'needs_you:stopped': return t('已手动停止');
@@ -69,6 +88,7 @@ export function brief(text, n = 120) {
 
 // Icon name for a task: the status icon, refined by the running sub-state.
 function iconOf(t) {
+  if (t.status === 'running' && t.detail?.stall) return 'warning';
   if (t.status === 'running') return { waiting: 'waiting', terminal: 'terminal' }[t.detail?.kind] || 'running';
   return STATUS[t.status]?.icon || 'unknown';
 }
@@ -206,8 +226,9 @@ export function Icon({ name, size = 16, label, className = '' }) {
 // Status mark: icon + label in the status color.
 export function StatusMark({ t: task, short = false }) {
   const s = STATUS[task.status] || STATUS.unknown;
-  const sub = task.status === 'running' ? { waiting: t('等待中'), terminal: t('终端接管') }[task.detail?.kind] : '';
-  return html`<span class=${`status st-${task.status} ${sub ? `sub-${task.detail.kind}` : ''}`}>
+  const stall = task.status === 'running' && task.detail?.stall;
+  const sub = stall ? t('疑似卡住') : task.status === 'running' ? { waiting: t('等待中'), terminal: t('终端接管') }[task.detail?.kind] : '';
+  return html`<span class=${`status st-${task.status} ${sub ? `sub-${stall ? 'stall' : task.detail.kind}` : ''}`}>
     <${Icon} name=${iconOf(task)} />${short ? '' : html`<span>${s.label}${sub ? ` · ${sub}` : ''}</span>`}</span>`;
 }
 

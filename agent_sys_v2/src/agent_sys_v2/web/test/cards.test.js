@@ -2,7 +2,7 @@
 //   node --test src/agent_sys_v2/web/test/*.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { needAction, replyPlaceholder, reviewLine, interruptedOf } from '../cards.js';
+import { needAction, replyPlaceholder, reviewLine, interruptedOf, needsOf, stalledOf, needsCount } from '../cards.js';
 import { statusLine } from '../ui.js';
 import { setLang } from '../i18n.js';
 
@@ -45,4 +45,40 @@ test('继续全部中断任务 takes only managed tasks whose run was interrupte
   const list = [needs('interrupted', { id: 'a' }), needs('wait_interrupted', { id: 'b' }), needs('asked', { id: 'c' }),
     { status: 'needs_you', managed: false, detail: { kind: 'unmanaged' }, id: 'd' }];
   assert.deepEqual(interruptedOf(list).map((t) => t.id), ['a', 'b']);
+});
+
+// 疑似卡住: a running task listed with what needs you; it says which of the two and for how long
+const NOW = Date.parse('2026-10-27T12:00:00Z');
+const at = (min) => new Date(NOW - min * 60000).toISOString().replace(/\.\d+Z$/, 'Z');
+const stalled = (stall, extra = {}) => ({ status: 'running', managed: true, since: at(60), detail: { kind: 'working', stall }, ...extra });
+
+test('a task that may be stuck: 发消息 first, and what the card says', () => {
+  const silent = stalled({ kind: 'silent', tool: null, since: at(16) });
+  assert.deepEqual(needAction(silent), { kind: 'stall', label: '发消息' });
+  assert.match(replyPlaceholder(silent), /^发消息/);
+  assert.equal(statusLine(silent, undefined, NOW), '疑似卡住：模型调用无响应，已 16 分钟没有任何事件');
+  assert.equal(statusLine(stalled({ kind: 'silent', tool: 'Agent', since: at(20) }), undefined, NOW), '疑似卡住：前台子 agent 已 20 分钟没有任何事件');
+  assert.equal(statusLine(stalled({ kind: 'silent', tool: 'mcp__db__query', since: at(15) }), undefined, NOW),
+    '疑似卡住：mcp__db__query 已 15 分钟没有返回，也没有任何事件');
+  assert.equal(statusLine(stalled({ kind: 'timeout', tool: 'Bash', since: at(16), timeout: 600 }), undefined, NOW),
+    '疑似卡住：前台命令超时未返回（Bash 已运行 16 分钟，超时 10 分钟）');
+});
+
+test('a long command under its timeout says how long it has run, and is not stuck', () => {
+  const run = (current_since, current_timeout) => ({ status: 'running', managed: true, detail: { kind: 'working', current: 'Bash make -j', current_since, current_timeout } });
+  assert.equal(statusLine(run(at(0.5), 600), undefined, NOW), '正在执行：Bash make -j');  // under a minute: as before
+  assert.equal(statusLine(run(at(12), 1800), undefined, NOW), '正在执行：Bash make -j · 已运行 12 分钟（超时 30 分钟）');
+  assert.equal(statusLine(run(at(25)), undefined, NOW), '正在执行：Bash make -j · 已运行 25 分钟');  // a subagent: no timeout
+});
+
+test('the list of what needs you: the tasks that may be stuck first, the longest quiet first', () => {
+  const a = stalled({ kind: 'silent', tool: null, since: at(16) }, { id: 'a' });
+  const b = stalled({ kind: 'timeout', tool: 'Bash', since: at(30), timeout: 120 }, { id: 'b' });
+  const tasks = [a, { status: 'running', id: 'c', detail: { kind: 'working' } }, needs('asked', { id: 'd' }), b];
+  assert.deepEqual(stalledOf(tasks).map((t) => t.id), ['b', 'a']);
+  assert.deepEqual(needsOf({ stalled: [b, a], needs_you: [tasks[2]] }).map((t) => t.id), ['b', 'a', 'd']);
+  assert.deepEqual(needsOf({ needs_you: [tasks[2]] }).map((t) => t.id), ['d']);  // a server from before
+  assert.deepEqual(interruptedOf(needsOf({ stalled: [a], needs_you: [] })), []);  // 继续全部 is not for them
+  assert.equal(needsCount({ needs_you: 2, stalled: 1 }), 3);  // a project's 待确认 counts them too
+  assert.equal(needsCount({ needs_you: 2 }), 2);
 });

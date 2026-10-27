@@ -30,6 +30,7 @@ from .model import (
     load_yaml,
     mtime,
     new_state,
+    non_negative,
     now_iso,
     parse_dep,
     plain,
@@ -59,6 +60,7 @@ AGENT_SYS_YAML = f"""# agent_sys's global settings. A key left out takes its def
 language: {GLOBAL_DEFAULTS["language"]}                     # en or zh: the language of the web UI and of agent_sys's messages
 protocol_language: {GLOBAL_DEFAULTS["protocol_language"]}            # zh or en: the agent_sys protocol and what agent_sys tells the agent (it works in the prompt's language)
 max_running: {GLOBAL_DEFAULTS["max_running"]}                   # tasks running at once across all projects (background waits and terminal takeovers count)
+stall_minutes: {GLOBAL_DEFAULTS["stall_minutes"]}                # minutes with no event before a running session is flagged as maybe stuck (0: off); a foreground command is flagged once past its own timeout
 claude_config: {GLOBAL_DEFAULTS["claude_config"]}          # isolated: the agent's own Claude Code directory ($AGENT_SYS_HOME/claude), without your MCP servers, plugins, CLAUDE.md and skills; inherit: your ~/.claude as it is
 # cli_path: /path/to/claude      # default: the claude bundled with claude-agent-sdk in agent_sys's venv
 """
@@ -645,6 +647,8 @@ def save_settings(home, scope, values, pid=None):
             raise AgentSysError(_("不认识的设置「{key}」", key=key))
         if key == "max_running" and positive(value, None) is None:
             raise AgentSysError(_("并发上限应为正整数"))
+        if key == "stall_minutes" and non_negative(value, None) is None:
+            raise AgentSysError(_("疑似卡住的分钟数应为大于等于 0 的数（0 为关闭）"))
         if key in ("language", "protocol_language") and value not in LANGUAGES:
             raise AgentSysError(_("语言应为 {languages}", languages=" / ".join(LANGUAGES)))
         if key == "claude_config" and value not in claude_config.MODES:

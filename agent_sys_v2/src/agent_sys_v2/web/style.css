@@ -300,6 +300,8 @@ p.queues-quiet .quiet-chips { margin-left: 0; }
 .need-card.kind-review::before { background: var(--in_review-rail); }
 .need-card.kind-unmanaged::before { background: repeating-linear-gradient(to bottom, var(--needs_you-rail) 0 5px, transparent 5px 9px); }
 .need-card.kind-interrupted::before, .need-card.kind-wait_interrupted::before { background: var(--warn); }
+.status.sub-stall, .why.stall, .need-card.kind-stall .nc-why, .c-status.stall { color: var(--needs_you); }
+.why.stall, .need-card.kind-stall .nc-why { font-weight: 600; }
 /* one line per card: status, title, why, how long, the main button; 回复 opens the box below */
 .nc-line { display: flex; align-items: center; gap: 4px 10px; min-width: 0; flex-wrap: wrap; min-height: 30px; }
 .nc-title { font-weight: 650; color: var(--ink); font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 38%; }
@@ -422,7 +424,7 @@ svg.graph { position: absolute; left: 0; top: 0; overflow: visible; }
 .card.selected { box-shadow: 0 0 0 2px var(--ink); }
 .card.dim { opacity: .28; }
 .card.hit { box-shadow: 0 0 0 2px var(--needs_you-rail); }
-.card.st-needs_you { background: linear-gradient(90deg, var(--needs_you-bg), var(--surface) 60%); }
+.card.st-needs_you, .card.stalled { background: linear-gradient(90deg, var(--needs_you-bg), var(--surface) 60%); }
 .card.st-draft { border-style: dashed; border-left-style: dashed; background: var(--surface-2); }
 .card.st-cancelled .c-title .ellipsis { text-decoration: line-through; color: var(--ink-3); }
 .card.unmanaged { border-left-style: dotted; border-left-width: 4px; }

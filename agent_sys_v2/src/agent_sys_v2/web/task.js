@@ -97,7 +97,8 @@ function Header({ pid, t, head, close }) {
   const guard = (fn) => () => { if (busy) return; setBusy(true); Promise.resolve(fn()).catch(() => {}).finally(() => setBusy(false)); };
   const base = paths.task(pid, t.id);
   const act = (action, msg) => api.post(`${base}/actions/${action}`).then((r) => { toast(msg(r)); return r; }, (e) => { fail(e); throw e; });
-  const line = statusLine(t, (id) => t.upstream.find((u) => u.task === id)?.title || id);
+  const line = statusLine(t, (id) => t.upstream.find((u) => u.task === id)?.title || id, now);
+  const stall = t.status === 'running' && t.detail?.stall;
   const live = t.runs[0]?.live && t.runs[0].kind !== 'terminal';
   // [style, label, onClick]; the server words 继续 in the agent's language
   const buttons = {
@@ -151,7 +152,7 @@ function Header({ pid, t, head, close }) {
     </div>
     <h2 tabIndex="-1" ref=${head}>${t.title}</h2>
     <div class="mono small muted">${pid}/${t.id}${t.parent ? html` · ${tr('父任务')} <a href=${taskHref(pid, t.parent)}>${t.parent}</a>` : ''}</div>
-    ${line && html`<${OneLine} class=${`why st-${t.status}`}>${line}${elapsed && html`<span class="muted">${tr('（{elapsed}）', { elapsed })}</span>`}</${OneLine}>`}
+    ${line && html`<${OneLine} class=${`why st-${t.status} ${stall ? 'stall' : ''}`}>${line}${elapsed && html`<span class="muted">${tr('（{elapsed}）', { elapsed })}</span>`}</${OneLine}>`}
     ${t.summary && html`<${OneLine} class="summary">${t.summary}</${OneLine}>`}
     <div class="head-meta">
       ${t.managed && html`<span class="cost" title=${tr('累计花费 / 预算')}><span class="meter" aria-hidden="true"><i style=${{ width: `${Math.min(100, (100 * t.cost_usd) / (t.budget_usd || 1))}%` }}></i></span>
@@ -163,6 +164,10 @@ function Header({ pid, t, head, close }) {
         title=${tr('最近一轮的验收检查（第 {n} 次）', { n: t.checks.attempts })}>${t.checks.ok ? '✓' : '✗'} ${tr('验收 {passed}/{total}', t.checks)}</a>`}
     </div>
     <${Notes} t=${t} />
+    ${stall && html`<div class="notice stall" role="status"><${Icon} name="warning" /><div>${stall.kind === 'timeout'
+      ? tr('前台命令已超过它自己的超时，本该被结束却没有结束。')
+      : tr('会话在运行，但已经很久没有任何事件：模型调用或前台子 agent 可能挂住了。')}
+      ${tr('任务状态不变，不会自动停止；有新事件后这条提示自动消失。可以发消息、停止，或在终端中接管。')}</div></div>`}
     ${t.upstream_changed?.length > 0 && html`<${UpstreamChanged} pid=${pid} t=${t} />`}
     ${drafts.length > 0 && html`<div class="notice drafts"><${Icon} name="draft" /><div>${tr('这个任务起草了 {n} 个任务：{titles}', { n: drafts.length, titles: list(drafts) })}
       ${draftErrors > 0 && html`<span class="warn-text">${tr('（开始前检查发现 {n} 个错误）', { n: draftErrors })}</span>`}

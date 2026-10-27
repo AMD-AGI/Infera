@@ -5,7 +5,7 @@ import time
 
 from conftest import error, ok
 
-from agent_sys_v2.model import new_state, read_state, split_frontmatter, write_state
+from agent_sys_v2.model import load_config, new_state, read_state, split_frontmatter, write_state
 
 TASK = "/api/projects/llama70b/tasks"
 
@@ -354,6 +354,7 @@ def test_settings(client, home):
         "language": "en",
         "protocol_language": "zh",
         "claude_config": "isolated",
+        "stall_minutes": 15,
     }
     assert s["project"]["path"] == "projects/llama70b/project.yaml"
     assert s["project"]["values"]["agent"]["budget_usd"] == 200
@@ -381,6 +382,14 @@ def test_settings(client, home):
     assert "正整数" in error(
         client.put("/api/settings", json={"scope": "global", "values": {"max_running": 0}}), 400
     )
+    # 疑似卡住: 0 turns it off; a negative number or a word is refused
+    ok(client.put("/api/settings", json={"scope": "global", "values": {"stall_minutes": 0}}))
+    assert load_config(home)["stall_minutes"] == 0
+    for bad in (-1, "15", True):
+        assert "0 为关闭" in error(
+            client.put("/api/settings", json={"scope": "global", "values": {"stall_minutes": bad}}),
+            400,
+        )
     for path in ("/api/settings", "/api/rules"):  # scope project without the project: the same 400
         assert "scope 应为" in error(client.put(path, json={"scope": "project", "values": {}}), 400)
     assert "语言应为" in error(

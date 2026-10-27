@@ -21,6 +21,7 @@ def test_init_home_makes_only_what_is_missing(tmp_path):
         "language": "en",
         "protocol_language": "zh",
         "claude_config": "isolated",
+        "stall_minutes": 15,
     }
     assert "# cli_path:" in (home / "agent_sys.yaml").read_text(encoding="utf-8")
     (home / "agent_sys.yaml").write_text("max_running: 2\n", encoding="utf-8")
