@@ -28,8 +28,14 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 | no-kf（去掉 KF kernel 与 KF top-k） | 乱码 | 0.945 / 7 / 10 | 2/16 / 1/16 |
 | no-car（decode 关 custom all-reduce） | 乱码 | 0.960 / 1 / 6 | 3/16 / 0/16 |
 
-- **KF kernel 排除**：去掉后与 ref 完全相同。
+| no-fp8draft（draft MoE 不转 FP8） | 乱码 | 0.950 / 4 / 9 | 2/16 / 0/16 |
+| k5（两侧 EAGLE 5/1/6） | 乱码；smoke 3/6，短 chat 也是垃圾（"Paris!!!!!riba!!!!!"） | | |
+
+- **KF kernel 排除**：去掉后与 ref 完全相同。**FP8 draft 排除**。
 - **custom all-reduce 是其中一个因素**：关掉后短 prompt 的乱码 7 → 1，但长上下文仍坏，另有原因。
+- **k5 全坏**：随 decode batch 形状（verify 行数）变化而出错，指向漏列的一项——decode 挂的 aiter BF16 GEMM 调优 CSV（某些 M 的调优解算错）。
+  追加三个变体（`waiter2-*.out`）：no-gemmcsv（去掉两个 CSV）、clean-k5（kit 默认配方，= 以前验过的 4+4，验证镜像与 kit 本身干净）、
+  clean-k3（clean-k5 只换 K3）。
 
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
