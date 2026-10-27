@@ -288,6 +288,47 @@ q_a+kv_a 2624×6144（只有 M = 16384）、indexer wq_b 4096×2048、weights_pr
 都是 DSv4 decode 形状，要扩展到 top-k 2048、不分页的 prefill 版本。KernelForge 的方法（基线 → SNR 门槛 → 实测 → PMC）、FlyDSL MXFP4 MoE、
 VSA / SLA 稀疏 attention 的 CK 实现、按 M 选 GEMM 实现的 sglang 补丁可借鉴；跑它的 agent 需要 Anthropic 凭据。
 
+### 新 trace（llr37 + v3，C104，18:43，每级 30 步）：prefill 的 GPU 只忙 54%，瓶颈是调度线程——write_back 驱逐时同步等"正在跑的前向"结束
+
+**结论**：四级的 GPU 每步实际工作都很稳（PP0 每步 GPU 跨度中位 252 ms、PP1 243、PP2 246、PP3 EXTEND 约 210 + DRAFT 约 21），**步内没有停顿**；
+但两步之间 GPU 空着，**空闲中位 155–212 ms、均值 210–230 ms，GPU 忙碌率 PP0 54%、PP1 52%**。252 + 210 ≈ 460 ms，正好是计分窗口里的节拍均值 499 ms。
+空闲时调度线程（CPU）在做下一批的准备，**其中 35% 的时间阻塞在 `hipEventSynchronize`**（PP0 30 步 4.65 s / 13.3 s；PP1 5.0 s / 13.7 s），
+几乎全在 HiCache write_back 驱逐的 `writing_check` 里；这些同步里 **79% 的时间是在等当前正在 GPU 上跑的前向结束**（PP0 3.1 / 3.9 s），
+前向结束后的 D2H 备份本身每次只要约 4 ms。→ 调度线程无法领先 GPU，下一批只能在本批前向结束后再做完驱逐、回载、准备和 PP 通信才发出。
+**这比任何单个 kernel 的收益都大**：若空闲减半，prefill 吞吐约 +25%。
+
+**机制（代码，镜像 v0522）**：
+- `scheduler.py:614-618` 开 HiCache 时把 `cache_controller.write_fence_stream` 设为 `forward_stream`；
+- 驱逐（`unified_radix_cache.py` `_evict_components`）对每个要降级的节点调 `_execute_and_commit_kv_backup(write_back=True)` →
+  `writing_check(write_back=True)`：`start_writing(wait_for_forward=True)` 让 D2H stream 先等 forward stream 上已提交的全部工作
+  （`cache_controller.py:843-847`，注释"An evicted SWA page can belong to an unfinished checkpoint"），然后 CPU 对每个 ack `finish_event.synchronize()`；
+- 驱逐只腾"刚好够用"的量（`allocator/base.py` `evict_to_free_tokens` 的 shortfall、回载路径 `_load_back_transfers` 的 `needed`），
+  所以设备池满了以后几乎每步都要驱逐（PP0 30 步 41 次 `evict_for_alloc`），每次都付一次"等前向结束"。
+- 各级调度阶段（PP0，30 步合计，墙钟）：`get_new_batch_prefill` 6.0 s（45%），其中 `evict_for_alloc` 5.4 s、`writing_check` 5.2 s、
+  `init_load_back` 3.0 s、`prepare_for_extend` 2.8 s；PP 接收 `recv_tensor_dict` 1.9 s（14%）；发射前向 `run_batch` 1.8 s（14%）；
+  `check_hicache_events` 0.9 s。PP1 同样（驱逐 4.8 s、接收 2.4 s）。
+
+**更正旧 trace 的"停顿"结论**：上面"旧 trace 复查"和 `prefill_trace_map.py` 的 STALL 行把主 stream 上个别操作的时长（一次 64 KB 的 HtoD 200 ms、
+一个 5 µs 的 kernel 450–780 ms）当成 GPU 在等。新 trace 里这些操作期间**同一 stream 的后续 kernel 照常在跑**（同一 stream 不可能真重叠），
+是 ROCm profiler 给部分操作记了过晚的结束时间；按"截到同 stream 下一操作开始"重算后，步内空闲只有 PP0 106 ms / 30 步。
+所以"HiCache 回载事件让前向停 0.5–1.2 s"不成立，真正的损失在步与步之间；按 kernel 时长求和的 PP0 每步 543 ms 也夸大了（实际忙碌约 245 ms）。
+
+**实验 E1（排队中）：驱逐留余量**——`2p1d-kit/llr35/patches/evict-headroom/`（`evict-headroom.patch`，只改 `unified_radix_cache.py` 的 `evict_for_alloc`：
+请求量 < `SGLANG_EVICT_HEADROOM_TOKENS` 时按这个量驱逐），只挂 prefill，`config/site-llr35-v3-evict512k.env`（512K token ≈ 设备池 5%）。
+不改语义：多出的受害节点照常备份、降级到主机，只是把"等前向结束"分摊到多步。预期：驱逐次数降到几步一次，GPU 空闲下降。
+排在 HiCache 500 GB 之后（`scripts/night2_1027.sh`，`config/plan-night2-1027.txt`，138 `$L/night2-*.out`）。
+**候选 E2**：对没有 SWA 的模型跳过写栅栏（GLM-5.2 是 DSA，无 SWA；被驱逐节点 lock_ref = 0，在跑的前向不读写它们）——收益更大（去掉全部等待），
+但改了流间顺序，需要在有驱逐压力的部署上过正确性门禁，排在 E1 之后决定。
+
+复现（138 上，trace 在 `$L/prof-llr37-v3/traces/prefill-184337-p0/`，结果在 `results/trace-llr37-v3-c104/`）：
+
+```bash
+T=$L/prof-llr37-v3/traces/prefill-184337-p0/prefill-184337-p0-TP-0-PP-0.trace.json.gz
+python3 $P/scripts/prefill_gpu_timeline.py $T      # 每步 GPU 跨度 / 忙碌、步间空闲及空闲时调度线程在做什么
+python3 $P/scripts/prefill_sched_cpu.py $T         # 调度线程的阻塞运行时调用（按调用点）与各阶段墙钟
+python3 $P/scripts/prefill_stall_detail.py $T      # 主 stream 上的长操作：前一个 wait 来自哪里、重叠的旁路 stream 工作
+```
+
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
 1. **prefill 多算的新 token**（`scripts/prefill_miss.py`，逐请求）：1P C112 的未命中 3.64% = 对话增长 2.22% + 会话在本次运行首次出现 1.17%

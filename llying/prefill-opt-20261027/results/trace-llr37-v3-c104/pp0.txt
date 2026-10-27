@@ -1,0 +1,279 @@
+
+== /mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/llr/prof-llr37-v3/traces/prefill-184337-p0/prefill-184337-p0-TP-0-PP-0.trace.json.gz
+steps 30, compute (main stream 6) 16289 ms = 543.0 ms/step; NCCL 5339 ms, side streams 3170 ms (both excluded)
+tokens per step: mean 8125, min 7997, max 8192
+main-stream compute per step (by launch inside the step): median 263.5 ms, mean 448.9 ms, min 206.0, max 1113.9
+        step  0 EXTEND bs=5 toks=7997]            wall     68 ms  main    264 ms  side/nccl: 
+        step  1 EXTEND bs=1 toks=8192]            wall     56 ms  main    248 ms  side/nccl: 
+        step  2 EXTEND bs=1 toks=8192]            wall     56 ms  main    252 ms  side/nccl: 
+  STALL step  3 EXTEND bs=2 toks=8192]            wall     57 ms  main    478 ms  side/nccl: 
+        top: 226 ms _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus <- aiter::dynamic_per_group_s; 106 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 27 ms _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/atten
+        step  4 EXTEND bs=2 toks=8192]            wall     55 ms  main    242 ms  side/nccl: 
+        step  5 EXTEND bs=1 toks=8192]            wall     52 ms  main    210 ms  side/nccl: 
+  STALL step  6 EXTEND bs=8 toks=8022]            wall     84 ms  main    867 ms  side/nccl: 
+        top: 595 ms void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<r <- aten::cumsum [[700], [], [; 103 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 30 ms _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/atten
+  STALL step  7 EXTEND bs=4 toks=8103]            wall     65 ms  main    700 ms  side/nccl: 
+        top: 464 ms void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPha <- aiter::moe_sorting_opus_fw; 97 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 21 ms mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8103, 
+  STALL step  8 EXTEND bs=5 toks=8020]            wall     60 ms  main    702 ms  side/nccl: 
+        top: 469 ms _fused_append_shared_experts_kernel <-   @ sglang/python/sglang/kernels/ops/moe/fused_moe_; 95 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 21 ms mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8020, 
+  STALL step  9 EXTEND bs=4 toks=8036]            wall     59 ms  main    690 ms  side/nccl: 
+        top: 452 ms _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus <- aiter::dynamic_per_group_s; 96 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 21 ms mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8036, 
+  STALL step 10 EXTEND bs=5 toks=8042]            wall     63 ms  main    793 ms  side/nccl: 
+        top: 562 ms _fused_append_shared_experts_kernel <-   @ sglang/python/sglang/kernels/ops/moe/fused_moe_; 96 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 21 ms mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8042, 
+  STALL step 11 EXTEND bs=5 toks=8074]            wall     70 ms  main    731 ms  side/nccl: 
+        top: 451 ms _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1 <- aiter::add_rmsnorm [[8074,; 105 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 35 ms _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/atten
+        step 12 EXTEND bs=4 toks=8056]            wall     59 ms  main    223 ms  side/nccl: 
+        step 13 EXTEND bs=4 toks=8057]            wall     57 ms  main    220 ms  side/nccl: 
+        step 14 EXTEND bs=3 toks=8079]            wall     61 ms  main    263 ms  side/nccl: 
+  STALL step 15 EXTEND bs=5 toks=8073]            wall     64 ms  main    608 ms  side/nccl: 
+        top: 356 ms void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, tr <- aiter::biased_grouped_topk; 103 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 21 ms mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8073, 
+        step 16 EXTEND bs=2 toks=8148]            wall     59 ms  main    248 ms  side/nccl: 
+        step 17 EXTEND bs=2 toks=8155]            wall     56 ms  main    250 ms  side/nccl: 
+        step 18 EXTEND bs=2 toks=8192]            wall     59 ms  main    226 ms  side/nccl: 
+        step 19 EXTEND bs=5 toks=8192]            wall     58 ms  main    212 ms  side/nccl: 
+        step 20 EXTEND bs=2 toks=8173]            wall     58 ms  main    249 ms  side/nccl: 
+        step 21 EXTEND bs=3 toks=8192]            wall     58 ms  main    251 ms  side/nccl: 
+        step 22 EXTEND bs=2 toks=8192]            wall     53 ms  main    206 ms  side/nccl: 
+        step 23 EXTEND bs=2 toks=8192]            wall     54 ms  main    225 ms  side/nccl: 
+        step 24 EXTEND bs=1 toks=8192]            wall     58 ms  main    265 ms  side/nccl: 
+  STALL step 25 EXTEND bs=3 toks=8192]            wall     62 ms  main    790 ms  side/nccl: 
+        top: 560 ms _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/atten; 109 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 22 ms mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8192, 
+  STALL step 26 EXTEND bs=3 toks=8110]            wall     66 ms  main    673 ms  side/nccl: 
+        top: 423 ms _gemm_a16_w16_kernel_BLOCK_SIZE_M_256_BLOCK_SIZE_N_128_BLOCK <- aiter::gemm_a16w16_ [[8110; 103 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 26 ms _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/atten
+  STALL step 27 EXTEND bs=5 toks=8056]            wall     68 ms  main   1114 ms  side/nccl: 
+        top: 451 ms _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/atten; 432 ms void at::native::vectorized_elementwise_kernel<4, at::native <- aten::fill_ [[806], []] @ ; 97 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri
+        step 28 EXTEND bs=3 toks=8192]            wall     57 ms  main    222 ms  side/nccl: 
+  STALL step 29 EXTEND bs=4 toks=8057]            wall     69 ms  main   1043 ms  side/nccl: 
+        top: 778 ms void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<r <- aten::cumsum [[741], [], [; 102 ms _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/tri; 25 ms _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/atten
+  long main kernel 198 ms Memcpy HtoD (Host -> Device); overlapping: 9 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 2 ms s5 void at::native::vectorized_elementwise_; 1 ms s5 Memcpy DtoH (Device -> Host); 1 ms s5 Memcpy DtoD (Device -> Device)
+  long main kernel 226 ms _ZN5aiter37dynamic_per_group_scaled_quant_kernelID; overlapping: 15 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 4 ms s17 _Z20transfer_kernel_implITnDaXadL_Z24get; 2 ms s5 void at::native::vectorized_elementwise_; 1 ms s5 Memcpy DtoH (Device -> Host)
+  long main kernel 100 ms Memcpy HtoD (Host -> Device); overlapping: 1 ms s5 Memcpy DtoH (Device -> Host)
+  long main kernel 594 ms void rocprim::ROCPRIM_400200_NS::detail::trampolin; overlapping: 151 ms s17 _Z20transfer_kernel_implITnDaXadL_Z24get; 72 ms s18 void sglang::hicache_transfer_per_layer<; 12 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 5 ms s18 _Z20transfer_kernel_implITnDaXadL_Z20get
+  long main kernel 216 ms Memcpy HtoD (Host -> Device); overlapping: 1 ms s5 void at::native::elementwise_kernel_manu; 1 ms s5 Memcpy DtoD (Device -> Device); 1 ms s5 void at::native::(anonymous namespace)::; 1 ms s5 Memcpy DtoH (Device -> Host)
+  long main kernel 463 ms void aiter::opus_moe_sorting_entry<aiter::MoeSorti; overlapping: 281 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 17 ms s17 _Z20transfer_kernel_implITnDaXadL_Z24get; 6 ms s18 void sglang::hicache_transfer_per_layer<; 2 ms s5 void at::native::elementwise_kernel_manu
+  long main kernel 236 ms Memcpy HtoD (Host -> Device); overlapping: 4 ms s5 Memcpy DtoD (Device -> Device); 1 ms s5 void at::native::unrolled_elementwise_ke; 1 ms s5 Memcpy DtoH (Device -> Host); 1 ms s5 void at::native::elementwise_kernel_manu
+  long main kernel 469 ms _fused_append_shared_experts_kernel; overlapping: 291 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 4 ms s5 Memcpy DtoD (Device -> Device); 1 ms s5 void at::native::unrolled_elementwise_ke; 1 ms s17 _Z20transfer_kernel_implITnDaXadL_Z24get
+  long main kernel 241 ms Memcpy HtoD (Host -> Device); overlapping: 2 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 1 ms s5 Memcpy DtoD (Device -> Device); 0 ms s5 void at::native::unrolled_elementwise_ke; 0 ms s5 Memcpy HtoD (Host -> Device)
+  long main kernel 451 ms _ZN5aiter37dynamic_per_group_scaled_quant_kernelID; overlapping: 268 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 3 ms s17 _Z20transfer_kernel_implITnDaXadL_Z24get; 1 ms s5 Memcpy DtoD (Device -> Device); 0 ms s5 void at::native::unrolled_elementwise_ke
+  long main kernel 235 ms Memcpy HtoD (Host -> Device); overlapping: 4 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 3 ms s5 Memcpy DtoD (Device -> Device); 2 ms s5 Memcpy DtoH (Device -> Host); 2 ms s5 void at::native::elementwise_kernel_manu
+  long main kernel 562 ms _fused_append_shared_experts_kernel; overlapping: 155 ms s17 _Z20transfer_kernel_implITnDaXadL_Z24get; 74 ms s18 void sglang::hicache_transfer_per_layer<; 32 ms s12 ncclDevKernel_Generic_1(ncclDevKernelArg; 5 ms s18 _Z20transfer_kernel_implITnDaXadL_Z20get
+  -- by module
+       3769.4 ms  23.1%  moe
+       3571.4 ms  21.9%  dsa_indexer
+       3042.0 ms  18.7%  sparse_mla_core
+       2839.3 ms  17.4%  scheduler_io
+       2418.5 ms  14.8%  linear
+        536.4 ms   3.3%  norm
+        112.0 ms   0.7%  rope_kv_cache
+  -- by model_frame
+       3769.4 ms  23.1%  sglang/srt/models/deepseek_v2.py:1258 forward_normal
+       3626.3 ms  22.3%  sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+       3618.9 ms  22.2%  sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:496 forward_absorb_rocm_prepare
+       2827.3 ms  17.4%  (none)
+        815.7 ms   5.0%  sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward
+        520.5 ms   3.2%  sglang/srt/models/deepseek_v2.py:2768 forward
+        361.0 ms   2.2%  sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:199 rocm_absorb_q_bmm
+        246.0 ms   1.5%  sglang/srt/models/deepseek_v2.py:333 forward
+        198.2 ms   1.2%  sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:252 rocm_absorb_v_bmm
+        158.9 ms   1.0%  sglang/srt/models/deepseek_v2.py:2506 prepare_qkv_latent
+        106.9 ms   0.7%  sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:384 _fused_rope_cat_and_cache
+         27.6 ms   0.2%  sglang/srt/models/deepseek_v2.py:550 forward
+         11.2 ms   0.1%  sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:110 fused_qk_rmsnorm_bf16
+          1.0 ms   0.0%  sglang/srt/models/deepseek_v2.py:3068 forward
+  -- by leaf_frame
+       3042.0 ms  18.7%  sglang/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py:458 _triton_sparse_mla_fwd_single
+       2675.4 ms  16.4%  sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs
+       2088.9 ms  12.8%  aiter/jit/core.py:2100 wrapper
+       1466.0 ms   9.0%  aiter/ops/triton/attention/fp8_mqa_logits.py:97 fp8_mqa_logits
+       1195.5 ms   7.3%  aiter/ops/flydsl/kernels/tensor_shim.py:298 _run_compiled
+       1040.6 ms   6.4%  sglang/srt/layers/attention/dsa/dsa_backend_mtp_precompute.py:58 compute_cu_seqlens
+       1032.8 ms   6.3%  sglang/python/sglang/kernels/ops/moe/fused_moe_triton_kernels.py:1342 fused_append_shared_experts
+       1005.9 ms   6.2%  aiter/tuned_gemm.py:477 torch_gemm
+        815.7 ms   5.0%  aiter/ops/triton/gemm/basic/gemm_a16w16.py:69 gemm_a16w16_
+        799.4 ms   4.9%  sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py:129 topk_transform
+        559.2 ms   3.4%  aiter/ops/triton/gemm/batched/batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant.py:26 batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant
+        212.1 ms   1.3%  sglang/python/sglang/kernels/ops/attention/dsv4/topk.py:284 topk_transform_packed_v2
+        145.8 ms   0.9%  sglang/srt/mem_cache/common.py:46 kv_to_page_indices
+        106.9 ms   0.7%  aiter/ops/triton/fusions/fused_kv_cache.py:285 _cat_and_cache_mla
+         36.7 ms   0.2%  aiter/ops/flydsl/kernels/kernels_common.py:216 run_cached
+         24.0 ms   0.1%  sglang/srt/layers/attention/dsa/dsa_indexer.py:245 rotate_activation
+         13.7 ms   0.1%  sglang/srt/layers/activation.py:145 forward_cuda
+         11.2 ms   0.1%  sglang/srt/layers/attention/dsa/dsa_indexer.py:1527 _get_topk_ragged
+          6.7 ms   0.0%  sglang/python/sglang/kernels/ops/attention/dsa/tilelang_kernel.py:142 act_quant
+          3.2 ms   0.0%  sglang/python/sglang/kernels/ops/attention/dsa/index_buf_accessor.py:189 aiter
+          1.8 ms   0.0%  sglang/srt/layers/attention/dsa_backend.py:1427 _cal_indexer_k_start_end
+          1.1 ms   0.0%  sglang/inductor/vr/cvrgzmqvvlpxndrnzslepucj7djmn6qc3zb7e2l5o5tal472llb3.py:101 call
+          1.1 ms   0.0%  sglang/srt/layers/attention/dsa_backend.py:1105 init_forward_metadata
+          0.9 ms   0.0%  sglang/srt/layers/quantization/unquant.py:533 embedding
+          0.8 ms   0.0%  sglang/srt/layers/attention/dsa_backend.py:1076 _transform_table_1_to_real
+          0.3 ms   0.0%  sglang/srt/model_executor/forward_batch_info.py:944 init_new
+          0.3 ms   0.0%  sglang/srt/layers/attention/dsa_backend.py:1260 <listcomp>
+          0.2 ms   0.0%  sglang/python/sglang/kernels/ops/memory/small_copy.py:50 try_small_copy
+          0.1 ms   0.0%  sglang/srt/layers/attention/dsa/utils.py:157 compute_dsa_seqlens
+          0.1 ms   0.0%  sglang/srt/managers/scheduler_pp_mixin.py:59 _pp_snapshot_forward_batch
+          0.1 ms   0.0%  sglang/python/sglang/kernels/ops/attention/position.py:6 compute_position_triton
+          0.1 ms   0.0%  sglang/srt/utils/common.py:4047 __init__
+  -- by kernel
+       3042.0 ms  18.7%  _sparse_mla_fwd_split_dim_kernel  x600  median 5.079 ms x600 = 3048 ms
+       2675.4 ms  16.4%  Memcpy HtoD (Host -> Device)  x30  median 0.008 ms x30 = 0 ms
+       1465.4 ms   9.0%  _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOCK_KV_64_NUM_WARPS_2_NUM_BUFFERS_2_NUM_CHAINS_2_USE_BUFFER_LO  x875  median 0.441 ms x875 = 386 ms
+       1382.5 ms   8.5%  void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<rocprim::ROCPRIM_400200_NS::detail::wrapped_scan_config<rocpr  x2050  median 0.005 ms x2050 = 10 ms
+       1032.8 ms   6.3%  _fused_append_shared_experts_kernel  x510  median 0.006 ms x510 = 3 ms
+        840.7 ms   5.2%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x64_MI16x16x1_CMS_SN_LDSB0_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA1  x990  median 0.971 ms x990 = 962 ms
+        815.7 ms   5.0%  _gemm_a16_w16_kernel_BLOCK_SIZE_M_256_BLOCK_SIZE_N_128_BLOCK_SIZE_K_64_GROUP_SIZE_M_8_NUM_KSPLIT_1_SPLITK_BLOCK_SIZE_204  x600  median 0.744 ms x600 = 446 ms
+        687.0 ms   4.2%  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus5fp4_tELi32ELi32ELb0ELi64ELb1ELb0ELi0ELb0ELb0ELb0ELb0ELb0EEE  x510  median 0.020 ms x510 = 10 ms
+        642.0 ms   3.9%  mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_async_v2out_v33  x510  median 1.280 ms x510 = 653 ms
+        559.2 ms   3.4%  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant_kernel_HAS_BIAS_0_BLOCK_SIZE_M_64_BLOCK_SIZE_N_  x1200  median 0.403 ms x1200 = 483 ms
+        553.5 ms   3.4%  gemm2_a4w4_port_hmax8192_imax2048_bm64_bn256_bk128_atomic_persist_cu256_bhoist_apf_spart4x2_bf16lds_v2_biasabi7  x510  median 1.097 ms x510 = 560 ms
+        519.4 ms   3.2%  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1ELb0ELb1ELi1ELb0EEEvPT0_PT_PfS4_S4_S4_dbiiiiiiibb  x1170  median 0.060 ms x1170 = 71 ms
+        479.2 ms   2.9%  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P23<aiter::MoeSortingProblemMp<int, float, unsigned  x510  median 0.031 ms x510 = 16 ms
+        441.8 ms   2.7%  void at::native::vectorized_elementwise_kernel<4, at::native::FillFunctor<int>, std::array<char*, 1ul> >(int, at::native  x1777  median 0.005 ms x1777 = 8 ms
+        360.7 ms   2.2%  void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, true>(hip_bfloat16*, hip_bfloat16 const*, float*, int*, unsign  x510  median 0.010 ms x510 = 5 ms
+        212.1 ms   1.3%  void sglang::topk_packed_kernel<false>(sglang::TopKPackedParams)  x889  median 0.192 ms x889 = 171 ms
+        145.5 ms   0.9%  Memcpy DtoH (Device -> Host)  x42  median 0.006 ms x42 = 0 ms
+        106.9 ms   0.7%  _fused_qk_rope_cat_and_cache_mla_kernel_QH_64_KH_1_QH_PER_KH_64_BLOCK_D_nope_512_BLOCK_D_pe_64_BLOCK_D_HALF_pe_32_BLOCK_  x600  median 0.175 ms x600 = 105 ms
+         71.4 ms   0.4%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT176x256x64_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL  x280  median 0.254 ms x280 = 71 ms
+         44.0 ms   0.3%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT224x192x64_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTL  x180  median 0.244 ms x180 = 44 ms
+         43.5 ms   0.3%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT192x240x64_MI16x16x1_SN_LDSB0_AFC0_AFEM1_AFEM1_ASEM1_CLR0_CADS0_DTLA1_DTL  x140  median 0.308 ms x140 = 43 ms
+         27.6 ms   0.2%  hgemm_bf16_t64x128x128x3_ks1_w2x2x2_gm4_bias0_lnt_pft_0  x510  median 0.054 ms x510 = 27 ms
+         24.0 ms   0.1%  void fast_hadamard_transform_kernel<fast_hadamard_transform_kernel_traits<16, 7, c10::BFloat16> >(HadamardParamsBase)  x420  median 0.092 ms x420 = 39 ms
+         13.7 ms   0.1%  _ZN7sgl_hip10activation18act_and_mul_kernelI14__hip_bfloat16TnPFT_RKS3_EXadL_Z4siluIS2_ES3_S5_EEEEvPS3_PS4_i  x90  median 0.153 ms x90 = 14 ms
+         12.6 ms   0.1%  Memcpy DtoD (Device -> Device)  x1960  median 0.005 ms x1960 = 10 ms
+         11.2 ms   0.1%  _ZN5aiter23fused_qk_rmsnorm_kernelIDF16bLi256ELi8ELb1ELi4EEEvPT_S2_PKS1_S4_S4_S4_ffiiiiiii  x600  median 0.018 ms x600 = 11 ms
+          9.2 ms   0.1%  hgemm_bf16_t64x128x64x5_ksd_w2x4x1_gm0_bias0_lnt_pft_0  x210  median 0.043 ms x210 = 9 ms
+          8.3 ms   0.1%  void at::native::elementwise_kernel_manual_unroll<128, 4, at::native::gpu_kernel_impl<at::native::direct_copy_kernel_cud  x1145  median 0.007 ms x1145 = 8 ms
+          6.7 ms   0.0%  act_quant_kernel__kernel  x210  median 0.031 ms x210 = 7 ms
+          6.0 ms   0.0%  void aiter::mxfp4_moe_sort_kernel<256, 32, 24, 32>(unsigned char*, unsigned char*, int const*, int const*, int, int, int  x510  median 0.012 ms x510 = 6 ms
+          5.8 ms   0.0%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT32x48x512_MI16x16x1_SN_LDSB1_AFC0_AFEM1_AFEM1_ASEM1_CLR1_CADS0_DTLA0_DTLB  x189  median 0.026 ms x189 = 5 ms
+          5.0 ms   0.0%  void aiter::cp_gather_indexer_k_quant_cache_kernel<8, 32>(char const*, char*, char*, int const*, int const*, int, long,   x210  median 0.017 ms x210 = 3 ms
+          4.7 ms   0.0%  _ZN7ck_tile6kentryILi1ENS_14Layernorm2dFwdINS_29Layernorm2dFwdPipelineOnePassINS_29Layernorm2dFwdPipelineProblemIDF16bDF  x210  median 0.028 ms x210 = 6 ms
+          4.5 ms   0.0%  void at::native::_scatter_gather_elementwise_kernel<256, 4, at::native::_cuda_scatter_gather_internal_kernel<false, at::  x868  median 0.005 ms x868 = 4 ms
+          4.4 ms   0.0%  void compute_cuda_kernel<int>(int const*, long const*, int*, long, long)  x875  median 0.005 ms x875 = 4 ms
+          2.7 ms   0.0%  void aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 2, true, hip_bfloat  x119  median 0.022 ms x119 = 3 ms
+          2.7 ms   0.0%  void aiter::opus_moe_sorting_entry<aiter::MoeSortingClearWorkspaceKernel<aiter::MoeSortingClearWorkspaceProblem<false, 1  x510  median 0.006 ms x510 = 3 ms
+          2.7 ms   0.0%  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P0_v1<aiter::MoeSortingProblemMp<int, float, unsign  x510  median 0.006 ms x510 = 3 ms
+          2.7 ms   0.0%  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPhaseKernel_P1<aiter::MoeSortingProblemMp<int, float, unsigned   x510  median 0.006 ms x510 = 3 ms
+          2.4 ms   0.0%  void aiter::kn_entry_2c_sbhd_cached_indirect_inplace<aiter::OpCachedFwd, 1, true, false, true, true, 4, true, hip_bfloat  x91  median 0.023 ms x91 = 2 ms
+  -- by gemm_shape
+        766.4 ms   4.7%  aiter::fused_moe_ [[8192, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+        504.6 ms   3.1%  aiter::fused_moe_ [[8103, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+        492.1 ms   3.0%  aiter::fused_moe_ [[8036, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+        422.5 ms   2.6%  aiter::gemm_a16w16 [[8110, 2048], [16384, 2048], []] @ sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward
+        253.5 ms   1.6%  aiter::gemm_a16w16 [[8192, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+        146.4 ms   0.9%  aiter::gemm_a16w16 [[8192, 2048], [16384, 2048], []] @ sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward
+         81.2 ms   0.5%  aiter::fused_moe_ [[8057, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         81.0 ms   0.5%  aiter::fused_moe_ [[8056, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         66.3 ms   0.4%  aiter::gemm_a16w16 [[8192, 6144], [2624, 6144], []] @ sglang/srt/models/deepseek_v2.py:2506 prepare_qkv_latent
+         65.0 ms   0.4%  aiter::gemm_a16w16 [[8192, 6144], [24576, 6144], []] @ sglang/srt/models/deepseek_v2.py:333 forward
+         41.9 ms   0.3%  aiter::fused_moe_ [[8173, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         41.5 ms   0.3%  aiter::fused_moe_ [[8148, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         41.4 ms   0.3%  aiter::fused_moe_ [[8155, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         41.3 ms   0.3%  aiter::fused_moe_ [[8074, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         41.0 ms   0.3%  aiter::fused_moe_ [[8079, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         40.8 ms   0.3%  aiter::fused_moe_ [[8073, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         40.8 ms   0.3%  aiter::fused_moe_ [[8110, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         40.7 ms   0.2%  aiter::fused_moe_ [[8042, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         40.6 ms   0.2%  aiter::fused_moe_ [[8022, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         40.4 ms   0.2%  aiter::fused_moe_ [[8020, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         40.3 ms   0.2%  aiter::fused_moe_ [[7997, 6144], [257, 4096, 3072], [257, 6144, 1024]] @ sglang/srt/models/deepseek_v2.py:1258 forward_normal
+         38.9 ms   0.2%  aiter::gemm_a16w16 [[8056, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         38.9 ms   0.2%  aiter::gemm_a16w16 [[8057, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         36.1 ms   0.2%  aiter::gemm_a16w16 [[8192, 12288], [6144, 12288], []] @ sglang/srt/models/deepseek_v2.py:333 forward
+         30.9 ms   0.2%  aiter::gemm_a16w16 [[8057, 2048], [16384, 2048], []] @ sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward
+         30.7 ms   0.2%  aiter::gemm_a16w16 [[8056, 2048], [16384, 2048], []] @ sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8074, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8173, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8148, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8073, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8042, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8103, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8020, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8036, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.5 ms   0.1%  aiter::gemm_a16w16 [[8022, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.4 ms   0.1%  aiter::gemm_a16w16 [[7997, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.4 ms   0.1%  aiter::gemm_a16w16 [[8079, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.4 ms   0.1%  aiter::gemm_a16w16 [[8110, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         19.4 ms   0.1%  aiter::gemm_a16w16 [[8155, 16384], [6144, 16384], []] @ sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core
+         15.6 ms   0.1%  aiter::gemm_a16w16 [[8155, 2048], [16384, 2048], []] @ sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward
+  -- by kernel_site
+       3042.0 ms  18.7%  _sparse_mla_fwd_split_dim_kernel <-   @ sglang/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py:458 _triton_sparse_mla_fwd_single | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core  x600
+       1466.0 ms   9.0%  _gluon_fp8_mqa_logits_kernel_NUM_HEADS_32_HEAD_SIZE_128_BLOC <-   @ aiter/ops/triton/attention/fp8_mqa_logits.py:97 fp8_mqa_logits | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:496 forward_absorb_rocm_prepare  x889
+       1032.8 ms   6.3%  _fused_append_shared_experts_kernel <-   @ sglang/python/sglang/kernels/ops/moe/fused_moe_triton_kernels.py:1342 fused_append_shared_experts | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x510
+        778.0 ms   4.8%  void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<r <- aten::cumsum [[741], [], []] @ sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py:129 topk_transform | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:496 forward_absorb_rocm_prepare  x70
+        594.6 ms   3.7%  void rocprim::ROCPRIM_400200_NS::detail::trampoline_kernel<r <- aten::cumsum [[700], [], []] @ sglang/srt/layers/attention/dsa/dsa_backend_mtp_precompute.py:58 compute_cu_seqlens | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:496 forward_absorb_rocm_prepare  x77
+        464.1 ms   2.8%  void aiter::opus_moe_sorting_entry<aiter::MoeSortingMultiPha <- aiter::moe_sorting_opus_fwd [[8103, 9], [8103, 9], [89408], [89408], [1397], [2], [8103, 6144], [] @ aiter/jit/core.py:2100 wrapper | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x51
+        451.7 ms   2.8%  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus <- aiter::dynamic_per_group_scaled_quant [[8036, 3072], [8036, 6144], [8036, 192], [], [], [], [], []] @ aiter/jit/core.py:2100 wrapper | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x17
+        450.9 ms   2.8%  _ZN5aiter24add_rmsnorm_quant_kernelIDF16bDF16bLi256ELi24ELb1 <- aiter::add_rmsnorm [[8074, 6144], [8074, 6144], [8074, 6144], [8074, 6144], [6144], [], [ @ aiter/jit/core.py:2100 wrapper | sglang/srt/models/deepseek_v2.py:2768 forward  x39
+        445.2 ms   2.7%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8192], [8192], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x13
+        432.2 ms   2.7%  void at::native::vectorized_elementwise_kernel<4, at::native <- aten::fill_ [[806], []] @ sglang/srt/layers/attention/dsa/dsa_backend_mtp_precompute.py:58 compute_cu_seqlens | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:496 forward_absorb_rocm_prepare  x70
+        422.5 ms   2.6%  _gemm_a16_w16_kernel_BLOCK_SIZE_M_256_BLOCK_SIZE_N_128_BLOCK <- aiter::gemm_a16w16_ [[8110, 2048], [16384, 2048], [], [], [], [], [], [], [], [], []] @ aiter/ops/triton/gemm/basic/gemm_a16w16.py:69 gemm_a16w16_ | sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward  x20
+        361.0 ms   2.2%  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_ <-   @ aiter/ops/triton/gemm/batched/batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant.py:26 batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:199 rocm_absorb_q_bmm  x600
+        355.9 ms   2.2%  void aiter::topk_reg_kernel<hip_bfloat16, 4, true, false, tr <- aiter::biased_grouped_topk_hip [[8073, 256], [256], [8073, 8], [8073, 8], [], [], [], []] @ aiter/jit/core.py:2100 wrapper | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x17
+        280.9 ms   1.7%  mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8192, 6144], [257, 4096, 3072], [257, 6144, 1024], [8192, 9], [8192, @ aiter/ops/flydsl/kernels/tensor_shim.py:298 _run_compiled | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x221
+        268.9 ms   1.7%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8079], [8079], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        253.5 ms   1.6%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x64_MI <- aten::mm [[8192, 16384], [16384, 6144]] @ aiter/tuned_gemm.py:477 torch_gemm | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core  x260
+        242.4 ms   1.5%  gemm2_a4w4_port_hmax8192_imax2048_bm64_bn256_bk128_atomic_pe <- aiter::fused_moe_ [[8192, 6144], [257, 4096, 3072], [257, 6144, 1024], [8192, 9], [8192, @ aiter/ops/flydsl/kernels/tensor_shim.py:298 _run_compiled | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x221
+        240.8 ms   1.5%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8036], [8036], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        236.2 ms   1.5%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8020], [8020], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        234.6 ms   1.4%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8042], [8042], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        230.0 ms   1.4%  _ZN5aiter37dynamic_per_group_scaled_quant_kernelIDF16bN4opus <- aiter::dynamic_per_group_scaled_quant [[8192, 3072], [8192, 6144], [8192, 192], [], [], [], [], []] @ aiter/jit/core.py:2100 wrapper | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x221
+        229.9 ms   1.4%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8073], [8073], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        216.3 ms   1.3%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8103], [8103], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        214.2 ms   1.3%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8110], [8110], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        212.1 ms   1.3%  void sglang::topk_packed_kernel<false>(sglang::TopKPackedPar <-   @ sglang/python/sglang/kernels/ops/attention/dsv4/topk.py:284 topk_transform_packed_v2 | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:496 forward_absorb_rocm_prepare  x889
+        203.6 ms   1.2%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8074], [8074], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+        198.2 ms   1.2%  _batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_ <-   @ aiter/ops/triton/gemm/batched/batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant.py:26 batched_gemm_a8w8_a_per_token_group_prequant_w_per_batched_tensor_quant | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:252 rocm_absorb_v_bmm  x600
+        147.8 ms   0.9%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8057], [8057], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x2
+        146.4 ms   0.9%  _gemm_a16_w16_kernel_BLOCK_SIZE_M_256_BLOCK_SIZE_N_128_BLOCK <- aiter::gemm_a16w16_ [[8192, 2048], [16384, 2048], [], [], [], [], [], [], [], [], []] @ aiter/ops/triton/gemm/basic/gemm_a16w16.py:69 gemm_a16w16_ | sglang/srt/models/deepseek_v2.py:2533 q_b_proj_forward  x260
+        145.3 ms   0.9%  Memcpy DtoH (Device -> Host) <- aten::copy_ [[7320], [7320], []] @ sglang/srt/mem_cache/common.py:46 kv_to_page_indices |   x1
+        137.7 ms   0.8%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8056], [8056], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x2
+        100.1 ms   0.6%  Memcpy HtoD (Host -> Device) <- aten::copy_ [[8022], [8022], []] @ sglang/srt/managers/overlap_utils.py:87 resolve_forward_inputs |   x1
+         66.3 ms   0.4%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT176x256x64_MI <- aten::mm [[8192, 6144], [6144, 2624]] @ aiter/tuned_gemm.py:477 torch_gemm | sglang/srt/models/deepseek_v2.py:2506 prepare_qkv_latent  x260
+         65.0 ms   0.4%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x64_MI <- aten::mm [[8192, 6144], [6144, 24576]] @ aiter/tuned_gemm.py:477 torch_gemm | sglang/srt/models/deepseek_v2.py:333 forward  x39
+         48.5 ms   0.3%  _fused_qk_rope_cat_and_cache_mla_kernel_QH_64_KH_1_QH_PER_KH <- aiter::fused_qk_rope_cat_and_cache_mla [[8192, 64, 512], [8192, 64, 64], [8192, 1, 512], [8192, 1, 64], [1073 @ aiter/ops/triton/fusions/fused_kv_cache.py:285 _cat_and_cache_mla | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:384 _fused_rope_cat_and_cache  x260
+         42.2 ms   0.3%  mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8056, 6144], [257, 4096, 3072], [257, 6144, 1024], [8056, 9], [8056, @ aiter/ops/flydsl/kernels/tensor_shim.py:298 _run_compiled | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x34
+         42.1 ms   0.3%  mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x128x256_pm1_fp4q_sort_a <- aiter::fused_moe_ [[8057, 6144], [257, 4096, 3072], [257, 6144, 1024], [8057, 9], [8057, @ aiter/ops/flydsl/kernels/tensor_shim.py:298 _run_compiled | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x34
+         38.9 ms   0.2%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x64_MI <- aten::mm [[8056, 16384], [16384, 6144]] @ aiter/tuned_gemm.py:477 torch_gemm | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core  x40
+         38.9 ms   0.2%  Cijk_Alik_Bljk_BBS_BH_Bias_HA_S_SAV_UserArgs_MT256x256x64_MI <- aten::mm [[8057, 16384], [16384, 6144]] @ aiter/tuned_gemm.py:477 torch_gemm | sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py:818 forward_absorb_rocm_core  x40
+         36.5 ms   0.2%  gemm2_a4w4_port_hmax8192_imax2048_bm64_bn256_bk128_atomic_pe <- aiter::fused_moe_ [[8057, 6144], [257, 4096, 3072], [257, 6144, 1024], [8057, 9], [8057, @ aiter/ops/flydsl/kernels/tensor_shim.py:298 _run_compiled | sglang/srt/models/deepseek_v2.py:1258 forward_normal  x34
+  -- by side_site
+        781.4 ms   4.8%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [8192], [8192], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x194
+        538.2 ms   3.3%  s5 Memcpy DtoD (Device -> Device) <- aten::copy_ [[171], [171], []] @ sglang/srt/mem_cache/allocator/paged.py:204 alloc_extend > sglang/srt/mem_cache/allocator/paged.py:174 merge_and_sort_free  x3
+        538.1 ms   3.3%  s5 alloc_extend_kernel <-   @ sglang/srt/mem_cache/allocation.py:175 alloc_paged_token_slots_extend > sglang/srt/mem_cache/allocator/paged.py:204 alloc_extend  x31
+        532.5 ms   3.3%  s18 void sglang::hicache_transfer_per_layer< <-   @ sglang/srt/mem_cache/pool_host/mla.py:636 load_to_device_per_layer > sglang/python/sglang/kernels/ops/kvcache/hicache.py:325 transfer_hicache_one_layer_mla  x240
+        106.1 ms   0.7%  s5 Memcpy HtoD (Host -> Device) <- aten::copy_ [[8192], [8192], []] @ sglang/srt/mem_cache/hybrid_cache/hybrid_cache_controller.py:1440 _move_pool_indices > sglang/srt/managers/cache_controller.py:892 move_indices  x388
+         29.4 ms   0.2%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[7], [339086, 7, 1, 8448], [128], [128], [], [],  @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/dsa.py:480 backup_from_device_all_layer  x194
+         27.0 ms   0.2%  s5 Memcpy DtoH (Device -> Host) <- aten::copy_ [[1], [1], []] @ sglang/srt/disaggregation/prefill.py:1488 _send_kv_chunk > sglang/srt/disaggregation/utils.py:538 set_buf  x130
+         19.6 ms   0.1%  s5 Memcpy HtoD (Host -> Device) <- aten::copy_ [[4544], [4544], []] @ sglang/srt/mem_cache/hybrid_cache/hybrid_cache_controller.py:1440 _move_pool_indices > sglang/srt/managers/cache_controller.py:892 move_indices  x2
+         18.0 ms   0.1%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [6208], [6208], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x6
+         12.3 ms   0.1%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [6336], [6336], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x4
+         11.2 ms   0.1%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [2944], [2944], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x8
+         11.1 ms   0.1%  s18 _Z20transfer_kernel_implITnDaXadL_Z20get <- sgl_kernel::transfer_kv_per_layer_mla_pf_lf [[339086, 7, 1, 8448], [167790, 8448], [10685], [1 @ sglang/srt/mem_cache/pool_host/base.py:438 load_to_device_per_layer_physical > sglang/srt/mem_cache/pool_host/dsa.py:351 load_to_device_per_layer  x7
+         10.4 ms   0.1%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [7168], [7168], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x3
+          9.6 ms   0.1%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [6464], [6464], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x3
+          9.6 ms   0.1%  s5 void at::native::vectorized_elementwise_ <- aten::floor_divide [[1], []] @ sglang/srt/mem_cache/allocator/base.py:295 free_segments > sglang/srt/mem_cache/allocator/paged.py:340 free_segment  x33
+          9.3 ms   0.1%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [4736], [4736], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x4
+          8.9 ms   0.1%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [4608], [4608], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x4
+          7.9 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [8128], [8128], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          7.8 ms   0.0%  s5 void at::native::unrolled_elementwise_ke <- aten::floor_divide [[1], []] @ sglang/srt/mem_cache/allocator/base.py:295 free_segments > sglang/srt/mem_cache/allocator/paged.py:340 free_segment  x32
+          7.7 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [5440], [5440], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x3
+          7.7 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [7680], [7680], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          7.3 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [1600], [1600], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x10
+          6.8 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [6976], [6976], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          6.5 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [1984], [1984], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x7
+          6.4 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [2240], [2240], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x6
+          6.2 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [4352], [4352], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x3
+          5.9 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [3136], [3136], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x4
+          5.8 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [2112], [2112], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x6
+          5.7 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [3840], [3840], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x3
+          5.6 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [5888], [5888], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          5.5 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [5504], [5504], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          5.3 ms   0.0%  s5 Memcpy DtoD (Device -> Device) <- aten::cat [[[2944]], []] @ sglang/srt/mem_cache/unified_radix_cache.py:3903 path_device_indices > sglang/srt/mem_cache/unified_cache/unified_tree_core.py:1073 collect_full_device_indices  x18
+          5.1 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [5248], [5248], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          4.9 ms   0.0%  s18 _Z20transfer_kernel_implITnDaXadL_Z20get <- sgl_kernel::transfer_kv_per_layer_mla_pf_lf [[339086, 7, 1, 8448], [167790, 8448], [4662], [46 @ sglang/srt/mem_cache/pool_host/base.py:438 load_to_device_per_layer_physical > sglang/srt/mem_cache/pool_host/dsa.py:351 load_to_device_per_layer  x7
+          4.7 ms   0.0%  s18 _Z20transfer_kernel_implITnDaXadL_Z20get <- sgl_kernel::transfer_kv_per_layer_mla_pf_lf [[339086, 7, 1, 8448], [167790, 8448], [4459], [44 @ sglang/srt/mem_cache/pool_host/base.py:438 load_to_device_per_layer_physical > sglang/srt/mem_cache/pool_host/dsa.py:351 load_to_device_per_layer  x7
+          4.5 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [1664], [1664], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x6
+          4.4 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [4416], [4416], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          4.2 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [4288], [4288], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x2
+          4.2 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [8000], [8000], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x1
+          4.2 ms   0.0%  s17 _Z20transfer_kernel_implITnDaXadL_Z24get <- sgl_kernel::transfer_kv_all_layer_mla_lf_pf [[20], [21701440, 20, 1, 576], [1856], [1856], [], @ sglang/srt/mem_cache/pool_host/base.py:431 backup_from_device_all_layer_physical > sglang/srt/mem_cache/pool_host/mla.py:851 backup_from_device_all_layer  x5

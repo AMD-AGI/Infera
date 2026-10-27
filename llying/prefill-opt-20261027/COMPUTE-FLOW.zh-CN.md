@@ -1,5 +1,10 @@
 # GLM-5.2 prefill 计算流与优化候选（MI355X，TP1 × PP4，chunk 8192）
 
+**更新（10-27 19:30，新 trace llr37 + v3 C104）**：GPU 每步工作约 245 ms 很稳，但**GPU 只忙 52–54%**——瓶颈不在 kernel，而在调度线程：
+HiCache write_back 驱逐同步等正在跑的前向结束（调度时间的 35%），详见 README"新 trace"一节。下面第 2 条"停顿"是 profiler 时间戳假象，作废；
+kernel 侧的比例（第 1、3 条）仍成立，但只作用在 GPU 忙的那 54% 上。稀疏 MLA 的 microbench 结论：配置无收益；
+慢路径的根因是每层 KV 池 6.2 GB > 2 GB、Triton 不用 buffer load（README"稀疏 MLA microbench 结果"）。
+
 **结论先行**（初稿 10-27 17:40，数字来自 10-23 旧 trace 按中位数的稳态，新 trace 出来后替换）：
 1. 稳态下**稀疏 MLA 一项占 prefill 计算约 44%**（每层 5.2 ms，约 0.45 PFLOPS、约 1.9 TB/s 的 gather），而且走的不是调过的路径
    （gfx950 FP8 优化只认每卡 8 / 16 头，我们 TP1 每卡 64 头）→ 第一优先：配置 / 路由（microbench 在排队），再看 kernel 改写。
