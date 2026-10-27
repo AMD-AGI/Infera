@@ -281,6 +281,21 @@ def _replica_gpus(inference_config: InferenceConfig) -> int:
     return max(tp * pp, ep)
 
 
+def _split_host_projectors(prefill_proj, decode_proj) -> tuple:
+    """Whose measured host latency a split-served request pays before its first token.
+
+    Each server's: the request is admitted by the prefill server and again by
+    the decode server that streams it, and each tokenises and schedules it.
+    At low concurrency the measured splits sit at GPU prefill plus twice the
+    colocated host latency (DeepSeek-V4-Pro ATOM: +158 ms at 8k against 2 x 80;
+    MiniMax-M3 ATOM: +135-155 ms against 2 x 69). ``INFERASIM_SPLIT_HOST=prefill``
+    charges the prefill server's alone.
+    """
+    if os.environ.get("INFERASIM_SPLIT_HOST", "both") == "prefill":
+        return (prefill_proj,)
+    return (prefill_proj, decode_proj)
+
+
 def _split_replica_loads(total: int, replicas: int) -> list[int]:
     """Split an integer population evenly without dropping the remainder.
 
@@ -647,6 +662,10 @@ class InferencePerformanceProjector:
         self._meas_prefill_rate_ms_per_tok: float = 0.0  # for sub-prompt prefill pieces
         # Fixed per-prefill-step cost measured alongside that rate.
         self._meas_prefill_fixed_ms: float = 0.0
+        # Per-request host latency the prefill anchor measured apart from its
+        # GPU work (``host_fit``; see ``measured_host_ms``).
+        self._meas_prefill_host_ms: float = 0.0
+        self._meas_prefill_host_ms_per_tok: float = 0.0
         # tp -> the prefill length curve measured at that width.
         self._bench_prefill_curves: dict = {}
         # True when the benchmark deliberately repeated prompts with prefix
@@ -1086,6 +1105,30 @@ class InferencePerformanceProjector:
         # short prompts clear in ceil(C*ISL/budget) steps rather than C.
         return self._meas_prefill_fixed_ms + rate * max(1, total_tokens)
 
+    def measured_host_ms(self, prompt_len: int) -> float:
+        """Host latency a request pays before its first token, as measured.
+
+        Read from the prefill anchor's ``host_fit``: the part of its lowest-
+        concurrency median TTFT that its own decode stalls say was not GPU
+        prefill (HTTP, tokenisation, scheduling, streaming). It grows with the
+        prompt, at 5-11 us/token across the MI355X anchors, which is
+        tokenisation. Charged to TTFT only; zero for an anchor without one.
+        """
+        per_tok = self._meas_prefill_host_ms_per_tok
+        return self._meas_prefill_host_ms + per_tok * max(0, int(prompt_len))
+
+    def _read_prefill_host(self, anchor_diag: dict) -> None:
+        hf = (anchor_diag or {}).get("host_fit") or {}
+        self._meas_prefill_host_ms = max(0.0, float(hf.get("fixed_ms") or 0.0))
+        self._meas_prefill_host_ms_per_tok = max(0.0, float(hf.get("ms_per_token") or 0.0))
+        if hf:
+            print(
+                f"[inferasim:Inference] measured host latency: "
+                f"{self._meas_prefill_host_ms:.1f} ms + "
+                f"{self._meas_prefill_host_ms_per_tok * 1000:.1f} us/token per request, "
+                f"charged to TTFT."
+            )
+
     # -- benchmark ingestion ---------------------------------------------------
 
     def _builtin_comm_ms(self, ltype: str, batch: int, q_len: int) -> float:
@@ -1500,6 +1543,7 @@ class InferencePerformanceProjector:
                 # --load-benchmark-scaling with a second parallelism measures
                 # the split outright rather than assuming it.
                 anchor_diag = meta.get("prefill_anchor") or {}
+                self._read_prefill_host(anchor_diag)
                 curve = anchor_diag.get("curve_fit") or {}
                 if curve:
                     # Harvested at four or more prompt lengths, so the split
@@ -4727,6 +4771,7 @@ class InferencePerformanceProjector:
         # allocation, stream open). Independent of prompt length, which is what
         # distinguishes it from the tokenization term above.
         ttft += max(0.0, self.cfg.request_config.request_overhead_ms)
+        ttft += self.measured_host_ms(input_len)
         extras = self._spec_extras(concurrency, input_len + output_len // 2)
         extras.update(conc["extras"])
 
@@ -5003,6 +5048,8 @@ class InferencePerformanceProjector:
         tok_ms = max(0.0, req.tokenize_overhead_us) / 1000.0 * max(0, input_len)
         # Fixed per-request host cost; see the co-located path for the rationale.
         ttft = ttft_compute + kv_transfer + tok_ms + max(0.0, req.request_overhead_ms)
+        host = _split_host_projectors(prefill_proj, decode_proj)
+        ttft += sum(p.measured_host_ms(input_len) for p in host)
 
         itl = (decode_total / output_len) if output_len > 0 else step_latency
         # Per-token detokenization + streaming (latency-only; see the co-located

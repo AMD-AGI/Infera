@@ -250,10 +250,16 @@ class Scenario:
     isl: int
     osl: int
     trace: str | None = None
+    # Lengths drawn uniformly from [range_ratio * L, L], as InferenceX's client
+    # does with --random-range-ratio (0.8 in its sweeps); 1.0 is fixed length.
+    range_ratio: float = 1.0
 
     @classmethod
     def parse(cls, spec: str, trace_max_requests: int = 0) -> Scenario:
-        """``8k/1k``, ``1024/1024``, or ``trace:/path/to/agentx.jsonl``.
+        """``8k/1k``, ``1024/1024``, ``8k/1k@0.8``, or ``trace:/path/to/agentx.jsonl``.
+
+        ``@R`` draws each request's lengths uniformly from [R*ISL, ISL] and
+        [R*OSL, OSL], the InferenceX client's ``--random-range-ratio``.
 
         A trace path holding ``{c}`` is one file per concurrency, e.g.
         ``trace:lanes/agentx_256k_c{c}.jsonl``: a trace interleaving many more
@@ -274,10 +280,14 @@ class Scenario:
                 os.path.splitext(os.path.basename(path))[0].replace("_c{c}", "").replace("{c}", "")
             )
             return cls(name=f"trace:{name}", isl=isl, osl=osl, trace=path)
-        a, _, b = spec.lower().partition("/")
+        body, _, rr = spec.lower().partition("@")
+        a, _, b = body.partition("/")
         if not b:
             raise ValueError(f"bad scenario '{spec}' (expected ISL/OSL like 8k/1k, or trace:PATH)")
-        return cls(name=spec, isl=_tokens(a), osl=_tokens(b))
+        ratio = float(rr) if rr else 1.0
+        if not 0.0 < ratio <= 1.0:
+            raise ValueError(f"bad scenario '{spec}': range ratio must be in (0, 1]")
+        return cls(name=spec, isl=_tokens(a), osl=_tokens(b), range_ratio=ratio)
 
 
 def _tokens(s: str) -> int:
@@ -974,6 +984,8 @@ def point_argv(
     if par.dcp > 1:
         argv += ["--decode-context-parallel-size", str(par.dcp)]
     argv += ["--max-num-batched-tokens", str(budget)]
+    if not trace_path and scenario.range_ratio < 1.0:
+        argv += ["--des-range-ratio", str(scenario.range_ratio)]
     if trace_path:
         # The engine is launched with a context that fits the trace's longest
         # request. Left at the default (mean ISL + mean OSL) every request above
@@ -1086,6 +1098,16 @@ def project_point(task: dict[str, Any]) -> ParetoPoint:
     # DPA decode cost describes ATOM's kernels.
     if pt.engine == "sglang" and (pt.dp_attn > 1 or "DPA" in pt.disagg):
         os.environ.setdefault("INFERASIM_DPA_DECODE_DENSE", "1")
+    # SGLang's colocated attention-DP recipes run --enable-prefill-delayer, whose
+    # default holds a prefill for up to 30 forward passes (see ``simulate_once``).
+    if (
+        pt.engine == "sglang"
+        and pt.dp_attn > 1
+        and os.environ.get("INFERASIM_SGLANG_PREFILL_DELAYER", "1") == "1"
+    ):
+        os.environ["INFERASIM_PREFILL_DELAY_PASSES"] = "30"
+    else:
+        os.environ.pop("INFERASIM_PREFILL_DELAY_PASSES", None)
     try:
         from infera.projection.cli import build_parser
 
