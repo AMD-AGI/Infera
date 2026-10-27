@@ -29,13 +29,15 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 | no-car（decode 关 custom all-reduce） | 乱码 | 0.960 / 1 / 6 | 3/16 / 0/16 |
 
 | no-fp8draft（draft MoE 不转 FP8） | 乱码 | 0.950 / 4 / 9 | 2/16 / 0/16 |
-| k5（两侧 EAGLE 5/1/6） | 乱码；smoke 3/6，短 chat 也是垃圾（"Paris!!!!!riba!!!!!"） | | |
+| k5（两侧 EAGLE 5/1/6） | 乱码；smoke 3/6，短 chat 也是垃圾（"Paris!!!!!riba!!!!!"） | 0.730 / 17 / 49 | 3/16 / 2/16 |
+| **no-ppcomm（prefill 关 `SGLANG_PP_COMM_OVERLAP`）** | **正确，smoke 6/6** | **0.975 / 0 / 3** | 2/16（乱码 2、上限 11）/ 3/16（乱码 1、上限 13） |
 
-- **KF kernel 排除**：去掉后与 ref 完全相同。**FP8 draft 排除**。
-- **custom all-reduce 是其中一个因素**：关掉后短 prompt 的乱码 7 → 1，但长上下文仍坏，另有原因。
-- **k5 全坏**：随 decode batch 形状（verify 行数）变化而出错，指向漏列的一项——decode 挂的 aiter BF16 GEMM 调优 CSV（某些 M 的调优解算错）。
-  追加三个变体（`waiter2-*.out`）：no-gemmcsv（去掉两个 CSV）、clean-k5（kit 默认配方，= 以前验过的 4+4，验证镜像与 kit 本身干净）、
-  clean-k3（clean-k5 只换 K3）。
+- **主因是 prefill 的 `SGLANG_PP_COMM_OVERLAP=1`**（yihou llr21，+1.7%）：关掉后 smoke 和短 prompt 探测恢复到干净配置的水平（0.975、0 乱码）。
+  与"现算错、缓存对"一致：PP 级间通信与计算重叠，KV（含 indexer key）在算完之前被发给 decode；上下文超过 2048、DSA 开始稀疏选 token 时坏位置被选中。
+- **长上下文还有第二个问题**：关掉 PP 通信重叠后乱码少了，但跑到上限的输出仍退化成 "1.1.1.11.1…" / "44489.\" 44489.\" …"，正确率很低。
+- 第一轮里 KF、FP8 draft "去掉后无变化"是在 PP 通信重叠还开着时测的，被主因掩盖，对第二个问题不算排除；custom all-reduce 关掉后短 prompt 乱码 7 → 1。
+- **第二轮**（`waiter3-*.out`，基础 = llr35 去掉 PP 通信重叠）：clean-k5（kit 默认配方，= 以前验过的 4+4，验证镜像与 kit 干净）、clean-k3（只换 K3）、
+  再分别去掉 custom all-reduce / KF / GEMM 调优 CSV / index_share / async（`config/site-bis2-*.env`）。
 
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
