@@ -1,0 +1,45 @@
+rank file prefill-184337-p0-TP-0-PP-0.trace.json.gz: 30 steps
+rank file prefill-184337-p0-TP-0-PP-1.trace.json.gz: 30 steps
+rank file prefill-184337-p0-TP-0-PP-2.trace.json.gz: 30 steps
+rank file prefill-184337-p0-TP-0-PP-3.trace.json.gz: 30 steps
+  step  1: PP0 idle   191 delay     2 | PP1 idle    77 delay    71 | PP2 idle    76 delay    68 | PP3 idle     9 delay     4
+  step  2: PP0 idle    98 delay     2 | PP1 idle   108 delay    88 | PP2 idle    28 delay     9 | PP3 idle   777 delay     3
+  step  3: PP0 idle    92 delay     5 | PP1 idle    34 delay    18 | PP2 idle   773 delay    11 | PP3 idle    29 delay     5
+  step  4: PP0 idle    14 delay     1 | PP1 idle   767 delay    16 | PP2 idle    89 delay     3 | PP3 idle    82 delay     2
+  step  5: PP0 idle   770 delay     4 | PP1 idle    97 delay     2 | PP2 idle   392 delay     2 | PP3 idle   445 delay     3
+  step  6: PP0 idle   135 delay     8 | PP1 idle   429 delay     7 | PP2 idle   321 delay     9 | PP3 idle   555 delay     9
+  step  7: PP0 idle   352 delay     4 | PP1 idle   256 delay     6 | PP2 idle   255 delay     6 | PP3 idle   248 delay     8
+  step  8: PP0 idle   285 delay   229 (pp send 223, cpu: launch (run_batch) 6) | PP1 idle   302 delay   275 (pp send 260, cpu: launch (run_batch) 13) | PP2 idle   283 delay   254 (pp send 240, cpu: launch (run_batch) 14) | PP3 idle    35 delay     9
+  step  9: PP0 idle   293 delay     4 | PP1 idle   279 delay   267 (cpu: launch (run_batch) 256, pp send 11) | PP2 idle   386 delay     5 | PP3 idle   384 delay     4
+  step 10: PP0 idle   272 delay     6 | PP1 idle   387 delay    10 | PP2 idle   264 delay     8 | PP3 idle   519 delay     7
+  step 11: PP0 idle   389 delay     4 | PP1 idle   264 delay     7 | PP2 idle   266 delay     8 | PP3 idle   254 delay     7
+  step 12: PP0 idle   212 delay   201 (pp send 197, cpu: launch (run_batch) 3) | PP1 idle   237 delay   230 (pp send 218, cpu: launch (run_batch) 10) | PP2 idle   236 delay     3 | PP3 idle    11 delay     5
+  step 13: PP0 idle   279 delay     3 | PP1 idle   279 delay     4 | PP2 idle   179 delay     4 | PP3 idle   343 delay     4
+  step 14: PP0 idle   286 delay     4 | PP1 idle   186 delay     6 | PP2 idle   187 delay     5 | PP3 idle   182 delay     5
+  step 15: PP0 idle   141 delay     9 | PP1 idle   160 delay    60 | PP2 idle   147 delay    46 | PP3 idle   103 delay     8
+  step 16: PP0 idle   155 delay     3 | PP1 idle   152 delay   121 (pp send 72, cpu: launch (run_batch) 47) | PP2 idle    99 delay    67 | PP3 idle    34 delay     5
+  step 17: PP0 idle   150 delay     4 | PP1 idle   110 delay   105 (cpu: launch (run_batch) 75, pp send 27) | PP2 idle    36 delay    24 | PP3 idle    23 delay     4
+  step 18: PP0 idle   102 delay     3 | PP1 idle    36 delay    30 | PP2 idle    66 delay     3 | PP3 idle    52 delay     4
+  step 19: PP0 idle    55 delay     4 | PP1 idle    85 delay     6 | PP2 idle    53 delay     5 | PP3 idle    93 delay     4
+  step 20: PP0 idle   101 delay     2 | PP1 idle    67 delay     3 | PP2 idle    64 delay     3 | PP3 idle    62 delay     3
+  step 21: PP0 idle    28 delay    19 | PP1 idle    40 delay    23 | PP2 idle    32 delay    25 | PP3 idle    24 delay     5
+  step 22: PP0 idle    24 delay     2 | PP1 idle    30 delay    23 | PP2 idle    10 delay     2 | PP3 idle    10 delay     3
+  step 23: PP0 idle    64 delay     4 | PP1 idle    58 delay    31 | PP2 idle    80 delay     4 | PP3 idle    64 delay     5
+  step 24: PP0 idle    36 delay     2 | PP1 idle    56 delay     2 | PP2 idle   367 delay     2 | PP3 idle   402 delay     2
+  step 25: PP0 idle    17 delay     6 | PP1 idle   341 delay     7 | PP2 idle   212 delay     5 | PP3 idle   426 delay     7
+  step 26: PP0 idle   324 delay     7 | PP1 idle   215 delay     9 | PP2 idle   220 delay    10 | PP3 idle   210 delay    10
+  step 27: PP0 idle   197 delay   189 (pp send 179, cpu: launch (run_batch) 9) | PP1 idle   220 delay   213 (pp send 195, cpu: launch (run_batch) 17) | PP2 idle   789 delay    10 | PP3 idle   608 delay    12
+
+27 steps aligned across 4 ranks
+PP0: GPU busy 247 ms/step, idle before step 188 ms/step, own launch delay 27 ms/step
+   idle split: pp recv 61, sync 40, cpu: evict/load-back 28, hicache pp sync 28, pp send 23, cpu: other 4, cpu: launch (run_batch) 3
+   own-delay split: pp send 23, cpu: launch (run_batch) 3
+PP1: GPU busy 239 ms/step, idle before step 195 ms/step, own launch delay 61 ms/step
+   idle split: pp recv 59, sync 38, pp send 35, hicache pp sync 27, cpu: launch (run_batch) 24, cpu: evict/load-back 7, cpu: other 4
+   own-delay split: pp send 35, cpu: launch (run_batch) 24, cpu: other 2
+PP2: GPU busy 242 ms/step, idle before step 219 ms/step, own launch delay 22 ms/step
+   idle split: pp recv 120, sync 38, hicache pp sync 28, pp send 15, cpu: evict/load-back 7, cpu: launch (run_batch) 6, cpu: other 4
+   own-delay split: pp send 15, cpu: launch (run_batch) 6
+PP3: GPU busy 236 ms/step, idle before step 222 ms/step, own launch delay 5 ms/step
+   idle split: pp recv 88, cpu: other 54, sync 36, cpu: process_prefill_chunk 29, cpu: evict/load-back 8, cpu: launch (run_batch) 4, cpu: process_batch_result 2, pp send 1
+   own-delay split: cpu: launch (run_batch) 4
