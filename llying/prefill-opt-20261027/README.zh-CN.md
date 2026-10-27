@@ -38,7 +38,18 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 - **长上下文还有第二个问题**：关掉 PP 通信重叠后乱码少了，但跑到上限的输出仍退化成 "1.1.1.11.1…" / "44489.\" 44489.\" …"，正确率很低。
 - 第一轮里 KF、FP8 draft "去掉后无变化"是在 PP 通信重叠还开着时测的，被主因掩盖，对第二个问题不算排除；custom all-reduce 关掉后短 prompt 乱码 7 → 1。
 - **第二轮**（`waiter3-*.out`，基础 = llr35 去掉 PP 通信重叠）：clean-k5（kit 默认配方，= 以前验过的 4+4，验证镜像与 kit 干净）、clean-k3（只换 K3）、
-  再分别去掉 custom all-reduce / KF / GEMM 调优 CSV / index_share / async（`config/site-bis2-*.env`）。
+  再分别去掉 custom all-reduce / KF / GEMM 调优 CSV / index_share / async（`config/site-bis2-*.env`）。07:32 追加 `waiter4-*.out`：
+  去掉 FP8 draft、去掉 decode 的 mem 0.95 / stream-interval 30 / CLIP 8（回到 kit 的 0.92）。
+
+| 变体（第二轮） | smoke | 200 题探测 正确 / 乱码 / 上限 | 长上下文 16k × 32：捞针 / 长前缀 GSM8K |
+|---|---|---|---|
+| clean-k5（kit 默认，无 yihou 任何选项） | 6/6 | 0.990 / 0 | 16/16 / 16/16 |
+| clean-k3（只换 K3） | 6/6 | 0.985 / 0 | 16/16 / 15/16 |
+| no-car | 6/6 | 0.970 / 1 / 5 | 3/16 / 2/16 |
+| no-kf | 6/6 | 0.935 / 6 / 12 | 4/16 / 1/16 |
+| no-gemmcsv / no-idxshare / no-async / no-fp8draft / no-decodeknobs | 在跑 | | |
+
+  - 镜像、kit、K3 本身都干净；custom all-reduce、KF 都不是第二个问题（单独去掉仍坏）。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
 
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
@@ -63,7 +74,7 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 |---|---|---|
 | 0 | kit 移植（`2p1d-kit/llr35` = yihou kit 副本，KF overlay 与 GEMM CSV 冻结在 kit 里，md5 见 `config/`）；不占卡的分析 | 完成（上面的结论） |
 | 1 | `scripts/correct_and_perf.sh`：真实接受率的 smoke、GSM8K、200 题探测、长上下文 16k × 128 与 100k × 32；然后 4+4 C96 K3（2.99）性能基线 | 正确性 03:34–04:22 完成（乱码，见上）；基线按用户决定推迟到二分之后 |
-| 1' | 乱码二分（`scripts/quick_correct.sh`，7 个变体） | 04:25 起 |
+| 1' | 乱码二分（`scripts/quick_correct.sh`） | 第一轮完成（主因 PP 通信重叠）；第二轮 06:20 起，预计 09:30 前后结束 |
 | 2 | 原定 TP2×PP2；按第 6 条建议改为 HiCache 500 GB（等用户确认） | 待定 |
 
 ## 复现
