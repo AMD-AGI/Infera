@@ -1,0 +1,68 @@
+seq 8192 H 64 topk 2048 reqs 4 ctx 131072 mode overlap overlap 0.7 pool 90.0 GB scatter-run 1; KV bytes gathered per call 9.7 GB
+prod                        5.205 ms    1.86 TB/s  autotune pick: BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+single/32,4,2               5.223 ms    1.85 TB/s  x 1.00  max|diff| 0.0000  >2%: 0.00e+00
+chunked/32,4,2           failed: AssertionError: KV pool of 156250000 rows needs 42 views > 4
+single/64,4,2               5.871 ms    1.65 TB/s  x 0.89  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,4,2           failed: AssertionError: KV pool of 156250000 rows needs 42 views > 4
+single/32,4,1               9.191 ms    1.05 TB/s  x 0.57  max|diff| 0.0020  >2%: 0.00e+00
+chunked/32,4,1           failed: AssertionError: KV pool of 156250000 rows needs 42 views > 4
+single/64,4,1               6.633 ms    1.46 TB/s  x 0.78  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,4,1           failed: AssertionError: KV pool of 156250000 rows needs 42 views > 4
+single/64,8,2              25.527 ms    0.38 TB/s  x 0.20  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,8,2           failed: AssertionError: KV pool of 156250000 rows needs 42 views > 4
+best: single/32,4,2 5.223 ms (x1.00), single/64,4,2 5.871 ms (x0.89), single/64,4,1 6.633 ms (x0.78), single/32,4,1 9.191 ms (x0.57), single/64,8,2 25.527 ms (x0.20)
+seq 8192 H 64 topk 2048 reqs 4 ctx 131072 mode overlap overlap 0.7 pool 0.3 GB scatter-run 0; KV bytes gathered per call 9.7 GB
+prod                        3.707 ms    2.61 TB/s  autotune pick: BLOCK_N: 64, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+single/32,4,2               4.925 ms    1.96 TB/s  x 0.75  max|diff| 0.0020  >2%: 0.00e+00
+chunked/32,4,2              4.943 ms    1.95 TB/s  x 0.75  max|diff| 0.0020  >2%: 0.00e+00
+single/64,4,2               3.738 ms    2.59 TB/s  x 0.99  max|diff| 0.0000  >2%: 0.00e+00
+chunked/64,4,2              3.788 ms    2.55 TB/s  x 0.98  max|diff| 0.0000  >2%: 0.00e+00
+single/32,4,1               8.938 ms    1.08 TB/s  x 0.41  max|diff| 0.0020  >2%: 0.00e+00
+chunked/32,4,1              8.993 ms    1.07 TB/s  x 0.41  max|diff| 0.0020  >2%: 0.00e+00
+single/64,4,1               5.390 ms    1.79 TB/s  x 0.69  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,4,1              5.725 ms    1.69 TB/s  x 0.65  max|diff| 0.0020  >2%: 0.00e+00
+single/64,8,2              18.765 ms    0.51 TB/s  x 0.20  max|diff| 0.0000  >2%: 0.00e+00
+chunked/64,8,2             10.266 ms    0.94 TB/s  x 0.36  max|diff| 0.0000  >2%: 0.00e+00
+best: single/64,4,2 3.738 ms (x0.99), chunked/64,4,2 3.788 ms (x0.98), single/32,4,2 4.925 ms (x0.75), chunked/32,4,2 4.943 ms (x0.75), single/64,4,1 5.390 ms (x0.69)
+seq 8192 H 64 topk 2048 reqs 4 ctx 131072 mode overlap overlap 0.7 pool 6.2 GB scatter-run 1; KV bytes gathered per call 9.7 GB
+prod                        5.119 ms    1.89 TB/s  autotune pick: BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+single/32,4,2               5.136 ms    1.88 TB/s  x 1.00  max|diff| 0.0000  >2%: 0.00e+00
+chunked/32,4,2              5.977 ms    1.62 TB/s  x 0.86  max|diff| 0.0000  >2%: 0.00e+00
+single/64,4,2               5.688 ms    1.70 TB/s  x 0.90  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,4,2             12.297 ms    0.79 TB/s  x 0.42  max|diff| 0.0020  >2%: 0.00e+00
+single/32,4,1               9.093 ms    1.06 TB/s  x 0.56  max|diff| 0.0020  >2%: 0.00e+00
+chunked/32,4,1             18.334 ms    0.53 TB/s  x 0.28  max|diff| 0.0020  >2%: 0.00e+00
+single/64,4,1               6.438 ms    1.50 TB/s  x 0.80  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,4,1             19.808 ms    0.49 TB/s  x 0.26  max|diff| 0.0020  >2%: 0.00e+00
+single/64,8,2              25.483 ms    0.38 TB/s  x 0.20  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,8,2             21.164 ms    0.46 TB/s  x 0.24  max|diff| 0.0020  >2%: 0.00e+00
+best: single/32,4,2 5.136 ms (x1.00), single/64,4,2 5.688 ms (x0.90), chunked/32,4,2 5.977 ms (x0.86), single/64,4,1 6.438 ms (x0.80), single/32,4,1 9.093 ms (x0.56)
+seq 8192 H 64 topk 2048 reqs 4 ctx 131072 mode uniform overlap 0.7 pool 6.2 GB scatter-run 64; KV bytes gathered per call 9.7 GB
+prod                        5.152 ms    1.88 TB/s  autotune pick: BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+single/32,4,2               5.180 ms    1.87 TB/s  x 0.99  max|diff| 0.0000  >2%: 0.00e+00
+chunked/32,4,2              5.998 ms    1.61 TB/s  x 0.86  max|diff| 0.0000  >2%: 0.00e+00
+single/64,4,2               6.046 ms    1.60 TB/s  x 0.85  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,4,2             12.554 ms    0.77 TB/s  x 0.41  max|diff| 0.0020  >2%: 0.00e+00
+single/32,4,1               9.134 ms    1.06 TB/s  x 0.56  max|diff| 0.0020  >2%: 0.00e+00
+chunked/32,4,1             18.555 ms    0.52 TB/s  x 0.28  max|diff| 0.0020  >2%: 0.00e+00
+single/64,4,1               6.565 ms    1.47 TB/s  x 0.78  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,4,1             20.782 ms    0.47 TB/s  x 0.25  max|diff| 0.0020  >2%: 0.00e+00
+single/64,8,2              25.752 ms    0.38 TB/s  x 0.20  max|diff| 0.0020  >2%: 0.00e+00
+chunked/64,8,2             21.343 ms    0.45 TB/s  x 0.24  max|diff| 0.0020  >2%: 0.00e+00
+best: single/32,4,2 5.180 ms (x0.99), chunked/32,4,2 5.998 ms (x0.86), single/64,4,2 6.046 ms (x0.85), single/64,4,1 6.565 ms (x0.78), single/32,4,1 9.134 ms (x0.56)
+seq 8192 H 64 topk 2048 reqs 4 ctx 131072 mode overlap overlap 0.7 pool 6.2 GB scatter-run 1; KV bytes gathered per call 9.7 GB
+prod                        5.124 ms    1.89 TB/s  autotune pick: BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+torch.sort(idx, -1)         0.303 ms
+tilebase/32,4,2             5.222 ms    1.85 TB/s  x 0.98  max|diff| 0.2764  >2%: 1.00e+00
+tilebase-noclaim/32,4,2     5.236 ms    1.85 TB/s  x 0.98  max|diff| 0.0039  >2%: 0.00e+00
+tilebase/64,4,2             5.612 ms    1.72 TB/s  x 0.91  max|diff| 0.2764  >2%: 1.00e+00
+tilebase-noclaim/64,4,2     4.986 ms    1.94 TB/s  x 1.03  max|diff| 0.0039  >2%: 0.00e+00
+best: tilebase-noclaim/64,4,2 4.986 ms (x1.03), tilebase/32,4,2 5.222 ms (x0.98), tilebase-noclaim/32,4,2 5.236 ms (x0.98), tilebase/64,4,2 5.612 ms (x0.91)
+seq 8192 H 64 topk 2048 reqs 4 ctx 131072 mode overlap overlap 0.7 pool 0.3 GB scatter-run 0; KV bytes gathered per call 9.7 GB
+prod                        3.710 ms    2.60 TB/s  autotune pick: BLOCK_N: 64, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+torch.sort(idx, -1)         0.299 ms
+tilebase/32,4,2             5.241 ms    1.84 TB/s  x 0.71  max|diff| 0.0039  >2%: 0.00e+00
+tilebase-noclaim/32,4,2     5.224 ms    1.85 TB/s  x 0.71  max|diff| 0.0039  >2%: 0.00e+00
+tilebase/64,4,2             5.712 ms    1.69 TB/s  x 0.65  max|diff| 0.0039  >2%: 0.00e+00
+tilebase-noclaim/64,4,2     5.714 ms    1.69 TB/s  x 0.65  max|diff| 0.0039  >2%: 0.00e+00
+best: tilebase-noclaim/32,4,2 5.224 ms (x0.71), tilebase/32,4,2 5.241 ms (x0.71), tilebase/64,4,2 5.712 ms (x0.65), tilebase-noclaim/64,4,2 5.714 ms (x0.65)

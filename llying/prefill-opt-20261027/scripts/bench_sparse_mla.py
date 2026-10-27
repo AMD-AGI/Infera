@@ -32,6 +32,8 @@ ap.add_argument("--overlap", type=float, default=0.7)
 ap.add_argument("--iters", type=int, default=10)
 ap.add_argument("--quick", action="store_true", help="only prod, the best-known singles and split-K")
 ap.add_argument("--prod-only", action="store_true")
+ap.add_argument("--chunked", action="store_true", help="single pass vs sparse_mla_chunked (KV pool split into <= 2 GB views)")
+ap.add_argument("--tilebase", action="store_true", help="per-tile scalar base + 32-bit offsets over row-sorted indices")
 ap.add_argument("--pool-gb", type=float, default=0, help="KV pool size; 0 = just the requests' tokens")
 ap.add_argument("--scatter-run", type=int, default=0,
                 help="place each request's tokens in the pool in random runs of this many tokens (1 = fully random); 0 = contiguous")
@@ -137,16 +139,48 @@ print(f"seq {a.seq} H {H} topk {TOPK} reqs {a.reqs} ctx {a.ctx} mode {a.mode} ov
 cfg = tsm._sparse_mla_fwd_split_dim_kernel.best_config if hasattr(tsm._sparse_mla_fwd_split_dim_kernel, "best_config") else None
 print(f"{'prod':24s} {t_prod:8.3f} ms  {gbytes / t_prod:6.2f} TB/s  autotune pick: {cfg}")
 
+def chunked(bn, w, s):
+    import sparse_mla_chunked as smc
+
+    def run():
+        with tsm._no_async_copy():
+            return smc.sparse_mla_fwd_chunked(q_nope, q_rope, kv, idx, scale * tsm._LOG2E, tsm._FP8_MAX,
+                                              block_n=bn, num_warps=w, num_stages=s).unsqueeze(0)
+    return run
+
+
+def tilebase(bn, w, s, claim):
+    import sparse_mla_chunked as smc
+    idx_sorted = torch.sort(idx, dim=-1).values
+
+    def run():
+        with tsm._no_async_copy():
+            return smc.sparse_mla_fwd_tilebase(q_nope, q_rope, kv, idx_sorted, scale * tsm._LOG2E, tsm._FP8_MAX,
+                                               block_n=bn, num_warps=w, num_stages=s, claim=claim).unsqueeze(0)
+    return run
+
+
 variants = []
 if a.prod_only:
     raise SystemExit
-if a.quick:
+if a.tilebase:
+    t_sort, _ = bench(lambda: torch.sort(idx, dim=-1).values)
+    print(f"{'torch.sort(idx, -1)':24s} {t_sort:8.3f} ms")
+    variants += [(f"tilebase{'' if c else '-noclaim'}/{bn},{w},{s}", tilebase(bn, w, s, c))
+                 for bn, w, s in [(32, 4, 2), (64, 4, 2)] for c in (True, False)]
+elif a.chunked:
+    variants += [(f"{k}/{bn},{w},{s}", f(bn, w, s)) for bn, w, s in [(32, 4, 2), (64, 4, 2), (32, 4, 1), (64, 4, 1), (64, 8, 2)]
+                 for k, f in (("single", single), ("chunked", chunked))]
+elif a.quick:
     variants += [(f"single/{bn},{w},{s}", single(bn, w, s)) for bn, w, s in [(32, 4, 2), (64, 4, 2), (64, 8, 2), (32, 8, 2), (128, 8, 2)]]
 else:
     variants += [(f"single/{bn},{w},{s}", single(bn, w, s))
                  for bn, w, s in itertools.product((16, 32, 64, 128), (2, 4, 8), (1, 2))]
-variants += [(f"splitk/{ks}", splitk(ks)) for ks in (1, 2)]
-if a.quick:
+if not (a.chunked or a.tilebase):
+    variants += [(f"splitk/{ks}", splitk(ks)) for ks in (1, 2)]
+if a.chunked or a.tilebase:
+    pass
+elif a.quick:
     variants += [(f"fused/{bh},{bk},{w},{ps}", fused(bh, bk, w, ps)) for bh, bk, w, ps in [(16, 64, 2, 3), (32, 64, 4, 3), (64, 64, 8, 3)]]
 else:
     variants += [(f"fused/{bh},{bk},{w},{ps}", fused(bh, bk, w, ps))

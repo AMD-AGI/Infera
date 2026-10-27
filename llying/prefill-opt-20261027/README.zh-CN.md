@@ -262,6 +262,16 @@ autotune 在 FP8 下只剩 `BLOCK_N` ∈ {32, 64}、`num_warps` ∈ {1, 2, 4}、
   修好它约省每层 1.4 ms、每级每步约 28 ms（prefill 计算约 11%）。可行的方向：kernel 内把 KV 按 ≤ 2 GB 分段做多次带掩码的 buffer load；或换成按行 64 位基址
   + 32 位列偏移的 HIP / FlyDSL 实现；把设备 KV 池压到 373 万 token 以下可以直接验证，但设备前缀缓存缩到 35%、主机回载（停顿的来源）会大增，估计得不偿失。
   需要改 kernel，今晚不做端到端，记为高价值后续项。
+- **两种 Triton 内的修法都试了，都不行**（`scripts/sparse_mla_chunked.py`，`bench_sparse_mla.py --chunked / --tilebase`，结果 `results/bench_sparse_mla-chunked-1027T1850.txt`；
+  Triton 3.7.0 的判断在 `triton/backends/amd/compiler.py:189-216`：存储或 `ptr_range()` ≤ 2³¹−1 字节才加 `tt.pointer_range=32`）：
+  - 分段视图：把 6.2 GB 池切成 3 个 ≤ 2 GB 的视图（带 `ptr_range()` 的指针对象，范围如实），每个 tile 对每段做一次带掩码的 buffer load 再按位 OR。
+    结果正确，但 6.2 GB 池上 5.98 ms（`BLOCK_N` 32）/ 12.3 ms（64），比生产 5.12 ms 慢——load 指令和寄存器压力都 ×3；只有 1 段时（小池）3.79 ms ≈ 原 kernel。
+  - 每 tile 标量基址：先对每行 top-k 索引排序（attention 与顺序无关），tile 内用最小行号做标量基址 + 32 位相对偏移，并声明 2 GB 范围。
+    结果**错误**（max |diff| 0.28）：编译器把标量基址也折进 32 位偏移，buffer 描述符仍用参数基址，偏移溢出；而且即使小池上这种指针写法也退回慢路径（5.2 ms）。
+    不声明范围、只排序：4.99 ms（局部性好 3%），但排序本身 0.30 ms，净收益为 0。
+  - 剩下的可行方案：按 2 GB 段把每行索引分桶（排序 + 计数，约 0.3 ms），对每段用如实范围的视图各 launch 一次带 `topk_length` 的 kernel，输出部分结果 + LSE 再合并
+    （类似 split-K 的 combine）。估算每层 5.12 → 约 4.5 ms，prefill 计算省 4–5%；需要给单趟 kernel 加 LSE 输出，工作量较大，排在 HiCache 停顿之后。
+    根治要换非 Triton 的实现（HIP / FlyDSL 用 buffer load 的 idxen 结构化寻址：32 位行号 × 576 B 步长，可覆盖整个池）。
 
 **prefill GEMM 调优结果（18:14–18:28，140 GPU 0–2）——无收益，不做端到端**：调出来的仍是同一族 hipBLASLt kernel（MT256x256x64），与默认启发式的选择一致。
 M = 8192：o_proj 1,045 µs（trace 里未调优的是 968 µs）、gate_up 1,587 µs（1,660）、q_a+kv_a 228 µs（250）、wq_b 112 µs（110）、weights_proj 21 µs（20）；
