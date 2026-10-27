@@ -31,14 +31,19 @@ ap.add_argument("--mode", default="overlap", choices=["uniform", "overlap"])
 ap.add_argument("--overlap", type=float, default=0.7)
 ap.add_argument("--iters", type=int, default=10)
 ap.add_argument("--quick", action="store_true", help="only prod, the best-known singles and split-K")
+ap.add_argument("--prod-only", action="store_true")
+ap.add_argument("--pool-gb", type=float, default=0, help="KV pool size; 0 = just the requests' tokens")
+ap.add_argument("--scatter-run", type=int, default=0,
+                help="place each request's tokens in the pool in random runs of this many tokens (1 = fully random); 0 = contiguous")
 a = ap.parse_args()
 
 torch.manual_seed(0)
 dev = "cuda"
 fp8 = torch.float8_e4m3fnuz if tsm._IS_FNUZ else torch.float8_e4m3fn
 H, DV, DT, DIM, TOPK = a.heads, 512, 64, 576, a.topk
-n_rows = a.reqs * a.ctx
-kv = (torch.randn(n_rows, 1, DIM, device=dev) * 0.5).to(fp8)
+n_rows = max(a.reqs * a.ctx, int(a.pool_gb * 1e9 / DIM))
+kv = torch.empty(n_rows, 1, DIM, device=dev, dtype=fp8)
+kv.view(torch.uint8).random_(0, 0x40)  # finite positive e4m3 values below 2, no temporaries for large pools
 q = (torch.randn(a.seq, H, DV + DT, device=dev) * 0.5).to(fp8)
 q_nope, q_rope = q[..., :DV], q[..., DV:]
 
@@ -53,6 +58,14 @@ for r in range(a.reqs):
         n_hot = int(a.overlap * TOPK)
         rnd[:, :n_hot] = hot[:n_hot]
     idx[rows] = base + rnd
+if a.scatter_run > 0:
+    # Logical token t of the requests -> a physical pool row; runs of scatter_run consecutive tokens stay together.
+    run = a.scatter_run
+    n_runs = (a.reqs * a.ctx + run - 1) // run
+    slots = torch.randperm(n_rows // run, device=dev)[:n_runs]
+    t = torch.arange(a.reqs * a.ctx, device=dev)
+    phys = (slots[t // run] * run + t % run).to(torch.int32)
+    idx = phys[idx.long()]
 indices = idx.unsqueeze(1)
 scale = 1.0 / 16.0
 
@@ -119,12 +132,14 @@ t_prod, ref = bench(prod)
 ref = ref.float()
 ref_max = ref.abs().max().item()
 gbytes = a.seq * TOPK * DIM / 1e9
-print(f"seq {a.seq} H {H} topk {TOPK} reqs {a.reqs} ctx {a.ctx} mode {a.mode} overlap {a.overlap}; "
-      f"KV bytes gathered per call {gbytes:.1f} GB")
+print(f"seq {a.seq} H {H} topk {TOPK} reqs {a.reqs} ctx {a.ctx} mode {a.mode} overlap {a.overlap} "
+      f"pool {n_rows * DIM / 1e9:.1f} GB scatter-run {a.scatter_run}; KV bytes gathered per call {gbytes:.1f} GB")
 cfg = tsm._sparse_mla_fwd_split_dim_kernel.best_config if hasattr(tsm._sparse_mla_fwd_split_dim_kernel, "best_config") else None
 print(f"{'prod':24s} {t_prod:8.3f} ms  {gbytes / t_prod:6.2f} TB/s  autotune pick: {cfg}")
 
 variants = []
+if a.prod_only:
+    raise SystemExit
 if a.quick:
     variants += [(f"single/{bn},{w},{s}", single(bn, w, s)) for bn, w, s in [(32, 4, 2), (64, 4, 2), (64, 8, 2), (32, 8, 2), (128, 8, 2)]]
 else:

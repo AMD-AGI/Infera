@@ -251,6 +251,22 @@ autotune 在 FP8 下只剩 `BLOCK_N` ∈ {32, 64}、`num_warps` ∈ {1, 2, 4}、
 都没试过。microbench `scripts/bench_sparse_mla.py`（prefill 形状：8192 token、64 头、top-k 2048、4 个请求各 13.1 万上下文，overlap / uniform
 两种索引分布；对比生产路径、扩展配置的单趟 kernel、split-K 1 / 2；逐个对比输出误差）排在 trace 那一步、140 GPU 3 上跑。
 
+**稀疏 MLA microbench 结果（18:15–18:45，140 GPU 3；`results/bench_sparse_mla-*.txt`）——配置无收益，但找到了 1.4 倍差距的根因**：
+- 小 KV 池（0.3 GB）上生产路径 3.73 ms，是 Triton 配置空间里最快的：单趟 24 个配置、head 分块 fused kernel 84 个配置、split-K 1 / 2 都不比它快
+  （最好的 fused 64 头 × BLOCK_K 64 × 4 warp × 3 级流水 0.98 倍；8 warp、`BLOCK_N` 128、split-K 都更慢）。overlap 0.7 与 uniform 两种索引分布结论相同。
+  另：`BLOCK_N` 16 + 4 / 8 warp + 2 stages 两个配置输出是错的（max |diff| 0.024，24% 元素偏差 > 2%），生产的 FP8 剪枝本来就排除了它们。
+- **KV 池一过 2 GB 就慢 38%**：同样的请求和索引，池 1.9 GB → 3.71 ms，2.3 GB → 5.12 ms，90 GB → 5.12 ms（请求的 token 连续存放）/ 5.20 ms（完全打散）/
+  5.15 ms（64 个一段）/ 5.12 ms（8192 个一段）。与局部性、TLB 无关，只看 tensor 大小：Triton 的 AMD 后端只给存储 ≤ 2³¹ 字节的张量参数做 32 位指针范围特化、
+  生成 buffer load，更大的张量走 64 位地址的 global load；autotune 也随之改选 `BLOCK_N` 32。大池下换别的配置也追不回（最好就是 autotune 选的）。
+- 生产上每个 PP rank 的 KV 池是 1,074 万 token、每层一个 6.2 GB 的张量（2 GB 只装得下 373 万 token），**trace 里的 5.2 ms 正是这条慢路径**。
+  修好它约省每层 1.4 ms、每级每步约 28 ms（prefill 计算约 11%）。可行的方向：kernel 内把 KV 按 ≤ 2 GB 分段做多次带掩码的 buffer load；或换成按行 64 位基址
+  + 32 位列偏移的 HIP / FlyDSL 实现；把设备 KV 池压到 373 万 token 以下可以直接验证，但设备前缀缓存缩到 35%、主机回载（停顿的来源）会大增，估计得不偿失。
+  需要改 kernel，今晚不做端到端，记为高价值后续项。
+
+**prefill GEMM 调优结果（18:14–18:28，140 GPU 0–2）——无收益，不做端到端**：调出来的仍是同一族 hipBLASLt kernel（MT256x256x64），与默认启发式的选择一致。
+M = 8192：o_proj 1,045 µs（trace 里未调优的是 968 µs）、gate_up 1,587 µs（1,660）、q_a+kv_a 228 µs（250）、wq_b 112 µs（110）、weights_proj 21 µs（20）；
+合计每级每步省不到 1 ms（< 0.3%），在 C104 的复测波动（约 ±0.6%）之内。产物 `gemm-tune/glm52_prefill_bf16_tuned_gemm.csv`。
+
 **prefill GEMM 调优**：镜像合并后的 aiter 配置里，M = 8192 / 4096 没有 gfx950 项的是 o_proj 6144×16384、dense gate_up 24576×6144、
 q_a+kv_a 2624×6144（只有 M = 16384）、indexer wq_b 4096×2048、weights_proj 32×6144；q_b、dense down、router、wk 已有。
 `gemm-tune/tune_prefill_bf16.sh`（yihou 同一条调优命令）调这 5 个形状 × 2 个 M，排在 trace 那一步、140 GPU 0–2 上跑
