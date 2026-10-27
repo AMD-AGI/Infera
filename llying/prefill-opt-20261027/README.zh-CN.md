@@ -117,6 +117,11 @@ custom all-reduce 单独加上没问题；200 题里最多的一次（5 条）�
 
 - **async 的根因确认：PP 下中间块的 KV 在本 stage 算完之前被 mooncake 传输线程 RDMA 读走**；补丁 v3 修好（16k 与 30k 全对，长前缀 GSM8K
   错的 1 条无乱码、无到上限，与 clean-k3 相同水平）。
+- **PP 通信重叠也由补丁 v3 修好**（clean-k3 + PP 通信重叠 + v3）：smoke 6/6（冷前缀通过，不打补丁时失败）；200 题 0.980、乱码 0；
+  1.39 万 **16/16、15/16**；2.6 万 **8/8、8/8**。→ 两个主因是同一个 bug：PP 下中间块 KV 的传输时序只靠"CPU 不会领先 GPU 太多"，
+  async 与 PP 通信重叠都打破了这个前提。
+- 收尾（`waiter13-*.out`，`config/site-llr35-v3.env`）：完整 llr35（开 HiCache、PP 通信重叠、async、custom all-reduce 与全部 decode 选项）+ v3，
+  1319 题探测 + 长上下文 16k × 128、100k × 32；同时看第三个现象在完整配置里是否还在（b3 + custom all-reduce 的 1319 题在它之前）。
 
 - **PP 通信重叠单独加上就坏**（与 async 一样，两项都已从干净配置加回确认）。
 - **补丁 v1 无效**（已确认挂进 prefill 容器）→ PP 通信重叠的问题不在接收端。看代码改为怀疑**发送端**：stage 输出的 hidden states 在 forward stream
