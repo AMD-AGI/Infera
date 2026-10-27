@@ -51,9 +51,12 @@ done
 echo "$(date -u +%T) $label warmup complete; profiling in ${after}s"
 sleep "$after"
 pid="prefill-$(date -u +%H%M%S)"
+# PROFILE_RECORD_SHAPES=1 also records the operators' input shapes (GEMM M / N / K), at some profiling overhead.
+shapes=""
+[[ "${PROFILE_RECORD_SHAPES:-0}" != 1 ]] || shapes=', "record_shapes": true'
 for ((i = 0; i < ${PREFILL_WORKERS:-1}; i++)); do
     curl -s -m 60 -X POST "http://$PREFILL_NODE_IP:$((27201 + 256 * i))/start_profile" -H 'Content-Type: application/json' \
-        -d "{\"output_dir\": \"/root/.cache/$pid\", \"num_steps\": $steps, \"activities\": [\"CPU\", \"GPU\"], \"profile_id\": \"$pid-p$i\"}"
+        -d "{\"output_dir\": \"/root/.cache/$pid\", \"num_steps\": $steps, \"activities\": [\"CPU\", \"GPU\"], \"profile_id\": \"$pid-p$i\"$shapes}"
     echo
 done
 echo "$(date -u +%T) $label profile requested ($pid)"
