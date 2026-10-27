@@ -22,6 +22,15 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 4+4 C96 基线（还在等显存、未起栈）已停，二分 04:25 起，138 `$L/bisect/`（`waiter-*.out`、每个变体的 `.log` / `.probe.jsonl` / `.longctx-*.jsonl`）；
 基线之后再跑（`config/plan-llr35-base.txt`）。
 
+| 变体（llr35 去掉一项，都关 HiCache） | smoke 长前缀现算 | 200 题探测 正确 / 乱码 / 上限 | 长上下文 16k × 32：捞针 / 长前缀 GSM8K |
+|---|---|---|---|
+| ref（只关 HiCache） | 乱码 | 0.945 / 7 / 10 | 2/16 / 1/16 |
+| no-kf（去掉 KF kernel 与 KF top-k） | 乱码 | 0.945 / 7 / 10 | 2/16 / 1/16 |
+| no-car（decode 关 custom all-reduce） | 乱码 | 0.960 / 1 / 6 | 3/16 / 0/16 |
+
+- **KF kernel 排除**：去掉后与 ref 完全相同。
+- **custom all-reduce 是其中一个因素**：关掉后短 prompt 的乱码 7 → 1，但长上下文仍坏，另有原因。
+
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
 1. **prefill 多算的新 token**（`scripts/prefill_miss.py`，逐请求）：1P C112 的未命中 3.64% = 对话增长 2.22% + 会话在本次运行首次出现 1.17%
