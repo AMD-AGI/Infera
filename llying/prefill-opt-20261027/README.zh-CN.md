@@ -18,8 +18,9 @@ lm-eval 只抽最后的数字，看不出来；模拟接受率计分不看内容
 K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 
 **二分**（`scripts/quick_correct.sh`，每个变体只从 llr35 去掉一项、都关 HiCache；smoke + 200 题探测 + 长上下文 16k × 32）：ref（只关 HiCache，
-须仍乱码）→ no-kf → no-car → no-fp8draft → k5 → no-ppcomm → no-idxshare（`config/site-bis-*.env`）。按约定排在 4+4 C96 基线之后，
-138 `$L/bisect/waiter-*.out`。
+须仍乱码）→ no-kf → no-car → no-fp8draft → k5 → no-ppcomm → no-idxshare（`config/site-bis-*.env`）。用户 04:25 决定二分提前：
+4+4 C96 基线（还在等显存、未起栈）已停，二分 04:25 起，138 `$L/bisect/`（`waiter-*.out`、每个变体的 `.log` / `.probe.jsonl` / `.longctx-*.jsonl`）；
+基线之后再跑（`config/plan-llr35-base.txt`）。
 
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
@@ -43,7 +44,8 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 | 步 | 内容 | 状态 |
 |---|---|---|
 | 0 | kit 移植（`2p1d-kit/llr35` = yihou kit 副本，KF overlay 与 GEMM CSV 冻结在 kit 里，md5 见 `config/`）；不占卡的分析 | 完成（上面的结论） |
-| 1 | `scripts/correct_and_perf.sh`：真实接受率的 smoke、GSM8K、200 题探测、长上下文 16k × 128 与 100k × 32；然后 4+4 C96 K3（2.99）性能基线 | 03:34 起，138 `$L=/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/llr` |
+| 1 | `scripts/correct_and_perf.sh`：真实接受率的 smoke、GSM8K、200 题探测、长上下文 16k × 128 与 100k × 32；然后 4+4 C96 K3（2.99）性能基线 | 正确性 03:34–04:22 完成（乱码，见上）；基线按用户决定推迟到二分之后 |
+| 1' | 乱码二分（`scripts/quick_correct.sh`，7 个变体） | 04:25 起 |
 | 2 | 原定 TP2×PP2；按第 6 条建议改为 HiCache 500 GB（等用户确认） | 待定 |
 
 ## 复现
