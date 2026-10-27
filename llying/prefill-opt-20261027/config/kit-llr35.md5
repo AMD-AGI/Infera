@@ -1,0 +1,13 @@
+2d846085c6cd19f356fef6be72bc0499  ./README.md
+4782ee19b463b9e5b3a18b702ccb2eec  ./engine/agentx/agentx.sh
+2e1a15364b8cab785bb7adab1e54aaf9  ./engine/agentx/constraints.txt
+cffe1e521c8955c5ebd09f01211bbed7  ./engine/common.sh
+50e9be65d72206aea8791933ac920c74  ./engine/down.sh
+20104f13c41714c46cff913891bdcb3e  ./engine/eval.sh
+c910c5abc58a3c6f4de3dd40c695a629  ./engine/smoke.py
+cb94e3b99663135d9a1b7597ce3d4f3b  ./engine/smoke.sh
+3acd547e51db250ebf81d502fbb5d762  ./engine/up.sh
+90d4bec744f99a485d90c886fe835ccd  ./engine/worker.sh
+a076e3b33e5a62151aa6fbe21f922895  ./env.sh
+930b41f040c5dc2134f8f95610ae116d  ./patches/deepseek_v2.py
+4d23540bee4a1a7b8e10be40dcca8814  ./patches/deepseek_v2.py.orig

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # AgentX points on the 2P1D kit one after another, the InferenceX way: every CONC gets a fresh
-# deployment (SIM_ACCEPT_LEN=3.61) -> agentx.sh -> down.sh, and the next point starts only after
+# deployment (SIM_ACCEPT_LEN from the site, default 3.61 = golden AL at K5; K3 sites set 2.99) -> agentx.sh -> down.sh, and the next point starts only after
 # both nodes' GPUs have released their VRAM. Before each point it records who else is on the
 # nodes (GPU processes and VRAM, containers with CPU use, load) into LOG_DIR/c<CONC>.env-check
 # for manual review; it does not judge them.
@@ -47,7 +47,7 @@ for conc in "$@"; do
         done
     } >"$log_dir/$label.env-check" 2>&1
     echo "$(date -u +%T) $label up"
-    if (cd "$kit" && SIM_ACCEPT_LEN=3.61 RUN_ID="$label-$(date -u +%m%dT%H%M)" bash engine/up.sh) >"$log_dir/$label.log" 2>&1; then
+    if (cd "$kit" && SIM_ACCEPT_LEN="${SIM_ACCEPT_LEN:-3.61}" RUN_ID="$label-$(date -u +%m%dT%H%M)" bash engine/up.sh) >"$log_dir/$label.log" 2>&1; then
         guard "$log_dir/$label.log" &
         guard_pid=$!
         (cd "$kit" && CONC="$conc" bash engine/agentx/agentx.sh) >>"$log_dir/$label.log" 2>&1

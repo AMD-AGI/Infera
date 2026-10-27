@@ -38,6 +38,15 @@ echo "$(date -u +%T) $run_id up"
             "$log_dir/$run_id.probe.jsonl" --limit 200 --concurrency 64 >>"$log_dir/$run_id.log" 2>&1
         echo "$(date -u +%T) $run_id probe exited $?: $(tail -1 "$log_dir/$run_id.log")"
     fi
+    # LONGCTX_SPECS ("CTX_TOKENS:N ..."): long prompts with no shared prefix, past the 2048 tokens above which the
+    # DSA indexer selects a sparse top-k (GSM8K prompts never get there); needle + long-prefix GSM8K per spec.
+    for spec in ${LONGCTX_SPECS:-}; do
+        timeout 5400 python3 "$(dirname "$0")/../../mix-v0522-correctness-20261019/scripts/longctx_probe.py" \
+            "$PROBE_PROMPTS" "http://$PREFILL_NODE_IP:${ROUTER_PORT:-28300}" "${SERVED_MODEL:-glm5.2-mxfp4}" \
+            "$log_dir/$run_id.longctx-${spec%%:*}.jsonl" --ctx-tokens "${spec%%:*}" --n "${spec##*:}" \
+            --concurrency 32 >>"$log_dir/$run_id.log" 2>&1
+        echo "$(date -u +%T) $run_id longctx $spec exited $?: $(tail -2 "$log_dir/$run_id.log" | tr '\n' ' ')"
+    done
 }
 (cd "$kit" && bash engine/down.sh) >>"$log_dir/$run_id.log" 2>&1
 echo "$(date -u +%T) $run_id down"
