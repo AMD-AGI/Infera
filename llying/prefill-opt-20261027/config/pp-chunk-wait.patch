@@ -1,0 +1,26 @@
+--- /tmp/lyl_sgl/sglang/srt/disaggregation/prefill.py	2026-10-20 15:27:07.000000000 +0000
++++ /home/liyingli/bench_agentx/baseline/2p1d-kit/llr35/patches/pp-chunk-wait/prefill.py	2026-10-27 11:25:50.719437307 +0000
+@@ -1405,6 +1405,14 @@
+                     len(req.origin_input_ids),
+                 )
+             else:
++                if get_parallel().pp_size > 1:
++                    # PP launches on forward_stream and the scheduler can run ahead
++                    # of it (async batch depth, PP comm overlap): the chunk just
++                    # launched may still be writing its KV when the transfer worker
++                    # reads device memory outside the CUDA stream.
++                    ev = torch.cuda.Event()
++                    ev.record(self.forward_stream)
++                    req.disagg_kv_sender._early_send_wait_event = ev
+                 self.send_kv_chunk(req)
+ 
+             if self.chunked_req is not None:
+@@ -1452,7 +1460,7 @@
+         # be writing these prefix pages on forward_stream. Record a completion
+         # event now so the transfer worker can wait on those writes before the
+         # RDMA read, instead of racing them.
+-        if self.enable_overlap:
++        if self.enable_overlap or get_parallel().pp_size > 1:
+             ev = torch.cuda.Event()
+             ev.record(self.forward_stream)
+             req.disagg_kv_sender._early_send_wait_event = ev

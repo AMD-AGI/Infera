@@ -89,6 +89,23 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 
 - **两版补丁对两个主因都无效**：显存分配器在 stream 之间复用（proxy tensor 生命周期，接收端和发送端）这一类假设被排除，至少不是主要原因。
 
+**第三个现象复测（1319 题）**：clean-k3 + custom all-reduce 开头坏 0（0.967，长上下文 16/16、15/16）；clean-k3 0（0.970，16/16、16/16）；b3 0。
+custom all-reduce 单独加上没问题；200 题里最多的一次（5 条）是 b3 + custom all-reduce（bis2-no-async）→ 排了 1319 题复测（`site-bis7-b3-car.env`）。
+
+**新机制假设：PP 下中间块的 KV 在算完之前被 RDMA 读走**（读代码，11:30）。
+- llr35 的 PP4 切块是 8192（`PP4_CHUNK=8192`，所有二分变体都继承），所以 1.39 万 token 的长上下文 prompt 是两块；smoke 和 200 题探测都不切块。
+- `process_prefill_chunk`（`disaggregation/prefill.py`）在 PP prefill 每轮开头，对正在切块的请求、非 overlap 模式（prefill 是 `--disable-overlap-schedule`）
+  立刻 `send_kv_chunk` 发出刚排进去的那一块；mooncake 传输线程直接读显存，不跟 CUDA stream 同步。
+- overlap 路径为此专门加了等待：`process_batch_result_disagg_prefill` 里 Infera 的 `_infera_nonfinal_chunk_wait_event`（注释 "the transfer worker
+  reads device memory outside the CUDA stream. Gate the read on this chunk's writes completing"）、`maybe_send_cached_prefix_chunk` 里的 event，
+  都只在 `enable_overlap` 时设置。PP 也在 `forward_stream` 上 launch，却两处都没覆盖。
+- 默认配置能对，靠的是 CPU 每轮被收发阻塞、领先 GPU 不多；**async 和 PP 通信重叠都去掉了这个阻塞**，CPU 在第一块 forward 写完之前就发出了它。
+  与所有现象一致：只有超过切块大小的 prompt 坏、短 prompt 好、并发 1 也稳定复现、输出是"上下文部分看不清"（只有第一块坏）。
+- 补丁 v3（`config/pp-chunk-wait.patch`，kit `patches/pp-chunk-wait/prefill.py`，只改这个文件、不带 v1/v2）：PP 下发中间块前在 `forward_stream` 上记 event
+  挂给 `disagg_kv_sender._early_send_wait_event`；提前发送缓存前缀的条件也加上 PP。
+- 队列（`waiter12-*.out`，长度扫描之后）：async + 切块 16384（16k 一块 / 30k 两块，同一部署内对照）、async + v3、PP 通信重叠 + v3、
+  PP 通信重叠 + 切块 16384、b3 + custom all-reduce 1319 题。
+
 - **PP 通信重叠单独加上就坏**（与 async 一样，两项都已从干净配置加回确认）。
 - **补丁 v1 无效**（已确认挂进 prefill 容器）→ PP 通信重叠的问题不在接收端。看代码改为怀疑**发送端**：stage 输出的 hidden states 在 forward stream
   上分配，交给 NCCL 异步发送；`_pp_commit_comm_work` 里 `work.wait()` 之后 PyTorch 释放暂存的 tensor。默认路径 `wait()` 在 schedule stream 上，
