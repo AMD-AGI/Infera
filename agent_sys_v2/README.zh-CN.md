@@ -13,7 +13,9 @@
 ## 前提
 
 - Linux、Python 3.10+、`tmux`。
-- 能正常使用的 Claude Code 配置 `~/.claude/settings.json`（认证、网关、模型映射）。运行用的是 `claude-agent-sdk`（版本固定）自带的 `claude` CLI，加上你的用户配置，不需要别的设置。
+- 能正常使用的 Claude Code 配置 `~/.claude/settings.json`（认证、网关、模型映射）。运行用的是 `claude-agent-sdk`（版本固定）自带的 `claude` CLI，不需要别的设置。
+
+agent 不在你的 `~/.claude` 里运行，而是用自己的 Claude Code 配置目录 `$AGENT_SYS_HOME/claude`。每次启动按你的设置重新生成，只带登录和找到模型要用的东西：`env` 块里登录和路由用的变量（`ANTHROPIC_*`、云厂商的凭据、代理）、`modelOverrides`、`modelSettings` 等（完整清单和理由见 `docs/design.zh-CN.md` §5.9）。你的 MCP server、插件、CLAUDE.md、skills 和 hooks 都不加载：agent 以 `bypassPermissions` 运行，比如带着你的 Atlassian MCP，它不经确认就能写 Jira 和 Confluence。项目需要某个 MCP server 或插件时，在 `agent.extra_args` 里写明（`--mcp-config <文件>`、`--plugin-dir <目录>`）。会话记录仍在 `~/.claude/projects`（agent 目录里的 `projects/` 链接到那里），`~/.claude/.credentials.json` 里的 Claude OAuth 登录原地使用（只有 MCP server 的 token 时不交给 agent）。`agent_sys.yaml` 写 `claude_config: inherit` 可以退回到在你的 `~/.claude` 里运行。
 
 ## 安装
 
@@ -134,5 +136,6 @@ ruff format --check . && ruff check .            # 仓库的 ruff 配置
 - 提示 *socket 所在的目录其他用户也能进入*：把 `--sock` 指到一个只有你能进入的目录。
 - 提示 *已有 server 在运行*：一个 `AGENT_SYS_HOME` 只能有一个 server，否则两个调度器会把同一个任务启动两次。
 - 待开始的任务迟迟不开始：卡片上写着原因，可能是项目已归档、prompt 的 frontmatter 或 checks 有错误（改正后才会开始）、上游未完成（`children` 依赖还要等上游的子任务）、模板待审核（在看板上点**开始运行**）、关闭了自动开始、机器被别的任务占用，或名额已满。
-- 运行用的是 `~/.claude/settings.json`。server 会去掉启动它的 shell 里的 `CLAUDE*` / `ANTHROPIC*` 变量，所以即使在 Claude Code 会话里启动 server，用的也是你的用户配置。
+- 运行的设置取自 `~/.claude/settings.json`（生成到 `$AGENT_SYS_HOME/claude`，见"前提"）。server 会去掉启动它的 shell 里的 `CLAUDE*` / `ANTHROPIC*` 变量，所以即使在 Claude Code 会话里启动 server，用的也是你的用户配置。每次运行的"本次注入内容与等价命令（launch.md）"列出带上和没带上的键（只列键名）。
+- *`$AGENT_SYS_HOME/claude/projects` 是一个非空目录*：运行拒绝开始，不会删除它；把里面的会话记录移到 `~/.claude/projects`，删掉它，再开始。
 - v1 也读 `AGENT_SYS_HOME`（作为它的状态前缀）。如果你为 v1 设置了它，v2 会在同一个目录下建自己的子目录，两者互不干扰。

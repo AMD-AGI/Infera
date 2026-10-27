@@ -11,6 +11,7 @@ from pathlib import Path
 
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
+from . import claude_config
 from .checks import parse as parse_checks
 from .i18n import LANGUAGES, _, status_word
 from .model import (
@@ -58,6 +59,7 @@ AGENT_SYS_YAML = f"""# agent_sys's global settings. A key left out takes its def
 language: {GLOBAL_DEFAULTS["language"]}                     # en or zh: the language of the web UI and of agent_sys's messages
 protocol_language: {GLOBAL_DEFAULTS["protocol_language"]}            # zh or en: the agent_sys protocol and what agent_sys tells the agent (it works in the prompt's language)
 max_running: {GLOBAL_DEFAULTS["max_running"]}                   # tasks running at once across all projects (background waits and terminal takeovers count)
+claude_config: {GLOBAL_DEFAULTS["claude_config"]}          # isolated: the agent's own Claude Code directory ($AGENT_SYS_HOME/claude), without your MCP servers, plugins, CLAUDE.md and skills; inherit: your ~/.claude as it is
 # cli_path: /path/to/claude      # default: the claude bundled with claude-agent-sdk in agent_sys's venv
 """
 
@@ -628,6 +630,10 @@ def save_settings(home, scope, values, pid=None):
             raise AgentSysError(_("并发上限应为正整数"))
         if key in ("language", "protocol_language") and value not in LANGUAGES:
             raise AgentSysError(_("语言应为 {languages}", languages=" / ".join(LANGUAGES)))
+        if key == "claude_config" and value not in claude_config.MODES:
+            raise AgentSysError(
+                _("claude_config 应为 {modes}", modes=" / ".join(claude_config.MODES))
+            )
         if key == "machines" and not isinstance(value, list):
             raise AgentSysError(_("machines 应为机器的列表"))
         if key == "ledger" and not isinstance(value, dict):

@@ -862,7 +862,7 @@ def create_app(home):
     @app.get("/api/models")
     def get_models():
         """The models offered in the forms, and what the aliases stand for here (launch.models)."""
-        return {"models": launch.models()}
+        return {"models": launch.models(store.home)}
 
     # ---- changes
 

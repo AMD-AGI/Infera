@@ -36,6 +36,7 @@ GLOBAL_DEFAULTS = {
     "max_running": 4,
     "language": i18n.DEFAULT,
     "protocol_language": "zh",
+    "claude_config": "isolated",
 }
 PROJECT_DEFAULTS = {
     "autorun": True,

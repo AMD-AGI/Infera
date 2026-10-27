@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from agent_sys_v2 import i18n, launch, server, tmux
+from agent_sys_v2 import claude_config, i18n, launch, server, tmux
 from agent_sys_v2.model import new_state, read_json, read_state, write_state
 from agent_sys_v2.ops import new_project
 from agent_sys_v2.server import create_app
@@ -45,6 +45,33 @@ def own_tmux(monkeypatch):
     (Path(os.environ.get("TMUX_TMPDIR") or "/tmp") / f"tmux-{os.getuid()}" / name).unlink(
         missing_ok=True
     )
+
+
+@pytest.fixture(autouse=True)
+def operator_claude(tmp_path):
+    """A made-up ~/.claude for every test: settings with a gateway, a plugin and an MCP-free env, and no session
+    records. No test reads or links the user's own, even one that calls monkeypatch.undo()."""
+    d = tmp_path / "operator_claude"
+    (d / "projects").mkdir(parents=True)
+    (d / "settings.json").write_text(
+        json.dumps(
+            {
+                "env": {
+                    "ANTHROPIC_BASE_URL": "https://gateway.example",
+                    "ANTHROPIC_API_KEY": "sk-test-0123456789abcdefghij",
+                    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gw-haiku",
+                    "CLAUDE_CODE_PLUGIN_DIRS": "/home/me/mods",
+                },
+                "modelOverrides": {"claude-haiku-5-5": "gw-haiku-5-5"},
+                "enabledPlugins": {"p@market": True},
+                "theme": "dark",
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(claude_config, "OPERATOR_DIR", d)
+        yield d
 
 
 @pytest.fixture(autouse=True)

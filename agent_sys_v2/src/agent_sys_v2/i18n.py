@@ -264,6 +264,27 @@ EN = {
     "台账口径（A/B 判定按这份快照复算；本次运行中 project.yaml 的口径变了，验收不通过）：": "The ledger's rules (an A/B verdict is recomputed against this snapshot; if project.yaml's rules change during the run, the checks fail):",
     "验收检查用到的 {n} 个文件（检查调用的模块、skills 的脚本、检查命令里写出的文件）已记下摘要；每次检查前比对，有变化就记一条失败的检查。": "The {n} files the checks use (the modules they call, the skills' scripts, the files their commands name) are digested; they are compared before each check, and a change is recorded as a failed check.",
     "在 agent-sys-v2 serve 清理过的环境（去掉 `CLAUDE*`、`ANTHROPIC*`、`IS_SANDBOX`）上加：": "On top of the environment agent-sys-v2 serve cleaned (without `CLAUDE*`, `ANTHROPIC*`, `IS_SANDBOX`):",
+    "## Claude Code 配置": "## Claude Code configuration",
+    "用你的 `~/.claude`（agent_sys.yaml `claude_config: inherit`）：你的 MCP server、插件、CLAUDE.md、skills 和 hooks 都会加载。": "Your `~/.claude` (agent_sys.yaml `claude_config: inherit`): your MCP servers, plugins, CLAUDE.md, "
+    "skills and hooks are all loaded.",
+    "agent 用自己的配置目录 `{dir}`（`CLAUDE_CONFIG_DIR`），不加载你的 MCP server、插件、CLAUDE.md、skills 和 hooks（`--strict-mcp-config`）。每次启动按 `~/.claude/settings.json` 重新生成它的 settings.json；这里只列键名。": "The agent has a configuration directory of its own, `{dir}` (`CLAUDE_CONFIG_DIR`): your MCP "
+    "servers, plugins, CLAUDE.md, skills and hooks are not loaded (`--strict-mcp-config`). Its settings.json is made again from `~/.claude/settings.json` on every start; only key names are listed here.",
+    "- 转发的 env：{keys}": "- env forwarded: {keys}",
+    "- 不转发的 env：{keys}": "- env not forwarded: {keys}",
+    "- 带上的 settings 键：{keys}（另加 `skipDangerousModePermissionPrompt: true`）": "- settings keys carried: {keys} (plus `skipDangerousModePermissionPrompt: true`)",
+    "- 不带的 settings 键：{keys}": "- settings keys left behind: {keys}",
+    "- 会话记录：`projects/` 是指向 `~/.claude/projects` 的符号链接": "- session records: `projects/` is a symlink to `~/.claude/projects`",
+    "- 登录：{login}": "- login: {login}",
+    "你的 Claude OAuth 登录 `{dir}/.credentials.json`（`CLAUDE_SECURESTORAGE_CONFIG_DIR`；转发的变量里有 API key 时以它为准）": "your Claude OAuth login `{dir}/.credentials.json` "
+    "(`CLAUDE_SECURESTORAGE_CONFIG_DIR`; an API key among the forwarded variables comes first)",
+    "没有 Claude 的 OAuth 登录，登录靠转发的变量": "no Claude OAuth login; the forwarded variables log in",
+    "- agent.extra_args 显式加的 MCP 和插件：{added}": "- MCP servers and plugins added in agent.extra_args: {added}",
+    "agent.extra_args 只能有一个 --mcp-config：把 MCP server 写进同一个文件": "agent.extra_args may have one --mcp-config only: put the MCP servers in one file",
+    "claude_config 应为 {modes}": "claude_config should be {modes}",
+    "{link} 是指向 {other} 的符号链接，应指向 {target}：没有改动它，请检查后删掉它再开始": "{link} is a symlink to {other}, not to {target}: it was left as it is; check it, delete it, then start again",
+    "{link} 是一个非空目录，应是指向 {target} 的符号链接：没有删除它，请把里面的会话记录移到 {target} 后删掉它再开始": "{link} is a directory with files in it, not a symlink to {target}: it was not deleted; move the "
+    "session records in it to {target}, delete it, then start again",
+    "{link} 应是指向 {target} 的符号链接，现在是一个文件": "{link} should be a symlink to {target}, and is a file",
     # ---- what agent_sys tells the agent, in protocol_language: system.md, the first message, messages into its
     # session (launch, runs, questions, server), what failed checks say (checks.feedback)
     "# 这个项目的工作约定\n\n下面是我给这个项目的所有任务定的约定和规则，每次运行都会附上。\n\n": "# This project's working conventions\n\nThe conventions and rules I set for every task of this project, "

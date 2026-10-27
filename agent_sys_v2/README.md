@@ -21,7 +21,17 @@ UI, back end and the rules they follow — is [`docs/design.zh-CN.md`](docs/desi
 
 - Linux, Python 3.10+, `tmux`.
 - A working Claude Code configuration in `~/.claude/settings.json` (credentials, gateway, model mapping). Runs use the
-  `claude` CLI that comes with `claude-agent-sdk` (pinned) and your user settings; no other setup.
+  `claude` CLI that comes with `claude-agent-sdk` (pinned); no other setup.
+
+Agents do not run in your `~/.claude`: they get a Claude Code configuration directory of their own,
+`$AGENT_SYS_HOME/claude`, made again from your settings on every start with only what they need to log in and reach
+their models — the login and routing variables of the `env` block (`ANTHROPIC_*`, cloud provider credentials, proxies),
+`modelOverrides`, `modelSettings` and a few more (the full list, and why, is in `docs/design.zh-CN.md` §5.9). Your MCP
+servers, plugins, CLAUDE.md, skills and hooks are not loaded: an agent runs in `bypassPermissions`, and with your
+Atlassian MCP server, say, it could write to Jira and Confluence without asking. A project that needs an MCP server or a
+plugin names it in `agent.extra_args` (`--mcp-config <file>`, `--plugin-dir <dir>`). Session records stay in
+`~/.claude/projects` (the agents' `projects/` links there), and a Claude OAuth login in `~/.claude/.credentials.json`
+is used where it is. `claude_config: inherit` in `agent_sys.yaml` goes back to running agents in your own `~/.claude`.
 
 ## Install
 
@@ -166,7 +176,11 @@ ruff format --check . && ruff check .            # the repository's settings
   frontmatter or checks (it starts once fixed), upstream tasks (for a `children` dependency also the upstream's
   subtasks), a template waiting for your review (**Start project** on the board), auto start switched off, machines
   held by another task, or slots.
-- Runs use `~/.claude/settings.json`; the server drops `CLAUDE*` / `ANTHROPIC*` variables from the shell it was
-  started in, so a server started inside a Claude Code session still uses your settings.
+- Runs take their settings from `~/.claude/settings.json` (into `$AGENT_SYS_HOME/claude`, see Requirements); the server
+  drops `CLAUDE*` / `ANTHROPIC*` variables from the shell it was started in, so a server started inside a Claude Code
+  session still uses your settings. A run's **What this run was given** (launch.md) lists the keys it got and those it
+  did not (names only).
+- *`$AGENT_SYS_HOME/claude/projects` is a directory with files in it*: runs refuse to start rather than delete it;
+  move the session records in it to `~/.claude/projects`, delete it, and start again.
 - The v1 runtime also reads `AGENT_SYS_HOME` (as its state prefix); if you set it for v1, v2 makes its directories
   there too, side by side.

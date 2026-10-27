@@ -9,7 +9,8 @@
                                      and the environment
   .agent_sys/runs/<run_id>/inbox.jsonl   empty; the server appends your messages and stop commands to it
 
-The same options make the interactive claude of a terminal takeover (terminal_argv).
+The same options make the interactive claude of a terminal takeover (terminal_argv). The Claude Code configuration
+both run with (their own directory, or yours) is claude_config.py's.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ import re
 import shlex
 from pathlib import Path
 
-from . import checks, i18n, machines, skills, tmux, verdict
+from . import checks, claude_config, i18n, machines, skills, tmux, verdict
 from .i18n import _, translate
 from .model import (
     GLOBAL_DEFAULTS,
@@ -36,9 +37,6 @@ from .model import (
 )
 from .scan import main_report, project_dir
 
-# Claude Code's settings and session records. Not $CLAUDE_CONFIG_DIR: the server and the runner drop CLAUDE* from their
-# environment (tmux.clean_own_env).
-CLAUDE_DIR = Path.home() / ".claude"
 # The agent_sys protocol in each language of agent_sys.yaml protocol_language (zh by default). The agent works in the
 # language of the task's prompt whichever it gets (the protocol says so).
 PROTOCOL_DIR = Path(__file__).resolve().parent / "templates" / "_common" / "rules"
@@ -110,8 +108,8 @@ def bundled_cli():
 
 
 # The models offered where one is chosen (agent of a task, project defaults), [(id, label)]. An alias
-# (opus, sonnet, haiku) is resolved by Claude Code: ANTHROPIC_DEFAULT_<X>_MODEL in ~/.claude/settings.json (the
-# environment's is dropped, tmux.clean_own_env), else the CLI's own default for it; any other name can be typed in.
+# (opus, sonnet, haiku) is resolved by Claude Code: ANTHROPIC_DEFAULT_<X>_MODEL in the settings the agent runs with
+# (claude_config.effective_settings), else the CLI's own default for it; any other name can be typed in.
 MODELS = [
     ("opus", "Opus"),
     ("sonnet", "Sonnet"),
@@ -123,14 +121,10 @@ MODELS = [
 ]
 
 
-def user_settings():
-    return read_json(CLAUDE_DIR / "settings.json")
-
-
-def models():
+def models(home):
     """MODELS as [{id, label, resolves}]: resolves is the model an alias stands for, or the name modelOverrides
-    sends a model id to, as far as ~/.claude/settings.json says ('' when it does not)."""
-    settings = user_settings()
+    sends a model id to, as far as the settings the agent runs with say ('' when they do not)."""
+    settings = claude_config.effective_settings(home)
     env = {k: str(v) for k, v in (settings.get("env") or {}).items()}
     overrides = (
         settings.get("modelOverrides") if isinstance(settings.get("modelOverrides"), dict) else {}
@@ -403,34 +397,58 @@ def extra_args(value):
     return [str(a) for a in (value if isinstance(value, list) else [value])]
 
 
+REPEATED = ("plugin-dir",)  # flags that may be given more than once: a list of their values
+
+
 def parse_extra_args(args):
     """The task's extra_args (each item as written: '--strict-mcp-config', '--max-turns 5', '--x=y') -> the SDK's
-    {flag: value or None}."""
+    {flag: value or None}; a flag of REPEATED -> [values]. One --mcp-config only: the SDK passes one file."""
     try:
         tokens = [tok for a in extra_args(args) for tok in shlex.split(a)]
     except ValueError as e:
         raise AgentSysError(_("agent.extra_args 无法解析：{error}", error=e)) from None
     out, i = {}, 0
     while i < len(tokens):
-        tok = tokens[i].lstrip("-")
-        if "=" in tok:
-            key, value = tok.split("=", 1)
-            out[key] = value
+        key, value = tokens[i].lstrip("-"), None
+        if "=" in key:
+            key, value = key.split("=", 1)
         elif i + 1 < len(tokens) and not tokens[i + 1].startswith("-"):
-            out[tok] = tokens[i + 1]
+            value = tokens[i + 1]
             i += 1
+        if key in REPEATED:
+            out.setdefault(key, []).append(value)
+        elif key == "mcp-config" and key in out:
+            raise AgentSysError(
+                _("agent.extra_args 只能有一个 --mcp-config：把 MCP server 写进同一个文件")
+            )
         else:
-            out[tok] = None
+            out[key] = value
         i += 1
     return out
 
 
+def isolated(cfg):
+    """The run has a Claude Code configuration of its own (claude_config); a launch.json from before has none."""
+    return (cfg.get("claude") or {}).get("mode") == "isolated"
+
+
+def claude_args(cfg):
+    """parse_extra_args of the run; isolated, --strict-mcp-config is the runner's own, not repeated."""
+    args = parse_extra_args(cfg.get("extra_args"))
+    if isolated(cfg):
+        args.pop("strict-mcp-config", None)
+    return args
+
+
 def sdk_options(cfg, **extra):
     """ClaudeAgentOptions for a run from its launch.json (the preset system prompt, bypassPermissions on
-    every start since a resume does not keep it, user settings only, --session-id first and --resume after)."""
+    every start since a resume does not keep it, user settings only, --session-id first and --resume after; isolated:
+    only the MCP servers of extra_args)."""
     from claude_agent_sdk import ClaudeAgentOptions
 
     sid = cfg["session_id"]
+    args = claude_args(cfg)
+    plugins = [{"type": "local", "path": p} for p in args.pop("plugin-dir", []) if p]
     return ClaudeAgentOptions(
         cli_path=cfg["cli_path"],
         model=cfg.get("model") or None,
@@ -444,10 +462,9 @@ def sdk_options(cfg, **extra):
         max_budget_usd=cfg["max_budget_usd"],
         settings=settings_json(cfg),
         env=dict(cfg["env"]),
-        extra_args={
-            "append-system-prompt-file": cfg["system_md"],
-            **parse_extra_args(cfg.get("extra_args")),
-        },
+        strict_mcp_config=isolated(cfg),
+        plugins=plugins,
+        extra_args={"append-system-prompt-file": cfg["system_md"], **args},
         **extra,
     )
 
@@ -460,8 +477,8 @@ def sdk_command(cfg):
 
 
 def terminal_argv(cfg):
-    """Interactive claude for a terminal takeover: the runner's permission mode, setting sources and system.md; an
-    existing session is resumed, a new one starts with the first message. --max-budget-usd only works
+    """Interactive claude for a terminal takeover: the runner's permission mode, setting sources, MCP servers and
+    system.md; an existing session is resumed, a new one starts with the first message. --max-budget-usd only works
     with --print, so the budget does not hold in the terminal."""
     sid = cfg["session_id"]
     argv = [cfg["cli_path"], *(["--resume", sid] if cfg["resume"] else ["--session-id", sid])]
@@ -478,8 +495,11 @@ def terminal_argv(cfg):
         "--append-system-prompt-file",
         cfg["system_md"],
     ]
-    for flag, value in parse_extra_args(cfg.get("extra_args")).items():
-        argv += [f"--{flag}"] + ([value] if value is not None else [])
+    if isolated(cfg):
+        argv.append("--strict-mcp-config")
+    for flag, value in claude_args(cfg).items():
+        for v in value if flag in REPEATED else [value]:
+            argv += [f"--{flag}"] + ([v] if v is not None else [])
     if not cfg["resume"] and cfg.get("message"):
         argv.append(cfg["message"])
     return argv
@@ -624,6 +644,7 @@ def launch_md(cfg, task, parts, system_text, unknown_skills=()):
         "",
     ]
     out += [f"- `{k}={v}`" for k, v in cfg["env"].items()]
+    out += claude_md(cfg)
     if cfg.get("ledger"):
         out += [
             "",
@@ -644,6 +665,56 @@ def launch_md(cfg, task, parts, system_text, unknown_skills=()):
     return "\n".join(out) + "\n"
 
 
+def names(keys):
+    return _("、").join(f"`{k}`" for k in keys) or _("（无）")
+
+
+def claude_md(cfg):
+    """launch.md: the Claude Code configuration of the run, and the MCP servers and plugins given in extra_args.
+    Names of keys only: their values (credentials among them) are in the configuration directory alone."""
+    c = cfg.get("claude") or {}
+    out = ["", _("## Claude Code 配置"), ""]
+    if c.get("mode") != "isolated":
+        return out + [
+            _(
+                "用你的 `~/.claude`（agent_sys.yaml `claude_config: inherit`）：你的 MCP server、插件、CLAUDE.md、"
+                "skills 和 hooks 都会加载。"
+            )
+        ]
+    args = parse_extra_args(cfg.get("extra_args"))
+    added = [f"`--mcp-config {args['mcp-config']}`"] if args.get("mcp-config") else []
+    added += [f"`--plugin-dir {d}`" for d in args.get("plugin-dir", [])]
+    login = (
+        _(
+            "你的 Claude OAuth 登录 `{dir}/.credentials.json`（`CLAUDE_SECURESTORAGE_CONFIG_DIR`；转发的变量里有 API key 时以它为准）",
+            dir=c["env"]["CLAUDE_SECURESTORAGE_CONFIG_DIR"],
+        )
+        if "CLAUDE_SECURESTORAGE_CONFIG_DIR" in (c.get("env") or {})
+        else _("没有 Claude 的 OAuth 登录，登录靠转发的变量")
+    )
+    return out + [
+        _(
+            "agent 用自己的配置目录 `{dir}`（`CLAUDE_CONFIG_DIR`），不加载你的 MCP server、插件、CLAUDE.md、skills 和 hooks"
+            "（`--strict-mcp-config`）。每次启动按 `~/.claude/settings.json` 重新生成它的 settings.json；这里只列键名。",
+            dir=c.get("dir", ""),
+        ),
+        "",
+        _("- 转发的 env：{keys}", keys=names(c.get("env_forwarded", []))),
+        _("- 不转发的 env：{keys}", keys=names(c.get("env_dropped", []))),
+        _(
+            "- 带上的 settings 键：{keys}（另加 `skipDangerousModePermissionPrompt: true`）",
+            keys=names(c.get("settings", [])),
+        ),
+        _("- 不带的 settings 键：{keys}", keys=names(c.get("settings_dropped", []))),
+        _("- 会话记录：`projects/` 是指向 `~/.claude/projects` 的符号链接"),
+        _("- 登录：{login}", login=login),
+        _(
+            "- agent.extra_args 显式加的 MCP 和插件：{added}",
+            added=_("、").join(added) or _("（无）"),
+        ),
+    ]
+
+
 def write_run(run_dir, cfg, system_text, md):
     """Create the run directory: system.md, launch.json, launch.md and an empty inbox.jsonl."""
     run_dir.mkdir(parents=True)
@@ -654,8 +725,9 @@ def write_run(run_dir, cfg, system_text, md):
 
 
 def session_records(session_id):
-    """Claude Code's records of the session, ~/.claude/projects/<cwd>/<sid>.jsonl."""
-    return list((CLAUDE_DIR / "projects").glob(f"*/{session_id}.jsonl"))
+    """Claude Code's records of the session, ~/.claude/projects/<cwd>/<sid>.jsonl (the agent's own configuration
+    directory links its projects/ there)."""
+    return list((claude_config.OPERATOR_DIR / "projects").glob(f"*/{session_id}.jsonl"))
 
 
 def session_exists(session_id):
@@ -700,6 +772,8 @@ def prepare(
     the agent (a new session; or a resume whose message says the rules changed)."""
     agent = task.agent
     report = main_report(task.workspace)
+    # before the run directory, like the checks of extra_args below: a projects/ that cannot be linked stops the start
+    claude = claude_config.prepare(home, project.path)
     cfg = {
         "id": run_dir.name,
         "kind": kind,
@@ -718,7 +792,9 @@ def prepare(
         "env": {
             **ENV,
             **checks.env(project.path, task.id, task.workspace, task.machines, skills.SHIPPED),
+            **(claude.get("env") or {}),
         },
+        "claude": claude,
         "checks": task.checks,
         "check_retries": checks.retries(task.fm),
         # what the checks judge by, as it is now: the project's ledger rules (a verdict is verified against these,

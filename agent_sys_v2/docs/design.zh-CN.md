@@ -176,7 +176,9 @@ server 和 runner 只通过 run 目录里的文件交换信息：
 
 ```
 $AGENT_SYS_HOME/                       默认 ~/agent_sys_home
-  agent_sys.yaml                       全局配置（language、protocol_language、max_running、cli_path）
+  agent_sys.yaml                       全局配置（language、protocol_language、max_running、claude_config、cli_path）
+  claude/                              agent 自己的 Claude Code 配置目录（CLAUDE_CONFIG_DIR，§5.9）：settings.json、
+                                       .claude.json 每次启动生成或补齐，projects/ 链接到 ~/.claude/projects
   rules/*.md                           全局规则
   knowledge/{INDEX.md,entries/}        全局经验库
   projects/<p>/
@@ -238,6 +240,7 @@ agent: {model: opus, effort: high, budget_usd: 200, extra_args: []}
 | `procs.py` | 在 /proc 里找一轮运行的进程（runner、claude 会话、检查）并结束它们 |
 | `replay.py` | 回放录好的 events.jsonl，不调用模型（测试、演示、界面开发） |
 | `launch.py` | system.md（约定、规则、skills 索引、经验索引）、首条消息和后续消息、SDK 参数、launch.md |
+| `claude_config.py` | agent 的 Claude Code 配置：专用目录、env 和 settings 键的白名单、`projects/` 软链、首次启动状态、退路 `claude_config: inherit`（§5.9） |
 | `tmux.py` | agent_sys 的 tmux server 和窗口；交给子进程的干净环境 |
 | `checks.py` | 解析 checks、执行（超时、输出截断）、记录和汇总、失败反馈 |
 | `ledger.py` | 读结果文件、校验 schema、算 Δ（参照函数 `reference`）、最佳值和曲线；命令行 `ledger check`、`ledger verify`（可当检查用）和 `ledger agentx`（AgentX 输出转结果文件，记下来源） |
@@ -397,7 +400,7 @@ check_retries: 2
 | `GET/PUT /api/rules` | 规则页（`?project=` 带上项目的） |
 | `GET /api/knowledge`、`POST /api/knowledge/candidates/{adopt,to_rule,discard}`、`PUT /api/knowledge/entries`、`POST /api/knowledge/entries/delete` | 经验：候选和经验库、采纳 / 改写为规则 / 丢弃、编辑和删除条目 |
 | `GET/PUT /api/settings` | 设置（全局，或 `project` 指定的项目） |
-| `GET /api/models` | 表单里可选的模型，以及别名在本机 `~/.claude/settings.json` 下指向什么 |
+| `GET /api/models` | 表单里可选的模型，以及别名、完整 id 在 agent 用的设置下（§5.9）指向什么 |
 | `GET /api/events` | SSE：`changed {project, task}`（task 为 null 表示项目本身）、`run {project, task, run, seq}`（运行有新事件） |
 
 ### 5.9 安全与边界
@@ -410,7 +413,36 @@ check_retries: 2
 - **工作区文件**：路径相对于工作区，不接受绝对路径和 `..`。读取跟随符号链接，可以读到工作区以外（工作区常常链接到别处的数据，而只有你能连上 server）。写入先解析符号链接：真实路径必须在工作区内，否则拒绝；工作区内的符号链接保持是链接，写的是它指向的文件，文件权限不变；`.agent_sys/` 不能通过界面修改。保存时带上开始编辑时的 mtime，文件期间被改过就拒绝（409）。
 - **改名和删除**会移动工作区，运行中的任务、刚纳入托管（终端会话可能还没结束）的任务会被拒绝。
 - agent 以 `bypassPermissions` 运行，靠规则、检查和人的审核约束，不做 OS 隔离：agent 要操作集群、容器和仓库，隔离起来就做不了这些事。
-- 运行用的是你的 `~/.claude/settings.json`。server 和 runner 去掉启动它们的 shell 里的 `CLAUDE*`、`ANTHROPIC*`、`IS_SANDBOX` 变量，避免在 Claude Code 会话里启动时覆盖用户配置。发给 agent 的消息里不带任何凭据。
+- server 和 runner 去掉启动它们的 shell 里的 `CLAUDE*`、`ANTHROPIC*`、`IS_SANDBOX` 变量，避免在 Claude Code 会话里启动时覆盖用户配置。发给 agent 的消息里不带任何凭据。
+- **agent 的 Claude Code 配置与你的隔离**（`claude_config.py`，`agent_sys.yaml` 的 `claude_config`，默认 `isolated`）。你的 `~/.claude` 里有你的 MCP server（`~/.claude.json`）、插件（`enabledPlugins`，以及 env 块里的 `CLAUDE_CODE_PLUGIN_DIRS`）、CLAUDE.md、skills 和 hooks。agent 以 `bypassPermissions` 运行，继承它们就等于不经确认地拿到你的外部系统写权限（实测一次运行带了 32 个 Atlassian MCP 工具：建 Jira issue、建和改 Confluence 页面），你的插件的 hook 也在 agent 会话里生效。所以：
+  - runner 和终端接管都以 `CLAUDE_CONFIG_DIR=$AGENT_SYS_HOME/claude` 启动 claude，加 `--strict-mcp-config`，setting sources 仍只有 user（即这个目录）；
+  - 这个目录的 `settings.json` 每次启动按 `~/.claude/settings.json` 重新生成（文件权限 0600，目录 0700），只带下面两张白名单里的东西；launch.json 和 launch.md 只记键名，不记值；
+  - `projects/` 是指向 `~/.claude/projects` 的符号链接：resume、终端接管、`session_cost`、隔离之前的会话都照旧在那里找。链接幂等；那里已有非空的真目录或指向别处的链接时不删、不改，拒绝开始并说明（409）；
+  - `.claude.json`（Claude Code 自己的状态）缺什么补什么：`hasCompletedOnboarding`、转发的 API key 已确认（`customApiKeyResponses`，存 key 的后 20 个字符，和 Claude Code 一样）、项目目录已信任。全新目录里交互式 claude 依次弹：选主题、确认 API key、登录、信任目录，再加上没有 `skipDangerousModePermissionPrompt` 时的 bypass 警告，终端接管会卡在第一个上；补齐后都不弹（实测）。交互式 claude 仍会把官方插件市场的目录 clone 进来，但不启用其中的插件；
+  - OAuth 登录：`~/.claude/.credentials.json` 里有 Claude 的登录（`claudeAiOauth`）时，agent 的环境加 `CLAUDE_SECURESTORAGE_CONFIG_DIR=~/.claude`，原地读写（实测全新配置目录加这个变量后 `claude auth status` 是 claude.ai 登录）。不软链：软链读得到，但 Claude Code 写凭据（刷新 token）时不跟随软链（`O_NOFOLLOW`）；拷贝则在第一次刷新后过期。文件里只有 MCP server 的 OAuth token（`mcpOAuth`，本机就是这样：Atlassian 的 token）时不设，agent 拿不到它们；
+  - 项目需要 MCP server 或插件时，在 `agent.extra_args` 里写 `--mcp-config <文件>`（只能一个，SDK 只传一个文件；多个 server 写进同一个文件）、`--plugin-dir <目录>`（可多个）。launch.md 的"Claude Code 配置"一节列出显式加的这些；
+  - `claude_config: inherit` 退回旧行为：用你的 `~/.claude`，不加 `--strict-mcp-config`。设置页可以切换；launch.json 里没有 `claude` 字段的旧运行也按旧行为启动。
+
+  **env 白名单**（`FORWARD_ENV`）：登录和模型路由（`ANTHROPIC_*`；`CLAUDE_CODE_USE_BEDROCK/VERTEX/FOUNDRY`、`CLAUDE_CODE_SKIP_*_AUTH`、`AWS_*`、`GOOGLE_*`、`CLOUD_ML_REGION`、`VERTEX_REGION_*`；`CLAUDE_CODE_OAUTH_TOKEN`、`CLAUDE_CODE_API_KEY_HELPER_TTL_MS`、`CLAUDE_CODE_CLIENT_CERT/KEY/KEY_PASSPHRASE`），网络（`HTTP(S)_PROXY`、`NO_PROXY` 及小写、`NODE_EXTRA_CA_CERTS`、`SSL_CERT_FILE`），网关和模型要的开关（`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`、`CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING`、`CLAUDE_CODE_MAX_OUTPUT_TOKENS`、`CLAUDE_CODE_SUBAGENT_MODEL`、`MAX_THINKING_TOKENS`、`API_TIMEOUT_MS`、`DISABLE_TELEMETRY` 等），`IS_SANDBOX`（root 下跑 bypassPermissions 要它）。明确不转发：`CLAUDE_CODE_PLUGIN_DIRS`、`CLAUDE_CONFIG_DIR`、`CLAUDE_CODE_TMPDIR`、`PATH`、`TMPDIR`；不在白名单里的（如 `CLAUDE_CODE_DANGEROUSLY_SKIP_PERMISSIONS`，runner 自己定权限模式）一律不转发，launch.md 列出名字。agent_sys 自己的环境里已有的键不写进文件，agent 继承环境里的值：settings 的 env 块会盖过进程环境（实测），写进去就成了文件优先。
+
+  **settings 键白名单**（`CARRIED`，逐个过了本机 settings.json 的顶层键）：
+
+  | 键 | 带不带 | 理由 |
+  |---|---|---|
+  | `env` | 按 env 白名单 | 见上 |
+  | `modelOverrides` | 带 | 把完整 id（`claude-opus-5-5` 等）映射到网关的名字。不带时按完整 id 选模型，请求里发的是原 id（实测），网关不认就路由不到 |
+  | `modelSettings`、`model` | 带 | 按模型的设置（如 effort）；任务没写模型时的默认模型 |
+  | `apiKeyHelper`、`awsAuthRefresh`、`awsCredentialExport` | 带 | 登录 |
+  | `skipDangerousModePermissionPrompt` | 固定为 true | 不论你怎么设：终端接管以 bypassPermissions 启动交互式 claude，否则先弹危险模式确认 |
+  | `skipWorkflowUsageWarning` | 带 | 开了 ultracode 的终端接管不先弹用量提醒 |
+  | `autoCompactEnabled` | 带 | 决定长会话上下文满了以后怎么办，会改变 agent 的行为；隔离之前 agent 一直按你的设置跑，保持不变 |
+  | `permissions` | 只带 `deny` | deny 只会收窄 agent 能做的事；`defaultMode` 由 runner 定（bypassPermissions），`allow`、`ask`、`additionalDirectories` 在这个模式下没有意义 |
+  | `enabledPlugins`、`extraKnownMarketplaces`、`hooks` | 不带 | 插件和 hook 正是要隔开的东西 |
+  | `theme`、`editorMode`、`tui`、`verbose`、`statusLine`、`outputStyle`、`askUserQuestionTimeout` | 不带 | 只影响你自己的界面 |
+  | `cleanupPeriodDays` | 不带 | runner 用 `--settings` 设 365 天 |
+  | 其余 | 不带 | launch.md 列出名字；需要时加进 `CARRIED` |
+
+  `launch.models()`（表单里"别名和完整 id 指向什么"）读的是同一份：隔离时是生成给 agent 的设置，env 的值环境优先；`inherit` 时是你的 settings.json。
 
 ### 5.10 环境变量
 
@@ -423,7 +455,7 @@ check_retries: 2
 | `AGENT_SYS_CHECK_RUN` | agent_sys 自己 | 检查进程的标记（值是 run 目录解析符号链接后的路径），停止时据此找到并结束检查；`ledger verify` 据此找到这一轮的口径快照 |
 | `AGENT_SYS_RULES` | 检查 | runner 交给检查的这一轮台账口径快照（JSON），`ledger verify` 优先用它 |
 
-另外，agent 的环境里还加了 `BASH_MAX_TIMEOUT_MS=86400000`（后台命令最长 24 h）、`CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1`（内存紧张时不回收后台命令）、`CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`（runner 靠会话状态事件判断一轮结束）、`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`（不写用户的 auto memory）。
+隔离时（§5.9）agent 的环境里有 `CLAUDE_CONFIG_DIR=$AGENT_SYS_HOME/claude`，有 Claude 的 OAuth 登录时还有 `CLAUDE_SECURESTORAGE_CONFIG_DIR=~/.claude`。另外，agent 的环境里还加了 `BASH_MAX_TIMEOUT_MS=86400000`（后台命令最长 24 h）、`CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1`（内存紧张时不回收后台命令）、`CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`（runner 靠会话状态事件判断一轮结束）、`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`（不写用户的 auto memory）。
 
 ## 6. Infera 性能工作包
 
@@ -486,6 +518,7 @@ skills 的原则：
 | 某个 agent 正在干什么 | 卡片上的"正在执行：<命令>"；运行输出实时流 |
 | 它在等什么 | 运行中 · 等待中：后台命令的描述、已等多久；待开始的卡片写明等待原因 |
 | 它拿到了哪些规则、skills、经验 | 运行输出顶部"本次注入内容"（launch.md） |
+| 它带了我的哪些 Claude 配置 | launch.md 的"Claude Code 配置"：转发和没转发的 env 键、带和没带的 settings 键、显式加的 MCP 和插件 |
 | 花了多少 | 卡片和抽屉里的花费/预算；首页今日花费 |
 | 哪台机器被谁占着、是否闲置 | 看板机器条；首页机器卡片 |
 | 优化走到哪了 | 台账：各系列的 Y–X 曲线和工作点 Δ，基线和最佳，每个结果的判定 |

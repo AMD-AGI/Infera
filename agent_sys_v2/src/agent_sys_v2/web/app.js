@@ -346,7 +346,7 @@ function SettingsPage({ pid, project }) {
   const pick = (v, keys) => Object.fromEntries(keys.map((k) => [k, v[k]]));
   const save = (scope, values) => api.put('/api/settings', { scope, project: pid,
     values: scope === 'project' ? { ...pick(values, ['title', 'goal', 'autorun', 'max_running', 'agent', 'ledger']), machines: parseMachines(values.machinesText) }
-      : pick(values, ['language', 'protocol_language', 'max_running']) })
+      : pick(values, ['language', 'protocol_language', 'max_running', 'claude_config']) })
     .then(() => {
       if (scope === 'global' && values.language !== lang) return location.reload();
       // saved: what the server reads back replaces the form, even where it writes a value its own way
@@ -388,6 +388,9 @@ function SettingsPage({ pid, project }) {
         <label class="field">${t('agent_sys 约定的语言')}<select value=${g.protocol_language} onChange=${(e) => setG({ ...g, protocol_language: e.target.value })}>
           ${['zh', 'en'].map((k) => html`<option value=${k}>${LANGS[k]}</option>`)}</select>
           <span class="muted small">${t('注入给 agent 的 agent_sys 约定、system.md 的开头和 agent_sys 发给 agent 的消息用这种语言。agent 的工作语言（progress.md、report.md 和回复）跟任务 prompt 的语言一致，不受这项设置影响。')}</span></label>
+        <label class="field">${t('agent 的 Claude Code 配置')}<select value=${g.claude_config} onChange=${(e) => setG({ ...g, claude_config: e.target.value })}>
+          <option value="isolated">${t('独立（推荐）')}</option><option value="inherit">${t('继承我的 ~/.claude')}</option></select>
+          <span class="muted small">${t('独立：agent 用 AGENT_SYS_HOME 下自己的 claude 配置目录，只带登录和模型路由要用的设置，不加载你的 MCP server、插件、CLAUDE.md 和 skills；需要的在任务的额外 claude 参数里显式加（--mcp-config、--plugin-dir）。继承：agent 会话加载你 ~/.claude 里的全部配置。')}</span></label>
         <label class="field">${t('全局并发上限（所有项目合计）')}<input type="number" min="1" value=${g.max_running} onInput=${(e) => setG({ ...g, max_running: +e.target.value })} /></label>
         <div class="row-actions"><button class="btn primary" onClick=${() => save('global', g)}>${t('保存全局设置')}</button></div></section>
       ${!p && data.projects && html`<${ProjectDefaults} projects=${data.projects} />`}

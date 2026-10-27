@@ -353,6 +353,7 @@ def test_settings(client, home):
         "max_running": 4,
         "language": "en",
         "protocol_language": "zh",
+        "claude_config": "isolated",
     }
     assert s["project"]["path"] == "projects/llama70b/project.yaml"
     assert s["project"]["values"]["agent"]["budget_usd"] == 200
