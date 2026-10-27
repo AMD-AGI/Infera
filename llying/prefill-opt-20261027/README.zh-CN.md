@@ -61,6 +61,11 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
     短 prompt 正常（0.990，乱码 0）。**clean-k5 + async 同样坏**（捞针 2/16、长前缀 GSM8K 0/16）→ async 本身的问题，与 K 无关。
   - async 坏掉的长上下文输出：开头正常，之后换行丢失、数字粘连（"…Taylor2. Extract the access code3. …"），捞出的 code 错；
     像 decode 收到的 prompt KV 有一部分不对（PP4 每级只传自己的层），而不是整段错。smoke 的冷长前缀（几千 token）在 async 下是对的。
+  - **并发 1 也坏**（clean-k5 + async，16k × 8，`LONGCTX_CONC=1`）：0/8，7 条到上限 → 每个长请求确定性复现，不是请求间竞争。
+    smoke 的冷前缀（约 6.6 万 token、切块）在 async 下是对的，但它的针在重复填充里、答案短，比探测容易，不能说明切块就没事。
+  - KV 校验（`--disaggregation-enable-kv-checksum`，Adler-32，prefill 算、decode 比）在 PP4 → TP4 下不能直接用：每个 prefill stage 只算自己的层，
+    decode 算全部层，mooncake 也没有按 PP 跳过，会全部误报中止。要用需打补丁改成按层校验（定位 async 机制的候选手段）。
+  - 长度扫描排在最后（`waiter7-*.out`）：clean-k5 + async，2k（低于 2048，不走稀疏 top-k）/ 4k / 8k，各 16 条、并发 8。
   - 下一步（`waiter6-*.out`）：clean-k5 + async 长上下文并发 1（区分 microbatch 间交错 / 每请求确定性）；然后全量 GSM8K 1319 题探测
     （`PROBE_N=1319`，看低频的开头坏）跑 b3（llr35 去掉 PP 通信重叠、async、custom all-reduce）、clean-k3 + custom all-reduce、clean-k3、
     clean-k3 + PP 通信重叠（`config/site-bis4-*.env`）。
