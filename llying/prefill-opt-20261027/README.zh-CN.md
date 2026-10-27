@@ -77,6 +77,22 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
     同 + 补丁、clean-k5 + async + 补丁（`config/site-bis5-*.env`，200 题、16k × 32）；再跑 1319 题的 clean-k3 + custom all-reduce、clean-k3；最后长度扫描。
     第一项因 `up.sh` 要求 `PREFILL_MOUNT_EXTRA` 已定义而起栈失败（`common.sh` 已补默认空值），10:00 用 `scripts/reorder2_1027.sh`（`waiter9-*.out`）按同样顺序重排。
 
+**加回与补丁测试（200 题探测、16k × 32）**：
+
+| 变体 | smoke 冷前缀 | 200 题探测 正确 / 乱码 | 捞针 / 长前缀 GSM8K |
+|---|---|---|---|
+| clean-k3 + PP 通信重叠（只加这一项） | 失败（5/6） | 0.970 / 0 | **2/16 / 1/16** |
+| 同上 + 补丁 v1（接收端 `record_stream(forward_stream)`） | 失败（5/6） | 0.960 / 1 | **3/16 / 0/16** |
+
+- **PP 通信重叠单独加上就坏**（与 async 一样，两项都已从干净配置加回确认）。
+- **补丁 v1 无效**（已确认挂进 prefill 容器）→ PP 通信重叠的问题不在接收端。看代码改为怀疑**发送端**：stage 输出的 hidden states 在 forward stream
+  上分配，交给 NCCL 异步发送；`_pp_commit_comm_work` 里 `work.wait()` 之后 PyTorch 释放暂存的 tensor。默认路径 `wait()` 在 schedule stream 上，
+  下一次 forward 先等 schedule stream，所以安全；开 PP 通信重叠后 `wait()` 在通信 stream 上，forward 不等它，只有 CUDA graph 时才加屏障
+  （注释 "Eager prefill remains overlapped"）→ 下一次 eager prefill 可能在 NCCL 发完之前复用并覆盖这块显存，下一级收到坏的 hidden states。
+  `send_tensor_dict` 发的是原 tensor 的 view，所以对原 tensor `record_stream` 有效。
+- 补丁 v2（`config/pp-proxy-lifetime2.patch`）：发送前对要发的 tensor `record_stream(通信 stream)`，并保留 v1。不加屏障，保留重叠收益。
+  `scripts/reorder3_1027.sh`（`waiter10-*.out`）：K5 + async + v1 跑完后先跑 clean-k3 + PP 通信重叠 + v2；若 v1 没修好 async，再跑 K5 + async + v2。
+
 **b3 = llr35 去掉 PP 通信重叠、async、custom all-reduce（保留 KF、FP8 draft、index_share、GEMM CSV、mem 0.95、stream-interval 30、CLIP 8；关 HiCache）**：
 smoke 6/6；**1319 题探测 0.967，乱码 0，开头坏 0**；长上下文 16k × 32 **捞针 16/16、长前缀 GSM8K 16/16**。19 条到上限（1.4%），
 全是题意含糊时的连贯反复（"2/5 times more"、"twice as many more"），不是乱码；clean-k3 的 1319 题给对照。
