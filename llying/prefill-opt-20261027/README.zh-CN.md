@@ -47,9 +47,12 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 | clean-k3（只换 K3） | 6/6 | 0.985 / 0 | 16/16 / 15/16 |
 | no-car | 6/6 | 0.970 / 1 / 5 | 3/16 / 2/16 |
 | no-kf | 6/6 | 0.935 / 6 / 12 | 4/16 / 1/16 |
-| no-gemmcsv / no-idxshare / no-async / no-fp8draft / no-decodeknobs | 在跑 | | |
+| no-gemmcsv | 6/6 | 0.985 / 0 / 3 | 2/16 / 2/16 |
+| no-idxshare | 6/6 | 0.935 / 6 / 7 | 6/16 / 2/16 |
+| no-async / no-fp8draft / no-decodeknobs | 在跑 | | |
 
-  - 镜像、kit、K3 本身都干净；custom all-reduce、KF 都不是第二个问题（单独去掉仍坏）。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
+  - 镜像、kit、K3 本身都干净；custom all-reduce、KF、GEMM CSV、index_share 都不是第二个问题（单独去掉仍坏）。
+    这个基础上短 prompt 探测的乱码在 0–6 之间波动，说明短 prompt 也没完全好。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
 
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
