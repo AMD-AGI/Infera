@@ -65,7 +65,16 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
     smoke 的冷前缀（约 6.6 万 token、切块）在 async 下是对的，但它的针在重复填充里、答案短，比探测容易，不能说明切块就没事。
   - KV 校验（`--disaggregation-enable-kv-checksum`，Adler-32，prefill 算、decode 比）在 PP4 → TP4 下不能直接用：每个 prefill stage 只算自己的层，
     decode 算全部层，mooncake 也没有按 PP 跳过，会全部误报中止。要用需打补丁改成按层校验（定位 async 机制的候选手段）。
-  - 长度扫描排在最后（`waiter7-*.out`）：clean-k5 + async，2k（低于 2048，不走稀疏 top-k）/ 4k / 8k，各 16 条、并发 8。
+  - 长度扫描排在最后：clean-k5 + async，2k（低于 2048，不走稀疏 top-k）/ 4k / 8k，各 16 条、并发 8。
+  - **候选机制：PP 级间收到的 proxy tensor 生命周期**（上游 [sglang PR #15545](https://github.com/sgl-project/sglang/pull/15545)，
+    "incorrect output in pp mode when pp_async_batch_depth > 1"，未合并就关闭；上游 main 与 v0522 镜像都没有修）。收到的 hidden states
+    由分配器记在接收的 stream 上，forward 在 forward_stream 上读；Python 释放后，下一次接收可以在 forward 还没读完时复用这块显存。
+    async 让 CPU 领先 GPU 更多，PP 通信重叠把接收放到单独的 stream，两个主因都可能是这一类。长 prompt 的 proxy 大（1.4 万 × 6144 × bf16
+    约 170 MB）、forward 久，最容易中招。并发 1 也坏这一点它解释不了，所以要实测。
+  - 补丁（`config/pp-proxy-lifetime.patch`，kit `patches/pp-proxy-lifetime/`，用新加的 `PREFILL_MOUNT_EXTRA` 挂进 prefill，
+    kit md5 见 `config/kit-llr35-1027T0940.md5`）：`_pp_recv_proxy_tensors` 收到后对每个 tensor `record_stream(forward_stream)`，只改这一处。
+  - 重新排队（`scripts/reorder_1027.sh`，`waiter8-*.out`）：b3 跑完后停掉 waiter6 的剩余部分和 waiter7，依次跑 clean-k3 + PP 通信重叠、
+    同 + 补丁、clean-k5 + async + 补丁（`config/site-bis5-*.env`，200 题、16k × 32）；再跑 1319 题的 clean-k3 + custom all-reduce、clean-k3；最后长度扫描。
   - 下一步（`waiter6-*.out`）：clean-k5 + async 长上下文并发 1（区分 microbatch 间交错 / 每请求确定性）；然后全量 GSM8K 1319 题探测
     （`PROBE_N=1319`，看低频的开头坏）跑 b3（llr35 去掉 PP 通信重叠、async、custom all-reduce）、clean-k3 + custom all-reduce、clean-k3、
     clean-k3 + PP 通信重叠（`config/site-bis4-*.env`）。

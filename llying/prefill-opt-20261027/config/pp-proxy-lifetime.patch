@@ -1,0 +1,17 @@
+--- lyl_sgl/sglang/srt/managers/scheduler_pp_mixin.py	2026-10-18 14:16:37.000000000 +0000
++++ /home/liyingli/bench_agentx/baseline/2p1d-kit/llr35/patches/pp-proxy-lifetime/sglang/srt/managers/scheduler_pp_mixin.py	2026-10-27 09:38:15.985695278 +0000
+@@ -930,6 +930,14 @@
+                 all_gather_group=(self.attn_tp_group),
+             )
+             pp_proxy_tensors = PPProxyTensors(tensor_dict)
++            # The forward reads these on forward_stream while the allocator
++            # owns them on the recv stream; without this a later recv can
++            # reuse the block before the forward finishes.
++            forward_stream = getattr(self, "forward_stream", None)
++            if forward_stream is not None:
++                for tensor in tensor_dict.values():
++                    if isinstance(tensor, torch.Tensor) and tensor.is_cuda:
++                        tensor.record_stream(forward_stream)
+         return pp_proxy_tensors
+ 
+     def _pp_recv_dict_from_prev_stage(
