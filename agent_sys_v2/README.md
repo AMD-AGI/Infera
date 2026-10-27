@@ -33,6 +33,10 @@ pip install -e agent_sys_v2            # `uv pip install -e agent_sys_v2` works 
 agent-sys-v2 --version
 ```
 
+Install it from a checkout of its own (or a wheel), not from the Infera checkout a project's tasks change: a task's
+acceptance checks run agent_sys_v2's own modules and record their digests when a run starts, so a `git checkout` or
+`pull` in that checkout during a run fails the checks.
+
 ## Run
 
 ```bash
@@ -103,7 +107,7 @@ depends_on: [baseline/b0]
 machines: [smc-a16-19]            # held while it runs and while it waits for you
 checks:                           # run when the agent marks progress.md done; a failure goes back to it
   - test -s "$AGENT_SYS_WORKSPACE/report.md"
-  - '"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger check "$AGENT_SYS_WORKSPACE/results" --require-verdict'
+  - '"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger verify "$AGENT_SYS_WORKSPACE/results"'
 check_retries: 2
 agent: {model: opus, effort: high, budget_usd: 50}
 ---
@@ -113,7 +117,8 @@ agent: {model: opus, effort: high, budget_usd: 50}
 
 A result is `results/<label>.json` in the `infera.result/v1` schema (see
 [`src/agent_sys_v2/skills/infera-bench/SKILL.md`](src/agent_sys_v2/skills/infera-bench/SKILL.md)); the A/B verdict comes from
-`src/agent_sys_v2/skills/infera-experiment/scripts/ab_judge.py`.
+`src/agent_sys_v2/skills/infera-experiment/scripts/ab_judge.py`, on results converted from AgentX output only, and
+`ledger verify` recomputes it from that output.
 
 ## Look around without a model
 

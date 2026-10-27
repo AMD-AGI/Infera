@@ -767,6 +767,10 @@ table.ledger td.num b { font-weight: 650; }
 .wp-mark { fill: none; stroke-width: 2; }
 table.series-table { margin-top: 10px; }
 table.ledger tr.void td { color: var(--ink-3); }
+.ledger-tag { margin-left: 6px; border-style: solid; white-space: nowrap; color: var(--ink-2); }
+.ledger-tag.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+table.ledger .unverified { max-width: 36ch; margin-top: 2px; overflow-wrap: anywhere; }
+.pt.rep { fill: var(--surface); stroke-width: 1.6; }
 table.ledger tr.void td b { text-decoration: line-through; }
 .bad-files { margin: 14px 0; }
 .bad-files ul { margin: 6px 0; padding-left: 18px; }

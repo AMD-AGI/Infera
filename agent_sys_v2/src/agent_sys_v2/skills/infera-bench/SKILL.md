@@ -35,7 +35,9 @@ to low (C176 -> C128 -> C96 ..., about x0.7) so the most informative point lands
 Per point keep: the run directory (`engine-config.env`, `workers.json`, `effective-config.json`), the client's
 command (`benchmark_command.txt` / `replay-command.txt`), the raw client output (`agentx_conc<C>.json`,
 `profile_export_aiperf.json`), `/metrics` before and after. Then write **one result file**, flat in the task's
-`results/` (the ledger reads the files at its top; raw data goes in a subdirectory or `log/`):
+`results/` (the ledger reads the files at its top; raw data goes in a subdirectory or `log/`). For an AgentX point
+the converter below writes it; by hand, as below, only for another load (a fixed ISL/OSL sweep): such a result is in
+the ledger for reference, and is never the input of an A/B verdict.
 
 ```json
 {"schema": "infera.result/v1", "label": "c64-spf", "time": "<ISO, end of the window>",
@@ -55,10 +57,14 @@ duration / all P and D GPUs, `p90_intvty` = 1 / p90 ITL (tok/s/user), times in s
 `"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger check "$AGENT_SYS_WORKSPACE/results"`. A candidate's `verdict` comes
 from `infera-experiment`.
 
-**AgentX points: convert, do not copy numbers by hand.** The converter writes one result per `agentx_conc<C>.json`
-with the metric names and definitions of the InferenceX App (`input_tput_per_gpu`, `tput_per_gpu`, `p90_intvty` =
-1 / p90 full-response ITL, `p90_e2e_norm_intvty`, `p90_ttft`, ...), so our curves and the official ones plot on one
-chart (the infera-perf template's ledger uses `input_tput_per_gpu` against `p90_intvty`):
+**AgentX points: convert, do not copy numbers by hand.** Performance is judged on AgentX alone, and only on results
+the converter wrote. It writes one result per `agentx_conc<C>.json` with the metric names and definitions of the
+InferenceX App (`input_tput_per_gpu`, `tput_per_gpu`, `p90_intvty` = 1 / p90 full-response ITL,
+`p90_e2e_norm_intvty`, `p90_ttft`, ...), so our curves and the official ones plot on one chart (the infera-perf
+template's ledger uses `input_tput_per_gpu` against `p90_intvty`), and records its source in `evidence`: the raw
+file (relative to the project directory), its sha256, and the run directory's `runtime.env` (`DURATION`, warm-up).
+Keep the run directory where it was converted from, unchanged, best under the workspace
+(`$AGENT_SYS_WORKSPACE/log/agentx/<label>/`): an experiment's acceptance check converts it again and compares.
 
 ```bash
 "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger agentx <run dirs or agentx_conc*.json> --out "$AGENT_SYS_WORKSPACE/results" \

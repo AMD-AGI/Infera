@@ -177,6 +177,17 @@ def test_options_command_and_launch_md(tmp_path, make_project):
         run_dir / "inbox.jsonl"
     ).read_text() == ""
     assert cfg["before"] == {"status": "queued", "detail": {}, "report": None, "report_mtime": ""}
+    # what the checks judge by, as the run starts: the ledger's rules and the digests of the checks' files
+    assert cfg["ledger"] == {
+        "primary": "",
+        "higher_is_better": True,
+        "x": "",
+        "x_higher_is_better": True,
+        "baseline_series": "",
+        "noise_pct": 2.0,
+        "accept_pct": 3.0,
+    }
+    assert any(f.endswith("agent_sys_v2/verdict.py") for f in cfg["toolchain"])
 
     sid = c.state["session_id"]
     cmd = launch.sdk_command(cfg)
@@ -225,6 +236,7 @@ def test_options_command_and_launch_md(tmp_path, make_project):
         and f"--session-id={sid}" in md
         and "CLAUDE_CODE_DISABLE_AUTO_MEMORY=1" in md
     )
+    assert "## 验收依据" in md and '"noise_pct": 2.0' in md
 
 
 def test_parse_extra_args():

@@ -18,7 +18,11 @@ run (runs.start_run).
 
 from __future__ import annotations
 
+import ast
+import hashlib
 import os
+import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -28,6 +32,12 @@ from pathlib import Path
 from .i18n import _, translate
 from .model import iso, mtime, read_json, write_json
 
+PACKAGE = Path(__file__).resolve().parent
+ENTRY_MODULES = (
+    "ledger",
+    "perfcheck",
+)  # the package's modules the template's checks run (python -m agent_sys_v2.<m>)
+TOOLCHAIN_CHECK = "the files the checks use are unchanged"
 DEFAULT_TIMEOUT = 600  # seconds
 DEFAULT_RETRIES = 2
 TAIL = 4000  # characters of a check's output kept (its end: where the error usually is)
@@ -107,12 +117,12 @@ def run_one(check, cwd, env):
     }
 
 
-def run_all(checks, cwd, env, on_start=None, on_end=None, halt=None):
+def run_all(checks, cwd, env, on_start=None, on_end=None, halt=None, first=()):
     """Run the checks in order (all of them: one failure does not hide the next). Returns the attempt record, or None
     if halt (a threading.Event) was set: the attempt was stopped and does not count, and the check it killed gets
-    no on_end."""
-    results = []
-    for n, check in enumerate(checks, 1):
+    no on_end. first: results that go before the checks' own (toolchain_check)."""
+    results = list(first)
+    for n, check in enumerate(checks, len(results) + 1):
         if on_start:
             on_start(n, check)
         result = run_one(check, cwd, env)
@@ -184,3 +194,143 @@ def feedback(attempt, left, lang="zh"):
         lines.append(f"\n{head}\n```\n{output}\n```")
     lines.append("\n" + translate("（还会再检查 {left} 次。）", lang, left=left))
     return "\n".join(lines)
+
+
+# ---------------------------------------------------------------- the checks' own files
+
+
+def imports(name):
+    """The modules of this package one of its modules imports (from . import x, from .x import y, agent_sys_v2.x)."""
+    try:
+        tree = ast.parse((PACKAGE / f"{name}.py").read_text(encoding="utf-8"))
+    except (OSError, SyntaxError):
+        return set()
+    out = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom):
+            if node.level == 1 and node.module:
+                out.add(node.module.split(".")[0])
+            elif node.level == 1 or node.module == PACKAGE.name:
+                out |= {a.name for a in node.names}
+            elif node.module and node.module.startswith(PACKAGE.name + "."):
+                out.add(node.module.split(".")[1])
+        elif isinstance(node, ast.Import):
+            out |= {
+                a.name.split(".")[1] for a in node.names if a.name.startswith(PACKAGE.name + ".")
+            }
+    return {m for m in out if (PACKAGE / f"{m}.py").is_file()}
+
+
+def module_closure(names):
+    """names and every package module they import, transitively."""
+    seen, todo = set(), [n for n in names if (PACKAGE / f"{n}.py").is_file()]
+    while todo:
+        name = todo.pop()
+        if name not in seen:
+            seen.add(name)
+            todo += sorted(imports(name) - seen)
+    return seen
+
+
+def expand(word, env):
+    """$NAME and ${NAME} in a check's word, from env (then the process's environment)."""
+    return re.sub(
+        r"\$\{(\w+)\}|\$(\w+)",
+        lambda m: env.get(m[1] or m[2], os.environ.get(m[1] or m[2], "")),
+        word,
+    )
+
+
+def named_files(check_list, project_dir, env):
+    """The files a check's command names, outside the project's workspaces (what the agent writes there is what the
+    checks judge, not how): a script, a rules file."""
+    project_dir = Path(project_dir).resolve()
+    out = set()
+    for c in check_list:
+        try:
+            words = shlex.split(c["run"])
+        except ValueError:
+            words = c["run"].split()
+        for word in words:
+            text = expand(word, env)
+            if not text or text == env.get("AGENT_SYS_PYTHON"):
+                continue
+            path = Path(text) if Path(text).is_absolute() else project_dir / text
+            try:
+                path = path.resolve()
+                if not path.is_file() or (project_dir / "workspaces") in path.parents:
+                    continue
+            except (OSError, ValueError):
+                continue
+            out.add(path)
+    return out
+
+
+def toolchain(project_dir, check_list, env):
+    """{file: sha256} of what the task's checks run, recorded when a run starts and compared before each attempt:
+    this package's modules the checks import, the scripts of the shipped skills and of the project's skills
+    (skills/**/scripts/), the files the check commands name, and anything in the project directory named like this
+    package (it would shadow it)."""
+    names = set(ENTRY_MODULES) | {
+        m for c in check_list for m in re.findall(rf"{PACKAGE.name}\.(\w+)", c["run"])
+    }
+    files = {PACKAGE / f"{m}.py" for m in module_closure(names)}
+    for root in (PACKAGE / "skills", Path(project_dir) / "skills"):
+        files |= {
+            p
+            for p in root.glob("*/scripts/**/*")
+            if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"
+        }
+    files |= named_files(check_list, project_dir, env)
+    # a package of this name in the project directory would be imported instead of this one (Python before 3.11
+    # puts the current directory first on sys.path whatever PYTHONSAFEPATH says)
+    for shadow in Path(project_dir).glob(f"{PACKAGE.name}*"):
+        files |= {shadow} if shadow.is_file() else {p for p in shadow.rglob("*") if p.is_file()}
+    out = {}
+    for p in sorted(files):
+        try:
+            out[str(p)] = hashlib.sha256(p.read_bytes()).hexdigest()
+        except OSError:
+            continue
+    return out
+
+
+def toolchain_changes(before, now):
+    """['changed: f', 'added: f', 'removed: f'] between two toolchain() records."""
+    return (
+        [f"changed: {f}" for f in sorted(before) if f in now and now[f] != before[f]]
+        + [f"added: {f}" for f in sorted(now) if f not in before]
+        + [f"removed: {f}" for f in sorted(before) if f not in now]
+    )
+
+
+def toolchain_check(before, now):
+    """A failed check result listing what changed since the run started; None when nothing did (or the run recorded
+    nothing)."""
+    if not isinstance(before, dict):
+        return None
+    changes = toolchain_changes(before, now)
+    if not changes:
+        return None
+    text = "\n".join(
+        [
+            "The files the acceptance checks use changed since this run started, so no check can be trusted:",
+            *(f"  {c}" for c in changes),
+            "",
+            "Put them back (git checkout -- <file>, or undo the edit): a check is the user's, not the task's to "
+            "change. If the change is the user's (agent_sys_v2 was upgraded), say so and mark the task blocked in progress.md; "
+            "the next run records the new files.",
+            "If agent_sys_v2 is installed from the same checkout as the repository the project changes (an editable "
+            "install of repos/Infera), a git checkout or pull there changes the checks too: install agent_sys_v2 from "
+            "a checkout of its own, or a wheel.",
+        ]
+    )
+    return {
+        "name": TOOLCHAIN_CHECK,
+        "run": "(agent_sys: compare the checks' files with the run's start)",
+        "ok": False,
+        "exit": None,
+        "timed_out": False,
+        "seconds": 0,
+        "output": text if len(text) <= TAIL else "…" + text[-TAIL:],
+    }

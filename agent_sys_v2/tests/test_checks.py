@@ -150,3 +150,61 @@ def test_a_task_without_checks_is_done_as_progress_md_says(tmp_path):
         new(c, "a", agent=replay("message_mid_command", speed=40, writes={"progress.md": DONE}))
         t = wait(c, "a", lambda t: t["status"] == "done")
         assert t["checks"] is None and t["check_runs"] is None
+
+
+def test_a_check_tool_changed_during_the_run_fails_the_attempt(tmp_path):
+    """The run records the checks' files when it starts; an attempt after one of them changed fails first, naming it,
+    whatever the check itself says."""
+    from agent_sys_v2.runner import Events, run_checks
+
+    pdir = tmp_path / "p"
+    gate = pdir / "skills/own/scripts/gate.sh"
+    gate.parent.mkdir(parents=True)
+    gate.write_text('test -s "$AGENT_SYS_WORKSPACE/report.md"\n')
+    workspace = pdir / "workspaces/experiment/x"
+    workspace.mkdir(parents=True)
+    (workspace / "report.md").write_text("## 结论\n")
+    cfg = {
+        "cwd": str(pdir),
+        "checks": checks.parse(["bash skills/own/scripts/gate.sh"]),
+        "env": {"AGENT_SYS_WORKSPACE": str(workspace), "AGENT_SYS_PYTHON": "python3"},
+    }
+    cfg["toolchain"] = checks.toolchain(pdir, cfg["checks"], cfg["env"])
+    assert str(gate.resolve()) in cfg["toolchain"]
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    attempt = run_checks(cfg, run_dir, Events(run_dir / "events.jsonl"))
+    assert attempt["ok"] and len(attempt["results"]) == 1
+    gate.write_text("exit 0\n")  # loosened by the agent
+    attempt = run_checks(cfg, run_dir, Events(run_dir / "events.jsonl"))
+    assert not attempt["ok"] and [r["ok"] for r in attempt["results"]] == [False, True]
+    assert attempt["results"][0]["name"] == checks.TOOLCHAIN_CHECK
+    text = checks.feedback(attempt, 1, "en")
+    assert f"changed: {gate.resolve()}" in text and "1 of 2 failed" in text
+    steps = [
+        json.loads(line)
+        for line in (run_dir / "events.jsonl").read_text().splitlines()
+        if '"check"' in line
+    ]
+    assert [(s["phase"], s["n"], s.get("ok")) for s in steps[-3:]] == [
+        ("end", 1, False),
+        ("start", 2, None),
+        ("end", 2, True),
+    ]
+
+
+def test_a_check_gets_the_runs_rules_from_the_runner(tmp_path):
+    """The rules come from the runner's memory (launch.json is the agent's to edit), and `python -m` in the project
+    directory does not import a package lying there (PYTHONSAFEPATH)."""
+    from agent_sys_v2.runner import Events, run_checks
+
+    run_dir = tmp_path / "run"
+    run_dir.mkdir()
+    cfg = {
+        "cwd": str(tmp_path),
+        "checks": checks.parse(['echo "safe=$PYTHONSAFEPATH rules=$AGENT_SYS_RULES"']),
+        "env": {},
+        "ledger": {"noise_pct": 2.0, "accept_pct": 3.0},
+    }
+    out = run_checks(cfg, run_dir, Events(run_dir / "events.jsonl"))["results"][0]["output"]
+    assert 'safe=1 rules={"noise_pct": 2.0, "accept_pct": 3.0}' in out

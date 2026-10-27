@@ -35,8 +35,8 @@
 - 一个子任务对应一个大杠杆，或一组同层、同验证方法的小杠杆；改动前写清预期机理、预期幅度和证伪条件。
 - 以实际运行的配置为准（`docker inspect`、`/get_server_info`、引擎日志），不信脚本和 README；证明杠杆真的生效了再测。
 - 证据标注 `[M]`（实测）或 `[I]`（推断）。
-- 判定：固定并发下 ΔY ≥ 3% 且 ΔX 不劣于噪声、机理指标一致才接受；< 2% 视为噪声；介于两者之间加跑一轮（skill infera-experiment）。用 X 换 Y 的改动（提并发、改 MTP K）在等 X 下比较（台账的工作点 Δ）。预期收益低于 L4 噪声的改动，ab_judge 会判 noise：加 `--note 待集成`，留给 close 在集成后的整条曲线上判。
-- 作废：测量期间有别人的负载、HSA out-of-resources、被抢占、失败请求 > 10%。作废的结果也写进 results/，verdict.status 写 void。
+- 判定只看 AgentX 结果（`ledger agentx` 从原始输出转换的；性能以 AgentX 为准，精度以 GSM8K 为准）：固定并发下 ΔY 超过接受线（project.yaml `ledger.accept_pct`，默认 3%）和噪声底、ΔX 不劣于噪声、中位数与均值方向一致才接受；在噪声底内（`ledger.noise_pct`，默认 2%，复测离散大时更高）视为噪声；介于两者之间加跑一轮（skill infera-experiment 的 ab_judge）。机理指标、fast 模式、dstep 用来筛选和解释，不是接受条件。口径只由我改：ab_judge 只能提高接受线，验收按运行开始时的快照从原始输出复算。用 X 换 Y 的改动（提并发、改 MTP K）在等 X 下比较（台账的工作点 Δ）。预期收益低于 L4 噪声的改动，ab_judge 会判 noise：加 `--note 待集成`，留给 close 在集成后的整条曲线上判。
+- 作废只有两类：失败请求 > 10%（ab_judge 从 AgentX 的请求数和错误数算）；其他原因（测量期间有别人的负载、HSA out-of-resources、被抢占……）写明原因和证据文件。作废的结果也留在 results/，verdict.status 是 void；同系列同并发的其余有效结果都要参与判定。
 - 每个测量点写一个 `results/<标签>.json`（infera.result/v1，skill infera-bench）；AgentX 的 `agentx_conc*.json` 用 `"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger agentx` 转换。原始数据和命令放在 `results/<标签>/` 或 `log/`（台账只读 results/ 顶层的 *.json）。
 - 读台账（`workspaces/*/*/results/`）和已完成任务的报告，不重复已经否掉的方向。
 - 不动别人的容器和 GPU，不删不是自己创建的文件；长任务在远端以自包含的执行链运行，并带守护（skill infera-hygiene）；后台等待一律设上限。

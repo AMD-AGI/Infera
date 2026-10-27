@@ -31,20 +31,33 @@ series there (curve_head): its baseline is that series, its best the series that
 Files are read again only when they change.
 
   "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger check <dir or file> ... [--require-verdict]
+  "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger verify <dir or file> ...
   "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger agentx <agentx_conc*.json or dir> ... --out "$AGENT_SYS_WORKSPACE/results"
       --series v0 [--round 1] [--role baseline] [--label PREFIX] [--change TEXT] [--time ISO]
 
 check checks result files (a task's acceptance check): exit 1 and the reasons when one is wrong or there is none.
-agentx writes one result per InferenceX AgentX output (agentx_conc<C>.json), with the metrics the InferenceX App
-derives from it (ix_metrics), so our points and the official ones plot on one chart; it never overwrites a result
-(a repeat at the same concurrency needs its own --label).
+verify is an experiment's check: check --require-verdict, then every verdict recomputed from the AgentX output it
+was judged on (verdict.py). agentx writes one result per InferenceX AgentX output (agentx_conc<C>.json), with the
+metrics the InferenceX App derives from it (ix_metrics), so our points and the official ones plot on one chart, and
+its source in evidence: the raw file (relative to the project directory) with its sha256 and the run directory's
+runtime.env. Only such a result can be the input of a verdict. It never overwrites a result (a repeat at the same
+concurrency needs its own --label).
+
+A series' reference (reference()) is what the ledger compares with: the points the task that sealed the version
+measured (v0: the baseline task; vN: close/rN). Its points from other tasks, such as an experiment's base arm, are
+repeats: drawn on the curve, never part of the reference, its frontier or its working point. A row also says its
+verdict's own delta (verdict_delta_pct, against the baseline arm it was judged with), whether the verdict holds when
+recomputed (verified, unverified: why not), and judged_against: the baseline series of its verdict when that is no
+longer the project's.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import re
 import sys
 from pathlib import Path
 
@@ -54,6 +67,8 @@ SCHEMA = "infera.result/v1"
 DECISIONS = ("accept", "reject", "noise", "rerun")
 STATUSES = ("valid", "void")
 ROLES = ("baseline", "candidate", "reference")
+DEFAULT_NOISE_PCT = 2.0  # project.yaml ledger.noise_pct: the noise band of an A/B, in percent
+DEFAULT_ACCEPT_PCT = 3.0  # ledger.accept_pct: the gain an accept needs
 _cache = {}  # path -> ((mtime_ns, size), doc, errors)
 
 
@@ -82,12 +97,12 @@ def gain(delta, higher_is_better):
 
 
 def counts(r):
-    """Whether a result can be the best: valid, ours (not a reference), and accepted, or a baseline nobody judged.
+    """Whether a result can be the best: valid, and an accepted candidate or a baseline nobody judged (a reference is
+    someone else's; a decision on a baseline is no A/B).
     Noise, a rerun, a rejection and a candidate not judged yet cannot."""
-    return (
-        r["status"] == "valid"
-        and r["role"] != "reference"
-        and (r["decision"] == "accept" or (r["role"] == "baseline" and not r["decision"]))
+    return r["status"] == "valid" and (
+        (r["role"] == "candidate" and r["decision"] == "accept")
+        or (r["role"] == "baseline" and not r["decision"])
     )
 
 
@@ -184,8 +199,18 @@ def working_point(value):
     return {}
 
 
+def percent_or(value, default):
+    """A percentage from project.yaml: a finite number, not negative; else the default."""
+    return float(value) if number(value) and value >= 0 else default
+
+
 def settings(project):
-    cfg = plain(project.config.get("ledger")) or {}
+    return settings_from(project.config)
+
+
+def settings_from(config):
+    """project.yaml's ledger section with its defaults."""
+    cfg = plain((config or {}).get("ledger")) or {}
     cfg = cfg if isinstance(cfg, dict) else {}
     return {
         "primary": str(cfg.get("primary") or ""),
@@ -195,6 +220,8 @@ def settings(project):
         "x_higher_is_better": cfg.get("x_higher_is_better", True) is not False,
         "baseline_series": str(cfg.get("baseline_series") or ""),
         "working_point": working_point(cfg.get("working_point")),
+        "noise_pct": percent_or(cfg.get("noise_pct"), DEFAULT_NOISE_PCT),
+        "accept_pct": percent_or(cfg.get("accept_pct"), DEFAULT_ACCEPT_PCT),
     }
 
 
@@ -229,9 +256,44 @@ def rows(project):
                     "status": verdict.get("status", "valid"),
                     "decision": verdict.get("decision") or "",
                     "notes": str(verdict.get("notes") or ""),
+                    # the verdict's own delta: against the baseline arm it was judged with
+                    "verdict_delta_pct": verdict.get("vs_baseline_pct")
+                    if number(verdict.get("vs_baseline_pct"))
+                    else None,
+                    "judged_series": judged_series(verdict),
                 }
             )
     return sorted(out, key=lambda r: (r["time"], r["task"], r["file"])), bad
+
+
+def judged_series(verdict):
+    """The series of the baseline arm a verdict was judged against (verdict.inputs.baseline_series), '' if unknown."""
+    inputs = verdict.get("inputs")
+    return str(inputs.get("baseline_series") or "") if isinstance(inputs, dict) else ""
+
+
+# the task types that measure a version's curve: v0 the baseline task, vN the round's close (close/rN)
+SEALING_TYPES = ("baseline", "close")
+
+
+def sealed_by(r, series):
+    """Whether a result was measured by the task that seals its series' version: v0 by a baseline task, vN by
+    close/rN."""
+    m = re.fullmatch(r"v(\d+)", series)
+    if not m:
+        return False
+    n = int(m[1])
+    return r["type"] == "baseline" if n == 0 else r["task"] == f"close/r{n}"
+
+
+def reference(table, series):
+    """The results a series is compared with (the ledger's Δ; an A/B's baseline reproduction): its valid points the
+    task that sealed its version measured (v0: the baseline task; vN: close/rN). The series' points other tasks
+    measured, such as an experiment's base arm recorded as a repeat of the baseline series, are repeats: drawn, never
+    part of the reference, so the reference does not drift as experiments add repeats. A series no sealing task
+    measured (not a version, or a project without those tasks) is all its valid points."""
+    pts = [r for r in table if r["series"] == series and r["status"] == "valid"]
+    return [r for r in pts if sealed_by(r, series)] or pts
 
 
 def pick_baseline(table, cfg, primary):
@@ -319,19 +381,22 @@ def curves(table, cfg, primary, base_series):
                     "file": r["file"],
                     "time": r["time"],
                     "decision": r["decision"],
+                    "repeat": r["repeat"],
                 }
                 for r in rs
             ),
             key=lambda p: p["x"] * sx,
         )
-        on = set(frontier(points, sx, sy))
-        for i, p in enumerate(points):
-            p["frontier"] = i in on
+        # a repeat is drawn but is not the series: not on its frontier, not in its working point
+        own = [p for p in points if not p["repeat"]]
+        on = {id(own[i]) for i in frontier(own, sx, sy)}
+        for p in points:
+            p["frontier"] = id(p) in on
         roles = {r["role"] for r in rs}
         rounds = [r["round"] for r in rs if number(r["round"])]
         wp = cfg["working_point"]
         if "conc" in wp:
-            value = at_conc(points, wp["conc"])
+            value = at_conc(own, wp["conc"])
         elif "x" in wp:
             value = at_x([p for p in points if p["frontier"]], wp["x"], sx, sy)
         else:
@@ -371,12 +436,16 @@ def ledger(project):
     up = cfg["higher_is_better"]
     base, pinned = pick_baseline(table, cfg, primary)
     base_series = cfg["baseline_series"] or (base["series"] if base else "")
-    # the baseline series at each concurrency: what a result at that concurrency is compared with
-    by_conc = {}
+    # a series' points other than its reference (an experiment's base arm in the baseline series) are repeats
+    refs = {id(r) for s in {r["series"] for r in table if r["series"]} for r in reference(table, s)}
     for r in table:
-        if base_series and r["series"] == base_series and r["status"] == "valid":
-            if r["conc"] is not None and number(r["metrics"].get(primary)):
-                by_conc.setdefault(r["conc"], []).append(r["metrics"][primary])
+        r["repeat"] = r["status"] == "valid" and bool(r["series"]) and id(r) not in refs
+    # the baseline series' reference at each concurrency: what a result at that concurrency is compared with
+    by_conc = {}
+    for r in reference(table, base_series) if base_series else []:
+        if r["conc"] is not None and number(r["metrics"].get(primary)):
+            by_conc.setdefault(r["conc"], []).append(r["metrics"][primary])
+    verify_rows(project, table, base_series)
     sign, best = (1 if up else -1), None
     for r in table:
         r["value"] = r["metrics"].get(primary)
@@ -422,6 +491,7 @@ def ledger(project):
         "x": cfg["x"],
         "x_higher_is_better": cfg["x_higher_is_better"],
         "working_point": cfg["working_point"],
+        "baseline_series": base_series,
         # ledger.baseline names a task or file with no usable result (the head took the latest role baseline)
         "pin_missing": "" if pinned else cfg["baseline"],
         "curve_head": bool(base_curve),
@@ -434,6 +504,24 @@ def ledger(project):
         "series": series,
         "errors": bad,
     }
+
+
+def verify_rows(project, table, base_series):
+    """What the ledger says of each verdict: verified (None without a decision to recompute, else whether
+    `ledger verify` holds; cached by the files' mtimes), why not (unverified), and judged_against: the baseline series
+    it was judged against when that is no longer the project's (a verdict judged against v0 after v1 was sealed)."""
+    from . import verdict
+
+    for r in table:
+        path = project.tasks[r["task"]].workspace / r["file"]
+        # any role: a decision moved onto a baseline or a reference is recomputed (and refused) all the same
+        if not verdict.judged(load(path)[0]):
+            r["verified"], r["unverified"] = None, []
+        else:
+            found = verdict.check_row(path, project.path)
+            r["verified"], r["unverified"] = not found, [f["problem"] for f in found]
+        js = r["judged_series"]
+        r["judged_against"] = js if js and base_series and js != base_series else ""
 
 
 def brief_row(r):
@@ -533,8 +621,11 @@ def topology(agg):
     return "·".join(parts)
 
 
-def from_agentx(agg, source, series, round_=None, role="candidate", label="", change="", time=""):
-    """One infera.result/v1 document from an agentx_conc<C>.json. Raises ValueError when it is not one."""
+def from_agentx(
+    agg, source, series, round_=None, role="candidate", label="", change="", time="", evidence=None
+):
+    """One infera.result/v1 document from an agentx_conc<C>.json. Raises ValueError when it is not one. evidence:
+    where it came from (convert_agentx: the raw file, its sha256 and runtime.env), {"agentx": source} by default."""
     try:
         conc = agg["conc"]
         metrics = ix_metrics(agg)
@@ -586,11 +677,33 @@ def from_agentx(agg, source, series, round_=None, role="candidate", label="", ch
             if isinstance(agg.get("router"), dict)
             else agg.get("router"),
         },
-        "evidence": {"agentx": str(source)},
+        "evidence": evidence or {"agentx": str(source)},
     }
     for part in ("workload", "config"):
         doc[part] = {k: v for k, v in doc[part].items() if v not in (None, "")}
     return doc
+
+
+def agentx_evidence(path, data, root):
+    """Where a result came from: the raw agentx_conc<C>.json (relative to the project directory) and its sha256, and
+    the runtime.env of its run directory (the client's settings: DURATION, warm-up ...) with its sha256 and values."""
+    from . import verdict  # it reads results with this module
+
+    out = {"agentx": verdict.rel(path, root), "agentx_sha256": hashlib.sha256(data).hexdigest()}
+    env = Path(path).parent / "runtime.env"
+    if env.is_file():
+        text = env.read_bytes()
+        pairs = (
+            line.split("=", 1)
+            for line in text.decode("utf-8", "replace").splitlines()
+            if "=" in line and not line.lstrip().startswith("#")
+        )
+        out["runtime_env"] = {
+            "file": verdict.rel(env, root),
+            "sha256": hashlib.sha256(text).hexdigest(),
+            "vars": {k.strip(): v.strip() for k, v in pairs},
+        }
+    return out
 
 
 def convert_agentx(paths, out, series, round_=None, role="candidate", label="", change="", time=""):
@@ -601,12 +714,15 @@ def convert_agentx(paths, out, series, round_=None, role="candidate", label="", 
         found += sorted(p.rglob("agentx_conc*.json")) if p.is_dir() else [p]
     if not found:
         errors.append(f"no agentx_conc*.json under {', '.join(map(str, paths))}")
+    from . import verdict
+
     out = Path(out)
+    root = verdict.project_root(out)
     for f in found:
         try:
-            agg = json.loads(f.read_text(encoding="utf-8"))
+            data = f.read_bytes()
             doc = from_agentx(
-                agg,
+                json.loads(data),
                 f.resolve(),
                 series,
                 round_,
@@ -614,6 +730,7 @@ def convert_agentx(paths, out, series, round_=None, role="candidate", label="", 
                 label,
                 change,
                 time or iso(f.stat().st_mtime),
+                agentx_evidence(f, data, root),
             )
         except (OSError, UnicodeDecodeError, ValueError) as e:
             errors.append(f"{f}: {e}")
@@ -656,6 +773,11 @@ def main(argv=None):
     c.add_argument(
         "--require-verdict", action="store_true", help="a candidate must carry verdict.decision"
     )
+    v = sub.add_parser(
+        "verify",
+        help="check --require-verdict, then recompute every verdict from its raw AgentX output (verdict.py)",
+    )
+    v.add_argument("paths", nargs="+")
     a = sub.add_parser(
         "agentx", help="write a result file for every agentx_conc*.json under the paths"
     )
@@ -689,7 +811,12 @@ def main(argv=None):
         )
         print("\n".join([f"wrote {w}" for w in written] + errors))
         return 0 if written and not errors else 1
-    ok, lines = check(args.paths, args.require_verdict)
+    if args.cmd == "verify":
+        from . import verdict
+
+        ok, lines = verdict.verify_paths(args.paths)
+    else:
+        ok, lines = check(args.paths, args.require_verdict)
     print("\n".join(lines))
     return 0 if ok else 1
 

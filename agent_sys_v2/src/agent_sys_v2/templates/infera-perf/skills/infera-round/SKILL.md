@@ -29,7 +29,7 @@ close/rN 起草：intake/r(N+1)（depends_on: [close/rN]）
 | baseline | 环境预检；质量门；B1 曲线（`role: baseline`，`series: v0`，4–7 个并发）；工作点 ≥ 2 次复测（噪声）；✓ `calibration.json`；✓ `stack.json`（v0）；常开的系统采样 |
 | profile | report.md、✓ `candidates.yaml`、✓ `profile.json`、`verify.md`（skill infera-profile） |
 | plan | 候选排序表（来源、预期区间、成本、验证级别）；本轮 GPU 预算和机器分配；实验子任务草稿（✓ 各自的 machines 和 expect）；✓ close/rN 草稿 |
-| experiment | 生效证明；快速验证记录；正确性门；L4 工作点 A/B；✓ 判定写进结果（`ab_judge.py`） |
+| experiment | 生效证明；快速验证记录；正确性门；L4 工作点 A/B（AgentX，`ledger agentx` 转换）；✓ 判定写进结果（`ab_judge.py --write`），验收时从原始输出复算（`ledger verify`） |
 | close | 集成镜像；正确性门；L5 曲线（`series: vN`）；✓ `stack.json`；预测与实测对照；复盘和下一轮建议；✓ intake/r(N+1) 草稿 |
 
 ## 文件格式

@@ -25,6 +25,8 @@ pip install -e agent_sys_v2            # 也可以 uv pip install -e agent_sys_v
 agent-sys-v2 --version
 ```
 
+最好从单独的 checkout（或 wheel）安装，不要和项目任务要改的 Infera 仓库共用一个 checkout：验收检查会调用 agent_sys_v2 自己的模块，运行开始时记下它们的摘要；运行期间在那个 checkout 里 `git checkout` 或 `pull`，检查就会失败。
+
 ## 启动
 
 ```bash
@@ -82,7 +84,7 @@ depends_on: [baseline/b0]
 machines: [smc-a16-19]            # 运行中和待确认时占用
 checks:                           # agent 把 progress.md 标为已完成后执行；失败就发回 agent
   - test -s "$AGENT_SYS_WORKSPACE/report.md"
-  - '"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger check "$AGENT_SYS_WORKSPACE/results" --require-verdict'
+  - '"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger verify "$AGENT_SYS_WORKSPACE/results"'
 check_retries: 2
 agent: {model: opus, effort: high, budget_usd: 50}
 ---
@@ -90,7 +92,7 @@ agent: {model: opus, effort: high, budget_usd: 50}
 ……
 ```
 
-结果文件是 `results/<标签>.json`，格式为 `infera.result/v1`（见 [`src/agent_sys_v2/skills/infera-bench/SKILL.md`](src/agent_sys_v2/skills/infera-bench/SKILL.md)）。A/B 判定由 `src/agent_sys_v2/skills/infera-experiment/scripts/ab_judge.py` 写入。
+结果文件是 `results/<标签>.json`，格式为 `infera.result/v1`（见 [`src/agent_sys_v2/skills/infera-bench/SKILL.md`](src/agent_sys_v2/skills/infera-bench/SKILL.md)）。A/B 判定由 `src/agent_sys_v2/skills/infera-experiment/scripts/ab_judge.py` 写入，只用从 AgentX 输出转换的结果；`ledger verify` 从原始输出复算。
 
 ## 不调用模型先看看
 

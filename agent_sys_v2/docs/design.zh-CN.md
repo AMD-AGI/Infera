@@ -124,7 +124,7 @@ agent_sys v2 是 Infera 的**性能工程 agent 工作台**。一名工程师在
 |---|---|---|
 | **首页** | `#/` | 顶部三张卡片：项目列表（一行一个，带待确认、待审核、**待审核模板**等标记；"新建项目"收在卡片标题旁的按钮里）、新建任务（选项目后在首页打开新建任务抽屉，快捷键 n）、运行中（附各项目今日花费）。下面是**机器**（所有项目被占用的机器和闲置告警），然后是待确认卡片（一行一件，按原因给主按钮：回复 / 回答 / 查看检查 / 追加预算 / 继续）、待审核、最近完成，空的队列折叠成一行 |
 | **看板** | `#/p/<p>` | 头部：标题、**目标**、**基线和当前最佳（Δ%）**、自动开始、名额、新建任务。模板预置的任务还没开始时，头部下面是**待审核模板**：按执行顺序列出这些任务、项目规则和设置的入口，以及"开始运行"。**机器条**：每台机器显示被哪个任务占着（每个占用者一项）、占了多久、占用者的状态。待处理摘要、搜索和筛选。泳道 × 日期的依赖图（按执行顺序从左上到右下：上游总在下游之上，同时创建的任务按依赖深度和泳道排；依赖线是只走泳道之间和行之间空隙的直角折线，同一空隙里的线各占一条轨道并按少交叉排序，可由其他依赖推出的产出、代码基线依赖默认不画，"视图"里或图上方可切换为全部显示），卡片上有状态、机器、检查 ✓/✗、结果 Δ%。下方是任务列表 |
-| **台账** | `#/p/<p>/ledger` | 头部：主指标及方向、基线值（`ledger.baseline` 指定的任务或文件没有可用结果时给出提醒）、最佳值和 Δ%、结果数（作废、格式错误）。项目配置了 X 指标时，先是**曲线**：每个系列一条 Y–X 折线（沿前沿），标出工作点和各系列在工作点的值与 Δ，附系列表。然后是趋势图：每个结果一个点，形状和颜色表示判定（接受 / 拒绝 / 噪声 / 需重跑 / 未判定 / 作废，基线是菱形）；不按工作点比较时还画基线虚线和"目前最佳"阶梯线。最后是结果表和格式错误的文件。点一行或一个点，打开任务抽屉并定位到这个结果文件 |
+| **台账** | `#/p/<p>/ledger` | 头部：主指标及方向、基线值（`ledger.baseline` 指定的任务或文件没有可用结果时给出提醒）、最佳值和 Δ%、结果数（作废、格式错误）。项目配置了 X 指标时，先是**曲线**：每个系列一条 Y–X 折线（沿前沿），标出工作点和各系列在工作点的值与 Δ，附系列表。然后是趋势图：每个结果一个点，形状和颜色表示判定（接受 / 拒绝 / 噪声 / 需重跑 / 未判定 / 作废，基线是菱形）；不按工作点比较时还画基线虚线和"目前最佳"阶梯线。最后是结果表（台账 Δ 和判定 Δ 分两列；行上标"判定未核实"及原因、"相对 v0 判定"、"复测"）和格式错误的文件。点一行或一个点，打开任务抽屉并定位到这个结果文件 |
 | **任务抽屉** | `?t=<p>/<类型>/<名字>` | 头部：状态和原因、标题、花费/预算、模型、进度（已勾选/全部）、**机器**、**检查摘要**。三个 tab：**运行输出**（实时，检查的过程和结果也在流里）；**工作区文件**（报告审核、questions.md 表单、交接清单、验收检查的每次尝试、结果文件）；**任务配置**（prompt、上游任务、类型和名字、机器、检查、agent 配置）。底部一个输入框：运行中发的消息在当前命令后读到，其他状态发消息就接着跑。另有停止、在终端中接管、追加预算 |
 | **新建任务** | `?new=<p>` | 选类型（prompt 按类型骨架预填，检查也一起预填），选上游任务（边写边预览 prompt 和所选上游给出的依赖），选机器，设审核、预算、模型和 effort；可以直接排队，也可以存为草稿 |
 | **规则 / 经验 / 设置** | `#/rules`、`#/knowledge`、`#/settings`；项目的在 `#/p/<p>/…` 下 | 规则页显示每次注入的各段及大小，包括 **skills 索引**；经验页处理候选的采纳、改写为规则和丢弃，以及编辑经验库；设置页（全局：界面语言、给 agent 的语言、全局名额；项目：标题、目标、机器、台账、自动开始、名额、任务默认值） |
@@ -210,6 +210,8 @@ ledger:
   x: p90_intvty
   baseline_series: v0
   working_point: {x: 30}
+  noise_pct: 2            # A/B 的噪声带和接受线（%，默认 2、3）：只由用户改，命令行只能提高接受线，运行开始时快照（§5.6）
+  accept_pct: 3
 skills: [infera-deploy, infera-bench, infera-quality-gate, infera-profile, infera-diagnose, infera-experiment, infera-hygiene]
 autorun: true
 max_running: 3
@@ -238,7 +240,8 @@ agent: {model: opus, effort: high, budget_usd: 200, extra_args: []}
 | `launch.py` | system.md（约定、规则、skills 索引、经验索引）、首条消息和后续消息、SDK 参数、launch.md |
 | `tmux.py` | agent_sys 的 tmux server 和窗口；交给子进程的干净环境 |
 | `checks.py` | 解析 checks、执行（超时、输出截断）、记录和汇总、失败反馈 |
-| `ledger.py` | 读结果文件、校验 schema、算 Δ、最佳值和曲线；命令行 `ledger check`（可当检查用）和 `ledger agentx`（AgentX 输出转结果文件） |
+| `ledger.py` | 读结果文件、校验 schema、算 Δ（参照函数 `reference`）、最佳值和曲线；命令行 `ledger check`、`ledger verify`（可当检查用）和 `ledger agentx`（AgentX 输出转结果文件，记下来源） |
+| `verdict.py` | A/B 判定：判定函数（ab_judge 和复算共用）、`verdict.inputs`、两类作废、口径和快照、从 AgentX 原始输出复算（`ledger verify`，台账的"判定未核实"） |
 | `perfcheck.py` | `infera-perf` 模板一轮里各任务的字段检查，供验收检查调用 |
 | `skills.py` | 选出项目可用的 skills，生成 skills 索引 |
 | `questions.py` | questions.md 表单：读表格、写回答、判断是不是本轮的问题 |
@@ -271,6 +274,8 @@ runner：connect / resume → 发首条消息或你的消息 → 转发收件箱
 - **追问不重跑**：已完成的任务再跑一轮，如果主报告没有变化（与 launch.json 里记下的本轮开始前的状态比较），就算回答追问：不跑检查，任务仍是已完成，不再标为未查看。
 - **解析失败拒绝运行**：任务的 frontmatter 或 checks 解析不了时（扫描时发现），任何方式开始运行都会被拒绝（否则会不带检查、用默认的机器和预算运行）；错误写在任务的提醒里，待开始的任务等待原因是"prompt 有错误"，调度器不启动它，改正后才会开始。
 - **终端接管**：claude 退出后，包装进程在 progress.md 已完成时执行一次检查（没有会话可以发回，不重试），结果打印在终端里并写进 `checks.json`，然后写结束记录。界面上的"结束接管"结束交互式 claude，最多等包装进程 5 s；检查还在跑就让它跑完（界面显示正在跑的检查，不再提供"结束接管"），结束记录写好后 Monitor 再推进任务。
+- **检查用到的文件防改**：开始一轮时，launch.json 的 `toolchain` 记下检查工具链的 sha256：本包里检查会调用的模块（`ledger`、`perfcheck` 和检查命令里写出的 `agent_sys_v2.<模块>`，按 import 关系展开）、内置 skills 的 `scripts/`、项目 `skills/**/scripts/`，以及检查命令里直接写出路径、不在 `workspaces/` 下的文件。每次执行检查前重新计算并比对，有变化就在这次尝试的最前面记一条必定失败的检查（"the files the checks use are unchanged"），列出改了、加了、删了哪些文件；agent 收到的反馈里同样有这份清单。目的是防 agent 顺手把检查改松，不防恶意。agent_sys_v2 和项目要改的 Infera 仓库共用一个 checkout 时，那里的 `git checkout`/`pull` 也会触发它，所以报错里提示从单独的 checkout 或 wheel 安装。launch.json 里没有 `toolchain`（旧版本写的）时不比对。
+- **口径快照**：同时把项目的台账口径（`ledger.primary`、`higher_is_better`、`x`、`x_higher_is_better`、`baseline_series`、`noise_pct`、`accept_pct`）快照进 launch.json 的 `ledger`，launch.md 的"验收依据"一节列出快照和检查文件的个数。launch.json 在 agent 能写的工作区里，所以 runner 用它启动时（agent 开始之前）读到的快照，经环境变量 `AGENT_SYS_RULES` 交给检查；检查还带 `PYTHONSAFEPATH=1`，项目目录下同名的 `agent_sys_v2*` 也算进检查文件（Python 3.10 不认这个变量，靠后者发现）。`ledger verify` 按快照判（§5.6）。
 - **默认值**：类型骨架 `task_types/<类型>.md` 的 frontmatter 可以带默认的 `checks`（和 `review`）。在界面上新建任务时预填；agent 起草的草稿纳入托管时，frontmatter 没写的就取类型的默认值。
 
 写法：
@@ -278,7 +283,7 @@ runner：connect / resume → 发首条消息或你的消息 → 转发收件箱
 ```yaml
 checks:
   - test -s "$AGENT_SYS_WORKSPACE/report.md"
-  - {name: results, run: '"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger check "$AGENT_SYS_WORKSPACE/results" --require-verdict', timeout: 60}
+  - {name: results, run: '"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger verify "$AGENT_SYS_WORKSPACE/results"', timeout: 60}
 check_retries: 2
 ```
 
@@ -307,13 +312,22 @@ check_retries: 2
 - **读哪些文件**：每个任务工作区 `results/` 顶层的 `*.json`（子目录放原始数据，不读），`schema` 以 `infera.result/` 开头的才算结果，其他 JSON 忽略。文件按 mtime 和大小缓存；Watcher 也只看 `results/*.json`，子目录里的原始数据变化不触发重新扫描。项目每次重新扫描时算一次（给看板头部和卡片的结果徽章），打开台账页时再算一次。
 - **校验**：必填 `schema`、`label`、`metrics`（至少一个数字；NaN 和 Infinity 不算数字），`role`、`round`、`series`、`workload.conc`、`verdict` 的取值也要对。格式错误的文件不进表，列在台账底部，任务卡片上的结果徽章也标出来。
 - **基线**：`ledger.baseline` 指定一个任务或一个结果文件时，取其中最新的、有效且带主指标的结果；没有指定时，取最新的、有效的 `role: baseline` 结果。指定的任务或文件没有这样的结果时，退回到后一种取法，台账返回 `pin_missing`（写的是哪个），台账页给出提醒。
-- **Δ 和 gain**：Δ（`delta_pct`）是主指标相对基线的百分比；gain 是同一个数按 `higher_is_better` 换成"正数更好"，界面按 gain 着色；作废的结果和判定为噪声的结果没有 gain（null），不着色。有基线系列（`ledger.baseline_series`，没写时取基线结果所在的系列）时，带并发（`workload.conc`）的结果和基线系列同一并发的点（多次取平均）比，基线系列没有这个并发就不给 Δ。
-- **可计入最佳**：有效、不是 `role: reference`，并且判定是接受，或者是没有判定的基线。噪声、需重跑、拒绝和还没判定的候选都不能当最佳。台账页、看板头部和卡片徽章都按这一条规则（`ledger.counts`）。
-- **曲线**：结果带 `round`（轮次）和 `series`（曲线名：`v0`、`v1` 是版本，`r2-spf` 是一个实验，`ix:<条目>` 是对标）；`role: reference` 是别人的数（对标）。配置了 `ledger.x`（曲线的 X；`x_higher_is_better` 默认 true）时，每个系列是一条 Y–X 曲线：按 X 排序，标出前沿（同系列里没有别的点两个轴都不差）。`ledger.working_point` 是判 A/B 的工作点：`{conc: C}` 取该并发的点（多次取平均），`{x: X}` 取 X 不低于该值时的最大 Y（在前沿上相邻两点之间插值）。各系列在工作点的值相对基线系列的 Δ 和 gain 显示在台账页的系列表里。一个系列的点全部可计入最佳，这个系列才可计入最佳。
+- **Δ 和 gain**：Δ（`delta_pct`，界面上叫"台账 Δ"）是主指标相对基线的百分比；gain 是同一个数按 `higher_is_better` 换成"正数更好"，界面按 gain 着色；作废的结果和判定为噪声的结果没有 gain（null），不着色。有基线系列（`ledger.baseline_series`，没写时取基线结果所在的系列）时，带并发（`workload.conc`）的结果和基线系列在同一并发的**参照**比（多次取平均），参照没有这个并发就不给 Δ。
+- **参照和复测**（`ledger.reference(table, series)`，后续的 A/B 门复用）：一个系列的参照只取封版这个版本的任务测的有效点：`v0` 取类型为 baseline 的任务，`vN` 取 `close/rN`。同一系列里别的任务测的点（实验的基线臂按 skill 记成基线系列的复测）是**复测**（行上 `repeat: true`）：照样画在曲线上（方块），但不进参照、不进前沿、不进工作点的值，所以参照不会随实验增多而漂移。不是版本名的系列、或者没有封版任务测过的系列，参照是它的全部有效点。
+- **判定 Δ**：`verdict_delta_pct` 是判定里写的 `vs_baseline_pct`，相对这次实验自己的基线臂；和台账 Δ 分两列显示。判定所用的基线臂所属系列（`verdict.inputs.baseline_series`）不是当前基线系列时（例如封版后 `baseline_series` 从 v0 变成 v1），行上的 `judged_against` 写出它，界面标"相对 v0 判定"。
+- **判定可复算**：带判定（decision、inputs 或作废）的结果，不论 role，台账都用 `ledger verify` 的同一套检查复算（不比较此刻的 project.yaml），结果放在 `verified`（无判定为 null）和 `unverified`（原因）里，界面标"判定未核实"并显示原因。复算按它读过的所有文件（结果文件、输入、原始输出、同系列同并发的结果、results/ 目录、任务的运行目录、project.yaml）的 mtime 和大小缓存。没有 `inputs` 的旧判定照常显示、标"未核实"，不算格式错误。
+- **可计入最佳**：有效，并且是判定为接受的候选，或者是没有判定的基线（`role: reference` 是别人的数；带判定的基线不是 A/B）。噪声、需重跑、拒绝和还没判定的候选都不能当最佳。台账页、看板头部和卡片徽章都按这一条规则（`ledger.counts`）。
+- **曲线**：结果带 `round`（轮次）和 `series`（曲线名：`v0`、`v1` 是版本，`r2-spf` 是一个实验，`ix:<条目>` 是对标）；`role: reference` 是别人的数（对标）。配置了 `ledger.x`（曲线的 X；`x_higher_is_better` 默认 true）时，每个系列是一条 Y–X 曲线：按 X 排序，标出前沿（同系列里没有别的点两个轴都不差）。`ledger.working_point` 是判 A/B 的工作点：`{conc: C}` 取该并发的点（多次取平均），`{x: X}` 取 X 不低于该值时的最大 Y（在前沿上相邻两点之间插值）；都只用参照点，不用复测。各系列在工作点的值相对基线系列的 Δ 和 gain 显示在台账页的系列表里。一个系列的点全部可计入最佳，这个系列才可计入最佳。
 - **头部**：基线系列到达工作点时，头部（台账页和看板）按工作点比较系列：基线是基线系列在工作点的值，最佳是可计入最佳的系列里在工作点 gain 最大的那个。否则头部是基线结果和最佳结果：结果按并发和基线系列比较时（不同并发的值之间不可比），最佳是可计入最佳的结果里相对同并发基线 gain 最大的那个（都不比基线好时就是基线），没有"目前最佳"（`best_so_far` 为空）；否则最佳是可计入最佳的结果里主指标最好的那个，趋势图另画"目前最佳"阶梯线。
 - **卡片徽章**：结果数、除基线外可计入最佳的结果里最好的 Δ、最近一个结果的判定、格式错误的文件数。
-- **AgentX 转换**：`"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger agentx <agentx_conc*.json 或目录> --out "$AGENT_SYS_WORKSPACE/results" --series v0 --round 1 --role baseline` 把 InferenceX AgentX 的输出转成结果文件，指标名和算法与 InferenceX App 入库一致（交互性 = 1/p90 full-response ITL）；不覆盖已有的结果文件，原子写入；`--label` 和 `--series` 会成为文件名的一部分，含 `/` 时报错。
+- **AgentX 转换**：`"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger agentx <agentx_conc*.json 或目录> --out "$AGENT_SYS_WORKSPACE/results" --series v0 --round 1 --role baseline` 把 InferenceX AgentX 的输出转成结果文件，指标名和算法与 InferenceX App 入库一致（交互性 = 1/p90 full-response ITL）；不覆盖已有的结果文件，原子写入；`--label` 和 `--series` 会成为文件名的一部分，含 `/` 时报错。`evidence` 记下来源：`agentx`（原始文件，在项目目录下时是相对项目目录的路径，否则是绝对路径）、`agentx_sha256`，以及同一运行目录里的 `runtime_env`（路径、sha256 和其中的变量，例如 `DURATION`）。只有带 `agentx` 和 `agentx_sha256` 的结果能作判定的输入；别的结果照常进台账，作参考。
 - **当作检查**：`"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger check <目录或文件> [--require-verdict]`：有文件不对或一个结果都没有时退出码为 1 并列出原因；`--require-verdict` 要求每个候选都有判定或已作废。
+
+**A/B 判定**（`verdict.py`；性能只以 AgentX 为依据）：
+- **写判定**：skill infera-experiment 的 `ab_judge.py --write` 只接受 `--baseline-files`、`--candidate-files`，文件必须有 AgentX 来源，且原始文件的摘要和重新转换出的指标都对得上；手填的数字（`--baseline 12010 11950`）只打印试算，不写。指标、方向和 X 取 project.yaml 的 `ledger.primary`、`higher_is_better`、`ledger.x`；噪声带和接受线取 `ledger.noise_pct`、`accept_pct`（默认 2、3，从 `$AGENT_SYS_PROJECT` 或结果文件所在的项目读）：`--accept-pct` 只能提高接受线，噪声带不能在命令行改（更宽的噪声带也会把拒绝变成噪声，不算更严）。两臂在同一个并发，基线臂是 `ledger.baseline_series` 的复测、候选不是。所用文件所在任务的 `results/` 顶层里，同一并发的有效结果不论写的是什么系列和角色，都要参与（作废的除外；一个任务每个并发一个 A/B），否则拒绝；并发按原始输出算，改结果文件里的字段藏不住。判定只看数字：主指标增益超过接受线和噪声底、X 不劣于它自己的噪声底、中位数和均值方向一致才接受；`--mechanism` 是备注，不是条件。
+- **`verdict.inputs`**：`metric`、`higher_is_better`、`x_metric`、`x_higher_is_better`、`baseline_series`、`baseline` 和 `candidate`（每份 `{file, agentx, agentx_sha256, value, x}`，路径相对项目目录）、`noise_pct`、`accept_pct`、`rules_from`（各自的出处，例如 `project.yaml` 或 `--accept-pct 4 (stricter than project.yaml: 3)`）。结果文件格式只做加法，仍是 `infera.result/v1`。
+- **作废只有两类**（`verdict.void.kind`）：`failed_requests`，由 AgentX 的请求数和错误数算出失败比例（错误 /（成功 + 错误）），超过 10% 才能作废，不让 agent 填；`other`，写 `reason` 和存在的 `evidence` 文件。
+- **`ledger verify <目录或文件>`**（experiment 类型的默认检查）：一份判定都没有（没有带 decision 或作废的结果）就失败。对每个带判定的结果（不论 role：把 role 改成 baseline 或 reference 藏不住判定，非候选带 decision 直接判为对不上），先做 `check --require-verdict` 的全部检查，再：要有 `verdict.inputs`；文件本身在候选输入里；每个输入的结果文件在、没作废、有 AgentX 来源，原始文件在、sha256 一致，**重新转换一遍**，指标和结果文件里的一致，`value`/`x` 和判定记下的一致，失败请求不超过 10%；两臂在同一个并发，所用文件所在任务里同一并发的有效结果都在输入里，作废的符合两类；指标、方向、基线系列和噪声带是快照的，接受线不比快照低；用同一个判定函数重算，`decision`、`vs_baseline_pct`、`noise_floor_pct` 一致。快照取 runner 交给检查的 `AGENT_SYS_RULES`，否则取正在执行检查的那一轮（`AGENT_SYS_CHECK_RUN`）或任务最近一轮的 launch.json；快照里缺的键（或没有快照）取 project.yaml；只有来自某一轮的快照才检查基线系列（台账用"相对 v0 判定"另行标出）。作为检查执行时还比较此刻 project.yaml 的口径和快照，本轮中被改过就失败。失败分两类：**判定和数据对不上**（the verdict does not match the data）和**这份判定无法复算**（the verdict cannot be recomputed：没有 AgentX 来源、原始文件没了、没有 inputs、文件读不了），每条按"问题、上下文（context）、怎么改（fix）"写。
 
 `infera.result/v1`（必填：`schema`、`label`、`metrics`）：
 
@@ -329,12 +343,22 @@ check_retries: 2
   "metrics": {"input_tput_per_gpu": 14120.5, "p90_intvty": 31.2, "p90_ttft": 2.1, "requests": 3120, "errors": 0},
   "workload": {"client": "agentx", "conc": 64, "duration_s": 3600, "seed": 42},
   "config": {"kit": "atom_4p4d_glm5.2", "image": "…", "extra_args": "…"},
-  "verdict": {"status": "valid", "decision": "accept", "vs_baseline_pct": 15.4, "notes": "[M] queue-req ↓ 80%"},
-  "evidence": {"run_dir": "…", "logs": "…"}
+  "verdict": {"status": "valid", "decision": "accept", "vs_baseline_pct": 15.4, "noise_floor_pct": 2.0,
+              "notes": "+15.40% past the 3% bar and the floor 2.00%", "mechanism": "[M] queue-req ↓ 80%",
+              "inputs": {"metric": "input_tput_per_gpu", "higher_is_better": true, "x_metric": "p90_intvty",
+                         "x_higher_is_better": true, "baseline_series": "v0",
+                         "baseline": [{"file": "workspaces/experiment/r1-spf/results/r1-spf-base-c64.json",
+                                       "agentx": "workspaces/experiment/r1-spf/log/agentx/base/agentx_conc64.json",
+                                       "agentx_sha256": "…", "value": 12236.1, "x": 31.0}],
+                         "candidate": [{"file": "…/r1-spf-c64.json", "agentx": "…", "agentx_sha256": "…", "value": 14120.5, "x": 31.2}],
+                         "noise_pct": 2.0, "accept_pct": 3.0,
+                         "rules_from": {"noise_pct": "project.yaml", "accept_pct": "project.yaml"}}},
+  "evidence": {"agentx": "workspaces/experiment/r1-spf/log/agentx/spf/agentx_conc64.json", "agentx_sha256": "…",
+               "runtime_env": {"file": "…/runtime.env", "sha256": "…", "vars": {"DURATION": "3600", "…": "…"}}}
 }
 ```
 
-`role`：`baseline` / `candidate`（默认）/ `reference`；`verdict.status`：`valid`（默认）/ `void`；`verdict.decision`：`accept` / `reject` / `noise` / `rerun`。
+`role`：`baseline` / `candidate`（默认）/ `reference`；`verdict.status`：`valid`（默认）/ `void`；`verdict.decision`：`accept` / `reject` / `noise` / `rerun`；作废时 `verdict.void` 是 `{"kind": "failed_requests", "failed_pct": 12.3}` 或 `{"kind": "other", "reason": "…", "evidence": "<文件>"}`。
 
 ### 5.7 skills 注入
 
@@ -396,7 +420,8 @@ check_retries: 2
 | `AGENT_SYS_TMUX` | server、runner | tmux server 的名字（`tmux -L`），默认 `agent_sys`；在正式 server 旁边再开一个（测试、演示）时换一个 |
 | `AGENT_SYS_HOSTS` | server | Host 校验额外接受的名字，逗号分隔（§5.9） |
 | `AGENT_SYS_PYTHON`、`AGENT_SYS_PROJECT`、`AGENT_SYS_TASK`、`AGENT_SYS_WORKSPACE`、`AGENT_SYS_MACHINES`、`AGENT_SYS_SKILLS` | agent、检查 | 运行 agent_sys 的 Python、项目目录、任务 id、工作区、机器（逗号分隔）、内置 skills 的目录（§5.4） |
-| `AGENT_SYS_CHECK_RUN` | agent_sys 自己 | 检查进程的标记（值是 run 目录解析符号链接后的路径），停止时据此找到并结束检查 |
+| `AGENT_SYS_CHECK_RUN` | agent_sys 自己 | 检查进程的标记（值是 run 目录解析符号链接后的路径），停止时据此找到并结束检查；`ledger verify` 据此找到这一轮的口径快照 |
+| `AGENT_SYS_RULES` | 检查 | runner 交给检查的这一轮台账口径快照（JSON），`ledger verify` 优先用它 |
 
 另外，agent 的环境里还加了 `BASH_MAX_TIMEOUT_MS=86400000`（后台命令最长 24 h）、`CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1`（内存紧张时不回收后台命令）、`CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS=1`（runner 靠会话状态事件判断一轮结束）、`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`（不写用户的 auto memory）。
 
@@ -411,7 +436,7 @@ check_retries: 2
 | `baseline` | 部署、过质量门、测 v0 曲线（`role: baseline`），噪声和快速验证标定，栈清单 | report.md、`ledger check`、calibration.json、stack.json |
 | `profile` | 从便宜的层做起的瓶颈分析，产出 `candidates.yaml`（`review: true`；skill infera-profile；默认不用 ultracode） | report.md、candidates.yaml、profile.json |
 | `plan` | 候选排序、预算和机器分配，起草 experiment 子任务和 close（`review: true`） | report.md 非空；`perfcheck plan` |
-| `experiment` | 一个大杠杆或一组同层小杠杆：快速验证迭代，工作点单点 A/B，写带判定的结果 | report.md 非空；`ledger check --require-verdict` |
+| `experiment` | 一个大杠杆或一组同层小杠杆：快速验证迭代，工作点单点 A/B（AgentX），写带判定的结果 | report.md 非空；`ledger verify` |
 | `close` | 集成、整条曲线、封版、复盘，起草下一轮 intake；可写 `project.yaml` 的 version 和基线系列 | report.md 非空；有 results 时 `ledger check`；`perfcheck close` |
 | `develop` | 代码改动：补丁、router、kernel，出 PR 或 overlay | report.md 非空 |
 | `review` | 评审一个 PR、分支或结论（`review: true`） | — |
@@ -432,8 +457,8 @@ check_retries: 2
 - 先诊断再选杠杆；一个子任务一个大杠杆，或一组同层、同验证方法的小杠杆，改动前写清预期机理、幅度和证伪条件；
 - 以实际运行的配置为准，证明杠杆生效了再测；
 - 证据标 `[M]` 实测或 `[I]` 推断；
-- 判定：ΔY ≥ 3% 且 ΔX 不劣于噪声、机理一致才接受，小于 2% 算噪声，介于两者之间加跑；用 X 换 Y 的改动在等 X 下比较（工作点 Δ）；
-- 作废规则：测量期间有别人的负载、HSA out-of-resources、被抢占、失败请求超过 10%；
+- 判定只看 AgentX 结果（性能以 AgentX 为准，精度以 GSM8K 为准）：ΔY 超过接受线（`ledger.accept_pct`，默认 3%）和噪声底、ΔX 不劣于噪声、中位数和均值方向一致才接受，噪声底内（`ledger.noise_pct`，默认 2%）算噪声，介于两者之间加跑；机理指标、fast 模式、dstep 用于筛选和解释，不是接受条件；口径只由用户改，命令行只能提高接受线；用 X 换 Y 的改动在等 X 下比较（工作点 Δ）；
+- 作废只有两类：失败请求超过 10%（从 AgentX 计数算）；其他原因（别人的负载、HSA out-of-resources、被抢占……）写原因和证据文件；
 - 不动别人的容器和 GPU；长任务在远端以自包含的执行链运行，并带守护。
 
 ### 6.2 内置 skills
@@ -445,7 +470,7 @@ check_retries: 2
 | `infera-quality-gate` | 拒绝在 forced acceptance 下跑；smoke、GSM8K、乱码和长上下文探针、MTP 真实接受、RDMA 不回退 TCP、PD 交接 |
 | `infera-profile` | 一轮的 profile：从便宜的层做起（时间账、资源利用），只对瓶颈层做 kernel 或 CPU；给 plan 的 `candidates.yaml`；各引擎的 playbook |
 | `infera-diagnose` | 瓶颈分类（prefill 饱和、decode 步长、KV 容量、传输、CPU 路径、JIT、正确性）；每一类的观测手段和候选杠杆 |
-| `infera-experiment` | 单变量 A/B 协议、作废和判定规则、`scripts/ab_judge.py`（噪声底；噪声不会判成接受；可同时看 X；`--write` 原子写入每个候选文件的判定）、结果写法 |
+| `infera-experiment` | 单变量 A/B 协议、两类作废和判定规则、`scripts/ab_judge.py`（只用 AgentX 结果；口径取 project.yaml、命令行只能提高接受线；噪声底；噪声不会判成接受；同时看 X；`--write` 把判定和 `inputs` 原子写入每个候选文件）、`ledger verify` 自查 |
 | `infera-hygiene` | 共享节点卫生：不删别人的容器，NFS、TMPDIR、HOME 陷阱，VRAM 释放，抢占 |
 
 skills 的原则：

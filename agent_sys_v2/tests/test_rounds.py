@@ -309,12 +309,21 @@ def load_demo():
 
 
 def test_the_demo_project(tmp_path):
-    """tools/demo.py: the template's round one, a close waiting for the plan's subtasks, the ledger's curves."""
+    """tools/demo.py: round one sealed, round two's close waiting for the plan's subtasks, the ledger's curves, verdicts
+    that hold, one judged against v0, two that do not hold."""
     p = load_project(load_demo().main(tmp_path / "home"))
-    assert p.tasks["close/r1"].detail["kind"] == "children"
-    assert ops.drafts_of(p, "plan/r1") == ["experiment/r1-router"]
+    assert p.tasks["close/r2"].detail["kind"] == "children"
+    assert ops.drafts_of(p, "plan/r2") == ["experiment/r2-router"]
     full = ledger.ledger(p)
-    assert [c["name"] for c in full["series"]][0] == "v0" and full["best"]["series"] == "r1-spf"
+    assert full["errors"] == []
+    assert [c["name"] for c in full["series"]][0] == "v1" and full["best"]["series"] == "r2-kvroute"
+    rows = {r["label"]: r for r in full["rows"]}
+    assert rows["r2-kvroute-1-c64"]["verified"] is True and rows["r2-kvroute-base1-c64"]["repeat"]
+    assert rows["r1-spf-1-c64"]["judged_against"] == "v0" and rows["r1-spf-1-c64"]["verified"]
+    assert (
+        rows["r2-tokenizer-c64"]["verified"] is False and rows["r1-dcp4-c64"]["verified"] is False
+    )
+    assert rows["r2-hicache-c64"]["status"] == "void" and rows["r2-hicache-c64"]["verified"]
 
 
 def test_the_demo_replaces_only_a_demo_home(tmp_path):

@@ -42,6 +42,21 @@ export const decisionOf = (r) => (r.status === 'void' ? 'void' : r.baseline || r
 
 // The color of a delta by its gain (the server's delta in the better direction): better, worse, or neither.
 export const gainClass = (gain) => (gain > 0 ? 'ok-text' : gain < 0 ? 'warn-text' : 'muted');
+
+// What the ledger says of a row's verdict and series, as tags: a verdict that does not hold when recomputed from its
+// AgentX output (判定未核实, with the server's reasons), one judged against a baseline series that is no longer the
+// project's (相对 v0 判定), a point of the baseline series another task measured (复测: drawn, not the reference).
+export function rowTags(r, baseSeries = '') {
+  const out = [];
+  if (r.verified === false) out.push({ kind: 'unverified', cls: 'warn', text: tr('判定未核实'), title: (r.unverified || []).join('\n') });
+  if (r.judged_against) {
+    out.push({ kind: 'judged', cls: '', text: tr('相对 {series} 判定', { series: r.judged_against }),
+      title: tr('判定用的基线臂属于 {series}，不是当前的基线系列 {base}', { series: r.judged_against, base: baseSeries || '—' }) });
+  }
+  if (r.repeat) out.push({ kind: 'repeat', cls: '', text: tr('复测'), title: tr('这个系列的复测（不是封版任务测的）：画在曲线上，不进 Δ 的参照') });
+  return out;
+}
+const Tags = ({ tags }) => tags.map((t) => html` <span class=${`tag ledger-tag ${t.cls}`} title=${t.title}>${t.text}</span>`);
 const Delta = ({ d }) => html`<span class=${gainClass(d.gain)}>${deltaText(d.delta_pct)}</span>`;
 // Whether two of the head's results (a baseline, a best) are the same one.
 const same = (a, b) => !!a && !!b && a.task === b.task && a.file === b.file && a.series === b.series;
@@ -73,7 +88,7 @@ export function LedgerPage({ pid }) {
   return html`<main id="main" tabIndex="-1" class="page ledger-page">
     ${error && html`<${ErrorBox} what=${tr('刷新台账')} error=${error} retry=${reload} />`}
     <header class="page-head"><div><h1>${tr('台账')}</h1>
-      <p class="muted small">${tr('各任务写在工作区 results/ 下的测量结果（infera.result/v1）。Δ 是主指标相对基线的变化。')}</p></div></header>
+      <p class="muted small">${tr('各任务写在工作区 results/ 下的测量结果（infera.result/v1）。台账 Δ 是主指标相对当前基线（封版任务测的点）的变化；判定 Δ 是 A/B 判定相对它自己的基线臂的变化。')}</p></div></header>
     ${!data.count ? html`<${EmptyLedger} errors=${data.errors} pid=${pid} />` : html`
       <section class="stat-row" aria-label=${tr('概览')}>
         <div class="stat"><span class="muted small">${tr('主指标')}</span><b class="mono">${data.primary || '—'}</b>
@@ -122,18 +137,24 @@ function BadFiles({ errors, pid }) {
 function LedgerTable({ pid, rows, data, extra }) {
   return html`<section class="table-wrap"><h2>${tr('结果')} <span class="muted small">${tr('新的在前')}</span></h2>
     <table class="tasks ledger">
-      <thead><tr><th>${tr('时间')}</th><th>${tr('任务 / 标签')}</th><th>${tr('改动')}</th><th class="num">${data.primary}</th><th class="num">Δ</th>
+      <thead><tr><th>${tr('时间')}</th><th>${tr('任务 / 标签')}</th><th>${tr('改动')}</th><th class="num">${data.primary}</th>
+        <th class="num" title=${tr('相对当前基线：基线系列在同一并发、由封版任务测的点')}>${tr('台账 Δ')}</th>
+        <th class="num" title=${tr('A/B 判定写下的变化：相对这次实验自己的基线臂')}>${tr('判定 Δ')}</th>
         ${extra.map((k) => html`<th class="num mono">${k}</th>`)}<th>${tr('判定')}</th><th>${tr('说明')}</th></tr></thead>
       <tbody>${rows.map((r) => {
         const k = decisionOf(r);
+        const tags = rowTags(r, data.baseline_series);
+        const vd = r.verdict_delta_pct;
         return html`<tr class=${r.status === 'void' ? 'void' : ''}>
           <td class="nowrap small">${clock(r.time)}</td>
-          <td><a href=${taskHref(pid, r.task, { tab: 'docs', file: r.file })}><b>${r.label}</b></a><div class="small muted">${r.title}</div></td>
+          <td><a href=${taskHref(pid, r.task, { tab: 'docs', file: r.file })}><b>${r.label}</b></a><${Tags} tags=${tags.filter((t) => t.kind === 'repeat')} /><div class="small muted">${r.title}</div></td>
           <td class="small">${r.change}</td>
           <td class="num"><b>${fmt(r.value)}</b></td>
-          <td class=${`num ${gainClass(r.gain)}`}>${deltaText(r.delta_pct, r)}</td>
+          <td class=${`num ${gainClass(r.gain)}`}>${deltaText(r.delta_pct, { baseline: r.baseline && !r.repeat })}</td>
+          <td class=${`num ${['accept', 'reject'].includes(r.decision) && typeof vd === 'number' ? gainClass(data.higher_is_better ? vd : -vd) : 'muted'}`}>${deltaText(vd)}</td>
           ${extra.map((m) => html`<td class="num">${fmt(r.metrics[m])}</td>`)}
-          <td class="nowrap"><svg width="14" height="14" aria-hidden="true"><${Mark} kind=${k} x=${7} y=${7} /></svg> ${DECISIONS[k].label}</td>
+          <td><span class="nowrap"><svg width="14" height="14" aria-hidden="true"><${Mark} kind=${k} x=${7} y=${7} /></svg> ${DECISIONS[k].label}</span><${Tags} tags=${tags.filter((t) => t.kind !== 'repeat')} />
+            ${r.verified === false && r.unverified?.length > 0 && html`<div class="small warn-text unverified">${r.unverified[0]}${r.unverified.length > 1 ? tr('（另有 {n} 条）', { n: r.unverified.length - 1 }) : ''}</div>`}</td>
           <td class="small">${r.notes}</td></tr>`;
       })}</tbody></table></section>`;
 }
@@ -228,7 +249,7 @@ function Trajectory({ data, rows, pid }) {
     </svg>
     ${tip && html`<div class="chart-tip" style=${{ left: `${(tip.x / W) * 100}%`, top: `${(tip.y / H) * 100}%` }}>
       <b>${fmt(tip.r.value)}</b> <span class=${gainClass(tip.r.gain)}>${deltaText(tip.r.delta_pct, tip.r)}</span>
-      <div>${tip.r.label} · ${DECISIONS[decisionOf(tip.r)].label}</div>
+      <div>${tip.r.label} · ${DECISIONS[decisionOf(tip.r)].label}${rowTags(tip.r, data.baseline_series).map((t) => ` · ${t.text}`).join('')}</div>
       <div class="muted">${tip.r.title} · ${clock(tip.r.time)}</div>
       ${tip.r.change && html`<div class="muted">${tip.r.change}</div>`}</div>`}
   </div>`;
@@ -290,7 +311,7 @@ function Curves({ data, pid }) {
     return { name: c.name, y: y(last.y), x: x(last.x) };
   })) : [];
   return html`<section class="chart-card" aria-label=${tr('曲线')}>
-    <h2 class="chart-title">${tr('曲线')} <span class="muted small">${tr('{y} 对 {x}，每个系列一条线，连接它的前沿点（空心点被同系列的其他点支配）', { y: data.primary, x: data.x })}</span></h2>
+    <h2 class="chart-title">${tr('曲线')} <span class="muted small">${tr('{y} 对 {x}，每个系列一条线，连接它的前沿点（空心点被同系列的其他点支配，方块是别的任务测的复测）', { y: data.primary, x: data.x })}</span></h2>
     ${legend}
     <div class="chart" ref=${box} onMouseLeave=${() => setTip(null)}>
       <svg viewBox=${`0 0 ${W} ${CH}`} width=${W} height=${CH} role="img" aria-label=${tr('{y} 对 {x} 的曲线：{n} 个系列', { y: data.primary, x: data.x, n: shown.length })}>
@@ -304,7 +325,9 @@ function Curves({ data, pid }) {
           const front = c.points.filter((p) => p.frontier);
           const d = front.map((p, i) => `${i ? 'L' : 'M'}${x(p.x)},${y(p.y)}`).join('');
           return html`<g key=${c.name}><path class=${`curve ${c.role === 'reference' ? 'ref' : ''}`} style=${{ stroke: color.get(c.name) }} d=${d} />
-            ${c.points.map((p) => html`<circle class=${`pt ${p.frontier ? '' : 'off'}`} style=${{ [p.frontier ? 'fill' : 'stroke']: color.get(c.name) }} cx=${x(p.x)} cy=${y(p.y)} r="4" />`)}
+            ${c.points.map((p) => (p.repeat
+              ? html`<rect class="pt rep" style=${{ stroke: color.get(c.name) }} x=${x(p.x) - 3.5} y=${y(p.y) - 3.5} width="7" height="7" />`
+              : html`<circle class=${`pt ${p.frontier ? '' : 'off'}`} style=${{ [p.frontier ? 'fill' : 'stroke']: color.get(c.name) }} cx=${x(p.x)} cy=${y(p.y)} r="4" />`))}
             ${c.wp && html`<path class="wp-mark" style=${{ stroke: color.get(c.name) }}
               d=${`M${x(c.wp.x)},${y(c.wp.y) - 6}L${x(c.wp.x) + 6},${y(c.wp.y)}L${x(c.wp.x)},${y(c.wp.y) + 6}L${x(c.wp.x) - 6},${y(c.wp.y)}Z`} />`}
             ${c.points.map((p) => html`<a href=${taskHref(pid, p.task, { tab: 'docs', file: p.file })} aria-label=${`${c.name} ${p.label}: ${data.x} ${fmt(p.x)}, ${data.primary} ${fmt(p.y)}`}
@@ -316,7 +339,7 @@ function Curves({ data, pid }) {
       ${tip && html`<div class="chart-tip" style=${{ left: `${(tip.X / W) * 100}%`, top: `${(tip.Y / CH) * 100}%` }}>
         <b>${fmt(tip.p.y)}</b> <span class="muted">${data.primary}</span>
         <div>${fmt(tip.p.x)} <span class="muted">${data.x}</span>${tip.p.conc != null ? ` · C${tip.p.conc}` : ''}</div>
-        <div><span class="mono">${tip.c.name}</span> · ${tip.p.label}${tip.p.frontier ? '' : ` · ${tr('非前沿')}`}</div>
+        <div><span class="mono">${tip.c.name}</span> · ${tip.p.label}${tip.p.repeat ? ` · ${tr('复测（不进参照）')}` : tip.p.frontier ? '' : ` · ${tr('非前沿')}`}</div>
         <div class="muted">${tip.p.task} · ${clock(tip.p.time)}</div></div>`}
     </div>
     <${SeriesTable} data=${data} color=${color} wpWords=${wpWords} />
@@ -343,7 +366,7 @@ function SeriesTable({ data, color, wpWords }) {
       <td><svg width="14" height="10" aria-hidden="true"><line class=${`curve ${c.role === 'reference' ? 'ref' : ''}`} style=${{ stroke: color.get(c.name) }} x1="0" y1="5" x2="14" y2="5" /></svg>
         <span class="mono">${c.name}</span> <span class="muted small">${c.role === 'reference' ? tr('对标') : c.baseline ? tr('基线') : ''}</span></td>
       <td>${c.round ?? '—'}</td>
-      <td class="num">${c.points.length}</td>
+      <td class="num">${c.points.filter((p) => !p.repeat).length}${c.points.some((p) => p.repeat) ? html` <span class="muted small" title=${tr('这个系列的复测（不是封版任务测的）：画在曲线上，不进 Δ 的参照')}>${tr('+{n} 复测', { n: c.points.filter((p) => p.repeat).length })}</span>` : ''}</td>
       <td class="num">${c.wp ? html`<b>${fmt(c.wp.y)}</b>${c.wp.interpolated ? html` <span class="muted small" title=${tr('在前沿上相邻两点之间插值')}>${tr('插值')}</span>` : ''}`
         : html`<span class="muted small" title=${tr('这个系列没有到达工作点的点')}>${tr('未到达')}</span>`}</td>
       <td class=${`num ${gainClass(c.baseline ? null : c.wp?.gain)}`}>${c.wp ? deltaText(c.wp.delta_pct, { baseline: c.baseline }) : '—'}</td></tr>`)}</tbody></table>`;

@@ -1,7 +1,7 @@
 // The ledger's chips on the board's head (ledger.js): what they say of the server's baseline and best.  node --test web/test/*.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LedgerChips } from '../ledger.js';
+import { LedgerChips, rowTags } from '../ledger.js';
 import { setLang } from '../i18n.js';
 
 setLang('zh');
@@ -21,4 +21,16 @@ test('the chips name the best once, and keep its number apart from its delta', (
   // at the working point: the series' names
   const wp = { count: 9, primary: 'y', curve_head: true, baseline: { series: 'v0', value: 18000 }, best: { series: 'r1-spf', value: 19800, delta_pct: 10, gain: 10 } };
   assert.equal(chips(wp), 'y | 基线 v0 18K | 最佳 r1-spf 19.8K +10.0%');
+});
+
+test('a row says when its verdict does not hold, what it was judged against, and that it is a repeat', () => {
+  const words = (r) => rowTags(r, 'v1').map((t) => `${t.kind}:${t.text}`);
+  assert.deepEqual(words({ verified: true }), []);
+  assert.deepEqual(words({ verified: null, repeat: true }), ['repeat:复测']);
+  const r = { verified: false, unverified: ['verdict.decision is \'accept\'; recomputed ... \'noise\'', 'x'], judged_against: 'v0' };
+  assert.deepEqual(words(r), ['unverified:判定未核实', 'judged:相对 v0 判定']);
+  const [unverified, judged] = rowTags(r, 'v1');
+  assert.equal(unverified.cls, 'warn');
+  assert.ok(unverified.title.includes('recomputed') && unverified.title.includes('\nx'));
+  assert.ok(judged.title.includes('v0') && judged.title.includes('v1'));
 });

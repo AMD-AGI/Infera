@@ -260,6 +260,9 @@ EN = {
     "stream-json on standard input:",
     "## 等价命令": "## Equivalent command",
     "## 环境变量": "## Environment",
+    "## 验收依据": "## What the checks judge by",
+    "台账口径（A/B 判定按这份快照复算；本次运行中 project.yaml 的口径变了，验收不通过）：": "The ledger's rules (an A/B verdict is recomputed against this snapshot; if project.yaml's rules change during the run, the checks fail):",
+    "验收检查用到的 {n} 个文件（检查调用的模块、skills 的脚本、检查命令里写出的文件）已记下摘要；每次检查前比对，有变化就记一条失败的检查。": "The {n} files the checks use (the modules they call, the skills' scripts, the files their commands name) are digested; they are compared before each check, and a change is recorded as a failed check.",
     "在 agent-sys-v2 serve 清理过的环境（去掉 `CLAUDE*`、`ANTHROPIC*`、`IS_SANDBOX`）上加：": "On top of the environment agent-sys-v2 serve cleaned (without `CLAUDE*`, `ANTHROPIC*`, `IS_SANDBOX`):",
     # ---- what agent_sys tells the agent, in protocol_language: system.md, the first message, messages into its
     # session (launch, runs, questions, server), what failed checks say (checks.feedback)

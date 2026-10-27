@@ -19,7 +19,7 @@ import re
 import shlex
 from pathlib import Path
 
-from . import checks, i18n, machines, skills, tmux
+from . import checks, i18n, machines, skills, tmux, verdict
 from .i18n import _, translate
 from .model import (
     GLOBAL_DEFAULTS,
@@ -624,6 +624,23 @@ def launch_md(cfg, task, parts, system_text, unknown_skills=()):
         "",
     ]
     out += [f"- `{k}={v}`" for k, v in cfg["env"].items()]
+    if cfg.get("ledger"):
+        out += [
+            "",
+            _("## 验收依据"),
+            "",
+            _(
+                "台账口径（A/B 判定按这份快照复算；本次运行中 project.yaml 的口径变了，验收不通过）："
+            ),
+            "",
+            fenced(json.dumps(cfg["ledger"], ensure_ascii=False), "json"),
+            "",
+            _(
+                "验收检查用到的 {n} 个文件（检查调用的模块、skills 的脚本、检查命令里写出的文件）已记下摘要；"
+                "每次检查前比对，有变化就记一条失败的检查。",
+                n=len(cfg.get("toolchain") or {}),
+            ),
+        ]
     return "\n".join(out) + "\n"
 
 
@@ -704,6 +721,9 @@ def prepare(
         },
         "checks": task.checks,
         "check_retries": checks.retries(task.fm),
+        # what the checks judge by, as it is now: the project's ledger rules (a verdict is verified against these,
+        # not against a project.yaml changed during the run) and the checks' own files (compared before each check)
+        "ledger": verdict.rules(project.config),
         "message": message,
         "window": window,
         "started": now_iso(),
@@ -720,6 +740,7 @@ def prepare(
             "report_mtime": iso(mtime(task.workspace / report)) if report else "",
         },
     }
+    cfg["toolchain"] = checks.toolchain(project.path, task.checks, cfg["env"])
     # made before the run directory: bad extra_args stop the start here, with nothing written
     md = launch_md(cfg, task, parts, system_text, skills.unknown(project))
     write_run(run_dir, cfg, system_text, md)

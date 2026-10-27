@@ -198,7 +198,7 @@ def test_infera_perf_template(tmp_path):
     assert any("perfcheck plan" in c for c in checks["plan/first_plan"])
     assert any("perfcheck close" in c for c in checks["close/first_close"])
     assert checks["review/first_review"] == []
-    assert any("--require-verdict" in c for c in checks["experiment/first_experiment"])
+    assert any("ledger verify" in c for c in checks["experiment/first_experiment"])
     assert any("agent_sys_v2.ledger check" in c for c in checks["baseline/first_baseline"])
 
 

@@ -41,6 +41,7 @@ from .i18n import _
 from .launch import session_cost, terminal_argv
 from .model import Progress, iso, read_text, write_json
 from .tmux import clean_own_env
+from .verdict import RULES_ENV
 
 # how long a round the CLI owes may take to start before the runner stops waiting for it
 OWED_SECONDS = 10
@@ -340,12 +341,20 @@ def checks_due(cfg):
 def run_checks(cfg, run_dir, events, halt=None):
     """One attempt at the task's checks, its steps written as runner events and the outcome into checks.json. None if
     halt was set meanwhile (停止): the check in flight was killed and the attempt is not recorded."""
-    total = len(cfg["checks"])
+    # the checks' own files are as they were when the run started, or a failure says what changed
+    tampered = checks.toolchain_check(
+        cfg.get("toolchain"), checks.toolchain(cfg["cwd"], cfg["checks"], cfg["env"])
+    )
+    first = [tampered] if tampered else []
+    total = len(cfg["checks"]) + len(first)
     events.note("checks", phase="start", total=total)
+    for n, r in enumerate(first, 1):
+        events.note("check", phase="end", n=n, total=total, **r)
     attempt = checks.run_all(
         cfg["checks"],
         cfg["cwd"],
-        {**cfg["env"], procs.CHECK_MARK: str(run_dir)},
+        {**cfg["env"], **check_env(cfg), procs.CHECK_MARK: str(run_dir)},
+        first=first,
         on_start=lambda n, c: events.note(
             "check", phase="start", n=n, total=total, name=c["name"], run=c["run"]
         ),
@@ -361,6 +370,16 @@ def run_checks(cfg, run_dir, events, halt=None):
         "checks", phase="end", ok=attempt["ok"], passed=passed, total=total, attempt=attempt["n"]
     )
     return attempt
+
+
+def check_env(cfg):
+    """What a check gets besides the agent's variables: the rules the run snapshotted, from this process (it read
+    launch.json before the agent started; the file is in the agent's reach), and PYTHONSAFEPATH, so that
+    `python -m agent_sys_v2...` run in the project directory does not import a package of that name lying there."""
+    out = {"PYTHONSAFEPATH": "1"}
+    if isinstance(cfg.get("ledger"), dict):
+        out[RULES_ENV] = json.dumps(cfg["ledger"])
+    return out
 
 
 def stop_checks(halt, run_dir):

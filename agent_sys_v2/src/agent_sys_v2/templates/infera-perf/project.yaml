@@ -10,6 +10,8 @@ ledger:                # 结果台账：任务写在 results/ 下的 infera.resu
   x: p90_intvty                 # X：P90 interactivity = 1/p90 full-response ITL（tok/s/user，InferenceX 看板默认）
   baseline_series: v0           # 基线曲线：当前版本的系列；close 封版后改成 vN
   working_point: {}             # 判 A/B 的工作点，intake 按问卷 B3 填写：{x: 30}（X ≥ 30 下 Y 最大）或 {conc: 64}
+  noise_pct: 2                  # A/B 的噪声带（%）；和 accept_pct 一样只由你改（ab_judge 只能提高接受线），运行开始时快照，验收按快照复算
+  accept_pct: 3                 # A/B 的接受线（%）：主指标增益超过它和噪声底才接受
 skills: [infera-deploy, infera-bench, infera-quality-gate, infera-profile, infera-diagnose, infera-experiment, infera-hygiene]
 autorun: true          # 上游完成后自动启动下游；关掉则所有任务都要手动点"开始"
 max_running: 3         # 本项目同时运行的任务数（后台等待和终端接管的任务也计入）

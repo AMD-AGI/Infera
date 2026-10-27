@@ -1,7 +1,6 @@
 """The results ledger (ledger.py): result files read against the baseline, the best, the curves and the working
-point, AgentX output turned into results, the check command, and the A/B judge of the infera-experiment skill."""
+point, AgentX output turned into results and the check command (verdicts: test_verdict.py)."""
 
-import importlib.util
 import json
 import shutil
 from pathlib import Path
@@ -10,7 +9,7 @@ import pytest
 from conftest import get, new, ok, run_home, write_result
 from fastapi.testclient import TestClient
 
-from agent_sys_v2 import ledger, skills
+from agent_sys_v2 import ledger
 from agent_sys_v2.scan import load_project
 from agent_sys_v2.server import create_app
 
@@ -429,106 +428,3 @@ def test_agentx_never_overwrites_a_result(tmp_path, capsys):
     assert sorted(p.name for p in out.iterdir()) == ["v0-c40.json", "v0-rep1-c40.json"]
     # a label that is no file name is an error, not a traceback
     assert ledger.main([*argv, "--label", "no/such"]) == 1
-
-
-# ---------------------------------------------------------------- the A/B judge of the infera-experiment skill
-
-
-def load_judge():
-    path = skills.SHIPPED / "infera-experiment/scripts/ab_judge.py"
-    spec = importlib.util.spec_from_file_location("ab_judge", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_ab_judge_never_turns_noise_into_an_accept():
-    j = load_judge()
-    d = lambda base, cand, **kw: j.judge(base, cand, **kw)["decision"]  # noqa: E731
-    assert d([100], [101.5], mechanism="agree") == "noise"  # inside the 2% band
-    assert d([100], [97], mechanism="agree") == "reject"
-    assert d([100], [102.5], mechanism="agree") == "rerun"  # between the band and the 3% bar
-    assert d([100], [110]) == "rerun"  # a gain without the mechanism shown
-    assert d([100], [110], mechanism="disagree") == "rerun"
-    assert d([100], [110], mechanism="agree") == "accept"
-    # a wide spread raises the floor: +6% on runs that scatter by 10% is noise
-    assert d([90, 100, 110], [96, 106, 116], mechanism="agree") == "noise"
-    # lower is better (a latency): -8% is the gain
-    assert d([2.0], [1.84], higher_is_better=False, mechanism="agree") == "accept"
-    assert d([2.0], [2.2], higher_is_better=False) == "reject"
-    # Y up by 10% with X (interactivity) down by 20%: a trade, not an accept; X within its noise is fine
-    assert d([100], [110], mechanism="agree", x=([50], [40], True)) == "rerun"
-    assert d([100], [110], mechanism="agree", x=([50], [49.5], True)) == "accept"
-    assert d([100], [110], mechanism="agree", x=([2.0], [2.5], False)) == "rerun"  # X a latency
-    # numbers only: NaN or Infinity would pass every comparison as if it were a gain; a mean of 0 has no spread
-    for cand in ([float("nan")], [float("inf")]):
-        with pytest.raises(ValueError):
-            j.judge([100], cand, mechanism="agree")
-    assert d([100], [0, 0]) == "reject"
-    with pytest.raises(ValueError):
-        j.judge([100], [-1, 1])
-
-
-def test_ab_judge_reads_and_writes_result_files(tmp_path, capsys):
-    j = load_judge()
-    base = write_result(tmp_path, "b", "base", point("v0", 64, 50.0, 10000.0, "baseline"))
-    cands = [
-        write_result(tmp_path, "c", f"cand{i}", point("r1-spf", 64, 50.0, y))
-        for i, y in enumerate((11000.0, 11100.0))
-    ]
-    files = ["--baseline-files", str(base), "--candidate-files", *map(str, cands)]
-    metric = ["--metric", "input_tput_per_gpu", "--x-metric", "p90_intvty"]
-    assert j.main([*metric, *files, "--mechanism", "agree", "--write"]) == 0
-    # every candidate file gets the verdict, so every one passes the experiment's check
-    for c in cands:
-        verdict = json.loads(c.read_text())["verdict"]
-        assert (
-            verdict["decision"] == "accept"
-            and verdict["vs_baseline_pct"] == 10.5
-            and verdict["x_gain_pct"] == 0.0
-        )
-    assert ledger.check(cands, require_verdict=True)[0]
-    # a gain below the noise, left to the close
-    capsys.readouterr()
-    assert j.main(["--baseline", "100", "--candidate", "101", "--note", "待集成"]) == 0
-    assert json.loads(capsys.readouterr().out)["notes"].endswith("; 待集成")
-    assert (
-        j.main(["--void", "foreign load on GPU 3", "--candidate-files", str(cands[0]), "--write"])
-        == 0
-    )
-    assert json.loads(cands[0].read_text())["verdict"] == {
-        "status": "void",
-        "notes": "foreign load on GPU 3",
-    }
-    # wrong input: exit 2, no traceback
-    nan = write_result(
-        tmp_path, "c", "nan", '{"schema": "infera.result/v1", "label": "n", "metrics": {"y": NaN}}'
-    )
-    assert (
-        j.main(["--metric", "y", "--baseline-files", str(base), "--candidate-files", str(nan)]) == 2
-    )
-    assert (
-        j.main(
-            [
-                "--metric",
-                "y",
-                "--baseline-files",
-                str(tmp_path / "missing.json"),
-                "--candidate",
-                "1",
-            ]
-        )
-        == 2
-    )
-    assert j.main(["--baseline", "100", "--candidate", "nan"]) == 2
-    # a noise floor or bar that is no percentage would let anything through
-    for bad in ("nan", "-1"):
-        with pytest.raises(SystemExit):
-            j.main(["--baseline", "100", "--candidate", "110", "--noise-pct", bad])
-    for argv in (
-        ["--baseline-files", str(base)],
-        ["--baseline", "1", "--candidate", "2", "--write"],
-    ):
-        # result files need --metric; --write needs the candidate files
-        with pytest.raises(SystemExit):
-            j.main(argv)
