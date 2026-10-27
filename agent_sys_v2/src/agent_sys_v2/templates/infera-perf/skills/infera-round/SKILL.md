@@ -18,6 +18,7 @@ close/rN 起草：intake/r(N+1)（depends_on: [close/rN]）
 - 第 1 轮的 intake、survey、baseline、profile、plan 由模板在建项目时预置并排队，我审核后点"开始运行"才开始。之后每轮的任务由 intake/rN 按问卷回答起草（survey/rN、plan/rN，需要时 profile/rN 和 baseline/rN），close 的集成曲线就是下一轮的基线，通常不再重做 baseline。
 - `kind: children` 的依赖：plan 完成、且 `parent: plan/rN` 的任务全部完成或取消后，close 才开始。提前收尾 = 取消剩下的子任务。
 - 你起草的任务都是草稿；我在你的任务抽屉里点"全部纳入托管"，你的子任务和直接依赖你的草稿一起排队。
+- **plan、intake、close 起草完任务后，标完成之前先跑整体检查**：`"$AGENT_SYS_PYTHON" -m agent_sys_v2.cli check "$AGENT_SYS_PROJECT" --drafts-of "$AGENT_SYS_TASK"`。它一次列出你起草的草稿（和"全部纳入托管"查的一样）以及 project.yaml 的问题：依赖或 parent 写错、阻塞依赖成环、frontmatter 或 checks 解析不了、machines 不在 project.yaml 里、project.yaml 的 skills 不存在、checks 里 `agent_sys_v2.<模块>`、`perfcheck <类型>`、`ledger <子命令>` 或 `$AGENT_SYS_SKILLS/`、`$AGENT_SYS_PROJECT/` 下的脚本不存在。每条带改法，名字写错时给出最接近的名字。有 `error`（退出码 1）就改到通过：同样的检查会挡住"全部纳入托管"和"开始运行"。`warn` 看情况处理，在 report.md 里说明。不带 `--drafts-of` 时查项目里所有未完成的任务；别的任务的问题不要替它改，写进 report.md 告诉我。
 - 我介入的地方每轮有三处：intake 的问卷和 brief、profile 的审核、plan 的审核（候选、预算、机器）。其余选择按默认继续，写进"替你做的决定"。
 
 ## 各任务的产出（验收检查会查带 ✓ 的）

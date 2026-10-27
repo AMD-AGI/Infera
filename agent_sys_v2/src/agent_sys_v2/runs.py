@@ -22,7 +22,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import checks, files, launch, machines, questions, tmux
+from . import checks, files, launch, machines, preflight, questions, tmux
 from .events import Follow
 from .i18n import _, status_word
 from .model import (
@@ -36,7 +36,7 @@ from .model import (
     runs_dir,
     write_state,
 )
-from .ops import check_not_archived, flow, start_project, update_frontmatter
+from .ops import check_not_archived, flow, start_problems, start_project, update_frontmatter
 from .procs import check_pids, children, end_checks, end_session, is_runner, signal_all
 from .scan import load_project, project_dir, project_ids
 
@@ -416,16 +416,18 @@ def fresh(pdir, tid):
 
 def start(home, pdir, tid):
     """开始: a queued task's first run, whether or not its upstream tasks are done. The first start by hand ends
-    the template's review (ops.start_project)."""
+    the template's review (ops.start_project): the check before a start goes first."""
     project, t = fresh(pdir, tid)
     check_can_run(project, t)
     if t.status != "queued":
         raise AgentSysError(
             _("任务当前为「{status}」，无法执行「开始」", status=status_word(t.status)), 409
         )
+    if project.template_review:
+        preflight.refuse(project, start_problems(project), _("开始运行"))
     start_run(home, project, t)
     if project.template_review:
-        start_project(pdir)
+        start_project(pdir, checked=True)  # checked above: a run that started is not refused after
 
 
 def message(home, pdir, tid, text):

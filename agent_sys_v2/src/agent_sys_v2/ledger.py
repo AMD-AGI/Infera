@@ -884,7 +884,8 @@ def check(paths, require_verdict=False):
     return found > 0 and bad == 0, lines
 
 
-def main(argv=None):
+def parser():
+    """The command line; parser().commands names its subcommands (the check before a start reads them)."""
     ap = argparse.ArgumentParser(
         prog="python -m agent_sys_v2.ledger",
         description="Check infera.result files; convert AgentX output and lm_eval's GSM8K.",
@@ -922,7 +923,14 @@ def main(argv=None):
     from . import gsm8k
 
     gsm8k.add_parser(sub)
-    args = ap.parse_args(argv)
+    ap.commands = tuple(sub.choices)
+    return ap
+
+
+def main(argv=None):
+    from . import gsm8k
+
+    args = parser().parse_args(argv)
     if args.cmd == "gsm8k":
         code, lines = gsm8k.main_args(args)
         print("\n".join(lines))

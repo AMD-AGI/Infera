@@ -3,9 +3,9 @@ import { useState, useEffect, useRef } from './vendor/hooks.module.js';
 import { api, paths } from './api.js';
 import { html, Icon, StatusMark, EDGE_KINDS, statusLine, useApi, useNow, useEscape, usePopover, money, clock, since, ago,
   bytes, Markdown, AutoText, MentionText, ErrorBox, Dialog, confirmDialog, toast, fail, hrefWith, closeHref, go, taskHref,
-  ModelSelect, EffortSelect, UltracodeCheck } from './ui.js';
+  ModelSelect, EffortSelect, UltracodeCheck, Problems } from './ui.js';
 import { list } from './i18n.js';
-import { RunTab, AttachCommand, endTakeover, stopRun, BudgetButton } from './run.js';
+import { RunTab, AttachCommand, endTakeover, stopRun, BudgetButton, sendMessage } from './run.js';
 // `t` is a task throughout this file: the translator is tr.
 import { t as tr } from './i18n.js';
 
@@ -118,6 +118,16 @@ function Header({ pid, t, head, close }) {
       body: html`<p>${tr('任务文件和工作区将移至项目的')} <code>.trash/</code> ${tr('目录，移回原处即可恢复。其他任务中对它的引用不会修改，之后显示为记录提醒。')}</p>` })) return;
     act('delete', () => tr('任务已删除，任务文件和工作区已移至 .trash/')).then(() => go(closeHref()), () => {});
   };
+  // 全部纳入托管: the server checks the drafts again (they may have been fixed since this page was read) and refuses on
+  // an error with the list (fail shows it); warnings only are shown first
+  const joinDrafts = async () => {
+    const problems = t.drafts_problems || [];
+    const warnings = problems.filter((p) => p.level !== 'error');
+    if (warnings.length === problems.length && problems.length && !await confirmDialog({ title: tr('全部纳入托管？'), ok: tr('全部纳入托管'),
+      body: html`<p>${tr('开始前检查有 {n} 个提醒，不影响纳入：', { n: problems.length })}</p><${Problems} pid=${pid} problems=${problems} />` })) return;
+    return act('join_children', (r) => tr('已纳入托管 {n} 个任务', { n: r.joined.length }));
+  };
+  const draftErrors = (t.drafts_problems || []).filter((p) => p.level === 'error').length;
   const more = [
     t.managed && !['cancelled', 'done'].includes(t.status) && [tr('取消任务'), cancel],
     [tr('删除任务'), remove],
@@ -153,8 +163,10 @@ function Header({ pid, t, head, close }) {
         title=${tr('最近一轮的验收检查（第 {n} 次）', { n: t.checks.attempts })}>${t.checks.ok ? '✓' : '✗'} ${tr('验收 {passed}/{total}', t.checks)}</a>`}
     </div>
     <${Notes} t=${t} />
+    ${t.upstream_changed?.length > 0 && html`<${UpstreamChanged} pid=${pid} t=${t} />`}
     ${drafts.length > 0 && html`<div class="notice drafts"><${Icon} name="draft" /><div>${tr('这个任务起草了 {n} 个任务：{titles}', { n: drafts.length, titles: list(drafts) })}
-      <button class="btn small primary" disabled=${busy} onClick=${guard(() => act('join_children', (r) => tr('已纳入托管 {n} 个任务', { n: r.joined.length })))}>${tr('全部纳入托管')}</button></div></div>`}
+      ${draftErrors > 0 && html`<span class="warn-text">${tr('（开始前检查发现 {n} 个错误）', { n: draftErrors })}</span>`}
+      <button class="btn small primary" disabled=${busy} onClick=${guard(joinDrafts)}>${tr('全部纳入托管')}</button></div></div>`}
     <div class="head-actions">
       ${actionsOf(t).map((k) => {
         if (k === 'budget') return html`<${BudgetButton} pid=${pid} t=${t} />`;
@@ -165,6 +177,33 @@ function Header({ pid, t, head, close }) {
     </div>
     ${takeover && html`<${TakeoverDialog} pid=${pid} t=${t} live=${live} onClose=${() => setTakeover(false)} />`}
   </div>`;
+}
+
+// 上游已更新: an input or code upstream changed after the task's last round started. Nothing is reopened; a message
+// (the server's, in the agent's language, to edit before sending) asks the task to check its conclusion.
+function UpstreamChanged({ pid, t }) {
+  const [open, setOpen] = useState(false);
+  return html`<div class="notice upstream"><${Icon} name="updated" /><div>
+    ${t.upstream_changed.map((c) => html`<div>${c.text} <a href=${taskHref(pid, c.task, { tab: 'docs' })}>${tr('查看')}</a></div>`)}
+    <button class="btn small" onClick=${() => setOpen(true)}>${tr('发消息复核')}</button></div>
+    ${open && html`<${RecheckDialog} pid=${pid} t=${t} onClose=${() => setOpen(false)} />`}</div>`;
+}
+
+// A plain textarea: an AutoText measures itself before the dialog is shown, and would be one line high.
+function RecheckDialog({ pid, t, onClose }) {
+  const [text, setText] = useState(t.upstream_message || '');
+  const [busy, setBusy] = useState(false);
+  const send = () => {
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    sendMessage(pid, t.id, text).then(() => { toast(tr('已发送，任务将在同一会话中复核')); onClose(); }, fail).finally(() => setBusy(false));
+  };
+  return html`<${Dialog} title=${tr('让任务按上游的新结果复核')} onClose=${onClose}>
+    <p class="small muted">${tr('消息在同一会话中开始新一轮复核；可以先修改再发送。')}</p>
+    <textarea class="recheck-text" rows="9" value=${text} onInput=${(e) => setText(e.target.value)} aria-label=${tr('消息')}
+      onKeyDown=${(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } }} />
+    <div class="dialog-actions"><button class="btn ghost" onClick=${onClose}>${tr('取消')}</button>
+      <button class="btn primary" onClick=${send} disabled=${busy || !text.trim()}>${tr('发送')}</button></div></${Dialog}>`;
 }
 
 // What the server noticed about the task's records: the board's reminders (warnings) and those shown only here (hints).

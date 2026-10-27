@@ -715,6 +715,18 @@ a.machine:hover { text-decoration: none; border-color: var(--line-strong); }
 .notes { list-style: none; margin: 2px 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .notes li { display: flex; gap: 6px; align-items: baseline; }
 .notice.drafts .btn { margin-left: 8px; }
+.notice.upstream { align-items: flex-start; }
+.notice.upstream .btn { margin-top: 4px; }
+.problems { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.problems li { display: flex; gap: 6px; align-items: baseline; }
+.problems li.error { color: var(--needs_you); }
+.problems li.warn { color: var(--ink-2); }
+.problems li > div > a, .problems .p-level { margin-right: 6px; }
+.problems .p-fix { margin-top: 1px; }
+.tr-check { margin: 8px 0; }
+.recheck-text { width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; resize: vertical; }
+.tr-check h3 { font-size: 13px; margin: 0 0 4px; }
+.tr-check .icon { vertical-align: -3px; margin-right: 4px; }
 .machine-picks { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 .machine-picks .check { display: inline-flex; gap: 6px; align-items: center; }
 

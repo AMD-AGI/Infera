@@ -73,11 +73,12 @@ def project_path(pid):
 class AgentSysError(Exception):
     """A request agent_sys refuses. The message, made with _() in the user's language, is shown as is; `status` is
     the HTTP code the server answers with (400 bad input, 404 not found, 409 not allowed now / cycle / already
-    exists, 422 a file that cannot be read)."""
+    exists, 422 a file that cannot be read); `data` goes into the reply beside the message (preflight's problems)."""
 
-    def __init__(self, message, status=400):
+    def __init__(self, message, status=400, **data):
         super().__init__(message)
         self.status = status
+        self.data = data
 
 
 def check_scope(scope, pid=None):
@@ -545,6 +546,8 @@ class Task:
     check_result: dict | None = None
     # the task's result files in the ledger (ledger.task_briefs), None if none
     results: dict | None = None
+    # done / in review: its input and code upstream tasks that changed after its last round started (upstream.changes)
+    upstream_changed: list = field(default_factory=list)
     warnings: list = field(default_factory=list)  # 记录提醒 shown on the card
     hints: list = field(default_factory=list)  # shown only in the task detail
 
@@ -592,6 +595,7 @@ class Task:
             "session_id": s.get("session_id"),
             "cost_usd": round((s.get("cost_usd") or 0) + self.cost_running, 6) if s else None,
             "budget_usd": plain(self.agent.get("budget_usd")) if s else None,
+            "upstream_changed": self.upstream_changed,
             "warnings": self.warnings,
             "hints": self.hints,
         }

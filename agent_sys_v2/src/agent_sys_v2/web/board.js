@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from './vendor/hooks.module.js';
 import { api, paths } from './api.js';
 import { html, Icon, StatusMark, STATUS, STATUS_ORDER, EDGE_KINDS, statusLine, useApi, useNow, usePopover, money, ago,
-  since, clock, parseHash, taskHref, closeHref, go, toast, fail, confirmDialog, ErrorBox, Loading, Holder } from './ui.js';
+  since, clock, parseHash, taskHref, closeHref, go, toast, fail, confirmDialog, ErrorBox, Loading, Holder, Problems } from './ui.js';
 import { NeedsCard, ReviewCard, MarkAllRead, resumeAll, interruptedOf } from './cards.js';
 import { confirmMove } from './task.js';
 import { t as tr, list as listOf } from './i18n.js';
@@ -102,7 +102,7 @@ export function BoardPage({ pid, onNewTask }) {
           title=${project.archived ? tr('项目已归档，取消归档后才能新建任务') : tr('新建任务（快捷键 n）')}><${Icon} name="plus" />${tr('新建任务')}</button>
       </div>
     </header>
-    ${project.template_review && !project.archived && html`<${TemplateReview} pid=${pid} project=${project} types=${types} tasks=${tasks} edges=${edges} />`}
+    ${project.template_review && !project.archived && html`<${TemplateReview} pid=${pid} project=${project} types=${types} tasks=${tasks} edges=${edges} problems=${data.preflight || []} recheck=${reload} />`}
     ${machines.length > 0 && html`<${MachineStrip} machines=${machines} pid=${pid} />`}
     ${tasks.length > 0 && html`<${Attention} pid=${pid} tasks=${tasks} titleOf=${titleOf} />`}
     <${Toolbar} view=${v} set=${set} types=${types} tasks=${tasks} collapse=${collapse} />
@@ -115,11 +115,13 @@ export function BoardPage({ pid, onNewTask }) {
 
 // A project made from a template that brings tasks waits for you (project.yaml template_review): the tasks are listed in
 // the order they will run, to open and review (and edit) one by one, with the project's rules and settings; 开始运行 lets
-// them start as in any other project. Starting one of them by hand does the same.
-function TemplateReview({ pid, project, types, tasks, edges }) {
+// them start as in any other project. Starting one of them by hand does the same. What the check before a start finds is
+// listed here; with an error 开始运行 is off (the server refuses it as well).
+function TemplateReview({ pid, project, types, tasks, edges, problems, recheck }) {
   const [busy, setBusy] = useState(false);
   const queued = runOrder(tasks.filter((t) => t.managed && t.status === 'queued'), edges, types.map((ty) => ty.id)).order;
   const first = queued.filter((t) => t.detail?.kind === 'template_review');
+  const errors = problems.filter((p) => p.level === 'error').length;
   const start = async () => {
     if (!await confirmDialog({ title: tr('开始运行「{title}」？', { title: project.title }), ok: tr('开始运行'),
       body: html`<p>${project.autorun ? tr('{tasks} 将立即开始，其余任务在上游完成后自动开始。', { tasks: listOf(first.map((t) => t.title)) })
@@ -133,8 +135,15 @@ function TemplateReview({ pid, project, types, tasks, edges }) {
       <span class="spacer"></span>
       <a class="btn small ghost" href=${`#/p/${pid}/rules`}>${tr('项目规则')}</a>
       <a class="btn small ghost" href=${`#/p/${pid}/settings`}>${tr('项目设置')}</a>
-      <button class="btn primary" onClick=${start} disabled=${busy}><${Icon} name="play" />${tr('开始运行')}</button></div>
+      <button class="btn primary" onClick=${start} disabled=${busy || errors > 0}
+        title=${errors ? tr('开始前检查发现 {n} 个错误，改正后才能开始运行', { n: errors }) : undefined}><${Icon} name="play" />${tr('开始运行')}</button></div>
     <p class="small">${tr('这些任务由模板 {template} 预置，在你审核之前不会开始。请按顺序打开每个任务，检查 prompt、依赖、机器和验收检查（可以直接修改），再看一遍项目规则和设置（目标、机器）。确认后点"开始运行"，或在某个任务的详情里点"开始"；之后的任务按依赖自动推进。', { template: project.template || '' })}</p>
+    ${problems.length ? html`<div class="tr-check" role=${errors ? 'alert' : 'status'}>
+        <h3 class=${errors ? 'warn-text' : ''}>${errors ? tr('开始前检查：{errors} 个错误、{warns} 个提醒，改正错误后才能开始运行', { errors, warns: problems.length - errors })
+          : tr('开始前检查：{n} 个提醒，不影响开始运行', { n: problems.length })}</h3>
+        <${Problems} pid=${pid} problems=${problems} />
+        <button class="btn small ghost" onClick=${recheck} title=${tr('改了检查用到的脚本或 skill 之后（这些文件的变化不会自动刷新）')}>${tr('重新检查')}</button></div>`
+      : html`<div class="tr-check ok-text small"><${Icon} name="done" />${tr('开始前检查：没有发现问题')}</div>`}
     <ol class="tr-tasks">${queued.map((t) => html`<li><a href=${taskHref(pid, t.id, { tab: 'task' })}><b>${t.title}</b><span class="mono small muted">${t.id}</span></a>
       ${first.includes(t) && html`<span class="tag tr-first">${tr('第一个开始')}</span>`}</li>`)}</ol>
   </section>`;
@@ -482,6 +491,7 @@ function Card({ t, p, titleOf, compact, now, selected, dim, hit, drag, onPointer
         <span class="ellipsis">${line}</span>
         ${t.review && !['done', 'in_review'].includes(t.status) && html`<span class="tag" title=${tr('完成后需审核')}>${tr('需审核')}</span>`}
         <${Badges} t=${t} />
+        ${t.upstream_changed?.length > 0 && html`<span class="badge warn-text" title=${t.upstream_changed.map((c) => c.text).join('\n')}><${Icon} name="updated" label=${tr('上游已更新')} /></span>`}
         ${t.warnings?.length > 0 && html`<span class="warn" title=${t.warnings.join('\n')}><${Icon} name="warning" />${t.warnings.length}</span>`}</span>`}
   </button>`;
 }

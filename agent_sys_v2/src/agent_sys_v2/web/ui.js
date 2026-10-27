@@ -194,6 +194,7 @@ const PATHS = {
   grip: '<circle cx="6" cy="4" r=".8" class="fill"/><circle cx="10" cy="4" r=".8" class="fill"/><circle cx="6" cy="8" r=".8" class="fill"/><circle cx="10" cy="8" r=".8" class="fill"/><circle cx="6" cy="12" r=".8" class="fill"/><circle cx="10" cy="12" r=".8" class="fill"/>',
   machine: '<rect x="2.2" y="2.5" width="11.6" height="4.4" rx="1"/><rect x="2.2" y="9.1" width="11.6" height="4.4" rx="1"/><path d="M4.6 4.7h.1M4.6 11.3h.1M7.4 4.7h4M7.4 11.3h4"/>',
   chart: '<path d="M2.2 13.6h11.6M3.4 11 6.3 7.4l2.6 2.1 4.2-5.3"/><circle cx="13.1" cy="4.2" r=".5" class="fill"/>',
+  updated: '<path d="M13.2 8.6A5.3 5.3 0 1 1 11.6 4"/><path d="M12.4 1.6v2.9H9.5"/>',
   archive: '<rect x="2" y="3" width="12" height="3.2" rx=".8"/><path d="M3.2 6.2v6.3c0 .6.4 1 1 1h7.6c.6 0 1-.4 1-1V6.2M6.5 9h3"/>',
 };
 export function Icon({ name, size = 16, label, className = '' }) {
@@ -308,8 +309,21 @@ export function ErrorBox({ what, error, retry }) {
 // Toasts: short confirmations of what just happened, with an optional link.
 const toastListeners = new Set();
 export function toast(text, opts = {}) { for (const fn of toastListeners) fn({ id: Math.random(), text, ...opts }); }
-// A request that failed: its message as an error toast.
-export const fail = (e) => toast(e.message, { error: true });
+// A request that failed: its message as an error toast; a start refused by the check before a start lists its
+// problems in a dialog (the reply's problems).
+export const fail = (e) => (e.data?.problems
+  ? problemsDialog(e.data.project, e.message.split('\n')[0], e.data.problems)
+  : toast(e.message, { error: true }));
+
+// What the check before a start found (preflight): errors, then warnings, each with its task and how to fix it.
+export function Problems({ pid, problems }) {
+  return html`<ul class="problems small">${problems.map((p) => html`<li class=${p.level}>
+    <${Icon} name="warning" /><div><b class="p-level">${p.level === 'error' ? t('错误') : t('提醒')}</b>
+      ${p.task ? html`<a class="mono" href=${taskHref(pid, p.task, { tab: 'task' })}>${p.task}</a>` : html`<a class="mono" href=${`#/p/${pid}/settings`}>project.yaml</a>`}
+      <span>${p.message}</span>${p.fix && html`<div class="p-fix muted">→ ${p.fix}</div>`}</div></li>`)}</ul>`;
+}
+export const problemsDialog = (pid, title, problems) => confirmDialog({ title, cancel: t('关闭'),
+  body: html`<${Problems} pid=${pid} problems=${problems} />` });
 export function Toasts() {
   const [shown, set] = useState([]);
   useEffect(() => {
@@ -348,7 +362,8 @@ export function Dialog({ title, children, onClose }) {
     <div class="dialog-body">${children}</div></dialog>`;
 }
 
-// Confirm dialog driven by a promise: `await confirm({...})` → true / false.
+// Confirm dialog driven by a promise: `await confirm({...})` → true / false. Without ok it only tells (cancel closes it);
+// a link in it to a page of the app closes it too.
 let confirmSetter = null;
 export function confirmDialog(opts) { return new Promise((resolve) => confirmSetter?.({ ...opts, resolve })); }
 export function ConfirmHost() {
@@ -357,10 +372,10 @@ export function ConfirmHost() {
   if (!c) return null;
   const done = (v) => { set(null); c.resolve(v); };
   return html`<${Dialog} title=${c.title} onClose=${() => done(false)}>
-    <div class="confirm-body">${c.body}</div>
+    <div class="confirm-body" onClick=${(ev) => ev.target.closest('a[href^="#"]') && done(false)}>${c.body}</div>
     <div class="dialog-actions">
       <button class="btn ghost" onClick=${() => done(false)}>${c.cancel || t('取消')}</button>
-      <button class=${`btn ${c.danger ? 'danger' : 'primary'}`} onClick=${() => done(true)} autofocus>${c.ok}</button>
+      ${c.ok && html`<button class=${`btn ${c.danger ? 'danger' : 'primary'}`} onClick=${() => done(true)} autofocus>${c.ok}</button>`}
     </div></${Dialog}>`;
 }
 

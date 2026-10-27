@@ -68,10 +68,10 @@ STATUS = {
 }
 
 
-def status_word(status):
-    """A task status as the UI names it."""
+def status_word(status, lang=None):
+    """A task status as the UI names it (in lang, the UI's language by default)."""
     zh, en = STATUS.get(status, (status, status))
-    return en if LANG == "en" else zh
+    return en if (lang or LANG) == "en" else zh
 
 
 # Chinese message -> English. Grouped by the module that says it; shared messages first.
@@ -116,6 +116,51 @@ EN = {
     "{project}/project.yaml 无法解析：{error}": "Cannot parse {project}/project.yaml: {error}",
     "{project}/project.yaml 的 agent 应为键值表（例如 agent: {model: opus}）": "agent in {project}/project.yaml must be a mapping (e.g. agent: {model: opus})",
     "{project}/project.yaml 的 {key} 应为 true 或 false，而不是「{value}」": '{key} in {project}/project.yaml must be true or false, not "{value}"',
+    # ---- scan: how to fix a reminder (the check before a start)
+    "最接近的已有任务是「{near}」：是不是写错了？": 'The nearest existing task is "{near}": a typo?',
+    "写成已有任务的 类型/任务名，或删掉这一项": "Write an existing task's type/name, or remove the entry",
+    "改成例如 develop/a 或 {task: develop/a, kind: code}，或删掉这一项": "Write e.g. develop/a or {task: develop/a, kind: code}, or remove the entry",
+    "是不是「{near}」？": 'Did you mean "{near}"?',
+    "改成上面列出的一种": "Use one of those listed",
+    "写成一个任务的 类型/任务名，或删掉 parent": "Write a task's type/name, or remove parent",
+    "去掉环上的一条依赖，或把它的 kind 改成不阻塞的 review": "Remove one dependency of the cycle, or make its kind review, which does not block",
+    # ---- preflight: the check before a start
+    "project.yaml 的 skills 中的「{name}」不存在（有：{have}）": 'Skill "{name}" in project.yaml\'s skills does not exist (there are: {have})',
+    "删掉它，或在项目的 skills/{name}/SKILL.md 写一个": "Remove it, or write one in the project's skills/{name}/SKILL.md",
+    "类型「{type}」不在 project.yaml 的 lanes 中：它的泳道排在最后": 'Type "{type}" is not in project.yaml\'s lanes: its lane goes last',
+    "把它加进 lanes": "Add it to lanes",
+    "改正任务文件开头的 frontmatter（--- 之间的 YAML）": "Fix the frontmatter at the top of the task file (the YAML between the --- lines)",
+    "依赖的任务「{task}」已取消：本任务会一直等它": 'Task "{task}" it depends on was cancelled: this task will wait for it forever',
+    "依赖的任务「{task}」已取消": 'Task "{task}" it depends on was cancelled',
+    "去掉这条依赖，或改为依赖接替它的任务": "Remove the dependency, or depend on the task that took its place",
+    "machines 中的「{name}」不在 project.yaml 的 machines 中（有：{have}）": 'Machine "{name}" is not among project.yaml\'s machines (there are: {have})',
+    "还没有声明机器": "none declared yet",
+    "先在 project.yaml 的 machines 中加上它，或改成已声明的机器": "Add it to project.yaml's machines first, or use a declared one",
+    "验收检查「{check}」的命令无法静态分析：{error}": "The command of check `{check}` cannot be read: {error}",
+    "检查引号是否配对": "Check that its quotes pair up",
+    "验收检查「{check}」运行的模块 {package}.{module} 不存在": "Check `{check}` runs module {package}.{module}, which does not exist",
+    "是不是 {package}.{near}？": "Did you mean {package}.{near}?",
+    "改成存在的模块，或去掉这条检查": "Use a module that exists, or remove the check",
+    "验收检查「{check}」的 {module} 类型「{kind}」不认识（可用 {known}）": 'Check `{check}`: {module} does not know "{kind}" (use {known})',
+    "验收检查「{check}」用到的 {path} 不存在": "Check `{check}` uses {path}, which does not exist",
+    "（如果它由上游任务生成，可以忽略）": " (if an upstream task writes it, never mind)",
+    "是不是 {near}？": "Did you mean {near}?",
+    "改正路径，或去掉这条检查": "Correct the path, or remove the check",
+    "改正 task_types/{type}.md 的 checks": "Fix the checks in task_types/{type}.md",
+    "有 {n} 个问题要先改正，才能{action}：": "{n} problem(s) to fix before you can {action}:",
+    "开始运行": "start the project",
+    "纳入托管": "join the drafts",
+    # ---- upstream: 上游已更新 (the message to the task is in the agent's language)
+    "上游「{title}」在本任务开始后更新了：{what}": 'Upstream "{title}" changed after this task started: {what}',
+    "状态从「{then}」变为「{now}」": 'its status went from "{then}" to "{now}"',
+    "报告有改动": "its report changed",
+    "新增 {files}": "{files} added",
+    "删除了 {files}": "{files} removed",
+    "{files} 有改动": "{files} changed",
+    "等 {n} 个": " ({n} in all)",
+    "你开始本任务之后，上游任务更新了：": "Upstream tasks changed after you started this task:",
+    "- {title}（`workspaces/{task}/`）：{what}": "- {title} (`workspaces/{task}/`): {what}",
+    "请读它们新的报告和交接清单，按新结果复核本任务的结论。结论不变就简短说明理由；需要改就更新 report.md。": "Read their new reports and handoff lists and check this task's conclusion against the new results. If it stands, say why in a few words; if it does not, update report.md.",
     # ---- ops
     "类型名": "type name",
     "任务名": "task name",
@@ -368,11 +413,15 @@ EN = {
     "Unix socket（默认 %(default)s）": "Unix socket (default %(default)s)",
     "在当前终端运行，不进 tmux": "run in this terminal, not in tmux",
     "agent_sys: 已在 {home} 创建 {made}": "agent_sys: made {made} in {home}",
+    "开始前整体检查：列出项目中会挡住运行的问题": "the check before a start: list what in a project would stop its tasks from running",
+    "项目名，或项目目录": "the project's name, or its directory",
+    "没有发现问题": "No problems found",
+    "只查这个任务起草的草稿（和全部纳入托管一样）": "check only the drafts this task wrote (as 'join them all' does)",
     # ---- exec
     "任务 prompt 有错误，改正后才能运行：{error}": "The task prompt has an error; fix it before the task can run: {error}",
     "agent_sys: {sock} 上运行的是另一个 AGENT_SYS_HOME 的 server，请用 --sock 换一个 socket": "agent_sys: the server on {sock} is another AGENT_SYS_HOME's; use another socket with --sock",
     # ---- api: server, ops, scan
-    "阻塞类依赖（input / code / children）形成了循环，任务会一直等待": "The blocking dependencies (input / code / children) form a cycle: the task will wait forever",
+    "阻塞类依赖（input / code / children）形成了循环，任务会一直等待：{path}": "The blocking dependencies (input / code / children) form a cycle, the tasks will wait forever: {path}",
     "progress.md 的「完成时间:」{value} 不是 YYYY-MM-DD HH:MM 格式的时间": 'The "完成时间:" (Finished:) of progress.md, {value}, is not a time written as YYYY-MM-DD HH:MM',
     "任务「{task}」正在运行，请先停止再{action}": 'Task "{task}" is running; stop it before you {action}',
     "任务「{task}」刚纳入托管，可能仍在终端中运行：请先确认终端会话已结束并回复它，再{action}": 'Task "{task}" was just made managed and may still run in a terminal: make sure that session has ended and '

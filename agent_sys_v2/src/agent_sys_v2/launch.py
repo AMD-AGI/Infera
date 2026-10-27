@@ -20,7 +20,7 @@ import re
 import shlex
 from pathlib import Path
 
-from . import checks, claude_config, i18n, machines, skills, tmux, verdict
+from . import checks, claude_config, i18n, machines, skills, tmux, upstream, verdict
 from .i18n import _, translate
 from .model import (
     GLOBAL_DEFAULTS,
@@ -817,6 +817,8 @@ def prepare(
         },
     }
     cfg["toolchain"] = checks.toolchain(project.path, task.checks, cfg["env"])
+    # what its upstream tasks were when it started: the scan tells when one changes after (上游已更新)
+    cfg["upstream"] = upstream.snapshot(project, task)
     # made before the run directory: bad extra_args stop the start here, with nothing written
     md = launch_md(cfg, task, parts, system_text, skills.unknown(project))
     write_run(run_dir, cfg, system_text, md)

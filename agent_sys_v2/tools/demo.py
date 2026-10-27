@@ -11,7 +11,8 @@ The numbers are made up, but our points are converted from AgentX output (the re
 rescaled, beside an AIPerf export with its window and node, measured one after another on the task's machine), GSM8K
 from lm_eval samples, and the A/B verdicts written by ab_judge.py, as a task would; two verdicts are spoiled on purpose
 (one edited by hand, one from before verdicts had inputs) and show as unverified, round one's experiment was judged
-against v0, and one point is an AgentX fast run (screening).
+against v0, and one point is an AgentX fast run (screening). round one's survey added a reference point after the plan had
+used it: the plan says its upstream changed.
 Every run of the project replays a recorded session (tests/fixtures/events) instead of calling a model: starting a
 task here costs nothing.
 """
@@ -27,8 +28,9 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from agent_sys_v2 import ledger, ops, skills
-from agent_sys_v2.model import new_state, write_state
+from agent_sys_v2 import ledger, ops, skills, upstream
+from agent_sys_v2.model import new_state, write_json, write_state
+from agent_sys_v2.scan import load_project
 
 ROOT = Path(__file__).resolve().parent.parent
 EVENTS = ROOT / "tests" / "fixtures" / "events"
@@ -205,6 +207,27 @@ def main(home):
 
     seen = {"seen_at": "2026-10-23T00:00:00Z"}
 
+    def last_round(tid, started, ended, cost):
+        """A finished run of tid: launch.json with the snapshot of its upstream tasks as they are now, run.json."""
+        p = load_project(pdir)
+        t = p.tasks[tid]
+        run = t.workspace / ".agent_sys/runs" / f"{started[:10].replace('-', '')}-120000"
+        write_json(run / "launch.json", {"upstream": upstream.snapshot(p, t), "started": started})
+        write_json(
+            run / "run.json",
+            {
+                "id": run.name,
+                "kind": "sdk",
+                "started": started,
+                "ended": ended,
+                "exit": "done",
+                "cost_start_usd": 0.0,
+                "cost_end_usd": cost,
+                "model": "opus",
+            },
+        )
+        write_state(t.workspace, {**t.state, "run_id": run.name, "runs": 1})
+
     def done(tid, when, cost, report, results=(), body=None, fm="", **more):
         task(
             tid,
@@ -284,6 +307,8 @@ def main(home):
         18.0,
         "## 结论\n\n2 个实验，2 台节点；本轮 ≤ 40 节点·小时。\n",
     )
+    # its last round, as a run records it: its upstream tasks as they were then (survey/r1 changes later on)
+    last_round("plan/r1", "2026-10-21T12:00:00Z", "2026-10-21T16:00:00Z", 18.0)
     expect = "expect: {{delta_pct: {d}, level: L4, falsify: 工作点 ΔY < 3%}}\n"
 
     def experiment(name, title, machine, plan, delta, state, report, change):
@@ -504,6 +529,25 @@ def main(home):
         "## 任务描述\n\n- 第 2 轮收尾：集成、封版、归档、复盘，起草下一轮的 intake。\n",
         "title: 第 2 轮收尾\ndepends_on: [{task: plan/r2, kind: children}]\nmachines: [smc-a16-19]\n",
         st("queued", "2026-10-23T03:00:00Z"),
+    )
+    # 上游已更新: the survey found another InferenceX entry after plan/r1 had used it
+    task(
+        "survey/r1",
+        report="## 结论\n\nIX 上最好的 AMD 条目在工作点领先 v0 约 20%；配置差异 6 项。补测 C128：参考曲线延长到高并发。\n",
+        results=[
+            (
+                "ix-atom-c128",
+                res(
+                    "ix-atom-c128",
+                    128,
+                    29.0,
+                    31500.0,
+                    "2026-10-23T09:00:00Z",
+                    "ix:atom-mi355x",
+                    "reference",
+                ),
+            )
+        ],
     )
     return pdir
 

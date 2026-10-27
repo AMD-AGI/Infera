@@ -91,7 +91,10 @@ server and rename the directory once: `mv <home>/campaigns <home>/projects`.
    to `repos/Infera/examples/<kit>`.
 2. Nothing starts yet: the board shows **Template to review** with the five tasks in the order they run. Open each,
    check (and edit) its prompt, machines and checks, and look over the project's rules and settings; then **Start
-   project** (or **Start** one task by hand). From then on the tasks follow their dependencies.
+   project** (or **Start** one task by hand). From then on the tasks follow their dependencies. The banner lists what
+   the check before a start finds (a dependency or machine that does not exist, a check that runs a module or a script
+   that is not there, ...), each with its fix; while one is an error, the project does not start.
+   `agent-sys-v2 check <project>` prints the same list.
 3. `intake/r1` starts: it looks around (weights, InferenceX, the nodes) and asks you a prefilled
    questionnaire (**Answer N questions**; a row you leave empty takes its suggestion). With your answers it writes the
    project's `rules/project.md`, the goal, machines and working point in `project.yaml`, and a one-page brief you

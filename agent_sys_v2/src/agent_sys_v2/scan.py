@@ -6,12 +6,13 @@ head of progress.md.
 
 from __future__ import annotations
 
+import difflib
 import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import checks, machines
+from . import checks, machines, upstream
 from .i18n import _
 from .model import (
     EDGE_KINDS,
@@ -23,6 +24,7 @@ from .model import (
     Project,
     Task,
     TaskType,
+    blocking_graph,
     classify_progress,
     cost_today,
     cycle_tasks,
@@ -348,6 +350,106 @@ def derive_details(project):
             t.detail = {"kind": "review"}
 
 
+def closest(name, names):
+    """The known name nearest to a mistyped one (difflib), None when none is near."""
+    near = difflib.get_close_matches(str(name), [str(n) for n in names], n=1, cutoff=0.6)
+    return near[0] if near else None
+
+
+def closest_task(tid, ids):
+    """The task id nearest to a mistyped one: its type and its name must both be near (a whole id would find any task
+    of the same type near)."""
+    ratio = lambda a, b: difflib.SequenceMatcher(None, a, b).ratio()  # noqa: E731
+    type_, _sep, name = str(tid).partition("/")
+    scored = []
+    for other in ids:
+        t2, _sep, n2 = other.partition("/")
+        score = min(ratio(type_, t2), ratio(name, n2))
+        if score >= 0.6:
+            scored.append((score, other))
+    return max(scored)[1] if scored else None
+
+
+def cycle_path(edges, tid):
+    """One cycle of blocking edges through tid, as [tid, ..., tid]; [] if it is on none."""
+    graph, back, todo = blocking_graph(edges), {tid: None}, [tid]
+    while todo:
+        cur = todo.pop(0)
+        for nxt in graph.get(cur, ()):
+            if nxt == tid:
+                path = [cur]
+                while path[-1] != tid:
+                    path.append(back[path[-1]])
+                return [*reversed(path), tid]
+            if nxt not in back:
+                back[nxt] = cur
+                todo.append(nxt)
+    return []
+
+
+def graph_problems(project, t, cyclic):
+    """What is wrong with a task's place in the graph: its depends_on (unreadable, a task or a kind that does not
+    exist), its parent, a cycle of blocking edges through it. [{kind: dep | parent | cycle, message, fix}], a cycle
+    with its tasks too; the message is the card's reminder (lint), the fix is for the check before a start
+    (preflight)."""
+    tasks, out = project.tasks, []
+
+    def add(kind, message, fix, **more):
+        out.append({"kind": kind, "message": message, "fix": fix, **more})
+
+    def name_fix(name):
+        if near := closest_task(name, tasks):
+            return _("最接近的已有任务是「{near}」：是不是写错了？", near=near)
+        return _("写成已有任务的 类型/任务名，或删掉这一项")
+
+    for entry in depends_on(t.fm):
+        up, kind, _label = parse_dep(entry)
+        if up is None:
+            add(
+                "dep",
+                _(
+                    "depends_on 中的「{entry}」看不懂：应写成 类型/任务名 或 {task, kind, label}",
+                    entry=entry,
+                ),
+                _("改成例如 develop/a 或 {task: develop/a, kind: code}，或删掉这一项"),
+            )
+        elif up not in tasks:
+            add("dep", _("depends_on 中的任务「{task}」不存在", task=up), name_fix(up))
+        elif kind not in EDGE_KINDS:
+            near = closest(kind, EDGE_KINDS)
+            add(
+                "dep",
+                _(
+                    "depends_on 中「{task}」的 kind「{kind}」不认识（可用 {kinds}）",
+                    task=up,
+                    kind=kind,
+                    kinds="/".join(EDGE_KINDS),
+                ),
+                _("是不是「{near}」？", near=near) if near else _("改成上面列出的一种"),
+            )
+    parent = t.fm.get("parent")
+    if parent and not isinstance(parent, str):
+        add(
+            "parent",
+            _("parent「{parent}」看不懂：应写成 类型/任务名", parent=parent),
+            _("写成一个任务的 类型/任务名，或删掉 parent"),
+        )
+    elif parent and parent not in tasks:
+        add("parent", _("parent「{parent}」不存在", parent=parent), name_fix(parent))
+    if t.id in cyclic:
+        path = cycle_path(project.edges, t.id)
+        add(
+            "cycle",
+            _(
+                "阻塞类依赖（input / code / children）形成了循环，任务会一直等待：{path}",
+                path=" → ".join(path),
+            ),
+            _("去掉环上的一条依赖，或把它的 kind 改成不阻塞的 review"),
+            tasks=path,
+        )
+    return out
+
+
 def lint(project, now):
     """Record reminders (记录提醒): bad names and references, cycles, a progress.md without its head lines or
     gone stale, done without a report, and missing handoff paths.
@@ -359,33 +461,7 @@ def lint(project, now):
             t.warnings.append(
                 _("名称只能包含字母、数字、_ 和 -：其他任务的 prompt 中写它的路径不会被识别为依赖")
             )
-        for entry in depends_on(t.fm):
-            up, kind, _label = parse_dep(entry)
-            if up is None:
-                t.warnings.append(
-                    _(
-                        "depends_on 中的「{entry}」看不懂：应写成 类型/任务名 或 {task, kind, label}",
-                        entry=entry,
-                    )
-                )
-            elif up not in tasks:
-                t.warnings.append(_("depends_on 中的任务「{task}」不存在", task=up))
-            elif kind not in EDGE_KINDS:
-                t.warnings.append(
-                    _(
-                        "depends_on 中「{task}」的 kind「{kind}」不认识（可用 {kinds}）",
-                        task=up,
-                        kind=kind,
-                        kinds="/".join(EDGE_KINDS),
-                    )
-                )
-        parent = t.fm.get("parent")
-        if parent and not isinstance(parent, str):
-            t.warnings.append(_("parent「{parent}」看不懂：应写成 类型/任务名", parent=parent))
-        elif parent and parent not in tasks:
-            t.warnings.append(_("parent「{parent}」不存在", parent=parent))
-        if t.id in cyclic:
-            t.warnings.append(_("阻塞类依赖（input / code / children）形成了循环，任务会一直等待"))
+        t.warnings += [p["message"] for p in graph_problems(project, t, cyclic)]
 
         p = t.progress
         if p is None or t.status in ("draft", "queued", "cancelled"):
@@ -500,6 +576,7 @@ def load_project(path):
     ]
     derive_details(project)
     lint(project, datetime.now(timezone.utc).timestamp())
+    upstream.changes(project)
     return project
 
 

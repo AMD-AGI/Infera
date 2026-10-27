@@ -11,7 +11,7 @@ from pathlib import Path
 
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from . import claude_config
+from . import claude_config, preflight
 from .checks import parse as parse_checks
 from .i18n import LANGUAGES, _, status_word
 from .model import (
@@ -316,12 +316,16 @@ def update_task(pdir, tid, frontmatter=None, prompt=None, base_mtime=""):
 
 def join(pdir, tid):
     """纳入托管: 草稿 -> 待开始; progress 已完成 -> 已完成 (review: true -> 待审核);
-    any other progress -> 待确认 (detail joined: confirm the terminal session has ended first).
+    any other progress -> 待确认 (detail joined: confirm the terminal session has ended first). A draft is refused while
+    the check before a start finds an error in it.
     A draft without review or checks in its frontmatter gets its type's defaults, as a task made in the UI does:
     a draft an agent wrote (a plan's experiments) is held to the same acceptance checks."""
     project = load_project(pdir)
     check_not_archived(project)
-    _join(project, project.task(tid))
+    t = project.task(tid)
+    if t.status == "draft":  # it is queued, and will start by itself: as 全部纳入托管
+        preflight.refuse(project, preflight.preflight(project, [tid]), _("纳入托管"))
+    _join(project, t)
 
 
 def _join(project, t):
@@ -365,13 +369,14 @@ def drafts_of(project, tid):
 
 def join_children(pdir, tid):
     """全部纳入托管: join every draft tid wrote (drafts_of: the plan an agent wrote as drafts, approved at once).
-    Returns the ids joined."""
+    Returns the ids joined. None is joined while the check before a start finds an error in them."""
     project = load_project(pdir)
     check_not_archived(project)
     project.task(tid)
     drafts = drafts_of(project, tid)
     if not drafts:
         raise AgentSysError(_("没有待纳入托管的草稿（子任务或直接依赖它的任务）"), 409)
+    preflight.refuse(project, preflight.preflight(project, drafts), _("纳入托管"))
     for child in drafts:
         _join(project, project.tasks[child])
     return drafts
@@ -571,13 +576,25 @@ def set_archived(pdir, archived):
     edit_yaml(project.path / "project.yaml", change)
 
 
-def start_project(pdir):
+def start_problems(project):
+    """What the check before a start finds in the tasks 开始运行 lets run: the managed ones not finished yet (a draft
+    is checked when it is joined)."""
+    return preflight.preflight(
+        project,
+        [t.id for t in project.tasks.values() if t.managed and t.status not in preflight.FINISHED],
+    )
+
+
+def start_project(pdir, checked=False):
     """开始运行: the template's tasks are reviewed, template_review leaves project.yaml and the project runs as any
     other (autorun on: the first task starts at once, the others as their upstream tasks are done). Starting one of
-    its tasks by hand does the same."""
+    its tasks by hand does the same (checked: it ran the check already). Refused while the check before a start finds
+    an error (start_problems)."""
     project = load_project(pdir)
     check_not_archived(project)
     if project.template_review:
+        if not checked:
+            preflight.refuse(project, start_problems(project), _("开始运行"))
         edit_yaml(project.path / "project.yaml", lambda config: config.pop("template_review", None))
 
 

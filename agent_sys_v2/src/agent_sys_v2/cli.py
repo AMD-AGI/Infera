@@ -3,6 +3,7 @@
   agent-sys-v2 serve [--home DIR] [--sock PATH]                       start the server in tmux -L $AGENT_SYS_TMUX
   agent-sys-v2 serve --foreground [--home DIR] [--sock PATH]          run the server here (tmux runs this)
   agent-sys-v2 new <project> [--template infera-perf] [--title T] [--home DIR]   new project from a template
+  agent-sys-v2 check <project> [--drafts-of TASK] [--home DIR]       the check before a start (exit 1 on an error)
   agent-sys-v2 --version
 
 AGENT_SYS_HOME comes from --home, else the AGENT_SYS_HOME environment variable, else ~/agent_sys_home; what it lacks
@@ -11,6 +12,10 @@ start the same tasks again. The server listens on a Unix socket, /tmp/agent_sys-
 directory only you can enter (mode 0700: only you can connect); open it from your desktop with
 `ssh -N -L 8765:<socket> <this host>` and http://localhost:8765. The server and the runs go into tmux -L
 $AGENT_SYS_TMUX (default agent_sys): a test or demo server uses a tmux, a socket and an AGENT_SYS_HOME of its own.
+
+`check` takes a project's name under AGENT_SYS_HOME/projects, or its directory ("$AGENT_SYS_PROJECT" in a run), and
+lists what preflight finds in the tasks not finished yet, drafts too: what 开始运行 and 全部纳入托管 would refuse.
+--drafts-of TASK checks only the drafts TASK wrote, as 全部纳入托管 on it does (a plan checks its own experiments).
 """
 
 import argparse
@@ -23,10 +28,11 @@ import sys
 import time
 from pathlib import Path
 
-from . import __version__, i18n, tmux
+from . import __version__, i18n, ops, preflight, tmux
 from .i18n import _
 from .model import DEFAULT_HOME, AgentSysError
 from .ops import TEMPLATES, init_home, list_templates, new_project, template_tasks
+from .scan import load_project, project_dir
 
 DEFAULT_SOCK = Path(f"/tmp/agent_sys-{os.getuid()}/agent_sys.sock")
 START_SECONDS = 30  # `serve` waits this long for the server it put in tmux to listen
@@ -249,6 +255,27 @@ def start_in_tmux(home, sock):
     return 0
 
 
+def check(home, project, drafts_of=None):
+    """`check`: the problems, one per line with its fix; exit 1 when one is an error. Nothing is written (a run
+    calls it on its own project, in the AGENT_SYS_HOME of the server). drafts_of: only the drafts that task wrote."""
+    path = Path(project).expanduser().absolute()
+    if not (path / "project.yaml").is_file():
+        path = project_dir(home.expanduser(), project)
+    i18n.use(path.parent.parent)  # its AGENT_SYS_HOME's language
+    if not (path / "project.yaml").is_file():
+        print(f"agent_sys: {_('项目「{project}」不存在', project=project)}", file=sys.stderr)
+        return 1
+    try:
+        p = load_project(path)
+        problems = preflight.preflight(
+            p, None if drafts_of is None else ops.drafts_of(p, p.task(drafts_of).id)
+        )
+    except AgentSysError as e:
+        problems = [{"task": "", "level": "error", "message": str(e), "fix": ""}]
+    print("\n".join(preflight.text(problems) or [_("没有发现问题")]))
+    return 1 if preflight.errors(problems) else 0
+
+
 def main(argv=None):
     default_home = Path(os.environ.get("AGENT_SYS_HOME") or DEFAULT_HOME)
     i18n.use(default_home)  # the help, before --home is read
@@ -283,7 +310,16 @@ def main(argv=None):
         "--sock", type=Path, default=DEFAULT_SOCK, help=_("Unix socket（默认 %(default)s）")
     )
     s.add_argument("--foreground", action="store_true", help=_("在当前终端运行，不进 tmux"))
+    c = sub.add_parser(
+        "check", parents=[common], help=_("开始前整体检查：列出项目中会挡住运行的问题")
+    )
+    c.add_argument("project", help=_("项目名，或项目目录"))
+    c.add_argument(
+        "--drafts-of", metavar="TASK", help=_("只查这个任务起草的草稿（和全部纳入托管一样）")
+    )
     args = ap.parse_args(argv)
+    if args.cmd == "check":
+        return check(args.home, args.project, args.drafts_of)
 
     home = args.home.expanduser().resolve()
     made = init_home(home)

@@ -36,7 +36,21 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, model_validator
 from starlette.exceptions import HTTPException
 
-from . import checks, files, i18n, knowledge, launch, ledger, machines, ops, questions, runs, sched
+from . import (
+    checks,
+    files,
+    i18n,
+    knowledge,
+    launch,
+    ledger,
+    machines,
+    ops,
+    preflight,
+    questions,
+    runs,
+    sched,
+    upstream,
+)
 from .events import read_event, read_events
 from .i18n import _
 from .model import (
@@ -341,12 +355,18 @@ def task_detail(store, p, t):
     run_id = t.managed and t.state.get("run_id")
     follow = store.monitor.follows.get(runs_dir(t.workspace) / run_id) if run_id else None
     run_list = runs.list_runs(t, follow) if t.managed else []
+    drafts = ops.drafts_of(p, t.id)
     return {
         **t.detail_json(),
         "last_message": runs.last_message(t),
         "upstream": [edge_end(p, e, e.up) for e in p.upstream(t.id)],
         "downstream": [edge_end(p, e, e.down) for e in p.downstream(t.id)],
-        "drafts": ops.drafts_of(p, t.id),  # what 全部纳入托管 joins
+        "drafts": drafts,  # what 全部纳入托管 joins
+        "drafts_problems": preflight.preflight(p, drafts) if drafts else [],  # what it would refuse
+        # 上游已更新: the message that asks the task to check its conclusion, in the agent's language
+        "upstream_message": upstream.message(t, launch.agent_language(store.home))
+        if t.upstream_changed
+        else "",
         "questions": questions.round_questions(t),
         "check_runs": checks.load(runs_dir(t.workspace) / run_id) if run_id else None,
         "project_machines": machines.declared(p.config),
@@ -409,6 +429,8 @@ def home_json(store):
 def board_json(store, p):
     return {
         "project": p.to_json(),
+        # what 开始运行 would refuse, while the template's tasks wait for review
+        "preflight": ops.start_problems(p) if p.template_review else [],
         "types": [ty.to_json() for ty in p.types],
         "tasks": [task_summary(t) for t in p.tasks.values()],
         "edges": [p.edge_json(e) for e in p.edges],
@@ -453,7 +475,7 @@ def create_app(home):
 
     @app.exception_handler(AgentSysError)
     async def refused(request, e: AgentSysError):
-        return JSONResponse({"error": str(e)}, status_code=e.status)
+        return JSONResponse({"error": str(e), **e.data}, status_code=e.status)
 
     @app.exception_handler(HTTPException)
     async def http_error(request, e: HTTPException):
