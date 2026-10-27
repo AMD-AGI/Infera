@@ -17,8 +17,8 @@ busy=$(timeout 60 ssh -o BatchMode=yes $H140 "rocm-smi --showmemuse | awk -F: '/
 [[ -z "$busy" ]] || { echo "$(date -u +%T) 140 GPUs 0-3 not idle, abort: $busy"; exit 1; }
 echo "$(date -u +%T) trace deployment up; starting side jobs"
 timeout 60 ssh -o BatchMode=yes $H140 "cd $D/gemm-tune && nohup bash tune_prefill_bf16.sh 0,1,2 > tune-$(date -u +%m%dT%H%M).log 2>&1 &"
-timeout 60 ssh -o BatchMode=yes $H140 "nohup bash -c 'for m in overlap uniform; do docker run --rm --name lyl-smla-bench-\$m \
-  --device /dev/kfd --device /dev/dri --group-add video -e HIP_VISIBLE_DEVICES=3 -v $D/scripts:/w \
+timeout 60 ssh -o BatchMode=yes $H140 "nohup bash -c 'for m in \"overlap\" \"uniform --quick\"; do docker run --rm --name lyl-smla-bench \
+  --device /dev/kfd --device /dev/dri --group-add video -e HIP_VISIBLE_DEVICES=3 -e TRITON_CACHE_DIR=/tc -v /tmp/lyl_triton_cache:/tc -v $D/scripts:/w \
   --entrypoint python3 infera-sglang:v0522-fdbafb60 /w/bench_sparse_mla.py --mode \$m; done' \
   > $D/results/bench_sparse_mla-$(date -u +%m%dT%H%M).log 2>&1 &"
 echo "$(date -u +%T) launched; logs in $D/gemm-tune/tune-*.log and $D/results/bench_sparse_mla-*.log"

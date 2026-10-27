@@ -90,6 +90,24 @@ def single(bn, w, s):
     return run
 
 
+def fused(bh, bk, w, ps, i64=True):
+    """The head-blocked single-pass kernel (what split-K uses at kv_splits = 1), at an explicit configuration."""
+    qn, sqn_t, sqn_h = tsm._row_strides(q_nope)
+    qr, sqr_t, sqr_h = tsm._row_strides(q_rope)
+    out = torch.empty(a.seq, H, DV, device=dev, dtype=torch.bfloat16)
+
+    def run():
+        with tsm._no_async_copy():
+            tsm._sparse_mla_fused_kernel[(a.seq, (H + bh - 1) // bh)](
+                qn, qr, kv, idx, idx, out, scale * tsm._LOG2E, tsm._FP8_MAX,
+                topk=TOPK, H=H, KV_DIM=DIM, D_V=DV, D_TAIL=DT, NUM_GROUPS=DV // 128,
+                STRIDE_QN_T=sqn_t, STRIDE_QN_H=sqn_h, STRIDE_QR_T=sqr_t, STRIDE_QR_H=sqr_h,
+                USE_FP8_DOT=True, USE_TOPK_LENGTH=False, BLOCK_H=bh, BLOCK_K=bk,
+                USE_I64_PAGE=i64, PIPE_STAGES=ps, num_warps=w, num_stages=2)
+        return out.unsqueeze(0)
+    return run
+
+
 def splitk(ks):
     def run():
         with tsm._no_async_copy():
@@ -113,6 +131,12 @@ else:
     variants += [(f"single/{bn},{w},{s}", single(bn, w, s))
                  for bn, w, s in itertools.product((16, 32, 64, 128), (2, 4, 8), (1, 2))]
 variants += [(f"splitk/{ks}", splitk(ks)) for ks in (1, 2)]
+if a.quick:
+    variants += [(f"fused/{bh},{bk},{w},{ps}", fused(bh, bk, w, ps)) for bh, bk, w, ps in [(16, 64, 2, 3), (32, 64, 4, 3), (64, 64, 8, 3)]]
+else:
+    variants += [(f"fused/{bh},{bk},{w},{ps}", fused(bh, bk, w, ps))
+                 for bh, bk, w, ps in itertools.product((16, 32, 64), (32, 64, 128), (2, 4, 8), (1, 2, 3))]
+    variants += [(f"fused-i32/{bh},64,{w},3", fused(bh, 64, w, 3, i64=False)) for bh, w in [(16, 2), (16, 4), (32, 4)]]
 rows = []
 for name, fn in variants:
     try:

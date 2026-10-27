@@ -200,7 +200,9 @@ prefill 一行都没用上。（更正：aiter 查表不只按精确 M——先�
 4. **o_proj（BF16，6144×16384，M ≈ 8k）**每次约 1.9 ms，约 0.86 PFLOPS，BF16 峰值的约 1/3，走的是未调优的 hipBLASLt / torch 路径。
 5. **稀疏 MLA**每层每次约 5.3 ms，约 0.44 PFLOPS；是按 token 取 2048 个 KV 的 gather，相邻 query token 的 top-k 集合高度重叠，现在没有复用。
 
-### 旧 trace 复查（17:00–17:45）：按中位数看稳态，停顿另算——推翻上面 4 条发现中的 3 条
+### 旧 trace 复查（17:00–17:45）：按中位数看稳态，停顿另算——推翻上面 5 条发现中的 3 条
+
+模型结构、每层算子表与优化候选排序单独写在 [`COMPUTE-FLOW.zh-CN.md`](COMPUTE-FLOW.zh-CN.md)。
 
 上表是 30 步的总和，混进了少数"停顿步"。`prefill_trace_map.py` 新增每步主 stream 计算时间、每个 kernel 的中位耗时、kernel 调用点
 （算子 + 输入形状 + Python 帧）、旁路 stream 调用点、长 kernel 期间 GPU 上重叠的其他操作。

@@ -14,7 +14,7 @@ while true; do
         f=\$(ls -t $L/perf/*/c*.log $L/prof-*/prof-*.log 2>/dev/null | head -1)
         echo \"LOG \$f\"
         tr '\r' '\n' <\"\$f\" | grep -aE 'guard|crashed|Traceback|up failed' | tail -n 2 | sed 's/^/BAD /'
-        tr '\r' '\n' <\"\$f\" | grep -aE 'progress|Warmup complete|profile requested' | tail -n 1 | cut -c1-160
+        tr '\r' '\n' <\"\$f\" | grep -aE 'progress|Warmup complete|profile requested| rps=.*done=' | tail -n 1 | cut -c1-160
         pgrep -f 'scripts/night_[1]027.sh' >/dev/null && echo RUNNING || echo QUEUE_DONE" </dev/null 2>&1)"
     s140="$(timeout 60 ssh -o BatchMode=yes crsuse2-m2m-140 "timeout 10 docker events --since '$last' --until '$now' \
         --filter event=kill --filter event=die --format '{{.Actor.Attributes.name}} {{.Action}} exit={{.Actor.Attributes.exitCode}}'" </dev/null 2>&1)"
