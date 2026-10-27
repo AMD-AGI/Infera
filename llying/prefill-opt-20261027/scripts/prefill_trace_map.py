@@ -12,6 +12,7 @@ Prints per rank: steps (step[EXTEND ...] annotations), compute time per step, an
   python3 prefill_trace_map.py TRACE.json.gz ... [--top 30] [--json OUT.json]"""
 
 import argparse
+import bisect
 import collections
 import gzip
 import json
@@ -109,16 +110,38 @@ def analyze(path, top):
 
     stream_time = collections.Counter(k["args"].get("stream") for k in gpu if "nccl" not in k["name"])
     main_stream = stream_time.most_common(1)[0][0]
-    agg = {n: collections.Counter() for n in ("module", "model_frame", "leaf_frame", "kernel", "gemm_shape")}
+    agg = {n: collections.Counter() for n in ("module", "model_frame", "leaf_frame", "kernel", "gemm_shape", "kernel_site", "side_site")}
     cnt = collections.Counter()
+    durs = collections.defaultdict(list)
     side, comm, compute = 0.0, 0.0, 0.0
+    steps.sort(key=lambda s: s["ts"])
+    step_ts = [s["ts"] for s in steps]
+    per_step = [collections.Counter() for _ in steps]
+    step_compute = [0.0] * len(steps)
+    step_side = [collections.Counter() for _ in steps]
     for k in gpu:
         d = k["dur"]
+        l = launches.get(k["args"].get("correlation"))
+        si = bisect.bisect_right(step_ts, l["ts"]) - 1 if l is not None else -1
+        if si >= 0 and l["ts"] > steps[si]["ts"] + steps[si]["dur"]:
+            si = -1
         if "nccl" in k["name"].lower() or "rccl" in k["name"].lower():
             comm += d
+            if si >= 0:
+                step_side[si]["nccl"] += d
             continue
         if k["args"].get("stream") != main_stream:
             side += d
+            if si >= 0:
+                step_side[si][f"s{k['args'].get('stream')} {k['name'][:24]}"] += d
+            fr = [frame_file(e["name"]) for e in py_st.get(id(k), [])]
+            ch = [f"{short(f)}:{ln} {fn}" for f, ln, fn in fr if "sglang/" in f or "aiter/" in f]
+            ol = op_st.get(id(k), [])
+            inner = ol[-1] if ol else {}
+            site = (f"s{k['args'].get('stream')} {k['name'][:40]} <- {inner.get('name', '')} "
+                    f"{str(inner.get('args', {}).get('Input Dims', ''))[:50]} @ {' > '.join(ch[-2:])}")
+            agg["side_site"][site] += d
+            cnt[site] += 1
             continue
         compute += d
         frames = [frame_file(e["name"]) for e in py_st.get(id(k), [])]
@@ -131,6 +154,15 @@ def analyze(path, top):
         agg["leaf_frame"][chain[-1] if chain else "(none)"] += d
         agg["kernel"][k["name"][:120]] += d
         cnt[k["name"][:120]] += 1
+        durs[k["name"][:120]].append(d)
+        inner = oplist[-1] if oplist else {}
+        site = (f"{k['name'][:60]} <- {inner.get('name', '')} {str(inner.get('args', {}).get('Input Dims', ''))[:70]}"
+                f" @ {chain[-1] if chain else ''} | {model[-1] if model else ''}")
+        agg["kernel_site"][site] += d
+        cnt[site] += 1
+        if si >= 0:
+            step_compute[si] += d
+            per_step[si][site] += d
         gop = next((o for o in oplist if GEMM_OP.search(o["name"])), None)
         if gop is not None:
             dims = gop.get("args", {}).get("Input Dims", [])
@@ -143,10 +175,46 @@ def analyze(path, top):
     if toks:
         print(f"tokens per step: mean {sum(toks) / len(toks):.0f}, min {min(toks)}, max {max(toks)}")
     res = {"path": path, "steps": len(steps), "compute_ms": compute / 1e3, "nccl_ms": comm / 1e3, "side_ms": side / 1e3}
+    if steps:
+        # Kernels launched inside a step annotation; a step far above the median is a stall (the extra time sits in
+        # kernels that normally take microseconds), so the median is the steady-state cost.
+        sc = sorted(step_compute)
+        med = sc[len(sc) // 2]
+        print(f"main-stream compute per step (by launch inside the step): median {med / 1e3:.1f} ms, "
+              f"mean {sum(sc) / len(sc) / 1e3:.1f} ms, min {sc[0] / 1e3:.1f}, max {sc[-1] / 1e3:.1f}")
+        res["step_compute_ms"] = [c / 1e3 for c in step_compute]
+        res["step_toks"] = [int(m.group(1)) if (m := re.search(r"toks=(\d+)", s["name"])) else None for s in steps]
+        for i, c in enumerate(step_compute):
+            sd = "; ".join(f"{v / 1e3:.0f} ms {key}" for key, v in step_side[i].most_common(3))
+            mark = "STALL" if c > 1.3 * med else "     "
+            print(f"  {mark} step {i:2d} {steps[i]['name'][5:38]:33s} wall {steps[i]['dur'] / 1e3:6.0f} ms  main {c / 1e3:6.0f} ms"
+                  f"  side/nccl: {sd}")
+            if c > 1.3 * med:
+                top3 = "; ".join(f"{v / 1e3:.0f} ms {key[:90]}" for key, v in per_step[i].most_common(3))
+                print(f"        top: {top3}")
+    # What else ran on the GPU while a normally-short main-stream kernel took > 50 ms.
+    others = sorted((k for k in gpu if k["args"].get("stream") != main_stream), key=lambda k: k["ts"])
+    o_ts = [k["ts"] for k in others]
+    long_k = [k for k in gpu if k["args"].get("stream") == main_stream and k["dur"] > 50e3]
+    for k in long_k[:12]:
+        t0, t1 = k["ts"], k["ts"] + k["dur"]
+        ov = collections.Counter()
+        j = max(0, bisect.bisect_left(o_ts, t0 - 5e6))
+        while j < len(others) and others[j]["ts"] < t1:
+            o = others[j]
+            x = min(t1, o["ts"] + o["dur"]) - max(t0, o["ts"])
+            if x > 0:
+                ov[f"s{o['args'].get('stream')} {o['name'][:40]}"] += x
+            j += 1
+        desc = "; ".join(f"{v / 1e3:.0f} ms {key}" for key, v in ov.most_common(4))
+        print(f"  long main kernel {k['dur'] / 1e3:.0f} ms {k['name'][:50]}; overlapping: {desc or 'nothing'}")
     for name, c in agg.items():
         print(f"  -- by {name}")
         for key, d in c.most_common(top if name != "module" else None):
-            extra = f"  x{cnt[key]}" if name == "kernel" else ""
+            extra = f"  x{cnt[key]}" if name in ("kernel", "kernel_site", "side_site") else ""
+            if name == "kernel":
+                ds = sorted(durs[key])
+                extra += f"  median {ds[len(ds) // 2] / 1e3:.3f} ms x{len(ds)} = {ds[len(ds) // 2] * len(ds) / 1e3:.0f} ms"
             print(f"    {d / 1e3:9.1f} ms {100 * d / compute:5.1f}%  {key}{extra}")
         res[name] = {k: v / 1e3 for k, v in c.most_common(200)}
     return res

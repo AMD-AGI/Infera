@@ -171,7 +171,8 @@ smoke 6/6；**1319 题探测 0.967，乱码 0，开头坏 0**；长上下文 16k
 （`config/site-llr35-v3-hc500.env`）。decode 日志另在 140 `/mnt/m2m_nobackup/liyingli_3p1d/decode-follow/` 实时保存；`scripts/watch_night.sh` 每 5 分钟巡查。
 
 **yihou 的 GEMM 调优只覆盖 decode**：两份 CSV 来自 decode 的未调优清单（`decode_bf16_untuned_gemm.csv`），只在 `DECODE_MOUNT_EXTRA` 里挂；
-prefill 一行都没用上，而且 aiter 按精确 M 查表，prefill 的 M 随 batch 变（约 650 个值），挂上也基本不命中。
+prefill 一行都没用上。（更正：aiter 查表不只按精确 M——先按 M 查，再查补齐到 128 的 M，再查 M 的下一个 2 的幂，所以 M = 8192 的一行覆盖
+4097–8192 的所有 prefill batch。）
 
 **旧 trace 按模型代码重新归类**（`scripts/prefill_trace_map.py`：kernel → launch → Python 栈与算子输入形状；去掉 NCCL 与旁路 stream）。
 数据是 10-23 的 4+8 C88（K5、无 async、无 KF），只作方向，新 trace 出来后替换。旧的 `prof_breakdown.py` 把 MoE 第二段 `gemm2_a4w4_*` 算进 gemm、
@@ -198,6 +199,46 @@ prefill 一行都没用上，而且 aiter 按精确 M 查表，prefill 的 M 随
    快 1.24 倍（Kimi-K2 形状），正好是 prefill 规模。
 4. **o_proj（BF16，6144×16384，M ≈ 8k）**每次约 1.9 ms，约 0.86 PFLOPS，BF16 峰值的约 1/3，走的是未调优的 hipBLASLt / torch 路径。
 5. **稀疏 MLA**每层每次约 5.3 ms，约 0.44 PFLOPS；是按 token 取 2048 个 KV 的 gather，相邻 query token 的 top-k 集合高度重叠，现在没有复用。
+
+### 旧 trace 复查（17:00–17:45）：按中位数看稳态，停顿另算——推翻上面 4 条发现中的 3 条
+
+上表是 30 步的总和，混进了少数"停顿步"。`prefill_trace_map.py` 新增每步主 stream 计算时间、每个 kernel 的中位耗时、kernel 调用点
+（算子 + 输入形状 + Python 帧）、旁路 stream 调用点、长 kernel 期间 GPU 上重叠的其他操作。
+
+**停顿步**：PP0 每步主 stream 计算中位 243 ms、均值 330 ms；30 步里第 1、16、17、29 步各 0.8–1.3 s。PP1 中位 236、均值 286 ms，停在 1、16、17 步。
+停顿里是平时几微秒的 kernel（6 个元素的 `fill_`、765 个元素的 `cumsum`、539 个元素的 `copy_`、rope、rmsnorm）一次 0.4–0.6 s，同 stream 的前后操作
+时间重叠——是 GPU 侧等事件的时间记到了下一个 kernel 上，不是 kernel 慢。按绝对时间，同一停顿依次出现在 PP0 → PP1 → PP2 → PP3（间隔约 0.4 s），
+即**跟着某个 batch 走**，不是节点级事件。期间 GPU 上同时在跑：stream 5 上的 HiCache 索引搬运（`move_indices` H2D，[250944] 一次 160 ms，[8192] 一次
+3.6 ms）、`_prefix_kv_indices` 拷贝、NCCL、HiCache 备份 kernel；主 stream 自己 64 KB 的 H2D（`resolve_forward_inputs`）一次 150–230 ms、GPU 上
+无任何重叠操作。真正的 HiCache 回载 kernel（`hicache_transfer_per_layer`，stream 17）30 步共 166 ms，并不慢。HIP 运行时调用里没有长的 malloc / free。
+机制：主 stream 每层 `LayerDoneCounter.wait_until` 等 HiCache 回载事件；回载前的索引 H2D 慢得反常（2 MB 160 ms），推测是 pageable 拷贝排队。
+**影响**：PP0 30 步合计比"按中位数"多约 2.6 s，约 26%。新 trace 要验证这条链（哪个请求、多少 token 命中主机缓存、索引拷贝在等谁）。
+
+**按中位数的稳态 kernel 预算（旧 trace PP0，每步约 237 ms）**：
+
+| kernel | 中位耗时 | 每步 | 稳态占比 | 说明 |
+|---|---|---|---|---|
+| 稀疏 MLA `_sparse_mla_fwd_split_dim_kernel` | 5.2 ms / 层 | 104 ms | **约 44%** | 见下"稀疏 MLA" |
+| MoE `mfma_moe1` + `gemm2_a4w4` | 1.27 + 1.10 ms / 层 | 40 ms | 17% | aiter 已有 8192 token 的调优项（FlyDSL，2327 µs，2.4 PFLOPS），trace 与之一致 |
+| hipBLASLt BF16 GEMM（o_proj、dense、q_a+kv_a、wq_b） | o_proj 0.97 ms | 36 ms | 15% | o_proj 1.7 PFLOPS（**更正**：不是 0.86，上面第 4 条作废） |
+| indexer logits `_gluon_fp8_mqa_logits` | 0.57 ms / 次 | 16 ms | 7% | 每请求每 indexer 层一次 |
+| q / v 吸收 bmm（a8w8） | 0.32 ms | 13 ms | 5% | |
+| q_b（triton a16w16，16384×2048） | 0.56 ms | 11 ms | 5% | 0.98 PFLOPS；镜像里 llama405B 的同形状 M=8192 调优项 1.05 PFLOPS，差不多 |
+| top-k `topk_packed_kernel` | 0.24 ms | 7 ms | 3% | **PP1 中位 0.23 ms，与 PP0 相同**：上面第 1 条"慢 6 倍"是停顿造成的（PP1 一次 top-k 记了 854 ms），作废 |
+| rope + 写 KV、add_rmsnorm | 0.19、0.06 ms | 6 ms | 2.5% | 上面第 2 条"PP0 小 kernel 慢 6–8 倍"同样是停顿，作废 |
+
+**稀疏 MLA 走的不是调过的路径**：KV cache 是 FP8，`triton_sparse_mla_fwd` 的 gfx950 FP8 优化只认每卡 8 或 16 个头（TP4 / TP8 的 GLM-5.2），
+我们 TP1 prefill 每卡 64 个头，落到单趟 `split_dim` kernel：每个 query token 一个 program、64 头一起算（KV 每行只读一次），
+autotune 在 FP8 下只剩 `BLOCK_N` ∈ {32, 64}、`num_warps` ∈ {1, 2, 4}、`num_stages` ∈ {1, 2}。64 头 × 512 维的 fp32 累加器在 4 个 warp 下每线程约
+128 个 VGPR，再加 q / KV 片，寄存器压力大、占用率低；8 个 warp 或"每 16 头一个 program"（split-K 路径，`BLOCK_H` = 16，KV 多读 4 遍但并行度高）
+都没试过。microbench `scripts/bench_sparse_mla.py`（prefill 形状：8192 token、64 头、top-k 2048、4 个请求各 13.1 万上下文，overlap / uniform
+两种索引分布；对比生产路径、扩展配置的单趟 kernel、split-K 1 / 2；逐个对比输出误差）排在 trace 那一步、140 GPU 3 上跑。
+
+**prefill GEMM 调优**：镜像合并后的 aiter 配置里，M = 8192 / 4096 没有 gfx950 项的是 o_proj 6144×16384、dense gate_up 24576×6144、
+q_a+kv_a 2624×6144（只有 M = 16384）、indexer wq_b 4096×2048、weights_proj 32×6144；q_b、dense down、router、wk 已有。
+`gemm-tune/tune_prefill_bf16.sh`（yihou 同一条调优命令）调这 5 个形状 × 2 个 M，排在 trace 那一步、140 GPU 0–2 上跑
+（`scripts/gpu_side_jobs_1027.sh` 等 trace 部署起来后启动；HiCache 500 GB 那一步本来就要等 140 的显存全空，所以不会和性能测量重叠）。
+按上面的效率，GEMM 调优的上限约为 prefill 计算的 1–2%。
 
 **外部仓库**（已克隆到登录节点 `/tmp/lyl_ref/`）：SIKL 有 GLM 形状的 FlyDSL bf16 GEMM（`n2624_k6144`、`n6144_k16384`、`n32_k6144`、`n4096_k2048`），
 但只测到 M ≤ 4096、很多 M 上比 aiter 慢；FlyDSL 的 `fp8_paged_mqa_logits`、`topk_transform_paged`（top-k 512 / 1024）、稀疏 `flash_mla_with_kvcache`
