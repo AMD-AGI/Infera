@@ -170,6 +170,21 @@ smoke 6/6；**1319 题探测 0.967，乱码 0，开头坏 0**；长上下文 16k
 16:35 重排：`scripts/night_1027.sh`（138 `$L/night-*.out`）= 复测 → prefill trace（C104，预热后 420 s，每级 30 步，带输入形状）→ HiCache 500 GB
 （`config/site-llr35-v3-hc500.env`）。decode 日志另在 140 `/mnt/m2m_nobackup/liyingli_3p1d/decode-follow/` 实时保存；`scripts/watch_night.sh` 每 5 分钟巡查。
 
+**第 1 步结果：llr37 + v3 在 138 / 140 上 C104 = 48,360 tok/s/GPU，与 yihou 在 135 / 136 的两次均值 48,408（48,713 / 48,103）持平（−0.1%）**
+→ 补丁 v3 修好长上下文正确性、不损失性能，换节点也复现。运行 `c104-1027T1635`（138 `/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/2p1d/work/runs/`），
+16:59–17:59 计分，11,624 个请求 0 错误（AIPerf 丢弃 5）。
+
+| C104 | tok/s/GPU | 输出 tok/s/GPU | 每秒请求 | 完成 / 丢弃 | intvty p50 / p90 | ITL p50 / p90 (ms) | TTFT p50 / p90 / 均值 (s) | E2E p90 (s) | API 命中（理论） |
+|---|---|---|---|---|---|---|---|---|---|
+| llr37 + v3（138 → 140） | **48,360** | 401.2 | 3.206 | 11,624 / 5 | 66.2 / 57.4 | 15.1 / 17.4 | 6.23 / 14.74 / 8.97 | 45.3 | 96.10%（96.64%） |
+
+**瓶颈在 prefill**（`analyze_pd_logs.py`、`pp_stage_times.py`，计分窗口）：prefill 82% 的 10 s 区间有排队（平均 6.3 个在等、`#queue-req` 常在 15 左右），
+现算 15,030 tok/s；decode 最忙 rank 中位只有 16 个请求（每步约 42 ms），另有平均 21.6 个请求在等 KV 传输。TTFT p50 6.2 s 占 E2E 的很大一部分。
+**prefill 满块的节拍很散**：PP0 背靠背满块（≥ 8000 新 token、有排队）5,693 个，p10 257 / p25 286 / **p50 380** / p75 586 / p90 939 / p99 1,633 ms，
+**均值 499 ms**；四级的节拍分布一样（停顿会沿流水线传开）。按 batch 的缓存 token 数分桶（0–50k 到 > 400k），**p10 都约 255 ms、p90 都在 800–1,100 ms**，
+即离散**不是上下文长度造成的**；p10 ≈ 旧 trace 每步计算中位数（约 243 ms）。> 600 ms 的节拍占 24%，比中位数多出的部分约占总时间 28%。
+如果节拍能稳定在 p25 左右，prefill 吞吐约可提高 40%+——这比任何单个 kernel 的收益都大，所以 trace 的第一任务是解释节拍之间的空隙（GPU 在等什么）。
+
 **yihou 的 GEMM 调优只覆盖 decode**：两份 CSV 来自 decode 的未调优清单（`decode_bf16_untuned_gemm.csv`），只在 `DECODE_MOUNT_EXTRA` 里挂；
 prefill 一行都没用上。（更正：aiter 查表不只按精确 M——先按 M 查，再查补齐到 128 的 M，再查 M 的下一个 2 的幂，所以 M = 8192 的一行覆盖
 4097–8192 的所有 prefill batch。）
