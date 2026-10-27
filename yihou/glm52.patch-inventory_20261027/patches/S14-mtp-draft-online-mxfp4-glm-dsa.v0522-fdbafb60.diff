@@ -1,0 +1,82 @@
+--- a/python/sglang/srt/configs/model_config.py
++++ b/python/sglang/srt/configs/model_config.py
+@@ -326,6 +326,12 @@
+     )
+ 
+ 
++def is_glm_moe_dsa_mtp_draft(config) -> bool:
++    """The GLM-5.x MTP draft: _config_draft_model rewrites architectures[0] to
++    GlmMoeDsaForCausalLMNextN before quantization is resolved."""
++    return _hf_arch(config) == "GlmMoeDsaForCausalLMNextN"
++
++
+ def is_deepseek_v4(config) -> bool:
+     return _hf_arch(config) in (
+         "DeepseekV4ForCausalLM",
+@@ -2017,7 +2023,10 @@
+                     self.is_draft_quantization_explicit
+                     and self.quantization in REQUANTIZATION_METHODS
+                     and is_hip()
+-                    and is_qwen3_5_mtp_draft(self.hf_config)
++                    and (
++                        is_qwen3_5_mtp_draft(self.hf_config)
++                        or is_glm_moe_dsa_mtp_draft(self.hf_config)
++                    )
+                 ):
+                     # Allow auto-detection of quantization from checkpoint for draft model
+                     # only if the CLI quantization is not compatible. An explicit
+--- a/python/sglang/srt/model_loader/weight_utils.py
++++ b/python/sglang/srt/model_loader/weight_utils.py
+@@ -48,6 +48,7 @@
+ from sglang.srt.configs.model_config import (
+     REQUANTIZATION_METHODS,
+     ModelConfig,
++    is_glm_moe_dsa_mtp_draft,
+     is_qwen3_5_mtp_draft,
+ )
+ from sglang.srt.layers.quantization import QuantizationConfig, get_quantization_config
+@@ -230,14 +231,22 @@
+         and model_config.is_draft_quantization_explicit
+         and model_config.quantization == "quark_mxfp4"
+         and hf_quant_config.get("quant_method") == "quark"
+-        # ROCm + Qwen3.5 MTP draft only (validated combination); anything else is
+-        # left exactly as before.
++        # ROCm + Qwen3.5 / GLM-5.x MTP draft only (validated combinations);
++        # anything else is left exactly as before.
+         and is_hip()
+-        and is_qwen3_5_mtp_draft(model_config.hf_config)
+     ):
+         return None
++    if is_qwen3_5_mtp_draft(model_config.hf_config):
++        experts_prefix = "mtp.layers.0.mlp.experts"
++    elif is_glm_moe_dsa_mtp_draft(model_config.hf_config):
++        # GLM appends the NextN layer to the decoder: model.layers.<num_hidden_layers>.
++        experts_prefix = (
++            f"model.layers.{model_config.hf_config.num_hidden_layers}.mlp.experts"
++        )
++    else:
++        return None
+     excluded = hf_quant_config.get("exclude") or []
+-    if not any(str(name).startswith("mtp.layers.0.mlp.experts") for name in excluded):
++    if not any(str(name).startswith(experts_prefix) for name in excluded):
+         return None
+     from sglang.srt.layers.quantization.quark.quark import QuarkConfig
+ 
+@@ -245,6 +254,17 @@
+         "Draft MTP experts are unquantized in the Quark checkpoint; "
+         "quantizing them online to MXFP4 (quark_mxfp4) for the draft model."
+     )
++    if is_glm_moe_dsa_mtp_draft(model_config.hf_config):
++        # Keep attention (incl. indexer), eh_proj and shared_head in bf16 as in
++        # the checkpoint. The shared expert follows the target model (MXFP4):
++        # fused into the routed MoE when shared-experts fusion is on.
++        return QuarkConfig(
++            quant_config=QuarkConfig._create_online_mxfp4_config(
++                model_type=model_config.hf_config.model_type,
++                source_excludes=["re:.*self_attn.*", "re:.*eh_proj", "re:.*shared_head.*"],
++            ),
++            hf_config=model_config.hf_config,
++        )
+     return QuarkConfig(online_scheme="quark_mxfp4", hf_config=model_config.hf_config)
+ 
+ 

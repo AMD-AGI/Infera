@@ -1,0 +1,141 @@
+From 646dc699f3e1550d04e0ee70c25d05fa6e474681 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 15:33:52 +0000
+Subject: [PATCH 16/31] [Test] dcp: Cover PP prefill stages feeding a DCP4
+ decode
+
+Each PP stage relays its own layer range onto the unpipelined decode's
+79 entries, and the stage's DSA index-K state slices from its first
+layer. The non-final chunk wait-event case is added with its fix.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../unit/disaggregation/test_dsa_pd_dcp.py    | 104 ++++++++++++++++++
+ 1 file changed, 104 insertions(+)
+
+diff --git a/test/registered/unit/disaggregation/test_dsa_pd_dcp.py b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
+index af14d2f397..0e32be0eae 100644
+--- a/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
++++ b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py
+@@ -12,6 +12,7 @@ from unittest.mock import patch
+ import numpy as np
+ import torch
+ 
++from sglang.srt.disaggregation.base.conn import StateType
+ from sglang.srt.disaggregation.common.conn import CommonKVManager, PrefillServerInfo
+ from sglang.srt.disaggregation.mooncake.conn import MooncakeKVManager
+ from sglang.srt.mem_cache.common import suffix_page_indices
+@@ -258,6 +259,109 @@ class TestDpaPrefillFanOut(CustomTestCase):
+         )
+ 
+ 
++class TestPpPrefillToDcpDecode(CustomTestCase):
++    """PP prefill: each stage sends its own layer range; the unpipelined DCP4
++    decode registers all 78 target layers plus the NextN draft (79 entries)."""
++
++    STAGES = [
++        (0, 20),
++        (20, 40),
++        (40, 60),
++        (60, 78),
++    ]  # SGLANG_PP_LAYER_PARTITION=20,20,20,18
++
++    def test_each_stage_lands_on_its_layers(self):
++        dst_layer_ids = list(range(79))
++        for start, end in self.STAGES:
++            with self.subTest(stage=(start, end)):
++                _relayout(
++                    self,
++                    num_tokens=21,
++                    src_pages=[3, 0, 5, 1, 2, 4],
++                    dst_pages=[1, 0],
++                    dcp=4,
++                    src_layer_ids=list(range(start, end)),
++                    dst_layer_ids=dst_layer_ids,
++                    prefill_draft_entries=0,
++                    draft_sharded=False,
++                    prefill_attn_tp_size=1,
++                )
++
++    def test_index_k_state_slices_by_stage_offset(self):
++        # StateType.DSA has no layer ids: the stage's entries map positionally from
++        # prefill_start_layer; the last stage's draft index-K follows its target.
++        dst = list(range(1000, 1079))
++        for (start, end), n_draft in zip(self.STAGES, (0, 0, 0, 1)):
++            n_src = end - start + n_draft
++            mgr = object.__new__(MooncakeKVManager)
++            mgr.kv_args = SimpleNamespace(
++                prefill_start_layer=start,
++                mla_compression_ratios=None,
++                num_draft_entries=n_draft,
++            )
++            src = list(range(n_src))
++            _, sliced, n = CommonKVManager.get_mla_kv_ptrs_with_pp(
++                mgr, src, dst, state_type=StateType.DSA
++            )
++            self.assertEqual(n, n_src)
++            self.assertEqual(sliced, dst[start : start + n_src])
++
++
++class TestPpNonFinalChunkWaitEvent(CustomTestCase):
++    """Under PP the non-overlap loop sends a non-final chunk whose forward ran
++    in an earlier microbatch; the send must carry a forward-stream event so the
++    transfer worker does not read KV pages before they are written."""
++
++    def _run(self, pp_size):
++        from sglang.srt.disaggregation import prefill as prefill_mod
++
++        sender = SimpleNamespace(_early_send_wait_event=None)
++
++        class Req:  # hashable, like the real Req
++            disagg_kv_sender = sender
++
++        req = Req()
++        seen = {}
++        stub = SimpleNamespace(
++            chunked_req=req,
++            enable_overlap=False,
++            forward_stream="forward-stream",
++            checkpoint_disagg_prefill=lambda r: None,
++            check_bootstrap=lambda r: True,
++            send_kv_chunk=lambda r: seen.setdefault(
++                "event", sender._early_send_wait_event
++            ),
++        )
++        events = []
++
++        class FakeEvent:
++            def record(self, stream):
++                events.append(stream)
++
++        with (
++            patch.object(
++                prefill_mod,
++                "get_parallel",
++                return_value=SimpleNamespace(pp_size=pp_size),
++            ),
++            patch.object(prefill_mod.torch.cuda, "Event", FakeEvent),
++        ):
++            prefill_mod.SchedulerDisaggregationPrefillMixin.process_prefill_chunk(
++                stub, None, SimpleNamespace(batch_is_full=True)
++            )
++        return seen["event"], events
++
++    def test_pp_send_carries_forward_stream_event(self):
++        event, recorded = self._run(pp_size=4)
++        self.assertIsNotNone(event)
++        self.assertEqual(recorded, ["forward-stream"])
++
++    def test_no_pp_send_unchanged(self):
++        event, recorded = self._run(pp_size=1)
++        self.assertIsNone(event)
++        self.assertEqual(recorded, [])
++
++
+ class TestIndexKPagePairing(CustomTestCase):
+     """T3: replicated index K pairs prefill 64-slot pages with decode index pages
+     over the widened slots, through the generic DSA page path."""
+-- 
+2.34.1
+

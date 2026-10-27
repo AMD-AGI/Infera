@@ -1,0 +1,289 @@
+From a78ff55a8b5ca7f6719b7c0718508d69f96b8316 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 14:22:07 +0000
+Subject: [PATCH 14/31] [AMD] dsa: Add a page-split DSA decode top-k for DCP
+ over a replicated index K
+
+Each DCP rank scores every W-th context page, keeps a local top-k and
+merges the all-gathered (score, position) candidates into the exact
+global top-k. Unit tests check the merge against a single-rank top-k
+with random scores, ties, partial pages and MTP verify rows.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../attention/dsa/dsa_dcp_split_indexer.py    | 130 ++++++++++++++++++
+ .../unit/test_dsa_dcp_split_indexer.py        | 124 +++++++++++++++++
+ 2 files changed, 254 insertions(+)
+ create mode 100644 python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+ create mode 100644 test/registered/unit/test_dsa_dcp_split_indexer.py
+
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+new file mode 100644
+index 0000000000..241cea9a9e
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+@@ -0,0 +1,130 @@
++"""Split the DSA decode indexer across a DCP group over a replicated index K.
++
++Every DCP rank holds the whole index K, so the paged MQA scoring of a decode,
++target-verify or draft-extend row can be divided by context page: rank ``r``
++scores request pages ``r, r + W, ...``, keeps a local top-k, and the ranks
++all-gather (score, position) candidates and merge them. The merge is exact: a
++token in the global top-k is in the local top-k of the rank that scored it.
++"""
++
++from __future__ import annotations
++
++from typing import Callable
++
++import torch
++
++
++def owned_page_table(block_tables: torch.Tensor, w: int, r: int) -> torch.Tensor:
++    """[rows, pages] request page table -> the pages rank ``r`` scores."""
++    return block_tables[:, r::w].contiguous()
++
++
++def owned_lens(lens: torch.Tensor, page: int, w: int, r: int) -> torch.Tensor:
++    """Tokens of ``[0, lens)`` that fall in pages ``r, r + w, ...`` (int32).
++
++    Only the page holding position ``lens - 1`` can be partial, and owned pages
++    are scored in order, so the owned positions are a prefix of the local logits.
++    """
++    lens = lens.to(torch.int64).clamp(min=0)
++    full = lens // page
++    rem = lens % page
++    owned_full = ((full - r + w - 1) // w).clamp(min=0)
++    tail = torch.where(full % w == r, rem, torch.zeros_like(rem))
++    return (owned_full * page + tail).to(torch.int32)
++
++
++def local_to_global_pos(
++    local_idx: torch.Tensor, page: int, w: int, r: int
++) -> torch.Tensor:
++    """Local logits column -> request position; negative stays -1."""
++    idx = local_idx.to(torch.int64)
++    pos = ((idx // page) * w + r) * page + idx % page
++    return torch.where(idx >= 0, pos, torch.full_like(pos, -1)).to(torch.int32)
++
++
++def pack_candidates(
++    local_logits: torch.Tensor,
++    local_idx: torch.Tensor,
++    local_lens: torch.Tensor,
++    topk: int,
++    page: int,
++    w: int,
++    r: int,
++) -> torch.Tensor:
++    """[2, rows, topk] int32: fp32 score bits (-inf if invalid), global pos (-1)."""
++    rows = local_idx.shape[0]
++    idx = local_idx.to(torch.int64)
++    valid = (idx >= 0) & (idx < local_lens.view(rows, 1).to(torch.int64))
++    safe = torch.where(valid, idx, torch.zeros_like(idx))
++    width = local_logits.shape[1]
++    if width == 0:
++        scores = torch.full(
++            (rows, topk), -float("inf"), dtype=torch.float32, device=idx.device
++        )
++    else:
++        scores = local_logits.float().gather(1, safe.clamp(max=width - 1))
++    scores = torch.where(valid, scores, torch.full_like(scores, -float("inf")))
++    pos = torch.where(
++        valid,
++        local_to_global_pos(safe, page, w, r).to(torch.int64),
++        torch.full_like(idx, -1),
++    )
++    out = torch.empty((2, rows, topk), dtype=torch.int32, device=idx.device)
++    out[0] = scores.contiguous().view(torch.int32)
++    out[1] = pos.to(torch.int32)
++    return out
++
++
++def merge_candidates(gathered: torch.Tensor, w: int, topk: int) -> torch.Tensor:
++    """[w * 2, rows, topk] gathered packs -> [rows, topk] global positions (-1 padded)."""
++    packs = gathered.view(w, 2, gathered.shape[1], topk)
++    scores = packs[:, 0].contiguous().view(torch.float32)  # [w, rows, topk]
++    pos = packs[:, 1]
++    rows = packs.shape[2]
++    scores = scores.permute(1, 0, 2).reshape(rows, w * topk)
++    pos = pos.permute(1, 0, 2).reshape(rows, w * topk)
++    best, pick = torch.topk(scores, topk, dim=1)
++    chosen = pos.gather(1, pick)
++    return torch.where(best > -float("inf"), chosen, torch.full_like(chosen, -1))
++
++
++def positions_to_slots(
++    pos: torch.Tensor, real_page_table: torch.Tensor, page: int
++) -> torch.Tensor:
++    """Request positions -> KV slots, as the fused paged top-k emits them."""
++    p = pos.to(torch.int64)
++    safe = p.clamp(min=0)
++    pages = real_page_table.to(torch.int64).gather(1, safe // page)
++    slots = pages * page + safe % page
++    return torch.where(p >= 0, slots, torch.full_like(slots, -1)).to(torch.int32)
++
++
++def split_decode_topk(
++    *,
++    block_tables: torch.Tensor,
++    lens: torch.Tensor,
++    page: int,
++    topk: int,
++    w: int,
++    r: int,
++    logits_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
++    local_topk_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
++    all_gather_fn: Callable[[torch.Tensor], torch.Tensor],
++) -> torch.Tensor:
++    """Global top-k request positions [rows, topk] (-1 padded) for every row.
++
++    ``logits_fn(owned_block_tables, owned_lens, max_len)`` scores this rank's
++    pages; ``local_topk_fn(logits, lens, k)`` returns column indices;
++    ``all_gather_fn`` concatenates the [2, rows, topk] packs of all W ranks
++    along dim 0 in rank order.
++    """
++    local_tables = owned_page_table(block_tables, w, r)
++    local_lens = owned_lens(lens, page, w, r)
++    local_logits = logits_fn(local_tables, local_lens, local_tables.shape[1] * page)
++    if local_logits.shape[1] < topk:
++        local_logits = torch.nn.functional.pad(
++            local_logits, (0, topk - local_logits.shape[1]), value=-float("inf")
++        )
++    local_idx = local_topk_fn(local_logits, local_lens, topk)
++    pack = pack_candidates(local_logits, local_idx, local_lens, topk, page, w, r)
++    return merge_candidates(all_gather_fn(pack), w, topk)
+diff --git a/test/registered/unit/test_dsa_dcp_split_indexer.py b/test/registered/unit/test_dsa_dcp_split_indexer.py
+new file mode 100644
+index 0000000000..52dbb2bc9e
+--- /dev/null
++++ b/test/registered/unit/test_dsa_dcp_split_indexer.py
+@@ -0,0 +1,124 @@
++"""Page-split DSA decode indexer under DCP: the merged top-k must equal the
++top-k a single rank computes over the whole replicated index K."""
++
++import unittest
++
++import torch
++
++from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (
++    owned_lens,
++    positions_to_slots,
++    split_decode_topk,
++)
++from sglang.test.ci.ci_register import register_cpu_ci
++from sglang.test.test_utils import CustomTestCase
++
++register_cpu_ci(est_time=10, suite="base-a-test-cpu")
++
++
++def _local_topk(logits, lens, k):
++    """Column indices of the top-k among the first ``lens`` columns, -1 padded."""
++    cols = torch.arange(logits.shape[1]).view(1, -1)
++    masked = torch.where(cols < lens.view(-1, 1).long(), logits, -float("inf"))
++    best, idx = torch.topk(masked, k, dim=1)
++    return torch.where(best > -float("inf"), idx, torch.full_like(idx, -1))
++
++
++def _split(scores, lens, page, topk, w, garbage=1e9):
++    """Run every rank of the split on a [rows, positions] score matrix."""
++    rows, n_pos = scores.shape
++    n_pages = -(-n_pos // page)
++    # Arbitrary physical page ids; the scores are keyed by request position.
++    block_tables = torch.randperm(4 * n_pages + 3)[:n_pages].repeat(rows, 1)
++
++    packs = {}
++
++    def run(r, gather):
++        def logits_fn(tables, local_lens, max_len):
++            out = torch.full((rows, max_len), garbage)
++            for c in range(max_len):
++                gpos = ((c // page) * w + r) * page + c % page
++                if gpos < n_pos:
++                    out[:, c] = scores[:, gpos]
++            return out
++
++        return split_decode_topk(
++            block_tables=block_tables,
++            lens=lens,
++            page=page,
++            topk=topk,
++            w=w,
++            r=r,
++            logits_fn=logits_fn,
++            local_topk_fn=_local_topk,
++            all_gather_fn=gather,
++        )
++
++    # Pass 1 collects every rank's pack; pass 2 merges the gathered packs.
++    for r in range(w):
++
++        def collect(pack, r=r):
++            packs[r] = pack
++            return torch.cat([pack] * w, dim=0)
++
++        run(r, collect)
++    gathered = torch.cat([packs[r] for r in range(w)], dim=0)
++    return [run(r, lambda _pack: gathered) for r in range(w)], block_tables
++
++
++class TestDcpSplitDecodeIndexer(CustomTestCase):
++    def _check(self, scores, lens, page, topk, w):
++        results, _ = _split(scores, lens, page, topk, w)
++        for r in range(1, w):
++            self.assertTrue(torch.equal(results[0], results[r]), "ranks disagree")
++        got = results[0]
++        for row in range(scores.shape[0]):
++            n = int(lens[row])
++            want = torch.sort(scores[row, :n], descending=True).values[: min(topk, n)]
++            sel = got[row][got[row] >= 0]
++            self.assertEqual(sel.numel(), min(topk, n), f"row {row} count")
++            self.assertEqual(sel.unique().numel(), sel.numel(), f"row {row} dup")
++            self.assertTrue(bool((sel < n).all()), f"row {row} past length")
++            # Equal score multisets: exact up to the order of tied scores.
++            got_scores = torch.sort(scores[row, sel.long()], descending=True).values
++            self.assertTrue(torch.equal(got_scores, want), f"row {row} scores")
++
++    def test_random_scores_partial_pages(self):
++        torch.manual_seed(0)
++        page, topk, w = 4, 16, 4
++        lens = torch.tensor([0, 1, 3, 4, 5, 15, 16, 17, 31, 63, 64, 65, 100, 129])
++        scores = torch.randn(lens.numel(), 140)
++        self._check(scores, lens, page, topk, w)
++
++    def test_ties(self):
++        torch.manual_seed(1)
++        page, topk, w = 4, 8, 4
++        lens = torch.tensor([7, 33, 50, 97])
++        scores = torch.randint(0, 3, (4, 100)).float()
++        self._check(scores, lens, page, topk, w)
++
++    def test_mtp_verify_rows(self):
++        # Six verify rows per request: causal lengths seq_len - 5 .. seq_len.
++        torch.manual_seed(2)
++        page, topk, w = 8, 32, 4
++        lens = torch.cat([torch.arange(s - 5, s + 1) for s in (40, 77, 300)])
++        scores = torch.randn(lens.numel(), 320)
++        self._check(scores, lens, page, topk, w)
++
++    def test_owned_lens_partition(self):
++        page, w = 64, 4
++        lens = torch.arange(0, 2000, 7)
++        total = sum(owned_lens(lens, page, w, r).long() for r in range(w))
++        self.assertTrue(torch.equal(total, lens))
++
++    def test_positions_to_slots_matches_fused_contract(self):
++        page = 4
++        table = torch.tensor([[7, 2, 9], [1, 0, 5]])
++        pos = torch.tensor([[0, 5, 11, -1], [3, 4, -1, 8]])
++        slots = positions_to_slots(pos, table, page)
++        want = torch.tensor([[28, 9, 39, -1], [7, 0, -1, 20]], dtype=torch.int32)
++        self.assertTrue(torch.equal(slots, want))
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.34.1
+

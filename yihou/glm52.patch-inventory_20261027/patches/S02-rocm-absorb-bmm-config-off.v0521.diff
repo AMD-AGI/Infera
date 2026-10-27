@@ -1,0 +1,13 @@
+--- a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
++++ b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py
+@@ -156,6 +156,10 @@
+ 
+ def _absorb_bmm_config(heads: int, m: int, n: int) -> Optional[dict]:
+     """Return decode tile settings, or None outside the decode row limit."""
++    # YIHOU: disabled -> aiter picks its own config, exactly as v0519 called it. The
++    # hand-built config aborted triton's LLVM (Sequence.h:275 iota_range assertion) in a
++    # c44b prefill rank; see agentx44_20261009 debug R003.
++    return None
+     global _absorb_bmm_num_cu
+     if m <= 0 or m > _ABSORB_BMM_DECODE_MAX_M:
+         return None

@@ -1,0 +1,31 @@
+From 93034eba91af1aab407ead4d46dcd20f289fdf43 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 22:26:13 +0000
+Subject: [PATCH 31/31] [AMD] dsa: Do not rebind a constexpr in the
+ radix-select merge loop
+
+Triton rejects reassigning a tl.constexpr inside tl.static_range; the CPU
+interpreter did not.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py    | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+index 71d237b745..e5e4e8b3a0 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+@@ -116,7 +116,7 @@ def _merge_candidates_kernel(
+     prefix_mask = tl.zeros((), dtype=tl.int64)
+     need = tl.full((), TOPK, dtype=tl.int64)
+     for p in tl.static_range(4):
+-        shift: tl.constexpr = 24 - 8 * p
++        shift = 24 - 8 * p
+         digit = (ordered >> shift) & 255
+         match = (ordered & prefix_mask) == prefix
+         # Non-matching candidates go to bins 256..511, which are ignored.
+-- 
+2.34.1
+

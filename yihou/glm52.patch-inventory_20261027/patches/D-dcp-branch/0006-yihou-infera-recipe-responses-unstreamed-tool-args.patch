@@ -1,0 +1,83 @@
+From 3c733c7f5beb4ea334cc6f2f168f0589e51d42cd Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 13:09:15 +0000
+Subject: [PATCH 06/31] [yihou] infera recipe: responses unstreamed tool args
+
+Infera image patch patch_responses_unstreamed_tool_args.py.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../entrypoints/openai/serving_responses.py   | 49 +++++++++++++++++++
+ 1 file changed, 49 insertions(+)
+
+diff --git a/python/sglang/srt/entrypoints/openai/serving_responses.py b/python/sglang/srt/entrypoints/openai/serving_responses.py
+index 6ce269e0fe..2a9811314c 100644
+--- a/python/sglang/srt/entrypoints/openai/serving_responses.py
++++ b/python/sglang/srt/entrypoints/openai/serving_responses.py
+@@ -105,6 +105,37 @@ if TYPE_CHECKING:
+ logger = logging.getLogger(__name__)
+ 
+ 
++def _infera_responses_unstreamed_tool_args(parser, tool_index, streamed):
++    """Return the tool-argument suffix the streaming detector never emitted.
++
++    Mirrors ``serving_chat._check_for_unstreamed_tool_args``. The detector's
++    ``prev_tool_call_arr`` holds the fully parsed call, so serialising it and
++    dropping the already-streamed prefix yields whatever is still owed.
++    Returns an empty string when the stream is already complete, when the
++    detector exposes nothing to compare against, or when the serialisation
++    does not extend the streamed bytes -- in that last case the delta stream
++    is not a prefix of the parsed form and appending would corrupt it.
++    """
++    detector = getattr(parser, "detector", parser)
++    parsed_calls = getattr(detector, "prev_tool_call_arr", None)
++    if not parsed_calls or not isinstance(tool_index, int):
++        return ""
++    if tool_index < 0 or tool_index >= len(parsed_calls):
++        return ""
++    entry = parsed_calls[tool_index]
++    if not isinstance(entry, dict):
++        return ""
++    expected = entry.get("arguments", {})
++    if not isinstance(expected, str):
++        try:
++            expected = json.dumps(expected, ensure_ascii=False)
++        except (TypeError, ValueError):
++            return ""
++    if not expected.startswith(streamed):
++        return ""
++    return expected[len(streamed) :]
++
++
+ class _MediaInputValidationError(ValueError):
+     pass
+ 
+@@ -2302,6 +2333,24 @@ class OpenAIServingResponses(OpenAIServingChat):
+                 return []
+             arguments = state["arguments"]
+             events: list = []
++            if not state["custom"]:
++                pending = _infera_responses_unstreamed_tool_args(
++                    tool_parser, tool_index, arguments
++                )
++                if pending:
++                    arguments += pending
++                    state["arguments"] = arguments
++                    events.append(
++                        _send_event(
++                            openai_responses_types.ResponseFunctionCallArgumentsDeltaEvent(
++                                type="response.function_call_arguments.delta",
++                                sequence_number=-1,
++                                item_id=state["item_id"],
++                                output_index=state["output_index"],
++                                delta=pending,
++                            )
++                        )
++                    )
+             if state["custom"]:
+                 payload = decode_custom_tool_input(arguments)
+                 # Deltas cannot be retracted, so a payload that no longer
+-- 
+2.34.1
+

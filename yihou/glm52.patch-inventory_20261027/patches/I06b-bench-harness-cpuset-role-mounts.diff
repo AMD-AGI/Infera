@@ -1,0 +1,48 @@
+diff -ru /home/yihou/dev/git/infera.glm52.pd/yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/scripts/harness/bench-harness/engine.sh /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/engine.sh
+--- /home/yihou/dev/git/infera.glm52.pd/yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/scripts/harness/bench-harness/engine.sh	2026-10-10 07:25:48.230985218 +0000
++++ /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/engine.sh	2026-10-11 08:08:15.470720340 +0000
+@@ -137,6 +137,25 @@
+     { echo "ENGINE_PID_HOST=1 refused on spur node (spur-authz denies --pid=host)" >&2; exit 2; }
+ [[ "${ENGINE_PID_HOST:-0}" == 1 ]] && docker_args+=(--pid host)
+ [[ "${IPC_MODE_LEGACY:-0}" == 1 ]] && docker_args+=(-e HSA_ENABLE_IPC_MODE_LEGACY=1)
++# yihou v0521dbg (R045): per-leg NUMA placement. {PREFILL,DECODE}_CPUSET_{CPUS,MEMS} -> docker
++# --cpuset-cpus/--cpuset-mems; ENGINE_SET_CPU_AFFINITY -> SGLANG_SET_CPU_AFFINITY on both legs
++# (image default 1 pins scheduler ranks by local gpu_id). All empty by default = no flag/env.
++if [[ "$role" == prefill ]]; then
++    cpuset_cpus="${PREFILL_CPUSET_CPUS:-}"; cpuset_mems="${PREFILL_CPUSET_MEMS:-}"
++else
++    cpuset_cpus="${DECODE_CPUSET_CPUS:-}"; cpuset_mems="${DECODE_CPUSET_MEMS:-}"
++fi
++for v in cpuset_cpus cpuset_mems; do
++    [[ -z "${!v}" || "${!v}" =~ ^[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*$ ]] ||
++        { echo "invalid $role $v: ${!v}" >&2; exit 2; }
++done
++[[ -n "$cpuset_cpus" ]] && docker_args+=(--cpuset-cpus "$cpuset_cpus")
++[[ -n "$cpuset_mems" ]] && docker_args+=(--cpuset-mems "$cpuset_mems")
++if [[ -n "${ENGINE_SET_CPU_AFFINITY:-}" ]]; then
++    [[ "$ENGINE_SET_CPU_AFFINITY" == 0 || "$ENGINE_SET_CPU_AFFINITY" == 1 ]] ||
++        { echo "ENGINE_SET_CPU_AFFINITY must be 0 or 1" >&2; exit 2; }
++    docker_args+=(-e "SGLANG_SET_CPU_AFFINITY=$ENGINE_SET_CPU_AFFINITY")
++fi
+ if [[ -n "${NODE_RW_ROOT:-}" ]]; then
+     [[ "${DRY_RUN:-0}" == 1 ]] || mkdir -p "$NODE_RW_ROOT"
+     docker_args+=(-v "$NODE_RW_ROOT:$NODE_RW_ROOT")
+@@ -148,6 +167,17 @@
+     [[ -n "$source" && -r "$source" ]] || { echo "invalid source mount: $source" >&2; exit 1; }
+     docker_args+=(-v "$source:$destination:ro")
+ done < "${YIHOU_MOUNTS:-$WS/patches/mounts.yihou.tsv}"
++# yihou v0521dbg (R050): role-only extra mount rows (same TSV format), e.g. decode-only patches.
++# {PREFILL,DECODE}_MOUNTS_ADD = TSV path; empty (default) = none.
++if [[ "$role" == prefill ]]; then mounts_add="${PREFILL_MOUNTS_ADD:-}"; else mounts_add="${DECODE_MOUNTS_ADD:-}"; fi
++if [[ -n "$mounts_add" ]]; then
++    [[ -r "$mounts_add" ]] || { echo "invalid $role MOUNTS_ADD: $mounts_add" >&2; exit 1; }
++    while IFS=$'\t' read -r source destination; do
++        [[ -z "$source" ]] && continue
++        [[ -r "$source" ]] || { echo "invalid source mount: $source" >&2; exit 1; }
++        docker_args+=(-v "$source:$destination:ro")
++    done < "$mounts_add"
++fi
+ if [[ "$role" == prefill && -n "${YIHOU_ASM_TRACE_DIR:-}" ]]; then
+     [[ "$YIHOU_ASM_TRACE_DIR" == "$WS"/* ]] || exit 2
+     docker_args+=(
+Only in /home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools: __pycache__

@@ -1,0 +1,14 @@
+--- a/python/sglang/srt/arg_groups/pd_disaggregation_hook.py
++++ b/python/sglang/srt/arg_groups/pd_disaggregation_hook.py
+@@ -210,7 +210,10 @@
+         unsupported.append("transfer backends other than Mooncake")
+     if cfg.pp_size != 1 or cfg.attn_cp_size != 1 or cfg.dcp_size != 1:
+         unsupported.append("pipeline or attention context parallelism")
+-    attn_dp_size = cfg.dp_size if cfg.enable_dp_attention else 1
++    # YIHOU-PCOMPLETE-ATTNDP (v0521cap2): handle_deprecated_dp_attention runs first and rewrites
++    # --dp-size N --enable-dp-attention into attn_dp_size=N, dp_size=1, enable_dp_attention=False,
++    # so the old expression saw attention DP 1 and rejected TP4/DP4-attention (attention TP is 1).
++    attn_dp_size = cfg.attn_dp_size if cfg.attn_dp_size > 1 else (cfg.dp_size if cfg.enable_dp_attention else 1)
+     if cfg.tp_size != attn_dp_size:
+         unsupported.append("attention tensor parallelism greater than one")
+     if cfg.enable_pdmux or cfg.decoupled_spec_role != "null":

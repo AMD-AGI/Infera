@@ -1,0 +1,98 @@
+--- a/python/sglang/srt/disaggregation/decode.py
++++ b/python/sglang/srt/disaggregation/decode.py
+@@ -22,6 +22,7 @@
+ 
+ import hashlib
+ import logging
++import os
+ import time
+ from collections import deque
+ from concurrent.futures import Future
+@@ -129,6 +130,18 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++# YIHOU (task v0521cap Track B, user rule 2026-10-12): admit a prealloc request onto a decode DP rank only if
++#   (candidate tokens + KV already held on the rank) - KV held by running requests  <  (1 - SHARE) * pool
++# i.e. all non-running KV (in-flight transfers, arrived-not-yet-batched, deferred releases, page slack) plus the new
++# request stays below (1 - SHARE) of the pool, so running requests always have >= SHARE of the pool to grow into.
++# SHARE = YIHOU_DECODE_RUNNING_KV_SHARE (0 / unset = off = stock behaviour; 0.5 = the user's 50 % rule).
++_YIHOU_RUN_SHARE = float(os.environ.get("YIHOU_DECODE_RUNNING_KV_SHARE", "0") or 0)
++# v2 (pc40c showed a likely regression from FIFO head-of-line blocking behind ~0.7 M-token prompts): a request that does
++# not fit under the cap is SKIPPED (smaller ones behind it may still enter) instead of stopping the scan, unless the
++# oldest blocked request has waited longer than YIHOU_RUNSHARE_MAX_WAIT_S; then admission stops (stock FIFO break) so the
++# big request enters as soon as in-flight KV drains (anti-starvation).
++_YIHOU_RUNSHARE_MAX_WAIT_S = float(os.environ.get("YIHOU_RUNSHARE_MAX_WAIT_S", "5") or 5)
++
+ _is_npu = is_npu()
+ 
+ if TYPE_CHECKING:
+@@ -1292,6 +1305,22 @@
+             )
+         reserved_restore_tokens = self._hicache_pending_restore_tokens()
+         full_allocatable_tokens -= reserved_restore_tokens
++        yihou_cap = None
++        if _YIHOU_RUN_SHARE > 0:
++            yihou_cap = int((1.0 - _YIHOU_RUN_SHARE) * self.max_total_num_tokens)
++            yihou_used = (
++                self.max_total_num_tokens
++                - self.token_to_kv_pool_allocator.available_size()
++            )
++            yihou_running = sum(
++                r.kv.kv_allocated_len for r in self.scheduler.running_batch.reqs
++            )
++            # non-running KV now held on this rank; grows as requests are admitted in this call
++            yihou_nonrunning = max(0, yihou_used - yihou_running)
++            yihou_any_pending = (
++                len(self.transfer_queue.queue) > 0
++                or len(self.scheduler.waiting_queue) > 0
++            )
+         # Sort by priority before any index-based bookkeeping so that both the
+         # abort-scan loop and the preallocation loop operate on the same order.
+         if self.scheduler.enable_priority_scheduling:
+@@ -1485,6 +1514,35 @@
+                     decode_req.req.lock = None
+                 break
+ 
++            # YIHOU: non-running KV cap (user rule). Rebootstrap requests (recovering running work) are exempt.
++            # Progress guarantee: a request may always enter when nothing is in transfer or waiting to be batched.
++            if (
++                yihou_cap is not None
++                and not decode_req.is_rebootstrap
++                and yihou_any_pending
++                and yihou_nonrunning + required_alloc_tokens >= yihou_cap
++            ):
++                if prefix_match is not None and prefix_match.l1_prefix_len > 0:
++                    self.tree_cache.unlock(decode_req.req.lock)
++                    decode_req.req.lock = None
++                self.yihou_cap_block_ct = getattr(self, "yihou_cap_block_ct", 0) + 1
++                now = time.monotonic()
++                t0 = getattr(decode_req, "yihou_block_t0", None)
++                if t0 is None:
++                    decode_req.yihou_block_t0 = t0 = now
++                starved = now - t0 > _YIHOU_RUNSHARE_MAX_WAIT_S
++                if self.yihou_cap_block_ct % 100 == 1:
++                    logger.info(
++                        "YIHOU-RUNSHARE block #%d: nonrunning=%d cand=%d cap=%d running=%d pool=%d "
++                        "xfer=%d waiting=%d waited=%.1fs %s",
++                        self.yihou_cap_block_ct, yihou_nonrunning, required_alloc_tokens, yihou_cap,
++                        yihou_running, self.max_total_num_tokens, len(self.transfer_queue.queue),
++                        len(self.scheduler.waiting_queue), now - t0, "stop" if starved else "skip",
++                    )
++                if starved:
++                    break
++                continue
++
+             if swa_allocatable_tokens is not None:
+                 reclaim_error = self._reclaim_swa_tail_capacity(
+                     swa_len,
+@@ -1515,6 +1573,9 @@
+                 prefix_len,
+                 total_prefix_len,
+             )
++            if yihou_cap is not None:
++                yihou_nonrunning += required_alloc_tokens
++                yihou_any_pending = True
+             decode_req.prefix_match = prefix_match
+             if self.scheduler.enable_decode_hicache:
+                 self._start_hicache_prefetch(decode_req.req, prefix_match)

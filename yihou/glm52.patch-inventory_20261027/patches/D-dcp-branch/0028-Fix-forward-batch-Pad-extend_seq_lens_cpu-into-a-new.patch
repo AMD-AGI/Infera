@@ -1,0 +1,89 @@
+From 5aacce1f1cb1def03118d38dc5f9b931f844afe7 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 21:24:46 +0000
+Subject: [PATCH 28/31] [Fix] forward-batch: Pad extend_seq_lens_cpu into a new
+ list
+
+prepare_for_draft_extend plans the draft extend's attention metadata
+before MLP-sync padding, and the DSA metadata keeps the batch's
+extend_seq_lens_cpu list as its real per-request lengths
+(dsa_extend_seq_lens_list). _pad_inputs_to_size extended that list in
+place, so under DP-attention MAX_LEN padding the indexer saw q_offset 42
+while its planned lengths and block tables had 36 rows, and the aiter
+paged MQA logits kernel read past them (memory access fault under
+DP2 x DCP2; caught by the SGLANG_DEBUG_DSA_ROWS bounds check). The same
+inflated sum also left padded rows of the sparse-MLA page table
+uninitialized instead of -1.
+
+Rebind to a padded copy so the pre-pad plan keeps its own lengths.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+(cherry picked from commit fa810b9f69ac106de8eddfe1eeeb371a6e728c2c)
+---
+ .../srt/model_executor/forward_batch_info.py  |  8 +++--
+ .../model_executor/test_mlp_sync_pad_unpad.py | 29 +++++++++++++++++++
+ 2 files changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/python/sglang/srt/model_executor/forward_batch_info.py b/python/sglang/srt/model_executor/forward_batch_info.py
+index 0af731d5a2..fddfaad62f 100644
+--- a/python/sglang/srt/model_executor/forward_batch_info.py
++++ b/python/sglang/srt/model_executor/forward_batch_info.py
+@@ -2047,8 +2047,12 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
+                 self.extend_prefix_lens, bs
+             )
+         if self.extend_seq_lens_cpu is not None:
+-            self.extend_seq_lens_cpu.extend(
+-                [dummy_extend_len] * (bs - len(self.extend_seq_lens_cpu))
++            # A new list, not an in-place extend: attention metadata planned
++            # before this padding (the draft extend's, see
++            # prepare_for_draft_extend) holds the old list as its real
++            # per-request lengths, and the DSA indexer sizes its rows from it.
++            self.extend_seq_lens_cpu = self.extend_seq_lens_cpu + [dummy_extend_len] * (
++                bs - len(self.extend_seq_lens_cpu)
+             )
+         if self.extend_prefix_lens_cpu is not None:
+             self.extend_prefix_lens_cpu.extend(
+diff --git a/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py b/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py
+index 395791b2b7..cb2503aa49 100644
+--- a/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py
++++ b/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py
+@@ -298,6 +298,35 @@ class TestMlpSyncPadUnpad(CustomTestCase):
+         self.assertEqual(fb.extend_prefix_lens_cpu, [0])
+         self.assertEqual(fb.extend_logprob_start_lens_cpu, [0])
+ 
++    def test_draft_extend_padding_leaves_pre_pad_metadata_lens_alone(self):
++        # prepare_for_draft_extend plans attention metadata before MLP-sync
++        # padding, and the DSA metadata keeps extend_seq_lens_cpu as its real
++        # lengths. Extending that list in place made the indexer size 42 query
++        # rows over 36-row lengths/page tables (DP2 x DCP2 memory fault).
++        spec_info = MagicMock()
++        spec_info.num_tokens_per_req = 6
++        spec_info.is_draft_input.return_value = False
++        real_lens = [6] * 6
++        fb = ForwardBatch(
++            forward_mode=ForwardMode.DRAFT_EXTEND_V2,
++            batch_size=6,
++            input_ids=torch.zeros(36, dtype=torch.int64),
++            req_pool_indices=torch.arange(6),
++            seq_lens=torch.full((6,), 100),
++            seq_lens_sum=600,
++            out_cache_loc=torch.zeros(36, dtype=torch.int64),
++            positions=torch.zeros(36, dtype=torch.int64),
++            extend_seq_lens=torch.full((6,), 6, dtype=torch.int32),
++            extend_seq_lens_cpu=real_lens,
++            spec_info=spec_info,
++        )
++        planned_lens = fb.extend_seq_lens_cpu  # what the pre-pad plan holds
++
++        fb._pad_inputs_to_size(_mock_model_runner(), num_tokens=42, bs=7)
++
++        self.assertEqual(fb.extend_seq_lens_cpu, [6] * 7)
++        self.assertEqual(sum(planned_lens), 36)
++
+ 
+ class TestDraftScopeMlpSync(CustomTestCase):
+     SLOT = 2
+-- 
+2.34.1
+

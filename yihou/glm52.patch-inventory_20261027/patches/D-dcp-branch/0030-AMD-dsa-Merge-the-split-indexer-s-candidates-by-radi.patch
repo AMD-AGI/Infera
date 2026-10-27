@@ -1,0 +1,181 @@
+From a6ea78e322afea0a10f1479c7225865d8da90b52 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 22:19:23 +0000
+Subject: [PATCH 30/31] [AMD] dsa: Merge the split indexer's candidates by
+ radix select instead of a full sort
+
+The bitonic tl.sort over W x top-k candidates per row cost ~102 us per
+indexer layer on MI355X. Four 8-bit histogram passes find the top-k
+threshold; the selected candidates are compacted in candidate order (the
+consumers do not need score order).
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ .../dsa/dsa_dcp_split_indexer_triton.py       | 55 +++++++++++++------
+ .../unit/test_dsa_dcp_split_indexer_triton.py | 21 +++++--
+ 2 files changed, 53 insertions(+), 23 deletions(-)
+
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+index a1b544f471..71d237b745 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+@@ -91,7 +91,6 @@ def _merge_candidates_kernel(
+     TOPK: tl.constexpr,
+     W: tl.constexpr,
+     BLOCK: tl.constexpr,
+-    IDX_BITS: tl.constexpr,
+     PAGE: tl.constexpr,
+     HAS_PAGE_TABLE: tl.constexpr,
+ ):
+@@ -104,21 +103,43 @@ def _merge_candidates_kernel(
+     score_off = ((rank * 2) * rows + row) * TOPK + j
+     bits = tl.load(packs_ptr + score_off, mask=lane, other=-8388608)  # -inf bits
+     # Order-preserving map of the fp32 bits onto [0, 2^32): integer order = float
+-    # order (negative floats flip all bits, others set the top bit).
++    # order (negative floats flip all bits, others set the top bit). -inf maps to
++    # 0x007FFFFF; padding lanes get 0 so they rank below every real candidate.
+     ubits = bits.to(tl.int64) & 0xFFFFFFFF
+     ordered = tl.where(bits < 0, 0xFFFFFFFF - ubits, ubits + 0x80000000)
+-    # Low bits favour the lower candidate index among equal scores.
+-    key = (ordered << IDX_BITS) | (BLOCK - 1 - cand).to(tl.int64)
+-    key = tl.sort(key, descending=True)
+-    picked = (BLOCK - 1) - (key & (BLOCK - 1)).to(tl.int32)
+-    # 0x007FFFFF is the mapped -inf; anything above it is a real score.
+-    real = (key >> IDX_BITS) > 0x007FFFFF
+-    p_rank = picked // TOPK
+-    p_j = picked % TOPK
+-    pos_off = ((p_rank * 2 + 1) * rows + row) * TOPK + p_j
+-    out_lane = cand < TOPK
+-    pos = tl.load(packs_ptr + pos_off, mask=out_lane & real, other=-1).to(tl.int64)
+-    valid = out_lane & real & (pos >= 0)
++    ordered = tl.where(lane, ordered, 0)
++
++    # Radix select, 8 bits per pass: find the TOPK-th largest value `prefix` and
++    # how many of the candidates equal to it are still needed.
++    bins = tl.arange(0, 512)
++    prefix = tl.zeros((), dtype=tl.int64)
++    prefix_mask = tl.zeros((), dtype=tl.int64)
++    need = tl.full((), TOPK, dtype=tl.int64)
++    for p in tl.static_range(4):
++        shift: tl.constexpr = 24 - 8 * p
++        digit = (ordered >> shift) & 255
++        match = (ordered & prefix_mask) == prefix
++        # Non-matching candidates go to bins 256..511, which are ignored.
++        hist = tl.histogram(tl.where(match, digit, 256 + digit).to(tl.int32), 512)
++        hist = tl.where(bins < 256, hist, 0).to(tl.int64)
++        total = tl.sum(hist)
++        count_ge = total - tl.cumsum(hist, 0) + hist
++        d = tl.max(tl.where((bins < 256) & (count_ge >= need), bins, -1))
++        count_gt = tl.sum(tl.where(bins > d, hist, 0))
++        need = need - count_gt
++        prefix = prefix | (d.to(tl.int64) << shift)
++        prefix_mask = prefix_mask | (255 << shift)
++
++    above = ordered > prefix
++    equal = ordered == prefix
++    # Among ties at the threshold, the lowest candidate indices are kept.
++    selected = above | (equal & (tl.cumsum(equal.to(tl.int32), 0) <= need))
++    out_idx = tl.cumsum(selected.to(tl.int32), 0) - 1
++    # 0x007FFFFF is the mapped -inf; a selected -inf candidate is padding.
++    real = ordered > 0x007FFFFF
++    pos_off = ((rank * 2 + 1) * rows + row) * TOPK + j
++    pos = tl.load(packs_ptr + pos_off, mask=selected & real, other=-1).to(tl.int64)
++    valid = selected & real & (pos >= 0)
+     if HAS_PAGE_TABLE:
+         safe = tl.where(valid, pos, 0)
+         page_id = tl.load(
+@@ -130,7 +151,7 @@ def _merge_candidates_kernel(
+     else:
+         result = pos
+     result = tl.where(valid, result, -1).to(tl.int32)
+-    tl.store(out_ptr + row * TOPK + cand, result, mask=out_lane)
++    tl.store(out_ptr + row * TOPK + out_idx, result, mask=selected)
+ 
+ 
+ def merge_candidates_triton(
+@@ -143,7 +164,8 @@ def merge_candidates_triton(
+ ) -> torch.Tensor:
+     """``merge_candidates`` and, given ``page_table``, ``positions_to_slots``.
+ 
+-    Returns [rows, topk] int32 in descending score order, -1 padded.
++    Returns [rows, topk] int32, -1 padded. The selected set equals the torch
++    reference; the order is candidate order (rank-major), not score order.
+     """
+     rows = gathered.shape[1]
+     out = torch.empty((rows, topk), dtype=torch.int32, device=gathered.device)
+@@ -163,7 +185,6 @@ def merge_candidates_triton(
+         TOPK=topk,
+         W=w,
+         BLOCK=block,
+-        IDX_BITS=block.bit_length() - 1,
+         PAGE=page,
+         HAS_PAGE_TABLE=has_page_table,
+     )
+diff --git a/test/registered/unit/test_dsa_dcp_split_indexer_triton.py b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py
+index 241aa90bb5..5e1701e2aa 100644
+--- a/test/registered/unit/test_dsa_dcp_split_indexer_triton.py
++++ b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py
+@@ -1,6 +1,7 @@
+ """The Triton pack/merge of the page-split DCP decode indexer must match the
+-torch reference (pack_candidates, merge_candidates, positions_to_slots) bit for
+-bit, including invalid lanes, partial rows and the -1 padding. Runs the kernels
++torch reference (pack_candidates, merge_candidates, positions_to_slots): the pack
++bit for bit, the merge as the same per-row set (it does not sort), including
++invalid lanes, partial rows and the -1 padding. Runs the kernels
+ in the Triton interpreter on CPU."""
+ 
+ import os
+@@ -77,6 +78,14 @@ class TestPackTriton(CustomTestCase):
+         self.assertTrue(torch.equal(out, ref))
+ 
+ 
++def _same_rows(a, b):
++    """Equal as per-row multisets: the merge keeps candidate order, not score order."""
++    a, b = a.to(torch.int32), b.to(torch.int32)
++    return a.shape == b.shape and torch.equal(
++        a.sort(dim=1).values, b.sort(dim=1).values
++    )
++
++
+ def _gathered(rows, topk, w, n_pos, seed):
+     """Per-rank packs with distinct scores, some -inf lanes and -1 positions."""
+     g = torch.Generator().manual_seed(seed)
+@@ -97,14 +106,14 @@ class TestMergeTriton(CustomTestCase):
+             gathered = _gathered(rows=4, topk=topk, w=w, n_pos=1000, seed=w)
+             ref = merge_candidates(gathered, w, topk)
+             out = merge_candidates_triton(gathered, w, topk)
+-            self.assertTrue(torch.equal(out, ref.to(torch.int32)), f"{w=} {topk=}")
++            self.assertTrue(_same_rows(out, ref), f"{w=} {topk=}")
+ 
+     def test_production_shape(self):
+         # GLM-5.2: index_topk 2048 over DCP4, an 8192-wide sort per row.
+         gathered = _gathered(rows=2, topk=2048, w=4, n_pos=200_000, seed=13)
+         ref = merge_candidates(gathered, 4, 2048)
+         out = merge_candidates_triton(gathered, 4, 2048)
+-        self.assertTrue(torch.equal(out, ref.to(torch.int32)))
++        self.assertTrue(_same_rows(out, ref))
+ 
+     def test_slots_match_reference(self):
+         page, n_pos = 16, 1000
+@@ -116,7 +125,7 @@ class TestMergeTriton(CustomTestCase):
+         ).to(torch.int32)
+         ref = positions_to_slots(merge_candidates(gathered, 4, 64), table, page)
+         out = merge_candidates_triton(gathered, 4, 64, page_table=table, page=page)
+-        self.assertTrue(torch.equal(out, ref))
++        self.assertTrue(_same_rows(out, ref))
+ 
+     def test_all_invalid_row_is_all_minus_one(self):
+         gathered = _gathered(rows=2, topk=32, w=4, n_pos=100, seed=5)
+@@ -152,7 +161,7 @@ class TestSplitTopkPlumbing(CustomTestCase):
+ 
+         ref = run()
+         out = run(pack_fn=pack_candidates_triton, merge_fn=merge_candidates_triton)
+-        self.assertTrue(torch.equal(out, ref.to(torch.int32)))
++        self.assertTrue(_same_rows(out, ref))
+ 
+ 
+ @unittest.skipIf(_FRESH_TRITON, "kernel cases run in this process")
+-- 
+2.34.1
+

@@ -1,0 +1,15 @@
+--- a/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
++++ b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py
+@@ -967,6 +967,12 @@
+         )
+         iter_msg = f" [{batch_iter}]" if LOG_FORWARD_ITERS else ""
+         msg = f"Decode batch{iter_msg}, #running-req: {num_running_reqs}, {token_usage_msg}"
++        # yihou gmu diagnostic: device free vs torch allocator state, GiB.
++        import torch as _t
++        _free, _tot = _t.cuda.mem_get_info()
++        msg += (f"mem: dev_free {_free / 2**30:.2f} alloc {_t.cuda.memory_allocated() / 2**30:.2f} "
++                f"rsv {_t.cuda.memory_reserved() / 2**30:.2f} peak_alloc {_t.cuda.max_memory_allocated() / 2**30:.2f} "
++                f"peak_rsv {_t.cuda.max_memory_reserved() / 2**30:.2f}, ")
+         if LOG_DECODE_SEQ_LENS and batch is not None:
+             msg += _seq_lens_log_part(batch.reqs)
+ 

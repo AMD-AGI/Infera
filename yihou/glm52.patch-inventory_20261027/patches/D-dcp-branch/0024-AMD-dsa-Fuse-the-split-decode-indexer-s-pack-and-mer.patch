@@ -1,0 +1,476 @@
+From 0347a6d47e73aa3e08d24cc572d15754666642e9 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 20:11:00 +0000
+Subject: [PATCH 24/31] [AMD] dsa: Fuse the split decode indexer's pack and
+ merge into Triton kernels
+
+Behind SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON (default off, needs
+SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER): one launch packs a rank's
+(score, position) candidates, one launch merges the gathered W x top-k
+candidates by sort and maps positions to KV slots when the top-k is fused,
+replacing the per-layer chains of torch elementwise ops and torch.topk.
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/environ.py                  |   3 +
+ .../attention/dsa/dsa_dcp_split_indexer.py    |   9 +-
+ .../dsa/dsa_dcp_split_indexer_triton.py       | 170 +++++++++++++++++
+ .../srt/layers/attention/dsa/dsa_indexer.py   |  22 ++-
+ .../unit/test_dsa_dcp_split_indexer_triton.py | 171 ++++++++++++++++++
+ 5 files changed, 370 insertions(+), 5 deletions(-)
+ create mode 100644 python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+ create mode 100644 test/registered/unit/test_dsa_dcp_split_indexer_triton.py
+
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index 383769f9ea..5be0ced7bb 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -1871,6 +1871,9 @@ class Envs:
+     # ROCm DCP: each rank scores 1/W of the context pages in the decode indexer
+     # over the replicated index K, then all-gathers and merges the top-k.
+     SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER = EnvBool(False)
++    # With the split decode indexer: one Triton launch each for the candidate
++    # pack and the merge (+ slot transform) instead of torch elementwise chains.
++    SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON = EnvBool(False)
+     # ROCm DCP: keep GLM's bf16 kv_b_proj (skip the gfx950 fp8 conversion) on DCP
+     # layers so --dcp-replicate-q-proj can drop the per-layer Q all-gather.
+     SGLANG_DSA_DCP_KEEP_KV_B_BF16 = EnvBool(False)
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+index 53de7a9c3d..02838a7a88 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py
+@@ -159,6 +159,8 @@ def split_decode_topk(
+     local_topk_fn: Callable[[torch.Tensor, torch.Tensor, int], torch.Tensor],
+     all_gather_fn: Callable[[torch.Tensor], torch.Tensor],
+     owned: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
++    pack_fn: Callable[..., torch.Tensor] = pack_candidates,
++    merge_fn: Callable[..., torch.Tensor] = merge_candidates,
+ ) -> torch.Tensor:
+     """Global top-k request positions [rows, topk] (-1 padded) for every row.
+ 
+@@ -166,7 +168,8 @@ def split_decode_topk(
+     pages; ``local_topk_fn(logits, lens, k)`` returns column indices;
+     ``all_gather_fn`` concatenates the [2, rows, topk] packs of all W ranks
+     along dim 0 in rank order. ``owned`` passes precomputed
+-    (``owned_page_table``, ``owned_lens``) for these inputs.
++    (``owned_page_table``, ``owned_lens``) for these inputs. ``pack_fn`` and
++    ``merge_fn`` take the signatures of ``pack_candidates`` / ``merge_candidates``.
+     """
+     if owned is None:
+         owned = (owned_page_table(block_tables, w, r), owned_lens(lens, page, w, r))
+@@ -177,8 +180,8 @@ def split_decode_topk(
+             local_logits, (0, topk - local_logits.shape[1]), value=-float("inf")
+         )
+     local_idx = local_topk_fn(local_logits, local_lens, topk)
+-    pack = pack_candidates(local_logits, local_idx, local_lens, topk, page, w, r)
+-    return merge_candidates(all_gather_fn(pack), w, topk)
++    pack = pack_fn(local_logits, local_idx, local_lens, topk, page, w, r)
++    return merge_fn(all_gather_fn(pack), w, topk)
+ 
+ 
+ # One per process: draft and target forwards use different forward metadata
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+new file mode 100644
+index 0000000000..a1b544f471
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py
+@@ -0,0 +1,170 @@
++"""Triton pack and merge for the page-split DCP decode indexer.
++
++Drop-in replacements for ``pack_candidates`` and ``merge_candidates`` (plus
++``positions_to_slots``) in ``dsa_dcp_split_indexer``: one launch each instead
++of a chain of small elementwise ops per indexer layer.
++"""
++
++from __future__ import annotations
++
++from typing import Optional
++
++import torch
++import triton
++import triton.language as tl
++
++
++@triton.jit
++def _pack_candidates_kernel(
++    logits_ptr,
++    logits_stride,
++    width,
++    idx_ptr,
++    idx_stride,
++    lens_ptr,
++    out_ptr,
++    rows,
++    TOPK: tl.constexpr,
++    BLOCK: tl.constexpr,
++    PAGE: tl.constexpr,
++    W: tl.constexpr,
++    R: tl.constexpr,
++):
++    row = tl.program_id(0)
++    offs = tl.arange(0, BLOCK)
++    lane = offs < TOPK
++    idx = tl.load(idx_ptr + row * idx_stride + offs, mask=lane, other=-1).to(tl.int64)
++    length = tl.load(lens_ptr + row).to(tl.int64)
++    valid = lane & (idx >= 0) & (idx < length) & (idx < width)
++    safe = tl.where(valid, idx, 0)
++    score = tl.load(
++        logits_ptr + row * logits_stride + safe, mask=valid, other=float("-inf")
++    ).to(tl.float32)
++    score = tl.where(valid, score, float("-inf"))
++    pos = ((safe // PAGE) * W + R) * PAGE + safe % PAGE
++    pos = tl.where(valid, pos, -1).to(tl.int32)
++    # out is [2, rows, TOPK] int32: fp32 score bits, then the request position.
++    tl.store(out_ptr + row * TOPK + offs, score.to(tl.int32, bitcast=True), mask=lane)
++    tl.store(out_ptr + (rows + row) * TOPK + offs, pos, mask=lane)
++
++
++def pack_candidates_triton(
++    local_logits: torch.Tensor,
++    local_idx: torch.Tensor,
++    local_lens: torch.Tensor,
++    topk: int,
++    page: int,
++    w: int,
++    r: int,
++) -> torch.Tensor:
++    """Same contract as ``dsa_dcp_split_indexer.pack_candidates``."""
++    rows = local_idx.shape[0]
++    out = torch.empty((2, rows, topk), dtype=torch.int32, device=local_idx.device)
++    if rows == 0:
++        return out
++    assert local_logits.stride(1) == 1 and local_idx.stride(1) == 1
++    _pack_candidates_kernel[(rows,)](
++        local_logits,
++        local_logits.stride(0),
++        local_logits.shape[1],
++        local_idx,
++        local_idx.stride(0),
++        local_lens,
++        out,
++        rows,
++        TOPK=topk,
++        BLOCK=triton.next_power_of_2(topk),
++        PAGE=page,
++        W=w,
++        R=r,
++    )
++    return out
++
++
++@triton.jit
++def _merge_candidates_kernel(
++    packs_ptr,
++    rows,
++    page_table_ptr,
++    page_table_stride,
++    out_ptr,
++    TOPK: tl.constexpr,
++    W: tl.constexpr,
++    BLOCK: tl.constexpr,
++    IDX_BITS: tl.constexpr,
++    PAGE: tl.constexpr,
++    HAS_PAGE_TABLE: tl.constexpr,
++):
++    row = tl.program_id(0)
++    cand = tl.arange(0, BLOCK)
++    lane = cand < W * TOPK
++    rank = cand // TOPK
++    j = cand % TOPK
++    # packs is [W, 2, rows, TOPK] int32 (one gathered pack per rank).
++    score_off = ((rank * 2) * rows + row) * TOPK + j
++    bits = tl.load(packs_ptr + score_off, mask=lane, other=-8388608)  # -inf bits
++    # Order-preserving map of the fp32 bits onto [0, 2^32): integer order = float
++    # order (negative floats flip all bits, others set the top bit).
++    ubits = bits.to(tl.int64) & 0xFFFFFFFF
++    ordered = tl.where(bits < 0, 0xFFFFFFFF - ubits, ubits + 0x80000000)
++    # Low bits favour the lower candidate index among equal scores.
++    key = (ordered << IDX_BITS) | (BLOCK - 1 - cand).to(tl.int64)
++    key = tl.sort(key, descending=True)
++    picked = (BLOCK - 1) - (key & (BLOCK - 1)).to(tl.int32)
++    # 0x007FFFFF is the mapped -inf; anything above it is a real score.
++    real = (key >> IDX_BITS) > 0x007FFFFF
++    p_rank = picked // TOPK
++    p_j = picked % TOPK
++    pos_off = ((p_rank * 2 + 1) * rows + row) * TOPK + p_j
++    out_lane = cand < TOPK
++    pos = tl.load(packs_ptr + pos_off, mask=out_lane & real, other=-1).to(tl.int64)
++    valid = out_lane & real & (pos >= 0)
++    if HAS_PAGE_TABLE:
++        safe = tl.where(valid, pos, 0)
++        page_id = tl.load(
++            page_table_ptr + row * page_table_stride + safe // PAGE,
++            mask=valid,
++            other=0,
++        ).to(tl.int64)
++        result = page_id * PAGE + safe % PAGE
++    else:
++        result = pos
++    result = tl.where(valid, result, -1).to(tl.int32)
++    tl.store(out_ptr + row * TOPK + cand, result, mask=out_lane)
++
++
++def merge_candidates_triton(
++    gathered: torch.Tensor,
++    w: int,
++    topk: int,
++    *,
++    page_table: Optional[torch.Tensor] = None,
++    page: int = 1,
++) -> torch.Tensor:
++    """``merge_candidates`` and, given ``page_table``, ``positions_to_slots``.
++
++    Returns [rows, topk] int32 in descending score order, -1 padded.
++    """
++    rows = gathered.shape[1]
++    out = torch.empty((rows, topk), dtype=torch.int32, device=gathered.device)
++    if rows == 0:
++        return out
++    packs = gathered.contiguous()
++    block = triton.next_power_of_2(w * topk)
++    has_page_table = page_table is not None
++    if has_page_table:
++        assert page_table.stride(1) == 1
++    _merge_candidates_kernel[(rows,)](
++        packs,
++        rows,
++        page_table if has_page_table else packs,
++        page_table.stride(0) if has_page_table else 0,
++        out,
++        TOPK=topk,
++        W=w,
++        BLOCK=block,
++        IDX_BITS=block.bit_length() - 1,
++        PAGE=page,
++        HAS_PAGE_TABLE=has_page_table,
++    )
++    return out
+diff --git a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+index f0bbbedbae..21d0989945 100644
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import contextlib
++import functools
+ import logging
+ import os
+ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple, Union
+@@ -1612,6 +1613,23 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+                 kv_block_size=page_size,
+             )
+ 
++        fused = envs.SGLANG_DSA_FUSE_TOPK.get() and not metadata.force_unfused_topk
++        use_triton = envs.SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON.get()
++        kernel_fns = {}
++        if use_triton:
++            from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer_triton import (
++                merge_candidates_triton,
++                pack_candidates_triton,
++            )
++
++            kernel_fns = dict(
++                pack_fn=pack_candidates_triton,
++                merge_fn=functools.partial(
++                    merge_candidates_triton,
++                    page_table=block_tables if fused else None,
++                    page=page_size,
++                ),
++            )
+         pos = split_decode_topk(
+             block_tables=block_tables,
+             lens=lens,
+@@ -1623,9 +1641,9 @@ class Indexer(DSANPUIndexerMixin, BaseFusedOp):
+             local_topk_fn=metadata.topk_backend.topk_func,
+             all_gather_fn=lambda pack: group.all_gather(pack, dim=0),
+             owned=owned,
++            **kernel_fns,
+         )
+-        fused = envs.SGLANG_DSA_FUSE_TOPK.get() and not metadata.force_unfused_topk
+-        if fused:
++        if fused and not use_triton:
+             return positions_to_slots(pos, block_tables, page_size)
+         return pos
+ 
+diff --git a/test/registered/unit/test_dsa_dcp_split_indexer_triton.py b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py
+new file mode 100644
+index 0000000000..241aa90bb5
+--- /dev/null
++++ b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py
+@@ -0,0 +1,171 @@
++"""The Triton pack/merge of the page-split DCP decode indexer must match the
++torch reference (pack_candidates, merge_candidates, positions_to_slots) bit for
++bit, including invalid lanes, partial rows and the -1 padding. Runs the kernels
++in the Triton interpreter on CPU."""
++
++import os
++import subprocess
++import sys
++import unittest
++
++# The interpreter only takes effect for @triton.jit functions created after it is
++# set, including triton.language's own (tl.sort); if triton is already loaded in
++# this process, the kernel cases re-run this file in a fresh one instead.
++_FRESH_TRITON = "triton" not in sys.modules
++os.environ["TRITON_INTERPRET"] = "1"
++
++import torch  # noqa: E402
++
++from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer import (  # noqa: E402
++    merge_candidates,
++    pack_candidates,
++    positions_to_slots,
++    split_decode_topk,
++)
++from sglang.srt.layers.attention.dsa.dsa_dcp_split_indexer_triton import (  # noqa: E402
++    merge_candidates_triton,
++    pack_candidates_triton,
++)
++from sglang.test.ci.ci_register import register_cpu_ci  # noqa: E402
++from sglang.test.test_utils import CustomTestCase  # noqa: E402
++
++register_cpu_ci(est_time=60, suite="base-a-test-cpu")
++
++
++def _distinct_scores(*shape, seed):
++    g = torch.Generator().manual_seed(seed)
++    n = 1
++    for d in shape:
++        n *= d
++    return (torch.randperm(n, generator=g).float() / n - 0.5).view(*shape)
++
++
++def _local_case(rows, width, topk, seed):
++    """Local logits, a local top-k (with -1 and out-of-length lanes), lens."""
++    g = torch.Generator().manual_seed(seed)
++    logits = _distinct_scores(rows, width, seed=seed)
++    lens = torch.randint(0, width + 1, (rows,), generator=g, dtype=torch.int32)
++    lens[0] = width  # a full row
++    lens[1] = 0  # an empty row
++    idx = torch.randint(0, width, (rows, topk), generator=g, dtype=torch.int32)
++    idx[torch.rand(rows, topk, generator=g) < 0.2] = -1
++    return logits, idx, lens
++
++
++_needs_fresh = unittest.skipUnless(
++    _FRESH_TRITON, "triton loaded before the interpreter"
++)
++
++
++@_needs_fresh
++class TestPackTriton(CustomTestCase):
++    def test_matches_reference(self):
++        for page, w, r in ((64, 4, 0), (64, 4, 3), (16, 2, 1)):
++            logits, idx, lens = _local_case(rows=5, width=192, topk=96, seed=r)
++            ref = pack_candidates(logits, idx, lens, 96, page, w, r)
++            out = pack_candidates_triton(logits, idx, lens, 96, page, w, r)
++            self.assertTrue(torch.equal(out, ref), f"{page=} {w=} {r=}")
++
++    def test_padded_logits_view(self):
++        # The aiter logits are a row-padded view; only stride(1) == 1 is assumed.
++        logits, idx, lens = _local_case(rows=3, width=128, topk=64, seed=7)
++        padded = torch.full((3, 160), 9.0)
++        padded[:, :128] = logits
++        view = padded[:, :128]
++        ref = pack_candidates(logits, idx, lens, 64, 64, 4, 1)
++        out = pack_candidates_triton(view, idx, lens, 64, 64, 4, 1)
++        self.assertTrue(torch.equal(out, ref))
++
++
++def _gathered(rows, topk, w, n_pos, seed):
++    """Per-rank packs with distinct scores, some -inf lanes and -1 positions."""
++    g = torch.Generator().manual_seed(seed)
++    scores = _distinct_scores(w, rows, topk, seed=seed)
++    scores[torch.rand(w, rows, topk, generator=g) < 0.3] = -float("inf")
++    pos = torch.randint(0, n_pos, (w, rows, topk), generator=g, dtype=torch.int32)
++    pos[scores == -float("inf")] = -1
++    packs = torch.empty((w, 2, rows, topk), dtype=torch.int32)
++    packs[:, 0] = scores.view(torch.int32)
++    packs[:, 1] = pos
++    return packs.view(w * 2, rows, topk)
++
++
++@_needs_fresh
++class TestMergeTriton(CustomTestCase):
++    def test_positions_match_reference(self):
++        for w, topk in ((4, 64), (2, 32), (3, 16)):  # w * topk not a power of 2 too
++            gathered = _gathered(rows=4, topk=topk, w=w, n_pos=1000, seed=w)
++            ref = merge_candidates(gathered, w, topk)
++            out = merge_candidates_triton(gathered, w, topk)
++            self.assertTrue(torch.equal(out, ref.to(torch.int32)), f"{w=} {topk=}")
++
++    def test_production_shape(self):
++        # GLM-5.2: index_topk 2048 over DCP4, an 8192-wide sort per row.
++        gathered = _gathered(rows=2, topk=2048, w=4, n_pos=200_000, seed=13)
++        ref = merge_candidates(gathered, 4, 2048)
++        out = merge_candidates_triton(gathered, 4, 2048)
++        self.assertTrue(torch.equal(out, ref.to(torch.int32)))
++
++    def test_slots_match_reference(self):
++        page, n_pos = 16, 1000
++        gathered = _gathered(rows=3, topk=64, w=4, n_pos=n_pos, seed=11)
++        n_pages = -(-n_pos // page)
++        g = torch.Generator().manual_seed(3)
++        table = torch.stack(
++            [torch.randperm(8 * n_pages, generator=g)[:n_pages] for _ in range(3)]
++        ).to(torch.int32)
++        ref = positions_to_slots(merge_candidates(gathered, 4, 64), table, page)
++        out = merge_candidates_triton(gathered, 4, 64, page_table=table, page=page)
++        self.assertTrue(torch.equal(out, ref))
++
++    def test_all_invalid_row_is_all_minus_one(self):
++        gathered = _gathered(rows=2, topk=32, w=4, n_pos=100, seed=5)
++        packs = gathered.view(4, 2, 2, 32)
++        packs[:, 0, 1] = torch.tensor(-float("inf")).view(torch.int32)
++        packs[:, 1, 1] = -1
++        out = merge_candidates_triton(gathered, 4, 32)
++        self.assertTrue(torch.equal(out[1], torch.full((32,), -1, dtype=torch.int32)))
++
++
++@_needs_fresh
++class TestSplitTopkPlumbing(CustomTestCase):
++    def test_triton_fns_slot_into_split_decode_topk(self):
++        rows, page, w, r, topk = 3, 16, 4, 2, 32
++        g = torch.Generator().manual_seed(1)
++        table = torch.randperm(64, generator=g)[:40].to(torch.int32).repeat(rows, 1)
++        lens = torch.tensor([640, 300, 17], dtype=torch.int32)
++
++        def run(**fns):
++            return split_decode_topk(
++                block_tables=table,
++                lens=lens,
++                page=page,
++                topk=topk,
++                w=w,
++                r=r,
++                logits_fn=lambda t, ln, n: _distinct_scores(rows, n, seed=2),
++                local_topk_fn=lambda lg, ln, k: torch.topk(lg, k, dim=1)[1].int(),
++                # Stand-in for the W-rank gather: rank r's pack in every slot.
++                all_gather_fn=lambda pack: torch.cat([pack] * w),
++                **fns,
++            )
++
++        ref = run()
++        out = run(pack_fn=pack_candidates_triton, merge_fn=merge_candidates_triton)
++        self.assertTrue(torch.equal(out, ref.to(torch.int32)))
++
++
++@unittest.skipIf(_FRESH_TRITON, "kernel cases run in this process")
++class TestKernelsInFreshProcess(CustomTestCase):
++    def test_kernel_cases_pass(self):
++        proc = subprocess.run(
++            [sys.executable, os.path.abspath(__file__)],
++            capture_output=True,
++            text=True,
++            timeout=600,
++        )
++        self.assertEqual(proc.returncode, 0, proc.stderr[-4000:])
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.34.1
+

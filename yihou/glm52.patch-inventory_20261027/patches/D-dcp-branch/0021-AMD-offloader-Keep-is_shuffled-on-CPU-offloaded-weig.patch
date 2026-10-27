@@ -1,0 +1,91 @@
+From c9394c114f1681feb28eeec069a80f512c744b16 Mon Sep 17 00:00:00 2001
+From: yihou <yihou@amd.com>
+Date: Wed, 21 Oct 2026 19:50:43 +0000
+Subject: [PATCH 21/31] [AMD] offloader: Keep is_shuffled on CPU-offloaded
+ weights streamed to the device
+
+aiter fused_moe picks its preshuffled MXFP4 kernels by the weight's
+is_shuffled attribute, which the plain .to() copy dropped (infera
+OffloaderV2 prefill overlay).
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+Signed-off-by: yihou <yihou@amd.com>
+---
+ python/sglang/srt/utils/offloader.py          |  7 ++-
+ .../utils/test_offloader_cpu_param_attrs.py   | 46 +++++++++++++++++++
+ 2 files changed, 52 insertions(+), 1 deletion(-)
+ create mode 100644 test/registered/unit/utils/test_offloader_cpu_param_attrs.py
+
+diff --git a/python/sglang/srt/utils/offloader.py b/python/sglang/srt/utils/offloader.py
+index 17bf994d92..cd7db016df 100644
+--- a/python/sglang/srt/utils/offloader.py
++++ b/python/sglang/srt/utils/offloader.py
+@@ -427,7 +427,12 @@ class _CpuParamOffloader(_BaseParamOffloader):
+         _move_param_to_cpu(self._param, pin_memory=True)
+ 
+     def create_device_tensor(self):
+-        return self._param.to("cuda", non_blocking=True)
++        # .to() returns a plain tensor; aiter fused_moe picks its preshuffled
++        # MXFP4 kernels by the weight's is_shuffled attribute, so carry it over.
++        device_tensor = self._param.to("cuda", non_blocking=True)
++        if getattr(self._param, "is_shuffled", False):
++            device_tensor.is_shuffled = True
++        return device_tensor
+ 
+ 
+ class _ShmCpuParamOffloader(_BaseParamOffloader):
+diff --git a/test/registered/unit/utils/test_offloader_cpu_param_attrs.py b/test/registered/unit/utils/test_offloader_cpu_param_attrs.py
+new file mode 100644
+index 0000000000..9d612f6ef2
+--- /dev/null
++++ b/test/registered/unit/utils/test_offloader_cpu_param_attrs.py
+@@ -0,0 +1,46 @@
++"""A CPU-offloaded weight streamed back to the device must keep is_shuffled:
++aiter fused_moe selects its preshuffled MXFP4 kernels by that attribute."""
++
++import unittest
++from types import SimpleNamespace
++
++import torch
++
++from sglang.srt.utils.offloader import _CpuParamOffloader
++from sglang.test.ci.ci_register import register_cpu_ci
++from sglang.test.test_utils import CustomTestCase
++
++register_cpu_ci(est_time=5, suite="base-a-test-cpu")
++
++
++class _HostParam:
++    """Stands in for the pinned host param; .to() yields a plain tensor."""
++
++    def __init__(self, is_shuffled=None):
++        if is_shuffled is not None:
++            self.is_shuffled = is_shuffled
++
++    def to(self, device, non_blocking=False):
++        return torch.zeros(2, 2)
++
++
++def _offloader(host_param):
++    offloader = _CpuParamOffloader.__new__(_CpuParamOffloader)
++    offloader._module = SimpleNamespace(w13_weight=host_param)
++    offloader._param_name = "w13_weight"
++    return offloader
++
++
++class TestCpuParamOffloaderAttrs(CustomTestCase):
++    def test_shuffled_flag_is_carried_to_device_tensor(self):
++        device_tensor = _offloader(_HostParam(is_shuffled=True)).create_device_tensor()
++        self.assertTrue(device_tensor.is_shuffled)
++
++    def test_unshuffled_weight_gets_no_flag(self):
++        for host_param in (_HostParam(), _HostParam(is_shuffled=False)):
++            device_tensor = _offloader(host_param).create_device_tensor()
++            self.assertFalse(hasattr(device_tensor, "is_shuffled"))
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.34.1
+

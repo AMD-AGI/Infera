@@ -1,0 +1,144 @@
+--- a/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
++++ b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py
+@@ -88,6 +88,97 @@
+ # Set SGLANG_DEBUG_DSA_ROWS=1 to log the indexer row bookkeeping (padded vs real).
+ _DSA_DEBUG_ROWS = os.environ.get("SGLANG_DEBUG_DSA_ROWS", "0") == "1"
+ 
++# YIHOU-TOPKGUARD (idxshare debug 2026-10-20): the decode MAF is a logits read past the
++# end of the score buffer inside sgl::dsa_topk::coop_topk_kernel, which scans
++# lengths[row] elements of a row that is logits.shape[1] wide. Count, per forward mode
++# and eager/graph, the rows whose length is < 0 or > the logits width (no host sync on
++# the hot path; counters are read every 60 s from an eager call). "mask" additionally
++# clamps those lengths into [0, width].  YIHOU_TOPK_GUARD = off | count | mask.
++_YIHOU_TOPK_GUARD = os.environ.get("YIHOU_TOPK_GUARD", "off")
++_YG_MODES = ("decode", "target_verify", "draft_extend_v2", "other", "konly_decode", "konly_idle", "konly_extend", "konly_other")
++_YG_STATE = {"ctr": None, "last_log": 0.0}
++
++
++def _yg_log(ctr_cpu):
++    parts = []
++    for i, v in enumerate(ctr_cpu.tolist()):
++        if v[0]:
++            parts.append(
++                f"{_YG_MODES[i // 2]}/{'graph' if i % 2 else 'eager'}:calls={v[0]} rows={v[1]} "
++                f"bad_rows={v[2]} bad_calls={v[3]} max_over={v[4]} last_width={v[5]} max_len={v[6]}"
++            )
++    logger.info("YIHOU-TOPKGUARD mode=%s %s", _YIHOU_TOPK_GUARD, " | ".join(parts))
++
++
++def _yg_ensure():
++    """v3: allocate the counters (and start the logger thread) at model construction,
++    before any CUDA graph is captured, so every captured graph carries the guard.
++    v1/v2 allocated lazily on the first eager call and skipped capture-time calls."""
++    if _YIHOU_TOPK_GUARD == "off" or _YG_STATE["ctr"] is not None:
++        return
++    if not torch.cuda.is_available():
++        return
++    import threading as _th
++    import time as _t
++
++    dev = torch.device("cuda", torch.cuda.current_device())
++    try:  # also arm the sgl_kernel/top_k.py call-site guard (YIHOU-SKGUARD) before any capture
++        import sgl_kernel.top_k as _yg_tk
++
++        if hasattr(_yg_tk, "_yg_ensure"):
++            _yg_tk._yg_ensure(dev)
++    except Exception as _e:  # noqa: BLE001
++        logger.warning("YIHOU-TOPKGUARD: could not arm SKGUARD: %r", _e)
++    # rows: mode x {eager, graph}; cols: calls, rows, bad_rows, calls_with_bad,
++    # max(len - width), width at the last call, max(len)
++    ctr = torch.zeros((len(_YG_MODES) * 2, 7), dtype=torch.int64, device=dev)
++    _YG_STATE["ctr"] = ctr
++
++    # Graph replays never re-enter Python, so log from a daemon thread on its own stream.
++    def _yg_logger():
++        torch.cuda.set_device(dev)
++        st = torch.cuda.Stream(device=dev)
++        while True:
++            _t.sleep(60)
++            with torch.cuda.stream(st):
++                _yg_log(ctr.to("cpu"))
++
++    _th.Thread(target=_yg_logger, daemon=True, name="yihou-topkguard").start()
++
++
++def _yihou_topk_guard(forward_batch, logits, lengths, konly=False):
++    if _YIHOU_TOPK_GUARD == "off" or lengths is None:
++        return lengths
++    import time as _t
++
++    capturing = torch.cuda.is_current_stream_capturing()
++    ctr = _YG_STATE["ctr"]
++    if ctr is None:
++        return lengths
++    fm = forward_batch.forward_mode
++    if konly:
++        # v4: the k-only (dense-skip) path ranks DUMMY logits that are index_topk wide.
++        m = 4 if fm.is_decode() else 5 if fm.is_idle() else 6 if fm.is_extend() else 7
++    else:
++        m = 0 if fm.is_decode() else 1 if fm.is_target_verify() else 2 if fm.is_draft_extend_v2() else 3
++    r = m * 2 + (1 if capturing else 0)
++    width = logits.shape[1]
++    ln = lengths.to(torch.int64)
++    bad = (ln > width) | (ln < 0)
++    nbad = bad.sum()
++    row = ctr[r]
++    row[0].add_(1)
++    row[1].add_(lengths.shape[0])
++    row[2].add_(nbad)
++    row[3].add_((nbad > 0).to(torch.int64))
++    if ln.numel() > 0:
++        row[4].copy_(torch.maximum(row[4], (ln - width).max()))
++        row[6].copy_(torch.maximum(row[6], ln.max()))
++    row[5].fill_(width)
++    if _YIHOU_TOPK_GUARD == "mask":
++        return lengths.clamp(0, width)
++    return lengths
++
+ 
+ # Every per-call decline in _gfx950_fused_decode falls through to the standard
+ # path, which is silent by construction. Without a trace, a config that turns
+@@ -286,6 +377,7 @@
+         config=None,
+     ):
+         super().__init__()
++        _yg_ensure()
+         self.hidden_size = hidden_size
+         self.n_heads = index_n_heads
+         self.head_dim = index_head_dim
+@@ -1464,7 +1556,17 @@
+         # indexes must be clipped to match. Via topk_transform's existing
+         # `ke_offset` -- an extension point that only overrides seq_lens_topk --
+         # NOT by mutating shared, possibly graph-captured metadata.
+-        if _p1v2_clip:
++        _yg_len = (
++            metadata.get_seqlens_expanded()[:_p1v2_rows]
++            if _p1v2_clip
++            else metadata.get_seqlens_expanded()
++        )
++        _yg_out = _yihou_topk_guard(forward_batch, logits, _yg_len)
++        if _YIHOU_TOPK_GUARD == "mask":
++            topk_result = metadata.topk_transform(
++                logits, self.index_topk, ke_offset=_yg_out
++            )
++        elif _p1v2_clip:
+             topk_result = metadata.topk_transform(
+                 logits,
+                 self.index_topk,
+@@ -1829,7 +1931,15 @@
+             dtype=torch.float32,
+             device=x_meta.device,
+         )
+-        raw_topk_result = metadata.topk_transform(dummy_logits, self.index_topk)
++        _yg_out = _yihou_topk_guard(
++            forward_batch, dummy_logits, seq_lens_expanded, konly=True
++        )
++        if _YIHOU_TOPK_GUARD == "mask":
++            raw_topk_result = metadata.topk_transform(
++                dummy_logits, self.index_topk, ke_offset=_yg_out
++            )
++        else:
++            raw_topk_result = metadata.topk_transform(dummy_logits, self.index_topk)
+         if topk_result is not None:
+             # PCG/BCG: fill the valid prefix of the padded static buffer and
+             # leave padded rows at the -1 sentinel.

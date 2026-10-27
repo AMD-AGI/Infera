@@ -1,0 +1,76 @@
+--- a/python/sglang/srt/disaggregation/mooncake/conn.py
++++ b/python/sglang/srt/disaggregation/mooncake/conn.py
+@@ -80,6 +80,57 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++
++# [yihou] YIHOU-REGBASE diagnostic (mount patch, not upstream). Mooncake's HIP IPC
++# path registers desc.addr = ptr and relocates writes as dst - ptr + opened_base,
++# but hipIpcOpenMemHandle maps the ALLOCATION BASE. So any registered ptr that is
++# not its allocation's base would get every write shifted by (ptr - base). Log, per
++# registered region, hipMemGetAddressRange(ptr) and whether base == ptr.
++def _yihou_log_regbase(ptrs, lens, what):
++    try:
++        import ctypes
++
++        import torch
++
++        if not torch.version.hip:
++            return
++        from sglang.srt.distributed.device_communicators.cuda_wrapper import (
++            find_loaded_library,
++        )
++
++        lib = ctypes.CDLL(find_loaded_library("libamdhip64") or "libamdhip64.so")
++        lib.hipMemGetAddressRange.restype = ctypes.c_int
++        lib.hipMemGetAddressRange.argtypes = [
++            ctypes.POINTER(ctypes.c_void_p),
++            ctypes.POINTER(ctypes.c_size_t),
++            ctypes.c_void_p,
++        ]
++        n_interior = 0
++        for i, (ptr, length) in enumerate(zip(ptrs, lens)):
++            base, size = ctypes.c_void_p(), ctypes.c_size_t()
++            rc = (
++                lib.hipMemGetAddressRange(ctypes.byref(base), ctypes.byref(size), ptr)
++                if ptr
++                else -1
++            )
++            b = base.value or 0
++            is_base = rc == 0 and b == ptr
++            if rc == 0 and not is_base:
++                n_interior += 1
++            logger.info(
++                "YIHOU-REGBASE %s i=%d ptr=%#x len=%d rc=%d base=%#x size=%d "
++                "off=%d is_base=%s",
++                what, i, ptr, length, rc, b, size.value, (ptr - b) if rc == 0 else -1,
++                is_base,
++            )
++            if rc != 0:
++                lib.hipGetLastError()  # clear sticky error from host/null ptrs
++        logger.info(
++            "YIHOU-REGBASE %s summary n=%d interior=%d", what, len(ptrs), n_interior
++        )
++    except Exception as e:  # diagnostics must never break registration
++        logger.warning("YIHOU-REGBASE failed: %r", e)
++
+ FAILED_SESSION_RECOVERIES = Counter(
+     "sglang:failed_session_recoveries_total",
+     "Number of mooncake_session_ids un-blacklisted via probe.",
+@@ -380,6 +431,7 @@
+         regions = self._registerable_regions()
+         if regions:
+             ptrs, lens = zip(*regions)
++            _yihou_log_regbase(list(ptrs), list(lens), "kv/aux/state")
+             self.engine.batch_register(list(ptrs), list(lens))
+ 
+     def deregister_buffer_to_engine(self):
+@@ -505,6 +557,7 @@
+         }
+ 
+     def _register_staging_memory(self, ptr: int, size: int) -> None:
++        _yihou_log_regbase([ptr], [size], "staging")
+         self.engine.batch_register([ptr], [size])
+ 
+     def _init_staging_buffers(self, count: int):

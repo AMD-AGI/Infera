@@ -1,0 +1,286 @@
+diff --git a/rust/router/src/config.rs b/rust/router/src/config.rs
+index c6a1f01a..c4cf0193 100644
+--- a/rust/router/src/config.rs
++++ b/rust/router/src/config.rs
+@@ -44,6 +44,17 @@ pub struct Config {
+     #[arg(long, default_value = "round-robin")]
+     pub router_policy: String,
+ 
++    /// PD only: constrain Decode to the same effective DP rank selected for
++    /// Prefill. This preserves Prefill cache-aware selection while keeping
++    /// multi-rail Mooncake transfers on the target GPU's local rail.
++    #[arg(
++        long,
++        env = "INFERA_PD_DP_RANK_AFFINITY",
++        default_value_t = false,
++        action = clap::ArgAction::Set
++    )]
++    pub pd_dp_rank_affinity: bool,
++
+     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
+     /// annotation and the API server is watched).
+     #[arg(long, default_value = "etcd")]
+diff --git a/rust/router/src/disagg.rs b/rust/router/src/disagg.rs
+index 71ae6a0b..6e4bceac 100644
+--- a/rust/router/src/disagg.rs
++++ b/rust/router/src/disagg.rs
+@@ -58,7 +58,27 @@ pub async fn dispatch(
+             w.worker_id.as_str()
+         });
+     let p_pick = state.policy.pick(&p_avail, request, Role::Prefill);
+-    let d_pick = state.policy.pick(&d_avail, request, Role::Decode);
++    let d_pick = if state.pd_dp_rank_affinity {
++        let Some(rank) = p_pick.target.effective_dp_rank() else {
++            return json_error(
++                StatusCode::SERVICE_UNAVAILABLE,
++                "PD DP-rank affinity requires a ranked Prefill target",
++            );
++        };
++        let Some(pick) =
++            state
++                .policy
++                .pick_at_rank(&d_avail, request, Role::Decode, Some(rank))
++        else {
++            return json_error(
++                StatusCode::SERVICE_UNAVAILABLE,
++                &format!("PD DP-rank affinity found no Decode target for rank {rank}"),
++            );
++        };
++        pick
++    } else {
++        state.policy.pick(&d_avail, request, Role::Decode)
++    };
+     let p = p_pick.target;
+     let d = d_pick.target;
+     // One guard for both legs; dropped when the decode body finishes streaming
+diff --git a/rust/router/src/handlers.rs b/rust/router/src/handlers.rs
+index ab0cbde4..a31f6802 100644
+--- a/rust/router/src/handlers.rs
++++ b/rust/router/src/handlers.rs
+@@ -34,6 +34,9 @@ pub struct AppState {
+     pub http: reqwest::Client,
+     pub started: Instant,
+     pub retries: usize,
++    /// When set, PD dispatch preserves the Prefill policy choice and restricts
++    /// Decode to the same effective DP rank.
++    pub pd_dp_rank_affinity: bool,
+     /// Per-worker failure memory. Shared across threads and across requests —
+     /// that persistence across requests is the whole point (see breaker.rs).
+     pub breaker: Arc<CircuitBreaker>,
+diff --git a/rust/router/src/main.rs b/rust/router/src/main.rs
+index 235de5cc..cda498dc 100644
+--- a/rust/router/src/main.rs
++++ b/rust/router/src/main.rs
+@@ -155,6 +155,7 @@ async fn main() -> anyhow::Result<()> {
+         http: upstream,
+         started: Instant::now(),
+         retries: cfg.request_max_retries,
++        pd_dp_rank_affinity: cfg.pd_dp_rank_affinity,
+         breaker,
+         nats,
+     };
+diff --git a/rust/router/src/policy.rs b/rust/router/src/policy.rs
+index c998e417..2ba26afb 100644
+--- a/rust/router/src/policy.rs
++++ b/rust/router/src/policy.rs
+@@ -42,7 +42,24 @@ pub struct Pick {
+ 
+ pub trait Policy: Send + Sync {
+     /// Pick one target. Callers guarantee `candidates` is non-empty.
+-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick;
++    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
++        self.pick_at_rank(candidates, request, role, None)
++            .expect("non-empty candidates must expand to at least one target")
++    }
++
++    /// Pick one target, optionally constrained to an effective DP rank.
++    ///
++    /// `None` is the normal unconstrained policy path. `Some(rank)` is used by
++    /// PD rank affinity after Prefill has been selected. It returns `None`
++    /// rather than silently crossing ranks when the Decode pool cannot serve
++    /// that rank.
++    fn pick_at_rank(
++        &self,
++        candidates: &[Arc<Worker>],
++        request: &Value,
++        role: Role,
++        required_dp_rank: Option<i64>,
++    ) -> Option<Pick>;
+ 
+     /// Mark a request in-flight on `route_key` (increments the load term).
+     fn on_request_started(&self, _route_key: &str, _blocks: &[u64]) {}
+@@ -133,8 +150,20 @@ impl Default for RoundRobin {
+ }
+ 
+ impl Policy for RoundRobin {
+-    fn pick(&self, candidates: &[Arc<Worker>], _request: &Value, role: Role) -> Pick {
+-        let targets = expand_targets(candidates);
++    fn pick_at_rank(
++        &self,
++        candidates: &[Arc<Worker>],
++        _request: &Value,
++        role: Role,
++        required_dp_rank: Option<i64>,
++    ) -> Option<Pick> {
++        let mut targets = expand_targets(candidates);
++        if let Some(rank) = required_dp_rank {
++            targets.retain(|target| target.effective_dp_rank() == Some(rank));
++        }
++        if targets.is_empty() {
++            return None;
++        }
+         let key: Vec<String> = targets.iter().map(|t| t.route_key()).collect();
+         let mut counters = self.counters.lock().expect("policy counter mutex poisoned");
+         let idx = counters.entry(key).or_insert(0);
+@@ -142,10 +171,10 @@ impl Policy for RoundRobin {
+         *idx = idx.wrapping_add(1);
+         let target = targets[i].clone();
+         tracing::info!(policy = "round-robin", role = ?role, picked = %target.route_key(), "pick");
+-        Pick {
++        Some(Pick {
+             target,
+             blocks: Vec::new(),
+-        }
++        })
+     }
+ }
+ 
+@@ -486,9 +515,21 @@ impl KvEventAwarePolicy {
+ }
+ 
+ impl Policy for KvEventAwarePolicy {
+-    fn pick(&self, candidates: &[Arc<Worker>], request: &Value, role: Role) -> Pick {
++    fn pick_at_rank(
++        &self,
++        candidates: &[Arc<Worker>],
++        request: &Value,
++        role: Role,
++        required_dp_rank: Option<i64>,
++    ) -> Option<Pick> {
+         // Fan out rank-multiplexed workers so each DP rank is scored separately.
+-        let targets = expand_targets(candidates);
++        let mut targets = expand_targets(candidates);
++        if let Some(rank) = required_dp_rank {
++            targets.retain(|target| target.effective_dp_rank() == Some(rank));
++        }
++        if targets.is_empty() {
++            return None;
++        }
+ 
+         // Hash the request once per distinct (block_size, render variant).
+         //
+@@ -625,10 +666,10 @@ impl Policy for KvEventAwarePolicy {
+             "pick"
+         );
+         self.note_hit_outcome(&picked, blocks.len(), hits, w_overlap > 0.0);
+-        Pick {
++        Some(Pick {
+             target: picked,
+             blocks,
+-        }
++        })
+     }
+ 
+     fn on_request_started(&self, route_key: &str, blocks: &[u64]) {
+diff --git a/rust/router/src/pool.rs b/rust/router/src/pool.rs
+index 5c9ea9ad..0412df38 100644
+--- a/rust/router/src/pool.rs
++++ b/rust/router/src/pool.rs
+@@ -132,6 +132,15 @@ impl RouteTarget {
+             Some(r) => format!("{}#dp{r}", self.worker.worker_id),
+         }
+     }
++
++    /// Rank used for affinity decisions. A rank-multiplexed worker stores it
++    /// on the target, a dedicated DP worker stores it on the worker, and a
++    /// single-rank worker is effectively rank zero.
++    pub fn effective_dp_rank(&self) -> Option<i64> {
++        self.dp_rank.or(self.worker.dp_rank).or_else(|| {
++            (self.worker.dp_size.unwrap_or(1) == 1).then_some(0)
++        })
++    }
+ }
+ 
+ fn is_rank_multiplexed(w: &Worker) -> bool {
+diff --git a/rust/router/tests/functional.rs b/rust/router/tests/functional.rs
+index c5f1287b..105e1995 100644
+--- a/rust/router/tests/functional.rs
++++ b/rust/router/tests/functional.rs
+@@ -24,7 +24,7 @@ use infera_router::block_hasher::BlockHasher;
+ use infera_router::breaker::CircuitBreaker;
+ use infera_router::handlers::{app, AppState};
+ use infera_router::kv_event::KvEventClient;
+-use infera_router::policy::{KvEventAwarePolicy, RoundRobin};
++use infera_router::policy::{KvEventAwarePolicy, Role, RoundRobin};
+ use infera_router::pool::{Snapshot, Worker};
+ use infera_router::proxy;
+ 
+@@ -122,6 +122,7 @@ fn make_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
+         http: proxy::build_upstream_client().unwrap(),
+         started: Instant::now(),
+         retries,
++        pd_dp_rank_affinity: false,
+         breaker: Arc::new(CircuitBreaker::default()),
+         nats: None,
+     }
+@@ -276,6 +277,7 @@ fn make_kv_state(workers: Vec<Arc<Worker>>, retries: usize) -> AppState {
+         http: proxy::build_upstream_client().unwrap(),
+         started: Instant::now(),
+         retries,
++        pd_dp_rank_affinity: false,
+         breaker: Arc::new(CircuitBreaker::default()),
+         nats: None,
+     }
+@@ -582,6 +584,14 @@ fn decode(url: &str) -> Arc<Worker> {
+     }))
+ }
+ 
++fn decode_dp(url: &str, dp_size: i64) -> Arc<Worker> {
++    worker(json!({
++        "worker_id": "d", "url": url, "model_name": "m", "disagg_mode": "decode",
++        "dp_size": dp_size,
++        "disagg_meta": {"protocol": "sglang-bootstrap"}
++    }))
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn pd_unary_injects_matching_bootstrap_room() {
+     let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
+@@ -670,6 +680,37 @@ async fn pd_dp_multiplexed_prefill_pins_rank() {
+     assert_eq!(d_hits[0].body["disagg_prefill_dp_rank"], 0);
+ }
+ 
++#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
++async fn pd_dp_rank_affinity_constrains_decode_to_prefill_rank() {
++    let (p_url, p) = spawn_mock(200, false, json!({"who": "prefill"})).await;
++    let (d_url, d) = spawn_mock(200, false, json!({"who": "decode"})).await;
++    let p_worker = prefill(&p_url, Some(2));
++    let d_worker = decode_dp(&d_url, 2);
++    let mut state = make_state(vec![p_worker.clone(), d_worker], 0);
++
++    // Advance only Prefill's independent RR counter. Without the rank
++    // constraint, the routed request would therefore pick P1 and D0.
++    let _ = state
++        .policy
++        .pick(&[p_worker], &json!({}), Role::Prefill);
++    state.pd_dp_rank_affinity = true;
++    let router = spawn_router(state).await;
++
++    let resp = client()
++        .post(format!("{router}/v1/chat/completions"))
++        .json(&json!({"model": "m", "stream": false}))
++        .send()
++        .await
++        .unwrap();
++    assert_eq!(resp.status(), 200);
++
++    let p_hits = p.hits.lock().unwrap();
++    let d_hits = d.hits.lock().unwrap();
++    assert_eq!(p_hits[0].dp_rank.as_deref(), Some("1"));
++    assert_eq!(d_hits[0].dp_rank.as_deref(), Some("1"));
++    assert_eq!(d_hits[0].body["disagg_prefill_dp_rank"], 1);
++}
++
+ #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+ async fn pd_streaming_relays_decode_and_fires_prefill() {
+     let (p_url, p) = spawn_mock(200, false, json!(null)).await;
