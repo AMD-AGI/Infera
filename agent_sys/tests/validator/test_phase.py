@@ -679,3 +679,53 @@ def test_the_registry_records_that_the_validator_ran(
     runner(zone_root, package_root).run_phase(PhaseKind.OUTPUT, dispatched, registry)
     assert registry.get("validator_specs").never_run() == []
     assert registry.get("validator_specs").has_ever_run("shape").runs == 1
+
+
+_WRITE_VERDICT = (
+    "python3 -c \"import json; ids=json.load(open('inputs.json')); "
+    "json.dump({i: %s for i in ids}, open('verdict.json', 'w'))\"\n"
+)
+
+
+def test_what_script_bodies_print_is_kept_in_their_zone(
+    registry, dispatched, zone_root, tmp_path
+) -> None:
+    """A body's reasons are often only printed; they stay beside its verdict
+    (`BODY_OUTPUT`), outside every handoff. A composite's members share one
+    zone and the member that failed is often not the last to run, so each
+    appends its own section — stdout and stderr — rather than replacing it."""
+    from validator.phase import BODY_OUTPUT
+
+    package_root = tmp_path / "pair"
+    for name, line, value in (("m1", "m1 REASON: placeholder", "False"), ("m2", "m2 fine", "True")):
+        (package_root / name).mkdir(parents=True)
+        (package_root / name / "readme.md").write_text("# x")
+        (package_root / name / "entry.sh").write_text(
+            f"#!/bin/sh\necho '{line}'\necho '{name} warn' >&2\n" + _WRITE_VERDICT % value
+        )
+        register(
+            registry, name, inputs=["trace"], readme=f"{name}/readme.md", entry=f"{name}/entry.sh"
+        )
+    register(registry, "pair", inputs=["trace"], members=["m1", "m2"], reduce="all")
+    bind_kind(registry, "trace", ["pair"])
+
+    runner(zone_root, package_root).run_phase(PhaseKind.OUTPUT, dispatched, registry)
+
+    (kept,) = list(zone_root.rglob(BODY_OUTPUT))
+    text = kept.read_text()
+    assert "== m1 ==\nm1 REASON: placeholder\nm1 warn\n" in text
+    assert "== m2 ==\nm2 fine\nm2 warn\n" in text
+    assert text.index("== m1 ==") < text.index("== m2 ==")
+
+
+def test_body_output_is_capped_in_bytes_not_characters() -> None:
+    """`BODY_OUTPUT_BYTES` is a byte budget: multibyte output must not exceed
+    it, and a character split by the cut is dropped rather than mangled."""
+    from validator.phase import BODY_OUTPUT_BYTES, _tail_bytes
+
+    kept = _tail_bytes("é" * BODY_OUTPUT_BYTES, BODY_OUTPUT_BYTES)  # two bytes each
+    assert kept.startswith("…") and set(kept[1:]) == {"é"}
+    assert len(kept[1:].encode("utf-8")) <= BODY_OUTPUT_BYTES
+    assert _tail_bytes("short", BODY_OUTPUT_BYTES) == "short"
+    assert _tail_bytes(None, BODY_OUTPUT_BYTES) == ""
+    assert _tail_bytes("aé", 1) == "…"  # a cut landing mid-character drops the partial byte

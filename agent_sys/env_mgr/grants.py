@@ -31,6 +31,7 @@ from env_mgr.protocols import Granted, Mode, UnresolvedGrant
 __all__ = [
     "INPUT_ENV_PREFIX",
     "OUTPUT_ENV_PREFIX",
+    "env_name",
     "input_env",
     "mode_for",
     "output_env",
@@ -431,7 +432,7 @@ def input_env(task: Any, staged: Mapping[Any, str]) -> dict[str, str]:
 def _by_unique_kind(prefix: str, rows: Any) -> dict[str, str]:
     """kind → path, dropping any name two rows would claim.
 
-    **Counted rather than trusted.** `_env_name` is lossy on purpose and its
+    **Counted rather than trusted.** `env_name` is lossy on purpose and its
     inverse is never taken, so injectivity is checked by collecting and
     measuring instead of assumed from the mapping.
     """
@@ -439,11 +440,11 @@ def _by_unique_kind(prefix: str, rows: Any) -> dict[str, str]:
     for _hid, kind, path in rows:
         if not kind or not path:
             continue
-        by_name.setdefault(prefix + _env_name(kind), []).append(path)
+        by_name.setdefault(prefix + env_name(kind), []).append(path)
     return {name: paths[0] for name, paths in by_name.items() if len(paths) == 1}
 
 
-def _env_name(kind: str) -> str:
+def env_name(kind: str) -> str:
     """A kind name as an environment variable suffix. Uppercased, non-alphanumerics to ``_``.
 
     Lossy on purpose — the inverse is never taken. What matters is that two

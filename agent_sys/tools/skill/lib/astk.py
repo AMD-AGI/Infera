@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""astk — the agent_sys task kit behind the skills in `agent_sys/tools/skill/`.
+
+    python3 <agent_sys>/tools/skill/lib/astk.py <command> --help
+
+Launched by path from a SKILL.md. The path is resolved first, so a skill
+installed by symlink (``~/.claude/skills/<name> -> <repo>/agent_sys/tools/skill/<name>``)
+still imports this checkout's `agent_sys` and not whatever an editable install
+points at.
+
+Exit codes are in `skillkit/cli.py`; 4 means astk itself failed, so a broken
+install never reads as an answer (`mode` answers with 0 or 1).
+"""
+
+import sys
+import traceback
+from pathlib import Path
+
+_LIB = Path(__file__).resolve().parent
+_AGENT_SYS = _LIB.parents[2]
+for p in (str(_AGENT_SYS), str(_LIB)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+if __name__ == "__main__":
+    try:
+        from skillkit.cli import main
+    except Exception:  # noqa: BLE001 — 4, not the 1 that `mode` uses for "step aside"
+        traceback.print_exc()
+        sys.exit(4)
+    sys.exit(main())
