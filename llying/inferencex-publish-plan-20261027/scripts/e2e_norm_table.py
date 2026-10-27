@@ -4,7 +4,9 @@
 InferenceX's AgentX dashboard draws its canonical frontier against
 E2E normalized interactivity P90 (1 / p90 of per-request E2EL / OSL), which
 includes TTFT. The PR plotted decode interactivity P90. This prints both for
-every point and marks the points that stay non-dominated under each.
+every point and marks the points that stay non-dominated under each, then
+prints ATOM PD (InferenceX #4045, sweep 39028510364 on mi355x-amds) under the
+same two definitions for comparison.
 
 Usage (from llying/): python3 inferencex-publish-plan-20261027/scripts/e2e_norm_table.py
 """
@@ -25,6 +27,11 @@ POINTS = [
     ("1P1D balanced C48", "ex-rb-c48", 12),
     ("1P1D balanced C32", "ex-rb-c32", 12),
 ]
+ATOM = os.path.join(
+    os.path.dirname(__file__),
+    "../../gb300-atom-pd-analysis-20261021/evidence/atom-pd-pr4045/run39028510364",
+)
+ATOM_POINTS = ["1p1d-c128", "1p1d-c112", "1p1d-c96", "1p1d-c72", "1p1d-c56", "1p2d-c56", "1p3d-c24", "1p3d-c16", "1p3d-c12"]
 
 
 def frontier(rows: list[dict], x: str) -> set[str]:
@@ -60,6 +67,16 @@ def main() -> None:
         print(
             f"{r['name']:24s} {r['gpus']:4d} {r['tput']:10,.0f} {r['intvty']:10.1f} {r['e2e']:12.1f} "
             f"{r['ttft90']:8.1f}  {'Y' if r['name'] in on_old else '-'}/{'Y' if r['name'] in on_new else '-'}"
+        )
+
+    print("\nATOM PD, InferenceX #4045 sweep 39028510364 (mi355x-amds)")
+    print(f"{'point':24s} {'tok/s/GPU':>10s} {'intvty p90':>10s} {'E2E-norm p90':>12s}")
+    for name in ATOM_POINTS:
+        rm = json.load(open(os.path.join(ATOM, f"{name}.json")))["request_metrics"]
+        lat = rm["latency"]
+        print(
+            f"{name:24s} {rm['throughput']['per_gpu']['total_tput_tps']:10,.0f} "
+            f"{lat['intvty']['p90']:10.1f} {lat['e2e_norm_intvty']['p90']:12.1f}"
         )
 
 
