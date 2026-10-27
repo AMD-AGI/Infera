@@ -162,6 +162,48 @@ smoke 6/6；**1319 题探测 0.967，乱码 0，开头坏 0**；长上下文 16k
   1–3% 的低频事件，200 题分辨不了；指向 decode custom all-reduce 与 yihou decode 栈的组合（10-23 4+4 K5 无 KF 开 custom all-reduce 的 200 题为 0）。
   全量 1319 题加回测试确认。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
 
+## 10-27 晚：llr37 + v3 复测、prefill trace、kernel 分析
+
+**复测第一次被外部清理打断**：16:20:28 decode 的 `scheduler_1` 收到 SIGTERM（guard 停了 AgentX），16:22:46–16:24:57 140 上**所有**容器
+（我们的 decode、kimi-serve、anandaku-v41-v7-cpu、anandaku-blogb-monofly、我们 10-20 留下的已退出容器）每约 15 s 一个被 kill 9 / destroy
+（`docker events`）。节点层面的清理（140 跑着 fleet 的 k3s agent），不是配置或补丁的问题；prefill 侧 16:20:43 起的 KV 传输失败是连带。
+16:35 重排：`scripts/night_1027.sh`（138 `$L/night-*.out`）= 复测 → prefill trace（C104，预热后 420 s，每级 30 步，带输入形状）→ HiCache 500 GB
+（`config/site-llr35-v3-hc500.env`）。decode 日志另在 140 `/mnt/m2m_nobackup/liyingli_3p1d/decode-follow/` 实时保存；`scripts/watch_night.sh` 每 5 分钟巡查。
+
+**yihou 的 GEMM 调优只覆盖 decode**：两份 CSV 来自 decode 的未调优清单（`decode_bf16_untuned_gemm.csv`），只在 `DECODE_MOUNT_EXTRA` 里挂；
+prefill 一行都没用上，而且 aiter 按精确 M 查表，prefill 的 M 随 batch 变（约 650 个值），挂上也基本不命中。
+
+**旧 trace 按模型代码重新归类**（`scripts/prefill_trace_map.py`：kernel → launch → Python 栈与算子输入形状；去掉 NCCL 与旁路 stream）。
+数据是 10-23 的 4+8 C88（K5、无 async、无 KF），只作方向，新 trace 出来后替换。旧的 `prof_breakdown.py` 把 MoE 第二段 `gemm2_a4w4_*` 算进 gemm、
+分母含 NCCL 空等（PP0 17%、PP1 27%），所以"MoE 只占 5%"是低估。
+
+| 模块（主 stream 计算时间占比） | PP0（365 ms/步） | PP1（308 ms/步） | 主要 kernel / 代码位置 |
+|---|---|---|---|
+| 稀疏 MLA（triton） | 28.5% | 33.0% | `_sparse_mla_fwd_split_dim_kernel`，`triton_sparse_mla.py:458` |
+| DSA indexer | 22.8% | 19.7% | `topk_packed_kernel`、`_gluon_fp8_mqa_logits_kernel`、`topk_transform`、`kv_to_page_indices` |
+| 线性层 | 16.6% | 22.4% | o_proj 6144×16384（hipBLASLt，未调优）、q_b 16384×2048（triton）、q/v 吸收 bmm（a8w8）、q_a+kv_a 2624×6144 |
+| MoE（MXFP4） | 11.4% | **15.7%** | `mfma_moe1_*` + `gemm2_a4w4_*`（aiter `fused_moe_`，8192 token × 257 专家含共享专家） |
+| 调度 / 输入准备 | 9.5% | 7.2% | `resolve_forward_inputs` 的 HtoD、DtoH |
+| rope + 写 KV cache | 5.8% | 1.1% | `_fused_qk_rope_cat_and_cache_mla_kernel` |
+| norm | 5.5% | 0.9% | `add_rmsnorm_quant_kernel` |
+
+发现（待新 trace 确认）：
+1. **indexer top-k 的单次耗时 PP1 是 PP0 的 6 倍**（1.77 对 0.30 ms，同一批请求、同样的上下文长度）。GLM-5.2 只在 78 层里的 21 层算 top-k
+   （`indexer_types`：0、1、2 层，之后每 4 层一次），每层按请求逐个调用。prefill 的 `topk_packed_kernel` 每个 query 行一个 block，上下文 > 16,384
+   走单 block 的 Streaming（多轮扫整行）；decode 版有给长行的常驻 cluster 路径，prefill 版没有。耗时随层变，指向依赖分数分布的 radix 轮数。
+   另外 logits kernel 先写出完整分数矩阵（每请求每层约 1 GB）再由 top-k 读回 → "logits + top-k 融合"是候选。
+2. **PP0 上的小 kernel 普遍偏慢**：rope + 写 KV cache 每次 1.04 ms 对 PP1 的 0.17 ms，`add_rmsnorm_quant` 调用次数相同但慢 8 倍。PP0 旁路 stream
+   有约 3.2 s 的 HiCache 拷贝 / 传输 kernel，像是与访存密集的小 kernel 抢带宽。
+3. **MoE 效率偏低**：每层每次约 2.4 ms，约 5.6 TFLOP → 约 2.3 PFLOPS，约 MXFP4 峰值的 1/4。KernelForge 的 FlyDSL MXFP4 MoE 在 8192 token 上比 CK
+   快 1.24 倍（Kimi-K2 形状），正好是 prefill 规模。
+4. **o_proj（BF16，6144×16384，M ≈ 8k）**每次约 1.9 ms，约 0.86 PFLOPS，BF16 峰值的约 1/3，走的是未调优的 hipBLASLt / torch 路径。
+5. **稀疏 MLA**每层每次约 5.3 ms，约 0.44 PFLOPS；是按 token 取 2048 个 KV 的 gather，相邻 query token 的 top-k 集合高度重叠，现在没有复用。
+
+**外部仓库**（已克隆到登录节点 `/tmp/lyl_ref/`）：SIKL 有 GLM 形状的 FlyDSL bf16 GEMM（`n2624_k6144`、`n6144_k16384`、`n32_k6144`、`n4096_k2048`），
+但只测到 M ≤ 4096、很多 M 上比 aiter 慢；FlyDSL 的 `fp8_paged_mqa_logits`、`topk_transform_paged`（top-k 512 / 1024）、稀疏 `flash_mla_with_kvcache`
+都是 DSv4 decode 形状，要扩展到 top-k 2048、不分页的 prefill 版本。KernelForge 的方法（基线 → SNR 门槛 → 实测 → PMC）、FlyDSL MXFP4 MoE、
+VSA / SLA 稀疏 attention 的 CK 实现、按 M 选 GEMM 实现的 sglang 补丁可借鉴；跑它的 agent 需要 Anthropic 凭据。
+
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
 1. **prefill 多算的新 token**（`scripts/prefill_miss.py`，逐请求）：1P C112 的未命中 3.64% = 对话增长 2.22% + 会话在本次运行首次出现 1.17%
