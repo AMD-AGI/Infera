@@ -317,8 +317,14 @@ VSA / SLA 稀疏 attention 的 CK 实现、按 M 选 GEMM 实现的 sglang 补�
 请求量 < `SGLANG_EVICT_HEADROOM_TOKENS` 时按这个量驱逐），只挂 prefill，`config/site-llr35-v3-evict512k.env`（512K token ≈ 设备池 5%）。
 不改语义：多出的受害节点照常备份、降级到主机，只是把"等前向结束"分摊到多步。预期：驱逐次数降到几步一次，GPU 空闲下降。
 排在 HiCache 500 GB 之后（`scripts/night2_1027.sh`，`config/plan-night2-1027.txt`，138 `$L/night2-*.out`）。
-**候选 E2**：对没有 SWA 的模型跳过写栅栏（GLM-5.2 是 DSA，无 SWA；被驱逐节点 lock_ref = 0，在跑的前向不读写它们）——收益更大（去掉全部等待），
-但改了流间顺序，需要在有驱逐压力的部署上过正确性门禁，排在 E1 之后决定。
+**实验 E2（排队中）：去掉写栅栏**——`patches/no-write-fence/`（`config/no-write-fence.patch`：`SGLANG_HICACHE_NO_WRITE_FENCE=1` 时
+`start_writing` 不让 D2H stream 等 forward stream），`config/site-llr35-v3-nofence.env`。收益更大（去掉全部"等前向"），但改了流间顺序。
+安全性的论证：栅栏的注释只说 SWA（GLM-5.2 是 DSA，无 SWA）；被驱逐的节点 lock_ref = 0，在跑的前向只读写本批请求加锁的前缀和新页；
+请求结束解锁发生在本级该批前向完成之后（非末级要先收到末级的结果）；释放的页要等 CPU 同步完备份才会被再分配；回载仍等 forward stream（读栅栏保留）。
+**先过门禁再测性能**（`scripts/night3_1027.sh`，E1 之后自动跑）：prefill 设备池限 30 万 token / 级（`--max-total-tokens 300000`，
+`config/site-llr35-v3-nofence-gate.env`），smoke + 200 题探测 + **两遍相同的** 16k × 128 长上下文（第一遍约 200 万 token，一直在驱逐、备份；
+第二遍从主机回载第一遍的前缀——备份若和前向抢跑，读回来的 KV 就是坏的）；判定 `scripts/gate_pass.py`（smoke 6/6、探测乱码 0 且 ≥ 0.955、
+每遍乱码 0 且捞针 ≥ 62/64、长前缀 GSM8K ≥ 60/64）。通过 → C104 性能（`config/plan-night3-1027.txt`）；不通过 → 同样限池、不打补丁的对照门禁，不测性能。
 
 复现（138 上，trace 在 `$L/prof-llr37-v3/traces/prefill-184337-p0/`，结果在 `results/trace-llr37-v3-c104/`）：
 

@@ -1,0 +1,30 @@
+--- cache_controller.orig.py	2026-10-27 19:29:26.240116977 +0000
++++ cache_controller.py	2026-10-27 19:29:33.122257270 +0000
+@@ -15,6 +15,7 @@
+ 
+ 
+ import logging
++import os
+ import threading
+ import time
+ from dataclasses import dataclass
+@@ -48,6 +49,10 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++# Only for models without SWA: the fence guards evicted SWA pages of unfinished checkpoints; full-attention victims
++# are unlocked (no running request reads or writes them), so their D->H backup need not wait for the running forward.
++_NO_WRITE_FENCE = os.environ.get("SGLANG_HICACHE_NO_WRITE_FENCE", "0") == "1"
++
+ device_module = get_device_module()
+ 
+ 
+@@ -840,7 +845,7 @@
+         host_indices, device_indices, pool_transfers = self._move_write_operation(op)
+         self.write_queue.clear()
+ 
+-        if wait_for_forward and self.write_fence_stream is not None:
++        if wait_for_forward and self.write_fence_stream is not None and not _NO_WRITE_FENCE:
+             # An evicted SWA page can belong to an unfinished checkpoint.
+             self.l2_transfer_engine.device_to_host_stream.wait_stream(
+                 self.write_fence_stream
