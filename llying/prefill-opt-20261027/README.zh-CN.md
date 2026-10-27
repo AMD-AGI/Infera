@@ -120,7 +120,19 @@ custom all-reduce 单独加上没问题；200 题里最多的一次（5 条）�
 - **PP 通信重叠也由补丁 v3 修好**（clean-k3 + PP 通信重叠 + v3）：smoke 6/6（冷前缀通过，不打补丁时失败）；200 题 0.980、乱码 0；
   1.39 万 **16/16、15/16**；2.6 万 **8/8、8/8**。→ 两个主因是同一个 bug：PP 下中间块 KV 的传输时序只靠"CPU 不会领先 GPU 太多"，
   async 与 PP 通信重叠都打破了这个前提。
-- 收尾（`waiter13-*.out`，`config/site-llr35-v3.env`）：完整 llr35（开 HiCache、PP 通信重叠、async、custom all-reduce 与全部 decode 选项）+ v3，
+- **收尾结果（12:55）**：
+
+| 配置 | smoke | 1319 题探测 正确 / 乱码 / 开头坏 | 16k × 128 捞针 / 长前缀 GSM8K | 100k × 32（p50 8.6 万 token） |
+|---|---|---|---|---|
+| **完整 llr35 + v3**（开 HiCache、PP 通信重叠、async、custom all-reduce、全部 decode 选项） | 6/6 | **0.972 / 0 / 0**（检测报 1 条是误报：题里的人名 "Thea"） | **64/64 / 63/64** | **16/16 / 16/16** |
+| b3 + custom all-reduce（不打补丁） | 6/6 | 0.970 / 1 / 0 | 16/16 / 16/16（16k × 32） | — |
+| 对照：llr35 不打补丁（`correct-1027T0333`） | 5/6 | 0.945（200 题）/ 10 | 13/64 / 1/64 | 2/16 / 1/16 |
+
+  → **完整 llr35 + v3 正确**，与干净配置同一水平（clean-k3：0.970 / 0 / 0）。
+- 第三个现象（开头坏）在 1319 题上不复现：b3 + custom all-reduce 0 条（200 题时同一配置 bis2-no-async 有 5 条）、完整配置 + v3 0 条。
+  推断（未单独证明）：它也是同一个竞争，默认时序下窗口很小、只偶发——短 prompt 并发时也会被批次切块；custom all-reduce 只在 decode，不影响 prefill 时序，
+  "只在开 custom all-reduce 的变体里出现"是 200 题样本下的巧合。
+- 收尾队列（`waiter13-*.out`，`config/site-llr35-v3.env`）：完整 llr35（开 HiCache、PP 通信重叠、async、custom all-reduce 与全部 decode 选项）+ v3，
   1319 题探测 + 长上下文 16k × 128、100k × 32；同时看第三个现象在完整配置里是否还在（b3 + custom all-reduce 的 1319 题在它之前）。
 
 - **PP 通信重叠单独加上就坏**（与 async 一样，两项都已从干净配置加回确认）。
