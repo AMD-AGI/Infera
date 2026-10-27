@@ -49,10 +49,14 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 | no-kf | 6/6 | 0.935 / 6 / 12 | 4/16 / 1/16 |
 | no-gemmcsv | 6/6 | 0.985 / 0 / 3 | 2/16 / 2/16 |
 | no-idxshare | 6/6 | 0.935 / 6 / 7 | 6/16 / 2/16 |
-| no-async / no-fp8draft / no-decodeknobs | 在跑 | | |
+| **no-async（prefill 去掉 `--pp-async-batch-depth 1`）** | 6/6 | 0.975 / 3 / 3 | **16/16 / 15/16** |
+| no-fp8draft | 6/6 | 0.980 / 0 / 3 | 5/16 / 2/16 |
+| no-decodeknobs（mem 0.92，去掉 stream-interval 30、CLIP 8） | 6/6 | 0.950 / 5 / 9 | 1/16 / 3/16 |
 
-  - 镜像、kit、K3 本身都干净；custom all-reduce、KF、GEMM CSV、index_share 都不是第二个问题（单独去掉仍坏）。
-    这个基础上短 prompt 探测的乱码在 0–6 之间波动，说明短 prompt 也没完全好。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
+  - **第二个问题是 prefill 的 async（`--pp-async-batch-depth 1`，yihou llr35，+2.5%）**：只有去掉它长上下文才恢复到 clean-k3 的水平；
+    其余 decode 侧选项单独去掉都无效。
+  - 但 10-23 async 在 K5、无 index_share、无 PP 通信重叠的 4+8 上验过（16k × 128 捞针 64/64），所以怀疑是 async 与 K3 叠加才坏。
+    09:01 起确认（`waiter5-*.out`）：clean-k3 + async、clean-k5 + async（`config/site-bis3-*.env`）。若剩下的单项都不能单独修好，改从 clean-k3 逐项加回。
 
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
@@ -77,7 +81,7 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
 |---|---|---|
 | 0 | kit 移植（`2p1d-kit/llr35` = yihou kit 副本，KF overlay 与 GEMM CSV 冻结在 kit 里，md5 见 `config/`）；不占卡的分析 | 完成（上面的结论） |
 | 1 | `scripts/correct_and_perf.sh`：真实接受率的 smoke、GSM8K、200 题探测、长上下文 16k × 128 与 100k × 32；然后 4+4 C96 K3（2.99）性能基线 | 正确性 03:34–04:22 完成（乱码，见上）；基线按用户决定推迟到二分之后 |
-| 1' | 乱码二分（`scripts/quick_correct.sh`） | 第一轮完成（主因 PP 通信重叠）；第二轮 06:20 起，预计 09:30 前后结束 |
+| 1' | 乱码二分（`scripts/quick_correct.sh`） | 第一轮完成（主因 PP 通信重叠）；第二轮完成（第二个问题是 async）；09:01 起确认 async × K |
 | 2 | 原定 TP2×PP2；按第 6 条建议改为 HiCache 500 GB（等用户确认） | 待定 |
 
 ## 复现
