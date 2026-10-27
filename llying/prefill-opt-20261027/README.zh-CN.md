@@ -3,6 +3,23 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## llr35 在 PD 下长上下文严重乱码（10-27 04:10，`correct-1027T0333`，真实接受率，138 → 140）
+
+| 检查 | llr35 | 以前验过的干净配置（async 4+8 / custom all-reduce 4+4，K5、无 KF） |
+|---|---|---|
+| smoke | 5/6：`long_prefix_cold` 乱码（重复片段、`</think>` 当正文），同一前缀的 `long_prefix_repeat` 正确 | 6/6 |
+| lm-eval GSM8K strict / flexible | 0.9697 / 0.9712 | 0.966–0.968 |
+| 200 题探测（GSM8K，并发 64） | 0.945，**乱码 10**、跑到上限 10（生成几千 token 后退化成 "0 . 0011 . …" / "- - -"） | 0.980–0.985，乱码 0 |
+| 长上下文 16k × 128（无共享前缀，进行到 75 个） | 捞针 **7/40**（乱码 24、上限 26）；长前缀 GSM8K **1/35**（乱码 14、上限 35） | 捞针 64/64，长前缀 GSM8K 62–63/64，乱码 0 |
+
+lm-eval 只抽最后的数字，看不出来；模拟接受率计分不看内容，也看不出来。短 prompt 的 GSM8K 在生成变长、decode 上下文超过 2048（DSA 进入稀疏 top-k）
+之后开始坏，长上下文从一开始就坏，指向 decode 的长上下文路径；KF 的稀疏 MLA / indexer / top-k kernel 正是在这里接管（overlay 注释：只在
+K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
+
+**二分**（`scripts/quick_correct.sh`，每个变体只从 llr35 去掉一项、都关 HiCache；smoke + 200 题探测 + 长上下文 16k × 32）：ref（只关 HiCache，
+须仍乱码）→ no-kf → no-car → no-fp8draft → k5 → no-ppcomm → no-idxshare（`config/site-bis-*.env`）。按约定排在 4+4 C96 基线之后，
+138 `$L/bisect/waiter-*.out`。
+
 ## 结论（10-27 04:00，第 0 步分析；第 1 步在跑）
 
 1. **prefill 多算的新 token**（`scripts/prefill_miss.py`，逐请求）：1P C112 的未命中 3.64% = 对话增长 2.22% + 会话在本次运行首次出现 1.17%
