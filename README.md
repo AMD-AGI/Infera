@@ -37,6 +37,15 @@ orchestration increases inference goodput — the rate of requests completed wit
 such as time to first token and inter-token latency — which is what determines end-to-end agentic AI
 performance. Built and validated on AMD Instinct MI355X.
 
+## Usage reporting
+
+Infera supports opt-out deployment usage reporting for its Python server and
+engine launchers. This version requires an HTTPS collector configured through
+`INFERA_USAGE_STATS_SERVER`; no shared collector is bundled. Disable reporting
+with `INFERA_NO_USAGE_STATS=1` or `DO_NOT_TRACK=1`. Prompts, outputs and model
+paths are excluded. See [usage statistics](manual/reference/usage-stats.md) for
+the complete schema, scope and controls.
+
 ## Key features
 
 Infera coordinates engine instances across three capabilities that turn GPU time into tokens:
