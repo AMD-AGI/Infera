@@ -245,6 +245,9 @@ test('ledger numbers: compact values, deltas, round ticks, the best so far, the 
   assert.equal(decisionOf({ status: 'void', decision: 'accept' }), 'void');
   assert.equal(decisionOf({ status: 'valid', baseline: true }), 'baseline');
   assert.equal(decisionOf({ status: 'valid', role: 'candidate', decision: 'noise' }), 'noise');
+  assert.equal(decisionOf({ status: 'valid', role: 'candidate', decision: 'noise', resolvable: true }), 'noise');
+  // noise the measurement could not resolve: its own word, not "noise" (which would read as "this does nothing")
+  assert.equal(decisionOf({ status: 'valid', role: 'candidate', decision: 'noise', resolvable: false }), 'unresolvable');
   assert.equal(decisionOf({ status: 'valid', role: 'candidate', decision: '' }), 'none');
 });
 

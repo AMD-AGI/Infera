@@ -33,19 +33,23 @@ const DECISIONS = {
   accept: { get label() { return tr('接受'); }, mark: 'dot', cls: 'd-accept' },
   reject: { get label() { return tr('拒绝'); }, mark: 'cross', cls: 'd-reject' },
   noise: { get label() { return tr('噪声'); }, mark: 'dot', cls: 'd-noise' },
+  // noise the measurement could not resolve (its noise floor above the accept bar): left to the round's close
+  unresolvable: { get label() { return tr('判不了 · 待集成'); }, mark: 'dot', cls: 'd-unresolvable' },
   rerun: { get label() { return tr('需重跑'); }, mark: 'dot', cls: 'd-rerun' },
   void: { get label() { return tr('作废'); }, mark: 'ring', cls: 'd-void' },
   none: { get label() { return tr('未判定'); }, mark: 'dot', cls: 'd-none' },
   baseline: { get label() { return tr('基线'); }, mark: 'diamond', cls: 'd-baseline' },
 };
-export const decisionOf = (r) => (r.status === 'void' ? 'void' : r.baseline || r.role === 'baseline' ? 'baseline' : r.decision || 'none');
+export const decisionOf = (r) => (r.status === 'void' ? 'void' : r.baseline || r.role === 'baseline' ? 'baseline'
+  : r.decision === 'noise' && r.resolvable === false ? 'unresolvable' : r.decision || 'none');
 
 // The color of a delta by its gain (the server's delta in the better direction): better, worse, or neither.
 export const gainClass = (gain) => (gain > 0 ? 'ok-text' : gain < 0 ? 'warn-text' : 'muted');
 
 // What the ledger says of a row's verdict and series, as tags: a verdict that does not hold when recomputed from its
 // AgentX output (判定未核实, with the server's reasons), one judged against a baseline series that is no longer the
-// project's (相对 v0 判定), a point of the baseline series another task measured (复测: drawn, not the reference).
+// project's (相对 v0 判定), a point of the baseline series another task measured (复测: drawn, not the reference), a
+// measurement that is not formal (筛选: AgentX fast mode or too short; never an A/B's input or a reference).
 export function rowTags(r, baseSeries = '') {
   const out = [];
   if (r.verified === false) out.push({ kind: 'unverified', cls: 'warn', text: tr('判定未核实'), title: (r.unverified || []).join('\n') });
@@ -54,6 +58,7 @@ export function rowTags(r, baseSeries = '') {
       title: tr('判定用的基线臂属于 {series}，不是当前的基线系列 {base}', { series: r.judged_against, base: baseSeries || '—' }) });
   }
   if (r.repeat) out.push({ kind: 'repeat', cls: '', text: tr('复测'), title: tr('这个系列的复测（不是封版任务测的）：画在曲线上，不进 Δ 的参照') });
+  if (r.screening) out.push({ kind: 'screening', cls: '', text: tr('筛选'), title: tr('不是正式测量（{why}）：留在台账里，不作判定输入，也不进参照', { why: r.screening }) });
   return out;
 }
 const Tags = ({ tags }) => tags.map((t) => html` <span class=${`tag ledger-tag ${t.cls}`} title=${t.title}>${t.text}</span>`);
@@ -147,13 +152,13 @@ function LedgerTable({ pid, rows, data, extra }) {
         const vd = r.verdict_delta_pct;
         return html`<tr class=${r.status === 'void' ? 'void' : ''}>
           <td class="nowrap small">${clock(r.time)}</td>
-          <td><a href=${taskHref(pid, r.task, { tab: 'docs', file: r.file })}><b>${r.label}</b></a><${Tags} tags=${tags.filter((t) => t.kind === 'repeat')} /><div class="small muted">${r.title}</div></td>
+          <td><a href=${taskHref(pid, r.task, { tab: 'docs', file: r.file })}><b>${r.label}</b></a><${Tags} tags=${tags.filter((t) => ['repeat', 'screening'].includes(t.kind))} /><div class="small muted">${r.title}</div></td>
           <td class="small">${r.change}</td>
           <td class="num"><b>${fmt(r.value)}</b></td>
           <td class=${`num ${gainClass(r.gain)}`}>${deltaText(r.delta_pct, { baseline: r.baseline && !r.repeat })}</td>
           <td class=${`num ${['accept', 'reject'].includes(r.decision) && typeof vd === 'number' ? gainClass(data.higher_is_better ? vd : -vd) : 'muted'}`}>${deltaText(vd)}</td>
           ${extra.map((m) => html`<td class="num">${fmt(r.metrics[m])}</td>`)}
-          <td><span class="nowrap"><svg width="14" height="14" aria-hidden="true"><${Mark} kind=${k} x=${7} y=${7} /></svg> ${DECISIONS[k].label}</span><${Tags} tags=${tags.filter((t) => t.kind !== 'repeat')} />
+          <td><span class="nowrap"><svg width="14" height="14" aria-hidden="true"><${Mark} kind=${k} x=${7} y=${7} /></svg> ${DECISIONS[k].label}</span><${Tags} tags=${tags.filter((t) => !['repeat', 'screening'].includes(t.kind))} />
             ${r.verified === false && r.unverified?.length > 0 && html`<div class="small warn-text unverified">${r.unverified[0]}${r.unverified.length > 1 ? tr('（另有 {n} 条）', { n: r.unverified.length - 1 }) : ''}</div>`}</td>
           <td class="small">${r.notes}</td></tr>`;
       })}</tbody></table></section>`;
@@ -325,8 +330,8 @@ function Curves({ data, pid }) {
           const front = c.points.filter((p) => p.frontier);
           const d = front.map((p, i) => `${i ? 'L' : 'M'}${x(p.x)},${y(p.y)}`).join('');
           return html`<g key=${c.name}><path class=${`curve ${c.role === 'reference' ? 'ref' : ''}`} style=${{ stroke: color.get(c.name) }} d=${d} />
-            ${c.points.map((p) => (p.repeat
-              ? html`<rect class="pt rep" style=${{ stroke: color.get(c.name) }} x=${x(p.x) - 3.5} y=${y(p.y) - 3.5} width="7" height="7" />`
+            ${c.points.map((p) => (p.repeat || p.screening
+              ? html`<rect class=${`pt rep ${p.screening ? 'scr' : ''}`} style=${{ stroke: color.get(c.name) }} x=${x(p.x) - 3.5} y=${y(p.y) - 3.5} width="7" height="7" />`
               : html`<circle class=${`pt ${p.frontier ? '' : 'off'}`} style=${{ [p.frontier ? 'fill' : 'stroke']: color.get(c.name) }} cx=${x(p.x)} cy=${y(p.y)} r="4" />`))}
             ${c.wp && html`<path class="wp-mark" style=${{ stroke: color.get(c.name) }}
               d=${`M${x(c.wp.x)},${y(c.wp.y) - 6}L${x(c.wp.x) + 6},${y(c.wp.y)}L${x(c.wp.x)},${y(c.wp.y) + 6}L${x(c.wp.x) - 6},${y(c.wp.y)}Z`} />`}
@@ -339,7 +344,7 @@ function Curves({ data, pid }) {
       ${tip && html`<div class="chart-tip" style=${{ left: `${(tip.X / W) * 100}%`, top: `${(tip.Y / CH) * 100}%` }}>
         <b>${fmt(tip.p.y)}</b> <span class="muted">${data.primary}</span>
         <div>${fmt(tip.p.x)} <span class="muted">${data.x}</span>${tip.p.conc != null ? ` · C${tip.p.conc}` : ''}</div>
-        <div><span class="mono">${tip.c.name}</span> · ${tip.p.label}${tip.p.repeat ? ` · ${tr('复测（不进参照）')}` : tip.p.frontier ? '' : ` · ${tr('非前沿')}`}</div>
+        <div><span class="mono">${tip.c.name}</span> · ${tip.p.label}${tip.p.screening ? ` · ${tr('筛选（不是正式测量）')}` : tip.p.repeat ? ` · ${tr('复测（不进参照）')}` : tip.p.frontier ? '' : ` · ${tr('非前沿')}`}</div>
         <div class="muted">${tip.p.task} · ${clock(tip.p.time)}</div></div>`}
     </div>
     <${SeriesTable} data=${data} color=${color} wpWords=${wpWords} />
@@ -366,7 +371,7 @@ function SeriesTable({ data, color, wpWords }) {
       <td><svg width="14" height="10" aria-hidden="true"><line class=${`curve ${c.role === 'reference' ? 'ref' : ''}`} style=${{ stroke: color.get(c.name) }} x1="0" y1="5" x2="14" y2="5" /></svg>
         <span class="mono">${c.name}</span> <span class="muted small">${c.role === 'reference' ? tr('对标') : c.baseline ? tr('基线') : ''}</span></td>
       <td>${c.round ?? '—'}</td>
-      <td class="num">${c.points.filter((p) => !p.repeat).length}${c.points.some((p) => p.repeat) ? html` <span class="muted small" title=${tr('这个系列的复测（不是封版任务测的）：画在曲线上，不进 Δ 的参照')}>${tr('+{n} 复测', { n: c.points.filter((p) => p.repeat).length })}</span>` : ''}</td>
+      <td class="num">${c.points.filter((p) => !p.repeat && !p.screening).length}${c.points.some((p) => p.repeat) ? html` <span class="muted small" title=${tr('这个系列的复测（不是封版任务测的）：画在曲线上，不进 Δ 的参照')}>${tr('+{n} 复测', { n: c.points.filter((p) => p.repeat).length })}</span>` : ''}${c.points.some((p) => p.screening) ? html` <span class="muted small" title=${tr('AgentX fast 模式或时长不够的点：画在曲线上，不进前沿和工作点')}>${tr('+{n} 筛选', { n: c.points.filter((p) => p.screening).length })}</span>` : ''}</td>
       <td class="num">${c.wp ? html`<b>${fmt(c.wp.y)}</b>${c.wp.interpolated ? html` <span class="muted small" title=${tr('在前沿上相邻两点之间插值')}>${tr('插值')}</span>` : ''}`
         : html`<span class="muted small" title=${tr('这个系列没有到达工作点的点')}>${tr('未到达')}</span>`}</td>
       <td class=${`num ${gainClass(c.baseline ? null : c.wp?.gain)}`}>${c.wp ? deltaText(c.wp.delta_pct, { baseline: c.baseline }) : '—'}</td></tr>`)}</tbody></table>`;

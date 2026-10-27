@@ -747,6 +747,7 @@ a.machine:hover { text-decoration: none; border-color: var(--line-strong); }
 .mark.d-accept { fill: var(--done-rail); }
 .mark.d-reject { fill: none; stroke: var(--warn); stroke-width: 2.4; stroke-linecap: round; }
 .mark.d-noise { fill: var(--ink-3); }
+.mark.d-unresolvable { fill: var(--surface); stroke: var(--ink-3); stroke-width: 1.6; stroke-dasharray: 2 1.5; }
 .mark.d-rerun { fill: var(--needs_you-rail); }
 .mark.d-none { fill: var(--ink-2); }
 .mark.d-void { fill: var(--surface); stroke: var(--ink-3); stroke-width: 1.6; }
@@ -771,6 +772,7 @@ table.ledger tr.void td { color: var(--ink-3); }
 .ledger-tag.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
 table.ledger .unverified { max-width: 36ch; margin-top: 2px; overflow-wrap: anywhere; }
 .pt.rep { fill: var(--surface); stroke-width: 1.6; }
+.pt.rep.scr { stroke-dasharray: 2 1.5; }
 table.ledger tr.void td b { text-decoration: line-through; }
 .bad-files { margin: 14px 0; }
 .bad-files ul { margin: 6px 0; padding-left: 18px; }

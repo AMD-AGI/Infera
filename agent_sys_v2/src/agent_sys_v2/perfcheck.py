@@ -1,7 +1,7 @@
 """Field checks of the infera-perf template's round (intake → survey ∥ baseline → profile → plan → experiments → close):
 what a task of the round has to leave behind before it counts as done, as its acceptance check runs it.
 
-  "$AGENT_SYS_PYTHON" -m agent_sys_v2.perfcheck intake|survey|plan|close "$AGENT_SYS_TASK"
+  "$AGENT_SYS_PYTHON" -m agent_sys_v2.perfcheck intake|survey|baseline|plan|close "$AGENT_SYS_TASK"
 
 It runs in the project directory (the checks do), or the one $AGENT_SYS_PROJECT names, and prints one line per item
 (ok / FAIL); exit 1 when one fails. The round is the number in the task's name: intake/r2, plan/r2, close/r2.
@@ -11,11 +11,15 @@ It runs in the project directory (the checks do), or the one $AGENT_SYS_PROJECT 
            have declared ones; from round 2, this round's plan is drafted, unless report.md says 项目结束 (the
            questionnaire's last question ends the project)
   survey   a reference result (role reference) in results/, or report.md says there is no public reference
+  baseline this measurement can judge an A/B: at the working point, ledger.min_repeats (2) formal AgentX measurements
+           of v0 on one node, whose retest noise (gates.retest: 1.96 x sqrt(2) x their relative standard deviation)
+           is below ledger.accept_pct; and v0's GSM8K over all 1319 questions (gsm8k.py)
   plan     every subtask names declared machines and expect: {delta_pct, level L0-L5, falsify}; a task waits for the
            plan's subtasks ({task: <plan>, kind: children}) and has machines
-  close    stack.json says version and sealed; a sealed round has its curve (that series at 2+ concurrencies) and is
-           the version and the ledger's baseline series in project.yaml; the next round's intake is drafted, after
-           this task
+  close    stack.json says version and sealed; a sealed round has its curve (that series at 2+ concurrencies), its
+           GSM8K over all 1319 questions not worse than the previous version's by more than quality.gsm8k_margin
+           (the 95% interval's lower bound), and is the version and the ledger's baseline series in project.yaml;
+           the next round's intake is drafted, after this task
 
 The messages are for the agent, which gets them back when a check fails.
 """
@@ -28,7 +32,7 @@ import re
 import sys
 from pathlib import Path
 
-from . import ledger, machines
+from . import gates, gsm8k, ledger, machines, verdict
 from .model import AgentSysError, plain, read_text
 from .scan import load_project
 
@@ -111,6 +115,66 @@ def check_survey(project, t, r):
     )
 
 
+def check_baseline(project, t, r):
+    lc = ledger.settings(project)
+    th = verdict.run_thresholds(t.workspace, project.config)
+    accept, need = th["accept_pct"], th["min_repeats"]
+    if not r.item(bool(lc["primary"]), "project.yaml ledger.primary (Y) is set"):
+        return
+    ctx = verdict.Project(project.path, project)
+    rows = [
+        x for x in ctx.table if x["task"] == t.id and x["series"] == "v0" and x["status"] == "valid"
+    ]
+    pts, left_out = verdict.formal_points(ctx, rows, lc["primary"], th["min_duration_s"])
+    for why in left_out:
+        r.item(False, f"a v0 point holds against its run directory: {why}")
+    wp = lc["working_point"].get("conc")
+    groups = {}
+    for p in pts:
+        if wp is None or p["conc"] == wp:
+            groups.setdefault((p["conc"], p["node"]), []).append(p)
+    # the group with the most measurements; of equals, the noisier
+    scored = [
+        (len(ps), (gates.retest([(p["value"], node) for p in ps]) or (0.0, 0))[0], conc, node, ps)
+        for (conc, node), ps in groups.items()
+    ]
+    n, noise, conc, node, ps = max(scored, key=lambda g: g[:2], default=(0, 0.0, wp, "", []))
+    where = f"C{conc}" if conc is not None else "the working point"
+    unnamed = " (a node they do not name)" if ps and not node else f" on {node}" if node else ""
+    r.item(
+        n >= need,
+        f"{where} has {need}+ formal AgentX measurements of v0 on one node (ledger.min_repeats; it has {n}{unnamed}; "
+        "fast mode and shorter runs are screening)",
+    )
+    if n >= 2:
+        ok = r.item(
+            noise < accept,
+            f"their retest noise {noise:.2f}% (1.96 x sqrt(2) x RSD) is below the accept bar {accept:g}%",
+        )
+        if not ok:
+            r.lines.append(
+                "      this measurement cannot resolve an A/B at the accept bar, and measuring another pair does not "
+                "lower a retest noise. Do not start experiments with it: set this task blocked (阻塞) and ask the "
+                "user to decide: more measurements per arm, or a higher ledger.accept_pct with their consent"
+            )
+    full = [
+        (p, d)
+        for p, d in gsm8k.results_of(t.workspace)
+        if d.get("series") == "v0" and not gsm8k.validate(d) and d["total"] >= gsm8k.FULL
+    ]
+    r.item(
+        bool(full),
+        f"results/ has v0's GSM8K over all {gsm8k.FULL} questions (engine/eval.sh with EVAL_LIMIT={gsm8k.FULL}, "
+        "then ledger gsm8k --series v0)",
+    )
+    for p, d in full:
+        _per, problem = gsm8k.recount(d, project.path)
+        r.item(
+            not problem,
+            f"{p.name} counts again from its lm_eval samples" + (f": {problem}" if problem else ""),
+        )
+
+
 def check_plan(project, t, r):
     children = [project.tasks[c] for c in project.children(t.id)]
     r.item(True, f"{len(children)} subtasks: {', '.join(c.id for c in children) or 'none'}")
@@ -179,6 +243,9 @@ def check_close(project, t, r):
             ledger.settings(project)["baseline_series"] == version,
             f"project.yaml ledger.baseline_series is {version!r}",
         )
+        margin = verdict.run_thresholds(t.workspace, project.config)["gsm8k_margin"]
+        for ok, line in gsm8k.seal_gate(project, project.path, t.workspace, version, margin):
+            r.item(ok, line)
     if n is not None:
         nxt = project.tasks.get(f"intake/r{n + 1}")
         r.item(nxt is not None, f"the next round's intake is drafted (tasks/intake/r{n + 1}.md)")
@@ -189,7 +256,13 @@ def check_close(project, t, r):
             )
 
 
-CHECKS = {"intake": check_intake, "survey": check_survey, "plan": check_plan, "close": check_close}
+CHECKS = {
+    "intake": check_intake,
+    "survey": check_survey,
+    "baseline": check_baseline,
+    "plan": check_plan,
+    "close": check_close,
+}
 
 
 def run(kind, task_id, project_dir):

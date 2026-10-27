@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Judge an A/B on its AgentX numbers by the project's rules, and write the verdict into the candidate's result files.
 
-  ab_judge.py --baseline-files b1.json b2.json --candidate-files c1.json c2.json [--note TEXT] [--mechanism TEXT] --write
+  ab_judge.py --baseline-files b1.json b2.json --candidate-files c1.json c2.json [--note TEXT] [--mechanism TEXT]
+              [--accept-pct P] [--reproduce-pct P] [--max-arm-gap-min M] --write
   ab_judge.py --baseline 12010 11950 --candidate 12650 12700 [--lower-is-better]    # a trial: printed, never written
   ab_judge.py --void failed-requests --candidate-files c2.json --write
   ab_judge.py --void other --reason "foreign load on GPU 3" --evidence log/rocm-smi.txt --candidate-files c2.json --write
 
-Rules (agent_sys_v2.verdict.judge): the noise floor is the larger of the noise band and the run-to-run spread (1.96 x
-the relative standard error of the difference). A difference inside the floor is noise, and noise never becomes an
+Rules (agent_sys_v2.verdict.judge): the noise floor is the larger of the noise band, the version's retest noise (see
+the gates) and the run-to-run spread (1.96 x the relative standard error of the difference). A difference inside the floor is noise, and noise never becomes an
 accept. A worse result beyond the floor is a reject. A gain between the floor and the accept bar asks for another
 run; so does a gain whose median disagrees with its mean, or whose X is worse beyond its own floor (compare at equal X
 instead: the ledger's working point). Only a gain past the bar and the floor, with the medians agreeing and X not
@@ -25,6 +26,18 @@ the verdict into every candidate file with its inputs (files, raw digests, value
 from), which `ledger verify` recomputes from the raw output. --note adds a remark ("待集成" for a change whose expected
 gain is below the noise).
 
+The gates (agent_sys_v2.gates, the same ones `ledger verify` applies; project.yaml ledger, the command line only
+stricter): every input is a formal AgentX measurement (not fast mode, set to at least min_duration_s, 3600: read from
+its run directory, never from the result file); the base arm's mean is within reproduce_pct (5%) of the baseline
+series' reference at that concurrency (the points the task that sealed the version measured), else rerun; on one node
+no two inputs' windows (AIPerf's own start and end) overlap and no gap between them is longer than max_arm_gap_min
+(60), else rerun; the noise floor's fixed part is the larger of the band and the version's retest noise (1.96 x
+sqrt(2) x the RSD of its sealing task's formal repeats on one node), and when it is above the project's accept bar
+(not one raised with --accept-pct) a result inside it is noise with resolvable false (待集成: the close judges it on the integrated curve); an accept on the
+numbers needs the candidate's GSM8K (gsm8k.py: not significantly worse than the version's on the same questions),
+and is a reject when it is significantly worse. A gate that cannot be checked says so in the notes (unchecked) and
+does not decide. The verdict records every gate in verdict.gates.
+
 A measurement is void for one of two reasons: failed-requests (AgentX counts more than 10% failed: computed here, and
 refused when it does not) or other, with --reason and an --evidence file. --void writes into the --candidate-files
 and --baseline-files given. Prints the verdict as JSON; exit 0, 2 when the input is wrong.
@@ -41,7 +54,7 @@ import os
 import sys
 from pathlib import Path
 
-from agent_sys_v2 import ledger, verdict
+from agent_sys_v2 import gates, ledger, verdict
 from agent_sys_v2.model import write_json
 
 
@@ -53,12 +66,12 @@ def percent(text):
     return value
 
 
-def threshold(name, given, rules, source):
-    """(the value, where it came from) of a noise band or bar: the project's, or a stricter one given."""
+def threshold(name, given, rules, source, higher_is_stricter=True):
+    """(the value, where it came from) of a bar: the project's, or a stricter one given."""
     project = rules[name]
     if given is None:
         return project, source
-    if given < project:
+    if given < project if higher_is_stricter else given > project:
         raise ValueError(
             f"--{name.replace('_', '-')} {given:g} is looser than the project's {project:g} ({source}): "
             "the command line can only make the rules stricter"
@@ -136,6 +149,13 @@ def judged(args, root):
     rules, source = verdict.project_rules(root)
     noise, noise_from = rules["noise_pct"], source
     accept, accept_from = threshold("accept_pct", args.accept_pct, rules, source)
+    reproduce, reproduce_from = threshold(
+        "reproduce_pct", args.reproduce_pct, rules, source, higher_is_stricter=False
+    )
+    gap, gap_from = threshold(
+        "max_arm_gap_min", args.max_arm_gap_min, rules, source, higher_is_stricter=False
+    )
+    min_s = rules["min_duration_s"]
     higher = False if args.lower_is_better else rules["higher_is_better"]
     x_higher = False if args.x_lower_is_better else rules["x_higher_is_better"]
     metric = args.metric or rules["primary"]
@@ -166,10 +186,14 @@ def judged(args, root):
     if files and not metric:
         raise ValueError("--metric names the metric to read (project.yaml has no ledger.primary)")
     base_in = (
-        verdict.arm(args.baseline_files, metric, x_metric, root) if args.baseline_files else []
+        verdict.arm(args.baseline_files, metric, x_metric, root, min_s)
+        if args.baseline_files
+        else []
     )
     cand_in = (
-        verdict.arm(args.candidate_files, metric, x_metric, root) if args.candidate_files else []
+        verdict.arm(args.candidate_files, metric, x_metric, root, min_s)
+        if args.candidate_files
+        else []
     )
     why = []
     if args.write and rules["baseline_series"]:
@@ -186,7 +210,8 @@ def judged(args, root):
                 why.append(f"{f}: a candidate is of its own series, not the baseline series")
     # the whole A/B: one concurrency, nothing left out, voids for a valid reason
     why += [
-        f.problem for f in verdict.arm_findings(args.baseline_files + args.candidate_files, root)
+        f.problem
+        for f in verdict.arm_findings(args.baseline_files + args.candidate_files, root, min_s)
     ]
     if why:
         raise ValueError("\n".join(why))
@@ -201,7 +226,43 @@ def judged(args, root):
         )
         if not (x[0] and x[1]):
             x = None  # numbers without X: judged on Y alone
-    out = verdict.judge(base, cand, higher, noise, accept, x)
+    if base_in and cand_in and not (args.baseline or args.candidate):
+        # result files: the gates (formal inputs, the base arm reproducing, timing, the noise floor, GSM8K)
+        series = sorted({series_of(f) for f in args.candidate_files})
+        concs = verdict.concurrencies(args.baseline_files + args.candidate_files, root)
+        th = {
+            "metric": metric,
+            "higher_is_better": higher,
+            "noise_pct": noise,
+            "accept_pct": accept,
+            "project_accept_pct": rules[
+                "accept_pct"
+            ],  # resolvable is the project's bar's, not --accept-pct's
+            "min_duration_s": min_s,
+            "reproduce_pct": reproduce,
+            "max_arm_gap_min": gap,
+            "conc": next(iter(concs)),
+        }
+        cand_file = Path(args.candidate_files[0])
+        out = verdict.judge_ab(
+            base_in,
+            cand_in,
+            th,
+            verdict.Project(root),
+            gates.task_of(cand_file, root),
+            ",".join(sorted({series_of(f) for f in args.baseline_files})),
+            series[0] if len(series) == 1 else "",
+            cand_file.resolve().parent.parent,
+            x,
+        )
+        accuracy = out["gates"]["accuracy"]
+        if args.write and out["decision"] == "accept" and accuracy["status"] != gates.OK:
+            raise ValueError(
+                f"the AgentX numbers say accept, but an accept needs the candidate's GSM8K: {accuracy['why']}"
+                + (f"\nfix: {accuracy['fix']}" if accuracy.get("fix") else "")
+            )
+    else:
+        out = verdict.judge(base, cand, higher, noise, accept, x)
     if args.mechanism:
         out["mechanism"] = args.mechanism
     if base_in and cand_in:
@@ -215,7 +276,16 @@ def judged(args, root):
             "candidate": cand_in,
             "noise_pct": noise,
             "accept_pct": accept,
-            "rules_from": {"noise_pct": noise_from, "accept_pct": accept_from},
+            "min_duration_s": min_s,
+            "reproduce_pct": reproduce,
+            "max_arm_gap_min": gap,
+            "rules_from": {
+                "noise_pct": noise_from,
+                "accept_pct": accept_from,
+                "min_duration_s": source,
+                "reproduce_pct": reproduce_from,
+                "max_arm_gap_min": gap_from,
+            },
         }
     return out
 
@@ -239,6 +309,16 @@ def main(argv=None):
     ap.add_argument("--x-lower-is-better", action="store_true")
     ap.add_argument("--accept-pct", type=percent, help="a higher accept bar than the project's")
     ap.add_argument(
+        "--reproduce-pct",
+        type=percent,
+        help="a tighter bar than the project's for the base arm reproducing the baseline series",
+    )
+    ap.add_argument(
+        "--max-arm-gap-min",
+        type=percent,
+        help="a shorter longest gap between the measurements than the project's",
+    )
+    ap.add_argument(
         "--mechanism",
         default="",
         help="a remark on the mechanism metrics; not part of the decision",
@@ -255,6 +335,9 @@ def main(argv=None):
         "--write", action="store_true", help="write the verdict into every --candidate-files file"
     )
     args = ap.parse_args(argv)
+    # files named relative to where the script runs, not to the project directory the checks resolve paths against
+    args.baseline_files = [str(Path(f).absolute()) for f in args.baseline_files]
+    args.candidate_files = [str(Path(f).absolute()) for f in args.candidate_files]
     if args.write and not args.candidate_files and not (args.void and args.baseline_files):
         ap.error("--write writes into the --candidate-files")
     root = root_of(args.candidate_files + args.baseline_files)

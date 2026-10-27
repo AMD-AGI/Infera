@@ -27,6 +27,9 @@ test('a row says when its verdict does not hold, what it was judged against, and
   const words = (r) => rowTags(r, 'v1').map((t) => `${t.kind}:${t.text}`);
   assert.deepEqual(words({ verified: true }), []);
   assert.deepEqual(words({ verified: null, repeat: true }), ['repeat:复测']);
+  const [scr] = rowTags({ screening: 'AgentX fast mode (AIPERF_EXPERIMENTAL_FAST=1)' }, 'v1');
+  assert.equal(`${scr.kind}:${scr.text}`, 'screening:筛选');
+  assert.ok(scr.title.includes('AgentX fast mode'));
   const r = { verified: false, unverified: ['verdict.decision is \'accept\'; recomputed ... \'noise\'', 'x'], judged_against: 'v0' };
   assert.deepEqual(words(r), ['unverified:判定未核实', 'judged:相对 v0 判定']);
   const [unverified, judged] = rowTags(r, 'v1');

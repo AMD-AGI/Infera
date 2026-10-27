@@ -1,6 +1,6 @@
 ---
 name: infera-round
-description: 本项目一轮的做法：任务图、各任务的产出和文件格式（实验子任务的 expect、close 的 children 依赖、stack.json、calibration.json）、问卷模板，以及验收检查查什么
+description: 本项目一轮的做法：任务图、各任务的产出和文件格式（实验子任务的 expect、close 的 children 依赖、stack.json、可选的 calibration.json）、问卷模板，以及验收检查查什么
 ---
 
 # infera-round：一轮怎么走
@@ -26,11 +26,11 @@ close/rN 起草：intake/r(N+1)（depends_on: [close/rN]）
 |---|---|
 | intake | ✓ questions.md（问卷）；✓ 项目的 `rules/project.md`（占位全部换掉）；✓ `project.yaml` 的 goal、machines、round、ledger（primary、x、working_point）；✓ 本轮要上机任务的 machines；`skills/cluster-<名>/SKILL.md`（集群操作手册）；report.md（一页 brief 和校验记录）；第 2 轮起 ✓ 本轮的 plan 草稿 |
 | survey | IX 参考曲线进台账（✓ `role: reference`，`series: ix:<条目>`，或报告写明"无公开对标"）；配置身份表；**配置差异表**（每项：我们的值、对方的值、预期影响）；合规清单 |
-| baseline | 环境预检；质量门；B1 曲线（`role: baseline`，`series: v0`，4–7 个并发）；工作点 ≥ 2 次复测（噪声）；✓ `calibration.json`；✓ `stack.json`（v0）；常开的系统采样 |
+| baseline | 环境预检；✓ 全量 1319 题 GSM8K（`ledger gsm8k --series v0`）；B1 曲线（`role: baseline`，`series: v0`，4–7 个并发）；✓ 工作点同一节点 ≥ `ledger.min_repeats` 次正式复测，复测噪声低于 `ledger.accept_pct`（否则阻塞、交给我）；✓ `stack.json`（v0）；常开的系统采样；可选 `calibration.json` |
 | profile | report.md、✓ `candidates.yaml`、✓ `profile.json`、`verify.md`（skill infera-profile） |
 | plan | 候选排序表（来源、预期区间、成本、验证级别）；本轮 GPU 预算和机器分配；实验子任务草稿（✓ 各自的 machines 和 expect）；✓ close/rN 草稿 |
-| experiment | 生效证明；快速验证记录；正确性门；L4 工作点 A/B（AgentX，`ledger agentx` 转换）；✓ 判定写进结果（`ab_judge.py --write`），验收时从原始输出复算（`ledger verify`） |
-| close | 集成镜像；正确性门；L5 曲线（`series: vN`）；✓ `stack.json`；预测与实测对照；复盘和下一轮建议；✓ intake/r(N+1) 草稿 |
+| experiment | 生效证明；快速验证记录；候选栈 200 题 GSM8K（accept 必需）；L4 工作点 A/B（AgentX 正式测量，`ledger agentx` 转换；基线臂复现基线系列，两臂同节点不重叠、间隔有上限）；✓ 判定写进结果（`ab_judge.py --write`），验收时从原始输出复算（`ledger verify`，含 GSM8K） |
+| close | 集成镜像；✓ 全量 1319 题 GSM8K，不比上一版差超过 `quality.gsm8k_margin`；L5 曲线（`series: vN`）；工作点同节点复测（下一轮的噪声底）；✓ `stack.json`；预测与实测对照；复盘和下一轮建议；✓ intake/r(N+1) 草稿 |
 
 ## 文件格式
 
@@ -72,7 +72,7 @@ machines: [<集成用的节点>]
 
 `sealed: false` 表示本轮集成没有通过（或没有接受任何改动），版本不变，`version` 写当前版本。
 
-**calibration.json**（baseline 写，plan 和实验读）：
+**calibration.json**（可选：baseline 想给实验迭代筛选时写，plan 和实验读；不进判定，噪声底由台账里的正式复测算）：
 
 ```json
 {"noise": {"same_node_pct": 0.01, "cross_node_pct": 0.5},
@@ -88,4 +88,4 @@ machines: [<集成用的节点>]
 
 ## 验收检查
 
-intake、survey、plan、close 的字段检查是 `"$AGENT_SYS_PYTHON" -m agent_sys_v2.perfcheck <类型> "$AGENT_SYS_TASK"`，逐项打印 ok / FAIL。
+intake、survey、baseline、plan、close 的字段检查是 `"$AGENT_SYS_PYTHON" -m agent_sys_v2.perfcheck <类型> "$AGENT_SYS_TASK"`，逐项打印 ok / FAIL。baseline 查的是"这套测量判得了 A/B"：工作点同一节点的正式复测次数、由此算出的复测噪声低于接受线、v0 的全量 GSM8K；不满足时不要硬凑，把状态改为阻塞交给我。

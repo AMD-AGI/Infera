@@ -9,11 +9,12 @@ description: Measure one point (AgentX or a fixed ISL/OSL load) on a live deploy
 
 | Load | How | Cost |
 |---|---|---|
-| InferenceX AgentX (the project's main metric) | `engine/agentx/agentx.sh` of the ATOM kit; client pinned (InferenceX `918524ff`, AIPerf 0.12.0, `constraints.txt`) | warm-up 13-25 min + `DURATION=3600` |
+| InferenceX AgentX, formal (the project's main metric; the only input of an A/B) | `engine/agentx/agentx.sh` of the ATOM kit; client pinned (InferenceX `918524ff`, AIPerf 0.12.0, `constraints.txt`) | warm-up 13-25 min + `DURATION=3600` (at least `ledger.min_duration_s`) |
 | AgentX fast (screening) | same, shorter: `DURATION=1200 WARMUP_PER_LANE=1` | warm-up + 20 min |
 | fixed ISL/OSL | `python -m sglang.bench_serving --backend sglang-oai --dataset-name random --random-range-ratio 1.0 --num-prompts 10xC --request-rate inf`; vLLM: `bench/serve_standard/bench_vllm_serve.sh` | minutes |
 
-Screen with the cheap one, confirm with the real one. The ATOM kit's `agentx.sh` hands the client only the
+Screen with the cheap one, confirm with the real one: a fast or shorter AgentX point is screening (the converter
+reads it from AIPerf's export and `runtime.env`), shown so in the ledger and never an A/B's input or a reference. The ATOM kit's `agentx.sh` hands the client only the
 variables it writes into `runtime.env` (`DURATION`, `WARMUP_PER_LANE`, ...): other AIPerf variables set in your shell,
 such as `AIPERF_EXPERIMENTAL_FAST`, do not reach it, so shorten the window with those two. Sweep concurrency from high
 to low (C176 -> C128 -> C96 ..., about x0.7) so the most informative point lands first.
@@ -58,13 +59,18 @@ duration / all P and D GPUs, `p90_intvty` = 1 / p90 ITL (tok/s/user), times in s
 from `infera-experiment`.
 
 **AgentX points: convert, do not copy numbers by hand.** Performance is judged on AgentX alone, and only on results
-the converter wrote. It writes one result per `agentx_conc<C>.json` with the metric names and definitions of the
-InferenceX App (`input_tput_per_gpu`, `tput_per_gpu`, `p90_intvty` = 1 / p90 full-response ITL,
+the converter wrote, and only formal ones. It writes one result per `agentx_conc<C>.json` with the metric names and
+definitions of the InferenceX App (`input_tput_per_gpu`, `tput_per_gpu`, `p90_intvty` = 1 / p90 full-response ITL,
 `p90_e2e_norm_intvty`, `p90_ttft`, ...), so our curves and the official ones plot on one chart (the infera-perf
 template's ledger uses `input_tput_per_gpu` against `p90_intvty`), and records its source in `evidence`: the raw
-file (relative to the project directory), its sha256, and the run directory's `runtime.env` (`DURATION`, warm-up).
-Keep the run directory where it was converted from, unchanged, best under the workspace
-(`$AGENT_SYS_WORKSPACE/log/agentx/<label>/`): an experiment's acceptance check converts it again and compares.
+file (relative to the project directory), its sha256, the run directory's `runtime.env` (`DURATION`, warm-up) and
+AIPerf's export (`profile_export_aiperf.json`, below the run directory). From them it writes into `workload` what the
+measurement was, never what anyone typed: `window` (AIPerf's own `start_time` and `end_time`, the client's local
+clock), `node` (the host of the endpoint AIPerf measured), `benchmark_duration_s` (the duration AIPerf ran; InferenceX's
+fast mode forces 1200 s whatever `DURATION` says), `fast`, `duration_s` (measured), and `missing` with why for what it
+could not read. Keep the run directory where it was converted from, unchanged and whole, best under the workspace
+(`$AGENT_SYS_WORKSPACE/log/agentx/<label>/`): an experiment's acceptance check converts it again and compares, and
+the A/B's gates read the windows and nodes from it (`infera-experiment`).
 
 ```bash
 "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger agentx <run dirs or agentx_conc*.json> --out "$AGENT_SYS_WORKSPACE/results" \

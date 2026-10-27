@@ -96,9 +96,10 @@ server and rename the directory once: `mv <home>/campaigns <home>/projects`.
    questionnaire (**Answer N questions**; a row you leave empty takes its suggestion). With your answers it writes the
    project's `rules/project.md`, the goal, machines and working point in `project.yaml`, and a one-page brief you
    approve. Nothing downstream starts before that.
-4. The survey (InferenceX reference curves, no GPU) and the baseline (the v0 curve, noise, calibration) run, then
-   the profile (cheap layers first, `candidates.yaml`; you approve it). Follow a task in **Run output**; write to
-   the agent in the box at the bottom (even while it runs); **Stop**; **Take over in terminal**.
+4. The survey (InferenceX reference curves, no GPU) and the baseline (v0's full GSM8K, the v0 curve, and the retest
+   noise at the working point, which has to be below the accept bar) run, then the profile (cheap layers first,
+   `candidates.yaml`; you approve it). Follow a task in **Run output**; write to the agent in the box at the bottom
+   (even while it runs); **Stop**; **Take over in terminal**.
 5. `plan/r1` ranks the candidates, splits the round's GPU budget over the machines and drafts the experiments
    (subtasks) and `close/r1`. Approve the plan, then **Join them all** in its drawer: the experiments and the close
    are queued together. Each experiment holds its machines; the close waits (`kind: children`) until the plan's

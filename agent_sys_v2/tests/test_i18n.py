@@ -38,6 +38,8 @@ AGENT_FACING = {
     ("perfcheck.py", "NO_REFERENCE", None),
     ("perfcheck.py", "check_intake", None),
     ("perfcheck.py", "check_survey", None),
+    ("perfcheck.py", "check_baseline", None),
+    ("gates.py", "TO_INTEGRATE", None),
     ("scan.py", "HANDOFF_HEAD", None),
 }
 

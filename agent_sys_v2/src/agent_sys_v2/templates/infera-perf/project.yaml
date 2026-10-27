@@ -10,8 +10,14 @@ ledger:                # 结果台账：任务写在 results/ 下的 infera.resu
   x: p90_intvty                 # X：P90 interactivity = 1/p90 full-response ITL（tok/s/user，InferenceX 看板默认）
   baseline_series: v0           # 基线曲线：当前版本的系列；close 封版后改成 vN
   working_point: {}             # 判 A/B 的工作点，intake 按问卷 B3 填写：{x: 30}（X ≥ 30 下 Y 最大）或 {conc: 64}
-  noise_pct: 2                  # A/B 的噪声带（%）；和 accept_pct 一样只由你改（ab_judge 只能提高接受线），运行开始时快照，验收按快照复算
+  noise_pct: 2                  # A/B 的噪声带（%）；以下各项都只由你改（命令行只能更严），运行开始时快照，验收按快照复算
   accept_pct: 3                 # A/B 的接受线（%）：主指标增益超过它和噪声底才接受
+  min_duration_s: 3600          # 正式测量的 AgentX 时长（秒）；fast 模式和更短的是筛选，进台账、不作判定输入
+  reproduce_pct: 5              # 实验的基线臂和封版任务在同一并发测的点差多少（%）以内才算复现，否则判 rerun
+  max_arm_gap_min: 60           # A/B 相邻两次测量之间最多隔多少分钟（重新部署加预热约 20–30 分钟）
+  min_repeats: 2                # baseline 在工作点同一节点至少测几次正式 AgentX（复测噪声由此算，要低于 accept_pct）
+quality:                        # 精度只看 GSM8K（skill infera-quality-gate）
+  gsm8k_margin: 0.02            # 封版：新版本全量 1319 题和上一版比，差值 95% 区间下界不低于 -0.02
 skills: [infera-deploy, infera-bench, infera-quality-gate, infera-profile, infera-diagnose, infera-experiment, infera-hygiene]
 autorun: true          # 上游完成后自动启动下游；关掉则所有任务都要手动点"开始"
 max_running: 3         # 本项目同时运行的任务数（后台等待和终端接管的任务也计入）

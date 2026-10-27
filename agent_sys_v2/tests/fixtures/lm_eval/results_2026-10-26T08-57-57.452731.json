@@ -1,0 +1,54 @@
+{
+ "results": {
+  "gsm8k": {
+   "name": "gsm8k",
+   "alias": "gsm8k",
+   "sample_len": 20,
+   "exact_match,strict-match": 0.95,
+   "exact_match_stderr,strict-match": 0.012092607484694677,
+   "exact_match,flexible-extract": 0.95,
+   "exact_match_stderr,flexible-extract": 0.011067404265948275
+  }
+ },
+ "n-shot": {
+  "gsm8k": 5
+ },
+ "n-samples": {
+  "gsm8k": {
+   "original": 1319,
+   "effective": 20
+  }
+ },
+ "config": {
+  "model": "local-chat-completions",
+  "model_args": {
+   "model": "/perf_apps/data/models/GLM-5.2-MXFP4",
+   "base_url": "http://10.0.0.1:18000/v1/chat/completions",
+   "tokenizer": "/perf_apps/data/models/GLM-5.2-MXFP4",
+   "tokenized_requests": false,
+   "num_concurrent": 64,
+   "max_gen_toks": 16384,
+   "max_length": 1048576,
+   "timeout": 900,
+   "trust_remote_code": true
+  },
+  "batch_size": 1,
+  "batch_sizes": [],
+  "device": "cuda:0",
+  "use_cache": null,
+  "limit": 20.0,
+  "bootstrap_iters": 100000,
+  "gen_kwargs": {
+   "temperature": 0,
+   "top_p": 1,
+   "max_gen_toks": 16384
+  },
+  "random_seed": 0,
+  "numpy_seed": 1234,
+  "torch_seed": 1234,
+  "fewshot_seed": 1234
+ },
+ "lm_eval_version": "0.4.13",
+ "model_name": "/perf_apps/data/models/GLM-5.2-MXFP4",
+ "date": 1793004873.342283
+}

@@ -8,8 +8,10 @@ console can be looked at without running anything.
   AGENT_SYS_TMUX=asys-demo agent-sys-v2 serve --home <home> --sock /tmp/agent_sys-$(id -u)/demo.sock
 
 The numbers are made up, but our points are converted from AgentX output (the real agentx_conc40.json of the tests,
-rescaled) and the A/B verdicts written by ab_judge.py, as a task would; two verdicts are spoiled on purpose (one edited
-by hand, one from before verdicts had inputs) and show as unverified, and round one's experiment was judged against v0.
+rescaled, beside an AIPerf export with its window and node, measured one after another on the task's machine), GSM8K
+from lm_eval samples, and the A/B verdicts written by ab_judge.py, as a task would; two verdicts are spoiled on purpose
+(one edited by hand, one from before verdicts had inputs) and show as unverified, round one's experiment was judged
+against v0, and one point is an AgentX fast run (screening).
 Every run of the project replays a recorded session (tests/fixtures/events) instead of calling a model: starting a
 task here costs nothing.
 """
@@ -22,6 +24,7 @@ import json
 import re
 import shutil
 import sys
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from agent_sys_v2 import ledger, ops, skills
@@ -30,6 +33,7 @@ from agent_sys_v2.model import new_state, write_state
 ROOT = Path(__file__).resolve().parent.parent
 EVENTS = ROOT / "tests" / "fixtures" / "events"
 RAW = ROOT / "tests" / "fixtures" / "agentx" / "agentx_conc40.json"
+AIPERF = ROOT / "tests" / "fixtures" / "aiperf" / "profile_export_aiperf.json"
 MARK = ".agent_sys_demo"  # in a home this script made: only such a home is replaced
 DONE = (
     "状态: 已完成\n下一步: 无\n完成时间: 2026-10-21 10:00\n\n- [x] 部署\n- [x] 质量门\n- [x] 测量\n"
@@ -55,6 +59,28 @@ def agentx(conc, x, y):
         per_gpu[k] = round(per_gpu[k] * scale, 5)
     agg["request_metrics"]["latency"]["full_response_itl"]["p90"] = round(1 / x, 6)
     return agg
+
+
+def aiperf(conc, start, node, duration=3600):
+    """AIPerf's export of a point: the tests' real one with its phase, window and endpoint set."""
+    export = json.loads(AIPERF.read_text(encoding="utf-8"))
+    export["input_config"]["phases"][0].update(concurrency=conc, duration=float(duration))
+    export["input_config"]["endpoint"]["urls"] = [f"http://{node}:18000"]
+    export["start_time"] = start.isoformat()
+    export["end_time"] = (start + timedelta(seconds=duration + 26)).isoformat()
+    return export
+
+
+def lm_eval(d, total, wrong):
+    """An lm_eval GSM8K run (--log_samples) under d: questions 0..total-1, every wrong-th answered wrong."""
+    d.mkdir(parents=True)
+    rows = [
+        json.dumps({"doc_id": i, "filter": f, "exact_match": 0.0 if i % wrong == 3 else 1.0})
+        for i in range(total)
+        for f in ("strict-match", "flexible-extract")
+    ]
+    (d / "samples_gsm8k_2026-10-21T00-00-00.jsonl").write_text("\n".join(rows) + "\n")
+    return d
 
 
 def main(home):
@@ -124,20 +150,51 @@ def main(home):
             doc["verdict"] = verdict
         return doc
 
-    def measure(tid, label, conc, x, y, when, series, role="candidate", round_=1, change=""):
-        """An AgentX run directory under the task's log/, converted into its results/ as a task does."""
+    slots = {}
+
+    def measure(
+        tid, label, conc, x, y, when, series, role="candidate", round_=1, change="", fast=False
+    ):
+        """An AgentX run directory under the task's log/, converted into its results/ as a task does: measured on
+        the task's machine, each window 85 min after the task's one before (redeploy and warm-up between)."""
         ws = pdir / "workspaces" / tid
         run = ws / "log" / "agentx" / f"{label}-c{conc}"
-        run.mkdir(parents=True)
+        (run / "aiperf_artifacts").mkdir(parents=True)
         (run / f"agentx_conc{conc}.json").write_text(json.dumps(agentx(conc, x, y), indent=1))
         (run / "runtime.env").write_text(
             f"CONC={conc}\nDURATION=3600\nAIPERF_WARMUP_REQUESTS_PER_LANE=10\n"
+            + ("AIPERF_EXPERIMENTAL_FAST=1\n" if fast else "")
+        )
+        k = slots[tid] = slots.get(tid, -1) + 1
+        start = datetime.fromisoformat(when.rstrip("Z")) + timedelta(minutes=85 * k)
+        node = re.search(r"machines: \[([^\]]+)\]", (pdir / "tasks" / f"{tid}.md").read_text())
+        (run / "aiperf_artifacts/profile_export_aiperf.json").write_text(
+            json.dumps(
+                aiperf(conc, start, node[1] if node else "smc-a16-19", 1200 if fast else 3600)
+            )
         )
         written, errors = ledger.convert_agentx(
             [run], ws / "results", series, round_, role, label, change, when
         )
         assert written and not errors, errors
         return written[0]
+
+    def gsm8k(tid, label, series, total, wrong):
+        """An lm_eval GSM8K run under the task's log/, converted with ledger gsm8k as a task does."""
+        ws = pdir / "workspaces" / tid
+        run = lm_eval(ws / "log" / "gsm8k" / label, total, wrong)
+        argv = [
+            "gsm8k",
+            str(run),
+            "--out",
+            str(ws / "results"),
+            "--label",
+            label,
+            "--series",
+            series,
+        ]
+        with contextlib.redirect_stdout(io.StringIO()):
+            assert ledger.main(argv) == 0
 
     judge = ab_judge()
 
@@ -201,6 +258,8 @@ def main(home):
         41.2,
         "## 结论\n\nv0：工作点（X ≥ 40）输入 tok/s/GPU 23.7K，噪声 ±0.5%。\n",
     )
+    for tid in ("baseline/r1", "profile/r1"):
+        ops.update_task(pdir, tid, {"machines": ["smc-a16-19"]})
     for i, (c, x, y) in enumerate(
         (
             (16, 72.0, 9800.0),
@@ -212,8 +271,7 @@ def main(home):
     ):
         measure("baseline/r1", "v0", c, x, y, f"2026-10-21T0{i + 1}:00:00Z", "v0", "baseline")
     measure("baseline/r1", "v0-rep1", 64, 44.2, 22700.0, "2026-10-21T05:40:00Z", "v0", "baseline")
-    for tid in ("baseline/r1", "profile/r1"):
-        ops.update_task(pdir, tid, {"machines": ["smc-a16-19"]})
+    gsm8k("baseline/r1", "v0-full", "v0", 1319, 25)
     done(
         "profile/r1",
         "2026-10-21T14:00:00Z",
@@ -260,6 +318,7 @@ def main(home):
         measure(tid, f"r1-spf-{k}", 64, x, y, when, "r1-spf", change=change)
         for k, x, y in ((1, 44.5, 24400.0), (2, 44.6, 24500.0))
     ]
+    gsm8k(tid, "r1-spf-200", "r1-spf", 200, 25)
     ab(base, cand, "--mechanism", "prefill 排队 -80%，decode 步长不变")
     # DCP4: a verdict from before verdicts had inputs (written by hand): shown as it is, unverified
     when = "2026-10-22T05:00:00Z"
@@ -310,6 +369,7 @@ def main(home):
         )
     ):
         measure("close/r1", "v1", c, x, y, f"2026-10-22T1{i + 4}:00:00Z", "v1", "baseline")
+    gsm8k("close/r1", "v1-full", "v1", 1319, 26)
     (pdir / "workspaces/close/r1/stack.json").write_text('{"version": "v1", "sealed": true}\n')
     # round one sealed v1: what close/r1 writes
     cfg = re.sub(r"(?m)^round: 1", "round: 2", cfg)
@@ -365,6 +425,9 @@ def main(home):
         )
         for k, x, y in ((1, 46.3, 27200.0), (2, 46.2, 27400.0))
     ]
+    # a screening point: AgentX fast mode, in the ledger, no input of the A/B
+    measure(tid, "r2-kvroute-fast", 64, 46.5, 27900.0, when, "r2-kvroute", round_=2, fast=True)
+    gsm8k(tid, "r2-kvroute-200", "r2-kvroute", 200, 25)
     ab(base, cand, "--mechanism", "prefix 命中率 41% → 68%")
     # tokenizer workers: judged noise, then the decision edited by hand: unverified
     when = "2026-10-23T11:00:00Z"

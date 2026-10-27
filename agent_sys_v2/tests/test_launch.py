@@ -186,6 +186,11 @@ def test_options_command_and_launch_md(tmp_path, make_project):
         "baseline_series": "",
         "noise_pct": 2.0,
         "accept_pct": 3.0,
+        "min_duration_s": 3600.0,
+        "reproduce_pct": 5.0,
+        "max_arm_gap_min": 60.0,
+        "min_repeats": 2,
+        "gsm8k_margin": 0.02,
     }
     assert any(f.endswith("agent_sys_v2/verdict.py") for f in cfg["toolchain"])
 

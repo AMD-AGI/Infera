@@ -34,18 +34,24 @@ Files are read again only when they change.
   "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger verify <dir or file> ...
   "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger agentx <agentx_conc*.json or dir> ... --out "$AGENT_SYS_WORKSPACE/results"
       --series v0 [--round 1] [--role baseline] [--label PREFIX] [--change TEXT] [--time ISO]
+  "$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger gsm8k <lm_eval output dir> --out "$AGENT_SYS_WORKSPACE/results"
+      --label v0-full --series v0 [--round 1]
 
 check checks result files (a task's acceptance check): exit 1 and the reasons when one is wrong or there is none.
 verify is an experiment's check: check --require-verdict, then every verdict recomputed from the AgentX output it
 was judged on (verdict.py). agentx writes one result per InferenceX AgentX output (agentx_conc<C>.json), with the
 metrics the InferenceX App derives from it (ix_metrics), so our points and the official ones plot on one chart, and
-its source in evidence: the raw file (relative to the project directory) with its sha256 and the run directory's
-runtime.env. Only such a result can be the input of a verdict. It never overwrites a result (a repeat at the same
-concurrency needs its own --label).
+its source in evidence: the raw file (relative to the project directory) with its sha256, the run directory's
+runtime.env and AIPerf's export, and in workload what they say of the measurement: AIPerf's window, the node, the
+duration it was set to, fast mode, and what could not be read (gates.py). Only such a result can be the input of a
+verdict, and only a formal one. It never overwrites a result (a repeat at the same concurrency needs its own
+--label). gsm8k writes an accuracy result (<label>.gsm8k.json, no point of the curves) from lm_eval's per-question
+samples (gsm8k.py).
 
 A series' reference (reference()) is what the ledger compares with: the points the task that sealed the version
 measured (v0: the baseline task; vN: close/rN). Its points from other tasks, such as an experiment's base arm, are
-repeats: drawn on the curve, never part of the reference, its frontier or its working point. A row also says its
+repeats: drawn on the curve, never part of the reference, its frontier or its working point; so are screening points
+(AgentX fast mode, or shorter than ledger.min_duration_s: gates.py), which are never an A/B's input either. A row also says its
 verdict's own delta (verdict_delta_pct, against the baseline arm it was judged with), whether the verdict holds when
 recomputed (verified, unverified: why not), and judged_against: the baseline series of its verdict when that is no
 longer the project's.
@@ -69,6 +75,18 @@ STATUSES = ("valid", "void")
 ROLES = ("baseline", "candidate", "reference")
 DEFAULT_NOISE_PCT = 2.0  # project.yaml ledger.noise_pct: the noise band of an A/B, in percent
 DEFAULT_ACCEPT_PCT = 3.0  # ledger.accept_pct: the gain an accept needs
+DEFAULT_MIN_DURATION_S = (
+    3600.0  # ledger.min_duration_s: a formal AgentX measurement is set to this at least
+)
+DEFAULT_REPRODUCE_PCT = (
+    5.0  # ledger.reproduce_pct: how far an A/B's base arm may be from the baseline series
+)
+DEFAULT_MAX_ARM_GAP_MIN = (
+    60.0  # ledger.max_arm_gap_min: the longest gap between an A/B's measurements
+)
+DEFAULT_MIN_REPEATS = (
+    2  # ledger.min_repeats: formal measurements on one node at the working point, for the noise
+)
 _cache = {}  # path -> ((mtime_ns, size), doc, errors)
 
 
@@ -129,8 +147,8 @@ def validate(doc, require_verdict=False):
     workload = doc.get("workload", {})
     if not isinstance(workload, dict):
         errors.append("workload should be an object")
-    elif "conc" in workload and not (number(workload["conc"]) and workload["conc"] > 0):
-        errors.append("workload.conc should be a positive number (the concurrency)")
+    else:
+        errors += workload_errors(workload)
     verdict = {} if doc.get("verdict") is None else doc["verdict"]
     if not isinstance(verdict, dict):
         errors.append("verdict should be an object")
@@ -144,8 +162,43 @@ def validate(doc, require_verdict=False):
         and role == "candidate"
         and not verdict.get("decision")
         and verdict.get("status") != "void"
+        and not (isinstance(workload, dict) and screening_of(doc))
     ):
-        errors.append("verdict.decision is missing (a candidate needs the A/B decision, or void)")
+        errors.append(
+            "verdict.decision is missing (a candidate needs the A/B decision, or void; a screening point needs neither)"
+        )
+    return errors
+
+
+def screening_of(doc):
+    """Why a result's own file says it is no formal measurement ('' when it does not): a screening candidate needs no
+    A/B decision."""
+    from .gates import screening
+
+    return screening(measured_by(doc))
+
+
+def workload_errors(workload):
+    """What is wrong with a result's workload: its concurrency, and what ledger agentx read of the measurement."""
+    errors = []
+    if "conc" in workload and not (number(workload["conc"]) and workload["conc"] > 0):
+        errors.append("workload.conc should be a positive number (the concurrency)")
+    for key in ("duration_s", "benchmark_duration_s"):
+        if key in workload and not (number(workload[key]) and workload[key] > 0):
+            errors.append(f"workload.{key} should be a positive number of seconds")
+    if "fast" in workload and not isinstance(workload["fast"], bool):
+        errors.append("workload.fast should be true or false (AgentX fast mode)")
+    if "node" in workload and not (isinstance(workload["node"], str) and workload["node"].strip()):
+        errors.append("workload.node should be the host measured")
+    if "window" in workload:
+        from .gates import when
+
+        w = workload["window"]
+        start, end = (when(w.get(k)) if isinstance(w, dict) else None for k in ("start", "end"))
+        if not (start and end):
+            errors.append("workload.window should be {start, end}: AIPerf's ISO times")
+        elif start > end:
+            errors.append("workload.window ends before it starts")
     return errors
 
 
@@ -222,11 +275,28 @@ def settings_from(config):
         "working_point": working_point(cfg.get("working_point")),
         "noise_pct": percent_or(cfg.get("noise_pct"), DEFAULT_NOISE_PCT),
         "accept_pct": percent_or(cfg.get("accept_pct"), DEFAULT_ACCEPT_PCT),
+        "min_duration_s": positive_or(cfg.get("min_duration_s"), DEFAULT_MIN_DURATION_S),
+        "reproduce_pct": percent_or(cfg.get("reproduce_pct"), DEFAULT_REPRODUCE_PCT),
+        "max_arm_gap_min": positive_or(cfg.get("max_arm_gap_min"), DEFAULT_MAX_ARM_GAP_MIN),
+        "min_repeats": cfg["min_repeats"]
+        if isinstance(cfg.get("min_repeats"), int)
+        and not isinstance(cfg["min_repeats"], bool)
+        and cfg["min_repeats"] >= 2
+        else DEFAULT_MIN_REPEATS,
     }
 
 
+def positive_or(value, default):
+    """A positive finite number from project.yaml, else the default."""
+    return float(value) if number(value) and value > 0 else default
+
+
 def rows(project):
-    """Every result of the project, oldest first, and the files that look like results but are wrong."""
+    """Every result of the project, oldest first, and the files that look like results but are wrong. screening: why
+    a result is no formal AgentX measurement ('' when it is one): in the ledger, never an A/B's input or a reference."""
+    from .gates import screening
+
+    min_s = settings(project)["min_duration_s"]
     out, bad = [], []
     for t in project.tasks.values():
         for path in json_files(t.workspace / "results"):
@@ -253,6 +323,7 @@ def rows(project):
                     "change": str(doc.get("change") or ""),
                     "metrics": {k: v for k, v in doc["metrics"].items() if number(v)},
                     "workload": workload,
+                    "screening": screening(measured_by(doc), min_s),
                     "status": verdict.get("status", "valid"),
                     "decision": verdict.get("decision") or "",
                     "notes": str(verdict.get("notes") or ""),
@@ -261,9 +332,19 @@ def rows(project):
                     if number(verdict.get("vs_baseline_pct"))
                     else None,
                     "judged_series": judged_series(verdict),
+                    # a noise verdict the measurement could not resolve: left to the round's close
+                    "resolvable": verdict.get("resolvable") is not False,
                 }
             )
     return sorted(out, key=lambda r: (r["time"], r["task"], r["file"])), bad
+
+
+def measured_by(doc):
+    """What a result's own file says of its measurement, for screening(): its workload, and that it is AgentX's when
+    it carries an AgentX source."""
+    workload = doc.get("workload") if isinstance(doc.get("workload"), dict) else {}
+    evidence = doc.get("evidence") if isinstance(doc.get("evidence"), dict) else {}
+    return {**workload, **({"client": "agentx"} if evidence.get("agentx") else {})}
 
 
 def judged_series(verdict):
@@ -292,7 +373,11 @@ def reference(table, series):
     measured, such as an experiment's base arm recorded as a repeat of the baseline series, are repeats: drawn, never
     part of the reference, so the reference does not drift as experiments add repeats. A series no sealing task
     measured (not a version, or a project without those tasks) is all its valid points."""
-    pts = [r for r in table if r["series"] == series and r["status"] == "valid"]
+    pts = [
+        r
+        for r in table
+        if r["series"] == series and r["status"] == "valid" and not r.get("screening")
+    ]
     return [r for r in pts if sealed_by(r, series)] or pts
 
 
@@ -358,7 +443,7 @@ def at_conc(points, conc):
 def curves(table, cfg, primary, base_series):
     """The series as Y (primary) against X curves: [{name, role, round, counts, points, wp}], points sorted by X with
     their frontier flag; wp = the series at the working point with its delta and gain against the baseline series;
-    counts: every point of it counts."""
+    counts: every point of it but screening ones counts."""
     x = cfg["x"]
     if not x or not primary:
         return []
@@ -382,13 +467,14 @@ def curves(table, cfg, primary, base_series):
                     "time": r["time"],
                     "decision": r["decision"],
                     "repeat": r["repeat"],
+                    "screening": bool(r["screening"]),
                 }
                 for r in rs
             ),
             key=lambda p: p["x"] * sx,
         )
-        # a repeat is drawn but is not the series: not on its frontier, not in its working point
-        own = [p for p in points if not p["repeat"]]
+        # a repeat or a screening point is drawn but is not the series: not on its frontier, not in its working point
+        own = [p for p in points if not p["repeat"] and not p["screening"]]
         on = {id(own[i]) for i in frontier(own, sx, sy)}
         for p in points:
             p["frontier"] = id(p) in on
@@ -412,7 +498,8 @@ def curves(table, cfg, primary, base_series):
                 "baseline": name == base_series,
                 "round": max(rounds) if rounds else None,
                 "time": max(r["time"] for r in rs),
-                "counts": all(counts(r) for r in rs),
+                # screening points are never judged: they do not keep a series from counting
+                "counts": all(counts(r) for r in rs if not r["screening"]),
                 "points": points,
                 "wp": value,
             }
@@ -439,7 +526,12 @@ def ledger(project):
     # a series' points other than its reference (an experiment's base arm in the baseline series) are repeats
     refs = {id(r) for s in {r["series"] for r in table if r["series"]} for r in reference(table, s)}
     for r in table:
-        r["repeat"] = r["status"] == "valid" and bool(r["series"]) and id(r) not in refs
+        r["repeat"] = (
+            r["status"] == "valid"
+            and bool(r["series"])
+            and id(r) not in refs
+            and not r["screening"]
+        )
     # the baseline series' reference at each concurrency: what a result at that concurrency is compared with
     by_conc = {}
     for r in reference(table, base_series) if base_series else []:
@@ -455,8 +547,9 @@ def ledger(project):
             r["delta_pct"] = pct(r["value"], sum(same) / len(same)) if same else None
         else:
             r["delta_pct"] = pct(r["value"], base and base["metrics"][primary])
-        # the delta the right way up; none where it means nothing: a void measurement, or one inside the noise
-        void = r["status"] == "void" or r["decision"] == "noise"
+        # the delta the right way up; none where it means nothing: a void measurement, one inside the noise, or a
+        # screening one (fast mode or short: not comparable with the formal reference)
+        void = r["status"] == "void" or r["decision"] == "noise" or bool(r["screening"])
         r["gain"] = None if void else gain(r["delta_pct"], up)
         r["baseline"] = r is base
         if counts(r) and number(r["value"]):
@@ -518,7 +611,7 @@ def verify_rows(project, table, base_series):
         if not verdict.judged(load(path)[0]):
             r["verified"], r["unverified"] = None, []
         else:
-            found = verdict.check_row(path, project.path)
+            found = verdict.check_row(path, project.path, project)
             r["verified"], r["unverified"] = not found, [f["problem"] for f in found]
         js = r["judged_series"]
         r["judged_against"] = js if js and base_series and js != base_series else ""
@@ -622,10 +715,21 @@ def topology(agg):
 
 
 def from_agentx(
-    agg, source, series, round_=None, role="candidate", label="", change="", time="", evidence=None
+    agg,
+    source,
+    series,
+    round_=None,
+    role="candidate",
+    label="",
+    change="",
+    time="",
+    evidence=None,
+    measured=None,
 ):
     """One infera.result/v1 document from an agentx_conc<C>.json. Raises ValueError when it is not one. evidence:
-    where it came from (convert_agentx: the raw file, its sha256 and runtime.env), {"agentx": source} by default."""
+    where it came from (convert_agentx: the raw file, its sha256, runtime.env and AIPerf's export), {"agentx": source}
+    by default; measured: what the run directory says of the measurement (gates.measurement: window, node, set
+    duration, fast mode, what is missing), merged into workload."""
     try:
         conc = agg["conc"]
         metrics = ix_metrics(agg)
@@ -662,6 +766,7 @@ def from_agentx(
             or (agg.get("dataset") or {}).get("loader"),
             "num_gpus": agg.get("num_gpus"),
             "requests_total": agg.get("num_requests_total"),
+            **(measured or {}),
         },
         "config": {
             "hw": agg.get("hw"),
@@ -684,25 +789,23 @@ def from_agentx(
     return doc
 
 
-def agentx_evidence(path, data, root):
-    """Where a result came from: the raw agentx_conc<C>.json (relative to the project directory) and its sha256, and
-    the runtime.env of its run directory (the client's settings: DURATION, warm-up ...) with its sha256 and values."""
-    from . import verdict  # it reads results with this module
+def agentx_evidence(path, data, root, aiperf=None):
+    """Where a result came from: the raw agentx_conc<C>.json (relative to the project directory) and its sha256, the
+    runtime.env of its run directory (the client's settings: DURATION, warm-up ...) with its sha256 and values, and
+    AIPerf's export the measurement was read from (aiperf: {file, sha256} from gates.read_point)."""
+    from . import gates, verdict  # they read results with this module
 
     out = {"agentx": verdict.rel(path, root), "agentx_sha256": hashlib.sha256(data).hexdigest()}
     env = Path(path).parent / "runtime.env"
     if env.is_file():
-        text = env.read_bytes()
-        pairs = (
-            line.split("=", 1)
-            for line in text.decode("utf-8", "replace").splitlines()
-            if "=" in line and not line.lstrip().startswith("#")
-        )
         out["runtime_env"] = {
             "file": verdict.rel(env, root),
-            "sha256": hashlib.sha256(text).hexdigest(),
-            "vars": {k.strip(): v.strip() for k, v in pairs},
+            "sha256": hashlib.sha256(env.read_bytes()).hexdigest(),
+            "vars": gates.read_env(env),
         }
+    if aiperf:
+        out["aiperf"] = verdict.rel(aiperf["file"], root)
+        out["aiperf_sha256"] = aiperf["sha256"]
     return out
 
 
@@ -714,15 +817,17 @@ def convert_agentx(paths, out, series, round_=None, role="candidate", label="", 
         found += sorted(p.rglob("agentx_conc*.json")) if p.is_dir() else [p]
     if not found:
         errors.append(f"no agentx_conc*.json under {', '.join(map(str, paths))}")
-    from . import verdict
+    from . import gates, verdict
 
     out = Path(out)
     root = verdict.project_root(out)
     for f in found:
         try:
             data = f.read_bytes()
+            agg = json.loads(data)
+            measured, aiperf = gates.read_point(f, agg if isinstance(agg, dict) else {})
             doc = from_agentx(
-                json.loads(data),
+                agg,
                 f.resolve(),
                 series,
                 round_,
@@ -730,7 +835,8 @@ def convert_agentx(paths, out, series, round_=None, role="candidate", label="", 
                 label,
                 change,
                 time or iso(f.stat().st_mtime),
-                agentx_evidence(f, data, root),
+                agentx_evidence(f, data, root, aiperf),
+                measured,
             )
         except (OSError, UnicodeDecodeError, ValueError) as e:
             errors.append(f"{f}: {e}")
@@ -750,9 +856,25 @@ def convert_agentx(paths, out, series, round_=None, role="candidate", label="", 
 
 def check(paths, require_verdict=False):
     """(all well, lines to print): there is at least one result file among paths (the files at the top of a
-    directory), and every one is valid."""
+    directory), and every one is valid; so is every GSM8K result among them (gsm8k.py), though it is no result."""
+    from . import gsm8k
+
     found, bad, lines = 0, 0, []
     for f in (f for p in paths for f in json_files(p)):
+        if f.name.endswith(gsm8k.SUFFIX):
+            try:
+                acc = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, UnicodeDecodeError, ValueError) as e:
+                acc, errors = None, [f"not JSON: {e}"]
+            else:
+                errors = (
+                    gsm8k.validate(acc)
+                    if gsm8k.is_accuracy(acc)
+                    else [f'schema should be "{gsm8k.SCHEMA}"']
+                )
+            bad += bool(errors)
+            lines += [f"{f}: {e}" for e in errors] or [f"{f}: ok (GSM8K {acc['label']})"]
+            continue
         doc, errors = read(f, require_verdict)
         found += doc is not None
         bad += bool(errors)
@@ -765,7 +887,7 @@ def check(paths, require_verdict=False):
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="python -m agent_sys_v2.ledger",
-        description="Check infera.result files; convert AgentX output.",
+        description="Check infera.result files; convert AgentX output and lm_eval's GSM8K.",
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("check", help="exit 1 unless every result file under the paths is valid")
@@ -797,7 +919,14 @@ def main(argv=None):
     a.add_argument(
         "--time", default="", help="ISO time of the measurement (default: the file's mtime)"
     )
+    from . import gsm8k
+
+    gsm8k.add_parser(sub)
     args = ap.parse_args(argv)
+    if args.cmd == "gsm8k":
+        code, lines = gsm8k.main_args(args)
+        print("\n".join(lines))
+        return code
     if args.cmd == "agentx":
         written, errors = convert_agentx(
             args.paths,

@@ -1,0 +1,65 @@
+{
+ "schema_version": "1.4",
+ "aiperf_version": "1.0.11",
+ "benchmark_id": "a7489d0b9042",
+ "request_count": {
+  "unit": "requests",
+  "avg": 11288.0
+ },
+ "benchmark_duration": {
+  "unit": "sec",
+  "avg": 3626.679537152
+ },
+ "was_cancelled": false,
+ "error_summary": [],
+ "start_time": "2026-10-26T09:25:25.190345",
+ "end_time": "2026-10-26T10:26:05.191227",
+ "metadata": {
+  "dataset": {
+   "source_type": "public_dataset",
+   "loader": "semianalysis_cc_traces_weka_062126",
+   "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+   "hf_split": "train",
+   "num_dataset_entries": 393
+  },
+  "metric_duration_coverage": [
+   {
+    "phase_name": "profiling",
+    "expected_duration_seconds": 3600.0,
+    "required_ratio": 0.95,
+    "ttft_ratio": 1.0,
+    "inter_token_latency_ratio": 1.0
+   }
+  ],
+  "scenario": "agentx",
+  "submission_valid": true
+ },
+ "input_config": {
+  "endpoint": {
+   "urls": [
+    "http://10.0.0.1:18000"
+   ],
+   "type": "chat",
+   "streaming": true,
+   "use_server_token_count": true
+  },
+  "phases": [
+   {
+    "name": "profiling",
+    "kind": "profiling",
+    "type": "concurrency",
+    "duration": 3600.0,
+    "concurrency": 96,
+    "grace_period": 30.0,
+    "timing_mode": "agentic_replay",
+    "failed_request_threshold": 0.25,
+    "trajectory_start_min_ratio": 0.25,
+    "trajectory_start_max_ratio": 0.75,
+    "system_idle_gap_cap_seconds": 10.0,
+    "warmup_requests_per_lane": 10,
+    "agentic_warmup_grace_period": 1800.0
+   }
+  ],
+  "scenario": "agentx"
+ }
+}

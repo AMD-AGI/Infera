@@ -2,7 +2,6 @@
 source of a result, `ledger verify` on an experiment's workspace and a table of ways to spoil it, each of which must be
 caught for its own reason."""
 
-import copy
 import hashlib
 import importlib.util
 import json
@@ -10,12 +9,11 @@ import math
 from pathlib import Path
 
 import pytest
+from measuring import convert, gsm8k, measure, raw
 
 from agent_sys_v2 import ledger, procs, skills, verdict
 from agent_sys_v2.verdict import MISMATCH, UNVERIFIABLE
 
-FIXTURES = Path(__file__).parent / "fixtures"
-RAW = json.loads((FIXTURES / "agentx/agentx_conc40.json").read_text())
 CONFIG = """title: GLM-5.2 4P4D AgentX
 round: 1
 version: v0
@@ -88,38 +86,6 @@ def test_failed_requests_are_counted_from_agentx():
 # ---------------------------------------------------------------- an experiment's workspace, judged
 
 
-def raw(scale=1.0, itl=0.01415, errors=0, conc=40):
-    """An agentx_conc40.json: the real one with its throughput scaled, its p90 ITL and failed requests set."""
-    agg = copy.deepcopy(RAW)
-    agg["conc"] = conc
-    per_gpu = agg["request_metrics"]["throughput"]["per_gpu"]
-    for k in ("input_tput_tps", "total_tput_tps", "output_tput_tps"):
-        per_gpu[k] = round(per_gpu[k] * scale, 5)
-    agg["request_metrics"]["latency"]["full_response_itl"]["p90"] = itl
-    agg["request_accounting"]["records_error_dropped"] = errors
-    return agg
-
-
-def measure(ws, name, agg, duration=3600):
-    """A run directory as the ATOM kit's agentx.sh leaves it: agentx_conc<C>.json beside runtime.env."""
-    d = ws / "log" / "agentx" / name
-    d.mkdir(parents=True)
-    (d / f"agentx_conc{agg['conc']}.json").write_text(json.dumps(agg, indent=1))
-    (d / "runtime.env").write_text(
-        f"CONC={agg['conc']}\nDURATION={duration}\nAIPERF_WARMUP_REQUESTS_PER_LANE=10\n"
-    )
-    return d
-
-
-def convert(ws, run, series, role, label, conc=40):
-    argv = ["agentx", str(run), "--out", str(ws / "results"), "--series", series, "--round", "1"]
-    assert (
-        ledger.main([*argv, "--role", role, "--label", label, "--time", "2026-10-27T10:00:00Z"])
-        == 0
-    )
-    return ws / "results" / f"{label}-c{conc}.json"
-
-
 def start_run(ws, config, run_id="20261027-090000"):
     """What a run of the task leaves: launch.json with the project's rules as the run started."""
     from agent_sys_v2.model import load_yaml, plain, write_json
@@ -132,8 +98,9 @@ def start_run(ws, config, run_id="20261027-090000"):
 
 @pytest.fixture
 def exp(tmp_path, capsys):
-    """A project in its first round: the baseline task's v0 point at C40, and an experiment with two base arms (repeats
-    of v0) and two candidates, each converted from its own AgentX output and judged with ab_judge --write."""
+    """A project in its first round: the baseline task's v0 point at C40 with a repeat on the same node and v0's full
+    GSM8K, and an experiment with two base arms (repeats of v0) and two candidates, each converted from its own AgentX
+    output, the candidate's GSM8K over 200 questions, judged with ab_judge --write."""
     pdir = tmp_path / "home/projects/glm"
     (pdir / "tasks/baseline").mkdir(parents=True)
     (pdir / "tasks/experiment").mkdir(parents=True)
@@ -142,8 +109,11 @@ def exp(tmp_path, capsys):
     (pdir / "tasks/experiment/r1-spf.md").write_text("SPF\n")
     bws = pdir / "workspaces/baseline/r1"
     convert(bws, measure(bws, "c40", raw(1.0)), "v0", "baseline", "v0")
+    convert(bws, measure(bws, "c40-rep1", raw(1.004)), "v0", "baseline", "v0-rep1")
+    gsm8k(bws, "v0-full", "v0", 1319, range(0, 1319, 25))  # 1266 of 1319 right: 0.960
     ws = pdir / "workspaces" / EXP
     start_run(ws, CONFIG)
+    gsm8k(ws, "r1-spf-200", "r1-spf", 200, range(3, 200, 25))  # 192 of 200
     files = {
         "b1": convert(ws, measure(ws, "base1", raw(1.0)), "v0", "baseline", "r1-spf-base1"),
         "b2": convert(ws, measure(ws, "base2", raw(1.006)), "v0", "baseline", "r1-spf-base2"),
@@ -187,7 +157,32 @@ def test_the_experiment_as_judged_passes(exp, capsys):
         3.0,
         "v0",
     )
-    assert inputs["rules_from"] == {"noise_pct": "project.yaml", "accept_pct": "project.yaml"}
+    assert set(inputs["rules_from"].values()) == {"project.yaml"}
+    assert (inputs["min_duration_s"], inputs["reproduce_pct"], inputs["max_arm_gap_min"]) == (
+        3600,
+        5,
+        60,
+    )
+    # the gates: the base arms reproduce v0 (1.003 against the baseline task's 1.002), one after another on one node,
+    # the retest noise from the baseline task's two measurements on that node, GSM8K not worse
+    g = v["gates"]
+    assert {k: g[k]["status"] for k in g} == {
+        "reproduce": "ok",
+        "timing": "ok",
+        "noise": "ok",
+        "accuracy": "ok",
+    }
+    assert g["reproduce"]["off_pct"] == 0.1 and g["reproduce"]["reference"] == [
+        "workspaces/baseline/r1/results/v0-c40.json",
+        "workspaces/baseline/r1/results/v0-rep1-c40.json",
+    ]
+    assert g["timing"]["nodes"] == ["10.0.0.1"] and g["timing"]["max_gap_min"] < 30
+    assert (
+        0 < g["noise"]["retest_pct"] < 2
+        and g["noise"]["floor_pct"] == 2.0
+        and v["resolvable"] is True
+    )
+    assert g["accuracy"]["files"][0]["candidate"] == [192, 200]
     b1 = inputs["baseline"][0]
     assert b1["file"] == f"workspaces/{EXP}/results/r1-spf-base1-c40.json"
     assert b1["agentx"] == f"workspaces/{EXP}/log/agentx/base1/agentx_conc40.json"
@@ -727,8 +722,9 @@ def test_the_ledger_shows_both_deltas_and_whether_a_verdict_holds(exp, monkeypat
     full, rows = rows_of(exp["pdir"])
     assert full["errors"] == []
     c1, b1, v0 = rows["r1-spf-1-c40"], rows["r1-spf-base1-c40"], rows["v0-c40"]
-    # the ledger's delta is against the baseline task's v0 point; the verdict's against the experiment's base arm
-    assert c1["delta_pct"] == ledger.pct(c1["value"], v0["value"]) == 6.0
+    rep = rows["v0-rep1-c40"]
+    # the ledger's delta is against the baseline task's v0 points; the verdict's against the experiment's base arm
+    assert c1["delta_pct"] == ledger.pct(c1["value"], (v0["value"] + rep["value"]) / 2) == 5.79
     assert c1["verdict_delta_pct"] == doc(exp["c1"])["verdict"]["vs_baseline_pct"] == 5.98
     assert (c1["verified"], c1["unverified"], c1["judged_against"]) == (True, [], "")
     assert v0["verified"] is None and b1["verified"] is None  # nothing to recompute
@@ -736,8 +732,8 @@ def test_the_ledger_shows_both_deltas_and_whether_a_verdict_holds(exp, monkeypat
     assert (b1["repeat"], v0["repeat"], c1["repeat"]) == (True, False, False)
     curve = next(c for c in full["series"] if c["name"] == "v0")
     assert [p["repeat"] for p in curve["points"]].count(True) == 2
-    assert [p["label"] for p in curve["points"] if p["frontier"]] == ["v0-c40"]
-    assert curve["wp"]["y"] == v0["value"] and curve["wp"]["n"] == 1
+    assert [p["label"] for p in curve["points"] if p["frontier"]] == ["v0-rep1-c40"]
+    assert curve["wp"]["n"] == 2 and not v0["repeat"] and not rep["repeat"]
     # a hand-edited decision: shown, marked, with the reason; cached until a file changes
     calls = []
     real = verdict.verify

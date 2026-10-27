@@ -324,6 +324,11 @@ def test_the_demo_project(tmp_path):
         rows["r2-tokenizer-c64"]["verified"] is False and rows["r1-dcp4-c64"]["verified"] is False
     )
     assert rows["r2-hicache-c64"]["status"] == "void" and rows["r2-hicache-c64"]["verified"]
+    # an AgentX fast run: screening, drawn, no input, and the A/B beside it holds
+    fast = rows["r2-kvroute-fast-c64"]
+    assert fast["screening"].startswith("AgentX fast mode") and not fast["repeat"]
+    assert fast["delta_pct"] is not None and fast["gain"] is None  # shown, never colored as a gain
+    assert rows["r2-kvroute-1-c64"]["decision"] == "accept"
 
 
 def test_the_demo_replaces_only_a_demo_home(tmp_path):
