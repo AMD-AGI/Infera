@@ -75,6 +75,11 @@ K5 的 TARGET_VERIFY 行 T = 6 × bs 上验证过，llr35 是 K3）。
     kit md5 见 `config/kit-llr35-1027T0940.md5`）：`_pp_recv_proxy_tensors` 收到后对每个 tensor `record_stream(forward_stream)`，只改这一处。
   - 重新排队（`scripts/reorder_1027.sh`，`waiter8-*.out`）：b3 跑完后停掉 waiter6 的剩余部分和 waiter7，依次跑 clean-k3 + PP 通信重叠、
     同 + 补丁、clean-k5 + async + 补丁（`config/site-bis5-*.env`，200 题、16k × 32）；再跑 1319 题的 clean-k3 + custom all-reduce、clean-k3；最后长度扫描。
+    第一项因 `up.sh` 要求 `PREFILL_MOUNT_EXTRA` 已定义而起栈失败（`common.sh` 已补默认空值），10:00 用 `scripts/reorder2_1027.sh`（`waiter9-*.out`）按同样顺序重排。
+
+**b3 = llr35 去掉 PP 通信重叠、async、custom all-reduce（保留 KF、FP8 draft、index_share、GEMM CSV、mem 0.95、stream-interval 30、CLIP 8；关 HiCache）**：
+smoke 6/6；**1319 题探测 0.967，乱码 0，开头坏 0**；长上下文 16k × 32 **捞针 16/16、长前缀 GSM8K 16/16**。19 条到上限（1.4%），
+全是题意含糊时的连贯反复（"2/5 times more"、"twice as many more"），不是乱码；clean-k3 的 1319 题给对照。
   - 下一步（`waiter6-*.out`）：clean-k5 + async 长上下文并发 1（区分 microbatch 间交错 / 每请求确定性）；然后全量 GSM8K 1319 题探测
     （`PROBE_N=1319`，看低频的开头坏）跑 b3（llr35 去掉 PP 通信重叠、async、custom all-reduce）、clean-k3 + custom all-reduce、clean-k3、
     clean-k3 + PP 通信重叠（`config/site-bis4-*.env`）。
