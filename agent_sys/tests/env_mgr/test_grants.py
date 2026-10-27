@@ -398,7 +398,7 @@ def test_a_kind_naming_two_outputs_is_exported_for_neither(store: str) -> None:
 def test_two_kinds_that_collide_as_variable_names_are_both_dropped(store: str) -> None:
     """`my-facts` and `my_facts` are distinct kinds and one variable name.
 
-    Detected by counting rather than by trusting `_env_name` to be injective —
+    Detected by counting rather than by trusting `env_name` to be injective —
     it is lossy on purpose and its inverse is never taken.
     """
     a, b = HandoffId.new(), HandoffId.new()

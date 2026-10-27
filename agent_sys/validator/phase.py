@@ -55,7 +55,9 @@ __all__ = [
     "BodyRunner",
     "LeafValidator",
     "PhaseRunner",
+    "BODY_OUTPUT",
     "ScriptBodyRunner",
+    "declare_materials",
     "read_verdict_file",
 ]
 
@@ -107,6 +109,22 @@ class BodyRunner(Protocol):
 STDERR_TAIL = 2000
 
 
+#: What a script body printed, kept in its zone (tail, per stream). Appended
+#: under a `== <validator name> ==` header rather than overwritten: a
+#: composite's members share one zone, and the member that failed is usually
+#: not the last one to run.
+BODY_OUTPUT = "body_output.txt"
+BODY_OUTPUT_BYTES = 64 * 1024
+
+
+def _tail_bytes(text: str | None, limit: int) -> str:
+    """The last `limit` bytes of `text` as UTF-8, a split character dropped."""
+    raw = (text or "").encode("utf-8", errors="replace")
+    if len(raw) <= limit:
+        return raw.decode("utf-8")
+    return "…" + raw[-limit:].decode("utf-8", errors="ignore")
+
+
 def _stderr_tail(stderr: str) -> str:
     text = (stderr or "").strip()
     if len(text) <= STDERR_TAIL:
@@ -149,6 +167,16 @@ class ScriptBodyRunner:
             capture_output=True,
             text=True,
         )
+        # Kept beside the verdict: a body's reasons are often only printed, and
+        # the run would otherwise lose them (e2e-flow writes validator_report.txt
+        # for exactly this). The zone is the validator's, outside every handoff.
+        with (env.zone / BODY_OUTPUT).open("a", encoding="utf-8") as printed:
+            section = _tail_bytes(completed.stdout, BODY_OUTPUT_BYTES) + _tail_bytes(
+                completed.stderr, BODY_OUTPUT_BYTES
+            )
+            if section and not section.endswith("\n"):
+                section += "\n"
+            printed.write(f"== {spec.name} ==\n{section}")
         if not env.verdict_file.exists():
             # **A body that reports nothing must not pass — and must not fail
             # either.** Fabricating `{hid: False}` for a nonzero exit with no
@@ -228,11 +256,13 @@ def runner_for(spec: ValidatorSpec, package_root: Path | None) -> BodyRunner:
 
 
 #: The body-facing contract: every file a validation body may rely on, all of
-#: them in its `cwd`. This module writes the first three and reads the last.
-ZONE_FILES = ("args.json", "inputs.json", "materials.json", "verdict.json")
+#: them in its `cwd`. This module writes the first three, reads `verdict.json`,
+#: and appends `BODY_OUTPUT` after the body exits — a reserved name, so a body
+#: must not write its own report under it.
+ZONE_FILES = ("args.json", "inputs.json", "materials.json", "verdict.json", BODY_OUTPUT)
 
 
-def _declare_materials(env: ValidationEnvironment, staged: Mapping[Any, str]) -> None:
+def declare_materials(env: ValidationEnvironment, staged: Mapping[Any, str]) -> None:
     """Name what the body is validating, in its own working directory.
 
     **The gap this closes is one name wide.** `env_mgr.prepare_validation`
@@ -895,7 +925,7 @@ class PhaseRunner:
         # cannot contain them. Producer-versus-standard separation is
         # `check_separation`'s, at load (review R08).
         env = build_environment(root, config=config, agent_id=agent_id, standards=())
-        _declare_materials(env, materials)
+        declare_materials(env, materials)
         return env
 
     def _placed_root(

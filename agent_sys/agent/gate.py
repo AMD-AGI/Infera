@@ -33,7 +33,7 @@ from typing import Any
 from monitor.protocols import Budget, EventKind
 from task_graph.ids import HandoffId
 
-__all__ = ["EXECUTABLE_ITEMS", "GateFailure", "run_gate"]
+__all__ = ["EXECUTABLE_ITEMS", "GateFailure", "run_gate", "runnable"]
 
 #: The item keys that claim executability. `handoff` spec §5 makes a README
 #: required "whenever `script` or `command` is present", which is the same two.
@@ -233,11 +233,14 @@ def _executable(hid: HandoffId, version: int, store: Any) -> list[GateFailure]:
                 handoff_id=hid,
             )
             for key in sorted(set(items) & EXECUTABLE_ITEMS)
-            if not _runnable(items[key])
+            if not runnable(items[key])
         ]
 
 
-def _runnable(item: Any) -> bool:
+def runnable(item: Any) -> bool:
+    """An item the gate accepts as executable: a file (not an `items.json`
+    value) with the executable bit. Public so a pre-check outside the runtime
+    (`tools/skill`) asks the gate's own question rather than a copy of it."""
     path = getattr(item, "path", None)
     return path is not None and os.access(path, os.X_OK)
 

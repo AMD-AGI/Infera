@@ -227,10 +227,10 @@ def test_the_agent_is_told_where_to_write_and_the_name_resolves(package_root: Pa
     match = re.search(r"\$\{?(AGENT_SYS_OUTPUT_[A-Z0-9_]+)\}?", told)
     assert match, f"the readme never names an output path:\n{told}"
 
-    from env_mgr.grants import OUTPUT_ENV_PREFIX, _env_name
+    from env_mgr.grants import OUTPUT_ENV_PREFIX, env_name
 
     kind = _loaded_specs(package_root, "closure")["describe"]["task"]["outputs"][0]
-    expected = OUTPUT_ENV_PREFIX + _env_name(kind)
+    expected = OUTPUT_ENV_PREFIX + env_name(kind)
     assert match.group(1) == expected, (
         f"the readme sends the agent to {match.group(1)}, but this task's "
         f"declared output is {kind!r}, which `output_env` exports as {expected}"
@@ -624,11 +624,11 @@ def test_the_two_declared_names_point_at_the_same_level() -> None:
     tree (`test_the_two_declared_names_point_at_the_same_level`); this pins the
     half the demo's bodies depend on — that neither body hops.
     """
-    from env_mgr.grants import INPUT_ENV_PREFIX, OUTPUT_ENV_PREFIX, _env_name
+    from env_mgr.grants import INPUT_ENV_PREFIX, OUTPUT_ENV_PREFIX, env_name
 
     assert INPUT_ENV_PREFIX == "AGENT_SYS_INPUT_"
     assert OUTPUT_ENV_PREFIX == "AGENT_SYS_OUTPUT_"
-    assert _env_name("summary") == "SUMMARY"
+    assert env_name("summary") == "SUMMARY"
 
     # Read off `stage` rather than remembered: it copies the version's
     # `content/` and lands it *at* `<into>/<hid>/v<N>`.
