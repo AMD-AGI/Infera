@@ -1,0 +1,30 @@
+== llr37-v3-hc500-evict512k  run=/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/2p1d/work/runs/c104-1027T2355  window 2026-10-28 00:23:46 .. 01:23:46
+-- summarize_points
+| C104 | 50,574 | 418.1 | 3.335 | 12,100 / 5 | 63.9 / 56.7 | 15.7 / 17.6 | 4.67 / 12.87 / 6.70 | 43.6 | 96.29%（96.58%） |
+-- analyze_pd_logs
+prefill0: full-chunk median 324 ms (n=4576), uncached 14,991 tok/s, waiting mean 3.16, bins with a queue 63%
+decode: running total median 52, busiest rank median 17 p90 25, prealloc-wait 4.8, transfer-wait 17.3
+decode step ms by busiest-rank running: @5 30, @6 31, @7 31, @8 33, @9 37, @10 37, @11 38, @12 39, @13 41, @14 41, @15 42, @16 43, @17 45, @18 46, @19 47, @20 48, @21 49, @22 50, @23 51, @24 51, @25 52, @26 53, @27 54, @28 54
+-- pp_stage_times glm52_2p1d-prefill0.log
+batches with 8000-max new tokens: 5945, median new 8192, median cached 100480, median seqs 2
+  PP0 -> PP1 offset ms: median   281.9  p90   823.3
+  PP1 -> PP2 offset ms: median   311.4  p90   807.3
+  PP2 -> PP3 offset ms: median   299.1  p90   825.8
+  PP0 beat ms (queue > 0, n=4574): median   325.9  p90   911.6
+  PP1 beat ms (queue > 0, n=4574): median   313.6  p90   896.9
+  PP2 beat ms (queue > 0, n=4574): median   320.9  p90   876.0
+  PP3 beat ms (queue > 0, n=4574): median   319.2  p90   897.7
+-- prefill_beats glm52_2p1d-prefill0.log
+  beats > 2000 ms:  0.4% of beats, excess over median  1.8% of time
+  percentiles: p10=235 p25=268 p50=326 p75=596 p90=898 p95=1161 p99=1755
+beat by cached tokens of the batch (sum over its seqs):
+  cached    0k-   50k: n  1738  p10   241  p50   317  p90   832  mean   457 ms
+  cached   50k-  100k: n   433  p10   234  p50   305  p90   751  mean   430 ms
+  cached  100k-  200k: n   800  p10   234  p50   309  p90   827  mean   456 ms
+  cached  200k-  400k: n   852  p10   237  p50   363  p90   922  mean   506 ms
+  cached  400k-1000000k: n   717  p10   226  p50   513  p90  1110  mean   570 ms
+-- counters prefill0.prom (whole deployment, per pp_rank)
+pp0: computed 82.9M (~10126 steps)  dev_hit 984M  host_hit 599M  evictions 1262 (0.12/step) total 495s avg 392ms  evicted/step 66K  loadback/step 59K  backup 451M tok 215s  dropped 0  host_used 43.4/43.4M
+pp1: computed 82.9M (~10126 steps)  dev_hit 984M  host_hit 599M  evictions 1262 (0.12/step) total 320s avg 254ms  evicted/step 66K  loadback/step 59K  backup 451M tok 211s  dropped 0  host_used 43.4/43.4M
+pp2: computed 82.9M (~10126 steps)  dev_hit 984M  host_hit 599M  evictions 1262 (0.12/step) total 377s avg 299ms  evicted/step 66K  loadback/step 59K  backup 451M tok 213s  dropped 0  host_used 43.4/43.4M
+pp3: computed 82.9M (~10126 steps)  dev_hit 984M  host_hit 599M  evictions 1262 (0.12/step) total 351s avg 278ms  evicted/step 66K  loadback/step 59K  backup 451M tok 208s  dropped 0  host_used 43.4/43.4M

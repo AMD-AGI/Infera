@@ -12,13 +12,16 @@ D=$(basename $RUN | grep -o '1[0-9]\{3\}T' | head -1)
 day="2026-${D:0:2}-${D:2:2}"
 t0=$(grep -m1 'Phase profiling (profiling) started' $B | cut -c1-8)
 t1=$(grep -m1 'Phase profiling (profiling) sending complete' $B | cut -c1-8)
+hm=$(basename $RUN | grep -o 'T[0-9]\{4\}' | head -1 | cut -c2-)
+[[ "${t0:0:2}${t0:3:2}" < "$hm" ]] && day=$(date -d "$day + 1 day" +%F)  # the window started after midnight
+day1=$day; [[ "$t1" < "$t0" ]] && day1=$(date -d "$day + 1 day" +%F)
 echo "== $LABEL  run=$RUN  window $day $t0 .. $t1"
 T=$(mktemp -d); ln -s $RUN/agentx/agentx_conc$C.json $T/; ln -s $RUN/agentx/aiperf_artifacts/profile_export_aiperf.json $T/
 echo "-- summarize_points"; python3 $S/summarize_points.py $T 2>&1 | tail -3; rm -rf $T
-echo "-- analyze_pd_logs"; python3 $S/analyze_pd_logs.py $RUN ${day}T$t0 ${day}T$t1 2>&1 | tail -12
+echo "-- analyze_pd_logs"; python3 $S/analyze_pd_logs.py $RUN ${day}T$t0 ${day1}T$t1 2>&1 | tail -12
 for f in $RUN/logs/*prefill*.log; do
-  echo "-- pp_stage_times $(basename $f)"; python3 $S/pp_stage_times.py $f ${day}T$t0 ${day}T$t1 2>&1 | tail -8
-  echo "-- prefill_beats $(basename $f)"; python3 $P/scripts/prefill_beats.py $f ${day}T$t0 ${day}T$t1 2>&1 | tail -8
+  echo "-- pp_stage_times $(basename $f)"; python3 $S/pp_stage_times.py $f ${day}T$t0 ${day1}T$t1 2>&1 | tail -8
+  echo "-- prefill_beats $(basename $f)"; python3 $P/scripts/prefill_beats.py $f ${day}T$t0 ${day1}T$t1 2>&1 | tail -8
 done
 for m in $RUN/metrics/prefill*.prom; do
   echo "-- counters $(basename $m) (whole deployment, per pp_rank)"
