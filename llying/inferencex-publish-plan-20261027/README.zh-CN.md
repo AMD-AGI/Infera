@@ -8,9 +8,12 @@
 - `c34cda69`：初版。
 - `d614e55e`：cookbook 已收录 Dynamo；会话 header 只需设 AIPerf 环境变量；4+4 可以跨两台机器；同机两个 prefill 撞的是 ROCr 的 IPC socket；
   补了 e2e-norm 口径下与 ATOM PD 的对比。
-- 本版：记入 10-27 的三项决定（framework 名 `infera-sglang`、先不补 TTFT、所有 PD 形态一起提交）；按上游跟进 PR 重新评估 SGLang 补丁；
+- `842d132c`：记入 10-27 的三项决定（framework 名 `infera-sglang`、先不补 TTFT、所有 PD 形态一起提交）；按上游跟进 PR 重新评估 SGLang 补丁；
   `write_back` 保留（实测比 `write_through` 高 19.3%）并说明 NVIDIA 为什么不用补丁；补了镜像里的 Mooncake 版本、srt-slurm 的 frontend 与补丁规则、
   HiCache 撤栈显存释放在上游 SGLang 上的现状；第 4 节换成待做总表。
+- 本版（10-28）：infera 怎么进容器（第 5.7 节）。infera 自己的 overlay（payload 挂载 + `infera-exec`）不适合 InferenceX；
+  Dynamo 在 InferenceX 里是"原样镜像 + 启动时 pip 装固定版本的公开 wheel"；InferenceX 允许从 GitHub release 装 wheel（LMCache ROCm 先例）。
+  D 组按此改写。
 
 ## 0. 结论
 
@@ -28,6 +31,8 @@
    - **在 SemiAnalysis 集群上跑稳**，三种 PD 形态都要调通，而我们没有登录权限。
 4. **镜像外依赖比预想的简单。** nightly 20261018 及之后的 `lmsysorg/sglang-rocm` 镜像自带的 Mooncake 与 ATOM PD 相同，功能齐全，不用重编；
    libionic 照同集群 Kimi-K3 vLLM recipe 挂载宿主机的 provider；会话 header 只需设 AIPerf 环境变量。
+   infera 本身照 LMCache ROCm 的先例，从 Infera 的 GitHub release 按固定版本 pip 安装（要先发一个带 router 二进制的 release）；
+   不用 infera 的 overlay，也不在集群节点上预放 payload（第 5.7 节）。
 5. **仪表板口径。** 标准前沿用 E2E normalized interactivity P90（含 TTFT，下称 e2e-norm），每条曲线单独算。
    按 e2e-norm，我们 7 个点里 6 个在前沿；ATOM PD 的线在横轴约 51 以内都不低于我们（第 3 节）。按已定方针，先不为此补 TTFT。
 6. **工期**：1–2 人，关键路径约 **8–10 周**；乐观 6–7 周，悲观 3 个月以上。最不可控的是上游 SGLang 补丁合入和集群上调通（只能经 CI 迭代，每轮以天计）。
@@ -70,14 +75,15 @@
 | | Dynamo+SGLang（GB300，[#4300](https://github.com/SemiAnalysisAI/InferenceX/pull/4300)，已合入） | Dynamo+TRT-LLM（GB300） | ATOM PD（MI355X，[#4045](https://github.com/SemiAnalysisAI/InferenceX/pull/4045)，OPEN） |
 |---|---|---|---|
 | 镜像 | lmsysorg nightly，digest 固定，零补丁 | NVIDIA 官方 `nvcr.io/nvidia/tensorrt-llm/release` | `rocm/atom-dev` nightly |
-| 部署层 | Dynamo wheel 运行时安装（`dynamo.install`） | 同左，固定版本 | AToMesh 在 ATOM 镜像里 |
+| 部署层 | Dynamo wheel 运行时安装（`dynamo.install`：从 PyPI 下载固定版本的 wheel，启动前 pip 装进容器） | 同左，固定版本 | AToMesh 在 ATOM 镜像里 |
 | srt-slurm | 原生支持（srt-slurm 本来就是围绕 Dynamo 做的） | 原生 | `atomesh` frontend，由 SemiAnalysis 的 cquil11 提交（srt-slurm#433） |
 | cookbook | sglang#45111 / #45311（已合入） | 不需要（非 vLLM/SGLang） | 不需要 |
 | KV 传输 | — | — | 上游 Mooncake `78566d45`，只靠环境变量（`MC_DISABLE_HIP=1`、`MC_GID_INDEX=1`、`MC_MAX_MR_SIZE=1 GiB`） |
 | DRAM KV offload | — | — | Mooncake Store，主机内存池在独立的 owner 进程里，用 2 MiB 大页 |
 | 布局 | — | — | 每个 TP4 worker 独占半台（1P2D 用了 3 台） |
 
-和我们最像的是 Dynamo+SGLang：上游镜像 + 运行时安装的部署层 + 写有部署层命令的 cookbook。差别是 Dynamo 在 PyPI 上、srt-slurm 原生支持，infera 两样都没有。
+和我们最像的是 Dynamo+SGLang：上游镜像 + 运行时安装的部署层 + 写有部署层命令的 cookbook。差别是 Dynamo 有公开发布的 wheel、srt-slurm 原生支持，
+infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的 wheel，不含 router）。
 同集群上 SGLang PD 的先例是 `dsv4-fp4-mi355x-sglang-disagg-agentic-umbp-dspark`（sglang-router frontend，MoRI 传 KV），集群写法可以照抄。
 
 ## 3. 按仪表板口径重算 PR #210 的 7 个点
@@ -144,20 +150,22 @@
 | **C** | **镜像外依赖：Mooncake 与网卡**（第 5.2 节） | | | | | |
 | C1 | 镜像与 Mooncake | nightly 20261018 起自带 `78566d45`（与 ATOM PD 相同），功能齐全；正式版 v0.5.22 的 `01d1eb2a` 跑不了跨机 PD | 用 nightly 镜像、不重编、设 `MC_DISABLE_HIP=1` 实测 | 内部 | 2 天 | P0 |
 | C2 | 两个 Mooncake RDMA diff | 功能上不需要（ATOM 先例）；crsuse2 上 transfer failure 51→0、吞吐 +5.6% | 不带跑，看 CQE12 / transfer failure；推上游 #4540 / #4541 | 内部 + Mooncake 维护者 | — | P2 |
-| C3 | libionic | 不进镜像 | recipe `extra_mount` 只读挂载宿主机 `libionic-rdmav34.so`（照 Kimi-K3 vLLM） | 内部 | 小 | P0 |
+| C3 | libionic | 不进镜像；不用 `infera-exec` 覆盖镜像文件的做法（违反"不覆盖容器文件"） | recipe `extra_mount` 只读挂载宿主机 `libionic-rdmav34.so`（照 Kimi-K3 vLLM） | 内部 | 小 | P0 |
 | C4 | ionic 驱动 / 固件版本 | 公开日志查不到 | 问集群负责人，或跑调试作业打印 `nicctl show version firmware`、`modinfo ionic` | AMD / SemiAnalysis | — | P2 |
-| **D** | **infera 打包与发版**（第 5.7 节） | | | | 1 周左右 | |
-| D1 | router 二进制 | wheel 不含 Rust 二进制，未上 PyPI | 发 manylinux wheel 到 PyPI，或发 router 容器镜像 | 内部（PyPI 权限走 AMD 流程） | 1 周 | P0 |
-| D2 | 发版 | #210 的 router 改动（`--decode-request-weight`）未发版 | 发 v0.3.2，InferenceX 固定这个版本 | 内部 | 含在 D1 | P0 |
-| D3 | 包装层审计 | `kv_probe`、`kvd_wiring` 本配置不启用 | PR 里说明包装层不改 SGLang 行为 | 内部 | — | P1 |
-| D4 | 会话 header | 不用改 router | 设 `AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID: '1'` | — | — | 已解决 |
+| **D** | **infera 打包、发版与安装**（第 5.7 节） | | | | 1 周左右 | |
+| D0 | 交付方式 | 不用 overlay payload / `infera-exec`，不在集群节点预放 payload；从 GitHub release 按固定版本 pip 安装（LMCache ROCm 先例） | 按此执行 | — | — | 已定方向 |
+| D1 | release 里带 router 二进制 | Infera 仓库公开，`release.yml` 每个 tag 把 wheel 传到 GitHub release；但 v0.3.1 只有纯 Python 的 `amd_infera-0.3.1-py3-none-any.whl`，没有 `infera-router` | release 流程增加带 router 的平台 wheel（如 `manylinux_2_35_x86_64`，与 lmsysorg 镜像的 glibc 2.35 匹配）；PyPI 是可选项，不卡发布 | 内部 | 1 周 | P0 |
+| D2 | 发版 | #210 的 router 改动（`--decode-request-weight`）未发版 | 发 v0.3.2，tag 发布后不再改动；InferenceX 固定这个版本 | 内部 | 含在 D1 | P0 |
+| D3 | 安装脚本 | — | 新增 `infera-sglang.sh` 并登记进 `infx/srt_slurm/workload.py` 的 `INSTALLERS`；`--no-deps` 安装，所需依赖逐个固定版本，不动镜像里的 torch / sglang / numpy | 内部 + SemiAnalysis | 含在 F3 | P0 |
+| D4 | 包装层审计 | `kv_probe` 会 hook `RadixCache`（属 monkey-patching）、`kvd_wiring` 会改 `ServerArgs`，本配置都不启用；wheel 不带 SGLang 补丁 | PR 里说明包装层不改 SGLang 行为 | 内部 | — | P1 |
+| D5 | 会话 header | 不用改 router | 设 `AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID: '1'` | — | — | 已解决 |
 | **E** | **srt-slurm frontend**（第 5.3 节） | | | | 开发 1–1.5 周；评审 1–3 周 | |
 | E1 | 上游 PR | ATOM 的 srt-slurm#433 由 SemiAnalysis 的 cquil11 提交，10 天合入 | 按 A3 的方案提交模块、测试、docs、example | 内部 + NVIDIA / SemiAnalysis | 见上 | P0 |
 | E2 | InferenceX 里带补丁 | 规则允许回移上游修复，由 SemiAnalysis 核心维护者控制 | 先提上游 PR，再带补丁 | SemiAnalysis | — | P1 |
 | **F** | **InferenceX 集成** | | | | 1.5–2.5 周 | |
 | F1 | master 条目 | — | 镜像 digest、三种形态的拓扑与并发、`kv-offloading: dram` + hicache、router 版本；`dram-utilization` 与 HiCache 大小匹配 | 内部 | | P0 |
 | F2 | recipe | — | 翻译 `worker.sh`：`@fabric.*` / `rdma0-7`、去掉 `SIM_ACCEPT_LEN`、会话 header、libionic 挂载、host_setup 钩子 | 内部 | | P0 |
-| F3 | `infera-sglang` framework | 已定 | 改 infx `ENGINES`、`identity.py`、launch policy；给 InferenceX-app 提 PR | 内部 + SemiAnalysis | 1–2 周 | P0 |
+| F3 | `infera-sglang` framework | 已定 | 改 infx `ENGINES`、`identity.py`、launch policy 和 `INSTALLERS`（D3）；master 写 `router: { name: infera-router, version: "0.3.2" }`；给 InferenceX-app 提 PR | 内部 + SemiAnalysis | 1–2 周 | P0 |
 | F4 | 缓存统计 | ATOM 为此改过 infx（#3964） | 确认 PD 下只统计 prefill 端、HiCache 命中算对 | 内部 | | P1 |
 | F5 | 其他 | — | perf-changelog、中英双语标题、AI 声明；`infx generate` + `srtctl dry-run` 验证 | 内部 | | P0 |
 | **G** | **SGLang cookbook**（第 5.4 节） | | | | 1–2 周 + 评审 | |
@@ -308,13 +316,71 @@ Mooncake 提前发送前的等待（#41395）。
   另外 3P1D 时同机第二个 prefill（PID 偏移 60000）挂起过三次，原因未查清（`../3p1d-tp4-tp8-v0521-20261012/RESULT.zh-CN.md`）。
 - 建议 2P1D 两个 prefill 各占半台：没有撞名与挂起的风险，单台主机内存池也只有 1 TB（第 5.5 节）。代价是每点多占一台机器。
 
-### 5.7 infera 打包与发版
+### 5.7 infera 怎么进容器：打包、发版与安装（10-28 调研）
 
-- 现在的 wheel（`amd_infera-0.3.1-py3-none-any.whl`）不含 `infera-router` Rust 二进制，也没有发 PyPI。InferenceX 的先例是按 master 配置的版本 `pip install`
-  （`vllm-router.sh`、`glm5.3-tilert-rocm.sh`）。两种做法：发带二进制的 manylinux x86_64 wheel 到 PyPI，或发 router 容器镜像（srt-slurm `frontend.container_image`）。
-- 引擎侧 `infera.engine.sglang` 是纯 Python，运行时安装不会动镜像里的 torch / sglang。
-- 发一个包含 #210 router 改动的版本（如 v0.3.2）并在 InferenceX 固定。
-- 审计包装层：`kv_probe.py` 会 hook `RadixCache`、`kvd_wiring.py` 会改 `ServerArgs`，但只在 probe 传输和 kvd 后端时启用，本配置用 zmq KV 事件，不触发；PR 里要说清楚。
+**结论**：不用 infera 自己的 overlay，也不在集群节点上预放 payload；照 LMCache ROCm 的先例，从 Infera 的 GitHub release 按 master 配置的固定版本 pip 安装。
+
+**infera 的 overlay 是什么**（`deploy/overlay/`）。payload 镜像 `infera-overlay` 装 infera / kvd（纯 Python）、`infera-router`（Rust）、
+重编的 Mooncake 及其约 40 个依赖库和 `infera-exec`；把 payload 挂进原样的上游镜像，入口换成 `/payload/bin/infera-exec`，按容器的 Python 版本与
+ROCm 主版本选目录、设 `PYTHONPATH` / `LD_LIBRARY_PATH` 后 exec 原命令。它在 k8s 上靠 initContainer 把 payload 拷进 Pod。除此之外，`infera-exec` 还会：
+
+| `infera-exec` 的动作 | InferenceX 规则（`PR_REVIEW_CHECKLIST.md` 第 65 行） |
+|---|---|
+| 启动时给 SGLang 打补丁（`sglang_disagg`、`sglang_rocm`、`sglang_dsa` 等） | 禁止（"inline patches…in-place edits of site-packages, monkey-patching"），除非有 waiver |
+| 用 `cp` 把宿主机 libionic 覆盖到镜像的 `libionic.so.1` | 禁止（"overwriting container files"） |
+| 用我们重编的 Mooncake 替换镜像自带的 | 禁止（"installing forked/rebuilt engine wheels on top of the pinned image"） |
+
+另外 payload 里的补丁集只对应一个 SGLang 版本、不做版本检查（`Dockerfile.payload` 里自己标了 TODO）；已发布的 `inferaimage/infera-overlay:v0.2.2` 只带 vLLM 补丁。
+
+**Dynamo 在 InferenceX 里怎么进容器**（srt-slurm `ae3d6877`）。不是挂载 payload，而是：recipe 写 `dynamo.install: true` 和固定版本
+（如 `source.wheel: 1.6.0.dev20261016`）→ srtctl 从 `pypi.org` / `pypi.nvidia.com` 下载这个版本的 `ai-dynamo`、`ai-dynamo-runtime`
+（`runtime_scripts/dynamo_wheels.py`），挂进容器 `/srtctl-wheels` → worker 启动前 pip 安装 → `python -m dynamo.sglang`（同一进程里构造
+`sgl.Engine`）或 `python -m dynamo.trtllm`（同一进程里调 `tensorrt_llm.LLM`）。NVIDIA 集群上的 `dynamo-wheels` 卷只是下载缓存。
+思路和 overlay 一样（镜像不动、部署层后加），交付方式不同。
+
+**InferenceX 允许的做法**：
+- 镜像原样，启动前用 setup 脚本装**公开发布、固定版本、在 master 里登记**的组件。`infx/srt_slurm/workload.py` 的 `INSTALLERS` 登记这些脚本，
+  框架把 master 里 `router` 或 `kv-offload-backend` 的 `version` 作为 `ROUTER_VERSION` / `KV_OFFLOAD_BACKEND_VERSION` 传进去，
+  没写版本就失败（`RECIPES.md` 第 59 行）。`version` 必须是确切的发行版、包、wheel 版本或源码 commit，不能填镜像名（`configs/CONFIGS.md`）。
+- router 用单独的公开镜像（srt-slurm `frontend.container_image`，按 digest 固定）。
+
+**各 backend 的先例**：
+
+| 组件 | 集群 | 怎么进容器 |
+|---|---|---|
+| Dynamo（SGLang / TRT-LLM / vLLM） | NVIDIA | `dynamo.install`，从 PyPI 装固定版本的 wheel |
+| vllm-router | MI355X 等 | `vllm-router.sh`：`pip install vllm-router==$ROUTER_VERSION`；Kimi-K3 MI355X 用 `vllm/vllm-router` 镜像（digest 固定） |
+| TileRT（GLM-5.3） | MI355X | `glm5.3-tilert-rocm.sh`：`pip install tilert==$ROUTER_VERSION`，缺 Mooncake 则 pip 装公开版；router 用 `ghcr.io/tile-ai/tilert-rocm-decode:0.1.6` |
+| **LMCache（ROCm）** | **MI300X** | **`lmcache-mp-rocm.sh`：从 GitHub release 装 wheel** |
+| Mooncake | NVIDIA（vLLM、Kimi-K3 B300） | `vllm-mooncake.sh`：`--force-reinstall` 换成 PyPI 上的 `mooncake-transfer-engine-cuda13==$KV_OFFLOAD_BACKEND_VERSION` |
+| ATOM / AToMesh | MI355X | 都在 `rocm/atom-dev` 镜像里，frontend 也用这个镜像 |
+
+替换镜像自带的组件也可以（Mooncake 那一行），前提是换成公开发布的版本，不能是自己重编的。
+
+**集群节点上预放 payload**：规则没有逐字禁止，但没有一个 backend 这么做软件。节点上预先放好的只有模型权重（`models.entries`、`/it-share/data`，
+包括 Kimi-K3 的 DSpark 草稿模型权重）、HF / aiperf 缓存、从公开 registry 导入的 squash 镜像、宿主机系统自带的 libionic（只读挂载）。
+手工放的 payload 没有公开来源和版本可查，CODEOWNER 无法核对；我们也没有集群写权限。
+
+**GitHub release 的先例**：已合入的 `minimaxm3-fp8-mi300x-vllm-agentic-mtp`（`amd-master.yaml` 第 1096 行）写
+`kv-offload-backend: { name: lmcache, version: "0.5.3" }`，`lmcache-mp-rocm.sh` 用
+`--find-links "https://github.com/LMCache/LMCache/releases/expanded_assets/v${KV_OFFLOAD_BACKEND_VERSION}-rocm"` 安装，
+对应资产 `lmcache-0.5.3-cp312-cp312-manylinux_2_35_x86_64.whl`（10-28 可访问）。LMCache 的 ROCm 版不在 PyPI 上，可见 InferenceX 不限定 PyPI。
+
+**infera 的现状**：`AMD-AGI/Infera` 是公开仓库，`release.yml` 每个 tag 都把 wheel 和 sdist 上传到 GitHub release（PyPI 那一步因为没配 token 一直跳过）。
+最新的 `v0.3.1`（10-26）只有 `amd_infera-0.3.1-py3-none-any.whl` 和 sdist，不含 `infera-router`；PR #210 的 router 改动也还没发版。
+
+**要做的**（待做总表 D 组）：
+1. release 流程增加带 `infera-router` 的平台 wheel（如 `manylinux_2_35_x86_64`，与 lmsysorg 镜像的 Ubuntu 22.04 / glibc 2.35 匹配）。也可以把 router 二进制
+   单独作为 release 资产，但 wheel 更规范。
+2. 发 v0.3.2，包含 #210 的 router 改动，tag 发布后不再改动。
+3. InferenceX 侧新增 `infera-sglang.sh` 并登记进 `INSTALLERS`，照 `lmcache-mp-rocm.sh` 写：
+   `pip install --no-deps "amd-infera==${ROUTER_VERSION}" --find-links https://github.com/AMD-AGI/Infera/releases/expanded_assets/v${ROUTER_VERSION}`，
+   所需依赖逐个固定版本列出，不动镜像里的 torch / sglang / numpy；master 写 `router: { name: infera-router, version: "0.3.2" }`。和 framework 名的改动（F3）放在同一个 PR。
+4. wheel 里不带 SGLang 补丁；引擎侧 `infera.engine.sglang` 是纯 Python，起 `sglang.launch_server` 子进程，不改引擎。
+   `kv_probe.py` 会 hook `RadixCache`、`kvd_wiring.py` 会改 `ServerArgs`，只在 probe 传输和 kvd 后端时启用，本配置用 zmq KV 事件，不触发；PR 里要说清楚。
+5. 其余镜像外依赖：Mooncake 用 nightly 镜像自带的（第 5.2 节）；libionic 照 Kimi-K3 只读挂载宿主机文件。
+
+PyPI 是可选项：GitHub release 现在就能用，不用等 PyPI 账号和权限。
 
 ## 6. 时间线（1–2 人，按周）
 
@@ -371,6 +437,10 @@ J sweep/合入                                        ████████�
 | `write_back` 收益 | `../2p1d-aus-v0521-20261019/RESULT.zh-CN.md` §2.7 |
 | Mooncake 版本 | Docker Hub 镜像构建历史；sglang `docker/rocm.Dockerfile`（v0.5.22 与 main）；kvcache-ai/Mooncake |
 | Mooncake 补丁来源 | `../cross-rank-rca-20260921/REPORT.zh-CN.md`；Infera `deploy/docker/patches/mooncake_cpp/apply_mooncake_cpp_patches.sh` |
+| infera overlay | Infera `deploy/overlay/{README.md,infera-exec,Dockerfile.payload}`、`manual/recipes/index.md` |
+| 组件安装机制 | InferenceX `infx/srt_slurm/workload.py`（`INSTALLERS`）、`benchmarks/multi_node/srt-slurm-recipes/{RECIPES.md,configs/*.sh}`、`configs/CONFIGS.md`；srt-slurm `runtime_scripts/dynamo_wheels.py`、`core/runtime.py` |
+| GitHub release 先例 | `amd-master.yaml` 的 `minimaxm3-fp8-mi300x-vllm-agentic-mtp`；`LMCache/LMCache` release `v0.5.3-rocm` |
+| infera 发版 | Infera `.github/workflows/release.yml`；`AMD-AGI/Infera` release `v0.3.1` |
 | 同机 PID 撞名 | `../3p1d-tp4-tp8-v0521-20261012/RESULT.zh-CN.md`（"ROCr IPC socket 撞名"） |
 | 我们的数据 | `../2p1d-v0522-20261020/results/`；PR #210 描述 |
 | InferenceX 数据快照 | `evidence/inferencex-api-glm52-20261027.json`（10-27 07:45 UTC） |
