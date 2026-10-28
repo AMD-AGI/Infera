@@ -29,7 +29,7 @@ description: Run one hypothesis as a one-variable A/B on Infera — prove the le
    (`--series r1-spf`). Screening points (AgentX fast or shorter runs, a microbench, dstep) help you choose and
    explain; a fast or short AgentX point converted into `results/` is marked screening in the ledger, needs no
    decision and is never an input of the verdict. Each input is a run of its own: one raw output converted under two
-   labels counts once. Run GSM8K on the candidate stack (`infera-quality-gate`: at least 200 questions, lm_eval's output under
+   labels is not two measurements (ab_judge refuses it and `ledger verify` fails). Run GSM8K on the candidate stack (`infera-quality-gate`: at least 200 questions, lm_eval's output under
    this task's workspace, `ledger gsm8k --series r1-spf`) before you judge: an accept needs it, and every GSM8K in
    `results/` counts.
 5. **Judge** with the script on the AgentX numbers alone (rules in its docstring: the project's noise band and accept

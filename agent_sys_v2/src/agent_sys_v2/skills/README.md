@@ -14,5 +14,8 @@ run's system.md (`project.yaml` `skills:` picks which), and the agent opens the 
 | `infera-experiment` | One-variable A/B: prove the lever is live, judge with `scripts/ab_judge.py`, record |
 | `infera-hygiene` | Shared-node manners and the traps of the cluster (VRAM release, foreign containers, NFS) |
 
+A project can have skills of its own in `projects/<p>/skills/` (one with a shipped skill's name replaces it); the
+`infera-perf` template brings `infera-round`, how a round goes (`templates/infera-perf/skills/`).
+
 Rules for writing one: determinism goes into scripts, judgement stays with the agent; every procedure says how to
 prove that what it changed is really in effect; point at the repository's own scripts instead of copying them.

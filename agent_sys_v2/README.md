@@ -9,7 +9,8 @@ measured result, and every agent visible and steerable in a web console.
 - **A task is a prompt and a workspace.** Agents decide what to investigate; skills give them reliable tools. The
   task graph grows during the work: an agent drafts subtasks, you approve them (one click for a whole plan).
 - **Evidence, not procedure, is checked.** Acceptance checks that the harness runs when an agent says it is done (a
-  failure goes back to the agent); results in one schema feed a ledger with the baseline, the best and the curves.
+  failure goes back to the agent); results in one schema feed a ledger with the baseline, the best and the curves,
+  and an A/B verdict is recomputed from the raw output it was judged on.
 - **Observable and controllable.** Live output of every run and what it was given, cost, what it waits for; a run
   that has given no event for long, or whose foreground command is past its own timeout, is marked "maybe stuck" and
   listed with what needs you (a reminder; nothing is stopped). Message, stop, take over in a terminal, raise the
@@ -33,7 +34,7 @@ servers, plugins, CLAUDE.md, skills and hooks are not loaded: an agent runs in `
 Atlassian MCP server, say, it could write to Jira and Confluence without asking. A project that needs an MCP server or a
 plugin names it in `agent.extra_args` (`--mcp-config <file>`, `--plugin-dir <dir>`). Session records stay in
 `~/.claude/projects` (the agents' `projects/` links there), and a Claude OAuth login in `~/.claude/.credentials.json`
-is used where it is. `claude_config: inherit` in `agent_sys.yaml` goes back to running agents in your own `~/.claude`.
+is used where it is. `claude_config: inherit` in `agent_sys.yaml` (or on the settings page) goes back to running agents in your own `~/.claude`.
 
 ## Install
 
@@ -161,17 +162,19 @@ ruff format --check . && ruff check .            # the repository's settings
 | Path | What |
 |---|---|
 | `src/agent_sys_v2/server.py`, `cli.py` | REST + SSE (scans the files into memory, pushes changes, serves the UI); the `agent-sys-v2` command |
-| `src/agent_sys_v2/model.py`, `scan.py`, `ops.py` | the files as a model (tasks, edges, state.json); scanning a project and watching it change; the write operations |
+| `src/agent_sys_v2/model.py`, `scan.py`, `ops.py` | the files as a model (tasks, edges, state.json, the settings' defaults); scanning a project and watching it change; the write operations |
+| `src/agent_sys_v2/preflight.py`, `upstream.py` | the check before a start; the note when an upstream changed after a task started |
 | `src/agent_sys_v2/sched.py`, `machines.py` | the scheduler: dependencies, slots and machines |
-| `src/agent_sys_v2/runs.py`, `runner.py`, `launch.py`, `tmux.py` | one Claude Code session per task, one runner process per round in a tmux window; what a run is given (system.md, the first message, launch.md) |
-| `src/agent_sys_v2/events.py`, `procs.py`, `replay.py` | a run's events as the UI reads them; its processes; recorded sessions played back without a model |
-| `src/agent_sys_v2/checks.py`, `ledger.py`, `perfcheck.py`, `skills.py` | acceptance checks; the results ledger; the field checks of the `infera-perf` template; the skills index |
+| `src/agent_sys_v2/runs.py`, `runner.py`, `launch.py`, `claude_config.py`, `tmux.py` | one Claude Code session per task, one runner process per round in a tmux window; what a run is given (system.md, the first message, launch.md); the agents' own Claude Code configuration |
+| `src/agent_sys_v2/events.py`, `procs.py`, `replay.py` | a run's events as the UI reads them, and whether it may be stuck; its processes; recorded sessions played back without a model |
+| `src/agent_sys_v2/checks.py`, `perfcheck.py`, `skills.py` | acceptance checks; the field checks of the `infera-perf` template; the skills index |
+| `src/agent_sys_v2/ledger.py`, `verdict.py`, `gates.py`, `gsm8k.py` | the results ledger and the AgentX / GSM8K converters; A/B verdicts and their recomputation; the A/B gates; the GSM8K accuracy gate |
 | `src/agent_sys_v2/knowledge.py`, `questions.py`, `files.py`, `i18n.py` | rules and lessons; questions.md as a form; workspace files; English |
 | `src/agent_sys_v2/web/` | the UI: Preact + htm, no build step ([README](src/agent_sys_v2/web/README.md)) |
 | `src/agent_sys_v2/templates/` | the protocol injected into every run (zh / en) and the project templates `blank`, `infera-perf` |
 | `src/agent_sys_v2/skills/` | the Infera performance skills ([README](src/agent_sys_v2/skills/README.md)) |
 | `tests/` | pytest; runs replay recorded sessions |
-| `tools/demo.py` | the demo home above |
+| `tools/demo.py`, `tools/stall_calibrate.py` | the demo home above; calibrating the maybe-stuck threshold on recorded runs (design §7.1) |
 | `docs/design.zh-CN.md` | the design (in Chinese) |
 
 ## When something is off

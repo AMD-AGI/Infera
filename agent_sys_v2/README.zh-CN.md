@@ -5,17 +5,21 @@
 一名工程师在网页上指挥一组 Claude Code agent，找出并消除 Infera 部署的瓶颈。瓶颈可能在拓扑与并行、引擎参数、CPU 路径、通信、KV 传输或 kernel；每个结论都要有实测结果，每个 agent 都看得见、管得住。
 
 - **任务 = prompt + 工作区。** agent 自己决定查什么，skills 提供可靠的工具。任务图在工作中长出来：agent 起草子任务，你一键批准整组计划。
-- **核验证据，而不是限定步骤。** agent 说完成后，由系统执行验收检查，失败就把输出发回 agent。结果用统一格式写，进台账，显示基线、最佳值和曲线。
-- **看得见，管得住。** 每次运行都有实时输出，注入了什么、花了多少、在等什么都看得到。运行中的会话长时间没有任何事件、或前台命令超过自己的超时还没返回时，卡片标出"疑似卡住"并列入待确认（只提醒，不停止）。可以发消息、停止、在终端接管、追加预算、审核。一台机器同一时间只给一个任务。
+- **核验证据，而不是规定步骤。** agent 说完成后，由系统执行验收检查，没通过就把输出发回 agent。结果用统一格式写，进台账，显示基线、最佳值和曲线；A/B 判定能从原始输出复算。
+- **看得见，管得住。** 每次运行都有实时输出，注入了什么、花了多少、在等什么都看得到。运行中的会话长时间没有任何事件，或者前台命令超过自己的超时还没返回时，卡片标出"疑似卡住"并列入待确认（只提醒，不停止）。可以发消息、停止、在终端接管、追加预算、审核。一台机器同一时间只给一个任务。
 
 它和 [`../agent_sys`](../agent_sys)（v1，任务包运行时）并列，不改动 v1。两者可以装在同一个环境里：v1 的命令是 `agent-sys`，v2 的命令是 `agent-sys-v2`。产品、前端、后端的设计和规则见 [`docs/design.zh-CN.md`](docs/design.zh-CN.md)。
 
 ## 前提
 
 - Linux、Python 3.10+、`tmux`。
-- 能正常使用的 Claude Code 配置 `~/.claude/settings.json`（认证、网关、模型映射）。运行用的是 `claude-agent-sdk`（版本固定）自带的 `claude` CLI，不需要别的设置。
+- 一份能用的 Claude Code 配置 `~/.claude/settings.json`（认证、网关、模型映射）。运行用的是 `claude-agent-sdk`（版本固定）自带的 `claude` CLI，不需要别的设置。
 
-agent 不在你的 `~/.claude` 里运行，而是用自己的 Claude Code 配置目录 `$AGENT_SYS_HOME/claude`。每次启动按你的设置重新生成，只带登录和找到模型要用的东西：`env` 块里登录和路由用的变量（`ANTHROPIC_*`、云厂商的凭据、代理）、`modelOverrides`、`modelSettings` 等（完整清单和理由见 `docs/design.zh-CN.md` §5.9）。你的 MCP server、插件、CLAUDE.md、skills 和 hooks 都不加载：agent 以 `bypassPermissions` 运行，比如带着你的 Atlassian MCP，它不经确认就能写 Jira 和 Confluence。项目需要某个 MCP server 或插件时，在 `agent.extra_args` 里写明（`--mcp-config <文件>`、`--plugin-dir <目录>`）。会话记录仍在 `~/.claude/projects`（agent 目录里的 `projects/` 链接到那里），`~/.claude/.credentials.json` 里的 Claude OAuth 登录原地使用（只有 MCP server 的 token 时不交给 agent）。`agent_sys.yaml` 写 `claude_config: inherit` 可以退回到在你的 `~/.claude` 里运行。
+agent 不在你的 `~/.claude` 里运行，而是用自己的 Claude Code 配置目录 `$AGENT_SYS_HOME/claude`：
+- 每次启动按你的设置重新生成，只带登录和找到模型要用的东西：`env` 块里登录和路由用的变量（`ANTHROPIC_*`、云厂商的凭据、代理）、`modelOverrides`、`modelSettings` 等。完整清单和理由见 `docs/design.zh-CN.md` §5.9。
+- 你的 MCP server、插件、CLAUDE.md、skills 和 hooks 都不加载。原因是 agent 以 `bypassPermissions` 运行：比如带着你的 Atlassian MCP，它不经确认就能写 Jira 和 Confluence。项目需要某个 MCP server 或插件时，在 `agent.extra_args` 里写明（`--mcp-config <文件>`、`--plugin-dir <目录>`）。
+- 会话记录仍在 `~/.claude/projects`（agent 目录里的 `projects/` 链接到那里）。`~/.claude/.credentials.json` 里的 Claude OAuth 登录原地使用；文件里只有 MCP server 的 token 时，不交给 agent。
+- 在 `agent_sys.yaml` 里写 `claude_config: inherit`（设置页也能改），可以退回到在你的 `~/.claude` 里运行。
 
 ## 安装
 
@@ -27,7 +31,7 @@ pip install -e agent_sys_v2            # 也可以 uv pip install -e agent_sys_v
 agent-sys-v2 --version
 ```
 
-最好从单独的 checkout（或 wheel）安装，不要和项目任务要改的 Infera 仓库共用一个 checkout：验收检查会调用 agent_sys_v2 自己的模块，运行开始时记下它们的摘要；运行期间在那个 checkout 里 `git checkout` 或 `pull`，检查就会失败。
+最好从单独的 checkout（或 wheel）安装，不要和项目任务要改的 Infera 仓库共用一个 checkout。原因：验收检查会调用 agent_sys_v2 自己的模块，运行开始时记下它们的摘要；运行期间在那个 checkout 里 `git checkout` 或 `pull`，检查就会失败。
 
 ## 启动
 
@@ -35,7 +39,7 @@ agent-sys-v2 --version
 agent-sys-v2 serve
 ```
 
-- server 放在 tmux 窗口里（`tmux -L agent_sys` 的 `server` 窗口），**只监听 Unix socket** `/tmp/agent_sys-<uid>/agent_sys.sock`，所在目录只有你能进入。启动时会打印位置和下一步该敲的命令。
+- server 放在 tmux 窗口里（`tmux -L agent_sys` 的 `server` 窗口），**只监听 Unix socket** `/tmp/agent_sys-<uid>/agent_sys.sock`，所在目录只有你能进入。启动时会打印位置和下一步要敲的命令。
 - 在你自己的电脑上转发端口，然后用浏览器打开：
 
   ```bash
@@ -55,7 +59,7 @@ agent-sys-v2 serve
 
 ```
 agent_sys.yaml  rules/  knowledge/                     全局设置、规则、经验
-projects/<p>/project.yaml                             目标、机器、台账主指标、skills、agent 默认值
+projects/<p>/project.yaml                             目标、机器、台账口径、skills、agent 默认值
 projects/<p>/rules/project.md                         项目背景，每次运行都注入
 projects/<p>/tasks/<类型>/<名字>.md                     任务 prompt（含 frontmatter）
 projects/<p>/workspaces/<类型>/<名字>/                  progress.md、report.md、results/*.json、.agent_sys/runs/
@@ -68,14 +72,16 @@ projects/<p>/repos/                                   agent 要改的代码（�
 
 1. 在首页**新建项目**，模板选 **Infera 性能优化**（`infera-perf`）；或者用命令行 `agent-sys-v2 new glm52-agentx --template infera-perf --title "GLM-5.2 4P4D AgentX"`。
    模板自带第 1 轮的 5 个任务，建项目时就排好队：`intake/r1` → `survey/r1` ∥ `baseline/r1` → `profile/r1` → `plan/r1`。再把 Infera clone 到 `projects/<p>/repos/Infera`：agent 在项目目录下工作，skills 里引用的是 `repos/Infera/examples/<kit>`。
-2. 这时还不会开始：看板顶部显示**待审核模板**，按执行顺序列出这 5 个任务。逐个打开，检查（可以直接修改）prompt、机器和验收检查，再看一遍项目规则和设置；确认后点**开始运行**（或者在某个任务里点**开始**）。之后的任务按依赖自动推进。横幅里列出开始前检查发现的问题（依赖或机器不存在、检查调用的模块或脚本不存在等），每条带改法；有错误时项目不会开始。`agent-sys-v2 check <项目>` 打印同一份清单。
-3. `intake/r1` 开始：先预调研（权重、InferenceX、节点），再给你一张预填好的问卷（**回答 N 个问题**；没填的行按建议处理）。拿到回答后它写好项目的 `rules/project.md`、`project.yaml` 的目标、机器和工作点，出一页 brief 等你审核。审核通过前下游一律不开始。
-4. 对标调研（InferenceX 参考曲线，不占 GPU）和基线（v0 的全量 GSM8K、v0 曲线、工作点的复测噪声，要低于接受线）并行，然后是 profile（从便宜的层做起，产出 `candidates.yaml`，需要你审核）。
+2. 这时还不会开始：看板顶部显示**待审核模板**，按执行顺序列出这 5 个任务。
+   - 逐个打开，检查（也可以直接修改）prompt、机器和验收检查，再看一遍项目规则和设置；确认后点**开始运行**（或者在某个任务里点**开始**）。之后的任务按依赖自动推进。
+   - 横幅里列出开始前检查发现的问题（依赖或机器不存在、检查调用的模块或脚本不存在等），每条带改法；有错误时项目不会开始。`agent-sys-v2 check <项目>` 打印同一份清单。
+3. `intake/r1` 开始：先预调研（权重、InferenceX、节点），再给你一张预填好的问卷（**回答 N 个问题**；没填的行按建议处理）。拿到回答后，它写好项目的 `rules/project.md`，以及 `project.yaml` 里的目标、机器和工作点，出一页 brief 等你审核。审核通过前，下游一律不开始。
+4. 对标调研（InferenceX 参考曲线，不占 GPU）和基线（v0 的全量 GSM8K、v0 曲线、工作点的复测噪声，噪声要低于接受线）并行；然后是 profile（从便宜的层做起，产出 `candidates.yaml`，需要你审核）。
    - 在**运行输出**里看进展；用底部输入框给 agent 发消息，运行中也可以；需要时点**停止**，或**在终端中接管**。
-5. `plan/r1` 给候选排序、分配本轮的 GPU 预算和机器，起草实验子任务和 `close/r1`。审核通过后在它的详情里点**全部纳入托管**，实验和收尾任务一起排队。
+5. `plan/r1` 给候选排序、分配本轮的 GPU 预算和机器，起草实验子任务和 `close/r1`。审核通过后，在它的详情里点**全部纳入托管**，实验和收尾任务一起排队。
    - 每个实验占用自己的机器，其他任务等机器空出来再开始；
-   - `close/r1` 用 `kind: children` 依赖等 plan 的子任务全部完成或取消，再集成本轮接受的改动、测整条曲线，比 v0 好就封版 v1，并起草下一轮的 `intake/r2`（带建议的增量问卷）。
-6. **台账**页把每个系列画成 Y–X 曲线（我们的、基线、对标），给出各系列在工作点的值和 Δ。agent 说完成了但验收检查没过的任务，会出现在**待确认**里，附带检查的输出。
+   - `close/r1` 用 `kind: children` 依赖等 plan 的子任务全部完成或取消，再集成本轮接受的改动、测整条曲线；比 v0 好就封版 v1，并起草下一轮的 `intake/r2`（带建议的增量问卷）。
+6. **台账**页把每个系列画成 Y–X 曲线（我们的、基线、对标），给出各系列在工作点的值和 Δ。agent 说完成了、但验收检查没过的任务，会出现在**待确认**里，附带检查的输出。
 
 任务文件示例（`depends_on` 的 kind：`input`、`code` 等上游完成，`children` 等上游和它的全部子任务完成；`review`、`subtask` 不阻塞）：
 
@@ -84,7 +90,7 @@ projects/<p>/repos/                                   agent 要改的代码（�
 title: SPF scheduling at C64
 depends_on: [baseline/b0]
 machines: [smc-a16-19]            # 运行中和待确认时占用
-checks:                           # agent 把 progress.md 标为已完成后执行；失败就发回 agent
+checks:                           # agent 把 progress.md 标为已完成后执行；没通过就发回 agent
   - test -s "$AGENT_SYS_WORKSPACE/report.md"
   - '"$AGENT_SYS_PYTHON" -m agent_sys_v2.ledger verify "$AGENT_SYS_WORKSPACE/results"'
 check_retries: 2
@@ -118,24 +124,26 @@ ruff format --check . && ruff check .            # 仓库的 ruff 配置
 | 路径 | 内容 |
 |---|---|
 | `src/agent_sys_v2/server.py`、`cli.py` | REST + SSE（把文件扫描进内存、推送变化、提供网页）；`agent-sys-v2` 命令 |
-| `src/agent_sys_v2/model.py`、`scan.py`、`ops.py` | 文件对应的数据模型（任务、依赖边、state.json）；扫描项目、发现变化；写操作 |
+| `src/agent_sys_v2/model.py`、`scan.py`、`ops.py` | 文件对应的数据模型（任务、依赖边、state.json、配置的默认值）；扫描项目、发现变化；写操作 |
+| `src/agent_sys_v2/preflight.py`、`upstream.py` | 开始前整体检查；上游已更新的提示 |
 | `src/agent_sys_v2/sched.py`、`machines.py` | 调度：依赖、名额和机器 |
-| `src/agent_sys_v2/runs.py`、`runner.py`、`launch.py`、`tmux.py` | 每个任务一个 Claude Code 会话，每轮一个 runner 进程（tmux 窗口）；一次运行注入什么（system.md、首条消息、launch.md） |
-| `src/agent_sys_v2/events.py`、`procs.py`、`replay.py` | 运行事件（界面怎么读）；运行的进程；不调用模型、回放录好的会话 |
-| `src/agent_sys_v2/checks.py`、`ledger.py`、`perfcheck.py`、`skills.py` | 验收检查；结果台账；`infera-perf` 模板的字段检查；skills 索引 |
+| `src/agent_sys_v2/runs.py`、`runner.py`、`launch.py`、`claude_config.py`、`tmux.py` | 每个任务一个 Claude Code 会话，每轮一个 runner 进程（tmux 窗口）；一次运行注入什么（system.md、首条消息、launch.md）；agent 自己的 Claude Code 配置 |
+| `src/agent_sys_v2/events.py`、`procs.py`、`replay.py` | 运行事件（界面怎么读、疑似卡住）；运行的进程；不调用模型、回放录好的会话 |
+| `src/agent_sys_v2/checks.py`、`perfcheck.py`、`skills.py` | 验收检查；`infera-perf` 模板的字段检查；skills 索引 |
+| `src/agent_sys_v2/ledger.py`、`verdict.py`、`gates.py`、`gsm8k.py` | 结果台账和 AgentX / GSM8K 转换；A/B 判定和复算；A/B 的门；GSM8K 精度门 |
 | `src/agent_sys_v2/knowledge.py`、`questions.py`、`files.py`、`i18n.py` | 规则和经验；questions.md 表单；工作区文件；英文翻译 |
 | `src/agent_sys_v2/web/` | 网页界面：Preact + htm，不需要构建（[README](src/agent_sys_v2/web/README.md)） |
 | `src/agent_sys_v2/templates/` | 每次运行注入的约定（中 / 英）和项目模板 `blank`、`infera-perf` |
 | `src/agent_sys_v2/skills/` | Infera 性能工作的 skills（[README](src/agent_sys_v2/skills/README.md)） |
 | `tests/` | pytest；运行用录好的会话回放 |
-| `tools/demo.py` | 上面的演示 home |
+| `tools/demo.py`、`tools/stall_calibrate.py` | 上面的演示 home；用录好的运行标定疑似卡住的阈值（设计文档 §7.1） |
 | `docs/design.zh-CN.md` | 设计文档 |
 
 ## 常见问题
 
 - 提示 *socket 所在的目录其他用户也能进入*：把 `--sock` 指到一个只有你能进入的目录。
 - 提示 *已有 server 在运行*：一个 `AGENT_SYS_HOME` 只能有一个 server，否则两个调度器会把同一个任务启动两次。
-- 待开始的任务迟迟不开始：卡片上写着原因，可能是项目已归档、prompt 的 frontmatter 或 checks 有错误（改正后才会开始）、上游未完成（`children` 依赖还要等上游的子任务）、模板待审核（在看板上点**开始运行**）、关闭了自动开始、机器被别的任务占用，或名额已满。
+- 待开始的任务迟迟不开始：卡片上写着原因。可能是项目已归档、prompt 的 frontmatter 或 checks 有错误（改正后才会开始）、上游未完成（`children` 依赖还要等上游的子任务）、模板待审核（在看板上点**开始运行**）、关闭了自动开始、机器被别的任务占用，或名额已满。
 - 运行的设置取自 `~/.claude/settings.json`（生成到 `$AGENT_SYS_HOME/claude`，见"前提"）。server 会去掉启动它的 shell 里的 `CLAUDE*` / `ANTHROPIC*` 变量，所以即使在 Claude Code 会话里启动 server，用的也是你的用户配置。每次运行的"本次注入内容与等价命令（launch.md）"列出带上和没带上的键（只列键名）。
-- *`$AGENT_SYS_HOME/claude/projects` 是一个非空目录*：运行拒绝开始，不会删除它；把里面的会话记录移到 `~/.claude/projects`，删掉它，再开始。
+- *`$AGENT_SYS_HOME/claude/projects` 是一个非空目录*：运行拒绝开始，不会删除它。把里面的会话记录移到 `~/.claude/projects`，删掉它，再开始。
 - v1 也读 `AGENT_SYS_HOME`（作为它的状态前缀）。如果你为 v1 设置了它，v2 会在同一个目录下建自己的子目录，两者互不干扰。
