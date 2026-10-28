@@ -1,0 +1,4 @@
+prefill-072705-p0-TP-0-PP-0.trace.json.gz: 30 steps where a blocking call returned within 3.0 ms of the forward's end, 67 steps without such a wait
+    25 steps  wait mean   80.7 ms  next-forward gap median    2.2 ms  utils/nvtx_utils.py(106): wrapper > managers/scheduler.py(4550): run_batch > disaggregation/prefill.py(1432): maybe_send_cached_prefix_chunk > disaggregation/prefill.py(1469): send_kv_chunk > disaggregation/prefill.py(1488): _send_kv_chunk > mem_cache/common.p
+     5 steps  wait mean   53.6 ms  next-forward gap median  665.0 ms  mem_cache/unified_radix_cache.py(1782): load_back > mem_cache/unified_radix_cache.py(1819): _load_back_transfers > mem_cache/unified_radix_cache.py(671): evict_for_alloc > mem_cache/unified_radix_cache.py(787): _evict > mem_cache/unified_radix_cache.py(921): _
+  wait end -> next run_batch entry: median 216.3 mean 380.2 ms; run_batch entry -> next forward on GPU: median -187.2 mean -254.7 ms

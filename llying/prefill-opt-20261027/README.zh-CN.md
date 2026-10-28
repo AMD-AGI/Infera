@@ -5,6 +5,18 @@
 
 ## 10-27 夜：调优实验总表（结论先行，每组跑完更新）
 
+**10-28 19:20 更新**
+1. **E6（E1 + PP 异步深度 2）= 48,291，比 E1 两次平均 49,719 低 2.9%，不采用**（`results/run-llr37-v3-evict512k-depth2-c104.txt`）：PP0 节拍中位 342 ms
+   （E1 322–329），完成请求 11,643（E1 11,852）。与 yihou llr15 的 −1.5% 一致。**E4（去 early-send）和 E6（多一个在途 microbatch）都不改变节拍**
+   → 中位节拍不是"环的在途数"限制的，而是每级每轮有一次 CPU 阻塞要等本级上一个 forward 跑完。
+2. 机制修正：ROCm 上写后读屏障默认**关**（`scheduler.py` `_war_barrier_enabled = is_cuda() or SGLANG_ENABLE_WAR_BARRIER`），所以不是它；
+   `_pp_launch_batch` 在 `forward_stream_ctx` 里调 `run_batch`，`run_batch` 里任何 `.cpu()` / `.item()` / `.tolist()` 都排在 forward stream 上、
+   等上一个 forward 跑完——early-send 的 89–140 ms 就是这个。**但定位结果（`scripts/prefill_fwd_waits.py`，`results/trace-llr37-v3-evict512k-4r-c104/fwd-waits-pp*.txt`）
+   推翻了"每轮都等本级 forward"**：PP1 / PP2 约 95 步里只有 3–5 步有这种等待（都是驱逐 / 回载）；PP0 / PP3 的 early-send 等待（25–27 步）结束后约 2 ms
+   下一个 forward 就上了 GPU，不造成空闲（与 E4 无收益一致）。→ PP1 / PP2 的空闲是等上游数据 / 发送被下游卡住，即 GPU 侧通信链——E7 的目标
+   （按 NCCL 时序估算平均每圈约 290 ms、节拍约 −10%）。
+3. 18:17:20–18:17:35 我在 138 上起了 4 个 trace 分析进程，发现 E6 正在计分后立刻停掉（15 秒，nice 10）；之后的分析都放在非计分时段。
+
 **10-28 17:50 更新（用户 17:16 起要求全程值守、以最大吞吐为目标）**
 1. **E1 生产配置完整正确性（不限池，`gate/full-site-llr35-v3-evict512k-1028T1708.out`）**：smoke 6/6；16k × 128 捞针 64/64、长前缀 GSM8K 62/64；
    100k × 32 16/16、16/16，乱码 0；**但 1,319 题探测 0.963、乱码 4、开头坏 5**（"The!!!!!!"、"The了多少"、"The77getParent"……；v3 参考 10-27 是 0.972 / 0 / 0）。

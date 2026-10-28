@@ -1,0 +1,32 @@
+--- ../pp-recv-stream/scheduler_pp_mixin.py	2026-10-28 17:54:10.544744330 +0000
++++ scheduler_pp_mixin.py	2026-10-28 17:56:21.848189127 +0000
+@@ -42,6 +42,7 @@
+ logger = logging.getLogger(__name__)
+ 
+ _PP_RECV_STREAM = os.environ.get("SGLANG_PP_RECV_STREAM", "1") == "1"
++_PP_RELAY_NOW = os.environ.get("SGLANG_PP_RELAY_NOW", "1") == "1"
+ 
+ if TYPE_CHECKING:
+     from sglang.srt.managers.scheduler import Scheduler
+@@ -1541,7 +1542,20 @@
+                 else:
+                     d2h_event.record(self.device_module.current_stream())
+ 
+-        if send_first:
++        if _PP_RELAY_NOW and self.pp_recv_stream is not None:
++            # Relay the outputs in the iteration they arrive: the next stage expects them
++            # in its same-numbered iteration, so it no longer waits for this stage to
++            # schedule its next microbatch. The last rank originates outputs and sends
++            # first; every other rank receives first, so the ring has no wait cycle.
++            if self.pp_group.is_last_rank:
++                send_output_work = _do_send()
++                _do_recv()
++            else:
++                _do_recv()
++                send_output_work = self._pp_send_output_to_next_stage(
++                    next_first_rank_mb_id, mbs, last_rank_comm_queue, next_pp_outputs
++                )
++        elif send_first:
+             send_output_work = _do_send()
+             _do_recv()
+         else:

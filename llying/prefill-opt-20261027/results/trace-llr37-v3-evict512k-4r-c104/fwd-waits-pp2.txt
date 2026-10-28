@@ -1,0 +1,3 @@
+prefill-072705-p0-TP-0-PP-2.trace.json.gz: 5 steps where a blocking call returned within 3.0 ms of the forward's end, 89 steps without such a wait
+     5 steps  wait mean   74.6 ms  next-forward gap median  446.3 ms  mem_cache/unified_radix_cache.py(1782): load_back > mem_cache/unified_radix_cache.py(1819): _load_back_transfers > mem_cache/unified_radix_cache.py(671): evict_for_alloc > mem_cache/unified_radix_cache.py(787): _evict > mem_cache/unified_radix_cache.py(921): _
+  wait end -> next run_batch entry: median 318.5 mean 419.2 ms; run_batch entry -> next forward on GPU: median 49.7 mean 67.6 ms
