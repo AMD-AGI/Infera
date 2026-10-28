@@ -75,7 +75,11 @@
 - **cookbook 的发现（10-28）**：GLM-5.2 页面的 "Agentic Long-Context Deployment" 一节是 NVIDIA 的同步脚本（sa-infx-cookbook，不在 SGLang 仓库里）从 InferenceX recipe 自动生成的，只覆盖 NVIDIA 硬件，渲染组件也只认 Dynamo / sglang-router，不能手改。
   AMD 的先例是在 "Advanced Usage" 里手写章节（DeepSeek-V4 页 §3.7 MI355X PD），所以我们写成 §3.6。SGLang 维护者是否接受文档化第三方 router 仍是风险（G2）。
 
+| sgl-project/sglang `llying/cookbook-glm52-mi355x-infera-pd`（fork 在 llying-001） | `a6f902f5ea`，**Draft [sglang#47117](https://github.com/sgl-project/sglang/pull/47117)**（10-28） | GLM-5.2 cookbook §3.6：MI355X 上用 Infera router 的 PD 分离部署 | 只改文档；未跑 pre-commit |
+| SemiAnalysisAI/InferenceX-app `llying/infera-sglang-label`（fork 在 llying-001，base `master`） | `4aa97624`，**Draft [InferenceX-app#1542](https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542)**（10-28） | `FW_REGISTRY` 加 `'infera-sglang': { label: 'Infera SGLang' }` 与测试（照 TileRT #697）；标题、提交信息中英双语，附 AI 披露 | constants 包单测 75 项通过 |
+
 依赖：srt-slurm 的 infera frontend 需要 Infera 带上 #222 的版本（文档写的是 amd-infera 0.3.2 或更新），要和同事的 v0.3.2 发版对齐。
+另：138 上 docker 对 Docker Hub 的登录 token 已过期，拉不了 Docker Hub 上的新镜像（实测要用的 nightly 20261018 已在 138 本地，不受影响）。
 
 - **与 Infera 版本的兼容性**：srt-slurm 把 `frontend.args` 原样传给 `infera-router`，以后新增的 router 策略和参数直接写在 recipe 里，srt-slurm 不用改；
   ≥ 0.3.2 的版本都能用，前提是这些约定保持兼容：可执行文件 `infera-router` 与模块 `infera.engine.sglang`、srtctl 管理的 router 参数、srtctl 传给包装层的参数、
@@ -219,7 +223,7 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | F4 | 缓存统计 | ATOM 为此改过 infx（#3964） | 确认 PD 下只统计 prefill 端、HiCache 命中算对 | 内部 | | P1 |
 | F5 | 其他 | — | perf-changelog、中英双语标题、AI 声明；`infx generate` + `srtctl dry-run` 验证 | 内部 | | P0 |
 | **G** | **SGLang cookbook**（第 5.4 节） | | | | 1–2 周 + 评审 | |
-| G1 | GLM-5.2 页面 AgentX 一节加 MI355X 条目 | 这一节目前只有 NVIDIA 硬件；格式照 sglang#45111 / #45311 | 写 prefill、decode、infera router 命令，三种形态都要覆盖；必须在 InferenceX PR 前 MERGED | SGLang 维护者 | | P0 |
+| G1 | GLM-5.2 页面加 MI355X infera PD 部署说明 | **10-28 已提 Draft [sglang#47117](https://github.com/sgl-project/sglang/pull/47117)**：手写 §3.6（照 DSv4 页面 AMD 手写的 §3.7 MI355X PD），含镜像、infera 安装、三种形态、etcd / prefill / decode / router 完整命令、关键设置说明、仍需的 SGLang 修复（#21194、#46830、#33059、#46820）。AgentX 一节是 NVIDIA 的同步脚本（sa-infx-cookbook）从 InferenceX recipe 生成的，不能手改，且只覆盖 NVIDIA 硬件 | 等 Infera 0.3.2 发版、原样镜像实测、InferenceX PR 提交后转 Ready；必须在 InferenceX PR 前 MERGED | SGLang 维护者 | | P0 |
 | G2 | 不收第三方 router 的退路 | — | cookbook 只写 SGLang 原生命令，router 链到 infera 文档（要 CODEOWNER 认可） | — | — | 风险 |
 | **H** | **集群稳定性** | | | | 3–4 周 | |
 | H1 | prefill GPU 内存访问错误 | 约 19 个实例小时 1 次（TP4 prefill），出现后要重置 GPU；PP4 下还没见到 | 提交前定位，或证明 PP4 长跑不再出现 | 内部 | | P0 |
