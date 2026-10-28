@@ -14,6 +14,8 @@
 - 本版（10-28）：infera 怎么进容器（第 5.7 节）。infera 自己的 overlay（payload 挂载 + `infera-exec`）不适合 InferenceX；
   Dynamo 在 InferenceX 里是"原样镜像 + 启动时 pip 装固定版本的公开 wheel"；InferenceX 允许从 GitHub release 装 wheel（LMCache ROCm 先例）。
   D 组按此改写。
+- 10-28（二）：记入与同事的分工、同事已完成的 PR 与复现指南、llr37 配置与 InferenceX 规则的冲突（第 5.8 节）；B 组标注负责人；
+  新增 A6（上榜用哪套配置）、H8（KV 传输 1800 秒超时）；第 1 节加"本周开工的事"。
 
 ## 0. 结论
 
@@ -33,9 +35,11 @@
    libionic 照同集群 Kimi-K3 vLLM recipe 挂载宿主机的 provider；会话 header 只需设 AIPerf 环境变量。
    infera 本身照 LMCache ROCm 的先例，从 Infera 的 GitHub release 按固定版本 pip 安装（要先发一个带 router 二进制的 release）；
    不用 infera 的 overlay，也不在集群节点上预放 payload（第 5.7 节）。
-5. **仪表板口径。** 标准前沿用 E2E normalized interactivity P90（含 TTFT，下称 e2e-norm），每条曲线单独算。
+5. **分工（10-28）。** 同事负责 wheel 发版和他那部分的上游 PR（11 个 PR，5 个 Ready，都还没合入）；他的复现指南针对的是 llr37 配置，
+   其中 KF kernel、FP8 草稿层、两个乱码开关在 InferenceX 上都不能用（第 5.8 节），上榜配置要重新定（A6）。
+6. **仪表板口径。** 标准前沿用 E2E normalized interactivity P90（含 TTFT，下称 e2e-norm），每条曲线单独算。
    按 e2e-norm，我们 7 个点里 6 个在前沿；ATOM PD 的线在横轴约 51 以内都不低于我们（第 3 节）。按已定方针，先不为此补 TTFT。
-6. **工期**：1–2 人，关键路径约 **8–10 周**；乐观 6–7 周，悲观 3 个月以上。最不可控的是上游 SGLang 补丁合入和集群上调通（只能经 CI 迭代，每轮以天计）。
+7. **工期**：1–2 人，关键路径约 **8–10 周**；乐观 6–7 周，悲观 3 个月以上。最不可控的是上游 SGLang 补丁合入和集群上调通（只能经 CI 迭代，每轮以天计）。
 
 ## 1. 已定的决策（10-27）
 
@@ -46,7 +50,16 @@
 | 首发范围 | 所有 PD 形态一起提交：1P1D（12 卡）、4+4（8 卡）、2P1D（16 卡） | 集群上要调通 2–3 台机器的三种布局；不再分期，也就不依赖 `append-only` |
 | HiCache 写策略 | 保留 `write_back` | 需要 staged write-back 补丁或上游修复（第 5.1 节） |
 
-还没定的：srt-slurm 用静态 router 还是动态发现（第 5.3 节）；2P1D 的两个 prefill 同机还是各占半台（第 5.6 节）。
+还没定的：上榜用哪套配置（A6，第 5.8 节）；srt-slurm 用静态 router 还是动态发现（第 5.3 节）；2P1D 的两个 prefill 同机还是各占半台（第 5.6 节）。
+
+**分工与本周开工的事（10-28）**：同事负责 wheel 发版和他那部分的上游 PR（第 5.8 节）。我们这边不等决策就能开始的：
+
+| 事项 | 产出 | 需要的资源 |
+|---|---|---|
+| InferenceX 集成骨架（F 组）：`infera-sglang` framework 注册、`infera-sglang.sh` 安装脚本与 `INSTALLERS` 登记、master 条目与 recipe 草稿 | 本地 InferenceX 分支，过 infx 自带的单元测试和 `infx generate` | 无需 GPU |
+| 补丁必要性实测（B1 / B3 / B4 / B5 / B8）：原样 nightly 镜像 + 运行时装 infera，逐个去掉补丁 | 每个补丁"还需不需要"的结论，决定 waiver 范围 | 2 台 MI355X（138 / 140 正在跑 prefill 优化的队列） |
+| HiCache 撤栈释放时间与大小的关系（H2） | 释放时间曲线，判断能否压进 15 分钟 | 1 台 MI355X |
+| cookbook 草稿（G1） | MI355X 条目草稿 | 无需 GPU |
 
 ## 2. InferenceX 的发布流程与先例
 
@@ -134,16 +147,17 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | A3 | srt-slurm 接入方案 | 静态 router 或动态发现（第 5.3 节） | 定方案 | 你 | — | P0 |
 | A4 | 2P1D 两个 prefill 的放置 | 同机（2 台）或各占半台（3 台）（第 5.6 节） | 定方案，建议各占半台 | 你 | — | P1 |
 | A5 | 集群访问 | 没有 mi355x-amds 登录权限 | 申请 1–2 节点交互使用，或拿到失败作业的日志 | AMD | — | P1 |
+| A6 | 上榜用哪套配置 | PR #210 的配置合规问题少、数字低（4+4 C80 37,310）；同事的 llr37 / llr48 配置数字高，但含 InferenceX 禁止的项（第 5.8 节） | 定方案；建议以 #210 配置为底，逐项加入 llr37 里合规的参数（K3、decode mem 0.95 等）并实测 | 你 | — | P0 |
 | — | 已定 | framework 名 `infera-sglang`；先不补 TTFT；三种 PD 形态一起提交；保留 `write_back` | — | — | — | — |
 | **B** | **引擎补丁**（详见第 5.1 节） | | | | 开发 1–2 周；上游合入不可控 | |
-| B1 | DP padded rows | sglang#33059（我们的）OPEN | 推评审 | SGLang 维护者 | 不可控 | P0 |
-| B2 | DSA DP 同步死锁 | #33973 被自动关闭 → #46830 OPEN（10-27） | 推评审 | SGLang 维护者 | 不可控 | P0 |
-| B3 | DSA page table 行数 | #32209（第三方）OPEN，修法不同 | 实测只用 `index_share_for_mtp_iteration:false` 够不够 | 内部 | 2–3 天 | P0 |
-| B4 | 非末块 KV 等待事件 | 接收端 #41395 已合入；我们的 #33970 以"被取代"关闭；10-19 核对时发送端仍不记录事件 | 最新 nightly 上去掉补丁做长 prompt 正确性对比；仍需要就提新 PR | 内部 | 2–3 天 | P0 |
-| B5 | HiCache staged write-back（ROCm 门控不一致） | `write_back` 必需；#35043（AMD-yanfeiwang）OPEN、有冲突 | 先在 nightly 上不带补丁跑 `write_back`；不行就推 #35043 或提最小修复 | 内部 + AMD | 2 天 + 不可控 | P0 |
-| B6 | KV 指标非阻塞发送 | #46820 OPEN（10-27） | 推评审 | SGLang 维护者 | 不可控 | P0 |
-| B7 | PP 中间级无 embedding | 第三方 #21194 自 3-23 OPEN，修法相同 | 在 #21194 上补 GLM-5.2 PP4 复现推合入；退路 prefill 改 TP4 | 内部 + 维护者 | 不可控 | P0 |
-| B8 | MLA absorb BMM 配置 | 规避 v0.5.21 起的 Triton LLVM 断言崩溃，v0.5.22 未重测 | 最新 nightly 上去掉补丁重测；仍崩就提 issue / PR | 内部 | 1 天 | P0 |
+| B1 | DP padded rows | sglang#33059 **Draft**（同事维护）；新 CI 上 Qwen3-8B PD 的 GSM8K 只有 1%，原因未查清 | 同事查 CI 失败、推评审；我们在 nightly 上实测是否仍必需 | 同事 + SGLang 维护者 | 不可控 | P0 |
+| B2 | DSA DP 同步死锁 | #46830 **Ready for review**（同事，接替被自动关闭的 #33973） | 同事推合入 | 同事 + SGLang 维护者 | 不可控 | P0 |
+| B3 | DSA page table 行数 | #32209（第三方）OPEN，修法不同；**同事不跟，没人负责** | 我们实测只用 `index_share_for_mtp_iteration:false` 够不够；不够就提 PR 或 waiver | **我们** | 2–3 天 | P0 |
+| B4 | 非末块 KV 等待事件 | 接收端 #41395 已合入；发送端同事不自己提，跟进他人的 #45524（Ready）/ #43299 | 我们在 nightly 上去掉补丁做长 prompt 正确性对比；需要就跟 #45524 | 我们 + #45524 作者 | 2–3 天 | P0 |
+| B5 | HiCache staged write-back（ROCm 门控不一致） | `write_back` 必需；#35043（AMD-yanfeiwang）OPEN、有冲突；**同事不跟，没人负责** | 我们先在 nightly 上不带补丁跑 `write_back`；不行就推 #35043 或提最小修复 | **我们** + AMD-yanfeiwang | 2 天 + 不可控 | P0 |
+| B6 | KV 指标非阻塞发送 | #46820 **Ready for review**（同事） | 同事推合入 | 同事 + SGLang 维护者 | 不可控 | P0 |
+| B7 | PP 中间级无 embedding | 同事（编号 S13）**等你同意署名**才提（你的 kit 先有这个改法）；第三方 #21194 修同一个 bug，3-23 起 OPEN | **你定**：由同事提新 PR，或在 #21194 上补 GLM-5.2 PP4 复现推合入；退路 prefill 改 TP4 | 你 + 同事 | 不可控 | P0 |
+| B8 | MLA absorb BMM 配置 | 同事提了 issue #46829（MI355X 上仍能复现），不提绕过补丁的 PR | 我们在 nightly 上去掉补丁重测；仍崩就写 waiver | 我们 + 同事 | 1 天 | P0 |
 | B9 | Responses tool 参数、decode radix | 本配置不需要 / 不起作用 | 去掉（确认 AgentX 走 chat completions） | 内部 | — | P1 |
 | B10 | waiver 文件 | InferenceX 只有 #2508 一个先例 | 每个未合入的补丁一行：上游 PR、改了什么、为什么必需、移除计划 | 内部 + CODEOWNER | 0.5 周 | P0 |
 | B11 | override 参数审查 | 如果 B3 采用 `index_share_for_mtp_iteration:false` | PR 里说明只是关掉跨迭代复用，计算只多不少 | 内部 | — | P1 |
@@ -154,8 +168,8 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | C4 | ionic 驱动 / 固件版本 | 公开日志查不到 | 问集群负责人，或跑调试作业打印 `nicctl show version firmware`、`modinfo ionic` | AMD / SemiAnalysis | — | P2 |
 | **D** | **infera 打包、发版与安装**（第 5.7 节） | | | | 1 周左右 | |
 | D0 | 交付方式 | 不用 overlay payload / `infera-exec`，不在集群节点预放 payload；从 GitHub release 按固定版本 pip 安装（LMCache ROCm 先例） | 按此执行 | — | — | 已定方向 |
-| D1 | release 里带 router 二进制 | Infera 仓库公开，`release.yml` 每个 tag 把 wheel 传到 GitHub release；但 v0.3.1 只有纯 Python 的 `amd_infera-0.3.1-py3-none-any.whl`，没有 `infera-router` | release 流程增加带 router 的平台 wheel（如 `manylinux_2_35_x86_64`，与 lmsysorg 镜像的 glibc 2.35 匹配）；PyPI 是可选项，不卡发布 | 内部 | 1 周 | P0 |
-| D2 | 发版 | #210 的 router 改动（`--decode-request-weight`）未发版 | 发 v0.3.2，tag 发布后不再改动；InferenceX 固定这个版本 | 内部 | 含在 D1 | P0 |
+| D1 | release 里带 router 二进制 | Infera 仓库公开，`release.yml` 每个 tag 把 wheel 传到 GitHub release；但 v0.3.1 只有纯 Python 的 `amd_infera-0.3.1-py3-none-any.whl`，没有 `infera-router`。**10-28 起由同事负责** | release 流程增加带 router 的平台 wheel（如 `manylinux_2_35_x86_64`，与 lmsysorg 镜像的 glibc 2.35 匹配）；PyPI 是可选项，不卡发布 | 同事 | 1 周 | P0 |
+| D2 | 发版 | #210（10-26 合入）、#213（10-23 合入）的 router 改动都不在 v0.3.1 里（v0.3.1 落后 #210 合入点 30 个 commit） | 同事发 v0.3.2，tag 发布后不再改动；InferenceX 固定这个版本 | 同事 | 含在 D1 | P0 |
 | D3 | 安装脚本 | — | 新增 `infera-sglang.sh` 并登记进 `infx/srt_slurm/workload.py` 的 `INSTALLERS`；`--no-deps` 安装，所需依赖逐个固定版本，不动镜像里的 torch / sglang / numpy | 内部 + SemiAnalysis | 含在 F3 | P0 |
 | D4 | 包装层审计 | `kv_probe` 会 hook `RadixCache`（属 monkey-patching）、`kvd_wiring` 会改 `ServerArgs`，本配置都不启用；wheel 不带 SGLang 补丁 | PR 里说明包装层不改 SGLang 行为 | 内部 | — | P1 |
 | D5 | 会话 header | 不用改 router | 设 `AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID: '1'` | — | — | 已解决 |
@@ -179,6 +193,7 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | H5 | 同机两个 prefill（若 A4 选同机） | ROCr `@hsa<pid>` 撞名在 enroot 下大概率不存在；3P1D 时同机第二个 prefill 挂起，未查清 | 先在本地复现排除 | 内部 | | P1 |
 | H6 | 本地模拟集群环境 | — | 自己节点上用 Slurm + enroot（非 docker、非特权、`ulimit -l` 受限）跑通 | 内部 | 1 周 | P1 |
 | H7 | 权重与冷启动 | 集群没有预置模型；冷启动 10–15 分钟 + JIT | 节点本地 hub cache；调大 `health_check` 次数 | 内部 | | P1 |
+| H8 | KV 传输 1800 秒超时 | 同事 llr44–48：decode 等 30 分钟收不到 prefill 的 KV，并发越高越多（C88 1 次、C104 12–17 次），关掉 PP 通信重叠后更多；prefill 侧原因未测 | 定位 prefill 为什么不发；CI 上一次超时就会拖长尾、可能让 eval 失败 | 我们 + 同事 | | P1 |
 | **I** | **性能与口径** | | | | 1 周机时，可马上开始 | |
 | I1 | 换 InferenceX main 的 AgentX 客户端重测 | 现在固定 `918524ff` | 重测三种形态的前沿点 | 内部 | | P1 |
 | I2 | 原样上游镜像 + 运行时 infera 的性能 | 依赖 B、C | 测量与 PR #210 的差距 | 内部 | | P1 |
@@ -381,6 +396,45 @@ ROCm 主版本选目录、设 `PYTHONPATH` / `LD_LIBRARY_PATH` 后 exec 原命�
 5. 其余镜像外依赖：Mooncake 用 nightly 镜像自带的（第 5.2 节）；libionic 照 Kimi-K3 只读挂载宿主机文件。
 
 PyPI 是可选项：GitHub release 现在就能用，不用等 PyPI 账号和权限。
+
+### 5.8 同事（yihou）的进展与 llr37 配置的合规性（10-28）
+
+**分工（10-28）**：同事负责 Infera 的 wheel 发版（D1 / D2）和他优化部分的上游 PR；其余（补丁实测、srt-slurm、InferenceX 集成、cookbook、集群调通）由我们做。
+
+**同事已完成的**（`yihou/glm52.patch-inventory_20261027/`：`PR_SUMMARY_zh-CN.md`、`PR_PACKUP_MAP.md`、`PUBLIC_REPRODUCE.md`，10-28 05:17 提交 `e0dd1453`）：
+1. **上游 PR**：自有核心 PR 11 个，5 个 Ready for review、6 个 Draft，**都还没合入**；另提 2 个 issue。与本配置相关的：
+
+   | 本配置用到的补丁 | 同事的进展 |
+   |---|---|
+   | B1 DP padded rows | sglang#33059 Draft；新 CI 上 Qwen3-8B PD 的 GSM8K 只有 1%，原因未查清 |
+   | B2 DSA DP 同步 | #46830 Ready |
+   | B6 KV 指标非阻塞 | #46820 Ready |
+   | B8 MLA absorb 崩溃 | issue #46829，不提绕过补丁的 PR |
+   | B7 PP 非首级 hidden size（S13） | 没提，等你同意署名；他的文档没提到第三方 #21194 |
+   | B4 非末块等待事件 | 跟进他人的 #45524（Ready）/ #43299 |
+   | B3 page table 行数、B5 staged write-back | 不在他的范围内 |
+
+   与本配置无关的：#46822（空闲 ROCm rank 的 indexer）、#45484（OffloaderV2）、Infera #218（只改镜像构建检查，Ready）、DCP 系列 4 个 Draft（#46819 / #46824 / #46826 / #46828）、
+   Mooncake #5005（Draft；我们用 nightly 自带的 Mooncake 后用不到）、issue #46831（decode 保留显存上涨）。另在 #42163、#45156、#45337、#44322、Mooncake #4340 上补充了证据。
+2. **公开复现指南**：针对他的 4+4 配置 llr37（C104，48,713 tok/s/GPU，模拟接受率 2.99），固定了基础镜像 digest、Infera `fdbafb60`、模型与 trace 的 revision，
+   提供组装脚本 `repro/prepare_llr37.py` 和 `SHA256SUMS`，区分烘焙进镜像的补丁和启动时挂载的文件。只做了 CPU / 只读验证，没有重跑 GPU。
+3. **补丁 ↔ PR ↔ 实验对照表**。
+
+**llr37 配置与 InferenceX 规则的冲突**（复现指南用的是自建镜像 + 启动时挂载，这条路在 InferenceX 上走不通）：
+
+| llr37 里的项 | InferenceX 规则 | 结论 |
+|---|---|---|
+| K01 KF kernel（`sitecustomize` 在运行时替换 sglang / aiter 的函数） | 第 65 行禁止 monkey-patching | 不能用；也没有上游 PR |
+| A01 两个 aiter GEMM 调优 CSV（挂进 aiter 安装目录） | 改镜像文件 | 先合进 aiter 上游，或写 waiver |
+| S13 替换整个 `deepseek_v2.py` | 引擎补丁 | 同 B7 |
+| FP8 草稿层（`SGLANG_GLM_NEXTN_MOE_PTPC=1`） | 第 56 行：草稿层按发布精度跑，不能在提交侧量化降精度。`amd/GLM-5.2-MXFP4` 的第 78 层 NextN 不在 quark 量化范围里，按 BF16 发布 | 不能用（前提是这个开关默认关闭，未核实默认值） |
+| prefill `SGLANG_PP_COMM_OVERLAP=1`、decode custom AR | 真实接受率下乱码，eval（GSM8K ≥ 0.90）过不了 | 必须关；关掉后最好是 llr48 C88 44,245（单次，正确性未确认） |
+| `index_share_for_mtp_iteration=true`（#210 也用） | 第 59 行：不接受减少模型 FLOPs 的优化 | 需在 PR 里说明来源，评审可能会问 |
+| MTP K=3 | GLM-5.2 thinking_on 的 golden 接受率有 K=3（2.99） | 可以用 |
+| decode mem 0.95、`--stream-interval 30`、`SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION=8`、`--pp-async-batch-depth 1` | 普通参数 | 可以用，要写进 cookbook |
+| prefill HiCache 250 GB/rank × 4 | DRAM 预算：`dram-utilization: 1.0` 时每个 4 卡服务器 1,499 GB；HiCache 另有约 23% 的 DSA indexer 池，250 GB/rank 实占约 1.23 TB | 在预算内；上限约 300 GB/rank |
+
+所以要上榜，配置要在 #210 和 llr37 之间重新定（A6）：以 #210 的配置为底，加入 llr37 里合规的参数，在原样 nightly 镜像上用真实接受率验证正确性后重测。
 
 ## 6. 时间线（1–2 人，按周）
 
