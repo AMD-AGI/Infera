@@ -66,7 +66,7 @@
 | 仓库 / 分支 | 提交 | 内容 | 验证 |
 |---|---|---|---|
 | NVIDIA/srt-slurm `llying/infera-frontend`（基于 main `59920ea1`） | `9fde06e7` | `frontend.type: infera`：`InferaFrontend`（继承 `DynamicFrontend`，worker 仍按 `direct` 处理）；`Frontend.direct_worker_launcher` 钩子让 SGLang worker 经 `python3 -m infera.engine.sglang` 启动并登记到 etcd；隐含 etcd、按角色数 `/v1/workers` 判断就绪、拒绝 srtctl 管理的 router 参数和外部 etcd；`configs/install-infera.sh`、`docs/infera.md`、example 与启动快照 | 新测试 10 项；全量测试失败名单与 main 逐条一致（11 个，均为容器环境）；ruff / 格式无新增；Python 3.10 下 `ty` 通过；`schema-docs --check`、`mkdocs --strict` 通过；example 在 mock orchestrator 下 exit 0 |
-| AMD-AGI/Infera `llying/sglang-explicit-kv-events-config`（基于 main `319444f8`） | `afa93f91` | 包装层沿用外部传入的 `--kv-events-config` 端口，不再自己找端口追加（srt-slurm 统一分配端口的规则要求） | 新单测 + 相关单测 113 项通过，ruff 通过 |
+| AMD-AGI/Infera `llying/sglang-explicit-kv-events-config`（基于 main `319444f8`） | `47617d7a`，**已提 [Infera #222](https://github.com/AMD-AGI/Infera/pull/222)**（10-28） | 包装层沿用外部传入的 `--kv-events-config` 端口，不再自己找端口追加（srt-slurm 统一分配端口的规则要求）；外部没传时行为不变，仍按 DP rank 数自己分配 | `tests/unit/engine`、`tests/unit/kv` 504 项通过，ruff 通过 |
 | SemiAnalysisAI/InferenceX `llying/infera-sglang`（基于 main `253c38bf`） | `b3ce1f50` | `infera-sglang` 映射到 sglang；`infera-sglang.sh` 从 GitHub release 装 `amd-infera`（`--no-deps`，只补 `nats-py`）并登记进 `INSTALLERS` | infx 相关测试 111 项通过 |
 
 依赖：srt-slurm 的 infera frontend 需要 Infera 带上 `afa93f91` 的版本（文档写的是 amd-infera 0.3.2 或更新），要和同事的 v0.3.2 发版对齐。
