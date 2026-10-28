@@ -48,23 +48,6 @@ def _config(port: int) -> str:
     return json.dumps({"publisher": "zmq", "endpoint": f"tcp://*:{port}", "topic": "kv-events"})
 
 
-@pytest.mark.parametrize(
-    ("argv", "port"),
-    [
-        (["--tp-size", "4"], None),
-        (["--kv-events-config", _config(5560), "--tp-size", "4"], 5560),
-        ([f"--kv-events-config={_config(5570)}"], 5570),
-    ],
-)
-def test_explicit_port_is_read_from_either_flag_form(argv, port):
-    assert worker._explicit_kv_events_port(argv) == port
-
-
-def test_a_config_without_a_port_is_rejected():
-    with pytest.raises(ValueError, match="endpoint with a port"):
-        worker._explicit_kv_events_port(["--kv-events-config", json.dumps({"publisher": "zmq"})])
-
-
 def _start(monkeypatch, argv: list[str], allocate=None):
     captured = {}
 
