@@ -1,0 +1,124 @@
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index 10eee80..429ce8c 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -1981,6 +1981,9 @@ class Envs:
+     SGLANG_DSA_TOPK_FLASHINFER_DETERMINISTIC = EnvBool(False)
+     SGLANG_DSA_TOPK_FLASHINFER_TIE_BREAK = EnvStr(None)
+     SGLANG_DSA_PREFILL_DENSE_ATTN_KV_LEN_THRESHOLD = EnvInt(2048)
++    # Preserve GLM kv_b BF16 on DCP ranks so replicated Q projection can be used.
++    # This trades extra weight memory for avoiding a per-layer Q all-gather.
++    SGLANG_DSA_DCP_KEEP_KV_B_BF16 = EnvBool(False)
+     SGLANG_DSA_HIP_DISABLE_PRESHUFFLE = EnvBool(False)
+     SGLANG_DSA_MQA_LOGITS_FREE_MEM_FRACTION = EnvFloat(0.2)
+     SGLANG_ENABLE_PCG_DSV2_DUAL_STREAM = EnvBool(False)
+diff --git a/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
+index 3317657..71d93f0 100644
+--- a/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
++++ b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
+@@ -61,6 +61,7 @@ from sglang.srt.models.deepseek_common.utils import (
+     enable_nextn_moe_bf16_cast_to_fp8,
+     is_wint4afp8_or_wint4a16_config,
+ )
++from sglang.srt.runtime_context import get_parallel
+ from sglang.srt.utils import bind_or_assign, log_info_on_rank0
+ 
+ if _use_aiter_gfx95:
+@@ -68,6 +69,23 @@ if _use_aiter_gfx95:
+ 
+ logger = logging.getLogger(__name__)
+ 
++
++def _quantize_glm_kv_b_to_fp8(
++    *, architecture: Optional[str], w_dtype: torch.dtype
++) -> bool:
++    """Whether GLM's bf16 kv_b_proj is converted to per-tensor fp8 on gfx950."""
++    if not (
++        _use_aiter_gfx95
++        and architecture == "GlmMoeDsaForCausalLM"
++        and w_dtype == torch.bfloat16
++    ):
++        return False
++    # q-rep (_prepare_replicated_q_proj) only takes a bf16/fp16 w_kc.
++    return not (
++        envs.SGLANG_DSA_DCP_KEEP_KV_B_BF16.get() and get_parallel().attn_dcp_size > 1
++    )
++
++
+ # Optional quantization for DeepSeek nvfp4 checkpoint
+ NVFP4_CKPT_FP8_ATTN_QUANT_MODULES = ["q_b_proj"]
+ 
+@@ -751,11 +769,11 @@ class DeepseekV2WeightLoaderMixin:
+ 
+             # GLM ships kv_b_proj as bf16, which falls back to torch.bmm. Quantize to
+             # per-tensor e4m3fn (not fnuz) to match forward_mla_rocm's dtype gate.
+-            if (
+-                _use_aiter_gfx95
+-                and self.config.architectures
+-                and self.config.architectures[0] == "GlmMoeDsaForCausalLM"
+-                and w.dtype == torch.bfloat16
++            if _quantize_glm_kv_b_to_fp8(
++                architecture=(
++                    self.config.architectures[0] if self.config.architectures else None
++                ),
++                w_dtype=w.dtype,
+             ):
+                 w, self_attn.w_scale = input_to_float8(w, dtype=torch.float8_e4m3fn)
+ 
+diff --git a/test/registered/unit/models/test_glm_dcp_kv_b_dtype.py b/test/registered/unit/models/test_glm_dcp_kv_b_dtype.py
+new file mode 100644
+index 0000000..a8da970
+--- /dev/null
++++ b/test/registered/unit/models/test_glm_dcp_kv_b_dtype.py
+@@ -0,0 +1,51 @@
++import unittest
++from types import SimpleNamespace
++from unittest.mock import patch
++
++import torch
++
++from sglang.srt.environ import envs
++from sglang.srt.models.deepseek_common import deepseek_weight_loader as loader
++from sglang.test.ci.ci_register import register_cpu_ci
++
++register_cpu_ci(est_time=1, suite="base-a-test-cpu")
++
++
++class TestGlmDcpKvBDtype(unittest.TestCase):
++    def test_opt_in_retains_bf16_only_for_glm_dcp_on_gfx95(self):
++        for gfx95 in (False, True):
++            for architecture in (None, "DeepseekV3ForCausalLM", "GlmMoeDsaForCausalLM"):
++                for dtype in (torch.float16, torch.bfloat16, torch.float8_e4m3fn):
++                    for dcp in (1, 4):
++                        for keep in (False, True):
++                            with (
++                                self.subTest(
++                                    gfx95=gfx95,
++                                    arch=architecture,
++                                    dtype=dtype,
++                                    dcp=dcp,
++                                    keep=keep,
++                                ),
++                                patch.object(loader, "_use_aiter_gfx95", gfx95),
++                                patch.object(
++                                    loader,
++                                    "get_parallel",
++                                    return_value=SimpleNamespace(attn_dcp_size=dcp),
++                                ),
++                                envs.SGLANG_DSA_DCP_KEEP_KV_B_BF16.override(keep),
++                            ):
++                                quantize = loader._quantize_glm_kv_b_to_fp8(
++                                    architecture=architecture, w_dtype=dtype
++                                )
++                                original = (
++                                    gfx95
++                                    and architecture == "GlmMoeDsaForCausalLM"
++                                    and dtype == torch.bfloat16
++                                )
++                                self.assertEqual(
++                                    quantize, original and not (keep and dcp > 1)
++                                )
++
++
++if __name__ == "__main__":
++    unittest.main()

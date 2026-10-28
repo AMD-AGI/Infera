@@ -1,0 +1,179 @@
+diff --git a/docs/source/design/transfer-engine/index.md b/docs/source/design/transfer-engine/index.md
+index f9200e29..5b5bacdc 100644
+--- a/docs/source/design/transfer-engine/index.md
++++ b/docs/source/design/transfer-engine/index.md
+@@ -519,6 +519,7 @@ For advanced users, TransferEngine provides the following advanced runtime optio
+ - `WITH_NVIDIA_PEERMEM` When unset or set to `1`, `ON`, or `TRUE`, Mooncake uses `ibv_reg_mr()` directly for GPU memory registration (requires the `nvidia-peermem` kernel module). Set to `0` to use the DMA-BUF path without `nvidia-peermem`. `MC_RDMA_DATA_DIRECT=1` takes precedence for the classic RDMA transport.
+ - `MC_RDMA_DATA_DIRECT` Set to `1` to enable NVIDIA Data Direct for CUDA device memory in the classic RDMA transport (default: disabled). Overrides `WITH_NVIDIA_PEERMEM`. Requires a [supported platform](https://docs.nvidia.com/multi-node-nvlink-systems/grace-blackwell-cx8-gpudirect-rdma-guide/platform_software_and_configuration.html), compatible runtime `libmlx5`, and compatible NICs selected with `MC_TE_FILTERS` or custom topology. Unsupported configurations fail without fallback.
+ - `MC_RDMA_DATA_DIRECT_PAIRING` Set to `1` (with `MC_RDMA_DATA_DIRECT=1`) to pair each GPU with the NICs whose Data Direct function shares the GPU's PCI root and to keep all other NICs out of that GPU's HCA list. Fail-closed: topology discovery is rejected when any NIC reports no Data Direct function or any GPU has no paired NIC, instead of falling back to PCIe distance (default: disabled).
++- `MC_HIP_STREAM_PRIORITY` ROCm only. `high` opts HIP transfer streams into the device's greatest supported stream priority; unset or `default` preserves normal priority. Set it before creating the first stream pool. Invalid values warn and retain the default. Streams remain nonblocking. Priority is a scheduling hint, not a preemption guarantee; measure copy latency and compute interference on your workload before enabling it.
+ - `MC_HIP_KFD_PIN_FIX` ROCm only. amdgpu drivers before amdgpu-dkms 6.19.14 charge a NIC's dma-buf pin of HIP device memory to the free VRAM that `hipMemGetInfo` reports and new allocations draw from, so registering a large buffer can leave too little for kernel loads. With `1` (the default), the first HIP registration probes the driver by pinning one page of a private 64 MiB allocation through dma-buf, and if it miscounts, Mooncake holds one page-sized `ibv_reg_mr()` MR per registered allocation (needs the amdgpu peer-memory client) to keep free VRAM exact. `force` holds them without probing; `0` disables the workaround. Cost: each registered HIP allocation takes one extra MR, always on the first NIC that accepts it rather than spread across NICs, until its last registered buffer is released. A few large KV allocations add a few entries, but many distinct `hipMalloc` allocations can fill a small MR table (for example on Ionic NICs); once that `ibv_reg_mr()` fails, anchors are turned off for the process and the double charge returns.
+ - `MC_ENDPOINT_STORE_TYPE` Choose FIFO Endpoint Store (`FIFO`) or Sieve Endpoint Store (`SIEVE`), default is `SIEVE`.
+ - `MC_TCP_ENABLE_CONNECTION_POOL` Reuse TCP connections across transfers to the same peer. Enabled by default: instead of opening a fresh socket per transfer, work for one peer runs over a bounded set of connection lanes (`MC_TCP_LANES_PER_PEER`, default 4), which keeps high-concurrency TCP traffic from exhausting the initiator's ephemeral port range. A lane's socket is reused only after a cleanly completed exchange; a connection whose protocol stream went dirty is closed and re-established. Set to `0` (or `false`/`no`) to restore one connection per transfer.
+diff --git a/mooncake-transfer-engine/src/transport/hip_transport/stream_pool.cpp b/mooncake-transfer-engine/src/transport/hip_transport/stream_pool.cpp
+index a00bd167..9d8be65e 100644
+--- a/mooncake-transfer-engine/src/transport/hip_transport/stream_pool.cpp
++++ b/mooncake-transfer-engine/src/transport/hip_transport/stream_pool.cpp
+@@ -16,8 +16,32 @@
+ 
+ #include <glog/logging.h>
+ 
++#include <cstdlib>
++#include <cstring>
++#include <string>
++
+ namespace mooncake {
+ 
++namespace {
++
++// MC_HIP_STREAM_PRIORITY=default|high. Read once before creating the first
++// pool. Priority is an opt-in scheduling hint; it does not guarantee
++// preemption.
++bool useHighPriorityStreams() {
++    static const bool high = [] {
++        const char *v = std::getenv("MC_HIP_STREAM_PRIORITY");
++        bool h = v != nullptr && std::strcmp(v, "high") == 0;
++        if (v != nullptr && !h && std::strcmp(v, "default") != 0) {
++            LOG(WARNING) << "StreamPool: ignoring MC_HIP_STREAM_PRIORITY=" << v
++                         << " (want default|high)";
++        }
++        return h;
++    }();
++    return high;
++}
++
++}  // namespace
++
+ StreamPool::StreamPool(int num_streams_per_device)
+     : num_streams_per_device_(num_streams_per_device) {
+     if (num_streams_per_device_ == 0) {
+@@ -69,9 +93,27 @@ bool StreamPool::initializeStreamsForDevice(int device_id) {
+     std::vector<hipStream_t> device_streams;
+     device_streams.reserve(num_streams_per_device_);
+ 
++    int least_priority = 0, greatest_priority = 0;
++    const bool high = useHighPriorityStreams();
++    if (high) {
++        err = hipDeviceGetStreamPriorityRange(&least_priority,
++                                              &greatest_priority);
++        if (err != hipSuccess) {
++            LOG(ERROR) << "StreamPool: hipDeviceGetStreamPriorityRange failed: "
++                       << hipGetErrorString(err);
++            return false;
++        }
++    }
++    LOG(INFO) << "StreamPool: device " << device_id << ": "
++              << num_streams_per_device_ << " non-blocking streams, priority "
++              << (high ? "high (" + std::to_string(greatest_priority) + ")"
++                       : std::string("default"));
++
+     for (int i = 0; i < num_streams_per_device_; ++i) {
+         hipStream_t stream;
+-        err = hipStreamCreateWithFlags(&stream, hipStreamNonBlocking);
++        err = high ? hipStreamCreateWithPriority(&stream, hipStreamNonBlocking,
++                                                 greatest_priority)
++                   : hipStreamCreateWithFlags(&stream, hipStreamNonBlocking);
+         if (err != hipSuccess) {
+             LOG(ERROR) << "StreamPool: Failed to create stream for device "
+                        << device_id << ": " << hipGetErrorString(err);
+diff --git a/mooncake-transfer-engine/tests/CMakeLists.txt b/mooncake-transfer-engine/tests/CMakeLists.txt
+index fe0d5d95..34431e6b 100644
+--- a/mooncake-transfer-engine/tests/CMakeLists.txt
++++ b/mooncake-transfer-engine/tests/CMakeLists.txt
+@@ -118,8 +118,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+     worker_pool_rail_state_test
+     PRIVATE
+     "-Wl,--wrap=_ZN8mooncake11RdmaContext17refreshCurrentGidEPNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEES7_"
+-    "-Wl,--wrap=_ZNK8mooncake11RdmaContext14queryPortStateEP14ibv_port_state"
+-  )
++    "-Wl,--wrap=_ZNK8mooncake11RdmaContext14queryPortStateEP14ibv_port_state")
+ endif()
+ add_test(NAME worker_pool_rail_state_test COMMAND worker_pool_rail_state_test)
+ 
+@@ -338,6 +337,18 @@ if(USE_HIP)
+   target_link_libraries(hip_transport_test PUBLIC transfer_engine gtest
+                                                   gtest_main)
+   add_test(NAME hip_transport_test COMMAND hip_transport_test)
++
++  add_executable(hip_stream_pool_test ${WORKSPACE}/hip_stream_pool_test.cpp)
++  target_link_libraries(hip_stream_pool_test PUBLIC transfer_engine gtest
++                                                    gtest_main)
++  foreach(priority default high invalid)
++    add_test(NAME hip_stream_pool_${priority}_test
++             COMMAND ${CMAKE_COMMAND} -E env MC_HIP_STREAM_PRIORITY=${priority}
++                     $<TARGET_FILE:hip_stream_pool_test>)
++  endforeach()
++  add_test(NAME hip_stream_pool_unset_test
++           COMMAND ${CMAKE_COMMAND} -E env --unset=MC_HIP_STREAM_PRIORITY
++                   $<TARGET_FILE:hip_stream_pool_test>)
+ endif()
+ 
+ if(USE_UBSHMEM)
+diff --git a/mooncake-transfer-engine/tests/hip_stream_pool_test.cpp b/mooncake-transfer-engine/tests/hip_stream_pool_test.cpp
+new file mode 100644
+index 00000000..85064207
+--- /dev/null
++++ b/mooncake-transfer-engine/tests/hip_stream_pool_test.cpp
+@@ -0,0 +1,62 @@
++// Copyright 2026 Mooncake Authors
++// Licensed under the Apache License, Version 2.0.
++
++#include <gtest/gtest.h>
++#include <hip/hip_runtime.h>
++
++#include <cstdlib>
++#include <cstring>
++#include <vector>
++
++#include "transport/hip_transport/stream_pool.h"
++
++TEST(HipStreamPoolTest, PriorityFlagsRoundRobinAndCopy) {
++    int devices = 0;
++    ASSERT_EQ(hipGetDeviceCount(&devices), hipSuccess);
++    if (devices == 0) GTEST_SKIP() << "Requires a HIP device";
++    ASSERT_EQ(hipSetDevice(0), hipSuccess);
++    int least = 0, greatest = 0;
++    ASSERT_EQ(hipDeviceGetStreamPriorityRange(&least, &greatest), hipSuccess);
++    const char* value = std::getenv("MC_HIP_STREAM_PRIORITY");
++    const int expected =
++        value && std::strcmp(value, "high") == 0 ? greatest : 0;
++
++    mooncake::StreamPool pool(2);
++    auto first = pool.getNextStream(0);
++    auto second = pool.getNextStream(0);
++    ASSERT_NE(first, nullptr);
++    ASSERT_NE(second, nullptr);
++    EXPECT_NE(first, second);
++    EXPECT_EQ(pool.getNextStream(0), first);
++    for (auto stream : {first, second}) {
++        int priority = 0;
++        unsigned int flags = 0;
++        ASSERT_EQ(hipStreamGetPriority(stream, &priority), hipSuccess);
++        EXPECT_EQ(priority, expected);
++        ASSERT_EQ(hipStreamGetFlags(stream, &flags), hipSuccess);
++        EXPECT_EQ(flags, hipStreamNonBlocking);
++    }
++
++    std::vector<unsigned char> source(65536, 0xA5), result(source.size());
++    void* device = nullptr;
++    ASSERT_EQ(hipMalloc(&device, source.size()), hipSuccess);
++    EXPECT_EQ(hipMemcpyAsync(device, source.data(), source.size(),
++                             hipMemcpyHostToDevice, first),
++              hipSuccess);
++    EXPECT_EQ(hipMemcpyAsync(result.data(), device, result.size(),
++                             hipMemcpyDeviceToHost, first),
++              hipSuccess);
++    EXPECT_EQ(hipStreamSynchronize(first), hipSuccess);
++    EXPECT_EQ(result, source);
++    EXPECT_EQ(hipFree(device), hipSuccess);
++}
++
++TEST(HipStreamPoolTest, ZeroCountStillCreatesOneStream) {
++    int devices = 0;
++    ASSERT_EQ(hipGetDeviceCount(&devices), hipSuccess);
++    if (devices == 0) GTEST_SKIP() << "Requires a HIP device";
++    mooncake::StreamPool pool(0);
++    auto stream = pool.getNextStream(0);
++    ASSERT_NE(stream, nullptr);
++    EXPECT_EQ(pool.getNextStream(0), stream);
++}

@@ -1,0 +1,5 @@
+Our upstream audit found that this PR covers our local D17 non-final PP-chunk wait-event fix (`6ee35f3617`), and additionally addresses the cached-prefix early-send path. We will track this PR instead of creating a duplicate.
+
+Our CPU regression failed before the local fix and passed afterward, but we never ran that local PP fix on GPU. The older #33970 has now been closed as superseded by merged #41395 for its original path; the PP gap is tracked here separately. The `device_module.Event()` handling also matters for the related non-CUDA work in #43299.
+
+A GLM-5.2 stack bisect on October 27 implicated `SGLANG_PP_COMM_OVERLAP=1` as a primary source of garbled output, with decode custom all-reduce also implicated. This is consistent motivation to validate producer/transfer ordering, but it is not proof that this PR fixes every cause. Our historical throughput used simulated MTP acceptance and is not evidence for this patch. Your explicit PP/async-depth and cached-prefix coverage is the relevant merge gate.

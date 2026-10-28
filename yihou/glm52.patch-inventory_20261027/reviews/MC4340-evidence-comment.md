@@ -1,0 +1,5 @@
+Independent ROCm validation from our GLM-5.2 PD work: we ported this fix to Mooncake `faae8dd4a6309c3ecd47e0721a83b0250d686fa2` (including manual rebasing of the transfer-engine hunks). The original fix and attribution remain yours; no competing PR is planned.
+
+Our historical GPU `te_pair` cases R018/R019 deliberately registered an interior region of a larger HIP allocation. Before the port, IPC relocation used the registered pointer as though it were the allocation base, so bytes landed at the registration's displacement. The interior-region byte comparison passed only with this fix. This is a targeted correctness check, not an end-to-end throughput measurement.
+
+Registration-base instrumentation in our actual serving runs reported `interior=0`, so those runs did not exercise the defect and cannot support a production performance claim. The archived evidence is under `glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012` (R018/R019). We have not rerun the test against your latest head.

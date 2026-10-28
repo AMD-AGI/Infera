@@ -1,0 +1,39 @@
+pack_up	source	file_count	diff_patch_count
+glm52-1p1d-samerail-c32-c40.packup_20260918	working tree	55	2
+glm52-agentx-c40-realacc.packup_20260918	working tree	48	2
+glm52-agentx-t2sweep-simacc.packup_20260920	working tree	51	1
+glm52-mtp-garbled-decode-rootcause.packup_20260918	working tree	194	2
+glm52.dcp4-decode-gmu.packup_20261023	working tree	164	3
+glm52.dcp4-pd.packup_20261022	working tree	714	35
+glm52.dcpx-pack-fix-best.packup_20261023	git:19a9c82d	194	0
+glm52.dcpx-xnode-dcp4decode.packup_20261022	working tree	93	4
+glm52.llrepro-atomdyn-tune.packup_20261025	git:19a9c82d	270	1
+glm52.llrepro-c96-bottleneck.packup_20261026	git:19a9c82d	48	0
+glm52.llrepro-k3-fp8-gemm-mem.packup_20261027	git:19a9c82d	133	0
+glm52.llrepro-k3-mtp.packup_20261026	git:19a9c82d	112	1
+glm52.llrepro-kf-ar-topk.packup_20261024	git:19a9c82d	82	0
+glm52.llrepro-pp4-dpa4.packup_20261024	git:19a9c82d	69	1
+glm52.llrepro-ppcomm-c88.packup_20261025	git:19a9c82d	111	0
+glm52.llying-dcp-s1s3.packup_20261022	working tree	102	3
+glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012	working tree	327	24
+glm52.p8d8.agentx-sweep.packup_20260920	working tree	63	2
+glm52.ppda-pp4-dpa4-kf.packup_20261023	git:19a9c82d	99	3
+glm52.ppdc-pp4-dcp4.packup_20261023	git:19a9c82d	138	3
+glm52.samenode-p4d4.agentx-c40.packup_20260922	working tree	58	5
+glm52.samenode-triton-idxshare.c40-full.packup_20260923	working tree	49	3
+glm52.samenode-v0521-oai102.agentx-c44.packup_20261010	working tree	209	14
+glm52.v0521-baseline-xnode-g3g4.packup_20261022	working tree	251	2
+glm52.v0521-c48-followups.packup_20261015	working tree	240	2
+glm52.v0521-cap-c44c48.packup_20261013	working tree	317	4
+glm52.v0521-decode-transfer-kvcap.packup_20261013	working tree	132	4
+glm52.v0521-g4tune-xfer.packup_20261020	working tree	174	3
+glm52.v0521-hicache-sensitivity.packup_20261014	working tree	174	0
+glm52.v0521-idxshare-maf-fix.packup_20261021	working tree	171	3
+glm52.v0521-offloaderv2-burst-c56c64.packup_20261019	working tree	658	3
+glm52.v0521-offloaderv2-highconc.packup_20261015	working tree	413	3
+glm52.v0521-offloaderv2.packup_20261015	working tree	288	3
+glm52.v0521-prefill-complete.packup_20261014	working tree	191	1
+glm52.v0521-prefill-kv-bottleneck.packup_20261014	working tree	388	3
+glm52.v0521-prefill-mem-hicache-policy.packup_20261014	working tree	361	3
+glm52.v0521-runshare-highconc.packup_20261014	working tree	216	2
+yihou-expert8-pd.packup_20260924	working tree	140	4

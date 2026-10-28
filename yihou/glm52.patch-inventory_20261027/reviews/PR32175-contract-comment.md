@@ -1,0 +1,5 @@
+Coordination note for the paged-indexer padding hunks: I have updated the existing #33059 to current main (`d0062f8bce0c86de998ff36b8c106e2ab4bc6ca5`). It slices Aiter q/weights to the real `q_offset`, keeps sequence-length metadata at the real row count, and restores physical `-1` top-k padding after the transform. Empty real queries return invalid indices directly without entering Aiter's query-count-dependent SplitKV scheduling.
+
+The registered CPU regression has 12 passing cases across legacy/preshuffle layouts, decode/verify/draft-extend-v2, and empty/padding-only queries; the same tests on unpatched main have 10 expected failures and 2 passing unpadded controls. These are caller-contract checks, not CP GPU-accuracy results.
+
+This PR's paged CP hunks instead pad `seqlens_expanded`. The metadata and caller contracts need to be reconciled if the changes are combined, rather than stacking both approaches independently. Linking the narrow existing PR and its tests here to avoid parallel fixes drifting apart. The requested current-head AMD DP-attention accuracy validation on #33059 is still outstanding.

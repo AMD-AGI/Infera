@@ -1,5 +1,9 @@
 # GLM-5.2 PD work — inventory of yihou's fixes and optimization patches (2026-09-18 .. 2026-10-27)
 
+Public reproduction starts at [PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md); the current PR-to-experiment mapping is [PR_PACKUP_MAP.md](PR_PACKUP_MAP.md).
+
+Live upstream status and actions are tracked in [PR_STATUS.md](PR_STATUS.md). The inventory below is the original evidence snapshot; later duplicate discoveries and PR state changes are recorded in that tracker.
+
 Built 2026-10-27 ~07:00Z for an agent that will open upstream PRs (sglang, Infera, aiter, Mooncake). Every row was
 checked against a file (pack-up README/notes, the patch itself, git history, or upstream `main` fetched with `gh api`
 on 2026-10-27, sglang main = `e4d4a9a7de`). Items marked **[unverified]** were not checked first-hand.
@@ -26,7 +30,7 @@ All diffs are in `patches/`. Config/tuning results (no code) are in `config_find
   I07 (kit hooks), and llying's kit `patches/deepseek_v2.py` on the prefill (same change as S13). Config in that stack:
   custom AR on, `SGLANG_PP_COMM_OVERLAP=1`, index_share true, K3, draft FP8 (`SGLANG_GLM_NEXTN_MOE_PTPC=1`), decode mem 0.95,
   `--stream-interval 30`, `SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION=8`, `--pp-async-batch-depth 1`, C96.
-  **Not** in the llr35 stack: all v0.5.21 mounts (S01-S09), the DCP branch (D*), S10-S12, S14, Mooncake patches.
+  **No additional runtime mounts** from the v0.5.21 S01-S09 set were selected. This does not mean all those behaviors are absent: the frozen fdbafb60 image already bakes in S01 metrics and S02 absorb-BMM workarounds, historical DSA row/sync fixes, and llying’s two Mooncake RDMA patches. The DCP branch, S10-S12, S14 and Mooncake M01/M02 are not added to llr35/llr37. See PUBLIC_REPRODUCE.md for the audited build/runtime distinction.
 - Earlier correctness facts: v0.5.19 decode custom all-reduce corrupted the speculative path with real acceptance
   (`PK/glm52-mtp-garbled-decode-rootcause.packup_20260918`); on the v0522-fdbafb60 image `--enable-fused-qk-norm-rope
   --enable-aiter-allreduce-fusion` with custom AR gave garbage on node 190, culprit flag not isolated (OPT_LEDGER A2);

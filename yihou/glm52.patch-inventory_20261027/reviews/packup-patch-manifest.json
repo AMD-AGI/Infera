@@ -1,0 +1,2160 @@
+[
+  {
+    "path": "yihou/glm52-1p1d-samerail-c32-c40.packup_20260918/patches/02-bench-pd-dp-rank-affinity-wiring.patch",
+    "ref": null,
+    "change_hash": "1f3e12aa1c5c82d907d33d4f36da11b6b6e4ee2bf7f129cd1e12cb9582b56bf8",
+    "lines": 50,
+    "targets": [
+      "b/bench/glm5p2_pd/config.full.sh",
+      "b/bench/glm5p2_pd/config.sh",
+      "b/bench/glm5p2_pd/launch.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I02-bench-pd-dp-rank-affinity-router-env-wiring.5a342acf.patch"
+    ],
+    "semantic_mapping": "I02-bench-pd-dp-rank-affinity-router-env-wiring.5a342acf.patch"
+  },
+  {
+    "path": "yihou/glm52-1p1d-samerail-c32-c40.packup_20260918/patches/01-router-pd-dp-rank-affinity.patch",
+    "ref": null,
+    "change_hash": "675d4de21d801eb976dea0b9ad29a4ad05979ccfaacc9216ed1f9a13fad73e18",
+    "lines": 286,
+    "targets": [
+      "b/rust/router/src/config.rs",
+      "b/rust/router/src/disagg.rs",
+      "b/rust/router/src/handlers.rs",
+      "b/rust/router/src/main.rs",
+      "b/rust/router/src/policy.rs",
+      "b/rust/router/src/pool.rs",
+      "b/rust/router/tests/functional.rs"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "NOT-OURS-llying-99fa0406-router-pd-dp-rank-affinity.patch"
+    ],
+    "semantic_mapping": "NOT-OURS-llying-99fa0406-router-pd-dp-rank-affinity.patch"
+  },
+  {
+    "path": "yihou/glm52-agentx-c40-realacc.packup_20260918/patches/pr37152.sources.yihou.diff",
+    "ref": null,
+    "change_hash": "9326796afd3cedd35647c2c340be89b72873b5bb9587578c1e1f0d7b71ad3249",
+    "lines": 296,
+    "targets": [
+      "b/python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh",
+      "b/python/sglang/kernels/ops/kvcache/hicache.py",
+      "b/python/sglang/srt/mem_cache/pool_host/mha.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External #37152; not ours"
+  },
+  {
+    "path": "yihou/glm52-agentx-c40-realacc.packup_20260918/patches/0001-engine-sh-extra-args-env.patch",
+    "ref": null,
+    "change_hash": "2215b1ebfd74232634c3e377c9d8700aac5a451e8e20aa8bc1e8da4c552e022e",
+    "lines": 72,
+    "targets": [
+      "b/bench/glm5p2_pd/engine.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I01-bench-engine-sh-role-extra-args-env.5a342acf.patch"
+    ],
+    "semantic_mapping": "I01-bench-engine-sh-role-extra-args-env.5a342acf.patch"
+  },
+  {
+    "path": "yihou/glm52-agentx-t2sweep-simacc.packup_20260920/patches/0001-engine-sh-extra-args-env.patch",
+    "ref": null,
+    "change_hash": "2215b1ebfd74232634c3e377c9d8700aac5a451e8e20aa8bc1e8da4c552e022e",
+    "lines": 72,
+    "targets": [
+      "b/bench/glm5p2_pd/engine.sh"
+    ],
+    "duplicate_of": "yihou/glm52-agentx-c40-realacc.packup_20260918/patches/0001-engine-sh-extra-args-env.patch",
+    "inventory_exact_changes": [
+      "I01-bench-engine-sh-role-extra-args-env.5a342acf.patch"
+    ],
+    "semantic_mapping": "I01-bench-engine-sh-role-extra-args-env.5a342acf.patch"
+  },
+  {
+    "path": "yihou/glm52-mtp-garbled-decode-rootcause.packup_20260918/patches/nextn-fusion-fork-4350d37c5.patch",
+    "ref": null,
+    "change_hash": "c319b182de809992191b74872e0245901d557e80c65219bb73ab0cf541398643",
+    "lines": 55,
+    "targets": [
+      "b/python/sglang/srt/models/glm4_moe.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External xiaobochen-amd NextN fusion; not ours"
+  },
+  {
+    "path": "yihou/glm52-mtp-garbled-decode-rootcause.packup_20260918/patches/0001-engine-sh-extra-args-env.patch",
+    "ref": null,
+    "change_hash": "2215b1ebfd74232634c3e377c9d8700aac5a451e8e20aa8bc1e8da4c552e022e",
+    "lines": 72,
+    "targets": [
+      "b/bench/glm5p2_pd/engine.sh"
+    ],
+    "duplicate_of": "yihou/glm52-agentx-c40-realacc.packup_20260918/patches/0001-engine-sh-extra-args-env.patch",
+    "inventory_exact_changes": [
+      "I01-bench-engine-sh-role-extra-args-env.5a342acf.patch"
+    ],
+    "semantic_mapping": "I01-bench-engine-sh-role-extra-args-env.5a342acf.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/03-ec2-allrank.decode.diff",
+    "ref": null,
+    "change_hash": "884013651928fb783b75eec90c69f0d500f1a3cfee064482cf9cd6e3cdbbbcd6",
+    "lines": 24,
+    "targets": [
+      "b/python/sglang/srt/disaggregation/decode.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff",
+      "S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+    ],
+    "semantic_mapping": "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff; S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+  },
+  {
+    "path": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/02-ec-tp0only.metrics_reporter.diff",
+    "ref": null,
+    "change_hash": "4522416ef6018be868daba8dd1469d2638e859d821ad0065b64eb1331641d8ba",
+    "lines": 13,
+    "targets": [
+      "b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S12b-decode-empty-cache-tp0-only.SUPERSEDED.ab7a898b77.diff"
+    ],
+    "semantic_mapping": "S12b-decode-empty-cache-tp0-only.SUPERSEDED.ab7a898b77.diff"
+  },
+  {
+    "path": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/01-memlog.metrics_reporter.diff",
+    "ref": null,
+    "change_hash": "1f808207ba0bbb7cfacdc883cdbd62c800256a3633ccebfb18edbd37548759c0",
+    "lines": 15,
+    "targets": [
+      "b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "T05-decode-memlog-allocator-state.ab7a898b77.diff"
+    ],
+    "semantic_mapping": "T05-decode-memlog-allocator-state.ab7a898b77.diff"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch.full.diff",
+    "ref": null,
+    "change_hash": "904812625a227631595339cda58df52c2b4208a4645dcf34fbe5da3cf07b1737",
+    "lines": 4208,
+    "targets": [
+      "b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py",
+      "b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py",
+      "b/python/sglang/kernels/ops/kvcache/mla_buffer.py",
+      "b/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py",
+      "b/python/sglang/srt/arg_groups/overrides.py",
+      "b/python/sglang/srt/arg_groups/speculative_hook.py",
+      "b/python/sglang/srt/configs/model_config.py",
+      "b/python/sglang/srt/disaggregation/common/conn.py",
+      "b/python/sglang/srt/disaggregation/decode.py",
+      "b/python/sglang/srt/disaggregation/mooncake/conn.py",
+      "b/python/sglang/srt/disaggregation/mori/conn.py",
+      "b/python/sglang/srt/disaggregation/nixl/conn.py",
+      "b/python/sglang/srt/disaggregation/prefill.py",
+      "b/python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "b/python/sglang/srt/environ.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py",
+      "b/python/sglang/srt/layers/attention/dsa_backend.py",
+      "b/python/sglang/srt/layers/attention/graph_utils.py",
+      "b/python/sglang/srt/layers/dcp/__init__.py",
+      "b/python/sglang/srt/layers/dcp/metadata.py",
+      "b/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py",
+      "b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py",
+      "b/python/sglang/srt/mem_cache/kv_cache_configurator.py",
+      "b/python/sglang/srt/mem_cache/memory_pool.py",
+      "b/python/sglang/srt/mem_cache/pool_host/mla.py",
+      "b/python/sglang/srt/model_executor/forward_batch_info.py",
+      "b/python/sglang/srt/model_executor/runner/eager_runner.py",
+      "b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py",
+      "b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py",
+      "b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py",
+      "b/python/sglang/srt/models/deepseek_v2.py",
+      "b/python/sglang/srt/speculative/eagle_disaggregation.py",
+      "b/python/sglang/srt/speculative/eagle_worker_v2.py",
+      "b/python/sglang/srt/utils/offloader.py",
+      "b/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py",
+      "b/test/registered/kernels/ops/kvcache/test_set_mla_kv_buffer.py",
+      "b/test/registered/unit/disaggregation/test_decode_queue_cleanup.py",
+      "b/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py",
+      "b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py",
+      "b/test/registered/unit/layers/attention/test_dsa_indexer_idle.py",
+      "b/test/registered/unit/layers/test_radix_attention_padded_extend.py",
+      "b/test/registered/unit/managers/test_dcp_logical_capacity.py",
+      "b/test/registered/unit/model_executor/runner/test_eager_idle_active_backend.py",
+      "b/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py",
+      "b/test/registered/unit/spec/test_eagle_worker_v2_topk1_fastpath.py",
+      "b/test/registered/unit/test_dsa_dcp_backend_defaults.py",
+      "b/test/registered/unit/test_dsa_dcp_split_indexer.py",
+      "b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py",
+      "b/test/registered/unit/utils/test_offloader_cpu_param_attrs.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "D-series aggregate; no additional patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0000-merge-pr44322-onto-fda84f80b7.diff",
+    "ref": null,
+    "change_hash": "bdc700bf7508cdf66813f8a97c9954625bd2e6ed48b8baf19ce0f68c8dc08598",
+    "lines": 1341,
+    "targets": [
+      "b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla.py",
+      "b/python/sglang/kernels/ops/attention/dsa/triton_sparse_mla_decode.py",
+      "b/python/sglang/kernels/ops/kvcache/mla_buffer.py",
+      "b/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py",
+      "b/python/sglang/srt/arg_groups/overrides.py",
+      "b/python/sglang/srt/configs/model_config.py",
+      "b/python/sglang/srt/environ.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer_metadata.py",
+      "b/python/sglang/srt/layers/attention/dsa_backend.py",
+      "b/python/sglang/srt/layers/dcp/__init__.py",
+      "b/python/sglang/srt/layers/dcp/metadata.py",
+      "b/python/sglang/srt/mem_cache/kv_cache_configurator.py",
+      "b/python/sglang/srt/mem_cache/memory_pool.py",
+      "b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py",
+      "b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py",
+      "b/python/sglang/srt/models/deepseek_v2.py",
+      "b/python/sglang/srt/speculative/eagle_worker_v2.py",
+      "b/test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py",
+      "b/test/registered/kernels/ops/kvcache/test_set_mla_kv_buffer.py",
+      "b/test/registered/unit/managers/test_dcp_logical_capacity.py",
+      "b/test/registered/unit/spec/test_eagle_worker_v2_topk1_fastpath.py",
+      "b/test/registered/unit/test_dsa_dcp_backend_defaults.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0000-merge-pr44322-onto-fda84f80b7.NOT-OURS.diff"
+    ],
+    "semantic_mapping": "D-dcp-branch/0000-merge-pr44322-onto-fda84f80b7.NOT-OURS.diff"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0031-AMD-dsa-Do-not-rebind-a-constexpr-in-the-radix-selec.patch",
+    "ref": null,
+    "change_hash": "8173155842e4e56759d855fb06a6369cfce236453e05915f0278cf580574a73c",
+    "lines": 31,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0031-AMD-dsa-Do-not-rebind-a-constexpr-in-the-radix-selec.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0031-AMD-dsa-Do-not-rebind-a-constexpr-in-the-radix-selec.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0030-AMD-dsa-Merge-the-split-indexer-s-candidates-by-radi.patch",
+    "ref": null,
+    "change_hash": "1a481d607904dcb9ab9dc3a7b0d62e8a64eb9eaa6a2be5ad05da88e6ae4d0aaf",
+    "lines": 181,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py",
+      "b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0030-AMD-dsa-Merge-the-split-indexer-s-candidates-by-radi.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0030-AMD-dsa-Merge-the-split-indexer-s-candidates-by-radi.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0029-Test-dcp-Cover-the-DP-attention-prefill-fan-out-to-a.patch",
+    "ref": null,
+    "change_hash": "55b2b1a9c4859b8f59eb63045bb90fe82182fd9d915e287c7717a41d5d052efa",
+    "lines": 73,
+    "targets": [
+      "b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0029-Test-dcp-Cover-the-DP-attention-prefill-fan-out-to-a.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0029-Test-dcp-Cover-the-DP-attention-prefill-fan-out-to-a.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0028-Fix-forward-batch-Pad-extend_seq_lens_cpu-into-a-new.patch",
+    "ref": null,
+    "change_hash": "79d47a32d7449931e54a63d18b4e51623c4e1828f7aece56b96091d4dd951963",
+    "lines": 89,
+    "targets": [
+      "b/python/sglang/srt/model_executor/forward_batch_info.py",
+      "b/test/registered/unit/model_executor/test_mlp_sync_pad_unpad.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0028-Fix-forward-batch-Pad-extend_seq_lens_cpu-into-a-new.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0028-Fix-forward-batch-Pad-extend_seq_lens_cpu-into-a-new.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0027-Fix-dsa-Skip-the-indexer-on-an-eager-idle-DP-rank-on.patch",
+    "ref": null,
+    "change_hash": "20cbda1780482fd2a7f87e10784f306519f25f0f0a1c384273f248559262e575",
+    "lines": 88,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py",
+      "b/test/registered/unit/layers/attention/test_dsa_indexer_idle.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0027-Fix-dsa-Skip-the-indexer-on-an-eager-idle-DP-rank-on.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0027-Fix-dsa-Skip-the-indexer-on-an-eager-idle-DP-rank-on.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0026-Fix-dsa-Do-not-warn-on-an-idle-DP-rank-s-DCP-prepare.patch",
+    "ref": null,
+    "change_hash": "9520f270dfafd080b458680f44a72059a50b82a29ccd8db6d9de2f0b81880683",
+    "lines": 33,
+    "targets": [
+      "b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0026-Fix-dsa-Do-not-warn-on-an-idle-DP-rank-s-DCP-prepare.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0026-Fix-dsa-Do-not-warn-on-an-idle-DP-rank-s-DCP-prepare.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0025-yihou-debug-SGLANG_LOG_DECODE_SEQ_LENS-logs-rows-sum.patch",
+    "ref": null,
+    "change_hash": "0b38597d4162a8565c6862776fae083e7783da89e866ce9ba5a6e378ef7f0a48",
+    "lines": 67,
+    "targets": [
+      "b/python/sglang/srt/environ.py",
+      "b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0025-yihou-debug-SGLANG_LOG_DECODE_SEQ_LENS-logs-rows-sum.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0025-yihou-debug-SGLANG_LOG_DECODE_SEQ_LENS-logs-rows-sum.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0024-AMD-dsa-Fuse-the-split-decode-indexer-s-pack-and-mer.patch",
+    "ref": null,
+    "change_hash": "ebfacea3f6b8bcfa2c1af8c52fee5e7e1f80584d8c7ad37f9d574f610400f25d",
+    "lines": 476,
+    "targets": [
+      "b/python/sglang/srt/environ.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer_triton.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py",
+      "b/test/registered/unit/test_dsa_dcp_split_indexer_triton.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0024-AMD-dsa-Fuse-the-split-decode-indexer-s-pack-and-mer.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0024-AMD-dsa-Fuse-the-split-decode-indexer-s-pack-and-mer.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0023-Fix-attention-Pad-a-batch-major-padded-extend-output.patch",
+    "ref": null,
+    "change_hash": "786dc87503fa54df05d2c1548fa52f8d91ac3d935b6c3fb87bdeed57eda4f20f",
+    "lines": 125,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/graph_utils.py",
+      "b/test/registered/unit/layers/test_radix_attention_padded_extend.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0023-Fix-attention-Pad-a-batch-major-padded-extend-output.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0023-Fix-attention-Pad-a-batch-major-padded-extend-output.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0022-AMD-dsa-Add-SGLANG_DSA_DCP_KEEP_KV_B_BF16-to-keep-GL.patch",
+    "ref": null,
+    "change_hash": "10394e5c2e614ed10531b5eec184025f82979ca364fd1815bb3564a2ef0cf8ad",
+    "lines": 144,
+    "targets": [
+      "b/python/sglang/srt/environ.py",
+      "b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py",
+      "b/test/registered/unit/test_dsa_dcp_backend_defaults.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0022-AMD-dsa-Add-SGLANG_DSA_DCP_KEEP_KV_B_BF16-to-keep-GL.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0022-AMD-dsa-Add-SGLANG_DSA_DCP_KEEP_KV_B_BF16-to-keep-GL.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0021-AMD-offloader-Keep-is_shuffled-on-CPU-offloaded-weig.patch",
+    "ref": null,
+    "change_hash": "3ec15660314206c6657ccad29f3125a859137bcfe7fc9bbd45759097026002de",
+    "lines": 91,
+    "targets": [
+      "b/python/sglang/srt/utils/offloader.py",
+      "b/test/registered/unit/utils/test_offloader_cpu_param_attrs.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0021-AMD-offloader-Keep-is_shuffled-on-CPU-offloaded-weig.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0021-AMD-offloader-Keep-is_shuffled-on-CPU-offloaded-weig.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0020-yihou-cherry-pick-sgl-project-sglang-45483-init-the-.patch",
+    "ref": null,
+    "change_hash": "3fde63b7b05a73f716062d915db092f530d100f4eb915dd9643d1fb7f922aa52",
+    "lines": 139,
+    "targets": [
+      "b/python/sglang/srt/model_executor/runner/eager_runner.py",
+      "b/test/registered/unit/model_executor/runner/test_eager_idle_active_backend.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S05-eager-idle-init-active-attn-backend.pr45483.patch",
+      "D-dcp-branch/0020-yihou-cherry-pick-sgl-project-sglang-45483-init-the-.patch"
+    ],
+    "semantic_mapping": "S05-eager-idle-init-active-attn-backend.pr45483.patch; D-dcp-branch/0020-yihou-cherry-pick-sgl-project-sglang-45483-init-the-.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0019-PD-decode-Release-deferred-KV-and-skip-transfer-poll.patch",
+    "ref": null,
+    "change_hash": "ea48816ed81005f37d81a962cb1c93845feb01d189e47f8d3a79d2a769928328",
+    "lines": 363,
+    "targets": [
+      "b/python/sglang/srt/disaggregation/decode.py",
+      "b/test/registered/unit/disaggregation/test_decode_queue_cleanup.py",
+      "b/test/registered/unit/disaggregation/test_deferred_decode_kv_release.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0019-PD-decode-Release-deferred-KV-and-skip-transfer-poll.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0019-PD-decode-Release-deferred-KV-and-skip-transfer-poll.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0018-AMD-dsa-Compute-the-split-indexer-s-owned-pages-and-.patch",
+    "ref": null,
+    "change_hash": "0962a092eaa6eeb0463602f6d605733f41f12ccef3735217a2bdbd9a698b2ac6",
+    "lines": 233,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py",
+      "b/test/registered/unit/test_dsa_dcp_split_indexer.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0018-AMD-dsa-Compute-the-split-indexer-s-owned-pages-and-.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0018-AMD-dsa-Compute-the-split-indexer-s-owned-pages-and-.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0017-PD-pp-Gate-non-final-prefill-chunk-sends-on-the-forw.patch",
+    "ref": null,
+    "change_hash": "8377cc72e80576681d05f687924120dfa509f933d43af200d43b7c7c6a1f2708",
+    "lines": 38,
+    "targets": [
+      "b/python/sglang/srt/disaggregation/prefill.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0017-PD-pp-Gate-non-final-prefill-chunk-sends-on-the-forw.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0017-PD-pp-Gate-non-final-prefill-chunk-sends-on-the-forw.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0016-Test-dcp-Cover-PP-prefill-stages-feeding-a-DCP4-deco.patch",
+    "ref": null,
+    "change_hash": "8465f6c6be86cf4c114e8bc64997725a57159abb3d26aaab39b6990be81f11c9",
+    "lines": 141,
+    "targets": [
+      "b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0016-Test-dcp-Cover-PP-prefill-stages-feeding-a-DCP4-deco.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0016-Test-dcp-Cover-PP-prefill-stages-feeding-a-DCP4-deco.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0015-AMD-dsa-Gate-the-page-split-decode-indexer-behind-SG.patch",
+    "ref": null,
+    "change_hash": "499c6f3019501d4a3f07b66bff6d4194ec84523429fa78040cb98d10eb0f4cef",
+    "lines": 150,
+    "targets": [
+      "b/python/sglang/srt/environ.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0015-AMD-dsa-Gate-the-page-split-decode-indexer-behind-SG.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0015-AMD-dsa-Gate-the-page-split-decode-indexer-behind-SG.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0014-AMD-dsa-Add-a-page-split-DSA-decode-top-k-for-DCP-ov.patch",
+    "ref": null,
+    "change_hash": "1a638ec066b08a2a1ccfa4f9f6f9460f681b0aa8e9f0e3adbe8209ce175806be",
+    "lines": 289,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa/dsa_dcp_split_indexer.py",
+      "b/test/registered/unit/test_dsa_dcp_split_indexer.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0014-AMD-dsa-Add-a-page-split-DSA-decode-top-k-for-DCP-ov.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0014-AMD-dsa-Add-a-page-split-DSA-decode-top-k-for-DCP-ov.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0013-Test-dcp-Cover-the-DP-attention-prefill-fan-out-to-a.patch",
+    "ref": null,
+    "change_hash": "469963127bd9d569bf52e0949e956b2f86965b0bedfe1fcde884c2d447477820",
+    "lines": 277,
+    "targets": [
+      "b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0013-Test-dcp-Cover-the-DP-attention-prefill-fan-out-to-a.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0013-Test-dcp-Cover-the-DP-attention-prefill-fan-out-to-a.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0012-PD-dsa-Add-SGLANG_DSA_DCP_PD_DROP_MTP_SEED-to-drop-t.patch",
+    "ref": null,
+    "change_hash": "9de0fffe348cb979c3f0517b574d0fa36f161666f975903ddebd9f2a6a3abf5d",
+    "lines": 64,
+    "targets": [
+      "b/python/sglang/srt/environ.py",
+      "b/python/sglang/srt/speculative/eagle_disaggregation.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0012-PD-dsa-Add-SGLANG_DSA_DCP_PD_DROP_MTP_SEED-to-drop-t.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0012-PD-dsa-Add-SGLANG_DSA_DCP_PD_DROP_MTP_SEED-to-drop-t.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0011-PD-dsa-Allow-a-ROCm-DCP-decode-behind-a-DCP1-prefill.patch",
+    "ref": null,
+    "change_hash": "ec7fa9f77e0dfb1e774440d3c541691bbb4da119ac4986aa2a6249a2f6a34956",
+    "lines": 59,
+    "targets": [
+      "b/python/sglang/srt/arg_groups/model_overrides/deepseek_v2.py",
+      "b/test/registered/unit/test_dsa_dcp_backend_defaults.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0011-PD-dsa-Allow-a-ROCm-DCP-decode-behind-a-DCP1-prefill.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0011-PD-dsa-Allow-a-ROCm-DCP-decode-behind-a-DCP1-prefill.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0010-PD-dcp-Relayout-a-DCP-sharded-DSA-draft-KV-like-the-.patch",
+    "ref": null,
+    "change_hash": "1e01f24b628135fe297a556573f45af915149c2b324ad09635d71242045bbd22",
+    "lines": 426,
+    "targets": [
+      "b/python/sglang/srt/disaggregation/common/conn.py",
+      "b/python/sglang/srt/disaggregation/mooncake/conn.py",
+      "b/python/sglang/srt/disaggregation/mori/conn.py",
+      "b/python/sglang/srt/disaggregation/nixl/conn.py",
+      "b/test/registered/unit/disaggregation/test_dsa_pd_dcp.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0010-PD-dcp-Relayout-a-DCP-sharded-DSA-draft-KV-like-the-.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0010-PD-dcp-Relayout-a-DCP-sharded-DSA-draft-KV-like-the-.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch",
+    "ref": null,
+    "change_hash": "33744c7affbbe69706ec60c007ce52ecfd9fcea430cdb58af700e7c6803853e3",
+    "lines": 31,
+    "targets": [
+      "b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_rocm.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S02-rocm-absorb-bmm-config-off.v0521.diff",
+      "D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+    ],
+    "semantic_mapping": "S02-rocm-absorb-bmm-config-off.v0521.diff; D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch",
+    "ref": null,
+    "change_hash": "219486d7c916ce40088adad0e68d958b97e7a8a94bd8ee88d593d86edee19b8c",
+    "lines": 63,
+    "targets": [
+      "b/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S01-kv-events-metrics-send-noblock.v0521.diff",
+      "D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+    ],
+    "semantic_mapping": "S01-kv-events-metrics-send-noblock.v0521.diff; D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0007-yihou-infera-recipe-HiCache-ROCm-staged-write-back-o.patch",
+    "ref": null,
+    "change_hash": "12f3a94a02a3b0c1677b6e94fd6dd0596adefce9d63144d8d02342819094cf3e",
+    "lines": 42,
+    "targets": [
+      "b/python/sglang/srt/mem_cache/pool_host/mla.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0007-yihou-infera-recipe-HiCache-ROCm-staged-write-back-o.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0007-yihou-infera-recipe-HiCache-ROCm-staged-write-back-o.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0006-yihou-infera-recipe-responses-unstreamed-tool-args.patch",
+    "ref": null,
+    "change_hash": "3ae6cf41a2debe6417aa45f41e9cd1d75f438bb67dddb240657505331d9866bd",
+    "lines": 83,
+    "targets": [
+      "b/python/sglang/srt/entrypoints/openai/serving_responses.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0006-yihou-infera-recipe-responses-unstreamed-tool-args.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0006-yihou-infera-recipe-responses-unstreamed-tool-args.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0005-yihou-infera-recipe-PD-decode-skips-implicit-ROCm-re.patch",
+    "ref": null,
+    "change_hash": "e25fad0499c4ce8a3971877ebe77eaadd15f3e1111389f7ad102fc191fac7d58",
+    "lines": 31,
+    "targets": [
+      "b/python/sglang/srt/arg_groups/speculative_hook.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0005-yihou-infera-recipe-PD-decode-skips-implicit-ROCm-re.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0005-yihou-infera-recipe-PD-decode-skips-implicit-ROCm-re.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0004-yihou-infera-recipe-prefill-nonfinal-chunk-wait-even.patch",
+    "ref": null,
+    "change_hash": "757dd7b200f0c44bd5ca0b0b2e4a6a4e6dcfde97d165fbe32b8365bdf0d7b21f",
+    "lines": 35,
+    "targets": [
+      "b/python/sglang/srt/disaggregation/prefill.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0004-yihou-infera-recipe-prefill-nonfinal-chunk-wait-even.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0004-yihou-infera-recipe-prefill-nonfinal-chunk-wait-even.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0003-yihou-infera-recipe-dsa_page_table_rows.patch",
+    "ref": null,
+    "change_hash": "ce6caa1285cac710c471b4267dd31793bf7d85fe41780a1d58d686df38ec9c6b",
+    "lines": 75,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa_backend.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0003-yihou-infera-recipe-dsa_page_table_rows.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0003-yihou-infera-recipe-dsa_page_table_rows.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0002-yihou-infera-recipe-dsa_dp_sync.patch",
+    "ref": null,
+    "change_hash": "7d214fd7a7032cceca65b8545636de4cccd627f71b858ecd2fd4d497cf142377",
+    "lines": 70,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa_backend.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0002-yihou-infera-recipe-dsa_dp_sync.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0002-yihou-infera-recipe-dsa_dp_sync.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0001-yihou-infera-recipe-dsa_indexer-HIP-DP-padded-rows.patch",
+    "ref": null,
+    "change_hash": "dfea1d57cdcb97aabe04dc01af4e898653220d385629b20bdef2c90ade39c0dc",
+    "lines": 132,
+    "targets": [
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "D-dcp-branch/0001-yihou-infera-recipe-dsa_indexer-HIP-DP-padded-rows.patch"
+    ],
+    "semantic_mapping": "D-dcp-branch/0001-yihou-infera-recipe-dsa_indexer-HIP-DP-padded-rows.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/scripts/harness/pd-tools/overlay-patches/kv_events_publisher.noblock.diff",
+    "ref": null,
+    "change_hash": "219486d7c916ce40088adad0e68d958b97e7a8a94bd8ee88d593d86edee19b8c",
+    "lines": 45,
+    "targets": [
+      "kv_events_publisher.yihou-noblock.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch",
+    "inventory_exact_changes": [
+      "S01-kv-events-metrics-send-noblock.v0521.diff",
+      "D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+    ],
+    "semantic_mapping": "S01-kv-events-metrics-send-noblock.v0521.diff; D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+  },
+  {
+    "path": "yihou/glm52.dcp4-pd.packup_20261022/scripts/harness/pd-tools/overlay-patches/forward_mla_rocm.noabsorbcfg.diff",
+    "ref": null,
+    "change_hash": "33744c7affbbe69706ec60c007ce52ecfd9fcea430cdb58af700e7c6803853e3",
+    "lines": 13,
+    "targets": [
+      "forward_mla_rocm.yihou-noabsorbcfg.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch",
+    "inventory_exact_changes": [
+      "S02-rocm-absorb-bmm-config-off.v0521.diff",
+      "D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+    ],
+    "semantic_mapping": "S02-rocm-absorb-bmm-config-off.v0521.diff; D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+  },
+  {
+    "path": "yihou/glm52.dcpx-xnode-dcp4decode.packup_20261022/imgbuild/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff",
+    "ref": null,
+    "change_hash": "0ea6f43112c27ea7951d8673e3f18a78cccc765406537351ffb266b1f9774b50",
+    "lines": 232,
+    "targets": [
+      "b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h",
+      "b/mooncake-transfer-engine/src/transfer_engine_impl.cpp",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "M01-mooncake-pr4340-port-to-faae8dd4.diff"
+    ],
+    "semantic_mapping": "M01-mooncake-pr4340-port-to-faae8dd4.diff"
+  },
+  {
+    "path": "yihou/glm52.dcpx-xnode-dcp4decode.packup_20261022/imgbuild/mooncake-ib-timeout.diff",
+    "ref": null,
+    "change_hash": "07dfd923111773961bc964cf54c085639f552b99f430d76f58daeeddca0d45aa",
+    "lines": 71,
+    "targets": [
+      "b/mooncake-transfer-engine/include/config.h",
+      "b/mooncake-transfer-engine/src/config.cpp",
+      "b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "NOT-OURS-llying-mooncake-ib-timeout.diff"
+    ],
+    "semantic_mapping": "NOT-OURS-llying-mooncake-ib-timeout.diff"
+  },
+  {
+    "path": "yihou/glm52.dcpx-xnode-dcp4decode.packup_20261022/imgbuild/mooncake-dest-pinned-hca.diff",
+    "ref": null,
+    "change_hash": "b23360488abe11f2d46bea4d94d8982c646c757a7603377d3707729f152b5716",
+    "lines": 91,
+    "targets": [
+      "b/mooncake-transfer-engine/include/topology.h",
+      "b/mooncake-transfer-engine/src/topology.cpp",
+      "b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "NOT-OURS-llying-mooncake-dest-pinned-hca.diff"
+    ],
+    "semantic_mapping": "NOT-OURS-llying-mooncake-dest-pinned-hca.diff"
+  },
+  {
+    "path": "yihou/glm52.dcpx-xnode-dcp4decode.packup_20261022/imgbuild/mooncake-dest-local-rail.diff",
+    "ref": null,
+    "change_hash": "c8ed3e0409047b835820801dcf001c8f385e8ceed151ff59eb25d33de563b99a",
+    "lines": 85,
+    "targets": [
+      "b/mooncake-transfer-engine/include/config.h",
+      "b/mooncake-transfer-engine/src/config.cpp",
+      "b/mooncake-transfer-engine/src/transport/rdma_transport/rdma_transport.cpp"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "NOT-OURS-llying-mooncake-dest-local-rail.diff"
+    ],
+    "semantic_mapping": "NOT-OURS-llying-mooncake-dest-local-rail.diff"
+  },
+  {
+    "path": "yihou/glm52.llying-dcp-s1s3.packup_20261022/patches/0001-Fix-deepseek_v2-Read-hidden-size-from-config-on-non-.patch",
+    "ref": null,
+    "change_hash": "a5b0d8ae4ac1d777652660c15a5d63762c6294aa2381aee2abe6ccb9290b1fd5",
+    "lines": 40,
+    "targets": [
+      "b/python/sglang/srt/models/deepseek_v2.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+    ],
+    "semantic_mapping": "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+  },
+  {
+    "path": "yihou/glm52.llying-dcp-s1s3.packup_20261022/scripts/image/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff",
+    "ref": null,
+    "change_hash": "0ea6f43112c27ea7951d8673e3f18a78cccc765406537351ffb266b1f9774b50",
+    "lines": 232,
+    "targets": [
+      "b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h",
+      "b/mooncake-transfer-engine/src/transfer_engine_impl.cpp",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp"
+    ],
+    "duplicate_of": "yihou/glm52.dcpx-xnode-dcp4decode.packup_20261022/imgbuild/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff",
+    "inventory_exact_changes": [
+      "M01-mooncake-pr4340-port-to-faae8dd4.diff"
+    ],
+    "semantic_mapping": "M01-mooncake-pr4340-port-to-faae8dd4.diff"
+  },
+  {
+    "path": "yihou/glm52.llying-dcp-s1s3.packup_20261022/scripts/kit/kit-v6-pp4.nodeepseek.diff",
+    "ref": null,
+    "change_hash": "d531beace59b94e362f1fdea84990ae1ddbd4a7122c8c7f6631a4e593953c74f",
+    "lines": 93,
+    "targets": [
+      "2p1d-kit/v6-pp4/README.md",
+      "2p1d-kit/v6-pp4/engine/agentx/agentx.sh",
+      "2p1d-kit/v6-pp4/engine/worker.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I07/example kit adaptation"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/kv_events_publisher.noblock.diff",
+    "ref": null,
+    "change_hash": "219486d7c916ce40088adad0e68d958b97e7a8a94bd8ee88d593d86edee19b8c",
+    "lines": 45,
+    "targets": [
+      "kv_events_publisher.yihou-noblock.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch",
+    "inventory_exact_changes": [
+      "S01-kv-events-metrics-send-noblock.v0521.diff",
+      "D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+    ],
+    "semantic_mapping": "S01-kv-events-metrics-send-noblock.v0521.diff; D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/forward_mla_rocm.noabsorbcfg.diff",
+    "ref": null,
+    "change_hash": "33744c7affbbe69706ec60c007ce52ecfd9fcea430cdb58af700e7c6803853e3",
+    "lines": 13,
+    "targets": [
+      "forward_mla_rocm.yihou-noabsorbcfg.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch",
+    "inventory_exact_changes": [
+      "S02-rocm-absorb-bmm-config-off.v0521.diff",
+      "D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+    ],
+    "semantic_mapping": "S02-rocm-absorb-bmm-config-off.v0521.diff; D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/experimental/prefill.yihou-nonfinal-event.diff",
+    "ref": null,
+    "change_hash": "06249598a879cf7b2deefd349465910c00a73a95d1cfebe02dae8b959c8803c1",
+    "lines": 92,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/prefill.yihou-nonfinal-event.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S04-prefill-nonfinal-chunk-event-switch.v0521.diff"
+    ],
+    "semantic_mapping": "S04-prefill-nonfinal-chunk-event-switch.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/experimental/graph_variants.yihou-hostvariant.diff",
+    "ref": null,
+    "change_hash": "55d77d69678d6e221f55b7d44c815041a9c17ef207a1d778f26088dd15f25c64",
+    "lines": 16,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/graph_variants.yihou-hostvariant.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S09/excluded"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/experimental/eagle_worker_v2.yihou-seedguard.diff",
+    "ref": null,
+    "change_hash": "11fe8001ffc7dc43d4cbdfe910ab8a8aaea6a17b0085441f36f98ac57d8f08e1",
+    "lines": 62,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/eagle_worker_v2.yihou-seedguard.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "T02/diagnostic"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/experimental/eagle_utils.yihou-hostvariant.diff",
+    "ref": null,
+    "change_hash": "f2fee87427e2f8306a761c7193f0863877b7e932ca27863c1d7de9551239c0b1",
+    "lines": 26,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/eagle_utils.yihou-hostvariant.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S09/excluded"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/experimental/eagle_disaggregation.yihou-seedguard.diff",
+    "ref": null,
+    "change_hash": "179c7a9d9ba38852a6838bea7a527dbf86386bb5b603c386a5f0722ac211613e",
+    "lines": 109,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/eagle_disaggregation.yihou-seedguard.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "T02/diagnostic"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/experimental/conn.yihou-xferfix.diff",
+    "ref": null,
+    "change_hash": "79b68cb38b47fc364fd0d5539fc3cd956df03d2d3da8a35b2ece843b8b55aa4c",
+    "lines": 356,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/conn.yihou-xferfix.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S03/sharding, layer parallelism and stats"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/experimental/conn.yihou-regbase-xferlog-par.diff",
+    "ref": null,
+    "change_hash": "58e4e3723d41a5a1bbd7e0d8f7b0af6db05351ec8d98586b31cb9c9058541855",
+    "lines": 292,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/conn.yihou-regbase-xferlog-par.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S03/layer parallelism and stats"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/conn.regbase.diff",
+    "ref": null,
+    "change_hash": "6ab995ad25fd0c703c57c54bc407b908d98f5f78773242aa6a5e7c78b81e1b81",
+    "lines": 76,
+    "targets": [
+      "conn.yihou-regbase.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "T01-mooncake-conn-regbase-diagnostic.v0521.diff"
+    ],
+    "semantic_mapping": "T01-mooncake-conn-regbase-diagnostic.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/engine.sh.yihou.diff",
+    "ref": null,
+    "change_hash": "14d4c2f9ed10fd4d164e90cd8b5cd7cc7ae222678b668e2996ef97f99c638024",
+    "lines": 84,
+    "targets": [
+      "bench-harness/engine.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I06/harness"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/bench-harness.vs-infera.glm52.pd@28121cb4.yihou.diff",
+    "ref": null,
+    "change_hash": "4949046f11de1c94b7bbd4aada7ba482aa6e258ee3f61213b8a3f34955909aef",
+    "lines": 660,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/agentx_bench.sh",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/config.full.sh",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/config.sh",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/engine.sh",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/launch.sh",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/stop.sh",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/agentx_env.py",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/topology.py",
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/tools/wait_healthy.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I06a-bench-harness-v0521-lineage.vs-28121cb4.diff"
+    ],
+    "semantic_mapping": "I06a-bench-harness-v0521-lineage.vs-28121cb4.diff"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/bench-harness.since-packup_20261010.yihou.diff",
+    "ref": null,
+    "change_hash": "e641390b6dff4b9a777cc94371649b12d359d8eb638a9c6e18369dd80b2f5177",
+    "lines": 48,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.view/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/harness/bench-harness/engine.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I06b-bench-harness-cpuset-role-mounts.diff"
+    ],
+    "semantic_mapping": "I06b-bench-harness-cpuset-role-mounts.diff"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/agentx_env.py.yihou.diff",
+    "ref": null,
+    "change_hash": "7023be12de17ad30e69ed25062077e4b5532458c64915f16267c8376a1c6d649",
+    "lines": 35,
+    "targets": [
+      "bench-harness/tools/agentx_env.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I06/harness"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/agentx_bench.sh.yihou.diff",
+    "ref": null,
+    "change_hash": "7508957b47a892388f41d7933307aafc55efb747f6e481745cbea49a0eb78409",
+    "lines": 86,
+    "targets": [
+      "bench-harness/agentx_bench.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I06/harness"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/mooncake-experimental/mooncake-hip-batch-kernel.on-faae8dd4-pr4340port.yihou.diff",
+    "ref": null,
+    "change_hash": "53dcbd2fc3e7e9c9197327126c4d42e1efdadb89ae8856b2794f6fdc3f1b6d33",
+    "lines": 299,
+    "targets": [
+      "b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/CMakeLists.txt",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/hip_batch_copy.hip",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "M03-mooncake-hip-batch-peer-copy-kernel.UNBUILT.diff"
+    ],
+    "semantic_mapping": "M03-mooncake-hip-batch-peer-copy-kernel.UNBUILT.diff"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0003-docker-v0521-Mooncake-4340-HIP-IPC-sub-allocation-re.patch",
+    "ref": null,
+    "change_hash": "c312d36ef3c22cecb4f4b90d6cc1d7d1d6c0ac0c758a8e934a05486729451768",
+    "lines": 678,
+    "targets": [
+      "b/deploy/docker/Dockerfile.sglang.v0521-mc4340.yihou",
+      "b/deploy/docker/patches/mooncake/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff",
+      "b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I05b-docker-v0521-mooncake-pr4340-recipe.patch"
+    ],
+    "semantic_mapping": "I05b-docker-v0521-mooncake-pr4340-recipe.patch"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0002-docker-v0.5.21-sglang-engine-recipe-and-re-cut-GLM-5.patch",
+    "ref": null,
+    "change_hash": "dbf19977a042d0e13de2938339d2c2aad78df1ce6bf0a814ff5170c080e3aee5",
+    "lines": 661,
+    "targets": [
+      "b/deploy/docker/Dockerfile.sglang.v0521.yihou",
+      "b/deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py",
+      "b/deploy/docker/patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh",
+      "b/deploy/docker/patches/sglang_dsa/v0521/dsa_page_table_rows.diff",
+      "b/deploy/docker/patches/sglang_dsa/v0521/patch_glm_nextn_fused_shared_experts_arch.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I05a-docker-v0521-engine-recipe-glm52-recut.28121cb4.patch"
+    ],
+    "semantic_mapping": "I05a-docker-v0521-engine-recipe-glm52-recut.28121cb4.patch"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0001-router-resolve-stash-conflicts-for-PD-DP-rank-affini.patch",
+    "ref": null,
+    "change_hash": "2cbad72634bf1ca4a5e5018602e1481907613fb5ca679edc52729653e544b657",
+    "lines": 387,
+    "targets": [
+      "b/bench/glm5p2_pd/config.full.sh",
+      "b/bench/glm5p2_pd/config.sh",
+      "b/bench/glm5p2_pd/engine.sh",
+      "b/bench/glm5p2_pd/launch.sh",
+      "b/rust/router/src/config.rs",
+      "b/rust/router/src/disagg.rs",
+      "b/rust/router/src/handlers.rs",
+      "b/rust/router/src/main.rs",
+      "b/rust/router/src/policy.rs",
+      "b/rust/router/src/pool.rs",
+      "b/rust/router/tests/functional.rs"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I04-router-pd-dp-rank-affinity-on-pick_targets.28121cb4.patch"
+    ],
+    "semantic_mapping": "I04-router-pd-dp-rank-affinity-on-pick_targets.28121cb4.patch"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0005-docker-mc4340prio-opt-in-high-priority-Mooncake-HIP-.patch",
+    "ref": null,
+    "change_hash": "1cbbbbcda0ca079dd226398231b5ba93fa004af45bbb6e84f6e1ee40d5caf563",
+    "lines": 386,
+    "targets": [
+      "b/deploy/docker/Dockerfile.sglang.v0521-mc4340prio.yihou",
+      "b/deploy/docker/patches/mooncake/mooncake-hip-stream-priority.on-faae8dd4-pr4340port.yihou.diff"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I05d-docker-mc4340prio-recipe.patch"
+    ],
+    "semantic_mapping": "I05d-docker-mc4340prio-recipe.patch"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0004-docker-mc4340-avoid-pipefail-SIGPIPE-false-failure-i.patch",
+    "ref": null,
+    "change_hash": "9d917aac1e0807e336fc7d23f0b426bc66e76ca078d08f681e843290d1074b8f",
+    "lines": 29,
+    "targets": [
+      "b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "I05c-docker-mc4340-pipefail-check-fix.patch"
+    ],
+    "semantic_mapping": "I05c-docker-mc4340-pipefail-check-fix.patch"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/files/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff",
+    "ref": null,
+    "change_hash": "0ea6f43112c27ea7951d8673e3f18a78cccc765406537351ffb266b1f9774b50",
+    "lines": 232,
+    "targets": [
+      "b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h",
+      "b/mooncake-transfer-engine/src/transfer_engine_impl.cpp",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp"
+    ],
+    "duplicate_of": "yihou/glm52.dcpx-xnode-dcp4decode.packup_20261022/imgbuild/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff",
+    "inventory_exact_changes": [
+      "M01-mooncake-pr4340-port-to-faae8dd4.diff"
+    ],
+    "semantic_mapping": "M01-mooncake-pr4340-port-to-faae8dd4.diff"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/files/mooncake-hip-stream-priority.on-faae8dd4-pr4340port.yihou.diff",
+    "ref": null,
+    "change_hash": "db002281ac5e5fc032aaeb8f585fbbbcd9e5e48c615d01a61c450aa8bfe6cdf9",
+    "lines": 68,
+    "targets": [
+      "b/mooncake-transfer-engine/src/transport/hip_transport/stream_pool.cpp"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "M02-mooncake-hip-copy-stream-priority.diff"
+    ],
+    "semantic_mapping": "M02-mooncake-hip-copy-stream-priority.diff"
+  },
+  {
+    "path": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/scripts/diag/bprime/mooncake-hip-batch-kernel.on-faae8dd4-pr4340port.yihou.diff",
+    "ref": null,
+    "change_hash": "53dcbd2fc3e7e9c9197327126c4d42e1efdadb89ae8856b2794f6fdc3f1b6d33",
+    "lines": 299,
+    "targets": [
+      "b/mooncake-transfer-engine/include/transport/hip_transport/hip_transport.h",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/CMakeLists.txt",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/hip_batch_copy.hip",
+      "b/mooncake-transfer-engine/src/transport/hip_transport/hip_transport.cpp"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/mooncake-experimental/mooncake-hip-batch-kernel.on-faae8dd4-pr4340port.yihou.diff",
+    "inventory_exact_changes": [
+      "M03-mooncake-hip-batch-peer-copy-kernel.UNBUILT.diff"
+    ],
+    "semantic_mapping": "M03-mooncake-hip-batch-peer-copy-kernel.UNBUILT.diff"
+  },
+  {
+    "path": "yihou/glm52.p8d8.agentx-sweep.packup_20260920/patches/pr37152.sources.yihou.diff",
+    "ref": null,
+    "change_hash": "9326796afd3cedd35647c2c340be89b72873b5bb9587578c1e1f0d7b71ad3249",
+    "lines": 296,
+    "targets": [
+      "b/python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh",
+      "b/python/sglang/kernels/ops/kvcache/hicache.py",
+      "b/python/sglang/srt/mem_cache/pool_host/mha.py"
+    ],
+    "duplicate_of": "yihou/glm52-agentx-c40-realacc.packup_20260918/patches/pr37152.sources.yihou.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External #37152; not ours"
+  },
+  {
+    "path": "yihou/glm52.p8d8.agentx-sweep.packup_20260920/patches/nextn-fusion-fork-4350d37c5.patch",
+    "ref": null,
+    "change_hash": "c319b182de809992191b74872e0245901d557e80c65219bb73ab0cf541398643",
+    "lines": 55,
+    "targets": [
+      "b/python/sglang/srt/models/glm4_moe.py"
+    ],
+    "duplicate_of": "yihou/glm52-mtp-garbled-decode-rootcause.packup_20260918/patches/nextn-fusion-fork-4350d37c5.patch",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External xiaobochen-amd NextN fusion; not ours"
+  },
+  {
+    "path": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/topology.py.diff",
+    "ref": null,
+    "change_hash": "b9c04fb7a74e569ab3abf1393f15a9ca75bf57597cd97d65908c5917247b7848",
+    "lines": 33,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-samenode-p4d4/scripts/bench-harness/tools/topology.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/tools_topology.py.diff",
+    "ref": null,
+    "change_hash": "b9c04fb7a74e569ab3abf1393f15a9ca75bf57597cd97d65908c5917247b7848",
+    "lines": 33,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/scripts/bench-harness/tools/topology.py"
+    ],
+    "duplicate_of": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/topology.py.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/tools_agentx_env.py.diff",
+    "ref": null,
+    "change_hash": "c669b1ee377db1a3a9bbaa7409ccc90a1a586b655ed7dff734c0d45d73f96890",
+    "lines": 15,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/scripts/bench-harness/tools/agentx_env.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/launch.sh.diff",
+    "ref": null,
+    "change_hash": "a80622ab05682bb7bb04993579af36584ce518df664b5916c71bbb3d46cc3879",
+    "lines": 93,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-samenode-p4d4/scripts/bench-harness/launch.sh"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/agentx_env.py.diff",
+    "ref": null,
+    "change_hash": "c669b1ee377db1a3a9bbaa7409ccc90a1a586b655ed7dff734c0d45d73f96890",
+    "lines": 15,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/bench/glm5p2_pd/results/yihou-samenode-p4d4/scripts/bench-harness/tools/agentx_env.py"
+    ],
+    "duplicate_of": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/tools_agentx_env.py.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-triton-idxshare.c40-full.packup_20260923/patches/tools_topology.py.diff",
+    "ref": null,
+    "change_hash": "b9c04fb7a74e569ab3abf1393f15a9ca75bf57597cd97d65908c5917247b7848",
+    "lines": 33,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/yihou/glm52.samenode-triton-idxshare.c40-full.packup_20260923/scripts/bench-harness/tools/topology.py"
+    ],
+    "duplicate_of": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/topology.py.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-triton-idxshare.c40-full.packup_20260923/patches/tools_agentx_env.py.diff",
+    "ref": null,
+    "change_hash": "c669b1ee377db1a3a9bbaa7409ccc90a1a586b655ed7dff734c0d45d73f96890",
+    "lines": 15,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/yihou/glm52.samenode-triton-idxshare.c40-full.packup_20260923/scripts/bench-harness/tools/agentx_env.py"
+    ],
+    "duplicate_of": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/tools_agentx_env.py.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-triton-idxshare.c40-full.packup_20260923/patches/launch.sh.diff",
+    "ref": null,
+    "change_hash": "a80622ab05682bb7bb04993579af36584ce518df664b5916c71bbb3d46cc3879",
+    "lines": 93,
+    "targets": [
+      "/home/yihou/dev/git/infera.glm52.pd/yihou/glm52.samenode-triton-idxshare.c40-full.packup_20260923/scripts/bench-harness/launch.sh"
+    ],
+    "duplicate_of": "yihou/glm52.samenode-p4d4.agentx-c40.packup_20260922/patches/launch.sh.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I03/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/scripts/diag/pr42553/pr42553-common-only.yihou.diff",
+    "ref": null,
+    "change_hash": "f0135554130f7ada624b6944fde953cbac59f74cd498e2907fae80d2eace8f25",
+    "lines": 129,
+    "targets": [
+      "b/python/sglang/srt/mem_cache/pool_host/common.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External #42553; not ours"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/scripts/diag/pr42553/pr42553-8c27ef48.yihou.diff",
+    "ref": null,
+    "change_hash": "b6edb34c94b111eaee85f89283a040d3be7cea7549b038af3386c329407eb6e1",
+    "lines": 571,
+    "targets": [
+      "b/benchmark/hicache/bench_host_memory_migration.py",
+      "b/python/sglang/srt/mem_cache/pool_host/common.py",
+      "b/test/registered/unit/mem_cache/test_hicache_host_register.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External #42553; not ours"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/runtime-mounts/kv_events_publisher.noblock.diff",
+    "ref": null,
+    "change_hash": "219486d7c916ce40088adad0e68d958b97e7a8a94bd8ee88d593d86edee19b8c",
+    "lines": 45,
+    "targets": [
+      "kv_events_publisher.yihou-noblock.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch",
+    "inventory_exact_changes": [
+      "S01-kv-events-metrics-send-noblock.v0521.diff",
+      "D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+    ],
+    "semantic_mapping": "S01-kv-events-metrics-send-noblock.v0521.diff; D-dcp-branch/0008-yihou-infera-recipe-kv-events-metrics-send-noblock.patch"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/runtime-mounts/forward_mla_rocm.noabsorbcfg.diff",
+    "ref": null,
+    "change_hash": "33744c7affbbe69706ec60c007ce52ecfd9fcea430cdb58af700e7c6803853e3",
+    "lines": 13,
+    "targets": [
+      "forward_mla_rocm.yihou-noabsorbcfg.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch",
+    "inventory_exact_changes": [
+      "S02-rocm-absorb-bmm-config-off.v0521.diff",
+      "D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+    ],
+    "semantic_mapping": "S02-rocm-absorb-bmm-config-off.v0521.diff; D-dcp-branch/0009-yihou-infera-recipe-absorb-bmm-config-off-on-ROCm.patch"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/runtime-mounts/conn.regbase.diff",
+    "ref": null,
+    "change_hash": "6ab995ad25fd0c703c57c54bc407b908d98f5f78773242aa6a5e7c78b81e1b81",
+    "lines": 76,
+    "targets": [
+      "conn.yihou-regbase.py"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/runtime-mounts/conn.regbase.diff",
+    "inventory_exact_changes": [
+      "T01-mooncake-conn-regbase-diagnostic.v0521.diff"
+    ],
+    "semantic_mapping": "T01-mooncake-conn-regbase-diagnostic.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/optional-pr42553/pr42553-8c27ef48.yihou.diff",
+    "ref": null,
+    "change_hash": "b6edb34c94b111eaee85f89283a040d3be7cea7549b038af3386c329407eb6e1",
+    "lines": 571,
+    "targets": [
+      "b/benchmark/hicache/bench_host_memory_migration.py",
+      "b/python/sglang/srt/mem_cache/pool_host/common.py",
+      "b/test/registered/unit/mem_cache/test_hicache_host_register.py"
+    ],
+    "duplicate_of": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/scripts/diag/pr42553/pr42553-8c27ef48.yihou.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External #42553; not ours"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/image-recipe/04-68f06e29-mc4340-pipefail.patch",
+    "ref": null,
+    "change_hash": "9d917aac1e0807e336fc7d23f0b426bc66e76ca078d08f681e843290d1074b8f",
+    "lines": 29,
+    "targets": [
+      "b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0004-docker-mc4340-avoid-pipefail-SIGPIPE-false-failure-i.patch",
+    "inventory_exact_changes": [
+      "I05c-docker-mc4340-pipefail-check-fix.patch"
+    ],
+    "semantic_mapping": "I05c-docker-mc4340-pipefail-check-fix.patch"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/image-recipe/03-cdba2446-v0521-mc4340-recipe.patch",
+    "ref": null,
+    "change_hash": "c312d36ef3c22cecb4f4b90d6cc1d7d1d6c0ac0c758a8e934a05486729451768",
+    "lines": 678,
+    "targets": [
+      "b/deploy/docker/Dockerfile.sglang.v0521-mc4340.yihou",
+      "b/deploy/docker/patches/mooncake/mooncake-pr4340-e8062249.faae8dd4-port.yihou.diff",
+      "b/deploy/docker/scripts/build_mooncake_sglang.mc4340.yihou.sh"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0003-docker-v0521-Mooncake-4340-HIP-IPC-sub-allocation-re.patch",
+    "inventory_exact_changes": [
+      "I05b-docker-v0521-mooncake-pr4340-recipe.patch"
+    ],
+    "semantic_mapping": "I05b-docker-v0521-mooncake-pr4340-recipe.patch"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/image-recipe/02-fb8ae9c9-v0521-engine-recipe.patch",
+    "ref": null,
+    "change_hash": "dbf19977a042d0e13de2938339d2c2aad78df1ce6bf0a814ff5170c080e3aee5",
+    "lines": 661,
+    "targets": [
+      "b/deploy/docker/Dockerfile.sglang.v0521.yihou",
+      "b/deploy/docker/patches/sglang_disagg/v0521/patch_prefill_nonfinal_chunk_wait_event.py",
+      "b/deploy/docker/patches/sglang_dsa/v0521/apply_sglang_dsa_patches_v0521.sh",
+      "b/deploy/docker/patches/sglang_dsa/v0521/dsa_page_table_rows.diff",
+      "b/deploy/docker/patches/sglang_dsa/v0521/patch_glm_nextn_fused_shared_experts_arch.py"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0002-docker-v0.5.21-sglang-engine-recipe-and-re-cut-GLM-5.patch",
+    "inventory_exact_changes": [
+      "I05a-docker-v0521-engine-recipe-glm52-recut.28121cb4.patch"
+    ],
+    "semantic_mapping": "I05a-docker-v0521-engine-recipe-glm52-recut.28121cb4.patch"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/image-recipe/01-e3e46f32-router-stash-conflicts.patch",
+    "ref": null,
+    "change_hash": "2cbad72634bf1ca4a5e5018602e1481907613fb5ca679edc52729653e544b657",
+    "lines": 387,
+    "targets": [
+      "b/bench/glm5p2_pd/config.full.sh",
+      "b/bench/glm5p2_pd/config.sh",
+      "b/bench/glm5p2_pd/engine.sh",
+      "b/bench/glm5p2_pd/launch.sh",
+      "b/rust/router/src/config.rs",
+      "b/rust/router/src/disagg.rs",
+      "b/rust/router/src/handlers.rs",
+      "b/rust/router/src/main.rs",
+      "b/rust/router/src/policy.rs",
+      "b/rust/router/src/pool.rs",
+      "b/rust/router/tests/functional.rs"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/image-recipe/0001-router-resolve-stash-conflicts-for-PD-DP-rank-affini.patch",
+    "inventory_exact_changes": [
+      "I04-router-pd-dp-rank-affinity-on-pick_targets.28121cb4.patch"
+    ],
+    "semantic_mapping": "I04-router-pd-dp-rank-affinity-on-pick_targets.28121cb4.patch"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/harness/engine.sh.yihou.diff",
+    "ref": null,
+    "change_hash": "14d4c2f9ed10fd4d164e90cd8b5cd7cc7ae222678b668e2996ef97f99c638024",
+    "lines": 84,
+    "targets": [
+      "bench-harness/engine.sh"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/engine.sh.yihou.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I06/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/harness/bench-harness.vs-infera.glm52.pd@28121cb4.yihou.diff",
+    "ref": null,
+    "change_hash": "263e86560da771378bb6da05ead38b3baadaf160d175c681bdf7878c146dd4ad",
+    "lines": 629,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/agentx_bench.sh",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/config.full.sh",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/config.sh",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/engine.sh",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/launch.sh",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/stop.sh",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/tools/agentx_env.py",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/tools/topology.py",
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/bench-harness/tools/wait_healthy.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I06/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/harness/agentx_env.py.yihou.diff",
+    "ref": null,
+    "change_hash": "7023be12de17ad30e69ed25062077e4b5532458c64915f16267c8376a1c6d649",
+    "lines": 35,
+    "targets": [
+      "bench-harness/tools/agentx_env.py"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/agentx_env.py.yihou.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I06/harness"
+  },
+  {
+    "path": "yihou/glm52.samenode-v0521-oai102.agentx-c44.packup_20261010/patches/harness/agentx_bench.sh.yihou.diff",
+    "ref": null,
+    "change_hash": "7508957b47a892388f41d7933307aafc55efb747f6e481745cbea49a0eb78409",
+    "lines": 86,
+    "targets": [
+      "bench-harness/agentx_bench.sh"
+    ],
+    "duplicate_of": "yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/patches/harness/agentx_bench.sh.yihou.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "I06/harness"
+  },
+  {
+    "path": "yihou/glm52.v0521-baseline-xnode-g3g4.packup_20261022/patches/0002-upstream-pr45484-offloader-is-shuffled.patch",
+    "ref": null,
+    "change_hash": "c659a5795f191e65ea9f86ce105723783c5bedd976fbf123ab89e6927825f6a0",
+    "lines": 110,
+    "targets": [
+      "b/python/sglang/srt/utils/offloader.py",
+      "b/test/registered/unit/utils/test_offloader.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S06-offloader-keep-is_shuffled.pr45484.patch"
+    ],
+    "semantic_mapping": "S06-offloader-keep-is_shuffled.pr45484.patch"
+  },
+  {
+    "path": "yihou/glm52.v0521-baseline-xnode-g3g4.packup_20261022/patches/0001-upstream-pr45483-idlefix.patch",
+    "ref": null,
+    "change_hash": "3fde63b7b05a73f716062d915db092f530d100f4eb915dd9643d1fb7f922aa52",
+    "lines": 146,
+    "targets": [
+      "b/python/sglang/srt/model_executor/runner/eager_runner.py",
+      "b/test/registered/unit/model_executor/runner/test_eager_idle_active_backend.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-pd.packup_20261022/patches/sglang-branch/0020-yihou-cherry-pick-sgl-project-sglang-45483-init-the-.patch",
+    "inventory_exact_changes": [
+      "S05-eager-idle-init-active-attn-backend.pr45483.patch",
+      "D-dcp-branch/0020-yihou-cherry-pick-sgl-project-sglang-45483-init-the-.patch"
+    ],
+    "semantic_mapping": "S05-eager-idle-init-active-attn-backend.pr45483.patch; D-dcp-branch/0020-yihou-cherry-pick-sgl-project-sglang-45483-init-the-.patch"
+  },
+  {
+    "path": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-cap-c44c48.packup_20261013/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-cap-c44c48.packup_20261013/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-cap-c44c48.packup_20261013/patches/runtime-mounts/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-cap-c44c48.packup_20261013/patches/runtime-mounts/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-decode-transfer-kvcap.packup_20261013/patches/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-decode-transfer-kvcap.packup_20261013/patches/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-decode-transfer-kvcap.packup_20261013/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-decode-transfer-kvcap.packup_20261013/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-g4tune-xfer.packup_20261020/patches/0003-prefill-nonfinal-event.diff",
+    "ref": null,
+    "change_hash": "81ef5ed9b29163f287f41c236a0d0d0d87f163b6fe14403615cf4e342058ee0e",
+    "lines": 94,
+    "targets": [
+      "b/prefill.yihou-nonfinal-event.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S04/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-g4tune-xfer.packup_20261020/patches/0002-conn-xferfix2-shard-mix.diff",
+    "ref": null,
+    "change_hash": "41eeae40869ab7e89a6f5f51a25d79102e0085d2426718d07bd612979447f0bf",
+    "lines": 29,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/conn.yihou-xferfix2.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S03/sharding"
+  },
+  {
+    "path": "yihou/glm52.v0521-g4tune-xfer.packup_20261020/patches/0001-conn-regbase-to-xferfix-log-and-shard.diff",
+    "ref": null,
+    "change_hash": "2a9e83cd000f0082853b793fd0b89c1d3ab7c6787f86cfb752e805947ee5c999",
+    "lines": 289,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521dbg_20261010/harness/mounts-v0521/src/conn.yihou-xferfix.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S03/sharding, layer parallelism and stats"
+  },
+  {
+    "path": "yihou/glm52.v0521-idxshare-maf-fix.packup_20261021/patches/0002-idlefix-vs-upstream-main-93088901.diff",
+    "ref": null,
+    "change_hash": "c219e04d0d3698ebf06c28292db2fac8275629c6685e9b8a56927182c7dc3d94",
+    "lines": 32,
+    "targets": [
+      "b/python/sglang/srt/model_executor/runner/eager_runner.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S05/existing external #45156"
+  },
+  {
+    "path": "yihou/glm52.v0521-idxshare-maf-fix.packup_20261021/patches/0001-idlefix-vs-image-9f5d8712.diff",
+    "ref": null,
+    "change_hash": "f826ed53073a8d0dc51de6a27bb5580adc961dd5e351823861335984ba14318d",
+    "lines": 34,
+    "targets": [
+      "b/python/sglang/srt/model_executor/runner/eager_runner.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S05-eager-idle-init-active-attn-backend.v0521.diff"
+    ],
+    "semantic_mapping": "S05-eager-idle-init-active-attn-backend.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-idxshare-maf-fix.packup_20261021/patches/0000-image-local-diff.vs-9f5d8712.diff",
+    "ref": null,
+    "change_hash": "029cde5ffa4479a1ecdf45d5d8bec6cc2b36d149f3d1a69eb02a35be3e126663",
+    "lines": 353,
+    "targets": [
+      "b/python/sglang/srt/arg_groups/speculative_hook.py",
+      "b/python/sglang/srt/disaggregation/prefill.py",
+      "b/python/sglang/srt/entrypoints/openai/serving_responses.py",
+      "b/python/sglang/srt/layers/attention/dsa/dsa_indexer.py",
+      "b/python/sglang/srt/layers/attention/dsa_backend.py",
+      "b/python/sglang/srt/mem_cache/pool_host/mla.py",
+      "b/python/sglang/srt/models/glm4_moe.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "Image recipe aggregate; ownership constraints apply"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2-burst-c56c64.packup_20261019/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2-burst-c56c64.packup_20261019/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2-burst-c56c64.packup_20261019/patches/0001-offloader-carry-is_shuffled.diff",
+    "ref": null,
+    "change_hash": "8a6eefee3a54b8e35f69caa71f45fa40c47621414d519d34f9b9fdeab8b7ce30",
+    "lines": 17,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521cap2_20261013/offload/offloader.yihou-attrs.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S06-offloader-keep-is_shuffled.v0521.diff"
+    ],
+    "semantic_mapping": "S06-offloader-keep-is_shuffled.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2-highconc.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2-highconc.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2-highconc.packup_20261015/patches/0001-offloader-carry-is_shuffled.diff",
+    "ref": null,
+    "change_hash": "8a6eefee3a54b8e35f69caa71f45fa40c47621414d519d34f9b9fdeab8b7ce30",
+    "lines": 17,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521cap2_20261013/offload/offloader.yihou-attrs.py"
+    ],
+    "duplicate_of": "yihou/glm52.v0521-offloaderv2-burst-c56c64.packup_20261019/patches/0001-offloader-carry-is_shuffled.diff",
+    "inventory_exact_changes": [
+      "S06-offloader-keep-is_shuffled.v0521.diff"
+    ],
+    "semantic_mapping": "S06-offloader-keep-is_shuffled.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-offloaderv2.packup_20261015/patches/0001-offloader-carry-is_shuffled.diff",
+    "ref": null,
+    "change_hash": "8a6eefee3a54b8e35f69caa71f45fa40c47621414d519d34f9b9fdeab8b7ce30",
+    "lines": 17,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521cap2_20261013/offload/offloader.yihou-attrs.py"
+    ],
+    "duplicate_of": "yihou/glm52.v0521-offloaderv2-burst-c56c64.packup_20261019/patches/0001-offloader-carry-is_shuffled.diff",
+    "inventory_exact_changes": [
+      "S06-offloader-keep-is_shuffled.v0521.diff"
+    ],
+    "semantic_mapping": "S06-offloader-keep-is_shuffled.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-prefill-complete.packup_20261014/patches/0001-pcomplete-attndp-validation.diff",
+    "ref": null,
+    "change_hash": "c49c93aab12b507824fde6c96a15a13dd09258aebff27bf8e58b09d43efe5184",
+    "lines": 14,
+    "targets": [
+      "pd_disaggregation_hook.yihou-attndp.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S07-pd-prefill-complete-attn-dp-validation.v0521.diff"
+    ],
+    "semantic_mapping": "S07-pd-prefill-complete-attn-dp-validation.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-prefill-kv-bottleneck.packup_20261014/patches/expertn/expertn-vs-image.v0521.diff",
+    "ref": null,
+    "change_hash": "f7804e33eee3dbff4bf4dbc375d581bb80185f9b2936bfc42634edecad6f82ec",
+    "lines": 66,
+    "targets": [
+      "b/python/sglang/srt/model_loader/loader.py",
+      "b/python/sglang/srt/models/yihou_expertn.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "X02-synthetic-expertN-reduced-model.v0521.diff"
+    ],
+    "semantic_mapping": "X02-synthetic-expertN-reduced-model.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-prefill-kv-bottleneck.packup_20261014/patches/expert8/yihou-expert8-nextn.patch",
+    "ref": null,
+    "change_hash": "eca16af9de81983dd72866243480e6dc4d5e955a1888cdee91385aac80e65946",
+    "lines": 153,
+    "targets": [
+      "b/python/sglang/srt/models/yihou_expert8.py",
+      "b/python/sglang/srt/models/deepseek_v2.py",
+      "b/python/sglang/srt/model_loader/loader.py",
+      "b/python/sglang/srt/layers/moe/topk.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "X01/synthetic model, excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-prefill-kv-bottleneck.packup_20261014/patches/expert8/expert8-vs-image.v0521.diff",
+    "ref": null,
+    "change_hash": "27a02da682f16d541ecc206004869d203f9def4bc1883ab9a7794a5e4f5a6aab",
+    "lines": 148,
+    "targets": [
+      "b/python/sglang/srt/models/deepseek_v2.py",
+      "b/python/sglang/srt/model_loader/loader.py",
+      "b/python/sglang/srt/layers/moe/topk.py",
+      "b/python/sglang/srt/models/yihou_expert8.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "X01-synthetic-expert8-reduced-model.v0521.diff"
+    ],
+    "semantic_mapping": "X01-synthetic-expert8-reduced-model.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-prefill-mem-hicache-policy.packup_20261014/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-prefill-mem-hicache-policy.packup_20261014/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "ref": null,
+    "change_hash": "3bf7992fb60e344368a7b8c28811e8ff3ca49205c97c45c29924a6b2693000f1",
+    "lines": 54,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-prefill-mem-hicache-policy.packup_20261014/patches/0001-pcomplete-attndp-validation.diff",
+    "ref": null,
+    "change_hash": "c49c93aab12b507824fde6c96a15a13dd09258aebff27bf8e58b09d43efe5184",
+    "lines": 14,
+    "targets": [
+      "/shared_nfs/yihou_glm52/v0521cap2_20261013/mounts/pcomplete/pd_disaggregation_hook.yihou-attndp.py"
+    ],
+    "duplicate_of": "yihou/glm52.v0521-prefill-complete.packup_20261014/patches/0001-pcomplete-attndp-validation.diff",
+    "inventory_exact_changes": [
+      "S07-pd-prefill-complete-attn-dp-validation.v0521.diff"
+    ],
+    "semantic_mapping": "S07-pd-prefill-complete-attn-dp-validation.v0521.diff"
+  },
+  {
+    "path": "yihou/glm52.v0521-runshare-highconc.packup_20261014/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/glm52.v0521-runshare-highconc.packup_20261014/patches/decode.yihou-runshare2.diff",
+    "ref": null,
+    "change_hash": "777f8c82375ca93d492a9a7205a1e1db5b0467bdb12b90127ad0026cc3f28295",
+    "lines": 66,
+    "targets": [],
+    "duplicate_of": "yihou/glm52.v0521-c48-followups.packup_20261015/scripts/harness/mounts-v0521/src/decode.yihou-runshare2.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "S08/excluded"
+  },
+  {
+    "path": "yihou/yihou-expert8-pd.packup_20260924/patches/yihou-expert8.patch",
+    "ref": null,
+    "change_hash": "fdc8f6933986b694c6edd085fddcdf7abb2b1285789a8715dcd270fcb05cb160",
+    "lines": 125,
+    "targets": [
+      "b/python/sglang/srt/models/yihou_expert8.py",
+      "b/python/sglang/srt/models/deepseek_v2.py",
+      "b/python/sglang/srt/model_loader/loader.py",
+      "b/python/sglang/srt/layers/moe/topk.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [],
+    "semantic_mapping": "X01/synthetic model, excluded"
+  },
+  {
+    "path": "yihou/yihou-expert8-pd.packup_20260924/patches/image-provenance/ancestor-01-router-pd-dp-rank-affinity.patch",
+    "ref": null,
+    "change_hash": "675d4de21d801eb976dea0b9ad29a4ad05979ccfaacc9216ed1f9a13fad73e18",
+    "lines": 286,
+    "targets": [
+      "b/rust/router/src/config.rs",
+      "b/rust/router/src/disagg.rs",
+      "b/rust/router/src/handlers.rs",
+      "b/rust/router/src/main.rs",
+      "b/rust/router/src/policy.rs",
+      "b/rust/router/src/pool.rs",
+      "b/rust/router/tests/functional.rs"
+    ],
+    "duplicate_of": "yihou/glm52-1p1d-samerail-c32-c40.packup_20260918/patches/01-router-pd-dp-rank-affinity.patch",
+    "inventory_exact_changes": [
+      "NOT-OURS-llying-99fa0406-router-pd-dp-rank-affinity.patch"
+    ],
+    "semantic_mapping": "NOT-OURS-llying-99fa0406-router-pd-dp-rank-affinity.patch"
+  },
+  {
+    "path": "yihou/yihou-expert8-pd.packup_20260924/patches/image-provenance/pr37152.sources.yihou.diff",
+    "ref": null,
+    "change_hash": "9326796afd3cedd35647c2c340be89b72873b5bb9587578c1e1f0d7b71ad3249",
+    "lines": 296,
+    "targets": [
+      "b/python/sglang/kernels/jit/csrc/kvcacheio/hicache.cuh",
+      "b/python/sglang/kernels/ops/kvcache/hicache.py",
+      "b/python/sglang/srt/mem_cache/pool_host/mha.py"
+    ],
+    "duplicate_of": "yihou/glm52-agentx-c40-realacc.packup_20260918/patches/pr37152.sources.yihou.diff",
+    "inventory_exact_changes": [],
+    "semantic_mapping": "External #37152; not ours"
+  },
+  {
+    "path": "yihou/yihou-expert8-pd.packup_20260924/patches/image-provenance/ancestor-02-bench-pd-dp-rank-affinity-wiring.patch",
+    "ref": null,
+    "change_hash": "1f3e12aa1c5c82d907d33d4f36da11b6b6e4ee2bf7f129cd1e12cb9582b56bf8",
+    "lines": 50,
+    "targets": [
+      "b/bench/glm5p2_pd/config.full.sh",
+      "b/bench/glm5p2_pd/config.sh",
+      "b/bench/glm5p2_pd/launch.sh"
+    ],
+    "duplicate_of": "yihou/glm52-1p1d-samerail-c32-c40.packup_20260918/patches/02-bench-pd-dp-rank-affinity-wiring.patch",
+    "inventory_exact_changes": [
+      "I02-bench-pd-dp-rank-affinity-router-env-wiring.5a342acf.patch"
+    ],
+    "semantic_mapping": "I02-bench-pd-dp-rank-affinity-router-env-wiring.5a342acf.patch"
+  },
+  {
+    "path": "yihou/glm52.llrepro-atomdyn-tune.packup_20261025/analysis/ec_port/03-ec2-allrank.decode.kit-e9b22a08.diff",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "884013651928fb783b75eec90c69f0d500f1a3cfee064482cf9cd6e3cdbbbcd6",
+    "lines": 24,
+    "targets": [
+      "decode.kit-e9b22a08.ec2.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/03-ec2-allrank.decode.diff",
+    "inventory_exact_changes": [
+      "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff",
+      "S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+    ],
+    "semantic_mapping": "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff; S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+  },
+  {
+    "path": "yihou/glm52.llrepro-k3-mtp.packup_20261026/mxfp4_draft/mxfp4_draft.diff",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "41a635bd10aaaf03152655cb129c8ad72b6a88ed2d48a4b62d028d8a015d66fe",
+    "lines": 82,
+    "targets": [
+      "b/python/sglang/srt/configs/model_config.py",
+      "b/python/sglang/srt/model_loader/weight_utils.py"
+    ],
+    "duplicate_of": null,
+    "inventory_exact_changes": [
+      "S14-mtp-draft-online-mxfp4-glm-dsa.v0522-fdbafb60.diff"
+    ],
+    "semantic_mapping": "S14-mtp-draft-online-mxfp4-glm-dsa.v0522-fdbafb60.diff"
+  },
+  {
+    "path": "yihou/glm52.llrepro-pp4-dpa4.packup_20261024/scripts/ds.patch",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "a5b0d8ae4ac1d777652660c15a5d63762c6294aa2381aee2abe6ccb9290b1fd5",
+    "lines": 20,
+    "targets": [
+      "2p1d-kit/v6-pp4/patches/deepseek_v2.py"
+    ],
+    "duplicate_of": "yihou/glm52.llying-dcp-s1s3.packup_20261022/patches/0001-Fix-deepseek_v2-Read-hidden-size-from-config-on-non-.patch",
+    "inventory_exact_changes": [
+      "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+    ],
+    "semantic_mapping": "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+  },
+  {
+    "path": "yihou/glm52.ppda-pp4-dpa4-kf.packup_20261023/patches/ec03.diff",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "884013651928fb783b75eec90c69f0d500f1a3cfee064482cf9cd6e3cdbbbcd6",
+    "lines": 24,
+    "targets": [
+      "b/python/sglang/srt/disaggregation/decode.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/03-ec2-allrank.decode.diff",
+    "inventory_exact_changes": [
+      "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff",
+      "S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+    ],
+    "semantic_mapping": "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff; S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+  },
+  {
+    "path": "yihou/glm52.ppda-pp4-dpa4-kf.packup_20261023/patches/memlog01.diff",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "1f808207ba0bbb7cfacdc883cdbd62c800256a3633ccebfb18edbd37548759c0",
+    "lines": 15,
+    "targets": [
+      "b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/01-memlog.metrics_reporter.diff",
+    "inventory_exact_changes": [
+      "T05-decode-memlog-allocator-state.ab7a898b77.diff"
+    ],
+    "semantic_mapping": "T05-decode-memlog-allocator-state.ab7a898b77.diff"
+  },
+  {
+    "path": "yihou/glm52.ppda-pp4-dpa4-kf.packup_20261023/patches/pp-deepseek.patch",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "a5b0d8ae4ac1d777652660c15a5d63762c6294aa2381aee2abe6ccb9290b1fd5",
+    "lines": 40,
+    "targets": [
+      "b/python/sglang/srt/models/deepseek_v2.py"
+    ],
+    "duplicate_of": "yihou/glm52.llying-dcp-s1s3.packup_20261022/patches/0001-Fix-deepseek_v2-Read-hidden-size-from-config-on-non-.patch",
+    "inventory_exact_changes": [
+      "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+    ],
+    "semantic_mapping": "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+  },
+  {
+    "path": "yihou/glm52.ppdc-pp4-dcp4.packup_20261023/patches/ec03.diff",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "884013651928fb783b75eec90c69f0d500f1a3cfee064482cf9cd6e3cdbbbcd6",
+    "lines": 24,
+    "targets": [
+      "b/python/sglang/srt/disaggregation/decode.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/03-ec2-allrank.decode.diff",
+    "inventory_exact_changes": [
+      "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff",
+      "S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+    ],
+    "semantic_mapping": "S12-decode-empty-cache-all-ranks-low-free.ab7a898b77.diff; S12-decode-empty-cache-all-ranks-low-free.port-v0522-fdbafb60.diff"
+  },
+  {
+    "path": "yihou/glm52.ppdc-pp4-dcp4.packup_20261023/patches/memlog01.diff",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "1f808207ba0bbb7cfacdc883cdbd62c800256a3633ccebfb18edbd37548759c0",
+    "lines": 15,
+    "targets": [
+      "b/python/sglang/srt/managers/scheduler_components/metrics_reporter.py"
+    ],
+    "duplicate_of": "yihou/glm52.dcp4-decode-gmu.packup_20261023/patches/01-memlog.metrics_reporter.diff",
+    "inventory_exact_changes": [
+      "T05-decode-memlog-allocator-state.ab7a898b77.diff"
+    ],
+    "semantic_mapping": "T05-decode-memlog-allocator-state.ab7a898b77.diff"
+  },
+  {
+    "path": "yihou/glm52.ppdc-pp4-dcp4.packup_20261023/patches/pp-deepseek.patch",
+    "ref": "origin/dev/pd_opt/glm_5.2_agentx",
+    "change_hash": "a5b0d8ae4ac1d777652660c15a5d63762c6294aa2381aee2abe6ccb9290b1fd5",
+    "lines": 40,
+    "targets": [
+      "b/python/sglang/srt/models/deepseek_v2.py"
+    ],
+    "duplicate_of": "yihou/glm52.llying-dcp-s1s3.packup_20261022/patches/0001-Fix-deepseek_v2-Read-hidden-size-from-config-on-non-.patch",
+    "inventory_exact_changes": [
+      "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+    ],
+    "semantic_mapping": "S13-deepseek-v2-pp-hidden-size.ab7a898b77.patch"
+  }
+]

@@ -1,0 +1,173 @@
+diff --git a/deploy/docker/scripts/build_mooncake_sglang.sh b/deploy/docker/scripts/build_mooncake_sglang.sh
+index 0bbd1d33..d8e66213 100644
+--- a/deploy/docker/scripts/build_mooncake_sglang.sh
++++ b/deploy/docker/scripts/build_mooncake_sglang.sh
+@@ -111,9 +111,12 @@ fi
+ 
+ # Artifact checks: inspect the .so Python will actually load.
+ dynsyms="$(nm -D "$DEST" 2>/dev/null || true)"
+-printf '%s\n' "$dynsyms" | grep -q "ibv_reg_dmabuf_mr" ||
++# Avoid early-exit grep pipelines under pipefail: a large producer can receive
++# SIGPIPE after grep has already found a valid capability.
++[[ "$dynsyms" == *"ibv_reg_dmabuf_mr"* ]] ||
+     { echo "[mc-build] ERROR: dma-buf registration is absent from $DEST" >&2; exit 1; }
+-ldd "$DEST" | grep -qi hsa-runtime64 ||
++linked_libraries="$(ldd "$DEST")"
++[[ "${linked_libraries,,}" == *hsa-runtime64* ]] ||
+     { echo "[mc-build] ERROR: $DEST does not link hsa-runtime64" >&2; exit 1; }
+ binary_strings="$(strings "$DEST")"
+ printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
+diff --git a/tests/unit/deploy/test_mooncake_artifact_checks.py b/tests/unit/deploy/test_mooncake_artifact_checks.py
+new file mode 100644
+index 00000000..8ccd6bae
+--- /dev/null
++++ b/tests/unit/deploy/test_mooncake_artifact_checks.py
+@@ -0,0 +1,148 @@
++"""Exercise the build script's artifact checks without running the build."""
++
++import os
++import shutil
++import subprocess
++import sys
++from pathlib import Path
++
++import pytest
++
++SCRIPT = Path(__file__).resolve().parents[3] / "deploy/docker/scripts/build_mooncake_sglang.sh"
++
++
++@pytest.mark.parametrize("missing", [None, "symbol", "library", "routing"])
++def test_artifact_checks_with_large_output(tmp_path, missing):
++    # A match near the start must not close the pipe while printf still writes.
++    filler = "unused_symbol_or_string\n" * 100000
++    outputs = {
++        "SYMS": ("ibv_reg_dmabuf_mr\n" if missing != "symbol" else "") + filler,
++        "LIBS": ("libHSA-runtime64.so\n" if missing != "library" else "") + filler,
++        "STRINGS": ("MC_DISABLE_HIP\n" if missing != "routing" else "") + filler,
++    }
++    env = os.environ.copy()
++    for key, value in outputs.items():
++        path = tmp_path / key
++        path.write_text(value)
++        env[key] = str(path)
++    source = SCRIPT.read_text()
++    checks = source.split("# Artifact checks:", 1)[1].split('features="', 1)[0]
++    # The initial comment continues after the split marker.
++    checks = checks.split("\n", 1)[1]
++    command = (
++        """
++set -euo pipefail
++DEST=yihou-test-artifact.so
++nm() { cat "$SYMS"; }
++ldd() { cat "$LIBS"; }
++strings() { cat "$STRINGS"; }
++"""
++        + checks
++    )
++    result = subprocess.run(
++        ["bash", "-c", command], env=env, capture_output=True, text=True, timeout=10
++    )
++    if missing is None:
++        assert result.returncode == 0, result.stderr
++    else:
++        assert result.returncode != 0
++        expected = {
++            "symbol": "dma-buf registration is absent",
++            "library": "does not link hsa-runtime64",
++            "routing": "cross-host HIP locality routing is absent",
++        }
++        assert expected[missing] in result.stderr
++
++
++@pytest.fixture(scope="module")
++def elf_fixture_dir(tmp_path_factory):
++    if sys.platform != "linux" or any(
++        shutil.which(tool) is None for tool in ("cc", "nm", "ldd", "strings")
++    ):
++        pytest.skip("ELF integration checks require Linux, a C compiler and binutils")
++    directory = tmp_path_factory.mktemp("mooncake-elf")
++    # These are metadata fixtures, not a Mooncake library or an HSA runtime.
++    hsa_source = directory / "hsa.c"
++    hsa_source.write_text("int hsa_init(void) { return 0; }\n")
++    subprocess.run(
++        ["cc", "-shared", "-fPIC", str(hsa_source), "-o", str(directory / "libHSA-runtime64.so")],
++        check=True,
++        capture_output=True,
++        timeout=60,
++    )
++    padding_source = directory / "padding.c"
++    padding_source.write_text("".join(f"int padding_symbol_{i:06d};\n" for i in range(60000)))
++    subprocess.run(
++        ["cc", "-fPIC", "-c", str(padding_source), "-o", str(directory / "padding.o")],
++        check=True,
++        capture_output=True,
++        timeout=60,
++    )
++    return directory
++
++
++@pytest.mark.parametrize(
++    "missing", [None, "symbol", "library", "routing", "rail", "timeout", "batch"]
++)
++def test_artifact_checks_with_real_elf(elf_fixture_dir, missing):
++    directory = elf_fixture_dir
++    markers = {
++        "routing": "MC_DISABLE_HIP",
++        "rail": "MC_ENABLE_DEST_LOCAL_RAIL",
++        "timeout": "MC_IB_TIMEOUT",
++        "batch": "MC_REG_MR_BATCH_THREADS",
++    }
++    source = directory / f"{missing or 'valid'}.c"
++    source.write_text(
++        'const char fixture_features[] = "'
++        + " ".join(value for key, value in markers.items() if key != missing)
++        + '";\n'
++        + ("void ibv_reg_dmabuf_mr(void) {}\n" if missing != "symbol" else "")
++    )
++    artifact = source.with_suffix(".so")
++    command = [
++        "cc",
++        "-shared",
++        "-fPIC",
++        str(source),
++        str(directory / "padding.o"),
++        "-o",
++        str(artifact),
++    ]
++    if missing != "library":
++        command += [
++            "-Wl,--no-as-needed",
++            f"-L{directory}",
++            f"-Wl,-rpath,{directory}",
++            "-l:libHSA-runtime64.so",
++        ]
++    subprocess.run(command, check=True, capture_output=True, timeout=60)
++    # Run the production checks with real commands, including all feature gates.
++    checks = (
++        "# Artifact checks:"
++        + SCRIPT.read_text()
++        .split("# Artifact checks:", 1)[1]
++        .split('python3 -c "from mooncake.engine import TransferEngine"', 1)[0]
++    )
++    env = os.environ.copy()
++    env.update(DEST=str(artifact), MC_EXTRA_CPP_PATCHES="rdma_batch_register.diff", LC_ALL="C")
++    result = subprocess.run(
++        ["bash", "-c", "set -euo pipefail\n" + checks],
++        env=env,
++        capture_output=True,
++        text=True,
++        timeout=20,
++    )
++    if missing is None:
++        assert result.returncode == 0, result.stderr
++    else:
++        assert result.returncode != 0
++        expected = {
++            "symbol": "dma-buf registration is absent",
++            "library": "does not link hsa-runtime64",
++            "routing": "cross-host HIP locality routing is absent",
++            "rail": "lacks MC_ENABLE_DEST_LOCAL_RAIL",
++            "timeout": "lacks MC_IB_TIMEOUT",
++            "batch": "lacks MC_REG_MR_BATCH_THREADS",
++        }
++        assert expected[missing] in result.stderr

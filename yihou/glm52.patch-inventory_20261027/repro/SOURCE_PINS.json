@@ -1,0 +1,23 @@
+{
+  "archive_revision": "629913ea317293f8d260d4d227fe4206d3cd956f",
+  "infera_build_commit": "fdbafb6065dae6d1c53936c7d2cf1f5022a514d0",
+  "base_image_tag": "lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018",
+  "base_image_registry_digest_checked_20261028": "sha256:8f7d8034546b17cc4ae57c63f3f65c584eb73e62378243d1416b8385aa7be286",
+  "historical_integrated_image_id": "sha256:f69f49e39cbf97e933c742f61d0d9a3c45914e51ab01c99ac4b6eb859858a967",
+  "historical_integrated_image_public_registry_location": null,
+  "mooncake_commit": "faae8dd4a6309c3ecd47e0721a83b0250d686fa2",
+  "inferencex_commit": "918524ff94045b3f091115f1051c22a8588edf2b",
+  "public_model_id": "amd/GLM-5.2-MXFP4",
+  "public_model_revision_checked_20261028": "386bd0e4ec821f7b07975701cec3c3b953a5576a",
+  "historical_model_revision": null,
+  "public_dataset_id": "semianalysisai/cc-traces-weka-062126",
+  "public_dataset_revision_checked_20261028": "23f152f6f0f9399a85901b89a6458def0ef16729",
+  "historical_dataset_revision": null,
+  "csv_rows": {
+    "yihou_glm52_dpa_bf16_tuned_gemm.csv": 75,
+    "yihou_glm52_ptpc_bf16_tuned_gemm.csv": 49
+  },
+  "historical_performance_acceptance": "simulated 2.99",
+  "historical_correctness": "known failures; not certified",
+  "new_gpu_validation_performed": false
+}

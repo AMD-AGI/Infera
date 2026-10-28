@@ -1,0 +1,7 @@
+Independent GLM-5.2/ROCm evidence supporting the room hash here (our inventory S03/S11); we will track this PR instead of opening a duplicate.
+
+With a DCP decode replica, every room had the same destination-session set, so destination-port hashing left one transfer worker active per prefill rank. Plain `room % 4` also failed: the room residue encoded the prefill DP rank. In our historical `dcpx6 -> dcpx7b` experiment, hashing the room changed sampled active workers from 1 to 2–4 per rank and measured KV-transfer p50 from 21.3 s to 11.3 s. `dcpx7` with plain modulo did not spread work. This agrees with the congruent-room case already covered by your tests.
+
+There is also a caution: same-node `g4tune R1 (dest) -> R2 (mix)` reduced mean transfer time from 9.98 s to 2.16 s, but TPOT worsened from about 13.3 ms to 15 ms; we did not adopt that configuration. Both comparisons are single historical runs with simulated MTP acceptance. They are transfer diagnostics, not model-accuracy validation or a claim that stack throughput belongs to this patch. The later GLM stack's PP-overlap/custom-all-reduce correctness problems also prevent using its throughput as patch evidence.
+
+Archived evidence: `glm52.v0521-g4tune-xfer.packup_20261020` and `glm52.dcpx-pack-fix-best.packup_20261023`. Our layer-group parallelism and instrumentation are separate experiments, not additional functionality requested for this PR.

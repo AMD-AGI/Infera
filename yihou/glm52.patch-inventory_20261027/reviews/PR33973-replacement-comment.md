@@ -1,0 +1,3 @@
+The defect remains in current main. Rebased the fix onto `8a455f1` with signed head `8bd9fe8` and added a registered CPU regression: 3 passed + 2 subtests; unpatched main has 2 expected failures and 1 passing control. All applicable lint passed.
+
+GitHub refuses reopening this closed PR (`state cannot be changed ... branch was force-pushed or recreated`), including after restoring the original head. The current-main replacement is **#46830**, kept as a draft for distributed DP/MTP progress, static-width memory-cost validation and maintainer CI/review. Please follow #46830; this PR remains closed and is not counted as merged or resolved.

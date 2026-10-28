@@ -1,0 +1,5 @@
+Rebased onto current main `e4d4a9a7de` in commit `d80a8f2da2023ce721092dc68587d0f6cf740949`, with a signed-off commit. The production fix is unchanged; the registered regression now uses `unittest.TestCase` so it does not import the unrelated serving/model test harness.
+
+Local CPU validation (Python 3.13.13, PyTorch 2.12.1+cpu): **2 passed, 2 subtests passed**. Restoring only `offloader.py` to unpatched main makes the positive case fail specifically because `is_shuffled` is missing (**1 failed, 1 passed, 2 subtests passed**). All applicable repository pre-commit hooks pass. Commands and historical evidence limits are in the updated PR description; no throughput or new GPU-validation claim is made.
+
+Could a maintainer please add `run-ci` and review this small fix? The prior AMD gate log explicitly reports `Missing required label 'run-ci'` ([job](https://github.com/sgl-project/sglang/actions/runs/39534847627/job/119009003492)), so those red checks represent a gate rejection, not an executed test failure.

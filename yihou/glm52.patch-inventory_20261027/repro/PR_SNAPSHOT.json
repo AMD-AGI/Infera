@@ -1,0 +1,797 @@
+{
+  "checked_at_utc": "2026-10-28T05:02:45.143954+00:00",
+  "prs": [
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "cf85272497a8815da37e80bc866dd4d6aae16a22",
+      "headRefOid": "51a7b24b59fcb0d44c9ddb3738c42c3f74417160",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 34,
+      "state": "CLOSED",
+      "title": "sglang DSA: enable PD + DP-attention + EAGLE MTP on GLM-5.2 / gfx950 (4 patches)",
+      "updatedAt": "2026-07-31T11:00:34Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/34",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "59d540ae28b5bcc34de71d1139d23dd9e9681165",
+      "headRefOid": "c91db7601d163201a3958814a46f16f121d7feb0",
+      "isDraft": false,
+      "mergedAt": "2026-08-01T10:34:56Z",
+      "number": 58,
+      "state": "MERGED",
+      "title": "sglang DSA: enable PD + DP-attention + EAGLE MTP on GLM-5.2 / gfx950 (3 patches, rebased onto main)",
+      "updatedAt": "2026-08-01T10:34:56Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/58",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "59d540ae28b5bcc34de71d1139d23dd9e9681165",
+      "headRefOid": "2cd56f4350062d0da90b956e778be8b855830ba7",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 59,
+      "state": "CLOSED",
+      "title": "[wip]fix(kvaware+kvd): two bugs blocking KV-aware routing + kvd together on SGLang, with image, docs and repro",
+      "updatedAt": "2026-08-03T10:28:28Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/59",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "9bf69f22413311531e31e5f256234bd96e366b28",
+      "headRefOid": "9380f07310ef01604004c43d9efafa6ad685975f",
+      "isDraft": false,
+      "mergedAt": "2026-08-03T18:05:39Z",
+      "number": 79,
+      "state": "MERGED",
+      "title": "fix(glm5.2): the remaining fixes for agentic serving \u2014 DSA indexer, ROCm hicache, PD/kvd wiring",
+      "updatedAt": "2026-08-04T02:55:57Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/79",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "e387930599098d5cfe78e80139bfd4cdd22f2efc",
+      "headRefOid": "7609bb1593b3db52cfce051162e5ea78a4d06ef7",
+      "isDraft": false,
+      "mergedAt": "2026-08-04T10:35:47Z",
+      "number": 84,
+      "state": "MERGED",
+      "title": "docs(examples): add a GLM-5.2 1P1D SGLang deployment example",
+      "updatedAt": "2026-08-04T10:35:48Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/84",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "d9fc62aa35b95b72ed525d20c484319568518a13",
+      "headRefOid": "66a4524973e9c5697ee0e60b7fc6d911644e4efe",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 87,
+      "state": "CLOSED",
+      "title": "docs(sglang): record the MTP penalty-accounting defect we filed but do not patch",
+      "updatedAt": "2026-08-21T08:40:25Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/87",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "d1a97b2b17732664580c6cbf7c5aa1ff4bef51bd",
+      "headRefOid": "a675f91e42fe8cbba3cf1d3000c8bf9a93456d70",
+      "isDraft": false,
+      "mergedAt": "2026-08-07T07:47:10Z",
+      "number": 94,
+      "state": "MERGED",
+      "title": "chore(examples): drop the GLM-5.2 results/ directory",
+      "updatedAt": "2026-08-07T07:47:10Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/94",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "55271cb69c4f1a02f2223c051e406640b3305a42",
+      "headRefOid": "9235c26f7b236b79580f7aec1b27a9983630def8",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 95,
+      "state": "CLOSED",
+      "title": "docs(patches): give every patch a schema-checked upstream status record",
+      "updatedAt": "2026-08-21T08:40:32Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/95",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "6492209bcae7b23c52f68b36e2889813049c0e5d",
+      "headRefOid": "4676ec9087bcbca766b0e84d0b70ea3e7c81641e",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 164,
+      "state": "OPEN",
+      "title": "[Compare only][Draft]fast bench script",
+      "updatedAt": "2026-09-16T04:01:29Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/164",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "baseRefOid": "adbb9dc51f9d1d0116b38eb4dd9f103082b83802",
+      "headRefOid": "8859b247ced2fd053111d8a69002b29030c7d973",
+      "isDraft": false,
+      "mergedAt": "2026-10-26T02:57:43Z",
+      "number": 210,
+      "state": "MERGED",
+      "title": "feat(sglang): v0.5.22 image, GLM-5.2-MXFP4 mixed and PD (TP1xPP4 prefill) examples, router decode request balancing",
+      "updatedAt": "2026-10-26T02:57:43Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/210",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "319444f8b3cbb2127d9e041f0b62477dae81477a",
+      "headRefOid": "5cee57e09379c769b1a3b25991e2b0312f1a81dd",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 218,
+      "state": "OPEN",
+      "title": "fix: avoid SIGPIPE in Mooncake artifact checks",
+      "updatedAt": "2026-10-28T01:55:33Z",
+      "url": "https://github.com/AMD-AGI/Infera/pull/218",
+      "repo": "AMD-AGI/Infera"
+    },
+    {
+      "author": {
+        "id": "MDQ6VXNlcjIwMzA3MzI4",
+        "is_bot": false,
+        "login": "salexspb",
+        "name": "Sasha Sidorov"
+      },
+      "baseRefOid": "8c9af6c914c35b97c2336863217a9ce13d13e4ed",
+      "headRefOid": "9b4b049d9cb50faa75595b962ce3591dc804db4b",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 4340,
+      "state": "OPEN",
+      "title": "[TE] Fix HIP and NVLink IPC relocation for suballocated buffers",
+      "updatedAt": "2026-10-27T18:55:37Z",
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/4340",
+      "repo": "kvcache-ai/Mooncake"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "81b3694b1bcde8af454457f835734f1306420fb3",
+      "headRefOid": "13df6a68dacc65187dc24756efb67582278d16b1",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 5005,
+      "state": "OPEN",
+      "title": "[TransferEngine] Add opt-in high-priority HIP copy streams",
+      "updatedAt": "2026-10-27T15:07:30Z",
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/5005",
+      "repo": "kvcache-ai/Mooncake"
+    },
+    {
+      "author": {
+        "id": "U_kgDOC9eS7g",
+        "is_bot": false,
+        "login": "bobofang11235",
+        "name": "bobofang_amd"
+      },
+      "baseRefOid": "9b853e6832e71a3058212df02a025232a453e146",
+      "headRefOid": "817f2e8b9e7bf90acffd734458c235e470cebd57",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 32175,
+      "state": "OPEN",
+      "title": "AMD ROCm enablement for GLM-5.x: DSA + prefill-CP + EAGLE and DFlash",
+      "updatedAt": "2026-10-27T08:25:05Z",
+      "url": "https://github.com/sgl-project/sglang/pull/32175",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
+      "headRefOid": "d0062f8bce0c86de998ff36b8c106e2ab4bc6ca5",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 33059,
+      "state": "OPEN",
+      "title": "[Fix] [AMD] dsa: Align Aiter paged rows with DP-attention metadata",
+      "updatedAt": "2026-10-27T10:45:13Z",
+      "url": "https://github.com/sgl-project/sglang/pull/33059",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "198a3bc29bbf2ed169d50f5b7ad35c74262ff10f",
+      "headRefOid": "18aa43683f57bb0b513f0bdcaea20485d948db0d",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 33643,
+      "state": "CLOSED",
+      "title": "[Bug] Accumulate sampling penalties per accepted token under speculative decoding",
+      "updatedAt": "2026-10-27T11:08:13Z",
+      "url": "https://github.com/sgl-project/sglang/pull/33643",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "56834422a18af26479cd9b179b42d140053d0762",
+      "headRefOid": "138901d9188c77a619d17a4d9afe3ac4427cea6b",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 33968,
+      "state": "CLOSED",
+      "title": "[ROCm] Fix HiCache host-pool allocator: hipHostRegister's device pointer is not the host VA",
+      "updatedAt": "2026-10-27T08:06:24Z",
+      "url": "https://github.com/sgl-project/sglang/pull/33968",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "56834422a18af26479cd9b179b42d140053d0762",
+      "headRefOid": "3c2cb3ab0341e4247df2976bdad26568414bcdad",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 33970,
+      "state": "CLOSED",
+      "title": "[PD] Make the mooncake KV transfer wait on the prefill forward that wrote the pages",
+      "updatedAt": "2026-10-27T08:06:44Z",
+      "url": "https://github.com/sgl-project/sglang/pull/33970",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "56834422a18af26479cd9b179b42d140053d0762",
+      "headRefOid": "9bc95e2975fad330335630a2c47c35546e2cac51",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 33973,
+      "state": "CLOSED",
+      "title": "[Fix] dsa: Remove host syncs from rank-divergent eager paths",
+      "updatedAt": "2026-10-27T11:15:53Z",
+      "url": "https://github.com/sgl-project/sglang/pull/33973",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "MDQ6VXNlcjUwODU1NDE0",
+        "is_bot": false,
+        "login": "alexnails",
+        "name": "Alex Nails"
+      },
+      "baseRefOid": "857910bd35e2b38e3d4c1cfc051548a691df3fbf",
+      "headRefOid": "62cd16df780c763370c82f8a184311a74f757bde",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 34465,
+      "state": "CLOSED",
+      "title": "[ROCm] Fix AttributeError on PPMissingLayer that blocks pipeline parallelism on gfx95",
+      "updatedAt": "2026-09-28T01:33:17Z",
+      "url": "https://github.com/sgl-project/sglang/pull/34465",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOD0No9w",
+        "is_bot": false,
+        "login": "AMD-yanfeiwang",
+        "name": ""
+      },
+      "baseRefOid": "ec5fba5777bf2b7bfaf912d050b21b32df57b8f9",
+      "headRefOid": "c29e6054f5bc32882756dbb29c934bf4097839a9",
+      "isDraft": false,
+      "mergedAt": "2026-09-14T22:49:06Z",
+      "number": 35233,
+      "state": "MERGED",
+      "title": "[AMD] Fix registered HiCache host pointer aliases",
+      "updatedAt": "2026-09-14T22:49:06Z",
+      "url": "https://github.com/sgl-project/sglang/pull/35233",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "MDQ6VXNlcjIwMzA3MzI4",
+        "is_bot": false,
+        "login": "salexspb",
+        "name": "Sasha Sidorov"
+      },
+      "baseRefOid": "968726f3cea0f6d6f44bea84797e5e5914658f4e",
+      "headRefOid": "9fc5f306216f0115ab9e8ca0ca00638e23938749",
+      "isDraft": false,
+      "mergedAt": "2026-10-06T07:17:12Z",
+      "number": 41395,
+      "state": "MERGED",
+      "title": "[PD] Wait for prefill completion before Mooncake early KV transfer",
+      "updatedAt": "2026-10-07T07:37:50Z",
+      "url": "https://github.com/sgl-project/sglang/pull/41395",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "MDQ6VXNlcjc0MDk5MzE2",
+        "is_bot": false,
+        "login": "YAMY1234",
+        "name": "YAMY"
+      },
+      "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
+      "headRefOid": "294113a01fa395b6eddde501523163e14a601a42",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 42163,
+      "state": "OPEN",
+      "title": "[PD] Shard Mooncake transfers by bootstrap room",
+      "updatedAt": "2026-10-27T10:54:47Z",
+      "url": "https://github.com/sgl-project/sglang/pull/42163",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOELil-Q",
+        "is_bot": false,
+        "login": "jiejingzhangamd",
+        "name": "Zhang, Jiejing"
+      },
+      "baseRefOid": "dab108b9f386b5b991ee070c7e4784f35df03f93",
+      "headRefOid": "b2de5028259ff34283c251fee5cbb8678dd623a8",
+      "isDraft": false,
+      "mergedAt": "2026-10-12T21:05:52Z",
+      "number": 42553,
+      "state": "MERGED",
+      "title": "[ROCm] Eliminate HiCache migration stalls and use exact-size host allocations",
+      "updatedAt": "2026-10-12T21:05:53Z",
+      "url": "https://github.com/sgl-project/sglang/pull/42553",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOC5DC-g",
+        "is_bot": false,
+        "login": "EricKing626",
+        "name": "Eric.Chin.AMD"
+      },
+      "baseRefOid": "d62b9c2480f3b4b2ff16344c90e6a73e4b1d09fa",
+      "headRefOid": "a335b6ebbcda76584a3ae4ffdbb120707ec8e01d",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 42618,
+      "state": "CLOSED",
+      "title": "[ROCm] Support decode context parallel (DCP) for GLM-5 / DeepSeek-V3.2",
+      "updatedAt": "2026-10-27T14:11:08Z",
+      "url": "https://github.com/sgl-project/sglang/pull/42618",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "MDQ6VXNlcjMzNTM3ODc0",
+        "is_bot": false,
+        "login": "kpjeeja",
+        "name": "kpjeeja"
+      },
+      "baseRefOid": "635430d07378e2b12381353781a23b0704969909",
+      "headRefOid": "b5d07691696a8967b178315fc62a284a3fb7ab07",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 43299,
+      "state": "OPEN",
+      "title": "[Fix] disaggregation: Fix the early-send wait event on non-CUDA devices and in nixl",
+      "updatedAt": "2026-10-28T02:40:46Z",
+      "url": "https://github.com/sgl-project/sglang/pull/43299",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "MDQ6VXNlcjcyMTk3NzY=",
+        "is_bot": false,
+        "login": "JackChuang",
+        "name": "Ho-Ren (Jack) Chuang"
+      },
+      "baseRefOid": "28448a86d47eb49a3c8e47dca52fe25cc95425d8",
+      "headRefOid": "67f78545a89339473b8b37578248e01a2acb0dc4",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 44262,
+      "state": "CLOSED",
+      "title": "[Fix] attention: Pad the TileLang sparse MLA prefill output back to the padded extend batch",
+      "updatedAt": "2026-10-27T11:26:10Z",
+      "url": "https://github.com/sgl-project/sglang/pull/44262",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOC5DC-g",
+        "is_bot": false,
+        "login": "EricKing626",
+        "name": "Eric.Chin.AMD"
+      },
+      "baseRefOid": "da7e3f1c125be0f1ef2101c474b679296acdb325",
+      "headRefOid": "b8a0a1ac70c4c103a1ff2293a2c9306ec9c609f5",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 44322,
+      "state": "OPEN",
+      "title": "[Feat] [AMD] dsa: Enable DCP on the triton sparse-MLA backend",
+      "updatedAt": "2026-10-27T22:22:22Z",
+      "url": "https://github.com/sgl-project/sglang/pull/44322",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDODfniOw",
+        "is_bot": false,
+        "login": "WQW-Git",
+        "name": ""
+      },
+      "baseRefOid": "c1c287a42928495166e14dbcef31b9e1f1dac199",
+      "headRefOid": "96903930a0ab15d3bd603ae543b67a4e7618d6ca",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 45156,
+      "state": "OPEN",
+      "title": "[Fix] model_executor: Initialize idle metadata on the active attention backend",
+      "updatedAt": "2026-10-27T07:20:25Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45156",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOFFytog",
+        "is_bot": false,
+        "login": "vaishalisenthil24",
+        "name": ""
+      },
+      "baseRefOid": "baa9befa381511cd4d56f83980951e5a45fffc6d",
+      "headRefOid": "612b93311b1d9f9a9e8c82d2fd63e960b6169aa0",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 45233,
+      "state": "CLOSED",
+      "title": "[Fix] speculative: Exact NEXTN penalties and add opt-in CORAL H100 overlay",
+      "updatedAt": "2026-10-27T23:42:15Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45233",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOC5Ut6A",
+        "is_bot": false,
+        "login": "nvjullin",
+        "name": ""
+      },
+      "baseRefOid": "e4d4a9a7de5454cd8b854b21af723c2155a55a3d",
+      "headRefOid": "164718dbfa295d8cf9afab9c04023cbd05725273",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 45337,
+      "state": "OPEN",
+      "title": "[Feat] disaggregation: Support prefill_complete decode allocation with pipeline-parallel prefill",
+      "updatedAt": "2026-10-27T07:29:22Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45337",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOEcLs_w",
+        "is_bot": false,
+        "login": "paulzhang-tm",
+        "name": ""
+      },
+      "baseRefOid": "cdbd4784226925515abc03cd3e77ac5129644dae",
+      "headRefOid": "2647c3761ea18a05fc0227a744b99ce388d5b88a",
+      "isDraft": false,
+      "mergedAt": "2026-10-21T17:37:29Z",
+      "number": 45453,
+      "state": "MERGED",
+      "title": "[Fix] disaggregation: Synchronize deferred decode KV release across TP ranks",
+      "updatedAt": "2026-10-21T18:08:50Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45453",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "f1ba723c647ecb33a800fca168d939e1a68ee9b5",
+      "headRefOid": "a71a64784fe033446645e083e2a0e6d9179a2fd4",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 45483,
+      "state": "CLOSED",
+      "title": "[Fix] spec: init the active attention backend for eager IDLE batches",
+      "updatedAt": "2026-10-27T07:09:42Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45483",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
+      "headRefOid": "43dec26b032c08f4e9eee0c772db9f44d3afc275",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 45484,
+      "state": "OPEN",
+      "title": "[Fix] [AMD] offloader: keep is_shuffled on device copies of offloaded weights",
+      "updatedAt": "2026-10-27T12:11:55Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45484",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETccMA",
+        "is_bot": false,
+        "login": "eaglewangao-us",
+        "name": ""
+      },
+      "baseRefOid": "bd5a445bf70a1849d11230deb38b21b85c44cfa5",
+      "headRefOid": "376701038e2cf1d28408e696b82cdb908cc8c10b",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 45524,
+      "state": "OPEN",
+      "title": "[Fix] disaggregation: wait for the prefill forward before sending KV chunks under PP",
+      "updatedAt": "2026-10-27T10:54:50Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45524",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOC5Ut6A",
+        "is_bot": false,
+        "login": "nvjullin",
+        "name": ""
+      },
+      "baseRefOid": "6a319e7b3446f39edd19d3d76aec4c6a2851b28d",
+      "headRefOid": "e122674f23aa6208d06345fb753eba2b90eecf85",
+      "isDraft": false,
+      "mergedAt": "2026-10-27T05:04:42Z",
+      "number": 45796,
+      "state": "MERGED",
+      "title": "[Fix] dp-attention: Pad extend host lists out of place so pre-planned DSA metadata keeps its rows",
+      "updatedAt": "2026-10-27T05:04:43Z",
+      "url": "https://github.com/sgl-project/sglang/pull/45796",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "MDQ6VXNlcjQwMTU3MTM1",
+        "is_bot": false,
+        "login": "Jzz1943",
+        "name": "Jzz1943"
+      },
+      "baseRefOid": "b48809dfc2d24ae4ed7d33326ca1a87cb1aa160f",
+      "headRefOid": "e536a1144f6215669267856a3c002c438ec0b598",
+      "isDraft": false,
+      "mergedAt": "2026-10-27T08:29:53Z",
+      "number": 46424,
+      "state": "MERGED",
+      "title": "[Fix] dsa: Preserve token-first sparse attention outputs",
+      "updatedAt": "2026-10-27T08:29:53Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46424",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
+      "headRefOid": "aed9bc6953d0a95c879cff5151ee20627e9937b3",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 46819,
+      "state": "OPEN",
+      "title": "[Perf] [AMD] disaggregation: Cache DCP pack metadata on the gather stream",
+      "updatedAt": "2026-10-27T11:20:47Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46819",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
+      "headRefOid": "82176e70284c8d67b41de74b8e8005d148e57c8b",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 46820,
+      "state": "OPEN",
+      "title": "[Fix] metrics: Avoid blocking the scheduler on KV metrics backpressure",
+      "updatedAt": "2026-10-27T11:55:25Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46820",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefOid": "11262e1199d914ac1946bdcf3d18f56cc3f45612",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 46822,
+      "state": "OPEN",
+      "title": "[Fix] [AMD] dsa: Skip the indexer on eager idle ranks",
+      "updatedAt": "2026-10-27T12:12:12Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46822",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefOid": "bd4c8e5ef653c3f452ef784ea1255d84a3fadbbb",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 46824,
+      "state": "OPEN",
+      "title": "[Fix] disaggregation: Relayout DCP-sharded DSA draft KV with the target",
+      "updatedAt": "2026-10-27T11:20:49Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46824",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefOid": "d25dbd8bbe39886b17a023ad2ae354a605660a84",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 46826,
+      "state": "OPEN",
+      "title": "[Feat] [AMD] disaggregation: Allow DSA DCP decode behind DCP1 prefill",
+      "updatedAt": "2026-10-27T11:13:47Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46826",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefOid": "a15ee201daff601334d5d53730d4b5db08da4731",
+      "isDraft": true,
+      "mergedAt": null,
+      "number": 46828,
+      "state": "OPEN",
+      "title": "[Perf] [AMD] dsa: Allow retaining GLM kv_b BF16 under DCP",
+      "updatedAt": "2026-10-27T11:20:51Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46828",
+      "repo": "sgl-project/sglang"
+    },
+    {
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefOid": "8bd9fe8c3b1612519e81891a9dc12c5237664eec",
+      "isDraft": false,
+      "mergedAt": null,
+      "number": 46830,
+      "state": "OPEN",
+      "title": "[Fix] dsa: Remove host syncs from rank-divergent eager paths",
+      "updatedAt": "2026-10-27T12:12:26Z",
+      "url": "https://github.com/sgl-project/sglang/pull/46830",
+      "repo": "sgl-project/sglang"
+    }
+  ]
+}

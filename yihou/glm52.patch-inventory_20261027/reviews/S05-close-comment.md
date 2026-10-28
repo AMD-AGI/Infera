@@ -1,0 +1,3 @@
+Closing this later duplicate in favor of #45156, which was opened earlier and fixes the same active-attention-backend initialization defect, including empty-batch cleanup. I compared the implementations with current main (`e4d4a9a7de`) and contributed our AMD failure diagnosis and isolated validation run IDs there.
+
+The historical deployment used simulated MTP acceptance, so its fault-free runs are not generated-text correctness evidence, and the throughput figures in this original description should not be read as the effect of this patch. No new GPU validation was performed during this consolidation. The CI failures here are PR-gate failures due to the missing `run-ci` label, not executed regression-test failures.

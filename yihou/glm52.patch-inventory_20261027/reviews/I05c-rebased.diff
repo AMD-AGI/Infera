@@ -1,0 +1,77 @@
+diff --git a/deploy/docker/scripts/build_mooncake_sglang.sh b/deploy/docker/scripts/build_mooncake_sglang.sh
+index 0bbd1d33..d8e66213 100644
+--- a/deploy/docker/scripts/build_mooncake_sglang.sh
++++ b/deploy/docker/scripts/build_mooncake_sglang.sh
+@@ -111,9 +111,12 @@ fi
+ 
+ # Artifact checks: inspect the .so Python will actually load.
+ dynsyms="$(nm -D "$DEST" 2>/dev/null || true)"
+-printf '%s\n' "$dynsyms" | grep -q "ibv_reg_dmabuf_mr" ||
++# Avoid early-exit grep pipelines under pipefail: a large producer can receive
++# SIGPIPE after grep has already found a valid capability.
++[[ "$dynsyms" == *"ibv_reg_dmabuf_mr"* ]] ||
+     { echo "[mc-build] ERROR: dma-buf registration is absent from $DEST" >&2; exit 1; }
+-ldd "$DEST" | grep -qi hsa-runtime64 ||
++linked_libraries="$(ldd "$DEST")"
++[[ "${linked_libraries,,}" == *hsa-runtime64* ]] ||
+     { echo "[mc-build] ERROR: $DEST does not link hsa-runtime64" >&2; exit 1; }
+ binary_strings="$(strings "$DEST")"
+ printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
+diff --git a/tests/unit/deploy/test_mooncake_artifact_checks.py b/tests/unit/deploy/test_mooncake_artifact_checks.py
+new file mode 100644
+index 00000000..d6bf0ce4
+--- /dev/null
++++ b/tests/unit/deploy/test_mooncake_artifact_checks.py
+@@ -0,0 +1,52 @@
++"""Exercise the build script's artifact checks without running the build."""
++
++import os
++import subprocess
++from pathlib import Path
++
++import pytest
++
++SCRIPT = Path(__file__).resolve().parents[3] / "deploy/docker/scripts/build_mooncake_sglang.sh"
++
++
++@pytest.mark.parametrize("missing", [None, "symbol", "library", "routing"])
++def test_artifact_checks_with_large_output(tmp_path, missing):
++    # A match near the start must not close the pipe while printf still writes.
++    filler = "unused_symbol_or_string\n" * 100000
++    outputs = {
++        "SYMS": ("ibv_reg_dmabuf_mr\n" if missing != "symbol" else "") + filler,
++        "LIBS": ("libHSA-runtime64.so\n" if missing != "library" else "") + filler,
++        "STRINGS": ("MC_DISABLE_HIP\n" if missing != "routing" else "") + filler,
++    }
++    env = os.environ.copy()
++    for key, value in outputs.items():
++        path = tmp_path / key
++        path.write_text(value)
++        env[key] = str(path)
++    source = SCRIPT.read_text()
++    checks = source.split("# Artifact checks:", 1)[1].split('features="', 1)[0]
++    # The initial comment continues after the split marker.
++    checks = checks.split("\n", 1)[1]
++    command = (
++        """
++set -euo pipefail
++DEST=yihou-test-artifact.so
++nm() { cat "$SYMS"; }
++ldd() { cat "$LIBS"; }
++strings() { cat "$STRINGS"; }
++"""
++        + checks
++    )
++    result = subprocess.run(
++        ["bash", "-c", command], env=env, capture_output=True, text=True, timeout=10
++    )
++    if missing is None:
++        assert result.returncode == 0, result.stderr
++    else:
++        assert result.returncode != 0
++        expected = {
++            "symbol": "dma-buf registration is absent",
++            "library": "does not link hsa-runtime64",
++            "routing": "cross-host HIP locality routing is absent",
++        }
++        assert expected[missing] in result.stderr
