@@ -67,13 +67,23 @@
 |---|---|---|---|
 | NVIDIA/srt-slurm `llying/infera-frontend`（基于 main `59920ea1`） | `9fde06e7`，**已提 Draft [srt-slurm #630](https://github.com/NVIDIA/srt-slurm/pull/630)**（10-28，fork 在 llying-001；写明依赖 Infera #222 / amd-infera 0.3.2，发版并在集群上跑通后转 Ready） | `frontend.type: infera`：`InferaFrontend`（继承 `DynamicFrontend`，worker 仍按 `direct` 处理）；`Frontend.direct_worker_launcher` 钩子让 SGLang worker 经 `python3 -m infera.engine.sglang` 启动并登记到 etcd；隐含 etcd、按角色数 `/v1/workers` 判断就绪、拒绝 srtctl 管理的 router 参数和外部 etcd；`configs/install-infera.sh`、`docs/infera.md`、example 与启动快照 | 新测试 10 项；全量测试失败名单与 main 逐条一致（11 个，均为容器环境）；ruff / 格式无新增；Python 3.10 下 `ty` 通过；`schema-docs --check`、`mkdocs --strict` 通过；example 在 mock orchestrator 下 exit 0 |
 | AMD-AGI/Infera `llying/sglang-explicit-kv-events-config`（基于 main `319444f8`） | `47617d7a`，**已提 [Infera #222](https://github.com/AMD-AGI/Infera/pull/222)**（10-28） | 包装层沿用外部传入的 `--kv-events-config` 端口，不再自己找端口追加（srt-slurm 统一分配端口的规则要求）；外部没传时行为不变，仍按 DP rank 数自己分配 | `tests/unit/engine`、`tests/unit/kv` 504 项通过，ruff 通过 |
-| SemiAnalysisAI/InferenceX `llying/infera-sglang`（基于 main `253c38bf`） | `b3ce1f50` | `infera-sglang` 映射到 sglang；`infera-sglang.sh` 从 GitHub release 装 `amd-infera`（`--no-deps`，只补 `nats-py`）并登记进 `INSTALLERS` | infx 相关测试 111 项通过 |
+| SemiAnalysisAI/InferenceX `llying/infera-sglang`（基于 main `253c38bf`，未推送） | `b3ce1f50`、`6da9055d` | `infera-sglang` 映射到 sglang；`infera-sglang.sh` 从 GitHub release 装 `amd-infera`（`--no-deps`，只补 `nats-py`）并登记进 `INSTALLERS`。骨架（以 #210 配置为底）：master 条目 `glm5.2-fp4-mi355x-infera-sglang-agentic-disagg`（nightly 20261018 按 digest 固定、`router: infera-router 0.3.2`、`dram-utilization: 0.85`）、recipe `glm5.2/infera-sglang/mi355x-fp4/agentx/disagg-variants.yaml`（1P1D 8 卡 decode C32/48/64/88、4+4 C64/80、2P1D C176）、perf-changelog（`pr-link` 用 XXX 占位）、`runners/srt-slurm/patches/630-infera-frontend.patch` | infx 全量测试失败名单与 main 一致、新增 3 项通过；补丁能叠加打在固定的 srt-slurm `ae3d6877` 上，infera 测试在该版本上通过；临时打补丁后 `infx generate` 生成并校验 7 个点，绑定结果正确（模型、镜像 digest、`ROUTER_VERSION`、模拟接受率 3.61、网卡引用） |
 
 依赖：srt-slurm 的 infera frontend 需要 Infera 带上 #222 的版本（文档写的是 amd-infera 0.3.2 或更新），要和同事的 v0.3.2 发版对齐。
 
 - **与 Infera 版本的兼容性**：srt-slurm 把 `frontend.args` 原样传给 `infera-router`，以后新增的 router 策略和参数直接写在 recipe 里，srt-slurm 不用改；
   ≥ 0.3.2 的版本都能用，前提是这些约定保持兼容：可执行文件 `infera-router` 与模块 `infera.engine.sglang`、srtctl 管理的 router 参数、srtctl 传给包装层的参数、
   `/v1/workers` 的 `disagg_mode` / `status` 字段、#222 的端口行为。需要 worker 多开监听端口或改用 NATS 的新功能，才要同步改 srt-slurm。
+- **srt-slurm 合入在 InferenceX PR 的关键路径上**：InferenceX 的 `infx generate`（PR 校验）直接从子模块 `utils/srt-slurm/src` 导入 srtctl，不打
+  `runners/srt-slurm/patches/` 里的补丁，所以只带补丁时，校验会因为不认识 `frontend.type: infera` 而失败。实际需要 #630 合入并升级子模块，
+  或请 InferenceX 维护者让校验也打补丁。补丁目录 README 还写明"每个补丁回移一个上游修复"，未合入的 PR 属于灰色地带（ATOM #4045 的 604 补丁同样未合入）。
+- **#630 的 router 改由 Infera 启动器起（10-28）**：Rust `infera-router` 只从本地路径读 tokenizer，recipe 用 HF 模型名时拿不到路径；改为
+  `python3 -m infera.server --router-backend rust`（#210 kit 也是这样起的），由它解析 HF 名再 exec Rust router，默认值与 Rust 一致；
+  `router-tokenizer-path` 默认取 worker 加载的模型。
+- **recipe 骨架相对 #210 kit 的差异**（都要在原样 nightly 上实测确认）：KV 事件端口交给 srt-slurm 分配（不用 kit 的 `--kv-events-bind` / snapshot 端口）；
+  Mooncake 用上游写法（`MC_DISABLE_HIP=1`、`MC_ENABLE_DEST_DEVICE_AFFINITY=1`，去掉对应我们补丁版的 `MC_ENABLE_DEST_LOCAL_RAIL`、`MC_IB_TIMEOUT`、
+  `MC_DISABLE_HIP_TRANSPORT`）；网卡 `rdma0`–`rdma7`；不挂 libionic（同集群 DSv4 SGLang PD 用同类镜像跑 RDMA 也没挂）；未设 `ulimit -l`（H3）；
+  `SGLANG_OPT_USE_TOPK_V2=true` 沿用 kit（包装层在 ROCm 上默认关它，原样镜像上要确认）；2P1D 两个 prefill 同机（A4 未定）。
 - **为以后的 infera-vllm 预留（10-28）**：#630 的钩子改为 `direct_worker_launcher(backend, process, runtime)`，包装层模块按引擎查表 `WORKER_LAUNCHERS`
   （目前只有 sglang）；以后加 vLLM 只需加一行表项、让 vLLM backend 调用钩子，并处理 vLLM 每个 DP rank 各自登记的就绪计数。Infera #222 扩展到 vLLM 包装层
   （端口解析抽到 `infera/common/kv_events_config.py`，并拒绝 router 不订阅的 topic）。InferenceX 侧只需加 `infera-vllm` → `vllm` 映射，但规则按 vLLM 走
@@ -456,7 +466,7 @@ PyPI 是可选项：GitHub release 现在就能用，不用等 PyPI 账号和权
 | S13 替换整个 `deepseek_v2.py` | 引擎补丁 | 同 B7 |
 | FP8 草稿层（`SGLANG_GLM_NEXTN_MOE_PTPC=1`） | 第 56 行：草稿层按发布精度跑，不能在提交侧量化降精度。`amd/GLM-5.2-MXFP4` 的第 78 层 NextN 不在 quark 量化范围里，按 BF16 发布 | 不能用（前提是这个开关默认关闭，未核实默认值） |
 | prefill `SGLANG_PP_COMM_OVERLAP=1`、decode custom AR | 真实接受率下乱码，eval（GSM8K ≥ 0.90）过不了 | 必须关；关掉后最好是 llr48 C88 44,245（单次，正确性未确认） |
-| `index_share_for_mtp_iteration=true`（#210 也用） | 第 59 行：不接受减少模型 FLOPs 的优化 | 需在 PR 里说明来源，评审可能会问 |
+| `index_share_for_mtp_iteration=true` | 第 59 行：不接受减少模型 FLOPs 的优化 | 需在 PR 里说明来源，评审可能会问；#210 的配置显式设为 `false`，不受影响 |
 | MTP K=3 | GLM-5.2 thinking_on 的 golden 接受率有 K=3（2.99） | 可以用 |
 | decode mem 0.95、`--stream-interval 30`、`SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION=8`、`--pp-async-batch-depth 1` | 普通参数 | 可以用，要写进 cookbook |
 | prefill HiCache 250 GB/rank × 4 | DRAM 预算：`dram-utilization: 1.0` 时每个 4 卡服务器 1,499 GB；HiCache 另有约 23% 的 DSA indexer 池，250 GB/rank 实占约 1.23 TB | 在预算内；上限约 300 GB/rank |
