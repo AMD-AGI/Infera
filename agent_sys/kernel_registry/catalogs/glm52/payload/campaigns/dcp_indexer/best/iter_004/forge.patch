@@ -1,0 +1,816 @@
+diff --git a/dcp_indexer_kernel.py b/dcp_indexer_kernel.py
+index a36850a..5465c7b 100644
+--- a/dcp_indexer_kernel.py
++++ b/dcp_indexer_kernel.py
+@@ -8,10 +8,17 @@ SGLANG_DSA_DCP_SPLIT_DECODE_INDEXER=1 + SGLANG_DSA_DCP_SPLIT_INDEXER_TRITON=1, S
+   2. pad the logits to >= topk columns with -inf
+   3. local top-2048 per row: sgl_kernel.fast_topk_v2(logits, owned_lens, 2048)
+   4. pack (score bits, global position) [2, rows, 2048]: pack_candidates_triton
+-  5. all_gather over the 4 DCP ranks (RCCL; modelled here by concatenating the other ranks' packs, given as input)
++  5. all_gather over the 4 DCP ranks (RCCL; the other ranks' packs are given as input)
+   6. merge the 4 x 2048 candidates to the global top-2048 and map positions to KV slots: merge_candidates_triton
+ Steps 1/3 call the production aiter / sgl-kernel ops; 4/6 are verbatim copies of
+ dsa_dcp_split_indexer_triton.py (93034eba91). Everything may be replaced by in-file kernels.
++
++This version: step 1 is ``_logits6_kernel``, an in-file persistent Gluon kernel that loads each owned K page once and
++scores the 6 sibling rows of a request from it (bit-identical logits on [0, len) to aiter's; see its section);
++steps 2-4 are ``local_topk_pack``, an in-file exact selector (est / collect / select kernels, see its section) that
++writes the pack directly: same selected set as torch.topk, including ties (lowest column index; -0.0 < +0.0);
++step 6 is ``_merge2_kernel``, which reads this rank's pack and the gathered packs in place (no concatenation) and
++selects with an exact 31-step count search on int32 keys; its output is element-wise identical to the old merge.
+ """
+ from __future__ import annotations
+ 
+@@ -20,6 +27,8 @@ from typing import Optional
+ import torch
+ import triton
+ import triton.language as tl
++from triton.experimental import gluon
++from triton.experimental.gluon import language as gl
+ 
+ PAGE_SIZE = 64
+ DCP = 4
+@@ -166,6 +175,84 @@ def _merge_candidates_kernel(
+     tl.store(out_ptr + row * TOPK + out_idx, result, mask=selected)
+ 
+ 
++@triton.jit
++def _okey(b):
++    # fp32 bits (as int32) -> int32 whose signed order is the float order; equals the old uint32 `ordered` - 2**31
++    # (-0.0 < +0.0, -inf -> -2139095041).
++    return tl.where(b >= 0, b, (~b) ^ (-2147483648))
++
++
++@triton.jit
++def _merge2_kernel(
++    pack0_ptr,          # [2, rows, TOPK] int32: this rank's pack (score bits, position)
++    oth_ptr,            # [2 * (W - 1), rows, TOPK] int32: ranks 1..W-1 (the all_gather output)
++    rows,
++    pt_ptr,
++    pt_stride,
++    out_ptr,
++    TOPK: tl.constexpr,
++    W: tl.constexpr,
++    PAGE: tl.constexpr,
++):
++    """merge_candidates + positions_to_slots without the concatenated buffer.
++
++    Output is element-wise identical to ``_merge_candidates_kernel`` on the concatenated packs: same exact
++    threshold (TOPK-th largest key, found by a 31-step count search on int32 keys), same tie rule (lowest
++    candidate index, rank-major), same output position (prefix count of the selected candidates).
++    """
++    row = tl.program_id(0)
++    c = tl.arange(0, W * TOPK)
++    rk = c // TOPK
++    j = c % TOPK
++    r0 = rk == 0
++    off0 = row * TOPK + j
++    offo = ((tl.maximum(rk, 1) - 1) * 2 * rows + row) * TOPK + j
++    b0 = tl.load(pack0_ptr + off0, mask=r0, other=-8388608)
++    bo = tl.load(oth_ptr + offo, mask=~r0, other=-8388608)
++    key = _okey(tl.where(r0, b0, bo))
++
++    # thr = the TOPK-th largest key = max t with count(key >= t) >= TOPK.
++    n_nonneg = tl.sum((key >= 0).to(tl.int32), 0)
++    thr = tl.where(n_nonneg >= TOPK, 0, -2147483648)
++    for i in tl.static_range(31):
++        cand = thr + (1 << (30 - i))
++        cnt = tl.sum((key >= cand).to(tl.int32), 0)
++        thr = tl.where(cnt >= TOPK, cand, thr)
++
++    gt = (key > thr).to(tl.int32)
++    eq = (key == thr).to(tl.int32)
++    cs = tl.cumsum(gt + eq * 65536, 0)            # both prefix counts in one scan (< 2**31)
++    rgt = (cs & 65535) - gt                       # exclusive count of key > thr
++    req = (cs >> 16) - eq                         # exclusive count of key == thr
++    room = TOPK - tl.sum(gt, 0)
++    take = (gt != 0) | ((eq != 0) & (req < room))  # lowest candidate indices win ties
++    dst = rgt + tl.minimum(req, room)             # == old cumsum(selected) - 1
++    real = take & (key > -2139095041)             # a selected -inf candidate is padding
++    p0 = tl.load(pack0_ptr + rows * TOPK + off0, mask=real & r0, other=-1)
++    po = tl.load(oth_ptr + rows * TOPK + offo, mask=real & (~r0), other=-1)
++    pos = tl.where(r0, p0, po)
++    ok = real & (pos >= 0)
++    sp = tl.where(ok, pos, 0)
++    pg = tl.load(pt_ptr + row * pt_stride + sp // PAGE, mask=ok, other=0)
++    tl.store(out_ptr + row * TOPK + dst, tl.where(ok, pg * PAGE + sp % PAGE, -1), mask=take)
++
++
++def merge2_candidates_triton(pack0, other_packs, w, topk, page_table, page):
++    """Global top-``topk`` of [pack0 ; other_packs] (rank order 0..w-1) mapped to KV slots."""
++    rows = pack0.shape[1]
++    out = torch.empty((rows, topk), dtype=torch.int32, device=pack0.device)
++    if rows == 0:
++        return out
++    assert pack0.is_contiguous() and page_table.stride(1) == 1
++    other_packs = other_packs.contiguous()
++    _merge2_kernel[(rows,)](
++        pack0, other_packs, rows, page_table, page_table.stride(0), out,
++        TOPK=topk, W=w, PAGE=page,
++        num_warps=8,                              # swept {4, 8, 16}: 8 best or tied for T 144..384
++    )
++    return out
++
++
+ def merge_candidates_triton(
+     gathered: torch.Tensor,
+     w: int,
+@@ -203,18 +290,665 @@ def merge_candidates_triton(
+     return out
+ 
+ 
++# ===========================================================================
++# In-file exact local top-k that writes the pack (replaces fast_topk_v2 + pack_candidates_triton).
++#   K1 est     : per row, a threshold from CH * NCH sampled logits (rows with L <= CH * NCH: the whole row) that
++#                leaves ~OVER * k keys above it in the row; also the collect work table and the counter reset.
++#   K2 collect : one pass over the logits; every key >= the row threshold is appended to the row's candidate
++#                buffer. Each warp owns a WCH-element piece of one row and reserves its slots with one atomic.
++#   K3 select  : per row, the exact top-k of the candidates: a bracketed count search (_count_search) for a key t
++#                with count(key >= t) == k, or the k-th largest key t if ties straddle the cut (then the tied keys
++#                with the lowest column indices are kept, as torch.topk does), then the pack
++#                [2, rows, TOPK] = (fp32 score bits, request position), -inf / -1 padded beyond k = min(L, TOPK).
++#                Guard: the candidates hold the exact top-k iff k <= count <= CAND (count >= k means the k-th key
++#                is >= the threshold; count <= CAND means nothing was dropped); otherwise the workgroup runs an
++#                exact count search over the whole row (device-side branch; never taken on the driver's rows).
++# Keys are fp32 bits mapped to order-preserving int32 (-0.0 < +0.0, like torch.topk's radix order).
++# Launch shapes depend only on the number of rows and the logits width (CUDA-graph safe). Pack order is free.
++# ===========================================================================
++_SEL_CAND = 8192          # candidates per row (cap)
++_SEL_OVER = 2             # target candidates = OVER * k
++_SEL_CH = 128             # sample probe length
++_SEL_NCH = 64             # probes per row
++_SEL_CSTR = 64            # int32 gap between rows' counters (separate cache lines for the atomics)
++_COL_NW = 4               # collect warps per program
++_COL_J = 4                # 16-byte vectors per lane -> one warp piece = 256 * J elements
++_COL_GRID = 1024          # persistent collect programs
++_SEL_NW = 4               # select warps
++_SEL_FB = 2048            # fallback tile width
++_SEL_DEBUG = False
++
++
++@triton.jit
++def _sum_combine(a, b):
++    return a + b
++
++
++@triton.jit
++def _kval(x):
++    # ordered key (int64 holding an int32 key) -> its fp32 value
++    xi = x.to(tl.int32)
++    return tl.where(xi >= 0, xi, (~xi) ^ (-2147483648)).to(tl.float32, bitcast=True)
++
++
++@triton.jit
++def _vkey(v):
++    # fp32 value -> ordered key (int64)
++    bi = v.to(tl.int32, bitcast=True)
++    return tl.where(bi >= 0, bi, (~bi) ^ (-2147483648)).to(tl.int64)
++
++
++@triton.jit
++def _minmax(a0, a1, b0, b1):
++    return tl.minimum(a0, b0), tl.maximum(a1, b1)
++
++
++@triton.jit
++def _mincnt(m1, c1, m2, c2):
++    m = tl.minimum(m1, m2)
++    return m, tl.where(m1 == m, c1, 0) + tl.where(m2 == m, c2, 0)
++
++
++@triton.jit
++def _maxcnt(m1, c1, m2, c2):
++    m = tl.maximum(m1, m2)
++    return m, tl.where(m1 == m, c1, 0) + tl.where(m2 == m, c2, 0)
++
++
++@triton.jit
++def _count_search(key, a, ca, b, cb, t, hi, tm, MAXIT: tl.constexpr, PEEL: tl.constexpr, GAUSS: tl.constexpr):
++    """Bracketed search on the count function n(c) = #{key >= c} (key: int32 tensor; a, b: int64 scalars).
++
++    Requires a < b, ca = n(a) >= t > cb = n(b). Moves a up / b down (keeping that invariant) until n(a) <= hi or
++    b == a + 1, and returns (a, n(a), b, n(b), probes). With hi == t the exit state is exact: either n(a) == t
++    (the keys >= a are exactly the top t) or b == a + 1 (a is the t-th largest key and ties straddle the cut).
++    Probes (one block reduction each): Illinois regula falsi on log2(n) against the fp32 value of the keys, aimed
++    at tm (GAUSS: first probe from a log n ~ -v^2 model); within PEEL of t, peel the smallest key >= a or the
++    largest key < b (with its multiplicity) instead; plain bisection after MAXIT probes (guarantees termination).
++    """
++    lt = tl.log2(tm)
++    ga = tl.log2(ca.to(tl.float32)) - lt
++    gb = tl.log2(tl.maximum(cb.to(tl.float32), 0.5)) - lt
++    side = 0
++    it = 0
++    while (ca > hi) & (b - a > 1):
++        a32 = a.to(tl.int32)
++        if ca - t <= PEEL:
++            inb = key >= a32
++            mv, me = tl.reduce((tl.where(inb, key, 2147483647), inb.to(tl.int32)), 0, _mincnt)
++            if ca - me >= t:
++                a = mv.to(tl.int64) + 1
++                ca = ca - me
++                ga = tl.log2(ca.to(tl.float32)) - lt
++            else:
++                a = mv.to(tl.int64)
++                cb = ca - me
++                b = a + 1
++            side = 0
++        elif t - cb <= PEEL:
++            inb = (key >= a32) & (key < b.to(tl.int32))
++            mv, me = tl.reduce((tl.where(inb, key, -2147483648), inb.to(tl.int32)), 0, _maxcnt)
++            if cb + me < t:
++                b = mv.to(tl.int64)
++                cb = cb + me
++                gb = tl.log2(tl.maximum(cb.to(tl.float32), 0.5)) - lt
++            else:
++                a = mv.to(tl.int64)
++                ca = cb + me
++                b = tl.where(cb + me == t, b, a + 1)
++            side = 0
++        else:
++            av = _kval(a)
++            bv = _kval(b)
++            fr = ga / (ga - gb)
++            cv = av + (bv - av) * fr
++            if GAUSS:
++                if (it == 0) & (av > 0.0):
++                    cv = tl.sqrt(av * av + (bv * bv - av * av) * fr)
++            c = _vkey(cv)
++            bad = (cv != cv) | (tl.abs(cv) > 3.0e38) | (it >= MAXIT)
++            c = tl.where(bad, a + (b - a) // 2, c)
++            c = tl.minimum(tl.maximum(c, a + 1), b - 1)
++            cc = tl.sum((key >= c.to(tl.int32)).to(tl.int32), 0)
++            gc = tl.log2(tl.maximum(cc.to(tl.float32), 0.5)) - lt
++            if cc >= t:
++                if side == 1:
++                    gb = gb * 0.5
++                a = c
++                ca = cc
++                ga = gc
++                side = 1
++            else:
++                if side == -1:
++                    ga = ga * 0.5
++                b = c
++                cb = cc
++                gb = gc
++                side = -1
++        it += 1
++    return a, ca, b, cb, it
++
++
++@triton.jit
++def _sel_est_kernel(logits_ptr, lens_ptr, ctr_ptr, crow_ptr, stride_l, rows,
++                    CH: tl.constexpr, NCH: tl.constexpr, TOPK: tl.constexpr, OVER: tl.constexpr,
++                    WCH: tl.constexpr, RMAX: tl.constexpr, CSTR: tl.constexpr, NB: tl.constexpr):
++    r = tl.program_id(0)
++    L = tl.maximum(tl.load(lens_ptr + r), 0)
++    k = tl.minimum(L, TOPK)
++    # collect work table: row r's warp pieces are entries [pref, pref + nch), each (r << 16) | piece
++    ro = tl.arange(0, RMAX)
++    La = tl.maximum(tl.load(lens_ptr + ro, mask=ro < rows, other=0), 0)
++    na = (La + (WCH - 1)) // WCH
++    pref = tl.sum(tl.where(ro < r, na, 0), 0)
++    nch = (L + (WCH - 1)) // WCH
++    if r == 0:
++        tl.store(ctr_ptr + rows * CSTR, tl.sum(na, 0))
++    jb = tl.arange(0, NB)
++    for j0 in range(0, nch, NB):
++        j = j0 + jb
++        tl.store(crow_ptr + pref + j, r * 65536 + j, mask=j < nch)
++    tl.store(ctr_ptr + r * CSTR + 1, 0)
++    thr = tl.full((), -2147483648, tl.int32)          # take everything
++    # NCH probes of CH contiguous logits, evenly spread over [0, L); rows with L <= CH * NCH are sampled whole
++    span = tl.maximum(CH, L // NCH)
++    o = tl.arange(0, CH * NCH)
++    p = (o // CH) * span + (o % CH)
++    pm = p < L
++    ns = tl.minimum(L, CH * NCH)
++    t = tl.minimum(tl.maximum(1, (OVER * k * ns) // tl.maximum(L, 1)), ns)   # sample count ~ OVER * k in the row
++    if t < ns:
++        key = _okey(tl.load(logits_ptr + r.to(tl.int64) * stride_l + p, mask=pm, other=-1))
++        kmin, kmax = tl.reduce((tl.where(pm, key, 2147483647), tl.where(pm, key, -2147483648)), 0, _minmax)
++        # sample count s(c) = #{key >= c}: keep s(a) >= t, stop once s(a) <= t + t / 4
++        a, sa, b, sb, it = _count_search(key, kmin.to(tl.int64), ns, kmax.to(tl.int64) + 1,
++                                         tl.zeros((), dtype=tl.int32), t, t + t // 4, (t + t // 8).to(tl.float32),
++                                         12, 0, False)
++        thr = a.to(tl.int32)
++    tl.store(ctr_ptr + r * CSTR, thr)
++
++
++@gluon.jit
++def _sel_collect_kernel(logits_ptr, lens_ptr, ctr_ptr, crow_ptr, ckey_ptr, cidx_ptr, rows, stride_l,
++                        CAND: gl.constexpr, CSTR: gl.constexpr, NW: gl.constexpr, J: gl.constexpr,
++                        GRID: gl.constexpr):
++    # Warp w of a program handles one warp piece = WCH = 256 * J consecutive logits of one row (lane l holds the
++    # 16-byte vectors jj * 64 + l, coalesced). Selected keys keep their memory order: slot = base + (number of
++    # selected elements before it in the piece) (one warp-local scan), base = one atomic per warp piece, so the
++    # candidate stores of a warp instruction land in a short contiguous span.
++    WCH: gl.constexpr = J * 256
++    L2D: gl.constexpr = gl.BlockedLayout([1, 4], [1, 64], [NW, 1], [1, 0])
++    SW: gl.constexpr = gl.SliceLayout(1, L2D)
++    SE: gl.constexpr = gl.SliceLayout(0, L2D)
++    pid = gl.program_id(0)
++    total = gl.load(ctr_ptr + rows * CSTR)
++    wv = gl.arange(0, NW, layout=SW)
++    e2 = gl.expand_dims(gl.arange(0, WCH, layout=SE), 0)          # [1, WCH]
++    v2 = (e2 // 4) * 4                                             # 16-byte vector start
++    first = e2 == 0
++    for rb in range(pid * NW, total, GRID * NW):
++        wc = rb + wv
++        ok = wc < total
++        ent = gl.load(crow_ptr + wc, mask=ok, other=0)
++        r_w = ent >> 16
++        Lw = gl.load(lens_ptr + r_w, mask=ok, other=0)            # 0 for idle warps -> nothing selected
++        thw = gl.load(ctr_ptr + r_w * CSTR, mask=ok, other=0)
++        s2 = gl.expand_dims((ent & 65535) * WCH, 1)
++        L2 = gl.expand_dims(Lw, 1)
++        i2 = s2 + e2                                               # [NW, WCH] index in the row
++        # 16-byte-granular load mask (row width is a multiple of 64 and >= L, so the tail vector is in bounds);
++        # `i2 < L` gates selection. 32-bit offsets: the host asserts the logits fit in 2**31 bytes.
++        b = gl.amd.cdna3.buffer_load(ptr=logits_ptr, offsets=gl.expand_dims(r_w * stride_l, 1) + i2,
++                                     mask=(s2 + v2) < L2, other=-1)
++        key = gl.where(b >= 0, b, (~b) ^ (-2147483648))
++        sel = ((i2 < L2) & (key >= gl.expand_dims(thw, 1))).to(gl.int32)
++        inc = gl.associative_scan(sel, 1, _sum_combine)
++        cw = gl.sum(sel, 1)
++        old = gl.atomic_add(ctr_ptr + gl.expand_dims(r_w * CSTR + 1, 1) + e2 * 0, gl.expand_dims(cw, 1) + e2 * 0,
++                            mask=first & gl.expand_dims(ok, 1), sem="relaxed")
++        base = gl.sum(gl.where(first, old, 0), 1)                  # lane 0's reservation, broadcast to the warp
++        dst = gl.expand_dims(base, 1) + inc - sel
++        off = gl.expand_dims(r_w * CAND, 1) + dst
++        mm = (sel != 0) & (dst < CAND)
++        gl.amd.cdna3.buffer_store(key, ptr=ckey_ptr, offsets=off, mask=mm)
++        gl.amd.cdna3.buffer_store(i2, ptr=cidx_ptr, offsets=off, mask=mm)
++
++
++@triton.jit
++def _sel_select_kernel(ckey_ptr, cidx_ptr, ctr_ptr, lens_ptr, logits_ptr, stride_l, pack_ptr, rows, dbg_ptr,
++                       CAND: tl.constexpr, TOPK: tl.constexpr, CSTR: tl.constexpr, PAGE: tl.constexpr,
++                       W: tl.constexpr, RK: tl.constexpr, FB: tl.constexpr, DEBUG: tl.constexpr):
++    r = tl.program_id(0)
++    L = tl.maximum(tl.load(lens_ptr + r), 0)
++    k = tl.minimum(L, TOPK)
++    cnt = tl.load(ctr_ptr + r * CSTR + 1)
++    sb = pack_ptr + r * TOPK                 # pack[0, r, :] (score bits)
++    pb = pack_ptr + (rows + r) * TOPK        # pack[1, r, :] (positions)
++    if (cnt >= k) & (cnt <= CAND):
++        o = tl.arange(0, CAND)
++        m = o < cnt
++        cb = r.to(tl.int64) * CAND
++        key = tl.load(ckey_ptr + cb + o, mask=m, other=-2147483648)
++        # every candidate is >= the est threshold a and there are cnt >= k of them; keys < b.
++        # count(key >= a) = ca >= k > cb_ = count(key >= b); stop at ca == k (keys >= a are exactly the top k)
++        # or b == a + 1 (a is the k-th largest key; ties at a straddle the cut).
++        kmin, kmax = tl.reduce((tl.where(m, key, 2147483647), key), 0, _minmax)
++        a, ca, b, cb_, it = _count_search(key, kmin.to(tl.int64), cnt, kmax.to(tl.int64) + 1,
++                                          tl.zeros((), dtype=tl.int32), k, k, k.to(tl.float32) + 0.5, 24, 2, True)
++        if DEBUG:
++            tl.store(dbg_ptr + r, it)
++        thr = a.to(tl.int32)
++        idx = tl.load(cidx_ptr + cb + o, mask=m, other=0)
++        take = m & (key >= thr)                  # exactly k keys when ca == k
++        if ca > k:
++            # ties at thr straddle the cut (b == a + 1): keep the room = k - cb_ tied keys with the lowest column
++            # indices (torch.topk's rule), i.e. those with idx <= the room-th smallest tied index (bisection).
++            eq = m & (key == thr)
++            room = k - cb_
++            lo = tl.zeros((), dtype=tl.int32) - 1
++            hi = tl.max(tl.where(eq, idx, -1), 0)
++            while hi - lo > 1:
++                mid = lo + (hi - lo) // 2
++                if tl.sum((eq & (idx <= mid)).to(tl.int32), 0) >= room:
++                    hi = mid
++                else:
++                    lo = mid
++            take = (m & (key > thr)) | (eq & (idx <= hi))
++        ti = take.to(tl.int32)
++        slot = tl.cumsum(ti, 0) - ti
++        pos = ((idx // PAGE) * W + RK) * PAGE + idx % PAGE
++        tl.store(sb + slot, _okey(key), mask=take)   # _okey is an involution: key -> fp32 bits
++        tl.store(pb + slot, pos, mask=take)
++    else:
++        # Exact fallback: count search over the whole row [0, L) in FB-wide tiles, then one emit pass.
++        if DEBUG:
++            tl.store(dbg_ptr + r, -1)
++        of = tl.arange(0, FB)
++        rb = logits_ptr + r.to(tl.int64) * stride_l
++        n0 = 0
++        for s in range(0, L, FB):
++            pm = (s + of) < L
++            kk = _okey(tl.load(rb + s + of, mask=pm, other=-1))
++            n0 += tl.sum((pm & (kk >= 0)).to(tl.int32), 0)
++        fthr = tl.where(n0 >= k, 0, -2147483648)
++        for i in tl.static_range(0, 31):
++            cand = fthr + (1 << (30 - i))
++            c = 0
++            for s in range(0, L, FB):
++                pm = (s + of) < L
++                kk = _okey(tl.load(rb + s + of, mask=pm, other=-1))
++                c += tl.sum((pm & (kk >= cand)).to(tl.int32), 0)
++            fthr = tl.where(c >= k, cand, fthr)
++        ngt = 0
++        for s in range(0, L, FB):
++            pm = (s + of) < L
++            kk = _okey(tl.load(rb + s + of, mask=pm, other=-1))
++            ngt += tl.sum((pm & (kk > fthr)).to(tl.int32), 0)
++        froom = k - ngt
++        bgt = 0
++        beq = 0
++        for s in range(0, L, FB):
++            pm = (s + of) < L
++            bb = tl.load(rb + s + of, mask=pm, other=-1)
++            kk = _okey(bb)
++            fgt = pm & (kk > fthr)
++            feq = pm & (kk == fthr)
++            fgti = fgt.to(tl.int32)
++            feqi = feq.to(tl.int32)
++            fcs = tl.cumsum(fgti + feqi * 65536, 0)
++            frgt = bgt + (fcs & 65535) - fgti
++            freq = beq + (fcs >> 16) - feqi
++            ftake = fgt | (feq & (freq < froom))
++            fslot = frgt + tl.minimum(freq, froom)
++            fidx = s + of
++            fpos = ((fidx // PAGE) * W + RK) * PAGE + fidx % PAGE
++            tl.store(sb + fslot, bb, mask=ftake)
++            tl.store(pb + fslot, fpos, mask=ftake)
++            bgt += tl.sum(fgti, 0)
++            beq += tl.sum(feqi, 0)
++    ot = tl.arange(0, TOPK)
++    pad = ot >= k
++    tl.store(sb + ot, tl.full((TOPK,), -8388608, tl.int32), mask=pad)    # -inf bits
++    tl.store(pb + ot, tl.full((TOPK,), -1, tl.int32), mask=pad)
++
++
++_LAST = {}
++
++
++def local_topk_pack(logits: torch.Tensor, lens: torch.Tensor, topk: int, page: int, w: int, r: int,
++                    upto: int = 3) -> torch.Tensor:
++    """Exact local top-``topk`` of logits[i, :lens[i]] packed as [2, rows, topk] int32 (score bits, position)."""
++    rows = logits.shape[0]
++    dev = logits.device
++    pack = torch.empty((2, rows, topk), dtype=torch.int32, device=dev)
++    if rows == 0:
++        return pack
++    assert logits.dtype == torch.float32 and logits.stride(1) == 1 and lens.dtype == torch.int32
++    width = logits.shape[1]
++    assert width % 4 == 0 and _SEL_CAND >= 2 * topk and _SEL_CAND == _SEL_CH * _SEL_NCH
++    wch = 256 * _COL_J
++    nch_max = rows * triton.cdiv(width, wch)
++    assert rows < 32768 and triton.cdiv(width, wch) < 65536
++    ctr = torch.empty((rows + 1, _SEL_CSTR), dtype=torch.int32, device=dev)
++    crow = torch.empty((nch_max,), dtype=torch.int32, device=dev)
++    ckey = torch.empty((rows, _SEL_CAND), dtype=torch.int32, device=dev)
++    cidx = torch.empty((rows, _SEL_CAND), dtype=torch.int32, device=dev)
++    dbg = torch.zeros((rows,), dtype=torch.int32, device=dev) if _SEL_DEBUG else ctr
++    li = logits.view(torch.int32)
++    sl = li.stride(0)
++    assert rows * sl * 4 < 2**31 and rows * _SEL_CAND * 4 < 2**31      # 32-bit buffer offsets
++    rmax = max(128, triton.next_power_of_2(rows))
++    _sel_est_kernel[(rows,)](li, lens, ctr, crow, sl, rows, CH=_SEL_CH, NCH=_SEL_NCH, TOPK=topk,
++                             OVER=_SEL_OVER, WCH=wch, RMAX=rmax, CSTR=_SEL_CSTR, NB=256, num_warps=4)
++    if upto >= 2:
++        _sel_collect_kernel[(_COL_GRID,)](li, lens, ctr, crow, ckey, cidx, rows, sl, CAND=_SEL_CAND,
++                                          CSTR=_SEL_CSTR, NW=_COL_NW, J=_COL_J, GRID=_COL_GRID,
++                                          num_warps=_COL_NW)
++    if upto >= 3:
++        _sel_select_kernel[(rows,)](ckey, cidx, ctr, lens, li, sl, pack, rows, dbg, CAND=_SEL_CAND, TOPK=topk,
++                                    CSTR=_SEL_CSTR, PAGE=page, W=w, RK=r, FB=_SEL_FB, DEBUG=_SEL_DEBUG,
++                                    num_warps=_SEL_NW)
++    if _SEL_DEBUG:
++        _LAST.update(ctr=ctr, lens=lens, dbg=dbg, topk=topk)
++    return pack
++
++
++def last_stats() -> str:
++    ctr, lens, dbg = _LAST["ctr"], _LAST["lens"], _LAST["dbg"]
++    rows = lens.shape[0]
++    cnt = ctr[:rows, 1].long()
++    k = lens.long().clamp(min=0, max=_LAST["topk"])
++    fb = int(((cnt < k) | (cnt > _SEL_CAND)).sum().item())
++    d = dbg.long()
++    return (f"fallback={fb} cnt[min,mean,max]=[{cnt.min().item()},{cnt.float().mean().item():.0f},"
++            f"{cnt.max().item()}] it[mean,max]=[{d.float().mean().item():.2f},{d.max().item()}]")
++
++
++def sel_stages(logits, lens, topk, upto):
++    return local_topk_pack(logits, lens, topk, PAGE_SIZE, DCP, RANK, upto=upto)
++
++
++# ===========================================================================
++# In-file logits: one persistent Gluon kernel that loads each owned K page once and scores the 6 sibling rows of a
++# request (rows 6b .. 6b+5 share the page table in TARGET_VERIFY) from it.
++#   Work split: the pages of every group b (= rows 6b..6b+5, npg_b = cdiv(max owned len, 64)) are concatenated and
++#   cut into GRID balanced contiguous ranges (+-1 page); a CTA walks its range piece by piece (one piece per group).
++#   Sibling check: a piece is fused only if every row's table equals the lead row's table on the pages that row
++#   owns; otherwise the piece runs 6 single-row passes (each on that row's own table), so any input is exact.
++#   Per-row arithmetic = aiter's preshuffle kernel at ChunkKPerStage 64 (one 64-token page per stage, same MFMA
++#   layout / k_width / head reduction; the ue8m0 scale is applied after the head sum, see _l6_epi), so logits on
++#   [0, len) are bit-identical to aiter's. Columns >= len hold garbage (nothing downstream reads them). Zero-length
++#   rows / groups produce no work. Rows are software-pipelined (row r's MFMAs next to row r-1's epilogue).
++# ===========================================================================
++from aiter.ops.triton.gluon.pa_decode_gluon import get_cdna_version as _get_cdna_version  # noqa: E402
++from aiter.ops.triton.gluon.pa_mqa_logits import _Use_2d_instr_shape_mfma_layout as _USE_2D  # noqa: E402
++
++_L6_CPC = 2              # CTAs per CU (persistent grid = CUs * CPC)
++_L6_KS_AFTER = True      # per-token scale after the head sum (exact for power-of-two scales)
++_L6_WPE = 2              # waves_per_eu hint
++_L6_NUM_CU = None
++
++
++@gluon.jit
++def _uniform_i32(x):
++    # v_readfirstlane into an SGPR: the value is provably uniform, so loop bounds / buffer bases stay scalar.
++    return gl.inline_asm_elementwise(
++        "s_nop 4\n v_readfirstlane_b32 $0, $1\n s_nop 4",
++        "=s,v", [x], dtype=gl.int32, is_pure=True, pack=1,
++    )
++
++
++@gluon.jit
++def _l6_epi(o, w, ks, out_ptr, cols, KS_AFTER: gl.constexpr):
++    # Epilogue of one row x one 64-token page: aiter's per-row arithmetic. KS_AFTER multiplies the per-token scale
++    # after the head sum instead of before the relu: bit-identical when the scale is a power of two (ue8m0) and
++    # nothing under/overflows, since every rounding step then commutes with the scaling. Its NaN-propagating max is
++    # one v_max per element (maxnum on a raw MFMA output costs an extra canonicalizing v_max) and equals the oracle's
++    # maxnum on every non-NaN input. Stores are unmasked: columns past the row's length (and rows >= T, and the
++    # rows a fallback pass does not own) land in the row's own tail or in the padding rows of the logits buffer.
++    if KS_AFTER:
++        o = gl.maximum(o, 0.0, propagate_nan=tl.PropagateNan.ALL)
++        o = o * w[:, None]
++        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * ks
++    else:
++        o = o * ks[None, :]
++        o = gl.maximum(o, 0.0)
++        o = o * w[:, None]
++        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++    gl.amd.cdna3.buffer_store(logits, ptr=out_ptr, offsets=cols)
++
++
++@gluon.jit
++def _logits6_kernel(Q, stride_q, KV, stride_k, SC, stride_s, lens_ptr, tab_ptr, stride_t, W_ptr, stride_w,
++                    OUT, stride_o, T, Wc,
++                    NG: gl.constexpr, CDNA: gl.constexpr, KS_AFTER: gl.constexpr):
++    NumWarps: gl.constexpr = 4
++    ChunkQ: gl.constexpr = 32
++    HD: gl.constexpr = 128
++    BS: gl.constexpr = 64
++    if _USE_2D:
++        mfma_layout: gl.constexpr = gl.amd.AMDMFMALayout(version=CDNA, instr_shape=[16, 16], transposed=False,
++                                                         warps_per_cta=[1, NumWarps], tiles_per_warp=[1, 1])
++    else:
++        mfma_layout: gl.constexpr = gl.amd.AMDMFMALayout(version=CDNA, instr_shape=[16, 16, 32], transposed=False,
++                                                         warps_per_cta=[1, NumWarps], tiles_per_warp=[1, 1])
++    la: gl.constexpr = gl.DotOperandLayout(operand_index=0, parent=mfma_layout, k_width=16)
++    lb: gl.constexpr = gl.DotOperandLayout(operand_index=1, parent=mfma_layout, k_width=16)
++    lw: gl.constexpr = gl.SliceLayout(1, mfma_layout)
++    lc: gl.constexpr = gl.SliceLayout(0, mfma_layout)
++    lkc: gl.constexpr = gl.SliceLayout(0, lb)
++    lkd: gl.constexpr = gl.SliceLayout(1, lb)
++    lqh: gl.constexpr = gl.SliceLayout(1, la)
++    lqd: gl.constexpr = gl.SliceLayout(0, la)
++    LG: gl.constexpr = gl.BlockedLayout([1, 8], [64, 1], [NumWarps, 1], [1, 0])
++    LSQ: gl.constexpr = gl.BlockedLayout([1, 1], [8, 8], [NumWarps, 1], [1, 0])
++    CHK: gl.constexpr = 64 * NumWarps
++    LCK: gl.constexpr = gl.BlockedLayout([8, 1], [1, 64], [1, NumWarps], [1, 0])
++
++    pid = gl.program_id(0)
++    G = gl.num_programs(0)
++
++    # ---- balanced split of the concatenated group pages -------------------------------------------------------
++    ga = gl.arange(0, NG, layout=gl.SliceLayout(1, LG))
++    gr = gl.arange(0, 8, layout=gl.SliceLayout(0, LG))
++    rows2 = ga[:, None] * 6 + gr[None, :]
++    l2 = gl.load(lens_ptr + rows2, mask=(gr[None, :] < 6) & (rows2 < T), other=0)
++    lmax_a = gl.max(gl.minimum(gl.maximum(l2, 0), Wc), axis=1)
++    gb = gl.arange(0, NG, layout=gl.SliceLayout(1, LSQ))
++    gj = gl.arange(0, NG, layout=gl.SliceLayout(0, LSQ))
++    lmax = gl.convert_layout(lmax_a, gl.SliceLayout(1, LSQ))
++    npg = (lmax + (BS - 1)) // BS
++    npg_j = (gl.convert_layout(lmax_a, gl.SliceLayout(0, LSQ)) + (BS - 1)) // BS
++    incl = gl.sum(gl.where(gj[None, :] <= gb[:, None], npg_j[None, :], 0), axis=1)     # inclusive prefix
++    N = _uniform_i32(gl.sum(npg, 0))
++    qn = N // G
++    rn = N % G
++    start = pid * qn + gl.minimum(pid, rn)
++    end = (pid + 1) * qn + gl.minimum(pid + 1, rn)
++
++    # ---- loop-invariant index tensors -------------------------------------------------------------------------
++    kcol = gl.arange(0, BS, layout=lkc)
++    kdim = gl.arange(0, HD, layout=lkd)
++    offk = (kdim % 16 + kdim // 16 * 256)[:, None] + (kcol % 16 * 16 + kcol // 16 * 2048)[None, :]
++    ccol = gl.arange(0, BS, layout=lc)
++    qoff = gl.arange(0, ChunkQ, layout=lqh)[:, None] * HD + gl.arange(0, HD, layout=lqd)[None, :]
++    woff = gl.arange(0, ChunkQ, layout=lw)
++    cr = gl.arange(0, 8, layout=gl.SliceLayout(1, LCK))
++    cp = gl.arange(0, CHK, layout=gl.SliceLayout(0, LCK))
++    zero = gl.zeros((ChunkQ, BS), dtype=gl.float32, layout=mfma_layout)
++    dummy = OUT + (T + 6).to(gl.int64) * stride_o           # scratch row for stores nobody reads
++
++    while start < end:
++        b = _uniform_i32(gl.sum((incl <= start).to(gl.int32), 0))
++        inc_b = _uniform_i32(gl.sum(gl.where(gb == b, incl, 0), 0))
++        lmax_b = _uniform_i32(gl.sum(gl.where(gb == b, lmax, 0), 0))
++        np_b = (lmax_b + (BS - 1)) // BS
++        ex_b = inc_b - np_b
++        p0 = start - ex_b
++        p1 = gl.minimum(end, inc_b) - ex_b
++        start = gl.minimum(end, inc_b)
++        row0 = b * 6
++
++        # per-row owned lengths (0 for rows >= T) and the lead row (first row with the max length)
++        lr = gl.load(lens_ptr + row0 + cr, mask=(cr < 6) & (row0 + cr < T), other=0)
++        lr = gl.minimum(gl.maximum(lr, 0), Wc)
++        lead = _uniform_i32(gl.min(gl.where((lr == lmax_b) & (cr < 6), cr, 8), 0))
++        trow_lead = row0 + lead
++
++        # sibling check on [p0, p1): row r must match the lead's table on the pages it owns
++        lim_pg = gl.minimum((lr + (BS - 1)) // BS, p1)
++        badv = gl.zeros([8, CHK], gl.int32, layout=LCK)
++        for pb in range(p0, p1, CHK):
++            pp = pb + cp
++            tl_ = gl.load(tab_ptr + trow_lead * stride_t + pp, mask=pp < p1, other=0)
++            m2 = (pp[None, :] < lim_pg[:, None]) & (cr[:, None] < 6)
++            t2 = gl.load(tab_ptr + (row0 + cr[:, None]) * stride_t + pp[None, :], mask=m2, other=0)
++            badv = badv | (m2 & (t2 != tl_[None, :])).to(gl.int32)
++        bad = _uniform_i32(gl.max(gl.max(badv, axis=1), axis=0))
++
++        # q / w of the 6 rows (0 for rows >= T; their stores land in padding rows T..T+5)
++        q0 = gl.amd.cdna3.buffer_load(ptr=Q, offsets=(row0 + 0) * stride_q + qoff, mask=(qoff >= 0) & (row0 + 0 < T),
++                                      other=0.0)
++        q1 = gl.amd.cdna3.buffer_load(ptr=Q, offsets=(row0 + 1) * stride_q + qoff, mask=(qoff >= 0) & (row0 + 1 < T),
++                                      other=0.0)
++        q2 = gl.amd.cdna3.buffer_load(ptr=Q, offsets=(row0 + 2) * stride_q + qoff, mask=(qoff >= 0) & (row0 + 2 < T),
++                                      other=0.0)
++        q3 = gl.amd.cdna3.buffer_load(ptr=Q, offsets=(row0 + 3) * stride_q + qoff, mask=(qoff >= 0) & (row0 + 3 < T),
++                                      other=0.0)
++        q4 = gl.amd.cdna3.buffer_load(ptr=Q, offsets=(row0 + 4) * stride_q + qoff, mask=(qoff >= 0) & (row0 + 4 < T),
++                                      other=0.0)
++        q5 = gl.amd.cdna3.buffer_load(ptr=Q, offsets=(row0 + 5) * stride_q + qoff, mask=(qoff >= 0) & (row0 + 5 < T),
++                                      other=0.0)
++        w0 = gl.amd.cdna3.buffer_load(ptr=W_ptr, offsets=(row0 + 0) * stride_w + woff,
++                                      mask=(woff >= 0) & (row0 + 0 < T), other=0.0)
++        w1 = gl.amd.cdna3.buffer_load(ptr=W_ptr, offsets=(row0 + 1) * stride_w + woff,
++                                      mask=(woff >= 0) & (row0 + 1 < T), other=0.0)
++        w2 = gl.amd.cdna3.buffer_load(ptr=W_ptr, offsets=(row0 + 2) * stride_w + woff,
++                                      mask=(woff >= 0) & (row0 + 2 < T), other=0.0)
++        w3 = gl.amd.cdna3.buffer_load(ptr=W_ptr, offsets=(row0 + 3) * stride_w + woff,
++                                      mask=(woff >= 0) & (row0 + 3 < T), other=0.0)
++        w4 = gl.amd.cdna3.buffer_load(ptr=W_ptr, offsets=(row0 + 4) * stride_w + woff,
++                                      mask=(woff >= 0) & (row0 + 4 < T), other=0.0)
++        w5 = gl.amd.cdna3.buffer_load(ptr=W_ptr, offsets=(row0 + 5) * stride_w + woff,
++                                      mask=(woff >= 0) & (row0 + 5 < T), other=0.0)
++
++        # fused: 1 pass on the lead's table; fallback: pass j on row j's own table, the other rows' stores go to
++        # the scratch row
++        npass = 1 + 5 * bad
++        for ps in range(npass):
++            trow = trow_lead + bad * (row0 + ps - trow_lead)
++            lps = _uniform_i32(gl.sum(gl.where(cr == trow - row0, lr, 0), 0))
++            pe = gl.minimum(p1, (lps + (BS - 1)) // BS)
++            o0 = gl.where((bad == 0) | (ps == 0), OUT + (row0 + 0).to(gl.int64) * stride_o, dummy)
++            o1 = gl.where((bad == 0) | (ps == 1), OUT + (row0 + 1).to(gl.int64) * stride_o, dummy)
++            o2 = gl.where((bad == 0) | (ps == 2), OUT + (row0 + 2).to(gl.int64) * stride_o, dummy)
++            o3 = gl.where((bad == 0) | (ps == 3), OUT + (row0 + 3).to(gl.int64) * stride_o, dummy)
++            o4 = gl.where((bad == 0) | (ps == 4), OUT + (row0 + 4).to(gl.int64) * stride_o, dummy)
++            o5 = gl.where((bad == 0) | (ps == 5), OUT + (row0 + 5).to(gl.int64) * stride_o, dummy)
++            tb = tab_ptr + trow * stride_t
++            pl = pe - 1
++            if p0 < pe:
++                # K / scales one page ahead, page ids two pages ahead, both issued at the top of an iteration (the
++                # in-order vmcnt wait for a page id then never covers a still-useful K load). Look-ahead indices are
++                # clamped to the last page (a duplicate load, an L2 hit). Rows are software-pipelined: row r's MFMAs
++                # are issued next to row r-1's epilogue, row 5's epilogue runs at the top of the next iteration.
++                pga = gl.load(tb + p0)
++                pgb = gl.load(tb + gl.minimum(p0 + 1, pl))
++                k_n = gl.amd.cdna3.buffer_load(ptr=KV, offsets=offk + pga * stride_k)
++                s_n = gl.amd.cdna3.buffer_load(ptr=SC, offsets=pga * stride_s + kcol)
++                a5 = zero
++                ks5 = gl.zeros([BS], gl.float32, layout=lc)
++                c5 = ccol
++                d5 = dummy
++                for p in range(p0, pe):
++                    k = k_n
++                    s = s_n
++                    k_n = gl.amd.cdna3.buffer_load(ptr=KV, offsets=offk + pgb * stride_k)
++                    s_n = gl.amd.cdna3.buffer_load(ptr=SC, offsets=pgb * stride_s + kcol)
++                    pgb = gl.load(tb + gl.minimum(p + 2, pl))
++                    ks = gl.convert_layout(s, lc)
++                    cols = p * BS + ccol
++                    a0 = gl.amd.cdna3.mfma(q0, k, zero)
++                    _l6_epi(a5, w5, ks5, d5, c5, KS_AFTER)
++                    a1 = gl.amd.cdna3.mfma(q1, k, zero)
++                    _l6_epi(a0, w0, ks, o0, cols, KS_AFTER)
++                    a2 = gl.amd.cdna3.mfma(q2, k, zero)
++                    _l6_epi(a1, w1, ks, o1, cols, KS_AFTER)
++                    a3 = gl.amd.cdna3.mfma(q3, k, zero)
++                    _l6_epi(a2, w2, ks, o2, cols, KS_AFTER)
++                    a4 = gl.amd.cdna3.mfma(q4, k, zero)
++                    _l6_epi(a3, w3, ks, o3, cols, KS_AFTER)
++                    a5 = gl.amd.cdna3.mfma(q5, k, zero)
++                    _l6_epi(a4, w4, ks, o4, cols, KS_AFTER)
++                    ks5 = ks
++                    c5 = cols
++                    d5 = o5
++                _l6_epi(a5, w5, ks5, d5, c5, KS_AFTER)
++
++
++def _dcp_logits(q_fp8, kv_cache_fp8, weights, seq_lens, block_tables, max_seq_len):
++    """Logits of every row over its owned pages; same contract as ``_aiter_paged_mqa_logits`` on [0, len)."""
++    global _L6_NUM_CU
++    T = q_fp8.shape[0]
++    dev = q_fp8.device
++    # 8 padding rows: rows T..T+5 absorb the stores of a partial last group, row T+6 is the scratch row.
++    buf = torch.empty((T + 8, max_seq_len), device=dev, dtype=torch.float32)
++    logits = buf[:T]
++    if T == 0:
++        return logits
++    if _L6_NUM_CU is None:
++        _L6_NUM_CU = torch.cuda.get_device_properties(dev).multi_processor_count
++    num_pages, page, _, idim = kv_cache_fp8.shape
++    assert page == PAGE_SIZE and idim == 132 and q_fp8.shape[1] == 32 and q_fp8.shape[2] == 128
++    kv = kv_cache_fp8.view(num_pages, page * idim)
++    kv_fp8 = kv[:, : page * 128].view(torch.float8_e4m3fn)
++    kv_sc = kv[:, page * 128:].view(torch.float32)
++    assert kv_fp8.stride(0) * num_pages < 2**31 and q_fp8.is_contiguous() and weights.stride(1) == 1
++    assert block_tables.stride(1) == 1 and seq_lens.dtype == torch.int32 and max_seq_len % PAGE_SIZE == 0
++    assert block_tables.shape[1] * PAGE_SIZE >= max_seq_len and max_seq_len * 4 < 2**31
++    ng = max(32, triton.next_power_of_2(triton.cdiv(T, 6)))
++    if ng > 128:
++        # Beyond 768 rows the [NG, NG] prefix tile gets large: aiter's static-split kernel (the driver's oracle).
++        from aiter.ops.triton.pa_mqa_logits import deepgemm_fp8_paged_mqa_logits
++        deepgemm_fp8_paged_mqa_logits(q_fp8.unsqueeze(1), kv_cache_fp8, weights, logits, seq_lens, block_tables,
++                                      max_seq_len, Preshuffle=True, KVBlockSize=PAGE_SIZE)
++        return logits
++    grid = (_L6_NUM_CU * _L6_CPC,)
++    _logits6_kernel[grid](q_fp8, q_fp8.stride(0), kv_fp8, kv_fp8.stride(0), kv_sc, kv_sc.stride(0), seq_lens,
++                          block_tables, block_tables.stride(0), weights, weights.stride(0), buf, buf.stride(0),
++                          T, max_seq_len, NG=ng, CDNA=_get_cdna_version(), KS_AFTER=_L6_KS_AFTER,
++                          num_warps=4, waves_per_eu=_L6_WPE)
++    return logits
++
++
+ # ===========================================================================
+ # Public entry point
+ # ===========================================================================
++_LOCAL_TOPK = "infile"     # "infile" (est / collect / select) or "sgl" (fast_topk_v2 + pack), for A/B
++_LOGITS = "infile"         # "infile" (_logits6_kernel) or "aiter" (VarCtx), for A/B
++
++
+ def _aiter_paged_mqa_logits(q_fp8, kv_cache_fp8, weights, seq_lens, block_tables, max_seq_len):
+-    """sglang kernels/ops/attention/dsa/paged_mqa_logits.py:95 aiter_paged_mqa_logits (preshuffle, block 64)."""
+-    from aiter.ops.triton.pa_mqa_logits import deepgemm_fp8_paged_mqa_logits
++    """aiter paged-MQA logits (preshuffle, block 64) with aiter's VarCtx (length-balanced) schedule.
++
++    Same per-token arithmetic as the static-split kernel (bit-identical logits on [0, len) of every row); only the
++    work split differs: a fixed grid of 256 CUs x WavePerEU programs walks the rows with a per-CTA chunk budget that
++    a tiny schedule kernel computes on device from ``seq_lens`` (no host sync). Columns >= len are not read
++    downstream. The VarCtx walk stops at the first zero-length row; every owned length here is >= 1024 tokens
++    (L >= 4096), so that cannot happen.
++    """
++    from aiter.ops.triton.pa_mqa_logits import (deepgemm_fp8_paged_mqa_logits,
++                                                deepgemm_fp8_paged_mqa_logits_schedule)
+ 
+     q = q_fp8.unsqueeze(1)
+     batch_size, next_n, _, _ = q.shape
++    ck, wpe = (128 if batch_size <= 192 else 256), 4          # shape-only choice
+     logits = torch.empty((batch_size * next_n, max_seq_len), device=q.device, dtype=torch.float32)
++    sch = deepgemm_fp8_paged_mqa_logits_schedule(batch_size, next_n, seq_lens, max_seq_len, ChunkK=ck,
++                                                 WavePerEU=wpe)
+     deepgemm_fp8_paged_mqa_logits(q, kv_cache_fp8, weights, logits, seq_lens, block_tables, max_seq_len,
+-                                  Preshuffle=True, KVBlockSize=PAGE_SIZE)
++                                  Preshuffle=True, KVBlockSize=PAGE_SIZE, ChunkK=ck, WavePerEU=wpe,
++                                  VarCtxSchedule=sch)
+     return logits
+ 
+ 
+@@ -229,14 +963,18 @@ def dcp_indexer_topk(
+     index_topk: int = 2048,
+ ) -> torch.Tensor:
+     """[T, 2048] int32 global KV slots of the global top-2048 (-1 padded); order = candidate order."""
+-    local_logits = _aiter_paged_mqa_logits(q_fp8, kv_cache_fp8, weights, owned_lens, owned_tables,
+-                                           owned_tables.shape[1] * PAGE_SIZE)
+-    if local_logits.shape[1] < index_topk:
+-        local_logits = torch.nn.functional.pad(local_logits, (0, index_topk - local_logits.shape[1]),
+-                                               value=-float("inf"))
+-    from sgl_kernel import fast_topk_v2
+-
+-    local_idx = fast_topk_v2(local_logits, owned_lens, index_topk)
+-    pack = pack_candidates_triton(local_logits, local_idx, owned_lens, index_topk, PAGE_SIZE, DCP, RANK)
+-    gathered = torch.cat([pack, other_packs], dim=0)          # rank order 0, 1, 2, 3
+-    return merge_candidates_triton(gathered, DCP, index_topk, page_table=real_page_table, page=PAGE_SIZE)
++    lfn = _dcp_logits if _LOGITS == "infile" else _aiter_paged_mqa_logits
++    local_logits = lfn(q_fp8, kv_cache_fp8, weights, owned_lens, owned_tables, owned_tables.shape[1] * PAGE_SIZE)
++    if _LOCAL_TOPK == "infile":
++        pack = local_topk_pack(local_logits, owned_lens, index_topk, PAGE_SIZE, DCP, RANK)
++    else:
++        if local_logits.shape[1] < index_topk:
++            local_logits = torch.nn.functional.pad(local_logits, (0, index_topk - local_logits.shape[1]),
++                                                   value=-float("inf"))
++        from sgl_kernel import fast_topk_v2
++
++        local_idx = fast_topk_v2(local_logits, owned_lens, index_topk)
++        pack = pack_candidates_triton(local_logits, local_idx, owned_lens, index_topk, PAGE_SIZE, DCP, RANK)
++    # all_gather stand-in: the merge reads this rank's pack and the gathered packs of ranks 1..3 in place
++    # (rank order 0, 1, 2, 3) instead of concatenating them.
++    return merge2_candidates_triton(pack, other_packs, DCP, index_topk, real_page_table, PAGE_SIZE)

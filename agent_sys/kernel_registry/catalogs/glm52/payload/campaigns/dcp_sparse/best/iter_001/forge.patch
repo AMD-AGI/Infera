@@ -1,0 +1,143 @@
+diff --git a/dcp_sparse_kernel.py b/dcp_sparse_kernel.py
+index 7247cf8..ba8964c 100644
+--- a/dcp_sparse_kernel.py
++++ b/dcp_sparse_kernel.py
+@@ -1328,6 +1328,93 @@ def _gfx950_sparse_mla_decode_tile_config(
+     return block_k, max_kv_splits
+ 
+ 
++# Wide-head DCP decode (measured on MI355X, GLM-5.2 DCP4, 64 all-gathered heads, ~512 owned
++# slots per row): one program per row covering all 64 heads. The H=16 head blocks gathered every
++# row's KV 4 times and, with M=16, computed QK^T + softmax redundantly on all 4 waves; with M=64
++# and 16x16 MFMA the 4 waves split the heads. matrix_instr_nonkdim=16 is required: the default
++# picks 32x32 MFMA here, which spills and is slower than the H=16 path.
++_DCP_WIDE_BLOCK_H = 64
++_DCP_WIDE_BLOCK_K = 64
++_DCP_WIDE_PIPE_STAGES = 3
++_DCP_WIDE_NUM_WARPS = 4
++
++
++def _use_dcp_wide_decode(
++    kv_dtype: torch.dtype,
++    H: int,
++    d_v: int,
++    d_tail: int,
++    kv_dim: int,
++    bs: int,
++    num_cu: int,
++) -> bool:
++    """Shape-only gate (CUDA-graph safe): FP8 gfx950 DCP decode with enough rows."""
++    return (
++        kv_dtype != torch.bfloat16
++        and H % _DCP_WIDE_BLOCK_H == 0
++        and d_v == 512
++        and d_tail == 64
++        and kv_dim == 576
++        and bs * (H // _DCP_WIDE_BLOCK_H) >= num_cu // 2
++        and is_gfx95_supported()
++    )
++
++
++def _launch_dcp_wide(
++    q_nope: torch.Tensor,
++    q_rope: torch.Tensor,
++    kv: torch.Tensor,
++    idx_flat: torch.Tensor,
++    topk_length: torch.Tensor,
++    out: torch.Tensor,
++    lse: torch.Tensor | None,
++    qk_scale: float,
++    stride_qn_t: int,
++    stride_qn_h: int,
++    stride_qr_t: int,
++    stride_qr_h: int,
++    topk: int,
++    H: int,
++    d_v: int,
++    d_tail: int,
++    kv_dim: int,
++) -> None:
++    bs = q_nope.shape[0]
++    with _no_async_copy():
++        _sparse_mla_fused_kernel[(bs, H // _DCP_WIDE_BLOCK_H)](
++            q_nope,
++            q_rope,
++            kv,
++            idx_flat,
++            topk_length,
++            out,
++            qk_scale,
++            _FP8_MAX,
++            topk=topk,
++            H=H,
++            KV_DIM=kv_dim,
++            D_V=d_v,
++            D_TAIL=d_tail,
++            NUM_GROUPS=d_v // 128,
++            STRIDE_QN_T=stride_qn_t,
++            STRIDE_QN_H=stride_qn_h,
++            STRIDE_QR_T=stride_qr_t,
++            STRIDE_QR_H=stride_qr_h,
++            USE_FP8_DOT=True,
++            USE_TOPK_LENGTH=True,
++            TOPK_TAIL_INVALID=True,
++            BLOCK_H=_DCP_WIDE_BLOCK_H,
++            BLOCK_K=_DCP_WIDE_BLOCK_K,
++            USE_I64_PAGE=not _page_offsets_fit_i32(kv.shape[0], kv_dim),
++            PIPE_STAGES=_DCP_WIDE_PIPE_STAGES,
++            lse_out_ptr=lse,
++            STORE_LSE=lse is not None,
++            num_warps=_DCP_WIDE_NUM_WARPS,
++            num_stages=2,
++            matrix_instr_nonkdim=16,
++        )
++
++
+ def _get_splitk_bufs(
+     bs: int,
+     kv_splits: int,
+@@ -1391,6 +1478,7 @@ def triton_sparse_mla_decode_splitk(
+     d_tail = q_rope.shape[-1]
+     kv_dim = kv.shape[-1]
+     topk = indices.shape[-1]
++    caller_kv_splits = kv_splits
+     if lengths is not None:
+         assert lengths.shape == (bs,) and lengths.dtype == torch.int32, (
+             f"lengths must be [bs={bs}] int32, got {tuple(lengths.shape)} "
+@@ -1464,6 +1552,36 @@ def triton_sparse_mla_decode_splitk(
+     )
+     topk_length = lengths if lengths is not None else idx_flat
+ 
++    # DCP decode: every row's owned slots in one program covering 64 heads, so the
++    # row's KV is gathered once and the 4 waves split the heads (no replicated
++    # QK/softmax). Shape-only gate, hence CUDA-graph safe.
++    if (
++        lengths is not None
++        and caller_kv_splits is None
++        and _use_dcp_wide_decode(kv.dtype, H, d_v, d_tail, kv_dim, bs, num_cu)
++    ):
++        out = torch.empty(bs, H, d_v, device=q_nope.device, dtype=torch.bfloat16)
++        _launch_dcp_wide(
++            q_nope,
++            q_rope,
++            kv,
++            idx_flat,
++            lengths,
++            out,
++            lse,
++            qk_scale,
++            stride_qn_t,
++            stride_qn_h,
++            stride_qr_t,
++            stride_qr_h,
++            topk,
++            H,
++            d_v,
++            d_tail,
++            kv_dim,
++        )
++        return (out.unsqueeze(0), lse) if return_lse else out.unsqueeze(0)
++
+     if kv_splits == 1:
+         fused_num_warps = 4
+         if optimize_gfx950_fp8:

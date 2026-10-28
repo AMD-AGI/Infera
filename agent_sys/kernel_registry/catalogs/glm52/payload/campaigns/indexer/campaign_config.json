@@ -1,0 +1,42 @@
+{
+  "base_commit": "bf8e14c593ead58da4c2d27a8ff1a9c603469693",
+  "bench_repeat": 1,
+  "driver_path": "driver.py",
+  "driver_sha256": "8a7458675ca05b815b7721beae4d34a10e6a9c0ae2c42e47900c32f43d2b252b",
+  "framework": "unknown",
+  "gpu_target": "gfx950",
+  "gpu_type": "mi355x",
+  "implementation_identity": {
+    "implementation_symbols": [
+      "_amd_iglp_sched_barrier",
+      "_amd_iglp_sched_group_barrier",
+      "_amd_s_set_prio",
+      "_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle",
+      "_sum_combine"
+    ],
+    "source_paths": [
+      "dsa_indexer_kernel.py"
+    ]
+  },
+  "implementation_signature": "11e52a829f4f1ab591f5c2bfbf83b963d302ca5a46b757193217bae4d75329b9",
+  "kernel_path": "dsa_indexer_kernel.py",
+  "nproc_per_node": 1,
+  "operator_name": "_amd_iglp_sched_barrier",
+  "program_md_path": "forge_experiments/program.md",
+  "program_md_sha256": "c2aba869000f56d9fab2fbd0584c67c09f0ba805023a68a50db820353e02193c",
+  "schema_version": 6,
+  "snr_threshold": 60.0,
+  "source_files": [
+    "dsa_indexer_kernel.py"
+  ],
+  "target_functions": [
+    "dsa_indexer_topk_paged",
+    "aiter_paged_mqa_logits",
+    "deepgemm_fp8_paged_mqa_logits",
+    "_compile_deepgemm_fp8_paged_mqa_logits",
+    "_gluon_deepgemm_fp8_paged_mqa_logits_preshuffle",
+    "topk_transform_fused",
+    "_sum_combine"
+  ],
+  "task_type": ""
+}

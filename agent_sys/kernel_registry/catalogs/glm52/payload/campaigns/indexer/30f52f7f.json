@@ -1,0 +1,19 @@
+{
+  "experiment_id": "30f52f7f",
+  "task_id": "dsa_indexer_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.4665,
+  "created_at": "2026-10-20T22:22:27.138177",
+  "campaign_id": "7f34fdec4a194551897a6338501d4eb8",
+  "segment_index": 3,
+  "parent_experiment_id": "4ae64e6c",
+  "status": "interrupted",
+  "started_at": "2026-10-20T22:22:27.138155",
+  "ended_at": "2026-10-21T00:35:19.981691",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {},
+  "iterations": []
+}

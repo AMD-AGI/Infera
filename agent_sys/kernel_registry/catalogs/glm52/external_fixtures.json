@@ -1,0 +1,162 @@
+[
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs10_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "a7972fb066aa8d7087a44427d24f1dcbe678202fdd0b313e758ed832c8157642",
+    "size": 491608,
+    "uri": "urn:sha256:a7972fb066aa8d7087a44427d24f1dcbe678202fdd0b313e758ed832c8157642",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs10_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "21021b9d548080730e172e453aa2f7e5e02891079e2dbbc5c94ae4b41fa5c8dd",
+    "size": 491608,
+    "uri": "urn:sha256:21021b9d548080730e172e453aa2f7e5e02891079e2dbbc5c94ae4b41fa5c8dd",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs12_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "65bdbfa0348da7ec9d364f34ada58741b3f3ed0a4d1e4f3bd94f6ebe68992ba3",
+    "size": 589912,
+    "uri": "urn:sha256:65bdbfa0348da7ec9d364f34ada58741b3f3ed0a4d1e4f3bd94f6ebe68992ba3",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs12_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "af51938e3dfa75c31766a162a1327db3baafa14becd7f8e00952423b55c58400",
+    "size": 589912,
+    "uri": "urn:sha256:af51938e3dfa75c31766a162a1327db3baafa14becd7f8e00952423b55c58400",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs14_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "eee3dfa149a9f14dde96df30f285f098b7b4932e7f2cbd985a0d41fdece0f40f",
+    "size": 688216,
+    "uri": "urn:sha256:eee3dfa149a9f14dde96df30f285f098b7b4932e7f2cbd985a0d41fdece0f40f",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs14_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "b0f7c5a56d96bf38f71a02eeb6049b7457dfed0d34ff4fb0c38b034c70cd1d74",
+    "size": 688216,
+    "uri": "urn:sha256:b0f7c5a56d96bf38f71a02eeb6049b7457dfed0d34ff4fb0c38b034c70cd1d74",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs8_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "fd4fdd5d93ed9098a3e0ec25c21d66737da878ce96dc57d79c9a4a4aaa6350ca",
+    "size": 393304,
+    "uri": "urn:sha256:fd4fdd5d93ed9098a3e0ec25c21d66737da878ce96dc57d79c9a4a4aaa6350ca",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/sparse_mla/data/dsa_sparse_mla_fp8_h64_ckv512_kpe64_topk2048_ps64_bs8_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "4fda0c7dd8788813adb9731ef9db50c9272a110965c7144de839185050eba3f1",
+    "size": 393304,
+    "uri": "urn:sha256:4fda0c7dd8788813adb9731ef9db50c9272a110965c7144de839185050eba3f1",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs10_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "4ea82fc1b7eae7a04556e14c3f2c39747a80b053cbb76227d1c86f95f1efc8d9",
+    "size": 1443992,
+    "uri": "urn:sha256:4ea82fc1b7eae7a04556e14c3f2c39747a80b053cbb76227d1c86f95f1efc8d9",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs10_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "5e916bf7f692df0dbf3182da2cb85c6d0a0a6027f841a6f1eb49f54443c5daf2",
+    "size": 2473112,
+    "uri": "urn:sha256:5e916bf7f692df0dbf3182da2cb85c6d0a0a6027f841a6f1eb49f54443c5daf2",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs12_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "322a92e18813f47302553c05d869f1d74e3e0f735a431796d5f32ddff5c113f7",
+    "size": 1948472,
+    "uri": "urn:sha256:322a92e18813f47302553c05d869f1d74e3e0f735a431796d5f32ddff5c113f7",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs12_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "abbed44904e3adfa0332779b1e8e548eff38e942ac63f18b9ab7f701a31d0c55",
+    "size": 1992248,
+    "uri": "urn:sha256:abbed44904e3adfa0332779b1e8e548eff38e942ac63f18b9ab7f701a31d0c55",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs14_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "09fd718f5eb9a216ae66232bdb2f6e8c0576512fd41334edc211102afe37cecb",
+    "size": 2254712,
+    "uri": "urn:sha256:09fd718f5eb9a216ae66232bdb2f6e8c0576512fd41334edc211102afe37cecb",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs14_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "a81b45d90c389ab78cdc49bfd76887096ec5dd9ca776e5788f6e1e41b5d62fdd",
+    "size": 1235288,
+    "uri": "urn:sha256:a81b45d90c389ab78cdc49bfd76887096ec5dd9ca776e5788f6e1e41b5d62fdd",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs8_ctx0.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "48050df3d59da573fe8f09517a7a9853812da2171fec5d04c247cc4a8a82d725",
+    "size": 1386200,
+    "uri": "urn:sha256:48050df3d59da573fe8f09517a7a9853812da2171fec5d04c247cc4a8a82d725",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/indexer/data/dsa_topk_indexer_fp8_h32_d128_topk2048_ps64_bs8_ctx1.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "0c1b9a92d6952929cd22f7dd20824f6d05659bfb64fab2a76b645b490ab45b85",
+    "size": 1616024,
+    "uri": "urn:sha256:0c1b9a92d6952929cd22f7dd20824f6d05659bfb64fab2a76b645b490ab45b85",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/moe_mxfp4/data/moe_mxfp4_routed_topk9_e257_h6144_i512_bs10_verify.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "c18d35508b2e5b9abd412858f2dc17c21fd0905b87049cfd89750041b3f0b736",
+    "size": 17432,
+    "uri": "urn:sha256:c18d35508b2e5b9abd412858f2dc17c21fd0905b87049cfd89750041b3f0b736",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/moe_mxfp4/data/moe_mxfp4_routed_topk9_e257_h6144_i512_bs12_verify.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "f08a38ff24db19301b5cc2f492f12d1d53d98e2ae68840e12aa6cb376d9c56b0",
+    "size": 20896,
+    "uri": "urn:sha256:f08a38ff24db19301b5cc2f492f12d1d53d98e2ae68840e12aa6cb376d9c56b0",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/moe_mxfp4/data/moe_mxfp4_routed_topk9_e257_h6144_i512_bs14_verify.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "fbebfc59a866ed2ef70512f42477abd9485c66bbf3a9e6d7a976188acf532408",
+    "size": 24352,
+    "uri": "urn:sha256:fbebfc59a866ed2ef70512f42477abd9485c66bbf3a9e6d7a976188acf532408",
+    "availability": "unavailable"
+  },
+  {
+    "destination": "payload/tasks/moe_mxfp4/data/moe_mxfp4_routed_topk9_e257_h6144_i512_bs8_verify.safetensors",
+    "portability": "Content identity only; provide a separately authorized copy in the target environment. No public retrieval location is available.",
+    "sha256": "59bcf4c5eb153a84ce3df041e6f1ca060671ae2245446b40cc064b799c539f9a",
+    "size": 13976,
+    "uri": "urn:sha256:59bcf4c5eb153a84ce3df041e6f1ca060671ae2245446b40cc064b799c539f9a",
+    "availability": "unavailable"
+  }
+]

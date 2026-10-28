@@ -1,0 +1,235 @@
+{
+  "kind": "run",
+  "name": "e2e-llr42-c104",
+  "description": "Historical serving measurement of the configured kernel bundle.",
+  "run_type": "e2e",
+  "timestamp": "",
+  "kernels": {
+    "sparse_mla": "sglang-v0522-overlay",
+    "indexer": "kf-iter15-c2cacf5f",
+    "moe_mxfp4": "kf-iter14-9cd51e60",
+    "fused_indexer": "kf-iter4-1748c11c"
+  },
+  "sources": [
+    {
+      "path": "payload/overlay/base/infera_kernels/kf_sparse_mla.py",
+      "sha256": "37f32b5df5e960bfb53bdd5bccebc1aae7d4adf9263e5fd3fb80a7a1fecaa520",
+      "size": 70320,
+      "representation": "redacted",
+      "historical_original_sha256": "4e3558dfbe970e3e267cfa0578ae7770783239f265ac1091e23b98e659bece3e"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/c2cacf5fa10cab2ad1b560d41ced0ba3f03288db.py",
+      "sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb",
+      "size": 92096,
+      "representation": "unchanged",
+      "historical_original_sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+      "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+      "size": 66512,
+      "representation": "redacted",
+      "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+    },
+    {
+      "path": "payload/campaigns/fused_indexer/sources/1748c11c2af4fde85a269aa41d98c96f605f5d40.py",
+      "sha256": "dc298ecfebd2c5859da1f4884c388c9cb31fbb3c5409a2f9261c68cd8acfcd44",
+      "size": 111677,
+      "representation": "unchanged",
+      "historical_original_sha256": "dc298ecfebd2c5859da1f4884c388c9cb31fbb3c5409a2f9261c68cd8acfcd44"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/indexer/dsa_indexer_kernel.pristine.py",
+      "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "size": 51742,
+      "representation": "unchanged",
+      "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/fused_indexer/fused_indexer_kernel.pristine.py",
+      "sha256": "2641730c3d3392da2bc36dca470cd8d7d81f6e34ade2269c8692bb7e8c5bf0e6",
+      "size": 85472,
+      "representation": "unchanged",
+      "historical_original_sha256": "2641730c3d3392da2bc36dca470cd8d7d81f6e34ade2269c8692bb7e8c5bf0e6",
+      "role": "original"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/README.md",
+      "sha256": "9a42e5448843479acb2498b858644d9f10bd8cb19b6e34b7753a58ac536ffaaf",
+      "size": 3765,
+      "representation": "redacted",
+      "historical_original_sha256": "f0b0a7bf64641ce27a8d15cc19f19d0e591160fd3c118f62bf3d432ae9599aa4"
+    }
+  ],
+  "environment": "historical-stack-b",
+  "baseline_environment": "historical-stack-b",
+  "integration": [
+    {
+      "path": "payload/overlay/pd-20261024/sitecustomize.py",
+      "sha256": "d3532d6879d24ba36f3f33a0a726fe8baa39e5abac4f9c1f8f364af6b2295f38",
+      "size": 700,
+      "representation": "redacted",
+      "historical_original_sha256": "0873fe76cace3acffc992ae274c248c08bfc42f3fea22688e4f430b358209098"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/__init__.py",
+      "sha256": "209d555a2ea0615de8d6e26d77bff4e0effd4e0898251ed5c0fc23e922b0439a",
+      "size": 28982,
+      "representation": "redacted",
+      "historical_original_sha256": "80d99df71f4ee3b5f6cd7a7e5b21d6b3065d62c63cb28529006b4683e326ff34"
+    }
+  ],
+  "workload": {
+    "input_identity": {
+      "source_type": "public_dataset",
+      "loader": "semianalysis_cc_traces_weka_062126",
+      "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+      "hf_split": "train",
+      "num_dataset_entries": 393
+    },
+    "model_path": "REDACTED_LOCAL_PATH",
+    "model_identity": null,
+    "concurrency": 104,
+    "input_kind": "AgentX serving trace, simulated speculative acceptance"
+  },
+  "configuration": {
+    "image": "historical-sglang-image-b",
+    "prefill_tp": 4,
+    "prefill_pp": 1,
+    "decode_tp": 4,
+    "decode_pp": 1,
+    "decode_dcp_size": 1,
+    "decode_ep": 1
+  },
+  "commands": [
+    "Historical invocation is described by retained REPRODUCE.md and runtime.env; exact shell command not captured in this record."
+  ],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "full-model",
+    "summary": "No full-model correctness result accompanies this performance observation.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "reported_bundle_score_ratio",
+      "unit": "ratio",
+      "direction": "higher",
+      "aggregation": "reported",
+      "reported_ratio": 0.9848372169889275
+    }
+  ],
+  "comparison": {
+    "controlled": false,
+    "confounders": [
+      "Single candidate run versus two baseline runs; rounded summary values."
+    ]
+  },
+  "activation": "confirmed",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr42-c104/agentx_conc104.json",
+      "sha256": "1a1c3d9280b402d9bb46a4c490fec8d68362c45eb716d0742b52c67ebdb1a827",
+      "size": 5766,
+      "representation": "redacted",
+      "historical_original_sha256": "101e8cd2d2330a5e273b045868fd69536740a81ec10399e38b00534b83069bab"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr42-c104/decode.keylines.txt",
+      "sha256": "8787a8a41b44754298a5c2caee1af25aa4e7808f532cdfff780b69b04a267243",
+      "size": 4950,
+      "representation": "redacted",
+      "historical_original_sha256": "e8b8c3f4276a037b60aa4df82d658b9501cb9a92c285bc243108cef96ca3c30a"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr42-c104/engine-config.env",
+      "sha256": "44fb2121715ddd5d86ff2e473cf8b2e6461da1e7a22ff61eb07ecc2c2f9182cb",
+      "size": 1585,
+      "representation": "redacted",
+      "historical_original_sha256": "c6e0f1c389de6403f3bbd267243bf5f89a27be591f1038c2b6a7dfa090eb2441"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr42-c104/prefill.keylines.txt",
+      "sha256": "c4e7e75663dfda00d574e31bffd603c7079f098e20df18c54e9a3e845939566e",
+      "size": 916,
+      "representation": "redacted",
+      "historical_original_sha256": "9177e15083d4da83085a13118cb6d551d97867184501e02e4ee207c9c28ea5bd"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr42-c104/runtime.env",
+      "sha256": "fc2c4b03f016c688c4939805604b0070cf3a28db559be6213d6344c16a35941c",
+      "size": 1543,
+      "representation": "redacted",
+      "historical_original_sha256": "1a808b58f4949d50cc62808b000a2ab4bd07270604ef54b72b412b075c8967a3"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/README.md",
+      "sha256": "9a42e5448843479acb2498b858644d9f10bd8cb19b6e34b7753a58ac536ffaaf",
+      "size": 3765,
+      "representation": "redacted",
+      "historical_original_sha256": "f0b0a7bf64641ce27a8d15cc19f19d0e591160fd3c118f62bf3d432ae9599aa4"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability",
+      "Model checkpoint content identity",
+      "Exact baseline target-image source digests",
+      "Exact full invocation",
+      "Per-run adapter identity for later pd configurations"
+    ]
+  },
+  "limitations": [
+    "The measurement concerns a bundle; per-kernel e2e attribution was not measured.",
+    "Simulated acceptance and live kernel CHECK do not establish full-model correctness.",
+    "Single run; underlying overlap/custom-AR stack later reported to garble under real acceptance.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": {
+    "tpot_mean_ms": 15.219999999999999,
+    "score_tokens_s_chip": 47674.34366,
+    "qps": 3.19631,
+    "request_accounting": {
+      "records_total": 12750,
+      "records_profiled": 11595,
+      "records_dropped_total": 1155,
+      "records_warmup_dropped": 1155,
+      "records_error_dropped": 4,
+      "error_categories": {
+        "InvalidInferenceResultError": 4
+      }
+    }
+  },
+  "source_bytes": "redacted"
+}

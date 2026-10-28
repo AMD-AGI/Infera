@@ -1,0 +1,63 @@
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-24 04:20:16] server_args={'model_path': 'REDACTED_LOCAL_PATH', 'tokenizer_path': 'REDACTED_LOCAL_PATH', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 4, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': Tr
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-24 04:20:36 DP3 TP3] Load weight begin. avail mem=277.98 GB
+[2026-10-24 04:20:36 DP2 TP2] Load weight begin. avail mem=277.89 GB
+[2026-10-24 04:20:36 DP1 TP1] Load weight begin. avail mem=277.86 GB
+[2026-10-24 04:20:36 DP0 TP0] Load weight begin. avail mem=277.89 GB
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-24 04:21:07 DP2 TP2] Load weight end. elapsed=31.27 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=158.06 GB, mem usage=119.83 GB.
+[2026-10-24 04:21:09 DP1 TP1] Load weight end. elapsed=32.87 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=158.03 GB, mem usage=119.83 GB.
+[2026-10-24 04:21:09 DP3 TP3] Load weight end. elapsed=33.22 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=158.15 GB, mem usage=119.83 GB.
+[2026-10-24 04:21:10 DP0 TP0] Load weight end. elapsed=34.18 s, type=GlmMoeDsaForCausalLM, quant=quark, avail mem=158.06 GB, mem usage=119.83 GB.
+[2026-10-24 04:21:15 DP0 TP0] Load weight begin. avail mem=158.06 GB
+[2026-10-24 04:21:15 DP2 TP2] Load weight begin. avail mem=158.06 GB
+[2026-10-24 04:21:15 DP3 TP3] Load weight begin. avail mem=158.15 GB
+[2026-10-24 04:21:15 DP1 TP1] Load weight begin. avail mem=158.03 GB
+[2026-10-24 04:21:19 DP0 TP0] Load weight end. elapsed=3.52 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=151.14 GB, mem usage=6.92 GB.
+[2026-10-24 04:21:19 DP1 TP1] Load weight end. elapsed=3.55 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=151.11 GB, mem usage=6.92 GB.
+[2026-10-24 04:21:19 DP2 TP2] Load weight end. elapsed=3.57 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=151.14 GB, mem usage=6.92 GB.
+[2026-10-24 04:21:19 DP3 TP3] Load weight end. elapsed=3.66 s, type=GlmMoeDsaForCausalLMNextN, quant=quark, avail mem=151.23 GB, mem usage=6.92 GB.
+[2026-10-24 04:21:20 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 135.21 GB
+[2026-10-24 04:21:20 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 135.21 GB
+[2026-10-24 04:21:20 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 135.21 GB
+[2026-10-24 04:21:20 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 135.21 GB
+[2026-10-24 04:21:20 DP2 TP2] Memory pool end. avail mem=15.62 GB
+[2026-10-24 04:21:20 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 2.01 GB
+[2026-10-24 04:21:20 DP2 TP2] Memory pool end. avail mem=13.62 GB
+[2026-10-24 04:21:20 DP3 TP3] Memory pool end. avail mem=15.72 GB
+[2026-10-24 04:21:20 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 2.01 GB
+[2026-10-24 04:21:20 DP3 TP3] Memory pool end. avail mem=13.71 GB
+[2026-10-24 04:21:20 DP1 TP1] Memory pool end. avail mem=15.59 GB
+[2026-10-24 04:21:20 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 2.01 GB
+[2026-10-24 04:21:20 DP1 TP1] Memory pool end. avail mem=13.59 GB
+[2026-10-24 04:21:20 DP0 TP0] Memory pool end. avail mem=15.62 GB
+[2026-10-24 04:21:20 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 3043456, KV size: 2.01 GB
+[2026-10-24 04:21:20 DP0 TP0] Memory pool end. avail mem=13.62 GB
+[2026-10-24 04:21:21 DP3 TP3] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=15.58 GB
+[2026-10-24 04:21:21 DP2 TP2] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=15.49 GB
+[2026-10-24 04:21:21 DP1 TP1] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=15.46 GB
+[2026-10-24 04:21:21 DP0 TP0] Capture target verify CUDA graph begin. backend=full, num_tokens_per_req=6, avail mem=15.49 GB
+[2026-10-24 04:22:29 DP1 TP1] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=67.57 s, mem usage=10.51 GB, avail mem=4.95 GB.
+[2026-10-24 04:22:29 DP2 TP2] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=67.68 s, mem usage=10.51 GB, avail mem=4.98 GB.
+[2026-10-24 04:22:29 DP3 TP3] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=68.02 s, mem usage=10.51 GB, avail mem=5.07 GB.
+[2026-10-24 04:22:29 DP0 TP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=67.63 s, mem usage=10.51 GB, avail mem=4.98 GB.
+[2026-10-24 04:22:29 DP0 TP0] Capture draft decode CUDA graph begin. backend=full, num_tokens_per_req=1, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], avail mem=4.98 GB
+[2026-10-24 04:22:34 DP0 TP0] Capture draft decode CUDA graph end. elapsed=5.12 s, mem usage=1.17 GB, avail mem=3.80 GB.
+[2026-10-24 04:22:34 DP0 TP0] Capture draft extend CUDA graph begin. backend=full, num_tokens_per_req=6, bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], avail mem=3.80 GB
+[2026-10-24 04:22:37 DP0 TP0] Capture draft extend CUDA graph end. elapsed=2.59 s, mem usage=1.58 GB, avail mem=2.22 GB.
+[2026-10-24 04:22:37 DP0 TP0] max_total_num_tokens=3043456, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=2.22 GB
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']

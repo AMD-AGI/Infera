@@ -1,0 +1,28 @@
+--- REDACTED_LOCAL_PATH	2026-10-24 18:39:17.000000000 +0000
++++ REDACTED_LOCAL_PATH	2026-10-27 09:59:28.555943665 +0000
+@@ -408,6 +408,8 @@
+ # tasks/fused_indexer candidate (same Workspace fields; the production workspace object is reused).
+ def _patch_fused_indexer(mod):
+     cls = mod.Gfx950FusedIndexer
++    if getattr(cls.run, "_infera_kernels", False):   # both module layouts present: patch once
++        return
+     orig = cls.run
+     cand = []
+     checked = []
+@@ -450,6 +452,7 @@
+                 log(f"CHECK failed: {type(e).__name__}: {e}")
+         return out
+ 
++    run._infera_kernels = True
+     cls.run = run
+     log("patched Gfx950FusedIndexer.run")
+ 
+@@ -514,6 +517,8 @@
+     _TARGETS["sglang.srt.layers.attention.dsa.dsa_indexer"].append(_patch_dcp_dump)
+ if _ON["FUSED_INDEXER"]:
+     _TARGETS["sglang.srt.layers.attention.dsa.gfx950_fused_indexer"] = [_patch_fused_indexer]
++    # registry llrepro 10-27: older layout (sglang < 693d333, e.g. image historical-sglang-image-b)
++    _TARGETS["sglang.kernels.ops.attention.dsa.hip_gfx950.fused_decode"] = [_patch_fused_indexer]
+ if _ON["MOE"]:
+     _TARGETS["sglang.srt.layers.moe.moe_runner.aiter"] = [_patch_moe]
+ 

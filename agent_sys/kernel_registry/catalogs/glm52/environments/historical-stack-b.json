@@ -1,0 +1,60 @@
+{
+  "kind": "environment",
+  "name": "historical-stack-b",
+  "description": "Historical environment imported from retained evidence; not captured anew.",
+  "container": {
+    "image": "historical-sglang-image-b",
+    "digest": "sha256:f69f49e39cbf97e933c742f61d0d9a3c45914e51ab01c99ac4b6eb859858a967"
+  },
+  "hardware": {
+    "device": "AMD Instinct MI355X",
+    "architecture": "gfx950",
+    "count": null,
+    "driver": null
+  },
+  "system": {
+    "os": null,
+    "kernel": null,
+    "python": null
+  },
+  "packages": {
+    "sglang": "0.5.22.dev20261018+g8dee3f6bdb"
+  },
+  "repositories": [],
+  "evidence": [
+    {
+      "path": "payload/evidence/pd-image/image_id.txt",
+      "sha256": "d06702a5d0b2a9393b2e06bc2a81396002461e63b99a9cff8825b108a5346f48",
+      "size": 134,
+      "representation": "unchanged",
+      "historical_original_sha256": "d06702a5d0b2a9393b2e06bc2a81396002461e63b99a9cff8825b108a5346f48"
+    },
+    {
+      "path": "payload/evidence/pd-image/build_ll.registry.sh",
+      "sha256": "fc5bc178718c6c1ea901349437fa79a1e3ca735053658cb34591829c8c733879",
+      "size": 1234,
+      "representation": "redacted",
+      "historical_original_sha256": "1260cd20e12aa75dc7f9c93c4d97e13f95c8df5b783fc901bc97ab6c6a7c00c7"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-kf-ar-topk.packup_20261024/environment.md",
+      "sha256": "4e8f3afbfc46d3bcf4ae4dd0481e0d454950415561ef4f9fafe41509ea114463",
+      "size": 1323,
+      "representation": "redacted",
+      "historical_original_sha256": "53b07777db1c6ebbd9988f62677cfe9de0be3a4314a189870b3e3a5f6d13c0d4"
+    }
+  ],
+  "missing": [
+    "Full benchmark-time package inventory",
+    "Host driver/OS/Python capture",
+    "Timestamp timezone was not recorded",
+    "External input availability"
+  ],
+  "provenance": {
+    "import_method": "Archived task and runtime records",
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

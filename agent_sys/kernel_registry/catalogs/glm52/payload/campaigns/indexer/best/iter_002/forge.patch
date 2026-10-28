@@ -1,0 +1,38 @@
+diff --git a/dsa_indexer_kernel.py b/dsa_indexer_kernel.py
+index 97cf425..d317d61 100644
+--- a/dsa_indexer_kernel.py
++++ b/dsa_indexer_kernel.py
+@@ -27,6 +27,7 @@ Provenance (verbatim copies, md5 of the image files):
+ """
+ from __future__ import annotations
+ 
++import os
+ from functools import cache
+ 
+ import torch
+@@ -1210,6 +1211,12 @@ def _compile_deepgemm_fp8_paged_mqa_logits(
+     return triton.compile(src, target=target, options=options)
+ 
+ 
++# KV-split granularity multiplier (see SplitKV below). Swept 1..48 on this driver;
++# the curve plateaus at 24-32 and turns back up at 48 (per-piece prologue stops
++# amortizing). 32 is the flat optimum.
++_SPLIT_MUL = int(os.environ.get("DSA_SPLIT_MUL", "32"))
++
++
+ def deepgemm_fp8_paged_mqa_logits(
+     q_fp8: torch.Tensor,  # [batch, next_n, heads, hidden] fp8 e4m3fn
+     kv_cache,  # [num_pages, KVBlockSize, 1, hidden + 4] (preshuffled fp8 + fp32 scales per page)
+@@ -1231,7 +1238,11 @@ def deepgemm_fp8_paged_mqa_logits(
+     _, max_block_len = kv_indices.size()
+ 
+     TileQCount = batch_size * next_n
+-    SplitKV = (max(1, TotalCuCount // TileQCount) + 4) // 5 * 5 * WavePerEU
++    # Decouple KV split granularity from the waves_per_eu launch hint: the stock
++    # formula yields SplitKV = 10 for every batch size here, so every program starts
++    # at t=0 and the makespan equals the longest row (max/mean imbalance 1.8-2.4x).
++    # A finer split gives the scheduler smaller pieces to backfill with.
++    SplitKV = (max(1, TotalCuCount // TileQCount) + 4) // 5 * 5 * WavePerEU * _SPLIT_MUL
+ 
+     assert ChunkK % KVBlockSize == 0 or KVBlockSize % ChunkK == 0
+     assert block_Size == KVBlockSize

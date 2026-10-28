@@ -1,0 +1,385 @@
+diff --git a/moe_mxfp4_kernel.py b/moe_mxfp4_kernel.py
+index 0aa5135..aa18bc5 100644
+--- a/moe_mxfp4_kernel.py
++++ b/moe_mxfp4_kernel.py
+@@ -205,7 +205,9 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+                     const glm52_v4i* __restrict__ hidden,   // bf16 [M, K] as 16 B vectors (quant CTAs)
+                     glm52_v4i* __restrict__ a_q,            // fp4x2 [M, K/2] as 16 B vectors
+                     unsigned char* __restrict__ a_s,        // e8m0 [M, K/32]
+-                    int n_quant, int k_groups, int fill_in_quant)
++                    int n_quant, int k_groups, int fill_in_quant,
++                    int* __restrict__ tile_rec,             // [>= gemm1 grid] packed gemm1 tile per workgroup
++                    int rec_on, int lean)
+ {
+     constexpr int NT = GLM52_NT, MAXP = GLM52_MAXP, MAXE = 1024, BM = 16, NW = NT / 64;
+     const int tid = threadIdx.x;
+@@ -213,6 +215,7 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+         __shared__ int cnt[MAXE];
+         __shared__ int start_s[MAXE];
+         __shared__ int wave_tot[NW];
++        __shared__ int s_lastnb;                        // m-blocks of the last nonempty expert
+         const int e0 = blockIdx.x * epc;
+         const int e1 = min(e0 + epc, ne);
+         int ids[MAXP];
+@@ -225,6 +228,7 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+             ws[k] = v ? topk_w[i] : 0.f;
+         }
+         for (int e = tid; e < ne; e += NT) cnt[e] = 0;
++        if (tid == 0) s_lastnb = 0;
+         __syncthreads();
+         int rank[MAXP];
+ #pragma unroll
+@@ -245,12 +249,44 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+         const int v = glm52_dpp_inclusive_scan_wave(p);
+         if (lane == 63) wave_tot[wave] = v;
+         __syncthreads();
+-        int pre = 0;
++        int pre = 0, tot = 0;
+ #pragma unroll
+-        for (int w = 0; w < NW; ++w) pre += (w < wave) ? wave_tot[w] : 0;
++        for (int w = 0; w < NW; ++w) { pre += (w < wave) ? wave_tot[w] : 0; tot += wave_tot[w]; }
+         const int incl = v + pre;
+         if (tid >= e0 && tid < e1) start_s[tid] = incl - p;
++        if (tid < ne && p > 0 && incl == tot) s_lastnb = p / BM;
+         __syncthreads();
++        if (rec_on) {
++            // gemm1 tile of every workgroup id (variant 7): the inverse of its spread map (8 n-blocks, xcd
++            // swizzle 2, shared expert = trailing S m-blocks), one record per (m-block, n-block) of this CTA's
++            // experts: e | n << 9 | shared << 12 | m << 13
++            const int tb = tot / BM;
++            const int s0 = min((M + BM - 1) / BM, tb);
++            const int S = (tb > 0 && s_lastnb >= s0) ? s0 : 0;
++            const int n_rt = tb - S;
++            for (int t2 = tid; t2 < epc * 64; t2 += NT) {
++                const int el = t2 >> 6, n = (t2 >> 3) & 7, jl = t2 & 7;
++                const int e = e0 + el;
++                if (e < e1) {
++                    const int nb = (cnt[e] + BM - 1) / BM;
++                    const int b0 = start_s[e] / BM;
++                    for (int j = jl; j < nb; j += 8) {
++                        const int mb = b0 + j;
++                        int bx;
++                        if (mb >= n_rt) {
++                            bx = (mb - n_rt) * 8 + n;
++                        } else {
++                            const int gid = mb >> 1, fpm = gid << 1;
++                            const int gsm = max(1, min(2, n_rt - fpm));
++                            const int wgid = gid * 16 + n * gsm + (mb - fpm);
++                            const int xc = wgid / n_rt;
++                            bx = (wgid - xc * n_rt + S) * 8 + xc;
++                        }
++                        tile_rec[bx] = e | (n << 9) | ((mb >= n_rt ? 1 : 0) << 12) | (mb << 13);
++                    }
++                }
++            }
++        }
+         if (blockIdx.x == 0 && tid == ne - 1) { num_valid[0] = incl; num_valid[1] = M; }
+ #pragma unroll
+         for (int k = 0; k < MAXP; ++k) {
+@@ -261,9 +297,10 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+                 const int slot = i - tok * topk;
+                 const int sp = start_s[e] + rank[k];
+                 sorted_ids[sp] = (tok & 0x00FFFFFF) | ((slot & 0xFF) << 24);
+-                m_indices[sp] = tok & 0x00FFFFFF;
+                 sorted_w[sp] = ws[k];
+-                reverse_sorted[i] = sp;
++                // lean (gemm1 variant 7): m_indices is read as sorted_ids & 0xFFFFFF, reverse_sorted only by
++                // the non-atomic gemm2 scatter path (unused here) -- skip both scattered stores
++                if (!lean) { m_indices[sp] = tok & 0x00FFFFFF; reverse_sorted[i] = sp; }
+             }
+         }
+         const int pv = M & 0x00FFFFFF;          // padding row: gemm1 drops the load, gemm2 the store
+@@ -275,8 +312,8 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+                 if (ce + j < pe) {
+                     const int pos = start_s[e] + ce + j;
+                     sorted_ids[pos] = pv;
+-                    m_indices[pos] = pv;
+                     sorted_w[pos] = 0.f;
++                    if (!lean) m_indices[pos] = pv;
+                 }
+             }
+         }
+@@ -468,14 +505,26 @@ def _hip_moe_sort(st, topk_ids, topk_weights, num_experts, topk, model_dim, hidd
+     if fiq:
+         n_fill = 0
+     args += [ctypes.c_int(n_quant), ctypes.c_int(k_groups), ctypes.c_int(fiq)]
++    # gemm1 variant 7 reads its tile from a per-workgroup record written by the sort CTAs (sized for any grid
++    # gemm1 can launch: 8 n-blocks x the m-block bound of the sorted buffer, plus slack)
++    # records + lean sort only for the decode M range where the cfg-key override forces the BM16 gemm1 that
++    # variant 7 replaces (M < 97 or > 512 keeps aiter's own gemm1, which reads m_indices)
++    rec = None
++    if (hidden is not None and _G1_VARIANT == 7 and num_experts <= 512
++            and _DECODE_M_LO <= M <= _DECODE_M_HI):
++        rec = torch.empty(8 * (max_sorted // BM) + 64, dtype=torch.int32, device=device)
++    lean = 1 if rec is not None else 0        # variant 7: gemm1 reads tokens from sorted_ids, so skip m_indices
++    args += [ctypes.c_void_p(rec.data_ptr() if rec is not None else 0), ctypes.c_int(1 if rec is not None else 0),
++             ctypes.c_int(lean)]
+     params = (ctypes.c_void_p * len(args))(*[ctypes.cast(ctypes.byref(a), ctypes.c_void_p) for a in args])
+     stream = torch.cuda.current_stream(device).cuda_stream
+     r = launch(fn, n_sort + n_quant + n_fill, 1, 1, _HIP_SORT_NT, 1, 1, 0, ctypes.c_void_p(stream), params, None)
+     if r != 0:
+         raise RuntimeError(f"glm52 prologue sort: hipModuleLaunchKernel returned {r}")
+     if hidden is not None:
+-        global _PREQ
++        global _PREQ, _PREC
+         _PREQ = (hidden, M, a_q, a_s)
++        _PREC = (rec, num_valid_ids, sorted_token_ids) if rec is not None else None
+     return sorted_token_ids, sorted_weights, sorted_expert_ids, num_valid_ids, moe_buf, m_indices, reverse_sorted
+ 
+ 
+@@ -497,7 +546,7 @@ def _install_hip_prologue():
+             st = _hip_sort_fn(dev)
+             if st is not None:
+                 h = _CUR_HIDDEN
+-                use_h = (h is not None and _G1_VARIANT == 3 and h.dtype == torch.bfloat16 and h.is_cuda
++                use_h = (h is not None and _G1_VARIANT in (3, 6, 7) and h.dtype == torch.bfloat16 and h.is_cuda
+                          and h.dim() == 2 and h.is_contiguous() and h.shape[0] == topk_ids.shape[0]
+                          and h.shape[1] == model_dim and model_dim % 256 == 0)
+                 return _hip_moe_sort(st, topk_ids, topk_weights, int(num_experts), int(topk), int(model_dim),
+@@ -549,9 +598,33 @@ def _install_hip_prologue():
+ # (+7..10 us).
+ #
+ # GLM52_MOE_G1: 0 = aiter's own launcher, 1 = local copy with aiter's mapping (control), 2 = spread,
+-# 3 = spread + pre-quantized activations (default; falls back to 2 when this call's prologue did not
+-# produce them, e.g. aiter's sort fallback for M*topk > 4096).
+-_G1_VARIANT = int(os.environ.get("GLM52_MOE_G1", "3"))
++# 3 = spread + pre-quantized activations (falls back to 2 when this call's prologue did not produce them, e.g.
++# aiter's sort fallback for M*topk > 4096), 6 = variant 3 with the first k_stages B (weight) loads issued before
++# the A path, 7 = variant 6 + tile records + lean prologue sort (default; falls back to 6 without records).
++#
++# Variants 6/7 shorten a gemm1 workgroup's start.  gemm1 runs 114 VGPRs = 4 workgroups/CU (1024 slots, ~2.1
++# rounds of tiles), and in variant 3's ISA the first weight load issues only after cumsum -> eids[total-S] /
++# eids[total-1] -> eids[m] + m_indices (three dependent metadata loads) and then after the A(0) data the LDS store
++# needs (s_waitcnt before the first ds_write, the B loads sit behind the shared/routed branch).  Variant 6 emits
++# the B loads first (ISA: all start-up loads back to back before the first wait); variant 7 additionally reads
++# the tile from a 4-byte record per workgroup id (e | n << 9 | shared << 12 | m << 13) that the prologue's sort
++# CTAs write with the inverse of the spread map, so the B stream starts after one load (cumsum and the record,
++# issued together).  Output is the same tile computation (SNR 47.5-50.5 dB vs the fp32 oracle on workset,
++# uniform M=1..341, skewed, exact-16, no-shared and shared-at-id-0 routings; graph replays with the routing
++# rewritten in place between replays 50.7-53.7 dB vs eager variant 3).  Measured (compute-node-08, untraced driver A/B,
++# interleaved): variant 6 vs 3 1.0983 vs 1.0981 (4 reps); variant 7 vs 3 1.0980 vs 1.0975 (4 reps) and median
++# 1.0984 / mean 1.0992 vs 1.0989 / 1.0988 (6 reps), bs10 212.4-212.6 vs 212.9 us, bs12 unchanged; rocprofv3:
++# gemm1 -1.4 / -1.6 us at bs10 / bs8, unchanged at bs12 / bs14, prologue +0.0..0.2 us.
++#
++# Variant 7 also makes the prologue sort "lean": gemm1 reads a tile's row tokens from sorted_ids & 0xFFFFFF
++# (the record carries the expert), so the sort skips the per-pair m_indices and reverse_sorted stores
++# (reverse_sorted is only read by the non-atomic gemm2 scatter path, which this op does not use).  Output is
++# bit-unchanged; the sort is launch-floor bound so its time does not move in the trace, but the whole variant
++# measures reliably ahead of the incumbent (variant 3) in an 8-rep interleaved untraced A/B (compute-node-08): median
++# 1.1011 vs 1.0966, faster in every case (bs8 213.3 vs 214.4, bs10 212.2 vs 213.0, bs12 213.95 vs 214.47,
++# bs14 217.5 vs 217.8 us).  Lean is gated to the decode M range (97..512) where the cfg-key override forces
++# the BM16 gemm1 that variant 7 replaces; outside it aiter's own gemm1 runs and still needs m_indices.
++_G1_VARIANT = int(os.environ.get("GLM52_MOE_G1", "7"))
+ 
+ try:
+     import functools as _functools
+@@ -577,7 +650,8 @@ if _G1_IMPORT_OK:
+     @flyc.jit
+     def _g1_body_preq(
+         lds_raw_ptr, arg_aq, arg_as, arg_bq, arg_bscale, arg_eids, arg_mind, arg_aqout, arg_ascaleout,
+-        tile, lane, wave, i32_ntok, i32_total_m_blocks, *, b_nt, K, N_OUT, NE, k_stages,
++        tile, lane, wave, i32_ntok, i32_total_m_blocks, e_in, *, b_nt, K, N_OUT, NE, k_stages, b_first,
++        e_given,
+     ):
+         """aiter's _gemm1_body (mxfp4_gemm1.py:58-1457) specialised to this decode instance (BM16, BN128, BK256,
+         fp4 in/out, SiLU, native BM16 scale layout, 4 waves, k_wave 1, epi_splits 1), with the A operand read
+@@ -613,7 +687,10 @@ if _G1_IMPORT_OK:
+ 
+         n_block_idx = tile % fx.Int32(NUM_N_BLOCKS)
+         m_block_idx = tile // fx.Int32(NUM_N_BLOCKS)
+-        e = rocdl.readfirstlane(T.i32, as_ir_value(_global_i32_at(arg_eids, m_block_idx)))
++        if const_expr(e_given):
++            e = e_in                 # variant 7: from the workgroup's tile record
++        else:
++            e = rocdl.readfirstlane(T.i32, as_ir_value(_global_i32_at(arg_eids, m_block_idx)))
+         m_row = m_block_idx * fx.Int32(BM)
+ 
+         lane_div_16 = lane // fx.Int32(16)
+@@ -629,7 +706,9 @@ if _G1_IMPORT_OK:
+         as_copy_atom = fx.make_copy_atom(fx.rocdl.BufferCopy64b(), fx.Int32)
+ 
+         rcls = wave_n * fx.Int32(4) + lane_div_16
+-        row_tok = _global_i32_at(arg_mind, m_row + rcls)
++        # arg_mind is m_indices (== tok, variants 3/6) or the lean prologue's sorted_ids (tok | slot<<24,
++        # variant 7); mask to the token either way (tok < M < 2^24, so a no-op for m_indices)
++        row_tok = fx.Int32(_global_i32_at(arg_mind, m_row + rcls)) & fx.Int32(0x00FFFFFF)
+ 
+         N0_HALF = N_OUT // 32
+         b_load_s_base = []
+@@ -756,15 +835,23 @@ if _G1_IMPORT_OK:
+                 _mma(accm[J], 2, 3, a_cur[1], bJ1, asc_cur, sb)
+ 
+         # ---- K loop (aiter run_k_slice structure: k_stages prologue, kUnroll steady steps, k_stages drain)
++        if const_expr(b_first):
++            # weight stream first: its loads depend only on the expert, not on the A rows, so they no longer
++            # wait behind the A(0) data the LDS store below needs (see _G1_VARIANT, variant 6)
++            for K_C in range_constexpr(k_stages):
++                issue_b_load_j(b[K_C], K_C, 0)
++                issue_b_load_j(b[K_C], K_C, 1)
++                issue_b_scale_load(b_scale_v[K_C], K_C)
+         apf = a_load(0)
+         for K_C in range_constexpr(k_stages):
+             cur = apf
+             if const_expr(K_C + 1 < K_TILES):
+                 apf = a_load(K_C + 1)
+             a_store(K_C, K_C, cur)
+-            issue_b_load_j(b[K_C], K_C, 0)
+-            issue_b_load_j(b[K_C], K_C, 1)
+-            issue_b_scale_load(b_scale_v[K_C], K_C)
++            if const_expr(not b_first):
++                issue_b_load_j(b[K_C], K_C, 0)
++                issue_b_load_j(b[K_C], K_C, 1)
++                issue_b_scale_load(b_scale_v[K_C], K_C)
+ 
+         for OFFSET in range_constexpr(kUnroll):
+             K_C = k_stages + OFFSET
+@@ -877,8 +964,10 @@ if _G1_IMPORT_OK:
+         k_stages = _aiter_g1.default_k_stages(BM, BN, KH_TILE, K_TILES_TOTAL, N_OUT, 1, epi_splits)
+         _, _, _, lds_bytes = _aiter_g1._bm_constants(BM, BN, KH_TILE, K_TILES_TOTAL, 1, epi_splits, k_stages)
+ 
+-        spread = variant in (2, 3)
+-        preq = variant == 3
++        spread = variant in (2, 3, 6, 7)
++        preq = variant in (3, 6, 7)
++        b_first = variant in (6, 7)     # B loads of the first k_stages issued before the A path
++        rec = variant == 7              # tile from the prologue's per-workgroup record
+         if spread:
+             assert NUM_N_BLOCKS == NXCD
+         block_threads = 256
+@@ -903,6 +992,7 @@ if _G1_IMPORT_OK:
+             arg_ascaleout: fx.Int64,
+             arg_hidden: fx.Int64,
+             arg_bias: fx.Int64,
++            arg_rec: fx.Int64,
+         ):
+             lds_raw_ptr = fx.SharedAllocator().allocate(SharedStorage).peek().raw.ptr
+             tx = gpu.thread_id("x")
+@@ -912,6 +1002,9 @@ if _G1_IMPORT_OK:
+             lane = tx_i32 % fx.Int32(64)
+             wave = rocdl.readfirstlane(T.i32, tx_i32 // fx.Int32(64))
+             cumsum0 = _global_i32_at(arg_cumsum, fx.Int32(0))
++            if const_expr(rec):
++                # issued with cumsum; records exist for every workgroup below the bound
++                recv = fx.Int32(rocdl.readfirstlane(T.i32, as_ir_value(_global_i32_at(arg_rec, bx_i32))))
+             total_m_blocks = cumsum0 // fx.Int32(BM)
+             bound = total_m_blocks * fx.Int32(NUM_N_BLOCKS)
+             xq = _udiv(bound, NXCD)
+@@ -976,16 +1069,24 @@ if _G1_IMPORT_OK:
+                     epi_splits=epi_splits, k_stages=k_stages,
+                 )
+ 
+-            def _pbody(tile, b_nt):
++            def _pbody(tile, b_nt, e_in=None):
+                 # arg_aq / arg_ascale carry the prologue's token-major MXFP4 activations and e8m0 scales
+                 _g1_body_preq(
+                     lds_raw_ptr, arg_aq, arg_ascale, arg_bq, arg_bscale, arg_eids, arg_mind, arg_aqout,
+-                    arg_ascaleout, tile, lane, wave, i32_ntok, total_m_blocks,
+-                    b_nt=b_nt, K=D_HIDDEN, N_OUT=N_OUT, NE=NE, k_stages=k_stages,
++                    arg_ascaleout, tile, lane, wave, i32_ntok, total_m_blocks, e_in,
++                    b_nt=b_nt, K=D_HIDDEN, N_OUT=N_OUT, NE=NE, k_stages=k_stages, b_first=b_first,
++                    e_given=e_in is not None,
+                 )
+ 
+             if bx_i32 < bound:
+-                if const_expr(spread):
++                if const_expr(rec):
++                    r_e = recv & fx.Int32(0x1FF)
++                    r_tile = (recv >> fx.Int32(13)) * fx.Int32(NUM_N_BLOCKS) + ((recv >> fx.Int32(9)) & fx.Int32(7))
++                    if ((recv >> fx.Int32(12)) & fx.Int32(1)) == fx.Int32(1):
++                        _pbody(r_tile, False, r_e)  # shared expert: temporal B loads
++                    else:
++                        _pbody(r_tile, True, r_e)
++                elif const_expr(spread):
+                     n_sh = _shared_m_blocks()
+                     tile = _spread(bx_i32, n_sh)
+                     # workgroup-uniform (SGPR) condition: both bodies contain barriers
+@@ -1020,12 +1121,13 @@ if _G1_IMPORT_OK:
+             arg_ascaleout: fx.Int64,
+             arg_hidden: fx.Int64,
+             arg_bias: fx.Int64,
++            arg_rec: fx.Int64,
+             stream: fx.Stream,
+         ):
+             grid_x = fx.Int64(i32_grid)
+             gemm1_kernel(
+                 arg_aq, arg_ascale, arg_bq, arg_bscale, arg_eids, arg_cumsum, arg_mind, i32_ntok,
+-                arg_aqout, arg_ascaleout, arg_hidden, arg_bias,
++                arg_aqout, arg_ascaleout, arg_hidden, arg_bias, arg_rec,
+             ).launch(grid=(grid_x, 1, 1), block=(block_threads, 1, 1), stream=stream)
+ 
+         return launch_gemm1
+@@ -1037,7 +1139,7 @@ _g1_ready: set = set()      # launcher keys already launched once outside a grap
+ def _g1_engages(kw):
+     """True for exactly the stage-1 instance this file's decode config selects (BM16 inline quant)."""
+     try:
+-        return (_G1_IMPORT_OK and _G1_VARIANT in (1, 2, 3)
++        return (_G1_IMPORT_OK and _G1_VARIANT in (1, 2, 3, 6, 7)
+                 and kw.get("BM") == 16 and kw.get("use_nt") is True and kw.get("inline_quant") is True
+                 and kw.get("prefetch_hidden") is True and kw.get("BN") == 128 and kw.get("BK", 256) == 256
+                 and not kw.get("interleave", False) and kw.get("xcd_swizzle", 0) == 2
+@@ -1063,11 +1165,27 @@ def _install_g1_hook():
+             return _orig(**kw)
+         variant = _G1_VARIANT
+         a_ptr, as_ptr = kw["a_quant"].data_ptr(), kw["a_scale_sorted_shuffled"].data_ptr()
+-        if variant == 3:
++        rec_ptr = 0
++        mind_ptr = kw["m_indices"].data_ptr()
++        if variant in (3, 6, 7):
+             pq = _PREQ
+             if (pq is not None and pq[0].data_ptr() == kw["hidden_states"].data_ptr()
+                     and pq[1] == int(kw["n_tokens"]) and pq[0].shape[1] == int(kw["D_HIDDEN"])):
+                 a_ptr, as_ptr = pq[2].data_ptr(), pq[3].data_ptr()
++                if variant == 7:
++                    pr = _PREC
++                    g1g = _aiter_g1.gemm1_grid(kw["n_tokens"], 16, NE=kw["NE"], TOPK=kw["topk"],
++                                               INTER=kw["D_INTER"], BN=128)
++                    if (pr is not None and pr[1].data_ptr() == kw["cumsum_tensor"].data_ptr()
++                            and int(kw["D_INTER"]) * 2 == 128 * 8):
++                        # the lean prologue skipped m_indices; gemm1 reads tokens from sorted_ids & 0xFFFFFF
++                        mind_ptr = pr[2].data_ptr()
++                        if g1g <= pr[0].numel():
++                            rec_ptr = pr[0].data_ptr()
++                        else:
++                            variant = 6  # records do not cover this grid; expert from sorted_expert_ids
++                    else:
++                        variant = 6  # no tile records from this call's prologue
+             else:
+                 variant = 2          # no pre-quantized activations from this call's prologue
+         key = (variant, int(kw["D_HIDDEN"]), int(kw["D_INTER"]), int(kw["NE"]), 128, 2)
+@@ -1085,13 +1203,14 @@ def _install_g1_hook():
+                 kw["w1_scale_u8"].data_ptr(),
+                 kw["sorted_expert_ids"].data_ptr(),
+                 kw["cumsum_tensor"].data_ptr(),
+-                kw["m_indices"].data_ptr(),
++                mind_ptr,
+                 kw["n_tokens"],
+                 grid,
+                 kw["inter_sorted_quant"].data_ptr(),
+                 kw["inter_sorted_shuffled_scale"].data_ptr(),
+                 kw["hidden_states"].data_ptr(),
+                 0,
++                rec_ptr,
+                 torch.cuda.current_stream(),
+             ),
+         )
+@@ -1150,6 +1269,7 @@ def _install_g2_name_override():
+ _ACTIVE = False
+ _CUR_HIDDEN = None      # hidden_states of the op call in flight (read by the HIP prologue for the pre-quant)
+ _PREQ = None            # (hidden, M, a_q, a_s) written by this call's prologue, consumed by the gemm1 hook
++_PREC = None            # (tile records, num_valid_ids) written by this call's prologue (gemm1 variant 7)
+ _install_decode_cfg_key()
+ _install_fused_prologue_sort()
+ _install_hip_prologue()
+@@ -1192,10 +1312,11 @@ def glm52_moe_mxfp4(
+ 
+     routed_scaling_factor is not applied here (aiter fused_moe has no such argument; see program.md).
+     """
+-    global _ACTIVE, _CUR_HIDDEN, _PREQ
++    global _ACTIVE, _CUR_HIDDEN, _PREQ, _PREC
+     _ACTIVE = True
+     _CUR_HIDDEN = hidden_states
+     _PREQ = None            # only this call's prologue may provide the pre-quantized activations
++    _PREC = None
+     try:
+         return _fused_moe_call(hidden_states, w13, w2, w13_scale, w2_scale, topk_weights, topk_ids)
+     finally:

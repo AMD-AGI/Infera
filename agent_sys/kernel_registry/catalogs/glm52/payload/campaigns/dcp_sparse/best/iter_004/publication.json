@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_004",
+  "baseline_wall_ms": 0.0585,
+  "benchmark_path": "best/iter_004/benchmark.json",
+  "best_wall_ms": 0.0344,
+  "campaign_id": "59707273435649ad93e30b9bceea3115",
+  "changed_files": [
+    "dcp_sparse_kernel.py"
+  ],
+  "commit_hash": "d92c36bc1ec49d5a3f7d353f8a5ddf857d9ecb15",
+  "correctness_passed": true,
+  "experiment_id": "62edb33b",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.575815,
+  "iteration": 4,
+  "mean_case_speedup": 1.5758148991138314,
+  "patch_path": "best/iter_004/forge.patch",
+  "plan": "split overflow rows into merged tile pieces and load q once",
+  "pristine_baseline_ms": 0.0585,
+  "published_at": "2026-10-23 17:15:06",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.0585,
+  "session_index": 2,
+  "snr_db": 35.58,
+  "speedup": 1.575815,
+  "total_improved": true,
+  "total_speedup": 1.575815,
+  "validation_path": "best/iter_004/validation.txt"
+}

@@ -1,0 +1,121 @@
+{
+  "kind": "run",
+  "name": "target-v0522-moe_mxfp4",
+  "description": "Archived in-process production versus overlay graph benchmark.",
+  "run_type": "microbench",
+  "timestamp": "",
+  "kernels": {
+    "moe_mxfp4": "kf-iter14-9cd51e60"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+      "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+      "size": 66512,
+      "representation": "redacted",
+      "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-a",
+  "baseline_environment": "historical-stack-a",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "path": "payload/tasks/moe_mxfp4/driver.py",
+      "sha256": "fb3d838b1a2d701e5398fb319eaeb1b7ee4db758097f7c55f9553ee670a3851f",
+      "size": 10968,
+      "representation": "redacted",
+      "historical_original_sha256": "204b5fb5d47e7b5b4b1c788ae3126afc4fd07cacf78bad11c1410d25e605e321"
+    },
+    "input_kind": "synthetic"
+  },
+  "configuration": {
+    "cuda_graph": true,
+    "candidate": "overlay",
+    "baseline": "FORCE_ORIG"
+  },
+  "commands": [
+    "python kbench.registry.py"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "operator synthetic cases in target image",
+    "summary": "M192_bs8: snr KF/prod 46.05 dB; M240_bs10: snr KF/prod 46.05 dB; M288_bs12: snr KF/prod 51.45 dB; M336_bs14: snr KF/prod 50.73 dB",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "kernel_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "M192_bs8",
+          "baseline": 0.2317,
+          "candidate": 0.2053
+        },
+        {
+          "name": "M240_bs10",
+          "baseline": 0.2241,
+          "candidate": 0.2058
+        },
+        {
+          "name": "M288_bs12",
+          "baseline": 0.2261,
+          "candidate": 0.2065
+        },
+        {
+          "name": "M336_bs14",
+          "baseline": 0.2282,
+          "candidate": 0.2099
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "controlled": true,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.kf-decode-kernels-e2e.packup_20261023/results/kbench.v0522.compute-node-06.log",
+      "sha256": "3640f65ee05552871485f291f088694794ca3734b34486e23287be115c31ac7f",
+      "size": 5476,
+      "representation": "redacted",
+      "historical_original_sha256": "d69b697355e07f1fa621f32c96e9dc2e3029bcfc55921b71bb8fc2d457a36a33"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Rounded printed timings are retained; ratio may differ slightly from printed speedup.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

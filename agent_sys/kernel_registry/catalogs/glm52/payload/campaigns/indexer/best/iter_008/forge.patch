@@ -1,0 +1,293 @@
+diff --git a/dsa_indexer_kernel.py b/dsa_indexer_kernel.py
+index 97cf425..a9d2f6d 100644
+--- a/dsa_indexer_kernel.py
++++ b/dsa_indexer_kernel.py
+@@ -27,6 +27,7 @@ Provenance (verbatim copies, md5 of the image files):
+ """
+ from __future__ import annotations
+ 
++import os
+ from functools import cache
+ 
+ import torch
+@@ -37,6 +38,12 @@ from triton.experimental.gluon import language as gl
+ 
+ from aiter.ops.triton.gluon.pa_decode_gluon import get_cdna_version
+ 
++# Number of XCDs the phase-1 grid is round-robined over (gfx950 SPX = 8).
++# Used to relabel program ids so that the KV-split pieces that share page-table
++# entries land on the same XCD and hit its private L2 instead of the fabric.
++# 1 == identity (control).
++_NUM_XCD = tl.constexpr(int(os.environ.get("DSA_NUM_XCD", "8")))
++
+ try:
+     from triton.experimental.gluon.language.amd.cdna3 import (
+         s_set_prio as _amd_s_set_prio,
+@@ -330,7 +337,7 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+ 
+             valid = (context_idx + col) <= (context_length - next_n + pid_next_n)
+             o = tl.where(valid[None, :], o, float("-inf"))
+-            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)  # gfx1250 path
+ 
+             store_off = context_idx + col
+             gl.amd.cdna3.buffer_store(
+@@ -363,6 +370,19 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+     # ===---------------------------------------------------
+     pid = tl.program_id(0)
+ 
++    # XCD-local swizzle: the hardware round-robins workgroup i onto XCD i % NUM_XCD,
++    # so the rows that share a page table (the 6 TARGET_VERIFY siblings of a request)
++    # get scattered over 6 private L2s. Relabelling the program id so that each XCD
++    # owns a contiguous slab of (split_kv-major, row-minor) work puts every row of a
++    # given KV split on one XCD. This is a bijection over the whole grid, so the
++    # logits are bitwise identical.
++    NUM_XCD: gl.constexpr = _NUM_XCD
++    if NUM_XCD > 1:
++        grid_size = batch_size * next_n * SplitKV
++        wg_per_xcd = grid_size // NUM_XCD
++        if wg_per_xcd * NUM_XCD == grid_size:
++            pid = (pid % NUM_XCD) * wg_per_xcd + pid // NUM_XCD
++
+     # ===---------------------------------------------------
+     pid_batch, remain_pid = pid % batch_size, pid // batch_size
+     pid_next_n, pid_split_kv = remain_pid % next_n, remain_pid // next_n
+@@ -542,12 +562,11 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+ 
+         k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+ 
+-        o = o * k_scale_f[None, :]
+         o = gl.maximum(o, 0.0)
+         o = o * scale_weight[:, None]
+         _amd_s_set_prio(1)
+ 
+-        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+         store_cols = context_idx + gl.arange(
+             0, ChunkKPerStage, layout=gl.SliceLayout(0, mfma_layout)
+         )
+@@ -606,12 +625,11 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+             _amd_iglp_sched_barrier(0x0)
+             #!=----------------------------
+             k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+-            o = o * k_scale_f[None, :]
+             o = gl.maximum(o, 0.0)
+             o = o * scale_weight[:, None]
+             _amd_s_set_prio(1)
+ 
+-            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+             store_cols = (
+                 context_idx
+                 + ChunkKPerStage
+@@ -675,12 +693,11 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+ 
+             k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+ 
+-            o = o * k_scale_f[None, :]
+             o = gl.maximum(o, 0.0)
+             o = o * scale_weight[:, None]
+             _amd_s_set_prio(0)
+ 
+-            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+             gl.amd.cdna3.buffer_store(
+                 logits,
+                 ptr=OutLogits_buffer
+@@ -711,7 +728,6 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+         mfma_k = gl.convert_layout(k, mfma_layout_b)
+         o = gl.amd.cdna3.mfma(mfma_q, mfma_k, zero)
+         k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+-        o = o * k_scale_f[None, :]
+         o = gl.maximum(o, 0.0)
+         o = o * scale_weight[:, None]
+         _amd_s_set_prio(0)
+@@ -723,7 +739,7 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+             <= context_length - next_n + pid_next_n
+         )
+ 
+-        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+         logits = tl.where(mask, logits, float("-inf"))
+         store_cols = (
+             context_idx
+@@ -867,7 +883,6 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+ 
+         k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+ 
+-        o = o * k_scale_f[None, :]
+         o = gl.maximum(o, 0.0)
+         o = o * scale_weight[:, None]
+         _amd_s_set_prio(1)
+@@ -878,7 +893,7 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+             <= context_length - next_n + pid_next_n
+         )
+ 
+-        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+         logits = tl.where(mask, logits, float("-inf"))
+         gl.amd.cdna3.buffer_store(
+             logits,
+@@ -951,12 +966,11 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+             _amd_iglp_sched_barrier(0x0)
+             #!=----------------------------
+             k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+-            o = o * k_scale_f[None, :]
+             o = gl.maximum(o, 0.0)
+             o = o * scale_weight[:, None]
+             _amd_s_set_prio(1)
+ 
+-            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+             gl.amd.cdna3.buffer_store(
+                 logits,
+                 ptr=OutLogits_buffer
+@@ -1025,7 +1039,6 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+ 
+             k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+ 
+-            o = o * k_scale_f[None, :]
+             o = gl.maximum(o, 0.0)
+             o = o * scale_weight[:, None]
+             _amd_s_set_prio(0)
+@@ -1037,7 +1050,7 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+                 <= context_length - next_n + pid_next_n
+             )
+ 
+-            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++            logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+             logits = tl.where(mask, logits, float("-inf"))
+             gl.amd.cdna3.buffer_store(
+                 logits,
+@@ -1068,7 +1081,6 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+         mfma_k = gl.convert_layout(k, mfma_layout_b)
+         o = gl.amd.cdna3.mfma(mfma_q, mfma_k, zero)
+         k_scale_f = gl.convert_layout(k_scale_f, gl.SliceLayout(0, mfma_layout))
+-        o = o * k_scale_f[None, :]
+         o = gl.maximum(o, 0.0)
+         o = o * scale_weight[:, None]
+         _amd_s_set_prio(0)
+@@ -1080,7 +1092,7 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+             <= context_length - next_n + pid_next_n
+         )
+ 
+-        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine)
++        logits = gl.reduce(o, axis=0, combine_fn=_sum_combine) * k_scale_f
+         logits = tl.where(mask, logits, float("-inf"))
+         gl.amd.cdna3.buffer_store(
+             logits,
+@@ -1121,6 +1133,7 @@ def _compile_deepgemm_fp8_paged_mqa_logits(
+     HiddenDim,
+     is_padded_mode: bool,
+     WavePerEU: int = 2,
++    WavesPerEuHint: int = 2,
+ ):
+     gfx_version = get_gfx()
+     assert gfx_version == "gfx950", gfx_version
+@@ -1162,7 +1175,7 @@ def _compile_deepgemm_fp8_paged_mqa_logits(
+ 
+     options = {
+         "num_warps": 4,
+-        "waves_per_eu": WavePerEU,
++        "waves_per_eu": WavesPerEuHint,
+         "num_stages": 2,
+         "num_ctas": 1,
+         "cluster_dims": [1, 1, 1],
+@@ -1210,6 +1223,26 @@ def _compile_deepgemm_fp8_paged_mqa_logits(
+     return triton.compile(src, target=target, options=options)
+ 
+ 
++# KV-split granularity multiplier (see SplitKV below). Re-swept on this driver once
++# the XCD-local program-id swizzle was in place: the optimum moves down from 32 to
++# 4-8 (median_ms 1:0.368, 2:0.322, 4:0.3033, 6:0.3030, 8:0.3044, 12:0.3103,
++# 16:0.3208, 24:0.3341, 32:0.3527, 48:0.3894) because the swizzle already fixes the
++# makespan imbalance that the fine split was papering over, and coarser pieces
++# amortize the per-piece prologue. SplitKV = 80 at mul=8 keeps grid % 8 == 0 for
++# any row count, which the swizzle needs.
++_SPLIT_MUL = int(os.environ.get("DSA_SPLIT_MUL", "8"))
++
++# Occupancy hint passed to the Triton AMD backend, decoupled from `WavePerEU` (which
++# also feeds the SplitKV partition arithmetic -- changing that symbol would silently
++# move SplitKV off 80 and break the `rows*SplitKV % 8 == 0` XCD-swizzle guard).
++# The compiled kernel uses 92 VGPRs but the backend emits amdgpu-waves-per-eu="2,2"
++# and reserves 169, capping occupancy at 2 waves/SIMD with zero LDS in play.
++# Swept on this driver (per-case ms, bs8/10/12/14): 2 -> .2482/.2467/.2941/.2956,
++# 3 -> .2304/.2289/.2673/.2743, 4 -> .2268/.2230/.2622/.2657, 5 -> .2305/.2227/
++# .2628/.2652. 4 is the knee; 6 would budget 512/6 = 85 < 92 VGPR and spill.
++_WAVES_PER_EU = int(os.environ.get("DSA_WAVES_PER_EU", "4"))
++
++
+ def deepgemm_fp8_paged_mqa_logits(
+     q_fp8: torch.Tensor,  # [batch, next_n, heads, hidden] fp8 e4m3fn
+     kv_cache,  # [num_pages, KVBlockSize, 1, hidden + 4] (preshuffled fp8 + fp32 scales per page)
+@@ -1231,7 +1264,11 @@ def deepgemm_fp8_paged_mqa_logits(
+     _, max_block_len = kv_indices.size()
+ 
+     TileQCount = batch_size * next_n
+-    SplitKV = (max(1, TotalCuCount // TileQCount) + 4) // 5 * 5 * WavePerEU
++    # Decouple KV split granularity from the waves_per_eu launch hint: the stock
++    # formula yields SplitKV = 10 for every batch size here, so every program starts
++    # at t=0 and the makespan equals the longest row (max/mean imbalance 1.8-2.4x).
++    # A finer split gives the scheduler smaller pieces to backfill with.
++    SplitKV = (max(1, TotalCuCount // TileQCount) + 4) // 5 * 5 * WavePerEU * _SPLIT_MUL
+ 
+     assert ChunkK % KVBlockSize == 0 or KVBlockSize % ChunkK == 0
+     assert block_Size == KVBlockSize
+@@ -1256,6 +1293,7 @@ def deepgemm_fp8_paged_mqa_logits(
+         HiddenDim=hidden_dim,
+         is_padded_mode=is_padded_mode,
+         WavePerEU=WavePerEU,
++        WavesPerEuHint=_WAVES_PER_EU,
+     )
+     cdna_version = get_cdna_version()
+     kernel[grid](
+@@ -1325,6 +1363,10 @@ def aiter_paged_mqa_logits(
+     return logits
+ 
+ 
++# Row-chunk size for the compiled top-k op (see topk_transform_fused). 0 disables.
++_TOPK_ROW_CHUNK = int(os.environ.get("DSA_TOPK_ROW_CHUNK", "60"))
++
++
+ def topk_transform_fused(
+     logits: torch.Tensor,
+     lengths: torch.Tensor,
+@@ -1334,16 +1376,28 @@ def topk_transform_fused(
+ ) -> torch.Tensor:
+     """DSATopKBackend.topk_transform, SGL_KERNEL + PAGED + SGLANG_OPT_USE_TOPK_V2=false
+     (sglang srt/layers/attention/dsa/dsa_topk_backend.py:96-212; fast_topk_transform_fused at :204)."""
+-    from sgl_kernel import fast_topk_transform_fused
+-
+-    return fast_topk_transform_fused(
+-        score=logits,
+-        lengths=lengths,
+-        page_table_size_1=page_table_1,
+-        cu_seqlens_q=cu_seqlens_q,
+-        topk=topk,
+-        row_starts=None,
+-    )
++    import sgl_kernel  # noqa: F401  (registers torch.ops.sgl_kernel.*)
++
++    rows = logits.shape[0]
++    out = logits.new_empty((rows, topk), dtype=torch.int32)
++    op = torch.ops.sgl_kernel.fast_topk_transform_fused
++    chunk = _TOPK_ROW_CHUNK
++    if chunk <= 0 or rows <= chunk:
++        op(logits, lengths, out, page_table_1, cu_seqlens_q, None)
++        return out
++    # The compiled coop_topk kernel has a row-count dispatch cliff: above ~60 rows it
++    # falls off the multi-block path and nearly doubles in cost for identical data
++    # volume (bs12: 93.5 us at 60 rows vs 179.8 us at 72). Calling it on contiguous
++    # row-chunks keeps every launch on the fast path; semantics are unchanged because
++    # rows are independent (paged mode, row_starts=None).
++    nchunks = (rows + chunk - 1) // chunk
++    bounds = [(rows * i) // nchunks for i in range(nchunks + 1)]
++    for i in range(nchunks):
++        s, e = bounds[i], bounds[i + 1]
++        n = e - s
++        op(logits[s:e], lengths[s:e], out[s:e], page_table_1[s:e],
++           cu_seqlens_q[: n + 1], None)
++    return out
+ 
+ 
+ # ===========================================================================

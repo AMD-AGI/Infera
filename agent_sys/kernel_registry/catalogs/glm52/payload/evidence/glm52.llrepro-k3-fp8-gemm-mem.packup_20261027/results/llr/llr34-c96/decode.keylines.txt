@@ -1,0 +1,33 @@
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-26 19:55:49] server_args={'model_path': 'REDACTED_LOCAL_PATH', 'tokenizer_path': 'REDACTED_LOCAL_PATH', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 4, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': Tr
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-26 19:56:55 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 131.22 GB
+[2026-10-26 19:56:55 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 131.22 GB
+[2026-10-26 19:56:55 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 131.22 GB
+[2026-10-26 19:56:55 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 1.95 GB
+[2026-10-26 19:56:55 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 1.95 GB
+[2026-10-26 19:56:55 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 1.95 GB
+[2026-10-26 19:56:56 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 131.22 GB
+[2026-10-26 19:56:56 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2953664, KV size: 1.95 GB
+[2026-10-26 19:58:04 DP2 TP2] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=67.74 s, mem usage=7.76 GB, avail mem=14.94 GB.
+[2026-10-26 19:58:04 DP0 TP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=67.16 s, mem usage=7.76 GB, avail mem=15.00 GB.
+[2026-10-26 19:58:04 DP1 TP1] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=67.79 s, mem usage=7.76 GB, avail mem=14.91 GB.
+[2026-10-26 19:58:04 DP3 TP3] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=67.87 s, mem usage=7.76 GB, avail mem=15.04 GB.
+[2026-10-26 19:58:08 DP0 TP0] Capture draft decode CUDA graph end. elapsed=3.37 s, mem usage=0.64 GB, avail mem=14.35 GB.
+[2026-10-26 19:58:11 DP0 TP0] Capture draft extend CUDA graph end. elapsed=2.91 s, mem usage=1.08 GB, avail mem=13.27 GB.
+[2026-10-26 19:58:11 DP0 TP0] max_total_num_tokens=2953664, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=13.27 GB
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']

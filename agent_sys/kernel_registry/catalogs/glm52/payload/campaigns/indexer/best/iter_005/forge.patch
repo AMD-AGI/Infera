@@ -1,0 +1,75 @@
+diff --git a/dsa_indexer_kernel.py b/dsa_indexer_kernel.py
+index 97cf425..82ddebe 100644
+--- a/dsa_indexer_kernel.py
++++ b/dsa_indexer_kernel.py
+@@ -27,6 +27,7 @@ Provenance (verbatim copies, md5 of the image files):
+ """
+ from __future__ import annotations
+ 
++import os
+ from functools import cache
+ 
+ import torch
+@@ -37,6 +38,12 @@ from triton.experimental.gluon import language as gl
+ 
+ from aiter.ops.triton.gluon.pa_decode_gluon import get_cdna_version
+ 
++# Number of XCDs the phase-1 grid is round-robined over (gfx950 SPX = 8).
++# Used to relabel program ids so that the KV-split pieces that share page-table
++# entries land on the same XCD and hit its private L2 instead of the fabric.
++# 1 == identity (control).
++_NUM_XCD = tl.constexpr(int(os.environ.get("DSA_NUM_XCD", "8")))
++
+ try:
+     from triton.experimental.gluon.language.amd.cdna3 import (
+         s_set_prio as _amd_s_set_prio,
+@@ -363,6 +370,19 @@ def _gluon_deepgemm_fp8_paged_mqa_logits_preshuffle(
+     # ===---------------------------------------------------
+     pid = tl.program_id(0)
+ 
++    # XCD-local swizzle: the hardware round-robins workgroup i onto XCD i % NUM_XCD,
++    # so the rows that share a page table (the 6 TARGET_VERIFY siblings of a request)
++    # get scattered over 6 private L2s. Relabelling the program id so that each XCD
++    # owns a contiguous slab of (split_kv-major, row-minor) work puts every row of a
++    # given KV split on one XCD. This is a bijection over the whole grid, so the
++    # logits are bitwise identical.
++    NUM_XCD: gl.constexpr = _NUM_XCD
++    if NUM_XCD > 1:
++        grid_size = batch_size * next_n * SplitKV
++        wg_per_xcd = grid_size // NUM_XCD
++        if wg_per_xcd * NUM_XCD == grid_size:
++            pid = (pid % NUM_XCD) * wg_per_xcd + pid // NUM_XCD
++
+     # ===---------------------------------------------------
+     pid_batch, remain_pid = pid % batch_size, pid // batch_size
+     pid_next_n, pid_split_kv = remain_pid % next_n, remain_pid // next_n
+@@ -1210,6 +1230,16 @@ def _compile_deepgemm_fp8_paged_mqa_logits(
+     return triton.compile(src, target=target, options=options)
+ 
+ 
++# KV-split granularity multiplier (see SplitKV below). Re-swept on this driver once
++# the XCD-local program-id swizzle was in place: the optimum moves down from 32 to
++# 4-8 (median_ms 1:0.368, 2:0.322, 4:0.3033, 6:0.3030, 8:0.3044, 12:0.3103,
++# 16:0.3208, 24:0.3341, 32:0.3527, 48:0.3894) because the swizzle already fixes the
++# makespan imbalance that the fine split was papering over, and coarser pieces
++# amortize the per-piece prologue. SplitKV = 80 at mul=8 keeps grid % 8 == 0 for
++# any row count, which the swizzle needs.
++_SPLIT_MUL = int(os.environ.get("DSA_SPLIT_MUL", "8"))
++
++
+ def deepgemm_fp8_paged_mqa_logits(
+     q_fp8: torch.Tensor,  # [batch, next_n, heads, hidden] fp8 e4m3fn
+     kv_cache,  # [num_pages, KVBlockSize, 1, hidden + 4] (preshuffled fp8 + fp32 scales per page)
+@@ -1231,7 +1261,11 @@ def deepgemm_fp8_paged_mqa_logits(
+     _, max_block_len = kv_indices.size()
+ 
+     TileQCount = batch_size * next_n
+-    SplitKV = (max(1, TotalCuCount // TileQCount) + 4) // 5 * 5 * WavePerEU
++    # Decouple KV split granularity from the waves_per_eu launch hint: the stock
++    # formula yields SplitKV = 10 for every batch size here, so every program starts
++    # at t=0 and the makespan equals the longest row (max/mean imbalance 1.8-2.4x).
++    # A finer split gives the scheduler smaller pieces to backfill with.
++    SplitKV = (max(1, TotalCuCount // TileQCount) + 4) // 5 * 5 * WavePerEU * _SPLIT_MUL
+ 
+     assert ChunkK % KVBlockSize == 0 or KVBlockSize % ChunkK == 0
+     assert block_Size == KVBlockSize

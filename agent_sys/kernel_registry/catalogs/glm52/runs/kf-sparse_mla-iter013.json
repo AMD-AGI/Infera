@@ -1,0 +1,200 @@
+{
+  "kind": "run",
+  "name": "kf-sparse_mla-iter013",
+  "description": "store split-K partials head-interleaved so stores fill whole cache lines, plus matching reduce",
+  "run_type": "microbench",
+  "timestamp": "2026-10-21T08:51:08",
+  "kernels": {
+    "sparse_mla": "kf-iter13-e0e55e46"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/sparse_mla/sources/e0e55e46ee2152b588c99d18424b92f2f62de8b8.py",
+      "sha256": "953e086fde65c0d69f146dfcfa04123f1f971f2777ab47b093ca73e91d9edf3e",
+      "size": 67019,
+      "representation": "unchanged",
+      "historical_original_sha256": "953e086fde65c0d69f146dfcfa04123f1f971f2777ab47b093ca73e91d9edf3e"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "role": "original"
+    }
+  ],
+  "environment": "kf-workset",
+  "baseline_environment": "kf-workset",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "driver": {
+        "path": "payload/tasks/sparse_mla/driver.py",
+        "sha256": "4caf529a6e19a2dc408f4559db2e4d418b22fcc0a71ac29fbda4d91f6800eb94",
+        "size": 7067,
+        "representation": "unchanged",
+        "historical_original_sha256": "4caf529a6e19a2dc408f4559db2e4d418b22fcc0a71ac29fbda4d91f6800eb94"
+      },
+      "fixtures": [
+        {
+          "uri": "urn:sha256:a7972fb066aa8d7087a44427d24f1dcbe678202fdd0b313e758ed832c8157642",
+          "sha256": "a7972fb066aa8d7087a44427d24f1dcbe678202fdd0b313e758ed832c8157642",
+          "size": 491608
+        },
+        {
+          "uri": "urn:sha256:21021b9d548080730e172e453aa2f7e5e02891079e2dbbc5c94ae4b41fa5c8dd",
+          "sha256": "21021b9d548080730e172e453aa2f7e5e02891079e2dbbc5c94ae4b41fa5c8dd",
+          "size": 491608
+        },
+        {
+          "uri": "urn:sha256:65bdbfa0348da7ec9d364f34ada58741b3f3ed0a4d1e4f3bd94f6ebe68992ba3",
+          "sha256": "65bdbfa0348da7ec9d364f34ada58741b3f3ed0a4d1e4f3bd94f6ebe68992ba3",
+          "size": 589912
+        },
+        {
+          "uri": "urn:sha256:af51938e3dfa75c31766a162a1327db3baafa14becd7f8e00952423b55c58400",
+          "sha256": "af51938e3dfa75c31766a162a1327db3baafa14becd7f8e00952423b55c58400",
+          "size": 589912
+        },
+        {
+          "uri": "urn:sha256:eee3dfa149a9f14dde96df30f285f098b7b4932e7f2cbd985a0d41fdece0f40f",
+          "sha256": "eee3dfa149a9f14dde96df30f285f098b7b4932e7f2cbd985a0d41fdece0f40f",
+          "size": 688216
+        },
+        {
+          "uri": "urn:sha256:b0f7c5a56d96bf38f71a02eeb6049b7457dfed0d34ff4fb0c38b034c70cd1d74",
+          "sha256": "b0f7c5a56d96bf38f71a02eeb6049b7457dfed0d34ff4fb0c38b034c70cd1d74",
+          "size": 688216
+        },
+        {
+          "uri": "urn:sha256:fd4fdd5d93ed9098a3e0ec25c21d66737da878ce96dc57d79c9a4a4aaa6350ca",
+          "sha256": "fd4fdd5d93ed9098a3e0ec25c21d66737da878ce96dc57d79c9a4a4aaa6350ca",
+          "size": 393304
+        },
+        {
+          "uri": "urn:sha256:4fda0c7dd8788813adb9731ef9db50c9272a110965c7144de839185050eba3f1",
+          "sha256": "4fda0c7dd8788813adb9731ef9db50c9272a110965c7144de839185050eba3f1",
+          "size": 393304
+        }
+      ]
+    },
+    "definition": {
+      "path": "payload/tasks/sparse_mla/program.md",
+      "sha256": "96442c6f0ea968fc9acbfc31bf27d1ddf76323f6780bba83757695c8843d8e87",
+      "size": 3027,
+      "representation": "redacted",
+      "historical_original_sha256": "836035d87e10dd6738cc2e2ea23547fa39348040a724e691a475e5426ac5ec10"
+    },
+    "input_kind": "synthetic activations/weights with captured workload metadata where supplied"
+  },
+  "configuration": {
+    "cuda_graph": true,
+    "selected_repeat": 0,
+    "aggregation_policy": "minimum of repeated scored-case mean ratios",
+    "unscored_cases": [
+      "T48_bs8",
+      "T84_bs14"
+    ],
+    "harness": {
+      "path": "payload/tasks/sparse_mla/graph_harness.py",
+      "sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6",
+      "size": 7812,
+      "representation": "unchanged",
+      "historical_original_sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6"
+    }
+  },
+  "commands": [
+    "Stage version as sparse_mla_kernel.py beside the preserved driver and fixtures.",
+    "python driver.py",
+    "python driver.py --bench-mode"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "campaign synthetic operator cases",
+    "summary": "Historical driver gate; not the newly authored catalog reference.",
+    "tolerances": {
+      "observed_min_snr_db": 31.75,
+      "gate": {
+        "path": "payload/tasks/sparse_mla/campaign.env",
+        "sha256": "6e1db5dac63e4fc84b5a33d2aa52c1a76c428af417cd350cf83099f723334cee",
+        "size": 352,
+        "representation": "unchanged",
+        "historical_original_sha256": "6e1db5dac63e4fc84b5a33d2aa52c1a76c428af417cd350cf83099f723334cee"
+      }
+    },
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "kernel_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "T60_bs10",
+          "baseline": 0.089891,
+          "candidate": 0.031125
+        },
+        {
+          "name": "T72_bs12",
+          "baseline": 0.115826,
+          "candidate": 0.034825
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "controlled": true,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_013/publication.json",
+      "sha256": "e7be1162355239f1d603c0ddf48c89736900935219e55b8ba07b8e3089dcf4eb",
+      "size": 1030,
+      "representation": "unchanged",
+      "historical_original_sha256": "e7be1162355239f1d603c0ddf48c89736900935219e55b8ba07b8e3089dcf4eb"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_013/benchmark.json",
+      "sha256": "685c46b5cb01c86ccae73f25b2595eb1ec3a744f5ca6c2d0c2676cba87a183b7",
+      "size": 8169,
+      "representation": "unchanged",
+      "historical_original_sha256": "685c46b5cb01c86ccae73f25b2595eb1ec3a744f5ca6c2d0c2676cba87a183b7"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_013/validation.txt",
+      "sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+    "commit": "e0e55e46ee2152b588c99d18424b92f2f62de8b8",
+    "reported_mean_case_speedup": 3.1070041313855565,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

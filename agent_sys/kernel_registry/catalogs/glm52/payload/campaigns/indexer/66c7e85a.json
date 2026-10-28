@@ -1,0 +1,75 @@
+{
+  "experiment_id": "66c7e85a",
+  "task_id": "dsa_indexer_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.4665,
+  "created_at": "2026-10-21T00:35:19.986892",
+  "campaign_id": "7f34fdec4a194551897a6338501d4eb8",
+  "segment_index": 4,
+  "parent_experiment_id": "30f52f7f",
+  "status": "interrupted",
+  "started_at": "2026-10-21T00:35:19.986859",
+  "ended_at": "2026-10-21T01:44:18.770936",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {
+    "schema_version": 1,
+    "state": "best_committed",
+    "decision": "KEEP",
+    "experiment_id": "66c7e85a",
+    "base_commit": "bf8e14c593ead58da4c2d27a8ff1a9c603469693",
+    "best_commit": "0c67966ca0c60a3a7623f53084120ef915729bde",
+    "best_iteration": 6,
+    "baseline_ms": 0.4665,
+    "pristine_baseline_ms": 0.4665,
+    "search_start_ms": 0.4665,
+    "best_ms": 0.2899,
+    "mean_case_speedup": 1.566603738407256,
+    "search_start_mean_case_speedup": 1.0,
+    "improved": true,
+    "total_improved": true,
+    "incremental_improved": true,
+    "improved_during_search": true,
+    "total_speedup": 1.566603738407256,
+    "incremental_speedup": 1.566603738407256,
+    "validation_passed": true,
+    "validation_summary": "Validation Pipeline:\n  1. Full suite: PASS SNR=100.0dB\n  Verdict: ALL PASSED",
+    "snr_db": 100.0
+  },
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "timestamp": "2026-10-21T00:52:12.414229",
+      "config": {
+        "iteration": 5,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 100.0,
+      "wall_ms": 0.3395,
+      "mean_case_speedup": 1.4228020429913921,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "swizzle phase-1 program ids per XCD for L2 reuse, coarser KV split"
+    },
+    {
+      "iteration_id": 2,
+      "timestamp": "2026-10-21T01:28:32.590023",
+      "config": {
+        "iteration": 6,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 100.0,
+      "wall_ms": 0.2899,
+      "mean_case_speedup": 1.566603738407256,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "row-chunk the top-k op and hoist the K scale past the head reduction"
+    }
+  ]
+}

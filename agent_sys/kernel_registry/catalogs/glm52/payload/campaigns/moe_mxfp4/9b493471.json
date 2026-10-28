@@ -1,0 +1,59 @@
+{
+  "experiment_id": "9b493471",
+  "task_id": "moe_mxfp4_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.236,
+  "created_at": "2026-10-20T20:00:48.986681",
+  "campaign_id": "ed2b3055ef40443b81e64d144e1cf0fc",
+  "segment_index": 2,
+  "parent_experiment_id": "72cfcd3a",
+  "status": "interrupted",
+  "started_at": "2026-10-20T20:00:48.986655",
+  "ended_at": "2026-10-20T22:22:24.170327",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {
+    "schema_version": 1,
+    "state": "best_committed",
+    "decision": "KEEP",
+    "experiment_id": "9b493471",
+    "base_commit": "a88280ad46eb1c8f1e334dc35b1c342d674c8b2e",
+    "best_commit": "bfe29fde0dba9ce7ee78e4adb79a8f25b664e15f",
+    "best_iteration": 2,
+    "baseline_ms": 0.236,
+    "pristine_baseline_ms": 0.236,
+    "search_start_ms": 0.236,
+    "best_ms": 0.2261,
+    "mean_case_speedup": 1.042024634416741,
+    "search_start_mean_case_speedup": 1.0,
+    "improved": true,
+    "total_improved": true,
+    "incremental_improved": true,
+    "improved_during_search": true,
+    "total_speedup": 1.042024634416741,
+    "incremental_speedup": 1.042024634416741,
+    "validation_passed": true,
+    "validation_summary": "Validation Pipeline:\n  1. Full suite: PASS SNR=49.4dB\n  Verdict: ALL PASSED",
+    "snr_db": 49.4
+  },
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "timestamp": "2026-10-20T20:18:52.896471",
+      "config": {
+        "iteration": 2,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 49.4,
+      "wall_ms": 0.2261,
+      "mean_case_speedup": 1.042024634416741,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "key the tuned MoE config to the block_m=16 decode row"
+    }
+  ]
+}

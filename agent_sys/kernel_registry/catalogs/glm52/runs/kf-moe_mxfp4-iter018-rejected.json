@@ -1,0 +1,118 @@
+{
+  "kind": "run",
+  "name": "kf-moe_mxfp4-iter018-rejected",
+  "description": "Correct candidate reverted because it did not beat the retained best.",
+  "run_type": "microbench",
+  "timestamp": "2026-10-23T09:40:06",
+  "kernels": {
+    "moe_mxfp4": "kf-iter18-rejected"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/moe_mxfp4_kernel.py",
+      "sha256": "6a91346bca72ec4cb5f8cf1b0ca44fbc16dc2c6144f6892277d26205615cda30",
+      "size": 75175,
+      "representation": "redacted",
+      "historical_original_sha256": "c7bd6bab84f3d2b47d32d9e558501fdc72c8ae88c16981f7e4945753cfb4c1b2"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "environment": "kf-workset",
+  "baseline_environment": "kf-workset",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "path": "payload/tasks/moe_mxfp4/driver.py",
+      "sha256": "fb3d838b1a2d701e5398fb319eaeb1b7ee4db758097f7c55f9553ee670a3851f",
+      "size": 10968,
+      "representation": "redacted",
+      "historical_original_sha256": "204b5fb5d47e7b5b4b1c788ae3126afc4fd07cacf78bad11c1410d25e605e321"
+    }
+  },
+  "configuration": {
+    "decision": "REVERT_PERF"
+  },
+  "commands": [
+    "python driver.py",
+    "python driver.py --bench-mode"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "campaign synthetic operator cases",
+    "summary": "Archived validation_passed=true; rejected for performance.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "reported_kernel_speedup",
+      "unit": "ratio",
+      "direction": "lower",
+      "aggregation": "reported",
+      "reported_ratio": 1.1040674624583513
+    }
+  ],
+  "comparison": {
+    "controlled": false,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/change.diff",
+      "sha256": "1e571319a02d35d7a9cdb74d0064a45bde929b9ee894d002f270bd40d9aa60fa",
+      "size": 21872,
+      "representation": "redacted",
+      "historical_original_sha256": "c9e24f596b82e985267a9e6626151279f55cfb975e0d58598f8e6ecd12d5bc01"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/meta.json",
+      "sha256": "ba11d16454b34014a4a90bf3c1134d3d1c48366b771ef216dfd9b34bdae98a1a",
+      "size": 9863,
+      "representation": "redacted",
+      "historical_original_sha256": "73522a3cec4a9e561ca0f54fce3bead9669b04333068562e45cd9c2d046fd957"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/moe_mxfp4_kernel.py",
+      "sha256": "6a91346bca72ec4cb5f8cf1b0ca44fbc16dc2c6144f6892277d26205615cda30",
+      "size": 75175,
+      "representation": "redacted",
+      "historical_original_sha256": "c7bd6bab84f3d2b47d32d9e558501fdc72c8ae88c16981f7e4945753cfb4c1b2"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/validation.txt",
+      "sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

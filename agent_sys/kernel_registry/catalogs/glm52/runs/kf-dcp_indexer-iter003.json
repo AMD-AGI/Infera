@@ -1,0 +1,168 @@
+{
+  "kind": "run",
+  "name": "kf-dcp_indexer-iter003",
+  "description": "replace sgl fast_topk_v2 and pack with an in-file exact est/collect/select selector",
+  "run_type": "microbench",
+  "timestamp": "2026-10-23T17:12:50",
+  "kernels": {
+    "dcp_indexer": "kf-iter3-c4eb991f"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/c4eb991f117334026c3c5e5b7f845b5629eeb7e7.py",
+      "sha256": "1dc007d37efee795cb5a4cd6e463522f71cae1e30ec050fb289e45076c325631",
+      "size": 33645,
+      "representation": "unchanged",
+      "historical_original_sha256": "1dc007d37efee795cb5a4cd6e463522f71cae1e30ec050fb289e45076c325631"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/dcp_indexer/dcp_indexer_kernel.pristine.py",
+      "sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "size": 9853,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "role": "original"
+    }
+  ],
+  "environment": "kf-workset",
+  "baseline_environment": "kf-workset",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "driver": {
+        "path": "payload/tasks/dcp_indexer/driver.py",
+        "sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71",
+        "size": 9615,
+        "representation": "unchanged",
+        "historical_original_sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71"
+      },
+      "fixtures": []
+    },
+    "definition": {
+      "path": "payload/tasks/dcp_indexer/program.md",
+      "sha256": "cf5ea6a3841616d24fee23853f2e787a266d408aab01a533af99282f5a8bf3ab",
+      "size": 3193,
+      "representation": "redacted",
+      "historical_original_sha256": "f939b2a1a2e2156ff15eccc358d521098b2008bb2456e6b35d5dae02fb037026"
+    },
+    "input_kind": "synthetic activations/weights with captured workload metadata where supplied"
+  },
+  "configuration": {
+    "cuda_graph": true,
+    "selected_repeat": 1,
+    "aggregation_policy": "minimum of repeated scored-case mean ratios",
+    "unscored_cases": [
+      "T144_bs24"
+    ],
+    "harness": {
+      "path": "payload/tasks/dcp_indexer/graph_harness.py",
+      "sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6",
+      "size": 7812,
+      "representation": "unchanged",
+      "historical_original_sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6"
+    }
+  },
+  "commands": [
+    "Stage version as dcp_indexer_kernel.py beside the preserved driver and fixtures.",
+    "python driver.py",
+    "python driver.py --bench-mode"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "campaign synthetic operator cases",
+    "summary": "Historical driver gate; not the newly authored catalog reference.",
+    "tolerances": {
+      "observed_min_snr_db": 100.0,
+      "gate": {
+        "path": "payload/tasks/dcp_indexer/campaign.env",
+        "sha256": "9f629fcff3d96e736da62769064707107876b26f91aaf3e755554618111a1dc2",
+        "size": 218,
+        "representation": "unchanged",
+        "historical_original_sha256": "9f629fcff3d96e736da62769064707107876b26f91aaf3e755554618111a1dc2"
+      }
+    },
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "kernel_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "T192_bs32",
+          "baseline": 0.360494,
+          "candidate": 0.169732
+        },
+        {
+          "name": "T240_bs40",
+          "baseline": 0.374874,
+          "candidate": 0.217892
+        },
+        {
+          "name": "T288_bs48",
+          "baseline": 0.409045,
+          "candidate": 0.226682
+        },
+        {
+          "name": "T384_bs64",
+          "baseline": 0.351834,
+          "candidate": 0.252093
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "controlled": true,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_003/publication.json",
+      "sha256": "734ee33e1ea7ccc01fec11d82138f5e3ad86069169bef9d3dc2e02a7e97c823b",
+      "size": 1016,
+      "representation": "unchanged",
+      "historical_original_sha256": "734ee33e1ea7ccc01fec11d82138f5e3ad86069169bef9d3dc2e02a7e97c823b"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_003/benchmark.json",
+      "sha256": "ee8e374c7ec1beb9b39e3493832606b58db343177cbb0224cfc6b2c9f1644a50",
+      "size": 9702,
+      "representation": "unchanged",
+      "historical_original_sha256": "ee8e374c7ec1beb9b39e3493832606b58db343177cbb0224cfc6b2c9f1644a50"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_003/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "campaign": "6da76f6226b04fefa476e7c17c172932",
+    "commit": "c4eb991f117334026c3c5e5b7f845b5629eeb7e7",
+    "reported_mean_case_speedup": 1.7611247202563944,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

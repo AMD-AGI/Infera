@@ -1,0 +1,33 @@
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[2026-10-25 13:20:39] server_args={'model_path': 'REDACTED_LOCAL_PATH', 'tokenizer_path': 'REDACTED_LOCAL_PATH', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 4, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': Tr
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[2026-10-25 13:21:42 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 13:21:42 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 13:21:42 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 13:21:42 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 129.73 GB
+[2026-10-25 13:21:42 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 13:21:42 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 13:21:43 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 13:21:43 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920128, KV size: 1.93 GB
+[2026-10-25 13:22:54 DP3 TP3] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=70.71 s, mem usage=10.51 GB, avail mem=10.51 GB.
+[2026-10-25 13:22:54 DP0 TP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=70.19 s, mem usage=10.51 GB, avail mem=10.42 GB.
+[2026-10-25 13:22:54 DP2 TP2] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=70.20 s, mem usage=10.51 GB, avail mem=10.41 GB.
+[2026-10-25 13:22:54 DP1 TP1] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=70.84 s, mem usage=10.51 GB, avail mem=10.38 GB.
+[2026-10-25 13:22:59 DP0 TP0] Capture draft decode CUDA graph end. elapsed=5.48 s, mem usage=1.17 GB, avail mem=9.24 GB.
+[2026-10-25 13:23:02 DP0 TP0] Capture draft extend CUDA graph end. elapsed=2.74 s, mem usage=1.58 GB, avail mem=7.66 GB.
+[2026-10-25 13:23:02 DP0 TP0] max_total_num_tokens=2920128, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=7.66 GB
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['FUSED_INDEXER', 'INDEXER', 'MOE', 'SPARSE']

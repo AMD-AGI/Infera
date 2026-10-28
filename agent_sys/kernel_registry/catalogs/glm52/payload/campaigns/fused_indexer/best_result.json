@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_010",
+  "baseline_wall_ms": 0.1298,
+  "benchmark_path": "best/iter_010/benchmark.json",
+  "best_wall_ms": 0.0851,
+  "campaign_id": "9518d5d2429f4aacbde7bb00f881042c",
+  "changed_files": [
+    "fused_indexer_kernel.py"
+  ],
+  "commit_hash": "8dcc5a11db7a326a25a95f0850820149a31307da",
+  "correctness_passed": true,
+  "experiment_id": "c26680d9",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.399768,
+  "iteration": 10,
+  "mean_case_speedup": 1.3997678464279941,
+  "patch_path": "best/iter_010/forge.patch",
+  "plan": "Barrier-free wave-ballot top-k rank, with the cursor zeroed in n2",
+  "pristine_baseline_ms": 0.1298,
+  "published_at": "2026-10-24 23:21:48",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1298,
+  "session_index": 2,
+  "snr_db": 100.0,
+  "speedup": 1.399768,
+  "total_improved": true,
+  "total_speedup": 1.399768,
+  "validation_path": "best/iter_010/validation.txt"
+}

@@ -1,0 +1,33 @@
+=== prist
+case_snr: T12_bs2_ctx0 100.00  (identical rows 12/12, recall 1.000000, K write ok, max ctx 237730)
+case_snr: T12_bs2_ctx1 100.00  (identical rows 12/12, recall 1.000000, K write ok, max ctx 600006)
+case_snr: T24_bs4_ctx0 100.00  (identical rows 24/24, recall 1.000000, K write ok, max ctx 228714)
+case_snr: T24_bs4_ctx1 100.00  (identical rows 24/24, recall 1.000000, K write ok, max ctx 171065)
+case_snr: T36_bs6_ctx0 100.00  (identical rows 36/36, recall 1.000000, K write ok, max ctx 406141)
+case_snr: T36_bs6_ctx1 100.00  (identical rows 36/36, recall 1.000000, K write ok, max ctx 423641)
+case_snr: T48_bs8_ctx0 100.00  (identical rows 48/48, recall 1.000000, K write ok, max ctx 533809)
+case_snr: T48_bs8_ctx1 100.00  (identical rows 48/48, recall 1.000000, K write ok, max ctx 600006)
+SNR: 100.00 dB
+allclose: True
+case_ms: T12_bs2 0.050850
+case_ms: T24_bs4 0.087051
+case_ms: T36_bs6 0.131171
+case_ms: T48_bs8 0.164512
+median_ms: 0.103551
+=== kf
+case_snr: T12_bs2_ctx0 100.00  (identical rows 12/12, recall 1.000000, K write ok, max ctx 237730)
+case_snr: T12_bs2_ctx1 100.00  (identical rows 12/12, recall 1.000000, K write ok, max ctx 600006)
+case_snr: T24_bs4_ctx0 100.00  (identical rows 24/24, recall 1.000000, K write ok, max ctx 228714)
+case_snr: T24_bs4_ctx1 100.00  (identical rows 24/24, recall 1.000000, K write ok, max ctx 171065)
+case_snr: T36_bs6_ctx0 100.00  (identical rows 36/36, recall 1.000000, K write ok, max ctx 406141)
+case_snr: T36_bs6_ctx1 100.00  (identical rows 36/36, recall 1.000000, K write ok, max ctx 423641)
+case_snr: T48_bs8_ctx0 100.00  (identical rows 48/48, recall 1.000000, K write ok, max ctx 533809)
+case_snr: T48_bs8_ctx1 100.00  (identical rows 48/48, recall 1.000000, K write ok, max ctx 600006)
+SNR: 100.00 dB
+allclose: True
+case_ms: T12_bs2 0.043371
+case_ms: T24_bs4 0.070711
+case_ms: T36_bs6 0.089451
+case_ms: T48_bs8 0.112011
+median_ms: 0.076192
+exit 0

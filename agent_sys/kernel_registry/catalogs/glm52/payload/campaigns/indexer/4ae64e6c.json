@@ -1,0 +1,59 @@
+{
+  "experiment_id": "4ae64e6c",
+  "task_id": "dsa_indexer_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.4665,
+  "created_at": "2026-10-20T20:00:49.556109",
+  "campaign_id": "7f34fdec4a194551897a6338501d4eb8",
+  "segment_index": 2,
+  "parent_experiment_id": "53e44933",
+  "status": "interrupted",
+  "started_at": "2026-10-20T20:00:49.556061",
+  "ended_at": "2026-10-20T22:22:27.130581",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {
+    "schema_version": 1,
+    "state": "best_committed",
+    "decision": "KEEP",
+    "experiment_id": "4ae64e6c",
+    "base_commit": "bf8e14c593ead58da4c2d27a8ff1a9c603469693",
+    "best_commit": "45c61dbec529b01c735d60d0f7c837abcf350682",
+    "best_iteration": 2,
+    "baseline_ms": 0.4665,
+    "pristine_baseline_ms": 0.4665,
+    "search_start_ms": 0.4665,
+    "best_ms": 0.417,
+    "mean_case_speedup": 1.111844705365494,
+    "search_start_mean_case_speedup": 1.0,
+    "improved": true,
+    "total_improved": true,
+    "incremental_improved": true,
+    "improved_during_search": true,
+    "total_speedup": 1.111844705365494,
+    "incremental_speedup": 1.111844705365494,
+    "validation_passed": true,
+    "validation_summary": "Validation Pipeline:\n  1. Full suite: PASS SNR=100.0dB\n  Verdict: ALL PASSED",
+    "snr_db": 100.0
+  },
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "timestamp": "2026-10-20T20:15:50.998726",
+      "config": {
+        "iteration": 2,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 100.0,
+      "wall_ms": 0.417,
+      "mean_case_speedup": 1.111844705365494,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "finer KV split granularity to balance the logits kernel's makespan"
+    }
+  ]
+}

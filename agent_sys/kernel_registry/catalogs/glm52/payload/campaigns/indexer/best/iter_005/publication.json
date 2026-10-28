@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_005",
+  "baseline_wall_ms": 0.4665,
+  "benchmark_path": "best/iter_005/benchmark.json",
+  "best_wall_ms": 0.3395,
+  "campaign_id": "7f34fdec4a194551897a6338501d4eb8",
+  "changed_files": [
+    "dsa_indexer_kernel.py"
+  ],
+  "commit_hash": "16332ab8394240b42e68f61846dd8d39751ce1ee",
+  "correctness_passed": true,
+  "experiment_id": "66c7e85a",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.422802,
+  "iteration": 5,
+  "mean_case_speedup": 1.4228020429913921,
+  "patch_path": "best/iter_005/forge.patch",
+  "plan": "swizzle phase-1 program ids per XCD for L2 reuse, coarser KV split",
+  "pristine_baseline_ms": 0.4665,
+  "published_at": "2026-10-21 00:52:12",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.4665,
+  "session_index": 4,
+  "snr_db": 100.0,
+  "speedup": 1.422802,
+  "total_improved": true,
+  "total_speedup": 1.422802,
+  "validation_path": "best/iter_005/validation.txt"
+}

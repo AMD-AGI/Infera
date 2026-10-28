@@ -6,7 +6,8 @@
 # Third-party patches must match upstream byte-for-byte; never reformat them
 # (trailing whitespace on diff context lines is significant — trimming breaks
 # `git apply`). Covers both .patch and .diff (e.g. patches/mooncake_cpp/*.diff).
-exclude: ^deploy/docker/patches/.*\.(patch|diff)$
+# Kernel catalog payloads are archived evidence with recorded byte hashes.
+exclude: ^(deploy/docker/patches/.*\.(patch|diff)$|agent_sys/kernel_registry/catalogs/[^/]+/payload/)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

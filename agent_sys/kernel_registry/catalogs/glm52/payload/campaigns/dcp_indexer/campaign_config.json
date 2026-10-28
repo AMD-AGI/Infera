@@ -1,0 +1,38 @@
+{
+  "base_commit": "c0b1250962383cac6c9881489b89075ca4984ed3",
+  "bench_repeat": 1,
+  "driver_path": "driver.py",
+  "driver_sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71",
+  "framework": "unknown",
+  "gpu_target": "gfx950",
+  "gpu_type": "mi355x",
+  "implementation_identity": {
+    "implementation_symbols": [
+      "_merge_candidates_kernel",
+      "_pack_candidates_kernel"
+    ],
+    "source_paths": [
+      "dcp_indexer_kernel.py"
+    ]
+  },
+  "implementation_signature": "e54863af85bba9c37d06fbb43932259b1a43249d8dd63547bbb0fdc55b2f69f8",
+  "kernel_path": "dcp_indexer_kernel.py",
+  "nproc_per_node": 1,
+  "operator_name": "_pack_candidates_kernel",
+  "program_md_path": "forge_experiments/program.md",
+  "program_md_sha256": "f939b2a1a2e2156ff15eccc358d521098b2008bb2456e6b35d5dae02fb037026",
+  "schema_version": 6,
+  "snr_threshold": 60.0,
+  "source_files": [
+    "dcp_indexer_kernel.py"
+  ],
+  "target_functions": [
+    "dcp_indexer_topk",
+    "_aiter_paged_mqa_logits",
+    "pack_candidates_triton",
+    "_pack_candidates_kernel",
+    "merge_candidates_triton",
+    "_merge_candidates_kernel"
+  ],
+  "task_type": ""
+}

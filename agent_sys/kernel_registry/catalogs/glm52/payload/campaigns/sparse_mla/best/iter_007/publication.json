@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_007",
+  "baseline_wall_ms": 0.1151,
+  "benchmark_path": "best/iter_007/benchmark.json",
+  "best_wall_ms": 0.0519,
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "changed_files": [
+    "sparse_mla_kernel.py"
+  ],
+  "commit_hash": "50d4a7612eff3e6bf8f34a76252bfe9982564b27",
+  "correctness_passed": true,
+  "experiment_id": "a657e8c6",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 2.104057,
+  "iteration": 7,
+  "mean_case_speedup": 2.104057173749298,
+  "patch_path": "best/iter_007/forge.patch",
+  "plan": "widen the split-K value group to 256 with a two-stage pipeline and blocked reduce",
+  "pristine_baseline_ms": 0.1151,
+  "published_at": "2026-10-21 01:15:50",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1151,
+  "session_index": 6,
+  "snr_db": 37.42,
+  "speedup": 2.104057,
+  "total_improved": true,
+  "total_speedup": 2.104057,
+  "validation_path": "best/iter_007/validation.txt"
+}

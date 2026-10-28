@@ -1,0 +1,45 @@
+{
+  "kind": "environment",
+  "name": "kf-workset",
+  "description": "Historical environment imported from retained evidence; not captured anew.",
+  "container": {
+    "image": null,
+    "digest": null
+  },
+  "hardware": {
+    "device": "AMD Instinct MI355X",
+    "architecture": "gfx950",
+    "count": null,
+    "driver": null
+  },
+  "system": {
+    "os": null,
+    "kernel": null,
+    "python": null
+  },
+  "packages": {},
+  "repositories": [],
+  "evidence": [
+    {
+      "path": "payload/tasks/sparse_mla/program.md",
+      "sha256": "96442c6f0ea968fc9acbfc31bf27d1ddf76323f6780bba83757695c8843d8e87",
+      "size": 3027,
+      "representation": "redacted",
+      "historical_original_sha256": "836035d87e10dd6738cc2e2ea23547fa39348040a724e691a475e5426ac5ec10"
+    }
+  ],
+  "missing": [
+    "Full benchmark-time package inventory",
+    "Host driver/OS/Python capture",
+    "Timestamp timezone was not recorded",
+    "External input availability",
+    "Per-campaign immutable image identity and software stack"
+  ],
+  "provenance": {
+    "import_method": "Archived task and runtime records",
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

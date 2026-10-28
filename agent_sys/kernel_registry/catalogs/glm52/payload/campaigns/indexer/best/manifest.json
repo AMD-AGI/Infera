@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_015",
+  "baseline_wall_ms": 0.4665,
+  "benchmark_path": "best/iter_015/benchmark.json",
+  "best_wall_ms": 0.1352,
+  "campaign_id": "7f34fdec4a194551897a6338501d4eb8",
+  "changed_files": [
+    "dsa_indexer_kernel.py"
+  ],
+  "commit_hash": "c2cacf5fa10cab2ad1b560d41ced0ba3f03288db",
+  "correctness_passed": true,
+  "experiment_id": "892a86be",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 3.153284,
+  "iteration": 15,
+  "mean_case_speedup": 3.153284170564734,
+  "patch_path": "best/iter_015/forge.patch",
+  "plan": "sibling-pair fused phase-1 kernel sharing K loads, longest-group-first dispatch, SplitKV 64",
+  "pristine_baseline_ms": 0.4665,
+  "published_at": "2026-10-21 10:16:15",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.4665,
+  "session_index": 6,
+  "snr_db": 100.0,
+  "speedup": 3.153284,
+  "total_improved": true,
+  "total_speedup": 3.153284,
+  "validation_path": "best/iter_015/validation.txt"
+}

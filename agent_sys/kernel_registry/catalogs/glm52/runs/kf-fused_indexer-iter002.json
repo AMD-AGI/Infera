@@ -1,0 +1,166 @@
+{
+  "kind": "run",
+  "name": "kf-fused_indexer-iter002",
+  "description": "lower n4 topk blocks-per-row from 64 to 48",
+  "run_type": "microbench",
+  "timestamp": "2026-10-24T12:10:07",
+  "kernels": {
+    "fused_indexer": "kf-iter2-dfe25166"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/fused_indexer/sources/dfe2516666890d84e9eab078e602d496c5141f97.py",
+      "sha256": "abb4a80179fd47a4ff2399542cf27bd1d57b0f90ca1f27b583148fc6dbd1f019",
+      "size": 92563,
+      "representation": "unchanged",
+      "historical_original_sha256": "abb4a80179fd47a4ff2399542cf27bd1d57b0f90ca1f27b583148fc6dbd1f019"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/fused_indexer/fused_indexer_kernel.pristine.py",
+      "sha256": "2641730c3d3392da2bc36dca470cd8d7d81f6e34ade2269c8692bb7e8c5bf0e6",
+      "size": 85472,
+      "representation": "unchanged",
+      "historical_original_sha256": "2641730c3d3392da2bc36dca470cd8d7d81f6e34ade2269c8692bb7e8c5bf0e6",
+      "role": "original"
+    }
+  ],
+  "environment": "kf-workset",
+  "baseline_environment": "kf-workset",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "driver": {
+        "path": "payload/tasks/fused_indexer/driver.py",
+        "sha256": "3c83bf554c10eb343ed2391d2bab61ff1820ce3e714c3343fe1d6069ae407863",
+        "size": 11214,
+        "representation": "redacted",
+        "historical_original_sha256": "1680a017c24c59c41cd43e5cbed4ae36a7fbb6be3093744de2bfe518e1b16ce7"
+      },
+      "fixtures": []
+    },
+    "definition": {
+      "path": "payload/tasks/fused_indexer/program.md",
+      "sha256": "1fccd5e56f11c53e156f630af72affc207c54ac5b8bc0d7ee2e7c162673d76a6",
+      "size": 3265,
+      "representation": "redacted",
+      "historical_original_sha256": "9e6071d01b1d5072483ac3d2185fc5993a9fcf214d72a9547f2f3d06be415b7f"
+    },
+    "input_kind": "synthetic activations/weights with captured workload metadata where supplied"
+  },
+  "configuration": {
+    "cuda_graph": true,
+    "selected_repeat": 1,
+    "aggregation_policy": "minimum of repeated scored-case mean ratios",
+    "unscored_cases": [],
+    "harness": {
+      "path": "payload/tasks/fused_indexer/graph_harness.py",
+      "sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6",
+      "size": 7812,
+      "representation": "unchanged",
+      "historical_original_sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6"
+    }
+  },
+  "commands": [
+    "Stage version as fused_indexer_kernel.py beside the preserved driver and fixtures.",
+    "python driver.py",
+    "python driver.py --bench-mode"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "campaign synthetic operator cases",
+    "summary": "Historical driver gate; not the newly authored catalog reference.",
+    "tolerances": {
+      "observed_min_snr_db": 100.0,
+      "gate": {
+        "path": "payload/tasks/fused_indexer/campaign.env",
+        "sha256": "325e85cb7e3fc500bd7921e4fb5303e900977ad0907f13a9c39613ab6a43e43f",
+        "size": 205,
+        "representation": "unchanged",
+        "historical_original_sha256": "325e85cb7e3fc500bd7921e4fb5303e900977ad0907f13a9c39613ab6a43e43f"
+      }
+    },
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "kernel_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "T12_bs2",
+          "baseline": 0.05097,
+          "candidate": 0.04358
+        },
+        {
+          "name": "T24_bs4",
+          "baseline": 0.086381,
+          "candidate": 0.071101
+        },
+        {
+          "name": "T36_bs6",
+          "baseline": 0.130792,
+          "candidate": 0.102551
+        },
+        {
+          "name": "T48_bs8",
+          "baseline": 0.164742,
+          "candidate": 0.137632
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "controlled": true,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/campaigns/fused_indexer/best/iter_002/publication.json",
+      "sha256": "be4dd29d427ed57417e1870597e028909bb8047839a5bbe4f63770bc775b3413",
+      "size": 977,
+      "representation": "unchanged",
+      "historical_original_sha256": "be4dd29d427ed57417e1870597e028909bb8047839a5bbe4f63770bc775b3413"
+    },
+    {
+      "path": "payload/campaigns/fused_indexer/best/iter_002/benchmark.json",
+      "sha256": "2b6b2eea349dd07be34fac8d150e6262df65708337f48390da7d6d1d82db1cc0",
+      "size": 7985,
+      "representation": "unchanged",
+      "historical_original_sha256": "2b6b2eea349dd07be34fac8d150e6262df65708337f48390da7d6d1d82db1cc0"
+    },
+    {
+      "path": "payload/campaigns/fused_indexer/best/iter_002/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "campaign": "9518d5d2429f4aacbde7bb00f881042c",
+    "commit": "dfe2516666890d84e9eab078e602d496c5141f97",
+    "reported_mean_case_speedup": 1.2142095567070506,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

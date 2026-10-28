@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_001",
+  "baseline_wall_ms": 0.361,
+  "benchmark_path": "best/iter_001/benchmark.json",
+  "best_wall_ms": 0.2591,
+  "campaign_id": "6da76f6226b04fefa476e7c17c172932",
+  "changed_files": [
+    "dcp_indexer_kernel.py"
+  ],
+  "commit_hash": "3ca74a30e3f8e03fbff53466cf98e02d6b5ffefa",
+  "correctness_passed": true,
+  "experiment_id": "61fc2505",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.488407,
+  "iteration": 1,
+  "mean_case_speedup": 1.48840694583486,
+  "patch_path": "best/iter_001/forge.patch",
+  "plan": "按长度均衡调度 logits，并用单个精确合并 kernel 取代拼接加旧合并",
+  "pristine_baseline_ms": 0.361,
+  "published_at": "2026-10-23 14:16:42",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.361,
+  "session_index": 1,
+  "snr_db": 100.0,
+  "speedup": 1.488407,
+  "total_improved": true,
+  "total_speedup": 1.488407,
+  "validation_path": "best/iter_001/validation.txt"
+}

@@ -1,0 +1,113 @@
+{
+  "kind": "run",
+  "name": "e2e-kde1-A1-interrupted",
+  "description": "DCP indexer-only serving run stopped before aiperf exported complete JSON.",
+  "run_type": "e2e",
+  "timestamp": "",
+  "kernels": {
+    "dcp_indexer": "kf-iter4-09f754e5"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/09f754e5cd4b991ffe611aa0e86cdde3065a9119.py",
+      "sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7",
+      "size": 49283,
+      "representation": "unchanged",
+      "historical_original_sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/dcp_indexer/dcp_indexer_kernel.pristine.py",
+      "sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "size": 9853,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-a",
+  "baseline_environment": "historical-stack-a",
+  "integration": [
+    {
+      "path": "payload/overlay/base/sitecustomize.py",
+      "sha256": "9217285da2948b375a5642269afab11ca00be06cc6a4854230a92b422c0c6bea",
+      "size": 765,
+      "representation": "redacted",
+      "historical_original_sha256": "862246a2022e8b4e4004113b03253c0736e9478917eb3db21d5e5ee195e4245d"
+    },
+    {
+      "path": "payload/overlay/base/infera_kernels/__init__.py",
+      "sha256": "8a1c7a7e76747c30d86b4b378e18db99c5ee66f031f704759386edb02c24011c",
+      "size": 28643,
+      "representation": "redacted",
+      "historical_original_sha256": "a3579ef40301704a34bcefaf395ac078c10d095f56c7b60884818e44a808d1b8"
+    }
+  ],
+  "workload": {
+    "input_identity": "AgentX serving trace",
+    "concurrency": 56,
+    "model_identity": null
+  },
+  "configuration": {
+    "topology": "DCP4",
+    "enabled": "DCP indexer only"
+  },
+  "commands": [
+    "Historical serving harness; exact invocation not captured in this record."
+  ],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "full-model",
+    "summary": "No full-model correctness result accompanies this performance observation.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [],
+  "comparison": {
+    "controlled": false,
+    "confounders": []
+  },
+  "activation": "confirmed",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/results/summary.tsv",
+      "sha256": "8015f8ffe060fcb198dee01b0e1e8d1b16d731d701ee8eac054c8f88f2123101",
+      "size": 1353,
+      "representation": "redacted",
+      "historical_original_sha256": "9c715a70dc54d12e367db375c7403b9b89c43b656732ab4fcbd9d799d8d4641a"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/notes.md",
+      "sha256": "f4d4b0f5da765ced941d752c2fe07d18a3451028db35dfa468365d2f64f03f82",
+      "size": 3622,
+      "representation": "redacted",
+      "historical_original_sha256": "c352759e43db25a64969d1b22248c9a3c2f470f59b3e3e177df623134906d11c"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Interrupted run: no complete throughput export or full-model correctness result.",
+    "Known real-input DCP indexer mismatch is recorded separately.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": {
+    "tpot_mean_ms": 21.51,
+    "score_tokens_s_chip": null
+  },
+  "source_bytes": "redacted"
+}

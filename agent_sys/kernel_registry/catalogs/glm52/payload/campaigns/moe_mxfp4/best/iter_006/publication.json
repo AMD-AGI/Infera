@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_006",
+  "baseline_wall_ms": 0.236,
+  "benchmark_path": "best/iter_006/benchmark.json",
+  "best_wall_ms": 0.2232,
+  "campaign_id": "ed2b3055ef40443b81e64d144e1cf0fc",
+  "changed_files": [
+    "moe_mxfp4_kernel.py"
+  ],
+  "commit_hash": "ef07a75c85909d92b066baa48d36a2826177ddab",
+  "correctness_passed": true,
+  "experiment_id": "dd67eaf8",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.059421,
+  "iteration": 6,
+  "mean_case_speedup": 1.0594211678083265,
+  "patch_path": "best/iter_006/forge.patch",
+  "plan": "use the fused single-kernel prologue sort and retune gemm2 tile partitioner",
+  "pristine_baseline_ms": 0.236,
+  "published_at": "2026-10-21 02:17:20",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.236,
+  "session_index": 5,
+  "snr_db": 49.25,
+  "speedup": 1.059421,
+  "total_improved": true,
+  "total_speedup": 1.059421,
+  "validation_path": "best/iter_006/validation.txt"
+}

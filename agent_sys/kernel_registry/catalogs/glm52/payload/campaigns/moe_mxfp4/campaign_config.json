@@ -1,0 +1,31 @@
+{
+  "base_commit": "a88280ad46eb1c8f1e334dc35b1c342d674c8b2e",
+  "bench_repeat": 1,
+  "driver_path": "driver.py",
+  "driver_sha256": "204b5fb5d47e7b5b4b1c788ae3126afc4fd07cacf78bad11c1410d25e605e321",
+  "framework": "unknown",
+  "gpu_target": "gfx950",
+  "gpu_type": "mi355x",
+  "implementation_identity": {
+    "implementation_symbols": [],
+    "source_paths": [
+      "moe_mxfp4_kernel.py"
+    ]
+  },
+  "implementation_signature": "7bd8b82f9c5c75351fc29d90172c3225e06c83b307abe041e21ff5554e645910",
+  "kernel_path": "moe_mxfp4_kernel.py",
+  "nproc_per_node": 1,
+  "operator_name": "glm52_moe_mxfp4",
+  "program_md_path": "forge_experiments/program.md",
+  "program_md_sha256": "071cfc0f20456456c353f7c529bb910debfa8ff7ee9e765c3fea9512f952d851",
+  "schema_version": 6,
+  "snr_threshold": 30.0,
+  "source_files": [
+    "moe_mxfp4_kernel.py"
+  ],
+  "target_functions": [
+    "glm52_moe_mxfp4",
+    "prepare_weights"
+  ],
+  "task_type": ""
+}

@@ -1,0 +1,44 @@
+{
+  "kind": "environment",
+  "name": "historical-stack-c",
+  "description": "Historical environment imported from retained evidence; not captured anew.",
+  "container": {
+    "image": "historical-sglang-image-c",
+    "digest": "sha256:1b78f7ccce06ef9fce39818a6d6536213db290f64fb5864eeb269956f89f27e6"
+  },
+  "hardware": {
+    "device": "AMD Instinct MI355X",
+    "architecture": "gfx950",
+    "count": null,
+    "driver": null
+  },
+  "system": {
+    "os": null,
+    "kernel": null,
+    "python": null
+  },
+  "packages": {},
+  "repositories": [],
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.ppda-pp4-dpa4-kf.packup_20261023/results/rounds/ppda2/audit.txt",
+      "sha256": "db8ac47bcfe7a3007b1187f728074e74e6437549c3d953ec7d478d4ce9e33924",
+      "size": 6764,
+      "representation": "redacted",
+      "historical_original_sha256": "e73e0a019738997e919439d473b94ca0e6a80089571a52489fe559e93add891d"
+    }
+  ],
+  "missing": [
+    "Full benchmark-time package inventory",
+    "Host driver/OS/Python capture",
+    "Timestamp timezone was not recorded",
+    "External input availability"
+  ],
+  "provenance": {
+    "import_method": "Archived task and runtime records",
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

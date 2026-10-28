@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_008",
+  "baseline_wall_ms": 0.236,
+  "benchmark_path": "best/iter_008/benchmark.json",
+  "best_wall_ms": 0.2142,
+  "campaign_id": "ed2b3055ef40443b81e64d144e1cf0fc",
+  "changed_files": [
+    "moe_mxfp4_kernel.py"
+  ],
+  "commit_hash": "5536f6c922880db39df57a0d95914352f53bd66e",
+  "correctness_passed": true,
+  "experiment_id": "adc2b6a1",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.096951,
+  "iteration": 8,
+  "mean_case_speedup": 1.0969509102710278,
+  "patch_path": "best/iter_008/forge.patch",
+  "plan": "replace aiter's single-CTA prologue sort with a multi-CTA HIP sort-and-zero kernel",
+  "pristine_baseline_ms": 0.236,
+  "published_at": "2026-10-21 06:49:50",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.236,
+  "session_index": 6,
+  "snr_db": 49.26,
+  "speedup": 1.096951,
+  "total_improved": true,
+  "total_speedup": 1.096951,
+  "validation_path": "best/iter_008/validation.txt"
+}

@@ -1,0 +1,135 @@
+{
+  "kind": "run",
+  "name": "target-v0522-dcp_indexer",
+  "description": "Archived target-image pristine versus candidate graph benchmark.",
+  "run_type": "microbench",
+  "timestamp": "",
+  "kernels": {
+    "dcp_indexer": "kf-iter4-09f754e5"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/09f754e5cd4b991ffe611aa0e86cdde3065a9119.py",
+      "sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7",
+      "size": 49283,
+      "representation": "unchanged",
+      "historical_original_sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/dcp_indexer/dcp_indexer_kernel.pristine.py",
+      "sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "size": 9853,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-a",
+  "baseline_environment": "historical-stack-a",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "path": "payload/tasks/dcp_indexer/driver.py",
+      "sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71",
+      "size": 9615,
+      "representation": "unchanged",
+      "historical_original_sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71"
+    },
+    "input_kind": "synthetic"
+  },
+  "configuration": {
+    "cuda_graph": true
+  },
+  "commands": [
+    "python driver.py",
+    "python driver.py --bench-mode"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "operator synthetic cases in target image",
+    "summary": "Both retained sections report allclose=True; exact gate remains in the driver.",
+    "tolerances": {
+      "driver": {
+        "path": "payload/tasks/dcp_indexer/driver.py",
+        "sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71",
+        "size": 9615,
+        "representation": "unchanged",
+        "historical_original_sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71"
+      }
+    },
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "scored_case_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "T192_bs32",
+          "baseline": 0.359735,
+          "candidate": 0.134662
+        },
+        {
+          "name": "T240_bs40",
+          "baseline": 0.376085,
+          "candidate": 0.154532
+        },
+        {
+          "name": "T288_bs48",
+          "baseline": 0.411075,
+          "candidate": 0.168102
+        },
+        {
+          "name": "T384_bs64",
+          "baseline": 0.349485,
+          "candidate": 0.173392
+        }
+      ]
+    },
+    {
+      "name": "driver_median_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "ratio",
+      "baseline": 0.331902,
+      "candidate": 0.141328
+    }
+  ],
+  "comparison": {
+    "controlled": true,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/results/dcpk.v0522.compute-node-05.log",
+      "sha256": "5ab50754569a28ae483db85cf855b4eb1b5c25047acd90bafb43e41937536fba",
+      "size": 3761,
+      "representation": "unchanged",
+      "historical_original_sha256": "5ab50754569a28ae483db85cf855b4eb1b5c25047acd90bafb43e41937536fba"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}
