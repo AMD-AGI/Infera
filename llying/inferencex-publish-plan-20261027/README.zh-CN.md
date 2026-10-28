@@ -69,6 +69,12 @@
 | AMD-AGI/Infera `llying/sglang-explicit-kv-events-config`（基于 main `319444f8`） | `47617d7a`，**已提 [Infera #222](https://github.com/AMD-AGI/Infera/pull/222)**（10-28） | 包装层沿用外部传入的 `--kv-events-config` 端口，不再自己找端口追加（srt-slurm 统一分配端口的规则要求）；外部没传时行为不变，仍按 DP rank 数自己分配 | `tests/unit/engine`、`tests/unit/kv` 504 项通过，ruff 通过 |
 | SemiAnalysisAI/InferenceX `llying/infera-sglang`（基于 main `253c38bf`，未推送） | `b3ce1f50`、`6da9055d` | `infera-sglang` 映射到 sglang；`infera-sglang.sh` 从 GitHub release 装 `amd-infera`（`--no-deps`，只补 `nats-py`）并登记进 `INSTALLERS`。骨架（以 #210 配置为底）：master 条目 `glm5.2-fp4-mi355x-infera-sglang-agentic-disagg`（nightly 20261018 按 digest 固定、`router: infera-router 0.3.2`、`dram-utilization: 0.85`）、recipe `glm5.2/infera-sglang/mi355x-fp4/agentx/disagg-variants.yaml`（1P1D 8 卡 decode C32/48/64/88、4+4 C64/80、2P1D C176）、perf-changelog（`pr-link` 用 XXX 占位）、`runners/srt-slurm/patches/630-infera-frontend.patch` | infx 全量测试失败名单与 main 一致、新增 3 项通过；补丁能叠加打在固定的 srt-slurm `ae3d6877` 上，infera 测试在该版本上通过；临时打补丁后 `infx generate` 生成并校验 7 个点，绑定结果正确（模型、镜像 digest、`ROUTER_VERSION`、模拟接受率 3.61、网卡引用） |
 
+| sgl-project/sglang `llying/cookbook-glm52-mi355x-infera-pd`（fork 在 llying-001） | `a6f902f5`，**Draft [sglang#47117](https://github.com/sgl-project/sglang/pull/47117)**（10-28） | GLM-5.2 cookbook 新增 §3.6"MI355X 上用 Infera router 的 PD 分离"：镜像与安装、三种形态、etcd / 环境变量 / prefill / decode / router 的完整命令、关键设置的原因；Note 列出原样镜像仍需的 #21194、#46830、#33059、#46820 | Draft 条件：Infera 0.3.2 发版、原样镜像实测、InferenceX PR 提交后补链接 |
+| SemiAnalysisAI/InferenceX-app `llying/infera-sglang-label`（fork 在 llying-001） | `4aa97624`，**Draft [InferenceX-app#1542](https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542)**（10-28） | `FW_REGISTRY` 加 `'infera-sglang': { label: 'Infera SGLang' }` 和测试，照 TileRT #697；标题、提交、描述按该仓库要求双语并附 AI 披露 | constants 包测试通过；InferenceX PR 提交后转 Ready |
+
+- **cookbook 的发现（10-28）**：GLM-5.2 页面的 "Agentic Long-Context Deployment" 一节是 NVIDIA 的同步脚本（sa-infx-cookbook，不在 SGLang 仓库里）从 InferenceX recipe 自动生成的，只覆盖 NVIDIA 硬件，渲染组件也只认 Dynamo / sglang-router，不能手改。
+  AMD 的先例是在 "Advanced Usage" 里手写章节（DeepSeek-V4 页 §3.7 MI355X PD），所以我们写成 §3.6。SGLang 维护者是否接受文档化第三方 router 仍是风险（G2）。
+
 依赖：srt-slurm 的 infera frontend 需要 Infera 带上 #222 的版本（文档写的是 amd-infera 0.3.2 或更新），要和同事的 v0.3.2 发版对齐。
 
 - **与 Infera 版本的兼容性**：srt-slurm 把 `frontend.args` 原样传给 `infera-router`，以后新增的 router 策略和参数直接写在 recipe 里，srt-slurm 不用改；
