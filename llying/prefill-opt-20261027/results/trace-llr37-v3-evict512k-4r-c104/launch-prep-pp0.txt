@@ -1,0 +1,10 @@
+121 run_batch calls, 114075 kernel launches on the scheduler thread
+run_batch -> first kernel launch: median 0.3 mean 0.3 ms; run_batch total median 73.3 mean 101.8 ms (120 steps)
+python frames inside that interval (> 0.5 ms each; nested frames overlap, ms per step):
+     0.04 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py(1350): forward_batch_generation
+     0.04 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py(1482): _forward_prefill_batch
+     0.04 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/managers/tp_worker.py(603): forward_batch_generation
+     0.04 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/model_executor/forward_batch_info.py(944): init_new
+     0.01 ms/step  x  0.0/step  /sgl-workspace/sglang/python/sglang/srt/disaggregation/prefill.py(1432): maybe_send_cached_prefix_chunk
+     0.01 ms/step  x  0.0/step  /sgl-workspace/sglang/python/sglang/srt/disaggregation/prefill.py(1469): send_kv_chunk
+     0.01 ms/step  x  0.0/step  /sgl-workspace/sglang/python/sglang/srt/disaggregation/prefill.py(1488): _send_kv_chunk

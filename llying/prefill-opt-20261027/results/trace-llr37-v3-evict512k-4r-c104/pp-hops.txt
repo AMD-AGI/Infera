@@ -1,0 +1,10 @@
+102 steps with GPU spans on all 4 ranks (gaps < 5000 ms)
+PP0 GPU step: median  254.2 mean  259.6 ms
+PP1 GPU step: median  243.2 mean  245.3 ms
+PP2 GPU step: median  245.9 mean  248.3 ms
+PP3 GPU step: median  252.1 mean  252.6 ms
+hop PP0->PP1: hop p50   82.8 mean  232.5 p90  544.8 | late p50  -95.6 mean  -87.6 p90  -18.4 | wait p50   11.0 mean  182.2 p90  995.6 | prep p50  129.6 mean  163.0 p90  316.5
+hop PP1->PP2: hop p50   43.2 mean  217.8 p90  534.2 | late p50 -137.3 mean -133.8 p90  -70.3 | wait p50   50.3 mean  322.8 p90 1098.7 | prep p50   98.2 mean  117.0 p90  189.7
+hop PP2->PP3: hop p50   53.0 mean  125.6 p90  318.5 | late p50 -133.5 mean -132.9 p90  -77.0 | wait p50    9.8 mean  129.1 p90  665.1 | prep p50  138.8 mean  126.3 p90  208.7
+closure PP3 step i end -> PP0 step i+5 start:  p50  616.9 mean  799.9 p90 1430.8
+PP0 beat (GPU start to start):  p50  344.7 mean  484.2 p90  920.6

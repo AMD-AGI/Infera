@@ -1,0 +1,8 @@
+121 run_batch calls, 104282 kernel launches on the scheduler thread
+run_batch -> first kernel launch: median 0.2 mean 0.3 ms; run_batch total median 87.3 mean 149.4 ms (120 steps)
+python frames inside that interval (> 0.5 ms each; nested frames overlap, ms per step):
+     0.07 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py(1350): forward_batch_generation
+     0.07 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/speculative/eagle_worker_v2.py(1482): _forward_prefill_batch
+     0.06 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/managers/tp_worker.py(603): forward_batch_generation
+     0.06 ms/step  x  0.1/step  /sgl-workspace/sglang/python/sglang/srt/model_executor/forward_batch_info.py(944): init_new
+     0.02 ms/step  x  0.0/step  <built-in method to of Tensor object at 0x76b642f98090>
