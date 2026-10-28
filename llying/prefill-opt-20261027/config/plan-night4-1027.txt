@@ -1,3 +1,2 @@
 llr37-v3-hc500-evict512k /home/liyingli/bench_agentx/baseline/Infera/llying/prefill-opt-20261027/config/site-llr35-v3-hc500-evict512k.env 104
 llr37-v3-evict512k-r2 /home/liyingli/bench_agentx/baseline/Infera/llying/prefill-opt-20261027/config/site-llr35-v3-evict512k.env 104
-llr37-v3-evict1m /home/liyingli/bench_agentx/baseline/Infera/llying/prefill-opt-20261027/config/site-llr35-v3-evict512k.env 104 EVICT_HEADROOM=1048576
