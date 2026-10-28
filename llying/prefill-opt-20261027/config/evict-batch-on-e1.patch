@@ -1,5 +1,5 @@
 --- unified_radix_cache.e1.py	2026-10-28 21:52:21.108496839 +0000
-+++ unified_radix_cache.py	2026-10-28 21:52:46.644844047 +0000
++++ unified_radix_cache.py	2026-10-28 23:35:29.735190088 +0000
 @@ -156,6 +156,7 @@
  logger = logging.getLogger(__name__)
  
@@ -8,69 +8,137 @@
  
  
  class _OngoingWriteThrough(NamedTuple):
-@@ -991,12 +992,43 @@
-                     request_cnt, tracker[ct] + self.tree_core.full_evictable_size()
-                 )
-             self.tree_core.evict_device_start(ct, walk_quota)
-+            # Batched write-back: queue the D->H backups of up to _EVICT_BATCH_NODES victims,
-+            # then fence, wait and demote them together (start_writing merges the queue into
-+            # one transfer), instead of one fence + one blocking wait per victim.
-+            pending: list[NodeId] = []
-+            pending_tokens = 0
+@@ -985,46 +986,96 @@
+             # on a shared pool, released enough bytes to satisfy its allocation.
+             if target_reached(ct) or (not to_target and tracker[ct] >= request_cnt):
+                 continue
+-            walk_quota = request_cnt
+-            if to_target:
+-                walk_quota = max(
+-                    request_cnt, tracker[ct] + self.tree_core.full_evictable_size()
+-                )
+-            self.tree_core.evict_device_start(ct, walk_quota)
+-            try:
+-                while True:
+-                    node_id, made_progress = self._evict_device_next_node(ct, tracker)
+-                    if node_id is None:
+-                        if not made_progress:
+-                            break
++            # A batched walk can pass a parent before its children's demote makes it a
++            # leaf; walk again while the previous walk freed something and the target is
++            # still open, as the per-victim walk would have picked those parents up.
++            while True:
++                flushed = [0]
++                walk_quota = request_cnt
++                if to_target:
++                    walk_quota = max(
++                        request_cnt, tracker[ct] + self.tree_core.full_evictable_size()
++                    )
++                self.tree_core.evict_device_start(ct, walk_quota)
++                # Batched write-back: queue the D->H backups of up to _EVICT_BATCH_NODES victims,
++                # then fence, wait and demote them together (start_writing merges the queue into
++                # one transfer), instead of one fence + one blocking wait per victim.
++                pending: list[NodeId] = []
++                pending_tokens = 0
 +
-+            def flush_pending() -> None:
-+                nonlocal pending_tokens
-+                if pending:
-+                    self.writing_check(write_back=True)
-+                    for pending_id in pending:
-+                        self._demote(pending_id, tracker)
-+                    pending.clear()
-+                    pending_tokens = 0
++                def flush_pending() -> None:
++                    nonlocal pending_tokens
++                    if pending:
++                        self.writing_check(write_back=True)
++                        for pending_id in pending:
++                            self._demote(pending_id, tracker)
++                        flushed[0] += len(pending)
++                        pending.clear()
++                        pending_tokens = 0
 +
-+            def pending_covers(component_type: ComponentType) -> bool:
-+                if allocation_reclaim_satisfied is not None:
-+                    return False
-+                target = (
-+                    available_size_targets.get(component_type)
-+                    if available_size_targets is not None
-+                    else None
-+                )
-+                if target is not None:
-+                    need = target[1] - self._component_available_size(target[0])
-+                else:
-+                    need = request_by_type[component_type] - tracker[component_type]
-+                return pending_tokens >= need
-+
-             try:
-                 while True:
-                     node_id, made_progress = self._evict_device_next_node(ct, tracker)
-                     if node_id is None:
-                         if not made_progress:
-                             break
-+                    elif node_id in pending:
-+                        continue
++                def pending_covers(component_type: ComponentType) -> bool:
++                    if allocation_reclaim_satisfied is not None:
++                        return False
++                    target = (
++                        available_size_targets.get(component_type)
++                        if available_size_targets is not None
++                        else None
++                    )
++                    if target is not None:
++                        need = target[1] - self._component_available_size(target[0])
                      else:
-                         backup_kv = self._evict_device_leaf(node_id, tracker)
-                     if node_id is not None and backup_kv is not None:
-@@ -1004,7 +1036,12 @@
-                         written = self._execute_and_commit_kv_backup(
-                             backup_kv, write_back=True
-                         )
+-                        backup_kv = self._evict_device_leaf(node_id, tracker)
+-                    if node_id is not None and backup_kv is not None:
+-                        # Deferred demote: run the D->H backup, demote only on success.
+-                        written = self._execute_and_commit_kv_backup(
+-                            backup_kv, write_back=True
+-                        )
 -                        if written > 0:
-+                        if written > 0 and _EVICT_BATCH_NODES > 0:
-+                            pending.append(node_id)
-+                            pending_tokens += written
-+                            if len(pending) >= _EVICT_BATCH_NODES or pending_covers(ct):
-+                                flush_pending()
-+                        elif written > 0:
-                             self.writing_check(write_back=True)
-                             self._demote(node_id, tracker)
-                         elif self._drop_subtree_no_host(node_id, tracker):
-@@ -1023,6 +1060,7 @@
+-                            self.writing_check(write_back=True)
+-                            self._demote(node_id, tracker)
+-                        elif self._drop_subtree_no_host(node_id, tracker):
+-                            logger.warning(
+-                                "write_back: KV subtree dropped without backup "
+-                                "due to host memory pressure, root node %d",
+-                                node_id,
+-                            )
++                        need = request_by_type[component_type] - tracker[component_type]
++                    return pending_tokens >= need
++
++                try:
++                    while True:
++                        node_id, made_progress = self._evict_device_next_node(ct, tracker)
++                        if node_id is None:
++                            if not made_progress:
++                                break
++                        elif node_id in pending:
++                            continue
+                         else:
+-                            logger.warning(
+-                                "write_back: backup failed under host memory "
+-                                "pressure but subtree drop declined (node "
+-                                "locked); root node %d stays device-resident "
+-                                "until host space frees",
+-                                node_id,
++                            backup_kv = self._evict_device_leaf(node_id, tracker)
++                        if node_id is not None and backup_kv is not None:
++                            # Deferred demote: run the D->H backup, demote only on success.
++                            written = self._execute_and_commit_kv_backup(
++                                backup_kv, write_back=True
                              )
-                     if target_reached(ct):
-                         break
-+                flush_pending()
-             finally:
-                 self.tree_core.evict_device_end(ct)
+-                    if target_reached(ct):
+-                        break
+-            finally:
+-                self.tree_core.evict_device_end(ct)
++                            if written > 0 and _EVICT_BATCH_NODES > 0:
++                                pending.append(node_id)
++                                pending_tokens += written
++                                if len(pending) >= _EVICT_BATCH_NODES or pending_covers(ct):
++                                    flush_pending()
++                            elif written > 0:
++                                self.writing_check(write_back=True)
++                                self._demote(node_id, tracker)
++                            elif self._drop_subtree_no_host(node_id, tracker):
++                                logger.warning(
++                                    "write_back: KV subtree dropped without backup "
++                                    "due to host memory pressure, root node %d",
++                                    node_id,
++                                )
++                            else:
++                                logger.warning(
++                                    "write_back: backup failed under host memory "
++                                    "pressure but subtree drop declined (node "
++                                    "locked); root node %d stays device-resident "
++                                    "until host space frees",
++                                    node_id,
++                                )
++                        if target_reached(ct):
++                            break
++                    flush_pending()
++                finally:
++                    self.tree_core.evict_device_end(ct)
++                if (
++                    _EVICT_BATCH_NODES <= 0
++                    or flushed[0] == 0
++                    or target_reached(ct)
++                    or (not to_target and tracker[ct] >= request_cnt)
++                ):
++                    break
  
+     def _tracks_write_through_unbacked_evictions(self) -> bool:
+         return (
