@@ -1,0 +1,11 @@
+### debug_aiter_sparse_prefill.py --seq 64 --rows 10700000
+triton vs ref: max|diff| 0.0027
+aiter kw=['kv_scale']: nan frac 0.000  max|diff vs ref| 0.0407
+### debug_aiter_sparse_prefill.py --seq 64 --rows 3700000
+triton vs ref: max|diff| 0.0027
+aiter kw=['kv_scale']: nan frac 0.000  max|diff vs ref| 0.0011
+### bench_aiter_sparse_prefill.py --pool-gb 1.9
+triton (production)      3.796 ms
+aiter index + metadata   1.430 ms
+aiter mla_decode_fwd     0.141 ms  x26.93  max|diff| nan  mean|diff| nan  >2% of max: 9.93e-01
+aiter total              1.486 ms  x2.55

@@ -1,0 +1,6 @@
+[aiter] LoadKernel: _ZN5aiter41mla_a16w8_qh16_m16x4_n16x1_coex0_mask1_psE hsaco: /sgl-workspace/aiter/hsa//gfx950/mla/mla_a16w8_qh16_m16x4_n16x1_coex0_mask1_ps.co
+seq 8192 H 64 topk 2048 pool 6.2 GB (request tokens scattered), overlap 0.7
+triton (production)      5.187 ms
+aiter index + metadata   1.429 ms
+aiter mla_decode_fwd     0.135 ms  x38.41  max|diff| nan  mean|diff| nan  >2% of max: 9.94e-01
+aiter total              1.479 ms  x3.51

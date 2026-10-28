@@ -5,6 +5,16 @@
 
 ## 10-27 夜：调优实验总表（结论先行，每组跑完更新）
 
+**10-28 21:45 更新：kernel 线——`--dsa-prefill-backend aiter` 不可用；NCCL 自旋占 CU 很少**
+- 调度层 E4 / E6 / E7 都没进展，按用户要求转 kernel。镜像里的 DSA prefill 后端：`triton`（生产）、`triton_sparse_mla`（有前缀时先把 KV 反量化成 bf16；
+  `--dsa-triton-union` 要求"头数 × G"在 [16, 32]，TP1 每卡 64 头不满足）、`aiter`（`_forward_aiter_extend`：每个 prefill token 当一个 decode query 调汇编
+  `mla_decode_fwd`，`mla_a16w8_qh16_..._ps.co`）、`tilelang`（CUDA）。
+- aiter microbench（`scripts/bench_aiter_sparse_prefill.py`、`debug_aiter_sparse_prefill.py`，`results/*aiter_sparse_prefill*-1028T21*.txt`，140 GPU 0）：
+  64 个 token、池 ≤ 370 万行（≤ 2 GB）时与 torch 参考 max|diff| 0.0011（Triton 0.0028），**池 1,070 万行（生产 6.2 GB）时 0.0407（错）**——汇编 kernel
+  同样是 32 位偏移；**8,192 个 token 一次调用则输出全 NaN、0.14 ms（没算）**，1.9 GB 池也一样（持久化调度在大 token 数下失效）。→ 不改汇编不可用。
+- NCCL kernel 形状（`scripts/nccl_kernel_shape.py`，E1 PP0）：PP 收发 kernel 是 8 个 block（256 线程），与 forward 重叠 6.2 s / forward 32.7 s，
+  平均占 CU 约 0.6%——限制 RCCL p2p channel 数收益很小，不排；也说明 E7 的 −12.7% 不能用"接收自旋抢 CU"解释（最多约 3%），等 E7 trace。
+
 **10-28 21:35 更新：E7 性能 −12.7%，不采用；只保留它的正确性部分（E7b）**
 - E7（`results/run-llr37-v3-evict512k-recvstream-c104.txt`）= **43,396**（E1 平均 49,719）：prefill 节拍中位 / p90 368 / 1,145 ms（E1 323–328 / 820–836），
   有排队的区间 93%（E1 78%），完成 10,710（E1 11,852），1 个请求错误。**我对 NCCL 链的判断方向错了**：接收挪到独立 stream 后环更慢。
