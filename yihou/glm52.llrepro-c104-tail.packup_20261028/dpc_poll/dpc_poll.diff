@@ -1,0 +1,12 @@
+--- /shared_nfs/yihou_glm52/llrepro_20261023/dpc_poll.yihou/data_parallel_controller.py.orig	2026-10-28 01:59:21.708293430 +0000
++++ /shared_nfs/yihou_glm52/llrepro_20261023/dpc_poll.yihou/data_parallel_controller.py	2026-10-28 01:59:21.903292591 +0000
+@@ -907,6 +907,9 @@
+                 except zmq.ZMQError:
+                     break
+                 self._request_dispatcher(recv_req)
++            # yihou llrepro 10-28: block until the next request instead of a NOBLOCK busy-poll (100 % CPU);
++            # 1 s timeout keeps feeding the soft watchdog.
++            self.recv_from_tokenizer.poll(timeout=1000)
+ 
+ 
+ def run_scheduler_process_with_init_pipe(run_scheduler_process_func: Callable, pipe):

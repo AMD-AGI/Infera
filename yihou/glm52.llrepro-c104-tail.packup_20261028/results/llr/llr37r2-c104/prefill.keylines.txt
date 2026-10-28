@@ -1,0 +1,6 @@
+[2026-10-28 00:34:26] server_args={'model_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_path': '/shared_nfs/huggingface_models/amd/GLM-5.2-MXFP4', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 1, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': Tr
+[2026-10-28 00:35:20 PP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 108.97 GB
+[2026-10-28 00:35:20 PP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 121.81 GB
+[2026-10-28 00:35:20 PP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 124.45 GB
+[2026-10-28 00:35:20 PP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 121.81 GB
+[2026-10-28 00:35:20 PP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 10738496, KV size: 7.08 GB
