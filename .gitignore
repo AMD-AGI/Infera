@@ -10,6 +10,8 @@ infera/_version.py
 # Build / packaging
 build/
 dist/
+# The router the Linux x86_64 wheel bundles; only ever added at release time.
+infera/_bin/
 
 # Tooling caches
 .pytest_cache/

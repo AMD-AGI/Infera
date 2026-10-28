@@ -31,6 +31,10 @@ name: Build & publish images
 #
 # Runs on the CI self-hosted pool; that host has no docker, so build+push is
 # dispatched to a compute node via srun. Auth: INFERAIMAGE_DOCKERHUB_TOKEN secret.
+#
+# Alongside the images, on GH-hosted runners: the Rust router is built once
+# (`router`) and shipped both as a standalone tarball on the Release and inside
+# the Linux x86_64 amd-infera wheel (`pypi`), next to the pure wheel and sdist.
 
 on:
   push:
@@ -235,6 +239,30 @@ jobs:
         if: always() && (cancelled() || failure())
         run: .github/scripts/reclaim_slurm_jobs.sh infera-build- "-${{ github.run_id }}-overlay"
 
+  # The Rust router, built once and shipped twice from that one build: as a
+  # standalone tarball on the Release, and inside the Linux x86_64 wheel (see
+  # `pypi`), so a wheel's launcher and its router always come from one commit.
+  # The artifact is the tarball rather than the bare binary because artifacts
+  # do not keep the executable bit.
+  router:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Build infera-router (manylinux_2_28)
+        run: .github/scripts/build_router.sh router
+      - name: Package the standalone tarball
+        run: |
+          tarball="infera-router-${GITHUB_REF_NAME//\//-}-x86_64-linux.tar.gz"
+          tar -czf "$tarball" -C router infera-router
+          ls -la "$tarball"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: infera-router
+          path: infera-router-*.tar.gz
+          if-no-files-found: error
+          overwrite: true  # a re-run of this job uploads it again
+
   # Build the /manual Sphinx site alongside the images. Always uploads the HTML
   # as a workflow artifact; on a tag (release) it also attaches a tarball to the
   # GitHub Release. No GPU needed, so this runs on a GH-hosted runner.
@@ -247,7 +275,11 @@ jobs:
   # `needs:`, which would also skip this job whenever overlay is skipped.
   # Python distribution. Independent of the image builds -- it needs neither the
   # engine images nor the overlay -- so it does not gate them or wait on them.
+  # It waits only on `router`: without the router there is no Linux x86_64
+  # wheel, and shipping only the pure one would hand Linux users a wheel that
+  # cannot run --router-backend rust.
   pypi:
+    needs: router
     runs-on: ubuntu-latest
     environment: auto-docker-builder
     permissions:
@@ -263,10 +295,16 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
-      - name: Build sdist + wheel
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: infera-router
+          path: router
+      - name: Build sdist + wheels
         run: |
-          pip install build twine
+          pip install build twine wheel "auditwheel>=6.8"
           python -m build
+          tar -xzf router/infera-router-*.tar.gz -C router
+          .github/scripts/bundle_router_wheel.sh dist/*-py3-none-any.whl router/infera-router dist
       - name: Check metadata
         run: twine check dist/*
       - name: Show what was built
@@ -274,28 +312,41 @@ jobs:
           ls -la dist/
           echo "--- sdist contents (top level) ---"
           tar tzf dist/*.tar.gz | awk -F/ '{print $2}' | sort -u
-      - name: Verify the wheel installs and its console scripts run
+      - name: Verify each wheel installs and its console scripts run
         # Catches a broken entry point or a missing runtime dependency here,
-        # rather than in the first user's environment.
+        # rather than in the first user's environment. One venv per wheel: both
+        # are the same project, so pip refuses them together. From RUNNER_TEMP:
+        # python puts the working directory first on sys.path, so run from the
+        # checkout these imports would load the source tree, not the install.
         run: |
-          python -m venv /tmp/verify
-          /tmp/verify/bin/pip install dist/*.whl
-          /tmp/verify/bin/python -c "import infera, infera._version as v; print('version:', v.version)"
-          for c in infera-preflight infera-kvd-probe infera-kvd-l3-bench; do
-            /tmp/verify/bin/$c --help > /dev/null || { echo "$c failed"; exit 1; }
-            echo "ok: $c"
+          cd "$RUNNER_TEMP"
+          for whl in "$GITHUB_WORKSPACE"/dist/*.whl; do
+            echo "--- $(basename "$whl")"
+            rm -rf verify && python -m venv verify
+            verify/bin/pip install -q "$whl"
+            verify/bin/python -c "import infera, infera._version as v; print('version:', v.version)"
+            for c in infera-preflight infera-kvd-probe infera-kvd-l3-bench; do
+              verify/bin/$c --help > /dev/null || { echo "$c failed"; exit 1; }
+              echo "ok: $c"
+            done
+            case "$whl" in *-manylinux_*)
+              bin="$(verify/bin/python -c 'from infera.server.launch_rust import _find_binary; print(_find_binary())')"
+              case "$bin" in "$(pwd -P)"/verify/*) ;; *) echo "launcher resolved $bin, not the bundled router"; exit 1 ;; esac
+              "$bin" --help > /dev/null || { echo "bundled router failed: $bin"; exit 1; }
+              echo "ok: $bin"
+            esac
           done
       - name: Attach to the GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
-        # Create-if-absent, exactly as `manual` does. This job deliberately has
-        # no `needs:` -- a wheel depends on neither the engine images nor the
-        # overlay -- but that means it can reach this step before `manual` (the
-        # only other job that creates the Release) has run, and `gh release
-        # upload` against a nonexistent release fails with "release not found".
-        # That is not hypothetical: it is how the pypi job died on the v0.2.4
-        # tag push (run 31217988270) while every step before it passed.
+        # Create-if-absent, exactly as `manual` does. This job deliberately does
+        # not wait on the image jobs -- a wheel depends on neither the engine
+        # images nor the overlay -- but that means it can reach this step before
+        # `manual` (the only other job that creates the Release) has run, and
+        # `gh release upload` against a nonexistent release fails with "release
+        # not found". That is not hypothetical: it is how the pypi job died on
+        # the v0.2.4 tag push (run 31217988270) while every step before it passed.
         # Gating on `manual` instead would make the wheel wait on the GPU
         # builds for no reason, so make whichever job gets there first create it.
         run: |
@@ -310,7 +361,7 @@ jobs:
               --title "${GITHUB_REF_NAME}" --notes "Automated release build." \
               || gh release view "${GITHUB_REF_NAME}" >/dev/null
           fi
-          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          gh release upload "${GITHUB_REF_NAME}" dist/* router/infera-router-*.tar.gz --clobber
       - name: Publish to PyPI
         # Skipped unless PYPI_API_TOKEN is set. amd-infera has never been
         # published, so claiming the name is a deliberate act, not something a
@@ -321,7 +372,10 @@ jobs:
           PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        # The Linux x86_64 wheel first: if an upload fails after it, Linux users
+        # still get the router rather than the pure wheel, and --skip-existing
+        # lets a re-run finish the set.
+        run: twine upload --skip-existing dist/*-manylinux_*.whl dist/*-py3-none-any.whl dist/*.tar.gz
 
   manual:
     needs: [build, overlay]

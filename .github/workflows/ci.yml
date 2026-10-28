@@ -212,10 +212,12 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: cargo fmt (check)
         run: cargo fmt --all -- --check
+      # --locked, as the release build has it: a Cargo.lock that no longer
+      # matches the manifests fails here rather than on the release tag.
       - name: cargo clippy (warnings = errors)
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
       - name: cargo test
-        run: cargo test
+        run: cargo test --locked
       # rust/router/src/encoding_dsv4.rs is a hand port of sglang's dsv4 chat
       # encoder. Drift between them is invisible at runtime -- the router hashes
       # a prefix the engine never produced and kv-aware settles at 0% hit rate --
