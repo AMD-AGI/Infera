@@ -48,7 +48,7 @@
 | framework 名 | 新增 `infera-sglang` | 要改 infx（`synthetic_acceptance.py` 的 `ENGINES`、`results/identity.py`、launch policy）并给 InferenceX-app 提 PR（`framework-aliases.ts` 等），多一轮跨仓库评审 |
 | TTFT | 先不补 | 默认视图里 ATOM PD 的线在我们之上，接受这一点 |
 | 首发范围 | 所有 PD 形态一起提交：1P1D（12 卡）、4+4（8 卡）、2P1D（16 卡） | 集群上要调通 2–3 台机器的三种布局；不再分期，也就不依赖 `append-only` |
-| HiCache 写策略 | 保留 `write_back` | 需要 staged write-back 补丁或上游修复（第 5.1 节） |
+| HiCache 写策略 | 保留 `write_back` | v0.5.22 上很可能不需要 staged write-back 补丁（10-28 更正，见 B5），要在 nightly 上确认 |
 
 还没定的：上榜用哪套配置（A6，第 5.8 节）；srt-slurm 用静态 router 还是动态发现（第 5.3 节）；2P1D 的两个 prefill 同机还是各占半台（第 5.6 节）。
 
@@ -182,14 +182,14 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | **B** | **引擎补丁**（详见第 5.1 节） | | | | 开发 1–2 周；上游合入不可控 | |
 | B1 | DP padded rows | sglang#33059 **Draft**（同事维护）；新 CI 上 Qwen3-8B PD 的 GSM8K 只有 1%，原因未查清 | 同事查 CI 失败、推评审；我们在 nightly 上实测是否仍必需 | 同事 + SGLang 维护者 | 不可控 | P0 |
 | B2 | DSA DP 同步死锁 | #46830 **Ready for review**（同事，接替被自动关闭的 #33973） | 同事推合入 | 同事 + SGLang 维护者 | 不可控 | P0 |
-| B3 | DSA page table 行数 | #32209（第三方）OPEN，修法不同；**同事不跟，没人负责** | 我们实测只用 `index_share_for_mtp_iteration:false` 够不够；不够就提 PR 或 waiver | **我们** | 2–3 天 | P0 |
+| B3 | DSA page table 行数 | **10-28 更正：本配置不需要**。补丁说明记录 `--json-model-override-args '{"index_share_for_mtp_iteration":false}'` 可替代它，并已在 2×8 MI355X 上验证（4/4、32/32 两次、64/64）；#210 配置正好设了该参数 | 去掉补丁；只有以后想开 index_share 时才需要（第三方 #32209 修法不同） | — | — | P1 |
 | B4 | 非末块 KV 等待事件 | 接收端 #41395 已合入；发送端同事不自己提，跟进他人的 #45524（Ready）/ #43299 | 我们在 nightly 上去掉补丁做长 prompt 正确性对比；需要就跟 #45524 | 我们 + #45524 作者 | 2–3 天 | P0 |
-| B5 | HiCache staged write-back（ROCm 门控不一致） | `write_back` 必需；#35043（AMD-yanfeiwang）OPEN、有冲突；**同事不跟，没人负责** | 我们先在 nightly 上不带补丁跑 `write_back`；不行就推 #35043 或提最小修复 | **我们** + AMD-yanfeiwang | 2 天 + 不可控 | P0 |
+| B5 | HiCache staged write-back（ROCm 门控不一致） | **10-28 更正：v0.5.22 上很可能不需要**。补丁修的是 v0.5.16 的崩溃；v0.5.18 起控制器按池分别处理回写索引，MI355X 镜像上它只是让 MLA 保守地走非 JIT 路径（性能取舍，不是正确性依赖）；上游 main 上没有对应 bug，不适合提 PR | 去掉补丁，在 nightly 上确认 `write_back` 不崩；不带补丁时 MLA 走 JIT，prefill 满 chunk 慢的 13% 可能拿回 | 我们 | 实测时一并做 | P1 |
 | B6 | KV 指标非阻塞发送 | #46820 **Ready for review**（同事） | 同事推合入 | 同事 + SGLang 维护者 | 不可控 | P0 |
-| B7 | PP 中间级无 embedding | 同事（编号 S13）**等你同意署名**才提（你的 kit 先有这个改法）；第三方 #21194 修同一个 bug，3-23 起 OPEN | **你定**：由同事提新 PR，或在 #21194 上补 GLM-5.2 PP4 复现推合入；退路 prefill 改 TP4 | 你 + 同事 | 不可控 | P0 |
+| B7 | PP 中间级无 embedding | **10-28 定：交给同事用他的账号提**（他的编号 S13；你的 kit 先有这个改法，他此前在等你同意）。第三方 [#21194](https://github.com/sgl-project/sglang/pull/21194) 修同一个 bug，**已 Approved** 但 3 月起未合 | 同事提；建议他先看 #21194，可在其下推进合入以免重复；退路 prefill 改 TP4 | 同事 | 不可控 | P0 |
 | B8 | MLA absorb BMM 配置 | 同事提了 issue #46829（MI355X 上仍能复现），不提绕过补丁的 PR | 我们在 nightly 上去掉补丁重测；仍崩就写 waiver | 我们 + 同事 | 1 天 | P0 |
 | B9 | Responses tool 参数、decode radix | 本配置不需要 / 不起作用 | 去掉（确认 AgentX 走 chat completions） | 内部 | — | P1 |
-| B10 | waiver 文件 | InferenceX 只有 #2508 一个先例 | 每个未合入的补丁一行：上游 PR、改了什么、为什么必需、移除计划 | 内部 + CODEOWNER | 0.5 周 | P0 |
+| B10 | waiver 文件 | InferenceX 只有 #2508 一个先例：补丁脚本在启动前把修复打进容器源码，`docs/waiver/<PR>.md` 写所涵盖的配置、改了什么（上游 PR / issue 表）、原样镜像为什么跑不了、上游链接、移除计划；issue 链接可以，#2508 里还有一条无上游 PR 的本地改动 | 每个未合入的补丁一行（B1 #33059、B2 #46830、B6 #46820、B7 同事的 PR 或 #21194、B8 issue #46829，B4 视实测）；"为什么跑不了"要在原样 nightly 上复现取证；补丁脚本与 `infera-sglang.sh` 合用一个 `setup_script`（另写一个"安装 + 打补丁"脚本并登记进 `INSTALLERS`） | 内部 + CODEOWNER | 0.5 周 | P0 |
 | B11 | override 参数审查 | 如果 B3 采用 `index_share_for_mtp_iteration:false` | PR 里说明只是关掉跨迭代复用，计算只多不少 | 内部 | — | P1 |
 | **C** | **镜像外依赖：Mooncake 与网卡**（第 5.2 节） | | | | | |
 | C1 | 镜像与 Mooncake | nightly 20261018 起自带 `78566d45`（与 ATOM PD 相同），功能齐全；正式版 v0.5.22 的 `01d1eb2a` 跑不了跨机 PD | 用 nightly 镜像、不重编、设 `MC_DISABLE_HIP=1` 实测 | 内部 | 2 天 | P0 |
@@ -270,6 +270,8 @@ Mooncake 提前发送前的等待（#41395）。
   机制是缓存容量从"主机"变成"GPU + 主机"，prefill 新算量少 21%。同时 prefill 每个满 chunk 慢了 13%，因为 ROCm 上回写走的是非 JIT 路径。
 - **路径**：先在最新 nightly 上不带补丁跑 `write_back`，看是否已经不崩；不行就推 #35043（它把 DSA indexer 等三个 pool 的门控都改成 `_is_cuda or _is_hip`，
   两边都走 JIT，可能还能拿回那 13%），或提一个让两边门控一致的最小修复。都不行就写进 waiver。
+- **10-28 更正**：补丁自己的说明记录，v0.5.18 起控制器按池处理回写索引后，MI355X 镜像上它只是性能取舍、不是正确性依赖，所以 v0.5.22 上预期
+  不带补丁也能跑 `write_back`，B5 降为"去掉补丁、实测确认"，不提 PR。
 
 ### 5.2 Mooncake 与网卡
 
