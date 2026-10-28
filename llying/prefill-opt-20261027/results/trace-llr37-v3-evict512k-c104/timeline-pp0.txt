@@ -1,0 +1,110 @@
+== /mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/llr/prof-llr37-v3-evict512k/traces/prefill-041448-p0/prefill-041448-p0-TP-0-PP-0.trace.json.gz
+main stream 6: window 48527 ms, busy 27184 ms (56%), idle 21343 ms; summed durations exceed capped ones by 13255 ms
+  step  0 EXTEND bs=3 toks=8142]            gap before     0.0 ms | span  261.8 busy  258.7 ms
+  step  1 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  241.0 busy  241.0 ms
+  step  3 EXTEND bs=1 toks=8192]            gap before   262.0 ms | span  246.6 busy  246.6 ms | CPU in gap: gloo:send 169
+  step  4 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  255.2 busy  255.2 ms
+  step  5 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  259.8 busy  259.8 ms
+  step  6 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  260.9 busy  260.8 ms
+  step  7 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  262.2 busy  262.2 ms
+  step  8 EXTEND bs=4 toks=8067]            gap before     6.1 ms | span  291.8 busy  288.7 ms
+  step  9 EXTEND bs=4 toks=8058]            gap before    20.9 ms | span  269.2 busy  266.0 ms | CPU in gap: mem_cache/common.py(46): kv_to_page_indices 11; disaggregation/prefill.py(1488): _send_kv_chunk 11; disaggregation/prefill.py(1469): send_kv_chunk 11
+  step 10 EXTEND bs=2 toks=8144]            gap before     1.5 ms | span  285.3 busy  278.4 ms
+  step 11 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  258.0 busy  258.0 ms
+  step 12 EXTEND bs=2 toks=8188]            gap before     4.2 ms | span  280.4 busy  277.0 ms
+  step 13 EXTEND bs=5 toks=8192]            gap before   763.3 ms | span  264.6 busy  260.7 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 473; mem_cache/unified_radix_cache.py(787): _evict 473; mem_cache/unified_radix_cache.py(671): evict_for_alloc 473
+  step 14 EXTEND bs=9 toks=7951]            gap before   280.9 ms | span  254.6 busy  249.0 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 273; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 273; gloo:send 281
+  step 15 EXTEND bs=5 toks=8071]            gap before   692.5 ms | span  268.4 busy  264.5 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 466; mem_cache/unified_radix_cache.py(787): _evict 466; mem_cache/unified_radix_cache.py(671): evict_for_alloc 466
+  step 16 EXTEND bs=3 toks=8102]            gap before   256.0 ms | span  222.7 busy  219.0 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 103; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 103; gloo:recv 150
+  step 17 EXTEND bs=4 toks=8086]            gap before   361.8 ms | span  254.6 busy  251.7 ms | CPU in gap: gloo:recv 314; distributed/parallel_state.py(1677): recv_object 314; distributed/parallel_state.py(1851): recv_tensor_dict 315
+  step 18 EXTEND bs=2 toks=8160]            gap before   294.0 ms | span  240.9 busy  238.4 ms | CPU in gap: gloo:recv 291; distributed/parallel_state.py(1677): recv_object 291; distributed/parallel_state.py(1851): recv_tensor_dict 292
+  step 19 EXTEND bs=4 toks=8162]            gap before   604.3 ms | span  312.0 busy  308.3 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 488; mem_cache/unified_radix_cache.py(787): _evict 488; mem_cache/unified_radix_cache.py(671): evict_for_alloc 488
+  step 20 EXTEND bs=5 toks=8096]            gap before   348.2 ms | span  271.3 busy  266.6 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 337; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 337; gloo:send 348
+  step 21 EXTEND bs=4 toks=8115]            gap before   398.7 ms | span  251.8 busy  247.8 ms | CPU in gap: gloo:recv 391; distributed/parallel_state.py(1677): recv_object 392; distributed/parallel_state.py(1851): recv_tensor_dict 392
+  step 23 EXTEND bs=1 toks=8192]            gap before   636.8 ms | span  233.1 busy  233.1 ms | CPU in gap: gloo:recv 380; distributed/parallel_state.py(1677): recv_object 381; distributed/parallel_state.py(1851): recv_tensor_dict 381
+  step 24 EXTEND bs=1 toks=8192]            gap before    31.4 ms | span  246.5 busy  243.3 ms | CPU in gap: disaggregation/prefill.py(1114): process_disagg_prefill_inflight_queue 10; scheduler.process_queue 10; utils/nvtx_utils.py(106): wrapper 10
+  step 25 EXTEND bs=1 toks=8192]            gap before    21.5 ms | span  250.4 busy  247.3 ms | CPU in gap: managers/scheduler.py(4016): _get_new_batch_prefill_raw 8; managers/scheduler.py(3989): get_new_batch_prefill 8; gloo:send 19
+  step 26 EXTEND bs=1 toks=8192]            gap before    25.6 ms | span  250.5 busy  247.3 ms | CPU in gap: disaggregation/utils.py(55): pp_sync_polls 8; disaggregation/utils.py(111): poll_and_all_reduce_prefill_pp 8; disaggregation/prefill.py(474): pop_bootstrapped 8
+  step 27 EXTEND bs=4 toks=8100]            gap before     4.3 ms | span  256.9 busy  253.7 ms
+  step 28 EXTEND bs=2 toks=8179]            gap before     8.8 ms | span  268.6 busy  265.8 ms
+  step 29 EXTEND bs=2 toks=8167]            gap before     5.3 ms | span  256.6 busy  252.5 ms
+  step 30 EXTEND bs=2 toks=8140]            gap before     3.6 ms | span  260.8 busy  257.5 ms
+  step 31 EXTEND bs=2 toks=8182]            gap before     3.6 ms | span  264.7 busy  261.5 ms
+  step 32 EXTEND bs=4 toks=8063]            gap before     3.6 ms | span  259.6 busy  256.2 ms
+  step 33 EXTEND bs=2 toks=8163]            gap before     3.2 ms | span  273.6 busy  270.5 ms
+  step 34 EXTEND bs=2 toks=8139]            gap before     3.9 ms | span  268.5 busy  264.9 ms
+  step 35 EXTEND bs=3 toks=8158]            gap before   705.6 ms | span  442.2 busy  438.4 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 458; mem_cache/unified_radix_cache.py(787): _evict 458; mem_cache/unified_radix_cache.py(671): evict_for_alloc 458
+  step 36 EXTEND bs=6 toks=7962]            gap before   435.2 ms | span  268.6 busy  263.4 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 380; mem_cache/unified_radix_cache.py(787): _evict 380; mem_cache/unified_radix_cache.py(671): evict_for_alloc 380
+  step 37 EXTEND bs=5 toks=8103]            gap before   422.3 ms | span  284.4 busy  280.6 ms | CPU in gap: gloo:recv 280; distributed/parallel_state.py(1677): recv_object 281; distributed/parallel_state.py(1851): recv_tensor_dict 281
+  step 38 EXTEND bs=3 toks=8111]            gap before   453.6 ms | span  265.1 busy  261.0 ms | CPU in gap: gloo:recv 448; distributed/parallel_state.py(1677): recv_object 449; distributed/parallel_state.py(1851): recv_tensor_dict 449
+  step 39 EXTEND bs=3 toks=8128]            gap before   428.7 ms | span  258.8 busy  254.9 ms | CPU in gap: gloo:recv 420; distributed/parallel_state.py(1677): recv_object 420; distributed/parallel_state.py(1851): recv_tensor_dict 421
+  step 41 EXTEND bs=1 toks=8192]            gap before   274.3 ms | span  268.8 busy  268.8 ms | CPU in gap: gloo:send 173
+  step 42 EXTEND bs=2 toks=8176]            gap before    31.5 ms | span  284.4 busy  284.4 ms | CPU in gap: models/deepseek_v2.py(3068): forward 25; torch/nn/modules/module.py(1779): _call_impl 25; nn.Module: DeepseekV2Model_0 25
+  step 43 EXTEND bs=2 toks=8192]            gap before     0.1 ms | span  218.3 busy  218.3 ms
+  step 45 EXTEND bs=2 toks=8192]            gap before   246.7 ms | span  244.9 busy  244.9 ms | CPU in gap: gloo:send 142
+  step 46 EXTEND bs=3 toks=8169]            gap before     1.7 ms | span  289.6 busy  283.2 ms
+  step 47 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  233.7 busy  233.7 ms
+  step 49 EXTEND bs=1 toks=8192]            gap before   257.2 ms | span  260.2 busy  260.2 ms | CPU in gap: gloo:send 211
+  step 50 EXTEND bs=2 toks=8192]            gap before     5.1 ms | span  262.1 busy  258.9 ms
+  step 51 EXTEND bs=7 toks=8074]            gap before    23.7 ms | span  259.6 busy  255.4 ms | CPU in gap: <built-in method cpu of Tensor object at 0x7b3047b30680> 18; mem_cache/common.py(46): kv_to_page_indices 18; disaggregation/prefill.py(1488): _send_kv_chunk 18
+  step 52 EXTEND bs=5 toks=8118]            gap before   465.9 ms | span  304.2 busy  300.7 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 450; mem_cache/unified_radix_cache.py(787): _evict 450; mem_cache/unified_radix_cache.py(671): evict_for_alloc 450
+  step 53 EXTEND bs=3 toks=8133]            gap before  1020.6 ms | span  306.5 busy  253.1 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 1009; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 1009; gloo:send 1021
+  step 54 EXTEND bs=8 toks=8032]            gap before   228.3 ms | span  311.1 busy  307.6 ms | CPU in gap: managers/scheduler.py(4550): run_batch 69; scheduler.run_batch 69; utils/nvtx_utils.py(106): wrapper 69
+  step 55 EXTEND bs=3 toks=8102]            gap before   170.9 ms | span  233.6 busy  230.4 ms | CPU in gap: gloo:recv 164; distributed/parallel_state.py(1677): recv_object 165; distributed/parallel_state.py(1851): recv_tensor_dict 165
+  step 56 EXTEND bs=6 toks=8089]            gap before   505.9 ms | span  278.5 busy  274.8 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 462; mem_cache/unified_radix_cache.py(787): _evict 462; mem_cache/unified_radix_cache.py(671): evict_for_alloc 462
+  step 57 EXTEND bs=5 toks=8091]            gap before   260.9 ms | span  263.9 busy  260.4 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 252; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 252; gloo:send 261
+  step 58 EXTEND bs=3 toks=8113]            gap before   286.9 ms | span  265.5 busy  262.5 ms | CPU in gap: gloo:recv 281; distributed/parallel_state.py(1677): recv_object 282; distributed/parallel_state.py(1851): recv_tensor_dict 282
+  step 59 EXTEND bs=4 toks=8116]            gap before   276.8 ms | span  255.1 busy  250.7 ms | CPU in gap: gloo:recv 267; distributed/parallel_state.py(1677): recv_object 267; distributed/parallel_state.py(1851): recv_tensor_dict 267
+  step 60 EXTEND bs=3 toks=8192]            gap before     3.5 ms | span  257.7 busy  253.4 ms
+  step 61 EXTEND bs=3 toks=8192]            gap before    30.2 ms | span  258.0 busy  254.9 ms | CPU in gap: <built-in method cpu of Tensor object at 0x7b3047b30680> 27; mem_cache/common.py(46): kv_to_page_indices 27; disaggregation/prefill.py(1488): _send_kv_chunk 28
+  step 62 EXTEND bs=3 toks=8192]            gap before     1.6 ms | span  254.2 busy  244.1 ms
+  step 63 EXTEND bs=4 toks=8099]            gap before     6.7 ms | span  254.7 busy  251.6 ms
+  step 64 EXTEND bs=4 toks=8192]            gap before     3.8 ms | span  228.4 busy  224.8 ms
+  step 65 EXTEND bs=4 toks=8192]            gap before    23.9 ms | span  235.1 busy  230.0 ms | CPU in gap: managers/schedule_policy.py(342): _compute_prefix_matches 9; managers/schedule_policy.py(209): calc_priority 9; managers/scheduler.py(4016): _get_new_batch_prefill_raw 17
+  step 66 EXTEND bs=2 toks=8192]            gap before    22.8 ms | span  243.2 busy  239.3 ms | CPU in gap: managers/schedule_policy.py(342): _compute_prefix_matches 9; managers/schedule_policy.py(209): calc_priority 9; managers/scheduler.py(4016): _get_new_batch_prefill_raw 13
+  step 68 EXTEND bs=2 toks=8192]            gap before   264.3 ms | span  245.1 busy  245.1 ms | CPU in gap: gloo:recv 88; utils/common.py(2719): point_to_point_pyobj 88; managers/scheduler_pp_mixin.py(765): _pp_recv_pyobj_from_prev_stage 88
+  step 69 EXTEND bs=2 toks=8192]            gap before     2.7 ms | span  222.4 busy  218.9 ms
+  step 70 EXTEND bs=2 toks=8150]            gap before     0.1 ms | span  237.3 busy  237.3 ms
+  step 72 EXTEND bs=2 toks=8147]            gap before   260.4 ms | span  242.1 busy  242.0 ms | CPU in gap: gloo:send 137
+  step 73 EXTEND bs=3 toks=8192]            gap before     0.1 ms | span  216.0 busy  216.0 ms
+  step 74 EXTEND bs=2 toks=8167]            gap before     6.9 ms | span  244.0 busy  240.5 ms
+  step 75 EXTEND bs=2 toks=8189]            gap before   475.0 ms | span  241.7 busy  238.3 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 466; mem_cache/unified_radix_cache.py(787): _evict 466; mem_cache/unified_radix_cache.py(671): evict_for_alloc 466
+  step 76 EXTEND bs=4 toks=8143]            gap before   283.0 ms | span  293.9 busy  290.4 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 279; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 279; gloo:send 283
+  step 77 EXTEND bs=2 toks=8186]            gap before   256.4 ms | span  251.8 busy  246.6 ms | CPU in gap: gloo:recv 236; distributed/parallel_state.py(1677): recv_object 236; distributed/parallel_state.py(1851): recv_tensor_dict 237
+  step 78 EXTEND bs=5 toks=8192]            gap before   254.4 ms | span  244.5 busy  240.8 ms | CPU in gap: gloo:recv 246; distributed/parallel_state.py(1677): recv_object 247; distributed/parallel_state.py(1851): recv_tensor_dict 247
+  step 80 EXTEND bs=2 toks=8192]            gap before   807.2 ms | span  247.8 busy  247.8 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 513; mem_cache/unified_radix_cache.py(787): _evict 513; mem_cache/unified_radix_cache.py(671): evict_for_alloc 513
+  step 81 EXTEND bs=1 toks=8192]            gap before   242.7 ms | span  290.3 busy  286.8 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 241; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 241; gloo:send 243
+  step 82 EXTEND bs=2 toks=8192]            gap before   268.0 ms | span  262.4 busy  259.4 ms | CPU in gap: gloo:recv 265; distributed/parallel_state.py(1677): recv_object 265; distributed/parallel_state.py(1851): recv_tensor_dict 266
+  step 83 EXTEND bs=1 toks=8192]            gap before   266.7 ms | span  251.8 busy  248.5 ms | CPU in gap: gloo:recv 264; distributed/parallel_state.py(1677): recv_object 264; distributed/parallel_state.py(1851): recv_tensor_dict 265
+  step 85 EXTEND bs=3 toks=8109]            gap before   265.8 ms | span  241.0 busy  241.0 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 98; gloo:send 171
+  step 87 EXTEND bs=3 toks=8140]            gap before   306.9 ms | span  268.3 busy  267.9 ms | CPU in gap: gloo:send 225
+  step 88 EXTEND bs=2 toks=8192]            gap before     3.2 ms | span  248.4 busy  244.0 ms
+  step 90 EXTEND bs=3 toks=8104]            gap before   232.5 ms | span  224.7 busy  224.7 ms | CPU in gap: gloo:send 151
+  step 91 EXTEND bs=4 toks=8082]            gap before     3.3 ms | span  258.0 busy  254.5 ms
+  step 92 EXTEND bs=3 toks=8108]            gap before     0.1 ms | span  239.3 busy  239.3 ms
+  step 93 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  235.5 busy  235.5 ms
+  step 94 EXTEND bs=2 toks=8153]            gap before     4.8 ms | span  255.2 busy  252.1 ms
+  step 95 EXTEND bs=4 toks=8168]            gap before   522.8 ms | span  250.4 busy  247.3 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 467; mem_cache/unified_radix_cache.py(787): _evict 467; mem_cache/unified_radix_cache.py(671): evict_for_alloc 467
+  step 96 EXTEND bs=4 toks=8192]            gap before   274.3 ms | span  229.6 busy  226.1 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 270; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 270; gloo:send 274
+  step 97 EXTEND bs=3 toks=8118]            gap before   336.3 ms | span  243.4 busy  240.0 ms | CPU in gap: gloo:recv 328; distributed/parallel_state.py(1677): recv_object 328; distributed/parallel_state.py(1851): recv_tensor_dict 329
+  step 98 EXTEND bs=4 toks=8081]            gap before   289.1 ms | span  235.4 busy  233.0 ms | CPU in gap: gloo:recv 284; distributed/parallel_state.py(1677): recv_object 284; distributed/parallel_state.py(1851): recv_tensor_dict 284
+  step 99 EXTEND bs=5 toks=8081]            gap before     3.8 ms | span  233.5 busy  230.3 ms
+  step 101 EXTEND bs=4 toks=8075]            gap before   291.9 ms | span  233.4 busy  233.1 ms | CPU in gap: gloo:send 210
+  step 102 EXTEND bs=2 toks=8161]            gap before     3.8 ms | span  255.9 busy  252.8 ms
+  step 103 EXTEND bs=2 toks=8154]            gap before     3.4 ms | span  253.7 busy  250.9 ms
+  step 104 EXTEND bs=2 toks=8192]            gap before     1.7 ms | span  257.2 busy  250.3 ms
+  step 105 EXTEND bs=4 toks=8192]            gap before    28.6 ms | span  264.5 busy  261.1 ms | CPU in gap: <built-in method cpu of Tensor object at 0x7b3047b30680> 24; mem_cache/common.py(46): kv_to_page_indices 24; disaggregation/prefill.py(1488): _send_kv_chunk 24
+  step 106 EXTEND bs=3 toks=8131]            gap before    23.5 ms | span  263.0 busy  259.7 ms | CPU in gap: managers/overlap_utils.py(87): resolve_forward_inputs 21; gloo:send 23; managers/scheduler_pp_mixin.py(1631): _pp_launch_batch 23
+  step 107 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  241.2 busy  241.2 ms
+  step 108 EXTEND bs=3 toks=8101]            gap before     4.2 ms | span  245.4 busy  242.3 ms
+  step 109 EXTEND bs=3 toks=8122]            gap before   741.0 ms | span  237.7 busy  234.5 ms | CPU in gap: disaggregation/utils.py(55): pp_sync_polls 717; disaggregation/utils.py(111): poll_and_all_reduce_prefill_pp 717; disaggregation/prefill.py(474): pop_bootstrapped 717
+  step 111 EXTEND bs=2 toks=8192]            gap before   252.9 ms | span  229.9 busy  229.9 ms | CPU in gap: gloo:send 136
+  step 112 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  224.3 busy  224.3 ms
+  step 113 EXTEND bs=1 toks=8192]            gap before     0.1 ms | span  229.4 busy  229.4 ms
+  step 114 EXTEND bs=4 toks=8083]            gap before   599.4 ms | span  236.8 busy  233.0 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 451; mem_cache/unified_radix_cache.py(787): _evict 451; mem_cache/unified_radix_cache.py(671): evict_for_alloc 451
+  step 115 EXTEND bs=1 toks=8192]            gap before   258.6 ms | span  227.8 busy  224.3 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 257; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 257; gloo:send 259
+  step 116 EXTEND bs=4 toks=8192]            gap before   311.1 ms | span  242.1 busy  238.5 ms | CPU in gap: gloo:recv 230; distributed/parallel_state.py(1677): recv_object 231; distributed/parallel_state.py(1851): recv_tensor_dict 231
+  step 117 EXTEND bs=1 toks=8192]            gap before   258.8 ms | span  228.9 busy  225.7 ms | CPU in gap: gloo:recv 256; distributed/parallel_state.py(1677): recv_object 256; distributed/parallel_state.py(1851): recv_tensor_dict 257
+  step 118 EXTEND bs=5 toks=8043]            gap before   763.1 ms | span  322.6 busy  318.9 ms | CPU in gap: mem_cache/unified_radix_cache.py(921): _evict_components 463; mem_cache/unified_radix_cache.py(787): _evict 463; mem_cache/unified_radix_cache.py(671): evict_for_alloc 463
+  step 119 EXTEND bs=3 toks=8125]            gap before   223.0 ms | span  245.1 busy  242.1 ms | CPU in gap: managers/scheduler_pp_mixin.py(689): _pp_commit_comm_work 218; managers/scheduler_pp_mixin.py(704): _pp_commit_proxy_send_work 218; gloo:send 223
+steps 107: span median 254.7 ms, mean 256.9; gap median 170.9 ms, mean 198.5; idle between steps 21037 ms, idle inside steps 343 ms
