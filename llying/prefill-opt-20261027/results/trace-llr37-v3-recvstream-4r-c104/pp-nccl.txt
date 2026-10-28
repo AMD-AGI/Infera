@@ -1,0 +1,18 @@
+hop PP0->PP1 (119 steps):
+   send posted - up GPU end p50  -150.5 mean  -150.6 p90  -106.2
+   send kernel start - up GPU end p50     0.0 mean     0.0 p90     0.0
+   send kernel duration p50    52.9 mean   135.3 p90   344.1
+   down recv kernel end - up GPU end p50    52.9 mean   135.4 p90   344.1
+   down GPU start - recv kernel end p50    24.8 mean    89.2 p90   475.7
+hop PP1->PP2 (118 steps):
+   send posted - up GPU end p50  -158.7 mean  -155.4 p90  -133.2
+   send kernel start - up GPU end p50     0.0 mean     5.0 p90     0.0
+   send kernel duration p50    29.8 mean    88.0 p90   305.9
+   down recv kernel end - up GPU end p50    30.9 mean    93.0 p90   307.7
+   down GPU start - recv kernel end p50    49.2 mean   143.0 p90   490.5
+hop PP2->PP3 (116 steps):
+   send posted - up GPU end p50  -164.0 mean  -161.0 p90  -140.0
+   send kernel start - up GPU end p50     0.0 mean     5.4 p90     0.0
+   send kernel duration p50     4.3 mean    29.6 p90   143.3
+   down recv kernel end - up GPU end p50     4.3 mean    35.0 p90   159.3
+   down GPU start - recv kernel end p50    24.7 mean    65.3 p90   322.6

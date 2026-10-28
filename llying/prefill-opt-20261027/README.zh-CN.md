@@ -5,6 +5,18 @@
 
 ## 10-27 夜：调优实验总表（结论先行，每组跑完更新）
 
+**10-28 23:10 更新：E7 慢在哪；正确性修复改为 E7c（延后释放）；E3 单独测**
+- E7 四级 trace（`results/trace-llr37-v3-recvstream-4r-c104/`）：GPU 每步中位 249.6 / 242.7 / 244.9 ms（E1 254 / 243 / 246），**forward 没变慢**，"自旋抢 CU"不是原因。
+  新出现的是调度线程上的长阻塞：`process_prefill_chunk → send_kv_chunk → kv_to_page_indices` 的 `hipMemcpyWithStream` PP0 61 次平均 222 ms、PP1 80 次平均 198 ms
+  （E1 同处 18 次共 15 ms），其他 `send_kv_chunk` 也变长；PP1 阻塞调用占 48%（E1 27%）。这条路径没有显式等 forward stream（v3 只是记事件给传输线程）。
+  推测：`record_stream` 让每个 microbatch 约 100 MB 的 hidden states 在 forward 结束前不能复用，prefill 显存紧，缓存分配器拿不到块时同步等这些事件
+  （即等 forward 结束），于是调度线程在随机的分配 / 拷贝处被卡住。**E7b 同样用 `record_stream`，可能同样变慢**。
+- **E7c（`config/pp-recv-keepalive.patch`）**：不用 `record_stream`，收到的张量保留最近 2 × (pp_loop_size + 2) = 14 次接收（约 7 轮）再释放——每轮都会同步等
+  第 j−4 个 microbatch 的输出，说明本级更早的 forward 都已结束，保留更久就一定安全；没有事件，也不进分配器的同步路径，多占约 1 GB 显存。
+- E3 改为**叠在 E1 上单独测**（`config/site-llr35-v3-e1-e3.env`），不再叠 E7b，避免被它混淆。
+- **队列 `scripts/night13_1028.sh`（替换 night12；night12 第一步 E7b 限池门禁让它跑完）**：E7c 限池门禁 → E3 限池门禁 → E3 完整正确性 → E1 + E3 C104（约 00:30–02:05）
+  → E7c 完整正确性 → E1 + E7c C104（约 02:30–04:05）。
+
 **10-28 22:00 更新：长节拍 = 回载触发的驱逐沿环逐级重复；E3（批量写回驱逐）已排队**
 - `scripts/prefill_ring_timeline.py`（E1 四级 trace，把四级的 GPU 区间和调度线程阶段按时间排开，`results/trace-llr37-v3-evict512k-4r-c104/ring-timeline-{16,31}.txt`）：
   - **平稳段（第 31–37 步）环按 GPU 满速跑**：PP0 GPU 每步约 255 ms、前后间隔 < 3 ms，PP1 间隔 9–14 ms；early-send 的同步只是等上一个 forward，等完 3 ms 内下一个就上 GPU。

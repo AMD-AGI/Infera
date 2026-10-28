@@ -1,0 +1,24 @@
+--- scheduler_pp_mixin.orig.py	2026-10-28 23:08:32.534043078 +0000
++++ scheduler_pp_mixin.py	2026-10-28 23:08:39.182476107 +0000
+@@ -600,6 +600,12 @@
+                 "PP tensor communication overlap enabled on a dedicated CUDA stream"
+             )
+ 
++        # Tensors received on the comm stream are read on the forward / copy streams, so
++        # freeing them returns the block to the comm stream's pool while a forward may still
++        # read it. Hold the last receives (two per iteration) for more than pp_loop_size + 1
++        # iterations: by then this rank has synced on a later microbatch's outputs, which
++        # implies its forward of every earlier microbatch finished.
++        self._pp_recv_keepalive: deque = deque(maxlen=2 * (self.pp_loop_size + 2))
+         self._pp_tensor_dict_inbox: Dict[
+             str, deque[Tuple[Dict[str, torch.Tensor], Optional[torch.Event]]]
+         ] = defaultdict(deque)
+@@ -906,6 +912,8 @@
+                     all_gather_group=all_gather_group
+                 )
+                 recv_event = self._pp_record_comm_event()
++            if self.pp_comm_stream is not None:
++                self._pp_recv_keepalive.append(tensor_dict)
+             received_kind = tensor_dict.get("__msg_type__", "default")
+             if received_kind == expected_kind:
+                 if received_kind == "default":
