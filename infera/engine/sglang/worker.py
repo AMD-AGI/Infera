@@ -53,6 +53,30 @@ _PAGE_SIZE_ATTEMPTS = 4
 _PAGE_SIZE_BACKOFF_S = 1.0
 
 
+def _explicit_kv_events_port(argv: list[str]) -> int | None:
+    """The publisher port of a caller-supplied ``--kv-events-config``, or None when there is none.
+
+    A launcher that owns port allocation (srt-slurm) passes the config itself so
+    the publisher binds the port it allocated; picking another one here would
+    collide with whatever that launcher placed on it.
+    """
+    raw = None
+    for i, arg in enumerate(argv):
+        if arg == "--kv-events-config" and i + 1 < len(argv):
+            raw = argv[i + 1]
+        elif arg.startswith("--kv-events-config="):
+            raw = arg.split("=", 1)[1]
+    if raw is None:
+        return None
+    endpoint = str(json.loads(raw).get("endpoint", ""))
+    _, sep, port = endpoint.rpartition(":")
+    if not sep or not port.isdigit():
+        raise ValueError(
+            f"--kv-events-config needs a tcp endpoint with a port to advertise; got {raw!r}"
+        )
+    return int(port)
+
+
 class SglangEngine(BaseEngine):
     """Runs `python -m sglang.launch_server` in a child process.
 
@@ -109,6 +133,8 @@ class SglangEngine(BaseEngine):
             argv.append("--enable-custom-logit-processor")
 
         if self.enable_kv_events:
+            self._kv_events_port = _explicit_kv_events_port(argv)
+        if self.enable_kv_events and self._kv_events_port is None:
             dp_size = int(getattr(self.server_args, "dp_size", 1) or 1)
             # The scheduler creates its publisher only after model loading. Use
             # the non-ephemeral block allocator even for DP=1 so the released
