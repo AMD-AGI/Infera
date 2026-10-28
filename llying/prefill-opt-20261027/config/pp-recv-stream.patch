@@ -1,5 +1,5 @@
 --- scheduler_pp_mixin.orig.py	2026-10-28 17:41:18.084381813 +0000
-+++ scheduler_pp_mixin.py	2026-10-28 17:41:36.705167905 +0000
++++ scheduler_pp_mixin.py	2026-10-28 17:54:10.544744330 +0000
 @@ -1,6 +1,7 @@
  from __future__ import annotations
  
@@ -64,3 +64,24 @@
              received_kind = tensor_dict.get("__msg_type__", "default")
              if received_kind == expected_kind:
                  if received_kind == "default":
+@@ -1416,10 +1445,12 @@
+         if not self.pp_group.is_last_rank:
+             if pp_outputs:
+                 with torch.profiler.record_function("send_res_dict_to_next_stage"):
++                    # The relayed tensors arrived on the receive stream, not the comm stream.
+                     send_output_work = self._pp_send_dict_to_next_stage(
+                         pp_outputs.tensors,
+                         async_send=True,
+                         msg_type="output",
++                        ready_event=getattr(pp_outputs, "recv_event", None),
+                     )
+         return send_output_work
+ 
+@@ -1489,6 +1520,7 @@
+             with torch.profiler.record_function("recv_res_dict_from_prev_stage"):
+                 tensor_dict, output_recv_event = self._pp_recv_dict_from_prev_stage()
+                 next_pp_outputs = PPProxyTensors(tensor_dict)
++                next_pp_outputs.recv_event = output_recv_event
+             with self.copy_stream_ctx:
+                 self.copy_stream.wait_stream(self.schedule_stream)
+                 if output_recv_event is not None:

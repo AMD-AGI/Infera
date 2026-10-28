@@ -29,6 +29,16 @@
    收到的张量 `record_stream` 到 forward / copy stream，比原来更安全）。每对 rank 的消息顺序不变，不引入新的等待环。
    队列 `scripts/night10_1028.sh`：night9 之后先跑 E7 完整正确性（`scripts/gate_pass2.py`，按题数比例判长上下文、探测乱码上限 6 以容纳既有 bug），
    通过才跑 C104 性能，再采 E7 四级 trace 核对机制。
+   **kernel 线（稀疏 MLA > 2 GB 池，17:45–17:52，140 GPU 0，E6 计分前）**：`scripts/sparse_mla_bucketed.py`、`bench_sparse_mla.py --bucketed`、
+   `smla_asm_check.py`，结果 `results/bench_sparse_mla-{bucketed,seg,locality}-1028T17*.txt`。每行 top-k 按 2 GB 段分桶、每桶补齐到 BLOCK_N，
+   每个 tile 只属于一段：(a) tile 读段号 + 标量分支选视图——汇编确认是 buffer load（29 条 buffer / 1 条 global、无溢出），但 num_stages 1 / 2 一样
+   （分支里的 load 不进软件流水），6.2 GB 打散池上 4.83 ms；(b) 每段一个静态展开的内层循环（无分支）4.80–5.46 ms。生产 5.12 ms，只快约 6%；
+   torch 写的分桶本身 1.48 ms，净亏。对照：生产 kernel 在 1.9 GB **完全打散**的池上仍是 3.73 ms → 差距不是局部性，是这两种写法自身的结构开销。
+   结论：Triton 内的修法上限约省稀疏 MLA 的 5–15%（prefill GPU 的 2–6%，而 GPU 只忙约 50%、瓶颈在环上，端到端 < 1%）——**暂停**，优先做环（E7）。
+   **两个镜像里现成的开关**：(1) `--disaggregation-decode-allocation-policy prefill_complete`（KV 留在 prefill、算完才在 decode 分配，正好能省掉
+   decode 上约 22% 的预占）——`arg_groups/pd_disaggregation_hook.py:_validate_prefill_complete` 不支持 `pp_size != 1`，我们的 prefill 是 PP4，**用不了**；
+   (2) `--disaggregation-enable-kv-checksum`（prefill 对每个请求的 KV 页算 Adler-32、decode 校验，两侧都要开）——用来诊断"开头坏"是不是 KV 传坏了，
+   排在 E7 之后跑一次正确性（不测性能）。
 3. decode 侧（`scripts/decode_dp_balance.py`，E1 复测）：4 个 DP rank 的 KV 用量中位都是 0.93、运行中请求 11.4–12.7，均衡；某 rank 排 prealloc 时
    另一 rank 低于 80% 的只占 3% → **换负载均衡方法没有用**。decode KV 里约 22% 是给"还在 prefill"的请求预占的（平均 20 个请求等传输），
    prefill 越快这部分越少——两头的瓶颈都落在 prefill 吞吐上。
