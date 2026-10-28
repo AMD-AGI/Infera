@@ -1,0 +1,27 @@
+== /mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/llr/prof-llr37-v3-evict512k-4r/traces/prefill-072705-p0/prefill-072705-p0-TP-0-PP-1.trace.json.gz
+scheduler thread 429, 120 steps, 54548 ms from first step start to last step end
+-- blocking runtime calls > 0.2 ms: 14998 ms (27% of the span)
+     9806.1 ms x70   hipMemcpyWithStream @ disaggregation/prefill.py:1432 maybe_send_cached_prefix_chunk > disaggregation/prefill.py:1469 send_kv_chunk > disaggregation/prefill.py:1488 _send_kv_chunk > mem_cache/common.py:46 kv_to_page_indices
+     3655.2 ms x1510 hipEventSynchronize @ mem_cache/unified_radix_cache.py:3417 writing_check
+      773.8 ms x34   hipEventSynchronize @ mem_cache/unified_radix_cache.py:671 evict_for_alloc > mem_cache/unified_radix_cache.py:787 _evict > mem_cache/unified_radix_cache.py:921 _evict_components > mem_cache/unified_radix_cache.py:3417 writing_check
+      498.3 ms x8    hipEventSynchronize @ 
+       64.3 ms x85   hipMemcpyWithStream @ observability/scheduler_stage_metrics.py:174 wrapper > utils/nvtx_utils.py:106 wrapper > managers/scheduler.py:5007 process_batch_result > disaggregation/prefill.py:858 process_batch_result_disagg_prefill
+       63.6 ms x101  hipMemcpyWithStream @ disaggregation/prefill.py:1469 send_kv_chunk > disaggregation/prefill.py:1488 _send_kv_chunk > disaggregation/utils.py:538 set_buf
+       39.3 ms x56   hipMemcpyWithStream @ disaggregation/prefill.py:1469 send_kv_chunk > disaggregation/prefill.py:1488 _send_kv_chunk > mem_cache/common.py:46 kv_to_page_indices
+       36.3 ms x33   hipMemcpyWithStream @ disaggregation/prefill.py:1376 process_prefill_chunk > disaggregation/prefill.py:1469 send_kv_chunk > disaggregation/prefill.py:1488 _send_kv_chunk > mem_cache/common.py:46 kv_to_page_indices
+       30.1 ms x54   hipMemcpyWithStream @ disaggregation/prefill.py:1658 <listcomp> > disaggregation/prefill.py:1580 _dsa_pages_payload > mem_cache/common.py:50 suffix_page_indices > mem_cache/common.py:46 kv_to_page_indices
+       27.8 ms x34   hipMemcpyWithStream @ disaggregation/prefill.py:858 process_batch_result_disagg_prefill > disaggregation/prefill.py:1469 send_kv_chunk > disaggregation/prefill.py:1488 _send_kv_chunk > disaggregation/utils.py:538 set_buf
+        3.5 ms x7    hipMemcpyWithStream @ disaggregation/prefill.py:858 process_batch_result_disagg_prefill > disaggregation/prefill.py:1469 send_kv_chunk > disaggregation/prefill.py:1488 _send_kv_chunk > mem_cache/common.py:46 kv_to_page_indices
+-- scheduler-loop phases (wall, summed; nested phases are indented and included in their parent)
+    17420.3 ms x119  (31.9%)  forward launch (run_batch)
+     6754.0 ms x119  (12.4%)  get_new_batch_prefill
+     5354.5 ms x15   ( 9.8%)    evict_for_alloc
+     4877.2 ms x1856 ( 8.9%)    writing_check
+     4448.9 ms x45   ( 8.2%)    init_load_back
+     1135.2 ms x119  ( 2.1%)    prepare_for_extend
+    10529.7 ms x238  (19.3%)  PP recv_tensor_dict
+      113.0 ms x238  ( 0.2%)  PP send_tensor_dict
+     7252.1 ms x595  (13.3%)  _pp_commit_comm_work
+     1179.3 ms x119  ( 2.2%)  process_batch_result
+       95.4 ms x119  ( 0.2%)  check_hicache_events
+    10095.9 ms x749  (18.5%)  kv_to_page_indices
