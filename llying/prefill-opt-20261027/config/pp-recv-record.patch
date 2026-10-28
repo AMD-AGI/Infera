@@ -1,0 +1,16 @@
+--- scheduler_pp_mixin.orig.py	2026-10-28 20:46:24.704882706 +0000
++++ scheduler_pp_mixin.py	2026-10-28 20:46:29.759382068 +0000
+@@ -906,6 +906,13 @@
+                     all_gather_group=all_gather_group
+                 )
+                 recv_event = self._pp_record_comm_event()
++                if self.pp_comm_stream is not None:
++                    # Allocated on the comm stream, read on the forward / copy streams: without
++                    # this the block can be handed to the next receive while still being read.
++                    for value in tensor_dict.values():
++                        if isinstance(value, torch.Tensor) and value.is_cuda:
++                            value.record_stream(self.forward_stream)
++                            value.record_stream(self.copy_stream)
+             received_kind = tensor_dict.get("__msg_type__", "default")
+             if received_kind == expected_kind:
+                 if received_kind == "default":
