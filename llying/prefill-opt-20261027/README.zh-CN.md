@@ -5,6 +5,18 @@
 
 ## 10-27 夜：调优实验总表（结论先行，每组跑完更新）
 
+**10-28 22:00 更新：长节拍 = 回载触发的驱逐沿环逐级重复；E3（批量写回驱逐）已排队**
+- `scripts/prefill_ring_timeline.py`（E1 四级 trace，把四级的 GPU 区间和调度线程阶段按时间排开，`results/trace-llr37-v3-evict512k-4r-c104/ring-timeline-{16,31}.txt`）：
+  - **平稳段（第 31–37 步）环按 GPU 满速跑**：PP0 GPU 每步约 255 ms、前后间隔 < 3 ms，PP1 间隔 9–14 ms；early-send 的同步只是等上一个 forward，等完 3 ms 内下一个就上 GPU。
+  - **停顿波（第 18–22 步）**：PP0 第 18 步后 `get_new_batch_prefill` 用了 1,214 ms——`init_load_back`（631 ms）里为腾空间驱逐一次（560 ms），回载后分配时再驱逐一次（560 ms）；
+    树在各级镜像，**PP1 下一拍做同样的事（903 ms），PP2、PP3 依次**，四级每拍都在同一时刻开始、周期约 1.1 s，持续约 4 拍。这就是 p75 / p90 的长节拍和约一半的空闲。
+  - **更正 08:25 第 1 条"E1 之后驱逐基本不在关键路径上"——错**。`prefill_pp_critical.py` 把源头级的停顿归成了别的类别；逐段时间线不依赖这种推断。
+- **E3：驱逐的写回批量化**（kit `patches/evict-batch/unified_radix_cache.py` = E1 的文件 + `config/evict-batch-on-e1.patch`，`SGLANG_EVICT_BATCH_NODES=32`，0 = 原行为）：
+  `_evict_components` 原来每个牺牲节点"提交 D2H → 写栅栏 → 同步等 → demote"（一次驱逐约 116 个节点串行）；改为每 32 个（或待释放量已够目标）flush 一次：
+  一次 `writing_check`（`start_writing` 把队列合并成一次传输）后逐个 demote。遍历是 LRU 游标、未备份的叶子在 demote 前仍是叶子、父节点 demote 后才可选，
+  已在批里的节点跳过；各级跑同一套确定性逻辑，镜像不变。预期一次驱逐从约 560 ms 降到约 250–300 ms（拷贝本身与遍历重叠），停顿波减半。
+- **队列 `scripts/night12_1028.sh`（替换 night11c）**：E7 trace 之后 → E7b 限池门禁 → E3 限池门禁 → E1 + E7b + E3 完整正确性 → 其 C104 性能（约 02:10–03:45）→ E1 + E7b 单独 C104 性能（分离 E3）。
+
 **10-28 21:45 更新：kernel 线——`--dsa-prefill-backend aiter` 不可用；NCCL 自旋占 CU 很少**
 - 调度层 E4 / E6 / E7 都没进展，按用户要求转 kernel。镜像里的 DSA prefill 后端：`triton`（生产）、`triton_sparse_mla`（有前缀时先把 KV 反量化成 bf16；
   `--dsa-triton-union` 要求"头数 × G"在 [16, 32]，TP1 每卡 64 头不满足）、`aiter`（`_forward_aiter_extend`：每个 prefill token 当一个 decode query 调汇编
