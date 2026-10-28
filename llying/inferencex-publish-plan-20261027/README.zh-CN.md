@@ -61,6 +61,16 @@
 | HiCache 撤栈释放时间与大小的关系（H2） | 释放时间曲线，判断能否压进 15 分钟 | 1 台 MI355X |
 | cookbook 草稿（G1） | MI355X 条目草稿 | 无需 GPU |
 
+**10-28 进展**（三个分支都只在本地提交，未推送、未提 PR）：
+
+| 仓库 / 分支 | 提交 | 内容 | 验证 |
+|---|---|---|---|
+| NVIDIA/srt-slurm `llying/infera-frontend`（基于 main `59920ea1`） | `9fde06e7` | `frontend.type: infera`：`InferaFrontend`（继承 `DynamicFrontend`，worker 仍按 `direct` 处理）；`Frontend.direct_worker_launcher` 钩子让 SGLang worker 经 `python3 -m infera.engine.sglang` 启动并登记到 etcd；隐含 etcd、按角色数 `/v1/workers` 判断就绪、拒绝 srtctl 管理的 router 参数和外部 etcd；`configs/install-infera.sh`、`docs/infera.md`、example 与启动快照 | 新测试 10 项；全量测试失败名单与 main 逐条一致（11 个，均为容器环境）；ruff / 格式无新增；Python 3.10 下 `ty` 通过；`schema-docs --check`、`mkdocs --strict` 通过；example 在 mock orchestrator 下 exit 0 |
+| AMD-AGI/Infera `llying/sglang-explicit-kv-events-config`（基于 main `319444f8`） | `afa93f91` | 包装层沿用外部传入的 `--kv-events-config` 端口，不再自己找端口追加（srt-slurm 统一分配端口的规则要求） | 新单测 + 相关单测 113 项通过，ruff 通过 |
+| SemiAnalysisAI/InferenceX `llying/infera-sglang`（基于 main `253c38bf`） | `b3ce1f50` | `infera-sglang` 映射到 sglang；`infera-sglang.sh` 从 GitHub release 装 `amd-infera`（`--no-deps`，只补 `nats-py`）并登记进 `INSTALLERS` | infx 相关测试 111 项通过 |
+
+依赖：srt-slurm 的 infera frontend 需要 Infera 带上 `afa93f91` 的版本（文档写的是 amd-infera 0.3.2 或更新），要和同事的 v0.3.2 发版对齐。
+
 ## 2. InferenceX 的发布流程与先例
 
 ```text
@@ -144,7 +154,7 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | **A** | **对齐与决策** | | | | | |
 | A1 | 提交方式与分工 | 未开始；fork PR 每次 push 都要维护者重新打标签 | 找 AMD 的 CODEOWNER（@seungrokj、@chunfangamd、@billishyahao 等）确认谁提 PR、谁签 checklist、谁打 sweep 标签 | AMD | 1 周 | P0 |
 | A2 | infera 按"部署层"处理、新 framework 名、waiver 接受度 | infera-sglang 走 SGLang 规则；Dynamo+SGLang 是先例 | 问 SemiAnalysis 核心维护者 | SemiAnalysis | 与 A1 并行 | P0 |
-| A3 | srt-slurm 接入方案 | 静态 router 或动态发现（第 5.3 节） | 定方案 | 你 | — | P0 |
+| A3 | srt-slurm 接入方案 | **10-28 定：先走动态发现提 PR**，看评审推进情况；推进困难再改静态 router（第 5.3 节） | 实现 infera 动态 frontend 并提 srt-slurm PR | 你 | — | 已定 |
 | A4 | 2P1D 两个 prefill 的放置 | 同机（2 台）或各占半台（3 台）（第 5.6 节） | 定方案，建议各占半台 | 你 | — | P1 |
 | A5 | 集群访问 | 没有 mi355x-amds 登录权限 | 申请 1–2 节点交互使用，或拿到失败作业的日志 | AMD | — | P1 |
 | A6 | 上榜用哪套配置 | PR #210 的配置合规问题少、数字低（4+4 C80 37,310）；同事的 llr37 / llr48 配置数字高，但含 InferenceX 禁止的项（第 5.8 节） | 定方案；建议以 #210 配置为底，逐项加入 llr37 里合规的参数（K3、decode mem 0.95 等）并实测 | 你 | — | P0 |
@@ -278,7 +288,14 @@ Mooncake 提前发送前的等待（#41395）。
 - **Dynamo**：srt-slurm 本来就是围绕 Dynamo 做的，worker 有专门的 `dynamo` 启动方式（`python -m dynamo.sglang`），etcd / NATS 由 srt-slurm 起，
   Dynamo 由 recipe 的 `dynamo:` 块运行时安装。
 - **非 NVIDIA 的 frontend**：ATOM / AToMesh（srt-slurm#433，+646 行，9-13 → 9-23）和 TileRT（#529，当天合入）都由 SemiAnalysis 的 cquil11 提交。
-- **两种方案**（待定，A3）：
+- **规则核对（10-28）**：srt-slurm 没有禁止其他动态 frontend。`DynamicFrontend` 的说明写明"Dynamo is the only implementation today. A subclass sets `type` and
+  `worker_launch`…"，是可扩展的基类。唯一相关的约束是"A router binary that can also take static URLs … is a mode of a static router, not a dynamic frontend"：
+  infera-router 目前只支持 etcd / Kubernetes 发现，按动态接入合规；若以后给它加静态模式，就要改走静态。动态方式的成本在工作量：worker 启动方式目前写死为
+  `dynamo` / `direct`，按 "Names go in tables" 规则（`tests/test_design_rules.py` 自动检查）要改成表或钩子。
+- **静态方式对功能和性能的影响（10-28 核对）**：router 与 worker 之间全走 SGLang 原生接口（HTTP 直连、各 DP rank 的 ZMQ KV 事件端口、`X-Data-Parallel-Rank`、
+  bootstrap 端口、`/flush_cache`），router 的 `Worker` 字段都能从 `/get_server_info` 读到，所以本配置的功能与性能不受影响；唯一风险是包装层自动设的环境变量
+  （`SGLANG_OPT_USE_TOPK_V2=0`、`MC_GID_INDEX`、目标设备亲和、dma-buf 路径、KV 网卡 IP、Mooncake 拓扑 JSON）要在 recipe 里写全。
+- **10-28 决定：先按动态方式提 PR**，推进困难再改静态。两种方案的对比：
 
 | | 方案 A：静态 router | 方案 B：动态发现 |
 |---|---|---|
