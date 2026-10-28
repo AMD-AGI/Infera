@@ -1,0 +1,25 @@
+{
+  "kind": "environment",
+  "name": "example",
+  "description": "Uncaptured environment template.",
+  "hardware": {
+    "device": null,
+    "architecture": null,
+    "count": null,
+    "driver": null
+  },
+  "system": {
+    "os": null,
+    "kernel": null,
+    "python": null
+  },
+  "container": {
+    "image": null,
+    "digest": null
+  },
+  "packages": {},
+  "repositories": [],
+  "missing": [
+    "Replace with capture-env output from the benchmark environment."
+  ]
+}

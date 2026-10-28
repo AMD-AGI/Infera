@@ -56,6 +56,7 @@ env-mgr = "env_mgr.cli:main"
 # failure arrives when a reviewer runs it. So the script points at the
 # installed runner and the runner finds the task package by path.
 agent-sys = "cli.main:main"
+kernel-registry = "kernel_registry.cli:main"
 
 [build-system]
 requires = ["setuptools>=69", "wheel"]
@@ -78,6 +79,7 @@ include = [
     # `.py` only, so from a wheel a task package's `.jsonnet` is simply not
     # there — `cli/package.py` refuses and names why.
     "cli*",
+    "kernel_registry",
 ]
 
 # The five JSON Schemas ship inside `spec_loader`, which `docs/design.md` D1
@@ -87,6 +89,10 @@ include = [
 # is the other half — `packages.find` seeing the package does not ship the
 # `.json` files inside it.
 [tool.setuptools.package-data]
+kernel_registry = [
+    "README.md", "docs/*.md", "templates/**/*", "skills/*/SKILL.md",
+    "skills/*/references/*.md",
+]
 spec_loader = ["schemas/*.json"]
 # `addons/` is not a Python package — it lives inside `env_mgr/` so it has
 # an owning package to hang a `package-data` glob on. `.claude/` members
@@ -112,12 +118,17 @@ env_mgr = [
     "addons/*/.claude/.mcp.json",
 ]
 
+[tool.setuptools.exclude-package-data]
+# Catalogs are customer data, not part of the installed tool.
+kernel_registry = ["catalogs/**/*"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # `scratch/` is gitignored working space and may hold cloned third-party trees
 # whose own test files pytest would otherwise try to collect.
 # `tests/e2e_test/` holds task packages, which are data, not tests.
-norecursedirs = ["scratch", "e2e_test"]
+# Kernel catalogs may preserve external test drivers with optional GPU dependencies.
+norecursedirs = ["scratch", "e2e_test", "catalogs"]
 
 # Inherits the repository's ruff settings; adds only what is local to agent_sys.
 [tool.ruff]
@@ -129,4 +140,5 @@ extend = "../pyproject.toml"
 known-first-party = [
     "env_mgr", "task_graph",
     "spec_loader", "handoff", "validator", "agent", "closure", "monitor", "cli",
+    "kernel_registry",
 ]
