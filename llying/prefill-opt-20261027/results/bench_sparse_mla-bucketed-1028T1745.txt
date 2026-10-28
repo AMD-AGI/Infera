@@ -1,0 +1,14 @@
+[aiter] import [module_aiter_core] under /sgl-workspace/aiter/aiter/jit/module_aiter_core.so
+seq 8192 H 64 topk 2048 reqs 4 ctx 131072 mode overlap overlap 0.7 pool 6.2 GB scatter-run 1; KV bytes gathered per call 9.7 GB
+prod                        5.122 ms    1.89 TB/s  autotune pick: BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+bucket_indices/32           1.486 ms  (3 segments of 3728270 rows)
+bucket_indices/64           1.477 ms  (3 segments of 3728270 rows)
+bucketed-kernel/64,4,2      4.845 ms    1.99 TB/s  x 1.06  max|diff| 0.0039  >2%: 0.00e+00
+bucketed/64,4,2             6.304 ms    1.53 TB/s  x 0.81  max|diff| 0.0039  >2%: 0.00e+00
+bucketed-kernel/32,4,2      6.719 ms    1.44 TB/s  x 0.76  max|diff| 0.0039  >2%: 0.00e+00
+bucketed/32,4,2             8.142 ms    1.19 TB/s  x 0.63  max|diff| 0.0039  >2%: 0.00e+00
+bucketed-kernel/64,4,1      4.860 ms    1.99 TB/s  x 1.05  max|diff| 0.0039  >2%: 0.00e+00
+bucketed/64,4,1             6.296 ms    1.53 TB/s  x 0.81  max|diff| 0.0039  >2%: 0.00e+00
+bucketed-kernel/64,8,2      5.880 ms    1.64 TB/s  x 0.87  max|diff| 0.0039  >2%: 0.00e+00
+bucketed/64,8,2             7.269 ms    1.33 TB/s  x 0.70  max|diff| 0.0039  >2%: 0.00e+00
+best: bucketed-kernel/64,4,2 4.845 ms (x1.06), bucketed-kernel/64,4,1 4.860 ms (x1.05), bucketed-kernel/64,8,2 5.880 ms (x0.87), bucketed/64,4,1 6.296 ms (x0.81), bucketed/64,4,2 6.304 ms (x0.81)

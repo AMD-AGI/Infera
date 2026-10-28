@@ -34,6 +34,7 @@ ap.add_argument("--quick", action="store_true", help="only prod, the best-known 
 ap.add_argument("--prod-only", action="store_true")
 ap.add_argument("--chunked", action="store_true", help="single pass vs sparse_mla_chunked (KV pool split into <= 2 GB views)")
 ap.add_argument("--tilebase", action="store_true", help="per-tile scalar base + 32-bit offsets over row-sorted indices")
+ap.add_argument("--bucketed", action="store_true", help="indices bucketed by 2 GB pool segment, one buffer load per tile")
 ap.add_argument("--pool-gb", type=float, default=0, help="KV pool size; 0 = just the requests' tokens")
 ap.add_argument("--scatter-run", type=int, default=0,
                 help="place each request's tokens in the pool in random runs of this many tokens (1 = fully random); 0 = contiguous")
@@ -160,10 +161,39 @@ def tilebase(bn, w, s, claim):
     return run
 
 
+def bucketed(bn, w, s, pre):
+    import sparse_mla_bucketed as smb
+    _, nch, rpc = smb.pool_views(kv.view(torch.uint8))
+    bk = smb.bucket_indices(idx, rpc, nch, bn) if pre else None
+
+    def run():
+        with tsm._no_async_copy():
+            return smb.sparse_mla_fwd_bucketed(q_nope, q_rope, kv, idx, scale * tsm._LOG2E, tsm._FP8_MAX,
+                                               block_n=bn, num_warps=w, num_stages=s, bucketed=bk).unsqueeze(0)
+    return run
+
+
 variants = []
 if a.prod_only:
     raise SystemExit
-if a.tilebase:
+if a.bucketed:
+    import sparse_mla_bucketed as smb
+    _, nch, rpc = smb.pool_views(kv.view(torch.uint8))
+    for bn in (32, 64):
+        t_b, _ = bench(lambda: smb.bucket_indices(idx, rpc, nch, bn))
+        print(f"{'bucket_indices/' + str(bn):24s} {t_b:8.3f} ms  ({nch} segments of {rpc} rows)")
+    def seg(bn, w, s):
+        loc, tc, T = smb.bucket_indices(idx, rpc, nch, bn)
+        bk = (loc, smb.seg_ranges(tc, nch), T)
+
+        def run():
+            with tsm._no_async_copy():
+                return smb.sparse_mla_fwd_seg(q_nope, q_rope, kv, idx, scale * tsm._LOG2E, tsm._FP8_MAX,
+                                              block_n=bn, num_warps=w, num_stages=s, bucketed=bk).unsqueeze(0)
+        return run
+    variants += [(f"seg-kernel/{bn},{w},{s}", seg(bn, w, s)) for bn, w, s in [(64, 4, 2), (64, 4, 3), (64, 4, 1), (32, 4, 2)]]
+    variants += [(f"bucketed-kernel/64,4,2", bucketed(64, 4, 2, True))]
+elif a.tilebase:
     t_sort, _ = bench(lambda: torch.sort(idx, dim=-1).values)
     print(f"{'torch.sort(idx, -1)':24s} {t_sort:8.3f} ms")
     variants += [(f"tilebase{'' if c else '-noclaim'}/{bn},{w},{s}", tilebase(bn, w, s, c))
@@ -176,9 +206,9 @@ elif a.quick:
 else:
     variants += [(f"single/{bn},{w},{s}", single(bn, w, s))
                  for bn, w, s in itertools.product((16, 32, 64, 128), (2, 4, 8), (1, 2))]
-if not (a.chunked or a.tilebase):
+if not (a.chunked or a.tilebase or a.bucketed):
     variants += [(f"splitk/{ks}", splitk(ks)) for ks in (1, 2)]
-if a.chunked or a.tilebase:
+if a.chunked or a.tilebase or a.bucketed:
     pass
 elif a.quick:
     variants += [(f"fused/{bh},{bk},{w},{ps}", fused(bh, bk, w, ps)) for bh, bk, w, ps in [(16, 64, 2, 3), (32, 64, 4, 3), (64, 64, 8, 3)]]

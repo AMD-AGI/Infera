@@ -1,0 +1,22 @@
+### --prod-only --pool-gb 1.9 --scatter-run 1
+prod                        3.726 ms    2.59 TB/s  autotune pick: BLOCK_N: 64, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+### --bucketed --pool-gb 6.2 --scatter-run 0
+prod                        5.127 ms    1.88 TB/s  autotune pick: BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+bucket_indices/32           1.506 ms  (3 segments of 3728270 rows)
+bucket_indices/64           1.479 ms  (3 segments of 3728270 rows)
+seg-kernel/64,4,2           4.927 ms    1.96 TB/s  x 1.04  max|diff| 0.0039  >2%: 0.00e+00
+seg-kernel/64,4,3           5.716 ms    1.69 TB/s  x 0.90  max|diff| 0.0039  >2%: 0.00e+00
+seg-kernel/64,4,1           5.871 ms    1.65 TB/s  x 0.87  max|diff| 0.0039  >2%: 0.00e+00
+seg-kernel/32,4,2           4.376 ms    2.21 TB/s  x 1.17  max|diff| 0.0039  >2%: 0.00e+00
+bucketed-kernel/64,4,2      4.567 ms    2.12 TB/s  x 1.12  max|diff| 0.0039  >2%: 0.00e+00
+best: seg-kernel/32,4,2 4.376 ms (x1.17), bucketed-kernel/64,4,2 4.567 ms (x1.12), seg-kernel/64,4,2 4.927 ms (x1.04), seg-kernel/64,4,3 5.716 ms (x0.90), seg-kernel/64,4,1 5.871 ms (x0.87)
+### --bucketed --pool-gb 6.2 --scatter-run 64
+prod                        5.146 ms    1.88 TB/s  autotune pick: BLOCK_N: 32, num_warps: 4, num_ctas: 1, num_stages: 2, maxnreg: None
+bucket_indices/32           1.502 ms  (3 segments of 3728270 rows)
+bucket_indices/64           1.463 ms  (3 segments of 3728270 rows)
+seg-kernel/64,4,2           5.412 ms    1.79 TB/s  x 0.95  max|diff| 0.0039  >2%: 0.00e+00
+seg-kernel/64,4,3           5.052 ms    1.91 TB/s  x 1.02  max|diff| 0.0039  >2%: 0.00e+00
+seg-kernel/64,4,1           6.190 ms    1.56 TB/s  x 0.83  max|diff| 0.0039  >2%: 0.00e+00
+seg-kernel/32,4,2           4.799 ms    2.01 TB/s  x 1.07  max|diff| 0.0039  >2%: 0.00e+00
+bucketed-kernel/64,4,2      4.837 ms    2.00 TB/s  x 1.06  max|diff| 0.0039  >2%: 0.00e+00
+best: seg-kernel/32,4,2 4.799 ms (x1.07), bucketed-kernel/64,4,2 4.837 ms (x1.06), seg-kernel/64,4,3 5.052 ms (x1.02), seg-kernel/64,4,2 5.412 ms (x0.95), seg-kernel/64,4,1 6.190 ms (x0.83)
