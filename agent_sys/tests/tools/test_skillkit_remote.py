@@ -79,6 +79,9 @@ def test_backup_promote_search_and_release(repo, tmp_path):
     meta = json.loads((Path(h["path"]) / remote.META).read_text())
     assert meta["type"] == "handoff" and len(meta["digest"]) == 64 and meta["sealed"] is False
     assert meta["context"] == {"engine": "sglang"} and remote.can_push(repo)[0]
+    # no local path or host name is published, only placeholders
+    assert meta["source"] == f"<source-dir>/{c.parent.name}" and meta["source_host"] == "<host>"
+    assert str(tmp_path) not in (Path(h["path"]) / remote.META).read_text()
 
     remote.promote(repo, "handoff", "sglang_decode")
     files = remote_files(repo)

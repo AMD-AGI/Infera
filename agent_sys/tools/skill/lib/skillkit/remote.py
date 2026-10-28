@@ -19,7 +19,6 @@ from __future__ import annotations
 import getpass
 import json
 import os
-import platform
 import re
 import shutil
 import subprocess
@@ -508,8 +507,10 @@ def backup(
         "summary": summary,
         "tags": tags or [],
         "context": {**_lift_context(src), **(context or {})},
-        "source": str(src),
-        "source_host": platform.node(),
+        # Placeholders, not the real path or host: the repo is shared and the
+        # reader is an agent, which needs only the item's name to trace it.
+        "source": f"<source-dir>/{src.name}",
+        "source_host": "<host>",
         "created": _now(),
         "agent_sys_commit": _git(AGENT_SYS, "rev-parse", "HEAD", check=False),
     }
@@ -547,10 +548,10 @@ def backup(
 #: environment-record keys worth surfacing in search, under the name they get in META.
 # fmt: off
 _CONTEXT_KEYS = {
-    "model": "model", "model_name": "model", "model_path": "model_path",
+    "model": "model", "model_name": "model",
     "image": "image", "image_id": "image_id", "engine": "engine",
     "gpu": "gpu", "gpu_model": "gpu", "gpu_arch": "gpu_arch",
-    "node": "host", "hostname": "host", "tp": "tp", "tp_size": "tp",
+    "tp": "tp", "tp_size": "tp",
     "sglang_version": "sglang", "vllm_version": "vllm", "rocm_version": "rocm",
 }
 # fmt: on

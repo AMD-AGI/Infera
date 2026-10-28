@@ -16,7 +16,8 @@ A task item is the package as written (`main.yaml`, `steps/`, `assets/`,
 `plan.task.yaml.txt`), symlinks dereferenced; a handoff item is `content/`
 (`README.md` + `items/`), plus `manifest.yaml` and `validation.yaml` when it
 was sealed. Each carries `META.astk.json`: type, name, user, tier, summary,
-tags, context, source path and host, time, the agent_sys commit, and for a
+tags, context, source dir name and host as placeholders (`<source-dir>/<name>`,
+`<host>`; no local path or host name is published), time, the agent_sys commit, and for a
 handoff its digest. A tier name cannot be a user name (user `release` would
 write straight into `release/`).
 
