@@ -1,0 +1,39 @@
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-26 16:52:24] server_args={'model_path': 'REDACTED_LOCAL_PATH', 'tokenizer_path': 'REDACTED_LOCAL_PATH', 'tokenizer_mode': 'auto', 'tokenizer_backend': 'huggingface', 'tokenizer_worker_num': 4, 'detokenizer_worker_num': 1, 'skip_tokenizer_init': False, 'load_format': 'auto', 'model_loader_extra_config': '{}', 'trust_remote_code': Tr
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[2026-10-26 16:53:23 DP0 TP0] GLM NextN PTPC does not support shared experts fusion. Shared experts fusion optimization is disabled.
+[2026-10-26 16:53:23 DP1 TP1] SGLANG_GLM_NEXTN_MOE_PTPC=1: MTP fused MoE (model.decoder.mlp.experts) runs as PTPC-FP8
+[2026-10-26 16:53:23 DP2 TP2] SGLANG_GLM_NEXTN_MOE_PTPC=1: MTP fused MoE (model.decoder.mlp.experts) runs as PTPC-FP8
+[2026-10-26 16:53:23 DP3 TP3] SGLANG_GLM_NEXTN_MOE_PTPC=1: MTP fused MoE (model.decoder.mlp.experts) runs as PTPC-FP8
+[2026-10-26 16:53:23 DP0 TP0] SGLANG_GLM_NEXTN_MOE_PTPC=1: MTP fused MoE (model.decoder.mlp.experts) runs as PTPC-FP8
+[2026-10-26 16:53:23 DP0 TP0] GLM NextN MoE PTPC: casting draft expert weights under model.layers.78.mlp to fp8_e4m3 per-channel
+[2026-10-26 16:54:06 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 129.74 GB
+[2026-10-26 16:54:06 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 129.74 GB
+[2026-10-26 16:54:06 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 129.74 GB
+[2026-10-26 16:54:06 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 129.74 GB
+[2026-10-26 16:54:06 DP3 TP3] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 1.93 GB
+[2026-10-26 16:54:06 DP0 TP0] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 1.93 GB
+[2026-10-26 16:54:06 DP1 TP1] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 1.93 GB
+[2026-10-26 16:54:06 DP2 TP2] KV Cache is allocated. dtype: torch.float8_e4m3fn, #tokens: 2920512, KV size: 1.93 GB
+[2026-10-26 16:55:16 DP3 TP3] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=69.47 s, mem usage=7.76 GB, avail mem=13.28 GB.
+[2026-10-26 16:55:16 DP1 TP1] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=69.13 s, mem usage=7.76 GB, avail mem=13.16 GB.
+[2026-10-26 16:55:16 DP0 TP0] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=69.67 s, mem usage=7.76 GB, avail mem=13.19 GB.
+[2026-10-26 16:55:16 DP2 TP2] Capture target verify CUDA graph end. bs=[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 40, 44, 48, 52, 56, 60, 64], elapsed=69.18 s, mem usage=7.76 GB, avail mem=13.19 GB.
+[2026-10-26 16:55:20 DP0 TP0] Capture draft decode CUDA graph end. elapsed=3.88 s, mem usage=0.68 GB, avail mem=12.51 GB.
+[2026-10-26 16:55:23 DP0 TP0] Capture draft extend CUDA graph end. elapsed=2.52 s, mem usage=1.09 GB, avail mem=11.42 GB.
+[2026-10-26 16:55:23 DP0 TP0] max_total_num_tokens=2920512, chunked_prefill_size=8192, max_prefill_tokens=16384, max_running_requests=64, context_len=1048576, available_gpu_mem=11.42 GB
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']

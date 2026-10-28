@@ -1,0 +1,73 @@
+{
+  "kind": "environment",
+  "name": "historical-stack-a",
+  "description": "Historical environment imported from retained evidence; not captured anew.",
+  "container": {
+    "image": "historical-sglang-image-a",
+    "digest": "sha256:5b6565ef3e4e7dcca02423d509f842a74cf7416b18ed94edbf12e2be100f7376"
+  },
+  "hardware": {
+    "device": "AMD Instinct MI355X",
+    "architecture": "gfx950",
+    "count": null,
+    "driver": null
+  },
+  "system": {
+    "os": null,
+    "kernel": null,
+    "python": null
+  },
+  "packages": {
+    "torch": "2.9.1+rocm7.2.0",
+    "triton": "3.7.0+amd.rocm7.2.0.git89002410",
+    "amd-aiter": "0.1.25.dev178",
+    "flydsl": "0.3.4.1",
+    "sglang": "0.5.22.dev20261020+geae134d61f"
+  },
+  "repositories": [
+    {
+      "url": "https://github.com/sgl-project/sglang",
+      "commit": "93034eba91",
+      "dirty": null
+    },
+    {
+      "url": "https://github.com/ROCm/aiter",
+      "commit": "2bb549102",
+      "dirty": null
+    },
+    {
+      "url": "https://github.com/SemiAnalysisAI/InferenceX",
+      "commit": "918524ff94045b3f091115f1051c22a8588edf2b",
+      "dirty": false
+    }
+  ],
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.kf-decode-kernels-e2e.packup_20261023/environment.md",
+      "sha256": "e5eda7ac0603ef52798828ed687dc8f165c9c5737ad07bfcc0892ff1311cc997",
+      "size": 2101,
+      "representation": "redacted",
+      "historical_original_sha256": "135a661cc4713f21d769b8cc4ddfbd7369747f37bfc6f738615630d9a2bc1cce"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-decode-kernels-e2e.packup_20261023/cluster/v0521dbg_20261010/runs/kfb2/agentx-c56-A1/runtime.env",
+      "sha256": "e5e908a357a5010eab1109fc18bb13d4e4c0357cf86cce97fce8c3e406a3d2f6",
+      "size": 1769,
+      "representation": "redacted",
+      "historical_original_sha256": "3bf7e61b7c1a5d77ee8fe126b262066aa7a0e7756f7f2715e414bf9a46e8b6f9"
+    }
+  ],
+  "missing": [
+    "Full benchmark-time package inventory",
+    "Host driver/OS/Python capture",
+    "Timestamp timezone was not recorded",
+    "External input availability"
+  ],
+  "provenance": {
+    "import_method": "Archived task and runtime records",
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

@@ -1,0 +1,59 @@
+{
+  "experiment_id": "e924ff06",
+  "task_id": "sparse_mla_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.1151,
+  "created_at": "2026-10-20T22:22:22.672276",
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "segment_index": 5,
+  "parent_experiment_id": "9cea913d",
+  "status": "interrupted",
+  "started_at": "2026-10-20T22:22:22.672253",
+  "ended_at": "2026-10-21T00:33:19.442207",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {
+    "schema_version": 1,
+    "state": "best_committed",
+    "decision": "KEEP",
+    "experiment_id": "e924ff06",
+    "base_commit": "e375f8dbb1d27d1cc49b6a8728657bda275677dd",
+    "best_commit": "448751982717123c34c9edfbdceb451d404271b7",
+    "best_iteration": 5,
+    "baseline_ms": 0.1151,
+    "pristine_baseline_ms": 0.1151,
+    "search_start_ms": 0.1151,
+    "best_ms": 0.0543,
+    "mean_case_speedup": 2.0223016274914465,
+    "search_start_mean_case_speedup": 1.0,
+    "improved": true,
+    "total_improved": true,
+    "incremental_improved": true,
+    "improved_during_search": true,
+    "total_speedup": 2.0223016274914465,
+    "incremental_speedup": 2.0223016274914465,
+    "validation_passed": true,
+    "validation_summary": "Validation Pipeline:\n  1. Full suite: PASS SNR=37.4dB\n  Verdict: ALL PASSED",
+    "snr_db": 37.42
+  },
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "timestamp": "2026-10-20T22:33:53.642996",
+      "config": {
+        "iteration": 5,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 37.42,
+      "wall_ms": 0.0543,
+      "mean_case_speedup": 2.0223016274914465,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "route decode to split-K at BLOCK_H=64 with computed splits, async copy, wide reduce"
+    }
+  ]
+}

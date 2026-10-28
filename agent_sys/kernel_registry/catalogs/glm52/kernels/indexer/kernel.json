@@ -1,0 +1,771 @@
+{
+  "kind": "kernel",
+  "name": "indexer",
+  "description": "DSA indexer logits and top-k",
+  "original": [
+    {
+      "path": "payload/tasks/indexer/dsa_indexer_kernel.pristine.py",
+      "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "size": 51742,
+      "representation": "unchanged",
+      "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "role": "original"
+    }
+  ],
+  "reference": [
+    {
+      "path": "references/naive.py",
+      "sha256": "43dcd643f0d6e485b60a9d2b7647b6326b0cfd717e4077a4fc1ecffb1565c878",
+      "size": 10552
+    },
+    {
+      "path": "payload/tasks/indexer/driver.py",
+      "sha256": "8a7458675ca05b815b7721beae4d34a10e6a9c0ae2c42e47900c32f43d2b252b",
+      "size": 10562,
+      "representation": "unchanged",
+      "historical_original_sha256": "8a7458675ca05b815b7721beae4d34a10e6a9c0ae2c42e47900c32f43d2b252b",
+      "role": "historical oracle"
+    }
+  ],
+  "reference_status": "incomplete",
+  "limitations": [
+    "New PyTorch reference has CPU semantic controls only; GPU differential validation is outstanding.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "documentation": [
+    {
+      "path": "payload/tasks/indexer/program.md",
+      "sha256": "992eb00ffeda302fe8285a4b8ca49b5e6ac3c22d100aeab67d7081cb8b1662f8",
+      "size": 8890,
+      "representation": "redacted",
+      "historical_original_sha256": "c2aba869000f56d9fab2fbd0584c67c09f0ba805023a68a50db820353e02193c"
+    },
+    {
+      "path": "references/README.md",
+      "sha256": "e482545cae896f611238cd07becb4c783fdab6e3220d84433311bf0fb9c4a2c6",
+      "size": 2134
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "793454448db83329d7ae04f4b0dd34bbc5b8bcd579a58f6709c92d5a09bf01a1",
+      "size": 1284
+    }
+  ],
+  "contract": {
+    "specification": {
+      "path": "payload/tasks/indexer/program.md",
+      "sha256": "992eb00ffeda302fe8285a4b8ca49b5e6ac3c22d100aeab67d7081cb8b1662f8",
+      "size": 8890,
+      "representation": "redacted",
+      "historical_original_sha256": "c2aba869000f56d9fab2fbd0584c67c09f0ba805023a68a50db820353e02193c"
+    },
+    "naive_entrypoint": "dsa_indexer",
+    "fixtures": [
+      {
+        "uri": "urn:sha256:4ea82fc1b7eae7a04556e14c3f2c39747a80b053cbb76227d1c86f95f1efc8d9",
+        "sha256": "4ea82fc1b7eae7a04556e14c3f2c39747a80b053cbb76227d1c86f95f1efc8d9",
+        "size": 1443992
+      },
+      {
+        "uri": "urn:sha256:5e916bf7f692df0dbf3182da2cb85c6d0a0a6027f841a6f1eb49f54443c5daf2",
+        "sha256": "5e916bf7f692df0dbf3182da2cb85c6d0a0a6027f841a6f1eb49f54443c5daf2",
+        "size": 2473112
+      },
+      {
+        "uri": "urn:sha256:322a92e18813f47302553c05d869f1d74e3e0f735a431796d5f32ddff5c113f7",
+        "sha256": "322a92e18813f47302553c05d869f1d74e3e0f735a431796d5f32ddff5c113f7",
+        "size": 1948472
+      },
+      {
+        "uri": "urn:sha256:abbed44904e3adfa0332779b1e8e548eff38e942ac63f18b9ab7f701a31d0c55",
+        "sha256": "abbed44904e3adfa0332779b1e8e548eff38e942ac63f18b9ab7f701a31d0c55",
+        "size": 1992248
+      },
+      {
+        "uri": "urn:sha256:09fd718f5eb9a216ae66232bdb2f6e8c0576512fd41334edc211102afe37cecb",
+        "sha256": "09fd718f5eb9a216ae66232bdb2f6e8c0576512fd41334edc211102afe37cecb",
+        "size": 2254712
+      },
+      {
+        "uri": "urn:sha256:a81b45d90c389ab78cdc49bfd76887096ec5dd9ca776e5788f6e1e41b5d62fdd",
+        "sha256": "a81b45d90c389ab78cdc49bfd76887096ec5dd9ca776e5788f6e1e41b5d62fdd",
+        "size": 1235288
+      },
+      {
+        "uri": "urn:sha256:48050df3d59da573fe8f09517a7a9853812da2171fec5d04c247cc4a8a82d725",
+        "sha256": "48050df3d59da573fe8f09517a7a9853812da2171fec5d04c247cc4a8a82d725",
+        "size": 1386200
+      },
+      {
+        "uri": "urn:sha256:0c1b9a92d6952929cd22f7dd20824f6d05659bfb64fab2a76b645b490ab45b85",
+        "sha256": "0c1b9a92d6952929cd22f7dd20824f6d05659bfb64fab2a76b645b490ab45b85",
+        "size": 1616024
+      }
+    ],
+    "hardware": "gfx950",
+    "model": "GLM-5.2-MXFP4"
+  },
+  "integration": {
+    "method": "PYTHONPATH sitecustomize overlay with import hooks and per-kernel gates",
+    "version": "kf-iter15-c2cacf5f",
+    "files": [
+      {
+        "path": "payload/overlay/base/sitecustomize.py",
+        "sha256": "9217285da2948b375a5642269afab11ca00be06cc6a4854230a92b422c0c6bea",
+        "size": 765,
+        "representation": "redacted",
+        "historical_original_sha256": "862246a2022e8b4e4004113b03253c0736e9478917eb3db21d5e5ee195e4245d"
+      },
+      {
+        "path": "payload/overlay/base/infera_kernels/__init__.py",
+        "sha256": "8a1c7a7e76747c30d86b4b378e18db99c5ee66f031f704759386edb02c24011c",
+        "size": 28643,
+        "representation": "redacted",
+        "historical_original_sha256": "a3579ef40301704a34bcefaf395ac078c10d095f56c7b60884818e44a808d1b8"
+      }
+    ],
+    "activation": [
+      "PYTHONPATH=<catalog>/payload/overlay/base:$PYTHONPATH INFERA_KERNEL_INDEXER=1 <server command>"
+    ],
+    "rollback": [
+      "Unset INFERA_KERNEL_INDEXER and restart the server processes."
+    ],
+    "compatibility": {
+      "sglang": "0.5.21/0.5.22 paths as archived",
+      "hardware": "MI355X/gfx950",
+      "guards": "See exact adapter source for mode, shape and dtype restrictions.",
+      "old_fused_module_adapter": {
+        "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/__init__.py",
+        "sha256": "209d555a2ea0615de8d6e26d77bff4e0effd4e0898251ed5c0fc23e922b0439a",
+        "size": 28982,
+        "representation": "redacted",
+        "historical_original_sha256": "80d99df71f4ee3b5f6cd7a7e5b21d6b3065d62c63cb28529006b4683e326ff34"
+      }
+    },
+    "validation_status": "target GPU revalidation required"
+  },
+  "versions": [
+    {
+      "id": "original",
+      "files": [
+        {
+          "path": "payload/tasks/indexer/dsa_indexer_kernel.pristine.py",
+          "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+          "size": 51742,
+          "representation": "unchanged",
+          "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+          "role": "original"
+        }
+      ],
+      "status": "baseline",
+      "notes": "Redacted snapshot of the historical original baseline.",
+      "provenance": {
+        "source_bytes": "redacted"
+      }
+    },
+    {
+      "id": "kf-iter2-45c61dbe",
+      "parent": "original",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/45c61dbec529b01c735d60d0f7c837abcf350682.py",
+          "sha256": "c9abe58bd8432d99bbf30409179471a6613a57e0b6ec2e16f13f0f45b1feaa5a",
+          "size": 52348,
+          "representation": "unchanged",
+          "historical_original_sha256": "c9abe58bd8432d99bbf30409179471a6613a57e0b6ec2e16f13f0f45b1feaa5a"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "45c61dbec529b01c735d60d0f7c837abcf350682",
+        "iteration": 2,
+        "source_bytes": "redacted"
+      },
+      "notes": "finer KV split granularity to balance the logits kernel's makespan"
+    },
+    {
+      "id": "kf-iter5-16332ab8",
+      "parent": "kf-iter2-45c61dbe",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/16332ab8394240b42e68f61846dd8d39751ce1ee.py",
+          "sha256": "8b2d4521c3956cd7e41b74ad2fed9ee4373d08e90050e788520c7b3e4bd9add6",
+          "size": 53715,
+          "representation": "unchanged",
+          "historical_original_sha256": "8b2d4521c3956cd7e41b74ad2fed9ee4373d08e90050e788520c7b3e4bd9add6"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "16332ab8394240b42e68f61846dd8d39751ce1ee",
+        "iteration": 5,
+        "source_bytes": "redacted"
+      },
+      "notes": "swizzle phase-1 program ids per XCD for L2 reuse, coarser KV split"
+    },
+    {
+      "id": "kf-iter6-0c67966c",
+      "parent": "kf-iter5-16332ab8",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/0c67966ca0c60a3a7623f53084120ef915729bde.py",
+          "sha256": "07a4d9b4a2890b9c4a8206a678f56399345d8112fcfa843055979b2d4fbede1d",
+          "size": 54497,
+          "representation": "unchanged",
+          "historical_original_sha256": "07a4d9b4a2890b9c4a8206a678f56399345d8112fcfa843055979b2d4fbede1d"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "0c67966ca0c60a3a7623f53084120ef915729bde",
+        "iteration": 6,
+        "source_bytes": "redacted"
+      },
+      "notes": "row-chunk the top-k op and hoist the K scale past the head reduction"
+    },
+    {
+      "id": "kf-iter8-1003de84",
+      "parent": "kf-iter6-0c67966c",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/1003de84586dbed6336db7103bd31fb5007b2bd3.py",
+          "sha256": "24f96aa3ed6afc54bc4bee97fb2a84d4893a89423c12f83b800daaa78489fd1b",
+          "size": 55281,
+          "representation": "unchanged",
+          "historical_original_sha256": "24f96aa3ed6afc54bc4bee97fb2a84d4893a89423c12f83b800daaa78489fd1b"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "1003de84586dbed6336db7103bd31fb5007b2bd3",
+        "iteration": 8,
+        "source_bytes": "redacted"
+      },
+      "notes": "decouple the waves-per-EU compile hint from SplitKV and raise it to 4"
+    },
+    {
+      "id": "kf-iter9-9fb92fc4",
+      "parent": "kf-iter8-1003de84",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/9fb92fc45a41a5dd94f34673ddd14d10d7c59914.py",
+          "sha256": "07a1038ca75c14d83ad3045d3eb4e42c6d73145c9d53925b3c30ee8b32352e49",
+          "size": 62194,
+          "representation": "unchanged",
+          "historical_original_sha256": "07a1038ca75c14d83ad3045d3eb4e42c6d73145c9d53925b3c30ee8b32352e49"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "9fb92fc45a41a5dd94f34673ddd14d10d7c59914",
+        "iteration": 9,
+        "source_bytes": "redacted"
+      },
+      "notes": "replace the compiled top-k with a one-pass sampled-threshold Triton radix selector"
+    },
+    {
+      "id": "kf-iter10-ed363f55",
+      "parent": "kf-iter9-9fb92fc4",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/ed363f55f8b784cb128e10926f98a2b1b00ee632.py",
+          "sha256": "346f221e4f054136cf7d0a4ffaa34cdd03f702e170434eb48a230cfaa098834e",
+          "size": 62685,
+          "representation": "unchanged",
+          "historical_original_sha256": "346f221e4f054136cf7d0a4ffaa34cdd03f702e170434eb48a230cfaa098834e"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "ed363f55f8b784cb128e10926f98a2b1b00ee632",
+        "iteration": 10,
+        "source_bytes": "redacted"
+      },
+      "notes": "spread top-k row counters, fold init kernel, single packed cumsum"
+    },
+    {
+      "id": "kf-iter13-e251e77c",
+      "parent": "kf-iter10-ed363f55",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/e251e77c31c1cf120297b428fba9208a5405845a.py",
+          "sha256": "070efee627778ca3549c690bbfa1ffebe6225023290073c03490399277371507",
+          "size": 64851,
+          "representation": "unchanged",
+          "historical_original_sha256": "070efee627778ca3549c690bbfa1ffebe6225023290073c03490399277371507"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "e251e77c31c1cf120297b428fba9208a5405845a",
+        "iteration": 13,
+        "source_bytes": "redacted"
+      },
+      "notes": "full-rate gfx950 fp8 32x32x64 MFMA tiles with single-instruction relu"
+    },
+    {
+      "id": "kf-iter14-2ebdf103",
+      "parent": "kf-iter13-e251e77c",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/2ebdf103e2c9182f1bd9bc9bcb262a9849ad4f0f.py",
+          "sha256": "7baf82c6dfa1177fe3461d3da20e3e58a35f5239ab03160f864727ca192646af",
+          "size": 67742,
+          "representation": "unchanged",
+          "historical_original_sha256": "7baf82c6dfa1177fe3461d3da20e3e58a35f5239ab03160f864727ca192646af"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "2ebdf103e2c9182f1bd9bc9bcb262a9849ad4f0f",
+        "iteration": 14,
+        "source_bytes": "redacted"
+      },
+      "notes": "16-bit threshold search plus scan-free register-resident Gluon candidate collect"
+    },
+    {
+      "id": "kf-iter15-c2cacf5f",
+      "parent": "kf-iter14-2ebdf103",
+      "files": [
+        {
+          "path": "payload/campaigns/indexer/sources/c2cacf5fa10cab2ad1b560d41ced0ba3f03288db.py",
+          "sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb",
+          "size": 92096,
+          "representation": "unchanged",
+          "historical_original_sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb"
+        }
+      ],
+      "status": "integrated",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "7f34fdec4a194551897a6338501d4eb8",
+        "commit": "c2cacf5fa10cab2ad1b560d41ced0ba3f03288db",
+        "iteration": 15,
+        "source_bytes": "redacted"
+      },
+      "notes": "sibling-pair fused phase-1 kernel sharing K loads, longest-group-first dispatch, SplitKV 64"
+    }
+  ],
+  "campaign_history": [
+    {
+      "path": "payload/campaigns/indexer/30f52f7f.json",
+      "sha256": "b1b87e5a2532159ecf7669da5cf087028bc250a1befe87ff8a8cab7c1551e316",
+      "size": 619,
+      "representation": "redacted",
+      "historical_original_sha256": "f627902b9cf664eabe379a8d75b7f0a400f1a46df7acecde2a67d8ecce487c75"
+    },
+    {
+      "path": "payload/campaigns/indexer/4ae64e6c.json",
+      "sha256": "4976c24d6c171d6efc316db8b429032e943e5d9ebd0a3fd57518f24380b66add",
+      "size": 1897,
+      "representation": "redacted",
+      "historical_original_sha256": "f3906158446c6cdd757f067e02eb1e5f4b74a4ed2c46a566d14cd37b1b132f0c"
+    },
+    {
+      "path": "payload/campaigns/indexer/53e44933.json",
+      "sha256": "737ca0fc95bcb0644476daf0f8c1cd213fc1523520e17feeb3b70073563f05d5",
+      "size": 611,
+      "representation": "redacted",
+      "historical_original_sha256": "e94808825ad2f0f3b1539b2c71bb0ae5a836a76778472fcf1b6c253773a07976"
+    },
+    {
+      "path": "payload/campaigns/indexer/66c7e85a.json",
+      "sha256": "583e3970b1e19d3c7c3ca5bb58ea292c064ca381594d3cb95a8bb367d3fde213",
+      "size": 2344,
+      "representation": "redacted",
+      "historical_original_sha256": "9fc6b7139648a86ca0d526c8abf120c24eb2fa6d6445ede82ee16c56b488c4c6"
+    },
+    {
+      "path": "payload/campaigns/indexer/865f3532.json",
+      "sha256": "93d5a8eff8e77e0db85350fc71881668c3942f2349359d3e7facc68c47ef9abc",
+      "size": 2805,
+      "representation": "redacted",
+      "historical_original_sha256": "95ad2aa52303d24a281d14dfc56ee306a7ee4558f0e1208f1ca0d26e519484db"
+    },
+    {
+      "path": "payload/campaigns/indexer/892a86be.json",
+      "sha256": "6494b6d56e87f1d4b638e8411314b282a16c29c9c9983e60517683fc507fb975",
+      "size": 2827,
+      "representation": "redacted",
+      "historical_original_sha256": "2e1b0ba99a602db247621d77ca945ed6fb6e67c82294e5b64dc7b145bd658ddf"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_002/benchmark.json",
+      "sha256": "c3056e9ff5e48e6009674f9fabd3ac4751a9790aac215f4e64444e7960923e58",
+      "size": 8141,
+      "representation": "unchanged",
+      "historical_original_sha256": "c3056e9ff5e48e6009674f9fabd3ac4751a9790aac215f4e64444e7960923e58"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_002/forge.patch",
+      "sha256": "d460457e7566ca2f903c9a11d3fd1881aea5291c41612ddf877c07b89d84280c",
+      "size": 1663,
+      "representation": "unchanged",
+      "historical_original_sha256": "d460457e7566ca2f903c9a11d3fd1881aea5291c41612ddf877c07b89d84280c"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_002/publication.json",
+      "sha256": "e52e4e2ad63054ca0e6c078d68b3b122352f550e89da96d85ae2a65ce10ba190",
+      "size": 1000,
+      "representation": "unchanged",
+      "historical_original_sha256": "e52e4e2ad63054ca0e6c078d68b3b122352f550e89da96d85ae2a65ce10ba190"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_002/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_005/benchmark.json",
+      "sha256": "0c2e0e421ced921dcfee3ac2b67b276b5ea75923641cd1ba09b30a01e7ba65af",
+      "size": 8168,
+      "representation": "unchanged",
+      "historical_original_sha256": "0c2e0e421ced921dcfee3ac2b67b276b5ea75923641cd1ba09b30a01e7ba65af"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_005/forge.patch",
+      "sha256": "c5b46fe9eb4d37dd246c52c22e9881dcd5536d9031e353082fb455efa5cec733",
+      "size": 3675,
+      "representation": "unchanged",
+      "historical_original_sha256": "c5b46fe9eb4d37dd246c52c22e9881dcd5536d9031e353082fb455efa5cec733"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_005/publication.json",
+      "sha256": "fc7e2afcec5ab3410b8dd54a74ceaface60bdfa920a2f4d897a83591dc466e9d",
+      "size": 1002,
+      "representation": "unchanged",
+      "historical_original_sha256": "fc7e2afcec5ab3410b8dd54a74ceaface60bdfa920a2f4d897a83591dc466e9d"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_005/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_006/benchmark.json",
+      "sha256": "4ddbf8cfb2b156109ae1e06f96174efbcf5c312caa858b9652d77c46786ee561",
+      "size": 8162,
+      "representation": "unchanged",
+      "historical_original_sha256": "4ddbf8cfb2b156109ae1e06f96174efbcf5c312caa858b9652d77c46786ee561"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_006/forge.patch",
+      "sha256": "ba43cb882177ccb9ba24137ebf16346ff00dcb00c9e1d6fcbe0380e39593baa4",
+      "size": 11588,
+      "representation": "unchanged",
+      "historical_original_sha256": "ba43cb882177ccb9ba24137ebf16346ff00dcb00c9e1d6fcbe0380e39593baa4"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_006/publication.json",
+      "sha256": "e859cf537792b7557842c684eabe55edfbf6878f5e3a05d89c8b231ef62cb007",
+      "size": 1003,
+      "representation": "unchanged",
+      "historical_original_sha256": "e859cf537792b7557842c684eabe55edfbf6878f5e3a05d89c8b231ef62cb007"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_006/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_008/benchmark.json",
+      "sha256": "6713ac25fef8e1afc6f7addd4769e33fb0a19135bb9faa3b670ce63ad46dadef",
+      "size": 8168,
+      "representation": "unchanged",
+      "historical_original_sha256": "6713ac25fef8e1afc6f7addd4769e33fb0a19135bb9faa3b670ce63ad46dadef"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_008/forge.patch",
+      "sha256": "075e9de5f651b69b1ce581be7f010d840906aaa6b41e8c90ae15034c359ed4f8",
+      "size": 13091,
+      "representation": "unchanged",
+      "historical_original_sha256": "075e9de5f651b69b1ce581be7f010d840906aaa6b41e8c90ae15034c359ed4f8"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_008/publication.json",
+      "sha256": "16131027a3b5595aadfbfda216a82d608b4b57a2ed64e3d3f3717d91d35e2d81",
+      "size": 1005,
+      "representation": "unchanged",
+      "historical_original_sha256": "16131027a3b5595aadfbfda216a82d608b4b57a2ed64e3d3f3717d91d35e2d81"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_008/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_009/benchmark.json",
+      "sha256": "b7dfa5b5d0ee0e7f6e0ba88adbdc44b1ddf99a4f9662626d8aade0a5e37f3662",
+      "size": 8161,
+      "representation": "unchanged",
+      "historical_original_sha256": "b7dfa5b5d0ee0e7f6e0ba88adbdc44b1ddf99a4f9662626d8aade0a5e37f3662"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_009/forge.patch",
+      "sha256": "c83d8f7f60ca74a2e6785af309f0f6fb1b8d80bac533b1cd3044ae6d51cdcafe",
+      "size": 20164,
+      "representation": "unchanged",
+      "historical_original_sha256": "c83d8f7f60ca74a2e6785af309f0f6fb1b8d80bac533b1cd3044ae6d51cdcafe"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_009/publication.json",
+      "sha256": "cac9123916fa56663f81e199e4cc6aaf0e71d5d45a40689e97a6d478c549e973",
+      "size": 1018,
+      "representation": "unchanged",
+      "historical_original_sha256": "cac9123916fa56663f81e199e4cc6aaf0e71d5d45a40689e97a6d478c549e973"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_009/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_010/benchmark.json",
+      "sha256": "6713ae6f2f5a5ecc34a7661b8766cd985a1921ae329c0937ce57daec880ab4f2",
+      "size": 8164,
+      "representation": "unchanged",
+      "historical_original_sha256": "6713ae6f2f5a5ecc34a7661b8766cd985a1921ae329c0937ce57daec880ab4f2"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_010/forge.patch",
+      "sha256": "2c65ee6d0805b342e1e03ba5d35e066d8db24ef7d2c6cb8328c39d1227ff7ba1",
+      "size": 20664,
+      "representation": "unchanged",
+      "historical_original_sha256": "2c65ee6d0805b342e1e03ba5d35e066d8db24ef7d2c6cb8328c39d1227ff7ba1"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_010/publication.json",
+      "sha256": "fa968af925c4644f558f1d6438075f4c38fb20ccc3c179901515c211e18be789",
+      "size": 1001,
+      "representation": "unchanged",
+      "historical_original_sha256": "fa968af925c4644f558f1d6438075f4c38fb20ccc3c179901515c211e18be789"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_010/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_013/benchmark.json",
+      "sha256": "1c5722c2b815e7027ba345be59a92910e56bb25f52e6043a07a8f2aa0537d6a0",
+      "size": 8162,
+      "representation": "unchanged",
+      "historical_original_sha256": "1c5722c2b815e7027ba345be59a92910e56bb25f52e6043a07a8f2aa0537d6a0"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_013/forge.patch",
+      "sha256": "a7337aabcbbc7aef37542fe725c53a96d840f202eb2a0962de5478e021ced7e9",
+      "size": 27156,
+      "representation": "unchanged",
+      "historical_original_sha256": "a7337aabcbbc7aef37542fe725c53a96d840f202eb2a0962de5478e021ced7e9"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_013/publication.json",
+      "sha256": "ccf3b23411e756235924cc125c3776bba4689f2ac8b512f4de850511eefc1c45",
+      "size": 1004,
+      "representation": "unchanged",
+      "historical_original_sha256": "ccf3b23411e756235924cc125c3776bba4689f2ac8b512f4de850511eefc1c45"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_013/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_014/benchmark.json",
+      "sha256": "d50d1b849cb48eed46704a390dd71a7ad247f64f51b5d5f10b3f302eb6d1bcb6",
+      "size": 8165,
+      "representation": "unchanged",
+      "historical_original_sha256": "d50d1b849cb48eed46704a390dd71a7ad247f64f51b5d5f10b3f302eb6d1bcb6"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_014/forge.patch",
+      "sha256": "dd3a68df14cf2d67a8dd0f9bffb24293de044dd7e41f88ec20d1f24e4870b183",
+      "size": 30083,
+      "representation": "unchanged",
+      "historical_original_sha256": "dd3a68df14cf2d67a8dd0f9bffb24293de044dd7e41f88ec20d1f24e4870b183"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_014/publication.json",
+      "sha256": "870ba2f41970f5609a5a1afca0ffb66f15a39a7395f6762cbf5fac22048a82e2",
+      "size": 1017,
+      "representation": "unchanged",
+      "historical_original_sha256": "870ba2f41970f5609a5a1afca0ffb66f15a39a7395f6762cbf5fac22048a82e2"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_014/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_015/benchmark.json",
+      "sha256": "007fcaafa47b2dfb2bc2955e702900b6b587aa2735479b0576fbdd3d96fc7b9b",
+      "size": 8157,
+      "representation": "unchanged",
+      "historical_original_sha256": "007fcaafa47b2dfb2bc2955e702900b6b587aa2735479b0576fbdd3d96fc7b9b"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_015/forge.patch",
+      "sha256": "176b235e09ebc3319f5a1dfabb673cce2272d9270b2e1039eaa99f51e0be4df4",
+      "size": 56831,
+      "representation": "unchanged",
+      "historical_original_sha256": "176b235e09ebc3319f5a1dfabb673cce2272d9270b2e1039eaa99f51e0be4df4"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_015/publication.json",
+      "sha256": "87ad27a5ba5d76d6be56ec4e71d08f05c42eefd4b3df870a5940f2bf3f2f5a37",
+      "size": 1027,
+      "representation": "unchanged",
+      "historical_original_sha256": "87ad27a5ba5d76d6be56ec4e71d08f05c42eefd4b3df870a5940f2bf3f2f5a37"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/iter_015/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/indexer/best/manifest.json",
+      "sha256": "87ad27a5ba5d76d6be56ec4e71d08f05c42eefd4b3df870a5940f2bf3f2f5a37",
+      "size": 1027,
+      "representation": "unchanged",
+      "historical_original_sha256": "87ad27a5ba5d76d6be56ec4e71d08f05c42eefd4b3df870a5940f2bf3f2f5a37"
+    },
+    {
+      "path": "payload/campaigns/indexer/best_result.json",
+      "sha256": "87ad27a5ba5d76d6be56ec4e71d08f05c42eefd4b3df870a5940f2bf3f2f5a37",
+      "size": 1027,
+      "representation": "unchanged",
+      "historical_original_sha256": "87ad27a5ba5d76d6be56ec4e71d08f05c42eefd4b3df870a5940f2bf3f2f5a37"
+    },
+    {
+      "path": "payload/campaigns/indexer/campaign_config.json",
+      "sha256": "4fd823b30c25d49631cd0ccbd8b8eb66c8ca65a439c5af3abb41779500fe495b",
+      "size": 1333,
+      "representation": "redacted",
+      "historical_original_sha256": "a6eeddb3f36e8c805f35827bcf65ea65398bb3fdaa5a8be1e48708c39902ec00"
+    },
+    {
+      "path": "payload/campaigns/indexer/experience.jsonl",
+      "sha256": "68691dc2674ca7abef5e4871aeb2b2934fcbd6ad9e791b721bebe0b5524e62c4",
+      "size": 5321,
+      "representation": "redacted",
+      "historical_original_sha256": "625c5e12656fbc879f842632c17c1743e59cda4e927208df315c8b732be322bc"
+    },
+    {
+      "path": "payload/campaigns/indexer/forge_result.json",
+      "sha256": "557882a1580f25eee2aed4f6dd224cc83f5e9c614009d6ae16cde5b1fbbdacb1",
+      "size": 2376,
+      "representation": "redacted",
+      "historical_original_sha256": "c6465b574c3171009ac94b10265a8cf880692434730e448a10ca2a5ca86e521a"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/0c67966ca0c60a3a7623f53084120ef915729bde.py",
+      "sha256": "07a4d9b4a2890b9c4a8206a678f56399345d8112fcfa843055979b2d4fbede1d",
+      "size": 54497,
+      "representation": "unchanged",
+      "historical_original_sha256": "07a4d9b4a2890b9c4a8206a678f56399345d8112fcfa843055979b2d4fbede1d"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/1003de84586dbed6336db7103bd31fb5007b2bd3.py",
+      "sha256": "24f96aa3ed6afc54bc4bee97fb2a84d4893a89423c12f83b800daaa78489fd1b",
+      "size": 55281,
+      "representation": "unchanged",
+      "historical_original_sha256": "24f96aa3ed6afc54bc4bee97fb2a84d4893a89423c12f83b800daaa78489fd1b"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/16332ab8394240b42e68f61846dd8d39751ce1ee.py",
+      "sha256": "8b2d4521c3956cd7e41b74ad2fed9ee4373d08e90050e788520c7b3e4bd9add6",
+      "size": 53715,
+      "representation": "unchanged",
+      "historical_original_sha256": "8b2d4521c3956cd7e41b74ad2fed9ee4373d08e90050e788520c7b3e4bd9add6"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/2ebdf103e2c9182f1bd9bc9bcb262a9849ad4f0f.py",
+      "sha256": "7baf82c6dfa1177fe3461d3da20e3e58a35f5239ab03160f864727ca192646af",
+      "size": 67742,
+      "representation": "unchanged",
+      "historical_original_sha256": "7baf82c6dfa1177fe3461d3da20e3e58a35f5239ab03160f864727ca192646af"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/45c61dbec529b01c735d60d0f7c837abcf350682.py",
+      "sha256": "c9abe58bd8432d99bbf30409179471a6613a57e0b6ec2e16f13f0f45b1feaa5a",
+      "size": 52348,
+      "representation": "unchanged",
+      "historical_original_sha256": "c9abe58bd8432d99bbf30409179471a6613a57e0b6ec2e16f13f0f45b1feaa5a"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/9fb92fc45a41a5dd94f34673ddd14d10d7c59914.py",
+      "sha256": "07a1038ca75c14d83ad3045d3eb4e42c6d73145c9d53925b3c30ee8b32352e49",
+      "size": 62194,
+      "representation": "unchanged",
+      "historical_original_sha256": "07a1038ca75c14d83ad3045d3eb4e42c6d73145c9d53925b3c30ee8b32352e49"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/bf8e14c593ead58da4c2d27a8ff1a9c603469693.py",
+      "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "size": 51742,
+      "representation": "unchanged",
+      "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/c2cacf5fa10cab2ad1b560d41ced0ba3f03288db.py",
+      "sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb",
+      "size": 92096,
+      "representation": "unchanged",
+      "historical_original_sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/e251e77c31c1cf120297b428fba9208a5405845a.py",
+      "sha256": "070efee627778ca3549c690bbfa1ffebe6225023290073c03490399277371507",
+      "size": 64851,
+      "representation": "unchanged",
+      "historical_original_sha256": "070efee627778ca3549c690bbfa1ffebe6225023290073c03490399277371507"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/ed363f55f8b784cb128e10926f98a2b1b00ee632.py",
+      "sha256": "346f221e4f054136cf7d0a4ffaa34cdd03f702e170434eb48a230cfaa098834e",
+      "size": 62685,
+      "representation": "unchanged",
+      "historical_original_sha256": "346f221e4f054136cf7d0a4ffaa34cdd03f702e170434eb48a230cfaa098834e"
+    }
+  ],
+  "source_bytes": "redacted",
+  "provenance": {
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  }
+}

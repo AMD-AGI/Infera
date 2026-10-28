@@ -1,0 +1,91 @@
+{
+  "experiment_id": "d232a3fc",
+  "task_id": "sparse_mla_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.1151,
+  "created_at": "2026-10-21T05:29:11.312176",
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "segment_index": 8,
+  "parent_experiment_id": "6c5c7c60",
+  "status": "running",
+  "started_at": "2026-10-21T05:29:11.312153",
+  "ended_at": "",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {
+    "schema_version": 1,
+    "state": "best_committed",
+    "decision": "KEEP",
+    "experiment_id": "d232a3fc",
+    "base_commit": "e375f8dbb1d27d1cc49b6a8728657bda275677dd",
+    "best_commit": "64fbeaa20a23eef12c9113d1cdad44eb075b4fad",
+    "best_iteration": 14,
+    "baseline_ms": 0.1151,
+    "pristine_baseline_ms": 0.1151,
+    "search_start_ms": 0.1151,
+    "best_ms": 0.0325,
+    "mean_case_speedup": 3.165171787872425,
+    "search_start_mean_case_speedup": 1.0,
+    "improved": true,
+    "total_improved": true,
+    "incremental_improved": true,
+    "improved_during_search": true,
+    "total_speedup": 3.165171787872425,
+    "incremental_speedup": 3.165171787872425,
+    "validation_passed": true,
+    "validation_summary": "Validation Pipeline:\n  1. Full suite: PASS SNR=31.8dB\n  Verdict: ALL PASSED",
+    "snr_db": 31.75
+  },
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "timestamp": "2026-10-21T07:14:07.411855",
+      "config": {
+        "iteration": 12,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 31.75,
+      "wall_ms": 0.0375,
+      "mean_case_speedup": 2.8371847374067656,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "fence P@V dots out of Triton's chain layout to stop duplicated Q@K^T work"
+    },
+    {
+      "iteration_id": 2,
+      "timestamp": "2026-10-21T08:51:09.061457",
+      "config": {
+        "iteration": 13,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 31.75,
+      "wall_ms": 0.0344,
+      "mean_case_speedup": 3.1070041313855565,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "store split-K partials head-interleaved so stores fill whole cache lines, plus matching reduce"
+    },
+    {
+      "iteration_id": 3,
+      "timestamp": "2026-10-21T10:35:06.618921",
+      "config": {
+        "iteration": 14,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 31.75,
+      "wall_ms": 0.0325,
+      "mean_case_speedup": 3.165171787872425,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "write-through partial/output stores plus compile-time tile trip count"
+    }
+  ]
+}

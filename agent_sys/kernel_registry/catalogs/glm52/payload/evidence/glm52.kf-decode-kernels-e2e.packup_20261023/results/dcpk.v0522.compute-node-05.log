@@ -1,0 +1,77 @@
+=== dcp_sparse prist
+case_snr: T144_bs24_ctx0 35.61  (lse max err 0.0000, owned mean 513)
+case_snr: T144_bs24_ctx1 35.60  (lse max err 0.0000, owned mean 512)
+case_snr: T192_bs32_ctx0 35.58  (lse max err 0.0000, owned mean 510)
+case_snr: T192_bs32_ctx1 35.60  (lse max err 0.0000, owned mean 511)
+case_snr: T240_bs40_ctx0 35.64  (lse max err 0.0000, owned mean 513)
+case_snr: T240_bs40_ctx1 35.63  (lse max err 0.0000, owned mean 513)
+case_snr: T288_bs48_ctx0 35.61  (lse max err 0.0000, owned mean 512)
+case_snr: T288_bs48_ctx1 35.65  (lse max err 0.0000, owned mean 511)
+case_snr: T384_bs64_ctx0 35.65  (lse max err 0.0000, owned mean 513)
+case_snr: T384_bs64_ctx1 35.62  (lse max err 0.0000, owned mean 511)
+SNR: 35.58 dB
+allclose: True
+case_ms: T144_bs24 0.045156 unscored
+case_ms: T192_bs32 0.054191
+case_ms: T240_bs40 0.059721
+case_ms: T288_bs48 0.075326
+case_ms: T384_bs64 0.096176
+median_ms: 0.063548
+=== dcp_sparse kf
+case_snr: T144_bs24_ctx0 35.61  (lse max err 0.0000, owned mean 513)
+case_snr: T144_bs24_ctx1 35.60  (lse max err 0.0000, owned mean 512)
+case_snr: T192_bs32_ctx0 35.58  (lse max err 0.0000, owned mean 510)
+case_snr: T192_bs32_ctx1 35.60  (lse max err 0.0000, owned mean 511)
+case_snr: T240_bs40_ctx0 35.64  (lse max err 0.0000, owned mean 513)
+case_snr: T240_bs40_ctx1 35.63  (lse max err 0.0000, owned mean 513)
+case_snr: T288_bs48_ctx0 35.73  (lse max err 0.0000, owned mean 512)
+case_snr: T288_bs48_ctx1 35.77  (lse max err 0.0000, owned mean 511)
+case_snr: T384_bs64_ctx0 35.84  (lse max err 0.0000, owned mean 513)
+case_snr: T384_bs64_ctx1 35.81  (lse max err 0.0000, owned mean 511)
+SNR: 35.58 dB
+allclose: True
+case_ms: T144_bs24 0.031250 unscored
+case_ms: T192_bs32 0.032965
+case_ms: T240_bs40 0.034495
+case_ms: T288_bs48 0.048046
+case_ms: T384_bs64 0.056706
+median_ms: 0.038455
+=== dcp_indexer prist
+case_snr: T144_bs24_ctx0 100.00  (identical rows 144/144, recall 1.000000)
+case_snr: T144_bs24_ctx1 100.00  (identical rows 144/144, recall 1.000000)
+case_snr: T192_bs32_ctx0 100.00  (identical rows 192/192, recall 1.000000)
+case_snr: T192_bs32_ctx1 100.00  (identical rows 192/192, recall 1.000000)
+case_snr: T240_bs40_ctx0 100.00  (identical rows 240/240, recall 1.000000)
+case_snr: T240_bs40_ctx1 100.00  (identical rows 240/240, recall 1.000000)
+case_snr: T288_bs48_ctx0 100.00  (identical rows 288/288, recall 1.000000)
+case_snr: T288_bs48_ctx1 100.00  (identical rows 288/288, recall 1.000000)
+case_snr: T384_bs64_ctx0 100.00  (identical rows 384/384, recall 1.000000)
+case_snr: T384_bs64_ctx1 100.00  (identical rows 384/384, recall 1.000000)
+SNR: 100.00 dB
+allclose: True
+case_ms: T144_bs24 0.230083 unscored
+case_ms: T192_bs32 0.359735
+case_ms: T240_bs40 0.376085
+case_ms: T288_bs48 0.411075
+case_ms: T384_bs64 0.349485
+median_ms: 0.331902
+=== dcp_indexer kf
+case_snr: T144_bs24_ctx0 100.00  (identical rows 144/144, recall 1.000000)
+case_snr: T144_bs24_ctx1 100.00  (identical rows 144/144, recall 1.000000)
+case_snr: T192_bs32_ctx0 100.00  (identical rows 192/192, recall 1.000000)
+case_snr: T192_bs32_ctx1 100.00  (identical rows 192/192, recall 1.000000)
+case_snr: T240_bs40_ctx0 100.00  (identical rows 240/240, recall 1.000000)
+case_snr: T240_bs40_ctx1 100.00  (identical rows 240/240, recall 1.000000)
+case_snr: T288_bs48_ctx0 100.00  (identical rows 288/288, recall 1.000000)
+case_snr: T288_bs48_ctx1 100.00  (identical rows 288/288, recall 1.000000)
+case_snr: T384_bs64_ctx0 100.00  (identical rows 384/384, recall 1.000000)
+case_snr: T384_bs64_ctx1 100.00  (identical rows 384/384, recall 1.000000)
+SNR: 100.00 dB
+allclose: True
+case_ms: T144_bs24 0.113172 unscored
+case_ms: T192_bs32 0.134662
+case_ms: T240_bs40 0.154532
+case_ms: T288_bs48 0.168102
+case_ms: T384_bs64 0.173392
+median_ms: 0.141328
+exit 0

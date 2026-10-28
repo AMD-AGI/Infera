@@ -1,0 +1,119 @@
+diff --git a/moe_mxfp4_kernel.py b/moe_mxfp4_kernel.py
+index 27b9201..1eb8c0a 100644
+--- a/moe_mxfp4_kernel.py
++++ b/moe_mxfp4_kernel.py
+@@ -26,6 +26,21 @@ Public API (keep it stable: sglang calls it as a drop-in for the fused_moe call)
+ """
+ from __future__ import annotations
+ 
++import os
++
++# ---- FlyDSL gemm2 (down-proj) code-gen knobs -------------------------------------------------------------
++# The a4w4 stage-2 port reads these at compile time (aiter/ops/flydsl/kernels/mxmoe_dispatcher.py:182-201)
++# and bakes them into the kernel name, so they select a different compiled instance rather than changing
++# anything at run time.  Set before aiter compiles the gemm2 instance; they do not affect numerics.
++#   MXFP4_G2_SPART = GroupNum*100 + M01 for ck_tile's GemmSpatiallyLocalTilePartitioner (default 402).
++#     gemm2 is the per-byte-slowest of the two GEMMs (5.9 vs 6.8 TB/s) and its 19k workgroups tile a
++#     403x48 (m_block, n_block) grid; 4x1 keeps a group's m-blocks -- i.e. one expert's w2 slab -- on one
++#     XCD's L2 for longer than the stock 4x2.  Measured interleaved in-process A/B (paired per-rep ratios,
++#     4-weight-set rotation): +0.4 % alone, ~+1 % together with MXFP4_G2_BHOIST=0.
++#   MXFP4_G2_BHOIST = 0 disables hoisting the B (w2) pointer math out of the K-loop.
++os.environ.setdefault("MXFP4_G2_SPART", "401")
++os.environ.setdefault("MXFP4_G2_BHOIST", "0")
++
+ import torch
+ 
+ from aiter import ActivationType, QuantType
+@@ -41,6 +56,76 @@ import aiter.fused_moe as _aiter_fused_moe  # noqa: E402  (module attribute is n
+ # sglang envs.SGLANG_AITER_MOE_SORTING_DISPATCH_POLICY default (environ.py:908).
+ MOE_SORTING_DISPATCH_POLICY = 2
+ 
++# ---------------------------------------------------------------------------------------------------------
++# Kernel-config selection for the decode leg.
++#
++# aiter keys its tuned 2-stage MoE table on get_padded_M(M) = nextPow2(M) (fused_moe.py:1857); the value is
++# used for nothing but that lookup (the only two call sites, fused_moe.py:1294 / 4044, pass it straight into
++# the lru_cached get_2stage_cfgs; buffers are sized from the real M and from metadata.block_m).  For our
++# M = 24*bs in [192, 336] that lands on the token=256 / token=512 rows, which select the block_m=32
++# flydsl_moe1_afp4_wfp4_bf16_t32x64x256_w3_fp4 + t32x{128,256}x{256,128} stage-2 pair.
++#
++# The token=128 row of the same (gfx950, 6144, 512, 257, topk9, bf16, fp4x2/fp4x2, per_1x32) key selects a
++# block_m=16 pair (flydsl_mxmoe_g1_a4w4_16x128x256_f16in_hpf_nt +
++# flydsl_moe2_layout_afp4_wfp4_bf16_t16x128x128_atomic_nt_sbm16).  Halving block_m halves the number of
++# padded sorted rows that both GEMMs gather (257 experts x 9*M/257 tokens => the per-expert remainder is
++# the dominant term at these M), which is the one piece of non-weight traffic this bandwidth-bound op can
++# still shed.  Measured in-process, interleaved A/B (3 reps, 4-weight-set rotation): +3.5 % (bs10) and
++# +3.9 % (bs12) over the stock key, with block_m=32 keys (256/512/1024) all within noise of each other.
++#
++# Implemented as a narrowly scoped wrapper around aiter's get_padded_M: it only rewrites the key while this
++# file's op is on the stack and only for the decode row counts we measured; every other M, and every other
++# aiter caller in the process, gets aiter's own value.
++_DECODE_KEY_M = 128               # tuned-table row to use for the decode leg
++_DECODE_M_LO, _DECODE_M_HI = 97, 512   # row counts this override is validated for (M = 24*bs, bs 4..21)
++
++
++def _install_decode_cfg_key():
++    f = getattr(_aiter_fused_moe, "get_padded_M", None)
++    if f is None or getattr(f, "_glm52_wrapped", False):
++        return
++    def get_padded_M(M, _orig=f):
++        if _ACTIVE and _DECODE_M_LO <= M <= _DECODE_M_HI:
++            return _DECODE_KEY_M
++        return _orig(M)
++    get_padded_M._glm52_wrapped = True
++    get_padded_M._glm52_orig = f
++    _aiter_fused_moe.get_padded_M = get_padded_M
++
++
++# ---------------------------------------------------------------------------------------------------------
++# Prologue sort: the fused (adaptive) sort instead of the two-kernel Opus sort.
++#
++# _moe_sorting_impl (fused_moe.py:430-440) routes the a4w4 aux sort to _adaptive_moe_sort -- one kernel that
++# emits sorted ids/weights/expert ids, the m_indices + reverse_sorted extras and the atomic zero-init -- or,
++# when _aux_uses_opus() says so, to the Opus multi-phase sorter (two kernels, P0_v2 + P23).  _aux_uses_opus
++# picks Opus as soon as routed_rows >= num_experts, because at block_size 16 the fused path has no
++# three-stage instance and runs its whole sort under blockIdx.x == 0, which costs O(routed_rows).  That
++# crossover was measured on a much larger MoE (NE=896, topk=16); for this layer routed_rows is only
++# 2160-3024, and the single-CTA scan is cheaper than 257 CTAs each scanning the full id list:
++#   rocprofv3, bs12, 6 calls: Opus P0_v2 5.77 us + P23 5.06 us = 10.83 us  vs  fused 8.89 us (one launch).
++# Both GEMMs are byte-identical across the two paths (gemm1 139.7/138.8 us, gemm2 73.8/73.9 us).
++#
++# Scoped to this file's op and to block_size 16, so every other aiter caller keeps aiter's own choice.
++def _install_fused_prologue_sort():
++    f = getattr(_aiter_fused_moe, "_aux_uses_opus", None)
++    if f is None or getattr(f, "_glm52_wrapped", False):
++        return
++
++    def _aux_uses_opus(output_aux, block_size, routed_rows=None, num_experts=None, _orig=f):
++        if _ACTIVE and int(block_size) == 16:
++            return False
++        return _orig(output_aux, block_size, routed_rows, num_experts)
++
++    _aux_uses_opus._glm52_wrapped = True
++    _aux_uses_opus._glm52_orig = f
++    _aiter_fused_moe._aux_uses_opus = _aux_uses_opus
++
++
++_ACTIVE = False
++_install_decode_cfg_key()
++_install_fused_prologue_sort()
++
+ 
+ def prepare_weights(w13: torch.Tensor, w13_scale: torch.Tensor, w2: torch.Tensor, w2_scale: torch.Tensor):
+     """Checkpoint layout -> kernel layout (QuarkW4A4MXFp4MoE.process_weights_after_loading, gfx950 branch).
+@@ -77,6 +162,15 @@ def glm52_moe_mxfp4(
+ 
+     routed_scaling_factor is not applied here (aiter fused_moe has no such argument; see program.md).
+     """
++    global _ACTIVE
++    _ACTIVE = True
++    try:
++        return _fused_moe_call(hidden_states, w13, w2, w13_scale, w2_scale, topk_weights, topk_ids)
++    finally:
++        _ACTIVE = False
++
++
++def _fused_moe_call(hidden_states, w13, w2, w13_scale, w2_scale, topk_weights, topk_ids):
+     return _aiter_fused_moe.fused_moe(
+         hidden_states,
+         w13,

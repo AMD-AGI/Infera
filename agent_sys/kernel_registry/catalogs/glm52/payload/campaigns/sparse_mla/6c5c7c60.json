@@ -1,0 +1,75 @@
+{
+  "experiment_id": "6c5c7c60",
+  "task_id": "sparse_mla_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.1151,
+  "created_at": "2026-10-21T01:44:15.107794",
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "segment_index": 7,
+  "parent_experiment_id": "a657e8c6",
+  "status": "interrupted",
+  "started_at": "2026-10-21T01:44:15.107757",
+  "ended_at": "2026-10-21T05:29:11.306908",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {
+    "schema_version": 1,
+    "state": "best_committed",
+    "decision": "KEEP",
+    "experiment_id": "6c5c7c60",
+    "base_commit": "e375f8dbb1d27d1cc49b6a8728657bda275677dd",
+    "best_commit": "0a9b63629a5ee2fbf51c720915e34be9868a64de",
+    "best_iteration": 10,
+    "baseline_ms": 0.1151,
+    "pristine_baseline_ms": 0.1151,
+    "search_start_ms": 0.1151,
+    "best_ms": 0.0495,
+    "mean_case_speedup": 2.227475507009721,
+    "search_start_mean_case_speedup": 1.0,
+    "improved": true,
+    "total_improved": true,
+    "incremental_improved": true,
+    "improved_during_search": true,
+    "total_speedup": 2.227475507009721,
+    "incremental_speedup": 2.227475507009721,
+    "validation_passed": true,
+    "validation_summary": "Validation Pipeline:\n  1. Full suite: PASS SNR=31.8dB\n  Verdict: ALL PASSED",
+    "snr_db": 31.75
+  },
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "timestamp": "2026-10-21T02:11:15.116165",
+      "config": {
+        "iteration": 9,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 37.42,
+      "wall_ms": 0.0509,
+      "mean_case_speedup": 2.1655190157963715,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "fold accumulator rescale into the MFMA C operand, hoist fp8 scale"
+    },
+    {
+      "iteration_id": 2,
+      "timestamp": "2026-10-21T03:46:50.431130",
+      "config": {
+        "iteration": 10,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 31.75,
+      "wall_ms": 0.0495,
+      "mean_case_speedup": 2.227475507009721,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "stream KV gather with no-allocate cache hint, fp8 partials"
+    }
+  ]
+}

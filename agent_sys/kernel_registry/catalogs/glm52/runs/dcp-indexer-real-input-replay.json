@@ -1,0 +1,337 @@
+{
+  "kind": "run",
+  "name": "dcp-indexer-real-input-replay",
+  "description": "Real captured inputs include top-k mismatches and per-call regressions.",
+  "run_type": "microbench",
+  "timestamp": "",
+  "kernels": {
+    "dcp_indexer": "kf-iter4-09f754e5"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/09f754e5cd4b991ffe611aa0e86cdde3065a9119.py",
+      "sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7",
+      "size": 49283,
+      "representation": "unchanged",
+      "historical_original_sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/dcp_indexer/dcp_indexer_kernel.pristine.py",
+      "sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "size": 9853,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-a",
+  "baseline_environment": "historical-stack-a",
+  "integration": [],
+  "workload": {
+    "input_identity": "kdf1/dcpdump capture (external, checksum unavailable)",
+    "input_kind": "real capture"
+  },
+  "configuration": {
+    "calls": 24
+  },
+  "commands": [
+    "python dcp_indexer_realdata.registry.py"
+  ],
+  "correctness": {
+    "status": "failed",
+    "scope": "real-input top-k set equality",
+    "summary": "Top-k mismatches in 10 of 24 captured calls; process exit 0 is not a correctness verdict.",
+    "tolerances": {
+      "require_identical_sets": true
+    },
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "call.000.pt",
+          "baseline": 0.1267,
+          "candidate": 0.0917
+        },
+        {
+          "name": "call.001.pt",
+          "baseline": 0.125,
+          "candidate": 0.092
+        },
+        {
+          "name": "call.002.pt",
+          "baseline": 0.1523,
+          "candidate": 0.0982
+        },
+        {
+          "name": "call.003.pt",
+          "baseline": 0.1549,
+          "candidate": 0.0967
+        },
+        {
+          "name": "call.004.pt",
+          "baseline": 0.1588,
+          "candidate": 0.1079
+        },
+        {
+          "name": "call.005.pt",
+          "baseline": 0.1391,
+          "candidate": 0.0969
+        },
+        {
+          "name": "call.006.pt",
+          "baseline": 0.1397,
+          "candidate": 0.1029
+        },
+        {
+          "name": "call.007.pt",
+          "baseline": 0.1542,
+          "candidate": 0.1013
+        },
+        {
+          "name": "call.008.pt",
+          "baseline": 0.1523,
+          "candidate": 0.1036
+        },
+        {
+          "name": "call.009.pt",
+          "baseline": 0.1601,
+          "candidate": 0.1007
+        },
+        {
+          "name": "call.010.pt",
+          "baseline": 0.5044,
+          "candidate": 2.0958
+        },
+        {
+          "name": "call.011.pt",
+          "baseline": 0.5137,
+          "candidate": 0.221
+        },
+        {
+          "name": "call.012.pt",
+          "baseline": 0.5006,
+          "candidate": 0.2206
+        },
+        {
+          "name": "call.013.pt",
+          "baseline": 0.4893,
+          "candidate": 0.2182
+        },
+        {
+          "name": "call.014.pt",
+          "baseline": 0.4896,
+          "candidate": 0.2185
+        },
+        {
+          "name": "call.015.pt",
+          "baseline": 0.5101,
+          "candidate": 0.2291
+        },
+        {
+          "name": "call.016.pt",
+          "baseline": 0.4946,
+          "candidate": 2.5198
+        },
+        {
+          "name": "call.017.pt",
+          "baseline": 0.5098,
+          "candidate": 2.5381
+        },
+        {
+          "name": "call.018.pt",
+          "baseline": 0.5226,
+          "candidate": 1.8467
+        },
+        {
+          "name": "call.019.pt",
+          "baseline": 0.5049,
+          "candidate": 0.2211
+        },
+        {
+          "name": "call.020.pt",
+          "baseline": 0.4956,
+          "candidate": 0.2106
+        },
+        {
+          "name": "call.021.pt",
+          "baseline": 0.4727,
+          "candidate": 0.2044
+        },
+        {
+          "name": "call.022.pt",
+          "baseline": 0.4785,
+          "candidate": 0.2153
+        },
+        {
+          "name": "call.023.pt",
+          "baseline": 0.5156,
+          "candidate": 0.2326
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "controlled": false,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/results/dcp_indexer_realdata.kdf1.txt",
+      "sha256": "11c24bad53d25eff77e75f017599f6da0bb78f819b34501b42cf707df5ebcbd8",
+      "size": 5690,
+      "representation": "unchanged",
+      "historical_original_sha256": "11c24bad53d25eff77e75f017599f6da0bb78f819b34501b42cf707df5ebcbd8"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability",
+      "Real capture digest and durable retrieval URI"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": [
+    {
+      "call": "call.000.pt",
+      "exact_rows": 96,
+      "rows": 96
+    },
+    {
+      "call": "call.001.pt",
+      "exact_rows": 96,
+      "rows": 96
+    },
+    {
+      "call": "call.002.pt",
+      "exact_rows": 102,
+      "rows": 102
+    },
+    {
+      "call": "call.003.pt",
+      "exact_rows": 108,
+      "rows": 108
+    },
+    {
+      "call": "call.004.pt",
+      "exact_rows": 120,
+      "rows": 120
+    },
+    {
+      "call": "call.005.pt",
+      "exact_rows": 126,
+      "rows": 126
+    },
+    {
+      "call": "call.006.pt",
+      "exact_rows": 132,
+      "rows": 132
+    },
+    {
+      "call": "call.007.pt",
+      "exact_rows": 120,
+      "rows": 120
+    },
+    {
+      "call": "call.008.pt",
+      "exact_rows": 119,
+      "rows": 120
+    },
+    {
+      "call": "call.009.pt",
+      "exact_rows": 107,
+      "rows": 108
+    },
+    {
+      "call": "call.010.pt",
+      "exact_rows": 293,
+      "rows": 294
+    },
+    {
+      "call": "call.011.pt",
+      "exact_rows": 321,
+      "rows": 324
+    },
+    {
+      "call": "call.012.pt",
+      "exact_rows": 329,
+      "rows": 330
+    },
+    {
+      "call": "call.013.pt",
+      "exact_rows": 318,
+      "rows": 318
+    },
+    {
+      "call": "call.014.pt",
+      "exact_rows": 342,
+      "rows": 342
+    },
+    {
+      "call": "call.015.pt",
+      "exact_rows": 366,
+      "rows": 366
+    },
+    {
+      "call": "call.016.pt",
+      "exact_rows": 335,
+      "rows": 336
+    },
+    {
+      "call": "call.017.pt",
+      "exact_rows": 348,
+      "rows": 348
+    },
+    {
+      "call": "call.018.pt",
+      "exact_rows": 328,
+      "rows": 330
+    },
+    {
+      "call": "call.019.pt",
+      "exact_rows": 275,
+      "rows": 276
+    },
+    {
+      "call": "call.020.pt",
+      "exact_rows": 311,
+      "rows": 312
+    },
+    {
+      "call": "call.021.pt",
+      "exact_rows": 258,
+      "rows": 258
+    },
+    {
+      "call": "call.022.pt",
+      "exact_rows": 294,
+      "rows": 294
+    },
+    {
+      "call": "call.023.pt",
+      "exact_rows": 329,
+      "rows": 330
+    }
+  ],
+  "source_bytes": "redacted"
+}

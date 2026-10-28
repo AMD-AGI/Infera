@@ -1,0 +1,41 @@
+{
+  "base_commit": "9cfa39a83ad0ce9210dc3a242413b7a65364602b",
+  "bench_repeat": 1,
+  "driver_path": "driver.py",
+  "driver_sha256": "1680a017c24c59c41cd43e5cbed4ae36a7fbb6be3093744de2bfe518e1b16ce7",
+  "framework": "unknown",
+  "gpu_target": "gfx950",
+  "gpu_type": "mi355x",
+  "implementation_identity": {
+    "implementation_symbols": [
+      "dual_gemv_kernel",
+      "k_scatter",
+      "logits_hist_m",
+      "qk_rope_hadamard_quant_kernel"
+    ],
+    "source_paths": [
+      "fused_indexer_kernel.py"
+    ]
+  },
+  "implementation_signature": "0af7a1bd45a68182a5b77d95d39726875b55ee21ce40e4da07dfe5444ab3bb3c",
+  "kernel_path": "fused_indexer_kernel.py",
+  "nproc_per_node": 1,
+  "operator_name": "dual_gemv_kernel",
+  "program_md_path": "forge_experiments/program.md",
+  "program_md_sha256": "9e6071d01b1d5072483ac3d2185fc5993a9fcf214d72a9547f2f3d06be415b7f",
+  "schema_version": 6,
+  "snr_threshold": 60.0,
+  "source_files": [
+    "fused_indexer_kernel.py"
+  ],
+  "target_functions": [
+    "fused_decode_indexer",
+    "modules",
+    "Workspace",
+    "SRC_DUAL_GEMV_BF16",
+    "SRC_QK_ROPE_HADAMARD_QUANT",
+    "SRC_PAGED_MQA_LOGITS",
+    "SRC_TOPK_TRANSFORM"
+  ],
+  "task_type": ""
+}

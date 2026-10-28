@@ -1,0 +1,3 @@
+Validation Pipeline:
+  1. Full suite: PASS SNR=37.4dB
+  Verdict: ALL PASSED

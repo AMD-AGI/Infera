@@ -1,0 +1,180 @@
+{
+  "kind": "run",
+  "name": "kf-moe_mxfp4-iter006",
+  "description": "use the fused single-kernel prologue sort and retune gemm2 tile partitioner",
+  "run_type": "microbench",
+  "timestamp": "2026-10-21T02:17:20",
+  "kernels": {
+    "moe_mxfp4": "kf-iter6-ef07a75c"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/ef07a75c85909d92b066baa48d36a2826177ddab.py",
+      "sha256": "c99eabcef2130a1ffd7476b0841f5506d85da110d7b886e38dff4082eb2ba755",
+      "size": 10636,
+      "representation": "unchanged",
+      "historical_original_sha256": "c99eabcef2130a1ffd7476b0841f5506d85da110d7b886e38dff4082eb2ba755"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "environment": "kf-workset",
+  "baseline_environment": "kf-workset",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "driver": {
+        "path": "payload/tasks/moe_mxfp4/driver.py",
+        "sha256": "fb3d838b1a2d701e5398fb319eaeb1b7ee4db758097f7c55f9553ee670a3851f",
+        "size": 10968,
+        "representation": "redacted",
+        "historical_original_sha256": "204b5fb5d47e7b5b4b1c788ae3126afc4fd07cacf78bad11c1410d25e605e321"
+      },
+      "fixtures": [
+        {
+          "uri": "urn:sha256:c18d35508b2e5b9abd412858f2dc17c21fd0905b87049cfd89750041b3f0b736",
+          "sha256": "c18d35508b2e5b9abd412858f2dc17c21fd0905b87049cfd89750041b3f0b736",
+          "size": 17432
+        },
+        {
+          "uri": "urn:sha256:f08a38ff24db19301b5cc2f492f12d1d53d98e2ae68840e12aa6cb376d9c56b0",
+          "sha256": "f08a38ff24db19301b5cc2f492f12d1d53d98e2ae68840e12aa6cb376d9c56b0",
+          "size": 20896
+        },
+        {
+          "uri": "urn:sha256:fbebfc59a866ed2ef70512f42477abd9485c66bbf3a9e6d7a976188acf532408",
+          "sha256": "fbebfc59a866ed2ef70512f42477abd9485c66bbf3a9e6d7a976188acf532408",
+          "size": 24352
+        },
+        {
+          "uri": "urn:sha256:59bcf4c5eb153a84ce3df041e6f1ca060671ae2245446b40cc064b799c539f9a",
+          "sha256": "59bcf4c5eb153a84ce3df041e6f1ca060671ae2245446b40cc064b799c539f9a",
+          "size": 13976
+        }
+      ]
+    },
+    "definition": {
+      "path": "payload/tasks/moe_mxfp4/program.md",
+      "sha256": "a7fd14adf2ddc443e8ae1ac8b4fad5f149f5cd82fd0fb738948df2b5140e9e5b",
+      "size": 11048,
+      "representation": "redacted",
+      "historical_original_sha256": "071cfc0f20456456c353f7c529bb910debfa8ff7ee9e765c3fea9512f952d851"
+    },
+    "input_kind": "synthetic activations/weights with captured workload metadata where supplied"
+  },
+  "configuration": {
+    "cuda_graph": true,
+    "selected_repeat": 0,
+    "aggregation_policy": "minimum of repeated scored-case mean ratios",
+    "unscored_cases": [
+      "T48_bs8",
+      "T84_bs14"
+    ],
+    "harness": {
+      "path": "payload/tasks/moe_mxfp4/graph_harness.py",
+      "sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6",
+      "size": 7812,
+      "representation": "unchanged",
+      "historical_original_sha256": "2f71fe2cbc6a7455922cda3b06bc1c2c1a79312a1a60ee2821bd90c746b8c0f6"
+    }
+  },
+  "commands": [
+    "Stage version as moe_mxfp4_kernel.py beside the preserved driver and fixtures.",
+    "python driver.py",
+    "python driver.py --bench-mode"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "campaign synthetic operator cases",
+    "summary": "Historical driver gate; not the newly authored catalog reference.",
+    "tolerances": {
+      "observed_min_snr_db": 49.25,
+      "gate": {
+        "path": "payload/tasks/moe_mxfp4/campaign.env",
+        "sha256": "ef5f54b7cdd7e3f8b99a73b274789f25f346646419ab341b06f68cb95cd3cedf",
+        "size": 111,
+        "representation": "unchanged",
+        "historical_original_sha256": "ef5f54b7cdd7e3f8b99a73b274789f25f346646419ab341b06f68cb95cd3cedf"
+      }
+    },
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "kernel_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "T60_bs10",
+          "baseline": 0.234043,
+          "candidate": 0.219692
+        },
+        {
+          "name": "T72_bs12",
+          "baseline": 0.236042,
+          "candidate": 0.224051
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "controlled": true,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_006/publication.json",
+      "sha256": "ac104058be9a858d0a606f20e3fd9ac330cb1880b986d75f94822fc1500578b8",
+      "size": 1006,
+      "representation": "unchanged",
+      "historical_original_sha256": "ac104058be9a858d0a606f20e3fd9ac330cb1880b986d75f94822fc1500578b8"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_006/benchmark.json",
+      "sha256": "789b95b88cb5456ec082455b517a06ec6809d93d001dc8d431a7500ae1b6df7d",
+      "size": 8178,
+      "representation": "unchanged",
+      "historical_original_sha256": "789b95b88cb5456ec082455b517a06ec6809d93d001dc8d431a7500ae1b6df7d"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_006/validation.txt",
+      "sha256": "42cc2994ac21a3f8fe9e9b4f0601970b0d8314cc3d2c5295487434c568ac088c",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "42cc2994ac21a3f8fe9e9b4f0601970b0d8314cc3d2c5295487434c568ac088c"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "campaign": "ed2b3055ef40443b81e64d144e1cf0fc",
+    "commit": "ef07a75c85909d92b066baa48d36a2826177ddab",
+    "reported_mean_case_speedup": 1.0594211678083265,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

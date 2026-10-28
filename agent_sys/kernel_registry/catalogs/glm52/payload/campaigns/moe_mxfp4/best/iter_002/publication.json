@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_002",
+  "baseline_wall_ms": 0.236,
+  "benchmark_path": "best/iter_002/benchmark.json",
+  "best_wall_ms": 0.2261,
+  "campaign_id": "ed2b3055ef40443b81e64d144e1cf0fc",
+  "changed_files": [
+    "moe_mxfp4_kernel.py"
+  ],
+  "commit_hash": "bfe29fde0dba9ce7ee78e4adb79a8f25b664e15f",
+  "correctness_passed": true,
+  "experiment_id": "9b493471",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.042025,
+  "iteration": 2,
+  "mean_case_speedup": 1.042024634416741,
+  "patch_path": "best/iter_002/forge.patch",
+  "plan": "key the tuned MoE config to the block_m=16 decode row",
+  "pristine_baseline_ms": 0.236,
+  "published_at": "2026-10-20 20:18:52",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.236,
+  "session_index": 2,
+  "snr_db": 49.4,
+  "speedup": 1.042025,
+  "total_improved": true,
+  "total_speedup": 1.042025,
+  "validation_path": "best/iter_002/validation.txt"
+}

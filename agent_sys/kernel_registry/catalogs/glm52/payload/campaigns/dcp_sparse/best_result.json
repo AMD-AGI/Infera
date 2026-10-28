@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_008",
+  "baseline_wall_ms": 0.0585,
+  "benchmark_path": "best/iter_008/benchmark.json",
+  "best_wall_ms": 0.0321,
+  "campaign_id": "59707273435649ad93e30b9bceea3115",
+  "changed_files": [
+    "dcp_sparse_kernel.py"
+  ],
+  "commit_hash": "cabd158ef3446651d36e912e10f532ba303d7173",
+  "correctness_passed": true,
+  "experiment_id": "39540b6c",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.691238,
+  "iteration": 8,
+  "mean_case_speedup": 1.691238372831346,
+  "patch_path": "best/iter_008/forge.patch",
+  "plan": "Floor tile-loop trip count to fold pipeline guards; store LSE after outputs",
+  "pristine_baseline_ms": 0.0585,
+  "published_at": "2026-10-24 02:30:18",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.0585,
+  "session_index": 3,
+  "snr_db": 35.58,
+  "speedup": 1.691238,
+  "total_improved": true,
+  "total_speedup": 1.691238,
+  "validation_path": "best/iter_008/validation.txt"
+}

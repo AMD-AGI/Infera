@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_010",
+  "baseline_wall_ms": 0.1151,
+  "benchmark_path": "best/iter_010/benchmark.json",
+  "best_wall_ms": 0.0495,
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "changed_files": [
+    "sparse_mla_kernel.py"
+  ],
+  "commit_hash": "0a9b63629a5ee2fbf51c720915e34be9868a64de",
+  "correctness_passed": true,
+  "experiment_id": "6c5c7c60",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 2.227476,
+  "iteration": 10,
+  "mean_case_speedup": 2.227475507009721,
+  "patch_path": "best/iter_010/forge.patch",
+  "plan": "stream KV gather with no-allocate cache hint, fp8 partials",
+  "pristine_baseline_ms": 0.1151,
+  "published_at": "2026-10-21 03:46:50",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1151,
+  "session_index": 7,
+  "snr_db": 31.75,
+  "speedup": 2.227476,
+  "total_improved": true,
+  "total_speedup": 2.227476,
+  "validation_path": "best/iter_010/validation.txt"
+}

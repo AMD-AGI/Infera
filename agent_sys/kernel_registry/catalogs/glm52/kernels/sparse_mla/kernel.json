@@ -1,0 +1,748 @@
+{
+  "kind": "kernel",
+  "name": "sparse_mla",
+  "description": "Sparse MLA decode",
+  "original": [
+    {
+      "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "role": "original"
+    }
+  ],
+  "reference": [
+    {
+      "path": "references/naive.py",
+      "sha256": "43dcd643f0d6e485b60a9d2b7647b6326b0cfd717e4077a4fc1ecffb1565c878",
+      "size": 10552
+    },
+    {
+      "path": "payload/tasks/sparse_mla/driver.py",
+      "sha256": "4caf529a6e19a2dc408f4559db2e4d418b22fcc0a71ac29fbda4d91f6800eb94",
+      "size": 7067,
+      "representation": "unchanged",
+      "historical_original_sha256": "4caf529a6e19a2dc408f4559db2e4d418b22fcc0a71ac29fbda4d91f6800eb94",
+      "role": "historical oracle"
+    }
+  ],
+  "reference_status": "incomplete",
+  "limitations": [
+    "New PyTorch reference has CPU semantic controls only; GPU differential validation is outstanding.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "documentation": [
+    {
+      "path": "payload/tasks/sparse_mla/program.md",
+      "sha256": "96442c6f0ea968fc9acbfc31bf27d1ddf76323f6780bba83757695c8843d8e87",
+      "size": 3027,
+      "representation": "redacted",
+      "historical_original_sha256": "836035d87e10dd6738cc2e2ea23547fa39348040a724e691a475e5426ac5ec10"
+    },
+    {
+      "path": "references/README.md",
+      "sha256": "e482545cae896f611238cd07becb4c783fdab6e3220d84433311bf0fb9c4a2c6",
+      "size": 2134
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "793454448db83329d7ae04f4b0dd34bbc5b8bcd579a58f6709c92d5a09bf01a1",
+      "size": 1284
+    }
+  ],
+  "contract": {
+    "specification": {
+      "path": "payload/tasks/sparse_mla/program.md",
+      "sha256": "96442c6f0ea968fc9acbfc31bf27d1ddf76323f6780bba83757695c8843d8e87",
+      "size": 3027,
+      "representation": "redacted",
+      "historical_original_sha256": "836035d87e10dd6738cc2e2ea23547fa39348040a724e691a475e5426ac5ec10"
+    },
+    "naive_entrypoint": "sparse_mla",
+    "fixtures": [
+      {
+        "uri": "urn:sha256:a7972fb066aa8d7087a44427d24f1dcbe678202fdd0b313e758ed832c8157642",
+        "sha256": "a7972fb066aa8d7087a44427d24f1dcbe678202fdd0b313e758ed832c8157642",
+        "size": 491608
+      },
+      {
+        "uri": "urn:sha256:21021b9d548080730e172e453aa2f7e5e02891079e2dbbc5c94ae4b41fa5c8dd",
+        "sha256": "21021b9d548080730e172e453aa2f7e5e02891079e2dbbc5c94ae4b41fa5c8dd",
+        "size": 491608
+      },
+      {
+        "uri": "urn:sha256:65bdbfa0348da7ec9d364f34ada58741b3f3ed0a4d1e4f3bd94f6ebe68992ba3",
+        "sha256": "65bdbfa0348da7ec9d364f34ada58741b3f3ed0a4d1e4f3bd94f6ebe68992ba3",
+        "size": 589912
+      },
+      {
+        "uri": "urn:sha256:af51938e3dfa75c31766a162a1327db3baafa14becd7f8e00952423b55c58400",
+        "sha256": "af51938e3dfa75c31766a162a1327db3baafa14becd7f8e00952423b55c58400",
+        "size": 589912
+      },
+      {
+        "uri": "urn:sha256:eee3dfa149a9f14dde96df30f285f098b7b4932e7f2cbd985a0d41fdece0f40f",
+        "sha256": "eee3dfa149a9f14dde96df30f285f098b7b4932e7f2cbd985a0d41fdece0f40f",
+        "size": 688216
+      },
+      {
+        "uri": "urn:sha256:b0f7c5a56d96bf38f71a02eeb6049b7457dfed0d34ff4fb0c38b034c70cd1d74",
+        "sha256": "b0f7c5a56d96bf38f71a02eeb6049b7457dfed0d34ff4fb0c38b034c70cd1d74",
+        "size": 688216
+      },
+      {
+        "uri": "urn:sha256:fd4fdd5d93ed9098a3e0ec25c21d66737da878ce96dc57d79c9a4a4aaa6350ca",
+        "sha256": "fd4fdd5d93ed9098a3e0ec25c21d66737da878ce96dc57d79c9a4a4aaa6350ca",
+        "size": 393304
+      },
+      {
+        "uri": "urn:sha256:4fda0c7dd8788813adb9731ef9db50c9272a110965c7144de839185050eba3f1",
+        "sha256": "4fda0c7dd8788813adb9731ef9db50c9272a110965c7144de839185050eba3f1",
+        "size": 393304
+      }
+    ],
+    "hardware": "gfx950",
+    "model": "GLM-5.2-MXFP4"
+  },
+  "integration": {
+    "method": "PYTHONPATH sitecustomize overlay with import hooks and per-kernel gates",
+    "version": "sglang-v0522-overlay",
+    "files": [
+      {
+        "path": "payload/overlay/base/sitecustomize.py",
+        "sha256": "9217285da2948b375a5642269afab11ca00be06cc6a4854230a92b422c0c6bea",
+        "size": 765,
+        "representation": "redacted",
+        "historical_original_sha256": "862246a2022e8b4e4004113b03253c0736e9478917eb3db21d5e5ee195e4245d"
+      },
+      {
+        "path": "payload/overlay/base/infera_kernels/__init__.py",
+        "sha256": "8a1c7a7e76747c30d86b4b378e18db99c5ee66f031f704759386edb02c24011c",
+        "size": 28643,
+        "representation": "redacted",
+        "historical_original_sha256": "a3579ef40301704a34bcefaf395ac078c10d095f56c7b60884818e44a808d1b8"
+      }
+    ],
+    "activation": [
+      "PYTHONPATH=<catalog>/payload/overlay/base:$PYTHONPATH INFERA_KERNEL_SPARSE=1 <server command>"
+    ],
+    "rollback": [
+      "Unset INFERA_KERNEL_SPARSE and restart the server processes."
+    ],
+    "compatibility": {
+      "sglang": "0.5.21/0.5.22 paths as archived",
+      "hardware": "MI355X/gfx950",
+      "guards": "See exact adapter source for mode, shape and dtype restrictions.",
+      "old_fused_module_adapter": {
+        "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/__init__.py",
+        "sha256": "209d555a2ea0615de8d6e26d77bff4e0effd4e0898251ed5c0fc23e922b0439a",
+        "size": 28982,
+        "representation": "redacted",
+        "historical_original_sha256": "80d99df71f4ee3b5f6cd7a7e5b21d6b3065d62c63cb28529006b4683e326ff34"
+      }
+    },
+    "validation_status": "target GPU revalidation required"
+  },
+  "versions": [
+    {
+      "id": "original",
+      "files": [
+        {
+          "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+          "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+          "size": 42165,
+          "representation": "unchanged",
+          "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+          "role": "original"
+        }
+      ],
+      "status": "baseline",
+      "notes": "Redacted snapshot of the historical original baseline.",
+      "provenance": {
+        "source_bytes": "redacted"
+      }
+    },
+    {
+      "id": "kf-iter2-1e5362cd",
+      "parent": "original",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/1e5362cd18804501ab4c68c5980655d284222d6f.py",
+          "sha256": "cca91a1da3fb2931df7cbbe74e50bcec0b859821e558944dac35bb6ec872edb2",
+          "size": 45158,
+          "representation": "unchanged",
+          "historical_original_sha256": "cca91a1da3fb2931df7cbbe74e50bcec0b859821e558944dac35bb6ec872edb2"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "1e5362cd18804501ab4c68c5980655d284222d6f",
+        "iteration": 2,
+        "source_bytes": "redacted"
+      },
+      "notes": "pick wider head block and shallower pipeline for oversubscribed decode launches"
+    },
+    {
+      "id": "kf-iter5-44875198",
+      "parent": "kf-iter2-1e5362cd",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/448751982717123c34c9edfbdceb451d404271b7.py",
+          "sha256": "db0ebba338c12e2adfc04fb2a6740bbb4a5bc8b9dc7c164bb27895bceaaec81b",
+          "size": 48587,
+          "representation": "unchanged",
+          "historical_original_sha256": "db0ebba338c12e2adfc04fb2a6740bbb4a5bc8b9dc7c164bb27895bceaaec81b"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "448751982717123c34c9edfbdceb451d404271b7",
+        "iteration": 5,
+        "source_bytes": "redacted"
+      },
+      "notes": "route decode to split-K at BLOCK_H=64 with computed splits, async copy, wide reduce"
+    },
+    {
+      "id": "kf-iter7-50d4a761",
+      "parent": "kf-iter5-44875198",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/50d4a7612eff3e6bf8f34a76252bfe9982564b27.py",
+          "sha256": "ab8cb7307de3f7f299fe1324513f1989e4097c6fb86d7976799081bcad7f4734",
+          "size": 53984,
+          "representation": "unchanged",
+          "historical_original_sha256": "ab8cb7307de3f7f299fe1324513f1989e4097c6fb86d7976799081bcad7f4734"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "50d4a7612eff3e6bf8f34a76252bfe9982564b27",
+        "iteration": 7,
+        "source_bytes": "redacted"
+      },
+      "notes": "widen the split-K value group to 256 with a two-stage pipeline and blocked reduce"
+    },
+    {
+      "id": "kf-iter9-eedda603",
+      "parent": "kf-iter7-50d4a761",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/eedda603938c1d0c6a20793f0d3ff749595d3b71.py",
+          "sha256": "a9b2bf2455692950e7ada4b545a8980c1caea4eaa5f21a569611a74c28f65128",
+          "size": 55243,
+          "representation": "unchanged",
+          "historical_original_sha256": "a9b2bf2455692950e7ada4b545a8980c1caea4eaa5f21a569611a74c28f65128"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "eedda603938c1d0c6a20793f0d3ff749595d3b71",
+        "iteration": 9,
+        "source_bytes": "redacted"
+      },
+      "notes": "fold accumulator rescale into the MFMA C operand, hoist fp8 scale"
+    },
+    {
+      "id": "kf-iter10-0a9b6362",
+      "parent": "kf-iter9-eedda603",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/0a9b63629a5ee2fbf51c720915e34be9868a64de.py",
+          "sha256": "45e9d6dbf6c76f314d6a7d874ef857ae85bcde1ba49446b109134afc0b4b45e1",
+          "size": 57287,
+          "representation": "unchanged",
+          "historical_original_sha256": "45e9d6dbf6c76f314d6a7d874ef857ae85bcde1ba49446b109134afc0b4b45e1"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "0a9b63629a5ee2fbf51c720915e34be9868a64de",
+        "iteration": 10,
+        "source_bytes": "redacted"
+      },
+      "notes": "stream KV gather with no-allocate cache hint, fp8 partials"
+    },
+    {
+      "id": "kf-iter12-e82184fc",
+      "parent": "kf-iter10-0a9b6362",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/e82184fcf4bd3a3f2007c9a16990eb49125aaf32.py",
+          "sha256": "8234739f981cbd2971c0fbff3db06119a66b643081b39fe5bae943e40b3eabaa",
+          "size": 61400,
+          "representation": "unchanged",
+          "historical_original_sha256": "8234739f981cbd2971c0fbff3db06119a66b643081b39fe5bae943e40b3eabaa"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "e82184fcf4bd3a3f2007c9a16990eb49125aaf32",
+        "iteration": 12,
+        "source_bytes": "redacted"
+      },
+      "notes": "fence P@V dots out of Triton's chain layout to stop duplicated Q@K^T work"
+    },
+    {
+      "id": "kf-iter13-e0e55e46",
+      "parent": "kf-iter12-e82184fc",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/e0e55e46ee2152b588c99d18424b92f2f62de8b8.py",
+          "sha256": "953e086fde65c0d69f146dfcfa04123f1f971f2777ab47b093ca73e91d9edf3e",
+          "size": 67019,
+          "representation": "unchanged",
+          "historical_original_sha256": "953e086fde65c0d69f146dfcfa04123f1f971f2777ab47b093ca73e91d9edf3e"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "e0e55e46ee2152b588c99d18424b92f2f62de8b8",
+        "iteration": 13,
+        "source_bytes": "redacted"
+      },
+      "notes": "store split-K partials head-interleaved so stores fill whole cache lines, plus matching reduce"
+    },
+    {
+      "id": "kf-iter14-64fbeaa2",
+      "parent": "kf-iter13-e0e55e46",
+      "files": [
+        {
+          "path": "payload/campaigns/sparse_mla/sources/64fbeaa20a23eef12c9113d1cdad44eb075b4fad.py",
+          "sha256": "2bf33ff53c260ba610e17b20bc410565c60957858ff71be96335754c7775af49",
+          "size": 70118,
+          "representation": "unchanged",
+          "historical_original_sha256": "2bf33ff53c260ba610e17b20bc410565c60957858ff71be96335754c7775af49"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ae5da4c0d4c04570b40e35853c534c72",
+        "commit": "64fbeaa20a23eef12c9113d1cdad44eb075b4fad",
+        "iteration": 14,
+        "source_bytes": "redacted"
+      },
+      "notes": "write-through partial/output stores plus compile-time tile trip count"
+    },
+    {
+      "id": "sglang-v0522-overlay",
+      "parent": "kf-iter14-64fbeaa2",
+      "files": [
+        {
+          "path": "payload/overlay/base/infera_kernels/kf_sparse_mla.py",
+          "sha256": "37f32b5df5e960bfb53bdd5bccebc1aae7d4adf9263e5fd3fb80a7a1fecaa520",
+          "size": 70320,
+          "representation": "redacted",
+          "historical_original_sha256": "4e3558dfbe970e3e267cfa0578ae7770783239f265ac1091e23b98e659bece3e"
+        }
+      ],
+      "status": "integrated",
+      "notes": "Import-path compatibility adaptation; different source bytes.",
+      "provenance": {
+        "derived_from": "kf-iter14-64fbeaa2",
+        "tool": "manual integration",
+        "source_bytes": "redacted"
+      }
+    }
+  ],
+  "campaign_history": [
+    {
+      "path": "payload/campaigns/sparse_mla/6c5c7c60.json",
+      "sha256": "54bbb3bb9d1ca48ca6e4ce53717e07f965eab889918b56bf553baf032f6f5ad7",
+      "size": 2333,
+      "representation": "redacted",
+      "historical_original_sha256": "a622a899993c7884c811abd2fe10d34b16804f6966ea9996117aee66038dddca"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/9cea913d.json",
+      "sha256": "1db01a1c6187ab3e282b792f8880b0c540232e83d29a0fa78854a56a0bfc97d6",
+      "size": 618,
+      "representation": "redacted",
+      "historical_original_sha256": "b237838b2e5914510a2bc8d0a37fa2a45c9ed967749329120858598acc4027ea"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/a657e8c6.json",
+      "sha256": "024c403c9c28fcd624d962c9574c3d7dd2c2c14fed194fc8cfe3fa2e88d920d5",
+      "size": 1912,
+      "representation": "redacted",
+      "historical_original_sha256": "2051aae798993d6127be2cc7cc5a29769f8d545dd904fef73fbb13c41015fe07"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_002/benchmark.json",
+      "sha256": "31d80009d50e2f2217d03c9ada5d52cbb1da95a37721d1d294097277a5dfd2ac",
+      "size": 8133,
+      "representation": "unchanged",
+      "historical_original_sha256": "31d80009d50e2f2217d03c9ada5d52cbb1da95a37721d1d294097277a5dfd2ac"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_002/forge.patch",
+      "sha256": "33efab009debfe6c041f672d188ffd67c0e888af703ce35b8bad79a65afb9f7f",
+      "size": 4647,
+      "representation": "unchanged",
+      "historical_original_sha256": "33efab009debfe6c041f672d188ffd67c0e888af703ce35b8bad79a65afb9f7f"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_002/publication.json",
+      "sha256": "edd9df54d88ea32db1a74555ff01d13a62f36936984883fab587857433fead83",
+      "size": 1013,
+      "representation": "unchanged",
+      "historical_original_sha256": "edd9df54d88ea32db1a74555ff01d13a62f36936984883fab587857433fead83"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_002/validation.txt",
+      "sha256": "3b87661381c61fb27b888f4642693f93b72522a9daad2271b58f259fb5ef61f9",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "3b87661381c61fb27b888f4642693f93b72522a9daad2271b58f259fb5ef61f9"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_005/benchmark.json",
+      "sha256": "ef44a00140647151556c8e731c5e0d452b2e75bb48de121ee3fe82554ae42418",
+      "size": 8151,
+      "representation": "unchanged",
+      "historical_original_sha256": "ef44a00140647151556c8e731c5e0d452b2e75bb48de121ee3fe82554ae42418"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_005/forge.patch",
+      "sha256": "cf322152000f7a86c21806cd2c6e95d4f99bc2528e972e1e8aa4fb0c733ccdaa",
+      "size": 12209,
+      "representation": "unchanged",
+      "historical_original_sha256": "cf322152000f7a86c21806cd2c6e95d4f99bc2528e972e1e8aa4fb0c733ccdaa"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_005/publication.json",
+      "sha256": "cb7f087f9655243f8c09a2496f013bda836a70a2ee378876f837d43c04d71830",
+      "size": 1018,
+      "representation": "unchanged",
+      "historical_original_sha256": "cb7f087f9655243f8c09a2496f013bda836a70a2ee378876f837d43c04d71830"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_005/validation.txt",
+      "sha256": "421b2c324dc47f6d766a95fd2f3a6ac7c33e21340eed7afeeb0675a9c289e088",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "421b2c324dc47f6d766a95fd2f3a6ac7c33e21340eed7afeeb0675a9c289e088"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_007/benchmark.json",
+      "sha256": "a696d733a51c9d47cbd75016a476144490b8927ae74dfe833fffae7eabca04de",
+      "size": 8156,
+      "representation": "unchanged",
+      "historical_original_sha256": "a696d733a51c9d47cbd75016a476144490b8927ae74dfe833fffae7eabca04de"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_007/forge.patch",
+      "sha256": "35b56374d4f30e4c04f4d358f00d5b62cb38864b19e768c3f1a0ab8543d12c71",
+      "size": 24838,
+      "representation": "unchanged",
+      "historical_original_sha256": "35b56374d4f30e4c04f4d358f00d5b62cb38864b19e768c3f1a0ab8543d12c71"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_007/publication.json",
+      "sha256": "33f1065aac1dadf3d524cd72fae76bb5421e903c9c8dc9ec1a1085c260087bdd",
+      "size": 1015,
+      "representation": "unchanged",
+      "historical_original_sha256": "33f1065aac1dadf3d524cd72fae76bb5421e903c9c8dc9ec1a1085c260087bdd"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_007/validation.txt",
+      "sha256": "421b2c324dc47f6d766a95fd2f3a6ac7c33e21340eed7afeeb0675a9c289e088",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "421b2c324dc47f6d766a95fd2f3a6ac7c33e21340eed7afeeb0675a9c289e088"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_009/benchmark.json",
+      "sha256": "e9d13c93651d06e3076f68aa09d6b3b99acb91282af9275a42e1e2ec5de53826",
+      "size": 8145,
+      "representation": "unchanged",
+      "historical_original_sha256": "e9d13c93651d06e3076f68aa09d6b3b99acb91282af9275a42e1e2ec5de53826"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_009/forge.patch",
+      "sha256": "a7353438bdb36024a1b85a6af3c8ebbae15c6b3af9721037a6fc4ec2cbf33c93",
+      "size": 28172,
+      "representation": "unchanged",
+      "historical_original_sha256": "a7353438bdb36024a1b85a6af3c8ebbae15c6b3af9721037a6fc4ec2cbf33c93"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_009/publication.json",
+      "sha256": "e52626d9aaef652cccfea3ace90be279048565b110ef4c9d5f5cf342054ede54",
+      "size": 1000,
+      "representation": "unchanged",
+      "historical_original_sha256": "e52626d9aaef652cccfea3ace90be279048565b110ef4c9d5f5cf342054ede54"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_009/validation.txt",
+      "sha256": "421b2c324dc47f6d766a95fd2f3a6ac7c33e21340eed7afeeb0675a9c289e088",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "421b2c324dc47f6d766a95fd2f3a6ac7c33e21340eed7afeeb0675a9c289e088"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_010/benchmark.json",
+      "sha256": "b908b2b9b60fca2c2b9e02b97b8668c2008d61e12bf21d67cb3b2b571ca1e2c4",
+      "size": 8155,
+      "representation": "unchanged",
+      "historical_original_sha256": "b908b2b9b60fca2c2b9e02b97b8668c2008d61e12bf21d67cb3b2b571ca1e2c4"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_010/forge.patch",
+      "sha256": "a6fe27d0796dccc8ac95c7d2c6cd62754bf2807e55f7d5c29a75e36dbfc84365",
+      "size": 30886,
+      "representation": "unchanged",
+      "historical_original_sha256": "a6fe27d0796dccc8ac95c7d2c6cd62754bf2807e55f7d5c29a75e36dbfc84365"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_010/publication.json",
+      "sha256": "fa3ca480add3bc7dacd1756b1444f63f6b02a206c89595d5f313fd9c011309b1",
+      "size": 993,
+      "representation": "unchanged",
+      "historical_original_sha256": "fa3ca480add3bc7dacd1756b1444f63f6b02a206c89595d5f313fd9c011309b1"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_010/validation.txt",
+      "sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_012/benchmark.json",
+      "sha256": "425ee9112c6bdaee4dfacfe1191b83daaa414ecc9d471cdc4f02d50022e5c6de",
+      "size": 8166,
+      "representation": "unchanged",
+      "historical_original_sha256": "425ee9112c6bdaee4dfacfe1191b83daaa414ecc9d471cdc4f02d50022e5c6de"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_012/forge.patch",
+      "sha256": "425663ba532a18f33663777b5bc6c8159361f1ea39bd97e19c8e8051e72c74f3",
+      "size": 35339,
+      "representation": "unchanged",
+      "historical_original_sha256": "425663ba532a18f33663777b5bc6c8159361f1ea39bd97e19c8e8051e72c74f3"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_012/publication.json",
+      "sha256": "b23c2d9df39a559a984c082e78fb4a6880291c066c307a3460acf001805e2c4b",
+      "size": 1009,
+      "representation": "unchanged",
+      "historical_original_sha256": "b23c2d9df39a559a984c082e78fb4a6880291c066c307a3460acf001805e2c4b"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_012/validation.txt",
+      "sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_013/benchmark.json",
+      "sha256": "685c46b5cb01c86ccae73f25b2595eb1ec3a744f5ca6c2d0c2676cba87a183b7",
+      "size": 8169,
+      "representation": "unchanged",
+      "historical_original_sha256": "685c46b5cb01c86ccae73f25b2595eb1ec3a744f5ca6c2d0c2676cba87a183b7"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_013/forge.patch",
+      "sha256": "8fbff19b6e1e1b2ea0b91975f380b3b61f3e9c4ec1fb82beac08ba63c4ba4afa",
+      "size": 40944,
+      "representation": "unchanged",
+      "historical_original_sha256": "8fbff19b6e1e1b2ea0b91975f380b3b61f3e9c4ec1fb82beac08ba63c4ba4afa"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_013/publication.json",
+      "sha256": "e7be1162355239f1d603c0ddf48c89736900935219e55b8ba07b8e3089dcf4eb",
+      "size": 1030,
+      "representation": "unchanged",
+      "historical_original_sha256": "e7be1162355239f1d603c0ddf48c89736900935219e55b8ba07b8e3089dcf4eb"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_013/validation.txt",
+      "sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_014/benchmark.json",
+      "sha256": "981a20318d17693386b1aee99c0906ed52f587c39a9f7996c6ee12727a3c586f",
+      "size": 8146,
+      "representation": "unchanged",
+      "historical_original_sha256": "981a20318d17693386b1aee99c0906ed52f587c39a9f7996c6ee12727a3c586f"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_014/forge.patch",
+      "sha256": "e72a3ab82ab6f46a69c12d6e0318a856a565ae7ccf451ecc3c3b00e7d7a1023f",
+      "size": 44186,
+      "representation": "unchanged",
+      "historical_original_sha256": "e72a3ab82ab6f46a69c12d6e0318a856a565ae7ccf451ecc3c3b00e7d7a1023f"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_014/publication.json",
+      "sha256": "e3e876c6cd47ad3ccc40be09bb8cc85108ebf7196a9322095fd828fea5c64663",
+      "size": 1004,
+      "representation": "unchanged",
+      "historical_original_sha256": "e3e876c6cd47ad3ccc40be09bb8cc85108ebf7196a9322095fd828fea5c64663"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/iter_014/validation.txt",
+      "sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "1bb8ed4530048013ce39b419d3f266e0f7876d303489bcd2725827131002c197"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best/manifest.json",
+      "sha256": "e3e876c6cd47ad3ccc40be09bb8cc85108ebf7196a9322095fd828fea5c64663",
+      "size": 1004,
+      "representation": "unchanged",
+      "historical_original_sha256": "e3e876c6cd47ad3ccc40be09bb8cc85108ebf7196a9322095fd828fea5c64663"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/best_result.json",
+      "sha256": "e3e876c6cd47ad3ccc40be09bb8cc85108ebf7196a9322095fd828fea5c64663",
+      "size": 1004,
+      "representation": "unchanged",
+      "historical_original_sha256": "e3e876c6cd47ad3ccc40be09bb8cc85108ebf7196a9322095fd828fea5c64663"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/campaign_config.json",
+      "sha256": "34198fa3df1937de3b17b0d95fee34f50e601232d3c4ab1284d9afeabae10349",
+      "size": 1406,
+      "representation": "redacted",
+      "historical_original_sha256": "075f6d3e9ab95bffccfe79004b673e164a53f4f3ffee091cfcc2e457117513e4"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/d232a3fc.json",
+      "sha256": "ff7dd5837b3f36ac8ff39a08ff9779b1be24f39ae52048099808eea15716663b",
+      "size": 2795,
+      "representation": "redacted",
+      "historical_original_sha256": "deea2034b98ed1e9fd990522b6f264162ca99044213725459b0d784e364e144d"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/d53f6662.json",
+      "sha256": "3507f0dc7d7d2b5a51122291300dc7e52924452168e9eec8d9a614ae7218daaa",
+      "size": 1912,
+      "representation": "redacted",
+      "historical_original_sha256": "579e9b6c69b762c737663debdd930055b912d02c48b7a7fc7f08deaae6d66bf4"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/e924ff06.json",
+      "sha256": "7dd42b3760bad05dac6fa04d334a330c62d07daaa801e19227e082b0913259ad",
+      "size": 1918,
+      "representation": "redacted",
+      "historical_original_sha256": "b21cc85530a42d7ca25139d35d7a82f979ef9f29a7ea24e2651532a57ea1bf1e"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/e9f4c8a0.json",
+      "sha256": "7e88580f99cc4f23105d96df48e179e3065a9c462bbe6d57d413442637507726",
+      "size": 618,
+      "representation": "redacted",
+      "historical_original_sha256": "23757c7e540c165164ef72300763ca68a5f268c6105b86f6de3c28855046b9ae"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/experience.jsonl",
+      "sha256": "55e37995a0a329b91baca1b18930c6eab7bbf260dff1f87ff22e8774a63332f2",
+      "size": 5014,
+      "representation": "redacted",
+      "historical_original_sha256": "0696c9a53735a9731416a3008af09661bf4b8031468a034b2fcfa82cbd9dc7da"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/fa256477.json",
+      "sha256": "d7cfb67e28f691f7e3d02db10aa1f2b0f00307bdf717811949b0ed79043ed54d",
+      "size": 610,
+      "representation": "redacted",
+      "historical_original_sha256": "d0a303fd8c93c56f852eca211569d522c87df226efb32902295bebbc87c4ea9b"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/forge_result.json",
+      "sha256": "5cb967f0756adbebefe37c082ddd8ee32919685e034bf1fc48a60d1c04ca8917",
+      "size": 2379,
+      "representation": "redacted",
+      "historical_original_sha256": "660c42420cbb6558968340ddba34679ba3342faa7bd63a23c88936060c561cb5"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/0a9b63629a5ee2fbf51c720915e34be9868a64de.py",
+      "sha256": "45e9d6dbf6c76f314d6a7d874ef857ae85bcde1ba49446b109134afc0b4b45e1",
+      "size": 57287,
+      "representation": "unchanged",
+      "historical_original_sha256": "45e9d6dbf6c76f314d6a7d874ef857ae85bcde1ba49446b109134afc0b4b45e1"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/1e5362cd18804501ab4c68c5980655d284222d6f.py",
+      "sha256": "cca91a1da3fb2931df7cbbe74e50bcec0b859821e558944dac35bb6ec872edb2",
+      "size": 45158,
+      "representation": "unchanged",
+      "historical_original_sha256": "cca91a1da3fb2931df7cbbe74e50bcec0b859821e558944dac35bb6ec872edb2"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/448751982717123c34c9edfbdceb451d404271b7.py",
+      "sha256": "db0ebba338c12e2adfc04fb2a6740bbb4a5bc8b9dc7c164bb27895bceaaec81b",
+      "size": 48587,
+      "representation": "unchanged",
+      "historical_original_sha256": "db0ebba338c12e2adfc04fb2a6740bbb4a5bc8b9dc7c164bb27895bceaaec81b"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/50d4a7612eff3e6bf8f34a76252bfe9982564b27.py",
+      "sha256": "ab8cb7307de3f7f299fe1324513f1989e4097c6fb86d7976799081bcad7f4734",
+      "size": 53984,
+      "representation": "unchanged",
+      "historical_original_sha256": "ab8cb7307de3f7f299fe1324513f1989e4097c6fb86d7976799081bcad7f4734"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/64fbeaa20a23eef12c9113d1cdad44eb075b4fad.py",
+      "sha256": "2bf33ff53c260ba610e17b20bc410565c60957858ff71be96335754c7775af49",
+      "size": 70118,
+      "representation": "unchanged",
+      "historical_original_sha256": "2bf33ff53c260ba610e17b20bc410565c60957858ff71be96335754c7775af49"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/e0e55e46ee2152b588c99d18424b92f2f62de8b8.py",
+      "sha256": "953e086fde65c0d69f146dfcfa04123f1f971f2777ab47b093ca73e91d9edf3e",
+      "size": 67019,
+      "representation": "unchanged",
+      "historical_original_sha256": "953e086fde65c0d69f146dfcfa04123f1f971f2777ab47b093ca73e91d9edf3e"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/e375f8dbb1d27d1cc49b6a8728657bda275677dd.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/e82184fcf4bd3a3f2007c9a16990eb49125aaf32.py",
+      "sha256": "8234739f981cbd2971c0fbff3db06119a66b643081b39fe5bae943e40b3eabaa",
+      "size": 61400,
+      "representation": "unchanged",
+      "historical_original_sha256": "8234739f981cbd2971c0fbff3db06119a66b643081b39fe5bae943e40b3eabaa"
+    },
+    {
+      "path": "payload/campaigns/sparse_mla/sources/eedda603938c1d0c6a20793f0d3ff749595d3b71.py",
+      "sha256": "a9b2bf2455692950e7ada4b545a8980c1caea4eaa5f21a569611a74c28f65128",
+      "size": 55243,
+      "representation": "unchanged",
+      "historical_original_sha256": "a9b2bf2455692950e7ada4b545a8980c1caea4eaa5f21a569611a74c28f65128"
+    }
+  ],
+  "source_bytes": "redacted",
+  "provenance": {
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  }
+}

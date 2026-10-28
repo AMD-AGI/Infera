@@ -1,0 +1,217 @@
+{
+  "kind": "run",
+  "name": "e2e-llr28-c96",
+  "description": "Historical serving measurement of the configured kernel bundle.",
+  "run_type": "e2e",
+  "timestamp": "",
+  "kernels": {
+    "sparse_mla": "sglang-v0522-overlay",
+    "indexer": "kf-iter15-c2cacf5f",
+    "moe_mxfp4": "kf-iter14-9cd51e60"
+  },
+  "sources": [
+    {
+      "path": "payload/overlay/base/infera_kernels/kf_sparse_mla.py",
+      "sha256": "37f32b5df5e960bfb53bdd5bccebc1aae7d4adf9263e5fd3fb80a7a1fecaa520",
+      "size": 70320,
+      "representation": "redacted",
+      "historical_original_sha256": "4e3558dfbe970e3e267cfa0578ae7770783239f265ac1091e23b98e659bece3e"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/c2cacf5fa10cab2ad1b560d41ced0ba3f03288db.py",
+      "sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb",
+      "size": 92096,
+      "representation": "unchanged",
+      "historical_original_sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+      "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+      "size": 66512,
+      "representation": "redacted",
+      "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/indexer/dsa_indexer_kernel.pristine.py",
+      "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "size": 51742,
+      "representation": "unchanged",
+      "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-b",
+  "baseline_environment": "historical-stack-b",
+  "integration": [
+    {
+      "path": "payload/overlay/pd-20261024/sitecustomize.py",
+      "sha256": "d3532d6879d24ba36f3f33a0a726fe8baa39e5abac4f9c1f8f364af6b2295f38",
+      "size": 700,
+      "representation": "redacted",
+      "historical_original_sha256": "0873fe76cace3acffc992ae274c248c08bfc42f3fea22688e4f430b358209098"
+    },
+    {
+      "path": "payload/overlay/pd-20261024/infera_kernels/__init__.py",
+      "sha256": "4585e9dc93bd96e3ffee8e7083717a9b96bc92350f89787ebd613d29a443ae09",
+      "size": 22698,
+      "representation": "redacted",
+      "historical_original_sha256": "08e9f6f19ac82199b7a5ba340d318d270fa799cd948eb118f1f2ed6c2e7a4252"
+    }
+  ],
+  "workload": {
+    "input_identity": {
+      "source_type": "public_dataset",
+      "loader": "semianalysis_cc_traces_weka_062126",
+      "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+      "hf_split": "train",
+      "num_dataset_entries": 393
+    },
+    "model_path": "REDACTED_LOCAL_PATH",
+    "model_identity": null,
+    "concurrency": 96,
+    "input_kind": "AgentX serving trace, simulated speculative acceptance"
+  },
+  "configuration": {
+    "image": "historical-sglang-image-b",
+    "prefill_tp": 4,
+    "prefill_pp": 1,
+    "decode_tp": 4,
+    "decode_pp": 1,
+    "decode_dcp_size": 1,
+    "decode_ep": 1
+  },
+  "commands": [
+    "Historical invocation is described by retained REPRODUCE.md and runtime.env; exact shell command not captured in this record."
+  ],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "full-model",
+    "summary": "No full-model correctness result accompanies this performance observation.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [],
+  "comparison": {
+    "controlled": false,
+    "confounders": [
+      "No isolated paired baseline assigned; raw values are retained."
+    ]
+  },
+  "activation": "not_confirmed",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/results/llr/llr28-c96/agentx_conc96.json",
+      "sha256": "c190ad1a2c7ae74573af20746d62ed4bd7b355b3f10a61ab73de852181a03998",
+      "size": 5761,
+      "representation": "redacted",
+      "historical_original_sha256": "e1bbe1948b24b6446de2914d3a8dae252e44f77949fe94465e3610627dc57758"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/results/llr/llr28-c96/decode.keylines.txt",
+      "sha256": "fdbf9cdab10aa8d5b89f81afd7c7ca9b1414d9425505aca334c1ec5d5803104a",
+      "size": 3935,
+      "representation": "redacted",
+      "historical_original_sha256": "bfd2c91da1e9d2b9a9e6667c4239eeff10129e3c755b0698723ddedd6fe644b7"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/results/llr/llr28-c96/engine-config.env",
+      "sha256": "97219fe3c51961fad89ba602723e2a0904343602524ccf6b678c164889bc3a77",
+      "size": 1320,
+      "representation": "redacted",
+      "historical_original_sha256": "09ecc6521c544b46453eb189c233c05b0a363269ae5f70f25ef4ae34ff500d4c"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/results/llr/llr28-c96/prefill.keylines.txt",
+      "sha256": "4c75cf0dca56d46571c93cfaad5039fed5077c516b7355c19e7c6776dd099c22",
+      "size": 916,
+      "representation": "redacted",
+      "historical_original_sha256": "e89e3c325307a371b74e86260be6fdb8c204d1f97b03298f234178e371775760"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/results/llr/llr28-c96/runtime.env",
+      "sha256": "65fa3fcb1a6fc97e22aaa76318e92cc39e41e2b079abf324ea115648f730c638",
+      "size": 1541,
+      "representation": "redacted",
+      "historical_original_sha256": "0f18b162f4470de9c7a7d0d4c8234f9f3ab3b314d6127e581475306d13bab5eb"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/README.md",
+      "sha256": "016310e7e60497d26b3c3c097671e757b65d7baa822acef0482df638a51b617b",
+      "size": 4034,
+      "representation": "redacted",
+      "historical_original_sha256": "a41ea880c1431ba3903ea0ae052c87cd72cb6e2de4f7449cdf61dd7759c44df7"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/environment.md",
+      "sha256": "e52a74876445948b5337e680a1f7a67ac20be0452ef8efe0c26aebc957369277",
+      "size": 962,
+      "representation": "redacted",
+      "historical_original_sha256": "ecd2223f8c016194412a7a0a286f989fad4e3c772ed02a18971eccc5e52fc11c"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-k3-mtp.packup_20261026/REPRODUCE.md",
+      "sha256": "1c817549707b77372be2113d22e028180721bcbf1d099f7e8faecbf0a7d2e1fc",
+      "size": 2245,
+      "representation": "redacted",
+      "historical_original_sha256": "b0fc2c9be4880fd4506fa355418131d3592d6e2a2892bdc194cc4ca8bee22899"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability",
+      "Model checkpoint content identity",
+      "Exact baseline target-image source digests",
+      "Exact full invocation",
+      "Per-run adapter identity for later pd configurations"
+    ]
+  },
+  "limitations": [
+    "The measurement concerns a bundle; per-kernel e2e attribution was not measured.",
+    "Simulated acceptance and live kernel CHECK do not establish full-model correctness.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": {
+    "tpot_mean_ms": 17.83,
+    "score_tokens_s_chip": 44847.34991,
+    "qps": 2.95699,
+    "request_accounting": {
+      "records_total": 11787,
+      "records_profiled": 10726,
+      "records_dropped_total": 1061,
+      "records_warmup_dropped": 1061,
+      "records_error_dropped": 4,
+      "error_categories": {
+        "InvalidInferenceResultError": 4
+      }
+    }
+  },
+  "source_bytes": "redacted"
+}

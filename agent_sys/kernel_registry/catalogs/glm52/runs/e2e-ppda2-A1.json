@@ -1,0 +1,196 @@
+{
+  "kind": "run",
+  "name": "e2e-ppda2-A1",
+  "description": "Historical serving measurement of the configured kernel bundle.",
+  "run_type": "e2e",
+  "timestamp": "",
+  "kernels": {
+    "sparse_mla": "sglang-v0522-overlay",
+    "indexer": "kf-iter15-c2cacf5f",
+    "moe_mxfp4": "kf-iter14-9cd51e60"
+  },
+  "sources": [
+    {
+      "path": "payload/overlay/base/infera_kernels/kf_sparse_mla.py",
+      "sha256": "37f32b5df5e960bfb53bdd5bccebc1aae7d4adf9263e5fd3fb80a7a1fecaa520",
+      "size": 70320,
+      "representation": "redacted",
+      "historical_original_sha256": "4e3558dfbe970e3e267cfa0578ae7770783239f265ac1091e23b98e659bece3e"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/c2cacf5fa10cab2ad1b560d41ced0ba3f03288db.py",
+      "sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb",
+      "size": 92096,
+      "representation": "unchanged",
+      "historical_original_sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+      "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+      "size": 66512,
+      "representation": "redacted",
+      "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/indexer/dsa_indexer_kernel.pristine.py",
+      "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "size": 51742,
+      "representation": "unchanged",
+      "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-c",
+  "baseline_environment": "historical-stack-c",
+  "integration": [
+    {
+      "path": "payload/overlay/dpa-20261023/sitecustomize.py",
+      "sha256": "39866e63665726f7df73d39888fa4814bfc4f0cc659db47cbeacb0c344175f2e",
+      "size": 671,
+      "representation": "redacted",
+      "historical_original_sha256": "f0dca8e5c88af76468bc2abed962388c85162060b8a4218a567c856fb103dd4c"
+    },
+    {
+      "path": "payload/overlay/dpa-20261023/infera_kernels/__init__.py",
+      "sha256": "40c4ca7a81458bfefc973c7dbb98c1053b9bcd5b37b3862e5167cc36f18f20fd",
+      "size": 17007,
+      "representation": "redacted",
+      "historical_original_sha256": "f17d82ffdd8cb86e500943eb442f32377a9fe605544f3a17221547b211309a92"
+    }
+  ],
+  "workload": {
+    "input_identity": {
+      "source_type": "public_dataset",
+      "loader": "semianalysis_cc_traces_weka_062126",
+      "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+      "hf_split": "train",
+      "num_dataset_entries": 393
+    },
+    "model_path": "REDACTED_LOCAL_PATH",
+    "model_identity": null,
+    "concurrency": 80,
+    "input_kind": "AgentX serving trace, simulated speculative acceptance"
+  },
+  "configuration": {
+    "image": "historical-sglang-image-c",
+    "prefill_tp": 4,
+    "prefill_pp": 1,
+    "decode_tp": 4,
+    "decode_pp": 1,
+    "decode_dcp_size": 1,
+    "decode_ep": 1
+  },
+  "commands": [
+    "Historical invocation is described by retained REPRODUCE.md and runtime.env; exact shell command not captured in this record."
+  ],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "full-model",
+    "summary": "No full-model correctness result accompanies this performance observation.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [],
+  "comparison": {
+    "controlled": false,
+    "confounders": [
+      "No isolated paired baseline assigned; raw values are retained."
+    ]
+  },
+  "activation": "confirmed",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.ppda-pp4-dpa4-kf.packup_20261023/results/rounds/ppda2/agentx-c80-A1/agentx_conc80.json",
+      "sha256": "be55796276187d5ba248d91d3f7c2914c80636571e2cf13cbacbfd0e0cd5c0b7",
+      "size": 5766,
+      "representation": "redacted",
+      "historical_original_sha256": "28a39192ff63f30daf1a838ddbd77a87dbf0002ff1d6a06055f1b362c8d725c7"
+    },
+    {
+      "path": "payload/evidence/glm52.ppda-pp4-dpa4-kf.packup_20261023/results/rounds/ppda2/agentx-c80-A1/runtime.env",
+      "sha256": "de799f8669efc4fb298a720de3a1e8c29656f96c06d6fc28ec6f6833bdc53229",
+      "size": 1770,
+      "representation": "redacted",
+      "historical_original_sha256": "9dfaef975ede6692ab9cf5a1e748b2cb6ce610c558ea2b5454b74c831e988ee0"
+    },
+    {
+      "path": "payload/evidence/glm52.ppda-pp4-dpa4-kf.packup_20261023/README.md",
+      "sha256": "cffaeb256fb7bea33ccc333d2fa92d61aba3113e8193135383bb8761411b06f2",
+      "size": 2606,
+      "representation": "redacted",
+      "historical_original_sha256": "5a81fbd4c76221ba5d3055abb7b32d2e0132b22542e565730c641fd5a198aff3"
+    },
+    {
+      "path": "payload/evidence/glm52.ppda-pp4-dpa4-kf.packup_20261023/environment.md",
+      "sha256": "fdea6bedbcd9c6bfe405c5c66ed7e0e1c0ccb773b4887202268bae89bf02ea20",
+      "size": 2068,
+      "representation": "redacted",
+      "historical_original_sha256": "6282b4ec0969e7871f8f844ed5b9082dc5c323dcfc3e398ea37703b5614620b9"
+    },
+    {
+      "path": "payload/evidence/glm52.ppda-pp4-dpa4-kf.packup_20261023/REPRODUCE.md",
+      "sha256": "7d3f4f290ae0b14c618a66ca9ffe4308a80115ec05546f7533e41306d0f76104",
+      "size": 809,
+      "representation": "redacted",
+      "historical_original_sha256": "0591891b4576baad2dc8fb9ab1aaf7ff70da6c37b086a040b381c9c0a1948fd9"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability",
+      "Model checkpoint content identity",
+      "Exact baseline target-image source digests",
+      "Exact full invocation",
+      "Per-run adapter identity for later pd configurations"
+    ]
+  },
+  "limitations": [
+    "The measurement concerns a bundle; per-kernel e2e attribution was not measured.",
+    "Simulated acceptance and live kernel CHECK do not establish full-model correctness.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": {
+    "tpot_mean_ms": 14.25,
+    "score_tokens_s_chip": 40779.88346,
+    "qps": 2.68423,
+    "request_accounting": {
+      "records_total": 10618,
+      "records_profiled": 9734,
+      "records_dropped_total": 884,
+      "records_warmup_dropped": 884,
+      "records_error_dropped": 6,
+      "error_categories": {
+        "InvalidInferenceResultError": 6
+      }
+    }
+  },
+  "source_bytes": "redacted"
+}

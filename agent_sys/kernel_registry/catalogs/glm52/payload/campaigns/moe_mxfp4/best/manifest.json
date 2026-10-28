@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_014",
+  "baseline_wall_ms": 0.236,
+  "benchmark_path": "best/iter_014/benchmark.json",
+  "best_wall_ms": 0.213,
+  "campaign_id": "ed2b3055ef40443b81e64d144e1cf0fc",
+  "changed_files": [
+    "moe_mxfp4_kernel.py"
+  ],
+  "commit_hash": "9cd51e6099777f77750fe4e9888accf219643508",
+  "correctness_passed": true,
+  "experiment_id": "e67d3f58",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.104899,
+  "iteration": 14,
+  "mean_case_speedup": 1.104898747479508,
+  "patch_path": "best/iter_014/forge.patch",
+  "plan": "spread shared-expert gemm1 tiles with prequantized activations, BK-256 gemm2, 4-MiB-aligned output, non-temporal zero fill",
+  "pristine_baseline_ms": 0.236,
+  "published_at": "2026-10-22 22:57:22",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.236,
+  "session_index": 8,
+  "snr_db": 49.51,
+  "speedup": 1.104899,
+  "total_improved": true,
+  "total_speedup": 1.104899,
+  "validation_path": "best/iter_014/validation.txt"
+}

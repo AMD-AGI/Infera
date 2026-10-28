@@ -1,0 +1,2 @@
+round score qps isl ttft_p50 ttft_p90 tpot gpu_hit cpu_hit err kvlat(p50/p90) xfer_stage pqueue dtransferred
+llr24-c96 44432 2.942 119883 5.51 16.27 17.6 0.431 0.210 4 1.81/4.13 1.79/3.84 0.09/1.44 4.10/9.05

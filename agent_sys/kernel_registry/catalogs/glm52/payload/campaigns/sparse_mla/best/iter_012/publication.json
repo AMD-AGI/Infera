@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_012",
+  "baseline_wall_ms": 0.1151,
+  "benchmark_path": "best/iter_012/benchmark.json",
+  "best_wall_ms": 0.0375,
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "changed_files": [
+    "sparse_mla_kernel.py"
+  ],
+  "commit_hash": "e82184fcf4bd3a3f2007c9a16990eb49125aaf32",
+  "correctness_passed": true,
+  "experiment_id": "d232a3fc",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 2.837185,
+  "iteration": 12,
+  "mean_case_speedup": 2.8371847374067656,
+  "patch_path": "best/iter_012/forge.patch",
+  "plan": "fence P@V dots out of Triton's chain layout to stop duplicated Q@K^T work",
+  "pristine_baseline_ms": 0.1151,
+  "published_at": "2026-10-21 07:14:07",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1151,
+  "session_index": 8,
+  "snr_db": 31.75,
+  "speedup": 2.837185,
+  "total_improved": true,
+  "total_speedup": 2.837185,
+  "validation_path": "best/iter_012/validation.txt"
+}

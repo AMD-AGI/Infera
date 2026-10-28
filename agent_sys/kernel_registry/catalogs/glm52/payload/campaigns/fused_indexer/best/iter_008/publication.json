@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_008",
+  "baseline_wall_ms": 0.1298,
+  "benchmark_path": "best/iter_008/benchmark.json",
+  "best_wall_ms": 0.0884,
+  "campaign_id": "9518d5d2429f4aacbde7bb00f881042c",
+  "changed_files": [
+    "fused_indexer_kernel.py"
+  ],
+  "commit_hash": "7e345e35acd62d2752e634c93aeec18a9d28d80b",
+  "correctness_passed": true,
+  "experiment_id": "c26680d9",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.360513,
+  "iteration": 8,
+  "mean_case_speedup": 1.3605133745883582,
+  "patch_path": "best/iter_008/forge.patch",
+  "plan": "rows 18–30 的 n3 改用每组 3 行共享 K 页加载的 2-D 分组内核",
+  "pristine_baseline_ms": 0.1298,
+  "published_at": "2026-10-24 19:57:10",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1298,
+  "session_index": 2,
+  "snr_db": 100.0,
+  "speedup": 1.360513,
+  "total_improved": true,
+  "total_speedup": 1.360513,
+  "validation_path": "best/iter_008/validation.txt"
+}

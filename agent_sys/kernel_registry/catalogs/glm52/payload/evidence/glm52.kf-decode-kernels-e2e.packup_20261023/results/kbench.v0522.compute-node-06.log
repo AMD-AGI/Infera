@@ -1,0 +1,56 @@
+[infera-kernels] runtime_id=REDACTED installed: ['INDEXER', 'MOE', 'SPARSE']
+[infera-kernels] runtime_id=REDACTED patched triton_sparse_mla_fwd
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=48 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> orig
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=48 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> KF
+[infera-kernels] runtime_id=REDACTED CHECK sparse_mla rows=48: snr(KF vs orig)=25.69 dB maxabs=0.3003
+sparse_mla T48_bs8: prod 0.0897 ms  KF 0.0258 ms  speedup 3.478x (cudagraph) | snr KF/prod 25.69 dB, prod/fp32 26.50, KF/fp32 32.17
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=60 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> orig
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=60 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> KF
+sparse_mla T60_bs10: prod 0.0898 ms  KF 0.0278 ms  speedup 3.232x (cudagraph) | snr KF/prod 25.99 dB, prod/fp32 26.87, KF/fp32 32.02
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=72 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> orig
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=72 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> KF
+sparse_mla T72_bs12: prod 0.1128 ms  KF 0.0334 ms  speedup 3.380x (cudagraph) | snr KF/prod 31.66 dB, prod/fp32 36.53, KF/fp32 31.77
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=84 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> orig
+[infera-kernels] runtime_id=REDACTED sparse_mla rows=84 heads=64 kv=(2226368, 1, 576) dtype=torch.float8_e4m3fn -> KF
+sparse_mla T84_bs14: prod 0.1126 ms  KF 0.0360 ms  speedup 3.130x (cudagraph) | snr KF/prod 31.66 dB, prod/fp32 36.56, KF/fp32 31.76
+[infera-kernels] runtime_id=REDACTED patched DSATopKBackend.topk_transform
+[infera-kernels] runtime_id=REDACTED patched dsa_indexer.aiter_paged_mqa_logits
+[infera-kernels] runtime_id=REDACTED patched Indexer._get_topk_paged (mode)
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=48 q=(48, 32, 128) max_seq_len=1048704 -> orig
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=48 method=1 v2=False -> orig
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=48 q=(48, 32, 128) max_seq_len=1048704 -> KF
+[infera-kernels] runtime_id=REDACTED CHECK indexer_logits rows=48: valid=13015452 maxabs=7.629e-06 exact=False
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=48 method=1 v2=False -> KF
+[infera-kernels] runtime_id=REDACTED CHECK indexer_topk rows=48: identical index sets in 48/48 rows
+indexer T48_bs8: prod 0.3777 ms  KF 0.1339 ms  speedup 2.820x (cudagraph) | identical top-k sets 48/48 rows
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=60 q=(60, 32, 128) max_seq_len=1048704 -> orig
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=60 method=1 v2=False -> orig
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=60 q=(60, 32, 128) max_seq_len=1048704 -> KF
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=60 method=1 v2=False -> KF
+indexer T60_bs10: prod 0.3624 ms  KF 0.1308 ms  speedup 2.770x (cudagraph) | identical top-k sets 60/60 rows
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=72 q=(72, 32, 128) max_seq_len=1048704 -> orig
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=72 method=1 v2=False -> orig
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=72 q=(72, 32, 128) max_seq_len=1048704 -> KF
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=72 method=1 v2=False -> KF
+indexer T72_bs12: prod 0.4896 ms  KF 0.1340 ms  speedup 3.654x (cudagraph) | identical top-k sets 72/72 rows
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=84 q=(84, 32, 128) max_seq_len=1048704 -> orig
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=84 method=1 v2=False -> orig
+[infera-kernels] runtime_id=REDACTED indexer_logits rows=84 q=(84, 32, 128) max_seq_len=1048704 -> KF
+[infera-kernels] runtime_id=REDACTED indexer_topk rows=84 method=1 v2=False -> KF
+indexer T84_bs14: prod 0.4688 ms  KF 0.1357 ms  speedup 3.455x (cudagraph) | identical top-k sets 84/84 rows
+[infera-kernels] runtime_id=REDACTED patched AiterRunnerCore.run
+[infera-kernels] runtime_id=REDACTED moe M=192 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> orig
+[infera-kernels] runtime_id=REDACTED moe M=192 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> KF
+[infera-kernels] runtime_id=REDACTED CHECK moe M=192: snr(KF vs orig)=46.05 dB
+moe M192_bs8: prod 0.2317 ms  KF 0.2053 ms  speedup 1.129x (cudagraph) | snr KF/prod 46.05 dB
+[infera-kernels] runtime_id=REDACTED moe M=240 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> orig
+[infera-kernels] runtime_id=REDACTED moe M=240 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> KF
+moe M240_bs10: prod 0.2241 ms  KF 0.2058 ms  speedup 1.089x (cudagraph) | snr KF/prod 46.05 dB
+[infera-kernels] runtime_id=REDACTED moe M=288 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> orig
+[infera-kernels] runtime_id=REDACTED moe M=288 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> KF
+moe M288_bs12: prod 0.2261 ms  KF 0.2065 ms  speedup 1.095x (cudagraph) | snr KF/prod 51.45 dB
+[infera-kernels] runtime_id=REDACTED moe M=336 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> orig
+[infera-kernels] runtime_id=REDACTED moe M=336 E=257 topk=9 qt=per_1x32 mask=False kw=[] act=silu -> KF
+moe M336_bs14: prod 0.2282 ms  KF 0.2099 ms  speedup 1.087x (cudagraph) | snr KF/prod 50.73 dB
+KBENCH DONE
+exit 0

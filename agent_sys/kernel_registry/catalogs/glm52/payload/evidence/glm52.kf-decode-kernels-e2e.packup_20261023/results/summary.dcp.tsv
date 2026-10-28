@@ -1,0 +1,5 @@
+round	bench	node	KF	score_tok_s_chip	tpot_mean_ms	tpot_p50_ms	tpot_p90_ms	ttft_p50_s	ttft_p90_s
+kda1	A1	compute-node-05	0	27062	19.44	19.7	21.58	1.81	4.74
+kda1	A2	compute-node-05	0	27051	19.26	19.66	21.47	1.8	4.82
+kdb1	A1	compute-node-06	1	27077	19.38	19.72	21.38	1.78	4.94
+kdb1	A2	compute-node-06	1	27033	19.26	19.69	21.51	1.82	5.13

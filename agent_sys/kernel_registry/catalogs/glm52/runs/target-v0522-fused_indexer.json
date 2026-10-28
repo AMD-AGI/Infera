@@ -1,0 +1,135 @@
+{
+  "kind": "run",
+  "name": "target-v0522-fused_indexer",
+  "description": "Archived target-image pristine versus candidate graph benchmark.",
+  "run_type": "microbench",
+  "timestamp": "",
+  "kernels": {
+    "fused_indexer": "kf-iter4-1748c11c"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/fused_indexer/sources/1748c11c2af4fde85a269aa41d98c96f605f5d40.py",
+      "sha256": "dc298ecfebd2c5859da1f4884c388c9cb31fbb3c5409a2f9261c68cd8acfcd44",
+      "size": 111677,
+      "representation": "unchanged",
+      "historical_original_sha256": "dc298ecfebd2c5859da1f4884c388c9cb31fbb3c5409a2f9261c68cd8acfcd44"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/fused_indexer/fused_indexer_kernel.pristine.py",
+      "sha256": "2641730c3d3392da2bc36dca470cd8d7d81f6e34ade2269c8692bb7e8c5bf0e6",
+      "size": 85472,
+      "representation": "unchanged",
+      "historical_original_sha256": "2641730c3d3392da2bc36dca470cd8d7d81f6e34ade2269c8692bb7e8c5bf0e6",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-a",
+  "baseline_environment": "historical-stack-a",
+  "integration": [],
+  "workload": {
+    "input_identity": {
+      "path": "payload/tasks/fused_indexer/driver.py",
+      "sha256": "3c83bf554c10eb343ed2391d2bab61ff1820ce3e714c3343fe1d6069ae407863",
+      "size": 11214,
+      "representation": "redacted",
+      "historical_original_sha256": "1680a017c24c59c41cd43e5cbed4ae36a7fbb6be3093744de2bfe518e1b16ce7"
+    },
+    "input_kind": "synthetic"
+  },
+  "configuration": {
+    "cuda_graph": true
+  },
+  "commands": [
+    "python driver.py",
+    "python driver.py --bench-mode"
+  ],
+  "correctness": {
+    "status": "passed",
+    "scope": "operator synthetic cases in target image",
+    "summary": "Both retained sections report allclose=True; exact gate remains in the driver.",
+    "tolerances": {
+      "driver": {
+        "path": "payload/tasks/fused_indexer/driver.py",
+        "sha256": "3c83bf554c10eb343ed2391d2bab61ff1820ce3e714c3343fe1d6069ae407863",
+        "size": 11214,
+        "representation": "redacted",
+        "historical_original_sha256": "1680a017c24c59c41cd43e5cbed4ae36a7fbb6be3093744de2bfe518e1b16ce7"
+      }
+    },
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "scored_case_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "mean_case_ratio",
+      "cases": [
+        {
+          "name": "T12_bs2",
+          "baseline": 0.05085,
+          "candidate": 0.043371
+        },
+        {
+          "name": "T24_bs4",
+          "baseline": 0.087051,
+          "candidate": 0.070711
+        },
+        {
+          "name": "T36_bs6",
+          "baseline": 0.131171,
+          "candidate": 0.089451
+        },
+        {
+          "name": "T48_bs8",
+          "baseline": 0.164512,
+          "candidate": 0.112011
+        }
+      ]
+    },
+    {
+      "name": "driver_median_latency",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "ratio",
+      "baseline": 0.103551,
+      "candidate": 0.076192
+    }
+  ],
+  "comparison": {
+    "controlled": true,
+    "confounders": []
+  },
+  "activation": "not_applicable",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/results/fused_indexer_kernel.v0522.fik.log",
+      "sha256": "bf75a35150431e27625bfaae6ac7f41146abbb75cbfd690f8760527b56e75de7",
+      "size": 1916,
+      "representation": "unchanged",
+      "historical_original_sha256": "bf75a35150431e27625bfaae6ac7f41146abbb75cbfd690f8760527b56e75de7"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability"
+    ]
+  },
+  "limitations": [
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "source_bytes": "redacted"
+}

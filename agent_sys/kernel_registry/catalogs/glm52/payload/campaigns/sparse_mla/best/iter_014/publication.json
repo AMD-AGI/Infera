@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_014",
+  "baseline_wall_ms": 0.1151,
+  "benchmark_path": "best/iter_014/benchmark.json",
+  "best_wall_ms": 0.0325,
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "changed_files": [
+    "sparse_mla_kernel.py"
+  ],
+  "commit_hash": "64fbeaa20a23eef12c9113d1cdad44eb075b4fad",
+  "correctness_passed": true,
+  "experiment_id": "d232a3fc",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 3.165172,
+  "iteration": 14,
+  "mean_case_speedup": 3.165171787872425,
+  "patch_path": "best/iter_014/forge.patch",
+  "plan": "write-through partial/output stores plus compile-time tile trip count",
+  "pristine_baseline_ms": 0.1151,
+  "published_at": "2026-10-21 10:35:06",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1151,
+  "session_index": 8,
+  "snr_db": 31.75,
+  "speedup": 3.165172,
+  "total_improved": true,
+  "total_speedup": 3.165172,
+  "validation_path": "best/iter_014/validation.txt"
+}

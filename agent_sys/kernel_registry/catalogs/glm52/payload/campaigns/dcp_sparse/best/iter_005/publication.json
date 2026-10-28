@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_005",
+  "baseline_wall_ms": 0.0585,
+  "benchmark_path": "best/iter_005/benchmark.json",
+  "best_wall_ms": 0.034,
+  "campaign_id": "59707273435649ad93e30b9bceea3115",
+  "changed_files": [
+    "dcp_sparse_kernel.py"
+  ],
+  "commit_hash": "6af13db61557bc8bcd9ae22814bc79062f92a140",
+  "correctness_passed": true,
+  "experiment_id": "62edb33b",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.639143,
+  "iteration": 5,
+  "mean_case_speedup": 1.6391431008561512,
+  "patch_path": "best/iter_005/forge.patch",
+  "plan": "make scalar args compile-time constants and move empty-row select to row scale",
+  "pristine_baseline_ms": 0.0585,
+  "published_at": "2026-10-23 19:00:31",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.0585,
+  "session_index": 2,
+  "snr_db": 35.58,
+  "speedup": 1.639143,
+  "total_improved": true,
+  "total_speedup": 1.639143,
+  "validation_path": "best/iter_005/validation.txt"
+}

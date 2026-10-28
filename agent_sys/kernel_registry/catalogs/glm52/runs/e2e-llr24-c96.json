@@ -1,0 +1,203 @@
+{
+  "kind": "run",
+  "name": "e2e-llr24-c96",
+  "description": "Historical serving measurement of the configured kernel bundle.",
+  "run_type": "e2e",
+  "timestamp": "",
+  "kernels": {
+    "sparse_mla": "sglang-v0522-overlay",
+    "indexer": "kf-iter15-c2cacf5f",
+    "moe_mxfp4": "kf-iter14-9cd51e60"
+  },
+  "sources": [
+    {
+      "path": "payload/overlay/base/infera_kernels/kf_sparse_mla.py",
+      "sha256": "37f32b5df5e960bfb53bdd5bccebc1aae7d4adf9263e5fd3fb80a7a1fecaa520",
+      "size": 70320,
+      "representation": "redacted",
+      "historical_original_sha256": "4e3558dfbe970e3e267cfa0578ae7770783239f265ac1091e23b98e659bece3e"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/c2cacf5fa10cab2ad1b560d41ced0ba3f03288db.py",
+      "sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb",
+      "size": 92096,
+      "representation": "unchanged",
+      "historical_original_sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+      "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+      "size": 66512,
+      "representation": "redacted",
+      "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/indexer/dsa_indexer_kernel.pristine.py",
+      "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "size": 51742,
+      "representation": "unchanged",
+      "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-b",
+  "baseline_environment": "historical-stack-b",
+  "integration": [
+    {
+      "path": "payload/overlay/pd-20261024/sitecustomize.py",
+      "sha256": "d3532d6879d24ba36f3f33a0a726fe8baa39e5abac4f9c1f8f364af6b2295f38",
+      "size": 700,
+      "representation": "redacted",
+      "historical_original_sha256": "0873fe76cace3acffc992ae274c248c08bfc42f3fea22688e4f430b358209098"
+    },
+    {
+      "path": "payload/overlay/pd-20261024/infera_kernels/__init__.py",
+      "sha256": "4585e9dc93bd96e3ffee8e7083717a9b96bc92350f89787ebd613d29a443ae09",
+      "size": 22698,
+      "representation": "redacted",
+      "historical_original_sha256": "08e9f6f19ac82199b7a5ba340d318d270fa799cd948eb118f1f2ed6c2e7a4252"
+    }
+  ],
+  "workload": {
+    "input_identity": {
+      "source_type": "public_dataset",
+      "loader": "semianalysis_cc_traces_weka_062126",
+      "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+      "hf_split": "train",
+      "num_dataset_entries": 393
+    },
+    "model_path": "REDACTED_LOCAL_PATH",
+    "model_identity": null,
+    "concurrency": 96,
+    "input_kind": "AgentX serving trace, simulated speculative acceptance"
+  },
+  "configuration": {
+    "image": "historical-sglang-image-b",
+    "prefill_tp": 4,
+    "prefill_pp": 1,
+    "decode_tp": 4,
+    "decode_pp": 1,
+    "decode_dcp_size": 1,
+    "decode_ep": 1
+  },
+  "commands": [
+    "Historical invocation is described by retained REPRODUCE.md and runtime.env; exact shell command not captured in this record."
+  ],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "full-model",
+    "summary": "No full-model correctness result accompanies this performance observation.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [],
+  "comparison": {
+    "controlled": false,
+    "confounders": [
+      "No isolated paired baseline assigned; raw values are retained."
+    ]
+  },
+  "activation": "not_confirmed",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.llrepro-c96-bottleneck.packup_20261026/results/llr/llr24-c96/agentx_conc96.json",
+      "sha256": "f6aa4aaa7a6bb370b7b93c682549d6b68966503a51e911687d7cd34b347d9426",
+      "size": 5757,
+      "representation": "redacted",
+      "historical_original_sha256": "be27c15fc77e36bbc0ae2fb8b816531cd5070561882dee420d11aaa27f3dc4fc"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-c96-bottleneck.packup_20261026/results/llr/llr24-c96/decode.keylines.txt",
+      "sha256": "f31d38366237d6a473d9c66ba4a49da549f436fb59243c0e708f79ae2547a46c",
+      "size": 3935,
+      "representation": "redacted",
+      "historical_original_sha256": "d172636e006c2f494ab9b9a56a70a418043499d96d71e0747090e0d8bf6ef6d2"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-c96-bottleneck.packup_20261026/results/llr/llr24-c96/engine-config.env",
+      "sha256": "e10129f2114e5747aa5f54c5fc85da2052065bd72c0ac9f8f09ac4d396997561",
+      "size": 1260,
+      "representation": "redacted",
+      "historical_original_sha256": "875c14a5677362f04ced5b60321e6374829145eb8d9219db7e79fde69d6a621d"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-c96-bottleneck.packup_20261026/results/llr/llr24-c96/prefill.keylines.txt",
+      "sha256": "ca82cb14fa4cb9054296af5f4631ce4bc937ce48abc8f4b44dbfa98f22e70a27",
+      "size": 916,
+      "representation": "redacted",
+      "historical_original_sha256": "c1909aae4c0fce29366f1c867cd8b9dc8b88e0b6b9ec5aa458ec781625c8d3a6"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-c96-bottleneck.packup_20261026/results/llr/llr24-c96/runtime.env",
+      "sha256": "158c03fb9cd810b2f0b8838b5ef5c2d67f6cf95c1959a1ab13e5c3e7abbeb6a0",
+      "size": 1541,
+      "representation": "redacted",
+      "historical_original_sha256": "64ca57aae26f8bbb2f1a6ccc5598332160632984adb8df7d75021ccc6f40de15"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-c96-bottleneck.packup_20261026/README.md",
+      "sha256": "7989023d68287cf7b878610a6a3b43988c276c7b3d6e8e11701e31cb5d5fca53",
+      "size": 2478,
+      "representation": "redacted",
+      "historical_original_sha256": "0ee21c7a2136f6b29e599964cb7b341c0b3ba1230991ff8fabfec76acddba125"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability",
+      "Model checkpoint content identity",
+      "Exact baseline target-image source digests",
+      "Exact full invocation",
+      "Per-run adapter identity for later pd configurations"
+    ]
+  },
+  "limitations": [
+    "The measurement concerns a bundle; per-kernel e2e attribution was not measured.",
+    "Simulated acceptance and live kernel CHECK do not establish full-model correctness.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": {
+    "tpot_mean_ms": 17.55,
+    "score_tokens_s_chip": 44432.22257,
+    "qps": 2.94179,
+    "request_accounting": {
+      "records_total": 11726,
+      "records_profiled": 10665,
+      "records_dropped_total": 1061,
+      "records_warmup_dropped": 1061,
+      "records_error_dropped": 4,
+      "error_categories": {
+        "InvalidInferenceResultError": 4
+      }
+    }
+  },
+  "source_bytes": "redacted"
+}

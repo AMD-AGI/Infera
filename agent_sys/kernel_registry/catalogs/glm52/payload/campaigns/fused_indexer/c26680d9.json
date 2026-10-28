@@ -1,0 +1,75 @@
+{
+  "experiment_id": "c26680d9",
+  "task_id": "fused_indexer_kernel",
+  "description": "Autonomous optimization of REDACTED_LOCAL_PATH",
+  "target_wall_ms": null,
+  "baseline_wall_ms": 0.1298,
+  "created_at": "2026-10-24T18:38:50.098088",
+  "campaign_id": "9518d5d2429f4aacbde7bb00f881042c",
+  "segment_index": 2,
+  "parent_experiment_id": "3f4235fe",
+  "status": "running",
+  "started_at": "2026-10-24T18:38:50.098056",
+  "ended_at": "",
+  "changes_reverted": [],
+  "primary_metric_name": "output_tps",
+  "primary_metric_polarity": "higher_better",
+  "checkpoint": {
+    "schema_version": 1,
+    "state": "best_committed",
+    "decision": "KEEP",
+    "experiment_id": "c26680d9",
+    "base_commit": "9cfa39a83ad0ce9210dc3a242413b7a65364602b",
+    "best_commit": "8dcc5a11db7a326a25a95f0850820149a31307da",
+    "best_iteration": 10,
+    "baseline_ms": 0.1298,
+    "pristine_baseline_ms": 0.1298,
+    "search_start_ms": 0.1298,
+    "best_ms": 0.0851,
+    "mean_case_speedup": 1.3997678464279941,
+    "search_start_mean_case_speedup": 1.0,
+    "improved": true,
+    "total_improved": true,
+    "incremental_improved": true,
+    "improved_during_search": true,
+    "total_speedup": 1.3997678464279941,
+    "incremental_speedup": 1.3997678464279941,
+    "validation_passed": true,
+    "validation_summary": "Validation Pipeline:\n  1. Full suite: PASS SNR=100.0dB\n  Verdict: ALL PASSED",
+    "snr_db": 100.0
+  },
+  "iterations": [
+    {
+      "iteration_id": 1,
+      "timestamp": "2026-10-24T19:57:10.390960",
+      "config": {
+        "iteration": 8,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 100.0,
+      "wall_ms": 0.0884,
+      "mean_case_speedup": 1.3605133745883582,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "rows 18–30 的 n3 改用每组 3 行共享 K 页加载的 2-D 分组内核"
+    },
+    {
+      "iteration_id": 2,
+      "timestamp": "2026-10-24T23:21:48.579950",
+      "config": {
+        "iteration": 10,
+        "kept": true
+      },
+      "change_type": "kernel",
+      "snr_db": 100.0,
+      "wall_ms": 0.0851,
+      "mean_case_speedup": 1.3997678464279941,
+      "metric_runs": 0,
+      "spill_bytes": 0,
+      "decision": "KEEP",
+      "notes": "Barrier-free wave-ballot top-k rank, with the cursor zeroed in n2"
+    }
+  ]
+}

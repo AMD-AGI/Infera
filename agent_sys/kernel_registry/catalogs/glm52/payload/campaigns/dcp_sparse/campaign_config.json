@@ -1,0 +1,45 @@
+{
+  "base_commit": "751e3c32da49e9f80ea365b05d0df65d27971808",
+  "bench_repeat": 1,
+  "driver_path": "driver.py",
+  "driver_sha256": "2bc0603766434c7a93b1ba3496c7ca6cf0f2a21a85630b365ad1bca32d859eeb",
+  "framework": "unknown",
+  "gpu_target": "gfx950",
+  "gpu_type": "mi355x",
+  "implementation_identity": {
+    "implementation_symbols": [
+      "_sparse_mla_fused_kernel",
+      "_sparse_mla_fwd_split_dim_kernel",
+      "_sparse_mla_reduce_kernel",
+      "_sparse_mla_split_k_kernel"
+    ],
+    "source_paths": [
+      "dcp_sparse_kernel.py"
+    ]
+  },
+  "implementation_signature": "896b3a6cb83e1fd98997058b8095aeb63ae27549811ee850be9879a079d497c5",
+  "kernel_path": "dcp_sparse_kernel.py",
+  "nproc_per_node": 1,
+  "operator_name": "_sparse_mla_fwd_split_dim_kernel",
+  "program_md_path": "forge_experiments/program.md",
+  "program_md_sha256": "367230113619362e5e2d1758898b4fe9b4d2e4f2ce37e01df5e39cc36f14cbb6",
+  "schema_version": 6,
+  "snr_threshold": 30.0,
+  "source_files": [
+    "dcp_sparse_kernel.py"
+  ],
+  "target_functions": [
+    "dcp_sparse_mla_decode",
+    "triton_sparse_mla_decode_splitk",
+    "_sparse_mla_split_k_kernel",
+    "_sparse_mla_reduce_kernel",
+    "_sparse_mla_fused_kernel",
+    "_gfx950_sparse_mla_decode_tile_config",
+    "_get_splitk_bufs",
+    "_gfx950_sparse_mla_kv_splits",
+    "_gfx950_sparse_mla_num_warps",
+    "_kv_splits_heuristic",
+    "_reduce_d_chunk"
+  ],
+  "task_type": ""
+}

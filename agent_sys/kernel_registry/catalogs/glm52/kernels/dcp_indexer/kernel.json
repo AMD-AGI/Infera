@@ -1,0 +1,368 @@
+{
+  "kind": "kernel",
+  "name": "dcp_indexer",
+  "description": "DCP4 split indexer",
+  "original": [
+    {
+      "path": "payload/tasks/dcp_indexer/dcp_indexer_kernel.pristine.py",
+      "sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "size": 9853,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "role": "original"
+    }
+  ],
+  "reference": [
+    {
+      "path": "references/naive.py",
+      "sha256": "43dcd643f0d6e485b60a9d2b7647b6326b0cfd717e4077a4fc1ecffb1565c878",
+      "size": 10552
+    },
+    {
+      "path": "payload/tasks/dcp_indexer/driver.py",
+      "sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71",
+      "size": 9615,
+      "representation": "unchanged",
+      "historical_original_sha256": "d6580f46caa067895d84bc03e802213ed1ac318e3595f2603fd6af6782e04d71",
+      "role": "historical oracle"
+    }
+  ],
+  "reference_status": "incomplete",
+  "limitations": [
+    "New PyTorch reference has CPU semantic controls only; GPU differential validation is outstanding.",
+    "Synthetic correctness does not transfer to real inputs: archived real-input replay has mismatches and slow cases.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "documentation": [
+    {
+      "path": "payload/tasks/dcp_indexer/program.md",
+      "sha256": "cf5ea6a3841616d24fee23853f2e787a266d408aab01a533af99282f5a8bf3ab",
+      "size": 3193,
+      "representation": "redacted",
+      "historical_original_sha256": "f939b2a1a2e2156ff15eccc358d521098b2008bb2456e6b35d5dae02fb037026"
+    },
+    {
+      "path": "references/README.md",
+      "sha256": "e482545cae896f611238cd07becb4c783fdab6e3220d84433311bf0fb9c4a2c6",
+      "size": 2134
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "793454448db83329d7ae04f4b0dd34bbc5b8bcd579a58f6709c92d5a09bf01a1",
+      "size": 1284
+    }
+  ],
+  "contract": {
+    "specification": {
+      "path": "payload/tasks/dcp_indexer/program.md",
+      "sha256": "cf5ea6a3841616d24fee23853f2e787a266d408aab01a533af99282f5a8bf3ab",
+      "size": 3193,
+      "representation": "redacted",
+      "historical_original_sha256": "f939b2a1a2e2156ff15eccc358d521098b2008bb2456e6b35d5dae02fb037026"
+    },
+    "naive_entrypoint": "dcp_indexer",
+    "fixtures": [],
+    "hardware": "gfx950",
+    "model": "GLM-5.2-MXFP4"
+  },
+  "integration": {
+    "method": "PYTHONPATH sitecustomize overlay with import hooks and per-kernel gates",
+    "version": "kf-iter4-09f754e5",
+    "files": [
+      {
+        "path": "payload/overlay/base/sitecustomize.py",
+        "sha256": "9217285da2948b375a5642269afab11ca00be06cc6a4854230a92b422c0c6bea",
+        "size": 765,
+        "representation": "redacted",
+        "historical_original_sha256": "862246a2022e8b4e4004113b03253c0736e9478917eb3db21d5e5ee195e4245d"
+      },
+      {
+        "path": "payload/overlay/base/infera_kernels/__init__.py",
+        "sha256": "8a1c7a7e76747c30d86b4b378e18db99c5ee66f031f704759386edb02c24011c",
+        "size": 28643,
+        "representation": "redacted",
+        "historical_original_sha256": "a3579ef40301704a34bcefaf395ac078c10d095f56c7b60884818e44a808d1b8"
+      }
+    ],
+    "activation": [
+      "PYTHONPATH=<catalog>/payload/overlay/base:$PYTHONPATH INFERA_KERNEL_DCP_INDEXER=1 <server command>"
+    ],
+    "rollback": [
+      "Unset INFERA_KERNEL_DCP_INDEXER and restart the server processes."
+    ],
+    "compatibility": {
+      "sglang": "0.5.21/0.5.22 paths as archived",
+      "hardware": "MI355X/gfx950",
+      "guards": "See exact adapter source for mode, shape and dtype restrictions.",
+      "old_fused_module_adapter": {
+        "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/__init__.py",
+        "sha256": "209d555a2ea0615de8d6e26d77bff4e0effd4e0898251ed5c0fc23e922b0439a",
+        "size": 28982,
+        "representation": "redacted",
+        "historical_original_sha256": "80d99df71f4ee3b5f6cd7a7e5b21d6b3065d62c63cb28529006b4683e326ff34"
+      }
+    },
+    "validation_status": "target GPU revalidation required"
+  },
+  "versions": [
+    {
+      "id": "original",
+      "files": [
+        {
+          "path": "payload/tasks/dcp_indexer/dcp_indexer_kernel.pristine.py",
+          "sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+          "size": 9853,
+          "representation": "unchanged",
+          "historical_original_sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+          "role": "original"
+        }
+      ],
+      "status": "baseline",
+      "notes": "Redacted snapshot of the historical original baseline.",
+      "provenance": {
+        "source_bytes": "redacted"
+      }
+    },
+    {
+      "id": "kf-iter1-3ca74a30",
+      "parent": "original",
+      "files": [
+        {
+          "path": "payload/campaigns/dcp_indexer/sources/3ca74a30e3f8e03fbff53466cf98e02d6b5ffefa.py",
+          "sha256": "9321b0c28cb3ce37fdbc1c990b2dbdac724f8c938202795bdd04589fdd8fa356",
+          "size": 14532,
+          "representation": "unchanged",
+          "historical_original_sha256": "9321b0c28cb3ce37fdbc1c990b2dbdac724f8c938202795bdd04589fdd8fa356"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "6da76f6226b04fefa476e7c17c172932",
+        "commit": "3ca74a30e3f8e03fbff53466cf98e02d6b5ffefa",
+        "iteration": 1,
+        "source_bytes": "redacted"
+      },
+      "notes": "\u6309\u957f\u5ea6\u5747\u8861\u8c03\u5ea6 logits\uff0c\u5e76\u7528\u5355\u4e2a\u7cbe\u786e\u5408\u5e76 kernel \u53d6\u4ee3\u62fc\u63a5\u52a0\u65e7\u5408\u5e76"
+    },
+    {
+      "id": "kf-iter3-c4eb991f",
+      "parent": "kf-iter1-3ca74a30",
+      "files": [
+        {
+          "path": "payload/campaigns/dcp_indexer/sources/c4eb991f117334026c3c5e5b7f845b5629eeb7e7.py",
+          "sha256": "1dc007d37efee795cb5a4cd6e463522f71cae1e30ec050fb289e45076c325631",
+          "size": 33645,
+          "representation": "unchanged",
+          "historical_original_sha256": "1dc007d37efee795cb5a4cd6e463522f71cae1e30ec050fb289e45076c325631"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "6da76f6226b04fefa476e7c17c172932",
+        "commit": "c4eb991f117334026c3c5e5b7f845b5629eeb7e7",
+        "iteration": 3,
+        "source_bytes": "redacted"
+      },
+      "notes": "replace sgl fast_topk_v2 and pack with an in-file exact est/collect/select selector"
+    },
+    {
+      "id": "kf-iter4-09f754e5",
+      "parent": "kf-iter3-c4eb991f",
+      "files": [
+        {
+          "path": "payload/campaigns/dcp_indexer/sources/09f754e5cd4b991ffe611aa0e86cdde3065a9119.py",
+          "sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7",
+          "size": 49283,
+          "representation": "unchanged",
+          "historical_original_sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7"
+        }
+      ],
+      "status": "integrated",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "6da76f6226b04fefa476e7c17c172932",
+        "commit": "09f754e5cd4b991ffe611aa0e86cdde3065a9119",
+        "iteration": 4,
+        "source_bytes": "redacted"
+      },
+      "notes": "in-file Gluon logits kernel scoring 6 sibling rows per shared K page"
+    }
+  ],
+  "campaign_history": [
+    {
+      "path": "payload/campaigns/dcp_indexer/61fc2505.json",
+      "sha256": "9043045ac1adf99be84444a341ad723cc92e88397750438dfcc8b848049d0290",
+      "size": 1904,
+      "representation": "redacted",
+      "historical_original_sha256": "239109cabb5d6eddc4df9dd37811b2d1dcce275a7ca3fd56ddecde5d89d8411c"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/a0b3da6e.json",
+      "sha256": "a4f52323ba37867002e9ae376b368b5d955813216372e76c407bbe221fdadb4e",
+      "size": 616,
+      "representation": "redacted",
+      "historical_original_sha256": "01ef85c903b545b697b25cf6c2ead43f6fed87aa35c46f92df5809340c788f5b"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_001/benchmark.json",
+      "sha256": "d067b6f39a28a6941a278f2980cd7e28028e0e2296934ee1ada6496d31fde14c",
+      "size": 9681,
+      "representation": "unchanged",
+      "historical_original_sha256": "d067b6f39a28a6941a278f2980cd7e28028e0e2296934ee1ada6496d31fde14c"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_001/forge.patch",
+      "sha256": "123d8e0a83c2389161710a023482299a124cdda483eaba8acc04421451627c1b",
+      "size": 7677,
+      "representation": "unchanged",
+      "historical_original_sha256": "123d8e0a83c2389161710a023482299a124cdda483eaba8acc04421451627c1b"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_001/publication.json",
+      "sha256": "d9df1af6c1243e05164bf847c45c50252a634a2cd9541cd07844b80651fab9c1",
+      "size": 1018,
+      "representation": "redacted",
+      "historical_original_sha256": "762f405fa67b1526fbf492dca3a8ae189d803001f8c7766b2126b87ecb9a82d2"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_001/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_003/benchmark.json",
+      "sha256": "ee8e374c7ec1beb9b39e3493832606b58db343177cbb0224cfc6b2c9f1644a50",
+      "size": 9702,
+      "representation": "unchanged",
+      "historical_original_sha256": "ee8e374c7ec1beb9b39e3493832606b58db343177cbb0224cfc6b2c9f1644a50"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_003/forge.patch",
+      "sha256": "5f8d7c1d7a683bbf9848cd0ea73c8bf80ba4e9432200b2c199670e25cdec783d",
+      "size": 28385,
+      "representation": "unchanged",
+      "historical_original_sha256": "5f8d7c1d7a683bbf9848cd0ea73c8bf80ba4e9432200b2c199670e25cdec783d"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_003/publication.json",
+      "sha256": "734ee33e1ea7ccc01fec11d82138f5e3ad86069169bef9d3dc2e02a7e97c823b",
+      "size": 1016,
+      "representation": "unchanged",
+      "historical_original_sha256": "734ee33e1ea7ccc01fec11d82138f5e3ad86069169bef9d3dc2e02a7e97c823b"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_003/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_004/benchmark.json",
+      "sha256": "32719e545ee87eb9db38356002d31691ba751ca00ba1e443d08196c45164aa34",
+      "size": 9686,
+      "representation": "unchanged",
+      "historical_original_sha256": "32719e545ee87eb9db38356002d31691ba751ca00ba1e443d08196c45164aa34"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_004/forge.patch",
+      "sha256": "c967d606cd0fb84764d3e12167e11d433b0baa8266b8b1aa686601b70b86a9bf",
+      "size": 44506,
+      "representation": "unchanged",
+      "historical_original_sha256": "c967d606cd0fb84764d3e12167e11d433b0baa8266b8b1aa686601b70b86a9bf"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_004/publication.json",
+      "sha256": "48fa53d571b6577c0d1896457719e28e25467b9281a77ac9fd50f40980fb9122",
+      "size": 1001,
+      "representation": "unchanged",
+      "historical_original_sha256": "48fa53d571b6577c0d1896457719e28e25467b9281a77ac9fd50f40980fb9122"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/iter_004/validation.txt",
+      "sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493",
+      "size": 76,
+      "representation": "unchanged",
+      "historical_original_sha256": "6b58a2eb19ce5f6f2f2bd33705ffa5d9a50ba78624ce5631830166d90d4f0493"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best/manifest.json",
+      "sha256": "48fa53d571b6577c0d1896457719e28e25467b9281a77ac9fd50f40980fb9122",
+      "size": 1001,
+      "representation": "unchanged",
+      "historical_original_sha256": "48fa53d571b6577c0d1896457719e28e25467b9281a77ac9fd50f40980fb9122"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/best_result.json",
+      "sha256": "48fa53d571b6577c0d1896457719e28e25467b9281a77ac9fd50f40980fb9122",
+      "size": 1001,
+      "representation": "unchanged",
+      "historical_original_sha256": "48fa53d571b6577c0d1896457719e28e25467b9281a77ac9fd50f40980fb9122"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/campaign_config.json",
+      "sha256": "9bf5465f1d8101febb57c8cf1b7561ac6cc360ba0155af2e6d0d0371b756530e",
+      "size": 1157,
+      "representation": "redacted",
+      "historical_original_sha256": "4befe81282488ec10298cb8e0d9c8c7d6d49af929901b118e4384f46b21493d0"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/ed3d5e22.json",
+      "sha256": "b8c440b59d673755987b093eda05b742b99d96aa89ba9a7f86bc6b9a5fc4ca4e",
+      "size": 2361,
+      "representation": "redacted",
+      "historical_original_sha256": "756ae68faa7a6ab729030f188da6a5a72040071eb5d1007fa833f38eac1831a1"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/experience.jsonl",
+      "sha256": "378b30238fc05c00b022fd33ecaa2571eb00b61825004c7fa4647302193712ae",
+      "size": 2071,
+      "representation": "redacted",
+      "historical_original_sha256": "ac7a57c4d0844caa48d165b3573ebd9c2a3c4f4581fbb40301e505a660551a4e"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/forge_result.json",
+      "sha256": "6be3e4b6a9ef8b78a95b5989ce44986d4f8587f55b3816cf3c0b751ae01899bc",
+      "size": 1524,
+      "representation": "redacted",
+      "historical_original_sha256": "8b3eed0b4b5f0134bd093b1516a748eece7c9777d2041d7da365952dd4f83317"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/09f754e5cd4b991ffe611aa0e86cdde3065a9119.py",
+      "sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7",
+      "size": 49283,
+      "representation": "unchanged",
+      "historical_original_sha256": "5ee364f1b33a197ed0f459a98e7a13776420f1fe7cefee7cecce7c04ba0661e7"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/3ca74a30e3f8e03fbff53466cf98e02d6b5ffefa.py",
+      "sha256": "9321b0c28cb3ce37fdbc1c990b2dbdac724f8c938202795bdd04589fdd8fa356",
+      "size": 14532,
+      "representation": "unchanged",
+      "historical_original_sha256": "9321b0c28cb3ce37fdbc1c990b2dbdac724f8c938202795bdd04589fdd8fa356"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/c0b1250962383cac6c9881489b89075ca4984ed3.py",
+      "sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c",
+      "size": 9853,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d2000d7afdb2b108de02312fd6b0cd0087b0e7e41a521c697ec20b2219ddf3c"
+    },
+    {
+      "path": "payload/campaigns/dcp_indexer/sources/c4eb991f117334026c3c5e5b7f845b5629eeb7e7.py",
+      "sha256": "1dc007d37efee795cb5a4cd6e463522f71cae1e30ec050fb289e45076c325631",
+      "size": 33645,
+      "representation": "unchanged",
+      "historical_original_sha256": "1dc007d37efee795cb5a4cd6e463522f71cae1e30ec050fb289e45076c325631"
+    }
+  ],
+  "source_bytes": "redacted",
+  "provenance": {
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  }
+}

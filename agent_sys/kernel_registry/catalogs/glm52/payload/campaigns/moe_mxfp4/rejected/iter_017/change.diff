@@ -1,0 +1,421 @@
+diff --git a/moe_mxfp4_kernel.py b/moe_mxfp4_kernel.py
+index 0aa5135..324b524 100644
+--- a/moe_mxfp4_kernel.py
++++ b/moe_mxfp4_kernel.py
+@@ -197,7 +197,7 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+                     int* __restrict__ sorted_ids,
+                     float* __restrict__ sorted_w,
+                     int* __restrict__ sorted_eids,
+-                    int* __restrict__ num_valid,            // [2]
++                    int* __restrict__ num_valid,            // [4]: aiter's [2] + header (S, 0)
+                     int* __restrict__ reverse_sorted,       // [M*topk]
+                     int* __restrict__ m_indices,
+                     glm52_v4i* __restrict__ zero_out,       // bf16 [M, model_dim] as 16 B vectors
+@@ -251,7 +251,8 @@ glm52_moe_sort_fill(const int* __restrict__ topk_ids,       // [M*topk]
+         const int incl = v + pre;
+         if (tid >= e0 && tid < e1) start_s[tid] = incl - p;
+         __syncthreads();
+-        if (blockIdx.x == 0 && tid == ne - 1) { num_valid[0] = incl; num_valid[1] = M; }
++        // [2] = m-blocks of the last expert (the fused shared expert, sorted last), read by the GEMM launchers
++        if (blockIdx.x == 0 && tid == ne - 1) { num_valid[0] = incl; num_valid[1] = M; num_valid[2] = p / BM; num_valid[3] = 0; }
+ #pragma unroll
+         for (int k = 0; k < MAXP; ++k) {
+             const int e = ids[k];
+@@ -438,7 +439,8 @@ def _hip_moe_sort(st, topk_ids, topk_weights, num_experts, topk, model_dim, hidd
+     max_sorted = (((M * topk + active * (BM - 1)) + BM - 1) // BM) * BM
+     sorted_token_ids = torch.empty(max_sorted, dtype=torch.int32, device=device)
+     sorted_expert_ids = torch.empty(max_sorted // BM, dtype=torch.int32, device=device)
+-    num_valid_ids = torch.empty(2, dtype=torch.int32, device=device)
++    # [0, 1] = aiter's num_valid_ids; [2] = the last expert's m-block count (header for the GEMM launchers)
++    num_valid_ids = torch.empty(4, dtype=torch.int32, device=device)
+     sorted_weights = torch.empty(max_sorted, dtype=torch.float32, device=device)
+     reverse_sorted = torch.empty(M * topk, dtype=torch.int32, device=device)
+     m_indices = torch.empty(max_sorted, dtype=torch.int32, device=device)
+@@ -473,10 +475,12 @@ def _hip_moe_sort(st, topk_ids, topk_weights, num_experts, topk, model_dim, hidd
+     r = launch(fn, n_sort + n_quant + n_fill, 1, 1, _HIP_SORT_NT, 1, 1, 0, ctypes.c_void_p(stream), params, None)
+     if r != 0:
+         raise RuntimeError(f"glm52 prologue sort: hipModuleLaunchKernel returned {r}")
++    global _PREQ, _HDR
+     if hidden is not None:
+-        global _PREQ
+         _PREQ = (hidden, M, a_q, a_s)
+-    return sorted_token_ids, sorted_weights, sorted_expert_ids, num_valid_ids, moe_buf, m_indices, reverse_sorted
++    _HDR = num_valid_ids
++    return (sorted_token_ids, sorted_weights, sorted_expert_ids, num_valid_ids[:2], moe_buf, m_indices,
++            reverse_sorted)
+ 
+ 
+ def _install_hip_prologue():
+@@ -497,7 +501,7 @@ def _install_hip_prologue():
+             st = _hip_sort_fn(dev)
+             if st is not None:
+                 h = _CUR_HIDDEN
+-                use_h = (h is not None and _G1_VARIANT == 3 and h.dtype == torch.bfloat16 and h.is_cuda
++                use_h = (h is not None and _G1_VARIANT in (3, 4) and h.dtype == torch.bfloat16 and h.is_cuda
+                          and h.dim() == 2 and h.is_contiguous() and h.shape[0] == topk_ids.shape[0]
+                          and h.shape[1] == model_dim and model_dim % 256 == 0)
+                 return _hip_moe_sort(st, topk_ids, topk_weights, int(num_experts), int(topk), int(model_dim),
+@@ -549,9 +553,20 @@ def _install_hip_prologue():
+ # (+7..10 us).
+ #
+ # GLM52_MOE_G1: 0 = aiter's own launcher, 1 = local copy with aiter's mapping (control), 2 = spread,
+-# 3 = spread + pre-quantized activations (default; falls back to 2 when this call's prologue did not
+-# produce them, e.g. aiter's sort fallback for M*topk > 4096).
+-_G1_VARIANT = int(os.environ.get("GLM52_MOE_G1", "3"))
++# 3 = spread + pre-quantized activations, 4 = variant 3 but the shared expert's m-block count S is read from
++# the prologue's one-int header (num_valid_ids[2]) instead of two dependent eids global loads (default).
++#
++# S = ceil(count(expert 256) / 16) = ceil(M / 16) for the decode routing (the fused shared expert is in every
++# token's top-k and sorts last, so it owns the trailing m-blocks).  The prologue already holds the last
++# expert's padded count p in CTA 0's last thread; it now also writes num_valid[2] = p / 16, which gemm1 reads
++# in the same cache line as cumsum0, removing the eids[total-S] and eids[total-1] dependent loads from every
++# gemm1 workgroup's tile-setup critical path.  S is identical to variant 3's, so the tile map and the output
++# are bitwise unchanged (SNR 49.4 dB, matching variant 3).  Falls back to 3 when the prologue header is
++# absent (aiter's sort fallback for M*topk > 4096, or first use inside a capture).  Measured (compute-node-08,
++# untraced driver A/B, 4 interleaved reps vs variant 3): mean case speedup 1.0985 -> 1.1018, every scored
++# case faster in the median (bs10 213.0 -> 211.6 us, bs12 213.9 -> 213.8 us); gemm1 -0.2 .. -0.3 us in the
++# per-kernel trace, consistent across all four cases.
++_G1_VARIANT = int(os.environ.get("GLM52_MOE_G1", "4"))
+ 
+ try:
+     import functools as _functools
+@@ -877,8 +892,9 @@ if _G1_IMPORT_OK:
+         k_stages = _aiter_g1.default_k_stages(BM, BN, KH_TILE, K_TILES_TOTAL, N_OUT, 1, epi_splits)
+         _, _, _, lds_bytes = _aiter_g1._bm_constants(BM, BN, KH_TILE, K_TILES_TOTAL, 1, epi_splits, k_stages)
+ 
+-        spread = variant in (2, 3)
+-        preq = variant == 3
++        spread = variant in (2, 3, 4)
++        preq = variant in (3, 4)
++        hdr = variant == 4               # S from the prologue's header (num_valid_ids[2]) instead of eids
+         if spread:
+             assert NUM_N_BLOCKS == NXCD
+         block_threads = 256
+@@ -912,6 +928,8 @@ if _G1_IMPORT_OK:
+             lane = tx_i32 % fx.Int32(64)
+             wave = rocdl.readfirstlane(T.i32, tx_i32 // fx.Int32(64))
+             cumsum0 = _global_i32_at(arg_cumsum, fx.Int32(0))
++            if const_expr(hdr):
++                s_hdr = _global_i32_at(arg_cumsum, fx.Int32(2))
+             total_m_blocks = cumsum0 // fx.Int32(BM)
+             bound = total_m_blocks * fx.Int32(NUM_N_BLOCKS)
+             xq = _udiv(bound, NXCD)
+@@ -933,6 +951,11 @@ if _G1_IMPORT_OK:
+                 return m_block * fx.Int32(NUM_N_BLOCKS) + n_block
+ 
+             def _shared_m_blocks():
++                if const_expr(hdr):
++                    # the prologue wrote the last expert's m-block count; any value keeps _spread a bijection
++                    s = (s_hdr < total_m_blocks).select(s_hdr, total_m_blocks)
++                    s = (s < fx.Int32(0)).select(fx.Int32(0), s)
++                    return fx.Int32(rocdl.readfirstlane(T.i32, as_ir_value(s)))
+                 # trailing m-blocks of the last expert in sorted order, at most ceil(M / BM) of them
+                 s0 = (i32_ntok + fx.Int32(BM - 1)) // fx.Int32(BM)
+                 s0 = (s0 < total_m_blocks).select(s0, total_m_blocks)
+@@ -1037,7 +1060,7 @@ _g1_ready: set = set()      # launcher keys already launched once outside a grap
+ def _g1_engages(kw):
+     """True for exactly the stage-1 instance this file's decode config selects (BM16 inline quant)."""
+     try:
+-        return (_G1_IMPORT_OK and _G1_VARIANT in (1, 2, 3)
++        return (_G1_IMPORT_OK and _G1_VARIANT in (1, 2, 3, 4)
+                 and kw.get("BM") == 16 and kw.get("use_nt") is True and kw.get("inline_quant") is True
+                 and kw.get("prefetch_hidden") is True and kw.get("BN") == 128 and kw.get("BK", 256) == 256
+                 and not kw.get("interleave", False) and kw.get("xcd_swizzle", 0) == 2
+@@ -1063,7 +1086,11 @@ def _install_g1_hook():
+             return _orig(**kw)
+         variant = _G1_VARIANT
+         a_ptr, as_ptr = kw["a_quant"].data_ptr(), kw["a_scale_sorted_shuffled"].data_ptr()
+-        if variant == 3:
++        if variant == 4:
++            hd = _HDR
++            if hd is None or hd.data_ptr() != kw["cumsum_tensor"].data_ptr():
++                variant = 3          # no header from this call's prologue
++        if variant in (3, 4):
+             pq = _PREQ
+             if (pq is not None and pq[0].data_ptr() == kw["hidden_states"].data_ptr()
+                     and pq[1] == int(kw["n_tokens"]) and pq[0].shape[1] == int(kw["D_HIDDEN"])):
+@@ -1102,6 +1129,252 @@ def _install_g1_hook():
+     _aiter_g1k.flydsl_mxfp4_gemm1 = flydsl_mxfp4_gemm1
+ 
+ 
++# ---------------------------------------------------------------------------------------------------------
++# gemm2: aiter's FlyDSL stage-2 tile body (compile_gemm2_a4w4_port's _composition hook, mxmoe_dispatcher.py:514)
++# behind a local launcher that spreads the fused shared expert's tiles over the XCDs.
++#
++# The tile body (A->LDS preload, gemm2_body_v2: BK256 K loop, x topk weight, bf16 atomic epilogue) is aiter's,
++# compiled from the same parameters as the incumbent instance (BM16 BN128 BK256 nt atomic, bf16 LDS, kstatic,
++# MXFP4_G2_BHOIST / MXFP4_G2_ASCALE_PF as aiter reads them); only the workgroup -> (m_block, n_block) map is local.
++# aiter's SPART 4x1 map sends tile (m, n) to XCD group(m) + 4 * (n mod 2), where group(m) is the quarter of the
++# m-blocks m falls in.  The shared expert (sorted last, S = ceil(M/16) m-blocks) therefore sits entirely in
++# group 3, i.e. on XCDs 3 and 7, which stream ~52-54 distinct expert half-slabs while the other six stream ~68.
++# Variants 2/3 give XCD xc = wg % 8 the S shared m-blocks of n-blocks [6 xc, 6 xc + 6) (1/8 of the shared slab
++# per XCD) and an equal share of the routed tiles in exactly SPART's grouping over the routed m-blocks
++# (g = 8 k + xc keeps g % 8 == xc), shared tiles dispatched first (2) or last (3).  S comes from the prologue's
++# header (num_valid_ids[2]); any S keeps the map a bijection onto [0, total) x [0, 48).
++#
++# GLM52_MOE_G2: 0 = aiter's launcher (default); 1 = local launcher, aiter's SPART map (control);
++# 2 / 3 = balanced map, shared tiles first / last; 4 = balanced map, shared tiles interleaved.
++# GLM52_MOE_G2_HINT=0 drops the composition path's BM16 llvm option (enable-post-misched=false) that aiter's
++# own (non-composed) instance does not have.
++#
++# Measured (compute-node-08, interleaved rocprofv3 kernel-trace A/B, 2 processes, + untraced driver A/B 4 reps):
++# the fused shared expert's gemm2 w2 slab (1.5 MB) is already L2/MALL-resident under aiter's SPART 4x1 map
++# (gemm2 reads 1.013x the weight-byte floor), so spreading its tiles over the XCDs removes no fabric bytes:
++# variants 2/3 ran gemm2 +0.8 .. +1.5 us (worse), variant 1 (parity) and 4 (interleaved) within +-0.3 us of
++# aiter's launcher.  Kept as env-gated infrastructure; the default stays on aiter's launcher.
++_G2_VARIANT = int(os.environ.get("GLM52_MOE_G2", "0"))
++_G2_KEEP_HINT = os.environ.get("GLM52_MOE_G2_HINT", "1") == "1"
++
++_G2_IMPORT_OK = False
++if _G1_IMPORT_OK:
++    try:
++        from aiter.ops.flydsl.kernels import mxmoe_dispatcher as _aiter_g2d
++        _G2_IMPORT_OK = all(hasattr(_aiter_g2d, a) for a in (
++            "compile_gemm2_a4w4_port", "mxfp4_moe_gemm2", "_spart_output_tile_index",
++            "_active_m_blocks_upper_bound"))
++    except Exception:  # noqa: BLE001 - any import drift -> aiter's own gemm2
++        _G2_IMPORT_OK = False
++
++
++if _G2_IMPORT_OK:
++    def _glm52_g2_compose(variant, NNB, gn, m01):
++        BM = 16
++        NX = 8
++        NPX = NNB // NX
++        _spart = _aiter_g2d._spart_output_tile_index
++
++        def compose(*, module_name, emit_gemm2_tile, shared_storage):
++            @flyc.kernel(name=f"{module_name}_glm52g2v{variant}_nb{NNB}", known_block_size=[256, 1, 1])
++            def gemm2_kernel(
++                arg_aq: fx.Int64,
++                arg_ascale: fx.Int64,
++                arg_bq: fx.Int64,
++                arg_bscale: fx.Int64,
++                arg_eids: fx.Int64,
++                arg_cumsum: fx.Int64,
++                arg_stids: fx.Int64,
++                arg_sweights: fx.Int64,
++                arg_bias: fx.Int64,
++                i32_M: fx.Int32,
++                i32_max_m_blocks: fx.Int32,
++                i32_inter: fx.Int32,
++                i32_hidden: fx.Int32,
++                arg_out: fx.Int64,
++                arg_out_scale: fx.Int64,
++                i32_grid_blocks: fx.Int32,
++            ):
++                tx_i32 = fx.Int32(gpu.thread_id("x"))
++                bx_i32 = fx.Int32(gpu.block_id("x"))
++                lane = tx_i32 % fx.Int32(64)
++                wave = rocdl.readfirstlane(T.i32, tx_i32 // fx.Int32(64))
++                lds = fx.SharedAllocator().allocate(shared_storage).peek()
++                cumsum0 = _global_i32_at(arg_cumsum, fx.Int32(0))
++                if const_expr(variant != 1):
++                    s_hdr = _global_i32_at(arg_cumsum, fx.Int32(2))
++                total = _udiv(cumsum0, BM)
++                bound = total * fx.Int32(NNB)
++                if bx_i32 < bound:
++                    if const_expr(variant == 1):
++                        m_blk, n_blk = _spart(bx_i32, total, NNB, gn, m01)
++                    else:
++                        s = (s_hdr < total).select(s_hdr, total)
++                        s = (s < fx.Int32(0)).select(fx.Int32(0), s)
++                        sd = (s < fx.Int32(1)).select(fx.Int32(1), s)
++                        n_rt = total - s
++                        n_rtd = (n_rt < fx.Int32(1)).select(fx.Int32(1), n_rt)
++                        xc = _umod(bx_i32, NX)
++                        li = _udiv(bx_i32, NX)
++                        if const_expr(variant == 2):        # shared tiles first
++                            is_sh = li < s * fx.Int32(NPX)
++                            li_s = li
++                            g = (li - s * fx.Int32(NPX)) * fx.Int32(NX) + xc
++                        elif const_expr(variant == 3):      # shared tiles last
++                            is_sh = li >= n_rt * fx.Int32(NPX)
++                            li_s = li - n_rt * fx.Int32(NPX)
++                            g = bx_i32
++                        else:                               # shared tiles evenly interleaved (Bresenham)
++                            j0 = _udiv(li * s, total)
++                            j1 = _udiv((li + fx.Int32(1)) * s, total)
++                            is_sh = j1 != j0
++                            li_s = j0
++                            g = (li - j0) * fx.Int32(NX) + xc
++                        g = is_sh.select(fx.Int32(0), g)
++                        li_s = is_sh.select(li_s, fx.Int32(0))
++                        m_r, n_r = _spart(g, n_rtd, NNB, gn, m01)
++                        q = _udiv(li_s, sd)
++                        m_s = n_rt + (li_s - q * sd)
++                        n_s = xc * fx.Int32(NPX) + q
++                        m_blk = is_sh.select(m_s, m_r)
++                        n_blk = is_sh.select(n_s, n_r)
++                    m_blk = fx.Int32(rocdl.readfirstlane(T.i32, as_ir_value(fx.Int32(m_blk))))
++                    n_blk = fx.Int32(rocdl.readfirstlane(T.i32, as_ir_value(fx.Int32(n_blk))))
++                    emit_gemm2_tile(
++                        arg_aq, arg_ascale, arg_bq, arg_bscale, arg_eids, arg_stids, arg_sweights, arg_bias,
++                        arg_out, m_blk, n_blk, lane, wave, i32_M, i32_max_m_blocks, i32_inter, i32_hidden, lds,
++                    )
++
++            @flyc.jit
++            def launch_gemm2(
++                arg_aq: fx.Int64,
++                arg_ascale: fx.Int64,
++                arg_bq: fx.Int64,
++                arg_bscale: fx.Int64,
++                arg_eids: fx.Int64,
++                arg_cumsum: fx.Int64,
++                arg_stids: fx.Int64,
++                arg_sweights: fx.Int64,
++                arg_bias: fx.Int64,
++                i32_M: fx.Int32,
++                i32_max_m_blocks: fx.Int32,
++                i32_grid_blocks: fx.Int32,
++                i32_inter: fx.Int32,
++                i32_hidden: fx.Int32,
++                arg_out: fx.Int64,
++                arg_out_scale: fx.Int64,
++                stream: fx.Stream,
++            ):
++                grid_x = i32_grid_blocks * fx.Int32(NNB)
++                gemm2_kernel(
++                    arg_aq, arg_ascale, arg_bq, arg_bscale, arg_eids, arg_cumsum, arg_stids, arg_sweights,
++                    arg_bias, i32_M, i32_max_m_blocks, i32_inter, i32_hidden, arg_out, arg_out_scale,
++                    i32_grid_blocks,
++                ).launch(grid=(grid_x, 1, 1), block=(256, 1, 1), stream=stream)
++
++            return launch_gemm2
++
++        return compose
++
++    @_functools.cache
++    def _glm52_g2_launcher(variant, NNB, D_INTER, keep_hint, bhoist, ascale_pf, gn, m01):
++        launch = _aiter_g2d.compile_gemm2_a4w4_port(
++            BM=16, BN=128, BK=256, use_nt=True, HIDDEN_MAX=8192, epilog="atomic", INTER_MAX=D_INTER,
++            a_dtype="fp4", b_dtype="fp4", topk=1, SBM=16, persist=False, cu_num=0,
++            g2_bhoist=bhoist, g2_ascale_pf=ascale_pf, g2_spart=gn * 100 + m01, g2_bf16_lds=True,
++            g2_kstatic=True, out_dtype="bf16", enable_bias=False, g2_prefetch_ids=False,
++            _composition=_glm52_g2_compose(variant, NNB, gn, m01),
++        )
++        if not keep_hint:
++            launch.compile_hints.pop("llvm_options", None)
++        return launch
++
++
++_g2_ready: set = set()      # gemm2 launcher keys already launched once outside a graph capture
++
++
++def _g2_engages(kw):
++    """True for exactly the stage-2 instance this file's decode config selects (t16x128x256 nt atomic)."""
++    try:
++        return (_G2_IMPORT_OK and _G2_VARIANT in (1, 2, 3, 4)
++                and kw.get("BM") == 16 and kw.get("BN") == 128 and kw.get("BK") == 256
++                and kw.get("use_nt") is True and kw.get("epilog", "atomic") == "atomic"
++                and kw.get("a_dtype", "fp4") == "fp4" and kw.get("b_dtype", "fp4") == "fp4"
++                and kw.get("SBM") in (None, 16) and not kw.get("persist", False)
++                and str(kw.get("out_dtype", "bf16")).strip().lower() == "bf16"
++                and kw.get("bias") is None and not kw.get("is_ep", False) and kw.get("stream") is None
++                and kw.get("n_sorted_padded") is None and kw.get("g2_bf16_lds") in (None, True)
++                and kw.get("g2_spart") is None and kw.get("HIDDEN_MAX", 8192) == 8192
++                and kw.get("sorted_weights") is not None and kw["out"].dtype == torch.bfloat16
++                and kw["out"].dim() == 2 and kw["out"].shape[1] == int(kw["D_HIDDEN"])
++                and os.environ.get("MXFP4_G2_KSTATIC", "1") == "1"
++                and int(kw["D_HIDDEN"]) % (8 * 128) == 0 and int(kw["D_HIDDEN"]) <= 8192
++                and int(kw["D_INTER"]) % 256 == 0 and int(kw["D_INTER"]) <= 8192)
++    except Exception:  # noqa: BLE001
++        return False
++
++
++def _install_g2_hook():
++    if not _G2_IMPORT_OK:
++        return
++    f = getattr(_aiter_g2d, "mxfp4_moe_gemm2", None)
++    if f is None or getattr(f, "_glm52_wrapped", False):
++        return
++
++    def mxfp4_moe_gemm2(*, _orig=f, **kw):
++        if not (_ACTIVE and _g2_engages(kw)):
++            return _orig(**kw)
++        variant = _G2_VARIANT
++        if variant in (2, 3, 4):
++            hd = _HDR
++            if hd is None or hd.data_ptr() != kw["cumsum_tensor"].data_ptr():
++                variant = 1          # no header from this call's prologue: aiter's map
++        spart = int(os.environ.get("MXFP4_G2_SPART", "402"))
++        gn, m01 = (spart // 100, spart % 100) if spart > 0 else (4, 1)
++        if gn < 1 or m01 < 1:
++            gn, m01 = 4, 1
++        D_HIDDEN, D_INTER = int(kw["D_HIDDEN"]), int(kw["D_INTER"])
++        key = (variant, D_HIDDEN // 128, D_INTER, _G2_KEEP_HINT,
++               os.environ.get("MXFP4_G2_BHOIST", "1") == "1", os.environ.get("MXFP4_G2_ASCALE_PF", "1") == "1",
++               gn, m01)
++        if key not in _g2_ready and torch.cuda.is_current_stream_capturing():
++            return _orig(**kw)       # first launch inside a capture: keep aiter's (already built) kernel
++        launch = _glm52_g2_launcher(*key)
++        BM = 16
++        max_m_blocks = (int(kw["max_sorted"]) + BM - 1) // BM
++        grid_blocks = min(max_m_blocks, _aiter_g2d._active_m_blocks_upper_bound(
++            int(kw["M_logical"]), int(kw["topk"]), int(kw["NE"]), BM, BM))
++        out = kw["out"]
++        _aiter_moe_kernels._run_compiled(
++            launch,
++            (
++                kw["inter_sorted_quant"].data_ptr(),
++                kw["inter_sorted_shuffled_scale"].data_ptr(),
++                kw["w2_u8"].data_ptr(),
++                kw["w2_scale_u8"].data_ptr(),
++                kw["sorted_expert_ids"].data_ptr(),
++                kw["cumsum_tensor"].data_ptr(),
++                kw["sorted_token_ids"].data_ptr(),
++                kw["sorted_weights"].data_ptr(),
++                out.data_ptr(),
++                int(kw["M_logical"]),
++                max_m_blocks,
++                grid_blocks,
++                D_INTER,
++                D_HIDDEN,
++                out.data_ptr(),
++                out.data_ptr(),
++                torch.cuda.current_stream(),
++            ),
++        )
++        _g2_ready.add(key)
++        return out
++
++    mxfp4_moe_gemm2._glm52_wrapped = True
++    mxfp4_moe_gemm2._glm52_orig = f
++    _aiter_g2d.mxfp4_moe_gemm2 = mxfp4_moe_gemm2
++
++
+ # ---------------------------------------------------------------------------------------------------------
+ # gemm2 instance for the decode row: BK 256 instead of the tuned row's BK 128.
+ #
+@@ -1150,10 +1423,12 @@ def _install_g2_name_override():
+ _ACTIVE = False
+ _CUR_HIDDEN = None      # hidden_states of the op call in flight (read by the HIP prologue for the pre-quant)
+ _PREQ = None            # (hidden, M, a_q, a_s) written by this call's prologue, consumed by the gemm1 hook
++_HDR = None             # this call's prologue num_valid_ids [4] (header in [2]), read by the GEMM launchers
+ _install_decode_cfg_key()
+ _install_fused_prologue_sort()
+ _install_hip_prologue()
+ _install_g1_hook()
++_install_g2_hook()
+ _install_g2_name_override()
+ 
+ 
+@@ -1192,15 +1467,17 @@ def glm52_moe_mxfp4(
+ 
+     routed_scaling_factor is not applied here (aiter fused_moe has no such argument; see program.md).
+     """
+-    global _ACTIVE, _CUR_HIDDEN, _PREQ
++    global _ACTIVE, _CUR_HIDDEN, _PREQ, _HDR
+     _ACTIVE = True
+     _CUR_HIDDEN = hidden_states
+     _PREQ = None            # only this call's prologue may provide the pre-quantized activations
++    _HDR = None             # ... and the header
+     try:
+         return _fused_moe_call(hidden_states, w13, w2, w13_scale, w2_scale, topk_weights, topk_ids)
+     finally:
+         _ACTIVE = False
+         _CUR_HIDDEN = None
++        _HDR = None
+ 
+ 
+ def _fused_moe_call(hidden_states, w13, w2, w13_scale, w2_scale, topk_weights, topk_ids):

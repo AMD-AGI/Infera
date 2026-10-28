@@ -1,0 +1,277 @@
+diff --git a/fused_indexer_kernel.py b/fused_indexer_kernel.py
+index 6ef1735..4d09de2 100644
+--- a/fused_indexer_kernel.py
++++ b/fused_indexer_kernel.py
+@@ -32,8 +32,20 @@ Q_LORA_RANK = 2048
+ HIDDEN_SIZE = 6144
+ MAX_ROWS = 48
+ LOGITS_HIST_BITS = 12
+-LOGITS_BLOCKS_PER_ROW = 48
+-TOPK_G = 64
++LOGITS_BLOCKS_PER_ROW = 32
++
++
++def logits_bpr(rows: int, table_pages: int) -> int:
++    """Blocks per row of the logits kernel: 32 (measured best for rows 12..48 at these contexts), raised so that a
++    wave never walks more than 64 pages (its page ids live one per lane), and kept a multiple of 8 so that block x
++    of every row lands on XCD x % 8 (sibling rows then read each page through the same L2)."""
++    need = -(-table_pages // (8 * 64))
++    return max(LOGITS_BLOCKS_PER_ROW, -(-need // 8) * 8)
++# n4 (topk_transform) blocks per row.  The row-barrier + cursor-atomic overhead
++# of each block outweighs the extra fill past ~48 here (measured: 48 beats the
++# previous 64 on every case, most on T36), while G only repartitions the exact
++# selection so the top-k set stays identical.
++TOPK_G = 48
+ 
+ SRC_DUAL_GEMV_BF16 = r"""/// Dual bf16 GEMV for the gfx950 DSA indexer: Q [M,4096] and KW [M,160] in one launch.
+ 
+@@ -741,6 +753,7 @@ SRC_PAGED_MQA_LOGITS = r"""/// GLM-5.2 DSA indexer, the logits kernel: paged MQA
+ #include <tvm/ffi/container/tensor.h>
+ 
+ #include <cstdint>
++#include <type_traits>
+ 
+ namespace sglang {
+ 
+@@ -812,7 +825,8 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+     float* __restrict__ out,
+     unsigned int* __restrict__ ghist,
+     int max_pages,
+-    int out_stride) {
++    int out_stride,
++    int rank_rows) {
+   constexpr int NBIN = 1 << HB;
+   constexpr int LOWB = 16 - HB;
+   constexpr int GHS = NBIN + LG_CBINS;
+@@ -825,10 +839,29 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+   static_assert(PERT <= LG_CBINS && (LG_CBINS % PERT) == 0, "a thread's contiguous run must sit inside one coarse bin");
+   __shared__ unsigned int s_hist[NBIN];
+ 
+-  const int row = blockIdx.y;
+   const int lane = threadIdx.x & 63;
+-  const int warp = threadIdx.x >> 6;
+-  const int seqlen = seqlens[row];
++  // Wave-uniform by construction; readfirstlane lets the compiler keep the page walk in SGPRs.
++  const int warp = __builtin_amdgcn_readfirstlane(threadIdx.x >> 6);
++  int row = blockIdx.y;
++  int seqlen;
++  if (rank_rows) {
++    // Longest rows first: blockIdx.y is a RANK, mapped to the row with that rank in descending length (ties by
++    // index).  A bijection for any seqlens contents, so every row still gets exactly the same blocks and work; it
++    // only changes which rows the hardware dispatches first when the grid needs more than one round of slots.
++    // The host only sets rank_rows when gridDim.y <= 64.
++    const int R = (int)gridDim.y;
++    const int sl = lane < R ? seqlens[lane] : 0;
++    int rank = 0;
++    for (int j = 0; j < R; ++j) {
++      const int sj = __builtin_amdgcn_readlane(sl, j);
++      rank += (sj > sl || (sj == sl && j < lane)) ? 1 : 0;
++    }
++    const unsigned long long m = __ballot(lane < R && rank == (int)blockIdx.y);
++    row = __builtin_amdgcn_readfirstlane(m ? (int)__ffsll(m) - 1 : (int)blockIdx.y);
++    seqlen = __builtin_amdgcn_readlane(sl, row);
++  } else {
++    seqlen = seqlens[row];
++  }
+   // seqlen is device data, so no host check can bound it.  Without the clamp
+   // an oversized row walks into the NEXT row's page table -- valid memory,
+   // plausible page ids, confidently wrong logits.
+@@ -870,24 +903,34 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+   const int nwaves = gridDim.x * WARPS;
+   const int wid = blockIdx.x * WARPS + warp;
+   const int koff = g * 512 + c * 16;
+-
+-  if (do_hist) __syncthreads();
++  // Pages of this wave: p = wid + it * nwaves, it in [0, cnt).  Uniform.
++  const int cnt = wid < npages ? (npages - 1 - wid) / nwaves + 1 : 0;
+ 
+   unsigned int* __restrict__ gh = ghist + (size_t)row * GHS;
+ 
+   const int* __restrict__ pt = ptable + (size_t)row * max_pages;
++  float* __restrict__ orow = out + (size_t)row * out_stride;
++
++  // Page ids of the first 64 iterations, one per lane, read back with readlane (uniform lane index).
++  const int pid = (lane < cnt) ? pt[wid + lane * nwaves] : 0;
+ 
+-  for (int p = wid; p < npages; p += nwaves) {
+-    const int phys = pt[p];
+-    const uint8_t* base = kv + (size_t)phys * PAGE_BYTES;
+-    const uint8_t* kb = base + koff;
+-    V8 b[4];
++  // K of one page through a per-page buffer resource: the page base lives in SGPRs and every lane offset is
++  // koff + an immediate, so a page costs 9 loads and no per-lane address arithmetic.
++  auto load_page = [&](V8 (&b)[4], float& ks, int phys) {
++    const __amdgpu_buffer_rsrc_t rs =
++        __builtin_amdgcn_make_buffer_rsrc((void*)(kv + (size_t)phys * PAGE_BYTES), (short)0, PAGE_BYTES, 0x00020000);
+ #pragma unroll
+     for (int tt = 0; tt < 4; ++tt) {
+-      b[tt].h[0] = *(const i32x4*)(kb + tt * 2048);
+-      b[tt].h[1] = *(const i32x4*)(kb + tt * 2048 + 256);
++      b[tt].h[0] = __builtin_bit_cast(i32x4, __builtin_amdgcn_raw_buffer_load_b128(rs, koff + (tt & 1) * 2048, (tt >> 1) * 4096, 0));
++      b[tt].h[1] =
++          __builtin_bit_cast(i32x4, __builtin_amdgcn_raw_buffer_load_b128(rs, koff + (tt & 1) * 2048 + 256, (tt >> 1) * 4096, 0));
+     }
+-    const float ks = ((const float*)(base + K_BYTES))[lane];
++    ks = __builtin_bit_cast(float, __builtin_amdgcn_raw_buffer_load_b32(rs, lane * 4, K_BYTES, 0));
++  };
++
++  // One page: MFMAs, head-weighted reduction, logits store and histogram.  Operands, scale and summation order
++  // are exactly the original kernel's, so the logits are bit-identical.
++  auto compute = [&](const V8 (&b)[4], const float ks, const int it) {
+     float s[4];
+ #pragma unroll
+     for (int tt = 0; tt < 4; ++tt) {
+@@ -903,19 +946,78 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+         acc = fmaf(fmaxf(a1[i], 0.f), w1[i], acc);
+       s[tt] = acc;
+     }
+-    const bool hi = (g & 2) != 0;
+-    float A0 = (hi ? s[2] : s[0]) + xor32(hi ? s[0] : s[2], lane);
+-    float A1 = (hi ? s[3] : s[1]) + xor32(hi ? s[1] : s[3], lane);
+-    const bool odd = (g & 1) != 0;
+-    float T = (odd ? A1 : A0) + xor16(odd ? A0 : A1, lane);
+-    const int pos = p * PAGE_TOK + lane;
+-    const bool live = pos < seqlen;
++    // Cross-lane head reduction, one swap per level: permlane32_swap(x, y) yields [x_lo | y_lo] and
++    // [x_hi | y_hi], whose sum is exactly the original "own + xor32 partner" of the selected operand (the upper
++    // half adds the same two values in the other order; fp add is commutative, so the result is bit-identical).
++    // permlane16_swap does the same on 16-lane rows.
++    // NOTE: this LLVM folds fadd(swap[0], swap[1]) into swap[0] + swap[0] (miscompile seen on gfx950 / ROCm 7.2),
++    // so the second result is laundered through an empty asm before the add.
++    const i32x2 p02 =
++        __builtin_amdgcn_permlane32_swap(__builtin_bit_cast(int, s[0]), __builtin_bit_cast(int, s[2]), false, false);
++    const i32x2 p13 =
++        __builtin_amdgcn_permlane32_swap(__builtin_bit_cast(int, s[1]), __builtin_bit_cast(int, s[3]), false, false);
++    int h02 = p02[1], h13 = p13[1];
++    asm volatile("" : "+v"(h02), "+v"(h13));
++    const float A0 = __builtin_bit_cast(float, p02[0]) + __builtin_bit_cast(float, h02);
++    const float A1 = __builtin_bit_cast(float, p13[0]) + __builtin_bit_cast(float, h13);
++    const i32x2 pa =
++        __builtin_amdgcn_permlane16_swap(__builtin_bit_cast(int, A0), __builtin_bit_cast(int, A1), false, false);
++    int ha = pa[1];
++    asm volatile("" : "+v"(ha));
++    const float T = __builtin_bit_cast(float, pa[0]) + __builtin_bit_cast(float, ha);
++    const int p = wid + it * nwaves;
++    const bool live = p * PAGE_TOK + lane < seqlen;
+     const float v = T * ks;
+-    out[(size_t)row * out_stride + pos] = live ? v : -INFINITY;
+-    if (do_hist && live) {
+-      const uint32_t bb = order_bin_fast<LOWB>(v);
+-      atomicAdd(&s_hist[bb], 1u);
+-    }
++    (orow + (size_t)p * PAGE_TOK)[lane] = live ? v : -INFINITY;
++    // Unconditional (adds 0 when not counted) so the page body stays one basic block.
++    const uint32_t bb = order_bin_fast<LOWB>(v);
++    atomicAdd(&s_hist[bb], (do_hist && live) ? 1u : 0u);
++  };
++
++  // Two K buffers, one page ahead: page it+1's loads are in flight under page it's MFMAs and reduction.
++  V8 bA[4], bB[4];
++  float ksA = 0.f, ksB = 0.f;
++  // readfirstlane outside the branch: every path into the loop has then waited on pid, so the loop's readlanes
++  // need no vmcnt(0) of their own.
++  const int phys0 = __builtin_amdgcn_readfirstlane(pid);
++  if (cnt > 0) load_page(bA, ksA, phys0);
++
++  if (do_hist) __syncthreads();
++
++  // The scheduler would otherwise sink the next page's loads below the current page's MFMAs (register pressure),
++  // which serialises load -> use again.  An empty volatile asm that "rewrites" the current buffer is ordered after
++  // the loads just issued, and the MFMAs depend on its outputs.
++  auto fence = [&](V8 (&b)[4], float& ks) {
++#pragma unroll
++    for (int tt = 0; tt < 4; ++tt)
++      asm volatile("" : "+v"(b[tt].v));
++    asm volatile("" : "+v"(ks));
++  };
++
++  // The host sizes the grid so that a wave has at most 64 pages; the generic tail below keeps longer walks exact.
++  const int cnt_p = cnt < 64 ? cnt : 64;
++  int it = 0;
++  for (; it + 2 < cnt_p; it += 2) {
++    load_page(bB, ksB, __builtin_amdgcn_readlane(pid, it + 1));
++    fence(bA, ksA);
++    compute(bA, ksA, it);
++    load_page(bA, ksA, __builtin_amdgcn_readlane(pid, it + 2));
++    fence(bB, ksB);
++    compute(bB, ksB, it + 1);
++  }
++  if (it + 1 < cnt_p) {
++    load_page(bB, ksB, __builtin_amdgcn_readlane(pid, it + 1));
++    fence(bA, ksA);
++    compute(bA, ksA, it);
++    compute(bB, ksB, it + 1);
++    it += 2;
++  } else if (it < cnt_p) {
++    compute(bA, ksA, it);
++    it += 1;
++  }
++  for (; it < cnt; ++it) {
++    load_page(bA, ksA, __builtin_amdgcn_readfirstlane(pt[wid + it * nwaves]));
++    compute(bA, ksA, it);
+   }
+ 
+   if (do_hist) {
+@@ -941,6 +1043,26 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+   }
+ }
+ 
++// Resident blocks of `fn` on the current device (per-device constant, cached); 0 if unknown.
++inline long long resident_slots(const void* fn, int threads) {
++  int dev = 0;
++  static constexpr int kMaxDev = 16;
++  static long long s_slots[kMaxDev] = {0};
++  if (hipGetDevice(&dev) != hipSuccess || dev < 0 || dev >= kMaxDev) {
++    return 0;
++  }
++  if (s_slots[dev] == 0) {
++    hipDeviceProp_t prop;
++    int per_cu = 0;
++    if (hipGetDeviceProperties(&prop, dev) != hipSuccess ||
++        hipOccupancyMaxActiveBlocksPerMultiprocessor(&per_cu, fn, threads, 0) != hipSuccess) {
++      return 0;
++    }
++    s_slots[dev] = (long long)per_cu * (long long)prop.multiProcessorCount;
++  }
++  return s_slots[dev];
++}
++
+ /// The fp8 dtype the MFMA reads as raw OCP e4m3 bytes.  Checked by hand rather
+ /// than through ``with_dtype<fp8_e4m3_t>``: on ROCm ``sglang::fp8_e4m3_t`` is
+ /// ``uint8_t``, which ``DLDataTypeTrait`` maps to kDLUInt -- that would reject a
+@@ -1015,8 +1137,14 @@ struct PagedMqaLogitsKernel {
+     // covers whole pages.
+     RuntimeCheck(cols_.unwrap() % PAGE_TOK == 0, "out row must be a whole number of pages, got ", cols_.unwrap());
+ 
+-    LaunchKernel(
+-        dim3(static_cast<int>(blocks_per_row), static_cast<int>(rows_.unwrap())), dim3(8 * 64), device_.unwrap())(
++    // Rank rows by length (longest dispatched first) only when the grid needs more than one round of resident
++    // slots: with a single round the order is moot and the ranking would only add a round trip.  rows and
++    // blocks_per_row are host constants and the slot count is a per-device constant, so this is graph-safe.
++    const int rows_i = static_cast<int>(rows_.unwrap());
++    const long long slots = impl::resident_slots(reinterpret_cast<const void*>(impl::logits_hist_m<8, HOST_HB>), 8 * 64);
++    const int rank_rows = (rows_i <= 64 && blocks_per_row * rows_i > slots) ? 1 : 0;
++
++    LaunchKernel(dim3(static_cast<int>(blocks_per_row), rows_i), dim3(8 * 64), device_.unwrap())(
+         impl::logits_hist_m<8, HOST_HB>,
+         reinterpret_cast<const uint8_t*>(q.data_ptr()),
+         reinterpret_cast<const uint8_t*>(kv.data_ptr()),
+@@ -1026,7 +1154,8 @@ struct PagedMqaLogitsKernel {
+         static_cast<fp32_t*>(out.data_ptr()),
+         reinterpret_cast<unsigned int*>(ghist.data_ptr()),
+         static_cast<int>(pages_.unwrap()),
+-        static_cast<int>(out.stride(0)));
++        static_cast<int>(out.stride(0)),
++        rank_rows);
+   }
+ };
+ 
+@@ -2162,7 +2291,7 @@ def fused_decode_indexer(
+         norm_w, norm_b, positions, cos2d, sin2d, float(eps), float(weights_scale))
+     out = torch.empty((rows, INDEX_TOPK), dtype=torch.int32, device=logits.device)
+     logits_mod.logits_hist(q_fp8, kv_cache_read, head_gate, seqlens, page_table_64, logits, ws.ghist[:rows],
+-                           LOGITS_BLOCKS_PER_ROW)
++                           logits_bpr(rows, page_table_64.shape[1]))
+     topk_mod.topk_transform(logits, seqlens, page_table_64, out, ws.ghist[:rows], ws.cursor[:rows],
+                             ws.cand_idx[:rows], ws.cand_val[:rows], TOPK_G, PAGE_SIZE)
+     return out

@@ -1,0 +1,203 @@
+{
+  "kind": "run",
+  "name": "e2e-llr47-c112",
+  "description": "Historical serving measurement of the configured kernel bundle.",
+  "run_type": "e2e",
+  "timestamp": "",
+  "kernels": {
+    "sparse_mla": "sglang-v0522-overlay",
+    "indexer": "kf-iter15-c2cacf5f",
+    "moe_mxfp4": "kf-iter14-9cd51e60"
+  },
+  "sources": [
+    {
+      "path": "payload/overlay/base/infera_kernels/kf_sparse_mla.py",
+      "sha256": "37f32b5df5e960bfb53bdd5bccebc1aae7d4adf9263e5fd3fb80a7a1fecaa520",
+      "size": 70320,
+      "representation": "redacted",
+      "historical_original_sha256": "4e3558dfbe970e3e267cfa0578ae7770783239f265ac1091e23b98e659bece3e"
+    },
+    {
+      "path": "payload/campaigns/indexer/sources/c2cacf5fa10cab2ad1b560d41ced0ba3f03288db.py",
+      "sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb",
+      "size": 92096,
+      "representation": "unchanged",
+      "historical_original_sha256": "d38e8c9330e85188feea80361277d131ab40e06380af4e4f6c7f94944e13c5fb"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+      "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+      "size": 66512,
+      "representation": "redacted",
+      "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/sparse_mla/sparse_mla_kernel.pristine.py",
+      "sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "size": 42165,
+      "representation": "unchanged",
+      "historical_original_sha256": "6d536e97159432d9e1d0aed111c7c9e713f21ca4a24fae4ad054a8abdf603ca4",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/indexer/dsa_indexer_kernel.pristine.py",
+      "sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "size": 51742,
+      "representation": "unchanged",
+      "historical_original_sha256": "b90d5594aeaa4d28624c505fd03b7919e4d7babebd352c4f05713bcd87fab9a3",
+      "role": "original"
+    },
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "environment": "historical-stack-b",
+  "baseline_environment": "historical-stack-b",
+  "integration": [
+    {
+      "path": "payload/overlay/pd-20261024/sitecustomize.py",
+      "sha256": "d3532d6879d24ba36f3f33a0a726fe8baa39e5abac4f9c1f8f364af6b2295f38",
+      "size": 700,
+      "representation": "redacted",
+      "historical_original_sha256": "0873fe76cace3acffc992ae274c248c08bfc42f3fea22688e4f430b358209098"
+    },
+    {
+      "path": "payload/overlay/pd-20261024/infera_kernels/__init__.py",
+      "sha256": "4585e9dc93bd96e3ffee8e7083717a9b96bc92350f89787ebd613d29a443ae09",
+      "size": 22698,
+      "representation": "redacted",
+      "historical_original_sha256": "08e9f6f19ac82199b7a5ba340d318d270fa799cd948eb118f1f2ed6c2e7a4252"
+    }
+  ],
+  "workload": {
+    "input_identity": {
+      "source_type": "public_dataset",
+      "loader": "semianalysis_cc_traces_weka_062126",
+      "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+      "hf_split": "train",
+      "num_dataset_entries": 393
+    },
+    "model_path": "REDACTED_LOCAL_PATH",
+    "model_identity": null,
+    "concurrency": 112,
+    "input_kind": "AgentX serving trace, simulated speculative acceptance"
+  },
+  "configuration": {
+    "image": "historical-sglang-image-b",
+    "prefill_tp": 4,
+    "prefill_pp": 1,
+    "decode_tp": 4,
+    "decode_pp": 1,
+    "decode_dcp_size": 1,
+    "decode_ep": 1
+  },
+  "commands": [
+    "Historical invocation is described by retained REPRODUCE.md and runtime.env; exact shell command not captured in this record."
+  ],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "full-model",
+    "summary": "No full-model correctness result accompanies this performance observation.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [],
+  "comparison": {
+    "controlled": false,
+    "confounders": [
+      "No isolated paired baseline assigned; raw values are retained."
+    ]
+  },
+  "activation": "not_confirmed",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr47-c112/agentx_conc112.json",
+      "sha256": "44403de78ad3c65bafa4fd68d69bbe8bcbee3351c2b4583420b9495059df5589",
+      "size": 5767,
+      "representation": "redacted",
+      "historical_original_sha256": "57ef1b35e1156287435493172719166fdfad24ca44912b7715f1f4c79b00066d"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr47-c112/decode.keylines.txt",
+      "sha256": "b236e61dbad094cde77d8340336bef5778b4bea602a986553edee6ef19026549",
+      "size": 4665,
+      "representation": "redacted",
+      "historical_original_sha256": "fe8e8e13f2aeba2aa86aae2991e3a83828fb3bba75bf1fb52907c9eb8a8c6354"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr47-c112/engine-config.env",
+      "sha256": "b56c875476f595a52d6f67cbc485a896982ee1ba837a27385683b69493cc855a",
+      "size": 1491,
+      "representation": "redacted",
+      "historical_original_sha256": "1d19235da9da5235c9cf57d720754991196680c0ab7fffaa11525c7940f9bdd5"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr47-c112/prefill.keylines.txt",
+      "sha256": "85c634ea9acbb3e336b3a83ce8c4186fc2c69e24269f7c4747aa934d320521c4",
+      "size": 916,
+      "representation": "redacted",
+      "historical_original_sha256": "ac808a89d653bf4dffee2bf1aafc15bbd48282798fcc17aa962c57294a305dd9"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/results/llr/llr47-c112/runtime.env",
+      "sha256": "7a9ffb2ba22ec5bc2eeb8f6bd0617f8b8e79fb8b5b614fe131fce88e7c52e99d",
+      "size": 1543,
+      "representation": "redacted",
+      "historical_original_sha256": "9202fdb8ae33ad16309d6cc604c5019f42abe50816f8c8590f0e89647603e1c5"
+    },
+    {
+      "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/README.md",
+      "sha256": "9a42e5448843479acb2498b858644d9f10bd8cb19b6e34b7753a58ac536ffaaf",
+      "size": 3765,
+      "representation": "redacted",
+      "historical_original_sha256": "f0b0a7bf64641ce27a8d15cc19f19d0e591160fd3c118f62bf3d432ae9599aa4"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability",
+      "Model checkpoint content identity",
+      "Exact baseline target-image source digests",
+      "Exact full invocation",
+      "Per-run adapter identity for later pd configurations"
+    ]
+  },
+  "limitations": [
+    "The measurement concerns a bundle; per-kernel e2e attribution was not measured.",
+    "Simulated acceptance and live kernel CHECK do not establish full-model correctness.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": {
+    "tpot_mean_ms": 14.64,
+    "score_tokens_s_chip": 39474.88238,
+    "qps": 2.74414,
+    "request_accounting": {
+      "records_total": 11201,
+      "records_profiled": 9954,
+      "records_dropped_total": 1247,
+      "records_warmup_dropped": 1243,
+      "records_error_dropped": 7,
+      "error_categories": {
+        "InvalidInferenceResultError": 7
+      }
+    }
+  },
+  "source_bytes": "redacted"
+}

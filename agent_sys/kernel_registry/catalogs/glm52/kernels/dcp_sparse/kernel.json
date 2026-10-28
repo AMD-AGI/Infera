@@ -1,0 +1,424 @@
+{
+  "kind": "kernel",
+  "name": "dcp_sparse",
+  "description": "DCP4 sparse MLA split-K",
+  "original": [
+    {
+      "path": "payload/tasks/dcp_sparse/dcp_sparse_kernel.pristine.py",
+      "sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2",
+      "size": 55733,
+      "representation": "unchanged",
+      "historical_original_sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2",
+      "role": "original"
+    }
+  ],
+  "reference": [
+    {
+      "path": "references/naive.py",
+      "sha256": "43dcd643f0d6e485b60a9d2b7647b6326b0cfd717e4077a4fc1ecffb1565c878",
+      "size": 10552
+    },
+    {
+      "path": "payload/tasks/dcp_sparse/driver.py",
+      "sha256": "e60de08a4ca047961b64f3ce8c2d031e96aa00d766c67f36aa9cfab3d68f76b9",
+      "size": 8006,
+      "representation": "redacted",
+      "historical_original_sha256": "2bc0603766434c7a93b1ba3496c7ca6cf0f2a21a85630b365ad1bca32d859eeb",
+      "role": "historical oracle"
+    }
+  ],
+  "reference_status": "incomplete",
+  "limitations": [
+    "New PyTorch reference has CPU semantic controls only; GPU differential validation is outstanding.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "documentation": [
+    {
+      "path": "payload/tasks/dcp_sparse/program.md",
+      "sha256": "8ad7cbe7ba362e1db2093de8e41f613c4465a907e24d682fccca2c5330927557",
+      "size": 2843,
+      "representation": "redacted",
+      "historical_original_sha256": "367230113619362e5e2d1758898b4fe9b4d2e4f2ce37e01df5e39cc36f14cbb6"
+    },
+    {
+      "path": "references/README.md",
+      "sha256": "e482545cae896f611238cd07becb4c783fdab6e3220d84433311bf0fb9c4a2c6",
+      "size": 2134
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "793454448db83329d7ae04f4b0dd34bbc5b8bcd579a58f6709c92d5a09bf01a1",
+      "size": 1284
+    }
+  ],
+  "contract": {
+    "specification": {
+      "path": "payload/tasks/dcp_sparse/program.md",
+      "sha256": "8ad7cbe7ba362e1db2093de8e41f613c4465a907e24d682fccca2c5330927557",
+      "size": 2843,
+      "representation": "redacted",
+      "historical_original_sha256": "367230113619362e5e2d1758898b4fe9b4d2e4f2ce37e01df5e39cc36f14cbb6"
+    },
+    "naive_entrypoint": "sparse_mla",
+    "fixtures": [],
+    "hardware": "gfx950",
+    "model": "GLM-5.2-MXFP4"
+  },
+  "integration": {
+    "method": "PYTHONPATH sitecustomize overlay with import hooks and per-kernel gates",
+    "version": "kf-iter5-6af13db6",
+    "files": [
+      {
+        "path": "payload/overlay/base/sitecustomize.py",
+        "sha256": "9217285da2948b375a5642269afab11ca00be06cc6a4854230a92b422c0c6bea",
+        "size": 765,
+        "representation": "redacted",
+        "historical_original_sha256": "862246a2022e8b4e4004113b03253c0736e9478917eb3db21d5e5ee195e4245d"
+      },
+      {
+        "path": "payload/overlay/base/infera_kernels/__init__.py",
+        "sha256": "8a1c7a7e76747c30d86b4b378e18db99c5ee66f031f704759386edb02c24011c",
+        "size": 28643,
+        "representation": "redacted",
+        "historical_original_sha256": "a3579ef40301704a34bcefaf395ac078c10d095f56c7b60884818e44a808d1b8"
+      }
+    ],
+    "activation": [
+      "PYTHONPATH=<catalog>/payload/overlay/base:$PYTHONPATH INFERA_KERNEL_DCP_SPARSE=1 <server command>"
+    ],
+    "rollback": [
+      "Unset INFERA_KERNEL_DCP_SPARSE and restart the server processes."
+    ],
+    "compatibility": {
+      "sglang": "0.5.21/0.5.22 paths as archived",
+      "hardware": "MI355X/gfx950",
+      "guards": "See exact adapter source for mode, shape and dtype restrictions.",
+      "old_fused_module_adapter": {
+        "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/__init__.py",
+        "sha256": "209d555a2ea0615de8d6e26d77bff4e0effd4e0898251ed5c0fc23e922b0439a",
+        "size": 28982,
+        "representation": "redacted",
+        "historical_original_sha256": "80d99df71f4ee3b5f6cd7a7e5b21d6b3065d62c63cb28529006b4683e326ff34"
+      }
+    },
+    "validation_status": "target GPU revalidation required"
+  },
+  "versions": [
+    {
+      "id": "original",
+      "files": [
+        {
+          "path": "payload/tasks/dcp_sparse/dcp_sparse_kernel.pristine.py",
+          "sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2",
+          "size": 55733,
+          "representation": "unchanged",
+          "historical_original_sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2",
+          "role": "original"
+        }
+      ],
+      "status": "baseline",
+      "notes": "Redacted snapshot of the historical original baseline.",
+      "provenance": {
+        "source_bytes": "redacted"
+      }
+    },
+    {
+      "id": "kf-iter1-6948b847",
+      "parent": "original",
+      "files": [
+        {
+          "path": "payload/campaigns/dcp_sparse/sources/6948b84769268d74ccb15844aee21806762cb9e1.py",
+          "sha256": "67e09207b09ba7d3f3e190fa61d05424bd5078ba66df6f6faa3be265f4f73d8d",
+          "size": 59200,
+          "representation": "unchanged",
+          "historical_original_sha256": "67e09207b09ba7d3f3e190fa61d05424bd5078ba66df6f6faa3be265f4f73d8d"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "59707273435649ad93e30b9bceea3115",
+        "commit": "6948b84769268d74ccb15844aee21806762cb9e1",
+        "iteration": 1,
+        "source_bytes": "redacted"
+      },
+      "notes": "one program per row over all 64 heads with 16x16 MFMA"
+    },
+    {
+      "id": "kf-iter4-d92c36bc",
+      "parent": "kf-iter1-6948b847",
+      "files": [
+        {
+          "path": "payload/campaigns/dcp_sparse/sources/d92c36bc1ec49d5a3f7d353f8a5ddf857d9ecb15.py",
+          "sha256": "74971a0f66d878a128bc9844328b477b4ca79fa1e75c7144cd4598e3a2f3c1ba",
+          "size": 63757,
+          "representation": "unchanged",
+          "historical_original_sha256": "74971a0f66d878a128bc9844328b477b4ca79fa1e75c7144cd4598e3a2f3c1ba"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "59707273435649ad93e30b9bceea3115",
+        "commit": "d92c36bc1ec49d5a3f7d353f8a5ddf857d9ecb15",
+        "iteration": 4,
+        "source_bytes": "redacted"
+      },
+      "notes": "split overflow rows into merged tile pieces and load q once"
+    },
+    {
+      "id": "kf-iter5-6af13db6",
+      "parent": "kf-iter4-d92c36bc",
+      "files": [
+        {
+          "path": "payload/campaigns/dcp_sparse/sources/6af13db61557bc8bcd9ae22814bc79062f92a140.py",
+          "sha256": "8430dba96332b985e2275e4e439de885ddf9b5f31e3faa04dee751441a630682",
+          "size": 64913,
+          "representation": "unchanged",
+          "historical_original_sha256": "8430dba96332b985e2275e4e439de885ddf9b5f31e3faa04dee751441a630682"
+        }
+      ],
+      "status": "integrated",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "59707273435649ad93e30b9bceea3115",
+        "commit": "6af13db61557bc8bcd9ae22814bc79062f92a140",
+        "iteration": 5,
+        "source_bytes": "redacted"
+      },
+      "notes": "make scalar args compile-time constants and move empty-row select to row scale"
+    },
+    {
+      "id": "kf-iter8-cabd158e",
+      "parent": "kf-iter5-6af13db6",
+      "files": [
+        {
+          "path": "payload/campaigns/dcp_sparse/sources/cabd158ef3446651d36e912e10f532ba303d7173.py",
+          "sha256": "03252088d9adda83b178d7663e7fe38c300d57109540b0a94149f9cc288aa520",
+          "size": 67244,
+          "representation": "unchanged",
+          "historical_original_sha256": "03252088d9adda83b178d7663e7fe38c300d57109540b0a94149f9cc288aa520"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "59707273435649ad93e30b9bceea3115",
+        "commit": "cabd158ef3446651d36e912e10f532ba303d7173",
+        "iteration": 8,
+        "source_bytes": "redacted"
+      },
+      "notes": "Floor tile-loop trip count to fold pipeline guards; store LSE after outputs"
+    }
+  ],
+  "campaign_history": [
+    {
+      "path": "payload/campaigns/dcp_sparse/39540b6c.json",
+      "sha256": "bb69ea355d943aff21372c555ce8eabfdc444210fd4d402be43b2d7ef0eeb70d",
+      "size": 1904,
+      "representation": "redacted",
+      "historical_original_sha256": "79ed2219cbfd1fac769975d8da1aa2965836fe63e859277a0865813081880471"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/62edb33b.json",
+      "sha256": "4309e7b9ed0c002517864b99e2acfbb2608e115f2f3f2b8dc5c4a02a1c8a5788",
+      "size": 2347,
+      "representation": "redacted",
+      "historical_original_sha256": "19096a7750f41ab0d50cdb8a6e61d6306a61e16137b92c04ac69851ccae9ef54"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/88dccdb0.json",
+      "sha256": "2b8ad706842e37c675c3339007a52983ed96781ece5ca5140b0eb40f71e0376a",
+      "size": 1878,
+      "representation": "redacted",
+      "historical_original_sha256": "b795496516d61ec3609ceedde256859b6d1de2f23b006b288f2eb5366a8c186b"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_001/benchmark.json",
+      "sha256": "3aac9a2967216a013f60c74061fb4d7828aba5adfdc5d2dd3699a17ffc9f1418",
+      "size": 9677,
+      "representation": "unchanged",
+      "historical_original_sha256": "3aac9a2967216a013f60c74061fb4d7828aba5adfdc5d2dd3699a17ffc9f1418"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_001/forge.patch",
+      "sha256": "94c118d3500cb40bf73f88c909d6da773e8cb510884e68148d33ab5f71e00abd",
+      "size": 4435,
+      "representation": "unchanged",
+      "historical_original_sha256": "94c118d3500cb40bf73f88c909d6da773e8cb510884e68148d33ab5f71e00abd"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_001/publication.json",
+      "sha256": "3421997b26bf75befe11449e681fca5e7688f7849d26ba9b56faf2fd0e274595",
+      "size": 987,
+      "representation": "unchanged",
+      "historical_original_sha256": "3421997b26bf75befe11449e681fca5e7688f7849d26ba9b56faf2fd0e274595"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_001/validation.txt",
+      "sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_004/benchmark.json",
+      "sha256": "40086c68ccd8edbea761e32ac034f3f11bf9d46b228b57fb3be665f798e8bec2",
+      "size": 9687,
+      "representation": "unchanged",
+      "historical_original_sha256": "40086c68ccd8edbea761e32ac034f3f11bf9d46b228b57fb3be665f798e8bec2"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_004/forge.patch",
+      "sha256": "07d04c594471612a93b2428d9a3c4dabe29398de4df475b58cc76ebfbdc9378e",
+      "size": 12719,
+      "representation": "unchanged",
+      "historical_original_sha256": "07d04c594471612a93b2428d9a3c4dabe29398de4df475b58cc76ebfbdc9378e"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_004/publication.json",
+      "sha256": "1e68ad3f357c8423a2946a6b641932fe7b0e157c8b5003c2565c5056260aee23",
+      "size": 994,
+      "representation": "unchanged",
+      "historical_original_sha256": "1e68ad3f357c8423a2946a6b641932fe7b0e157c8b5003c2565c5056260aee23"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_004/validation.txt",
+      "sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_005/benchmark.json",
+      "sha256": "413b9e9ad83232df3fefe8c824e436a618b0ccc0dd3bb81d9f034957f299a419",
+      "size": 9701,
+      "representation": "unchanged",
+      "historical_original_sha256": "413b9e9ad83232df3fefe8c824e436a618b0ccc0dd3bb81d9f034957f299a419"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_005/forge.patch",
+      "sha256": "b210e6273d1e131402892bcfa8e08b7e9272c5e6e2c711ae9292f193a01c9e73",
+      "size": 15227,
+      "representation": "unchanged",
+      "historical_original_sha256": "b210e6273d1e131402892bcfa8e08b7e9272c5e6e2c711ae9292f193a01c9e73"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_005/publication.json",
+      "sha256": "7c6b2b686f73a927cea8d3f010d200a1b19b4ab0df02ccdff8319f0702a30573",
+      "size": 1012,
+      "representation": "unchanged",
+      "historical_original_sha256": "7c6b2b686f73a927cea8d3f010d200a1b19b4ab0df02ccdff8319f0702a30573"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_005/validation.txt",
+      "sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_008/benchmark.json",
+      "sha256": "0a12f3895e132109b79927f993ec18213bf0d05102085290755b6f5f424a295a",
+      "size": 9684,
+      "representation": "unchanged",
+      "historical_original_sha256": "0a12f3895e132109b79927f993ec18213bf0d05102085290755b6f5f424a295a"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_008/forge.patch",
+      "sha256": "11ec68718f2046b2b61b76dd4d3803abad886f35304b795a6149041bd080a884",
+      "size": 18131,
+      "representation": "unchanged",
+      "historical_original_sha256": "11ec68718f2046b2b61b76dd4d3803abad886f35304b795a6149041bd080a884"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_008/publication.json",
+      "sha256": "741b612285292788ee9b4c53a0ced40740aa97204d64915753960686337b8def",
+      "size": 1009,
+      "representation": "unchanged",
+      "historical_original_sha256": "741b612285292788ee9b4c53a0ced40740aa97204d64915753960686337b8def"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/iter_008/validation.txt",
+      "sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "b0ac3ece4808c5d513479fd5ce5a88ef0de6e15fce08056980e48ace9fe2f721"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best/manifest.json",
+      "sha256": "741b612285292788ee9b4c53a0ced40740aa97204d64915753960686337b8def",
+      "size": 1009,
+      "representation": "unchanged",
+      "historical_original_sha256": "741b612285292788ee9b4c53a0ced40740aa97204d64915753960686337b8def"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/best_result.json",
+      "sha256": "741b612285292788ee9b4c53a0ced40740aa97204d64915753960686337b8def",
+      "size": 1009,
+      "representation": "unchanged",
+      "historical_original_sha256": "741b612285292788ee9b4c53a0ced40740aa97204d64915753960686337b8def"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/campaign_config.json",
+      "sha256": "81025126aa386e7bd1464166b49d42b50a9e58587f1a2e5467b4d2db4b6d9210",
+      "size": 1423,
+      "representation": "redacted",
+      "historical_original_sha256": "5da596e81ba65baeb432a430bcf688ffae1a827d96cde74eda80adade708bd5a"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/experience.jsonl",
+      "sha256": "0a7bf7a952f9989483708b762b21efdd438d5878ae75045f7b30ea80df7075d3",
+      "size": 2082,
+      "representation": "redacted",
+      "historical_original_sha256": "0e2892aabc41cc127ca4aeb0174e6aaed2f7232312e8a7284e35faf01404bdaa"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/forge_result.json",
+      "sha256": "2923273e418f5dcfaf7fcca0040ee659ccb5a599d99b27518345a4c123d57dee",
+      "size": 2377,
+      "representation": "redacted",
+      "historical_original_sha256": "9e9b1d996869e279d5cc13b6d910e45cdeabc356eee01bd6cd65e4280cb3d7a7"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/sources/6948b84769268d74ccb15844aee21806762cb9e1.py",
+      "sha256": "67e09207b09ba7d3f3e190fa61d05424bd5078ba66df6f6faa3be265f4f73d8d",
+      "size": 59200,
+      "representation": "unchanged",
+      "historical_original_sha256": "67e09207b09ba7d3f3e190fa61d05424bd5078ba66df6f6faa3be265f4f73d8d"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/sources/6af13db61557bc8bcd9ae22814bc79062f92a140.py",
+      "sha256": "8430dba96332b985e2275e4e439de885ddf9b5f31e3faa04dee751441a630682",
+      "size": 64913,
+      "representation": "unchanged",
+      "historical_original_sha256": "8430dba96332b985e2275e4e439de885ddf9b5f31e3faa04dee751441a630682"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/sources/751e3c32da49e9f80ea365b05d0df65d27971808.py",
+      "sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2",
+      "size": 55733,
+      "representation": "unchanged",
+      "historical_original_sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/sources/cabd158ef3446651d36e912e10f532ba303d7173.py",
+      "sha256": "03252088d9adda83b178d7663e7fe38c300d57109540b0a94149f9cc288aa520",
+      "size": 67244,
+      "representation": "unchanged",
+      "historical_original_sha256": "03252088d9adda83b178d7663e7fe38c300d57109540b0a94149f9cc288aa520"
+    },
+    {
+      "path": "payload/campaigns/dcp_sparse/sources/d92c36bc1ec49d5a3f7d353f8a5ddf857d9ecb15.py",
+      "sha256": "74971a0f66d878a128bc9844328b477b4ca79fa1e75c7144cd4598e3a2f3c1ba",
+      "size": 63757,
+      "representation": "unchanged",
+      "historical_original_sha256": "74971a0f66d878a128bc9844328b477b4ca79fa1e75c7144cd4598e3a2f3c1ba"
+    }
+  ],
+  "source_bytes": "redacted",
+  "provenance": {
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  }
+}

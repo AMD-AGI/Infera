@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_003",
+  "baseline_wall_ms": 0.1298,
+  "benchmark_path": "best/iter_003/benchmark.json",
+  "best_wall_ms": 0.0954,
+  "campaign_id": "9518d5d2429f4aacbde7bb00f881042c",
+  "changed_files": [
+    "fused_indexer_kernel.py"
+  ],
+  "commit_hash": "0efc8c1922e9d6dfe7efdef2fd365b98c588cce8",
+  "correctness_passed": true,
+  "experiment_id": "3f4235fe",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 1.277483,
+  "iteration": 3,
+  "mean_case_speedup": 1.277483486266809,
+  "patch_path": "best/iter_003/forge.patch",
+  "plan": "在 rows ≥ 36 时，n3 按兄弟组每个 K 页只加载一次，并按页数均衡持久化网格",
+  "pristine_baseline_ms": 0.1298,
+  "published_at": "2026-10-24 14:01:29",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1298,
+  "session_index": 1,
+  "snr_db": 100.0,
+  "speedup": 1.277483,
+  "total_improved": true,
+  "total_speedup": 1.277483,
+  "validation_path": "best/iter_003/validation.txt"
+}

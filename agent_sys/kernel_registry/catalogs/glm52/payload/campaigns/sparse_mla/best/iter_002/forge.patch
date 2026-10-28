@@ -1,0 +1,122 @@
+diff --git a/sparse_mla_kernel.py b/sparse_mla_kernel.py
+index 3a41c12..437b464 100644
+--- a/sparse_mla_kernel.py
++++ b/sparse_mla_kernel.py
+@@ -243,6 +243,51 @@ def _gfx950_sparse_mla_kv_splits(
+     return kv_splits
+ 
+ 
++def _is_gfx950_decode_fp8_64h(
++    kv_dtype: torch.dtype,
++    H: int,
++    d_v: int,
++    d_tail: int,
++    kv_dim: int,
++) -> bool:
++    """Gate for the gfx950 FP8 decode shapes with a wide head count.
++
++    Distinct from :func:`_is_gfx950_sparse_mla_fp8` (which covers the TP4/TP8
++    prefill shapes with H in (8, 16)); this one guards the residency-aware
++    geometry table used for GLM-5.2 decode, where H is a multiple of 32.
++    """
++    return (
++        kv_dtype != torch.bfloat16
++        and H % 32 == 0
++        and H >= 32
++        and d_v == 512
++        and d_tail == 64
++        and kv_dim == 576
++        and is_gfx95_supported()
++    )
++
++
++def _decode_geometry(
++    seq: int, H: int, base_ctas: int, num_cu: int
++) -> tuple[int, int] | None:
++    """Residency-aware (BLOCK_H, PIPE_STAGES) for gfx950 FP8 decode launches.
++
++    ``base_ctas`` is the BLOCK_H=16 CTA count. Returning ``None`` keeps the
++    caller's existing dispatch. The ladder is explicit on purpose: a cost model
++    that maximizes active CUs picks BLOCK_H=16 at bs12 (measured slower), and a
++    "prefer the larger BLOCK_H" rule regresses bs10 by 7.5 % (also measured).
++    """
++    if base_ctas <= num_cu:
++        return None  # already one round at BLOCK_H=16; keep today's geometry.
++    if base_ctas > 4 * num_cu:
++        return None  # prefill-sized launch: keep today's behaviour.
++    if H % 32 == 0 and seq * (H // 32) <= num_cu:
++        return (32, 2)
++    if base_ctas <= 2 * num_cu:
++        return (16, 2)
++    return None
++
++
+ def _gfx950_sparse_mla_num_warps(
+     base_ctas: int, active_splits: int, num_cu: int
+ ) -> int:
+@@ -1040,6 +1085,8 @@ def _triton_sparse_mla_fwd_splitk(
+     kv_splits: int,
+     topk_length: torch.Tensor | None = None,
+     use_topk_length: bool = False,
++    block_h: int | None = None,
++    pipe_stages: int | None = None,
+ ) -> torch.Tensor:
+     """Split-K path for short sequences."""
+     is_fp8 = _validate_input_dtypes(q_nope, q_rope, kv)
+@@ -1062,7 +1109,13 @@ def _triton_sparse_mla_fwd_splitk(
+     q_nope, stride_qn_t, stride_qn_h = _row_strides(q_nope)
+     q_rope, stride_qr_t, stride_qr_h = _row_strides(q_rope)
+ 
+-    BLOCK_H = 16
++    BLOCK_H = 16 if block_h is None else block_h
++    # _sparse_mla_reduce_kernel recomputes H_padded as cdiv(H, 16) * 16, which
++    # only matches the h_padded allocated below when BLOCK_H divides H evenly
++    # at 16. Keep the partial-buffer layout provably consistent.
++    assert BLOCK_H == 16 or H % BLOCK_H == 0, (
++        f"BLOCK_H={BLOCK_H} must divide H={H}"
++    )
+     BLOCK_K = _sparse_mla_block_k(kv)
+     n_head_blocks = (H + BLOCK_H - 1) // BLOCK_H
+     h_padded = n_head_blocks * BLOCK_H
+@@ -1118,7 +1171,11 @@ def _triton_sparse_mla_fwd_splitk(
+             BLOCK_H=BLOCK_H,
+             BLOCK_K=BLOCK_K,
+             USE_I64_PAGE=not (i32_page_safe and i32_page_tuned),
+-            PIPE_STAGES=1 if use_topk_length else 3,
++            PIPE_STAGES=(
++                (1 if use_topk_length else 3)
++                if pipe_stages is None
++                else pipe_stages
++            ),
+             num_warps=fused_num_warps,
+             num_stages=2,
+         )
+@@ -1247,6 +1304,28 @@ def triton_sparse_mla_fwd(
+                 use_topk_length=True,
+             )
+     if base_ctas > num_cu:
++        # Residency-aware geometry: the BLOCK_H=16 launch overshoots the
++        # 1-CTA/CU round, and the fallback below is not a parallelism check
++        # (it merely divides the CTA count by ceil(H/16)). Pick a (BLOCK_H,
++        # PIPE_STAGES) pair that fits one round instead. Shapes only --
++        # cudagraph-safe, no tensor reads.
++        if _is_gfx950_decode_fp8_64h(
++            kv.dtype, H, d_v, q_rope.shape[-1], kv.shape[-1]
++        ):
++            geometry = _decode_geometry(seq, H, base_ctas, num_cu)
++            if geometry is not None:
++                new_block_h, new_pipe_stages = geometry
++                return _triton_sparse_mla_fwd_splitk(
++                    q_nope,
++                    q_rope,
++                    kv,
++                    indices,
++                    sm_scale,
++                    d_v,
++                    kv_splits=1,
++                    block_h=new_block_h,
++                    pipe_stages=new_pipe_stages,
++                )
+         if optimize_gfx950_fp8:
+             with _no_async_copy():
+                 return _triton_sparse_mla_fwd_splitk(

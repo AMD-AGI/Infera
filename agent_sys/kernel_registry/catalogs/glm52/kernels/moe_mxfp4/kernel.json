@@ -1,0 +1,588 @@
+{
+  "kind": "kernel",
+  "name": "moe_mxfp4",
+  "description": "MXFP4 routed MoE",
+  "original": [
+    {
+      "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "role": "original"
+    }
+  ],
+  "reference": [
+    {
+      "path": "references/naive.py",
+      "sha256": "43dcd643f0d6e485b60a9d2b7647b6326b0cfd717e4077a4fc1ecffb1565c878",
+      "size": 10552
+    },
+    {
+      "path": "payload/tasks/moe_mxfp4/driver.py",
+      "sha256": "fb3d838b1a2d701e5398fb319eaeb1b7ee4db758097f7c55f9553ee670a3851f",
+      "size": 10968,
+      "representation": "redacted",
+      "historical_original_sha256": "204b5fb5d47e7b5b4b1c788ae3126afc4fd07cacf78bad11c1410d25e605e321",
+      "role": "historical oracle"
+    }
+  ],
+  "reference_status": "incomplete",
+  "limitations": [
+    "New PyTorch reference has CPU semantic controls only; GPU differential validation is outstanding.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "documentation": [
+    {
+      "path": "payload/tasks/moe_mxfp4/program.md",
+      "sha256": "a7fd14adf2ddc443e8ae1ac8b4fad5f149f5cd82fd0fb738948df2b5140e9e5b",
+      "size": 11048,
+      "representation": "redacted",
+      "historical_original_sha256": "071cfc0f20456456c353f7c529bb910debfa8ff7ee9e765c3fea9512f952d851"
+    },
+    {
+      "path": "references/README.md",
+      "sha256": "e482545cae896f611238cd07becb4c783fdab6e3220d84433311bf0fb9c4a2c6",
+      "size": 2134
+    },
+    {
+      "path": "THIRD_PARTY_NOTICES.md",
+      "sha256": "793454448db83329d7ae04f4b0dd34bbc5b8bcd579a58f6709c92d5a09bf01a1",
+      "size": 1284
+    }
+  ],
+  "contract": {
+    "specification": {
+      "path": "payload/tasks/moe_mxfp4/program.md",
+      "sha256": "a7fd14adf2ddc443e8ae1ac8b4fad5f149f5cd82fd0fb738948df2b5140e9e5b",
+      "size": 11048,
+      "representation": "redacted",
+      "historical_original_sha256": "071cfc0f20456456c353f7c529bb910debfa8ff7ee9e765c3fea9512f952d851"
+    },
+    "naive_entrypoint": "moe_mxfp4",
+    "fixtures": [
+      {
+        "uri": "urn:sha256:c18d35508b2e5b9abd412858f2dc17c21fd0905b87049cfd89750041b3f0b736",
+        "sha256": "c18d35508b2e5b9abd412858f2dc17c21fd0905b87049cfd89750041b3f0b736",
+        "size": 17432
+      },
+      {
+        "uri": "urn:sha256:f08a38ff24db19301b5cc2f492f12d1d53d98e2ae68840e12aa6cb376d9c56b0",
+        "sha256": "f08a38ff24db19301b5cc2f492f12d1d53d98e2ae68840e12aa6cb376d9c56b0",
+        "size": 20896
+      },
+      {
+        "uri": "urn:sha256:fbebfc59a866ed2ef70512f42477abd9485c66bbf3a9e6d7a976188acf532408",
+        "sha256": "fbebfc59a866ed2ef70512f42477abd9485c66bbf3a9e6d7a976188acf532408",
+        "size": 24352
+      },
+      {
+        "uri": "urn:sha256:59bcf4c5eb153a84ce3df041e6f1ca060671ae2245446b40cc064b799c539f9a",
+        "sha256": "59bcf4c5eb153a84ce3df041e6f1ca060671ae2245446b40cc064b799c539f9a",
+        "size": 13976
+      }
+    ],
+    "hardware": "gfx950",
+    "model": "GLM-5.2-MXFP4"
+  },
+  "integration": {
+    "method": "PYTHONPATH sitecustomize overlay with import hooks and per-kernel gates",
+    "version": "kf-iter14-9cd51e60",
+    "files": [
+      {
+        "path": "payload/overlay/base/sitecustomize.py",
+        "sha256": "9217285da2948b375a5642269afab11ca00be06cc6a4854230a92b422c0c6bea",
+        "size": 765,
+        "representation": "redacted",
+        "historical_original_sha256": "862246a2022e8b4e4004113b03253c0736e9478917eb3db21d5e5ee195e4245d"
+      },
+      {
+        "path": "payload/overlay/base/infera_kernels/__init__.py",
+        "sha256": "8a1c7a7e76747c30d86b4b378e18db99c5ee66f031f704759386edb02c24011c",
+        "size": 28643,
+        "representation": "redacted",
+        "historical_original_sha256": "a3579ef40301704a34bcefaf395ac078c10d095f56c7b60884818e44a808d1b8"
+      }
+    ],
+    "activation": [
+      "PYTHONPATH=<catalog>/payload/overlay/base:$PYTHONPATH INFERA_KERNEL_MOE=1 <server command>"
+    ],
+    "rollback": [
+      "Unset INFERA_KERNEL_MOE and restart the server processes."
+    ],
+    "compatibility": {
+      "sglang": "0.5.21/0.5.22 paths as archived",
+      "hardware": "MI355X/gfx950",
+      "guards": "See exact adapter source for mode, shape and dtype restrictions.",
+      "old_fused_module_adapter": {
+        "path": "payload/evidence/glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/__init__.py",
+        "sha256": "209d555a2ea0615de8d6e26d77bff4e0effd4e0898251ed5c0fc23e922b0439a",
+        "size": 28982,
+        "representation": "redacted",
+        "historical_original_sha256": "80d99df71f4ee3b5f6cd7a7e5b21d6b3065d62c63cb28529006b4683e326ff34"
+      }
+    },
+    "validation_status": "target GPU revalidation required"
+  },
+  "versions": [
+    {
+      "id": "original",
+      "files": [
+        {
+          "path": "payload/tasks/moe_mxfp4/moe_mxfp4_kernel.pristine.py",
+          "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+          "size": 5169,
+          "representation": "unchanged",
+          "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+          "role": "original"
+        }
+      ],
+      "status": "baseline",
+      "notes": "Redacted snapshot of the historical original baseline.",
+      "provenance": {
+        "source_bytes": "redacted"
+      }
+    },
+    {
+      "id": "kf-iter2-bfe29fde",
+      "parent": "original",
+      "files": [
+        {
+          "path": "payload/campaigns/moe_mxfp4/sources/bfe29fde0dba9ce7ee78e4adb79a8f25b664e15f.py",
+          "sha256": "61d55924c6149780db61480aef67c745a8349b1fce82c0c89d5ed13680b8af9d",
+          "size": 7738,
+          "representation": "unchanged",
+          "historical_original_sha256": "61d55924c6149780db61480aef67c745a8349b1fce82c0c89d5ed13680b8af9d"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ed2b3055ef40443b81e64d144e1cf0fc",
+        "commit": "bfe29fde0dba9ce7ee78e4adb79a8f25b664e15f",
+        "iteration": 2,
+        "source_bytes": "redacted"
+      },
+      "notes": "key the tuned MoE config to the block_m=16 decode row"
+    },
+    {
+      "id": "kf-iter6-ef07a75c",
+      "parent": "kf-iter2-bfe29fde",
+      "files": [
+        {
+          "path": "payload/campaigns/moe_mxfp4/sources/ef07a75c85909d92b066baa48d36a2826177ddab.py",
+          "sha256": "c99eabcef2130a1ffd7476b0841f5506d85da110d7b886e38dff4082eb2ba755",
+          "size": 10636,
+          "representation": "unchanged",
+          "historical_original_sha256": "c99eabcef2130a1ffd7476b0841f5506d85da110d7b886e38dff4082eb2ba755"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ed2b3055ef40443b81e64d144e1cf0fc",
+        "commit": "ef07a75c85909d92b066baa48d36a2826177ddab",
+        "iteration": 6,
+        "source_bytes": "redacted"
+      },
+      "notes": "use the fused single-kernel prologue sort and retune gemm2 tile partitioner"
+    },
+    {
+      "id": "kf-iter8-5536f6c9",
+      "parent": "kf-iter6-ef07a75c",
+      "files": [
+        {
+          "path": "payload/campaigns/moe_mxfp4/sources/5536f6c922880db39df57a0d95914352f53bd66e.py",
+          "sha256": "1faddf36817debfa9c243d5a9c8e745472a222661b494bd2ab8546c35ad07fd7",
+          "size": 24902,
+          "representation": "unchanged",
+          "historical_original_sha256": "1faddf36817debfa9c243d5a9c8e745472a222661b494bd2ab8546c35ad07fd7"
+        }
+      ],
+      "status": "candidate",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ed2b3055ef40443b81e64d144e1cf0fc",
+        "commit": "5536f6c922880db39df57a0d95914352f53bd66e",
+        "iteration": 8,
+        "source_bytes": "redacted"
+      },
+      "notes": "replace aiter's single-CTA prologue sort with a multi-CTA HIP sort-and-zero kernel"
+    },
+    {
+      "id": "kf-iter14-9cd51e60",
+      "parent": "kf-iter8-5536f6c9",
+      "files": [
+        {
+          "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+          "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+          "size": 66512,
+          "representation": "redacted",
+          "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+        }
+      ],
+      "status": "integrated",
+      "provenance": {
+        "tool": "KernelForge",
+        "campaign": "ed2b3055ef40443b81e64d144e1cf0fc",
+        "commit": "9cd51e6099777f77750fe4e9888accf219643508",
+        "iteration": 14,
+        "source_bytes": "redacted"
+      },
+      "notes": "spread shared-expert gemm1 tiles with prequantized activations, BK-256 gemm2, 4-MiB-aligned output, non-temporal zero fill"
+    },
+    {
+      "id": "kf-iter17-rejected",
+      "parent": "kf-iter14-9cd51e60",
+      "files": [
+        {
+          "path": "payload/campaigns/moe_mxfp4/rejected/iter_017/moe_mxfp4_kernel.py",
+          "sha256": "d4d57ae57ec783c9943fb87cdffa0ac9782fd85c7ccf3cad45359f4e95bb9dcc",
+          "size": 81557,
+          "representation": "redacted",
+          "historical_original_sha256": "8be129cba46e4d68df313227228f9d16d92b78e7d062b3b013bfa9a1e22b8353"
+        }
+      ],
+      "status": "rejected",
+      "provenance": {
+        "tool": "KernelForge",
+        "source_bytes": "redacted"
+      },
+      "notes": "Correctness passed; reverted because performance did not improve the retained best."
+    },
+    {
+      "id": "kf-iter18-rejected",
+      "parent": "kf-iter14-9cd51e60",
+      "files": [
+        {
+          "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/moe_mxfp4_kernel.py",
+          "sha256": "6a91346bca72ec4cb5f8cf1b0ca44fbc16dc2c6144f6892277d26205615cda30",
+          "size": 75175,
+          "representation": "redacted",
+          "historical_original_sha256": "c7bd6bab84f3d2b47d32d9e558501fdc72c8ae88c16981f7e4945753cfb4c1b2"
+        }
+      ],
+      "status": "rejected",
+      "provenance": {
+        "tool": "KernelForge",
+        "source_bytes": "redacted"
+      },
+      "notes": "Correctness passed; reverted because performance did not improve the retained best."
+    }
+  ],
+  "campaign_history": [
+    {
+      "path": "payload/campaigns/moe_mxfp4/17032191.json",
+      "sha256": "d53067e1282ead73056cc77e8f101b7c8ea9598952a30a80cf174d797daa0bc5",
+      "size": 1548,
+      "representation": "redacted",
+      "historical_original_sha256": "de98f7d89cbe63a5593a098016b2fffb08cdf6b8821977fafb20b906a6d757d7"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/2aaf00a1.json",
+      "sha256": "0e5bc4b7aabcc97d4aa8e2c5cd8d50c9ce1cbac140074a8c318254bb20ca3551",
+      "size": 616,
+      "representation": "redacted",
+      "historical_original_sha256": "6e712922c4434dc0f1d547d47c20e06cf0292db88999f6f9aa35c9fb951b60a9"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/67ec930a.json",
+      "sha256": "14f6be7d413b353c3cebc2f69c59acb6d81a417f128745176fbb8f3bfb8bb1eb",
+      "size": 616,
+      "representation": "redacted",
+      "historical_original_sha256": "c2203e2866d0ea665d9a2afb10d34106eca57d17501bd1ca22b60f6bd435631c"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/72cfcd3a.json",
+      "sha256": "c1ace8822a9c316981eea92c433bf6a209881d106c7ea8cf94205c4890f87af4",
+      "size": 608,
+      "representation": "redacted",
+      "historical_original_sha256": "1da6a779350854e4e724460ee1a3f13888bda680983f88b3afcba19ce3105afb"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/9074c69d.json",
+      "sha256": "b5fc7f2e037bc2fc148a00873e938821c522c2e6d0265fe5296fc95394abce3d",
+      "size": 616,
+      "representation": "redacted",
+      "historical_original_sha256": "1a9576336f521d7633902be4b662f7caa237e4df521b65e695234c7d9dd37afc"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/9b493471.json",
+      "sha256": "a5d21905cdca9522608585d629c39d6634f2e7be7ebe93478dcfa984fead51b4",
+      "size": 1877,
+      "representation": "redacted",
+      "historical_original_sha256": "5e8bf58ab5cc0abc43dd18eaff42e4dbd4a7b3fd2841af758fa5a6df8ffa3bd1"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/adc2b6a1.json",
+      "sha256": "6f3457ebeeb1abd4f54893d203aa46af9a574a9f2ce088d13b88e58c769f8cd4",
+      "size": 1912,
+      "representation": "redacted",
+      "historical_original_sha256": "86ac2d1f296efa0d71c067adb67e416bae4a1e36b9abc0c73c01cc5ce37b293e"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_002/benchmark.json",
+      "sha256": "a0d33c354816f74fb7607d389510e029337c179e5cecc587f156172ef5bd776b",
+      "size": 8153,
+      "representation": "unchanged",
+      "historical_original_sha256": "a0d33c354816f74fb7607d389510e029337c179e5cecc587f156172ef5bd776b"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_002/forge.patch",
+      "sha256": "d394a77a0aeda006b7bcd47932f3dca68b94b78869d25e6cf633613eea8bb6d3",
+      "size": 3423,
+      "representation": "unchanged",
+      "historical_original_sha256": "d394a77a0aeda006b7bcd47932f3dca68b94b78869d25e6cf633613eea8bb6d3"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_002/publication.json",
+      "sha256": "3e5fccf4492972adaec0deb2823d289ff14a5f384259f90b09caec7991ed6e34",
+      "size": 982,
+      "representation": "unchanged",
+      "historical_original_sha256": "3e5fccf4492972adaec0deb2823d289ff14a5f384259f90b09caec7991ed6e34"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_002/validation.txt",
+      "sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_006/benchmark.json",
+      "sha256": "789b95b88cb5456ec082455b517a06ec6809d93d001dc8d431a7500ae1b6df7d",
+      "size": 8178,
+      "representation": "unchanged",
+      "historical_original_sha256": "789b95b88cb5456ec082455b517a06ec6809d93d001dc8d431a7500ae1b6df7d"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_006/forge.patch",
+      "sha256": "8abb0d275650fae694ee030826e18b4ef2fd5a552f621382c4f6b51151c41373",
+      "size": 6570,
+      "representation": "unchanged",
+      "historical_original_sha256": "8abb0d275650fae694ee030826e18b4ef2fd5a552f621382c4f6b51151c41373"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_006/publication.json",
+      "sha256": "ac104058be9a858d0a606f20e3fd9ac330cb1880b986d75f94822fc1500578b8",
+      "size": 1006,
+      "representation": "unchanged",
+      "historical_original_sha256": "ac104058be9a858d0a606f20e3fd9ac330cb1880b986d75f94822fc1500578b8"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_006/validation.txt",
+      "sha256": "42cc2994ac21a3f8fe9e9b4f0601970b0d8314cc3d2c5295487434c568ac088c",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "42cc2994ac21a3f8fe9e9b4f0601970b0d8314cc3d2c5295487434c568ac088c"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_008/benchmark.json",
+      "sha256": "a3d75d098e322597eecf899e37dff8e99cc4f7dbc41defb57af7db17ea62233c",
+      "size": 8166,
+      "representation": "unchanged",
+      "historical_original_sha256": "a3d75d098e322597eecf899e37dff8e99cc4f7dbc41defb57af7db17ea62233c"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_008/forge.patch",
+      "sha256": "b940ca4d824c28f6cb8ceec767fd8b840e03c85c611b1bc270a83f3bc8d7820b",
+      "size": 21110,
+      "representation": "unchanged",
+      "historical_original_sha256": "b940ca4d824c28f6cb8ceec767fd8b840e03c85c611b1bc270a83f3bc8d7820b"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_008/publication.json",
+      "sha256": "10cafba07e51fbebad388a92d8736db59bb835391dc0097abc8db406f3a3ed84",
+      "size": 1013,
+      "representation": "unchanged",
+      "historical_original_sha256": "10cafba07e51fbebad388a92d8736db59bb835391dc0097abc8db406f3a3ed84"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_008/validation.txt",
+      "sha256": "61d6677223568e39483daac57abf54f0936a291dbaeb514dfa1beb478e9abe5a",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "61d6677223568e39483daac57abf54f0936a291dbaeb514dfa1beb478e9abe5a"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_014/benchmark.json",
+      "sha256": "6dd0671cf28338d5e594f5c0255e2e4d88f92726124767b6fc2f202036f1834c",
+      "size": 8152,
+      "representation": "unchanged",
+      "historical_original_sha256": "6dd0671cf28338d5e594f5c0255e2e4d88f92726124767b6fc2f202036f1834c"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_014/forge.patch",
+      "sha256": "ca1e0d0434d7d7ec991b836aaf2ae4312a4bae6c435bc73c5b54dbbe5b52e262",
+      "size": 63682,
+      "representation": "redacted",
+      "historical_original_sha256": "bc2457a99e133d246bee403ce560b6b057375ffb530a625a3de2019a41f1b72c"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_014/publication.json",
+      "sha256": "71d990504c9098d60c394dc73e4d8deec119a81bfae55a6f8e08e6f03889c136",
+      "size": 1052,
+      "representation": "unchanged",
+      "historical_original_sha256": "71d990504c9098d60c394dc73e4d8deec119a81bfae55a6f8e08e6f03889c136"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/iter_014/validation.txt",
+      "sha256": "2907af9cd6094348df2a46ad9c155eb9b8a93dcff7c6c8c641c5d5ef45646196",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "2907af9cd6094348df2a46ad9c155eb9b8a93dcff7c6c8c641c5d5ef45646196"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best/manifest.json",
+      "sha256": "71d990504c9098d60c394dc73e4d8deec119a81bfae55a6f8e08e6f03889c136",
+      "size": 1052,
+      "representation": "unchanged",
+      "historical_original_sha256": "71d990504c9098d60c394dc73e4d8deec119a81bfae55a6f8e08e6f03889c136"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/best_result.json",
+      "sha256": "71d990504c9098d60c394dc73e4d8deec119a81bfae55a6f8e08e6f03889c136",
+      "size": 1052,
+      "representation": "unchanged",
+      "historical_original_sha256": "71d990504c9098d60c394dc73e4d8deec119a81bfae55a6f8e08e6f03889c136"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/campaign_config.json",
+      "sha256": "e822f234a5a806a52403e0abe1c4d12d842ba125c37df750cbe99830a4df9d39",
+      "size": 939,
+      "representation": "redacted",
+      "historical_original_sha256": "c36623f204e2edd86adf1161203ee7426ca64f8d35f053171d7021362b9feabb"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/dd67eaf8.json",
+      "sha256": "9758e664bb5dbcee418fb8e47f3e3d6ee7006206334852bd42273f5eeb47f541",
+      "size": 1905,
+      "representation": "redacted",
+      "historical_original_sha256": "9198025173e223f532635c7c63c08978e1226222fb91a2a3666c1f915b253af0"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/e67d3f58.json",
+      "sha256": "e10336ca7151d6cebc4c6744bf983cc0d79c23fef16aec78ac328b5c56db1b93",
+      "size": 1948,
+      "representation": "redacted",
+      "historical_original_sha256": "e0071d590c41180a3ac6267d46275c6c2644e07f671b217bf5a0eeda2904e729"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/experience.jsonl",
+      "sha256": "c3efcbbfb5f0d9d82713d18b797ef2eb1001340dd45a8ef217d4018b415fc8ab",
+      "size": 4926,
+      "representation": "redacted",
+      "historical_original_sha256": "bc4898ec0bba62705ce40aeea645a200109410164a32eea2fa635d93a77c2192"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/f15600ea.json",
+      "sha256": "0122872136ba38caf60610aa2a16bb7747f23e1d18eb9e57ac0f97923b4637d4",
+      "size": 616,
+      "representation": "redacted",
+      "historical_original_sha256": "a484aaf8756465553dff68de02f412ac425603e621f871f2081524adde81d5db"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/forge_result.json",
+      "sha256": "20533916a33f860644ca5fe9eadb94f0d4ac7bfb9cf9662a0a7d8b0baa81abaa",
+      "size": 1523,
+      "representation": "redacted",
+      "historical_original_sha256": "a89d2e03c4086a13a20e5543681823c8e2603136067833a332d119c40c25df71"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_017/change.diff",
+      "sha256": "6456d2ad58d10b6f11449a62d33c2220ec3ff8ec487efc0a163f52b9332a91c0",
+      "size": 23019,
+      "representation": "redacted",
+      "historical_original_sha256": "af3f646f7f811ad7eaf1542627929b481b855158e62046afe2ae2cf5c801570f"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_017/meta.json",
+      "sha256": "57cc85064fab9f1032adf2d062aebd5e26d20ec33a3e763322dea19d6e9010eb",
+      "size": 9908,
+      "representation": "redacted",
+      "historical_original_sha256": "55cba2cd972ca1b290a5fcf84a93b29b1169e7e7b9f6caa49c9353ef2c7cdf67"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_017/moe_mxfp4_kernel.py",
+      "sha256": "d4d57ae57ec783c9943fb87cdffa0ac9782fd85c7ccf3cad45359f4e95bb9dcc",
+      "size": 81557,
+      "representation": "redacted",
+      "historical_original_sha256": "8be129cba46e4d68df313227228f9d16d92b78e7d062b3b013bfa9a1e22b8353"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_017/validation.txt",
+      "sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/change.diff",
+      "sha256": "1e571319a02d35d7a9cdb74d0064a45bde929b9ee894d002f270bd40d9aa60fa",
+      "size": 21872,
+      "representation": "redacted",
+      "historical_original_sha256": "c9e24f596b82e985267a9e6626151279f55cfb975e0d58598f8e6ecd12d5bc01"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/meta.json",
+      "sha256": "ba11d16454b34014a4a90bf3c1134d3d1c48366b771ef216dfd9b34bdae98a1a",
+      "size": 9863,
+      "representation": "redacted",
+      "historical_original_sha256": "73522a3cec4a9e561ca0f54fce3bead9669b04333068562e45cd9c2d046fd957"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/moe_mxfp4_kernel.py",
+      "sha256": "6a91346bca72ec4cb5f8cf1b0ca44fbc16dc2c6144f6892277d26205615cda30",
+      "size": 75175,
+      "representation": "redacted",
+      "historical_original_sha256": "c7bd6bab84f3d2b47d32d9e558501fdc72c8ae88c16981f7e4945753cfb4c1b2"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/rejected/iter_018/validation.txt",
+      "sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190",
+      "size": 75,
+      "representation": "unchanged",
+      "historical_original_sha256": "7f189d8bbab08ec5666006339e69e03d3bfd4cc8da848b80bfcf04921d8a7190"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/5536f6c922880db39df57a0d95914352f53bd66e.py",
+      "sha256": "1faddf36817debfa9c243d5a9c8e745472a222661b494bd2ab8546c35ad07fd7",
+      "size": 24902,
+      "representation": "unchanged",
+      "historical_original_sha256": "1faddf36817debfa9c243d5a9c8e745472a222661b494bd2ab8546c35ad07fd7"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/9cd51e6099777f77750fe4e9888accf219643508.py",
+      "sha256": "5b0e79e61235abf742e13fee5d11522d87e91ae3b56149f1c308c5e37e4affa2",
+      "size": 66512,
+      "representation": "redacted",
+      "historical_original_sha256": "8df420817a70ae584ae33ca3180a45dde04c8000a381b46ddf09ed94c4b7bc88"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/a88280ad46eb1c8f1e334dc35b1c342d674c8b2e.py",
+      "sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38",
+      "size": 5169,
+      "representation": "unchanged",
+      "historical_original_sha256": "4f61d5d9a63c9007f2d2a4bbd30815249b862755beb2196d3ad90d85924b5b38"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/bfe29fde0dba9ce7ee78e4adb79a8f25b664e15f.py",
+      "sha256": "61d55924c6149780db61480aef67c745a8349b1fce82c0c89d5ed13680b8af9d",
+      "size": 7738,
+      "representation": "unchanged",
+      "historical_original_sha256": "61d55924c6149780db61480aef67c745a8349b1fce82c0c89d5ed13680b8af9d"
+    },
+    {
+      "path": "payload/campaigns/moe_mxfp4/sources/ef07a75c85909d92b066baa48d36a2826177ddab.py",
+      "sha256": "c99eabcef2130a1ffd7476b0841f5506d85da110d7b886e38dff4082eb2ba755",
+      "size": 10636,
+      "representation": "unchanged",
+      "historical_original_sha256": "c99eabcef2130a1ffd7476b0841f5506d85da110d7b886e38dff4082eb2ba755"
+    }
+  ],
+  "source_bytes": "redacted",
+  "provenance": {
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  }
+}

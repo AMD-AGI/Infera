@@ -1,0 +1,14 @@
+round	bench	node	config	KF kernels	score_tok_s_chip	tpot_mean_ms	tpot_p50_ms	tpot_p90_ms	ttft_p50_s
+kda1	A1	compute-node-05	DCP ppdc1	none (base, from 10-23 pack-up)	27062	19.44	19.7	21.58	1.81
+kda1	A2	compute-node-05	DCP ppdc1	none (base, from 10-23 pack-up)	27051	19.26	19.66	21.47	1.8
+kdc1	A1	compute-node-05	DCP ppdc1	DCP sparse + DCP indexer	25578	21.33	20.95	26.68	1.75
+kdc1	A2	compute-node-05	DCP ppdc1	DCP sparse + DCP indexer	25683	21.13	20.72	26.76	1.78
+kde1	A1	compute-node-05	DCP ppdc1	DCP indexer only	n/a (stack stopped before aiperf wrote its JSON)	21.51	21.21	26.74	n/a
+kdg1	A1	compute-node-07	DCP ppdc1	DCP sparse only	27306	18.92	19.16	21.04	1.89
+kdg1	A2	compute-node-07	DCP ppdc1	DCP sparse only	27400	18.82	19.17	20.96	1.84
+kdf1	A1	compute-node-02	DCP ppdc1	none; EAGER decode + input capture (not a perf number)	13755	56.4	54.92	58.52	1.32
+kdf1	A2	compute-node-02	DCP ppdc1	none; EAGER decode + input capture (not a perf number)	13859	55.82	54.47	57.98	1.35
+kfb3	A1	compute-node-07	DPA dpax1	sparse + indexer + MoE	25456	11.17	11.08	12.68	8.97
+kfb3	A2	compute-node-07	DPA dpax1	sparse + indexer + MoE	25645	11.29	11.34	12.89	8.62
+kfc1	A1	compute-node-02	DPA dpax1	sparse + indexer + MoE + fused indexer	25366	11.25	11.07	13.05	9.2
+kfc1	A2	compute-node-02	DPA dpax1	sparse + indexer + MoE + fused indexer	25169	11.25	11.05	13.06	9.9

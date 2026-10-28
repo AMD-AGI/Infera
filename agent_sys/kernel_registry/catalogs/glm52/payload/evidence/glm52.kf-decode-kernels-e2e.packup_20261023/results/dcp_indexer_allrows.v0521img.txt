@@ -1,0 +1,13 @@
+rows    6: prod 0.0648 ms  kf 0.0598 ms  x1.08  exact=True
+rows   12: prod 0.0622 ms  kf 0.0605 ms  x1.03  exact=True
+rows   24: prod 0.0805 ms  kf 0.0697 ms  x1.15  exact=True
+rows   48: prod 0.1673 ms  kf 0.0924 ms  x1.81  exact=True
+rows   72: prod 0.1740 ms  kf 0.0975 ms  x1.78  exact=True
+rows   96: prod 0.1417 ms  kf 0.0848 ms  x1.67  exact=True
+rows  144: prod 0.2320 ms  kf 0.1126 ms  x2.06  exact=True
+rows  192: prod 0.3592 ms  kf 0.1337 ms  x2.69  exact=True
+rows  240: prod 0.3745 ms  kf 0.1548 ms  x2.42  exact=True
+rows  288: prod 0.4098 ms  kf 0.1661 ms  x2.47  exact=True
+rows  384: prod 0.3530 ms  kf 0.1724 ms  x2.05  exact=True
+rows  480: prod 0.5860 ms  kf 0.2473 ms  x2.37  exact=True
+rows  576: prod 0.5842 ms  kf 0.2636 ms  x2.22  exact=True

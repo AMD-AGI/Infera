@@ -1,0 +1,840 @@
+diff --git a/fused_indexer_kernel.py b/fused_indexer_kernel.py
+index 6ef1735..9a3a4bc 100644
+--- a/fused_indexer_kernel.py
++++ b/fused_indexer_kernel.py
+@@ -32,8 +32,48 @@ Q_LORA_RANK = 2048
+ HIDDEN_SIZE = 6144
+ MAX_ROWS = 48
+ LOGITS_HIST_BITS = 12
+-LOGITS_BLOCKS_PER_ROW = 48
+-TOPK_G = 64
++LOGITS_BLOCKS_PER_ROW = 32
++
++
++# TARGET_VERIFY rows per request (EAGLE draft tokens): consecutive rows of one request share its page table.
++SIBLING_ROWS = 6
++# Smallest row count routed to the persistent sibling-group logits kernel.  Below it its fixed cost loses (measured,
++# graph timed, whole call: rows 12 / 24 run 43 / 70 us per-row vs 59 / 74 us grouped; rows 36 / 48 run 88 / 112 us
++# grouped); rows 18..30 use its 2-D form instead (logits_cfg).
++GROUP_MIN_ROWS = 36
++
++
++def logits_bpr(rows: int, table_pages: int) -> int:
++    """Blocks per row of the logits kernel; 0 selects the sibling-group kernel (each K page loaded once for the
++    SIBLING_ROWS rows of a request, persistent page-balanced grid), used when rows is a whole number of sibling groups
++    and at least GROUP_MIN_ROWS.  It verifies on the device that siblings really share their page ids and is exact
++    otherwise too.  Otherwise: 32 (measured best for rows 12..48 at these contexts), raised so that a wave never walks
++    more than 64 pages (its page ids live one per lane), and kept a multiple of 8 so that block x of every row lands
++    on XCD x % 8."""
++    if rows % SIBLING_ROWS == 0 and GROUP_MIN_ROWS <= rows <= MAX_ROWS:
++        return 0
++    need = -(-table_pages // (8 * 64))
++    return max(LOGITS_BLOCKS_PER_ROW, -(-need // 8) * 8)
++
++
++def logits_cfg(rows: int, table_pages: int) -> tuple[int, int]:
++    """(blocks_per_row, rows_per_group) of the logits kernel; see logits_bpr.  rows_per_group 1 is the per-row kernel,
++    2 / 3 the 2-D sibling-group kernel with blocks_per_row blocks per group of that many rows.  Rows 18..30 (whole
++    sibling groups) take the 2-D form with 3-row groups and about one block per CU in multiples of 8 (measured, rows 24,
++    n3 alone: 36.6 us against 44.1 per-row; whole call 63.7 against 70.1); rows 12 stay per-row, where the grouped
++    flush's same-address atomics cost more than the shared loads save (n3 24.0 against 21.1)."""
++    if rows % SIBLING_ROWS == 0 and 2 * SIBLING_ROWS < rows < GROUP_MIN_ROWS:
++        groups = rows // 3
++        bx = max(8, (256 // groups) // 8 * 8)
++        need = -(-table_pages // (8 * 64))
++        return max(bx, -(-need // 8) * 8), 3
++    return logits_bpr(rows, table_pages), 1
++# n4 (topk_transform) blocks per row.  The row-barrier + cursor-atomic overhead
++# of each block outweighs the extra fill past ~48 here (measured: 48 beats the
++# previous 64 on every case, most on T36), while G only repartitions the exact
++# selection so the top-k set stays identical.  The host lowers it where rows * 48
++# blocks would not be co-resident for the persistent-rank form (rows 48 -> 42).
++TOPK_G = 48
+ 
+ SRC_DUAL_GEMV_BF16 = r"""/// Dual bf16 GEMV for the gfx950 DSA indexer: Q [M,4096] and KW [M,160] in one launch.
+ 
+@@ -720,8 +760,9 @@ struct QkRopeHadamardQuantKernel {
+ """
+ 
+ SRC_PAGED_MQA_LOGITS = r"""/// GLM-5.2 DSA indexer, the logits kernel: paged MQA FP8 logits plus the fine
+-/// histogram and coarse summary topk_transform.cuh selects from.  One kernel
+-/// ships, logits_hist_m<8, 12>; WARPS and HB are template arguments.
++/// histogram and coarse summary topk_transform.cuh selects from.  Three kernels
++/// ship: logits_hist_m<8, 12>, the persistent sibling-group logits_hist_grp<16, 12, 6>
++/// and its 2-D form logits_hist_grp<8, 12, 2 or 3, true>.
+ 
+ #pragma once
+ 
+@@ -741,6 +782,7 @@ SRC_PAGED_MQA_LOGITS = r"""/// GLM-5.2 DSA indexer, the logits kernel: paged MQA
+ #include <tvm/ffi/container/tensor.h>
+ 
+ #include <cstdint>
++#include <type_traits>
+ 
+ namespace sglang {
+ 
+@@ -802,6 +844,35 @@ __device__ __forceinline__ uint32_t order_bin_fast(float x) {
+   return (h >> LOWB) ^ (0x8000u >> LOWB) ^ (m & (0x7fffu >> LOWB));
+ }
+ 
++// ---- gated fine flush ----
++// topk_transform.cuh reads, per binned row, the LG_CBINS coarse bins (whose total must equal the row length) and the
++// fine bins of ONE coarse bin: j*, the bin where the coarse suffix sum (from the top) first reaches LG_TOPK.  Its flat
++// fallback needs only the bins at or above its threshold.  So fine bins below coarse bin j* never affect any output,
++// and a block only has to flush its fine bins from some gate <= j* upward; the coarse flush stays complete.
++// The gate is the bin where the BLOCK's own coarse suffix sum reaches LG_TOPK: the block's elements are a subset of
++// the row's, so its suffix sums are <= the row's and that bin cannot lie above j*.  (0, i.e. flush everything, when the
++// block holds fewer than LG_TOPK elements of the row.)  Bins below it are skipped by every block, so their global
++// counts stay partial: only n4's hierarchical threshold reads ghist, and it never looks there.
++__device__ __forceinline__ uint32_t lg_wave_suffix_sum(uint32_t v, int lane) {
++#pragma unroll
++  for (int o = 1; o < 64; o <<= 1) {
++    const uint32_t t = __shfl_down(v, o, 64);
++    v += (lane + o < 64) ? t : 0u;
++  }
++  return v;
++}
++
++// The gate: n4's j predicate on this block's coarse counts, held one bin per lane; LG_CBINS (flush nothing) when the
++// block holds no element of the row.  Wave-uniform.
++__device__ __forceinline__ int lg_gate(uint32_t v, int lane) {
++  const uint32_t s = lg_wave_suffix_sum(v, lane);
++  if (__shfl(s, 0, 64) == 0u) return LG_CBINS;
++  uint32_t sn = __shfl_down(s, 1, 64);
++  if (lane == 63) sn = 0u;
++  const unsigned long long b = __ballot(s >= LG_TOPK && sn < LG_TOPK);
++  return b ? (int)__ffsll(b) - 1 : 0;
++}
++
+ template <int WARPS, int HB>
+ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+     const uint8_t* __restrict__ q,
+@@ -812,7 +883,8 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+     float* __restrict__ out,
+     unsigned int* __restrict__ ghist,
+     int max_pages,
+-    int out_stride) {
++    int out_stride,
++    int rank_rows) {
+   constexpr int NBIN = 1 << HB;
+   constexpr int LOWB = 16 - HB;
+   constexpr int GHS = NBIN + LG_CBINS;
+@@ -825,10 +897,29 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+   static_assert(PERT <= LG_CBINS && (LG_CBINS % PERT) == 0, "a thread's contiguous run must sit inside one coarse bin");
+   __shared__ unsigned int s_hist[NBIN];
+ 
+-  const int row = blockIdx.y;
+   const int lane = threadIdx.x & 63;
+-  const int warp = threadIdx.x >> 6;
+-  const int seqlen = seqlens[row];
++  // Wave-uniform by construction; readfirstlane lets the compiler keep the page walk in SGPRs.
++  const int warp = __builtin_amdgcn_readfirstlane(threadIdx.x >> 6);
++  int row = blockIdx.y;
++  int seqlen;
++  if (rank_rows) {
++    // Longest rows first: blockIdx.y is a RANK, mapped to the row with that rank in descending length (ties by
++    // index).  A bijection for any seqlens contents, so every row still gets exactly the same blocks and work; it
++    // only changes which rows the hardware dispatches first when the grid needs more than one round of slots.
++    // The host only sets rank_rows when gridDim.y <= 64.
++    const int R = (int)gridDim.y;
++    const int sl = lane < R ? seqlens[lane] : 0;
++    int rank = 0;
++    for (int j = 0; j < R; ++j) {
++      const int sj = __builtin_amdgcn_readlane(sl, j);
++      rank += (sj > sl || (sj == sl && j < lane)) ? 1 : 0;
++    }
++    const unsigned long long m = __ballot(lane < R && rank == (int)blockIdx.y);
++    row = __builtin_amdgcn_readfirstlane(m ? (int)__ffsll(m) - 1 : (int)blockIdx.y);
++    seqlen = __builtin_amdgcn_readlane(sl, row);
++  } else {
++    seqlen = seqlens[row];
++  }
+   // seqlen is device data, so no host check can bound it.  Without the clamp
+   // an oversized row walks into the NEXT row's page table -- valid memory,
+   // plausible page ids, confidently wrong logits.
+@@ -870,24 +961,34 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+   const int nwaves = gridDim.x * WARPS;
+   const int wid = blockIdx.x * WARPS + warp;
+   const int koff = g * 512 + c * 16;
+-
+-  if (do_hist) __syncthreads();
++  // Pages of this wave: p = wid + it * nwaves, it in [0, cnt).  Uniform.
++  const int cnt = wid < npages ? (npages - 1 - wid) / nwaves + 1 : 0;
+ 
+   unsigned int* __restrict__ gh = ghist + (size_t)row * GHS;
+ 
+   const int* __restrict__ pt = ptable + (size_t)row * max_pages;
++  float* __restrict__ orow = out + (size_t)row * out_stride;
++
++  // Page ids of the first 64 iterations, one per lane, read back with readlane (uniform lane index).
++  const int pid = (lane < cnt) ? pt[wid + lane * nwaves] : 0;
+ 
+-  for (int p = wid; p < npages; p += nwaves) {
+-    const int phys = pt[p];
+-    const uint8_t* base = kv + (size_t)phys * PAGE_BYTES;
+-    const uint8_t* kb = base + koff;
+-    V8 b[4];
++  // K of one page through a per-page buffer resource: the page base lives in SGPRs and every lane offset is
++  // koff + an immediate, so a page costs 9 loads and no per-lane address arithmetic.
++  auto load_page = [&](V8 (&b)[4], float& ks, int phys) {
++    const __amdgpu_buffer_rsrc_t rs =
++        __builtin_amdgcn_make_buffer_rsrc((void*)(kv + (size_t)phys * PAGE_BYTES), (short)0, PAGE_BYTES, 0x00020000);
+ #pragma unroll
+     for (int tt = 0; tt < 4; ++tt) {
+-      b[tt].h[0] = *(const i32x4*)(kb + tt * 2048);
+-      b[tt].h[1] = *(const i32x4*)(kb + tt * 2048 + 256);
++      b[tt].h[0] = __builtin_bit_cast(i32x4, __builtin_amdgcn_raw_buffer_load_b128(rs, koff + (tt & 1) * 2048, (tt >> 1) * 4096, 0));
++      b[tt].h[1] =
++          __builtin_bit_cast(i32x4, __builtin_amdgcn_raw_buffer_load_b128(rs, koff + (tt & 1) * 2048 + 256, (tt >> 1) * 4096, 0));
+     }
+-    const float ks = ((const float*)(base + K_BYTES))[lane];
++    ks = __builtin_bit_cast(float, __builtin_amdgcn_raw_buffer_load_b32(rs, lane * 4, K_BYTES, 0));
++  };
++
++  // One page: MFMAs, head-weighted reduction, logits store and histogram.  Operands, scale and summation order
++  // are exactly the original kernel's, so the logits are bit-identical.
++  auto compute = [&](const V8 (&b)[4], const float ks, const int it) {
+     float s[4];
+ #pragma unroll
+     for (int tt = 0; tt < 4; ++tt) {
+@@ -903,19 +1004,78 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+         acc = fmaf(fmaxf(a1[i], 0.f), w1[i], acc);
+       s[tt] = acc;
+     }
+-    const bool hi = (g & 2) != 0;
+-    float A0 = (hi ? s[2] : s[0]) + xor32(hi ? s[0] : s[2], lane);
+-    float A1 = (hi ? s[3] : s[1]) + xor32(hi ? s[1] : s[3], lane);
+-    const bool odd = (g & 1) != 0;
+-    float T = (odd ? A1 : A0) + xor16(odd ? A0 : A1, lane);
+-    const int pos = p * PAGE_TOK + lane;
+-    const bool live = pos < seqlen;
++    // Cross-lane head reduction, one swap per level: permlane32_swap(x, y) yields [x_lo | y_lo] and
++    // [x_hi | y_hi], whose sum is exactly the original "own + xor32 partner" of the selected operand (the upper
++    // half adds the same two values in the other order; fp add is commutative, so the result is bit-identical).
++    // permlane16_swap does the same on 16-lane rows.
++    // NOTE: this LLVM folds fadd(swap[0], swap[1]) into swap[0] + swap[0] (miscompile seen on gfx950 / ROCm 7.2),
++    // so the second result is laundered through an empty asm before the add.
++    const i32x2 p02 =
++        __builtin_amdgcn_permlane32_swap(__builtin_bit_cast(int, s[0]), __builtin_bit_cast(int, s[2]), false, false);
++    const i32x2 p13 =
++        __builtin_amdgcn_permlane32_swap(__builtin_bit_cast(int, s[1]), __builtin_bit_cast(int, s[3]), false, false);
++    int h02 = p02[1], h13 = p13[1];
++    asm volatile("" : "+v"(h02), "+v"(h13));
++    const float A0 = __builtin_bit_cast(float, p02[0]) + __builtin_bit_cast(float, h02);
++    const float A1 = __builtin_bit_cast(float, p13[0]) + __builtin_bit_cast(float, h13);
++    const i32x2 pa =
++        __builtin_amdgcn_permlane16_swap(__builtin_bit_cast(int, A0), __builtin_bit_cast(int, A1), false, false);
++    int ha = pa[1];
++    asm volatile("" : "+v"(ha));
++    const float T = __builtin_bit_cast(float, pa[0]) + __builtin_bit_cast(float, ha);
++    const int p = wid + it * nwaves;
++    const bool live = p * PAGE_TOK + lane < seqlen;
+     const float v = T * ks;
+-    out[(size_t)row * out_stride + pos] = live ? v : -INFINITY;
+-    if (do_hist && live) {
+-      const uint32_t bb = order_bin_fast<LOWB>(v);
+-      atomicAdd(&s_hist[bb], 1u);
+-    }
++    (orow + (size_t)p * PAGE_TOK)[lane] = live ? v : -INFINITY;
++    // Unconditional (adds 0 when not counted) so the page body stays one basic block.
++    const uint32_t bb = order_bin_fast<LOWB>(v);
++    atomicAdd(&s_hist[bb], (do_hist && live) ? 1u : 0u);
++  };
++
++  // Two K buffers, one page ahead: page it+1's loads are in flight under page it's MFMAs and reduction.
++  V8 bA[4], bB[4];
++  float ksA = 0.f, ksB = 0.f;
++  // readfirstlane outside the branch: every path into the loop has then waited on pid, so the loop's readlanes
++  // need no vmcnt(0) of their own.
++  const int phys0 = __builtin_amdgcn_readfirstlane(pid);
++  if (cnt > 0) load_page(bA, ksA, phys0);
++
++  if (do_hist) __syncthreads();
++
++  // The scheduler would otherwise sink the next page's loads below the current page's MFMAs (register pressure),
++  // which serialises load -> use again.  An empty volatile asm that "rewrites" the current buffer is ordered after
++  // the loads just issued, and the MFMAs depend on its outputs.
++  auto fence = [&](V8 (&b)[4], float& ks) {
++#pragma unroll
++    for (int tt = 0; tt < 4; ++tt)
++      asm volatile("" : "+v"(b[tt].v));
++    asm volatile("" : "+v"(ks));
++  };
++
++  // The host sizes the grid so that a wave has at most 64 pages; the generic tail below keeps longer walks exact.
++  const int cnt_p = cnt < 64 ? cnt : 64;
++  int it = 0;
++  for (; it + 2 < cnt_p; it += 2) {
++    load_page(bB, ksB, __builtin_amdgcn_readlane(pid, it + 1));
++    fence(bA, ksA);
++    compute(bA, ksA, it);
++    load_page(bA, ksA, __builtin_amdgcn_readlane(pid, it + 2));
++    fence(bB, ksB);
++    compute(bB, ksB, it + 1);
++  }
++  if (it + 1 < cnt_p) {
++    load_page(bB, ksB, __builtin_amdgcn_readlane(pid, it + 1));
++    fence(bA, ksA);
++    compute(bA, ksA, it);
++    compute(bB, ksB, it + 1);
++    it += 2;
++  } else if (it < cnt_p) {
++    compute(bA, ksA, it);
++    it += 1;
++  }
++  for (; it < cnt; ++it) {
++    load_page(bA, ksA, __builtin_amdgcn_readfirstlane(pt[wid + it * nwaves]));
++    compute(bA, ksA, it);
+   }
+ 
+   if (do_hist) {
+@@ -941,6 +1101,383 @@ __global__ __launch_bounds__(WARPS * 64) void logits_hist_m(
+   }
+ }
+ 
++// Sibling-group form of logits_hist_m.  A TARGET_VERIFY batch holds GR consecutive rows per request (its draft
++// tokens), and those rows share one page table, so each K page is loaded ONCE and scored against all GR rows' queries
++// instead of once per row.  The grid is persistent (about one block per CU) and is split over the groups in proportion
++// to their page counts, so a long request no longer bounds the kernel with a fixed blocks-per-row share.  Inside a
++// group a block owns a contiguous page range and its waves interleave over it.  The GR histograms hold the CU's LDS,
++// so the block is the CU's whole occupancy: the queries live in LDS too, which keeps a wave at <= 128 VGPRs and lets
++// the block run WARPS = 16 (4 waves per SIMD) instead of 8.
++//
++// Every row-page goes through exactly logits_hist_m's per-row body (same MFMA operands, fma chain, cross-lane
++// reduction, scale, store and histogram key), so logits and histograms are bit-identical to it.  Whether siblings
++// really share their pages is device data, so it is checked per wave: a group whose rows disagree on any page id (or
++// a wave with more than 64 pages) takes the per-row general path, which is exact for any page tables.
++//
++// G2D is the small-batch form of the same body: a 2-D grid (blocks per group, groups) of GR-row groups in which wave
++// wid = blockIdx.x * WARPS + warp walks pages p = wid + it * nwaves like logits_hist_m, so every group's page p lands
++// on XCD (p / 8) % 8 when gridDim.x is a multiple of 8, and the blocks stay small enough for two per CU.
++// rank_groups maps blockIdx.y to the group with that rank in descending leader page count (a bijection).
++template <int WARPS, int HB, int GR, bool G2D = false>
++__global__ __launch_bounds__(WARPS * 64, G2D ? 2 : 1) void logits_hist_grp(
++    const uint8_t* __restrict__ q,
++    const uint8_t* __restrict__ kv,
++    const float* __restrict__ wgt,
++    const int* __restrict__ seqlens,
++    const int* __restrict__ ptable,
++    float* __restrict__ out,
++    unsigned int* __restrict__ ghist,
++    int rows,
++    int max_pages,
++    int out_stride,
++    int rank_groups) {
++  constexpr int NBIN = 1 << HB;
++  constexpr int LOWB = 16 - HB;
++  constexpr int GHS = NBIN + LG_CBINS;
++  constexpr int NTH = WARPS * 64;
++  static_assert(NBIN >= 2 && (NBIN % 2) == 0, "paired flush needs even bins");
++  static_assert(GR * HEADS <= NTH, "one thread per staged head weight");
++  static_assert((GR * NBIN) % 4 == 0, "vectorised LDS clear");
++  static_assert(NBIN % (2 * LG_CBINS) == 0, "a coarse bin is a whole number of fine pairs");
++  static_assert(WARPS >= GR, "one wave per row flushes that row");
++  __shared__ unsigned int s_hist[GR][NBIN];
++  __shared__ float s_w[GR][HEADS];
++  __shared__ i32x4 s_q[GR][4][64];
++
++  const int lane = threadIdx.x & 63;
++  const int warp = __builtin_amdgcn_readfirstlane(threadIdx.x >> 6);
++  const int g = lane >> 4, c = lane & 15;
++
++  // Per-row lengths, row r on lane r (the host guarantees rows <= 64), with logits_hist_m's clamps.
++  const int pages_out = out_stride / PAGE_TOK;
++  const int npages_cap = max_pages < pages_out ? max_pages : pages_out;
++  const int sl = lane < rows ? seqlens[lane] : 0;
++  const int np_raw = (sl + PAGE_TOK - 1) / PAGE_TOK;
++  const int np_c = np_raw < npages_cap ? np_raw : npages_cap;
++  const int np = np_c > 0 ? np_c : 0;
++  // The clamped length (logits_hist_m's seqlen_eff), which decides whether a row is binned.
++  const int se_l = sl < npages_cap * PAGE_TOK ? sl : npages_cap * PAGE_TOK;
++
++  const int ngroups = rows / GR;
++  int r0 = 0, lead = 0;
++  // Pages of this wave: p = pbase + it * pstride, it in [0, cnt).  Uniform.
++  int pbase = 0, pstride = WARPS, cnt = 0;
++  if constexpr (G2D) {
++    int gy = (int)blockIdx.y;
++    if (rank_groups) {
++      // Lane gi < ngroups holds group gi's leader page count; rank by descending count, ties by index.
++      int Pg = 0;
++#pragma unroll
++      for (int k = 0; k < GR; ++k) Pg = max(Pg, __shfl(np, (lane * GR + k) & 63, 64));
++      if (lane >= ngroups) Pg = -1;
++      int rank = 0;
++      for (int j = 0; j < ngroups; ++j) {
++        const int Pj = __builtin_amdgcn_readlane(Pg, j);
++        rank += (Pj > Pg || (Pj == Pg && j < lane)) ? 1 : 0;
++      }
++      const unsigned long long m = __ballot(lane < ngroups && rank == (int)blockIdx.y);
++      gy = m ? (int)__ffsll(m) - 1 : (int)blockIdx.y;
++    }
++    r0 = __builtin_amdgcn_readfirstlane(gy * GR);
++    int P = 0;
++#pragma unroll
++    for (int k = 0; k < GR; ++k) {
++      const int v = __builtin_amdgcn_readlane(np, r0 + k);
++      if (v > P) {
++        P = v;
++        lead = k;
++      }
++    }
++    lead = __builtin_amdgcn_readfirstlane(lead);
++    pstride = (int)gridDim.x * WARPS;
++    pbase = (int)blockIdx.x * WARPS + warp;
++    cnt = pbase < P ? (P - 1 - pbase) / pstride + 1 : 0;
++  } else {
++    // Partition (uniform; every wave computes the same integers): group gi has P_gi = max sibling page count and
++    // gets blocks [gi + E*cum_gi/U, gi + 1 + E*(cum_gi + P_gi)/U), E = NB - ngroups, U = sum P.  Every group gets at
++    // least one block and the ranges tile [0, NB) exactly.
++    int U = 0;
++    for (int gi = 0; gi < ngroups; ++gi) {
++      int Pg = 0;
++#pragma unroll
++      for (int k = 0; k < GR; ++k) Pg = max(Pg, __builtin_amdgcn_readlane(np, gi * GR + k));
++      U += Pg;
++    }
++    if (U == 0) return;  // block-uniform, before any barrier
++
++    const long long E = (long long)gridDim.x - ngroups;
++    const int bx = (int)blockIdx.x;
++    int P = 0, bj = 0, B = 1;
++    {
++      long long cum = 0;
++      for (int gi = 0; gi < ngroups; ++gi) {
++        int Pg = 0, Lg = 0;
++#pragma unroll
++        for (int k = 0; k < GR; ++k) {
++          const int v = __builtin_amdgcn_readlane(np, gi * GR + k);
++          if (v > Pg) {
++            Pg = v;
++            Lg = k;
++          }
++        }
++        const int s0 = gi + (int)((E * cum) / U);
++        const int s1 = gi + 1 + (int)((E * (cum + Pg)) / U);
++        if (bx >= s0 && bx < s1) {
++          r0 = gi * GR;
++          lead = Lg;
++          P = Pg;
++          bj = bx - s0;
++          B = s1 - s0;
++        }
++        cum += Pg;
++      }
++    }
++    r0 = __builtin_amdgcn_readfirstlane(r0);
++    lead = __builtin_amdgcn_readfirstlane(lead);
++    const int lo = __builtin_amdgcn_readfirstlane((int)(((long long)P * bj) / B));
++    const int hi = __builtin_amdgcn_readfirstlane((int)(((long long)P * (bj + 1)) / B));
++    const int span = hi - lo;
++    pbase = lo + warp;
++    cnt = warp < span ? (span - 1 - warp) / WARPS + 1 : 0;
++  }
++
++  int seq[GR], npk[GR];
++  bool dh[GR];
++  bool any_hist = false;
++#pragma unroll
++  for (int k = 0; k < GR; ++k) {
++    seq[k] = __builtin_amdgcn_readlane(sl, r0 + k);
++    npk[k] = __builtin_amdgcn_readlane(np, r0 + k);
++    // The same clamped length the top-k kernel uses (see logits_hist_m).
++    const int se = seq[k] < npages_cap * PAGE_TOK ? seq[k] : npages_cap * PAGE_TOK;
++    dh[k] = se > LG_TOPK;
++    any_hist = any_hist || dh[k];
++  }
++
++  // Page ids of the leader row (the one with the most pages), one per lane, for the first 64 iterations.
++  const int cnt_p = cnt < 64 ? cnt : 64;
++  const int pl = pbase + lane * pstride;
++  const int* __restrict__ ptl = ptable + (size_t)(r0 + lead) * max_pages;
++  const int pid = (lane < cnt_p) ? ptl[pl] : 0;
++
++  // The GR rows' queries go to LDS in MFMA lane order, s_q[k][part][lane] (parts: qa0 lo/hi, qa1 lo/hi), so a row's
++  // operands are four conflict-free ds_read_b128 instead of 16 VGPRs held for the whole kernel.
++  for (int i = (int)threadIdx.x; i < GR * 4 * 64; i += NTH) {
++    const int k = i >> 8, part = (i >> 6) & 3, l = i & 63;
++    const uint8_t* qp = q + (size_t)(r0 + k) * (size_t)(HEADS * HD) + (size_t)(l & 15) * HD + (l >> 4) * 32 +
++                        (part & 1) * 16 + (part >> 1) * 16 * HD;
++    s_q[k][part][l] = *(const i32x4*)qp;
++  }
++
++  // Sibling check: every row must name the leader's page for each of its own pages this wave walks.
++  bool bad = false;
++#pragma unroll
++  for (int k = 0; k < GR; ++k) {
++    const int v = (lane < cnt_p && pl < npk[k]) ? ptable[(size_t)(r0 + k) * max_pages + pl] : pid;
++    bad = bad || (v != pid);
++  }
++  const bool fast = __ballot(bad) == 0ull;
++
++  if (any_hist) {
++    uint4* sh4 = reinterpret_cast<uint4*>(&s_hist[0][0]);
++    for (int i = threadIdx.x; i < GR * NBIN / 4; i += NTH)
++      sh4[i] = make_uint4(0u, 0u, 0u, 0u);
++  }
++  if (threadIdx.x < GR * HEADS) (&s_w[0][0])[threadIdx.x] = wgt[(size_t)r0 * HEADS + threadIdx.x];
++
++  const int koff = g * 512 + c * 16;
++
++  auto load_page = [&](V8 (&b)[4], float& ks, int phys) {
++    const __amdgpu_buffer_rsrc_t rs =
++        __builtin_amdgcn_make_buffer_rsrc((void*)(kv + (size_t)phys * PAGE_BYTES), (short)0, PAGE_BYTES, 0x00020000);
++#pragma unroll
++    for (int tt = 0; tt < 4; ++tt) {
++      b[tt].h[0] = __builtin_bit_cast(i32x4, __builtin_amdgcn_raw_buffer_load_b128(rs, koff + (tt & 1) * 2048, (tt >> 1) * 4096, 0));
++      b[tt].h[1] =
++          __builtin_bit_cast(i32x4, __builtin_amdgcn_raw_buffer_load_b128(rs, koff + (tt & 1) * 2048 + 256, (tt >> 1) * 4096, 0));
++    }
++    ks = __builtin_bit_cast(float, __builtin_amdgcn_raw_buffer_load_b32(rs, lane * 4, K_BYTES, 0));
++  };
++
++  // One row-page: logits_hist_m's compute body for row r0 + k, page p (see there for the reduction notes).
++  auto compute_row = [&](const int k, const V8 (&b)[4], const float ks, const int p) {
++    V8 qa0k, qa1k;
++    qa0k.h[0] = s_q[k][0][lane];
++    qa0k.h[1] = s_q[k][1][lane];
++    qa1k.h[0] = s_q[k][2][lane];
++    qa1k.h[1] = s_q[k][3][lane];
++    const f32x4 w0 = *(const f32x4*)(&s_w[k][g * 4]);
++    const f32x4 w1 = *(const f32x4*)(&s_w[k][16 + g * 4]);
++    float s[4];
++#pragma unroll
++    for (int tt = 0; tt < 4; ++tt) {
++      const f32x4 z = {0.f, 0.f, 0.f, 0.f};
++      f32x4 a0 = mfma128(qa0k.v, b[tt].v, z);
++      f32x4 a1 = mfma128(qa1k.v, b[tt].v, z);
++      float acc = 0.f;
++#pragma unroll
++      for (int i = 0; i < 4; ++i)
++        acc = fmaf(fmaxf(a0[i], 0.f), w0[i], acc);
++#pragma unroll
++      for (int i = 0; i < 4; ++i)
++        acc = fmaf(fmaxf(a1[i], 0.f), w1[i], acc);
++      s[tt] = acc;
++    }
++    const i32x2 p02 =
++        __builtin_amdgcn_permlane32_swap(__builtin_bit_cast(int, s[0]), __builtin_bit_cast(int, s[2]), false, false);
++    const i32x2 p13 =
++        __builtin_amdgcn_permlane32_swap(__builtin_bit_cast(int, s[1]), __builtin_bit_cast(int, s[3]), false, false);
++    int h02 = p02[1], h13 = p13[1];
++    asm volatile("" : "+v"(h02), "+v"(h13));
++    const float A0 = __builtin_bit_cast(float, p02[0]) + __builtin_bit_cast(float, h02);
++    const float A1 = __builtin_bit_cast(float, p13[0]) + __builtin_bit_cast(float, h13);
++    const i32x2 pa =
++        __builtin_amdgcn_permlane16_swap(__builtin_bit_cast(int, A0), __builtin_bit_cast(int, A1), false, false);
++    int ha = pa[1];
++    asm volatile("" : "+v"(ha));
++    const float T = __builtin_bit_cast(float, pa[0]) + __builtin_bit_cast(float, ha);
++    const bool live = p * PAGE_TOK + lane < seq[k];
++    const float v = T * ks;
++    // Through a per-row buffer resource: the row and page offsets stay scalar, so the store needs no 64-bit
++    // per-lane address per row (those would not fit the 128-VGPR budget of the 16-wave block).
++    const __amdgpu_buffer_rsrc_t ors = __builtin_amdgcn_make_buffer_rsrc(
++        (void*)(out + (size_t)(r0 + k) * out_stride), (short)0, out_stride * (int)sizeof(float), 0x00020000);
++    __builtin_amdgcn_raw_buffer_store_b32(__builtin_bit_cast(int, live ? v : -INFINITY), ors, lane * 4,
++                                          p * PAGE_TOK * (int)sizeof(float), 0);
++    const uint32_t bb = order_bin_fast<LOWB>(v);
++    atomicAdd(&s_hist[k][bb], (dh[k] && live) ? 1u : 0u);
++  };
++
++  // All GR rows against one loaded page; rows shorter than the leader skip their missing tail pages.
++  auto compute_grp = [&](const V8 (&b)[4], const float ks, const int it) {
++    const int p = pbase + it * pstride;
++#pragma unroll
++    for (int k = 0; k < GR; ++k)
++      if (p < npk[k]) compute_row(k, b, ks, p);
++  };
++
++  auto fence = [&](V8 (&b)[4], float& ks) {
++#pragma unroll
++    for (int tt = 0; tt < 4; ++tt)
++      asm volatile("" : "+v"(b[tt].v));
++    asm volatile("" : "+v"(ks));
++  };
++
++  V8 bA[4], bB[4];
++  float ksA = 0.f, ksB = 0.f;
++  // Issued before the sibling verdict is known (it is the leader's page either way); the general path discards it.
++  const int phys0 = __builtin_amdgcn_readfirstlane(pid);
++  if (cnt_p > 0) load_page(bA, ksA, phys0);
++
++  __syncthreads();  // s_hist clear and s_w
++
++  int it = 0;
++  if (fast) {
++    for (; it + 2 < cnt_p; it += 2) {
++      load_page(bB, ksB, __builtin_amdgcn_readlane(pid, it + 1));
++      fence(bA, ksA);
++      compute_grp(bA, ksA, it);
++      load_page(bA, ksA, __builtin_amdgcn_readlane(pid, it + 2));
++      fence(bB, ksB);
++      compute_grp(bB, ksB, it + 1);
++    }
++    if (it + 1 < cnt_p) {
++      load_page(bB, ksB, __builtin_amdgcn_readlane(pid, it + 1));
++      fence(bA, ksA);
++      compute_grp(bA, ksA, it);
++      compute_grp(bB, ksB, it + 1);
++      it += 2;
++    } else if (it < cnt_p) {
++      compute_grp(bA, ksA, it);
++      it += 1;
++    }
++  }
++  // General path: every row reads its own page id (a group whose siblings disagree, or pages past the 64th).
++  for (; it < cnt; ++it) {
++    const int p = pbase + it * pstride;
++#pragma unroll
++    for (int k = 0; k < GR; ++k) {
++      if (p < npk[k]) {
++        load_page(bA, ksA, __builtin_amdgcn_readfirstlane(ptable[(size_t)(r0 + k) * max_pages + p]));
++        compute_row(k, bA, ksA, p);
++      }
++    }
++  }
++
++  // logits_hist_m's flush, once per binned row of the group: the complete coarse flush, then the fine flush from the
++  // block's gate up (see lg_gate).  Every block of the group adds into the same rows, so the ungated fine flush was
++  // mostly same-address atomic traffic on bins nobody reads.  After the one barrier that completes s_hist, FW waves
++  // flush each row (FW = WARPS / GR in the 2-D form, 1 in the persistent one, where that measured no different): wave
++  // w takes row w % GR and every FW-th 64-pair chunk from chunk w / GR, recomputing the row's coarse sums and gate
++  // itself (lane = coarse bin), so the block needs no further barrier.
++  if (any_hist) {
++    __syncthreads();
++    constexpr int FW = G2D ? WARPS / GR : 1;
++    if (warp < GR * FW) {
++      const int k = warp % GR;  // wave-uniform
++      const int fj = warp / GR;
++      const int se = __builtin_amdgcn_readlane(se_l, r0 + k);
++      if (se > LG_TOPK) {
++        unsigned int* __restrict__ gh = ghist + (size_t)(r0 + k) * GHS;
++        // Coarse bin `lane` = fine bins [64 lane, 64 lane + 64): 16 uint4 reads, each lane starting at chunk lane % 16
++        // so that 16 consecutive lanes hit 16 different bank quads.
++        static_assert(NBIN == 64 * LG_CBINS && LG_CBINS == 64, "one lane per coarse bin");
++        const uint4* src = reinterpret_cast<const uint4*>(&s_hist[k][lane * (NBIN / LG_CBINS)]);
++        unsigned int acc = 0u;
++#pragma unroll
++        for (int j = 0; j < NBIN / LG_CBINS / 4; ++j) {
++          const uint4 v = src[(j + lane) & (NBIN / LG_CBINS / 4 - 1)];
++          acc += (v.x + v.y) + (v.z + v.w);
++        }
++        if (fj == 0 && acc) atomicAdd(&gh[NBIN + lane], acc);
++        for (int i = lg_gate(acc, lane) * (NBIN / LG_CBINS / 2) + fj * 64 + lane; i < NBIN / 2; i += 64 * FW) {
++          const unsigned long long vv =
++              (unsigned long long)s_hist[k][2 * i] | ((unsigned long long)s_hist[k][2 * i + 1] << 32);
++          if (vv) atomicAdd((unsigned long long*)(gh + 2 * i), vv);
++        }
++      }
++    }
++  }
++}
++
++// CUs of the current device (per-device constant, cached); 0 if unknown.
++inline int device_cus() {
++  int dev = 0;
++  static constexpr int kMaxDev = 16;
++  static int s_cu[kMaxDev] = {0};
++  if (hipGetDevice(&dev) != hipSuccess || dev < 0 || dev >= kMaxDev) {
++    return 0;
++  }
++  if (s_cu[dev] == 0) {
++    hipDeviceProp_t prop;
++    if (hipGetDeviceProperties(&prop, dev) != hipSuccess) {
++      return 0;
++    }
++    s_cu[dev] = prop.multiProcessorCount;
++  }
++  return s_cu[dev];
++}
++
++// Resident blocks of `fn` on the current device (per-device constant, cached); 0 if unknown.
++inline long long resident_slots(const void* fn, int threads) {
++  int dev = 0;
++  static constexpr int kMaxDev = 16;
++  static long long s_slots[kMaxDev] = {0};
++  if (hipGetDevice(&dev) != hipSuccess || dev < 0 || dev >= kMaxDev) {
++    return 0;
++  }
++  if (s_slots[dev] == 0) {
++    hipDeviceProp_t prop;
++    int per_cu = 0;
++    if (hipGetDeviceProperties(&prop, dev) != hipSuccess ||
++        hipOccupancyMaxActiveBlocksPerMultiprocessor(&per_cu, fn, threads, 0) != hipSuccess) {
++      return 0;
++    }
++    s_slots[dev] = (long long)per_cu * (long long)prop.multiProcessorCount;
++  }
++  return s_slots[dev];
++}
++
+ /// The fp8 dtype the MFMA reads as raw OCP e4m3 bytes.  Checked by hand rather
+ /// than through ``with_dtype<fp8_e4m3_t>``: on ROCm ``sglang::fp8_e4m3_t`` is
+ /// ``uint8_t``, which ``DLDataTypeTrait`` maps to kDLUInt -- that would reject a
+@@ -960,7 +1497,8 @@ struct PagedMqaLogitsKernel {
+       const tvm::ffi::TensorView page_table,
+       const tvm::ffi::TensorView out,
+       const tvm::ffi::TensorView ghist,
+-      int64_t blocks_per_row) {
++      int64_t blocks_per_row,
++      int64_t rows_per_group) {
+     using namespace host;
+     namespace impl = dsa_gfx950::logits;
+ 
+@@ -1015,8 +1553,82 @@ struct PagedMqaLogitsKernel {
+     // covers whole pages.
+     RuntimeCheck(cols_.unwrap() % PAGE_TOK == 0, "out row must be a whole number of pages, got ", cols_.unwrap());
+ 
+-    LaunchKernel(
+-        dim3(static_cast<int>(blocks_per_row), static_cast<int>(rows_.unwrap())), dim3(8 * 64), device_.unwrap())(
++    // Rank rows by length (longest dispatched first) only when the grid needs more than one round of resident
++    // slots: with a single round the order is moot and the ranking would only add a round trip.  rows and
++    // blocks_per_row are host constants and the slot count is a per-device constant, so this is graph-safe.
++    const int rows_i = static_cast<int>(rows_.unwrap());
++
++    // blocks_per_row <= 0 selects the sibling-group kernel: rows come in groups of HOST_GR consecutive rows that
++    // (normally) share a page table.  Its grid is about one block per CU (it holds HOST_GR histograms in LDS, so one
++    // block fits per CU anyway), never fewer blocks than groups.  rows and the CU count are host constants, so this
++    // is graph-safe.
++    constexpr int HOST_GR = 6;
++    // Waves per sibling-group block: one block per CU (LDS), so this is the CU's whole occupancy.
++    constexpr int HOST_GW = 16;
++    if (blocks_per_row <= 0) {
++      RuntimeCheck(
++          rows_i % HOST_GR == 0 && rows_i >= HOST_GR && rows_i <= 64,
++          "the sibling-group logits kernel needs rows to be a multiple of ",
++          HOST_GR,
++          " in [",
++          HOST_GR,
++          ", 64], got ",
++          rows_i);
++      int nb = impl::device_cus();
++      if (nb <= 0) nb = 256;
++      if (nb < rows_i / HOST_GR) nb = rows_i / HOST_GR;
++      LaunchKernel(dim3(nb), dim3(HOST_GW * 64), device_.unwrap())(
++          impl::logits_hist_grp<HOST_GW, HOST_HB, HOST_GR>,
++          reinterpret_cast<const uint8_t*>(q.data_ptr()),
++          reinterpret_cast<const uint8_t*>(kv.data_ptr()),
++          static_cast<fp32_t*>(weights.data_ptr()),
++          static_cast<int*>(seqlens.data_ptr()),
++          static_cast<int*>(page_table.data_ptr()),
++          static_cast<fp32_t*>(out.data_ptr()),
++          reinterpret_cast<unsigned int*>(ghist.data_ptr()),
++          rows_i,
++          static_cast<int>(pages_.unwrap()),
++          static_cast<int>(out.stride(0)),
++          0);
++      return;
++    }
++
++    // rows_per_group 2 / 3 selects the 2-D sibling-group form: blocks_per_row blocks per group of that many
++    // consecutive rows.  Groups are ranked (longest leader first) whenever the grid is larger than the CU count, so
++    // that a CU's resident blocks pair heavy groups with light ones.
++    if (rows_per_group == 2 || rows_per_group == 3) {
++      RuntimeCheck(
++          rows_i % rows_per_group == 0 && rows_i <= 64,
++          "the 2-D sibling-group logits kernel needs rows to be a multiple of ",
++          rows_per_group,
++          " and at most 64, got ",
++          rows_i);
++      const int ng = rows_i / static_cast<int>(rows_per_group);
++      int cus = impl::device_cus();
++      if (cus <= 0) cus = 256;
++      const int rank_g = (static_cast<long long>(blocks_per_row) * ng > cus) ? 1 : 0;
++      auto kern = rows_per_group == 2 ? impl::logits_hist_grp<8, HOST_HB, 2, true>
++                                      : impl::logits_hist_grp<8, HOST_HB, 3, true>;
++      LaunchKernel(dim3(static_cast<int>(blocks_per_row), ng), dim3(8 * 64), device_.unwrap())(
++          kern,
++          reinterpret_cast<const uint8_t*>(q.data_ptr()),
++          reinterpret_cast<const uint8_t*>(kv.data_ptr()),
++          static_cast<fp32_t*>(weights.data_ptr()),
++          static_cast<int*>(seqlens.data_ptr()),
++          static_cast<int*>(page_table.data_ptr()),
++          static_cast<fp32_t*>(out.data_ptr()),
++          reinterpret_cast<unsigned int*>(ghist.data_ptr()),
++          rows_i,
++          static_cast<int>(pages_.unwrap()),
++          static_cast<int>(out.stride(0)),
++          rank_g);
++      return;
++    }
++
++    const long long slots = impl::resident_slots(reinterpret_cast<const void*>(impl::logits_hist_m<8, HOST_HB>), 8 * 64);
++    const int rank_rows = (rows_i <= 64 && blocks_per_row * rows_i > slots) ? 1 : 0;
++
++    LaunchKernel(dim3(static_cast<int>(blocks_per_row), rows_i), dim3(8 * 64), device_.unwrap())(
+         impl::logits_hist_m<8, HOST_HB>,
+         reinterpret_cast<const uint8_t*>(q.data_ptr()),
+         reinterpret_cast<const uint8_t*>(kv.data_ptr()),
+@@ -1026,7 +1638,8 @@ struct PagedMqaLogitsKernel {
+         static_cast<fp32_t*>(out.data_ptr()),
+         reinterpret_cast<unsigned int*>(ghist.data_ptr()),
+         static_cast<int>(pages_.unwrap()),
+-        static_cast<int>(out.stride(0)));
++        static_cast<int>(out.stride(0)),
++        rank_rows);
+   }
+ };
+ 
+@@ -1926,6 +2539,28 @@ inline bool prank_resident_ok(const void* fn, int blocks_per_row, int rows) {
+   const long long slots = (long long)per_cu * (long long)s_cu[dev];
+   return (long long)blocks_per_row * (long long)rows <= slots;
+ }
++
++// The largest blocks-per-row <= g that passes prank_resident_ok for `rows`, if it is at least g_min; else g.  The
++// persistent-rank form is worth more than the blocks it gives up (measured, rows 48: 116 us at G 42 with it against
++// 120 us at G 48 without), and G only repartitions the exact selection, so the top-k set is unchanged.
++inline uint32_t prank_fit_g(const void* fn, uint32_t g, int rows, uint32_t g_min) {
++  if (rows <= 0 || prank_resident_ok(fn, static_cast<int>(g), rows)) {
++    return g;
++  }
++  uint32_t lo = g_min, hi = g;  // invariant: hi fails; find the largest passing value in [lo, hi)
++  if (!prank_resident_ok(fn, static_cast<int>(lo), rows)) {
++    return g;
++  }
++  while (hi - lo > 1) {
++    const uint32_t mid = (lo + hi) / 2;
++    if (prank_resident_ok(fn, static_cast<int>(mid), rows)) {
++      lo = mid;
++    } else {
++      hi = mid;
++    }
++  }
++  return lo;
++}
+ }  // namespace dsa_gfx950::topk
+ 
+ struct TopKTransformKernel {
+@@ -1951,7 +2586,7 @@ struct TopKTransformKernel {
+     const int64_t PTS = page_table.stride(0);
+     RuntimeCheck(cand_idx.dim() == 2, "cand_idx must be [>=rows, cap]");
+     const int64_t cap = cand_idx.size(1);
+-    const uint32_t G = static_cast<uint32_t>(g_per_row);
++    uint32_t G = static_cast<uint32_t>(g_per_row);
+     // page_size must be 1 or a power of two; both give the identical mapping.
+     uint32_t PB = 0;
+     for (int64_t ps = page_size; ps > 1; ps >>= 1) {
+@@ -2018,6 +2653,11 @@ struct TopKTransformKernel {
+             is_type<fp32_t>(cand_val.dtype()),
+         "logits/cand_val must be fp32 and out/page_table/ghist/cursor/cand_idx int32");
+ 
++    // Shrink G (to no less than 32) where that lets the persistent-rank form run; see prank_fit_g.  Host
++    // constants only, so graph-safe.
++    G = impl::prank_fit_g(
++        reinterpret_cast<const void*>(impl::k_scatter<2, true, 16>), G, static_cast<int>(R), G < 32u ? G : 32u);
++
+     // PTMODE 2 is faster when its per-block page-table slice fits in LDS.  PTS
+     // is a static graph property while row_ends is replay-time data, so use PTS
+     // as the conservative upper bound.  PTMODE 0 has no page-table-width limit.
+@@ -2161,8 +2801,8 @@ def fused_decode_indexer(
+         q_proj.view(rows, N_HEADS, HEAD_DIM), q_fp8, weights, head_gate, k, kv_cache, out_cache_loc,
+         norm_w, norm_b, positions, cos2d, sin2d, float(eps), float(weights_scale))
+     out = torch.empty((rows, INDEX_TOPK), dtype=torch.int32, device=logits.device)
+-    logits_mod.logits_hist(q_fp8, kv_cache_read, head_gate, seqlens, page_table_64, logits, ws.ghist[:rows],
+-                           LOGITS_BLOCKS_PER_ROW)
++    bpr, rpg = logits_cfg(rows, page_table_64.shape[1])
++    logits_mod.logits_hist(q_fp8, kv_cache_read, head_gate, seqlens, page_table_64, logits, ws.ghist[:rows], bpr, rpg)
+     topk_mod.topk_transform(logits, seqlens, page_table_64, out, ws.ghist[:rows], ws.cursor[:rows],
+                             ws.cand_idx[:rows], ws.cand_val[:rows], TOPK_G, PAGE_SIZE)
+     return out

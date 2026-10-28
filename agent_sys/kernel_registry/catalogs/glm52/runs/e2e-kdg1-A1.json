@@ -1,0 +1,187 @@
+{
+  "kind": "run",
+  "name": "e2e-kdg1-A1",
+  "description": "Historical serving measurement of the configured kernel bundle.",
+  "run_type": "e2e",
+  "timestamp": "2026-10-24T08:42:14.535125",
+  "kernels": {
+    "dcp_sparse": "kf-iter5-6af13db6"
+  },
+  "sources": [
+    {
+      "path": "payload/campaigns/dcp_sparse/sources/6af13db61557bc8bcd9ae22814bc79062f92a140.py",
+      "sha256": "8430dba96332b985e2275e4e439de885ddf9b5f31e3faa04dee751441a630682",
+      "size": 64913,
+      "representation": "unchanged",
+      "historical_original_sha256": "8430dba96332b985e2275e4e439de885ddf9b5f31e3faa04dee751441a630682"
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payload/tasks/dcp_sparse/dcp_sparse_kernel.pristine.py",
+      "sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2",
+      "size": 55733,
+      "representation": "unchanged",
+      "historical_original_sha256": "11e43c9e11d95097ac520c948e0baab795ba1811283e9fe0cc5f68dcbadf67e2",
+      "role": "original"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-decode-kernels-e2e.packup_20261023/cluster/v0521dbg_20261010/runs/kda1/agentx-c56-A1/agentx_conc56.json",
+      "sha256": "9e4656c4f362a74875f85e838b318b8a4ddcb4f6658af3f21939a91d19302558",
+      "size": 5756,
+      "representation": "redacted",
+      "historical_original_sha256": "dd4317d12e857afbfc4733164763497ae16368d67667664bc891fc9564a3aa10"
+    }
+  ],
+  "environment": "historical-stack-a",
+  "baseline_environment": "historical-stack-a",
+  "integration": [
+    {
+      "path": "payload/overlay/base/sitecustomize.py",
+      "sha256": "9217285da2948b375a5642269afab11ca00be06cc6a4854230a92b422c0c6bea",
+      "size": 765,
+      "representation": "redacted",
+      "historical_original_sha256": "862246a2022e8b4e4004113b03253c0736e9478917eb3db21d5e5ee195e4245d"
+    },
+    {
+      "path": "payload/overlay/base/infera_kernels/__init__.py",
+      "sha256": "8a1c7a7e76747c30d86b4b378e18db99c5ee66f031f704759386edb02c24011c",
+      "size": 28643,
+      "representation": "redacted",
+      "historical_original_sha256": "a3579ef40301704a34bcefaf395ac078c10d095f56c7b60884818e44a808d1b8"
+    }
+  ],
+  "workload": {
+    "input_identity": {
+      "source_type": "public_dataset",
+      "loader": "semianalysis_cc_traces_weka_062126",
+      "hf_dataset_name": "semianalysisai/cc-traces-weka-062126",
+      "hf_split": "train",
+      "num_dataset_entries": 393
+    },
+    "model_path": "REDACTED_LOCAL_PATH",
+    "model_identity": null,
+    "concurrency": 56,
+    "input_kind": "AgentX serving trace, simulated speculative acceptance"
+  },
+  "configuration": {
+    "image": "historical-sglang-image-a",
+    "prefill_tp": 4,
+    "prefill_pp": 1,
+    "decode_tp": 4,
+    "decode_pp": 1,
+    "decode_dcp_size": 1,
+    "decode_ep": 4
+  },
+  "commands": [
+    "Historical invocation is described by retained REPRODUCE.md and runtime.env; exact shell command not captured in this record."
+  ],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "full-model",
+    "summary": "No full-model correctness result accompanies this performance observation.",
+    "tolerances": {},
+    "applies_to": "historical originals"
+  },
+  "metrics": [
+    {
+      "name": "tpot_mean",
+      "unit": "ms",
+      "direction": "lower",
+      "aggregation": "ratio",
+      "baseline": 19.439999999999998,
+      "candidate": 18.919999999999998
+    }
+  ],
+  "comparison": {
+    "controlled": false,
+    "confounders": [
+      "Sparse-only run and baseline used different nodes."
+    ]
+  },
+  "activation": "confirmed",
+  "evidence": [
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/cluster/v0521dbg_20261010/runs/kdg1/agentx-c56-A1/agentx_conc56.json",
+      "sha256": "949398846b422840d16730d55d0d0506a924e13586524820b7515115521f2eaf",
+      "size": 5770,
+      "representation": "redacted",
+      "historical_original_sha256": "6219c0241a71f510a7b0e7e3f8f60da749c135113fab140888df2199c7cda81b"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/cluster/v0521dbg_20261010/runs/kdg1/agentx-c56-A1/runtime.env",
+      "sha256": "f3645c75f7fc9048cc23d321bb7bef5fc196e10f4d6d895c1f4cfe8b3aadf612",
+      "size": 1772,
+      "representation": "redacted",
+      "historical_original_sha256": "68fc28de60c34727dad9aad9ec706bfacf3fdd92c48254a74b443650c53e1414"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/README.md",
+      "sha256": "79a2b7f2520d574df0b812bce291126b06d3ea8b629f9b775fd96b3f2347ca7a",
+      "size": 4916,
+      "representation": "redacted",
+      "historical_original_sha256": "c7265f22ce5d746c328e3bf607ffb2a0d1d184d97a3ecbe32c3f493e5cbb4255"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/environment.md",
+      "sha256": "56d4c4446c1b53e6c891f48e603970cc21f9627242c50b3adb0e263d7dabfc67",
+      "size": 1652,
+      "representation": "redacted",
+      "historical_original_sha256": "e05cdfbae995152d09bffb6423ccbbc00486b1db9cd2427dba78a2f6a6509675"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/REPRODUCE.md",
+      "sha256": "67e8b133a029b945dbe5b96b885a92f2f11a14c876ea6d444fdeb821892c0010",
+      "size": 3049,
+      "representation": "redacted",
+      "historical_original_sha256": "bd266e2fdb7de92fc5e377cd1148a01fe07a0700397b5634266673e1fff81896"
+    },
+    {
+      "path": "payload/evidence/glm52.kf-dcp-and-fused-indexer.packup_20261025/cluster/v0521dbg_20261010/runs/kdg1/agentx-c56-A1/aiperf_artifacts/profile_export_aiperf.json",
+      "sha256": "1e77c534953691df208be6c095f1896bdf07eb33dfc98e87f6fabfc764fb28a7",
+      "size": 44824,
+      "representation": "redacted",
+      "historical_original_sha256": "3d0b63c052910f1ae946fd3e162819f007d68edcc74f76d2e006e9b98e377a71"
+    }
+  ],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "Full benchmark-time package inventory",
+      "Host driver/OS/Python capture",
+      "Timestamp timezone was not recorded",
+      "External input availability",
+      "Model checkpoint content identity",
+      "Exact baseline target-image source digests",
+      "Exact full invocation",
+      "Per-run adapter identity for later pd configurations"
+    ]
+  },
+  "limitations": [
+    "The measurement concerns a bundle; per-kernel e2e attribution was not measured.",
+    "Simulated acceptance and live kernel CHECK do not establish full-model correctness.",
+    "Published payloads and adapters are redacted historical derivatives. Historical correctness and performance apply to the original bytes; revalidate the published versions on the target GPU stack."
+  ],
+  "provenance": {
+    "imported": true,
+    "rerun": false,
+    "representation": "published redacted historical derivative",
+    "gpu_revalidated": false
+  },
+  "observed_metrics": {
+    "tpot_mean_ms": 18.919999999999998,
+    "score_tokens_s_chip": 27306.38639,
+    "qps": 1.66529,
+    "request_accounting": {
+      "records_total": 6655,
+      "records_profiled": 6036,
+      "records_dropped_total": 619,
+      "records_warmup_dropped": 619,
+      "records_error_dropped": 4,
+      "error_categories": {
+        "InvalidInferenceResultError": 4
+      }
+    }
+  },
+  "source_bytes": "redacted"
+}

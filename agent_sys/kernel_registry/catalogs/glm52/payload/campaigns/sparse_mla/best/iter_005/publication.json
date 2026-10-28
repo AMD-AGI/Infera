@@ -1,0 +1,31 @@
+{
+  "artifact_dir": "best/iter_005",
+  "baseline_wall_ms": 0.1151,
+  "benchmark_path": "best/iter_005/benchmark.json",
+  "best_wall_ms": 0.0543,
+  "campaign_id": "ae5da4c0d4c04570b40e35853c534c72",
+  "changed_files": [
+    "sparse_mla_kernel.py"
+  ],
+  "commit_hash": "448751982717123c34c9edfbdceb451d404271b7",
+  "correctness_passed": true,
+  "experiment_id": "e924ff06",
+  "improved_during_search": true,
+  "incremental_improved": true,
+  "incremental_speedup": 2.022302,
+  "iteration": 5,
+  "mean_case_speedup": 2.0223016274914465,
+  "patch_path": "best/iter_005/forge.patch",
+  "plan": "route decode to split-K at BLOCK_H=64 with computed splits, async copy, wide reduce",
+  "pristine_baseline_ms": 0.1151,
+  "published_at": "2026-10-20 22:33:53",
+  "schema_version": 1,
+  "search_start_mean_case_speedup": 1.0,
+  "search_start_ms": 0.1151,
+  "session_index": 5,
+  "snr_db": 37.42,
+  "speedup": 2.022302,
+  "total_improved": true,
+  "total_speedup": 2.022302,
+  "validation_path": "best/iter_005/validation.txt"
+}
