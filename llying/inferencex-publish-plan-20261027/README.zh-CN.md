@@ -74,6 +74,10 @@
 - **与 Infera 版本的兼容性**：srt-slurm 把 `frontend.args` 原样传给 `infera-router`，以后新增的 router 策略和参数直接写在 recipe 里，srt-slurm 不用改；
   ≥ 0.3.2 的版本都能用，前提是这些约定保持兼容：可执行文件 `infera-router` 与模块 `infera.engine.sglang`、srtctl 管理的 router 参数、srtctl 传给包装层的参数、
   `/v1/workers` 的 `disagg_mode` / `status` 字段、#222 的端口行为。需要 worker 多开监听端口或改用 NATS 的新功能，才要同步改 srt-slurm。
+- **为以后的 infera-vllm 预留（10-28）**：#630 的钩子改为 `direct_worker_launcher(backend, process, runtime)`，包装层模块按引擎查表 `WORKER_LAUNCHERS`
+  （目前只有 sglang）；以后加 vLLM 只需加一行表项、让 vLLM backend 调用钩子，并处理 vLLM 每个 DP rank 各自登记的就绪计数。Infera #222 扩展到 vLLM 包装层
+  （端口解析抽到 `infera/common/kv_events_config.py`，并拒绝 router 不订阅的 topic）。InferenceX 侧只需加 `infera-vllm` → `vllm` 映射，但规则按 vLLM 走
+  （上游 vLLM 镜像、vLLM recipes 网站）。
 - **InferenceX 的 PR 怎么拆**：InferenceX 仓库一个 PR（framework 注册 + 安装脚本 + recipe + master 条目 + perf-changelog，照 TileRT #3552 的做法），
   InferenceX-app 一个 PR（仪表板显示名）。framework 注册不单独提：单独提时评审看不到用法、CI 也覆盖不到，而且要和 srt-slurm 子模块升级（或带补丁）一起改。
 
