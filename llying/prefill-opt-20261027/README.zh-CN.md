@@ -20,6 +20,15 @@
    而上一级只在**下一轮（j+1）**的第 8 步转发（`_pp_send_output_to_next_stage` 发的是上一轮收到的 `pp_outputs`），
    在那之前它要做完自己下一轮的调度（`get_new_batch_prefill`，含驱逐 / 回载）——所以每级的发射都卡在上游下一轮的调度上，环是锁步的。
    E6（异步深度 2，在途 microbatch 5 → 6）正好放松这条链一轮，19:05 左右出结果；若有效，下一步是改转发时机（收到即转发）。
+   **NCCL 层面的定位（`scripts/prefill_pp_nccl.py`）**：上游的 proxy 发送提交得很早（比上游 GPU 算完早 120–160 ms），发送 kernel 正好在上游 forward
+   结束时开始；**但发送 kernel 本身要跑 PP0→PP1 中位 73 ms（p90 328）、PP1→PP2 19 ms、PP2→PP3 4.5 ms**（4.5 ms 才是 100 MB hidden states 的真实传输）。
+   原因（读 `parallel_state.py` / `scheduler_pp_mixin.py`）：isend / irecv 都在同一条 `pp_comm_stream` 上下文里入队，PyTorch 让每对 rank 的 NCCL 内部 stream
+   先等 `pp_comm_stream` 的尾部，而尾部有本级上一次发送的 `work.wait()`（`_pp_commit_comm_work`）和等本级 forward 的事件——**本级的接收排在本级的发送后面**，
+   发送又要等下一级开始接收，于是越靠前的级等得越久；PP0 每次发射前对"PP3 发来的输出"做的 d2h 同步也排在这条链后面（闭合段长的原因）。
+   **E7：接收单独一条 stream**（kit `patches/pp-recv-stream/scheduler_pp_mixin.py`，`config/pp-recv-stream.patch`，`SGLANG_PP_RECV_STREAM=0` 可关；
+   收到的张量 `record_stream` 到 forward / copy stream，比原来更安全）。每对 rank 的消息顺序不变，不引入新的等待环。
+   队列 `scripts/night10_1028.sh`：night9 之后先跑 E7 完整正确性（`scripts/gate_pass2.py`，按题数比例判长上下文、探测乱码上限 6 以容纳既有 bug），
+   通过才跑 C104 性能，再采 E7 四级 trace 核对机制。
 3. decode 侧（`scripts/decode_dp_balance.py`，E1 复测）：4 个 DP rank 的 KV 用量中位都是 0.93、运行中请求 11.4–12.7，均衡；某 rank 排 prealloc 时
    另一 rank 低于 80% 的只占 3% → **换负载均衡方法没有用**。decode KV 里约 22% 是给"还在 prefill"的请求预占的（平均 20 个请求等传输），
    prefill 越快这部分越少——两头的瓶颈都落在 prefill 吞吐上。
