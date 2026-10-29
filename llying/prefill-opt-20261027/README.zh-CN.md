@@ -3,6 +3,15 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## 10-29 11:50 E10：限池门禁通过；第一次计分起栈失败（环境问题），已重排计分
+
+- **门禁通过**（`full-site-llr35-v3-evict-bq16-gate-1029T0705.out`）：探测 0.985、乱码 0、开头坏 4、跑到上限 3（对照 4 / 6 / 6）；两遍 16k × 128 捞针 64 / 64、
+  长前缀 GSM8K 62 / 63 of 64，乱码 0。`gate_pass2.py` 判定 PASS。
+- **07:20 的 C104 没有跑成**（run `c104-1029T0726`）：decode（140）上 Mooncake `rdma_context.cpp: Failed to register memory ... Invalid argument`，
+  prefill → decode dp_rank=3 的 PD 探测 3 次失败，起栈中止。最近 25 次部署里第一次出现，传输层问题，与 E10（只改 HiCache D2H 写回的 grid）无关；
+  当时距门禁拆栈只有约 1 分钟。11:50 两节点 GPU 4–7 显存均为 0。
+- **11:52 重排**（`scripts/night21_1029.sh`）：只跑 E1 + E10 的 C104 计分 + `analyze_run.sh` + `beat_vs_evict.py`，约 13:10 出结果。预测与判定条件见下节，不变。
+
 ## 10-29 07:30 E10：写回 kernel 的 workgroup 2 → 16（叠在 E1 上），正确性已离线验证，门禁 → 计分已排队
 
 **改动**：`config/hicache-backup-quota.patch`。kit 里是 `patches/hicache-backup-quota/{mla,dsa}.py`，基线从镜像原样取出（`*.orig.py`）。
