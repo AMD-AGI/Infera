@@ -5,6 +5,14 @@
 
 ## 10-27 夜：调优实验总表（结论先行，每组跑完更新）
 
+**10-29 01:40 更新：E7d 计分中段也偏慢约 6% → 怀疑 HIP 硬件队列复用；先测 GPU_MAX_HW_QUEUES=8**
+- E7d 计分约 27 分钟时完成 5,705 个请求，E1 复测同一时刻约 6,040；最近 10 分钟速率 3.73 / 3.96 请求/秒。E7d 没有 `record_stream`，所以 E7 / E7d 变慢的主因是独立接收 stream 本身。
+- 假设：HIP 把软件 stream 轮流映射到硬件队列（`GPU_MAX_HW_QUEUES` 默认 4；容器里没设），prefill 进程里 stream 很多（调度、forward、copy、PP comm、NCCL 内部、HiCache）；
+  新增的接收 stream 若与调度 stream 共用一个硬件队列，它一提交就在 GPU 上自旋等上游的 NCCL 接收 kernel，会挡住调度 stream 上的小拷贝——正好对应 E7 trace 里
+  `kv_to_page_indices` 的约 200 ms 等待；原代码的接收排在 comm stream 后面才开始，自旋时间短。
+- **队列 `scripts/night18_1029.sh`（替换 night17）**：E7d 完整正确性 → **E1 + E7d + `GPU_MAX_HW_QUEUES=8`** C104 → **E1 + `GPU_MAX_HW_QUEUES=8`** C104（基线是否也受队列复用影响）
+  → E8 限池门禁 + C104。
+
 **10-29 00:50 更新：E3 不通过、今晚撤掉；E7d 限池门禁通过、性能在跑**
 - **E1 + E3（23:35 修正后的版本）限池门禁不通过**（`full-site-llr35-v3-e1-e3-gate-1028T2347.out`）：探测 0.915、**乱码 12**、跑到上限 15、开头坏 0（对照 4 / 6 / 6）；
   长上下文干净。乱码的样子和"开头坏"不同：开头正常（"The problem asks for…"），写到很长后退化成 "0. 0. 0." / "laullaul…"，多数跑到 16K——像 prompt 中间某些页的 KV 坏了。
