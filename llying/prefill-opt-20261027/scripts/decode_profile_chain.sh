@@ -19,19 +19,24 @@ busy() {
     on "$1" "rocm-smi --showmeminfo vram --csv" | awk -F, -v g="$2" 'BEGIN {n = split(g, a, ","); for (i = 1; i <= n; i++) w["card" a[i]] = 1}
         NR > 1 && ($1 in w) && $2 != "" && 100 * $3 / $2 >= 1 {print $1}'
 }
-until [[ -z "$(busy localhost "$PREFILL0_GPUS")$(busy "$DECODE_SSH" "${DECODE_GPUS:-0,1,2,3,4,5,6,7}")" ]]; do sleep 60; done
-{
-    for n in "${nodes[@]}"; do
-        echo "===== $n $(date -u +%FT%TZ)"
-        on "$n" "rocm-smi --showmeminfo vram --csv; rocm-smi --showpids; docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}'; uptime"
-    done
-} >"$log_dir/$label.env-check" 2>&1
-echo "$(date -u +%T) $label up"
-if ! (cd "$kit" && SIM_ACCEPT_LEN="${SIM-3.61}" RUN_ID="$label-$(date -u +%m%dT%H%M)" bash engine/up.sh) >"$log_dir/$label.log" 2>&1; then
-    echo "$(date -u +%T) $label up failed"
+# One retry: 10-29 two of three start-ups failed on the decode's Mooncake ibv_reg_mr (EINVAL, same 401,795,328 B region).
+for attempt in 1 2; do
+    until [[ -z "$(busy localhost "$PREFILL0_GPUS")$(busy "$DECODE_SSH" "${DECODE_GPUS:-0,1,2,3,4,5,6,7}")" ]]; do sleep 60; done
+    {
+        for n in "${nodes[@]}"; do
+            echo "===== $n $(date -u +%FT%TZ)"
+            on "$n" "rocm-smi --showmeminfo vram --csv; rocm-smi --showpids; docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}'; uptime"
+        done
+    } >"$log_dir/$label.env-check" 2>&1
+    echo "$(date -u +%T) $label up (attempt $attempt)"
+    if (cd "$kit" && SIM_ACCEPT_LEN="${SIM-3.61}" RUN_ID="$label-$(date -u +%m%dT%H%M)" bash engine/up.sh) >"$log_dir/$label.log" 2>&1; then
+        break
+    fi
+    echo "$(date -u +%T) $label up failed (attempt $attempt)"
+    cp "$log_dir/$label.log" "$log_dir/$label.log.failed$attempt"
     (cd "$kit" && bash engine/down.sh) >>"$log_dir/$label.log" 2>&1
-    exit 1
-fi
+    [[ $attempt == 2 ]] && exit 1
+done
 run_dir="$(cat "$WORK_DIR/current_run")"
 (cd "$kit" && CONC="$conc" DURATION="$duration" bash engine/agentx/agentx.sh) >>"$log_dir/$label.log" 2>&1 &
 ax=$!
