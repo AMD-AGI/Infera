@@ -262,3 +262,13 @@ def test_digest_reads_a_scriptpath_workflow_at_digest_time(tmp_path, present, ex
     assert (
         len(d.workflows) == 1 and expect in d.workflows[0] and "scriptPath wf.js" in d.workflows[0]
     )
+
+
+def test_scaffold_copies_audit_clean():
+    """`scaffold` copies the template validator into every package, and
+    `remote backup` audits every file it publishes: the template itself must
+    not read as a secret, or no scaffolded package can be backed up."""
+    from skillkit import audit  # noqa: PLC0415
+
+    templates = AGENT_SYS / "tools" / "skill" / "lib" / "skillkit" / "templates"
+    assert audit.audit(templates).blocking == []

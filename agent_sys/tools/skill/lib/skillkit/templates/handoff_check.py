@@ -103,7 +103,7 @@ _REFERENCE = re.compile(r"[$(\[<{]|REDACTED")
 
 
 def _is_reference(m):
-    """Judged on the VALUE only (after group 1), so `curl $URL -u bob:pw` is
+    """Judged on the VALUE only (after group 1), so a curl `-u` user:password pair is
     still a literal password even though the command line holds a `$`."""
     if m.group(0).startswith("-----BEGIN"):
         return False
