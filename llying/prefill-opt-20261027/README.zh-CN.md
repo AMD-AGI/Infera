@@ -3,6 +3,51 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## 10-29 07:30 E10：写回 kernel 的 workgroup 2 → 16（叠在 E1 上），正确性已离线验证，门禁 → 计分已排队
+
+**改动**：`config/hicache-backup-quota.patch`。kit 里是 `patches/hicache-backup-quota/{mla,dsa}.py`，基线从镜像原样取出（`*.orig.py`）。
+`pool_host/mla.py`（KV）和 `pool_host/dsa.py`（DSA indexer）各只有一处 `transfer_kv_all_layer_mla_lf_pf` 调用，就是 write_back 驱逐的 D2H 写回。
+两处都加 `block_quota=_BACKUP_BLOCK_QUOTA`，由环境变量 `SGLANG_HICACHE_BACKUP_BLOCK_QUOTA` 控制；不设时为 2，和镜像行为完全一样。
+配置：`site-llr35-v3-evict512k-bq16.env`（计分）、`site-llr35-v3-evict-bq16-gate.env`（限池门禁）。
+
+**为什么不影响正确性**
+1. **kernel 层面**（`kernels/aot/csrc/kvcacheio/transfer.cu`）：launcher 先算 `items_per_warp = ceil(n / (block_quota × warps))`，
+   第 w 个 warp 负责第 [w·items_per_warp, (w+1)·items_per_warp) 个 item，各区间互不重叠、合起来覆盖全部 item；warp 之间没有通信、归约或顺序依赖。
+   所以 `block_quota` 只改变并行切分，写出的字节集合不变。下标是 int32 的 `tid`，quota 16 时只有 16K 线程，不会溢出。
+2. **实测**（`bench_hicache_backup.py`，138 GPU 4–7，生产形状：KV 20 层 × 576 B、indexer 5 层 × 8,448 B、一次驱逐 75 个节点）：
+   quota 取 1–64 时，每种配置都逐字节一致；目标行以外的主机内存全部保持哨兵值，没有越界写。
+3. **系统层面**：写回 kernel 仍在同一条 stream 上，写栅栏（等 forward 结束）和完成事件（kernel 之后记录、`writing_check` 同步等待）都不变，
+   所以"何时算写完"与 grid 大小无关，主机数据在确认完成之前不会被读。
+4. **生产镜像内的冒烟测试**（`test_e10_backup_patch.py`，按生产路径挂载）：确认加载的是挂载的源码（不是旧 `.pyc`）；
+   直接调用真实的 `backup_from_device_all_layer`，不设变量时 KV 278 ms（和原来一样），设 16 时 125 ms，两种情况都逐字节一致、无越界写。
+5. **端到端**：先跑限池门禁（驱逐最重；第二遍长上下文正是回载第一遍写回的数据），按 `gate_pass2.py` 判定，通过才计分。
+   生产配置的完整套件不触发驱逐，测不到这条路径，所以不跑。
+
+**带宽**：
+
+| `block_quota` | 1 | 2（默认） | 4 | 8 | 16 | 32 | 64 |
+|---|---|---|---|---|---|---|---|
+| KV，每次驱逐 6.14 GB | 552 ms | 277 ms | 140 | 139 | 125 | 122 | 123 |
+| indexer，每次驱逐 0.35 GB | 21.4 ms | 12.7 ms | 8.6 | 7.7 | 7.7 | 7.7 | 7.7 |
+
+四块卡结果一致。quota 16 达到峰值的 98%（约 49 GB/s，已到 PCIe 上限）。默认值下的 277 ms 和生产 trace 里每次驱逐 274–320 ms 的同步时间吻合。
+驱逐期间本级的 forward 已经结束（写栅栏），调度线程阻塞，不会有新的 forward 发射，所以加大 grid 没有 CU 争用。
+
+**定量预测（开跑前写下）**
+- **机制（计分小时的 metrics）**：每次驱逐各级都减少约 0.157 s（KV 277 → 125 ms，indexer 12 → 8 ms），
+  均值预计 PP0 0.52 → 约 0.36 s、PP1 0.33 → 约 0.18、PP2 0.40 → 约 0.24、PP3 0.37 → 约 0.21；写回 token 数和驱逐次数不变。
+  **如果 PP1–PP3 的驱逐均值没有降到 0.25 s 以下，就说明机制不成立，停止计分。**
+- **环**：每次驱逐事件四级之和 1.62 → 约 0.99 s（−39%）。排队超额按比例模型每小时少约 340 s；按"每级扣掉约 0.175 s 的空闲余量"模型
+  （损失 ≈ Σ max(0, 驱逐时间 − 余量)）每小时少约 580 s。排队节拍均值 472 → 375–415 ms。
+- **端到端**：prefill 有排队时吞吐 +12% 到 +20%。E1 的经验是 prefill +3.6% 对应端到端 +2.8%，但 prefill 变快后 decode 开始吃紧
+  （HC500 + E1 只部分叠加），所以预测 **+3% 到 +8%（点估计 +5%，约 52.2K）**；下限也高于 1% 门槛。
+
+**上游**：issue [#46952](https://github.com/sgl-project/sglang/issues/46952)（10-28，open）报的是同样的现象，提议之一就是带水位的后台写回（即 E9），
+但没有 PR，维护者也还没回复；作者还问维护者 write_back 是否还会继续支持（代码注释写着这条路径"will be deprecated in the future"）。
+PR [#46930](https://github.com/sgl-project/sglang/pull/46930)（每次驱逐遍历只等一次，即 E3 思路，带 parity 测试，AMD CI 红）和
+[#47126](https://github.com/sgl-project/sglang/pull/47126)（复用主机侧堆；我们的 `evict_host` 每次只有约 2 ms，关系不大）都还是 open。
+上游没有关于写回 kernel `block_quota` 的讨论。E9 等 E10 的结果出来、并且上游有了方向之后再议。
+
 ## 10-29 06:00 第 1 项结论：长节拍来自驱逐时的同步写回，usage 只是回载量的标志；撤回"驱逐已否定"
 
 全部离线（138 空闲时只读分析，未起栈）。脚本 `scripts/beat_vs_evict.py`、`trace_compact.py`、`trace_evict_check.py`、`evict_breakdown.py`、

@@ -1,0 +1,56 @@
+--- mla.orig.py	2026-10-29 07:00:13.576735445 +0000
++++ mla.py	2026-10-29 07:00:36.698034221 +0000
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import logging
++import os
+ from typing import Optional, Sequence
+ 
+ import torch
+@@ -61,6 +62,9 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++# Workgroups of the all-layer D->H write-back copy; 2 is the kernel's own default.
++_BACKUP_BLOCK_QUOTA = int(os.environ.get("SGLANG_HICACHE_BACKUP_BLOCK_QUOTA", "2"))
++
+ 
+ class MLATokenToKVPoolHost(HiSparseHostPoolMixin, HostKVCache):
+     device_pool: MLATokenToKVPool
+@@ -939,6 +943,7 @@
+                         item_size=self.token_stride_size,
+                         dst_layout_dim=self.layout_dim,
+                         num_layers=self.layer_num,
++                        block_quota=_BACKUP_BLOCK_QUOTA,
+                     )
+             else:
+                 raise ValueError(f"Unsupported layout: {self.layout}")
+--- dsa.orig.py	2026-10-29 07:00:14.100132992 +0000
++++ dsa.py	2026-10-29 07:00:41.777887698 +0000
+@@ -1,6 +1,7 @@
+ from __future__ import annotations
+ 
+ import logging
++import os
+ import threading
+ from typing import TYPE_CHECKING
+ 
+@@ -53,6 +54,9 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++# Workgroups of the all-layer D->H write-back copy; 2 is the kernel's own default.
++_BACKUP_BLOCK_QUOTA = int(os.environ.get("SGLANG_HICACHE_BACKUP_BLOCK_QUOTA", "2"))
++
+ 
+ def dsa_indexer_bytes_per_token_per_layer(
+     *, index_head_dim: int, quant_block_size: int
+@@ -535,6 +539,7 @@
+                         item_size=self.indexer_page_stride_size,
+                         dst_layout_dim=self.indexer_layout_dim,
+                         num_layers=self.layer_num,
++                        block_quota=_BACKUP_BLOCK_QUOTA,
+                     )
+             else:
+                 raise ValueError(f"Unsupported layout: {self.layout}")

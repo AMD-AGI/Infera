@@ -1,0 +1,19 @@
+AMD Instinct MI355X 2.9.1+rocm7.2.0.git7e1940d4
+[KV] pinned host 24.2 GB in 7 s; device 48.3 GB
+[KV] warps 16 block_quota   1: one eviction (75 calls, 6.14 GB)   552.0 ms =  11.1 GB/s (reps 581, 552, 552 ms); all destination rows exact: True
+[KV] warps 16 block_quota   2: one eviction (75 calls, 6.14 GB)   277.1 ms =  22.1 GB/s (reps 292, 278, 277 ms); all destination rows exact: True
+[KV] warps 16 block_quota   4: one eviction (75 calls, 6.14 GB)   140.1 ms =  43.8 GB/s (reps 147, 141, 140 ms); all destination rows exact: True
+[KV] warps 16 block_quota   8: one eviction (75 calls, 6.14 GB)   139.2 ms =  44.1 GB/s (reps 139, 139, 139 ms); all destination rows exact: True
+[KV] warps 16 block_quota  16: one eviction (75 calls, 6.14 GB)   125.4 ms =  49.0 GB/s (reps 127, 125, 125 ms); all destination rows exact: True
+[KV] warps 16 block_quota  32: one eviction (75 calls, 6.14 GB)   122.2 ms =  50.2 GB/s (reps 123, 122, 122 ms); all destination rows exact: True
+[KV] warps 16 block_quota  64: one eviction (75 calls, 6.14 GB)   122.6 ms =  50.1 GB/s (reps 123, 123, 123 ms); all destination rows exact: True
+[KV] host rows outside the destinations still holding the sentinel: 1564352 / 1564352 (stray writes: 0)
+[indexer] pinned host 1.4 GB in 1 s; device 2.8 GB
+[indexer] warps 16 block_quota   1: one eviction (75 calls, 0.35 GB)    21.4 ms =  16.4 GB/s (reps 24, 21, 21 ms); all destination rows exact: True
+[indexer] warps 16 block_quota   2: one eviction (75 calls, 0.35 GB)    12.7 ms =  27.6 GB/s (reps 14, 13, 13 ms); all destination rows exact: True
+[indexer] warps 16 block_quota   4: one eviction (75 calls, 0.35 GB)     8.6 ms =  41.1 GB/s (reps 9, 9, 9 ms); all destination rows exact: True
+[indexer] warps 16 block_quota   8: one eviction (75 calls, 0.35 GB)     7.7 ms =  45.9 GB/s (reps 8, 8, 8 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  16: one eviction (75 calls, 0.35 GB)     7.7 ms =  45.9 GB/s (reps 8, 8, 8 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  32: one eviction (75 calls, 0.35 GB)     7.7 ms =  45.9 GB/s (reps 8, 8, 8 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  64: one eviction (75 calls, 0.35 GB)     7.7 ms =  45.9 GB/s (reps 8, 8, 8 ms); all destination rows exact: True
+[indexer] host rows outside the destinations still holding the sentinel: 24443 / 24443 (stray writes: 0)

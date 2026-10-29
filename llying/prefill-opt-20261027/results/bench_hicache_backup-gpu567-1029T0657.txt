@@ -1,0 +1,36 @@
+=== GPU 5
+AMD Instinct MI355X 2.9.1+rocm7.2.0.git7e1940d4
+[KV] pinned host 24.2 GB in 7 s; device 48.3 GB
+[KV] warps 16 block_quota   2: one eviction (75 calls, 6.14 GB)   275.4 ms =  22.3 GB/s (reps 290, 275 ms); all destination rows exact: True
+[KV] warps 16 block_quota  16: one eviction (75 calls, 6.14 GB)   125.3 ms =  49.0 GB/s (reps 126, 125 ms); all destination rows exact: True
+[KV] warps 16 block_quota  32: one eviction (75 calls, 6.14 GB)   122.3 ms =  50.2 GB/s (reps 123, 122 ms); all destination rows exact: True
+[KV] host rows outside the destinations still holding the sentinel: 1564352 / 1564352 (stray writes: 0)
+[indexer] pinned host 1.4 GB in 1 s; device 2.8 GB
+[indexer] warps 16 block_quota   2: one eviction (75 calls, 0.35 GB)    11.6 ms =  30.3 GB/s (reps 13, 12 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  16: one eviction (75 calls, 0.35 GB)     7.7 ms =  45.8 GB/s (reps 8, 8 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  32: one eviction (75 calls, 0.35 GB)     7.7 ms =  45.7 GB/s (reps 8, 8 ms); all destination rows exact: True
+[indexer] host rows outside the destinations still holding the sentinel: 24443 / 24443 (stray writes: 0)
+=== GPU 6
+AMD Instinct MI355X 2.9.1+rocm7.2.0.git7e1940d4
+[KV] pinned host 24.2 GB in 7 s; device 48.3 GB
+[KV] warps 16 block_quota   2: one eviction (75 calls, 6.14 GB)   276.8 ms =  22.2 GB/s (reps 291, 277 ms); all destination rows exact: True
+[KV] warps 16 block_quota  16: one eviction (75 calls, 6.14 GB)   127.7 ms =  48.1 GB/s (reps 129, 128 ms); all destination rows exact: True
+[KV] warps 16 block_quota  32: one eviction (75 calls, 6.14 GB)   124.7 ms =  49.2 GB/s (reps 125, 125 ms); all destination rows exact: True
+[KV] host rows outside the destinations still holding the sentinel: 1564352 / 1564352 (stray writes: 0)
+[indexer] pinned host 1.4 GB in 1 s; device 2.8 GB
+[indexer] warps 16 block_quota   2: one eviction (75 calls, 0.35 GB)    11.8 ms =  29.7 GB/s (reps 13, 12 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  16: one eviction (75 calls, 0.35 GB)     7.8 ms =  45.0 GB/s (reps 8, 8 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  32: one eviction (75 calls, 0.35 GB)     7.8 ms =  45.3 GB/s (reps 8, 8 ms); all destination rows exact: True
+[indexer] host rows outside the destinations still holding the sentinel: 24443 / 24443 (stray writes: 0)
+=== GPU 7
+AMD Instinct MI355X 2.9.1+rocm7.2.0.git7e1940d4
+[KV] pinned host 24.2 GB in 7 s; device 48.3 GB
+[KV] warps 16 block_quota   2: one eviction (75 calls, 6.14 GB)   276.9 ms =  22.2 GB/s (reps 292, 277 ms); all destination rows exact: True
+[KV] warps 16 block_quota  16: one eviction (75 calls, 6.14 GB)   125.5 ms =  48.9 GB/s (reps 126, 125 ms); all destination rows exact: True
+[KV] warps 16 block_quota  32: one eviction (75 calls, 6.14 GB)   122.3 ms =  50.2 GB/s (reps 123, 122 ms); all destination rows exact: True
+[KV] host rows outside the destinations still holding the sentinel: 1564352 / 1564352 (stray writes: 0)
+[indexer] pinned host 1.4 GB in 1 s; device 2.8 GB
+[indexer] warps 16 block_quota   2: one eviction (75 calls, 0.35 GB)    12.4 ms =  28.3 GB/s (reps 14, 12 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  16: one eviction (75 calls, 0.35 GB)     7.6 ms =  46.0 GB/s (reps 8, 8 ms); all destination rows exact: True
+[indexer] warps 16 block_quota  32: one eviction (75 calls, 0.35 GB)     7.6 ms =  46.0 GB/s (reps 8, 8 ms); all destination rows exact: True
+[indexer] host rows outside the destinations still holding the sentinel: 24443 / 24443 (stray writes: 0)
