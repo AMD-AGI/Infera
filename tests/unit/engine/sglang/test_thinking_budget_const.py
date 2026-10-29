@@ -401,6 +401,16 @@ def test_processor_forces_tokens_on_the_right_rows_of_a_spec_block(processor_cls
     assert logits.forced == {2: _NL, 3: _E}
 
 
+def test_processor_accepts_params_repeated_once_per_verify_row(processor_cls):
+    """SGLang repeats each request's params once per draft row before the call."""
+    proc = processor_cls()
+    p0 = _spec_param([5, _S], [1, 2], 4, [2, 7, 8, _NL], seq_len=2 + 2 - 1)
+    p1 = _spec_param([5, _S], [1, 2], 100, [2, 7, 8, 9], seq_len=2 + 2 - 1)
+    logits = _FakeLogits(rows=8)
+    proc(logits, [p0, p0, p0, p0, p1, p1, p1, p1])
+    assert logits.forced == {2: _NL, 3: _E}
+
+
 def test_processor_without_spec_keys_keeps_single_row_behaviour(processor_cls):
     proc = processor_cls()
     req = type("Req", (), {"origin_input_ids": [5, _S], "output_ids": [1, 2, 3, 4]})()
