@@ -12,7 +12,10 @@
   （第二遍回载慢一倍）。**E3 今晚撤掉**；正确做法要先读 Rust tree core 的遍历约束，或换成"提前后台备份"的方案。night15 按规则跳过了 E3 性能。
 - **E1 + E7d 限池门禁通过**（`full-site-llr35-v3-evict-recvstream-ka-gate-1029T0011.out`）：探测 0.975、**乱码 0、开头坏 0**、跑到上限 3，长上下文干净——接收独立 stream
   修掉"开头坏"的第二个独立样本，且不用 `record_stream`。**E1 + E7d C104 00:42 起栈，约 02:12 出结果。**
-- **队列 `scripts/night16_1029.sh`（night15 之后）**：E7d 生产配置完整正确性 → 若 E7d ≥ E1 平均 − 1% 则 E7d 复测，否则 E1 第三次复测。
+- **E8：空闲时提前驱逐**（kit `patches/pp-idle-evict` = E7d 的 `scheduler_pp_mixin.py` + `config/pp-idle-evict-on-e7d.patch`，39 行）：事件循环一轮里没有任何
+  microbatch（`server_is_idle`）且空闲 token 槽 < 76.8 万时，驱逐到约 105 万空闲（约设备池的 10%）。驱逐路径不变，只把时机挪到环本来就闲着的时候
+  （prefill 18–37% 的时间没有排队）；"空闲"与空闲槽数在各级镜像（各级驱逐次数相同可佐证），各级做同样的决定。`rank_consensus` 只是调试检查器（默认关）。
+- **队列 `scripts/night17_1029.sh`（替换 night16；night15 之后）**：E7d 完整正确性 → E8 限池门禁 → E1 + E7d + E8 C104（与 E7d 的 C104 对比）→ E7d 复测或 E1 第三次复测。
 
 **10-28 23:55 更新：找到"开头坏"的根因所在——PP 接收与发送共用 comm stream 的执行顺序；E7d 兼顾正确与性能**
 | 限池门禁（300K token / 级，200 题 + 两遍 16k × 128） | 探测正确 | 乱码 | 开头坏 | 跑到上限 | 长上下文 |

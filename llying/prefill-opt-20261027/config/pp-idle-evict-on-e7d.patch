@@ -1,0 +1,39 @@
+--- scheduler_pp_mixin.e7d.py	2026-10-29 00:50:54.935908453 +0000
++++ scheduler_pp_mixin.py	2026-10-29 00:51:06.080815557 +0000
+@@ -42,6 +42,11 @@
+ logger = logging.getLogger(__name__)
+ 
+ _PP_RECV_STREAM = os.environ.get("SGLANG_PP_RECV_STREAM", "1") == "1"
++# Idle-time device eviction (prefill PP): below LOW free token slots, evict up to HIGH.
++_PP_IDLE_EVICT_LOW = int(os.environ.get("SGLANG_PP_IDLE_EVICT_LOW", "0"))
++_PP_IDLE_EVICT_HIGH = max(
++    _PP_IDLE_EVICT_LOW, int(os.environ.get("SGLANG_PP_IDLE_EVICT_HIGH", "0"))
++)
+ 
+ if TYPE_CHECKING:
+     from sglang.srt.managers.scheduler import Scheduler
+@@ -361,9 +366,24 @@
+             # When the server is idle, self-check and re-init some states
+             if server_is_idle:
+                 self._sched_idled = True
++                self._pp_maybe_idle_evict()
+                 if len(self.disagg_prefill_inflight_queue) == 0:
+                     self.on_idle()
+ 
++    def _pp_maybe_idle_evict(self: Scheduler) -> None:
++        """Free device KV while no microbatch is in flight, so a later allocation or
++        host load-back rarely has to evict while the ring is busy: every PP rank repeats
++        an eviction one beat apart (mirrored tree), stalling the ring for ~4 beats. The
++        idle decision and the free-slot count are identical on every rank."""
++        if _PP_IDLE_EVICT_LOW <= 0 or self.tree_cache is None:
++            return
++        available = self.token_to_kv_pool_allocator.available_size()
++        if available >= _PP_IDLE_EVICT_LOW:
++            return
++        from sglang.srt.mem_cache.base_prefix_cache import EvictParams
++
++        self.tree_cache.evict(EvictParams(num_tokens=_PP_IDLE_EVICT_HIGH - available))
++
+     @DynamicGradMode()
+     def event_loop_pp_disagg_decode(self: Scheduler):
+         self.init_pp_loop_state()
