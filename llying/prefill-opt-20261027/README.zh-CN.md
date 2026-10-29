@@ -3,6 +3,55 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## 10-29 15:20 E9（后台提前写回）：静态分析、设计与定量预测（未实现、未跑）
+
+依据：镜像 SGLang（本地副本 `~/.cache/llyq/sgl0522`，与 kit 的 `evict-headroom/unified_radix_cache.orig.py` 逐字节一致）的
+`unified_radix_cache.py`（E1 版）和 `unified_cache/unified_tree_core.py`。
+
+**现在的写回路径（E1 + E10）**
+- `_evict_components` 逐个取 LRU 尾部的显存叶子：`evict_device_leaf` 对**未备份**的叶子返回 `BackupKV([leaf])`（write_back 下只有叶子本身，不带祖先），
+  然后 `_execute_and_commit_kv_backup(write_back=True)` 发拷贝、**`writing_check(write_back=True)` 阻塞等完**、`_demote`。每次驱逐约 75 个叶子，就是 75 次同步。
+- 叶子若**已经有主机副本**（`node.backuped`），`evict_device_leaf` 直接 `_demote`，不拷贝、不等待。E9 就是让驱逐时的叶子尽量处在这个状态。
+- E10 之后每级每次驱逐还剩：写回同步 118–125 ms（整次部署 PP0 155 s / 1,239 次，PP1 146 s），四级共约 0.48 s，占每次驱逐四级之和 1.04 s 的 46%。
+
+**设计**
+1. **决定由 PP0 做、沿 PP 传下去**：`_sync_hicache_ready_counts` 每步已经把 PP0 的写回 / 回载完成数沿 PP 环传给 PP1–PP3（`_all_reduce` = PP0 归约后 `_pp_sync` 逐级传递），
+   并断言各级的"去重回收"摘要一致（`write_back_duplicate_reclaim_digest`，生产中从未触发）。在这个张量里加一格"本步预写回预算"（PP0：可用显存 < 阈值时为窗口 token 数，否则 0），
+   各级用收到的同一个数，在同一个逻辑点做同样的选择。再加一格"所选节点 id 的摘要"做同样的一致性断言——不一致立即报错，而不是静默乱码。
+2. **选什么**：沿显存 LRU（`lru_lists[FULL]`）从尾部往前，取未加锁、有显存值、未备份、不在传输中的节点，累计到预算为止；顺序与驱逐遍历相同。
+3. **怎么写**：对每个节点调用现成的 `_execute_and_commit_kv_backup(BackupKV([id]), write_back=False)`——就是 write_through 的路径：
+   传输期间 `inc_lock_ref` 加锁（节点不会被驱逐、显存槽不会被复用），完成后在非阻塞的 `writing_check(finish_count=PP0 共识数)` 里 `finish_write_through` + 解锁，
+   节点成为已登记的主机副本（`full_host_duplicates`）。
+4. **驱逐开始前先收尾**：`_evict` 开头若有在途的预写回，先 `writing_check(write_back=True)` 等完（与 `backup_node_for_write_back` 已有的写法相同），
+   这样这些节点解锁、已备份，驱逐时直接降级。
+5. **防止主机侧互相回收**：主机池常满（`cpu_kv_usage` 100%），每次预写回先要腾主机空间。`_reclaim_full_host_duplicates` 第一遍跳过"可驱逐的显存叶子"的副本，
+   第二遍会回收它们——也就是会回收上一轮预写回的成果，造成白写。预写回调用时只走第一遍（不够就交给正常的主机 LRU 回收，与驱逐时同步写回腾空间的结果相同）。
+
+**对正确性的影响（静态）**
+- 数据：拷贝 kernel、主机布局、完成事件都与现有写回 / write_through 相同；传输期间节点加锁，显存槽不会被释放或复用；主机数据在 ack 之前不会被读
+  （`write_through_pending_id` 未清除时，回载、去重回收都跳过该节点：`_can_reclaim_full_host_duplicate`、load-back 的 pending 检查）。
+- 树状态：节点"两级都有 + 父节点未备份"的状态生产中已经存在（回载上来的节点被去重回收掉父节点副本后就是这样），不是新状态。
+- 各级一致性：这是最大的风险（E3 的教训）。上面的第 1 条把决定点放在 SGLang 已经依赖其一致性的同步点上，并用摘要断言兜底；
+  若各级在这个点的树状态不一致，现有的 reclaim 摘要断言早就会触发。
+- 需要实测确认：限池门禁（驱逐和回载最重）+ 20 分钟短跑看断言是否触发、驱逐是否不再同步写回。
+
+**副作用（静态）**
+- PCIe：后台写回与 prefill → decode 的 RDMA 发送同方向（GPU → 外）。估算每级 RDMA 平均约 6.6 GB/s（每小时约 17 亿 token × 14 KB），写回平均约 2.1 GB/s；
+  链路约 50 GB/s，平均占用低，但写回突发时会挤占发送。后台写回改用 `block_quota` 2（约 25 GB/s），一批 0.5M token 约 0.28 s，远短于驱逐周期（约 3.6 s）。
+- CU / HBM：拷贝 kernel 2 个 workgroup，不到 256 个 CU 的 1%；HBM 读 25 GB/s，可忽略。
+- 多写：写回后、驱逐前又被命中的节点白写（模拟上限是写回流量的 7–15%，都在后台）。
+- 容量：窗口 0.5–1M token 的预写回副本占主机空间，模拟新算 6.33% → 6.37–6.38%，约 −0.1% 吞吐。
+- CPU：每步只在可用显存低于阈值时从 LRU 尾部走约 100–150 个节点（已备份的跳过），远小于 1 ms。
+
+**定量预测（开跑前写下）**
+- 机制：驱逐时不再同步写回的叶子占 80–95%；每级每次驱逐减少约 100 ms（PP0 358 → 约 260 ms，PP1 195 → 约 95 ms），四级之和 1.04 → 约 0.64 s；写回 token 总量不变或多 ≤ 15%。
+- 环：按 E10 实测的"超额 / 驱逐时间之和"0.55，每小时有排队超额少约 230 s（E10 后是 638 s）。
+- 端到端：E10 实测弹性约每 100 s / 小时 = +1.3%，算出 +3%；decode 开始限制吞吐、弹性递减，**预测 +1.5% 到 +3%（点估计 +2%）**，高于 1% 门槛。
+- 判定：短跑里每级驱逐均值没有下降 ≥ 60 ms，或一致性断言触发，就停。
+
+**实施顺序**：补丁（Python，`unified_radix_cache.py` 在 E1 版上改、`unified_tree_core.py` 加一个只走第一遍的参数）→ 本机单元级检查（镜像内、不起服务）
+→ 20 分钟短跑 + 指标 → 限池门禁 → 60 分钟计分一次。
+
 ## 10-29 13:50 E10 结果：51,374 tok/s/GPU（比 E1 平均 49,719 高 +3.3%），机制按预测成立 → 新的最佳
 
 `results/run-llr37-v3-evict512k-bq16-c104.txt`，run `c104-1029T1152`，`beat-vs-evict-1029/beat-vs-evict-c104-1029T1152.txt`。
