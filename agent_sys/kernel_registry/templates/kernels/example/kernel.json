@@ -1,0 +1,72 @@
+{
+  "kind": "kernel",
+  "name": "example",
+  "description": "Elementwise square plus one; unmeasured CPU example.",
+  "original": [
+    {
+      "path": "payloads/original.py",
+      "sha256": "432763430584908ab2fe371a83f0a53baeed21d7c44bb380e41ba6f19e8797e7",
+      "size": 281
+    }
+  ],
+  "reference": [
+    {
+      "path": "payloads/reference.py",
+      "sha256": "b0a6bebe52d6b82aac3703ba005c9d6fe68eb5bafb60cca61bc8c2e2f9b0847f",
+      "size": 236
+    }
+  ],
+  "reference_status": "complete",
+  "documentation": [
+    {
+      "path": "payloads/README.md",
+      "sha256": "e0c62a18d92b65459fd5e306c91f3ba46688d9f0effc1fdbcfe98882648dfc70",
+      "size": 524
+    }
+  ],
+  "contract": {
+    "input": "sequence of numbers",
+    "output": "x[i] ** 2 + 1"
+  },
+  "versions": [
+    {
+      "id": "v1",
+      "parent": null,
+      "files": [
+        {
+          "path": "payloads/candidate.py",
+          "sha256": "ee6f914dff9574755f5985cad485d50cb2112fd671457ee31a1de4f1c4b5efc0",
+          "size": 249
+        }
+      ],
+      "provenance": {
+        "producer": "template"
+      },
+      "status": "candidate",
+      "notes": "No speedup claim."
+    }
+  ],
+  "integration": {
+    "version": "v1",
+    "method": "Explicit function selection",
+    "files": [
+      {
+        "path": "payloads/integration.py",
+        "sha256": "93fca69f89338492e286de6edfffd1b66fd1c6a2c577ca4dbbe7df3b2e54f357",
+        "size": 328
+      }
+    ],
+    "activation": [
+      "Set use_candidate=True when calling integration.select"
+    ],
+    "rollback": [
+      "Set use_candidate=False"
+    ],
+    "compatibility": {
+      "runtime": "Python >= 3.10"
+    }
+  },
+  "limitations": [
+    "Replace this template with measured artifacts."
+  ]
+}

@@ -37,8 +37,10 @@ cargo run --release -- --host 0.0.0.0 --port 8000 --etcd-endpoint 127.0.0.1:2379
 ```
 
 Use the same `--etcd-prefix` (default `/infera/workers/`) the workers register
-under. The Docker images build the binary and put it on `PATH`, so
-`--router-backend rust` works without a manual build.
+under. The Docker images build the binary and put it on `PATH`, and the Linux
+x86_64 amd-infera wheel bundles it, so `--router-backend rust` works without a
+manual build in either. Release builds run `.github/scripts/build_router.sh`
+(manylinux_2_28, needs docker), which also works locally.
 
 ## Test
 

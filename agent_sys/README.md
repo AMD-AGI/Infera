@@ -136,6 +136,13 @@ properties it guarantees) and a `docs/design.md` (how it is built).
 | [`env_mgr/`](env_mgr/README.md) | All interaction with the operating system, including isolation |
 | [`cli/`](cli/README.md) | The composition root. It may import anything of ours; nothing of ours may import it |
 
+## Kernel artifacts
+
+[`kernel_registry/`](kernel_registry/README.md) is a standalone utility for keeping
+original, naive and optimized kernels, integration instructions and test history
+in an ordinary Git directory. It supplies a small CLI and an AI skill, and does
+not require the workflow runner.
+
 ## The documents
 
 [`docs/spec.md`](docs/spec.md) is the one a reader must finish; its §1.4 says

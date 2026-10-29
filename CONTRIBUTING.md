@@ -22,7 +22,8 @@ pre-commit install                 # runs the formatters/linters on every commit
 ```
 
 The optional Rust router builds with a [Rust toolchain](https://rustup.rs):
-`cd rust && cargo build --release`.
+`cd rust && cargo build --release`. CI builds and tests it with `--locked`, so a
+change to a Rust dependency must commit the updated `rust/Cargo.lock` with it.
 
 ## Code style, linting, and tests
 
