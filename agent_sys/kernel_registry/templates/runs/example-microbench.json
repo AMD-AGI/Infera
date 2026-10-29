@@ -1,0 +1,66 @@
+{
+  "kind": "run",
+  "name": "example-microbench",
+  "description": "Unmeasured template; replace with an actual observation.",
+  "timestamp": null,
+  "run_type": "microbench",
+  "kernels": {
+    "example": "v1"
+  },
+  "sources": [
+    {
+      "path": "payloads/candidate.py",
+      "sha256": "ee6f914dff9574755f5985cad485d50cb2112fd671457ee31a1de4f1c4b5efc0",
+      "size": 249
+    }
+  ],
+  "baseline": [
+    {
+      "path": "payloads/original.py",
+      "sha256": "432763430584908ab2fe371a83f0a53baeed21d7c44bb380e41ba6f19e8797e7",
+      "size": 281
+    }
+  ],
+  "environment": "example",
+  "baseline_environment": "example",
+  "workload": {
+    "shape": [
+      3
+    ],
+    "dtype": "Python number",
+    "input_identity": {
+      "values": [
+        0,
+        1,
+        -2
+      ]
+    }
+  },
+  "configuration": {},
+  "commands": [],
+  "correctness": {
+    "status": "not_tested",
+    "scope": "example only",
+    "summary": "No test has been run.",
+    "tolerances": {}
+  },
+  "metrics": [],
+  "comparison": {
+    "controlled": false,
+    "confounders": [
+      "unmeasured template"
+    ]
+  },
+  "integration": [],
+  "activation": "not_applicable",
+  "evidence": [],
+  "reproducibility": {
+    "status": "incomplete",
+    "missing": [
+      "No actual measurement or stack capture."
+    ]
+  },
+  "limitations": [
+    "This is not historical evidence."
+  ]
+}
