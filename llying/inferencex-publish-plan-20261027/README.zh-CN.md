@@ -207,9 +207,10 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | B11 | override 参数审查 | 如果 B3 采用 `index_share_for_mtp_iteration:false` | PR 里说明只是关掉跨迭代复用，计算只多不少 | 内部 | — | P1 |
 | **C** | **镜像外依赖：Mooncake 与网卡**（第 5.2 节） | | | | | |
 | C1 | 镜像与 Mooncake | nightly 20261018 起自带 `78566d45`（与 ATOM PD 相同），功能齐全；正式版 v0.5.22 的 `01d1eb2a` 跑不了跨机 PD | 用 nightly 镜像、不重编、设 `MC_DISABLE_HIP=1` 实测 | 内部 | 2 天 | P0 |
-| C2 | 两个 Mooncake RDMA diff | 功能上不需要（ATOM 先例）；crsuse2 上 transfer failure 51→0、吞吐 +5.6% | 不带跑，看 CQE12 / transfer failure；推上游 #4540 / #4541 | 内部 + Mooncake 维护者 | — | P2 |
+| C2 | 两个 Mooncake RDMA diff | **10-29 核实：CI 集群不需要**。ATOM PD 在 `mi355x-amds` 上用上游 rail 匹配（`MC_ENABLE_DEST_DEVICE_AFFINITY`）跑通，1 小时无传输失败；AUS 不带它们也跑通；只有 crsuse2 因网卡丢帧需要（第 5.10 节） | 不带；推上游 #4540 / #4541 只为 crsuse2 这类网络 | 内部 + Mooncake 维护者 | — | P2 |
+| C5 | HIP dma-buf | **10-29 核实：CI 集群走 peer 方式，不用 dma-buf**。ATOM PD 日志每个 worker 都是 "HIP dmabuf disabled"；AUS 上设 0 会段错误 | recipe 和 cookbook 补 `MOONCAKE_DISABLE_HIP_DMABUF=1`（#4629、#47117 待更新） | 内部 | 小 | P0 |
 | C3 | libionic | 不进镜像；不用 `infera-exec` 覆盖镜像文件的做法（违反"不覆盖容器文件"） | recipe `extra_mount` 只读挂载宿主机 `libionic-rdmav34.so`（照 Kimi-K3 vLLM） | 内部 | 小 | P0 |
-| C4 | ionic 驱动 / 固件版本 | 公开日志查不到 | 问集群负责人，或跑调试作业打印 `nicctl show version firmware`、`modinfo ionic` | AMD / SemiAnalysis | — | P2 |
+| C4 | ionic 驱动 / 固件版本 | 公开日志查不到 | 问集群负责人，或跑调试作业打印 `nicctl show version firmware`、`modinfo ionic` | AMD / SemiAnalysis | — | P2（只在判断网卡行为时需要；第 5.10 节已用 ATOM 日志确认 peer 方式和无丢帧） |
 | **D** | **infera 打包、发版与安装**（第 5.7 节） | | | | 1 周左右 | |
 | D0 | 交付方式 | 不用 overlay payload / `infera-exec`，不在集群节点预放 payload；从 GitHub release 按固定版本 pip 安装（LMCache ROCm 先例） | 按此执行 | — | — | 已定方向 |
 | D1 | release 里带 router 二进制 | Infera 仓库公开，`release.yml` 每个 tag 把 wheel 传到 GitHub release；但 v0.3.1 只有纯 Python 的 `amd_infera-0.3.1-py3-none-any.whl`，没有 `infera-router`。**10-28 起由同事负责** | release 流程增加带 router 的平台 wheel（如 `manylinux_2_35_x86_64`，与 lmsysorg 镜像的 glibc 2.35 匹配）；PyPI 是可选项，不卡发布 | 同事 | 1 周 | P0 |
@@ -488,6 +489,53 @@ PyPI 是可选项：GitHub release 现在就能用，不用等 PyPI 账号和权
 | prefill HiCache 250 GB/rank × 4 | DRAM 预算：`dram-utilization: 1.0` 时每个 4 卡服务器 1,499 GB；HiCache 另有约 23% 的 DSA indexer 池，250 GB/rank 实占约 1.23 TB | 在预算内；上限约 300 GB/rank |
 
 所以要上榜，配置要在 #210 和 llr37 之间重新定（A6）：以 #210 的配置为底，加入 llr37 里合规的参数，在原样 nightly 镜像上用真实接受率验证正确性后重测。
+
+### 5.9 InferenceX 上的 CI 怎么触发（10-29）
+
+合入 Infera #222、发 v0.3.2 是必要条件，但不能单独触发、也不能单独跑通 #4629 的 CI：
+
+1. **触发要人工打标签，fork PR 门槛更高。** sweep 只在 PR 被打上主标签（通常 `full-sweep-fail-fast`）时启动，打标签需要 InferenceX 写权限。
+   #4629 来自 fork（`llying-001/InferenceX`），fork PR 拿不到仓库密钥，走"受信任的外部 fork 派发"（`trusted-external-sweep.yml`）：有写权限的人
+   打标签只批准当前那个提交，"The PR must be open and non-draft"，之后每次推送都要重新打标签。同仓库的 PR 在 Draft 状态下也能打标签跑 sweep，
+   所以最好请 AMD 有写权限的同事把分支推到 `SemiAnalysisAI/InferenceX` 主仓库（对应 A1）。
+2. **现在触发也会失败。** 20261018 原样镜像缺 B7（#47184，PP4 prefill 非首级起不来）、B1 / B2（gfx950 上 DP attention 的 decode）、B6；
+   B8 是否复现未知。要么这些修复合进上游并换更新的镜像，要么在 PR 里加补丁脚本和 waiver。recipe 里还有未验证项（第 5.10 节、HiCache 撤栈释放）。
+3. **v0.3.2 要带 `infera-router` 二进制**，并包含 #213、#222（同事发版）。
+4. srt-slurm #630 不用先合入：作业启动时会打上 `runners/srt-slurm/patches/` 里的补丁（第 4 节进展表下方的更正）。
+
+建议顺序：先在我们自己的机器上用原样镜像 + 补丁脚本实测（SemiAnalysis 集群上每轮要重新打标签、以天计）→ 把实测确认还离不开的补丁做成补丁脚本和 waiver 加进
+#4629 → #222 合入、发 v0.3.2（可并行）→ 请 AMD 有写权限的同事打标签，或把分支推到主仓库。
+
+### 5.10 Mooncake 在 CI 集群上要不要 dma-buf 和那两个 RDMA 补丁（10-29）
+
+**结论：都不需要。** 但 recipe 要补 `MOONCAKE_DISABLE_HIP_DMABUF=1`（目前没写，建议加进 #4629 和 cookbook #47117）。
+
+| 证据 | 内容 |
+|---|---|
+| ATOM PD 在 SemiAnalysis `mi355x-amds` 上的日志（sweep 39028510364，节点 `mia1-p01-g09/g14/g15`） | 每个 worker 的 Mooncake（上游 `78566d45`）都打印 "HIP dmabuf disabled via MOONCAKE_DISABLE_HIP_DMABUF"，GPU 显存照样注册成功、KV 正常传输——即主机支持不走 dma-buf 的 GPU 显存注册（peer 方式）。这个开关不在 ATOM 的 recipe / sbatch 里，是 ATOM 镜像或代码默认设的 |
+| 同一日志的 rail 选择 | "Auto-discovered Mooncake matched rails: primary=rdma1 rails=[rdma0..rdma7]"，每个 GPU 选同名网卡、GID index 1；配合上游的 `MC_ENABLE_DEST_DEVICE_AFFINITY=1`，在 rail 隔离的网络上两端走同名网卡。这是上游已有的功能，覆盖了我们 dest-local-rail 补丁要解决的跨 rank 选卡问题 |
+| 同一日志的传输错误 | 1 小时里只有启动时 4 次 "Failed to retrieve segment descriptor"，没有传输失败、重试超时或 work completion 错误。crsuse2 上为之打 ACK 超时补丁的丢帧问题，在该集群上没有出现 |
+| 我们在 AUS（`smci355-ccs-aus-*`）的实验 | `MOONCAKE_DISABLE_HIP_DMABUF=1` 是必需的：设 0 时 prefill 起栈即 scheduler 段错误（`2p1d-aus-v0521-20261019/RESULT.zh-CN.md` §2.1），设 1 后正常（日志 "HIP dmabuf disabled"）；`glm52.1p1d.c80.aus.packup_20260922` 用的是 HIP transport 与 HIP dma-buf 都关、每 rank 过滤到同号 ionic，没有那两个补丁也跑通 |
+| crsuse2 | dma-buf 可用（=0），且 decode 端 ionic 在反压下丢帧，需要两个补丁（`cross-rank-rca-20260921`）——与 SemiAnalysis 集群、AUS 都不同 |
+
+- 所以 dma-buf 和两个补丁都跟网卡驱动 / 固件和网络拓扑有关，是 crsuse2 特有的；SemiAnalysis 集群和 AUS 一样走 peer 方式、rail 隔离、无丢帧。
+- `MC_MAX_MR_SIZE=1 GiB` 原本是为 ionic 拒绝 2 GiB dma-buf 注册而设，走 peer 方式后可能不再必要；ATOM 的 decode 也设了 1 GiB，保留无害。
+- 仍查不到的：SemiAnalysis 节点的 ionic 驱动 / 固件版本（`check-rdma.sh` 只打印"QoS/DCQCN preflight passed"）。
+
+### 5.11 实测方案（10-29 建议）
+
+| | AUS（`smci355-ccs-aus-*`） | crsuse2 的 Slurm 分区（`amd-spur` / `amd-aifw-sglang`） | crsuse2 的 138 / 140（docker） |
+|---|---|---|---|
+| 与 SemiAnalysis 集群相像程度 | **最像**：ionic、rail 隔离、必须关 dma-buf（peer 方式），不需要那两个补丁 | 网卡行为同 138/140（dma-buf、丢帧），与 SemiAnalysis 不同 | 同左 |
+| 调度与容器 | Slurm（`salloc` / `sbatch`）+ 节点上 docker；pyxis 未确认 | Slurm + pyxis（`srun --container-image` 可用），最接近 srt-slurm 的运行方式 | 直接 docker，无 Slurm |
+| 适合测什么 | 原样镜像能不能跑、哪些 SGLang 补丁还离不开、正确性、三种形态的性能、HiCache 撤栈释放时间 | srtctl + infera frontend 的端到端（#630 实机验证），不追求性能代表性 | 快速排查，但网卡行为与 CI 集群不同 |
+
+**建议两步走**：
+1. **AUS 上做主要实测**：20261018 原样镜像，运行时装 infera（v0.3.2 之前先用分支自己打带 router 的 wheel），只加补丁脚本（逐个去掉 B1 / B2 / B4 / B6 / B7 / B8，
+   确认 B3、B5 可去掉），按 recipe 参数 + `MOONCAKE_DISABLE_HIP_DMABUF=1`、不用两个 Mooncake 补丁；验证 GSM8K ≥ 0.90（真实接受率）、三种形态数字、
+   撤栈释放时间。需要 AUS 上 2 台（2P1D 同机放置时）或 3 台。
+2. **crsuse2 的 Slurm 分区上跑 srtctl 端到端**：用 #630 的 infera frontend 起一个小的 1P1D（可先用 Qwen 小模型，再上 GLM-5.2），验证 srt-slurm 侧的
+   启动、端口分配、etcd 登记、就绪判断和 router 命令；这一步不看性能，主要给 #630 转 Ready 提供实机证据。
 
 ## 6. 时间线（1–2 人，按周）
 
