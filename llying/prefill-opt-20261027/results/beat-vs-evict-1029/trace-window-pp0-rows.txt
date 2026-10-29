@@ -1,0 +1,122 @@
+07:10:00-07:27:05: 2569 batches, queued beats 1737 p50 300 mean 396 ms; usage min / p50 / max 0.00 / 0.07 / 0.82
+07:27:06-07:28:01: 120 batches, queued beats 120 p50 311 mean 3590 ms; usage min / p50 / max 0.04 / 0.16 / 0.37
+  0 07:27:06.589 gap_next    556 seq  3 new  8137 cached  129600 usage 0.13 queue  7 inflight  8 boot  0
+  1 07:27:07.145 gap_next    291 seq  2 new  8150 cached       0 usage 0.14 queue  6 inflight  7 boot  0
+  2 07:27:07.436 gap_next    306 seq  3 new  8143 cached   97664 usage 0.13 queue  5 inflight  8 boot  0
+  3 07:27:07.742 gap_next    269 seq  3 new  8129 cached  123200 usage 0.14 queue  5 inflight 10 boot  0
+  4 07:27:08.010 gap_next    274 seq  7 new  7977 cached  301696 usage 0.13 queue  4 inflight 15 boot  0
+  5 07:27:08.284 gap_next    220 seq  3 new  8192 cached  127680 usage 0.12 queue  6 inflight 15 boot  0
+  6 07:27:08.505 gap_next    244 seq  4 new  8192 cached  101568 usage 0.12 queue  5 inflight 15 boot  1
+  7 07:27:08.749 gap_next    337 seq  2 new  8178 cached   36096 usage 0.11 queue  6 inflight 14 boot  2
+  8 07:27:09.086 gap_next    288 seq  3 new  8192 cached  158144 usage 0.18 queue  5 inflight 14 boot  1
+  9 07:27:09.374 gap_next    278 seq  2 new  8168 cached   43584 usage 0.19 queue  6 inflight 12 boot  3
+ 10 07:27:09.652 gap_next    308 seq  2 new  8192 cached   71040 usage 0.18 queue  5 inflight 10 boot  4
+ 11 07:27:09.960 gap_next    326 seq  3 new  8124 cached   89920 usage 0.14 queue  5 inflight  7 boot  6
+ 12 07:27:10.285 gap_next    203 seq  4 new  8192 cached  848192 usage 0.14 queue  5 inflight  9 boot  5
+ 13 07:27:10.488 gap_next    196 seq  2 new  8173 cached  177408 usage 0.14 queue  5 inflight  9 boot  5
+ 14 07:27:10.684 gap_next    283 seq  2 new  8129 cached   34496 usage 0.14 queue  5 inflight 10 boot  5
+ 15 07:27:10.967 gap_next    221 seq  1 new  8192 cached       0 usage 0.14 queue  5 inflight  8 boot  3
+ 16 07:27:11.188 gap_next    201 seq  3 new  8099 cached   60224 usage 0.13 queue  4 inflight  9 boot  3
+ 17 07:27:11.390 gap_next    301 seq  1 new  8192 cached       0 usage 0.12 queue  4 inflight  6 boot  6
+ 18 07:27:11.691 gap_next   1370 seq  1 new  8192 cached       0 usage 0.12 queue  4 inflight  5 boot  9
+ 19 07:27:13.060 gap_next   1087 seq  3 new  8192 cached   75904 usage 0.10 queue  4 inflight  5 boot 10
+ 20 07:27:14.148 gap_next   1103 seq  2 new  8192 cached       0 usage 0.12 queue  7 inflight  5 boot  7
+ 21 07:27:15.250 gap_next   1101 seq  1 new  8192 cached       0 usage 0.14 queue  7 inflight  5 boot  9
+ 22 07:27:16.351 gap_next    396 seq  3 new  8140 cached  148928 usage 0.16 queue  7 inflight  5 boot  6
+ 23 07:27:16.747 gap_next    267 seq  2 new  8170 cached  627456 usage 0.23 queue  7 inflight  6 boot  8
+ 24 07:27:17.014 gap_next   1477 seq  7 new  7961 cached  324992 usage 0.23 queue  6 inflight 12 boot  9
+ 25 07:27:18.491 gap_next   1122 seq  5 new  8148 cached  285312 usage 0.31 queue  6 inflight 14 boot  8
+ 26 07:27:19.613 gap_next   1172 seq  6 new  8008 cached  292864 usage 0.30 queue  6 inflight 18 boot 10
+ 27 07:27:20.785 gap_next   1057 seq  7 new  8012 cached  831936 usage 0.34 queue  7 inflight 24 boot  9
+ 28 07:27:21.842 gap_next    321 seq  2 new  8164 cached   60160 usage 0.33 queue  7 inflight 23 boot 16
+ 29 07:27:22.163 gap_next    204 seq  3 new  8134 cached  854720 usage 0.34 queue  7 inflight 23 boot 17
+ 30 07:27:22.367 gap_next    235 seq  1 new  8192 cached       0 usage 0.26 queue  7 inflight 17 boot 18
+ 31 07:27:22.602 gap_next    297 seq  5 new  8046 cached  360320 usage 0.24 queue  7 inflight 17 boot 18
+ 32 07:27:22.899 gap_next    225 seq  1 new  8192 cached       0 usage 0.22 queue  7 inflight 12 boot 18
+ 33 07:27:23.125 gap_next    236 seq  3 new  8138 cached  180992 usage 0.18 queue  7 inflight 11 boot 20
+ 34 07:27:23.360 gap_next    256 seq  1 new  8192 cached       0 usage 0.18 queue  7 inflight 11 boot 20
+ 35 07:27:23.617 gap_next    259 seq  1 new  8192 cached       0 usage 0.14 queue  7 inflight  8 boot 20
+ 36 07:27:23.876 gap_next    273 seq  1 new  8192 cached       0 usage 0.14 queue  7 inflight  7 boot 20
+ 37 07:27:24.149 gap_next    294 seq  1 new  8192 cached       0 usage 0.14 queue  7 inflight  5 boot 19
+ 38 07:27:24.443 gap_next    277 seq  1 new  8192 cached       0 usage 0.05 queue  7 inflight  2 boot 19
+ 39 07:27:24.720 gap_next    284 seq  1 new  8192 cached       0 usage 0.04 queue  6 inflight  0 boot 21
+ 40 07:27:25.004 gap_next    299 seq  1 new  8192 cached       0 usage 0.05 queue  5 inflight  0 boot 21
+ 41 07:27:25.302 gap_next    214 seq  2 new  8185 cached  183360 usage 0.05 queue  5 inflight  1 boot 23
+ 42 07:27:25.516 gap_next    305 seq  2 new  8190 cached   55680 usage 0.08 queue  4 inflight  2 boot 26
+ 43 07:27:25.821 gap_next    299 seq  2 new  8192 cached       0 usage 0.13 queue  6 inflight  3 boot 20
+ 44 07:27:26.120 gap_next    216 seq  3 new  8192 cached  120768 usage 0.13 queue  5 inflight  5 boot 21
+ 45 07:27:26.336 gap_next    354 seq  1 new  8192 cached       0 usage 0.13 queue  4 inflight  5 boot 22
+ 46 07:27:26.690 gap_next    266 seq  3 new  8192 cached  318144 usage 0.18 queue  6 inflight  7 boot 16
+ 47 07:27:26.956 gap_next    245 seq  6 new  8011 cached  563072 usage 0.22 queue  5 inflight 11 boot 17
+ 48 07:27:27.201 gap_next    891 seq  2 new  8149 cached       0 usage 0.21 queue  5 inflight 11 boot 18
+ 49 07:27:28.091 gap_next    616 seq  2 new  8192 cached    1344 usage 0.25 queue  4 inflight 11 boot 18
+ 50 07:27:28.707 gap_next    424 seq  5 new  8057 cached  500480 usage 0.25 queue  4 inflight 13 boot 19
+ 51 07:27:29.131 gap_next    716 seq  2 new  8180 cached  552640 usage 0.25 queue  4 inflight 14 boot 23
+ 52 07:27:29.846 gap_next    562 seq  1 new  8192 cached       0 usage 0.25 queue  4 inflight 12 boot 18
+ 53 07:27:30.408 gap_next    504 seq  4 new  8192 cached  551424 usage 0.27 queue  4 inflight 15 boot 19
+ 54 07:27:30.912 gap_next    542 seq  4 new  8106 cached  152128 usage 0.22 queue  3 inflight 12 boot 21
+ 55 07:27:31.454 gap_next    242 seq  1 new  8192 cached       0 usage 0.22 queue  3 inflight 11 boot 20
+ 56 07:27:31.696 gap_next    756 seq  7 new  8192 cached  351168 usage 0.19 queue  3 inflight 13 boot 22
+ 57 07:27:32.451 gap_next    545 seq  4 new  8192 cached  203968 usage 0.16 queue  3 inflight 15 boot 21
+ 58 07:27:32.996 gap_next    573 seq  2 new  8192 cached       0 usage 0.17 queue  3 inflight 14 boot 22
+ 59 07:27:33.569 gap_next    785 seq  3 new  8152 cached  100160 usage 0.20 queue  4 inflight 16 boot 21
+ 60 07:27:34.354 gap_next    565 seq  4 new  8070 cached  190784 usage 0.17 queue  3 inflight 15 boot 20
+ 61 07:27:34.919 gap_next    551 seq  2 new  8149 cached  254912 usage 0.21 queue  8 inflight 16 boot 17
+ 62 07:27:35.470 gap_next    598 seq  4 new  8097 cached  161280 usage 0.18 queue  7 inflight 12 boot 18
+ 63 07:27:36.068 gap_next    281 seq  3 new  8089 cached  255040 usage 0.18 queue  8 inflight 12 boot 17
+ 64 07:27:36.349 gap_next    278 seq  5 new  8053 cached  353536 usage 0.19 queue  8 inflight 14 boot 19
+ 65 07:27:36.627 gap_next    239 seq  4 new  8057 cached  387904 usage 0.19 queue  7 inflight 14 boot 20
+ 66 07:27:36.866 gap_next   1164 seq  3 new  8090 cached   61184 usage 0.18 queue  6 inflight 15 boot 20
+ 67 07:27:38.029 gap_next    124 seq  5 new  8080 cached  249088 usage 0.18 queue  6 inflight 19 boot 20
+ 68 07:27:38.153 gap_next    325 seq  2 new  8144 cached  102848 usage 0.19 queue 14 inflight 18 boot 12
+ 69 07:27:38.478 gap_next    266 seq  2 new  8130 cached   93248 usage 0.20 queue 12 inflight 16 boot 12
+ 70 07:27:38.744 gap_next    255 seq  2 new  8137 cached   24448 usage 0.14 queue 11 inflight 12 boot 12
+ 71 07:27:38.999 gap_next    295 seq  1 new  8192 cached       0 usage 0.11 queue 11 inflight  9 boot 12
+ 72 07:27:39.294 gap_next    279 seq  6 new  8004 cached  310080 usage 0.11 queue 10 inflight 10 boot 12
+ 73 07:27:39.572 gap_next    237 seq  4 new  8099 cached  278464 usage 0.10 queue 11 inflight 11 boot 12
+ 74 07:27:39.809 gap_next    300 seq  3 new  8079 cached   35200 usage 0.11 queue 12 inflight 13 boot 12
+ 75 07:27:40.109 gap_next    266 seq  2 new  8175 cached   46080 usage 0.09 queue 12 inflight 11 boot 12
+ 76 07:27:40.375 gap_next    259 seq  2 new  8163 cached  138304 usage 0.09 queue 12 inflight 12 boot 15
+ 77 07:27:40.633 gap_next    286 seq  1 new  8192 cached       0 usage 0.15 queue 13 inflight 12 boot  8
+ 78 07:27:40.919 gap_next    717 seq  2 new  8155 cached   78784 usage 0.12 queue 13 inflight  7 boot  9
+ 79 07:27:41.636 gap_next    552 seq  2 new  8149 cached   37504 usage 0.11 queue 13 inflight  6 boot  8
+ 80 07:27:42.188 gap_next    589 seq  2 new  8185 cached   48960 usage 0.12 queue 14 inflight  4 boot  8
+ 81 07:27:42.777 gap_next    499 seq  7 new  7964 cached  649600 usage 0.12 queue 13 inflight 10 boot 10
+ 82 07:27:43.276 gap_next    326 seq  1 new  8192 cached       0 usage 0.13 queue 13 inflight  9 boot  9
+ 83 07:27:43.602 gap_next    266 seq  2 new  8136 cached  172864 usage 0.15 queue 13 inflight 10 boot 10
+ 84 07:27:43.868 gap_next    263 seq  4 new  8026 cached  153856 usage 0.14 queue 13 inflight 11 boot 11
+ 85 07:27:44.131 gap_next    326 seq  3 new  8103 cached   81408 usage 0.16 queue 12 inflight 13 boot 11
+ 86 07:27:44.457 gap_next    284 seq  3 new  8124 cached  165568 usage 0.16 queue 11 inflight 14 boot 14
+ 87 07:27:44.741 gap_next    261 seq  3 new  8142 cached  248192 usage 0.12 queue 13 inflight 10 boot  9
+ 88 07:27:45.002 gap_next    308 seq  1 new  8192 cached       0 usage 0.12 queue 11 inflight 10 boot  9
+ 89 07:27:45.310 gap_next    792 seq  2 new  8192 cached  192576 usage 0.10 queue 11 inflight  8 boot 12
+ 90 07:27:46.102 gap_next    624 seq  3 new  8192 cached   47680 usage 0.14 queue 10 inflight  8 boot 13
+ 91 07:27:46.726 gap_next    444 seq  5 new  8028 cached   91584 usage 0.15 queue 15 inflight 11 boot  8
+ 92 07:27:47.170 gap_next    647 seq  3 new  8113 cached       0 usage 0.13 queue 14 inflight 11 boot 10
+ 93 07:27:47.817 gap_next    241 seq  2 new  8136 cached   20608 usage 0.16 queue 13 inflight 10 boot 12
+ 94 07:27:48.058 gap_next    404 seq  3 new  8192 cached  513280 usage 0.22 queue 13 inflight 12 boot 16
+ 95 07:27:48.462 gap_next    314 seq  6 new  8023 cached  179648 usage 0.21 queue 12 inflight 16 boot 17
+ 96 07:27:48.776 gap_next    477 seq  3 new  8115 cached   39552 usage 0.20 queue 11 inflight 16 boot 19
+ 97 07:27:49.253 gap_next    297 seq  3 new  8127 cached  576256 usage 0.20 queue 11 inflight 18 boot 21
+ 98 07:27:49.550 gap_next    680 seq  2 new  8172 cached  634624 usage 0.19 queue 11 inflight 13 boot 23
+ 99 07:27:50.230 gap_next    523 seq  2 new  8192 cached       0 usage 0.21 queue 12 inflight 14 boot 16
+100 07:27:50.753 gap_next    502 seq  2 new  8192 cached   63488 usage 0.23 queue 11 inflight 11 boot 19
+101 07:27:51.255 gap_next    566 seq  1 new  8192 cached       0 usage 0.24 queue 10 inflight  6 boot 21
+102 07:27:51.821 gap_next    273 seq  1 new  8192 cached       0 usage 0.24 queue 10 inflight  5 boot 24
+103 07:27:52.094 gap_next    248 seq  7 new  8192 cached  290048 usage 0.20 queue 10 inflight  9 boot 31
+104 07:27:52.342 gap_next    216 seq  6 new  8192 cached  340480 usage 0.15 queue 11 inflight 13 boot 30
+105 07:27:52.558 gap_next    242 seq  6 new  8192 cached  222080 usage 0.11 queue 11 inflight 17 boot 32
+106 07:27:52.799 gap_next    264 seq  1 new  8192 cached       0 usage 0.11 queue 10 inflight 16 boot 32
+107 07:27:53.063 gap_next    818 seq  2 new  8175 cached  141760 usage 0.11 queue 10 inflight 17 boot 33
+108 07:27:53.881 gap_next    605 seq  4 new  8192 cached  162752 usage 0.17 queue 10 inflight 18 boot 32
+109 07:27:54.486 gap_next    425 seq  1 new  8192 cached       0 usage 0.17 queue 12 inflight 15 boot 33
+110 07:27:54.911 gap_next    674 seq  2 new  8192 cached       0 usage 0.14 queue 10 inflight  9 boot 33
+111 07:27:55.586 gap_next    847 seq  1 new  8192 cached       0 usage 0.18 queue 11 inflight  5 boot 27
+112 07:27:56.433 gap_next    635 seq  3 new  8117 cached  729024 usage 0.24 queue 16 inflight  7 boot 19
+113 07:27:57.069 gap_next    483 seq  3 new  8130 cached  138368 usage 0.24 queue 15 inflight  7 boot 23
+114 07:27:57.552 gap_next    792 seq  4 new  8192 cached  154432 usage 0.23 queue 13 inflight  8 boot 27
+115 07:27:58.344 gap_next    498 seq  7 new  8004 cached  630272 usage 0.25 queue 11 inflight 13 boot 30
+116 07:27:58.842 gap_next    901 seq  6 new  8026 cached  692800 usage 0.30 queue 10 inflight 18 boot 30
+117 07:27:59.743 gap_next    591 seq  4 new  8192 cached   67584 usage 0.34 queue 11 inflight 21 boot 25
+118 07:28:00.335 gap_next    547 seq  4 new  8192 cached   35200 usage 0.37 queue 11 inflight 23 boot 25
+119 07:28:00.881 gap_next 376507 seq  3 new  8192 cached  333248 usage 0.30 queue 11 inflight 21 boot 25

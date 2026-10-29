@@ -1,0 +1,74 @@
+PP0: 120 steps, best log offset +85 matches 116/120; log line minus step annotation start: p10 / p50 / p90 1161 / 1872 / 2879 ms
+PP1: 120 steps, best log offset +83 matches 115/120; log line minus step annotation start: p10 / p50 / p90 1120 / 1848 / 2886 ms
+PP2: 120 steps, best log offset +83 matches 115/120; log line minus step annotation start: p10 / p50 / p90 1123 / 1882 / 2894 ms
+PP3: 120 steps, best log offset +83 matches 115/120; log line minus step annotation start: p10 / p50 / p90 1151 / 1975 / 3306 ms
+
+evict_for_alloc frames in the trace vs metrics slices (count, sum) ending within [start, end + 1.5 s]
+PP0: trace 16 evictions (8.51 s); metrics slices in the trace window: 15 evictions (8.00 s)
+   07:27:11.767 dur 0.560  ->  slice end 07:27:12.456 n1 0.560s, slice end 07:27:13.456 n1 0.560s
+   07:27:12.402 dur 0.560  ->  slice end 07:27:12.456 n1 0.560s, slice end 07:27:13.456 n1 0.560s
+   07:27:17.068 dur 0.635  ->  slice end 07:27:18.456 n1 0.635s
+   07:27:17.796 dur 0.587  ->  slice end 07:27:18.456 n1 0.635s, slice end 07:27:19.456 n1 0.587s
+   07:27:27.242 dur 0.584  ->  slice end 07:27:28.456 n1 0.584s
+   07:27:29.283 dur 0.460  ->  slice end 07:27:30.456 n1 0.460s
+   07:27:31.757 dur 0.572  ->  slice end 07:27:32.456 n1 0.572s
+   07:27:33.652 dur 0.535  ->  slice end 07:27:34.456 n1 0.534s
+   07:27:40.963 dur 0.564  ->  slice end 07:27:42.456 n1 0.564s
+   07:27:45.349 dur 0.476  ->  slice end 07:27:46.456 n1 0.476s
+   07:27:49.589 dur 0.457  ->  slice end 07:27:50.456 n1 0.457s
+   07:27:53.106 dur 0.499  ->  slice end 07:27:54.456 n1 0.499s
+   07:27:55.632 dur 0.509  ->  slice end 07:27:56.456 n1 0.509s
+   07:27:57.726 dur 0.443  ->  slice end 07:27:58.456 n1 0.443s
+   07:27:58.942 dur 0.560  ->  slice end 07:28:00.456 n1 0.560s
+   07:28:01.010 dur 0.510  ->  slice end 07:28:02.456 n1 0.510s
+PP1: trace 16 evictions (5.66 s); metrics slices in the trace window: 15 evictions (5.35 s)
+   07:27:13.171 dur 0.410  ->  slice end 07:27:14.456 n2 0.885s
+   07:27:13.587 dur 0.475  ->  slice end 07:27:14.456 n2 0.885s
+   07:27:18.611 dur 0.398  ->  slice end 07:27:19.456 n1 0.398s, slice end 07:27:20.456 n1 0.491s
+   07:27:19.018 dur 0.491  ->  slice end 07:27:19.456 n1 0.398s, slice end 07:27:20.456 n1 0.491s
+   07:27:28.181 dur 0.306  ->  slice end 07:27:29.456 n1 0.306s
+   07:27:29.929 dur 0.365  ->  slice end 07:27:30.456 n1 0.365s
+   07:27:32.547 dur 0.372  ->  slice end 07:27:33.456 n1 0.372s
+   07:27:34.446 dur 0.335  ->  slice end 07:27:35.456 n1 0.335s
+   07:27:41.731 dur 0.374  ->  slice end 07:27:42.456 n1 0.374s
+   07:27:46.203 dur 0.311  ->  slice end 07:27:47.456 n1 0.311s
+   07:27:50.323 dur 0.299  ->  slice end 07:27:51.456 n1 0.299s
+   07:27:53.973 dur 0.309  ->  slice end 07:27:54.456 n1 0.309s
+   07:27:56.538 dur 0.312  ->  slice end 07:27:57.456 n1 0.312s
+   07:27:58.427 dur 0.293  ->  slice end 07:27:59.456 n1 0.293s
+   07:27:59.842 dur 0.304  ->  slice end 07:28:00.456 n1 0.304s
+   07:34:17.510 dur 0.302  ->  slice end 07:34:18.456 n1 0.302s
+PP2: trace 16 evictions (6.41 s); metrics slices in the trace window: 16 evictions (6.60 s)
+   07:27:14.184 dur 0.507  ->  slice end 07:27:15.456 n2 0.980s
+   07:27:14.697 dur 0.473  ->  slice end 07:27:15.456 n2 0.980s
+   07:27:19.644 dur 0.508  ->  slice end 07:27:20.456 n1 0.508s, slice end 07:27:21.456 n1 0.491s
+   07:27:20.161 dur 0.491  ->  slice end 07:27:20.456 n1 0.508s, slice end 07:27:21.456 n1 0.491s
+   07:27:28.707 dur 0.321  ->  slice end 07:27:29.456 n1 0.321s
+   07:27:30.430 dur 0.404  ->  slice end 07:27:31.456 n1 0.404s
+   07:27:33.044 dur 0.442  ->  slice end 07:27:34.456 n1 0.442s
+   07:27:34.951 dur 0.408  ->  slice end 07:27:36.456 n1 0.408s
+   07:27:42.216 dur 0.444  ->  slice end 07:27:43.456 n1 0.444s
+   07:27:46.747 dur 0.322  ->  slice end 07:27:47.456 n1 0.322s
+   07:27:50.799 dur 0.372  ->  slice end 07:27:51.456 n1 0.372s
+   07:27:54.513 dur 0.313  ->  slice end 07:27:55.456 n1 0.312s
+   07:27:57.110 dur 0.338  ->  slice end 07:27:58.456 n1 0.338s
+   07:27:58.861 dur 0.372  ->  slice end 07:27:59.456 n1 0.372s
+   07:28:00.376 dur 0.395  ->  slice end 07:28:01.456 n1 0.395s
+   07:39:45.868 dur 0.303  ->  slice end 07:39:47.456 n1 0.303s
+PP3: trace 16 evictions (5.99 s); metrics slices in the trace window: 15 evictions (5.70 s)
+   07:27:15.293 dur 0.481  ->  slice end 07:27:16.456 n2 0.938s
+   07:27:15.780 dur 0.457  ->  slice end 07:27:16.456 n2 0.938s
+   07:27:20.783 dur 0.481  ->  slice end 07:27:21.456 n1 0.481s, slice end 07:27:22.456 n1 0.474s
+   07:27:21.273 dur 0.474  ->  slice end 07:27:21.456 n1 0.481s, slice end 07:27:22.456 n1 0.474s
+   07:27:29.256 dur 0.292  ->  slice end 07:27:30.456 n1 0.292s
+   07:27:30.968 dur 0.389  ->  slice end 07:27:31.456 n1 0.389s
+   07:27:33.600 dur 0.425  ->  slice end 07:27:34.456 n1 0.425s
+   07:27:35.522 dur 0.392  ->  slice end 07:27:36.456 n1 0.392s
+   07:27:42.768 dur 0.424  ->  slice end 07:27:43.456 n1 0.424s
+   07:27:47.314 dur 0.298  ->  slice end 07:27:48.456 n1 0.298s
+   07:27:51.345 dur 0.354  ->  slice end 07:27:52.456 n1 0.354s
+   07:27:55.081 dur 0.298  ->  slice end 07:27:56.456 n1 0.298s
+   07:27:57.728 dur 0.298  ->  slice end 07:27:58.456 n1 0.298s
+   07:27:59.760 dur 0.276  ->  slice end 07:28:00.456 n1 0.276s
+   07:28:00.997 dur 0.359  ->  slice end 07:28:02.456 n1 0.359s
+   07:45:14.472 dur 0.294  ->  slice end 07:45:15.456 n1 0.294s

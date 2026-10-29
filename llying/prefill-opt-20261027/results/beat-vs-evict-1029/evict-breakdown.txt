@@ -1,0 +1,131 @@
+=== PP0: 16 evictions, 8.51 s total, mean 532 ms (min 443, max 635)
+  D2H copies issued inside: 0.00 GB per eviction, GPU copy time 0 ms per eviction
+  HIP runtime calls (>= 1 ms) inside, per eviction: hipEventSynchronize 306 ms (75x)
+  scheduler frames inside (mean ms per eviction, nested):
+      531.9  mem_cache/unified_radix_cache.py(671): evict_for_alloc
+      531.9  mem_cache/unified_radix_cache.py(787): _evict
+      531.8  mem_cache/unified_radix_cache.py(921): _evict_components
+      465.5  mem_cache/unified_radix_cache.py(3417): writing_check
+      306.6  torch/cuda/streams.py(222): synchronize
+      306.5  <built-in method synchronize of Event object at 0x7b504fb44900>
+       90.7  mem_cache/unified_radix_cache.py(1765): _finish_write_through_ack
+       90.6  mem_cache/unified_cache/unified_tree_core.py(2756): finish_write_through
+       90.4  mem_cache/events.py(213): record_store
+        4.9  mem_cache/unified_radix_cache.py(1650): _execute_and_commit_kv_backup
+        4.5  mem_cache/unified_radix_cache.py(1706): _execute_kv_backup
+        2.6  mem_cache/pool_host/base.py(154): wrapper
+        2.0  mem_cache/unified_radix_cache.py(823): _free_values
+        2.0  mem_cache/unified_radix_cache.py(1402): evict_host
+        1.4  mem_cache/unified_radix_cache.py(1395): _drain_host_frees
+        1.4  mem_cache/unified_cache/components/full.py(523): free_host_values
+        1.4  mem_cache/pool_host/group.py(190): free
+        1.4  mem_cache/pool_host/base.py(554): free
+        1.3  mem_cache/hybrid_cache/hybrid_cache_controller.py(542): write
+        1.3  mem_cache/hybrid_cache/hybrid_cache_controller.py(506): allocate_host_transfers
+        1.2  mem_cache/pool_host/group.py(175): alloc
+        1.2  mem_cache/pool_host/base.py(532): alloc
+        0.8  mem_cache/unified_radix_cache.py(902): _demote
+        0.6  mem_cache/unified_radix_cache.py(1386): _drain_device_frees
+        0.6  mem_cache/unified_radix_cache.py(1354): _apply_cache_action
+        0.6  mem_cache/unified_cache/components/full.py(529): apply_component_action
+        0.6  mem_cache/allocator/paged.py(340): free_segment
+        0.6  torch/_tensor.py(38): wrapped
+        0.6  torch/_tensor.py(1115): __floordiv__
+        0.6  <built-in method floor_divide of type object at 0x7b94d49429c0>
+  other threads' python time overlapping the evictions vs the equally long window just before (s total):
+    299/10801 thread 10801 (sglang::schedul): during 8.51, before 8.51
+    299/9061 thread 9061 (sglang::schedul): during 8.51, before 8.51
+    299/9176 thread 9176 (sglang::schedul): during 8.51, before 8.51
+    299/9056 thread 9056 (sglang::schedul): during 8.51, before 8.51
+    299/9058 thread 9058 (sglang::schedul): during 8.51, before 8.51
+    299/2469 thread 2469 (sglang::schedul): during 8.51, before 8.51
+=== PP1: 16 evictions, 5.66 s total, mean 354 ms (min 293, max 491)
+  D2H copies issued inside: 0.00 GB per eviction, GPU copy time 0 ms per eviction
+  HIP runtime calls (>= 1 ms) inside, per eviction: hipEventSynchronize 274 ms (74x); hipLaunchKernel 0 ms (0x)
+  scheduler frames inside (mean ms per eviction, nested):
+      353.5  mem_cache/unified_radix_cache.py(671): evict_for_alloc
+      353.5  mem_cache/unified_radix_cache.py(787): _evict
+      353.4  mem_cache/unified_radix_cache.py(921): _evict_components
+      302.4  mem_cache/unified_radix_cache.py(3417): writing_check
+      274.0  torch/cuda/streams.py(222): synchronize
+      274.0  <built-in method synchronize of Event object at 0x76b55ab2b1b0>
+        0.5  mem_cache/unified_radix_cache.py(1650): _execute_and_commit_kv_backup
+        0.3  managers/cache_controller.py(835): start_writing
+        0.3  mem_cache/unified_radix_cache.py(1706): _execute_kv_backup
+        0.1  mem_cache/l2_transfer.py(132): submit_device_to_host
+        0.1  mem_cache/pool_host/base.py(431): backup_from_device_all_layer_physical
+        0.1  mem_cache/pool_host/mla.py(851): backup_from_device_all_layer
+        0.1  sgl_kernel/kvcacheio.py(326): transfer_kv_all_layer_mla_lf_pf
+        0.1  torch/_ops.py(840): __call__
+        0.1  <built-in method  of pybind11_builtins.pybind11_detail_function_record_v1_system_libstdcpp
+        0.1  mem_cache/unified_radix_cache.py(1402): evict_host
+  other threads' python time overlapping the evictions vs the equally long window just before (s total):
+    429/10230 thread 10230 (sglang::schedul): during 5.66, before 5.66
+    429/10234 thread 10234 (sglang::schedul): during 5.66, before 5.66
+    429/2280 thread 2280 (sglang::schedul): during 5.66, before 5.66
+    429/10231 thread 10231 (sglang::schedul): during 5.66, before 5.66
+    429/10945 thread 10945 (sglang::schedul): during 5.66, before 5.66
+    429/2516 thread 2516 (sglang::schedul): during 5.66, before 5.66
+=== PP2: 16 evictions, 6.41 s total, mean 401 ms (min 303, max 508)
+  D2H copies issued inside: 0.00 GB per eviction, GPU copy time 0 ms per eviction
+  HIP runtime calls (>= 1 ms) inside, per eviction: hipEventSynchronize 319 ms (75x)
+  scheduler frames inside (mean ms per eviction, nested):
+      400.8  mem_cache/unified_radix_cache.py(671): evict_for_alloc
+      400.8  mem_cache/unified_radix_cache.py(787): _evict
+      400.7  mem_cache/unified_radix_cache.py(921): _evict_components
+      348.6  mem_cache/unified_radix_cache.py(3417): writing_check
+      319.6  torch/cuda/streams.py(222): synchronize
+      319.5  <built-in method synchronize of Event object at 0x72e0a1707680>
+        0.5  mem_cache/unified_radix_cache.py(1650): _execute_and_commit_kv_backup
+        0.5  mem_cache/unified_radix_cache.py(1706): _execute_kv_backup
+        0.2  managers/cache_controller.py(835): start_writing
+        0.2  mem_cache/hybrid_cache/hybrid_cache_controller.py(542): write
+        0.2  mem_cache/hybrid_cache/hybrid_cache_controller.py(506): allocate_host_transfers
+        0.2  mem_cache/pool_host/group.py(175): alloc
+        0.2  mem_cache/pool_host/base.py(154): wrapper
+        0.2  mem_cache/pool_host/base.py(532): alloc
+        0.1  mem_cache/l2_transfer.py(132): submit_device_to_host
+        0.1  mem_cache/pool_host/base.py(431): backup_from_device_all_layer_physical
+        0.1  mem_cache/pool_host/dsa.py(480): backup_from_device_all_layer
+        0.1  mem_cache/pool_host/dsa.py(336): _get_indexer_page_indices
+        0.1  <built-in method reshape of Tensor object at 0x72e06f7aa340>
+        0.1  mem_cache/unified_radix_cache.py(1402): evict_host
+  other threads' python time overlapping the evictions vs the equally long window just before (s total):
+    573/2283 thread 2283 (sglang::schedul): during 6.41, before 6.41
+    573/2513 thread 2513 (sglang::schedul): during 6.41, before 6.41
+    573/10223 thread 10223 (sglang::schedul): during 6.41, before 6.41
+    573/11086 thread 11086 (sglang::schedul): during 6.41, before 6.41
+    573/10224 thread 10224 (sglang::schedul): during 6.41, before 6.41
+    573/10228 thread 10228 (sglang::schedul): during 6.41, before 6.41
+=== PP3: 16 evictions, 5.99 s total, mean 375 ms (min 276, max 481)
+  D2H copies issued inside: 0.00 GB per eviction, GPU copy time 0 ms per eviction
+  HIP runtime calls (>= 1 ms) inside, per eviction: hipEventSynchronize 293 ms (73x)
+  scheduler frames inside (mean ms per eviction, nested):
+      374.5  mem_cache/unified_radix_cache.py(671): evict_for_alloc
+      374.5  mem_cache/unified_radix_cache.py(787): _evict
+      374.4  mem_cache/unified_radix_cache.py(921): _evict_components
+      321.3  mem_cache/unified_radix_cache.py(3417): writing_check
+      293.6  torch/cuda/streams.py(222): synchronize
+      293.5  <built-in method synchronize of Event object at 0x786bbdf2b6f0>
+        0.8  mem_cache/unified_radix_cache.py(1650): _execute_and_commit_kv_backup
+        0.7  mem_cache/unified_radix_cache.py(1706): _execute_kv_backup
+        0.4  mem_cache/unified_radix_cache.py(1402): evict_host
+        0.4  mem_cache/pool_host/base.py(154): wrapper
+        0.3  mem_cache/unified_radix_cache.py(823): _free_values
+        0.3  mem_cache/unified_radix_cache.py(1395): _drain_host_frees
+        0.3  mem_cache/unified_cache/components/full.py(523): free_host_values
+        0.3  mem_cache/pool_host/group.py(190): free
+        0.3  mem_cache/pool_host/base.py(554): free
+        0.1  <built-in method all of Tensor object at 0x786b0cbefe20>
+        0.1  managers/cache_controller.py(835): start_writing
+        0.1  mem_cache/hybrid_cache/hybrid_cache_controller.py(542): write
+        0.1  mem_cache/hybrid_cache/hybrid_cache_controller.py(506): allocate_host_transfers
+        0.1  mem_cache/pool_host/group.py(175): alloc
+        0.1  mem_cache/pool_host/base.py(532): alloc
+  other threads' python time overlapping the evictions vs the equally long window just before (s total):
+    747/2514 thread 2514 (sglang::schedul): during 5.99, before 5.99
+    747/11227 thread 11227 (sglang::schedul): during 5.99, before 5.99
+    747/10222 thread 10222 (sglang::schedul): during 5.99, before 5.99
+    747/10217 thread 10217 (sglang::schedul): during 5.99, before 5.99
+    747/2282 thread 2282 (sglang::schedul): during 5.99, before 5.99
+    747/10219 thread 10219 (sglang::schedul): during 5.99, before 5.99

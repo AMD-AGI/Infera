@@ -1,0 +1,21 @@
+measured v3            : host  21.7M + device 10.7M; new 5.29%, device hit 62.3%, host hit 32.4%
+measured HC500         : host  43.4M + device 10.7M; new 5.02%, device hit 60.0%, host hit 35.0%
+measured E1            : host  21.7M + device 10.7M; new 5.22%, device hit 62.1%, host hit 32.6%
+measured HC500+E1      : host  43.4M + device 10.7M; new 4.98%, device hit 59.1%, host hit 35.9%
+measured E1-r2         : host  21.7M + device 10.7M; new 5.25%, device hit 60.4%, host hit 34.3%
+measured HC300+E1      : host  26.0M + device 10.7M; new 5.13%, device hit 61.5%, host hit 33.4%
+measured E4            : host  21.7M + device 10.7M; new 5.29%, device hit 60.4%, host hit 34.4%
+12998 requests, 2187 conversations, 1634M prompt tokens
+  capacity     8.0M tokens: new-computed share 59.30%
+  capacity    12.0M tokens: new-computed share 35.33%
+  capacity    16.0M tokens: new-computed share 22.15%
+  capacity    20.0M tokens: new-computed share 15.47%
+  capacity    23.0M tokens: new-computed share 12.13%
+  capacity    26.0M tokens: new-computed share 8.83%
+  capacity    29.0M tokens: new-computed share 6.96%
+  capacity    32.4M tokens: new-computed share 6.33%
+  capacity    36.7M tokens: new-computed share 6.09%
+  capacity    45.0M tokens: new-computed share 5.96%
+  capacity    54.1M tokens: new-computed share 5.92%
+  capacity    80.0M tokens: new-computed share 5.81%
+  capacity 1000000.0M tokens: new-computed share 5.81%
