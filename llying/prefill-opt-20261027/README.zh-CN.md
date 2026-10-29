@@ -3,6 +3,17 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## 10-29 05:05 后续计划（每一步先离线定量、预测收益 > 1% 才上机器）
+
+1. **离线（约 2 小时）**：E1 四级 trace 按时间对上每步的 prefill token usage，核对高 usage 时 GPU 步长是否不变、空闲落在哪一级哪个阶段、KV 传输线程是否与调度线程争 CPU（GIL）。
+   该机制能解释有排队超额时间的 ≥ 30%（约占窗口 9%）才设计修复并写预测；否则放弃这条线。
+2. **decode kernel 分解（数据采集，非性能测试，约 1 小时，140）**：verify CUDA graph 内部从未测过（yihou 也未补上）；用 rocprof 或关 graph 短跑拿到每步约 42 ms 的构成。
+   decode 变快能更早释放 KV，缓解 decode prealloc 排队（70% 的秒数）。
+3. **kernel（收益可离线预测）**：先从真实运行抓相邻 query token 的 top-k 索引，量重合度、算出合并 gather 能省的访存量；值得再把上游的 union 路径扩展到每卡 64 头。
+   其次是 indexer logits + top-k 融合。
+4. 不做：decode mem 0.96 复测（yihou 单次 +1.2%，按机制预计在噪声内，要多次才分得清）、任何为占用机器而跑的实验。
+5. 建议下一阶段开新会话，以本文件最前面的汇总作为交接，减少长会话丢细节造成的错误。
+
 ## 10-29 03:40 离线分析：PD 两侧谁等谁；长节拍与 prefill 在途 KV 用量强相关
 
 **prefill 与 decode 的排队（`scripts/pd_queue_cause.py`，E1 复测计分窗口，按秒，decode 各 rank 沿用最近一行）**：prefill `optimistic_prefill_attempts = 0`，
