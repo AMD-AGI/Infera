@@ -3,6 +3,41 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## 10-29 12:50 E11（候选，未跑）：prefill 关 KV events——静态分析与定量预测
+
+**改动**：只改配置 `config/site-llr35-v3-evict512k-bq16-nokvev.env`（叠在 E1 + E10 上），prefill 追加 `--no-enable-kv-events --kv-events off`，与 decode 现在的写法相同；
+argparse 后出现者生效，覆盖 `worker.sh` 里写死的 `--enable-kv-events --kv-events on`。
+
+**代价从哪来（已有数据）**
+- `results/beat-vs-evict-1029/evict-breakdown.txt`：PP0 每次驱逐 532 ms，其中 `finish_write_through → events.py record_store` 90 ms——写回的每一页（约 53 万 token，约 8K 页）
+  逐页在 Python 里算哈希、生成 `BlockStored(medium=CPU)`。PP1 每次 354 ms，没有这一项。
+- 不开 trace 的计分 metrics（E1）：PP0 驱逐均值 0.52 s，PP1–PP3 0.33 / 0.40 / 0.37 s，PP0 多出约 0.15 s，所以 90 ms 不是 trace 开销放大出来的。
+- 驱逐以外：trace 窗口（54 s）里 PP0 有一次 850 ms 的 GPU 空隙，CPU 在 `events.py` 的逐页 listcomp（734 ms，懒算大节点的哈希）。
+
+**正确性（静态）**
+1. SGLang 只在 `pp_rank == 0`（且 attn_tp / cp rank 0）上启用事件（`scheduler.py` 的 `enable_kv_cache_events`），**PP1–PP3 在生产配置里本来就走"事件关闭"的路径**；
+   关掉后 PP0 和其他三级走同一条代码，各级树更一致而不是更不一致。
+2. 关闭后 `record_store / record_remove` 在第一行 `if not self.enabled: return`，不改树状态；唯一的副作用是 PP0 节点的 `hash_value` 不再被懒算。
+   `hash_value` 的其他使用者都是 L3 存储路径（`storage_attachment.backfill_missing_hash_values`、`unified_cache_linker._tail_hashes`、`hybrid_cache_controller` 的 storage 操作）；
+   本配置的 HiCache 只有主机一级（没有 `--hicache-storage-backend`），这些路径不会执行。驱逐、匹配、回载、PD 传输都不读 `hash_value`。
+3. 不改 stream、同步、kernel、数值，写回 / 回载的数据路径不变。
+
+**副作用（静态）**
+- 路由：infera `--kv-events off` 时 router 对这个 worker 不建 KV 视图（`kv_block_size` 为空 → 命中数 0）。只有一个 prefill 目标（TP1 × PP4，dp 1），
+  kv-aware 的打分只有一个候选，选择不变；会话亲和同理。decode 本来就关着事件。
+- 失去的只是 router 的 prefill 前缀命中统计（计分不用它，aiperf 自己算命中率）；router 少做 zmq 收包和哈希匹配。
+- 多实例部署（> 1 个 prefill）时不能用这个配置：那时 kv-aware 选路依赖它。所以它只适用于单 prefill 实例的工作点。
+
+**定量预测（开跑前写下）**
+- 机制：PP0 驱逐均值降约 0.09 s（E10 后预计 PP0 约 0.36 → 约 0.27 s，接近其他三级），驱逐次数和写回 token 不变；`events.py` 不再出现在调度线程上。
+- 环：每级每小时约 1,000 次驱逐（写回 5.29 亿 token ÷ 每次约 53 万）。按 0.57 的比例模型，环损失每小时少约 51 s；PP0 是每次驱逐里最慢的一级，
+  若全额传到环上则少约 90 s。驱逐以外的部分（插入时的 `record_store`、懒算大节点哈希）不计入下限。
+- 端到端：有排队约 2,700 s / 小时，prefill +1.9% 到 +3.3%；按 E1 的弹性 0.78，**端到端 +1.5% 到 +2.6%（点估计 +2%）**，高于 1% 门槛。
+  如果 E10 的结果显示瓶颈已转到 decode（驱逐时间降了、吞吐没涨），这一项一起推迟。
+- 判定：PP0 驱逐均值没有下降约 0.08 s 以上，就说明机制不成立。
+
+**测试安排**：静态分析表明不改驱逐语义、PP1–PP3 已在跑同一路径，所以**不跑限池门禁**，起栈自带的 smoke 之后直接 C104 计分一次（用户 10-29：每个配置只跑一次）。
+
 ## 10-29 11:50 E10：限池门禁通过；第一次计分起栈失败（环境问题），已重排计分
 
 - **门禁通过**（`full-site-llr35-v3-evict-bq16-gate-1029T0705.out`）：探测 0.985、乱码 0、开头坏 4、跑到上限 3（对照 4 / 6 / 6）；两遍 16k × 128 捞针 64 / 64、
