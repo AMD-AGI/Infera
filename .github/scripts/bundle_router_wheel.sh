@@ -7,7 +7,8 @@
 # side of the two wheels identical.
 #   .github/scripts/bundle_router_wheel.sh <py3-none-any.whl> <infera-router> <out-dir>
 #
-# Needs `wheel` and `auditwheel>=6.8` importable by `python`.
+# Needs `wheel` and `auditwheel>=6.8,<7` (for --patcher and --only-plat as
+# used below) importable by `python`.
 set -euo pipefail
 
 pure="${1:?usage: bundle_router_wheel.sh <pure-wheel> <binary> <out-dir>}"

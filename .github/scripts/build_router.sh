@@ -6,6 +6,9 @@
 # that bundles it promises (bundle_router_wheel.sh checks it). Needs docker.
 #   .github/scripts/build_router.sh <out-dir>      -> <out-dir>/infera-router
 #
+# The toolchain is pinned (RUST_TOOLCHAIN overrides it) so that re-running a
+# release tag builds with the same compiler; bump it deliberately.
+#
 # The checkout is mounted read-only and cargo's target dir lives in the
 # container: a local run must neither leave root-owned files behind nor reuse
 # objects a newer host compiler built for a newer CPU (see rust/.cargo/config.toml).
@@ -16,14 +19,17 @@ mkdir -p "$out"
 out="$(cd "$out" && pwd)"
 repo="$(git -C "$(dirname "$(readlink -f "$0")")" rev-parse --show-toplevel)"
 image="${MANYLINUX_IMAGE:-quay.io/pypa/manylinux_2_28_x86_64}"
+toolchain="${RUST_TOOLCHAIN:-1.99.1}"
 
 docker run --rm \
   -v "$repo:/src:ro" -v "$out:/out" \
   -e CARGO_TARGET_DIR=/tmp/target -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+  -e RUST_TOOLCHAIN="$toolchain" \
   -w /src/rust "$image" bash -euo pipefail -c '
     # onig_sys generates its bindings with bindgen, which needs libclang.
     dnf install -y -q clang-devel
-    curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y -q --profile minimal
+    curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs \
+      | sh -s -- -y -q --profile minimal --default-toolchain "$RUST_TOOLCHAIN"
     . "$HOME/.cargo/env"
     # From rust/, not via --manifest-path: cargo finds rust/.cargo/config.toml
     # by working directory, and the zeromq-src flags it sets are not optional.

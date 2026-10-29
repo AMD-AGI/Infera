@@ -127,9 +127,9 @@ above, build the binary from source instead; this requires a [Rust toolchain](ht
 cd rust && cargo build --release && cd -   # produces rust/target/release/infera-router
 ```
 
-The server auto-discovers the binary (or set `INFERA_ROUTER_BIN=/path/to/infera-router`); then
-run the server with `--router-backend rust`. The default backend is `python`, which requires no
-Rust toolchain.
+The server auto-discovers the binary, preferring the one a wheel bundles over one on `PATH`;
+`INFERA_ROUTER_BIN=/path/to/infera-router` overrides both. Then run the server with
+`--router-backend rust`. The default backend is `python`, which requires no Rust toolchain.
 
 ### Option C — Kubernetes
 

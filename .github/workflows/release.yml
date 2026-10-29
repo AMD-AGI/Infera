@@ -301,7 +301,7 @@ jobs:
           path: router
       - name: Build sdist + wheels
         run: |
-          pip install build twine wheel "auditwheel>=6.8"
+          pip install build twine wheel "auditwheel>=6.8,<7"
           python -m build
           tar -xzf router/infera-router-*.tar.gz -C router
           .github/scripts/bundle_router_wheel.sh dist/*-py3-none-any.whl router/infera-router dist
