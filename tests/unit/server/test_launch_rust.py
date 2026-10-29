@@ -15,11 +15,12 @@ letting the binary fail somewhere less legible.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 import pytest
 
 from infera.server.args import parse_server_args
-from infera.server.launch_rust import exec_rust
+from infera.server.launch_rust import _find_binary, exec_rust
 
 
 def _args(**overrides) -> argparse.Namespace:
@@ -250,3 +251,53 @@ def test_the_new_kv_flags_stay_inside_the_kv_aware_gate(monkeypatch):
     surfaces independent."""
     argv = _argv(monkeypatch, kv_per_worker_template_kwargs=False)
     assert "--kv-per-worker-template-kwargs" not in argv
+
+
+def _router_at(path: Path, mode: int = 0o755) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("")
+    path.chmod(mode)
+    return path
+
+
+@pytest.fixture
+def lookup(monkeypatch, tmp_path):
+    """A bundled slot and a PATH entry, both empty until a test fills them."""
+    monkeypatch.delenv("INFERA_ROUTER_BIN", raising=False)
+    monkeypatch.setenv("PATH", str(tmp_path / "path"))
+    bundled = tmp_path / "wheel" / "_bin" / "infera-router"
+    monkeypatch.setattr("infera.server.launch_rust._BUNDLED_BINARY", bundled)
+    return bundled, tmp_path / "path" / "infera-router"
+
+
+def test_the_bundled_router_wins_over_one_on_path(lookup):
+    """The wheel's own router is the one this launcher's argv was written for; a
+    copy on PATH -- an image's /usr/local/bin, say -- may be from any release."""
+    bundled, on_path = lookup
+    _router_at(on_path)
+    _router_at(bundled)
+    assert _find_binary() == str(bundled)
+
+
+def test_without_a_bundled_router_path_is_used(lookup):
+    """Source installs (every image and the overlay) carry no bundled binary."""
+    _, on_path = lookup
+    _router_at(on_path)
+    assert _find_binary() == str(on_path)
+
+
+def test_infera_router_bin_overrides_the_bundled_router(lookup, monkeypatch):
+    bundled, _ = lookup
+    _router_at(bundled)
+    monkeypatch.setenv("INFERA_ROUTER_BIN", "/custom/infera-router")
+    assert _find_binary() == "/custom/infera-router"
+
+
+def test_a_bundled_router_that_cannot_execute_is_named(lookup):
+    """Falling through to PATH would silently run a different router."""
+    bundled, on_path = lookup
+    _router_at(on_path)
+    _router_at(bundled, mode=0o644)
+    with pytest.raises(SystemExit) as exc:
+        _find_binary()
+    assert str(bundled) in str(exc.value)

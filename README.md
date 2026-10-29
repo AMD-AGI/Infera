@@ -119,17 +119,17 @@ pip3 install ".[sglang]"        # or .[vllm] / .[atom]  (add .[gaie] for the End
 pip3 install -e ".[dev,sglang]" # editable + lint/test tooling, for contributors
 ```
 
-**Optional — Rust router** (`--router-backend rust`), the multi-core data plane. It is not yet
-shipped as a wheel, so build the binary from source; this requires a
-[Rust toolchain](https://rustup.rs):
+**Optional — Rust router** (`--router-backend rust`), the multi-core data plane. The Linux x86_64
+wheel attached to each GitHub Release (glibc ≥ 2.28) bundles it. Installing from a clone, as
+above, build the binary from source instead; this requires a [Rust toolchain](https://rustup.rs):
 
 ```bash
 cd rust && cargo build --release && cd -   # produces rust/target/release/infera-router
 ```
 
-The server auto-discovers the binary (or set `INFERA_ROUTER_BIN=/path/to/infera-router`); then
-run the server with `--router-backend rust`. The default backend is `python`, which requires no
-Rust toolchain.
+The server auto-discovers the binary, preferring the one a wheel bundles over one on `PATH`;
+`INFERA_ROUTER_BIN=/path/to/infera-router` overrides both. Then run the server with
+`--router-backend rust`. The default backend is `python`, which requires no Rust toolchain.
 
 ### Option C — Kubernetes
 

@@ -36,10 +36,19 @@ _SUPPORTED_KV_TRANSPORT = ("zmq", "nats")
 # Routing policies the Rust backend implements.
 _SUPPORTED_POLICIES = ("round-robin", "kv-aware")
 
+# Where the Linux x86_64 wheel puts the router built from the same commit.
+_BUNDLED_BINARY = Path(__file__).resolve().parents[1] / "_bin" / "infera-router"
+
 
 def _find_binary() -> str:
     if env := os.environ.get("INFERA_ROUTER_BIN"):
         return env
+    # Ahead of PATH: the bundled binary is the one this launcher's argv is
+    # written for, while a copy on PATH may come from any other release.
+    if _BUNDLED_BINARY.is_file():
+        if not os.access(_BUNDLED_BINARY, os.X_OK):
+            raise SystemExit(f"bundled infera-router is not executable: {_BUNDLED_BINARY}")
+        return str(_BUNDLED_BINARY)
     if found := shutil.which("infera-router"):
         return found
     repo_root = Path(__file__).resolve().parents[2]  # infera/server/ -> repo
@@ -48,8 +57,9 @@ def _find_binary() -> str:
         if cand.exists():
             return str(cand)
     raise SystemExit(
-        "infera-router binary not found. Build it (`cd rust && cargo build "
-        "--release`) or set INFERA_ROUTER_BIN=/path/to/infera-router."
+        "infera-router binary not found. The Linux x86_64 wheel (glibc >= 2.28) "
+        "bundles it; otherwise build it (`cd rust && cargo build --release`) or "
+        "set INFERA_ROUTER_BIN=/path/to/infera-router."
     )
 
 
