@@ -35,10 +35,14 @@ def explicit_kv_events_port(argv: list[str]) -> int | None:
         raise ValueError(
             f"--kv-events-config topic {topic!r}: the router only subscribes to {KV_EVENTS_TOPIC!r}"
         )
+    # The worker advertises tcp://<advertise-host>:<port>, the NATS relay dials the
+    # publisher on 127.0.0.1, and vLLM binds only for a `*` host (any other host makes
+    # it connect), so the publisher must bind every interface over TCP.
     endpoint = str(config.get("endpoint", ""))
-    _, sep, port = endpoint.rpartition(":")
-    if not sep or not port.isdigit():
+    host, sep, port = endpoint.removeprefix("tcp://").rpartition(":")
+    if not endpoint.startswith("tcp://") or host != "*" or not sep or not port.isdigit():
         raise ValueError(
-            f"--kv-events-config needs a tcp endpoint with a port to advertise; got {raw!r}"
+            f"--kv-events-config endpoint must be tcp://*:<port> so the worker can "
+            f"advertise it; got {endpoint!r}"
         )
     return int(port)

@@ -33,9 +33,23 @@ def test_explicit_port_is_read_from_either_flag_form(argv, port):
     assert explicit_kv_events_port(argv) == port
 
 
-def test_a_config_without_a_port_is_rejected():
-    with pytest.raises(ValueError, match="endpoint with a port"):
-        explicit_kv_events_port(["--kv-events-config", json.dumps({"publisher": "zmq"})])
+@pytest.mark.parametrize(
+    "endpoint",
+    [
+        None,
+        "tcp://*",
+        "tcp://*:port",
+        "ipc:///tmp/kv-events:5560",
+        "tcp://10.0.0.1:5560",
+        "tcp://127.0.0.1:5560",
+    ],
+)
+def test_an_endpoint_the_worker_cannot_advertise_is_rejected(endpoint):
+    config = {"publisher": "zmq", "topic": "kv-events"}
+    if endpoint is not None:
+        config["endpoint"] = endpoint
+    with pytest.raises(ValueError, match=r"must be tcp://\*:<port>"):
+        explicit_kv_events_port(["--kv-events-config", json.dumps(config)])
 
 
 def test_a_topic_the_router_does_not_subscribe_to_is_rejected():
