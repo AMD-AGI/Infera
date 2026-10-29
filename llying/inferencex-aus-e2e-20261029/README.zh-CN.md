@@ -1,0 +1,62 @@
+# infera-sglang GLM-5.2 在 AUS 上按 InferenceX 流程实测（10-29 起，持续更新）
+
+目标：在本集群（AUS / smci355，Compute-DCPT 分区）上，用 InferenceX CI 的同一套脚本和流程跑
+[InferenceX#4629](https://github.com/SemiAnalysisAI/InferenceX/pull/4629) 的 `glm5.2-fp4-mi355x-infera-sglang-agentic-disagg`：
+原样 lmsysorg 镜像 + 作业启动时装 Infera wheel + 打补丁，经 srt-slurm（带 #630 infera frontend）拉起，跑 AgentX 与 GSM8K eval。
+先做功能对齐（三种 PD 形态各一点、AgentX fast 模式），再选两个点做性能对齐（3600 s，与 #210 对比）。
+过程中发现的 PR 问题直接修并推送。
+
+## 0. 当前状态（随时更新）
+
+见文末"时间线"。
+
+## 1. 实测方式
+
+### 1.1 为什么能在本集群上"按 CI 方式"跑
+
+AMD 内部 fork `AMD-ROCm-Internal/InferenceY`（`AGENTS.md`："a local fork used to reproduce and debug InferenceX CI on the smci355 cluster"）
+在本集群 n07–n09（`Compute-Group01`，另一个 Slurm 控制器，我们不可见）上挂了 6 个 GitHub runner（`/perf_apps/duwang/actions-runner-emu-0{4..9}`），
+`clusters.mi355x-amds` 被改写成 smci355 的记录：ionic_0–7、`recipe-replace` 把上游 recipe 的 `rdma*` / `eno0` 换成本地名、pyxis 容器、
+`hooks/mi355x-amds/setup.sh`（RDMA 预检、GPU 显存清空等待、hugepage）、`/apps/data/models` 共享权重。它还带 `runners/manual_launch.py`：
+不经 runner 手动跑一个 matrix 点，runner 以下（squash 导入、recipe 绑定、合成接受率注入、srtctl 提交、`srt_agentic.sh` 客户端、收集与归档）与 CI 完全相同。
+
+我们的做法（测试树 `/home/liyingli/code/bench_agentx/infx-aus`，本地 git，不推送）：
+
+| 提交 | 内容 |
+|---|---|
+| 1 | InferenceY `cde1f5adb` 工作区快照（runner emu-04） |
+| 2 | 叠加 #4629（`c9560348`）的 diff（perf-changelog / patches README 两处冲突与测试无关，未带） |
+| 3+ | 叠加 #4629 分支上后续的修复提交（与推送到 PR 的内容逐字相同） |
+| TEST-ONLY | 只为在本集群上跑：分区 `Compute-Group01` → `Compute-DCPT`；squash / HF 缓存 / aiperf 缓存 / 归档目录改到 `/apps/liyingli`；host 网卡 `enp81s0f1` → `fenic`（Compute-DCPT 节点上没有 enp81s0f1）；recipe 写死的上游节点本地 HF 缓存 `/var/lib/hf-hub-cache` 经 `recipe-replace` 换成 `/apps/liyingli/cache/hf-hub-cache`；Infera 用本地 wheel（`--find-links /configs/infera-wheels`）且 master 的 `router.version` 改成 `0.3.3.dev5`（正式版发布后换回 GitHub release） |
+
+srt-slurm 固定 `ae3d6877`，启动时依次打 `573-participating-gpus.patch`、`630-infera-frontend.patch`、`node-exporter-host-native.patch`（与 CI 相同的 `checkout.py` 流程）。
+提交作业时 `SBATCH_QOS=batch`（我们能用的最高 QoS）。
+
+### 1.2 Infera wheel
+
+- #222 分支 merge 最新 main（含 #223 的打包方式）→ `f668fbf7`，已推送。计算节点上单元测试 `tests/unit/engine`、`kv`、`server` 566 passed / 1 skipped。
+- 按 #223 的 release 流程本地打包（`scripts/build_infera.sh`，计算节点）：`python -m build` → `build_router.sh`（manylinux_2_28 容器，Rust 1.99.1）→
+  `bundle_router_wheel.sh`（auditwheel 打 `manylinux_2_28_x86_64` 标签）→ 每个 wheel 单独 venv 安装检查，`_find_binary()` 解析到 wheel 内置的 router。
+- 产物：`amd_infera-0.3.3.dev5-py3-none-manylinux_2_28_x86_64.whl`（sha256 `1b64f07f…`），版本号由 setuptools_scm 从 git 生成。
+
+## 2. 对 #4629 的修改（已在本地提交，实测通过后推送）
+
+| 文件 | 改动 | 原因 |
+|---|---|---|
+| `configs/infera-sglang.sh` | 装完 Infera 后执行 `infera-sglang-patches/apply.sh`；router 检查改为 `launch_rust._find_binary()` | 补丁原先没有接入；#223 之后 router 在 wheel 的 `infera/_bin/` 下而不在 PATH 上，原来的 `shutil.which` 检查会失败 |
+| `configs/infera-sglang-patches/` | B1/B2/B6/B7/B8 五个补丁 + `apply.sh`（锚点匹配、可重复执行、逐个核对标记，任一失败作业失败） | 原样镜像缺这 5 个修复（源码逐行核对见 waiver） |
+| `docs/waiver/4629.md` | 按 #2508 的格式：涵盖配置、改了什么、上游 PR / issue、原样镜像为什么跑不了、移除计划 | checklist 要求 |
+| recipe | 加 `MOONCAKE_DISABLE_HIP_DMABUF: "1"`；`extra_mount` 只读挂宿主机 ionic provider | dma-buf 按同集群 ATOM PD 先例（同一 Mooncake `78566d45`、同为 1 GiB MR）定为 1，不实测；libionic 照 Kimi-K3 vLLM 的做法 |
+| `infx/tests/srt_slurm/test_setup_scripts.py` | 安装脚本测试跳过补丁步骤（`INFERA_SGLANG_PATCHES=0`），新增"补丁打不上则安装脚本失败"的测试 | |
+
+## 3. 结果
+
+（待补）
+
+## 4. 时间线
+
+- 10-29 12:54 #222 merge main、单测、打 wheel（计算节点 n05-33，作业 34908）；12:58 推送 #222。
+- 10-29 13:00–14:20 搭测试树（InferenceY 快照 + #4629 + TEST-ONLY 适配），补丁脚本与 waiver。
+- 10-29 14:26 节点探测：Compute-DCPT 节点 host 网卡是 `fenic`（不是 InferenceY 节点的 `enp81s0f1`），无 `/var/lib/hf-hub-cache`；
+  ionic_0–7、宿主机 provider `libionic-rdmav34.so → libionic.so.1.1.39`、`/etc/slurm/task_prolog.sh`、pyxis 都在。
+- 10-29 14:38 拉起功能点 1（4+4 C80，`--fast`）。
