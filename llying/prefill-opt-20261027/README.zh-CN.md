@@ -3,6 +3,22 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## 10-29 03:40 离线分析：PD 两侧谁等谁；长节拍与 prefill 在途 KV 用量强相关
+
+**prefill 与 decode 的排队（`scripts/pd_queue_cause.py`，E1 复测计分窗口，按秒，decode 各 rank 沿用最近一行）**：prefill `optimistic_prefill_attempts = 0`，
+即 decode 预分配 KV（bootstrap）完成后 prefill 才能算这个请求。
+- prefill 有可计算队列 75% 的秒数、在算但队列空 18%、空闲 7%；decode prealloc 排队 70% 的秒数（平均 6.3 个请求）。
+- **prefill 空闲且 decode 在排 prealloc 只占 5%**；两边同时排队 64%。
+- decode KV 用量平均 0.86，**其中 0.23 预占给还在 prefill 队列 / 正在算 / 正在传的请求**；运行中请求用约 0.63。
+- 判断：prefill 的可计算队列里都是已 bootstrap 的请求（decode 已分配），**prefill 排队不是 decode prealloc 造成的**；反过来，请求在 prefill 排队和计算的时间里
+  一直占着 decode 预分配的 KV（0.23），推高 decode 用量 → decode prealloc 排队。**根因在 prefill 吞吐**，decode prealloc 主要是下游结果（被"先分配再 prefill"放大）；
+  decode KV 容量是第二位的限制（C112 失败即此），decode 越快、运行中请求越早释放 KV 也能缓解。
+
+**长节拍和什么相关（`scripts/beat_features.py`，有排队的 5,854 拍，按特征四分位看超额时间的分布，均匀则各 25%）**：缓存 token、新 token、序列数、排队数、
+传输中请求数都接近均匀；**prefill token usage 单调强相关**：≤ 0.12 时中位节拍 276 ms、占超额 13%；> 0.25 时中位 569 ms、占 38%。
+token usage = 1 − (空闲 + 可驱逐) / 容量，即在途请求（流水线里的、算完等传完的）锁住的 KV。trace 里 GPU 每步约 250 ms 很稳，所以高 usage 时多出的是空等而不是算得慢。
+下一步：用 trace 按时间把每步对上 usage，核对高 usage 时 GPU 步长是否不变、空闲落在哪个阶段，以及传输线程是否与调度线程争 CPU（Python GIL）。
+
 ## 10-29 03:15 `GPU_MAX_HW_QUEUES=8` 没有依据，已停
 
 - 用户问依据后补做的核对（`scripts/copy_wait_blocker.py`：每个调度线程上 > 20 ms 的阻塞拷贝，看它在 GPU 上开始前刚结束的是哪条 stream 的哪个操作）：
