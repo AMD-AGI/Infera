@@ -15,7 +15,7 @@
 #     --long-path /long \
 #     --long-bytes 16G
 
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -29,8 +29,9 @@ COPY infera ./infera
 # them: nothing here imports setuptools or pkg_resources, and the daemon starts
 # as `python -m infera.kvd`. Same RUN because a delete in a later layer leaves
 # the files in the one below. By path, since pip cannot uninstall itself.
+# filelock 4.2.1 fixes CVE-2026-112940 and requires Python >=3.11.
 RUN set -eu; \
-    pip install --no-cache-dir ".[gaie]"; \
+    pip install --no-cache-dir ".[gaie]" "filelock>=4.2.1"; \
     sp="$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"; \
     rm -rf "$sp/pip" "$sp/setuptools" "$sp/wheel" "$sp/pkg_resources" \
            "$sp"/pip-*.dist-info "$sp"/setuptools-*.dist-info \
