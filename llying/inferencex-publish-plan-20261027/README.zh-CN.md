@@ -87,9 +87,10 @@
 - **与 Infera 版本的兼容性**：srt-slurm 把 `frontend.args` 原样传给 `infera-router`，以后新增的 router 策略和参数直接写在 recipe 里，srt-slurm 不用改；
   ≥ 0.3.2 的版本都能用，前提是这些约定保持兼容：可执行文件 `infera-router` 与模块 `infera.engine.sglang`、srtctl 管理的 router 参数、srtctl 传给包装层的参数、
   `/v1/workers` 的 `disagg_mode` / `status` 字段、#222 的端口行为。需要 worker 多开监听端口或改用 NATS 的新功能，才要同步改 srt-slurm。
-- **srt-slurm 合入在 InferenceX PR 的关键路径上**：InferenceX 的 `infx generate`（PR 校验）直接从子模块 `utils/srt-slurm/src` 导入 srtctl，不打
-  `runners/srt-slurm/patches/` 里的补丁，所以只带补丁时，校验会因为不认识 `frontend.type: infera` 而失败。实际需要 #630 合入并升级子模块，
-  或请 InferenceX 维护者让校验也打补丁。补丁目录 README 还写明"每个补丁回移一个上游修复"，未合入的 PR 属于灰色地带（ATOM #4045 的 604 补丁同样未合入）。
+- **srt-slurm #630 不一定要先合入（10-29 更正）**：作业启动时 `checkout.py` 先克隆固定版本的 srt-slurm、依次打上 `runners/srt-slurm/patches/*.patch`，
+  再把打过补丁的版本装进 venv 跑 `srtctl apply`，所以带补丁就能跑。CI 工作流不调用 `infx generate`，矩阵规划（`variants.py`）也不导入 srtctl；
+  只有本地查看用的 `infx generate` 从原样子模块导入 srtctl（此前把它写成"PR 校验"是错的）。剩下的是规则层面：补丁目录 README 写明"每个补丁回移一个
+  上游修复"，未合入的 PR 属于灰色地带（ATOM #4045 的 604 补丁同样未合入），由 SemiAnalysis 维护者决定。
 - **#630 的 router 改由 Infera 启动器起（10-28）**：Rust `infera-router` 只从本地路径读 tokenizer，recipe 用 HF 模型名时拿不到路径；改为
   `python3 -m infera.server --router-backend rust`（#210 kit 也是这样起的），由它解析 HF 名再 exec Rust router，默认值与 Rust 一致；
   `router-tokenizer-path` 默认取 worker 加载的模型。
