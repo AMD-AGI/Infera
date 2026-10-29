@@ -1,0 +1,12 @@
+12998 requests, 2187 conversations, 1634M prompt tokens
+  capacity    21.7M tokens: new-computed share 13.48%
+  capacity    23.0M tokens: new-computed share 12.13%
+  capacity    26.0M tokens: new-computed share 8.83%
+  capacity    29.0M tokens: new-computed share 6.96%
+  capacity    31.4M tokens: new-computed share 6.38%
+  capacity    31.9M tokens: new-computed share 6.37%
+  capacity    32.4M tokens: new-computed share 6.33%
+  capacity    36.7M tokens: new-computed share 6.09%
+  capacity    54.1M tokens: new-computed share 5.92%
+  pre-backup window 0.5M at the 10M device boundary (32.4M total): tokens hit inside the window 53.3M vs device->host flow 750M (7.1% extra write-back volume at most)
+  pre-backup window 1.0M at the 10M device boundary (32.4M total): tokens hit inside the window 109.6M vs device->host flow 750M (14.6% extra write-back volume at most)

@@ -75,3 +75,45 @@ def sim(cap):
 
 for cap in a.caps:
     print(f"  capacity {cap:7.1f}M tokens: new-computed share {sim(cap * 1e6):.2%}")
+
+
+def tail_hits(cap, dev, window):
+    """Device tier = the `dev` most recently used tokens of the stack. Pre-backup copies device tokens to host once they
+    are within `window` of the device boundary; count the tokens hit while inside that window (copied early, then
+    reused before leaving the device) against the device -> host flow (tokens hit from beyond the boundary, i.e. load
+    backs, plus misses: in steady state what enters the device also leaves it)."""
+    cache = collections.OrderedDict()
+    total = 0
+    tail_hit = flow = 0
+    for _, c, isl, _ in reqs:
+        cached = cache.get(c, 0)
+        if cached:
+            newer = 0
+            for k in reversed(cache):
+                if k == c:
+                    break
+                newer += cache[k]
+            lo, hi = newer, newer + cached
+            tail_hit += max(0, min(hi, dev) - max(lo, dev - window))
+            flow += max(0, hi - max(lo, dev))
+        flow += isl - min(isl, cached)
+        total += isl - cache.get(c, 0)
+        cache[c] = isl
+        cache.move_to_end(c)
+        while total > cap:
+            k, v = next(iter(cache.items()))
+            if k == c:
+                break
+            cut = min(v, total - cap)
+            total -= cut
+            if v - cut <= 0:
+                del cache[k]
+            else:
+                cache[k] = v - cut
+    return tail_hit, flow
+
+
+for w in (0.5, 1.0):
+    th, fl = tail_hits(32.4e6, 10.0e6, w * 1e6)
+    print(f"  pre-backup window {w}M at the 10M device boundary (32.4M total): tokens hit inside the window {th / 1e6:.1f}M "
+          f"vs device->host flow {fl / 1e6:.0f}M ({th / max(fl, 1):.1%} extra write-back volume at most)")
