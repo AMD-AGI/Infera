@@ -26,7 +26,8 @@
 2. **infera-sglang 按 SGLang 的规则审。** InferenceX 按底层推理引擎定规则（Dynamo 是部署层，`dynamo-sglang` 走 SGLang 规则），
    所以必须用上游 `lmsysorg` 镜像、不能打引擎补丁（要打就写 waiver）、配置要先进 SGLang cookbook。ATOM 能另走一套，是因为它本身是另一个引擎。
 3. **最难的四件事**，按难度排序：
-   - **引擎补丁。** 9 个补丁里 2 个可以去掉，3 个要先实测，4 个有 OPEN 的上游 PR 要推（第 5.1 节）。未合入的写进 waiver，InferenceX 只有 #2508 一个先例。
+   - **引擎补丁。** 10-29 在 20261018 镜像的 SGLang 源码（`e9b22a08`）上逐个核对：B3、B4、B5、B9 不需要；B1、B2、B6、B7、B8 仍需要，
+     作业启动时用补丁脚本打上并写 waiver（第 5.11 节）。这 5 个都有上游 PR 或 issue（第 5.1 节），InferenceX 只有 #2508 一个 waiver 先例。
    - **HiCache 撤栈后显存释放慢。** 上游 SGLang 在 MI355X 上同样有这个问题，集群最多等 15 分钟，超时就让作业失败。
      我们每个 PP4 prefill 的主机内存池 1 TB，实测要 10–65 分钟，必须压到 15 分钟以内（第 5.5 节）。
    - **srt-slurm 要新增 infera frontend**，并且 SGLang cookbook 要收 infera router 的命令。两者都依赖外部评审。
@@ -96,7 +97,9 @@
   `router-tokenizer-path` 默认取 worker 加载的模型。
 - **recipe 骨架相对 #210 kit 的差异**（都要在原样 nightly 上实测确认）：KV 事件端口交给 srt-slurm 分配（不用 kit 的 `--kv-events-bind` / snapshot 端口）；
   Mooncake 用上游写法（`MC_DISABLE_HIP=1`、`MC_ENABLE_DEST_DEVICE_AFFINITY=1`，去掉对应我们补丁版的 `MC_ENABLE_DEST_LOCAL_RAIL`、`MC_IB_TIMEOUT`、
-  `MC_DISABLE_HIP_TRANSPORT`）；网卡 `rdma0`–`rdma7`；不挂 libionic（同集群 DSv4 SGLang PD 用同类镜像跑 RDMA 也没挂）；未设 `ulimit -l`（H3）；
+  `MC_DISABLE_HIP_TRANSPORT`）；网卡 `rdma0`–`rdma7`；libionic 目前没挂（10-29 核对：20261018 镜像带的是 `54.0-149.g3304be71`，#210 镜像换成了 `54.0-187`；
+  同集群 DSv4 SGLang PD 没挂，但它用的是 `rocm10` 镜像，不能直接类比；Kimi-K3 vLLM 挂了宿主机 provider。挂宿主机 provider 按定义与宿主机内核 ABI 一致，
+  建议给 #4629 加这一行 `extra_mount`，AUS 预检会给出不挂时能否用的证据）；未设 `ulimit -l`（H3）；
   `SGLANG_OPT_USE_TOPK_V2=true` 沿用 kit（包装层在 ROCm 上默认关它，原样镜像上要确认）；2P1D 两个 prefill 同机（A4 未定）。
 - **为以后的 infera-vllm 预留（10-28）**：#630 的钩子改为 `direct_worker_launcher(backend, process, runtime)`，包装层模块按引擎查表 `WORKER_LAUNCHERS`
   （目前只有 sglang）；以后加 vLLM 只需加一行表项、让 vLLM backend 调用钩子，并处理 vLLM 每个 DP rank 各自登记的就绪计数。Infera #222 扩展到 vLLM 包装层
@@ -194,27 +197,27 @@ infera 两样都还没有（infera 的 GitHub release 目前只有纯 Python 的
 | A6 | 上榜用哪套配置 | PR #210 的配置合规问题少、数字低（4+4 C80 37,310）；同事的 llr37 / llr48 配置数字高，但含 InferenceX 禁止的项（第 5.8 节） | 定方案；建议以 #210 配置为底，逐项加入 llr37 里合规的参数（K3、decode mem 0.95 等）并实测 | 你 | — | P0 |
 | — | 已定 | framework 名 `infera-sglang`；先不补 TTFT；三种 PD 形态一起提交；保留 `write_back` | — | — | — | — |
 | **B** | **引擎补丁**（详见第 5.1 节） | | | | 开发 1–2 周；上游合入不可控 | |
-| B1 | DP padded rows | sglang#33059 **Draft**（同事维护）；新 CI 上 Qwen3-8B PD 的 GSM8K 只有 1%，原因未查清 | 同事查 CI 失败、推评审；我们在 nightly 上实测是否仍必需 | 同事 + SGLang 维护者 | 不可控 | P0 |
+| B1 | DP padded rows | sglang#33059 **Draft**（同事维护）；新 CI 上 Qwen3-8B PD 的 GSM8K 只有 1%，原因未查清 | 同事查 CI 失败、推评审。**10-29 源码核对：仍需要**（aiter 分支仍把补齐后的 `q_fp8` 整个传入，`dsa_indexer.py:1366`） | 同事 + SGLang 维护者 | 不可控 | P0 |
 | B2 | DSA DP 同步死锁 | #46830 **Ready for review**（同事，接替被自动关闭的 #33973） | 同事推合入 | 同事 + SGLang 维护者 | 不可控 | P0 |
 | B3 | DSA page table 行数 | **10-28 更正：本配置不需要**。补丁说明记录 `--json-model-override-args '{"index_share_for_mtp_iteration":false}'` 可替代它，并已在 2×8 MI355X 上验证（4/4、32/32 两次、64/64）；#210 配置正好设了该参数 | 去掉补丁；只有以后想开 index_share 时才需要（第三方 #32209 修法不同） | — | — | P1 |
-| B4 | 非末块 KV 等待事件 | 接收端 #41395 已合入；发送端同事不自己提，跟进他人的 #45524（Ready）/ #43299 | 我们在 nightly 上去掉补丁做长 prompt 正确性对比；需要就跟 #45524 | 我们 + #45524 作者 | 2–3 天 | P0 |
-| B5 | HiCache staged write-back（ROCm 门控不一致） | **10-28 更正：v0.5.22 上很可能不需要**。补丁修的是 v0.5.16 的崩溃；v0.5.18 起控制器按池分别处理回写索引，MI355X 镜像上它只是让 MLA 保守地走非 JIT 路径（性能取舍，不是正确性依赖）；上游 main 上没有对应 bug，不适合提 PR | 去掉补丁，在 nightly 上确认 `write_back` 不崩；不带补丁时 MLA 走 JIT，prefill 满 chunk 慢的 13% 可能拿回 | 我们 | 实测时一并做 | P1 |
+| B4 | 非末块 KV 等待事件 | **10-29 源码核对：本配置不需要**。补丁只改 `prefill.py:1078-1082` 的 `if self.enable_overlap` 分支；PP prefill 设了 `--disable-overlap-schedule`，被改的代码不执行 | 去掉；以后 prefill 开 overlap 时才需要（跟 #45524 / #43299） | — | — | P1 |
+| B5 | HiCache staged write-back（ROCm 门控不一致） | **10-29 源码核对：不需要**。MLA 池在 HIP 上开 JIT、DSA indexer 池不开 → `supports_per_pool_backup_indices=True`（`group.py:59-60`），控制器按池搬索引、只把 JIT 池的 host 索引搬到 CPU（`hybrid_cache_controller.py:840-846, 1445-1448`），v0.5.16 的崩溃路径走不到 | 去掉；AUS 实测（`write_back`）顺带确认 MLA JIT 回写在 ROCm 上正常 | 我们 | 实测时一并做 | P1 |
 | B6 | KV 指标非阻塞发送 | #46820 **Ready for review**（同事） | 同事推合入 | 同事 + SGLang 维护者 | 不可控 | P0 |
 | B7 | PP 中间级无 embedding | **10-29：已提替代 PR [sglang#47184](https://github.com/sgl-project/sglang/pull/47184)**（#21194 的改动 rebase 到当前 main，`Co-authored-by` 保留原作者 Xinyi Song；#21194 第一处 hunk 冲突、标题不符合新规则、3 月起无动静）。已在 #21194 下[告知](https://github.com/sgl-project/sglang/pull/21194#issuecomment-6486741914)，原作者若更新则关掉 #47184。同事（S13）不用再提 | 等维护者评审、加 `run-ci`；退路 prefill 改 TP4 | 我们 + SGLang 维护者 | 不可控 | P0 |
-| B8 | MLA absorb BMM 配置 | 同事提了 issue #46829（MI355X 上仍能复现），不提绕过补丁的 PR | 我们在 nightly 上去掉补丁重测；仍崩就写 waiver | 我们 + 同事 | 1 天 | P0 |
+| B8 | MLA absorb BMM 配置 | 同事提了 issue #46829（10-27 在 gfx950 / Triton 3.7.0 上复现），不提绕过补丁的 PR。**10-29 源码核对：仍需要**（`forward_mla_rocm.py:156` 的手写配置还在，镜像也是 Triton 3.7.0） | 写进 waiver，链接 issue | 我们 + 同事 | — | P0 |
 | B9 | Responses tool 参数、decode radix | 本配置不需要 / 不起作用 | 去掉（确认 AgentX 走 chat completions） | 内部 | — | P1 |
 | B10 | waiver 文件 | InferenceX 只有 #2508 一个先例：补丁脚本在启动前把修复打进容器源码，`docs/waiver/<PR>.md` 写所涵盖的配置、改了什么（上游 PR / issue 表）、原样镜像为什么跑不了、上游链接、移除计划；issue 链接可以，#2508 里还有一条无上游 PR 的本地改动 | 每个未合入的补丁一行（B1 #33059、B2 #46830、B6 #46820、B7 同事的 PR 或 #21194、B8 issue #46829，B4 视实测）；"为什么跑不了"要在原样 nightly 上复现取证；补丁脚本与 `infera-sglang.sh` 合用一个 `setup_script`（另写一个"安装 + 打补丁"脚本并登记进 `INSTALLERS`） | 内部 + CODEOWNER | 0.5 周 | P0 |
 | B11 | override 参数审查 | 如果 B3 采用 `index_share_for_mtp_iteration:false` | PR 里说明只是关掉跨迭代复用，计算只多不少 | 内部 | — | P1 |
 | **C** | **镜像外依赖：Mooncake 与网卡**（第 5.2 节） | | | | | |
 | C1 | 镜像与 Mooncake | nightly 20261018 起自带 `78566d45`（与 ATOM PD 相同），功能齐全；正式版 v0.5.22 的 `01d1eb2a` 跑不了跨机 PD | 用 nightly 镜像、不重编、设 `MC_DISABLE_HIP=1` 实测 | 内部 | 2 天 | P0 |
 | C2 | 两个 Mooncake RDMA diff | **10-29 核实：CI 集群不需要**。ATOM PD 在 `mi355x-amds` 上用上游 rail 匹配（`MC_ENABLE_DEST_DEVICE_AFFINITY`）跑通，1 小时无传输失败；AUS 不带它们也跑通；只有 crsuse2 因网卡丢帧需要（第 5.10 节） | 不带；推上游 #4540 / #4541 只为 crsuse2 这类网络 | 内部 + Mooncake 维护者 | — | P2 |
-| C5 | HIP dma-buf | **10-29 核实：CI 集群走 peer 方式，不用 dma-buf**。ATOM PD 日志每个 worker 都是 "HIP dmabuf disabled"；AUS 上设 0 会段错误 | recipe 和 cookbook 补 `MOONCAKE_DISABLE_HIP_DMABUF=1`（#4629、#47117 待更新） | 内部 | 小 | P0 |
+| C5 | HIP dma-buf | **10-29 核实：CI 集群走 peer 方式，不用 dma-buf**。ATOM PD 日志每个 worker 都是 "HIP dmabuf disabled"；AUS 上设 0 会段错误 | **10-29 暂缓**：同集群 TileRT 的 recipe 注释写着关 dma-buf 后 ionic 拒绝 12.54 GB 显存的普通注册，所以它设了 0，与 ATOM 相反；等 AUS 实测再定是否给 #4629、#47117 补 `=1` | 内部 | 小 | P0 |
 | C3 | libionic | 不进镜像；不用 `infera-exec` 覆盖镜像文件的做法（违反"不覆盖容器文件"） | recipe `extra_mount` 只读挂载宿主机 `libionic-rdmav34.so`（照 Kimi-K3 vLLM） | 内部 | 小 | P0 |
 | C4 | ionic 驱动 / 固件版本 | 公开日志查不到 | 问集群负责人，或跑调试作业打印 `nicctl show version firmware`、`modinfo ionic` | AMD / SemiAnalysis | — | P2（只在判断网卡行为时需要；第 5.10 节已用 ATOM 日志确认 peer 方式和无丢帧） |
 | **D** | **infera 打包、发版与安装**（第 5.7 节） | | | | 1 周左右 | |
 | D0 | 交付方式 | 不用 overlay payload / `infera-exec`，不在集群节点预放 payload；从 GitHub release 按固定版本 pip 安装（LMCache ROCm 先例） | 按此执行 | — | — | 已定方向 |
 | D1 | release 里带 router 二进制 | Infera 仓库公开，`release.yml` 每个 tag 把 wheel 传到 GitHub release；但 v0.3.1 只有纯 Python 的 `amd_infera-0.3.1-py3-none-any.whl`，没有 `infera-router`。**10-28 起由同事负责** | release 流程增加带 router 的平台 wheel（如 `manylinux_2_35_x86_64`，与 lmsysorg 镜像的 glibc 2.35 匹配）；PyPI 是可选项，不卡发布 | 同事 | 1 周 | P0 |
-| D2 | 发版 | #210（10-26 合入）、#213（10-23 合入）的 router 改动都不在 v0.3.1 里（v0.3.1 落后 #210 合入点 30 个 commit） | 同事发 v0.3.2，tag 发布后不再改动；InferenceX 固定这个版本 | 同事 | 含在 D1 | P0 |
+| D2 | 发版 | #210（10-26 合入）、#213（10-23 合入）的 router 改动都不在 v0.3.1 里（v0.3.1 落后 #210 合入点 30 个 commit） | 同事发 v0.3.2，tag 发布后不再改动；InferenceX 固定这个版本。**10-29：v0.3.2 已发，但只有纯 Python wheel（#223 未合入，不带 `infera-router`），也不含 #222**；InferenceX 的安装脚本会检查 `infera-router`，要用下一版（同时含 #222 和 #223），#4629 的 `router.version` 随之改 | 同事 | 含在 D1 | P0 |
 | D3 | 安装脚本 | — | 新增 `infera-sglang.sh` 并登记进 `infx/srt_slurm/workload.py` 的 `INSTALLERS`；`--no-deps` 安装，所需依赖逐个固定版本，不动镜像里的 torch / sglang / numpy | 内部 + SemiAnalysis | 含在 F3 | P0 |
 | D4 | 包装层审计 | `kv_probe` 会 hook `RadixCache`（属 monkey-patching）、`kvd_wiring` 会改 `ServerArgs`，本配置都不启用；wheel 不带 SGLang 补丁 | PR 里说明包装层不改 SGLang 行为 | 内部 | — | P1 |
 | D5 | 会话 header | 不用改 router | 设 `AIPERF_HTTP_X_SESSION_ID_FROM_CORRELATION_ID: '1'` | — | — | 已解决 |
@@ -508,7 +511,9 @@ PyPI 是可选项：GitHub release 现在就能用，不用等 PyPI 账号和权
 
 ### 5.10 Mooncake 在 CI 集群上要不要 dma-buf 和那两个 RDMA 补丁（10-29）
 
-**结论：都不需要。** 但 recipe 要补 `MOONCAKE_DISABLE_HIP_DMABUF=1`（目前没写，建议加进 #4629 和 cookbook #47117）。
+**结论：两个 RDMA 补丁不需要；dma-buf 开还是关，等 AUS 实测再定。** 原本建议给 #4629 和 #47117 补 `MOONCAKE_DISABLE_HIP_DMABUF=1`，
+10-29 暂缓：同集群 TileRT 的 recipe（`glm5.3/tilert/mi355x-fp8/agentx/disagg-1p1d-tp8-mtp.yaml`）注释写着，镜像默认关 dma-buf 时 ionic 拒绝 12.54 GB 显存的
+普通 `ibv_reg_mr`（EINVAL），所以它设了 `0`，与下表 ATOM 的情况相反。我们的 recipe 设了 `MC_MAX_MR_SIZE=1 GiB`，单次注册小得多，可能不受影响，但没有实测。
 
 | 证据 | 内容 |
 |---|---|
@@ -530,10 +535,21 @@ PyPI 是可选项：GitHub release 现在就能用，不用等 PyPI 账号和权
 | 调度与容器 | Slurm（`salloc` / `sbatch`）+ 节点上 docker；pyxis 未确认 | Slurm + pyxis（`srun --container-image` 可用），最接近 srt-slurm 的运行方式 | 直接 docker，无 Slurm |
 | 适合测什么 | 原样镜像能不能跑、哪些 SGLang 补丁还离不开、正确性、三种形态的性能、HiCache 撤栈释放时间 | srtctl + infera frontend 的端到端（#630 实机验证），不追求性能代表性 | 快速排查，但网卡行为与 CI 集群不同 |
 
-**建议两步走**：
-1. **AUS 上做主要实测**：20261018 原样镜像，运行时装 infera（v0.3.2 之前先用分支自己打带 router 的 wheel），只加补丁脚本（逐个去掉 B1 / B2 / B4 / B6 / B7 / B8，
-   确认 B3、B5 可去掉），按 recipe 参数 + `MOONCAKE_DISABLE_HIP_DMABUF=1`、不用两个 Mooncake 补丁；验证 GSM8K ≥ 0.90（真实接受率）、三种形态数字、
-   撤栈释放时间。需要 AUS 上 2 台（2P1D 同机放置时）或 3 台。
+**10-29 修订**：补丁要不要，已在 20261018 镜像源码上逐个核对完（第 4 节 B 行；依据见 kit 的 `HANDOFF.zh-CN.md` 附录），实测**不再逐个去掉补丁**，
+只验证"原样镜像 + 启动时装 infera、打 5 个补丁"这一交付方式。kit 和 handoff 已备好，由用户在 AUS 上跑：
+
+- kit：`/home/liyingli/bench_agentx/baseline/aus-stock-kit`（打包 `aus-stock-kit.tar.gz`）。它是 #210 kit 的副本，只改镜像来源：
+  - 原样镜像；
+  - `engine/stock_entry.sh` 在容器启动时装 `artifacts/` 里的 wheel（v0.3.2 + #222）和 `infera-router`（同一份源码，在原样镜像里编译）；
+  - `patches/apply.sh` 打 B1/B2/B6/B7/B8 并逐个核对。原样镜像里没有 GNU `patch`，B2 用 `git apply`；
+  - Mooncake 环境变量改成 recipe 那套；
+  - 可选挂宿主机 ionic provider。
+
+  已在 138 上不用 GPU 验证过：安装、打补丁、重复运行、各入口 `--help`。脚本和 handoff 文档也提交在本目录的 `aus-stock-kit/` 下，二进制只在打包里。
+- 实测步骤：网卡预检（原样 libionic 挂与不挂各一次）→ 4+4 真实接受率起栈、smoke、GSM8K → 三种形态各一个关键点（4+4 C80、1P1D C88、2P1D C176）
+  → 每次拆栈记释放时间；可选：dma-buf=0、不挂 ionic 各起一次栈。约 1 天机器时间，2 台节点即可（2P1D 两个 prefill 同机）。
+
+**原两步走里的第 1 步（已被上面取代）**：AUS 上用原样镜像，逐个去掉补丁验证必要性。
 2. **crsuse2 的 Slurm 分区上跑 srtctl 端到端**：用 #630 的 infera frontend 起一个小的 1P1D（可先用 Qwen 小模型，再上 GLM-5.2），验证 srt-slurm 侧的
    启动、端口分配、etcd 登记、就绪判断和 router 命令；这一步不看性能，主要给 #630 转 Ready 提供实机证据。
 
