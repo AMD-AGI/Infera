@@ -78,6 +78,9 @@
 | sgl-project/sglang `llying/cookbook-glm52-mi355x-infera-pd`（fork 在 llying-001） | `a6f902f5ea`，**Draft [sglang#47117](https://github.com/sgl-project/sglang/pull/47117)**（10-28） | GLM-5.2 cookbook §3.6：MI355X 上用 Infera router 的 PD 分离部署 | 只改文档；未跑 pre-commit |
 | SemiAnalysisAI/InferenceX-app `llying/infera-sglang-label`（fork 在 llying-001，base `master`） | `4aa97624`，**Draft [InferenceX-app#1542](https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542)**（10-28） | `FW_REGISTRY` 加 `'infera-sglang': { label: 'Infera SGLang' }` 与测试（照 TileRT #697）；标题、提交信息中英双语，附 AI 披露 | constants 包单测 75 项通过 |
 
+| sgl-project/sglang `llying/cookbook-glm52-mi355x-infera-pd`（fork 在 llying-001） | `a6f902f5`，**已提 Draft [sglang#47117](https://github.com/sgl-project/sglang/pull/47117)**（10-28） | GLM-5.2 cookbook 新增 §3.6 "PD Disaggregation on MI355X with the Infera Router"：镜像与安装、三种形态、etcd / 环境变量 / prefill / decode / router 命令、关键设置说明，并注明原样镜像仍需 #21194、#46830、#33059、#46820。AgentX 一节是 NVIDIA 维护的同步脚本自动生成的（只覆盖 NVIDIA 硬件），所以照 DeepSeek-V4 页面 AMD 手写的 §3.7 写成手写小节 | Draft：等 Infera 0.3.2、原样镜像实测、InferenceX PR 提交后再转 Ready；PR 标题检查通过，测试闸门等维护者加 `run-ci`，Mintlify 预览等维护者批准 |
+| SemiAnalysisAI/InferenceX-app `llying/infera-sglang-label`（fork 在 llying-001，base 是 `master`） | `4aa97624`，**已提 Draft [InferenceX-app#1542](https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542)**（10-28） | `FW_REGISTRY` 登记 `'infera-sglang': { label: 'Infera SGLang' }` 并加测试（照 TileRT 的 #697）；标题和提交信息中英双语，附 AI 披露 | constants 包测试通过；Draft：等 InferenceX PR 提交后附链接；Vercel 预览等 SemiAnalysis 团队授权 |
+
 依赖：srt-slurm 的 infera frontend 需要 Infera 带上 #222 的版本（文档写的是 amd-infera 0.3.2 或更新），要和同事的 v0.3.2 发版对齐。
 另：138 上 docker 对 Docker Hub 的登录 token 已过期，拉不了 Docker Hub 上的新镜像（实测要用的 nightly 20261018 已在 138 本地，不受影响）。
 
