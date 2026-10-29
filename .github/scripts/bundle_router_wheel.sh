@@ -26,6 +26,6 @@ python -m wheel pack -d "$work" "${tree[0]}"
 
 # Both the gate and the tagger: it fails unless the binary needs nothing past
 # manylinux_2_28, and --patcher none forbids it to graft libraries in, so the
-# wheel carries exactly the binary the standalone tarball does.
+# wheel carries exactly the binary the router job built.
 python -m auditwheel repair --plat manylinux_2_28_x86_64 --only-plat --patcher none \
   -w "$out" "$work"/*-py3-none-linux_x86_64.whl

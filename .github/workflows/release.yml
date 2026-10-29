@@ -33,8 +33,8 @@ name: Build & publish images
 # dispatched to a compute node via srun. Auth: INFERAIMAGE_DOCKERHUB_TOKEN secret.
 #
 # Alongside the images, on GH-hosted runners: the Rust router is built once
-# (`router`) and shipped both as a standalone tarball on the Release and inside
-# the Linux x86_64 amd-infera wheel (`pypi`), next to the pure wheel and sdist.
+# (`router`) and shipped inside the Linux x86_64 amd-infera wheel (`pypi`), next
+# to the pure wheel and sdist.
 
 on:
   push:
@@ -239,11 +239,11 @@ jobs:
         if: always() && (cancelled() || failure())
         run: .github/scripts/reclaim_slurm_jobs.sh infera-build- "-${{ github.run_id }}-overlay"
 
-  # The Rust router, built once and shipped twice from that one build: as a
-  # standalone tarball on the Release, and inside the Linux x86_64 wheel (see
+  # The Rust router, built once and shipped inside the Linux x86_64 wheel (see
   # `pypi`), so a wheel's launcher and its router always come from one commit.
-  # The artifact is the tarball rather than the bare binary because artifacts
-  # do not keep the executable bit.
+  # It reaches `pypi` as a tarball rather than the bare binary because artifacts
+  # do not keep the executable bit. The Release does not carry the tarball yet
+  # (see `pypi`'s Attach step).
   router:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -251,7 +251,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
       - name: Build infera-router (manylinux_2_28)
         run: .github/scripts/build_router.sh router
-      - name: Package the standalone tarball
+      - name: Package the tarball
         run: |
           tarball="infera-router-${GITHUB_REF_NAME//\//-}-x86_64-linux.tar.gz"
           tar -czf "$tarball" -C router infera-router
@@ -361,7 +361,10 @@ jobs:
               --title "${GITHUB_REF_NAME}" --notes "Automated release build." \
               || gh release view "${GITHUB_REF_NAME}" >/dev/null
           fi
-          gh release upload "${GITHUB_REF_NAME}" dist/* router/infera-router-*.tar.gz --clobber
+          gh release upload "${GITHUB_REF_NAME}" dist/* --clobber
+          # The standalone router tarball is held back for now; the Linux x86_64
+          # wheel carries the same binary. To publish it too, uncomment:
+          # gh release upload "${GITHUB_REF_NAME}" router/infera-router-*.tar.gz --clobber
       - name: Publish to PyPI
         # Skipped unless PYPI_API_TOKEN is set. amd-infera has never been
         # published, so claiming the name is a deliberate act, not something a
