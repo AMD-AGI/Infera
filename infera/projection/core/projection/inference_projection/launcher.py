@@ -767,6 +767,8 @@ def launch_projection_from_cli(args, overrides):
         raise FileNotFoundError(f"[inferasim:Inference] Config file '{cfg_path}' not found.")
 
     config, _unknown = load_config(args, overrides or [])
+    if getattr(args, "ep_dispatch", None):
+        os.environ["INFERASIM_EP_DISPATCH"] = args.ep_dispatch
 
     inf_overrides = _collect_inference_overrides(args)
     inference_config = convert_config_to_inference_config(config, inference_overrides=inf_overrides)

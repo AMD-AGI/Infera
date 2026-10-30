@@ -910,8 +910,11 @@ def simulate_once(
             if fe_us > 0 or fe_unc_us > 0:
                 u_ = max(0, q_.prompt_len - q_.cached_prefix)
                 u_ = min(u_, fe_unc_cap) if fe_unc_cap > 0 else u_
-                fe_free = (max(fe_free, q_.arrival_ms) + fe_us * 1e-3 * q_.prompt_len
-                           + fe_unc_us * 1e-3 * u_)
+                fe_free = (
+                    max(fe_free, q_.arrival_ms)
+                    + fe_us * 1e-3 * q_.prompt_len
+                    + fe_unc_us * 1e-3 * u_
+                )
                 heapq.heappush(fe_heap, (fe_free, q_.idx, q_))
             else:
                 _enqueue(q_, q_.arrival_ms)
@@ -1215,11 +1218,23 @@ def simulate_once(
 
         with open(os.environ["INFERASIM_DES_DUMP"], "w") as _fh:
             for r in sample:
-                _fh.write(_json.dumps({
-                    "idx": r.idx, "arr": r.arrival_ms, "adm": r.admit_ms, "ft": r.first_token_ms,
-                    "fin": r.finish_ms, "plen": r.prompt_len, "cached": r.cached_prefix,
-                    "olen": r.output_len, "load": getattr(r, "kv_load_ms", 0.0),
-                    "res": getattr(r, "reserved_kv", None)}) + "\n")
+                _fh.write(
+                    _json.dumps(
+                        {
+                            "idx": r.idx,
+                            "arr": r.arrival_ms,
+                            "adm": r.admit_ms,
+                            "ft": r.first_token_ms,
+                            "fin": r.finish_ms,
+                            "plen": r.prompt_len,
+                            "cached": r.cached_prefix,
+                            "olen": r.output_len,
+                            "load": getattr(r, "kv_load_ms", 0.0),
+                            "res": getattr(r, "reserved_kv", None),
+                        }
+                    )
+                    + "\n"
+                )
 
     # TTFT is measured from *admission* (server start), not arrival, so the
     # client-side wait for a concurrency slot is excluded -- matching the vLLM /
@@ -2301,7 +2316,9 @@ def simulate_disaggregated(
     split_unc_ms = 0.0
     split_unc_cap = 0
     if os.environ.get("INFERASIM_DES_SPLIT_STEP_UNCACHED") == "1":
-        split_unc_ms = max(0.0, float(getattr(req, "uncached_prompt_latency_us", 0.0) or 0.0)) / 1000.0
+        split_unc_ms = (
+            max(0.0, float(getattr(req, "uncached_prompt_latency_us", 0.0) or 0.0)) / 1000.0
+        )
         split_unc_cap = int(getattr(req, "uncached_prompt_latency_max_tokens", 0) or 0)
         if split_unc_ms > 0:
             for r in pending:
@@ -2785,6 +2802,23 @@ def simulate_disaggregated(
         packing["tier_load_reqs"] = float(load_reqs)
         packing["tier_load_ms_mean"] = (load_ms_total / load_reqs) if load_reqs else 0.0
 
+    # Time-averaged prompt KV the prefill pool holds for requests it has
+    # admitted: until the handoff lands (SGLang frees a prefill request's KV
+    # once its transfer completes), and, as an upper bound, until the request
+    # retires from decode.
+    t_end = max([*now_p, *now_d], default=0.0)
+    if t_end > 0:
+        held_handoff = held_retire = 0.0
+        for r in pending:
+            if r.admit_ms < 0:
+                continue
+            land = (r.first_token_ms + handoff.get(r.idx, 0.0)) if r.first_token_ms >= 0 else t_end
+            fin = r.finish_ms if r.finish_ms >= 0 else t_end
+            held_handoff += r.prompt_len * max(0.0, min(land, t_end) - r.admit_ms)
+            held_retire += r.prompt_len * max(0.0, min(fin, t_end) - r.admit_ms)
+        packing["prefill_live_tokens_mean"] = held_handoff / t_end / p_replicas
+        packing["prefill_live_retire_tokens_mean"] = held_retire / t_end / p_replicas
+
     samples = None
     if return_samples:
         samples = {
@@ -3037,74 +3071,127 @@ def run_des(
     # deployment -- it is a simulation of a colocated one, which the single
     # engine has no way to say it is doing.
     if getattr(getattr(inference_config, "disaggregation_config", None), "enabled", False):
-        reqs = None
-        prefix_summary: dict[str, float] | None = None
-        if mooncake_rows is not None:
-            hasher = _BlockHasher()
-            bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
-            reqs = _reqs_from_rows(mooncake_rows)
-            # The prefill pool is what owns a prefix cache here: each prefill
-            # replica holds its own, and a conversation stays on the replica
-            # that holds its prefix, as across a colocated fleet.
-            p_rep = max(1, int(getattr(inference_config.disaggregation_config, "prefill_replicas", 1) or 1))
-            per_inst, prefix_summary = _route_and_warm(
-                reqs,
-                policy="kv",
-                num_instances=p_rep,
-                block_size=bs,
-                cache_blocks=eff_cache_blocks,
-                rng=random.Random(seed),
-                overlap_weight=overlap_weight,
-                waiting_depth=(
+        bs = int(block_size) if block_size and block_size > 0 else _DEFAULT_BLOCK_SIZE
+        # SGLang's prefill server admits first-come-first-served unless the
+        # recipe sets another --schedule-policy, and only requests waiting on
+        # prefill are queued there, not every client: the longest-prefix window
+        # over all C clients keeps reuse near its ceiling at any cache size.
+        split_fcfs = os.environ.get("INFERASIM_DES_SPLIT_FCFS") == "1"
+        # The prefill pool also holds the KV of the requests it is serving, so
+        # the prefix cache gets what they leave free: "handoff" holds a prompt
+        # from admission until its transfer lands, "retire" until it leaves
+        # decode (an upper bound, not an SGLang behaviour).
+        inflight = os.environ.get("INFERASIM_DES_SPLIT_INFLIGHT", "")
+
+        def _split_warm_and_run(cap_blocks: int):
+            reqs = None
+            prefix_summary: dict[str, float] | None = None
+            if mooncake_rows is not None:
+                reqs = _reqs_from_rows(mooncake_rows)
+                # The prefill pool is what owns a prefix cache here: each prefill
+                # replica holds its own, and a conversation stays on the replica
+                # that holds its prefix, as across a colocated fleet.
+                p_rep = max(
+                    1,
+                    int(
+                        getattr(inference_config.disaggregation_config, "prefill_replicas", 1) or 1
+                    ),
+                )
+                per_inst, prefix_summary = _route_and_warm(
+                    reqs,
+                    policy="kv",
+                    num_instances=p_rep,
+                    block_size=bs,
+                    cache_blocks=cap_blocks,
+                    rng=random.Random(seed),
+                    overlap_weight=overlap_weight,
+                    waiting_depth=(
+                        inference_config.request_config.resolved_max_concurrency()
+                        if closed_loop and not split_fcfs
+                        else 0
+                    ),
+                    resident_cap=_resident_cap(
+                        reqs,
+                        kv_cache_tokens,
+                        inference_config.request_config.resolved_max_concurrency(),
+                        admit_backlog_only,
+                    ),
+                    lower_tiers=tier_kw.get("lower_tier_blocks", ()),
+                    tier_names=tier_kw.get("tier_names", ()),
+                )
+                prefix_summary["routing"] = float(_ROUTING_POLICIES.index("kv"))
+                prefix_summary["trace_driven"] = 1.0
+                for i, sub in enumerate(per_inst):
+                    for r in sub:
+                        r.pool_inst = i
+            eff_rate = rate_per_s
+            if mooncake_rows and not closed_loop:
+                span_s = (
+                    max(r[0] for r in mooncake_rows) - min(r[0] for r in mooncake_rows)
+                ) / 1000.0
+                eff_rate = (len(mooncake_rows) / span_s) if span_s > 0 else rate_per_s
+            point = simulate_disaggregated(
+                inference_config,
+                projector,
+                rate_per_s=eff_rate,
+                arrival_model=arrival_model
+                if arrival_model in ("poisson", "deterministic")
+                else "poisson",
+                num_requests=num_requests,
+                seed=seed,
+                warmup_frac=warmup_frac,
+                warmup_requests=warmup_requests,
+                burstiness=burstiness,
+                range_ratio=range_ratio,
+                kv_cache_tokens=kv_cache_tokens,
+                prebuilt=reqs,
+                closed_loop_clients=(
                     inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
                 ),
-                resident_cap=_resident_cap(
-                    reqs,
-                    kv_cache_tokens,
-                    inference_config.request_config.resolved_max_concurrency(),
-                    admit_backlog_only,
-                ),
-                lower_tiers=tier_kw.get("lower_tier_blocks", ()),
-                tier_names=tier_kw.get("tier_names", ()),
+                closed_loop_think_ms=closed_loop_think_ms,
+                closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
+                duration_ms=duration_ms,
+                pool_kv_tokens=pool_kv_tokens,
+                tier_block_ms=tier_kw.get("tier_block_ms", ()) if reqs is not None else (),
             )
-            prefix_summary["routing"] = float(_ROUTING_POLICIES.index("kv"))
-            prefix_summary["trace_driven"] = 1.0
-            for i, sub in enumerate(per_inst):
-                for r in sub:
-                    r.pool_inst = i
-            del hasher
-        eff_rate = rate_per_s
-        if mooncake_rows and not closed_loop:
-            span_s = (max(r[0] for r in mooncake_rows) - min(r[0] for r in mooncake_rows)) / 1000.0
-            eff_rate = (len(mooncake_rows) / span_s) if span_s > 0 else rate_per_s
-        out["point"] = simulate_disaggregated(
-            inference_config,
-            projector,
-            rate_per_s=eff_rate,
-            arrival_model=arrival_model
-            if arrival_model in ("poisson", "deterministic")
-            else "poisson",
-            num_requests=num_requests,
-            seed=seed,
-            warmup_frac=warmup_frac,
-            warmup_requests=warmup_requests,
-            burstiness=burstiness,
-            range_ratio=range_ratio,
-            kv_cache_tokens=kv_cache_tokens,
-            prebuilt=reqs,
-            closed_loop_clients=(
-                inference_config.request_config.resolved_max_concurrency() if closed_loop else 0
-            ),
-            closed_loop_think_ms=closed_loop_think_ms,
-            closed_loop_idle_cap_ms=closed_loop_idle_cap_ms,
-            duration_ms=duration_ms,
-            pool_kv_tokens=pool_kv_tokens,
-            tier_block_ms=tier_kw.get("tier_block_ms", ()) if reqs is not None else (),
-        )
+            if prefix_summary is not None and reqs is not None:
+                # The summary above covers every trace row; the run is scored on
+                # the requests it served inside the window, so report their
+                # token split too.
+                served = [r for r in reqs if r.first_token_ms >= 0]
+                tot = sum(r.prompt_len for r in served)
+                if tot > 0 and tier_kw.get("tier_names"):
+                    low = [
+                        sum(r.load_blocks[i] for r in served if len(r.load_blocks) > i) * bs
+                        for i in range(len(tier_kw["tier_names"]))
+                    ]
+                    hbm = sum(r.cached_prefix for r in served) - sum(low)
+                    prefix_summary["served_tiers"] = {
+                        "hbm": hbm / tot,
+                        **{nm: v / tot for nm, v in zip(tier_kw["tier_names"], low)},
+                    }
+                    prefix_summary["served_requests"] = float(len(served))
+            return point, prefix_summary
+
+        point, prefix_summary = _split_warm_and_run(eff_cache_blocks)
+        if inflight in ("handoff", "retire") and mooncake_rows is not None and eff_cache_blocks > 0:
+            key = (
+                "prefill_live_tokens_mean"
+                if inflight == "handoff"
+                else "prefill_live_retire_tokens_mean"
+            )
+            live = float((point.packing or {}).get(key) or 0.0)
+            free_blocks = _free_cache_blocks(eff_cache_blocks * bs, live, bs, eff_cache_blocks)
+            if free_blocks != eff_cache_blocks:
+                point, prefix_summary = _split_warm_and_run(free_blocks)
+            if prefix_summary is not None:
+                prefix_summary["prefill_live_tokens"] = live
+                prefix_summary["cache_free_tokens"] = float(free_blocks * bs)
         # The split warms a prefix cache exactly as the colocated path does,
         # but discarded the summary, so every disaggregated row reported no
         # hit rate at all -- indistinguishable, to anyone reading the output,
         # from a split that never reuses anything.
+        out["point"] = point
         if prefix_summary is not None:
             out["point"].prefix = prefix_summary
         return out

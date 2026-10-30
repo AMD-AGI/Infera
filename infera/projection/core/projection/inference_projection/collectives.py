@@ -420,9 +420,18 @@ class InferenceCollectiveModel:
         us = self._floor_small_msg_overhead(us, msg, self.dcp, is_a2a=False)
         return us / 1000.0
 
+    @staticmethod
+    def _ep_dispatch() -> str:
+        """``a2a``: tokens are dispatched to their experts' ranks and combined back.
+        ``allreduce``: every rank already holds every token (tensor-parallel
+        attention, no all-to-all backend), runs its local experts and the
+        output is all-reduced as under TP -- SGLang's ``--ep-size`` without
+        ``--moe-a2a-backend``."""
+        return (os.environ.get("INFERASIM_EP_DISPATCH", "a2a") or "a2a").strip().lower()
+
     def ep_a2a_ms(self, batch: int, tokens: int) -> float:
         """Dispatch + combine AllToAll per MoE layer, forward only."""
-        if self.ep <= 1:
+        if self.ep <= 1 or self._ep_dispatch() == "allreduce":
             return 0.0
         # Attention-DP splits requests across ranks; this rank only dispatches
         # its share. Replica ``batch`` here prices an 8x AllToAll at DP=8.
@@ -594,8 +603,11 @@ class InferenceCollectiveModel:
             o_dim = int(getattr(mc, "v_head_dim", 0) or 0) or q_dim
         rows = max(1, batch * tokens) * heads
         us = 0.0
-        for msg, fn in ((rows * q_dim * 2, cm.allgather), (rows * 4, cm.allgather),
-                        (rows * o_dim * 2, cm.reduce_scatter)):
+        for msg, fn in (
+            (rows * q_dim * 2, cm.allgather),
+            (rows * 4, cm.allgather),
+            (rows * o_dim * 2, cm.reduce_scatter),
+        ):
             raw = fn(self._args, msg, self.dcp, groups=["hp"])
             us += self._floor_small_msg_overhead(raw, msg, self.dcp, is_a2a=False)
         return us / 1000.0
@@ -630,7 +642,12 @@ class InferenceCollectiveModel:
         all-reduce — so charging the full 2-AR + A2A there double-counts.
         """
         tp_ar = self.tp_allreduce_ms(batch, tokens)
-        if is_moe and self.ep > 1 and (self.tp // self.ep) <= 1:
+        if (
+            is_moe
+            and self.ep > 1
+            and (self.tp // self.ep) <= 1
+            and self._ep_dispatch() != "allreduce"
+        ):
             tp_ar *= 0.5  # drop the post-expert AR (combined by the A2A)
         return CommBreakdown(
             tp_allreduce_ms=tp_ar,
