@@ -8,8 +8,28 @@
 
 ## 0. 当前状态（随时更新）
 
-- 10-30 06:20 UTC：三个排队作业都在镜像解包这一步失败（D13），按用户方案改在占位作业 34971（n02-29 + n05-33）里跑；4+4 C80 第三次尝试中（前两次分别卡在工作区环境、#630 补丁的 API 不匹配，均已修）。
-- #222 已推送（`f668fbf7`）；#4629 已推送（`996ea049`：补丁、waiver、router 检查修复、dma-buf=1 和 ionic 挂载），这一版还没在 GPU 上跑过。
+- 10-30 08:00 UTC：在占位作业 34971（n02-29 + n05-33）里跑，4+4 C80 功能已通过（AgentX 加 GSM8K），1P1D C88 运行中，2P1D C176 排队；之后在 srt-slurm `59920ea1` 加原版 630 补丁上跑两个性能点。
+- #4629：merge 上游 main（只有 changelog 冲突；上游 #4601 把 srt-slurm 升到 `59920ea1`，回移随之撤回）已推送 `4a400018`，GitHub 显示 MERGEABLE；与上游 main 对比全量 infx 测试，没有新增失败。
+- #222：已推送 `f668fbf7`，并在 GPU 上验证通过（见 0.0），建议合入。
+
+## 0.0 结果（随时更新）
+
+| 点 | 方式 | AgentX | GSM8K（1319 题） | 结论 |
+|---|---|---|---|---|
+| 4+4 C80 | fast 1200 s，srt-slurm `ae3d6877` 加回移后的 630 补丁 | 33,121 tok/s/GPU，e2e-norm p90 20.7，TTFT p90 5.2 s，0 失败 | strict 0.9712 / flexible 0.9727 | **功能通过** |
+| 1P1D C88 | fast | 运行中 | — | — |
+| 2P1D C176 | fast | 排队 | — | — |
+
+4+4 C80 的验证细节：
+- 两台节点日志都有 `[infera-sglang-patches] all five applied`，Mooncake 识别到 ionic_0–7；
+- 起栈约 15 分钟（router 06:10，两个 worker 登记完成 06:25）；
+- 2605 个请求发出、2598 个完成，结束时 7 个在途被取消，0 失败。
+
+**Infera #222 在 GPU 上验证通过**：
+- srt-slurm 给 prefill 分配的 KV 事件端口 5200 经 `--kv-events-config` 传给包装层，SGLang 在 `tcp://*:5200` 上发布，包装层在 etcd 里登记的是同一端口，router 订阅 `tcp://<prefill>:5200`；decode 侧为 2606，4 个 DP rank 同理。
+- 2769 次 prefill 选路中 1704 次命中缓存前缀（62%），与服务端 prefix cache 命中率 63.8% 一致。
+- decode 关闭了 radix cache（`disable_radix_cache: True`），0 次命中属正常；router 那一条 "kv event feed is not being applied" 警告（decode dp2）也是这个原因。
+- 未覆盖：#222 对 vLLM 包装层的改动。
 
 ## 0.1 实测中的决定（汇总）
 

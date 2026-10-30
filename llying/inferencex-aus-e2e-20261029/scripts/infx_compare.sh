@@ -17,11 +17,11 @@ echo "node $(hostname) $(date -u +%FT%TZ)"
 run() {  # run <name> <e2e dir>
     local name="$1" src="$2"
     echo "== $name $(git -C "$src" log -1 --format='%h %s')"
-    rsync -a --exclude '.venv*' --exclude 'srt-slurm-*' "$src/" "$work/$name/"
+    rsync -a --exclude '.venv*' --exclude '/srt-slurm-[0-9]*' "$src/" "$work/$name/"
     cd "$work/$name"
     UV_PROJECT_ENVIRONMENT="$work/venv-$name" uv sync -q --python 3.12 --all-extras --group test 2>&1 | tail -3
     UV_PROJECT_ENVIRONMENT="$work/venv-$name" uv run --no-sync python -m pytest -q -p no:cacheprovider \
-        -n 32 -rfE infx/tests > "$work/$name.txt" 2>&1
+        -n 8 -rfE infx/tests > "$work/$name.txt" 2>&1
     tail -1 "$work/$name.txt"
     grep -E '^(FAILED|ERROR) ' "$work/$name.txt" | sed 's/ - .*//' | sort -u > "$work/$name.fail"
 }

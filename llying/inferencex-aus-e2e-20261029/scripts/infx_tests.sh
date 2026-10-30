@@ -24,9 +24,9 @@ df -h /tmp / 2>&1 | tail -2
 free -g | head -2
 echo "== tests"
 work="$(mktemp -d /tmp/llying-infx.XXXX)"; trap 'rm -rf "$work"' EXIT
-rsync -a --exclude utils/srt-slurm --exclude '.venv*' "$e2e/" "$work/e2e/"
+rsync -a --exclude '.venv*' --exclude '/srt-slurm-[0-9]*' "$e2e/" "$work/e2e/"
 cd "$work/e2e"
-UV_PROJECT_ENVIRONMENT="$work/venv" uv sync -q --python 3.12 --no-dev --all-extras 2>&1 | tail -3
+UV_PROJECT_ENVIRONMENT="$work/venv" uv sync -q --python 3.12 --all-extras --group test 2>&1 | tail -3
 uv pip install -q --python "$work/venv/bin/python" pytest pytest-xdist aiohttp numpy packaging 2>&1 | tail -3
 UV_PROJECT_ENVIRONMENT="$work/venv" uv run --no-sync python -m pytest -q -p no:cacheprovider -n 16 "${@:-infx/tests/srt_slurm infx/tests/launch infx/tests/matrix}" 2>&1 | tail -25
 echo "done $(date -u +%FT%TZ)"
