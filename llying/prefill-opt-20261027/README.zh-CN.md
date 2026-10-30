@@ -3,7 +3,7 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
-## 当前状态（实时更新，最后更新 10-30 15:20 UTC）
+## 当前状态（实时更新，最后更新 10-30 16:10 UTC）
 
 | 项 | 节点 | C104 tok/s/GPU | 每级驱逐均值 PP0/1/2/3（ms） | 状态 |
 |---|---|---|---|---|
@@ -15,6 +15,31 @@
 | decode kernel 拆解 | 138→135 | — | — | 已采；draft graph 可见，verify graph 0 个 kernel；下一步加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 重采 |
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
+
+## 10-30 16:10 E9 为什么没收益；端到端瓶颈；后续方向
+
+脚本：`scripts/ana/`（`lat_split.py` 在途时间拆分，`cycle.py` lane 周期，`match.py` 同一请求跨 run 对比，`dec_steps.py` decode 步长与 DP 均衡）。
+
+**1. E9 确实让 prefill 变快了**：同一请求（conversation_id + turn）对比 E10 和 v5，4,498 个请求：TTFT 6.38 → 5.46 s（−14%），总延迟 20.40 → 19.63 s（−3.8%）；
+decode 每 token 15.4 → 15.6 ms（基本不变）。对照组（E10 vs E9 v1，12,302 个请求）TTFT 5.96 / 6.00、延迟 21.23 / 21.23，同一请求对比的噪声很小。
+
+**2. 但 TTFT 只占 lane 时间的约 16%**（压测是 AgentX trace 回放，`agentic_replay.py` 按 trace 记录的轮间延迟 `delay_ms` 发下一轮，单 lane 不封顶；
+lane 槽位要等整棵会话树（含子 agent）结束才释放）：
+- 104 个 lane 里平均只有 **51.8 个有请求在途**——约 **50% 的 lane 时间是 trace 自带的工具/思考间隔**（同会话相邻两轮间隔均值 15.2 s，p50 1.8 s，p90 24 s，最长 787 s），服务端无法改变。
+- 在途请求里 TTFT : decode ≈ 24 : 52（E10 前 20 分钟），即 lane 时间约 **间隔 50% / decode 34% / TTFT 16%**（按请求加权的近似，没有按会话树关键路径精确计算）。
+- 所以 TTFT −14% 按简单模型最多约 +2.3% 吞吐；实测（前 20 分钟口径）+0.7%。差距的可能原因：2/3 的请求是并行子 agent，不在关键路径上的 TTFT 缩短不缩短树的时长（推断，未验证）。
+
+**3. 端到端瓶颈：decode 每 token 时间**（服务端可改的部分里占 2/3）。E10 整小时 decode 日志：
+- 步长 44.0 ms，接受长度 2.99（MTP 3 步 4 草稿 token）→ 每输出 token 15.3 ms，与 aiperf 测得一致。
+- 步长 ≈ **25.8 ms 固定** + 1.09 ms × 最忙 DP rank 的请求数。和步长相关性：最忙 rank 请求数 0.943，本 rank 0.692，KV token 数 0.6 左右——DP attention 锁步，**由最忙的 rank 决定**。
+- DP 不均衡：每 rank 平均 12.7 个请求，最忙 16.7（1.31 倍）。完全均衡时步长约 39.7 ms（−10%，上限，请求是离散的、实际做不到）。
+- 固定的 25.8 ms 是主体（bs≈13 时占 60%）：verify 前向 + 3 次 draft + draft_extend 的权重读取与开销。现在的 decode trace 里 verify graph 一个 kernel 都看不到，**这部分没有拆解数据**。
+
+**4. 后续方向（按预期收益排序）**
+1. **decode 固定开销拆解**：decode 加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 重采 trace，看清 verify graph 内部 kernel，找 25.8 ms 的构成。只采集、不计分。decode 每快 10% ≈ 吞吐 +3.4%。
+2. **decode DP 均衡**：router 选 decode DP rank 用 kv-aware（`--kv-decode-overlap-weight 2`、`--decode-input-demand on`）。先静态读 router 选 rank 的代码，再决定改权重/策略；上限约 −10% 步长 ≈ +3% 吞吐。
+3. **投机解码参数**（接受长度 2.99 / 最多 4）：先查之前调参记录再说，不重复跑。
+4. **E9 v5**：机制正确，命中率已修好，收益约 +1–2%，放在最后用一次整小时计分确认，与 decode 优化叠加。
 
 ## 10-30 15:20 E9 v5 诊断短跑 4：机制和命中率都对了，吞吐仍在噪声内
 
