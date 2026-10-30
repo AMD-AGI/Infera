@@ -8,7 +8,7 @@
 
 ## 0. 当前状态（随时更新）
 
-- 10-30 03:00 UTC：功能点 1（4+4 C80，`--fast`）已经用 launcher 原生流程拉起：镜像经 srun 导入，作业由 srtctl 提交。GPU 上还没有任何点跑完。
+- 10-30 06:20 UTC：三个排队作业都在镜像解包这一步失败（D13），按用户方案改在占位作业 34971（n02-29 + n05-33）里跑；4+4 C80 第三次尝试中（前两次分别卡在工作区环境、#630 补丁的 API 不匹配，均已修）。
 - #222 已推送（`f668fbf7`）；#4629 已推送（`996ea049`：补丁、waiver、router 检查修复、dma-buf=1 和 ionic 挂载），这一版还没在 GPU 上跑过。
 
 ## 0.1 实测中的决定（汇总）
@@ -26,6 +26,23 @@
 | D9 | Compute-DCPT 节点的 host 网卡用 `fenic` | 这些节点上没有 InferenceY 节点的 `enp81s0f1`（节点探测结果） |
 | D10 | 测试时作业墙钟时间改成 3 h（recipe 写的是 8 h） | 便于 backfill 排上；一个 fast 点约 1 h，3600 s 的点约 2 h |
 | D11 | 性能对齐选 4+4 C80 和 1P1D C64 | 8 卡吞吐端与 12 卡交互端各一个，覆盖两种形态、Pareto 两端 |
+| D12 | 三个点先照 CI 方式各自排队；同时排一个 2 节点占位作业（用户 10-30 定），排队作业失败后的重跑都放在占位作业里 | 单独排队的作业失败后重新排要几个小时。占位作业里执行的是 srtctl 生成的同一份 sbatch 脚本、配置和提交时的完整环境（`render_point.sh` 用假 sbatch 记下来），`do_sweep` 及以下与 CI 相同；不同的只有提交、跟踪、收集这一层 |
+| D13 | 镜像导入回到 InferenceY 的 dockerd 方式，由我在占位作业里预先导入成 squash | rootless pyxis/enroot 从 registry 解包 lmsysorg 镜像会失败（`/root/go` 下的只读目录，`Cannot mkdir: Permission denied`），三个排队作业都因此在 etcd 这一步失败；上游 CI 集群上是否同样失败未知 |
+| D14 | 测试配置去掉 GPU exporter 边车 | 这几个点都是 POWER=0；它的镜像现在拉不下来（Docker Hub 匿名拉取限流） |
+| D15 | 给 InferenceY 的 `manual_launch.py` 加 `--eval-only` | CI 对 run-eval 的行另起一个 "multi-node agentic eval" 作业（run-eval、eval-only 为 true，conc 取 eval-conc）；manual_launch 原本把这两项写死成 false |
+
+## 0.2 实测发现并已修复的 PR 问题
+
+| PR | 问题 | 修复 |
+|---|---|---|
+| #4629 安装脚本 | #223 之后 router 打包在 wheel 里、不在 PATH 上，原来用 `shutil.which` 检查必然失败 | 改为 `launch_rust._find_binary()`（`996ea049`，已推送） |
+| #4629 带的 `630-infera-frontend.patch` | 补丁是按 srt-slurm 新 main 写的，用了 `runtime.reuse_container`、`container_prepare_timeout_seconds`；InferenceX 固定的 `ae3d6877` 没有这两个参数，router 起不来（`AttributeError`）。单元测试 mock 了进程启动，所以没测出来 | 按 `ae3d6877` 重新生成补丁，router 调用与同版本 static router 一致（`a8986514`，待实测通过后推送）；#630 本身基于 main，不受影响 |
+
+## 0.3 InferenceX 维护者对 #4629 的评审（10-29，实测开始后才看到）
+
+functionstackx（核心维护者）CHANGES_REQUESTED："No patches to sglang engine, it doesn't make sense for AMD to have patches to sglang engine considering that AMD has merge perms on sglang engine"；
+另在安装脚本上建议 "put this wheel on pypi plz"。补丁加 waiver 的路线因此不可行：B1/B2/B6/B7/B8 需要先合进 SGLang、换镜像。
+实测仍然带补丁跑，用来验证其余部分，并证明这 5 个修复够用。如何回复维护者、是否撤掉已推送的补丁提交，待用户决定。
 
 ## 1. 实测方式
 
