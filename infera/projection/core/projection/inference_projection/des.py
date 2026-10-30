@@ -71,7 +71,7 @@ from dataclasses import dataclass, field
 from infera.projection.core.projection.training_config import InferenceConfig
 
 from . import gemm_shapes
-from .performance import InferencePerformanceProjector
+from .performance import InferencePerformanceProjector, _split_host_projectors
 
 # Context-length bucket (tokens) for memoising step-cost kernel calls. Decode
 # step latency varies slowly with context, so bucketing keeps the number of
@@ -145,6 +145,8 @@ class _Req:
     unc_billed: int = 0
     # Split serving: whether a decode server has emitted this request's token yet.
     decode_seen: bool = False
+    # Split serving: when its KV landed on the decode replica.
+    decode_ready_ms: float = -1.0
     # Cache-hit blocks held below HBM, per lower tier, and how long loading
     # them back delayed this request's admission.
     load_blocks: tuple = ()
@@ -360,12 +362,13 @@ class _CostKernel:
         return v
 
 
-def _set_host_ms(reqs: list[_Req], req_cfg) -> None:
+def _set_host_ms(reqs: list[_Req], req_cfg, projectors: Sequence = ()) -> None:
     """Per-request host latency: ``request_overhead_ms``, plus
     ``tokenize_overhead_us`` per prompt token (the prompt arrives as text and is
     tokenized server-side after the TTFT clock starts), plus
     ``uncached_prompt_latency_us`` for each prompt token the cache did not serve,
-    up to ``uncached_prompt_latency_max_tokens`` of them.
+    up to ``uncached_prompt_latency_max_tokens`` of them, plus the host latency
+    each of ``projectors`` measured with its anchor (``measured_host_ms``).
 
     Charged to TTFT and end-to-end latency only: the scheduler, and a closed
     loop's issue times, are unchanged.
@@ -377,6 +380,9 @@ def _set_host_ms(reqs: list[_Req], req_cfg) -> None:
     for r in reqs:
         u = max(0, r.prompt_len - r.cached_prefix)
         r.host_ms = fixed + tok * r.prompt_len + unc * (min(u, cap) if cap > 0 else u)
+        r.host_ms += sum(
+            p.measured_host_ms(r.prompt_len) for p in projectors if hasattr(p, "measured_host_ms")
+        )
 
 
 def _resident_cap(
@@ -743,7 +749,7 @@ def simulate_once(
     if whole_context_residency:
         for r in pending:
             r.shared_prefix_credit = False
-    _set_host_ms(pending, req)
+    _set_host_ms(pending, req, (projector,))
     session_mode = closed_loop and any(r.sess >= 0 for r in pending)
     if session_mode:
         pending.sort(key=lambda r: r.idx)
@@ -883,6 +889,10 @@ def simulate_once(
 
     steps = 0
     stalled = 0
+    delay_passes = int(os.environ.get("INFERASIM_PREFILL_DELAY_PASSES", "0") or 0)
+    if int(getattr(kernel, "_sync", 1)) <= 1:
+        delay_passes = 0
+    delay_seen: dict[int, int] = {}
     # A session replay stops issuing at the horizon and lets what is already
     # in flight finish, which is what the harness reports over.
     while (
@@ -979,6 +989,18 @@ def simulate_once(
         # 16384-token one. Both effects push real TTFT up.
         admit_cap = new_seqs_per_step if new_seqs_per_step > 0 else (1 << 30)
         admitted = 0
+        if delay_passes > 0 and waiting and any(r.prefill_done for r in running):
+            # SGLang's prefill delayer (--enable-prefill-delayer, which the
+            # attention-DP recipes turn on) holds prefill while some rank has
+            # none to run, and also while a rank's free running slots are fewer
+            # than its recent peak prefill batch. With --max-running-requests at
+            # the client count a closed loop meets the second condition on
+            # nearly every pass, so a prompt waits out the pass limit behind
+            # the decodes. Each pass is one of those decode steps; with nothing
+            # decoding there are no passes to wait for.
+            head = waiting[0]
+            if steps - delay_seen.setdefault(head.idx, steps) < delay_passes:
+                admit_cap = 0
 
         prefill_step = False
         if prefill_exclusive:
@@ -2272,7 +2294,7 @@ def simulate_disaggregated(
         pending.sort(key=lambda r: r.arrival_ms)
         next_unissued = n
 
-    _set_host_ms(pending, req)
+    _set_host_ms(pending, req, _split_host_projectors(prefill_proj, decode_proj))
     # The fitted per-uncached-token cost is prefill engine time. A prefill pool
     # carries no decodes for it to slow, so it is billed to the pool's steps,
     # where prompts queue for it, instead of to each prompt alone.
@@ -2290,15 +2312,17 @@ def simulate_disaggregated(
         from .kv_cache import attention_dp_size
 
         split_unc_ms /= max(1, int(attention_dp_size(prefill_proj.cfg)))
-    # Under attention-DP every prefill rank schedules its own prompts against
-    # its own chunk budget, so one prefill step carries a budget per rank.
-    if token_budget > 0:
-        from .kv_cache import attention_dp_size
-
-        token_budget *= max(1, int(attention_dp_size(prefill_proj.cfg)))
-    # The client's first token comes from the decode server, after the KV has
-    # landed and the request has run its first decode step there.
-    ttft_at_decode = os.environ.get("INFERASIM_DES_SPLIT_TTFT_DECODE") == "1"
+    # Where the client's first token is stamped (INFERASIM_DES_SPLIT_TTFT).
+    # "prefill": when the last prefill chunk emits it. "admit" (default): when
+    # a decode replica takes the request into its batch, after the KV has
+    # landed and a slot is free -- the router streams the response from the
+    # decode server, so a request waiting for a decode slot waits before its
+    # first token, not between its tokens. Of the three it tracks the 159
+    # measured MI355X splits best. "step": at the end of that replica's first
+    # decode step for it.
+    ttft_mode = os.environ.get("INFERASIM_DES_SPLIT_TTFT", "admit")
+    ttft_at_decode = ttft_mode == "step"
+    ttft_at_admit = ttft_mode == "admit"
 
     # The KV pool is per *pool*, not per fleet. A prefill pool holds a prompt
     # only until the handoff, while a decode replica holds the whole sequence
@@ -2410,10 +2434,18 @@ def simulate_disaggregated(
         if not ready:
             return 0
         xfer[:] = [(ts, r) for (ts, r) in xfer if ts > t]
+        # ``t`` is the furthest-ahead station's clock, so a handoff can be
+        # delivered while its replica is still behind ``ts`` with requests
+        # running. The replica's clock is not moved here: it admits the request
+        # once its own clock reaches ``ts`` (``_step_decode``), and only an idle
+        # replica jumps forward to meet it. Advancing a busy replica's clock to
+        # the handoff skipped the time its running requests still had to
+        # decode, which doubled the TPOT of attention-DP splits once prefill
+        # steps became small and frequent.
         for ts, r in sorted(ready, key=lambda x: x[0]):
             k = min(range(replicas), key=lambda i: (len(d_running[i]) + len(d_waiting[i]), i))
+            r.decode_ready_ms = ts
             d_waiting[k].append(r)
-            now_d[k] = max(now_d[k], ts)
         return len(ready)
 
     def _step_prefill(j: int) -> bool:
@@ -2512,13 +2544,19 @@ def simulate_disaggregated(
     def _step_decode(k: int) -> bool:
         """One pure decode step on replica ``k``."""
         nonlocal d_steps, pk_d_batch, pk_maxbatch, pk_kv_peak, pk_q_tokens
+        if not d_running[k] and d_waiting[k]:
+            now_d[k] = max(now_d[k], min(r.decode_ready_ms for r in d_waiting[k]))
         while d_waiting[k] and len(d_running[k]) < d_max_running:
             head = d_waiting[k][0]
+            if head.decode_ready_ms > now_d[k]:
+                break
             need_kv = head.reserved_kv
             if d_pool > 0 and d_kv[k] + need_kv > d_pool:
                 break
             d_waiting[k].pop(0)
             head.status = "RUNNING"
+            if ttft_at_admit:
+                head.first_token_ms = now_d[k]
             d_running[k].append(head)
             d_kv[k] += need_kv
             pk_kv_peak = max(pk_kv_peak, d_kv[k])
