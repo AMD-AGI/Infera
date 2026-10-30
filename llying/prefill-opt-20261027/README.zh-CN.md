@@ -3,7 +3,7 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
-## 当前状态（实时更新，最后更新 10-30 08:40 UTC）
+## 当前状态（实时更新，最后更新 10-30 09:05 UTC）
 
 | 项 | 节点 | C104 tok/s/GPU | 每级驱逐均值 PP0/1/2/3（ms） | 状态 |
 |---|---|---|---|---|
@@ -12,7 +12,7 @@
 | E10（换硬件后的基线） | 138→135 | 51,658（与 140 上差 +0.6%，单次噪声内） | 349 / 193 / 253 / 229 | 10-30 04:52 完成；新组合复现了旧基线 |
 | E11 关 prefill KV events | — | — | — | 预测 < 1%，不跑 |
 | E9 后台预写回（叠在 E10 上） | 138→135 | 51,743（+0.2%，噪声内） | 361 / 202 / 250 / 233（**没降**） | v1 一个节点都没选中；v3（只选当前叶子）覆盖不到驱逐链上的父节点；**v4（模拟驱逐遍历）诊断短跑 3 排队中（约 09:05 起）** |
-| decode kernel 拆解 | 138→135 | — | — | 07:04 / 07:09 已采并拷出；kineto 看不到 graph 内部的 kernel，需要 rocprofv3 或 eager 短采 |
+| decode kernel 拆解 | 138→135 | — | — | 已采；draft graph 可见，verify graph 0 个 kernel；下一步加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 重采 |
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
 
@@ -50,9 +50,15 @@ PP0 发预算最多每 0.25 s 一次（循环每秒约 70 轮，驱逐每几秒�
 
 - trace：`$L/dprof-135-e10-1030/traces/decode-07{0404,0904}/`（每次 4 个 DP rank × 40 步，每个约 9 MB；本机副本 `/tmp/llying-dprof`）。
 - 40 步共 2,351 ms，**每个 decode 步约 59 ms**（这个负载下；交接里写的约 42 ms 是更低负载时的数）。每步 3 次 `hipGraphLaunch`（draft / verify / draft_extend）。
-- **kineto 只记录到 graph 外的 kernel**：每步约 219 个、合计 5.3 ms（MTP draft 层的 MoE、采样、填充等 eager 部分）；78 层 verify 前向在 graph 回放里，kernel 一个都没记录到。
-  与 yihou 10-12 的备注一致。要拿到 kernel 构成，需要在 decode 进程外套 `rocprofv3 --kernel-trace`，或者关 CUDA graph 短采（每步时间不准，但每个 kernel 的 GPU 时长可用）。
-  先确认镜像里有没有 `rocprofv3`（等诊断短跑结束、不占 135 / 138 时再查）。
+- ~~kineto 只记录到 graph 外的 kernel~~（**10-30 09:05 更正**：按 kernel 的 `correlation` 对回 `hipGraphLaunch` 统计，每步三个 graph 记到的 kernel 数是
+  **draft 94 / verify 0 / draft_extend 57–58**，40 步全部如此，四个 rank 相同；8,770 个 kernel 里 6,059 个来自 graph 回放。所以不是"graph 内部都看不到"，
+  而是**只有主模型的 target_verify graph 一个都没记录**。我之前没按 correlation 核对就下了结论。）
+- 可能的原因与办法（子 agent 查证，**CLR 源码未读到，依据是公开 issue / PR**）：ROCm 7.x 默认开启 `DEBUG_CLR_GRAPH_PACKET_CAPTURE`，graph 节点在 instantiate 时预先组成 AQL 包，
+  roctracer 只给部分回放产生 kernel 记录；设为 0 后逐节点下发，每次回放都有记录（ROCm/rocm-systems #13882、#14586；Hyperloom PR #2144 在 SGLang/ROCm 上 1/127 → 128/128）。
+  代价：不开 trace 时每个 graph kernel 约 1.7 → 2.7 µs（#14586），只用于采集，不用于计分。必须在进程启动前设置（容器环境变量）。
+  `SGLANG_PROFILE_V2` 默认就是 0（`srt/environ.py:453`），v1 / v2 的 profiler 参数相同，与此无关（代码已确认）。
+- **下一步**：先在空闲节点 `strings libamdhip64.so | grep GRAPH_PACKET_CAPTURE` 确认这个 build 有该 flag；然后 decode 加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0`（`DECODE_ENV_EXTRA`）重采，
+  判定标准是 verify graph 每步记到约 1,000+ 个 kernel、40/40 步都有。
 
 ## 10-30 07:15 E9 第一次跑：吞吐不变、机制没生效；两个脚本错误
 
