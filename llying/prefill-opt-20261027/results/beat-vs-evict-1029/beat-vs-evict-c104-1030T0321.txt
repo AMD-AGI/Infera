@@ -1,0 +1,37 @@
+clock check (corr of PP0 log usage vs metrics usage at slice offset s): -4: 0.521, -3: 0.656, -2: 0.804, -1: 0.944, +0: 0.973, +1: 0.849, +2: 0.707, +3: 0.572, +4: 0.465
+PP0: 978 evictions, 398 s inside evict
+PP1: 978 evictions, 217 s inside evict
+PP2: 978 evictions, 280 s inside evict
+PP3: 978 evictions, 259 s inside evict
+window 3640 s; 5204 queued PP0 beats, median 318 ms, excess 614 s = 16.9% of window
+eviction intervals (any rank, margin 0.5 s) cover 2161 s = 59% of the window
+beats overlapping an eviction (any rank): 63% of beats carry 92% of the excess; shifted control: 65% of beats carry 70% (sd 2.5%, max 75%)
+  with eviction: n  3274, beat p50  421 ms, p90   773 ms, excess   567 s
+  without      : n  1930, beat p50  270 ms, p90   342 ms, excess    47 s
+  excess beyond what the same beats would carry at the no-eviction rate (24 ms / beat): 488 s = 79% of the excess = 13.4% of the window
+lag scan (eviction intervals shifted by LAG s; share of beats hit -> share of excess):
+  lag -3.0: 69% -> 80% (ratio 1.17)
+  lag -2.0: 64% -> 87% (ratio 1.34)
+  lag -1.0: 60% -> 93% (ratio 1.55)
+  lag -0.5: 60% -> 94% (ratio 1.56)
+  lag +0.0: 63% -> 92% (ratio 1.47)
+  lag +0.5: 66% -> 88% (ratio 1.33)
+  lag +1.0: 69% -> 84% (ratio 1.22)
+  lag +2.0: 70% -> 80% (ratio 1.14)
+  lag +3.0: 70% -> 81% (ratio 1.16)
+old detector: 1129 usage drops >= 0.03 (real PP0 evictions: 978); 40% fall within 0.5 s of a real PP0 eviction interval, which (widened) cover 53% of the window
+  only PP0 evictions: 37% of beats carry 76% of the excess
+  only PP1 evictions: 37% of beats carry 64% of the excess
+  only PP2 evictions: 41% of beats carry 57% of the excess
+  only PP3 evictions: 43% of beats carry 53% of the excess
+usage quartile cuts [0.11, 0.16, 0.23]
+  usage bin | beats  share-of-excess | with eviction: n, p50, excess | without: n, p50, excess
+  Q1        |  1419   13%           |   547  388ms    66s          |   872  261ms    12s
+  Q2        |  1245   20%           |   732  404ms   107s          |   513  274ms    13s
+  Q3        |  1384   28%           |  1026  409ms   160s          |   358  280ms    15s
+  Q4        |  1156   39%           |   969  481ms   234s          |   187  283ms     6s
+per second, metrics usage quartile cuts [0.09000000000000001, 0.15333333333333335, 0.22666666666666666]: PP0 evictions / s, loadback tokens / s (PP0)
+  Q1: 939 s, evictions 0.20 / s, loadback 70,315 tok / s
+  Q2: 889 s, evictions 0.29 / s, loadback 120,026 tok / s
+  Q3: 911 s, evictions 0.27 / s, loadback 139,598 tok / s
+  Q4: 900 s, evictions 0.32 / s, loadback 178,619 tok / s
