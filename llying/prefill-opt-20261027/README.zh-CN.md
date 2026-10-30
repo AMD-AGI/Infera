@@ -3,6 +3,20 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
+## 10-30 03:25 decode 换到 135；镜像核对；磁盘监控；night23 已开跑
+
+- **140 ssh 被拒**（10-30 02:14 起，登录节点和 138 都是 `Permission denied (publickey,password)`；10-29 14:47 还能连）。无法登录确认原因；用户提示可能是磁盘满（其他机器出现过）。
+  10-29 15:22 / 15:27 的 decode profile 已在 140 上采到，但拷出失败（`/mnt/m2m_nobackup/liyingli_3p1d` 只在 138 上存在），trace 应还在 140 的 `/root/.cache` 卷里，140 恢复后再取。
+- **135–142 巡检（10-30 02:20）**：135 / 138 / 141 整机空闲；136 yihou 在用；137 有别人的容器；139 docker 不可用、GPU0 被占；142 GPU0 被占。用户选定 **138 → 135**。
+- **镜像核对**：135 上同名 `infera-sglang:v0522-fdbafb60` 是 10-23 的另一个构建（`sha256:f69f49e3…`，层不同）；138 和 140 用的是 `sha256:509b8427…`（140 由 run 的 inspect.json 确认）。
+  在 138 上加标签 `-509b` 后 `docker save | ssh 135 docker load`，135 上 Id 与层列表的 md5 都与 138 一致；135 原有标签不动（yihou 的容器在用）。
+  配置用薄封装 `config/site-135-{e10,e9,e9-gate}.env`（改 `DECODE_NODE_IP / DECODE_SSH / IMAGE`），不改历史配置。
+- **磁盘监控**：`scripts/disk_check.sh` 在每个实验前后记录两节点的 `/`、`/mnt/m2m_nobackup`、`/home` 与 `docker system df`，`/` 或数据盘 ≥ 95% 就停队列。
+  10-30 03:21：138 `/` 43%、数据盘 76%；135 `/` 88%（15G 剩余，不是我们的文件）、数据盘 4%；共享 `/home` 95%（我的 home 约 63G）。两台的 docker 数据都在 `/mnt/m2m_nobackup/docker`。
+- **为什么先在新组合上重测 E10**：节点间差异约 3%（yihou 记录），大于 E9 的预测收益；E9 必须和同一组合上的 E10 比。这是换硬件后的基线，不算重测已测配置。
+- **night23**（`scripts/night23_1030.sh`）：E10 C104 → E9 20 分钟短跑（断言 / 机制检查，对照是本组合的 E10）→ E9 限池门禁 → E9 C104 → E10 decode profile；起栈失败自动重试一次
+  （修了 night22 的重试判断：失败信息在 `pd_perf_chain.sh` 的 stdout，不在 `c104.log`）。
+
 ## 10-29 15:20 E9（后台提前写回）：静态分析、设计与定量预测（未实现、未跑）
 
 依据：镜像 SGLang（本地副本 `~/.cache/llyq/sgl0522`，与 kit 的 `evict-headroom/unified_radix_cache.orig.py` 逐字节一致）的
