@@ -738,6 +738,27 @@ def test_fill_metrics_disagg_counts_both_pools():
     assert pt.gpus == 16 and pt.total_tput_per_gpu == 1000.0 and pt.output_tput_per_gpu == 100.0
 
 
+def test_fill_metrics_attention_dp_counts_only_busy_ranks():
+    def des():
+        return SimpleNamespace(
+            packing={},
+            ttft_arrival={"mean": 500.0},
+            ttft={},
+            tpot={"mean": 10.0},
+            e2e={"mean": 1000.0},
+            system_throughput_tps=100.0,
+            system_total_throughput_tps=900.0,
+        )
+
+    perf = SimpleNamespace(replica_gpus=8, extras={})
+    one = _pt(1, 1, gpus=8, parallelism="TP8 EP8 DPA8", dp_attn=8, concurrency=1)
+    P._fill_metrics(one, {"performance": perf, "des": {"point": des()}}, 0.0)
+    full = _pt(1, 1, gpus=8, parallelism="TP8 EP8 DPA8", dp_attn=8, concurrency=16)
+    P._fill_metrics(full, {"performance": perf, "des": {"point": des()}}, 0.0)
+    assert one.total_tput_per_gpu == 900.0 / 8
+    assert full.total_tput_per_gpu == 900.0
+
+
 def test_writers_round_trip(tmp_path):
     pts = [
         _pt(10, 100),
@@ -812,3 +833,23 @@ def test_html_controls_and_measured_overlay(tmp_path):
     assert P.load_measured(None) == {}
     blank = P.write_outputs(P.ParetoResult(points=pts), str(tmp_path / "b"), meta={})
     assert '"measured": []' in open(blank["html"][0]).read()
+
+
+def test_project_point_does_not_carry_sglang_dense_decode_to_the_next_point(monkeypatch):
+    from infera.projection import cli
+    from infera.projection.core.projection import inference_projection as IP
+
+    parser = SimpleNamespace(parse_known_args=lambda argv: (SimpleNamespace(), []))
+    monkeypatch.setattr(cli, "build_parser", lambda: parser)
+    monkeypatch.delenv("INFERASIM_DPA_DECODE_DENSE", raising=False)
+    monkeypatch.setattr(P, "_CALLER_DPA_DENSE", None)
+    seen = []
+    monkeypatch.setattr(
+        IP,
+        "launch_projection_from_cli",
+        lambda *a, **k: seen.append(os.environ.get("INFERASIM_DPA_DECODE_DENSE")) or {},
+    )
+    base = P.asdict(_pt(0, 0, dp_attn=8))
+    for engine in ("sglang", "atom"):
+        P.project_point(dict(point={**base, "engine": engine}, preset="m", argv=[]))
+    assert seen == ["1", None]

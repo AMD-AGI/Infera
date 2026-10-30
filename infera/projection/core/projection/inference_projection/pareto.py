@@ -1062,7 +1062,8 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
     pt.tpot_ms = float(des.tpot.get("mean") or 0.0)
     pt.e2e_ms = float(des.e2e.get("mean") or 0.0)
     pt.interactivity = 1000.0 / pt.tpot_ms if pt.tpot_ms > 0 else 0.0
-    ranks = max(1, pt.dp_attn)
+    # Below one client per rank, only ``concurrency`` ranks hold a request.
+    ranks = max(1, min(pt.dp_attn, pt.concurrency))
     out_tps = float(des.system_throughput_tps or 0.0) * ranks
     tot_tps = float(des.system_total_throughput_tps or 0.0) * ranks or out_tps
     pt.output_tput_per_gpu = out_tps / gpus
@@ -1084,6 +1085,9 @@ def _fill_metrics(pt: ParetoPoint, res: dict[str, Any], gpu_cost_per_hour: float
         pt.reason = pt.reason or f"DES stalled with {stalled:.0f} request(s) unschedulable"
 
 
+_CALLER_DPA_DENSE = os.environ.get("INFERASIM_DPA_DECODE_DENSE")
+
+
 def project_point(task: dict[str, Any]) -> ParetoPoint:
     """Project one configuration. Runs in a worker process."""
     pt = ParetoPoint(**task["point"])
@@ -1091,13 +1095,18 @@ def project_point(task: dict[str, Any]) -> ParetoPoint:
     os.environ["INFERASIM_TP"] = str(pt.tp)
     os.environ["INFERASIM_EP"] = str(pt.ep)
     if pt.dp_attn > 1:
-        os.environ["INFERASIM_DES_LOCKSTEP"] = str(pt.dp_attn)
+        os.environ["INFERASIM_DES_LOCKSTEP"] = str(min(pt.dp_attn, max(1, pt.concurrency)))
     else:
         os.environ.pop("INFERASIM_DES_LOCKSTEP", None)
     # SGLang's attention-DP decode measures at the dense charge; the sparse
     # DPA decode cost describes ATOM's kernels.
-    if pt.engine == "sglang" and (pt.dp_attn > 1 or "DPA" in pt.disagg):
-        os.environ.setdefault("INFERASIM_DPA_DECODE_DENSE", "1")
+    # A worker projects many points, so a setting made for one must not leak
+    # into the next; an explicit value from the caller is left alone.
+    if _CALLER_DPA_DENSE is None:
+        if pt.engine == "sglang" and (pt.dp_attn > 1 or "DPA" in pt.disagg):
+            os.environ["INFERASIM_DPA_DECODE_DENSE"] = "1"
+        else:
+            os.environ.pop("INFERASIM_DPA_DECODE_DENSE", None)
     # SGLang's colocated attention-DP recipes run --enable-prefill-delayer, whose
     # default holds a prefill for up to 30 forward passes (see ``simulate_once``).
     if (
