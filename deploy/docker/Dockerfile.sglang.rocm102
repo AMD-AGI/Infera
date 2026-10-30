@@ -7,7 +7,7 @@
 # /opt/venv, torch 2.14.0+rocm10.2.0rc0. Pull it after `docker login -u rocm`.
 #
 # Differences from Dockerfile.sglang (the v0.5.22 patch set, re-checked on this
-# v0.5.21 base; verify_rocm10.2/REPORT.zh-CN.md has the per-patch dry run):
+# v0.5.21 base; per-patch verdicts: patch.upstream.status.md, "v0.5.21 on ROCm 10.2"):
 #   - GLM NextN fused_shared_experts_architecture is not upstream on v0.5.21:
 #     sglang_dsa/v0521/ backports it before the v0522 DSA script asserts it.
 #   - mooncake/conn.py does not wait on the early-send event on v0.5.21:

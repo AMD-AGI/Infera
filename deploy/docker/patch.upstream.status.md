@@ -49,6 +49,31 @@ Column meanings:
   `yes` = us; `no` = a third party; `—` = no PR.
 - **PR state** — of the upstream PR named in the same row.
 
+## v0.5.21 on ROCm 10.2 — what `Dockerfile.sglang.rocm102` bakes
+
+Verified on 2026-10-30 against
+`rocm/ufb-private:sglang-v0.5.21-ubuntu24.04-py3.14-prereleases-device-all-rocm10.2.0rc0-aaaf7c860d`
+(`0.5.21+amd.march.gaaaf7c860d`, digest `sha256:3385b5c1…`): the v0.5.22 patch set was
+applied step by step in a throwaway container of the base, then baked by a full build.
+This base sits between the v0.5.18 and v0.5.22 recipes, so three rows differ from the
+v0.5.22 table above.
+
+| patch | on v0.5.21 / ROCm 10.2 | evidence |
+|---|---|---|
+| `sglang_dsa/patch_dsa_indexer_hip_dp_padded_rows.py` | baked | self-locating, as on v0.5.22 |
+| `sglang_dsa/dsa_dp_sync.diff` | baked | applies at an offset, `--fuzz=0` |
+| `sglang_dsa/v0522/dsa_page_table_rows.diff` | baked | applies at an offset, `--fuzz=0` |
+| draft-graph DP vote | upstream, asserted | `dp_attn.py` `_spec_input_cuda_graph_compatible` |
+| GLM NextN `fused_shared_experts_architecture` | **baked, backport** (`sglang_dsa/v0521/`) | `GlmMoeDsaForCausalLMNextN` still inherits the DeepSeek name; the v0522 DSA script asserts it |
+| `sglang_disagg/patch_mooncake_early_send_wait_event.py`, `utils.py` + `conn.py` half | **baked** (`sglang_disagg/v0521/`) | `prefill.py` records `_early_send_wait_event`, `mooncake/conn.py` never waits on it; the parent's `prefill.py` anchor no longer matches (assert reformatted) |
+| `sglang_disagg/v0522/patch_prefill_nonfinal_chunk_wait_event.py` | baked | its consumer check passes once the row above is applied |
+| `sglang_responses/v0522/patch_responses_unstreamed_tool_args.py` | baked | |
+| `sglang_rocm/patch_hicache_rocm_staged_write_back.py` | baked | |
+| `sglang_rocm/v0522/patch_mla_absorb_bmm_default_config.py` | **not baked** | this build has no `_absorb_bmm_config` |
+| `sglang_kv_events/patch_kv_metrics_send_noblock.py` | baked | |
+| `sglang_pp/v0522/patch_deepseek_v2_pp_embed_dim.py` | baked | |
+| `sglang_decode_radix_spec/patch_decode_radix_spec.py` | **off** (`APPLY_SGLANG_DECODE_RADIX_SPEC_PATCH=0`) | the guard is now `not in (None, "DSPARK")`, a shape the patch refuses; infera never appends decode radix under speculation without `SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1` |
+
 ## sglang — `patches/sglang_dsa/` (baked by `Dockerfile.sglang` and `Dockerfile.sglang.gfx942`, `APPLY_SGLANG_DSA_PATCHES=1`)
 
 Patch 01 is an anchor script and is baked by both images. The other three are
