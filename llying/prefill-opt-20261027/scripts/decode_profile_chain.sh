@@ -58,8 +58,12 @@ for k in 1 2; do
 done
 wait "$ax"
 echo "$(date -u +%T) $label agentx exited $?"
+# LOG_DIR exists only on the prefill node (10-29: /mnt/m2m_nobackup/liyingli_3p1d is node-local), so copy to the
+# decode node's data disk first, then pull it here.
+dtmp=/mnt/m2m_nobackup/liyingli_tmp
 for pid in "${pids[@]}"; do
-    on "$DECODE_SSH" "docker cp ${CTR:-glm52_2p1d}-decode:/root/.cache/$pid $log_dir/traces/$pid" 2>&1 | tail -1
+    on "$DECODE_SSH" "mkdir -p $dtmp && docker cp ${CTR:-glm52_2p1d}-decode:/root/.cache/$pid $dtmp/$pid" 2>&1 | tail -1
+    ssh -n -o BatchMode=yes "$DECODE_SSH" "tar c -C $dtmp $pid" | tar x -C "$log_dir/traces" 2>&1 | tail -1
 done
 ls -la "$log_dir"/traces/*/ 2>&1 | tail -12
 mkdir -p "$run_dir/metrics"
