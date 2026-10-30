@@ -673,6 +673,18 @@ def _add_inference_args(parser):
         help="Force the EP AllToAll algorithm (default: auto = fastest).",
     )
     coll.add_argument(
+        "--ep-dispatch",
+        type=str,
+        default=None,
+        choices=["a2a", "allreduce"],
+        help="How MoE tokens reach their experts under EP. 'a2a' (default): each "
+        "token is dispatched to its experts' ranks and combined back by an "
+        "all-to-all. 'allreduce': tensor-parallel attention leaves every token on "
+        "every rank, each rank runs its own experts and the TP all-reduce sums "
+        "the outputs, so there is no all-to-all -- SGLang's --ep-size without "
+        "--moe-a2a-backend. Env: INFERASIM_EP_DISPATCH.",
+    )
+    coll.add_argument(
         "--prefill-comm-overlap",
         type=float,
         default=None,
