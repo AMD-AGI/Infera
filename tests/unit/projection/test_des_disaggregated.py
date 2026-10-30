@@ -515,6 +515,100 @@ def test_attention_dp_prefill_ranks_each_get_a_token_budget():
     assert pool.max_step_tokens > 4096
 
 
+def _arrivals(
+    n: int = 32,
+    *,
+    gap_ms: float = 5.0,
+    load_blocks: tuple = (),
+    pool_inst=lambda i: -1,
+) -> list:
+    """Open-loop requests built by hand, so each can carry its cache state.
+
+    The loop mutates what it is given, so every run needs a fresh list.
+    """
+    return [
+        des_mod._Req(
+            idx=i,
+            arrival_ms=i * gap_ms,
+            prompt_len=1024,
+            output_len=64,
+            load_blocks=load_blocks,
+            pool_inst=pool_inst(i),
+        )
+        for i in range(n)
+    ]
+
+
+def _run_prebuilt(reqs, *, prefill_replicas: int = 1, prefill_scale: float = 1.0, **kw):
+    cfg = _Cfg(
+        _Req(max_concurrency=64, chunked_prefill_size=1024, output_seq_len=64),
+        _Disagg(prefill_replicas=prefill_replicas),
+    )
+    return des_mod.simulate_disaggregated(
+        cfg,
+        _Projector(_Pool(prefill_scale), _Pool(1.0)),
+        rate_per_s=200.0,
+        num_requests=len(reqs),
+        warmup_frac=0.0,
+        prebuilt=reqs,
+        **kw,
+    )
+
+
+def test_blocks_below_hbm_delay_the_prefill_they_feed():
+    """A prefix hit held in DRAM has to cross the host link before the prefill
+    replica can use it, and the client is waiting for that first token."""
+    hbm = _run_prebuilt(_arrivals(), tier_block_ms=(5.0,))
+    dram = _run_prebuilt(_arrivals(load_blocks=(10,)), tier_block_ms=(5.0,))
+    assert dram.packing["tier_load_reqs"] == 32.0
+    # Ten blocks at 5 ms each, on a link the next request may still be using.
+    assert dram.packing["tier_load_ms_mean"] >= 50.0
+    # The server admits the request once its blocks land, so the wait is queue
+    # time, and the client sees it in TTFT measured from arrival.
+    assert dram.queue_wait["mean"] >= hbm.queue_wait["mean"] + 50.0
+    assert dram.ttft_arrival["mean"] >= hbm.ttft_arrival["mean"] + 50.0
+
+
+def test_a_split_without_a_lower_tier_is_unchanged():
+    """No tier means nothing to load, so the split schedules exactly as before:
+    the same TTFT to the bit, and no load counters in its output."""
+    plain = _run_prebuilt(_arrivals())
+    blocks_only = _run_prebuilt(_arrivals(load_blocks=(10,)))
+    assert blocks_only.ttft_arrival["mean"] == plain.ttft_arrival["mean"]
+    assert blocks_only.e2e["mean"] == plain.e2e["mean"]
+    assert "tier_load_reqs" not in blocks_only.packing
+
+
+def test_each_prefill_replica_loads_over_its_own_host_link():
+    """Requests arriving together queue on one link; spread over two replicas,
+    each link carries half of them, so the mean wait for blocks falls."""
+    together = dict(gap_ms=0.0, load_blocks=(20,))
+    one = _run_prebuilt(_arrivals(16, **together), prefill_replicas=1, tier_block_ms=(5.0,))
+    two = _run_prebuilt(
+        _arrivals(16, pool_inst=lambda i: i % 2, **together),
+        prefill_replicas=2,
+        tier_block_ms=(5.0,),
+    )
+    assert two.packing["tier_load_ms_mean"] < 0.6 * one.packing["tier_load_ms_mean"], (
+        one.packing,
+        two.packing,
+    )
+
+
+def test_a_request_prefills_on_the_replica_that_holds_its_prefix():
+    """The prefix cache that served the hit belongs to one replica, so the
+    request runs there; routing it to the least-loaded replica instead credits
+    a hit the replica it lands on does not have."""
+    slow = dict(prefill_replicas=2, prefill_scale=20.0)
+    spread = _run_prebuilt(_arrivals(gap_ms=0.0), **slow)
+    pinned = _run_prebuilt(_arrivals(gap_ms=0.0, pool_inst=lambda i: 0), **slow)
+    assert pinned.packing["prefill_utilization"] < spread.packing["prefill_utilization"]
+    assert pinned.ttft_arrival["mean"] > 1.5 * spread.ttft_arrival["mean"], (
+        pinned.ttft_arrival,
+        spread.ttft_arrival,
+    )
+
+
 def test_a_split_reports_each_pools_gemm_shapes_on_its_own_layout():
     """The pools run different layouts, so their GEMMs are reported apart."""
     from infera.projection.core.projection.inference_projection import gemm_shapes as gs
