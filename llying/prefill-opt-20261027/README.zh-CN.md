@@ -3,7 +3,7 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
-## 当前状态（实时更新，最后更新 10-30 07:15 UTC）
+## 当前状态（实时更新，最后更新 10-30 07:25 UTC）
 
 | 项 | 节点 | C104 tok/s/GPU | 每级驱逐均值 PP0/1/2/3（ms） | 状态 |
 |---|---|---|---|---|
@@ -12,9 +12,17 @@
 | E10（换硬件后的基线） | 138→135 | 51,658（与 140 上差 +0.6%，单次噪声内） | 349 / 193 / 253 / 229 | 10-30 04:52 完成；新组合复现了旧基线 |
 | E11 关 prefill KV events | — | — | — | 预测 < 1%，不跑 |
 | E9 后台预写回（叠在 E10 上） | 138→135 | 51,743（+0.2%，噪声内） | 361 / 202 / 250 / 233（**没降**） | **机制没生效**；带计数的诊断短跑排在 decode profile 之后（约 07:40 起） |
-| decode kernel 拆解 | 138→135 | — | — | 06:58 / 07:04 已采，约 07:35 拷出 |
+| decode kernel 拆解 | 138→135 | — | — | 07:04 / 07:09 已采并拷出；kineto 看不到 graph 内部的 kernel，需要 rocprofv3 或 eager 短采 |
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
+
+## 10-30 07:25 decode profile（E10，138→135，C104 负载下）：graph 内部不可见
+
+- trace：`$L/dprof-135-e10-1030/traces/decode-07{0404,0904}/`（每次 4 个 DP rank × 40 步，每个约 9 MB；本机副本 `/tmp/llying-dprof`）。
+- 40 步共 2,351 ms，**每个 decode 步约 59 ms**（这个负载下；交接里写的约 42 ms 是更低负载时的数）。每步 3 次 `hipGraphLaunch`（draft / verify / draft_extend）。
+- **kineto 只记录到 graph 外的 kernel**：每步约 219 个、合计 5.3 ms（MTP draft 层的 MoE、采样、填充等 eager 部分）；78 层 verify 前向在 graph 回放里，kernel 一个都没记录到。
+  与 yihou 10-12 的备注一致。要拿到 kernel 构成，需要在 decode 进程外套 `rocprofv3 --kernel-trace`，或者关 CUDA graph 短采（每步时间不准，但每个 kernel 的 GPU 时长可用）。
+  先确认镜像里有没有 `rocprofv3`（等诊断短跑结束、不占 135 / 138 时再查）。
 
 ## 10-30 07:15 E9 第一次跑：吞吐不变、机制没生效；两个脚本错误
 
