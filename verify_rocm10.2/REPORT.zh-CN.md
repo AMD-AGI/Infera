@@ -174,6 +174,14 @@ rocm10.2 中 sglang 版本最高：
 
 ## 实验日志（倒序）
 
+### 2026-10-30 ~07:35 — 兼容性文档加入 ROCm 10.2
+- `manual/features/compatibility_matrix.md` 按 10.1 风格新增：Engines 的「ROCm 10.2 — preview」tab（SGLang 0.5.21 / ROCm 10.2.0rc0 / Ubuntu 24.04.5 / Python 3.14.10 / PyTorch 2.14.0+rocm10.2.0rc0 / 构建日期 2026-10-29 / digest `sha256:3385b5c1…`）、Platform 行、「ROCm 10.2 preview」章节（适配说明、场景表、范围外说明）。
+- 补核实 PD 走 RDMA：prefill / decode 日志中 Mooncake `rdma_transport` 162 / 320 行，无 TCP transport / fallback，无 0 HCA。
+- 在 141 上 Sphinx 构建（`-W -n`）27 s，compatibility_matrix 无告警；9 条告警均为其他页面已有问题（141 无 graphviz `dot`、k8s_glm5.3 / deployment / workloads 的引用）。
+  第一次构建卡了 20 多分钟：rocm-docs-core 启动时要访问 GitHub API，141 出口 IP 匿名额度用完（403），退避约 29 分钟；加 `-D external_projects_remote_repository=` 跳过（conf.py 注释里给的办法）。
+- 分支已 rebase 到 main `d8babfb0`（与 main 的 Mooncake SIGPIPE 修复无冲突）。注意：已构建的 `infera-sglang:rocm102` 镜像基于 rebase 前代码，差异仅为 main 那条 artifact 检查的 SIGPIPE 修复。
+
+
 ### 2026-10-30 ~05:50 — PD smoke 6/6 通过；排查 cold 530 s；down.sh 完成
 - 详见第 6 节。全部 r102 容器已删除，141 上无残留容器（显存由驱动延迟释放）。
 

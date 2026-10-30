@@ -4,10 +4,11 @@ This page lists the exact versions Infera **0.1.0** has been validated against.
 Everything here is what we have tested — combinations not listed are outside the
 validated set for this release, not necessarily unsupported.
 
-Two ROCm baselines are covered. **ROCm 7.2** is the release baseline: all three
-engines, every scenario. **ROCm 10.1** is an early-enablement preview on nightly
-vendor bases, validated over a deliberately narrow scope — see
-[ROCm 10.1 preview](#rocm-101-preview) for exactly how narrow.
+Three ROCm baselines are covered. **ROCm 7.2** is the release baseline: all three
+engines, every scenario. **ROCm 10.1** and **ROCm 10.2** are early-enablement
+previews on pre-release vendor bases, each validated over a deliberately narrow
+scope — see [ROCm 10.1 preview](#rocm-101-preview) and
+[ROCm 10.2 preview](#rocm-102-preview) for exactly how narrow.
 
 ```{admonition} How to read this page
 :class: note
@@ -59,6 +60,30 @@ rocm/ufb-private:sglang-v0.5.15.post1-ubuntu24.04-py3.14-nightlies-device-all-ro
 
 :::
 
+:::{tab-item} ROCm 10.2 — preview
+
+| | vLLM | SGLang | ATOM |
+| --- | --- | --- | --- |
+| **Engine version** | not validated | 0.5.21 (`gaaaf7c860d`) | not validated |
+| **Docker image** | — | `rocm/ufb-private:sglang-v0.5.21-…-rocm10.2.0rc0-aaaf7c860d` | — |
+| **ROCm (image base)** | — | 10.2.0 (pre-release `rc0`) | — |
+| **OS (image base)** | — | Ubuntu 24.04.5 | — |
+| **Python (image base)** | — | 3.14.10 | — |
+| **PyTorch (image base)** | — | 2.14.0+rocm10.2.0rc0 | — |
+| **Build date** | — | 2026-10-29 | — |
+
+This is a pre-release tag in an access-gated repository, so the tag alone is not
+a version. Build against the digest:
+
+```text
+rocm/ufb-private:sglang-v0.5.21-ubuntu24.04-py3.14-prereleases-device-all-rocm10.2.0rc0-aaaf7c860d@sha256:3385b5c137e4fe6d482d508d80ce661387a905b3dc60983a5e8bd5113b5189ea
+```
+
+The Infera engine image for this base is built from
+`deploy/docker/Dockerfile.sglang.rocm102`, not `Dockerfile.sglang`.
+
+:::
+
 ::::
 
 OS / Python / PyTorch above were read from inside each validated base image (not
@@ -78,7 +103,7 @@ See [Deployment → Engine images](../serving/deployment.md).
 | Component | Validated version |
 | --- | --- |
 | GPU | AMD Instinct MI355X (`gfx950`) |
-| ROCm | 7.2 — plus a 10.1 nightly preview ([below](#rocm-101-preview)) |
+| ROCm | 7.2 — plus a 10.1 nightly preview ([below](#rocm-101-preview)) and a 10.2 pre-release preview ([below](#rocm-102-preview)) |
 | Operating system | Ubuntu 24.04 (Linux x86-64) |
 | Python | 3.10+ |
 | Docker | Required — runs `etcd` in dev and builds engine images |
@@ -117,6 +142,58 @@ silently falling back to TCP, and all four runs' correctness probes passed.
 - **`gfx942`** — the same bases and scenarios also passed on 8 × MI300X, but
   that path needs image-side patches and aiter overrides which are not part of
   this release's images.
+```
+
+## ROCm 10.2 preview
+
+ROCm 10.2 keeps 10.1's packaging: ROCm ships as a **pip wheel** (`rocm-sdk-*`
+`10.2.0rc0`, `_rocm_sdk_devel` under site-packages) and Python is 3.14. Unlike
+the 10.1 bases, the 10.2 SGLang base already carries `/opt/rocm` as a symlink
+to `_rocm_sdk_devel`.
+
+The 10.2 SGLang base is **v0.5.21**, between the v0.5.18 and v0.5.22 recipes,
+so the engine image has its own Dockerfile, `Dockerfile.sglang.rocm102`. It
+applies the v0.5.22 patch set with these differences:
+
+- **GLM NextN fused shared experts** — backported. It is upstream only from
+  v0.5.22, where the DSA patch script just asserts it.
+- **Mooncake KV wait event** — the `mooncake/conn.py` consumer half is added.
+  v0.5.21 records the early-send event but never waits on it, so chunked
+  prefill over Mooncake can read half-written KV without it.
+- **MLA absorb-BMM config** — dropped. This build has no `_absorb_bmm_config`.
+- **Decode radix under speculation** — the patch defaults off. The opt-in it
+  enables (`SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1`) is unavailable on this
+  image.
+
+Validated with **GLM-5.2-MXFP4** on 1 × 8 MI355X (`gfx950`), SGLang only, both
+serving topologies, using the `examples/sglang_mix_glm5.2` and
+`examples/sglang_2p1d_glm5.2` kits:
+
+| Scenario | SGLang |
+| --- | --- |
+| Aggregated — TP4 + DP4 attention + EAGLE MTP + HiCache, one worker on 4 GPUs | ✅ PASS · 6/6 |
+| Disaggregated — 1 × TP1·PP4 prefill + TP4 / DP4-attention decode, on one node | ✅ PASS · 6/6 |
+
+Each run is the kit's `smoke.sh`: worker registration, completion, chat,
+streaming, and a ~66k-token needle prompt sent cold and again from the prefix
+cache. The disaggregated run additionally answered two fresh, uncached
+~99.5k-token needle prompts correctly, and its prefill and decode both moved KV
+through Mooncake's RDMA transport over the ionic rails, with no TCP fallback.
+
+```{admonition} Outside the ROCm 10.2 preview scope
+:class: warning
+- **Engines** — SGLang only. vLLM and ATOM are not exercised on 10.2.
+- **Models** — GLM-5.2-MXFP4 only. gpt-oss-120b, the 10.1 preview model, is
+  not re-run on 10.2.
+- **Cross-node prefill-decode** — not covered. Prefill (GPUs 0-3) and decode
+  (GPUs 4-7) ran on the same node, still over Mooncake RDMA.
+- **Accuracy and performance** — smoke checks only. GSM8K and AgentX were not
+  run on 10.2.
+- **First-request warm-up** — the first long prompts after a cold start pay a
+  one-time AITER / Triton JIT cost. A ~66k-token prompt took 530 s the first
+  time, while a fresh ~99.5k-token prompt took 4.4 s once warm. Warm up with
+  long prompts before taking traffic.
+- **`gfx942`** — not exercised on 10.2.
 ```
 
 ## Infera
