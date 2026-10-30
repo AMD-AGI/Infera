@@ -14,6 +14,11 @@ cd "$E2E"
 {
     echo "label=$label exp=$exp opts=$* run_id=$run_id head=$(git log -1 --format='%h %s') $(date -u +%FT%TZ)"
 } > "$log"
+# This shell may sit inside an old allocation; the launcher must submit fresh jobs.
+for v in $(env | grep -oE '^(SLURM|SALLOC|SBATCH|SRUN)_[A-Z_]+' | grep -v '^SLURM_CONF$'); do unset "$v"; done
+# Account xiewen12 (the user's group, approved 10-30): srun/salloc on Compute-DCPT are
+# rejected under the default account emad, and the launcher's image import uses srun.
+export SLURM_ACCOUNT=xiewen12 SBATCH_ACCOUNT=xiewen12 SALLOC_ACCOUNT=xiewen12 SLURM_QOS=batch SALLOC_QOS=batch
 export PATH="$HOME/.local/bin:$PATH" SBATCH_QOS=batch GITHUB_RUN_ID="$run_id" GITHUB_RUN_ATTEMPT=1
 setsid nohup "$HOME/venvs/infx-launch/bin/python" runners/manual_launch.py "$@" -- test-config \
     --config-files configs/amd-master.yaml \

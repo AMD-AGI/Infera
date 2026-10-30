@@ -4,6 +4,7 @@
 #SBATCH --job-name=llying-infx-tests
 #SBATCH --partition=Compute-DCPT
 #SBATCH --qos=batch
+#SBATCH --account=xiewen12
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=64G

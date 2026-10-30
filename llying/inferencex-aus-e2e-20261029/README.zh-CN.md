@@ -8,7 +8,24 @@
 
 ## 0. 当前状态（随时更新）
 
-见文末"时间线"。
+- 10-30 03:00 UTC：功能点 1（4+4 C80，`--fast`）已经用 launcher 原生流程拉起：镜像经 srun 导入，作业由 srtctl 提交。GPU 上还没有任何点跑完。
+- #222 已推送（`f668fbf7`）；#4629 已推送（`996ea049`：补丁、waiver、router 检查修复、dma-buf=1 和 ionic 挂载），这一版还没在 GPU 上跑过。
+
+## 0.1 实测中的决定（汇总）
+
+| # | 决定 | 依据 |
+|---|---|---|
+| D1 | 用 AMD 内部 InferenceY（本集群上的 InferenceX CI 仿真）的 smci355 集群记录和 `manual_launch.py` 跑点，不自己写拉起脚本 | runner 以下与 CI 完全相同；只改分区、目录、网卡等站点项（TEST-ONLY 提交） |
+| D2 | recipe 设 `MOONCAKE_DISABLE_HIP_DMABUF=1`，不实测 0 | CI 机器上 ATOM PD 用同一个 Mooncake（`78566d45`）、同为 1 GiB MR，关 dma-buf 跑通；TileRT 设 0 是因为单次注册 12.54 GB，我们按 1 GiB 分片注册，不受影响；本集群设 0 起栈即段错误。风险：CI 上若 1 GiB 的 peer 注册也被拒，要改 0 |
+| D3 | 只读挂载宿主机 ionic provider | 照 Kimi-K3 vLLM 的 recipe（上游和 InferenceY 都这么挂） |
+| D4 | 补丁放在 `configs/infera-sglang-patches/`，由安装脚本调用；任何一个没打上就让作业失败，不静默跳过 | waiver 先例 #2508 的做法；安装脚本单测里用 `INFERA_SGLANG_PATCHES=0` 跳过补丁步骤，另加一个测试保证"补丁打不上则安装失败" |
+| D5 | router 检查改为 `launch_rust._find_binary()` | #223 之后 router 在 wheel 的 `infera/_bin/` 下，不在 PATH 上，`shutil.which` 必然失败 |
+| D6 | Slurm 账户用 `xiewen12`（用户 10-30 同意） | 默认账户 `emad` 在 Compute-DCPT 上不能 srun/salloc，只能 sbatch；launcher 导入镜像要用 srun。`xiewen12` 的 fairshare 也更高（0.257 对 0.107） |
+| D7 | 镜像导入用上游 `mi355x-amds` 的方式（enroot 直接从 registry 匿名拉取），不用 InferenceY 的 dockerd | 节点 docker 数据盘满了（n02-25），共享 home 里的 Docker Hub token 也过期了；上游 CI 本来就不经过 dockerd。节点上的 docker 镜像可能有别人的，不去清理 |
+| D8 | 拉起前清掉当前 shell 里残留的 `SLURM_*` 环境变量 | 会话里残留旧 salloc（31625）的变量，srun 会去找已失效的作业 |
+| D9 | Compute-DCPT 节点的 host 网卡用 `fenic` | 这些节点上没有 InferenceY 节点的 `enp81s0f1`（节点探测结果） |
+| D10 | 测试时作业墙钟时间改成 3 h（recipe 写的是 8 h） | 便于 backfill 排上；一个 fast 点约 1 h，3600 s 的点约 2 h |
+| D11 | 性能对齐选 4+4 C80 和 1P1D C64 | 8 卡吞吐端与 12 卡交互端各一个，覆盖两种形态、Pareto 两端 |
 
 ## 1. 实测方式
 
