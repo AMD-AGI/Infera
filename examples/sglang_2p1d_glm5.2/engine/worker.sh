@@ -119,7 +119,10 @@ cmd=(python3 -m infera.engine.sglang "${args[@]}")
 # Both prefills run with --ipc host on one node, and RCCL names shared memory
 # after process ids, which start low in every container: prefill 1 burns
 # 30,000 pids first so its ranks never collide with prefill 0's (README note 4).
-if [[ "$role" == prefill && "$idx" == 1 ]]; then
+# A decode placed on the prefill node (DECODE_NODE_IP == PREFILL_NODE_IP, with
+# PREFILL_WORKERS=1) shares the same namespace and burns them the same way.
+if [[ "$role" == prefill && "$idx" == 1 ]] ||
+    [[ "$role" == decode && "$DECODE_NODE_IP" == "$PREFILL_NODE_IP" ]]; then
     cmd=(bash -c 'i=0; while [ $i -lt 30000 ]; do ( : ); i=$((i + 1)); done; exec "$@"' _ "${cmd[@]}")
 fi
 
