@@ -111,9 +111,12 @@ fi
 
 # Artifact checks: inspect the .so Python will actually load.
 dynsyms="$(nm -D "$DEST" 2>/dev/null || true)"
-printf '%s\n' "$dynsyms" | grep -q "ibv_reg_dmabuf_mr" ||
+# Avoid early-exit grep pipelines under pipefail: a large producer can receive
+# SIGPIPE after grep has already found a valid capability.
+[[ "$dynsyms" == *"ibv_reg_dmabuf_mr"* ]] ||
     { echo "[mc-build] ERROR: dma-buf registration is absent from $DEST" >&2; exit 1; }
-ldd "$DEST" | grep -qi hsa-runtime64 ||
+linked_libraries="$(ldd "$DEST")"
+[[ "${linked_libraries,,}" == *hsa-runtime64* ]] ||
     { echo "[mc-build] ERROR: $DEST does not link hsa-runtime64" >&2; exit 1; }
 binary_strings="$(strings "$DEST")"
 printf '%s\n' "$binary_strings" | grep -c "MC_DISABLE_HIP" | grep -qv '^0$' ||
