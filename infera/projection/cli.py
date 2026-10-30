@@ -606,7 +606,12 @@ def _add_inference_args(parser):
         "and a later hit on them waits for its blocks to load over that "
         "tier's link before it can prefill. Bandwidth and per-block latency "
         "default by name: dram/host 64 GB/s 2 us, cxl 48 GB/s 4 us, ssd/nvme "
-        "12 GB/s 80 us, remote 25 GB/s 20 us. Applies to the DES's block "
+        "12 GB/s 80 us, remote 25 GB/s 20 us. umbp (MoRI's UMBP standalone "
+        "host-DRAM store, SGLang's umbp-linker) is the exception to per GPU: "
+        "give it as the NODE total, e.g. --kv-tier umbp:1500; it is converted "
+        "per GPU from the layout of the pool it serves (pure TP keeps a copy "
+        "per rank, attention-DP shares one keyspace) and loads at the dram "
+        "link's 64 GB/s 2 us. Applies to the DES's block "
         "cache (traces, shared-prefix pools, fleets). Without it, "
         "--kv-offload-gb-per-gpu is used as a single dram tier.",
     )
@@ -812,9 +817,12 @@ def _add_inference_args(parser):
         "--transfer-backend",
         type=str,
         default=None,
-        choices=["nixl", "mooncake", "mori"],
+        choices=["nixl", "mooncake", "mori", "moriio"],
         help="KV-transfer engine preset (sets link BW + latency unless overridden "
-        "by --kv-transfer-bw-gbps / --kv-transfer-latency-us).",
+        "by --kv-transfer-bw-gbps / --kv-transfer-latency-us). mori (SGLang) and "
+        "moriio (vLLM's MoRI-IO connector) stream KV per layer, so only the last "
+        "layer's transfer lands after prefill; nixl and mooncake move the whole "
+        "request.",
     )
     # ---- Serving / continuous-batching dynamics ----
     serv = parser.add_argument_group("inference serving dynamics")

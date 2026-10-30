@@ -250,7 +250,9 @@ class InferenceAxisLegality:
     use_turbo_deepep: list[bool] = field(default_factory=lambda: [False])
     cudagraph_mode: list[str] = field(default_factory=lambda: ["none", "piecewise", "full"])
     kv_cache_memory_fraction: list[float] = field(default_factory=lambda: [0.8, 0.85, 0.9])
-    transfer_backend: list[str] = field(default_factory=lambda: ["nixl", "mooncake", "mori"])
+    transfer_backend: list[str] = field(
+        default_factory=lambda: ["nixl", "mooncake", "mori", "moriio"]
+    )
     kv_block_size: list[int] = field(default_factory=lambda: [0, 16, 32])
     max_num_batched_tokens: list[int] = field(default_factory=lambda: [0, 2048, 8192])
     ep_load_balance: list[float] = field(default_factory=lambda: [1.0, 1.2, 1.5])
