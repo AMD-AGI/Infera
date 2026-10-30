@@ -149,6 +149,9 @@ def project_spec(**overrides):
         ("--sparse-attention-topk", "sparse_attention_topk"),
         ("--prefix-cache-hit-rate", "prefix_cache_hit_rate"),
         ("--kv-pool-tokens", "kv_pool_tokens"),
+        ("--moe-expert-dtype", "moe_expert_dtype"),
+        ("--linear-weight-dtype", "linear_weight_dtype"),
+        ("--speculative-num-tokens", "speculative_num_tokens"),
     ):
         if spec.get(key) is not None:
             argv += [flag, str(spec[key])]
@@ -181,6 +184,7 @@ def project_spec(**overrides):
         f"tensor_model_parallel_size={spec['tp']}",
         f"expert_model_parallel_size={spec['ep']}",
         f"pipeline_model_parallel_size={spec['pp']}",
+        *spec.get("model_overrides", ()),
     ]
 
     prev = os.environ.get("INFERASIM_MODEL")

@@ -10,10 +10,12 @@ drafts the target keeps.
 
 The cost is the drafter's own forward, and a drafter is a small piece of the
 target: an MTP head is one more layer of the target's own shape, an EAGLE3
-head is one dense layer over a pruned vocabulary, and DeepSeek's DSpark is a
-three-layer MoE backbone run once per block with a low-rank serial head on top.
-``Drafter`` records that shape; the projector prices it from the same layer,
-head and sampling costs the target step is priced from.
+head is one dense layer over a pruned vocabulary, DeepSeek's DSpark is a
+three-layer MoE backbone run once per block with a low-rank serial head on top,
+and DFlash is a few dense layers of their own shape run once per block over the
+target's fused hidden states. ``Drafter`` records that shape; the projector
+prices it from the same layer, head and sampling costs the target step is
+priced from, or from its own GEMMs when its layers are not the target's.
 
 The acceptance is a chain: draft ``i`` is only reached if every draft before it
 was accepted, so a step commits ``AL = 1 + sum_i prod_{j<=i} AR_j`` tokens,
@@ -49,6 +51,8 @@ _ALIASES = {
     "eagle3": "eagle3",
     "eagle-3": "eagle3",
     "dspark": "dspark",
+    "dflash": "dflash",
+    "dflash2": "dflash",
     "ngram": "ngram",
     "n-gram": "ngram",
     "prompt_lookup": "ngram",
@@ -80,6 +84,11 @@ class Drafter:
     ``vocab_fraction`` sizes the draft LM head against the target's, and
     ``serial_head_rank`` is the rank of a block drafter's left-to-right head,
     one ``rank x vocab`` projection and one sample per draft position.
+
+    A drafter whose layers are not the target's carries their shape:
+    ``ffn_hidden_size`` (nonzero marks an own-shape dense layer), ``heads``,
+    ``kv_heads`` and ``head_dim`` (0 takes the target's). ``fused_layers`` is
+    how many target hidden states it fuses into its context each step.
     """
 
     method: str
@@ -89,6 +98,11 @@ class Drafter:
     window: int = 0
     vocab_fraction: float = 1.0
     serial_head_rank: int = 0
+    ffn_hidden_size: int = 0
+    heads: int = 0
+    kv_heads: int = 0
+    head_dim: int = 0
+    fused_layers: int = 0
 
 
 # EAGLE3 heads prune the vocabulary they draft over, usually to 32k tokens
@@ -101,6 +115,12 @@ DSPARK_LAYERS = 3
 DSPARK_WINDOW = 128
 DSPARK_MARKOV_RANK = 256
 
+# DFlash drafts a whole block in one non-causal pass of a small dense stack
+# conditioned on target hidden states (DFlash, block-diffusion speculative
+# decoding); the published drafters, Muse Spark's DFlash2 among them, run five
+# layers.
+DFLASH_LAYERS = 5
+
 
 def drafter_for(
     method: str,
@@ -111,11 +131,14 @@ def drafter_for(
     layers: int | None = None,
     vocab: int | None = None,
     window: int | None = None,
+    shape: dict | None = None,
 ) -> Drafter:
     """The drafter a method runs, with the target's geometry filled in.
 
     The explicit ``layers`` / ``vocab`` / ``window`` override the method's
     defaults, for a checkpoint whose drafter differs from the published one.
+    ``shape`` is the model config's own description of an own-shape drafter
+    (``ffn``, ``heads``, ``kv_heads``, ``head_dim``, ``fused_layers``).
     """
     m = canonical_method(method)
     if m is None:
@@ -153,6 +176,26 @@ def drafter_for(
             vocab_fraction=frac(vocab, 1.0),
             serial_head_rank=DSPARK_MARKOV_RANK,
         )
+    elif m == "dflash":
+        own = shape or {}
+
+        def geo(key: str) -> int:
+            v = own.get(key)
+            return int(v) if v not in (None, "") else 0
+
+        d = Drafter(
+            m,
+            layers=int(layers or DFLASH_LAYERS),
+            moe=False,
+            parallel=True,
+            window=int(window or 0),
+            vocab_fraction=frac(vocab, 1.0),
+            ffn_hidden_size=geo("ffn"),
+            heads=geo("heads"),
+            kv_heads=geo("kv_heads"),
+            head_dim=geo("head_dim"),
+            fused_layers=geo("fused_layers"),
+        )
     elif m == "ngram":
         d = Drafter(m, layers=0, moe=False, parallel=False)
     else:
@@ -180,6 +223,7 @@ FLAT_DRAFT_COST = {
     "mtp": 0.05,
     "eagle3": 0.08,
     "dspark": 0.05,
+    "dflash": 0.05,
     "draft_model": 0.15,
     "ngram": 0.0,
 }
@@ -212,9 +256,9 @@ _ENTROPY_NAMES = {
     "high": "high",
     "high_entropy": "high",
 }
-# DSpark has no SPEED-Bench column; it drafts off the target's fused hidden
-# states like an MTP head, so it takes MTP's entropy sensitivity.
-_ENTROPY_SOURCE = {"dspark": "mtp"}
+# DSpark and DFlash have no SPEED-Bench column; they draft off the target's
+# fused hidden states like an MTP head, so they take MTP's entropy sensitivity.
+_ENTROPY_SOURCE = {"dspark": "mtp", "dflash": "mtp"}
 
 
 def resolve_entropy(value) -> float | None:
@@ -268,7 +312,7 @@ def entropy_multiplier(method: str, entropy) -> float:
     if x is None:
         return 1.0
     m = canonical_method(method) or "mtp"
-    if m not in ("mtp", "eagle3", "dspark", "draft_model", "ngram"):
+    if m not in ("mtp", "eagle3", "dspark", "dflash", "draft_model", "ngram"):
         return 1.0
     rates = _class_rates(m)
     end = rates["low"] if x < 0 else rates["high"]

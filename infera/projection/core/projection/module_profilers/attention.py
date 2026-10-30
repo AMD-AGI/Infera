@@ -246,9 +246,17 @@ class AttentionProfiler(BaseModuleProfiler):
         return fwd_time
 
     def _output_gate_ms(self, tokens: int, width: int, dtype: str) -> float:
-        """``o * sigmoid(x @ W_g)``: a hidden x ``width`` projection and the multiply."""
-        if not getattr(self.config.model_config, "attention_output_gate", False):
+        """``o * sigmoid(x @ W_g)``: a hidden x ``width`` projection and the multiply.
+
+        A per-head gate is one scalar per head, so its projection is ``heads``
+        wide rather than ``heads x head_dim``.
+        """
+        mc = self.config.model_config
+        if not getattr(mc, "attention_output_gate", False):
             return 0.0
+        if getattr(mc, "attention_output_gate_per_head", False):
+            tp = max(1, self.config.model_parallel_config.tensor_model_parallel_size)
+            width = max(1, mc.num_attention_heads // tp)
         backend = self._gemm_backend
         ms = backend.simulate_gemm(tokens, width, self.config.model_config.hidden_size, dtype)
         bw = getattr(backend, "hbm_bandwidth_gbps", None) or _FALLBACK_HBM_BW_GBPS

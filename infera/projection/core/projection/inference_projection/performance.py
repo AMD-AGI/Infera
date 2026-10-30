@@ -2823,19 +2823,21 @@ class InferencePerformanceProjector:
         #
         # Prefill keeps the cap: there the window is a masking decision inside a
         # compute-bound kernel rather than a streaming cost, and nothing here
-        # measured it.
+        # measured it. A model whose engine does window its decode says so
+        # (``sink_window_decode_capped``) and is capped in both phases.
         mc = self.cfg.model_config
         attn_kv = int(max(1, kv_len))
-        if phase != "decode":
+        if phase != "decode" or getattr(mc, "sink_window_decode_capped", False):
             attn_kv = self.cfg.request_config.effective_attn_kv(
                 kv_len,
                 model_window=getattr(mc, "sink_sliding_window", 0),
                 even_layers_only=getattr(mc, "sink_window_even_layers_only", False),
+                model_fraction=getattr(mc, "sink_window_layer_fraction", 0.0),
             )
         # Linear / KDA / GDN layers are the architecture, not an engine
         # option: they keep a fixed-size state at decode as well as prefill.
-        # Sliding-window stays decode-uncapped on the evidence in the comment
-        # above; this blend is a different fact and applies to both phases.
+        # Sliding-window follows the comment above; this blend is a different
+        # fact and applies to both phases.
         # When the linear layers are priced from their own operations, the
         # attention profiler prices only the full layers, at their real length.
         lin_frac = 0.0
@@ -3602,6 +3604,7 @@ class InferencePerformanceProjector:
                 layers=pick("speculative_draft_layers", "layers"),
                 vocab=pick("speculative_draft_vocab", "vocab"),
                 window=pick("speculative_draft_window", "window"),
+                shape=shape,
             )
         except ValueError as exc:
             self._drafter_failed(str(exc))
@@ -3658,9 +3661,11 @@ class InferencePerformanceProjector:
         n_layers = max(1, int(mc.num_layers))
         occ_layer = self._decode_occupancy_ms() / n_layers
 
-        def body(ft) -> float:
+        def body(ft, q_len: int) -> float:
             dense, moe = ft.dense_layer_ms, ft.moe_layer_ms
-            if d.moe:
+            if d.ffn_hidden_size > 0:
+                layer = self._own_draft_layer_ms(d, b, q_len, kv)
+            elif d.moe:
                 layer = moe if moe > 0.0 else dense
             else:
                 layer = dense if dense > 0.0 else moe
@@ -3670,7 +3675,9 @@ class InferencePerformanceProjector:
         if d.parallel:
             q = k + 1
             blk = self._forward_times(b, q, "decode", kv)
-            total = body(blk) + blk.output_ms * d.vocab_fraction * k / q
+            total = body(blk, q) + blk.output_ms * d.vocab_fraction * k / q
+            if d.fused_layers > 0:
+                total += self._draft_context_ms(d, b, k)
             if d.serial_head_rank > 0:
                 hidden = max(1, int(getattr(mc, "hidden_size", 0) or 1))
                 rank = min(1.0, d.serial_head_rank / hidden)
@@ -3683,9 +3690,73 @@ class InferencePerformanceProjector:
             first_q = max(1, int(round(acceptance_length(self._spec_rates(k) or []))))
             ext = self._forward_times(b, first_q, "decode", kv) if first_q > 1 else one
             head = (one.output_ms + one.sampling_ms) * d.vocab_fraction
-            total = body(ext) + (k - 1) * body(one) + k * head
+            total = body(ext, first_q) + (k - 1) * body(one, 1) + k * head
         cache[key] = total
         return total
+
+    def _draft_gemm_backend(self):
+        """The GEMM simulator an own-shape draft layer is priced on.
+
+        In benchmark mode the drafter is priced against the analytic step, so
+        it uses the same simulator the restoration does.
+        """
+        sim = self.__dict__.get("_gemm_sim")
+        return sim if (self._measured_mode and sim is not None) else self._gemm
+
+    def _own_draft_layer_ms(self, d, batch: int, q_len: int, kv_len: int) -> float:
+        """One own-shape dense draft layer over ``q_len`` positions per sequence.
+
+        Its projections and SwiGLU run as tensor-sharded BF16 GEMMs (drafters
+        ship unquantized), attention reads the draft's own KV for the window,
+        and the layer pays the target's dense-layer TP all-reduces, the hidden
+        width being the target's.
+        """
+        mc = self.cfg.model_config
+        tp = max(1, int(self.cfg.model_parallel_config.tensor_model_parallel_size))
+        hidden = int(mc.hidden_size)
+        heads = d.heads or int(mc.num_attention_heads)
+        kv_heads = d.kv_heads or int(getattr(mc, "num_query_groups", 0) or heads)
+        head_dim = d.head_dim or int(getattr(mc, "kv_channels", 0) or hidden // heads)
+        ffn = int(d.ffn_hidden_size)
+        g = self._draft_gemm_backend()
+        m = max(1, int(batch) * max(1, int(q_len)))
+        q_w = max(1, heads * head_dim // tp)
+        kv_w = max(1, kv_heads * head_dim // tp)
+
+        def gemm(n: int, k: int) -> float:
+            return float(g.simulate_gemm(m, n, k, "bf16").forward_time_ms)
+
+        ms = gemm(q_w + 2 * kv_w, hidden) + gemm(hidden, q_w)
+        ms += gemm(2 * max(1, ffn // tp), hidden) + gemm(hidden, max(1, ffn // tp))
+        hbm = float(getattr(g, "hbm_bandwidth_gbps", 0.0) or 0.0)
+        if hbm > 0.0:
+            kv_bytes = int(batch) * (int(kv_len) + int(q_len)) * 2 * kv_w * 2
+            ms += kv_bytes / (hbm * 1e6)
+        if self._comm is not None:
+            ms += self._comm.layer_comm_ms(batch, q_len, is_moe=False).total_ms
+        return ms
+
+    def _draft_context_ms(self, d, batch: int, spec_k: int) -> float:
+        """Folding the last verify's committed tokens into the draft's context.
+
+        A target-conditioned block drafter projects the ``fused_layers`` target
+        hidden states of every committed token to its own width, then into each
+        draft layer's keys and values.
+        """
+        from .speculative import acceptance_length
+
+        mc = self.cfg.model_config
+        tp = max(1, int(self.cfg.model_parallel_config.tensor_model_parallel_size))
+        hidden = int(mc.hidden_size)
+        heads = d.heads or int(mc.num_attention_heads)
+        kv_heads = d.kv_heads or int(getattr(mc, "num_query_groups", 0) or heads)
+        head_dim = d.head_dim or int(getattr(mc, "kv_channels", 0) or hidden // heads)
+        committed = max(1, int(round(acceptance_length(self._spec_rates(spec_k) or []))))
+        m = max(1, int(batch) * committed)
+        g = self._draft_gemm_backend()
+        fuse = g.simulate_gemm(m, max(1, hidden // tp), d.fused_layers * hidden, "bf16")
+        kv = g.simulate_gemm(m, max(1, 2 * kv_heads * head_dim // tp), hidden, "bf16")
+        return float(fuse.forward_time_ms) + d.layers * float(kv.forward_time_ms)
 
     def _spec_k(self) -> int:
         """Draft depth the projection runs at.

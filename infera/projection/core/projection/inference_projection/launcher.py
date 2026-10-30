@@ -187,7 +187,8 @@ def _print_performance(inference_config, perf, gpu_cost_per_hour=None) -> None:
     _win = req.resolved_sliding_window(getattr(mc, "sink_sliding_window", 0))
     if _win > 0:
         _frac = req.resolved_sliding_window_fraction(
-            getattr(mc, "sink_window_even_layers_only", False)
+            getattr(mc, "sink_window_even_layers_only", False),
+            getattr(mc, "sink_window_layer_fraction", 0.0),
         )
         feats.append(f"sliding_window={_win}" + (f"(frac={_frac:g})" if _frac < 1.0 else ""))
     if not getattr(req, "sampling_enabled", True):
