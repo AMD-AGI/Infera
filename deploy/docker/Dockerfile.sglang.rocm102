@@ -18,7 +18,11 @@
 #   - patch_decode_radix_spec.py defaults off: the guard has a new shape here
 #     (DSPARK is exempt) and the patch refuses it. Infera only appends
 #     decode radix under speculation when SGLANG_EXPERIMENTAL_DECODE_RADIX_SPEC=1.
-ARG SGLANG_BASE_IMAGE=rocm/ufb-private:sglang-v0.5.21-ubuntu24.04-py3.14-prereleases-device-all-rocm10.2.0rc0-aaaf7c860d
+#
+# The tag is a pre-release in an access-gated repository and can be republished;
+# it is kept for readability, the @sha256 (the image validated in
+# manual/features/compatibility_matrix.md) is what pins.
+ARG SGLANG_BASE_IMAGE=rocm/ufb-private:sglang-v0.5.21-ubuntu24.04-py3.14-prereleases-device-all-rocm10.2.0rc0-aaaf7c860d@sha256:3385b5c137e4fe6d482d508d80ce661387a905b3dc60983a5e8bd5113b5189ea
 FROM ${SGLANG_BASE_IMAGE}
 
 WORKDIR /opt/infera
