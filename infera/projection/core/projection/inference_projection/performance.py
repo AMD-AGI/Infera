@@ -672,6 +672,9 @@ class InferencePerformanceProjector:
         # Set by ``_setup_restoration``: the layout the bench view is actually
         # built at, and whether it differs from the target's.
         self._bench_attn_dp_eff = 1
+        # DCP degree the anchor ran at; ``None`` (unrecorded) builds the bench
+        # view at the target's degree, as before DCP was an axis.
+        self._bench_dcp: int | None = None
         self._restore_layout_moved = False
         # Draft depth the anchor itself was harvested at. This decides what a
         # measured decode number *means*: harvested with speculation it is a
@@ -969,7 +972,17 @@ class InferencePerformanceProjector:
 
         ``context`` (the resident KV length) adds the fitted attention KV term on
         top of the batch-bucket value; omitting it (or a zero slope / no grid)
-        reproduces the flat-in-context behaviour."""
+        reproduces the flat-in-context behaviour.
+
+        ``INFERASIM_MEAS_DECODE_SCALE`` scales it: an anchor's mean ITL already
+        carries the prefill its steps shared, which the replay adds again, so
+        the scale that replays the anchor's own ITL is its pure decode step."""
+        s = getattr(self, "_meas_decode_scale", None)
+        if s is None:
+            s = self._meas_decode_scale = float(os.environ.get("INFERASIM_MEAS_DECODE_SCALE", "1") or 1.0)
+        return self._measured_decode_step_raw_ms(batch, context) * s
+
+    def _measured_decode_step_raw_ms(self, batch: int, context: float | None = None) -> float:
         if self._meas_whole.get("decode"):
             pts = self._meas_whole["decode"]
             # Padding only happens up to the largest captured graph; above it
@@ -1109,6 +1122,11 @@ class InferencePerformanceProjector:
 
           composed by layer counts.
         """
+        if os.getenv("INFERASIM_RESTORE_DUMP"):
+            with open(os.environ["INFERASIM_RESTORE_DUMP"], "a") as fh:
+                fh.write(f"calib called blob={bool(benchmark_layer_times)} "
+                         f"meta_tp={(benchmark_layer_times or {}).get('meta', {}).get('tp')} "
+                         f"cfg_tp={self.cfg.model_parallel_config.tensor_model_parallel_size}\n")
         if not benchmark_layer_times:
             return
         measured = benchmark_layer_times.get("measured", benchmark_layer_times)
@@ -1127,6 +1145,8 @@ class InferencePerformanceProjector:
             if _attn_dp
             else _attention_dp_from_server_args(meta.get("server_args"), tp=self._bench_tp)
         )
+        _dcp = meta.get("decode_context_parallel_size")
+        self._bench_dcp = int(_dcp) if _dcp else None
         self._bench_spec_k = int(meta.get("speculative_num_tokens") or 0)
         # An eager anchor pads nothing, whatever batches it was swept at.
         self._decode_pad_to_capture = bool(meta.get("decode_pad_to_capture")) and not bool(
@@ -1787,6 +1807,9 @@ class InferencePerformanceProjector:
         # while calling it a match is precisely how an attn_dp=1 anchor gets
         # reused at attn_dp=8 unchanged. So it is reported instead, with the
         # re-harvest named, and the number is left as measured.
+        if os.getenv("INFERASIM_RESTORE_DUMP"):
+            with open(os.environ["INFERASIM_RESTORE_DUMP"], "a") as fh:
+                fh.write(f"setup bench_tp={self._bench_tp} tgt_tp={self._tgt_tp}\n")
         bench_attn_dp = self._bench_attn_dp
         if bench_attn_dp is None:
             if tgt_attn_dp > 1:
@@ -1802,7 +1825,9 @@ class InferencePerformanceProjector:
         # it; a recorded degree wider than the bench TP is a malformed artifact.
         bench_attn_dp = max(1, min(int(bench_attn_dp), self._bench_tp))
 
-        layout_moved = bench_attn_dp != tgt_attn_dp
+        tgt_dcp = max(1, int(getattr(mp, "decode_context_parallel_size", 1) or 1))
+        bench_dcp = tgt_dcp if self._bench_dcp is None else max(1, self._bench_dcp)
+        layout_moved = bench_attn_dp != tgt_attn_dp or bench_dcp != tgt_dcp
         self._restore = (
             self._bench_tp != self._tgt_tp
             or self._bench_ep != tgt_ep
@@ -1822,6 +1847,7 @@ class InferencePerformanceProjector:
             expert_model_parallel_size=self._bench_ep,
             pipeline_model_parallel_size=self._bench_pp,
             attention_data_parallel_size=bench_attn_dp,
+            decode_context_parallel_size=bench_dcp,
         )
         self._comm_bench = InferenceCollectiveModel(mc, bench_mp, self._cc)
         self._comm_tgt = InferenceCollectiveModel(mc, mp, self._cc)
@@ -2575,6 +2601,11 @@ class InferencePerformanceProjector:
         No-op when bench and target parallelism match, mirroring
         ``_restore_per_layer`` but applied to the full-model total (the whole-model
         vLLM step is not separable per layer, so comm is composed by layer count)."""
+        if os.getenv("INFERASIM_RESTORE_DUMP"):
+            with open(os.environ["INFERASIM_RESTORE_DUMP"], "a") as fh:
+                fh.write(f"enter {phase} b={batch} restore={self._restore} "
+                         f"tp{self._bench_tp}->tp{self._tgt_tp} ms_bench={ms_bench:.3f} "
+                         f"mode={self._scaling_mode} floor={getattr(self, '_anchor_decode_floor_ms', 0.0)}\n")
         if not self._restore or ms_bench <= 0.0:
             return ms_bench
 
@@ -2644,9 +2675,22 @@ class InferencePerformanceProjector:
                     # whole measured step re-scales the fixed part too, which for
                     # an already floor-bound anchor (e.g. TP=8) inflates a
                     # less-sharded target several-fold.
-                    restored = max(ms_bench * 0.05, ms_bench + (s_tgt - s_bench))
+                    delta = s_tgt - s_bench
+                    if os.getenv("INFERASIM_RESTORE_DELTA_CAP") == "1" and s_bench > ms_bench:
+                        # A model step above the measured one overstates the
+                        # sharded work along with everything else, so its
+                        # difference is discounted by the same factor; below
+                        # it, the shortfall is fixed cost and the difference
+                        # stands.
+                        delta *= ms_bench / s_bench
+                    restored = max(ms_bench * 0.05, ms_bench + delta)
                 else:
                     restored = ms_bench * (s_tgt / s_bench)
+                if os.getenv("INFERASIM_RESTORE_DUMP"):
+                    with open(os.environ["INFERASIM_RESTORE_DUMP"], "a") as fh:
+                        fh.write(f"{phase} b={batch} tp{self._bench_tp}->tp{self._tgt_tp} "
+                                 f"sim_tgt={s_tgt:.3f} sim_bench={s_bench:.3f} "
+                                 f"ms_bench={ms_bench:.3f} restored={restored:.3f}\n")
                 if os.getenv("INFERASIM_DEBUG_RESTORE"):
                     print(
                         f"[dbg-restore] phase={phase} b={batch} "
@@ -2836,6 +2880,13 @@ class InferencePerformanceProjector:
         # hold a selection term that falls away with context and an indexing
         # term that does not. The floored top-k below stays as the fallback
         # for a model that declares a window but no indexer to choose with.
+        # The DCP of the view being priced: the origami bench view runs at the
+        # anchor's. Attention-DP stays the target's in both views -- priced per
+        # view, a DPA target restored from a non-DPA anchor lands 3-9x fast.
+        view_mp = (getattr(self._view, "model_parallel_config", None)
+                   or self.cfg.model_parallel_config)
+        tgt_dp = max(1, int(getattr(self.cfg.model_parallel_config,
+                                    "attention_data_parallel_size", 1) or 1))
         sparse_scale = 1.0
         if phase != "decode" and os.getenv("INFERASIM_PREFILL_DENSE") == "1":
             pass
@@ -2887,9 +2938,7 @@ class InferencePerformanceProjector:
                 h = hybrid_attention_scale(self.cfg.model_config, kv_len)
                 if h is not None:
                     sparse_scale += h - 1.0
-            from .kv_cache import attention_dp_size
-
-            if os.getenv("INFERASIM_DPA_DECODE_DENSE") != "1" and attention_dp_size(self.cfg) > 1:
+            if os.getenv("INFERASIM_DPA_DECODE_DENSE") != "1" and tgt_dp > 1:
                 # The dense charge above was calibrated where a rank holds
                 # heads/tp and the step is a cache read. Under attention-DP a
                 # rank runs every head of its own sequences, so dense attention
@@ -2928,9 +2977,7 @@ class InferencePerformanceProjector:
         if phase == "decode" and os.getenv("INFERASIM_DCP_DECODE", "1") != "0":
             # Decode context parallelism splits each sequence's cache across
             # the DCP ranks, so a rank's decode attention reads its slice.
-            dcp = int(
-                getattr(self.cfg.model_parallel_config, "decode_context_parallel_size", 1) or 1
-            )
+            dcp = int(getattr(view_mp, "decode_context_parallel_size", 1) or 1)
             if dcp > 1:
                 factor /= dcp
         # Opt-in, for engines whose decode kernels read the compressed / top-k
@@ -3028,6 +3075,11 @@ class InferencePerformanceProjector:
 
             dense_fwd = dense_compute + (dense_comm * keep_dense if has_dense else 0.0)
             moe_fwd = moe_compute + (moe_tp_ar * keep_moe_ar + ep_a2a_exposed if has_moe else 0.0)
+            if phase == "decode" and os.getenv("INFERASIM_DCP_COMM") == "1":
+                dcp_ms = self._comm.dcp_decode_ms(batch, q_len)
+                dense_fwd += dcp_ms if has_dense else 0.0
+                moe_fwd += dcp_ms if has_moe else 0.0
+                comm.dcp_ms = (self._n_dense + self._n_moe) * dcp_ms
 
             # TP-AR appears in both layer types; charge each at its own exposure.
             comm.tp_allreduce_ms = (
@@ -3184,7 +3236,7 @@ class InferencePerformanceProjector:
             # Single forward over the ``new_tokens`` suffix; attention context is
             # the full prompt (``input_len``) since it also reads the cached KV.
             ft = self._forward_times(batch, new_tokens, "prefill", input_len)
-            return ft.total_ms * scale + per_forward + fetch_ms
+            return self._fused(ft.total_ms * scale + per_forward, batch, new_tokens) + fetch_ms
 
         # Chunked prefill: each chunk attends to all preceding context. The
         # cached prefix is already resident, so chunking starts after it.
@@ -3194,7 +3246,7 @@ class InferencePerformanceProjector:
             this = min(chunk, input_len - processed)
             kv_len = processed + this
             ft = self._forward_times(batch, this, "prefill", kv_len)
-            total += ft.total_ms * scale + per_forward
+            total += self._fused(ft.total_ms * scale + per_forward, batch, this)
             processed += this
         return total + fetch_ms
 
@@ -3275,15 +3327,76 @@ class InferencePerformanceProjector:
             ),
         )
 
+    def _fusion_rows(self, batch: int, q_len: int) -> list:
+        from .fusion import savings
+
+        req = self.cfg.request_config
+        if not getattr(req, "fusions", ()):
+            return []
+        occ = req.decode_kernel_occupancy_us
+        from infera.projection.core.projection.training_config import (
+            DEFAULT_DECODE_OCCUPANCY_US,
+        )
+
+        return savings(
+            self.cfg.model_config,
+            self.cfg.model_parallel_config,
+            fusions=req.fusions,
+            batch=max(1, batch),
+            q_len=max(1, q_len),
+            n_dense=self._n_dense,
+            n_moe=self._n_moe,
+            quant_dtype=self._act_quant_dtype,
+            hbm_bandwidth_gbps=getattr(self._gemm, "hbm_bandwidth_gbps", None),
+            occupancy_us=float(DEFAULT_DECODE_OCCUPANCY_US if occ is None else occ),
+        )
+
+    def _fused(self, step_ms: float, batch: int, q_len: int) -> float:
+        """``step_ms`` less what the selected fusions remove from it. A fusion
+        cannot remove more than half a step: the GEMMs and attention stay."""
+        saved = sum(s.ms for s in self._fusion_rows(batch, q_len))
+        return max(0.5 * step_ms, step_ms - saved) if saved > 0 else step_ms
+
+    def fusion_report(self, batch: int, kv_len: int, q_len: int = 1) -> list[dict]:
+        """Ranked fusion opportunities for a decode step at ``batch``: every
+        pattern that applies to this model and precision, priced as if it were
+        the only one added."""
+        from .fusion import PATTERNS, applicable, opportunities
+
+        is_moe = self._n_moe > 0
+        names = [n for n in PATTERNS if applicable(n, is_moe=is_moe, quantized=bool(self._act_quant_dtype))]
+        req = self.cfg.request_config
+        saved = getattr(req, "fusions", ())
+        from dataclasses import replace as _replace
+
+        b, kv = max(1, batch), max(1, kv_len)
+        try:
+            req.fusions = ()
+            step = self._decode_step_latency_ms(b, kv, q_len)
+            rows = []
+            for n in names:
+                req.fusions = (n,)
+                # What the step actually loses, which is less than the fusion
+                # removes when a launch or hardware floor is what binds.
+                got = max(0.0, step - self._decode_step_latency_ms(b, kv, q_len))
+                rows += [_replace(s, ms=got) for s in self._fusion_rows(batch, q_len)]
+        finally:
+            req.fusions = saved
+        return opportunities(step, rows)
+
     def _launch_latency_floor_ms(self) -> float:
         """Small-tensor kernel-launch floor for the pure-simulate decode step.
 
         Depth-scaled launch-bound floor (``n_kernels * launch_latency_us``);
         0.0 when disabled or when CUDA-graph capture collapses the launches.
+        Each named fusion launches fewer kernels, so it lowers the floor too.
         """
-        return self.cfg.request_config.resolved_kernel_launch_floor_ms(
-            self.cfg.model_config.num_layers
-        )
+        req = self.cfg.request_config
+        floor = req.resolved_kernel_launch_floor_ms(self.cfg.model_config.num_layers)
+        if floor <= 0.0 or not getattr(req, "fusions", ()):
+            return floor
+        removed = sum(s.kernels for s in self._fusion_rows(1, 1))
+        return max(0.5 * floor, floor - removed * float(req.kernel_launch_latency_us) / 1000.0)
 
     def _decode_floor_ms(self, batch: int) -> float:
         """Hardware decode latency floor at ``batch`` from a sharded probe.
@@ -3800,7 +3913,7 @@ class InferencePerformanceProjector:
                 # A whole-step sweep is transported by width only; the stage
                 # boundaries a deeper target PP adds are charged here, once.
                 step += self._restore_pp_ms(batch, q_len)
-            return max(step, self._decode_floor_ms(batch))
+            return max(self._fused(step, batch, q_len), self._decode_floor_ms(batch))
         return self._analytic_decode_step_ms(batch, kv_len, q_len)
 
     def _analytic_decode_step_ms(self, batch: int, kv_len: int, q_len: int = 1) -> float:
@@ -3815,6 +3928,7 @@ class InferencePerformanceProjector:
         # capping it: the small latency-bound kernels of a decode layer run
         # alongside the large data-bound expert GEMMs, so both costs are paid.
         step += self._decode_occupancy_ms()
+        step = self._fused(step, batch, q_len)
         # Pure-simulate: at low batch the roofline step underflows the real
         # launch-bound decode; apply the small-tensor launch-latency floor.
         return max(step, self._decode_floor_ms(batch), self._launch_latency_floor_ms())
@@ -3888,7 +4002,8 @@ class InferencePerformanceProjector:
                 if self._meas_whole.get("decode") or self._meas_whole.get("prefill")
                 else 0.0
             )
-            return (prefill_piece + dec_piece) * (1.0 + penalty) + ov + pp
+            step = (prefill_piece + dec_piece) * (1.0 + penalty) + ov + pp
+            return self._fused_mixed(step, num_decode, q_len, pb, chunk_tokens)
         prefill_piece = (
             self._forward_times(pb, chunk_tokens, "prefill", max(1, prefill_kv_len)).total_ms
             * self._prefill_rate_scale()
@@ -3903,7 +4018,16 @@ class InferencePerformanceProjector:
                 spec_k=max(0, int(q_len) - 1),
             )
         step = (prefill_piece + dec_piece) * (1.0 + penalty) + ov
+        step = self._fused_mixed(step, num_decode, q_len, pb, chunk_tokens)
         return max(step, self._launch_latency_floor_ms())
+
+    def _fused_mixed(self, step: float, num_decode: int, q_len: int, pb: int, chunk: int) -> float:
+        """A mixed step runs each layer's kernels once over the chunk's and the
+        decodes' tokens together, so the kernels are removed once and the bytes
+        for every token."""
+        rows = self._fusion_rows(pb * chunk + num_decode * q_len, 1)
+        saved = sum(s.ms for s in rows)
+        return max(0.5 * step, step - saved) if saved > 0 else step
 
     def decode_total_ms(self, batch: int, input_len: int, output_len: int) -> float:
         """Integrate per-token decode latency over the growing KV cache.
@@ -4081,6 +4205,12 @@ class InferencePerformanceProjector:
             t_mixed = sum(mixed) / len(mixed)
             t_mixed_ttft = sum(mixed_ttft) / len(mixed_ttft)
             t_prefill_only = sum(pf_only) / len(pf_only)
+
+        if getattr(self.cfg.request_config, "fusions", ()):
+            t_pure = self._fused(t_pure, C, q_len)
+            t_mixed = self._fused_mixed(t_mixed, max(1, C - 1), q_len, 1, chunk_tokens)
+            t_mixed_ttft = self._fused_mixed(t_mixed_ttft, max(1, C - 1), q_len, 1, chunk_tokens)
+            t_prefill_only = self._fused_mixed(t_prefill_only, 0, q_len, 1, chunk_tokens)
 
         # Hardware decode latency floor (from a sharded probe): above the
         # roofline knee the pure-decode step can't drop below the fixed

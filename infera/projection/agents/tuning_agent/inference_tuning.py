@@ -24,6 +24,7 @@ distributed optimizer, overlap_grad_reduce, SyncFree) are intentionally absent.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -123,6 +124,9 @@ class InferenceTrialConfig:
     moe_expert_dtype: str | None = None
     # fused elementwise kernels (RMSNorm/RoPE/quant/KV-store) cut step overhead
     fused_kernels: bool = False
+    # Named fusions (``fusion.PATTERNS``), each priced by the kernels and
+    # intermediate bytes it removes; replaces ``fused_kernels`` when set.
+    fusions: list[str] = field(default_factory=list)
     # speculative draft-model forward cost per draft token (fraction of a step)
     speculative_draft_cost_factor: float = 0.0
     # custom collective ops (TP>1): quick-reduce + fused RMSNorm+AllReduce
@@ -138,6 +142,9 @@ class InferenceTrialConfig:
         for k in f.as_dict():
             if k in d and d[k] is not None:
                 setattr(f, k, d[k])
+        if isinstance(f.fusions, str):
+            f.fusions = [s.strip() for s in f.fusions.split(",") if s.strip()]
+        f.fusions = list(f.fusions)
         return f
 
     def signature(self) -> str:
@@ -254,6 +261,9 @@ class InferenceAxisLegality:
     moe_expert_dtype: list[str] = field(default_factory=lambda: ["bf16", "fp8", "mxfp4"])
     # fused elementwise kernels (always available)
     fused_kernels: list[bool] = field(default_factory=lambda: [False, True])
+    # Named fusions a trial may list any subset of; the quant-fed ones need a
+    # low-precision trial, which ``validate_inference`` checks.
+    fusions: list[str] = field(default_factory=list)
     # TP-collective optimizations (only meaningful when TP>1)
     quick_reduce: list[bool] = field(default_factory=lambda: [False])
     fuse_rmsnorm_allreduce: list[bool] = field(default_factory=lambda: [False])
@@ -286,6 +296,7 @@ class InferenceAxisLegality:
             "sparse_attention_topk": self.sparse_attention_topk,
             "moe_expert_dtype": self.moe_expert_dtype,
             "fused_kernels": self.fused_kernels,
+            "fusions": self.fusions,
             "quick_reduce": self.quick_reduce,
             "fuse_rmsnorm_allreduce": self.fuse_rmsnorm_allreduce,
         }
@@ -362,7 +373,24 @@ def derive_inference_legality(
         use_turbo_deepep=use_turbo_deepep,
         quick_reduce=tp_collective,
         fuse_rmsnorm_allreduce=tp_collective,
+        fusions=_arch_fusions(is_moe),
     )
+
+
+def _arch_fusions(is_moe: bool) -> list[str]:
+    from infera.projection.core.projection.inference_projection.fusion import (
+        PATTERNS,
+        applicable,
+    )
+
+    return [n for n in PATTERNS if applicable(n, is_moe=is_moe, quantized=True)]
+
+
+def _trial_quantized(cfg) -> bool:
+    """Whether the trial's GEMMs take low-precision activations, which is
+    what gives the quant-fed fusions a cast to remove."""
+    dts = {str(getattr(cfg, k, None) or "").lower() for k in ("weight_dtype", "linear_weight_dtype")}
+    return bool(dts & {"fp8", "fp4", "mxfp4", "fp8_e4m3", "fp8_e5m2"})
 
 
 #: Floor on the seed slots reserved for disaggregated candidates when any are
@@ -596,6 +624,25 @@ def validate_inference(
         return False, "quick_reduce requires TP>1"
     if cfg.fuse_rmsnorm_allreduce and cfg.tp <= 1:
         return False, "fuse_rmsnorm_allreduce requires TP>1"
+    if getattr(cfg, "fusions", None):
+        from infera.projection.core.projection.inference_projection.fusion import (
+            PATTERNS,
+            applicable,
+        )
+
+        if cfg.fused_kernels:
+            return False, "fusions name their fusions; fused_kernels must be off with them"
+        is_moe = bool(getattr(arch, "is_moe", False))
+        quant = _trial_quantized(cfg)
+        for f in cfg.fusions:
+            if f not in PATTERNS:
+                return False, f"unknown fusion {f!r}; known: {sorted(PATTERNS)}"
+            if not applicable(f, is_moe=is_moe, quantized=quant):
+                why = "a MoE model" if PATTERNS[f].layers == "moe" and not is_moe else (
+                    "low-precision activations (fp8/fp4 weights)")
+                return False, f"fusion {f} needs {why}"
+        if len(set(cfg.fusions)) != len(cfg.fusions):
+            return False, "fusions lists a fusion twice"
 
     # Expert parallelism repartitions the ranks a replica already has rather
     # than adding to them: under ``--enable-expert-parallel`` at TP8 the same
@@ -927,6 +974,24 @@ def build_inference_seed_plan(
                     attention_backend="aiter",
                 )
             )
+            # The same point with the fusions named, so each one's saving is
+            # priced from what it removes rather than a flat share of launches.
+            add(
+                mk(
+                    batch_size=bs,
+                    attention_dp=best_dp,
+                    max_concurrency=(_tier_tops(bs, best_dp) or [None])[0],
+                    weight_dtype="fp4",
+                    linear_weight_dtype="mxfp4",
+                    kv_cache_dtype="fp8",
+                    chunked_prefill_size=2048,
+                    max_num_batched_tokens=2048,
+                    fusions=list(leg.fusions),
+                    quick_reduce=(base_tp > 1),
+                    fuse_rmsnorm_allreduce=(base_tp > 1),
+                    attention_backend="aiter",
+                )
+            )
         # Expert parallelism, seeded where the winners actually live. It used to
         # appear only at batch 16 in bf16, which always died on memory, so the
         # sweep never answered whether disjoint experts beat a TP all-reduce at
@@ -1159,6 +1224,11 @@ def build_inference_seed_plan(
     # 14) Fused elementwise kernels — cut per-step launch overhead (pair with a
     #     capture mode that still has overhead to amortise).
     add(mk(batch_size=16, cudagraph_mode="piecewise", fused_kernels=True))
+    from infera.projection.core.projection.inference_projection.fusion import PATTERNS
+
+    bf16_fusions = [f for f in leg.fusions if not PATTERNS[f].needs_quant]
+    if bf16_fusions:
+        add(mk(batch_size=16, cudagraph_mode="piecewise", fusions=bf16_fusions))
     # 15) Speculative decoding with an explicit draft-model cost charged.
     add(
         mk(
@@ -1376,6 +1446,7 @@ _RE_WEIGHTS = re.compile(rf"Weights \([^)]*\):\s*{_FLOAT}\s*GB", re.IGNORECASE)
 _RE_ACTIVATION = re.compile(rf"Activation working set:\s*{_FLOAT}\s*GB", re.IGNORECASE)
 _RE_PREFILL_COMM = re.compile(rf"prefill:\s*TP-AR.*?total\s+{_FLOAT}", re.IGNORECASE)
 _RE_DECODE_COMM = re.compile(rf"decode:\s*TP-AR.*?total\s+{_FLOAT}", re.IGNORECASE)
+_RE_FUSIONS = re.compile(r"Fusion opportunities:\s*(\[.*\])\s*$", re.MULTILINE)
 
 
 def _f(m) -> float | None:
@@ -1430,6 +1501,11 @@ def parse_inference_metrics(stdout: str) -> dict[str, Any]:
         out["prefill_comm_ms"] = _f(m)
     if m := _RE_DECODE_COMM.search(stdout):
         out["decode_comm_ms"] = _f(m)
+    if m := _RE_FUSIONS.search(stdout):
+        try:
+            out["fusion_opportunities"] = json.loads(m.group(1))
+        except ValueError:
+            pass
     # Per-GPU and fleet forms the projector prints only one side of. Ranking on
     # a fleet total rewards spending more GPUs, so both are kept and named.
     gpus = out.get("replica_gpus") or 0

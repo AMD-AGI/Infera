@@ -1439,6 +1439,21 @@ def _add_inference_args(parser):
         "that cut per-decode-step launch overhead.",
     )
     kern.add_argument(
+        "--fusions",
+        type=str,
+        default=None,
+        help="Comma-separated named fusions, each priced by the kernels and "
+        "intermediate bytes it removes: add_rmsnorm, norm_quant, act_quant, "
+        "rope_kvstore, moe_routing, moe_expert. Not combined with --fused-kernels.",
+    )
+    kern.add_argument(
+        "--fusion-report",
+        action="store_true",
+        default=False,
+        help="Print the fusions that apply to this model and precision, ranked "
+        "by what each would save per decode step (low/mid/high bands).",
+    )
+    kern.add_argument(
         "--speculative-draft-cost-factor",
         type=float,
         default=None,

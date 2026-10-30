@@ -141,6 +141,10 @@ class _Req:
     think_ms: float | None = None
     # Host-side TTFT latency; see ``_set_host_ms``.
     host_ms: float = 0.0
+    # Uncached prompt tokens already billed to steps (INFERASIM_DES_STEP_UNCACHED_US).
+    unc_billed: int = 0
+    # Split serving: whether a decode server has emitted this request's token yet.
+    decode_seen: bool = False
     # Cache-hit blocks held below HBM, per lower tier, and how long loading
     # them back delayed this request's admission.
     load_blocks: tuple = ()
@@ -333,6 +337,9 @@ class _CostKernel:
             # One chunk per rank: under attention-DP each rank attends over its
             # own chunk with every head, and only the MoE sees all of them.
             kw = {"prefill_batch": self._sync} if self._sync > 1 else {}
+            if os.getenv("INFERASIM_DES_LOCKSTEP_PREFILL") == "solo":
+                # The other ranks' chunks land on their own steps, not this one.
+                kw = {}
             tok = key[1]
             if spread > 1:
                 kw = {"prefill_batch": spread}
@@ -765,6 +772,12 @@ def simulate_once(
     # every prompt in send order before the scheduler can see it. TTFT is still
     # timed from the send, so a prompt queued behind others pays their tokenize.
     fe_us = float(os.environ.get("INFERASIM_DES_SERIAL_FRONTEND_US", "0") or 0.0)
+    # Opt-in: the per-uncached-token cost queues there too, rather than being
+    # a delay each prompt pays alone.
+    fe_unc_us = float(os.environ.get("INFERASIM_DES_SERIAL_UNCACHED_US", "0") or 0.0)
+    fe_unc_cap = int(os.environ.get("INFERASIM_DES_SERIAL_UNCACHED_CAP", "0") or 0)
+    step_unc_us = float(os.environ.get("INFERASIM_DES_STEP_UNCACHED_US", "0") or 0.0)
+    step_unc_cap = int(os.environ.get("INFERASIM_DES_STEP_UNCACHED_CAP", "0") or 0)
     fe_heap: list[tuple[float, int, _Req]] = []
     fe_free = 0.0
     # Requests waiting on blocks from a lower tier, keyed on when they land.
@@ -881,8 +894,11 @@ def simulate_once(
             next_arrival += 1
         while arrivals_heap and arrivals_heap[0][0] <= now + 1e-9:
             q_ = heapq.heappop(arrivals_heap)[2]
-            if fe_us > 0:
-                fe_free = max(fe_free, q_.arrival_ms) + fe_us * 1e-3 * q_.prompt_len
+            if fe_us > 0 or fe_unc_us > 0:
+                u_ = max(0, q_.prompt_len - q_.cached_prefix)
+                u_ = min(u_, fe_unc_cap) if fe_unc_cap > 0 else u_
+                fe_free = (max(fe_free, q_.arrival_ms) + fe_us * 1e-3 * q_.prompt_len
+                           + fe_unc_us * 1e-3 * u_)
                 heapq.heappush(fe_heap, (fe_free, q_.idx, q_))
             else:
                 _enqueue(q_, q_.arrival_ms)
@@ -1042,6 +1058,15 @@ def simulate_once(
             prefill_kv = int(sum(kv + q for _, q, kv in pref) / len(pref))
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
             step_dt = kernel.mixed_step_ms(num_decode, prefill_q, decode_ctx, prefill_kv, len(pref))
+            if step_unc_us > 0:
+                # The fitted per-uncached-token cost is engine time, so it
+                # lengthens the step every decode in it shares.
+                billed = 0
+                for r, q, _kv in pref:
+                    c = min(q, max(0, step_unc_cap - r.unc_billed)) if step_unc_cap > 0 else q
+                    r.unc_billed += c
+                    billed += c
+                step_dt += step_unc_us * 1e-3 * billed
         else:
             decode_ctx = int(sum(kv for _, _, kv in dec) / len(dec)) if dec else input_len
             step_dt = kernel.decode_step_ms(num_decode, decode_ctx)
@@ -1160,6 +1185,16 @@ def simulate_once(
         sample = [r for r in done if r.arrival_ms < horizon]
     else:
         sample = _scored_sample(done, warmup_frac, warmup_requests)
+    if os.environ.get("INFERASIM_DES_DUMP"):
+        import json as _json
+
+        with open(os.environ["INFERASIM_DES_DUMP"], "w") as _fh:
+            for r in sample:
+                _fh.write(_json.dumps({
+                    "idx": r.idx, "arr": r.arrival_ms, "adm": r.admit_ms, "ft": r.first_token_ms,
+                    "fin": r.finish_ms, "plen": r.prompt_len, "cached": r.cached_prefix,
+                    "olen": r.output_len, "load": getattr(r, "kv_load_ms", 0.0),
+                    "res": getattr(r, "reserved_kv", None)}) + "\n")
 
     # TTFT is measured from *admission* (server start), not arrival, so the
     # client-side wait for a concurrency slot is excluded -- matching the vLLM /
@@ -1856,6 +1891,32 @@ def _route_and_warm(
 
     ordered = sorted(reqs, key=lambda x: (x.arrival_ms, x.idx))
 
+    prewarm = int(os.environ.get("INFERASIM_DES_PREWARM_SESSIONS", "0") or 0)
+    if prewarm > 0 and any(r.sess >= 0 for r in reqs):
+        # The harness advances every lane through its warm-up requests and
+        # lets them drain before profiling, so each first-wave session opens
+        # on a cache already holding its earlier turns. Warm those, all but
+        # the new tail a follow-up turn brings, sized from this trace's own
+        # turns.
+        by_idx = {r.idx: r for r in reqs}
+        new = []
+        for r in reqs:
+            p = by_idx.get(r.dep)
+            if p is None or not r.blocks or not p.blocks:
+                continue
+            k = 0
+            for a, b in zip(r.blocks, p.blocks):
+                if a != b:
+                    break
+                k += 1
+            new.append(len(r.blocks) - k)
+        tail = sorted(new)[len(new) // 2] if new else 0
+        first = set(sorted({r.sess for r in reqs if r.sess >= 0})[:prewarm])
+        for r in ordered:
+            if r.sess in first and r.dep < 0 and not r.joins and len(r.blocks) > tail:
+                for c in caches:
+                    c.insert(r.blocks[: len(r.blocks) - tail])
+
     def _admission_order():
         """The order the engine takes requests off its waiting queue.
 
@@ -2202,6 +2263,32 @@ def simulate_disaggregated(
         next_unissued = n
 
     _set_host_ms(pending, req)
+    # The fitted per-uncached-token cost is prefill engine time. A prefill pool
+    # carries no decodes for it to slow, so it is billed to the pool's steps,
+    # where prompts queue for it, instead of to each prompt alone.
+    split_unc_ms = 0.0
+    split_unc_cap = 0
+    if os.environ.get("INFERASIM_DES_SPLIT_STEP_UNCACHED") == "1":
+        split_unc_ms = max(0.0, float(getattr(req, "uncached_prompt_latency_us", 0.0) or 0.0)) / 1000.0
+        split_unc_cap = int(getattr(req, "uncached_prompt_latency_max_tokens", 0) or 0)
+        if split_unc_ms > 0:
+            for r in pending:
+                u = max(0, r.prompt_len - r.cached_prefix)
+                r.host_ms -= split_unc_ms * (min(u, split_unc_cap) if split_unc_cap > 0 else u)
+        # Under attention-DP a step's prompts belong to different ranks, which
+        # pay for their own in parallel.
+        from .kv_cache import attention_dp_size
+
+        split_unc_ms /= max(1, int(attention_dp_size(prefill_proj.cfg)))
+    # Under attention-DP every prefill rank schedules its own prompts against
+    # its own chunk budget, so one prefill step carries a budget per rank.
+    if token_budget > 0:
+        from .kv_cache import attention_dp_size
+
+        token_budget *= max(1, int(attention_dp_size(prefill_proj.cfg)))
+    # The client's first token comes from the decode server, after the KV has
+    # landed and the request has run its first decode step there.
+    ttft_at_decode = os.environ.get("INFERASIM_DES_SPLIT_TTFT_DECODE") == "1"
 
     # The KV pool is per *pool*, not per fleet. A prefill pool holds a prompt
     # only until the handoff, while a decode replica holds the whole sequence
@@ -2339,6 +2426,13 @@ def simulate_disaggregated(
         avg_kv = int(sum(kv + q for _, q, kv in scheduled) / len(scheduled))
         # num_decode=0: this station never co-schedules a decode, by construction.
         dt = p_kernel.mixed_step_ms(0, prefill_q, input_len, avg_kv, len(scheduled))
+        if split_unc_ms > 0:
+            billed = 0
+            for r, q, _kv in scheduled:
+                c = min(q, max(0, split_unc_cap - r.unc_billed)) if split_unc_cap > 0 else q
+                r.unc_billed += c
+                billed += c
+            dt += split_unc_ms * billed
         now_p[j] += dt
         p_busy[j] += dt
         p_steps += 1
@@ -2395,6 +2489,9 @@ def simulate_disaggregated(
         pk_maxbatch = max(pk_maxbatch, len(d_running[k]))
         still: list[_Req] = []
         for r in d_running[k]:
+            if ttft_at_decode and not r.decode_seen:
+                r.decode_seen = True
+                r.first_token_ms = now_d[k]
             cap = r.output_len - r.generated
             if cap > 0:
                 acc = _sample_accepted(rng, spec_k, accept, cap, spec_rates)
