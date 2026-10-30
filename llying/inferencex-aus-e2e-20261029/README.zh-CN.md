@@ -31,6 +31,16 @@
 - decode 关闭了 radix cache（`disable_radix_cache: True`），0 次命中属正常；router 那一条 "kv event feed is not being applied" 警告（decode dp2）也是这个原因。
 - 未覆盖：#222 对 vLLM 包装层的改动。
 
+**#222 在 2P1D（两个同机 prefill，合并后组合：srt-slurm `59920ea1` + #630 原版补丁）下验证通过**：
+- 两个 prefill 的 KV 事件端口为 3000 / 3001，decode 为 11389（8 个 DP rank）；router 的三条订阅与各 worker 实际发布的端口一一对应。
+- prefill w0 656 次选路中 432 次命中缓存前缀，w1 544 次中 320 次命中。
+
+**发现（与 #222 无关，不阻塞）**：Infera 包装层的 k8s readiness 端口固定为 30090，同机第二个 prefill 绑定时报 `address already in use`，随后不带 readiness 端口继续服务（按尽力而为设计）。srt-slurm 判断就绪看 router 的 `/v1/workers`，所以没有功能影响；但不符合"worker 不开未分配端口"的原则。建议后续给 Infera 加关闭开关，并在 #630 的 worker 启动时关掉。
+
+**发现（偶发）**：旧组合的 1P1D C88 eval 中，decode 有 9 次 RDMA 注册 ENOMEM（ionic context 3/4/5），DP6 的部分 KV 缓冲区没注册上，Infera 起栈时的 PD 探测连续 3 次失败后拆栈（退出码 137）。只出现过这一次；新组合下重跑这一项，确认是否复现。
+
+**测试组合更正（10-30 09:00）**：前面的 4+4 C80、1P1D C88 用的是旧组合（srt-slurm `ae3d6877` + 回移补丁），只作参考。从 2P1D C176 起全部改用合并后的组合，三种形态各补一个 eval，结论以新组合为准。
+
 ## 0.1 实测中的决定（汇总）
 
 | # | 决定 | 依据 |
