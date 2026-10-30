@@ -91,7 +91,9 @@ if ! cmake .. -DUSE_HIP=ON -DUSE_HIP_DMABUF=ON -DUSE_ETCD=OFF \
 fi
 grep -iE "dmabuf|hsa-runtime|error" /tmp/mooncake-cmake.log || true
 
-target="engine.cpython-310-x86_64-linux-gnu.so"
+# The extension is named after the base's interpreter (cpython-310 on the
+# rocm7.2 bases, cpython-314 on the rocm10.2 one).
+target="engine$(python3 -c 'import sysconfig; print(sysconfig.get_config_var("EXT_SUFFIX"))')"
 if ! ninja "$target" >/tmp/mooncake-ninja.log 2>&1; then
     tail -80 /tmp/mooncake-ninja.log >&2
     exit 1
