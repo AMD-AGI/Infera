@@ -174,6 +174,13 @@ rocm10.2 中 sglang 版本最高：
 
 ## 实验日志（倒序）
 
+### 2026-10-30 ~08:00 — 提 PR：AMD-AGI/Infera#226
+- 分支 `feat/sglang-rocm10.2`（基于 main `d8babfb0`），只含交付物：`Dockerfile.sglang.rocm102`、2 个 v0521 补丁、mooncake 构建脚本修复、2p1d worker.sh 同机 decode、`patch.upstream.status.md` 新增「v0.5.21 on ROCm 10.2」表、兼容性文档。
+- **不含** `verify_rocm10.2/`：仓库公开，本目录有内网 IP / home 路径，作为工作记录留在 `verify/rocm10.2-sglang` 分支。Dockerfile 头注释改指向 `patch.upstream.status.md`。
+- 推送前扫描 diff：无内网 IP、token、home 路径。
+- CI：`rust` 失败，但 main `d8babfb0` 上同样失败，原因相同（CI 中 sglang 缺 `encoding_dsv4.py`），与本 PR 无关；e2e 各项排队中。
+
+
 ### 2026-10-30 ~07:35 — 兼容性文档加入 ROCm 10.2
 - `manual/features/compatibility_matrix.md` 按 10.1 风格新增：Engines 的「ROCm 10.2 — preview」tab（SGLang 0.5.21 / ROCm 10.2.0rc0 / Ubuntu 24.04.5 / Python 3.14.10 / PyTorch 2.14.0+rocm10.2.0rc0 / 构建日期 2026-10-29 / digest `sha256:3385b5c1…`）、Platform 行、「ROCm 10.2 preview」章节（适配说明、场景表、范围外说明）。
 - 补核实 PD 走 RDMA：prefill / decode 日志中 Mooncake `rdma_transport` 162 / 320 行，无 TCP transport / fallback，无 0 HCA。
