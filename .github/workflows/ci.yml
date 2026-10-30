@@ -226,13 +226,22 @@ jobs:
       # A pinned Python, because sglang only publishes wheels for the versions
       # it supports: on the runner's own (3.14 on Ubuntu 26.04) pip quietly
       # falls back to the last pure-Python release, 0.5.9, which predates dsv4.
+      # The sglang version is the one the engine image ships: read off the
+      # SGLANG_BASE_IMAGE tag of Dockerfile.sglang, so bumping the base re-checks
+      # the port against the new engine and nothing else needs editing. Never the
+      # latest release: a new upstream sglang is not what the router runs against
+      # (0.5.23 dropped this encoder for deepseek-recipe and failed every PR).
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.12"
       - name: dsv4 encoder parity with sglang
         working-directory: .
         run: |
-          pip install --no-deps --quiet sglang
+          base="$(sed -n 's/^ARG SGLANG_BASE_IMAGE=//p' deploy/docker/Dockerfile.sglang)"
+          ver="$(sed -nE 's/^[^:]+:(sglang-)?v?([0-9]+\.[0-9]+\.[0-9]+(\.post[0-9]+)?)([^0-9.].*)?$/\2/p' <<<"$base")"
+          [ -n "$ver" ] || { echo "no sglang version in Dockerfile.sglang base tag '$base'" >&2; exit 1; }
+          echo "Dockerfile.sglang base $base -> sglang==$ver"
+          pip install --no-deps --quiet "sglang==$ver"
           python3 scripts/dsv4_parity.py
 
   # Engine GPU tests. Same schedule as the e2e tiers (see e2e_gate): every PR
