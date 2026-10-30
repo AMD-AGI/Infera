@@ -1,0 +1,201 @@
+--- unified_radix_cache.e1.py	2026-10-29 14:57:44.718273207 +0000
++++ unified_radix_cache.py	2026-10-29 14:58:32.452845512 +0000
+@@ -156,6 +156,30 @@
+ logger = logging.getLogger(__name__)
+ 
+ _EVICT_HEADROOM_TOKENS = int(os.environ.get("SGLANG_EVICT_HEADROOM_TOKENS", "0"))
++# E9 pre-write-back: under write_back, keep the device-LRU tail (the next eviction's victims) backed up on host in the
++# background, so the eviction demotes them without a synchronous D->H copy. PP0 decides per step whether to top the
++# window up (device available < TRIGGER) and relays the decision with the HiCache ready counts, so every PP/TP rank
++# selects the same nodes at the same logical point; a selection digest is checked like the reclaim digest.
++_PREWB_TOKENS = int(os.environ.get("SGLANG_HICACHE_PREWB_TOKENS", "0"))
++_PREWB_TRIGGER = int(os.environ.get("SGLANG_HICACHE_PREWB_TRIGGER", "2000000"))
++# block_quota of the background copies (E10's sync copies use SGLANG_HICACHE_BACKUP_BLOCK_QUOTA); 0 = leave as is.
++_PREWB_BLOCK_QUOTA = int(os.environ.get("SGLANG_HICACHE_PREWB_BLOCK_QUOTA", "2"))
++_PREWB_DIGEST_MASK = (1 << 62) - 1
++
++
++def _prewb_quota_modules():
++    """pool_host modules carrying E10's module-level _BACKUP_BLOCK_QUOTA (absent without the E10 mount)."""
++    import importlib
++
++    mods = []
++    for name in ("sglang.srt.mem_cache.pool_host.mla", "sglang.srt.mem_cache.pool_host.dsa"):
++        try:
++            m = importlib.import_module(name)
++        except ImportError:
++            continue
++        if hasattr(m, "_BACKUP_BLOCK_QUOTA"):
++            mods.append(m)
++    return mods
+ 
+ 
+ class _OngoingWriteThrough(NamedTuple):
+@@ -798,6 +822,9 @@
+         start_time = time.perf_counter()
+         tracker = {ct: 0 for ct in self.tree_components}
+ 
++        if self.ongoing_write_through and self.is_write_back:
++            # E9: in-flight pre-write-backs hold locks; drain them so the walk demotes those nodes copy-free.
++            self.writing_check(write_back=True)
+         request_by_type = self._evict_request_by_type(params)
+         self._evict_components(
+             request_by_type,
+@@ -3387,11 +3414,25 @@
+         # Piggybacked TP check: [digest, -digest] MIN-reduces to [min, -max],
+         # equal iff reclaim victim order matched on every rank.
+         digest = self.tree_core.write_back_duplicate_reclaim_digest
++        prewb_budget = 0
++        if (
++            _PREWB_TOKENS > 0
++            and cc is not None
++            and self.pp_rank == 0
++            and self.is_write_back
++            and self.buffer_pipeline is None
++            and self.token_to_kv_pool_allocator.available_size() < _PREWB_TRIGGER
++        ):
++            prewb_budget = _PREWB_TOKENS
++        prewb_digest = getattr(self, "_prewb_digest", 0)
+         ready_counts = torch.tensor(
+             [
+                 write_acks,
+                 load_acks,
+                 *storage_queue_sizes,
++                prewb_budget,
++                prewb_digest,
++                -prewb_digest,
+                 digest,
+                 -digest,
+             ],
+@@ -3407,10 +3448,14 @@
+         assert digest == count_values[-2] and digest == -count_values[-1], (
+             "write_back duplicate-reclaim victims diverged across PP/TP ranks"
+         )
++        assert prewb_digest == count_values[-4] and prewb_digest == -count_values[-3], (
++            "pre-write-back selections diverged across PP/TP ranks"
++        )
++        self._prewb_budget_synced = count_values[-5]
+         return (
+             count_values[0],
+             count_values[1],
+-            tuple(count_values[2:-2]),
++            tuple(count_values[2:-5]),
+             extra_pool_names,
+         )
+ 
+@@ -3626,6 +3671,7 @@
+         ) = self._sync_hicache_ready_counts()
+         self.writing_check(finish_count=write_finish_count)
+         self.loading_check(finish_count=load_finish_count)
++        self._pre_write_back(getattr(self, "_prewb_budget_synced", 0))
+ 
+         if self.enable_storage and storage_queue_sizes:
+             n_storage_hit, n_ack_prefetch, n_backup, n_release = storage_queue_sizes[:4]
+@@ -3651,6 +3697,72 @@
+                 storage_metrics.prefetch_stats = self.prefetch_outcome_stats_snapshot()
+             self.storage_metrics_collector.log_storage_metrics(storage_metrics)
+ 
++    def _pre_write_back(self, budget: int) -> None:
++        """E9: back up the unbacked device-LRU tail (up to ``budget`` tokens counted from the tail, backed-up nodes
++        included) through the write-through path: locked during the copy, acked by the non-blocking writing_check."""
++        if budget <= 0 or self.cache_controller is None or not self.is_write_back:
++            return
++        tc = self.tree_core
++        ct = BASE_COMPONENT_TYPE
++        lru = tc.lru_lists[ct]
++        pt = lru._pt
++        picked: list[NodeId] = []
++        covered = 0
++        x = lru.tail.lru_prev[pt]
++        while x is not None and x is not lru.head and covered < budget:
++            cd = x.component_data[ct]
++            if (
++                x is not tc.root_node
++                and cd.value is not None
++                and all(c.lock_ref == 0 for c in x.component_data)
++                and x.load_back_pending_id is None
++            ):
++                covered += len(cd.value)
++                if (
++                    cd.host_value is None
++                    and x.write_through_pending_id is None
++                    and len(cd.value) > 0
++                ):
++                    picked.append(x.id)
++            x = x.lru_prev[pt]
++        if not picked:
++            return
++        prewb = tc.prewb_nodes
++        tc.prewb_spare_only = True
++        written_nodes = 0
++        try:
++            for nid in picked:
++                if self._execute_and_commit_kv_backup(BackupKV(node_ids=[nid])) <= 0:
++                    break
++                prewb.add(nid)
++                written_nodes += 1
++                self._prewb_digest = (
++                    getattr(self, "_prewb_digest", 0) * 1000003 + nid + 1
++                ) & _PREWB_DIGEST_MASK
++        finally:
++            tc.prewb_spare_only = False
++        if written_nodes == 0:
++            return
++        mods = _prewb_quota_modules() if _PREWB_BLOCK_QUOTA > 0 else ()
++        saved = [m._BACKUP_BLOCK_QUOTA for m in mods]
++        for m in mods:
++            m._BACKUP_BLOCK_QUOTA = _PREWB_BLOCK_QUOTA
++        try:
++            self.cache_controller.start_writing(wait_for_forward=True)
++        finally:
++            for m, q in zip(mods, saved):
++                m._BACKUP_BLOCK_QUOTA = q
++        self._prewb_nodes_total = getattr(self, "_prewb_nodes_total", 0) + written_nodes
++        if len(prewb) > 4096:
++            # Lazy deregistration: keep only nodes still on device.
++            arena = tc._node_arena
++            tc.prewb_nodes = {
++                n
++                for n in prewb
++                if (node := arena.get(n)) is not None
++                and node.component_data[ct].value is not None
++            }
++
+     def flush_pending_backups(self) -> None:
+         """Submit pending D2H backups as a merged operation."""
+         if self.linker is not None or self.cache_controller is None:
+--- unified_tree_core.orig.py	2026-10-29 14:57:44.732059415 +0000
++++ unified_tree_core.py	2026-10-29 14:59:37.197643922 +0000
+@@ -526,6 +526,11 @@
+         # Full KV on both tiers -> redundant host copy, reclaimed first by
+         # write_back; insertion-ordered dict keeps victims TP-deterministic.
+         self.full_host_duplicates: dict[NodeId, UnifiedTreeNode] = {}
++        # E9 pre-write-back (set by UnifiedRadixCache._pre_write_back): node ids backed up ahead of their eviction,
++        # spared by duplicate-reclaim pass 1 like D-leaves; while pre-writing, pass 2 is skipped so one pre-write-back
++        # never reclaims another's copy. Stale ids are pruned lazily.
++        self.prewb_nodes: set[NodeId] = set()
++        self.prewb_spare_only = False
+         # Rolling digest of reclaim victim ids, cross-checked across TP ranks.
+         self.write_back_duplicate_reclaim_digest: int = 0
+ 
+@@ -1928,7 +1933,8 @@
+         """Reclaim Full host duplicates until num_tokens are freed; pass 1
+         spares evictable D-leaves (imminent free demotes), pass 2 takes them."""
+         swept_ids: list[NodeId] = []
+-        for spare_imminent_demotes in (True, False):
++        prewb_nodes = self.prewb_nodes
++        for spare_imminent_demotes in (True,) if self.prewb_spare_only else (True, False):
+             if tracker[BASE_COMPONENT_TYPE] >= num_tokens:
+                 break
+             for node in self.full_host_duplicates.values():
+@@ -1938,7 +1944,9 @@
+                 if cd.value is None or cd.host_value is None:
+                     swept_ids.append(node.id)  # stale entry
+                     continue
+-                if spare_imminent_demotes and node in self.evictable_device_leaves:
++                if spare_imminent_demotes and (
++                    node in self.evictable_device_leaves or node.id in prewb_nodes
++                ):
+                     continue
+                 if not self._can_reclaim_full_host_duplicate(node):
+                     continue
