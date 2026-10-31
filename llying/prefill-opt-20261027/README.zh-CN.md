@@ -3,7 +3,7 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
-## 当前状态（实时更新，最后更新 10-30 16:10 UTC）
+## 当前状态（实时更新，最后更新 10-30 16:40 UTC）
 
 | 项 | 节点 | C104 tok/s/GPU | 每级驱逐均值 PP0/1/2/3（ms） | 状态 |
 |---|---|---|---|---|
@@ -15,6 +15,43 @@
 | decode kernel 拆解 | 138→135 | — | — | 已采；draft graph 可见，verify graph 0 个 kernel；下一步加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 重采 |
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
+
+## 10-30 16:40 decode verify graph 拆解（`DEBUG_CLR_GRAPH_PACKET_CAPTURE=0`）与通信微基准
+
+**采集**：night28（`scripts/night28_1030.sh`，site `config/site-135-e10-dprof-nopc.env`，E10 + decode 加该 flag，只采集不计分），C104 负载，
+trace `decode-161450`（本机 `/tmp/llying-dprof/nopc/`）。flag 在镜像 `libamdhip64.so.7.2.70200` 里存在（`strings`），容器 env 已生效。
+**verify graph 现在每步 1,937 个 kernel 全部可见**（40/40 步；之前 0 个），GPU 忙 95%。开 flag 后低负载步长 30.3 ms，与 E10 模型一致（未见明显开销）。
+
+每步 55.6 ms（此刻负载）构成（DP0；四个 rank 相差 < 1 ms，`scripts/ana/dtrace_cat.py`）：
+
+| 部分 | ms/步 | 占比 | 说明 |
+|---|---|---|---|
+| verify：MoE GEMM（KF a4w4 gemm1 + gemm2，75 层） | 17.0 | 31% | 每层 170 + 79 µs；读全部 257 专家权重，约 5.3 TB/s，HBM 峰值的 ~65%，带宽受限，与 batch 基本无关 → "固定开销"主体 |
+| verify：dense GEMM | 8.0 | 14% | o_proj（Cijk MT160x128 ~45 µs/层）、q/kv 投影、gate 等 |
+| verify：通信 | 8.0 | 14% | 每层 MoE 前 RCCL all-gather ~42 µs + MoE 后 aiter all-reduce ~55 µs + dp_scatter 拷贝 ~10 µs |
+| verify：sparse MLA 注意力 | 7.0 | 13% | |
+| verify：indexer | 3.6 | 6% | 21 层（index_share） |
+| verify：其他（norm、moe sort/topk 等） | 3.5 | 6% | |
+| draft + draft_extend graph | 4.7 | 8% | 其中 MTP 层 FP8 MoE（CK）1.9 ms |
+| eager kernel | 0.9 | 2% | DSA metadata 等 |
+| GPU 空闲 | 3.0 | 5% | 1.0 ms 来自偶发的 39 ms 调度停顿（zmq 收新请求）；其余是 graph 之间的 CPU 准备（D2H 同步 `hipMemcpyWithStream` 等） |
+
+**通信微基准**（`scripts/comm/dp_comm_bench.py`，138 GPU 0–3 空闲卡，镜像同 decode，profiler 取 kernel 时间，结果与 RCCL 逐元素一致）：
+
+| 每 rank 行数 | RCCL all-gather（现在） | aiter all-gather | aiter all-reduce + 切片拷贝（现在） | aiter reduce-scatter | RCCL reduce-scatter |
+|---|---|---|---|---|---|
+| 64 | 26.7 µs | 22.5 | 39.5 | **22.7** | 36.8 |
+| 128 | 40.5 | 35.9 | 66.1 | **35.6** | 42.8 |
+
+MoE 后的合并改成 aiter reduce-scatter，每层省 17–30 µs，约 1.3–2.4 ms/步（步长 −3~4%，按 decode 占 lane 34% 折算吞吐约 +1~1.5%）；gather 换 aiter 每层只省约 4 µs。
+代码里已有 reduce-scatter 路径（`SGLANG_DP_USE_REDUCE_SCATTER` 在 HIP 上默认开），但 trace 显示没有走到；正在查是哪个条件没满足（子 agent 读代码）。
+
+**方向排序更新**（按每步可省时间）：
+1. MoE GEMM 17 ms：带宽利用率 65%，理论上提到 80% 可省约 3 ms（5%），但 KF kernel 已深度调过，难度高，先不做。
+2. MoE 合并改 reduce-scatter：约 −2 ms/步，低风险，**先做**（确认代码路径后）。
+3. GPU 空闲 3 ms：graph 之间的 CPU 准备与同步，可看能否与 GPU 重叠；其次。
+4. DP 均衡：成本约 3.3 ms/步（16:10 的两变量拟合），PR #213 式按请求数均衡，在 KV 满的情况下有风险；其次。
+5. 不做：把 MTP 层 MoE 降到 FP4 —— 计分用的是模拟接受长度（SIM 2.99），草稿精度下降不会反映在分数里，真实部署会掉接受率，这种收益不算。
 
 ## 10-30 16:10 E9 为什么没收益；端到端瓶颈；后续方向
 
