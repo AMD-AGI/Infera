@@ -9,7 +9,8 @@
 ## 0. 当前状态（随时更新）
 
 - 10-30 15:25 UTC：全部计划项已跑完。合并后组合（srt-slurm `59920ea1` + #630 原版补丁）下，三种形态都完成功能验证，两个性能点与 #210 对齐（差距在 ±0.2% 以内）。
-- 唯一未通过的是新组合下 4+4 C80 的 eval：decode 注册 RDMA 内存时报 ENOMEM，第二次出现。正在重跑，并在 decode 节点上采样 RDMA 注册区数量。
+- 新组合下 4+4 C80 的 eval 第一次因 decode RDMA 注册 ENOMEM 失败（第二次出现），重跑通过（0.9727 / 0.9735）。重跑期间采样：decode 共注册 6,080 个 MR，每块 ionic 760 个（4 个 DP rank × 190），远低于单卡上限 16,383，所以 ENOMEM 不是 MR 数量耗尽，根因待查。
+- 还缺：用正式发布的 Infera wheel、加回 GPU exporter，跑一个点（4+4 C80 fast + eval）。
 
 ## 0.00 合并后组合（CI 将运行的代码）的结果
 
@@ -20,9 +21,9 @@
 | 1P1D C88（12 卡） | GSM8K | 0.9704 / 0.9719 | 同上 |
 | **4+4 C80（8 卡）** | **AgentX 3600 s** | **37,346 tok/s/GPU**，e2e-norm p90 15.6，TTFT p90 9.7 s | 37,310，e2e-norm p90 14.9，TTFT p90 10.8 s（**+0.1%**） |
 | **1P1D C64（12 卡，8 卡 decode）** | **AgentX 3600 s** | **28,925 tok/s/GPU**，e2e-norm p90 25.4，TTFT p90 5.65 s | 28,981，e2e-norm p90 25.4，TTFT p90 5.9 s（**−0.2%**） |
-| 4+4 C80 | GSM8K | 失败：decode RDMA 注册 ENOMEM，PD 探测拆栈；重跑中 | — |
+| 4+4 C80 | GSM8K | 第一次失败（decode RDMA 注册 ENOMEM，PD 探测拆栈）；重跑通过：strict 0.9727 / flexible 0.9735（1319 题） | 0.9666 / 0.9674 |
 
-结论：原样镜像 + 作业启动时装 Infera wheel + 5 个补丁，经 srt-slurm infera frontend 拉起，性能与 #210 的自建镜像一致；三种形态的正确性都已在新组合下验证（4+4 的 eval 在旧组合下通过，0.9712 / 0.9727）。
+结论：原样镜像 + 作业启动时装 Infera wheel + 5 个补丁，经 srt-slurm infera frontend 拉起，性能与 #210 的自建镜像一致；三种形态的正确性都已在新组合下验证。
 
 ## 0.0 结果（随时更新）
 
