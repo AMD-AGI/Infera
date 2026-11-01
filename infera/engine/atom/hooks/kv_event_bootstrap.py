@@ -14,8 +14,8 @@ interpreter in the tree — launcher, ATOM server, and the spawned EngineCore
 
 The work is gated on ``INFERA_ATOM_KV_EVENTS_ENDPOINT`` so that unrelated
 Python invocations (pip, debug shells, the launcher itself before it spawns
-ATOM) pay nothing. The infera ATOM launcher sets that env var (to the ZMQ
-bind address) only for the ATOM subprocess it spawns.
+ATOM) pay nothing. The Infera ATOM launcher sets that env var to the local
+relay ingress and enables connect mode only for the ATOM subprocess it spawns.
 """
 
 from __future__ import annotations
@@ -30,7 +30,8 @@ def _activate() -> None:
     try:
         from infera.engine.atom.hooks.kv_events import arm_kv_event_hooks
 
-        arm_kv_event_hooks(endpoint)
+        connect = os.environ.get("INFERA_ATOM_KV_EVENTS_CONNECT") == "1"
+        arm_kv_event_hooks(endpoint, connect=connect)
     except Exception:
         # A sitecustomize/.pth hook must never take down an unrelated
         # interpreter; surface the traceback and continue.
