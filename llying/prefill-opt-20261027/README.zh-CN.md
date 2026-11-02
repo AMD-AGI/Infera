@@ -3,7 +3,7 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
-## 当前状态（实时更新，最后更新 11-02 09:20 UTC）
+## 当前状态（实时更新，最后更新 11-02 09:30 UTC）
 
 | 项 | 节点 | C104 tok/s/GPU | 每级驱逐均值 PP0/1/2/3（ms） | 状态 |
 |---|---|---|---|---|
@@ -11,11 +11,19 @@
 | **E10 = E1 + 写回 kernel quota 16** | 138→140 | **51,374（+3.3%）** | 358 / 195 / 259 / 225 | **当前最佳**，门禁通过 |
 | E10（换硬件后的基线） | 138→135 | 51,658（与 140 上差 +0.6%，单次噪声内） | 349 / 193 / 253 / 229 | 10-30 04:52 完成；新组合复现了旧基线 |
 | E11-old 关 prefill KV events | — | — | — | 预测 < 1%，不跑 |
-| E11 decode `ROCM700A=0`（MoE 合并走 reduce-scatter） | 138→140 | — | — | 第一次检查输出乱码（与 packet capture 关同时改），单变量复查中（night30） |
+| E11 decode `ROCM700A=0`（MoE 合并走 reduce-scatter） | 138→140 | — | — | **作废**：只设该变量 smoke 仍 4/6、decode 输出乱码（首 token 对，之后全乱）；`ROCM700A=1` 的规避是必要的 |
 | E9 后台预写回（叠在 E10 上） | 138→135 | v5 前 20 分钟 49,561 vs E10 49,233 / 对照 49,521（**噪声内**） | v5：21 / 15 / 16 / 16 s（E10 108 / 64 / 81 / 76） | v5 未命中率回到 4.83%、驱逐降 80%，但吞吐只 +0.7%，未达 +1% 预测；**暂停，待定** |
 | decode kernel 拆解 | 138→135 | — | — | 已采；draft graph 可见，verify graph 0 个 kernel；下一步加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 重采 |
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
+
+## 11-02 09:30 E11 作废：只设 `SGLANG_USE_ROCM700A=0` 就乱码
+
+`site-140-e11-1102T0858`（night30 变体 A，decode env 只多这一项，`docker exec ... env` 确认）：smoke 4/6，completion " ParisIVA hubrase_MC…"、chat "39Drv patchers…"、
+stream 全乱码；首个 token（来自 prefill）是对的，decode 之后全错。→ **MAX_LEN 的 decode graph 路径（aiter all-gather / reduce-scatter 在 graph 内）在这个镜像上不正确**，
+至少与 `ROCM700A=1` 的 RCCL 规避有关；微基准是 eager、非 graph 内、没有 DP 空闲 rank，没覆盖到。E11 不计分、不再加跑；"MoE 合并改 reduce-scatter"这一省 1.5–2.5 ms/步的思路
+只在找到 graph 内出错的原因后才能重启（候选：aiter 的 graph 内注册缓冲 / `registered=True` 路径、MAX_LEN 下 idle rank 的 pad 行）。变体 B（只 packet capture 关）继续跑，确认 trace 采集方法本身不改输出。
+预先做正确性检查的价值：没有浪费一小时计分。
 
 ## 11-02 09:20 E11 第一次正确性检查：输出乱码（两个变量同时改了，待拆开）；decode KV 池压力分析
 
