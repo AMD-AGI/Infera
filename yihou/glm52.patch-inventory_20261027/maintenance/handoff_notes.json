@@ -800,7 +800,7 @@
       "purpose": "Publish the Infera SGLang AgentX PD recipe.",
       "owner": "llying-001; original author controls code and promotion",
       "ready_action": "Already non-draft; changes requested on engine patching.",
-      "merge_action": "Upstream #33059/#46830/#46820; resolve issue #46829; select an image with these plus merged #21194 and remove engine patches. Coordinate #630/#47117, diagnose platform RDMA bring-up, complete sweep and review.",
+      "merge_action": "Upstream #33059/#46830/#46820; validate and progress external absorb-BMM candidate #46918 for issue #46829 (or another supported upstream resolution); select an image with these plus merged #21194 and remove engine patches. Coordinate #630/#47117, diagnose platform RDMA bring-up, complete sweep and review.",
       "evidence": "Live PR source/body/reviews checked November 2: https://github.com/SemiAnalysisAI/InferenceX/pull/4629. Cross-checked with the stock-image recipe at a7aed81b6b3314a60c0c59f34e4b235479059230 and the frozen llr37 site. No new hardware run.",
       "tests": [],
       "last_action": "2026-11-02: added to the InferenceX-versus-48k dependency comparison; no change to the original author's branch or PR."
@@ -832,6 +832,22 @@
       "evidence": "Live PR source/body/reviews checked November 2: https://github.com/NVIDIA/srt-slurm/pull/630. Cross-checked with the stock-image recipe at a7aed81b6b3314a60c0c59f34e4b235479059230 and the frozen llr37 site. No new hardware run.",
       "tests": [],
       "last_action": "2026-11-02: added to the InferenceX-versus-48k dependency comparison; no change to the original author's branch or PR."
+    },
+    "sgl-project/sglang#46918": {
+      "assessed_at": "2026-11-02",
+      "reviewed_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+      "reviewed_activity_at": "2026-10-28T02:19:33Z",
+      "priority": "P0",
+      "deployment": "Candidate upstream replacement for B8/S02 workaround, shared by the historical 48k image and InferenceX first-version recipe; not the historical config=None implementation.",
+      "purpose": "Keep absorb-BMM hand tuning while limiting the waves-per-EU budget that may trigger the gfx950 compiler abort.",
+      "owner": "yu-depend; original author owns the PR. Yihou/delegate can contribute allocated-MI355X validation.",
+      "ready_action": "Already non-draft. Author reports CPU-only validation; do not interpret this as hardware approval.",
+      "merge_action": "Validate issue #46829 reproducer on an allocated MI355X: old hand config, proposed cap and config=None control; compare numerical reference and latency, inspect architecture/version scope, then enable CI/review/merge. Do not duplicate or modify the original author's branch.",
+      "evidence": "Our issue #46829 reports an October 27 MI355X reproduction: M=256 hand config aborts, config=None yields finite output. PR author reports 13 CPU tests and 265 subtests but explicitly no AMD GPU run. waves_per_eu root-cause argument remains hardware-unconfirmed. Historical c44b/R003 and c44c establish workaround relief, not PR validation.",
+      "tests": [
+        "Run the issue #46829 reproducer at the exact candidate head on an allocated MI355X; add numerical/reference and timing comparisons."
+      ],
+      "last_action": "2026-11-02: discovered the October 28 external candidate during B8 audit; corrected the prior missed-PR status and added it to shared InferenceX/48k handoff. No new GPU test or upstream mutation."
     }
   },
   "external_prs": [
@@ -868,7 +884,8 @@
     "https://github.com/kvcache-ai/Mooncake/pull/4541",
     "https://github.com/SemiAnalysisAI/InferenceX/pull/4629",
     "https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542",
-    "https://github.com/NVIDIA/srt-slurm/pull/630"
+    "https://github.com/NVIDIA/srt-slurm/pull/630",
+    "https://github.com/sgl-project/sglang/pull/46918"
   ],
   "issues": [
     "https://github.com/sgl-project/sglang/issues/46829",

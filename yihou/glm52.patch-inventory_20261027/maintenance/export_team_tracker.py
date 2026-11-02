@@ -50,6 +50,7 @@ def generate(inventory, runtime, destination):
         "sgl-project/sglang#46830": "P0: baked dsa_dp_sync fix; replaces closed #33973. Prioritize CI and review.",
         "sgl-project/sglang#46820": "P0: baked nonblocking metrics fix; CPU/socket regression already exists. Prioritize CI and review.",
         "sgl-project/sglang#45524": "P0, external: related PP producer-event fix. Preserve the distinct historical image patch; coordinate with its author.",
+        "sgl-project/sglang#46918": "P0, external: scoped absorb-BMM configuration candidate for S02 / issue #46829. AMD GPU reproduction, numerical and timing validation remain outstanding; the frozen image uses config=None.",
         "sgl-project/sglang#47276": "P1: reworked fused indexer/top-k port; not the exact historical overlay. Coordinate #45307 overlap.",
         "sgl-project/sglang#47278": "P1: reworked sparse MLA port with BF16 split partials; qualify the new combined stack separately.",
         "AMD-AGI/Infera#221": "P1, evidence tooling: publish kernel provenance; not required at runtime. Retarget after #220 and qualify redacted derivatives.",
@@ -85,7 +86,7 @@ def generate(inventory, runtime, destination):
         "",
         "### InferenceX first version is a separate publication queue",
         "",
-        "The common unmerged engine PRs are #33059/#46830/#46820. The PP construction fix #21194 is already merged; issue #46829 still needs an upstream/compiler resolution or proof the selected image no longer needs its workaround. Select an image carrying the fixes and remove startup engine patching. #47276/#47278 and PP-overlap fix #45524 are later/configuration-dependent work, not first-version prerequisites.",
+        "The common unmerged engine PRs are #33059/#46830/#46820. The PP construction fix #21194 is already merged; issue #46829 has external fix candidate [#46918](https://github.com/sgl-project/sglang/pull/46918), which still needs AMD GPU reproduction, numerical and timing checks, review and merge (or another validated upstream solution). Select an image carrying the fixes and remove startup engine patching. #47276/#47278 and PP-overlap fix #45524 are later/configuration-dependent work, not first-version prerequisites.",
         "",
         "Publication additionally tracks InferenceX #4629, srt-slurm #630, SGLang cookbook #47117 and InferenceX-app #1542; Infera #222/#223 are merged. The current first-version 8-GPU report is about 37.3k at synthetic AL 3.61, not the frozen 48k at 2.99. Its public sweep failed at bring-up. [Source comparison and dependency table](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/INFERENCEX_V1_VS_48K.md).",
         "",
@@ -202,7 +203,7 @@ def generate(inventory, runtime, destination):
         pinned(late),
         "## Other dispositions",
         "",
-        "S02/S12 remain issue-only; S04/S08/S09/S14 are excluded; S13 has a merged current-main alternative in #21194 (verify image inclusion and preserve historical attribution); A01 and the remaining original K01 overlay are not qualified for wholesale filing. S03 layer parallelism had no demonstrated gain; M03 was unbuilt. Other authors' equivalent PRs receive evidence instead of duplicates. See the "
+        "Our S02/S12 workaround submissions remain issues; S02 now has external scoped fix candidate #46918 with AMD GPU validation pending. S04/S08/S09/S14 are excluded; S13 has a merged current-main alternative in #21194 (verify image inclusion and preserve historical attribution); A01 and the remaining original K01 overlay are not qualified for wholesale filing. S03 layer parallelism had no demonstrated gain; M03 was unbuilt. Other authors' equivalent PRs receive evidence instead of duplicates. See the "
         + archive(INVENTORY + "/PR_PACKUP_MAP.md", "complete archived disposition map")
         + " for source diffs and original pack-ups.",
         "",

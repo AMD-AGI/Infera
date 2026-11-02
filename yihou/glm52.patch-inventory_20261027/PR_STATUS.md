@@ -23,6 +23,15 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `c40c97a4e4` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 <!-- DAILY-PR-STATUS:END -->
 
+## 2026-11-02: B8 / S02 external-fix correction
+
+The earlier comparison missed external [SGLang #46918](https://github.com/sgl-project/sglang/pull/46918), opened October 28 by yu-depend, explicitly fixing our [issue #46829](https://github.com/sgl-project/sglang/issues/46829). It is OPEN / non-draft at `9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1`, with review and AMD hardware validation pending. The previous current-status claim “no fix PR” was incorrect; the historical decision not to submit our blanket-disable workaround remains unchanged.
+
+The candidate caps `waves_per_eu` at 2 and exposes configuration/fallback knobs. Its author reports 13 CPU tests plus 265 subtests, but explicitly no AMD GPU execution; the compiler-root-cause argument is not a hardware-confirmed fix. Follow the existing PR, reproduce the original M=256 case on an allocated MI355X, compare numerical output and latency, then review/merge/select an image. Do not file a duplicate or change the original author's branch.
+
+Historical deployment: c44b / R003 hit a Triton/LLVM compile abort; c44c replaced `_absorb_bmm_config` with `return None`, letting Aiter choose its own config. c44c completed warmup 488/488 before an unrelated later GPU fault. The frozen v0.5.22 image and first-version InferenceX patch carry that same workaround. This establishes relief of the compiler abort, not an isolated throughput gain or full-stack correctness.
+
+
 ## 2026-11-02: InferenceX first-version scope reconciliation
 
 [Detailed comparison](INFERENCEX_V1_VS_48K.md): #33059/#46830/#46820 are shared open engine priorities. #47276/#47278 are later performance ports; #45524 is required for its unsafe PP modes, which the first-version recipe does not enable. Issue #46829 remains a separate engine/compiler gap under the no-engine-patch review requirement.
