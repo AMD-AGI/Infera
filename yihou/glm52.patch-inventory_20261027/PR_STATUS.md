@@ -24,6 +24,22 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `e23223c942` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 <!-- DAILY-PR-STATUS:END -->
 
+<!-- REBASE-48K-20261102:BEGIN -->
+## 2026-11-02: 48k-priority SGLang rebase
+
+Target main at task start: `23c6442cde7fb38230134ba0e3513ad2332aa5cf`. All five owned branches were rebased without conflicts, signed and pushed with exact old-head leases. [Full validation, CI gates and handoff](FOLLOWUP_20261102_48K_REBASE.md).
+
+| PR | New head | Local validation | Base / upstream lint / next action |
+|---|---|---|---|
+| [#46820](https://github.com/sgl-project/sglang/pull/46820) | `840ddc2dab5e` | 4 real-ZMQ CPU regression tests and scoped pre-commit hooks passed; range-diff unchanged | [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41402282474): Ready; missing maintainer-controlled run-ci label. [Lint](https://github.com/sgl-project/sglang/actions/runs/41402282458/job/125136503294): inherited XPU F821; repair main, rebase and rerun. |
+| [#46830](https://github.com/sgl-project/sglang/pull/46830) | `3c70f61f2973` | 3 CPU regression tests plus 2 subtests and scoped pre-commit hooks passed; range-diff unchanged | [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41402508388): Ready; missing maintainer-controlled run-ci label. [Lint](https://github.com/sgl-project/sglang/actions/runs/41402508194/job/125137192923): inherited XPU F821; repair main, rebase and rerun. |
+| [#33059](https://github.com/sgl-project/sglang/pull/33059) | `ab4407a57c8a` | 12 CPU regression tests and scoped pre-commit hooks passed; range-diff unchanged; requested AMD model matrix remains outstanding | [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41402667950): Draft gate; requested AMD model matrix outstanding. [Lint](https://github.com/sgl-project/sglang/actions/runs/41402667672/job/125137681053): inherited XPU F821; repair main, rebase and rerun. |
+| [#47276](https://github.com/sgl-project/sglang/pull/47276) | `d973ced62c78` | Scoped pre-commit and CPU launch-selection assertions passed; 7 GPU tests skipped; unchanged patch, inherited main #47300 device-alias fix | [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41402860632): Ready; missing maintainer-controlled run-ci label. [Lint](https://github.com/sgl-project/sglang/actions/runs/41402860388/job/125138284937): inherited XPU F821; repair main, rebase and rerun. |
+| [#47278](https://github.com/sgl-project/sglang/pull/47278) | `607b3c9f76f1` | Scoped pre-commit and 3 CPU-only contract checks passed; 22 ROCm tests skipped; PR-touched files byte-identical to previous head | [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41403072135): Ready; missing maintainer-controlled run-ci label. [Lint](https://github.com/sgl-project/sglang/actions/runs/41403072008/job/125138927796): inherited XPU F821; repair main, rebase and rerun. |
+
+External #45524 remains owned by eaglewangao-us: requested author rebase and maintainer CI labeling; no branch change. Infera #228 remains permanently Draft.
+<!-- REBASE-48K-20261102:END -->
+
 ## Dated maintenance records
 
 November 2 policy correction: per explicit owner instruction, [Infera #228](https://github.com/AMD-AGI/Infera/pull/228) is now a **permanent Draft for view and track only**. Never promote or merge it. Daily maintenance verifies/restores its Draft flag; the implementation PRs retain their separate Ready/merge work. This supersedes the initial tracker-promotion plan below.
