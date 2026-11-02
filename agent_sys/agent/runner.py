@@ -35,7 +35,7 @@ from spec_loader import body_of
 from task_graph.ids import TaskId
 from task_graph.models import HandoffStatus, Task, TaskStatus
 
-__all__ = ["MonitorUnresolved", "Runner", "TaskAttempt", "ThreadAlreadyHeld"]
+__all__ = ["MonitorUnresolved", "Runner", "TaskAttempt", "ThreadAlreadyHeld", "outputs_brief"]
 
 #: `validator.PhaseKind`, **as its value rather than as the member**. The seam
 #: is `run_phase(kind: PhaseKind, task, registry)`, and `agent` may not import
@@ -835,22 +835,9 @@ class TaskAttempt:
         path are a version `task_graph` did not pin and a kind `env_mgr` could
         not export, and neither is the agent's fault or the agent's to fix.
         """
-        outputs = tuple(self.task.outputs)
-        if not outputs:
-            return ""
         paths = _output_paths(prepared)
         kinds = getattr(self.task, "kinds", {}) or {}
-        lines = ["## What this task must deliver", ""]
-        for hid in outputs:
-            kind = kinds.get(hid) or "unknown kind"
-            where = paths.get(hid)
-            lines.append(
-                f"- **{kind}** (`{hid}`): write it into `{where}`"
-                if where
-                else f"- **{kind}** (`{hid}`): **no resolved path** — this output "
-                f"has nowhere to be written and cannot be delivered on this attempt"
-            )
-        return "\n".join(lines)
+        return outputs_brief([(kinds.get(hid), hid, paths.get(hid)) for hid in self.task.outputs])
 
     def _body_path(self, declared: Any, staged: str | None) -> str | None:
         """A body path, resolved against **this attempt's** staged package.
@@ -1410,3 +1397,25 @@ def _environment(prepared: Any) -> dict[str, str]:
 
 def _zone_root(prepared: Any) -> str:
     return str(prepared.zone.root or "")
+
+
+def outputs_brief(rows: Sequence[tuple[Any, Any, Any]]) -> str:
+    """The "What this task must deliver" section, from `(kind, hid, path)` rows.
+
+    `Runner._outputs_brief` is its caller in a run; it is a function rather than
+    method body so that a reader assembling the same prompt outside the runtime
+    (`tools/skill`'s task runner) states the same facts in the same words. A row
+    whose path is `None` is stated as undeliverable, never omitted.
+    """
+    if not rows:
+        return ""
+    lines = ["## What this task must deliver", ""]
+    for kind, hid, where in rows:
+        kind = kind or "unknown kind"
+        lines.append(
+            f"- **{kind}** (`{hid}`): write it into `{where}`"
+            if where
+            else f"- **{kind}** (`{hid}`): **no resolved path** — this output "
+            f"has nowhere to be written and cannot be delivered on this attempt"
+        )
+    return "\n".join(lines)
