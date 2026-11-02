@@ -1,6 +1,6 @@
 # Active PR handoff
 
-GitHub refresh: **2026-11-02T08:49:59.115630+00:00**. [Overview and priorities](README.md).
+GitHub refresh: **2026-11-02T09:01:05.708427+00:00**. [Overview and priorities](README.md).
 
 ## Ready for review
 
@@ -161,17 +161,17 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test
 ### [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) — Make real query rows and padded Aiter metadata agree.
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me.
-- **Base / head:** `main` @ `23c6442cde7fb38230134ba0e3513ad2332aa5cf` / `fix-dsa-indexer-hip-aiter-dp-padding` @ `ab4407a57c8a7571dd48b4a89f6e5a0359d0248c`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 19, SKIPPED 88, SUCCESS 21. Reviews: none.
+- **Base / head:** `main` @ `1599b166ac856f4fd192feb2c16304fae7860a72` / `fix-dsa-indexer-hip-aiter-dp-padding` @ `f4f5b98a1394db5eecfd490132a7b760a242e9d3`.
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 18, SKIPPED 88, SUCCESS 21. Reviews: none.
 - **Last curated action:** 2026-11-02: rebased/pushed onto main 23c6442cde7f; 12 CPU regression tests and scoped pre-commit hooks passed; range-diff unchanged; requested AMD model matrix remains outstanding. [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41402667950): Draft gate; requested AMD model matrix outstanding. Full upstream lint fails on inherited XPU F821; [reported upstream](https://github.com/sgl-project/sglang/pull/30980#issuecomment-6571123990).
-- **Latest GitHub activity:** [Latest comment 2026-11-02T06:54:10Z](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6571048322); PR updated 2026-11-02T07:01:53Z.
-- **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
-- **Activity triage:** GitHub activity timestamp matches the curated audit.
+- **Latest GitHub activity:** [Latest comment 2026-11-02T06:54:10Z](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6571048322); PR updated 2026-11-02T08:56:45Z.
+- **Evidence freshness:** HEAD CHANGED: re-audit evidence from ab4407a57c. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
+- **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** [glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); historical GLM DP8/EP8 checks 4/4 and 256/256; current port 12 CPU tests. GLM runs do not establish the requested DeepSeek matrix.
 - **To Ready:** Reuse historical GLM evidence; fulfill HaiShaw's specific DeepSeek-V3.2 DP/stage-c accuracy matrix, diagnose failures, link exact heads/results, then promote. CPU/source work can prepare it; missing model coverage needs an allocated GPU node.
 - **To merge / dependency:** Current blockers: Draft gate; requested AMD model matrix outstanding; repair main XPU logger F821 ([report](https://github.com/sgl-project/sglang/pull/30980#issuecomment-6571123990)), then rebase and rerun lint. Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Reviewer: HaiShaw. The shared Qwen fused-KV issue has merged workaround #46861; do not continue listing it as an unexplained patch regression.
 
-- Red-check entry points: [lint](https://github.com/sgl-project/sglang/actions/runs/41402667672/job/125137681053); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41402668106/job/125137682927); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41402663057/job/125137668338); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41402667917/job/125137682430); [pr-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41402667711/job/125137756910); remaining checks are in the linked PR and JSON snapshot.
+- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41416633941/job/125181968932); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41416630183/job/125181957537); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41416633846/job/125181968063); [pr-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41416633802/job/125182142114); [pr-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41416634564/job/125182075636); remaining checks are in the linked PR and JSON snapshot.
 
 Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
 
@@ -314,10 +314,10 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_confi
 ### [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references.
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
-- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `7dfcca9814a1daf58dddcc9d08b9d9ef15b7542a`.
+- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `be385e17763b5f930ad3573ac1db7b5d74b6f8da`.
 - **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: SKIPPED 8, SUCCESS 4. Reviews: none.
 - **Last curated action:** 2026-11-02: owner requested permanent Draft for view/track; converted #228 to Draft and added a daily Draft-state guard.
-- **Latest GitHub activity:** PR updated 2026-11-02T08:46:06Z; no issue comments.
+- **Latest GitHub activity:** PR updated 2026-11-02T08:50:19Z; no issue comments.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 2cb681fc1e. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.
