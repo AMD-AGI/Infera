@@ -1,0 +1,1715 @@
+{
+  "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+  "image": "lmsysorg/sglang-rocm:v0.5.21-rocm720-mi35x-20261011",
+  "image_digest": "sha256:fa0b69936d3e91cb42af9a2c499f35c4602e9c580a58b49214cb67b0f00b973b",
+  "aiter_commit": "e7d2453f25e5aaeea72a3a40b284ba453e026624",
+  "public_harness_sha256": "1f0a9d628264802442e4750bd0fd7dca704fb7921965f9821694bf66f8bb3934",
+  "runs": [
+    {
+      "run_id": "m256",
+      "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+      "started_utc": "2026-11-02T08:30:32Z",
+      "completed_utc": "2026-11-02T08:31:52Z",
+      "cases": [
+        {
+          "name": "m256-seed104729-default",
+          "rows": 256,
+          "seed": 104729,
+          "arm": "default",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.639418479055166,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "default",
+            "rows": 256,
+            "seed": 104729,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "5ec2ba0b02adc15786496dea484e03541a7420e9d2710af594666852a2da0ced",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "1ac2ce2bf3057e83d63475c543c0b9959a1deb8c17fb2ee0e94d29974499247c",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.7047016168944538,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.0218124389648438,
+              "mean_absolute_error": 0.278118759393692,
+              "rmse": 0.3496454954147339,
+              "reference_rms": 13.658625602722168,
+              "relative_rmse": 0.02559887836335813
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              256,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.423100471496582,
+              26.857891082763672,
+              26.455891132354736,
+              26.43549919128418,
+              26.3162899017334,
+              26.01188898086548,
+              26.167891025543213
+            ],
+            "median_microseconds": 26.43549919128418,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m256-seed104729-capped",
+          "rows": 256,
+          "seed": 104729,
+          "arm": "capped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.889489021152258,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "capped",
+            "rows": 256,
+            "seed": 104729,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 2,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "5ec2ba0b02adc15786496dea484e03541a7420e9d2710af594666852a2da0ced",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "1ac2ce2bf3057e83d63475c543c0b9959a1deb8c17fb2ee0e94d29974499247c",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6601259326562285,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.0218124389648438,
+              "mean_absolute_error": 0.278118759393692,
+              "rmse": 0.3496454954147339,
+              "reference_rms": 13.658625602722168,
+              "relative_rmse": 0.02559887836335813
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              256,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.76350975036621,
+              27.262699604034424,
+              26.562299728393555,
+              26.834299564361572,
+              26.915900707244873,
+              26.585099697113037,
+              26.516289710998535
+            ],
+            "median_microseconds": 26.834299564361572,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m256-seed104729-uncapped",
+          "rows": 256,
+          "seed": 104729,
+          "arm": "uncapped",
+          "returncode": -6,
+          "timed_out": false,
+          "wall_seconds": 33.451624697074294,
+          "result": {
+            "status": "before_first_production_call",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "uncapped",
+            "rows": 256,
+            "seed": 104729,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 4,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "5ec2ba0b02adc15786496dea484e03541a7420e9d2710af594666852a2da0ced",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "1ac2ce2bf3057e83d63475c543c0b9959a1deb8c17fb2ee0e94d29974499247c",
+            "scales": "all ones, FP32",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          },
+          "failure": "SIGABRT: LLVM Sequence.h:275 iota_range assertion Begin <= End"
+        }
+      ],
+      "paired_diagnostics": [
+        {
+          "rows": 256,
+          "seed": 104729,
+          "arm": "capped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.653287887573242,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 1.0150857893846346
+        }
+      ]
+    },
+    {
+      "run_id": "boundaries",
+      "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+      "started_utc": "2026-11-02T08:32:15Z",
+      "completed_utc": "2026-11-02T08:36:45Z",
+      "cases": [
+        {
+          "name": "m128-seed130363-default",
+          "rows": 128,
+          "seed": 130363,
+          "arm": "default",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.58862152788788,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "default",
+            "rows": 128,
+            "seed": 130363,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              128,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "3202b7203f99f2030fb85e855c12876f61b5a00de12c1a63bc7e154deaef4d7e",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "65ec5ff58eb871e40a5a86b395ca338d595eb977be128abc018e9a40e404d66b",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6337825870141387,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 1.9908561706542969,
+              "mean_absolute_error": 0.2778823673725128,
+              "rmse": 0.34933340549468994,
+              "reference_rms": 13.63955020904541,
+              "relative_rmse": 0.025611798053503314
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              128,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.543509006500244,
+              26.564300060272217,
+              26.53148889541626,
+              26.294689178466797,
+              66.93935871124268,
+              26.347899436950684,
+              26.122291088104248
+            ],
+            "median_microseconds": 26.53148889541626,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m128-seed130363-capped",
+          "rows": 128,
+          "seed": 130363,
+          "arm": "capped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 21.838342334143817,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "capped",
+            "rows": 128,
+            "seed": 130363,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 2,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              128,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "3202b7203f99f2030fb85e855c12876f61b5a00de12c1a63bc7e154deaef4d7e",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "65ec5ff58eb871e40a5a86b395ca338d595eb977be128abc018e9a40e404d66b",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6724254488945007,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 1.9908561706542969,
+              "mean_absolute_error": 0.2778823673725128,
+              "rmse": 0.34933340549468994,
+              "reference_rms": 13.63955020904541,
+              "relative_rmse": 0.025611798053503314
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              128,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.944319248199463,
+              27.473909854888916,
+              26.845500469207764,
+              26.888699531555176,
+              27.155110836029053,
+              27.017099857330322,
+              26.798698902130127
+            ],
+            "median_microseconds": 27.017099857330322,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m128-seed130363-uncapped",
+          "rows": 128,
+          "seed": 130363,
+          "arm": "uncapped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.688838042784482,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "uncapped",
+            "rows": 128,
+            "seed": 130363,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 2,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              128,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "3202b7203f99f2030fb85e855c12876f61b5a00de12c1a63bc7e154deaef4d7e",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "65ec5ff58eb871e40a5a86b395ca338d595eb977be128abc018e9a40e404d66b",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6609506690874696,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 1.9908561706542969,
+              "mean_absolute_error": 0.2778823673725128,
+              "rmse": 0.34933340549468994,
+              "reference_rms": 13.63955020904541,
+              "relative_rmse": 0.025611798053503314
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              128,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.25590944290161,
+              26.451900005340576,
+              26.16429090499878,
+              26.134300231933594,
+              26.44829034805298,
+              65.30892848968506,
+              26.067090034484863
+            ],
+            "median_microseconds": 26.44829034805298,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m129-seed130363-default",
+          "rows": 129,
+          "seed": 130363,
+          "arm": "default",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.939289088826627,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "default",
+            "rows": 129,
+            "seed": 130363,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              129,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "6a1e2a308120d36948607c4c78b43671d4f5336f00490a349f170f8eda3e308e",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "04f62ba5320483dc13633c459b8758598ea2ac7d35c878a80fac79090862b074",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.7893917192704976,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 1.9586620330810547,
+              "mean_absolute_error": 0.27784451842308044,
+              "rmse": 0.3492153584957123,
+              "reference_rms": 13.64653491973877,
+              "relative_rmse": 0.02559003883034047
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              129,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              26.84870958328247,
+              26.118690967559814,
+              26.273090839385986,
+              26.111900806427002,
+              26.387100219726562,
+              26.107089519500732,
+              25.883500576019287
+            ],
+            "median_microseconds": 26.118690967559814,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m129-seed130363-capped",
+          "rows": 129,
+          "seed": 130363,
+          "arm": "capped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.43848064634949,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "capped",
+            "rows": 129,
+            "seed": 130363,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 2,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              129,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "6a1e2a308120d36948607c4c78b43671d4f5336f00490a349f170f8eda3e308e",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "04f62ba5320483dc13633c459b8758598ea2ac7d35c878a80fac79090862b074",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.8403700361959636,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 1.9586620330810547,
+              "mean_absolute_error": 0.27784451842308044,
+              "rmse": 0.3492153584957123,
+              "reference_rms": 13.64653491973877,
+              "relative_rmse": 0.02559003883034047
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              129,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.469909191131592,
+              27.159910202026367,
+              27.157111167907715,
+              66.0790491104126,
+              27.455899715423584,
+              27.15749979019165,
+              26.8471097946167
+            ],
+            "median_microseconds": 27.159910202026367,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m129-seed130363-uncapped",
+          "rows": 129,
+          "seed": 130363,
+          "arm": "uncapped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 23.13936946587637,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "uncapped",
+            "rows": 129,
+            "seed": 130363,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 3,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              129,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "6a1e2a308120d36948607c4c78b43671d4f5336f00490a349f170f8eda3e308e",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "04f62ba5320483dc13633c459b8758598ea2ac7d35c878a80fac79090862b074",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.8362841140478849,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 1.9586620330810547,
+              "mean_absolute_error": 0.27784451842308044,
+              "rmse": 0.3492153584957123,
+              "reference_rms": 13.64653491973877,
+              "relative_rmse": 0.02559003883034047
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              129,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              66.6347599029541,
+              65.58833122253418,
+              65.52352905273438,
+              66.00153923034668,
+              116.28861427307129,
+              66.11834049224854,
+              66.15954875946045
+            ],
+            "median_microseconds": 66.11834049224854,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m257-seed130363-default",
+          "rows": 257,
+          "seed": 130363,
+          "arm": "default",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.839381688740104,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "default",
+            "rows": 257,
+            "seed": 130363,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              257,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "66bd76a757763610a12b48a02c6b677694778cd5804b8dfc3472d1ba373fb266",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "803bac674198024a33fcb501b61e5eb6af2bece007b7dd39ad7964a6bdc8f26f",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6327500441111624,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.083049774169922,
+              "mean_absolute_error": 0.2778405249118805,
+              "rmse": 0.34928154945373535,
+              "reference_rms": 13.643529891967773,
+              "relative_rmse": 0.025600526566029264
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              257,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              53.38860034942627,
+              52.26778984069824,
+              51.736178398132324,
+              52.06899166107178,
+              51.82938098907471,
+              51.84819221496582,
+              51.89258098602295
+            ],
+            "median_microseconds": 51.89258098602295,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m257-seed130363-capped",
+          "rows": 257,
+          "seed": 130363,
+          "arm": "capped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.28873630799353,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "capped",
+            "rows": 257,
+            "seed": 130363,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              257,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "66bd76a757763610a12b48a02c6b677694778cd5804b8dfc3472d1ba373fb266",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "803bac674198024a33fcb501b61e5eb6af2bece007b7dd39ad7964a6bdc8f26f",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.635684606153518,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.083049774169922,
+              "mean_absolute_error": 0.2778405249118805,
+              "rmse": 0.34928154945373535,
+              "reference_rms": 13.643529891967773,
+              "relative_rmse": 0.025600526566029264
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              257,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              53.28420162200928,
+              52.23258972167969,
+              51.8989896774292,
+              51.94139003753662,
+              51.90138816833496,
+              51.877779960632324,
+              51.87417984008789
+            ],
+            "median_microseconds": 51.90138816833496,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m257-seed130363-uncapped",
+          "rows": 257,
+          "seed": 130363,
+          "arm": "uncapped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.98941931128502,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "uncapped",
+            "rows": 257,
+            "seed": 130363,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              257,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "66bd76a757763610a12b48a02c6b677694778cd5804b8dfc3472d1ba373fb266",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "803bac674198024a33fcb501b61e5eb6af2bece007b7dd39ad7964a6bdc8f26f",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6335291313007474,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.083049774169922,
+              "mean_absolute_error": 0.2778405249118805,
+              "rmse": 0.34928154945373535,
+              "reference_rms": 13.643529891967773,
+              "relative_rmse": 0.025600526566029264
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              257,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              53.38540077209473,
+              52.51898765563965,
+              51.96817874908447,
+              52.02098846435547,
+              51.92819118499756,
+              51.980581283569336,
+              51.970977783203125
+            ],
+            "median_microseconds": 51.980581283569336,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m256-seed130363-default",
+          "rows": 256,
+          "seed": 130363,
+          "arm": "default",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.689315195661038,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "default",
+            "rows": 256,
+            "seed": 130363,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "d6bdb42bf77422cc3ec484d4f553d0ce35ad67a095e5b1042c8dc198a9d01ad5",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "af1345f909a8f57a71bb0ea3a38e419f39ec19445657dee559f3dc22bf0eaa13",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6347189908847213,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.119124412536621,
+              "mean_absolute_error": 0.2780337333679199,
+              "rmse": 0.3495238125324249,
+              "reference_rms": 13.651528358459473,
+              "relative_rmse": 0.025603273373844236
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              256,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              26.988699436187744,
+              26.58910036087036,
+              26.4778995513916,
+              26.22030019760132,
+              26.33629083633423,
+              25.913889408111572,
+              25.87109088897705
+            ],
+            "median_microseconds": 26.33629083633423,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m256-seed130363-capped",
+          "rows": 256,
+          "seed": 130363,
+          "arm": "capped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 23.08910319581628,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "capped",
+            "rows": 256,
+            "seed": 130363,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 2,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "d6bdb42bf77422cc3ec484d4f553d0ce35ad67a095e5b1042c8dc198a9d01ad5",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "af1345f909a8f57a71bb0ea3a38e419f39ec19445657dee559f3dc22bf0eaa13",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.662313595879823,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.119124412536621,
+              "mean_absolute_error": 0.2780337333679199,
+              "rmse": 0.3495238125324249,
+              "reference_rms": 13.651528358459473,
+              "relative_rmse": 0.025603273373844236
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              256,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.586710453033447,
+              27.081499099731445,
+              27.099099159240723,
+              26.75909996032715,
+              26.919898986816406,
+              26.60029888153076,
+              26.448700428009033
+            ],
+            "median_microseconds": 26.919898986816406,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m256-seed130363-uncapped",
+          "rows": 256,
+          "seed": 130363,
+          "arm": "uncapped",
+          "returncode": -6,
+          "timed_out": false,
+          "wall_seconds": 19.385194621048868,
+          "result": {
+            "status": "before_first_production_call",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "uncapped",
+            "rows": 256,
+            "seed": 130363,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 4,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "d6bdb42bf77422cc3ec484d4f553d0ce35ad67a095e5b1042c8dc198a9d01ad5",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "af1345f909a8f57a71bb0ea3a38e419f39ec19445657dee559f3dc22bf0eaa13",
+            "scales": "all ones, FP32",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          },
+          "failure": "SIGABRT: LLVM Sequence.h:275 iota_range assertion Begin <= End"
+        }
+      ],
+      "paired_diagnostics": [
+        {
+          "rows": 128,
+          "seed": 130363,
+          "arm": "capped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.634004592895508,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 1.0183031930031623
+        },
+        {
+          "rows": 128,
+          "seed": 130363,
+          "arm": "uncapped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.634004592895508,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 0.9968641583707858
+        },
+        {
+          "rows": 129,
+          "seed": 130363,
+          "arm": "capped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.641369819641113,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 1.0398649088409437
+        },
+        {
+          "rows": 129,
+          "seed": 130363,
+          "arm": "uncapped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.641369819641113,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 2.5314569008978847
+        },
+        {
+          "rows": 257,
+          "seed": 130363,
+          "arm": "capped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.638284683227539,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 1.000169719488695
+        },
+        {
+          "rows": 257,
+          "seed": 130363,
+          "arm": "uncapped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.638284683227539,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 1.0016958165478431
+        },
+        {
+          "rows": 256,
+          "seed": 130363,
+          "arm": "capped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.646293640136719,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 1.0221598460507968
+        }
+      ]
+    },
+    {
+      "run_id": "public-smoke",
+      "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+      "started_utc": "2026-11-02T08:36:57Z",
+      "completed_utc": "2026-11-02T08:38:04Z",
+      "cases": [
+        {
+          "name": "m256-seed155921-default",
+          "rows": 256,
+          "seed": 155921,
+          "arm": "default",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 22.739018434658647,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "default",
+            "rows": 256,
+            "seed": 155921,
+            "config": null,
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "a96dab02c495967d0176bfd73958fb9621a8cec983f957d80a95dd006063c59b",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "9014d38f4e868d3353c88ca3c8ecea8c01a6050460d44416b60bdf2292d0d975",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6341157723218203,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.0765533447265625,
+              "mean_absolute_error": 0.27760639786720276,
+              "rmse": 0.348977267742157,
+              "reference_rms": 13.626535415649414,
+              "relative_rmse": 0.02561012444449919
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              256,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              28.111510276794434,
+              27.688710689544678,
+              27.46830940246582,
+              27.730319499969482,
+              27.220709323883057,
+              26.937499046325684,
+              27.059509754180908
+            ],
+            "median_microseconds": 27.46830940246582,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m256-seed155921-capped",
+          "rows": 256,
+          "seed": 155921,
+          "arm": "capped",
+          "returncode": 0,
+          "timed_out": false,
+          "wall_seconds": 23.040357921272516,
+          "result": {
+            "status": "completed",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "capped",
+            "rows": 256,
+            "seed": 155921,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 2,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "a96dab02c495967d0176bfd73958fb9621a8cec983f957d80a95dd006063c59b",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "9014d38f4e868d3353c88ca3c8ecea8c01a6050460d44416b60bdf2292d0d975",
+            "scales": "all ones, FP32",
+            "first_call_wall_seconds": 0.6607461217790842,
+            "fp32_reference_diagnostics": {
+              "finite": true,
+              "exact_equal": false,
+              "max_absolute_error": 2.0765533447265625,
+              "mean_absolute_error": 0.27760639786720276,
+              "rmse": 0.348977267742157,
+              "reference_rms": 13.626535415649414,
+              "relative_rmse": 0.02561012444449919
+            },
+            "reference_limitation": "Reference uses BF16 activations and dequantized stored FP8 weights. AITER also quantizes activations internally. These errors are diagnostic; no unvalidated numerical tolerance is used to declare correctness.",
+            "output_shape": [
+              64,
+              256,
+              512
+            ],
+            "output_dtype": "torch.bfloat16",
+            "output_finite": true,
+            "steady_microseconds": [
+              27.429909706115723,
+              26.901509761810303,
+              26.845099925994873,
+              26.531100273132324,
+              26.543500423431396,
+              26.1611008644104,
+              26.259500980377197
+            ],
+            "median_microseconds": 26.543500423431396,
+            "warmup": 20,
+            "repeats": 7,
+            "iterations_per_repeat": 100,
+            "timing_scope": "Production absorbed-Q dispatch, including activation quantization and allocation",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          }
+        },
+        {
+          "name": "m256-seed155921-uncapped",
+          "rows": 256,
+          "seed": 155921,
+          "arm": "uncapped",
+          "returncode": -6,
+          "timed_out": false,
+          "wall_seconds": 19.68632845999673,
+          "result": {
+            "status": "before_first_production_call",
+            "candidate_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+            "arm": "uncapped",
+            "rows": 256,
+            "seed": 155921,
+            "config": {
+              "BLOCK_SIZE_M": 64,
+              "BLOCK_SIZE_N": 128,
+              "GROUP_SIZE_M": 1,
+              "num_warps": 4,
+              "num_stages": 2,
+              "waves_per_eu": 4,
+              "matrix_instr_nonkdim": 16,
+              "cache_modifier": ".cg"
+            },
+            "device": "AMD Instinct MI355X",
+            "architecture": "gfx950:sramecc+:xnack-",
+            "compute_units": 256,
+            "torch": "2.9.1+rocm7.2.0.git7e1940d4",
+            "hip": "7.2.26015-fc0010cf6a",
+            "triton": "3.7.0",
+            "module_sha256": "a349e68ca668806132b45d066c953ada25958e146286016e45e4e5d1e03379fc",
+            "aiter_wrapper_sha256": "8d824cca7efb4d8e883ae57ce58f0e87e3f7b6b447b38d3cb548e6e995ff079e",
+            "q_shape": [
+              256,
+              64,
+              192
+            ],
+            "q_stride": [
+              16384,
+              256,
+              1
+            ],
+            "q_dtype": "torch.bfloat16",
+            "q_sha256": "a96dab02c495967d0176bfd73958fb9621a8cec983f957d80a95dd006063c59b",
+            "weight_shape": [
+              64,
+              192,
+              512
+            ],
+            "weight_stride": [
+              98304,
+              512,
+              1
+            ],
+            "weight_dtype": "torch.float8_e4m3fn",
+            "weight_sha256": "9014d38f4e868d3353c88ca3c8ecea8c01a6050460d44416b60bdf2292d0d975",
+            "scales": "all ones, FP32",
+            "aiter_implementation_sha256": [
+              "70b3a9c9aca806a784b887a61d2c25d7bca8e43c63481f1c759d656ea4ce5bec"
+            ]
+          },
+          "failure": "SIGABRT: LLVM Sequence.h:275 iota_range assertion Begin <= End"
+        }
+      ],
+      "paired_diagnostics": [
+        {
+          "rows": 256,
+          "seed": 155921,
+          "arm": "capped",
+          "reference_arm": "default",
+          "metrics": {
+            "finite": true,
+            "exact_equal": true,
+            "max_absolute_error": 0.0,
+            "mean_absolute_error": 0.0,
+            "rmse": 0.0,
+            "reference_rms": 13.621493339538574,
+            "relative_rmse": 0.0
+          },
+          "median_time_ratio_to_default": 0.9663317838209801
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Production Q-absorb synthetic FP8 matrix, not model or serving validation",
+    "FP32 diagnostics include AITER activation quantization; paired equality is the regression control",
+    "No locked-clock performance campaign and no serving throughput claim"
+  ]
+}
