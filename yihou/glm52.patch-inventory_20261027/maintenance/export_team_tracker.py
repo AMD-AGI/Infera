@@ -13,6 +13,10 @@ import update_pr_ledger as ledger
 ARCHIVE = "b563462fa4a20b4a6f563d279de14ddee455b343"
 INVENTORY = "yihou/glm52.patch-inventory_20261027"
 ARCHIVE_ROOT = f"https://github.com/AMD-AGI/Infera/blob/{ARCHIVE}/"
+B8_VALIDATION_ROOT = (
+    "https://github.com/AMD-AGI/Infera/blob/"
+    f"ce7a2217c0d782a303b1c9f191632fc964e5f2ba/{INVENTORY}/validation/b8_46918/"
+)
 FILES = ("README.md", "ACTIVE_PRS.md", "HISTORY.md", "PACKUP_MAP.md", "REFERENCES.md")
 
 
@@ -313,6 +317,14 @@ def generate(inventory, runtime, destination):
         "- Frozen Infera source: [fdbafb6065](https://github.com/AMD-AGI/Infera/tree/fdbafb6065dae6d1c53936c7d2cf1f5022a514d0); Mooncake [faae8dd4a6](https://github.com/kvcache-ai/Mooncake/tree/faae8dd4a6309c3ecd47e0721a83b0250d686fa2) plus inherited RDMA patches.",
         "- Official SGLang base: `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`; exact registry digest is in SOURCE_PINS.json. The historical integrated image name is a local tag, not a public pull URL. Rebuild from the pinned public sources.",
         "- Public model/trace revisions and retrieval references are in the reproduction guide. Their byte identity to historical local weights/trace files is unverified; record exact hashes in a new run. Current-main kernel ports have separate evidence and do not certify this frozen overlay.",
+        "",
+        "## B8 hardware validation",
+        "",
+        "Post-archive validation of external SGLang #46918 at exact head `9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1`: one MI355X, original compiler environment, three M=256 crash controls and bitwise-equal capped/workaround outputs across the tested matrix. This does not replace the frozen deployment evidence or establish model accuracy.",
+        "",
+        f"- [MI355X results and scope]({B8_VALIDATION_ROOT}RESULTS.md); [source/input hashes and timing samples]({B8_VALIDATION_ROOT}RESULTS.json).",
+        f"- [Reproduction commands and executable harness]({B8_VALIDATION_ROOT}README.md).",
+        "- [Evidence posted to the original PR](https://github.com/sgl-project/sglang/pull/46918#issuecomment-6572803085); maintainers still need to enable CI and review/merge.",
         "",
         "## Daily refresh and team handoff",
         "",
