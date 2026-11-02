@@ -1,6 +1,6 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-02T10:09:36.958069+00:00. Author: `dorado269`.
+Checked: 2026-11-02T10:50:37.930363+00:00. Author: `dorado269`.
 
 **56 PRs: 16 open (9 ready / 7 draft), 22 merged, 18 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
@@ -60,5 +60,5 @@ Checked: 2026-11-02T10:09:36.958069+00:00. Author: `dorado269`.
 | [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) | Remove rank-divergent host syncs that can deadlock DSA eager execution. | READY | See handoff |
 | [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | See handoff |
 | [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | READY | See handoff |
-| [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | [Perf] [AMD] dsa: Opt-in single-pass Triton top-k for long-context decode rows | READY | See handoff |
-| [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | [Perf] [AMD] dsa: In-tree gfx950 paged MQA logits for decode / MTP-verify rows | READY | See handoff |
+| [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | Provide opt-in long-context top-k on compact page tables with exact sampling fallbacks. | READY | See handoff |
+| [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch. | READY | See handoff |
