@@ -4,7 +4,7 @@
 
 ## 1. Merge priorities for the 48k deployment
 
-Prioritize SGLang **#33059, #46830 and #46820**, and coordinate the existing external **#45524**. They cover fix families already carried by the historical image. Then progress the narrower kernel ports **#47276/#47278** and the evidence catalog **Infera #221**. This is the integration priority for reducing downstream patches; the already-patched frozen image does not need to wait for these merges.
+Prioritize SGLang **#33059, #46830 and #46820**, and coordinate the existing external **#45524 and #46918**. They cover fix families already carried by the historical image. Then progress the narrower kernel ports **#47276/#47278** and the evidence catalog **Infera #221**. This is the integration priority for reducing downstream patches; the already-patched frozen image does not need to wait for these merges.
 
 | Reference | Total tokens/s/GPU | Change / interpretation |
 |---|---:|---|
@@ -16,7 +16,7 @@ The 47.9k-to-48k changes are existing configuration settings, with **no addition
 
 **Evidence boundary:** serving throughput used simulated MTP acceptance 2.99. Real-acceptance investigation found garbling associated with PP overlap and decode custom all-reduce. These are historical performance results, not a correctness-qualified deployment or individual-patch speedup. Later kernel PRs have separate numerical/real-acceptance evidence; their serving timings also use simulated acceptance.
 
-PR state checked: **2026-11-02T07:55:58.424735+00:00**. Ready means non-draft, not approval or passed functional CI.
+PR state checked: **2026-11-02T08:45:45.260541+00:00**. Ready means non-draft, not approval or passed functional CI.
 
 | Priority PR | Current state | Deployment role / next action |
 |---|---|---|
@@ -24,14 +24,14 @@ PR state checked: **2026-11-02T07:55:58.424735+00:00**. Ready means non-draft, n
 | [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) | READY | P0: baked dsa_dp_sync fix; replaces closed #33973. Prioritize CI and review. |
 | [sgl-project/sglang #46820](https://github.com/sgl-project/sglang/pull/46820) | READY | P0: baked nonblocking metrics fix; CPU/socket regression already exists. Prioritize CI and review. |
 | [sgl-project/sglang #45524](https://github.com/sgl-project/sglang/pull/45524) | READY | P0, external: related PP producer-event fix. Preserve the distinct historical image patch; coordinate with its author. |
-| [sgl-project/sglang #46918](https://github.com/sgl-project/sglang/pull/46918) | READY | P0, external: scoped absorb-BMM configuration candidate for S02 / issue #46829. AMD GPU reproduction, numerical and timing validation remain outstanding; the frozen image uses config=None. |
+| [sgl-project/sglang #46918](https://github.com/sgl-project/sglang/pull/46918) | READY | P0, external: scoped absorb-BMM configuration candidate for S02 / issue #46829. Exact-head MI355X reproduction, paired-output and timing checks now complete: cap2 avoids the original abort and matches config=None bitwise. Prioritize maintainer CI/review/merge; the frozen image still uses config=None. |
 | [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | READY | P1: reworked fused indexer/top-k port; not the exact historical overlay. Coordinate #45307 overlap. |
 | [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | READY | P1: reworked sparse MLA port with BF16 split partials; qualify the new combined stack separately. |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | DRAFT | P1, evidence tooling: publish kernel provenance; not required at runtime. Retarget after #220 and qualify redacted derivatives. |
 
 ### InferenceX first version is a separate publication queue
 
-The common unmerged engine PRs are #33059/#46830/#46820. The PP construction fix #21194 is already merged; issue #46829 has external fix candidate [#46918](https://github.com/sgl-project/sglang/pull/46918), which still needs AMD GPU reproduction, numerical and timing checks, review and merge (or another validated upstream solution). Select an image carrying the fixes and remove startup engine patching. #47276/#47278 and PP-overlap fix #45524 are later/configuration-dependent work, not first-version prerequisites.
+The common unmerged engine PRs are #33059/#46830/#46820. The PP construction fix #21194 is already merged; issue #46829 has external fix candidate [#46918](https://github.com/sgl-project/sglang/pull/46918), whose original MI355X reproducer and paired-output checks now pass; maintainer CI/review/merge and image integration remain. Select an image carrying the fixes and remove startup engine patching. #47276/#47278 and PP-overlap fix #45524 are later/configuration-dependent work, not first-version prerequisites.
 
 Publication additionally tracks InferenceX #4629, srt-slurm #630, SGLang cookbook #47117 and InferenceX-app #1542; Infera #222/#223 are merged. The current first-version 8-GPU report is about 37.3k at synthetic AL 3.61, not the frozen 48k at 2.99. Its public sweep failed at bring-up. [Source comparison and dependency table](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/INFERENCEX_V1_VS_48K.md).
 
@@ -68,7 +68,7 @@ Except for the intentionally permanent-Draft tracker #228, each row separates au
 | P2 | [sgl-project/sglang #46824](https://github.com/sgl-project/sglang/pull/46824) — Relayout DCP-sharded draft KV together with target KV. | DRAFT / `1bcfc52149` | NOT IN LLR37: DCP1-to-DCP-N transport. | Map pdBe-r1 to current supported combinations; resolve or explicitly reject the known DP2×DCP2 graph-garbling case. Test only uncovered MTP/prefix/PP cases on allocated hardware as needed. #44322 has merged; old backend hold is cleared. | Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. This transport must land before #46826 enables the configuration. #45524 producer ordering remains separate. |
 | P2 | [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) — Allow DCP decode behind DCP1 prefill when transport/backend support it. | DRAFT / `21f8e688fa` | NOT IN LLR37: constrained ROCm DCP enablement. | Complete the supported-configuration coverage with #46824; preserve rejection of unqualified graph/layout combinations. Backend/default policy is already tested; do not wait again for merged #44322. | Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Merge after #46824; review may proceed before that merge with the dependency explicit. |
 | P3 | [AMD-AGI/Infera #164](https://github.com/AMD-AGI/Infera/pull/164) — Keep an alternative fast-benchmark script for comparison. | DRAFT / `4676ec9087` | NOT IN LLR37: comparison-only benchmark tooling. | Decide whether to close the comparison draft or define supported behavior, fill the placeholder body and add regression evidence before promotion. | Yihou/delegate: scope decision first; then fix failing checks and request review. |
-| P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `1eaa0a48b6` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
+| P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `64870efba4` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 
 ## 4. Scope, ownership and references
 
