@@ -42,13 +42,16 @@ At **09:00 UTC / 17:00 Asia/Shanghai**, the installed user cron entry runs
 6. If a team tracking PR is configured and open, exports the same audit into its
    five Markdown files, checks them, signs a documentation-only commit and pushes
    that owned branch. It checks the PR lifecycle and branch identity before
-   publication. A dirty worktree is preserved for manual reconciliation.
+   publication. A dirty worktree is preserved for manual reconciliation. Per
+   owner instruction, **Infera #228 is permanently Draft, for view and track
+   only: never promote or merge it**. With `permanent_draft: true`, the updater
+   checks and restores its Draft flag before collection and publication.
 
-After that PR merges or closes, the team publisher reports
-`FOLLOWUP_PR_NEEDED` and stops writing the closed branch. The underlying account
-collector continues daily. Create the next documentation update from main and
-update local config before resuming team publication; the scheduler never pushes
-directly to main. `run_status.json` records this handoff state explicitly.
+If the tracker is closed, the team publisher reports `TRACKER_CLOSED` and
+preserves its branch/artifacts for the owner to decide how to resume. The
+underlying account collector continues daily. The tracker is not intended to
+merge, and the scheduler never pushes directly to main. `run_status.json`
+records this handoff state explicitly.
 
 Publication uses an isolated worktree below this inventory's ignored `worktrees/`
 directory. It never checks out branches, stages files or stashes changes in the
@@ -57,7 +60,7 @@ its next manual pull; the GitHub branch link and runtime internal ledger are the
 daily-updated entry points. No force push or deletion is performed.
 
 The timer **refreshes the ledger**, not an autonomous code-review service. It
-does not mutate PRs, post comments, mark Ready, merge, allocate GPUs or certify
+does not mutate runtime PRs, post comments, mark Ready, merge, allocate GPUs or certify
 new evidence. A human/agent delegate must assess new reviews/CI failures and
 update the curated actions. No external messaging is configured. The task depends
 on this host being online and its GitHub/SSH credentials remaining valid.

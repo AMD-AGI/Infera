@@ -61,6 +61,8 @@ def generate(inventory, runtime, destination):
     overview = [
         "# GLM-5.2 PD: team PR tracker",
         "",
+        "**Tracking-only PR: [Infera #228](https://github.com/AMD-AGI/Infera/pull/228) must remain Draft permanently. Use it for viewing, status tracking and team coordination; do not mark it Ready or merge it. The Ready/merge actions below apply to the linked implementation PRs.**",
+        "",
         "## 1. Merge priorities for the 48k deployment",
         "",
         "Prioritize SGLang **#33059, #46830 and #46820**, and coordinate the existing external **#45524**. They cover fix families already carried by the historical image. Then progress the narrower kernel ports **#47276/#47278** and the evidence catalog **Infera #221**. This is the integration priority for reducing downstream patches; the already-patched frozen image does not need to wait for these merges.",
@@ -95,7 +97,7 @@ def generate(inventory, runtime, destination):
         "",
         f"## 3. Draft — {len(drafts)} owned public PRs",
         "",
-        "Each row separates author work needed for promotion from maintainer-controlled merge requirements. Reuse matching archived hardware evidence; request a pool node only for concrete uncovered behavior. Human review and attribution cannot be supplied by the updater. Details: [ACTIVE_PRS.md](ACTIVE_PRS.md#draft).",
+        "Except for the intentionally permanent-Draft tracker #228, each row separates author work needed for promotion from maintainer-controlled merge requirements. Reuse matching archived hardware evidence; request a pool node only for concrete uncovered behavior. Human review and attribution cannot be supplied by the updater. Details: [ACTIVE_PRS.md](ACTIVE_PRS.md#draft).",
         "",
         *ledger.active_table(drafts, notes),
         "",
@@ -319,7 +321,7 @@ def generate(inventory, runtime, destination):
         + f"[maintenance tools](https://github.com/AMD-AGI/Infera/tree/dev/pd_opt/glm_5.2_agentx/{INVENTORY}/maintenance)"
         + " regenerate the public export. Machine-specific cron/config/logs stay outside this PR. The experiment workspace and uncommitted pack-ups are not staged by the publisher.",
         "",
-        "Daily publication updates only the open documentation branch; it does not promote, merge or edit runtime PRs. When the tracking PR merges or closes, the publisher preserves its artifacts and flags that a new main-based update PR is needed; create that follow-up before resuming publication to the team tracker. The underlying account status collector continues its daily refresh. Never push generated changes directly to main.",
+        "This documentation PR (#228) is permanently Draft by owner instruction: **for view and track only; never mark Ready or merge**. Daily publication updates its branch and verifies the Draft flag before collection and publication, restoring Draft if necessary. It does not promote, merge or edit runtime PRs. If the tracker is closed, preserve artifacts and ask its owner how to resume; the account collector continues daily. Never push generated changes directly to main.",
         "",
         "Validation work uses isolated checkouts. Keep `git commit -s` under the configured identity; no assistant/co-author trailers. Allocate GPU checks through the machine pool; do not use the live experiment nodes. Matching archived hardware evidence is reusable, while changed implementations and missing model matrices need specific additional coverage.",
         "",

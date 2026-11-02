@@ -26,6 +26,8 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 
 ## Dated maintenance records
 
+November 2 policy correction: per explicit owner instruction, [Infera #228](https://github.com/AMD-AGI/Infera/pull/228) is now a **permanent Draft for view and track only**. Never promote or merge it. Daily maintenance verifies/restores its Draft flag; the implementation PRs retain their separate Ready/merge work. This supersedes the initial tracker-promotion plan below.
+
 November 2 team handoff: opened [Infera #228](https://github.com/AMD-AGI/Infera/pull/228)
 as Ready from main `8847491c`, on `dev/yihou/glm52-pr-tracking`. The five new
 `docs/glm52-pr-tracking/` Markdown files lead with 48k deployment priorities and

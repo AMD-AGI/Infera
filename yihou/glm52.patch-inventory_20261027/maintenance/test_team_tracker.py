@@ -29,6 +29,7 @@ class TrackerTests(unittest.TestCase):
                 "pr_url": "https://github.com/AMD-AGI/Infera/pull/1",
                 "branch": "dev/yihou/tracker",
                 "worktree": "/home/yihou/unused-test-worktree",
+                "permanent_draft": True,
             }
         }
 
@@ -36,18 +37,20 @@ class TrackerTests(unittest.TestCase):
         with patch.object(
             run_daily,
             "run",
-            return_value=json.dumps({"state": "MERGED", "headRefName": "dev/yihou/tracker"}),
+            return_value=json.dumps(
+                {"state": "MERGED", "headRefName": "dev/yihou/tracker", "isDraft": True}
+            ),
         ) as call:
             result = run_daily.publish_team_tracker(
                 self.config(), Path("/home/yihou/runtime"), Path("/home/yihou/inventory"), {}
             )
-        self.assertEqual(result["state"], "FOLLOWUP_PR_NEEDED")
+        self.assertEqual(result["state"], "TRACKER_CLOSED")
         self.assertEqual(call.call_count, 1)
         self.assertEqual(call.call_args.args[0][:3], ["gh", "pr", "view"])
 
     def test_changed_branch_is_not_written(self):
         answers = [
-            json.dumps({"state": "OPEN", "headRefName": "dev/yihou/tracker"}),
+            json.dumps({"state": "OPEN", "headRefName": "dev/yihou/tracker", "isDraft": True}),
             "someone-else\n",
         ]
         with patch.object(run_daily, "run", side_effect=answers) as call:
@@ -59,7 +62,7 @@ class TrackerTests(unittest.TestCase):
 
     def test_dirty_team_worktree_is_preserved(self):
         answers = [
-            json.dumps({"state": "OPEN", "headRefName": "dev/yihou/tracker"}),
+            json.dumps({"state": "OPEN", "headRefName": "dev/yihou/tracker", "isDraft": True}),
             "dev/yihou/tracker\n",
             " M notes.md\n",
         ]
@@ -69,6 +72,30 @@ class TrackerTests(unittest.TestCase):
                     self.config(), Path("/home/yihou/runtime"), Path("/home/yihou/inventory"), {}
                 )
         self.assertEqual(call.call_count, 3)
+
+    def test_tracker_is_only_converted_back_to_draft(self):
+        before = {"state": "OPEN", "headRefName": "dev/yihou/tracker", "isDraft": False}
+        after = {**before, "isDraft": True}
+        with patch.object(
+            run_daily, "run", side_effect=[json.dumps(before), "", json.dumps(after)]
+        ) as call:
+            result = run_daily.ensure_team_tracker_draft(
+                self.config(), Path("/home/yihou/inventory"), {}
+            )
+        self.assertTrue(result["isDraft"])
+        self.assertEqual(
+            call.call_args_list[1].args[0],
+            ["gh", "pr", "ready", self.config()["team_tracker"]["pr_url"], "--undo"],
+        )
+
+    def test_different_pr_branch_cannot_receive_draft_mutation(self):
+        wrong = {"state": "OPEN", "headRefName": "someone-else", "isDraft": False}
+        with patch.object(run_daily, "run", return_value=json.dumps(wrong)) as call:
+            with self.assertRaisesRegex(RuntimeError, "branch"):
+                run_daily.ensure_team_tracker_draft(
+                    self.config(), Path("/home/yihou/inventory"), {}
+                )
+        self.assertEqual(call.call_count, 1)
 
 
 if __name__ == "__main__":

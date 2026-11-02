@@ -32,26 +32,36 @@ def run(args, cwd, env, capture=False):
     ).stdout
 
 
+def ensure_team_tracker_draft(config, cwd, env):
+    """Enforce the owner's permanent-draft policy for the configured tracker only."""
+    team = config.get("team_tracker")
+    if not team or not team.get("pr_url"):
+        return None
+    command = ["gh", "pr", "view", team["pr_url"], "--json", "state,headRefName,isDraft"]
+    pr = json.loads(run(command, cwd, env, capture=True))
+    if pr["headRefName"] != team["branch"]:
+        raise RuntimeError("Configured tracker branch no longer matches the PR")
+    if pr["state"] == "OPEN" and team.get("permanent_draft") and not pr["isDraft"]:
+        run(["gh", "pr", "ready", team["pr_url"], "--undo"], cwd, env)
+        pr = json.loads(run(command, cwd, env, capture=True))
+        if pr["state"] != "OPEN" or not pr["isDraft"]:
+            raise RuntimeError("Unable to restore the tracker to its required Draft state")
+    return pr
+
+
 def publish_team_tracker(config, runtime, inventory, env):
-    """Publish the same audit to the team's open, main-based documentation PR."""
+    """Publish the same audit to the team's permanent draft documentation PR."""
     team = config.get("team_tracker")
     if not team:
         return {"state": "NOT_CONFIGURED"}
     if not team.get("pr_url"):
         return {"state": "AWAITING_PR_CREATION"}
-    pr = json.loads(
-        run(
-            ["gh", "pr", "view", team["pr_url"], "--json", "state,headRefName"],
-            inventory,
-            env,
-            capture=True,
-        )
-    )
+    pr = ensure_team_tracker_draft(config, inventory, env)
     if pr["state"] != "OPEN":
         return {
-            "state": "FOLLOWUP_PR_NEEDED",
+            "state": "TRACKER_CLOSED",
             "previous_pr_state": pr["state"],
-            "action": "Create a new update PR from main and update team_tracker config; do not push to main.",
+            "action": "This tracker is intended to remain an open Draft. Preserve artifacts and ask its owner how to resume; never merge or push to main.",
         }
     worktree = Path(team["worktree"])
     if "yihou" not in str(worktree.resolve()):
@@ -103,13 +113,11 @@ def publish_team_tracker(config, runtime, inventory, env):
     if g("diff", "--cached", "--name-only", capture=True).strip():
         g("commit", "-s", "-m", "docs: refresh GLM-5.2 team PR tracking")
     g("pull", "--rebase", "origin", team["branch"])
-    # Recheck lifecycle before publishing; a closed/merged PR needs a fresh branch.
-    state = json.loads(
-        run(["gh", "pr", "view", team["pr_url"], "--json", "state"], worktree, env, capture=True)
-    )["state"]
-    if state != "OPEN":
+    # Recheck lifecycle and the permanent-Draft policy before publishing.
+    pr = ensure_team_tracker_draft(config, worktree, env)
+    if pr["state"] != "OPEN":
         raise RuntimeError(
-            "Tracking PR closed during refresh; preserve generated commit for a follow-up PR"
+            "Tracking PR closed during refresh; preserve the generated commit for owner review"
         )
     g("push", "origin", f"HEAD:refs/heads/{team['branch']}")
     return {
@@ -181,6 +189,7 @@ def main():
                         raise RuntimeError(f"Configured commit identity changed: {field}")
                 g("pull", "--rebase", "origin", config["remote_branch"])
                 inventory = worktree / relative
+                ensure_team_tracker_draft(config, inventory, env)
                 run(
                     [
                         config["python"],
@@ -215,8 +224,8 @@ def main():
                 g("push", "origin", f"HEAD:refs/heads/{config['remote_branch']}")
                 report.update(state="SUCCESS", commit=g("rev-parse", "HEAD", capture=True).strip())
                 report["team_tracker"] = publish_team_tracker(config, runtime, inventory, env)
-                if report["team_tracker"]["state"] == "FOLLOWUP_PR_NEEDED":
-                    report["state"] = "SUCCESS_WITH_FOLLOWUP_NEEDED"
+                if report["team_tracker"]["state"] == "TRACKER_CLOSED":
+                    report["state"] = "SUCCESS_WITH_TRACKER_CLOSED"
                 (runtime / "last_publication.json").write_text(json.dumps(report, indent=2) + "\n")
             except Exception as exc:
                 report.update(state="FAILED", error=str(exc))
@@ -234,7 +243,7 @@ def main():
                 os.close(old_stderr)
                 sys.stdout, sys.stderr = previous_out, previous_err
         print(json.dumps(report, indent=2))
-        if report["state"] not in {"SUCCESS", "SUCCESS_WITH_FOLLOWUP_NEEDED"}:
+        if report["state"] not in {"SUCCESS", "SUCCESS_WITH_TRACKER_CLOSED"}:
             raise SystemExit(1)
 
 
