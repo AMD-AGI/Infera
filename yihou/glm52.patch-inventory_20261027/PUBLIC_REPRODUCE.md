@@ -1,6 +1,7 @@
 # GLM-5.2 on MI355X: public reproduction and upstream patch map
 
 Recipe verified 2026-10-28; upstream-status notes updated 2026-11-02 (UTC). Audience: InferenceX and other external reproductions.
+Daily handoff: [PR_HANDOFF.md](PR_HANDOFF.md); [47k-class deployment priorities](LLR37_DEPLOYMENT_PRIORITY.md).
 Start here for the experiment; use [PR_PACKUP_MAP.md](PR_PACKUP_MAP.md) for every
 maintained patch's purpose, PR state, evidence archive and applicability.
 [PR_STATUS.md](PR_STATUS.md) retains the maintenance history; [OWNED_PR_INDEX.md](OWNED_PR_INDEX.md) is the complete authored-PR list for the four target repositories. Later kernel ports #47276/#47278 are tracked separately from the frozen overlay.
@@ -108,7 +109,7 @@ source rebuild backport is shown below and must be recorded as a build-input cha
 | Inventory item | Public input and exact destination | llr37 requirement / PR |
 |---|---|---|
 | **S13** | [kit `patches/deepseek_v2.py`](../glm52.llrepro-pp4-dpa4.packup_20261024/kit/sglang_2p1d_glm5.2/patches/deepseek_v2.py) → prefill `/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py:ro` | Required PP non-first-stage hidden-size fix. llying's earlier kit version is used. No new PR pending attribution agreement; old #34465 is closed unmerged |
-| **K01** | [complete NEWFILES diff](patches/K01-kf-decode-kernel-overlay.NEWFILES.diff) → reconstructed `overlay/` → decode `/yihou_overlay:ro` | Required historical KF sparse-MLA, indexer/top-k and MoE candidates; no upstream PR, not a qualified kernel release |
+| **K01** | [complete NEWFILES diff](patches/K01-kf-decode-kernel-overlay.NEWFILES.diff) → reconstructed `overlay/` → decode `/yihou_overlay:ro` | Required historical KF sparse-MLA, indexer/top-k and MoE candidates. The complete overlay has no wholesale PR; narrower current-main ports #47276/#47278 are not byte-identical replacements or a qualified combined release |
 | **A01, first CSV** | [75-row DPA/K3 CSV](../glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/aiter_retune/merged/yihou_glm52_dpa_bf16_tuned_gemm.csv) → decode `/sgl-workspace/aiter/aiter/configs/model_configs/yihou_glm52_dpa_bf16_tuned_gemm.csv:ro` | Mounted in llr32 onward; no Aiter PR yet |
 | **A01, second CSV** | [49-row PTPC CSV](../glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/aiter_retune/ptpc/yihou_glm52_ptpc_bf16_tuned_gemm.csv) → same directory, original filename | Mounted in llr35/llr37; no Aiter PR yet; the second CSV alone did not establish a speedup |
 | **I07** | c104 [`scripts/worker.sh`](../glm52.llrepro-c104-conc.packup_20261027/scripts/worker.sh) and [`common.sh`](../glm52.llrepro-c104-conc.packup_20261027/scripts/common.sh) replace the corresponding base-kit files | Required role-specific environment, custom-AR and multiple-mount hooks. Reproduction tooling, not an Infera core bugfix/feature PR |

@@ -1,5 +1,7 @@
 # GLM-5.2 Patch 与 PR 统一进度表
 
+Daily actionable handoff: [PR_HANDOFF.md](PR_HANDOFF.md). Deployment priority: [LLR37_DEPLOYMENT_PRIORITY.md](LLR37_DEPLOYMENT_PRIORITY.md). These live documents supersede dated status snapshots below.
+
 状态更新：2026-11-02 04:46 UTC。本轮明细：[PR_FOLLOWUP_20261102.md](PR_FOLLOWUP_20261102.md)；维护记录：[PR_STATUS.md](PR_STATUS.md)；逐 PR／packup 对照：[PR_PACKUP_MAP.md](PR_PACKUP_MAP.md)；公网复现入口：[PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md)。
 
 纠正：按作者全量反查后，GLM-5.2 核心补丁为 **13 个：1 个已合并、1 个关闭、6 个 Ready、5 个 Draft**，即 **11 个仍开放**。之前十一项表漏了后续新增的 #47276／#47278；Infera #221 是另列的内核归档 Draft，#164 是比较工具，#208 是通用 agent_sys 工具。

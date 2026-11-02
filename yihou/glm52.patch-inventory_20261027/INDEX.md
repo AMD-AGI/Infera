@@ -1,5 +1,7 @@
 # GLM-5.2 PD work — inventory of yihou's fixes and optimization patches (2026-09-18 .. 2026-10-27)
 
+Daily actionable handoff: [PR_HANDOFF.md](PR_HANDOFF.md). Deployment priority: [LLR37_DEPLOYMENT_PRIORITY.md](LLR37_DEPLOYMENT_PRIORITY.md). These live documents supersede dated status snapshots below.
+
 Public reproduction starts at [PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md); the current PR-to-experiment mapping is [PR_PACKUP_MAP.md](PR_PACKUP_MAP.md).
 
 Live upstream status and actions are tracked in [PR_STATUS.md](PR_STATUS.md). The inventory below is the original evidence snapshot; later duplicate discoveries and PR state changes are recorded in that tracker.

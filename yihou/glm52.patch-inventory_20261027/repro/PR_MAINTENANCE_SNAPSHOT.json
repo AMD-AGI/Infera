@@ -1,0 +1,4714 @@
+{
+  "checked_at_utc": "2026-11-02T05:21:29.578659+00:00",
+  "author": "dorado269",
+  "prs": [
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47278,
+      "url": "https://github.com/sgl-project/sglang/pull/47278",
+      "title": "[Perf] [AMD] dsa: gfx950 split-K decode plan for 64-head fp8 sparse MLA",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T13:44:24Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "375f052eda199e2b7fc56ae4adc61b79b685d384",
+      "baseRefOid": "390acf84e31d3b63dac64e021911d94770e55a8c",
+      "headRefName": "yihou/kf-sparse-mla-gfx950",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 89,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/47278/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47276,
+      "url": "https://github.com/sgl-project/sglang/pull/47276",
+      "title": "[Perf] [AMD] dsa: Faster gfx950 fused indexer logits and top-k for MTP verify rows",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T13:36:12Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "23568fdf24f3c70b057f71ba0ca3aee94ab594b7",
+      "baseRefOid": "68e57f40057175ff22a17ea0bdbe7ecbc69d9d91",
+      "headRefName": "yihou/kf-fused-indexer-gfx950",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "hubertlu-tw"
+        },
+        {
+          "__typename": "User",
+          "login": "kkHuang-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "YAMY1234"
+        },
+        {
+          "__typename": "User",
+          "login": "rainj-me"
+        },
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 223,
+      "url": "https://github.com/AMD-AGI/Infera/pull/223",
+      "title": "ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T07:41:06Z",
+      "mergedAt": "2026-10-29T07:41:06Z",
+      "closedAt": "2026-10-29T07:41:06Z",
+      "headRefOid": "210b0581c4a2cc842517ad77cab4f6fa24c83175",
+      "baseRefOid": "cd7d453005335e613e1bc053a0945e9b20fde141",
+      "headRefName": "feat/release-router-binary",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 7,
+        "SKIPPED": 3,
+        "SUCCESS": 16
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/223/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 221,
+      "url": "https://github.com/AMD-AGI/Infera/pull/221",
+      "title": "agent_sys: catalog GLM-5.2 KernelForge artifacts and test history",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-28T10:55:40Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "b8b3938d6b7c8713711a7f0859e3f5c7bf548935",
+      "baseRefOid": "c80d852fce60ecee5706fd7cd86d847e6d4643b3",
+      "headRefName": "dev/yihou/glm52-kernel-catalog",
+      "baseRefName": "dev/yihou/kernel-registry",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 3
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/221/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 220,
+      "url": "https://github.com/AMD-AGI/Infera/pull/220",
+      "title": "agent_sys: add simple kernel artifact catalogs and skill",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T02:18:53Z",
+      "mergedAt": "2026-10-29T02:18:53Z",
+      "closedAt": "2026-10-29T02:18:53Z",
+      "headRefOid": "c80d852fce60ecee5706fd7cd86d847e6d4643b3",
+      "baseRefOid": "319444f8b3cbb2127d9e041f0b62477dae81477a",
+      "headRefName": "dev/yihou/kernel-registry",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 7,
+        "SKIPPED": 3,
+        "SUCCESS": 16
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/220/checks"
+    },
+    {
+      "repo": "kvcache-ai/Mooncake",
+      "number": 5005,
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/5005",
+      "title": "[TransferEngine] Add opt-in high-priority HIP copy streams",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:28:10Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "8313cccbaae8f3c9d7e0a29b830ce6a8a892dd91",
+      "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
+      "headRefName": "yihou/hip-copy-stream-priority-20261027",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOMNwitc8AAAABqJQFAA",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQuZz7A",
+          "name": "run-ci",
+          "description": "",
+          "color": "bf98e5"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQ7H6ag",
+          "name": "Transfer Engine",
+          "description": "",
+          "color": "70fc29"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAAC_XKUYw",
+          "name": "size/M",
+          "description": "100-1000 changed lines (additions + deletions)",
+          "color": "7F7203"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 3,
+        "SKIPPED": 1,
+        "SUCCESS": 31
+      },
+      "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/5005/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46830,
+      "url": "https://github.com/sgl-project/sglang/pull/46830",
+      "title": "[Fix] dsa: Remove host syncs from rank-divergent eager paths",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:21:08Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "8bd9fe8c3b1612519e81891a9dc12c5237664eec",
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "Qiaolin-Yu"
+        },
+        {
+          "__typename": "User",
+          "login": "hebiao064"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 1,
+        "FAILURE": 16,
+        "SKIPPED": 90,
+        "SUCCESS": 25
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46828,
+      "url": "https://github.com/sgl-project/sglang/pull/46828",
+      "title": "[Perf] [AMD] dsa: Allow retaining GLM kv_b BF16 under DCP",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:17:56Z",
+      "mergedAt": null,
+      "closedAt": "2026-11-02T04:15:55Z",
+      "headRefOid": "a15ee201daff601334d5d53730d4b5db08da4731",
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefName": "yihou/dsa-dcp-keep-kvb-bf16-20261027",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 87,
+        "SUCCESS": 24
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46828/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46826,
+      "url": "https://github.com/sgl-project/sglang/pull/46826",
+      "title": "[Feat] [AMD] disaggregation: Allow DSA DCP decode behind DCP1 prefill",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:23:15Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "21f8e688faa155a1f5abaa53ba3ca03c20900d7c",
+      "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
+      "headRefName": "yihou/rocm-dcp-pd-config-20261027",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 23
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46826/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46824,
+      "url": "https://github.com/sgl-project/sglang/pull/46824",
+      "title": "[Fix] disaggregation: Relayout DCP-sharded DSA draft KV with the target",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:21:11Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "1bcfc52149011aae08502e9da0620b0325492799",
+      "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
+      "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAC-kkxWg",
+          "name": "mooncake",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 23
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46824/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 218,
+      "url": "https://github.com/AMD-AGI/Infera/pull/218",
+      "title": "fix: avoid SIGPIPE in Mooncake artifact checks",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-30T06:56:00Z",
+      "mergedAt": "2026-10-30T06:56:00Z",
+      "closedAt": "2026-10-30T06:56:00Z",
+      "headRefOid": "f4afae4c52cc3f268963e29fc8f442107acd762e",
+      "baseRefOid": "a470fcb71a570d56ee6c67585f7192170837eea0",
+      "headRefName": "yihou/mooncake-artifact-pipefail-20261027",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 7,
+        "FAILURE": 1,
+        "SUCCESS": 8
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/218/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46822,
+      "url": "https://github.com/sgl-project/sglang/pull/46822",
+      "title": "[Fix] [AMD] dsa: Skip the indexer on eager idle ranks",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:21:06Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "11262e1199d914ac1946bdcf3d18f56cc3f45612",
+      "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
+      "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "hubertlu-tw"
+        },
+        {
+          "__typename": "User",
+          "login": "kkHuang-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "YAMY1234"
+        },
+        {
+          "__typename": "User",
+          "login": "rainj-me"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 1,
+        "FAILURE": 17,
+        "SKIPPED": 90,
+        "SUCCESS": 25
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46822/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46820,
+      "url": "https://github.com/sgl-project/sglang/pull/46820",
+      "title": "[Fix] metrics: Avoid blocking the scheduler on KV metrics backpressure",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:21:04Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "82176e70284c8d67b41de74b8e8005d148e57c8b",
+      "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
+      "headRefName": "yihou/kv-metrics-nonblocking-20261027",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 1,
+        "FAILURE": 17,
+        "SKIPPED": 90,
+        "SUCCESS": 25
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46819,
+      "url": "https://github.com/sgl-project/sglang/pull/46819",
+      "title": "[Perf] [AMD] disaggregation: Cache DCP pack metadata on the gather stream",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:22:19Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "aed9bc6953d0a95c879cff5151ee20627e9937b3",
+      "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
+      "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 18,
+        "SKIPPED": 87,
+        "SUCCESS": 24
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46819/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45484,
+      "url": "https://github.com/sgl-project/sglang/pull/45484",
+      "title": "[Fix] [AMD] offloader: keep is_shuffled on device copies of offloaded weights",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:21:05Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "43dec26b032c08f4e9eee0c772db9f44d3afc275",
+      "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
+      "headRefName": "fix/offloader-keep-is-shuffled",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 2,
+        "FAILURE": 16,
+        "SKIPPED": 90,
+        "SUCCESS": 29
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45484/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45483,
+      "url": "https://github.com/sgl-project/sglang/pull/45483",
+      "title": "[Fix] spec: init the active attention backend for eager IDLE batches",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-27T07:09:42Z",
+      "mergedAt": null,
+      "closedAt": "2026-10-27T07:09:42Z",
+      "headRefOid": "a71a64784fe033446645e083e2a0e6d9179a2fd4",
+      "baseRefOid": "f1ba723c647ecb33a800fca168d939e1a68ee9b5",
+      "headRefName": "fix/eager-idle-active-backend-metadata",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 86,
+        "SUCCESS": 24
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45483/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 208,
+      "url": "https://github.com/AMD-AGI/Infera/pull/208",
+      "title": "feat(agent_sys): Claude Code skills to create, pack, run and share agent_sys tasks",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T05:06:44Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "3bd26aa4afec447a2e69dfae2969ddbf0c7bf3a5",
+      "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
+      "headRefName": "dev.yihou.agentsys.skills",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1,
+        "SKIPPED": 7,
+        "SUCCESS": 4
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/208/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 167,
+      "url": "https://github.com/AMD-AGI/Infera/pull/167",
+      "title": "feat(agent_sys): an agent work system, and the five-stage LLM e2e optimisation flow",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-19T08:50:38Z",
+      "mergedAt": "2026-10-19T08:50:38Z",
+      "closedAt": "2026-10-19T08:50:38Z",
+      "headRefOid": "30d07d8e873d32ba7ca7a0e712754d2aeb11f9da",
+      "baseRefOid": "e54e9c6268f03a07b7b9fe686d86d7f93d7ae858",
+      "headRefName": "dev.yihou.aiopt.0.1",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "CHANGES_REQUESTED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 7,
+        "SUCCESS": 9
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/167/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 164,
+      "url": "https://github.com/AMD-AGI/Infera/pull/164",
+      "title": "[Compare only][Draft]fast bench script",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-16T04:01:29Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "4676ec9087bcbca766b0e84d0b70ea3e7c81641e",
+      "baseRefOid": "6492209bcae7b23c52f68b36e2889813049c0e5d",
+      "headRefName": "dev.yihou.sglang.bench.fast.script",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 2,
+        "SKIPPED": 6,
+        "SUCCESS": 3
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/164/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 163,
+      "url": "https://github.com/AMD-AGI/Infera/pull/163",
+      "title": "GLM-5.3 (glm_moe_dsa): mixed, 1P1D, and a Kubernetes recipe — plus overlay support for SGLang bases",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-11T09:15:20Z",
+      "mergedAt": "2026-09-11T09:15:20Z",
+      "closedAt": "2026-09-11T09:15:20Z",
+      "headRefOid": "a91a7466119df8a21f5b7e644ab9a5b241c448dc",
+      "baseRefOid": "fb5227518cd1eeed02e6923ff3ede6cfefcb29f6",
+      "headRefName": "yihou.dev.glm53.big",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 7,
+        "SUCCESS": 8
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/163/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 157,
+      "url": "https://github.com/AMD-AGI/Infera/pull/157",
+      "title": "[draft]Dev.yihou.aiopt.task package.concat",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-08T08:59:57Z",
+      "mergedAt": null,
+      "closedAt": "2026-09-08T08:59:57Z",
+      "headRefOid": "d878e82e75dd707c38ec7c9efea901076421f700",
+      "baseRefOid": "4a6003ff5e55e9ad2c6ee11af6c9d65c98144385",
+      "headRefName": "dev.yihou.aiopt.task_package.concat",
+      "baseRefName": "dev.yaoc.aiopt.task_package",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/157/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 156,
+      "url": "https://github.com/AMD-AGI/Infera/pull/156",
+      "title": "feat(agent_sys): label every runtime directory with the name it alrea…",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-04T09:41:44Z",
+      "mergedAt": "2026-09-04T09:41:44Z",
+      "closedAt": "2026-09-04T09:41:44Z",
+      "headRefOid": "34646b1ac725ce1918b7f25498bafbc7fcf1c4ac",
+      "baseRefOid": "b76c39ad454822a3187b8be138697fa89dc38246",
+      "headRefName": "dev.yihou.aiopt.better.name",
+      "baseRefName": "dev.yihou.aiopt.more.demo",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/156/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 155,
+      "url": "https://github.com/AMD-AGI/Infera/pull/155",
+      "title": "[Draft] agent_sys with agent config",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-07T05:42:01Z",
+      "mergedAt": null,
+      "closedAt": "2026-09-07T05:42:01Z",
+      "headRefOid": "bd3ebd42abaf159ccc0a500f8554443a87abf3de",
+      "baseRefOid": "b103a4ad376e786fb8b0871a87ab0af6265672e3",
+      "headRefName": "dev.yihou.aiopt.task_with_agent_config",
+      "baseRefName": "dev.yihou.aiopt.task_package",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {},
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/155/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 154,
+      "url": "https://github.com/AMD-AGI/Infera/pull/154",
+      "title": "feat(agent_sys): AgentsView as the o11y panel, one project per run",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-04T15:01:09Z",
+      "mergedAt": "2026-09-04T15:01:09Z",
+      "closedAt": "2026-09-04T15:01:09Z",
+      "headRefOid": "8a250031589f4de41ed16819adab3dc0cef9d817",
+      "baseRefOid": "9bf72c8703451eaf5d931764c089d130b1e962b3",
+      "headRefName": "dev.yihou.aiopt.more.demo",
+      "baseRefName": "dev.yihou.aiopt.task_package",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/154/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 151,
+      "url": "https://github.com/AMD-AGI/Infera/pull/151",
+      "title": "GLM-5.3 series: engine image, example kits, and parked e2e cases",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-10T06:52:17Z",
+      "mergedAt": null,
+      "closedAt": "2026-09-10T06:52:17Z",
+      "headRefOid": "46e79746b8243f0e6e7929ed1f78291edd2d61f7",
+      "baseRefOid": "8f04a68cc5c33aa0f8dae69615aad09a8ee36fd6",
+      "headRefName": "yihou.dev.glm53.expr",
+      "baseRefName": "main",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1,
+        "SKIPPED": 6,
+        "SUCCESS": 4
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/151/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 150,
+      "url": "https://github.com/AMD-AGI/Infera/pull/150",
+      "title": "Dev.yihou.aiopt.kernel opt module",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-03T04:49:11Z",
+      "mergedAt": null,
+      "closedAt": "2026-09-03T04:49:11Z",
+      "headRefOid": "f22310833dfa66ec1f7e809beaf4267a6e0e4340",
+      "baseRefOid": "532da57b76cdd609bbcdd161fe412751a85c77d2",
+      "headRefName": "dev.yihou.aiopt.kernel_opt_module",
+      "baseRefName": "dev.yihou.aiopt.task_package",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/150/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 147,
+      "url": "https://github.com/AMD-AGI/Infera/pull/147",
+      "title": "[draft]Dev.yihou.aiopt.kernel opt module",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-02T08:07:58Z",
+      "mergedAt": "2026-09-02T08:07:58Z",
+      "closedAt": "2026-09-02T08:07:58Z",
+      "headRefOid": "be4d17da5c86032c657f4adb410fab6e5daf62c5",
+      "baseRefOid": "5be1ca87bcd47938716f09a16f58f5e561c7116c",
+      "headRefName": "dev.yihou.aiopt.kernel_opt_module",
+      "baseRefName": "dev.yihou.aiopt.task_package",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/147/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 142,
+      "url": "https://github.com/AMD-AGI/Infera/pull/142",
+      "title": "[draft][agent_sys] task package init",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-09-14T09:19:34Z",
+      "mergedAt": null,
+      "closedAt": "2026-09-14T09:19:34Z",
+      "headRefOid": "8f6083f5c6ff4337c0d089d3039f8efb8626b5fe",
+      "baseRefOid": "c3f1cc6feeee2f604a27193ed88c3c0dc511f8e3",
+      "headRefName": "dev.yihou.aiopt.task_package",
+      "baseRefName": "dev.yihou.aiopt.all.1",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1,
+        "SUCCESS": 1
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/142/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 132,
+      "url": "https://github.com/AMD-AGI/Infera/pull/132",
+      "title": "feat(agent_sys): the agent work system — specs, designs, and a running implementation",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-12T03:36:15Z",
+      "mergedAt": null,
+      "closedAt": "2026-10-12T03:36:15Z",
+      "headRefOid": "c3f1cc6feeee2f604a27193ed88c3c0dc511f8e3",
+      "baseRefOid": "f48b79d04316907f29478f9f037d893bdf50cd4a",
+      "headRefName": "dev.yihou.aiopt.all.1",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 1,
+        "FAILURE": 5,
+        "SUCCESS": 9
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/132/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 124,
+      "url": "https://github.com/AMD-AGI/Infera/pull/124",
+      "title": "feat(agent_sys): task_graph — task-management substrate for the agent loop",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-25T09:08:00Z",
+      "mergedAt": "2026-08-25T09:07:59Z",
+      "closedAt": "2026-08-25T09:08:00Z",
+      "headRefOid": "abfed873959fd9b65dec9d74600ea79017488577",
+      "baseRefOid": "5c9cb3fe0d2db3626c4ade113acc9ca4b0ff796d",
+      "headRefName": "dev.yihou.aiopt.task.graph",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 2,
+        "SUCCESS": 13
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/124/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 123,
+      "url": "https://github.com/AMD-AGI/Infera/pull/123",
+      "title": "feat(agent_sys): add env_mgr layered environment manager",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-20T03:26:57Z",
+      "mergedAt": "2026-08-20T03:26:57Z",
+      "closedAt": "2026-08-20T03:26:57Z",
+      "headRefOid": "440923666fe1f333124644d5425b132ab4414026",
+      "baseRefOid": "5733f8435c7104544e432c5c08e1dceb9132fdd7",
+      "headRefName": "yihou.dev.aiopt",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 5,
+        "FAILURE": 3,
+        "SUCCESS": 8
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/123/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 33973,
+      "url": "https://github.com/sgl-project/sglang/pull/33973",
+      "title": "[Fix] dsa: Remove host syncs from rank-divergent eager paths",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-27T11:15:53Z",
+      "mergedAt": null,
+      "closedAt": "2026-10-03T01:25:33Z",
+      "headRefOid": "9bc95e2975fad330335630a2c47c35546e2cac51",
+      "baseRefOid": "56834422a18af26479cd9b179b42d140053d0762",
+      "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 87,
+        "SUCCESS": 18
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/33973/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 33970,
+      "url": "https://github.com/sgl-project/sglang/pull/33970",
+      "title": "[PD] Make the mooncake KV transfer wait on the prefill forward that wrote the pages",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-27T08:06:44Z",
+      "mergedAt": null,
+      "closedAt": "2026-10-27T08:06:44Z",
+      "headRefOid": "3c2cb3ab0341e4247df2976bdad26568414bcdad",
+      "baseRefOid": "56834422a18af26479cd9b179b42d140053d0762",
+      "headRefName": "fix-mooncake-pd-chunked-prefill-kv-race",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 87,
+        "SUCCESS": 18
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/33970/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 33968,
+      "url": "https://github.com/sgl-project/sglang/pull/33968",
+      "title": "[ROCm] Fix HiCache host-pool allocator: hipHostRegister's device pointer is not the host VA",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-27T08:06:24Z",
+      "mergedAt": null,
+      "closedAt": "2026-10-27T08:06:24Z",
+      "headRefOid": "138901d9188c77a619d17a4d9afe3ac4427cea6b",
+      "baseRefOid": "56834422a18af26479cd9b179b42d140053d0762",
+      "headRefName": "fix-hicache-rocm-pin-memory-allocator",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB8_qayg",
+          "name": "hicache",
+          "description": "Hierarchical Caching for SGLang",
+          "color": "c5def5"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        },
+        {
+          "__typename": "User",
+          "login": "hanming-lu"
+        },
+        {
+          "__typename": "User",
+          "login": "yizhang2077"
+        },
+        {
+          "__typename": "User",
+          "login": "hzh0425"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "alphabetc1"
+        },
+        {
+          "__typename": "User",
+          "login": "huangtingwei9988"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 87,
+        "SUCCESS": 18
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/33968/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 95,
+      "url": "https://github.com/AMD-AGI/Infera/pull/95",
+      "title": "docs(patches): give every patch a schema-checked upstream status record",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-21T08:40:32Z",
+      "mergedAt": null,
+      "closedAt": "2026-08-21T08:40:32Z",
+      "headRefOid": "9235c26f7b236b79580f7aec1b27a9983630def8",
+      "baseRefOid": "55271cb69c4f1a02f2223c051e406640b3305a42",
+      "headRefName": "dorado/dev/patch-upstream-status-records",
+      "baseRefName": "main",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 8,
+        "SUCCESS": 4
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/95/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 94,
+      "url": "https://github.com/AMD-AGI/Infera/pull/94",
+      "title": "chore(examples): drop the GLM-5.2 results/ directory",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-07T07:47:10Z",
+      "mergedAt": "2026-08-07T07:47:10Z",
+      "closedAt": "2026-08-07T07:47:10Z",
+      "headRefOid": "a675f91e42fe8cbba3cf1d3000c8bf9a93456d70",
+      "baseRefOid": "d1a97b2b17732664580c6cbf7c5aa1ff4bef51bd",
+      "headRefName": "yihou/chore/drop-glm52-example-results",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 15,
+        "SUCCESS": 9
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/94/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 87,
+      "url": "https://github.com/AMD-AGI/Infera/pull/87",
+      "title": "docs(sglang): record the MTP penalty-accounting defect we filed but do not patch",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-21T08:40:25Z",
+      "mergedAt": null,
+      "closedAt": "2026-08-21T08:40:25Z",
+      "headRefOid": "66a4524973e9c5697ee0e60b7fc6d911644e4efe",
+      "baseRefOid": "d9fc62aa35b95b72ed525d20c484319568518a13",
+      "headRefName": "docs/upstream-status-penalty-pr",
+      "baseRefName": "main",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 2,
+        "SKIPPED": 15,
+        "SUCCESS": 7
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/87/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 33643,
+      "url": "https://github.com/sgl-project/sglang/pull/33643",
+      "title": "[Bug] Accumulate sampling penalties per accepted token under speculative decoding",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-10-27T11:08:13Z",
+      "mergedAt": null,
+      "closedAt": "2026-09-26T01:22:05Z",
+      "headRefOid": "18aa43683f57bb0b513f0bdcaea20485d948db0d",
+      "baseRefOid": "198a3bc29bbf2ed169d50f5b7ad35c74262ff10f",
+      "headRefName": "fix/spec-decode-penalty-per-token",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 85,
+        "SUCCESS": 17
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/33643/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 84,
+      "url": "https://github.com/AMD-AGI/Infera/pull/84",
+      "title": "docs(examples): add a GLM-5.2 1P1D SGLang deployment example",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-04T10:35:48Z",
+      "mergedAt": "2026-08-04T10:35:47Z",
+      "closedAt": "2026-08-04T10:35:47Z",
+      "headRefOid": "7609bb1593b3db52cfce051162e5ea78a4d06ef7",
+      "baseRefOid": "e387930599098d5cfe78e80139bfd4cdd22f2efc",
+      "headRefName": "yihou.dev.glm52.example",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 15,
+        "SUCCESS": 9
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/84/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 79,
+      "url": "https://github.com/AMD-AGI/Infera/pull/79",
+      "title": "fix(glm5.2): the remaining fixes for agentic serving — DSA indexer, ROCm hicache, PD/kvd wiring",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-04T02:55:57Z",
+      "mergedAt": "2026-08-03T18:05:39Z",
+      "closedAt": "2026-08-03T18:05:39Z",
+      "headRefOid": "9380f07310ef01604004c43d9efafa6ad685975f",
+      "baseRefOid": "9bf69f22413311531e31e5f256234bd96e366b28",
+      "headRefName": "yihou.dev.glm52.agentic.final.pr",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 2,
+        "SKIPPED": 21,
+        "SUCCESS": 16
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/79/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 59,
+      "url": "https://github.com/AMD-AGI/Infera/pull/59",
+      "title": "[wip]fix(kvaware+kvd): two bugs blocking KV-aware routing + kvd together on SGLang, with image, docs and repro",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-03T10:28:28Z",
+      "mergedAt": null,
+      "closedAt": "2026-08-03T10:28:28Z",
+      "headRefOid": "2cd56f4350062d0da90b956e778be8b855830ba7",
+      "baseRefOid": "59d540ae28b5bcc34de71d1139d23dd9e9681165",
+      "headRefName": "yihou.dev.glm5.2.mxfp4.kvaware.kvd.pr",
+      "baseRefName": "main",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
+      "reviewDecision": "CHANGES_REQUESTED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 7,
+        "SUCCESS": 21
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/59/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 58,
+      "url": "https://github.com/AMD-AGI/Infera/pull/58",
+      "title": "sglang DSA: enable PD + DP-attention + EAGLE MTP on GLM-5.2 / gfx950 (3 patches, rebased onto main)",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-01T10:34:56Z",
+      "mergedAt": "2026-08-01T10:34:56Z",
+      "closedAt": "2026-08-01T10:34:56Z",
+      "headRefOid": "c91db7601d163201a3958814a46f16f121d7feb0",
+      "baseRefOid": "59d540ae28b5bcc34de71d1139d23dd9e9681165",
+      "headRefName": "worktree-dsa-hip-dp-rows-fix.rebase",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 13,
+        "SUCCESS": 15
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/58/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 33059,
+      "url": "https://github.com/sgl-project/sglang/pull/33059",
+      "title": "[Fix] [AMD] dsa: Align Aiter paged rows with DP-attention metadata",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:26:02Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "ea88d74bfc2c934159e4fc73a258861f3c5d96e2",
+      "baseRefOid": "0abac089e5d038aef55c814b8f9f6222da81a75f",
+      "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "hubertlu-tw"
+        },
+        {
+          "__typename": "User",
+          "login": "kkHuang-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "YAMY1234"
+        },
+        {
+          "__typename": "User",
+          "login": "rainj-me"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 34,
+      "url": "https://github.com/AMD-AGI/Infera/pull/34",
+      "title": "sglang DSA: enable PD + DP-attention + EAGLE MTP on GLM-5.2 / gfx950 (4 patches)",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-31T11:00:34Z",
+      "mergedAt": null,
+      "closedAt": "2026-07-31T11:00:34Z",
+      "headRefOid": "51a7b24b59fcb0d44c9ddb3738c42c3f74417160",
+      "baseRefOid": "cf85272497a8815da37e80bc866dd4d6aae16a22",
+      "headRefName": "worktree-dsa-hip-dp-rows-fix",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 2,
+        "SKIPPED": 7,
+        "SUCCESS": 12
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/34/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 33,
+      "url": "https://github.com/AMD-AGI/Infera/pull/33",
+      "title": "feat(preflight): mooncake KV-registration mode selector",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-02T04:44:09Z",
+      "mergedAt": "2026-08-02T04:44:09Z",
+      "closedAt": "2026-08-02T04:44:09Z",
+      "headRefOid": "fe011596ad21431f6676478db863f0d112f89103",
+      "baseRefOid": "eb43ff399489d538cf1c8df8bea09be5b70ae557",
+      "headRefName": "yihou.dev.mooncake-mode-tool",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 7,
+        "SUCCESS": 21
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/33/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 31,
+      "url": "https://github.com/AMD-AGI/Infera/pull/31",
+      "title": "fix: persist e2e worker logs to shared NFS — and fix the first crash they exposed",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-30T10:41:29Z",
+      "mergedAt": "2026-07-30T10:41:29Z",
+      "closedAt": "2026-07-30T10:41:29Z",
+      "headRefOid": "a0f2e7cacaebdd43469017cda81f2c5b1499c4ff",
+      "baseRefOid": "3b048e5b37c6586bdeb70a48314979064c3b0be6",
+      "headRefName": "yihou.fix.ci.e2e.worker.log.persist",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 3,
+        "SKIPPED": 5,
+        "SUCCESS": 12
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/31/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 29,
+      "url": "https://github.com/AMD-AGI/Infera/pull/29",
+      "title": "Yihou.dev.sglang.mooncake.experiment",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-28T04:35:31Z",
+      "mergedAt": null,
+      "closedAt": "2026-07-28T04:35:31Z",
+      "headRefOid": "758d372f36ecfee18e81aafb841ea57fe8972f2e",
+      "baseRefOid": "a546137c1f6e961608e11be4d389f4591cbce2f0",
+      "headRefName": "yihou.dev.sglang.mooncake.experiment",
+      "baseRefName": "yihou.dev.sglang.mooncake",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 2,
+        "SKIPPED": 5,
+        "SUCCESS": 3
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/29/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 25,
+      "url": "https://github.com/AMD-AGI/Infera/pull/25",
+      "title": "Feature/Fix: support GLM for all engines mix and vllm moriio pd & adding all to test",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-28T01:53:25Z",
+      "mergedAt": "2026-07-28T01:53:25Z",
+      "closedAt": "2026-07-28T01:53:25Z",
+      "headRefOid": "2df2fed9ab192290c7696d2dfea726b860b7bbc1",
+      "baseRefOid": "6408892e3b9758ab4473a7581bc3ce963b521645",
+      "headRefName": "yihou.dev.vllm.glm",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 2,
+        "SKIPPED": 7,
+        "SUCCESS": 27
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/25/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 19,
+      "url": "https://github.com/AMD-AGI/Infera/pull/19",
+      "title": "feat(sglang): unified Mooncake image — one engine.so, every PD path runtime-decided",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-28T01:54:32Z",
+      "mergedAt": "2026-07-28T01:54:32Z",
+      "closedAt": "2026-07-28T01:54:32Z",
+      "headRefOid": "a546137c1f6e961608e11be4d389f4591cbce2f0",
+      "baseRefOid": "6408892e3b9758ab4473a7581bc3ce963b521645",
+      "headRefName": "yihou.dev.sglang.mooncake",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 6,
+        "SUCCESS": 14
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/19/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 18,
+      "url": "https://github.com/AMD-AGI/Infera/pull/18",
+      "title": "(WIP)Fix MoRIIO MLA page-length PD corruption on v0.25.1 + GLM-5.1 regression test",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-23T08:09:00Z",
+      "mergedAt": null,
+      "closedAt": "2026-07-23T08:09:00Z",
+      "headRefOid": "8be8e286624458de5e584350a1e61f8387ec4f98",
+      "baseRefOid": "ec19718b4a69747f570ddac6ce24c1d494f82333",
+      "headRefName": "yihou.dev.vllm.glm",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1,
+        "SKIPPED": 11,
+        "SUCCESS": 6
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/18/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 15,
+      "url": "https://github.com/AMD-AGI/Infera/pull/15",
+      "title": "Upgrade SGLang base image to v0.5.15.post1 (official release repo)",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-22T09:53:34Z",
+      "mergedAt": "2026-07-22T09:53:34Z",
+      "closedAt": "2026-07-22T09:53:34Z",
+      "headRefOid": "983e8b6409f1babb84db630be92755c063b48f7b",
+      "baseRefOid": "22853bc46b6c8879319d7ef28edee2fb61d6ad59",
+      "headRefName": "yihou.dev.sglang.image.update",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 5,
+        "SUCCESS": 12
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/15/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 7,
+      "url": "https://github.com/AMD-AGI/Infera/pull/7",
+      "title": "Upgrade vLLM base image to stable v0.25.1 (digest-pinned)",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-21T11:52:51Z",
+      "mergedAt": "2026-07-21T11:50:32Z",
+      "closedAt": "2026-07-21T11:50:32Z",
+      "headRefOid": "29021d303c1a6dc7b26ab24ba168fc855c9a40d5",
+      "baseRefOid": "cfdc9349628f5c430b3aa5c7d535ab1bfe6d9e20",
+      "headRefName": "yihou.dev.vllm.image.update",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 2,
+        "SUCCESS": 14
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/7/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 4,
+      "url": "https://github.com/AMD-AGI/Infera/pull/4",
+      "title": " feat(image): support DeepSeek V4 on MI325X (gfx942) for atom + sglang",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-07-22T10:18:58Z",
+      "mergedAt": "2026-07-22T10:18:58Z",
+      "closedAt": "2026-07-22T10:18:58Z",
+      "headRefOid": "8196d85477c2f8cebff466eacfc68a836b4fb530",
+      "baseRefOid": "89c86fb80fdddeb3a901819fb2f84de5a184a4c0",
+      "headRefName": "yihou.dev.mi325",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        },
+        {
+          "__typename": "User",
+          "login": "JohnQin-llm"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 7,
+        "SUCCESS": 11
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/4/checks"
+    },
+    {
+      "repo": "AMD-AGI/Primus-Turbo",
+      "number": 400,
+      "url": "https://github.com/AMD-AGI/Primus-Turbo/pull/400",
+      "title": "Dev.microbench.b200.gptoss",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-24T04:03:56Z",
+      "mergedAt": "2026-06-29T12:57:00Z",
+      "closedAt": "2026-06-29T12:57:00Z",
+      "headRefOid": "e64017c2c3600ee46bf26d775634469b7a268591",
+      "baseRefOid": "bc6c7d2a9b7cc890a0b575b94f4fc5515afa5200",
+      "headRefName": "dev.microbench.b200.gptoss",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "wenxie-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "RuibinCheung"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 3,
+        "SUCCESS": 1
+      },
+      "checks_url": "https://github.com/AMD-AGI/Primus-Turbo/pull/400/checks"
+    },
+    {
+      "repo": "AMD-AGI/Primus-Turbo",
+      "number": 394,
+      "url": "https://github.com/AMD-AGI/Primus-Turbo/pull/394",
+      "title": "bench: FlashInfer B200 sweep aligned with aiter reference",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-06-24T04:11:17Z",
+      "mergedAt": "2026-06-24T04:11:17Z",
+      "closedAt": "2026-06-24T04:11:17Z",
+      "headRefOid": "e4bcba31a80b841328c143f638803e3f6bd06790",
+      "baseRefOid": "a967eb63b2642bc354a183a4203b6b4a5309622a",
+      "headRefName": "dev/yihou/bench.2",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "wenxie-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "RuibinCheung"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 3,
+        "SUCCESS": 1
+      },
+      "checks_url": "https://github.com/AMD-AGI/Primus-Turbo/pull/394/checks"
+    },
+    {
+      "repo": "AMD-AGI/Primus-Turbo",
+      "number": 391,
+      "url": "https://github.com/AMD-AGI/Primus-Turbo/pull/391",
+      "title": "bench: FlashInfer B200 sweep aligned with aiter reference",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-06-23T09:34:51Z",
+      "mergedAt": "2026-06-23T09:34:51Z",
+      "closedAt": "2026-06-23T09:34:51Z",
+      "headRefOid": "8c2218d1aa91d40880be28c2809d1e9e054d88d3",
+      "baseRefOid": "0b2c0cce6da6278c4ccd28be72255304b2075c9f",
+      "headRefName": "dev/yihou/bench.1",
+      "baseRefName": "dev/xiaobo/bench",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "xiaobochen-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "wenxie-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "RuibinCheung"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 1,
+        "FAILURE": 1,
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/AMD-AGI/Primus-Turbo/pull/391/checks"
+    },
+    {
+      "repo": "AMD-AGI/Primus-Turbo",
+      "number": 387,
+      "url": "https://github.com/AMD-AGI/Primus-Turbo/pull/387",
+      "title": "Dev/yihou/bench",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-08-24T04:04:02Z",
+      "mergedAt": "2026-06-22T04:43:12Z",
+      "closedAt": "2026-06-22T04:43:12Z",
+      "headRefOid": "57f319afefab6c3c4c1c7d45f5b331e2675d25f3",
+      "baseRefOid": "df4e93b60f2d78eec279c48d0d16e0d7cc1b9494",
+      "headRefName": "dev/yihou/bench",
+      "baseRefName": "dev/xiaobo/bench",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "wenxie-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "RuibinCheung"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 4
+      },
+      "checks_url": "https://github.com/AMD-AGI/Primus-Turbo/pull/387/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45524,
+      "url": "https://github.com/sgl-project/sglang/pull/45524",
+      "title": "[Fix] disaggregation: wait for the prefill forward before sending KV chunks under PP",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOETccMA",
+        "is_bot": false,
+        "login": "eaglewangao-us",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T02:06:15Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "14c8591329db003317f0bfddc26335090ad92ea7",
+      "baseRefOid": "71fb7093875fb76101df7c5040971fa56e53ec20",
+      "headRefName": "fix-pp-prefill-kv-send-wait",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 23
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45307,
+      "url": "https://github.com/sgl-project/sglang/pull/45307",
+      "title": "[Perf] [AMD] dsa: Share KV pages across MTP verify rows in the gfx950 indexer logits kernel",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjI0OTYxNzg5",
+        "is_bot": false,
+        "login": "chushic",
+        "name": "Chushi C."
+      },
+      "updatedAt": "2026-10-27T08:33:12Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "1255a0a4edd8417bc667f710c9bf6d0297e50d4f",
+      "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
+      "headRefName": "amd-dsa-logits-hist-slot",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "hubertlu-tw"
+        },
+        {
+          "__typename": "User",
+          "login": "kkHuang-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "YAMY1234"
+        },
+        {
+          "__typename": "User",
+          "login": "rainj-me"
+        },
+        {
+          "__typename": "User",
+          "login": "Qiaolin-Yu"
+        },
+        {
+          "__typename": "User",
+          "login": "hebiao064"
+        },
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 87,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45307/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 42163,
+      "url": "https://github.com/sgl-project/sglang/pull/42163",
+      "title": "[PD] Shard Mooncake transfers by bootstrap room",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjc0MDk5MzE2",
+        "is_bot": false,
+        "login": "YAMY1234",
+        "name": "YAMY"
+      },
+      "updatedAt": "2026-10-27T10:54:47Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "294113a01fa395b6eddde501523163e14a601a42",
+      "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
+      "headRefName": "pp-fix/mooncake-transfer-room-parallel",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 77,
+        "SUCCESS": 21
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/42163/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45156,
+      "url": "https://github.com/sgl-project/sglang/pull/45156",
+      "title": "[Fix] model_executor: Initialize idle metadata on the active attention backend",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDODfniOw",
+        "is_bot": false,
+        "login": "WQW-Git",
+        "name": ""
+      },
+      "updatedAt": "2026-10-31T11:58:49Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "c02b88d48838ad509bf3dfc5ddfb35064c3c176f",
+      "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
+      "headRefName": "fix/eager-idle-active-attention-backend",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45156/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45337,
+      "url": "https://github.com/sgl-project/sglang/pull/45337",
+      "title": "[Feat] disaggregation: Support prefill_complete decode allocation with pipeline-parallel prefill",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC5Ut6A",
+        "is_bot": false,
+        "login": "nvjullin",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T08:36:33Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "60fe4e6a8847d53c690d7571b4ab20b3755140a5",
+      "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
+      "headRefName": "late-reserve",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 2,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 44322,
+      "url": "https://github.com/sgl-project/sglang/pull/44322",
+      "title": "[Feat] [AMD] dsa: Enable DCP on the triton sparse-MLA backend",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC5DC-g",
+        "is_bot": false,
+        "login": "EricKing626",
+        "name": "Eric.Chin.AMD"
+      },
+      "updatedAt": "2026-10-28T16:59:40Z",
+      "mergedAt": "2026-10-28T09:45:44Z",
+      "closedAt": "2026-10-28T09:45:45Z",
+      "headRefOid": "b8a0a1ac70c4c103a1ff2293a2c9306ec9c609f5",
+      "baseRefOid": "da7e3f1c125be0f1ef2101c474b679296acdb325",
+      "headRefName": "amd/dcp-glm-dsa-rocm-triton",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACxb_ufQ",
+          "name": "memory-pool",
+          "description": "",
+          "color": "1d76db"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        },
+        {
+          "__typename": "User",
+          "login": "hanming-lu"
+        },
+        {
+          "__typename": "User",
+          "login": "yizhang2077"
+        },
+        {
+          "__typename": "User",
+          "login": "hzh0425"
+        },
+        {
+          "__typename": "User",
+          "login": "alphabetc1"
+        },
+        {
+          "__typename": "User",
+          "login": "huangtingwei9988"
+        },
+        {
+          "__typename": "User",
+          "login": "Qiaolin-Yu"
+        },
+        {
+          "__typename": "User",
+          "login": "hebiao064"
+        },
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        },
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "hubertlu-tw"
+        },
+        {
+          "__typename": "User",
+          "login": "kkHuang-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "YAMY1234"
+        },
+        {
+          "__typename": "User",
+          "login": "rainj-me"
+        },
+        {
+          "__typename": "User",
+          "login": "Edwardf0t1"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 4,
+        "FAILURE": 11,
+        "SKIPPED": 54,
+        "SUCCESS": 128
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/44322/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47180,
+      "url": "https://github.com/sgl-project/sglang/pull/47180",
+      "title": "[Perf] [AMD] dsa: Replicate the DCP query projection on the owned route",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC5DC-g",
+        "is_bot": false,
+        "login": "EricKing626",
+        "name": "Eric.Chin.AMD"
+      },
+      "updatedAt": "2026-11-01T19:17:09Z",
+      "mergedAt": "2026-11-01T19:17:09Z",
+      "closedAt": "2026-11-01T19:17:09Z",
+      "headRefOid": "bb767aa490d93b1bd07f0fa450dcc9fbfc0dbd4f",
+      "baseRefOid": "46008a7afc27b6fea4007f870f800ffbc3e3819d",
+      "headRefName": "amd/dcp-qrep",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 2,
+        "FAILURE": 8,
+        "SKIPPED": 46,
+        "SUCCESS": 140
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/47180/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46861,
+      "url": "https://github.com/sgl-project/sglang/pull/46861",
+      "title": "[Fix] [AMD] memory_pool: Keep K and V in separate allocations on ROCm",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjE5NjgzMDA5",
+        "is_bot": false,
+        "login": "omirosh",
+        "name": "Olga Miroshnichenko"
+      },
+      "updatedAt": "2026-10-28T10:06:16Z",
+      "mergedAt": "2026-10-28T10:06:16Z",
+      "closedAt": "2026-10-28T10:06:16Z",
+      "headRefOid": "b24937a83383e205faf36632f9803656effd171a",
+      "baseRefOid": "c240169265af83800d0b901661c1075f9c5ed3ff",
+      "headRefName": "rocm/mha-pool-separate-kv-alloc",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACxb_ufQ",
+          "name": "memory-pool",
+          "description": "",
+          "color": "1d76db"
+        }
+      ],
+      "assignees": [
+        {
+          "id": "MDQ6VXNlcjM2NTU1MTE3",
+          "login": "Lzy17",
+          "name": "Zhaoyi Li",
+          "databaseId": 36555117
+        },
+        {
+          "id": "MDQ6VXNlcjQzMTYxMzAw",
+          "login": "kkHuang-amd",
+          "name": "kk",
+          "databaseId": 43161300
+        },
+        {
+          "id": "MDQ6VXNlcjY5OTQ0NjE0",
+          "login": "1am9trash",
+          "name": "Thomas Wang",
+          "databaseId": 69944614
+        }
+      ],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        },
+        {
+          "__typename": "User",
+          "login": "hanming-lu"
+        },
+        {
+          "__typename": "User",
+          "login": "yizhang2077"
+        },
+        {
+          "__typename": "User",
+          "login": "hzh0425"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "alphabetc1"
+        },
+        {
+          "__typename": "User",
+          "login": "huangtingwei9988"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 19,
+        "FAILURE": 8,
+        "SKIPPED": 65,
+        "SUCCESS": 88
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46861/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 43299,
+      "url": "https://github.com/sgl-project/sglang/pull/43299",
+      "title": "[Fix] disaggregation: Fix the early-send wait event on non-CUDA devices and in nixl",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjMzNTM3ODc0",
+        "is_bot": false,
+        "login": "kpjeeja",
+        "name": "kpjeeja"
+      },
+      "updatedAt": "2026-10-29T04:25:28Z",
+      "mergedAt": "2026-10-29T04:25:28Z",
+      "closedAt": "2026-10-29T04:25:28Z",
+      "headRefOid": "b5d07691696a8967b178315fc62a284a3fb7ab07",
+      "baseRefOid": "635430d07378e2b12381353781a23b0704969909",
+      "headRefName": "jeeja/nixl_early-send_fix",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAC-kkxWg",
+          "name": "mooncake",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "kkHuang-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "billishyahao"
+        },
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 9,
+        "SKIPPED": 65,
+        "SUCCESS": 113
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/43299/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46424,
+      "url": "https://github.com/sgl-project/sglang/pull/46424",
+      "title": "[Fix] dsa: Preserve token-first sparse attention outputs",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjQwMTU3MTM1",
+        "is_bot": false,
+        "login": "Jzz1943",
+        "name": "Jzz1943"
+      },
+      "updatedAt": "2026-10-27T08:29:53Z",
+      "mergedAt": "2026-10-27T08:29:53Z",
+      "closedAt": "2026-10-27T08:29:53Z",
+      "headRefOid": "e536a1144f6215669267856a3c002c438ec0b598",
+      "baseRefOid": "b48809dfc2d24ae4ed7d33326ca1a87cb1aa160f",
+      "headRefName": "pr-dsa-output-layout",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "Qiaolin-Yu"
+        },
+        {
+          "__typename": "User",
+          "login": "hebiao064"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 87,
+        "SUCCESS": 24
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46424/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45796,
+      "url": "https://github.com/sgl-project/sglang/pull/45796",
+      "title": "[Fix] dp-attention: Pad extend host lists out of place so pre-planned DSA metadata keeps its rows",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC5Ut6A",
+        "is_bot": false,
+        "login": "nvjullin",
+        "name": ""
+      },
+      "updatedAt": "2026-10-27T05:04:43Z",
+      "mergedAt": "2026-10-27T05:04:42Z",
+      "closedAt": "2026-10-27T05:04:42Z",
+      "headRefOid": "e122674f23aa6208d06345fb753eba2b90eecf85",
+      "baseRefOid": "6a319e7b3446f39edd19d3d76aec4c6a2851b28d",
+      "headRefName": "indexer-bs-assert",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAC3Q6rIA",
+          "name": "bypass-fail-fast",
+          "description": "CI: a failing job no longer aborts its siblings (lint still gates)",
+          "color": "6C92CD"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 9,
+        "SKIPPED": 60,
+        "SUCCESS": 129
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45796/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45453,
+      "url": "https://github.com/sgl-project/sglang/pull/45453",
+      "title": "[Fix] disaggregation: Synchronize deferred decode KV release across TP ranks",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOEcLs_w",
+        "is_bot": false,
+        "login": "paulzhang-tm",
+        "name": ""
+      },
+      "updatedAt": "2026-10-21T18:08:50Z",
+      "mergedAt": "2026-10-21T17:37:29Z",
+      "closedAt": "2026-10-21T17:37:29Z",
+      "headRefOid": "2647c3761ea18a05fc0227a744b99ce388d5b88a",
+      "baseRefOid": "cdbd4784226925515abc03cd3e77ac5129644dae",
+      "headRefName": "codex/fix-disagg-deferred-kv-consensus",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 86,
+        "SUCCESS": 24
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45453/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 35233,
+      "url": "https://github.com/sgl-project/sglang/pull/35233",
+      "title": "[AMD] Fix registered HiCache host pointer aliases",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOD0No9w",
+        "is_bot": false,
+        "login": "AMD-yanfeiwang",
+        "name": ""
+      },
+      "updatedAt": "2026-09-14T22:49:06Z",
+      "mergedAt": "2026-09-14T22:49:06Z",
+      "closedAt": "2026-09-14T22:49:06Z",
+      "headRefOid": "c29e6054f5bc32882756dbb29c934bf4097839a9",
+      "baseRefOid": "ec5fba5777bf2b7bfaf912d050b21b32df57b8f9",
+      "headRefName": "amd/rocm-hicache-host-pointer-alias",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB8_qayg",
+          "name": "hicache",
+          "description": "Hierarchical Caching for SGLang",
+          "color": "c5def5"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB9cegIg",
+          "name": "sgl-kernel",
+          "description": "",
+          "color": "bfd4f2"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACxb_ufQ",
+          "name": "memory-pool",
+          "description": "",
+          "color": "1d76db"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "yizhang2077"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "FlamingoPg"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        },
+        {
+          "__typename": "User",
+          "login": "hanming-lu"
+        },
+        {
+          "__typename": "User",
+          "login": "hzh0425"
+        },
+        {
+          "__typename": "User",
+          "login": "alphabetc1"
+        },
+        {
+          "__typename": "User",
+          "login": "huangtingwei9988"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 3,
+        "FAILURE": 17,
+        "SKIPPED": 42,
+        "SUCCESS": 127
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/35233/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 42553,
+      "url": "https://github.com/sgl-project/sglang/pull/42553",
+      "title": "[ROCm] Eliminate HiCache migration stalls and use exact-size host allocations",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOELil-Q",
+        "is_bot": false,
+        "login": "jiejingzhangamd",
+        "name": "Zhang, Jiejing"
+      },
+      "updatedAt": "2026-10-12T21:05:53Z",
+      "mergedAt": "2026-10-12T21:05:52Z",
+      "closedAt": "2026-10-12T21:05:52Z",
+      "headRefOid": "b2de5028259ff34283c251fee5cbb8678dd623a8",
+      "baseRefOid": "dab108b9f386b5b991ee070c7e4784f35df03f93",
+      "headRefName": "fix/rocm-hicache-gtt-main-20261004",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB8_qayg",
+          "name": "hicache",
+          "description": "Hierarchical Caching for SGLang",
+          "color": "c5def5"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACjL5NOw",
+          "name": "run-ci-extra",
+          "description": "CI: also run the extra suite (requires run-ci)",
+          "color": "6C9A09"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        },
+        {
+          "__typename": "User",
+          "login": "hanming-lu"
+        },
+        {
+          "__typename": "User",
+          "login": "yizhang2077"
+        },
+        {
+          "__typename": "User",
+          "login": "hzh0425"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "alphabetc1"
+        },
+        {
+          "__typename": "User",
+          "login": "huangtingwei9988"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 2,
+        "FAILURE": 16,
+        "SKIPPED": 51,
+        "SUCCESS": 145
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/42553/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 41395,
+      "url": "https://github.com/sgl-project/sglang/pull/41395",
+      "title": "[PD] Wait for prefill completion before Mooncake early KV transfer",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjIwMzA3MzI4",
+        "is_bot": false,
+        "login": "salexspb",
+        "name": "Sasha Sidorov"
+      },
+      "updatedAt": "2026-10-07T07:37:50Z",
+      "mergedAt": "2026-10-06T07:17:12Z",
+      "closedAt": "2026-10-06T07:17:13Z",
+      "headRefOid": "9fc5f306216f0115ab9e8ca0ca00638e23938749",
+      "baseRefOid": "968726f3cea0f6d6f44bea84797e5e5914658f4e",
+      "headRefName": "codex/mooncake-early-send",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAAC3Q67BA",
+          "name": "highest-priority",
+          "description": "CI: all three control labels, plus never batch-cancelled or stale-closed",
+          "color": "D93F0B"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 2,
+        "FAILURE": 31,
+        "SKIPPED": 71,
+        "SUCCESS": 113
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/41395/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 34465,
+      "url": "https://github.com/sgl-project/sglang/pull/34465",
+      "title": "[ROCm] Fix AttributeError on PPMissingLayer that blocks pipeline parallelism on gfx95",
+      "state": "CLOSED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjUwODU1NDE0",
+        "is_bot": false,
+        "login": "alexnails",
+        "name": "Alex Nails"
+      },
+      "updatedAt": "2026-09-28T01:33:17Z",
+      "mergedAt": null,
+      "closedAt": "2026-09-28T01:33:17Z",
+      "headRefOid": "62cd16df780c763370c82f8a184311a74f757bde",
+      "baseRefOid": "857910bd35e2b38e3d4c1cfc051548a691df3fbf",
+      "headRefName": "fix/deepseek-v2-pp-hidden-size-guard",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 86,
+        "SUCCESS": 17
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/34465/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 45233,
+      "url": "https://github.com/sgl-project/sglang/pull/45233",
+      "title": "[Fix] speculative: Exact NEXTN penalties and add opt-in CORAL H100 overlay",
+      "state": "CLOSED",
+      "isDraft": true,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOFFytog",
+        "is_bot": false,
+        "login": "vaishalisenthil24",
+        "name": ""
+      },
+      "updatedAt": "2026-10-27T23:42:15Z",
+      "mergedAt": null,
+      "closedAt": "2026-10-27T23:42:15Z",
+      "headRefOid": "612b93311b1d9f9a9e8c82d2fd63e960b6169aa0",
+      "baseRefOid": "baa9befa381511cd4d56f83980951e5a45fffc6d",
+      "headRefName": "coral/qwen36-v0522-q6-specfuse",
+      "baseRefName": "release/v0.5.22",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "reviewDecision": "",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABfbLsmQ",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 4
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/45233/checks"
+    },
+    {
+      "repo": "kvcache-ai/Mooncake",
+      "number": 4340,
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/4340",
+      "title": "[TE] Fix HIP and NVLink IPC relocation for suballocated buffers",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjIwMzA3MzI4",
+        "is_bot": false,
+        "login": "salexspb",
+        "name": "Sasha Sidorov"
+      },
+      "updatedAt": "2026-10-29T00:09:24Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "9b4b049d9cb50faa75595b962ce3591dc804db4b",
+      "baseRefOid": "8c9af6c914c35b97c2336863217a9ce13d13e4ed",
+      "headRefName": "fix/hip-ipc-suballocation-offset",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOMNwitc8AAAACQuZz7A",
+          "name": "run-ci",
+          "description": "",
+          "color": "bf98e5"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQ7H6ag",
+          "name": "Transfer Engine",
+          "description": "",
+          "color": "70fc29"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "alogfans"
+        },
+        {
+          "__typename": "User",
+          "login": "amd-arozanov"
+        },
+        {
+          "__typename": "User",
+          "login": "doujiang24"
+        },
+        {
+          "__typename": "User",
+          "login": "chestnut-Q"
+        }
+      ],
+      "unresolved_review_threads": 1,
+      "latest_check_counts": {
+        "FAILURE": 2,
+        "SKIPPED": 1,
+        "SUCCESS": 26
+      },
+      "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4340/checks"
+    },
+    {
+      "repo": "kvcache-ai/Mooncake",
+      "number": 4953,
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/4953",
+      "title": "[TE] HipTransport: submit copies asynchronously, one stream and event per device",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjM4OTA4NDYy",
+        "is_bot": false,
+        "login": "Jasen2201",
+        "name": "jasen"
+      },
+      "updatedAt": "2026-10-29T03:01:53Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "35c488e938d68d580aca64d6c08f6527f1fa58f7",
+      "baseRefOid": "811c97f0f8fd3687e199e7c3589a92a68fa9a6a1",
+      "headRefName": "hip-async-submit",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOMNwitc8AAAACQuZz7A",
+          "name": "run-ci",
+          "description": "",
+          "color": "bf98e5"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQ7H6ag",
+          "name": "Transfer Engine",
+          "description": "",
+          "color": "70fc29"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAAC_XKUYw",
+          "name": "size/M",
+          "description": "100-1000 changed lines (additions + deletions)",
+          "color": "7F7203"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "alogfans"
+        },
+        {
+          "__typename": "User",
+          "login": "amd-arozanov"
+        },
+        {
+          "__typename": "User",
+          "login": "doujiang24"
+        },
+        {
+          "__typename": "User",
+          "login": "chestnut-Q"
+        },
+        {
+          "__typename": "User",
+          "login": "staryxchen"
+        }
+      ],
+      "unresolved_review_threads": 4,
+      "latest_check_counts": {
+        "FAILURE": 2,
+        "SKIPPED": 1,
+        "SUCCESS": 31
+      },
+      "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4953/checks"
+    },
+    {
+      "repo": "kvcache-ai/Mooncake",
+      "number": 5030,
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/5030",
+      "title": "[Wheel] Stage _structured_ranges.py into the combined wheel",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOCQCk1g",
+        "is_bot": false,
+        "login": "staryxchen",
+        "name": "Stary"
+      },
+      "updatedAt": "2026-10-28T11:38:08Z",
+      "mergedAt": "2026-10-28T11:35:54Z",
+      "closedAt": "2026-10-28T11:35:54Z",
+      "headRefOid": "a068e70befdfcbc0a54609cbe3dd5e9d10958cf9",
+      "baseRefOid": "78f9eb6c53108f7576e597e077190d21d989bd8d",
+      "headRefName": "fix/wheel-stage-structured-ranges",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [
+        {
+          "id": "LA_kwDOMNwitc8AAAACQuZz7A",
+          "name": "run-ci",
+          "description": "",
+          "color": "bf98e5"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACm8Mvtg",
+          "name": "Tests",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAAC_YGR9Q",
+          "name": "size/S",
+          "description": "0-99 changed lines (additions + deletions)",
+          "color": "5D9801"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 2,
+        "SUCCESS": 26
+      },
+      "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/5030/checks"
+    },
+    {
+      "repo": "kvcache-ai/Mooncake",
+      "number": 5144,
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/5144",
+      "title": "[Build] Fix on-CUDA guard test generated header include",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjQwMDg1NzQw",
+        "is_bot": false,
+        "login": "he-yufeng",
+        "name": "Yufeng He"
+      },
+      "updatedAt": "2026-11-02T04:32:15Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "39c861c81ec5d5c10e6f853490585a9f79276392",
+      "baseRefOid": "af528d9b2de376b2be2081bc74396d772aba62b4",
+      "headRefName": "fix/on-cuda-test-te-includes",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOMNwitc8AAAACQuZz7A",
+          "name": "run-ci",
+          "description": "",
+          "color": "bf98e5"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACm8MvqQ",
+          "name": "Integration",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAAC_YGR9Q",
+          "name": "size/S",
+          "description": "0-99 changed lines (additions + deletions)",
+          "color": "5D9801"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 3,
+        "SUCCESS": 27
+      },
+      "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/5144/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 44724,
+      "url": "https://github.com/sgl-project/sglang/pull/44724",
+      "title": "[Fix] disaggregation: Select the staging device in DCP packing threads",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjEwNTMzNzI5",
+        "is_bot": false,
+        "login": "Venkat2811",
+        "name": "Venkat Raman"
+      },
+      "updatedAt": "2026-10-16T09:26:03Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "2ae31e9a73186a3421c7fcbf0d16b1f9e2608e43",
+      "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
+      "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 82,
+        "SUCCESS": 25
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/44724/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 39768,
+      "url": "https://github.com/sgl-project/sglang/pull/39768",
+      "title": "[PD][GLM-5.x] Improve PP prefill to DCP decode KV transfer",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDODvBX9A",
+        "is_bot": false,
+        "login": "hrpang0203",
+        "name": ""
+      },
+      "updatedAt": "2026-10-12T11:28:02Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "b892b1f0e3c050bdee15ee89504fbb5183bb51e0",
+      "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
+      "headRefName": "codex/glm52-pp-dcp",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACxb_ufQ",
+          "name": "memory-pool",
+          "description": "",
+          "color": "1d76db"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "hnyls2002"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        },
+        {
+          "__typename": "User",
+          "login": "hanming-lu"
+        },
+        {
+          "__typename": "User",
+          "login": "yizhang2077"
+        },
+        {
+          "__typename": "User",
+          "login": "hzh0425"
+        },
+        {
+          "__typename": "User",
+          "login": "alphabetc1"
+        },
+        {
+          "__typename": "User",
+          "login": "huangtingwei9988"
+        },
+        {
+          "__typename": "User",
+          "login": "Qiaolin-Yu"
+        },
+        {
+          "__typename": "User",
+          "login": "hebiao064"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "Edwardf0t1"
+        },
+        {
+          "__typename": "User",
+          "login": "ByronHsu"
+        },
+        {
+          "__typename": "User",
+          "login": "ShangmingCai"
+        },
+        {
+          "__typename": "User",
+          "login": "Duyi-Wang"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        },
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/39768/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 43782,
+      "url": "https://github.com/sgl-project/sglang/pull/43782",
+      "title": "[PD] Fix pd_dcp_gather grid.y overflow and vectorize pack gather to 8-byte lanes",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOB-PGkw",
+        "is_bot": false,
+        "login": "wojiaosun",
+        "name": "Yolo Sun"
+      },
+      "updatedAt": "2026-10-12T06:42:09Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "dfdfc5502a50071c658368edad10b5b7c842043d",
+      "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
+      "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 83,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/43782/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 210,
+      "url": "https://github.com/AMD-AGI/Infera/pull/210",
+      "title": "feat(sglang): v0.5.22 image, GLM-5.2-MXFP4 mixed and PD (TP1xPP4 prefill) examples, router decode request balancing",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-10-26T02:57:43Z",
+      "mergedAt": "2026-10-26T02:57:43Z",
+      "closedAt": "2026-10-26T02:57:43Z",
+      "headRefOid": "8859b247ced2fd053111d8a69002b29030c7d973",
+      "baseRefOid": "adbb9dc51f9d1d0116b38eb4dd9f103082b83802",
+      "headRefName": "feat/sglang-mix-glm5.2-tp4-v0522",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 7,
+        "SUCCESS": 9
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/210/checks"
+    }
+  ],
+  "issues": [
+    {
+      "url": "https://github.com/sgl-project/sglang/issues/46829",
+      "title": "[Bug] ROCm absorb-BMM hand config aborts Triton compilation at M=256 on gfx950",
+      "state": "OPEN",
+      "updatedAt": "2026-10-27T11:15:22Z"
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/issues/46831",
+      "title": "[Bug] ROCm DCP-PD allocator reserve growth precedes HIP resource aborts under burst load",
+      "state": "OPEN",
+      "updatedAt": "2026-10-30T13:42:15Z"
+    }
+  ]
+}
