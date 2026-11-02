@@ -1,7 +1,7 @@
 # GLM-5.2 patch upstreaming status
 
 <!-- DAILY-PR-STATUS:BEGIN -->
-Last automatic GitHub refresh: **2026-11-02T05:28:11.272145+00:00**. **53 PRs: 14 open (7 ready / 7 draft), 21 merged, 18 closed unmerged** in the four target repositories.
+Last automatic GitHub refresh: **2026-11-02T05:30:14.473900+00:00**. **53 PRs: 14 open (7 ready / 7 draft), 21 merged, 18 closed unmerged** in the four target repositories.
 
 Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment priorities](LLR37_DEPLOYMENT_PRIORITY.md); [daily-maintenance instructions](maintenance/README.md). The dated records below retain earlier decisions and may be superseded by this live section.
 
