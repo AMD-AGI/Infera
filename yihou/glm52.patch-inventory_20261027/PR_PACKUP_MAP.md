@@ -2,6 +2,8 @@
 
 Daily actionable handoff: [PR_HANDOFF.md](PR_HANDOFF.md). Deployment priority: [LLR37_DEPLOYMENT_PRIORITY.md](LLR37_DEPLOYMENT_PRIORITY.md). These live documents supersede dated status snapshots below.
 
+KernelForge follow-up: the [current source/evidence map](KERNELFORGE_UPSTREAM_20261102.md) covers four PRs (#47276, #47278, #47897 and #47872), the repaired top-k underflow case, and the held MoE port. Its live maintenance table supersedes the two-port snapshot below.
+
 Status checked: **2026-11-02T04:30:49.588023+00:00**. Entry point: [PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md).
 Author-wide discovery supplemented on **2026-11-02T04:46:05.537397+00:00**. Full immutable PR heads/bases are in [PR_SNAPSHOT.json](repro/PR_SNAPSHOT.json).
 **13 owned core PRs: 1 merged, 1 closed as superseded, 6 ready for review, 5 draft (11 active).** Ready means available

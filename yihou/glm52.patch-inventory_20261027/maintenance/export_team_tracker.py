@@ -17,6 +17,10 @@ B8_VALIDATION_ROOT = (
     "https://github.com/AMD-AGI/Infera/blob/"
     f"ce7a2217c0d782a303b1c9f191632fc964e5f2ba/{INVENTORY}/validation/b8_46918/"
 )
+KF_REPORT_URL = (
+    "https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/"
+    f"{INVENTORY}/KERNELFORGE_UPSTREAM_20261102.md"
+)
 FILES = ("README.md", "ACTIVE_PRS.md", "HISTORY.md", "PACKUP_MAP.md", "REFERENCES.md")
 
 
@@ -55,8 +59,10 @@ def generate(inventory, runtime, destination):
         "sgl-project/sglang#46820": "P0: baked nonblocking metrics fix; CPU/socket regression already exists. Prioritize CI and review.",
         "sgl-project/sglang#45524": "P0, external: related PP producer-event fix. Preserve the distinct historical image patch; coordinate with its author.",
         "sgl-project/sglang#46918": "P0, external: scoped absorb-BMM configuration candidate for S02 / issue #46829. Exact-head MI355X reproduction, paired-output and timing checks now complete: cap2 avoids the original abort and matches config=None bitwise. Prioritize maintainer CI/review/merge; the frozen image still uses config=None.",
-        "sgl-project/sglang#47276": "P1: reworked fused indexer/top-k port; not the exact historical overlay. Coordinate #45307 overlap.",
-        "sgl-project/sglang#47278": "P1: reworked sparse MLA port with BF16 split partials; qualify the new combined stack separately.",
+        "sgl-project/sglang#47276": "P1, optional for llr37: reworked fused indexer/top-k port. The added fused-indexer path is off in the frozen recipe; its llr42 activation was not retained. Coordinate #45307 overlap.",
+        "sgl-project/sglang#47278": "P1, required source family: sparse MLA is enabled in the frozen overlay. This port uses BF16 split partials; qualify the new combined stack separately.",
+        "sgl-project/sglang#47897": "P1, required source family: in-tree Gluon logits port of the frozen indexer family, with a paired-row tail repair. Track CI/review, unequal-table/length coverage and fallback gates.",
+        "sgl-project/sglang#47872": "P1, required source family: compact-page-table Triton top-k port, with opt-in behavior and exact fallback requirements. Follow the live handoff for candidate-underflow repair and validation; require exact selection cardinality as well as overflow correctness. Historical 32k serving regressed.",
         "AMD-AGI/Infera#221": "P1, evidence tooling: publish kernel provenance; not required at runtime. Retarget after #220 and qualify redacted derivatives.",
     }
     priority_rows = []
@@ -70,7 +76,9 @@ def generate(inventory, runtime, destination):
         "",
         "## 1. Merge priorities for the 48k deployment",
         "",
-        "Prioritize SGLang **#33059, #46830 and #46820**, and coordinate the existing external **#45524 and #46918**. They cover fix families already carried by the historical image. Then progress the narrower kernel ports **#47276/#47278** and the evidence catalog **Infera #221**. This is the integration priority for reducing downstream patches; the already-patched frozen image does not need to wait for these merges.",
+        "Prioritize SGLang **#33059, #46830 and #46820**, and coordinate the existing external **#45524 and #46918**. They cover fix families already carried by the historical image. Then progress **#47278/#47897/#47872**, which port the required historical sparse-MLA/logits/top-k families, and track optional fused-indexer **#47276** plus the evidence catalog **Infera #221**. These are reworked ports; the already-patched frozen image does not need to wait for their merges.",
+        "",
+        f"The [KernelForge source, evidence and maintenance map]({KF_REPORT_URL}) covers all four PRs and the unfiled MoE candidate. Its current port is held because the hooks did not engage and no gain was demonstrated on Aiter 2bb549. Required historical families are distinct from qualified current-main replacements; the added fused-indexer path is off in llr37.",
         "",
         "| Reference | Total tokens/s/GPU | Change / interpretation |",
         "|---|---:|---|",
@@ -90,13 +98,13 @@ def generate(inventory, runtime, destination):
         "",
         "### InferenceX first version is a separate publication queue",
         "",
-        "The common unmerged engine PRs are #33059/#46830/#46820. The PP construction fix #21194 is already merged; issue #46829 has external fix candidate [#46918](https://github.com/sgl-project/sglang/pull/46918), whose original MI355X reproducer and paired-output checks now pass; maintainer CI/review/merge and image integration remain. Select an image carrying the fixes and remove startup engine patching. #47276/#47278 and PP-overlap fix #45524 are later/configuration-dependent work, not first-version prerequisites.",
+        "The common unmerged engine PRs are #33059/#46830/#46820. The PP construction fix #21194 is already merged; issue #46829 has external fix candidate [#46918](https://github.com/sgl-project/sglang/pull/46918), whose original MI355X reproducer and paired-output checks now pass; maintainer CI/review/merge and image integration remain. Select an image carrying the fixes and remove startup engine patching. The four kernel ports #47276/#47278/#47897/#47872 and PP-overlap fix #45524 are later/configuration-dependent work, not prerequisites of the audited first-version recipe.",
         "",
         "Publication additionally tracks InferenceX #4629, srt-slurm #630, SGLang cookbook #47117 and InferenceX-app #1542; Infera #222/#223 are merged. The current first-version 8-GPU report is about 37.3k at synthetic AL 3.61, not the frozen 48k at 2.99. Its public sweep failed at bring-up. [Source comparison and dependency table](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/INFERENCEX_V1_VS_48K.md).",
         "",
         "### Required inputs without a merge-ready PR",
         "",
-        "Preserve the historical **S13** mount and attribution for frozen reproduction; current main has the GLM PP construction fix in merged [#21194](https://github.com/sgl-project/sglang/pull/21194), so do not file a duplicate. Preserve the **complete K01 overlay**, **both A01 Aiter CSVs**, **I07 launch hooks/site files**, the **S02 workaround** and the inherited image/RDMA patches. The two kernel PRs do not replace the complete overlay. Exact sources and ownership are in [PACKUP_MAP.md](PACKUP_MAP.md).",
+        "Preserve the historical **S13** mount and attribution for frozen reproduction; current main has the GLM PP construction fix in merged [#21194](https://github.com/sgl-project/sglang/pull/21194), so do not file a duplicate. Preserve the **complete K01 overlay**, **both A01 Aiter CSVs**, **I07 launch hooks/site files**, the **S02 workaround** and the inherited image/RDMA patches. The four kernel ports do not replace the complete overlay; the historical MoE candidate has no qualified current port PR. Exact sources and ownership are in [PACKUP_MAP.md](PACKUP_MAP.md).",
         "",
         "DCP transport/cache PRs #46819/#46824/#46826, OffloaderV2 #45484, transfer-queue #42163, prefill_complete #45337 and HIP-transport #5005/#4340 are useful separate work, not extra requirements for this DPA4/RDMA deployment. Late llr42 fused-indexer activation and llr52 blocking-poll experiments were not kept.",
         "",
@@ -171,6 +179,8 @@ def generate(inventory, runtime, destination):
         "",
         f"PR states checked: **{checked}**. [Live work queues](README.md). The original archive is pinned at `{ARCHIVE}`; a run's source is not automatically identical to its later main-based PR.",
         "",
+        f"[KernelForge source and evidence map]({KF_REPORT_URL}): #47278/#47897/#47872 cover families enabled in the historical overlay; #47276's added fused-indexer path is optional and off in llr37. The MoE port remains unfiled for lack of current-baseline benefit. Current PR states and repair/validation work come from the live rows below.",
+        "",
         "## Owned GLM-5.2 core patches",
         "",
         "| PR / state | Purpose | Role in historical deployment | Evidence / pack-up |",
@@ -178,7 +188,21 @@ def generate(inventory, runtime, destination):
     ]
     core = {
         "sgl-project/sglang#" + str(n)
-        for n in [33059, 45484, 46819, 46820, 46822, 46824, 46826, 46828, 46830, 47276, 47278]
+        for n in [
+            33059,
+            45484,
+            46819,
+            46820,
+            46822,
+            46824,
+            46826,
+            46828,
+            46830,
+            47276,
+            47278,
+            47897,
+            47872,
+        ]
     } | {"AMD-AGI/Infera#218", "kvcache-ai/Mooncake#5005"}
     for p in sorted(
         [p for p in owned if ledger.key(p) in core], key=lambda p: ledger.order(p, notes)
@@ -263,7 +287,7 @@ def generate(inventory, runtime, destination):
             "R7",
             "glm52.llrepro-kf-ar-topk.packup_20261024/README.md",
             "KF kernel investigation",
-            "Historical overlay family; not proof of final #47276/#47278 identity",
+            "Historical overlay families; not proof of final #47276/#47278/#47897/#47872 identity",
         ),
         (
             "R8",
@@ -301,6 +325,10 @@ def generate(inventory, runtime, destination):
         for rid, path, label, why in records
     ]
     refs += [
+        "",
+        "## KernelForge upstream map",
+        "",
+        f"[Curated source, evidence and maintenance report]({KF_REPORT_URL}): four existing PRs, exact frozen-overlay correspondence, test commands, correctness/performance limits and the unfiled MoE disposition. This live report was added after the archive pin above; it is intentionally linked directly, not rewritten to that earlier commit.",
         "",
         "## Reproduction inputs and unresolved identities",
         "",

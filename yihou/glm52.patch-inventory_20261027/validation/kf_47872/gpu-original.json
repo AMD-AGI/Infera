@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "record_origin": "Preserved GPU measurements with public commit and image provenance; private infrastructure identifiers omitted",
+  "run_id": "kf47872-20261102T1038Z-topk-underflow",
+  "recorded_at": "2026-11-02T10:40:42.942012+00:00",
+  "source": {
+    "repository": "https://github.com/sgl-project/sglang",
+    "commit": "a899828aaf4fa1ee2013c072a19be9115b773c09",
+    "module_path": "python/sglang/kernels/ops/attention/dsa/triton_topk_transform.py",
+    "module_url": "https://github.com/sgl-project/sglang/blob/a899828aaf4fa1ee2013c072a19be9115b773c09/python/sglang/kernels/ops/attention/dsa/triton_topk_transform.py",
+    "tests_path": "test/registered/amd/test_dsa_triton_topk_transform.py",
+    "tests_url": "https://github.com/sgl-project/sglang/blob/a899828aaf4fa1ee2013c072a19be9115b773c09/test/registered/amd/test_dsa_triton_topk_transform.py"
+  },
+  "image": {
+    "tag": "lmsysorg/sglang-rocm:v0.5.22-rocm10-mi35x-20261021",
+    "digest_reference": "lmsysorg/sglang-rocm@sha256:b28fe77ae3d1c6022da1b579687a5f5ecec08269081301a4887d2093cfd34ae9",
+    "image_id": "sha256:a27c44e4b72a5323cd8fca3aa68c144fa7391c827d1574762e91f21251b4a5bc"
+  },
+  "scope": "Exact-module gfx950 GPU tests; SGLang package namespace and CI registration shim only",
+  "torch": "2.11.0+rocm10.0.0",
+  "torch_hip": "7.15.26333",
+  "triton": "3.8.0",
+  "gpu": "AMD Instinct MI355X",
+  "arch": "gfx950:sramecc+:xnack-",
+  "visible_devices": {
+    "HIP_VISIBLE_DEVICES": "0",
+    "ROCR_VISIBLE_DEVICES": "0",
+    "CUDA_VISIBLE_DEVICES": "0"
+  },
+  "module_sha256": "29f9a820cb2ff2cd14963fceb4385222651703a6e94af59721d267c3b042e12b",
+  "tests_sha256": "91956f146d02f9b445a0cdb90f563be07ed49e8ae713f548dabb6c50f522e467",
+  "counterexample": {
+    "width": 131072,
+    "topk": 2048,
+    "high_count": 256,
+    "selected_count": 256,
+    "padding_count": 1792,
+    "unique_count": 256,
+    "all_in_range": true,
+    "selected_high_count": 256,
+    "correct": false
+  },
+  "expected_underflow": true,
+  "expected_counterexample_outcome_observed": true,
+  "tests_run": 4,
+  "failures": 0,
+  "errors": 0,
+  "skips": 0,
+  "elapsed_seconds": 11.651590585708618,
+  "limitations": [
+    "SGLang package namespace and CI-registration hook are shimmed for the older image; GPU kernels and test assertions are unmodified",
+    "No full server integration, model accuracy, or performance measurement",
+    "elapsed_seconds is test-run wall time, not a kernel benchmark"
+  ]
+}

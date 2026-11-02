@@ -25,6 +25,21 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | TRIAGE | [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) — [Perf] [AMD] dsa: In-tree gfx950 paged MQA logits for decode / MTP-verify rows | READY / `d6876dbdfc` | Unclassified: inspect before adding to a deployment | Already Ready. New/unclassified PR: review diff, purpose, ownership, evidence and dependencies; write curated handoff notes. | Resolve current review and required CI; no automatic merge certification. |
 <!-- DAILY-PR-STATUS:END -->
 
+<!-- KF-MAINT-20261102:BEGIN -->
+## 2026-11-02: KernelForge upstream maintenance
+
+All four PRs are Ready; new-head lint passes. #47872's temporary correctness Draft was resolved with a source fix and MI355X regression. [Full mapping and evidence](KERNELFORGE_UPSTREAM_20261102.md).
+
+| PR | Current head / state | Validation | CI / next action |
+|---|---|---|---|
+| [#47276](https://github.com/sgl-project/sglang/pull/47276) | `598ba3f41f53` / Ready | Full-tree Ruff, scoped hooks and CPU launch-selection assertions passed; 7 GPU tests skipped; range-diff unchanged | [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430249327/job/125226720255); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430249649/job/125226908540) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#47278](https://github.com/sgl-project/sglang/pull/47278) | `73ee22beaac2` / Ready | Full-tree Ruff, scoped hooks and 3 CPU contracts passed; 22 GPU tests skipped; touched-source change is only inherited main #47782 architecture lookup | [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430645537/job/125228065040); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430646049/job/125228291012) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#47897](https://github.com/sgl-project/sglang/pull/47897) | `fcfa508799f1` / Ready | Full-tree Ruff, scoped hooks and 4 CPU tests passed; 4 GPU tests skipped; range-diff unchanged | [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41428923887/job/125222275790); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41428924194/job/125222524471) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#47872](https://github.com/sgl-project/sglang/pull/47872) | `1061c298389f` / Ready | Full-tree Ruff, scoped hooks and 32 CPU tests passed; actual-kernel interpreter controls passed; original GPU underflow reproduced and all 5 repaired MI355X GPU tests passed with zero skips | [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41429823944/job/125225314296); [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41429823967/job/125228691842) sees Ready; missing maintainer-controlled `run-ci`. |
+| MoE candidate, no PR | Held | Current hooks did not engage; no gain on Aiter 2bb549 | Yihou/delegate: establish an active, beneficial current-baseline port before filing. Related external #6697 remains separate. |
+
+<!-- KF-MAINT-20261102:END -->
+
 <!-- LINT-48K-20261102:BEGIN -->
 ## 2026-11-02: 48k-priority lint repair
 

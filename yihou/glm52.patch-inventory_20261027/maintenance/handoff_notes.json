@@ -55,37 +55,37 @@
     },
     "sgl-project/sglang#47276": {
       "assessed_at": "2026-11-02",
-      "reviewed_head": "23a8de201bd5c157aed0ab8949c8dc57057e2bad",
+      "reviewed_head": "598ba3f41f53e1c1e2a332a4d369210f283deb5f",
       "priority": "P1",
-      "deployment": "K01 FAMILY PORT: prioritize upstream adoption; not the exact historical overlay and not a new patch needed atop llr37.",
+      "deployment": "OPTIONAL K01 FAMILY PORT: the added fused-indexer path is off in llr37, and later llr42 activation was not retained.",
       "purpose": "Speed up gfx950 fused indexer logits/top-k for MTP verify rows.",
       "owner": "yihou; delegate unassigned",
-      "ready_action": "Already non-draft. Audit final October 29 run IDs/source hashes against pack-ups and preserve real-acceptance versus simulated-performance boundaries.",
-      "merge_action": "Ready; the inherited XPU logger F821 is resolved by upstream #47837 and [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425379090/job/125210599208). [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425379155/job/125210861058) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required CI and review/approve. Yihou/delegate: respond to functional CI or review findings. This authorization gate is not a functional-test failure. Coordinate overlapping #45307 and rebase whichever lands second.",
+      "ready_action": "Already Ready. Preserve independent numerical evidence and coordinate #45307; bind final source/run IDs to a public result bundle when available.",
+      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430249327/job/125226720255). [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430249649/job/125226908540) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings. Coordinate overlapping #45307; its author must resolve current main conflicts.",
       "evidence": "PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20–1.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping.",
       "tests": [
         "# GPU: use a pool node; exact architecture/flags are in the PR",
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gfx950_fused_indexer.py"
       ],
-      "last_action": "2026-11-02: rebased/pushed to 23a8de201bd5 on main b45a36531c36, including upstream logger fix #47837. Full-tree Ruff, scoped repository hooks and CPU launch-selection assertions passed; 7 GPU tests skipped; range-diff unchanged. [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425379090/job/125210599208); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425379155/job/125210861058) sees Ready; missing maintainer-controlled `run-ci`. No new GPU measurement was performed. [PR follow-up](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6574437744).",
-      "reviewed_activity_at": "2026-11-02T10:07:40Z"
+      "last_action": "2026-11-02: rebased and pushed 598ba3f41f53 on main a133231d3140. Full-tree Ruff, scoped hooks and CPU launch-selection assertions passed; 7 GPU tests skipped; range-diff unchanged. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430249327/job/125226720255); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430249649/job/125226908540) sees Ready; missing maintainer-controlled `run-ci`. [PR follow-up](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6575193133).",
+      "reviewed_activity_at": "2026-11-02T10:45:45Z"
     },
     "sgl-project/sglang#47278": {
       "assessed_at": "2026-11-02",
-      "reviewed_head": "d3a13d1cf87fa33107d015c1d122ee48cacd9888",
+      "reviewed_head": "73ee22beaac2989182a7c077c2a9a125dbde4652",
       "priority": "P1",
-      "deployment": "K01 FAMILY PORT: prioritize upstream adoption; BF16 split partials differ from the frozen overlay.",
+      "deployment": "K01 REQUIRED FAMILY PORT: sparse MLA is active in llr37; this main-based port uses BF16 split partials and is not byte-identical to the historical overlay.",
       "purpose": "Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan.",
       "owner": "yihou; delegate unassigned",
-      "ready_action": "Already non-draft. Bind final tests/runs to source hashes and archive locations; do not substitute for the complete K01 overlay.",
-      "merge_action": "Ready; the inherited XPU logger F821 is resolved by upstream #47837 and [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425638344/job/125211454851). [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425638677/job/125211664882) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required CI and review/approve. Yihou/delegate: respond to functional CI or review findings. This authorization gate is not a functional-test failure.",
+      "ready_action": "Already Ready. Preserve the BF16-partial accuracy change and DCP/LSE coverage; raw run-to-source archiving remains a handoff follow-up.",
+      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430645537/job/125228065040). [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430646049/job/125228291012) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings.",
       "evidence": "PR reports 22/22 kernel tests, FP32-reference SNR >35 dB and real-acceptance GSM8K mean .942 baseline / .941 PR; isolated kernel 2.4–3.2x. Serving ITL used simulated acceptance 3.61. Final-port pack-up mapping still needs audit.",
       "tests": [
         "# GPU: use a pool node; preserve PR architecture and dtype matrix",
         "PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py"
       ],
-      "last_action": "2026-11-02: rebased/pushed to d3a13d1cf87f on main b45a36531c36, including upstream logger fix #47837. Full-tree Ruff, scoped repository hooks and 3 CPU contracts passed; 22 GPU tests skipped; range-diff unchanged. [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425638344/job/125211454851); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425638677/job/125211664882) sees Ready; missing maintainer-controlled `run-ci`. No new GPU measurement was performed. [PR follow-up](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6574439522).",
-      "reviewed_activity_at": "2026-11-02T10:07:44Z"
+      "last_action": "2026-11-02: rebased and pushed 73ee22beaac2 on main a133231d3140. Full-tree Ruff, scoped hooks and 3 CPU contracts passed; 22 GPU tests skipped; touched-source change is only inherited main #47782 architecture lookup. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430645537/job/125228065040); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430646049/job/125228291012) sees Ready; missing maintainer-controlled `run-ci`. [PR follow-up](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6575194570).",
+      "reviewed_activity_at": "2026-11-02T10:45:50Z"
     },
     "AMD-AGI/Infera#221": {
       "assessed_at": "2026-11-02",
@@ -851,6 +851,54 @@
         "python validate_b8.py matrix --checkout /data/yihou/b8/sglang-candidate --out /data/yihou/b8/run-boundaries --rows 128,129,257,256 --seeds 130363"
       ],
       "last_action": "2026-11-02: completed exact-head MI355X reproduction, paired-output and timing checks; published executable harness/results and [reported to the original PR](https://github.com/sgl-project/sglang/pull/46918#issuecomment-6572803085). Test container stopped; standing pool allocation preserved. Ready; missing maintainer-controlled run-ci and review/merge remain."
+    },
+    "sgl-project/sglang#47897": {
+      "assessed_at": "2026-11-02",
+      "priority": "P1",
+      "owner": "yihou; delegate unassigned",
+      "purpose": "Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch.",
+      "deployment": "K01 REQUIRED FAMILY PORT: historical indexer logits are active in llr37; this corrected main-based implementation is not byte-identical to the frozen overlay.",
+      "reviewed_head": "fcfa508799f1463dd0e91c278fe80fc6fd9ad0e1",
+      "ready_action": "Already Ready. Preserve existing hardware evidence and the paired-row regression; archived raw run-to-source bundle is still a handoff follow-up.",
+      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41428923887/job/125222275790). [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41428924194/job/125222524471) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings.",
+      "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47897). The c2cacf5f candidate matches the frozen indexer module; the PR fixes its fused-pair tail omission. Author reports 2.67–3.06x isolated long-context logits, numerical/top-k checks, and real-acceptance GSM8K means .934 main/.927 PR with overlapping ranges. GSM8K is a short-context smoke test. Serving timings used simulated acceptance 3.61 in a single-node setup, not the frozen PD/AgentX setup. Local PR_NOTES.md and working_process.md identify validation scripts; raw results are not yet a public archived bundle.",
+      "tests": [
+        "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gluon_paged_mqa_logits.py",
+        "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_mqa_logits_chunking.py"
+      ],
+      "last_action": "2026-11-02: rebased and pushed fcfa508799f1 on main a133231d3140. Full-tree Ruff, scoped hooks and 4 CPU tests passed; 4 GPU tests skipped; range-diff unchanged. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41428923887/job/125222275790); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41428924194/job/125222524471) sees Ready; missing maintainer-controlled `run-ci`. [PR follow-up](https://github.com/sgl-project/sglang/pull/47897#issuecomment-6575195946).",
+      "reviewed_activity_at": "2026-11-02T10:45:54Z"
+    },
+    "sgl-project/sglang#47872": {
+      "assessed_at": "2026-11-02",
+      "priority": "P1",
+      "owner": "yihou; delegate unassigned",
+      "purpose": "Provide opt-in long-context top-k on compact page tables with exact sampling fallbacks.",
+      "deployment": "K01 REQUIRED FAMILY PORT: historical top-k belongs to the active llr37 indexer; this opt-in replacement has a different implementation and is slower in the measured 32k case.",
+      "reviewed_head": "1061c298389facbdeaafced9891a5c7c9b399331",
+      "ready_action": "Ready restored after the underflow repair, import-guard regression and exact-source MI355X validation. The temporary correctness Draft is resolved; retain opt-in behavior and the historical performance limits.",
+      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41429823944/job/125225314296). [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41429823967/job/125228691842) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings.",
+      "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47872). Author reports exact overflow fallback, valid nondeterministic boundary ties and 1.5–1.9x isolated speedup at 400k contexts/72+ rows, but about 1.3% slower serving at 32k with simulated acceptance 3.61. Real-acceptance GSM8K .953 from one server is a smoke test. Maintenance reproduced candidate underflow in the actual GPU pipeline: original 256 valid slots instead of 2048; fixed 2048 unique valid slots and all 5 GPU tests pass without skips. Run kf47872-20261102T1038Z-topk-underflow used MI355X and the public v0.5.22 ROCm10 image, Torch 2.11.0+rocm10.0.0 / Triton 3.8.0. [Pinned source, CPU/GPU records and reproduction scripts](https://github.com/AMD-AGI/Infera/tree/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/validation/kf_47872). The GPU runner uses the exact module/tests with namespace and CI-registration shims for the older image; no new server/model/performance result is claimed.",
+      "tests": [
+        "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_triton_topk_transform.py",
+        "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_triton_topk_gate.py"
+      ],
+      "last_action": "2026-11-02: rebased and pushed 1061c298389f on main a133231d3140. Full-tree Ruff, scoped hooks and 32 CPU tests passed; actual-kernel interpreter controls passed; original GPU underflow reproduced and all 5 repaired MI355X GPU tests passed with zero skips. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41429823944/job/125225314296); [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41429823967/job/125228691842) sees Ready; missing maintainer-controlled `run-ci`. Repaired candidate underflow and deferred optional Gluon imports behind platform/flag guards; restored Ready after GPU validation and retriggered Base with /tag-and-rerun-ci. The new gate supersedes the old Draft failure. [PR follow-up](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6575197280).",
+      "reviewed_activity_at": "2026-11-02T10:45:58Z"
+    },
+    "ROCm/aiter#6697": {
+      "assessed_at": "2026-11-02",
+      "reviewed_head": "9a201616132dbb8f94877e4331cef4db79f88882",
+      "reviewed_activity_at": "2026-10-26T04:03:20Z",
+      "priority": "P2",
+      "purpose": "Related upstream MoE sort-into-GEMM1 experiment; not our five-hook KF port.",
+      "deployment": "RELATED, EXTERNAL: not an established llr37 merge dependency or a replacement for the full historical MoE overlay.",
+      "owner": "chushic / ROCm Aiter maintainers; yihou tracks relevance only",
+      "ready_action": "Already Ready; preserve external ownership.",
+      "merge_action": "External author: resolve current main conflicts and respond to the design objection about merging sorting into GEMM1. Track relevance; do not duplicate or modify the author branch. Our separate five-patch MoE port remains held until an active path and current-baseline gain are demonstrated.",
+      "evidence": "KernelForge PR_NOTES.md reports no gain on Aiter 2bb549: candidate/port 0.2365 ms versus native 0.2326 ms, and no engagement of the five hooks. Historical 1.105x was measured on Aiter e7d2453; it does not transfer to this external PR or the newer baseline.",
+      "tests": [],
+      "last_action": "2026-11-02: added as related external work; audited Ready status, main conflicts and the outstanding design discussion. No branch or metadata mutation."
     }
   },
   "external_prs": [
@@ -888,7 +936,8 @@
     "https://github.com/SemiAnalysisAI/InferenceX/pull/4629",
     "https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542",
     "https://github.com/NVIDIA/srt-slurm/pull/630",
-    "https://github.com/sgl-project/sglang/pull/46918"
+    "https://github.com/sgl-project/sglang/pull/46918",
+    "https://github.com/ROCm/aiter/pull/6697"
   ],
   "issues": [
     "https://github.com/sgl-project/sglang/issues/46829",

@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "recorded_on": "2026-11-02",
+  "record_origin": "Preserved case measurements; local module path replaced with pinned source provenance",
+  "source": {
+    "repository": "https://github.com/sgl-project/sglang",
+    "commit": "a899828aaf4fa1ee2013c072a19be9115b773c09",
+    "source_path": "python/sglang/kernels/ops/attention/dsa/triton_topk_transform.py",
+    "source_sha256": "29f9a820cb2ff2cd14963fceb4385222651703a6e94af59721d267c3b042e12b",
+    "source_url": "https://github.com/sgl-project/sglang/blob/a899828aaf4fa1ee2013c072a19be9115b773c09/python/sglang/kernels/ops/attention/dsa/triton_topk_transform.py"
+  },
+  "execution": "Actual _topk_est and _topk_select under TRITON_INTERPRET=1, CPU tensors",
+  "candidate_packing": "CPU construction from the actual estimator threshold",
+  "limitation": "Gluon collector and GPU compilation/execution are not covered",
+  "cases": [
+    {
+      "high_sample_positions": 256,
+      "row_length": 131072,
+      "topk": 2048,
+      "actual_estimator_threshold_key": 1120403456,
+      "candidate_count": 256,
+      "actual_selector_valid_count": 256,
+      "actual_selector_unique_count": 256,
+      "actual_selector_padding_count": 1792,
+      "unwritten_count": 0,
+      "selected_score_sum": 25600.0,
+      "torch_topk_score_sum": 25600.0,
+      "passed": false
+    },
+    {
+      "high_sample_positions": 2048,
+      "row_length": 131072,
+      "topk": 2048,
+      "actual_estimator_threshold_key": 1120403456,
+      "candidate_count": 2048,
+      "actual_selector_valid_count": 2048,
+      "actual_selector_unique_count": 2048,
+      "actual_selector_padding_count": 0,
+      "unwritten_count": 0,
+      "selected_score_sum": 204800.0,
+      "torch_topk_score_sum": 204800.0,
+      "passed": true
+    }
+  ]
+}
