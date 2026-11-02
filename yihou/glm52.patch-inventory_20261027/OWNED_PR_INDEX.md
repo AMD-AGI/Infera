@@ -1,8 +1,8 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-02T09:01:05.708427+00:00. Author: `dorado269`.
+Checked: 2026-11-02T10:09:36.958069+00:00. Author: `dorado269`.
 
-**55 PRs: 15 open (7 ready / 8 draft), 22 merged, 18 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
+**56 PRs: 16 open (9 ready / 7 draft), 22 merged, 18 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
 | PR | Purpose / title | State | Next action |
 |---|---|---|---|
@@ -44,7 +44,7 @@ Checked: 2026-11-02T09:01:05.708427+00:00. Author: `dorado269`.
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | Historical; no active merge work |
 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT | See handoff |
 | [kvcache-ai/Mooncake #5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | Offer opt-in HIP copy-stream priority without changing the default. | DRAFT | See handoff |
-| [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) | Make real query rows and padded Aiter metadata agree. | DRAFT | See handoff |
+| [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) | Make real query rows and padded Aiter metadata agree. | READY | See handoff |
 | [sgl-project/sglang #33643](https://github.com/sgl-project/sglang/pull/33643) | Speculative penalty token accounting | CLOSED | Closed; external #45233 also closed unmerged. Search main/replacements before resuming. |
 | [sgl-project/sglang #33968](https://github.com/sgl-project/sglang/pull/33968) | Historical HiCache pointer aliases | CLOSED | Closed as superseded by merged #35233/#42553. |
 | [sgl-project/sglang #33970](https://github.com/sgl-project/sglang/pull/33970) | Historical early KV-send completion | CLOSED | Closed as superseded by merged #41395; separate producer work #45524 remains. |
@@ -61,3 +61,4 @@ Checked: 2026-11-02T09:01:05.708427+00:00. Author: `dorado269`.
 | [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | See handoff |
 | [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | READY | See handoff |
 | [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | [Perf] [AMD] dsa: Opt-in single-pass Triton top-k for long-context decode rows | READY | See handoff |
+| [sgl-project/sglang #47897](https://github.com/sgl-project/sglang/pull/47897) | [Perf] [AMD] dsa: In-tree gfx950 paged MQA logits for decode / MTP-verify rows | READY | See handoff |

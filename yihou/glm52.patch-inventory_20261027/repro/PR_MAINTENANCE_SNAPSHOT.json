@@ -1,7 +1,74 @@
 {
-  "checked_at_utc": "2026-11-02T09:01:05.708427+00:00",
+  "checked_at_utc": "2026-11-02T10:09:36.958069+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47897,
+      "url": "https://github.com/sgl-project/sglang/pull/47897",
+      "title": "[Perf] [AMD] dsa: In-tree gfx950 paged MQA logits for decode / MTP-verify rows",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T09:32:05Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "d6876dbdfcc6ed3ff26680405d19b1b16f02ab12",
+      "baseRefOid": "1ced9a9eb0224e5c12c9ed236b188868a635cd5c",
+      "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 89,
+        "SUCCESS": 21
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/47897/checks"
+    },
     {
       "repo": "sgl-project/sglang",
       "number": 47872,
@@ -16,7 +83,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T07:48:56Z",
+      "updatedAt": "2026-11-02T09:31:23Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "a899828aaf4fa1ee2013c072a19be9115b773c09",
@@ -89,7 +156,7 @@
       "latest_check_counts": {
         "FAILURE": 18,
         "SKIPPED": 88,
-        "SUCCESS": 21
+        "SUCCESS": 22
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -107,10 +174,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T08:50:19Z",
+      "updatedAt": "2026-11-02T09:01:30Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "be385e17763b5f930ad3573ac1db7b5d74b6f8da",
+      "headRefOid": "a1f30364ce0e561faf62e35dcfe7682d2f110dcc",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -154,11 +221,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T07:02:05Z",
+      "updatedAt": "2026-11-02T10:07:44Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "607b3c9f76f1e146920384938a1aea9de523e0bd",
-      "baseRefOid": "b0debe0a7aa827b34c1987a234c07eeedf14c68f",
+      "headRefOid": "d3a13d1cf87fa33107d015c1d122ee48cacd9888",
+      "baseRefOid": "b45a36531c3673048aeaf35322c3df7f18edd038",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -201,7 +268,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 18,
+        "FAILURE": 17,
         "SKIPPED": 89,
         "SUCCESS": 21
       },
@@ -221,11 +288,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T07:01:59Z",
+      "updatedAt": "2026-11-02T10:07:40Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "d973ced62c7836931590756af8a9e3e7f6357fc2",
-      "baseRefOid": "b0debe0a7aa827b34c1987a234c07eeedf14c68f",
+      "headRefOid": "23a8de201bd5c157aed0ab8949c8dc57057e2bad",
+      "baseRefOid": "b45a36531c3673048aeaf35322c3df7f18edd038",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -292,7 +359,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 19,
+        "FAILURE": 18,
         "SKIPPED": 88,
         "SUCCESS": 21
       },
@@ -440,8 +507,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -493,11 +560,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T07:01:46Z",
+      "updatedAt": "2026-11-02T10:07:34Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "3c70f61f29731eb3b1a9da5e6b15be862b1f96cd",
-      "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
+      "headRefOid": "625403853ab69c90697080466bc06d5bfcad7fbe",
+      "baseRefOid": "b45a36531c3673048aeaf35322c3df7f18edd038",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -533,7 +600,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 19,
+        "FAILURE": 18,
         "SKIPPED": 88,
         "SUCCESS": 21
       },
@@ -602,8 +669,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -644,8 +711,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -730,8 +797,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -788,11 +855,11 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T07:01:40Z",
+      "updatedAt": "2026-11-02T10:07:30Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "840ddc2dab5e6bad4db7686e7d610a97a3310539",
-      "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
+      "headRefOid": "783c1a2192ecb1b3ab65e2cd87656919482e0034",
+      "baseRefOid": "b45a36531c3673048aeaf35322c3df7f18edd038",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
       "mergeable": "MERGEABLE",
@@ -820,7 +887,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 19,
+        "FAILURE": 18,
         "SKIPPED": 88,
         "SUCCESS": 21
       },
@@ -847,8 +914,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -889,8 +956,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2175,7 +2242,7 @@
       "url": "https://github.com/sgl-project/sglang/pull/33059",
       "title": "[Fix] [AMD] dsa: Align Aiter paged rows with DP-attention metadata",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": true,
       "author": {
         "id": "U_kgDOETNnUQ",
@@ -2183,15 +2250,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T08:56:45Z",
+      "updatedAt": "2026-11-02T09:48:02Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "f4f5b98a1394db5eecfd490132a7b760a242e9d3",
-      "baseRefOid": "1599b166ac856f4fd192feb2c16304fae7860a72",
+      "headRefOid": "795488cd19aaa3cc852d6c87ffe36b88af20ca23",
+      "baseRefOid": "b45a36531c3673048aeaf35322c3df7f18edd038",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2946,8 +3013,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3152,8 +3219,8 @@
       "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4341,8 +4408,8 @@
       "baseRefOid": "811c97f0f8fd3687e199e7c3589a92a68fa9a6a1",
       "headRefName": "hip-async-submit",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5064,8 +5131,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5116,8 +5183,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5248,7 +5315,7 @@
       "url": "https://github.com/NVIDIA/srt-slurm/pull/630",
       "title": "feat(frontends): add an infera frontend for etcd-registered SGLang workers",
       "state": "OPEN",
-      "isDraft": true,
+      "isDraft": false,
       "owned": false,
       "author": {
         "id": "U_kgDOC_xLqA",
@@ -5256,10 +5323,10 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-10-30T08:40:53Z",
+      "updatedAt": "2026-11-02T09:23:29Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "b060d20150d204f3057b317275e052db14527ff9",
+      "headRefOid": "cb38af8275824ec35e1c2a739b37ab4234f60ec0",
       "baseRefOid": "59920ea16a13017a990e449d034a495c0b05bc57",
       "headRefName": "llying/infera-frontend",
       "baseRefName": "main",
@@ -5268,11 +5335,44 @@
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
-      "reviewRequests": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "kyleliang-nv"
+        },
+        {
+          "__typename": "User",
+          "login": "hjjq"
+        },
+        {
+          "__typename": "User",
+          "login": "qiching"
+        },
+        {
+          "__typename": "User",
+          "login": "kedarpotdar-nv"
+        },
+        {
+          "__typename": "User",
+          "login": "alec-flowers"
+        },
+        {
+          "__typename": "User",
+          "login": "ishandhanani"
+        },
+        {
+          "__typename": "User",
+          "login": "nlevin-ui"
+        },
+        {
+          "__typename": "User",
+          "login": "csahithi"
+        }
+      ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "SKIPPED": 1,
-        "SUCCESS": 2
+        "SKIPPED": 2,
+        "SUCCESS": 4
       },
       "checks_url": "https://github.com/NVIDIA/srt-slurm/pull/630/checks"
     },
@@ -5297,8 +5397,8 @@
       "baseRefOid": "15d39bd8406bc75d2b1c82c5013cd0eb36368608",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
