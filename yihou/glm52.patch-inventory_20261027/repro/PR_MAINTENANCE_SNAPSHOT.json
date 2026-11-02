@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-02T07:55:58.424735+00:00",
+  "checked_at_utc": "2026-11-02T08:45:45.260541+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -107,10 +107,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T07:34:13Z",
+      "updatedAt": "2026-11-02T07:56:20Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "1eaa0a48b69e2623a7addfa4e1b93cc2d71f240e",
+      "headRefOid": "64870efba4a00acf5f33dc680d866345dce89e30",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -2190,8 +2190,8 @@
       "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -3152,8 +3152,8 @@
       "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4341,8 +4341,8 @@
       "baseRefOid": "811c97f0f8fd3687e199e7c3589a92a68fa9a6a1",
       "headRefName": "hip-async-submit",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4978,8 +4978,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5169,8 +5169,8 @@
       "baseRefOid": "4bc1b3dda4df428d2cee984d8af9c8ddffade3ec",
       "headRefName": "llying/infera-sglang",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "CHANGES_REQUESTED",
       "labels": [],
       "assignees": [],
@@ -5290,15 +5290,15 @@
         "login": "yu-depend",
         "name": "Depend"
       },
-      "updatedAt": "2026-10-28T02:19:33Z",
+      "updatedAt": "2026-11-02T08:42:06Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
       "baseRefOid": "15d39bd8406bc75d2b1c82c5013cd0eb36368608",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
