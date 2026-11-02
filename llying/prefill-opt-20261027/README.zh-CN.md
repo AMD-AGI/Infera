@@ -3,18 +3,35 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
-## 当前状态（实时更新，最后更新 11-02 08:55 UTC）
+## 当前状态（实时更新，最后更新 11-02 09:20 UTC）
 
 | 项 | 节点 | C104 tok/s/GPU | 每级驱逐均值 PP0/1/2/3（ms） | 状态 |
 |---|---|---|---|---|
 | E1（驱逐留 512K 余量） | 138→140 | 49,807 / 49,631 | 456 / 308 / 355 / 331 | 旧最佳 |
 | **E10 = E1 + 写回 kernel quota 16** | 138→140 | **51,374（+3.3%）** | 358 / 195 / 259 / 225 | **当前最佳**，门禁通过 |
 | E10（换硬件后的基线） | 138→135 | 51,658（与 140 上差 +0.6%，单次噪声内） | 349 / 193 / 253 / 229 | 10-30 04:52 完成；新组合复现了旧基线 |
-| E11 关 prefill KV events | — | — | — | 预测 < 1%，不跑 |
+| E11-old 关 prefill KV events | — | — | — | 预测 < 1%，不跑 |
+| E11 decode `ROCM700A=0`（MoE 合并走 reduce-scatter） | 138→140 | — | — | 第一次检查输出乱码（与 packet capture 关同时改），单变量复查中（night30） |
 | E9 后台预写回（叠在 E10 上） | 138→135 | v5 前 20 分钟 49,561 vs E10 49,233 / 对照 49,521（**噪声内**） | v5：21 / 15 / 16 / 16 s（E10 108 / 64 / 81 / 76） | v5 未命中率回到 4.83%、驱逐降 80%，但吞吐只 +0.7%，未达 +1% 预测；**暂停，待定** |
 | decode kernel 拆解 | 138→135 | — | — | 已采；draft graph 可见，verify graph 0 个 kernel；下一步加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 重采 |
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
+
+## 11-02 09:20 E11 第一次正确性检查：输出乱码（两个变量同时改了，待拆开）；decode KV 池压力分析
+
+**命名**：下文 / 配置里的 "E11" 指本次的 `SGLANG_USE_ROCM700A=0`；10-29 写的"E11 关 prefill KV events"（预测 < 1%，未跑）以后记作 E11-old。
+
+**E11 检查（`site-140-e11-check-1102T0848`，真实接受率）：smoke 4/6，输出乱码**：completion " Paris Vieoportsymboluß…"、chat 答 "39"（应为 391）、stream 全是乱码；
+长前缀两项（冷 / 重复）碰巧对。**但这次 decode 同时带了 `SGLANG_USE_ROCM700A=0` 和 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0`，不能归因**——
+10-30 的 trace 采集（packet capture 关）用的是模拟接受长度，看不出内容。已停掉这次检查（night29 写 STOP），拆成单变量：
+`scripts/night30_1102.sh`：A = 只 `ROCM700A=0`（`site-140-e11.env`）→ B = 只 packet capture 关（`site-140-pc0.env`，E10 + 该 flag）；每个都是 smoke + 200 题探测 + 长上下文 16k × 32。
+判定：A 乱码 → E11 作废（`ROCM700A=1` 的 RCCL 规避可能确有必要）；A 干净、B 乱码 → packet capture 关会破坏输出，只能用于采集（且之前的 trace 要重新审视）；都干净 → 上一次是别的原因，重查。
+
+**decode KV 池压力（E10 整小时，`scripts/ana/kv_wait.py`）**：每个 DP rank 的 token 使用率平均 0.82、p90 0.98–0.99，**25% 的时间 ≥ 0.97**；
+等 KV 预分配的请求四个 rank 都差不多（总计平均 4.1 个，57% 的采样有人在等）；**有人在等时，另一个 rank 空间多 ≥ 10 个百分点的只占 23%、≥ 20 个点的只占 2%**
+→ 瓶颈是池的**总容量**，不是 rank 之间不均衡；预分配（为到来的请求预留）平均占池的 17%。
+按 Little 定律，4.1 个 ÷ 3.42 请求/秒 ≈ **1.2 s**，是 TTFT 均值 5.95 s 的上界 20%（部分与 prefill 排队重叠，所以是上界）。
+（更正：我 16:10 写的 1.65 s 用的是 analyze_pd_logs 的 5.0–6.2 个，口径是最忙 rank 的和；这里按每 rank 平均重算为 1.2 s。）
 
 ## 11-02 08:55 E11：decode 去掉 `SGLANG_USE_ROCM700A`（MoE 合并改走 aiter reduce-scatter）；中断 2 天与换节点
 
