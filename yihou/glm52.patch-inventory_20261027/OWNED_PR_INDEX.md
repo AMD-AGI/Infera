@@ -1,8 +1,8 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-02T07:33:48.300024+00:00. Author: `dorado269`.
+Checked: 2026-11-02T07:55:58.424735+00:00. Author: `dorado269`.
 
-**54 PRs: 14 open (6 ready / 8 draft), 22 merged, 18 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
+**55 PRs: 15 open (7 ready / 8 draft), 22 merged, 18 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
 | PR | Purpose / title | State | Next action |
 |---|---|---|---|
@@ -60,3 +60,4 @@ Checked: 2026-11-02T07:33:48.300024+00:00. Author: `dorado269`.
 | [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) | Remove rank-divergent host syncs that can deadlock DSA eager execution. | READY | See handoff |
 | [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | READY | See handoff |
 | [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | READY | See handoff |
+| [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) | [Perf] [AMD] dsa: Opt-in single-pass Triton top-k for long-context decode rows | READY | See handoff |

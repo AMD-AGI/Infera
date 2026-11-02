@@ -1,7 +1,98 @@
 {
-  "checked_at_utc": "2026-11-02T07:33:48.300024+00:00",
+  "checked_at_utc": "2026-11-02T07:55:58.424735+00:00",
   "author": "dorado269",
   "prs": [
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47872,
+      "url": "https://github.com/sgl-project/sglang/pull/47872",
+      "title": "[Perf] [AMD] dsa: Opt-in single-pass Triton top-k for long-context decode rows",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": true,
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T07:48:56Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "a899828aaf4fa1ee2013c072a19be9115b773c09",
+      "baseRefOid": "960e30769e8af4618ca0f7a6f1d85464176d881b",
+      "headRefName": "yihou/kf-triton-topk-gfx950",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
+          "name": "jit-kernel",
+          "description": "",
+          "color": "ededed"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "hubertlu-tw"
+        },
+        {
+          "__typename": "User",
+          "login": "kkHuang-amd"
+        },
+        {
+          "__typename": "User",
+          "login": "HaiShaw"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "YAMY1234"
+        },
+        {
+          "__typename": "User",
+          "login": "rainj-me"
+        },
+        {
+          "__typename": "User",
+          "login": "DarkSharpness"
+        },
+        {
+          "__typename": "User",
+          "login": "BBuf"
+        },
+        {
+          "__typename": "User",
+          "login": "celve"
+        },
+        {
+          "__typename": "User",
+          "login": "HydraQYH"
+        },
+        {
+          "__typename": "User",
+          "login": "yuan-luo"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 18,
+        "SKIPPED": 88,
+        "SUCCESS": 21
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
+    },
     {
       "repo": "AMD-AGI/Infera",
       "number": 228,
@@ -16,15 +107,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T07:05:29Z",
+      "updatedAt": "2026-11-02T07:34:13Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "c40c97a4e4237f2fee79cc2aa5567f3d7b7cd9c9",
+      "headRefOid": "1eaa0a48b69e2623a7addfa4e1b93cc2d71f240e",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -70,8 +161,8 @@
       "baseRefOid": "b0debe0a7aa827b34c1987a234c07eeedf14c68f",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -137,8 +228,8 @@
       "baseRefOid": "b0debe0a7aa827b34c1987a234c07eeedf14c68f",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -409,8 +500,8 @@
       "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -704,8 +795,8 @@
       "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -981,8 +1072,8 @@
       "baseRefOid": "6492209bcae7b23c52f68b36e2889813049c0e5d",
       "headRefName": "dev.yihou.sglang.bench.fast.script",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2795,8 +2886,8 @@
       "baseRefOid": "71fb7093875fb76101df7c5040971fa56e53ec20",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4362,7 +4453,7 @@
       "number": 5144,
       "url": "https://github.com/kvcache-ai/Mooncake/pull/5144",
       "title": "[Build] Fix on-CUDA guard test generated header include",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": false,
       "author": {
@@ -4371,16 +4462,16 @@
         "login": "he-yufeng",
         "name": "Yufeng He"
       },
-      "updatedAt": "2026-11-02T04:32:15Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-02T07:39:59Z",
+      "mergedAt": "2026-11-02T07:39:59Z",
+      "closedAt": "2026-11-02T07:39:59Z",
       "headRefOid": "39c861c81ec5d5c10e6f853490585a9f79276392",
       "baseRefOid": "af528d9b2de376b2be2081bc74396d772aba62b4",
       "headRefName": "fix/on-cuda-test-te-includes",
       "baseRefName": "main",
       "mergeable": "UNKNOWN",
       "mergeStateStatus": "UNKNOWN",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "reviewDecision": "APPROVED",
       "labels": [
         {
           "id": "LA_kwDOMNwitc8AAAACQuZz7A",
@@ -5078,8 +5169,8 @@
       "baseRefOid": "4bc1b3dda4df428d2cee984d8af9c8ddffade3ec",
       "headRefName": "llying/infera-sglang",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "CHANGES_REQUESTED",
       "labels": [],
       "assignees": [],
@@ -5139,8 +5230,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "master",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5184,6 +5275,88 @@
         "SUCCESS": 2
       },
       "checks_url": "https://github.com/NVIDIA/srt-slurm/pull/630/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 46918,
+      "url": "https://github.com/sgl-project/sglang/pull/46918",
+      "title": "[Fix] [AMD] mla: Cap the absorb-BMM waves-per-EU budget so gfx950 can compile it",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOCqBLjQ",
+        "is_bot": false,
+        "login": "yu-depend",
+        "name": "Depend"
+      },
+      "updatedAt": "2026-10-28T02:19:33Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
+      "baseRefOid": "15d39bd8406bc75d2b1c82c5013cd0eb36368608",
+      "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABfbLsmQ",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAABzIix0g",
+          "name": "amd",
+          "description": "",
+          "color": "721FCF"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "wisclmy0611"
+        },
+        {
+          "__typename": "User",
+          "login": "zijiexia"
+        },
+        {
+          "__typename": "User",
+          "login": "JustinTong0323"
+        },
+        {
+          "__typename": "User",
+          "login": "sogalin"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "NEUTRAL": 1,
+        "SKIPPED": 87,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/46918/checks"
     }
   ],
   "issues": [
