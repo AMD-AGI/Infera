@@ -20,6 +20,7 @@ from infera.common.disagg_preflight import (
     validate_advertise_host,
     validate_vllm_transport,
 )
+from infera.common.kv_events_config import explicit_kv_events_port
 from infera.common.net import free_tcp_port_block
 from infera.common.registration import RegistrationClient
 from infera.common.worker_pool import DisaggMode, KvRegistrationMetadata
@@ -55,6 +56,14 @@ def _inject_kv_events_config(args: VllmWorkerArgs) -> str | None:
     # infera's msgspec schema decodes block hashes as list[int]; tell
     # vLLM to emit 8-byte ints rather than 32-byte sha256 digests.
     os.environ["VLLM_KV_EVENTS_USE_INT_BLOCK_HASHES"] = "1"
+
+    port = explicit_kv_events_port(args.vllm_argv)
+    if port is not None:
+        advertise = f"tcp://{args.advertise_host or args.host}:{port}"
+        logger.info(
+            "--enable-kv-events with the caller's --kv-events-config; advertise=%s", advertise
+        )
+        return advertise
 
     # vLLM creates its KV-event publisher after model startup. Keep the chosen
     # port below the ephemeral range so it is not recycled before that bind.
