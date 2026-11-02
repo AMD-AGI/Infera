@@ -83,9 +83,15 @@ def generate(inventory, runtime, destination):
         "|---|---|---|",
         *priority_rows,
         "",
+        "### InferenceX first version is a separate publication queue",
+        "",
+        "The common unmerged engine PRs are #33059/#46830/#46820. The PP construction fix #21194 is already merged; issue #46829 still needs an upstream/compiler resolution or proof the selected image no longer needs its workaround. Select an image carrying the fixes and remove startup engine patching. #47276/#47278 and PP-overlap fix #45524 are later/configuration-dependent work, not first-version prerequisites.",
+        "",
+        "Publication additionally tracks InferenceX #4629, srt-slurm #630, SGLang cookbook #47117 and InferenceX-app #1542; Infera #222/#223 are merged. The current first-version 8-GPU report is about 37.3k at synthetic AL 3.61, not the frozen 48k at 2.99. Its public sweep failed at bring-up. [Source comparison and dependency table](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/INFERENCEX_V1_VS_48K.md).",
+        "",
         "### Required inputs without a merge-ready PR",
         "",
-        "Preserve **S13** (PP hidden size; llying attribution agreement needed before filing), the **complete K01 overlay**, **both A01 Aiter CSVs**, **I07 launch hooks/site files**, the **S02 workaround** and the inherited image/RDMA patches. The two kernel PRs do not replace the complete overlay. Exact sources and ownership are in [PACKUP_MAP.md](PACKUP_MAP.md).",
+        "Preserve the historical **S13** mount and attribution for frozen reproduction; current main has the GLM PP construction fix in merged [#21194](https://github.com/sgl-project/sglang/pull/21194), so do not file a duplicate. Preserve the **complete K01 overlay**, **both A01 Aiter CSVs**, **I07 launch hooks/site files**, the **S02 workaround** and the inherited image/RDMA patches. The two kernel PRs do not replace the complete overlay. Exact sources and ownership are in [PACKUP_MAP.md](PACKUP_MAP.md).",
         "",
         "DCP transport/cache PRs #46819/#46824/#46826, OffloaderV2 #45484, transfer-queue #42163, prefill_complete #45337 and HIP-transport #5005/#4340 are useful separate work, not extra requirements for this DPA4/RDMA deployment. Late llr42 fused-indexer activation and llr52 blocking-poll experiments were not kept.",
         "",
@@ -196,7 +202,7 @@ def generate(inventory, runtime, destination):
         pinned(late),
         "## Other dispositions",
         "",
-        "S02/S12 remain issue-only; S04/S08/S09/S14 are excluded; S13 needs attribution agreement; A01 and the remaining original K01 overlay are not qualified for wholesale filing. S03 layer parallelism had no demonstrated gain; M03 was unbuilt. Other authors' equivalent PRs receive evidence instead of duplicates. See the "
+        "S02/S12 remain issue-only; S04/S08/S09/S14 are excluded; S13 has a merged current-main alternative in #21194 (verify image inclusion and preserve historical attribution); A01 and the remaining original K01 overlay are not qualified for wholesale filing. S03 layer parallelism had no demonstrated gain; M03 was unbuilt. Other authors' equivalent PRs receive evidence instead of duplicates. See the "
         + archive(INVENTORY + "/PR_PACKUP_MAP.md", "complete archived disposition map")
         + " for source diffs and original pack-ups.",
         "",

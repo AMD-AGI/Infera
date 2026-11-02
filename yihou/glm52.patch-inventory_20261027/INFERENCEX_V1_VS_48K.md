@@ -1,0 +1,59 @@
+# InferenceX first-version prerequisites versus the historical 48k stack
+
+Compared on 2026-11-02 against the supplied `inferenceX_upstream.md`, live PR metadata, the source of InferenceX #4629 at `a7aed81b6b3314a60c0c59f34e4b235479059230`, the frozen llr37 site and the current SGLang source. The supplied coworker document was read without modification.
+
+The lists have different scopes. Our five recently rebased PRs are an **owned upstreaming priority queue**, not a complete list of everything needed to publish on InferenceX or reproduce the historical score. Three PRs are common to both. Two later kernel ports are not first-version prerequisites. The first-version publication also has integration, image-provenance and platform-validation gates.
+
+## Patch-by-patch comparison
+
+| Item | InferenceX first version | Historical 48k / our priority queue | Reconciled action |
+|---|---|---|---|
+| B1 / [SGLang #33059](https://github.com/sgl-project/sglang/pull/33059): Aiter padded rows | One of the five patches applied to the pinned stock image; DP-attention decode | Historical equivalent baked; P0, currently Draft | Shared merge priority. Complete the requested AMD model matrix, merge the fix and select an image containing it. |
+| B2 / [SGLang #46830](https://github.com/sgl-project/sglang/pull/46830): divergent host synchronization | One of the five patches; DP-attention plus MTP | Historical equivalent baked; P0, Ready | Shared merge priority. Replaces closed #33973. |
+| B6 / [SGLang #46820](https://github.com/sgl-project/sglang/pull/46820): nonblocking KV metrics | One of the five patches; KV-aware router needs KV events | Historical equivalent baked; P0, Ready | Shared merge priority; CPU/socket tests cover this contract. |
+| B7 / S13: non-first PP-rank embedding access | Document lists merged [#21194](https://github.com/sgl-project/sglang/pull/21194) and alternative [#47184](https://github.com/sgl-project/sglang/pull/47184) | Frozen deployment mounts the historical `config.hidden_size` repair; our earlier current-main disposition was stale | **#21194 merged on October 29**, commit `60d56ea943b74d8fc1ccf59bb3cfb4f9dedfc3fd`. Main uses guarded attribute access. For GLM-5.2 hidden size 6144 this avoids the same construction failure. Validate an image containing it; original author can retire #47184. No new duplicate S13 PR. Preserve original attribution and source for frozen reproduction. |
+| B8 / S02: absorb-BMM configuration | Fifth stock-image patch; pinned Triton compiler aborts on gfx950 | Historical workaround baked; tracked as [issue #46829](https://github.com/sgl-project/sglang/issues/46829) | **Still an issue, not a fix PR.** Obtain a supported upstream/compiler repair, or demonstrate that a new pinned image no longer needs the workaround. The three common PR merges alone do not remove every engine patch. |
+| B4 versus [SGLang #45524](https://github.com/sgl-project/sglang/pull/45524): producer wait | B4 omitted; recipe does not enable PP communication overlap, async depth or pure-chunk output-communication skipping | llr37 explicitly enables `SGLANG_PP_COMM_OVERLAP=1`; #45524 remains a relevant correctness priority for retaining that configuration | **Configuration-dependent, not a contradiction.** B4 modifies the overlap-scheduler result path; #45524 fixes `process_prefill_chunk` under PP. A recipe that later enables one of the unsafe PP settings must re-evaluate this dependency. Neither patch establishes complete 48k-stack correctness. |
+| [SGLang #47276](https://github.com/sgl-project/sglang/pull/47276): gfx950 fused indexer/top-k | Not carried by #4629; second-version section of supplied document is empty | P1 current-main K01-family port; not the exact llr37 implementation | Keep in the later performance queue, not the first-version publication gate. Coordinate overlapping #45307. |
+| [SGLang #47278](https://github.com/sgl-project/sglang/pull/47278): gfx950 sparse MLA | Not carried by #4629 | P1 current-main K01-family port; BF16 split partials differ from frozen overlay | Same separation. Neither kernel PR replaces the full K01 overlay or qualifies a new combined 48k stack. |
+| Full K01 overlay and both A01 GEMM CSVs | No corresponding mounts/install step in the audited first-version recipe | Required inputs of the frozen historical recipe; not represented by a complete set of ready PRs | Independently inventory, qualify and deliver these for a later performance version. Do not infer they are covered by the two kernel PRs. |
+| Mooncake [#4540](https://github.com/kvcache-ai/Mooncake/pull/4540) / [#4541](https://github.com/kvcache-ai/Mooncake/pull/4541) | Document excludes them for the InferenceX fabric | External PRs for the inherited destination-local rail / ACK-timeout families in the frozen stack | Both remain Draft, owned by llying. They are fabric-dependent historical dependencies, not first-version universal requirements. Do not attribute the current RDMA registration failure to either without evidence. |
+| Mooncake [#5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | Not needed with HIP transport disabled | Also outside llr37, which uses cross-host RDMA | Both lists agree; no first-version or 48k merge gate. |
+| B3, B5, B9 | Document/waiver excludes page-table repair with `index_share_for_mtp_iteration:false`, staged-writeback repair on its pinned source, and unrelated Responses/decode-radix behavior | Historical image includes inherited patches from these families | Distinguish preserving historical image bytes from proving each patch remains necessary on a new recipe. These are not missing yihou PRs. |
+
+## Why the numbers and dependency lists differ
+
+| Property | Frozen llr37 | InferenceX #4629 first version |
+|---|---|---|
+| Runtime delivery | Integrated Infera image plus historical mounts and role hooks | Stock SGLang v0.5.22 image, Infera v0.3.3 installed, five engine patches at startup |
+| Representative 8-GPU result | C104: 48,713 / 48,103 / 47,795; mean 48,204 total tokens/s/GPU | PR author reports C80: 37,346 total tokens/s/GPU, 3600 seconds |
+| Synthetic MTP setting | Acceptance 2.99 | Golden AL 3.61 |
+| PP communication overlap | Explicitly enabled | Not enabled in the recipe; default path |
+| Decode custom all-reduce | Enabled | Explicitly disabled |
+| KF overlay / Aiter CSVs | Mounted | Not part of this recipe |
+| Validation boundary | Known garbling associated with PP overlap and decode custom all-reduce | PR reports separate real-acceptance GSM8K results; public sweep still failed during startup |
+
+These are not matched A/B runs. The performance difference cannot be assigned to the two kernel PRs, nor can merging them be promised to turn the first version into a 48k deployment. All serving throughput above uses simulated acceptance. A new combined stack needs its own correctness and repeated performance qualification.
+
+The [#45524 description](https://github.com/sgl-project/sglang/pull/45524) identifies the unsafe PP settings precisely: `SGLANG_PP_COMM_OVERLAP=1`, `--pp-async-batch-depth > 0`, or `SGLANG_PP_SKIP_PURE_CHUNKED_OUTPUT_COMM=1`. Its default-path passcode control passed before and after the fix. The [first-version waiver](https://github.com/SemiAnalysisAI/InferenceX/blob/a7aed81b6b3314a60c0c59f34e4b235479059230/inferencex-e2e/docs/waiver/4629.md) discusses the distinct historical overlap-scheduler B4 edit. Simply saying “PP disables the overlap scheduler” is insufficient if PP **communication** overlap is later enabled.
+
+## Additional InferenceX publication gates
+
+| Dependency | Live status on November 2 | What remains |
+|---|---|---|
+| [InferenceX #4629](https://github.com/SemiAnalysisAI/InferenceX/pull/4629) | Open, Changes requested; llying-owned | Reviewer requires engine fixes upstream. Remove runtime engine patching after a pinned official image contains the required behavior; repeat the accepted CI workflow and obtain reviewer/CODEOWNER approval. |
+| [SGLang cookbook #47117](https://github.com/sgl-project/sglang/pull/47117) | Draft; llying-owned | Documentation/review prerequisite in the supplied publication plan; not an engine performance patch. |
+| [srt-slurm #630](https://github.com/NVIDIA/srt-slurm/pull/630) | Draft; llying-owned | Infera frontend integration and version alignment; currently carried by the recipe as a backport. |
+| [InferenceX-app #1542](https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542) | Draft; llying-owned | Dashboard framework label, coordinated with recipe acceptance; not an engine fix. |
+| [Infera #222](https://github.com/AMD-AGI/Infera/pull/222) | **Merged November 2**, `8847491c2856d5bc43e230f413c62afe68147e46` | Use a release carrying the allocated KV-events port advertisement. The supplied “Approve” state is stale. |
+| [Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | **Merged October 29**, `02b6ca74e705e909a3b3368b6b50a9bcf41be858` | Bundled Rust router wheel; use published [v0.3.3](https://github.com/AMD-AGI/Infera/releases/tag/v0.3.3). The supplied “Approve” state is stale. |
+| [Public sweep 41383028771](https://github.com/SemiAnalysisAI/InferenceX/actions/runs/41383028771) | Failed; c48 benchmark and c88 eval jobs failed | Supplied document reports decode RDMA registration EINVAL. Separate platform bring-up work, not evidence that more kernel optimization PRs are missing. The PR body also reports earlier AUS ENOMEM incidents; do not conflate these observations. |
+| Readiness port 30090 collision | No PR identified in supplied document | Integration hygiene for colocated workers; document describes no functional serving impact. Do not silently promote it to a proven engine/performance blocker. |
+
+## Handoff order
+
+1. First-version engine path: advance #33059, #46830 and #46820; resolve #46829; choose and validate an image carrying merged #21194 plus the other fixes, then remove startup patches. #47184 is not an additional merge prerequisite once the original fix is available in that image.
+2. Publication path: coordinate #630, #47117, #4629 and #1542 with their owners; use Infera v0.3.3; resolve platform RDMA startup failures and complete the required sweep/reviews.
+3. Later performance path: independently qualify #47276/#47278 and the remaining K01/A01 source/configuration; retain #45524 if enabling its unsafe PP modes. Preserve the frozen recipe and qualify correctness before attaching a new 48k claim.
+
+Our current [rebase/CI handoff](FOLLOWUP_20261102_48K_REBASE.md) remains applicable to the five owned PRs. The first-version comparison changes their deployment classification, not their ownership, code or Draft/Ready flags. The previous S13 “new filing pending attribution” disposition is superseded by the merged third-party fix; historical source attribution remains unchanged.

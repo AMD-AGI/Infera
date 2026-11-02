@@ -17,6 +17,8 @@ found garbling associated with PP communication overlap and decode custom
 all-reduce. Reproducing its throughput is separate from qualifying correctness.
 Do not attribute the whole-stack number to any individual patch.
 
+For the separate stock-image publication path, see [InferenceX first version versus 48k](INFERENCEX_V1_VS_48K.md). The shared unmerged engine PRs are #33059/#46830/#46820; #21194 already covers the GLM PP construction issue on main, and issue #46829 remains a separate image/compiler gate.
+
 Use [PR_HANDOFF.md](PR_HANDOFF.md) for live states, exact heads, CI, review and
 assigned work; [PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md) for source pins and
 commands; [PR_PACKUP_MAP.md](PR_PACKUP_MAP.md) for the wider experiment history.
@@ -65,13 +67,13 @@ cannot reconstruct the deployment.
 
 | Item | Exact public artifact / pack-up | Status / responsible next action |
 |---|---|---|
-| **S13: PP non-first-rank hidden size** | [Base kit model source](../glm52.llrepro-pp4-dpa4.packup_20261024/kit/sglang_2p1d_glm5.2/patches/deepseek_v2.py), mounted on prefill | Required mount. Earlier #34465 is closed unmerged. Obtain **llying's attribution agreement** before a new filing; preserve the archived implementation meanwhile. |
+| **S13: PP non-first-rank hidden size** | [Base kit model source](../glm52.llrepro-pp4-dpa4.packup_20261024/kit/sglang_2p1d_glm5.2/patches/deepseek_v2.py), mounted on prefill | Preserve the mount for the frozen image. Third-party [#21194](https://github.com/sgl-project/sglang/pull/21194) merged October 29 and covers the GLM-5.2 PP construction failure on main; verify an image carrying it. No new duplicate filing. Original author can retire alternative [#47184](https://github.com/sgl-project/sglang/pull/47184) after image validation; retain historical attribution. |
 | **Full K01 historical overlay** | [Complete NEWFILES diff](patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [llr5–llr7 evidence](../glm52.llrepro-kf-ar-topk.packup_20261024/README.md) | Required source reconstruction/mount. #47276/#47278 only cover narrower reworked components. Other candidates, including MoE paths, are not thereby upstreamed or qualified. |
 | **A01: both Aiter GEMM CSVs** | [GEMM pack-up](../glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/README.md): 75-row DPA/K3 and 49-row PTPC CSVs | Required historical mounts. No Aiter PR; correctness and current-build retuning remain. The second CSV alone did not establish a speedup. |
 | **I07: worker/common hooks and site config** | [C104 pack-up](../glm52.llrepro-c104-conc.packup_20261027/README.md), `scripts/{worker,common}.sh`, `sites/llr37.site.env` | Required role-specific environments, multiple mounts and launch options. Example/benchmark tooling; not an Infera core bugfix/feature. |
 | **S02 absorb-BMM workaround** | Frozen image `patch_mla_absorb_bmm_default_config.py`; [issue #46829](https://github.com/sgl-project/sglang/issues/46829) | Required frozen-image workaround. Track compiler/config root cause through the issue; no blanket-disable workaround PR. |
 | **Inherited page-table, HiCache and Responses patches** | [Frozen Dockerfile and patches](https://github.com/AMD-AGI/Infera/tree/fdbafb6065dae6d1c53936c7d2cf1f5022a514d0/deploy/docker) | Preserve exact sources. Page-table rows are not #33059 or D23; HiCache staged write-back is not OffloaderV2 #45484. These are not silently attributed to yihou. |
-| **Inherited Mooncake RDMA rail/ACK-timeout patches** | Same frozen image: `rdma_dest_local_rail.diff`, `rdma_ack_timeout.diff`; `MC_IB_TIMEOUT=18` | Preserve llying's patches and attribution. These are the Mooncake changes relevant to llr37; neither is HIP stream-priority #5005 or HIP IPC #4340. |
+| **Inherited Mooncake RDMA rail/ACK-timeout patches** | Same frozen image: `rdma_dest_local_rail.diff`, `rdma_ack_timeout.diff`; `MC_IB_TIMEOUT=18` | Preserve llying's historical patches and attribution. Related external drafts are [#4540](https://github.com/kvcache-ai/Mooncake/pull/4540) and [#4541](https://github.com/kvcache-ai/Mooncake/pull/4541). Fabric-dependent; omitted from the InferenceX first-version recipe. Neither is HIP stream-priority #5005 or HIP IPC #4340. |
 | **Integrated Infera image / wrapper / Rust router** | Frozen Infera `fdbafb6065dae6d1c53936c7d2cf1f5022a514d0`, official SGLang v0.5.22 base, pinned Mooncake source | Build from the public pinned recipe. `infera-sglang:v0522-fdbafb60` is a historical local tag, not a public pull URL. Merged #210 is image history; merged #218 is an optional build-check backport, not runtime performance. |
 
 The base already contains the relevant merged HiCache/early-send fixes

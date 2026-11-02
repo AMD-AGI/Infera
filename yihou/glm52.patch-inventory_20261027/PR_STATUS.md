@@ -24,6 +24,13 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `257ea4f204` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 <!-- DAILY-PR-STATUS:END -->
 
+## 2026-11-02: InferenceX first-version scope reconciliation
+
+[Detailed comparison](INFERENCEX_V1_VS_48K.md): #33059/#46830/#46820 are shared open engine priorities. #47276/#47278 are later performance ports; #45524 is required for its unsafe PP modes, which the first-version recipe does not enable. Issue #46829 remains a separate engine/compiler gap under the no-engine-patch review requirement.
+
+Corrected the previous S13 disposition: third-party #21194 merged October 29 and main now guards the GLM PP construction failure. Verify image inclusion; no duplicate filing. #47184 remains open for its original author to retire. Added the external publication dependencies and Mooncake #4540/#4541 to the maintained handoff. Infera #222/#223 are merged. The coworker document was read without modification; the frozen experimental sources are unchanged.
+
+
 <!-- REBASE-48K-20261102:BEGIN -->
 ## 2026-11-02: 48k-priority SGLang rebase
 

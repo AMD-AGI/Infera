@@ -114,7 +114,7 @@ source rebuild backport is shown below and must be recorded as a build-input cha
 
 | Inventory item | Public input and exact destination | llr37 requirement / PR |
 |---|---|---|
-| **S13** | [kit `patches/deepseek_v2.py`](../glm52.llrepro-pp4-dpa4.packup_20261024/kit/sglang_2p1d_glm5.2/patches/deepseek_v2.py) → prefill `/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py:ro` | Required PP non-first-stage hidden-size fix. llying's earlier kit version is used. No new PR pending attribution agreement; old #34465 is closed unmerged |
+| **S13** | [kit `patches/deepseek_v2.py`](../glm52.llrepro-pp4-dpa4.packup_20261024/kit/sglang_2p1d_glm5.2/patches/deepseek_v2.py) → prefill `/sgl-workspace/sglang/python/sglang/srt/models/deepseek_v2.py:ro` | Required historical mount, using llying's kit version. For a new main-based image, third-party [#21194](https://github.com/sgl-project/sglang/pull/21194) merged October 29 and guards the same GLM-5.2 PP construction failure; verify image inclusion. No new duplicate S13 filing; preserve frozen source/attribution |
 | **K01** | [complete NEWFILES diff](patches/K01-kf-decode-kernel-overlay.NEWFILES.diff) → reconstructed `overlay/` → decode `/yihou_overlay:ro` | Required historical KF sparse-MLA, indexer/top-k and MoE candidates. The complete overlay has no wholesale PR; narrower current-main ports #47276/#47278 are not byte-identical replacements or a qualified combined release |
 | **A01, first CSV** | [75-row DPA/K3 CSV](../glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/aiter_retune/merged/yihou_glm52_dpa_bf16_tuned_gemm.csv) → decode `/sgl-workspace/aiter/aiter/configs/model_configs/yihou_glm52_dpa_bf16_tuned_gemm.csv:ro` | Mounted in llr32 onward; no Aiter PR yet |
 | **A01, second CSV** | [49-row PTPC CSV](../glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/aiter_retune/ptpc/yihou_glm52_ptpc_bf16_tuned_gemm.csv) → same directory, original filename | Mounted in llr35/llr37; no Aiter PR yet; the second CSV alone did not establish a speedup |
@@ -306,9 +306,11 @@ For external handoff, the remaining gaps are concrete:
 - No public registry location has been established for the historical integrated
   image ID; rebuild from public pinned sources or publish a verified immutable image.
 - Bind historical model/trace bytes and full dependency versions to checksums.
-- Qualify the retained KF kernels and Aiter CSVs; neither has a ready upstream PR.
-- Resolve S13 attribution with llying before filing it; its archived source is
-  already available for reproducing the old deployment.
+- Qualify the retained full KF overlay and Aiter CSVs; the narrower ready PRs
+  #47276/#47278 do not replace or certify those historical artifacts.
+- For a new image, verify inclusion of merged #21194 for the GLM PP construction
+  issue. Preserve the archived S13 source/attribution for frozen reproduction;
+  do not file a duplicate. See [InferenceX comparison](INFERENCEX_V1_VS_48K.md).
 - Finish real-acceptance correctness and representative long-context validation;
   report the resulting configuration's own repeated performance and failure rates.
 
