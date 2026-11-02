@@ -1,0 +1,35 @@
+--- a/python/sglang/srt/mem_cache/unified_radix_cache.py
++++ b/python/sglang/srt/mem_cache/unified_radix_cache.py
+@@ -2,6 +2,7 @@
+ 
+ import atexit
+ import logging
++import os
+ import threading
+ import time
+ from array import array
+@@ -154,6 +155,8 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++_EVICT_HEADROOM_TOKENS = int(os.environ.get("SGLANG_EVICT_HEADROOM_TOKENS", "0"))
++
+ 
+ class _OngoingWriteThrough(NamedTuple):
+     """Tracks an in-flight D→H write-through operation."""
+@@ -693,6 +696,15 @@
+                 params, allocation_reclaim_satisfied=allocation_reclaim_satisfied
+             )
+ 
++        if (
++            self.is_write_back
++            and 0 < params.num_tokens < _EVICT_HEADROOM_TOKENS
++        ):
++            # A write_back eviction waits for the running forward to finish (write fence) before it
++            # can copy victims to host, so each call is expensive. Free a larger batch per call
++            # instead of many small ones; the extra victims are demoted to the host pool (kept
++            # as prefix cache), not dropped.
++            params = replace(params, num_tokens=_EVICT_HEADROOM_TOKENS)
+         request_by_type = self._evict_request_by_type(params)
+         available_size_targets = {
+             ct: (ct, self._component_available_size(ct) + request_cnt)
