@@ -107,29 +107,99 @@ curl localhost:8000/v1/chat/completions -H 'Content-Type: application/json' \
 To build the image yourself, see [Engine images](#engine-images) and replace
 `rocm/infera:sglang-v0.1.1` above with your local `rocm/infera:sglang-dev` tag.
 
-### Option B — From source (pip)
+### Option B — PyPI (router and Python tools)
 
-> The PyPI package (`amd-infera`) is not yet published; install from a clone.
-
-In a ROCm environment (e.g. an engine base image), install Infera plus at least one engine, then
-run the same etcd + server + worker stack as in Option A:
+Install the [amd-infera package](https://pypi.org/project/amd-infera/) with Python 3.10 or newer:
 
 ```bash
-pip3 install ".[sglang]"        # or .[vllm] / .[atom]  (add .[gaie] for the EndpointPicker)
-pip3 install -e ".[dev,sglang]" # editable + lint/test tooling, for contributors
+python -m pip install amd-infera
+# Pin the first published release when reproducibility is needed:
+# python -m pip install amd-infera==0.3.3
 ```
 
-**Optional — Rust router** (`--router-backend rust`), the multi-core data plane. The Linux x86_64
-wheel attached to each GitHub Release (glibc ≥ 2.28) bundles it. Installing from a clone, as
-above, build the binary from source instead; this requires a [Rust toolchain](https://rustup.rs):
+One package provides the Python router, the Rust router on supported Linux wheels,
+engine integration modules, the KV-cache daemon, and operational tools. No separate
+router package is needed. A router-only host does not need a GPU or a local inference
+engine; its workers run in their own engine environments. The package does not install
+SGLang, vLLM, ATOM, ROCm, or their native transport libraries.
+
+#### Run the Python or Rust router
+
+Start etcd as shown in Option A and register workers against the same etcd endpoint.
+The following examples use HTTP requests and ZMQ KV events; configure workers with
+matching transports. Run **one** of these commands on port 8000:
 
 ```bash
-cd rust && cargo build --release && cd -   # produces rust/target/release/infera-router
+# Python router (default backend; no Rust toolchain required)
+python -m infera.server --router-backend python \
+  --host 0.0.0.0 --port 8000 \
+  --discovery-backend etcd --etcd-endpoint http://127.0.0.1:2379 \
+  --request-transport http --kv-event-transport zmq \
+  --router-policy round-robin \
+  --router-tokenizer-path Qwen/Qwen3-0.6B
+
+# Rust router, launched through the same Python interface
+python -m infera.server --router-backend rust \
+  --host 0.0.0.0 --port 8000 \
+  --discovery-backend etcd --etcd-endpoint http://127.0.0.1:2379 \
+  --request-transport http --kv-event-transport zmq \
+  --router-policy round-robin \
+  --router-tokenizer-path Qwen/Qwen3-0.6B
 ```
 
-The server auto-discovers the binary, preferring the one a wheel bundles over one on `PATH`;
-`INFERA_ROUTER_BIN=/path/to/infera-router` overrides both. Then run the server with
-`--router-backend rust`. The default backend is `python`, which requires no Rust toolchain.
+Set `--router-tokenizer-path` to the model ID or local tokenizer directory matching
+your workers; the Python interface requires it for both examples. For KV-aware
+routing, change `--router-policy round-robin` to `--router-policy kv-aware` and
+use workers that publish compatible KV events. Send requests to
+`http://localhost:8000/v1/chat/completions` as in Option A.
+
+The **Linux x86_64 wheel (glibc ≥ 2.28)** includes the Rust binary; the universal
+Python wheel does not. The launcher prefers the bundled binary, then one named
+`infera-router` on `PATH`. Set `INFERA_ROUTER_BIN=/path/to/infera-router` to use a
+specific binary. On other platforms or for source installs, build it with
+`cd rust && cargo build --release --bin infera-router` from a source checkout.
+Installing the wheel does not add an `infera-router` shell command: use
+`python -m infera.server --router-backend rust`.
+
+Run `python -m infera.server --help` for discovery, routing, and transport options.
+The Rust backend does not support every Python-server feature; for example, use the
+Python backend for `--router-mode direct` or `--enable-profiling`.
+
+#### Other package commands
+
+| Feature | Usage | Requirements |
+|---|---|---|
+| KV-cache daemon | `python -m infera.kvd --help` | Configure a socket and cache capacity; storage backends can require additional native dependencies. |
+| Node preflight checks | `infera-preflight --help` | GPU, network, and storage checks depend on the tools and devices available on the host. |
+| Storage throughput probe | `infera-kvd-probe --help` | Choose a scratch directory and test size before running a benchmark. |
+| KVD L3 benchmark | `infera-kvd-l3-bench --help` | See the command's daemon and storage configuration options. |
+| SLA capacity planner | `python -m infera.planner --help` | Install `amd-infera[planner]`; supply model profiles and latency targets. |
+| Performance simulation | `inferasim --help` | Install `amd-infera[projection]`; simulation/profiling modes have additional requirements. |
+| Recipe tuning agent | `inferasim-tune --help` | Install `amd-infera[projection-tuning]`; configure the selected model provider. |
+| Gateway API EndpointPicker | `python -m infera.gaie --help` | Install `amd-infera[gaie]` and configure the gateway deployment. |
+| Engine workers | `python -m infera.engine.sglang --help` (or `vllm` / `atom`) | Run inside the matching engine environment; use the engine images for the patched native stack. |
+
+Install only the optional features you need, for example:
+
+```bash
+python -m pip install 'amd-infera[planner,projection]'
+```
+
+See [preflight](https://rocm.docs.amd.com/projects/infera/en/latest/reference/preflight.html),
+[benchmarking](https://rocm.docs.amd.com/projects/infera/en/latest/reference/benchmarking.html),
+and the [documentation](https://rocm.docs.amd.com/projects/infera/en/latest/) for full workflows.
+
+#### Install from source
+
+For development, clone the repository and install from its root. Engine extras add
+Infera integration dependencies; the engine itself still comes from its vendor environment.
+
+```bash
+git clone https://github.com/AMD-AGI/Infera.git
+cd Infera
+python -m pip install '.[sglang]'        # or .[vllm] / .[atom]
+python -m pip install -e '.[dev,sglang]' # editable install with lint/test tooling
+```
 
 ### Option C — Kubernetes
 

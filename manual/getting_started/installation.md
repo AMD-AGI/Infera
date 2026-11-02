@@ -1,8 +1,9 @@
 # Installation
 
 Infera is a Python package — installed as `amd-infera`, imported as `infera`.
-It orchestrates engines — so you install **Infera** plus at least **one engine**
-(vLLM and/or SGLang and/or ATOM) in the same environment.
+A router-only host needs Infera but no local inference engine or GPU. Worker hosts
+need **Infera** plus a compatible **engine** (vLLM, SGLang, or ATOM), usually
+provided together in an engine image. The system requirements below describe worker hosts.
 
 ## System requirements
 
@@ -31,12 +32,15 @@ That gives you the three entry points used throughout this manual:
 | `python -m infera.engine.{vllm,sglang,atom}` | a model worker |
 | `python -m infera.kvd` | the tiered KV-cache daemon (optional) |
 
-```{admonition} There are no console scripts in this build
-:class: note
-Always invoke the canonical module form `python -m infera.<thing>`. If you see
-`infera-server` or `infera-kvd` named anywhere, read it as
-`python -m infera.server` / `python -m infera.kvd`.
-```
+Use the module commands above for services. The package also installs operational
+commands including `infera-preflight`, `infera-kvd-probe`, `infera-kvd-l3-bench`, and
+`inferasim`; run each with `--help` for usage. Simulation needs the `projection` extra.
+
+The Linux x86_64 wheel (glibc ≥ 2.28) includes the Rust router. Select it with
+`python -m infera.server --router-backend rust`; the default is `python`.
+The universal wheel does not include the Rust binary. Source installs can build
+it with `cd rust && cargo build --release --bin infera-router`, or use
+`INFERA_ROUTER_BIN` to point at an existing binary.
 
 ## Install an engine
 
