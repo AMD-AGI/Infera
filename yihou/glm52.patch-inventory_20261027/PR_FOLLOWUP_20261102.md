@@ -1,5 +1,7 @@
 # GLM-5.2 upstream follow-up, 2026-11-02
 
+> **Historical audit:** this report accompanies the November 2, 2026 **04:30–04:46 UTC** status snapshots. It predates the later rebases, upstream XPU lint repair, and #33059's author-reported MI355X results and Ready transition. Preserve the recorded work and evidence below as history. For current heads, CI and remaining actions, use [PR_HANDOFF.md](PR_HANDOFF.md) and the superseding [48k rebase/CI audit](FOLLOWUP_20261102_48K_REBASE.md).
+
 The original eleven owned core PRs now comprise **one merged, one closed as
 superseded, four ready for review, and five drafts**. Infera #164 remains an
 additional comparison-only draft. Ready for review does not mean approved or

@@ -24,6 +24,25 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | TRIAGE | [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) — [Perf] [AMD] dsa: Opt-in single-pass Triton top-k for long-context decode rows | READY / `a899828aaf` | Unclassified: inspect before adding to a deployment | Already Ready. New/unclassified PR: review diff, purpose, ownership, evidence and dependencies; write curated handoff notes. | Resolve current review and required CI; no automatic merge certification. |
 <!-- DAILY-PR-STATUS:END -->
 
+<!-- LINT-48K-20261102:BEGIN -->
+## 2026-11-02: 48k-priority lint repair
+
+Latest audit: 2026-11-02T10:06:49.041258+00:00. Four owned PRs were independently rebased onto main `b45a36531c3673048aeaf35322c3df7f18edd038`, which includes upstream XPU logger fix [#47837](https://github.com/sgl-project/sglang/pull/47837). Every range-diff preserves the PR patch, local full-tree Ruff and scoped hooks pass, and the full upstream Lint job passes at each new head. Each push used an explicit old-head lease and retained a local backup. No other author's branch was changed.
+
+| PR | Current head | Local validation | Upstream lint / next action |
+|---|---|---|---|
+| [#46820](https://github.com/sgl-project/sglang/pull/46820) | `783c1a2192ec` | Full-tree Ruff, scoped repository hooks and 4 real-ZMQ CPU tests passed; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41424697358/job/125208358328); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41424697709/job/125208623306) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#46830](https://github.com/sgl-project/sglang/pull/46830) | `625403853ab6` | Full-tree Ruff, scoped repository hooks and 3 CPU tests plus 2 subtests passed; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425300647/job/125210347134); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425300984/job/125210545797) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#47276](https://github.com/sgl-project/sglang/pull/47276) | `23a8de201bd5` | Full-tree Ruff, scoped repository hooks and CPU launch-selection assertions passed; 7 GPU tests skipped; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425379090/job/125210599208); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425379155/job/125210861058) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#47278](https://github.com/sgl-project/sglang/pull/47278) | `d3a13d1cf87f` | Full-tree Ruff, scoped repository hooks and 3 CPU contracts passed; 22 GPU tests skipped; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425638344/job/125211454851); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425638677/job/125211664882) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#33059](https://github.com/sgl-project/sglang/pull/33059) | `795488cd19aa` | User/author advanced main and marked Ready; preserved without a branch rewrite. [Author MI355X DP/MTP results](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447) cover the padded-row failure; tested/current DSA and regression-test blobs match. | [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41423254991/job/125203622542). [Base](https://github.com/sgl-project/sglang/actions/runs/41423254776/job/125204140539) sees Ready and existing `run-ci`; account cooldown, not a Draft gate. Native MI300 and required CI/review remain. |
+
+For #33059, the observed 120-minute cooldown began at 09:07:56 UTC; nominal eligibility is November 2 at 11:07:56 UTC if no later counted run intervenes. Expiry does not automatically rerun CI. For the other four, an authorized maintainer must add `run-ci` and trigger required checks. No new GPU test or benchmark was run for this lint repair; the 7/22 skipped kernel cases are not GPU passes. Historical 48k throughput still uses simulated MTP acceptance and is not patch-level evidence.
+
+External [#45524](https://github.com/sgl-project/sglang/pull/45524) and [#46918](https://github.com/sgl-project/sglang/pull/46918) already have passing lint at their audited heads; their branches were not changed. The separate exact-head MI355X evidence for #46918 remains valid within its stated scope. Infera [#228](https://github.com/AMD-AGI/Infera/pull/228) remains permanently Draft for tracking.
+
+<!-- LINT-48K-20261102:END -->
+
 ## 2026-11-02: B8 / S02 MI355X validation completed
 
 External [SGLang #46918](https://github.com/sgl-project/sglang/pull/46918) remains Ready at `9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1`. On one MI355X, the original M=256 uncapped configuration aborts on three seeds with the same LLVM assertion; all 12 capped/workaround cases pass with bitwise-equal BF16 outputs, and uncapped M=128/129/257 controls pass. Registered CPU coverage: 11 tests +265 subtests. No consistent M=256 speed advantage over the workaround or whole-model correctness claim.

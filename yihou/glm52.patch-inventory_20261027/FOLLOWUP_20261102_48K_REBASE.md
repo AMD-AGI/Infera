@@ -1,10 +1,31 @@
 # 48k-priority SGLang rebase and CI handoff — 2026-11-02
 
+<!-- LINT-REPAIR-AUDIT -->
+## Current lint repair and Ready status
+
+Latest audit: 2026-11-02T10:06:49.041258+00:00. Four owned PRs were independently rebased onto main `b45a36531c3673048aeaf35322c3df7f18edd038`, which includes upstream XPU logger fix [#47837](https://github.com/sgl-project/sglang/pull/47837). Every range-diff preserves the PR patch, local full-tree Ruff and scoped hooks pass, and the full upstream Lint job passes at each new head. Each push used an explicit old-head lease and retained a local backup. No other author's branch was changed.
+
+| PR | Current head | Local validation | Upstream lint / next action |
+|---|---|---|---|
+| [#46820](https://github.com/sgl-project/sglang/pull/46820) | `783c1a2192ec` | Full-tree Ruff, scoped repository hooks and 4 real-ZMQ CPU tests passed; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41424697358/job/125208358328); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41424697709/job/125208623306) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#46830](https://github.com/sgl-project/sglang/pull/46830) | `625403853ab6` | Full-tree Ruff, scoped repository hooks and 3 CPU tests plus 2 subtests passed; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425300647/job/125210347134); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425300984/job/125210545797) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#47276](https://github.com/sgl-project/sglang/pull/47276) | `23a8de201bd5` | Full-tree Ruff, scoped repository hooks and CPU launch-selection assertions passed; 7 GPU tests skipped; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425379090/job/125210599208); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425379155/job/125210861058) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#47278](https://github.com/sgl-project/sglang/pull/47278) | `d3a13d1cf87f` | Full-tree Ruff, scoped repository hooks and 3 CPU contracts passed; 22 GPU tests skipped; range-diff unchanged | [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425638344/job/125211454851); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425638677/job/125211664882) sees Ready; missing maintainer-controlled `run-ci`. |
+| [#33059](https://github.com/sgl-project/sglang/pull/33059) | `795488cd19aa` | User/author advanced main and marked Ready; preserved without a branch rewrite. [Author MI355X DP/MTP results](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447) cover the padded-row failure; tested/current DSA and regression-test blobs match. | [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41423254991/job/125203622542). [Base](https://github.com/sgl-project/sglang/actions/runs/41423254776/job/125204140539) sees Ready and existing `run-ci`; account cooldown, not a Draft gate. Native MI300 and required CI/review remain. |
+
+For #33059, the observed 120-minute cooldown began at 09:07:56 UTC; nominal eligibility is November 2 at 11:07:56 UTC if no later counted run intervenes. Expiry does not automatically rerun CI. For the other four, an authorized maintainer must add `run-ci` and trigger required checks. No new GPU test or benchmark was run for this lint repair; the 7/22 skipped kernel cases are not GPU passes. Historical 48k throughput still uses simulated MTP acceptance and is not patch-level evidence.
+
+External [#45524](https://github.com/sgl-project/sglang/pull/45524) and [#46918](https://github.com/sgl-project/sglang/pull/46918) already have passing lint at their audited heads; their branches were not changed. The separate exact-head MI355X evidence for #46918 remains valid within its stated scope. Infera [#228](https://github.com/AMD-AGI/Infera/pull/228) remains permanently Draft for tracking.
+
+## Earlier rebase audit, retained as history
+
+The following 07:02 UTC snapshot is superseded by the audit above. Its Draft, missing-model-matrix and unresolved-XPU-lint statements describe the earlier state, not the current handoff. Validation commands and source boundaries remain useful.
+
 Last audited: 2026-11-02T07:02:09.732231+00:00. The five owned PRs below were independently rebased onto main `23c6442cde7fb38230134ba0e3513ad2332aa5cf` (the current main when work began). Each has a local pre-rebase backup, a yihou Signed-off-by trailer and an exact old-head lease on its force push. Every range-diff reports an unchanged patch. No other author's branch was changed.
 
 This is the 48k **priority queue**, not a complete reproducible serving stack. #33059, #46820 and #46830 represent historical baked fix families; #47276 and #47278 are later scoped K01-family ports, not byte-identical substitutes for the complete frozen overlay. See [deployment priorities](LLR37_DEPLOYMENT_PRIORITY.md) and [pack-up map](PR_PACKUP_MAP.md) for the remaining image, overlay, configuration and attribution dependencies. Historical stack throughput used simulated MTP acceptance; it does not establish patch-level gains or real-acceptance correctness.
 
-## Current status
+## Historical status at 07:02 UTC
 
 | PR | New head | Local validation | Base / upstream lint / next action |
 |---|---|---|---|
