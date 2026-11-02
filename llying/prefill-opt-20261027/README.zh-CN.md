@@ -3,7 +3,7 @@
 目标：yihou 的 4+4 C96 配置（llr35，47.8–48.0k）在 138 → 140 上复现并做 PD 正确性，作为基线；在这个工作点上找 prefill 的优化项。
 每项只在 4+4 C96 上测，记录收益和适用场景（用户 10-26 定的方式）。第 6、7 步（Pareto 中段按点选 K、第二版 Pareto）暂不做（用户 10-27）。
 
-## 当前状态（实时更新，最后更新 10-30 16:40 UTC）
+## 当前状态（实时更新，最后更新 11-02 08:55 UTC）
 
 | 项 | 节点 | C104 tok/s/GPU | 每级驱逐均值 PP0/1/2/3（ms） | 状态 |
 |---|---|---|---|---|
@@ -15,6 +15,29 @@
 | decode kernel 拆解 | 138→135 | — | — | 已采；draft graph 可见，verify graph 0 个 kernel；下一步加 `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0` 重采 |
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
+
+## 11-02 08:55 E11：decode 去掉 `SGLANG_USE_ROCM700A`（MoE 合并改走 aiter reduce-scatter）；中断 2 天与换节点
+
+**中断**：10-31 00:50 会话中断，E11 的启动没有生效；11-02 08:45 恢复后发现 138 / 140 空闲约 2 天（decode 采集 10-30 16:33 结束后没有排新任务）。
+同时 135 被 yihou 的容器 `yihou-pr33059-base-instr-mtp-b16r2` 占用（8 卡各 73% 显存），不动他人资源，**E11 改放 138 → 140**（镜像 sha 相同 `509b8427`）。
+对照基线是同一对上的 E10：**51,374**（138→140；135 上的 51,658 不能直接比）。
+
+**原因（读代码确认，子 agent + 本人核对）**：镜像 `ENV SGLANG_USE_ROCM700A=1`（`docker run ... env` 已确认；镜像 ROCm 是 7.2.0）。
+它是 ROCm 7.0.0 alpha 的 RCCL 规避（`dp_attention.py:196` 注释），让 CUDA graph 的 DP padding 用 `SUM_LEN`（`dp_attention.py:198`）：
+- gather：`SGLANG_DP_USE_GATHERV=1` + SUM_LEN → RCCL `all_gatherv`（trace 里 MoE 前的 `ncclDevKernel_Generic_1`，每层约 42 µs）；
+- combine：等长 reduce-scatter 要求 MAX_LEN、变长 reduce-scatterv 要求 `ep_size == attn_dp_size`（1 ≠ 4），都不满足
+  （`layer_boundary/exit.py:76-94`、`moe/utils.py:769`）→ aiter all-reduce（约 55 µs）+ `dp_scatter`（fill + memcpy，约 10 µs）。
+设为 0 后 graph 用 MAX_LEN：gather 走 aiter custom all-gather，combine 走 `dp_reduce_scatter_tensor` → aiter reduce-scatter。
+draft graph 同样切换。InferenceX 自己的 MI355X DSv4 脚本就设 `SGLANG_USE_ROCM700A=0`（yihou 的 bench-harness 缓存里）。之前的实验里没有测过这一项。
+
+**正确性**：reduce-scatter 与 all-reduce 后取本 rank 切片数学上相同（微基准里 aiter 的结果与 RCCL allclose，all-gather 逐元素一致）；
+pad 行在 MoE 里逐行计算，不影响真实行（推断）。仍先跑真实接受率的快速正确性（smoke、200 题探测、长上下文 16k × 64）；
+同一部署里关 packet capture，方便之后再采 trace 确认新路径生效。判据：探测 ≥ 0.97、乱码 0、长上下文 ≥ 60/64，否则 STOP。
+
+**预测（开跑前写下）**：verify graph 通信每步 8.0 → 约 6 ms；decode 步长常数项降约 1.5–2.5 ms；
+C104 1 小时吞吐比同对 E10（51,374）高 1–1.5%（≥ 52,000）；同一请求对比 decode 每 token 时间降 3% 以上。
+未达到就拆 trace 看原因，不再加跑。
+队列：`scripts/night29_1031.sh`（快速正确性 → 我读结果写 GO / STOP → E11 计分 + `analyze_run.sh`），配置 `config/site-140-e11{,-check}.env`、`config/plan-140-e11.txt`。
 
 ## 10-30 16:40 decode verify graph 拆解（`DEBUG_CLR_GRAPH_PACKET_CAPTURE=0`）与通信微基准
 
