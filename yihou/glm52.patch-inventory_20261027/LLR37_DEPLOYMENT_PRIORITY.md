@@ -1,9 +1,16 @@
 # PR priority for the historical 47k-class deployment
 
-The requested reference is the final **llr37-c104** archive. Its raw result is
+The **47.9k stack** is [llr35/llr35r at C96](../glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/README.md):
+47,843 / 47,950 total tokens/s/GPU, rounded mean **47,897**. The subsequently
+requested **llr37-c104** archive uses the same patch stack with concurrency 104:
 **48,713.28739 total tokens/s/GPU** (48,310.33559 input + 402.95180 output), across
-eight MI355X GPUs. The repeat is approximately 48,103. This identifies the run
-often referred to as the 47k-class result; it is not a new 47,000 measurement.
+eight MI355X GPUs. The priority and required-source lists below apply to both.
+
+The [final C104 archive](../glm52.llrepro-c104-tail.packup_20261028/README.md)
+records three baseline runs, 48,713 / 48,103 / 47,795, mean **48,204**. Its later
+llr51 changes decode memory fraction to 0.96 and reports 48,806 once, without a
+repeat. That configuration candidate does not introduce another required PR or
+replace the requested frozen llr37 reference.
 
 This run used **simulated MTP acceptance 2.99**. Real-acceptance investigations
 found garbling associated with PP communication overlap and decode custom

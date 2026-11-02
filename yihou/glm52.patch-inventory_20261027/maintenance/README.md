@@ -88,6 +88,13 @@ preserve files for inspection. A lock prevents overlapping runs. The last
 successful refresh is printed in every table; **older than 36 hours is stale**.
 Cron misses are not replayed automatically; run the command above after recovery.
 
+The initial end-to-end refresh and signed push were verified on November 2,
+including authentication without interactive token or SSH-agent environment
+variables. The local `scheduler.json` records the installed cron schedule and
+verified publication. On Git 2.34, initialize cone mode with
+`git sparse-checkout init --cone` before `git sparse-checkout set` when creating
+the dedicated checkout; ensure root lint/config files are present before running.
+
 Changing schedule: edit only the cron block named `yihou-pr-ledger-daily`, keeping
 other entries. Moving hosts: disable that block on the former host, create a
 dedicated clean worktree on suitable NFS/data storage, update local config and

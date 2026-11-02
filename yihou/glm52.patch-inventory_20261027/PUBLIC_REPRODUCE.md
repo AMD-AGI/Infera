@@ -21,12 +21,18 @@ custom all-reduce. Applying the PRs listed here does not establish that this
 
 | Reference | Reported total tokens/s/GPU | Interpretation |
 |---|---:|---|
+| llr35 / llr35r, C96 | 47,843 / 47,950 | The 47.9k stack, rounded mean 47,897; same patch stack before the C104 concurrency change |
 | llr37, C104 | 48,713.28739 | Requested historical peak, one run; simulated acceptance 2.99 |
 | llr37r, C104 | 48,103 | Later repeat; two-run rounded mean 48,408 |
+| llr37r2, C104 | 47,795 | Final baseline repeat; three-run rounded mean 48,204 |
 | llr48, C88 | 44,245 | Later experiment with PP overlap and custom AR off; still simulated acceptance, one run, correctness not certified |
 
 The repeat and llr48 are in the newer
 [2026-10-28 sweep](../glm52.llrepro-garblefree-sweep.packup_20261028/README.md).
+The [final C104 pack-up](../glm52.llrepro-c104-tail.packup_20261028/README.md)
+adds llr37r2 and an unreplicated llr51 memory-fraction candidate at 48,806.
+That candidate changes configuration, not the required patch list; this guide
+continues to pin the explicitly requested llr37 source and configuration.
 That archive explicitly says the approximately 48k stack is not a deliverable
 correctness result. Turning off the two implicated switches is a control to test,
 not proof that all long-context or fused-kernel problems are fixed.
