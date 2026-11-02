@@ -1,0 +1,68 @@
+# PR, patch and experiment correspondence
+
+PR states checked: **2026-11-02T06:26:10.145557+00:00**. [Live work queues](README.md). The original archive is pinned at `b563462fa4a20b4a6f563d279de14ddee455b343`; a run's source is not automatically identical to its later main-based PR.
+
+## Owned GLM-5.2 core patches
+
+| PR / state | Purpose | Role in historical deployment | Evidence / pack-up |
+|---|---|---|---|
+| [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) / DRAFT | Make real query rows and padded Aiter metadata agree. | BAKED: historical Aiter query-row repair; current-main PR differs from image script. | [glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); historical GLM DP8/EP8 checks 4/4 and 256/256; current port 12 CPU tests. GLM runs do not establish the requested DeepSeek matrix. |
+| [sgl-project/sglang #46820](https://github.com/sgl-project/sglang/pull/46820) / READY | Keep a blocked metrics consumer from stopping the scheduler. | BAKED: historical nonblocking KV metrics send. | [glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md); c44a to c44b; four real-ZMQ CPU tests pass; no model-throughput claim. |
+| [sgl-project/sglang #46830](https://github.com/sgl-project/sglang/pull/46830) / READY | Remove rank-divergent host syncs that can deadlock DSA eager execution. | BAKED: historical dsa_dp_sync.diff; replaces closed #33973. | [glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); original MI355X deadlock and MI300X masking investigation; production delta matches #33973; CPU 3 tests + 2 subtests and consumer audit. |
+| [sgl-project/sglang #47276](https://github.com/sgl-project/sglang/pull/47276) / READY | Speed up gfx950 fused indexer logits/top-k for MTP verify rows. | K01 FAMILY PORT: prioritize upstream adoption; not the exact historical overlay and not a new patch needed atop llr37. | PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20–1.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping. |
+| [sgl-project/sglang #47278](https://github.com/sgl-project/sglang/pull/47278) / READY | Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan. | K01 FAMILY PORT: prioritize upstream adoption; BF16 split partials differ from the frozen overlay. | PR reports 22/22 kernel tests, FP32-reference SNR >35 dB and real-acceptance GSM8K mean .942 baseline / .941 PR; isolated kernel 2.4–3.2x. Serving ITL used simulated acceptance 3.61. Final-port pack-up mapping still needs audit. |
+| [AMD-AGI/Infera #218](https://github.com/AMD-AGI/Infera/pull/218) / MERGED | Avoid SIGPIPE false negatives in Mooncake artifact checks. | BUILD-ONLY: optional rebuild fix; not runtime throughput. | 11 real-ELF CPU cases; merged d8babfb09; full frozen-image rebuild not claimed. |
+| [kvcache-ai/Mooncake #5005](https://github.com/kvcache-ai/Mooncake/pull/5005) / DRAFT | Offer opt-in HIP copy-stream priority without changing the default. | NOT IN LLR37: the peak uses cross-host RDMA with HIP transport disabled. | [glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md) R039/R043 microbench; allocated MI355X HIP build +4/4 CTest before rebase, stream/test sources unchanged; source packaging regression1pass. #5030 fixed previous wheel failure; new missing mooncake_te_build_config.h is covered by #5144. |
+| [sgl-project/sglang #45484](https://github.com/sgl-project/sglang/pull/45484) / READY | Preserve the Aiter is_shuffled weight tag through offload/onload. | NOT IN LLR37: OffloaderV2 weight offload is not HiCache. | [glm52.v0521-offloaderv2.packup_20261015](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.v0521-offloaderv2.packup_20261015/README.md) ofs0c/ofg3c/ofg2c 23/23 each; AST-equivalent port, CPU 3+2 and allocated MI355X two-onload-cycle test. Full-model rerun is not an automatic Ready gate. |
+| [sgl-project/sglang #46819](https://github.com/sgl-project/sglang/pull/46819) / DRAFT | Cache DCP gather metadata instead of rebuilding it per transfer. | NOT IN LLR37: DCP metadata optimization; the peak uses DPA4/DCP1. | [glm52.dcpx-pack-fix-best.packup_20261023](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.dcpx-pack-fix-best.packup_20261023/README.md) dcpx8c/9/10; current-head MI355X 3 tests +16 subtests, CPU 8+4; isolated cache medians 39.57→17.15 /39.09→17.07 /130.42→107.52 us. dcpx10 also removed a wait; its combined speedup does not transfer to this PR. |
+| [sgl-project/sglang #46822](https://github.com/sgl-project/sglang/pull/46822) / READY | Skip HIP DSA indexing when an eager DP rank has no tokens. | NOT ADDED TO LLR37: separate DCP/eager-idle fault repair. | [glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.dcp4-pd.packup_20261022/README.md) R16/R17 fault, R18 5/5 +40/40; later separate R24/R25 row-list bug covered by #45796; current CPU 4 tests +20 subtests. |
+| [sgl-project/sglang #46824](https://github.com/sgl-project/sglang/pull/46824) / DRAFT | Relayout DCP-sharded draft KV together with target KV. | NOT IN LLR37: DCP1-to-DCP-N transport. | [glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1 math29×2, passkey8K/34K/96K; rebase production delta unchanged; 43 CPU tests +61 subtests exercise merged sharding policy. |
+| [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) / DRAFT | Allow DCP decode behind DCP1 prefill when transport/backend support it. | NOT IN LLR37: constrained ROCm DCP enablement. | [glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1; current 12 CPU tests +13 subtests cover implicit Triton and a2a Q-rep defaults. Combined graph/coverage gap remains. |
+| [sgl-project/sglang #46828](https://github.com/sgl-project/sglang/pull/46828) / CLOSED | D22: optional BF16 kv_b retention | Historical; see deployment map. | Historical disposition in PR_STATUS.md. |
+
+## Required artifacts without a merge-ready PR
+
+
+These must be handed over alongside the priority PRs. A list of PR URLs alone
+cannot reconstruct the deployment.
+
+| Item | Exact public artifact / pack-up | Status / responsible next action |
+|---|---|---|
+| **S13: PP non-first-rank hidden size** | [Base kit model source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/kit/sglang_2p1d_glm5.2/patches/deepseek_v2.py), mounted on prefill | Required mount. Earlier #34465 is closed unmerged. Obtain **llying's attribution agreement** before a new filing; preserve the archived implementation meanwhile. |
+| **Full K01 historical overlay** | [Complete NEWFILES diff](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [llr5–llr7 evidence](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) | Required source reconstruction/mount. #47276/#47278 only cover narrower reworked components. Other candidates, including MoE paths, are not thereby upstreamed or qualified. |
+| **A01: both Aiter GEMM CSVs** | [GEMM pack-up](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/README.md): 75-row DPA/K3 and 49-row PTPC CSVs | Required historical mounts. No Aiter PR; correctness and current-build retuning remain. The second CSV alone did not establish a speedup. |
+| **I07: worker/common hooks and site config** | [C104 pack-up](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-c104-conc.packup_20261027/README.md), `scripts/{worker,common}.sh`, `sites/llr37.site.env` | Required role-specific environments, multiple mounts and launch options. Example/benchmark tooling; not an Infera core bugfix/feature. |
+| **S02 absorb-BMM workaround** | Frozen image `patch_mla_absorb_bmm_default_config.py`; [issue #46829](https://github.com/sgl-project/sglang/issues/46829) | Required frozen-image workaround. Track compiler/config root cause through the issue; no blanket-disable workaround PR. |
+| **Inherited page-table, HiCache and Responses patches** | [Frozen Dockerfile and patches](https://github.com/AMD-AGI/Infera/tree/fdbafb6065dae6d1c53936c7d2cf1f5022a514d0/deploy/docker) | Preserve exact sources. Page-table rows are not #33059 or D23; HiCache staged write-back is not OffloaderV2 #45484. These are not silently attributed to yihou. |
+| **Inherited Mooncake RDMA rail/ACK-timeout patches** | Same frozen image: `rdma_dest_local_rail.diff`, `rdma_ack_timeout.diff`; `MC_IB_TIMEOUT=18` | Preserve llying's patches and attribution. These are the Mooncake changes relevant to llr37; neither is HIP stream-priority #5005 or HIP IPC #4340. |
+| **Integrated Infera image / wrapper / Rust router** | Frozen Infera `fdbafb6065dae6d1c53936c7d2cf1f5022a514d0`, official SGLang v0.5.22 base, pinned Mooncake source | Build from the public pinned recipe. `infera-sglang:v0522-fdbafb60` is a historical local tag, not a public pull URL. Merged #210 is image history; merged #218 is an optional build-check backport, not runtime performance. |
+
+The base already contains the relevant merged HiCache/early-send fixes
+(#35233/#42553/#41395 lineage). Do not reopen superseded #33968/#33970, or use a
+newer arbitrary image without auditing which frozen modifications it retains.
+
+
+## Late 48k trials and configuration-only changes
+
+
+Rechecked November 2 against the original site files, late-run ledger and code
+diffs. The 48k deployment retains the required patch families listed above.
+
+| Run / result (total tokens/s/GPU) | Change from its baseline | PR disposition |
+|---|---|---|
+| llr37 / llr37r / llr37r2: 48,713 / 48,103 / 47,795; mean 48,204 | llr35 concurrency 96 to 104 | Existing configuration; no new code patch or additional PR. |
+| llr51: 48,806, unreplicated | llr37 decode `--mem-fraction-static` 0.95 to 0.96 | The site-file diff contains only this effective setting change and its comment. No additional PR; repeat before selecting it over the replicated baseline. |
+| llr41: 48,027; llr50: 48,010 | Existing local-control-broadcast flag / INT4 quick-reduce environment option | Neutral trials; not new required patches. llr50 was not carried forward. |
+| llr42: 47,674 | [Overlay module alias and double-patch guard](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/module_path_alias.diff) activate the historical fused indexer | Not kept after the slower end-to-end result. No dedicated owned alias PR; later #47276 is a reworked current-main kernel port, not proof this historical trial belongs in the best deployment. |
+| llr52: 47,402 | [P18 DP-controller patch](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-c104-tail.packup_20261028/dpc_poll/dpc_poll.diff): wait up to 1 s for new tokenizer input after draining requests | CPU busy polling fell, but no serving improvement was established and the change was not carried. No dedicated owned PR. Any future CPU-efficiency proposal needs current-main overlap, wake-up/watchdog/latency tests and its own evidence. |
+
+These late trials are archived in the [sweep](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-garblefree-sweep.packup_20261028/README.md)
+and [final tail](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-c104-tail.packup_20261028/README.md).
+The later kernel PRs #47276/#47278 remain worth upstreaming, but are not additional
+requirements introduced by the 47.9k-to-48k configuration changes. None of these
+historical simulated-acceptance scores establishes a standalone patch speedup.
+
+
+## Other dispositions
+
+S02/S12 remain issue-only; S04/S08/S09/S14 are excluded; S13 needs attribution agreement; A01 and the remaining original K01 overlay are not qualified for wholesale filing. S03 layer parallelism had no demonstrated gain; M03 was unbuilt. Other authors' equivalent PRs receive evidence instead of duplicates. See the [complete archived disposition map](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/PR_PACKUP_MAP.md) for source diffs and original pack-ups.
