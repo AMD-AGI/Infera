@@ -23,7 +23,16 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #208](https://github.com/AMD-AGI/Infera/pull/208) — Create, pack, run and share agent_sys tasks from Claude Code. | READY / `3bd26aa4af` | NOT IN LLR37: general agent_sys tooling. | Already Ready. Already non-draft. Re-audit the new head against the earlier tests and inspect current lint failure. | Inspect the current lint formatting diff (run 41392116339, job 125105681579, including projection/test files); fix or attribute it against base, re-run affected agent_sys tests, request maintainer review. No GPU prerequisite established. |
 <!-- DAILY-PR-STATUS:END -->
 
-## Dated maintenance records (snapshot before daily automation)
+## Dated maintenance records
+
+November 2 team handoff: opened [Infera #228](https://github.com/AMD-AGI/Infera/pull/228)
+as Ready from main `8847491c`, on `dev/yihou/glm52-pr-tracking`. The five new
+`docs/glm52-pr-tracking/` Markdown files lead with 48k deployment priorities and
+separate Ready/Draft queues, exact evidence, history and immutable references.
+Scoped hooks, local links, 21 archive references and public-information checks
+passed. Daily export targets this open PR; after merge/closure a new main-based
+update PR is required. No serving patch or GPU change is included.
+
 
 November 2 late-run deployment audit: rechecked the c104, garblefree-sweep and
 c104-tail pack-ups, llr37-to-llr51 site diff, fused-indexer alias and P18 poll

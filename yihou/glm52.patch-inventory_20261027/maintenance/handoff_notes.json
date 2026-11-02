@@ -689,6 +689,22 @@
       "tests": [],
       "last_action": "2026-11-02: reconciled current GitHub state and archived evidence for handoff.",
       "reviewed_activity_at": "2026-10-26T02:57:43Z"
+    },
+    "AMD-AGI/Infera#228": {
+      "assessed_at": "2026-11-02",
+      "reviewed_head": "2cb681fc1e09a65f77434c8fe8d8373fa25fc4bc",
+      "priority": "P3",
+      "deployment": "COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code.",
+      "purpose": "Track 48k deployment priorities, Ready/Draft work and immutable experiment references.",
+      "owner": "yihou; delegate unassigned",
+      "ready_action": "Documentation is already Ready. Recheck references/privacy when curated source links or generator logic change. No GPU validation needed.",
+      "merge_action": "Maintainers: review documentation and required checks. After merge, create a main-based follow-up PR for subsequent team documentation updates; do not push the updater directly to main.",
+      "evidence": "Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.",
+      "tests": [
+        "pre-commit run --files docs/glm52-pr-tracking/*.md",
+        "git diff --check"
+      ],
+      "last_action": "2026-11-02: created Ready PR #228 from main with signed commit 2cb681fc; connecting daily exports to the open documentation branch."
     }
   },
   "external_prs": [
