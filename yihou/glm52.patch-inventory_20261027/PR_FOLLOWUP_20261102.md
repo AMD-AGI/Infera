@@ -6,6 +6,12 @@ additional comparison-only draft. Ready for review does not mean approved or
 merge-ready. See [the live status table](PR_STATUS.md), [Chinese export](PR_SUMMARY_zh-CN.md),
 [PR-to-pack-up map](PR_PACKUP_MAP.md), and [timestamped GitHub snapshot](repro/PR_SNAPSHOT.json).
 
+## Scope correction after author-wide discovery
+
+The first pass refreshed the original eleven core PRs and missed later submissions. The corrected core list has **13 PRs: 11 open (6 ready / 5 draft), one merged and one closed**. Added existing SGLang #47276 (fused indexer logits/top-k) and #47278 (FP8 sparse MLA decode), both ready; Infera #221 is a separate draft KernelForge artifact catalog. Framework #220 and release packaging #223 are merged; #208 is general agent_sys tooling outside the core patch series. These newly discovered PRs were inspected, not newly opened or tested here.
+
+[OWNED_PR_INDEX.md](OWNED_PR_INDEX.md) lists all **53 PRs authored by dorado269 in the four target repositories: 14 open, 21 merged, 18 closed unmerged**. The combined snapshot includes external authors and is not an ownership count. Future audits must run author discovery before refreshing the existing tracker.
+
 ## Work completed
 
 | PR | Result of this follow-up | Remaining action |

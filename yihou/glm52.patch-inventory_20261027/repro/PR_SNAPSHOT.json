@@ -259,6 +259,35 @@
     },
     {
       "repo": "AMD-AGI/Infera",
+      "number": 208,
+      "url": "https://github.com/AMD-AGI/Infera/pull/208",
+      "title": "feat(agent_sys): Claude Code skills to create, pack, run and share agent_sys tasks",
+      "state": "OPEN",
+      "isDraft": false,
+      "mergedAt": null,
+      "closedAt": null,
+      "updatedAt": "2026-11-02T04:07:53Z",
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "headRefOid": "bfe1c68024775e625c62d1c999ad090e3f5cbe54",
+      "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
+      "headRefName": "dev.yihou.agentsys.skills",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [],
+      "latest_check_counts": {
+        "SUCCESS": 4,
+        "FAILURE": 1,
+        "SKIPPED": 7
+      }
+    },
+    {
+      "repo": "AMD-AGI/Infera",
       "number": 210,
       "url": "https://github.com/AMD-AGI/Infera/pull/210",
       "title": "feat(sglang): v0.5.22 image, GLM-5.2-MXFP4 mixed and PD (TP1xPP4 prefill) examples, router decode request balancing",
@@ -312,6 +341,91 @@
         "SUCCESS": 8,
         "FAILURE": 1,
         "CANCELLED": 7
+      }
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 220,
+      "url": "https://github.com/AMD-AGI/Infera/pull/220",
+      "title": "agent_sys: add simple kernel artifact catalogs and skill",
+      "state": "MERGED",
+      "isDraft": false,
+      "mergedAt": "2026-10-29T02:18:53Z",
+      "closedAt": "2026-10-29T02:18:53Z",
+      "updatedAt": "2026-10-29T02:18:53Z",
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "headRefOid": "c80d852fce60ecee5706fd7cd86d847e6d4643b3",
+      "baseRefOid": "319444f8b3cbb2127d9e041f0b62477dae81477a",
+      "headRefName": "dev/yihou/kernel-registry",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "latest_check_counts": {
+        "SUCCESS": 9,
+        "CANCELLED": 7,
+        "SKIPPED": 2
+      }
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 221,
+      "url": "https://github.com/AMD-AGI/Infera/pull/221",
+      "title": "agent_sys: catalog GLM-5.2 KernelForge artifacts and test history",
+      "state": "OPEN",
+      "isDraft": true,
+      "mergedAt": null,
+      "closedAt": null,
+      "updatedAt": "2026-10-28T10:55:40Z",
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "headRefOid": "b8b3938d6b7c8713711a7f0859e3f5c7bf548935",
+      "baseRefOid": "c80d852fce60ecee5706fd7cd86d847e6d4643b3",
+      "headRefName": "dev/yihou/glm52-kernel-catalog",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "CLEAN",
+      "reviewDecision": "",
+      "labels": [],
+      "latest_check_counts": {
+        "SUCCESS": 2
+      }
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 223,
+      "url": "https://github.com/AMD-AGI/Infera/pull/223",
+      "title": "ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel",
+      "state": "MERGED",
+      "isDraft": false,
+      "mergedAt": "2026-10-29T07:41:06Z",
+      "closedAt": "2026-10-29T07:41:06Z",
+      "updatedAt": "2026-10-29T07:41:06Z",
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "headRefOid": "210b0581c4a2cc842517ad77cab4f6fa24c83175",
+      "baseRefOid": "cd7d453005335e613e1bc053a0945e9b20fde141",
+      "headRefName": "feat/release-router-binary",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "latest_check_counts": {
+        "SUCCESS": 9,
+        "CANCELLED": 7,
+        "SKIPPED": 2
       }
     },
     {
@@ -1624,6 +1738,69 @@
         "SUCCESS": 139,
         "CANCELLED": 2
       }
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47276,
+      "url": "https://github.com/sgl-project/sglang/pull/47276",
+      "title": "[Perf] [AMD] dsa: Faster gfx950 fused indexer logits and top-k for MTP verify rows",
+      "state": "OPEN",
+      "isDraft": false,
+      "mergedAt": null,
+      "closedAt": null,
+      "updatedAt": "2026-10-29T13:36:12Z",
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "headRefOid": "23568fdf24f3c70b057f71ba0ca3aee94ab594b7",
+      "baseRefOid": "68e57f40057175ff22a17ea0bdbe7ecbc69d9d91",
+      "headRefName": "yihou/kf-fused-indexer-gfx950",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        "jit-kernel"
+      ],
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 87,
+        "SUCCESS": 22
+      }
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47278,
+      "url": "https://github.com/sgl-project/sglang/pull/47278",
+      "title": "[Perf] [AMD] dsa: gfx950 split-K decode plan for 64-head fp8 sparse MLA",
+      "state": "OPEN",
+      "isDraft": false,
+      "mergedAt": null,
+      "closedAt": null,
+      "updatedAt": "2026-10-29T13:44:24Z",
+      "author": {
+        "id": "U_kgDOETNnUQ",
+        "is_bot": false,
+        "login": "dorado269",
+        "name": ""
+      },
+      "headRefOid": "375f052eda199e2b7fc56ae4adc61b79b685d384",
+      "baseRefOid": "390acf84e31d3b63dac64e021911d94770e55a8c",
+      "headRefName": "yihou/kf-sparse-mla-gfx950",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        "jit-kernel"
+      ],
+      "latest_check_counts": {
+        "FAILURE": 16,
+        "SKIPPED": 88,
+        "SUCCESS": 22
+      }
     }
-  ]
+  ],
+  "author_discovery_checked_at_utc": "2026-11-02T04:46:05.537397+00:00"
 }

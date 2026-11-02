@@ -3,7 +3,7 @@
 Recipe verified 2026-10-28; upstream-status notes updated 2026-11-02 (UTC). Audience: InferenceX and other external reproductions.
 Start here for the experiment; use [PR_PACKUP_MAP.md](PR_PACKUP_MAP.md) for every
 maintained patch's purpose, PR state, evidence archive and applicability.
-[PR_STATUS.md](PR_STATUS.md) retains the maintenance history.
+[PR_STATUS.md](PR_STATUS.md) retains the maintenance history; [OWNED_PR_INDEX.md](OWNED_PR_INDEX.md) is the complete authored-PR list for the four target repositories. Later kernel ports #47276/#47278 are tracked separately from the frozen overlay.
 
 ## 1. What result can be reproduced?
 

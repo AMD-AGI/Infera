@@ -1,8 +1,10 @@
 # GLM-5.2 Patch 与 PR 统一进度表
 
-状态更新：2026-11-02 04:30 UTC。本轮明细：[PR_FOLLOWUP_20261102.md](PR_FOLLOWUP_20261102.md)；维护记录：[PR_STATUS.md](PR_STATUS.md)；逐 PR／packup 对照：[PR_PACKUP_MAP.md](PR_PACKUP_MAP.md)；公网复现入口：[PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md)。
+状态更新：2026-11-02 04:46 UTC。本轮明细：[PR_FOLLOWUP_20261102.md](PR_FOLLOWUP_20261102.md)；维护记录：[PR_STATUS.md](PR_STATUS.md)；逐 PR／packup 对照：[PR_PACKUP_MAP.md](PR_PACKUP_MAP.md)；公网复现入口：[PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md)。
 
-原有 **11 个自有核心 PR：1 个已合并、1 个因主线替代关闭、4 个 Ready、5 个 Draft**；因此还有 **9 个活跃核心 PR**。额外的 Infera #164 仍是 comparison-only Draft，不计核心修复。
+纠正：按作者全量反查后，GLM-5.2 核心补丁为 **13 个：1 个已合并、1 个关闭、6 个 Ready、5 个 Draft**，即 **11 个仍开放**。之前十一项表漏了后续新增的 #47276／#47278；Infera #221 是另列的内核归档 Draft，#164 是比较工具，#208 是通用 agent_sys 工具。
+
+[四个目标仓库的全部自有 PR](OWNED_PR_INDEX.md)：**53 个历史 PR，14 个开放（7 Ready／7 Draft）、21 个合并、18 个关闭**。不要把含他人依赖 PR 的 snapshot 总数当作我们的 PR 总数。
 
 本轮实际完成：4 个 PR rebase／推送；D10、D11 新增 CPU 回归；关闭已失去原启用理由的 D22；4 个 Ready PR 逐一跟进 CI／审阅。**Ready 不等于获批或可以合并。** SGLang 的多数旧红灯是 draft／权限 gate；#33059 新功能 CI 仍被 Draft gate 阻挡。Mooncake 旧 wheel 缺模块已修，新 CUDA CTest 缺生成头文件已有 #5144 修复单，仍待合入。未使用 GPU，也未改动历史 packup。
 
@@ -19,6 +21,10 @@
 | **M02：让 HIP 拷贝流可选使用高优先级** | Mooncake [#5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | **Draft**。rebase 后为 `8313cccb`，打包源代码回归和 lint 通过；旧 wheel 问题由已合并 #5030 修复。新 CUDA CTest 缺生成头文件，已有 #5144 在修；已贡献失败日志。还等你按仓库要求人工逐行审核。 |
 | **S06＝D21：OffloaderV2 搬回权重时保住 `is_shuffled` 标记** | SGLang [#45484](https://github.com/sgl-project/sglang/pull/45484) | **Ready**，head 未变。已跟进 CI／review；原 CPU 和 MI355X 两次 onload 回归保留，无需重复全模型才可审阅。 |
 | **#33059：Aiter 只处理真实 query 行，再补回 padding** | SGLang [#33059](https://github.com/sgl-project/sglang/pull/33059) | **Draft**。已 rebase 到含 #46861 的主线并推送 `ea88d74bf`；12 项 CPU、lint 通过。原 Qwen 1% 准确率已对应到共享 KV 分配回归；仍缺 HaiShaw 指定的 DeepSeek-V3.2 AMD DP／stage-c 矩阵，新功能 CI 尚未执行。 |
+| **K01-family：MTP verify 行共享 KV 页读取，优化 fused logits／top-k** | SGLang [#47276](https://github.com/sgl-project/sglang/pull/47276) | **Ready，之前漏列**。head `23568fdf24`；已有独立 kernel／真实接受率准确率报告，性能 serving 使用模拟接受率；等 CI／review，需协调 #45307。本次未重跑测试。 |
+| **K01-family：gfx950 FP8 64-head sparse MLA decode 专用 split-K 路径** | SGLang [#47278](https://github.com/sgl-project/sglang/pull/47278) | **Ready，之前漏列**。head `375f052eda`；PR 报告参考数值／实机准确率验证；等 CI／review。它是重新集成的 kernel，不等于原 llr37 overlay。 |
+| **KernelForge 源码与历史证据归档** | Infera [#221](https://github.com/AMD-AGI/Infera/pull/221) | **Draft，之前漏列**。#220 框架已合并，但该单仍指向原堆叠分支；需调整 base、验证脱敏衍生文件及外部 fixture 可用性。属于归档／工具，不是推理 runtime 修复。 |
+| **通用 agent_sys 任务技能** | Infera [#208](https://github.com/AMD-AGI/Infera/pull/208) | **Ready**，是账号 PR，但不属于 GLM-5.2 核心补丁；另行处理其 CI／review。 |
 | **S03/S11：把 transfer 分散到多个队列，避免挤在一条队列上** | 他人 SGLang [#42163](https://github.com/sgl-project/sglang/pull/42163) | **未重复提**。已评论贡献独立 transfer 数据和退化情况；该单也是 Draft，等 YAMY1234、维护者推进。 |
 | **S05：给实际使用的 attention backend 初始化 idle 元数据** | 他人 [#45156](https://github.com/sgl-project/sglang/pull/45156)；我们原 [#45483](https://github.com/sgl-project/sglang/pull/45483) | 我们的重复单已关闭，证据已贡献且作者回应；等 WQW-Git／维护者 CI、review。 |
 | **S07／之前说的 on_complete：按实际 attention-DP 宽度校验 `prefill_complete`** | 他人 SGLang [#45337](https://github.com/sgl-project/sglang/pull/45337) | **未重复提**，已贡献启动失败／成功证据；等 nvjullin 处理 review 中的性能证据问题及 CI。 |
@@ -36,7 +42,7 @@
 | **原 #33970：early KV transfer 的完成事件同步** | 原 [#33970](https://github.com/sgl-project/sglang/pull/33970) → 已合入 [#41395](https://github.com/sgl-project/sglang/pull/41395) | 我们旧单已关闭；非 CUDA #43299 已合并；剩余 PP 问题继续跟 #45524。 |
 | **原 #33643：MTP penalty 应统计真正提交的 token** | 原 [#33643](https://github.com/sgl-project/sglang/pull/33643)，现跟他人 [#45233](https://github.com/sgl-project/sglang/pull/45233) | 两个旧单都已关闭未合并；#45233 作者于 10-27 23:42 关闭 stale draft、保留分支。**不能算正在推进的修复**；后续先核查主线及替代 PR，再决定恢复独立修复。 |
 | **S03 layer parallelism／M03 批量 HIP copy kernel** | 无 PR | 前者无明确收益、实验回到 PAR=1；后者从未编译，生产块大小也不支持原始优化前提。 |
-| **A01／K01：GEMM CSV／KF kernels** | 无 PR | 正确性和集成条件未满足，按原规则暂不提交。 |
+| **A01／原始 K01 overlay** | 原 overlay／CSV 未整体提 PR；两个重新集成的 kernel 已有 #47276／#47278 | 不能再笼统说“K01 全部没 PR”，也不能说两个 PR 覆盖了整套 overlay。#221 是证据归档；剩余组件仍需独立验证。 |
 | **S04/S08/S09/S14** | 无 PR | 你明确排除的实验／退化／准确率风险项。 |
 | **D12/D25、T01–T05/T07** | 无 PR | A/B 开关、探针、日志等诊断工具，不是独立生产修复。 |
 | **I01/I02/I03/I06/I07：launcher、NUMA、mount、env 等** | 无核心 PR | 属于旧 bench／example；按你的要求，不包装成 Infera 核心 bugfix／feature。 |
@@ -50,4 +56,4 @@
 
 性能说明仅使用各 patch 的独立测量；历史 simulated-MTP 吞吐不作为单项收益或正确性证明。历史实机证据在生产行为未变时仍可复用；只有具体未覆盖路径、实现变化或评审明确要求的矩阵才需要补测。
 
-未提 PR 的 S13／K01／A01、明确排除项及已被主线覆盖的旧 PR，处置见上表；本轮没有绕过 attribution 或重复开单。
+未提 PR 的 S13／A01／剩余 K01 组件、明确排除项及已被主线覆盖的旧 PR，处置见上表；本轮没有绕过 attribution 或重复开单。

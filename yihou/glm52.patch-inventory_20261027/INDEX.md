@@ -4,6 +4,8 @@ Public reproduction starts at [PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md); the cu
 
 Live upstream status and actions are tracked in [PR_STATUS.md](PR_STATUS.md). The inventory below is the original evidence snapshot; later duplicate discoveries and PR state changes are recorded in that tracker.
 
+Complete authored list for the four target repositories: [OWNED_PR_INDEX.md](OWNED_PR_INDEX.md). It includes later kernel PRs that were absent from this original inventory.
+
 Latest maintenance: [November 2 follow-up](PR_FOLLOWUP_20261102.md), including rebases, CPU regressions, merged dependencies and remaining draft blockers.
 
 Built 2026-10-27 ~07:00Z for an agent that will open upstream PRs (sglang, Infera, aiter, Mooncake). Every row was
