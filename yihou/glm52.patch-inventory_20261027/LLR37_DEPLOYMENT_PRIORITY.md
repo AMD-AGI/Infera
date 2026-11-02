@@ -39,6 +39,25 @@ Priority P0 means preserve and upstream behavior present in the historical
 recipe. It does not imply each patch has an isolated measured throughput gain,
 or that an open PR must merge before the already-patched frozen image can run.
 
+## Changes after the 47.9k baseline: no additional required PR
+
+Rechecked November 2 against the original site files, late-run ledger and code
+diffs. The 48k deployment retains the required patch families listed above.
+
+| Run / result (total tokens/s/GPU) | Change from its baseline | PR disposition |
+|---|---|---|
+| llr37 / llr37r / llr37r2: 48,713 / 48,103 / 47,795; mean 48,204 | llr35 concurrency 96 to 104 | Existing configuration; no new code patch or additional PR. |
+| llr51: 48,806, unreplicated | llr37 decode `--mem-fraction-static` 0.95 to 0.96 | The site-file diff contains only this effective setting change and its comment. No additional PR; repeat before selecting it over the replicated baseline. |
+| llr41: 48,027; llr50: 48,010 | Existing local-control-broadcast flag / INT4 quick-reduce environment option | Neutral trials; not new required patches. llr50 was not carried forward. |
+| llr42: 47,674 | [Overlay module alias and double-patch guard](../glm52.llrepro-garblefree-sweep.packup_20261028/kfov_fused/module_path_alias.diff) activate the historical fused indexer | Not kept after the slower end-to-end result. No dedicated owned alias PR; later #47276 is a reworked current-main kernel port, not proof this historical trial belongs in the best deployment. |
+| llr52: 47,402 | [P18 DP-controller patch](../glm52.llrepro-c104-tail.packup_20261028/dpc_poll/dpc_poll.diff): wait up to 1 s for new tokenizer input after draining requests | CPU busy polling fell, but no serving improvement was established and the change was not carried. No dedicated owned PR. Any future CPU-efficiency proposal needs current-main overlap, wake-up/watchdog/latency tests and its own evidence. |
+
+These late trials are archived in the [sweep](../glm52.llrepro-garblefree-sweep.packup_20261028/README.md)
+and [final tail](../glm52.llrepro-c104-tail.packup_20261028/README.md).
+The later kernel PRs #47276/#47278 remain worth upstreaming, but are not additional
+requirements introduced by the 47.9k-to-48k configuration changes. None of these
+historical simulated-acceptance scores establishes a standalone patch speedup.
+
 ## Required inputs that are not open PRs
 
 These must be handed over alongside the priority PRs. A list of PR URLs alone

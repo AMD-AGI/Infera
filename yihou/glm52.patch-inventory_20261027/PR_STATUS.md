@@ -25,6 +25,16 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 
 ## Dated maintenance records (snapshot before daily automation)
 
+November 2 late-run deployment audit: rechecked the c104, garblefree-sweep and
+c104-tail pack-ups, llr37-to-llr51 site diff, fused-indexer alias and P18 poll
+diff. The final baseline is 48,204 total tokens/s/GPU across three runs; the
+48,806 single-run candidate changes only decode memory fraction. Neither adds
+a required PR. Late llr42 alias and llr52 blocking-poll experiments were not
+carried and have no dedicated owned PR; their dispositions are now in
+[PR_PACKUP_MAP.md](PR_PACKUP_MAP.md) and [deployment priorities](LLR37_DEPLOYMENT_PRIORITY.md).
+Live #33059/#46820/#46830/#45524/#47276/#47278 states and heads remain unchanged.
+No PR code, draft state or external comment changed in this audit.
+
 Updated: 2026-11-02 04:46 UTC. Owner: yihou (`dorado269`). Commit identity verified: `yihou <yihou@amd.com>`.
 
 Public handoff: [PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md), [PR_PACKUP_MAP.md](PR_PACKUP_MAP.md), and [exact PR snapshot](repro/PR_SNAPSHOT.json). Runtime caches/worktrees and raw CI logs are local-only. The public guide distinguishes the frozen llr37 image from current-main PRs.
