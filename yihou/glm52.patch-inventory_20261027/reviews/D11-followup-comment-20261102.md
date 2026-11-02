@@ -1,0 +1,3 @@
+Rebased onto main `acd6f5570`, including merged #44322, and pushed signed `21f8e688f`. The production gate change is unchanged. Added PD-decode regressions for implicit ROCm Triton selection and the a2a Q-rep default; together with the merged backend/constraint suite: **12 tests, 13 subtests pass**. Applicable scoped lint passes.
+
+The old backend/default-selection blocker is resolved. #46824 must still supply sharded-draft transport before this guard can land, and the archived DP2×DCP2 graph-correctness gap remains unresolved. The body now distinguishes those gaps from already-completed historical validation. Keeping draft; no GPU transport or combined-model accuracy result is claimed from these CPU tests.

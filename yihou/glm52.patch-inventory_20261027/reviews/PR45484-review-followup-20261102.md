@@ -1,0 +1,3 @@
+Following up on review/CI for unchanged head `43dec26`. This PR remains ready for review; no new GPU result is being claimed. This preserves `is_shuffled` through OffloaderV2 weight reload. The existing CPU baseline controls and allocated MI355X two-onload-cycle regression are recorded above; this is not a stack-throughput claim.
+
+The latest lint and title checks pass. The older red test-workflow entries are gate/summary jobs (including the initial draft gate), not results from executing the registered regression; `run-ci` is still absent. Could an authorized maintainer enable the relevant CI and review the scoped change? There are no unresolved inline review threads in the current snapshot. No implementation or evidence change is needed merely to mark this ready again.

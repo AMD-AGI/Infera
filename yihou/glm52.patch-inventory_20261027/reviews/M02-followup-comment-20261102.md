@@ -1,0 +1,6 @@
+Rebased onto main `72e267f4` as signed `8313cccb`, including the merged wheel staging fix #5030. The old Python 3.10 `_structured_ranges` import failure is attributable to the base packaging omission, not this HIP stream option. The dedicated packaging regression now passes locally (1 test); PR-scoped pre-commit also passes. Upstream CI is rerunning.
+
+The stream-pool implementation and test source are unchanged, so the prior allocated MI355X 4/4 CTest evidence remains applicable to that delta; no new GPU run or full wheel build is claimed. Checked #4953 at `35c488e9`: it uses the existing pool API and does not replace stream priority creation. The body now distinguishes optional workload qualification from the remaining human line-by-line review requirement. Keeping this PR draft until that human review is complete.
+
+
+New-head CI update: the CUDA CTest build now fails before tests in `on_cuda_transport_guard_test` because `mooncake_te_build_config.h` is not on its include path ([job](https://github.com/kvcache-ai/Mooncake/actions/runs/41387680143/job/125092088899)). The target/test/header are unchanged from main in this PR. Existing #5144 fixes this distinct base regression; it is open and tracked as the current build blocker. This is separate from the old wheel issue fixed by #5030.

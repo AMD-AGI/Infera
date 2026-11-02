@@ -1,0 +1,3 @@
+Rebased to main `acd6f5570`, which now includes #44322 and #43299. Head is signed `1bcfc5214`. The production delta is unchanged; the new regression calls the real merged `dsa_draft_shards_under_dcp` predicate, covering HIP/non-HIP, DCP1/DCP4 and DSA/non-DSA configs. The three registered CPU suites in the body pass: **43 tests, 61 subtests**. All applicable scoped pre-commit hooks pass.
+
+The backend merge is no longer a blocker. The body now separates the remaining archived DP2×DCP2 graph-correctness question from merge order with #46826, and records #45524 as the distinct PP producer-ordering follow-up. Keeping draft while the graph coverage/support boundary is unresolved; no new GPU or model-accuracy result is claimed.

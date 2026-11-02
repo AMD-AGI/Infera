@@ -1,6 +1,6 @@
 # GLM-5.2 on MI355X: public reproduction and upstream patch map
 
-Updated 2026-10-28 (UTC). Audience: InferenceX and other external reproductions.
+Recipe verified 2026-10-28; upstream-status notes updated 2026-11-02 (UTC). Audience: InferenceX and other external reproductions.
 Start here for the experiment; use [PR_PACKUP_MAP.md](PR_PACKUP_MAP.md) for every
 maintained patch's purpose, PR state, evidence archive and applicability.
 [PR_STATUS.md](PR_STATUS.md) retains the maintenance history.
@@ -98,7 +98,7 @@ The DSA installer **asserts** the already-upstream draft CUDA-graph DP vote
 The decode-radix-spec installer is a no-op for this base, and llr37 does not turn
 on the rejected decode-radix experiment.
 
-Infera [#218](https://github.com/AMD-AGI/Infera/pull/218) is a build-check-only
+Infera [#218](https://github.com/AMD-AGI/Infera/pull/218), merged October 30, is a build-check-only
 follow-up: it prevents SIGPIPE from falsely rejecting a valid Mooncake artifact.
 It is not a runtime performance patch in the historical image. An optional
 source rebuild backport is shown below and must be recorded as a build-input change.
@@ -289,7 +289,7 @@ not approval, merge, or whole-stack correctness certification.
 For a current-main integration, resolve each fix against that exact main/image
 revision, drop superseded fixes, and port only missing behavior with tests.
 Review dependencies first: #44322 → #46824 → #46826 describes the **separate DCP
-recipe**, not llr37; #46828 is a DCP/Q-projection option. #46819 intentionally
+recipe**, not llr37. #44322 is now merged; #46828 was closed after merged #47180 enabled Q replication from FP8 without that option. See [the current follow-up](PR_FOLLOWUP_20261102.md). #46819 intentionally
 retains the producer wait, unlike the archived DCP experiment. Do not transfer
 old combined performance claims to these revised PRs. This guide does not claim
 that current upstream main plus all listed PRs has reproduced the frozen score.

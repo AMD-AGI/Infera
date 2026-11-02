@@ -4,6 +4,8 @@ Public reproduction starts at [PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md); the cu
 
 Live upstream status and actions are tracked in [PR_STATUS.md](PR_STATUS.md). The inventory below is the original evidence snapshot; later duplicate discoveries and PR state changes are recorded in that tracker.
 
+Latest maintenance: [November 2 follow-up](PR_FOLLOWUP_20261102.md), including rebases, CPU regressions, merged dependencies and remaining draft blockers.
+
 Built 2026-10-27 ~07:00Z for an agent that will open upstream PRs (sglang, Infera, aiter, Mooncake). Every row was
 checked against a file (pack-up README/notes, the patch itself, git history, or upstream `main` fetched with `gh api`
 on 2026-10-27, sglang main = `e4d4a9a7de`). Items marked **[unverified]** were not checked first-hand.

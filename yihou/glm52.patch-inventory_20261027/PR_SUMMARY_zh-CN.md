@@ -1,39 +1,39 @@
 # GLM-5.2 Patch 与 PR 统一进度表
 
-状态更新：2026-10-28 05:14 UTC。公网复现入口：[PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md)；逐 PR／packup 对照：[PR_PACKUP_MAP.md](PR_PACKUP_MAP.md)；维护记录：[PR_STATUS.md](PR_STATUS.md)。
+状态更新：2026-11-02 04:30 UTC。本轮明细：[PR_FOLLOWUP_20261102.md](PR_FOLLOWUP_20261102.md)；维护记录：[PR_STATUS.md](PR_STATUS.md)；逐 PR／packup 对照：[PR_PACKUP_MAP.md](PR_PACKUP_MAP.md)；公网复现入口：[PUBLIC_REPRODUCE.md](PUBLIC_REPRODUCE.md)。
 
-本轮已新建 **9 个 PR（SGLang 7、Infera 1、Mooncake 1），创建时全部设为 Draft 并写明 blocker；现 SGLang #46820／#45484／#46822／#46830 和 Infera #218 共 5 个已转 Ready for review；另提了 2 个 issue**。加上原有 #33059、#45484，目前持续维护的自有核心 PR 共 **11 个**。
+原有 **11 个自有核心 PR：1 个已合并、1 个因主线替代关闭、4 个 Ready、5 个 Draft**；因此还有 **9 个活跃核心 PR**。额外的 Infera #164 仍是 comparison-only Draft，不计核心修复。
 
-新增 SGLang PR 的 lint/title 均通过，但完整 CI 多数还等维护者开放 `run-ci`。Infera #218 前一提交已执行的 CI 全绿，新增回归提交的 DCO/lint/unit/agent_sys/rust/unit-torch-cpu/docs 已通过，engine／集成 CI 排队中；Mooncake #5005 已有 29 项 CI 成功，Python 3.10 wheel 因缺少 `_structured_ranges` 模块导入失败，另有 1 项运行中。**Ready for review 表示可以正式审阅，不代表已经获批或可以合并。共 5 个已转 Ready，其余 6 个核心 PR 暂保留 Draft。历史实机证据可以复用，不再把“全部重新跑 GPU”作为默认审阅门槛。**
+本轮实际完成：4 个 PR rebase／推送；D10、D11 新增 CPU 回归；关闭已失去原启用理由的 D22；4 个 Ready PR 逐一跟进 CI／审阅。**Ready 不等于获批或可以合并。** SGLang 的多数旧红灯是 draft／权限 gate；#33059 新功能 CI 仍被 Draft gate 阻挡。Mooncake 旧 wheel 缺模块已修，新 CUDA CTest 缺生成头文件已有 #5144 修复单，仍待合入。未使用 GPU，也未改动历史 packup。
 
 | Patch／一句话说明 | PR／issue 去向 | 当前进度、blocker／等谁 |
 |---|---|---|
-| **S10：搬 KV 前，缓存打包元数据，减少重复准备工作** | SGLang [#46819](https://github.com/sgl-project/sglang/pull/46819) | **Draft**。CPU、MI355X 字节正确性和独立缓存微测已通过；下一步收窄到已验证的缓存改动，或单独补 pinned-index／优先级／PP 时序证据，不默认重跑全模型。 |
-| **S01：指标接收端堵塞时，不把调度器一起卡住** | SGLang [#46820](https://github.com/sgl-project/sglang/pull/46820) | **Ready for review**。当前提交的 4 项真实 ZMQ 回归通过，lint/title 通过；丢指标策略进入正式 review，仍等维护者开放上游 CPU CI。 |
-| **D27：空闲 ROCm rank 不再误跑 DSA indexer** | SGLang [#46822](https://github.com/sgl-project/sglang/pull/46822) | **Ready for review**。生产增删行与历史实机 patch 一致，复用 R18 故障消除证据及当前 CPU 回归；后续独立故障已分开说明，仍等 CI／review。 |
-| **D10＋D13/D16/D29：draft KV 和 target KV 一起按 DCP 布局搬运** | SGLang [#46824](https://github.com/sgl-project/sglang/pull/46824) | **Draft**。40 项 CPU＋53 子用例通过；EricKing626 已确认分片接口不变。按 #44322 最新实现适配，复用 pdBe-r1；DP2×DCP2 图模式乱码需定位或收窄支持范围。 |
-| **D11：允许 DCP1 prefill 接 ROCm DCP decode** | SGLang [#46826](https://github.com/sgl-project/sglang/pull/46826) | **Draft**。依赖 #44322、#46824；核对最终 backend 默认选择和配置限制，并仅补历史未覆盖的组合。接口确认后可先做依赖栈适配，无需等合并才开始。 |
-| **D22：可选保留 BF16 kv_b，减少 replicated-Q 路径开销** | SGLang [#46828](https://github.com/sgl-project/sglang/pull/46828) | **Draft**，默认关闭。对齐 #44322 的 replicated-Q／dtype 行为，核对 T10 与当前实现及默认关闭、数值、显存覆盖，缺什么补什么。 |
-| **原 #33973：去掉分歧 rank 路径里的 host 同步，避免互相等死** | SGLang [#46830](https://github.com/sgl-project/sglang/pull/46830) | **Ready for review**。生产增删行与旧 #33973 一致；复用原 MI355X 死锁／MI300X masking 证据，并完成当前 CPU 回归及消费者检查。新整栈 GPU 运行和显存评估属于后续覆盖。 |
-| **I05c：修复“产物明明存在，构建脚本却报失败”** | Infera [#218](https://github.com/AMD-AGI/Infera/pull/218) | **Ready for review**。签名提交 `5cee57e0` 新增真实 ELF／binutils 回归：修复后 11 项通过，原脚本 9 失败／2 控制项通过；本地 lint 及上游 DCO/lint/unit/agent_sys/rust/unit-torch-cpu/docs 通过，engine／集成 CI 排队中。完整镜像未重建，已明确作为集成验证限制。 |
-| **M02：让 HIP 拷贝流可选使用高优先级** | Mooncake [#5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | **Draft**。HIP 构建和 4/4 CTest 已通过；29 项 CI 成功，Python 3.10 wheel 缺 `_structured_ranges`，待查归因。还需仓库要求的人工逐行审核及 #4953 兼容性检查；不默认要求重跑完整 serving。 |
-| **S06＝D21：OffloaderV2 搬回权重时保住 `is_shuffled` 标记** | SGLang [#45484](https://github.com/sgl-project/sglang/pull/45484) | **Ready for review**。历史三轮各 23/23 已核对原始记录，生产方法语义一致，当前提交 MI355X 回归已通过；无需为审阅重复整套模型测试，仍等上游 CI／review。 |
-| **#33059：Aiter 只处理真实 query 行，再补回 padding** | SGLang [#33059](https://github.com/sgl-project/sglang/pull/33059) | **Draft**。12 项 CPU 回归通过；先对照 HaiShaw 指定的 DeepSeek-V3.2 AMD DP／stage-c 矩阵复用旧证据。新 CI 的 Qwen3-8B PD GSM8K 为 1%（门槛 >70%），需与基线比较定位，不能笼统归为环境故障。 |
+| **S10：搬 KV 前，缓存打包元数据，减少重复准备工作** | SGLang [#46819](https://github.com/sgl-project/sglang/pull/46819) | **Draft**。已有 MI355X 字节回归和独立缓存微测；本轮修正正文里过时的“GPU 未跑”描述。仍需收窄到缓存，或验证 pinned-index／优先级干扰／PP 时序。 |
+| **S01：指标接收端堵塞时，不把调度器一起卡住** | SGLang [#46820](https://github.com/sgl-project/sglang/pull/46820) | **Ready**，head 未变。已再次请求维护者开放 `run-ci` 并 review；原 4 项真实 ZMQ 测试有效，旧红灯主要是 gate，不能当作功能测试失败。 |
+| **D27：空闲 ROCm rank 不再误跑 DSA indexer** | SGLang [#46822](https://github.com/sgl-project/sglang/pull/46822) | **Ready**，head 未变。已跟进 CI／review；复用 R18 等价生产改动和 CPU 控制用例，无新增 GPU 运行。 |
+| **D10＋D13/D16/D29：draft KV 和 target KV 一起按 DCP 布局搬运** | SGLang [#46824](https://github.com/sgl-project/sglang/pull/46824) | **Draft**。已 rebase 主线并推送 `1bcfc5214`；43 项 CPU＋61 子用例、lint 通过。#44322 已合并，接口等待解除；还需解决或排除 DP2×DCP2 graph 乱码及未覆盖组合。 |
+| **D11：允许 DCP1 prefill 接 ROCm DCP decode** | SGLang [#46826](https://github.com/sgl-project/sglang/pull/46826) | **Draft**。已 rebase 并推送 `21f8e688f`；12 项 CPU＋13 子用例、lint 通过。Triton／Q-rep 默认选择已验证；仍等 #46824 的 transport 和组合正确性。 |
+| **D22：可选保留 BF16 kv_b，减少 replicated-Q 路径开销** | SGLang [#46828](https://github.com/sgl-project/sglang/pull/46828) | **本轮关闭，原启用需求被替代**。#47180 已合并，主线可直接从 FP8 权重准备 Q-rep。保留原 BF16 数值与反量化 FP8 不完全等价，但没有当前基线上的独立收益证据；不再增加此开关。 |
+| **原 #33973：去掉分歧 rank 路径里的 host 同步，避免互相等死** | SGLang [#46830](https://github.com/sgl-project/sglang/pull/46830) | **Ready**，head 未变。已再次跟进 CI／review；原 CPU 控制、消费者检查和历史死锁证据保留。 |
+| **I05c：修复“产物明明存在，构建脚本却报失败”** | Infera [#218](https://github.com/AMD-AGI/Infera/pull/218) | **已合并，10-30**，merge `d8babfb09`；xiaobochen-amd 批准。退出活跃队列；这不表示完整历史镜像已重新构建。 |
+| **M02：让 HIP 拷贝流可选使用高优先级** | Mooncake [#5005](https://github.com/kvcache-ai/Mooncake/pull/5005) | **Draft**。rebase 后为 `8313cccb`，打包源代码回归和 lint 通过；旧 wheel 问题由已合并 #5030 修复。新 CUDA CTest 缺生成头文件，已有 #5144 在修；已贡献失败日志。还等你按仓库要求人工逐行审核。 |
+| **S06＝D21：OffloaderV2 搬回权重时保住 `is_shuffled` 标记** | SGLang [#45484](https://github.com/sgl-project/sglang/pull/45484) | **Ready**，head 未变。已跟进 CI／review；原 CPU 和 MI355X 两次 onload 回归保留，无需重复全模型才可审阅。 |
+| **#33059：Aiter 只处理真实 query 行，再补回 padding** | SGLang [#33059](https://github.com/sgl-project/sglang/pull/33059) | **Draft**。已 rebase 到含 #46861 的主线并推送 `ea88d74bf`；12 项 CPU、lint 通过。原 Qwen 1% 准确率已对应到共享 KV 分配回归；仍缺 HaiShaw 指定的 DeepSeek-V3.2 AMD DP／stage-c 矩阵，新功能 CI 尚未执行。 |
 | **S03/S11：把 transfer 分散到多个队列，避免挤在一条队列上** | 他人 SGLang [#42163](https://github.com/sgl-project/sglang/pull/42163) | **未重复提**。已评论贡献独立 transfer 数据和退化情况；该单也是 Draft，等 YAMY1234、维护者推进。 |
 | **S05：给实际使用的 attention backend 初始化 idle 元数据** | 他人 [#45156](https://github.com/sgl-project/sglang/pull/45156)；我们原 [#45483](https://github.com/sgl-project/sglang/pull/45483) | 我们的重复单已关闭，证据已贡献且作者回应；等 WQW-Git／维护者 CI、review。 |
 | **S07／之前说的 on_complete：按实际 attention-DP 宽度校验 `prefill_complete`** | 他人 SGLang [#45337](https://github.com/sgl-project/sglang/pull/45337) | **未重复提**，已贡献启动失败／成功证据；等 nvjullin 处理 review 中的性能证据问题及 CI。 |
-| **D17：PP 非末尾 chunk 发 KV 前，先等计算真正完成** | 他人 [#45524](https://github.com/sgl-project/sglang/pull/45524)，相关 [#43299](https://github.com/sgl-project/sglang/pull/43299) | **未重复提**。已贡献证据；分别等 eaglewangao-us、kpjeeja 和维护者推进。 |
-| **D14/15/18/24/30/31：DCP 分片搜索 index，再合并 top-k** | 他人 [#42618](https://github.com/sgl-project/sglang/pull/42618)、[#44322](https://github.com/sgl-project/sglang/pull/44322) | **未提竞争实现**。#42618 已关闭，作者确认 #44322 是替代 PR；分片策略不变。继续跟 #44322 和最终依赖适配。 |
+| **D17：PP 非末尾 chunk 发 KV 前，先等计算真正完成** | 他人 [#45524](https://github.com/sgl-project/sglang/pull/45524)，相关 [#43299](https://github.com/sgl-project/sglang/pull/43299) | **#43299 已合并；#45524 仍 Open／Ready**。后者已缩小为真正需要的 PP chunk 等待，作者补充了触发用例；两者解决不同同步路径，不能混算为已完成。 |
+| **D14/15/18/24/30/31：DCP 分片搜索 index，再合并 top-k** | 他人 [#42618](https://github.com/sgl-project/sglang/pull/42618)、[#44322](https://github.com/sgl-project/sglang/pull/44322) | **#44322 已于 10-28 合并；#42618 已关闭**。后端和默认值依赖已解除，D10/D11 已适配并补测。仍有 PD transport／graph 正确性缺口。 |
 | **D26：空闲 rank 不再打印误导性 DCP warning** | 已在 [#42618](https://github.com/sgl-project/sglang/pull/42618) 请求顺带处理 | **无独立 PR**；原请求在已关闭的 #42618 上，需核对替代 #44322 是否仍适用后随其处理。 |
 | **D23：修复 sparse attention 输出轴不一致导致的 padding 崩溃** | 已合入 [#46424](https://github.com/sgl-project/sglang/pull/46424)；原 #44262 已关闭 | **无需再提**。已核实进入 main，12 项 CPU 回归＋17 子用例通过；已回复作者。 |
 | **D28：padding 不再原地改坏先前规划的长度列表** | 已合入 [#45796](https://github.com/sgl-project/sglang/pull/45796) | **无需再提**，已核实主线覆盖。 |
 | **D19：各 TP rank 一致释放 deferred KV／轮询 transfer** | 释放部分已合入 [#45453](https://github.com/sgl-project/sglang/pull/45453) | 释放修复不用重提；**剩余空队列轮询 guard 未提**，尚无当前主线复现，额外 collective 成本也需证明合理。 |
-| **M01：HIP IPC 子分配地址正确重定位** | 他人 Mooncake [#4340](https://github.com/kvcache-ai/Mooncake/pull/4340) | **未重复提**，原作者 salexspb；我们已贡献移植验证数据，等作者／维护者。 |
+| **M01：HIP IPC 子分配地址正确重定位** | 他人 Mooncake [#4340](https://github.com/kvcache-ai/Mooncake/pull/4340) | **仍 Open／Ready，未重复提**。SGLang #46861 是绕开融合 KV 分配的 workaround；仍需 salexspb／维护者推进 Mooncake 根因修复和 release。 |
 | **S02：特定 absorb BMM 配置触发 LLVM 崩溃** | SGLang [issue #46829](https://github.com/sgl-project/sglang/issues/46829) | **已提 issue，未提 workaround PR**。MI355X 新复现成立；等定位编译器／配置根因。 |
 | **S12：decode 保留显存持续上涨，直到空闲显存耗尽** | SGLang [issue #46831](https://github.com/sgl-project/sglang/issues/46831) | **已提 issue，未提循环 empty_cache PR**。历史证据已写明；缺最终主线栈复现和 allocator trace。 |
 | **S13：没有 embedding 的 PP rank 也能取得 hidden size** | 有旧先例 [#34465](https://github.com/sgl-project/sglang/pull/34465)，已关闭未合并 | **未提**：必须先等 **llying 同意 attribution**，再厘清旧单处置；不能用 Draft 绕过归属要求。 |
 | **原 #33968：HiCache 注册内存指针别名问题** | 原 [#33968](https://github.com/sgl-project/sglang/pull/33968) → 已合入 [#35233](https://github.com/sgl-project/sglang/pull/35233) | 我们旧单已关闭；主线已有修复，不再重复维护旧 workaround。 |
-| **原 #33970：early KV transfer 的完成事件同步** | 原 [#33970](https://github.com/sgl-project/sglang/pull/33970) → 已合入 [#41395](https://github.com/sgl-project/sglang/pull/41395) | 我们旧单已关闭；剩余 PP／非 CUDA 问题跟 #45524／#43299。 |
+| **原 #33970：early KV transfer 的完成事件同步** | 原 [#33970](https://github.com/sgl-project/sglang/pull/33970) → 已合入 [#41395](https://github.com/sgl-project/sglang/pull/41395) | 我们旧单已关闭；非 CUDA #43299 已合并；剩余 PP 问题继续跟 #45524。 |
 | **原 #33643：MTP penalty 应统计真正提交的 token** | 原 [#33643](https://github.com/sgl-project/sglang/pull/33643)，现跟他人 [#45233](https://github.com/sgl-project/sglang/pull/45233) | 两个旧单都已关闭未合并；#45233 作者于 10-27 23:42 关闭 stale draft、保留分支。**不能算正在推进的修复**；后续先核查主线及替代 PR，再决定恢复独立修复。 |
 | **S03 layer parallelism／M03 批量 HIP copy kernel** | 无 PR | 前者无明确收益、实验回到 PAR=1；后者从未编译，生产块大小也不支持原始优化前提。 |
 | **A01／K01：GEMM CSV／KF kernels** | 无 PR | 正确性和集成条件未满足，按原规则暂不提交。 |
@@ -48,8 +48,6 @@
 | **历史 deployment example／结果整理** | Infera [#84](https://github.com/AMD-AGI/Infera/pull/84)、[#94](https://github.com/AMD-AGI/Infera/pull/94) | **已合并**，属于 example 维护，不计核心 feature。 |
 | **历史 penalty／patch 状态文档** | Infera [#87](https://github.com/AMD-AGI/Infera/pull/87)、[#95](https://github.com/AMD-AGI/Infera/pull/95) | 已关闭未合并；功能问题和状态分别由上述 PR、`PR_STATUS.md` 接续。 |
 
-性能说明均限定到各 patch 的独立测量，历史 simulated-MTP 数据已注明；没有拿整栈吞吐证明单项收益。GPU 验证只用了申请到的池节点，现已释放。
+性能说明仅使用各 patch 的独立测量；历史 simulated-MTP 吞吐不作为单项收益或正确性证明。历史实机证据在生产行为未变时仍可复用；只有具体未覆盖路径、实现变化或评审明确要求的矩阵才需要补测。
 
-历史证据复用纠正：#45484、#46822、#46830 已核对生产改动与历史 patch 的等价性，结合现有回归转为 Ready；没有新增 GPU 运行。只有实际实现变化、未覆盖触发条件或评审明确要求的缺失矩阵，才应成为补测理由。详细证据链见 PR_STATUS.md 的 Historical GPU evidence reuse 段落。
-
-最新 Draft 核对（2026-10-28 01:51 UTC）：核心仍为 **6 Draft＋5 Ready**，所有自有 PR 的 head 未变。本次只更新跟踪文档。额外的 Infera #164 是 comparison-only Draft；他人 #42163 仍为 Draft；#45233 已关闭。DCP 作者的[接口确认](https://github.com/sgl-project/sglang/pull/44322#issuecomment-6446746075)消除了“尚未答复策略问题”的等待，但依赖适配与已知图模式缺口仍需处理。
+未提 PR 的 S13／K01／A01、明确排除项及已被主线覆盖的旧 PR，处置见上表；本轮没有绕过 attribution 或重复开单。
