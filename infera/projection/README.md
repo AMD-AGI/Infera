@@ -575,6 +575,22 @@ returns the fastest config that keeps the promise rather than the largest batch
 that fits. See `agents/tuning_agent/` and
 [the manual page](../../manual/simulation/tuning_agent.md) for configuration.
 
+### Pick a deployment mix
+
+`inferasim mix` reads an `inferasim pareto` sweep and picks one configuration
+per model, scenario and latency tier (realtime, interactive, responsive, bulk
+by default; `--tiers` for your own):
+
+```bash
+inferasim pareto ... --out-dir pareto_out
+inferasim mix pareto_out          # prints the mix, writes mix.json and mix.csv
+```
+
+A point qualifies if it meets the tier's interactivity floor with projected
+TTFT at most half the limit; among those within 5% of the best throughput per
+GPU, the one with the most SLO headroom wins. See
+[Sweeps and tuning](../../manual/simulation/sweeps.md#draw-frontiers-and-pick-a-deployment-mix).
+
 ## Environment variables
 
 Everything is `INFERASIM_*`. The ones you will actually set:

@@ -66,6 +66,48 @@ default.
 Full documentation, including the objective list and the SLO block, is on
 [Tuning agent](tuning_agent.md).
 
+## Draw frontiers and pick a deployment mix
+
+`inferasim pareto` projects every combination of the engines, precisions,
+layouts, concurrencies and speculative settings you list, and writes the
+throughput-per-GPU versus interactivity frontier per model and scenario:
+
+```bash
+inferasim pareto --model deepseek_v3 --engine sglang --precision fp8 \
+  --parallelism tp8 tp8ep8 tp8ep8dp8 --mode simulate \
+  --spec none mtp:golden --concurrency 1 4 16 64 256 \
+  --scenario 1k/1k 8k/1k --out-dir pareto_out
+```
+
+Open `pareto_out/pareto.html` for the charts. Every point is also in
+`pareto_out/pareto_points.json`.
+
+A frontier still leaves the operator to choose a point. `inferasim mix` makes
+that choice per latency tier, one configuration per model and scenario:
+
+```bash
+inferasim mix pareto_out
+```
+
+| Tier | Interactivity floor | TTFT limit |
+|---|---|---|
+| realtime | 150 tok/s/user | 1 s |
+| interactive | 70 tok/s/user | 2.5 s |
+| responsive | 25 tok/s/user | 10 s |
+| bulk | none | none |
+
+A point qualifies if it meets the floor and its projected TTFT is at most half
+the limit (`--ttft-margin 0.5`); if nothing qualifies, the plain limit is used and the
+table says so. Among qualifying points within 5% of the best projected
+throughput per GPU (`--tie 0.05`), the one with the most SLO headroom wins.
+A configuration projected in both modes is taken from its anchored point, and
+simulate-mode DCP points are left out. Pass `--tiers tiers.yaml` for your own
+tiers (`name`, `min_interactivity`, `max_ttft_ms`). The picks go to
+`mix.json` and `mix.csv` next to the points.
+
+Treat the mix as a shortlist: confirm each pick with one measured run before
+you deploy it.
+
 ## Then spend the GPU hours
 
 A sweep's output is a shortlist, not a decision. The intended loop is to search
