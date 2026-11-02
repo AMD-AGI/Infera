@@ -17,12 +17,21 @@
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
 
+## 11-02 09:50 待查：开头坏是否与 decode custom all-reduce 有关（night31）
+
+现有证据**不支持** custom all-reduce 是开头坏的原因，但也没有排除：
+- 1,319 题探测：clean-k3 + custom AR 开头坏 0、b3 + custom AR 0（若 CAR 单独造成生产的约 0.4%，应有约 5 条，P(0) ≈ 0.7%）；完整生产配置（CAR 开）E1 有 5 条 → 需要 CAR 之外的组合条件。
+- 第一轮二分（PP 通信重叠还开着）关 CAR 乱码 7 → 1；第二轮（已去掉重叠）no-car 0.970 / 1 / 5 对 clean-k3 0.985 / 0 / 3，n = 200 区分不开。
+- prefill 是 TP1 × PP4，没有 all-reduce，所以 CAR 只可能作用在 decode 步上；开头坏的形状（首 token 对、第 2 个起乱、之后常回到题目）也可以是 decode 首步用了错的辅助数据（MTP 草稿输入 / 首 token 元数据），与 E11 的"首 token 对、之后乱"形状相似，但机制不同。
+**直接检验**：限池门禁（对照开头坏 3–8 / 200，每次都出现）+ decode `DECODE_CUSTOM_AR=0`（`config/site-140-gate-nocar.env`，`scripts/night31_1102.sh`，night30 结束后自动开始，约 50 分钟）。
+判定：开头坏 ≤ 1 → CAR 与之有关（对照均值约 5，P(≤1) ≈ 4%）；≥ 3 → 无关。
+
 ## 11-02 09:30 E11 作废：只设 `SGLANG_USE_ROCM700A=0` 就乱码
 
 `site-140-e11-1102T0858`（night30 变体 A，decode env 只多这一项，`docker exec ... env` 确认）：smoke 4/6，completion " ParisIVA hubrase_MC…"、chat "39Drv patchers…"、
 stream 全乱码；首个 token（来自 prefill）是对的，decode 之后全错。→ **MAX_LEN 的 decode graph 路径（aiter all-gather / reduce-scatter 在 graph 内）在这个镜像上不正确**，
 至少与 `ROCM700A=1` 的 RCCL 规避有关；微基准是 eager、非 graph 内、没有 DP 空闲 rank，没覆盖到。E11 不计分、不再加跑；"MoE 合并改 reduce-scatter"这一省 1.5–2.5 ms/步的思路
-只在找到 graph 内出错的原因后才能重启（候选：aiter 的 graph 内注册缓冲 / `registered=True` 路径、MAX_LEN 下 idle rank 的 pad 行）。变体 B（只 packet capture 关）继续跑，确认 trace 采集方法本身不改输出。
+只在找到 graph 内出错的原因后才能重启（候选：aiter 的 graph 内注册缓冲 / `registered=True` 路径、MAX_LEN 下 idle rank 的 pad 行）。**变体 A 的 200 题探测：正确 0.670、乱码 44、跑到上限 53（对照 0.97+ / 0 / ≤ 6）；但 16k 长上下文捞针 16/16、长前缀 GSM8K 15/16，乱码 0**——短 prompt（含 smoke 单请求）坏、长上下文反而好，说明出错与上下文长度 / 注意力路径有关（< 2048 token 不走稀疏 top-k），不只是通信本身；复查 E11 时要从这里入手。变体 B（只 packet capture 关）继续跑，确认 trace 采集方法本身不改输出。
 预先做正确性检查的价值：没有浪费一小时计分。
 
 ## 11-02 09:20 E11 第一次正确性检查：输出乱码（两个变量同时改了，待拆开）；decode KV 池压力分析
