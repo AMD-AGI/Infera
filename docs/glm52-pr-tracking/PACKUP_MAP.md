@@ -1,6 +1,6 @@
 # PR, patch and experiment correspondence
 
-PR states checked: **2026-11-02T06:31:58.643163+00:00**. [Live work queues](README.md). The original archive is pinned at `b563462fa4a20b4a6f563d279de14ddee455b343`; a run's source is not automatically identical to its later main-based PR.
+PR states checked: **2026-11-02T06:38:01.023769+00:00**. [Live work queues](README.md). The original archive is pinned at `b563462fa4a20b4a6f563d279de14ddee455b343`; a run's source is not automatically identical to its later main-based PR.
 
 ## Owned GLM-5.2 core patches
 
