@@ -1,8 +1,8 @@
 # Public PR handoff and daily status
 
-Last successful GitHub refresh: **2026-11-02T05:30:14.473900+00:00**. Author: `dorado269`.
+Last successful GitHub refresh: **2026-11-02T06:31:58.643163+00:00**. Author: `dorado269`.
 
-**57 PRs: 14 open (7 ready / 7 draft), 25 merged, 18 closed unmerged.** Includes historical work outside GLM-5.2; external authors are listed separately.
+**58 PRs: 15 open (8 ready / 7 draft), 25 merged, 18 closed unmerged.** Includes historical work outside GLM-5.2; external authors are listed separately.
 
 Ready means non-draft, not maintainer approval or passed functional CI. GitHub mergeability is a snapshot, not a merge recommendation.
 
@@ -30,6 +30,7 @@ Priority P0 = historical frozen-image behavior / required reproduction inputs; P
 | P2 | [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) — Allow DCP decode behind DCP1 prefill when transport/backend support it. | DRAFT / `21f8e688fa` | NOT IN LLR37: constrained ROCm DCP enablement. | Complete the supported-configuration coverage with #46824; preserve rejection of unqualified graph/layout combinations. Backend/default policy is already tested; do not wait again for merged #44322. | Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Merge after #46824; review may proceed before that merge with the dependency explicit. |
 | P3 | [AMD-AGI/Infera #164](https://github.com/AMD-AGI/Infera/pull/164) — Keep an alternative fast-benchmark script for comparison. | DRAFT / `4676ec9087` | NOT IN LLR37: comparison-only benchmark tooling. | Decide whether to close the comparison draft or define supported behavior, fill the placeholder body and add regression evidence before promotion. | Yihou/delegate: scope decision first; then fix failing checks and request review. |
 | P3 | [AMD-AGI/Infera #208](https://github.com/AMD-AGI/Infera/pull/208) — Create, pack, run and share agent_sys tasks from Claude Code. | READY / `3bd26aa4af` | NOT IN LLR37: general agent_sys tooling. | Already Ready. Already non-draft. Re-audit the new head against the earlier tests and inspect current lint failure. | Inspect the current lint formatting diff (run 41392116339, job 125105681579, including projection/test files); fix or attribute it against base, re-run affected agent_sys tests, request maintainer review. No GPU prerequisite established. |
+| P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Track 48k deployment priorities, Ready/Draft work and immutable experiment references. | READY / `2cb681fc1e` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | Already Ready. Documentation is already Ready. Recheck references/privacy when curated source links or generator logic change. No GPU validation needed. | Maintainers: review documentation and required checks. After merge, create a main-based follow-up PR for subsequent team documentation updates; do not push the updater directly to main. |
 
 ## Handoff details
 
@@ -37,7 +38,7 @@ Priority P0 = historical frozen-image behavior / required reproduction inputs; P
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me.
 - **Base / head:** `main` @ `0abac089e5d038aef55c814b8f9f6222da81a75f` / `fix-dsa-indexer-hip-aiter-dp-padding` @ `ea88d74bfc2c934159e4fc73a258861f3c5d96e2`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 17, SKIPPED 88, SUCCESS 22. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 17, SKIPPED 88, SUCCESS 22. Reviews: none.
 - **Last curated action:** 2026-11-02: signed rebase onto acd6f5570; 12 CPU tests and scoped lint pass; replied with remaining model-matrix gap.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:24:48Z](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6569022080); PR updated 2026-11-02T04:26:02Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
@@ -331,6 +332,26 @@ python -m pytest -q agent_sys/tests/tools
 # Follow the repository lint command for the exact new head.
 ```
 
+### [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Track 48k deployment priorities, Ready/Draft work and immutable experiment references.
+
+- **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
+- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `2cb681fc1e09a65f77434c8fe8d8373fa25fc4bc`.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: PENDING 1, SKIPPED 8, SUCCESS 3. Reviews: none.
+- **Last curated action:** 2026-11-02: created Ready PR #228 from main with signed commit 2cb681fc; connecting daily exports to the open documentation branch.
+- **Latest GitHub activity:** PR updated 2026-11-02T06:29:59Z; no issue comments.
+- **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
+- **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
+- **Evidence / pack-up:** Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.
+- **To Ready:** Documentation is already Ready. Recheck references/privacy when curated source links or generator logic change. No GPU validation needed.
+- **To merge / dependency:** Maintainers: review documentation and required checks. After merge, create a main-based follow-up PR for subsequent team documentation updates; do not push the updater directly to main.
+
+Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
+
+```sh
+pre-commit run --files docs/glm52-pr-tracking/*.md
+git diff --check
+```
+
 ## External dependencies and equivalent work
 
 These PRs belong to their original authors. Contribute evidence there; do not open duplicates or edit their branches.
@@ -412,6 +433,7 @@ Required unpublished S13, A01, the full historical K01 overlay, I07 and inherite
 | [AMD-AGI/Infera #220](https://github.com/AMD-AGI/Infera/pull/220) | agent_sys: add simple kernel artifact catalogs and skill | MERGED | 2026-10-29T02:18:53Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Infera #221](https://github.com/AMD-AGI/Infera/pull/221) | Publish six KernelForge families and their historical evidence. | DRAFT | 2026-10-28T10:55:40Z | See active handoff above |
 | [AMD-AGI/Infera #223](https://github.com/AMD-AGI/Infera/pull/223) | ci(release): build the Rust router once and bundle it in a Linux x86_64 wheel | MERGED | 2026-10-29T07:41:06Z | Merged: retain provenance; no active merge work |
+| [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) | Track 48k deployment priorities, Ready/Draft work and immutable experiment references. | READY | 2026-11-02T06:29:59Z | See active handoff above |
 | [AMD-AGI/Primus-Turbo #387](https://github.com/AMD-AGI/Primus-Turbo/pull/387) | Dev/yihou/bench | MERGED | 2026-08-24T04:04:02Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #391](https://github.com/AMD-AGI/Primus-Turbo/pull/391) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-23T09:34:51Z | Merged: retain provenance; no active merge work |
 | [AMD-AGI/Primus-Turbo #394](https://github.com/AMD-AGI/Primus-Turbo/pull/394) | bench: FlashInfer B200 sweep aligned with aiter reference | MERGED | 2026-06-24T04:11:17Z | Merged: retain provenance; no active merge work |

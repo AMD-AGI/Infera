@@ -1,7 +1,7 @@
 # GLM-5.2 patch upstreaming status
 
 <!-- DAILY-PR-STATUS:BEGIN -->
-Last automatic GitHub refresh: **2026-11-02T05:30:14.473900+00:00**. **53 PRs: 14 open (7 ready / 7 draft), 21 merged, 18 closed unmerged** in the four target repositories.
+Last automatic GitHub refresh: **2026-11-02T06:31:58.643163+00:00**. **54 PRs: 15 open (8 ready / 7 draft), 21 merged, 18 closed unmerged** in the four target repositories.
 
 Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment priorities](LLR37_DEPLOYMENT_PRIORITY.md); [daily-maintenance instructions](maintenance/README.md). The dated records below retain earlier decisions and may be superseded by this live section.
 
@@ -21,6 +21,7 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P2 | [sgl-project/sglang #46826](https://github.com/sgl-project/sglang/pull/46826) — Allow DCP decode behind DCP1 prefill when transport/backend support it. | DRAFT / `21f8e688fa` | NOT IN LLR37: constrained ROCm DCP enablement. | Complete the supported-configuration coverage with #46824; preserve rejection of unqualified graph/layout combinations. Backend/default policy is already tested; do not wait again for merged #44322. | Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Merge after #46824; review may proceed before that merge with the dependency explicit. |
 | P3 | [AMD-AGI/Infera #164](https://github.com/AMD-AGI/Infera/pull/164) — Keep an alternative fast-benchmark script for comparison. | DRAFT / `4676ec9087` | NOT IN LLR37: comparison-only benchmark tooling. | Decide whether to close the comparison draft or define supported behavior, fill the placeholder body and add regression evidence before promotion. | Yihou/delegate: scope decision first; then fix failing checks and request review. |
 | P3 | [AMD-AGI/Infera #208](https://github.com/AMD-AGI/Infera/pull/208) — Create, pack, run and share agent_sys tasks from Claude Code. | READY / `3bd26aa4af` | NOT IN LLR37: general agent_sys tooling. | Already Ready. Already non-draft. Re-audit the new head against the earlier tests and inspect current lint failure. | Inspect the current lint formatting diff (run 41392116339, job 125105681579, including projection/test files); fix or attribute it against base, re-run affected agent_sys tests, request maintainer review. No GPU prerequisite established. |
+| P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Track 48k deployment priorities, Ready/Draft work and immutable experiment references. | READY / `2cb681fc1e` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | Already Ready. Documentation is already Ready. Recheck references/privacy when curated source links or generator logic change. No GPU validation needed. | Maintainers: review documentation and required checks. After merge, create a main-based follow-up PR for subsequent team documentation updates; do not push the updater directly to main. |
 <!-- DAILY-PR-STATUS:END -->
 
 ## Dated maintenance records
