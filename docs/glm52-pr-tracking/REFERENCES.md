@@ -27,6 +27,14 @@ All archive links below pin commit `b563462fa4a20b4a6f563d279de14ddee455b343` in
 - Official SGLang base: `lmsysorg/sglang-rocm:v0.5.22-rocm720-mi35x-20261018`; exact registry digest is in SOURCE_PINS.json. The historical integrated image name is a local tag, not a public pull URL. Rebuild from the pinned public sources.
 - Public model/trace revisions and retrieval references are in the reproduction guide. Their byte identity to historical local weights/trace files is unverified; record exact hashes in a new run. Current-main kernel ports have separate evidence and do not certify this frozen overlay.
 
+## B8 hardware validation
+
+Post-archive validation of external SGLang #46918 at exact head `9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1`: one MI355X, original compiler environment, three M=256 crash controls and bitwise-equal capped/workaround outputs across the tested matrix. This does not replace the frozen deployment evidence or establish model accuracy.
+
+- [MI355X results and scope](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md); [source/input hashes and timing samples](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.json).
+- [Reproduction commands and executable harness](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/README.md).
+- [Evidence posted to the original PR](https://github.com/sgl-project/sglang/pull/46918#issuecomment-6572803085); maintainers still need to enable CI and review/merge.
+
 ## Daily refresh and team handoff
 
 Owner: yihou until a named delegate accepts a row. The configured maintenance host runs daily at **09:00 UTC / 17:00 Asia/Shanghai**. It discovers new authored PRs, checks repository visibility, refreshes CI/review/heads and republishes these Markdown files to the open tracking PR branch. A timestamp older than 36 hours needs operator investigation. The host and authenticated GitHub/SSH access must remain available.
