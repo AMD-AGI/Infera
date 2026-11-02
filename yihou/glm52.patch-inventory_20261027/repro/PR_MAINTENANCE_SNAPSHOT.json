@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-02T05:21:29.578659+00:00",
+  "checked_at_utc": "2026-11-02T05:28:11.272145+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -23,8 +23,8 @@
       "baseRefOid": "390acf84e31d3b63dac64e021911d94770e55a8c",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -90,8 +90,8 @@
       "baseRefOid": "68e57f40057175ff22a17ea0bdbe7ecbc69d9d91",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -362,8 +362,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -465,8 +465,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -507,8 +507,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -593,8 +593,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -658,8 +658,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -711,8 +711,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -753,8 +753,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2058,8 +2058,8 @@
       "baseRefOid": "0abac089e5d038aef55c814b8f9f6222da81a75f",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
