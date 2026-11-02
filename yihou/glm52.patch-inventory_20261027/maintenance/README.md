@@ -6,6 +6,14 @@ external-dependency list. [OWNED_PR_INDEX.md](../OWNED_PR_INDEX.md) is the narro
 four-repository inventory. [PR_STATUS.md](../PR_STATUS.md) has a generated current
 section followed by dated maintenance history.
 
+The main-based team documentation lives in
+[`docs/glm52-pr-tracking/`](https://github.com/AMD-AGI/Infera/tree/dev/yihou/glm52-pr-tracking/docs/glm52-pr-tracking).
+Its README starts with 48k deployment priorities and separates Ready and Draft
+queues. `export_team_tracker.py` exports only public PR records and pins pack-up
+references to the archive commit; main does not need to carry the experiment
+branch's files. The local `team_tracker` config supplies its dedicated worktree,
+branch, directory and open PR URL.
+
 The account-wide handoff, including restricted repositories, is generated at
 `runtime/daily-maintenance/PR_HANDOFF_ALL.md` and is intentionally ignored by Git.
 Share it only with authorized colleagues. The public files contain no restricted
@@ -31,6 +39,16 @@ At **09:00 UTC / 17:00 Asia/Shanghai**, the installed user cron entry runs
 5. Pulls with rebase, commits the four generated public files with `git commit -s`
    under the configured yihou identity, rebases concurrent remote updates and
    pushes normally to `dev/pd_opt/glm_5.2_agentx`.
+6. If a team tracking PR is configured and open, exports the same audit into its
+   five Markdown files, checks them, signs a documentation-only commit and pushes
+   that owned branch. It checks the PR lifecycle and branch identity before
+   publication. A dirty worktree is preserved for manual reconciliation.
+
+After that PR merges or closes, the team publisher reports
+`FOLLOWUP_PR_NEEDED` and stops writing the closed branch. The underlying account
+collector continues daily. Create the next documentation update from main and
+update local config before resuming team publication; the scheduler never pushes
+directly to main. `run_status.json` records this handoff state explicitly.
 
 Publication uses an isolated worktree below this inventory's ignored `worktrees/`
 directory. It never checks out branches, stages files or stashes changes in the

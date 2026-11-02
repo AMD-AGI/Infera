@@ -32,6 +32,93 @@ def run(args, cwd, env, capture=False):
     ).stdout
 
 
+def publish_team_tracker(config, runtime, inventory, env):
+    """Publish the same audit to the team's open, main-based documentation PR."""
+    team = config.get("team_tracker")
+    if not team:
+        return {"state": "NOT_CONFIGURED"}
+    if not team.get("pr_url"):
+        return {"state": "AWAITING_PR_CREATION"}
+    pr = json.loads(
+        run(
+            ["gh", "pr", "view", team["pr_url"], "--json", "state,headRefName"],
+            inventory,
+            env,
+            capture=True,
+        )
+    )
+    if pr["state"] != "OPEN":
+        return {
+            "state": "FOLLOWUP_PR_NEEDED",
+            "previous_pr_state": pr["state"],
+            "action": "Create a new update PR from main and update team_tracker config; do not push to main.",
+        }
+    worktree = Path(team["worktree"])
+    if "yihou" not in str(worktree.resolve()):
+        raise RuntimeError("Team publisher checkout must be under the yihou task directory")
+    git = ["git", "-c", "gc.auto=0"]
+
+    def g(*parts, capture=False):
+        return run([*git, *parts], worktree, env, capture=capture)
+
+    if (
+        g("branch", "--show-current", capture=True).strip() != team["branch"]
+        or pr["headRefName"] != team["branch"]
+    ):
+        raise RuntimeError("Team tracker branch no longer matches the owned open PR")
+    if g("status", "--porcelain", capture=True).strip():
+        raise RuntimeError(
+            "Team tracker checkout is dirty; preserving it for manual reconciliation"
+        )
+    for field in ("user.name", "user.email"):
+        if g("config", "--get", field, capture=True).strip() != config[field]:
+            raise RuntimeError(f"Team publisher identity changed: {field}")
+    g("pull", "--rebase", "origin", team["branch"])
+    destination = worktree / team["directory"]
+    run(
+        [
+            config["python"],
+            inventory / "maintenance/export_team_tracker.py",
+            "--inventory",
+            inventory,
+            "--runtime",
+            runtime,
+            "--destination",
+            destination,
+        ],
+        worktree,
+        env,
+    )
+    files = [
+        str(Path(team["directory"]) / name)
+        for name in ("README.md", "ACTIVE_PRS.md", "HISTORY.md", "PACKUP_MAP.md", "REFERENCES.md")
+    ]
+    changed = set(g("diff", "--name-only", capture=True).splitlines())
+    untracked = set(g("ls-files", "--others", "--exclude-standard", capture=True).splitlines())
+    if not (changed | untracked).issubset(set(files)):
+        raise RuntimeError("Unexpected team worktree changes; refusing to stage them")
+    g("diff", "--check")
+    run([config["pre_commit"], "run", "--files", *files], worktree, env)
+    g("add", "--", *files)
+    if g("diff", "--cached", "--name-only", capture=True).strip():
+        g("commit", "-s", "-m", "docs: refresh GLM-5.2 team PR tracking")
+    g("pull", "--rebase", "origin", team["branch"])
+    # Recheck lifecycle before publishing; a closed/merged PR needs a fresh branch.
+    state = json.loads(
+        run(["gh", "pr", "view", team["pr_url"], "--json", "state"], worktree, env, capture=True)
+    )["state"]
+    if state != "OPEN":
+        raise RuntimeError(
+            "Tracking PR closed during refresh; preserve generated commit for a follow-up PR"
+        )
+    g("push", "origin", f"HEAD:refs/heads/{team['branch']}")
+    return {
+        "state": "SUCCESS",
+        "pr_url": team["pr_url"],
+        "commit": g("rev-parse", "HEAD", capture=True).strip(),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
@@ -127,6 +214,9 @@ def main():
                 g("pull", "--rebase", "origin", config["remote_branch"])
                 g("push", "origin", f"HEAD:refs/heads/{config['remote_branch']}")
                 report.update(state="SUCCESS", commit=g("rev-parse", "HEAD", capture=True).strip())
+                report["team_tracker"] = publish_team_tracker(config, runtime, inventory, env)
+                if report["team_tracker"]["state"] == "FOLLOWUP_PR_NEEDED":
+                    report["state"] = "SUCCESS_WITH_FOLLOWUP_NEEDED"
                 (runtime / "last_publication.json").write_text(json.dumps(report, indent=2) + "\n")
             except Exception as exc:
                 report.update(state="FAILED", error=str(exc))
@@ -144,7 +234,7 @@ def main():
                 os.close(old_stderr)
                 sys.stdout, sys.stderr = previous_out, previous_err
         print(json.dumps(report, indent=2))
-        if report["state"] != "SUCCESS":
+        if report["state"] not in {"SUCCESS", "SUCCESS_WITH_FOLLOWUP_NEEDED"}:
             raise SystemExit(1)
 
 
