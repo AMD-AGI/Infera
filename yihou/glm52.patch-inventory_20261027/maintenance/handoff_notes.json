@@ -62,7 +62,7 @@
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already non-draft. Audit final October 29 run IDs/source hashes against pack-ups and preserve real-acceptance versus simulated-performance boundaries.",
       "merge_action": "Current blockers: Ready; missing maintainer-controlled run-ci label; repair main XPU logger F821 ([report](https://github.com/sgl-project/sglang/pull/30980#issuecomment-6571123990)), then rebase and rerun lint. Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Coordinate overlapping #45307 and rebase whichever lands second.",
-      "evidence": "PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20–1.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping.",
+      "evidence": "PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20\u20131.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping.",
       "tests": [
         "# GPU: use a pool node; exact architecture/flags are in the PR",
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gfx950_fused_indexer.py"
@@ -79,7 +79,7 @@
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already non-draft. Bind final tests/runs to source hashes and archive locations; do not substitute for the complete K01 overlay.",
       "merge_action": "Current blockers: Ready; missing maintainer-controlled run-ci label; repair main XPU logger F821 ([report](https://github.com/sgl-project/sglang/pull/30980#issuecomment-6571123990)), then rebase and rerun lint. Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result.",
-      "evidence": "PR reports 22/22 kernel tests, FP32-reference SNR >35 dB and real-acceptance GSM8K mean .942 baseline / .941 PR; isolated kernel 2.4–3.2x. Serving ITL used simulated acceptance 3.61. Final-port pack-up mapping still needs audit.",
+      "evidence": "PR reports 22/22 kernel tests, FP32-reference SNR >35 dB and real-acceptance GSM8K mean .942 baseline / .941 PR; isolated kernel 2.4\u20133.2x. Serving ITL used simulated acceptance 3.61. Final-port pack-up mapping still needs audit.",
       "tests": [
         "# GPU: use a pool node; preserve PR architecture and dtype matrix",
         "PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py"
@@ -112,7 +112,7 @@
       "owner": "yihou; delegate unassigned",
       "ready_action": "CPU-first option: narrow to the independently measured cache and update tests/body. If retaining pinned-index/priority changes, qualify their lifetime, interference and PP ordering on allocated hardware. Preserve producer wait.",
       "merge_action": "Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Related #44724/#39768/#43782 are overlap coordination, not established mandatory prerequisites.",
-      "evidence": "[glm52.dcpx-pack-fix-best.packup_20261023](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcpx-pack-fix-best.packup_20261023/README.md) dcpx8c/9/10; current-head MI355X 3 tests +16 subtests, CPU 8+4; isolated cache medians 39.57→17.15 /39.09→17.07 /130.42→107.52 us. dcpx10 also removed a wait; its combined speedup does not transfer to this PR.",
+      "evidence": "[glm52.dcpx-pack-fix-best.packup_20261023](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcpx-pack-fix-best.packup_20261023/README.md) dcpx8c/9/10; current-head MI355X 3 tests +16 subtests, CPU 8+4; isolated cache medians 39.57\u219217.15 /39.09\u219217.07 /130.42\u2192107.52 us. dcpx10 also removed a wait; its combined speedup does not transfer to this PR.",
       "tests": [
         "CUDA_VISIBLE_DEVICES=0 PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_dcp_pack_metadata.py test/registered/unit/disaggregation/test_dcp_pack.py",
         "# GPU only when qualifying the retained stream/lifetime changes",
@@ -144,9 +144,9 @@
       "deployment": "NOT IN LLR37: DCP1-to-DCP-N transport.",
       "purpose": "Relayout DCP-sharded draft KV together with target KV.",
       "owner": "yihou; delegate unassigned",
-      "ready_action": "Map pdBe-r1 to current supported combinations; resolve or explicitly reject the known DP2×DCP2 graph-garbling case. Test only uncovered MTP/prefix/PP cases on allocated hardware as needed. #44322 has merged; old backend hold is cleared.",
+      "ready_action": "Map pdBe-r1 to current supported combinations; resolve or explicitly reject the known DP2\u00d7DCP2 graph-garbling case. Test only uncovered MTP/prefix/PP cases on allocated hardware as needed. #44322 has merged; old backend hold is cleared.",
       "merge_action": "Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. This transport must land before #46826 enables the configuration. #45524 producer ordering remains separate.",
-      "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1 math29×2, passkey8K/34K/96K; rebase production delta unchanged; 43 CPU tests +61 subtests exercise merged sharding policy.",
+      "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1 math29\u00d72, passkey8K/34K/96K; rebase production delta unchanged; 43 CPU tests +61 subtests exercise merged sharding policy.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_dsa_pd_dcp.py test/registered/unit/disaggregation/test_dcp_pack.py test/registered/unit/disaggregation/test_mooncake_transfer_batching.py"
       ],
@@ -800,7 +800,7 @@
       "purpose": "Publish the Infera SGLang AgentX PD recipe.",
       "owner": "llying-001; original author controls code and promotion",
       "ready_action": "Already non-draft; changes requested on engine patching.",
-      "merge_action": "Upstream #33059/#46830/#46820; validate and progress external absorb-BMM candidate #46918 for issue #46829 (or another supported upstream resolution); select an image with these plus merged #21194 and remove engine patches. Coordinate #630/#47117, diagnose platform RDMA bring-up, complete sweep and review.",
+      "merge_action": "Upstream #33059/#46830/#46820; progress externally owned absorb-BMM #46918 for issue #46829, now covered by scoped MI355X validation (CI/review/merge and image integration remain); select an image with these plus merged #21194 and remove engine patches. Coordinate #630/#47117, diagnose platform RDMA bring-up, complete sweep and review.",
       "evidence": "Live PR source/body/reviews checked November 2: https://github.com/SemiAnalysisAI/InferenceX/pull/4629. Cross-checked with the stock-image recipe at a7aed81b6b3314a60c0c59f34e4b235479059230 and the frozen llr37 site. No new hardware run.",
       "tests": [],
       "last_action": "2026-11-02: added to the InferenceX-versus-48k dependency comparison; no change to the original author's branch or PR."
@@ -836,18 +836,21 @@
     "sgl-project/sglang#46918": {
       "assessed_at": "2026-11-02",
       "reviewed_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
-      "reviewed_activity_at": "2026-10-28T02:19:33Z",
+      "reviewed_activity_at": "2026-11-02T08:42:06Z",
       "priority": "P0",
       "deployment": "Candidate upstream replacement for B8/S02 workaround, shared by the historical 48k image and InferenceX first-version recipe; not the historical config=None implementation.",
       "purpose": "Keep absorb-BMM hand tuning while limiting the waves-per-EU budget that may trigger the gfx950 compiler abort.",
       "owner": "yu-depend; original author owns the PR. Yihou/delegate can contribute allocated-MI355X validation.",
-      "ready_action": "Already non-draft. Author reports CPU-only validation; do not interpret this as hardware approval.",
-      "merge_action": "Validate issue #46829 reproducer on an allocated MI355X: old hand config, proposed cap and config=None control; compare numerical reference and latency, inspect architecture/version scope, then enable CI/review/merge. Do not duplicate or modify the original author's branch.",
-      "evidence": "Our issue #46829 reports an October 27 MI355X reproduction: M=256 hand config aborts, config=None yields finite output. PR author reports 13 CPU tests and 265 subtests but explicitly no AMD GPU run. waves_per_eu root-cause argument remains hardware-unconfirmed. Historical c44b/R003 and c44c establish workaround relief, not PR validation.",
+      "ready_action": "Already non-draft. The original MI355X reproducer and scoped numerical regression now pass at the exact head; no promotion action is needed.",
+      "merge_action": "Maintainers: enable run-ci and review/merge; original author: rebase if requested and rerun affected checks. Our MI355X evidence covers Q-absorb at this exact head; other architectures and model integration are not claimed. Select an image containing a reviewed fix before removing the historical workaround. Do not duplicate or modify the original author's branch.",
+      "evidence": "[MI355X validation](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md): exact head 9763ef56, original Torch/HIP/Triton/AITER environment; M256 uncapped waves4 reproduces LLVM abort on three seeds; all 12 capped/workaround cases pass and agree bitwise, plus three successful uncapped M128/129/257 controls. CPU 11 tests +265 subtests. M256 timing does not establish a consistent gain over config=None; no model/48k throughput claim.",
       "tests": [
-        "Run the issue #46829 reproducer at the exact candidate head on an allocated MI355X; add numerical/reference and timing comparisons."
+        "CUDA_VISIBLE_DEVICES=0 PYTHONPATH=python python -m pytest -q -p no:cacheprovider test/registered/unit/models/test_rocm_mla_absorb_fusion_gate.py",
+        "# GPU: use allocated MI355X and the pinned environment in validation/b8_46918/README.md",
+        "python validate_b8.py matrix --checkout /data/yihou/b8/sglang-candidate --out /data/yihou/b8/run-first --rows 256 --seeds 104729",
+        "python validate_b8.py matrix --checkout /data/yihou/b8/sglang-candidate --out /data/yihou/b8/run-boundaries --rows 128,129,257,256 --seeds 130363"
       ],
-      "last_action": "2026-11-02: discovered the October 28 external candidate during B8 audit; corrected the prior missed-PR status and added it to shared InferenceX/48k handoff. No new GPU test or upstream mutation."
+      "last_action": "2026-11-02: completed exact-head MI355X reproduction, paired-output and timing checks; published executable harness/results and [reported to the original PR](https://github.com/sgl-project/sglang/pull/46918#issuecomment-6572803085). Test container stopped; standing pool allocation preserved. Ready; missing maintainer-controlled run-ci and review/merge remain."
     }
   },
   "external_prs": [

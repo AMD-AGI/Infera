@@ -24,6 +24,12 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | TRIAGE | [sgl-project/sglang #47872](https://github.com/sgl-project/sglang/pull/47872) — [Perf] [AMD] dsa: Opt-in single-pass Triton top-k for long-context decode rows | READY / `a899828aaf` | Unclassified: inspect before adding to a deployment | Already Ready. New/unclassified PR: review diff, purpose, ownership, evidence and dependencies; write curated handoff notes. | Resolve current review and required CI; no automatic merge certification. |
 <!-- DAILY-PR-STATUS:END -->
 
+## 2026-11-02: B8 / S02 MI355X validation completed
+
+External [SGLang #46918](https://github.com/sgl-project/sglang/pull/46918) remains Ready at `9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1`. On one MI355X, the original M=256 uncapped configuration aborts on three seeds with the same LLVM assertion; all 12 capped/workaround cases pass with bitwise-equal BF16 outputs, and uncapped M=128/129/257 controls pass. Registered CPU coverage: 11 tests +265 subtests. No consistent M=256 speed advantage over the workaround or whole-model correctness claim.
+
+[Immutable report and executable reproduction](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md); [upstream evidence comment](https://github.com/sgl-project/sglang/pull/46918#issuecomment-6572803085). The original reproducer's hardware gap is closed at this head. Next: maintainers enable `run-ci`, review and merge; then qualify an image carrying the fix. Preserve the frozen workaround until that image is available. No duplicate PR or external branch mutation. The following earlier GPU-pending assessment is superseded by these results.
+
 ## 2026-11-02: B8 / S02 external-fix correction
 
 The earlier comparison missed external [SGLang #46918](https://github.com/sgl-project/sglang/pull/46918), opened October 28 by yu-depend, explicitly fixing our [issue #46829](https://github.com/sgl-project/sglang/issues/46829). It is OPEN / non-draft at `9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1`, with review and AMD hardware validation pending. The previous current-status claim “no fix PR” was incorrect; the historical decision not to submit our blanket-disable workaround remains unchanged.
