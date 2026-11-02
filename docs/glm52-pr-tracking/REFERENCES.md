@@ -12,12 +12,16 @@ All archive links below pin commit `b563462fa4a20b4a6f563d279de14ddee455b343` in
 | R4 | [llr51 site](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-c104-tail.packup_20261028/sites/llr51.site.env) | Only decode memory fraction changes from the llr37 site |
 | R5 | [K3, FP8 draft and GEMM pack-up](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-k3-fp8-gemm-mem.packup_20261027/README.md) | 47.9k baseline, both Aiter CSVs and per-trial outcomes |
 | R6 | [Base PP4/DPA4 kit](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md) | Frozen image and S13 model source |
-| R7 | [KF kernel investigation](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) | Historical overlay family; not proof of final #47276/#47278 identity |
+| R7 | [KF kernel investigation](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) | Historical overlay families; not proof of final #47276/#47278/#47897/#47872 identity |
 | R8 | [Overlap/custom-AR sweep](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-garblefree-sweep.packup_20261028/README.md) | Real-acceptance failure context, llr42 alias and rejected trials |
 | R9 | [DCP PD experiments](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.dcp4-pd.packup_20261022/README.md) | pdBe-r1, R16–R25 and separate DCP patch evidence |
 | R10 | [DCP gather experiments](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.dcpx-pack-fix-best.packup_20261023/README.md) | dcpx8c/9/10 and the metadata/producer-wait evidence boundary |
 | R11 | [OffloaderV2 experiments](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.v0521-offloaderv2.packup_20261015/README.md) | ofs0c/ofg3c/ofg2c; distinct from HiCache and the 48k stack |
 | R12 | [c44 transfer experiments](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md) | Metrics, HIP IPC/priority and rejected transfer trials |
+
+## KernelForge upstream map
+
+[Curated source, evidence and maintenance report](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/KERNELFORGE_UPSTREAM_20261102.md): four existing PRs, exact frozen-overlay correspondence, test commands, correctness/performance limits and the unfiled MoE disposition. This live report was added after the archive pin above; it is intentionally linked directly, not rewritten to that earlier commit.
 
 ## Reproduction inputs and unresolved identities
 
