@@ -584,6 +584,7 @@ by default; `--tiers` for your own):
 ```bash
 inferasim pareto ... --out-dir pareto_out
 inferasim mix pareto_out          # prints the mix, writes mix.json and mix.csv
+inferasim mix pareto_out --top 5  # the pick and four more per tier to confirm
 ```
 
 A point qualifies if it meets the tier's interactivity floor with projected

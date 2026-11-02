@@ -76,6 +76,49 @@ def test_ties_break_on_slo_headroom():
     assert best is top
 
 
+def test_rank_puts_the_pick_first_then_orders_by_throughput():
+    top = _pt(72, 1_000, 1_000, concurrency=64)
+    roomy = _pt(140, 400, 970, concurrency=16)
+    mid = _pt(100, 500, 600, concurrency=8)
+    slow = _pt(200, 100, 800, concurrency=4)
+    late = _pt(80, 2_400, 5_000, concurrency=128)
+    ranked, applied = M.rank([mid, top, late, slow, roomy], TIER, ttft_margin=0.5, tie=0.05)
+    assert ranked == [roomy, top, slow, mid] and applied
+    assert M.pick([mid, top, late, slow, roomy], TIER)[0] is ranked[0]
+
+
+def test_shortlist_keeps_the_pick_then_ranks_against_the_plain_limit():
+    near_limit = _pt(80, 2_400, 1_000, concurrency=64)
+    safe = _pt(90, 1_000, 800, concurrency=32)
+    slow = _pt(200, 100, 300, concurrency=4)
+    assert M.shortlist([slow, near_limit, safe], TIER, 3) == [safe, near_limit, slow]
+    assert M.shortlist([slow, near_limit, safe], TIER, 1) == [safe]
+    assert M.shortlist([slow, near_limit, safe], TIER, 3, ttft_margin=0.0) == [
+        near_limit,
+        safe,
+        slow,
+    ]
+    picks = M.plan_mix([slow, near_limit, safe], [TIER], top=3)
+    assert [m.margin_applied for m in picks] == [True, False, True]
+    assert "(no TTFT margin)" in M.format_table(picks).splitlines()[2]
+
+
+def test_plan_mix_top_lists_ranked_points_per_tier():
+    pts = [_pt(200, 300, 500 + i, concurrency=2**i) for i in range(4)]
+    picks = M.plan_mix(pts, [TIER, M.Tier("none", 1_000.0)], top=3)
+    assert [(m.tier, m.rank) for m in picks] == [
+        ("interactive", 1),
+        ("interactive", 2),
+        ("interactive", 3),
+        ("none", 0),
+    ]
+    assert picks[0].point is M.pick(pts, TIER)[0]
+    assert all(m.qualifying == 4 for m in picks[:3]) and picks[3].point is None
+    assert "#" in M.format_table(picks) and "#" not in M.format_table(M.plan_mix(pts))
+    with pytest.raises(ValueError):
+        M.plan_mix(pts, top=0)
+
+
 def test_headroom_is_the_tighter_ratio():
     assert M.headroom(_pt(140, 1_250, 1), TIER) == pytest.approx(2.0)
     assert M.headroom(_pt(105, 500, 1), TIER) == pytest.approx(1.5)
@@ -152,6 +195,11 @@ def test_main_reads_a_pareto_out_dir_and_writes_the_mix(tmp_path, capsys):
     assert doc["picks"][0]["picked"] and doc["picks"][0]["concurrency"] == 16
     with open(tmp_path / "mix.csv") as f:
         assert len(list(csv.DictReader(f))) == len(M.DEFAULT_TIERS)
+    assert cli.main(["mix", str(tmp_path), "--top", "2"]) == 0
+    doc = json.loads((tmp_path / "mix.json").read_text())
+    assert doc["meta"]["top"] == 2
+    bulk = [r for r in doc["picks"] if r["tier"] == "bulk"]
+    assert [r["rank"] for r in bulk] == [1, 2] and bulk[0]["concurrency"] == 128
 
 
 def test_main_reports_a_missing_points_file(tmp_path, capsys):

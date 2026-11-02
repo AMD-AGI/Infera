@@ -106,7 +106,13 @@ tiers (`name`, `min_interactivity`, `max_ttft_ms`). The picks go to
 `mix.json` and `mix.csv` next to the points.
 
 Treat the mix as a shortlist: confirm each pick with one measured run before
-you deploy it.
+you deploy it. `--top 5` lists the pick and the four next-best points per tier
+to confirm. Points after the pick need only meet the plain TTFT limit, and the
+table flags the ones that miss the margin.
+
+```bash
+inferasim mix pareto_out --top 5
+```
 
 ## Then spend the GPU hours
 

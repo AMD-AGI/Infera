@@ -25,8 +25,12 @@ projection. Simulate-mode points that use decode context parallelism are left
 out, because the analytical path prices DCP attention poorly; an anchored DCP
 point is kept.
 
+``top`` lists more than the pick. After the pick come the points that meet the
+plain limit, ranked the same way: those within ``tie`` of the best by
+headroom, then the rest by throughput.
+
 The picks are predictions. Treat the mix as a short list and confirm each pick
-with one measured run before deploying it.
+with one measured run before deploying it; ``--top 5`` gives the list to confirm.
 """
 
 from __future__ import annotations
@@ -75,6 +79,7 @@ class MixPick:
     qualifying: int
     margin_applied: bool
     headroom: float
+    rank: int = 1
 
     def row(self) -> dict:
         p = self.point
@@ -82,6 +87,7 @@ class MixPick:
             model=self.model,
             scenario=self.scenario,
             tier=self.tier,
+            rank=self.rank,
             min_interactivity=self.min_interactivity,
             max_ttft_ms=self.max_ttft_ms,
             picked=p is not None,
@@ -200,6 +206,36 @@ def headroom(p: ParetoPoint, tier: Tier, ttft_field: str = "ttft_ms") -> float:
     return min(h) if h else 1.0
 
 
+def rank(
+    cands: Sequence[ParetoPoint],
+    tier: Tier,
+    ttft_margin: float = 0.5,
+    tie: float = 0.05,
+    metric: str = "total_tput_per_gpu",
+    ttft_field: str = "ttft_ms",
+) -> tuple[list[ParetoPoint], bool]:
+    """``(qualifying points best first, margin applied)`` for one tier.
+
+    Points within ``tie`` of the best throughput come first, by SLO headroom;
+    the rest follow by throughput. The first point is the pick.
+    """
+    ok = [p for p in cands if meets(p, tier, ttft_margin, ttft_field)]
+    margin_applied = bool(ok) and ttft_margin > 0
+    if not ok:
+        ok = [p for p in cands if meets(p, tier, 0.0, ttft_field)]
+    if not ok:
+        return [], False
+    top = max(getattr(p, metric) for p in ok)
+
+    def key(p: ParetoPoint) -> tuple:
+        v = getattr(p, metric)
+        if v >= top * (1 - tie):
+            return (1, headroom(p, tier, ttft_field), v)
+        return (0, v, 0.0)
+
+    return sorted(ok, key=key, reverse=True), margin_applied
+
+
 def pick(
     cands: Sequence[ParetoPoint],
     tier: Tier,
@@ -209,16 +245,29 @@ def pick(
     ttft_field: str = "ttft_ms",
 ) -> tuple[ParetoPoint | None, int, bool]:
     """``(pick, qualifying count, margin applied)`` for one tier."""
-    ok = [p for p in cands if meets(p, tier, ttft_margin, ttft_field)]
-    margin_applied = bool(ok) and ttft_margin > 0
-    if not ok:
-        ok = [p for p in cands if meets(p, tier, 0.0, ttft_field)]
-    if not ok:
-        return None, 0, False
-    top = max(getattr(p, metric) for p in ok)
-    near = [p for p in ok if getattr(p, metric) >= top * (1 - tie)]
-    best = max(near, key=lambda p: (headroom(p, tier, ttft_field), getattr(p, metric)))
-    return best, len(ok), margin_applied
+    ranked, margin_applied = rank(cands, tier, ttft_margin, tie, metric, ttft_field)
+    return (ranked[0] if ranked else None), len(ranked), margin_applied
+
+
+def shortlist(
+    cands: Sequence[ParetoPoint],
+    tier: Tier,
+    k: int,
+    ttft_margin: float = 0.5,
+    tie: float = 0.05,
+    metric: str = "total_tput_per_gpu",
+    ttft_field: str = "ttft_ms",
+) -> list[ParetoPoint]:
+    """The pick, then the next ``k - 1`` points ranked against the plain limit.
+
+    The margin steers only the pick: a short list confirmed on hardware loses
+    more by dropping fast points near the limit than it gains from the margin.
+    """
+    ranked, _ = rank(cands, tier, ttft_margin, tie, metric, ttft_field)
+    if not ranked or k <= 1 or ttft_margin == 0:
+        return ranked[:k]
+    plain, _ = rank(cands, tier, 0.0, tie, metric, ttft_field)
+    return [ranked[0]] + [p for p in plain if p is not ranked[0]][: k - 1]
 
 
 def plan_mix(
@@ -229,12 +278,17 @@ def plan_mix(
     metric: str = "total_tput_per_gpu",
     mode: str = "auto",
     ttft_field: str = "ttft_ms",
+    top: int = 1,
 ) -> list[MixPick]:
-    """One pick per (model, scenario, tier), in input order of models and scenarios."""
+    """Per (model, scenario, tier), in input order of models and scenarios, the
+    pick and up to ``top - 1`` more points from :func:`shortlist`. A tier
+    nothing meets gets one empty pick."""
     if not 0 <= ttft_margin < 1:
         raise ValueError("ttft_margin must be in [0, 1)")
     if tie < 0:
         raise ValueError("tie must be >= 0")
+    if top < 1:
+        raise ValueError("top must be >= 1")
     cands = candidates(points, mode, metric)
     groups: dict[tuple[str, str], list[ParetoPoint]] = {}
     for p in points:
@@ -245,28 +299,37 @@ def plan_mix(
     for (model, scenario), pts in groups.items():
         for t in tiers:
             best, n_ok, applied = pick(pts, t, ttft_margin, tie, metric, ttft_field)
-            out.append(
-                MixPick(
-                    model=model,
-                    scenario=scenario,
-                    tier=t.name,
-                    min_interactivity=t.min_interactivity,
-                    max_ttft_ms=t.max_ttft_ms,
-                    point=best,
-                    candidates=len(pts),
-                    qualifying=n_ok,
-                    margin_applied=applied,
-                    headroom=headroom(best, t, ttft_field) if best else 0.0,
+            listed = shortlist(pts, t, top, ttft_margin, tie, metric, ttft_field)
+            for i, p in enumerate(listed or [None], 1):
+                out.append(
+                    MixPick(
+                        model=model,
+                        scenario=scenario,
+                        tier=t.name,
+                        min_interactivity=t.min_interactivity,
+                        max_ttft_ms=t.max_ttft_ms,
+                        point=p,
+                        candidates=len(pts),
+                        qualifying=n_ok,
+                        margin_applied=(
+                            applied
+                            if p is best
+                            else ttft_margin > 0 and meets(p, t, ttft_margin, ttft_field)
+                        ),
+                        headroom=headroom(p, t, ttft_field) if p else 0.0,
+                        rank=i if p else 0,
+                    )
                 )
-            )
     return out
 
 
 def format_table(picks: Sequence[MixPick]) -> str:
+    ranked = any(m.rank > 1 for m in picks)
     head = (
         "model",
         "scenario",
         "tier",
+        "#",
         "configuration",
         "clients",
         "tok/s/user",
@@ -279,7 +342,7 @@ def format_table(picks: Sequence[MixPick]) -> str:
         p = m.point
         if p is None:
             rows.append(
-                (m.model, m.scenario, m.tier, "nothing meets this tier", "", "", "", "", "")
+                (m.model, m.scenario, m.tier, "", "nothing meets this tier", "", "", "", "", "")
             )
             continue
         cfg = " ".join(
@@ -300,6 +363,7 @@ def format_table(picks: Sequence[MixPick]) -> str:
                 m.model,
                 m.scenario,
                 m.tier,
+                str(m.rank),
                 cfg,
                 str(p.concurrency),
                 f"{p.interactivity:.1f}",
@@ -308,7 +372,9 @@ def format_table(picks: Sequence[MixPick]) -> str:
                 p.mode,
             )
         )
-    w = [max(len(r[i]) for r in rows) for i in range(len(head))]
+    if not ranked:
+        rows = [r[:3] + r[4:] for r in rows]
+    w = [max(len(r[i]) for r in rows) for i in range(len(rows[0]))]
     return "\n".join("  ".join(c.ljust(w[i]) for i, c in enumerate(r)).rstrip() for r in rows)
 
 
@@ -376,6 +442,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Projection mode to pick from; auto prefers the anchored point of each "
         "configuration (default).",
     )
+    ap.add_argument(
+        "--top",
+        type=int,
+        default=1,
+        help="List the pick and the next best points per tier, up to this many, to "
+        "confirm on hardware; points after the pick need only meet the plain TTFT "
+        "limit (default 1).",
+    )
     ap.add_argument("--model", nargs="+", default=None, help="Only these models.")
     ap.add_argument("--scenario", nargs="+", default=None, help="Only these scenarios.")
     ap.add_argument(
@@ -411,6 +485,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         metric=a.metric,
         mode=a.mode,
         ttft_field=a.ttft_field,
+        top=a.top,
     )
     print(format_table(picks))
     meta = dict(
@@ -421,6 +496,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         metric=a.metric,
         ttft_field=a.ttft_field,
         mode=a.mode,
+        top=a.top,
     )
     out_dir = a.out_dir or os.path.dirname(os.path.abspath(path))
     for f in write_outputs(picks, out_dir, meta):
