@@ -1,6 +1,6 @@
 # Active PR handoff
 
-GitHub refresh: **2026-11-02T06:26:10.145557+00:00**. [Overview and priorities](README.md).
+GitHub refresh: **2026-11-02T06:31:58.643163+00:00**. [Overview and priorities](README.md).
 
 ## Ready for review
 
@@ -8,7 +8,7 @@ GitHub refresh: **2026-11-02T06:26:10.145557+00:00**. [Overview and priorities](
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: merrymercy, Ying1123, hnyls2002, xiezhq-hermann.
 - **Base / head:** `main` @ `8a455f1b9005a05091ad1825f0f3493bfd74d27d` / `yihou/kv-metrics-nonblocking-20261027` @ `82176e70284c8d67b41de74b8e8005d148e57c8b`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 17, SKIPPED 90, SUCCESS 25. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 17, SKIPPED 90, SUCCESS 25. Reviews: none.
 - **Last curated action:** 2026-11-02: reviewed unchanged head and posted CI/review follow-up.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:21:04Z](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6568974604); PR updated 2026-11-02T04:21:04Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
@@ -163,6 +163,27 @@ python -m pytest -q agent_sys/tests/tools
 ```
 
 
+### [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Track 48k deployment priorities, Ready/Draft work and immutable experiment references.
+
+- **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
+- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `2cb681fc1e09a65f77434c8fe8d8373fa25fc4bc`.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: PENDING 1, SKIPPED 8, SUCCESS 3. Reviews: none.
+- **Last curated action:** 2026-11-02: created Ready PR #228 from main with signed commit 2cb681fc; connecting daily exports to the open documentation branch.
+- **Latest GitHub activity:** PR updated 2026-11-02T06:29:59Z; no issue comments.
+- **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
+- **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
+- **Evidence / pack-up:** Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.
+- **To Ready:** Documentation is already Ready. Recheck references/privacy when curated source links or generator logic change. No GPU validation needed.
+- **To merge / dependency:** Maintainers: review documentation and required checks. After merge, create a main-based follow-up PR for subsequent team documentation updates; do not push the updater directly to main.
+
+Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
+
+```sh
+pre-commit run --files docs/glm52-pr-tracking/*.md
+git diff --check
+```
+
+
 ## Draft
 
 ### [sgl-project/sglang #33059](https://github.com/sgl-project/sglang/pull/33059) — Make real query rows and padded Aiter metadata agree.
@@ -215,7 +236,7 @@ Validation entry points (run in an isolated checkout at the recorded head; alloc
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `72e267f41d7eef241b641b9d132de431adf71ef8` / `yihou/hip-copy-stream-priority-20261027` @ `8313cccbaae8f3c9d7e0a29b830ce6a8a892dd91`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 3, SKIPPED 1, SUCCESS 31. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 3, SKIPPED 1, SUCCESS 31. Reviews: none.
 - **Last curated action:** 2026-11-02: signed rebase onto 72e267f4; packaging test/lint pass; contributed CUDA build failure evidence to #5144.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:18:39Z](https://github.com/kvcache-ai/Mooncake/pull/5005#issuecomment-6568944195); PR updated 2026-11-02T04:28:10Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-02; new comments/reviews still require human triage.

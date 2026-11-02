@@ -14,7 +14,7 @@ The 47.9k-to-48k changes are existing configuration settings, with **no addition
 
 **Evidence boundary:** serving throughput used simulated MTP acceptance 2.99. Real-acceptance investigation found garbling associated with PP overlap and decode custom all-reduce. These are historical performance results, not a correctness-qualified deployment or individual-patch speedup. Later kernel PRs have separate numerical/real-acceptance evidence; their serving timings also use simulated acceptance.
 
-PR state checked: **2026-11-02T06:26:10.145557+00:00**. Ready means non-draft, not approval or passed functional CI.
+PR state checked: **2026-11-02T06:31:58.643163+00:00**. Ready means non-draft, not approval or passed functional CI.
 
 | Priority PR | Current state | Deployment role / next action |
 |---|---|---|
@@ -32,7 +32,7 @@ Preserve **S13** (PP hidden size; llying attribution agreement needed before fil
 
 DCP transport/cache PRs #46819/#46824/#46826, OffloaderV2 #45484, transfer-queue #42163, prefill_complete #45337 and HIP-transport #5005/#4340 are useful separate work, not extra requirements for this DPA4/RDMA deployment. Late llr42 fused-indexer activation and llr52 blocking-poll experiments were not kept.
 
-## 2. Ready for review — 7 owned public PRs
+## 2. Ready for review — 8 owned public PRs
 
 These can receive review now. Resolve the listed CI/review/merge-order work; do not add a blanket new GPU gate to an already justified port. Detailed heads, evidence, commands and reviewer requests: [ACTIVE_PRS.md](ACTIVE_PRS.md#ready-for-review).
 
@@ -45,6 +45,7 @@ These can receive review now. Resolve the listed CI/review/merge-order work; do 
 | P2 | [sgl-project/sglang #45484](https://github.com/sgl-project/sglang/pull/45484) — Preserve the Aiter is_shuffled weight tag through offload/onload. | READY / `43dec26b03` | NOT IN LLR37: OffloaderV2 weight offload is not HiCache. | Already Ready. No remaining author-side promotion step; CPU and exact-head MI355X onload regression already exist. | Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. |
 | P2 | [sgl-project/sglang #46822](https://github.com/sgl-project/sglang/pull/46822) — Skip HIP DSA indexing when an eager DP rank has no tokens. | READY / `11262e1199` | NOT ADDED TO LLR37: separate DCP/eager-idle fault repair. | Already Ready. No remaining author-side promotion step; retain historical production equivalence. | Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. |
 | P3 | [AMD-AGI/Infera #208](https://github.com/AMD-AGI/Infera/pull/208) — Create, pack, run and share agent_sys tasks from Claude Code. | READY / `3bd26aa4af` | NOT IN LLR37: general agent_sys tooling. | Already Ready. Already non-draft. Re-audit the new head against the earlier tests and inspect current lint failure. | Inspect the current lint formatting diff (run 41392116339, job 125105681579, including projection/test files); fix or attribute it against base, re-run affected agent_sys tests, request maintainer review. No GPU prerequisite established. |
+| P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Track 48k deployment priorities, Ready/Draft work and immutable experiment references. | READY / `2cb681fc1e` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | Already Ready. Documentation is already Ready. Recheck references/privacy when curated source links or generator logic change. No GPU validation needed. | Maintainers: review documentation and required checks. After merge, create a main-based follow-up PR for subsequent team documentation updates; do not push the updater directly to main. |
 
 ## 3. Draft — 7 owned public PRs
 
@@ -62,7 +63,7 @@ Each row separates author work needed for promotion from maintainer-controlled m
 
 ## 4. Scope, ownership and references
 
-**57 PRs: 14 open (7 ready / 7 draft), 25 merged, 18 closed unmerged** across all public repositories visible to the account-wide author query (`dorado269`). This includes historical and general tooling work. External authors' PRs are separate dependencies and are not counted as ours. Restricted-repository records remain in the internal handoff and are not published here.
+**58 PRs: 15 open (8 ready / 7 draft), 25 merged, 18 closed unmerged** across all public repositories visible to the account-wide author query (`dorado269`). This includes historical and general tooling work. External authors' PRs are separate dependencies and are not counted as ours. Restricted-repository records remain in the internal handoff and are not published here.
 
 - [Active details and external dependencies](ACTIVE_PRS.md): exact revisions, checks, evidence, last actions, next actors and commands.
 - [Complete public PR history](HISTORY.md): merged and closed entries, replacement/duplicate dispositions.
