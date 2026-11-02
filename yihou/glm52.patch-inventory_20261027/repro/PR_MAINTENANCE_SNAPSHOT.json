@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-02T07:05:09.505563+00:00",
+  "checked_at_utc": "2026-11-02T07:33:48.300024+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -16,15 +16,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T06:38:19Z",
+      "updatedAt": "2026-11-02T07:05:29Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "257ea4f20493eb84f19a381ff845392a717ecb32",
+      "headRefOid": "c40c97a4e4237f2fee79cc2aa5567f3d7b7cd9c9",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -70,8 +70,8 @@
       "baseRefOid": "b0debe0a7aa827b34c1987a234c07eeedf14c68f",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -137,8 +137,8 @@
       "baseRefOid": "b0debe0a7aa827b34c1987a234c07eeedf14c68f",
       "headRefName": "yihou/kf-fused-indexer-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -349,8 +349,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -409,8 +409,8 @@
       "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -704,8 +704,8 @@
       "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -874,7 +874,7 @@
       "number": 208,
       "url": "https://github.com/AMD-AGI/Infera/pull/208",
       "title": "feat(agent_sys): Claude Code skills to create, pack, run and share agent_sys tasks",
-      "state": "OPEN",
+      "state": "MERGED",
       "isDraft": false,
       "owned": true,
       "author": {
@@ -883,23 +883,19 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T05:06:44Z",
-      "mergedAt": null,
-      "closedAt": null,
+      "updatedAt": "2026-11-02T07:29:14Z",
+      "mergedAt": "2026-11-02T07:29:14Z",
+      "closedAt": "2026-11-02T07:29:14Z",
       "headRefOid": "3bd26aa4afec447a2e69dfae2969ddbf0c7bf3a5",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev.yihou.agentsys.skills",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
-      "reviewDecision": "REVIEW_REQUIRED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
       "labels": [],
       "assignees": [],
       "reviewRequests": [
-        {
-          "__typename": "User",
-          "login": "xiaobochen-amd"
-        },
         {
           "__typename": "User",
           "login": "jiejingzhangamd"
@@ -985,8 +981,8 @@
       "baseRefOid": "6492209bcae7b23c52f68b36e2889813049c0e5d",
       "headRefName": "dev.yihou.sglang.bench.fast.script",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2103,8 +2099,8 @@
       "baseRefOid": "23c6442cde7fb38230134ba0e3513ad2332aa5cf",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2859,8 +2855,8 @@
       "baseRefOid": "a09c1a096c6b888932bdc813fd37d0b3e38a6e02",
       "headRefName": "amd-dsa-logits-hist-slot",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4740,6 +4736,454 @@
         "SUCCESS": 9
       },
       "checks_url": "https://github.com/AMD-AGI/Infera/pull/210/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 21194,
+      "url": "https://github.com/sgl-project/sglang/pull/21194",
+      "title": "[Fix] [AMD] deepseek-v2/v3: Fix PPMissingLayer AttributeError in aiter_gfx95 code path",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "MDQ6VXNlcjg2NjM4OTc1",
+        "is_bot": false,
+        "login": "RolaoDenthu",
+        "name": "Xinyi Song"
+      },
+      "updatedAt": "2026-10-29T04:16:58Z",
+      "mergedAt": "2026-10-29T04:16:58Z",
+      "closedAt": "2026-10-29T04:16:58Z",
+      "headRefOid": "2059478e2152304d76cae2c1dd9b4fafbd51684a",
+      "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
+      "headRefName": "fix/pp-amd",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        },
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 16,
+        "FAILURE": 13,
+        "SKIPPED": 61,
+        "SUCCESS": 94
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/21194/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47184,
+      "url": "https://github.com/sgl-project/sglang/pull/47184",
+      "title": "[Fix] [AMD] deepseek_v2: Avoid PPMissingLayer attribute errors in the gfx950 allocator path",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T03:05:27Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "ce3087c8bb510083a6ef2a445898fc49db3e0f31",
+      "baseRefOid": "b960aa903aad354fb2e484041e5e33e3eb061e9b",
+      "headRefName": "llying/pp-missing-layer-aiter-gfx95",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAAB4SzhSg",
+          "name": "deepseek",
+          "description": "",
+          "color": "c2e0c6"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "fzyzcjy"
+        },
+        {
+          "__typename": "User",
+          "login": "ispobock"
+        },
+        {
+          "__typename": "User",
+          "login": "ch-wan"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Fridge003"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 17,
+        "SKIPPED": 88,
+        "SUCCESS": 22
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/47184/checks"
+    },
+    {
+      "repo": "sgl-project/sglang",
+      "number": 47117,
+      "url": "https://github.com/sgl-project/sglang/pull/47117",
+      "title": "[Doc] [AMD] glm-5.2: PD disaggregation on MI355X with the Infera router",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T03:06:19Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "3e89cdc4607d6df8c0aca2d69b210410770a75be",
+      "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
+      "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABfbLsmQ",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 5,
+        "NEUTRAL": 1,
+        "SKIPPED": 86,
+        "SUCCESS": 26
+      },
+      "checks_url": "https://github.com/sgl-project/sglang/pull/47117/checks"
+    },
+    {
+      "repo": "AMD-AGI/Infera",
+      "number": 222,
+      "url": "https://github.com/AMD-AGI/Infera/pull/222",
+      "title": "fix(engine): advertise a caller-supplied --kv-events-config port",
+      "state": "MERGED",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T02:58:17Z",
+      "mergedAt": "2026-11-02T02:58:17Z",
+      "closedAt": "2026-11-02T02:58:17Z",
+      "headRefOid": "f668fbf7738f082b083039e247b4e776e8ec1099",
+      "baseRefOid": "02b6ca74e705e909a3b3368b6b50a9bcf41be858",
+      "headRefName": "llying/sglang-explicit-kv-events-config",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "APPROVED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "jiejingzhangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "limou102"
+        }
+      ],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "CANCELLED": 7,
+        "SUCCESS": 9
+      },
+      "checks_url": "https://github.com/AMD-AGI/Infera/pull/222/checks"
+    },
+    {
+      "repo": "kvcache-ai/Mooncake",
+      "number": 4540,
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/4540",
+      "title": "[TransferEngine] Add opt-in destination-local GPU write rails",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-10-15T05:28:11Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "6fccbba1686e5c08f85b1f84b80d0c19716cf976",
+      "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
+      "headRefName": "feat/destination-local-rail",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOMNwitc8AAAABqJQFAA",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQuZz7A",
+          "name": "run-ci",
+          "description": "",
+          "color": "bf98e5"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQ7H6ag",
+          "name": "Transfer Engine",
+          "description": "",
+          "color": "70fc29"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SUCCESS": 1
+      },
+      "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4540/checks"
+    },
+    {
+      "repo": "kvcache-ai/Mooncake",
+      "number": 4541,
+      "url": "https://github.com/kvcache-ai/Mooncake/pull/4541",
+      "title": "[TransferEngine] Make the RDMA ACK timeout configurable",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-10-09T12:01:22Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "faa24ab49973325dac86c4822a346d1fbc32611f",
+      "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
+      "headRefName": "feat/rdma-ack-timeout",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "REVIEW_REQUIRED",
+      "labels": [
+        {
+          "id": "LA_kwDOMNwitc8AAAABqJQFAA",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQuZz7A",
+          "name": "run-ci",
+          "description": "",
+          "color": "bf98e5"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAACQ7H6ag",
+          "name": "Transfer Engine",
+          "description": "",
+          "color": "70fc29"
+        }
+      ],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 3,
+        "SUCCESS": 26
+      },
+      "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4541/checks"
+    },
+    {
+      "repo": "SemiAnalysisAI/InferenceX",
+      "number": 4629,
+      "url": "https://github.com/SemiAnalysisAI/InferenceX/pull/4629",
+      "title": "[AMD][MI355X] Add GLM-5.2 MXFP4 AgentX P/D behind the Infera router (infera-sglang) / [AMD][MI355X] 新增 GLM-5.2 MXFP4 AgentX PD 分离部署（Infera router，infera-sglang）",
+      "state": "OPEN",
+      "isDraft": false,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-11-02T04:14:41Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "a7aed81b6b3314a60c0c59f34e4b235479059230",
+      "baseRefOid": "4bc1b3dda4df428d2cee984d8af9c8ddffade3ec",
+      "headRefName": "llying/infera-sglang",
+      "baseRefName": "main",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "CHANGES_REQUESTED",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [
+        {
+          "__typename": "User",
+          "login": "cquil11"
+        },
+        {
+          "__typename": "User",
+          "login": "billishyahao"
+        },
+        {
+          "__typename": "User",
+          "login": "chunfangamd"
+        },
+        {
+          "__typename": "User",
+          "login": "seungrokj"
+        },
+        {
+          "__typename": "User",
+          "login": "1am9trash"
+        },
+        {
+          "__typename": "User",
+          "login": "zijiecode"
+        }
+      ],
+      "unresolved_review_threads": 1,
+      "latest_check_counts": {
+        "CANCELLED": 1,
+        "FAILURE": 4,
+        "SKIPPED": 177,
+        "SUCCESS": 5
+      },
+      "checks_url": "https://github.com/SemiAnalysisAI/InferenceX/pull/4629/checks"
+    },
+    {
+      "repo": "SemiAnalysisAI/InferenceX-app",
+      "number": 1542,
+      "url": "https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542",
+      "title": "feat(constants): register the infera-sglang framework so legends read \"MI355X (Infera SGLang)\" / 注册 infera-sglang 框架，使图例显示 \"MI355X (Infera SGLang)\"",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-10-29T03:02:14Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "4aa976240ed10d02190b465a3c7cb70b2b138480",
+      "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
+      "headRefName": "llying/infera-sglang-label",
+      "baseRefName": "master",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "FAILURE": 1
+      },
+      "checks_url": "https://github.com/SemiAnalysisAI/InferenceX-app/pull/1542/checks"
+    },
+    {
+      "repo": "NVIDIA/srt-slurm",
+      "number": 630,
+      "url": "https://github.com/NVIDIA/srt-slurm/pull/630",
+      "title": "feat(frontends): add an infera frontend for etcd-registered SGLang workers",
+      "state": "OPEN",
+      "isDraft": true,
+      "owned": false,
+      "author": {
+        "id": "U_kgDOC_xLqA",
+        "is_bot": false,
+        "login": "llying-001",
+        "name": ""
+      },
+      "updatedAt": "2026-10-30T08:40:53Z",
+      "mergedAt": null,
+      "closedAt": null,
+      "headRefOid": "b060d20150d204f3057b317275e052db14527ff9",
+      "baseRefOid": "59920ea16a13017a990e449d034a495c0b05bc57",
+      "headRefName": "llying/infera-frontend",
+      "baseRefName": "main",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
+      "reviewDecision": "",
+      "labels": [],
+      "assignees": [],
+      "reviewRequests": [],
+      "unresolved_review_threads": 0,
+      "latest_check_counts": {
+        "SKIPPED": 1,
+        "SUCCESS": 2
+      },
+      "checks_url": "https://github.com/NVIDIA/srt-slurm/pull/630/checks"
     }
   ],
   "issues": [
