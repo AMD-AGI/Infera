@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-03T06:03:32.481003+00:00",
+  "checked_at_utc": "2026-11-03T06:22:57.182711+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -16,17 +16,23 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T10:45:54Z",
+      "updatedAt": "2026-11-03T06:19:04Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "fcfa508799f1463dd0e91c278fe80fc6fd9ad0e1",
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-gluon-indexer-logits-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
         {
           "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
           "name": "jit-kernel",
@@ -63,9 +69,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 17,
-        "SKIPPED": 89,
-        "SUCCESS": 21
+        "FAILURE": 21,
+        "IN_PROGRESS": 12,
+        "QUEUED": 6,
+        "SKIPPED": 66,
+        "SUCCESS": 36
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47897/checks"
     },
@@ -83,17 +91,23 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-02T10:45:58Z",
+      "updatedAt": "2026-11-03T06:19:14Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "1061c298389facbdeaafced9891a5c7c9b399331",
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        },
         {
           "id": "LA_kwDOLCAjRs8AAAACbMYfRg",
           "name": "jit-kernel",
@@ -155,9 +169,11 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 1,
-        "FAILURE": 18,
-        "SKIPPED": 91,
-        "SUCCESS": 25
+        "FAILURE": 34,
+        "IN_PROGRESS": 4,
+        "QUEUED": 7,
+        "SKIPPED": 67,
+        "SUCCESS": 36
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -175,10 +191,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T03:57:40Z",
+      "updatedAt": "2026-11-03T06:03:53Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "92635dcf34ef2ba4cc124e7e4f8aa599fd6cd44b",
+      "headRefOid": "b2c20a410a53f5955a69a46df79bec0909a3c5ba",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -229,8 +245,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kf-sparse-mla-gfx950",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -575,15 +591,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T05:25:03Z",
+      "updatedAt": "2026-11-03T06:18:19Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "ba484a37910fc4296ae5693d1b1436559b34bf88",
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix-dsa-decode-dp-host-sync-deadlock",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -628,8 +644,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 3,
-        "FAILURE": 6,
+        "FAILURE": 5,
+        "QUEUED": 2,
         "SKIPPED": 63,
         "SUCCESS": 102
       },
@@ -698,8 +714,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -740,8 +756,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -826,8 +842,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -884,15 +900,15 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T05:24:50Z",
+      "updatedAt": "2026-11-03T06:19:47Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "ac205f829173029ce17c1898fd9c8d9ab2f861fd",
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -951,8 +967,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2294,8 +2310,8 @@
       "baseRefOid": "b45a36531c3673048aeaf35322c3df7f18edd038",
       "headRefName": "fix-dsa-indexer-hip-aiter-dp-padding",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2341,9 +2357,9 @@
         "CANCELLED": 1,
         "FAILURE": 7,
         "IN_PROGRESS": 3,
-        "QUEUED": 12,
+        "QUEUED": 10,
         "SKIPPED": 63,
-        "SUCCESS": 79
+        "SUCCESS": 81
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -2986,17 +3002,24 @@
         "login": "eaglewangao-us",
         "name": ""
       },
-      "updatedAt": "2026-11-02T06:55:23Z",
+      "updatedAt": "2026-11-03T06:20:49Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "14c8591329db003317f0bfddc26335090ad92ea7",
       "baseRefOid": "71fb7093875fb76101df7c5040971fa56e53ec20",
       "headRefName": "fix-pp-prefill-kv-send-wait",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
-      "labels": [],
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAACKVYhQw",
+          "name": "run-ci",
+          "description": "CI: run the baseline test suite on this PR",
+          "color": "9FE30D"
+        }
+      ],
       "assignees": [],
       "reviewRequests": [
         {
@@ -3026,9 +3049,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 17,
-        "SKIPPED": 88,
-        "SUCCESS": 23
+        "FAILURE": 5,
+        "IN_PROGRESS": 25,
+        "QUEUED": 5,
+        "SKIPPED": 63,
+        "SUCCESS": 35
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
     },
@@ -5276,8 +5301,8 @@
       "baseRefOid": "95691df21ddc8ca233a35f631e7a8b26010c72cd",
       "headRefName": "llying/infera-sglang",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "CHANGES_REQUESTED",
       "labels": [],
       "assignees": [],
@@ -5335,8 +5360,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "master",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
@@ -5434,8 +5459,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "fix/issue-46829-bug-rocm-absorb-bmm-hand-confi",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
