@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-03T16:11:54.709022+00:00**.
+Updated: **2026-11-03T17:39:00.380977+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -40,7 +40,7 @@ Next action: CI owners: verify source alignment with the upstream threshold chan
 - [Evidence](https://github.com/sgl-project/sglang/blob/4387a94cf218ba870474d7a2a40a632bc4975798/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/attempts/2)
 
-## #45524: Base has 35 attempt-2 successes, two queued shards, AWQ timeout and one new health-check cascade. Scoped AMD compiler/watchdog and CPU fork_worker_preload failures remain; historical-source equivalence is unproven.
+## #45524: Base has 35 attempt-2 successes, two queued shards, AWQ timeout and one health-check cascade. Scoped AMD compiler/watchdog and CPU fork_worker_preload failures remain; historical-source equivalence is unproven.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -53,7 +53,7 @@ Next action: External author eaglewangao-us/maintainers: diagnose the failures, 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758488/job/125761907669)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758584/job/125761894917)
 
-## #46918: Two Base H100 shards remain cancelled before execution. Source-specific 9763ef56 validation does not qualify the entire current head or integrated image. AMD transfer CI was removed from this mixed finding under Base-only scope, without claiming repair.
+## #46918: Two Base H100 shards remain cancelled before execution. Source-specific 9763ef56 validation does not qualify the entire current head or integrated image. AMD transfer CI was previously removed from this mixed finding under Base-only scope, without claiming repair.
 
 Tracking key: `pr46918-external-ci-integration`.
 
@@ -63,16 +63,18 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Base remains at 37 successes: 36 retained and one executed in attempt 2; one shard queues. Review, #45307 overlap coordination and exact source/run archiving remain. The optional fused-indexer path stays disabled in frozen llr37.
+## #47276: Base now completed with failure: 37 successes (36 retained, one executed in attempt 2), and dLLM speed 222.256/222.160 below the executed >250 assertion. Current main uses >200; source reconciliation, review, #45307 overlap coordination and exact source/run archiving remain. Optional fused indexer stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Finish Base and review; coordinate landing order and archive exact numerical evidence. Keep the optional fused-indexer path disabled in frozen llr37.
+Next action: CI owners: reconcile the executed >250 assertion with upstream main >200 and verify the test revision before integration/retry; do not weaken tests or assume transience. Maintainers: finish review, coordinate overlapping #45307 and rebase whichever lands second. Archive exact source/run and numerical evidence; keep the optional fused-indexer path disabled in frozen llr37.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467493468/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467493468/job/125765401572)
+- [Evidence](https://github.com/sgl-project/sglang/blob/1ea5f8c6f7f905e24758411ab59f09963ab68631/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 
-## #47278: Two Base H100 shards remain cancelled. The helper refused actual_failure_requires_triage on an AMD stage-B job. Its six-workflow PR-wide scope is verified; no retry was sent.
+## #47278: Two Base H100 shards remain cancelled. The previous cycle helper refusal actual_failure_requires_triage remains applicable to the unchanged AMD stage-B failure. Its recorded scope was six PR-wide workflows; no helper request or retry was sent this cycle.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
@@ -90,7 +92,7 @@ Next action: CI owners: compare actual baseline execution. Maintainers/yihou: pr
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47897: Base progressed to A9/B11/C5=25 successes and five JIT units plus benchmark pass; two Base shards queue. Shared-import scope retains AMD MIOpen and Xeon revision mismatch. Inherited API repair does not qualify full CI or numerics.
+## #47897: Base remains at A9/B11/C5=25 successes and five JIT units plus benchmark pass; two Base shards queue. Shared-import scope retains AMD MIOpen and Xeon revision mismatch. Inherited API repair does not qualify full CI or numerics.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
@@ -109,11 +111,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base has 19 successes, two queued shards and a new VLM startup/preprocessing failure. Two JIT jobs fail-fast before tests; three units pass and benchmark queues. Scoped AMD MIOpen and Xeon revision mismatch remain. Inherited MI355X evidence does not qualify the whole head.
+## #47872: Base remains at 19 successes, two queued shards and VLM startup/preprocessing failure. Three JIT units passed; two units and the benchmark failed health checks before execution. Scoped AMD MIOpen and Xeon source mismatch remain. Inherited MI355X evidence does not qualify the whole head.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: CI owners: diagnose VLM against baseline, recover JIT coverage, investigate AMD database access and align Xeon sources. Complete review; preserve opt-in behavior, exactly min(length,2048) selections, underflow/overflow fallback and boundary ties. Retain source-specific validation and the measured 32k regression.
+Next action: CI owners: diagnose Base VLM startup/preprocessing against baseline and recover the two JIT units and benchmark blocked by health checks; investigate AMD MIOpen access and align Xeon package/test revisions. Complete review; preserve opt-in behavior, exactly min(length,2048) selections, underflow/overflow fallback and valid boundary ties. Archive exact source/run evidence; retain the measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
@@ -121,6 +123,7 @@ Next action: CI owners: diagnose VLM against baseline, recover JIT coverage, inv
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125854248530)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/job/125893452204)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853413002)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125854248810)
 
 ## #47897: Xeon test_server_args.py imports _paged_experts_num_resident from the installed fork package. Inherited source comparison identifies a merge-checkout/package revision mismatch, separate from the repaired architecture API; the matching failure persists.
 
@@ -130,10 +133,11 @@ Next action: CI maintainers: build/install and test the same revision, then reru
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47872: Xeon test_server_args.py imports _paged_experts_num_resident from the installed fork package. Inherited source comparison identifies a merge-checkout/package revision mismatch, separate from the repaired architecture API; the matching failure persists.
+## #47872: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed fork package. The cancelled sibling also failed imports of sglang.srt.managers.req_types and sglang.srt.disaggregation.mode. These matching logs retain the inherited merge-checkout/package revision mismatch; the architecture API repair does not resolve it.
 
 Tracking key: `pr47872-cpu-source-alignment`.
 
 Next action: CI maintainers: build/install and test the same revision, then rerun the affected Xeon shard. Avoid unrelated parser backports or blind PR-wide retries.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853413002)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853412984)
