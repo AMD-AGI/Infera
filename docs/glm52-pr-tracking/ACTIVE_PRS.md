@@ -1,6 +1,6 @@
 # Active PR handoff
 
-GitHub refresh: **2026-11-03T06:03:32.481003+00:00**. [Overview and priorities](README.md).
+GitHub refresh: **2026-11-03T06:22:57.182711+00:00**. [Overview and priorities](README.md).
 
 ## Ready for review
 
@@ -8,7 +8,7 @@ GitHub refresh: **2026-11-03T06:03:32.481003+00:00**. [Overview and priorities](
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me.
 - **Base / head:** `main` @ `b45a36531c3673048aeaf35322c3df7f18edd038` / `fix-dsa-indexer-hip-aiter-dp-padding` @ `795488cd19aaa3cc852d6c87ffe36b88af20ca23`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 7, IN_PROGRESS 3, QUEUED 12, SKIPPED 63, SUCCESS 79. Reviews: claude: COMMENTED (2026-11-02T09:04:20Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 7, IN_PROGRESS 3, QUEUED 10, SKIPPED 63, SUCCESS 81. Reviews: claude: COMMENTED (2026-11-02T09:04:20Z).
 - **Last curated action:** 2026-11-03 ~06:00 UTC: verified unchanged head 795488cd and active Base attempt 3, started 05:29:05 UTC. Gate passes; 22 test jobs passed, 3 running, 8 queued. Results include retained prior-attempt passes, not 22 new reruns. Latest lint passes; no implementation change or CI retry by this audit.
 - **Latest GitHub activity:** [Latest comment 2026-11-03T05:28:28Z](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6596225432); PR updated 2026-11-03T05:29:29Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -34,11 +34,11 @@ python test/registered/amd/test_deepseek_v32_basic.py
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: merrymercy, Ying1123, hnyls2002, xiezhq-hermann.
 - **Base / head:** `main` @ `e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021` / `yihou/kv-metrics-nonblocking-20261027` @ `ac205f829173029ce17c1898fd9c8d9ab2f861fd`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 5, QUEUED 2, SKIPPED 53, SUCCESS 115. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 5, QUEUED 2, SKIPPED 53, SUCCESS 115. Reviews: RolaoDenthu: APPROVED (2026-11-03T06:19:35Z).
 - **Last curated action:** 2026-11-03 ~06:00 UTC: observed attempt 1 cancellation followed by active attempt 2 at unchanged ac205f82. Two H100 shards queue in the retry; 36 earlier test passes are preserved. Latest lint passes. No code push or CI retry by this audit.
-- **Latest GitHub activity:** [Latest comment 2026-11-02T10:07:30Z](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6574434420); PR updated 2026-11-03T05:24:50Z.
+- **Latest GitHub activity:** [Latest comment 2026-11-02T10:07:30Z](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6574434420); PR updated 2026-11-03T06:19:47Z.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 783c1a2192. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
-- **Activity triage:** GitHub activity timestamp matches the curated audit.
+- **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** [glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md); c44a to c44b; four real-ZMQ CPU tests pass; no model-throughput claim.
 - **To Ready:** No remaining author-side promotion step; no GPU required for the socket contract.
 - **To merge / dependency:** Ready, run-ci present. [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/2), started 05:45:53 UTC November 3, retries the cancelled H100 base-b-test-1-gpu-large shards (1, 2); both are currently queued. The 36 successful Base test jobs are retained results from before attempt 2, not newly re-executed tests. No Base test assertion failure is observed; overall Base remains incomplete. CI owners: provide runner capacity and let the retry finish before merge. Yihou/delegate: handle concrete failures and review.
@@ -56,16 +56,16 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metr
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: merrymercy, Fridge003, ispobock, Qiaolin-Yu, hebiao064, HaiShaw.
 - **Base / head:** `main` @ `e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021` / `fix-dsa-decode-dp-host-sync-deadlock` @ `ba484a37910fc4296ae5693d1b1436559b34bf88`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 3, FAILURE 6, SKIPPED 63, SUCCESS 102. Reviews: none.
-- **Last curated action:** 2026-11-03 ~06:00 UTC: refreshed exact-head run/job metadata and corrected the earlier queued assessment to cancelled. 36 Base test jobs passed; two H100 shards were cancelled without execution. No implementation mutation or CI retry by this audit.
-- **Latest GitHub activity:** [Latest comment 2026-11-02T10:07:34Z](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6574436019); PR updated 2026-11-03T05:25:03Z.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 5, QUEUED 2, SKIPPED 63, SUCCESS 102. Reviews: none.
+- **Last curated action:** 2026-11-03 06:21 UTC: user requested trying a selective retry; preflight found that the bot had already started attempt 2 at the unchanged ba484a37 head. Verified exact run, passing gate, two queued H100 jobs and all 36 retained passes. No rerun API call or comment was issued because the requested retry was already active. Current dorado269 repository permissions are read-only; run-ci authorizes CI policy but does not grant repository write access.
+- **Latest GitHub activity:** [Latest comment 2026-11-03T06:17:08Z](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6596882388); PR updated 2026-11-03T06:18:19Z.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 625403853a. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
 - **Activity triage:** GitHub activity timestamp matches the curated audit.
 - **Evidence / pack-up:** [glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); original MI355X deadlock and MI300X masking investigation; production delta matches #33973; CPU 3 tests + 2 subtests and consumer audit.
 - **To Ready:** No remaining author-side promotion step; retain scoped historical evidence.
-- **To merge / dependency:** Ready with run-ci. [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41467026948) was cancelled at approximately 05:24 UTC November 3: 36 Base test jobs passed, but H100 base-b-test-1-gpu-large shards (1, 2) never acquired a runner or executed steps and were cancelled. The finish aggregator fails because base-b-test was cancelled; no new Base test assertion failure was observed. Coverage is incomplete. Authorized CI owner: rerun the cancelled checks and obtain a successful aggregate before merge; preserve already completed results.
+- **To merge / dependency:** Ready with run-ci. [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41467026948/attempts/2) started at 06:17:45 UTC November 3, triggered by github-actions[bot]. Gate passed; the 36 earlier successful Base tests are retained. H100 shards [1](https://github.com/sgl-project/sglang/actions/runs/41467026948/job/125761043136) and [2](https://github.com/sgl-project/sglang/actions/runs/41467026948/job/125761043114) are queued without runners or executed steps. The earlier cancelled attempt is superseded by this active retry. Let these jobs finish; do not enqueue a duplicate retry. Maintainers/CI owners: resolve capacity and complete the successful aggregate before merge.
 
-- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41467027261/job/125350519482); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41467027428/job/125350518519); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41467027101/job/125350833946); [pr-test-amd-extra-finish](https://github.com/sgl-project/sglang/actions/runs/41467027428/job/125350592682); [pr-test-extra-finish](https://github.com/sgl-project/sglang/actions/runs/41467027101/job/125350925661); remaining checks are in the linked PR and JSON snapshot.
+- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41467027261/job/125761022109); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41467027428/job/125761012543); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41467027101/job/125761030285); [pr-test-amd-extra-finish](https://github.com/sgl-project/sglang/actions/runs/41467027428/job/125761049300); [pr-test-extra-finish](https://github.com/sgl-project/sglang/actions/runs/41467027101/job/125761080755).
 
 Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
 
@@ -101,7 +101,7 @@ PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gfx950_fused_
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: DarkSharpness, HaiShaw, BBuf, celve, HydraQYH, yuan-luo.
 - **Base / head:** `main` @ `e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021` / `yihou/kf-sparse-mla-gfx950` @ `a5d8b3af95d7915910547073b1771825981ccb98`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 3, FAILURE 9, SKIPPED 65, SUCCESS 102. Reviews: claude: COMMENTED (2026-10-29T13:43:32Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 3, FAILURE 9, SKIPPED 65, SUCCESS 102. Reviews: claude: COMMENTED (2026-10-29T13:43:32Z).
 - **Last curated action:** 2026-11-03 ~06:00 UTC: refreshed exact-head run/job metadata and corrected the earlier queued assessment to cancelled. 36 Base test jobs plus six JIT test/benchmark jobs passed; two H100 shards were cancelled without execution. No implementation mutation or CI retry by this audit. [AMD shard 6 remains failed](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491): MI300 VLM test_vision_chunked_prefill.py timed out after CPU preprocessing/warmup errors. Retry that shard, then compare the same baseline if repeated; attribution to baseline/runner versus this PR is unproven. Check annotations identify github-actions[bot] as the Base cancelling actor; its policy is not established.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T10:45:50Z](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6575194570); PR updated 2026-11-03T05:24:49Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -124,16 +124,16 @@ PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/attention/test
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me, DarkSharpness, BBuf, celve, HydraQYH, yuan-luo.
 - **Base / head:** `main` @ `a133231d3140e081424d833caa0187f15d40dc3c` / `yihou/kf-triton-topk-gfx950` @ `1061c298389facbdeaafced9891a5c7c9b399331`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 18, SKIPPED 91, SUCCESS 25. Reviews: claude: COMMENTED (2026-11-02T07:47:39Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 34, IN_PROGRESS 4, QUEUED 7, SKIPPED 67, SUCCESS 36. Reviews: claude: COMMENTED (2026-11-02T07:47:39Z).
 - **Last curated action:** 2026-11-03 ~06:00 UTC: rechecked unchanged Ready head and passing lint; run-ci still absent. Base run 41429823967 remains gate-blocked, with no functional test execution. No mutation by this audit.
-- **Latest GitHub activity:** [Latest comment 2026-11-02T10:45:58Z](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6575197280); PR updated 2026-11-02T10:45:58Z.
+- **Latest GitHub activity:** [Latest comment 2026-11-03T06:18:15Z](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6596897673); PR updated 2026-11-03T06:19:14Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
-- **Activity triage:** GitHub activity timestamp matches the curated audit.
+- **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** [Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47872). Author reports exact overflow fallback, valid nondeterministic boundary ties and 1.5–1.9x isolated speedup at 400k contexts/72+ rows, but about 1.3% slower serving at 32k with simulated acceptance 3.61. Real-acceptance GSM8K .953 from one server is a smoke test. Maintenance reproduced candidate underflow in the actual GPU pipeline: original 256 valid slots instead of 2048; fixed 2048 unique valid slots and all 5 GPU tests pass without skips. Run kf47872-20261102T1038Z-topk-underflow used MI355X and the public v0.5.22 ROCm10 image, Torch 2.11.0+rocm10.0.0 / Triton 3.8.0. [Pinned source, CPU/GPU records and reproduction scripts](https://github.com/AMD-AGI/Infera/tree/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/validation/kf_47872). The GPU runner uses the exact module/tests with namespace and CI-registration shims for the older image; no new server/model/performance result is claimed.
 - **To Ready:** Ready restored after the underflow repair, import-guard regression and exact-source MI355X validation. The temporary correctness Draft is resolved; retain opt-in behavior and the historical performance limits.
 - **To merge / dependency:** Ready; latest lint passes but run-ci remains absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41429823967) stops at the missing-label gate; functional tests were not executed. Maintainer: add run-ci and trigger required CI; yihou/delegate: handle actual test/review findings.
 
-- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429823784/job/125228757968); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429818252/job/125228785971); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429823788/job/125228768045); [pr-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429823668/job/125228751586); [pr-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429823831/job/125228735765); remaining checks are in the linked PR and JSON snapshot.
+- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429818252/job/125761446199); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429823788/job/125761421390); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41429823700/job/125761360048); [stage-a-unit-test-mlx](https://github.com/sgl-project/sglang/actions/runs/41429823831/job/125761437207); [stage-a-unit-test-mps](https://github.com/sgl-project/sglang/actions/runs/41429823831/job/125761437174); remaining checks are in the linked PR and JSON snapshot.
 
 Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
 
@@ -147,16 +147,16 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: DarkSharpness, HaiShaw, BBuf, celve, HydraQYH, yuan-luo.
 - **Base / head:** `main` @ `a133231d3140e081424d833caa0187f15d40dc3c` / `yihou/kf-gluon-indexer-logits-gfx950` @ `fcfa508799f1463dd0e91c278fe80fc6fd9ad0e1`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 17, SKIPPED 89, SUCCESS 21. Reviews: claude: COMMENTED (2026-11-02T09:31:07Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 21, IN_PROGRESS 12, QUEUED 6, SKIPPED 66, SUCCESS 36. Reviews: claude: COMMENTED (2026-11-02T09:31:07Z).
 - **Last curated action:** 2026-11-03 ~06:00 UTC: rechecked unchanged Ready head and passing lint; run-ci still absent. Base run 41428924194 remains gate-blocked, with no functional test execution. No mutation by this audit.
-- **Latest GitHub activity:** [Latest comment 2026-11-02T10:45:54Z](https://github.com/sgl-project/sglang/pull/47897#issuecomment-6575195946); PR updated 2026-11-02T10:45:54Z.
+- **Latest GitHub activity:** [Latest comment 2026-11-03T06:17:51Z](https://github.com/sgl-project/sglang/pull/47897#issuecomment-6596892274); PR updated 2026-11-03T06:19:04Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
-- **Activity triage:** GitHub activity timestamp matches the curated audit.
+- **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** [Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47897). The c2cacf5f candidate matches the frozen indexer module; the PR fixes its fused-pair tail omission. Author reports 2.67–3.06x isolated long-context logits, numerical/top-k checks, and real-acceptance GSM8K means .934 main/.927 PR with overlapping ranges. GSM8K is a short-context smoke test. Serving timings used simulated acceptance 3.61 in a single-node setup, not the frozen PD/AgentX setup. Local PR_NOTES.md and working_process.md identify validation scripts; raw results are not yet a public archived bundle.
 - **To Ready:** Already Ready. Preserve existing hardware evidence and the paired-row regression; archived raw run-to-source bundle is still a handoff follow-up.
 - **To merge / dependency:** Ready; latest lint passes but run-ci remains absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41428924194) stops at the missing-label gate; functional tests were not executed. Maintainer: add run-ci and trigger required CI; yihou/delegate: handle actual test/review findings.
 
-- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428923967/job/125222277028); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428919961/job/125222266334); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428923814/job/125222275548); [pr-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428924043/job/125222431779); [pr-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428923807/job/125222392390); remaining checks are in the linked PR and JSON snapshot.
+- Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428919961/job/125761342257); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428923814/job/125761276044); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41428923971/job/125761304612); [pr-test-amd-extra-finish](https://github.com/sgl-project/sglang/actions/runs/41428923814/job/125761321116); [jit-kernel-unit-test-amd (rocm10, linux-mi300-1gpu-sglang)](https://github.com/sgl-project/sglang/actions/runs/41428923967/job/125761555517); remaining checks are in the linked PR and JSON snapshot.
 
 Validation entry points (run in an isolated checkout at the recorded head; allocate a pool node for GPU commands):
 
@@ -194,7 +194,7 @@ PYTHONPATH=python python test/registered/model_loading/test_offloader_shuffled_w
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me.
 - **Base / head:** `main` @ `a6f5bd397be420c12d0690c07e16e241124269e5` / `yihou/rocm-dsa-eager-idle-20261027` @ `11262e1199d914ac1946bdcf3d18f56cc3f45612`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 17, SKIPPED 90, SUCCESS 25. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 17, SKIPPED 90, SUCCESS 25. Reviews: none.
 - **Last curated action:** 2026-11-03: confirmed current Ready state at 11262e1199d9 and passing lint. Historical Draft-gate result needs a fresh authorized attempt, not another Ready conversion. No code change or retry by this audit.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:21:06Z](https://github.com/sgl-project/sglang/pull/46822#issuecomment-6568975144); PR updated 2026-11-02T04:21:06Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -261,7 +261,7 @@ python -m pytest -q python/tests/packaging/test_project.py::test_structured_obje
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `8a455f1b9005a05091ad1825f0f3493bfd74d27d` / `yihou/glm52-dcp-pack-cache-20261027` @ `aed9bc6953d0a95c879cff5151ee20627e9937b3`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 18, SKIPPED 87, SUCCESS 24. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 18, SKIPPED 87, SUCCESS 24. Reviews: none.
 - **Last curated action:** 2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.
 - **Latest GitHub activity:** [Latest comment 2026-10-27T11:02:43Z](https://github.com/sgl-project/sglang/pull/46819#issuecomment-6440276807); PR updated 2026-11-02T04:22:19Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -285,7 +285,7 @@ PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/kvcache/test_p
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `e0c7992d0d48c8085655752de7a9f43bf1862bbc` / `yihou/pd-dcp-sharded-draft-20261027` @ `1bcfc52149011aae08502e9da0620b0325492799`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 17, SKIPPED 88, SUCCESS 23. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 17, SKIPPED 88, SUCCESS 23. Reviews: none.
 - **Last curated action:** 2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:20:34Z](https://github.com/sgl-project/sglang/pull/46824#issuecomment-6568968279); PR updated 2026-11-02T04:21:11Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -307,7 +307,7 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_d
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `e0c7992d0d48c8085655752de7a9f43bf1862bbc` / `yihou/rocm-dcp-pd-config-20261027` @ `21f8e688faa155a1f5abaa53ba3ca03c20900d7c`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 17, SKIPPED 88, SUCCESS 23. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 17, SKIPPED 88, SUCCESS 23. Reviews: none.
 - **Last curated action:** 2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:22:46Z](https://github.com/sgl-project/sglang/pull/46826#issuecomment-6568996226); PR updated 2026-11-02T04:23:15Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -328,10 +328,10 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_confi
 ### [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references.
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
-- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `92635dcf34ef2ba4cc124e7e4f8aa599fd6cd44b`.
+- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `b2c20a410a53f5955a69a46df79bec0909a3c5ba`.
 - **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: SKIPPED 8, SUCCESS 4. Reviews: none.
 - **Last curated action:** 2026-11-02: owner requested permanent Draft for view/track; converted #228 to Draft and added a daily Draft-state guard.
-- **Latest GitHub activity:** PR updated 2026-11-03T03:57:40Z; no issue comments.
+- **Latest GitHub activity:** PR updated 2026-11-03T06:03:53Z; no issue comments.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 2cb681fc1e. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.
