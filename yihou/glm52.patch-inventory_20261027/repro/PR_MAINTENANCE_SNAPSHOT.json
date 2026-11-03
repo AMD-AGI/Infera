@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-03T17:40:02.676879+00:00",
+  "checked_at_utc": "2026-11-03T20:41:38.066781+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -169,8 +169,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "FAILURE": 12,
-        "QUEUED": 5,
+        "FAILURE": 13,
+        "QUEUED": 4,
         "SKIPPED": 62,
         "SUCCESS": 81
       },
@@ -190,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T16:13:19Z",
+      "updatedAt": "2026-11-03T17:40:22Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "4d9174f7b8787aaa2445b4afa91053304b8efa46",
+      "headRefOid": "6dcf5752c87ffa9046c9a261fd5631275e131644",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -2293,7 +2293,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T05:29:29Z",
+      "updatedAt": "2026-11-03T20:35:33Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "795488cd19aaa3cc852d6c87ffe36b88af20ca23",
@@ -2345,10 +2345,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 1,
-        "FAILURE": 7,
-        "QUEUED": 2,
-        "SKIPPED": 63,
-        "SUCCESS": 98
+        "FAILURE": 10,
+        "SKIPPED": 64,
+        "SUCCESS": 99
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -3039,8 +3038,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "FAILURE": 12,
-        "QUEUED": 5,
+        "FAILURE": 13,
+        "QUEUED": 4,
         "SKIPPED": 68,
         "SUCCESS": 89
       },
@@ -3273,8 +3272,8 @@
       "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5349,8 +5348,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "master",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
