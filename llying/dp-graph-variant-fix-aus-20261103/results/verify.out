@@ -113,3 +113,6 @@
 17:19:53 arm-C-prod-1103T1703 probe: n=1319 errors=0 correct=1278/1319 (0.969) bad_start=0 garbled=0 hit_cap=17 empty=0
 17:22:13 arm-C-prod-1103T1703 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
 17:23:31 arm-C-prod-1103T1703 longctx 100000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86389 gsm8k: n=16 correct=15 garbled=0 runaway=0 errors=0 prompt_tokens p50=86345 
+17:35:05 arm-C-prod-1103T1703 lm-eval: strict 0.9673995451099318 flexible 0.9696739954510993
+17:36:52 arm-C-prod-1103T1703 down
+17:37:55 c104 up

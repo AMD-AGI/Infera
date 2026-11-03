@@ -155,10 +155,10 @@ PASS  C-prod@1103T1703 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
 PASS  C-prod@1103T1703 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
 PASS  C-prod@1103T1703 longctx 100000:32 needle 16/16 (need >= 15), garbled 0
 PASS  C-prod@1103T1703 longctx 100000:32 gsm8k 15/16 (need >= 15), garbled 0
-FAIL  C-prod@1103T1703 lm-eval strict 0 flexible 0 (>= 0.96)
+PASS  C-prod@1103T1703 lm-eval strict 0.9673995451099318 flexible 0.9696739954510993 (>= 0.96)
 --- aggregates
 PASS  control A reproduces in this session: bad_start 6 + garbled 20 over 400 prompts (need >= 3)
 PASS  B gates: bad_start 0 (<= 1), garbled 0 (<= 1) over 600 prompts, 3 gates
 PASS  C gates: garbled 0 (0), bad_start 0 (<= 1) over 400 prompts
 --- verdict
-1 FAIL lines
+0 FAIL lines (all criteria met)

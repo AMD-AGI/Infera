@@ -1,0 +1,573 @@
+From 7ae1a4465324906cf870a7ba55a4381d779c17d8 Mon Sep 17 00:00:00 2001
+From: liyingli <liyingli@amd.com>
+Date: Tue, 3 Nov 2026 17:40:37 +0000
+Subject: [PATCH] [AMD] DSA decode graphs: one variant on every attention-DP
+ rank, one verify graph
+
+On HIP, DSA models capture a dense (k-only indexer) and a sparse decode graph per
+batch size, and each rank picked its variant from its own longest sequence. Under DP
+attention the ranks replay in lockstep and the collectives captured inside the graphs
+pair up across ranks; some register their graph's input buffers, so a rank replaying
+the other variant reads its peer's stale buffers (garbled output on GLM-5.2 with
+in-graph aiter all-gather / reduce-scatter, MI355X PD decode TP4 + DP4 attention).
+
+- Target-verify captures hold one DSA graph: the dense variant only skips the
+  decode/idle indexer logits, so both verify graphs ran the same kernels (and select()
+  synced seq_lens to the host on every verify replay).
+- The MLP sync row gains an upper bound of the rank's longest decode sequence (host
+  lengths only); the maximum over ranks rides ScheduleBatch / ForwardBatch as
+  dp_decode_graph_max_seq_len and the DSA, sequence-length bucket and DSv4.1
+  candidate variants select from it in decode/idle. No new collective, no device read.
+  Without the sync (no DP attention) the per-rank rule is unchanged.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../srt/batch_overlap/two_batch_overlap.py    |   1 +
+ .../srt/layers/attention/graph_variants.py    |  40 ++-
+ python/sglang/srt/managers/schedule_batch.py  |   4 +
+ .../managers/scheduler_components/dp_attn.py  |  29 ++
+ .../srt/model_executor/forward_batch_info.py  |   3 +
+ .../runner/decode_cuda_graph_runner.py        |   4 +-
+ .../test_graph_variants_dp_consistency.py     | 269 ++++++++++++++++++
+ 7 files changed, 347 insertions(+), 3 deletions(-)
+ create mode 100644 test/registered/unit/layers/test_graph_variants_dp_consistency.py
+
+diff --git a/python/sglang/srt/batch_overlap/two_batch_overlap.py b/python/sglang/srt/batch_overlap/two_batch_overlap.py
+index 98b47fd..62e7f6c 100644
+--- a/python/sglang/srt/batch_overlap/two_batch_overlap.py
++++ b/python/sglang/srt/batch_overlap/two_batch_overlap.py
+@@ -769,6 +769,7 @@ class TboForwardBatchPreparer:
+             "can_run_dp_draft_cuda_graph",
+             "can_run_dp_prefill_cuda_graph",
+             "dp_prefill_cuda_graph_max_prefix_len",
++            "dp_decode_graph_max_seq_len",
+             "dp_padding_mode",
+             "global_forward_mode",
+             "is_prefill_only",
+diff --git a/python/sglang/srt/layers/attention/graph_variants.py b/python/sglang/srt/layers/attention/graph_variants.py
+index 770c0b7..86e19a1 100644
+--- a/python/sglang/srt/layers/attention/graph_variants.py
++++ b/python/sglang/srt/layers/attention/graph_variants.py
+@@ -25,6 +25,21 @@ class AttentionGraphVariants(Protocol):
+         ...
+ 
+ 
++def dp_decode_max_seq_len(forward_batch: ForwardBatch) -> Optional[int]:
++    """The step's longest sequence agreed by all attention-DP ranks, for decode/idle.
++
++    Under DP attention the ranks replay their graphs in lockstep and the collectives
++    captured inside them pair up across ranks (some register their graph's input
++    buffers), so every rank must replay the same variant. A per-rank length picks
++    different variants when the ranks hold different requests (an idle rank has
++    none). The scheduler's MLP sync gathers an upper bound per rank and stores the
++    maximum on the batch; None without the sync (no DP attention) or outside decode.
++    """
++    if not forward_batch.forward_mode.is_decode_or_idle():
++        return None
++    return getattr(forward_batch, "dp_decode_graph_max_seq_len", None)
++
++
+ @dataclass(frozen=True)
+ class DsaGraphVariants:
+     index_topk: int
+@@ -32,6 +47,9 @@ class DsaGraphVariants:
+     capture_labels: ClassVar[tuple[str, ...]] = (DSA_DENSE, DSA_SPARSE)
+ 
+     def select(self, forward_batch: ForwardBatch) -> str:
++        dp_max_seq_len = dp_decode_max_seq_len(forward_batch)
++        if dp_max_seq_len is not None:
++            return DSA_DENSE if dp_max_seq_len <= self.index_topk else DSA_SPARSE
+         seq_lens_cpu = forward_batch.seq_lens_cpu
+         if seq_lens_cpu is not None and seq_lens_cpu.numel() > 0:
+             # Plain decode maintains this host mirror without a D2H sync.
+@@ -58,17 +76,26 @@ class SeqLenBucketGraphVariants(msgspec.Struct, frozen=True):
+         return tuple(label for label, _ in self.graph_limits) + (self.fallback_label,)
+ 
+     def select(self, forward_batch: ForwardBatch) -> str:
++        max_seq_len = dp_decode_max_seq_len(forward_batch)
+         # Only the host mirror is read: a device max would sync every replay.
+         lengths = forward_batch.seq_lens_cpu
+-        if lengths is not None and lengths.device.type == "cpu" and lengths.numel() > 0:
++        if (
++            max_seq_len is None
++            and lengths is not None
++            and lengths.device.type == "cpu"
++            and lengths.numel() > 0
++        ):
+             max_seq_len = int(lengths.max())
++        if max_seq_len is not None:
+             for label, limit in self.graph_limits:
+                 if max_seq_len <= limit:
+                     return label
+         return self.fallback_label
+ 
+ 
+-def create_attention_graph_variants(hf_config) -> Optional[AttentionGraphVariants]:
++def create_attention_graph_variants(
++    hf_config, capture_forward_mode=None
++) -> Optional[AttentionGraphVariants]:
+     from sglang.srt.configs.model_config import (
+         get_dsa_index_kpool,
+         get_dsa_index_topk,
+@@ -81,6 +108,10 @@ def create_attention_graph_variants(hf_config) -> Optional[AttentionGraphVariant
+         # Capture it once, keeping the regular DSA dense/sparse split intact.
+         if get_dsa_index_kpool(hf_config) > 1:
+             return None
++        # The dense variant only changes the decode/idle indexer (k-only skip); a
++        # target-verify capture runs the full indexer in both, so one graph serves.
++        if capture_forward_mode is not None and not capture_forward_mode.is_decode():
++            return None
+ 
+         index_topk = get_dsa_index_topk(hf_config)
+         logger.info(
+@@ -111,6 +142,11 @@ class Dsv41CandidateGraphVariants:
+     verify_extra_tokens: int = 0
+ 
+     def select(self, forward_batch: ForwardBatch) -> str:
++        # Decode only: a DSpark target verify stages its metadata for the variant of
++        # its own committed lengths (select_for_max_seq_len) before the replay.
++        dp_max_seq_len = dp_decode_max_seq_len(forward_batch)
++        if dp_max_seq_len is not None:
++            return self.select_for_max_seq_len(dp_max_seq_len)
+         lengths = getattr(forward_batch, "seq_lens_cpu", None)
+         max_seq_len = None
+         if lengths is not None and lengths.device.type == "cpu" and lengths.numel() > 0:
+diff --git a/python/sglang/srt/managers/schedule_batch.py b/python/sglang/srt/managers/schedule_batch.py
+index 695b4ab..7c45238 100644
+--- a/python/sglang/srt/managers/schedule_batch.py
++++ b/python/sglang/srt/managers/schedule_batch.py
+@@ -2025,6 +2025,9 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
+     can_run_dp_draft_cuda_graph: bool = False
+     can_run_dp_prefill_cuda_graph: bool = False
+     dp_prefill_cuda_graph_max_prefix_len: int = 0
++    # Longest sequence of the step across attention-DP ranks (MLP sync), for a
++    # rank-consistent decode graph variant; None when the ranks did not sync.
++    dp_decode_graph_max_seq_len: Optional[int] = None
+     tbo_split_seq_index: Optional[int] = None
+     # Rank-consistent forward mode for the recv skipper, derived from the MLP
+     # sync all-gather (the TBO-only `global_forward_mode` is None without TBO).
+@@ -3459,6 +3462,7 @@ class ScheduleBatch(ScheduleBatchDisaggregationDecodeMixin):
+             can_run_dp_draft_cuda_graph=self.can_run_dp_draft_cuda_graph,
+             can_run_dp_prefill_cuda_graph=self.can_run_dp_prefill_cuda_graph,
+             dp_prefill_cuda_graph_max_prefix_len=self.dp_prefill_cuda_graph_max_prefix_len,
++            dp_decode_graph_max_seq_len=self.dp_decode_graph_max_seq_len,
+             is_extend_in_batch=self.is_extend_in_batch,
+             is_prefill_only=self.is_prefill_only,
+             seq_lens_cpu=self.seq_lens_cpu,
+diff --git a/python/sglang/srt/managers/scheduler_components/dp_attn.py b/python/sglang/srt/managers/scheduler_components/dp_attn.py
+index 09eb111..de65636 100644
+--- a/python/sglang/srt/managers/scheduler_components/dp_attn.py
++++ b/python/sglang/srt/managers/scheduler_components/dp_attn.py
+@@ -45,6 +45,7 @@ from sglang.srt.runtime_context import (
+     get_parallel,
+     get_schedule,
+     get_spec,
++    max_speculative_num_draft_tokens,
+ )
+ from sglang.srt.speculative.spec_info import SpeculativeAlgorithm
+ from sglang.srt.utils.common import require_mlp_tp_gather
+@@ -161,6 +162,8 @@ class MLPSyncBatchInfo:
+     is_health_check: bool = False
+     # Causal (query, key) pairs this rank attends this step.
+     attention_pairs: int = 0
++    # Upper bound of the longest sequence in this rank's decode step (0 without one).
++    decode_graph_max_seq_len: int = 0
+ 
+     # some gathered elements
+     tp0_info_cpu: torch.Tensor = None
+@@ -169,6 +172,7 @@ class MLPSyncBatchInfo:
+     global_num_tokens: list[int] = None
+     global_num_tokens_for_logprob: list[int] = None
+     global_attention_pairs: list[int] = None
++    global_decode_graph_max_seq_len: Optional[int] = None
+     tbo_split_seq_index: torch.Tensor = None
+     global_forward_mode: int = None
+     dp_cooperation_info: Optional[DPCooperationInfo] = None
+@@ -187,6 +191,7 @@ class MLPSyncBatchInfo:
+                 int(self.can_run_draft_cuda_graph),
+                 int(self.is_health_check),
+                 self.attention_pairs,
++                self.decode_graph_max_seq_len,
+             ],
+             device=device,
+             dtype=dtype,
+@@ -206,6 +211,7 @@ class MLPSyncBatchInfo:
+                 1,  # can_run_draft_cuda_graph
+                 0,  # is_health_check
+                 0,  # attention_pairs
++                0,  # decode_graph_max_seq_len
+             ],
+             device=device,
+             dtype=dtype,
+@@ -217,6 +223,7 @@ class MLPSyncBatchInfo:
+         self.global_num_tokens = [self.num_tokens]
+         self.global_num_tokens_for_logprob = [self.num_tokens_for_logprob]
+         self.global_attention_pairs = [self.attention_pairs]
++        self.global_decode_graph_max_seq_len = self.decode_graph_max_seq_len
+         self.any_health_check = self.is_health_check
+         if _ENABLE_METRICS_DP_ATTENTION:
+             self.dp_cooperation_info = DPCooperationInfo.create(
+@@ -294,6 +301,7 @@ class MLPSyncBatchInfo:
+         self.can_run_draft_cuda_graph = bool(tp0_info_cpu[:, 8].min())
+         self.any_health_check = bool(tp0_info_cpu[:, 9].max())
+         self.global_attention_pairs = tp0_info_cpu[:, 10].tolist()
++        self.global_decode_graph_max_seq_len = int(tp0_info_cpu[:, 11].max())
+         self.sync_wait_seconds = time.perf_counter() - sync_start
+         if _ENABLE_METRICS_DP_ATTENTION:
+             self.dp_cooperation_info = DPCooperationInfo.create(
+@@ -342,6 +350,9 @@ def _update_gather_batch(
+         batch.is_extend_in_batch = mlp_sync_info.is_extend_in_batch
+         batch.tbo_split_seq_index = mlp_sync_info.tbo_split_seq_index
+         batch.global_forward_mode = mlp_sync_info.global_forward_mode
++    batch.dp_decode_graph_max_seq_len = (
++        None if skip_global_metadata else mlp_sync_info.global_decode_graph_max_seq_len
++    )
+ 
+     # Check forward mode for cuda graph
+     batch.can_run_decode_cuda_graph = mlp_sync_info.can_run_decode_cuda_graph
+@@ -497,6 +508,23 @@ def _local_attention_pairs(local_batch: Optional[ScheduleBatch]) -> int:
+     return _prefill_attention_pairs(local_batch)
+ 
+ 
++def _local_decode_graph_max_seq_len(local_batch: Optional[ScheduleBatch]) -> int:
++    """Upper bound of the longest sequence this rank's decode step attends, read on the
++    host. Without a host seq_lens mirror (speculative acceptance in flight, or a merge
++    that dropped it) the committed lengths lag the device by up to one unprocessed step
++    plus this step's tokens, so reserve two steps' width."""
++    if (
++        local_batch is None
++        or not local_batch.forward_mode.is_decode()
++        or local_batch.batch_size() == 0
++    ):
++        return 0
++    if local_batch.seq_lens_cpu is not None and local_batch.seq_lens_cpu.numel() > 0:
++        return int(local_batch.seq_lens_cpu.max())
++    step_width = max(max_speculative_num_draft_tokens() or 0, 1)
++    return max(req.seqlen for req in local_batch.reqs) + 2 * step_width
++
++
+ class DPSyncWaitCarry:
+     """MLP-sync wait of batch-less gathers, folded into the next recorded step.
+ 
+@@ -641,6 +669,7 @@ def prepare_mlp_sync_batch_raw(
+         # Gathered unconditionally like the other columns, so a per-process
+         # metrics flag cannot make ranks disagree on what the tensor holds.
+         attention_pairs=_local_attention_pairs(local_batch),
++        decode_graph_max_seq_len=_local_decode_graph_max_seq_len(local_batch),
+     )
+ 
+     if num_dp_ranks == 1:
+diff --git a/python/sglang/srt/model_executor/forward_batch_info.py b/python/sglang/srt/model_executor/forward_batch_info.py
+index cb0c57e..9d5782e 100644
+--- a/python/sglang/srt/model_executor/forward_batch_info.py
++++ b/python/sglang/srt/model_executor/forward_batch_info.py
+@@ -499,6 +499,8 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
+     can_run_dp_draft_cuda_graph: bool = False
+     can_run_dp_prefill_cuda_graph: bool = False
+     dp_prefill_cuda_graph_max_prefix_len: int = 0
++    # Rank-consistent decode graph variant input; see ScheduleBatch.
++    dp_decode_graph_max_seq_len: Optional[int] = None
+     global_forward_mode: Optional[ForwardMode] = None
+ 
+     # Current layer-stack invocation; each TBO child owns a separate stream.
+@@ -1014,6 +1016,7 @@ class ForwardBatch(ForwardBatchDeepSeekMHAMixin):
+             can_run_dp_draft_cuda_graph=batch.can_run_dp_draft_cuda_graph,
+             can_run_dp_prefill_cuda_graph=batch.can_run_dp_prefill_cuda_graph,
+             dp_prefill_cuda_graph_max_prefix_len=batch.dp_prefill_cuda_graph_max_prefix_len,
++            dp_decode_graph_max_seq_len=batch.dp_decode_graph_max_seq_len,
+             global_forward_mode=batch.global_forward_mode,
+             is_prefill_only=batch.is_prefill_only,
+             contains_last_prefill_chunk=contains_last_prefill_chunk,
+diff --git a/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py b/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py
+index 75f039e..b9f69d0 100644
+--- a/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py
++++ b/python/sglang/srt/model_executor/runner/decode_cuda_graph_runner.py
+@@ -381,7 +381,9 @@ class DecodeCudaGraphRunner(BaseCudaGraphRunner):
+         self.attention_graph_variants: Optional[AttentionGraphVariants] = (
+             self.dllm_attention.graph_variants(self.captured_req_width)
+             if self.dllm_attention is not None and self.is_dllm
+-            else create_attention_graph_variants(model_runner.model_config.hf_config)
++            else create_attention_graph_variants(
++                model_runner.model_config.hf_config, self.capture_forward_mode
++            )
+             or create_dsv41_candidate_graph_variants(
+                 model_runner, self.capture_forward_mode, self.captured_req_width
+             )
+diff --git a/test/registered/unit/layers/test_graph_variants_dp_consistency.py b/test/registered/unit/layers/test_graph_variants_dp_consistency.py
+new file mode 100644
+index 0000000..8f04179
+--- /dev/null
++++ b/test/registered/unit/layers/test_graph_variants_dp_consistency.py
+@@ -0,0 +1,269 @@
++"""Decode graph variants under DP attention: every rank replays the variant of the
++step's agreed longest sequence (the MLP-sync bound), never reading device lengths,
++and a DSA target-verify capture holds a single graph."""
++
++import dataclasses
++import inspect
++import unittest
++from types import SimpleNamespace
++from unittest.mock import patch
++
++import torch
++
++from sglang.srt.layers.attention import graph_variants as gv
++from sglang.srt.managers.schedule_batch import ScheduleBatch
++from sglang.srt.managers.scheduler_components import dp_attn
++from sglang.srt.model_executor.forward_batch_info import ForwardBatch
++from sglang.srt.model_executor.forward_mode import ForwardMode
++from sglang.test.ci.ci_register import register_cpu_ci
++from sglang.test.test_utils import CustomTestCase
++
++register_cpu_ci(est_time=10, suite="base-a-test-cpu")
++
++
++class _NoDeviceRead:
++    """Stands in for device lengths: select() must not touch them."""
++
++    def __getattr__(self, name):
++        raise AssertionError(f"select() read a device length tensor ({name})")
++
++
++def _batch(mode, bound, seq_lens_cpu=None):
++    return SimpleNamespace(
++        forward_mode=mode,
++        dp_decode_graph_max_seq_len=bound,
++        seq_lens_cpu=_NoDeviceRead() if seq_lens_cpu is None else seq_lens_cpu,
++        seq_lens=_NoDeviceRead(),
++        spec_info=None,
++    )
++
++
++class TestDsaGraphVariantsUnderDP(CustomTestCase):
++    def setUp(self):
++        self.variants = gv.DsaGraphVariants(index_topk=2048)
++
++    def test_ranks_with_different_lengths_pick_one_variant(self):
++        for local in (torch.tensor([7]), torch.tensor([9000])):
++            self.assertEqual(
++                self.variants.select(_batch(ForwardMode.DECODE, 2048, local)),
++                gv.DSA_DENSE,
++            )
++            self.assertEqual(
++                self.variants.select(_batch(ForwardMode.DECODE, 2049, local)),
++                gv.DSA_SPARSE,
++            )
++
++    def test_idle_rank_follows_the_bound(self):
++        # Without the bound an idle rank always replays sparse, unlike a busy
++        # short-context peer that replays dense.
++        self.assertEqual(
++            self.variants.select(_batch(ForwardMode.IDLE, 100)), gv.DSA_DENSE
++        )
++        self.assertEqual(
++            self.variants.select(_batch(ForwardMode.IDLE, 0)), gv.DSA_DENSE
++        )
++
++    def test_without_sync_keeps_the_local_rule(self):
++        self.assertEqual(
++            self.variants.select(
++                _batch(ForwardMode.DECODE, None, torch.tensor([5, 2055]))
++            ),
++            gv.DSA_SPARSE,
++        )
++        self.assertEqual(
++            self.variants.select(
++                _batch(ForwardMode.DECODE, None, torch.tensor([5, 9]))
++            ),
++            gv.DSA_DENSE,
++        )
++
++    def test_target_verify_capture_holds_one_graph(self):
++        # Dense only skips the decode/idle indexer logits; verify runs the full
++        # indexer in both, so a pair would only double the captures.
++        with (
++            patch("sglang.srt.utils.is_hip", return_value=True),
++            patch("sglang.srt.configs.model_config.is_deepseek_dsa", return_value=True),
++            patch(
++                "sglang.srt.configs.model_config.get_dsa_index_kpool", return_value=1
++            ),
++            patch(
++                "sglang.srt.configs.model_config.get_dsa_index_topk", return_value=2048
++            ),
++        ):
++            hf_config = SimpleNamespace()
++            self.assertIsNone(
++                gv.create_attention_graph_variants(hf_config, ForwardMode.TARGET_VERIFY)
++            )
++            self.assertIsInstance(
++                gv.create_attention_graph_variants(hf_config, ForwardMode.DECODE),
++                gv.DsaGraphVariants,
++            )
++            self.assertIsInstance(
++                gv.create_attention_graph_variants(hf_config), gv.DsaGraphVariants
++            )
++
++
++class TestLengthKeyedVariantsUnderDP(CustomTestCase):
++    def test_seq_len_buckets_follow_the_bound(self):
++        variants = gv.SeqLenBucketGraphVariants(
++            graph_limits=(("p1", 4096), ("p4", 16384)), fallback_label="pmax"
++        )
++        decode = ForwardMode.DECODE
++        self.assertEqual(
++            variants.select(_batch(decode, 4096, torch.tensor([20000]))), "p1"
++        )
++        self.assertEqual(variants.select(_batch(decode, 5000, torch.tensor([7]))), "p4")
++        self.assertEqual(
++            variants.select(_batch(decode, 99999, torch.tensor([7]))), "pmax"
++        )
++        self.assertEqual(variants.select(_batch(ForwardMode.IDLE, 0)), "p1")
++        self.assertEqual(variants.select(_batch(decode, None, torch.tensor([7]))), "p1")
++
++    def test_dsv41_candidates_follow_the_bound_in_decode_only(self):
++        variants = gv.Dsv41CandidateGraphVariants(
++            graph_limits=(
++                ("candidate_all", 2048),
++                (gv.DSV41_CANDIDATE_UNFILTERED, 16384),
++            ),
++            capture_labels=(
++                "candidate_all",
++                gv.DSV41_CANDIDATE_UNFILTERED,
++                gv.DSV41_CANDIDATE_FILTERED,
++            ),
++        )
++        decode = ForwardMode.DECODE
++        self.assertEqual(
++            variants.select(_batch(decode, 2000, torch.tensor([30000]))),
++            "candidate_all",
++        )
++        self.assertEqual(
++            variants.select(_batch(decode, 20000, torch.tensor([7]))),
++            gv.DSV41_CANDIDATE_FILTERED,
++        )
++        # A verify replay keeps the variant its early-staged metadata was built for.
++        self.assertEqual(
++            variants.select(
++                _batch(ForwardMode.TARGET_VERIFY, 2000, torch.tensor([30000]))
++            ),
++            gv.DSV41_CANDIDATE_FILTERED,
++        )
++
++
++class TestMLPSyncDecodeBound(CustomTestCase):
++    def _info(self, bound):
++        return dp_attn.MLPSyncBatchInfo(
++            num_dp_ranks=1,
++            tp_size=1,
++            cp_size=1,
++            num_tokens=3,
++            num_tokens_for_logprob=3,
++            can_run_decode_cuda_graph=True,
++            can_run_draft_cuda_graph=True,
++            can_run_prefill_cuda_graph=False,
++            is_extend_in_batch=False,
++            local_can_run_tbo=False,
++            local_forward_mode=ForwardMode.DECODE.value,
++            decode_graph_max_seq_len=bound,
++        )
++
++    def test_sync_row_carries_the_bound(self):
++        info = self._info(1234)
++        local, fallback = (
++            info._get_local_tensor("cpu"),
++            info._get_fallback_tensor("cpu"),
++        )
++        self.assertEqual(local.numel(), fallback.numel())
++        self.assertEqual(int(local[-1]), 1234)
++        self.assertEqual(int(fallback[-1]), 0)
++        info.finalize_local()
++        self.assertEqual(info.global_decode_graph_max_seq_len, 1234)
++
++    def test_gathered_bound_is_the_maximum_over_ranks(self):
++        bounds = (10, 3000, 0, 512)
++        info = dataclasses.replace(self._info(bounds[0]), num_dp_ranks=len(bounds))
++        rows = torch.cat([self._info(b)._get_local_tensor("cpu") for b in bounds])
++
++        def exchange(flat, local, group):
++            flat.copy_(rows)
++
++        parallel = SimpleNamespace(
++            tp_group=SimpleNamespace(
++                active_ranks_cpu=torch.ones(len(bounds), dtype=torch.int32)
++            )
++        )
++        with (
++            patch.object(dp_attn, "exchange_sync_rows", side_effect=exchange),
++            patch.object(dp_attn, "get_parallel", return_value=parallel),
++        ):
++            info.all_gather(device="cpu", group=None)
++        self.assertEqual(info.global_decode_graph_max_seq_len, 3000)
++
++    def test_local_bound(self):
++        local = dp_attn._local_decode_graph_max_seq_len
++        decode = SimpleNamespace(
++            forward_mode=ForwardMode.DECODE,
++            batch_size=lambda: 2,
++            seq_lens_cpu=torch.tensor([9, 4000]),
++            reqs=[],
++        )
++        self.assertEqual(local(decode), 4000)
++        # Without the host mirror: committed lengths plus two steps' width.
++        decode.seq_lens_cpu = None
++        decode.reqs = [SimpleNamespace(seqlen=100), SimpleNamespace(seqlen=3990)]
++        with patch.object(dp_attn, "max_speculative_num_draft_tokens", return_value=4):
++            self.assertEqual(local(decode), 3998)
++        with patch.object(
++            dp_attn, "max_speculative_num_draft_tokens", return_value=None
++        ):
++            self.assertEqual(local(decode), 3992)
++        idle = SimpleNamespace(
++            forward_mode=ForwardMode.IDLE,
++            batch_size=lambda: 0,
++            seq_lens_cpu=None,
++            reqs=[],
++        )
++        self.assertEqual(local(idle), 0)
++        self.assertEqual(local(None), 0)
++        extend = SimpleNamespace(
++            forward_mode=ForwardMode.EXTEND,
++            batch_size=lambda: 2,
++            seq_lens_cpu=torch.tensor([9]),
++            reqs=[],
++        )
++        self.assertEqual(local(extend), 0)
++
++    def test_update_gather_batch_puts_the_bound_on_the_batch(self):
++        info = self._info(1234)
++        info.finalize_local()
++        batch = SimpleNamespace()
++        dp_attn._update_gather_batch(batch, info, require_mlp_tp_gather=True)
++        self.assertEqual(batch.dp_decode_graph_max_seq_len, 1234)
++        dp_attn._update_gather_batch(
++            batch, info, require_mlp_tp_gather=True, skip_global_metadata=True
++        )
++        self.assertIsNone(batch.dp_decode_graph_max_seq_len)
++
++    def test_bound_reaches_the_forward_batch(self):
++        fields = {f.name for f in dataclasses.fields(ScheduleBatch)}
++        self.assertIn("dp_decode_graph_max_seq_len", fields)
++        self.assertRegex(
++            inspect.getsource(ScheduleBatch.copy),
++            r"dp_decode_graph_max_seq_len=\s*self\.dp_decode_graph_max_seq_len",
++        )
++        self.assertIn(
++            "dp_decode_graph_max_seq_len",
++            {f.name for f in dataclasses.fields(ForwardBatch)},
++        )
++        self.assertRegex(
++            inspect.getsource(ForwardBatch.init_new),
++            r"dp_decode_graph_max_seq_len=\s*batch\.dp_decode_graph_max_seq_len",
++        )
++        from sglang.srt.batch_overlap import two_batch_overlap
++
++        self.assertIn(
++            '"dp_decode_graph_max_seq_len"', inspect.getsource(two_batch_overlap)
++        )
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.34.1
+
