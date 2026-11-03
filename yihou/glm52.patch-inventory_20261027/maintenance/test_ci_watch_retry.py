@@ -56,6 +56,11 @@ class FakeGitHub:
         self.post_error = None
         self.pr_reads = 0
         self.race_head = False
+        self.cooldown_history = []
+        self.cooldown_race_history = None
+        self.cooldown_job_data = {}
+        self.cooldown_reads = 0
+        self.policy_error = None
 
     def actor(self):
         return self.actor_name
@@ -81,6 +86,20 @@ class FakeGitHub:
 
     def job_log(self, job_id):
         return self.gate_log
+
+    def cooldown_policy(self):
+        if self.policy_error:
+            raise self.policy_error
+        return {"revision": "c" * 40, "minutes": 120}
+
+    def cooldown_runs(self, since):
+        self.cooldown_reads += 1
+        if self.cooldown_reads > 1 and self.cooldown_race_history is not None:
+            return copy.deepcopy(self.cooldown_race_history)
+        return copy.deepcopy(self.cooldown_history)
+
+    def cooldown_jobs(self, run_id):
+        return copy.deepcopy(self.cooldown_job_data.get(run_id, []))
 
     def post(self, number, body_file):
         # Assert ordering at the boundary where a real network mutation occurs.
@@ -338,6 +357,187 @@ class RetryTests(unittest.TestCase):
         self.gh.job_data[RUN] = [job("base-a-test-cpu", "failure")]
         self.assertEqual(self.call(reason="transient")["status"], "sent")
         self.assertEqual(self.call(reason="transient")["reason"], "run_attempt_already_reserved")
+
+    def cooldown_case(self, age=7201):
+        self.gh.run_data["conclusion"] = "failure"
+        self.gh.job_data[RUN] = [job("call-gate / pr-gate", "failure")]
+        created = retry.utc(NOW - age).replace("+00:00", "Z")
+        self.gh.gate_log = (
+            f"2026-11-03T00:00:00Z ##[error]User '{retry.AUTHOR}' already triggered "
+            f"'PR Test Base' via 'pull_request' at {created}. "
+            "Please wait 120 minutes before triggering again.\n"
+        )
+
+    def global_run(
+        self, run_id=RUN + 20, age=10, actor=retry.AUTHOR, triggering="github-actions[bot]"
+    ):
+        return {
+            "id": run_id,
+            "created_at": retry.utc(NOW - age),
+            "path": retry.BASE_PATH,
+            "event": "pull_request",
+            "actor": {"login": actor},
+            "triggering_actor": {"login": triggering},
+        }
+
+    def assert_no_retry_reserved(self):
+        self.assertFalse(self.gh.posts)
+        self.assertEqual(json.loads((self.runtime / "retry_state.json").read_text())["retries"], [])
+
+    def test_future_cooldown_deadline_blocks_without_spending_quota(self):
+        self.cooldown_case(age=7100)
+        outcome = self.assert_blocked("author_cooldown_active", reason="stale_gate")
+        self.assertEqual(outcome["retry_after"], retry.utc(NOW + 101))
+        self.assertEqual(self.gh.cooldown_reads, 0)
+        self.assert_no_retry_reserved()
+
+    def test_exact_cooldown_boundary_is_still_blocked_then_expires(self):
+        self.cooldown_case(age=7200)
+        self.assert_blocked("author_cooldown_active", reason="stale_gate")
+        self.assert_no_retry_reserved()
+        result = self.call(reason="stale_gate", now=NOW + 1)
+        self.assertEqual(result["status"], "sent")
+        self.assertEqual(self.gh.cooldown_reads, 2)
+
+    def test_cooldown_rejects_echo_malformed_and_wrong_author(self):
+        self.cooldown_case()
+        valid = self.gh.gate_log
+        variants = [
+            valid.replace("##[error]User", 'echo "##[error]User'),
+            valid.replace(retry.AUTHOR, "another-author"),
+            valid.replace("120 minutes", "unknown minutes"),
+            valid.replace("via 'pull_request'", "via 'workflow_dispatch'"),
+            valid.replace("PR Test Base", "Other Workflow"),
+        ]
+        for value in variants:
+            with self.subTest(value=value):
+                self.gh.gate_log = value
+                self.assert_blocked("gate_not_proven_stale", reason="stale_gate")
+        self.assert_no_retry_reserved()
+
+    def test_new_countable_run_for_actor_or_triggering_actor_extends_cooldown(self):
+        self.cooldown_case()
+        for actor, triggering in ((retry.AUTHOR, "github-actions[bot]"), ("someone", retry.AUTHOR)):
+            with self.subTest(actor=actor):
+                run = self.global_run(actor=actor, triggering=triggering)
+                self.gh.cooldown_history = [run]
+                self.gh.cooldown_job_data[run["id"]] = [job("base-a-test-cpu / unit", "success")]
+                outcome = self.assert_blocked("author_cooldown_active", reason="stale_gate")
+                self.assertEqual(outcome["blocking_run_id"], run["id"])
+                self.assertEqual(outcome["retry_after"], retry.utc(NOW + 7191))
+        self.assert_no_retry_reserved()
+
+    def test_global_screen_ignores_current_old_other_author_and_gate_only_runs(self):
+        self.cooldown_case()
+        current = self.global_run(run_id=RUN)
+        old = self.global_run(run_id=RUN + 1, age=8000)
+        other = self.global_run(run_id=RUN + 2, actor="other", triggering="other")
+        gated = self.global_run(run_id=RUN + 3)
+        self.gh.cooldown_history = [current, old, other, gated]
+        for item in (current, old, other):
+            self.gh.cooldown_job_data[item["id"]] = [job("actual-test", "success")]
+        self.gh.cooldown_job_data[gated["id"]] = [
+            job("check-changes / check-changes", "success"),
+            job("call-gate / pr-gate", "failure"),
+            job("pr-test-finish", "failure"),
+            job("actual-test", "cancelled"),
+            job("pending-test", None),
+        ]
+        self.assertEqual(self.call(reason="stale_gate")["status"], "sent")
+
+    def test_global_screen_matches_upstream_conservative_sixth_run_limit(self):
+        self.cooldown_case()
+        self.gh.cooldown_history = [self.global_run(run_id=RUN + i + 1) for i in range(6)]
+        outcome = self.assert_blocked("author_cooldown_history_ambiguous", reason="stale_gate")
+        self.assertIn("retry_after", outcome)
+        self.assert_no_retry_reserved()
+
+    def test_unavailable_fresh_policy_blocks_without_consuming_quota(self):
+        self.cooldown_case()
+        self.gh.policy_error = ValueError("upstream policy changed")
+        self.assert_blocked("cooldown_policy_or_evidence_unavailable", reason="stale_gate")
+        self.assert_no_retry_reserved()
+
+    def test_missing_global_job_evidence_fails_closed(self):
+        self.cooldown_case()
+        self.gh.cooldown_history = [self.global_run()]
+        with mock.patch.object(self.gh, "cooldown_jobs", side_effect=OSError("API unavailable")):
+            self.assert_blocked("cooldown_policy_or_evidence_unavailable", reason="stale_gate")
+        self.assert_no_retry_reserved()
+
+    def test_countable_run_appearing_before_send_is_caught(self):
+        self.cooldown_case()
+        run = self.global_run()
+        self.gh.cooldown_race_history = [run]
+        self.gh.cooldown_job_data[run["id"]] = [job("actual-test", "failure")]
+        self.assert_blocked("author_cooldown_active", reason="stale_gate")
+        self.assertEqual(self.gh.cooldown_reads, 2)
+        self.assert_no_retry_reserved()
+
+    def test_head_changed_during_second_global_scan_is_caught(self):
+        self.cooldown_case()
+        original = self.gh.cooldown_runs
+
+        def change_head_on_second_scan(since):
+            result = original(since)
+            if self.gh.cooldown_reads == 2:
+                self.gh.pr_data["head"]["sha"] = OTHER_HEAD
+            return result
+
+        with mock.patch.object(self.gh, "cooldown_runs", side_effect=change_head_on_second_scan):
+            self.assert_blocked("head_changed", reason="stale_gate")
+        self.assertEqual(self.gh.cooldown_reads, 2)
+        self.assert_no_retry_reserved()
+
+    def test_verified_mlx_musa_summaries_do_not_mask_expired_gate(self):
+        self.cooldown_case()
+        for index, backend in enumerate(("mlx", "musa"), start=1):
+            extra = dict(
+                self.gh.run_data,
+                id=RUN + index,
+                path=f".github/workflows/pr-test-{backend}.yml",
+            )
+            self.gh.extra_runs.append(extra)
+            self.gh.job_data[extra["id"]] = [
+                job("call-gate / pr-gate", "failure"),
+                job(f"{backend}-functional-test", "skipped"),
+                job(f"pr-test-{backend}-finish", "failure"),
+            ]
+        self.assertEqual(self.call(reason="stale_gate")["status"], "sent")
+
+    def test_mlx_musa_actual_failures_still_require_triage(self):
+        self.cooldown_case()
+        for backend in ("mlx", "musa"):
+            with self.subTest(backend=backend):
+                extra = dict(
+                    self.gh.run_data,
+                    id=RUN + 1,
+                    path=f".github/workflows/pr-test-{backend}.yml",
+                )
+                self.gh.extra_runs = [extra]
+                self.gh.job_data[extra["id"]] = [
+                    job(f"{backend}-functional-test", "failure"),
+                    job(f"pr-test-{backend}-finish", "failure"),
+                ]
+                outcome = self.assert_blocked("actual_failure_requires_triage", reason="stale_gate")
+                self.assertEqual(outcome["failed_jobs"], [f"{backend}-functional-test"])
+                self.assert_no_retry_reserved()
+
+    def test_cooldown_history_paginates_and_rejects_incomplete_results(self):
+        gh = retry.GitHub()
+        pages = [
+            {"total_count": 2, "workflow_runs": [{"id": 1}]},
+            {"total_count": 2, "workflow_runs": [{"id": 2}]},
+        ]
+        with mock.patch.object(gh, "command", return_value=json.dumps(pages)) as command:
+            self.assertEqual([r["id"] for r in gh.cooldown_runs(NOW - 7200)], [1, 2])
+            args = command.call_args.args[0]
+            self.assertIn("--paginate", args)
+            self.assertIn("event=pull_request", args[-1])
+            self.assertIn("created=%3E%3D", args[-1])
+        with mock.patch.object(gh, "command", return_value=json.dumps(pages[:1])):
+            with self.assertRaises(ValueError):
+                gh.cooldown_runs(NOW - 7200)
 
 
 if __name__ == "__main__":

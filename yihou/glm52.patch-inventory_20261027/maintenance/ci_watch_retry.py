@@ -9,8 +9,10 @@ slot: inspect GitHub and the retained body file instead of sending it again.
 """
 
 import argparse
+import base64
 import datetime as dt
 import fcntl
+import hashlib
 import json
 import os
 import re
@@ -34,11 +36,24 @@ AGGREGATES = {
     "pr-test-amd-finish",
     "pr-test-amd-extra-finish",
     "pr-test-npu-finish",
+    "pr-test-mlx-finish",
+    "pr-test-musa-finish",
     "wait-for-base-a",
     "wait-for-base-b",
     "wait-for-stage-b-amd",
 }
 GATES = {"call-gate / pr-gate", "pr-gate / pr-gate", "pr-gate", "call-gate", "gate"}
+# Audited upstream main fbe54087d6743291a0e6ba076d00eb2305fe4c97.
+# A changed policy requires review; never infer new authorization from it.
+COOLDOWN_GATE_SHA256 = "63e133892c2ef42609c0fdd33f3ae524afad21fb792c9eb3bbf8518916915af1"
+COOLDOWN_GATE_JOBS = ("check-changes", "pr-gate", "call-gate", "pr-test-finish")
+RESOURCE_CONCLUSIONS = {"success", "failure", "timed_out", "action_required"}
+COOLDOWN_ERROR = re.compile(
+    r"^\d{4}-\d\d-\d\dT\S+\s+##\[error\]User '([^']+)' already triggered "
+    r"'PR Test Base' via '(pull_request(?:_target)?)' at "
+    r"(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z)\. "
+    r"Please wait ([1-9]\d*) minutes before triggering again\.$"
+)
 
 
 def utc(timestamp):
@@ -137,6 +152,66 @@ class GitHub:
                 "--allow-escape-sequences",
                 f"repos/{REPO}/actions/jobs/{job_id}/logs",
             ]
+        )
+
+    def source(self, path, revision):
+        data = self.api(f"repos/{REPO}/contents/{path}?ref={revision}")
+        if data.get("encoding") != "base64":
+            raise ValueError("upstream source unavailable")
+        return base64.b64decode(data["content"]).decode("utf-8")
+
+    def cooldown_policy(self):
+        revision = self.api(f"repos/{REPO}/commits/main")["sha"]
+        gate = self.source(".github/workflows/pr-gate.yml", revision)
+        if hashlib.sha256(gate.encode()).hexdigest() != COOLDOWN_GATE_SHA256:
+            raise ValueError("upstream cooldown policy changed")
+        base = self.source(BASE_PATH, revision)
+        # The audited Base caller uses the gate's default 120 minutes. Fail
+        # closed on caller overrides; unrelated Base jobs may evolve normally.
+        section = re.search(r"(?ms)^  call-gate:\n(.*?)(?=^  [\w-]+:|\Z)", base)
+        if (
+            section is None
+            or "    uses: ./.github/workflows/pr-gate.yml\n" not in section[1]
+            or re.search(r"(?m)^    with:", section[1])
+        ):
+            raise ValueError("upstream Base gate caller changed")
+        permissions = json.loads(self.source(".github/CI_PERMISSIONS.json", revision))
+        override = permissions.get(AUTHOR, {}).get("cooldown_interval_minutes", 120)
+        if type(override) not in (int, float) or not 0 <= override <= 100000:
+            raise ValueError("invalid upstream cooldown override")
+        # Higher collaborator permissions could waive the gate. Conservatively
+        # do not assume that exemption; explicit upstream per-user limits apply.
+        return {"revision": revision, "minutes": min(120, override)}
+
+    def cooldown_runs(self, since):
+        lower = dt.datetime.fromtimestamp(since, dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        query = urlencode({"event": "pull_request", "created": ">=" + lower, "per_page": 100})
+        pages = json.loads(
+            self.command(
+                [
+                    "api",
+                    "--paginate",
+                    "--slurp",
+                    f"repos/{REPO}/actions/workflows/pr-test.yml/runs?{query}",
+                ]
+            )
+        )
+        totals = {page["total_count"] for page in pages}
+        runs = [run for page in pages for run in page["workflow_runs"]]
+        # Filtered Actions searches can cap at 1000 results. A changing page
+        # count or duplicate/missing run makes this observation inconclusive.
+        if (
+            len(totals) != 1
+            or next(iter(totals)) >= 1000
+            or len({run["id"] for run in runs}) != len(runs)
+            or len(runs) != next(iter(totals))
+        ):
+            raise ValueError("incomplete upstream cooldown history")
+        return runs
+
+    def cooldown_jobs(self, run_id):
+        return self.pages(
+            f"repos/{REPO}/actions/runs/{run_id}/jobs?filter=latest&per_page=100", "jobs"
         )
 
     def post(self, number, body_file):
@@ -274,6 +349,76 @@ def stale_gate_log(text):
     )
 
 
+def cooldown_error(text):
+    """Read one executed author error, excluding echoed/source-only messages."""
+    text = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", text)
+    matches = [match for line in text.splitlines() if (match := COOLDOWN_ERROR.fullmatch(line))]
+    if len(matches) != 1 or matches[0][1] != AUTHOR:
+        return None
+    match = matches[0]
+    try:
+        minutes = int(match[4])
+        if minutes > 120:
+            return None
+        deadline = parse_time(match[3]) + minutes * 60
+    except (ValueError, OverflowError):
+        return None
+    return {"deadline": deadline, "event": match[2], "minutes": minutes}
+
+
+def cooldown_blocker(gh, run_id, evidence, now):
+    """Mirror the audited gate conservatively, including its five-run limit."""
+    deadline = max(item["deadline"] for item in evidence)
+    # Upstream includes created_at == cutoff, so equality is still blocked.
+    if now <= deadline:
+        return {"reason": "author_cooldown_active", "retry_after": utc(deadline + 1)}
+    try:
+        policy = gh.cooldown_policy()
+        seconds = policy["minutes"] * 60
+        if seconds == 0:
+            return None
+        candidates = []
+        for run in gh.cooldown_runs(now - seconds):
+            if run["id"] == run_id:
+                continue
+            if workflow_path(run) != BASE_PATH or run.get("event") != "pull_request":
+                raise ValueError("unexpected cooldown history scope")
+            if parse_time(run["created_at"]) < now - seconds:
+                continue
+            actors = (
+                (run.get("actor") or {}).get("login"),
+                (run.get("triggering_actor") or {}).get("login"),
+            )
+            if AUTHOR not in actors:
+                if None in actors:
+                    raise ValueError("cooldown actor evidence unavailable")
+                continue
+            candidates.append(run)
+        candidates.sort(key=lambda item: item["id"], reverse=True)
+        for index, run in enumerate(candidates):
+            retry_after = utc(parse_time(run["created_at"]) + seconds + 1)
+            # Upstream assumes the sixth matching run passed its gate. Keep
+            # that conservative behavior even if its jobs might be gate-only.
+            if index >= 5:
+                return {"reason": "author_cooldown_history_ambiguous", "retry_after": retry_after}
+            jobs = gh.cooldown_jobs(run["id"])
+            for job in jobs:
+                name, conclusion = job["name"], job["conclusion"]
+                if any(name == gate or name.startswith(gate + " ") for gate in COOLDOWN_GATE_JOBS):
+                    continue
+                if conclusion in RESOURCE_CONCLUSIONS:
+                    return {
+                        "reason": "author_cooldown_active",
+                        "retry_after": retry_after,
+                        "blocking_run_id": run["id"],
+                    }
+    except Exception:
+        # Unknown source, pagination, permissions or jobs must not spend quota
+        # or cause a comment. The upstream gate remains the final authority.
+        return {"reason": "cooldown_policy_or_evidence_unavailable"}
+    return None
+
+
 def eligible_runs(latest):
     return [
         run
@@ -377,16 +522,33 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
                 failures = actual_failures(jobs)
                 if failures:
                     return finish("blocked", "actual_failure_requires_triage", failed_jobs=failures)
+        cooldown_evidence = []
         if reason == "stale_gate":
             failed_gates = [
                 job
                 for job in base_jobs
                 if job.get("name") in GATES and job.get("conclusion") == "failure"
             ]
-            if not failed_gates or not all(
-                stale_gate_log(gh.job_log(job["id"])) for job in failed_gates
-            ):
+            if not failed_gates:
                 return finish("blocked", "gate_not_proven_stale")
+            for job in failed_gates:
+                log = gh.job_log(job["id"])
+                if stale_gate_log(log):
+                    continue
+                evidence = cooldown_error(log)
+                if evidence is None:
+                    return finish("blocked", "gate_not_proven_stale")
+                cooldown_evidence.append(evidence)
+            if cooldown_evidence:
+                blocker = cooldown_blocker(
+                    gh, run_id, cooldown_evidence, time.time() if now is None else timestamp
+                )
+                if blocker:
+                    return finish(
+                        "blocked",
+                        blocker["reason"],
+                        **{key: value for key, value in blocker.items() if key != "reason"},
+                    )
         for comment in gh.comments(number, timestamp - interval):
             changed = max(parse_time(comment["created_at"]), parse_time(comment["updated_at"]))
             if changed >= timestamp - interval and slash_request(comment):
@@ -394,7 +556,18 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
                     "blocked", "recent_pr_slash_request", comment_url=comment.get("html_url")
                 )
 
-        # Recheck mutable state after potentially slow job/comment reads.
+        if cooldown_evidence:
+            blocker = cooldown_blocker(
+                gh, run_id, cooldown_evidence, time.time() if now is None else timestamp
+            )
+            if blocker:
+                return finish(
+                    "blocked",
+                    blocker["reason"],
+                    **{key: value for key, value in blocker.items() if key != "reason"},
+                )
+
+        # Recheck mutable state after potentially slow cooldown/job/comment reads.
         current_pr = gh.pr(number)
         blocker = pr_blocker(current_pr, expected_head)
         if blocker:

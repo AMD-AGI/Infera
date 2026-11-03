@@ -118,6 +118,16 @@ cooldown, exhausted budget, changed-head detection, or unknown outcome must be
 respected and recorded. Do not edit its state, remove locks, change the config,
 switch accounts, or use another command to bypass these controls.
 
+An upstream author cooldown is separate from the helper's per-head retry
+interval. For a gate blocked by that cooldown, use `stale_gate` only after the
+executed log's deadline has elapsed. The helper must verify fresh upstream
+policy and recent account-wide Base runs; a newer run may extend the wait.
+Record any returned wait or unknown-policy result. Never relabel a cooldown
+refusal as `transient` to get around the check. When several owned PRs are
+eligible, inspect the oldest-created Base run first, request one retry at a
+time, and inspect its handler/new attempt before rechecking the next PR's
+account-wide cooldown. Do not send simultaneous retries for the same author.
+
 Do not directly call `gh run rerun`, post `/rerun-failed-ci` or `/rerun-base-ci`,
 dispatch workflows, or add CI labels. Do not post duplicate comments after an
 ambiguous helper response; inspect the existing action and record uncertainty.

@@ -95,6 +95,10 @@ actions before sending, checks current head/attempt and existing CI labels,
 enforces at least two hours between requests and at most two automated retries
 per unchanged head, and never retries the same attempt twice. Queued/running
 jobs are not retried. Unknown outcomes retain their reservation for inspection.
+An expired upstream author cooldown uses the `stale_gate` path, with fresh
+policy and account-wide Base-run checks before sending. The logged deadline
+is conditional on no newer counted run. Such retries are sequential and never
+use the `transient` path to avoid a cooldown refusal.
 Actual deterministic failures require diagnosis; repeated/unclear failures are
 handed off instead of repeatedly retried. Bot retries are PR-wide, as described
 below. Source fixes use isolated PR checkouts, focused validation and signed
