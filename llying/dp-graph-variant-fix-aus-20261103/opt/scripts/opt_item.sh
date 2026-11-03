@@ -37,8 +37,11 @@ d="${nodes[0]}"; [[ "${nodes[0]%%.*}" == "$p" ]] && d="${nodes[1]}"
 fenic='ip -4 -o addr show dev fenic | awk "{print \$4}" | cut -d/ -f1'
 export PREFILL_NODE_IP="$(bash -c "$fenic")" DECODE_NODE_IP="$(ssh -o BatchMode=yes "$d" "$fenic")" DECODE_SSH="$d"
 [[ -n "$PREFILL_NODE_IP" && -n "$DECODE_NODE_IP" ]] || { say "no fenic address on $p / $d"; exit 1; }
-# Image (built where missing, 11-file check everywhere), InferenceX checkout (a fresh GitHub clone takes ~15 min on AUS).
-b="DOCKER_CONFIG=/tmp/liyingli-docker-anon INFERA_REPO=$INFERA_REPO CTX=/scratch/$USER/ctx-fdbafb60 bash $PKG/scripts/build_image.sh"
+# Image (loaded from TAR, else built, where missing; 11-file check everywhere), InferenceX checkout (a fresh GitHub
+# clone takes ~15 min on AUS). A fresh node lacks the base image layers, and an anonymous pull of them is slow.
+TAR=/perf_apps/liyingli/images/infera-sglang-v0522-fdbafb60.tar
+b="{ docker image inspect $IMAGE >/dev/null 2>&1 || { [[ -s $TAR ]] && docker load -i $TAR | tail -1; }; };"
+b="$b DOCKER_CONFIG=/tmp/liyingli-docker-anon INFERA_REPO=$INFERA_REPO CTX=/scratch/$USER/ctx-fdbafb60 bash $PKG/scripts/build_image.sh"
 anon='mkdir -p /tmp/liyingli-docker-anon && { [[ -s /tmp/liyingli-docker-anon/config.json ]] || echo "{}" > /tmp/liyingli-docker-anon/config.json; }'
 ssh -o BatchMode=yes "$d" "$anon; $b" > "$LOG_ROOT/build-$d.log" 2>&1 &
 bash -c "$anon; $b" > "$LOG_ROOT/build-$p.log" 2>&1; rp=$?
