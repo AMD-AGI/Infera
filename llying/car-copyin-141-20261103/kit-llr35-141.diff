@@ -1,0 +1,30 @@
+diff -ru llr35/engine/up.sh llr35-141/engine/up.sh
+--- llr35/engine/up.sh	2026-10-23 08:56:32.000000000 +0000
++++ llr35-141/engine/up.sh	2026-11-03 03:36:56.371142196 +0000
+@@ -33,6 +33,12 @@
+ for ((i = 0; i < PREFILL_WORKERS; i++)); do prefills+=("$CTR-prefill$i"); done
+ echo "===== 2. engines: $PREFILL_WORKERS prefill(s) here, decode on $DECODE_SSH (cold start takes 10-15 minutes) ====="
+ for ((i = 0; i < PREFILL_WORKERS; i++)); do bash "$KIT/engine/worker.sh" prefill "$i"; done
++# Two legs on one host must not initialise RCCL at the same time (hipIpcGetMemHandle failed).
++if [[ "$PREFILL_NODE_IP" == "$DECODE_NODE_IP" ]]; then
++    for ((i = 0; i < PREFILL_WORKERS; i++)); do
++        wait_health "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256 * i))/health" "$CTR-prefill$i"
++    done
++fi
+ # The decode node reads the same env.sh; this invocation's settings ride along.
+ forward="$(sed 's/$/ /' "$RUN_DIR/engine-config.env" | tr -d '\n')"
+ on_decode "$forward bash $(printf %q "$KIT/engine/worker.sh") decode"
+diff -ru llr35/engine/worker.sh llr35-141/engine/worker.sh
+--- llr35/engine/worker.sh	2026-10-27 09:38:35.560609707 +0000
++++ llr35-141/engine/worker.sh	2026-11-03 03:48:39.230624870 +0000
+@@ -133,6 +133,10 @@
+ if [[ "$role" == prefill && "$idx" == 1 ]]; then
+     cmd=(bash -c 'i=0; while [ $i -lt 30000 ]; do ( : ); i=$((i + 1)); done; exec "$@"' _ "${cmd[@]}")
+ fi
++# A decode on the prefill node collides the same way (ncclCommInitRank: HIP 'invalid argument'); skip past both prefills.
++if [[ "$role" == decode && "$PREFILL_NODE_IP" == "$DECODE_NODE_IP" ]]; then
++    cmd=(bash -c 'i=0; while [ $i -lt 60000 ]; do ( : ); i=$((i + 1)); done; exec "$@"' _ "${cmd[@]}")
++fi
+ 
+ # Caches persist per container and image in named volumes: /root/.cache
+ # (Triton, HF) and AITER's module directory, which a new volume copies from

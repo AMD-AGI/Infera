@@ -67,6 +67,13 @@ Slurm 下用 `scripts/slurm_verify.sbatch`；判定 `scripts/judge.py`（上表�
 
 ## 结果
 
-（未开跑。11-03 08:38 起旧节点名 `crsuse2-m2m-138 / 140 / 141` 从 DNS 消失：集群改为 Slurm（spur）管理，节点改名 `crsuse2-m2m-v3-*`，
+**镜像重建与单元测试（11-03 12:51–13:01，crusoe Slurm 作业 261868，`crsuse2-m2m-v3-073`，`scripts/slurm_image.sbatch`）**：按 fdbafb60 重建出的镜像
+ID 是 `7b38182c…`（与 138 上的 `509b8427` 不同，层不同在意料之中），但 **11 个基线文件的 md5 全部与 `patches/BASE_MD5SUMS` 一致**（包括由 v3 补丁反推的
+`prefill.py`），说明按 REPRODUCE 第 3.2 步重建即可原样使用这些补丁；`scripts/test_fix.py` 在该镜像里 **26/26 通过**。镜像存为
+`/shared_nfs/liyingli/images/infera-sglang-v0522-fdbafb60.tar`（23 GB）。该节点空闲时 8 张卡显存均为 0、无 KFD 进程（12:38 的 v3-039 显示 10–11%，是那台节点的情况）。
+
+部署验证（A / B / C / N 组与计分）尚未在任何集群上跑；用户 11-03 13:03 决定去另一个集群验证。
+
+（以下为 12:40 的记录：11-03 08:38 起旧节点名 `crsuse2-m2m-138 / 140 / 141` 从 DNS 消失：集群改为 Slurm（spur）管理，节点改名 `crsuse2-m2m-v3-*`，
 v3-138 / v3-140 已分给别人的作业。12:38 用 `amd-agentx` + `amd-burst-qos` 的 1 节点探测作业 261858 拿到 v3-039：docker 可用、RDMA ionic_0–7、
 模型路径都在；但没有 `infera-sglang:v0522-fdbafb60` 镜像（要按 fdbafb60 重建），空闲 GPU 显存显示 10–11%（原因待查）。）

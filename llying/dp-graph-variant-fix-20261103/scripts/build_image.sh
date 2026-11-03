@@ -21,7 +21,7 @@ files="$(awk '{print $2}' "$PKG/patches/BASE_MD5SUMS" | tr '\n' ' ')"
 docker run --rm --network none --entrypoint sh "$TAG" -c "cd /sgl-workspace/sglang/python/sglang/srt && md5sum $files" \
     | sort -k2 | diff - <(sort -k2 "$PKG/patches/BASE_MD5SUMS") && echo "base files: all 11 match patches/BASE_MD5SUMS" \
     || { echo "base files differ from patches/BASE_MD5SUMS (see diff above): the patches do not apply to this image as is"; exit 1; }
-if [[ -n "${SAVE_TAR:-}" ]]; then
+if [[ -n "${SAVE_TAR:-}" && ! -s "$SAVE_TAR" ]]; then
     docker save "$TAG" -o "$SAVE_TAR"
     echo "saved $SAVE_TAR ($(du -h "$SAVE_TAR" | cut -f1))"
 fi

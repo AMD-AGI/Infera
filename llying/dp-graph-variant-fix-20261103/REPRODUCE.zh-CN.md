@@ -41,6 +41,9 @@ docker load -i <共享目录>/infera-sglang-v0522-fdbafb60.tar
 ```
 
 `build_image.sh` 构建完会核对 11 个基线文件（`patches/BASE_MD5SUMS`）。不一致说明构建出的 sglang 与补丁的基线不同，**停下来**，不要继续（见第 6 节）。
+在 Slurm 集群上也可以用单节点作业一步完成"显存诊断 + 构建（或从 tar 加载）+ 基线核对 + 单元测试 + 存 tar"：
+`sbatch -p <分区> -A <账户> -q <QoS> -N 1 --gres=gpu:8 --exclusive -t 03:00:00 -o <LOG_ROOT>/slurm-image-%j.out scripts/slurm_image.sbatch`
+（`site.local.env` 里设 `INFERA_REPO`、`IMAGE_TAR`）。11-03 在 crusoe 上这样重建：镜像 ID 与原来不同，但 11 个文件全部一致，单元测试 26/26 通过。
 拉基础镜像遇到 Docker Hub 凭据问题时加 `DOCKER_CONFIG=$(mktemp -d)`（匿名拉取）。
 
 **3.3 站点配置**：`cp config/site.local.env.example config/site.local.env`，按集群填。AUS 上之前用过的值（`../1p1d-decode-balance-aus-20261021/scripts/kit_env.sh`）：
