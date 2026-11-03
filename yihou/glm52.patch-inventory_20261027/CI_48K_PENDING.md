@@ -1,16 +1,18 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-03T17:39:00.380977+00:00**.
+Updated: **2026-11-03T20:40:32.376808+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base has 37 successes (20 retained, 17 executed in attempt 3) and one unstarted H100 shard queued. Scope reduced to Base; historical AMD failure is not a fix/pass claim.
+## #33059: Base attempt 3 completed unsuccessfully: 37 successes (20 retained, 17 executed), and the last shard failed dLLM speed twice at 224.739/224.875 versus >250. Executed merge 456e2e3486 retains >250 while current main uses >200. Base-only scope remains; excluded non-Base checks are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: CI owners: finish the queued Base shard; retain separate native MI300 review follow-up.
+Next action: CI owners: reconcile the executed and upstream test revisions before integration/retry; do not weaken tests or assume a transient cause. Native MI300 reviewer coverage remains a separate pending item.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41423254776/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41423254776/job/125745684582)
+- [Evidence](https://github.com/sgl-project/sglang/blob/71ef675ff584d01758d790e0c436f93e44f4097b/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 
 ## #33059: Native MI300 DSA/padded-row reviewer coverage remains unestablished. Unrelated MI300 collective tests do not supply it.
 
@@ -37,14 +39,14 @@ Tracking key: `pr46830-base-review`.
 Next action: CI owners: verify source alignment with the upstream threshold change before integration/retry; do not weaken tests or assume transience. Maintainers: finish review and preserve historical DSA deadlock/consumer evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/job/125761043114)
-- [Evidence](https://github.com/sgl-project/sglang/blob/4387a94cf218ba870474d7a2a40a632bc4975798/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
+- [Evidence](https://github.com/sgl-project/sglang/blob/71ef675ff584d01758d790e0c436f93e44f4097b/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/attempts/2)
 
-## #45524: Base has 35 attempt-2 successes, two queued shards, AWQ timeout and one health-check cascade. Scoped AMD compiler/watchdog and CPU fork_worker_preload failures remain; historical-source equivalence is unproven.
+## #45524: Base retains 35 attempt-2 successes, two queued shards, AWQ timeout and a health-check cascade. AMD now additionally fails the PP GSM8K test after aux-data send/KV retrieval failures and HTTP 500; 12 stage jobs passed and two remain queued. Existing AMD compiler/watchdog and CPU fork_worker_preload mismatches persist. Historical-source equivalence is unproven.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers: diagnose the failures, recover skipped coverage and complete review. Preserve the separate frozen PP producer patch; current-PR equivalence remains uncertified. Worker remains read only.
+Next action: External author eaglewangao-us/maintainers: diagnose PP aux-data/KV-transfer failure against a matching baseline, AWQ timeout, AMD compiler/watchdog failure and CPU test/package mismatch; recover skipped coverage and finish review. Preserve the frozen PP producer patch; current-PR equivalence remains uncertified. Worker remains read only.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/job/125766190802)
@@ -52,6 +54,7 @@ Next action: External author eaglewangao-us/maintainers: diagnose the failures, 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/job/125766541289)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758488/job/125761907669)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758584/job/125761894917)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/job/125766541226)
 
 ## #46918: Two Base H100 shards remain cancelled before execution. Source-specific 9763ef56 validation does not qualify the entire current head or integrated image. AMD transfer CI was previously removed from this mixed finding under Base-only scope, without claiming repair.
 
@@ -63,7 +66,7 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Base now completed with failure: 37 successes (36 retained, one executed in attempt 2), and dLLM speed 222.256/222.160 below the executed >250 assertion. Current main uses >200; source reconciliation, review, #45307 overlap coordination and exact source/run archiving remain. Optional fused indexer stays disabled in frozen llr37.
+## #47276: Base remains failed: 37 successes (36 retained, one executed in attempt 2), and dLLM speed 222.256/222.160 below the executed >250 assertion. Fresh main still uses >200; source reconciliation, review, #45307 overlap coordination and exact source/run archiving remain. Optional fused indexer stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -72,7 +75,7 @@ Next action: CI owners: reconcile the executed >250 assertion with upstream main
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467493468/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467493468/job/125765401572)
-- [Evidence](https://github.com/sgl-project/sglang/blob/1ea5f8c6f7f905e24758411ab59f09963ab68631/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
+- [Evidence](https://github.com/sgl-project/sglang/blob/71ef675ff584d01758d790e0c436f93e44f4097b/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 
 ## #47278: Two Base H100 shards remain cancelled. The previous cycle helper refusal actual_failure_requires_triage remains applicable to the unchanged AMD stage-B failure. Its recorded scope was six PR-wide workflows; no helper request or retry was sent this cycle.
 
