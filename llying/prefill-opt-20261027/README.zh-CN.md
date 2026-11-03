@@ -17,6 +17,14 @@
 
 队列：`scripts/night23_1030.sh`，日志 `$L/night23-1030.out`；每步前后跑 `scripts/disk_check.sh`。
 
+## 11-03 4 个 patch 的上游状态；两个 PR 已提交到 SGLang
+
+详见 `../upstream-prs-20261102/README.zh-CN.md`。要点：
+- patch 1（PP 中间级 `embedding_dim`）SGLang 已合入（#21194，10-29），不需要 PR。
+- patch 2（pp-chunk-wait）与 SGLang 的 open PR #45524 的第一处相同；第二处（cached-prefix）作者实测不需要，我们的很可能也不需要，未单独验证。不另提 PR。
+- patch 3（evict-headroom）→ [sgl-project/sglang#48047](https://github.com/sgl-project/sglang/pull/48047)；patch 4（backup block_quota）→ [#48042](https://github.com/sgl-project/sglang/pull/48042)。
+  上游版本的环境变量改名 `SGLANG_HICACHE_EVICT_HEADROOM_TOKENS` / `SGLANG_HICACHE_BACKUP_BLOCK_QUOTA`，kit 里仍用旧名（`SGLANG_EVICT_HEADROOM_TOKENS`），两者逻辑相同，上游多一个 `is_write_back` 条件。
+
 ## 11-02 09:50 待查：开头坏是否与 decode custom all-reduce 有关（night31）
 
 现有证据**不支持** custom all-reduce 是开头坏的原因，但也没有排除：
