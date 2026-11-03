@@ -161,5 +161,8 @@ PASS  control A reproduces in this session: bad_start 6 + garbled 20 over 400 pr
 PASS  B gates: bad_start 0 (<= 1), garbled 0 (<= 1) over 600 prompts, 3 gates
 PASS  C gates: garbled 0 (0), bad_start 0 (<= 1) over 400 prompts
 INFO  19:08:30 score B: | C104 | 51,477 | 425.9 | 3.411 | 12,373 / 6 | 63.9 / 56.2 | 15.7 / 17.8 | 4.29 / 10.93 / 6.04 | 42.5 | 96.01%（96.59%） |
+INFO  20:36:54 score C: | C104 | 53,609 | 438.9 | 3.510 | 12,732 / 3 | 69.1 / 60.9 | 14.5 / 16.4 | 4.01 / 9.36 / 5.53 | 39.4 | 96.09%（96.66%） |
+INFO  INFO  19:08:30 score B: | C104 | 51,477 | 425.9 | 3.411 | 12,373 / 6 | 63.9 / 56.2 | 15.7 / 17.8 | 4.29 / 10.93 / 6.04 | 42.5 | 96.01%（96.59%） |
+INFO  INFO  20:36:54 score C: | C104 | 53,609 | 438.9 | 3.510 | 12,732 / 3 | 69.1 / 60.9 | 14.5 / 16.4 | 4.01 / 9.36 / 5.53 | 39.4 | 96.09%（96.66%） |
 --- verdict
 0 FAIL lines (all criteria met)

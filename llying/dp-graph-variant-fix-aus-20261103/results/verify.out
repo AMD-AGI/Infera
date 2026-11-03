@@ -120,3 +120,173 @@
 19:08:30 c104 down
 19:08:30 score B: | C104 | 51,477 | 425.9 | 3.411 | 12,373 / 6 | 63.9 / 56.2 | 15.7 / 17.8 | 4.29 / 10.93 / 6.04 | 42.5 | 96.01%（96.59%） |
 19:09:32 c104 up
+20:35:04 c104 agentx exited 0
+20:36:54 c104 down
+20:36:54 score C: | C104 | 53,609 | 438.9 | 3.510 | 12,732 / 3 | 69.1 / 60.9 | 14.5 / 16.4 | 4.01 / 9.36 / 5.53 | 39.4 | 96.09%（96.66%） |
+20:36:54 run_verify done
+--- B-gate@1103T1331
+PASS  B-gate@1103T1331 decode runs the fix (fix=6 of 6)
+PASS  B-gate@1103T1331 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  B-gate@1103T1331 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  B-gate@1103T1331 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  B-gate@1103T1331 capture: {prefill=0.00, decode=0.00, target_verify=102.15, draft_prefill=0.00, draft_decode=62.25, draft_extend=5.93} spec_args=7
+INFO  B-gate@1103T1331 probe n=200 errors=0 correct=198/200 (0.990) bad_start=0 garbled=0 hit_cap=1 empty=0
+PASS  B-gate@1103T1331 smoke 6/6 checks passed
+PASS  B-gate@1103T1331 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  B-gate@1103T1331 longctx 16000:128 gsm8k 62/64 (need >= 60), garbled 0
+PASS  B-gate@1103T1331 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  B-gate@1103T1331 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+--- N1a-nospec-audit@1103T1347
+PASS  N1a-nospec-audit@1103T1347 decode runs the fix + audit runner (fix=5 debug=1)
+PASS  N1a-nospec-audit@1103T1347 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  N1a-nospec-audit@1103T1347 env ROCM700A as the arm says: SGLANG_DEBUG_GRAPH_VARIANT_AUDIT=1 SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=0 YIHOU_KF_MOE=0 YIHOU_KF_SPARSE=0
+PASS  N1a-nospec-audit@1103T1347 no speculative decoding (spec_args=0)
+INFO  N1a-nospec-audit@1103T1347 DECODE-mode dual graphs kept: dual_graph_lines=4
+INFO  N1a-nospec-audit@1103T1347 capture: {prefill=0.00, decode=18.77, target_verify=0.00, draft_prefill=0.00, draft_decode=0.00, draft_extend=0.00} spec_args=0
+INFO  N1a-nospec-audit@1103T1347 probe n=400 errors=0 correct=390/400 (0.975) bad_start=0 garbled=0 hit_cap=5 empty=0
+PASS  N1a-nospec-audit@1103T1347 smoke 6/6 checks passed
+PASS  N1a-nospec-audit@1103T1347 garbled=0 (0) bad_start=0 (<= 1)
+PASS  N1a-nospec-audit@1103T1347 longctx 16000:32 needle 16/16 (need >= 15), garbled 0
+PASS  N1a-nospec-audit@1103T1347 longctx 16000:32 gsm8k 15/16 (need >= 14), garbled 0
+PASS  N1a-nospec-audit@1103T1347 audit: ranks agree on every replay (new_mismatch=0)
+PASS  N1a-nospec-audit@1103T1347 audit: dense never with a sequence > index_topk (viol=[0, 0, 0, 0])
+PASS  N1a-nospec-audit@1103T1347 audit: bound always present and an upper bound (bound_viol=[0, 0, 0, 0], nobound=[0, 0, 0, 0])
+PASS  N1a-nospec-audit@1103T1347 audit: the dense variant is still used (dense=[803, 803, 803, 803])
+INFO  N1a-nospec-audit@1103T1347 audit: the per-rank rule would have mismatched on 1644 replays of the same run
+--- A-gate@1103T1359
+PASS  A-gate@1103T1359 decode runs the image files (orig=6 of 6)
+PASS  A-gate@1103T1359 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  A-gate@1103T1359 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+INFO  A-gate@1103T1359 image behaviour: dual_graph_lines=4
+INFO  A-gate@1103T1359 capture: {prefill=0.00, decode=0.00, target_verify=66.09, draft_prefill=0.00, draft_decode=5.80, draft_extend=2.36} spec_args=7
+INFO  A-gate@1103T1359 probe n=200 errors=0 correct=187/200 (0.935) bad_start=0 garbled=9 hit_cap=13 empty=0
+PASS  A-gate@1103T1359 smoke 6/6 checks passed
+PASS  A-gate@1103T1359 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  A-gate@1103T1359 longctx 16000:128 gsm8k 62/64 (need >= 60), garbled 0
+PASS  A-gate@1103T1359 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  A-gate@1103T1359 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+--- B-gate@1103T1416
+PASS  B-gate@1103T1416 decode runs the fix (fix=6 of 6)
+PASS  B-gate@1103T1416 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  B-gate@1103T1416 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  B-gate@1103T1416 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  B-gate@1103T1416 capture: {prefill=0.00, decode=0.00, target_verify=38.23, draft_prefill=0.00, draft_decode=5.83, draft_extend=2.44} spec_args=7
+INFO  B-gate@1103T1416 probe n=200 errors=0 correct=196/200 (0.980) bad_start=0 garbled=0 hit_cap=2 empty=0
+PASS  B-gate@1103T1416 smoke 6/6 checks passed
+PASS  B-gate@1103T1416 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  B-gate@1103T1416 longctx 16000:128 gsm8k 62/64 (need >= 60), garbled 0
+PASS  B-gate@1103T1416 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  B-gate@1103T1416 longctx 16000:128 gsm8k 61/64 (need >= 60), garbled 0
+--- A-gate@1103T1432
+PASS  A-gate@1103T1432 decode runs the image files (orig=6 of 6)
+PASS  A-gate@1103T1432 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  A-gate@1103T1432 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+INFO  A-gate@1103T1432 image behaviour: dual_graph_lines=4
+INFO  A-gate@1103T1432 capture: {prefill=0.00, decode=0.00, target_verify=65.94, draft_prefill=0.00, draft_decode=6.07, draft_extend=2.60} spec_args=7
+INFO  A-gate@1103T1432 probe n=200 errors=0 correct=185/200 (0.925) bad_start=6 garbled=11 hit_cap=14 empty=0
+PASS  A-gate@1103T1432 smoke 6/6 checks passed
+PASS  A-gate@1103T1432 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  A-gate@1103T1432 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+PASS  A-gate@1103T1432 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  A-gate@1103T1432 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+--- B-gate@1103T1449
+PASS  B-gate@1103T1449 decode runs the fix (fix=6 of 6)
+PASS  B-gate@1103T1449 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  B-gate@1103T1449 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  B-gate@1103T1449 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  B-gate@1103T1449 capture: {prefill=0.00, decode=0.00, target_verify=38.88, draft_prefill=0.00, draft_decode=5.89, draft_extend=2.56} spec_args=7
+INFO  B-gate@1103T1449 probe n=200 errors=0 correct=192/200 (0.960) bad_start=0 garbled=0 hit_cap=5 empty=0
+PASS  B-gate@1103T1449 smoke 6/6 checks passed
+PASS  B-gate@1103T1449 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  B-gate@1103T1449 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+PASS  B-gate@1103T1449 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  B-gate@1103T1449 longctx 16000:128 gsm8k 62/64 (need >= 60), garbled 0
+--- C0-e11@1103T1503
+PASS  C0-e11@1103T1503 decode runs the image files (orig=6 of 6)
+PASS  C0-e11@1103T1503 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  C0-e11@1103T1503 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+INFO  C0-e11@1103T1503 image behaviour: dual_graph_lines=4
+INFO  C0-e11@1103T1503 capture: {prefill=0.00, decode=0.00, target_verify=34.89, draft_prefill=0.00, draft_decode=4.52, draft_extend=2.17} spec_args=7
+INFO  C0-e11@1103T1503 probe n=200 errors=0 correct=131/200 (0.655) bad_start=13 garbled=53 hit_cap=45 empty=0
+PASS  C0-e11@1103T1503 positive control reproduces E11 garble (garbled=53 >= 10)
+--- C-gate@1103T1519
+PASS  C-gate@1103T1519 decode runs the fix (fix=6 of 6)
+PASS  C-gate@1103T1519 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  C-gate@1103T1519 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  C-gate@1103T1519 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  C-gate@1103T1519 capture: {prefill=0.00, decode=0.00, target_verify=23.31, draft_prefill=0.00, draft_decode=4.46, draft_extend=2.20} spec_args=7
+INFO  C-gate@1103T1519 probe n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0
+PASS  C-gate@1103T1519 smoke 6/6 checks passed
+PASS  C-gate@1103T1519 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  C-gate@1103T1519 longctx 16000:128 gsm8k 62/64 (need >= 60), garbled 0
+PASS  C-gate@1103T1519 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  C-gate@1103T1519 longctx 16000:128 gsm8k 62/64 (need >= 60), garbled 0
+--- C-gate@1103T1532
+PASS  C-gate@1103T1532 decode runs the fix (fix=6 of 6)
+PASS  C-gate@1103T1532 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  C-gate@1103T1532 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  C-gate@1103T1532 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  C-gate@1103T1532 capture: {prefill=0.00, decode=0.00, target_verify=23.26, draft_prefill=0.00, draft_decode=4.43, draft_extend=2.17} spec_args=7
+INFO  C-gate@1103T1532 probe n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
+PASS  C-gate@1103T1532 smoke 6/6 checks passed
+PASS  C-gate@1103T1532 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  C-gate@1103T1532 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+PASS  C-gate@1103T1532 longctx 16000:128 needle 63/64 (need >= 62), garbled 0
+PASS  C-gate@1103T1532 longctx 16000:128 gsm8k 62/64 (need >= 60), garbled 0
+--- N0-nospec@1103T1547
+PASS  N0-nospec@1103T1547 decode runs the image files (orig=6 of 6)
+PASS  N0-nospec@1103T1547 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  N0-nospec@1103T1547 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=0 YIHOU_KF_MOE=0 YIHOU_KF_SPARSE=0
+PASS  N0-nospec@1103T1547 no speculative decoding (spec_args=0)
+INFO  N0-nospec@1103T1547 DECODE-mode dual graphs kept: dual_graph_lines=4
+INFO  N0-nospec@1103T1547 capture: {prefill=0.00, decode=17.87, target_verify=0.00, draft_prefill=0.00, draft_decode=0.00, draft_extend=0.00} spec_args=0
+INFO  N0-nospec@1103T1547 probe n=200 errors=0 correct=145/200 (0.725) bad_start=3 garbled=33 hit_cap=48 empty=0
+INFO  N0-nospec@1103T1547 positive control for part 2: garbled=33 bad_start=3
+--- N1-nospec-fix@1103T1600
+PASS  N1-nospec-fix@1103T1600 decode runs the fix (fix=6 of 6)
+PASS  N1-nospec-fix@1103T1600 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  N1-nospec-fix@1103T1600 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=0 YIHOU_KF_MOE=0 YIHOU_KF_SPARSE=0
+PASS  N1-nospec-fix@1103T1600 no speculative decoding (spec_args=0)
+INFO  N1-nospec-fix@1103T1600 DECODE-mode dual graphs kept: dual_graph_lines=4
+INFO  N1-nospec-fix@1103T1600 capture: {prefill=0.00, decode=18.47, target_verify=0.00, draft_prefill=0.00, draft_decode=0.00, draft_extend=0.00} spec_args=0
+INFO  N1-nospec-fix@1103T1600 probe n=400 errors=0 correct=390/400 (0.975) bad_start=0 garbled=0 hit_cap=6 empty=0
+PASS  N1-nospec-fix@1103T1600 smoke 6/6 checks passed
+PASS  N1-nospec-fix@1103T1600 garbled=0 (0) bad_start=0 (<= 1)
+PASS  N1-nospec-fix@1103T1600 longctx 16000:32 needle 16/16 (need >= 15), garbled 0
+PASS  N1-nospec-fix@1103T1600 longctx 16000:32 gsm8k 16/16 (need >= 14), garbled 0
+--- B-prod@1103T1612
+PASS  B-prod@1103T1612 decode runs the fix (fix=6 of 6)
+PASS  B-prod@1103T1612 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  B-prod@1103T1612 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  B-prod@1103T1612 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  B-prod@1103T1612 capture: {prefill=0.00, decode=0.00, target_verify=38.73, draft_prefill=0.00, draft_decode=5.98, draft_extend=2.64} spec_args=7
+INFO  B-prod@1103T1612 probe n=1319 errors=0 correct=1274/1319 (0.966) bad_start=0 garbled=0 hit_cap=16 empty=0
+PASS  B-prod@1103T1612 smoke 6/6 checks passed
+PASS  B-prod@1103T1612 probe correct=0.966 (>= 0.96) garbled=0 (0) bad_start=0 (<= 1), errors=0
+PASS  B-prod@1103T1612 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  B-prod@1103T1612 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+PASS  B-prod@1103T1612 longctx 100000:32 needle 16/16 (need >= 15), garbled 0
+PASS  B-prod@1103T1612 longctx 100000:32 gsm8k 15/16 (need >= 15), garbled 0
+PASS  B-prod@1103T1612 lm-eval strict 0.9711902956785443 flexible 0.9727065959059894 (>= 0.96)
+--- C-prod@1103T1703
+PASS  C-prod@1103T1703 decode runs the fix (fix=6 of 6)
+PASS  C-prod@1103T1703 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  C-prod@1103T1703 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  C-prod@1103T1703 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  C-prod@1103T1703 capture: {prefill=0.00, decode=0.00, target_verify=23.74, draft_prefill=0.00, draft_decode=4.49, draft_extend=2.19} spec_args=7
+INFO  C-prod@1103T1703 probe n=1319 errors=0 correct=1278/1319 (0.969) bad_start=0 garbled=0 hit_cap=17 empty=0
+PASS  C-prod@1103T1703 smoke 6/6 checks passed
+PASS  C-prod@1103T1703 probe correct=0.969 (>= 0.96) garbled=0 (0) bad_start=0 (<= 1), errors=0
+PASS  C-prod@1103T1703 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
+PASS  C-prod@1103T1703 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
+PASS  C-prod@1103T1703 longctx 100000:32 needle 16/16 (need >= 15), garbled 0
+PASS  C-prod@1103T1703 longctx 100000:32 gsm8k 15/16 (need >= 15), garbled 0
+PASS  C-prod@1103T1703 lm-eval strict 0.9673995451099318 flexible 0.9696739954510993 (>= 0.96)
+--- aggregates
+PASS  control A reproduces in this session: bad_start 6 + garbled 20 over 400 prompts (need >= 3)
+PASS  B gates: bad_start 0 (<= 1), garbled 0 (<= 1) over 600 prompts, 3 gates
+PASS  C gates: garbled 0 (0), bad_start 0 (<= 1) over 400 prompts
+INFO  19:08:30 score B: | C104 | 51,477 | 425.9 | 3.411 | 12,373 / 6 | 63.9 / 56.2 | 15.7 / 17.8 | 4.29 / 10.93 / 6.04 | 42.5 | 96.01%（96.59%） |
+INFO  20:36:54 score C: | C104 | 53,609 | 438.9 | 3.510 | 12,732 / 3 | 69.1 / 60.9 | 14.5 / 16.4 | 4.01 / 9.36 / 5.53 | 39.4 | 96.09%（96.66%） |
+--- verdict
+0 FAIL lines (all criteria met)
