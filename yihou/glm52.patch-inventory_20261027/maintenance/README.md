@@ -76,9 +76,16 @@ upstream author cooldown remain in force. It monitors exactly SGLang #33059, #46
 fixes in that list are #45524/#46918; their branches remain read-only. #47276
 is optional for the frozen llr37 deployment, but is explicitly included.
 
-This worker is authorized to inspect current-head Base and relevant AMD logs,
-request justified bounded retries, and make small, attributable, validated fixes
-to owned PR branches. It preserves existing review and evidence constraints.
+Under the owner's [CI scope policy](../CI_SCOPE_POLICY.md), a PR that does not
+change shared code is followed for **PR Test (Base) only**. Inspect its current
+diff and affected behavior, not just filenames, and reassess after head changes.
+Shared-code changes justify only the additional workflows actually affected.
+Unrelated non-Base failures are historical context, not recurring watch blockers.
+The worker may request justified bounded retries and make small, attributable,
+validated fixes to owned PR branches within that scope. It preserves existing
+review and evidence constraints separately from CI scope. A `scope_excluded`
+action retires an old unrelated CI notification with an explicit reason and
+public policy/diff evidence; it never claims that the failed test passed.
 It cannot merge, close, open, or change Ready/Draft state. Infera #228 remains
 permanently Draft. The daily 09:00 collector remains installed separately.
 

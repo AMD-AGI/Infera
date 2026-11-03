@@ -190,6 +190,40 @@ class CarryForwardTests(unittest.TestCase):
         actual = watch.carry_unresolved(current, {"unresolved": [first, second]})
         self.assertEqual(actual["unresolved"], [second])
 
+    def test_scope_exclusion_preserves_history_and_other_open_concerns(self):
+        excluded, retained = concern(), concern("pr-33059-review")
+        previous = {"unresolved": [excluded, retained]}
+        original = copy.deepcopy(previous)
+        current = result()
+        current["actions"] = [
+            resolution(
+                excluded,
+                kind="scope_excluded",
+                description=(
+                    f"Excluded {excluded['key']}: current diff is isolated; Base-only policy. "
+                    "This does not mean the non-Base test was fixed or passed."
+                ),
+            )
+        ]
+        actual = watch.carry_unresolved(current, previous)
+        self.assertEqual(actual["unresolved"], [retained])
+        self.assertEqual(actual["actions"][0]["kind"], "scope_excluded")
+        self.assertEqual(previous, original)
+
+    def test_scope_exclusion_requires_matching_pr_key_and_public_evidence(self):
+        item = concern()
+        for overrides in (
+            {"pr": 46820},
+            {"description": "Unrelated checks are outside scope."},
+            {"url": ""},
+            {"url": "https://github.com.example/policy"},
+        ):
+            with self.subTest(overrides=overrides):
+                current = result()
+                current["actions"] = [resolution(item, kind="scope_excluded", **overrides)]
+                actual = watch.carry_unresolved(current, {"unresolved": [item]})
+                self.assertEqual(actual["unresolved"], [item])
+
     def test_closed_and_merged_resolve_but_unknown_preserves_previous_concern(self):
         for state in ("CLOSED", "MERGED", "UNKNOWN", "OPEN_DRAFT"):
             with self.subTest(state=state):

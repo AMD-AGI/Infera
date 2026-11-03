@@ -35,7 +35,7 @@ Monitor exactly these nine `sgl-project/sglang` PRs, in this output order:
 
 Before acting, read applicable `AGENTS.md` instructions for the provided
 worktree, inventory, and any new code checkout. Read the publisher inventory's
-`maintenance/README.md`, the relevant nine entries in
+`maintenance/README.md`, `CI_SCOPE_POLICY.md`, the relevant nine entries in
 `maintenance/handoff_notes.json`, `LLR37_DEPLOYMENT_PRIORITY.md`,
 `KERNELFORGE_UPSTREAM_20261102.md`, and the current `PR_HANDOFF.md`. Read the
 previous result and pending handoff at `previous_result_path` and `pending_path`,
@@ -55,14 +55,29 @@ documents or user-level instructions. In particular, do not edit `AGENTS.md`,
 `PR_HANDOFF.md`, or team tracking documents. Return your findings in JSON for the
 launcher to incorporate.
 
+## CI scope: Base only unless shared code changes
+
+Apply the owner's `CI_SCOPE_POLICY.md` before selecting logs, retries, repairs,
+or active CI blockers. Inspect the current PR diff and affected callers/dispatch.
+If it does not change shared behavior, focus only on PR Test (Base). Do not
+diagnose, retry, repair, or repeatedly notify unrelated non-Base failures.
+A backend-specific guarded path in a common file does not automatically count
+as a shared-code change. If shared interfaces or behavior do change, name the
+affected additional workflows and explain why their coverage is relevant.
+Record the scope and reason in the PR row and reassess when its head changes.
+If uncertain, inspect the diff; do not default to chasing every failed workflow.
+Keep explicit review/correctness requirements in the ledger separately from
+the CI-watch scope. Do not infer that an excluded check passed or was fixed.
+
 ## Fresh evidence on each invocation
 
 For every PR, query its current lifecycle, draft flag, exact head SHA, author,
 fork/branch, labels, and current checks. Inspect the latest **current-head**
 `PR Test Base` / `PR Test (Base)` workflow at `.github/workflows/pr-test.yml`,
 its latest attempt, jobs, and relevant steps. The run display title may be the
-PR title rather than the workflow name; identify it by workflow path. A run linked from an old head is historical evidence only. Inspect AMD
-checks where present, especially for the four kernel PRs. Fetch paginated data
+PR title rather than the workflow name; identify it by workflow path. A run linked
+from an old head is historical evidence only. Inspect additional workflow logs
+only when justified by the shared-code scope above. Fetch paginated data
 when needed. Preserve concise raw API evidence in runtime files.
 
 Separate these observations explicitly:
@@ -135,6 +150,11 @@ The supported `/rerun-failed-ci` mechanism is **PR-wide**: it may retry other
 unsuccessful current-head workflows in addition to Base. Inspect and disclose
 that scope before calling the helper; never describe it as a Base-only retry.
 If that broader scope is inappropriate or unclear, report the blocker.
+An unrelated non-Base failure is never itself a retry reason. Its incidental
+rerun through the supported helper does not expand the ongoing diagnostic scope.
+An unclassified out-of-scope failure alone does not block an otherwise justified
+Base retry. Do not diagnose it solely to approve an incidental rerun; retain
+permission, retry-budget, and actual side-effect checks.
 
 PRs #45524 and #46918 belong to other authors. Never modify their branches or
 request retries under this worker's authority. Record a concrete next action for
@@ -216,14 +236,26 @@ no outward-facing mutations or messages.
 
 ## Unresolved handoff and final output
 
-Report every still-pending unknown or blocker, not only findings first seen in
-this invocation. Carry previous `unresolved` entries forward using stable keys
+Report every still-pending in-scope unknown or blocker, not only findings first
+seen in this invocation. Carry previous `unresolved` entries forward using stable keys
 until fresh evidence resolves them. To resolve an item, add an `actions` object
 with `kind` exactly `resolved`, the same integer `pr`, and a `description` that
 literally includes its stable unresolved `key` plus the evidence establishing
 resolution. Put the supporting public evidence link in that action's `url`,
 when available, and explain the resolution in the PR row. Only then omit the
-item from `unresolved`. The launcher otherwise retains previous unresolved keys
+item from `unresolved`.
+
+For a previous CI concern excluded by `CI_SCOPE_POLICY.md`, instead use `kind`
+exactly `scope_excluded`, the same `pr`, and a description containing the stable
+key, current head, diff-based scope reason, and an explicit statement that the
+test was not fixed or passed. Link the public policy or current PR diff as
+evidence. This retires only the monitoring item and preserves its historical
+record. Do not use scope exclusion for review, provenance, or numerical concerns.
+For mixed findings, keep the same key and rewrite it to retain all in-scope
+Base and separate review/correctness constraints; explain the scope reduction.
+Only omit a pure out-of-scope CI item after recording that action.
+
+The launcher otherwise retains previous unresolved keys
 across invocations and restarts, except when the relevant PR is closed or merged.
 Do not use a vague success action to clear pending work. A changed head, retry,
 or another cycle passing is not by itself
@@ -242,8 +274,9 @@ validation limits for kernel ports, #47276's optional deployment role and
 overlap coordination, and external-author ownership for #45524/#46918.
 Carry those constraints forward concisely alongside the new CI action. Remove a
 constraint only with fresh evidence establishing its resolution, and record
-that resolution explicitly. A passing Base run does not resolve separate AMD,
-review, source-mapping, or correctness qualifications.
+that resolution explicitly. A passing Base run does not resolve separate review,
+source-mapping, or correctness qualifications. Apply the scope-exclusion rule to
+unrelated non-Base CI findings instead of perpetuating them as merge actions.
 
 Return **only one JSON object**, with no Markdown fence or surrounding prose,
 matching `maintenance/ci_watch_output.schema.json`. The launcher saves it for
@@ -264,11 +297,13 @@ logs in local evidence only. Public GitHub evidence URLs are appropriate.
   when absent/unverified. `base_attempt` is its integer attempt, or zero when
   absent/unverified. `base_status` describes the observed workflow state;
   `base_summary` distinguishes gates, actual test results, counts, cancellation,
-  and queueing, with any material AMD result. `action` says what this invocation
+  and queueing, with additional CI results only for demonstrated shared-code
+  impact. `action` says what this invocation
   actually did; `next_action` identifies the remaining task and actor.
   `evidence_urls` contains supporting public URLs, not secrets or invented links.
   `needs_user` is true for unresolved uncertainty, manual/maintainer decisions,
-  exhausted automation, or required validation; ordinary bounded queueing alone
+  exhausted automation, or required validation within the policy; an unrelated
+  non-Base failure alone must not set it. Ordinary bounded queueing alone
   need not require user action.
 - `actions`: actual mutations, helper requests/refusals, completed local checks,
   and evidenced resolutions. Each object has `pr`, `kind`, `description`, and

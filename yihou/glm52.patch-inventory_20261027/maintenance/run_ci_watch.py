@@ -93,20 +93,20 @@ def validate_result(result):
 
 
 def carry_unresolved(result, previous):
-    """Require affirmative evidence before removing a previously open concern."""
+    """Require evidence of resolution or explicit scope exclusion to retire a concern."""
     current = {item["key"]: item for item in result["unresolved"]}
     states = {row["number"]: row["state"] for row in result["prs"]}
     for item in (previous or {}).get("unresolved", []):
         if item["key"] in current:
             continue
-        resolved = states.get(item["pr"]) in {"CLOSED", "MERGED"} or any(
-            action["kind"] == "resolved"
+        retired = states.get(item["pr"]) in {"CLOSED", "MERGED"} or any(
+            action["kind"] in {"resolved", "scope_excluded"}
             and action["pr"] == item["pr"]
             and item["key"] in action["description"]
             and action["url"].startswith("https://github.com/")
             for action in result["actions"]
         )
-        if not resolved:
+        if not retired:
             current[item["key"]] = item
     result["unresolved"] = list(current.values())
     for row in result["prs"]:
@@ -139,6 +139,9 @@ def render_reports(result, checked):
         "",
         "Passing gates, skipped suites and retained passes are distinct from newly executed tests. "
         "#47276 is optional for frozen llr37; #45524 and #46918 have external authors.",
+        "",
+        "CI scope: [Base only unless shared code changes](CI_SCOPE_POLICY.md). "
+        "Excluded failures remain historical evidence, not passing tests.",
         "",
         "| PR | Head / state | Base attempt / status | Test progress | Last action | Next action |",
         "|---|---|---|---|---|---|",
@@ -177,8 +180,9 @@ def render_reports(result, checked):
         "",
         f"Updated: **{checked}**.",
         "",
-        "These items remain open until supported by resolution evidence. Reporting them "
-        "to the user does not resolve them.",
+        "These items remain open until supported by resolution evidence or an explicit "
+        "exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the "
+        "user does not resolve them; scope exclusion is not test success.",
         "",
     ]
     if not result["unresolved"]:

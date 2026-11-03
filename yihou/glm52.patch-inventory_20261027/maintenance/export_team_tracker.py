@@ -76,6 +76,8 @@ def generate(inventory, runtime, destination):
         "",
         "The [90-minute Base CI watch](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_48K_WATCH.md) records automated inspection, bounded retries and small owned-PR fixes. [Unresolved handoff](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_48K_PENDING.md) lists what needs the next user or maintainer. Check report timestamps; the local host and credentials must be available.",
         "",
+        "[CI scope policy](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_SCOPE_POLICY.md): follow Base only when the PR does not change shared code; otherwise include only the additional workflows affected. Unrelated failures are not recurring watch blockers. Review and correctness qualifications remain separate.",
+        "",
         "## 1. Merge priorities for the 48k deployment",
         "",
         "Prioritize SGLang **#33059, #46830 and #46820**, and coordinate the existing external **#45524 and #46918**. They cover fix families already carried by the historical image. Then progress **#47278/#47897/#47872**, which port the required historical sparse-MLA/logits/top-k families, and track optional fused-indexer **#47276** plus the evidence catalog **Infera #221**. These are reworked ports; the already-patched frozen image does not need to wait for their merges.",
