@@ -1,15 +1,15 @@
 {
-  "assessed_at": "2026-11-02",
+  "assessed_at": "2026-11-03",
   "prs": {
     "sgl-project/sglang#33059": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "795488cd19aaa3cc852d6c87ffe36b88af20ca23",
       "priority": "P0",
       "deployment": "BAKED: historical Aiter query-row repair; current-main PR differs from image script.",
       "purpose": "Make real query rows and padded Aiter metadata agree.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready by the author/user decision; preserve that state. New MI355X DP and padded MTP evidence supersedes the earlier Draft/missing-matrix assessment. Native MI300 coverage remains a reviewer follow-up, not a Draft promotion step.",
-      "merge_action": "Current head 795488cd is Ready and lint passes. The existing run-ci label is present; latest [Base gate](https://github.com/sgl-project/sglang/actions/runs/41423254776/job/125204140539) sees Draft=false but hits the 120-minute account cooldown after a counted run at 09:07:56 UTC. Nominal eligibility is November 2 at 11:07:56 UTC if no newer counted run intervenes; expiry does not automatically rerun CI. Rerun required checks when policy permits, address review findings, and obtain native MI300 validation through an equipped CI owner. Reviewer: HaiShaw. The inherited XPU logger error is fixed upstream by #47837 and already included; the shared Qwen fused-KV workaround #46861 is also inherited.",
+      "merge_action": "Ready and run-ci present. Latest [Base attempt](https://github.com/sgl-project/sglang/actions/runs/41423254776) still records the November 2 account-cooldown rejection; no newer Base attempt is visible. This historical failure does not prove cooldown is still active. Authorized CI owner: check current account policy and retry Base once eligible. Native MI300 coverage/review remains separate; preserve the author Ready decision.",
       "evidence": "[Author GPU report](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447): 8x MI355X DeepSeek-V3.2 DP GSM8K 0.957; basic TP in AMD CI mode 0.958; DP + EAGLE MTP with eager padded rows 0.951 versus unpatched main crashing with lengths must have one entry per score row. Runs used ab4407a57c; independently checked identical production DSA and regression-test Git blobs at current head 795488cd (306d4b5f619fc37d8760d2e22dc07ede2e1d280e and 7a7e8c9b759c80f6666fe80fe793e4cabaacb746). These are author-reported model runs, not rerun by this status audit. The MI300 configuration failed on MI355X both with and without the patch; native MI300 coverage is still absent. Existing 12 CPU regression tests and historical [GLM pack-up](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md) remain separate evidence.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_aiter_paged_padding.py",
@@ -18,74 +18,74 @@
         "python test/registered/amd/accuracy/mi35x/test_deepseek_v32_dp_eval_mi35x.py",
         "python test/registered/amd/test_deepseek_v32_basic.py"
       ],
-      "last_action": "2026-11-02: author published the [MI355X model results](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447), marked Ready, and advanced the branch to 795488cd by merging main b45a3653. Status audit confirmed tested/current DSA and test blobs match. [Latest lint](https://github.com/sgl-project/sglang/actions/runs/41423254991/job/125203622542) passed at 09:49:54 UTC. Base now stops at account cooldown, superseding the earlier Draft-gate and XPU-lint failures; no branch rewrite is needed for lint.",
+      "last_action": "2026-11-03: exact head 795488cd unchanged; newest lint passes. No fresh Base run after the November 2 cooldown rejection. Existing MI355X author evidence retains its limits; no new tests or PR mutation by this audit.",
       "reviewed_activity_at": "2026-11-02T09:48:02Z"
     },
     "sgl-project/sglang#46830": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "625403853ab69c90697080466bc06d5bfcad7fbe",
       "priority": "P0",
       "deployment": "BAKED: historical dsa_dp_sync.diff; replaces closed #33973.",
       "purpose": "Remove rank-divergent host syncs that can deadlock DSA eager execution.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; retain scoped historical evidence.",
-      "merge_action": "Ready; the inherited XPU logger F821 is resolved by upstream #47837 and [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425300647/job/125210347134). [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425300984/job/125210545797) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required CI and review/approve. Yihou/delegate: respond to functional CI or review findings. This authorization gate is not a functional-test failure.",
+      "merge_action": "Ready; run-ci is now present. [Current-head Base](https://github.com/sgl-project/sglang/actions/runs/41467026948) passed its gate and 36 actual CPU/GPU test jobs; two base-b-test-1-gpu-large H100 shards (1, 2) remain queued. No Base test failure observed; the overall workflow is incomplete. Maintainers/CI owners: resolve runner queue, finish required checks and review. Yihou/delegate: handle concrete findings; do not restart the whole suite while jobs are queued.",
       "evidence": "[glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); original MI355X deadlock and MI300X masking investigation; production delta matches #33973; CPU 3 tests + 2 subtests and consumer audit.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_eager_metadata_no_host_sync.py"
       ],
-      "last_action": "2026-11-02: rebased/pushed to 625403853ab6 on main b45a36531c36, including upstream logger fix #47837. Full-tree Ruff, scoped repository hooks and 3 CPU tests plus 2 subtests passed; range-diff unchanged. [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41425300647/job/125210347134); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41425300984/job/125210545797) sees Ready; missing maintainer-controlled `run-ci`. No new GPU measurement was performed. [PR follow-up](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6574436019).",
-      "reviewed_activity_at": "2026-11-02T10:07:34Z"
+      "last_action": "2026-11-03: audited current head ba484a37910f, labels, exact-head workflow and test steps. run-ci and executed tests supersede the November 2 missing-label assessment. Latest lint passes. Branch advanced since our previous local validation; that evidence remains bound to its recorded source. No code push or CI retry by this audit.",
+      "reviewed_activity_at": "2026-11-03T00:17:52Z"
     },
     "sgl-project/sglang#46820": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "783c1a2192ecb1b3ab65e2cd87656919482e0034",
       "priority": "P0",
       "deployment": "BAKED: historical nonblocking KV metrics send.",
       "purpose": "Keep a blocked metrics consumer from stopping the scheduler.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; no GPU required for the socket contract.",
-      "merge_action": "Ready; the inherited XPU logger F821 is resolved by upstream #47837 and [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41424697358/job/125208358328). [Base gate](https://github.com/sgl-project/sglang/actions/runs/41424697709/job/125208623306) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required CI and review/approve. Yihou/delegate: respond to functional CI or review findings. This authorization gate is not a functional-test failure.",
+      "merge_action": "Ready; run-ci is now present. [Current-head Base](https://github.com/sgl-project/sglang/actions/runs/41467220762) passed its gate and 36 actual CPU/GPU test jobs; two base-b-test-1-gpu-large H100 shards (1, 2) remain queued. No Base test failure observed; the overall workflow is incomplete. Maintainers/CI owners: resolve runner queue, finish required checks and review. Yihou/delegate: handle concrete findings; do not restart the whole suite while jobs are queued.",
       "evidence": "[glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md); c44a to c44b; four real-ZMQ CPU tests pass; no model-throughput claim.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metrics_backpressure.py"
       ],
-      "last_action": "2026-11-02: rebased/pushed to 783c1a2192ec on main b45a36531c36, including upstream logger fix #47837. Full-tree Ruff, scoped repository hooks and 4 real-ZMQ CPU tests passed; range-diff unchanged. [Upstream Lint passed](https://github.com/sgl-project/sglang/actions/runs/41424697358/job/125208358328); [Base gate](https://github.com/sgl-project/sglang/actions/runs/41424697709/job/125208623306) sees Ready; missing maintainer-controlled `run-ci`. No new GPU measurement was performed. [PR follow-up](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6574434420).",
-      "reviewed_activity_at": "2026-11-02T10:07:30Z"
+      "last_action": "2026-11-03: audited current head ac205f829173, labels, exact-head workflow and test steps. run-ci and executed tests supersede the November 2 missing-label assessment. Latest lint passes. Branch advanced since our previous local validation; that evidence remains bound to its recorded source. No code push or CI retry by this audit.",
+      "reviewed_activity_at": "2026-11-03T01:08:41Z"
     },
     "sgl-project/sglang#47276": {
-      "assessed_at": "2026-11-02",
-      "reviewed_head": "598ba3f41f53e1c1e2a332a4d369210f283deb5f",
+      "assessed_at": "2026-11-03",
+      "reviewed_head": "74c576b7db585612c9a0b9fc26005b5d6ac2453b",
       "priority": "P1",
       "deployment": "OPTIONAL K01 FAMILY PORT: the added fused-indexer path is off in llr37, and later llr42 activation was not retained.",
       "purpose": "Speed up gfx950 fused indexer logits/top-k for MTP verify rows.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready. Preserve independent numerical evidence and coordinate #45307; bind final source/run IDs to a public result bundle when available.",
-      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430249327/job/125226720255). [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430249649/job/125226908540) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings. Coordinate overlapping #45307; its author must resolve current main conflicts.",
+      "merge_action": "Ready; run-ci is present. [Current-head Base](https://github.com/sgl-project/sglang/actions/runs/41467493468) passed its gate and completed test jobs, with two H100 base-b-test-1-gpu-large shards (1, 2) queued; whole Base is not yet successful. Latest lint passes. [AMD workflow passed](https://github.com/sgl-project/sglang/actions/runs/41467493307); retain its actual test/skip scope. Maintainers/CI owners: finish queued tests and review; yihou/delegate: investigate concrete failures and preserve evidence scope.",
       "evidence": "PR-reported bit-identical logits/top-2048/K-write controls and real-acceptance TP8 GSM8K; isolated whole-call 1.20–1.36x; serving ITL used simulated acceptance 3.61. Historical [glm52.llrepro-kf-ar-topk.packup_20261024](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.llrepro-kf-ar-topk.packup_20261024/README.md) is a related source family, not a verified final-port run mapping.",
       "tests": [
         "# GPU: use a pool node; exact architecture/flags are in the PR",
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gfx950_fused_indexer.py"
       ],
-      "last_action": "2026-11-02: rebased and pushed 598ba3f41f53 on main a133231d3140. Full-tree Ruff, scoped hooks and CPU launch-selection assertions passed; 7 GPU tests skipped; range-diff unchanged. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430249327/job/125226720255); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430249649/job/125226908540) sees Ready; missing maintainer-controlled `run-ci`. [PR follow-up](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6575193133).",
-      "reviewed_activity_at": "2026-11-02T10:45:45Z"
+      "last_action": "2026-11-03: audited maintainer 1am9trash main-merge head 74c576b7db58 (November 2 15:01/15:02 UTC). The merge leaves the PR-owned patch paths unchanged. run-ci now enables real Base tests; two H100 shards remain queued. Latest lint passes. [AMD workflow passed](https://github.com/sgl-project/sglang/actions/runs/41467493307); retain its actual test/skip scope. No new local kernel/performance run or branch mutation by this audit.",
+      "reviewed_activity_at": "2026-11-03T01:47:02Z"
     },
     "sgl-project/sglang#47278": {
-      "assessed_at": "2026-11-02",
-      "reviewed_head": "73ee22beaac2989182a7c077c2a9a125dbde4652",
+      "assessed_at": "2026-11-03",
+      "reviewed_head": "a5d8b3af95d7915910547073b1771825981ccb98",
       "priority": "P1",
       "deployment": "K01 REQUIRED FAMILY PORT: sparse MLA is active in llr37; this main-based port uses BF16 split partials and is not byte-identical to the historical overlay.",
       "purpose": "Speed up gfx950 FP8 sparse MLA decode with a 64-head split-K plan.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Already Ready. Preserve the BF16-partial accuracy change and DCP/LSE coverage; raw run-to-source archiving remains a handoff follow-up.",
-      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430645537/job/125228065040). [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430646049/job/125228291012) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings.",
+      "merge_action": "Ready; run-ci is present. [Current-head Base](https://github.com/sgl-project/sglang/actions/runs/41467616894) passed its gate and completed test jobs, with two H100 base-b-test-1-gpu-large shards (1, 2) queued; whole Base is not yet successful. Latest lint passes. [AMD shard 6 failed](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491): test_vision_chunked_prefill.py hit its 2400-second limit on MI300. Logs show a broken multimodal CPU preprocessing pool, asyncio TimeoutError, warmup HTTP 500 and later health timeouts; cleanup also references unassigned no_chunked_server_pid. No sparse-MLA exception is shown. Request a targeted retry, then a same-base control if repeated; a baseline/runner cause is suspected, not established. Maintainers/CI owners: finish queued tests and review; yihou/delegate: investigate concrete failures and preserve evidence scope.",
       "evidence": "PR reports 22/22 kernel tests, FP32-reference SNR >35 dB and real-acceptance GSM8K mean .942 baseline / .941 PR; isolated kernel 2.4–3.2x. Serving ITL used simulated acceptance 3.61. Final-port pack-up mapping still needs audit.",
       "tests": [
         "# GPU: use a pool node; preserve PR architecture and dtype matrix",
         "PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/attention/test_triton_sparse_mla_hip.py"
       ],
-      "last_action": "2026-11-02: rebased and pushed 73ee22beaac2 on main a133231d3140. Full-tree Ruff, scoped hooks and 3 CPU contracts passed; 22 GPU tests skipped; touched-source change is only inherited main #47782 architecture lookup. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41430645537/job/125228065040); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41430646049/job/125228291012) sees Ready; missing maintainer-controlled `run-ci`. [PR follow-up](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6575194570).",
-      "reviewed_activity_at": "2026-11-02T10:45:50Z"
+      "last_action": "2026-11-03: audited maintainer 1am9trash main-merge head a5d8b3af95d7 (November 2 15:01/15:02 UTC). The merge leaves the PR-owned patch paths unchanged. run-ci now enables real Base tests; two H100 shards remain queued. Latest lint passes. [AMD shard 6 failed](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491): test_vision_chunked_prefill.py hit its 2400-second limit on MI300. Logs show a broken multimodal CPU preprocessing pool, asyncio TimeoutError, warmup HTTP 500 and later health timeouts; cleanup also references unassigned no_chunked_server_pid. No sparse-MLA exception is shown. Request a targeted retry, then a same-base control if repeated; a baseline/runner cause is suspected, not established. No new local kernel/performance run or branch mutation by this audit.",
+      "reviewed_activity_at": "2026-11-03T00:27:01Z"
     },
     "AMD-AGI/Infera#221": {
       "assessed_at": "2026-11-02",
@@ -104,87 +104,87 @@
       "reviewed_activity_at": "2026-10-28T10:55:40Z"
     },
     "sgl-project/sglang#46819": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "aed9bc6953d0a95c879cff5151ee20627e9937b3",
       "priority": "P2",
       "deployment": "NOT IN LLR37: DCP metadata optimization; the peak uses DPA4/DCP1.",
       "purpose": "Cache DCP gather metadata instead of rebuilding it per transfer.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "CPU-first option: narrow to the independently measured cache and update tests/body. If retaining pinned-index/priority changes, qualify their lifetime, interference and PP ordering on allocated hardware. Preserve producer wait.",
-      "merge_action": "Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Related #44724/#39768/#43782 are overlap coordination, not established mandatory prerequisites.",
+      "merge_action": "Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/40491188455) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. Related #44724/#39768/#43782 are overlap coordination, not established mandatory prerequisites.",
       "evidence": "[glm52.dcpx-pack-fix-best.packup_20261023](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcpx-pack-fix-best.packup_20261023/README.md) dcpx8c/9/10; current-head MI355X 3 tests +16 subtests, CPU 8+4; isolated cache medians 39.57→17.15 /39.09→17.07 /130.42→107.52 us. dcpx10 also removed a wait; its combined speedup does not transfer to this PR.",
       "tests": [
         "CUDA_VISIBLE_DEVICES=0 PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_dcp_pack_metadata.py test/registered/unit/disaggregation/test_dcp_pack.py",
         "# GPU only when qualifying the retained stream/lifetime changes",
         "PYTHONPATH=python python -m pytest -q test/registered/kernels/ops/kvcache/test_pd_dcp_gather.py"
       ],
-      "last_action": "2026-11-02: reconciled current GitHub state and archived evidence for handoff.",
+      "last_action": "2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.",
       "reviewed_activity_at": "2026-11-02T04:22:19Z"
     },
     "sgl-project/sglang#46822": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "11262e1199d914ac1946bdcf3d18f56cc3f45612",
       "priority": "P2",
       "deployment": "NOT ADDED TO LLR37: separate DCP/eager-idle fault repair.",
       "purpose": "Skip HIP DSA indexing when an eager DP rank has no tokens.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; retain historical production equivalence.",
-      "merge_action": "Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result.",
+      "merge_action": "Ready, latest lint passes, run-ci absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/40492640946) is the old October 27 Draft=true rejection and does not reflect the current Ready state. Maintainer: add run-ci and trigger a fresh attempt; functional tests have not run in that old workflow.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) R16/R17 fault, R18 5/5 +40/40; later separate R24/R25 row-list bug covered by #45796; current CPU 4 tests +20 subtests.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_indexer_idle.py"
       ],
-      "last_action": "2026-11-02: reconciled current GitHub state and archived evidence for handoff.",
+      "last_action": "2026-11-03: confirmed current Ready state at 11262e1199d9 and passing lint. Historical Draft-gate result needs a fresh authorized attempt, not another Ready conversion. No code change or retry by this audit.",
       "reviewed_activity_at": "2026-11-02T04:21:06Z"
     },
     "sgl-project/sglang#46824": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "1bcfc52149011aae08502e9da0620b0325492799",
       "priority": "P2",
       "deployment": "NOT IN LLR37: DCP1-to-DCP-N transport.",
       "purpose": "Relayout DCP-sharded draft KV together with target KV.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Map pdBe-r1 to current supported combinations; resolve or explicitly reject the known DP2×DCP2 graph-garbling case. Test only uncovered MTP/prefix/PP cases on allocated hardware as needed. #44322 has merged; old backend hold is cleared.",
-      "merge_action": "Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. This transport must land before #46826 enables the configuration. #45524 producer ordering remains separate.",
+      "merge_action": "Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41387906434) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. #46824 must land before #46826 enables the configuration.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1 math29×2, passkey8K/34K/96K; rebase production delta unchanged; 43 CPU tests +61 subtests exercise merged sharding policy.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/disaggregation/test_dsa_pd_dcp.py test/registered/unit/disaggregation/test_dcp_pack.py test/registered/unit/disaggregation/test_mooncake_transfer_batching.py"
       ],
-      "last_action": "2026-11-02: signed rebase onto acd6f5570; actual canonical-policy regression added, 43 CPU tests +61 subtests and lint pass.",
+      "last_action": "2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.",
       "reviewed_activity_at": "2026-11-02T04:21:11Z"
     },
     "sgl-project/sglang#46826": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "21f8e688faa155a1f5abaa53ba3ca03c20900d7c",
       "priority": "P2",
       "deployment": "NOT IN LLR37: constrained ROCm DCP enablement.",
       "purpose": "Allow DCP decode behind DCP1 prefill when transport/backend support it.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "Complete the supported-configuration coverage with #46824; preserve rejection of unqualified graph/layout combinations. Backend/default policy is already tested; do not wait again for merged #44322.",
-      "merge_action": "Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result. Merge after #46824; review may proceed before that merge with the dependency explicit.",
+      "merge_action": "Still Draft with the recorded Ready blockers; latest lint passes. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41388093572) rejects Draft and skips functional tests. Yihou/delegate: complete the scoped Ready action first; maintainers then enable required CI and review. #46824 must land before #46826 enables the configuration.",
       "evidence": "[glm52.dcp4-pd.packup_20261022](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.dcp4-pd.packup_20261022/README.md) pdBe-r1; current 12 CPU tests +13 subtests cover implicit Triton and a2a Q-rep defaults. Combined graph/coverage gap remains.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_config.py test/registered/unit/test_dsa_dcp_backend_defaults.py"
       ],
-      "last_action": "2026-11-02: signed rebase onto acd6f5570; default-selection tests added; 12 CPU tests +13 subtests and lint pass.",
+      "last_action": "2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.",
       "reviewed_activity_at": "2026-11-02T04:23:15Z"
     },
     "sgl-project/sglang#45484": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "43dec26b032c08f4e9eee0c772db9f44d3afc275",
       "priority": "P2",
       "deployment": "NOT IN LLR37: OffloaderV2 weight offload is not HiCache.",
       "purpose": "Preserve the Aiter is_shuffled weight tag through offload/onload.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; CPU and exact-head MI355X onload regression already exist.",
-      "merge_action": "Maintainers: enable required CI (SGLang run-ci where absent), review and approve; us: address concrete review findings, rebase if needed, then rerun affected checks. A permission/draft gate is not a functional-test result.",
+      "merge_action": "Ready; latest lint passes but run-ci remains absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/40471208281) stops at the missing-label gate; functional tests were not executed. Maintainer: add run-ci and trigger required CI; yihou/delegate: handle actual test/review findings.",
       "evidence": "[glm52.v0521-offloaderv2.packup_20261015](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.v0521-offloaderv2.packup_20261015/README.md) ofs0c/ofg3c/ofg2c 23/23 each; AST-equivalent port, CPU 3+2 and allocated MI355X two-onload-cycle test. Full-model rerun is not an automatic Ready gate.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/utils/test_offloader.py",
         "# Existing GPU command; allocate a pool node if rerunning",
         "PYTHONPATH=python python test/registered/model_loading/test_offloader_shuffled_weights.py"
       ],
-      "last_action": "2026-11-02: reconciled current GitHub state and archived evidence for handoff.",
+      "last_action": "2026-11-03: confirmed unchanged head, Ready state, passing lint and missing run-ci. The Base gate is authorization failure, not a model or kernel failure. No mutation by this audit.",
       "reviewed_activity_at": "2026-11-02T04:21:05Z"
     },
     "kvcache-ai/Mooncake#5005": {
@@ -205,18 +205,19 @@
       "reviewed_activity_at": "2026-11-02T04:28:10Z"
     },
     "AMD-AGI/Infera#164": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "4676ec9087bcbca766b0e84d0b70ea3e7c81641e",
       "priority": "P3",
       "deployment": "NOT IN LLR37: comparison-only benchmark tooling.",
       "purpose": "Keep an alternative fast-benchmark script for comparison.",
       "owner": "yihou; delegate unassigned",
-      "ready_action": "Decide whether to close the comparison draft or define supported behavior, fill the placeholder body and add regression evidence before promotion.",
-      "merge_action": "Yihou/delegate: scope decision first; then fix failing checks and request review.",
+      "ready_action": "Closed unmerged; no promotion action.",
+      "merge_action": "Closed unmerged on November 2; no active Ready or merge action. Preserve as historical comparison tooling.",
       "evidence": "No submission-ready evidence audit; this is not the llr37 AgentX harness.",
       "tests": [],
-      "last_action": "2026-11-02: reconciled current GitHub state and archived evidence for handoff.",
-      "reviewed_activity_at": "2026-09-16T04:01:29Z"
+      "last_action": "2026-11-03: GitHub status audit found #164 closed unmerged at unchanged 4676ec90; removed from the active queue by the generated ledger.",
+      "reviewed_activity_at": "2026-11-02T12:18:15Z",
+      "disposition": "Closed unmerged; comparison-only benchmark tooling."
     },
     "AMD-AGI/Infera#208": {
       "assessed_at": "2026-11-02",
@@ -736,18 +737,18 @@
       "last_action": "2026-11-02: added to the InferenceX-versus-48k dependency comparison; no change to the original author's branch or PR."
     },
     "sgl-project/sglang#47117": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "3e89cdc4607d6df8c0aca2d69b210410770a75be",
       "reviewed_activity_at": "2026-10-29T03:06:19Z",
       "priority": "P1",
       "deployment": "InferenceX publication documentation; not a historical 48k engine fix.",
       "purpose": "Document Infera GLM-5.2 PD on MI355X.",
       "owner": "llying-001; original author controls code and promotion",
-      "ready_action": "Original author: align cookbook with the accepted image/recipe and submit for review.",
-      "merge_action": "Coordinate cookbook review/merge with the #4629 publication plan.",
+      "ready_action": "Original author llying-001: replace the stale Infera 0.3.2/#222 release prerequisite with released v0.3.3, reconcile cookbook images/commands with the accepted #4629 recipe and upstream fixes, attach matching stock-image validation evidence (reuse exact-matching archived runs if available), then decide Ready.",
+      "merge_action": "Original author llying-001 owns code and promotion; coordinate cookbook review/merge with InferenceX #4629. Maintainer approval is needed for Mintlify fork preview. Lint passes; Base is green only through documentation filtering with functional suites skipped. Extra is blocked by Draft, not a test assertion. Yihou supports evidence/command review without taking over the branch.",
       "evidence": "Live PR source/body/reviews checked November 2: https://github.com/sgl-project/sglang/pull/47117. Cross-checked with the stock-image recipe at a7aed81b6b3314a60c0c59f34e4b235479059230 and the frozen llr37 site. No new hardware run.",
       "tests": [],
-      "last_action": "2026-11-02: added to the InferenceX-versus-48k dependency comparison; no change to the original author's branch or PR."
+      "last_action": "2026-11-03: confirmed Draft at unchanged 3e89cdc4 and reviewed body, comments and CI. Infera v0.3.3 was published November 2 and points exactly to merged #222, clearing the old source-release prerequisite. The body still records stock-image validation as pending. No mutation of the original author PR."
     },
     "AMD-AGI/Infera#222": {
       "assessed_at": "2026-11-02",
@@ -834,15 +835,15 @@
       "last_action": "2026-11-02: added to the InferenceX-versus-48k dependency comparison; no change to the original author's branch or PR."
     },
     "sgl-project/sglang#46918": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "reviewed_head": "9763ef56bf57d03f8af4f9adc9eebb717cd0d9b1",
-      "reviewed_activity_at": "2026-11-02T08:42:06Z",
+      "reviewed_activity_at": "2026-11-03T01:19:56Z",
       "priority": "P0",
       "deployment": "Candidate upstream replacement for B8/S02 workaround, shared by the historical 48k image and InferenceX first-version recipe; not the historical config=None implementation.",
       "purpose": "Keep absorb-BMM hand tuning while limiting the waves-per-EU budget that may trigger the gfx950 compiler abort.",
       "owner": "yu-depend; original author owns the PR. Yihou/delegate can contribute allocated-MI355X validation.",
-      "ready_action": "Already non-draft. The original MI355X reproducer and scoped numerical regression now pass at the exact head; no promotion action is needed.",
-      "merge_action": "Maintainers: enable run-ci and review/merge; original author: rebase if requested and rerun affected checks. Our MI355X evidence covers Q-absorb at this exact head; other architectures and model integration are not claimed. Select an image containing a reviewed fix before removing the historical workaround. Do not duplicate or modify the original author's branch. [MI355X evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md); [upstream discussion](https://github.com/sgl-project/sglang/pull/46918#issuecomment-6572803085).",
+      "ready_action": "Already Ready. Scoped MI355X reproduction was validated at 9763ef56; the new main-merge head is progressing through CI. No promotion action is needed.",
+      "merge_action": "Ready, run-ci present, current head bb5ae4af. [Base](https://github.com/sgl-project/sglang/actions/runs/41467734403) passed its gate and completed CPU/GPU test jobs; two H100 base-b-test-1-gpu-large shards (1, 2) remain queued. Latest lint passes. Original author/maintainers own CI completion and review. Our scoped MI355X run remains pinned to 9763ef56: the unit-test blob is unchanged, but the model module changed through the main merge, so no new full-head hardware validation is claimed. Keep the image workaround until a reviewed fix is integrated.",
       "evidence": "[MI355X validation](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md): exact head 9763ef56, original Torch/HIP/Triton/AITER environment; M256 uncapped waves4 reproduces LLVM abort on three seeds; all 12 capped/workaround cases pass and agree bitwise, plus three successful uncapped M128/129/257 controls. CPU 11 tests +265 subtests. M256 timing does not establish a consistent gain over config=None; no model/48k throughput claim.",
       "tests": [
         "CUDA_VISIBLE_DEVICES=0 PYTHONPATH=python python -m pytest -q -p no:cacheprovider test/registered/unit/models/test_rocm_mla_absorb_fusion_gate.py",
@@ -850,40 +851,40 @@
         "python validate_b8.py matrix --checkout /data/yihou/b8/sglang-candidate --out /data/yihou/b8/run-first --rows 256 --seeds 104729",
         "python validate_b8.py matrix --checkout /data/yihou/b8/sglang-candidate --out /data/yihou/b8/run-boundaries --rows 128,129,257,256 --seeds 130363"
       ],
-      "last_action": "2026-11-02: completed exact-head MI355X reproduction, paired-output and timing checks; published executable harness/results and [reported to the original PR](https://github.com/sgl-project/sglang/pull/46918#issuecomment-6572803085). Test container stopped; standing pool allocation preserved. Ready; missing maintainer-controlled run-ci and review/merge remain."
+      "last_action": "2026-11-03: audited author main-merge head bb5ae4af, newly enabled run-ci and executed Base jobs. Compared the archived/current model module and unit-test blobs; retained historical validation scope. No branch change, additional GPU run or comment by this audit."
     },
     "sgl-project/sglang#47897": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "priority": "P1",
       "owner": "yihou; delegate unassigned",
       "purpose": "Speed up gfx950 decode logits while preserving paired-row tails and fallback dispatch.",
       "deployment": "K01 REQUIRED FAMILY PORT: historical indexer logits are active in llr37; this corrected main-based implementation is not byte-identical to the frozen overlay.",
       "reviewed_head": "fcfa508799f1463dd0e91c278fe80fc6fd9ad0e1",
       "ready_action": "Already Ready. Preserve existing hardware evidence and the paired-row regression; archived raw run-to-source bundle is still a handoff follow-up.",
-      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41428923887/job/125222275790). [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41428924194/job/125222524471) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings.",
+      "merge_action": "Ready; latest lint passes but run-ci remains absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41428924194) stops at the missing-label gate; functional tests were not executed. Maintainer: add run-ci and trigger required CI; yihou/delegate: handle actual test/review findings.",
       "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47897). The c2cacf5f candidate matches the frozen indexer module; the PR fixes its fused-pair tail omission. Author reports 2.67–3.06x isolated long-context logits, numerical/top-k checks, and real-acceptance GSM8K means .934 main/.927 PR with overlapping ranges. GSM8K is a short-context smoke test. Serving timings used simulated acceptance 3.61 in a single-node setup, not the frozen PD/AgentX setup. Local PR_NOTES.md and working_process.md identify validation scripts; raw results are not yet a public archived bundle.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_gluon_paged_mqa_logits.py",
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_mqa_logits_chunking.py"
       ],
-      "last_action": "2026-11-02: rebased and pushed fcfa508799f1 on main a133231d3140. Full-tree Ruff, scoped hooks and 4 CPU tests passed; 4 GPU tests skipped; range-diff unchanged. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41428923887/job/125222275790); [Base attempt 1](https://github.com/sgl-project/sglang/actions/runs/41428924194/job/125222524471) sees Ready; missing maintainer-controlled `run-ci`. [PR follow-up](https://github.com/sgl-project/sglang/pull/47897#issuecomment-6575195946).",
+      "last_action": "2026-11-03: confirmed unchanged head, Ready state, passing lint and missing run-ci. The Base gate is authorization failure, not a model or kernel failure. No mutation by this audit.",
       "reviewed_activity_at": "2026-11-02T10:45:54Z"
     },
     "sgl-project/sglang#47872": {
-      "assessed_at": "2026-11-02",
+      "assessed_at": "2026-11-03",
       "priority": "P1",
       "owner": "yihou; delegate unassigned",
       "purpose": "Provide opt-in long-context top-k on compact page tables with exact sampling fallbacks.",
       "deployment": "K01 REQUIRED FAMILY PORT: historical top-k belongs to the active llr37 indexer; this opt-in replacement has a different implementation and is slower in the measured 32k case.",
       "reviewed_head": "1061c298389facbdeaafced9891a5c7c9b399331",
       "ready_action": "Ready restored after the underflow repair, import-guard regression and exact-source MI355X validation. The temporary correctness Draft is resolved; retain opt-in behavior and the historical performance limits.",
-      "merge_action": "Ready, [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41429823944/job/125225314296). [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41429823967/job/125228691842) sees Ready; missing maintainer-controlled `run-ci`. Maintainers: add `run-ci`, trigger required functional CI and review/approve. Yihou/delegate: handle concrete CI/review findings and maintain source/evidence mappings.",
+      "merge_action": "Ready; latest lint passes but run-ci remains absent. [Latest Base](https://github.com/sgl-project/sglang/actions/runs/41429823967) stops at the missing-label gate; functional tests were not executed. Maintainer: add run-ci and trigger required CI; yihou/delegate: handle actual test/review findings.",
       "evidence": "[Historical indexer source](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.patch-inventory_20261027/patches/K01-kf-decode-kernel-overlay.NEWFILES.diff); [PR evidence](https://github.com/sgl-project/sglang/pull/47872). Author reports exact overflow fallback, valid nondeterministic boundary ties and 1.5–1.9x isolated speedup at 400k contexts/72+ rows, but about 1.3% slower serving at 32k with simulated acceptance 3.61. Real-acceptance GSM8K .953 from one server is a smoke test. Maintenance reproduced candidate underflow in the actual GPU pipeline: original 256 valid slots instead of 2048; fixed 2048 unique valid slots and all 5 GPU tests pass without skips. Run kf47872-20261102T1038Z-topk-underflow used MI355X and the public v0.5.22 ROCm10 image, Torch 2.11.0+rocm10.0.0 / Triton 3.8.0. [Pinned source, CPU/GPU records and reproduction scripts](https://github.com/AMD-AGI/Infera/tree/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/validation/kf_47872). The GPU runner uses the exact module/tests with namespace and CI-registration shims for the older image; no new server/model/performance result is claimed.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/amd/test_dsa_triton_topk_transform.py",
         "PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test_dsa_triton_topk_gate.py"
       ],
-      "last_action": "2026-11-02: rebased and pushed 1061c298389f on main a133231d3140. Full-tree Ruff, scoped hooks and 32 CPU tests passed; actual-kernel interpreter controls passed; original GPU underflow reproduced and all 5 repaired MI355X GPU tests passed with zero skips. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41429823944/job/125225314296); [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41429823967/job/125228691842) sees Ready; missing maintainer-controlled `run-ci`. Repaired candidate underflow and deferred optional Gluon imports behind platform/flag guards; restored Ready after GPU validation and retriggered Base with /tag-and-rerun-ci. The new gate supersedes the old Draft failure. [PR follow-up](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6575197280).",
+      "last_action": "2026-11-03: confirmed unchanged head, Ready state, passing lint and missing run-ci. The Base gate is authorization failure, not a model or kernel failure. No mutation by this audit.",
       "reviewed_activity_at": "2026-11-02T10:45:58Z"
     },
     "ROCm/aiter#6697": {
