@@ -86,6 +86,31 @@ Do not modify other people's PR branches. Keep S13 attribution agreement,
 issue-only workarounds and excluded patches as recorded. Never use the live
 experiment nodes crsuse2-m2m-135/136 for validation.
 
+## Retrying CI as the PR author
+
+Verified November 3 on SGLang #47276, unchanged head `74c576b7`:
+
+- Direct `gh run rerun 41467493468 --repo sgl-project/sglang --failed` was
+  rejected with `Must have admin rights to Repository` for the current account.
+  The `run-ci` label does not grant repository Actions write permission.
+- The repository's supported `/rerun-failed-ci` PR comment grants authors the
+  handler's rerun capability. Our [request](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6597067522)
+  produced a successful [handler run](https://github.com/sgl-project/sglang/actions/runs/41590296733)
+  and [Base attempt 2](https://github.com/sgl-project/sglang/actions/runs/41467493468/attempts/2).
+  Both previously cancelled H100 shards were requeued; passing results remained.
+- This command operates on **all unsuccessful current-head workflows**, not only
+  Base. This request retried Base, Extra, AMD Extra and MLU failed jobs; the skipped
+  Mori AMD workflow received a full rerun. Do not describe it as a two-job-only API.
+- At the audited handler revision, `/rerun-base-ci` without arguments aliases a
+  broad command. A tier argument additionally requires CI-label permission even
+  if the label exists. Use a maintainer's Actions access when strict Base-only
+  scope is required. Recheck the current handler before relying on these details.
+- Before posting, verify the unchanged PR head, existing CI labels and latest
+  attempt: if another actor has already started the retry, do not duplicate it.
+  A successful handler or requeued job does not mean the tests have passed.
+
+Source: [official handler at cbfc0932](https://github.com/sgl-project/sglang/blob/cbfc0932e3be191e8bbb0873cac35c8ceb65313b/scripts/ci/utils/slash_command_handler.py).
+
 ## Operation and recovery
 
 Machine-specific config and credentials are not committed. The installed config
