@@ -1,8 +1,8 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-02T10:50:37.930363+00:00. Author: `dorado269`.
+Checked: 2026-11-03T03:57:21.486714+00:00. Author: `dorado269`.
 
-**56 PRs: 16 open (9 ready / 7 draft), 22 merged, 18 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
+**56 PRs: 15 open (9 ready / 6 draft), 22 merged, 19 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
 | PR | Purpose / title | State | Next action |
 |---|---|---|---|
@@ -35,7 +35,7 @@ Checked: 2026-11-02T10:50:37.930363+00:00. Author: `dorado269`.
 | [AMD-AGI/Infera #156](https://github.com/AMD-AGI/Infera/pull/156) | feat(agent_sys): label every runtime directory with the name it alrea… | MERGED | Historical; no active merge work |
 | [AMD-AGI/Infera #157](https://github.com/AMD-AGI/Infera/pull/157) | [draft]Dev.yihou.aiopt.task package.concat | CLOSED | Historical; no active merge work |
 | [AMD-AGI/Infera #163](https://github.com/AMD-AGI/Infera/pull/163) | GLM-5.3 (glm_moe_dsa): mixed, 1P1D, and a Kubernetes recipe — plus overlay support for SGLang bases | MERGED | Historical; no active merge work |
-| [AMD-AGI/Infera #164](https://github.com/AMD-AGI/Infera/pull/164) | Keep an alternative fast-benchmark script for comparison. | DRAFT | See handoff |
+| [AMD-AGI/Infera #164](https://github.com/AMD-AGI/Infera/pull/164) | Keep an alternative fast-benchmark script for comparison. | CLOSED | Closed unmerged; comparison-only benchmark tooling. |
 | [AMD-AGI/Infera #167](https://github.com/AMD-AGI/Infera/pull/167) | feat(agent_sys): an agent work system, and the five-stage LLM e2e optimisation flow | MERGED | Historical; no active merge work |
 | [AMD-AGI/Infera #208](https://github.com/AMD-AGI/Infera/pull/208) | Create, pack, run and share agent_sys tasks from Claude Code. | MERGED | Historical; no active merge work |
 | [AMD-AGI/Infera #218](https://github.com/AMD-AGI/Infera/pull/218) | Avoid SIGPIPE false negatives in Mooncake artifact checks. | MERGED | Merged October 30; optional rebuild backport, no runtime throughput claim. |
