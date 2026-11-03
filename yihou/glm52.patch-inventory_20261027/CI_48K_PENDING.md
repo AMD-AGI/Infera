@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-03T08:17:17.040658+00:00**.
+Updated: **2026-11-03T09:42:05.227283+00:00**.
 
 These items remain open until supported by resolution evidence. Reporting them to the user does not resolve them.
 
@@ -86,16 +86,21 @@ Next action: Compare actual baseline execution before classifying the timeout as
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47897: The removed-API import was repaired at 8a9f215cb422ab507f00537c695ecccf1cfbe329 with isolated CPU validation. New-head Base/AMD are blocked by author cooldown and ran zero functional tests; lint remains running. CI validation is unresolved.
+## #47897: Interactive follow-up 2026-11-03T09:42:05.227283+00:00: current-head lint passed. Base attempt 2 is queued; gate is success. Observed Base A/B/C and separate JIT job states: {"in_progress": 10, "queued": 4, "success": 1}. This is not a passing full Base/AMD or numerical qualification. Other hardware evidence retains its prior scope.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
-Next action: After 09:30:43 UTC, recheck head, cooldown and PR-wide scope before a justified helper request. Complete functional CI and review; do not treat isolated CPU checks as GPU qualification.
+Next action: Follow the newly requested CI attempt and inspect actual functional results; do not duplicate queued/running CI. Complete Base/AMD and review. Preserve unequal paired-row/table/length coverage, gfx950 dispatch/fallback gates and exact source/run archiving. CPU API checks do not replace numerical validation; short-context GSM8K does not establish long-context DSA equivalence.
 
-- [Evidence](https://github.com/sgl-project/sglang/commit/8a9f215cb422ab507f00537c695ecccf1cfbe329)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317751/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/commit/8a9f215cb422ab507f00537c695ecccf1cfbe329)
+- [Evidence](https://github.com/sgl-project/sglang/commit/d0d50da899fd3a682491f874fe4f46ffaf210920)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317500/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317751/job/125800705843)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47897#issuecomment-6600214639)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317751/attempts/2)
 
 ## #47897: Raw run-to-source archival mapping and long-context numerical qualification remain. Historical short-context GSM8K alone is insufficient.
 
@@ -105,13 +110,17 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Current-head lint passes, but Base/AMD failed only at the author cooldown gate and all functional suites were skipped. Prior isolated CPU evidence remains narrower than full CI; numerical and performance qualifications remain.
+## #47872: Interactive follow-up 2026-11-03T09:42:05.227283+00:00: current-head lint passed. Base attempt 2 is queued; gate is success. Observed Base A/B/C and separate JIT job states: {"in_progress": 6, "queued": 4, "success": 5}. This is not a passing full Base/AMD or numerical qualification. Other hardware evidence retains its prior scope.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: After 09:30:43 UTC, recheck head and PR-wide scope before a justified helper request. Finish CI/review while preserving opt-in behavior, exact selection count, underflow/overflow and tie coverage, source-specific MI355X evidence and the recorded 32k regression.
+Next action: Let the active attempt finish, inspect real test failures and complete review; do not duplicate queued/running CI. Preserve opt-in behavior, exactly min(length,2048) valid selections, underflow/overflow fallback and boundary ties. Inherited MI355X evidence remains source-specific; retain the measured 32k regression and avoid new model or throughput claims.
 
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41597653398/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41597653398/job/125789163937)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41597653371/job/125788859557)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41597653098/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6600081857)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41611873925)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41597653398/attempts/2)
