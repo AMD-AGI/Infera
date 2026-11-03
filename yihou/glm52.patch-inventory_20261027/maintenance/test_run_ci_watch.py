@@ -68,6 +68,22 @@ def resolution(item, **overrides):
     return action
 
 
+class CommandDiagnosticsTests(unittest.TestCase):
+    def test_stdout_only_hook_failure_preserves_the_actionable_cause(self):
+        command = ["pre-commit", "run", "--files", "CI_48K_WATCH.md"]
+        failure = "Executable scripts/check-author-email.sh not found"
+        completed = subprocess.CompletedProcess(
+            command, 1, stdout="earlier output\n" * 200 + failure + "\n", stderr=""
+        )
+        with mock.patch.object(watch.subprocess, "run", return_value=completed):
+            with self.assertRaises(RuntimeError) as raised:
+                watch.run(command, Path("/home/yihou/unused-test-worktree"), {})
+        message = str(raised.exception)
+        self.assertIn("pre-commit exited 1", message)
+        self.assertIn(failure, message)
+        self.assertLessEqual(len(message), 2050)
+
+
 class ValidationTests(unittest.TestCase):
     def test_exact_scope_and_missing_workflow_are_valid(self):
         value = result()

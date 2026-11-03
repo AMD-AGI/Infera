@@ -48,9 +48,8 @@ def run(command, cwd, env, timeout=180):
         timeout=timeout,
     )
     if result.returncode:
-        raise RuntimeError(
-            f"{command[0]} exited {result.returncode}: {result.stderr[-2000:].strip()}"
-        )
+        detail = result.stderr[-2000:].strip() or result.stdout[-2000:].strip()
+        raise RuntimeError(f"{command[0]} exited {result.returncode}: {detail}")
     return result.stdout
 
 
