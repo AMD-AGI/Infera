@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-03T13:10:22.697949+00:00**.
+Updated: **2026-11-03T14:38:51.061242+00:00**.
 
 These items remain open until supported by resolution evidence. Reporting them to the user does not resolve them.
 
-## #33059: Base now has 37 successes (20 retained, 17 executed in attempt 3) and one queued H100 shard. AMD has 15 stage successes, two queued and persistent Kimi MIOpen database failure. Neither workflow is complete.
+## #33059: Base remains at 37 successes: 20 retained and 17 executed in attempt 3, with one unstarted H100 shard queued. AMD has 15 stage successes, two queued and persistent Kimi MIOpen database failure. Neither workflow is complete.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -42,7 +42,7 @@ Next action: CI owners: finish the remaining shard. Maintainers: complete review
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/job/125761043136)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830)
 
-## #45524: Base still has 35 successes, three queued shards and the previously observed test_awq.py 1800-second timeout. AMD MLA compilation/watchdog failure and ARM64/Xeon fork_worker_preload mismatch persist. Historical-source equivalence remains unproven.
+## #45524: Base remains at 35 successes executed in attempt 2, three queued shards and the test_awq.py 1800-second timeout. AMD MLA setup/compiler-wait/watchdog failure and ARM64/Xeon fork_worker_preload mismatch persist. Historical-source equivalence remains unproven.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -64,7 +64,7 @@ Next action: External author yu-depend/maintainers: recover coverage, diagnose t
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734491/job/125360336390)
 
-## #47276: Base now has 37 successes: 36 retained and one newly completed H100 shard. One shard queues. Review, #45307 overlap coordination and exact source/run archiving remain; the optional fused-indexer path stays disabled in frozen llr37.
+## #47276: Base remains at 37 successes: 36 retained and one executed in attempt 2; one shard queues. Review, #45307 overlap coordination and exact source/run archiving remain. The optional fused-indexer path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -112,7 +112,7 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base has 19 successes and three queued shards. AMD has 14 stage successes, three queued and a new Kimi MIOpen SQLite database failure; AMD JIT and ARM64 pass. Xeon source mismatch persists. Inherited repair and MI355X evidence do not qualify the entire head.
+## #47872: Base remains at 19 successes and three queued shards. AMD has 14 stage successes, three queued and persistent Kimi MIOpen SQLite database failure; AMD JIT and ARM64 pass. Xeon source mismatch persists. Inherited repair and MI355X evidence do not qualify the entire head.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
