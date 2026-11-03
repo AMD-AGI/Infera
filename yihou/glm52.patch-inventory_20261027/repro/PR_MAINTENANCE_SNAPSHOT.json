@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-03T14:39:56.836528+00:00",
+  "checked_at_utc": "2026-11-03T16:13:00.925543+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -71,10 +71,9 @@
       "latest_check_counts": {
         "CANCELLED": 2,
         "FAILURE": 7,
-        "IN_PROGRESS": 1,
-        "QUEUED": 9,
+        "QUEUED": 5,
         "SKIPPED": 62,
-        "SUCCESS": 79
+        "SUCCESS": 89
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47897/checks"
     },
@@ -170,10 +169,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "FAILURE": 7,
+        "FAILURE": 12,
         "IN_PROGRESS": 1,
-        "QUEUED": 10,
-        "SKIPPED": 60,
+        "QUEUED": 5,
+        "SKIPPED": 62,
         "SUCCESS": 79
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -192,10 +191,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T13:12:11Z",
+      "updatedAt": "2026-11-03T14:40:17Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "6b3802313c78313b0c4478bb1493a3e0491b6d18",
+      "headRefOid": "d18c0fa4894c2078f5ad7112b16ed206ba6e6fcf",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -592,7 +591,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T06:50:10Z",
+      "updatedAt": "2026-11-03T15:43:14Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "ba484a37910fc4296ae5693d1b1436559b34bf88",
@@ -639,9 +638,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "QUEUED": 1,
-        "SKIPPED": 63,
+        "FAILURE": 7,
+        "SKIPPED": 64,
         "SUCCESS": 104
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
@@ -1003,8 +1001,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2350,9 +2348,9 @@
       "latest_check_counts": {
         "CANCELLED": 1,
         "FAILURE": 7,
-        "QUEUED": 3,
+        "QUEUED": 2,
         "SKIPPED": 63,
-        "SUCCESS": 97
+        "SUCCESS": 98
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -3043,8 +3041,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "FAILURE": 11,
-        "QUEUED": 6,
+        "FAILURE": 12,
+        "QUEUED": 5,
         "SKIPPED": 68,
         "SUCCESS": 89
       },
@@ -3186,8 +3184,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3221,8 +3219,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3277,8 +3275,8 @@
       "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4647,8 +4645,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4707,8 +4705,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4864,8 +4862,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5040,8 +5038,8 @@
       "baseRefOid": "b960aa903aad354fb2e484041e5e33e3eb061e9b",
       "headRefName": "llying/pp-missing-layer-aiter-gfx95",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5278,7 +5276,7 @@
       "number": 4629,
       "url": "https://github.com/SemiAnalysisAI/InferenceX/pull/4629",
       "title": "[AMD][MI355X] Add GLM-5.2 MXFP4 AgentX P/D behind the Infera router (infera-sglang) / [AMD][MI355X] 新增 GLM-5.2 MXFP4 AgentX PD 分离部署（Infera router，infera-sglang）",
-      "state": "OPEN",
+      "state": "CLOSED",
       "isDraft": false,
       "owned": false,
       "author": {
@@ -5287,9 +5285,9 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-11-03T03:25:16Z",
+      "updatedAt": "2026-11-03T15:20:47Z",
       "mergedAt": null,
-      "closedAt": null,
+      "closedAt": "2026-11-03T15:20:47Z",
       "headRefOid": "69be557c8c200f9292ee6239d35123667f16c49a",
       "baseRefOid": "95691df21ddc8ca233a35f631e7a8b26010c72cd",
       "headRefName": "llying/infera-sglang",
@@ -5325,7 +5323,7 @@
           "login": "zijiecode"
         }
       ],
-      "unresolved_review_threads": 1,
+      "unresolved_review_threads": 0,
       "latest_check_counts": {
         "SKIPPED": 23,
         "SUCCESS": 4
@@ -5353,8 +5351,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "master",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
