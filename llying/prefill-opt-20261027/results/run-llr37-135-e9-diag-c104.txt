@@ -1,0 +1,34 @@
+== llr37-135-e9-diag  run=/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/2p1d/work/runs/c104-1030T0725  window 2026-10-30 07:48:15 .. 
+-- summarize_points
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.N6ovq0m3RT/agentx_conc104.json'
+-- analyze_pd_logs
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera/llying/2p1d-v0522-20261020/scripts/analyze_pd_logs.py", line 49, in <module>
+    secs = (datetime.datetime.fromisoformat(t1) - datetime.datetime.fromisoformat(t0)).total_seconds()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid isoformat string: '2026-10-31T'
+-- pp_stage_times glm52_2p1d-prefill0.log
+batches with 8000-max new tokens: 309, median new 8192, median cached 18688, median seqs 2
+  PP0 -> PP1 offset ms: median   217.2  p90   269.2
+  PP1 -> PP2 offset ms: median   259.7  p90   315.3
+  PP2 -> PP3 offset ms: median   240.7  p90   310.8
+  PP0 beat ms (queue > 0, n=128): median   249.2  p90   328.7
+  PP1 beat ms (queue > 0, n=128): median   252.1  p90   331.4
+  PP2 beat ms (queue > 0, n=128): median   252.0  p90   326.4
+  PP3 beat ms (queue > 0, n=128): median   260.1  p90   329.4
+-- prefill_beats glm52_2p1d-prefill0.log
+  beats > 1200 ms:  0.0% of beats, excess over median  0.0% of time
+  beats > 2000 ms:  0.0% of beats, excess over median  0.0% of time
+  percentiles: p10=224 p25=241 p50=262 p75=276 p90=296 p95=310 p99=456
+beat by cached tokens of the batch (sum over its seqs):
+  cached    0k-   50k: n    40  p10   225  p50   269  p90   302  mean   272 ms
+  cached   50k-  100k: n    14  p10   211  p50   255  p90   272  mean   247 ms
+  cached  100k-  200k: n    16  p10   233  p50   252  p90   288  mean   259 ms
+  cached  200k-  400k: n     6  p10   107  p50   265  p90   284  mean   231 ms
+-- counters prefill0.prom (whole deployment, per pp_rank)
+pp0: computed 32.3M (~3939 steps)  dev_hit 129M  host_hit 96M  evictions 223 (0.06/step) total 34s avg 155ms  evicted/step 30K  loadback/step 24K  backup 33M tok 9s  dropped 0  host_used 21.7/21.7M
+pp1: computed 32.3M (~3939 steps)  dev_hit 129M  host_hit 96M  evictions 223 (0.06/step) total 24s avg 107ms  evicted/step 30K  loadback/step 24K  backup 33M tok 9s  dropped 0  host_used 21.7/21.7M
+pp2: computed 32.3M (~3939 steps)  dev_hit 129M  host_hit 96M  evictions 223 (0.06/step) total 31s avg 141ms  evicted/step 30K  loadback/step 24K  backup 33M tok 9s  dropped 0  host_used 21.7/21.7M
+pp3: computed 32.3M (~3939 steps)  dev_hit 129M  host_hit 96M  evictions 223 (0.06/step) total 27s avg 119ms  evicted/step 30K  loadback/step 24K  backup 33M tok 9s  dropped 0  host_used 21.7/21.7M

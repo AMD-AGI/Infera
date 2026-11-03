@@ -1,0 +1,28 @@
+== llr37-135-e9-diag2  run=/mnt/m2m_nobackup/liyingli_3p1d/mix-v0522/2p1d/work/runs/c104-1030T0820  window 2026-10-31  .. 
+-- summarize_points
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '/tmp/tmp.bwSenDWLCH/agentx_conc104.json'
+-- analyze_pd_logs
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera/llying/2p1d-v0522-20261020/scripts/analyze_pd_logs.py", line 49, in <module>
+    secs = (datetime.datetime.fromisoformat(t1) - datetime.datetime.fromisoformat(t0)).total_seconds()
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid isoformat string: '2026-10-31T'
+-- pp_stage_times glm52_2p1d-prefill0.log
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera/llying/2p1d-v0522-20261020/scripts/pp_stage_times.py", line 25, in <module>
+    n_stage = max(stages) + 1
+              ^^^^^^^^^^^
+ValueError: max() iterable argument is empty
+-- prefill_beats glm52_2p1d-prefill0.log
+Traceback (most recent call last):
+  File "/home/liyingli/bench_agentx/baseline/Infera/llying/prefill-opt-20261027/scripts/prefill_beats.py", line 11, in <module>
+    print(f"PP0 batches {len(rows)}, back-to-back full-chunk beats {n}: mean {tot/n:.0f} ms, median {d[n//2]:.0f}")
+                                                                              ~~~^~
+ZeroDivisionError: division by zero
+-- counters prefill0.prom (whole deployment, per pp_rank)
+pp0: computed 17.5M (~2136 steps)  dev_hit 0M  host_hit 0M  evictions 13 (0.01/step) total 5s avg 408ms  evicted/step 3K  loadback/step 0K  backup 7M tok 2s  dropped 0  host_used 7.0/21.7M
+pp1: computed 17.5M (~2135 steps)  dev_hit 0M  host_hit 0M  evictions 13 (0.01/step) total 4s avg 322ms  evicted/step 3K  loadback/step 0K  backup 7M tok 2s  dropped 0  host_used 7.0/21.7M
+pp2: computed 17.5M (~2134 steps)  dev_hit 0M  host_hit 0M  evictions 13 (0.01/step) total 4s avg 346ms  evicted/step 3K  loadback/step 0K  backup 7M tok 2s  dropped 0  host_used 7.0/21.7M
+pp3: computed 17.5M (~2133 steps)  dev_hit 0M  host_hit 0M  evictions 13 (0.01/step) total 4s avg 330ms  evicted/step 3K  loadback/step 0K  backup 7M tok 2s  dropped 0  host_used 7.0/21.7M
