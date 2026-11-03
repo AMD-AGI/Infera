@@ -65,6 +65,66 @@ new evidence. A human/agent delegate must assess new reviews/CI failures and
 update the curated actions. No external messaging is configured. The task depends
 on this host being online and its GitHub/SSH credentials remaining valid.
 
+## Two-hour autonomous Base CI maintenance
+
+The separate `yihou-glm52-ci-watch` cron block runs `run_ci_watch.py` at
+`0 */2 * * *` in UTC. It monitors exactly SGLang #33059, #46820, #46830, #45524,
+#46918, #47276, #47278, #47897 and #47872. The last two externally authored
+fixes in that list are #45524/#46918; their branches remain read-only. #47276
+is optional for the frozen llr37 deployment, but is explicitly included.
+
+This worker is authorized to inspect current-head Base and relevant AMD logs,
+request justified bounded retries, and make small, attributable, validated fixes
+to owned PR branches. It preserves existing review and evidence constraints.
+It cannot merge, close, open, or change Ready/Draft state. Infera #228 remains
+permanently Draft. The daily 09:00 collector remains installed separately.
+
+The worker uses a dedicated sparse worktree and the saved Codex/GitHub identity.
+It does not run in, stash, clean, or stage the experiment checkout or its
+uncommitted pack-ups. Artifacts and logs use the verified NFS task directory.
+`codex exec` supports this scripted execution and structured result format:
+[official non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode).
+No API credentials are copied into configuration or published files.
+
+The launcher has its own nonblocking lock and a 90-minute agent deadline. An
+active previous cycle prevents overlap. The retry helper additionally reserves
+actions before sending, checks current head/attempt and existing CI labels,
+enforces at least two hours between requests and at most two automated retries
+per unchanged head, and never retries the same attempt twice. Queued/running
+jobs are not retried. Unknown outcomes retain their reservation for inspection.
+Actual deterministic failures require diagnosis; repeated/unclear failures are
+handed off instead of repeatedly retried. Bot retries are PR-wide, as described
+below. Source fixes use isolated PR checkouts, focused validation and signed
+commits, with a fresh remote-head check before pushing.
+
+The current reports are [CI_48K_WATCH.md](../CI_48K_WATCH.md) and
+[CI_48K_PENDING.md](../CI_48K_PENDING.md). The launcher updates only the scoped
+curated CI actions, retaining ownership, evidence, priority and readiness notes,
+then invokes the existing daily publisher to refresh the permanent-Draft tracker.
+A failed publication or agent run is recorded locally and is not called success.
+
+Machine configuration is ignored by Git at `runtime/ci-watch-20261103/config.json`.
+Logs, immutable cycle results and retry history live beside it. A stable
+`NEXT_SESSION.md` and `next_session.json` retain unresolved handoff items.
+The user's scoped Codex AGENTS instruction reads that notice at the next
+interactive project session. Acknowledging a displayed notice does not resolve
+or remove its open findings. No email, Slack or other notification is sent.
+The host, NFS, network and saved credentials must remain available.
+
+```sh
+python maintenance/run_ci_watch.py --config /path/containing/yihou/config.json
+# Inspect status before interpreting an old report as current.
+cat runtime/ci-watch-20261103/run_status.json
+cat runtime/ci-watch-20261103/NEXT_SESSION.md
+# Only after the pending findings have actually been reported to the user:
+python maintenance/run_ci_watch.py --config /path/containing/yihou/config.json --acknowledge
+```
+
+To pause this task, set `enabled` to false in its local configuration. Preserve
+unrelated cron entries and the daily ledger task. Before moving hosts, disable
+the old host's watcher to avoid duplicate actions; transfer configuration and
+retry history without sharing credentials or deleting preserved artifacts.
+
 ## Handoff workflow
 
 Use the priority table to assign a named delegate. Edit the PR's `owner` field in

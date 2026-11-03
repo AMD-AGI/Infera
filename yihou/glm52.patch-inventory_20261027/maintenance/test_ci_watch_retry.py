@@ -1,0 +1,344 @@
+"""Mocked retry safety tests; retained artifacts require a yihou NFS/data root.
+
+Set CI_WATCH_TEST_TMPDIR to a dedicated artifact directory. These tests never
+contact GitHub, post comments, trigger workflows, or remove their directories.
+"""
+
+import copy
+import fcntl
+import json
+import os
+import tempfile
+import unittest
+from pathlib import Path
+from unittest import mock
+
+import ci_watch_retry as retry
+
+HEAD = "a" * 40
+OTHER_HEAD = "b" * 40
+NOW = 1793689200
+PR = 47276
+RUN = 41467493468
+
+
+def job(name, conclusion, job_id=1):
+    return {"name": name, "conclusion": conclusion, "id": job_id}
+
+
+class FakeGitHub:
+    def __init__(self, runtime):
+        self.runtime = runtime
+        self.pr_data = {
+            "state": "open",
+            "draft": False,
+            "head": {"sha": HEAD, "ref": "topic", "repo": {"id": 9}},
+            "user": {"login": retry.AUTHOR},
+            "labels": [{"name": "run-ci"}],
+        }
+        self.run_data = {
+            "id": RUN,
+            "path": retry.BASE_PATH,
+            "head_sha": HEAD,
+            "status": "completed",
+            "conclusion": "cancelled",
+            "run_attempt": 1,
+            "event": "pull_request",
+            "head_branch": "topic",
+            "head_repository": {"id": 9},
+        }
+        self.actor_name = retry.AUTHOR
+        self.extra_runs = []
+        self.job_data = {RUN: [job("base-a-test-cpu", "success"), job("pr-test-finish", "failure")]}
+        self.comment_data = []
+        self.gate_log = ""
+        self.posts = []
+        self.post_error = None
+        self.pr_reads = 0
+        self.race_head = False
+
+    def actor(self):
+        return self.actor_name
+
+    def pr(self, number):
+        self.pr_reads += 1
+        value = copy.deepcopy(self.pr_data)
+        if self.race_head and self.pr_reads > 1:
+            value["head"]["sha"] = OTHER_HEAD
+        return value
+
+    def run(self, run_id):
+        return copy.deepcopy(self.run_data)
+
+    def runs(self, head):
+        return copy.deepcopy([self.run_data, *self.extra_runs])
+
+    def jobs(self, run_id, attempt):
+        return copy.deepcopy(self.job_data.get(run_id, []))
+
+    def comments(self, number, since):
+        return copy.deepcopy(self.comment_data)
+
+    def job_log(self, job_id):
+        return self.gate_log
+
+    def post(self, number, body_file):
+        # Assert ordering at the boundary where a real network mutation occurs.
+        state = json.loads((self.runtime / "retry_state.json").read_text())
+        assert state["retries"][-1]["status"] == "reserved"
+        assert state["retries"][-1]["run_id"] == RUN
+        assert body_file.parent == self.runtime
+        assert body_file.read_text().startswith("/rerun-failed-ci\n")
+        self.posts.append((number, body_file))
+        if self.post_error:
+            raise self.post_error
+        return f"https://github.com/{retry.REPO}/pull/{number}#issuecomment-12345"
+
+
+class RetryTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        value = os.environ.get("CI_WATCH_TEST_TMPDIR")
+        if not value:
+            raise RuntimeError("Set CI_WATCH_TEST_TMPDIR to an explicit yihou NFS/data directory")
+        cls.artifacts = retry.prepare_runtime(value)
+
+    def setUp(self):
+        # Intentionally retained; no TemporaryDirectory or recursive cleanup.
+        self.runtime = Path(tempfile.mkdtemp(prefix="retry-case-", dir=self.artifacts))
+        self.config = {
+            "repo": retry.REPO,
+            "author": retry.AUTHOR,
+            "owned_prs": sorted(retry.OWNED),
+            "external_prs": sorted(retry.EXTERNAL),
+            "runtime": str(self.runtime),
+            "min_retry_interval_seconds": 7200,
+            "max_retries_per_head": 2,
+        }
+        self.gh = FakeGitHub(self.runtime)
+
+    def call(self, **kwargs):
+        values = dict(
+            config=self.config,
+            number=PR,
+            run_id=RUN,
+            expected_head=HEAD,
+            reason="cancelled",
+            gh=self.gh,
+            now=NOW,
+        )
+        values.update(kwargs)
+        return retry.retry(**values)
+
+    def history(self, entries):
+        state = {"schema_version": 1, "retries": entries, "decisions": []}
+        (self.runtime / "retry_state.json").write_text(json.dumps(state))
+
+    def entry(self, attempt=1, age=8000, run_id=RUN, status="reserved"):
+        return {
+            "pr": PR,
+            "head": HEAD,
+            "run_id": run_id,
+            "attempt": attempt,
+            "reserved_at": retry.utc(NOW - age),
+            "status": status,
+        }
+
+    def assert_blocked(self, expected_reason, **kwargs):
+        result = self.call(**kwargs)
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["reason"], expected_reason)
+        self.assertFalse(self.gh.posts)
+        return result
+
+    def test_active_base_is_not_retried(self):
+        for status in ("queued", "in_progress", "waiting"):
+            with self.subTest(status=status):
+                self.gh.run_data.update(status=status, conclusion=None)
+                self.assert_blocked("base_run_active")
+
+    def test_wrong_pr_head(self):
+        self.gh.pr_data["head"]["sha"] = OTHER_HEAD
+        self.assert_blocked("head_changed")
+
+    def test_wrong_run_head(self):
+        self.gh.run_data["head_sha"] = OTHER_HEAD
+        self.assert_blocked("run_head_changed")
+
+    def test_external_records_permission_need_without_github_mutation(self):
+        result = self.call(number=45524)
+        self.assertEqual(result["status"], "permission_needed")
+        self.assertEqual(self.gh.pr_reads, 0)
+        self.assertFalse(self.gh.posts)
+        state = json.loads((self.runtime / "retry_state.json").read_text())
+        self.assertEqual(state["retries"], [])
+        self.assertEqual(state["decisions"][-1]["pr"], 45524)
+
+    def test_draft(self):
+        self.gh.pr_data["draft"] = True
+        self.assert_blocked("pr_draft")
+
+    def test_missing_run_ci_label(self):
+        self.gh.pr_data["labels"] = []
+        self.assert_blocked("missing_run_ci_label")
+
+    def test_closed_and_success_are_not_retried(self):
+        self.gh.pr_data["state"] = "closed"
+        self.assert_blocked("pr_not_open")
+        self.gh.pr_data["state"] = "open"
+        self.gh.run_data["conclusion"] = "success"
+        self.assert_blocked("base_run_not_unsuccessful")
+
+    def test_different_author_or_authenticated_actor(self):
+        self.gh.pr_data["user"]["login"] = "someone-else"
+        self.assert_blocked("not_our_author")
+        self.gh.pr_data["user"]["login"] = retry.AUTHOR
+        self.gh.actor_name = "someone-else"
+        self.assert_blocked("authenticated_actor_not_author")
+
+    def test_old_base_run_is_not_retried(self):
+        newest = dict(self.gh.run_data, id=RUN + 1)
+        self.gh.extra_runs = [newest]
+        self.assert_blocked("not_latest_base_run")
+
+    def test_quota_counts_uncertain_reservations(self):
+        self.history([self.entry(1), self.entry(2, status="uncertain")])
+        self.gh.run_data["run_attempt"] = 3
+        self.assert_blocked("head_retry_quota_exhausted")
+
+    def test_same_attempt_is_never_retried_twice(self):
+        self.history([self.entry(status="uncertain")])
+        self.assert_blocked("run_attempt_already_reserved")
+
+    def test_interval_applies_across_attempts(self):
+        self.history([self.entry(age=7199)])
+        self.gh.run_data["run_attempt"] = 2
+        self.assert_blocked("retry_interval_not_elapsed")
+
+    def test_cancelled_with_real_test_failure_requires_triage(self):
+        self.gh.job_data[RUN].append(job("base-b-test-1-gpu-large (1)", "failure"))
+        self.assert_blocked("actual_failure_requires_triage")
+
+    def test_pr_wide_real_failure_is_not_silently_retried(self):
+        extra = dict(
+            self.gh.run_data,
+            id=RUN + 2,
+            path=".github/workflows/pr-test-amd.yml",
+            conclusion="failure",
+        )
+        self.gh.extra_runs = [extra]
+        self.gh.job_data[extra["id"]] = [job("amd-kernel-test", "failure")]
+        self.assert_blocked("actual_failure_requires_triage")
+
+    def test_recent_slash_request_blocks_duplicate_human_retry(self):
+        self.gh.comment_data = [
+            {
+                "body": " /rerun-failed-ci",
+                "created_at": retry.utc(NOW - 40),
+                "updated_at": retry.utc(NOW - 30),
+                "html_url": "https://github.com/comment",
+            }
+        ]
+        self.assert_blocked("recent_pr_slash_request")
+
+    def test_concurrent_lock(self):
+        with (self.runtime / "retry.lock").open("a+") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            result = self.call()
+        self.assertEqual(result["status"], "busy")
+        self.assertFalse(self.gh.posts)
+
+    def test_head_changed_during_checks(self):
+        self.gh.race_head = True
+        self.assert_blocked("head_changed")
+
+    def test_success_reserves_before_post_and_preserves_history(self):
+        older = self.entry(run_id=RUN - 1)
+        self.history([older])
+        result = self.call()
+        self.assertEqual(result["status"], "sent")
+        self.assertEqual(len(self.gh.posts), 1)
+        state = json.loads((self.runtime / "retry_state.json").read_text())
+        self.assertEqual(state["retries"][0], older)
+        self.assertEqual(state["retries"][1]["status"], "sent")
+        self.assertEqual(state["retries"][1]["reason"], "cancelled")
+        self.assertIn("comment_url", state["retries"][1])
+
+    def test_uncertain_send_is_durable_and_not_resent(self):
+        self.gh.post_error = TimeoutError("network outcome unknown")
+        self.assertEqual(self.call()["status"], "uncertain")
+        self.gh.post_error = None
+        result = self.call(now=NOW + 8000)
+        self.assertEqual(result["reason"], "run_attempt_already_reserved")
+        self.assertEqual(len(self.gh.posts), 1)
+
+    def test_failed_reservation_write_never_posts(self):
+        with mock.patch.object(retry, "atomic_state", side_effect=OSError("disk failure")):
+            with self.assertRaises(OSError):
+                self.call()
+        self.assertFalse(self.gh.posts)
+
+    def test_post_send_state_failure_retains_reservation_and_url(self):
+        real_write = retry.atomic_state
+        writes = 0
+
+        def fail_second_write(path, state):
+            nonlocal writes
+            writes += 1
+            if writes == 2:
+                raise OSError("post-send disk failure")
+            real_write(path, state)
+
+        with mock.patch.object(retry, "atomic_state", side_effect=fail_second_write):
+            result = self.call()
+        self.assertEqual(result["status"], "uncertain")
+        self.assertEqual(result["reason"], "comment_posted_state_update_failed")
+        self.assertIn("comment_url", result)
+        state = json.loads((self.runtime / "retry_state.json").read_text())
+        self.assertEqual(state["retries"][0]["status"], "reserved")
+        self.assertEqual(self.call(now=NOW + 8000)["reason"], "run_attempt_already_reserved")
+        self.assertEqual(len(self.gh.posts), 1)
+
+    def test_config_cannot_relax_authorized_bounds(self):
+        for key, value in (
+            ("max_retries_per_head", 3),
+            ("min_retry_interval_seconds", 0),
+            ("owned_prs", [46117]),
+        ):
+            with self.subTest(key=key):
+                config = dict(self.config, **{key: value})
+                with self.assertRaises(ValueError):
+                    self.call(config=config)
+        self.assertFalse(self.gh.posts)
+
+    def test_corrupt_state_is_not_overwritten(self):
+        path = self.runtime / "retry_state.json"
+        path.write_text("broken history")
+        with self.assertRaises(json.JSONDecodeError):
+            self.call()
+        self.assertEqual(path.read_text(), "broken history")
+        self.assertFalse(self.gh.posts)
+
+    def test_dry_run_has_no_reservation_or_comment(self):
+        result = self.call(dry_run=True)
+        self.assertEqual(result["status"], "dry_run")
+        self.assertFalse((self.runtime / "retry_state.json").exists())
+        self.assertFalse(self.gh.posts)
+
+    def test_stale_gate_requires_real_executed_old_gate_message(self):
+        self.gh.run_data["conclusion"] = "failure"
+        self.gh.job_data[RUN] = [job("call-gate / pr-gate", "failure")]
+        self.gh.gate_log = '2026-11-03T00:00:00Z echo "PR is draft. Blocking CI."\n'
+        self.assert_blocked("gate_not_proven_stale", reason="stale_gate")
+        self.gh.gate_log = "2026-11-03T00:00:00Z PR is draft. Blocking CI.\n"
+        self.assertEqual(self.call(reason="stale_gate")["status"], "sent")
+
+    def test_model_triaged_transient_remains_bounded(self):
+        self.gh.run_data["conclusion"] = "failure"
+        self.gh.job_data[RUN] = [job("base-a-test-cpu", "failure")]
+        self.assertEqual(self.call(reason="transient")["status"], "sent")
+        self.assertEqual(self.call(reason="transient")["reason"], "run_attempt_already_reserved")
+
+
+if __name__ == "__main__":
+    unittest.main()
