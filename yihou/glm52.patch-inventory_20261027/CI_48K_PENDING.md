@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-03T11:39:39.254727+00:00**.
+Updated: **2026-11-03T13:10:22.697949+00:00**.
 
 These items remain open until supported by resolution evidence. Reporting them to the user does not resolve them.
 
-## #33059: Base has 32 successes, two running jobs and four queued; AMD has 15 stage successes, two queued and the persistent Kimi MIOpen database failure. Neither workflow is complete.
+## #33059: Base now has 37 successes (20 retained, 17 executed in attempt 3) and one queued H100 shard. AMD has 15 stage successes, two queued and persistent Kimi MIOpen database failure. Neither workflow is complete.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -21,17 +21,18 @@ Next action: Yihou/reviewers: supply native MI300 coverage using allocated hardw
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: One H100 shard fails VLM preprocessing/warmup; one remains queued. All 36 Base successes are retained. AMD passes, but required review remains incomplete.
+## #46820: Base completed unsuccessfully: 36 retained successes, one VLM timeout and one fail-fast cascade whose functional steps were skipped. AMD passes; required common-code review and baseline diagnosis remain.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: CI owners: compare baseline execution and finish Base. Maintainers: complete common-code review while preserving CPU socket-contract evidence.
+Next action: CI owners: compare the VLM preprocessing/warmup failure with baseline execution, then recover both affected shards using an appropriate retry scope. A transient cause is unproven. Maintainers: complete common-code review and required checks. Preserve CPU socket-contract evidence; no GPU qualification or model-throughput claim is needed for that contract.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869468)
 
-## #46830: Base remains at 37 successes: 36 retained and one executed in attempt 2, already observed last cycle. One H100 shard queues without execution; aggregate completion and required review remain.
+## #46830: Base remains at 37 successes: 36 retained and one executed in attempt 2. One H100 shard still queues without execution; aggregate completion and required review remain.
 
 Tracking key: `pr46830-base-review`.
 
@@ -41,7 +42,7 @@ Next action: CI owners: finish the remaining shard. Maintainers: complete review
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/job/125761043136)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830)
 
-## #45524: Base has 35 successes, three queued shards and a new test_awq.py 1800-second timeout. AMD MLA setup still hits compilation/watchdog failure; ARM64/Xeon expose fork_worker_preload mismatch. Historical-source equivalence remains unproven.
+## #45524: Base still has 35 successes, three queued shards and the previously observed test_awq.py 1800-second timeout. AMD MLA compilation/watchdog failure and ARM64/Xeon fork_worker_preload mismatch persist. Historical-source equivalence remains unproven.
 
 Tracking key: `pr45524-external-ci-review`.
 
@@ -63,7 +64,7 @@ Next action: External author yu-depend/maintainers: recover coverage, diagnose t
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734491/job/125360336390)
 
-## #47276: One H100 shard runs and one queues; 36 Base successes are retained. Review, #45307 overlap coordination and exact source/run archiving remain. The fused-indexer path stays optional and disabled in frozen llr37.
+## #47276: Base now has 37 successes: 36 retained and one newly completed H100 shard. One shard queues. Review, #45307 overlap coordination and exact source/run archiving remain; the optional fused-indexer path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -91,7 +92,7 @@ Next action: Compare actual baseline execution before classifying the timeout as
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47897: Base now has 16 successes and AMD 14 stage successes, but AMD Kimi fails on MIOpen database access and Xeon has a distinct source mismatch. Both GPU workflows remain incomplete; ARM64 and AMD JIT pass. The inherited API repair does not qualify full CI or numerics.
+## #47897: Base has 19 successes and three queued shards; AMD has 14 stage successes, three queued and Kimi MIOpen database failure. Xeon source mismatch persists; ARM64 and AMD JIT pass. Inherited API repair does not qualify full CI or numerics.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
@@ -111,17 +112,18 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Inherited repair 8083ca7a now has passing ARM64 and 13 Base job successes; AMD has 12 stage successes plus JIT unit/benchmark passes. Base/AMD remain active and incomplete, and Xeon fails a separate source mismatch. Prior MI355X evidence does not qualify the whole head.
+## #47872: Base has 19 successes and three queued shards. AMD has 14 stage successes, three queued and a new Kimi MIOpen SQLite database failure; AMD JIT and ARM64 pass. Xeon source mismatch persists. Inherited repair and MI355X evidence do not qualify the entire head.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: CI maintainers: align Xeon test/package revisions, finish active Base/AMD and review. Preserve opt-in behavior, exactly min(length,2048) valid selections, underflow/overflow fallback and boundary ties. Inherited MI355X evidence remains source-specific; retain the measured 32k regression and avoid new model/throughput claims.
+Next action: CI maintainers: investigate MIOpen database access, align Xeon test/package revisions, finish queued Base/AMD work and review. Preserve opt-in behavior, exactly min(length,2048) valid selections, underflow/overflow fallback and boundary ties. Archive exact source/run mappings; inherited MI355X evidence remains source-specific. Retain the measured 32k regression and avoid new model/throughput claims.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853413002)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114163/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/commit/8083ca7ad7fdcaf2388a88196559b870e70e762a)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/job/125893452204)
 
 ## #33059: Xeon tests import req_types and disaggregation.mode that the installed PR package cannot provide. The job builds the fork branch while running tests from the merge checkout; no source-alignment repair was attempted.
 
