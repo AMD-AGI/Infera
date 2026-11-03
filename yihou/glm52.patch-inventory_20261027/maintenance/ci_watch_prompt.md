@@ -39,7 +39,9 @@ worktree, inventory, and any new code checkout. Read the publisher inventory's
 `maintenance/handoff_notes.json`, `LLR37_DEPLOYMENT_PRIORITY.md`,
 `KERNELFORGE_UPSTREAM_20261102.md`, and the current `PR_HANDOFF.md`. Read the
 previous result and pending handoff at `previous_result_path` and `pending_path`,
-including **all** unresolved items. Read the retry helper's
+including **all** unresolved items. On the first invocation, the previous result
+and pending handoff may not exist; this is normal initialization, not a blocker.
+Read the retry helper's
 documented CLI and the local configuration before calling it. Missing required
 context is a reportable blocker, not permission to invent paths or ownership.
 
@@ -231,6 +233,11 @@ Return **only one JSON object**, with no Markdown fence or surrounding prose,
 matching `maintenance/ci_watch_output.schema.json`. The launcher saves it for
 the user's next login/session and updates the tracking documents. Required
 fields and conventions:
+
+The JSON is also published in public tracking documents. Describe validation
+commands using repository-relative paths and task-relative artifact paths;
+keep private hostnames, absolute runtime paths, credentials and raw private
+logs in local evidence only. Public GitHub evidence URLs are appropriate.
 
 - `summary`: concise result, material changes, repairs/retries, and outstanding
   uncertainty. Do not suggest monitoring was installed by this worker.
