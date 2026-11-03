@@ -3,3 +3,15 @@
 16:44:45 ref-fp8-stock did not come up: FileNotFoundError: No such file or directory: /perf_apps/data/models/GLM-5.2-FP8-fixed/model-00001-of-00141.safetensors
 16:45:57 ref-fp8-stock up: smci355-ccs-aus-n06-25 GPUs 0,1,2,3 image infera-sglang:v0522-fdbafb60 (1a49bf2092e9) model /perf_apps/data/models/GLM-5.2-FP8-fixed args --model-path /perf_apps/data/models/GLM-5.2-FP8-fixed --served-model-name glm5.2-mxfp4 --trust-remote-code --tp-size 4 --host 0.0.0.0 --port 31000 --reasoning-parser glm45 --disable-custom-all-reduce --mem-fraction-static 0.9 --max-running-requests 64 --chunked-prefill-size 16384 --watchdog-timeout 3600
 16:46:26 ref-mxfp4-stock ready after 161 s; env QR=NONE dual_graph_lines=4
+16:57:28 ref-mxfp4-stock probe: n=1319 errors=0 correct=1284/1319 (0.973) bad_start=0 garbled=0 hit_cap=12 empty=0
+16:58:19 ref-fp8-stock ready after 742 s; env QR=NONE dual_graph_lines=4
+17:01:15 ref-mxfp4-stock longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
+17:01:16 ref-mxfp4-stock down
+17:01:30 ref-mxfp4-fp8kv up: smci355-ccs-aus-n06-33 GPUs 0,1,2,3 image infera-sglang:v0522-fdbafb60 (2d852443605c) model /perf_apps/data/models/GLM-5.2-MXFP4 args --model-path /perf_apps/data/models/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --trust-remote-code --tp-size 4 --host 0.0.0.0 --port 31000 --reasoning-parser glm45 --disable-custom-all-reduce --mem-fraction-static 0.85 --max-running-requests 64 --chunked-prefill-size 16384 --watchdog-timeout 3600 --kv-cache-dtype fp8_e4m3
+17:04:14 ref-mxfp4-fp8kv ready after 161 s; env QR=NONE dual_graph_lines=4
+17:13:23 ref-fp8-stock probe: n=1319 errors=0 correct=1275/1319 (0.967) bad_start=0 garbled=0 hit_cap=18 empty=0
+17:15:51 ref-mxfp4-fp8kv probe: n=1319 errors=0 correct=1273/1319 (0.965) bad_start=0 garbled=0 hit_cap=20 empty=0
+17:15:51 ref-mxfp4-fp8kv down
+17:15:51 ref-mxfp4-stock-r2 up: smci355-ccs-aus-n06-33 GPUs 0,1,2,3 image infera-sglang:v0522-fdbafb60 (2d852443605c) model /perf_apps/data/models/GLM-5.2-MXFP4 args --model-path /perf_apps/data/models/GLM-5.2-MXFP4 --served-model-name glm5.2-mxfp4 --trust-remote-code --tp-size 4 --host 0.0.0.0 --port 31000 --reasoning-parser glm45 --disable-custom-all-reduce --mem-fraction-static 0.85 --max-running-requests 64 --chunked-prefill-size 16384 --watchdog-timeout 3600
+17:16:36 ref-fp8-stock longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+17:16:37 ref-fp8-stock down

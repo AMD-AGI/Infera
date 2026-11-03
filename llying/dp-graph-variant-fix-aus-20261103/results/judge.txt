@@ -141,10 +141,20 @@ PASS  B-prod@1103T1612 longctx 16000:128 needle 64/64 (need >= 62), garbled 0
 PASS  B-prod@1103T1612 longctx 16000:128 gsm8k 63/64 (need >= 60), garbled 0
 PASS  B-prod@1103T1612 longctx 100000:32 needle 16/16 (need >= 15), garbled 0
 PASS  B-prod@1103T1612 longctx 100000:32 gsm8k 15/16 (need >= 15), garbled 0
-FAIL  B-prod@1103T1612 lm-eval strict 0 flexible 0 (>= 0.96)
+PASS  B-prod@1103T1612 lm-eval strict 0.9711902956785443 flexible 0.9727065959059894 (>= 0.96)
+--- C-prod@1103T1703
+PASS  C-prod@1103T1703 decode runs the fix (fix=6 of 6)
+PASS  C-prod@1103T1703 prefill runs the E10 recipe files (recipe=5 of 5)
+PASS  C-prod@1103T1703 env ROCM700A as the arm says: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1
+PASS  C-prod@1103T1703 part 1: no dense/sparse pair for the verify graphs (dual_graph_lines=0)
+INFO  C-prod@1103T1703 capture: {prefill=0.00, decode=0.00, target_verify=23.74, draft_prefill=0.00, draft_decode=4.49, draft_extend=2.19} spec_args=7
+INFO  C-prod@1103T1703 probe missing
+PASS  C-prod@1103T1703 smoke 6/6 checks passed
+FAIL  C-prod@1103T1703 probe correct=None (>= 0.96) garbled=None (0) bad_start=None (<= 1), errors=None
+FAIL  C-prod@1103T1703 lm-eval strict 0 flexible 0 (>= 0.96)
 --- aggregates
 PASS  control A reproduces in this session: bad_start 6 + garbled 20 over 400 prompts (need >= 3)
 PASS  B gates: bad_start 0 (<= 1), garbled 0 (<= 1) over 600 prompts, 3 gates
 PASS  C gates: garbled 0 (0), bad_start 0 (<= 1) over 400 prompts
 --- verdict
-1 FAIL lines
+2 FAIL lines

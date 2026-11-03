@@ -1,0 +1,13 @@
+# 时间线（UTC，11-03 起）
+
+- 13:20 接手（用户：在 AUS 两台节点上验证，再做后续优化）。读 `HANDOFF-20261103`、`REPRODUCE`。持有作业 35060（n06-25 / n06-33）到 22:43。
+- 13:23 包拷到 `/perf_apps/liyingli/bench_agentx/vfix-20261103`，写 `site.local.env`；两台并行构建镜像（n06-33 上误起两次，停掉后重跑）。
+- 13:29 两台镜像就绪，11/11 基线一致。13:30 验证队列项入 holder；preflight 通过，13:31 unit 26/26。
+- 13:31–16:12 B1 N1a A1 B2 A2 B3 C0 C1 C2 N0 N1（每组约 15 分钟，显存约 1 分钟释放）。
+- 16:12 B 生产；16:33–17:01 lm-eval（InferenceX + aiperf 子模块克隆约 15 分钟，GitHub 约 100 KB/s）。
+- 16:26 用户问 B1 的错题；16:39 用户：查清是否我们的问题、记录并提交、开巡检、必要时自主申请节点、持续推进约 10 小时。
+- 16:40 参照组 `ref-mxfp4-stock`（n06-33 GPU 0–3）、`ref-fp8-stock`（n06-25 GPU 0–3，挂载修正后 16:46 重起）；
+  后续 holder 35103（`afterany:35060`）；巡检 `scripts/patrol.sh` 每 10 分钟。
+- 16:50 router 按 fdbafb60 + 565461b3 重编（单元测试全过）；优化队列 30–33 入 holder（预测见 README 第 5 节）。
+- 17:03 C 生产。17:04 `ref-mxfp4-fp8kv`、之后 `ref-mxfp4-stock-r2`（n06-33）。
+- 17:16 参照组结论：错题是模型本身（RESULT 第 2 节）。

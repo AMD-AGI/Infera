@@ -34,7 +34,8 @@ cp "$L/opt/opt.out" "$L"/opt/score-*.txt "$D/results/opt/" 2>/dev/null
 cp "$L/patrol/patrol.log" "$D/results/" 2>/dev/null
 if [[ -n "${COMMIT:-}" ]]; then
     cd "$REPO" && git add -A llying/dp-graph-variant-fix-aus-20261103 &&
-        git commit -q -m "$COMMIT" && git push -q origin HEAD 2>&1 | tail -2
+        git commit -q -m "$COMMIT" && git pull -q --rebase origin dev/pd_opt/glm_5.2_agentx &&
+        git push -q origin HEAD 2>&1 | tail -2
     git -C "$REPO" log --oneline -1
 fi
 du -sh "$D"
