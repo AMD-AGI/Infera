@@ -1,0 +1,3 @@
+GARBLED doc=213 fin=stop tok=766 correct=True
+  head: "The user wants to find the number of customers on the third day.\nLet's break down the information:\nDay 1: 100 customers\nDay 2: 50 more than Day 1 = 100 + 50 = 150 customers\nTotal by Day 3: 500 custome"
+  tail: '250 = 350\n\nCalculations:\nDay 1: 100\nDay 2: 100 + 50 = 150\nTotal Day 1 and 2: 100 + 150 = 250\nDay 3: 500 - 250 = 350\n\nFormat:\nEnd with #### [number]\nSo, #### 350'

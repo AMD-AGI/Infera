@@ -110,3 +110,6 @@
 17:07:19 arm-C-prod-1103T1703 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
 17:07:19 arm-C-prod-1103T1703 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.74, draft_prefill=0.00, draft_decode=4.49, draft_extend=2.19} spec_args=7
 17:07:41 arm-C-prod-1103T1703 smoke: 6/6 checks passed
+17:19:53 arm-C-prod-1103T1703 probe: n=1319 errors=0 correct=1278/1319 (0.969) bad_start=0 garbled=0 hit_cap=17 empty=0
+17:22:13 arm-C-prod-1103T1703 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
+17:23:31 arm-C-prod-1103T1703 longctx 100000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86389 gsm8k: n=16 correct=15 garbled=0 runaway=0 errors=0 prompt_tokens p50=86345 
