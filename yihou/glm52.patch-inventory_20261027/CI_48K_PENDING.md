@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-03T10:18:43.914937+00:00**.
+Updated: **2026-11-03T11:39:39.254727+00:00**.
 
 These items remain open until supported by resolution evidence. Reporting them to the user does not resolve them.
 
-## #33059: Two Base H100 shards and three AMD stages remain queued. The Kimi MIOpen database failure persists; neither Base nor AMD is complete.
+## #33059: Base has 32 successes, two running jobs and four queued; AMD has 15 stage successes, two queued and the persistent Kimi MIOpen database failure. Neither workflow is complete.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -31,7 +31,7 @@ Next action: CI owners: compare baseline execution and finish Base. Maintainers:
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46820)
 
-## #46830: One H100 shard newly passed; one remains queued without execution. Base has 37 successes, including 36 retained. Aggregate completion and required review remain.
+## #46830: Base remains at 37 successes: 36 retained and one executed in attempt 2, already observed last cycle. One H100 shard queues without execution; aggregate completion and required review remain.
 
 Tracking key: `pr46830-base-review`.
 
@@ -41,13 +41,15 @@ Next action: CI owners: finish the remaining shard. Maintainers: complete review
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467026948/job/125761043136)
 - [Evidence](https://github.com/sgl-project/sglang/pull/46830)
 
-## #45524: Base has 35 A/B successes and four queued shards. AMD MLA setup hits a 300-second watchdog during Inductor compilation, then exit -9. ARM64/Xeon also expose fork_worker_preload API mismatch; historical-source equivalence remains unproven.
+## #45524: Base has 35 successes, three queued shards and a new test_awq.py 1800-second timeout. AMD MLA setup still hits compilation/watchdog failure; ARM64/Xeon expose fork_worker_preload mismatch. Historical-source equivalence remains unproven.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers: diagnose compiler waiting and CPU runner/package mismatch, finish CI and review. Preserve the separate frozen producer-ordering patch; no worker retry or branch takeover.
+Next action: External author eaglewangao-us/maintainers: diagnose AWQ startup/graph-capture timeout, AMD compiler waiting and CPU source mismatch; finish CI and review. Preserve the separate historical PP producer-ordering patch; current-PR equivalence remains uncertified. No worker retry or branch takeover.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/job/125766190802)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/job/125766541289)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758488/job/125761907669)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758584/job/125761894917)
@@ -61,7 +63,7 @@ Next action: External author yu-depend/maintainers: recover coverage, diagnose t
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734491/job/125360336390)
 
-## #47276: Two H100 shards remain queued. Review, #45307 overlap coordination and final source/run archiving remain; the optional deployment role is unchanged.
+## #47276: One H100 shard runs and one queues; 36 Base successes are retained. Review, #45307 overlap coordination and exact source/run archiving remain. The fused-indexer path stays optional and disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -89,15 +91,17 @@ Next action: Compare actual baseline execution before classifying the timeout as
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
-## #47897: Current-head Base A9/B1 and AMD A1/B2 jobs now pass, as do AMD JIT unit/benchmark jobs; both workflows remain active and incomplete. The inherited API repair does not resolve full CI or numerical qualification.
+## #47897: Base now has 16 successes and AMD 14 stage successes, but AMD Kimi fails on MIOpen database access and Xeon has a distinct source mismatch. Both GPU workflows remain incomplete; ARM64 and AMD JIT pass. The inherited API repair does not qualify full CI or numerics.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
-Next action: Finish active Base/AMD and review without duplicate retries. Preserve paired-row/table/length, gfx950 dispatch/fallback and exact-source constraints; CPU API checks do not establish long-context numerical equivalence.
+Next action: CI maintainers: investigate MIOpen database access, align Xeon test/package revisions and finish active CI; complete review. Preserve unequal paired-row/table/length coverage, gfx950 dispatch/fallback gates and exact source/run archiving. Inherited CPU repair and short-context GSM8K do not establish long-context numerical equivalence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317751/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/commit/8a9f215cb422ab507f00537c695ecccf1cfbe329)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125877749297)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317704/attempts/2)
 
 ## #47897: Raw run-to-source archival mapping and long-context numerical qualification remain. Historical short-context GSM8K alone is insufficient.
 
@@ -107,15 +111,17 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: API compatibility repair 8083ca7a is pushed and locally CPU-validated. New-head Base/AMD gates passed and test jobs started, but no complete functional suite has passed. Old-head results and inherited MI355X tests do not qualify the whole new head.
+## #47872: Inherited repair 8083ca7a now has passing ARM64 and 13 Base job successes; AMD has 12 stage successes plus JIT unit/benchmark passes. Base/AMD remain active and incomplete, and Xeon fails a separate source mismatch. Prior MI355X evidence does not qualify the whole head.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Finish new-head Base/AMD and ARM64/Xeon CI and review. Preserve opt-in behavior, min(length,2048) valid selections, underflow/overflow fallback and boundary ties. Retain source-specific MI355X evidence and the measured 32k regression; no new model/throughput claims.
+Next action: CI maintainers: align Xeon test/package revisions, finish active Base/AMD and review. Preserve opt-in behavior, exactly min(length,2048) valid selections, underflow/overflow fallback and boundary ties. Inherited MI355X evidence remains source-specific; retain the measured 32k regression and avoid new model/throughput claims.
 
-- [Evidence](https://github.com/sgl-project/sglang/commit/8083ca7ad7fdcaf2388a88196559b870e70e762a)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853413002)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114163/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/commit/8083ca7ad7fdcaf2388a88196559b870e70e762a)
 
 ## #33059: Xeon tests import req_types and disaggregation.mode that the installed PR package cannot provide. The job builds the fork branch while running tests from the merge checkout; no source-alignment repair was attempted.
 
@@ -124,3 +130,19 @@ Tracking key: `pr33059-cpu-source-alignment`.
 Next action: CI maintainers: align test and installed-package revisions, then validate the failing imports. Avoid unrelated branch refactors or a blind PR-wide retry.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41423254658/job/125745674783)
+
+## #47897: Xeon test_server_args.py imports _paged_experts_num_resident from the installed fork package. Both logged merge revisions contain the new test/parser; both PR heads contain neither. This is a test/package revision mismatch, separate from the repaired architecture API.
+
+Tracking key: `pr47897-cpu-source-alignment`.
+
+Next action: CI maintainers: build/install and test the same revision, then rerun the affected Xeon shard. Avoid unrelated parser backports or blind PR-wide retries.
+
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
+
+## #47872: Xeon test_server_args.py imports _paged_experts_num_resident from the installed fork package. Both logged merge revisions contain the new test/parser; both PR heads contain neither. This is a test/package revision mismatch, separate from the repaired architecture API.
+
+Tracking key: `pr47872-cpu-source-alignment`.
+
+Next action: CI maintainers: build/install and test the same revision, then rerun the affected Xeon shard. Avoid unrelated parser backports or blind PR-wide retries.
+
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853413002)
