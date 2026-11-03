@@ -36,8 +36,15 @@ score() {  # X (B or C): arm-X-prod.env at C104
 for step in ${STEPS:-$ALL}; do
     case "$step" in
     preflight)
+        etcd="${ETCD_IMAGE:-quay.io/coreos/etcd:v3.5.14}"
+        docker image inspect "$etcd" >/dev/null 2>&1 || docker pull -q "$etcd" >/dev/null 2>&1 || { say "preflight: cannot get $etcd: stopping"; exit 1; }
         for n in localhost "$DECODE_SSH"; do
             id="$(on "$n" "docker image inspect -f '{{.Id}}' $IMAGE" 2>/dev/null)"
+            if [[ -z "$id" && -s "${IMAGE_TAR:-}" ]]; then
+                say "preflight: $IMAGE missing on $n, loading $IMAGE_TAR"
+                on "$n" "docker load -i $IMAGE_TAR" | tail -1
+                id="$(on "$n" "docker image inspect -f '{{.Id}}' $IMAGE" 2>/dev/null)"
+            fi
             [[ -n "$id" ]] || { say "preflight: $IMAGE missing on $n: stopping"; exit 1; }
             sums="$(on "$n" "docker run --rm --network none --entrypoint sh $IMAGE -c 'cd /sgl-workspace/sglang/python/sglang/srt && md5sum $(awk '{print $2}' "$PKG/patches/BASE_MD5SUMS" | tr '\n' ' ')'")"
             bad="$(diff <(sort -k2 <<<"$sums") <(sort -k2 "$PKG/patches/BASE_MD5SUMS") | grep '^[<>]' | awk '{print $3}' | sort -u | tr '\n' ' ')"
