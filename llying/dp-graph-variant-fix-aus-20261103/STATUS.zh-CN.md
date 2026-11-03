@@ -14,3 +14,4 @@
 - 17:30 r2（原版原样重跑）0.966：同一配置两次跨 0.966–0.973，错题差异是 batch 不确定性下的临界题翻转。C 生产 0.969、0 / 0。
 - 17:35 C 生产 lm-eval 0.9674 / 0.9697。17:37 起 scoreB。17:40 修法对到 SGLang main 1ea5f8c6（三类 variant + 单元测试 11/11），见 upstream/；未提 PR。
 - 17:50 trace 项（C + packet capture 关，两次 40 步 decode profile）入队，排在 E10 之后（用 35060 最后约 50 分钟）。
+- 19:08 scoreB 51,477（与 crusoe E10 51,374 同水平）；19:09 起 scoreC。

@@ -1,0 +1,7 @@
+== run=/scratch/liyingli/vfix/runs/c104-1103T1737 window 2026-11-03 18:02:36 .. 2026-11-03 19:02:36
+-- tok/s/GPU | out tok/s/GPU | req/s | done / dropped | intvty p50 / p90 | ITL p50 / p90 | TTFT p50 / p90 / mean | E2E p90 | cache hit
+| C104 | 51,477 | 425.9 | 3.411 | 12,373 / 6 | 63.9 / 56.2 | 15.7 / 17.8 | 4.29 / 10.93 / 6.04 | 42.5 | 96.01%（96.59%） |
+-- analyze_pd_logs
+prefill0: full-chunk median 325 ms (n=5002), uncached 16,481 tok/s, waiting mean 2.80, bins with a queue 60%
+decode: running total median 54, busiest rank median 17 p90 25, prealloc-wait 4.7, transfer-wait 15.4
+decode step ms by busiest-rank running: @4 27, @5 29, @6 31, @7 31, @8 32, @9 35, @10 37, @11 39, @12 39, @13 41, @14 41, @15 42, @16 43, @17 45, @18 46, @19 47, @20 48, @21 49, @22 50, @23 51, @24 51, @25 52, @26 53, @27 54, @28 54, @29 55, @32 66
