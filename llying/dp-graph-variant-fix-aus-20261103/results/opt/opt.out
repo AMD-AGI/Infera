@@ -2,3 +2,4 @@
 22:05:53 opt E10 score: | C104 | 50,797 | 419.1 | 3.367 | 12,209 / 5 | 63.7 / 55.7 | 15.7 / 17.9 | 4.55 / 11.41 / 6.46 | 43.5 | 95.98%（96.57%） |
 22:05:53 opt E10 end
 22:05:53 opt traceC deferred: needs ~45 min, job 35060 has 38 min left; waiting for the next allocation
+22:44:17 opt traceC start: trace arm-C-prod-trace.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1439 min left
