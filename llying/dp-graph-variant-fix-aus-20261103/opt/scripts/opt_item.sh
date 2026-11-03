@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# One optimisation step as a holder work item, on the holder's two nodes (prefill = the batch host, decode = the other),
+# with the package copy ../pkg (= the verification package + router hooks in kit/engine, arms in pkg/config).
+#   score ARM CONC   pd_perf_chain.sh (fresh deployment, AgentX CONC lanes, 3600 s) + score_summary.sh
+#   gate  ARM        verify_suite.sh with PROBE_N / LONGCTX_SPECS / EVAL from the environment (real acceptance)
+# A step that would not finish inside the allocation (EST_MIN against squeue's time left) is not started: the item
+# sleeps until the job ends, so the next holder requeues it from running/ and runs it from the start.
+# Summary lines: $LOG_ROOT/opt.out (LOG_ROOT=/perf_apps/liyingli/vfix-logs/opt).
+# Usage: opt_item.sh NAME EST_MIN score|gate ARM [CONC]
+set -uo pipefail
+name="$1" est="$2" kind="$3" arm="$4" conc="${5:-104}"
+O=/perf_apps/liyingli/bench_agentx/opt-aus-20261103
+export PKG=$O/pkg
+set -a; . "$PKG/config/site.local.env"; set +a
+export LOG_ROOT=/perf_apps/liyingli/vfix-logs/opt
+mkdir -p "$LOG_ROOT"
+out=$LOG_ROOT/opt.out
+say() { echo "$(date -u +%T) opt $name $*" >> "$out"; }
+left_min() {  # squeue %L: [D-]HH:MM:SS or MM:SS
+    local l d=0 h=0 m=0
+    l="$(squeue -h -j "${SLURM_JOB_ID:?}" -o %L 2>/dev/null)"
+    [[ "$l" == *-* ]] && { d=${l%%-*}; l=${l#*-}; }
+    IFS=: read -ra p <<<"$l"
+    if ((${#p[@]} == 3)); then h=${p[0]} m=${p[1]}; elif ((${#p[@]} == 2)); then m=${p[0]}; fi
+    echo $((10#$d * 1440 + 10#$h * 60 + 10#$m))
+}
+left="$(left_min)"
+if ((left < est + 5)); then
+    say "deferred: needs ~$est min, job $SLURM_JOB_ID has $left min left; waiting for the next allocation"
+    exec sleep 100000
+fi
+mapfile -t nodes < <(scontrol show hostnames "${SLURM_JOB_NODELIST:?}")
+p="$(hostname -s)"
+d="${nodes[0]}"; [[ "${nodes[0]%%.*}" == "$p" ]] && d="${nodes[1]}"
+fenic='ip -4 -o addr show dev fenic | awk "{print \$4}" | cut -d/ -f1'
+export PREFILL_NODE_IP="$(bash -c "$fenic")" DECODE_NODE_IP="$(ssh -o BatchMode=yes "$d" "$fenic")" DECODE_SSH="$d"
+[[ -n "$PREFILL_NODE_IP" && -n "$DECODE_NODE_IP" ]] || { say "no fenic address on $p / $d"; exit 1; }
+# Image (built where missing, 11-file check everywhere), InferenceX checkout (a fresh GitHub clone takes ~15 min on AUS).
+b="DOCKER_CONFIG=/tmp/liyingli-docker-anon INFERA_REPO=$INFERA_REPO CTX=/scratch/$USER/ctx-fdbafb60 bash $PKG/scripts/build_image.sh"
+anon='mkdir -p /tmp/liyingli-docker-anon && { [[ -s /tmp/liyingli-docker-anon/config.json ]] || echo "{}" > /tmp/liyingli-docker-anon/config.json; }'
+ssh -o BatchMode=yes "$d" "$anon; $b" > "$LOG_ROOT/build-$d.log" 2>&1 &
+bash -c "$anon; $b" > "$LOG_ROOT/build-$p.log" 2>&1; rp=$?
+wait $!; rd=$?
+((rp == 0 && rd == 0)) || { say "image step failed on $p ($rp) / $d ($rd)"; exit 1; }
+IXC=/perf_apps/liyingli/vfix-logs/cache-InferenceX-918524ff
+if [[ ! -d "$WORK_DIR/cache/InferenceX/.git" && -d "$IXC/.git" ]]; then
+    mkdir -p "$WORK_DIR/cache" && cp -a "$IXC" "$WORK_DIR/cache/InferenceX"
+fi
+cleanup() { (set -a; . "$PKG/config/recipe-e10.env"; set +a; cd "$PKG/kit" && bash engine/down.sh) >/dev/null 2>&1; }
+trap cleanup EXIT TERM INT
+say "start: $kind $(basename "$arm") conc=$conc on $p ($PREFILL_NODE_IP) -> $d ($DECODE_NODE_IP), job $SLURM_JOB_ID, $left min left"
+case "$kind" in
+score)
+    lab="opt-$name-c$conc"
+    bash "$PKG/scripts/pd_perf_chain.sh" "$PKG/kit" "$PKG/config/$arm" "$LOG_ROOT/perf/$lab" "$conc" >> "$LOG_ROOT/$name.chain.log" 2>&1
+    bash "$PKG/scripts/score_summary.sh" "$LOG_ROOT/perf/$lab/c$conc.log" > "$LOG_ROOT/score-$name.txt" 2>&1
+    say "score: $(grep -E '^\| C[0-9]+' "$LOG_ROOT/score-$name.txt" || sed -n 3p "$LOG_ROOT/score-$name.txt")" ;;
+gate)
+    bash "$PKG/scripts/verify_suite.sh" "$PKG/config/$arm" >> "$out" 2>&1 || say "verify_suite failed" ;;
+*) say "unknown kind $kind"; exit 1 ;;
+esac
+say "end"

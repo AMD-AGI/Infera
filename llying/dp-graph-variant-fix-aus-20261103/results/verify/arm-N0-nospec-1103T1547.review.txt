@@ -1,0 +1,108 @@
+BAD_START doc=51 fin=stop tok=100 correct=True
+  head: 'The!!!!1.5=1.5>>1.5 hours to travel back?\nEnd your response with the answer on the last line, formatted as: #### [number]\nAnswer:'
+  tail: 'The!!!!1.5=1.5>>1.5 hours to travel back?\nEnd your response with the answer on the last line, formatted as: #### [number]\nAnswer:'
+BAD_START doc=27 fin=stop tok=168 correct=True
+  head: 'The!!!!2\nEnd your1.'
+  tail: 'The!!!!2\nEnd your1.'
+BAD_START doc=5 fin=stop tok=192 correct=True
+  head: 'The!!!!3, K1\n, and every second glass costs only 60% of the price. Kylar wants to buy 16 glasses. How much will he pay?\nEnd your response with the answer on the last line, formatted as #### [number]\nA'
+  tail: 'ly 60% of the price. Kylar wants to buy 16 glasses. How much will he pay?\nEnd your response with the answer on the last line, formatted as #### [number]\nAnswer:'
+GARBLED doc=27 fin=stop tok=168 correct=True
+  head: 'The!!!!2\nEnd your1.'
+  tail: 'The!!!!2\nEnd your1.'
+GARBLED doc=132 fin=stop tok=457 correct=True
+  head: 'Pam rode the roller coaster 2 times.\nFred rode the roller coaster 4 times.\nTotal roller coaster rides = 2 + 4 = 6.\nEach of them rode the luge 2 times.\nTotal luge rides = 2 * 2 = 4.\nTotal rides = 6 +!!'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+GARBLED doc=130 fin=stop tok=494 correct=True
+  head: 'The problem asks for the number of elves left after some quit.\nInitial number of elves = 60.\nA third of the elves quit after children vomit on them.\nNumber of elves who quit = 60 / 3 = 20.\nRemaining e'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!0.'
+GARBLED doc=131 fin=stop tok=533 correct=True
+  head: "The problem asks for the total expenditure of Joseph for May and June.\nExpenditure in May = $500.\nExpenditure in June = $500 - $60 = $440.\nTotal expenditure = $500 + $440 = $940.\n\nLet's double check.\n"
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1\n5.'
+GARBLED doc=94 fin=stop tok=5185 correct=False
+  head: 'The problem asks for the total number of pets in the neighborhood.\nLet D be the number of dogs, C be the number of cats, and R be the number of rabbits.\nWe are given:\n1. R = (D + C) - 12\n2. C = 2 * D\n'
+  tail: "60 + 120 = 180\n3. Find the number of rabbits: 180 - 12 = 168\n4. Find the total number of pets: 60 + 120 + 168 = 348\n\nLet's write it down in the required format."
+GARBLED doc=108 fin=stop tok=7804 correct=False
+  head: 'The problem asks for the number of cookies Henry baked last year.\nLet $x$ be the number of cookies Henry baked last year.\nHe wants to make twice as many as he did last year, so he intended to make $2x'
+  tail: '    011   0  1     .    1   1    0                  1 1                     . .1   0.  0111 01      100    1     100   .1    01      .             0. 35 #   .  '
+GARBLED doc=114 fin=stop tok=12773 correct=False
+  head: "The problem asks for the number of ducks in Jamal's photograph.\nLet's break down the information given:\n1. Jamal's phone can hold 6 times more photographs than Brittany's phone.\n2. Brittany's phone ca"
+  tail: 'he57.67 the 6.70.6 the.6.6. The. 6. 6. 6....4. The.. . ... 6. .... ... ... .... .... ........... ... .............. ..... .......... 5.. The..........1. The....'
+GARBLED doc=20 fin=stop tok=13682 correct=False
+  head: "The problem asks for the total amount of water in the remaining 24 liters of the mixed drink.\nWait, let's break it down.\nInitial orange drink: 10 liters, 2/3 water.\nInitial pineapple drink: 15 liters,"
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! the33 (63'
+GARBLED doc=112 fin=stop tok=13474 correct=True
+  head: 'The problem asks for the total number of times the whiteboard is cleaned in a day.\nThere are 4 teachers.\nEach teacher has 2 lessons per day.\nTotal lessons per day = 4 teachers * 2 lessons/teacher = 8 '
+  tail: 'essons per teacher per day.\n4 * 2 = 8 lessons per day.\n3 cleanings per lesson.\n8 * 3 = 24 cleanings per day.\n\nCalculation:\n4 * 2 = 8\n8 * 3 = 24\n\nFormat:\n#### 24'
+GARBLED doc=75 fin=stop tok=14672 correct=False
+  head: 'The problem asks for the average square footage of a level in a 4-level sandcastle.\nThe top level (4th level) has a square footage of 16.\nEach level has half the square footage of the level below it.\n'
+  tail: '. 5 #1616 16. 416 4 "1 16 .116 <<10.160.16151.1.16. for,1,161116116.....16..If. ..1. ..... .... ..1 ..... ...<<(1\n.1.....16  from16 16  .16.1616..16 16  The 16.'
+GARBLED doc=118 fin=stop tok=14425 correct=False
+  head: 'The initial number of vehicles is 2 containers * 5 vehicles/container = 10 vehicles.\nThe total number of vehicles at the port became 30.\nThe number of vehicles brought in on the second day is 30 - 10 '
+  tail: ' 5 vehicles = 5X vehicles.\nTotal = 10 + 5X = 30.\n5X = 20.\nX = 4.\n\nThe question asks for the number of containers imported on the second day.\nSo the answer is 4.'
+GARBLED doc=97 fin=stop tok=14807 correct=False
+  head: 'The problem asks for the number of tomatoes Freda used to make 32 ounces of tomato sauce.\nFirst, find the total volume of canned tomatoes Freda used.\nSince the sauce loses half its volume, the origina'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!.\n, 9  545 the The. The5... the...5.............1. The........'
+GARBLED doc=3 fin=length tok=16384 correct=False
+  head: 'The user wants to find the total meters James runs in a week!!!!1\n, but he runs 3 sprints 3 times a week. How many total meters does he run a week? He runs 60 meters each sprint. He runs 3 sprints 3 t'
+  tail: '!!!!!!!!!!!!!!!!!!!!! 5 4 the the the the the the the the the the the  the the the the  the  the the the  the.. the  the I.  ..... the .... The\n.......... .....'
+GARBLED doc=45 fin=length tok=16384 correct=False
+  head: "The problem asks for the total number of hours Meredith spent writing articles over three days: Monday, Tuesday, and Wednesday.\nFirst, let's find the number of articles she wrote each day.\nMonday: 5 a"
+  tail: '1.1..1.1.1411..1...1..11..1.1.11....1.11.1..11...1....1...1.1..1..1.1111....0.1.1.10..11...1..1.05..11..5.1..111.5.............1....1.1....1...1...5.0..........'
+GARBLED doc=37 fin=length tok=16384 correct=False
+  head: 'The problem asks for the number of Lego sets John still has.\nWait, let\'s read carefully: "He has 13 lego sets and he sells them for $15 each. He ends up buying 8 video games for $20 each and has $5 le'
+  tail: "he math perfectly aligns with 11 sold, 2 remaining.\n\nLet's do the arithmetic again.\n8 * 20 = 160\n160 + 5 = 165\n165 / 15 = 11\n13 - 11 = 2\n\nEverything is correct."
+GARBLED doc=66 fin=length tok=16384 correct=False
+  head: "The problem asks for the total number of people sent by all four schools to a basketball tournament.\nEach school sends:\n- 1 girls' team (5 players)\n- 1 boys' team (5 players)\n- 1 coach for the girls' "
+  tail: "ms/school = 8 teams.\nTotal people = 8 teams * 6 people/team = 48 people.\n\nLet's do the math again.\n5 players + 1 coach = 6\n6 * 2 = 12\n12 * 4 = 48.\n\nLooks solid."
+GARBLED doc=78 fin=length tok=16384 correct=False
+  head: "The problem asks for the amount of money Vincent saves by buying 18 flowers at the better price.\nFirst, let's calculate the cost of buying 18 flowers using the packages of 3.\nNumber of packages of 3 n"
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 3 the for  the3\n 1,,1.11=6=18\n18\n1,1=36=1818/18=18.'
+GARBLED doc=85 fin=length tok=16384 correct=True
+  head: 'The user wants me to solve a math word problem and format the final answer as specified.\n\n**Problem Breakdown:**\n- Gene has one shirt from each vacation.\n- Every shirt is a quilt block.\n- Each row is '
+  tail: "rs.\n4 vacations a year.\nTotal = 11 * 4 = 44.\n\nLet's write the response.\nGene has been vacationing for 34 - 23 = <<34-23=11>>11 years4*11=44>>44 blocks.\n#### 444"
+GARBLED doc=89 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total cost of gift bags Christina will buy for her birthday party.\nShe invited 16 friends.\nShe needs 0.75 gift bags per invited guest.\nWait, the problem says "0.75 gift bags p'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  the,\n\n\n\n'
+GARBLED doc=92 fin=length tok=16384 correct=False
+  head: 'The problem asks for the age of Jackson.\nWe are given the following information:\n1. Emily has 4 kids: Amy, Jackson, Corey, James.\n2. Amy is 5 years older than Jackson. (Amy = Jackson + 5)\n3. Amy is 2 '
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  of of of (... (.'
+GARBLED doc=93 fin=length tok=16384 correct=False
+  head: "Let's break down the problem step by step.\n\n1. Lee runs the 400-meter hurdles in 38 seconds.\n2. Lee used to be 2 seconds faster than Gerald. This means Gerald's old time was 38 + 2 = 40 seconds.\n3. Ge"
+  tail: " 38 + 2 = 40 seconds.\n   3. A 10% improvement in speed means his time is reduced by 10%.\n   4. 10% of 40 is 4 seconds.\n5. 40 - 4 = 36 seconds.\n\n   Let's use 36."
+GARBLED doc=101 fin=length tok=16384 correct=False
+  head: 'The user wants me to solve a math word problem and format the answer in a specific way.\n\nProblem details:\n- Science: 4 pages\n- Social Studies: 20 pages\n- History: 7 pages\n- Geography: 8 pages\n- Total '
+  tail: 'es: 4 + 20 + 7 + 8 = 39\n2. Calculate remaining pages: 39 - 15 = 24\n3. Calculate average per day: 24 / 4 = 6\n\nOutput format:\nStep 1...\nStep 2...\nStep 3...\n#### 6'
+GARBLED doc=107 fin=length tok=16384 correct=False
+  head: "The problem asks for the number of 30-minute episodes Frankie watched on Wednesday.\nLet's calculate the total hours of TV watched on each day.\nMonday: 1 hour\nTuesday: 1 hour\nWednesday: x episodes of 3"
+  tail: ' ? .|1....|....0|0101\t.1|...01.01  "..\n0.?. (.....1....1..0..?.. ...01....0.10.11 101 "..........1.......1. (.0.|.1\n1|.|0. (....5. 100. (.1 ?..0.|0|..10.  ...|\t'
+GARBLED doc=117 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total amount John paid for the shoes.\nHe bought 2 pairs of shoes for each of his 3 children.\nTotal pairs of shoes = 2 * 3 = 6 pairs.\nEach pair costs $60.\nTotal cost = 6 * 60 ='
+  tail: 'rs * $60/pair = $360.\nThe math is simple and straightforward.\n\nFormat:\nHe bought 2 * 3 = <<2*3=6>>6 pairs of shoes.\nHe paid 6 * $60 = $<<6*60=360>>360.\n#### 360'
+GARBLED doc=123 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total distance Rosie can run in 7 hours.\nFirst, calculate the distance she runs in the first 3 hours.\nSpeed = 10 miles per hour\nTime = 3 hours\nDistance = 10 * 3 = 30 miles\n\nNe'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n  in\n no ( [.00\n'
+GARBLED doc=126 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total number of sausages Dylan bought.\nHe bought 38 chicken sausages.\nHe bought 6 more fish sausages than chicken sausages.\nSo, the number of fish sausages = 38 + 6 = 44.\nTota'
+  tail: 'he percentage for women is 100% - 70% = 30%.\nSince 180 represents 30%, then 180/30 = 6 students represent 1%.\nHence, 6 x 70 = <<6*70=420>>420 students are men.\n'
+GARBLED doc=128 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total amount of money Dillon will spend on 4 watermelons, 20 peppers, and 10 oranges.\nGiven:\n- Cost of each pepper = $15\n- Cost of a watermelon = 3 * cost of each pepper = 3 *'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! of is:0,......,: is'
+GARBLED doc=127 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total number of friends Lily and Amy have together.\nLily made 50 friends.\nAmy made 20 more friends than Lily.\nSo Amy made 50 + 20 = 70 friends.\nTogether, they have 50 + 70 = 1'
+  tail: 'ly and Amy have together.\nLily made 50 friends.\nAmy made 20 more friends than Lily.\nSo Amy made 50 + 20 = 70 friends.\nTogether, they have 50 + 70 = 120 friends.'
+GARBLED doc=134 fin=length tok=16384 correct=False
+  head: 'The user wants to solve a math word problem.\nTom gets 4 car washes a month.\nEach car wash costs $15.\nFind the total amount he pays in a year.\n\n1. Find the cost per month:!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+  tail: ' $15 per car wash.\nHe gets 4 car washes a month, so 4 * 12 = 48 car washes a year.\nEach car wash costs $15, so 48 * 15 = 720.\n4 * 12 = 48\n48 * 15 = 720\n#### 720'
+GARBLED doc=135 fin=length tok=16384 correct=False
+  head: 'The question asks for the number of video games Bobby has.\nFirst, I need to find out how many video games Brian has *at the time of the comparison*.\nBrian originally had !1\n!! a!!!45!!!!!!!!!!!!!!!!!!'
+  tail: ' 0 1 101 I0       1 1  111 1 I  0  0 11     01 or 00    0        I  I 0   I        I I0 I            I      1   ?    1  1\n   I0 01 I   I    I I I    0  I       '
+GARBLED doc=137 fin=length tok=16384 correct=False
+  head: "The user wants to find the total cost of Rory's delivery order.\nFirst, calculate the cost R!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! .505050 (5  0. .0.0....,'
+GARBLED doc=136 fin=length tok=16384 correct=False
+  head: 'There are 27 unicorns in total.\nOne third of them are in the Scottish Highlands.\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! the1.'
+GARBLED doc=138 fin=length tok=16384 correct=False
+  head: 'Mark took a test yesterday with!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  at5 questions 75*1000.54 hours2.'

@@ -1,0 +1,198 @@
+BAD_START doc=28 fin=stop tok=100 correct=True
+  head: 'The1, 1, 1, 1, 1,lda'
+  tail: 'The1, 1, 1, 1, 1,lda'
+BAD_START doc=48 fin=stop tok=120 correct=True
+  head: 'The1.1.1.1\n1. 1 foot = 12 recurs\n2. 4 feet = 4 * 12 = 48 inches\n3. 48 / 6 = 8 pieces\n4. Answer is 8'
+  tail: 'The1.1.1.1\n1. 1 foot = 12 recurs\n2. 4 feet = 4 * 12 = 48 inches\n3. 48 / 6 = 8 pieces\n4. Answer is 8'
+BAD_START doc=30 fin=stop tok=165 correct=True
+  head: "The total age ratio is 7 + 棒的11 = 18.\nThe total age is 162.\nSo, one ratio part is 162 / 18 = 9.\nAllen's age is 11 * 9 = 99.\nAllen's age 10 years from now will be 99 + 10 = 109."
+  tail: "tio is 7 + 棒的11 = 18.\nThe total age is 162.\nSo, one ratio part is 162 / 18 = 9.\nAllen's age is 11 * 9 = 99.\nAllen's age 10 years from now will be 99 + 10 = 109."
+BAD_START doc=42 fin=stop tok=215 correct=True
+  head: 'The question asks for the number of pieces of pie taken365体育官网 taken by the guests.\nGrandma Jones baked 5 apple pies.\nShe cut each pie into 8 pieces.\nTotal pieces of pie = 5 * 8 = 40 pieces.\nAt the en'
+  tail: "s taken = 40 - 14 = 26 pieces.\n\nLet's write down the steps:\nTotal pieces of pie = 5 * 8 = <<5*8=40>>40\nPieces taken by guests = 40 - 14 = <<40-14=26>>26\n#### 26"
+BAD_START doc=63 fin=stop tok=264 correct=True
+  head: 'The1.000\n- Initial amount charged per month =blank\n- Initial amount charged for the first half of the year = 140 * 6 = 840\n- 10% less money = 140 * 0.9 = 126\n- Amount charged for the second half of th'
+  tail: '\n- 10% less money = 140 * 0.9 = 126\n- Amount charged for the second half of the year = 126 * 6 = 756\n- Total amount paid = 840 + 756 = 1596\n- Final answer: 1596'
+BAD_START doc=5 fin=stop tok=264 correct=False
+  head: 'TheIIIIIIIIII11- for with!!!!!!!!!!!!!!!!!!!!! mute,1.0. The4\n3. The9. The rest of the customers in the lunch rush only buy two soft tacos each. There were ten customers after the family. How many dol'
+  tail: ' family. How many dollars did the taco truck make during the lunch rush?\nEnd your response with the answer on the last line, formatted as: #### [number]\nAnswer:'
+BAD_START doc=38 fin=stop tok=309 correct=True
+  head: "Thevangelsm: Let's break down the problem:\n- John runs 60 miles a week\n- He runs 3 days a week\n- On the first day, he runs for 3 hours\n- On the other two days, he runs for half as much time as the fir"
+  tail: 'es\n- Second day: 10 mph * 1.5 hours = 15 miles\n- Third day: 10 mph * 1.5 hours = 15 miles\n- Total: 30 + 15 + 15 = 60 miles ✓\n\nSo John runs at 10 miles per hour.'
+BAD_START doc=29 fin=stop tok=323 correct=True
+  head: 'Theendre is shoe shopping when she comes across a pair of boots that fit her shoe budget. However, she has to choose between the boots and two pairs of high heels that together cost five dollars less '
+  tail: '- First pair of heels: $33\n- Second pair of heels: 2 × $33 = $66\n- Total cost of heels: $33 + $66 = $99\n- Boots cost: $99 + $5 = $104\n\nYes, the boots cost $104.'
+BAD_START doc=14 fin=stop tok=504 correct=True
+  head: 'Thesgsgs:\nThe problem asks for the percentage of the entire class that enrolled in hip-hop dance.\nTotal students = 20.\n20% enrolled in contemporary dance.\nNumber of students in contemporary dance = 20'
+  tail: 'umber of students in hip-hop dance: 16 - 4 = 12\n5. Calculate the percentage of the entire class in hip-hop dance: (12 / 20) * 100 = 60%\n\nThe final answer is 60.'
+BAD_START doc=18 fin=length tok=16384 correct=False
+  head: 'The!!!!!!!!!!!!!!!!!!!!!!!!!和我们1\n\n1.'
+  tail: 'The!!!!!!!!!!!!!!!!!!!!!!!!!和我们1\n\n1.'
+BAD_START doc=133 fin=length tok=16384 correct=False
+  head: 'The user庄 Pertlub qualifiers Pert Pert qualifiers Pert qualifiers Pert Pert PertYRO qualifiers Pert qualifiers Pert Pert Pert Pert Pert Pert Pert Pert qualifier Pert Pert qualifiers qualifier qualifie'
+  tail: ',0. The1, 1  1.0. The10. The12,5.52.1.53 and1, in the1, .5.1 not1.10\n, or11 the22,12.5, 0.5.0.5,,5.5.0e2, but015,1 the1 is0.510\n1 the0. The1.5.5 the1 the2,1,   '
+BAD_START doc=17 fin=length tok=16384 correct=False
+  head: 'The1.....\n\n9olsolsols80 less  50!!!!!!!!!!!!!!!!!!!!!och1.'
+  tail: 'The1.....\n\n9olsolsols80 less  50!!!!!!!!!!!!!!!!!!!!!och1.'
+BAD_START doc=4 fin=length tok=16384 correct=False
+  head: 'Theomonassilegaendes/weatherarca McKenzie inp\n!!!!\n\n inplacebedbedbeds111feed!!!!!!!!!!!!!!!!!!!!!vasi. In the evening, she gives the feed in 2 separate meals.  In the morning2, she gives her flock of'
+  tail: 'mealworms and vegetables, how many cups of vegetable feed is in the 12 cups of feed in the afternoon?\nEnd your11\nEnd of111\n1.  In the1\nEnd1\n1.  In1\n1.  In1\nEnd1'
+GARBLED doc=51 fin=stop tok=262 correct=False
+  head: 'Tom!!!!!!!!!!!!!!!!!!!!!!!!!08al  the!!!!!!!!!!!!!!!!!!!!!eni1, '
+  tail: 'Tom!!!!!!!!!!!!!!!!!!!!!!!!!08al  the!!!!!!!!!!!!!!!!!!!!!eni1, '
+GARBLED doc=12 fin=stop tok=1977 correct=False
+  head: 'The problem asks for the number of years it will take before Carlos starts earning money on the lemon tree.\nInitial cost to plant the tree: $90.\nAnnual revenue from selling lemons: 7 lemons * $1.5/lem'
+  tail: "add 1 to find when he starts earning money: 12 + 1 = 13\n\nLet's double check 90 / 7.5.\n7.5 * 10 = 75\n7.5 * 2 = 15\n75 + 15 = 90. Yes, exactly 12.\n\nSo 12 + 1 = 13."
+GARBLED doc=107 fin=stop tok=1235 correct=False
+  head: "The problem asks for the number of 30-minute episodes Frankie watched on Wednesday.\nLet's break down the TV time he watched each day:\n- Monday: 1 hour\n- Tuesday: 1 hour\n- Wednesday: x episodes of 30 m"
+  tail: 'our = 2, Tuesday 1 hour2 = 2 hours.\nWednesday = 0.5 * x1.51 hour + 0.5 hours1 hour2 = 2 hours\n2 + 1.5 + 2 = 5.5\n7 - 5.5 = 1.5\n1.5 / 0.5 = 31.51.51.5 / 0.5 = 3\n3'
+GARBLED doc=43 fin=stop tok=2150 correct=False
+  head: 'The user wants to solve a math word problem.\nThe problem asks for the number of grams of chips one can eat given a daily calorie target and current calorie consumption.\n\n1.  **Identify the given infor'
+  tail: 'cal/serving = 0.8 servings. 0.8 servings * 60 g/serving = 48 g.\n\n    The logic is sound. I will write the response following the style of the previous examples.'
+GARBLED doc=112 fin=stop tok=1840 correct=False
+  head: 'The problem asks for the total number of times the whiteboard is cleaned in a day.\nThere are 4 teachers.\nEach teacher has 2 lessons per day.\nTotal lessons per day = 4 teachers * 2 lessons/teacher = 8 '
+  tail: 'al response.\n- Calculate the total number of lessons per day: 4 * 2 = 8\n- Calculate the total number of cleanings per day: 8 * 3 = 24\n- Format the final answer.'
+GARBLED doc=122 fin=stop tok=1445 correct=False
+  head: 'Sadie slept 8 hours on Monday.\nFor the next two days (Tuesday and Wednesday), she slept 2 hours less each day.\nSo, Tuesday = 8 - 2 = 6 hours.\nWednesday = 8 - 2 = 6 hours.\nTotal for Tuesday and Wednesd'
+  tail: '=27 =272 =2.7 =2.72 =2.7 =2.72 =2.72 =2.72 =2.72 =272 =27 =2.72 =2.72 =272 =272 =2.72 =2.72 =2.72 =27 =272 =27 =2.7 =2.72 =2.72 =2.7 =2.72 =2.727 =2.7 =2. The2.'
+GARBLED doc=45 fin=stop tok=2657 correct=False
+  head: "The problem asks for the total number of hours Meredith spent writing articles over three days.\nFirst, let's find the number of articles she wrote each day.\nMonday: 5 articles.\nTuesday: 2/5 times more"
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1. 1.17.8,7,1, 2,,0,8,0, 1.1.3.0.'
+GARBLED doc=119 fin=stop tok=2360 correct=False
+  head: "The problem asks for the total salary Adrien and Lylah were receiving four years later.\nLet's break down the information:\n- Adrien's salary four years ago = $40,000.\n- Four years later, Adrien's salar"
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! '
+GARBLED doc=124 fin=stop tok=2680 correct=False
+  head: 'The problem asks for the initial number of letters in the already-stamped pile.\nJennie starts with 60 letters needing stamps.\nShe stamps one-third of them: 60 / 3 = 20 letters.\nThese 20 letters are ad'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!44 The.1. The1a23.5.0. the. 8,0.1 answer,2  '
+GARBLED doc=116 fin=stop tok=2331 correct=False
+  head: 'The problem asks for the number of teaspoonfuls of sugar Katy used.\nThe ratio of teaspoons of sugar to cups of water is 7:13.\nThe total number of teaspoons of sugar and cups of water is 120.\nLet the n'
+  tail: '\n7*6 = 42\nThe7*6 = 427*6 = 42\nThe7*6 = 427*6 = 427*6 = 427*6 = 427*6 = 427*6 = 42\nThe7*6 = 427*6 = 20x7*6 = 4276 =4 = 1 = 42\nThe7*6 = 427*6 = 42\n427*6 = 7*raf1.'
+GARBLED doc=95 fin=stop tok=3333 correct=False
+  head: 'The problem asks for the number of Grade 5 girls who are not in the girl scout.\nTotal students = 200\nFraction of boys = 2/5\nNumber of boys = (2/5) * 200 = 80\nNumber of girls = 200 - 80 = 120\nAlternati'
+  tail: 'ions.\n2/5 of 200 = 400/5 = 80 boys.\n200 - 80 = 120 girls.\n2/3 of 120 = 240/3 = 80 girls in girl scout.\n120 - 80 = 40 girls not in girl scout.\n\nThe answer is 40.'
+GARBLED doc=117 fin=stop tok=3128 correct=False
+  head: 'The user wants me to solve a math word problem.\nProblem: John buys 2 pairs of shoes for each of his 3 children. They cost $60 each. How much did he pay?\n\nStep 1: Calculate the total number of pairs of'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 2.9.1,011. The.2. The1 are012.5,3e2. The Art. The1.5. The. The1. 1 1a6.0e2, the.0.5,8,3,3.0a.016 11 97.0,17\n1, in '
+GARBLED doc=76 fin=stop tok=8724 correct=False
+  head: 'The problem asks for the number of bags of dog food Cecilia will use in the first year.\nA year has 365 days.\nFirst 180 days: 1 cup per day.\nRemaining days in the year: 365 - 180 = 185 days.\nFor these '
+  tail: "l = 550 cups.\n550 / 110 = 5 bags.\n\nLet's do the math again.\n180 * 1 = 180\n365 - 180 = 185\n185 * 2 = 370\n180 + 370 = 550\n550 / 110 = 5\n\nEverything seems correct."
+GARBLED doc=132 fin=stop tok=7723 correct=False
+  head: 'The problem asks for the total number of tickets Pam and Fred used at the carnival.\nPanine Pert Pertlub Pert Pert Pert Pert Pert Pert Pert Pert qualifiersYRO Pert Pert Pert Pert qualifiers Pert Pert P'
+  tail: 'iguous1, (, ambiguous neutral ambiguous11 ambiguous1 ambiguous neutral ambiguous neutral ambiguous neutral1 ambiguous1,1 ambiguous &1 ambiguous neon Ag1111, (  '
+GARBLED doc=94 fin=stop tok=10976 correct=False
+  head: 'The problem asks for the total number of pets in the neighborhood.\nWe have dogs, cats, and rabbits.\nNumber of dogs = 60.\nThere are two cats for every dog.\nSo, number of cats = 2 * 60 = 120.\nCombined n'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!8,  0. '
+GARBLED doc=125 fin=length tok=16384 correct=False
+  head: "Let's break down the problem:\n1. Julia bought a package of spoons. Let's call the number of spoons in this package $x$.\n2. Her husband bought a package of 5 new spoons.\n3. Julia used 3 spoons to sampl"
+  tail: '一年RK unsusras稠lam理论与实践�arcaar!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!0112\n\n'
+GARBLED doc=127 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total number of friends Lily and Amy have together.\nLily made 50 friends.\nAmy made 20 more friends than Lily, so Amy made 50 + 20 = 70 friends.\nTogether, they have 50 + 70 = 1'
+  tail: 'ly and Amy have together.\nLily made 50 friends.\nAmy made 20 more friends than Lily, so Amy made 50 + 20 = 70 friends.\nTogether, they have 50 + 70 = 120 friends.'
+GARBLED doc=18 fin=length tok=16384 correct=False
+  head: 'The!!!!!!!!!!!!!!!!!!!!!!!!!和我们1\n\n1.'
+  tail: 'The!!!!!!!!!!!!!!!!!!!!!!!!!和我们1\n\n1.'
+GARBLED doc=111 fin=stop tok=13836 correct=False
+  head: "The problem asks for the total amount of water the boat took on by the time Julia reached shore.\nLet's break down the information given:\n- The boat takes on 2 liters of water for every 10 feet she row"
+  tail: '. The234,1,1,1,3,8,1, the8. The24,93 the Art43 to1.If1.0,,,, and32193,03.89.5,1,0,0, the answer.\nThe 2010.0.0,8,4,1,8,1,1,1, and7;0,0,8,0,111.0.1\nThe173,8,1,3, '
+GARBLED doc=118 fin=length tok=16384 correct=False
+  head: 'The problem asks for the number of containers imported on the second day.\nFirst day: 2 containers, each with 5 vehicles. Total vehicles on first day = 2 * 5 = 10.\nTotal vehicles after the second day ='
+  tail: 'he1,1,1,,, the1,1,1 the1,1,,1,111,1,1,0,1,1,,1,?1,1,1,11 18,1,11,1,1,1,1,12.1,0,1,1,1,1,1,111,1,1,1,0.1,1,1,1,1,5,0a,1,1,1, the1,1,1,1,1.1, and1,1,1,5. The1,1, '
+GARBLED doc=129 fin=length tok=16384 correct=False
+  head: 'The problem asks for the profit the hospital makes from 500 patient visits.\nEach patient is seen for an average of 24鲜_blueprintoduarkanAwaitoinremaSolostownominiCap Fultoninanyorakis equ腊 selection8痰'
+  tail: '1,1111,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,11,1,1,11,111,1,1,111,1,11,1,1,1,1,11,0.'
+GARBLED doc=115 fin=length tok=16384 correct=False
+  head: 'The problem asks for the profit Sasha makes by selling her leftover lumber.\nFirst, calculate the total cost of the lumber she bought.\nShe has 10 boards of 2x4x10 that cost $10 each. Cost = 10 * 10 = $'
+  tail: '10 * 10 = 100. 5 * 16 = 80. 100 + 80 = 180.1. 10 * 10 here here. 10 * 1. 10 =1. 1.5 * 10 * 101. 101. 101. 101.0. 101. 101. 10 = 102.1. 10 * 10. 10 * 101. 10 *1.'
+GARBLED doc=110 fin=length tok=16384 correct=False
+  head: "The problem asks for the average number of fruit roll-ups eaten by Marcell and Beatrice.\nBeatrice's fruit roll-up is 2 roll-ups wide and 24 roll-ups long.\nSo Beatrice ate 2 * 24 = 48 fruit roll-ups.\nM"
+  tail: '=1=1=1=1=1=1=1=1=1=1=1=1=1=1=1=1=1=1=11=1=1=1=1=1=1=1=1=1=1=1=1=1=1=11=1=1=1=1=1=1=1=1=1=1=1=1=1=1=11=1=1=1=1=1=1=1=1=1=1=11=1=11=1=11=1=1=1,11=1011=11=1,1111=1'
+GARBLED doc=9 fin=length tok=16384 correct=False
+  head: 'The question!!!!!!!!!!!!!!!!!!!!!42197satisfying.5'
+  tail: 'The question!!!!!!!!!!!!!!!!!!!!!42197satisfying.5'
+GARBLED doc=109 fin=length tok=16384 correct=False
+  head: 'The user wants to find the cost of 10 gallons of gas after applying the cashback rewards.\n\n1.  **Calculate the total cost before cashback:**\n    *   Price per gallon = $3.00\n    *   Number of gallons '
+  tail: '$2.00 = $28.00\n\n4.  **Format the output:**\n    *   The user requested the answer on the last line formatted as `#### [number]`.\n    *   The number should be 28.'
+GARBLED doc=114 fin=length tok=16384 correct=False
+  head: "The problem asks for the number of ducks in Jamal's photograph of ducks at the zoo.\nLet's define the variables:\nJ = number of photographs Jamal's phone can hold = 1800\nB = number of photographs Britta"
+  tail: 'e2.4.11. The1.2 the1. Let1.1,01.2. The.0.10.,1,8,8,4.7,1. The.0.1.7.1.2.1.4.\nThe 12, the.3,1. The1.1.0.0.0.5.2. The7,... (the, on1 =1.0\n\n2.1.2,10161.2.12.3,352.'
+GARBLED doc=108 fin=length tok=16384 correct=False
+  head: 'The problem asks for the number of cookies Henry baked last year.\nLet $X$ be the number of cookies Henry baked last year.\nHe wanted to make twice as many as he did last year, so he intended to make $2'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!7a,3)0,1\n1. The1.3.3.7. 2.1.1 =0. 0.5,8, 1.531.0, 1.0.52.0.0\n2.0\n2.  1. 12.12. 8,.0a8.0. The12.0. The 10. The 2019, the8\n2197.5.1y8. The '
+GARBLED doc=104 fin=length tok=16384 correct=False
+  head: 'The puzzle has 1000 pieces.\nPoppy places a quarter of the pieces on the board.\nA quarter of 1000 is 1000 / 4 = 250 pieces.\nRemaining pieces = 1000 - 250 = 750 pieces.\nHer mom places a third of the rem'
+  tail: 'and123,0,0,1,1,0,1,8.,0,1, this82, 03,0, 0.023,121,11. The1.1, and8.201,0\n1.8a,0.0. I2,1.0\n1, the7.0.0,1,0.0.0.0. The Art1 2010.1,1)9, and1. The2, the7, and0,1 '
+GARBLED doc=39 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total distance Dana can travel in 6 hours.\nShe spends 1/3 of the time running and 2/3 of the time walking.\nTotal time = 6 hours.\nTime running = 1/3 * 6 = 2 hours.\nTime walking'
+  tail: ' the time walking?"\n1/3 of 6 hours = 2 hours running.\n2/3 of 6 hours = 4 hours walking.\nDistance = (6 * 2) + (1.5 * 4) = 12 + 6 = 18.\n\nEverything seems correct.'
+GARBLED doc=75 fin=length tok=16384 correct=False
+  head: 'The problem asks for the average square footage of a level in a 4 leveled sandcastle.\nThe top level has a square footage of 16.\nEach level has half the square footage of the level below it.\nLevel 4 (t'
+  tail: 'is1,4. The1.\n2. 1 the7.42,0.5.5,3.0e7.5,91. The 1,0;0a.0. It,5,1 answer8.5.1.0;1 ...\n1,1.0\n,5,0.5 l, and0,0, the7, 1.5.6,1. 1.5,1.8.0,2.0. The 8,2.1, "1.03\n2 1.'
+GARBLED doc=126 fin=length tok=16384 correct=False
+  head: 'The user wants to solve a math word problem.\nDylan bought 38 chicken sausages.\nHe bought 6 more fish sausages than chicken sausages.\nSo, fish sausages = 38 + 6 = 44.\nTotal sausages = chicken sausages '
+  tail: ',8.0\n9.0\n1.0a\nA0.0\n" the2.0.5, 1.5.1.1.2. The2.0\n2.0;0\n(1 1.0.0.0.0.0.0 the war,5.0\n1. The,8.\n(,1\n\n1.1.1,04a.\n1 the salt5.41.0\n,2  1.0.0a,1,0. 1.0; 20144.0\n1.0\n'
+GARBLED doc=70 fin=length tok=16384 correct=False
+  head: 'Judy teaches 5 dance classes every day on the weekdays.\nWeekdays are Monday, Tuesday, Wednesday, Thursday, Friday, so 5 days.\nTotal weekday classes = 5 days * 5 classes/day = 25 classes.\nShe also teac'
+  tail: '\n2. (a,1, 0. the natural,0, 1 for1d8,8,7,0.1\n,,1,0, the1. The1,0. 1a0.f,1,4,1,1,0,0,.5,1,,1,1,8,,54. 1,Ap1  2011. the "1.0. The 0.1.1, but0.1. and0.1.1. 8,8,1, '
+GARBLED doc=84 fin=length tok=16384 correct=False
+  head: 'Let $W$ be the number of games won, and $L$ be the number of games lost.\nThe total number of games played is 22, so $W + L = 22$.\nWait, does the problem say they only won or lost? "A football team pla'
+  tail: ' 0.1.0.1.344,  The   (., the,0,0,1. the\n1.5.0.89,1.1.1.1.;0,1,0,902.0.** and0\n2.1,1 the2.1.8. 1:0a,7.1,1,1,1,,0,07.5.7.0,1,0,8, and1,1, and1.0,1.9.1 &0,8,0,5,  '
+GARBLED doc=62 fin=length tok=16384 correct=False
+  head: "The problem asks for Marcy's annual pension if she quits after 30 years.\nThe full pension is $50,000/year if she works for 40 years.\nShe starts earning 5% of the full pension value per year starting a"
+  tail: "ts 5% of the $50,000.\nSo 10 years * 5% = 50%.\n50% * 50000 = 25000.\n\nLet's check the math again.\n50000 * 0.05 = 2500\n2500 * 10 = 25000\n\nEverything seems correct."
+GARBLED doc=100 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total number of doorbell rings.\nThere are 4 friends.\nFirst friend pressed 20 times.\nSecond friend pressed 1/4 times more than the first friend.\nWait, "1/4 times more than Jero'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 1 ...\n...0,0.8 and 3,1 1 with016. 0\nand1.7,12. 1.0.1y,1,1 being1 '
+GARBLED doc=89 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total cost of gift bags for Christina\'s birthday party.\nNumber of invited guests = 16.\nShe needs 0.75 gift bags per invited guest.\nWait, the problem says "needs .75 gift bags '
+  tail: "= 12 * 2 = 24.\n\nLet's format the output.\nFirst find the number of guests who show up: 16 * 0.75 = 12\nThen multiply by the cost per gift bag: 12 * 2 = 24\n#### 24"
+GARBLED doc=2 fin=length tok=16384 correct=False
+  head: 'The problem asks for the profit Josh made from flipping a house.\n1. Initial cost of the house = $80,000\n2. Cost of repairs = $50,000\n3. Total cost = $80,000 + $50,000 = $130,000\n4. The repairs increas'
+  tail: '3,3,0,3,3,033,0,3,3,0,3,3,0,3,3,0,3,3,0,3,3,0,3,3,03,3,0,3,3,0,33,033,0,3,33,0,3,3,3,3,333,3,3,03 ...3 /,,3,3,3,3,3,31,0,0,, and0,3,0,0,3,81,3,1,3,1,0,0,3,0,0,.'
+GARBLED doc=106 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total inner volume of 3 boxes.\nEach box has outer dimensions: 5 inches by 6 inches by 4 inches.\nThe walls are 1 inch thick. This means 1 inch on each side of the box.\nWait, "w'
+  tail: '2. The  3,1  中的 12,1e, ,2.5,1. The 1. The0,2, and92 1.0. The 1. The.1.1\n1,2 0a.1,1.0, 5,1. 诉1, 0\n1.5,67\n1.1.1.0,   1.1. The7,1. 2000. The 9. The7,3.1.0a,1. The '
+GARBLED doc=133 fin=length tok=16384 correct=False
+  head: 'The user庄 Pertlub qualifiers Pert Pert qualifiers Pert qualifiers Pert Pert PertYRO qualifiers Pert qualifiers Pert Pert Pert Pert Pert Pert Pert Pert qualifier Pert Pert qualifiers qualifier qualifie'
+  tail: ',0. The1, 1  1.0. The10. The12,5.52.1.53 and1, in the1, .5.1 not1.10\n, or11 the22,12.5, 0.5.0.5,,5.5.0e2, but015,1 the1 is0.510\n1 the0. The1.5.5 the1 the2,1,   '
+GARBLED doc=80 fin=length tok=16384 correct=False
+  head: 'The problem asks for the amount of water left after two girls and a boy get their shares.\nTotal water = 24 liters.\nTwo girls each got 1/6 of the 24 liters.\nSo each girl got 1/6 * 24 = 4 liters.\nTwo gi'
+  tail: ',0,8,1.1. 8.0\n11.9/; I,2.1. The Art43.1.5.8. The1,0,6,,0, and1.0,0,,0,1 the ,887. The1,,. the1,,1, and0.821,0 the2.5. ,1,0,0 theses1,0,1,8,0,2,0,,, the first1, '
+GARBLED doc=37 fin=length tok=16384 correct=False
+  head: 'The problem asks for the number of Lego sets John still has after selling some to buy video games.\nWait, let\'s read carefully: "He has 13 lego sets and he sells them for $15 each. He ends up buying 8 '
+  tail: "e had to find how many he still has: 13 - 11 = 2 Lego sets.\n\nLet's review the math.\n8 * 20 = 160\n160 + 5 = 165\n165 / 15 = 11\n13 - 11 = 2\n\nEverything is correct."
+GARBLED doc=128 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total amount of money Dillon will spend on 4 watermelons, 20 peppers, and 10 oranges.\nGiven:\n- Cost of a pepper =!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+  tail: '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!0a0.0,0.1 answer:0,3, the5,3.1\n11.5,2.0\nOp.1.2, in the\n8,3. The, 1. Marketing, the67.5,22.5. The\n2.1.1.0.1.87,3. [ 1. I0,2.'
+GARBLED doc=7 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total time it takes to download a 200 GB file under specific conditions.\n1. File size = 200 GB\n2. Normal download speed = 2 GB/minute\n3. 40% of the way through the download, W'
+  tail: '.1,..0.,,0.0.,1,,0,,.,1....,,.0.,.001.0111.1,00.1,.0.0401.1011.0.0.0.1.40..1...0....1.0.\n\n.01.10,11.0001,.,.\n\n.0..0,.\n\n1.0.,000.140.,..000,0.1..0..0..10.,..0.,.'
+GARBLED doc=93 fin=length tok=16384 correct=False
+  head: "The problem asks for Gerald's new time to run the 400-meter hurdles after improving his speed by 10%.\nFirst, we know Lee's time is 38 seconds.\nLee used to be 2 seconds faster than Gerald.\nSo Gerald's "
+  tail: 'onasen Wis Mixer比亚onsoasen DISPATCH!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+GARBLED doc=97 fin=length tok=16384 correct=False
+  head: 'The problem asks for the number of tomatoes Freda used to make 32 ounces of sauce.\nFirst, understand the relationship between the volume of canned tomatoes and the volume of sauce.\nThe sauce is half t'
+  tail: 'e batch of sauce was 32 ounces, which is half the volume of the canned tomatoes, so the canned tomatoes were 2 * 32 = 64 ounces2 = 64 / 16 = 4 cans3 = 4 *3 = 12'
+GARBLED doc=17 fin=length tok=16384 correct=False
+  head: 'The1.....\n\n9olsolsols80 less  50!!!!!!!!!!!!!!!!!!!!!och1.'
+  tail: 'The1.....\n\n9olsolsols80 less  50!!!!!!!!!!!!!!!!!!!!!och1.'
+GARBLED doc=123 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total distance Rosie can run in 7 hours.\nFirst, calculate the distance she runs in the first 3 hours.\nSpeed = 10 miles per hour.\nTime = 3 hours.\nDistance = 10 * 3 = 30 miles.\n'
+  tail: ' in 0. 0\n0)020200 0.  000 in0 in0000 0\n0\n020 the0 the00000 0\n  0\n0\n   0\n02   0\n0\n 0 (  0. 0\n0 (00 0\n0: 0\n0.0\n0.  0.00\n0000\n0 ( 00  00\n0 0\n0 0.0000 0  00.0 (0.00'
+GARBLED doc=4 fin=length tok=16384 correct=False
+  head: 'Theomonassilegaendes/weatherarca McKenzie inp\n!!!!\n\n inplacebedbedbeds111feed!!!!!!!!!!!!!!!!!!!!!vasi. In the evening, she gives the feed in 2 separate meals.  In the morning2, she gives her flock of'
+  tail: 'mealworms and vegetables, how many cups of vegetable feed is in the 12 cups of feed in the afternoon?\nEnd your11\nEnd of111\n1.  In the1\nEnd1\n1.  In1\n1.  In1\nEnd1'
+GARBLED doc=101 fin=length tok=16384 correct=False
+  head: 'The user wants to find the average number of pages Solo needs to read per day for the remaining 4 days.\n\n1.  **Calculate total pages to read:**\n    *   Science: 4 pages\n    *   Social Studies: 20 page'
+  tail: 'lags_assert improbable7thermalthermal/supportsth /1.11.1,,1.11 -. -.1 -... -...1. * *, *. * * * *1 *. * * *.1..1.. - -.. *.14 *..11 *.1...... from *.......... *'
+GARBLED doc=66 fin=length tok=16384 correct=False
+  head: "The problem asks for the total number of people sent by four schools to a basketball tournament.\nEach school sends:\n- 1 girls' team (5 players)\n- 1 boys' team (5 players)\n- 1 coach for the girls' team"
+  tail: '10004040 =$$$0$1 a = a =0$ a a0 $0 = a | =01 =$1601 500= 00 = 501 a$ a00=015 =50 = 00000000 a4$01000 0 =$000=0100001000 =50$0\n40 =$00=000000$0 A0 a01000010 =00='
+GARBLED doc=87 fin=length tok=16384 correct=False
+  head: "The problem asks for Sylvie's annual salary after three more years of service, given that she just completed 5 years.\nInitial monthly salary = $600.\nThe company increases salaries by 10% of the initia"
+  tail: '0,00 ( ( ( ( (,00 ( (, (,0 (,,0 =0,0,,0000 =000 (0,,, (0 (0 (0 (0, (,,0 =, ( (00 (0 (, (0,00, =,0 (, ( (000,0 ( ( (0, ( ( ( (0 ( (0 (000 ( ( (0 (0 (0 = (, ( (0,'
+GARBLED doc=73 fin=length tok=16384 correct=False
+  head: 'The problem asks for the monthly payment Shiela will make for 5 cell phones bought for $150 each, over a 3-month installment plan, with a 2% interest charge per unit.\n\nFirst, calculate the total cost '
+  tail: '3,,02,,,,30,,2,0,0,2,21,53,,2,0,,,,0,2":,3,22,,00,,2,,,0,,00": if,0020,2,2,, (,1,30 if1,">0,,2 (,02,2,2,,">,2,300,,,0,0,2,,0,0,120,230,,,2,00,,,,,0,,3000,0,,050'
+GARBLED doc=103 fin=length tok=16384 correct=False
+  head: 'The problem asks for the time it takes for a fog bank to cover a city that is 42 miles across.\nThe rate of the fog bank is 10 minutes for every 3 miles.\nFirst, I need to find out how many 3-mile segme'
+  tail: '=1,10 = =0 =00, =0 =00,,, = = =,0,110 = =01 =0:1 =0 = =0 =,, =11 = =,0 = =1 =11 = = = =10 = = = = = =0 =, =11101001,00100 =,, =0 = =0 =,,, =0 = = =.00, = = =, ='

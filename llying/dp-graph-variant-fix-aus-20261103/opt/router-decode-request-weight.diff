@@ -1,0 +1,323 @@
+commit 565461b3755f6f91462c4cf28e26080bcb9bda93
+Author: liyingli <liyingli@amd.com>
+Date:   Wed Oct 21 17:53:15 2026 +0000
+
+    router: --decode-request-weight charges held requests in decode input demand
+    
+    Under DP attention every decode step waits for the busiest rank, whose cost grows
+    with its request count as well as its context. Decode input demand balances
+    in-flight input tokens only, so one rank can hold many short requests. The new
+    weight (tokens per held request, default 0 = unchanged) adds weight * requests
+    to each candidate's projected tokens, the form Dynamo uses for
+    router-decode-active-request-weight. Exposes the per-target request count as
+    infera_router_decode_demand_requests.
+    
+    Co-authored-by: Cursor <cursoragent@cursor.com>
+    Signed-off-by: liyingli <liyingli@amd.com>
+
+diff --git a/infera/server/args.py b/infera/server/args.py
+index 600b789a..8ab090ff 100644
+--- a/infera/server/args.py
++++ b/infera/server/args.py
+@@ -19,6 +19,13 @@ def _session_ttl(raw: str) -> int:
+     return ttl
+ 
+ 
++def _non_negative_int(raw: str) -> int:
++    value = int(raw)
++    if value < 0:
++        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
++    return value
++
++
+ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
+     parser = argparse.ArgumentParser(description="Infera server")
+     parser.add_argument("--host", default="0.0.0.0")
+@@ -134,6 +141,15 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
+         "input tokens. 'shadow' books demand and reports a suggestion without "
+         "changing selection. Unset defers to $INFERA_DECODE_INPUT_DEMAND, else off.",
+     )
++    parser.add_argument(
++        "--decode-request-weight",
++        type=_non_negative_int,
++        default=None,
++        help="Rust backend with --decode-input-demand: input tokens charged per "
++        "request a Decode target already holds, so DP ranks are balanced by "
++        "request count as well as tokens. Unset defers to "
++        "$INFERA_DECODE_REQUEST_WEIGHT, else 0 (tokens only).",
++    )
+     parser.add_argument(
+         "--pd-prefill-guard-release",
+         choices=("decode", "completion"),
+@@ -342,6 +358,7 @@ def parse_server_args(argv: list[str] | None = None) -> argparse.Namespace:
+         flag
+         for flag, value in (
+             ("--decode-input-demand", args.decode_input_demand),
++            ("--decode-request-weight", args.decode_request_weight),
+             ("--pd-prefill-guard-release", args.pd_prefill_guard_release),
+         )
+         if value is not None
+diff --git a/infera/server/launch_rust.py b/infera/server/launch_rust.py
+index ee62f61f..0c1db9dd 100644
+--- a/infera/server/launch_rust.py
++++ b/infera/server/launch_rust.py
+@@ -132,6 +132,7 @@ def exec_rust(args: argparse.Namespace) -> None:
+         ("--nats-req-max-duration-s", args.nats_req_max_duration),
+         ("--nats-req-max-pending", args.nats_req_max_pending),
+         ("--decode-input-demand", args.decode_input_demand),
++        ("--decode-request-weight", args.decode_request_weight),
+         ("--pd-prefill-guard-release", args.pd_prefill_guard_release),
+     ):
+         if value is not None:
+diff --git a/rust/router/src/config.rs b/rust/router/src/config.rs
+index 0f79e964..a73211c6 100644
+--- a/rust/router/src/config.rs
++++ b/rust/router/src/config.rs
+@@ -79,6 +79,14 @@ pub struct Config {
+     )]
+     pub decode_input_demand: crate::decode_demand::Mode,
+ 
++    /// Decode input demand: the input tokens one in-flight request is worth on a
++    /// decode target, added per request it already holds. Under DP attention a
++    /// step waits for the busiest rank, whose cost grows with its request count
++    /// as well as its context, so token-only balancing can leave one rank with
++    /// many short requests. 0 keeps token-only balancing.
++    #[arg(long, default_value_t = 0, env = "INFERA_DECODE_REQUEST_WEIGHT")]
++    pub decode_request_weight: u64,
++
+     /// `etcd` (external) or `kubernetes` (workers publish into their own Pod
+     /// annotation and the API server is watched).
+     #[arg(long, default_value = "etcd")]
+@@ -258,6 +266,11 @@ impl Config {
+         {
+             anyhow::bail!("--decode-input-demand requires --router-policy kv-aware");
+         }
++        if self.decode_request_weight > 0
++            && self.decode_input_demand == crate::decode_demand::Mode::Off
++        {
++            anyhow::bail!("--decode-request-weight requires --decode-input-demand shadow or on");
++        }
+         if self.router_policy == "kv-aware" && self.kv_tokenizer_path.is_none() {
+             tracing::warn!(
+                 "--router-policy kv-aware without --kv-tokenizer-path: block hashes \
+@@ -502,4 +515,25 @@ mod tests {
+         }
+         assert!(Config::try_parse_from(["router", "--decode-input-demand", "enabled"]).is_err());
+     }
++
++    #[test]
++    fn decode_request_weight_requires_decode_demand() {
++        let weighted = |mode: &str| {
++            Config::try_parse_from([
++                "router",
++                "--router-policy",
++                "kv-aware",
++                "--decode-input-demand",
++                mode,
++                "--decode-request-weight",
++                "180000",
++            ])
++            .unwrap()
++        };
++        assert!(weighted("off").validate().is_err());
++        assert!(weighted("shadow").validate().is_ok());
++        assert!(weighted("on").validate().is_ok());
++        let default = Config::try_parse_from(["router"]).unwrap();
++        assert_eq!(default.decode_request_weight, 0);
++    }
+ }
+diff --git a/rust/router/src/decode_demand.rs b/rust/router/src/decode_demand.rs
+index b971a47f..21e6ab6e 100644
+--- a/rust/router/src/decode_demand.rs
++++ b/rust/router/src/decode_demand.rs
+@@ -64,6 +64,7 @@ impl Reservation {
+         entry.tokens += u128::from(tokens);
+         entry.requests += 1;
+         crate::metrics::set_decode_demand_tokens(&key, Some(entry.tokens));
++        crate::metrics::set_decode_demand_requests(&key, Some(entry.requests));
+         Self {
+             ledger: ledger.clone(),
+             key,
+@@ -85,8 +86,10 @@ impl Drop for Reservation {
+         if entry.requests == 0 {
+             state.remove(&self.key);
+             crate::metrics::set_decode_demand_tokens(&self.key, None);
++            crate::metrics::set_decode_demand_requests(&self.key, None);
+         } else {
+             crate::metrics::set_decode_demand_tokens(&self.key, Some(entry.tokens));
++            crate::metrics::set_decode_demand_requests(&self.key, Some(entry.requests));
+         }
+     }
+ }
+diff --git a/rust/router/src/main.rs b/rust/router/src/main.rs
+index 199daef3..6fab9848 100644
+--- a/rust/router/src/main.rs
++++ b/rust/router/src/main.rs
+@@ -92,6 +92,7 @@ async fn main() -> anyhow::Result<()> {
+                 cfg.kv_per_worker_template_kwargs,
+             ))
+             .with_decode_input_demand(cfg.decode_input_demand)
++            .with_decode_request_weight(cfg.decode_request_weight)
+             // A worker that served traffic before the router subscribed emits
+             // its one rooted event to nobody, and no later event can rebuild
+             // the chain. Asking it to flush is the only repair, so the router
+diff --git a/rust/router/src/metrics.rs b/rust/router/src/metrics.rs
+index 7381e8ef..3f231eb9 100644
+--- a/rust/router/src/metrics.rs
++++ b/rust/router/src/metrics.rs
+@@ -36,6 +36,7 @@ struct Metrics {
+     prefix_blocks_hit: CounterVec,
+     prefix_blocks_total: CounterVec,
+     decode_demand_tokens: GaugeVec,
++    decode_demand_requests: GaugeVec,
+     decode_demand_decisions: CounterVec,
+     engine_kv_cache_usage: GaugeVec,
+     engine_prefix_cache_hit_rate: GaugeVec,
+@@ -148,6 +149,12 @@ fn m() -> &'static Metrics {
+             &["target"]
+         )
+         .expect("register decode_demand_tokens"),
++        decode_demand_requests: register_gauge_vec!(
++            "infera_router_decode_demand_requests",
++            "In-flight requests booked by decode input-demand routing, by Decode route key",
++            &["target"]
++        )
++        .expect("register decode_demand_requests"),
+         decode_demand_decisions: register_counter_vec!(
+             "infera_router_decode_demand_decisions_total",
+             "Decode input-demand picks by mode, exact or estimated input, and whether the \
+@@ -245,6 +252,16 @@ pub fn set_decode_demand_tokens(target: &str, tokens: Option<u128>) {
+     }
+ }
+ 
++pub fn set_decode_demand_requests(target: &str, requests: Option<usize>) {
++    let gauge = &m().decode_demand_requests;
++    match requests {
++        Some(requests) => gauge.with_label_values(&[target]).set(requests as f64),
++        None => {
++            let _ = gauge.remove_label_values(&[target]);
++        }
++    }
++}
++
+ pub fn record_decode_demand_decision(mode: &str, exact: bool, agrees: bool) {
+     let input = if exact { "exact" } else { "estimated" };
+     let agrees = if agrees { "true" } else { "false" };
+diff --git a/rust/router/src/policy.rs b/rust/router/src/policy.rs
+index 9a32b0e3..7e1a9554 100644
+--- a/rust/router/src/policy.rs
++++ b/rust/router/src/policy.rs
+@@ -336,6 +336,9 @@ const ZERO_HIT_ALARM_REPEAT: u64 = 1024;
+ /// it. Both halves of the load term are needed -- see [`RECENT_DECAY`].
+ pub struct KvEventAwarePolicy {
+     decode_input_demand: DecodeDemandMode,
++    /// Input tokens charged per request a Decode target already holds; see
++    /// `Config::decode_request_weight`.
++    decode_request_weight: u64,
+     demand: Ledger,
+     kv: Arc<KvEventClient>,
+     hasher: Arc<BlockHasher>,
+@@ -381,6 +384,7 @@ impl KvEventAwarePolicy {
+     ) -> Self {
+         KvEventAwarePolicy {
+             decode_input_demand: DecodeDemandMode::Off,
++            decode_request_weight: 0,
+             demand: Ledger::default(),
+             kv,
+             hasher: Arc::new(hasher),
+@@ -402,6 +406,11 @@ impl KvEventAwarePolicy {
+         self
+     }
+ 
++    pub fn with_decode_request_weight(mut self, tokens_per_request: u64) -> Self {
++        self.decode_request_weight = tokens_per_request;
++        self
++    }
++
+     #[cfg(test)]
+     pub(crate) fn demand_snapshot(&self) -> HashMap<String, crate::decode_demand::Demand> {
+         self.demand.lock().unwrap().clone()
+@@ -773,11 +782,15 @@ impl Policy for KvEventAwarePolicy {
+             let (picked, suggested, reservation, costs) = {
+                 // Only snapshot, selection and reservation hold the ledger lock.
+                 let mut ledger = self.demand.lock().unwrap_or_else(PoisonError::into_inner);
++                let weight = u128::from(self.decode_request_weight);
+                 let costs: Vec<u128> = keys
+                     .iter()
+                     .zip(&work)
+                     .map(|(key, (tokens, _))| {
+-                        ledger.get(key).map_or(0, |d| d.tokens) + u128::from(*tokens)
++                        let booked = ledger.get(key);
++                        booked.map_or(0, |d| d.tokens)
++                            + u128::from(*tokens)
++                            + weight * booked.map_or(0, |d| d.requests as u128)
+                     })
+                     .collect();
+                 let suggested = (0..targets.len())
+@@ -804,6 +817,7 @@ impl Policy for KvEventAwarePolicy {
+                 && !self.parity.diverged(&targets[picked].worker.worker_id);
+             tracing::debug!(target: "infera_router::decode_demand",
+                 mode=?self.decode_input_demand, exact, candidates=?keys, projected_tokens=?costs,
++                request_weight=self.decode_request_weight,
+                 legacy_selected=%keys[legacy_pick], selected=%keys[picked], suggested=%keys[suggested],
+                 "decode input demand");
+             crate::metrics::record_decode_demand_decision(
+@@ -1437,6 +1451,58 @@ mod tests {
+         assert!(policy.demand_snapshot().is_empty());
+     }
+ 
++    #[test]
++    fn decode_request_weight_balances_requests_held() {
++        // "a" holds one long request, "b" three short ones: token-only demand
++        // sends the next request to "b"; at 1000 tokens per held request "a"
++        // costs 2000 + 1000 + 32 against "b"'s 300 + 3000 + 32.
++        for (weight, want) in [(0, "b"), (1000, "a")] {
++            let policy = demand_policy(DecodeDemandMode::On).with_decode_request_weight(weight);
++            let workers = vec![worker("a", 0, None), worker("b", 0, None)];
++            let held = {
++                let mut ledger = policy.demand.lock().unwrap();
++                let mut held = vec![Reservation::book(
++                    &policy.demand,
++                    &mut ledger,
++                    "a".into(),
++                    2000,
++                )];
++                for _ in 0..3 {
++                    held.push(Reservation::book(
++                        &policy.demand,
++                        &mut ledger,
++                        "b".into(),
++                        100,
++                    ));
++                }
++                held
++            };
++            let pick = policy.pick(&workers, &json!({"prompt": vec![7;32]}), Role::Decode);
++            assert_eq!(pick.target.route_key(), want, "weight {weight}");
++            let snapshot = policy.demand_snapshot();
++            assert_eq!(snapshot[want].requests, if want == "a" { 2 } else { 4 });
++            drop((held, pick));
++            assert!(policy.demand_snapshot().is_empty());
++        }
++    }
++
++    #[test]
++    fn decode_request_weight_in_shadow_keeps_the_legacy_pick() {
++        let legacy = demand_policy(DecodeDemandMode::Off);
++        let shadow = demand_policy(DecodeDemandMode::Shadow).with_decode_request_weight(1_000_000);
++        let workers = vec![worker("a", 16, None), worker("b", 16, None)];
++        let mut picks = Vec::new();
++        for n in 1..12 {
++            let request = json!({"prompt": vec![7; n * 16]});
++            let a = legacy.pick(&workers, &request, Role::Decode);
++            let b = shadow.pick(&workers, &request, Role::Decode);
++            assert_eq!(a.target.route_key(), b.target.route_key());
++            picks.push((a, b));
++        }
++        drop(picks);
++        assert!(shadow.demand_snapshot().is_empty());
++    }
++
+     #[test]
+     fn decode_demand_estimated_inputs_still_steer() {
+         let policy = demand_policy(DecodeDemandMode::On);

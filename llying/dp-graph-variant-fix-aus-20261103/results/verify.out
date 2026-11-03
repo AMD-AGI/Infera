@@ -1,0 +1,105 @@
+13:30:37 preflight localhost: image sha256:1a49bf2092e9411ab65c6bdae5d7861093b76f7d4f82409ca3e52cf98f3eec49; base files differing: none
+13:30:37 preflight smci355-ccs-aus-n06-33: image sha256:2d852443605ce75591a0d5c12f590a78507f2a7d5c4d27b7ceb1ac033fc77762; base files differing: none
+13:31:00 unit: 26/26 passed
+13:31:00 arm-B-gate-1103T1331 up
+13:36:55 arm-B-gate-1103T1331 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+13:36:55 arm-B-gate-1103T1331 env: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+13:36:56 arm-B-gate-1103T1331 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=102.15, draft_prefill=0.00, draft_decode=62.25, draft_extend=5.93} spec_args=7
+13:37:49 arm-B-gate-1103T1331 smoke: 6/6 checks passed
+13:42:32 arm-B-gate-1103T1331 probe: n=200 errors=0 correct=198/200 (0.990) bad_start=0 garbled=0 hit_cap=1 empty=0
+13:44:32 arm-B-gate-1103T1331 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+13:45:18 arm-B-gate-1103T1331 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+13:47:07 arm-B-gate-1103T1331 down
+13:48:08 arm-N1a-nospec-audit-1103T1347 up
+13:51:13 arm-N1a-nospec-audit-1103T1347 files: decode fix=5 debug=1 orig=0 of 6; prefill recipe=5 of 5
+13:51:13 arm-N1a-nospec-audit-1103T1347 env: SGLANG_DEBUG_GRAPH_VARIANT_AUDIT=1 SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=0 YIHOU_KF_MOE=0 YIHOU_KF_SPARSE=0 
+13:51:13 arm-N1a-nospec-audit-1103T1347 start-up: dual_graph_lines=4 capture={prefill=0.00, decode=18.77, target_verify=0.00, draft_prefill=0.00, draft_decode=0.00, draft_extend=0.00} spec_args=0
+13:51:57 arm-N1a-nospec-audit-1103T1347 smoke: 6/6 checks passed
+13:56:59 arm-N1a-nospec-audit-1103T1347 probe: n=400 errors=0 correct=390/400 (0.975) bad_start=0 garbled=0 hit_cap=5 empty=0
+13:57:33 arm-N1a-nospec-audit-1103T1347 longctx 16000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=13907 gsm8k: n=16 correct=15 garbled=0 runaway=0 errors=0 prompt_tokens p50=13895 
+13:59:19 arm-N1a-nospec-audit-1103T1347 audit: ranks=[0, 1, 2, 3] aligned_blocks=84 replays=21504 new_mismatch=0 old_mismatch=1644 (7.6% of replays)   DP0: n=21504 dense=803 (3.7%) old_dense=756 viol=0 bound_viol=0 nobound=0   DP1: n=21504 dense=803 (3.7%) old_dense=2102 viol=0 bound_viol=0 nobound=0   DP2: n=21504 dense=803 (3.7%) old_dense=965 viol=0 bound_viol=0 nobound=0   DP3: n=21504 dense=803 (3.7%) old_dense=1465 viol=0 bound_viol=0 nobound=0 
+13:59:19 arm-N1a-nospec-audit-1103T1347 down
+14:00:20 arm-A-gate-1103T1359 up
+14:03:51 arm-A-gate-1103T1359 files: decode fix=0 debug=0 orig=6 of 6; prefill recipe=5 of 5
+14:03:51 arm-A-gate-1103T1359 env: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+14:03:51 arm-A-gate-1103T1359 start-up: dual_graph_lines=4 capture={prefill=0.00, decode=0.00, target_verify=66.09, draft_prefill=0.00, draft_decode=5.80, draft_extend=2.36} spec_args=7
+14:04:12 arm-A-gate-1103T1359 smoke: 6/6 checks passed
+14:10:53 arm-A-gate-1103T1359 probe: n=200 errors=0 correct=187/200 (0.935) bad_start=0 garbled=9 hit_cap=13 empty=0
+14:13:44 arm-A-gate-1103T1359 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=2 errors=0 prompt_tokens p50=13902 
+14:14:53 arm-A-gate-1103T1359 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+14:16:36 arm-A-gate-1103T1359 down
+14:17:37 arm-B-gate-1103T1416 up
+14:20:37 arm-B-gate-1103T1416 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+14:20:37 arm-B-gate-1103T1416 env: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+14:20:38 arm-B-gate-1103T1416 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=38.23, draft_prefill=0.00, draft_decode=5.83, draft_extend=2.44} spec_args=7
+14:20:59 arm-B-gate-1103T1416 smoke: 6/6 checks passed
+14:26:12 arm-B-gate-1103T1416 probe: n=200 errors=0 correct=196/200 (0.980) bad_start=0 garbled=0 hit_cap=2 empty=0
+14:28:41 arm-B-gate-1103T1416 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
+14:31:05 arm-B-gate-1103T1416 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=61 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
+14:32:51 arm-B-gate-1103T1416 down
+14:33:52 arm-A-gate-1103T1432 up
+14:37:23 arm-A-gate-1103T1432 files: decode fix=0 debug=0 orig=6 of 6; prefill recipe=5 of 5
+14:37:23 arm-A-gate-1103T1432 env: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+14:37:24 arm-A-gate-1103T1432 start-up: dual_graph_lines=4 capture={prefill=0.00, decode=0.00, target_verify=65.94, draft_prefill=0.00, draft_decode=6.07, draft_extend=2.60} spec_args=7
+14:37:45 arm-A-gate-1103T1432 smoke: 6/6 checks passed
+14:45:06 arm-A-gate-1103T1432 probe: n=200 errors=0 correct=185/200 (0.925) bad_start=6 garbled=11 hit_cap=14 empty=0
+14:46:46 arm-A-gate-1103T1432 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+14:47:51 arm-A-gate-1103T1432 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+14:49:37 arm-A-gate-1103T1432 down
+14:50:38 arm-B-gate-1103T1449 up
+14:53:48 arm-B-gate-1103T1449 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+14:53:48 arm-B-gate-1103T1449 env: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+14:53:49 arm-B-gate-1103T1449 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=38.88, draft_prefill=0.00, draft_decode=5.89, draft_extend=2.56} spec_args=7
+14:54:09 arm-B-gate-1103T1449 smoke: 6/6 checks passed
+14:59:55 arm-B-gate-1103T1449 probe: n=200 errors=0 correct=192/200 (0.960) bad_start=0 garbled=0 hit_cap=5 empty=0
+15:01:04 arm-B-gate-1103T1449 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+15:01:57 arm-B-gate-1103T1449 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+15:03:40 arm-B-gate-1103T1449 down
+15:04:41 arm-C0-e11-1103T1503 up
+15:07:41 arm-C0-e11-1103T1503 files: decode fix=0 debug=0 orig=6 of 6; prefill recipe=5 of 5
+15:07:41 arm-C0-e11-1103T1503 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+15:07:41 arm-C0-e11-1103T1503 start-up: dual_graph_lines=4 capture={prefill=0.00, decode=0.00, target_verify=34.89, draft_prefill=0.00, draft_decode=4.52, draft_extend=2.17} spec_args=7
+15:08:05 arm-C0-e11-1103T1503 smoke: 4/6 checks passed
+15:18:01 arm-C0-e11-1103T1503 probe: n=200 errors=0 correct=131/200 (0.655) bad_start=13 garbled=53 hit_cap=45 empty=0
+15:19:45 arm-C0-e11-1103T1503 down
+15:20:47 arm-C-gate-1103T1519 up
+15:23:36 arm-C-gate-1103T1519 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+15:23:36 arm-C-gate-1103T1519 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+15:23:37 arm-C-gate-1103T1519 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.31, draft_prefill=0.00, draft_decode=4.46, draft_extend=2.20} spec_args=7
+15:23:57 arm-C-gate-1103T1519 smoke: 6/6 checks passed
+15:28:45 arm-C-gate-1103T1519 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0
+15:30:08 arm-C-gate-1103T1519 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+15:31:05 arm-C-gate-1103T1519 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+15:32:54 arm-C-gate-1103T1519 down
+15:33:55 arm-C-gate-1103T1532 up
+15:36:44 arm-C-gate-1103T1532 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+15:36:44 arm-C-gate-1103T1532 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+15:36:45 arm-C-gate-1103T1532 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.26, draft_prefill=0.00, draft_decode=4.43, draft_extend=2.17} spec_args=7
+15:37:06 arm-C-gate-1103T1532 smoke: 6/6 checks passed
+15:41:53 arm-C-gate-1103T1532 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=2 empty=0
+15:43:29 arm-C-gate-1103T1532 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
+15:46:07 arm-C-gate-1103T1532 longctx 16000:128: needle: n=64 correct=63 garbled=0 runaway=1 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
+15:47:52 arm-C-gate-1103T1532 down
+15:48:53 arm-N0-nospec-1103T1547 up
+15:51:57 arm-N0-nospec-1103T1547 files: decode fix=0 debug=0 orig=6 of 6; prefill recipe=5 of 5
+15:51:57 arm-N0-nospec-1103T1547 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=0 YIHOU_KF_MOE=0 YIHOU_KF_SPARSE=0 
+15:51:58 arm-N0-nospec-1103T1547 start-up: dual_graph_lines=4 capture={prefill=0.00, decode=17.87, target_verify=0.00, draft_prefill=0.00, draft_decode=0.00, draft_extend=0.00} spec_args=0
+15:52:19 arm-N0-nospec-1103T1547 smoke: 6/6 checks passed
+15:58:56 arm-N0-nospec-1103T1547 probe: n=200 errors=0 correct=145/200 (0.725) bad_start=3 garbled=33 hit_cap=48 empty=0
+16:00:44 arm-N0-nospec-1103T1547 down
+16:01:45 arm-N1-nospec-fix-1103T1600 up
+16:04:45 arm-N1-nospec-fix-1103T1600 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+16:04:45 arm-N1-nospec-fix-1103T1600 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=0 YIHOU_KF_MOE=0 YIHOU_KF_SPARSE=0 
+16:04:45 arm-N1-nospec-fix-1103T1600 start-up: dual_graph_lines=4 capture={prefill=0.00, decode=18.47, target_verify=0.00, draft_prefill=0.00, draft_decode=0.00, draft_extend=0.00} spec_args=0
+16:05:06 arm-N1-nospec-fix-1103T1600 smoke: 6/6 checks passed
+16:10:00 arm-N1-nospec-fix-1103T1600 probe: n=400 errors=0 correct=390/400 (0.975) bad_start=0 garbled=0 hit_cap=6 empty=0
+16:10:34 arm-N1-nospec-fix-1103T1600 longctx 16000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=13907 gsm8k: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=13895 
+16:12:20 arm-N1-nospec-fix-1103T1600 down
+16:13:21 arm-B-prod-1103T1612 up
+16:16:30 arm-B-prod-1103T1612 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+16:16:30 arm-B-prod-1103T1612 env: SGLANG_USE_ROCM700A=1 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+16:16:31 arm-B-prod-1103T1612 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=38.73, draft_prefill=0.00, draft_decode=5.98, draft_extend=2.64} spec_args=7
+16:16:52 arm-B-prod-1103T1612 smoke: 6/6 checks passed
+16:29:11 arm-B-prod-1103T1612 probe: n=1319 errors=0 correct=1274/1319 (0.966) bad_start=0 garbled=0 hit_cap=16 empty=0
+16:31:54 arm-B-prod-1103T1612 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=63 garbled=0 runaway=1 errors=0 prompt_tokens p50=13902 
+16:33:13 arm-B-prod-1103T1612 longctx 100000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86389 gsm8k: n=16 correct=15 garbled=0 runaway=0 errors=0 prompt_tokens p50=86345 

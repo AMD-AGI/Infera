@@ -1,0 +1,51 @@
+BAD_START doc=61 fin=length tok=16384 correct=False
+  head: 'Theutzer1-case55500The $500 + 800 = 1300.\n 10 1300.  10 the 10 to the daughter. her daughter. their daughter, their daughter. their daughter. their daughter. their daughter. their daughter. their daug'
+  tail: "ughter. their daughter. their daughter. their daughter. their daughter as their daughter, their daughter as their daughter as their daughter, their daughter's's"
+BAD_START doc=14 fin=length tok=16384 correct=False
+  head: 'The了多少1"\n a0200 students enrolled in contemporary dance = 20 * 0.20% 20% 20 * 0.20% 20 * 0.20% 20 * 0.20% Contemporary dance = 20% of 20 students\n 20% of 20 students.\n  20% of 20 students = 20% of 20 '
+  tail: 'students: 200 in this 2 students: 200 in this 2 students1: 20% in this 2 students: 20% in this 2 students: 200 in this 2 students: 20% in this 2 students: 20%22'
+BAD_START doc=49 fin=length tok=16384 correct=False
+  head: 'The20SER5 units is 15 floors * 15 units15The115TheTheThe15*15 =15 units are'
+  tail: 'The20SER5 units is 15 floors * 15 units15The115TheTheThe15*15 =15 units are'
+BAD_START doc=3 fin=length tok=16384 correct=False
+  head: 'TheassiL-switch a the060 meters each sprint.\n3 times a week.\n3 times a week.\n3 times a week.\n3 times a week.\nHe runs 3 sprints 3 times 60 meters per sprint.\n 3 of 3 sprints * 60 meters per sprint = 18'
+  tail: ' pieces per0822 things before 12.5 pieces per 82 things before 1255 pieces per 82 things before 12.5 pieces per 8 ways before 12555 pieces per 8.2 things before'
+BAD_START doc=52 fin=length tok=16384 correct=False
+  head: 'The铎 ErgadelLOTThe 15=15=15The 15=1=151111'
+  tail: 'The铎 ErgadelLOTThe 15=15=15The 15=1=151111'
+BAD_START doc=33 fin=length tok=16384 correct=False
+  head: 'Theutzer1-main-dr Gret coins. 110 coins total.\n There are 30 more gold coins than silver coins.\n Let G denote the number of gold coins and S be the number of silver coins. The total number of coins is'
+  tail: '0 in 0 in 0 in 0 in 0 in 0 in 0 in * 0 in 0 problem, 0 in 0 in 0 in 0 in 000 in 00  of 0 in 0 in2* 0 problem is 0 in 0 in2| 0 in 0 in 0 in 0 in 0 in2* 0 in 0 in'
+GARBLED doc=5 fin=length tok=16384 correct=False
+  head: 'The problem asks for the total cost of anga2-basic a1616 glasses Kylar wants to buy.\n The pricing structure:\n- One glass costs $5.\n- Every second glass costs 60% of the price of the first glass.\n 2nd,'
+  tail: '10+2.0. . 0.82.0.10+2.0.10+2.0. 0.10+2.0.10+2.0.10+2.0.10+2.0. 0.10+2=0.1022.0.10+2.0. 0.10+2.0. 0.10+2.0. 0.10+2.0.10+2.0. 0.10+2=0.   a as 0.10+2.0. 0.. 0. 0.'
+GARBLED doc=61 fin=length tok=16384 correct=False
+  head: 'Theutzer1-case55500The $500 + 800 = 1300.\n 10 1300.  10 the 10 to the daughter. her daughter. their daughter, their daughter. their daughter. their daughter. their daughter. their daughter. their daug'
+  tail: "ughter. their daughter. their daughter. their daughter. their daughter as their daughter, their daughter as their daughter as their daughter, their daughter's's"
+GARBLED doc=14 fin=length tok=16384 correct=False
+  head: 'The了多少1"\n a0200 students enrolled in contemporary dance = 20 * 0.20% 20% 20 * 0.20% 20 * 0.20% 20 * 0.20% Contemporary dance = 20% of 20 students\n 20% of 20 students.\n  20% of 20 students = 20% of 20 '
+  tail: 'students: 200 in this 2 students: 200 in this 2 students1: 20% in this 2 students: 20% in this 2 students: 200 in this 2 students: 20% in this 2 students: 20%22'
+GARBLED doc=38 fin=length tok=16384 correct=False
+  head: "The problem asks for John's running speed in miles_ringdeddedded all number].\n miles per week.\n He miles per week.\n miles per week.\n miles per week.\n miles per the week. miles per week.\n miles per per"
+  tail: 'iles per week. miles per per week. miles per week. miles per the week. miles per week. miles per week. miles per week. miles per week. miles/week. miles/ week..'
+GARBLED doc=49 fin=length tok=16384 correct=False
+  head: 'The20SER5 units is 15 floors * 15 units15The115TheTheThe15*15 =15 units are'
+  tail: 'The20SER5 units is 15 floors * 15 units15The115TheTheThe15*15 =15 units are'
+GARBLED doc=48 fin=length tok=16384 correct=False
+  head: 'The stap громeggegg problem:\n1 needs to find the number of pieces of wire.4 feet = 4 inches each 6 inches =8 inches=8 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 i'
+  tail: 'hes=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches=9 inches of9 inches=9 inches=9 inches=9 inches=9 inches=9 inches of9 inches'
+GARBLED doc=0 fin=length tok=16384 correct=False
+  head: 'The user wants me to answer a math word problem. I need to output the answer in the specified format. The problem is about Janet\'s ducks./problems0?\r\n a word " the last line, formatted as: #### [numbe'
+  tail: ' I need to output the answer in the specified format. The problem is about Janet\'s ducks./problems0?\r\n a word " the last line, formatted as: #### [number].\n\n:1.'
+GARBLED doc=3 fin=length tok=16384 correct=False
+  head: 'TheassiL-switch a the060 meters each sprint.\n3 times a week.\n3 times a week.\n3 times a week.\n3 times a week.\nHe runs 3 sprints 3 times 60 meters per sprint.\n 3 of 3 sprints * 60 meters per sprint = 18'
+  tail: ' pieces per0822 things before 12.5 pieces per 82 things before 1255 pieces per 82 things before 12.5 pieces per 8 ways before 12555 pieces per 8.2 things before'
+GARBLED doc=52 fin=length tok=16384 correct=False
+  head: 'The铎 ErgadelLOTThe 15=15=15The 15=1=151111'
+  tail: 'The铎 ErgadelLOTThe 15=15=15The 15=1=151111'
+GARBLED doc=17 fin=length tok=16384 correct=False
+  head: "The user wants to find Jill's annual salary Lav soared soared soareds | following:\n Jill's IFirst data1. First, let's the the:\n11111Let1Teacher's JillTeacher:\n11 Jill Jill111 Jill1"
+  tail: "nd Jill's annual salary Lav soared soared soareds | following:\n Jill's IFirst data1. First, let's the the:\n11111Let1Teacher's JillTeacher:\n11 Jill Jill111 Jill1"
+GARBLED doc=33 fin=length tok=16384 correct=False
+  head: 'Theutzer1-main-dr Gret coins. 110 coins total.\n There are 30 more gold coins than silver coins.\n Let G denote the number of gold coins and S be the number of silver coins. The total number of coins is'
+  tail: '0 in 0 in 0 in 0 in 0 in 0 in 0 in * 0 in 0 problem, 0 in 0 in 0 in 0 in 000 in 00  of 0 in 0 in2* 0 problem is 0 in 0 in2| 0 in 0 in 0 in 0 in 0 in2* 0 in 0 in'
