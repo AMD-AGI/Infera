@@ -1,0 +1,80 @@
+--- a/model_executor/runner/decode_cuda_graph_runner.py
++++ b/model_executor/runner/decode_cuda_graph_runner.py
+@@ -128,6 +128,50 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++# DEBUG ONLY (not part of the fix): SGLANG_DEBUG_GRAPH_VARIANT_AUDIT=1 records, per replay of a graph
++# runner that has attention variants, the chosen variant, the one the per-rank rule would have chosen
++# (exact device lengths, one sync), and invariant checks; logged as 256-replay bit blocks so the
++# ranks' sequences can be aligned offline.
++_AUDIT = os.environ.get("SGLANG_DEBUG_GRAPH_VARIANT_AUDIT", "0") == "1"
++
++
++def _variant_audit(runner, forward_batch, attention_variant):
++    if not _AUDIT or runner.attention_graph_variants is None or attention_variant is None:
++        return
++    from sglang.srt.layers.attention.graph_variants import DSA_DENSE
++
++    a = runner.__dict__.setdefault(
++        "_audit",
++        {"n": 0, "dense": 0, "old_dense": 0, "viol": 0, "bound_viol": 0, "nobound": 0,
++         "new": [], "old": [], "block": 0},
++    )
++    topk = getattr(runner.attention_graph_variants, "index_topk", None)
++    seq_lens = forward_batch.seq_lens
++    exact = None
++    if not forward_batch.forward_mode.is_idle() and seq_lens is not None and seq_lens.numel() > 0:
++        exact = int(seq_lens.max().item())
++    old_dense = exact is not None and topk is not None and exact <= topk
++    dense = attention_variant == DSA_DENSE
++    bound = getattr(forward_batch, "dp_decode_graph_max_seq_len", None)
++    a["n"] += 1
++    a["dense"] += dense
++    a["old_dense"] += old_dense
++    a["viol"] += bool(dense and exact is not None and exact > topk)
++    a["nobound"] += bound is None
++    a["bound_viol"] += bool(bound is not None and exact is not None and exact > bound)
++    a["new"].append(dense)
++    a["old"].append(old_dense)
++    if len(a["new"]) == 256:
++        enc = lambda bits: "%064x" % int("".join("1" if b else "0" for b in bits), 2)
++        logger.info(
++            "[variant-audit] block=%d n=%d dense=%d old_dense=%d viol=%d bound_viol=%d nobound=%d new=%s old=%s",
++            a["block"], a["n"], a["dense"], a["old_dense"], a["viol"], a["bound_viol"], a["nobound"],
++            enc(a["new"]), enc(a["old"]),
++        )
++        a["block"] += 1
++        a["new"].clear()
++        a["old"].clear()
++
+ if TYPE_CHECKING:
+     from sglang.srt.model_executor.model_runner import ModelRunner
+     from sglang.srt.speculative.spec_info import SpeculativeAlgorithm
+@@ -316,7 +360,9 @@
+         self.attention_graph_variants: Optional[AttentionGraphVariants] = (
+             self.dllm_attention.graph_variants(self.captured_req_width)
+             if self.dllm_attention is not None and self.is_dllm
+-            else create_attention_graph_variants(model_runner.model_config.hf_config)
++            else create_attention_graph_variants(
++                model_runner.model_config.hf_config, self.capture_forward_mode
++            )
+             or create_dsv41_candidate_graph_variants(
+                 model_runner, self.capture_forward_mode, self.captured_req_width
+             )
+@@ -1442,6 +1488,7 @@
+             self._replay_graph_key = self._make_graph_key(
+                 graph_size_key, stream_idx, variant_label, attention_variant
+             )
++            _variant_audit(self, forward_batch, attention_variant)
+             return
+ 
+         buffers = self.buffers
+@@ -1576,6 +1623,7 @@
+         self._replay_graph_key = self._make_graph_key(
+             graph_size_key, stream_idx, variant_label, attention_variant
+         )
++        _variant_audit(self, forward_batch, attention_variant)
+ 
+     def _ragged_graph_num_tokens(self, total_verify_tokens: int) -> int:
+         from sglang.srt.speculative.ragged_verify import round_up_grid
