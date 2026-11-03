@@ -65,10 +65,13 @@ new evidence. A human/agent delegate must assess new reviews/CI failures and
 update the curated actions. No external messaging is configured. The task depends
 on this host being online and its GitHub/SSH credentials remaining valid.
 
-## Two-hour autonomous Base CI maintenance
+## Autonomous Base CI maintenance every 90 minutes
 
-The separate `yihou-glm52-ci-watch` cron block runs `run_ci_watch.py` at
-`0 */2 * * *` in UTC. It monitors exactly SGLang #33059, #46820, #46830, #45524,
+The separate `yihou-glm52-ci-watch` cron block runs `run_ci_watch.py` every
+90 minutes using two UTC entries: `0 1-22/3 * * *` and `30 2-23/3 * * *`.
+The sequence includes 10:00, 11:30, 13:00, 14:30 and continues across midnight.
+This changes the polling cadence; the two-hour minimum retry interval and
+upstream author cooldown remain in force. It monitors exactly SGLang #33059, #46820, #46830, #45524,
 #46918, #47276, #47278, #47897 and #47872. The last two externally authored
 fixes in that list are #45524/#46918; their branches remain read-only. #47276
 is optional for the frozen llr37 deployment, but is explicitly included.

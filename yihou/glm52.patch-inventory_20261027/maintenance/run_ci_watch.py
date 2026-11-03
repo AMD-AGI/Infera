@@ -132,7 +132,7 @@ def render_reports(result, checked):
         "",
         f"Last completed agent audit: **{checked}**.",
         "",
-        "Cadence: every two hours, at even UTC hours. This is a local-host cron task; "
+        "Cadence: every 90 minutes (UTC 01:00, 02:30, 04:00, and onward). This is a local-host cron task; "
         "the host, network and saved credentials must remain available.",
         "",
         result["summary"],
@@ -300,7 +300,7 @@ def publish_reports(config, inventory, result, checked, env):
         note = notes["prs"][f"sgl-project/sglang#{row['number']}"]
         note["assessed_at"] = checked[:10]
         note["merge_action"] = f"Base audit {checked}: {row['base_summary']} {row['next_action']}"
-        note["last_action"] = f"Automated two-hour audit {checked}: {row['action']}"
+        note["last_action"] = f"Automated 90-minute audit {checked}: {row['action']}"
         note["ci_watch"] = {
             "checked_at": checked,
             "head": row["head"],
@@ -320,7 +320,7 @@ def publish_reports(config, inventory, result, checked, env):
     run([config["pre_commit"], "run", "--files", *files], worktree, env, timeout=600)
     git("add", "--", *files)
     if git("diff", "--cached", "--name-only").strip():
-        git("commit", "-s", "-m", "docs: refresh two-hour 48k CI maintenance")
+        git("commit", "-s", "-m", "docs: refresh 90-minute 48k CI maintenance")
     git("pull", "--rebase", "origin", config["remote_branch"])
     git("push", "origin", f"HEAD:refs/heads/{config['remote_branch']}")
     return git("rev-parse", "HEAD").strip()

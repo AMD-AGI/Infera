@@ -2,7 +2,7 @@
 
 Last completed agent audit: **2026-11-03T10:18:43.914937+00:00**.
 
-Cadence: every two hours, at even UTC hours. This is a local-host cron task; the host, network and saved credentials must remain available.
+Cadence: every 90 minutes (UTC 01:00, 02:30, 04:00, and onward). This is a local-host cron task; the host, network and saved credentials must remain available.
 
 Final snapshots at 10:11–10:13 UTC cover all nine current heads. Pushed a CPU-validated, two-file API repair to #47872 as 8083ca7a; new Base/AMD gates passed and tests started. #46830 gained one H100 success; #45524 reached 35 Base successes. No helper retries were requested. All prior pending qualifications remain; additional CPU checkout/package mismatches were diagnosed.
 
