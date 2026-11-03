@@ -3,3 +3,13 @@
 22:05:53 opt E10 end
 22:05:53 opt traceC deferred: needs ~45 min, job 35060 has 38 min left; waiting for the next allocation
 22:44:17 opt traceC start: trace arm-C-prod-trace.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1439 min left
+23:35:48 opt traceC dgaps decode-231636/decode-231636-TP-0-DP-0.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.72 ms/step | total 1.86
+23:35:50 opt traceC dgaps decode-231636/decode-231636-TP-1-DP-1.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.61 ms/step | total 0.75
+23:35:52 opt traceC dgaps decode-231636/decode-231636-TP-2-DP-2.trace.json.gz: ->draft: 0.10 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.61 ms/step | total 0.75
+23:35:54 opt traceC dgaps decode-231636/decode-231636-TP-3-DP-3.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.58 ms/step | total 0.73
+23:35:56 opt traceC dgaps decode-232136/decode-232136-TP-0-DP-0.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.61 ms/step | total 1.76
+23:35:58 opt traceC dgaps decode-232136/decode-232136-TP-1-DP-1.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.60 ms/step | total 1.76
+23:36:00 opt traceC dgaps decode-232136/decode-232136-TP-2-DP-2.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.44 ms/step | total 0.60
+23:36:02 opt traceC dgaps decode-232136/decode-232136-TP-3-DP-3.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.37 ms/step | total 0.53
+23:36:02 opt traceC end
+23:36:04 opt Cdpbal start: score arm-C-prod-dpbal.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1388 min left

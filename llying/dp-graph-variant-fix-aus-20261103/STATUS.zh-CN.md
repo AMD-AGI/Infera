@@ -17,3 +17,4 @@
 - 19:08 scoreB 51,477（与 crusoe E10 51,374 同水平）；19:09 起 scoreC。
 - 20:36 scoreC 53,609（同对 B +4.1%，新最高）；judge 0 FAIL。20:36 起 E10 同对基线（holder 项 30）。
 - 22:05 E10 同对基线 50,797（B +1.3%、C +5.5%）；traceC 推迟到下一分配。22:16 镜像存为 /perf_apps/liyingli/images/infera-sglang-v0522-fdbafb60.tar（65 GB），opt_item.sh 在缺镜像时先从它加载。
+- 23:36 traceC 完成：verify 前空闲 0.59 → 0.03 ms/步，剩余最多 1.9 ms/步（一次 ~30 ms 的结果 event 等待 + DP 同步 gather）。23:36 起 Cdpbal。

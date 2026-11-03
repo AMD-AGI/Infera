@@ -84,3 +84,26 @@
 - **scoreC 53,609：同对上比 scoreB +4.1%、比 E10 基线 +5.5%**（预测 C ≥ B + 1%、≥ 52,400，成立）。decode 在跑中位 51、最忙 rank 16 / p90 24、预分配等待 3.1；
   步长 @17 42 ms（B 45 ms，−7%）、@25 49 ms（B 52 ms）：E11（MoE 合并走 graph 内 aiter reduce-scatter）每步约省 3 ms，比 4.2 节估计的 1.3–2.4 ms 多。
   交互 p90 56.2 → 60.9，ITL 中位 15.7 → 14.5 ms，TTFT 均值 6.04 → 5.53 s。**这是目前最高吞吐（crusoe 51,374 → AUS 53,609）**，且正确性已验证（C 门禁 400 题、C 生产 1,319 题、lm-eval 0.967 / 0.970）。
+
+## 4. 优化实验
+
+### 4.1 decode trace（E11 + 修法，C104 负载，11-03 23:16 / 23:21 两次 40 步，`results/opt/opt.out`、trace 在 `/perf_apps/liyingli/vfix-logs/opt/trace/`）
+
+`ana/dgaps.py`（GPU 空闲按下一个 kernel 的归属分）与 `ana/dgap_stacks.py`（空闲期间的阻塞 runtime 调用与 Python 栈）：
+
+| rank | 第一次 ms/步（→draft / →verify / →draft_extend / →eager / 合计） | 第二次合计 |
+|---|---|---|
+| DP0 | 0.11 / **0.03** / 0.01 / 1.72 / **1.86** | 1.76 |
+| DP1 | 0.11 / 0.03 / 0.01 / 0.61 / 0.75 | 1.76 |
+| DP2 | 0.10 / 0.03 / 0.01 / 0.61 / 0.75 | 0.60 |
+| DP3 | 0.11 / 0.03 / 0.01 / 0.58 / 0.73 | 0.53 |
+| 10-30 E10（修法前，crusoe）DP0 / DP2 | 0.12 / **0.59** / 0.01 / 2.30 / **3.02** | DP2 1.62 |
+
+- **verify graph 前的空闲 0.59 → 0.03 ms/步**：`select()` 的 `.item()` 没了（预测成立）；每步空闲最多 1.9 ms（预测 1.5–2 ms）。
+- 剩下的空闲由两样组成（两次 trace 一致）：
+  1. 结果处理里一次长等待：`batch_result_processor.py:942 process_batch_result_decode` 的 `hipEventSynchronize`，40 步里 1 次、约 29–34 ms，
+     均摊 0.7–0.9 ms/步，只在 DP0（第二次也在 DP1）。与修法前那次 39 ms 停顿量级相同——去掉 `.item()` 后换到了这里等（交接 6.5 节的担心成立）。
+     等的是哪个 stream 上的什么还没查。
+  2. DP attention 每轮的 CPU 同步：`dp_attn.exchange_sync_rows` 的 gloo gather，40 步里 3–4 次、每次约 3 ms（约 0.25 ms/步）。
+- **判断**：graph 间空闲这一方向的收益已由修法基本拿到；剩余部分全去掉每步约省 1 ms（约 2.4% 步长，端到端约 +0.8%），且第 1 项需要先定位，
+  投入产出比低，排在 DP 均衡与 2P1D 之后。
