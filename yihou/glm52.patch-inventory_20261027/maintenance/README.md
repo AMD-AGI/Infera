@@ -80,6 +80,9 @@ It cannot merge, close, open, or change Ready/Draft state. Infera #228 remains
 permanently Draft. The daily 09:00 collector remains installed separately.
 
 The worker uses a dedicated sparse worktree and the saved Codex/GitHub identity.
+Its sparse paths must include the repository `scripts/` directory so the
+required `check-author-email.sh` pre-commit hook remains available. Never
+skip a required hook to compensate for an incomplete checkout.
 It does not run in, stash, clean, or stage the experiment checkout or its
 uncommitted pack-ups. Artifacts and logs use the verified NFS task directory.
 `codex exec` supports this scripted execution and structured result format:

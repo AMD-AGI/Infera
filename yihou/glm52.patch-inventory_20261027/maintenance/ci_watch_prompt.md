@@ -170,6 +170,12 @@ For a code repair:
    lint and focused meaningful CPU regression checks with all artifacts under
    runtime. Record exact commands, outcomes, and tested source SHA or staged
    diff identity. Do not claim GPU checks or full-model validation you did not run.
+   Check whether a formatter is inheriting configuration from the enclosing
+   Infera checkout. When the target repository intentionally uses tool
+   defaults, isolate those defaults (for example, Ruff `--isolated`) and
+   verify the same tool version and settings used by upstream CI. Preserve
+   any configuration owned by the target repository. Do not change upstream
+   lint rules to compensate for an ancestor-directory configuration leak.
 5. Before committing or pushing, re-query the PR head and fetch the remote
    branch. If another actor changed it, stop the push, preserve your work, and
    reassess. Do not overwrite or remove maintainer commits. Commit only the
