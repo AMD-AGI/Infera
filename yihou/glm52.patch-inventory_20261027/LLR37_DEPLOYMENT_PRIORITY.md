@@ -31,7 +31,7 @@ all open PRs on top of the historical image is not the reproduction procedure.
 
 | Priority | PR / purpose | Why it matters to this deployment | Handoff action |
 |---|---|---|---|
-| **P0** | SGLang [#33059](https://github.com/sgl-project/sglang/pull/33059): align real and padded Aiter query rows | Historical equivalent is **baked** as `patch_dsa_indexer_hip_dp_padded_rows.py`. Required behavior in the frozen recipe; current PR is a different main-based port. | Ready at `795488cd`; preserve the user decision. [Author MI355X DP/MTP results](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447) now cover the padded-row failure; tested/current DSA and test blobs match. [Latest lint passed](https://github.com/sgl-project/sglang/actions/runs/41423254991/job/125203622542). Follow up native MI300 coverage and required CI/review; the current Base gate is account cooldown, not Draft. |
+| **P0** | SGLang [#33059](https://github.com/sgl-project/sglang/pull/33059): align real and padded Aiter query rows | Historical equivalent is **baked** as `patch_dsa_indexer_hip_dp_padded_rows.py`. Required behavior in the frozen recipe; current PR is a different main-based port. | Ready at `795488cd`; preserve the user decision. [Author MI355X DP/MTP results](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447) now cover the padded-row failure; tested/current DSA and test blobs match. [Latest lint passed](https://github.com/sgl-project/sglang/actions/runs/41423254991/job/125203622542). Follow up native MI300 coverage and required CI/review; use the live handoff for current Base progress. |
 | **P0** | SGLang [#46830](https://github.com/sgl-project/sglang/pull/46830), replacing closed #33973: remove divergent host syncs | Historical implementation is **baked** as `dsa_dp_sync.diff`; prevents the DSA eager path from hanging. | Already Ready at the handoff audit; prioritize maintainer CI and review. |
 | **P0** | SGLang [#46820](https://github.com/sgl-project/sglang/pull/46820): nonblocking KV metrics | Historical implementation is **baked**; prevents an auxiliary metrics queue from stopping scheduling. | Already Ready; prioritize maintainer CI/review. Socket contract has CPU coverage; no GPU needed to qualify it. |
 | **P0, external author** | SGLang [#45524](https://github.com/sgl-project/sglang/pull/45524): wait for PP producer before early KV send | Frozen image has a **related historical producer-event patch**, plus merged consumer fix #41395. Current PR is not certified byte-equivalent. | Follow eaglewangao-us's existing PR and contribute evidence; preserve the frozen producer patch for reproduction. No duplicate. |
@@ -101,10 +101,8 @@ newer arbitrary image without auditing which frozen modifications it retains.
 
 Suggested handoff order: preserve #33059 as Ready, follow up native MI300
 validation, and complete required CI/review for #33059/#46830/#46820. For #33059,
-[Base's latest gate](https://github.com/sgl-project/sglang/actions/runs/41423254776/job/125204140539)
-already sees Ready and the existing `run-ci` label; its 120-minute account
-cooldown nominally ends November 2 at 11:07:56 UTC if no newer counted run
-intervenes. Expiry does not automatically trigger CI. Track #45524, then progress
+use [the live handoff](PR_HANDOFF.md) for the latest Base attempt and executed
+test coverage; historical Draft/cooldown gates do not describe later retries. Track #45524, then progress
 #47278/#47897/#47872 according to their current review and correctness work;
 track optional #47276 separately and preserve the unfiled MoE disposition.
 Deliver the exact K01/A01/S13 artifacts alongside that work. Keep the original

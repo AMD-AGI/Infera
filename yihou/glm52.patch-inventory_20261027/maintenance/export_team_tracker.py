@@ -54,7 +54,7 @@ def generate(inventory, runtime, destination):
     checked = raw["checked_at_utc"]
     by_key = {ledger.key(p): p for p in public}
     priority_roles = {
-        "sgl-project/sglang#33059": "P0: historical Aiter query-row repair is baked into the image. Ready at 795488cd per user; [author MI355X DP/MTP results](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447) now cover the padded failure, and tested/current DSA and test blobs match. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41423254991/job/125203622542). Follow up native MI300 coverage and CI/review; current Base blocker is account cooldown, not Draft or a missing run-ci label.",
+        "sgl-project/sglang#33059": "P0: historical Aiter query-row repair is baked into the image. Ready at 795488cd per user; [author MI355X DP/MTP results](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447) now cover the padded failure, and tested/current DSA and test blobs match. [Lint passed](https://github.com/sgl-project/sglang/actions/runs/41423254991/job/125203622542). Follow up native MI300 coverage and CI/review; use the live handoff below for the latest Base attempt and execution status.",
         "sgl-project/sglang#46830": "P0: baked dsa_dp_sync fix; replaces closed #33973. Prioritize CI and review.",
         "sgl-project/sglang#46820": "P0: baked nonblocking metrics fix; CPU/socket regression already exists. Prioritize CI and review.",
         "sgl-project/sglang#45524": "P0, external: related PP producer-event fix. Preserve the distinct historical image patch; coordinate with its author.",
