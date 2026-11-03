@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-03T09:43:30.306424+00:00",
+  "checked_at_utc": "2026-11-03T10:19:46.733246+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -69,11 +69,12 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 21,
-        "QUEUED": 5,
-        "SKIPPED": 50,
-        "SUCCESS": 33
+        "CANCELLED": 2,
+        "FAILURE": 6,
+        "IN_PROGRESS": 10,
+        "QUEUED": 17,
+        "SKIPPED": 62,
+        "SUCCESS": 60
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47897/checks"
     },
@@ -91,10 +92,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T09:33:59Z",
+      "updatedAt": "2026-11-03T10:12:00Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "d07820e8c744116ecb8f3df5495383423fe35f1d",
+      "headRefOid": "8083ca7ad7fdcaf2388a88196559b870e70e762a",
       "baseRefOid": "a133231d3140e081424d833caa0187f15d40dc3c",
       "headRefName": "yihou/kf-triton-topk-gfx950",
       "baseRefName": "main",
@@ -168,11 +169,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 6,
-        "IN_PROGRESS": 11,
-        "QUEUED": 6,
+        "FAILURE": 5,
+        "IN_PROGRESS": 18,
+        "QUEUED": 7,
         "SKIPPED": 60,
-        "SUCCESS": 44
+        "SUCCESS": 36
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -190,10 +191,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T09:01:12Z",
+      "updatedAt": "2026-11-03T09:43:56Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "dfa444e873932dac5c7366d16e20e6a9458f240f",
+      "headRefOid": "b3d018566ed5036806b492aa03a3f20f91c83cfb",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -537,8 +538,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -638,10 +639,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 1,
         "QUEUED": 1,
         "SKIPPED": 63,
-        "SUCCESS": 103
+        "SUCCESS": 104
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -901,8 +901,8 @@
       "baseRefOid": "e33cd0c3a10474c7a0f6efeb69ce2cf4b7a55021",
       "headRefName": "yihou/kv-metrics-nonblocking-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1003,8 +1003,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3045,10 +3045,10 @@
       "latest_check_counts": {
         "CANCELLED": 2,
         "FAILURE": 9,
-        "IN_PROGRESS": 2,
+        "IN_PROGRESS": 1,
         "QUEUED": 8,
         "SKIPPED": 66,
-        "SUCCESS": 86
+        "SUCCESS": 87
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
     },
@@ -3188,8 +3188,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3223,8 +3223,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3279,8 +3279,8 @@
       "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4403,8 +4403,8 @@
       "baseRefOid": "8c9af6c914c35b97c2336863217a9ce13d13e4ed",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4468,8 +4468,8 @@
       "baseRefOid": "811c97f0f8fd3687e199e7c3589a92a68fa9a6a1",
       "headRefName": "hip-async-submit",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4649,8 +4649,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4709,8 +4709,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4866,8 +4866,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5042,8 +5042,8 @@
       "baseRefOid": "b960aa903aad354fb2e484041e5e33e3eb061e9b",
       "headRefName": "llying/pp-missing-layer-aiter-gfx95",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5191,8 +5191,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5243,8 +5243,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
