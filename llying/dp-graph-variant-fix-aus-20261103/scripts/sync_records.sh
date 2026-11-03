@@ -8,11 +8,12 @@ PKG=/perf_apps/liyingli/bench_agentx/vfix-20261103
 L=/perf_apps/liyingli/vfix-logs
 REPO=/home/liyingli/code/bench_agentx/Infera
 D=$REPO/llying/dp-graph-variant-fix-aus-20261103
-mkdir -p "$D"/{scripts,config,opt/scripts,opt/items,opt/config,results/verify,results/ref,results/opt}
+mkdir -p "$D"/{scripts,config,opt/scripts,opt/items,opt/config,results/verify,results/ref,results/opt,upstream}
 cp "$A"/scripts/*.sh "$D/scripts/"
 cp "$PKG/config/site.local.env" "$D/config/site.local.env.aus"
 cp "$O"/scripts/*.sh "$D/opt/scripts/"; cp "$O"/items/*.sh "$D/opt/items/"
-cp "$O"/pkg/config/arm-{E10-prod,C-prod-dpbal,C-2p1d}.env "$D/opt/config/"
+cp "$O"/pkg/config/arm-{E10-prod,C-prod-dpbal,C-2p1d,C-prod-trace}.env "$D/opt/config/"
+mkdir -p "$D/opt/scripts/ana" && cp "$O"/scripts/ana/*.py "$D/opt/scripts/ana/"
 cp "$O/router-decode-request-weight.diff" "$D/opt/"
 (cd /perf_apps/liyingli/bench_agentx && diff -ru vfix-20261103/kit opt-aus-20261103/pkg/kit) > "$D/opt/kit-router-hooks.diff"
 cp "$L/verify.out" "$L/unit.log" "$D/results/" 2>/dev/null

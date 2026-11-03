@@ -3,6 +3,8 @@
 # with the package copy ../pkg (= the verification package + router hooks in kit/engine, arms in pkg/config).
 #   score ARM CONC   pd_perf_chain.sh (fresh deployment, AgentX CONC lanes, 3600 s) + score_summary.sh
 #   gate  ARM        verify_suite.sh with PROBE_N / LONGCTX_SPECS / EVAL from the environment (real acceptance)
+#   trace ARM CONC   decode_profile_chain.sh (AgentX CONC lanes 1500 s, two 40-step decode profiles from 600 s after
+#                    warmup, SIM 2.99) + ana/dgaps.py per trace (GPU idle per decode step by position)
 # A step that would not finish inside the allocation (EST_MIN against squeue's time left) is not started: the item
 # sleeps until the job ends, so the next holder requeues it from running/ and runs it from the start.
 # Summary lines: $LOG_ROOT/opt.out (LOG_ROOT=/perf_apps/liyingli/vfix-logs/opt).
@@ -55,6 +57,13 @@ score)
     bash "$PKG/scripts/pd_perf_chain.sh" "$PKG/kit" "$PKG/config/$arm" "$LOG_ROOT/perf/$lab" "$conc" >> "$LOG_ROOT/$name.chain.log" 2>&1
     bash "$PKG/scripts/score_summary.sh" "$LOG_ROOT/perf/$lab/c$conc.log" > "$LOG_ROOT/score-$name.txt" 2>&1
     say "score: $(grep -E '^\| C[0-9]+' "$LOG_ROOT/score-$name.txt" || sed -n 3p "$LOG_ROOT/score-$name.txt")" ;;
+trace)
+    lab="opt-$name-c$conc"
+    SIM=2.99 bash "$O/scripts/decode_profile_chain.sh" "$PKG/kit" "$PKG/config/$arm" "$LOG_ROOT/trace/$lab" "$conc" 1500 600 40 300 \
+        >> "$LOG_ROOT/$name.chain.log" 2>&1
+    while read -r t; do
+        say "dgaps ${t#"$LOG_ROOT/trace/$lab/traces/"}: $(python3 "$O/scripts/ana/dgaps.py" "$t" 2>&1 | head -1)"
+    done < <(find "$LOG_ROOT/trace/$lab/traces" -name '*.json.gz' | sort) ;;
 gate)
     bash "$PKG/scripts/verify_suite.sh" "$PKG/config/$arm" >> "$out" 2>&1 || say "verify_suite failed" ;;
 *) say "unknown kind $kind"; exit 1 ;;
