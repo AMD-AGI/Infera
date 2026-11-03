@@ -55,6 +55,7 @@
 |---|---|---|---|
 | E10 | `arm-E10-prod`：E10 原样，无修法 | C104 计分：AUS 同对的基线 | crusoe 同配置 51,374；节点间差约 3%，预计 49.8–52.9k |
 | scoreB / scoreC | 验证包的 `arm-B-prod` / `arm-C-prod` | 验证队列的最后两步 | B ≥ E10 + 1%（去掉每步 `.item()`、verify 只一套 graph）；C ≥ E10 + 2%（再加 E11 通信） |
+| traceC | `arm-C-prod-trace`：C + `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0`（graph 内 kernel 可见，11-02 已证不改输出） | AgentX C104 1,500 s，预热后 600 s 起两次 40 步 decode profile（`opt/scripts/decode_profile_chain.sh`），`ana/dgaps.py` | 修法去掉了 `select()` 的 `.item()`：每步 GPU 空闲从 10-30 trace 的 2.8–3.0 ms 降到约 1.5–2 ms，剩下的是 DP attention 每轮的 CPU 同步与零散间隙（交接 6.5 节）；为下一项非 kernel 优化定位 |
 | Cdpbal | C + router `--decode-request-weight 1000000`（fdbafb60 + 565461b3 重编的 router，单元测试全过） | C104 计分 | 相对 scoreC：吞吐 +1–3%，交互 p90 上升（10-21 1P1D C88：+2.7%、p90 +43%）；风险是 decode KV 池常满时按请求数均衡加重预分配等待 |
 | 2p1d | C，2 × PP4 prefill + TP8/DP8 decode（16 卡） | 先门禁（smoke、200 题、16k × 128，真实接受率），干净才 C208 计分 | 每卡 0 到 +10%（点估计 +3–5%，相对 scoreC）；风险：KF MoE kernel 在 TP8 形状上的正确性、8 rank 通信 |
 
