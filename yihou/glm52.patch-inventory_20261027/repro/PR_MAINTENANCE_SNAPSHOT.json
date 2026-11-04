@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T02:40:18.026398+00:00",
+  "checked_at_utc": "2026-11-04T04:11:02.700060+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -16,7 +16,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T09:40:37Z",
+      "updatedAt": "2026-11-04T03:50:39Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "8a9f215cb422ab507f00537c695ecccf1cfbe329",
@@ -70,10 +70,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "FAILURE": 8,
-        "QUEUED": 2,
-        "SKIPPED": 62,
-        "SUCCESS": 91
+        "FAILURE": 9,
+        "SKIPPED": 63,
+        "SUCCESS": 94
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47897/checks"
     },
@@ -190,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T01:14:04Z",
+      "updatedAt": "2026-11-04T02:40:38Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "8e258262970674c7e6444325dfa268d85fc025dd",
+      "headRefOid": "39bb2517e5409c81db21994bdf419ebdf10d8dca",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -536,8 +535,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -2990,7 +2989,7 @@
         "login": "eaglewangao-us",
         "name": ""
       },
-      "updatedAt": "2026-11-03T06:20:49Z",
+      "updatedAt": "2026-11-04T02:51:23Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "14c8591329db003317f0bfddc26335090ad92ea7",
@@ -3038,9 +3037,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "CANCELLED": 2,
-        "FAILURE": 14,
-        "QUEUED": 2,
-        "SKIPPED": 68,
+        "FAILURE": 16,
+        "QUEUED": 1,
+        "SKIPPED": 69,
         "SUCCESS": 90
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45524/checks"
@@ -3265,15 +3264,15 @@
         "login": "nvjullin",
         "name": ""
       },
-      "updatedAt": "2026-10-29T08:36:33Z",
+      "updatedAt": "2026-11-04T03:45:36Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "60fe4e6a8847d53c690d7571b4ab20b3755140a5",
-      "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
+      "headRefOid": "6d6b8a5be1127333c9f4967189c4d9ed26c9a0cd",
+      "baseRefOid": "1097b72f681073bba2685c59f88d56a27ebf2452",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3305,9 +3304,9 @@
       ],
       "unresolved_review_threads": 2,
       "latest_check_counts": {
-        "FAILURE": 17,
-        "SKIPPED": 88,
-        "SUCCESS": 22
+        "FAILURE": 1,
+        "SKIPPED": 1,
+        "SUCCESS": 4
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -5098,8 +5097,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5184,8 +5183,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5236,8 +5235,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
