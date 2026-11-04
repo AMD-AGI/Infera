@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T20:44:33.879301+00:00",
+  "checked_at_utc": "2026-11-04T21:11:56.472478+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -167,11 +167,12 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 4,
-        "QUEUED": 8,
+        "CANCELLED": 2,
+        "FAILURE": 6,
+        "IN_PROGRESS": 1,
+        "QUEUED": 7,
         "SKIPPED": 60,
-        "SUCCESS": 83
+        "SUCCESS": 84
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
     },
@@ -189,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T20:10:35Z",
+      "updatedAt": "2026-11-04T20:44:49Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "1919d5680272f27d15e3ac5746caf2abfad5a108",
+      "headRefOid": "c5b596ab2876ff45655dadb1b77b6ee4512a3290",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -707,8 +708,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -749,8 +750,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4486,9 +4487,9 @@
       "unresolved_review_threads": 4,
       "latest_check_counts": {
         "FAILURE": 1,
-        "IN_PROGRESS": 2,
+        "IN_PROGRESS": 1,
         "SKIPPED": 9,
-        "SUCCESS": 12
+        "SUCCESS": 13
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4340/checks"
     },
@@ -5400,8 +5401,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
