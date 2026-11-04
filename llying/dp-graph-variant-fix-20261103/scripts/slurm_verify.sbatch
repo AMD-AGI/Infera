@@ -61,8 +61,13 @@ if [[ -n "${SHIM_JOB:-}" ]]; then
 fi
 cleanup() {
     echo "$(date -u +%T) job ending: removing kit containers"
-    (set -a; . "$PKG/config/recipe-e10.env"; set +a; cd "$PKG/kit" && bash engine/down.sh) >> "$LOG_ROOT/cleanup-$SLURM_JOB_ID.log" 2>&1
+    # Preemption leaves seconds, and down.sh stops each container gracefully (up to 60 s each): force-remove first.
+    local c
+    for c in agentx eval router prefill0 prefill1 etcd; do docker rm -f "glm52_2p1d-$c" >/dev/null 2>&1; done
     [[ -z "$guard_pid" ]] || kill "$guard_pid" 2>/dev/null
+    timeout 20 ssh -o BatchMode=yes "$d" "docker rm -f glm52_2p1d-decode" >> "$LOG_ROOT/cleanup-$SLURM_JOB_ID.log" 2>&1
+    echo "$(date -u +%T) forced removal done" >> "$LOG_ROOT/cleanup-$SLURM_JOB_ID.log"
+    (set -a; . "$PKG/config/recipe-e10.env"; set +a; cd "$PKG/kit" && bash engine/down.sh) >> "$LOG_ROOT/cleanup-$SLURM_JOB_ID.log" 2>&1
     touch "$done_mark"
 }
 trap cleanup EXIT TERM INT
