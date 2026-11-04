@@ -1,103 +1,94 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T18:12:28.618082+00:00**.
+Updated: **2026-11-04T18:42:58.926786+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Prior PR-wide reservation, comment and successful handler are verified; the handler API discrepancy is resolved. Base attempt 2 has 24 passes: 23 retained plus the recovered C job. Three B jobs remain runnerless. The prior C HTTP-500 failure recovered; historical LLaVA/cancelled B coverage remains unresolved. Excluded tests are not claimed fixed or passed.
+## #33059: Attempt 2 has 24 Base successes; three B jobs remain runnerless. Historical LLaVA/cancelled B coverage remains unresolved. Excluded checks are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: follow queued B jobs without duplication and inspect the first new failure. Runner owner: capture LLaVA worker stacks/count/quota/memory if repeated. Preserve separate review/source qualifications.
+Next action: Follow queued B jobs without duplication; inspect new failures and obtain worker stacks/count/quota/memory if LLaVA repeats. Preserve review/source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6637510859)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41878556259)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126744927026)
 
-## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is historical evidence/review follow-up; no new maintainer hardware gate was established.
+## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is historical evidence/review follow-up, not an established new maintainer hardware gate.
 
 Tracking key: `pr33059-native-mi300-review`.
 
-Next action: Maintainers/yihou: assess native MI300 coverage alongside source-specific author MI355X results and finish review. Preserve Ready; allocate hardware only for a concrete coverage need.
+Next action: Maintainers/yihou: assess native MI300 coverage alongside source-specific MI355X evidence and finish review. Allocate hardware only for a concrete coverage need.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Base attempt 4 is verified after successful five-workflow handler. All 36 Base successes and the gate are retained; two B jobs await runners without new test steps. Historical VLM failure bypassed the changed KV-events send. Shared-code review remains.
+## #46820: Attempt 4 retains 36 Base successes and its gate; two B jobs await runners. Historical VLM failure bypassed the changed KV-events send. Shared-code review remains.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Worker: follow actual B execution without duplication. Runner owner: capture submission stacks/count/quota/memory if repeated. Maintainers: finish shared socket-contract review with inherited CPU evidence.
+Next action: Follow actual B execution; obtain submission stacks/count/quota/memory if repeated. Maintainers: finish socket-contract review with inherited CPU evidence.
 
-- [Evidence](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6636121578)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 
-## #46830: Base remains cancelled with 22 passes, two unexecuted B cancellations, Mooncake nvcc exit 127 and two C health-check failures. Helper refused until 18:33:42 UTC. Passing peer and failing head have identical Mooncake test/installer blobs and dependency wheel versions; current main installer also matches. Actual nvcc identity/stderr remain unknown. AMD is terminal failure with 12 passes, MLA startup -9, Qwen TTFT failures and four skipped C jobs; failing launches bypass changed DSA behavior.
+## #46830: Verified recovery produced 23 Base successes: 22 retained and newly recovered B300 C. Two C tests run and two B jobs remain runnerless. AMD retains 12 successes with two B tests running. Prior compiler and AMD MLA/Qwen failures remain unexplained; patch causality is unestablished.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: reconsider recovery after 18:33:42 UTC, oldest eligible priority run first. Runner owner: compare actual compiler executable/version, child stderr and JIT cache state with the passing peer. Maintainers: finish DSA deadlock/consumer review; do not expand into tokenizer optimization.
+Next action: Follow attempt 3 and inspect new failures. If nvcc 127 repeats, runner owner should capture compiler identity, child stderr and JIT cache state. Finish DSA review without expanding into tokenizer optimization.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528175)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/126578054895)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41888465888)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779403625)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
 
-## #45524: Base has 35 successes, AWQ timeout and three health-check failures. AMD has 13 successes, PP/MLA failures and runner-wait cancellation. CPU revision mismatch and historical-source equivalence remain unresolved.
+## #45524: Base has 35 successes, AWQ timeout and health-check failures. AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers: compare baselines, align installed/tested revisions, recover coverage and finish review. Preserve frozen producer patch; worker remains read only.
+Next action: External author eaglewangao-us/maintainers: compare baselines, align revisions, recover coverage and finish review. Preserve frozen producer patch; worker remains read only.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758572/job/125766541226)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758488/job/125761907669)
 
-## #46918: Two Base jobs remain cancelled before execution. Source-specific 9763ef56 validation does not qualify the entire head or integrated image. Previously excluded AMD CI is not claimed repaired.
+## #46918: Two Base jobs remain cancelled without execution. Source-specific 9763ef56 validation does not qualify the entire current head or integrated image. Excluded AMD CI is not claimed repaired.
 
 Tracking key: `pr46918-external-ci-integration`.
 
-Next action: External author yu-depend/maintainers: recover Base coverage, finish review and validate image integration. Preserve scoped MI355X evidence and frozen workaround; worker has no retry/branch authority.
+Next action: External author yu-depend/maintainers: recover Base coverage, finish review and validate image integration. Preserve scoped MI355X evidence and frozen workaround.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Base ended cancelled with 25 successes and two unexecuted B jobs; five JIT units and one benchmark passed. Review, #45307 overlap, numerical qualifications and source/run archiving remain. Optional path stays disabled in frozen llr37.
+## #47276: Base remains cancelled with 25 successes and two unexecuted B jobs. Review, #45307 overlap, numerical qualifications and source/run archiving remain. Optional path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: recover coverage after 18:33:42 UTC and eligible priority PRs. Maintainers/yihou: coordinate landing order, finish review and archive exact source/run mappings; retain numerical limits and optional deployment role.
+Next action: Recover coverage after 19:34:17 UTC and eligible priority PRs. Maintainers/yihou: coordinate landing order, review and exact source/run archiving.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Base attempt 2 remains cancelled: 36 Base and six JIT successes retained, two B jobs cancelled without execution, finish failed. Coverage remains incomplete.
+## #47278: Base attempt 2 remains cancelled with 36 Base and six JIT successes retained; two B jobs cancelled without execution. Coverage remains incomplete.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Worker: reevaluate helper recovery after 18:33:42 UTC and eligible priority PRs; preserve successful results and verify actual B execution.
+Next action: Reevaluate helper recovery after 19:34:17 UTC and eligible priority PRs; preserve successes and verify actual B execution.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/126685109215)
-- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6634763693)
 
-## #47278: AMD attempt 2 has 17 successful stage jobs: 14 retained plus recovered VLM B and two C passes. One C job remains runnerless. Full completion, BF16/DCP/LSE review and source/run qualifications remain.
+## #47278: AMD has 17 stage successes, including 14 retained and three earlier retry successes. One C job remains runnerless. BF16/DCP/LSE review and source/run qualifications remain.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Worker: follow the last AMD C job without duplication. Maintainers/yihou: preserve BF16 partials, DCP/LSE coverage, review, exact source/run archiving and combined-stack qualification.
+Next action: Follow remaining AMD C coverage. Maintainers/yihou: preserve BF16 partials, DCP/LSE coverage, review, exact source/run archiving and combined-stack qualification.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/attempts/2)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/126675266178)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/126709688068)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/126709688408)
 
-## #47897: Base passed 27 jobs, five JIT units and one benchmark. AMD MIOpen/PP failures and Xeon revision mismatch remain in shared-import scope. Review and source/numerical qualifications remain.
+## #47897: Base passed 27 jobs and six JIT jobs. AMD MIOpen/PP failures and Xeon mismatch remain in shared-import scope; review/source/numerical qualifications remain.
 
 Tracking key: `pr47897-architecture-api-ci`.
 
-Next action: CI maintainers: repair MIOpen access, compare PP baselines and align Xeon revisions. Preserve passing Base. Finish review with paired-row, dispatch/fallback and source qualifications.
+Next action: CI maintainers: repair MIOpen access, compare PP baselines and align Xeon revisions. Preserve passing Base and separate review qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317751/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317739/job/125877749297)
@@ -111,11 +102,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base remains failed with 19 successes, LLaVA failure, two health-check failures and skipped C. Three JIT units passed; two units/benchmark failed health checks. AMD MIOpen/PP and Xeon mismatch persist. Review/source/correctness/performance limits remain.
+## #47872: Base retains 19 successes but remains failed with LLaVA/health-check failures and skipped C. AMD MIOpen/PP and Xeon mismatch persist. Review/source/correctness/performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: reevaluate owner_requested after 18:33:42 UTC and eligible priority PRs; disclose PR-wide effects. CI maintainers: repair environment/source alignment. Maintainers/yihou: retain opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving and measured performance limits.
+Next action: Reevaluate owner_requested after 19:34:17 UTC and eligible priority PRs. Repair environment alignment; retain opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving and measured performance limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
