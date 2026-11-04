@@ -1,14 +1,14 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T22:38:34.159099+00:00**.
+Updated: **2026-11-04T23:08:29.189939+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 has 24 Base successes, 23 retained. B0 is executing Run test since 22:14:24 UTC; B1/B2 remain runnerless. Historical LLaVA/cancelled coverage remains incomplete; excluded checks are not claimed fixed or passed.
+## #33059: Attempt 2 has 25 Base successes, 23 retained. B0 passed 38/38 files but omitted the historical failing VLM file. B1/B2 remain runnerless. Full Base and LLaVA recovery remain unestablished; excluded checks are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Follow B0 execution and queued B1/B2 without duplication; inspect completed logs. If LLaVA repeats, obtain blocked-thread stacks, worker count, CPU quota and parent memory. Preserve review/source qualifications.
+Next action: Follow B1/B2 without duplication. If LLaVA repeats, obtain blocked-thread stacks, worker count, CPU quota and parent memory. Preserve review/source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126744927116)
@@ -21,20 +21,20 @@ Next action: Maintainers/yihou: assess native MI300 coverage alongside source-sp
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Attempt 4 has 37 Base successes, 36 retained; one B shard remains runnerless. Historical failing VLM launches bypassed the changed KV-events send. Shared-code maintainer review remains.
+## #46820: Attempt 4 has 37 Base successes, 36 retained; B2 remains runnerless. Historical failing VLM launches bypassed the changed KV-events send. Shared-code review remains.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Follow B shard 2. If LLaVA repeats, obtain submission stacks, worker count, CPU quota and parent memory. Maintainers: finish socket-contract review with inherited CPU evidence and existing approval.
+Next action: Follow B2. If LLaVA repeats, obtain submission stacks, worker count, CPU quota and parent memory. Maintainers: finish socket-contract review with inherited CPU evidence and existing approval.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183896)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183803)
 
-## #46830: Base has 25 successes, 22 retained, and two queued B jobs; AMD has 16 successes, 12 retained, and two queued jobs. Historical nvcc/MLA causes remain unproven, but recovered Base C failures are not active blockers. Review/source qualifications remain.
+## #46830: Base has 25 successes, 22 retained; B1 is executing tests and B2 is runnerless. AMD has 16 successes, 12 retained, and two queued jobs. Recovered Base C failures are not active blockers. Review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow pending Base/AMD coverage. Maintainers: finish DSA deadlock/consumer review. Historical Qwen tokenizer TTFT is not a DSA repair task or new hardware gate.
+Next action: Follow executing B1 and pending Base/AMD coverage. Maintainers: finish DSA deadlock/consumer review. Historical Qwen TTFT is not a DSA repair task or new hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
@@ -58,7 +58,7 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Prior recovery remains active: Base attempt 3 retains 25 Base successes and six JIT results; two B jobs remain runnerless. No new tests started this cycle. Review, #45307 overlap, numerical qualifications and source/run archiving remain; optional path stays disabled in frozen llr37.
+## #47276: Attempt 3 retains 25 Base successes and six JIT results; two B jobs remain runnerless. Review, #45307 overlap, numerical qualifications and source/run archiving remain; optional path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -83,7 +83,7 @@ Next action: Follow attempt 3 without duplication. Prior incidental Extra, AMD E
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Follow remaining AMD C coverage. Maintainers/yihou: preserve BF16 partials, DCP/LSE behavior, review, exact source/run archiving and combined-stack qualification.
+Next action: Follow AMD C coverage. Maintainers/yihou: preserve BF16 partials, DCP/LSE behavior, review, exact source/run archiving and combined-stack qualification.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/attempts/2)
 
@@ -105,11 +105,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base retains 19 Base and three JIT successes; three B and three JIT jobs await runners and C has not run. AMD has 17 stage successes, 16 retained, with PP B queued. Earlier retry C passed 6/6 files. Xeon revision mismatch and review/source/correctness/performance limits remain.
+## #47872: Base retains 19 Base and three JIT successes; three B and three JIT jobs await runners and C has not run. AMD has 17 successes, 16 retained, with PP B queued; earlier retry C passed 6/6 files. Xeon mismatch and review/source/correctness/performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Follow active Base/AMD PP coverage. Align Xeon revisions. Finish review while preserving opt-in, exact selection count, underflow/overflow fallback, valid ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
+Next action: Follow Base/AMD PP coverage and align Xeon revisions. Finish review while preserving opt-in, exact selection count, underflow/overflow fallback, valid ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/job/126847791613)
@@ -123,7 +123,7 @@ Next action: CI maintainers: build/install and test the same revision, then reco
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47872: Xeon attempt 2 failed on missing req_types and disaggregation.mode; a cancelled sibling failed _paged_experts_num_resident. Logs confirm merge-checkout tests versus PR-branch installed package. Current main retains the same workflow.
+## #47872: Xeon attempt 2 failed on missing req_types and disaggregation.mode; a cancelled sibling failed _paged_experts_num_resident. Logs confirm merge-checkout tests versus PR-branch installed package. Main retains the same workflow.
 
 Tracking key: `pr47872-cpu-source-alignment`.
 
@@ -133,11 +133,11 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: Fresh GitHub state remains mergeable=false and main remains c67efab427ac9d7965123a3cea50bf1d3d899563. Inherited comparison found seven triton_sparse_mla.py conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters; test-file merge was clean. Numerical compatibility remains unverified.
+## #47278: GitHub still reports mergeable=false against main c67efab427ac9d7965123a3cea50bf1d3d899563. Inherited comparison found seven triton_sparse_mla.py conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters. Numerical compatibility remains unverified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
-Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. No speculative merge or GPU access was performed.
+Next action: Yihou/kernel maintainer: reconcile preserved conflicts, retain BF16 partials and DCP/LSE paths, then validate affected numerical cases before rewriting the branch. No speculative merge or GPU access performed.
 
 - [Evidence](https://github.com/sgl-project/sglang/compare/a5d8b3af95d7915910547073b1771825981ccb98...c67efab427ac9d7965123a3cea50bf1d3d899563)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278/files)
