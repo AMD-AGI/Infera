@@ -12,7 +12,7 @@ mkdir -p "$D"/{scripts,config,opt/scripts,opt/items,opt/config,results/verify,re
 cp "$A"/scripts/*.sh "$D/scripts/"
 cp "$PKG/config/site.local.env" "$D/config/site.local.env.aus"
 cp "$O"/scripts/*.sh "$D/opt/scripts/"; cp "$O"/items/*.sh "$D/opt/items/"
-cp "$O"/pkg/config/arm-{E10-prod,C-prod-dpbal,C-2p1d,C-prod-trace}.env "$D/opt/config/"
+for f in "$O"/pkg/config/arm-*.env; do [[ -e "$PKG/config/$(basename "$f")" ]] || cp "$f" "$D/opt/config/"; done
 mkdir -p "$D/opt/scripts/ana" && cp "$O"/scripts/ana/*.py "$D/opt/scripts/ana/"
 cp "$O/router-decode-request-weight.diff" "$D/opt/"
 (cd /perf_apps/liyingli/bench_agentx && diff -ru vfix-20261103/kit opt-aus-20261103/pkg/kit) > "$D/opt/kit-router-hooks.diff"

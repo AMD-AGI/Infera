@@ -17,3 +17,7 @@
 01:03:33 opt Cdpbal end
 01:03:34 opt 2p1d-gate start: gate arm-C-2p1d.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1300 min left
 01:04:36 arm-C-2p1d-1104T0103 up
+01:09:52 arm-C-2p1d-1104T0103 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+01:09:52 arm-C-2p1d-1104T0103 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+01:09:53 arm-C-2p1d-1104T0103 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=51.59, draft_prefill=0.00, draft_decode=9.86, draft_extend=5.82} spec_args=7
+01:10:16 arm-C-2p1d-1104T0103 smoke: 6/6 checks passed
