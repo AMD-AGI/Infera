@@ -9,7 +9,7 @@
 # Usage (srun task): guard_containers.sh <container name prefix ending in "-">
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 prefix="${1:?container name prefix}"
-[[ "$prefix" == *llying* || "$prefix" == glm52_2p1d- ]] || { echo "refusing prefix $prefix" >&2; exit 2; }
+[[ "$prefix" == *llying* || "$prefix" == glm52_2p1d- || "$prefix" == glm52_agentx- ]] || { echo "refusing prefix $prefix" >&2; exit 2; }
 cleanup() {
     names="$(docker ps -a --format '{{.Names}}' | grep "^$prefix" || true)"
     echo "$(date -u +%FT%TZ) $(hostname -s) signal: removing ${names:-nothing}"
