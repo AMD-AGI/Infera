@@ -1,6 +1,28 @@
 # Current-main integration for the dLLM CI blocker
 
-Current-head CI audit: **2026-11-04T04:37:15.907135+00:00**. All three PRs remain Ready with run-ci.
+## Cooldown recovery and live progress: 2026-11-04T06:38:32.575416+00:00
+
+Both bounded retry requests below were made sequentially after the logged
+cooldown elapsed, with fresh upstream policy and account-wide checks. Both
+handlers succeeded, both Base gates passed, and both runs reached attempt 2.
+This supersedes the initial cooldown state recorded later in this document.
+No code change was needed during this follow-up.
+
+| PR | Current head | Base progress | Action |
+|---|---|---|---|
+| [#33059](https://github.com/sgl-project/sglang/pull/33059) | `201d823b3c6a` | [Base attempt 1: A9/B10=19 passed; three B jobs queued without execution, C not started. Gate passed.](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/1) | Read-only current-head audit; passes increased from 15 to 19 since the 05:34 snapshot. No retry of this active run. |
+| [#46830](https://github.com/sgl-project/sglang/pull/46830) | `76b75ed6ed9b` | [Base attempt 2: author cooldown gate passed; nine stage-A jobs in progress. No complete Base result yet.](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/2) | After fresh upstream-policy, account-wide cooldown, head and attempt checks, sent a sequential bounded stale_gate retry via the helper: [request](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6624357389). [Slash-command handler](https://github.com/sgl-project/sglang/actions/runs/41786487047) succeeded and the new Base attempt passed its gate. The supported command also retried other unsuccessful current-head workflows; no code change or rebase this invocation. |
+| [#47276](https://github.com/sgl-project/sglang/pull/47276) | `674ad71976e9` | [Base attempt 2: author cooldown gate passed; nine stage-A jobs in progress. No complete Base result yet.](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2) | After fresh upstream-policy, account-wide cooldown, head and attempt checks, sent a sequential bounded stale_gate retry via the helper: [request](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6624386421). [Slash-command handler](https://github.com/sgl-project/sglang/actions/runs/41786705555) succeeded and the new Base attempt passed its gate. The supported command also retried other unsuccessful current-head workflows; no code change or rebase this invocation. |
+
+The remaining six PRs were freshly checked at 06:33 UTC: #47897 Base remains
+successful; #46820/#45524/#47872 retain their previously diagnosed failures;
+#46918/#47278 retain cancelled Base shards. All nine are Ready with run-ci and
+passing lint; no new review or merge was observed. Original ownership, source
+and numerical validation qualifications remain unchanged.
+
+## Initial integration snapshot
+
+Initial current-head CI audit: **2026-11-04T04:37:15.907135+00:00**. All three PRs remain Ready with run-ci.
 Integration is complete; new Base execution is not yet complete.
 
 Upstream [#47989](https://github.com/sgl-project/sglang/pull/47989) already changed
