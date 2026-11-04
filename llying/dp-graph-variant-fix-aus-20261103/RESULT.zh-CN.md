@@ -120,7 +120,7 @@
   代价是请求被派到 KV 余量更少的 rank，预分配等待 3.1 → 6.1、TTFT 均值 +22%、p90 +39%（事先写下的风险成立）。C104 下 lane 周期 = TTFT + decode，两者抵消。
 - 用处：同吞吐下交互 +7.7%，可能让更高并发仍满足交互要求；E11 使 decode 变快后最优并发也可能上移。追加 C112 的两组（C、C + 均衡），排在 2P1D 之后。
 
-### 4.3 真实 MTP 接受长度只有约 1.2（11-04 01:15 发现，二分进行中）
+### 4.3 真实 MTP 接受长度只有约 1.2：原因是 FP8 草稿 MoE（`SGLANG_GLM_NEXTN_MOE_PTPC=1`）（11-04 01:15 发现，01:42 定位）
 
 decode 日志 `accept len` 的均值（每 DP rank 每 40 步一行，探测 / smoke 负载，真实接受率）：
 
@@ -139,3 +139,19 @@ decode 日志 `accept len` 的均值（每 DP rank 每 40 步一行，探测 / s
   （`SGLANG_GLM_NEXTN_MOE_PTPC=1`）、`index_share_for_mtp_iteration=true`、KF kernel、K3。
 - **二分**（队列 32b–32e，C 生产配置各改一项，smoke + 200 题，读接受长度；预测写于 01:20）：关 CAR → 若 ≥ 2.5 则 CAR 是原因（最可能，同 yihou）；
   关 PTPC、`index_share` 改回 false、关 KF：各自若 ≥ 2.5 则是该项。都不变则是 K3 / 草稿 KV 传输等其他原因，再查。
+
+二分结果（C 生产配置各改一项，smoke + 200 题，真实接受率；`results/opt/opt.out` 的 `accept` 行）：
+
+| 改动 | 接受长度均值（行数） | 200 题 正确 / 开头坏 / 乱码 |
+|---|---|---|
+| 关 CAR（`DECODE_CUSTOM_AR=0`） | 1.22（1,119） | 196 / 0 / 0 |
+| **关 FP8 草稿 MoE（`SGLANG_GLM_NEXTN_MOE_PTPC=0`）** | **3.61**（189） | 197 / 0 / 0 |
+
+- **原因是 PTPC 草稿 MoE**：MTP 层（第 78 层）的路由专家在 checkpoint 里是 BF16（quark 排除），`SGLANG_GLM_NEXTN_MOE_PTPC=1` 在加载时把它们转成
+  per-channel FP8、激活按 token 动态量化（`models/glm4_moe.py` 的 `should_apply_glm_nextn_moe_ptpc` 与 `layer_quant_config["model.decoder.mlp.experts"]`）。
+  这样算出的草稿几乎全被拒。关掉后接受长度 3.61（上限 4，高于计分用的 2.99），同样 200 题 decode 日志行数 1,119 → 189，decode 快约 3 倍。
+- 关 CAR 无变化：与 yihou 09-18 的症状相同但原因不同（当时的 CAR 问题已由别的改动修掉）。
+- 待定：是 PTPC 路径本身错，还是与 KF MoE overlay（`YIHOU_KF_MOE=1`）的组合错——`acc-kf0`（PTPC 开、KF 关）回答；
+  `acc-idx0` 照跑作对照。之后计分 C + PTPC 关（`32f`，C104，SIM 2.99）量出它在计分口径下的代价（草稿 MoE 回到 BF16）。
+- 含义：现在所有计分都用模拟接受长度，不受这个 bug 影响；但带着 PTPC 的配置在真实流量下每步只多出约 0.2 个 token，真实吞吐远低于计分。**发布配置应关 PTPC
+  （或先修好 PTPC 路径）**。
