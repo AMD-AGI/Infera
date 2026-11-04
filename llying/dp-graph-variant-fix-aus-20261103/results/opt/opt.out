@@ -105,3 +105,7 @@
 07:10:30 arm-C-prod-ptpcfix-1104T0658 probe: n=1319 errors=0 correct=1281/1319 (0.971) bad_start=0 garbled=0 hit_cap=16 empty=0
 07:11:35 arm-C-prod-ptpcfix-1104T0658 longctx 16000:128: needle: n=64 correct=64 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=64 correct=62 garbled=0 runaway=0 errors=0 prompt_tokens p50=13902 
 07:12:53 arm-C-prod-ptpcfix-1104T0658 longctx 100000:32: needle: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86389 gsm8k: n=16 correct=16 garbled=0 runaway=0 errors=0 prompt_tokens p50=86345 
+07:17:31 arm-C-prod-ptpcfix-1104T0658 lm-eval: strict 0.9696739954510993 flexible 0.9689158453373768
+07:19:20 arm-C-prod-ptpcfix-1104T0658 down
+07:19:20 opt Cfix-prod accept arm-C-prod-ptpcfix-1104T0658: mean 3.62 over 1705 decode log lines
+07:19:20 opt Cfix-prod end
