@@ -154,7 +154,9 @@ decode 日志 `accept len` 的均值（每 DP rank 每 40 步一行，探测 / s
   这样算出的草稿几乎全被拒。关掉后接受长度 3.61（上限 4，高于计分用的 2.99），同样 200 题 decode 日志行数 1,119 → 189，decode 快约 3 倍。
 - 关 CAR 无变化：与 yihou 09-18 的症状相同但原因不同（当时的 CAR 问题已由别的改动修掉）。
 - **KF 关、PTPC 开仍是 1.18：错在 PTPC 路径本身**（加载时的 FP8 转换或 `QuarkW8A8FP8MoE` 的按 token 动态量化执行），与 KF MoE overlay 无关；
-  `index_share` 也无关。修 PTPC 要逐层比对 MTP 层 MoE 在 BF16 与 PTPC 下的输出（下一步，离线即可）。
+  `index_share` 也无关。已排除：shared expert 被拼进 FP8 专家组（v0522 的 `shared_experts_fusion_disable_reason` 在 PTPC 下关掉了融合，日志
+  "GLM NextN PTPC does not support shared experts fusion … disabled"）；加载时的转换本身（每输出通道 amax / 448、e4m3fn，读代码无误）。
+  剩下的嫌疑在执行：per-channel scale 的加载 / TP 切分、aiter FP8 MoE 对这种 scheme 的支持。下一步：单卡上取 MTP 层 MoE，同一输入比 BF16 与 PTPC 的输出（计分空档里做）。
 - 计分 C + PTPC 关（`32f`，C104，SIM 2.99，02:05 起）量出它在计分口径下的代价（草稿 MoE 回到 BF16）。
 - 含义：现在所有计分都用模拟接受长度，不受这个 bug 影响；但带着 PTPC 的配置在真实流量下每步只多出约 0.2 个 token，真实吞吐远低于计分。**发布配置应关 PTPC
   （或先修好 PTPC 路径）**。
