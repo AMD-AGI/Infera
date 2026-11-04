@@ -1,16 +1,18 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T17:11:32.442957+00:00**.
+Updated: **2026-11-04T17:45:53.668112+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base remains cancelled with 23 successes, two unexecuted B cancellations, LLaVA worker-result failure and C GitHub HTTP 500. Helper refused recovery at 17:02:34 UTC because the hourly interval has not elapsed. Patch causality remains unestablished; excluded non-Base tests are not claimed fixed or passed.
+## #33059: Recovery request and six handler-triggered reruns verified. Base attempt 2 retains 23 real passes; three B jobs and one C job await runners with no new test steps. Handler log reaches cleanup but run/check APIs still report queued. Historical LLaVA timeout, GitHub HTTP 500 and cancelled coverage remain unresolved; excluded non-Base tests are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: reevaluate recovery after 17:33:18 UTC, oldest eligible priority run first. Runner owner: capture worker stacks/count/quota/memory if repeated. Preserve separate review/source qualifications.
+Next action: Worker: follow the four queued Base jobs without duplication and reconcile handler status; inspect the first new failure. Runner owner: obtain LLaVA worker stacks/count/quota/memory if repeated. Preserve separate review/source qualifications.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/1)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6637510859)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41878556259)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126392603595)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is historical evidence/review follow-up; no new maintainer hardware gate was established.
@@ -31,11 +33,11 @@ Next action: Worker: follow actual B execution without duplication. Runner owner
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 
-## #46830: Base ended cancelled with 22 successes, two B cancellations, Mooncake nvcc exit 127 and two C health-check failures. Compiler stderr/version remain unknown. AMD MLA startup -9, Qwen TTFT failures and one queued job persist; affected launches bypass changed DSA behavior. The tested dependency script already selects Mooncake 0.3.14; the merged version bump is not a missing integration repair.
+## #46830: Base remains cancelled: 22 real Base passes, two unexecuted B cancellations, Mooncake nvcc exit 127 and two C health-check failures. Helper refused retry until 18:33:42 UTC. Tested dependency installer matches current main and already selects Mooncake 0.3.14; no missing integration repair established. AMD MLA startup -9, Qwen TTFT failures and one queued job remain; compiler stderr/version are unknown. Failing launches bypass the changed DSA path.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: reevaluate recovery after 17:33:18 UTC and older eligible priority runs. Runner owner: capture compiler diagnostics and compare the passing peer. Preserve DSA review evidence; no tokenizer optimization or threshold relaxation.
+Next action: Worker: reconsider recovery after 18:33:42 UTC, oldest eligible priority run first. Runner owner: capture actual nvcc version/child stderr and compare the passing peer. Maintainers: finish DSA deadlock/consumer review. Do not relax thresholds or turn Qwen TTFT into tokenizer work.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528175)
@@ -64,7 +66,7 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: recover coverage after 17:33:18 UTC and eligible priority PRs. Maintainers/yihou: coordinate landing order, finish review and archive exact source/run mappings; retain numerical limits and optional deployment role.
+Next action: Worker: recover coverage after 18:33:42 UTC and eligible priority PRs. Maintainers/yihou: coordinate landing order, finish review and archive exact source/run mappings; retain numerical limits and optional deployment role.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
@@ -73,7 +75,7 @@ Next action: Worker: recover coverage after 17:33:18 UTC and eligible priority P
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Worker: reevaluate helper recovery after 17:33:18 UTC and eligible priority PRs; preserve successful results and verify actual B execution.
+Next action: Worker: reevaluate helper recovery after 18:33:42 UTC and eligible priority PRs; preserve successful results and verify actual B execution.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/126685109215)
@@ -111,7 +113,7 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Worker: reevaluate owner_requested after 17:33:18 UTC and eligible priority PRs; disclose PR-wide effects. CI maintainers: repair environment/source alignment. Maintainers/yihou: retain opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving and measured performance limits.
+Next action: Worker: reevaluate owner_requested after 18:33:42 UTC and eligible priority PRs; disclose PR-wide effects. CI maintainers: repair environment/source alignment. Maintainers/yihou: retain opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving and measured performance limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
