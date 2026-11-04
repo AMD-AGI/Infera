@@ -19,3 +19,4 @@
 - 22:05 E10 同对基线 50,797（B +1.3%、C +5.5%）；traceC 推迟到下一分配。22:16 镜像存为 /perf_apps/liyingli/images/infera-sglang-v0522-fdbafb60.tar（65 GB），opt_item.sh 在缺镜像时先从它加载。
 - 23:36 traceC 完成：verify 前空闲 0.59 → 0.03 ms/步，剩余最多 1.9 ms/步（一次 ~30 ms 的结果 event 等待 + DP 同步 gather）。23:36 起 Cdpbal。
 - 00:20 trace 复核：DP0 的 ~34–47 ms 空闲是 profile 启动后的第一步（采集开销）；去掉后每步空闲 0.52–0.83 ms，graph 间空闲方向不再投入。
+- 01:03 Cdpbal 53,107（−0.9%，噪声内）、交互 p90 +7.7%、TTFT +22%；01:04 起 2P1D 门禁。追加队列 34（C @ C112）、35（Cdpbal @ C112）。

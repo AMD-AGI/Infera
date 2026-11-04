@@ -13,3 +13,7 @@
 23:36:02 opt traceC dgaps decode-232136/decode-232136-TP-3-DP-3.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.37 ms/step | total 0.53
 23:36:02 opt traceC end
 23:36:04 opt Cdpbal start: score arm-C-prod-dpbal.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1388 min left
+01:03:33 opt Cdpbal score: | C104 | 53,107 | 436.7 | 3.465 | 12,562 / 2 | 73.9 / 65.6 | 13.5 / 15.2 | 4.50 / 12.99 / 6.77 | 40.5 | 96.07%（96.66%） |
+01:03:33 opt Cdpbal end
+01:03:34 opt 2p1d-gate start: gate arm-C-2p1d.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1300 min left
+01:04:36 arm-C-2p1d-1104T0103 up
