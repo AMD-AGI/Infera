@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T04:39:36.209313+00:00",
+  "checked_at_utc": "2026-11-04T05:41:34.659224+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T04:11:22Z",
+      "updatedAt": "2026-11-04T04:39:55Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ebf27295fa012e39e16b6f289c6f8082dc9f0ddd",
+      "headRefOid": "c4678be3c470da596c20d73438873db36ad093de",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -388,9 +388,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 18,
-        "IN_PROGRESS": 1,
         "SKIPPED": 88,
-        "SUCCESS": 20
+        "SUCCESS": 21
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -999,8 +998,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2344,11 +2343,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 15,
-        "QUEUED": 2,
+        "FAILURE": 6,
+        "IN_PROGRESS": 7,
+        "QUEUED": 7,
         "SKIPPED": 63,
-        "SUCCESS": 36
+        "SUCCESS": 67
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -3217,8 +3216,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3860,7 +3859,7 @@
         "login": "nvjullin",
         "name": ""
       },
-      "updatedAt": "2026-10-27T05:04:43Z",
+      "updatedAt": "2026-11-04T05:28:33Z",
       "mergedAt": "2026-10-27T05:04:42Z",
       "closedAt": "2026-10-27T05:04:42Z",
       "headRefOid": "e122674f23aa6208d06345fb753eba2b90eecf85",
@@ -4643,8 +4642,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4703,8 +4702,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4860,8 +4859,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5036,8 +5035,8 @@
       "baseRefOid": "b960aa903aad354fb2e484041e5e33e3eb061e9b",
       "headRefName": "llying/pp-missing-layer-aiter-gfx95",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5342,13 +5341,13 @@
         "login": "llying-001",
         "name": ""
       },
-      "updatedAt": "2026-10-29T03:02:14Z",
+      "updatedAt": "2026-11-04T05:18:47Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "4aa976240ed10d02190b465a3c7cb70b2b138480",
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
-      "baseRefName": "master",
+      "baseRefName": "main",
       "mergeable": "MERGEABLE",
       "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
@@ -5537,8 +5536,8 @@
       "baseRefOid": "20a5b37510d25bec8df1d088659c0f085e687a0b",
       "headRefName": "glm52-mxfp4-moe-sort-fold",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "",
       "labels": [
         {
