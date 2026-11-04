@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T18:42:58.926786+00:00**.
+Updated: **2026-11-04T19:10:50.956019+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -29,15 +29,16 @@ Next action: Follow actual B execution; obtain submission stacks/count/quota/mem
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 
-## #46830: Verified recovery produced 23 Base successes: 22 retained and newly recovered B300 C. Two C tests run and two B jobs remain runnerless. AMD retains 12 successes with two B tests running. Prior compiler and AMD MLA/Qwen failures remain unexplained; patch causality is unestablished.
+## #46830: Base attempt 3 has 25 successes: 22 retained plus three recovered C jobs. Newly inspected H100 Mooncake and GB300 logs pass; AMD MLA also passes, bringing AMD to 13 successes with 12 retained. Two Base B jobs await runners and one AMD B test runs. Earlier compiler/MLA causes remain unestablished; historical Qwen TTFT and DSA review remain separate.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow attempt 3 and inspect new failures. If nvcc 127 repeats, runner owner should capture compiler identity, child stderr and JIT cache state. Finish DSA review without expanding into tokenizer optimization.
+Next action: Worker: follow the two queued Base B jobs and active AMD B test; inspect any new failure. Maintainers: finish DSA deadlock/consumer review. Preserve inherited source evidence; the historical Qwen tokenizer TTFT failure is not a DSA optimization or new hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/3)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41888465888)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779403625)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779403597)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779403846)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126779423737)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
 
 ## #45524: Base has 35 successes, AWQ timeout and health-check failures. AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
@@ -68,11 +69,11 @@ Next action: Recover coverage after 19:34:17 UTC and eligible priority PRs. Main
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Base attempt 2 remains cancelled with 36 Base and six JIT successes retained; two B jobs cancelled without execution. Coverage remains incomplete.
+## #47278: Base attempt 2 remains cancelled with 36 Base and six JIT successes retained; two B jobs never executed. This cycle helper refused retry_interval_not_elapsed without posting. Coverage remains incomplete.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Reevaluate helper recovery after 19:34:17 UTC and eligible priority PRs; preserve successes and verify actual B execution.
+Next action: Reevaluate owner_requested after 19:34:17 UTC and eligible priority PRs; inspect PR-wide side effects and preserve existing successes.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/2)
 
@@ -102,7 +103,7 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base retains 19 successes but remains failed with LLaVA/health-check failures and skipped C. AMD MIOpen/PP and Xeon mismatch persist. Review/source/correctness/performance limits remain.
+## #47872: Base attempt 1 has 19 successes but remains failed with LLaVA/health-check failures and skipped C. AMD MIOpen/PP and Xeon mismatch persist. Review/source/correctness/performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
