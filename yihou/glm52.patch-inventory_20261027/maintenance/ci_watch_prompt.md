@@ -69,6 +69,25 @@ If uncertain, inspect the diff; do not default to chasing every failed workflow.
 Keep explicit review/correctness requirements in the ledger separately from
 the CI-watch scope. Do not infer that an excluded check passed or was fixed.
 
+## Execution priority: cross-project blockers first
+
+The owner's November 4 instruction puts **#33059, #46820 and #46830** in the
+first execution-priority group because they also block other projects. Check
+these three first each cycle and prioritize their actionable diagnosis, small
+repairs, review follow-up preparation, and eligible retries over the other six.
+This group takes precedence over the broader deployment P0 labels in the ledger.
+Keep the nine-row output order and report every monitored PR.
+
+A queued or running priority PR does not prevent work on another actionable
+priority PR. Use waiting time for bounded investigation of their unresolved
+failures; record the first concrete failure, evidence, attempted diagnosis and
+the next owner/action. Do not repeatedly substitute a generic "CI owners must
+investigate" for diagnosis that we can safely perform. Before working on a
+lower-priority repair or retry, advance each actionable priority PR or record
+its concrete current blocker. Preserve scope, ownership, validation and retry
+limits. Never cancel other runs or duplicate active attempts to change queue
+position. Do not claim control over upstream runner scheduling or approval.
+
 ## Fresh evidence on each invocation
 
 For every PR, query its current lifecycle, draft flag, exact head SHA, author,
@@ -139,8 +158,9 @@ executed log's deadline has elapsed. The helper must verify fresh upstream
 policy and recent account-wide Base runs; a newer run may extend the wait.
 Record any returned wait or unknown-policy result. Never relabel a cooldown
 refusal as `transient` to get around the check. When several owned PRs are
-eligible, inspect the oldest-created Base run first, request one retry at a
-time, and inspect its handler/new attempt before rechecking the next PR's
+eligible, select #33059/#46820/#46830 before the other PRs, then inspect the
+oldest-created Base run within the selected group first. Request one retry at
+a time and inspect its handler/new attempt before rechecking the next PR's
 account-wide cooldown. Do not send simultaneous retries for the same author.
 
 Do not directly call `gh run rerun`, post `/rerun-failed-ci` or `/rerun-base-ci`,

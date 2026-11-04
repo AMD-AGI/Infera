@@ -76,6 +76,15 @@ upstream author cooldown remain in force. It monitors exactly SGLang #33059, #46
 fixes in that list are #45524/#46918; their branches remain read-only. #47276
 is optional for the frozen llr37 deployment, but is explicitly included.
 
+**Execution priority, confirmed November 4:** #33059, #46820 and #46830 block
+other projects and form the first maintenance group. Check them first and use
+available diagnosis, small-fix and eligible retry opportunities for them before
+the other six. A queued priority PR does not block work on another actionable
+priority PR. Within the eligible priority group, retry the oldest-created Base
+run first; existing cooldowns and retry limits still apply. Report all nine PRs
+and record concrete blockers rather than repeatedly deferring actionable work.
+This changes our work order, not upstream runner scheduling or approval.
+
 Under the owner's [CI scope policy](../CI_SCOPE_POLICY.md), a PR that does not
 change shared code is followed for **PR Test (Base) only**. Inspect its current
 diff and affected behavior, not just filenames, and reassess after head changes.

@@ -24,6 +24,22 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `a0e073816c` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 <!-- DAILY-PR-STATUS:END -->
 
+## 2026-11-04: Prioritize three cross-project blockers
+
+The owner designated SGLang **#33059, #46820 and #46830** as the first
+maintenance group because they block other projects. The 90-minute worker now
+checks these first and prioritizes actionable diagnosis, small validated
+repairs and eligible retries while retaining all nine monitored rows and the
+existing CI scope/retry limits. See [execution policy and the concrete #46820
+CPU diagnostic action](CI_SCOPE_POLICY.md#execution-priority).
+
+At 08:05 UTC, #33059 had 19 Base jobs passed and three queued; #46830 had 18
+passed, one running and three queued. #46820 retained 36 earlier Base passes
+but still failed in VLM startup. Its first observed failure is a 10-second
+CPU process-pool submit timeout; root cause and patch attribution remain open.
+All three remain Ready with green lint and required review. No retry or code
+change was made during this priority update.
+
 ## 2026-11-04 06:38 UTC: Recover the two cooldown-blocked Base runs
 
 After fresh cooldown and policy checks, the bounded helper retried #46830 and

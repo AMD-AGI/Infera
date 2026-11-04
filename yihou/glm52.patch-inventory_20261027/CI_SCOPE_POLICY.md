@@ -27,3 +27,38 @@ focus only on **PR Test (Base)**.
 
 The worker prompt implements this policy. The nine-PR watch list and 90-minute
 polling schedule are unchanged.
+
+## Execution priority
+
+Owner instruction, November 4, 2026: **SGLang #33059, #46820 and #46830 are
+the first maintenance group because they block other projects.** This group
+takes precedence over broader deployment P0 labels. Check them first and
+prioritize actionable diagnosis, small validated repairs and eligible retries.
+When one is queued or running, work on another actionable priority PR. Advance
+each actionable priority PR or record its concrete current blocker before
+lower-priority repairs or retries. Report all nine monitored PRs. Within the
+eligible priority group, retry the oldest-created Base run first, subject to
+the existing helper and author cooldowns. Do not cancel or duplicate runs to
+manipulate queue position; upstream runner scheduling and approval remain
+outside our control.
+
+### Current owned diagnostic action: #46820
+
+The November 4 audit of [Base job 125750869472](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
+at head `ac205f829173029ce17c1898fd9c8d9ab2f861fd` identified a 10-second
+timeout while submitting work to the LLaVA CPU process pool, before awaiting
+the worker result. Pool replacement, warmup HTTP 500 and the outer 1800-second
+timeout follow. This is the first observed failure, not a proven root cause or
+proof that it is transient or patch-related.
+
+`_create_cpu_executor` defaults to `os.cpu_count()` workers and fork; the first
+submit starts workers. The existing real-worker-exit regression uses one
+worker. Upstream fixes #44143, #36983 and #35700 are already in this head;
+main's import cleanup #47731 is not an established repair for this failure.
+Our next bounded diagnostic is CPU-only: measure first-submit time and thread
+stacks, record worker count and actual CPU quota, and compare one worker with a
+safely bounded representative pool. Do not launch an unbounded default pool on
+a shared host. Distinguish process-startup cost from a lock stall before
+proposing a fix or a retry; preserve the socket-contract regressions and avoid
+speculative KV publisher changes. No new GPU allocation is needed for this
+initial investigation.
