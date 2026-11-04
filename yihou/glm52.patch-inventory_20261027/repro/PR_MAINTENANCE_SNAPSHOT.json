@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T21:11:56.472478+00:00",
+  "checked_at_utc": "2026-11-04T21:43:45.719634+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -190,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T20:44:49Z",
+      "updatedAt": "2026-11-04T21:12:11Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "c5b596ab2876ff45655dadb1b77b6ee4512a3290",
+      "headRefOid": "21038045d5b994feeb8bd16dcfa9e3d3a6fee0d9",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -311,7 +311,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T17:46:00Z",
+      "updatedAt": "2026-11-04T21:36:13Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "674ad71976e9154c15cc7011596cd0deb5405077",
@@ -388,8 +388,9 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 3,
-        "FAILURE": 7,
+        "FAILURE": 5,
+        "IN_PROGRESS": 1,
+        "QUEUED": 2,
         "SKIPPED": 58,
         "SUCCESS": 100
       },
@@ -836,8 +837,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -961,8 +962,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1003,8 +1004,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3184,8 +3185,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3219,8 +3220,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4486,8 +4487,7 @@
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "FAILURE": 1,
-        "IN_PROGRESS": 1,
+        "FAILURE": 3,
         "SKIPPED": 9,
         "SUCCESS": 13
       },
@@ -4695,8 +4695,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4755,8 +4755,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4912,8 +4912,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
