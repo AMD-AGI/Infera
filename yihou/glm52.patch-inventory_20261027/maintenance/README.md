@@ -113,6 +113,11 @@ Actual deterministic failures require diagnosis; repeated/unclear failures are
 handed off instead of repeatedly retried. Bot retries are PR-wide, as described
 below. Source fixes use isolated PR checkouts, focused validation and signed
 commits, with a fresh remote-head check before pushing.
+Verified fixes already merged into upstream main for an in-scope failure should
+be integrated into owned PRs through a safe, validated rebase, one PR at a time,
+rather than repeatedly deferred as source-reconciliation work. Preserve the
+existing lint, CPU checks, ownership and exact-lease safeguards; verify the new
+head and Base run without treating integration as a passing CI result.
 
 The current reports are [CI_48K_WATCH.md](../CI_48K_WATCH.md) and
 [CI_48K_PENDING.md](../CI_48K_PENDING.md). The launcher updates only the scoped

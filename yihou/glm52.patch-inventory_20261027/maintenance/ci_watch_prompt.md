@@ -174,6 +174,20 @@ upstream/main behavior, and concurrent author/maintainer changes before editing.
 Do not weaken tests, bypass gates, change CI security settings, or modify
 unrelated files to obtain green checks.
 
+When an in-scope CI failure matches a verified fix already merged upstream,
+confirm that the fix is present in the fetched main revision and absent from
+the PR's tested revision. Treat this as a concrete integration blocker: safely
+rebase the owned PR onto that verified main revision instead of repeatedly
+deferring actionable source reconciliation to CI owners. Adopting an upstream
+test correction unchanged after it has merged is authorized integration, not
+locally weakening a test. Preserve the PR's intended behavior and concurrent commits.
+Follow the repair workflow below, one PR at a time: inspect the resulting diff,
+run applicable lint and focused CPU checks, and push with fresh ownership/head
+verification and an exact lease when rewriting history. If conflicts or behavior
+changes cannot be resolved safely, preserve the work and report the specific
+blocker. Recheck the published head and new Base run; integration is not evidence
+that CI passed.
+
 Numerical or GPU-kernel semantic changes are outside routine automated repair.
 Only consider an exceptionally small such fix when a deterministic scoped
 regression and matching validation conclusively establish correctness; otherwise

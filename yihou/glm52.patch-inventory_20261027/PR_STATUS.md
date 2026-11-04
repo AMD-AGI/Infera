@@ -24,6 +24,17 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `39bb2517e5` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 <!-- DAILY-PR-STATUS:END -->
 
+## 2026-11-04: Integrate the upstream dLLM CI correction
+
+Rebased and pushed #33059 (`201d823b3c`), #46830 (`76b75ed6ed`) and #47276
+(`674ad71976`) onto main `4c7c775cf4`, including merged #47989 unchanged.
+Original patches remain equivalent; the first two tests need only the new
+ForwardMode import. CPU checks and applicable lint passed. At 04:37 UTC,
+#33059's new Base gate passed and A jobs were active; #46830/#47276 were held
+by the author 120-minute cooldown, with functional tests skipped.
+See [integration, validation and new run links](CI_MAIN_REBASE_20261104.md).
+
+
 <!-- KF-MAINT-20261102:BEGIN -->
 ## 2026-11-02: KernelForge upstream maintenance
 
