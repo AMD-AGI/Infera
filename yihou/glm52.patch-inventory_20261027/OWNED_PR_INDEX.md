@@ -1,6 +1,6 @@
 # Owned PR index for the upstreaming target repositories
 
-Checked: 2026-11-04T15:45:06.879698+00:00. Author: `dorado269`.
+Checked: 2026-11-04T16:15:16.509260+00:00. Author: `dorado269`.
 
 **56 PRs: 15 open (9 ready / 6 draft), 22 merged, 19 closed unmerged.** Full actionable public handoff: [PR_HANDOFF.md](PR_HANDOFF.md). External authors are excluded from these counts.
 
