@@ -176,8 +176,11 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
   16k × 64），接受长度 ≥ 3 且干净才计分，量出真正的 FP8 草稿 MoE 的收益。
 - InferenceX 规则（`docs/PR_REVIEW_CHECKLIST.md`）：agentic 的推测解码必须用 golden AL 的模拟接受长度（草稿质量不进分数）；更低精度的同样 FLOPs 允许，
   前提是通过 private eval，且"只用对准确性有要求的客户在生产中会用的优化"；不许给引擎打补丁（镜像原样运行）。所以 PTPC 只有在 #45800 进了所用镜像、
-  且真实接受率正常时才站得住。ATOM（InferenceX recipe）对非专家线性层在线 `ptpc_fp8`，但 MTP 层（`model.layers.78.*`）排除、保持 BF16；
-  Dynamo SGLang（NVFP4）MTP 层也是 BF16。两家都没有量化草稿 MoE。
+  且真实接受率正常时才站得住。ATOM（InferenceX recipe `glm5.2_fp4_mi355x_atom_mtp.sh`）：`--online_quant_config '{"global_quant_config":"ptpc_fp8",
+  "exclude_layer":["lm_head","model.embed_tokens","*.mlp.gate","*expert*"]}'`——排除的是所有专家（主干专家本来就是 MXFP4），MTP 层的专家因此保持 BF16；
+  **05:40 更正**：recipe 并没有点名排除 `model.layers.78.*`（best-4p4 6.3 节的写法不准确），MTP 层非专家线性层是否也被在线量化取决于 ATOM 对草稿模型是否套用同一配置，未核实。
+  Dynamo SGLang（NVFP4）MTP 层是 BF16。两家都没有量化草稿 MoE。ATOM 的 `--online_quant_config` 是 ATOM 引擎自己的功能；SGLang main 对 quark MXFP4
+  checkpoint 的 BF16 排除层没有现成的在线 FP8（`quark.py` 的 `excluded_fp8_config` 只用于 checkpoint 里本就是 FP8 的排除层），要做需自己实现（best-4p4 6.6 节估约 30–50 行）。
 
 - **03:43 #45800 回移验证**（`arm-C-prod-ptpcfix`，C + PTPC 开 + 回移的 `glm4_moe.py`）：**真实接受长度 3.60**（334 行；坏的 PTPC 1.2、关 PTPC 3.61），
   200 题 198 / 0 / 0、撞上限 1，16k × 64 捞针 32/32、长前缀 30/32。**#45800 修好了 PTPC**：草稿 MoE 现在真正以 FP8 执行且草稿正确。
@@ -200,3 +203,18 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
 - 门禁（C + PTPC 开坏的版本，01:03）：smoke 6/6、200 题 198 / 0 / 0、16k × 128 捞针 63/64、长前缀 61/64；真实接受长度 1.35（PTPC bug）。KF kernel 在 TP8 形状下结果正确。
 - **门禁（C + PTPC + #45800，05:13）**：smoke 6/6、200 题 196 / 0 / 0（撞上限 1）、16k × 64 捞针 32/32、长前缀 31/32；**真实接受长度 3.43**（TP4 为 3.60）。
   decode KV 池 4,069,696 token / rank（TP4 3,093,376，+32%，与 best-4p4 5 节的估计一致）。C208 计分 05:22 起。
+
+### 4.5 DP 均衡权重的依据（05:40）
+
+`ana/decode_step_fit.py`（10-21 的脚本，加了 `DP_RANKS`）：每 3 s 一个窗口，取各 rank 的在跑请求数与上下文 token，拟合
+`步长 = a + b·最忙 rank 请求数 + c·最忙 rank 上下文(M) + d·总请求 + e·总上下文(M)`，b / c 就是"最忙 rank 上 1 个请求相当于多少 token"——router 的代价是 token，
+权重应取这个换算值。
+
+| 部署 | R² | 拟合 | 1 个请求 ≈ token | 最忙 / 均值 请求数（中位 / p90） |
+|---|---|---|---|---|
+| scoreC（权重 0） | 0.878 | 21.3 + 0.70·max_req + 1.66·max_tok + 0.096·sum_req − 0.089·sum_tok | **423,308** | 1.28 / 1.52 |
+| Cdpbal（权重 1,000,000） | 0.925 | 21.4 + 0.55·max_req + 1.54·max_tok + 0.116·sum_req + 0.026·sum_tok | 355,716 | 1.20 / 1.38 |
+
+- 10-21 的 1,000,000 是在 v0.5.22 **1P1D C88** 上拟合的（那里 1 个请求 ≈ 105 万 token）；在本配置（4+4、K3、E11）上换算值约 **42 万**，1,000,000 偏大一倍多，
+  过度按请求数分配、把长上下文请求压到 KV 余量少的 rank，这与预分配等待翻倍、TTFT +22% 一致。
+- 拟合只看步长，不含 KV 池压力；KV 常满时最优权重可能比换算值更小。队列 35 改为 **400,000**（原计划 300,000）。

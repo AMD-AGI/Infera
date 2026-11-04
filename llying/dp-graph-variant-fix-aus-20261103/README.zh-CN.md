@@ -58,7 +58,7 @@
 | traceC | `arm-C-prod-trace`：C + `DEBUG_CLR_GRAPH_PACKET_CAPTURE=0`（graph 内 kernel 可见，11-02 已证不改输出） | AgentX C104 1,500 s，预热后 600 s 起两次 40 步 decode profile（`opt/scripts/decode_profile_chain.sh`），`ana/dgaps.py` | 修法去掉了 `select()` 的 `.item()`：每步 GPU 空闲从 10-30 trace 的 2.8–3.0 ms 降到约 1.5–2 ms，剩下的是 DP attention 每轮的 CPU 同步与零散间隙（交接 6.5 节）；为下一项非 kernel 优化定位 |
 | Cdpbal | C + router `--decode-request-weight 1000000`（fdbafb60 + 565461b3 重编的 router，单元测试全过） | C104 计分 | 相对 scoreC：吞吐 +1–3%，交互 p90 上升（10-21 1P1D C88：+2.7%、p90 +43%）；风险是 decode KV 池常满时按请求数均衡加重预分配等待 |
 | ~~C-c112、Cdpbal-c112~~（01:05 追加，05:15 按用户要求撤下：高吞吐区不再成组比较 DP 均衡） | `arm-C-prod`、`arm-C-prod-dpbal` @ C112 | C112 计分 | C @ C112 相对 C @ C104：−2% 到 +3%（decode 变快留出余量，但 KV 池仍是上限，预分配等待会升）；Cdpbal @ C112 相对 C @ C112：吞吐 ±1%、交互 p90 更高 |
-| 05:15 改排 | 基线换成 `arm-C-prod-ptpcfix`（C + PTPC + #45800，53,666，草稿真实可用） | 2P1D 门禁（`32i`）→ 2P1D C208 计分（`33`）→ TP8 decode trace（`33b`）→ C112 计分（`34`）→ DP 均衡权重 300k @ C104（`35`） | 2P1D 相对 53,666：0 到 +10%；C112：−2% 到 +3%；权重 300k：吞吐 ±1%、TTFT 代价比 1M 小（预分配等待介于 2.6 与 6.1 之间） |
+| 05:15 改排 | 基线换成 `arm-C-prod-ptpcfix`（C + PTPC + #45800，53,666，草稿真实可用） | 2P1D 门禁（`32i`）→ 2P1D C208 计分（`33`）→ TP8 decode trace（`33b`）→ 生产全套正确性（`33a`）→ TP8 trace（`33b`）→ C112 计分（`34`）→ DP 均衡权重 400k（步长拟合值）@ C104（`35`） | 2P1D 相对 53,666：0 到 +10%；`33a`：1,319 题 ≥ 0.96、0 / 0，lm-eval ≥ 0.96；C112：−2% 到 +3%；权重 400k：吞吐 ±1%、TTFT 代价比 1M 小（预分配等待介于 2.6 与 6.1 之间） |
 | 2p1d | C，2 × PP4 prefill + TP8/DP8 decode（16 卡） | 先门禁（smoke、200 题、16k × 128，真实接受率），干净才 C208 计分 | 每卡 0 到 +10%（点估计 +3–5%，相对 scoreC）；风险：KF MoE kernel 在 TP8 形状上的正确性、8 rank 通信 |
 
 ## 6. 文件
