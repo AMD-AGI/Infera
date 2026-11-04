@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T19:43:04.871680+00:00",
+  "checked_at_utc": "2026-11-04T20:10:19.552158+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -188,10 +188,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T19:12:05Z",
+      "updatedAt": "2026-11-04T19:43:21Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "96849193b540fa791307717e498977e6ecbc9f89",
+      "headRefOid": "f0da6aa1f6a3cfd3cb3d14642a9b915c5794e415",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -637,10 +637,9 @@
       "latest_check_counts": {
         "CANCELLED": 1,
         "FAILURE": 6,
-        "IN_PROGRESS": 1,
         "QUEUED": 4,
         "SKIPPED": 63,
-        "SUCCESS": 85
+        "SUCCESS": 86
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -933,7 +932,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "QUEUED": 2,
+        "IN_PROGRESS": 1,
+        "QUEUED": 1,
         "SKIPPED": 53,
         "SUCCESS": 115
       },
@@ -2348,7 +2348,8 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "QUEUED": 4,
+        "IN_PROGRESS": 1,
+        "QUEUED": 3,
         "SKIPPED": 63,
         "SUCCESS": 88
       },
@@ -4420,7 +4421,7 @@
       "repo": "kvcache-ai/Mooncake",
       "number": 4340,
       "url": "https://github.com/kvcache-ai/Mooncake/pull/4340",
-      "title": "[TE] Fix HIP and NVLink IPC relocation for suballocated buffers",
+      "title": "[TE] Fix NVLink IPC offsets and GPU registration cleanup",
       "state": "OPEN",
       "isDraft": false,
       "owned": false,
@@ -4430,15 +4431,15 @@
         "login": "salexspb",
         "name": "Sasha Sidorov"
       },
-      "updatedAt": "2026-11-03T02:40:14Z",
+      "updatedAt": "2026-11-04T20:03:02Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "9b4b049d9cb50faa75595b962ce3591dc804db4b",
-      "baseRefOid": "8c9af6c914c35b97c2336863217a9ce13d13e4ed",
+      "headRefOid": "d70e5eabea9864923ee7da4ffc4cc841df0d71d7",
+      "baseRefOid": "4704c67f13ffbada9fbe7785d854c0a53e1e73b4",
       "headRefName": "fix/hip-ipc-suballocation-offset",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4471,13 +4472,17 @@
         {
           "__typename": "User",
           "login": "chestnut-Q"
+        },
+        {
+          "__typename": "User",
+          "login": "TTThanos"
         }
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "FAILURE": 2,
-        "SKIPPED": 1,
-        "SUCCESS": 26
+        "IN_PROGRESS": 1,
+        "QUEUED": 9,
+        "SUCCESS": 2
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4340/checks"
     },
@@ -5389,8 +5394,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "UNSTABLE",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
