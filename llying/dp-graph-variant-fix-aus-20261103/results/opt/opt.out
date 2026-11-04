@@ -109,3 +109,4 @@
 07:19:20 arm-C-prod-ptpcfix-1104T0658 down
 07:19:20 opt Cfix-prod accept arm-C-prod-ptpcfix-1104T0658: mean 3.62 over 1705 decode log lines
 07:19:20 opt Cfix-prod end
+07:58:52 opt trace2p1d start: trace arm-C-2p1d-ptpcfix-trace.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 885 min left

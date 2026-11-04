@@ -259,3 +259,56 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
   indexer 2.6–3.4、集合通信约 4.3、norm / 杂项约 2–3、GPU 空闲 0.5–0.8 ms。
 - TP8：截距只比 TP4 低 3.5 ms（按字节应低约 8 ms）。可能原因：KF 的 MoE kernel 是按 TP4 形状（每 rank 中间维 512）调的，TP8 每 rank 只有 256，GEMM 更瘦；
   8 rank 的 all-gather / reduce-scatter 更慢。TP8 trace（队列 `33b`，暂停中）能定位。2P1D 现在受 prefill 限，decode 变快只改善交互与 TTFT，要先解开 prefill 才转成吞吐。
+
+### 5.1 剩余优化项与预期收益（11-04 07:40，端到端吞吐；单次 ±1%；各项不能简单相加——decode 变快后瓶颈会转到 prefill）
+
+| 优化项 | 每步 / 机制 | 预期 | 改精度 | InferenceX | 工作量 |
+|---|---|---|---|---|---|
+| dense 层在线 FP8（ATOM 式，目标模型 decode + prefill，**排除 MTP 层**） | dense GEMM 7.9 → 约 4–5 ms，KV +9%；prefill dense GEMM 约占步长 15% | 4+4 +2–4%；2P1D 的 prefill 也受益 | 是 | 允许（目标模型量化，需过 eval） | 30–50 行 + GEMM 调优 |
+| MoE GEMM 带宽利用率 69% → 约 80% | −2–3 ms | +1.5–2.5% | 否 | 需进 aiter / SGLang 上游 | 难（KF 已深调） |
+| sparse MLA + indexer | −1.5–3 ms（共 9.4–10.2 ms） | +1–2.5% | 否 | 同上 | kernel |
+| graph 内通信（与 norm 融合 / one-shot） | 约 −1 ms | 约 +0.8% | 否 | 同上 | 中 |
+| 小 kernel 融合（norm、MoE 杂项） | −0.5–1 ms | +0.4–0.8% | 否 | 同上 | 中 |
+| DP 均衡（拟合权重 40 万） | 最忙 / 均值 1.28 → 约 1.2 | 吞吐 ±1%，交互更高 | 否 | Infera #213 已合入 | 已备好 |
+| 4+4 C112 | — | −2% 到 +3% | 否 | — | 在跑 |
+| graph 间空闲 | < 0.5 ms | < 0.4% | — | — | 不再做 |
+| 2P1D：E9 后台预写回 | 4+4 下 TTFT −14% | +1–3% | 否 | 需上游 | 重写约半天 |
+| 2P1D：TP8 decode kernel（MoE 的 TP8 形状、8 rank 通信） | 截距 −2 到 −4 ms | 交互提升；解开 prefill 后才转为吞吐 | 否 | 需上游 | TP8 trace 定位中 |
+| 2P1D：prefill 调度改 `hrrn` | 长请求不再饿死（6.2 节） | −2% 到 +3% | 否 | 上游已有（v0.5.22 自带） | 只改参数 |
+| 2P1D → 1P(PP8)1D(TP8) | 单一缓存，免两实例重复（6.2 节） | −3% 到 +5% | 否 | 普通参数 | 一次门禁 + 计分 |
+
+4+4 现实目标约 +5–8%（约 56–58k），前提是 prefill 不先成为新瓶颈。
+
+### 5.2 第二版 Pareto 的建议（07:40）
+
+- 现在这套栈**不能原样提交 InferenceX**（第 6 节清单），所以现在扫的曲线只能作内部决策 / 预期；正式曲线要在上游合入、换新镜像后扫。
+- 做法：先 TP8 trace 与 C112（07:58 起在跑）；再做轻量内部 v2：4+4（提交方向的配置，见 6.1）补 C32 / C64 / C88，2P1D 补 C144 / C176（已有 C208），约 5 个点、7–8 小时。
+
+## 6. 提交 InferenceX：现状与差距（11-04 08:10）
+
+**规则更正（08:05，InferenceX `.github/codeowner-signoff-verify-prompt.md` Check 13、`CONTRIBUTING.md` "Draft-model precision"）**：草稿必须"按发布时的样子"运行——
+对草稿权重 / 激活 / 计算做任何在线或离线量化都判 FAIL（eval 通过、接受长度达标都不豁免），`SGLANG_NVFP4_CKPT_FP8_NEXTN_MOE` 被点名禁止。
+**所以 `SGLANG_GLM_NEXTN_MOE_PTPC=1` 在 InferenceX 上不能用**（`amd/GLM-5.2-MXFP4` 的第 78 层按 BF16 发布）。4.3 节"更低精度允许"只对目标模型成立，对草稿不成立。
+目标模型量化（如 ATOM 式 dense 层 `ptpc_fp8`）仍允许，前提是过 eval 且不顺带量化草稿。
+
+### 6.1 当前最佳配置（C + PTPC + #45800，53,666）里各项的上游状态
+
+| 项 | 位置 | 上游 / 规则状态 | 提交方向 |
+|---|---|---|---|
+| 修法（graph variant 跨 rank 一致）6 个文件 | decode 挂载 | [sglang#48302](https://github.com/sgl-project/sglang/pull/48302) OPEN（11-04） | 必须合入（E11、CAR 的正确性依赖它） |
+| E11：`SGLANG_USE_ROCM700A=0` | decode 环境变量 | 普通开关 | 可用（依赖 #48302） |
+| decode custom all-reduce 开 | kit 去掉 `--disable-custom-all-reduce` | 普通参数 | 可用（依赖 #48302） |
+| PTPC FP8 草稿 MoE + #45800 回移 | decode 环境变量 + 挂载 `glm4_moe.py` | #45800 已合入；**PTPC 违反 Check 13** | **不能用**（关掉：52,830） |
+| KF kernel overlay（sparse MLA / indexer / MoE） | decode `PYTHONPATH` + `sitecustomize` 运行时替换函数 | 禁止 monkey-patching；**没有上游 PR** | 不能用；要进 aiter / SGLang 上游 |
+| 两个 aiter GEMM 调优 CSV | 挂进 aiter 安装目录 | 改镜像文件 | 先合进 aiter，或写 waiver |
+| `index_share_for_mtp_iteration=true` | 两侧 model override | 规则：不接受减少模型 FLOPs 的优化，评审可能问 | 待定（#210 用 false） |
+| prefill v3 pp-chunk-wait（PP 下发送非末块前等事件） | prefill 挂载 `disaggregation/prefill.py` | [#45524](https://github.com/sgl-project/sglang/pull/45524)（他人）OPEN | 必须（`SGLANG_PP_COMM_OVERLAP=1` 的正确性依赖它） |
+| E1 evict-headroom | prefill 挂载 `unified_radix_cache.py` | [#48047](https://github.com/sgl-project/sglang/pull/48047) OPEN（我们的） | 合入后可用 |
+| E10 hicache-backup-quota | prefill 挂载 `pool_host/{mla,dsa}.py` | [#48042](https://github.com/sgl-project/sglang/pull/48042) OPEN（我们的） | 合入后可用 |
+| `deepseek_v2.py`（PP 非首级 hidden size） | prefill 挂载 | [#47184](https://github.com/sgl-project/sglang/pull/47184) OPEN（我们的）/ 第三方 #21194 | 必须（PP4 prefill） |
+| 镜像烘焙的 B1 / B2 / B6 / B7 / B8（Infera Dockerfile） | 镜像 | #33059、#46830、#46820、#47184/#21194、issue #46829（`../inferencex-publish-plan-20261027/` 5.1 节） | 即第一版被卡住的"5 个 patch"；需合入或 waiver |
+| `--pp-async-batch-depth 1`、`--stream-interval 30`、mem 0.95、`SGLANG_CLIP_MAX_NEW_TOKENS_ESTIMATION=8`、`SGLANG_OPT_USE_TOPK_V2=false` | 参数 | 普通参数 | 可用，写进 cookbook |
+| Infera router / kit | router 镜像、`2p1d-kit/llr35` 引擎脚本 | router 需 Infera release；kit 与 #210 的 example 有差异 | 迁到 Infera example + srt-slurm infera frontend |
+
+结论：53,666 里有三块在 InferenceX 上用不了——PTPC（已知 −1.6%）、KF overlay（未量化，需一次"关 KF"计分）、GEMM CSV（未量化）；
+`index_share=true` 待评审。其余依赖 7 个 OPEN 的 SGLang PR（含第一版的 5 个）与 Infera 发版。
