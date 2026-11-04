@@ -83,7 +83,7 @@
   TTFT 均值 6.46 s，B 为 4.7、15.4、6.04 s；步长 @17 都是 45 ms：省下的主要在 verify 前的同步与 graph 数量（显存），不在每步 kernel 时间。
 - **scoreC 53,609：同对上比 scoreB +4.1%、比 E10 基线 +5.5%**（预测 C ≥ B + 1%、≥ 52,400，成立）。decode 在跑中位 51、最忙 rank 16 / p90 24、预分配等待 3.1；
   步长 @17 42 ms（B 45 ms，−7%）、@25 49 ms（B 52 ms）：E11（MoE 合并走 graph 内 aiter reduce-scatter）每步约省 3 ms，比 4.2 节估计的 1.3–2.4 ms 多。
-  交互 p90 56.2 → 60.9，ITL 中位 15.7 → 14.5 ms，TTFT 均值 6.04 → 5.53 s。**这是目前最高吞吐（crusoe 51,374 → AUS 53,609）**，且正确性已验证（C 门禁 400 题、C 生产 1,319 题、lm-eval 0.967 / 0.970）。
+  交互 p90 56.2 → 60.9，ITL 中位 15.7 → 14.5 ms，TTFT 均值 6.04 → 5.53 s。**这是目前最高吞吐（crusoe 51,374 → AUS 53,609）**（注：草稿 MoE 处在 4.3 节的 PTPC bug 下，计分口径不受影响；真实接受率下应关 PTPC 或带 #45800，C + PTPC 关 52,830），且正确性已验证（C 门禁 400 题、C 生产 1,319 题、lm-eval 0.967 / 0.970）。
 
 ## 4. 优化实验
 
@@ -160,3 +160,17 @@ decode 日志 `accept len` 的均值（每 DP rank 每 40 步一行，探测 / s
 - 计分 C + PTPC 关（`32f`，C104，SIM 2.99，02:05 起）量出它在计分口径下的代价（草稿 MoE 回到 BF16）。
 - 含义：现在所有计分都用模拟接受长度，不受这个 bug 影响；但带着 PTPC 的配置在真实流量下每步只多出约 0.2 个 token，真实吞吐远低于计分。**发布配置应关 PTPC
   （或先修好 PTPC 路径）**。
+
+**03:10 根因（上游已修）**：PTPC 功能本身是 SGLang [#39155](https://github.com/sgl-project/sglang/pull/39155)（09-16 合入）。它的 bug 由
+[#45800](https://github.com/sgl-project/sglang/pull/45800)（10-29 合入，**晚于 v0.5.22**）修掉：GLM NextN 把 checkpoint 里逐专家的排除项映射成运行时名字，
+Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 的量化方法从未被选上，而加载器照样把专家权重转成了 FP8**。FP8 权重进了按 BF16 执行的 MoE，
+草稿是错的。日志里那行 "MTP fused MoE … runs as PTPC-FP8" 只说明配置写进去了。我们的镜像（fdbafb60，基于 10-18 的 v0.5.22）没有 #45800。
+
+- 计分口径下的影响（C104，SIM 2.99）：C + PTPC 关 **52,830**，C（PTPC 开但是坏的）53,609，差 −1.5%（单次 ±1%）；步长 @17 43 对 42 ms。
+  两者执行的都是 BF16 MoE，差别大半应是噪声。yihou 10-26 记录的 PTPC +1.4%（llr26 45,066）同样是在这个 bug 下、模拟接受率测的。
+- 下一步（队列 32g / 32h）：把 #45800 回移到镜像的 `models/glm4_moe.py`（`opt/ptpc-fix/`，hunk 偏移 5 行），C + PTPC 开 + #45800：先门禁（真实接受长度、200 题、
+  16k × 64），接受长度 ≥ 3 且干净才计分，量出真正的 FP8 草稿 MoE 的收益。
+- InferenceX 规则（`docs/PR_REVIEW_CHECKLIST.md`）：agentic 的推测解码必须用 golden AL 的模拟接受长度（草稿质量不进分数）；更低精度的同样 FLOPs 允许，
+  前提是通过 private eval，且"只用对准确性有要求的客户在生产中会用的优化"；不许给引擎打补丁（镜像原样运行）。所以 PTPC 只有在 #45800 进了所用镜像、
+  且真实接受率正常时才站得住。ATOM（InferenceX recipe）对非专家线性层在线 `ptpc_fp8`，但 MTP 层（`model.layers.78.*`）排除、保持 BF16；
+  Dynamo SGLang（NVFP4）MTP 层也是 BF16。两家都没有量化草稿 MoE。

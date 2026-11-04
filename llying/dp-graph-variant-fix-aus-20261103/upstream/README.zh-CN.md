@@ -1,4 +1,4 @@
-# 修法对到 SGLang main（11-03 17:40，未提 PR）
+# 修法对到 SGLang main：[sgl-project/sglang#48302](https://github.com/sgl-project/sglang/pull/48302)（11-04 03:37 提交）
 
 - 基线：SGLang main `1ea5f8c6`（11-03 17:11）。本地分支 `fix/dsa-graph-variant-dp-consistency`（`/perf_apps/liyingli/bench_agentx/upstream/sglang-main`），
   提交 `7ae1a44`，补丁 `0001-…patch`（`git am` 可用）。
@@ -13,3 +13,6 @@
   `PYTHONPATH=<main>/python` 跑 main 的代码，11/11 通过（aiter 导入时要看到一张 GPU）。格式：ruff format 0.15.1、isort、ruff check（F401 等）通过。
 - 未做：main 上的端到端验证（需要按 main 构建的 ROCm 镜像）；PR 说明里应引用 AUS 上 v0522 的验证结果（`../RESULT.zh-CN.md` 第 1 节）。
   **向上游提 PR 需用户确认**（对外操作）。
+
+- 11-04 03:30 用户要求提 PR：rebase 到 main `b27a5e80`（11-04）无冲突，单元测试 11/11、ruff format / check 通过；推到 `llying-001/sglang` 分支
+  `fix/dsa-graph-variant-dp-consistency`（`1c2168bb`），PR 说明见 `PR_BODY.md`（AUS 上 v0.5.22 构建的验证与计分数据）。

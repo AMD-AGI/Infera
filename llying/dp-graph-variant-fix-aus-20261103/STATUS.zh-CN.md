@@ -23,3 +23,4 @@
 - 01:15 发现真实接受长度约 1.2（所有组，含修法前的 A）；插入接受长度二分 32b–32e（关 CAR / 关 PTPC / index_share=false / 关 KF），排在 2P1D 计分前。
 - 01:42 接受长度二分：关 CAR 1.22（不是原因）；关 PTPC 3.61（原因：FP8 草稿 MoE）。追加 32f（C + PTPC 关，C104 计分）排在 2P1D 计分前。
 - 02:05 acc-idx0 1.20、acc-kf0 1.18：错在 PTPC 路径本身。02:05 起 32f（C + PTPC 关）计分。
+- 03:10 PTPC 根因：SGLang #45800（10-29，晚于 v0.5.22）修的 Quark 排除项 bug；回移到 glm4_moe.py，队列 32g（门禁）/ 32h（计分）。03:34 C + PTPC 关 52,830。03:37 上游 PR sgl-project/sglang#48302。03:40 /scratch 引擎日志同步到 /perf_apps/liyingli/vfix-logs/runs-n06-25/。

@@ -1,0 +1,68 @@
+diff --git a/python/sglang/srt/models/glm4_moe.py b/python/sglang/srt/models/glm4_moe.py
+index d48aac3afbec..18df7fec74cd 100644
+--- a/python/sglang/srt/models/glm4_moe.py
++++ b/python/sglang/srt/models/glm4_moe.py
+@@ -1393,16 +1393,22 @@ def _resolve_nextn_quant_config(self, config, quant_config):
+         if not mtp_excluded:
+             return quant_config
+ 
++        apply_ptpc = should_apply_glm_nextn_moe_ptpc(
++            quant_config, config.num_hidden_layers
++        )
++        routed_experts_prefix = "model.decoder.mlp.experts."
+         names = set(quant_config.exclude_layers)
+         for name in mtp_excluded:
+-            names.add(self._map_mtp_ckpt_name(name, layer_prefix))
+-
+-        # Fused routed experts are queried by the coarse module prefix
+-        # "model.decoder.mlp.experts", which expanded per-expert leaf excludes
+-        # do not match. So that module needs its own entry: bf16 as in the
+-        # checkpoint, or the scheme matching the on-load PTPC-FP8 cast.
+-        # Same gate as the weight-loader cast (Quark-excluded = bf16 in ckpt).
+-        if should_apply_glm_nextn_moe_ptpc(quant_config, config.num_hidden_layers):
++            mapped = self._map_mtp_ckpt_name(name, layer_prefix)
++            # Keep checkpoint excludes for the loader, but let the converted
++            # runtime experts use the PTPC scheme below.
++            if apply_ptpc and mapped.startswith(routed_experts_prefix):
++                continue
++            names.add(mapped)
++
++        # Match the runtime scheme to the weight-loader cast; otherwise keep
++        # the checkpoint's BF16 routed experts excluded.
++        if apply_ptpc:
+             mtp_layer_quant_config = quant_config.quant_config.setdefault(
+                 "layer_quant_config", {}
+             )
+diff --git a/test/registered/unit/models/test_glm_nextn_moe_ptpc.py b/test/registered/unit/models/test_glm_nextn_moe_ptpc.py
+index 1632b7460654..e157c5d32180 100644
+--- a/test/registered/unit/models/test_glm_nextn_moe_ptpc.py
++++ b/test/registered/unit/models/test_glm_nextn_moe_ptpc.py
+@@ -16,6 +16,7 @@
+ 
+ import torch
+ 
++from sglang.srt.layers.quantization.quark.utils import should_ignore_layer
+ from sglang.srt.models.glm4_moe import (
+     GlmMoeDsaForCausalLMNextN,
+     enable_glm_nextn_moe_ptpc,
+@@ -118,6 +119,20 @@ def test_flag_on_assigns_ptpc_scheme_instead_of_bf16_exclude(self):
+         self.assertEqual(scheme["input_tensors"]["qscheme"], "per_channel")
+         self.assertTrue(scheme["input_tensors"]["is_dynamic"])
+ 
++    def test_flag_on_fused_experts_not_ignored_by_quark(self):
++        self.assertTrue(
++            should_ignore_layer(
++                "model.decoder.mlp.experts",
++                ignore=self._resolve(_quark_cfg(), flag=False).exclude_layers,
++            )
++        )
++        self.assertFalse(
++            should_ignore_layer(
++                "model.decoder.mlp.experts",
++                ignore=self._resolve(_quark_cfg(), flag=True).exclude_layers,
++            )
++        )
++
+     def test_flag_on_does_not_mutate_caller_config(self):
+         src = _quark_cfg()
+         orig_exclude = list(src.exclude_layers)

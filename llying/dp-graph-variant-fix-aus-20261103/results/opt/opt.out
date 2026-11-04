@@ -66,3 +66,7 @@
 02:05:36 opt acc-kf0 accept arm-C-prod-kf0-1104T0154: mean 1.18 over 883 decode log lines
 02:05:36 opt acc-kf0 end
 02:05:38 opt Cptpc0 start: score arm-C-prod-ptpc0.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1238 min left
+03:34:45 opt Cptpc0 score: | C104 | 52,830 | 432.8 | 3.452 | 12,523 / 9 | 68.3 / 61.3 | 14.6 / 16.3 | 4.30 / 10.17 / 5.98 | 40.4 | 96.07%（96.65%） |
+03:34:45 opt Cptpc0 end
+03:34:46 opt acc-ptpcfix start: gate arm-C-prod-ptpcfix.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1149 min left
+03:35:47 arm-C-prod-ptpcfix-1104T0334 up
