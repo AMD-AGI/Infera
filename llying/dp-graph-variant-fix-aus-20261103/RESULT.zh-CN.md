@@ -344,14 +344,32 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
   | 分项（ms/步） | TP4（C104，4.1 节） | TP8（C208） |
   |---|---|---|
   | MoE GEMM | 16.6（KF `gemm1_a4w4_port_fp4_h6144_i512_…_glm` + `gemm2_a4w4_port_…`） | **12.5**：gemm1 **aiter 原版** `mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256` 6.88、gemm2 `gemm2_a4w4_port_hmax8192_imax256_…` 4.59、`moe_reduction` 1.03 |
-  | 集合通信（all-gather + reduce-scatter） | 约 4.3 | **6.0**（3.07 + 2.93，8 rank） |
+  | 集合通信（all-gather + reduce-scatter） | 5.15（下方精确值；4.1 节的约 4.3 是粗估） | 5.39（下方精确值） |
   | sparse MLA / indexer | 6.8 / 2.6–3.4 | 8.0 / 3.7–3.9 |
   | dense GEMM | 7.9 | 8.1（DP attention 下每 rank 一份，与 TP 无关） |
   | MoE 排序 / 杂项 | 1.1 | 2.1 |
 
-- **KF 的 MoE 优化在 TP8 下只生效了一半**：KF 的 gemm1 只为 i512（TP4 每 rank 中间维）做了，TP8（i256）回退到 aiter 原版；KF 日志也显示 MoE 只在
-  M = 128–448 时走 KF。MoE 字节减半应约 8.3 ms，实测 12.5 ms，约 **4 ms 空间**；8 rank 通信多 1.7 ms。两者合起来正是 TP8 截距高出带宽下限的约 4 ms（第 5 节）。
-- 对应的优化：把 KF MoE（gemm1）移植 / 调优到 i256 形状；8 rank 通信看 one-shot / 融合。TP8 decode 变快在 2P1D 受 prefill 限时先体现为交互度。
+- **深入拆解（09:20，`ana/dtrace_deep.py`：8 / 4 个 rank 全部、每个 kernel 归类；集合通信按"第 i 次调用在各 rank 的最短时长 ≈ 传输，其余 ≈ 等最慢的 rank"拆）**：
+
+  | ms/步（verify） | TP4（C104） | TP8（C208） | 差 |
+  |---|---|---|---|
+  | MoE gemm1 | 10.96（KF `gemm1_a4w4_port_…_i512_…_glm`） | 6.91（aiter 原版 `mfma_moe1_…`） | −4.05 |
+  | MoE gemm2 | 5.66（`…_nt_atomic…`） | 4.63（`…_nt_reduce…`） | −1.03 |
+  | MoE 单独 reduction | 0 | 1.03（reduce 版 gemm2 要另一次归约） | +1.03 |
+  | MoE 排序 / 量化 | 1.11（含 KF `glm52_moe_sort_fill`） | 2.50（aiter `opus_moe_sorting` 等） | +1.39 |
+  | **MoE 合计** | **17.7**（GEMM 5.81 TB/s，峰值 73%） | **15.1**（GEMM 4.18 TB/s，52%） | −2.7 |
+  | all-gather（传输 + 等待） | 2.83（1.96 + 0.87） | 2.65（2.03 + 0.63） | −0.18 |
+  | reduce-scatter（传输 + 等待） | 2.32（1.97 + 0.34） | 2.74（2.39 + 0.35） | +0.42 |
+  | sparse MLA / indexer | 6.82 / 3.36 | 8.05 / 3.85 | +1.72 |
+  | dense GEMM / norm | 7.89 / 1.19 | 8.12 / 1.15 | +0.19 |
+  | 草稿 graph / draft_extend（另计） | 2.1 / 2.2 | 1.5 / 1.8 | −1.0 |
+
+- **更正 08:55 的说法**：通信不是 TP8 的问题——按 kernel 精确统计，TP4 5.37、TP8 5.54 ms，几乎相同（之前拿 TP4 的粗估 4.3 ms 比，得出"多 1.7 ms"是错的）；
+  其中等最慢 rank 的部分 TP8 约 1.0、TP4 约 1.2 ms。
+- **TP8 的问题集中在 MoE**：MoE 三个部件都没用上 KF（gemm1 回退原版、gemm2 用 reduce 版要多一次归约、排序是 aiter 通用版）。按 TP4 的效率，
+  TP8 的 MoE GEMM 应约 8.3 ms、加排序约 9.4 ms，实测 15.1 ms：**约 5.6 ms 空间（verify 步长的 13%）**，与截距高出带宽下限约 4 ms 对得上（第 5 节）。
+- sparse MLA / indexer 在 TP8 下慢 1.7 ms，但各 rank 耗时几乎相同（8.0–8.2 ms），可能是 graph 按最大 batch 补齐的开销（TP8 最忙 / 均值 1.43，TP4 1.28），未证实。
+- 对应的优化：KF 的 gemm1、atomic 版 gemm2、融合排序移植 / 调优到 i256（每 rank 中间维 256）。TP8 decode 变快在 2P1D 受 prefill 限时先体现为交互度。
 
 ### 4.7 KF overlay 与 yihou 的上游 PR（11-04 08:40）
 
