@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T20:10:19.552158+00:00",
+  "checked_at_utc": "2026-11-04T20:44:33.879301+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -90,7 +90,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T08:00:43Z",
+      "updatedAt": "2026-11-04T20:35:52Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "8083ca7ad7fdcaf2388a88196559b870e70e762a",
@@ -167,9 +167,10 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 2,
-        "FAILURE": 17,
-        "SKIPPED": 63,
+        "FAILURE": 5,
+        "IN_PROGRESS": 4,
+        "QUEUED": 8,
+        "SKIPPED": 60,
         "SUCCESS": 83
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47872/checks"
@@ -188,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T19:43:21Z",
+      "updatedAt": "2026-11-04T20:10:35Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "f0da6aa1f6a3cfd3cb3d14642a9b915c5794e415",
+      "headRefOid": "1919d5680272f27d15e3ac5746caf2abfad5a108",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -706,8 +707,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/rocm-dcp-pd-config-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -748,8 +749,8 @@
       "baseRefOid": "e0c7992d0d48c8085655752de7a9f43bf1862bbc",
       "headRefName": "yihou/pd-dcp-sharded-draft-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -834,8 +835,8 @@
       "baseRefOid": "a6f5bd397be420c12d0690c07e16e241124269e5",
       "headRefName": "yihou/rocm-dsa-eager-idle-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -932,10 +933,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 5,
-        "IN_PROGRESS": 1,
         "QUEUED": 1,
         "SKIPPED": 53,
-        "SUCCESS": 115
+        "SUCCESS": 116
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46820/checks"
     },
@@ -960,8 +960,8 @@
       "baseRefOid": "8a455f1b9005a05091ad1825f0f3493bfd74d27d",
       "headRefName": "yihou/glm52-dcp-pack-cache-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -1002,8 +1002,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2296,7 +2296,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T17:50:23Z",
+      "updatedAt": "2026-11-04T20:17:12Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "201d823b3c6a41f44684d639d44f9535e53cb786",
@@ -2347,8 +2347,7 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "IN_PROGRESS": 1,
+        "FAILURE": 7,
         "QUEUED": 3,
         "SKIPPED": 63,
         "SUCCESS": 88
@@ -3184,8 +3183,8 @@
       "baseRefOid": "67eab57057062e05eabd4227a943b1aa777e563f",
       "headRefName": "pp-fix/mooncake-transfer-room-parallel",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3219,8 +3218,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4431,7 +4430,7 @@
         "login": "salexspb",
         "name": "Sasha Sidorov"
       },
-      "updatedAt": "2026-11-04T20:03:02Z",
+      "updatedAt": "2026-11-04T20:22:07Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "d70e5eabea9864923ee7da4ffc4cc841df0d71d7",
@@ -4453,6 +4452,12 @@
           "name": "Transfer Engine",
           "description": "",
           "color": "70fc29"
+        },
+        {
+          "id": "LA_kwDOMNwitc8AAAAC_YX4dw",
+          "name": "size/L",
+          "description": "1001+ changed lines (additions + deletions)",
+          "color": "E50009"
         }
       ],
       "assignees": [],
@@ -4480,9 +4485,10 @@
       ],
       "unresolved_review_threads": 4,
       "latest_check_counts": {
-        "IN_PROGRESS": 1,
-        "QUEUED": 9,
-        "SUCCESS": 2
+        "FAILURE": 1,
+        "IN_PROGRESS": 2,
+        "SKIPPED": 9,
+        "SUCCESS": 12
       },
       "checks_url": "https://github.com/kvcache-ai/Mooncake/pull/4340/checks"
     },
@@ -4688,8 +4694,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4748,8 +4754,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4905,8 +4911,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
