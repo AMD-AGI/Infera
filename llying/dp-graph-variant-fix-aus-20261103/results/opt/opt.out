@@ -133,3 +133,12 @@
 10:26:41 opt 2p1d-hrrn start: score arm-C-2p1d-ptpcfix-hrrn.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 737 min left
 21:00:47 opt 2p1d-hrrn start: score arm-C-2p1d-ptpcfix-hrrn.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35103, 1439 min left
 21:13:13 opt 2p1d-hrrn: n04-33 held yihou's container yihou-muse-opt-p2-swashardhwq8-c96-o0433 (all 8 GPUs, idle since 14:43; his 34944 requeued): docker stop (not removed, logs kept)
+21:59:02 opt densefp8-prod start: gate arm-C-prod-ptpcfix-densefp8.env conc=104 on smci355-ccs-aus-n02-33 (10.235.192.133) -> smci355-ccs-aus-n02-33 (10.235.192.133), job 35143, 574 min left
+21:59:02 arm-C-prod-ptpcfix-densefp8-1104T2159 up
+22:03:45 arm-C-prod-ptpcfix-densefp8-1104T2159 up failed (attempt 1): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.133:27201/health; see: docker logs glm52_2p1d-prefill0
+22:03:47 arm-C-prod-ptpcfix-densefp8-1104T2203 up
+22:07:39 arm-C-prod-ptpcfix-densefp8-1104T2203 up failed (attempt 2): glm52_2p1d-prefill0 stopped while waiting for http://10.235.192.133:27201/health; see: docker logs glm52_2p1d-prefill0
+22:07:41 arm-C-prod-ptpcfix-densefp8 failed twice
+22:07:41 opt densefp8-prod verify_suite failed
+22:07:41 opt densefp8-prod accept arm-C-prod-ptpcfix-densefp8-1104T2203: no lines
+22:07:41 opt densefp8-prod end

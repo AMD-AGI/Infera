@@ -1,5 +1,5 @@
---- orig/layers/quantization/quark/quark.py	2026-10-18 14:16:37.000000000 +0000
-+++ patched/layers/quantization/quark/quark.py	2026-11-04 11:46:11.874951100 +0000
+--- a/layers/quantization/quark/quark.py
++++ b/layers/quantization/quark/quark.py
 @@ -2,6 +2,7 @@
  
  import fnmatch
@@ -17,7 +17,7 @@
  
  if TYPE_CHECKING:
      from transformers import PretrainedConfig
-@@ -277,6 +278,20 @@
+@@ -277,6 +278,35 @@
  
  logger = logging.getLogger(__name__)
  
@@ -35,10 +35,25 @@
 +    names = os.environ.get("SGLANG_QUARK_EXCLUDED_ONLINE_FP8", "")
 +    return frozenset(name.strip() for name in names.split(",") if name.strip())
 +
++
++class _ExcludedOnlineFp8LinearMethod(Fp8LinearMethod):
++    """Fp8LinearMethod quantizing an excluded bf16 linear online, per output channel."""
++
++    def __init__(self):
++        super().__init__(
++            Fp8Config(is_checkpoint_fp8_serialized=False, activation_scheme="dynamic")
++        )
++
++    def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
++        super().process_weights_after_loading(layer)
++        # The online per-channel path stores weight_scale as [1, N], which the
++        # DeepSeek gfx95 fused paths would take for a block-scale [N, K/128] layout.
++        layer.online_per_channel_fp8 = True
++
  _MOE_SHARED_EXPERT_QUANT_LAYER0_BASES: tuple[str, ...] = (
      "model.layers.0",
      "model.language_model.layers.0",
-@@ -438,6 +453,20 @@
+@@ -438,6 +468,20 @@
              fused_mapping=self.packed_modules_mapping,
          )
  
@@ -59,17 +74,24 @@
      def get_quant_method(
          self, layer: torch.nn.Module, prefix: str
      ) -> Optional["QuantizeMethodBase"]:
-@@ -454,6 +483,13 @@
+@@ -454,6 +498,8 @@
                  # weight_block_size); pure-NVFP4/BF16 sources keep them bf16.
                  if self.excluded_fp8_config is not None:
                      return Fp8LinearMethod(quant_config=self.excluded_fp8_config)
 +                if self._excluded_layer_online_fp8(prefix):
-+                    return Fp8LinearMethod(
-+                        Fp8Config(
-+                            is_checkpoint_fp8_serialized=False,
-+                            activation_scheme="dynamic",
-+                        )
-+                    )
++                    return _ExcludedOnlineFp8LinearMethod()
                  return UnquantizedLinearMethod()
              elif isinstance(layer, RadixAttention):
                  return QuarkKVCacheMethod(self)
+--- a/models/deepseek_common/utils.py
++++ b/models/deepseek_common/utils.py
+@@ -87,6 +87,9 @@
+     """
+     if not hasattr(proj, "weight") or proj.weight.dtype != torch.float8_e4m3fn:
+         return False
++    if getattr(proj, "online_per_channel_fp8", False):
++        # Quark's excluded linears quantized online (quark.py): [1, N] scale.
++        return False
+     weight_scale = getattr(proj, "weight_scale", None)
+     if weight_scale is None or weight_scale.dim() != 2:
+         return False

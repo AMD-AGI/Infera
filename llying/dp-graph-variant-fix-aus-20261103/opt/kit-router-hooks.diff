@@ -35,7 +35,7 @@ diff -ru vfix-20261103/kit/engine/up.sh opt-aus-20261103/pkg/kit/engine/up.sh
      --request-transport http --kv-event-transport zmq --router-tokenizer-path "$MODEL" \
 diff -ru vfix-20261103/kit/engine/worker.sh opt-aus-20261103/pkg/kit/engine/worker.sh
 --- vfix-20261103/kit/engine/worker.sh	2026-11-03 13:10:30.818879600 +0000
-+++ opt-aus-20261103/pkg/kit/engine/worker.sh	2026-11-04 09:07:34.583101000 +0000
++++ opt-aus-20261103/pkg/kit/engine/worker.sh	2026-11-04 21:54:35.058034900 +0000
 @@ -83,7 +83,7 @@
      env+=(SGLANG_HICACHE_HOST_REGISTER_CHUNK_GB=512)
      # PP4 x TP1 prefill (as GB300 Dynamo+SGLang): the last stage also holds
@@ -45,3 +45,13 @@ diff -ru vfix-20261103/kit/engine/worker.sh opt-aus-20261103/pkg/kit/engine/work
      args+=(
          --tp-size 1 --pp-size "$n_gpus" --disable-overlap-schedule
          --chunked-prefill-size "${PP4_CHUNK:-16384}" --max-prefill-tokens "${PP4_CHUNK:-16384}"
+@@ -140,7 +140,8 @@
+ # Both prefills run with --ipc host on one node, and RCCL names shared memory
+ # after process ids, which start low in every container: prefill 1 burns
+ # 30,000 pids first so its ranks never collide with prefill 0's (README note 4).
+-if [[ "$role" == prefill && "$idx" == 1 ]]; then
++# A decode on the prefill node (DECODE_NODE_IP == PREFILL_NODE_IP) shares the same namespace and burns them the same way.
++if [[ "$role" == prefill && "$idx" == 1 ]] || [[ "$role" == decode && "$DECODE_NODE_IP" == "$PREFILL_NODE_IP" ]]; then
+     cmd=(bash -c 'i=0; while [ $i -lt 30000 ]; do ( : ); i=$((i + 1)); done; exec "$@"' _ "${cmd[@]}")
+ fi
+ 

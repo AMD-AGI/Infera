@@ -292,6 +292,21 @@ def _excluded_online_fp8_names() -> frozenset[str]:
     names = os.environ.get("SGLANG_QUARK_EXCLUDED_ONLINE_FP8", "")
     return frozenset(name.strip() for name in names.split(",") if name.strip())
 
+
+class _ExcludedOnlineFp8LinearMethod(Fp8LinearMethod):
+    """Fp8LinearMethod quantizing an excluded bf16 linear online, per output channel."""
+
+    def __init__(self):
+        super().__init__(
+            Fp8Config(is_checkpoint_fp8_serialized=False, activation_scheme="dynamic")
+        )
+
+    def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+        super().process_weights_after_loading(layer)
+        # The online per-channel path stores weight_scale as [1, N], which the
+        # DeepSeek gfx95 fused paths would take for a block-scale [N, K/128] layout.
+        layer.online_per_channel_fp8 = True
+
 _MOE_SHARED_EXPERT_QUANT_LAYER0_BASES: tuple[str, ...] = (
     "model.layers.0",
     "model.language_model.layers.0",
@@ -484,12 +499,7 @@ class QuarkConfig(QuantizationConfig):
                 if self.excluded_fp8_config is not None:
                     return Fp8LinearMethod(quant_config=self.excluded_fp8_config)
                 if self._excluded_layer_online_fp8(prefix):
-                    return Fp8LinearMethod(
-                        Fp8Config(
-                            is_checkpoint_fp8_serialized=False,
-                            activation_scheme="dynamic",
-                        )
-                    )
+                    return _ExcludedOnlineFp8LinearMethod()
                 return UnquantizedLinearMethod()
             elif isinstance(layer, RadixAttention):
                 return QuarkKVCacheMethod(self)
