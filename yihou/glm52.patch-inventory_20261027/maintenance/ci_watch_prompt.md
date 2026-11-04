@@ -79,6 +79,15 @@ If uncertain, inspect the diff; do not default to chasing every failed workflow.
 Keep explicit review/correctness requirements in the ledger separately from
 the CI-watch scope. Do not infer that an excluded check passed or was fixed.
 
+Apply the "Recover existing CI without expanding the patch" section of that
+policy. Distinguish a red check from demonstrated patch causality and from an
+actual upstream merge requirement. Record unrelated failures without turning
+them into new feature work, broad subsystem repairs or self-imposed hardware
+gates. Preserve current-head passing results; do not rebase merely to refresh
+CI. Use a concrete integration need before changing the head. In particular,
+check #46820's actual KV-events launch configuration before escalating its VLM
+failure, and do not make #46830's Qwen tokenizer TTFT failure a DSA repair task.
+
 ## Execution priority: cross-project blockers first
 
 The owner's November 4 instruction puts **#33059, #46820 and #46830** in the

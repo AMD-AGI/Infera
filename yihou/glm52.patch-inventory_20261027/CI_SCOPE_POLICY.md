@@ -70,13 +70,39 @@ but used an `abs(-7)` payload and did not call the real LLaVA image-processing
 method or execute the existing pool-recovery tests. This did not reproduce
 the CI failure and does not qualify the full processing path.
 
-The next diagnostic remains worker-owned and CPU-only: provision an isolated
-Python 3.12 environment under the verified task NFS runtime, match the CI
-version and relevant dependencies, and exercise the real LLaVA method and
-existing pool-recovery regressions with bounded worker counts and first-submit
-stack capture. Preserve fixture, source and environment identities and record
-any missing dependencies. Do not require a GPU allocation or maintainer action
-before attempting this local step. If it still cannot reproduce the failure,
-the original CI worker count, resource quota, parent memory and blocked-thread
-stack are the specific evidence to obtain from the runner owner. Do not turn a
-successful simplified probe into a transient-failure classification or a fix.
+Before expanding that diagnostic, verify the actual CI launch configuration:
+the modified metrics send returns early when KV events are disabled, and the
+VLM test source does not enable them. Record whether the failing run could
+execute the changed path. Recovering this Base shard remains in scope; repairing
+the whole VLM subsystem is not automatically a prerequisite for this PR.
+An isolated Python 3.12 real-LLaVA/pool-recovery probe is an available CPU-only
+diagnostic if needed to choose a justified recovery action, not a new mandatory
+validation gate. Keep worker counts bounded and capture first-submit stacks.
+If local evidence is insufficient, the CI worker count, quota, parent memory
+and blocked-thread stack are specific evidence to obtain from the runner owner.
+Do not turn a successful simplified probe into a transient-failure classification.
+
+## Recover existing CI without expanding the patch
+
+The November 4 owner clarification is to finish the three priority PRs, not
+accumulate unrelated development or self-imposed approval gates.
+
+- Follow the existing current-head Base run when it is queued or active. Do
+  not rebase merely to refresh it: a new head starts new CI and cannot retain
+  the previous head's passing results. Rebase only for a concrete integration
+  need, such as a verified upstream repair or an actual conflict.
+- A same-head failed-job retry retains passing results and may execute failed,
+  cancelled or dependent jobs. The supported PR-wide helper can also select
+  other unsuccessful workflows. Disclose those side effects without expanding
+  our patch-repair scope or overriding retry eligibility limits.
+- Report separately: remaining Base tasks, known upstream-required checks,
+  failures attributable to the changed path, and historical review/evidence
+  notes. A red workflow alone does not prove patch causality or that every red
+  check is a mandatory merge gate. Inspect actual requirements before claiming one.
+- #46830's tokenizer TTFT test runs Qwen3-30B-A3B without the changed DSA/spec
+  path. Retain its red CI result, but do not turn it into a tokenizer optimization
+  project or new author validation gate without changed-path evidence.
+- #33059's native MI300 coverage note remains historical evidence context.
+  An author's own request for additional coverage is not itself a new maintainer
+  blocking review. Preserve actual review requests and source qualifications;
+  do not infer new hardware prerequisites from a missing matrix alone.
