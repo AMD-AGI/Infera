@@ -24,6 +24,26 @@ Current actionable source: [PR_HANDOFF.md](PR_HANDOFF.md); [deployment prioritie
 | P3 | [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references. | DRAFT / `246eb19ea3` | COORDINATION ONLY: the main-based 48k deployment/PR handoff; not runtime code. | PERMANENT DRAFT: for view and track only. Never promote this documentation PR to Ready. | DO NOT MERGE. Maintain the open Draft as the team coordination surface; review/merge priorities apply to linked implementation PRs only. |
 <!-- DAILY-PR-STATUS:END -->
 
+## 2026-11-04 14:29 UTC: #46820 failed-job recovery executed
+
+Sent the [owner-requested retry](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6633167088)
+at 14:25 UTC. The [handler](https://github.com/sgl-project/sglang/actions/runs/41847424995)
+succeeded at 14:26:01. [Base attempt 3](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/3)
+retains all 36 prior passing Base jobs; only the two unsuccessful H100 shards
+were requeued, with no new test execution yet at 14:29:14. Base used failed-job
+recovery, not a full rerun. Four additional unsuccessful/skipped workflows were
+also handled by the upstream PR-wide command. No code PR change was needed.
+
+The owner clarified that CI recovery is the task, with diagnosis and records
+supporting it. Checks now run every 30 minutes, with one automated request per
+hour across the watched author and no lifetime retry cap per head. Unknown
+root cause no longer requires proof of transience before an owner-requested
+retry. Active attempts, exact ownership/head checks, upstream gates, durable
+request history and duplicate prevention remain. Each cycle must verify the
+handler, new attempt and actual test progress and account for unused eligible
+priority-PR opportunities. See [policy](CI_SCOPE_POLICY.md).
+
+
 ## 2026-11-04 13:40 UTC: Fresh priority-PR Base status
 
 All three priority PRs remain Ready at unchanged heads, without new reviews or

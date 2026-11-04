@@ -75,10 +75,10 @@ def validate_config(config):
             raise ValueError("PR outside the authorized allowlist")
     interval = config.get("min_retry_interval_seconds", 7200)
     quota = config.get("max_retries_per_head", 2)
-    if type(interval) is not int or interval < 7200:
-        raise ValueError("retry interval must be at least 7200 seconds")
-    if type(quota) is not int or not 1 <= quota <= 2:
-        raise ValueError("retry quota must be between one and two")
+    if type(interval) is not int or interval < 3600:
+        raise ValueError("retry interval must be at least 3600 seconds")
+    if quota is not None and (type(quota) is not int or quota < 1):
+        raise ValueError("retry quota must be a positive integer or null")
     config = dict(config)
     config.update(min_retry_interval_seconds=interval, max_retries_per_head=quota)
     return config
@@ -368,7 +368,7 @@ def cooldown_error(text):
 
 def cooldown_blocker(gh, run_id, evidence, now):
     """Mirror the audited gate conservatively, including its five-run limit."""
-    deadline = max(item["deadline"] for item in evidence)
+    deadline = max((item["deadline"] for item in evidence), default=0)
     # Upstream includes created_at == cutoff, so equality is still blocked.
     if now <= deadline:
         return {"reason": "author_cooldown_active", "retry_after": utc(deadline + 1)}
@@ -437,7 +437,7 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
         raise ValueError("PR and run identifiers must be positive")
     if not re.fullmatch(r"[0-9a-f]{40}", expected_head):
         raise ValueError("expected head must be a full commit SHA")
-    if reason not in {"cancelled", "transient", "stale_gate"}:
+    if reason not in {"cancelled", "transient", "stale_gate", "owner_requested"}:
         raise ValueError("unsupported retry reason")
     runtime = prepare_runtime(config["runtime"])
     timestamp = time.time() if now is None else now
@@ -501,27 +501,45 @@ def retry(config, number, run_id, expected_head, reason, dry_run=False, gh=None,
             entry["run_id"] == run_id and entry["attempt"] == result["attempt"] for entry in history
         ):
             return finish("blocked", "run_attempt_already_reserved")
-        if len(history) >= config["max_retries_per_head"]:
+        quota = config["max_retries_per_head"]
+        if quota is not None and len(history) >= quota:
             return finish("blocked", "head_retry_quota_exhausted")
         interval = config["min_retry_interval_seconds"]
-        if any(timestamp - parse_time(entry["reserved_at"]) < interval for entry in history):
+        # This state belongs to the one configured author. Reservations for a
+        # different PR/head, including uncertain sends, also consume the interval.
+        if any(
+            timestamp - parse_time(entry["reserved_at"]) < interval for entry in state["retries"]
+        ):
             return finish("blocked", "retry_interval_not_elapsed")
 
         eligible = eligible_runs(latest)
         result["workflow_ids"] = sorted(item["id"] for item in eligible)
         base_jobs = []
         for item in eligible:
-            # A transient failure is classified by the caller/model, not guessed
-            # from a job title. For other reasons, never mask test/build failures.
-            if reason != "transient":
+            # Owner-requested recovery does not claim a failure was transient.
+            # Inspect its Base gate without adding unrelated failure triage.
+            if reason not in {"transient", "owner_requested"} or (
+                reason == "owner_requested" and item["id"] == run_id
+            ):
                 jobs = gh.jobs(item["id"], item["run_attempt"])
                 if item["id"] == run_id:
                     base_jobs = jobs
                 if not jobs and item["conclusion"] != "skipped":
                     return finish("blocked", "job_evidence_unavailable")
                 failures = actual_failures(jobs)
-                if failures:
+                if failures and reason != "owner_requested":
                     return finish("blocked", "actual_failure_requires_triage", failed_jobs=failures)
+        if reason == "owner_requested":
+            for gate in (job for job in base_jobs if job.get("name") in GATES):
+                if gate.get("conclusion") in {
+                    "failure",
+                    "timed_out",
+                    "action_required",
+                    "startup_failure",
+                }:
+                    return finish("blocked", "use_stale_gate_reason")
+                if gate.get("conclusion") != "success":
+                    return finish("blocked", "base_gate_not_successful")
         cooldown_evidence = []
         if reason == "stale_gate":
             failed_gates = [
@@ -659,7 +677,11 @@ def main():
     parser.add_argument("--pr", required=True, type=int)
     parser.add_argument("--run-id", required=True, type=int)
     parser.add_argument("--expected-head", required=True)
-    parser.add_argument("--reason", required=True, choices=("cancelled", "transient", "stale_gate"))
+    parser.add_argument(
+        "--reason",
+        required=True,
+        choices=("cancelled", "transient", "stale_gate", "owner_requested"),
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     try:

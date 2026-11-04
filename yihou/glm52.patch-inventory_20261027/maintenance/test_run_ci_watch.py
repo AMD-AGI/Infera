@@ -6,6 +6,7 @@ No test launches an agent, invokes GitHub, publishes documents, or deletes files
 
 import copy
 import io
+import json
 import os
 import subprocess
 import sys
@@ -295,6 +296,129 @@ class RetainedArtifacts(unittest.TestCase):
             watch, "run", side_effect=AssertionError("Unexpected command execution")
         ).start()
         self.addCleanup(mock.patch.stopall)
+
+
+class RecoveryPostconditionTests(RetainedArtifacts):
+    def setUp(self):
+        super().setUp()
+        self.config.update(python=sys.executable, min_retry_interval_seconds=3600)
+        self.cycle = self.runtime / "cycle"
+        self.cycle.mkdir()
+
+    def recover(self, value=None):
+        return watch.ensure_priority_recovery(
+            self.config,
+            self.runtime / "config.json",
+            self.runtime / "inventory",
+            self.runtime,
+            self.cycle,
+            {},
+            value or result(),
+        )
+
+    def reply(self, status, reason, **extra):
+        return subprocess.CompletedProcess(
+            [], 0, json.dumps(dict(status=status, reason=reason, **extra)), ""
+        )
+
+    def test_missed_eligible_priority_retry_is_requested_after_active_pr_is_refused(self):
+        url = "https://github.com/sgl-project/sglang/pull/46820#issuecomment-123"
+        worker_result = result()
+        worker_result["summary"] = "No retry was requested during the worker audit."
+        worker_result["prs"][1]["action"] = "No retry or source change."
+        with mock.patch.object(
+            watch.subprocess,
+            "run",
+            side_effect=[
+                self.reply("blocked", "base_run_active"),
+                self.reply("dry_run", "eligible_no_comment_posted"),
+                self.reply("sent", "retry_comment_posted", comment_url=url),
+            ],
+        ) as helper:
+            value = self.recover(worker_result)
+        commands = [call.args[0] for call in helper.call_args_list]
+        self.assertEqual(
+            [cmd[cmd.index("--pr") + 1] for cmd in commands], ["33059", "46820", "46820"]
+        )
+        self.assertIn("--dry-run", commands[1])
+        self.assertNotIn("--dry-run", commands[2])
+        self.assertEqual(value["actions"][-1]["url"], url)
+        self.assertIn("execution remain unverified", value["prs"][1]["action"])
+        self.assertIn("posted a recovery request for #46820", value["summary"])
+        self.assertTrue(value["prs"][1]["action"].startswith("Worker audit: No retry"))
+        self.assertIn("A recovery request has since been posted", value["prs"][1]["base_summary"])
+        self.assertTrue(value["prs"][1]["next_action"].startswith("Verify handler acceptance"))
+        self.assertEqual(value["prs"][1]["base_status"], "queued")
+        self.assertEqual(len(list(self.cycle.glob("recovery-*.json"))), 3)
+        watch.validate_result(value)
+
+    def test_only_priority_owned_prs_reach_helper_and_head_guards_are_preserved(self):
+        with mock.patch.object(
+            watch.subprocess, "run", return_value=self.reply("blocked", "head_changed")
+        ) as helper:
+            value = self.recover()
+        commands = [call.args[0] for call in helper.call_args_list]
+        self.assertEqual(
+            [cmd[cmd.index("--pr") + 1] for cmd in commands], ["33059", "46820", "46830"]
+        )
+        self.assertTrue(all("--dry-run" in cmd for cmd in commands))
+        self.assertTrue(all("head_changed" in item["description"] for item in value["actions"]))
+
+    def test_failed_gate_uses_only_the_existing_stale_gate_path(self):
+        with mock.patch.object(
+            watch.subprocess,
+            "run",
+            side_effect=[
+                self.reply("blocked", "use_stale_gate_reason"),
+                self.reply("dry_run", "eligible_no_comment_posted"),
+                self.reply("sent", "retry_comment_posted"),
+            ],
+        ) as helper:
+            self.recover()
+        commands = [call.args[0] for call in helper.call_args_list]
+        self.assertEqual(
+            [cmd[cmd.index("--reason") + 1] for cmd in commands],
+            ["owner_requested", "stale_gate", "stale_gate"],
+        )
+
+    def test_recent_uncertain_reservation_records_next_slot_without_helper(self):
+        watch.write_json(
+            self.runtime / "retry_state.json",
+            {"retries": [{"status": "uncertain", "reserved_at": watch.now()}]},
+        )
+        with mock.patch.object(
+            watch.subprocess, "run", side_effect=AssertionError("slot is occupied")
+        ):
+            value = self.recover()
+        self.assertEqual(value["actions"][0]["kind"], "recovery_wait")
+        self.assertIn("next_eligible_at", watch.read_json(self.cycle / "recovery-slot.json"))
+
+    def test_uncertain_request_stops_and_durable_reservation_prevents_repost(self):
+        calls = 0
+
+        def helper(*args, **kwargs):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                return self.reply("dry_run", "eligible_no_comment_posted")
+            watch.write_json(
+                self.runtime / "retry_state.json",
+                {"retries": [{"status": "uncertain", "reserved_at": watch.now()}]},
+            )
+            response = self.reply("uncertain", "send_outcome_requires_reconciliation")
+            response.returncode = 1
+            return response
+
+        with mock.patch.object(watch.subprocess, "run", side_effect=helper):
+            value = self.recover()
+            self.recover()
+        self.assertEqual(calls, 2)
+        self.assertTrue(value["prs"][0]["needs_user"])
+        self.assertIn("Reconcile the durable reservation", value["prs"][0]["next_action"])
+        self.assertEqual(
+            watch.read_json(self.cycle / "recovery-33059-owner_requested-request.json")["status"],
+            "uncertain",
+        )
 
 
 class NotificationTests(RetainedArtifacts):

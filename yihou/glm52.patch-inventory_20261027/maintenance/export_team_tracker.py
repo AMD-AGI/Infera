@@ -74,7 +74,7 @@ def generate(inventory, runtime, destination):
         "",
         "**Tracking-only PR: [Infera #228](https://github.com/AMD-AGI/Infera/pull/228) must remain Draft permanently. Use it for viewing, status tracking and team coordination; do not mark it Ready or merge it. The Ready/merge actions below apply to the linked implementation PRs.**",
         "",
-        "The [90-minute Base CI watch](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_48K_WATCH.md) records automated inspection, bounded retries and small owned-PR fixes. [Unresolved handoff](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_48K_PENDING.md) lists what needs the next user or maintainer. Check report timestamps; the local host and credentials must be available.",
+        "The [30-minute Base CI watch](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_48K_WATCH.md) records automated inspection, bounded retries and small owned-PR fixes. [Unresolved handoff](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_48K_PENDING.md) lists what needs the next user or maintainer. Check report timestamps; the local host and credentials must be available.",
         "",
         "[CI scope policy](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.patch-inventory_20261027/CI_SCOPE_POLICY.md): follow Base only when the PR does not change shared code; otherwise include only the additional workflows affected. Unrelated failures are not recurring watch blockers. Review and correctness qualifications remain separate.",
         "",

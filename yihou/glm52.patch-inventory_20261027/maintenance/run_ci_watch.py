@@ -6,6 +6,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import signal
 import subprocess
 import time
@@ -135,7 +136,7 @@ def render_reports(result, checked):
         "",
         f"Last completed agent audit: **{checked}**.",
         "",
-        "Cadence: every 90 minutes (UTC 01:00, 02:30, 04:00, and onward). This is a local-host cron task; "
+        "Cadence: every 30 minutes (UTC :00 and :30). This is a local-host cron task; "
         "the host, network and saved credentials must remain available.",
         "",
         result["summary"],
@@ -290,6 +291,125 @@ def run_worker(config, config_path, inventory, runtime, cycle, env):
     return carry_unresolved(result, read_json(runtime / "latest_result.json", {}))
 
 
+def ensure_priority_recovery(config, config_path, inventory, runtime, cycle, env, result):
+    """Check the worker's recovery follow-through using the same guarded helper."""
+    history = read_json(runtime / "retry_state.json", {"retries": []})["retries"]
+    latest = max(
+        (
+            datetime.fromisoformat(item["reserved_at"].replace("Z", "+00:00")).timestamp()
+            for item in history
+        ),
+        default=0,
+    )
+    available_at = latest + config.get("min_retry_interval_seconds", 3600)
+    if latest and time.time() < available_at:
+        next_time = datetime.fromtimestamp(available_at, timezone.utc).isoformat()
+        note = f"Launcher recovery check: author retry slot next available at {next_time}."
+        write_json(
+            cycle / "recovery-slot.json", {"status": "waiting", "next_eligible_at": next_time}
+        )
+        result["actions"].append(
+            {"pr": 33059, "kind": "recovery_wait", "description": note, "url": ""}
+        )
+        result["summary"] += " " + note
+        return result
+
+    for row in result["prs"]:
+        if row["number"] not in {33059, 46820, 46830}:
+            continue
+        run_match = re.fullmatch(
+            r"https://github.com/sgl-project/sglang/actions/runs/(\d+)(?:/attempts/\d+)?/?",
+            row["base_run_url"],
+        )
+        outcome = {"status": "blocked", "reason": "missing_current_head_or_base_run"}
+        mode = "owner_requested"
+        if run_match and re.fullmatch(r"[0-9a-f]{40}", row["head"]):
+            for dry_run in (True, False):
+                while True:
+                    command = [
+                        config["python"],
+                        "-B",
+                        inventory / "maintenance/ci_watch_retry.py",
+                        "--config",
+                        config_path,
+                        "--pr",
+                        str(row["number"]),
+                        "--run-id",
+                        run_match[1],
+                        "--expected-head",
+                        row["head"],
+                        "--reason",
+                        mode,
+                    ]
+                    if dry_run:
+                        command.append("--dry-run")
+                    try:
+                        completed = subprocess.run(
+                            list(map(str, command)),
+                            cwd=config["worktree"],
+                            env=env,
+                            text=True,
+                            capture_output=True,
+                            timeout=180,
+                        )
+                        outcome = json.loads(completed.stdout)
+                        if (
+                            not isinstance(outcome, dict)
+                            or not {"status", "reason"} <= outcome.keys()
+                        ):
+                            raise ValueError("Malformed helper outcome")
+                    except Exception as exc:
+                        outcome = {
+                            "status": "uncertain",
+                            "reason": f"helper_outcome_unavailable:{type(exc).__name__}",
+                        }
+                    suffix = "dry-run" if dry_run else "request"
+                    write_json(cycle / f"recovery-{row['number']}-{mode}-{suffix}.json", outcome)
+                    if (
+                        dry_run
+                        and mode == "owner_requested"
+                        and outcome["reason"] == "use_stale_gate_reason"
+                    ):
+                        mode = "stale_gate"
+                        continue
+                    break
+                if outcome["status"] != "dry_run":
+                    break
+        note = f"Launcher recovery check ({mode}): {outcome['status']} / {outcome['reason']}."
+        url = outcome.get("comment_url", "")
+        if outcome["status"] == "sent":
+            note += " Request posted; handler acceptance and test execution remain unverified."
+            result["summary"] = (
+                f"Worker audit: {result['summary']} After the worker audit, the launcher "
+                f"posted a recovery request for #{row['number']}; handler acceptance and "
+                "test execution remain unverified."
+            )
+            row["base_summary"] = (
+                f"Pre-request audit: {row['base_summary']} A recovery request has since "
+                "been posted; handler acceptance and the new attempt remain unverified."
+            )
+        if outcome["status"] == "uncertain":
+            row["needs_user"] = True
+            note += " Reconcile the durable reservation and GitHub outcome before another request."
+        result["actions"].append(
+            {"pr": row["number"], "kind": "recovery_postcondition", "description": note, "url": url}
+        )
+        if outcome["status"] == "sent":
+            row["action"] = f"Worker audit: {row['action']} {note}"
+            row["next_action"] = (
+                "Verify handler acceptance and the latest current-head attempt. "
+                f"Prior handoff context, recorded before this request: {row['next_action']}"
+            )
+        else:
+            row["action"] += " " + note
+            row["next_action"] = note + " " + row["next_action"]
+        if url:
+            row["evidence_urls"].append(url)
+        if outcome["status"] in {"sent", "uncertain", "error", "busy"}:
+            break
+    return result
+
+
 def publish_reports(config, inventory, result, checked, env):
     worktree = yihou_path(config["worktree"])
 
@@ -307,7 +427,7 @@ def publish_reports(config, inventory, result, checked, env):
         note = notes["prs"][f"sgl-project/sglang#{row['number']}"]
         note["assessed_at"] = checked[:10]
         note["merge_action"] = f"Base audit {checked}: {row['base_summary']} {row['next_action']}"
-        note["last_action"] = f"Automated 90-minute audit {checked}: {row['action']}"
+        note["last_action"] = f"Automated 30-minute audit {checked}: {row['action']}"
         note["ci_watch"] = {
             "checked_at": checked,
             "head": row["head"],
@@ -327,7 +447,7 @@ def publish_reports(config, inventory, result, checked, env):
     run([config["pre_commit"], "run", "--files", *files], worktree, env, timeout=600)
     git("add", "--", *files)
     if git("diff", "--cached", "--name-only").strip():
-        git("commit", "-s", "-m", "docs: refresh 90-minute 48k CI maintenance")
+        git("commit", "-s", "-m", "docs: refresh 48k CI maintenance")
     git("pull", "--rebase", "origin", config["remote_branch"])
     git("push", "origin", f"HEAD:refs/heads/{config['remote_branch']}")
     return git("rev-parse", "HEAD").strip()
@@ -416,6 +536,10 @@ def main():
                 raise RuntimeError("Unexpected GitHub login; refusing automated mutations")
             run([*git, "pull", "--rebase", "origin", config["remote_branch"]], worktree, env)
             result = run_worker(config, config_path, inventory, runtime, cycle, env)
+            result = ensure_priority_recovery(
+                config, config_path, inventory, runtime, cycle, env, result
+            )
+            validate_result(result)
             checked = now()
             write_json(runtime / "latest_result.json", result)
             write_json(cycle / "reconciled_result.json", result)

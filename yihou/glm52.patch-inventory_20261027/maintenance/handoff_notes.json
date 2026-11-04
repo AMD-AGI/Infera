@@ -57,18 +57,18 @@
       "purpose": "Keep a blocked metrics consumer from stopping the scheduler.",
       "owner": "yihou; delegate unassigned",
       "ready_action": "No remaining author-side promotion step; no GPU required for the socket contract.",
-      "merge_action": "Base audit 2026-11-04T13:13:04.232932+00:00: Base plus AMD/Xeon/ARM64: shared scheduler metrics socket contract. Gate passed; A19/B12/C5=36 Base successes retained from attempt 1, not newly executed. B failed at the 10-second LLaVA CPU-pool submission deadline, followed by warmup HTTP 500/startup and 1800-second timeout; a sibling failed health checks before tests. JIT skipped. Actual kv_events_config=None disables the changed send path. AMD passed 18 stage jobs; Xeon/ARM64 passed. Socket regressions and the simplified CPU probe are inherited evidence. CI maintainer: capture the submission-thread stack, worker count/quota and parent memory to distinguish startup cost from a lock stall and justify recovery. No verified upstream timeout fix or transient classification exists. Keep this separate from KV publisher/VLM feature work. Maintainers: finish shared-code review and preserve socket-contract evidence without new GPU or throughput requirements.",
+      "merge_action": "Interactive recovery 2026-11-04T14:29:14Z: Base attempt 3 is queued after the owner-requested retry. All 36 successful Base jobs were retained unchanged; only the two unsuccessful H100 shards were requeued, and neither had started tests at this check. [Request](https://github.com/sgl-project/sglang/pull/46820#issuecomment-6633167088); [successful handler](https://github.com/sgl-project/sglang/actions/runs/41847424995); [Base attempt 3](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/3). Handler used failed-job recovery for Base; it also retried opt-in-gated Extra/AMD Extra/MLU and the entirely skipped Mori AMD workflow. Worker: follow actual H100 execution and results, preserving all passing jobs. A repeated unknown failure is not a requirement to prove transience before an authorized hourly recovery; apply a demonstrated code fix when available. Maintain shared-code review and existing socket-contract evidence.",
       "evidence": "[glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012](https://github.com/AMD-AGI/Infera/blob/dev/pd_opt/glm_5.2_agentx/yihou/glm52.oai-1p1d-v0521-agentx-c44_20261009.packup_20261012/README.md); c44a to c44b; four real-ZMQ CPU tests pass; no model-throughput claim.",
       "tests": [
         "PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metrics_backpressure.py"
       ],
-      "last_action": "Automated 90-minute audit 2026-11-04T13:13:04.232932+00:00: Reverified the failure log and disabled KV-events configuration. Compared timeout/pool methods with main 77c3bcbe: unchanged despite the newly merged cache-identity change. The inspected successful main Base candidate skipped functional coverage and is not a passing VLM baseline. No speculative repair or retry.",
+      "last_action": "2026-11-04T14:25Z: sent owner_requested retry through the bounded helper; verified handler success at 14:26:01Z and Base attempt 3 at 14:29:14Z with 36 passes retained and two H100 shards queued. No code PR change or rebase.",
       "reviewed_activity_at": "2026-11-03T05:24:50Z",
       "ci_watch": {
-        "checked_at": "2026-11-04T13:13:04.232932+00:00",
+        "checked_at": "2026-11-04T14:29:14Z",
         "head": "ac205f829173029ce17c1898fd9c8d9ab2f861fd",
-        "base_status": "FAILURE",
-        "run_url": "https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/2"
+        "base_status": "QUEUED_WITH_RETAINED_TESTS",
+        "run_url": "https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/3"
       }
     },
     "sgl-project/sglang#47276": {

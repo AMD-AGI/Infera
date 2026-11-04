@@ -25,8 +25,31 @@ focus only on **PR Test (Base)**.
   several workflows as a side effect of a justified Base retry; disclose that
   scope. Never request a retry solely for an out-of-scope failure.
 
-The worker prompt implements this policy. The nine-PR watch list and 90-minute
-polling schedule are unchanged.
+The worker prompt implements this policy. The nine-PR watch list is unchanged;
+the clarified recovery policy below uses a 30-minute check cadence.
+
+## Owner clarification: recovery first, hourly retry opportunities
+
+On November 4 the owner explicitly prioritized ongoing CI recovery over passive
+diagnosis and record keeping. Inspect terminal failed/cancelled Base attempts
+and use the `owner_requested` helper reason when no known code correction needs
+to be applied first. This is a request to recover CI, not a claim that an unknown
+failure has been proved transient. Do not require full root-cause proof before
+using an available recovery opportunity.
+
+Check every 30 minutes, allow one automated request per hour across this author's
+watched PRs, and remove the former two-retries-per-head lifetime cap. Preserve
+ownership, run-ci, exact head/attempt, active-run exclusion and durable duplicate
+prevention. Retain successful jobs through the upstream failed-only mechanism;
+an already-passing gate does not create a new two-hour wait. If a gate actually
+fails its upstream cooldown, respect that observed deadline through `stale_gate`.
+
+Every cycle must verify the request, handler, new attempt and actual test steps.
+An eligible priority PR with an available slot must receive recovery action,
+not only another table entry. A no-action result must name the current blocker
+and next eligible time where applicable. Existing deterministic code failures
+still need a small validated fix; do not spend all opportunities on one known
+unchanged regression while another priority PR can progress.
 
 ## Execution priority
 

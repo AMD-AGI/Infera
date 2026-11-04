@@ -320,8 +320,9 @@ class RetryTests(unittest.TestCase):
 
     def test_config_cannot_relax_authorized_bounds(self):
         for key, value in (
-            ("max_retries_per_head", 3),
-            ("min_retry_interval_seconds", 0),
+            ("max_retries_per_head", 0),
+            ("max_retries_per_head", True),
+            ("min_retry_interval_seconds", 3599),
             ("owned_prs", [46117]),
         ):
             with self.subTest(key=key):
@@ -357,6 +358,105 @@ class RetryTests(unittest.TestCase):
         self.gh.job_data[RUN] = [job("base-a-test-cpu", "failure")]
         self.assertEqual(self.call(reason="transient")["status"], "sent")
         self.assertEqual(self.call(reason="transient")["reason"], "run_attempt_already_reserved")
+
+    def owner_recovery_case(self):
+        self.config.update(min_retry_interval_seconds=3600, max_retries_per_head=None)
+        self.gh.run_data["conclusion"] = "failure"
+        self.gh.job_data[RUN] = [
+            job("call-gate / pr-gate", "success"),
+            job("base-b-test-1-gpu-large (1)", "failure"),
+            job("pr-test-finish", "failure"),
+        ]
+
+    def test_owner_requested_failure_retains_passed_gate_without_new_cooldown_gate(self):
+        self.owner_recovery_case()
+        # A failed-job rerun retains the passing gate; do not add a new gate run.
+        self.gh.policy_error = AssertionError("passed gate must not be re-evaluated locally")
+        outcome = self.call(reason="owner_requested")
+        self.assertEqual(outcome["status"], "sent")
+        self.assertEqual(outcome["requested_reason"], "owner_requested")
+        self.assertEqual(self.gh.cooldown_reads, 0)
+        body = self.gh.posts[0][1].read_text()
+        self.assertIn("owner_requested", body)
+        self.assertIn("across this PR", body)
+
+    def test_owner_requested_does_not_duplicate_active_base(self):
+        self.owner_recovery_case()
+        for status in ("queued", "in_progress", "waiting"):
+            with self.subTest(status=status):
+                self.gh.run_data.update(status=status, conclusion=None)
+                self.assert_blocked("base_run_active", reason="owner_requested")
+
+    def test_owner_requested_cannot_bypass_failed_gate(self):
+        self.owner_recovery_case()
+        self.gh.job_data[RUN][0]["conclusion"] = "failure"
+        self.assert_blocked("use_stale_gate_reason", reason="owner_requested")
+        self.assert_no_retry_reserved()
+
+    def test_owner_requested_requires_present_gate_to_have_passed(self):
+        self.owner_recovery_case()
+        for conclusion in (None, "cancelled", "skipped"):
+            with self.subTest(conclusion=conclusion):
+                self.gh.job_data[RUN][0]["conclusion"] = conclusion
+                self.assert_blocked("base_gate_not_successful", reason="owner_requested")
+
+    def test_hourly_interval_applies_across_prs_heads_and_uncertain_sends(self):
+        self.owner_recovery_case()
+        for status in ("reserved", "sent", "uncertain"):
+            with self.subTest(status=status):
+                older = dict(self.entry(age=3599, status=status), pr=33059, head=OTHER_HEAD)
+                self.history([older])
+                self.assert_blocked("retry_interval_not_elapsed", reason="owner_requested")
+        self.history([dict(self.entry(age=3600), pr=33059, head=OTHER_HEAD)])
+        self.assertEqual(self.call(reason="owner_requested")["status"], "sent")
+
+    def test_null_quota_allows_recovery_after_two_prior_head_attempts(self):
+        self.owner_recovery_case()
+        self.history([self.entry(1, age=8000), self.entry(2, age=4000, status="uncertain")])
+        self.gh.run_data["run_attempt"] = 3
+        self.assertEqual(self.call(reason="owner_requested")["status"], "sent")
+        self.assertEqual(
+            len(json.loads((self.runtime / "retry_state.json").read_text())["retries"]), 3
+        )
+
+    def test_positive_configured_quota_remains_enforced(self):
+        self.owner_recovery_case()
+        self.config["max_retries_per_head"] = 3
+        self.history([self.entry(i, age=16000 - i * 4000) for i in range(1, 4)])
+        self.gh.run_data["run_attempt"] = 4
+        self.assert_blocked("head_retry_quota_exhausted", reason="owner_requested")
+
+    def test_owner_requested_unknown_send_remains_reserved(self):
+        self.owner_recovery_case()
+        self.gh.post_error = TimeoutError("unknown delivery")
+        self.assertEqual(self.call(reason="owner_requested")["status"], "uncertain")
+        self.gh.post_error = None
+        self.assertEqual(
+            self.call(reason="owner_requested", now=NOW + 4000)["reason"],
+            "run_attempt_already_reserved",
+        )
+        self.assertEqual(len(self.gh.posts), 1)
+
+    def test_owner_requested_rechecks_head_and_scope_before_posting(self):
+        self.owner_recovery_case()
+        self.gh.race_head = True
+        self.assert_blocked("head_changed", reason="owner_requested")
+        self.gh.race_head = False
+        original = self.gh.runs
+        reads = 0
+
+        def changed_scope(head):
+            nonlocal reads
+            reads += 1
+            runs = original(head)
+            if reads > 1:
+                runs.append(
+                    dict(self.gh.run_data, id=RUN + 1, path=".github/workflows/pr-test-extra.yml")
+                )
+            return runs
+
+        with mock.patch.object(self.gh, "runs", side_effect=changed_scope):
+            self.assert_blocked("workflow_scope_changed", reason="owner_requested")
 
     def cooldown_case(self, age=7201):
         self.gh.run_data["conclusion"] = "failure"

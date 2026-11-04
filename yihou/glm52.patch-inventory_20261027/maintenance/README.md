@@ -65,13 +65,14 @@ new evidence. A human/agent delegate must assess new reviews/CI failures and
 update the curated actions. No external messaging is configured. The task depends
 on this host being online and its GitHub/SSH credentials remaining valid.
 
-## Autonomous Base CI maintenance every 90 minutes
+## Autonomous Base CI maintenance every 30 minutes
 
 The separate `yihou-glm52-ci-watch` cron block runs `run_ci_watch.py` every
-90 minutes using two UTC entries: `0 1-22/3 * * *` and `30 2-23/3 * * *`.
-The sequence includes 10:00, 11:30, 13:00, 14:30 and continues across midnight.
-This changes the polling cadence; the two-hour minimum retry interval and
-upstream author cooldown remain in force. It monitors exactly SGLang #33059, #46820, #46830, #45524,
+30 minutes (`*/30 * * * *`) so available hourly recovery slots are checked
+promptly. The owner clarified that actual CI recovery is the primary task.
+The local request interval is one hour across this author's watched PRs, with
+no lifetime retry cap per head. Actual upstream gates still apply when executed;
+failed-job reruns retain a passing gate. It monitors exactly SGLang #33059, #46820, #46830, #45524,
 #46918, #47276, #47278, #47897 and #47872. The last two externally authored
 fixes in that list are #45524/#46918; their branches remain read-only. #47276
 is optional for the frozen llr37 deployment, but is explicitly included.
@@ -122,15 +123,25 @@ To use the same path manually in an owned checkout:
 The launcher has its own nonblocking lock and a 90-minute agent deadline. An
 active previous cycle prevents overlap. The retry helper additionally reserves
 actions before sending, checks current head/attempt and existing CI labels,
-enforces at least two hours between requests and at most two automated retries
-per unchanged head, and never retries the same attempt twice. Queued/running
+enforces at least one hour between this author's requests across all watched
+PRs, and never retries the same attempt twice. Queued/running
 jobs are not retried. Unknown outcomes retain their reservation for inspection.
 An expired upstream author cooldown uses the `stale_gate` path, with fresh
 policy and account-wide Base-run checks before sending. The logged deadline
 is conditional on no newer counted run. Such retries are sequential and never
 use the `transient` path to avoid a cooldown refusal.
-Actual deterministic failures require diagnosis; repeated/unclear failures are
-handed off instead of repeatedly retried. Bot retries are PR-wide, as described
+`owner_requested` supports recovery after inspecting a terminal failure without
+requiring prior proof that it was transient. Known code regressions get a scoped
+repair; unknown root cause alone must not indefinitely prevent recovery. The
+worker verifies the handler, new attempt and real test steps, and accounts for
+every unused priority-PR opportunity with a concrete current blocker. Reports
+and historical evidence are not themselves successful CI recovery.
+Before publishing the worker's report, the launcher independently checks the
+three priority PRs through the same guarded retry helper. It records an occupied
+hourly slot and its next eligible time, or requests missed eligible recovery.
+Every helper outcome is retained in the cycle directory; a posted request is
+explicitly distinguished from verified handler success and test execution.
+Bot retries are PR-wide, as described
 below. Source fixes use isolated PR checkouts, focused validation and signed
 commits, with a fresh remote-head check before pushing.
 Verified fixes already merged into upstream main for an in-scope failure should
