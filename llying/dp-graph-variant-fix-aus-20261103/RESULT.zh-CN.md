@@ -107,6 +107,10 @@
 - 剩下的空闲主要是 DP attention 每轮的 CPU 同步：`dp_attn.exchange_sync_rows`（gloo gather）期间 GPU 断档，40 步里 0–5 次、每次约 3 ms（约 0.25–0.4 ms/步）。
   调度线程在这个 gather 里一次要待 39–50 ms（整整一步：各 rank 在此锁步等最慢的一个），多数时候与上一步的 GPU 工作重叠，只有 GPU 先做完时才露出空闲。
 - **判断**：graph 间空闲这一方向的收益已由修法拿到；剩余全去掉也只省约 0.5 ms/步（端到端约 +0.4%），不再投入。
+- **verify graph 按类别**（`ana/dtrace_cat.py`，第二次 trace，trace 模式下）：DP0 / DP2 每步 42.6 ms = MoE GEMM 16.6 / 16.7、dense GEMM 7.9、sparse MLA 6.8、
+  indexer 2.6 / 3.4、MoE 杂项 1.1、norm 1.1、其他 6.4 / 5.4（其中 aiter `allgather_vec` + `reduce_scatter_split_first_dim` 每层各约 27 µs，78 层合计约 4.3 ms）。
+  对照 10-30 E10 trace（55.6 ms 步：MoE 17、dense 8、通信 8、sparse MLA 7、indexer 3.6）：**E11 把通信从约 8 ms 降到约 4.3 ms**，与步长 @17 45 → 42 ms 一致。
+  MoE GEMM 仍占 39%，是 2P1D（TP8 每卡 MoE 权重减半）要攻的那块；`33b` 在 2P1D 计分后采 TP8 的同样拆解作对比。
 
 ### 4.2 decode DP 均衡（router 按请求数加权，11-03 23:58–00:58，`results/opt/score-Cdpbal.txt`）
 
