@@ -146,12 +146,15 @@ decode 日志 `accept len` 的均值（每 DP rank 每 40 步一行，探测 / s
 |---|---|---|
 | 关 CAR（`DECODE_CUSTOM_AR=0`） | 1.22（1,119） | 196 / 0 / 0 |
 | **关 FP8 草稿 MoE（`SGLANG_GLM_NEXTN_MOE_PTPC=0`）** | **3.61**（189） | 197 / 0 / 0 |
+| `index_share_for_mtp_iteration=false`（两侧） | 1.20（818） | 195 / 0 / 0 |
+| 关 KF（`YIHOU_KF_*=0`，PTPC 仍开） | 1.18（883） | 197 / 0 / 0 |
 
 - **原因是 PTPC 草稿 MoE**：MTP 层（第 78 层）的路由专家在 checkpoint 里是 BF16（quark 排除），`SGLANG_GLM_NEXTN_MOE_PTPC=1` 在加载时把它们转成
   per-channel FP8、激活按 token 动态量化（`models/glm4_moe.py` 的 `should_apply_glm_nextn_moe_ptpc` 与 `layer_quant_config["model.decoder.mlp.experts"]`）。
   这样算出的草稿几乎全被拒。关掉后接受长度 3.61（上限 4，高于计分用的 2.99），同样 200 题 decode 日志行数 1,119 → 189，decode 快约 3 倍。
 - 关 CAR 无变化：与 yihou 09-18 的症状相同但原因不同（当时的 CAR 问题已由别的改动修掉）。
-- 待定：是 PTPC 路径本身错，还是与 KF MoE overlay（`YIHOU_KF_MOE=1`）的组合错——`acc-kf0`（PTPC 开、KF 关）回答；
-  `acc-idx0` 照跑作对照。之后计分 C + PTPC 关（`32f`，C104，SIM 2.99）量出它在计分口径下的代价（草稿 MoE 回到 BF16）。
+- **KF 关、PTPC 开仍是 1.18：错在 PTPC 路径本身**（加载时的 FP8 转换或 `QuarkW8A8FP8MoE` 的按 token 动态量化执行），与 KF MoE overlay 无关；
+  `index_share` 也无关。修 PTPC 要逐层比对 MTP 层 MoE 在 BF16 与 PTPC 下的输出（下一步，离线即可）。
+- 计分 C + PTPC 关（`32f`，C104，SIM 2.99，02:05 起）量出它在计分口径下的代价（草稿 MoE 回到 BF16）。
 - 含义：现在所有计分都用模拟接受长度，不受这个 bug 影响；但带着 PTPC 的配置在真实流量下每步只多出约 0.2 个 token，真实吞吐远低于计分。**发布配置应关 PTPC
   （或先修好 PTPC 路径）**。

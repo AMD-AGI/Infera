@@ -51,3 +51,18 @@
 01:46:26 arm-C-prod-idx0-1104T0142 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
 01:46:26 arm-C-prod-idx0-1104T0142 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.05, draft_prefill=0.00, draft_decode=4.41, draft_extend=2.03} spec_args=7
 01:46:48 arm-C-prod-idx0-1104T0142 smoke: 6/6 checks passed
+01:52:08 arm-C-prod-idx0-1104T0142 probe: n=200 errors=0 correct=195/200 (0.975) bad_start=0 garbled=0 hit_cap=3 empty=0
+01:54:00 arm-C-prod-idx0-1104T0142 down
+01:54:00 opt acc-idx0 accept arm-C-prod-idx0-1104T0142: mean 1.20 over 818 decode log lines
+01:54:00 opt acc-idx0 end
+01:54:01 opt acc-kf0 start: gate arm-C-prod-kf0.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1250 min left
+01:55:02 arm-C-prod-kf0-1104T0154 up
+01:58:02 arm-C-prod-kf0-1104T0154 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+01:58:02 arm-C-prod-kf0-1104T0154 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=0 YIHOU_KF_MOE=0 YIHOU_KF_SPARSE=0 
+01:58:02 arm-C-prod-kf0-1104T0154 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=21.42, draft_prefill=0.00, draft_decode=4.32, draft_extend=1.99} spec_args=7
+01:58:24 arm-C-prod-kf0-1104T0154 smoke: 6/6 checks passed
+02:03:51 arm-C-prod-kf0-1104T0154 probe: n=200 errors=0 correct=197/200 (0.985) bad_start=0 garbled=0 hit_cap=3 empty=0
+02:05:36 arm-C-prod-kf0-1104T0154 down
+02:05:36 opt acc-kf0 accept arm-C-prod-kf0-1104T0154: mean 1.18 over 883 decode log lines
+02:05:36 opt acc-kf0 end
+02:05:38 opt Cptpc0 start: score arm-C-prod-ptpc0.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1238 min left
