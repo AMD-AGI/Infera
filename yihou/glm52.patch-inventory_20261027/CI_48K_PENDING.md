@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T15:13:19.676959+00:00**.
+Updated: **2026-11-04T15:44:01.468623+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -62,30 +62,32 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Base advanced to 25 successes; two B jobs and one JIT unit await runners. Four JIT units and one benchmark passed. Review, #45307 overlap, numerical evidence and source/run archiving remain; optional path stays disabled in frozen llr37.
+## #47276: Base has 25 successes; two B jobs await runners. Four JIT units and one benchmark passed; the remaining JIT unit now executes tests. Review, #45307 overlap, numerical evidence and source/run archiving remain; optional path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Follow active coverage without duplication. Maintainers/yihou: coordinate overlap/landing order, finish review and bind exact sources to archived runs while preserving numerical limits and optional deployment role.
+Next action: Worker: follow two B queues and the running JIT unit. Maintainers/yihou: finish review, coordinate #45307 overlap/landing order and archive exact source/run mappings; preserve numerical qualifications and keep this optional path disabled in frozen llr37.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Two Base H100 jobs remain cancelled. Fresh owner_requested evaluation was refused by the hourly interval, not actual_failure_requires_triage; the older cancelled-reason refusal remains historical. Six-workflow PR-wide effects were inspected. No new request or attempt.
+## #47278: Recovery request accepted: successful six-workflow handler and Base attempt 2 verified. All 36 Base and six JIT successes are retained; two formerly cancelled H100 B jobs are queued without runners/steps. Coverage remains incomplete; no new Base failure or pass.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: After 15:25:31 UTC recheck author budget and priority PRs, then reevaluate this oldest lower-priority Base run with owner_requested. Respect any fresh helper refusal and disclose PR-wide effects.
+Next action: Worker: follow actual Base B execution without duplication. Reevaluate only after unsuccessful termination and the author-wide budget; next slot no earlier than 16:32:53 UTC, priority PRs first.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6634763693)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41858886910)
 
-## #47278: AMD VLM pool-submission/startup timeout and skipped C persist in shared split-K/reduce scope. No deterministic patch regression established; transience proof is not required for owner_requested recovery. BF16/DCP/LSE and exact-source constraints remain.
+## #47278: AMD attempt 2 now executes tests for the previous VLM pool-submission/startup failure; 14 stage successes are retained. No new AMD test outcome yet. BF16/DCP/LSE and exact-source constraints remain.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Runner owner: compare VLM startup against an executed matching baseline. Worker: reevaluate hourly recovery after priority PRs. Maintainers/yihou: retain BF16 partials, DCP/LSE coverage, review, source/run archiving and combined-stack qualification.
+Next action: Worker: inspect actual AMD test execution and any first new failure. Runner owner: compare repeated VLM startup failure with an executed matching baseline. Maintainers/yihou: preserve BF16 partials, DCP/LSE coverage, review, source/run archiving and combined-stack qualification.
 
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278)
 
@@ -107,11 +109,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base has 19 successes, LLaVA worker-result/startup failure, two health-check failures and skipped C. Three JIT units pass; other JIT jobs failed health checks. AMD MIOpen/PP and Xeon revision mismatch persist. Author cooldown and older eligible runs prevent a request now; review/source correctness/performance limits remain.
+## #47872: Base remains failed with 19 successes, LLaVA worker-result/startup failure, two health-check failures and skipped C. Three JIT units pass; remaining JIT jobs failed health checks. AMD MIOpen/PP and Xeon mismatch persist. #47278 used the available hourly slot; next local deadline is 16:32:53 UTC. Review/source correctness/performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Reevaluate recovery after 15:25:31 UTC, following priority PRs and older #47278. Retain opt-in, exact valid-selection count, underflow/overflow fallback, boundary ties, source/run archiving, measured 32k regression and source-specific MI355X limits through review.
+Next action: Worker: reevaluate owner_requested after 16:32:53 UTC, checking priority PRs and older eligible runs first; disclose PR-wide effects. CI maintainers: align Xeon revisions and repair MIOpen/PP environment issues. Maintainers/yihou: retain opt-in, exactly min(length,2048) selections, underflow/overflow fallback, valid boundary ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
