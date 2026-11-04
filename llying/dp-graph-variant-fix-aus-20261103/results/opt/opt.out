@@ -21,3 +21,4 @@
 01:09:52 arm-C-2p1d-1104T0103 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
 01:09:53 arm-C-2p1d-1104T0103 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=51.59, draft_prefill=0.00, draft_decode=9.86, draft_extend=5.82} spec_args=7
 01:10:16 arm-C-2p1d-1104T0103 smoke: 6/6 checks passed
+01:14:01 arm-C-2p1d-1104T0103 probe: n=200 errors=0 correct=198/200 (0.990) bad_start=0 garbled=0 hit_cap=1 empty=0
