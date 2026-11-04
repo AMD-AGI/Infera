@@ -1,19 +1,19 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T17:45:53.668112+00:00**.
+Updated: **2026-11-04T18:12:28.618082+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Recovery request and six handler-triggered reruns verified. Base attempt 2 retains 23 real passes; three B jobs and one C job await runners with no new test steps. Handler log reaches cleanup but run/check APIs still report queued. Historical LLaVA timeout, GitHub HTTP 500 and cancelled coverage remain unresolved; excluded non-Base tests are not claimed fixed or passed.
+## #33059: Prior PR-wide reservation, comment and successful handler are verified; the handler API discrepancy is resolved. Base attempt 2 has 24 passes: 23 retained plus the recovered C job. Three B jobs remain runnerless. The prior C HTTP-500 failure recovered; historical LLaVA/cancelled B coverage remains unresolved. Excluded tests are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: follow the four queued Base jobs without duplication and reconcile handler status; inspect the first new failure. Runner owner: obtain LLaVA worker stacks/count/quota/memory if repeated. Preserve separate review/source qualifications.
+Next action: Worker: follow queued B jobs without duplication and inspect the first new failure. Runner owner: capture LLaVA worker stacks/count/quota/memory if repeated. Preserve separate review/source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6637510859)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41878556259)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126392603595)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126744927026)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is historical evidence/review follow-up; no new maintainer hardware gate was established.
 
@@ -33,15 +33,16 @@ Next action: Worker: follow actual B execution without duplication. Runner owner
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 
-## #46830: Base remains cancelled: 22 real Base passes, two unexecuted B cancellations, Mooncake nvcc exit 127 and two C health-check failures. Helper refused retry until 18:33:42 UTC. Tested dependency installer matches current main and already selects Mooncake 0.3.14; no missing integration repair established. AMD MLA startup -9, Qwen TTFT failures and one queued job remain; compiler stderr/version are unknown. Failing launches bypass the changed DSA path.
+## #46830: Base remains cancelled with 22 passes, two unexecuted B cancellations, Mooncake nvcc exit 127 and two C health-check failures. Helper refused until 18:33:42 UTC. Passing peer and failing head have identical Mooncake test/installer blobs and dependency wheel versions; current main installer also matches. Actual nvcc identity/stderr remain unknown. AMD is terminal failure with 12 passes, MLA startup -9, Qwen TTFT failures and four skipped C jobs; failing launches bypass changed DSA behavior.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: reconsider recovery after 18:33:42 UTC, oldest eligible priority run first. Runner owner: capture actual nvcc version/child stderr and compare the passing peer. Maintainers: finish DSA deadlock/consumer review. Do not relax thresholds or turn Qwen TTFT into tokenizer work.
+Next action: Worker: reconsider recovery after 18:33:42 UTC, oldest eligible priority run first. Runner owner: compare actual compiler executable/version, child stderr and JIT cache state with the passing peer. Maintainers: finish DSA deadlock/consumer review; do not expand into tokenizer optimization.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528175)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/job/126578054895)
 
 ## #45524: Base has 35 successes, AWQ timeout and three health-check failures. AMD has 13 successes, PP/MLA failures and runner-wait cancellation. CPU revision mismatch and historical-source equivalence remain unresolved.
 
@@ -81,15 +82,16 @@ Next action: Worker: reevaluate helper recovery after 18:33:42 UTC and eligible 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/job/126685109215)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6634763693)
 
-## #47278: AMD has 16 successful stage jobs: 14 retained plus recovered VLM B and first new C shard. Two C jobs remain queued. Full completion, BF16/DCP/LSE review and source/run qualifications remain.
+## #47278: AMD attempt 2 has 17 successful stage jobs: 14 retained plus recovered VLM B and two C passes. One C job remains runnerless. Full completion, BF16/DCP/LSE review and source/run qualifications remain.
 
 Tracking key: `pr47278-amd-validation-source`.
 
-Next action: Worker: follow remaining AMD C jobs. Maintainers/yihou: preserve BF16 partials, DCP/LSE coverage, review, exact source/run archiving and combined-stack qualification.
+Next action: Worker: follow the last AMD C job without duplication. Maintainers/yihou: preserve BF16 partials, DCP/LSE coverage, review, exact source/run archiving and combined-stack qualification.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/126675266178)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/126709688068)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/126709688408)
 
 ## #47897: Base passed 27 jobs, five JIT units and one benchmark. AMD MIOpen/PP failures and Xeon revision mismatch remain in shared-import scope. Review and source/numerical qualifications remain.
 
