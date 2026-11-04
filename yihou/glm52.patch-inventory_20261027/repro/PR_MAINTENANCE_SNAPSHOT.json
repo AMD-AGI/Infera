@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T01:13:43.184673+00:00",
+  "checked_at_utc": "2026-11-04T02:40:18.026398+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -190,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-03T23:42:30Z",
+      "updatedAt": "2026-11-04T01:14:04Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "ccfb16746a33de9d9fd312b3a5c2b9333aa536f1",
+      "headRefOid": "8e258262970674c7e6444325dfa268d85fc025dd",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -636,9 +636,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 5,
-        "QUEUED": 1,
-        "SKIPPED": 63,
+        "FAILURE": 7,
+        "SKIPPED": 64,
         "SUCCESS": 104
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
@@ -3273,8 +3272,8 @@
       "baseRefOid": "9e9296fdf352d767e66d49367b8763fd788184b6",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -5099,8 +5098,8 @@
       "baseRefOid": "5ac32ada54371cf24525dfeeb814b3e432df6eb9",
       "headRefName": "llying/cookbook-glm52-mi355x-infera-pd",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
