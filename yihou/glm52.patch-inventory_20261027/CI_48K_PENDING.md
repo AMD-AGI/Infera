@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T19:42:03.099602+00:00**.
+Updated: **2026-11-04T20:09:18.504653+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -20,24 +20,26 @@ Next action: Maintainers/yihou: assess native MI300 coverage alongside source-sp
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Attempt 4 retains 36 Base successes and its gate; two B jobs await runners. Historical VLM failure bypassed the changed KV-events send. Shared-code review remains.
+## #46820: Attempt 4 retains gate and 36 Base successes. B shard 1 is running Run test since 19:44:46 UTC; shard 2 has no runner/steps. No new completed result. Historical VLM failure bypassed the changed KV-events send; upstream shared-code review remains.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Follow actual B execution; obtain submission stacks/count/quota/memory if repeated. Maintainers: finish socket-contract review with inherited CPU evidence.
+Next action: Follow both B shards. If LLaVA repeats, runner owner should capture submission stacks, worker count, CPU quota and parent memory. Maintainers: finish shared socket-contract review with inherited CPU evidence and existing approval.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183896)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 
-## #46830: Base attempt 3 has 25 successes, 22 retained; two B jobs remain runnerless. AMD has 14 successes, 12 retained plus recovered MLA and two-GPU B jobs. Two AMD C tests run and two AMD jobs queue. Earlier nvcc/MLA root causes remain unestablished despite recovered jobs; review and historical source qualifications remain.
+## #46830: Base attempt 3 has 25 successes, 22 retained; two B jobs remain runnerless. AMD now has 16 stage successes, 12 retained plus four earlier retry results, and two jobs queued. C logs pass 6/6 and 2/2 files; previous summary understated progress. Earlier nvcc/MLA causes remain unestablished despite recovery; review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Follow pending Base/AMD coverage and inspect new failures. Maintainers: finish DSA deadlock/consumer review. Preserve source evidence; historical Qwen tokenizer TTFT is not a DSA repair task or new hardware gate.
+Next action: Follow pending Base/AMD coverage. Maintainers: finish DSA deadlock/consumer review and preserve source evidence. Historical Qwen tokenizer TTFT is not a DSA repair task or new hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126779421559)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126809810192)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126809810237)
 
 ## #45524: Base has 35 successes, AWQ timeout and health-check failures. AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
 
@@ -67,11 +69,11 @@ Next action: Reevaluate recovery after 20:34:40 UTC, behind eligible priority PR
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Recovery request and successful handler started Base attempt 3. Gate, 36 Base successes and six JIT results were retained. Two B jobs remain runnerless without steps; coverage is incomplete, with no new failure.
+## #47278: Prior recovery request and successful handler started Base attempt 3. Gate, 36 Base successes and six JIT results were retained. Two B jobs remain runnerless without steps; coverage is incomplete.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Follow attempt 3 without duplication; inspect actual B execution. Request also reran Extra, AMD Extra, MLU and skipped AMD Mori; incidental retries do not expand diagnostic scope.
+Next action: Follow attempt 3 without duplication. Prior request also reran Extra, AMD Extra, MLU and skipped AMD Mori; incidental retries do not expand diagnostic scope.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/3)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6640175098)
@@ -103,11 +105,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base attempt 1 has 19 successes but remains failed with LLaVA/health-check failures and skipped C. AMD MIOpen/PP and Xeon mismatch persist. Review/source/correctness/performance limits remain.
+## #47872: Base attempt 1 has 19 successes but remains failed with LLaVA TimeoutError, health-check failures and skipped C. Helper refused the hourly cooldown; no new attempt. AMD MIOpen/PP and Xeon mismatch persist; review/source/correctness/performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Reevaluate owner_requested after 20:34:40 UTC and eligible priority PRs. Repair environment alignment; retain opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving and measured performance limits.
+Next action: Reevaluate owner_requested after 20:34:40 UTC and eligible priority PRs. Repair environment/source alignment; preserve opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
