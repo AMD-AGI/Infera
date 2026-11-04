@@ -62,3 +62,21 @@ a shared host. Distinguish process-startup cost from a lock stall before
 proposing a fix or a retry; preserve the socket-contract regressions and avoid
 speculative KV publisher changes. No new GPU allocation is needed for this
 initial investigation.
+
+**Follow-up after the 08:30 UTC cycle:** the bounded probe completed 24
+submissions with one/eight workers under Python 3.13; first submits took
+3–28 ms. It executed the tested head's extracted factory and initializer,
+but used an `abs(-7)` payload and did not call the real LLaVA image-processing
+method or execute the existing pool-recovery tests. This did not reproduce
+the CI failure and does not qualify the full processing path.
+
+The next diagnostic remains worker-owned and CPU-only: provision an isolated
+Python 3.12 environment under the verified task NFS runtime, match the CI
+version and relevant dependencies, and exercise the real LLaVA method and
+existing pool-recovery regressions with bounded worker counts and first-submit
+stack capture. Preserve fixture, source and environment identities and record
+any missing dependencies. Do not require a GPU allocation or maintainer action
+before attempting this local step. If it still cannot reproduce the failure,
+the original CI worker count, resource quota, parent memory and blocked-thread
+stack are the specific evidence to obtain from the runner owner. Do not turn a
+successful simplified probe into a transient-failure classification or a fix.
