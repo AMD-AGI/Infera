@@ -49,9 +49,20 @@ export DECODE_NODE_IP="${DECODE_NODE_IP_OVERRIDE:-$(ssh -o BatchMode=yes "$d" "$
     { echo "could not find the node IPs (prefill '$PREFILL_NODE_IP', decode '$DECODE_NODE_IP'): set PREFILL_NODE_IP_OVERRIDE / DECODE_NODE_IP_OVERRIDE"; exit 1; }
 set -a; . "$PKG/config/site.local.env"; set +a
 mkdir -p "$LOG_ROOT"
+# Decode-side guard: a step on the decode node that removes the decode container there when the job ends. Slurm sends
+# the step SIGTERM on preemption too, when a remote `docker rm` from the dying batch script may no longer get through
+# (docker containers outlive the job otherwise and would hold the GPUs of the next job on that node).
+guard_pid=
+if [[ -n "${SHIM_JOB:-}" ]]; then
+    srun --overlap -N1 -n1 -w "$d" --gres=gpu:8 /bin/bash -c \
+        "trap 'docker rm -f glm52_2p1d-decode; exit 0' TERM INT; while sleep 30; do :; done" \
+        < /dev/null >> "$LOG_ROOT/guard-$SLURM_JOB_ID.log" 2>&1 &
+    guard_pid=$!
+fi
 cleanup() {
     echo "$(date -u +%T) job ending: removing kit containers"
-    (set -a; . "$PKG/config/recipe-e10.env"; set +a; cd "$PKG/kit" && bash engine/down.sh) >/dev/null 2>&1
+    (set -a; . "$PKG/config/recipe-e10.env"; set +a; cd "$PKG/kit" && bash engine/down.sh) >> "$LOG_ROOT/cleanup-$SLURM_JOB_ID.log" 2>&1
+    [[ -z "$guard_pid" ]] || kill "$guard_pid" 2>/dev/null
     touch "$done_mark"
 }
 trap cleanup EXIT TERM INT
