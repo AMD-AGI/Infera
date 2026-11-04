@@ -1,16 +1,17 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T22:08:32.429728+00:00**.
+Updated: **2026-11-04T22:38:34.159099+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Attempt 2 has 24 Base successes; three B jobs remain runnerless. Historical LLaVA/cancelled coverage remains incomplete. Excluded checks are not claimed fixed or passed.
+## #33059: Attempt 2 has 24 Base successes, 23 retained. B0 is executing Run test since 22:14:24 UTC; B1/B2 remain runnerless. Historical LLaVA/cancelled coverage remains incomplete; excluded checks are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Follow queued B jobs without duplication. If LLaVA repeats, obtain submission stacks, worker count, quota and memory; preserve review/source qualifications.
+Next action: Follow B0 execution and queued B1/B2 without duplication; inspect completed logs. If LLaVA repeats, obtain blocked-thread stacks, worker count, CPU quota and parent memory. Preserve review/source qualifications.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126744927116)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is historical evidence/review follow-up, not an established new maintainer hardware gate.
 
