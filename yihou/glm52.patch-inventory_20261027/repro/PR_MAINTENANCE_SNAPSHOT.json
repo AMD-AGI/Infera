@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T22:39:31.326834+00:00",
+  "checked_at_utc": "2026-11-04T23:09:41.459374+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -190,10 +190,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T22:09:46Z",
+      "updatedAt": "2026-11-04T22:39:48Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "85f271f550d47fdc349b6cbbfc856f04feddcf8d",
+      "headRefOid": "6b881e047d66e03f3d67373e58f629cc1d211f64",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -639,7 +639,8 @@
       "latest_check_counts": {
         "CANCELLED": 1,
         "FAILURE": 6,
-        "QUEUED": 4,
+        "IN_PROGRESS": 1,
+        "QUEUED": 3,
         "SKIPPED": 63,
         "SUCCESS": 86
       },
@@ -2349,10 +2350,9 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 7,
-        "IN_PROGRESS": 1,
         "QUEUED": 2,
         "SKIPPED": 63,
-        "SUCCESS": 88
+        "SUCCESS": 89
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -5401,8 +5401,8 @@
       "baseRefOid": "c42be892d6866f00d821f63cd17df4e2ae9e1ad8",
       "headRefName": "llying/infera-sglang-label",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "UNSTABLE",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "",
       "labels": [],
       "assignees": [],
