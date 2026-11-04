@@ -110,3 +110,21 @@
 07:19:20 opt Cfix-prod accept arm-C-prod-ptpcfix-1104T0658: mean 3.62 over 1705 decode log lines
 07:19:20 opt Cfix-prod end
 07:58:52 opt trace2p1d start: trace arm-C-2p1d-ptpcfix-trace.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 885 min left
+08:54:22 opt trace2p1d dgaps decode-083302/decode-083302-TP-0-DP-0.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.13 ms/step | total 2.28
+08:54:24 opt trace2p1d dgaps decode-083302/decode-083302-TP-1-DP-1.trace.json.gz: ->draft: 0.11 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.31 ms/step | total 1.46
+08:54:26 opt trace2p1d dgaps decode-083302/decode-083302-TP-2-DP-2.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.30 ms/step | total 2.45
+08:54:28 opt trace2p1d dgaps decode-083302/decode-083302-TP-3-DP-3.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.16 ms/step | total 1.31
+08:54:31 opt trace2p1d dgaps decode-083302/decode-083302-TP-4-DP-4.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.28 ms/step | total 1.43
+08:54:33 opt trace2p1d dgaps decode-083302/decode-083302-TP-5-DP-5.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.11 ms/step | total 2.26
+08:54:35 opt trace2p1d dgaps decode-083302/decode-083302-TP-6-DP-6.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.36 ms/step | total 2.52
+08:54:37 opt trace2p1d dgaps decode-083302/decode-083302-TP-7-DP-7.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.13 ms/step | total 1.29
+08:54:39 opt trace2p1d dgaps decode-083802/decode-083802-TP-0-DP-0.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.96 ms/step | total 2.11
+08:54:41 opt trace2p1d dgaps decode-083802/decode-083802-TP-1-DP-1.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 2.02 ms/step | total 2.17
+08:54:43 opt trace2p1d dgaps decode-083802/decode-083802-TP-2-DP-2.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.90 ms/step | total 1.05
+08:54:45 opt trace2p1d dgaps decode-083802/decode-083802-TP-3-DP-3.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.91 ms/step | total 1.06
+08:54:48 opt trace2p1d dgaps decode-083802/decode-083802-TP-4-DP-4.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.93 ms/step | total 2.09
+08:54:50 opt trace2p1d dgaps decode-083802/decode-083802-TP-5-DP-5.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 1.97 ms/step | total 2.13
+08:54:52 opt trace2p1d dgaps decode-083802/decode-083802-TP-6-DP-6.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.78 ms/step | total 0.93
+08:54:54 opt trace2p1d dgaps decode-083802/decode-083802-TP-7-DP-7.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.93 ms/step | total 1.09
+08:54:54 opt trace2p1d end
+08:54:55 opt Cfix-c112 start: score arm-C-prod-ptpcfix.env conc=112 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 829 min left

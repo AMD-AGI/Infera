@@ -336,3 +336,37 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
   每卡权重减半（约 51 GB），prefill 设备 KV 池约翻倍，回载更少。代价：流水 8 级，要 ≥ 8 个在途块才不空泡（92% 时间排队时基本满）；单请求 TTFT 的流水延迟变长；
   每块 7 次级间激活传输（8,192 × 6,144 × 2 B 约 100 MB / 次，XGMI 上约 1–2 ms，对约 160 ms 的每级计算可忽略）；PP8 在本栈从未跑过（PP 相关补丁都按 PP4 验证）。预期 −3% 到 +5%。
 - 第一版（PR 210 栈）的 2P(PP4)+1D C176 是 38,392（`../2p1d-v0522-20261020/` 698 行），当时同样 prefill 到顶（单 PP4 约 3.0 req/s）。
+
+### 4.6 TP8 decode trace（2P1D C208，11-04 08:33 / 08:38，`/perf_apps/liyingli/vfix-logs/opt/trace/opt-trace2p1d-c208/`）
+
+- GPU 空闲 0.9–2.5 ms/步（含采集起始那一步）。verify 按类别（`ana/dtrace_cat.py` + 按 kernel 名）：
+
+  | 分项（ms/步） | TP4（C104，4.1 节） | TP8（C208） |
+  |---|---|---|
+  | MoE GEMM | 16.6（KF `gemm1_a4w4_port_fp4_h6144_i512_…_glm` + `gemm2_a4w4_port_…`） | **12.5**：gemm1 **aiter 原版** `mfma_moe1_silu_mul_afp4_wfp4_fp4_t64x64x256` 6.88、gemm2 `gemm2_a4w4_port_hmax8192_imax256_…` 4.59、`moe_reduction` 1.03 |
+  | 集合通信（all-gather + reduce-scatter） | 约 4.3 | **6.0**（3.07 + 2.93，8 rank） |
+  | sparse MLA / indexer | 6.8 / 2.6–3.4 | 8.0 / 3.7–3.9 |
+  | dense GEMM | 7.9 | 8.1（DP attention 下每 rank 一份，与 TP 无关） |
+  | MoE 排序 / 杂项 | 1.1 | 2.1 |
+
+- **KF 的 MoE 优化在 TP8 下只生效了一半**：KF 的 gemm1 只为 i512（TP4 每 rank 中间维）做了，TP8（i256）回退到 aiter 原版；KF 日志也显示 MoE 只在
+  M = 128–448 时走 KF。MoE 字节减半应约 8.3 ms，实测 12.5 ms，约 **4 ms 空间**；8 rank 通信多 1.7 ms。两者合起来正是 TP8 截距高出带宽下限的约 4 ms（第 5 节）。
+- 对应的优化：把 KF MoE（gemm1）移植 / 调优到 i256 形状；8 rank 通信看 one-shot / 融合。TP8 decode 变快在 2P1D 受 prefill 限时先体现为交互度。
+
+### 4.7 KF overlay 与 yihou 的上游 PR（11-04 08:40）
+
+| KF 开关 | 替换的调用点 | yihou（dorado269）的 SGLang PR |
+|---|---|---|
+| `YIHOU_KF_SPARSE` | `triton_sparse_mla.triton_sparse_mla_fwd` | [#47278](https://github.com/sgl-project/sglang/pull/47278) gfx950 split-K decode plan for 64-head fp8 sparse MLA（同一文件）OPEN |
+| `YIHOU_KF_INDEXER` | `dsa_indexer.aiter_paged_mqa_logits` | [#47897](https://github.com/sgl-project/sglang/pull/47897) in-tree gfx950 paged MQA logits for decode / MTP-verify rows OPEN |
+| `YIHOU_KF_INDEXER` | `DSATopKBackend.topk_transform` | [#47872](https://github.com/sgl-project/sglang/pull/47872) opt-in single-pass Triton top-k for long-context decode rows OPEN |
+| `YIHOU_KF_FUSED_INDEXER`（本配置未开） | `gfx950_fused_indexer`（每 rank ≤ 48 行） | [#47276](https://github.com/sgl-project/sglang/pull/47276) faster gfx950 fused indexer logits and top-k for MTP verify rows OPEN |
+| **`YIHOU_KF_MOE`** | **`moe_runner.aiter.AiterRunnerCore.run`（a4w4 路由 MoE）** | **没有 PR**（占 decode 步 39% 的那块） |
+
+- 4 个 PR 覆盖 sparse MLA、indexer logits、top-k（另加一个本配置没开的融合 indexer），**MoE kernel 没有覆盖**。PR 内容与 overlay 是否逐行等价未比对
+  （overlay 文件头写明基于 v0.5.21 `11bfd868` 与 aiter `e7d2453`）。
+- `index_share_for_mtp_iteration`：`GLM-5.2-MXFP4/config.json` 里就是 `true`（SGLang 代码里的 `False` 只是缺省值），kit 基础参数显式覆盖为 `false`，
+  E10 配方改回 `true`——即发布时的默认，不是减少 FLOPs 的改动。
+- Check 13 原文：[CONTRIBUTING.md "Draft-model precision"](https://github.com/SemiAnalysisAI/InferenceX/blob/57116fff418d7bb651567e722907253a12b75a67/CONTRIBUTING.md#draft-model-precision)、
+  [`.github/codeowner-signoff-verify-prompt.md` Check 13](https://github.com/SemiAnalysisAI/InferenceX/blob/57116fff418d7bb651567e722907253a12b75a67/.github/codeowner-signoff-verify-prompt.md#L608-L668)，
+  由 [InferenceX#3283](https://github.com/SemiAnalysisAI/InferenceX/pull/3283)（09-19 合入）引入。

@@ -30,3 +30,4 @@
 - 05:40 ATOM recipe 核对（排除 *expert*，未点名 layers.78，更正）；DP 均衡步长拟合：1 个请求 ≈ 42 万 token，队列 35 改为权重 400k；追加 33a（C + PTPC/#45800 生产全套正确性）。
 - 06:58 2P1D C208 54,094（+0.8%，交互 p50 +9%）；瓶颈转到 prefill（92% 时间排队），decode 有余量（预分配等待 0.2）。
 - 07:19 C + PTPC + #45800 生产全套通过（0.971、0/0、lm-eval 0.970 / 0.969、接受长度 3.62）。07:05 起队列按用户要求暂停（讨论 E9 / 2P1D）。
+- 08:55 TP8 trace：KF 的 MoE gemm1 在 TP8 回退 aiter 原版（MoE 12.5 ms，按字节应约 8.3），8 rank 通信 6.0 ms。08:40 KF PR 对照（MoE 无 PR）；index_share 默认 true；Check 13 链接。08:50 队列：C112 → hrrn → DP 均衡 40 万 → PP8 门禁 / 计分。
