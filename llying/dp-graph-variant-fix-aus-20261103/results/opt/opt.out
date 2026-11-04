@@ -70,3 +70,13 @@
 03:34:45 opt Cptpc0 end
 03:34:46 opt acc-ptpcfix start: gate arm-C-prod-ptpcfix.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1149 min left
 03:35:47 arm-C-prod-ptpcfix-1104T0334 up
+03:38:47 arm-C-prod-ptpcfix-1104T0334 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+03:38:47 arm-C-prod-ptpcfix-1104T0334 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+03:38:48 arm-C-prod-ptpcfix-1104T0334 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=23.34, draft_prefill=0.00, draft_decode=4.35, draft_extend=2.08} spec_args=7
+03:39:09 arm-C-prod-ptpcfix-1104T0334 smoke: 6/6 checks passed
+03:40:37 arm-C-prod-ptpcfix-1104T0334 probe: n=200 errors=0 correct=198/200 (0.990) bad_start=0 garbled=0 hit_cap=1 empty=0
+03:41:34 arm-C-prod-ptpcfix-1104T0334 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=30 garbled=0 runaway=1 errors=0 prompt_tokens p50=13897 
+03:43:21 arm-C-prod-ptpcfix-1104T0334 down
+03:43:21 opt acc-ptpcfix accept arm-C-prod-ptpcfix-1104T0334: mean 3.60 over 334 decode log lines
+03:43:21 opt acc-ptpcfix end
+03:43:23 opt Cptpcfix start: score arm-C-prod-ptpcfix.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1140 min left

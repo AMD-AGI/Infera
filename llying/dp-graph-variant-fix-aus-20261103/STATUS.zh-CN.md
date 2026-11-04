@@ -24,3 +24,4 @@
 - 01:42 接受长度二分：关 CAR 1.22（不是原因）；关 PTPC 3.61（原因：FP8 草稿 MoE）。追加 32f（C + PTPC 关，C104 计分）排在 2P1D 计分前。
 - 02:05 acc-idx0 1.20、acc-kf0 1.18：错在 PTPC 路径本身。02:05 起 32f（C + PTPC 关）计分。
 - 03:10 PTPC 根因：SGLang #45800（10-29，晚于 v0.5.22）修的 Quark 排除项 bug；回移到 glm4_moe.py，队列 32g（门禁）/ 32h（计分）。03:34 C + PTPC 关 52,830。03:37 上游 PR sgl-project/sglang#48302。03:40 /scratch 引擎日志同步到 /perf_apps/liyingli/vfix-logs/runs-n06-25/。
+- 03:43 C + PTPC + #45800 门禁：接受长度 3.60、198/200、0/0；03:43 起计分（32h）。
