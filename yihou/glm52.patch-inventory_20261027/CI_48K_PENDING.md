@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T19:10:50.956019+00:00**.
+Updated: **2026-11-04T19:42:03.099602+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -29,17 +29,15 @@ Next action: Follow actual B execution; obtain submission stacks/count/quota/mem
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 
-## #46830: Base attempt 3 has 25 successes: 22 retained plus three recovered C jobs. Newly inspected H100 Mooncake and GB300 logs pass; AMD MLA also passes, bringing AMD to 13 successes with 12 retained. Two Base B jobs await runners and one AMD B test runs. Earlier compiler/MLA causes remain unestablished; historical Qwen TTFT and DSA review remain separate.
+## #46830: Base attempt 3 has 25 successes, 22 retained; two B jobs remain runnerless. AMD has 14 successes, 12 retained plus recovered MLA and two-GPU B jobs. Two AMD C tests run and two AMD jobs queue. Earlier nvcc/MLA root causes remain unestablished despite recovered jobs; review and historical source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: follow the two queued Base B jobs and active AMD B test; inspect any new failure. Maintainers: finish DSA deadlock/consumer review. Preserve inherited source evidence; the historical Qwen tokenizer TTFT failure is not a DSA optimization or new hardware gate.
+Next action: Follow pending Base/AMD coverage and inspect new failures. Maintainers: finish DSA deadlock/consumer review. Preserve source evidence; historical Qwen tokenizer TTFT is not a DSA repair task or new hardware gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/3)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779403597)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126779403846)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126779423737)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/job/126779421559)
 
 ## #45524: Base has 35 successes, AWQ timeout and health-check failures. AMD PP/MLA failures, runner-wait cancellation, CPU revision mismatch and historical-source equivalence remain unresolved.
 
@@ -64,18 +62,20 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Recover coverage after 19:34:17 UTC and eligible priority PRs. Maintainers/yihou: coordinate landing order, review and exact source/run archiving.
+Next action: Reevaluate recovery after 20:34:40 UTC, behind eligible priority PRs and older eligible runs. Maintainers/yihou: coordinate landing order, review and exact source/run archiving; preserve optional deployment role.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Base attempt 2 remains cancelled with 36 Base and six JIT successes retained; two B jobs never executed. This cycle helper refused retry_interval_not_elapsed without posting. Coverage remains incomplete.
+## #47278: Recovery request and successful handler started Base attempt 3. Gate, 36 Base successes and six JIT results were retained. Two B jobs remain runnerless without steps; coverage is incomplete, with no new failure.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Reevaluate owner_requested after 19:34:17 UTC and eligible priority PRs; inspect PR-wide side effects and preserve existing successes.
+Next action: Follow attempt 3 without duplication; inspect actual B execution. Request also reran Extra, AMD Extra, MLU and skipped AMD Mori; incidental retries do not expand diagnostic scope.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/3)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47278#issuecomment-6640175098)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41898283965)
 
 ## #47278: AMD has 17 stage successes, including 14 retained and three earlier retry successes. One C job remains runnerless. BF16/DCP/LSE review and source/run qualifications remain.
 
@@ -107,7 +107,7 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Reevaluate owner_requested after 19:34:17 UTC and eligible priority PRs. Repair environment alignment; retain opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving and measured performance limits.
+Next action: Reevaluate owner_requested after 20:34:40 UTC and eligible priority PRs. Repair environment alignment; retain opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving and measured performance limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
