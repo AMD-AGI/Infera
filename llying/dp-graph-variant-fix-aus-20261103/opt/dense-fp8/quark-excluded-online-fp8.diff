@@ -1,0 +1,75 @@
+--- orig/layers/quantization/quark/quark.py	2026-10-18 14:16:37.000000000 +0000
++++ patched/layers/quantization/quark/quark.py	2026-11-04 11:46:11.874951100 +0000
+@@ -2,6 +2,7 @@
+ 
+ import fnmatch
+ import logging
++import os
+ import re
+ from typing import TYPE_CHECKING, Any, Dict, List, Optional, cast
+ 
+@@ -37,7 +38,7 @@
+ )
+ from sglang.srt.layers.quantization.unquant import UnquantizedLinearMethod
+ from sglang.srt.layers.radix_attention import RadixAttention
+-from sglang.srt.utils import get_device_capability
++from sglang.srt.utils import get_device_capability, is_hip
+ 
+ if TYPE_CHECKING:
+     from transformers import PretrainedConfig
+@@ -277,6 +278,20 @@
+ 
+ logger = logging.getLogger(__name__)
+ 
++# A Quark checkpoint keeps the linears in its "exclude" list in bf16. On ROCm,
++# SGLANG_QUARK_EXCLUDED_ONLINE_FP8 (comma-separated module names under
++# model.layers.<i>., e.g. "self_attn.o_proj,mlp.down_proj") converts those target
++# layers to FP8 online: weights per output channel at load, activations per token
++# with SGLANG_USE_AITER_FP8_PER_TOKEN=1. Draft layers are never converted (the
++# draft runs at the precision it ships in): a NextN block loads under
++# model.decoder.*, an appended MTP layer has index >= num_hidden_layers.
++_EXCLUDED_ONLINE_FP8_TARGET_LAYER = re.compile(r"^model\.layers\.(\d+)\.(.+)$")
++
++
++def _excluded_online_fp8_names() -> frozenset[str]:
++    names = os.environ.get("SGLANG_QUARK_EXCLUDED_ONLINE_FP8", "")
++    return frozenset(name.strip() for name in names.split(",") if name.strip())
++
+ _MOE_SHARED_EXPERT_QUANT_LAYER0_BASES: tuple[str, ...] = (
+     "model.layers.0",
+     "model.language_model.layers.0",
+@@ -438,6 +453,20 @@
+             fused_mapping=self.packed_modules_mapping,
+         )
+ 
++    def _excluded_layer_online_fp8(self, prefix: str) -> bool:
++        """Whether an excluded (bf16) target linear is converted to FP8 online."""
++        names = _excluded_online_fp8_names()
++        if not names or not is_hip():
++            return False
++        match = _EXCLUDED_ONLINE_FP8_TARGET_LAYER.match(prefix)
++        if match is None:
++            return False
++        if self.num_hidden_layers is not None and int(match.group(1)) >= (
++            self.num_hidden_layers
++        ):
++            return False
++        return match.group(2) in names
++
+     def get_quant_method(
+         self, layer: torch.nn.Module, prefix: str
+     ) -> Optional["QuantizeMethodBase"]:
+@@ -454,6 +483,13 @@
+                 # weight_block_size); pure-NVFP4/BF16 sources keep them bf16.
+                 if self.excluded_fp8_config is not None:
+                     return Fp8LinearMethod(quant_config=self.excluded_fp8_config)
++                if self._excluded_layer_online_fp8(prefix):
++                    return Fp8LinearMethod(
++                        Fp8Config(
++                            is_checkpoint_fp8_serialized=False,
++                            activation_scheme="dynamic",
++                        )
++                    )
+                 return UnquantizedLinearMethod()
+             elif isinstance(layer, RadixAttention):
+                 return QuarkKVCacheMethod(self)

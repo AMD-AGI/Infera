@@ -7,4 +7,4 @@ acc="$(grep -a "accept $lab" "$o" | tail -1 | grep -oE 'mean [0-9.]+' | cut -d' 
 if [[ -z "$lab" || "$s" != *6/6* || "$p" != *" garbled=0 "* || ! "$p" =~ bad_start=[01]\  ]] || ! awk -v a="${acc:-0}" 'BEGIN {exit !(a >= 3)}'; then
     echo "$(date -u +%T) opt pp8-score skipped: gate not clean (${lab:-no gate}; acc ${acc:-?}; $s; $p)" >> "$o"; exit 0
 fi
-exec bash /perf_apps/liyingli/bench_agentx/opt-aus-20261103/scripts/opt_item2.sh pp8 125 score arm-C-1p1d-pp8.env 208
+exec bash /perf_apps/liyingli/bench_agentx/opt-aus-20261103/scripts/opt_item3.sh pp8 125 score arm-C-1p1d-pp8.env 208

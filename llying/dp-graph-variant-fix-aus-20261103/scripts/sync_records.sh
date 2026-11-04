@@ -15,6 +15,7 @@ cp "$O"/scripts/*.sh "$D/opt/scripts/"; cp "$O"/items/*.sh "$D/opt/items/"
 for f in "$O"/pkg/config/arm-*.env; do [[ -e "$PKG/config/$(basename "$f")" ]] || cp "$f" "$D/opt/config/"; done
 mkdir -p "$D/opt/scripts/ana" && cp "$O"/scripts/ana/*.py "$D/opt/scripts/ana/"
 cp "$O/router-decode-request-weight.diff" "$D/opt/"
+mkdir -p "$D/opt/dense-fp8" && cp "$O"/dense-fp8/*.diff "$O/dense-fp8/patched/layers/quantization/quark/quark.py" "$D/opt/dense-fp8/" 2>/dev/null
 (cd /perf_apps/liyingli/bench_agentx && diff -ru vfix-20261103/kit opt-aus-20261103/pkg/kit) > "$D/opt/kit-router-hooks.diff"
 cp "$L/verify.out" "$L/unit.log" "$D/results/" 2>/dev/null
 python3 "$PKG/scripts/judge.py" "$L/verify.out" > "$D/results/judge.txt" 2>&1

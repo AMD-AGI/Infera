@@ -33,3 +33,7 @@
 - 08:55 TP8 trace：KF 的 MoE gemm1 在 TP8 回退 aiter 原版（MoE 12.5 ms，按字节应约 8.3），8 rank 通信 6.0 ms。08:40 KF PR 对照（MoE 无 PR）；index_share 默认 true；Check 13 链接。08:50 队列：C112 → hrrn → DP 均衡 40 万 → PP8 门禁 / 计分。
 - 09:20 TP8 trace 深入拆解：通信与 TP4 相同（5.5 对 5.4 ms，更正 08:55 的说法）；MoE 三个部件在 TP8 都没用上 KF，约 5.6 ms 空间。
 - 10:26 4+4 C112 52,478（−2.2%）：两侧都到顶，C104 仍是最高点。10:26 起 2P1D + hrrn。
+- 11:42 35103 的 extern step 结束，pam_slurm_adopt 拒绝 ssh；新增 opt_item3.sh（ssh 不通时走 tools/sshshim 的 srun --overlap，起栈前先 down.sh 清残留），队列 35–37 改用它。
+- 11:46 35103 被抢占（holder 日志 "CANCELLED ... DUE TO PREEMPTION"），带 --requeue 回到排队（scontrol 估计 19:28 开始）；两台节点交给 zirzhang 的 35141（flux-ainic-2，24 h）。2P1D + hrrn 计分在测量窗口结束前约 6 分钟被杀，作废。
+- 11:47 **残留容器**：节点 9100 端口的 node_exporter 显示抢占后 n06-33 8 卡各约 307 / 309 GB、n06-25 各 264–281 GB 不变（与我们 decode 0.95、prefill 0.88 的占用一致）：容器不受 Slurm 管，而 11:42 起 ssh 不通，条目自己的 down.sh 到不了 decode（prefill 侧也未清掉）。无作业即无法进节点（ssh 拒绝、docker 远程 API 未开），已请用户联系节点使用者 / 管理员执行 `docker ps -a --format '{{.Names}}' | grep '^glm52_2p1d' | xargs -r docker rm -f`。可用节点：无（n02-25 / n05-21 / n05-33 drained，n03-33 planned）。
+- 11:55 防再发：opt-aus scripts/guard_containers.sh（10-20 同类事故写的 guard 的副本，接受前缀 glm52_2p1d-）；opt_item3.sh 在起栈前对两台节点各起一个 guard step（srun --overlap），Slurm 发 SIGTERM（抢占 / 分配到期）时 docker rm -f 我们的容器，条目正常结束时先 down.sh 存日志再停 guard。34a（hrrn）改用 opt_item3.sh，35103 恢复后从头重跑。dense 层在线 FP8 补丁（quark.py，仅 is_hip() 且设 SGLANG_QUARK_EXCLUDED_ONLINE_FP8 时生效，默认关）已写好待 GPU，见 opt/dense-fp8/。
