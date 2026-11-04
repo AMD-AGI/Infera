@@ -1,6 +1,6 @@
 # Active PR handoff
 
-GitHub refresh: **2026-11-04T13:14:08.133934+00:00**. [Overview and priorities](README.md).
+GitHub refresh: **2026-11-04T13:43:35.558829+00:00**. [Overview and priorities](README.md).
 
 ## Ready for review
 
@@ -56,14 +56,14 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/managers/test_kv_metr
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: merrymercy, Fridge003, ispobock, Qiaolin-Yu, hebiao064, HaiShaw.
 - **Base / head:** `main` @ `4c7c775cf4adcbd2c7419d13b51ec838a17e559e` / `fix-dsa-decode-dp-host-sync-deadlock` @ `76b75ed6ed9bfd30c14a6c61bf39b59b85457795`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 2, FAILURE 11, IN_PROGRESS 1, QUEUED 5, SKIPPED 67, SUCCESS 74. Reviews: none.
-- **Last curated action:** Automated 90-minute audit 2026-11-04T13:13:04.232932+00:00: Rechecked active Base/AMD jobs and matching failure logs, confirmed launch attribution and current review status, and preserved the head and completed results. No duplicate retry, rebase or threshold change.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 2, FAILURE 12, IN_PROGRESS 1, QUEUED 4, SKIPPED 67, SUCCESS 74. Reviews: none.
+- **Last curated action:** Interactive audit 2026-11-04T13:40:34+00:00: refreshed actual Base steps and downloaded both new C logs; separated Mooncake EP nvcc exit 127 during class startup from its fail-fast sibling. No code change, rebase or retry.
 - **Latest GitHub activity:** [Latest comment 2026-11-04T06:34:59Z](https://github.com/sgl-project/sglang/pull/46830#issuecomment-6624357389); PR updated 2026-11-04T06:36:00Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-04; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** [glm52.llrepro-pp4-dpa4.packup_20261024](https://github.com/AMD-AGI/Infera/blob/b563462fa4a20b4a6f563d279de14ddee455b343/yihou/glm52.llrepro-pp4-dpa4.packup_20261024/README.md); original MI355X deadlock and MI300X masking investigation; production delta matches #33973; CPU 3 tests + 2 subtests and consumer audit.
 - **To Ready:** No remaining author-side promotion step; retain scoped historical evidence.
-- **To merge / dependency:** Base audit 2026-11-04T13:13:04.232932+00:00: Base plus AMD: DSA eager metadata affects CUDA and ROCm consumers. Gate passed; A9/B10/C2=21 actual Base successes, none retained; one B and one C job running, two B and two C jobs queued without runners/steps. JIT skipped. AMD has 11 stage successes, two failures and one queued job: Qwen tokenizer TTFT 138.109/135.305 ms versus 130 ms, and MLA startup exit -9 after compilation/watchdog stalls with zero MLA tests executed. Those Aiter/non-speculative launches do not use the changed DSA path; red checks do not establish patch causality. Worker: follow active Base/AMD attempts without duplication. CI maintainer: use runner/compiler evidence for MLA startup and a controlled baseline for Qwen TTFT recovery; neither failure establishes a DSA repair requirement. Maintainers: finish review while preserving historical DSA deadlock/consumer evidence; do not impose tokenizer optimization or fresh-CI rebases.
+- **To merge / dependency:** Interactive Base audit 2026-11-04T13:40:34+00:00: Base plus AMD: DSA eager metadata affects CUDA and ROCm consumers. Gate passed; A9/B10/C2=21 actual Base successes, none retained; One H100 B job is executing tests; two B jobs and one C job remain queued. C now has an executed server-startup failure and a fail-fast health-check cascade. [H100 C job 126577528175](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528175) passed the preceding PP test, then test_mooncake_ep_small.py failed in TestPureDP.setUpClass: Mooncake EP JIT nvcc compilation returned exit 127 during CUDA-graph initialization, with zero test methods executed by that class. [B300 C job 126577528163](https://github.com/sgl-project/sglang/actions/runs/41773966833/job/126577528163) skipped tests because the H100 job failed. The log does not establish the compiler exit cause or DSA patch attribution. JIT skipped. AMD has 11 stage successes, two failures and one queued job: Qwen tokenizer TTFT 138.109/135.305 ms versus 130 ms, and MLA startup exit -9 after compilation/watchdog stalls with zero MLA tests executed. Those Aiter/non-speculative launches do not use the changed DSA path; red checks do not establish patch causality. Worker: preserve the active attempt and passed jobs, follow the running H100 shard, and classify the Mooncake EP compiler-startup failure before selecting recovery. Do not infer a missing nvcc executable solely from exit 127 or rewrite DSA code without attribution. No duplicate retry while active. CI maintainer: use runner/compiler evidence for MLA startup and a controlled baseline for Qwen TTFT recovery; neither failure establishes a DSA repair requirement. Maintainers: finish review while preserving historical DSA deadlock/consumer evidence; do not impose tokenizer optimization or fresh-CI rebases.
 
 - Red-check entry points: [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41773964899/job/126429928274); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41773966638/job/126429836227); [call-gate / pr-gate](https://github.com/sgl-project/sglang/actions/runs/41773966803/job/126429859856); [build-test](https://github.com/sgl-project/sglang/actions/runs/41773966743/job/126429976276); [build-test (xeon-spr, spr, stage-a-test-cpu-intel,stage-b-test-cpu-intel, spr2, 2, 3, 4)](https://github.com/sgl-project/sglang/actions/runs/41773966730/job/126429958334); remaining checks are in the linked PR and JSON snapshot.
 
@@ -78,7 +78,7 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me, DarkSharpness, BBuf, celve, HydraQYH, yuan-luo.
 - **Base / head:** `main` @ `4c7c775cf4adcbd2c7419d13b51ec838a17e559e` / `yihou/kf-fused-indexer-gfx950` @ `674ad71976e9154c15cc7011596cd0deb5405077`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 6, QUEUED 11, SKIPPED 58, SUCCESS 90. Reviews: claude: COMMENTED (2026-10-29T13:35:23Z).
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 6, QUEUED 10, SKIPPED 58, SUCCESS 91. Reviews: claude: COMMENTED (2026-10-29T13:35:23Z).
 - **Last curated action:** Automated 90-minute audit 2026-11-04T13:13:04.232932+00:00: Reverified unchanged guarded diff/callers, review feedback and Base/JIT steps. Two C jobs now passed; remaining coverage is queued. No duplicate retry or source change.
 - **Latest GitHub activity:** [Latest comment 2026-11-04T06:36:57Z](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6624386421); PR updated 2026-11-04T06:38:06Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-04; new comments/reviews still require human triage.
@@ -170,7 +170,7 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/layers/attention/test
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `449617bc94a5d4ae23ad62d0da2f842e711ca983` / `fix/offloader-keep-is-shuffled` @ `43dec26b032c08f4e9eee0c772db9f44d3afc275`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 2, FAILURE 16, SKIPPED 90, SUCCESS 29. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 2, FAILURE 16, SKIPPED 90, SUCCESS 29. Reviews: none.
 - **Last curated action:** 2026-11-03: confirmed unchanged head, Ready state, passing lint and missing run-ci. The Base gate is authorization failure, not a model or kernel failure. No mutation by this audit.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:21:05Z](https://github.com/sgl-project/sglang/pull/45484#issuecomment-6568974915); PR updated 2026-11-02T04:21:05Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -194,7 +194,7 @@ PYTHONPATH=python python test/registered/model_loading/test_offloader_shuffled_w
 
 - **State / responsibility:** READY; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: 1am9trash, hubertlu-tw, kkHuang-amd, HaiShaw, Fridge003, YAMY1234, rainj-me.
 - **Base / head:** `main` @ `a6f5bd397be420c12d0690c07e16e241124269e5` / `yihou/rocm-dsa-eager-idle-20261027` @ `11262e1199d914ac1946bdcf3d18f56cc3f45612`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 17, SKIPPED 90, SUCCESS 25. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: CANCELLED 1, FAILURE 17, SKIPPED 90, SUCCESS 25. Reviews: none.
 - **Last curated action:** 2026-11-03: confirmed current Ready state at 11262e1199d9 and passing lint. Historical Draft-gate result needs a fresh authorized attempt, not another Ready conversion. No code change or retry by this audit.
 - **Latest GitHub activity:** [Latest comment 2026-11-02T04:21:06Z](https://github.com/sgl-project/sglang/pull/46822#issuecomment-6568975144); PR updated 2026-11-02T04:21:06Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -261,7 +261,7 @@ python -m pytest -q python/tests/packaging/test_project.py::test_structured_obje
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: none requested.
 - **Base / head:** `main` @ `8a455f1b9005a05091ad1825f0f3493bfd74d27d` / `yihou/glm52-dcp-pack-cache-20261027` @ `aed9bc6953d0a95c879cff5151ee20627e9937b3`.
-- **Review / CI:** REVIEW_REQUIRED; mergeability UNKNOWN / UNKNOWN; 0 unresolved inline threads. Checks: FAILURE 18, SKIPPED 87, SUCCESS 24. Reviews: none.
+- **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: FAILURE 18, SKIPPED 87, SUCCESS 24. Reviews: none.
 - **Last curated action:** 2026-11-03: verified unchanged head and Draft state; newest lint passes. No new functional CI result or evidence resolving the existing readiness blockers.
 - **Latest GitHub activity:** [Latest comment 2026-10-27T11:02:43Z](https://github.com/sgl-project/sglang/pull/46819#issuecomment-6440276807); PR updated 2026-11-02T04:22:19Z.
 - **Evidence freshness:** Recorded head unchanged; evidence retains its stated limits. Notes last assessed 2026-11-03; new comments/reviews still require human triage.
@@ -328,10 +328,10 @@ PYTHONPATH=python python -m pytest -q test/registered/unit/test_dsa_pd_dcp_confi
 ### [AMD-AGI/Infera #228](https://github.com/AMD-AGI/Infera/pull/228) — Permanent Draft tracker for 48k deployment priorities, implementation PRs and experiment references.
 
 - **State / responsibility:** DRAFT; yihou; delegate unassigned. GitHub assignees: none. Requested reviewers: xiaobochen-amd, jiejingzhangamd, limou102.
-- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `f1591383b36ca094f0441d582e65d1625f87459f`.
+- **Base / head:** `main` @ `8847491c2856d5bc43e230f413c62afe68147e46` / `dev/yihou/glm52-pr-tracking` @ `246eb19ea31ce0c14ed388fd266b3a4f9b47624d`.
 - **Review / CI:** REVIEW_REQUIRED; mergeability MERGEABLE / BLOCKED; 0 unresolved inline threads. Checks: SKIPPED 8, SUCCESS 4. Reviews: none.
 - **Last curated action:** 2026-11-02: owner requested permanent Draft for view/track; converted #228 to Draft and added a daily Draft-state guard.
-- **Latest GitHub activity:** PR updated 2026-11-04T11:44:25Z; no issue comments.
+- **Latest GitHub activity:** PR updated 2026-11-04T13:14:27Z; no issue comments.
 - **Evidence freshness:** HEAD CHANGED: re-audit evidence from 2cb681fc1e. Notes last assessed 2026-11-02; new comments/reviews still require human triage.
 - **Activity triage:** NEW/UNAUDITED ACTIVITY: inspect new comments, reviews, checks and dependency changes.
 - **Evidence / pack-up:** Five Markdown files from main 8847491c; applicable pre-commit hooks and diff check passed; 21 pinned archive references and local links checked; restricted repository identifiers excluded. Separate publisher safety tests: 14 CPU tests.
