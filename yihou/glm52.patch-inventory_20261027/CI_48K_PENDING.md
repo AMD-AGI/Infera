@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T20:09:18.504653+00:00**.
+Updated: **2026-11-04T20:43:36.281773+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -20,15 +20,14 @@ Next action: Maintainers/yihou: assess native MI300 coverage alongside source-sp
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Attempt 4 retains gate and 36 Base successes. B shard 1 is running Run test since 19:44:46 UTC; shard 2 has no runner/steps. No new completed result. Historical VLM failure bypassed the changed KV-events send; upstream shared-code review remains.
+## #46820: Attempt 4 now has 37 Base successes: 36 retained and B shard 1 newly observed passing 39/39 files at 20:27 UTC. One B shard remains runnerless. Historical VLM failure bypassed the changed KV-events send; shared-code maintainer review remains.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Follow both B shards. If LLaVA repeats, runner owner should capture submission stacks, worker count, CPU quota and parent memory. Maintainers: finish shared socket-contract review with inherited CPU evidence and existing approval.
+Next action: Worker: follow remaining B shard 2. If LLaVA repeats, obtain submission stacks, worker count, CPU quota and parent memory from the runner owner. Maintainers: finish shared socket-contract review with inherited four-test CPU evidence and existing approval; no speculative VLM repair or GPU gate.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183896)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 
 ## #46830: Base attempt 3 has 25 successes, 22 retained; two B jobs remain runnerless. AMD now has 16 stage successes, 12 retained plus four earlier retry results, and two jobs queued. C logs pass 6/6 and 2/2 files; previous summary understated progress. Earlier nvcc/MLA causes remain unestablished despite recovery; review/source qualifications remain.
 
@@ -64,7 +63,7 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Reevaluate recovery after 20:34:40 UTC, behind eligible priority PRs and older eligible runs. Maintainers/yihou: coordinate landing order, review and exact source/run archiving; preserve optional deployment role.
+Next action: Worker: reevaluate recovery after 21:34:48 UTC, behind eligible priority PRs. Maintainers/yihou: finish review, coordinate #45307 overlap/landing order and archive exact source/run mappings; preserve numerical limits and the optional role, disabled in frozen llr37.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
@@ -105,15 +104,16 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base attempt 1 has 19 successes but remains failed with LLaVA TimeoutError, health-check failures and skipped C. Helper refused the hourly cooldown; no new attempt. AMD MIOpen/PP and Xeon mismatch persist; review/source/correctness/performance limits remain.
+## #47872: Accepted recovery started Base attempt 2, retaining 19 Base successes and three JIT units. Three B jobs and three JIT jobs await runners; C has not run. AMD C is running actual tests, AMD B remains queued and Xeon is building images; no new completed result establishes recovery. Historical LLaVA timeout and MIOpen/PP failures, review/source/correctness/performance limits remain.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: Reevaluate owner_requested after 20:34:40 UTC and eligible priority PRs. Repair environment/source alignment; preserve opt-in, min(length,2048) selections, exact fallbacks, valid ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
+Next action: Worker: follow attempt 2 without duplication and inspect the first new failure; CI maintainers address any repeated environment/source mismatch. Maintainers/yihou: preserve opt-in, exactly min(length,2048) selections, underflow/overflow fallback, valid ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
 
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
-- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/job/125893452204)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/2)
+- [Evidence](https://github.com/sgl-project/sglang/pull/47872#issuecomment-6641454712)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41907954507)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114096/attempts/2)
 
 ## #47897: Xeon test_server_args.py cannot import _paged_experts_num_resident from the installed package. Checkout/package mismatch remains separate from the repaired architecture API.
 
@@ -123,11 +123,12 @@ Next action: CI maintainers: build/install and test the same revision, then reco
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41601317546/job/125839112259)
 
-## #47872: Xeon cannot import _paged_experts_num_resident; its cancelled sibling also failed req_types and disaggregation.mode imports. Checkout/package mismatch remains unresolved.
+## #47872: Xeon attempt 2 is building images; no new tests have established recovery. Prior attempt could not import _paged_experts_num_resident; its cancelled sibling also failed req_types and disaggregation.mode imports. Checkout/package mismatch remains unresolved.
 
 Tracking key: `pr47872-cpu-source-alignment`.
 
-Next action: CI maintainers: build/install and test the same revision, then recover the shard. Avoid unrelated parser backports.
+Next action: Follow the accepted Xeon retry. CI maintainers: ensure the installed package and tests use the same revision if imports fail again; avoid unrelated parser backports.
 
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853413002)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/125853412984)
