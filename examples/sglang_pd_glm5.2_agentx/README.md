@@ -81,7 +81,9 @@ prefill node                                      decode node
 
 Both nodes need the same `MODEL` path, the image under the same tag, and this
 kit at the same path (the decode is started as `ssh $DECODE_SSH bash
-<kit>/engine/worker.sh decode`). With `DECODE_NODE_IP` equal to
+<kit>/engine/worker.sh decode`), readable by the docker daemon: the engines
+bind-mount files from `patches/`, `kf_overlay/` and `aiter_csv/`, which fails
+from a root-squashed NFS home. With `DECODE_NODE_IP` equal to
 `PREFILL_NODE_IP` and `PREFILL_WORKERS=1`, the 4+4 shape runs on one node
 (prefill and decode on different GPUs, note 4); the reference numbers below are
 from two nodes.
