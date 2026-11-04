@@ -10,7 +10,8 @@
 # does not judge them. A watchdog stops the client when an engine dies or
 # nothing completes for 15 minutes, so a broken deployment does not hold the
 # nodes for the rest of the hour. Ends with one Markdown row per point
-# (summarize.py) in <sweep>/summary.md.
+# (summarize.py) in <sweep>/summary.md. common.sh runs the kit under set -e, so
+# a check that may fail ends in `|| true`.
 #
 # Usage: bash engine/agentx/sweep.sh CONC...   (e.g. 32 64 104; SWEEP_ID=<name>)
 KIT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -47,8 +48,8 @@ watchdog() {
         fault="$( {
             for ((i = 0; i < PREFILL_WORKERS; i++)); do docker logs --since 70s "$CTR-prefill$i" 2>&1; done
             on_decode "docker logs --since 70s $DECODE_CONTAINER 2>&1"
-        } | grep -aE 'Fatal Python error|crashed with exit code' | head -1)"
-        progress="$(tr '\r' '\n' <"$log" | grep -aoE '(returned|done)=[0-9,]+' | tail -1)"
+        } | grep -aE 'Fatal Python error|crashed with exit code' | head -1)" || true
+        progress="$(tr '\r' '\n' <"$log" | grep -aoE '(returned|done)=[0-9,]+' | tail -1)" || true
         [[ "$progress" == "$last" ]] || { last="$progress" since=$SECONDS; }
         if [[ -n "$fault" ]] || ((SECONDS - since > 900)); then
             echo "$(date -u +%T) watchdog: stopping AgentX (${fault:-nothing completed for 15 min, last $last})"
@@ -69,15 +70,16 @@ for conc in "$@"; do
     done
     for w in "${where[@]}"; do
         echo "===== $w $(date -u +%FT%TZ)"
-        on "$w" "rocm-smi --showmeminfo vram --csv; rocm-smi --showpids; docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}'; uptime; ps -eo user,pcpu,etime,comm --sort=-pcpu | head -12"
+        on "$w" "rocm-smi --showmeminfo vram --csv; rocm-smi --showpids; docker stats --no-stream --format '{{.Name}} {{.CPUPerc}} {{.MemUsage}}'; uptime; ps -eo user,pcpu,etime,comm --sort=-pcpu | head -12" || true
     done >"$sweep/$label.env-check" 2>&1
     echo "$(date -u +%T) $label up"
     if RUN_ID="$(basename "$sweep")-$label" bash "$KIT/engine/up.sh" >"$sweep/$label.log" 2>&1; then
         watchdog "$sweep/$label.log" &
         wd=$!
-        CONC="$conc" bash "$KIT/engine/agentx/agentx.sh" >>"$sweep/$label.log" 2>&1
-        echo "$(date -u +%T) $label agentx exited $?"
-        kill "$wd" 2>/dev/null
+        rc=0
+        CONC="$conc" bash "$KIT/engine/agentx/agentx.sh" >>"$sweep/$label.log" 2>&1 || rc=$?
+        echo "$(date -u +%T) $label agentx exited $rc"
+        kill "$wd" 2>/dev/null || true
     else
         echo "$(date -u +%T) $label up failed (see $sweep/$label.log)"
     fi
@@ -85,10 +87,10 @@ for conc in "$@"; do
     run="$(cat "$WORK_DIR/current_run")"
     mkdir -p "$run/metrics"
     for ((i = 0; i < PREFILL_WORKERS; i++)); do
-        curl -s -m 10 "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256 * i))/metrics" >"$run/metrics/prefill$i.prom"
+        curl -s -m 10 "http://$PREFILL_NODE_IP:$((PREFILL_PORT + 256 * i))/metrics" >"$run/metrics/prefill$i.prom" || true
     done
-    curl -s -m 10 "http://$DECODE_NODE_IP:$DECODE_PORT/metrics" >"$run/metrics/decode.prom"
-    bash "$KIT/engine/down.sh" >>"$sweep/$label.log" 2>&1
+    curl -s -m 10 "http://$DECODE_NODE_IP:$DECODE_PORT/metrics" >"$run/metrics/decode.prom" || true
+    bash "$KIT/engine/down.sh" >>"$sweep/$label.log" 2>&1 || echo "$(date -u +%T) $label down.sh failed"
     echo "$run" >>"$sweep/runs"
     echo "$(date -u +%T) $label down"
 done
