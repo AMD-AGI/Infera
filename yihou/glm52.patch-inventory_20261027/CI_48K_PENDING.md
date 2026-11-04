@@ -1,17 +1,19 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T10:25:59.460166+00:00**.
+Updated: **2026-11-04T11:43:02.512802+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base remains incomplete: 19 actual successes, three B jobs queued without runners/steps; C not started and JIT skipped. Upstream dLLM correction is already integrated. Prior excluded CI is not claimed fixed or passed.
+## #33059: Base remains active: A9/B10/C4=23 actual successes, three B shards queued without runners/steps, and one C shard blocked before tests by GitHub HTTP 500. The same lint API query now succeeds. No duplicate retry while active. Upstream dLLM correction is integrated; previously excluded CI is not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: follow the active Base attempt without duplication. Maintainers: complete review and assess the existing native MI300 coverage follow-up; do not invent a new hardware gate. Preserve Ready state and source-specific MI355X evidence limits.
+Next action: Worker: follow the active attempt without duplication; once terminal, reassess a helper transient retry for the documented HTTP 500, including fresh head/attempt, limits and PR-wide side effects. Maintainers: complete review and assess the historical native MI300 coverage follow-up without inventing a new hardware gate. Preserve Ready state and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/blob/201d823b3c6a41f44684d639d44f9535e53cb786/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/job/126523051344)
+- [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773698744/job/126389036733)
 
 ## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is a historical evidence/review follow-up; no new maintainer hardware gate was established in this audit.
 
