@@ -28,18 +28,31 @@ EOF
 )
 [[ ${#nodes[@]} -ge 2 ]] || { echo "need 2 nodes, got: ${nodes[*]}"; exit 1; }
 p="$(hostname -s)"
-d="${nodes[0]}"; [[ "${nodes[0]%%.*}" == "$p" ]] && d="${nodes[1]}"
-ip_of() { getent hosts "$1" | awk '{print $1; exit}'; }
-export PREFILL_NODE_IP="${PREFILL_NODE_IP_OVERRIDE:-$(ip_of "$p")}" DECODE_NODE_IP="${DECODE_NODE_IP_OVERRIDE:-$(ip_of "$d")}" DECODE_SSH="$d"
+done_mark="${PKG}/.vfix-job-${SLURM_JOB_ID}.done"
+# Slurm runs the batch script once, on the first node. A scheduler that starts it on every node (spur: one task per
+# node by default) must not get a second driver: every copy but the first node's waits for the driver and leaves.
+if [[ "${p}" != "${nodes[0]%%.*}" || "${SLURM_PROCID:-0}" != 0 ]]; then
+    echo "$(date -u +%T) $p: not the driver node (${nodes[0]}), waiting for it"
+    while [[ ! -e "$done_mark" ]]; do sleep 30; done
+    exit 0
+fi
+d="${nodes[1]}"
 if ! timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=8 "$d" true 2>/dev/null; then
     export SHIM_JOB="$SLURM_JOB_ID" PATH="$PKG/tools/sshshim:$PATH"
     echo "ssh to $d refused inside the job: using tools/sshshim (srun --overlap)"
 fi
+# The node's own name can map to 127.0.0.1 in /etc/hosts: take the source address of the default route on each node.
+src_ip='ip -o -4 route get 1.1.1.1 | awk "{for (i = 1; i < NF; i++) if (\$i == \"src\") {print \$(i + 1); exit}}"'
+export PREFILL_NODE_IP="${PREFILL_NODE_IP_OVERRIDE:-$(bash -c "$src_ip" | tr -d '[:space:]')}"
+export DECODE_NODE_IP="${DECODE_NODE_IP_OVERRIDE:-$(ssh -o BatchMode=yes "$d" "$src_ip" | tail -1 | tr -d '[:space:]')}" DECODE_SSH="$d"
+[[ "$PREFILL_NODE_IP" =~ ^[0-9.]+$ && "$PREFILL_NODE_IP" != 127.* && "$DECODE_NODE_IP" =~ ^[0-9.]+$ && "$DECODE_NODE_IP" != 127.* ]] ||
+    { echo "could not find the node IPs (prefill '$PREFILL_NODE_IP', decode '$DECODE_NODE_IP'): set PREFILL_NODE_IP_OVERRIDE / DECODE_NODE_IP_OVERRIDE"; exit 1; }
 set -a; . "$PKG/config/site.local.env"; set +a
 mkdir -p "$LOG_ROOT"
 cleanup() {
     echo "$(date -u +%T) job ending: removing kit containers"
     (set -a; . "$PKG/config/recipe-e10.env"; set +a; cd "$PKG/kit" && bash engine/down.sh) >/dev/null 2>&1
+    touch "$done_mark"
 }
 trap cleanup EXIT TERM INT
 echo "$(date -u +%T) job $SLURM_JOB_ID: prefill $p ($PREFILL_NODE_IP), decode $d ($DECODE_NODE_IP); LOG_ROOT=$LOG_ROOT"

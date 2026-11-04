@@ -25,7 +25,19 @@ cmd="$*"
 remote="export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/slurm/bin HOME=$HOME USER=$USER; cd \$HOME 2>/dev/null; $cmd"
 quiet=()
 srun --help 2>&1 | grep -q -- "--quiet" && quiet=(--quiet)  # Slurm has it; spur (crusoe) does not
-if (( no_stdin )); then
-    exec srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote" < /dev/null
+# Inside the job (the batch script and its children): a plain step on the other node. Measured on spur (11-03, job
+# 262523): runs on -w host, clean output, works in the background. Standard Slurm accepts the same.
+if [[ "${SLURM_JOB_ID:-}" == "$SHIM_JOB" ]]; then
+    if (( no_stdin )); then
+        exec srun --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" /bin/bash -c "$remote" < /dev/null
+    fi
+    exec srun --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" /bin/bash -c "$remote"
 fi
-exec srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote"
+# From outside the job (e.g. the login host): exec into the job. spur runs that on a pty: the output arrives with CR line
+# ends, which would corrupt every value a caller parses (md5 sums, IDs). Strip them; keep srun's exit status.
+if (( no_stdin )); then
+    srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote" < /dev/null | tr -d '\r'
+else
+    srun --jobid="$SHIM_JOB" --overlap -N1 -n1 -w "$host" --gres=gpu:8 "${quiet[@]}" --export=NONE /bin/bash -c "$remote" | tr -d '\r'
+fi
+exit "${PIPESTATUS[0]}"

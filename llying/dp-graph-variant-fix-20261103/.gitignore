@@ -1,3 +1,4 @@
 config/site.local.env
 data/*.jsonl
 __pycache__/
+.vfix-job-*.done
