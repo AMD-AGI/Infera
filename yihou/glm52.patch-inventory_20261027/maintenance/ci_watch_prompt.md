@@ -45,6 +45,16 @@ Read the retry helper's
 documented CLI and the local configuration before calling it. Missing required
 context is a reportable blocker, not permission to invent paths or ownership.
 
+For GitHub Git operations, use the task's existing GitHub CLI identity through
+`python <publisher-inventory>/maintenance/git_transport.py <git-arguments>`.
+This is a Git wrapper, with the same working-directory and argument semantics;
+it selects HTTPS and the existing `gh` credential helper per invocation. It
+does not change saved remotes, SSH keys, global Git configuration or ownership
+checks. Use it for fetch/pull/push/clone in task-owned checkouts so an unavailable
+SSH agent does not prevent authorized work. Do not put credentials in URLs,
+arguments, files or logs. This transport wrapper does not authorize CI retries
+or bypass the dedicated retry helper below.
+
 The existing daily publisher and this worker have different responsibilities.
 This prompt explicitly authorizes the bounded CI work described here; older
 descriptions of the daily collector as read-only do not remove that authorization.

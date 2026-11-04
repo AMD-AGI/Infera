@@ -12,6 +12,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from git_transport import github_git_command
+
 NUMBERS = [33059, 46820, 46830, 45524, 46918, 47276, 47278, 47897, 47872]
 REPORTS = ("CI_48K_WATCH.md", "CI_48K_PENDING.md")
 
@@ -39,6 +41,7 @@ def yihou_path(value):
 
 
 def run(command, cwd, env, timeout=180):
+    command = github_git_command(command)
     result = subprocess.run(
         list(map(str, command)),
         cwd=cwd,

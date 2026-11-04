@@ -11,6 +11,8 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
+from git_transport import github_git_command
+
 GENERATED = (
     "PR_HANDOFF.md",
     "OWNED_PR_INDEX.md",
@@ -20,6 +22,7 @@ GENERATED = (
 
 
 def run(args, cwd, env, capture=False):
+    args = github_git_command(args)
     print("Running:", " ".join(map(str, args)), flush=True)
     return subprocess.run(
         list(map(str, args)),

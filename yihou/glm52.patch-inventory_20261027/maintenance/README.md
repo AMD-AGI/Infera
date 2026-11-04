@@ -108,6 +108,17 @@ uncommitted pack-ups. Artifacts and logs use the verified NFS task directory.
 [official non-interactive documentation](https://learn.chatgpt.com/docs/non-interactive-mode).
 No API credentials are copied into configuration or published files.
 
+GitHub Git operations use `git_transport.py` to select HTTPS and the existing
+`gh` credential helper for each command. This applies to both publishers, the
+watch launcher and the worker's documented Git workflow. It avoids depending
+on an interactive SSH agent; it does not modify shared remotes, SSH keys,
+global Git configuration, cron entries, identity checks or retry authorization.
+On November 4 the 10:00 UTC cycle stopped at its initial SSH pull while the
+same `dorado269` identity could still push over HTTPS. The transport correction
+addresses that execution dependency, not an account reauthorization problem.
+To use the same path manually in an owned checkout:
+`python <inventory>/maintenance/git_transport.py <git-arguments>`.
+
 The launcher has its own nonblocking lock and a 90-minute agent deadline. An
 active previous cycle prevents overlap. The retry helper additionally reserves
 actions before sending, checks current head/attempt and existing CI labels,
