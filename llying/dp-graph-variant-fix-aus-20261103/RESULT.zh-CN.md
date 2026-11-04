@@ -194,3 +194,9 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
   InferenceX recipe、SGLang 文档 / 示例、Infera 示例里都没有打开它的推荐配置。
 - 与"dense 层在线 FP8"（交接第 4 项、best-4p4 6.6 节）的区别：后者是主干 78 层的非专家线性层（q_a / kv_a / q_b / o_proj、indexer wq_b / wk、前 3 层 dense MLP）
   做在线 per-token / per-channel FP8，**与 ATOM 的 `ptpc_fp8` 是同一件事**；ATOM 恰好把 MTP 层排除在外。两者只是用了同一种量化方式（PTPC），作用的层不同。
+
+### 4.4 2P1D（2 × PP4 prefill + TP8 / DP8 decode）
+
+- 门禁（C + PTPC 开坏的版本，01:03）：smoke 6/6、200 题 198 / 0 / 0、16k × 128 捞针 63/64、长前缀 61/64；真实接受长度 1.35（PTPC bug）。KF kernel 在 TP8 形状下结果正确。
+- **门禁（C + PTPC + #45800，05:13）**：smoke 6/6、200 题 196 / 0 / 0（撞上限 1）、16k × 64 捞针 32/32、长前缀 31/32；**真实接受长度 3.43**（TP4 为 3.60）。
+  decode KV 池 4,069,696 token / rank（TP4 3,093,376，+32%，与 best-4p4 5 节的估计一致）。C208 计分 05:22 起。

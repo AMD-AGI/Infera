@@ -84,3 +84,13 @@
 05:12:47 opt Cptpcfix end
 05:13:49 opt 2p1dfix-gate start: gate arm-C-2p1d-ptpcfix.env conc=104 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1050 min left
 05:13:49 arm-C-2p1d-ptpcfix-1104T0513 up
+05:17:15 arm-C-2p1d-ptpcfix-1104T0513 files: decode fix=6 debug=0 orig=0 of 6; prefill recipe=5 of 5
+05:17:15 arm-C-2p1d-ptpcfix-1104T0513 env: SGLANG_USE_ROCM700A=0 YIHOU_KF_INDEXER=1 YIHOU_KF_MOE=1 YIHOU_KF_SPARSE=1 
+05:17:16 arm-C-2p1d-ptpcfix-1104T0513 start-up: dual_graph_lines=0 capture={prefill=0.00, decode=0.00, target_verify=20.32, draft_prefill=0.00, draft_decode=4.49, draft_extend=2.20} spec_args=7
+05:17:39 arm-C-2p1d-ptpcfix-1104T0513 smoke: 6/6 checks passed
+05:19:01 arm-C-2p1d-ptpcfix-1104T0513 probe: n=200 errors=0 correct=196/200 (0.980) bad_start=0 garbled=0 hit_cap=1 empty=0
+05:19:29 arm-C-2p1d-ptpcfix-1104T0513 longctx 16000:64: needle: n=32 correct=32 garbled=0 runaway=0 errors=0 prompt_tokens p50=13898 gsm8k: n=32 correct=31 garbled=0 runaway=0 errors=0 prompt_tokens p50=13897 
+05:22:02 arm-C-2p1d-ptpcfix-1104T0513 down
+05:22:02 opt 2p1dfix-gate accept arm-C-2p1d-ptpcfix-1104T0513: mean 3.43 over 411 decode log lines
+05:22:02 opt 2p1dfix-gate end
+05:22:03 opt 2p1d start: score arm-C-2p1d-ptpcfix.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 1042 min left
