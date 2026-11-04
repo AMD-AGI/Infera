@@ -225,3 +225,11 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
   传输等待 39.1（17.0）——请求在等 prefill。TP8 步长在同样的最忙 rank 请求数下快约 3 ms（@4 22 对 25 ms，@15 37 对 40 ms），低负载固定开销下降，与每卡 MoE 权重减半一致。
 - 判断：按每卡吞吐 2P1D 与 4+4 持平，但交互度更高，在 Pareto 上同吞吐点支配 4+4 C104。要让 2P1D 吞吐再上去，需要提高 prefill 能力
   （decode 已有余量）：prefill 侧的候选见 STATUS 之后的计划。
+- **2P1D 提吞吐的 prefill 侧候选（07:10 整理）**：
+  1. prefill chunk 8192 → 16384：yihou llr38 已测 −2.2%（prefill 批次 1.93 → 1.34/s、TTFT 与 KV 传输延迟上升），不做。
+  2. prefill BF16 GEMM 调优：10-28 已做（`../prefill-opt-20261027/gemm-tune/`），调出与默认启发式同一族 kernel，每级每步省 < 1 ms（< 0.3%），不做。
+  3. **E9 后台预写回**：4+4（decode 受限）下 TTFT −14%、吞吐 +0.7%；2P1D 受 prefill 限，可能真正转化为吞吐。补丁（`2p1d-kit/llr35/patches/pre-write-back/`）
+     在 crusoe 本地、未进仓库，本集群没有，需要按 `../prefill-opt-20261027/` README 10-29 的设计重写（v5：受害叶子同步写回 3.2%、未命中率 4.83%）。
+  4. **dense 层在线 FP8**（ATOM 式 `ptpc_fp8`，交接第 4 项的最后一项）：prefill 侧 dense GEMM 约占 prefill 步长 15%，FP8 约省一半 → prefill 步长约 −7%；decode 侧
+     best-4p4 6.6 节估 +1.2–1.9%。改精度、需自己实现（约 30–50 行 + GEMM 调优）、需通过 eval。
+  5. 并发：受 prefill 限时加 lane 只会加排队；降到 C192 可能同吞吐下 TTFT 更好（Pareto 上的另一点），不是提吞吐。
