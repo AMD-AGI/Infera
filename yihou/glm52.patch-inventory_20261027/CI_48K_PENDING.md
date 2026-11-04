@@ -1,43 +1,44 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T08:44:23.228064+00:00**.
+Updated: **2026-11-04T10:25:59.460166+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base remains incomplete: 19 actual successes, three B jobs queued without runners; C not started and JIT skipped. Prior upstream-test integration is verified. Excluded tests are not claimed fixed or passed.
+## #33059: Base remains incomplete: 19 actual successes, three B jobs queued without runners/steps; C not started and JIT skipped. Upstream dLLM correction is already integrated. Prior excluded CI is not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
-Next action: Worker: follow the active Base attempt. Maintainers: complete review. Yihou/reviewers: supply native MI300 DSA/padded-row coverage; preserve Ready state and source-specific MI355X limits.
+Next action: Worker: follow the active Base attempt without duplication. Maintainers: complete review and assess the existing native MI300 coverage follow-up; do not invent a new hardware gate. Preserve Ready state and source-specific MI355X evidence limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773699215/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/blob/201d823b3c6a41f44684d639d44f9535e53cb786/test/registered/dllm/test_dllm_batching_fdfo.py#L95)
 
-## #33059: Native MI300 DSA/padded-row reviewer coverage remains unestablished. Unrelated collective tests do not supply it.
+## #33059: Native MI300 DSA/padded-row coverage remains unestablished. This is a historical evidence/review follow-up; no new maintainer hardware gate was established in this audit.
 
 Tracking key: `pr33059-native-mi300-review`.
 
-Next action: Yihou/reviewers: supply native MI300 coverage using allocated hardware if needed and finish review; preserve Ready state.
+Next action: Maintainers/yihou: assess the historical native MI300 coverage request alongside the author-reported MI355X results and finish review. Preserve Ready state and source-specific limits; use allocated hardware only if concrete additional coverage is requested.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/33059#issuecomment-6573920447)
 
-## #46820: Base retains 36 prior-attempt successes but fails first at the 10-second LLaVA CPU-pool submit deadline, then VLM warmup/1800-second timeout and sibling health check. Bounded 1/8-worker CPU probe completed 24 submissions in Python 3.13 (first submits 3–28 ms) without reproducing CI Python 3.12 failure; actual CI worker count/quota and blocking stack remain unknown. Current main offers no verified processor timeout fix. Shared AMD/Xeon/ARM64 pass; review remains.
+## #46820: Base retains 36 prior-attempt successes but VLM CPU-pool submit times out after 10 seconds, followed by startup/1800-second timeout and a sibling health-check failure. Fresh log/source attribution confirms kv_events_config=None disables the changed metrics send. Current main has identical processor bodies apart from imports; no verified fix or transience is established. The earlier simplified CPU probe did not reproduce the actual workload. AMD/Xeon/ARM64 pass; review remains.
 
 Tracking key: `pr46820-base-review`.
 
-Next action: Yihou/CI maintainer: capture actual CI worker count, CPU quota, process memory and submit-thread stack at the 10-second deadline; distinguish worker-launch cost from lock blocking on the CI Python 3.12 workload before repair/retry. The bounded probe did not reproduce failure. Recover skipped coverage and complete shared-code review; preserve socket-contract evidence without GPU/throughput claims.
+Next action: CI maintainer: recover failed Base coverage after checking the LLaVA runner worker count/quota, parent memory and submit-thread stack; current evidence does not justify a transient retry. The changed KV-events path was disabled, so do not expand this into a KV publisher or VLM subsystem repair. Maintainers: finish shared-code review; preserve socket-contract evidence without GPU/throughput claims.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869472)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/125750869468)
 - [Evidence](https://github.com/sgl-project/sglang/blob/ac205f829173029ce17c1898fd9c8d9ab2f861fd/python/sglang/srt/multimodal/processors/base_processor.py#L538)
 - [Evidence](https://github.com/sgl-project/sglang/blob/ac205f829173029ce17c1898fd9c8d9ab2f861fd/python/sglang/srt/multimodal/processors/llava.py#L157)
+- [Evidence](https://github.com/sgl-project/sglang/blob/ac205f829173029ce17c1898fd9c8d9ab2f861fd/python/sglang/srt/managers/scheduler_components/kv_events_publisher.py#L75)
 
-## #46830: Base attempt 2 now has 19 successes and three B jobs queued. AMD has 11 stage successes, two failures and one queued job: MLA compilation/watchdog startup and tokenizer TTFT 138.109/135.305 ms above 130 ms. Same-day main ROCm10 passed the identical tokenizer test at 120.59 ms and MLA in 340 s, but runner/environment equivalence is unestablished. Integrated dLLM correction does not resolve remaining coverage/review.
+## #46830: Base has 19 successes and three B jobs queued. AMD has 11 successes, two failures and one queued job: MLA startup exits -9 after compilation/watchdog stalls, and Qwen tokenizer TTFT is 138.109/135.305 ms versus 130 ms. Fresh executed-launch attribution shows DeepSeek-Coder-V2 and Qwen use Aiter without the changed DSA/spec path. Retain red CI and review requirements, without imposing unrelated tokenizer/MLA repair as an author prerequisite. Inherited successful main baselines are not controlled runner comparisons.
 
 Tracking key: `pr46830-base-review`.
 
-Next action: Worker: follow active Base/AMD attempts. Yihou/CI maintainer: compare runner/environment and compilation traces with the successful main baseline, then isolate MLA startup and tokenizer latency before recovery. Do not relax thresholds or infer transience. Maintainers: finish review; preserve historical DSA deadlock/consumer evidence.
+Next action: Worker: follow active Base/AMD attempts. CI maintainer: assess recovery of the unrelated tokenizer/MLA shards using runner and compilation evidence; neither launch uses the changed DSA/spec path. Do not relax thresholds, start tokenizer optimization, rebase only for fresh CI or duplicate active runs. Maintainers: finish review; preserve historical DSA deadlock and consumer evidence.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966833/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41773966755/attempts/2)
@@ -50,7 +51,7 @@ Next action: Worker: follow active Base/AMD attempts. Yihou/CI maintainer: compa
 
 Tracking key: `pr45524-external-ci-review`.
 
-Next action: External author eaglewangao-us/maintainers: diagnose against matching baselines, recover cancelled/skipped coverage and finish review. Preserve the frozen producer patch and external ownership.
+Next action: External author eaglewangao-us/maintainers: diagnose AWQ, PP transfer and MLA startup against matching baselines, align CPU installed/tested revisions, recover cancelled/skipped coverage and finish review. Preserve the frozen producer patch; current-PR equivalence remains uncertified. Worker stays read only.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/40803758455/job/125766190802)
@@ -63,7 +64,7 @@ Next action: External author eaglewangao-us/maintainers: diagnose against matchi
 
 Tracking key: `pr46918-external-ci-integration`.
 
-Next action: External author yu-depend/maintainers: recover Base coverage, finish review and validate image integration. Preserve source-specific MI355X evidence and the frozen workaround.
+Next action: External author yu-depend/maintainers: recover cancelled Base coverage, finish review and validate image integration. Preserve source-specific 9763ef56 MI355X evidence and the frozen workaround until reviewed integration; worker has no retry or branch authority.
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/46918/files)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
@@ -73,7 +74,7 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 
 Tracking key: `pr47276-base-overlap-source`.
 
-Next action: Worker: follow active coverage without duplication. Maintainers: finish review and coordinate #45307 overlap/landing order. Preserve numerical evidence and exact source/run archiving; keep the optional fused-indexer path disabled in frozen llr37.
+Next action: Worker: follow active coverage without duplication. Maintainers: finish review and coordinate #45307 overlap/landing order. Preserve numerical evidence and exact source/run archiving; keep this optional fused-indexer path disabled in frozen llr37.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/47276#issuecomment-6624386421)
@@ -84,7 +85,7 @@ Next action: Worker: follow active coverage without duplication. Maintainers: fi
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
-Next action: Maintainer: recover Base with scoped Actions access, or triage AMD before another helper evaluation. Respect the refusal.
+Next action: Maintainer: use scoped Actions access to recover cancelled Base coverage, or complete AMD VLM triage before another helper evaluation. Respect the unchanged actual_failure_requires_triage refusal; supported helper requests affect PR-wide unsuccessful workflows.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616894/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467616407/job/125359813491)
@@ -117,11 +118,11 @@ Next action: Archive exact source/run evidence and preserve unequal paired-row, 
 
 - [Evidence](https://github.com/sgl-project/sglang/pull/47897)
 
-## #47872: Base retains 19 successes, VLM failure, two health-check cascades and skipped C. Three JIT units passed; remaining JIT failed health checks. AMD completed/failure with 16 successes after the queued job passed; MIOpen and PP failures remain. Xeon revision mismatch, review and source-specific validation limits persist.
+## #47872: Base has 19 successes, none carried from an earlier attempt, plus a VLM failure, two health-check cascades and skipped C. Three JIT units passed; remaining JIT failed health checks. AMD completed/failure with 16 stage successes; MIOpen and PP failures remain. Xeon revision mismatch, review and source-specific validation limits persist.
 
 Tracking key: `pr47872-new-head-ci-validation`.
 
-Next action: CI maintainers: compare VLM/PP failures with matching baselines, recover skipped coverage, repair MIOpen access and align Xeon revisions. Maintainers/yihou: finish review; preserve opt-in behavior, exactly min(length,2048) selections, underflow/overflow fallback, valid boundary ties, source/run archiving, measured 32k regression and source-specific MI355X limits.
+Next action: CI maintainers: recover VLM/PP coverage using matching baselines, repair MIOpen access and align Xeon installed/tested revisions. Maintainers/yihou: finish review; preserve opt-in behavior, exactly min(length,2048) selections, underflow/overflow fallback, valid boundary ties, source/run archiving, the measured 32k regression and source-specific MI355X limits.
 
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/attempts/1)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114610/job/125868991469)
