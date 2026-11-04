@@ -388,3 +388,16 @@ Quark 把这些叶子排除当作排除整个融合专家模块，于是 **PTPC 
 - Check 13 原文：[CONTRIBUTING.md "Draft-model precision"](https://github.com/SemiAnalysisAI/InferenceX/blob/57116fff418d7bb651567e722907253a12b75a67/CONTRIBUTING.md#draft-model-precision)、
   [`.github/codeowner-signoff-verify-prompt.md` Check 13](https://github.com/SemiAnalysisAI/InferenceX/blob/57116fff418d7bb651567e722907253a12b75a67/.github/codeowner-signoff-verify-prompt.md#L608-L668)，
   由 [InferenceX#3283](https://github.com/SemiAnalysisAI/InferenceX/pull/3283)（09-19 合入）引入。
+
+### 4.8 4+4 加并发：C112（C + PTPC/#45800，09:21–10:21，`results/opt/score-Cfix-c112.txt`）
+
+| | C104 | **C112** |
+|---|---|---|
+| tok/s/GPU | 53,666 | **52,478（−2.2%）** |
+| 交互 p50 / p90 | 70.8 / 61.9 | 70.1 / 61.8 |
+| TTFT p50 / p90 / 均值 | 4.12 / 9.28 / 5.70 s | 5.53 / 14.74 / 8.19 s |
+| prefill 有排队的时间 / 排队均值 | 66% / 3.45 | **86% / 5.19** |
+| decode 在跑中位 / 最忙 / 预分配等待 / 传输等待 | 49 / 16 / 2.6 / 17.0 | 49 / 16 / **7.4** / 19.8 |
+
+- 预测（−2% 到 +3%）落在下沿。多出的 8 个 lane 没有变成 decode 在跑的请求（中位仍 49），而是堆在 prefill 排队（86%）和 decode 预分配等待（2.6 → 7.4）里：
+  4+4 在 C104 时两侧都已到顶，**C104 仍是 4+4 的最高吞吐点**（与 yihou 旧栈的 C108 −2.2%、C112 −6.3% 同方向）。

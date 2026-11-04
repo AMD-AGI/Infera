@@ -128,3 +128,6 @@
 08:54:54 opt trace2p1d dgaps decode-083802/decode-083802-TP-7-DP-7.trace.json.gz: ->draft: 0.12 ms/step ->verify: 0.03 ms/step ->draft_extend: 0.01 ms/step ->eager: 0.93 ms/step | total 1.09
 08:54:54 opt trace2p1d end
 08:54:55 opt Cfix-c112 start: score arm-C-prod-ptpcfix.env conc=112 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 829 min left
+10:26:40 opt Cfix-c112 score: | C112 | 52,478 | 434.8 | 3.397 | 12,321 / 6 | 70.1 / 61.8 | 14.3 / 16.2 | 5.53 / 14.74 / 8.19 | 43.1 | 95.98%（96.61%） |
+10:26:40 opt Cfix-c112 end
+10:26:41 opt 2p1d-hrrn start: score arm-C-2p1d-ptpcfix-hrrn.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 737 min left
