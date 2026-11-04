@@ -1,10 +1,10 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T16:48:32.733838+00:00**.
+Updated: **2026-11-04T17:11:32.442957+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
-## #33059: Base remains cancelled: 23 successes, two unexecuted B cancellations, LLaVA worker-result failure and C GitHub HTTP 500. Patch causality is unestablished. Excluded non-Base tests are not claimed fixed or passed.
+## #33059: Base remains cancelled with 23 successes, two unexecuted B cancellations, LLaVA worker-result failure and C GitHub HTTP 500. Helper refused recovery at 17:02:34 UTC because the hourly interval has not elapsed. Patch causality remains unestablished; excluded non-Base tests are not claimed fixed or passed.
 
 Tracking key: `pr33059-base-amd-incomplete`.
 
@@ -31,7 +31,7 @@ Next action: Worker: follow actual B execution without duplication. Runner owner
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41868496790)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 
-## #46830: Base ended cancelled with 22 successes, two B cancellations, Mooncake nvcc exit 127 and two C health-check failures. Compiler stderr/version remain unknown. AMD MLA startup -9, Qwen TTFT failures and one queued job persist; affected launches bypass changed DSA behavior.
+## #46830: Base ended cancelled with 22 successes, two B cancellations, Mooncake nvcc exit 127 and two C health-check failures. Compiler stderr/version remain unknown. AMD MLA startup -9, Qwen TTFT failures and one queued job persist; affected launches bypass changed DSA behavior. The tested dependency script already selects Mooncake 0.3.14; the merged version bump is not a missing integration repair.
 
 Tracking key: `pr46830-base-review`.
 
@@ -69,7 +69,7 @@ Next action: Worker: recover coverage after 17:33:18 UTC and eligible priority P
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41774179295/attempts/2)
 - [Evidence](https://github.com/sgl-project/sglang/pull/45307)
 
-## #47278: Base attempt 2 is confirmed cancelled: 36 Base and six JIT successes retained, two B jobs cancelled without execution, finish failed. Previous API-state ambiguity is clarified; coverage remains incomplete.
+## #47278: Base attempt 2 remains cancelled: 36 Base and six JIT successes retained, two B jobs cancelled without execution, finish failed. Coverage remains incomplete.
 
 Tracking key: `pr47278-cancelled-base-retry-scope`.
 
