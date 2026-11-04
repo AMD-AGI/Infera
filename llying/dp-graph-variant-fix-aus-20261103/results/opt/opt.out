@@ -131,3 +131,5 @@
 10:26:40 opt Cfix-c112 score: | C112 | 52,478 | 434.8 | 3.397 | 12,321 / 6 | 70.1 / 61.8 | 14.3 / 16.2 | 5.53 / 14.74 / 8.19 | 43.1 | 95.98%（96.61%） |
 10:26:40 opt Cfix-c112 end
 10:26:41 opt 2p1d-hrrn start: score arm-C-2p1d-ptpcfix-hrrn.env conc=208 on smci355-ccs-aus-n06-25 (10.235.192.59) -> smci355-ccs-aus-n06-33 (10.235.192.60), job 35103, 737 min left
+21:00:47 opt 2p1d-hrrn start: score arm-C-2p1d-ptpcfix-hrrn.env conc=208 on smci355-ccs-aus-n04-33 (10.235.192.139) -> smci355-ccs-aus-n05-29 (10.235.192.137), job 35103, 1439 min left
+21:13:13 opt 2p1d-hrrn: n04-33 held yihou's container yihou-muse-opt-p2-swashardhwq8-c96-o0433 (all 8 GPUs, idle since 14:43; his 34944 requeued): docker stop (not removed, logs kept)
