@@ -1,0 +1,200 @@
+--- a/batch_overlap/two_batch_overlap.py	2026-11-03 13:10:31.058271700 +0000
++++ b/batch_overlap/two_batch_overlap.py	2026-11-03 13:10:30.994169200 +0000
+@@ -768,6 +768,7 @@
+             "can_run_dp_draft_cuda_graph",
+             "can_run_dp_prefill_cuda_graph",
+             "dp_prefill_cuda_graph_max_prefix_len",
++            "dp_decode_graph_max_seq_len",
+             "dp_padding_mode",
+             "global_forward_mode",
+             "is_prefill_only",
+--- a/layers/attention/graph_variants.py	2026-11-03 13:10:31.069621800 +0000
++++ b/layers/attention/graph_variants.py	2026-11-03 13:10:31.004292300 +0000
+@@ -30,6 +30,12 @@
+     capture_labels: ClassVar[tuple[str, ...]] = (DSA_DENSE, DSA_SPARSE)
+ 
+     def select(self, forward_batch: ForwardBatch) -> str:
++        # Under DP attention the ranks replay their graphs in lockstep and the collectives
++        # captured inside them pair up across ranks, so every rank must replay the same
++        # variant: the scheduler's MLP sync agrees on the longest sequence of the step.
++        dp_max_seq_len = getattr(forward_batch, "dp_decode_graph_max_seq_len", None)
++        if dp_max_seq_len is not None:
++            return DSA_DENSE if dp_max_seq_len <= self.index_topk else DSA_SPARSE
+         seq_lens_cpu = forward_batch.seq_lens_cpu
+         if seq_lens_cpu is not None and seq_lens_cpu.numel() > 0:
+             # Plain decode maintains this host mirror without a D2H sync.
+@@ -43,7 +49,9 @@
+         return DSA_DENSE if max_kv_len <= self.index_topk else DSA_SPARSE
+ 
+ 
+-def create_attention_graph_variants(hf_config) -> Optional[AttentionGraphVariants]:
++def create_attention_graph_variants(
++    hf_config, capture_forward_mode=None
++) -> Optional[AttentionGraphVariants]:
+     from sglang.srt.configs.model_config import (
+         get_dsa_index_kpool,
+         get_dsa_index_topk,
+@@ -56,6 +64,10 @@
+         # Capture it once, keeping the regular DSA dense/sparse split intact.
+         if get_dsa_index_kpool(hf_config) > 1:
+             return None
++        # The dense variant only changes the decode/idle indexer (k-only skip); a
++        # target-verify capture runs the full indexer in both, so one graph serves.
++        if capture_forward_mode is not None and not capture_forward_mode.is_decode():
++            return None
+ 
+         index_topk = get_dsa_index_topk(hf_config)
+         logger.info(
+--- a/managers/schedule_batch.py	2026-11-03 13:10:31.079052800 +0000
++++ b/managers/schedule_batch.py	2026-11-03 13:10:31.013951500 +0000
+@@ -2564,6 +2564,9 @@
+     can_run_dp_draft_cuda_graph: bool = False
+     can_run_dp_prefill_cuda_graph: bool = False
+     dp_prefill_cuda_graph_max_prefix_len: int = 0
++    # Longest sequence of the step across attention-DP ranks (MLP sync), for a
++    # rank-consistent decode graph variant; None when the ranks did not sync.
++    dp_decode_graph_max_seq_len: Optional[int] = None
+     tbo_split_seq_index: Optional[int] = None
+     # Rank-consistent forward mode for the recv skipper, derived from the MLP
+     # sync all-gather (the TBO-only `global_forward_mode` is None without TBO).
+@@ -3928,6 +3931,7 @@
+             can_run_dp_draft_cuda_graph=self.can_run_dp_draft_cuda_graph,
+             can_run_dp_prefill_cuda_graph=self.can_run_dp_prefill_cuda_graph,
+             dp_prefill_cuda_graph_max_prefix_len=self.dp_prefill_cuda_graph_max_prefix_len,
++            dp_decode_graph_max_seq_len=self.dp_decode_graph_max_seq_len,
+             is_extend_in_batch=self.is_extend_in_batch,
+             is_prefill_only=self.is_prefill_only,
+             seq_lens_cpu=self.seq_lens_cpu,
+--- a/managers/scheduler_components/dp_attn.py	2026-11-03 13:10:31.087477600 +0000
++++ b/managers/scheduler_components/dp_attn.py	2026-11-03 13:10:31.022696800 +0000
+@@ -45,6 +45,7 @@
+     get_parallel,
+     get_schedule,
+     get_spec,
++    max_speculative_num_draft_tokens,
+ )
+ from sglang.srt.speculative.spec_info import SpeculativeAlgorithm
+ from sglang.srt.utils.common import require_mlp_tp_gather
+@@ -161,6 +162,8 @@
+     is_health_check: bool = False
+     # Causal (query, key) pairs this rank attends this step.
+     attention_pairs: int = 0
++    # Upper bound of the longest sequence in this rank's decode step (0 without one).
++    decode_graph_max_seq_len: int = 0
+ 
+     # some gathered elements
+     tp0_info_cpu: torch.Tensor = None
+@@ -169,6 +172,7 @@
+     global_num_tokens: list[int] = None
+     global_num_tokens_for_logprob: list[int] = None
+     global_attention_pairs: list[int] = None
++    global_decode_graph_max_seq_len: Optional[int] = None
+     tbo_split_seq_index: torch.Tensor = None
+     global_forward_mode: int = None
+     dp_cooperation_info: Optional[DPCooperationInfo] = None
+@@ -187,6 +191,7 @@
+                 int(self.can_run_draft_cuda_graph),
+                 int(self.is_health_check),
+                 self.attention_pairs,
++                self.decode_graph_max_seq_len,
+             ],
+             device=device,
+             dtype=dtype,
+@@ -206,6 +211,7 @@
+                 1,  # can_run_draft_cuda_graph
+                 0,  # is_health_check
+                 0,  # attention_pairs
++                0,  # decode_graph_max_seq_len
+             ],
+             device=device,
+             dtype=dtype,
+@@ -217,6 +223,7 @@
+         self.global_num_tokens = [self.num_tokens]
+         self.global_num_tokens_for_logprob = [self.num_tokens_for_logprob]
+         self.global_attention_pairs = [self.attention_pairs]
++        self.global_decode_graph_max_seq_len = self.decode_graph_max_seq_len
+         self.any_health_check = self.is_health_check
+         if _ENABLE_METRICS_DP_ATTENTION:
+             self.dp_cooperation_info = DPCooperationInfo.create(
+@@ -294,6 +301,7 @@
+         self.can_run_draft_cuda_graph = bool(tp0_info_cpu[:, 8].min())
+         self.any_health_check = bool(tp0_info_cpu[:, 9].max())
+         self.global_attention_pairs = tp0_info_cpu[:, 10].tolist()
++        self.global_decode_graph_max_seq_len = int(tp0_info_cpu[:, 11].max())
+         self.sync_wait_seconds = time.perf_counter() - sync_start
+         if _ENABLE_METRICS_DP_ATTENTION:
+             self.dp_cooperation_info = DPCooperationInfo.create(
+@@ -342,6 +350,9 @@
+         batch.is_extend_in_batch = mlp_sync_info.is_extend_in_batch
+         batch.tbo_split_seq_index = mlp_sync_info.tbo_split_seq_index
+         batch.global_forward_mode = mlp_sync_info.global_forward_mode
++    batch.dp_decode_graph_max_seq_len = (
++        None if skip_global_metadata else mlp_sync_info.global_decode_graph_max_seq_len
++    )
+ 
+     # Check forward mode for cuda graph
+     batch.can_run_decode_cuda_graph = mlp_sync_info.can_run_decode_cuda_graph
+@@ -497,6 +508,23 @@
+     return _prefill_attention_pairs(local_batch)
+ 
+ 
++def _local_decode_graph_max_seq_len(local_batch: Optional[ScheduleBatch]) -> int:
++    """Upper bound of the longest sequence this rank's decode step attends, read on the
++    host. Without a host seq_lens mirror (speculative acceptance in flight, or a merge
++    that dropped it) the committed lengths lag the device by up to one unprocessed step
++    plus this step's tokens, so reserve two steps' width."""
++    if (
++        local_batch is None
++        or not local_batch.forward_mode.is_decode()
++        or local_batch.batch_size() == 0
++    ):
++        return 0
++    if local_batch.seq_lens_cpu is not None and local_batch.seq_lens_cpu.numel() > 0:
++        return int(local_batch.seq_lens_cpu.max())
++    step_width = max(max_speculative_num_draft_tokens() or 0, 1)
++    return max(req.seqlen for req in local_batch.reqs) + 2 * step_width
++
++
+ class DPSyncWaitCarry:
+     """MLP-sync wait of batch-less gathers, folded into the next recorded step.
+ 
+@@ -641,6 +669,7 @@
+         # Gathered unconditionally like the other columns, so a per-process
+         # metrics flag cannot make ranks disagree on what the tensor holds.
+         attention_pairs=_local_attention_pairs(local_batch),
++        decode_graph_max_seq_len=_local_decode_graph_max_seq_len(local_batch),
+     )
+ 
+     if num_dp_ranks == 1:
+--- a/model_executor/forward_batch_info.py	2026-11-03 13:10:31.095779700 +0000
++++ b/model_executor/forward_batch_info.py	2026-11-03 13:10:31.031387400 +0000
+@@ -583,6 +583,8 @@
+     can_run_dp_draft_cuda_graph: bool = False
+     can_run_dp_prefill_cuda_graph: bool = False
+     dp_prefill_cuda_graph_max_prefix_len: int = 0
++    # Rank-consistent decode graph variant input; see ScheduleBatch.
++    dp_decode_graph_max_seq_len: Optional[int] = None
+     global_forward_mode: Optional[ForwardMode] = None
+ 
+     # Current layer-stack invocation; each TBO child owns a separate stream.
+@@ -1061,6 +1063,7 @@
+             can_run_dp_draft_cuda_graph=batch.can_run_dp_draft_cuda_graph,
+             can_run_dp_prefill_cuda_graph=batch.can_run_dp_prefill_cuda_graph,
+             dp_prefill_cuda_graph_max_prefix_len=batch.dp_prefill_cuda_graph_max_prefix_len,
++            dp_decode_graph_max_seq_len=getattr(batch, "dp_decode_graph_max_seq_len", None),
+             global_forward_mode=batch.global_forward_mode,
+             is_prefill_only=batch.is_prefill_only,
+             spec_algorithm=batch.spec_algorithm,
+--- a/model_executor/runner/decode_cuda_graph_runner.py	2026-11-03 13:10:31.104428400 +0000
++++ b/model_executor/runner/decode_cuda_graph_runner.py	2026-11-03 13:10:31.040198000 +0000
+@@ -316,7 +316,9 @@
+         self.attention_graph_variants: Optional[AttentionGraphVariants] = (
+             self.dllm_attention.graph_variants(self.captured_req_width)
+             if self.dllm_attention is not None and self.is_dllm
+-            else create_attention_graph_variants(model_runner.model_config.hf_config)
++            else create_attention_graph_variants(
++                model_runner.model_config.hf_config, self.capture_forward_mode
++            )
+             or create_dsv41_candidate_graph_variants(
+                 model_runner, self.capture_forward_mode, self.captured_req_width
+             )

@@ -88,8 +88,14 @@ fallback_version = "0.0.0"
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-# Machine-generated protobuf/gRPC stubs (regenerated via grpc_tools.protoc).
-extend-exclude = ["infera/gaie/proto/ext_proc_pb2.py", "infera/gaie/proto/ext_proc_pb2_grpc.py"]
+# Machine-generated protobuf/gRPC stubs (regenerated via grpc_tools.protoc), and
+# an example's copies of SGLang files and KF kernels (kept as validated).
+extend-exclude = [
+    "infera/gaie/proto/ext_proc_pb2.py",
+    "infera/gaie/proto/ext_proc_pb2_grpc.py",
+    "examples/sglang_pd_glm5.2_agentx/patches",
+    "examples/sglang_pd_glm5.2_agentx/kf_overlay",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
