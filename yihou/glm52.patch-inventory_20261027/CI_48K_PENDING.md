@@ -1,6 +1,6 @@
 # Pending handoff for the next user session
 
-Updated: **2026-11-04T21:42:44.606157+00:00**.
+Updated: **2026-11-04T22:08:32.429728+00:00**.
 
 These items remain open until supported by resolution evidence or an explicit exclusion under the [CI scope policy](CI_SCOPE_POLICY.md). Reporting them to the user does not resolve them; scope exclusion is not test success.
 
@@ -29,7 +29,7 @@ Next action: Follow B shard 2. If LLaVA repeats, obtain submission stacks, worke
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/attempts/4)
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467220762/job/126714183896)
 
-## #46830: Base has 25 successes, 22 retained, and two queued B jobs. AMD has 16 successes, 12 retained, and two queued jobs. Earlier nvcc/MLA causes and review/source qualifications remain unresolved.
+## #46830: Base has 25 successes, 22 retained, and two queued B jobs; AMD has 16 successes, 12 retained, and two queued jobs. Historical nvcc/MLA causes remain unproven, but recovered Base C failures are not active blockers. Review/source qualifications remain.
 
 Tracking key: `pr46830-base-review`.
 
@@ -57,7 +57,7 @@ Next action: External author yu-depend/maintainers: recover Base coverage, finis
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41467734403/attempts/1)
 - [Evidence](https://github.com/AMD-AGI/Infera/blob/ce7a2217c0d782a303b1c9f191632fc964e5f2ba/yihou/glm52.patch-inventory_20261027/validation/b8_46918/RESULTS.md)
 
-## #47276: Recovery accepted; Base attempt 3 retains 25 Base successes and six JIT results, with two B jobs runnerless. Review, #45307 overlap, numerical qualifications and source/run archiving remain; optional path stays disabled in frozen llr37.
+## #47276: Prior recovery remains active: Base attempt 3 retains 25 Base successes and six JIT results; two B jobs remain runnerless. No new tests started this cycle. Review, #45307 overlap, numerical qualifications and source/run archiving remain; optional path stays disabled in frozen llr37.
 
 Tracking key: `pr47276-base-overlap-source`.
 
@@ -132,7 +132,7 @@ Next action: CI maintainers: build/install and test the same commit, then recove
 - [Evidence](https://github.com/sgl-project/sglang/actions/runs/41617114164/job/126847835959)
 - [Evidence](https://github.com/sgl-project/sglang/blob/8083ca7ad7fdcaf2388a88196559b870e70e762a/.github/workflows/pr-test-xeon.yml)
 
-## #47278: GitHub reports mergeable=false. Comparison against main c67efab427ac9d7965123a3cea50bf1d3d899563 finds seven conflicts in triton_sparse_mla.py: scaled-KV loads/block sizing overlap GROUP_W, cache modifiers, async-copy scope and split-K launch parameters. The test file merges cleanly; numerical compatibility is unverified.
+## #47278: Fresh GitHub state remains mergeable=false and main remains c67efab427ac9d7965123a3cea50bf1d3d899563. Inherited comparison found seven triton_sparse_mla.py conflicts involving scaled-KV loads, block sizing, GROUP_W, cache/async-copy settings and split-K parameters; test-file merge was clean. Numerical compatibility remains unverified.
 
 Tracking key: `pr47278-main-kernel-conflict`.
 
