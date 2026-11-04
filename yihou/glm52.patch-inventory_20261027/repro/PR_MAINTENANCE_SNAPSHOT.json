@@ -1,5 +1,5 @@
 {
-  "checked_at_utc": "2026-11-04T05:41:34.659224+00:00",
+  "checked_at_utc": "2026-11-04T06:41:36.236014+00:00",
   "author": "dorado269",
   "prs": [
     {
@@ -189,10 +189,10 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T04:39:55Z",
+      "updatedAt": "2026-11-04T05:41:55Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "c4678be3c470da596c20d73438873db36ad093de",
+      "headRefOid": "0353004a44f6bc568c925ed71af6272551f9fd95",
       "baseRefOid": "8847491c2856d5bc43e230f413c62afe68147e46",
       "headRefName": "dev/yihou/glm52-pr-tracking",
       "baseRefName": "main",
@@ -310,7 +310,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T04:36:56Z",
+      "updatedAt": "2026-11-04T06:38:06Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "674ad71976e9154c15cc7011596cd0deb5405077",
@@ -387,9 +387,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 18,
-        "SKIPPED": 88,
-        "SUCCESS": 21
+        "FAILURE": 5,
+        "IN_PROGRESS": 21,
+        "QUEUED": 5,
+        "SKIPPED": 54,
+        "SUCCESS": 35
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/47276/checks"
     },
@@ -535,8 +537,8 @@
       "baseRefOid": "72e267f41d7eef241b641b9d132de431adf71ef8",
       "headRefName": "yihou/hip-copy-stream-priority-20261027",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -588,7 +590,7 @@
         "login": "dorado269",
         "name": ""
       },
-      "updatedAt": "2026-11-04T04:34:50Z",
+      "updatedAt": "2026-11-04T06:36:00Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "76b75ed6ed9bfd30c14a6c61bf39b59b85457795",
@@ -635,9 +637,11 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "FAILURE": 18,
-        "SKIPPED": 88,
-        "SUCCESS": 21
+        "FAILURE": 5,
+        "IN_PROGRESS": 17,
+        "QUEUED": 1,
+        "SKIPPED": 63,
+        "SUCCESS": 35
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/46830/checks"
     },
@@ -998,8 +1002,8 @@
       "baseRefOid": "449617bc94a5d4ae23ad62d0da2f842e711ca983",
       "headRefName": "fix/offloader-keep-is-shuffled",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -2344,10 +2348,10 @@
       "unresolved_review_threads": 0,
       "latest_check_counts": {
         "FAILURE": 6,
-        "IN_PROGRESS": 7,
+        "IN_PROGRESS": 1,
         "QUEUED": 7,
         "SKIPPED": 63,
-        "SUCCESS": 67
+        "SUCCESS": 78
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/33059/checks"
     },
@@ -2990,7 +2994,7 @@
         "login": "eaglewangao-us",
         "name": ""
       },
-      "updatedAt": "2026-11-04T02:51:23Z",
+      "updatedAt": "2026-11-04T06:34:32Z",
       "mergedAt": null,
       "closedAt": null,
       "headRefOid": "14c8591329db003317f0bfddc26335090ad92ea7",
@@ -3037,9 +3041,8 @@
       ],
       "unresolved_review_threads": 0,
       "latest_check_counts": {
-        "CANCELLED": 2,
-        "FAILURE": 16,
-        "QUEUED": 1,
+        "CANCELLED": 3,
+        "FAILURE": 17,
         "SKIPPED": 69,
         "SUCCESS": 90
       },
@@ -3216,8 +3219,8 @@
       "baseRefOid": "2ccbdab65fb1fb4dab302f823b78cc575723d19b",
       "headRefName": "fix/eager-idle-active-attention-backend",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -3255,7 +3258,7 @@
       "repo": "sgl-project/sglang",
       "number": 45337,
       "url": "https://github.com/sgl-project/sglang/pull/45337",
-      "title": "[Feat] disaggregation: Support prefill_complete decode allocation with pipeline-parallel prefill",
+      "title": "[Feat] disaggregation: Support prefill_complete with a pipeline-parallel prefill and send its Success from the transfer worker",
       "state": "OPEN",
       "isDraft": false,
       "owned": false,
@@ -3265,17 +3268,24 @@
         "login": "nvjullin",
         "name": ""
       },
-      "updatedAt": "2026-11-04T03:45:36Z",
+      "updatedAt": "2026-11-04T06:06:41Z",
       "mergedAt": null,
       "closedAt": null,
-      "headRefOid": "6d6b8a5be1127333c9f4967189c4d9ed26c9a0cd",
-      "baseRefOid": "1097b72f681073bba2685c59f88d56a27ebf2452",
+      "headRefOid": "7c1b82fd904009f32a3dc7e3c3c3f6d63c4d41da",
+      "baseRefOid": "045e0e2e2d7d976c9351c949ed3d41527ac2871f",
       "headRefName": "late-reserve",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
-      "labels": [],
+      "labels": [
+        {
+          "id": "LA_kwDOLCAjRs8AAAABfbLsmQ",
+          "name": "documentation",
+          "description": "Improvements or additions to documentation",
+          "color": "0075ca"
+        }
+      ],
       "assignees": [],
       "reviewRequests": [
         {
@@ -3301,13 +3311,38 @@
         {
           "__typename": "User",
           "login": "sogalin"
+        },
+        {
+          "__typename": "User",
+          "login": "merrymercy"
+        },
+        {
+          "__typename": "User",
+          "login": "Ying1123"
+        },
+        {
+          "__typename": "User",
+          "login": "xiezhq-hermann"
+        },
+        {
+          "__typename": "User",
+          "login": "wisclmy0611"
+        },
+        {
+          "__typename": "User",
+          "login": "zijiexia"
+        },
+        {
+          "__typename": "User",
+          "login": "JustinTong0323"
         }
       ],
       "unresolved_review_threads": 2,
       "latest_check_counts": {
-        "FAILURE": 1,
-        "SKIPPED": 1,
-        "SUCCESS": 4
+        "FAILURE": 19,
+        "NEUTRAL": 1,
+        "SKIPPED": 88,
+        "SUCCESS": 21
       },
       "checks_url": "https://github.com/sgl-project/sglang/pull/45337/checks"
     },
@@ -4461,8 +4496,8 @@
       "baseRefOid": "811c97f0f8fd3687e199e7c3589a92a68fa9a6a1",
       "headRefName": "hip-async-submit",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4642,8 +4677,8 @@
       "baseRefOid": "8d229d96e00b3c02641fc12b7ee441c4f355bd25",
       "headRefName": "codex/dcp-pack-thread-device-2026-10-15",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [],
       "assignees": [],
@@ -4702,8 +4737,8 @@
       "baseRefOid": "5212797880ec6e71b1b557ce73e8a46e262e05ae",
       "headRefName": "codex/glm52-pp-dcp",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "CONFLICTING",
+      "mergeStateStatus": "DIRTY",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -4859,8 +4894,8 @@
       "baseRefOid": "166b4ae7fcd78f7547e9e8fcc866f587b35b793d",
       "headRefName": "sunpan/full-pd-dcp-gather-grid-swap",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5035,8 +5070,8 @@
       "baseRefOid": "b960aa903aad354fb2e484041e5e33e3eb061e9b",
       "headRefName": "llying/pp-missing-layer-aiter-gfx95",
       "baseRefName": "main",
-      "mergeable": "UNKNOWN",
-      "mergeStateStatus": "UNKNOWN",
+      "mergeable": "MERGEABLE",
+      "mergeStateStatus": "BLOCKED",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5184,8 +5219,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/destination-local-rail",
       "baseRefName": "main",
-      "mergeable": "CONFLICTING",
-      "mergeStateStatus": "DIRTY",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
@@ -5236,8 +5271,8 @@
       "baseRefOid": "89faca879abaa7290455349d15826b89e6292f8d",
       "headRefName": "feat/rdma-ack-timeout",
       "baseRefName": "main",
-      "mergeable": "MERGEABLE",
-      "mergeStateStatus": "BLOCKED",
+      "mergeable": "UNKNOWN",
+      "mergeStateStatus": "UNKNOWN",
       "reviewDecision": "REVIEW_REQUIRED",
       "labels": [
         {
